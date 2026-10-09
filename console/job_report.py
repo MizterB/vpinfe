@@ -10,7 +10,7 @@ from nicegui import ui
 from common.failures import why
 from common.i18n import t
 from console import dialog as frame
-from console import jobs_list, offload, panel, report_groups, wizard
+from console import import_report, jobs_list, offload, panel, report_groups, wizard
 from console.api import ApiClient
 from console.on_page import on_page
 
@@ -51,5 +51,6 @@ async def open_for(job_id: str) -> None:
         with frame.footer():
             in_its_own_tab(job_id)
             frame.cancel(dialog.close, t("word.close"))
+    await import_report.check(job)
     draw(body, job)
     dialog.open()

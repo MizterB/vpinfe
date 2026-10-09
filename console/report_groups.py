@@ -20,6 +20,13 @@ SHOW_ALL_OVER = 3
 
 IMPORTED = "imported"
 ALREADY_HERE = "already_here"
+# The groups the importer records per game in the result's `items`, each with its label.
+NEED_ROM = "need_rom"
+NOT_MATCHED = "not_matched"
+NO_WHEEL = "no_wheel"
+DMD_ALONE = "dmd_alone"
+FROM_ITEMS = {NEED_ROM: "console.report.need_rom", NOT_MATCHED: "console.report.not_matched",
+              NO_WHEEL: "console.report.no_wheel", DMD_ALONE: "console.report.dmd"}
 
 
 @dataclass(frozen=True)
@@ -44,6 +51,10 @@ def groups(job: dict[str, Any]) -> dict[str, Group]:
     found = {IMPORTED: Group(IMPORTED, t("console.report.imported"), tuple(dict.fromkeys(made))),
              ALREADY_HERE: Group(ALREADY_HERE, t("console.report.already_here"),
                                  tuple(dict.fromkeys(held)))}
+    for key, label in FROM_ITEMS.items():
+        asked = [str(one["game_id"]) for one in result.get("items") or []
+                 if one.get("group") == key and one.get("game_id")]
+        found[key] = Group(key, t(label), tuple(dict.fromkeys(asked)))
     return {key: one for key, one in found.items() if one.game_ids}
 
 

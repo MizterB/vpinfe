@@ -122,6 +122,18 @@ class Walk:
         self.step = found
         return found
 
+    async def reach(self, step_key: str, limit: int = 8) -> dict:
+        """Step forward on the values already held until `step_key` is the step, or the
+        flow stops advancing: a step that refuses what it was given is where it is shown."""
+        for _ in range(limit):
+            if str(self.step.get("step") or "") == step_key:
+                break
+            before = str(self.step.get("step") or "")
+            await self.next()
+            if str(self.step.get("step") or "") == before or not self.step.get("ready", True):
+                break
+        return self.step
+
     def back(self) -> dict:
         self.step = self.history.pop()
         return self.step
@@ -668,7 +680,8 @@ def _aside(help_: Any, values: dict[str, Any] | None = None,
 
 async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = False,
                       aside: str = "", close_when_done: bool = False,
-                      hand_off: Callable[[str], None] | None = None) -> bool:
+                      hand_off: Callable[[str], None] | None = None,
+                      values: dict[str, Any] | None = None, until: str = "") -> bool:
     """Run one flow in the dialog host: ask what it asks, in as many steps as it asks
     it, then do it.
 
@@ -688,11 +701,25 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
     where the default says "Done" over a Close button; a run that starts a job is watched
     either way. `hand_off` is given the job's id instead, and the dialog closes at once: a
     run that takes minutes is followed where jobs are followed, not held open here.
+    `values` are answers the flow starts with, and `until` a step it is walked to, on
+    them, before the dialog is drawn.
 
     True when the flow was run and the dialog closed after it, False when it was cancelled
     before that.
     """
     walk = Walk(calls, await calls.first(None))
+    if values:
+        walk.values.update(values)
+        if until:
+            waiting = ui.notification(t("console.ext_action.preparing"), spinner=True,
+                                      timeout=None)
+            try:
+                await walk.reach(until)
+            except Exception as exc:  # noqa: BLE001 - the first step is still a fair place to start
+                ui.notify(t("console.ext_action.step_failed"), caption=why(exc),
+                          type="negative")
+            finally:
+                waiting.dismiss()
     client = ApiClient()
     held: dict[str, tuple[str, Any]] = {}
     opened = False
@@ -1174,6 +1201,11 @@ def report(body: Any, job: dict, under: str, *, limit: int | None = 20) -> None:
             return
         result = job.get("result") or {}
         compared = list(result.get("against") or [])
+        from console import import_report
+
+        if import_report.has_report(job):
+            import_report.draw(job, counts=lambda: _compare(compared))
+            return
         if compared:
             _compare(compared)
         elif result:

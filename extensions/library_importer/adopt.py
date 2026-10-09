@@ -17,7 +17,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, NotRequired, TypedDict
 
-from . import beside, finding, logos, mapping, saved
+from . import beside, cabinet, finding, logos, mapping, saved
+from . import report as asks
 from .plan import Held, Missing, history_for, missing_history, score_folders
 from .source import Note, SourceGame, SourceLibrary
 
@@ -50,6 +51,10 @@ class AdoptedRow(TypedDict):
     matched: NotRequired[bool]
     joined: NotRequired[bool]
     existing: NotRequired[bool]
+    table_id: NotRequired[str]
+    rom: NotRequired[str]
+    rom_there: NotRequired[bool]
+    wheel: NotRequired[bool]
 
 
 @dataclass(frozen=True)
@@ -169,6 +174,7 @@ def _bring_keyed(ctx: Any, game_id: str, game: SourceGame, folder: str, rom: str
         state = _rom_state(ctx, game_id, rom, sources["roms"])
         row["roms"] = int(state == "placed")
         rom_there = state in ("placed", "there")
+    row["rom_there"] = rom_there
     if rom and sources.get("altdata"):
         row["altdata"] = _bring_alt_data(ctx, game_id, rom, sources["altdata"])
     names = names_of(game, folder, rom, asked)
@@ -297,14 +303,16 @@ def _place_media(ctx: Any, game_id: str, source_id: str, game: SourceGame,
                  kinds: tuple[str, ...], stem: str, replace: bool, row: AdoptedRow,
                  wheels_as: str = mapping.WHEELS) -> None:
     """The game's artwork, one file per kind. Counts what was placed; a folder core would
-    not take a file from is named in `skipped_media` beside the folders with no kind."""
+    not take a file from is named in `skipped_media` beside the folders with no kind. A
+    wheel or a logo, placed or already in the slot, is `wheel` on the row."""
     refused: set[str] = set()
     for kind, path in mapping.media_for(source_id, game, kinds, wheels_as):
         try:
             ctx.games.put_media(game_id, kind, path, stem, replace=replace)
             row["media"] += 1
+            row["wheel"] = row.get("wheel", False) or kind in mapping.WHEELS_AS
         except FileExistsError:
-            continue
+            row["wheel"] = row.get("wheel", False) or kind in mapping.WHEELS_AS
         except Exception as exc:
             ctx.logger.warning("%s: %s did not come across: %s", row["name"], kind, exc)
             refused.add(mapping.folder_of(game, path))
@@ -446,6 +454,7 @@ def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
     if existing and not row["table"] and _asked(saved_here, beside_here, game.table_file):
         named = _named_in(ctx, game, saved_here, beside_here)
     asked, rom = rom, (beside_here.real_rom(rom) if beside_here else "") or rom
+    row["table_id"], row["rom"] = table_id, rom
     if (row["table"] or existing) and sources:
         _bring_keyed(ctx, game_id, game, name, rom, sources, row, saved_here, named, asked,
                      scores)
@@ -583,8 +592,9 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
     scores = plan.scores if plan else True
     kept_here = saved.read(ctx, sources.get("user", ""))
     beside_here = beside.read(ctx, sources)
+    cabinet_here = cabinet.read({**sources, "root": library.root})
 
-    rows, skipped = [], []
+    rows, skipped, items = [], [], []
     # What this run has already made, by folder name. A source holds several builds of
     # the same machine - three of Kiss (Bally 1979), by different authors - and they are
     # one game with three tables here, not three games. Without this the first wins the
@@ -637,6 +647,7 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
         if row["game_id"]:
             made_here[name.lower()] = row["game_id"]
         rows.append(row)
+        items.extend(asks.items_for(ctx, row, found, cabinet_here))
     made = [row for row in rows if row["game_id"]]
     # After the games, so the makers it looks for include the ones this run made.
     brought = (logos.bring(ctx, sources.get("media", ""))
@@ -669,4 +680,6 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
         # ones were left, not how many.
         "already_here": skipped,
         "rows": rows,
+        "items": items,
+        "left_behind": cabinet_here.left_behind,
     }

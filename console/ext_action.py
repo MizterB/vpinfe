@@ -66,12 +66,15 @@ def calls(extension: str, action: dict) -> wizard.Calls:
 
 
 @on_page
-async def open_action(extension: str, action: dict) -> bool:
+async def open_action(extension: str, action: dict, *,
+                      values: dict[str, Any] | None = None, until: str = "") -> bool:
     """Run one action: ask what it asks, in as many steps as it asks it, then do it.
 
     True once it ran and the dialog was closed, so a page that shows what the action
-    changes can redraw; False when it was cancelled first."""
+    changes can redraw; False when it was cancelled first. `values` are answers it starts
+    with, and `until` the step it is walked to, unasked, before it is shown."""
     return await wizard.open_dialog(
         label=str(action.get("label") or ""),
         calls=calls(extension, action),
-        under=f"ext.{extension}.action.{action.get('key')}")
+        under=f"ext.{extension}.action.{action.get('key')}",
+        values=values, until=until)

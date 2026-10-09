@@ -319,6 +319,19 @@ class TablesAndMatchesTests(WizardCase):
         self.assertEqual(field["value"], [one["key"] for one in field["rows"]
                                           if "new" in one["groups"]])
 
+    def test_games_named_to_try_again_are_the_only_ones_ticked(self) -> None:
+        found = self._step(FIXTURE, leaving="sources", only=["Taxi"])
+        field = found["fields"][0]
+
+        self.assertEqual("games", field["key"].split(".")[0])
+        self.assertEqual(["Taxi"], field["value"])
+
+    def test_a_tick_made_on_the_tables_page_outranks_the_ones_named_to_try_again(self) -> None:
+        summary = self._check(FIXTURE, only=["Taxi"], games=["Taxi 2"])
+
+        rows = dict(one for one in summary["summary"] if len(one) == 2)
+        self.assertEqual("1", rows["Games"])
+
     def test_a_game_left_unticked_is_not_asked_about(self) -> None:
         found = self._matches(games=["Taxi"])
 

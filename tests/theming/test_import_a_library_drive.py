@@ -28,6 +28,9 @@ TEXT_OF = "(() => { const el = document.querySelector(%s); return el ? el.innerT
 CHOICES = (f"[...document.querySelectorAll({json.dumps(RADIO)})]"
            ".map(el => [el.innerText.trim(), el.getAttribute('aria-checked') === 'true'])")
 TABLES = ("Alpha", "Bravo")
+# The pages between the folder and the question of how to bring the tables in; each is
+# passed with what it offers ticked.
+STEPS_BEFORE_HOW = ("games", "matches", "names", "art", "things")
 ADDRESS = "/console?view=settings&page=library.folders"
 ROWS = ".console-settings-body .console-member-row"
 ACTIONS = ".console-settings-body .console-action"
@@ -122,7 +125,12 @@ class ImportALibraryDrive(unittest.TestCase):
             await forward()
             seen["sources"] = await browser.evaluate(TEXT_OF % json.dumps(CARD))
             await type_into_the_path(str(pile), 0)
-            await forward()
+            title = await forward()
+            seen["tables"] = await browser.evaluate(TEXT_OF % json.dumps(CARD))
+            for _ in range(len(STEPS_BEFORE_HOW)):
+                if title == WORDS["wizard.how.title"]:
+                    break
+                title = await forward()
             seen["how_choices"] = await browser.evaluate(CHOICES)
             seen["how_text"] = await browser.evaluate(TEXT_OF % json.dumps(CARD))
 
@@ -170,6 +178,11 @@ class ImportALibraryDrive(unittest.TestCase):
 
     def test_a_folder_of_tables_is_asked_for_by_where_its_files_are(self) -> None:
         self.assertIn(WORDS["wizard.sources.no_frontend.title"], self.seen["sources"])
+
+    def test_the_tables_are_listed_to_tick_before_it_asks_how(self) -> None:
+        self.assertIn(WORDS["wizard.games.title"], self.seen["tables"])
+        for name in TABLES:
+            self.assertIn(name, self.seen["tables"])
 
     def test_copy_is_the_default(self) -> None:
         checked = [name for name, on in self.seen["how_choices"] if on]

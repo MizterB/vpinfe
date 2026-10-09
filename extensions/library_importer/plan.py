@@ -85,6 +85,11 @@ class Source:
         return bool(self.path)
 
 
+# The reasons a game is left for the person to settle, each with a line in the catalog under
+# `why.`. A game found in no catalog has no reason, only no candidate.
+WHY = ("two_entries", "ipdb_differs")
+
+
 @dataclass
 class Match:
     """One game the source holds, against what the library already has."""

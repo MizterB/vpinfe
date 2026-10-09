@@ -296,23 +296,6 @@ def imports_ended_since(jobs: list[dict[str, Any]], opened: float,
             and str(job.get("id") or "") not in told]
 
 
-# A plain left click on a rail entry navigates in place; anything else is the browser's.
-# Captured on the document because the rows are rebuilt, and a listener per row would
-# have to be re-attached every time one is.
-_NAV_CLICK = """
-(() => {
-  document.addEventListener('click', (event) => {
-    const link = event.target.closest && event.target.closest(
-      'a.console-nav-row, a.console-link--inplace');
-    if (!link) return;
-    if (event.button !== 0 || event.metaKey || event.ctrlKey ||
-        event.shiftKey || event.altKey) return;
-    event.preventDefault();
-  }, true);
-})()
-"""
-
-
 # The browser's own question, for a reload or a link out while a rule is unsaved. The
 # panel keeps the flag current.
 _ASK_BEFORE_UNLOAD = """
@@ -1681,7 +1664,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     uploads.install()
     row_drag.install()
 
-    ui.run_javascript(_NAV_CLICK)
+    ui.run_javascript(panel_parts.NAV_CLICK)
     ui.run_javascript(_ASK_BEFORE_UNLOAD)
 
     # Reported once on load and on every settle after a resize. Debounced, because a
@@ -1943,7 +1926,7 @@ def _nav_item(key: str, label: str, icon: str, state: dict[str, Any], render: Ca
     # An anchor, not a div. A destination has an address - it is in the bar the moment
     # you arrive at one - and a row that only listens for a click hides that from the
     # browser, so "open in a new tab", middle-click and copy-link-address are all dead
-    # on a list of places. The click handler still does the navigating; `_NAV_CLICK`
+    # on a list of places. The click handler still does the navigating; `panel.NAV_CLICK`
     # stops the browser following the href on a plain click and leaves every modified
     # one alone.
     row = ui.link(target=f"/console?view={key}") \

@@ -182,11 +182,6 @@ def _state(ctx: Any, survey: Callable[..., dict] | None = None) -> dict:
 ROM_BATCH = 25
 LOOK_BATCH = 50
 
-# The reasons a row on the Matches page gives beside its candidate. A game found in no
-# catalog says so by having no candidate, which the page already writes as Not found.
-WHY = ("two_entries", "ipdb_differs")
-
-
 def _asked(game: SourceGame) -> dict:
     """What a source knows of a game that tells the catalog which one it is."""
     return {"vps_id": game.vps_id, "ipdb_id": game.ipdb_id,
@@ -398,6 +393,16 @@ def build(ctx: Any) -> None:
         """The key the Tables and Matches answers are held under for what is being read."""
         return f"{name}.{held.generation}" if held.generation else name
 
+    def _ticked(library: SourceLibrary, values: dict) -> Sequence[str] | None:
+        """The rows ticked on the Tables page. Before that page has been answered, `only`
+        (source game keys, from a report's retry) ticks those games and nothing else."""
+        said = values.get(answer_key("games"))
+        if said is not None or not values.get("only"):
+            return said
+        only = {str(one) for one in values["only"]}
+        rows = plan_for.row_keys(library)
+        return [rows[id(game)] for game in library.games if game.key in only]
+
     def plan(library: SourceLibrary, values: dict, existing: list[dict],
              deciding: bool = False) -> Plan:
         """The plan for these answers. `deciding` is the Tables page being left: the games
@@ -409,7 +414,7 @@ def build(ctx: Any) -> None:
         look_beside(library)
         catalog, looked = look_up(library)
         made = plan_for.build(library, existing, _switched(values),
-                              values.get(answer_key("games")), _systems(values),
+                              _ticked(library, values), _systems(values),
                               ctx.games.folder_name_for, library.source_id, ctx.games.kinds(),
                               held.companions_of, picked_over(library, looked, values),
                               str(values.get("names") or plan_for.DEFAULT_NAMES),
@@ -865,7 +870,7 @@ def build(ctx: Any) -> None:
         key = answer_key("picks")
         rows = [{"key": one.row, "name": one.name, "entry": one.candidate,
                  "vps_id": one.vps_id,
-                 "reason": ctx.t(f"why.{one.reason}") if one.reason in WHY else "",
+                 "reason": ctx.t(f"why.{one.reason}") if one.reason in plan_for.WHY else "",
                  "settled": bool(one.vps_id) or one.found_by == "picked"}
                 for one in made.making]
         return {
@@ -1365,6 +1370,11 @@ def build(ctx: Any) -> None:
             # A stopped run is short by what it was stopped before, which `left` says.
             report["against"] = [] if report.get("stopped") else plan_for.against(want, report)
             report["expected"] = want
+            report["program"] = _name(ctx, reader)
+            # Every answer but the ticks and picks, which are held under a key of their own
+            # for what was read: a second import starts from these and is asked those again.
+            report["answers"] = {key: one for key, one in values.items()
+                                 if "." not in key and key not in ("games", "picks", "only")}
             job.stopped = bool(report.get("stopped"))
             # Counted from the rows the report lists, not from `failed`: a game whose
             # folder was made and whose file did not come across is in the report too.
@@ -1382,8 +1392,8 @@ def build(ctx: Any) -> None:
                     if filled else ctx.t("job.detail", made=created, failed=failed))
             job.log(f"Created {created}, filled {report['filled']}, "
                     f"failed {report['failed']}")
-            if made.fetch_art and not (job.stopped or report["art_started"]):
-                job.log("Get missing media did not start: nothing matched, or a fill was running")
+            if made.fetch_art and report["matched"] and not (job.stopped or report["art_started"]):
+                job.log("Get missing media was not started: a fill was already running")
             return report
 
         job = ctx.jobs.submit("import", work, stop_route="/wizard/stop",

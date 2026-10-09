@@ -1572,6 +1572,24 @@ def subject_menu(slot: Any, entries: Sequence[Verb]) -> None:
             verb_entries(shown, menu.close)
 
 
+# A plain left click on a rail entry or an in-place link navigates in place; anything else is
+# the browser's. Captured on the document because the rows are rebuilt, and a listener per
+# row would have to be re-attached every time one is. A page that draws `link(on_click=...)`
+# runs it too, or the browser follows the address and takes the page's connection with it.
+NAV_CLICK = """
+(() => {
+  document.addEventListener('click', (event) => {
+    const link = event.target.closest && event.target.closest(
+      'a.console-nav-row, a.console-link--inplace');
+    if (!link) return;
+    if (event.button !== 0 || event.metaKey || event.ctrlKey ||
+        event.shiftKey || event.altKey) return;
+    event.preventDefault();
+  }, true);
+})()
+"""
+
+
 def link(label: str, *, to: str, on_click: Callable[[], Any] | None = None,
          hint: str = "", classes: str = "", window: str = "") -> Callable[[], None]:
     """A link to somewhere else in the Console.

@@ -84,6 +84,17 @@ class ImportTests(AdoptCase):
         self.assertEqual(report["games"], 3)
         self.assertEqual(report["failed"], 0)
 
+    def test_the_report_records_the_groups_each_game_belongs_to(self) -> None:
+        result = self.imported()
+        made = {row["name"]: row["game_id"] for row in result["rows"]}
+
+        found = {(one["group"], one["name"]): one["game_id"] for one in result["items"]}
+
+        self.assertEqual(made["Taxi 2 (Homebrew 2020)"],
+                         found[("no_wheel", "Taxi 2 (Homebrew 2020)")])
+        self.assertIn(("not_matched", "Attack from Mars (Bally 1995)"), found)
+        self.assertEqual([], result["left_behind"])
+
     def test_a_folder_is_named_the_way_our_own_are(self) -> None:
         """The source's description is already Title (Manufacturer Year), which is the
         convention we arrived at separately."""

@@ -218,5 +218,34 @@ class RunTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(walk.step, first)
 
 
+class ReachTests(unittest.IsolatedAsyncioTestCase):
+    STEPS = {"one": {"step": "two"}, "two": {"step": "three"}, "three": {"step": "four"}}
+
+    async def test_it_steps_on_the_values_held_until_the_step_asked_for(self) -> None:
+        checked: list[str] = []
+        walk = wizard.Walk(_calls(self.STEPS, checked=checked), {"step": "one"})
+
+        found = await walk.reach("three")
+
+        self.assertEqual(["one", "two"], checked)
+        self.assertEqual("three", found["step"])
+
+    async def test_a_step_that_refuses_is_where_it_stops(self) -> None:
+        refused = {"step": "two", "errors": {"path": "not reachable"}}
+        walk = wizard.Walk(_calls({"one": {"step": "two"}, "two": refused}), {"step": "one"})
+
+        found = await walk.reach("four")
+
+        self.assertIs(found, refused)
+
+    async def test_a_step_that_is_not_ready_is_where_it_stops(self) -> None:
+        held = {"step": "two", "ready": False}
+        walk = wizard.Walk(_calls({"one": held}), {"step": "one"})
+
+        found = await walk.reach("four")
+
+        self.assertIs(found, held)
+
+
 if __name__ == "__main__":
     unittest.main()

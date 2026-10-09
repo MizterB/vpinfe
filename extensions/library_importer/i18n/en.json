@@ -87,6 +87,7 @@
   "wizard.matches.label": "Games to match",
   "why.two_entries": "Two entries",
   "why.ipdb_differs": "IPDB says another entry",
+  "report.dmd_place": "Own place at {left}, {top}",
   "progress.holding": "Looking at what each game here has",
   "wizard.summary.title": "This is what will happen",
   "wizard.summary.reads_as": "Reads as",

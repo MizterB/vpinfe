@@ -44,16 +44,24 @@ async def import_action(library: Library) -> dict | None:
         found = await offload.io(library.extensions)
     except Exception:  # noqa: BLE001 - a list that will not load is no action
         return None
-    importer = next((one for one in found if one.get("name") == IMPORTER), {})
+    return import_action_in(found)
+
+
+def import_action_in(extensions: list[dict]) -> dict | None:
+    """The import among these extensions' actions, if the importer is one of them."""
+    importer = next((one for one in extensions if one.get("name") == IMPORTER), {})
     return next((one for one in importer.get("actions") or [] if one.get("key") == "import"),
                 None)
 
 
 @on_page
-async def open_importer(action: dict, rerender: Callable[[], None] | None) -> None:
+async def open_importer(action: dict, rerender: Callable[[], None] | None, *,
+                        values: dict[str, Any] | None = None, until: str = "") -> None:
     """The import dialog, then the page redrawn: it can add a library folder, and the list
-    and its count are read when the page draws."""
+    and its count are read when the page draws. `values` are answers it starts with, and
+    `until` the step it is walked to before it is shown."""
     from console import ext_action
 
-    if await ext_action.open_action(IMPORTER, action) and rerender is not None:
+    if await ext_action.open_action(IMPORTER, action, values=values, until=until) \
+            and rerender is not None:
         rerender()

@@ -167,9 +167,11 @@ class ApiClient:
         return list(self._get(f"/tables{'?' if query else ''}{query}",
                               _LIBRARY_TIMEOUT).get("tables") or [])
 
-    def all_media(self) -> list[dict]:
-        """Every media file in the library, one row each, and one per file it lacks."""
-        return self._get("/media", _LIBRARY_TIMEOUT).get("media", [])
+    def all_media(self, kind: str = "") -> list[dict]:
+        """Every media file in the library, one row each, and one per file it lacks; with
+        `kind`, only that kind's."""
+        query = "?" + urlencode({"kind": kind}) if kind else ""
+        return self._get(f"/media{query}", _LIBRARY_TIMEOUT).get("media", [])
 
     def all_assets(self) -> list[dict]:
         """Every asset file in the library, one row each, and one per file it lacks."""
