@@ -299,8 +299,10 @@ except Exception:
 try:
     from common import jobs
     from common.games.library_refresh import read_at_startup
+    from common.i18n import t
     jobs.submit(jobs.KIND_LIBRARY_SCAN,
-                lambda job: read_at_startup(games, unseen, job.reporter()))
+                lambda job: read_at_startup(games, unseen, job.reporter()),
+                title=t("said.title_startup_read"))
 except Exception:
     logger.exception("Could not start library enrichment; unread tables stay unread")
 

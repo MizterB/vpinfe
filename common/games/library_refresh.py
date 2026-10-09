@@ -86,7 +86,7 @@ def read_at_startup(games: list, unseen: list, reporter: JobReporter | None = No
     again = auto_match.match_new(waiting)
     read = enrich(games, reporter)
     _art_for(unseen, waiting)
-    return {**{f"enriched_{k}": v for k, v in read.items()},
+    return {"games": len(games), **{f"enriched_{k}": v for k, v in read.items()},
             **{f"new_{k}": v for k, v in matched.items()},
             **{f"waiting_{k}": v for k, v in again.items()},
             "new_unmatched_ids": _waiting(unseen)}

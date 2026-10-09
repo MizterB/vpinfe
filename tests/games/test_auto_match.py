@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from common import job_details, jobs
 from common.games import (
     auto_match,
     game_identity,
@@ -428,6 +429,16 @@ class FirstSightTests(TempTree):
 
         self.assertEqual(result["new_unmatched_ids"],
                          [_read(self.folders[UNKNOWN])["vpinfe"]["game_id"]])
+
+    def test_startup_says_how_many_games_it_read(self) -> None:
+        games = self.games()
+        unseen = [game for game in games if not game_identity.game_id(game)]
+        game_identity.ensure_unique_ids(games)
+
+        result = library_refresh.read_at_startup(games, unseen)
+
+        self.assertEqual(result["games"], len(games))
+        self.assertIn(str(len(games)), job_details.of(jobs.KIND_LIBRARY_SCAN, result))
 
     def test_switched_off_nothing_is_matched(self) -> None:
         config = configparser.ConfigParser()
