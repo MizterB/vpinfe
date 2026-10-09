@@ -54,7 +54,21 @@ from common.values import newer_version, parse_version
 logger = logging.getLogger("vpinfe.common.games.table_lens")
 
 
-def launcher_of(app_id: str, table_id: str) -> dict:
+class LauncherView:
+    """The install's launchers and their table assignments, read once. A listing over every
+    table holds one, because every read rebuilds the whole config store."""
+
+    def __init__(self) -> None:
+        store = launchers.get_launcher_store()
+        self.launchers = store.launchers()
+        self.mappings = store.mappings()
+
+    def bin_path(self) -> str:
+        found = launchers.default_for("vpx", self.launchers)
+        return str(found.in_effect("bin_path") or "") if found is not None else ""
+
+
+def launcher_of(app_id: str, table_id: str, view: LauncherView | None = None) -> dict:
     """The launcher a table would play with, named for a reader.
 
     Resolved rather than read off the assignment, because a table naming one that is
@@ -62,10 +76,9 @@ def launcher_of(app_id: str, table_id: str) -> dict:
     Empty where the install has none: a name invented here would say a table can be
     played on a machine that cannot play it.
     """
-    store = launchers.get_launcher_store()
-    found = launchers.launcher_for_entry(app_id, table_id, store.launchers(),
-                                         store.mappings())
-    named = store.mapped(table_id)
+    view = view or LauncherView()
+    found = launchers.launcher_for_entry(app_id, table_id, view.launchers, view.mappings)
+    named = view.mappings.get(str(table_id or "").strip(), "")
     return {
         "launcher": found.launcher_id if found else "",
         "launcher_name": found.display_name if found else "",
@@ -227,8 +240,8 @@ def table_files(game_dir: Path, files: list[str]) -> list[dict]:
 
 def table_rows(game: Game, row: dict, *, launcher_settings: bool = False,
                art: str = "",
-               art_settings: tuple[str, dict[str, str] | None] | None = None
-               ) -> list[dict]:
+               art_settings: tuple[str, dict[str, str] | None] | None = None,
+               launcher_view: LauncherView | None = None) -> list[dict]:
     """The game's launchable artifacts.
 
     Enumerates what is actually in the folder rather than trusting the single
@@ -242,7 +255,9 @@ def table_rows(game: Game, row: dict, *, launcher_settings: bool = False,
     `launcher_settings` adds what each table's settings file sets, reading one file per
     table. `art` adds `shown_art`, the file each table shows for that kind, from
     `art_settings` where the caller has read `media_settings` once for many games.
+    `launcher_view` is the same for the launchers: one read, shared by every game.
     """
+    launcher_view = launcher_view or LauncherView()
     game_dir = Path(row.get("game_dir", ""))
     described = table_settings(game_dir)
 
@@ -298,7 +313,8 @@ def table_rows(game: Game, row: dict, *, launcher_settings: bool = False,
                      if reference else "")
         reachable = bool(points_at) and os.path.isfile(points_at)
         plays_it = launcher_of(app_id,
-                                str(described_entry.get(TABLE_ID_KEY, "") or ""))
+                                str(described_entry.get(TABLE_ID_KEY, "") or ""),
+                                launcher_view)
         version = str(described_entry.get("version", "") or "")
         source = _named_source(described_entry)
         entry = {
@@ -406,7 +422,7 @@ def table_rows(game: Game, row: dict, *, launcher_settings: bool = False,
                 # PinMAME's own audit, from the library the configured VPX ships.
                 # No answer leaves the name-match conclusion standing.
                 audit = pinmame_catalog.lookup(
-                    launchers.default_value("bin_path"),
+                    launcher_view.bin_path(),
                     str(game_dir / "pinmame" / "roms"), chain["effective"])
                 asset_resolver.apply_audit(chain, audit)
             flex = asset_resolver.flexdmd_state(
@@ -497,6 +513,7 @@ def library_rows(limit: int = 0, offset: int = 0, game: str = "",
     """
     art = art_or_refuse(art)
     art_settings = media_service.media_settings() if art else None
+    launcher_view = LauncherView()
     found: list[dict] = []
     for game_id, entry in game_repository.catalog().items():
         if game or "":
@@ -507,7 +524,7 @@ def library_rows(limit: int = 0, offset: int = 0, game: str = "",
         declared = meta.get("Info")
         info = declared if isinstance(declared, dict) else {}
         for table in table_rows(entry, row, launcher_settings=True, art=art,
-                                art_settings=art_settings):
+                                art_settings=art_settings, launcher_view=launcher_view):
             if not table.get("id"):
                 continue
             shown = table.get("shown_art")

@@ -93,6 +93,16 @@ class TableLensTests(_Lens):
     def test_every_table_says_which_app_plays_it(self) -> None:
         self.assertEqual({row["app"] for row in self._rows()}, {"vpx"})
 
+    def test_the_launchers_are_read_once_for_the_whole_list(self) -> None:
+        """Each read rebuilds the config store, so a read per table put seconds on the
+        Games grid's first load."""
+        real = launchers.LauncherStore.launchers
+        with patch.object(launchers.LauncherStore, "launchers", autospec=True,
+                          side_effect=real) as read:
+            self._rows()
+
+        self.assertEqual(read.call_count, 1)
+
 
 class DefaultTests(_Lens):
     def test_choosing_a_default_records_the_id_not_the_name(self) -> None:
