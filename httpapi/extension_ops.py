@@ -105,6 +105,7 @@ CONFIG_WRITES: dict[str, Callable[..., Any]] = {
     # One table's own settings, never the launcher's: what an import carries over from a
     # table's old cabinet must not change the new one.
     "write_table_settings": launcher_ops.write_table_settings,
+    "use_logos_for_wheels": media_ops.use_logos_for_wheels,
 }
 
 LAUNCHES: dict[str, Callable[..., Any]] = {
@@ -125,6 +126,7 @@ WRITES: dict[str, Callable[..., Any]] = {
     "take_vps_details": game_ops.adopt_details,
     "match_game": game_ops.match_game,
     "remove_media": media_ops.remove,
+    "get_missing_art": media_ops.get_missing_art,
     "forget_table": table_ops.forget,
     "add_keyed_table": table_ops.add_keyed,
 }

@@ -70,6 +70,9 @@ class Held:
         self.look: tuple[SourceLibrary, dict, dict[int, dict]] | None = None
         self._asked_about: tuple | None = None
         self.generation = 0
+        # The rows of games already in the library that the person ticked with that game
+        # showing as one, which a Matches pick does not stand for. Per generation.
+        self.deliberate: set[str] = set()
 
     def asked_about(self, scope: tuple) -> int:
         """Which generation of the Tables and Matches answers belongs to `scope`.
@@ -81,6 +84,7 @@ class Held:
         with self._lock:
             if self._asked_about is not None and scope != self._asked_about:
                 self.generation += 1
+                self.deliberate = set()
             self._asked_about = scope
             return self.generation
 

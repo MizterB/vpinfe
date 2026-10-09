@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from collections import Counter
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from types import ModuleType
@@ -18,7 +19,18 @@ from typing import Any
 
 from fastapi import APIRouter
 
-from . import adopt, beside, folders, mapping, pinballx, popper, saved
+from . import (
+    adopt,
+    beside,
+    folders,
+    logos,
+    mapping,
+    pinballx,
+    popper,
+    saved,
+    shapes,
+    things,
+)
 from . import plan as plan_for
 from .held import Held, Progress
 from .plan import Plan
@@ -38,7 +50,14 @@ SOURCE_KEY = "source_root"
 # The order the questions come in. Which of them get asked depends on what is found, but
 # never on how somebody arrived: going Back and forward again asks the same things in
 # the same order rather than jumping over what is already answered.
-STEPS = ("source", "sources", "games", "matches", "how", "summary")
+STEPS = ("source", "sources", "games", "matches", "names", "art", "things", "how", "summary")
+
+# The answers kept in this extension's own settings for the next import, as one JSON text.
+# The source, its folders and the ticks on the Tables page are about one import and stay out,
+# and so does the wheel images' kind: it is measured from the images each time.
+ANSWERS_KEY = "answers"
+REMEMBERED = ("names", "details", "details_some", "show_logos", "fetch_art", "logos",
+              *[things.switch(key) for key in things.THINGS])
 
 
 def _after(step: str) -> tuple[str, ...]:
@@ -109,6 +128,20 @@ def _systems(values: dict) -> list[str]:
 def _chosen(values: dict) -> dict | None:
     held = {key: values[key] for key in plan_for.SOURCES if key in values}
     return held or None
+
+
+def _switched(values: dict) -> dict | None:
+    """`_chosen`, with a kind of thing the ROMs and more page switched off read as a folder
+    left empty on purpose."""
+    chosen = dict(_chosen(values) or {})
+    for key in things.FOLDER:
+        if values.get(things.switch(key)) is False:
+            chosen[key] = ""
+    return chosen or None
+
+
+def _on(values: dict, key: str) -> bool:
+    return values.get(key, True) is not False
 
 
 def _mode(library: SourceLibrary, values: dict, games: list[SourceGame]) -> str:
@@ -221,6 +254,36 @@ def build(ctx: Any) -> None:
 
     held = Held()
     progress = Progress()
+    shaped: dict[tuple, str] = {}
+
+    def remembered() -> dict:
+        """The answers kept from an earlier import, which start this one."""
+        try:
+            found = json.loads(ctx.config.get(ANSWERS_KEY, "") or "{}")
+        except ValueError:
+            return {}
+        if not isinstance(found, dict):
+            return {}
+        return {key: found[key] for key in REMEMBERED if key in found}
+
+    def answers(values: dict) -> dict:
+        return {**remembered(), **values}
+
+    def wheel_files(library: SourceLibrary, values: dict) -> list[str]:
+        wanted = _systems(values)
+        return shapes.wheel_images(
+            [game for system in library.systems if not wanted or system.name in wanted
+             for game in system.games], library.source_id, ctx.games.kinds())
+
+    def wheels_as_of(library: SourceLibrary, values: dict) -> str:
+        """What the wheel images are kept as: what was answered, else what their shape says."""
+        said = str(values.get(answer_key("wheels_as")) or "")
+        if said in mapping.WHEELS_AS:
+            return said
+        key = (library.source_id, library.root, tuple(_systems(values)))
+        if key not in shaped:
+            shaped[key] = shapes.measured_as(wheel_files(library, values))
+        return shaped[key]
 
     def real_of(roms: str) -> Callable[[str], str]:
         """The ROM set a name the script asks for stands for, from the map beside `roms`."""
@@ -247,6 +310,8 @@ def build(ctx: Any) -> None:
         key = (reader.SOURCE_ID, str(path),
                json.dumps(_chosen(values), sort_keys=True, default=str)
                if reader is folders else "")
+        if fresh:
+            shaped.clear()
         found = held.library_for(key, fresh) if keep else None
         if found is not None:
             return found
@@ -333,20 +398,37 @@ def build(ctx: Any) -> None:
         """The key the Tables and Matches answers are held under for what is being read."""
         return f"{name}.{held.generation}" if held.generation else name
 
-    def plan(library: SourceLibrary, values: dict, existing: list[dict]) -> Plan:
+    def plan(library: SourceLibrary, values: dict, existing: list[dict],
+             deciding: bool = False) -> Plan:
+        """The plan for these answers. `deciding` is the Tables page being left: the games
+        already here at that moment are the ones the person saw as such and ticked or not."""
+        values = answers(values)
         held.asked_about((library.source_id, str(values.get("path") or ""),
                           tuple(_systems(values)
                                 or (one.name for one in library.systems if one.games))))
         look_beside(library)
         catalog, looked = look_up(library)
-        made = plan_for.build(library, existing, _chosen(values),
+        made = plan_for.build(library, existing, _switched(values),
                               values.get(answer_key("games")), _systems(values),
                               ctx.games.folder_name_for, library.source_id, ctx.games.kinds(),
                               held.companions_of, picked_over(library, looked, values),
                               str(values.get("names") or plan_for.DEFAULT_NAMES),
                               str(values.get("details") or plan_for.DEFAULT_DETAILS),
-                              [str(one) for one in values.get("details_some") or []])
+                              [str(one) for one in values.get("details_some") or []],
+                              wheels_as_of(library, values))
         made.catalog = catalog
+        made.logos = _on(values, "logos")
+        made.show_logos = _on(values, "show_logos")
+        made.fetch_art = _on(values, "fetch_art")
+        made.scores = _on(values, things.switch("scores"))
+        if deciding:
+            held.deliberate = {one.row for one in made.matches if one.existing}
+        for one in made.matches:
+            # A pick that lands on a game already here does not tick it: the person ticks a
+            # copy on the Tables page, where it is shown as one.
+            if one.taken and one.existing and one.found_by == "picked" \
+                    and one.row not in held.deliberate:
+                one.taken = False
         read_roms(library, made, _systems(values))
         return made
 
@@ -445,15 +527,17 @@ def build(ctx: Any) -> None:
         """
         if mode not in ("copy", "move", "in_place"):
             return 0, -1, ""
+        values = answers(values)
         folders_of = {one.key: one.path
-                      for one in plan_for.derive_sources(library, _chosen(values))}
+                      for one in plan_for.derive_sources(library, _switched(values))}
         need = plan_for.bytes_to_copy(
             games, library.source_id, ctx.games.kinds(), held.companions_of,
             move=mode != "copy",
             sized=held.measured(progress, ctx.t("progress.measuring")),
             roms=held.roms, roms_dir=folders_of.get("roms", ""),
             named=held.named, saved=saved_of(folders_of.get("user", "")),
-            real=real_of(folders_of.get("roms", "")))
+            real=real_of(folders_of.get("roms", "")),
+            wheels_as=wheels_as_of(library, values))
         target = (into_of(values) if mode == "copy" else
                   next((plan_for.tables_folder(one)
                         for one in plan_for.systems_going(library, games)
@@ -623,7 +707,7 @@ def build(ctx: Any) -> None:
 
         library = read(reader, path, values, survey, fresh=leaving == "source")
         declare_roots(library, values)
-        made = plan(library, values, known(library))
+        made = plan(library, values, known(library), deciding=leaving == "games")
         games = plan_for.going(library, made, _systems(values))
         mode = _mode(library, values, games)
 
@@ -641,6 +725,14 @@ def build(ctx: Any) -> None:
                 return _tables_step(reader, made)
             if step == "matches" and _to_look_at(made):
                 return _matches_step(made, values)
+            if step == "names" and _names_matter(made):
+                return _names_step(reader, library, made, values)
+            if step == "art" and (art := _art_found(library, made, values)):
+                return _art_step(reader, library, made, values, art)
+            if step == "things":
+                counts, short = _things_found(library, values, known(library))
+                if any(counts.values()) or short:
+                    return _things_step(counts, short, values)
             if step == "how" and mode in ("copy", "move"):
                 return _how_step(reader, library, values, games)
             if step == "summary":
@@ -786,6 +878,167 @@ def build(ctx: Any) -> None:
                         "value": dict(values.get(key) or {})}],
         }
 
+    def _names_matter(made: Plan) -> bool:
+        """Whether a game made here was matched and the entry would have it called, or
+        described, otherwise than the source does."""
+        return any(one.vps_id for one in made.making) and bool(
+            made.renamed()[0] or any(made.differing().values()))
+
+    def _names_step(reader: ModuleType, library: SourceLibrary, made: Plan,
+                    values: dict) -> dict:
+        """Whose names and details the matched games take: VPS's, or the source's."""
+        said = answers(values)
+        source = _name(ctx, reader)
+        plain = library.source_id == folders.SOURCE_ID
+        count, examples = made.renamed()
+        differing = made.differing()
+        first = [name for name in plan_for.DETAIL_FIELDS if differing[name]]
+        counted = ", ".join(ctx.t("wizard.names.count", name=ctx.t(f"wizard.names.field.{name}"),
+                                  count=differing[name]) for name in first)
+        return {
+            "step": "names",
+            "title": ctx.t("wizard.names.title"),
+            "help": (ctx.t("wizard.names.help_plain") if plain
+                     else ctx.t("wizard.names.help", source=source)),
+            "fields": [
+                {"key": "names", "type": "choice",
+                 "label": ctx.t("wizard.names.names.label"),
+                 "value": str(said.get("names") or plan_for.DEFAULT_NAMES),
+                 "choices": [
+                     ["vps", ctx.t("wizard.names.vps"), ctx.t("wizard.names.vps.help"),
+                      "cloud_done"],
+                     ["source", (ctx.t("wizard.names.source_plain") if plain
+                                 else ctx.t("wizard.names.source", source=source)),
+                      ctx.t("wizard.names.source.help"), "folder"]],
+                 "help": ctx.t("wizard.names.examples", count=count,
+                               examples="; ".join(ctx.t("wizard.names.example", was=was, now=now)
+                                                  for was, now in examples))
+                 if count else ctx.t("wizard.names.same")},
+                {"key": "details", "type": "choice",
+                 "label": ctx.t("wizard.names.details.label"),
+                 "value": str(said.get("details") or plan_for.DEFAULT_DETAILS),
+                 "choices": [
+                     ["vps", ctx.t("wizard.names.vps"), ctx.t("wizard.names.details.vps.help"),
+                      "cloud_done"],
+                     ["source", (ctx.t("wizard.names.details.source_plain") if plain
+                                 else ctx.t("wizard.names.details.source", source=source)),
+                      ctx.t("wizard.names.details.source.help"), "folder"],
+                     ["some", ctx.t("wizard.names.details.some"),
+                      ctx.t("wizard.names.details.some.help"), "checklist"]],
+                 "help": ctx.t("wizard.names.differ", counts=counted) if counted
+                 else ctx.t("wizard.names.agree")},
+                {"key": "details_some", "type": "multi",
+                 "label": ctx.t("wizard.names.some.label"),
+                 "value": [str(one) for one in (said["details_some"]
+                                                if "details_some" in said else first)],
+                 "choices": [[name, ctx.t("wizard.names.some.choice",
+                                          name=ctx.t(f"wizard.names.field.{name}"),
+                                          count=differing[name])]
+                             for name in plan_for.DETAIL_FIELDS],
+                 "help": ctx.t("wizard.names.some.help")},
+            ],
+        }
+
+    def _art_found(library: SourceLibrary, made: Plan, values: dict) -> dict[str, Any] | None:
+        """What the source has for pictures, or nothing where the page has no question."""
+        media = made.source("media")
+        if media is None or not media.active:
+            return None
+        makers = logos.candidates(media.path)
+        pictures = sum(len(one.kinds) for one in (*made.making, *made.filling))
+        if not (pictures or makers):
+            return None
+        return {"images": wheel_files(library, answers(values)), "makers": len(makers)}
+
+    def _art_step(reader: ModuleType, library: SourceLibrary, made: Plan, values: dict,
+                  art: dict[str, Any]) -> dict:
+        """What a wheel and a logo are, what the source's wheel images are, and whether to
+        fill the gaps afterwards."""
+        said = answers(values)
+        source = _name(ctx, reader)
+        images = art["images"]
+        kinds = Counter(kind for one in (*made.making, *made.filling) for kind in one.kinds)
+        found = ", ".join(ctx.t("wizard.art.kind", name=ctx.t(f"art.kind.{kind}"), count=count)
+                          for kind, count in kinds.most_common() if count)
+        fields: list[dict[str, Any]] = []
+        if images:
+            sample = images[::max(1, len(images) // 3)][:3]
+            fields += [
+                {"key": answer_key("wheels_as"), "type": "choice",
+                 "label": (ctx.t("wizard.art.wheels_as.label_plain")
+                           if library.source_id == folders.SOURCE_ID
+                           else ctx.t("wizard.art.wheels_as.label", source=source)),
+                 "value": wheels_as_of(library, said),
+                 "choices": [
+                     [mapping.LOGOS, ctx.t("wizard.art.logos"),
+                      ctx.t("wizard.art.logos.help"), sample],
+                     [mapping.WHEELS, ctx.t("wizard.art.wheels"),
+                      ctx.t("wizard.art.wheels.help"), sample]],
+                 "help": f'{ctx.t("wizard.art.wheels_as.logo")} '
+                         f'{ctx.t("wizard.art.wheels_as.round")}'},
+                {"key": "show_logos", "type": "switch",
+                 "label": ctx.t("wizard.art.show_logos.label"),
+                 "value": _on(said, "show_logos"),
+                 "help": {"follows": answer_key("wheels_as"),
+                          "says": {mapping.LOGOS: ctx.t("wizard.art.show_logos.help")},
+                          "else": ctx.t("wizard.art.show_logos.not_logos")}},
+            ]
+        fields.append({"key": "fetch_art", "type": "switch",
+                       "label": ctx.t("wizard.art.fetch.label"),
+                       "value": _on(said, "fetch_art"),
+                       "help": " ".join((ctx.t("wizard.art.fetch.what"),
+                                         ctx.t("wizard.art.fetch.about"),
+                                         ctx.t("wizard.art.fetch.fills"),
+                                         ctx.t("wizard.art.fetch.matched"),
+                                         ctx.t("wizard.art.fetch.later")))})
+        if art["makers"]:
+            fields.append({"key": "logos", "type": "switch",
+                           "label": ctx.t("wizard.art.logos.label"),
+                           "value": _on(said, "logos"),
+                           "help": ctx.t("wizard.art.logos.switch_help",
+                                         count=art["makers"])})
+        return {
+            "step": "art",
+            "title": ctx.t("wizard.art.title"),
+            "help": " ".join(part for part in (
+                ctx.t("wizard.art.help.wheel"), ctx.t("wizard.art.help.logo"),
+                ctx.t("wizard.art.help.fallback"),
+                ctx.t("wizard.art.found", kinds=found) if found else "") if part),
+            "fields": fields,
+        }
+
+    def _things_found(library: SourceLibrary, values: dict,
+                      existing: list[dict]) -> tuple[dict[str, int], int]:
+        """How many games each thing comes with, and how many need a ROM that is not
+        there. Planned with every folder switched on, so one switched off can be switched
+        back."""
+        everything = plan(library, {**values, **{things.switch(key): True
+                                                 for key in things.THINGS}}, existing)
+        user, roms = everything.source("user"), everything.source("roms")
+        counts = things.counted(
+            library, everything, _systems(values), held.roms, held.named,
+            saved_of(user.path if user is not None and user.active else ""),
+            real_of(roms.path if roms is not None and roms.active else ""),
+            _on(answers(values), things.switch("roms")))
+        return counts, plan_for.missing_roms(everything)
+
+    def _things_step(counts: dict[str, int], short: int, values: dict) -> dict:
+        """A switch for each thing the source keeps beside its games, with how many games
+        it comes with."""
+        said = answers(values)
+        return {
+            "step": "things",
+            "title": ctx.t("wizard.things.title"),
+            "help": " ".join(part for part in (
+                ctx.t("wizard.things.help"),
+                ctx.t("wizard.things.missing", count=short) if short else "") if part),
+            "fields": [{"key": things.switch(key), "type": "switch",
+                        "label": ctx.t(f"wizard.things.{key}.label"),
+                        "value": _on(said, things.switch(key)),
+                        "help": ctx.t("wizard.things.count", count=counts[key])}
+                       for key in things.THINGS if counts.get(key)],
+        }
+
     def _refuse_how(values: dict) -> dict[str, str]:
         """What is wrong with the answer to the how step, by field. Moving needs nothing
         more; copying needs a folder to copy into, and one that is there."""
@@ -863,6 +1116,51 @@ def build(ctx: Any) -> None:
             return ctx.t("wizard.summary.left_behind_videos", folder=folder, count=count)
         return ctx.t("wizard.summary.left_behind_folder", folder=folder, count=count)
 
+    def _choice_rows(reader: ModuleType, library: SourceLibrary, made: Plan,
+                     values: dict) -> list[list[str]]:
+        """What the Names and details, Art and ROMs and more pages decided."""
+        said = answers(values)
+        source = _name(ctx, reader)
+        plain = library.source_id == folders.SOURCE_ID
+        rows: list[list[str]] = []
+        if _names_matter(made):
+            rows.append([ctx.t("wizard.summary.names"),
+                         (ctx.t("wizard.names.source_plain") if plain
+                          else ctx.t("wizard.names.source", source=source))
+                         if made.names == "source" else ctx.t("wizard.names.vps")])
+            if made.details == "some":
+                kept = ", ".join(ctx.t(f"wizard.names.field.{name}")
+                                 for name in made.detail_fields)
+                shown = ctx.t("wizard.summary.details_some", fields=kept) if kept \
+                    else ctx.t("wizard.names.vps")
+            else:
+                shown = ((ctx.t("wizard.names.details.source_plain") if plain
+                          else ctx.t("wizard.names.details.source", source=source))
+                         if made.details == "source" else ctx.t("wizard.names.vps"))
+            rows.append([ctx.t("wizard.summary.details"), shown])
+        art = _art_found(library, made, values)
+        if art:
+            if art["images"]:
+                rows.append([ctx.t("wizard.summary.wheel_images"),
+                             ctx.t("wizard.art.logos") if made.wheels_as == mapping.LOGOS
+                             else ctx.t("wizard.art.wheels")])
+                if made.wheels_as == mapping.LOGOS:
+                    rows.append([ctx.t("wizard.art.show_logos.label"), _yes(made.show_logos)])
+            rows.append([ctx.t("wizard.art.fetch.label"), _yes(made.fetch_art)])
+            if art["makers"]:
+                rows.append([ctx.t("wizard.art.logos.label"), _yes(made.logos)])
+        counts, _short = _things_found(library, values, known(library))
+        for key in things.THINGS:
+            if counts.get(key):
+                rows.append([ctx.t(f"wizard.things.{key}.label"),
+                             ctx.t("wizard.things.count", count=counts[key])
+                             if _on(said, things.switch(key))
+                             else ctx.t("wizard.summary.left_out_thing")])
+        return rows
+
+    def _yes(on: bool) -> str:
+        return ctx.t("wizard.summary.yes") if on else ctx.t("wizard.summary.no")
+
     def _where(source: Any) -> str:
         if source.path:
             return str(source.path)
@@ -890,6 +1188,7 @@ def build(ctx: Any) -> None:
             rows.append([ctx.t("wizard.summary.roms_missing"),
                          ctx.t("wizard.summary.roms_missing_count", count=short_roms)])
         rows += _matching_rows(made, games)
+        rows += _choice_rows(reader, library, made, values)
         if library.in_place:
             rows.append([ctx.t("wizard.summary.as_is"),
                          ctx.t("wizard.summary.game_folders", count=len(library.in_place))])
@@ -1005,6 +1304,8 @@ def build(ctx: Any) -> None:
         short = short_of_room(*space(library, values, mode, checked))
         if short:
             return refused(short)
+        ctx.config.set(ANSWERS_KEY, json.dumps(
+            {**remembered(), **{key: values[key] for key in REMEMBERED if key in values}}))
 
         def work(job: Any) -> dict:
             job.log(f"Read {len(library.games)} games from {library.root}")
@@ -1039,7 +1340,8 @@ def build(ctx: Any) -> None:
                                               move=mode != "copy", sized=measure,
                                               roms=held.roms, roms_dir=roms_dir,
                                               named=held.named, saved=kept,
-                                              real=real_of(roms_dir))
+                                              real=real_of(roms_dir),
+                                              wheels_as=made.wheels_as)
 
             def tell(standing: adopt.Standing) -> None:
                 by_bytes = standing.bytes_total > 0
@@ -1080,6 +1382,8 @@ def build(ctx: Any) -> None:
                     if filled else ctx.t("job.detail", made=created, failed=failed))
             job.log(f"Created {created}, filled {report['filled']}, "
                     f"failed {report['failed']}")
+            if made.fetch_art and not (job.stopped or report["art_started"]):
+                job.log("Get missing media did not start: nothing matched, or a fill was running")
             return report
 
         job = ctx.jobs.submit("import", work, stop_route="/wizard/stop",

@@ -196,7 +196,7 @@ class ImportTests(AdoptCase):
         return {row["key"]: (row["expected"], row["actual"], row["short"])
                 for row in plan.against(plan.expected(made), report)}
 
-    def _brought(self, source_id: str, key: str, files: dict[str, tuple[str, bytes]]):
+    def _brought(self, source_id: str, key: str, files: dict[str, tuple[str, bytes]], **asked):
         """One game with a file in each of the folders given, imported on its own.
 
         `files` maps a file name to the source folder it sits in and its bytes. Answers the
@@ -213,9 +213,105 @@ class ImportTests(AdoptCase):
             (folder / name).write_bytes(data)
             media.append(SourceMedia(source_kind=source_kind, path=str(folder / name)))
         game = SourceGame(key=key, media=tuple(media))
-        row = adopt._one(self._ctx, source_id, game, self._ctx.games.kinds(), "")
+        row = adopt._one(self._ctx, source_id, game, self._ctx.games.kinds(), "", **asked)
         landed = self.library / key / "medias"
         return row, sorted(one.name for one in landed.iterdir()) if landed.is_dir() else []
+
+    def test_wheel_images_kept_as_logos_land_in_the_logo_slot(self) -> None:
+        _row, landed = self._brought("pinballx", "Doom", {
+            "Doom.png": ("Wheel Images", b"a title")}, wheels_as="logo")
+
+        self.assertTrue(any(one.startswith("(Logo)") for one in landed), landed)
+        self.assertFalse(any(one.startswith("(Wheel)") for one in landed), landed)
+
+    def test_wheel_images_stay_wheels_unless_asked(self) -> None:
+        _row, landed = self._brought("pinballx", "Doom", {
+            "Doom.png": ("Wheel Images", b"a wheel")})
+
+        self.assertTrue(any(one.startswith("(Wheel)") for one in landed), landed)
+
+    def test_a_game_with_logos_of_its_own_keeps_its_wheel_a_wheel(self) -> None:
+        _row, landed = self._brought("pinballx", "Doom", {
+            "Doom.png": ("Wheel Images", b"a wheel"),
+            "Doom logo.png": ("Logos", b"a title")}, wheels_as="logo")
+
+        self.assertTrue(any(one.startswith("(Wheel)") for one in landed), landed)
+        self.assertTrue(any(one.startswith("(Logo)") for one in landed), landed)
+
+    def _after(self, converted: bool = True, **plan):
+        from vpinfe_ext_library_importer import adopt
+
+        ctx = unittest.mock.MagicMock()
+        ctx.games.get_missing_art.return_value = {"started": True}
+        made = [{"game_id": "g1", "matched": True}, {"game_id": "g2", "matched": True},
+                {"game_id": "g1", "matched": True}, {"game_id": "g3"}]
+        wanted = {"wheels_as": "wheel", "show_logos": True, "fetch_art": True, **plan}
+        done = adopt._art_after(ctx, unittest.mock.Mock(**wanted), made, converted)
+        return ctx, done
+
+    def test_missing_media_is_asked_for_once_for_the_matched_games_made(self) -> None:
+        ctx, done = self._after()
+
+        ctx.games.get_missing_art.assert_called_once_with(["g1", "g2"])
+        self.assertEqual(done, {"wheel_logos": False, "art_started": True})
+
+    def test_the_wheel_shows_logos_only_for_wheel_images_kept_as_logos(self) -> None:
+        ctx, done = self._after(wheels_as="logo")
+        other, _ = self._after(wheels_as="logo", show_logos=False)
+
+        ctx.games.use_logos_for_wheels.assert_called_once_with()
+        self.assertTrue(done["wheel_logos"])
+        other.games.use_logos_for_wheels.assert_not_called()
+
+    def test_the_wheel_is_left_alone_when_no_wheel_image_became_a_logo(self) -> None:
+        ctx, done = self._after(converted=False, wheels_as="logo")
+
+        ctx.games.use_logos_for_wheels.assert_not_called()
+        self.assertFalse(done["wheel_logos"])
+
+    def test_no_matched_game_means_no_fill_is_asked_for(self) -> None:
+        from vpinfe_ext_library_importer import adopt
+
+        ctx = unittest.mock.MagicMock()
+        plan = unittest.mock.Mock(wheels_as="wheel", show_logos=True, fetch_art=True)
+
+        done = adopt._art_after(ctx, plan, [{"game_id": "g1"}], False)
+
+        ctx.games.get_missing_art.assert_not_called()
+        self.assertFalse(done["art_started"])
+
+    def test_a_stopped_run_neither_switches_the_wheel_nor_asks_for_a_fill(self) -> None:
+        from vpinfe_ext_library_importer import adopt
+
+        library, made = self._planned("")
+        made.wheels_as, made.show_logos, made.fetch_art = "logo", True, True
+        self._ctx.games.use_logos_for_wheels = unittest.mock.Mock()
+        self._ctx.games.get_missing_art = unittest.mock.Mock()
+
+        report = adopt.run(self._ctx, library, [VPX], "", made, halted=lambda: True)
+
+        self.assertTrue(report["stopped"])
+        self._ctx.games.use_logos_for_wheels.assert_not_called()
+        self._ctx.games.get_missing_art.assert_not_called()
+
+    def test_nothing_is_asked_when_the_switch_is_off(self) -> None:
+        ctx, done = self._after(fetch_art=False)
+
+        ctx.games.get_missing_art.assert_not_called()
+        self.assertFalse(done["art_started"])
+
+    def test_a_failure_asking_is_said_and_does_not_stop_the_report(self) -> None:
+        from vpinfe_ext_library_importer import adopt
+
+        ctx = unittest.mock.MagicMock()
+        ctx.games.get_missing_art.side_effect = RuntimeError("down")
+        ctx.games.use_logos_for_wheels.side_effect = RuntimeError("down")
+        plan = unittest.mock.Mock(wheels_as="logo", show_logos=True, fetch_art=True)
+
+        done = adopt._art_after(ctx, plan, [{"game_id": "g1", "matched": True}], True)
+
+        self.assertEqual(done, {"wheel_logos": False, "art_started": False})
+        self.assertEqual(ctx.logger.warning.call_count, 2)
 
     def test_poppers_info_screen_is_the_flyer_and_its_help_screen_the_card(self) -> None:
         row, landed = self._brought("popper", "Doom", {

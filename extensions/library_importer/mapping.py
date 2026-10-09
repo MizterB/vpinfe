@@ -88,17 +88,34 @@ KINDS_BY_SOURCE = {
 }
 
 
-def media_for(source_id: str, game: SourceGame, known: tuple[str, ...]) -> list[tuple[str, str]]:
+WHEELS = "wheel"
+LOGOS = "logo"
+WHEELS_AS = (WHEELS, LOGOS)
+
+
+def media_for(source_id: str, game: SourceGame, known: tuple[str, ...],
+              wheels_as: str = WHEELS) -> list[tuple[str, str]]:
     """(kind, path) for each kind core stores (`known`): its first page, one file."""
-    return _chosen(source_id, game, known)[0]
+    return _chosen(source_id, game, known, wheels_as)[0]
 
 
-def held_back(source_id: str, game: SourceGame,
-              known: tuple[str, ...]) -> list[tuple[str, str, str]]:
+def held_back(source_id: str, game: SourceGame, known: tuple[str, ...],
+              wheels_as: str = WHEELS) -> list[tuple[str, str, str]]:
     """(source folder, path, why) for each file of a kind we have a slot for that is not
     placed: `pages` for one that is not the kind's first page, `videos` for a clip or a
     Flash file in a folder of a kind that takes pictures only."""
-    return _chosen(source_id, game, known)[1]
+    return _chosen(source_id, game, known, wheels_as)[1]
+
+
+def _kind_of(source_id: str, item: SourceMedia, wheels_as: str, holds_logos: bool) -> str:
+    """Wheel images stay wheels where the game has logos of its own."""
+    kind = KINDS_BY_SOURCE.get(source_id, {}).get(item.source_kind, "")
+    return LOGOS if kind == WHEELS and wheels_as == LOGOS and not holds_logos else kind
+
+
+def _holds_logos(source_id: str, game: SourceGame) -> bool:
+    table = KINDS_BY_SOURCE.get(source_id, {})
+    return any(table.get(item.source_kind) == LOGOS for item in game.media)
 
 
 def folder_of(game: SourceGame, path: str) -> str:
@@ -106,14 +123,14 @@ def folder_of(game: SourceGame, path: str) -> str:
     return next((item.source_kind for item in game.media if item.path == path), "")
 
 
-def _chosen(source_id: str, game: SourceGame, known: tuple[str, ...]
+def _chosen(source_id: str, game: SourceGame, known: tuple[str, ...], wheels_as: str = WHEELS
             ) -> tuple[list[tuple[str, str]], list[tuple[str, str, str]]]:
-    table = KINDS_BY_SOURCE.get(source_id, {})
+    holds_logos = _holds_logos(source_id, game)
     forms = _name_forms(game)
     by_kind: dict[str, list[SourceMedia]] = {}
     held: list[tuple[str, str, str]] = []
     for item in game.media:
-        kind = _moving_form(table.get(item.source_kind, ""), item.path)
+        kind = _moving_form(_kind_of(source_id, item, wheels_as, holds_logos), item.path)
         if not kind or kind not in known:
             continue
         if kind in PICTURES_ONLY and Path(item.path).suffix.lower() in NOT_A_PICTURE:
@@ -173,30 +190,31 @@ def _moving_form(kind: str, path: str) -> str:
     return MOVING[kind] if Path(path).suffix.lower() in VIDEO_SUFFIXES else kind
 
 
-def unmapped_kinds(source_id: str, game: SourceGame, known: tuple[str, ...]) -> list[str]:
+def unmapped_kinds(source_id: str, game: SourceGame, known: tuple[str, ...],
+                   wheels_as: str = WHEELS) -> list[str]:
     """What the source held that we have nowhere to put, so it can be said out loud."""
-    table = KINDS_BY_SOURCE.get(source_id, {})
+    holds_logos = _holds_logos(source_id, game)
     return sorted({item.source_kind for item in game.media
-                   if _moving_form(table.get(item.source_kind, ""), item.path)
-                   not in known})
+                   if _moving_form(_kind_of(source_id, item, wheels_as, holds_logos),
+                                   item.path) not in known})
 
 
-def left_behind(source_id: str, games: list[SourceGame],
-                known: tuple[str, ...]) -> dict[tuple[str, str], int]:
+def left_behind(source_id: str, games: list[SourceGame], known: tuple[str, ...],
+                wheels_as: str = WHEELS) -> dict[tuple[str, str], int]:
     """Files that are not placed, counted by (source folder, why) across `games`.
 
     `why` is "" for a folder we have no slot for, and `pages` or `videos` as `held_back`
     gives them. A shared folder is read once per system, so a file is counted once
     however many systems list it.
     """
-    table = KINDS_BY_SOURCE.get(source_id, {})
     seen: set[str] = set()
     counts: dict[tuple[str, str], int] = {}
     for game in games:
+        holds_logos = _holds_logos(source_id, game)
         unplaced = [(item.source_kind, item.path, "") for item in game.media
-                    if _moving_form(table.get(item.source_kind, ""), item.path)
-                    not in known]
-        for folder, path, why in [*unplaced, *held_back(source_id, game, known)]:
+                    if _moving_form(_kind_of(source_id, item, wheels_as, holds_logos),
+                                    item.path) not in known]
+        for folder, path, why in [*unplaced, *held_back(source_id, game, known, wheels_as)]:
             if path in seen:
                 continue
             seen.add(path)

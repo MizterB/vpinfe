@@ -83,6 +83,22 @@ class MediaTests(unittest.TestCase):
         self.assertEqual(sorted(kind for kind, _p in found),
                          ["playfield", "playfield_video"])
 
+    def test_wheel_images_are_filed_as_logos_when_asked(self) -> None:
+        game = self._with("Wheel Images", "Table Images")
+
+        kept = mapping.media_for("pinballx", game, KINDS)
+        asked = mapping.media_for("pinballx", game, KINDS, wheels_as="logo")
+
+        self.assertEqual(sorted(kind for kind, _p in kept), ["playfield", "wheel"])
+        self.assertEqual(sorted(kind for kind, _p in asked), ["logo", "playfield"])
+
+    def test_a_game_with_logos_of_its_own_keeps_its_wheel_a_wheel(self) -> None:
+        game = self._with("Wheel Images", "Logos")
+
+        found = mapping.media_for("pinballx", game, KINDS, wheels_as="logo")
+
+        self.assertEqual(sorted(kind for kind, _p in found), ["logo", "wheel"])
+
     def test_a_kind_this_build_has_no_slot_for_is_left_behind(self) -> None:
         """Putting it somewhere approximate would be worse than not carrying it."""
         game = self._with("FullDMD Videos")
@@ -224,6 +240,18 @@ class MediaTests(unittest.TestCase):
         game = self._with("Table Images")
 
         self.assertEqual(mapping.media_for("emulationstation", game, KINDS), [])
+
+
+class KindWordsTests(unittest.TestCase):
+    def test_every_kind_a_source_maps_to_has_a_word_for_the_media_page(self) -> None:
+        import json
+
+        words = json.loads((host.BUNDLED_DIR / "library_importer" / "i18n" / "en.json")
+                           .read_text(encoding="utf-8"))
+        mapped = {kind for table in mapping.KINDS_BY_SOURCE.values() for kind in table.values()}
+        mapped |= set(mapping.MOVING.values())
+
+        self.assertEqual(sorted(kind for kind in mapped if f"art.kind.{kind}" not in words), [])
 
 
 class FolderNameTests(unittest.TestCase):

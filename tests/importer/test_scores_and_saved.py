@@ -67,6 +67,19 @@ class RidesWithTheRomTests(ScoresCase):
         self.assertEqual(self.placed(), {("rom", "taxi_l4.zip"), ("nvram", "taxi_l4.nv"),
                                          ("cfg", "taxi_l4.cfg")})
 
+    def test_switching_scores_off_brings_the_rom_alone(self) -> None:
+        self.made("roms", "taxi_l4.zip")
+        self.made("nvram", "taxi_l4.nv")
+        self.made("cfg", "taxi_l4.cfg")
+        row = {"music": 0, "pups": 0, "roms": 0, "altdata": 0, "scores": 0}
+        game = SourceGame(key="Taxi", display_name="Taxi (Williams 1988)")
+
+        adopt._bring_keyed(self.ctx, "g1", game, "Taxi (Williams 1988)", "taxi_l4",
+                           {"roms": str(self.vp / "roms")}, row, scores=False)
+
+        self.assertEqual((row["roms"], row["scores"]), (1, 0))
+        self.assertEqual(self.placed(), {("rom", "taxi_l4.zip")})
+
     def test_a_cfg_with_no_rom_stays_behind(self) -> None:
         self.made("roms", "other.zip")
         self.made("nvram", "taxi_l4.nv")

@@ -40,6 +40,7 @@ from common.media_specs import (
 logger = logging.getLogger("vpinfe.common.games.media_ops")
 
 _KINDS = {spec.kind for spec in MEDIA_SPECS}
+_LOGO_SET = "logo"  # the reserved wheel set that resolves from each game's logo
 
 
 def kind_or_refuse(kind: str) -> str:
@@ -434,6 +435,31 @@ def remove(game_id: str, kind: str, table_id: str = "") -> dict:
     return {"removed": removed}
 
 
-__all__ = ["detail", "displaced", "fetch_file", "game_media", "kind_or_refuse",
-           "media_file", "overrides", "place_file", "place_upload", "placements",
-           "remove", "retier", "stem_or_refuse", "table_media"]
+def use_logos_for_wheels() -> dict:
+    """Set `[Media] wheelset` to the reserved `logo`, so every game's wheel is its logo."""
+    from common import config_service
+
+    config_service.apply({"settings": {"media": {"wheelset": _LOGO_SET}}})
+    return {"wheelset": _LOGO_SET}
+
+
+def get_missing_art(game_ids: list[str]) -> dict:
+    """Start the art fill for these games whatever the switch for new games says.
+
+    `started` is false while another fill runs, which does not cover these games: the
+    caller says so rather than waiting.
+    """
+    from common.games import media_fill
+    from common.jobs import JobBusyError
+
+    try:
+        media_fill.start(game_ids)
+    except JobBusyError:
+        return {"started": False}
+    return {"started": True}
+
+
+__all__ = ["detail", "displaced", "fetch_file", "game_media", "get_missing_art",
+           "kind_or_refuse", "media_file", "overrides", "place_file", "place_upload",
+           "placements", "remove", "retier", "stem_or_refuse", "table_media",
+           "use_logos_for_wheels"]

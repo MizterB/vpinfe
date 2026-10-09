@@ -246,7 +246,9 @@ class StepOrderTests(WizardCase):
     def test_a_caller_that_starts_past_the_list_is_not_shown_it(self) -> None:
         found = self._step(FIXTURE, leaving="sources", skip_existing=True)
 
-        self.assertEqual(found["step"], "summary")
+        self.assertNotIn(found["step"], ("games", "matches"))
+        self.assertEqual(self._step(FIXTURE, leaving=found["step"], skip_existing=True)["step"],
+                         "summary")
 
     def test_the_matches_page_is_left_out_when_every_game_is_settled(self) -> None:
         """No catalog in this test, so no row is left for somebody to look at."""
@@ -333,6 +335,20 @@ class TablesAndMatchesTests(WizardCase):
                        ["summary"] if len(one) == 2)
         self.assertEqual(summary["Matched to VPS"], "2")
         self.assertEqual(summary["Not matched to VPS"], "2 not found")
+
+    def test_a_pick_that_lands_on_a_game_already_here_leaves_it_unticked(self) -> None:
+        held = [{"game_id": "g1", "folder_name": "Zebra Dash (Gottlieb 1971)",
+                 "name": "Zebra Dash", "vps_id": "vps-zebra"}]
+        self._with_catalog()
+        with unittest.mock.patch("common.extensions.games.ExtensionGames.existing",
+                                 return_value=held):
+            picked = self._check(FIXTURE, picks={"Taxi 2": "vps-zebra"})
+            unpicked = self._check(FIXTURE)
+
+        rows = dict(one for one in picked["summary"] if len(one) == 2)
+        before = dict(one for one in unpicked["summary"] if len(one) == 2)
+        self.assertEqual(rows["Games"], "3")
+        self.assertEqual(before["Games"], "4")
 
     def test_a_game_the_person_says_is_in_no_catalog_is_settled_as_not_matched(self) -> None:
         found = self._matches(picks={"Taxi": ""})
@@ -519,6 +535,209 @@ class RomSummaryTests(WizardCase):
         rows = self.summary(self.installed(), roms="")
 
         self.assertNotIn("Missing ROMs", rows)
+
+    def rom_folder(self) -> str:
+        roms = self.root / "roms"
+        roms.mkdir(exist_ok=True)
+        (roms / "taxi_l4.zip").write_bytes(b"r")
+        return str(roms)
+
+    def things(self, ticking: list | None = None, **extra) -> dict:
+        """The ROMs and more page, reached the way somebody pressing Next reaches it.
+        `ticking` is the answer to the games page, where it is not left as offered."""
+        source = self.installed()
+        answers = {"roms": self.rom_folder(), "into": str(self.root / "library"), **extra}
+        with unittest.mock.patch("common.games.game_service.load_vpsdb",
+                                 return_value=self.CATALOG), \
+                unittest.mock.patch("common.online.vpsdb_sync.ensure_catalog",
+                                    return_value=True), \
+                unittest.mock.patch(
+                    "common.extensions.games.ExtensionGames.reads_of",
+                    side_effect=lambda paths, names=(): {
+                        str(one): ("taxi_l4", ()) for one in paths}):
+            found = self._step(source, leaving="sources", **answers)
+            while found.get("step") not in ("things", "summary"):
+                if found["step"] == "games" and ticking is not None:
+                    answers[found["fields"][0]["key"]] = ticking
+                found = self._step(source, leaving=found["step"], **answers)
+        return found
+
+    def test_the_roms_a_game_comes_with_are_counted_on_a_switch(self) -> None:
+        found = self.things()
+
+        self.assertEqual(found["step"], "things")
+        field = found["fields"][0]
+        self.assertEqual((field["key"], field["label"], field["value"], field["help"]),
+                         ("use_roms", "ROMs", True, "1 game"))
+
+    def test_a_thing_switched_off_is_left_out_of_what_comes_across(self) -> None:
+        rows = self.summary(self.installed(), roms=self.rom_folder(), use_roms=False)
+
+        self.assertEqual(rows["ROMs"], "Left out")
+
+    def with_scores(self) -> None:
+        nvram = self.root / "nvram"
+        nvram.mkdir(exist_ok=True)
+        (nvram / "taxi_l4.nv").write_bytes(b"scores")
+
+    def switches(self, **extra) -> dict[str, object]:
+        return {one["key"]: one["value"] for one in self.things(**extra)["fields"]}
+
+    def test_the_scores_a_rom_has_are_offered_beside_it(self) -> None:
+        self.with_scores()
+
+        self.assertEqual(self.switches(), {"use_roms": True, "use_scores": True})
+
+    def test_high_scores_that_travel_with_a_rom_go_when_roms_are_switched_off(self) -> None:
+        self.with_scores()
+
+        self.assertEqual(self.switches(use_roms=False), {"use_roms": False})
+
+    def test_a_switch_the_person_turned_off_stays_off_when_the_page_is_shown_again(self) -> None:
+        self.with_scores()
+
+        self.assertEqual(self.switches(use_scores=False)["use_scores"], False)
+
+    def test_a_game_the_run_does_not_act_on_comes_with_nothing_to_count(self) -> None:
+        self.with_scores()
+
+        found = self.things(ticking=[])
+
+        self.assertEqual(found["step"], "summary")
+
+
+class NamesArtAndThingsTests(WizardCase):
+    """The pages that ask how a matched game is named and described, what the source's
+    wheel images are, and which of the things beside the games to bring."""
+
+    CATALOG = [{"id": "vps-taxi", "name": "Taxi", "manufacturer": "Midway", "year": 1999,
+                "type": "EM"}]
+    PICKS = {"Taxi": "vps-taxi"}
+
+    def walk(self, source=FIXTURE, matched: bool = True, **values) -> list[dict]:
+        """Every page reached, in order, answering each with the value it offered."""
+        pages = []
+        seen: dict = {"picks": dict(self.PICKS)} if matched else {}
+        with unittest.mock.patch("common.games.game_service.load_vpsdb",
+                                 return_value=self.CATALOG), \
+                unittest.mock.patch("common.online.vpsdb_sync.ensure_catalog",
+                                    return_value=True):
+            found = self._step(source)
+            while "summary" not in found and found.get("step"):
+                pages.append(found)
+                for field in found.get("fields") or []:
+                    seen.setdefault(field["key"], field.get("value"))
+                seen.pop("path", None)
+                found = self._step(source, leaving=found["step"], **{**seen, **values})
+            pages.append(found)
+        return pages
+
+    def page(self, step: str, **kwargs) -> dict | None:
+        return next((one for one in self.walk(**kwargs) if one.get("step") == step), None)
+
+    def rows(self, **kwargs) -> dict[str, str]:
+        return {row[0]: row[1] for row in self.walk(**kwargs)[-1]["summary"] if len(row) == 2}
+
+    def with_wheels(self, data: bytes) -> Path:
+        """A copy of the fixture whose wheel images are the given bytes."""
+        source = self.root / "frontend"
+        shutil.copytree(FIXTURE, source)
+        for one in (source / "Media" / "Visual Pinball X" / "Wheel Images").iterdir():
+            one.write_bytes(data)
+        return source
+
+    def test_the_names_page_shows_what_a_folder_would_be_called(self) -> None:
+        page = self.page("names")
+
+        names = page["fields"][0]
+        self.assertEqual((names["value"], [one[0] for one in names["choices"]]),
+                         ("vps", ["vps", "source"]))
+        self.assertEqual(names["choices"][0][1], "From VPS")
+        self.assertEqual(names["choices"][1][1], "As in PinballX / PinballY")
+        self.assertIn("Taxi (Williams 1988) becomes Taxi (Midway 1999)", names["help"])
+
+    def test_the_details_page_counts_where_the_two_disagree(self) -> None:
+        page = self.page("names")
+
+        details = page["fields"][1]
+        self.assertEqual([one[0] for one in details["choices"]], ["vps", "source", "some"])
+        self.assertEqual(details["help"], "Where they differ: Maker 1, Year 1")
+        self.assertEqual(page["fields"][2]["value"], ["manufacturer", "year"])
+
+    def test_nothing_is_asked_where_the_entry_changes_nothing(self) -> None:
+        self.assertIsNone(self.page("names", matched=False))
+
+    def test_keeping_the_sources_names_is_said_on_the_summary(self) -> None:
+        rows = self.rows(names="source", details="source")
+
+        self.assertEqual(rows["Folder names"], "As in PinballX / PinballY")
+        self.assertEqual(rows["Details"], "Keep PinballX / PinballY's")
+
+    def test_choosing_which_details_to_keep_names_them(self) -> None:
+        rows = self.rows(details="some", details_some=["year"])
+
+        self.assertEqual(rows["Details"], "Keep yours for Year")
+
+    def test_the_art_page_offers_a_few_of_the_wheel_images_to_judge_by(self) -> None:
+        page = self.page("art")
+
+        wheels_as = page["fields"][0]
+        self.assertEqual([one[0] for one in wheels_as["choices"]], ["logo", "wheel"])
+        self.assertEqual([one[1] for one in wheels_as["choices"]], ["Logos", "Wheels"])
+        self.assertTrue(all(one[3] for one in wheels_as["choices"]))
+        self.assertIn("A game with no wheel shows its logo.", page["help"])
+        self.assertIn("Wheel 1", page["help"])
+
+    def test_wheel_images_that_are_not_pictures_it_can_read_are_wheels(self) -> None:
+        self.assertEqual(self.page("art")["fields"][0]["value"], "wheel")
+
+    def test_wide_transparent_wheel_images_are_offered_as_logos(self) -> None:
+        from tests.importer.test_shapes import png
+
+        page = self.page("art", source=self.with_wheels(png(800, 200)))
+
+        self.assertEqual(page["fields"][0]["value"], "logo")
+
+    def test_the_show_logos_switch_follows_the_answer(self) -> None:
+        page = self.page("art")
+
+        shown = page["fields"][1]
+        self.assertEqual(shown["key"], "show_logos")
+        self.assertEqual(shown["help"]["follows"], "wheels_as")
+        self.assertEqual(list(shown["help"]["says"]), ["logo"])
+
+    def test_the_summary_says_what_the_wheel_images_are_kept_as(self) -> None:
+        wheels = self.rows(wheels_as="wheel")
+        logos = self.rows(wheels_as="logo")
+
+        self.assertEqual(wheels["Wheel images"], "Wheels")
+        self.assertNotIn("Show logos in the wheel, as before", wheels)
+        self.assertEqual(logos["Wheel images"], "Logos")
+        self.assertEqual(logos["Show logos in the wheel, as before"], "Yes")
+        self.assertEqual(logos["Get missing media"], "Yes")
+
+    def test_missing_media_is_not_fetched_when_the_switch_is_off(self) -> None:
+        self.assertEqual(self.rows(fetch_art=False)["Get missing media"], "No")
+
+    def test_an_answer_kept_from_an_earlier_import_starts_the_page(self) -> None:
+        self.store.set_setting("library_importer", "answers",
+                               '{"fetch_art": false, "names": "source", "other": 1}')
+
+        pages = self.walk()
+        art = next(one for one in pages if one["step"] == "art")
+        names = next(one for one in pages if one["step"] == "names")
+
+        self.assertIs(next(one for one in art["fields"] if one["key"] == "fetch_art")["value"],
+                      False)
+        self.assertEqual(names["fields"][0]["value"], "source")
+
+    def test_what_is_kept_is_one_text_that_can_be_unreadable(self) -> None:
+        self.store.set_setting("library_importer", "answers", "not json")
+
+        self.assertIs(self.page("art")["fields"][1]["value"], True)
+
+    def test_a_thing_the_source_has_none_of_gets_no_switch(self) -> None:
+        self.assertIsNone(self.page("things"))
 
 
 if __name__ == "__main__":

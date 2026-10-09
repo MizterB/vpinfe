@@ -241,6 +241,7 @@ class NamedByTheEntryTests(unittest.TestCase):
         made = self._plan(*self._trek(), names="source")
 
         self.assertEqual(len({one.folder for one in made.matches}), 2)
+        self.assertEqual(made.renamed()[0], 1)
 
     def test_a_game_nothing_matched_keeps_the_source_name(self) -> None:
         made = self._plan(_game("Funhouse (Williams 1990)", title="Funhouse",

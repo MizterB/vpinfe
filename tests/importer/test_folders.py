@@ -423,7 +423,7 @@ class StepTests(FolderCase):
     def test_moving_a_frontends_files_says_its_list_will_point_at_nothing(self) -> None:
         source, _ = self.a_frontend()
 
-        found = self.step(source, leaving="games")
+        found = self.step(source, leaving="art")
 
         choices = found["fields"][0]["choices"]
         self.assertIn("find these tables", choices[1][2])
@@ -536,7 +536,7 @@ class StepTests(FolderCase):
     def test_a_frontend_is_still_read_by_its_own_reader(self) -> None:
         source, _ = self.a_frontend()
 
-        found = self.step(source, leaving="games")
+        found = self.step(source, leaving="art")
 
         self.assertEqual(found["step"], "how")
         self.assertEqual(self.step(source, leaving="how", how="copy",
@@ -616,6 +616,19 @@ class RunTests(FolderCase):
         wire = self.client.get(f"/jobs/{self.job.id}").json()
         self.assertTrue(wire["report"])
         self.assertEqual(wire["problems"], 0)
+
+    def test_the_answers_to_the_choice_pages_are_kept_for_the_next_import(self) -> None:
+        import json
+
+        self.loose("Harbor Lights")
+        copies = self.root / "Copies"
+        copies.mkdir()
+
+        self.run_it(self.tables, how="copy", into=str(copies), names="source",
+                    fetch_art=False, use_music=False, games=["Harbor Lights"], picks={})
+
+        kept = json.loads(self.store.settings("library_importer")["answers"])
+        self.assertEqual(kept, {"names": "source", "fetch_art": False, "use_music": False})
 
     def test_filling_a_game_that_lost_its_file_gives_it_back_and_says_filled(self) -> None:
         self.loose("Harbor Lights")

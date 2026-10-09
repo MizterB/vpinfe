@@ -102,6 +102,9 @@ class Match:
     # folder the source would have made where the entry's name is used instead, and the
     # details the two disagree on.
     was: str = ""
+    # The folder the entry's name would make where it is not the source's, whichever of
+    # the two the games are called by: what the Names page counts and shows.
+    called: str = ""
     differs: tuple[str, ...] = ()
     gaps: tuple[str, ...] = ()
     # Counted here because here is where the game is in hand. Looking them up later by
@@ -221,6 +224,14 @@ class Plan:
     detail_fields: tuple[str, ...] = ()
     # Whether the source's manufacturer logos are offered to the makers here.
     logos: bool = True
+    # What the source's wheel images are kept as (`mapping.WHEELS_AS`); whether the wheel
+    # then shows logos; whether missing art is fetched for the games this run touches.
+    wheels_as: str = mapping.WHEELS
+    show_logos: bool = True
+    fetch_art: bool = True
+    # Whether high scores and game settings come with a game. They sit with the ROM and
+    # in the files its script saved, so no source folder stands for them.
+    scores: bool = True
 
     @property
     def new(self) -> list[Match]:
@@ -244,15 +255,15 @@ class Plan:
         return next((one for one in self.sources if one.key == key), None)
 
     def renamed(self, shown: int = RENAMES_SHOWN) -> tuple[int, list[tuple[str, str]]]:
-        """How many games the entry's name changes the folder of, with the first few as
-        (as the source named it, as it will be named). One per folder: the games that
+        """How many games the entry's name would change the folder of, with the first few
+        as (as the source named it, as the entry would). One per folder: the games that
         share a folder are one game."""
         seen: set[str] = set()
         changed: list[tuple[str, str]] = []
         for one in self.making:
-            if one.was and one.folder.lower() not in seen:
-                seen.add(one.folder.lower())
-                changed.append((one.was, one.folder))
+            if one.called and one.called.lower() not in seen:
+                seen.add(one.called.lower())
+                changed.append((one.was or one.folder, one.called))
         return len(changed), changed[:shown]
 
     def differing(self) -> dict[str, int]:
@@ -363,10 +374,15 @@ def going(library: SourceLibrary, plan: Plan,
     key would merge the entries that share one. `offered` adds the games already in the
     library, which ticking would act on.
     """
-    wanted = {id(one) for one in plan.matches
-              if one.taken or (offered and one.existing)}
-    return [game for game, match in zip(_games(library, systems), plan.matches, strict=True)
-            if id(match) in wanted]
+    return [game for game, _match in pairs(library, plan, systems, offered)]
+
+
+def pairs(library: SourceLibrary, plan: Plan, systems: list[str] | None = None,
+          offered: bool = False) -> list[tuple[SourceGame, Match]]:
+    """`going`, each game with the match it was made into."""
+    return [(game, match)
+            for game, match in zip(_games(library, systems), plan.matches, strict=True)
+            if match.taken or (offered and match.existing)]
 
 
 def systems_going(library: SourceLibrary, games: list[SourceGame]) -> list[SourceSystem]:
@@ -394,7 +410,8 @@ def bytes_to_copy(games: list[SourceGame], source_id: str, kinds: tuple[str, ...
                   roms: dict[str, str] | None = None, roms_dir: str = "",
                   named: dict[str, tuple[str, ...]] | None = None,
                   saved: Saved | None = None,
-                  real: Callable[[str], str] | None = None) -> int:
+                  real: Callable[[str], str] | None = None,
+                  wheels_as: str = mapping.WHEELS) -> int:
     """What a run writes, in bytes: the game files and what rides with them, unless they
     are moved, the artwork, the ROM set each game's file names where `roms_dir` has it
     with its scores and settings, and the saved files its script names.
@@ -417,7 +434,8 @@ def bytes_to_copy(games: list[SourceGame], source_id: str, kinds: tuple[str, ...
             wanted.append(table)
             wanted += [table.parent / name
                        for name in _beside(companions_of, game.table_file)]
-        wanted += [Path(path) for _kind, path in mapping.media_for(source_id, game, kinds)]
+        wanted += [Path(path) for _kind, path
+                   in mapping.media_for(source_id, game, kinds, wheels_as)]
         rom = (roms or {}).get(game.table_file, "") if game.table_file else ""
         rom = (real(rom) if real and rom else "") or rom
         found = finding.rom_file(roms_dir, rom) if rom and roms_dir else None
@@ -677,7 +695,8 @@ def match_existing(library: SourceLibrary, existing: list[dict],
                    companions_of: Callable[..., Any] | None = None,
                    history: dict[str, gamestats.Played] | None = None,
                    looked: dict[int, dict] | None = None,
-                   names: str = DEFAULT_NAMES) -> list[Match]:
+                   names: str = DEFAULT_NAMES,
+                   wheels_as: str = mapping.WHEELS) -> list[Match]:
     """Which of the source's games the library already holds.
 
     By the folder this import would create first, because that is what a previous run of
@@ -709,15 +728,18 @@ def match_existing(library: SourceLibrary, existing: list[dict],
         answer = (looked or {}).get(id(game)) or {}
         entry = str(answer.get("vps_id") or "")
         said = answer.get("entry") or {}
-        folder, was = source_folder, ""
-        if names == "vps" and entry and said.get("folder_name"):
-            folder = (folder_name_for(said["folder_name"]) if folder_name_for
-                      else said["folder_name"])
-            was = source_folder if _folded(folder) != _folded(source_folder) else ""
+        folder, was, called = source_folder, "", ""
+        if entry and said.get("folder_name"):
+            entry_folder = (folder_name_for(said["folder_name"]) if folder_name_for
+                            else said["folder_name"])
+            differs = _folded(entry_folder) != _folded(source_folder)
+            called = entry_folder if differs else ""
+            if names == "vps":
+                folder, was = entry_folder, source_folder if differs else ""
         held = by_folder.get(_folded(folder))
         if held is None and (held := by_folder.get(_folded(source_folder))):
             # Called what is on disk, which is the name it was made under.
-            folder, was = source_folder, ""
+            folder, was, called = source_folder, "", ""
         how = "folder" if held else ""
         for wanted in (game.vps_id, entry):
             if held is None and wanted:
@@ -728,10 +750,10 @@ def match_existing(library: SourceLibrary, existing: list[dict],
             if len(sharing) == 1:
                 held, how = sharing[0], "table_file"
         played = history_for(history or {}, game)
-        pictures = mapping.media_for(source_id, game, kinds)
+        pictures = mapping.media_for(source_id, game, kinds, wheels_as)
         found.append(Match(key=game.key, folder=folder,
                            game_id=str(held.get("game_id") or "") if held else "",
-                           how=how, vps_id=entry, was=was,
+                           how=how, vps_id=entry, was=was, called=called,
                            differs=disagreements(game, said) if entry else (),
                            gaps=gaps(game, said) if entry else (),
                            found_by=str(answer.get("how") or ""),
@@ -828,19 +850,21 @@ def build(library: SourceLibrary, existing: list[dict], chosen: dict | None = No
           companions_of: Callable[..., Any] | None = None,
           looked: dict[int, dict] | None = None,
           names: str = DEFAULT_NAMES, details: str = DEFAULT_DETAILS,
-          detail_fields: list[str] | None = None) -> Plan:
+          detail_fields: list[str] | None = None,
+          wheels_as: str = mapping.WHEELS) -> Plan:
     names = names if names in NAMES else DEFAULT_NAMES
+    wheels_as = wheels_as if wheels_as in mapping.WHEELS_AS else mapping.WHEELS
     details = details if details in DETAILS else DEFAULT_DETAILS
     sources = derive_sources(library, chosen)
     history, notes = _history(next((one.path for one in sources if one.key == "history"),
                                    ""))
     matches = match_existing(library, existing, systems, folder_name_for, source_id, kinds,
-                             companions_of, history, looked, names)
+                             companions_of, history, looked, names, wheels_as)
     wanted = None if ticked is None else {str(one) for one in ticked}
     for one in matches:
         one.taken = not one.existing if wanted is None else one.row in wanted
     return Plan(sources=sources, matches=matches, history=history, notes=notes,
-                names=names, details=details,
+                names=names, details=details, wheels_as=wheels_as,
                 detail_fields=tuple(one for one in DETAIL_FIELDS
                                     if one in (detail_fields or ())))
 

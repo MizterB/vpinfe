@@ -146,7 +146,7 @@ def _bring_named(ctx: Any, game_id: str, kind: str, folder: str, names: list[str
     return 0
 
 
-def _names_of(game: SourceGame, folder: str, rom: str, asked: str = "") -> list[str]:
+def names_of(game: SourceGame, folder: str, rom: str, asked: str = "") -> list[str]:
     """What a set kept for a game may be called: its ROM, the folder it becomes, its game
     file, its title. In that order, because a ROM names one machine and a title names many."""
     stem = Path(game.table_file).stem if game.table_file else ""
@@ -157,7 +157,7 @@ def _names_of(game: SourceGame, folder: str, rom: str, asked: str = "") -> list[
 def _bring_keyed(ctx: Any, game_id: str, game: SourceGame, folder: str, rom: str,
                  sources: dict[str, str], row: AdoptedRow,
                  kept: saved.Saved | None = None, named: tuple[str, ...] = (),
-                 asked: str = "") -> None:
+                 asked: str = "", scores: bool = True) -> None:
     """What a source keeps for a game by its ROM or its name, once the game file is in.
 
     A game with no ROM has nothing keyed on one, which is most of a library and not a
@@ -171,12 +171,12 @@ def _bring_keyed(ctx: Any, game_id: str, game: SourceGame, folder: str, rom: str
         rom_there = state in ("placed", "there")
     if rom and sources.get("altdata"):
         row["altdata"] = _bring_alt_data(ctx, game_id, rom, sources["altdata"])
-    names = _names_of(game, folder, rom, asked)
+    names = names_of(game, folder, rom, asked)
     if sources.get("music"):
         row["music"] = _bring_named(ctx, game_id, "music", sources["music"], names)
     if sources.get("pups"):
         row["pups"] = _bring_named(ctx, game_id, "pup_pack", sources["pups"], names)
-    if sources.get("roms") or sources.get("user"):
+    if scores and (sources.get("roms") or sources.get("user")):
         row["scores"] = _bring_scores(ctx, game_id, rom, sources, kept or saved.Saved(),
                                       named, rom_there)
 
@@ -294,11 +294,12 @@ def _put(ctx: Any, game_id: str, kind: str, path: Path, rom: str) -> int:
 
 
 def _place_media(ctx: Any, game_id: str, source_id: str, game: SourceGame,
-                 kinds: tuple[str, ...], stem: str, replace: bool, row: AdoptedRow) -> None:
+                 kinds: tuple[str, ...], stem: str, replace: bool, row: AdoptedRow,
+                 wheels_as: str = mapping.WHEELS) -> None:
     """The game's artwork, one file per kind. Counts what was placed; a folder core would
     not take a file from is named in `skipped_media` beside the folders with no kind."""
     refused: set[str] = set()
-    for kind, path in mapping.media_for(source_id, game, kinds):
+    for kind, path in mapping.media_for(source_id, game, kinds, wheels_as):
         try:
             ctx.games.put_media(game_id, kind, path, stem, replace=replace)
             row["media"] += 1
@@ -308,7 +309,7 @@ def _place_media(ctx: Any, game_id: str, source_id: str, game: SourceGame,
             ctx.logger.warning("%s: %s did not come across: %s", row["name"], kind, exc)
             refused.add(mapping.folder_of(game, path))
     row["skipped_media"] = sorted(
-        {*mapping.unmapped_kinds(source_id, game, kinds), *refused} - {""})
+        {*mapping.unmapped_kinds(source_id, game, kinds, wheels_as), *refused} - {""})
 
 
 def _kept(details: dict, mode: str, chosen: tuple[str, ...],
@@ -350,7 +351,8 @@ def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
          vps_id: str = "", guessed: bool = False,
          kept: tuple[str, tuple[str, ...], tuple[str, ...]] = ("source", (), ()),
          saved_here: saved.Saved | None = None,
-         beside_here: beside.Beside | None = None) -> AdoptedRow:
+         beside_here: beside.Beside | None = None,
+         wheels_as: str = mapping.WHEELS, scores: bool = True) -> AdoptedRow:
     """One game, and what became of it. Returns a row for the report.
 
     `kept` is whose details a matched game keeps - the plan's `details` and
@@ -433,7 +435,7 @@ def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
                     ctx.logger.warning("%s: its details did not get written: %s", name, again)
 
     if "media" not in cleared:
-        _place_media(ctx, game_id, source_id, game, kinds, stem, not existing, row)
+        _place_media(ctx, game_id, source_id, game, kinds, stem, not existing, row, wheels_as)
 
     # After the table, because the ROM comes out of the table. A game with no ROM has
     # nothing keyed on it, which is most of a library and not a failure. A filled game's
@@ -445,7 +447,8 @@ def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
         named = _named_in(ctx, game, saved_here, beside_here)
     asked, rom = rom, (beside_here.real_rom(rom) if beside_here else "") or rom
     if (row["table"] or existing) and sources:
-        _bring_keyed(ctx, game_id, game, name, rom, sources, row, saved_here, named, asked)
+        _bring_keyed(ctx, game_id, game, name, rom, sources, row, saved_here, named, asked,
+                     scores)
     if (row["table"] or existing) and beside_here:
         _bring_beside(ctx, game_id, game, table_id, asked, named, beside_here)
 
@@ -461,7 +464,8 @@ def _another_build(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str,
                    existing: bool = False,
                    sources: dict[str, str] | None = None,
                    saved_here: saved.Saved | None = None,
-                   beside_here: beside.Beside | None = None) -> AdoptedRow:
+                   beside_here: beside.Beside | None = None,
+                   wheels_as: str = mapping.WHEELS, scores: bool = True) -> AdoptedRow:
     """A second build of a machine the run has already made a game for.
 
     Its file joins that game rather than starting another one. Its artwork fills the
@@ -495,13 +499,45 @@ def _another_build(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str,
                 ctx.logger.warning("%s: the game file did not come across: %s", name, exc)
                 row["error"] = {"text": ctx.t("error.game_file"), "detail": ctx.why(exc)}
     if "media" not in cleared:
-        _place_media(ctx, game_id, source_id, game, kinds, "", False, row)
+        _place_media(ctx, game_id, source_id, game, kinds, "", False, row, wheels_as)
     asked, rom = rom, (beside_here.real_rom(rom) if beside_here else "") or rom
     if row["table"] and sources:
-        _bring_keyed(ctx, game_id, game, name, rom, sources, row, saved_here, named, asked)
+        _bring_keyed(ctx, game_id, game, name, rom, sources, row, saved_here, named, asked,
+                     scores)
     if row["table"] and beside_here:
         _bring_beside(ctx, game_id, game, table_id, asked, named, beside_here)
     return row
+
+
+def _turns_wheels_to_logos(source_id: str, games: list[SourceGame],
+                           kinds: tuple[str, ...]) -> bool:
+    """Whether any of these games has a wheel image that is kept as a logo."""
+    return any(set(mapping.media_for(source_id, game, kinds, mapping.LOGOS))
+               != set(mapping.media_for(source_id, game, kinds, mapping.WHEELS))
+               for game in games)
+
+
+def _art_after(ctx: Any, plan: Any, made: list[AdoptedRow], converted: bool) -> dict:
+    """What the Media page asked for once the games exist: the wheel showing logos, which
+    waits for a wheel image to have become one, and a fill for what the matched games are
+    missing. Each says whether it happened; neither stops the report."""
+    done = {"wheel_logos": False, "art_started": False}
+    if not made or not plan:
+        return done
+    if plan.wheels_as == mapping.LOGOS and plan.show_logos and converted:
+        try:
+            ctx.games.use_logos_for_wheels()
+            done["wheel_logos"] = True
+        except Exception as exc:
+            ctx.logger.warning("The wheel did not switch to logos: %s", exc)
+    if plan.fetch_art:
+        try:
+            ids = list(dict.fromkeys(row["game_id"] for row in made if row.get("matched")))
+            done["art_started"] = bool(ids) and bool(
+                ctx.games.get_missing_art(ids).get("started"))
+        except Exception as exc:
+            ctx.logger.warning("Missing art was not asked for: %s", exc)
+    return done
 
 
 def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = "",
@@ -543,6 +579,8 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
     cleared = frozenset(one.key for one in (plan.sources if plan else ())
                         if not one.active)
     history = plan.history if plan else {}
+    wheels_as = plan.wheels_as if plan else mapping.WHEELS
+    scores = plan.scores if plan else True
     kept_here = saved.read(ctx, sources.get("user", ""))
     beside_here = beside.read(ctx, sources)
 
@@ -587,14 +625,15 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
         if seen:
             rows.append(_another_build(ctx, library.source_id, game, kinds, name, seen,
                                        move, cleared, seen in held_ids.values(), sources,
-                                       kept_here, beside_here))
+                                       kept_here, beside_here, wheels_as, scores))
             continue
         row = _one(ctx, library.source_id, game, kinds, where, name, sources,
                    history, move, cleared, held_ids.get(id(game), ""),
                    found.vps_id if found else "",
                    found.found_by == "name" if found else False,
                    (plan.details, plan.detail_fields, found.gaps if found else ())
-                   if plan else ("source", (), ()), kept_here, beside_here)
+                   if plan else ("source", (), ()), kept_here, beside_here, wheels_as,
+                   scores)
         if row["game_id"]:
             made_here[name.lower()] = row["game_id"]
         rows.append(row)
@@ -602,6 +641,9 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
     # After the games, so the makers it looks for include the ones this run made.
     brought = (logos.bring(ctx, sources.get("media", ""))
                if made and (plan.logos if plan else True) else {"placed": 0, "held": 0})
+    after = ({"wheel_logos": False, "art_started": False} if stopped else _art_after(
+        ctx, plan, made, wheels_as == mapping.LOGOS and _turns_wheels_to_logos(
+            library.source_id, [game for _where, game in to_do], kinds)))
     filled = {row["name"].lower() for row in made if row.get("existing") and any(
         row[one] for one in ("table", "media", "companions", "roms", "altdata", "music", "pups",
                             "scores", "history"))}
@@ -618,6 +660,7 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
         "scores": sum(row["scores"] for row in made),
         "history": sum(row["history"] for row in made),
         "logos": brought["placed"],
+        **after,
         "matched": sum(1 for row in made if row.get("matched")),
         "failed": len(rows) - len(made),
         "stopped": stopped,
