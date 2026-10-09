@@ -438,7 +438,8 @@ def _run_ui():
            reload=False,
            show=False,
            language=i18n.nicegui_language(),
-           storage_secret=STORAGE_SECRET)
+           storage_secret=STORAGE_SECRET,
+           log_config=None)
 
 def start_manager_ui(port=8001, bind="0.0.0.0"):
     global _ui_thread, _ui_port, _ui_bind
