@@ -2,8 +2,8 @@
 
 Answers *what did this install just do, and how did it go*, from the job registry rather
 than a log file. It is a grid, so it takes the grid's sorting and filters; the bar above
-it narrows by outcome and by a find, and opens the report of the job the grid has focus
-on.
+it narrows by outcome and by a find. A job that kept a report ends its Detail with a link
+to it, which a double-click on its row opens too.
 
 The list is read again every EVERY_SECONDS.
 """
@@ -42,11 +42,6 @@ def build(library: Library, state: dict[str, Any], redraw: Callable[[], None]) -
         # What the box holds now: the grid, or the words standing in for it.
         "table": None,
         "rows": [],
-        # The job the grid has focus on, and the slot the button that opens its report is
-        # drawn in.
-        "focused_job": "",
-        "report_slot": None,
-        "report_enabled": None,
         "error": "",
     }
 
@@ -85,30 +80,14 @@ def build(library: Library, state: dict[str, Any], redraw: Callable[[], None]) -
         ui.input(placeholder=t("console.jobs.find"), value=held["find"]) \
             .props("dense outlined clearable").classes("grow min-w-0") \
             .on_value_change(lambda e: find(e.value or ""))
-        held["report_slot"] = ui.element("div")
-    _sync_report(held)
 
     busy.fill(box, load)
     ui.timer(EVERY_SECONDS, load)
 
 
-def _sync_report(held: dict[str, Any]) -> None:
-    """The report button is live for a focused job that kept one. It is drawn again in its
-    own slot, so the find box beside it keeps what is typed."""
-    slot = held["report_slot"]
-    if slot is None:
-        return
-    row = next((one for one in held["rows"] if one["id"] == held["focused_job"]), None)
-    enabled = bool(row and row["report"])
-    if held["report_enabled"] == enabled and len(slot.default_slot.children):
-        return
-    held["report_enabled"] = enabled
-    slot.clear()
-    with slot:
-        panel.action(t("console.jobs.view_report"),
-                     lambda: job_report.open_for(held["focused_job"]),
-                     icon=verbs.REVIEW, enabled=enabled,
-                     hint=t("console.jobs.view_report.hint"))()
+def report_asked(event: Any) -> Any:
+    """The report of the job a row, or the link on it, asked for."""
+    return job_report.open_for(str(event.args or ""))
 
 
 def _draw(box: Any, held: dict[str, Any], shown: list[dict[str, Any]],
@@ -122,18 +101,17 @@ def _draw(box: Any, held: dict[str, Any], shown: list[dict[str, Any]],
         if held["table"] == said:
             return
         held["table"] = said
-        held["rows"], held["focused_job"] = [], ""
+        held["rows"] = []
         box.clear()
         with box:
             panel.facts(ui, [panel.intro(t("console.jobs.read_failed"),
                                          hint=held["error"])] if held["error"]
                         else [panel.intro(said[1])])
-        _sync_report(held)
         return
     table = held["table"]
     if table is None or isinstance(table, tuple):
         box.clear()
-        held["rows"], held["focused_job"] = shown, ""
+        held["rows"] = shown
         with box:
             menu: ui.context_menu
 
@@ -152,16 +130,9 @@ def _draw(box: Any, held: dict[str, Any], shown: list[dict[str, Any]],
                                on_context=fill_menu, on_header_context=on_header_context)
             menu = ui.context_menu()
 
-        def focused(event: Any) -> None:
-            held["focused_job"] = grid.focused_row(event)
-            _sync_report(held)
-
-        grid.on_row_focus(jobs_list.SCOPE, focused)
         held["table"] = table
         table.run_grid_method("setGridOption", "quickFilterText", held["find"])
-        _sync_report(held)
         return
     if held["rows"] != shown:
         held["rows"] = shown
         table.run_grid_method("setGridOption", "rowData", shown)
-        _sync_report(held)

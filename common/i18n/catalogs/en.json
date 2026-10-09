@@ -1618,7 +1618,6 @@
   "console.jobs.took": "Took",
   "console.jobs.took.help": "How long it ran, or how long so far while it is running",
   "console.jobs.view_report": "View report",
-  "console.jobs.view_report.hint": "Open what the selected job found and skipped",
   "console.jobs.what": "What ran",
   "console.jobs.what.help": "The kind of work the job did",
   "console.launchers.add": "{app}…",

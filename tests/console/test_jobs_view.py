@@ -45,6 +45,13 @@ class Outcome(unittest.TestCase):
         self.assertTrue(jobs_list.row(_job(report=True), NOW)["report"])
         self.assertFalse(jobs_list.row(_job(), NOW)["report"])
 
+    def test_every_column_opens_the_report_and_detail_carries_the_link(self) -> None:
+        for column in jobs_list.COLUMNS:
+            for key in jobs_list.OPENS_REPORT:
+                self.assertIn(key, column, column["field"])
+        detail = next(one for one in jobs_list.COLUMNS if one["field"] == "detail")
+        self.assertIn(t("console.jobs.view_report"), detail[":cellRenderer"])
+
     def test_done_with_errors_can_be_asked_for(self) -> None:
         clean, rough = _job(started=NOW - 500), _job(started=NOW - 50, problems=2)
 

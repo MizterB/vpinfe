@@ -571,6 +571,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     ui.on("hub_row_focus", grid.row_focused)
     ui.on("hub_media_zoom", lambda event: games.media_zoomed(state, event))
     ui.on("hub_rate", lambda event: games.rated(state, event))
+    ui.on(jobs_list.REPORT_ASKED, jobs_page.report_asked)
     ui.on("console_dnd", uploads.listener(lambda drop: _took_a_drop(library, state, redraw,
                                                                      drop)))
 

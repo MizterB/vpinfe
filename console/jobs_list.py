@@ -6,6 +6,7 @@ again, apart from the jobs that kept their result: those come back with a report
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from common import jobs
@@ -13,6 +14,32 @@ from common.i18n import t
 from console import grid, when
 
 SCOPE = "console.jobs"
+
+# What the link and a double-click on a row ask the page for: the report of the row's job,
+# on a row that has one. Answered by the listener in `console/page.py`.
+REPORT_ASKED = "hub_job_report"
+_ASK = "emitEvent('" + REPORT_ASKED + "', params.data.id)"
+OPENS_REPORT: dict[str, Any] = {
+    ":onCellClicked":
+        "params => { const link = params.event && params.event.target.closest("
+        f"'[data-job-report]'); if (link) {{ params.event.preventDefault(); "
+        f"if (params.event.detail < 2) {_ASK}; }} }}",
+    ":onCellDoubleClicked":
+        "params => { const link = params.event && params.event.target.closest("
+        f"'[data-job-report]'); if (!link && params.data && params.data.report) {_ASK}; }}",
+}
+
+# The link follows the line and keeps its place on the row when the line is too long.
+_DETAIL_RENDERER = (
+    "params => {"
+    " const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')"
+    ".replace(/\"/g, '&quot;');"
+    " const said = esc(params.value == null ? '' : params.value);"
+    " if (!(params.data || {}).report) return said;"
+    " return '<span class=\"console-cell-detail\"><span title=\"' + said + '\">' + said"
+    " + '</span><a class=\"console-link\" href=\"#\" data-job-report=\"1\">' + "
+    f"{json.dumps(t('console.jobs.view_report'))} + '</a></span>'; }}"
+)
 
 LIMIT = jobs.HISTORY_LIMIT
 
@@ -30,17 +57,18 @@ def _said(field: str) -> dict[str, Any]:
 
 COLUMNS = [
     grid.identifier("what", t("console.jobs.what"), 230, pinned="left",
-                    help=t("console.jobs.what.help")),
+                    help=t("console.jobs.what.help"), **OPENS_REPORT),
     grid.column("started", t("console.jobs.started"), 190, filter=False,
-                help=t("console.jobs.started.help"), **_said("started")),
+                help=t("console.jobs.started.help"), **_said("started"), **OPENS_REPORT),
     grid.column("took", t("console.jobs.took"), 130, filter=False,
-                help=t("console.jobs.took.help"), **_said("took")),
+                help=t("console.jobs.took.help"), **_said("took"), **OPENS_REPORT),
     grid.column("outcome", t("console.jobs.outcome"), 120,
                 help="\n".join(t(f"console.jobs.outcome.{one}.help") for one in OUTCOMES),
                 **grid.choice_filter([{"value": one, "label": t(f"console.jobs.outcome.{one}")}
-                                      for one in OUTCOMES])),
+                                      for one in OUTCOMES]), **OPENS_REPORT),
     grid.column("detail", t("console.jobs.detail"), 420,
-                help=t("console.jobs.detail.help")),
+                help=t("console.jobs.detail.help"),
+                **{":cellRenderer": _DETAIL_RENDERER}, **OPENS_REPORT),
 ]
 
 
