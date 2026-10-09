@@ -2846,8 +2846,14 @@ async def _play_block(context: dict[str, Any]) -> None:
     scores = await _high_scores(context)
     shots = await pictures.read(context)
     with ui.column().classes("gap-0 console-form"):
-        _rows(ui, [*_play_entries(context), *_high_score_rows(context, scores),
-                   *pictures.rows(context, shots)])
+        _rows(ui, _play_section(context, scores, shots))
+
+
+def _play_section(context: dict[str, Any], scores: dict[str, Any],
+                  shots: dict[str, Any]) -> list[tuple[Any, ...]]:
+    return panel.headed([*_play_entries(context), *_high_score_rows(context, scores),
+                         *pictures.rows(context, shots)],
+                        t("console.workbench.game_section"))
 
 
 async def _high_scores(context: dict[str, Any]) -> dict[str, Any]:

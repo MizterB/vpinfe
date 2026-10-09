@@ -49,6 +49,14 @@ GROUP = object()
 RAIL_PX = 152
 
 
+def headed(entries: Sequence[tuple[Any, ...]], first: str) -> list[tuple[Any, ...]]:
+    """`entries`, with `first` heading the opening group when a later one is headed."""
+    rows = list(entries)
+    if any(row[0] is HEADING for row in rows) and rows[0][0] is not HEADING:
+        rows.insert(0, (HEADING, first))
+    return rows
+
+
 def header(name: str, note: str = "",
            findings: Sequence[Callable[[], None]] = (), caption: str = "") -> None:
     """What the content under it is about, where the rail row is too far away to say it.
