@@ -6,7 +6,7 @@ from __future__ import annotations
 import asyncio
 import unittest
 from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 from nicegui import ui
 
@@ -218,6 +218,110 @@ class TheRetryLinks(unittest.TestCase):
 
         opened.assert_not_awaited()
         said.assert_called_once()
+
+
+class TheLineOnLocations(unittest.TestCase):
+    def setUp(self) -> None:
+        import_report._drawn.clear()
+
+    def test_what_is_waiting_is_the_rows_the_report_draws_under_needs_a_look(self) -> None:
+        job = _job(items=[_item(import_report.NEED_ROM, 1), _item(import_report.NEED_ROM, 2),
+                          _item(import_report.NO_WHEEL, 1), _item(import_report.DMD_ALONE, 1)],
+                   rows=[{"key": "bad", "name": "Bad", "error": "no table"}])
+        job["checked"] = {import_report.NEED_ROM: {"need_rom-1"}}
+
+        self.assertEqual(3, import_report.waiting(job))
+
+    def _latest(self, jobs: list[dict[str, Any]], kept: dict[str, Any]) -> Any:
+        async def inline(call: Any, *args: Any) -> Any:
+            return call(*args)
+
+        library = Mock()
+        library.jobs.return_value = jobs
+        library.job.return_value = kept
+        with patch.object(offload, "io", new=inline), \
+                patch.object(import_report, "check", new=AsyncMock()):
+            return asyncio.run(import_report.latest(library)), library
+
+    def _kept(self, **result: Any) -> dict[str, Any]:
+        return {**_job(**result), "finished_at": 1760000000.0}
+
+    def test_an_import_with_rows_left_says_how_many(self) -> None:
+        kept = self._kept(items=[_item(import_report.NOT_MATCHED, n) for n in range(12)],
+                          program="PinballY")
+        line, library = self._latest(
+            [{"id": JOB, "kind": import_report.IMPORT_KIND, "report": True, "started_at": 5}],
+            kept)
+
+        self.assertEqual(("PinballY, 12 to look at", report_groups.report_address(JOB)), line)
+        library.job.assert_called_once_with(JOB)
+
+    def test_an_import_with_nothing_left_says_when_it_was(self) -> None:
+        line, _ = self._latest(
+            [{"id": JOB, "kind": import_report.IMPORT_KIND, "report": True, "started_at": 5}],
+            self._kept(program="PinballY"))
+
+        self.assertRegex(line[0], r"^PinballY, imported \S+")
+        self.assertEqual(report_groups.report_address(JOB), line[1])
+
+    def test_the_newest_import_that_kept_a_report_is_the_one(self) -> None:
+        _, library = self._latest([
+            {"id": "new", "kind": import_report.IMPORT_KIND, "report": True, "started_at": 9},
+            {"id": "old", "kind": import_report.IMPORT_KIND, "report": True, "started_at": 1},
+            {"id": "mid", "kind": import_report.IMPORT_KIND, "report": True, "started_at": 5},
+            {"id": "newer", "kind": import_report.IMPORT_KIND, "report": False, "started_at": 12},
+            {"id": "scan", "kind": "library.scan", "report": True, "started_at": 20}],
+            self._kept())
+
+        library.job.assert_called_once_with("new")
+
+    def test_one_row_left_is_counted_as_one(self) -> None:
+        line, _ = self._latest(
+            [{"id": JOB, "kind": import_report.IMPORT_KIND, "report": True, "started_at": 5}],
+            self._kept(items=[_item(import_report.NOT_MATCHED, 1)], program="PinballY"))
+
+        self.assertEqual("PinballY, 1 to look at", line[0])
+
+    def test_a_result_that_cannot_be_read_is_no_line(self) -> None:
+        line, _ = self._latest(
+            [{"id": JOB, "kind": import_report.IMPORT_KIND, "report": True, "started_at": 5}],
+            self._kept(items=["not a row"]))
+
+        self.assertIsNone(line)
+
+    def test_a_second_draw_soon_after_does_not_read_the_library_again(self) -> None:
+        jobs = [{"id": JOB, "kind": import_report.IMPORT_KIND, "report": True, "started_at": 5}]
+        kept = self._kept(program="PinballY")
+        first, library = self._latest(jobs, kept)
+
+        library.job.reset_mock()
+        with patch.object(import_report, "check", new=AsyncMock()) as checked:
+            asyncio.run(import_report.latest(library))
+
+        self.assertIsNotNone(first)
+        library.job.assert_not_called()
+        checked.assert_not_called()
+
+    def test_no_import_kept_is_no_line(self) -> None:
+        line, library = self._latest(
+            [{"id": "scan", "kind": "library.scan", "report": True, "started_at": 20}], {})
+
+        self.assertIsNone(line)
+        library.job.assert_not_called()
+
+    def test_an_older_report_without_the_program_is_named_for_the_import(self) -> None:
+        line, _ = self._latest(
+            [{"id": JOB, "kind": import_report.IMPORT_KIND, "report": True, "started_at": 5}],
+            self._kept())
+
+        self.assertTrue(line[0].startswith("Import, imported "))
+
+    def test_jobs_that_cannot_be_read_are_no_line(self) -> None:
+        async def broken(call: Any, *args: Any) -> Any:
+            raise OSError("down")
+
+        with patch.object(offload, "io", new=broken):
+            self.assertIsNone(asyncio.run(import_report.latest(Mock())))
 
 
 if __name__ == "__main__":

@@ -1711,6 +1711,8 @@
   "console.folders.import": "Îɱþöřţ à ŀîƀřàřý",
   "console.folders.add_help": "Àđđ à ƒöŀđèř öƒ ĝàɱèš, öř öñè ĝàɱè ƒöŀđèř",
   "console.folders.import_help": "Îɱþöřţ ţĥè ŀîƀřàřý àñöţĥèř þřöĝřàɱ ķèþţ",
+  "console.folders.import_look": "{program}, {count} ţö ŀööķ àţ",
+  "console.folders.import_done": "{program}, îɱþöřţèđ {when}",
   "console.folders.more": "Ḿöřè",
   "console.folders.none_yet": "Ñö ƒöŀđèřš ýèţ",
   "console.folders.none_yet_help": "Àđđ ţĥè ƒöŀđèř ýöûř ĝàɱèš àřè îñ, öř à ñèŵ öñè ƒöř ţĥè ĝàɱèš ýöû àđđ",

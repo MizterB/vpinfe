@@ -27,7 +27,7 @@ from common.failures import why
 from common.games import library_folders as model
 from common.games import tables
 from common.i18n import t
-from console import arrange, confirm, library_folders, offload, panel, undo, verbs
+from console import arrange, confirm, import_report, library_folders, offload, panel, undo, verbs
 from console import dialog as frame
 from console.data import Library
 from console.on_page import on_page
@@ -333,17 +333,18 @@ def acts(block: Folders, folder: Folder, at: int, of: int) -> list[panel.Verb]:
 
 
 def draw(block: Folders, importing: dict[str, Any] | None,
-         below: list[tuple[Any, ...]] | None = None) -> None:
+         below: list[tuple[Any, ...]] | None = None,
+         newest_import: tuple[str, str] | None = None) -> None:
     folders = block.plan.folders
     if not folders:
-        _empty(block, importing, below)
+        _empty(block, importing, below, newest_import)
         return
     entries: list[tuple[Any, ...]] = [(panel.FULL, partial(_list, block))]
     if len(folders) > 1:
         entries.append(panel.intro(t("console.folders.priority")))
     if block.plan.nowhere:
         entries.append(panel.intro(t("console.folders.nowhere")))
-    entries.append((panel.FULL, partial(_buttons, block, importing)))
+    entries.append((panel.FULL, partial(_buttons, block, importing, newest_import)))
     if block.plan.switch:
         ask = config_schema.option(ASK_SECTION, ASK_KEY)
         if ask is not None:
@@ -409,7 +410,8 @@ def _caption(block: Folders, folder: Folder) -> None:
 
 
 
-def _buttons(block: Folders, importing: dict[str, Any] | None) -> None:
+def _buttons(block: Folders, importing: dict[str, Any] | None,
+             newest_import: tuple[str, str] | None) -> None:
     with ui.row().classes("items-center gap-2"):
         panel.action(t("console.folders.add_folder"), block.add, icon=verbs.ADD,
                      hint=t("console.folders.add_help"))()
@@ -418,10 +420,13 @@ def _buttons(block: Folders, importing: dict[str, Any] | None) -> None:
                          partial(library_folders.open_importer, importing, block.redraw),
                          icon=verbs.IMPORT,
                          hint=t("console.folders.import_help"))()
+            if newest_import is not None:
+                import_report.latest_line(newest_import)()
 
 
 def _empty(block: Folders, importing: dict[str, Any] | None,
-           below: list[tuple[Any, ...]] | None = None) -> None:
+           below: list[tuple[Any, ...]] | None = None,
+           newest_import: tuple[str, str] | None = None) -> None:
     """A device with no folders finds no games, so this is a finding and leads with its
     fix."""
     def finding() -> None:
@@ -435,6 +440,8 @@ def _empty(block: Folders, importing: dict[str, Any] | None,
                              partial(library_folders.open_importer, importing, block.redraw),
                              icon=verbs.IMPORT,
                              hint=t("console.folders.import_help"))()
+                if newest_import is not None:
+                    import_report.latest_line(newest_import)()
 
     panel.facts(ui, [*_heading(below), (panel.FULL, finding),
                      panel.intro(t("console.folders.none_yet_help")), *(below or [])])
@@ -456,10 +463,11 @@ async def page(library: Library, redraw: Callable[[], None], state: dict[str, An
                                         panel.intro(t("console.folders.read_failed"),
                                                     hint=reason), *rows])
     importing = await library_folders.import_action(library)
+    newest_import = await import_report.latest(library) if importing is not None else None
     block = Folders(library, found, redraw)
     # Kept for the drag listener, which is registered once and reads it at the drop.
     state["folders"] = block
-    return lambda: draw(block, importing, rows)
+    return lambda: draw(block, importing, rows, newest_import)
 
 
 def detect(state_now: str, said: str) -> str:

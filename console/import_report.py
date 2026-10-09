@@ -9,13 +9,15 @@ without losing the place.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
+from datetime import datetime
 from typing import Any
 
 from nicegui import ui
 
 from common.i18n import t
-from console import deeplink, library_folders, offload, panel, report_groups
+from console import deeplink, jobs_list, library_folders, offload, panel, report_groups, when
 from console.api import ApiClient
 from console.on_page import on_page
 
@@ -265,3 +267,61 @@ def draw(job: dict[str, Any], *, counts: Callable[[], None]) -> None:
             _link(t("console.report.show_all", count=len(group.game_ids)),
                   report_groups.tables_address(str(job.get("id") or ""),
                                                report_groups.IMPORTED))()
+
+
+# What the import is called in the Jobs list, and so what its jobs are found by.
+IMPORT_KIND = "library_importer.import"
+# The groups whose rows are for the person to settle, counted by the line on Locations.
+LOOK = (NEED_ROM, NOT_MATCHED, NO_WHEEL)
+LOOKBACK = jobs_list.LIMIT
+# `check` reads the library, and Locations draws again on every folder action.
+FRESH_FOR = 15.0
+_drawn: dict[str, tuple[float, tuple[str, str]]] = {}
+
+
+def waiting(job: dict[str, Any]) -> int:
+    """The rows under Needs a look that the library has not settled, as `draw` shows them.
+    Counts what `check` last found, so check first."""
+    result = job.get("result") or {}
+    fixed = job.get("checked") or {}
+    failed = sum(1 for row in result.get("rows") or [] if row.get("error"))
+    return failed + sum(
+        1 for one in result.get("items") or [] if one.get("group") in LOOK
+        and str(one.get("game_id") or "") not in fixed.get(str(one.get("group")), set()))
+
+
+async def latest(library: Any) -> tuple[str, str] | None:
+    """The line for the newest import that kept a report, as its words and the address of
+    the report; None where there is no such import or the jobs cannot be read."""
+    try:
+        found = await offload.io(library.jobs, LOOKBACK)
+        kept = [one for one in found if one.get("kind") == IMPORT_KIND and one.get("report")]
+        if not kept:
+            return None
+        newest = max(kept, key=lambda one: float(one.get("started_at") or 0))
+        key = str(newest["id"])
+        recent = _drawn.get(key)
+        if recent and time.monotonic() - recent[0] < FRESH_FOR:
+            return recent[1]
+        job = await offload.io(library.job, key)
+        await check(job)
+        program = str((job.get("result") or {}).get("program") or "") \
+            or jobs_list.what_ran(IMPORT_KIND)
+        address = report_groups.report_address(key)
+        left = waiting(job)
+        if left:
+            line = t("console.folders.import_look", program=program, count=left), address
+        else:
+            ended = datetime.fromtimestamp(float(job["finished_at"])).astimezone()
+            line = t("console.folders.import_done", program=program,
+                     when=when.day(ended)), address
+    except Exception:  # noqa: BLE001 - a line that cannot be read is no line
+        return None
+    _drawn[key] = (time.monotonic(), line)
+    return line
+
+
+def latest_line(line: tuple[str, str]) -> Callable[[], None]:
+    """The line from `latest`, opening the report in a tab of its own."""
+    words, address = line
+    return panel.link_out(words, to=address, hint=t("console.report.own_tab.hint"), opener=True)

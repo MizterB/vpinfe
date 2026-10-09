@@ -454,12 +454,13 @@ class DrawTests(unittest.TestCase):
 
     def drawn(self, *rows: dict[str, Any], ask: bool = True,
               importing: dict[str, Any] | None = None,
-              below: list[tuple[Any, ...]] | None = None) -> list[str]:
+              below: list[tuple[Any, ...]] | None = None,
+              newest_import: tuple[str, str] | None = None) -> list[str]:
         block = make(*rows, ask=ask)
         with _PAGE, patch.object(ui, "run_javascript"):
             holder = ui.element()
             with holder:
-                folders.draw(block, importing, below)
+                folders.draw(block, importing, below, newest_import)
         said = []
         for one in holder.descendants():
             if isinstance(one, (ui.label, ui.button)) and one.text:
@@ -467,6 +468,25 @@ class DrawTests(unittest.TestCase):
             elif isinstance(one, ui.switch):
                 said.append(f"switch:{one.value}")
         return said
+
+    def test_the_newest_import_is_a_line_beside_import_a_library(self) -> None:
+        newest = ("PinballY, 12 to look at", "/report/job-1")
+
+        said = self.drawn(row("a"), importing={}, newest_import=newest)
+
+        self.assertIn(newest[0], said)
+
+    def test_the_empty_library_says_it_too(self) -> None:
+        newest = ("PinballY, imported 8 Oct", "/report/job-1")
+
+        said = self.drawn(importing={}, newest_import=newest)
+
+        self.assertIn(newest[0], said)
+
+    def test_no_import_kept_draws_no_line(self) -> None:
+        said = self.drawn(row("a"), importing={})
+
+        self.assertFalse([one for one in said if "to look at" in one or "imported" in one])
 
     def test_one_folder_draws_no_chip_and_no_switch(self) -> None:
         said = self.drawn(row("a", write_to=True))
