@@ -310,6 +310,19 @@ class TheEnlargedEditor(_Editor):
         self._press("Save")
         self.assertEqual(["x = 5", "x = 6"], self.library.saved)
 
+    def test_a_file_saved_elsewhere_reaches_the_enlarged_editor_too(self) -> None:
+        self._drawn()
+        dialog = self._enlarged()
+        self.library.on_disk, self.library.version = "x = 9", 2
+
+        async def again() -> None:
+            await text_editor.shown_again(self.state)
+
+        asyncio.run(again())
+
+        self.assertEqual("x = 9", self._editor_in(dialog).value)
+        self.assertEqual("x = 9", self._editor().value)
+
     def test_a_save_in_the_dialog_reaches_the_hooks_once(self) -> None:
         heard: list[str] = []
 
@@ -345,6 +358,73 @@ class TheEnlargedEditor(_Editor):
 
         self.assertEqual("x = 6", self.library.on_disk)
         self.assertEqual([], text_editor.waiting(self.state))
+
+
+class TheWindow(_Editor):
+    def _open_button(self) -> ui.button:
+        return next(one for one in self.holder.descendants()
+                    if isinstance(one, ui.button) and one.props.get("icon") == "open_in_browser")
+
+    def _again(self) -> None:
+        async def run() -> None:
+            await text_editor.shown_again(self.state)
+
+        asyncio.run(run())
+
+    def test_the_address_names_the_file_and_its_game(self) -> None:
+        self.assertEqual("/console/edit?game=g+1&kind=ini&path=a%2Fb.ini",
+                         text_editor.window_address("g 1", "ini", "a/b.ini"))
+
+    def test_the_same_file_names_the_same_window(self) -> None:
+        self.assertEqual(text_editor.window_name("g", "a/b.ini"),
+                         text_editor.window_name("g", "a/b.ini"))
+        self.assertNotEqual(text_editor.window_name("g", "a.ini"),
+                            text_editor.window_name("g", "b.ini"))
+        self.assertNotEqual(text_editor.window_name("g 1", "a.ini"),
+                            text_editor.window_name("g_1", "a.ini"))
+
+    def test_the_stage_offers_the_window_while_nothing_is_typed(self) -> None:
+        self._drawn()
+
+        self.assertTrue(self._open_button().enabled)
+        self._editor().value = "x = 2"
+        self.assertFalse(self._open_button().enabled)
+        self._press("Cancel")
+        self.assertTrue(self._open_button().enabled)
+
+    def test_the_window_has_neither_way_out_of_itself(self) -> None:
+        self._drawn(extra={"windowed": True})
+
+        icons = {one.props.get("icon") for one in self.holder.descendants()
+                 if isinstance(one, ui.button)}
+        self.assertFalse(icons & {"open_in_browser", "open_in_full"})
+
+    def test_a_file_saved_elsewhere_is_read_again_when_the_window_returns(self) -> None:
+        self._drawn()
+        self.library.on_disk, self.library.version = "x = 9", 2
+        self._again()
+
+        self.assertEqual("x = 9", self._editor().value)
+        self.assertEqual([], text_editor.waiting(self.state))
+        self._editor().value = "x = 10"
+        self._press("Save")
+        self.assertEqual("x = 10", self.library.on_disk)
+
+    def test_changes_typed_here_are_not_read_over(self) -> None:
+        self._drawn()
+        self._editor().value = "x = 2"
+        self.library.on_disk, self.library.version = "x = 9", 2
+        self._again()
+
+        self.assertEqual("x = 2", self._editor().value)
+        self.assertEqual(1, len(text_editor.waiting(self.state)))
+
+    def test_a_file_that_cannot_be_read_again_stays_as_shown(self) -> None:
+        self._drawn()
+        self.library.unreadable = True
+        self._again()
+
+        self.assertEqual("x = 1", self._editor().value)
 
 
 if __name__ == "__main__":

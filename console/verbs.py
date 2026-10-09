@@ -117,6 +117,7 @@ INITIALS_ONLY = "badge"
 
 # Working on what is on screen.
 ENLARGE = "open_in_full"
+OPEN_WINDOW = "open_in_browser"
 TUNE = "tune"
 ROTATE_LEFT = "rotate_left"
 ROTATE_RIGHT = "rotate_right"

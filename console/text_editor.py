@@ -7,11 +7,13 @@ draft, and the Assets grid marks the file.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import urlencode
 
 from nicegui import ui
 from nicegui.client import Client
@@ -32,6 +34,30 @@ LANGUAGES: dict[str, SUPPORTED_LANGUAGES | None] = {"script": "VBScript", "ini":
                                     "readme": "Markdown"}
 WRAPPED = frozenset({"readme"})
 CHANGED, NO_COPY = "changed", "no_copy"
+
+# The browser's own question, for a reload or a link out while a rule or a file is unsaved.
+# Whoever draws an editor runs this once and `flag` keeps `__hubUnsaved` current.
+ASK_BEFORE_UNLOAD = """
+window.addEventListener('beforeunload', (event) => {
+  if (!window.__hubUnsaved) return;
+  event.preventDefault();
+  event.returnValue = '';
+});
+"""
+
+# A window of its own for one file. The page behind this address is `edit_page`.
+ADDRESS = "/console/edit"
+WINDOW_FEATURES = "popup,width=1000,height=800"
+
+# Raised when a tab or window comes back into view, which is when the other one may have
+# saved the file.
+RETURN_EVENT = "hub_editor_shown"
+LISTEN_FOR_RETURN = f"""
+document.addEventListener('visibilitychange', () => {{
+  if (!document.hidden) emitEvent({json.dumps(RETURN_EVENT)});
+}});
+window.addEventListener('focus', () => emitEvent({json.dumps(RETURN_EVENT)}));
+"""
 
 DARK_EVENT = "hub_editor_dark"
 _WATCH_DARK = ("Vue.watch(() => Quasar.Dark.isActive, dark => emitEvent("
@@ -66,6 +92,26 @@ def wire() -> Callable[[Any], None]:
     ui.run_javascript(_WATCH_DARK)
     client.on_delete(lambda: _DARK.pop(client, None))
     return changed
+
+
+def window_address(game_id: str, kind: str, path: str) -> str:
+    return ADDRESS + "?" + urlencode({"game": game_id, "kind": kind, "path": path})
+
+
+def window_name(game_id: str, path: str) -> str:
+    """The same file opens the same window again."""
+    return "vpinfe-edit-" + hashlib.sha1(f"{game_id}\0{path}".encode()).hexdigest()[:16]
+
+
+def rereads_of(state: dict[str, Any]) -> dict[tuple[str, str], Callable[[], Any]]:
+    return state.setdefault("text_rereads", {})
+
+
+async def shown_again(state: dict[str, Any]) -> None:
+    """Read again every file this page holds an editor for, as far as each can be: one
+    with changes typed is left to the save's own check."""
+    for again in list(rereads_of(state).values()):
+        await again()
 
 
 def drafts_of(state: dict[str, Any]) -> dict[tuple[str, str], dict[str, Any]]:
@@ -113,16 +159,23 @@ def show_whole(label: str, text: str) -> None:
 class Held:
     """What the file has on disk as far as the page knows, and whether a save is going.
     One per file on a page, shared by the stage's editor and the enlarged one over it.
-    `views` redraw each editor's strip."""
+    `views` redraw each editor's strip and `syncs` set each editor's text."""
 
     base: str
     version: str
     saving: bool = False
     views: list[Callable[[], None]] = field(default_factory=list)
+    syncs: list[Callable[[], None]] = field(default_factory=list)
 
     def touch(self) -> None:
         for view in list(self.views):
             view()
+
+    def reload(self) -> None:
+        """The file changed under every editor on it: each takes the text again."""
+        for sync in list(self.syncs):
+            sync()
+        self.touch()
 
 
 def editor(context: dict[str, Any], path: str, label: str, found: dict[str, Any],
@@ -138,6 +191,7 @@ def editor(context: dict[str, Any], path: str, label: str, found: dict[str, Any]
     state, library = context["state"], context["library"]
     game_id, kind = context["game_id"], context["kind"]
     enlarged = held is not None
+    windowed = bool(context.get("windowed"))
     key = draft_key(game_id, path)
     drafts = drafts_of(state)
     draft = drafts.get(key)
@@ -146,6 +200,8 @@ def editor(context: dict[str, Any], path: str, label: str, found: dict[str, Any]
                     draft["version"] if draft else found["version"])
     name = str((context.get("game") or {}).get("name") or game_id) + " - " + label
     big: ui.button | None = None
+    opener: ui.button | None = None
+    tip: ui.tooltip | None = None
 
     def current() -> str:
         return str(drafts[key]["text"]) if key in drafts else str(held.base)
@@ -160,10 +216,18 @@ def editor(context: dict[str, Any], path: str, label: str, found: dict[str, Any]
         save.set_enabled(dirty and not held.saving)
         if big is not None:
             big.set_enabled(not held.saving)
+        if opener is not None and tip is not None:
+            free = not dirty and not held.saving
+            opener.set_enabled(free)
+            tip.set_text(t("console.text_editor.open_window.unsaved") if dirty
+                         else t("console.text_editor.open_window"))
 
-    def catch_up() -> None:
+    def sync() -> None:
         if not code.is_deleted and code.value != current():
             code.value = current()
+
+    def catch_up() -> None:
+        sync()
         held.touch()
 
     def enlarge() -> None:
@@ -246,6 +310,27 @@ def editor(context: dict[str, Any], path: str, label: str, found: dict[str, Any]
     async def save_it() -> None:
         await write()
 
+    async def reread() -> None:
+        if code.is_deleted:
+            rereads_of(state).pop(key, None)
+            return
+        if key in drafts or held.saving:
+            return
+        was = held.version
+        try:
+            fresh = await offload.io(library.asset_text, game_id, path)
+        except Exception:  # noqa: BLE001 - what is shown stays as it was
+            logger.debug("Could not read %s again", path, exc_info=True)
+            return
+        if fresh["version"] == held.version or held.version != was or key in drafts \
+                or held.saving:
+            return
+        held.base, held.version = fresh["text"], fresh["version"]
+        held.reload()
+        after = context.get("after_save")
+        if callable(after):
+            await after()
+
     @on_page
     async def cancel_it() -> None:
         if held.saving:
@@ -277,7 +362,16 @@ def editor(context: dict[str, Any], path: str, label: str, found: dict[str, Any]
             if locked:
                 panel.line(locked, hint=locked_help, classes="console-help truncate")
             with ui.row().classes("items-center gap-1 no-wrap ml-auto"):
-                if not enlarged:
+                if not windowed:
+                    with ui.element("span") as shelf:
+                        opener = panel.icon_only(verbs.OPEN_WINDOW, lambda: None)
+                        opener.on("click", js_handler=(
+                            f"() => window.open({json.dumps(window_address(game_id, kind, path))}, "
+                            f"{json.dumps(window_name(game_id, path))}, "
+                            f"{json.dumps(WINDOW_FEATURES)})"))
+                    with shelf:
+                        tip = ui.tooltip(t("console.text_editor.open_window"))
+                if not enlarged and not windowed:
                     big = panel.icon_only(verbs.ENLARGE, enlarge, hint=t("word.enlarge"))
                 cancel = panel.draft_button(t("word.cancel"), cancel_it, icon=verbs.CANCEL,
                                             hint=t("console.text_editor.cancel.help"))
@@ -287,4 +381,7 @@ def editor(context: dict[str, Any], path: str, label: str, found: dict[str, Any]
             if locked:
                 save.set_visibility(False)
     held.views.append(show)
+    held.syncs.append(sync)
+    if not enlarged:
+        rereads_of(state)[key] = reread
     show()

@@ -1057,18 +1057,23 @@ async def _asset_file_block(context: dict[str, Any]) -> None:
         context["file_settings"]["redraw_form"] = redraw_form
 
 
+async def text_lock(library: Library, kind: str,
+                     found: dict[str, Any]) -> tuple[str, str]:
+    """Why a text file cannot be saved right now and what to say about it, or two blanks."""
+    if kind == "ini" and await offload.io(_playing, library):
+        return t(PLAYING_NOTE), t(PLAYING_WHY)
+    if not found["editable"]:
+        return str(found["why"]), ""
+    return "", ""
+
+
 async def _asset_stage(context: dict[str, Any], path: str, glass: dict[str, Any] | None,
                        head: str, label: str) -> None:
     if glass and not glass["damaged"]:
         await _backglass_picture(context, path, glass, label)
         return
     if found := context["detail"].get("text"):
-        locked, help_ = "", ""
-        if context["kind"] == "ini" and await offload.io(_playing, context["library"]):
-            locked, help_ = t(PLAYING_NOTE), t(PLAYING_WHY)
-        elif not found["editable"]:
-            locked = str(found["why"])
-
+        locked, help_ = await text_lock(context["library"], context["kind"], found)
         text_editor.editor(context, path, label, found, locked, help_)
         return
     with ui.element("div").classes("console-slot-art console-slot-art--text"):

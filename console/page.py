@@ -297,17 +297,6 @@ def imports_ended_since(jobs: list[dict[str, Any]], opened: float,
             and str(job.get("id") or "") not in told]
 
 
-# The browser's own question, for a reload or a link out while a rule or a file is
-# unsaved. The panel keeps the flag current.
-_ASK_BEFORE_UNLOAD = """
-window.addEventListener('beforeunload', (event) => {
-  if (!window.__hubUnsaved) return;
-  event.preventDefault();
-  event.returnValue = '';
-});
-"""
-
-
 # What the panel says when nothing is selected, per page. Named for what *that* page
 # selects: three of them select something and the rest do not, and one asking for a game
 # on a page with no games is the panel describing a different screen.
@@ -559,6 +548,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     ui.query(".nicegui-content").classes("p-0 gap-0 h-screen")
 
     ui.on(text_editor.DARK_EVENT, text_editor.wire())
+    ui.on(text_editor.RETURN_EVENT, lambda: text_editor.shown_again(state))
     ui.on("hub_window_px", lambda event: on_window_width(int(event.args or 0)))
     ui.on("hub_member_moved", lambda event: workbench.member_moved(state, event.args))
     ui.on(row_drag.DRAGGED, lambda: row_drag.dragging(library, state))
@@ -1668,7 +1658,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     row_drag.install()
 
     ui.run_javascript(panel_parts.NAV_CLICK)
-    ui.run_javascript(_ASK_BEFORE_UNLOAD)
+    ui.run_javascript(text_editor.ASK_BEFORE_UNLOAD)
+    ui.run_javascript(text_editor.LISTEN_FOR_RETURN)
 
     # Reported once on load and on every settle after a resize. Debounced, because a
     # drag fires this continuously and each one is a round trip.
