@@ -52,7 +52,7 @@ Runtime state written by VPinFE, not shown as a setting.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `game_root_dir` | string |  | The folder holding your table folders, one folder per game |
+| `game_root_dir` | string |  |  |
 
 ### `library`
 
@@ -167,7 +167,7 @@ Runtime state written by VPinFE, not shown as a setting.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `paging_group` | choice (sort, count) | `sort` | Page by |
+| `paging_group` | choice (sort, count) | `sort` | Page By |
 | `paging_size` | int | `10` | Paging Size |
 | `startup_collection` | string |  | The collection shown first, or Last Collection for the one shown last |
 | `restore_last_table` | bool | `true` | Restore Last Table |

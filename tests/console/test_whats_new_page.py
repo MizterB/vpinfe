@@ -110,7 +110,7 @@ class DrawingTests(unittest.TestCase):
 
         words = _labels(part.draw)
 
-        self.assertIn("Game metadata", words)
+        self.assertIn("Game Metadata", words)
         self.assertIn("2 games' metadata brought onto the current format", words)
 
     def test_a_migration_with_no_words_still_names_itself(self) -> None:
