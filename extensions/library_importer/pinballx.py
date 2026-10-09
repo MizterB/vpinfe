@@ -30,6 +30,7 @@ from common.extensions.contract import words
 
 from . import drivemap
 from .listing import files_across
+from .mapping import FLYER_PAGES
 from .source import Note, SourceGame, SourceLibrary, SourceMedia, SourceSystem, failed
 
 logger = logging.getLogger(__name__)
@@ -62,8 +63,7 @@ MEDIA_FOLDERS = (
 # a flyer's pages in a folder each, `Media/Flyer Images/<page>/<name>.ext`.
 SHARED_MEDIA_FOLDERS = (
     "Instruction Cards",
-    *(f"Flyer Images/{page}" for page in
-      ("Front", "Inside1", "Inside2", "Inside3", "Inside4", "Inside5", "Inside6", "Back")),
+    *(f"Flyer Images/{page}" for page in FLYER_PAGES),
 )
 
 # The `<game>` children, verbatim from the parser both frontends share. Read as text and

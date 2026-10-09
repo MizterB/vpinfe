@@ -205,7 +205,7 @@ def adds(match: Match, held: Held, roms_dir: str = "", tables: bool = True,
     brings_table = bool(match.tables) and match.table_name.lower() not in held.tables
     return Adds(
         tables=match.tables if tables and brings_table else 0,
-        pictures=len(set(match.kinds) - held.media) if media else 0,
+        pictures=sum(1 for kind in match.kinds if kind not in held.media) if media else 0,
         rom=bool(roms_dir and match.rom and held.rom != match.rom
                  and finding.rom_file(roms_dir, match.rom) is not None),
         history=bool(match.played and missing_history(match.played, held.user).counts))
@@ -322,13 +322,15 @@ def expected(plan: Plan) -> dict:
         # one only the slots still empty, which is what the run puts with no replace.
         if has.get("media"):
             if first:
-                media += len(set(one.kinds) - held.media) if held else one.media
+                media += (sum(1 for kind in one.kinds if kind not in held.media)
+                          if held else one.media)
                 filled[one.folder.lower()] = set(one.kinds) | (
                     set(held.media) if held else set())
             else:
-                still = set(one.kinds) - filled[one.folder.lower()]
+                taken = filled[one.folder.lower()]
+                still = [kind for kind in one.kinds if kind not in taken]
                 media += len(still)
-                filled[one.folder.lower()] |= still
+                filled[one.folder.lower()] |= set(still)
         # History rides with the game, and the game is made once. So does its match, and
         # a game filled in is never matched: its details may be a person's own.
         if first:

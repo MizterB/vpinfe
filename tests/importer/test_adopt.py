@@ -228,6 +228,34 @@ class ImportTests(AdoptCase):
         landed = self.library / key / "medias"
         return row, sorted(one.name for one in landed.iterdir()) if landed.is_dir() else []
 
+    def _pages_of(self, key: str, kind: str) -> list[bytes]:
+        """What a game holds of one kind, page one first."""
+        held = {}
+        for one in (self.library / key / "medias").iterdir():
+            word, _, rest = one.name.partition(") ")
+            if word == f"({kind}":
+                held[1] = one.read_bytes()
+            elif word.startswith(f"({kind} "):
+                held[int(word.rpartition(" ")[2])] = one.read_bytes()
+        return [held[page] for page in sorted(held)]
+
+    def _filled(self, row, files: dict[str, tuple[str, bytes]]) -> None:
+        """What a second build or a fill does with these files: places them without a
+        replace, into the game `row` made."""
+        from vpinfe_ext_library_importer import adopt
+        from vpinfe_ext_library_importer.source import SourceGame, SourceMedia
+
+        folder = self.root / "artwork again"
+        folder.mkdir()
+        self._ctx.files.set_roots([str(FIXTURE), str(folder)])
+        media = []
+        for name, (source_kind, data) in files.items():
+            (folder / name).write_bytes(data)
+            media.append(SourceMedia(source_kind=source_kind, path=str(folder / name)))
+        game = SourceGame(key=row["key"], media=tuple(media))
+        adopt._place_media(self._ctx, row["game_id"], "pinballx", game,
+                           self._ctx.games.kinds(), "", False, dict(row, media=0))
+
     def test_wheel_images_kept_as_logos_land_in_the_logo_slot(self) -> None:
         _row, landed = self._brought("pinballx", "Doom", {
             "Doom.png": ("Wheel Images", b"a title")}, wheels_as="logo")
@@ -333,16 +361,70 @@ class ImportTests(AdoptCase):
         self.assertTrue(any(one.startswith("(Flyer)") for one in landed), landed)
         self.assertTrue(any(one.startswith("(InstructionCard)") for one in landed), landed)
 
-    def test_the_first_page_is_the_one_placed_whatever_order_the_folder_lists(self) -> None:
+    def test_a_popper_help_set_becomes_pages_in_order_whatever_order_the_folder_lists(
+            self) -> None:
         row, landed = self._brought("popper", "Doom", {
             "Doom02.png": ("GameHelp", b"page three"),
             "Doom01.png": ("GameHelp", b"page two"),
             "Doom.png": ("GameHelp", b"page one")})
 
-        self.assertEqual(row["media"], 1)
-        cards = self.library / "Doom" / "medias"
-        found = [one.read_bytes() for one in cards.iterdir()]
-        self.assertEqual(found, [b"page one"], landed)
+        self.assertEqual(row["media"], 3)
+        self.assertEqual(self._pages_of("Doom", "InstructionCard"),
+                         [b"page one", b"page two", b"page three"], landed)
+
+    def test_a_flyer_with_front_inside2_and_back_lands_as_pages_one_to_three(self) -> None:
+        row, landed = self._brought("pinballx", "Doom", {
+            "Doom back.png": ("Flyer Images/Back", b"the back"),
+            "Doom two.png": ("Flyer Images/Inside2", b"inside two"),
+            "Doom front.png": ("Flyer Images/Front", b"the front")})
+
+        self.assertEqual(row["media"], 3)
+        self.assertEqual(self._pages_of("Doom", "Flyer"),
+                         [b"the front", b"inside two", b"the back"], landed)
+
+    def test_numbered_cards_compare_as_numbers_so_ten_comes_last(self) -> None:
+        self._brought("pinballx", "Doom", {
+            "Doom 10.png": ("Instruction Cards", b"ten"),
+            "Doom.png": ("Instruction Cards", b"one"),
+            "Doom 2.png": ("Instruction Cards", b"two")})
+
+        self.assertEqual(self._pages_of("Doom", "InstructionCard"), [b"one", b"two", b"ten"])
+
+    def test_a_second_build_adds_no_pages_to_a_flyer_the_first_build_made(self) -> None:
+        row, _landed = self._brought("pinballx", "Doom", {
+            "Doom.png": ("Flyer Images/Front", b"first")})
+
+        self._filled(row, {"Doom.png": ("Flyer Images/Front", b"second"),
+                           "Doom back.png": ("Flyer Images/Back", b"second's back")})
+
+        self.assertEqual(self._pages_of("Doom", "Flyer"), [b"first"])
+
+    def test_a_kind_with_no_first_page_gets_all_of_the_pages_a_second_build_has(self) -> None:
+        row, _landed = self._brought("pinballx", "Doom", {
+            "Doom.png": ("Flyer Images/Front", b"first")})
+
+        self._filled(row, {"Doom.png": ("Instruction Cards", b"card one"),
+                           "Doom 2.png": ("Instruction Cards", b"card two")})
+
+        self.assertEqual(self._pages_of("Doom", "InstructionCard"), [b"card one", b"card two"])
+        self.assertEqual(self._pages_of("Doom", "Flyer"), [b"first"])
+
+    def test_a_page_core_refuses_does_not_stop_the_pages_after_it(self) -> None:
+        row, _landed = self._brought("pinballx", "Doom", {
+            "Doom.pdf": ("Flyer Images/Front", b"not a picture"),
+            "Doom i.png": ("Flyer Images/Inside1", b"inside"),
+            "Doom b.png": ("Flyer Images/Back", b"back")})
+
+        self.assertEqual(self._pages_of("Doom", "Flyer"), [b"inside", b"back"])
+        self.assertEqual(row["skipped_media"], ["Flyer Images/Front"])
+
+    def test_a_real_dmd_video_lands_in_its_own_slot_and_an_f4v_is_named(self) -> None:
+        row, landed = self._brought("pinballx", "Doom", {
+            "Doom.mp4": ("Real DMD Videos", b"a clip"),
+            "Doom.f4v": ("Real DMD Color Videos", b"a flash clip")})
+
+        self.assertEqual(landed, ["(RealDMD) Doom.mp4"])
+        self.assertEqual(row["skipped_media"], ["Real DMD Color Videos"])
 
     def test_a_video_in_a_picture_folder_never_reaches_core(self) -> None:
         with unittest.mock.patch.object(self._ctx.games, "put_media") as put:
@@ -370,6 +452,18 @@ class ImportTests(AdoptCase):
         folder = self.library / "Attack from Mars (Bally 1995)"
         self.assertFalse((folder / "medias").exists() and any((folder / "medias").iterdir()))
 
+    def test_the_plan_counts_every_page_and_the_report_agrees(self) -> None:
+        from vpinfe_ext_library_importer import plan
+
+        counts = self._counts_with("")["media"]
+
+        self.assertEqual(counts[0], counts[1])
+        self.assertEqual(counts[2], 0)
+        flyers = [one for one in (self.library / "Taxi (Williams 1988)" / "medias").iterdir()
+                  if one.name.startswith("(Flyer")]
+        self.assertEqual(len(flyers), 2)
+        self.assertEqual(plan.expected(self._planned("")[1])["media"], counts[0])
+
     def test_a_cleared_tables_source_brings_no_game_files_and_the_report_agrees(self) -> None:
         from vpinfe_ext_library_importer import plan
 
@@ -386,8 +480,7 @@ class ImportTests(AdoptCase):
         report = self.imported()
         rows = {row["key"]: row for row in report["rows"]}
 
-        self.assertEqual(rows["Taxi"]["skipped_media"],
-                         ["Flyer Images/Inside1", "Real DMD Videos"])
+        self.assertEqual(rows["Taxi"]["skipped_media"], [])
         self.assertEqual(rows["Taxi 2"]["skipped_media"], [])
 
     def test_a_source_whose_tables_are_elsewhere_still_imports(self) -> None:

@@ -289,6 +289,8 @@
   "art.kind.topper_video": "Topper video",
   "art.kind.real_dmd": "Real DMD",
   "art.kind.real_dmd_color": "Color DMD",
+  "art.kind.real_dmd_video": "Real DMD video",
+  "art.kind.real_dmd_color_video": "Color DMD video",
   "art.kind.instruction_card": "Instruction card",
   "art.kind.flyer": "Flyer",
   "art.kind.wheel": "Wheel",

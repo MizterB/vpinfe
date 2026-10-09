@@ -118,15 +118,34 @@ class MediaTests(unittest.TestCase):
                          ["flyer", "instruction_card", "real_dmd", "real_dmd_color"])
         self.assertEqual(mapping.unmapped_kinds("pinballx", game, known), [])
 
-    def test_the_real_dmd_videos_and_the_other_flyer_pages_have_none(self) -> None:
-        known = (*KINDS, "real_dmd", "real_dmd_color", "flyer", "instruction_card")
+    def test_the_real_dmd_videos_and_every_flyer_page_have_slots(self) -> None:
+        known = (*KINDS, "real_dmd_video", "real_dmd_color_video", "flyer")
         game = self._with("Real DMD Videos", "Real DMD Color Videos",
                           "Flyer Images/Inside1", "Flyer Images/Back")
 
-        self.assertEqual(mapping.media_for("pinballx", game, known), [])
-        self.assertEqual(mapping.unmapped_kinds("pinballx", game, known),
-                         ["Flyer Images/Back", "Flyer Images/Inside1",
-                          "Real DMD Color Videos", "Real DMD Videos"])
+        found = mapping.media_for("pinballx", game, known)
+
+        self.assertEqual(sorted(kind for kind, _p in found),
+                         ["flyer", "flyer", "real_dmd_color_video", "real_dmd_video"])
+        self.assertEqual(mapping.unmapped_kinds("pinballx", game, known), [])
+
+    def test_a_flyer_with_front_inside2_and_back_is_pages_one_to_three_in_that_order(
+            self) -> None:
+        game = self._with("Flyer Images/Back", "Flyer Images/Inside2", "Flyer Images/Front")
+
+        found = mapping.media_for("pinballx", game, (*KINDS, "flyer"))
+
+        self.assertEqual(found, [("flyer", "/s/Flyer Images/Front.png"),
+                                 ("flyer", "/s/Flyer Images/Inside2.png"),
+                                 ("flyer", "/s/Flyer Images/Back.png")])
+
+    def test_a_flyer_with_no_front_starts_at_its_first_inside_page(self) -> None:
+        game = self._with("Flyer Images/Back", "Flyer Images/Inside6")
+
+        found = mapping.media_for("pinballx", game, (*KINDS, "flyer"))
+
+        self.assertEqual([path for _kind, path in found],
+                         ["/s/Flyer Images/Inside6.png", "/s/Flyer Images/Back.png"])
 
     def test_the_files_left_behind_are_counted_by_folder(self) -> None:
         games = [self._with("Real DMD Videos", "Table Images"),
@@ -155,23 +174,26 @@ class MediaTests(unittest.TestCase):
         known = (*KINDS, "instruction_card")
 
         self.assertEqual(mapping.media_for("popper", game, known),
-                         [("instruction_card", "/m/Doom.png")])
-        self.assertEqual(mapping.left_behind("popper", [game], known),
-                         {("GameHelp", "pages"): 2})
+                         [("instruction_card", "/m/Doom.png"),
+                          ("instruction_card", "/m/Doom01.png"),
+                          ("instruction_card", "/m/Doom02.png")])
+        self.assertEqual(mapping.left_behind("popper", [game], known), {})
 
-    def test_a_numbered_file_is_the_first_page_where_none_is_named_for_the_game(self) -> None:
+    def test_numbered_files_are_the_pages_where_none_is_named_for_the_game(self) -> None:
         game = self._paged("Instruction Cards", "Doom 2.png", "Doom 1.png")
         known = (*KINDS, "instruction_card")
 
         self.assertEqual(mapping.media_for("pinballx", game, known),
-                         [("instruction_card", "/m/Doom 1.png")])
+                         [("instruction_card", "/m/Doom 1.png"),
+                          ("instruction_card", "/m/Doom 2.png")])
 
     def test_pages_compare_as_numbers_and_zeros_do_not_count(self) -> None:
-        game = self._paged("Instruction Cards", "Doom 10.png", "Doom 9.png", "Doom 09.png")
+        game = self._paged("Instruction Cards", "Doom 10.png", "Doom 9.png", "Doom 09.png",
+                           "Doom 2.png")
         known = (*KINDS, "instruction_card")
 
-        self.assertEqual(mapping.media_for("pinballx", game, known),
-                         [("instruction_card", "/m/Doom 09.png")])
+        self.assertEqual([path for _kind, path in mapping.media_for("pinballx", game, known)],
+                         ["/m/Doom 2.png", "/m/Doom 09.png", "/m/Doom 10.png"])
 
     def test_a_file_with_something_else_after_the_name_comes_after_the_numbered_pages(
             self) -> None:
@@ -179,9 +201,10 @@ class MediaTests(unittest.TestCase):
         known = (*KINDS, "instruction_card")
 
         self.assertEqual(mapping.media_for("pinballx", game, known),
-                         [("instruction_card", "/m/Doom 3.png")])
+                         [("instruction_card", "/m/Doom 3.png"),
+                          ("instruction_card", "/m/Doom (alt).png")])
 
-    def test_the_first_page_does_not_depend_on_the_order_the_folder_was_listed(self) -> None:
+    def test_the_pages_do_not_depend_on_the_order_the_folder_was_listed(self) -> None:
         names = ["Doom.png", "Doom.jpg", "Doom 1.png"]
         known = (*KINDS, "instruction_card")
 
@@ -190,18 +213,35 @@ class MediaTests(unittest.TestCase):
                                   self._paged("Instruction Cards", *reversed(names)), known)
 
         self.assertEqual(first, again)
+        self.assertEqual([path for _kind, path in first], ["/m/Doom.jpg", "/m/Doom 1.png"])
+
+    def test_the_kinds_taken_a_page_at_a_time_are_the_ones_core_gives_pages_to(self) -> None:
+        from common.media_specs import MEDIA_SPECS
+
+        self.assertEqual({one.kind for one in MEDIA_SPECS if one.pages},
+                         set(mapping.PICTURES_ONLY))
+
+    def test_two_files_for_the_one_slot_of_a_kind_without_pages_are_named_as_left_behind(
+            self) -> None:
+        game = self._paged("Wheel Images", "Doom.png", "Doom.jpg")
+
+        self.assertEqual(len(mapping.media_for("pinballx", game, KINDS)), 1)
+        self.assertEqual(mapping.left_behind("pinballx", [game], KINDS),
+                         {("Wheel Images", "pages"): 1})
 
     def test_a_file_carrying_none_of_the_games_name_comes_last(self) -> None:
         game = self._paged("GameHelp", "Other.png", "Doom 2.png")
 
         self.assertEqual(mapping.media_for("popper", game, (*KINDS, "instruction_card")),
-                         [("instruction_card", "/m/Doom 2.png")])
+                         [("instruction_card", "/m/Doom 2.png"),
+                          ("instruction_card", "/m/Other.png")])
 
     def test_a_digit_that_is_not_ascii_does_not_stop_the_import(self) -> None:
         game = self._paged("GameHelp", "Doom\u00b2.png", "Doom.png")
 
         self.assertEqual(mapping.media_for("popper", game, (*KINDS, "instruction_card")),
-                         [("instruction_card", "/m/Doom.png")])
+                         [("instruction_card", "/m/Doom.png"),
+                          ("instruction_card", "/m/Doom\u00b2.png")])
 
     def test_the_systems_own_file_comes_before_the_shared_folders_at_the_same_page(
             self) -> None:
@@ -234,7 +274,8 @@ class MediaTests(unittest.TestCase):
             SourceMedia(source_kind="Instruction Cards", path="/m/Who Dunnit.png")))
 
         self.assertEqual(mapping.media_for("pinballx", game, (*KINDS, "instruction_card")),
-                         [("instruction_card", "/m/Who Dunnit.png")])
+                         [("instruction_card", "/m/Who Dunnit.png"),
+                          ("instruction_card", "/m/Who Dunnit 2.png")])
 
     def test_a_source_nothing_maps_carries_nothing_rather_than_guessing(self) -> None:
         game = self._with("Table Images")

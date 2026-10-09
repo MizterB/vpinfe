@@ -18,6 +18,9 @@ from .source import SourceGame, SourceMedia
 
 REPLACEMENT = "�"
 
+# PinballY files a flyer's pages in a folder each, and this is the order it shows them in.
+FLYER_PAGES = ("Front", "Inside1", "Inside2", "Inside3", "Inside4", "Inside5", "Inside6", "Back")
+
 # A PinballX media folder is one of our kinds. The pairs are unambiguous in this
 # direction: the source files a still and a moving version of one subject in two folders,
 # and we hold those as two kinds, so each folder has exactly one answer.
@@ -32,8 +35,10 @@ PINBALLX_KINDS = {
     "Topper Videos": "topper_video",
     "Real DMD Images": "real_dmd",
     "Real DMD Color Images": "real_dmd_color",
+    "Real DMD Videos": "real_dmd_video",
+    "Real DMD Color Videos": "real_dmd_color_video",
     "Instruction Cards": "instruction_card",
-    "Flyer Images/Front": "flyer",
+    **{f"Flyer Images/{page}": "flyer" for page in FLYER_PAGES},
     "Wheel Images": "wheel",
     "Table Audio": "audio",
     "Launch Audio": "audio_launch",
@@ -76,7 +81,7 @@ MOVING = {
 }
 VIDEO_SUFFIXES = frozenset({".mp4", ".m4v", ".mkv", ".avi", ".mov", ".webm", ".f4v"})
 # These two kinds take pictures only, and a source's folder for them can hold a clip or a
-# Flash file beside the pictures.
+# Flash file beside the pictures. They are also the two kinds with pages.
 PICTURES_ONLY = frozenset({"flyer", "instruction_card"})
 NOT_A_PICTURE = VIDEO_SUFFIXES | {".swf", ".wmv", ".mpg", ".mpeg", ".flv", ".ogv", ".3gp"}
 
@@ -95,14 +100,15 @@ WHEELS_AS = (WHEELS, LOGOS)
 
 def media_for(source_id: str, game: SourceGame, known: tuple[str, ...],
               wheels_as: str = WHEELS) -> list[tuple[str, str]]:
-    """(kind, path) for each kind core stores (`known`): its first page, one file."""
+    """(kind, path) for each file placed. A kind with pages has all of them, in page order,
+    so a file's page is its place among those of its kind; any other kind has one file."""
     return _chosen(source_id, game, known, wheels_as)[0]
 
 
 def held_back(source_id: str, game: SourceGame, known: tuple[str, ...],
               wheels_as: str = WHEELS) -> list[tuple[str, str, str]]:
     """(source folder, path, why) for each file of a kind we have a slot for that is not
-    placed: `pages` for one that is not the kind's first page, `videos` for a clip or a
+    placed: `pages` for a later file of a kind that has no pages, `videos` for a clip or a
     Flash file in a folder of a kind that takes pictures only."""
     return _chosen(source_id, game, known, wheels_as)[1]
 
@@ -139,9 +145,11 @@ def _chosen(source_id: str, game: SourceGame, known: tuple[str, ...], wheels_as:
         by_kind.setdefault(kind, []).append(item)
     placed = []
     for kind, items in by_kind.items():
-        first, *later = sorted(items, key=lambda one: _page_order(forms, one))
-        placed.append((kind, first.path))
-        held += [(one.source_kind, one.path, "pages") for one in later]
+        pages = _pages(forms, items, one_to_a_page=kind in PICTURES_ONLY)
+        if kind not in PICTURES_ONLY:
+            pages, later = pages[:1], pages[1:]
+            held += [(one.source_kind, one.path, "pages") for one in later]
+        placed += [(kind, one.path) for one in pages]
     return placed, held
 
 
@@ -160,22 +168,39 @@ def _name_forms(game: SourceGame) -> list[str]:
     return sorted((one for one in forms if one), key=len, reverse=True)
 
 
-def _page_order(forms: list[str], item: SourceMedia) -> tuple[int, int, str, bool, str]:
-    """Where a file stands among a game's files of one kind: the one named for the game
-    alone first, then those with a number after the name by that number as a number, then
-    the rest by what follows the name, then a file whose name carries none of the game's.
-    The system's own file beats the shared folder's at the same place, and the path settles
-    what is left, so the order never depends on how a folder was listed."""
+def _pages(forms: list[str], items: list[SourceMedia], one_to_a_page: bool = True
+           ) -> list[SourceMedia]:
+    """A kind's files in page order, one for each page unless `one_to_a_page` is False.
+
+    A page is told by where its folder comes in the source's own order and what follows
+    the game's name: nothing means the first, a number or a space and a number is that
+    page, and anything else sorts after the numbered ones, by what it says. A file whose
+    name carries none of the game's comes last. Numbers compare as numbers, and zeros in
+    front of one do not make it another page. Two files for one page are one, and the
+    system's own beats a shared folder's, then the path settles it, so the order never
+    depends on how a folder was listed.
+    """
+    if not one_to_a_page:
+        return sorted(items, key=lambda one: (_page_of(forms, one), one.shared, one.path))
+    chosen: dict[tuple[int, int, int, str], SourceMedia] = {}
+    for item in sorted(items, key=lambda one: (one.shared, one.path)):
+        chosen.setdefault(_page_of(forms, item), item)
+    return [chosen[page] for page in sorted(chosen)]
+
+
+def _page_of(forms: list[str], item: SourceMedia) -> tuple[int, int, int, str]:
     stem = unicodedata.normalize("NFC", Path(item.path).stem).lower()
+    folder = item.source_kind.removeprefix("Flyer Images/")
+    place = FLYER_PAGES.index(folder) if folder in FLYER_PAGES else 0
     rest = next((stem[len(name):] for name in forms if stem.startswith(name)), None)
     if rest is None:
-        return (3, 0, stem, item.shared, item.path)
+        return (place, 3, 0, stem)
     rest = rest.strip()
     if not rest:
-        return (0, 0, "", item.shared, item.path)
+        return (place, 0, 0, "")
     if rest.isascii() and rest.isdigit():
-        return (1, int(rest), "", item.shared, item.path)
-    return (2, 0, rest, item.shared, item.path)
+        return (place, 1, int(rest), "")
+    return (place, 2, 0, rest)
 
 
 def _moving_form(kind: str, path: str) -> str:

@@ -431,8 +431,7 @@ class SummaryShapeTests(WizardCase):
         found = self._check(FIXTURE)
 
         left = dict(one for one in found["summary"] if len(one) == 2)["Left behind"]
-        self.assertEqual(left, "Flyer Images/Inside1 (1), Real DMD Videos (1), "
-                               "Wheel Images, later pages (1)")
+        self.assertEqual(left, "Wheel Images, later pages (1)")
 
     def test_a_clip_in_the_cards_folder_is_named_as_videos(self) -> None:
         source = self.root / "pinballx"

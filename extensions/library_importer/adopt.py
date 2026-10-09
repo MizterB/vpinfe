@@ -302,16 +302,26 @@ def _put(ctx: Any, game_id: str, kind: str, path: Path, rom: str) -> int:
 def _place_media(ctx: Any, game_id: str, source_id: str, game: SourceGame,
                  kinds: tuple[str, ...], stem: str, replace: bool, row: AdoptedRow,
                  wheels_as: str = mapping.WHEELS) -> None:
-    """The game's artwork, one file per kind. Counts what was placed; a folder core would
-    not take a file from is named in `skipped_media` beside the folders with no kind. A
-    wheel or a logo, placed or already in the slot, is `wheel` on the row."""
+    """The game's artwork. Counts what was placed; a folder core would not take a file from
+    is named in `skipped_media` beside the folders with no kind. A wheel or a logo, placed
+    or already in the slot, is `wheel` on the row.
+
+    A kind with pages goes in page by page. Once its first page is held without a replace,
+    the later ones are not tried, so one build's pages never join another's."""
     refused: set[str] = set()
+    placed: dict[str, int] = {}
+    stopped: set[str] = set()
     for kind, path in mapping.media_for(source_id, game, kinds, wheels_as):
+        if kind in stopped:
+            continue
         try:
-            ctx.games.put_media(game_id, kind, path, stem, replace=replace)
+            ctx.games.put_media(game_id, kind, path, stem, replace=replace,
+                                page=placed.get(kind, 0) + 1)
+            placed[kind] = placed.get(kind, 0) + 1
             row["media"] += 1
             row["wheel"] = row.get("wheel", False) or kind in mapping.WHEELS_AS
         except FileExistsError:
+            stopped.add(kind)
             row["wheel"] = row.get("wheel", False) or kind in mapping.WHEELS_AS
         except Exception as exc:
             ctx.logger.warning("%s: %s did not come across: %s", row["name"], kind, exc)
