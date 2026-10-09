@@ -48,7 +48,7 @@ from common.games.collection_store import (
 )
 from common.i18n import t
 from common.labels import field_label, humanize
-from common.media_specs import media_family, media_label_map
+from common.media_specs import PAGED_KINDS, media_family, media_label_map
 from common.online import vps_kinds
 from console import arrange as arranging
 from console import (
@@ -70,6 +70,7 @@ from console import (
     media_fill,
     media_ownership,
     mediamap,
+    mediapages,
     mediasource,
     mediaview,
     offload,
@@ -800,7 +801,7 @@ async def _draw_file(container: ui.column, title: ui.column, library: Library,
 def _file_title(target: ui.column, row: dict[str, Any], game: dict[str, Any],
                 table: dict[str, Any] | None) -> None:
     with target:
-        ui.label(str(row.get("label") or row.get("kind") or "")) \
+        ui.label(str(row.get("named") or row.get("label") or row.get("kind") or "")) \
             .classes("text-base console-workbench-title leading-tight truncate")
         with ui.element("div").classes("text-xs console-workbench-label "
                                        "console-workbench-links"):
@@ -862,11 +863,13 @@ async def _media_file_block(context: dict[str, Any]) -> None:
     if file_acts.is_loose(row):
         _loose_media(context)
         return
+    page = int(row.get("page") or 1)
     entries = await offload.io(library.media_for, game_id, table_id or None)
     context["media"] = entries
     context["devices"] = await offload.io(library.known_devices)
     try:
-        detail = await offload.io(library.media_detail, game_id, table_id or None, kind)
+        detail = await offload.io(library.media_detail, game_id, table_id or None, kind,
+                                  page)
     except Exception:
         logger.debug("No detail for %s", kind, exc_info=True)
         detail = None
@@ -878,10 +881,10 @@ async def _media_file_block(context: dict[str, Any]) -> None:
                                 or entry.get("matched_to"))
     if context["dock"] is not None:
         with _stage(context):
-            _slot_art(context, kind, entry)
+            _slot_art(context, kind, entry, page)
     _slot(context, kind, entry, detail, context["rebuild"],
           (overrides or {}).get(kind) or [], titled=False, in_place=False, scope_chip=False,
-          links=links, matched=matched, draw_art=False,
+          links=links, matched=matched, draw_art=False, page=page,
           waiting=await recorder.waiting_on(library, game_id, table_id or "", kind))
 
 
@@ -2178,22 +2181,31 @@ def _used_as(candidate: dict[str, Any]) -> str:
         else media_ownership.UNUSED
 
 
-def _slot_art(context: dict[str, Any], kind: str, entry: dict[str, Any]) -> None:
-    """The slot's picture, player or blank outline."""
+def _slot_art(context: dict[str, Any], kind: str, entry: dict[str, Any],
+              page: int = 1) -> None:
+    """The slot's picture, player or blank outline. `page` is the page of a paged kind
+    to show; Enlarge then steps through all of them, starting there."""
     game_id, table_id = context["game_id"], context["lens"]
     label = media_label_map().get(kind, kind)
     with ui.element("div").classes("console-slot-art"):
         if entry.get("present"):
             version = entry.get("version")
             mediaview.preview(art.media(game_id, kind, table_id or "", version=version,
-                               size=art.PANEL), kind, label)
+                               size=art.PANEL, page=page), kind, label)
             # On the picture, where the map puts it. Images only: a video keeps its
             # native controls here, and those carry a full-screen button already.
             if media_family(kind) == "image":
-                full = art.media(game_id, kind, table_id or "", version=version)
-                ui.button(icon=verbs.ENLARGE,
-                          on_click=lambda s=full, k=kind, la=label:
-                              mediaview.open_viewer(s, k, la)) \
+                if mediapages.count(kind, entry) >= mediapages.STRIP_FROM:
+                    enlarge = partial(
+                        mediaview.open_pages,
+                        mediapages.addresses(game_id, kind, table_id or "", entry),
+                        label, page)
+                else:
+                    enlarge = partial(
+                        mediaview.open_viewer,
+                        art.media(game_id, kind, table_id or "", version=version),
+                        kind, label)
+                ui.button(icon=verbs.ENLARGE, on_click=lambda: enlarge()) \
                     .props("flat dense round size=sm") \
                     .classes("console-slot-zoom").tooltip(t("word.enlarge"))
         else:
@@ -2207,10 +2219,11 @@ def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
           differing: list[dict[str, Any]] | None = None, *,
           titled: bool = True, in_place: bool = True, scope_chip: bool = True,
           links: Sequence[dict[str, Any]] = (), matched: str = "", draw_art: bool = True,
-          waiting: Sequence[dict[str, Any]] = ()) -> None:
+          waiting: Sequence[dict[str, Any]] = (), page: int = 1) -> None:
     """One slot: the art at the size of the room, and what there is to know about it.
     `draw_art=False` leaves the picture to the caller, which draws it somewhere else.
-    `waiting` are the recordings kept for a decision on this slot.
+    `waiting` are the recordings kept for a decision on this slot. `page` is the page of a
+    paged kind that `detail` describes, where the panel is one page's file.
 
     The picture is the subject. Everything else is one line each underneath, because
     the questions this panel answers - what is this, why this one, what else is here -
@@ -2225,17 +2238,38 @@ def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
     present = bool(entry.get("present"))
     file_name = detail.get("file") or entry.get("file") or ""
     also_here = list(detail.get("tiers") or [])
+    pages = mediapages.count(kind, entry)
+    many = pages >= mediapages.STRIP_FROM
+    # The strip carries the acts on each page, so the slot's own act is to take them all.
+    in_strip = many and draw_art
+    # A file panel for one page of several acts on that page and nothing else.
+    one_page = many and not draw_art
+    slot_label = mediapages.named(kind, page) if many or page > 1 else label
 
     @on_page
     async def remove() -> None:
-        taken = file_acts.removal(context["tables"], context["game"], table_id,
-                                  detail.get("tiers"), entry, detail.get("after_remove"))
+        if one_page:
+            owner = mediapages.owner_of(entry, table_id)
+            if not mediapages.removable(entry):
+                ui.notify(t("console.workbench.nothing_removable"), type="info")
+                return
+            if not await mediapages.confirm_remove(kind, page, pages, owner):
+                return
+            taken = None
+        else:
+            taken = file_acts.removal(context["tables"], context["game"], table_id,
+                                      detail.get("tiers"), entry,
+                                      detail.get("after_remove"))
         if taken is not None and not await confirm.ask(
-                t("console.workbench.remove_asset", name=taken[0]), detail=taken[1],
-                confirm=t("word.remove"), icon=verbs.REMOVE):
+                t("console.mediapages.remove_all", name=label, count=pages)
+                if in_strip else t("console.workbench.remove_asset", name=taken[0]),
+                detail=taken[1], confirm=t("word.remove"), icon=verbs.REMOVE):
             return
         try:
-            result = await offload.io(library.remove_media, game_id, table_id, kind)
+            result = await offload.io(
+                library.remove_media, game_id,
+                mediapages.owner_of(entry, table_id) if one_page else table_id, kind,
+                page if one_page else None)
         except Exception as exc:
             ui.notify(t("said.remove_failed"), caption=why(exc), type="negative")
             return
@@ -2268,7 +2302,10 @@ def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
             ui.label(label).classes("console-card-title")
 
         if draw_art:
-            _slot_art(context, kind, entry)
+            if in_strip:
+                mediapages.strip(context, kind, entry, draw)
+            else:
+                _slot_art(context, kind, entry)
 
         with ui.column().classes("w-full gap-0 console-slot-facts"):
             if present:
@@ -2344,14 +2381,17 @@ def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
 
         with ui.row().classes("items-center gap-2 w-full console-slot-actions") \
                 .style("flex-wrap:wrap"):
-            ui.button(t("word.replace") if present else t("word.add"),
-                      icon=verbs.ADD_ART,
-                      on_click=lambda: mediasource.open_sources(
-                          context, kind, label, draw,
-                          str(detail.get("path") or entry.get("path") or ""),
-                          backglass_file=detail.get("backglass_file"))) \
-                .props("flat dense no-caps size=sm").classes("console-action")
-            able = mediasource.records(library, kind)
+            if not in_strip:
+                ui.button(t("word.replace") if present else t("word.add"),
+                          icon=verbs.ADD_ART,
+                          on_click=lambda: mediasource.open_sources(
+                              context, kind, slot_label, draw,
+                              str(detail.get("path") or entry.get("path") or ""),
+                              backglass_file=detail.get("backglass_file"), page=page)) \
+                    .props("flat dense no-caps size=sm").classes("console-action")
+            if present and in_place and kind in PAGED_KINDS and not many:
+                mediapages.add_button(context, kind, entry, draw)
+            able = mediasource.records(library, kind) if page == 1 else None
             if able is not None:
                 panel.action(t("console.record.record"),
                              lambda: mediasource.open_sources(
@@ -2363,12 +2403,15 @@ def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
                              hint=str(able.get("reason") or ""))()
             if present:
                 # Beside the acts on the bytes: a slot holding nothing has no identity.
-                _match_button(context, kind, label,
-                              detail if detail.get("path") else entry, draw)
-                ui.button(t("word.remove"), icon=verbs.REMOVE, on_click=remove) \
+                # Of the slot, which page 1 stands for.
+                if page == 1:
+                    _match_button(context, kind, label,
+                                  detail if detail.get("path") else entry, draw)
+                ui.button(t("console.mediapages.clear") if in_strip
+                          else t("word.remove"), icon=verbs.REMOVE, on_click=remove) \
                     .props("flat dense no-caps size=sm") \
                     .classes("console-action console-action--danger")
-            if can_share:
+            if can_share and page == 1:
                 ui.button(t("console.workbench.give_all"),
                     icon=verbs.SHARE, on_click=share) \
                     .props("flat dense no-caps size=sm").classes("console-action")

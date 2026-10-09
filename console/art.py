@@ -13,12 +13,17 @@ PANEL = 1024
 
 
 def media(game_id: str, kind: str, table_id: str = "", *,
-          version: str | None = None, size: int | None = None) -> str:
+          version: str | None = None, size: int | None = None, page: int = 1) -> str:
     """A game's shared file for `kind`, or one table's. A size on a kind that is not a
-    picture is dropped, because the API refuses it."""
+    picture is dropped, because the API refuses it. Page 1 is the address without a
+    page, so a kind with none reads the same as before. A later page carries no version:
+    the token is the first page's, and a page replaced under it would keep its old
+    picture."""
     table = f"/tables/{quote(table_id, safe='')}" if table_id else ""
     base = f"/api/v1/games/{quote(game_id, safe='')}{table}/media/{kind}"
-    return _with(base, version, size if media_family(kind) == "image" else None)
+    return _with(base, version if page <= 1 else None,
+                 size if media_family(kind) == "image" else None,
+                 page if page > 1 else None)
 
 
 def picture(game_id: str, name: str, *, version: str | None = None,
@@ -60,8 +65,10 @@ def sized(url: str, size: int) -> str:
     return _with(url, None, size)
 
 
-def _with(url: str, version: str | None, size: int | None) -> str:
-    query = {key: value for key, value in (("size", size), ("v", version)) if value}
+def _with(url: str, version: str | None, size: int | None,
+          page: int | None = None) -> str:
+    query = {key: value for key, value in
+             (("size", size), ("v", version), ("page", page)) if value}
     if not query:
         return url
     return f"{url}{'&' if '?' in url else '?'}{urlencode(query)}"

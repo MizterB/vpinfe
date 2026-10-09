@@ -440,6 +440,26 @@ def retier(game_id: str, kind: str, from_table: str, to_table: str) -> dict:
                   to_stem if to_table else None)
 
 
+def move_page(game_id: str, kind: str, table_id: str, page: int, to: int) -> dict:
+    """Swap page `page` of a slot with page `to`, so each takes the other's number.
+
+    The pages are the ones beside the page 1 the slot shows, whichever tier that is.
+    """
+    game = game_lens.game_for_writing(game_id)
+    kind = kind_or_refuse(kind)
+    game_dir = _folder(game)
+    lens = stem_or_refuse(game, table_id) if table_id else game_dir.name
+    try:
+        stem = media_placement.page_stem(game_dir, kind, lens,
+                                         lens if table_id else "", 2)
+        written = media_placement.move_page(game_dir, kind, stem, page, to)
+    except media_placement.UnplaceableError as exc:
+        raise service_errors.RefusedError(why(exc)) from exc
+    except OSError as exc:
+        raise service_errors.BlockedError(why(exc)) from exc
+    return _wrote(game_dir, kind, written, game_id, table_id, lens if table_id else None)
+
+
 def remove(game_id: str, kind: str, table_id: str = "", page: int | None = None) -> dict:
     """Take a file out of one tier. A build's own art and the default both survive the
     folder's file going. With no `page` the kind goes with all its pages; with one, only
@@ -485,6 +505,6 @@ def get_missing_art(game_ids: list[str]) -> dict:
 
 
 __all__ = ["detail", "displaced", "fetch_file", "game_media", "get_missing_art",
-           "kind_or_refuse", "media_file", "overrides", "place_file", "place_upload",
+           "kind_or_refuse", "media_file", "move_page", "overrides", "place_file", "place_upload",
            "placements", "remove", "retier", "stem_or_refuse", "table_media",
            "use_logos_for_wheels"]

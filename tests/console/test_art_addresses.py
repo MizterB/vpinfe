@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from console import art, thumbnails
+from console import art, mediapages, thumbnails
 from console.data import _thumb
 
 
@@ -23,6 +23,28 @@ class ArtAddressTests(unittest.TestCase):
     def test_a_table_s_file_is_its_own_address(self) -> None:
         self.assertEqual(art.media("G1", "wheel", "tbl 1", size=art.PANEL),
                          "/api/v1/games/G1/tables/tbl%201/media/wheel?size=1024")
+
+    def test_a_later_page_is_asked_for_by_number_and_under_no_version(self) -> None:
+        self.assertEqual(art.media("G1", "flyer", version="abc", size=art.CELL, page=2),
+                         "/api/v1/games/G1/media/flyer?size=256&page=2")
+
+    def test_page_one_is_the_address_without_a_page(self) -> None:
+        self.assertEqual(art.media("G1", "flyer", version="abc", page=1),
+                         "/api/v1/games/G1/media/flyer?v=abc")
+
+    def test_every_page_of_a_paged_slot_has_an_address_and_a_kind_that_does_not_has_none(
+            self) -> None:
+        entry = {"pages": 3, "version": "abc"}
+
+        self.assertEqual(mediapages.addresses("G1", "flyer", "", entry),
+                         ["/api/v1/games/G1/media/flyer?v=abc",
+                          "/api/v1/games/G1/media/flyer?page=2",
+                          "/api/v1/games/G1/media/flyer?page=3"])
+        self.assertEqual(mediapages.addresses("G1", "wheel", "", {"pages": 1}), [])
+
+    def test_a_page_is_taken_out_at_the_tier_that_holds_page_one(self) -> None:
+        self.assertEqual(mediapages.owner_of({"via": "table"}, "t1"), "t1")
+        self.assertEqual(mediapages.owner_of({"via": "game"}, "t1"), "")
 
     def test_a_collection_name_is_one_path_segment(self) -> None:
         self.assertEqual(art.collection("AC/DC & more", version="v1"),

@@ -11,13 +11,14 @@ grouped after it rather than pretended into the stack.
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from functools import partial
 from typing import Any
 
 from nicegui import ui
 
 from common.i18n import t
 from common.media_specs import media_family, media_label_map
-from console import art, media_ownership, mediaview, verbs
+from console import art, media_ownership, mediapages, mediaview, verbs
 
 # Top of the cabinet down to the floor. Kinds on the same row are the same screen shown
 # two ways - a still and its video - and share a row so the pair reads as one slot.
@@ -172,15 +173,25 @@ def _tile(game_id: str, table_id: str, kind: str, entry: dict[str, Any],
             if state != "missing" and wont_play:
                 ui.label(t("console.plays_on.wont_play")) \
                     .classes("console-tier console-tier--warn console-mediatile-plays")
+            pages = mediapages.count(kind, entry)
+            if pages >= mediapages.STRIP_FROM:
+                ui.label(t("console.mediamap.pages", count=pages)) \
+                    .classes("console-mediatile-pages")
             if state != "missing" and media_family(kind) in ("image", "video"):
                 # click.stop, or enlarging would also pick the tile and redraw the
                 # panel out from under the dialog.
+                if pages >= mediapages.STRIP_FROM:
+                    enlarge = partial(mediaview.open_pages,
+                                      mediapages.addresses(game_id, kind, table_id, entry),
+                                      media_label_map().get(kind, kind))
+                else:
+                    enlarge = partial(mediaview.open_viewer,
+                                      art.media(game_id, kind, table_id, version=version),
+                                      kind, media_label_map().get(kind, kind))
                 ui.button(icon=verbs.ENLARGE) \
                     .props("flat dense round size=sm") \
                     .classes("console-mediatile-zoom") \
-                    .on("click.stop", lambda: mediaview.open_viewer(
-                        art.media(game_id, kind, table_id, version=version), kind,
-                        media_label_map().get(kind, kind))) \
+                    .on("click.stop", lambda: enlarge()) \
                     .tooltip(t("word.enlarge"))
         ui.label(media_label_map().get(kind, kind)).classes("console-mediatile-cap")
     tile.tooltip(_tooltip(kind, entry, wont_play))

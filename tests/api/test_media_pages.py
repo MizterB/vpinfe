@@ -56,6 +56,18 @@ class MediaPagesTests(TempTree):
         self.assertEqual(media["flyer"]["pages"], 3)
         self.assertEqual(media["playfield"]["pages"], 0)
 
+    def test_the_library_list_has_a_row_for_each_later_page(self) -> None:
+        rows = self.client.get("/media", params={"game": GAME_ID, "kind": "flyer",
+                                                 "limit": 100}).json()["media"]
+        shared = [r for r in rows if not r["table"]]
+
+        self.assertEqual([(r["page"], r["label"], r["named"]) for r in shared],
+                         [(1, "Flyer", "Flyer"), (2, "Flyer", "Flyer, page 2"),
+                          (3, "Flyer", "Flyer, page 3")])
+        self.assertEqual([r["id"].rsplit(":", 1)[-1] for r in shared[1:]], ["2", "3"])
+        self.assertEqual([r["file"] for r in shared[1:]],
+                         [f"(Flyer 2) {FOLDER}.png", f"(Flyer 3) {FOLDER}.png"])
+
     def test_a_page_is_its_own_file(self) -> None:
         body = self.client.get(f"/games/{GAME_ID}/media/flyer", params={"page": 3}).content
 
@@ -156,6 +168,45 @@ class MediaPagesTests(TempTree):
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(response.json()["media"]["flyer"]["pages"], 4)
         self.assertIn(f"(Flyer 4) {FOLDER}.png", self._medias())
+
+    def _body(self, number: int) -> bytes:
+        name = f"(Flyer) {FOLDER}.png" if number == 1 else f"(Flyer {number}) {FOLDER}.png"
+        return (self.folder / "medias" / name).read_bytes()
+
+    def test_moving_a_page_earlier_swaps_it_with_the_one_before(self) -> None:
+        response = self.client.post(f"/games/{GAME_ID}/media/flyer/move",
+                                    json={"page": 3, "to": 2})
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual([self._body(1), self._body(2), self._body(3)],
+                         [b"\x89PNGone", b"\x89PNGthree", b"\x89PNGtwo"])
+        self.assertEqual(len(self._medias()), 3)
+
+    def test_moving_a_page_onto_page_one_makes_it_the_first(self) -> None:
+        self.client.post(f"/games/{GAME_ID}/media/flyer/move", json={"page": 2, "to": 1})
+
+        self.assertEqual(self._body(1), b"\x89PNGtwo")
+        self.assertEqual(self._body(2), b"\x89PNGone")
+
+    def test_a_page_cannot_move_past_the_last(self) -> None:
+        response = self.client.post(f"/games/{GAME_ID}/media/flyer/move",
+                                    json={"page": 3, "to": 4})
+
+        self.assertEqual(response.status_code, 400, response.text)
+        self.assertEqual(self._body(3), b"\x89PNGthree")
+
+    def test_a_table_moves_the_pages_of_the_flyer_it_shows(self) -> None:
+        response = self.client.post(f"/games/{GAME_ID}/media/flyer/move",
+                                    json={"table": "tbl0000002", "page": 3, "to": 2})
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(self._body(2), b"\x89PNGthree")
+
+    def test_a_kind_that_does_not_page_cannot_move_a_page(self) -> None:
+        response = self.client.post(f"/games/{GAME_ID}/media/playfield/move",
+                                    json={"page": 2, "to": 1})
+
+        self.assertEqual(response.status_code, 400, response.text)
 
 
 if __name__ == "__main__":

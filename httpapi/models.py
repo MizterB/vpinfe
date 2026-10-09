@@ -1934,6 +1934,12 @@ class MediaSlot(ApiModel):
     # `label` is this install's language; the key is what never moves. Additive, which
     # is why it does not move the theme contract.
     label_key: str = ""
+    # The page of a paged kind this row is: 1 for the first and for a kind that does not
+    # page. A later page is a row of its own, with `:n` on its id and the first page's
+    # scope. `named` is what a person calls the row - the label, and "Flyer, page 2" for
+    # a later page - where `label` stays the kind's on every page of it.
+    page: int = 1
+    named: str = ""
     table: str = ""
     table_file: str = ""
     vps_id: str = ""
@@ -2548,6 +2554,15 @@ class MediaRetier(ApiModel):
     folder's shared name, which every table in it resolves."""
 
     table: str = ""
+
+
+class MediaMove(ApiModel):
+    """Swap two pages of a slot: page `page` takes number `to` and the page there takes
+    `page`. `table` is the table whose slot it is, empty for the game's shared one."""
+
+    table: str = ""
+    page: int = Field(ge=1)
+    to: int = Field(ge=1)
 
 
 class MediaDisplaced(ApiModel):

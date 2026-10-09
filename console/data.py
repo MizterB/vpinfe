@@ -37,7 +37,7 @@ _SLOW_READ = 1.0
 # returns, less its `links` block, which nothing here draws.
 _MEDIA_ABSENT: dict[str, Any] = {"present": False, "file": None, "path": None,
                                  "via": None, "origin": None, "matched_to": None,
-                                 "version": None}
+                                 "version": None, "pages": 0}
 
 
 # A video shows the frame at `#t=0.1` - metadata alone paints nothing, and the fragment
@@ -256,8 +256,13 @@ class Library:
         media = {game["id"]: {spec.kind: dict(_MEDIA_ABSENT) for spec in MEDIA_SPECS}
                  for game in self.games}
         for row in rows:
-            slots = media.setdefault(row["game_id"], {})
-            slots[row["kind"]] = {field: row.get(field) for field in _MEDIA_ABSENT}
+            if (row.get("page") or 1) == 1:
+                slots = media.setdefault(row["game_id"], {})
+                slots[row["kind"]] = {field: row.get(field) for field in _MEDIA_ABSENT}
+                slots[row["kind"]]["pages"] = 1 if row.get("present") else 0
+        for row in rows:
+            if (row.get("page") or 1) > 1 and row.get("present"):
+                media[row["game_id"]][row["kind"]]["pages"] += 1
         return media
 
     def media_for(self, game_id: str, table_id: str | None) -> dict[str, Any]:
@@ -288,10 +293,11 @@ class Library:
             self._overrides[game_id] = self._client.media_overrides(game_id)
         return self._overrides[game_id]
 
-    def media_detail(self, game_id: str, table_id: str | None, kind: str) -> dict:
+    def media_detail(self, game_id: str, table_id: str | None, kind: str,
+                     page: int = 1) -> dict:
         """Never cached: it is read when a slot is opened, which is exactly when
         someone has just changed the thing it describes."""
-        return self._client.media_detail(game_id, table_id or "", kind)
+        return self._client.media_detail(game_id, table_id or "", kind, page)
 
     def video_codecs(self, game_id: str, table_id: str | None) -> dict[str, str]:
         """Each video's codec in one lens, by kind, where its header says. Never cached,
@@ -384,20 +390,27 @@ class Library:
         self.forget_media(game_id)
         return result
 
-    def displaced_by(self, game_id: str, table_id: str, kind: str,
-                     filename: str) -> list[str]:
+    def displaced_by(self, game_id: str, table_id: str, kind: str, filename: str,
+                     page: int = 1) -> list[str]:
         """Never cached: it is asked to decide a write, and a stale answer would either
         hide a replacement or invent one."""
-        return self._client.displaced_by(game_id, table_id, kind, filename)
+        return self._client.displaced_by(game_id, table_id, kind, filename, page)
 
     def place_media(self, game_id: str, table_id: str, kind: str,
-                    filename: str, data: bytes) -> dict:
-        result = self._client.place_media(game_id, table_id, kind, filename, data)
+                    filename: str, data: bytes, page: int = 1) -> dict:
+        result = self._client.place_media(game_id, table_id, kind, filename, data, page)
         self.forget_media(game_id)
         return result
 
-    def remove_media(self, game_id: str, table_id: str, kind: str) -> dict:
-        result = self._client.remove_media(game_id, table_id, kind)
+    def move_media_page(self, game_id: str, table_id: str, kind: str, page: int,
+                        to: int) -> dict:
+        result = self._client.move_media_page(game_id, table_id, kind, page, to)
+        self.forget_media(game_id)
+        return result
+
+    def remove_media(self, game_id: str, table_id: str, kind: str,
+                     page: int | None = None) -> dict:
+        result = self._client.remove_media(game_id, table_id, kind, page)
         self.forget_media(game_id)
         return result
 

@@ -39,6 +39,23 @@ class TheSharedSlot(unittest.TestCase):
 
         self.assertEqual((wheel["file"], wheel["via"]), ("Some Game.png", "game"))
 
+    def test_a_later_page_does_not_stand_for_the_slot(self) -> None:
+        flyer = {**SHARED, "id": "g-1:flyer:", "kind": "flyer", "file": "(Flyer) Some Game.png"}
+        second = {**flyer, "id": "g-1:flyer::2", "page": 2, "named": "Flyer, page 2",
+                  "file": "(Flyer 2) Some Game.png"}
+
+        slot = _library(flyer, second).media["g-1"]["flyer"]
+
+        self.assertEqual(slot["file"], "(Flyer) Some Game.png")
+
+    def test_the_slot_counts_its_pages_from_the_listing(self) -> None:
+        flyer = {**SHARED, "id": "g-1:flyer:", "kind": "flyer", "file": "(Flyer) Some Game.png"}
+        later = [{**flyer, "id": f"g-1:flyer::{n}", "page": n} for n in (2, 3)]
+
+        self.assertEqual(_library(flyer, *later).media["g-1"]["flyer"]["pages"], 3)
+        self.assertEqual(_library(flyer).media["g-1"]["flyer"]["pages"], 1)
+        self.assertEqual(_library(SHARED_ABSENT).media["g-1"]["wheel"]["pages"], 0)
+
     def test_a_game_whose_only_wheel_is_an_orphan_offers_no_wheel_column(self) -> None:
         self.assertEqual(_library(SHARED_ABSENT, ORPHAN).kinds_present(), [])
 

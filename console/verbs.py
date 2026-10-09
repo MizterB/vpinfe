@@ -72,6 +72,9 @@ RUN = "play_arrow"
 # Moving, looking and running.
 BACK = "arrow_back"
 NEXT = "arrow_forward"
+# A place in an order, one step either way.
+EARLIER = "chevron_left"
+LATER = "chevron_right"
 GO = "arrow_forward"
 SEARCH = "search"
 FIT = "fit_screen"

@@ -2055,6 +2055,8 @@ button.q-btn--flat.text-primary:hover .q-btn__content {
 }
 .console-viewer-btn:hover { background: var(--flair-wash-strong); color: var(--ink); }
 .console-viewer-btn .material-icons { font-size: var(--fs-title); }
+.console-viewer-pages { width: auto; gap: 4px; }
+.console-viewer-btn:disabled { opacity: 0.35; cursor: default; background: transparent; }
 .console-viewer-seek { flex: 1 1 auto; min-width: 0; accent-color: var(--accent); cursor: pointer; }
 .console-viewer-clock {
   font-size: var(--fs-caption); color: var(--ink-2); white-space: nowrap;
@@ -3264,6 +3266,28 @@ a.console-slot-file, a.console-slot-file:visited { color: var(--accent); }
 .console-mediatile-plays {
   position: absolute; bottom: 6px; left: 3px;
   background: var(--scrim-media-warm);
+}
+/* Bottom right, opposite the warning, and quiet: a flyer with pages is ordinary. */
+.console-mediatile-pages {
+  position: absolute; bottom: 6px; right: 3px;
+  padding: 0 5px; border-radius: 3px; font-size: 11px; line-height: 16px;
+  color: var(--ink-2); background: var(--scrim-media);
+}
+
+/* A paged slot's pages in order, wrapping when the panel is narrow. Each card is a
+   picture, its number and its acts; the last tile is Add page, at the same size. */
+.console-pagestrip { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
+.console-pagecard { width: 132px; align-items: stretch; }
+.console-pagecard-art {
+  height: 132px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line); border-radius: 6px; overflow: hidden;
+}
+.console-pagecard-media { display: contents; }
+.console-pagecard-art img { width: 100%; height: 100%; object-fit: contain; }
+.console-pagecard-acts { justify-content: space-between; }
+.console-pagecard-add {
+  width: 132px; height: 132px; border: 1px dashed var(--line); border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
 }
 
 /* The view has drifted from what it says it is, said on the control that names it.

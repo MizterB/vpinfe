@@ -34,6 +34,9 @@ _MEDIA_ID = "console-viewer-media"
 _PLAY_ID = "console-viewer-play"
 _SEEK_ID = "console-viewer-seek"
 _TIME_ID = "console-viewer-time"
+_COUNT_ID = "console-viewer-pages"
+_PREV_ID = "console-viewer-prev"
+_NEXT_ID = "console-viewer-next"
 
 # Native <video controls> are part of the element, so they turn with it and a rotated
 # video leaves its scrubber on its side. Ours live in the bar, which never turns.
@@ -44,6 +47,19 @@ _TRANSPORT = f"""
   <input id="{_SEEK_ID}" class="console-viewer-seek" type="range"
          min="0" max="1000" value="0" step="1">
   <span id="{_TIME_ID}" class="console-viewer-clock">0:00 / 0:00</span>
+</div>
+"""
+
+def _pages_bar() -> str:
+    return f"""
+<div class="console-viewer-transport console-viewer-pages">
+  <button type="button" id="{_PREV_ID}" class="console-viewer-btn"
+    title="{t("console.mediaview.step_back")}" aria-label="{t("console.mediaview.step_back")}">
+    <span class="material-icons">chevron_left</span></button>
+  <span id="{_COUNT_ID}" class="console-viewer-clock"></span>
+  <button type="button" id="{_NEXT_ID}" class="console-viewer-btn"
+    title="{t("console.mediaview.step_on")}" aria-label="{t("console.mediaview.step_on")}">
+    <span class="material-icons">chevron_right</span></button>
 </div>
 """
 
@@ -218,6 +234,54 @@ _VIEW = f"""
 """
 
 
+# The page being shown and the arrow keys live in the browser: stepping is a swap of the
+# picture's address, which a round trip per page would only slow down. The keys are
+# taken off the window while the viewer is open and given back when it closes.
+def _pager(urls: Sequence[str], start: int, said: str) -> str:
+    return f"""
+(() => {{
+  const el = document.getElementById('{_MEDIA_ID}');
+  const count = document.getElementById('{_COUNT_ID}');
+  const prev = document.getElementById('{_PREV_ID}');
+  const next = document.getElementById('{_NEXT_ID}');
+  if (!el || !count || !prev || !next) return;
+  const urls = {json.dumps(list(urls))};
+  const said = {json.dumps(said)};
+  let at = {start - 1};
+  const show = () => {{
+    el.src = urls[at];
+    count.textContent = said.replace('{{page}}', at + 1).replace('{{count}}', urls.length);
+    prev.disabled = at === 0;
+    next.disabled = at === urls.length - 1;
+  }};
+  // A new picture has its own size, so the fit and the zoom start over.
+  el.onload = () => window.__hubView && window.__hubView.turn(0);
+  const go = (step) => {{
+    const to = Math.min(urls.length - 1, Math.max(0, at + step));
+    if (to !== at) {{ at = to; show(); }}
+  }};
+  prev.onclick = () => go(-1);
+  next.onclick = () => go(1);
+  const key = (e) => {{
+    if (e.key === 'ArrowLeft') {{ go(-1); e.preventDefault(); }}
+    else if (e.key === 'ArrowRight') {{ go(1); e.preventDefault(); }}
+  }};
+  if (window.__hubPageKeys) window.removeEventListener('keydown', window.__hubPageKeys);
+  window.__hubPageKeys = key;
+  window.addEventListener('keydown', key);
+  show();
+}})()
+"""
+
+
+_UNPAGE = """
+if (window.__hubPageKeys) {
+  window.removeEventListener('keydown', window.__hubPageKeys);
+  window.__hubPageKeys = null;
+}
+"""
+
+
 def preview(src: str, kind: str, label: str) -> None:
     """Present the file with an element that can actually play it.
 
@@ -252,13 +316,19 @@ def open_image(src: str, label: str, acts: Sequence[Act] = ()) -> None:
     _open(src, "image", label, acts)
 
 
+def open_pages(urls: Sequence[str], label: str, start: int = 1) -> None:
+    """Show a paged kind's pictures large, one at a time, starting at page `start`."""
+    _open(urls[start - 1], "image", label, pages=urls, start=start)
+
+
 def open_viewer(src: str, kind: str, label: str, *, family: str = "") -> None:
     """Show this file large. `family` overrides what `kind` would answer, for a source
     with no kind of its own - a card's data URI, say."""
     _open(src, family or media_family(kind), label)
 
 
-def _open(src: str, family: str, label: str, acts: Sequence[Act] = ()) -> None:
+def _open(src: str, family: str, label: str, acts: Sequence[Act] = (), *,
+          pages: Sequence[str] = (), start: int = 1) -> None:
     if family not in ("image", "video"):
         # Audio has no frame to enlarge and a document is not ours to render.
         ui.notify(t("console.mediaview.nothing_enlarge", label=(label)), type="info")
@@ -271,6 +341,9 @@ def _open(src: str, family: str, label: str, acts: Sequence[Act] = ()) -> None:
             ui.label(label).classes("console-card-title shrink-0")
             if family == "video":
                 ui.html(_TRANSPORT).classes("grow min-w-0")
+            elif len(pages) > 1:
+                ui.space()
+                ui.html(_pages_bar())
             else:
                 ui.space()
             for icon, said, act in acts:
@@ -301,6 +374,11 @@ def _open(src: str, family: str, label: str, acts: Sequence[Act] = ()) -> None:
     ui.run_javascript(_VIEW)
     if family == "video":
         ui.run_javascript(_WIRE)
+    if len(pages) > 1:
+        # Left as `{page}` and `{count}` for the script to fill in as it steps.
+        ui.run_javascript(_pager(pages, start, t("console.mediaview.page_of",
+                                                 page="{page}", count="{count}")))
+        dialog.on("hide", lambda: ui.run_javascript(_UNPAGE))
 
 
 def _act(dialog: Any, icon: str, said: str, act: Callable[[], Awaitable[Any]]) -> None:

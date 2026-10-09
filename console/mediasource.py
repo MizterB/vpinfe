@@ -551,11 +551,14 @@ class _Slot(_OneFile):
     def __init__(self, context: dict[str, Any], kind: str, label: str,
                  done: Callable, target: _Target, current: str = "", *,
                  records: bool = False, first: str = "",
-                 backglass_file: dict[str, Any] | None = None) -> None:
+                 backglass_file: dict[str, Any] | None = None, page: int = 1) -> None:
         super().__init__(context["library"], label, done, target.accept,
                          _on_host(context, current))
         self.target = target
-        self.online = target.online
+        # A page past 1 follows page 1 to whichever tier holds it, so there is no name
+        # to choose and the dialog has no destination row.
+        self.page = page
+        self.online = target.online and page == 1
         self.records = records
         self.backglass_file = backglass_file
         self.backglass = bool(backglass_file)
@@ -586,6 +589,8 @@ class _Slot(_OneFile):
 
     def opened(self, above: ui.column) -> None:
         async def start() -> None:
+            if self.page > 1:
+                return
             # Read before anything else: the destination is the decision every tab
             # feeds, and a picker that appears after the first file is chosen has come
             # too late.
@@ -613,7 +618,14 @@ class _Slot(_OneFile):
     @property
     def destination(self) -> str:
         """The table id whatever arrives should be named for, "" for the shared name."""
+        if self.page > 1:
+            return self.table_id or ""
         return str((self.placed_at or {}).get("table") or "")
+
+    def _of_page(self) -> dict[str, int]:
+        """The page the calls name, only where it is not the first: the asset calls take
+        none."""
+        return {"page": self.page} if self.page > 1 else {}
 
     def _destination_row(self) -> None:
         """The one decision every way in shares, so it is made once and above them.
@@ -690,6 +702,8 @@ class _Slot(_OneFile):
         on screen. The write worked and the panel is right; without a word about it
         the pair reads as a failure.
         """
+        if self.page > 1:
+            return message
         chosen = self.placed_at or {}
         where = (t("console.mediasource.for",
                    table=_trimmed_stem(str(chosen.get("label") or "")))
@@ -717,8 +731,9 @@ class _Slot(_OneFile):
         """
         self.note_extension(filename)
         try:
-            going = await offload.io(self.target.displaced, self.game_id,
-                                       self.destination, self.kind, filename)
+            going = await offload.io(partial(
+                self.target.displaced, self.game_id, self.destination, self.kind,
+                filename, **self._of_page()))
         except Exception as exc:
             ui.notify(t("console.mediasource.slot_failed"), caption=why(exc),
                       type="negative")
@@ -740,8 +755,9 @@ class _Slot(_OneFile):
     @on_page
     async def place(self, name: str, data: bytes) -> None:
         try:
-            await run.io_bound(self.target.place, self.game_id,
-                               self.destination, self.kind, name, data)
+            await run.io_bound(partial(
+                self.target.place, self.game_id, self.destination, self.kind, name, data,
+                **self._of_page()))
         except Exception as exc:
             ui.notify(t("console.mediasource.place_failed"), caption=why(exc),
                       type="negative")
@@ -1597,20 +1613,21 @@ def records(library: Any, kind: str) -> dict[str, Any] | None:
 def open_sources(context: dict[str, Any], kind: str, label: str,
                  done: Callable, current: str = "", *, recording_it: bool = False,
                  backglass_file: dict[str, Any] | None = None,
-                 place: str = "") -> ui.dialog:
+                 place: str = "", page: int = 1) -> ui.dialog:
     """Open the ways to fill this slot. Returns as soon as the dialog is up.
 
     `current` is what fills it now, as a path in the game's folder. `recording_it` opens
     it on its Record tab. `backglass_file` is the picture the game's backglass file draws,
     which adds a tab and, on an empty slot, is where the dialog opens. `place` is the
-    position in a walk, which makes the way out Skip and Stop.
+    position in a walk, which makes the way out Skip and Stop. `page` is the page of a
+    paged kind the file becomes; `label` then names the page, not the kind.
     """
     library = context["library"]
     first = "record" if recording_it else \
-        "backglass" if backglass_file and not current else ""
+        "backglass" if backglass_file and not current and page == 1 else ""
     sources = _Slot(context, kind, label, done, _media(library, kind), current,
-                    records=records(library, kind) is not None, first=first,
-                    backglass_file=backglass_file)
+                    records=records(library, kind) is not None and page == 1, first=first,
+                    backglass_file=backglass_file if page == 1 else None, page=page)
     sources.walk_place = place
     return sources.open()
 

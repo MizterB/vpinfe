@@ -29,11 +29,13 @@ from common.games import (
 )
 from common.games.game_metadata import effective_vps_id
 from common.games.game_repository import game_to_row
+from common.i18n import t
 from common.media_specs import (
     MEDIA_SPECS,
     media_candidates,
     media_label_map,
     resolve_media_entries,
+    resolve_media_pages,
     spec_named,
 )
 
@@ -119,18 +121,39 @@ def _unused(game_id: str, row: dict, kind: str, path: Path, game_dir: Path,
             "standing_in": ""}
 
 
-def _row(game_id: str, row: dict, kind: str, table: str, table_file: str) -> dict:
-    """The fields every row carries whatever its scope."""
-    return {"id": f"{game_id}:{kind}:{table}", "game_id": game_id,
+def _row(game_id: str, row: dict, kind: str, table: str, table_file: str,
+         page: int = 1) -> dict:
+    """The fields every row carries whatever its scope. `label` is the kind's and the
+    same on every page of it; `named` is what a person calls this row."""
+    label = media_label_map().get(kind, kind)
+    return {"id": f"{game_id}:{kind}:{table}" + (f":{page}" if page > 1 else ""),
+            "game_id": game_id,
             "game": str(row.get("name") or ""),
             "manufacturer": str(row.get("manufacturer") or ""),
             "year": str(row.get("year") or ""),
-            "kind": kind, "label": media_label_map().get(kind, kind),
+            "kind": kind, "label": label,
+            "page": page,
+            "named": label if page == 1 else t("media.page_named", label=label, page=page),
             "label_key": f"media.kind.{kind}.label",
             "table": table, "table_file": table_file,
             # What a catalog is asked for. On the row because every act on a slot needs
             # it and the alternative is a lookup per row against the games list.
             "vps_id": str(row.get("vps_id") or "")}
+
+
+def _page_rows(game_id: str, row: dict, kind: str, table: str, table_file: str,
+               first: dict, pages: list[Path], game_dir: Path, recorded: dict,
+               hosts: dict) -> list[dict]:
+    """The rows for pages 2 and up of a slot, each a file of its own and sharing the
+    first page's scope."""
+    return [{**first,
+             **_row(game_id, row, kind, table, table_file, number),
+             "file": path.name,
+             "path": asset_origin.path_of(game_dir, path) or None,
+             "origin": asset_origin.origin_of(hosts, game_dir, path) or None,
+             "matched_to": asset_origin.match_of(recorded, game_dir, path) or None,
+             "version": sized_media.version(path)}
+            for number, path in enumerate(pages[1:], 2)]
 
 
 def _game_rows(game_id: str, entry: Any, variant: str,
@@ -201,7 +224,7 @@ def _game_rows(game_id: str, entry: Any, variant: str,
         # file of its own, so there is nothing for a shared file to serve. Kept where
         # a file is actually there, because a file on disk is a row whatever uses it.
         if shared_path is not None or serves > 0 or not tables:
-            found.append({
+            first = {
                 **_row(game_id, row, slot, "", ""),
                 # Only ever about a file. A row with none says nothing here rather
                 # than how many tables would have used one, which is a different
@@ -219,16 +242,22 @@ def _game_rows(game_id: str, entry: Any, variant: str,
                 "version": sized_media.version(shared_path),
                 "standing_in": (hit.tier if hit is not None and hit.path is not None
                                 and hit.tier not in _SHARED_TIERS else ""),
-            })
+            }
+            found.append(first)
+            if shared_path is not None and hit is not None:
+                pages = resolve_media_pages(game_dir, files, medias, {slot: hit},
+                                            variant, None).get(slot, [])
+                found.extend(_page_rows(game_id, row, slot, "", "", first, pages,
+                                        game_dir, recorded, hosts))
             for covered in _covered(game_dir, files, medias, slot, variant, sets,
                                     None, _SHARED_TIERS, shared_path):
                 found.append(_unused(game_id, row, slot, covered, game_dir,
                                      recorded, hosts))
         for table in mine:
             own = table["hit"].path
-            found.append({
-                **_row(game_id, row, slot, table["id"],
-                       str(table.get("filename") or "")),
+            table_file = str(table.get("filename") or "")
+            first = {
+                **_row(game_id, row, slot, table["id"], table_file),
                 # One: the table it is named for. Not null - the question applies
                 # and has an answer, and a blank here would read as "no file".
                 "serves": 1,
@@ -240,7 +269,12 @@ def _game_rows(game_id: str, entry: Any, variant: str,
                 "matched_to": asset_origin.match_of(recorded, game_dir, own) or None,
                 "version": sized_media.version(own),
                 "standing_in": "",
-            })
+            }
+            found.append(first)
+            pages = resolve_media_pages(game_dir, files, medias, {slot: table["hit"]},
+                                        variant, table["stem"]).get(slot, [])
+            found.extend(_page_rows(game_id, row, slot, table["id"], table_file, first,
+                                    pages, game_dir, recorded, hosts))
             for covered in _covered(game_dir, files, medias, slot, variant, sets,
                                     table["stem"], _TABLE_TIERS, own):
                 found.append(_unused(game_id, row, slot, covered, game_dir,

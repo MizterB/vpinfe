@@ -339,6 +339,14 @@ def retier_media(game_id: str, kind: str, body: models.MediaRetier,
         media_ops.retier(game_id, kind, table, body.table))
 
 
+@router.post("/{game_id}/media/{kind}/move",
+             summary="Swap two pages of a slot",
+             dependencies=[requires(scopes.GAMES_WRITE)])
+def move_media_page(game_id: str, kind: str, body: models.MediaMove) -> models.MediaWritten:
+    return models.MediaWritten.model_validate(
+        media_ops.move_page(game_id, kind, body.table, body.page, body.to))
+
+
 @router.get("/{game_id}/media/{kind}/displaced",
             summary="What placing this file here would replace",
             dependencies=[requires(scopes.GAMES_READ)])

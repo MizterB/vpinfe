@@ -120,8 +120,11 @@ COLUMNS: list[dict[str, Any]] = [
     grid.column("scope", t("console.media.scope"), 100, group=t(_FILE),
                 **grid.choice_filter(_SCOPE_CHOICES),
                 help=t("console.media.scope.help")),
+    # The value stays the kind, which is what the Kind filter lists; a later page shows
+    # as "Flyer, page 2" and the filter still finds it under Flyer.
     grid.column("label", t("word.kind"), 160, group=t(_FILE),
-                help=t("console.media.kind.help")),
+                help=t("console.media.kind.help"),
+                **{":valueFormatter": "params => (params.data || {}).named || params.value"}),
     grid.column("used_by", t("word.used_by"), type="numericColumn", group=t(_FILE),
                 help=t("console.media.used_by.help")),
     grid.column("reason", t("word.unused_reason"), 150, group=t(_FILE),
@@ -271,7 +274,7 @@ def build(found: list[dict[str, Any]], library: Any,
             return
         on = grid.menu_rows(table, row)
         panel.verb_menu(
-            menu, str(row["game"]) + " - " + str(row["label"]) if len(on) == 1
+            menu, str(row["game"]) + " - " + str(row.get("named") or row["label"]) if len(on) == 1
             else t("console.media.files", count=len(on)),
             panel.for_selection(acts_on(on), len(on)))
 

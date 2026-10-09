@@ -645,9 +645,10 @@ class ApiClient:
         """Kinds where a table has art of its own, keyed by kind."""
         return self._get(f"/games/{game_id}/media/overrides").get("overrides") or {}
 
-    def media_detail(self, game_id: str, table_id: str, kind: str) -> dict:
+    def media_detail(self, game_id: str, table_id: str, kind: str, page: int = 1) -> dict:
         """One slot in full - its file's size and shape, and every tier holding one."""
-        return self._get(f"{self._media_path(game_id, table_id, kind)}/detail")
+        return self._get(f"{self._media_path(game_id, table_id, kind)}/detail"
+                         + _page_query(page))
 
     def browse_roots(self, game_id: str = "") -> list[dict]:
         """Where browsing this machine may start, this game's own folder included."""
@@ -685,11 +686,13 @@ class ApiClient:
         Loopback only: a Console opened from another computer is refused."""
         return "/api/v1/folders/file?" + urlencode({"path": path})
 
-    def media_file(self, game_id: str, table_id: str, kind: str) -> tuple[bytes, str]:
+    def media_file(self, game_id: str, table_id: str, kind: str,
+                   page: int = 1) -> tuple[bytes, str]:
         """The file a slot resolves to, and the content type it is served as."""
         route = self._media_path(game_id, table_id, kind)
         _refuse_the_event_loop(route)
-        response = self._session.get(f"{self._base}{route}", timeout=_TIMEOUT)
+        response = self._session.get(f"{self._base}{route}", params=_page_params(page),
+                                     timeout=_TIMEOUT)
         self._answered(response)
         return response.content, response.headers.get("content-type", "")
 
@@ -734,21 +737,33 @@ class ApiClient:
         self._answered(response)
         return response.json()
 
-    def displaced_by(self, game_id: str, table_id: str, kind: str,
-                     filename: str) -> list[str]:
+    def move_media_page(self, game_id: str, table_id: str, kind: str, page: int,
+                        to: int) -> dict:
+        """Swap page `page` of a slot with page `to`. Only the numbers in the names move."""
+        path = f"/games/{game_id}/media/{kind}/move"
+        _refuse_the_event_loop(path)
+        response = self._session.post(f"{self._base}{path}",
+                                      json={"table": table_id or "", "page": page, "to": to},
+                                      timeout=_TIMEOUT)
+        self._answered(response)
+        return response.json()
+
+    def displaced_by(self, game_id: str, table_id: str, kind: str, filename: str,
+                     page: int = 1) -> list[str]:
         """What placing `filename` here would replace, asked before the bytes go up."""
         path = f"{self._media_path(game_id, table_id, kind)}/displaced"
         _refuse_the_event_loop(path)
-        response = self._session.get(f"{self._base}{path}",
-                                     params={"filename": filename}, timeout=_TIMEOUT)
+        asked: dict[str, str | int] = {"filename": filename, **_page_params(page)}
+        response = self._session.get(f"{self._base}{path}", params=asked,
+                                     timeout=_TIMEOUT)
         self._answered(response)
         return list(response.json().get("displaced") or [])
 
     def place_media(self, game_id: str, table_id: str, kind: str,
-                    filename: str, data: bytes) -> dict:
+                    filename: str, data: bytes, page: int = 1) -> dict:
         path = self._media_path(game_id, table_id, kind)
         _refuse_the_event_loop(path)
-        response = self._session.put(f"{self._base}{path}",
+        response = self._session.put(f"{self._base}{path}", params=_page_params(page),
                                      files={"file": (filename, data)},
                                      timeout=_IMPORT_TIMEOUT)
         self._answered(response)
@@ -789,10 +804,15 @@ class ApiClient:
         self._answered(response)
         return response.json()
 
-    def remove_media(self, game_id: str, table_id: str, kind: str) -> dict:
+    def remove_media(self, game_id: str, table_id: str, kind: str,
+                     page: int | None = None) -> dict:
+        """Take a file out of the slot's tier. With a `page` only that page goes; without
+        one the kind goes with all of its pages."""
         path = self._media_path(game_id, table_id, kind)
         _refuse_the_event_loop(path)
-        response = self._session.delete(f"{self._base}{path}", timeout=_TIMEOUT)
+        response = self._session.delete(
+            f"{self._base}{path}", params={"page": page} if page else None,
+            timeout=_TIMEOUT)
         self._answered(response)
         return response.json()
 
@@ -1668,6 +1688,15 @@ def read_frames(lines: Iterable[str]) -> Iterator[tuple[str, dict]]:
             name = value.removeprefix(" ")
         elif field == "data":
             data.append(value.removeprefix(" "))
+
+
+def _page_params(page: int) -> dict[str, int]:
+    """The query that names a later page; page 1 is the route as it always was."""
+    return {"page": page} if page > 1 else {}
+
+
+def _page_query(page: int) -> str:
+    return f"?page={page}" if page > 1 else ""
 
 
 def _refuse_the_event_loop(path: str) -> None:

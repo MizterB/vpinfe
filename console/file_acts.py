@@ -24,6 +24,7 @@ from common.failures import why
 from common.games import media_fill as gaps_in
 from common.games.asset_resolver import VPX_ASSET_KINDS
 from common.i18n import t
+from common.media_specs import PAGED_KINDS
 from common.online import vps_kinds
 from console import (
     confirm,
@@ -72,7 +73,12 @@ class File:
 
     @property
     def label(self) -> str:
-        return str(self.row.get("label") or self.kind)
+        """What a person calls it: the kind, and for a later page which page."""
+        return str(self.row.get("named") or self.row.get("label") or self.kind)
+
+    @property
+    def page(self) -> int:
+        return int(self.row.get("page") or 1)
 
     @property
     def table(self) -> str:
@@ -220,9 +226,12 @@ async def _noted(touched: list[str], game_id: str) -> None:
 def media_acts(library: Any, files: list[File], state: dict[str, Any],
                after: After) -> list[panel.Verb]:
     """What can be done to these media files."""
-    files = [one for one in files if not is_loose(one.row)]
-    if not files:
+    everyone = [one for one in files if not is_loose(one.row)]
+    if not everyone:
         return []
+    # A later page is a file of its own that can be replaced or taken out; the rest of
+    # what a slot can do is done to the slot, which page 1 stands for.
+    files = [one for one in everyone if one.page == 1]
     rows = [one.row for one in files]
     gaps = [one for one in files if gaps_in.is_gap(one.row)]
     recordable = [one for one in files if mediasource.records(library, one.kind) is not None]
@@ -230,24 +239,24 @@ def media_acts(library: Any, files: list[File], state: dict[str, Any],
                  and listed_as(one.kind, vps_kinds.MEDIA) is not None]
     sharable = [one for one in files if one.present and one.table
                 and str(one.row.get("via") or "") == "table"]
-    removable = [one for one in files if one.present]
+    removable = [one for one in everyone if one.present]
 
     async def open_slot(one: File, done: Callable[[], Awaitable[Any]], place: str) -> Any:
         context = {"library": library, "game_id": one.game_id, "lens": one.table,
                    "game": one.game, "state": state}
         try:
             detail = await offload.io(library.media_detail, one.game_id, one.table or None,
-                                      one.kind)
+                                      one.kind, one.page)
         except Exception:  # noqa: BLE001 - the dialog opens without what it would add
             logger.debug("No detail for %s", one.kind, exc_info=True)
             detail = {}
         return await mediasource.open_sources(
             context, one.kind, one.label, done, str(detail.get("path") or one.path),
-            backglass_file=detail.get("backglass_file"), place=place)
+            backglass_file=detail.get("backglass_file"), place=place, page=one.page)
 
     @on_page
     async def add_or_replace() -> None:
-        await _walk_dialogs(files, open_slot, after)
+        await _walk_dialogs(everyone, open_slot, after)
 
     @on_page
     async def get_missing() -> None:
@@ -316,7 +325,7 @@ def media_acts(library: Any, files: list[File], state: dict[str, Any],
             try:
                 tables = await offload.io(library.tables_for, only.game_id)
                 detail = await offload.io(library.media_detail, only.game_id,
-                                          only.table or None, only.kind)
+                                          only.table or None, only.kind, only.page)
             except Exception:  # noqa: BLE001 - only the file on show is known
                 tables, detail = [], None
             taken = removal(tables, only.game, only.table, (detail or {}).get("tiers"),
@@ -332,9 +341,11 @@ def media_acts(library: Any, files: list[File], state: dict[str, Any],
             return
         gone = 0
         try:
-            for one in removable:
+            # Later pages first: taking one out renumbers the ones after it.
+            for one in sorted(removable, key=lambda one: -one.page):
                 result = await offload.io(library.remove_media, one.game_id, one.table,
-                                          one.kind)
+                                          one.kind,
+                                          one.page if one.kind in PAGED_KINDS else None)
                 gone += len(result.get("removed") or [])
         except Exception as exc:  # noqa: BLE001
             ui.notify(t("said.remove_failed"), caption=why(exc), type="negative")
@@ -344,7 +355,7 @@ def media_acts(library: Any, files: list[File], state: dict[str, Any],
                       type="positive" if gone else "info")
         await after(_games_of(removable))
 
-    offered = [panel.Verb(_slot_label(files), add_or_replace)]
+    offered = [panel.Verb(_slot_label(everyone), add_or_replace)]
     if gaps:
         offered.append(panel.Verb(t("console.media_fill.get_missing"), get_missing))
     if recordable and (recording := recorder.verb(library, record)):
