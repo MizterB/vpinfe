@@ -148,10 +148,10 @@ class ShownArt(NamedTuple):
 CABINET_FALLS_TO = {"playfield": ("playfield_fss",)}
 
 
-def shown_art(game_dir: Path, kind: str, table_stem: str | None = None, *,
-              contents: tuple[set[str], set[str]] | None = None,
-              settings: tuple[str, dict[str, str] | None] | None = None
-              ) -> ShownArt | None:
+def shown_media(game_dir: Path, kind: str, table_stem: str | None = None, *,
+                contents: tuple[set[str], set[str]] | None = None,
+                settings: tuple[str, dict[str, str] | None] | None = None
+                ) -> ShownArt | None:
     """The file the cabinet shows for `kind`, as the kind its media route serves it
     under and its version, or None.
 

@@ -691,7 +691,7 @@ class NamesArtAndThingsTests(WizardCase):
         self.assertEqual(rows["Details"], "Keep yours for Year")
 
     def test_the_art_page_offers_a_few_of_the_wheel_images_to_judge_by(self) -> None:
-        page = self.page("art")
+        page = self.page("media")
 
         wheels_as = page["fields"][0]
         self.assertEqual([one[0] for one in wheels_as["choices"]], ["logo", "wheel"])
@@ -701,17 +701,17 @@ class NamesArtAndThingsTests(WizardCase):
         self.assertIn("Wheel 1", page["help"])
 
     def test_wheel_images_that_are_not_pictures_it_can_read_are_wheels(self) -> None:
-        self.assertEqual(self.page("art")["fields"][0]["value"], "wheel")
+        self.assertEqual(self.page("media")["fields"][0]["value"], "wheel")
 
     def test_wide_transparent_wheel_images_are_offered_as_logos(self) -> None:
         from tests.importer.test_shapes import png
 
-        page = self.page("art", source=self.with_wheels(png(800, 200)))
+        page = self.page("media", source=self.with_wheels(png(800, 200)))
 
         self.assertEqual(page["fields"][0]["value"], "logo")
 
     def test_the_show_logos_switch_follows_the_answer(self) -> None:
-        page = self.page("art")
+        page = self.page("media")
 
         shown = page["fields"][1]
         self.assertEqual(shown["key"], "show_logos")
@@ -729,24 +729,24 @@ class NamesArtAndThingsTests(WizardCase):
         self.assertEqual(logos["Get Missing Media"], "Yes")
 
     def test_missing_media_is_not_fetched_when_the_switch_is_off(self) -> None:
-        self.assertEqual(self.rows(fetch_art=False)["Get Missing Media"], "No")
+        self.assertEqual(self.rows(fetch_media=False)["Get Missing Media"], "No")
 
     def test_an_answer_kept_from_an_earlier_import_starts_the_page(self) -> None:
         self.store.set_setting("library_importer", "answers",
-                               '{"fetch_art": false, "names": "source", "other": 1}')
+                               '{"fetch_media": false, "names": "source", "other": 1}')
 
         pages = self.walk()
-        art = next(one for one in pages if one["step"] == "art")
+        art = next(one for one in pages if one["step"] == "media")
         names = next(one for one in pages if one["step"] == "names")
 
-        self.assertIs(next(one for one in art["fields"] if one["key"] == "fetch_art")["value"],
+        self.assertIs(next(one for one in art["fields"] if one["key"] == "fetch_media")["value"],
                       False)
         self.assertEqual(names["fields"][0]["value"], "source")
 
     def test_what_is_kept_is_one_text_that_can_be_unreadable(self) -> None:
         self.store.set_setting("library_importer", "answers", "not json")
 
-        self.assertIs(self.page("art")["fields"][1]["value"], True)
+        self.assertIs(self.page("media")["fields"][1]["value"], True)
 
     def test_a_thing_the_source_has_none_of_gets_no_switch(self) -> None:
         self.assertIsNone(self.page("things"))

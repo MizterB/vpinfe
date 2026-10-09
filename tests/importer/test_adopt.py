@@ -281,18 +281,18 @@ class ImportTests(AdoptCase):
         from vpinfe_ext_library_importer import adopt
 
         ctx = unittest.mock.MagicMock()
-        ctx.games.get_missing_art.return_value = {"started": True}
+        ctx.games.get_missing_media.return_value = {"started": True}
         made = [{"game_id": "g1", "matched": True}, {"game_id": "g2", "matched": True},
                 {"game_id": "g1", "matched": True}, {"game_id": "g3"}]
-        wanted = {"wheels_as": "wheel", "show_logos": True, "fetch_art": True, **plan}
-        done = adopt._art_after(ctx, unittest.mock.Mock(**wanted), made, converted)
+        wanted = {"wheels_as": "wheel", "show_logos": True, "fetch_media": True, **plan}
+        done = adopt._media_after(ctx, unittest.mock.Mock(**wanted), made, converted)
         return ctx, done
 
     def test_missing_media_is_asked_for_once_for_the_matched_games_made(self) -> None:
         ctx, done = self._after()
 
-        ctx.games.get_missing_art.assert_called_once_with(["g1", "g2"])
-        self.assertEqual(done, {"wheel_logos": False, "art_started": True})
+        ctx.games.get_missing_media.assert_called_once_with(["g1", "g2"])
+        self.assertEqual(done, {"wheel_logos": False, "media_started": True})
 
     def test_the_wheel_shows_logos_only_for_wheel_images_kept_as_logos(self) -> None:
         ctx, done = self._after(wheels_as="logo")
@@ -312,44 +312,44 @@ class ImportTests(AdoptCase):
         from vpinfe_ext_library_importer import adopt
 
         ctx = unittest.mock.MagicMock()
-        plan = unittest.mock.Mock(wheels_as="wheel", show_logos=True, fetch_art=True)
+        plan = unittest.mock.Mock(wheels_as="wheel", show_logos=True, fetch_media=True)
 
-        done = adopt._art_after(ctx, plan, [{"game_id": "g1"}], False)
+        done = adopt._media_after(ctx, plan, [{"game_id": "g1"}], False)
 
-        ctx.games.get_missing_art.assert_not_called()
-        self.assertFalse(done["art_started"])
+        ctx.games.get_missing_media.assert_not_called()
+        self.assertFalse(done["media_started"])
 
     def test_a_stopped_run_neither_switches_the_wheel_nor_asks_for_a_fill(self) -> None:
         from vpinfe_ext_library_importer import adopt
 
         library, made = self._planned("")
-        made.wheels_as, made.show_logos, made.fetch_art = "logo", True, True
+        made.wheels_as, made.show_logos, made.fetch_media = "logo", True, True
         self._ctx.games.use_logos_for_wheels = unittest.mock.Mock()
-        self._ctx.games.get_missing_art = unittest.mock.Mock()
+        self._ctx.games.get_missing_media = unittest.mock.Mock()
 
         report = adopt.run(self._ctx, library, [VPX], "", made, halted=lambda: True)
 
         self.assertTrue(report["stopped"])
         self._ctx.games.use_logos_for_wheels.assert_not_called()
-        self._ctx.games.get_missing_art.assert_not_called()
+        self._ctx.games.get_missing_media.assert_not_called()
 
     def test_nothing_is_asked_when_the_switch_is_off(self) -> None:
-        ctx, done = self._after(fetch_art=False)
+        ctx, done = self._after(fetch_media=False)
 
-        ctx.games.get_missing_art.assert_not_called()
-        self.assertFalse(done["art_started"])
+        ctx.games.get_missing_media.assert_not_called()
+        self.assertFalse(done["media_started"])
 
     def test_a_failure_asking_is_said_and_does_not_stop_the_report(self) -> None:
         from vpinfe_ext_library_importer import adopt
 
         ctx = unittest.mock.MagicMock()
-        ctx.games.get_missing_art.side_effect = RuntimeError("down")
+        ctx.games.get_missing_media.side_effect = RuntimeError("down")
         ctx.games.use_logos_for_wheels.side_effect = RuntimeError("down")
-        plan = unittest.mock.Mock(wheels_as="logo", show_logos=True, fetch_art=True)
+        plan = unittest.mock.Mock(wheels_as="logo", show_logos=True, fetch_media=True)
 
-        done = adopt._art_after(ctx, plan, [{"game_id": "g1", "matched": True}], True)
+        done = adopt._media_after(ctx, plan, [{"game_id": "g1", "matched": True}], True)
 
-        self.assertEqual(done, {"wheel_logos": False, "art_started": False})
+        self.assertEqual(done, {"wheel_logos": False, "media_started": False})
         self.assertEqual(ctx.logger.warning.call_count, 2)
 
     def test_poppers_info_screen_is_the_flyer_and_its_help_screen_the_card(self) -> None:

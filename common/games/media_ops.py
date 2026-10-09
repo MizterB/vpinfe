@@ -488,7 +488,7 @@ def use_logos_for_wheels() -> dict:
     return {"wheelset": _LOGO_SET}
 
 
-def get_missing_art(game_ids: list[str]) -> dict:
+def get_missing_media(game_ids: list[str]) -> dict:
     """Start the art fill for these games whatever the switch for new games says.
 
     `started` is false while another fill runs, which does not cover these games: the
@@ -504,7 +504,7 @@ def get_missing_art(game_ids: list[str]) -> dict:
     return {"started": True}
 
 
-__all__ = ["detail", "displaced", "fetch_file", "game_media", "get_missing_art",
+__all__ = ["detail", "displaced", "fetch_file", "game_media", "get_missing_media",
            "kind_or_refuse", "media_file", "move_page", "overrides", "place_file", "place_upload",
            "placements", "remove", "retier", "stem_or_refuse", "table_media",
            "use_logos_for_wheels"]

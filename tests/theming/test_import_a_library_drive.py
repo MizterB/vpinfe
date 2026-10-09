@@ -30,7 +30,7 @@ CHOICES = (f"[...document.querySelectorAll({json.dumps(RADIO)})]"
 TABLES = ("Alpha", "Bravo")
 # The pages between the folder and the question of how to bring the tables in; each is
 # passed with what it offers ticked.
-STEPS_BEFORE_HOW = ("games", "matches", "names", "art", "things")
+STEPS_BEFORE_HOW = ("games", "matches", "names", "media", "things")
 ADDRESS = "/console?view=settings&page=library.folders"
 ROWS = ".console-settings-body .console-member-row"
 ACTIONS = ".console-settings-body .console-action"

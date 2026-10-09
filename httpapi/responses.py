@@ -15,13 +15,13 @@ from common.sized_media import Served
 FOREVER = "public, max-age=31536000, immutable"
 HELD_LIMIT = 16 * 1024 * 1024
 
-ART_SIZE = Query(None, description="The longest edge in pixels, for an image: "
-                                   + " or ".join(str(one) for one in sized_media.SIZES))
-ART_VERSION = Query("", description="The `version` the listing gave; a match is kept "
-                                    "for good")
+MEDIA_SIZE = Query(None, description="The longest edge in pixels, for an image: "
+                                     + " or ".join(str(one) for one in sized_media.SIZES))
+MEDIA_VERSION = Query("", description="The `version` the listing gave; a match is kept "
+                                      "for good")
 
 
-def art_file(served: Served, request: Request, sent_version: str) -> Response:
+def media_file(served: Served, request: Request, sent_version: str) -> Response:
     """Kept for good when the address names the file's current version, and asked
     about every time otherwise."""
     if sent_version and sent_version == served.version:

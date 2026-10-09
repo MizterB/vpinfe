@@ -17,7 +17,7 @@ from common.players import get_roster
 from . import models, scopes
 from .auth import requires
 from .events import declare_snapshot
-from .responses import ART_SIZE, ART_VERSION, art_file
+from .responses import MEDIA_SIZE, MEDIA_VERSION, media_file
 
 router = APIRouter(prefix="/players", tags=["players"])
 
@@ -79,9 +79,9 @@ def set_up(player_id: str,
 
 @router.get("/{player_id}/picture", summary="A player's picture",
             dependencies=[requires(scopes.PLAYERS_READ)])
-def get_picture(player_id: str, request: Request, size: int | None = ART_SIZE,
-                v: str = ART_VERSION) -> Response:
-    return art_file(get_roster().picture(player_id, size), request, v)
+def get_picture(player_id: str, request: Request, size: int | None = MEDIA_SIZE,
+                v: str = MEDIA_VERSION) -> Response:
+    return media_file(get_roster().picture(player_id, size), request, v)
 
 
 @router.put("/{player_id}/picture", summary="Set a player's picture",

@@ -536,11 +536,11 @@ def _turns_wheels_to_logos(source_id: str, games: list[SourceGame],
                for game in games)
 
 
-def _art_after(ctx: Any, plan: Any, made: list[AdoptedRow], converted: bool) -> dict:
+def _media_after(ctx: Any, plan: Any, made: list[AdoptedRow], converted: bool) -> dict:
     """What the Media page asked for once the games exist: the wheel showing logos, which
     waits for a wheel image to have become one, and a fill for what the matched games are
     missing. Each says whether it happened; neither stops the report."""
-    done = {"wheel_logos": False, "art_started": False}
+    done = {"wheel_logos": False, "media_started": False}
     if not made or not plan:
         return done
     if plan.wheels_as == mapping.LOGOS and plan.show_logos and converted:
@@ -549,11 +549,11 @@ def _art_after(ctx: Any, plan: Any, made: list[AdoptedRow], converted: bool) -> 
             done["wheel_logos"] = True
         except Exception as exc:
             ctx.logger.warning("The wheel did not switch to logos: %s", exc)
-    if plan.fetch_art:
+    if plan.fetch_media:
         try:
             ids = list(dict.fromkeys(row["game_id"] for row in made if row.get("matched")))
-            done["art_started"] = bool(ids) and bool(
-                ctx.games.get_missing_art(ids).get("started"))
+            done["media_started"] = bool(ids) and bool(
+                ctx.games.get_missing_media(ids).get("started"))
         except Exception as exc:
             ctx.logger.warning("Missing art was not asked for: %s", exc)
     return done
@@ -662,7 +662,7 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
     # After the games, so the makers it looks for include the ones this run made.
     brought = (logos.bring(ctx, sources.get("media", ""))
                if made and (plan.logos if plan else True) else {"placed": 0, "held": 0})
-    after = ({"wheel_logos": False, "art_started": False} if stopped else _art_after(
+    after = ({"wheel_logos": False, "media_started": False} if stopped else _media_after(
         ctx, plan, made, wheels_as == mapping.LOGOS and _turns_wheels_to_logos(
             library.source_id, [game for _where, game in to_do], kinds)))
     filled = {row["name"].lower() for row in made if row.get("existing") and any(

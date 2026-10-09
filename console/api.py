@@ -159,10 +159,10 @@ class ApiClient:
     def game(self, game_id: str) -> dict:
         return self._get(f"/games/{game_id}")
 
-    def all_tables(self, art: str = "", game: str = "") -> list[dict]:
+    def all_tables(self, media: str = "", game: str = "") -> list[dict]:
         """Every table in the library, or one game's, one row each, with its game's name
-        on it; with `art`, which file of that kind each one shows."""
-        query = urlencode({key: value for key, value in (("art", art), ("game", game))
+        on it; with `media`, which file of that kind each one shows."""
+        query = urlencode({key: value for key, value in (("media", media), ("game", game))
                            if value})
         return list(self._get(f"/tables{'?' if query else ''}{query}",
                               _LIBRARY_TIMEOUT).get("tables") or [])
@@ -642,7 +642,7 @@ class ApiClient:
         return self._get(f"/games/{game_id}/media/{kind}/placements")
 
     def media_overrides(self, game_id: str) -> dict:
-        """Kinds where a table has art of its own, keyed by kind."""
+        """Kinds where a table has media of its own, keyed by kind."""
         return self._get(f"/games/{game_id}/media/overrides").get("overrides") or {}
 
     def media_detail(self, game_id: str, table_id: str, kind: str, page: int = 1) -> dict:
@@ -701,7 +701,7 @@ class ApiClient:
         return list(self._get("/media-sources").get("sources") or [])
 
     def wheel_sets(self) -> list[str]:
-        """The wheel sets the library has art in, and the reserved `logo`."""
+        """The wheel sets the library has media in, and the reserved `logo`."""
         return [str(name) for name in self._get("/media/wheel-sets").get("sets") or []]
 
     def media_offers(self, vps_id: str, kind: str) -> list[dict]:
@@ -711,13 +711,13 @@ class ApiClient:
                     .get("offers") or [])
 
     def search_vps(self, query: str, limit: int = 12) -> list[dict]:
-        """VPS entries by name, for taking art from a game other than this one."""
+        """VPS entries by name, for taking media from a game other than this one."""
         return list(self._get("/vps/search?" + urlencode({"q": query, "limit": limit}))
                     .get("results") or [])
 
     def fetch_media(self, game_id: str, table_id: str, kind: str, source: str,
                     vps_id: str, size: str = "") -> dict:
-        """Pull a catalog's art into the slot. The API resolves the link itself."""
+        """Pull a catalog's media into the slot. The API resolves the link itself."""
         return self._post(f"/games/{game_id}/media/{kind}/fetch",
                           {"source": source, "vps_id": vps_id, "size": size,
                            "table": table_id or ""})
@@ -1282,7 +1282,7 @@ class ApiClient:
 
     def fill_media(self, game_ids: list[str] | None = None, kinds: list[str] | None = None,
                    slots: tuple[tuple[str, str], ...] = ()) -> dict:
-        """Get missing art. Returns the job to watch."""
+        """Get missing media. Returns the job to watch."""
         return self._post("/library/media/fill", {
             "game_ids": game_ids, "kinds": kinds,
             "slots": [{"game_id": game_id, "kind": kind} for game_id, kind in slots]})

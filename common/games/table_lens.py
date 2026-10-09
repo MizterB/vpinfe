@@ -198,7 +198,7 @@ def update_available(version: str, source: dict | None) -> bool | None:
 THUMBNAIL_KINDS = ("wheel", "backglass", "playfield", "logo")
 
 
-def art_or_refuse(art: str) -> str:
+def media_or_refuse(art: str) -> str:
     """One of the kinds a list shows, "" for none, or a refusal naming them."""
     art = (art or "").strip()
     if art and art not in THUMBNAIL_KINDS:
@@ -239,8 +239,8 @@ def table_files(game_dir: Path, files: list[str]) -> list[dict]:
 
 
 def table_rows(game: Game, row: dict, *, launcher_settings: bool = False,
-               art: str = "",
-               art_settings: tuple[str, dict[str, str] | None] | None = None,
+               media: str = "",
+               media_settings: tuple[str, dict[str, str] | None] | None = None,
                launcher_view: LauncherView | None = None) -> list[dict]:
     """The game's launchable artifacts.
 
@@ -253,8 +253,8 @@ def table_rows(game: Game, row: dict, *, launcher_settings: bool = False,
     default falls to one that exists, since the default is what a caller would launch.
 
     `launcher_settings` adds what each table's settings file sets, reading one file per
-    table. `art` adds `shown_art`, the file each table shows for that kind, from
-    `art_settings` where the caller has read `media_settings` once for many games.
+    table. `media` adds `shown_media`, the file each table shows for that kind, from
+    `media_settings` where the caller has read `media_settings` once for many games.
     `launcher_view` is the same for the launchers: one read, shared by every game.
     """
     launcher_view = launcher_view or LauncherView()
@@ -263,9 +263,9 @@ def table_rows(game: Game, row: dict, *, launcher_settings: bool = False,
 
     files, subdirs = asset_resolver.folder_listing(game_dir)
     on_disk = table_names(files)
-    if art:
-        media = media_service.media_contents(game_dir, (files, subdirs))
-        art_settings = art_settings or media_service.media_settings()
+    if media:
+        held = media_service.media_contents(game_dir, (files, subdirs))
+        media_settings = media_settings or media_service.media_settings()
 
     rows = _table_records(described, on_disk)
     if not rows:
@@ -389,17 +389,17 @@ def table_rows(game: Game, row: dict, *, launcher_settings: bool = False,
             "absent_since": library_discovery.absent_since(described_entry) or None,
             # An entry with no file has no stem, so nothing is named after it and only
             # the folder's own media applies. That is the honest answer rather than an
-            # empty one: a keyed entry's art is the folder's art.
+            # empty one: a keyed entry's media is the folder's media.
             "assets": asset_resolver.resolve_for_table(name, game_dir.name, files),
         }
         if launcher_settings:
             entry.update(launcher_settings_held(
                 app_id, "" if keyed else points_at or str(game_dir / name)))
-        if art:
-            art_file = tables.entry_filename(described_entry)
-            entry["shown_art"] = media_service.shown_art(
-                game_dir, art, Path(art_file).stem if art_file else None,
-                contents=media, settings=art_settings)
+        if media:
+            media_file = tables.entry_filename(described_entry)
+            entry["shown_media"] = media_service.shown_media(
+                game_dir, media, Path(media_file).stem if media_file else None,
+                contents=held, settings=media_settings)
         if keyed:
             # Both come out of reading a file, and there is none. Saying "unknown" here
             # would put a dependency on an entry that cannot carry one.
@@ -504,15 +504,15 @@ def _read_ahead() -> None:
 
 
 def library_rows(limit: int = 0, offset: int = 0, game: str = "",
-                 art: str = "") -> dict[str, Any]:
+                 media: str = "") -> dict[str, Any]:
     """One row per launchable file, each carrying the game it belongs to.
 
     The game's name and maker ride along rather than being a lookup the caller has to
     make: this list is read to be shown, and a table named only by its filename is the
     thing the games lens already fails at.
     """
-    art = art_or_refuse(art)
-    art_settings = media_service.media_settings() if art else None
+    media = media_or_refuse(media)
+    media_settings = media_service.media_settings() if media else None
     launcher_view = LauncherView()
     found: list[dict] = []
     for game_id, entry in game_repository.catalog().items():
@@ -523,11 +523,11 @@ def library_rows(limit: int = 0, offset: int = 0, game: str = "",
         meta = getattr(entry, "meta_config", {}) or {}
         declared = meta.get("Info")
         info = declared if isinstance(declared, dict) else {}
-        for table in table_rows(entry, row, launcher_settings=True, art=art,
-                                art_settings=art_settings, launcher_view=launcher_view):
+        for table in table_rows(entry, row, launcher_settings=True, media=media,
+                                media_settings=media_settings, launcher_view=launcher_view):
             if not table.get("id"):
                 continue
-            shown = table.get("shown_art")
+            shown = table.get("shown_media")
             found.append({
                 "id": table["id"],
                 "game_id": game_id,
@@ -550,8 +550,8 @@ def library_rows(limit: int = 0, offset: int = 0, game: str = "",
                 "game_rating": game_rating(entry),
                 "features": table.get("features") or {},
                 "assets": table.get("assets") or {},
-                "art_kind": shown.kind if shown else None,
-                "art_version": shown.version if shown else None,
+                "media_kind": shown.kind if shown else None,
+                "media_version": shown.version if shown else None,
                 # The rom this file actually resolves to, alias followed. One of the
                 # few things that genuinely differs between two tables of one game.
                 "rom": str((table.get("dependencies") or {})

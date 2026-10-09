@@ -380,7 +380,7 @@ class TheArtIsReadBeforeTheDraw(_Drawn):
     def test_the_games_grid_reads_the_listing_off_the_loop(self) -> None:
         self._drawn("games")
 
-        self.assertIn("/tables?art=wheel", self.client.read)
+        self.assertIn("/tables?media=wheel", self.client.read)
         self.assertEqual(self.client.on_loop, [])
 
     def test_a_kind_chosen_since_is_read_before_the_next_draw(self) -> None:
@@ -389,7 +389,7 @@ class TheArtIsReadBeforeTheDraw(_Drawn):
 
         self._read_before_drawing("games", library)
 
-        self.assertIn("/tables?art=backglass", self.client.read)
+        self.assertIn("/tables?media=backglass", self.client.read)
 
     def test_a_media_write_reads_that_game_s_art_again_and_no_other(self) -> None:
         library = self._library("games")
@@ -402,8 +402,8 @@ class TheArtIsReadBeforeTheDraw(_Drawn):
 
         self._read_before_drawing("games", library)
 
-        self.assertIn(f"/tables?art=wheel&game={PLAIN_ID}", self.client.read[before:])
-        self.assertNotIn("/tables?art=wheel", self.client.read[before:])
+        self.assertIn(f"/tables?media=wheel&game={PLAIN_ID}", self.client.read[before:])
+        self.assertNotIn("/tables?media=wheel", self.client.read[before:])
         rows = self._rows(self._grid("games", library))
         self.assertEqual(self._color(rows[PLAIN_ID]["art"]), WHITE)
 

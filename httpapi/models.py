@@ -1857,10 +1857,10 @@ class TableRow(ApiModel):
     # answers for a single game. The list projection named its fields by hand and
     # left this one out, so a client showing assets had to ask per game.
     assets: dict[str, ResolvedAsset] = {}
-    # Asked for with `?art=`: the kind the table's media route serves the shown file
-    # under, and that file's version. Null without `art` or where nothing resolves.
-    art_kind: str | None = None
-    art_version: str | None = None
+    # Asked for with `?media=`: the kind the table's media route serves the shown file
+    # under, and that file's version. Null without `media` or where nothing resolves.
+    media_kind: str | None = None
+    media_version: str | None = None
     rom: str = ""
     # Whether that rom is actually installed. **Null when the table declares none** -
     # a table with no rom is not required to have one, and reporting that as missing
@@ -2246,7 +2246,7 @@ class Entry(ApiModel):
     table: EntryTable
     siblings: int
     assets: EntryAssets = Field(default_factory=EntryAssets)
-    # Which art exists, not where it lives: the names of the kinds that resolved. The
+    # Which media exists, not where it lives: the names of the kinds that resolved. The
     # bytes come from `endpoints.files`, so naming files here would put a filesystem
     # path on the wire and several hundred kilobytes with it.
     media: list[str] = Field(default_factory=list)
@@ -2326,7 +2326,7 @@ class MediaTier(ApiModel):
     """One tier that holds a file for this kind, and whether it is the one being used.
 
     The losers are listed too, because they are the answer to the only hard question a
-    curator asks: art was replaced and nothing changed, which is always a more specific
+    curator asks: media was replaced and nothing changed, which is always a more specific
     file sitting above the one that was edited.
     """
 

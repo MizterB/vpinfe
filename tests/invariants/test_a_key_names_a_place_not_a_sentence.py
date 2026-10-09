@@ -12,7 +12,7 @@ LONGEST = 3
 
 NAMED_BY_DATA = (
     "config.", "filter.", "media.kind.", "app.vpx.field.", "app.vpx.group.",
-    "ext.library_importer.art.kind.",
+    "ext.library_importer.media.kind.",
 )
 NAMED_BY_AN_OUTSIDE_CONTRACT = ("frontend.theme.",)
 EXEMPT_PREFIXES = NAMED_BY_DATA + NAMED_BY_AN_OUTSIDE_CONTRACT

@@ -129,7 +129,7 @@ def address(row: dict[str, Any]) -> str:
     """Where a tables-listing row's art is served at list size, or "" where it has none.
 
     A keyed table has no file to name art after, so its art is the game's."""
-    kind, version = row.get("art_kind"), row.get("art_version")
+    kind, version = row.get("media_kind"), row.get("media_version")
     if not kind or not version:
         return ""
     table = "" if row.get("key") else str(row.get("id") or "")

@@ -31,7 +31,7 @@ _SUMMARY_ROWS = frozenset(
         "games", "tables", "media", "companions", "history", "matched")}
     | {f"ext.library_importer.kind.{name}.none" for name in (
         "tables", "media", "roms", "altdata", "music", "pups", "user", "history")}
-    | {"ext.library_importer.wizard.art.wheels_as.label_plain"})
+    | {"ext.library_importer.wizard.media.wheels_as.label_plain"})
 
 
 def _off_the_rule(keys: list[str]) -> dict[str, tuple[str, str]]:

@@ -126,7 +126,7 @@ WRITES: dict[str, Callable[..., Any]] = {
     "take_vps_details": game_ops.adopt_details,
     "match_game": game_ops.match_game,
     "remove_media": media_ops.remove,
-    "get_missing_art": media_ops.get_missing_art,
+    "get_missing_media": media_ops.get_missing_media,
     "forget_table": table_ops.forget,
     "add_keyed_table": table_ops.add_keyed,
 }

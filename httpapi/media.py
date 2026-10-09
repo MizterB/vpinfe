@@ -33,7 +33,7 @@ def list_media(limit: int = Query(0, ge=0), offset: int = Query(0, ge=0),
         media_lens.listing(limit, offset, game, kind))
 
 
-@router.get("/wheel-sets", summary="The wheel sets the library has art in",
+@router.get("/wheel-sets", summary="The wheel sets the library has media in",
             dependencies=[requires(scopes.GAMES_READ)])
 def list_wheel_sets() -> models.WheelSetList:
     """The folder names under any game's `medias/wheels/`, and the reserved `logo`, which

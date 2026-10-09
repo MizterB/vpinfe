@@ -151,7 +151,7 @@ def put_marks(request: Request, response: Response,
     return _accepted(response, marks_ops.start(edits))
 
 
-@router.post("/media/missing", summary="What getting missing art would fetch",
+@router.post("/media/missing", summary="What getting missing media would fetch",
              dependencies=[requires(scopes.GAMES_READ)])
 def missing_media(payload: models.MissingMediaRequest) -> models.MissingMedia:
     """A read, posted because a selection of ids does not fit in a query string."""

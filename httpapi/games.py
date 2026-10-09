@@ -99,9 +99,9 @@ def get_backglass_picture(game_id: str, request: Request,
                           grill: bool = Query(False, description="Cut as the renderer does"),
                           path: str = Query("", description="A file in the folder; the "
                                                             "one the folder reads if empty"),
-                          size: int | None = responses.ART_SIZE,
-                          v: str = responses.ART_VERSION) -> Response:
-    return responses.art_file(backglass_ops.picture_file(
+                          size: int | None = responses.MEDIA_SIZE,
+                          v: str = responses.MEDIA_VERSION) -> Response:
+    return responses.media_file(backglass_ops.picture_file(
         game_id, "", look, version, grill, path, size), request, v)
 
 
@@ -112,9 +112,9 @@ def get_table_backglass_picture(game_id: str, table_id: str, request: Request,
                                 look: str = Query("on"), version: str = Query("authentic"),
                                 grill: bool = Query(False),
                                 path: str = Query(""),
-                                size: int | None = responses.ART_SIZE,
-                                v: str = responses.ART_VERSION) -> Response:
-    return responses.art_file(backglass_ops.picture_file(
+                                size: int | None = responses.MEDIA_SIZE,
+                                v: str = responses.MEDIA_VERSION) -> Response:
+    return responses.media_file(backglass_ops.picture_file(
         game_id, table_id, look, version, grill, path, size), request, v)
 
 
@@ -124,9 +124,9 @@ def get_table_backglass_picture(game_id: str, table_id: str, request: Request,
 def get_backglass_scoreview(game_id: str, request: Request,
                              path: str = Query("", description="A file in the folder; the "
                                                                "one the folder reads if empty"),
-                             size: int | None = responses.ART_SIZE,
-                             v: str = responses.ART_VERSION) -> Response:
-    return responses.art_file(backglass_ops.scoreview_file(game_id, "", path, size), request, v)
+                             size: int | None = responses.MEDIA_SIZE,
+                             v: str = responses.MEDIA_VERSION) -> Response:
+    return responses.media_file(backglass_ops.scoreview_file(game_id, "", path, size), request, v)
 
 
 @router.get("/{game_id}/tables/{table_id}/assets/backglass/scoreview",
@@ -134,9 +134,9 @@ def get_backglass_scoreview(game_id: str, request: Request,
             dependencies=[requires(scopes.GAMES_READ)])
 def get_table_backglass_scoreview(game_id: str, table_id: str, request: Request,
                                    path: str = Query(""),
-                                   size: int | None = responses.ART_SIZE,
-                                   v: str = responses.ART_VERSION) -> Response:
-    return responses.art_file(
+                                   size: int | None = responses.MEDIA_SIZE,
+                                   v: str = responses.MEDIA_VERSION) -> Response:
+    return responses.media_file(
         backglass_ops.scoreview_file(game_id, table_id, path, size), request, v)
 
 
@@ -162,7 +162,7 @@ async def _stage(upload: UploadFile) -> Path:
     `upload.read()` would hold the whole body in memory, and a video is hundreds of
     megabytes. The parser has already spooled the upload to disk. The file is made with
     the mode a plain copy would get: media placement copies the mode across, and a
-    private one would leave art no other user of a shared library can read.
+    private one would leave media no other user of a shared library can read.
     """
     path = Path(tempfile.gettempdir()) / (secrets.token_hex(12)
                                           + Path(upload.filename or "").suffix)
@@ -242,7 +242,7 @@ def get_game_media(game_id: str, codecs: bool = Query(False)) -> models.MediaLis
 
 
 @router.get("/{game_id}/media/overrides",
-            summary="Kinds where a table has art of its own",
+            summary="Kinds where a table has media of its own",
             dependencies=[requires(scopes.GAMES_READ)])
 def get_media_overrides(game_id: str) -> models.MediaOverrideList:
     return models.MediaOverrideList.model_validate(media_ops.overrides(game_id))
@@ -251,9 +251,9 @@ def get_media_overrides(game_id: str) -> models.MediaOverrideList:
 @router.get("/{game_id}/media/{kind}", summary="One shared media file",
             dependencies=[requires(scopes.GAMES_READ)])
 def get_game_media_file(game_id: str, kind: str, request: Request,
-                        size: int | None = responses.ART_SIZE,
-                        v: str = responses.ART_VERSION, page: int = PAGE) -> Response:
-    return responses.art_file(
+                        size: int | None = responses.MEDIA_SIZE,
+                        v: str = responses.MEDIA_VERSION, page: int = PAGE) -> Response:
+    return responses.media_file(
         media_ops.media_file(game_id, kind, "", size, page), request, v)
 
 
@@ -267,9 +267,9 @@ def get_table_media(game_id: str, table_id: str,
 @router.get("/{game_id}/tables/{table_id}/media/{kind}", summary="One table's media file",
             dependencies=[requires(scopes.GAMES_READ)])
 def get_table_media_file(game_id: str, table_id: str, kind: str, request: Request,
-                         size: int | None = responses.ART_SIZE,
-                         v: str = responses.ART_VERSION, page: int = PAGE) -> Response:
-    return responses.art_file(
+                         size: int | None = responses.MEDIA_SIZE,
+                         v: str = responses.MEDIA_VERSION, page: int = PAGE) -> Response:
+    return responses.media_file(
         media_ops.media_file(game_id, kind, table_id, size, page), request, v)
 
 
@@ -409,7 +409,7 @@ async def put_table_media(game_id: str, table_id: str, kind: str,
                dependencies=[requires(scopes.GAMES_WRITE)])
 def delete_game_media(game_id: str, kind: str, page: int | None = REMOVE_PAGE
                       ) -> models.MediaRemoved:
-    """Only the folder-named file. A table's own art and the default both survive. With a
+    """Only the folder-named file. A table's own media and the default both survive. With a
     `page`, that page alone goes and the ones after it move down a number; with none, the
     kind goes with all its pages."""
     return models.MediaRemoved.model_validate(media_ops.remove(game_id, kind, "", page))
@@ -635,9 +635,9 @@ def get_pictures(game_id: str, table: str = Query("")) -> models.PictureList:
 @router.get("/{game_id}/pictures/{name}", summary="One picture",
             dependencies=[requires(scopes.GAMES_READ)])
 def get_picture(game_id: str, name: str, request: Request,
-                size: int | None = responses.ART_SIZE,
-                v: str = responses.ART_VERSION) -> Response:
-    return responses.art_file(picture_ops.picture_file(game_id, name, size), request, v)
+                size: int | None = responses.MEDIA_SIZE,
+                v: str = responses.MEDIA_VERSION) -> Response:
+    return responses.media_file(picture_ops.picture_file(game_id, name, size), request, v)
 
 
 @router.put("/{game_id}/pictures/{name}", summary="Put a picture on a game",

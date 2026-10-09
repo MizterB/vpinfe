@@ -233,7 +233,7 @@ class Plan:
     # then shows logos; whether missing art is fetched for the games this run touches.
     wheels_as: str = mapping.WHEELS
     show_logos: bool = True
-    fetch_art: bool = True
+    fetch_media: bool = True
     # Whether high scores and game settings come with a game. They sit with the ROM and
     # in the files its script saved, so no source folder stands for them.
     scores: bool = True

@@ -166,7 +166,7 @@ class PeripheralSettingsTests(unittest.TestCase):
         self.assertEqual([label for label, _ in self.calls], ["dmd", "art"])
         self.assertEqual(self.calls[0], ("dmd", "store"))
 
-    def test_a_panel_nobody_has_shown_art_on_has_nothing_to_put_back(self) -> None:
+    def test_a_panel_nobody_has_shown_media_on_has_nothing_to_put_back(self) -> None:
         peripherals._realdmd_updater = None
 
         peripherals.apply_settings(["real_dmd.enabled"], "store")

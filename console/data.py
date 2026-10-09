@@ -1268,14 +1268,14 @@ class Library:
         some, once each."""
         kind = self.thumbnail()
         if self._table_rows is None or (kind and kind != self._table_art):
-            self._table_rows = self._client.all_tables(art=kind)
+            self._table_rows = self._client.all_tables(media=kind)
             self._table_art = kind
             self._art_stale.clear()
             self._load_setting_groups(self._table_rows)
         elif kind and self._art_stale:
             for game_id in sorted(self._art_stale):
                 self._table_rows = _replaced(self._table_rows, game_id,
-                                             self._client.all_tables(art=kind, game=game_id))
+                                             self._client.all_tables(media=kind, game=game_id))
             self._art_stale.clear()
         return self._table_rows
 

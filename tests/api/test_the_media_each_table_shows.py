@@ -1,4 +1,4 @@
-"""`GET /tables?art=<kind>` says which file each table shows, as the cabinet resolves it.
+"""`GET /tables?media=<kind>` says which file each table shows, as the cabinet resolves it.
 
 Read from a real library through the API. Every version the listing gives is checked
 against the route it addresses: the version is only worth having if that route serves
@@ -93,15 +93,15 @@ class _Library(TempTree):
         store.save()
 
     def _rows(self, art: str) -> dict[str, dict]:
-        answer = self.client.get("/tables", params={"art": art})
+        answer = self.client.get("/tables", params={"media": art})
         self.assertEqual(answer.status_code, 200, answer.text)
         return {row["id"]: row for row in answer.json()["tables"]}
 
     def _shown(self, row: dict) -> bytes:
         """The bytes the row's version addresses, which must be kept for good."""
         answer = self.client.get(
-            f"/games/{row['game_id']}/tables/{row['id']}/media/{row['art_kind']}",
-            params={"v": row["art_version"]})
+            f"/games/{row['game_id']}/tables/{row['id']}/media/{row['media_kind']}",
+            params={"v": row["media_version"]})
         self.assertEqual(answer.status_code, 200, answer.text)
         self.assertEqual(answer.headers["cache-control"], FOREVER)
         return answer.content
@@ -131,29 +131,29 @@ class TheArtEachTableShowsTests(_Library):
     def test_a_playfield_falls_to_the_fss_render_and_names_it(self) -> None:
         row = self._rows("playfield")["tblFSSOnly"]
 
-        self.assertEqual(row["art_kind"], "playfield_fss")
+        self.assertEqual(row["media_kind"], "playfield_fss")
         self.assertEqual(self._shown(row), b"the FSS render")
 
     def test_nothing_that_resolves_is_null(self) -> None:
         row = self._rows("backglass")["tblNothing"]
 
-        self.assertIsNone(row["art_version"])
-        self.assertIsNone(row["art_kind"])
+        self.assertIsNone(row["media_version"])
+        self.assertIsNone(row["media_kind"])
 
     def test_the_version_changes_with_the_file(self) -> None:
-        before = self._rows("wheel")["tblDesktop"]["art_version"]
+        before = self._rows("wheel")["tblDesktop"]["media_version"]
         _rewrite(self.root / NAMED / "medias" / "wheel.png", b"a new shared wheel")
 
         row = self._rows("wheel")["tblDesktop"]
 
-        self.assertNotEqual(row["art_version"], before)
+        self.assertNotEqual(row["media_version"], before)
         self.assertEqual(self._shown(row), b"a new shared wheel")
 
     def test_without_art_no_row_carries_a_version(self) -> None:
         answer = self.client.get("/tables")
 
         self.assertEqual(answer.status_code, 200, answer.text)
-        self.assertEqual({row["art_version"] for row in answer.json()["tables"]}, {None})
+        self.assertEqual({row["media_version"] for row in answer.json()["tables"]}, {None})
 
     def test_art_reads_no_folder_twice(self) -> None:
         real = asset_resolver.folder_listing
@@ -175,7 +175,7 @@ class TheArtEachTableShowsTests(_Library):
     def test_a_kind_a_list_does_not_show_is_refused(self) -> None:
         for art in ("cab", "bg", "nonsense"):
             with self.subTest(art=art):
-                answer = self.client.get("/tables", params={"art": art})
+                answer = self.client.get("/tables", params={"media": art})
 
                 self.assertEqual(answer.status_code, 400, answer.text)
                 self.assertEqual(answer.json()["error"]["code"], "invalid_request")
@@ -185,7 +185,7 @@ class AGameWhoseTablesHaveNoIdTests(_Library):
     """No row until a refresh gives its tables ids, and the game's own route meanwhile."""
 
     def _game_shows(self) -> media_service.ShownArt:
-        shown = media_service.shown_art(self.root / NO_IDS, "wheel")
+        shown = media_service.shown_media(self.root / NO_IDS, "wheel")
         assert shown is not None
         return shown
 

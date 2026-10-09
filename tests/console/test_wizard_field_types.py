@@ -355,7 +355,7 @@ class SettleTests(unittest.TestCase):
 
 class PictureFromFilesTests(unittest.TestCase):
     def test_a_choice_names_files_and_each_is_fetched_through_the_file_route(self) -> None:
-        first = {"step": "art", "fields": [{
+        first = {"step": "media", "fields": [{
             "key": "kind", "type": "choice", "label": "Wheels",
             "choices": [["logos", "Logos", "Wide and clear",
                          ["/lib/wheels/a b.png", "/lib/wheels/c.png"]],

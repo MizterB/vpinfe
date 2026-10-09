@@ -50,13 +50,13 @@ SOURCE_KEY = "source_root"
 # The order the questions come in. Which of them get asked depends on what is found, but
 # never on how somebody arrived: going Back and forward again asks the same things in
 # the same order rather than jumping over what is already answered.
-STEPS = ("source", "sources", "games", "matches", "names", "art", "things", "how", "summary")
+STEPS = ("source", "sources", "games", "matches", "names", "media", "things", "how", "summary")
 
 # The answers kept in this extension's own settings for the next import, as one JSON text.
 # The source, its folders and the ticks on the Tables page are about one import and stay out,
 # and so does the wheel images' kind: it is measured from the images each time.
 ANSWERS_KEY = "answers"
-REMEMBERED = ("names", "details", "details_some", "show_logos", "fetch_art", "logos",
+REMEMBERED = ("names", "details", "details_some", "show_logos", "fetch_media", "logos",
               *[things.switch(key) for key in things.THINGS])
 
 
@@ -424,7 +424,7 @@ def build(ctx: Any) -> None:
         made.catalog = catalog
         made.logos = _on(values, "logos")
         made.show_logos = _on(values, "show_logos")
-        made.fetch_art = _on(values, "fetch_art")
+        made.fetch_media = _on(values, "fetch_media")
         made.scores = _on(values, things.switch("scores"))
         if deciding:
             held.deliberate = {one.row for one in made.matches if one.existing}
@@ -732,8 +732,8 @@ def build(ctx: Any) -> None:
                 return _matches_step(made, values)
             if step == "names" and _names_matter(made):
                 return _names_step(reader, library, made, values)
-            if step == "art" and (art := _art_found(library, made, values)):
-                return _art_step(reader, library, made, values, art)
+            if step == "media" and (media := _media_found(library, made, values)):
+                return _media_step(reader, library, made, values, media)
             if step == "things":
                 counts, short = _things_found(library, values, known(library))
                 if any(counts.values()) or short:
@@ -944,7 +944,7 @@ def build(ctx: Any) -> None:
             ],
         }
 
-    def _art_found(library: SourceLibrary, made: Plan, values: dict) -> dict[str, Any] | None:
+    def _media_found(library: SourceLibrary, made: Plan, values: dict) -> dict[str, Any] | None:
         """What the source has for pictures, or nothing where the page has no question."""
         media = made.source("media")
         if media is None or not media.active:
@@ -955,60 +955,60 @@ def build(ctx: Any) -> None:
             return None
         return {"images": wheel_files(library, answers(values)), "makers": len(makers)}
 
-    def _art_step(reader: ModuleType, library: SourceLibrary, made: Plan, values: dict,
-                  art: dict[str, Any]) -> dict:
+    def _media_step(reader: ModuleType, library: SourceLibrary, made: Plan, values: dict,
+                    media: dict[str, Any]) -> dict:
         """What a wheel and a logo are, what the source's wheel images are, and whether to
         fill the gaps afterwards."""
         said = answers(values)
         source = _name(ctx, reader)
-        images = art["images"]
+        images = media["images"]
         kinds = Counter(kind for one in (*made.making, *made.filling) for kind in one.kinds)
-        found = ", ".join(ctx.t("wizard.art.kind", name=ctx.t(f"art.kind.{kind}"), count=count)
+        found = ", ".join(ctx.t("wizard.media.kind", name=ctx.t(f"media.kind.{kind}"), count=count)
                           for kind, count in kinds.most_common() if count)
         fields: list[dict[str, Any]] = []
         if images:
             sample = images[::max(1, len(images) // 3)][:3]
             fields += [
                 {"key": answer_key("wheels_as"), "type": "choice",
-                 "label": (ctx.t("wizard.art.wheels_as.label_plain")
+                 "label": (ctx.t("wizard.media.wheels_as.label_plain")
                            if library.source_id == folders.SOURCE_ID
-                           else ctx.t("wizard.art.wheels_as.label", source=source)),
+                           else ctx.t("wizard.media.wheels_as.label", source=source)),
                  "value": wheels_as_of(library, said),
                  "choices": [
-                     [mapping.LOGOS, ctx.t("wizard.art.logos"),
-                      ctx.t("wizard.art.logos.help"), sample],
-                     [mapping.WHEELS, ctx.t("wizard.art.wheels"),
-                      ctx.t("wizard.art.wheels.help"), sample]],
-                 "help": f'{ctx.t("wizard.art.wheels_as.logo")} '
-                         f'{ctx.t("wizard.art.wheels_as.round")}'},
+                     [mapping.LOGOS, ctx.t("wizard.media.logos"),
+                      ctx.t("wizard.media.logos.help"), sample],
+                     [mapping.WHEELS, ctx.t("wizard.media.wheels"),
+                      ctx.t("wizard.media.wheels.help"), sample]],
+                 "help": f'{ctx.t("wizard.media.wheels_as.logo")} '
+                         f'{ctx.t("wizard.media.wheels_as.round")}'},
                 {"key": "show_logos", "type": "switch",
-                 "label": ctx.t("wizard.art.show_logos.label"),
+                 "label": ctx.t("wizard.media.show_logos.label"),
                  "value": _on(said, "show_logos"),
                  "help": {"follows": answer_key("wheels_as"),
-                          "says": {mapping.LOGOS: ctx.t("wizard.art.show_logos.help")},
-                          "else": ctx.t("wizard.art.show_logos.not_logos")}},
+                          "says": {mapping.LOGOS: ctx.t("wizard.media.show_logos.help")},
+                          "else": ctx.t("wizard.media.show_logos.not_logos")}},
             ]
-        fields.append({"key": "fetch_art", "type": "switch",
-                       "label": ctx.t("wizard.art.fetch.label"),
-                       "value": _on(said, "fetch_art"),
-                       "help": " ".join((ctx.t("wizard.art.fetch.what"),
-                                         ctx.t("wizard.art.fetch.about"),
-                                         ctx.t("wizard.art.fetch.fills"),
-                                         ctx.t("wizard.art.fetch.matched"),
-                                         ctx.t("wizard.art.fetch.later")))})
-        if art["makers"]:
+        fields.append({"key": "fetch_media", "type": "switch",
+                       "label": ctx.t("wizard.media.fetch.label"),
+                       "value": _on(said, "fetch_media"),
+                       "help": " ".join((ctx.t("wizard.media.fetch.what"),
+                                         ctx.t("wizard.media.fetch.about"),
+                                         ctx.t("wizard.media.fetch.fills"),
+                                         ctx.t("wizard.media.fetch.matched"),
+                                         ctx.t("wizard.media.fetch.later")))})
+        if media["makers"]:
             fields.append({"key": "logos", "type": "switch",
-                           "label": ctx.t("wizard.art.logos.label"),
+                           "label": ctx.t("wizard.media.logos.label"),
                            "value": _on(said, "logos"),
-                           "help": ctx.t("wizard.art.logos.switch_help",
-                                         count=art["makers"])})
+                           "help": ctx.t("wizard.media.logos.switch_help",
+                                         count=media["makers"])})
         return {
-            "step": "art",
-            "title": ctx.t("wizard.art.title"),
+            "step": "media",
+            "title": ctx.t("wizard.media.title"),
             "help": " ".join(part for part in (
-                ctx.t("wizard.art.help.wheel"), ctx.t("wizard.art.help.logo"),
-                ctx.t("wizard.art.help.fallback"),
-                ctx.t("wizard.art.found", kinds=found) if found else "") if part),
+                ctx.t("wizard.media.help.wheel"), ctx.t("wizard.media.help.logo"),
+                ctx.t("wizard.media.help.fallback"),
+                ctx.t("wizard.media.found", kinds=found) if found else "") if part),
             "fields": fields,
         }
 
@@ -1143,17 +1143,17 @@ def build(ctx: Any) -> None:
                           else ctx.t("wizard.names.details.source", source=source))
                          if made.details == "source" else ctx.t("wizard.names.vps"))
             rows.append([ctx.t("wizard.summary.details"), shown])
-        art = _art_found(library, made, values)
-        if art:
-            if art["images"]:
+        media = _media_found(library, made, values)
+        if media:
+            if media["images"]:
                 rows.append([ctx.t("wizard.summary.wheel_images"),
-                             ctx.t("wizard.art.logos") if made.wheels_as == mapping.LOGOS
-                             else ctx.t("wizard.art.wheels")])
+                             ctx.t("wizard.media.logos") if made.wheels_as == mapping.LOGOS
+                             else ctx.t("wizard.media.wheels")])
                 if made.wheels_as == mapping.LOGOS:
-                    rows.append([ctx.t("wizard.art.show_logos.label"), _yes(made.show_logos)])
-            rows.append([ctx.t("wizard.art.fetch.label"), _yes(made.fetch_art)])
-            if art["makers"]:
-                rows.append([ctx.t("wizard.art.logos.label"), _yes(made.logos)])
+                    rows.append([ctx.t("wizard.media.show_logos.label"), _yes(made.show_logos)])
+            rows.append([ctx.t("wizard.media.fetch.label"), _yes(made.fetch_media)])
+            if media["makers"]:
+                rows.append([ctx.t("wizard.media.logos.label"), _yes(made.logos)])
         counts, _short = _things_found(library, values, known(library))
         for key in things.THINGS:
             if counts.get(key):
@@ -1392,7 +1392,8 @@ def build(ctx: Any) -> None:
                     if filled else ctx.t("job.detail", made=created, failed=failed))
             job.log(f"Created {created}, filled {report['filled']}, "
                     f"failed {report['failed']}")
-            if made.fetch_art and report["matched"] and not (job.stopped or report["art_started"]):
+            if (made.fetch_media and report["matched"]
+                    and not (job.stopped or report["media_started"])):
                 job.log("Get missing media was not started: a fill was already running")
             return report
 

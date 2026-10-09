@@ -54,7 +54,7 @@ class ArtIsSentWhole(unittest.TestCase):
         os.replace(staged, self.path)
 
     def test_a_replacement_between_the_headers_and_the_body_is_not_a_short_body(self) -> None:
-        response = responses.art_file(Served(self.path, "now"), _request(), "")
+        response = responses.media_file(Served(self.path, "now"), _request(), "")
         self.replace_with(SHORT)
 
         _, headers, body = _sent(response)
@@ -62,7 +62,7 @@ class ArtIsSentWhole(unittest.TestCase):
         self.assertEqual(int(headers["content-length"]), len(body))
 
     def test_a_version_kept_for_good_is_sent_whole_too(self) -> None:
-        response = responses.art_file(Served(self.path, "now"), _request(), "now")
+        response = responses.media_file(Served(self.path, "now"), _request(), "now")
         self.replace_with(SHORT)
 
         _, headers, body = _sent(response)
@@ -71,19 +71,19 @@ class ArtIsSentWhole(unittest.TestCase):
         self.assertEqual(headers["cache-control"], responses.FOREVER)
 
     def test_the_etag_names_the_bytes_that_were_sent(self) -> None:
-        first = responses.art_file(Served(self.path, "now"), _request(), "")
+        first = responses.media_file(Served(self.path, "now"), _request(), "")
         self.replace_with(SHORT)
         _, headers, body = _sent(first)
-        again = responses.art_file(Served(self.path, "now"), _request(), "")
+        again = responses.media_file(Served(self.path, "now"), _request(), "")
 
         _, newer, newer_body = _sent(again)
 
         self.assertEqual((headers["etag"] == newer["etag"]), (body == newer_body))
 
     def test_the_etag_it_gave_is_answered_with_a_304(self) -> None:
-        _, headers, _ = _sent(responses.art_file(Served(self.path, "now"), _request(), ""))
+        _, headers, _ = _sent(responses.media_file(Served(self.path, "now"), _request(), ""))
 
-        status, _, body = _sent(responses.art_file(
+        status, _, body = _sent(responses.media_file(
             Served(self.path, "now"), _request(("if-none-match", headers["etag"])), ""))
 
         self.assertEqual((status, body), (304, b""))
@@ -91,7 +91,7 @@ class ArtIsSentWhole(unittest.TestCase):
     def test_a_range_is_still_answered_as_one(self) -> None:
         request = _request(("range", "bytes=0-9"))
 
-        status, _, body = _sent(responses.art_file(Served(self.path, "now"), request, ""),
+        status, _, body = _sent(responses.media_file(Served(self.path, "now"), request, ""),
                                 ("range", "bytes=0-9"))
 
         self.assertEqual((status, body), (206, LONG[:10]))

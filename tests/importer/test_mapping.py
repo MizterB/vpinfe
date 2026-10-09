@@ -292,7 +292,7 @@ class KindWordsTests(unittest.TestCase):
         mapped = {kind for table in mapping.KINDS_BY_SOURCE.values() for kind in table.values()}
         mapped |= set(mapping.MOVING.values())
 
-        self.assertEqual(sorted(kind for kind in mapped if f"art.kind.{kind}" not in words), [])
+        self.assertEqual(sorted(kind for kind in mapped if f"media.kind.{kind}" not in words), [])
 
 
 class FolderNameTests(unittest.TestCase):

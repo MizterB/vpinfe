@@ -26,19 +26,19 @@ class WheelSetTests(unittest.TestCase):
 class MissingArtTests(unittest.TestCase):
     def test_a_fill_starts_for_the_games_named(self) -> None:
         with patch("common.games.media_fill.start") as started:
-            made = media_ops.get_missing_art(["g1", "g2"])
+            made = media_ops.get_missing_media(["g1", "g2"])
 
         started.assert_called_once_with(["g1", "g2"])
         self.assertEqual(made, {"started": True})
 
     def test_a_fill_already_running_is_said_and_not_waited_for(self) -> None:
         with patch("common.games.media_fill.start", side_effect=jobs.JobBusyError("busy")):
-            made = media_ops.get_missing_art(["g1"])
+            made = media_ops.get_missing_media(["g1"])
 
         self.assertEqual(made, {"started": False})
 
     def test_it_is_offered_under_the_games_write_scope(self) -> None:
-        self.assertIn("get_missing_art", extension_ops.WRITES)
+        self.assertIn("get_missing_media", extension_ops.WRITES)
 
 
 if __name__ == "__main__":
