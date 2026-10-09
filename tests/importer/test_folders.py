@@ -233,7 +233,7 @@ class StepTests(FolderCase):
 
         found = self.step(self.tables, leaving="how", how="move")
 
-        self.assertEqual(self.summary_of(found)["Reads as"], "No frontend")
+        self.assertEqual(self.summary_of(found)["Reads As"], "No frontend")
 
     def test_the_second_step_works_out_the_game_files_and_leaves_the_rest_blank(self) -> None:
         self.loose("Harbor Lights")
@@ -468,8 +468,8 @@ class StepTests(FolderCase):
 
         self.assertTrue(found["ready"])
         self.assertEqual(summary["How"], "Copied")
-        self.assertEqual(summary["Going into"], str(self.library))
-        self.assertTrue(summary["Space needed"].startswith("2.9 KB, with "), summary)
+        self.assertEqual(summary["Going Into"], str(self.library))
+        self.assertTrue(summary["Space Needed"].startswith("2.9 KB, with "), summary)
         self.assertEqual(found["confirm"], "Copy 1 table")
 
     def test_a_move_summary_says_it_takes_no_room_for_the_game_files(self) -> None:
@@ -479,8 +479,8 @@ class StepTests(FolderCase):
         summary = self.summary_of(found)
 
         self.assertEqual(summary["How"], "Moved")
-        self.assertIn(str(self.tables), summary["Going into"])
-        self.assertNotIn("Space needed", summary)
+        self.assertIn(str(self.tables), summary["Going Into"])
+        self.assertNotIn("Space Needed", summary)
         self.assertEqual(found["confirm"], "Move 1 table")
 
     def test_a_copy_that_would_not_fit_is_not_ready_and_says_so(self) -> None:
@@ -499,7 +499,7 @@ class StepTests(FolderCase):
             found = self.step(self.tables, leaving="how", how="copy", into=str(self.library))
 
         self.assertTrue(found["ready"])
-        self.assertEqual(self.summary_of(found)["Space needed"], "2.9 KB")
+        self.assertEqual(self.summary_of(found)["Space Needed"], "2.9 KB")
 
     def test_game_folders_alone_are_used_as_they_are(self) -> None:
         self.game_folder("Orchard")
@@ -547,7 +547,7 @@ class StepTests(FolderCase):
 
         self.assertEqual(found["step"], "summary")
         self.assertTrue(found["ready"], found)
-        self.assertEqual(self.summary_of(found)["Reads as"], "No frontend")
+        self.assertEqual(self.summary_of(found)["Reads As"], "No frontend")
         self.assertEqual(self.summary_of(found)["Used where they are"], "1 game folder")
 
 
@@ -939,7 +939,7 @@ class SystemsRunTests(FolderCase):
 
     def test_the_summary_names_only_the_folders_that_are_moved_into(self) -> None:
         found = self.step(self.tables, leaving="how", how="move", systems=["Alpha"])
-        going = self.summary_of(found)["Going into"]
+        going = self.summary_of(found)["Going Into"]
 
         self.assertIn(str(self.alpha), going)
         self.assertNotIn(str(self.beta), going)

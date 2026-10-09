@@ -14,10 +14,10 @@ import re
 ACRONYMS = frozenset({
     "api", "b2s", "cpu", "dmd", "dof", "fps", "fss", "gpu", "http", "https", "id",
     "ini", "ip", "ipdb", "json", "led", "nvram", "pup", "rgb", "rom", "ui", "url",
-    "usb", "vni", "vps", "vpx", "vr",
+    "usb", "vni", "vps", "vpx", "vr", "pin2dmd", "wmp",
 })
 
-_WORDS = re.compile(r"[^\W_]+(?:'[^\W_]+)*", re.UNICODE)
+_WORDS = re.compile(r"\{[^{}]*\}(?:'[^\W_]+)?|[^\W_]+(?:'[^\W_]+)*", re.UNICODE)
 
 
 # Words a title leaves lowercase unless they lead or close it. "Point of View" is the
@@ -41,16 +41,22 @@ def field_label(text: str) -> str:
 
     Takes a key or a phrase, so `vps_id` and `VPS ID` both come back `VPS ID`.
     """
-    said = str(text or "").replace("_", " ")
+    said = re.sub(r"\{[^{}]*\}|_", lambda one: one.group(0) if len(one.group(0)) > 1 else " ",
+                  str(text or ""))
     shouting = not any(one.islower() for one in said)
     found = list(_WORDS.finditer(said))
-    last = len(found) - 1
+    spoken = [one for one in found if not one.group(0).startswith("{")]
+    last = len(spoken) - 1
     out, at = [], 0
-    for place, match in enumerate(found):
+    for match in found:
         out.append(said[at:match.start()])
+        at = match.end()
+        if match.group(0).startswith("{"):
+            out.append(match.group(0))
+            continue
+        place = spoken.index(match)
         out.append(_titled(match.group(0), lead_or_close=place in (0, last),
                            shouting=shouting))
-        at = match.end()
     out.append(said[at:])
     return "".join(out).strip()
 

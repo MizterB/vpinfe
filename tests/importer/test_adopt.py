@@ -550,7 +550,7 @@ class ImportTests(AdoptCase):
         row = self._history_row(*self._with_history(*self.PLAYED))
 
         self.assertEqual((2, 2, 0), (row["expected"], row["actual"], row["short"]))
-        self.assertEqual("Games with play history", row["label"])
+        self.assertEqual("Games with Play History", row["label"])
 
     def test_a_game_that_does_not_come_across_leaves_its_play_history_short(self) -> None:
         (self.library / "Taxi (Williams 1988)").mkdir()

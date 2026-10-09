@@ -149,7 +149,7 @@ class CheckTests(WizardCase):
         self.assertTrue(found["ready"])
         summary = dict(one for one in found["summary"] if len(one) == 2)
         self.assertEqual(summary["Games"], "4")
-        self.assertEqual(summary["Reads as"], "PinballX / PinballY")
+        self.assertEqual(summary["Reads As"], "PinballX / PinballY")
 
     def test_the_play_history_is_a_file_and_the_rest_are_folders(self) -> None:
         """A folder check marks a file missing, and the history is one file."""
@@ -161,12 +161,12 @@ class CheckTests(WizardCase):
         self.assertIsNone(wants["tables"])
 
     def test_a_kind_with_no_source_says_it_is_not_coming(self) -> None:
-        """"No media" should be a choice somebody can see they made, not a silence
+        """"No Media" should be a choice somebody can see they made, not a silence
         they notice afterwards."""
         found = self._check(FIXTURE, media="")
         summary = dict(one for one in found["summary"] if len(one) == 2)
 
-        self.assertEqual(summary["No media"], "not being imported")
+        self.assertEqual(summary["No Media"], "not being imported")
 
     def test_every_kind_of_source_is_offered_and_can_be_cleared(self) -> None:
         """Derived where it can be, overridable always, and empty means not imported."""
@@ -288,12 +288,12 @@ class TablesAndMatchesTests(WizardCase):
 
         rows = dict(one for one in found["summary"] if len(one) == 2)
         self.assertEqual(rows["Games"], "2")
-        self.assertEqual(rows["Left out"], "2 not ticked")
+        self.assertEqual(rows["Left Out"], "2 not ticked")
 
     def test_nothing_is_left_out_when_every_game_is_ticked(self) -> None:
         found = self._check(FIXTURE)
 
-        self.assertNotIn("Left out", dict(one for one in found["summary"] if len(one) == 2))
+        self.assertNotIn("Left Out", dict(one for one in found["summary"] if len(one) == 2))
 
     def test_the_games_the_look_could_not_settle_are_listed_to_look_at(self) -> None:
         found = self._matches()
@@ -347,7 +347,7 @@ class TablesAndMatchesTests(WizardCase):
         summary = dict(one for one in self._check(FIXTURE, picks={"Taxi 2": "vps-zebra"})
                        ["summary"] if len(one) == 2)
         self.assertEqual(summary["Matched to VPS"], "2")
-        self.assertEqual(summary["Not matched to VPS"], "2 not found")
+        self.assertEqual(summary["Not Matched to VPS"], "2 not found")
 
     def test_a_pick_that_lands_on_a_game_already_here_leaves_it_unticked(self) -> None:
         held = [{"game_id": "g1", "folder_name": "Zebra Dash (Gottlieb 1971)",
@@ -385,21 +385,21 @@ class SummaryShapeTests(WizardCase):
         found = self._check(FIXTURE)
 
         headings = [one[0] for one in found["summary"] if len(one) == 1]
-        self.assertEqual(headings, ["What comes across"])
+        self.assertEqual(headings, ["What Comes Across"])
 
     def test_the_counts_come_after_the_heading(self) -> None:
         found = self._check(FIXTURE)
         at = next(i for i, one in enumerate(found["summary"]) if len(one) == 1)
 
         after = [one[0] for one in found["summary"][at + 1:]]
-        self.assertEqual(after, ["Games", "Tables", "Media files",
-                                 "Backglasses and settings", "Games with play history",
-                                 "Matched to VPS", "Left behind"])
+        self.assertEqual(after, ["Games", "Tables", "Media Files",
+                                 "Backglasses and Settings", "Games with Play History",
+                                 "Matched to VPS", "Left Behind"])
 
     def test_with_no_catalog_the_summary_says_no_game_is_matched(self) -> None:
         found = self._check(FIXTURE)
 
-        self.assertIn(["VPS matching", "VPS is not available, so no game is "
+        self.assertIn(["VPS Matching", "VPS is not available, so no game is "
                                        "matched"], found["summary"])
         self.assertIn(["Matched to VPS", "0"], found["summary"])
 
@@ -415,22 +415,22 @@ class SummaryShapeTests(WizardCase):
 
         rows = dict(one for one in found["summary"] if len(one) == 2)
         self.assertEqual(rows["Matched to VPS"], "1")
-        self.assertEqual(rows["Not matched to VPS"], "3 not found")
-        self.assertNotIn("VPS matching", rows)
+        self.assertEqual(rows["Not Matched to VPS"], "3 not found")
+        self.assertNotIn("VPS Matching", rows)
 
     def test_with_matching_switched_off_the_summary_says_so(self) -> None:
         with unittest.mock.patch("common.games.auto_match.enabled", return_value=False):
             found = self._check(FIXTURE)
 
         rows = dict(one for one in found["summary"] if len(one) == 2)
-        self.assertEqual(rows["VPS matching"], "Switched off, so no game is matched")
+        self.assertEqual(rows["VPS Matching"], "Switched off, so no game is matched")
 
     def test_the_folders_with_no_slot_are_named_with_their_file_counts(self) -> None:
         """Said before the copy starts, so nobody finds out from the report that a folder
         of theirs was not carried."""
         found = self._check(FIXTURE)
 
-        left = dict(one for one in found["summary"] if len(one) == 2)["Left behind"]
+        left = dict(one for one in found["summary"] if len(one) == 2)["Left Behind"]
         self.assertEqual(left, "Wheel Images, later pages (1)")
 
     def test_a_clip_in_the_cards_folder_is_named_as_videos(self) -> None:
@@ -440,7 +440,7 @@ class SummaryShapeTests(WizardCase):
 
         found = self._check(source)
 
-        left = dict(one for one in found["summary"] if len(one) == 2)["Left behind"]
+        left = dict(one for one in found["summary"] if len(one) == 2)["Left Behind"]
         self.assertIn("Instruction Cards videos (1)", left)
 
     def test_the_summary_counts_the_games_whose_play_history_comes_across(self) -> None:
@@ -451,7 +451,7 @@ class SummaryShapeTests(WizardCase):
 
         found = self._check(source)
 
-        self.assertIn(["Games with play history", "1"], found["summary"])
+        self.assertIn(["Games with Play History", "1"], found["summary"])
 
     def test_a_database_it_could_not_read_hovers_why_in_the_console(self) -> None:
         source = self.root / "pinballx"
@@ -516,7 +516,7 @@ class RomSummaryTests(WizardCase):
         rows = self.summary()
 
         self.assertEqual(rows["No ROMs"], "No ROM folder was found")
-        self.assertEqual(rows["No music"], "No music folder was found")
+        self.assertEqual(rows["No Music"], "No music folder was found")
 
     def test_a_folder_left_empty_on_purpose_says_it_is_not_being_imported(self) -> None:
         source = self.installed()
@@ -524,7 +524,7 @@ class RomSummaryTests(WizardCase):
 
         rows = self.summary(source, music="")
 
-        self.assertEqual(rows["No music"], "not being imported")
+        self.assertEqual(rows["No Music"], "not being imported")
 
     def test_the_games_that_need_a_rom_the_folder_lacks_are_counted(self) -> None:
         roms = self.root / "roms"
@@ -682,7 +682,7 @@ class NamesArtAndThingsTests(WizardCase):
     def test_keeping_the_sources_names_is_said_on_the_summary(self) -> None:
         rows = self.rows(names="source", details="source")
 
-        self.assertEqual(rows["Folder names"], "As in PinballX / PinballY")
+        self.assertEqual(rows["Folder Names"], "As in PinballX / PinballY")
         self.assertEqual(rows["Details"], "Keep PinballX / PinballY's")
 
     def test_choosing_which_details_to_keep_names_them(self) -> None:
@@ -722,14 +722,14 @@ class NamesArtAndThingsTests(WizardCase):
         wheels = self.rows(wheels_as="wheel")
         logos = self.rows(wheels_as="logo")
 
-        self.assertEqual(wheels["Wheel images"], "Wheels")
-        self.assertNotIn("Show logos in the wheel, as before", wheels)
-        self.assertEqual(logos["Wheel images"], "Logos")
-        self.assertEqual(logos["Show logos in the wheel, as before"], "Yes")
-        self.assertEqual(logos["Get missing media"], "Yes")
+        self.assertEqual(wheels["Wheel Images"], "Wheels")
+        self.assertNotIn("Show Logos in the Wheel, as Before", wheels)
+        self.assertEqual(logos["Wheel Images"], "Logos")
+        self.assertEqual(logos["Show Logos in the Wheel, as Before"], "Yes")
+        self.assertEqual(logos["Get Missing Media"], "Yes")
 
     def test_missing_media_is_not_fetched_when_the_switch_is_off(self) -> None:
-        self.assertEqual(self.rows(fetch_art=False)["Get missing media"], "No")
+        self.assertEqual(self.rows(fetch_art=False)["Get Missing Media"], "No")
 
     def test_an_answer_kept_from_an_earlier_import_starts_the_page(self) -> None:
         self.store.set_setting("library_importer", "answers",
