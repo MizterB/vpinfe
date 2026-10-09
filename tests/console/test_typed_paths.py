@@ -63,7 +63,7 @@ class ATypedPathIsChecked(unittest.TestCase):
         catalog = _catalog()
         written = trees.parse_snippet('ui.input(placeholder="/path/to/your/games")')
         named = trees.parse_snippet(
-            'ui.input(placeholder=t("console.workbench.path_placeholder"))')
+            'ui.input(placeholder=t("console.setup.tables.folder_placeholder"))')
         for tree in (written, named):
             call = next(n for n in ast.walk(tree) if isinstance(n, ast.Call)
                         and getattr(n.func, "attr", "") == "input")
