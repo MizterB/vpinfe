@@ -144,7 +144,11 @@ async def walk(library: Any, games: list[dict[str, Any]]) -> None:
     several = len(games) > 1
 
     async def ask_one(game: dict[str, Any], place: str) -> Any:
-        return await ask(library, game, walking=several, place=place if several else "")
+        # A grid row says only whether a game is unmatched, so `ask` handed one draws
+        # every game as unmatched: no Matched to, no Current.
+        record = next((one for one in library.games
+                       if str(one.get("id")) == str(game.get("id"))), game)
+        return await ask(library, record, walking=several, place=place if several else "")
 
     async def write(game: dict[str, Any], picked: Any) -> None:
         game_id = str(game.get("id") or "")

@@ -3320,6 +3320,11 @@ a.console-slot-file, a.console-slot-file:visited { color: var(--accent); }
 .console-source-row--chosen {
   border-color: var(--accent); background: var(--accent-wash-on);
 }
+/* The stripe above is more specific than the rule before it, so on an even row the
+   chosen fill would lose to it and only the border would say which one is picked. */
+.console-pick-list > .console-source-row.console-source-row--chosen {
+  background: var(--accent-wash-on);
+}
 /* Offered and already true, so not a choice: shown, the way a menu shows In It. */
 .console-source-row--held { opacity: 0.55; }
 /* A mod under the release it is based on. One step however deep: a deeper chain

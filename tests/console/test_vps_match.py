@@ -27,6 +27,7 @@ class FakeLibrary:
     def __init__(self) -> None:
         self.writes: list[tuple[str, dict]] = []
         self.declared: list[str] = []
+        self.games: list[dict[str, Any]] = []
 
     def set_game_overrides(self, game_id: str, changes: dict) -> dict:
         self.writes.append((game_id, changes))
@@ -91,6 +92,25 @@ class TheWalk(unittest.TestCase):
     def test_a_pick_is_written_against_the_game_it_was_asked_for(self) -> None:
         library = walk_answering(["vps-1"], games("A"))
         self.assertEqual(library.writes, [("id-A", {"alt_vps_id": "vps-1"})])
+
+    def test_each_game_is_asked_as_the_library_holds_it(self) -> None:
+        """A grid row says only whether a game is unmatched. Handed to the picker, it
+        drew every game as unmatched: no Matched to, no Current."""
+        library = FakeLibrary()
+        library.games = [{"id": "id-A", "name": "A", "vps_id": "vps-1"}]
+        asked: list[dict[str, Any]] = []
+
+        async def fake_ask(_library, game, place="", walking=False):
+            asked.append(game)
+            return vps_match.CANCELLED
+
+        with patch.object(vps_match, "ask", fake_ask), \
+                patch.object(vps_match.ui, "notify", lambda *a, **k: None), \
+                patch.object(vps_match.run, "io_bound", _ran_here):
+            asyncio.run(vps_match.walk(library, [{"id": "id-A", "name": "A",
+                                                  "vps_unmatched": False}]))
+
+        self.assertEqual(asked[0].get("vps_id"), "vps-1")
 
     def test_skipping_writes_nothing_at_all(self) -> None:
         """The reason this walks rather than running: a game in the selection that the
