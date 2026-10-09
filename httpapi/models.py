@@ -2087,6 +2087,37 @@ class AssetDisplaced(ApiModel):
     displaced: list[str]
 
 
+class AssetText(ApiModel):
+    """A text file as an editor holds it: lines end in "\\n" here whatever the file uses.
+    `version` is what a save sends back. `editable` is false with `why` in words where the
+    file cannot be written from this text."""
+
+    text: str
+    version: str
+    encoding: str
+    newline: str
+    final_newline: bool
+    editable: bool
+    why: str
+
+
+class AssetTextSave(ApiModel):
+    """`replace_changed` writes over a file that is no longer the version read, and
+    `keep_copy` false writes without the copy of the file as it was."""
+
+    text: str
+    version: str
+    replace_changed: bool = False
+    keep_copy: bool = True
+
+
+class AssetTextSaved(ApiModel):
+    """The new version, and where the copy of the file as it was went, if one was kept."""
+
+    version: str
+    kept: str | None = None
+
+
 class AssetRemoved(ApiModel):
     removed: list[str]
 

@@ -228,6 +228,9 @@ def _stamp(seconds: float) -> str:
 def inside(game_dir: Path, path: str) -> Path:
     """`path` under the game's folder, or a refusal where it leads out of it."""
     root = game_dir.resolve()
+    if "\x00" in path:
+        raise service_errors.RefusedError(t("error.assets.outside_folder"),
+                                          details={"path": path})
     target = (root / path).resolve()
     if not path.strip() or target != root and root not in target.parents:
         raise service_errors.RefusedError(t("error.assets.outside_folder"),

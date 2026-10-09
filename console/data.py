@@ -1374,6 +1374,15 @@ class Library:
     def asset_detail(self, game_id: str, path: str, lines: int = 40) -> dict[str, Any]:
         return self._client.asset_detail(game_id, path, lines)
 
+    def asset_text(self, game_id: str, path: str) -> dict[str, Any]:
+        return self._client.asset_text(game_id, path)
+
+    def save_asset_text(self, game_id: str, path: str, text: str, version: str,
+                        replace_changed: bool = False,
+                        keep_copy: bool = True) -> dict[str, Any]:
+        return self._client.put_asset_text(game_id, path, text, version,
+                                           replace_changed, keep_copy)
+
     def has_asset_rows(self) -> bool:
         return (self._asset_rows is not None and self._table_rows is not None
                 and self._holds_thumbnails())

@@ -193,6 +193,15 @@ class ApiClient:
         return self._get(f"/games/{game_id}/assets/detail?"
                          + urlencode({"path": path, "lines": lines}))
 
+    def asset_text(self, game_id: str, path: str) -> dict:
+        return self._get(f"/games/{game_id}/assets/text?" + urlencode({"path": path}))
+
+    def put_asset_text(self, game_id: str, path: str, text: str, version: str,
+                       replace_changed: bool = False, keep_copy: bool = True) -> dict:
+        return self._put(f"/games/{game_id}/assets/text?" + urlencode({"path": path}),
+                         {"text": text, "version": version,
+                          "replace_changed": replace_changed, "keep_copy": keep_copy})
+
     def tables(self, game_id: str) -> list[dict]:
         return self._get(f"/games/{game_id}/tables").get("tables", [])
 

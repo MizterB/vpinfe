@@ -95,6 +95,7 @@ NAMED_ASSET = {
     "/games/{game_id}/asset_source": LOADS,
     "/games/{game_id}/assets": LOADS,
     "/games/{game_id}/assets/detail": LOADS,
+    "/games/{game_id}/assets/text": LOADS,
     "/games/{game_id}/assets/{kind}": LOADS,
     "/games/{game_id}/assets/{kind}/displaced": LOADS,
     "/games/{game_id}/assets/{kind}/import": LOADS,

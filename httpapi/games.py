@@ -38,6 +38,7 @@ from common.games import (
     outside_links,
     picture_ops,
     table_ops,
+    text_file,
 )
 from common.host import play_service
 from common.i18n import t
@@ -187,6 +188,22 @@ async def _staged_asset(game_id: str, kind: str, table_id: str,
                                        staged, upload.filename or "")
     finally:
         staged.unlink(missing_ok=True)
+
+
+@router.get("/{game_id}/assets/text", summary="A text file of a game, to edit",
+            dependencies=[requires(scopes.GAMES_READ)])
+def get_asset_text(game_id: str, path: str = Query(...)) -> models.AssetText:
+    return models.AssetText.model_validate(text_file.read(game_id, path))
+
+
+# Ahead of `/assets/{kind}`, which would take "text" for a kind.
+@router.put("/{game_id}/assets/text", summary="Write a text file of a game",
+            dependencies=[requires(scopes.GAMES_WRITE)])
+def put_asset_text(game_id: str, body: models.AssetTextSave,
+                   path: str = Query(...)) -> models.AssetTextSaved:
+    return models.AssetTextSaved.model_validate(text_file.save(
+        game_id, path, body.text, body.version, replace_changed=body.replace_changed,
+        keep_copy=body.keep_copy))
 
 
 @router.put("/{game_id}/assets/{kind}", summary="Place a file under the folder's own name",
