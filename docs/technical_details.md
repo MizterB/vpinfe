@@ -549,21 +549,33 @@ VPinFE can automaticlly pull patches from [vpx-standalone-scripts](https://githu
 
 ## Mobile Transfer
 
-VPinFE includes a mobile transfer feature for sending tables to the mobile version of VPinball on Android and iOS. Access it from the Manager UI sidebar ("Mobile Uploader") or directly at `http://{YOUR-IP}:8001/mobile`.
+VPinFE sends games to the mobile version of VPinball on Android and iOS from the Console. The device has to be added once, then any game can be sent to it.
 
-### Web Send
-Transfers tables directly to a mobile device running VPinball's built-in web server. To use this:
+### Adding the device
 
-1. Open VPinball on your mobile device and enable the web server in its settings
-2. Note the IP address and port displayed in VPinball's settings
-3. Enter the device IP and port in VPinFE's Mobile Uploader connection settings (saved to `vpinfe.ini` under `[Mobile]`)
-4. Click "Check Device" to verify the connection and see which tables are already installed
-5. Send individual tables or batch-send multiple selected tables
+1. Open VPinball on the mobile device and turn on the web server in its settings. It shows an address and a port.
+2. In the Console, open **Devices** and choose **Add VPX Mobile**.
+3. Enter the **Address** and **Port**. VPinFE checks that the device is awake, VPX is open and its web server is on, and offers **Add anyway** if it cannot reach it.
 
-Tables already on the device are shown with a green checkmark. You can also delete tables from the device directly.
+The device is listed with the other devices from then on. Its pane has a **Carrying** heading that lists the games already on it, each with **Remove**, which deletes that game from the device and leaves your own copy alone.
 
-### VPXZ Download
-Packages any of your tables into a `.vpxz` archive (zip format) for manual transfer. Click the download icon next to a table to generate and download the archive.
+### Sending
+
+In **Games**, select one or more games and choose **Send to Device...** from the actions menu, then pick the device. Sending is a job, so it appears on the Jobs page with its progress. Media stays on this machine.
+
+The confirmation offers **Send** and **Send with Settings**. **Send** carries the table, its backglass and ROM only. **Send with Settings** adds the game's settings file. Where a game has a settings file made for mobile and **Send Mobile Settings** is on (below), that file goes in place of the game's own, and the confirmation says how many games it applies to. A settings file made for mobile is a copy of the table's settings file with a word added before `.ini`, so `Attack from Mars.mobile.ini` goes across as `Attack from Mars.ini`.
+
+### Sending settings
+
+These are shared by every mobile device, under the **Sending** heading on a mobile device's pane (the keys are in [`vpxmobile`](#vpxmobile)):
+
+- **Send Mobile Settings** turns on sending the settings file made for mobile in place of the game's own.
+- **Mobile INI Word** is the word in `<table>.<word>.ini`. It defaults to `mobile`.
+- **Chunk Size** is how many bytes go across at a time. Lower it if sends fail on a weak connection.
+
+### Packing a game for another machine
+
+A game can be packed into a `.vpxz` archive (a zip) through the API, `GET /api/v1/games/{id}/archive`, which carries the same files a send does. The Console has no button for it.
 
 # Enabling the Shutdown Feature
 If you plan on using the Shutdown/Reboot option in the frontend or in the remote you need to have the right permissions on some systems:

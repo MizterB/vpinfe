@@ -69,7 +69,7 @@ You never have to guess a filename: VPinFE generates `manufacturers-reference.js
 
 ### Wheel sets
 
-A game can carry alternate wheel art in named folders under `medias/wheels/<set name>/`, each set resolving through the same precedence chain. The active set is `[Media] wheelset` in `vpinfe.ini`, which the active theme may override through a `wheelSet` option (see [theme.md](theme.md)). The reserved set name `logo` fills the wheel slot from the game's logo instead of a wheels folder. A spec-named wheel the user placed always beats the active set, and a game with no art for the set keeps its plain wheel.
+A game can carry alternate wheel art in named folders under `medias/wheels/<set name>/`, each set resolving through the same precedence chain. The active set is **Wheel Set** in Settings (`media.wheelset` in `vpinfe.json`), which the active theme may override through a `wheelSet` option (see [theme.md](theme.md)). The reserved set name `logo` fills the wheel slot from the game's logo instead of a wheels folder. A spec-named wheel the user placed always beats the active set, and a game with no art for the set keeps its plain wheel.
 
 Relevant code:
 
