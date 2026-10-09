@@ -108,7 +108,7 @@ class ChecklistTests(unittest.TestCase):
             task, dialog = await _opened(_walked(_TABLES, seen))
             toggle = next(one for one in dialog.descendants() if isinstance(one, ui.toggle))
             toggle.set_value("have")
-            said(_buttons(dialog, "Select all")[0], "click")
+            said(_buttons(dialog, "Select All")[0], "click")
             toggle.set_value("")
             said(_forward(dialog), "click")
             await _settled()
@@ -122,7 +122,7 @@ class ChecklistTests(unittest.TestCase):
 
         async def run() -> None:
             task, dialog = await _opened(_walked(_TABLES, seen))
-            said(_buttons(dialog, "Select none")[0], "click")
+            said(_buttons(dialog, "Select None")[0], "click")
             said(_forward(dialog), "click")
             await _settled()
             await _finished(task)
@@ -196,7 +196,7 @@ class SettleTests(unittest.TestCase):
             say = [one.text for one in dialog.descendants()
                    if isinstance(one, ui.label) and one.text in ("Not found - Two entries",
                                                                  "Not found")]
-            said(_buttons(dialog, "Show all 3")[0], "click")
+            said(_buttons(dialog, "Show All 3")[0], "click")
             after = _row_names(dialog)
             await _finished(task)
             return before, say, after

@@ -40,7 +40,7 @@ _DRIVE_PATH = re.compile(r"^(/|/Volumes|/media|/mnt|[A-Za-z]:\\?)$")
 def _free_name(folders: list[dict[str, Any]]) -> str:
     """The first of New folder, New folder 2, ... that this folder does not hold."""
     taken = {one["name"].lower() for one in folders}
-    name, count = t("console.folder_picker.new_folder"), 1
+    name, count = t("console.folder_picker.new_folder_name"), 1
     while name.lower() in taken:
         count += 1
         name = t("console.folder_picker.new_folder_numbered", count=count)

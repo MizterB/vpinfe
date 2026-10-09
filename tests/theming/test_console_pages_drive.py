@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import unittest
 import urllib.request
 from pathlib import Path
@@ -21,6 +22,7 @@ from tempfile import TemporaryDirectory
 from urllib.parse import quote
 
 from apps.vpx.setting_types import TYPES
+from common.labels import field_label
 from tests.support.browser_session import BrowserSession, chromium_path
 from tests.support.console_walk import ConsoleWalk, clicked
 from tests.support.library import game_info, write_game
@@ -29,6 +31,13 @@ from tests.support.live_instance import LiveInstance
 PICKED = "Hand Picked"
 SMART = "Smart Bally"
 VPX = "vpx-drive"
+# A unit toggle is written as the unit is, and a count ("2 games", "16 more") is a quantity,
+# not a name.
+UNITS = frozenset({"cm", "in"})
+# What a heading shows when the name it would show is empty: a state, as a value is.
+STATES = frozenset({"No name"})
+# A host or device name stands as the heading of its own page; it is data, not a label.
+_IDENTIFIER = re.compile(r"[a-z0-9]+(-[a-z0-9]+)+")
 WHOLE_PANEL = "(whole panel)"
 EMPTY_FOLDERS = "/console?view=settings&page=library.folders"
 
@@ -197,6 +206,27 @@ PATH_TEXTS = r"""(() => {
 })()"""
 
 
+# The words on every button and heading on screen, one line each, as written: a heading is
+# drawn in capitals by the stylesheet, so its text is read from the node, not from the
+# screen. An icon is a word in the font, not on the button, so an icon-only button has none.
+WORDS = """(() => {
+  const shown = el => el.getClientRects().length > 0
+    && getComputedStyle(el).visibility !== 'hidden';
+  const first = el => {
+    const copy = el.cloneNode(true);
+    copy.querySelectorAll('.q-icon, .material-icons').forEach(icon => icon.remove());
+    return (copy.textContent || '').trim().split('\\n')[0].trim();
+  };
+  const heads = '.console-fact-heading, .console-card-title, .console-workbench-title,'
+    + ' .console-group:not(.console-rail-group)';
+  const found = [];
+  for (const [kind, query] of [['button', '.q-btn'], ['heading', heads]])
+    for (const el of document.querySelectorAll(query))
+      if (shown(el) && first(el)) found.push([kind, first(el)]);
+  return found;
+})()"""
+
+
 def _vpx_install(root: Path) -> dict[str, str]:
     defaults = {"bool": "0", "int": "0", "number": "1.0", "string": "''",
                 "choice": "0, 0='One', 1='Two'"}
@@ -264,6 +294,7 @@ class ConsolePagesDrive(unittest.TestCase):
         stretched: dict = {"measured": 0, "problems": []}
         paths: dict = {"measure": 0, "widths": []}
         texts: dict = {"drawn": 0, "problems": [], "loose": []}
+        words: dict[tuple[str, str], set[str]] = {}
 
         async def look(where: str) -> None:
             said = await browser.evaluate(DROPDOWNS)
@@ -279,6 +310,8 @@ class ConsolePagesDrive(unittest.TestCase):
             texts["drawn"] += said["drawn"]
             texts["problems"] += [[where, *one] for one in said["problems"]]
             texts["loose"] += [[where, one] for one in said["loose"]]
+            for kind, text in await browser.evaluate(WORDS):
+                words.setdefault((kind, text), set()).add(where)
 
         async with BrowserSession(chromium_path()) as browser:
             await browser.send("Emulation.setDeviceMetricsOverride",
@@ -327,7 +360,7 @@ class ConsolePagesDrive(unittest.TestCase):
             stretched["finding"] = await browser.evaluate(
                 "!!document.querySelector('.console-settings-body .console-attention')")
         return {"headings": headings, "drawn": drawn, "dropdowns": dropdowns,
-                "stretched": stretched, "paths": paths, "texts": texts}
+                "stretched": stretched, "paths": paths, "texts": texts, "words": words}
 
     def test_every_rail_opened_something(self) -> None:
         for query, found in self.seen["headings"].items():
@@ -376,6 +409,15 @@ class ConsolePagesDrive(unittest.TestCase):
         paths = self.seen["paths"]
         self.assertGreater(len(paths["widths"]), 3, "an empty sweep passes and measures nothing")
         self.assertEqual([], [one for one in paths["widths"] if one[2] != paths["measure"]])
+
+    def test_every_button_and_heading_is_in_title_case(self) -> None:
+        words = self.seen["words"]
+        self.assertGreater(len(words), 100, "an empty sweep passes and measures nothing")
+        off = {f"{kind}: {text}": sorted(where)[:2] for (kind, text), where in words.items()
+               if text != field_label(text)
+                  and not text[0].isdigit() and text not in UNITS | STATES
+                  and not _IDENTIFIER.fullmatch(text)}
+        self.assertEqual({}, off)
 
     def test_a_path_drawn_as_text_reads_from_its_end_and_can_be_copied(self) -> None:
         texts = self.seen["texts"]

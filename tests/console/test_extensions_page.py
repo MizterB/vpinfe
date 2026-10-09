@@ -199,19 +199,19 @@ class StoppedSettingsLineTests(unittest.TestCase):
 
 
 class ActionsGroupTests(unittest.TestCase):
-    ACTIONS = [{"key": "run", "label": "Import a library", "description": "Brings one in"}]
+    ACTIONS = [{"key": "run", "label": "Import a Library", "description": "Brings one in"}]
 
     def test_a_running_extension_offers_its_actions_under_a_heading(self) -> None:
         page = Page({**RUNNING, "actions": self.ACTIONS})
 
         self.assertIn(i18n.t("word.actions"), page.headings)
-        self.assertIn("Import a library", page.buttons)
+        self.assertIn("Import a Library", page.buttons)
 
     def test_one_that_is_not_running_offers_none(self) -> None:
         page = Page({**SWITCHED_OFF, "actions": self.ACTIONS})
 
         self.assertNotIn(i18n.t("word.actions"), page.headings)
-        self.assertNotIn("Import a library", page.buttons)
+        self.assertNotIn("Import a Library", page.buttons)
 
     def test_one_with_none_draws_no_empty_heading(self) -> None:
         self.assertNotIn(i18n.t("word.actions"), Page(RUNNING).headings)

@@ -236,7 +236,7 @@ class GridLayoutDrive(unittest.TestCase):
 
             await window(WIDE)
             if await header_menu("kind"):
-                await written_by(click_text(".q-menu .console-menu-item", "Pin left"))
+                await written_by(click_text(".q-menu .console-menu-item", "Pin Left"))
             seen["pinned"] = scopes()
             seen["resized_widened"] = await browser.evaluate(NAME_DRAWN)
             seen["reloaded"] = await unchanged_by(lambda: load(BY_LINK))

@@ -1425,6 +1425,10 @@ What's busy, puts them in a `.console-tile-rows`: a name, a share and a size to 
 - **Headings take title case. Sentences and phrases stay sentence case. The app nav is
   uppercase, alone** — a second uppercase column would rank a page's sections with the
   product.
+- **A button takes title case too.** "Import a
+  Library", "Needs a Look". One rule covers a label, a button and a heading, so the person
+  reading never has to tell which of the three they are looking at.
+  `tests/invariants/test_labels_are_title_case.py` holds it.
 - **A value is a name or a state, not a sentence.** Names keep their own casing
   (`Visual Pinball X`, `TAF_L7`); states are capitalized noun phrases. Show a display name
   rather than an id — an id on screen is a leak.

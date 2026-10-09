@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 
 from console import folder_picker, library_folders
 
-ACTION = {"key": "import", "label": "Import a library"}
+ACTION = {"key": "import", "label": "Import a Library"}
 
 
 async def _now(callback: Any, *args: Any, **kwargs: Any) -> Any:

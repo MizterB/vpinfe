@@ -1,7 +1,7 @@
 {
   "name": "Library Importer",
   "description": "Converts a frontend's library, or a folder of tables, into game folders",
-  "action.import.label": "Import a library",
+  "action.import.label": "Import a Library",
   "action.import.description": "Convert a frontend's library, or a folder of tables, into game folders",
   "reason.no_source": "No source has been chosen",
   "reason.unreachable": "That folder is not reachable from here",
@@ -26,7 +26,7 @@
   "job.detail_stopped": "Made {made}, failed {failed}, stopped with {left} left",
   "job.detail_filled": "Made {made}, filled {filled}, failed {failed}",
   "job.detail_stopped_filled": "Made {made}, filled {filled}, failed {failed}, stopped with {left} left",
-  "wizard.source.title": "Import a library",
+  "wizard.source.title": "Import a Library",
   "wizard.source.help": "The folder the library is kept in",
   "wizard.source.source_type.label": "Coming From",
   "wizard.source.pinballx.help": "Reads the games in the Databases folder and the media beside them",

@@ -59,8 +59,8 @@ class WhatTheReportDraws(unittest.TestCase):
             already_here=[{"key": "old", "name": "Old", "game_id": "o1"}],
             left_behind=[{"what": "ScreenRes.txt", "displays": True}]))
 
-        order = ["Needs a look", "Not imported", "Need a ROM", "Good to know",
-                 "Already in VPinFE, left alone", "DMD placed on its own", "Left behind",
+        order = ["Needs a Look", "Not Imported", "Need a ROM", "Good to Know",
+                 "Already in VPinFE, Left Alone", "DMD Placed on Its Own", "Left Behind",
                  "ScreenRes.txt", "Imported"]
         self.assertEqual(order, [one for one in drawn if one in order])
 
@@ -121,7 +121,7 @@ class WhatTheReportDraws(unittest.TestCase):
         self.assertEqual("/console?view=assets&game=need_rom-1&slot=rom", hrefs["Add the ROM"])
         self.assertEqual("/console?view=tables&game=not_matched-1&section=game_details",
                          hrefs["Match"])
-        self.assertEqual("/console?view=media&game=no_wheel-1&slot=wheel", hrefs["Add a wheel"])
+        self.assertEqual("/console?view=media&game=no_wheel-1&slot=wheel", hrefs["Add a Wheel"])
 
     def test_a_report_without_the_lists_is_drawn_the_way_it_was(self) -> None:
         job = {"id": JOB, "state": "done", "result": {"rows": [], "already_here": []}}

@@ -61,8 +61,8 @@ class ForAGame(unittest.TestCase):
         verbs = game_acts.game_acts(_library(), [_game()], {}, _refresh,
                                     collections=lambda _: None)
 
-        self.assertEqual(["Launch", "Mark Private", "Match to VPS...", "Auto-match",
-                          "Get missing media...", "Send to device...", "Back up now",
+        self.assertEqual(["Launch", "Mark Private", "Match to VPS...", "Auto-Match",
+                          "Get Missing Media...", "Send to Device...", "Back Up Now",
                           "Add to Collection"], _labels(verbs))
 
     def test_it_is_filed_only_once_the_collections_are_read(self) -> None:
@@ -102,7 +102,7 @@ class ForAGame(unittest.TestCase):
         state: dict[str, Any] = {"watch_jobs": lambda: None}
         games = [_game()]
         verbs = game_acts.game_acts(_library(), games, state, _refresh)
-        send = next(one for one in verbs if one.label == "Send to device...")
+        send = next(one for one in verbs if one.label == "Send to Device...")
 
         with patch.object(game_acts.send_to_device, "ask_where") as ask:
             send.run()
@@ -116,9 +116,9 @@ class ForAGame(unittest.TestCase):
         offered = game_acts.game_acts(played, [_game()], {}, _refresh)
         quiet = game_acts.game_acts(unplayed, [_game()], {}, _refresh)
 
-        self.assertEqual("Reset play record", offered[-1].label)
+        self.assertEqual("Reset Play Record", offered[-1].label)
         self.assertTrue(offered[-1].danger)
-        self.assertNotIn("Reset play record", _labels(quiet))
+        self.assertNotIn("Reset Play Record", _labels(quiet))
 
     def test_a_single_game_is_named_in_the_match_walk_and_several_are_not(self) -> None:
         self.assertEqual("Attack from Mars", game_acts._only_name([_game()]))
@@ -137,20 +137,20 @@ class ForATable(unittest.TestCase):
     def test_a_table_that_is_not_the_default_can_be_made_it(self) -> None:
         verbs = _acts(_table("a"), _table("a"), _table("b", default=True))
 
-        self.assertEqual(["Make default", "Hide", "Extract script"], _labels(verbs))
+        self.assertEqual(["Make Default", "Hide", "Extract Script"], _labels(verbs))
 
     def test_the_default_of_several_can_be_locked_and_not_made_the_default(self) -> None:
         one = _table("a", default=True)
         verbs = _acts(one, one, _table("b"))
 
-        self.assertNotIn("Make default", _labels(verbs))
-        self.assertEqual(["Hide", "Extract script"], _labels(verbs)[1:])
+        self.assertNotIn("Make Default", _labels(verbs))
+        self.assertEqual(["Hide", "Extract Script"], _labels(verbs)[1:])
         self.assertEqual(3, len(verbs))
 
     def test_a_hidden_table_offers_to_unhide_and_cannot_be_made_the_default(self) -> None:
         verbs = _acts(_table("a", hidden=True))
 
-        self.assertEqual(["Unhide", "Extract script"], _labels(verbs))
+        self.assertEqual(["Unhide", "Extract Script"], _labels(verbs))
 
     def test_a_missing_table_can_be_forgotten_as_a_danger(self) -> None:
         verbs = _acts(_table("a", available=False, absent_since="2026-10-01"),
@@ -164,10 +164,10 @@ class ForATable(unittest.TestCase):
         played = _acts(_table("a", user={"last_played": "2026-10-01T20:00:00Z"}))
         unplayed = _acts(_table("a", user={"play_count": 0}))
 
-        self.assertIn("Reset play record", _labels(played))
+        self.assertIn("Reset Play Record", _labels(played))
         self.assertTrue(next(one for one in played
-                             if one.label == "Reset play record").danger)
-        self.assertNotIn("Reset play record", _labels(unplayed))
+                             if one.label == "Reset Play Record").danger)
+        self.assertNotIn("Reset Play Record", _labels(unplayed))
 
     def test_the_games_record_is_reset_beside_the_tables(self) -> None:
         verbs = _acts(_table("a"), library=_library({"id": "afm", "user": {"play_count": 2}}))
@@ -182,9 +182,9 @@ class ForATable(unittest.TestCase):
         own = _table("a", assets={"script": {"file": "a.vbs", "resolution": "sidecar"}})
         verbs = _acts(own)
 
-        self.assertIn("Delete script", _labels(verbs))
-        self.assertNotIn("Extract script", _labels(verbs))
-        self.assertTrue(next(one for one in verbs if one.label == "Delete script").danger)
+        self.assertIn("Delete Script", _labels(verbs))
+        self.assertNotIn("Extract Script", _labels(verbs))
+        self.assertTrue(next(one for one in verbs if one.label == "Delete Script").danger)
 
 
 class HidingSeveralTables(unittest.IsolatedAsyncioTestCase):
@@ -224,7 +224,7 @@ class ForSeveralTables(unittest.TestCase):
     def test_making_a_default_is_for_one_table_and_says_so(self) -> None:
         verbs = panel.for_selection(_several(_table("a"), _table("b", "medusa")), 2)
 
-        make = next(one for one in verbs if one.label == "Make default")
+        make = next(one for one in verbs if one.label == "Make Default")
         self.assertIsNone(make.run)
         self.assertEqual("One at a time", make.hint)
 

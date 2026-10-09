@@ -16,7 +16,7 @@ from common.path_state import OK as PATH_OK
 from console import setup, setup_tables
 from console.setup_tables import Tables
 
-IMPORT = {"key": "import", "label": "Import a library", "base": "/wizard"}
+IMPORT = {"key": "import", "label": "Import a Library", "base": "/wizard"}
 FOLDERS = {"game_folders": ["a", "b"], "loose": []}
 LOOSE = {"game_folders": [], "loose": ["x.vpx"]}
 MIXED = {"game_folders": ["a"], "loose": ["x.vpx", "y.vpx"]}

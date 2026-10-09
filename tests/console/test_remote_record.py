@@ -293,7 +293,7 @@ class RecordingsTableTests(unittest.TestCase):
 
         card, ui = self._drawn({"launching": True, "source": "frontend"})
         card.assert_not_called()
-        self.assertEqual(ui.button.call_args.args[0], "Quit table")
+        self.assertEqual(ui.button.call_args.args[0], "Quit Table")
 
 
 class SheetPlanTests(unittest.IsolatedAsyncioTestCase):

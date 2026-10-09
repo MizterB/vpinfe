@@ -10,7 +10,7 @@ from console import panel
 
 def verbs() -> list[panel.Verb]:
     return [panel.Verb("Restore", lambda: None),
-            panel.Verb("Copy path", lambda: None, one=True),
+            panel.Verb("Copy Path", lambda: None, one=True),
             panel.Verb("Delete", lambda: None, danger=True)]
 
 
@@ -23,7 +23,7 @@ class ForSelection(unittest.TestCase):
     def test_several_rows_refuse_a_one_at_a_time_verb_and_say_why(self) -> None:
         shown = panel.for_selection(verbs(), 3)
 
-        self.assertEqual(["Restore", "Copy path", "Delete"], [v.label for v in shown])
+        self.assertEqual(["Restore", "Copy Path", "Delete"], [v.label for v in shown])
         self.assertIsNone(shown[1].run)
         self.assertEqual(t("word.not_for_several"), shown[1].hint)
 

@@ -31,21 +31,21 @@ class ForCollections(unittest.TestCase):
     def test_a_smart_one_offers_convert_between_duplicate_and_delete(self) -> None:
         verbs = collections.acts(None, {}, [_collection("Recent", "filter")], _after)
 
-        self.assertEqual(["Rename…", "Duplicate", "Convert to Hand-picked", "Delete"],
+        self.assertEqual(["Rename…", "Duplicate", "Convert to Hand-Picked", "Delete"],
                          _labels(verbs))
 
     def test_a_selection_offers_convert_when_any_one_can(self) -> None:
         verbs = collections.acts(None, {}, [_collection("Favorites"),
                                             _collection("Recent", "filter")], _after)
 
-        self.assertIn("Convert to Hand-picked", _labels(verbs))
+        self.assertIn("Convert to Hand-Picked", _labels(verbs))
 
     def test_unsaved_rules_keep_convert_away(self) -> None:
         state = {"collection_drafts": {"Recent": {"rules": []}}}
 
         verbs = collections.acts(None, state, [_collection("Recent", "filter")], _after)
 
-        self.assertNotIn("Convert to Hand-picked", _labels(verbs))
+        self.assertNotIn("Convert to Hand-Picked", _labels(verbs))
 
     def test_the_grids_moves_sit_before_delete_and_are_for_one(self) -> None:
         moves = [panel.Verb("Move Up", in_panel=False, one=True)]
@@ -72,7 +72,7 @@ class ForTags(unittest.TestCase):
     def test_one_tag_offers_rename_merge_and_delete(self) -> None:
         verbs = tageditor.acts(_library("a", "b"), [{"tag": "a", "games": 2}], _after)
 
-        self.assertEqual(["Rename…", "Merge into", "Delete"], _labels(verbs))
+        self.assertEqual(["Rename…", "Merge Into", "Delete"], _labels(verbs))
 
     def test_merge_into_leaves_out_every_tag_chosen(self) -> None:
         verbs = tageditor.acts(_library("a", "b", "c"),

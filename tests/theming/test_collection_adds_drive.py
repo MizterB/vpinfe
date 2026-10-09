@@ -296,7 +296,7 @@ class CollectionAddsDrive(unittest.TestCase):
         labels = [label for label, _inert in self.seen["first_menu"]]
         self.assertEqual("Launch", labels[0])
         self.assertEqual("Add to Collection / chevron_right", labels[-1])
-        self.assertLess(labels.index("Back up now"), len(labels) - 1)
+        self.assertLess(labels.index("Back Up Now"), len(labels) - 1)
         self.assertIn("Hand-picked · 2 games", self.seen["dialogs"][0])
         self.assertIn("Smart · 2 games", self.seen["dialogs"][0])
 

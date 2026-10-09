@@ -123,14 +123,14 @@ class TheBar(unittest.IsolatedAsyncioTestCase):
     async def test_says_what_waits_and_offers_restart_undo_and_dismiss(self) -> None:
         _bar, slot = await self._drawn()
         self.assertIn("Waiting for a restart: HTTP port, WebSocket port", _labels(slot))
-        self.assertEqual(set(_buttons(slot)) - {""}, {"Restart VPinFE", "Undo changes"})
+        self.assertEqual(set(_buttons(slot)) - {""}, {"Restart VPinFE", "Undo Changes"})
         self.assertEqual(len([one for one in slot.descendants()
                               if isinstance(one, ui.button)]), 3)
 
     async def test_offers_reopen_in_place_of_restart_for_window_settings(self) -> None:
         self.library.config_waiting.return_value = _answer(ROTATION, reopen=True)
         _bar, slot = await self._drawn()
-        self.assertEqual(set(_buttons(slot)) - {""}, {"Reopen windows", "Undo changes"})
+        self.assertEqual(set(_buttons(slot)) - {""}, {"Reopen Windows", "Undo Changes"})
 
     async def test_draws_nothing_when_nothing_waits(self) -> None:
         self.library.config_waiting.return_value = _answer()
@@ -192,7 +192,7 @@ class TheBar(unittest.IsolatedAsyncioTestCase):
         bar, slot = await self._drawn()
         with patch.object(ui, "notify") as note:
             await _on_page(bar.reopen)
-        self.assertEqual(note.call_args.args[0], "Reopen windows did not happen")
+        self.assertEqual(note.call_args.args[0], "Reopen Windows did not happen")
         self.assertNotIn("Reopening the windows", _labels(slot))
 
     async def test_undo_redraws_the_page_so_its_fields_show_the_restored_values(self) -> None:

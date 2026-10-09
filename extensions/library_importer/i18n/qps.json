@@ -1,7 +1,7 @@
 {
   "name": "Ŀîƀřàřý Îɱþöřţèř",
   "description": "Çöñṽèřţš à ƒřöñţèñđ'š ŀîƀřàřý, öř à ƒöŀđèř öƒ ţàƀŀèš, îñţö ĝàɱè ƒöŀđèřš",
-  "action.import.label": "Îɱþöřţ à ŀîƀřàřý",
+  "action.import.label": "Îɱþöřţ à Ŀîƀřàřý",
   "action.import.description": "Çöñṽèřţ à ƒřöñţèñđ'š ŀîƀřàřý, öř à ƒöŀđèř öƒ ţàƀŀèš, îñţö ĝàɱè ƒöŀđèřš",
   "reason.no_source": "Ñö šöûřçè ĥàš ƀèèñ çĥöšèñ",
   "reason.unreachable": "Ţĥàţ ƒöŀđèř îš ñöţ řèàçĥàƀŀè ƒřöɱ ĥèřè",
@@ -26,7 +26,7 @@
   "job.detail_stopped": "Ḿàđè {made}, ƒàîŀèđ {failed}, šţöþþèđ ŵîţĥ {left} ŀèƒţ",
   "job.detail_filled": "Ḿàđè {made}, ƒîŀŀèđ {filled}, ƒàîŀèđ {failed}",
   "job.detail_stopped_filled": "Ḿàđè {made}, ƒîŀŀèđ {filled}, ƒàîŀèđ {failed}, šţöþþèđ ŵîţĥ {left} ŀèƒţ",
-  "wizard.source.title": "Îɱþöřţ à ŀîƀřàřý",
+  "wizard.source.title": "Îɱþöřţ à Ŀîƀřàřý",
   "wizard.source.help": "Ţĥè ƒöŀđèř ţĥè ŀîƀřàřý îš ķèþţ îñ",
   "wizard.source.source_type.label": "Çöɱîñĝ Ƒřöɱ",
   "wizard.source.pinballx.help": "Řèàđš ţĥè ĝàɱèš îñ ţĥè Đàţàƀàšèš ƒöŀđèř àñđ ţĥè ɱèđîà ƀèšîđè ţĥèɱ",
