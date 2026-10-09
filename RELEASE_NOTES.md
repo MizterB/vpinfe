@@ -16,7 +16,7 @@ build and it changes how your library is stored — read the next section first.
 - To undo it: the Tables page offers a restore when it finds backups, or run
   `--restore-info`.
 - `--reset-3x-state` keeps a copy of your device list before removing it, named in what it
-  reports. A phone you added by hand is not something any install re-announces, so it is the
+  reports. A mobile device you added by hand is not something any install re-announces, so it is the
   one thing there that could not be rebuilt.
 - To take 3.0 back off entirely, `--reset-3x-state` removes the settings and collections
   files 3.0 wrote, the `.info` files it made and every backup it kept, so the next start
@@ -27,8 +27,8 @@ build and it changes how your library is stored — read the next section first.
   reach the port can read your library, change settings, upload files and launch tables.
   That is how VPinFE has always worked and 3.0 does not change it — but 3.0 is the release
   that makes the API worth building against, so it is worth saying plainly: run it on a
-  network you trust, and do not forward the port to the internet. Set `network.hub_bind`
-  to `127.0.0.1` to keep it on the machine itself, at the cost of the remote and mobile
+  network you trust, and do not forward the port to the internet. Set `network.http_bind`
+  (HTTP Address in Settings) to `127.0.0.1` to keep it on the machine itself, at the cost of the remote and mobile
   pages working from other devices.
 
 ### What's New
@@ -71,13 +71,13 @@ build and it changes how your library is stored — read the next section first.
   renaming a folder and updating a `.vpx`, which VPSId does not. Collection membership is
   keyed by it now, so an ordinary table update no longer orphans a table out of its
   collections.
-- **Core** — An HTTP API at `/api/v1` with a written contract: table catalog, launch, media,
+- **Core** — An HTTP API at `/api/v1` with a written contract: games and tables, launch, media,
   assets, collections, uploads, VPS search and export, one error envelope, permission
   scopes on every endpoint. Documented in `docs/`.
 - **Core** — A live event stream at `/api/v1/events`. The frontend subscribes to launch
   state instead of asking for it once a second.
-- **Core, Frontend** — A table folder can hold several playable files. A desktop build and a
-  VR build, or a table and a patched variant, are peers — each launches on its own, and any
+- **Core, Frontend** — A game folder can hold several tables. A desktop table and a
+  VR table, or a table and a patched variant, are peers — each launches on its own, and any
   of them can be hidden so it stops being offered.
 - **Core** — Apply `.dif` patches directly, with no external tool. The base file stays on
   disk because the patched table cannot be rebuilt without it, and VPinFE records which
@@ -89,12 +89,12 @@ build and it changes how your library is stored — read the next section first.
   the logo wherever the wheel would appear — themes, Manager UI and API alike.
 - **Core** — Media resolves through a precedence chain and accepts extension families:
   `(Wheel) <game file>.png` over `(Wheel) <folder>.png` over `wheel.png`, and a `.jpg`
-  where the old code only ever looked for one exact `.png`. Art you placed by hand that was
+  where the old code only ever looked for one exact `.png`. Media you placed by hand that was
   silently ignored now shows up. The token in brackets names the kind — Visual Pinball
   publishes the list, and VPinFE reads it. Two are named for what they are rather than what
   Visual Pinball calls them: use `(InstructionCard)` and `(Flyer)` if you are naming files
   yourself, and `(GameHelp)` and `(GameInfo)` keep working if your media came that way.
-- **Core, Themes** — Wheel sets, chosen in the ini or by the theme.
+- **Core, Themes** — Wheel sets, chosen in Settings (Wheel Set) or by the theme.
 - **Core, Themes** — Manufacturer logos, served from a shared assets root
   (`[general] assets_dir`, default `assets/` under the config dir) at `/assets/`. Nothing
   ships or downloads yet, so today it is a slot for themes to fill.
@@ -110,17 +110,17 @@ build and it changes how your library is stored — read the next section first.
 - **Core, Manager UI** — Slow work runs in the background and reports progress on the event
   bus instead of blocking the page that started it.
 - **Console** — A new interface, and what you now land on. It is the control plane: one
-  place for the library, media, devices and settings, with a table grid that can draw art
+  place for the library, media, devices and settings, with a table grid that can draw an image
   in a column instead of a tick, and a media map laid out like a pinball machine so a
   game's coverage reads before any label does. Column layouts are kept with the library, so they
-  follow you between machines. The Manager UI moves to `/manager` and is still there — it
-  is the complete one, and parts of the Console are unfinished.
+  follow you between machines. The Manager UI moves to `/manager` and is still there, because
+  parts of the Console are unfinished.
 - **Core** — Installs find each other on your network. Each one announces its name, what
   it is for and which build it is running, and an install with device management switched
   on fills its device list from what it hears — there is no address to type on either
   side, and an event carrying an id turns into a name someone recognizes. Windows may ask
   to let VPinFE through the firewall the first time it starts, and a network that filters
-  multicast still takes an address by hand. A device on your phone can be in that list
+  multicast still takes an address by hand. A mobile device running VPX Mobile can be in that list
   too, added by hand — several of them, which the single `[mobile]` address could never
   express. Your existing one is imported on the first start.
 - **Manager UI** — The Tables page says when the library has been upgraded and where to undo
@@ -144,7 +144,7 @@ These are deliberate. `docs/compatibility-3.0.md` has the full list with the rea
   so `PUPVideos` — the casing PinUP Popper itself writes — went undetected.
 - **Core** — Your own media is protected by hash rather than by claiming it. Any file
   already on disk is compared against the MD5 VPinMediaDB publishes; a match is ours, and
-  anything else is left alone. That covers art you never got around to claiming, and art of
+  anything else is left alone. That covers media you never got around to claiming, and media of
   ours you later replaced. `--claim-user-media` does nothing now, and the "Use my own media"
   toggle is gone.
 - **Core** — Imported media keeps its real extension. A `.jpg` wheel is written as
