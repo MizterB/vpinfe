@@ -4787,6 +4787,7 @@
   "console.wizard_lists.not_matched": "Ñöţ ɱàţçĥèđ",
   "console.wizard_lists.picked": "Þîçķèđ",
   "console.wizard_lists.candidate_why": "{candidate} - {reason}",
+  "console.wizard_lists.entry": "{name} ({made})",
   "console.wizard_lists.show_all": "Šĥöŵ àŀŀ {count}",
   "console.wizard_lists.hide_settled": "Ĥîđè ţĥè šèţţŀèđ",
   "console.wizard_lists.select_all.hint": "Ţîçķ èṽèřý řöŵ šĥöŵñ",

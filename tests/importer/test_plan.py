@@ -38,6 +38,11 @@ def _game(key, **fields):
     return SourceGame(key=key, **fields)
 
 
+def _everything(library):
+    """Every game of the source ticked on the Tables page."""
+    return list(plan_for.row_keys(library).values())
+
+
 class SourceTests(unittest.TestCase):
     def test_what_can_be_worked_out_is_the_default(self) -> None:
         library = _library(_game("Taxi", media=(
@@ -172,7 +177,9 @@ class LookedTests(unittest.TestCase):
             "Old", display_name="Renamed Taxi", table_file="/src/tables/Old.vpx")
         looked = {id(new): {"vps_id": "vps-new"}, id(here): {"vps_id": "vps-taxi"}}
 
-        made = plan_for.build(_library(new, here), list(self.HELD), on_existing="fill",
+        library = _library(new, here)
+
+        made = plan_for.build(library, list(self.HELD), ticked=_everything(library),
                               source_id="pinballx", kinds=(), looked=looked)
 
         self.assertEqual(plan_for.expected(made)["matched"], 1)
@@ -428,7 +435,7 @@ class ExpectedTests(unittest.TestCase):
                  "name": "Taxi", "vps_id": ""}]
 
         skipping = plan_for.expected(self._plan(library, held))
-        filling = plan_for.expected(self._plan(library, held, on_existing="fill"))
+        filling = plan_for.expected(self._plan(library, held, ticked=_everything(library)))
 
         self.assertEqual(skipping["games"], 0)
         self.assertEqual(filling["games"], 1)
@@ -470,7 +477,7 @@ class ExpectedTests(unittest.TestCase):
 
         skipping = plan_for.expected(self._plan(library, held, chosen=chosen))
         filling = plan_for.expected(self._plan(library, held, chosen=chosen,
-                                               on_existing="fill"))
+                                               ticked=_everything(library)))
 
         self.assertEqual(skipping["history"], 0)
         self.assertEqual(filling["history"], 1)
@@ -483,10 +490,20 @@ class ExpectedTests(unittest.TestCase):
 
         self.assertEqual(counts["history"], 0)
 
-    def test_leaving_them_alone_is_the_default(self) -> None:
+    def test_a_game_already_here_is_left_alone_unless_ticked(self) -> None:
         """Rewriting what somebody has curated since the last run is the worse
         mistake."""
-        self.assertEqual(plan_for.build(_library(), []).on_existing, "skip")
+        library = _library(_game("Taxi", display_name="Taxi (Williams 1988)",
+                                 table_file="/src/tables/Taxi.vpx"))
+        held = [{"game_id": "g1", "folder_name": "Taxi (Williams 1988)",
+                 "name": "Taxi", "vps_id": ""}]
+
+        untouched = self._plan(library, held)
+        ticked = self._plan(library, held, ticked=_everything(library))
+
+        self.assertEqual([one.taken for one in untouched.matches], [False])
+        self.assertEqual([one.taken for one in ticked.matches], [True])
+        self.assertEqual((len(untouched.filling), len(ticked.filling)), (0, 1))
 
 
 class FillTests(unittest.TestCase):
@@ -499,8 +516,8 @@ class FillTests(unittest.TestCase):
 
     def _filled(self, **held):
         library = _library(_game("Taxi", table_file="/src/tables/Taxi.vpx", media=self.ART))
-        made = plan_for.build(library, self.HELD, on_existing="fill", source_id="pinballx",
-                              kinds=self.KINDS)
+        made = plan_for.build(library, self.HELD, ticked=_everything(library),
+                              source_id="pinballx", kinds=self.KINDS)
         made.matches[0].played = Played(name="Taxi", system="Visual Pinball X",
                                         play_count=5, rating=4, tags=("Fav",))
         made.matches[0].history = 1
@@ -531,7 +548,7 @@ class FillTests(unittest.TestCase):
 
     def test_measuring_reads_only_for_a_fill(self) -> None:
         made = self._filled()
-        made.on_existing = "skip"
+        made.matches[0].taken = False
         read = unittest.mock.Mock()
 
         plan_for.measure_fill(made, read)
@@ -546,6 +563,93 @@ class FillTests(unittest.TestCase):
             plan_for.measure_fill(made, unittest.mock.Mock(side_effect=OSError("gone")))
 
         self.assertEqual(plan_for.expected(made)["tables"], 1)
+
+
+class RowKeyTests(unittest.TestCase):
+    def test_a_later_game_with_the_same_key_gets_a_number(self) -> None:
+        first, second, third = (_game("Kiss"), _game("Kiss"), _game("Taxi"))
+        library = _library(first, second, third)
+
+        keys = plan_for.row_keys(library)
+
+        self.assertEqual([keys[id(one)] for one in (first, second, third)],
+                         ["Kiss", "Kiss#2", "Taxi"])
+
+    def test_the_games_of_every_system_are_numbered_together(self) -> None:
+        one, other = _game("Kiss"), _game("Kiss")
+        library = SourceLibrary(source_id="pinballx", root="/src", systems=(
+            SourceSystem(name="Visual Pinball X", games=(one,)),
+            SourceSystem(name="Future Pinball", games=(other,))))
+
+        keys = plan_for.row_keys(library)
+
+        self.assertEqual((keys[id(one)], keys[id(other)]), ("Kiss", "Kiss#2"))
+
+    def test_two_games_of_one_key_are_ticked_apart(self) -> None:
+        library = _library(_game("Kiss", table_file="/src/a.vpx"),
+                           _game("Kiss", table_file="/src/b.vpx"))
+
+        made = plan_for.build(library, [], ticked=["Kiss#2"], source_id="pinballx", kinds=())
+
+        self.assertEqual([one.taken for one in made.matches], [False, True])
+
+    def test_a_game_not_ticked_is_not_wanted_and_nothing_ticked_is_nothing(self) -> None:
+        library = _library(_game("Taxi"), _game("Kiss"))
+
+        made = plan_for.build(library, [], ticked=[], source_id="pinballx", kinds=())
+
+        self.assertEqual(plan_for.expected(made)["games"], 0)
+        self.assertEqual(len(made.making), 0)
+
+    def test_new_games_are_ticked_when_nothing_was_answered(self) -> None:
+        library = _library(_game("Taxi"), _game("Kiss"))
+
+        made = plan_for.build(library, [], source_id="pinballx", kinds=())
+
+        self.assertEqual(len(made.making), 2)
+
+
+class AddsTests(unittest.TestCase):
+    def _match(self, **fields) -> plan_for.Match:
+        return plan_for.Match(key="a", folder="A", tables=1, table_name="A.vpx",
+                              kinds=("wheel", "playfield"), **fields)
+
+    def test_a_game_that_holds_nothing_is_given_everything(self) -> None:
+        found = plan_for.adds(self._match(), plan_for.Held())
+
+        self.assertEqual((found.tables, found.pictures), (1, 2))
+        self.assertFalse(found.nothing)
+
+    def test_what_the_game_holds_is_not_promised_again(self) -> None:
+        held = plan_for.Held(tables=frozenset({"a.vpx"}), media=frozenset({"wheel", "playfield"}))
+
+        self.assertTrue(plan_for.adds(self._match(), held).nothing)
+
+    def test_a_rom_is_promised_only_where_the_folder_holds_it(self) -> None:
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        (Path(folder.name) / "taxi_l4.zip").write_bytes(b"r")
+        held = plan_for.Held(tables=frozenset({"a.vpx"}), media=frozenset({"wheel", "playfield"}))
+
+        here = plan_for.adds(self._match(rom="taxi_l4"), held, folder.name)
+        lacking = plan_for.adds(self._match(rom="afm_113b"), held, folder.name)
+        unasked = plan_for.adds(self._match(rom="taxi_l4"), held, "")
+
+        self.assertEqual((here.rom, lacking.rom, unasked.rom), (True, False, False))
+
+    def test_a_source_not_being_imported_promises_nothing(self) -> None:
+        found = plan_for.adds(self._match(), plan_for.Held(), tables=False, media=False)
+
+        self.assertTrue(found.nothing)
+
+    def test_going_can_include_the_games_already_here(self) -> None:
+        library = _library(_game("Taxi"), _game("Zebra"))
+        made = plan_for.build(library, [{"game_id": "g1", "folder_name": "Taxi"}],
+                              source_id="pinballx", kinds=())
+
+        self.assertEqual([one.key for one in plan_for.going(library, made)], ["Zebra"])
+        self.assertEqual([one.key for one in plan_for.going(library, made, offered=True)],
+                         ["Taxi", "Zebra"])
 
 
 class MissingHistoryTests(unittest.TestCase):
@@ -810,6 +914,8 @@ class MissingRomsTests(unittest.TestCase):
     def plan(self, *matches: plan_for.Match, active: bool = True) -> plan_for.Plan:
         found = plan_for.Source(key="roms", label="ROMs", help="",
                                 path=str(self.roms) if active else "")
+        for one in matches:
+            one.taken = True
         return plan_for.Plan(sources=[found], matches=list(matches))
 
     def test_only_a_solid_state_machine_is_said_to_need_its_rom(self) -> None:

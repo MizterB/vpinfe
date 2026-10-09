@@ -161,10 +161,11 @@ _MATCHES = {
     "fields": [{
         "key": "matches", "type": "settle", "label": "Matches",
         "rows": [
-            {"key": "x", "name": "Xenon", "candidate": "", "reason": "Two entries"},
-            {"key": "y", "name": "Yukon", "candidate": "Yukon (Gottlieb 1971)",
+            {"key": "x", "name": "Xenon", "entry": {}, "reason": "Two entries"},
+            {"key": "y", "name": "Yukon", "entry": {
+                "name": "Yukon", "manufacturer": "Gottlieb", "year": 1971},
              "vps_id": "vps-y", "settled": True},
-            {"key": "z", "name": "Zira", "candidate": "", "reason": ""},
+            {"key": "z", "name": "Zira", "entry": {}, "reason": ""},
         ],
     }],
 }
@@ -288,7 +289,7 @@ class SettleTests(unittest.TestCase):
     def test_a_pick_made_before_is_named_when_the_step_is_drawn_again(self) -> None:
         first = {"step": "matches", "fields": [{
             "key": "matches", "type": "settle", "label": "Matches", "value": {"x": "vps-4"},
-            "rows": [{"key": "x", "name": "Xenon", "candidate": ""}]}]}
+            "rows": [{"key": "x", "name": "Xenon", "entry": {}}]}]}
 
         async def run() -> list[str]:
             with mock.patch.object(wizard_lists, "Library", lambda _client: _Held()), \

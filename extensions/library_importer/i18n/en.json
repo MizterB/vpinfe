@@ -58,13 +58,36 @@
   "wizard.how.into.label": "Copy into",
   "wizard.how.into.needs": "Needs {size}",
   "wizard.how.into.room": "Needs {size}, with {free} free on {where}",
-  "wizard.existing.title": {
-    "one": "{count} of these is already here",
-    "other": "{count} of these are already here"
+  "wizard.games.title": "Tables",
+  "wizard.games.help": "A game already in VPinFE is left alone unless ticked, which fills in its gaps",
+  "wizard.games.label": "Tables to import",
+  "wizard.games.chip.new": "New",
+  "wizard.games.chip.here": "In VPinFE",
+  "wizard.games.chip.hidden": "Hidden in {source}",
+  "wizard.games.hidden": "Hidden in {source}",
+  "wizard.games.here": "{how}, {adds}",
+  "wizard.games.adds": "adds {things}",
+  "wizard.games.adds.nothing": "nothing to add",
+  "wizard.games.adds.tables": {
+    "one": "{count} table",
+    "other": "{count} tables"
   },
-  "wizard.existing.help": "Games already in your library are recognized even if they were renamed",
-  "wizard.existing.on_existing.label": "What to do",
-  "wizard.existing.more": "and {count} more",
+  "wizard.games.adds.pictures": {
+    "one": "{count} picture",
+    "other": "{count} pictures"
+  },
+  "wizard.games.adds.rom": "its ROM",
+  "wizard.games.adds.history": "its play history",
+  "wizard.games.adds.and": "{rest} and {last}",
+  "wizard.matches.title": "Matches",
+  "wizard.matches.help": {
+    "one": "{count} game could not be matched. A game you leave is imported Not matched",
+    "other": "{count} games could not be matched. A game you leave is imported Not matched"
+  },
+  "wizard.matches.label": "Games to match",
+  "why.two_entries": "Two entries",
+  "why.ipdb_differs": "IPDB says another entry",
+  "progress.holding": "Looking at what each game here has",
   "wizard.summary.title": "This is what will happen",
   "wizard.summary.reads_as": "Reads as",
   "wizard.summary.folder": "Folder",
@@ -84,14 +107,10 @@
   "wizard.summary.matching.no_catalog": "The VPS catalog is not available, so no game is matched",
   "wizard.summary.not_matched": "Not matched to VPS",
   "wizard.summary.already_here": "Already here",
-  "wizard.summary.already.skip": {
-    "one": "{count} - leave it alone",
-    "other": "{count} - leave them alone"
-  },
-  "wizard.summary.already.fill": {
-    "one": "{count} - add anything it is missing",
-    "other": "{count} - add anything they are missing"
-  },
+  "wizard.summary.already.skip": "{count} left alone",
+  "wizard.summary.already.fill": "{count} given what they are missing",
+  "wizard.summary.left_out": "Left out",
+  "wizard.summary.left_out_count": "{count} not ticked",
   "wizard.summary.how": "How",
   "wizard.summary.how.copy": "Copied",
   "wizard.summary.how.move": "Moved",
@@ -123,8 +142,6 @@
     "other": "Put {count} tables in folders"
   },
   "wizard.summary.confirm_as_is": "Use this folder",
-  "on_existing.skip": "Leave them alone",
-  "on_existing.fill": "Add anything they are missing",
   "kind.tables.label": "Game files",
   "kind.tables.help": "The .vpx or .fpt files themselves",
   "kind.tables.none": "No game files",
@@ -172,9 +189,9 @@
   "unmatched.two_entries": "{count} could be two entries",
   "unmatched.ipdb_differs": "{count} where IPDB says another entry",
   "source.folders": "No frontend",
-  "match.folder": "folder",
-  "match.vps_id": "VPS ID",
-  "match.table_file": "game file name",
+  "match.folder": "Same folder",
+  "match.vps_id": "Same VPS entry",
+  "match.table_file": "Same table file",
   "error.game_file": "the game file did not come across",
   "error.no_folder": "no folder could be made for it",
   "note.no_file": "No {file} in {folder}",

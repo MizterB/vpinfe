@@ -13,7 +13,7 @@ from typing import Any
 from nicegui import background_tasks, ui
 
 from common.i18n import t
-from console import offload, panel, verbs, vps_match
+from console import game_tables, offload, panel, verbs, vps_match
 from console.api import ApiClient
 from console.data import Library
 from console.on_page import on_page
@@ -29,6 +29,11 @@ class Answer(ui.element):
 
 def _heading(question: str) -> None:
     ui.label(question).classes("console-card-title console-wizard-question")
+
+
+def _offered(entry: dict[str, Any]) -> str:
+    name, made = str(entry.get("name") or ""), game_tables.made(entry)
+    return t("console.wizard_lists.entry", name=name, made=made) if name and made else name
 
 
 def checklist(field: dict[str, Any], ticked: Sequence[str],
@@ -140,9 +145,9 @@ def settle(field: dict[str, Any], answered: dict[str, str],
            on_change: Callable[[dict[str, str]], None], *, client: ApiClient,
            question: str = "",
            on_control: Callable[[Any], None]) -> Callable[[], None]:
-    """`rows` are `{key, name, candidate, vps_id, reason, settled}`. A row says its
-    candidate, or Not found, and why in a few words; Change... opens the VPS picker. A
-    settled row is behind Show all.
+    """`rows` are `{key, name, entry, vps_id, reason, settled}`, `entry` being the
+    `{name, manufacturer, year}` the row would offer. A row says it, or Not found, and why
+    in a few words; Change... opens the VPS picker. A settled row is behind Show all.
 
     The answer maps a row's key to the VPS id the person picked. A key absent was left as
     the source had it, and `""` is a row the person said is in no catalog."""
@@ -193,7 +198,7 @@ def settle(field: dict[str, Any], answered: dict[str, str],
                 if not picks[key]:
                     return t("console.wizard_lists.not_matched")
                 return named.get(key) or t("console.wizard_lists.picked")
-            said = str(one.get("candidate") or "") or t("word.not_found")
+            said = _offered(one.get("entry") or {}) or t("word.not_found")
             if not one.get("reason"):
                 return said
             return t("console.wizard_lists.candidate_why", candidate=said,

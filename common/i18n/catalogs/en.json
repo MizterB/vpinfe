@@ -4787,6 +4787,7 @@
   "console.wizard_lists.not_matched": "Not matched",
   "console.wizard_lists.picked": "Picked",
   "console.wizard_lists.candidate_why": "{candidate} - {reason}",
+  "console.wizard_lists.entry": "{name} ({made})",
   "console.wizard_lists.show_all": "Show all {count}",
   "console.wizard_lists.hide_settled": "Hide the settled",
   "console.wizard_lists.select_all.hint": "Tick every row shown",

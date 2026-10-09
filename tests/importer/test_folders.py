@@ -280,7 +280,7 @@ class StepTests(FolderCase):
         """The first step named none, so the second step's answer is the root."""
         self.loose("Harbor Lights", "Quarry Run")
 
-        found = self.step("", leaving="sources", source_type="folders",
+        found = self.step("", leaving="games", source_type="folders",
                           tables=str(self.tables))
 
         self.assertEqual(found["step"], "how")
@@ -302,7 +302,7 @@ class StepTests(FolderCase):
         """The folder is declared to core before it is read, wherever the answer came from."""
         self.loose("Harbor Lights")
 
-        found = self.step(self.tables, leaving="sources", source_type="folders")
+        found = self.step(self.tables, leaving="games", source_type="folders")
 
         self.assertEqual(found["step"], "how")
 
@@ -365,10 +365,21 @@ class StepTests(FolderCase):
 
         self.assertEqual(report["games"], 1)
 
+    def test_a_table_not_ticked_is_not_imported(self) -> None:
+        self.loose("Harbor Lights", "Quarry Run")
+        copies = self.root / "Copies"
+        copies.mkdir()
+
+        report = self.run_it(self.tables, how="copy", into=str(copies), games=["Quarry Run"])
+
+        self.assertEqual(report["games"], 1)
+        self.assertTrue((copies / "Quarry Run" / "Quarry Run.vpx").is_file())
+        self.assertFalse((copies / "Harbor Lights").exists())
+
     def test_loose_tables_are_asked_how_after_the_sources(self) -> None:
         self.loose("Harbor Lights", "Quarry Run")
 
-        found = self.step(self.tables, leaving="sources")
+        found = self.step(self.tables, leaving="games")
 
         self.assertEqual(found["step"], "how")
         fields = {one["key"]: one for one in found["fields"]}
@@ -380,14 +391,14 @@ class StepTests(FolderCase):
     def test_copy_is_the_default_and_says_the_folder_stays(self) -> None:
         self.loose("Harbor Lights")
 
-        choices = self.step(self.tables, leaving="sources")["fields"][0]["choices"]
+        choices = self.step(self.tables, leaving="games")["fields"][0]["choices"]
 
         self.assertEqual(choices[0][2], "Copying leaves your Tables folder as it is")
 
     def test_into_starts_where_new_games_already_go(self) -> None:
         self.loose("Harbor Lights")
 
-        found = self.step(self.tables, leaving="sources")
+        found = self.step(self.tables, leaving="games")
 
         into = next(one for one in found["fields"] if one["key"] == "into")
         self.assertEqual(into["value"], str(self.library))
@@ -395,7 +406,7 @@ class StepTests(FolderCase):
     def test_into_opens_beside_the_source(self) -> None:
         self.loose("Harbor Lights")
 
-        found = self.step(self.tables, leaving="sources")
+        found = self.step(self.tables, leaving="games")
 
         into = next(one for one in found["fields"] if one["key"] == "into")
         self.assertEqual(into["opens_at"], str(self.root))
@@ -404,7 +415,7 @@ class StepTests(FolderCase):
         self.loose("Harbor Lights", size=3000)
         (self.tables / "Harbor Lights.directb2s").write_bytes(b"b" * 500)
 
-        found = self.step(self.tables, leaving="sources")
+        found = self.step(self.tables, leaving="games")
 
         into = next(one for one in found["fields"] if one["key"] == "into")
         self.assertTrue(into["help"].startswith("Needs 3.4 KB, with "), into["help"])
@@ -412,7 +423,7 @@ class StepTests(FolderCase):
     def test_moving_a_frontends_files_says_its_list_will_point_at_nothing(self) -> None:
         source, _ = self.a_frontend()
 
-        found = self.step(source, leaving="sources")
+        found = self.step(source, leaving="games")
 
         choices = found["fields"][0]["choices"]
         self.assertIn("find these tables", choices[1][2])
@@ -421,7 +432,7 @@ class StepTests(FolderCase):
     def test_moving_from_a_folder_names_no_frontend(self) -> None:
         self.loose("Harbor Lights")
 
-        choices = self.step(self.tables, leaving="sources")["fields"][0]["choices"]
+        choices = self.step(self.tables, leaving="games")["fields"][0]["choices"]
 
         self.assertNotIn("find these tables", choices[1][2])
 
@@ -493,7 +504,7 @@ class StepTests(FolderCase):
     def test_game_folders_alone_are_used_as_they_are(self) -> None:
         self.game_folder("Orchard")
 
-        found = self.step(self.tables, leaving="sources")
+        found = self.step(self.tables, leaving="games")
         summary = self.summary_of(found)
 
         self.assertEqual(found["step"], "summary")
@@ -508,7 +519,7 @@ class StepTests(FolderCase):
         self.game_folder("Orchard")
         self.loose("Harbor Lights")
 
-        found = self.step(self.tables, leaving="sources")
+        found = self.step(self.tables, leaving="games")
         summary = self.summary_of(found)
 
         self.assertEqual(found["step"], "summary")
@@ -525,14 +536,14 @@ class StepTests(FolderCase):
     def test_a_frontend_is_still_read_by_its_own_reader(self) -> None:
         source, _ = self.a_frontend()
 
-        found = self.step(source, leaving="sources")
+        found = self.step(source, leaving="games")
 
         self.assertEqual(found["step"], "how")
         self.assertEqual(self.step(source, leaving="how", how="copy",
                                    into=str(self.library))["step"], "summary")
 
     def test_an_emulationstation_folder_reads_as_the_game_folders_it_holds(self) -> None:
-        found = self.step(EMULATIONSTATION, leaving="sources")
+        found = self.step(EMULATIONSTATION, leaving="games")
 
         self.assertEqual(found["step"], "summary")
         self.assertTrue(found["ready"], found)
@@ -551,8 +562,10 @@ class StartingPastAlreadyHereTests(FolderCase):
     def test_what_a_first_run_brought_in_is_asked_about_the_second_time(self) -> None:
         found = self.step(self.tables, leaving="sources", how="copy", into=str(self.copies))
 
-        self.assertEqual(found["step"], "existing")
-        self.assertEqual(found["notes"], ["Harbor Lights"])
+        row = found["fields"][0]["rows"][0]
+        self.assertEqual(found["step"], "games")
+        self.assertEqual((row["key"], row["groups"]), ("Harbor Lights", ["here"]))
+        self.assertEqual(row["note"], "Same folder, nothing to add")
 
     def test_a_caller_can_start_past_the_question(self) -> None:
         found = self.step(self.tables, leaving="sources", skip_existing=True)
@@ -571,10 +584,10 @@ class StartingPastAlreadyHereTests(FolderCase):
 
         self.assertEqual(asked["step"], past["step"])
 
-    def test_the_default_is_still_to_leave_what_is_here_alone(self) -> None:
+    def test_what_is_here_starts_unticked(self) -> None:
         found = self.step(self.tables, leaving="sources")
 
-        self.assertEqual(found["fields"][0]["value"], "skip")
+        self.assertEqual(found["fields"][0]["value"], [])
 
 
 class RunTests(FolderCase):
@@ -614,7 +627,7 @@ class RunTests(FolderCase):
 
         with self.assertLogs("vpinfe.common.jobs", "INFO") as logged:
             report = self.run_it(self.tables, how="copy", into=str(copies),
-                                 on_existing="fill")
+                                 games=["Harbor Lights"])
 
         self.assertEqual((report["filled"], report["failed"]), (1, 0))
         self.assertEqual(report["expected"]["tables"], report["tables"])
@@ -781,7 +794,7 @@ class RoomTests(FolderCase):
 
     def test_the_default_is_asked_about_when_nothing_was_typed(self) -> None:
         with self.asked as room_at:
-            self.step(self.tables, leaving="sources")
+            self.step(self.tables, leaving="games")
 
         self.assertEqual(self.asked_of(room_at), {self.library.resolve()})
 
@@ -1004,7 +1017,7 @@ class SurveyedOnceTests(FolderCase):
         self.loose("Quarry Run")
         self.step(self.tables, leaving="source")
 
-        found = self.step(self.tables, leaving="sources")
+        found = self.step(self.tables, leaving="games")
 
         self.assertEqual(self.survey.call_count, 3)
         self.assertEqual(found["help"], "2 tables from Tables")
@@ -1013,7 +1026,7 @@ class SurveyedOnceTests(FolderCase):
         self.step(self.tables)
         self.loose("Quarry Run")
 
-        found = self.step(self.tables, leaving="sources")
+        found = self.step(self.tables, leaving="games")
 
         self.assertEqual(self.survey.call_count, 2)
         self.assertEqual(found["help"], "1 table from Tables")

@@ -385,7 +385,7 @@ The words in these answers are the extension's to look up, with `ctx.t`.
 | `choice` | one of `choices`, two to four, each `[key, label, help]` with its own line of help, and optionally a fourth element: the name of a picture, or a list of paths to a few of the person's own images, inside the folders the extension declared in `ctx.files.set_roots` |
 | `number` | a number, with `unit`, `min` and `max` |
 | `checklist` | any of `rows` ticked, for a list too long for `multi`: each row `{key, name, note, groups}`, with `chips` as `[group, label]` pairs, a chip shown only when a row is in its group; the answer is the keys ticked |
-| `settle` | a VPS entry for each of `rows`, `{key, name, candidate, vps_id, reason, settled}`: the row says its candidate or Not found, with the reason, and Change... opens the VPS picker; settled rows are behind Show all. The answer maps a row's key to the id picked, with `""` for a row said to be in no catalog; a key left out is a row untouched |
+| `settle` | a VPS entry for each of `rows`, `{key, name, entry, vps_id, reason, settled}`, `entry` being the `{name, manufacturer, year}` it would offer: the row says it or Not found, with the reason, and Change... opens the VPS picker; settled rows are behind Show all. The answer maps a row's key to the id picked, with `""` for a row said to be in no catalog; a key left out is a row untouched |
 
 `confirm` is the verb at the point of no return, and it is the action's own: a generic
 "Confirm" makes every action look like every other one. `notes` travel with the summary,

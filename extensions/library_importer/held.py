@@ -68,6 +68,21 @@ class Held:
         # What the look found for each game of one library, by the game's identity, and
         # the state of the catalog it looked in. Kept with the library it was made for.
         self.look: tuple[SourceLibrary, dict, dict[int, dict]] | None = None
+        self._asked_about: tuple | None = None
+        self.generation = 0
+
+    def asked_about(self, scope: tuple) -> int:
+        """Which generation of the Tables and Matches answers belongs to `scope`.
+
+        The wizard keeps an answer under its field key and never replaces it, so answers
+        given about one source or set of systems would carry over to the next. Asking
+        about something else moves to a new key, and so to the page's own defaults.
+        """
+        with self._lock:
+            if self._asked_about is not None and scope != self._asked_about:
+                self.generation += 1
+            self._asked_about = scope
+            return self.generation
 
     def library_for(self, key: tuple[str, str, str], fresh: bool = False,
                     ) -> SourceLibrary | None:

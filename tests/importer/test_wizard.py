@@ -7,6 +7,7 @@ same for every task.
 
 from __future__ import annotations
 
+import contextlib
 import shutil
 import tempfile
 import unittest
@@ -235,11 +236,23 @@ class StepOrderTests(WizardCase):
 
         self.assertEqual(again["step"], first["step"])
 
-    def test_existing_games_are_only_asked_about_when_there_are_some(self) -> None:
-        """A library with nothing matching gets one step fewer, not a step saying zero."""
-        found = self._step(FIXTURE, leaving="sources", tables="", media="")
+    def test_the_games_found_are_listed_before_anything_else_is_asked(self) -> None:
+        found = self._step(FIXTURE, leaving="sources")
+        field = found["fields"][0]
+
+        self.assertEqual((found["step"], field["type"]), ("games", "checklist"))
+        self.assertEqual([one["key"] for one in field["rows"]], field["value"])
+
+    def test_a_caller_that_starts_past_the_list_is_not_shown_it(self) -> None:
+        found = self._step(FIXTURE, leaving="sources", skip_existing=True)
 
         self.assertEqual(found["step"], "summary")
+
+    def test_the_matches_page_is_left_out_when_every_game_is_settled(self) -> None:
+        """No catalog in this test, so no row is left for somebody to look at."""
+        found = self._step(FIXTURE, leaving="games")
+
+        self.assertNotEqual(found["step"], "matches")
 
     def test_the_summary_is_the_last_step(self) -> None:
         found = self._check(FIXTURE)
@@ -247,6 +260,93 @@ class StepOrderTests(WizardCase):
         self.assertEqual(found["step"], "summary")
         self.assertIn("summary", found)
         self.assertNotIn("fields", found)
+
+
+class TablesAndMatchesTests(WizardCase):
+    CATALOG = [{"id": "vps-taxi", "name": "Taxi", "manufacturer": "Williams", "year": 1988},
+               {"id": "vps-zebra", "name": "Zebra Dash", "manufacturer": "Gottlieb",
+                "year": 1971}]
+
+    def _with_catalog(self):
+        stack = contextlib.ExitStack()
+        self.addCleanup(stack.close)
+        stack.enter_context(unittest.mock.patch(
+            "common.games.game_service.load_vpsdb", return_value=self.CATALOG))
+        stack.enter_context(unittest.mock.patch(
+            "common.online.vpsdb_sync.ensure_catalog", return_value=True))
+
+    def _matches(self, **values) -> dict:
+        self._with_catalog()
+        return self._step(FIXTURE, leaving="games", **values)
+
+    def test_a_game_not_ticked_is_left_out_of_the_summary_counts(self) -> None:
+        games = ["Attack from Mars (Bally 1995)", "Taxi"]
+
+        found = self._check(FIXTURE, games=games)
+
+        rows = dict(one for one in found["summary"] if len(one) == 2)
+        self.assertEqual(rows["Games"], "2")
+        self.assertEqual(rows["Left out"], "2 not ticked")
+
+    def test_nothing_is_left_out_when_every_game_is_ticked(self) -> None:
+        found = self._check(FIXTURE)
+
+        self.assertNotIn("Left out", dict(one for one in found["summary"] if len(one) == 2))
+
+    def test_the_games_the_look_could_not_settle_are_listed_to_look_at(self) -> None:
+        found = self._matches()
+        field = found["fields"][0]
+        settled = {one["key"]: one["settled"] for one in field["rows"]}
+
+        self.assertEqual((found["step"], field["type"]), ("matches", "settle"))
+        self.assertEqual(settled, {"Attack from Mars (Bally 1995)": False, "Taxi": True,
+                                   "Taxi 2": False, "Big Bang Bar (Capcom 1996)": False})
+        self.assertEqual(found["help"], "3 games could not be matched. A game you leave is "
+                                        "imported Not matched")
+
+    def test_ticks_given_about_other_systems_are_not_carried_over(self) -> None:
+        narrowed = self._step(FIXTURE, leaving="sources", systems=["Visual Pinball X"],
+                              games=["Taxi"])
+        widened = self._step(FIXTURE, leaving="sources",
+                             systems=["Visual Pinball X", "Visual Pinball X Beta"],
+                             games=["Taxi"])
+
+        self.assertEqual(narrowed["fields"][0]["key"], "games")
+        field = widened["fields"][0]
+        self.assertNotEqual(field["key"], "games")
+        self.assertEqual(field["value"], [one["key"] for one in field["rows"]
+                                          if "new" in one["groups"]])
+
+    def test_a_game_left_unticked_is_not_asked_about(self) -> None:
+        found = self._matches(games=["Taxi"])
+
+        self.assertNotEqual(found["step"], "matches")
+
+    def test_a_pick_is_matched_on_import_and_counted(self) -> None:
+        found = self._matches(picks={"Taxi 2": "vps-zebra"})
+        rows = {one["key"]: one for one in found["fields"][0]["rows"]}
+
+        self.assertTrue(rows["Taxi 2"]["settled"])
+        self.assertEqual(found["help"].split()[0], "2")
+
+        summary = dict(one for one in self._check(FIXTURE, picks={"Taxi 2": "vps-zebra"})
+                       ["summary"] if len(one) == 2)
+        self.assertEqual(summary["Matched to VPS"], "2")
+        self.assertEqual(summary["Not matched to VPS"], "2 not found")
+
+    def test_a_game_the_person_says_is_in_no_catalog_is_settled_as_not_matched(self) -> None:
+        found = self._matches(picks={"Taxi": ""})
+        rows = {one["key"]: one for one in found["fields"][0]["rows"]}
+
+        self.assertTrue(rows["Taxi"]["settled"])
+        self.assertEqual(rows["Taxi"]["vps_id"], "")
+
+    def test_an_answer_for_a_game_the_catalog_does_not_hold_is_not_matched(self) -> None:
+        self._with_catalog()
+        summary = dict(one for one in self._check(FIXTURE, picks={"Taxi 2": "gone"})
+                       ["summary"] if len(one) == 2)
+
+        self.assertEqual(summary["Matched to VPS"], "1")
 
 
 class SummaryShapeTests(WizardCase):

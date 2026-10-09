@@ -58,13 +58,36 @@
   "wizard.how.into.label": "Çöþý îñţö",
   "wizard.how.into.needs": "Ñèèđš {size}",
   "wizard.how.into.room": "Ñèèđš {size}, ŵîţĥ {free} ƒřèè öñ {where}",
-  "wizard.existing.title": {
-    "one": "{count} öƒ ţĥèšè îš àŀřèàđý ĥèřè",
-    "other": "{count} öƒ ţĥèšè àřè àŀřèàđý ĥèřè"
+  "wizard.games.title": "Ţàƀŀèš",
+  "wizard.games.help": "À ĝàɱè àŀřèàđý îñ ṼÞîñƑÈ îš ŀèƒţ àŀöñè ûñŀèšš ţîçķèđ, ŵĥîçĥ ƒîŀŀš îñ îţš ĝàþš",
+  "wizard.games.label": "Ţàƀŀèš ţö îɱþöřţ",
+  "wizard.games.chip.new": "Ñèŵ",
+  "wizard.games.chip.here": "Îñ ṼÞîñƑÈ",
+  "wizard.games.chip.hidden": "Ĥîđđèñ îñ {source}",
+  "wizard.games.hidden": "Ĥîđđèñ îñ {source}",
+  "wizard.games.here": "{how}, {adds}",
+  "wizard.games.adds": "àđđš {things}",
+  "wizard.games.adds.nothing": "ñöţĥîñĝ ţö àđđ",
+  "wizard.games.adds.tables": {
+    "one": "{count} ţàƀŀè",
+    "other": "{count} ţàƀŀèš"
   },
-  "wizard.existing.help": "Ĝàɱèš àŀřèàđý îñ ýöûř ŀîƀřàřý àřè řèçöĝñîžèđ èṽèñ îƒ ţĥèý ŵèřè řèñàɱèđ",
-  "wizard.existing.on_existing.label": "Ŵĥàţ ţö đö",
-  "wizard.existing.more": "àñđ {count} ɱöřè",
+  "wizard.games.adds.pictures": {
+    "one": "{count} þîçţûřè",
+    "other": "{count} þîçţûřèš"
+  },
+  "wizard.games.adds.rom": "îţš ŘÖḾ",
+  "wizard.games.adds.history": "îţš þŀàý ĥîšţöřý",
+  "wizard.games.adds.and": "{rest} àñđ {last}",
+  "wizard.matches.title": "Ḿàţçĥèš",
+  "wizard.matches.help": {
+    "one": "{count} ĝàɱè çöûŀđ ñöţ ƀè ɱàţçĥèđ. À ĝàɱè ýöû ŀèàṽè îš îɱþöřţèđ Ñöţ ɱàţçĥèđ",
+    "other": "{count} ĝàɱèš çöûŀđ ñöţ ƀè ɱàţçĥèđ. À ĝàɱè ýöû ŀèàṽè îš îɱþöřţèđ Ñöţ ɱàţçĥèđ"
+  },
+  "wizard.matches.label": "Ĝàɱèš ţö ɱàţçĥ",
+  "why.two_entries": "Ţŵö èñţřîèš",
+  "why.ipdb_differs": "ÎÞĐƁ šàýš àñöţĥèř èñţřý",
+  "progress.holding": "Ŀööķîñĝ àţ ŵĥàţ èàçĥ ĝàɱè ĥèřè ĥàš",
   "wizard.summary.title": "Ţĥîš îš ŵĥàţ ŵîŀŀ ĥàþþèñ",
   "wizard.summary.reads_as": "Řèàđš àš",
   "wizard.summary.folder": "Ƒöŀđèř",
@@ -84,14 +107,10 @@
   "wizard.summary.matching.no_catalog": "Ţĥè ṼÞŠ çàţàŀöĝ îš ñöţ àṽàîŀàƀŀè, šö ñö ĝàɱè îš ɱàţçĥèđ",
   "wizard.summary.not_matched": "Ñöţ ɱàţçĥèđ ţö ṼÞŠ",
   "wizard.summary.already_here": "Àŀřèàđý ĥèřè",
-  "wizard.summary.already.skip": {
-    "one": "{count} - ŀèàṽè îţ àŀöñè",
-    "other": "{count} - ŀèàṽè ţĥèɱ àŀöñè"
-  },
-  "wizard.summary.already.fill": {
-    "one": "{count} - àđđ àñýţĥîñĝ îţ îš ɱîššîñĝ",
-    "other": "{count} - àđđ àñýţĥîñĝ ţĥèý àřè ɱîššîñĝ"
-  },
+  "wizard.summary.already.skip": "{count} ŀèƒţ àŀöñè",
+  "wizard.summary.already.fill": "{count} ĝîṽèñ ŵĥàţ ţĥèý àřè ɱîššîñĝ",
+  "wizard.summary.left_out": "Ŀèƒţ öûţ",
+  "wizard.summary.left_out_count": "{count} ñöţ ţîçķèđ",
   "wizard.summary.how": "Ĥöŵ",
   "wizard.summary.how.copy": "Çöþîèđ",
   "wizard.summary.how.move": "Ḿöṽèđ",
@@ -123,8 +142,6 @@
     "other": "Þûţ {count} ţàƀŀèš îñ ƒöŀđèřš"
   },
   "wizard.summary.confirm_as_is": "Ûšè ţĥîš ƒöŀđèř",
-  "on_existing.skip": "Ŀèàṽè ţĥèɱ àŀöñè",
-  "on_existing.fill": "Àđđ àñýţĥîñĝ ţĥèý àřè ɱîššîñĝ",
   "kind.tables.label": "Ĝàɱè ƒîŀèš",
   "kind.tables.help": "Ţĥè .ṽþẋ öř .ƒþţ ƒîŀèš ţĥèɱšèŀṽèš",
   "kind.tables.none": "Ñö ĝàɱè ƒîŀèš",
@@ -172,9 +189,9 @@
   "unmatched.two_entries": "{count} çöûŀđ ƀè ţŵö èñţřîèš",
   "unmatched.ipdb_differs": "{count} ŵĥèřè ÎÞĐƁ šàýš àñöţĥèř èñţřý",
   "source.folders": "Ñö ƒřöñţèñđ",
-  "match.folder": "ƒöŀđèř",
-  "match.vps_id": "ṼÞŠ ÎĐ",
-  "match.table_file": "ĝàɱè ƒîŀè ñàɱè",
+  "match.folder": "Šàɱè ƒöŀđèř",
+  "match.vps_id": "Šàɱè ṼÞŠ èñţřý",
+  "match.table_file": "Šàɱè ţàƀŀè ƒîŀè",
   "error.game_file": "ţĥè ĝàɱè ƒîŀè đîđ ñöţ çöɱè àçřöšš",
   "error.no_folder": "ñö ƒöŀđèř çöûŀđ ƀè ɱàđè ƒöř îţ",
   "note.no_file": "Ñö {file} îñ {folder}",

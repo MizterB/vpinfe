@@ -545,7 +545,6 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
     history = plan.history if plan else {}
     kept_here = saved.read(ctx, sources.get("user", ""))
     beside_here = beside.read(ctx, sources)
-    fill = bool(plan and plan.on_existing == "fill")
 
     rows, skipped = [], []
     # What this run has already made, by folder name. A source holds several builds of
@@ -560,10 +559,11 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
         where = (places or {}).get(system.name, location)
         for game in system.games:
             match = held.get(id(game))
-            if match is not None and match.existing and not fill:
-                skipped.append({"key": game.key, "name": match.folder,
-                                "game_id": match.game_id,
-                                "how": ctx.t(f"match.{match.how}")})
+            if match is not None and not match.taken:
+                if match.existing:
+                    skipped.append({"key": game.key, "name": match.folder,
+                                    "game_id": match.game_id,
+                                    "how": ctx.t(f"match.{match.how}")})
                 continue
             if match is not None and match.existing:
                 held_ids[id(game)] = match.game_id

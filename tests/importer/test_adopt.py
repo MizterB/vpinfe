@@ -181,7 +181,7 @@ class ImportTests(AdoptCase):
             for one in read.systems))
         made = plan.build(library, self._ctx.games.existing() if fill else [],
                           systems=[VPX],
-                          on_existing="fill" if fill else plan.DEFAULT_ON_EXISTING,
+                          ticked=list(plan.row_keys(library).values()) if fill else None,
                           folder_name_for=self._ctx.games.folder_name_for,
                           source_id=library.source_id, kinds=self._ctx.games.kinds(),
                           companions_of=self._ctx.games.companions_of)
@@ -421,7 +421,7 @@ class ImportTests(AdoptCase):
         self._ctx.files.set_roots([str(source)])
         library = pinballx.read(source)
         made = plan.build(library, self._ctx.games.existing(), systems=[VPX],
-                          on_existing="fill",
+                          ticked=list(plan.row_keys(library).values()),
                           folder_name_for=self._ctx.games.folder_name_for,
                           source_id=library.source_id, kinds=self._ctx.games.kinds(),
                           companions_of=self._ctx.games.companions_of)

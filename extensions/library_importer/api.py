@@ -38,7 +38,7 @@ SOURCE_KEY = "source_root"
 # The order the questions come in. Which of them get asked depends on what is found, but
 # never on how somebody arrived: going Back and forward again asks the same things in
 # the same order rather than jumping over what is already answered.
-STEPS = ("source", "sources", "existing", "how", "summary")
+STEPS = ("source", "sources", "games", "matches", "how", "summary")
 
 
 def _after(step: str) -> tuple[str, ...]:
@@ -148,6 +148,10 @@ def _state(ctx: Any, survey: Callable[..., dict] | None = None) -> dict:
 # Games asked of the catalog at a time, so the wait has somewhere to be said to have got to.
 ROM_BATCH = 25
 LOOK_BATCH = 50
+
+# The reasons a row on the Matches page gives beside its candidate. A game found in no
+# catalog says so by having no candidate, which the page already writes as Not found.
+WHY = ("two_entries", "ipdb_differs")
 
 
 def _asked(game: SourceGame) -> dict:
@@ -302,15 +306,43 @@ def build(ctx: Any) -> None:
         held.remember_look(library, dict(state), looked)
         return dict(state), looked
 
+    def picked_over(library: SourceLibrary, looked: dict[int, dict],
+                    values: dict) -> dict[int, dict]:
+        """The look, with what the person settled on the Matches page laid over it.
+
+        A pick is an entry id, answered by the catalog the way the look answers a source's
+        own id, and `""` is a game the person said is in no catalog.
+        """
+        picks = values.get(answer_key("picks")) or {}
+        if not picks:
+            return looked
+        rows = plan_for.row_keys(library)
+        by_game = {key: str(picks[rows[key]] or "") for key in rows if rows[key] in picks}
+        ids = sorted({one for one in by_game.values() if one})
+        answers = dict(zip(ids, ctx.games.vps_settle([{"vps_id": one} for one in ids]),
+                           strict=True)) if ids else {}
+        over = dict(looked)
+        for key, vps in by_game.items():
+            answer = answers.get(vps)
+            over[key] = ({**answer, "how": "picked"} if answer and answer.get("vps_id") == vps
+                         else {"vps_id": "", "how": "picked", "reason": "",
+                               "candidates": [], "entry": {}})
+        return over
+
+    def answer_key(name: str) -> str:
+        """The key the Tables and Matches answers are held under for what is being read."""
+        return f"{name}.{held.generation}" if held.generation else name
+
     def plan(library: SourceLibrary, values: dict, existing: list[dict]) -> Plan:
+        held.asked_about((library.source_id, str(values.get("path") or ""),
+                          tuple(_systems(values)
+                                or (one.name for one in library.systems if one.games))))
         look_beside(library)
         catalog, looked = look_up(library)
         made = plan_for.build(library, existing, _chosen(values),
-                              str(values.get("on_existing")
-                                  or plan_for.DEFAULT_ON_EXISTING),
-                              _systems(values), ctx.games.folder_name_for,
-                              library.source_id, ctx.games.kinds(),
-                              held.companions_of, looked,
+                              values.get(answer_key("games")), _systems(values),
+                              ctx.games.folder_name_for, library.source_id, ctx.games.kinds(),
+                              held.companions_of, picked_over(library, looked, values),
                               str(values.get("names") or plan_for.DEFAULT_NAMES),
                               str(values.get("details") or plan_for.DEFAULT_DETAILS),
                               [str(one) for one in values.get("details_some") or []])
@@ -333,7 +365,8 @@ def build(ctx: Any) -> None:
             return
         kept = saved_of(user.path if user is not None and saving else "")
         held.ask_for(kept.names)
-        wanted = [game.table_file for game in plan_for.going(library, made, systems)
+        wanted = [game.table_file
+                  for game in plan_for.going(library, made, systems, offered=True)
                   if game.table_file]
         todo = held.unread_roms(wanted)
         if todo:
@@ -603,9 +636,11 @@ def build(ctx: Any) -> None:
             if step == "sources":
                 return _sources_step(reader, made.sources, library.systems)
             # `skip_existing` is how a caller that knows nothing here can matter, a first
-            # run, starts past this question instead of being asked it.
-            if step == "existing" and made.already and not values.get("skip_existing"):
-                return _existing_step(made)
+            # run, starts past this list instead of being asked to tick it.
+            if step == "games" and made.matches and not values.get("skip_existing"):
+                return _tables_step(reader, made)
+            if step == "matches" and _to_look_at(made):
+                return _matches_step(made, values)
             if step == "how" and mode in ("copy", "move"):
                 return _how_step(reader, library, values, games)
             if step == "summary":
@@ -659,21 +694,96 @@ def build(ctx: Any) -> None:
             found["errors"] = errors
         return found
 
-    def _existing_step(made: Plan) -> dict:
+    def _adds_line(found: plan_for.Adds) -> str:
+        """What ticking a game already here brings it, in a few words."""
+        if found.nothing:
+            return ctx.t("wizard.games.adds.nothing")
+        parts = []
+        if found.tables:
+            parts.append(ctx.t("wizard.games.adds.tables", count=found.tables))
+        if found.pictures:
+            parts.append(ctx.t("wizard.games.adds.pictures", count=found.pictures))
+        if found.rom:
+            parts.append(ctx.t("wizard.games.adds.rom"))
+        if found.history:
+            parts.append(ctx.t("wizard.games.adds.history"))
+        said = (ctx.t("wizard.games.adds.and", rest=", ".join(parts[:-1]), last=parts[-1])
+                if len(parts) > 1 else parts[0])
+        return ctx.t("wizard.games.adds", things=said)
+
+    def _game_row(one: plan_for.Match, source: str, roms_dir: str,
+                  importing: dict[str, bool]) -> dict:
+        """One game on the Tables page: a copy already here says how it matched and what
+        ticking would add to it; a new one says only what is unusual about it."""
+        groups = ["here" if one.existing else "new"]
+        notes = []
+        if one.existing:
+            try:
+                brings = _adds_line(plan_for.adds(
+                    one, held_lately(one.game_id), roms_dir,
+                    tables=importing.get("tables", False),
+                    media=importing.get("media", False)))
+            except Exception:
+                ctx.logger.warning("Could not read %s to say what it is missing", one.folder,
+                                   exc_info=True)
+                brings = ""
+            how = ctx.t(f"match.{one.how}")
+            notes.append(ctx.t("wizard.games.here", how=how, adds=brings) if brings else how)
+        if one.hidden:
+            groups.append("hidden")
+            notes.append(ctx.t("wizard.games.hidden", source=source))
+        return {"key": one.row, "name": one.name, "note": ", ".join(notes), "groups": groups}
+
+    def _tables_step(reader: ModuleType, made: Plan) -> dict:
+        """Every game the source holds, to tick. New ones start ticked and the ones already
+        in VPinFE do not, which leaves them alone."""
+        source = _name(ctx, reader)
+        roms = made.source("roms")
+        roms_dir = roms.path if roms is not None and roms.active else ""
+        importing = {one.key: bool(one.active) for one in made.sources}
+        progress.stage("holding", ctx.t("progress.holding"), len(made.already))
+        rows, looked_at = [], 0
+        for one in made.matches:
+            rows.append(_game_row(one, source, roms_dir, importing))
+            if one.existing:
+                looked_at += 1
+                progress.advance(looked_at)
         return {
-            "step": "existing",
-            "title": ctx.t("wizard.existing.title", count=len(made.already)),
-            "help": ctx.t("wizard.existing.help"),
+            "step": "games",
+            "title": ctx.t("wizard.games.title"),
+            "help": ctx.t("wizard.games.help"),
             "fields": [{
-                "key": "on_existing", "type": "select",
-                "label": ctx.t("wizard.existing.on_existing.label"),
-                "value": made.on_existing,
-                "choices": [[one, ctx.t(f"on_existing.{one}")]
-                            for one in plan_for.ON_EXISTING],
+                "key": answer_key("games"), "type": "checklist",
+                "label": ctx.t("wizard.games.label"),
+                "rows": rows,
+                "chips": [["new", ctx.t("wizard.games.chip.new")],
+                          ["here", ctx.t("wizard.games.chip.here")],
+                          ["hidden", ctx.t("wizard.games.chip.hidden", source=source)]],
+                "value": [one.row for one in made.matches if one.taken],
             }],
-            "notes": [one.folder for one in made.already[:8]]
-                     + ([ctx.t("wizard.existing.more", count=len(made.already) - 8)]
-                        if len(made.already) > 8 else []),
+        }
+
+    def _to_look_at(made: Plan) -> bool:
+        """Whether any game this run makes was left for the person to settle."""
+        return any(one.reason or one.found_by == "picked" for one in made.making)
+
+    def _matches_step(made: Plan, values: dict) -> dict:
+        """The games the look could not settle, each with the entry it would offer, and the
+        rest behind Show all."""
+        key = answer_key("picks")
+        rows = [{"key": one.row, "name": one.name, "entry": one.candidate,
+                 "vps_id": one.vps_id,
+                 "reason": ctx.t(f"why.{one.reason}") if one.reason in WHY else "",
+                 "settled": bool(one.vps_id) or one.found_by == "picked"}
+                for one in made.making]
+        return {
+            "step": "matches",
+            "title": ctx.t("wizard.matches.title"),
+            "help": ctx.t("wizard.matches.help",
+                          count=sum(1 for one in rows if not one["settled"])),
+            "fields": [{"key": key, "type": "settle",
+                        "label": ctx.t("wizard.matches.label"), "rows": rows,
+                        "value": dict(values.get(key) or {})}],
         }
 
     def _refuse_how(values: dict) -> dict[str, str]:
@@ -783,10 +893,16 @@ def build(ctx: Any) -> None:
         if library.in_place:
             rows.append([ctx.t("wizard.summary.as_is"),
                          ctx.t("wizard.summary.game_folders", count=len(library.in_place))])
-        if made.already:
-            rows.append([ctx.t("wizard.summary.already_here"),
-                         ctx.t(f"wizard.summary.already.{made.on_existing}",
-                               count=len(made.already))])
+        filled = len(made.filling)
+        if filled or len(made.already) > filled:
+            rows.append([ctx.t("wizard.summary.already_here"), ", ".join(
+                ctx.t(f"wizard.summary.already.{kind}", count=count)
+                for kind, count in (("fill", filled),
+                                    ("skip", len(made.already) - filled)) if count)])
+        left_out = sum(1 for one in made.matches if not one.existing and not one.taken)
+        if left_out:
+            rows.append([ctx.t("wizard.summary.left_out"),
+                         ctx.t("wizard.summary.left_out_count", count=left_out)])
         inside = ", ".join(dict.fromkeys(
             plan_for.tables_folder(one) for one in plan_for.systems_going(library, games)
             if plan_for.tables_folder(one))) or library.root

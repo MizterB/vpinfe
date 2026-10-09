@@ -20,7 +20,7 @@ import logging
 import os
 import shutil
 import unicodedata
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -52,11 +52,6 @@ SCORE_FOLDERS = ("nvram", "cfg")
 
 # What a folder of sound and color sets holds: one folder of sets per kind.
 ALT_FOLDERS = ("altsound", "altcolor", "serum")
-
-# What a second run does about a game it has already made. The default leaves it alone:
-# an import that quietly rewrites what somebody has since curated is the worse mistake.
-ON_EXISTING = ("skip", "fill")
-DEFAULT_ON_EXISTING = "skip"
 
 # Whose name a matched game is called by: the catalog's (`vps`) or the source's (`source`).
 # A game nothing matched keeps the source's either way.
@@ -125,6 +120,15 @@ class Match:
     # game file names once that has been read.
     machine: str = ""
     rom: str = ""
+    # What the Tables page calls the game by, where it is among the source's games (see
+    # `row_keys`), whether the source hides it, and whether this run acts on it. A game
+    # already here is acted on only where it was ticked, and then it is filled in.
+    row: str = ""
+    name: str = ""
+    hidden: bool = False
+    taken: bool = False
+    # The entry the look settled on, or the one it would offer: name, manufacturer, year.
+    candidate: dict[str, Any] = field(default_factory=dict)
 
     @property
     def existing(self) -> bool:
@@ -171,11 +175,38 @@ def missing_history(played: gamestats.Played, user: dict[str, Any]) -> Missing:
                    favorite=bool(played.favorite and not user.get("favorite")))
 
 
+@dataclass(frozen=True)
+class Adds:
+    """What ticking a game that is already here would bring it."""
+
+    tables: int = 0
+    pictures: int = 0
+    rom: bool = False
+    history: bool = False
+
+    @property
+    def nothing(self) -> bool:
+        return not (self.tables or self.pictures or self.rom or self.history)
+
+
+def adds(match: Match, held: Held, roms_dir: str = "", tables: bool = True,
+         media: bool = True) -> Adds:
+    """What a fill of `match` brings, given what its game holds: the same test `expected`
+    counts by, so the page and the report agree. `tables` and `media` say whether those
+    sources are being imported at all."""
+    brings_table = bool(match.tables) and match.table_name.lower() not in held.tables
+    return Adds(
+        tables=match.tables if tables and brings_table else 0,
+        pictures=len(set(match.kinds) - held.media) if media else 0,
+        rom=bool(roms_dir and match.rom and held.rom != match.rom
+                 and finding.rom_file(roms_dir, match.rom) is not None),
+        history=bool(match.played and missing_history(match.played, held.user).counts))
+
+
 @dataclass
 class Plan:
     sources: list[Source] = field(default_factory=list)
     matches: list[Match] = field(default_factory=list)
-    on_existing: str = DEFAULT_ON_EXISTING
     history: dict[str, gamestats.Played] = field(default_factory=dict)
     notes: list[Note] = field(default_factory=list)
     # By game id, for a fill: set by `measure_fill`. A game not in it is counted whole.
@@ -199,6 +230,16 @@ class Plan:
     def already(self) -> list[Match]:
         return [one for one in self.matches if one.existing]
 
+    @property
+    def making(self) -> list[Match]:
+        """The games this run makes: new, and not left out."""
+        return [one for one in self.matches if one.taken and not one.existing]
+
+    @property
+    def filling(self) -> list[Match]:
+        """The games already here that this run adds to."""
+        return [one for one in self.matches if one.taken and one.existing]
+
     def source(self, key: str) -> Source | None:
         return next((one for one in self.sources if one.key == key), None)
 
@@ -208,7 +249,7 @@ class Plan:
         share a folder are one game."""
         seen: set[str] = set()
         changed: list[tuple[str, str]] = []
-        for one in self.new:
+        for one in self.making:
             if one.was and one.folder.lower() not in seen:
                 seen.add(one.folder.lower())
                 changed.append((one.was, one.folder))
@@ -219,7 +260,7 @@ class Plan:
         that shares its folder with an earlier one is not counted twice."""
         seen: set[str] = set()
         counts = dict.fromkeys(DETAIL_FIELDS, 0)
-        for one in self.new:
+        for one in self.making:
             if not one.vps_id or one.folder.lower() in seen:
                 continue
             seen.add(one.folder.lower())
@@ -302,9 +343,7 @@ def measure_fill(plan: Plan, read: Callable[[str], Held]) -> None:
     """Read what each game a fill is aimed at already holds, so `expected` can count what
     the fill adds. A game that cannot be read is counted whole, which only over-counts."""
     plan.held.clear()
-    if plan.on_existing != "fill":
-        return
-    for one in plan.already:
+    for one in plan.filling:
         try:
             plan.held[one.game_id] = read(one.game_id)
         except Exception:
@@ -313,17 +352,19 @@ def measure_fill(plan: Plan, read: Callable[[str], Held]) -> None:
 
 def _wanted(plan: Plan) -> list[Match]:
     """The games this run will act on, which is not every game the source holds."""
-    return plan.matches if plan.on_existing == "fill" else plan.new
+    return [one for one in plan.matches if one.taken]
 
 
 def going(library: SourceLibrary, plan: Plan,
-          systems: list[str] | None = None) -> list[SourceGame]:
+          systems: list[str] | None = None, offered: bool = False) -> list[SourceGame]:
     """The source games this run will act on, in the order the source holds them.
 
     Paired with the plan's matches by position, which is how they were made: a lookup by
-    key would merge the entries that share one.
+    key would merge the entries that share one. `offered` adds the games already in the
+    library, which ticking would act on.
     """
-    wanted = {id(one) for one in _wanted(plan)}
+    wanted = {id(one) for one in plan.matches
+              if one.taken or (offered and one.existing)}
     return [game for game, match in zip(_games(library, systems), plan.matches, strict=True)
             if id(match) in wanted]
 
@@ -659,6 +700,7 @@ def match_existing(library: SourceLibrary, existing: list[dict],
         for name in one.get("table_files") or ():
             by_file.setdefault(str(name).lower(), []).append(one)
 
+    rows = row_keys(library)
     found = []
     for game in _games(library, systems):
         source_folder = mapping.folder_name(game)
@@ -703,8 +745,34 @@ def match_existing(library: SourceLibrary, existing: list[dict],
                            media=len(pictures),
                            companions=(len(_beside(companions_of, game.table_file))
                                        if companions_of and game.table_file else 0),
-                           history=1 if played and played.counts_as_history else 0))
+                           history=1 if played and played.counts_as_history else 0,
+                           row=rows[id(game)], name=game.display_name or game.key,
+                           hidden=game.hidden, candidate=_candidate(answer)))
     return found
+
+
+def row_keys(library: SourceLibrary) -> dict[int, str]:
+    """What each game of the source is called on the Tables and Matches pages, by the
+    game's identity: its key, and for a later game with the same key `#2`, `#3`.
+
+    Over every game of the source, not only the systems chosen, so choosing another system
+    does not rename the rows the person has already answered about."""
+    seen: dict[str, int] = {}
+    keys: dict[int, str] = {}
+    for system in library.systems:
+        for game in system.games:
+            seen[game.key] = seen.get(game.key, 0) + 1
+            keys[id(game)] = (game.key if seen[game.key] == 1
+                              else f"{game.key}#{seen[game.key]}")
+    return keys
+
+
+def _candidate(answer: dict) -> dict[str, Any]:
+    """The entry the look settled on, or the first it would offer."""
+    entry: dict = answer.get("entry") or next(iter(answer.get("candidates") or ()), {})
+    if not entry.get("name"):
+        return {}
+    return {key: entry.get(key) for key in ("name", "manufacturer", "year")}
 
 
 def _entry_says(entry: dict, name: str) -> str:
@@ -753,7 +821,7 @@ def _games(library: SourceLibrary,
 
 
 def build(library: SourceLibrary, existing: list[dict], chosen: dict | None = None,
-          on_existing: str = DEFAULT_ON_EXISTING,
+          ticked: Sequence[str] | None = None,
           systems: list[str] | None = None,
           folder_name_for: Callable[[str], str] | None = None,
           source_id: str = "", kinds: tuple[str, ...] = (),
@@ -766,12 +834,13 @@ def build(library: SourceLibrary, existing: list[dict], chosen: dict | None = No
     sources = derive_sources(library, chosen)
     history, notes = _history(next((one.path for one in sources if one.key == "history"),
                                    ""))
-    return Plan(sources=sources,
-                matches=match_existing(library, existing, systems, folder_name_for,
-                                       source_id, kinds, companions_of, history, looked, names),
-                on_existing=on_existing if on_existing in ON_EXISTING
-                else DEFAULT_ON_EXISTING,
-                history=history, notes=notes, names=names, details=details,
+    matches = match_existing(library, existing, systems, folder_name_for, source_id, kinds,
+                             companions_of, history, looked, names)
+    wanted = None if ticked is None else {str(one) for one in ticked}
+    for one in matches:
+        one.taken = not one.existing if wanted is None else one.row in wanted
+    return Plan(sources=sources, matches=matches, history=history, notes=notes,
+                names=names, details=details,
                 detail_fields=tuple(one for one in DETAIL_FIELDS
                                     if one in (detail_fields or ())))
 
