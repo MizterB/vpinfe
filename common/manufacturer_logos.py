@@ -18,9 +18,11 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 from collections.abc import Iterable
 from pathlib import Path
 
+from common.i18n import t
 from common.media_specs import IMAGE_FAMILY
 
 _ALIAS_FILE = "manufacturers.json"
@@ -138,6 +140,57 @@ def manufacturer_report(names: Iterable[object]) -> list[dict]:
     distinct = sorted({str(n).strip() for n in names if str(n or "").strip()},
                       key=str.lower)
     return [_entry(name, aliases) for name in distinct]
+
+
+def _wanted_keys(name: str, aliases: dict[str, str]) -> set[str]:
+    """The keys of the image names that serve a maker, by the lookup `_entry` makes: the
+    alias a person wrote, else the name's own, else the built-in alias for a name with no
+    logo of its own."""
+    slug = manufacturer_slug(name)
+    if not slug:
+        return set()
+    aliased = manufacturer_slug(aliases.get(_key(slug), ""))
+    if aliased:
+        return {_key(aliased)}
+    keys = {_key(slug)}
+    if slug in _BUILTIN_ALIASES:
+        keys.add(_key(_BUILTIN_ALIASES[slug]))
+    return keys
+
+
+def add_logos(makers: Iterable[object],
+              candidates: Iterable[tuple[str, str | Path]]) -> dict[str, list[str]]:
+    """Copy into the logos folder each image that serves one of `makers`, replacing none.
+
+    A candidate is (the maker name the image stands for, the image). It is copied when
+    its name finds a maker by the lookup a theme makes, and when the folder has no logo
+    for that name yet. Answers {"placed": [...], "held": [...]} by file name: an image
+    no maker asks for is in neither, and `held` are the ones the folder already served.
+    """
+    if _folder is None:
+        raise FileNotFoundError(t("error.games.no_logo_folder"))
+    aliases = _alias_map(_folder)
+    wanted: set[str] = set()
+    for name in {str(one or "").strip() for one in makers}:
+        wanted |= _wanted_keys(name, aliases)
+    placed: list[str] = []
+    held: list[str] = []
+    for name, path in candidates:
+        source = Path(path)
+        slug = manufacturer_slug(name)
+        if not slug or source.suffix.lower() not in IMAGE_FAMILY or _key(slug) not in wanted:
+            continue
+        if manufacturer_logo_file(slug) is not None:
+            held.append(source.name)
+            continue
+        landing = _folder / f"{slug}{source.suffix.lower()}"
+        if landing.exists():
+            held.append(source.name)
+            continue
+        _folder.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, landing)
+        placed.append(source.name)
+    return {"placed": placed, "held": held}
 
 
 def vps_manufacturer_names(vpsdb_path: str | Path) -> list[str]:

@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, NotRequired, TypedDict
 
-from . import beside, finding, mapping, saved
+from . import beside, finding, logos, mapping, saved
 from .plan import Held, Missing, history_for, missing_history, score_folders
 from .source import Note, SourceGame, SourceLibrary
 
@@ -599,6 +599,9 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
             made_here[name.lower()] = row["game_id"]
         rows.append(row)
     made = [row for row in rows if row["game_id"]]
+    # After the games, so the makers it looks for include the ones this run made.
+    brought = (logos.bring(ctx, sources.get("media", ""))
+               if made and (plan.logos if plan else True) else {"placed": 0, "held": 0})
     filled = {row["name"].lower() for row in made if row.get("existing") and any(
         row[one] for one in ("table", "media", "companions", "roms", "altdata", "music", "pups",
                             "scores", "history"))}
@@ -614,6 +617,7 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
         "pups": sum(row["pups"] for row in made),
         "scores": sum(row["scores"] for row in made),
         "history": sum(row["history"] for row in made),
+        "logos": brought["placed"],
         "matched": sum(1 for row in made if row.get("matched")),
         "failed": len(rows) - len(made),
         "stopped": stopped,

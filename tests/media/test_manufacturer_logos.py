@@ -15,6 +15,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from common.manufacturer_logos import (
+    add_logos,
     configure_manufacturer_logos,
     manufacturer_logo_file,
     manufacturer_logo_url,
@@ -30,6 +31,88 @@ def _logos(test: unittest.TestCase, tmp: str) -> Path:
     configure_manufacturer_logos(root)
     test.addCleanup(configure_manufacturer_logos, None)
     return root
+
+
+class AddLogosTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmp = TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.folder = _logos(self, self._tmp.name)
+        self.source = Path(self._tmp.name) / "source"
+        self.source.mkdir()
+
+    def image(self, name: str, body: bytes = b"new") -> Path:
+        path = self.source / name
+        path.write_bytes(body)
+        return path
+
+    def test_a_logo_for_a_maker_in_the_library_is_copied_under_the_makers_name(self) -> None:
+        done = add_logos(["Williams"], [("Williams", self.image("Williams.png"))])
+
+        self.assertEqual(done, {"placed": ["Williams.png"], "held": []})
+        self.assertEqual((self.folder / "williams.png").read_bytes(), b"new")
+        self.assertIsNotNone(manufacturer_logo_file("williams"))
+
+    def test_an_image_no_maker_asks_for_is_not_copied(self) -> None:
+        done = add_logos(["Williams"], [("Kodi", self.image("Kodi.png"))])
+
+        self.assertEqual(done, {"placed": [], "held": []})
+        self.assertEqual(list(self.folder.iterdir()), [])
+
+    def test_a_maker_found_by_the_slug_rule_is_found_by_its_logo(self) -> None:
+        done = add_logos(["Bally Manufacturing Corporation"],
+                         [("Bally", self.image("Bally.png"))])
+
+        self.assertEqual(done["placed"], ["Bally.png"])
+
+    def test_a_logo_the_folder_already_serves_is_kept(self) -> None:
+        (self.folder / "williams.jpg").write_bytes(b"mine")
+
+        done = add_logos(["Williams"], [("Williams", self.image("Williams.png"))])
+
+        self.assertEqual(done, {"placed": [], "held": ["Williams.png"]})
+        self.assertEqual((self.folder / "williams.jpg").read_bytes(), b"mine")
+        self.assertFalse((self.folder / "williams.png").exists())
+
+    def test_a_makers_alias_decides_which_image_serves_it(self) -> None:
+        (self.folder / "manufacturers.json").write_text(
+            json.dumps({"D. Gottlieb & Co.": "gottlieb"}), encoding="utf-8")
+
+        done = add_logos(["D. Gottlieb & Co."], [("Gottlieb", self.image("Gottlieb.png"))])
+
+        self.assertEqual(done["placed"], ["Gottlieb.png"])
+
+    def test_the_built_in_alias_serves_a_maker_with_no_logo_of_its_own(self) -> None:
+        done = add_logos(["Taito do Brasil"], [("Taito", self.image("Taito.png"))])
+
+        self.assertEqual(done["placed"], ["Taito.png"])
+        self.assertEqual(manufacturer_logo_url("Taito do Brasil"), "/manufacturers/taito/logo")
+
+    def test_a_name_cannot_put_a_file_outside_the_folder(self) -> None:
+        done = add_logos(["x", "a b"], [("../x", self.image("x.png")),
+                                        ("a/b", self.image("b.png"))])
+
+        self.assertEqual(done["placed"], ["x.png", "b.png"])
+        self.assertEqual(sorted(one.name for one in self.folder.iterdir()), ["a-b.png", "x.png"])
+        self.assertFalse((self.folder.parent / "x.png").exists())
+
+    def test_a_file_that_is_not_an_image_is_left(self) -> None:
+        done = add_logos(["Williams"], [("Williams", self.image("Williams.txt"))])
+
+        self.assertEqual(done, {"placed": [], "held": []})
+
+    def test_the_folder_is_made_when_it_is_not_there_yet(self) -> None:
+        configure_manufacturer_logos(Path(self._tmp.name) / "later" / "logos")
+
+        add_logos(["Williams"], [("Williams", self.image("Williams.png"))])
+
+        self.assertTrue((Path(self._tmp.name) / "later" / "logos" / "williams.png").is_file())
+
+    def test_with_no_folder_set_it_says_so(self) -> None:
+        configure_manufacturer_logos(None)
+
+        with self.assertRaises(FileNotFoundError):
+            add_logos(["Williams"], [("Williams", self.image("Williams.png"))])
 
 
 class SlugTests(unittest.TestCase):

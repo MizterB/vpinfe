@@ -3828,6 +3828,7 @@
   "error.games.info_bad_line": "Line {line} of its .info file is not written as it should be",
   "error.games.rom_needed": "{kind} needs a ROM name",
   "error.games.no_folder": "{kind} has no folder of its own",
+  "error.games.no_logo_folder": "No folder is set for manufacturer logos",
   "error.games.size_unsupported": "Only images come in sizes",
   "error.games.unknown_app": "No app called “{app_id}”. The apps are {apps}.",
   "error.games.no_file": "There is no file there",

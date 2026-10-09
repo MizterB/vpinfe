@@ -32,6 +32,7 @@ logger = logging.getLogger("vpinfe.common.extensions.games")
 
 GAMES_READ = "games:read"
 GAMES_WRITE = "games:write"
+CONFIG_WRITE = "config:write"
 
 # What core has said an extension may do to the library, by the name an extension calls
 # it: `name -> (scope, callable)`.
@@ -459,6 +460,19 @@ class ExtensionGames:
         landing.write_text(f"{names[0]},{names[1]}\n", encoding="utf-8", newline="\n")
         logger.info("%s wrote %s", self._name, landing)
         return landing.relative_to(game_dir).as_posix()
+
+    def put_manufacturer_logos(self, makers: Iterable[object],
+                               candidates: Iterable[tuple[str, str | Path]]) -> dict:
+        """Add to the manufacturer logos folder the images that serve one of `makers`.
+
+        A candidate is (the maker name the image stands for, the image). The folder is
+        shared by every theme, so nothing in it is replaced and an image no maker asks
+        for stays behind. Answers {"placed": [...], "held": [...]}, by file name.
+        """
+        self._needs(CONFIG_WRITE)
+        from common.manufacturer_logos import add_logos
+
+        return add_logos(makers, [(name, self._source(path)) for name, path in candidates])
 
     def put_media(self, game_id: str, kind: str, path: str | Path,
                   table_stem: str = "", replace: bool = True, page: int = 1) -> str:

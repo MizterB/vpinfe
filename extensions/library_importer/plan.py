@@ -188,6 +188,8 @@ class Plan:
     names: str = DEFAULT_NAMES
     details: str = DEFAULT_DETAILS
     detail_fields: tuple[str, ...] = ()
+    # Whether the source's manufacturer logos are offered to the makers here.
+    logos: bool = True
 
     @property
     def new(self) -> list[Match]:

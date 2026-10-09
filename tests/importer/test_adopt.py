@@ -957,14 +957,15 @@ class BesideTheTablesTests(AdoptCase):
         from vpinfe_ext_library_importer import beside
         self._ctx.files.set_roots([*self.places.values(), *beside.roots(self.places)])
 
-    def run_import(self) -> dict:
+    def run_import(self, **switches) -> dict:
         from vpinfe_ext_library_importer import adopt
         from vpinfe_ext_library_importer.plan import Plan, Source
         from vpinfe_ext_library_importer.source import SourceGame, SourceLibrary, SourceSystem
 
         game = SourceGame(key="Taxi", display_name="Taxi (Williams 1988)",
-                          table_file=str(self.tables / "Taxi.vpx"))
-        plan = Plan(sources=[Source(key, key, "", path) for key, path in self.places.items()])
+                          table_file=str(self.tables / "Taxi.vpx"), manufacturer="Williams")
+        plan = Plan(sources=[Source(key, key, "", path) for key, path in self.places.items()],
+                    **switches)
         library = SourceLibrary("pinballx", str(self.root),
                                 (SourceSystem(name=VPX, games=(game,)),))
         return adopt.run(self._ctx, library, [VPX], plan=plan)
@@ -989,6 +990,38 @@ class BesideTheTablesTests(AdoptCase):
         self.assertTrue(table.is_file(), "the table has no settings of its own")
         self.assertRegex(table.read_text(), r"B2SHideGrill\s*=\s*1")
         self.assertEqual(launcher_ops.effective_values("l1")[self.GRILL], "0")
+
+
+class LogosOnImportTests(BesideTheTablesTests):
+    """The source's `Company Logos` reach the logos folder for the makers imported."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        from vpinfe_ext_library_importer import beside
+
+        from common.manufacturer_logos import configure_manufacturer_logos
+
+        self.logos = self.root / "manufacturer_logos"
+        configure_manufacturer_logos(self.logos)
+        self.addCleanup(configure_manufacturer_logos, None)
+        media = self.root / "Pinball" / "Media"
+        (media / "Company Logos").mkdir(parents=True)
+        (media / "Company Logos" / "Williams.png").write_bytes(b"logo")
+        (media / "Company Logos" / "Kodi.png").write_bytes(b"other")
+        self.places["media"] = str(media)
+        self._ctx.files.set_roots([*self.places.values(), *beside.roots(self.places)])
+
+    def test_the_logo_of_a_maker_imported_is_added_and_the_rest_stay_behind(self) -> None:
+        report = self.run_import()
+
+        self.assertEqual(report["logos"], 1, report)
+        self.assertEqual([one.name for one in self.logos.iterdir()], ["williams.png"])
+
+    def test_the_switch_off_adds_none(self) -> None:
+        report = self.run_import(logos=False)
+
+        self.assertEqual(report["logos"], 0)
+        self.assertFalse(self.logos.exists())
 
 
 if __name__ == "__main__":

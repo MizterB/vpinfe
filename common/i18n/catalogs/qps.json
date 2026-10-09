@@ -3828,6 +3828,7 @@
   "error.games.info_bad_line": "Ŀîñè {line} öƒ îţš .îñƒö ƒîŀè îš ñöţ ŵřîţţèñ àš îţ šĥöûŀđ ƀè",
   "error.games.rom_needed": "{kind} ñèèđš à ŘÖḾ ñàɱè",
   "error.games.no_folder": "{kind} ĥàš ñö ƒöŀđèř öƒ îţš öŵñ",
+  "error.games.no_logo_folder": "Ñö ƒöŀđèř îš šèţ ƒöř ɱàñûƒàçţûřèř ŀöĝöš",
   "error.games.size_unsupported": "Öñŀý îɱàĝèš çöɱè îñ šîžèš",
   "error.games.unknown_app": "Ñö àþþ çàŀŀèđ “{app_id}”. Ţĥè àþþš àřè {apps}.",
   "error.games.no_file": "Ţĥèřè îš ñö ƒîŀè ţĥèřè",

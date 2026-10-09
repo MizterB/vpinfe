@@ -42,6 +42,38 @@ class PutAssetCase(unittest.TestCase):
         self.games.folder = lambda game_id: str(self.game)
 
 
+class ManufacturerLogoTests(PutAssetCase):
+    def setUp(self) -> None:
+        super().setUp()
+        from common.manufacturer_logos import configure_manufacturer_logos
+
+        self.logos = self.root / "logos"
+        self.logos.mkdir()
+        configure_manufacturer_logos(self.logos)
+        self.addCleanup(configure_manufacturer_logos, None)
+        self.picture = self.source / "Williams.png"
+        self.picture.write_bytes(b"png")
+        self.writer = ExtensionGames("probe", ("config:write",), _Files(self.source))
+
+    def test_a_logo_for_a_maker_is_placed_in_the_logos_folder(self) -> None:
+        done = self.writer.put_manufacturer_logos(["Williams"], [("Williams", self.picture)])
+
+        self.assertEqual(done["placed"], ["Williams.png"])
+        self.assertTrue((self.logos / "williams.png").is_file())
+
+    def test_it_needs_the_scope_that_writes_configuration(self) -> None:
+        with self.assertRaises(ContractError):
+            self.games.put_manufacturer_logos(["Williams"], [("Williams", self.picture)])
+
+    def test_an_image_outside_what_the_extension_declared_is_refused(self) -> None:
+        outside = self.root / "elsewhere.png"
+        outside.write_bytes(b"png")
+
+        with self.assertRaises(ContractError):
+            self.writer.put_manufacturer_logos(["Williams"], [("Williams", outside)])
+        self.assertEqual(list(self.logos.iterdir()), [])
+
+
 class UnreachableFolderTests(PutAssetCase):
     def test_a_folder_that_does_not_answer_is_refused_by_every_writer(self) -> None:
         rom = self.source / "afm_113b.zip"
