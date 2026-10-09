@@ -60,6 +60,7 @@ KIND_WORDS = {
     kept_copies.KIND_THEME: "console.backups.kind.theme",
     kept_copies.KIND_ARCHIVE: "console.backups.kind.backup",
     kept_copies.KIND_MEDIA: "console.backups.kind.media",
+    kept_copies.KIND_ASSET: "console.backups.kind.asset",
 }
 REASON_WORDS = {
     kept_copies.REASON_UPGRADE: "console.backups.reason.upgrade",
@@ -70,6 +71,7 @@ REASON_WORDS = {
     kept_copies.REASON_UPDATE: "console.backups.reason.update",
     kept_copies.REASON_YOURS: "console.backups.reason.yours",
     kept_copies.REASON_TURN: "console.backups.reason.turn",
+    kept_copies.REASON_EDIT: "console.backups.reason.edit",
 }
 BY_WORDS = {kept_copies.BY_2X: "console.backups.by.2x", kept_copies.BY_3X: "console.backups.by.3x"}
 
@@ -173,6 +175,9 @@ VIEWS: dict[str, list[str] | views.Preset] = {
     "console.view.backups_media": _by_kind(
         [kept_copies.KIND_MEDIA], ("name", "taken", "reason", "size", "gone", "file"),
         help=t("console.backups.media_view.help")),
+    "console.view.backups_assets": _by_kind(
+        [kept_copies.KIND_ASSET], ("name", "taken", "reason", "size", "gone", "file"),
+        help=t("console.backups.assets_view.help")),
     "console.view.backups_themes": _by_kind(
         [kept_copies.KIND_THEME], ("name", "taken", "size", "gone"),
         help=t("console.backups.themes_view.help")),
@@ -679,6 +684,7 @@ REASON_LINES = {
     kept_copies.REASON_FIRST_CHANGE: "console.backups.reason_line.first_change",
     kept_copies.REASON_UPDATE: "console.backups.reason_line.update",
     kept_copies.REASON_TURN: "console.backups.reason_line.turn",
+    kept_copies.REASON_EDIT: "console.backups.reason_line.edit",
 }
 # Where the name of what a copy is of opens, per kind of owner. A theme has a page and no
 # address of its own.

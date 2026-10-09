@@ -203,10 +203,13 @@ class Views(unittest.TestCase):
             self.assertEqual(sorted(preset.columns, key=backups._ALL.index),
                              list(preset.columns), key)
 
-    def test_the_file_name_is_the_last_column_and_only_everything_and_media_show_it(self) -> None:
-        """A media copy is of one picture among a game's several, so its file is what it is."""
+    def test_the_file_name_is_the_last_column_and_only_the_views_of_a_games_files_show_it(
+            self) -> None:
+        """A media or asset copy is of one file among a game's several, so its file is what it
+        is."""
         self.assertEqual("file", backups._ALL[-1])
-        shown = {"console.view.everything", "console.view.backups_media"}
+        shown = {"console.view.everything", "console.view.backups_media",
+                 "console.view.backups_assets"}
         for key, preset in backups.VIEWS.items():
             self.assertEqual(key in shown, "file" in preset.columns, key)
 

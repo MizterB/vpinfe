@@ -1,7 +1,8 @@
-"""A game's media file, kept before something replaces it.
+"""A game's file, kept before something replaces it.
 
-A copy lives at `<backups folder>/media/<game id>/<where the file sat in the game folder>/
-<name>.vpinfe-<stamp>-<reason>`. The game id is the first part, so a renamed game folder does
+A copy lives at `<backups folder>/<area>/<game id>/<where the file sat in the game folder>/
+<name>.vpinfe-<stamp>-<reason>`. The area is `media` for a picture or video and `assets` for
+a script, settings file or note. The game id is the first part, so a renamed game folder does
 not strand its copies, and the rest is enough to put the file back with no record beside it.
 """
 
@@ -20,6 +21,8 @@ from . import folder as backup_folder
 from .copies import REASON_TURN
 
 MEDIA = "media"
+ASSETS = "assets"
+AREAS = (MEDIA, ASSETS)
 
 
 @dataclass(frozen=True)
@@ -27,6 +30,7 @@ class Where:
     """Which game and file a copy is of, read off where it is kept."""
 
     folder: Path
+    area: str
     game_id: str
     relative: str
 
@@ -36,12 +40,14 @@ def _stamped(base: Path, reason: str, when: datetime) -> Path:
 
 
 def keep(folder: Path, game_id: str, source: Path, relative: str,
-         reason: str = REASON_TURN) -> Path:
-    """Copy `source`, the file at `relative` in the game's folder, into `folder`'s media
-    area. Never replaces a copy: a name taken is a second later."""
+         reason: str = REASON_TURN, *, area: str = MEDIA) -> Path:
+    """Copy `source`, the file at `relative` in the game's folder, into `folder`'s `area`.
+    Never replaces a copy: a name taken is a second later."""
     if Path(game_id).name != game_id:
         raise service_errors.RefusedError(t("error.media_rotate.not_in_game"))
-    base = folder / MEDIA / game_id / relative
+    if area not in AREAS:
+        raise ValueError(area)
+    base = folder / area / game_id / relative
     when = datetime.now(UTC)
     kept = _stamped(base, reason, when)
     while kept.exists():
@@ -54,33 +60,35 @@ def keep(folder: Path, game_id: str, source: Path, relative: str,
 
 
 def where(path: Path) -> Where | None:
-    """Where a path is kept, or None when it is not a media copy in a known folder. `path`
-    is believed only under a folder backups are kept in."""
+    """Where a path is kept, or None when it is not a copy in a known folder. `path` is
+    believed only under a folder backups are kept in."""
     if not info_migration.is_copy(path):
         return None
     for folder in backup_folder.known():
-        try:
-            parts = path.relative_to(folder / MEDIA).parts
-        except ValueError:
-            continue
-        if len(parts) < 2:
-            return None
-        named = info_migration.copied_from(path).name
-        return Where(folder, parts[0], "/".join((*parts[1:-1], named)))
+        for area in AREAS:
+            try:
+                parts = path.relative_to(folder / area).parts
+            except ValueError:
+                continue
+            if len(parts) < 2:
+                return None
+            named = info_migration.copied_from(path).name
+            return Where(folder, area, parts[0], "/".join((*parts[1:-1], named)))
     return None
 
 
 def prune(path: Path) -> None:
-    """Remove the folders a deleted copy leaves empty, up to the media area."""
+    """Remove the folders a deleted copy leaves empty, up to its area."""
     for folder in backup_folder.known():
-        stop = folder / MEDIA
-        if stop not in path.parents:
-            continue
-        parent = path.parent
-        while parent != stop:
-            try:
-                parent.rmdir()
-            except OSError:
-                return
-            parent = parent.parent
-        return
+        for area in AREAS:
+            stop = folder / area
+            if stop not in path.parents:
+                continue
+            parent = path.parent
+            while parent != stop:
+                try:
+                    parent.rmdir()
+                except OSError:
+                    return
+                parent = parent.parent
+            return

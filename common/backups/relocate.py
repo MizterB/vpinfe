@@ -1,9 +1,9 @@
 """Carrying the backups already taken into a new backups folder.
 
-A backup is a zip beside the others in the folder, or a media copy under `media/`. Both move
-as files, by the same path they have in the folder, and nothing else in the old folder is
-touched. A file whose name is taken in the new folder is left where it is: a backup is
-never replaced.
+A backup is a zip beside the others in the folder, or a copy of a game's file under `media/`
+or `assets/`. Both move as files, by the same path they have in the folder, and nothing else
+in the old folder is touched. A file whose name is taken in the new folder is left where it
+is: a backup is never replaced.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from common.i18n import t
 
 from . import archive
 from . import folder as backup_folder
-from .media import MEDIA
+from .media import AREAS
 
 logger = logging.getLogger("vpinfe.common.backups.relocate")
 
@@ -56,11 +56,11 @@ def _files(folder: Path) -> Iterator[Path]:
                 yield entry.relative_to(folder)
     except OSError:
         return
-    media = folder / MEDIA
-    if media.is_dir():
-        for found in sorted(media.rglob("*")):
-            if info_migration.is_copy(found) and found.is_file():
-                yield found.relative_to(folder)
+    for area in AREAS:
+        if (kept := folder / area).is_dir():
+            for found in sorted(kept.rglob("*")):
+                if info_migration.is_copy(found) and found.is_file():
+                    yield found.relative_to(folder)
 
 
 def _answers(folder: Path) -> bool:
@@ -115,7 +115,8 @@ def _move_all(found: Plan, reporter: jobs.JobReporter) -> dict[str, Any]:
             failed.append({"name": str(relative), "reason": why(exc)})
             continue
         moved += 1
-    _prune(found.old / MEDIA)
+    for area in AREAS:
+        _prune(found.old / area)
     logger.info("Moved %s backup(s) from %s to %s, %s left, %s failed",
                 moved, found.old, found.new, len(left), len(failed))
     return {"moved": moved, "left": left, "failed": failed,
@@ -158,17 +159,17 @@ def _claim(staged: Path, target: Path) -> bool:
     return True
 
 
-def _prune(media: Path) -> None:
-    """The folders under `media/` the move emptied, deepest first, and `media/` itself."""
-    if not media.is_dir():
+def _prune(area: Path) -> None:
+    """The folders under an area the move emptied, deepest first, and the area itself."""
+    if not area.is_dir():
         return
-    for folder in sorted((one for one in media.rglob("*") if one.is_dir()),
+    for folder in sorted((one for one in area.rglob("*") if one.is_dir()),
                          key=lambda one: len(one.parts), reverse=True):
         try:
             folder.rmdir()
         except OSError:
             continue
     try:
-        media.rmdir()
+        area.rmdir()
     except OSError:
         return

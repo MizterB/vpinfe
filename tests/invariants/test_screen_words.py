@@ -65,10 +65,12 @@ ASSET = {
     "console.assets.assets": LOADS,
     "console.assets.assets_missing": LOADS,
     "console.assets.search_assets": LOADS,
+    "console.backups.kind.asset": "the copy of a file of the Assets page",
     "console.page.assets": ASSETS_PAGE,
     "console.section.assets": ASSETS_PAGE,
     "console.settings.page_assets": ASSETS_PAGE,
     "console.view.assets": ASSETS_PAGE,
+    "console.view.backups_assets": "the copies of the files the Assets page lists",
     "console.workbench.assets": ASSETS_PAGE,
     "console.workbench.assets_2": ASSETS_PAGE,
 }

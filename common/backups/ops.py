@@ -38,6 +38,7 @@ from .copies import (
     KIND_GAME,
     KIND_LAUNCHER,
     PLACE_ARCHIVE,
+    PLACE_ASSET,
     PLACE_BESIDE,
     PLACE_GAME,
     PLACE_MEDIA,
@@ -112,8 +113,8 @@ def restore(copy_id: str) -> Restored:
         return _restore_record(one, path)
     if place == PLACE_THEME:
         return _restore_theme(one, path)
-    if place == PLACE_MEDIA:
-        return _restore_media(one, path)
+    if place in (PLACE_MEDIA, PLACE_ASSET):
+        return _restore_file(one, place, path)
     return _restore_launcher(one, place, path)
 
 
@@ -129,8 +130,8 @@ def _restore_game(one: Copy, path: Path) -> Restored:
     return Restored(one, _kept(_kept_copy(kept, PLACE_GAME)))
 
 
-def _restore_media(one: Copy, path: Path) -> Restored:
-    """Put a media file back where it was, keeping the file it replaces as a copy of its own."""
+def _restore_file(one: Copy, place: str, path: Path) -> Restored:
+    """Put a game's file back where it was, keeping the file it replaces as a copy of its own."""
     held = media_files.where(path)
     if held is None:
         raise service_errors.NotFoundError(t("error.backups.gone"))
@@ -138,14 +139,15 @@ def _restore_media(one: Copy, path: Path) -> Restored:
     target = game_dir.joinpath(*held.relative.split("/"))
     try:
         replaced = (media_files.keep(held.folder, held.game_id, target, held.relative,
-                                     REASON_RESTORE) if target.is_file() else None)
+                                     REASON_RESTORE, area=held.area)
+                    if target.is_file() else None)
         target.parent.mkdir(parents=True, exist_ok=True)
         with atomic_write.staged_for(target) as staged:
             shutil.copy2(path, staged)
     except OSError as exc:
         raise service_errors.RefusedError(why(exc)) from exc
     media_ops.reread(game_dir)
-    return Restored(one, _kept(_kept_copy(str(replaced) if replaced else None, PLACE_MEDIA)))
+    return Restored(one, _kept(_kept_copy(str(replaced) if replaced else None, place)))
 
 
 def _restore_record(one: Copy, path: Path) -> Restored:
@@ -313,7 +315,7 @@ def delete(copy_id: str) -> Copy:
         shutil.rmtree(path)
     else:
         archive.remove(path) if place == PLACE_ARCHIVE else path.unlink()
-        if place == PLACE_MEDIA:
+        if place in (PLACE_MEDIA, PLACE_ASSET):
             media_files.prune(path)
         for each in members:
             pending.drop(each.id)

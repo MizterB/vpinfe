@@ -27,6 +27,7 @@ from common.games import (
 from common.games.collection_store import COLLECTIONS_NAME, COLLECTIONS_NAME_INI
 from common.games.game_identity import game_id as game_id_of
 from common.games.info_migration import (
+    EDIT,
     IMPORT,
     REASON_2X,
     RESET,
@@ -51,6 +52,7 @@ from .copies import (
     BY_2X,
     BY_3X,
     KIND_ARCHIVE,
+    KIND_ASSET,
     KIND_COLLECTIONS,
     KIND_DEVICES,
     KIND_GAME,
@@ -61,12 +63,14 @@ from .copies import (
     KIND_SETTINGS,
     KIND_THEME,
     PLACE_ARCHIVE,
+    PLACE_ASSET,
     PLACE_BESIDE,
     PLACE_GAME,
     PLACE_MEDIA,
     PLACE_RECORDS,
     PLACE_THEME,
     PLACE_VPX_2X,
+    REASON_EDIT,
     REASON_FIRST_CHANGE,
     REASON_IMPORT,
     REASON_RESET,
@@ -107,7 +111,7 @@ _RECORD_KINDS = {
 }
 
 _REASON_BY_WORD = {RESTORE: REASON_RESTORE, IMPORT: REASON_IMPORT, RESET: REASON_RESET,
-                   TURN: REASON_TURN}
+                   TURN: REASON_TURN, EDIT: REASON_EDIT}
 
 
 def _reason_of_name(name: str) -> str:
@@ -344,39 +348,50 @@ def _theme_copies() -> list[Copy]:
     return [one for name in names if (one := theme_copy(get_themes_dir() / name))]
 
 
-# --- Media files -----------------------------------------------------------------------
+# --- Files of a game ---------------------------------------------------------------------
+
+# What a copy kept in each area is, and where its id says it is kept.
+_AREA_COPIES = {media_files.MEDIA: (KIND_MEDIA, PLACE_MEDIA),
+                media_files.ASSETS: (KIND_ASSET, PLACE_ASSET)}
 
 def _game_names() -> dict[str, str]:
     return {game_id_of(game): str(game.game_dir_name) for game in game_repository.all_games()}
 
 
-def _media_copy(path: Path, names: dict[str, str]) -> Copy | None:
+def _file_copy(path: Path, names: dict[str, str], area: str) -> Copy | None:
     held = media_files.where(path)
-    if held is None or path.is_symlink() or not path.is_file():
+    if held is None or held.area != area or path.is_symlink() or not path.is_file():
         return None
+    kind, place = _AREA_COPIES[area]
     return Copy(
-        id=make_id(PLACE_MEDIA, path), subject_kind=SUBJECT_GAME, subject_id=held.game_id,
-        subject_name=names.get(held.game_id, held.game_id), kind=KIND_MEDIA, file=held.relative,
+        id=make_id(place, path), subject_kind=SUBJECT_GAME, subject_id=held.game_id,
+        subject_name=names.get(held.game_id, held.game_id), kind=kind, file=held.relative,
         path=str(path), taken=iso_from_stamp(backup_stamp(path)), written_by="",
         reason=_reason_of_name(path.name), note="", size=_size(path),
         gone=held.game_id not in names)
 
 
-def _media_copies(game_id: str = "") -> list[Copy]:
-    """The media copies of every game, or of one: a game's own are under its id alone."""
+def _file_copies(game_id: str = "") -> list[Copy]:
+    """The media and asset copies of every game, or of one: a game's own are under its id
+    alone."""
     if game_id and Path(game_id).name != game_id:
         return []
     found: list[Copy] = []
     names = _game_names()
     for place in backup_folder.listable():
-        for root, _dirs, files in os.walk(place / media_files.MEDIA / game_id):
-            found += [one for name in sorted(files)
-                      if (one := _media_copy(Path(root) / name, names))]
+        for area in _AREA_COPIES:
+            for root, _dirs, files in os.walk(place / area / game_id):
+                found += [one for name in sorted(files)
+                          if (one := _file_copy(Path(root) / name, names, area))]
     return found
 
 
 def media_copy(path: Path) -> Copy | None:
-    return _media_copy(path, _game_names())
+    return _file_copy(path, _game_names(), media_files.MEDIA)
+
+
+def asset_copy(path: Path) -> Copy | None:
+    return _file_copy(path, _game_names(), media_files.ASSETS)
 
 
 # --- Back up now -----------------------------------------------------------------------
@@ -493,7 +508,7 @@ def _for_subject(subject_kind: str, subject_id: str) -> list[Copy]:
     if subject_kind == SUBJECT_GAME:
         folder = game_repository.game_folder(subject_id)
         own = [*(game_copies(folder) if folder is not None else []),
-               *_media_copies(subject_id)]
+               *_file_copies(subject_id)]
     elif subject_kind == SUBJECT_LAUNCHER:
         own = _launcher_copies()
     elif subject_kind == SUBJECT_THEME:
@@ -509,7 +524,7 @@ def scan(subject_kind: str = "", subject_id: str = "") -> list[Copy]:
     if subject_kind:
         return _ordered(_for_subject(subject_kind, subject_id))
     return _ordered([*_all_game_copies(), *_record_copies(), *_launcher_copies(),
-                     *_theme_copies(), *_media_copies(), *_all_archive_copies()])
+                     *_theme_copies(), *_file_copies(), *_all_archive_copies()])
 
 
 def find(copy_id: str) -> Copy | None:
@@ -533,4 +548,6 @@ def find(copy_id: str) -> Copy | None:
         return theme_copy(path)
     if place == PLACE_MEDIA:
         return media_copy(path)
+    if place == PLACE_ASSET:
+        return asset_copy(path)
     return None
