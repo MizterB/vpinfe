@@ -1217,6 +1217,7 @@
   "console.devices.why_not.architecture": "No release is published for this device's processor type.",
   "console.devices.why_not.release_incomplete": "The latest release is incomplete, so there is nothing to update to yet.",
   "console.devices.why_not.platform": "Updating from here is not supported on this operating system.",
+  "console.dmd_panel.ffmpeg_missing": "Videos need FFmpeg, which was not found",
   "console.dmd_panel.kind": "Which panel",
   "console.dmd_panel.kind.pin2dmd": "PIN2DMD",
   "console.dmd_panel.kind.pixelcade": "Pixelcade",
@@ -3992,6 +3993,10 @@
   "error.players.picture_id_unusable": "A picture cannot be kept for a player with the id {player_id}",
   "error.players.picture_not_image": "That file is not an image VPinFE can read",
   "error.players.record_id_unusable": "Plays and ratings cannot be kept for a player with the id {player_id}",
+  "error.real_dmd_video.no_ffmpeg": "FFmpeg was not found",
+  "error.real_dmd_video.no_picture": "The video has no picture to play",
+  "error.real_dmd_video.size_unknown": "The panel's size is not known",
+  "error.real_dmd_video.stopped": "It was stopped",
   "error.table_commands.global_failed": "A command run before every table did not work",
   "error.table_commands.launcher_command_failed": "A command the {launcher_name} launcher runs before a table did not work",
   "error.tags.sweep_blocked": {

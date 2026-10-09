@@ -182,8 +182,8 @@ class GameSelectionTests(unittest.TestCase):
         with mock.patch.object(peripherals, "send_frontend_dof_event",
                                side_effect=lambda cfg, token: sent.append(token)), \
                 mock.patch.object(peripherals, "_updater") as updater:
-            updater.return_value.queue_image_update.side_effect = (
-                lambda name, path: shown.append(name))
+            updater.return_value.queue_update.side_effect = (
+                lambda name, art: shown.append(name))
             peripherals.register()
             events.emit(events.GAME_SELECTED, game=self._game(), ini_config="cfg")
 
@@ -195,8 +195,8 @@ class GameSelectionTests(unittest.TestCase):
         with mock.patch.object(peripherals, "send_frontend_dof_event",
                                side_effect=RuntimeError("dof is not running")), \
                 mock.patch.object(peripherals, "_updater") as updater:
-            updater.return_value.queue_image_update.side_effect = (
-                lambda name, path: shown.append(name))
+            updater.return_value.queue_update.side_effect = (
+                lambda name, art: shown.append(name))
             peripherals.register()
             events.emit(events.GAME_SELECTED, game=self._game(), ini_config="cfg")
 

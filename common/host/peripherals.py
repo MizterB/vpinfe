@@ -26,6 +26,7 @@ from common.host.dof_service import (
 from common.host.libdmdutil_service import (
     restart_libdmdutil_service_if_enabled,
     show_image,
+    show_video,
     stop_libdmdutil_service,
 )
 
@@ -42,15 +43,19 @@ _realdmd_updater: real_dmd.RealDmdUpdater | None = None
 
 
 def release_for_launch(**_payload: Any) -> None:
-    """Hand the peripherals over before the table starts."""
+    """Hand the peripherals over before the table starts. A playing video stops with the
+    panel's service, before the panel is released."""
     stop_dof_service()
     stop_libdmdutil_service(clear=False)
 
 
 def reacquire_after_exit(*, ini_config: ConfigStore | None = None,
                          **_payload: Any) -> None:
-    """Take the peripherals back once the table has exited."""
+    """Take the peripherals back once the table has exited, and put the table's art on the
+    panel again."""
     start_dof_service_if_enabled(ini_config)
+    if _realdmd_updater is not None:
+        _realdmd_updater.show_again()
 
 
 def play_dof_effect(*, game: Game | None = None, ini_config: ConfigStore | None = None,
@@ -66,9 +71,9 @@ def show_realdmd_art(*, game: Game | None = None, ini_config: ConfigStore | None
     """Put the table's art on the real DMD panel."""
     if game is None or ini_config is None:
         return
-    _updater(ini_config).queue_image_update(
+    _updater(ini_config).queue_update(
         game.game_dir_name or "",
-        real_dmd.get_realdmd_image_for_game(game, ini_config),
+        real_dmd.get_realdmd_art_for_game(game, ini_config),
     )
 
 
@@ -108,7 +113,7 @@ def _updater(ini_config: ConfigStore) -> real_dmd.RealDmdUpdater:
     """
     global _realdmd_updater
     if _realdmd_updater is None:
-        _realdmd_updater = real_dmd.RealDmdUpdater(ini_config, "shared", show_image)
+        _realdmd_updater = real_dmd.RealDmdUpdater(ini_config, "shared", show_image, show_video)
     return _realdmd_updater
 
 

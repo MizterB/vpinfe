@@ -1217,6 +1217,7 @@
   "console.devices.why_not.architecture": "Ñö řèŀèàšè îš þûƀŀîšĥèđ ƒöř ţĥîš đèṽîçè'š þřöçèššöř ţýþè.",
   "console.devices.why_not.release_incomplete": "Ţĥè ŀàţèšţ řèŀèàšè îš îñçöɱþŀèţè, šö ţĥèřè îš ñöţĥîñĝ ţö ûþđàţè ţö ýèţ.",
   "console.devices.why_not.platform": "Ûþđàţîñĝ ƒřöɱ ĥèřè îš ñöţ šûþþöřţèđ öñ ţĥîš öþèřàţîñĝ šýšţèɱ.",
+  "console.dmd_panel.ffmpeg_missing": "Ṽîđèöš ñèèđ ƑƑɱþèĝ, ŵĥîçĥ ŵàš ñöţ ƒöûñđ",
   "console.dmd_panel.kind": "Ŵĥîçĥ þàñèŀ",
   "console.dmd_panel.kind.pin2dmd": "ÞÎÑ2ĐḾĐ",
   "console.dmd_panel.kind.pixelcade": "Þîẋèŀçàđè",
@@ -3992,6 +3993,10 @@
   "error.players.picture_id_unusable": "À þîçţûřè çàññöţ ƀè ķèþţ ƒöř à þŀàýèř ŵîţĥ ţĥè îđ {player_id}",
   "error.players.picture_not_image": "Ţĥàţ ƒîŀè îš ñöţ àñ îɱàĝè ṼÞîñƑÈ çàñ řèàđ",
   "error.players.record_id_unusable": "Þŀàýš àñđ řàţîñĝš çàññöţ ƀè ķèþţ ƒöř à þŀàýèř ŵîţĥ ţĥè îđ {player_id}",
+  "error.real_dmd_video.no_ffmpeg": "ƑƑɱþèĝ ŵàš ñöţ ƒöûñđ",
+  "error.real_dmd_video.no_picture": "Ţĥè ṽîđèö ĥàš ñö þîçţûřè ţö þŀàý",
+  "error.real_dmd_video.size_unknown": "Ţĥè þàñèŀ'š šîžè îš ñöţ ķñöŵñ",
+  "error.real_dmd_video.stopped": "Îţ ŵàš šţöþþèđ",
   "error.table_commands.global_failed": "À çöɱɱàñđ řûñ ƀèƒöřè èṽèřý ţàƀŀè đîđ ñöţ ŵöřķ",
   "error.table_commands.launcher_command_failed": "À çöɱɱàñđ ţĥè {launcher_name} ŀàûñçĥèř řûñš ƀèƒöřè à ţàƀŀè đîđ ñöţ ŵöřķ",
   "error.tags.sweep_blocked": {

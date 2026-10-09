@@ -93,9 +93,9 @@ to 2.x still finds them.
 
 **`common/host/`** - this machine: attached hardware, the launcher, the running session.
 
-- `dof_service.py`, `dof_service_worker.py`, `libdmdutil_service.py`: hardware service facades.
+- `dof_service.py`, `dof_service_worker.py`, `libdmdutil_service.py`: hardware service facades. A real-DMD video is decoded by FFmpeg to the panel's size and sent frame by frame by `libdmdutil_service.py` itself, looping until the next selection or a launch stops it.
 - `peripherals.py`: DOF and real-DMD, driven by game lifecycle events. Each device is its own handler, so a new one is a new subscriber rather than an edit.
-- `real_dmd.py`: which image a game shows on a real DMD panel, sent on a worker thread.
+- `real_dmd.py`: which video and picture a game shows on a real DMD panel (preferred video, the other video, preferred picture, the other picture), sent on a worker thread.
 - `launch.py`, `launch_state.py`: starting a game - resolving what to launch it with, building the command, running it and recording the play - and whether a launch was requested from outside the frontend.
 - `frontend_state.py`: what the frontend is showing, as it last reported, and the door a request to switch its collection or move its wheel goes through. The frontend registers what answers it.
 - `tools.py`: the Tools registry - each program VPinFE runs on this device but does not ship, found through its setting, `PATH` and the places a short `PATH` misses, probed for what it can do, and the hint a person follows when it is missing. A new Tool comes with its `tools.*` setting, and a check holds the two lists equal.

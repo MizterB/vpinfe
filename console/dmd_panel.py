@@ -10,7 +10,10 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Any
 
+from nicegui import ui
+
 from apps.vpx import screens as vpx
+from common.host import tools
 from common.i18n import t
 from console import panel
 from console.displays import Write, stored
@@ -82,4 +85,13 @@ def rows(values: Mapping[str, Any], schema: Sequence[dict], write: Write,
         kinds = [(one, t(KIND_WORDS[one]), "") for one in vpx.DMD_KINDS]
         found.append((t("console.dmd_panel.kind"),
                       panel.choice(kinds, str(held["kind"]), picked)))
+        if tools.resolve(tools.FFMPEG).state != tools.State.FOUND:
+            found.append((panel.FULL, _ffmpeg_missing))
     return found
+
+
+def _ffmpeg_missing() -> None:
+    with ui.element("div").classes("console-attention w-full"):
+        ui.icon("error_outline").classes("console-attention-icon")
+        ui.label(t("console.dmd_panel.ffmpeg_missing")) \
+            .classes("console-attention-line min-w-0 grow")

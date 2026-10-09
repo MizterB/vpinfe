@@ -229,7 +229,7 @@ class RealDmdShowAgainTests(unittest.TestCase):
 
     def test_the_last_image_is_sent_again(self) -> None:
         updater, shown = self._updater()
-        updater.queue_image_update("Game", Path("/art/game.png"))
+        updater.queue_update("Game", real_dmd.RealDmdArt(image=Path("/art/game.png")))
         self.assertTrue(updater.done.wait(5))  # type: ignore[attr-defined]
         updater.done.clear()  # type: ignore[attr-defined]
 

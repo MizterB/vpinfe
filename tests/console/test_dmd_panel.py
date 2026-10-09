@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, Mock, patch
 from nicegui import ui
 
 from common import config_service
+from common.host import tools
 from common.i18n import t
 from console import dmd_panel
 
@@ -73,6 +74,8 @@ class RowsTests(unittest.IsolatedAsyncioTestCase):
         self.follow = AsyncMock()
         self.switch = self.enterContext(patch.object(dmd_panel.panel, "switch"))
         self.choice = self.enterContext(patch.object(dmd_panel.panel, "choice"))
+        self.ffmpeg = self.enterContext(patch.object(
+            dmd_panel.tools, "resolve", return_value=tools.Found(tools.FFMPEG, tools.State.FOUND)))
 
     def _rows(self, values: dict | None = None, **kwargs: Any) -> list:
         return dmd_panel.rows(values or {}, SCHEMA, self.write, self.rerender, self.follow,
@@ -96,6 +99,18 @@ class RowsTests(unittest.IsolatedAsyncioTestCase):
         [options, picked] = self.choice.call_args.args[:2]
         self.assertEqual([key for key, _, _ in options], ["ZeDMD", "PIN2DMD", "Pixelcade"])
         self.assertEqual(picked, "")
+
+    def test_a_missing_ffmpeg_is_said_beside_the_panel_that_is_on(self) -> None:
+        self.ffmpeg.return_value = tools.Found(tools.FFMPEG, tools.State.MISSING)
+
+        entries = self._rows(_held(enabled="true"))
+
+        self.assertEqual(entries[-1][0], dmd_panel.panel.FULL)
+
+    def test_it_is_not_said_while_the_panel_is_off(self) -> None:
+        self.ffmpeg.return_value = tools.Found(tools.FFMPEG, tools.State.MISSING)
+
+        self.assertEqual([label for label, _ in self._rows()], [t("console.dmd_panel.switch")])
 
     def test_the_kind_it_is_told_is_the_one_shown(self) -> None:
         self._rows(_held(enabled="true"), kind="Pixelcade")
