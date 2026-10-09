@@ -288,7 +288,7 @@
   "config.library.hidden_checks.label": "Çĥèçķš ţö Ĥîđè",
   "config.library.hidden_media_kinds.description": "Ķîñđš öƒ ɱèđîà ţĥîš ŀîƀřàřý đöèš ñöţ çöŀŀèçţ. ṼÞîñƑÈ šţöþš šĥöŵîñĝ àñđ çöûñţîñĝ ţĥèɱ; ţĥè ƒîŀèš šţàý ŵĥèřè ţĥèý àřè.",
   "config.library.hidden_media_kinds.label": "Ḿèđîà Ķîñđš ţö Ĥîđè",
-  "config.library.hidden_sources.description": "Öñŀîñè çàţàŀöĝš ṼÞîñƑÈ đöèš ñöţ šèàřçĥ ƒöř ɱèđîà",
+  "config.library.hidden_sources.description": "Öñŀîñè šöûřçèš ṼÞîñƑÈ đöèš ñöţ šèàřçĥ ƒöř ɱèđîà",
   "config.library.hidden_sources.label": "Öñŀîñè Šöûřçèš ţö Ĥîđè",
   "config.logger.level.choice.debug": "Đèƀûĝ",
   "config.logger.level.choice.error": "Èřřöř",

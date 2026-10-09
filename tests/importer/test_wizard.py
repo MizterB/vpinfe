@@ -392,14 +392,14 @@ class SummaryShapeTests(WizardCase):
         at = next(i for i, one in enumerate(found["summary"]) if len(one) == 1)
 
         after = [one[0] for one in found["summary"][at + 1:]]
-        self.assertEqual(after, ["Games", "Game files", "Media files",
+        self.assertEqual(after, ["Games", "Tables", "Media files",
                                  "Backglasses and settings", "Games with play history",
                                  "Matched to VPS", "Left behind"])
 
     def test_with_no_catalog_the_summary_says_no_game_is_matched(self) -> None:
         found = self._check(FIXTURE)
 
-        self.assertIn(["VPS matching", "The VPS catalog is not available, so no game is "
+        self.assertIn(["VPS matching", "VPS is not available, so no game is "
                                        "matched"], found["summary"])
         self.assertIn(["Matched to VPS", "0"], found["summary"])
 

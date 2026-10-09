@@ -288,7 +288,7 @@
   "config.library.hidden_checks.label": "Checks to Hide",
   "config.library.hidden_media_kinds.description": "Kinds of media this library does not collect. VPinFE stops showing and counting them; the files stay where they are.",
   "config.library.hidden_media_kinds.label": "Media Kinds to Hide",
-  "config.library.hidden_sources.description": "Online catalogs VPinFE does not search for media",
+  "config.library.hidden_sources.description": "Online sources VPinFE does not search for media",
   "config.library.hidden_sources.label": "Online Sources to Hide",
   "config.logger.level.choice.debug": "Debug",
   "config.logger.level.choice.error": "Error",

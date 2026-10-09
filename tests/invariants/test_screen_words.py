@@ -73,10 +73,14 @@ ASSET = {
     "console.workbench.assets_2": ASSETS_PAGE,
 }
 
-WORDS = {"cabinet": CABINET, "machine": MACHINE, "build": BUILD, "asset": ASSET}
+CATALOG_WORD: dict[str, str] = {}
+
+WORDS = {"cabinet": CABINET, "machine": MACHINE, "build": BUILD, "asset": ASSET,
+         "catalog": CATALOG_WORD}
 
 MEANT = {"cabinet": "the frontend", "machine": "a game, this device or a computer",
-         "build": "a table", "asset": "file"}
+         "build": "a table", "asset": "file",
+         "catalog": "VPS for the database, sources for the places media comes from"}
 
 # Setting names and served paths, which a person reads in a config file or a URL.
 NAMED_ASSET = {

@@ -677,7 +677,7 @@ def build(ctx: Any) -> None:
                     [], {"tables": reason})
             return _again(reason, values)
 
-        # No frontend reads the Game files folder, so a refusal about it belongs to the
+        # No frontend reads the tables folder, so a refusal about it belongs to the
         # step that asks for it; a path left over from step one is not what is read.
         checked = ""
         first = _rooted(reader, values, typed)
