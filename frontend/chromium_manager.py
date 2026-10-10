@@ -578,9 +578,9 @@ class ChromiumManager:
             mute_audio=mute_audio,
             include_default_options=include_default_options,
             exclude_options=parsed_or_none(exclude_options,
-                                           "general.chrome_options_exclude"),
+                                           "chromium.options_exclude"),
         )
-        extra_args = parsed_or_none(additional_options, "general.chrome_options")
+        extra_args = parsed_or_none(additional_options, "chromium.options")
         if extra_args:
             logger.debug("Adding Chromium options for '%s': %s", window_name, extra_args)
         args = [chrome_path, *(line.text for line in option_lines(builtin, extra_args))]
