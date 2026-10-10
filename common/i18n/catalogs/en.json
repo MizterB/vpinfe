@@ -2845,7 +2845,6 @@
   "console.settings.use_chrome": "Use Google Chrome",
   "console.settings.use_chrome.help": "Uses Chrome the next time the frontend windows open. You can undo this after.",
   "console.settings.chrome_active": "Using Google Chrome",
-  "console.settings.chrome_chosen": "Google Chrome is set, and is used when the frontend windows next open",
   "console.settings.chrome_copy.help": "Put the options on the clipboard",
   "console.settings.chrome_effective": "Effective Options",
   "console.settings.chrome_effective.help": "What the main window starts with. The others also mute their sound.",

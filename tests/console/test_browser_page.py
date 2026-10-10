@@ -279,16 +279,21 @@ class BrowserPageTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self._program(), CHROME)
         self.served.perform_action.assert_not_called()
 
-    async def test_once_chosen_it_says_so_in_place_of_offering_it_again(self) -> None:
+    async def test_once_chosen_the_frontend_follows_and_nothing_is_offered_again(
+            self) -> None:
         self._reported(NO_H264)
         await press(self._use_google_chrome(await self._drawn()))
-        self.ui.label.reset_mock()
+        chrome = self.in_use.parent / "chrome"
+        chrome.touch()
+        self.chrome = str(chrome)
+        self.in_use = chrome
+        self.action.reset_mock()
 
         entries = await self._drawn()
 
-        self.assertIsNone(self._use_google_chrome(entries))
-        said = [call.args[0] for call in self.ui.label.call_args_list]
-        self.assertIn(t("console.settings.chrome_chosen"), said)
+        self.assertIsNot(entries[0][0], panel.FULL)
+        self.assertFalse([call for call in self.action.call_args_list
+                          if call.args[0] == t("console.settings.use_chrome")])
 
     async def test_undo_puts_the_previous_browser_program_back(self) -> None:
         self.served.put_config({"chromium": {"path": str(self.in_use)}})

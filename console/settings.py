@@ -727,7 +727,7 @@ def _browser_rows(found: dict[str, Any]) -> list[tuple[Any, Any]]:
 
 
 def _browser_finding(library: Library, rerender: Callable[[], None],
-                     found: dict[str, Any], chosen: str = "") -> None:
+                     found: dict[str, Any]) -> None:
     """What is wrong, the fix in words, and the act where VPinFE can do it."""
     fix = found.get("fix") or {}
     chrome = str(fix.get("chrome_path") or "")
@@ -758,9 +758,7 @@ def _browser_finding(library: Library, rerender: Callable[[], None],
                         .classes("console-member-table")
                     panel.link(t("console.settings.page_recording"),
                                to=address_for(recording.SECTION))()
-        if fix.get("action") == "use_chrome" and chrome and chrome == chosen:
-            ui.label(t("console.settings.chrome_chosen")).classes("console-member-table")
-        elif fix.get("action") == "use_chrome" and chrome:
+        if fix.get("action") == "use_chrome" and chrome:
             panel.action(t("console.settings.use_chrome"),
                          lambda: use(chrome, t("console.settings.chrome_active")),
                          icon=verbs.CHOOSE,
@@ -776,10 +774,9 @@ async def _browser_head(library: Library, rerender: Callable[[], None],
         return [panel.intro(t("console.settings.browser_failed"), hint=why(exc))]
     if not found:
         return []
-    chosen = str((values.get("chromium") or {}).get("path") or "")
     rows = _browser_rows(found)
     if found.get("finding"):
-        rows.insert(0, (panel.FULL, lambda: _browser_finding(library, rerender, found, chosen)))
+        rows.insert(0, (panel.FULL, lambda: _browser_finding(library, rerender, found)))
     return rows
 
 
