@@ -41,6 +41,7 @@ from common.games.game_metadata import (
     vps_details_differ,
 )
 from common.games.game_repository import reread_game
+from common.host import dof_service
 from common.i18n import t
 
 # Which keys this level will accept, and what each is called on disk. Declared rather than
@@ -259,6 +260,16 @@ def reset_play_record(game_id: str) -> dict:
     return record
 
 
+def _dof_event(value: Any) -> str:
+    """A letter and a number as the helper is told it, or empty for a different event on
+    every selection. Anything else would be written and then fail when the game is
+    selected."""
+    try:
+        return dof_service.normalize_event_token(str(value)) or ""
+    except ValueError as exc:
+        raise service_errors.RefusedError(t("dof.event.malformed")) from exc
+
+
 def set_overrides(game_id: str, changes: dict) -> dict:
     """What the user says about the machine, kept beside what VPS said.
 
@@ -271,6 +282,8 @@ def set_overrides(game_id: str, changes: dict) -> dict:
     if unknown:
         raise service_errors.RefusedError(
             t("error.games.table_keys", keys=", ".join(sorted(unknown))))
+    if changes.get("frontend_dof_event") is not None:
+        changes = {**changes, "frontend_dof_event": _dof_event(changes["frontend_dof_event"])}
 
     game_dir = Path(game.full_path_game)
     try:

@@ -133,20 +133,24 @@ class OncePerPanel(unittest.IsolatedAsyncioTestCase):
     """The game's section carries its tables' findings only while the game is the
     subject. Under Tables the table's own section leads with them."""
 
-    async def _drawn(self, lens: str) -> list[Any]:
+    async def _drawn(self, lens: str, features: tuple[str, ...] = ()) -> list[Any]:
         context = _context(_table("a", available=False))
         context["lens"] = lens
         context["library"].vps_entry.return_value = {}
         context["library"].outside_links.return_value = []
+        context["library"].discovery.return_value = {"features": list(features)}
+        context["library"].dof_event_state.return_value = {"event": None, "blocked": ""}
         rows = Mock()
         with patch("console.offload.run.io_bound", new=_now), \
                 patch.object(workbench, "_findings",
                              new=AsyncMock(return_value=[("finding", "alert")])), \
-                patch.object(workbench, "_game_entries", return_value=[("fact", "value")]), \
+                patch.object(workbench, "_game_entries",
+                             return_value=[("fact", "value")]) as entries, \
                 patch.object(workbench, "_rows", new=rows), \
                 patch.object(workbench, "_tables_block"), \
                 patch.object(workbench, "ui"):
             await workbench._game_block(context)
+        self.dof_state = entries.call_args.args[-1]
         return list(rows.call_args.args[1])
 
     async def test_a_game_leads_with_its_tables_findings(self) -> None:
@@ -154,6 +158,14 @@ class OncePerPanel(unittest.IsolatedAsyncioTestCase):
 
     async def test_under_a_table_the_game_does_not_repeat_them(self) -> None:
         self.assertEqual(await self._drawn(lens="a"), [("fact", "value")])
+
+    async def test_the_dof_event_is_asked_for_only_where_the_device_has_a_frontend(
+            self) -> None:
+        await self._drawn(lens="")
+        self.assertIsNone(self.dof_state)
+
+        await self._drawn(lens="", features=("library", "frontend"))
+        self.assertEqual(self.dof_state, {"event": None, "blocked": ""})
 
 
 if __name__ == "__main__":

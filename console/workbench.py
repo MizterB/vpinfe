@@ -30,7 +30,7 @@ from urllib.parse import urlencode, urlparse
 
 from nicegui import run, ui
 
-from common import apps, config_schema, i18n, icons, path_state, tokens
+from common import apps, config_schema, i18n, icons, install_identity, path_state, tokens
 from common.apps import OWN_FIELDS
 from common.failures import why
 from common.games import asset_registry, tag_registry
@@ -62,6 +62,7 @@ from console import (
     community,
     confirm,
     deeplink,
+    dof,
     dropdown,
     file_acts,
     game_acts,
@@ -2481,8 +2482,12 @@ async def _game_block(context: dict[str, Any]) -> None:
     # Under Tables the table's own section leads with them, and saying each twice on
     # one panel is what teaches a reader to skip the block.
     findings = [] if context["lens"] else await _findings(context, context["tables"])
+    # Test lights the cabinet, so it is offered where this device has a frontend.
+    lights = install_identity.FRONTEND in (library.discovery().get("features") or ())
+    dof_state = await dof.event_state(library) if lights else None
     with ui.column().classes("gap-0 console-form"):
-        _rows(ui, findings + _game_entries(context, found, differs, held, links, copies))
+        _rows(ui, findings + _game_entries(context, found, differs, held, links, copies,
+                                           dof_state))
         _tables_block(context, held)
 
 
@@ -2585,9 +2590,10 @@ async def _write(context: dict[str, Any], call: Callable[..., Any],
 
 @on_page
 async def _save_overrides(context: dict[str, Any], changes: dict[str, Any], *,
-                          table: bool) -> None:
-    """Write one field and rebuild. Off the loop: this is an HTTP call to our own
-    process, and made on the event loop it blocks the server from answering it."""
+                          table: bool) -> bool:
+    """Write one field and rebuild; False where the write was refused. Off the loop:
+    this is an HTTP call to our own process, and made on the event loop it blocks the
+    server from answering it."""
     library = context["library"]
     try:
         if table:
@@ -2597,13 +2603,15 @@ async def _save_overrides(context: dict[str, Any], changes: dict[str, Any], *,
             await run.io_bound(library.set_game_overrides, context["game_id"], changes)
     except Exception as exc:
         ui.notify(t("console.workbench.save_failed"), caption=why(exc), type="negative")
-        return
+        return False
     await context["rebuild"]()
+    return True
 
 
 def _override(effective: str, found: str | None, source: str,
               save: Callable[[str], Any], *, shown: str | None = None,
-              hint: str = "", beside: str = "") -> Callable[[], None]:
+              hint: str = "", beside: str = "", placeholder: str = "",
+              after: Callable[[ui.input], Any] | None = None) -> Callable[[], None]:
     """One field the user may override, drawn into a fact row.
 
     A field the whole time. The read state and the edit state are one element, so there
@@ -2613,17 +2621,22 @@ def _override(effective: str, found: str | None, source: str,
     user ever supplies one. Where there is a `found`, an amber revert appears exactly
     when the value differs from it, and typing that value back clears the override -
     so the mark's presence always means "this differs from the default".
+
+    `placeholder` is what an empty field stands for. `after` is handed the field once it
+    is drawn and draws what sits inline after it.
     """
     current = effective if shown is None else shown
 
     def draw() -> None:
         with ui.element("div").classes("console-fact-edit"):
-            field = ui.input(value=current).props("dense borderless") \
-                .classes("console-edit-field")
+            field = ui.input(value=current, placeholder=placeholder) \
+                .props("dense borderless").classes("console-edit-field")
             if hint:
                 field.tooltip(hint)
             if beside:
                 panel.link_out("", to=beside)()
+            if after is not None:
+                after(field)
             icon = ui.icon(verbs.REVERT).classes("console-revert")
             if found is not None:
                 target = f'"{found}"' if found else "empty"
@@ -2639,10 +2652,11 @@ def _override(effective: str, found: str | None, source: str,
                 value = str(field.value or "").strip()
                 if value == held["value"]:
                     return
-                held["value"] = value
+                saved, held["value"] = held["value"], value
                 # Sending the discovered value is how an override is cleared, so the
                 # two cases are one request rather than a delete and a write.
-                await save("" if found is not None and value == found else value)
+                if await save("" if found is not None and value == found else value) is False:
+                    held["value"] = saved
 
             def cancel() -> None:
                 field.value = held["value"]
@@ -2729,7 +2743,8 @@ def _outside_lines(links: Sequence[dict[str, Any]]) -> None:
 def _game_entries(context: dict[str, Any], entry: dict[str, Any],
                   differs: list[dict[str, Any]], held: bool,
                   links: Sequence[dict[str, Any]] = (),
-                  copies: list[dict[str, Any]] | None = None) -> list[tuple[Any, Any]]:
+                  copies: list[dict[str, Any]] | None = None,
+                  dof_state: dict[str, Any] | None = None) -> list[tuple[Any, Any]]:
     game = context["game"]
     folder = str(game.get("folder") or "")
     found = game.get("discovered") or {}
@@ -2772,22 +2787,38 @@ def _game_entries(context: dict[str, Any], entry: dict[str, Any],
         entries.append((t("console.section.backups"), backup_rows.row(
             context["library"], "game", context["game_id"], str(game.get("name") or folder),
             copies, context["rebuild"])))
-    return entries + _game_marks(context) + _game_frontend(context)
+    return entries + _game_marks(context) + _game_frontend(context, dof_state)
 
 
-def _game_frontend(context: dict[str, Any]) -> list[tuple[Any, Any]]:
+def _game_frontend(context: dict[str, Any],
+                   dof_state: dict[str, Any] | None = None) -> list[tuple[Any, Any]]:
+    """The game's DOF event, and Test beside it where this device has a frontend to light
+    it for. `dof_state` is `dof.event_state`'s answer there and None elsewhere."""
     overrides = context["game"].get("overrides") or {}
 
-    async def save_dof(value: str) -> None:
-        await _save_overrides(context, {"frontend_dof_event": value}, table=False)
+    async def save_dof(value: str) -> bool:
+        return await _save_overrides(context, {"frontend_dof_event": value}, table=False)
+
+    def test(field: ui.input) -> None:
+        tester = dof.Tester(context["library"], dof_state or {},
+                            lambda: str(field.value or ""))
+        tester()
+        field.on_value_change(tester.refresh)
 
     # Empty is the revert: nothing but the user supplies this, and clearing it asks for
-    # the frontend's own effect.
+    # a different event on every selection.
+    entry = _override(overrides.get("frontend_dof_event") or "", None, "", save_dof,
+                      placeholder=t("console.workbench.dof_random"),
+                      after=test if dof_state is not None else None)
+
+    def draw() -> None:
+        with ui.column().classes("gap-1 min-w-0"):
+            entry()
+            ui.label(t("console.workbench.dof_event_hint")).classes("console-help")
+
     return [
         (HEADING, game_tables.FRONTEND),
-        (t("console.workbench.dof_event"),
-         _override(overrides.get("frontend_dof_event") or "", None, "", save_dof,
-                   hint=t("console.workbench.effect_hint"))),
+        (t("console.workbench.dof_event"), draw),
     ]
 
 
