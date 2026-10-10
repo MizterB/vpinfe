@@ -90,7 +90,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `path` | string |  | The browser the frontend's windows open in |
-| `defaults` | bool | `true` | Full screen, autoplay, no Chrome prompts. Off leaves only what places a window. |
+| `defaults` | bool | `true` | Full screen, autoplay, no Chrome prompts. Off leaves only what positions a window. |
 | `options_exclude` | text |  | Built-in options to drop, named without their value |
 | `options` | text |  | Added after the defaults. Where one sets the same option, yours is used. For example, --ozone-platform=x11. |
 

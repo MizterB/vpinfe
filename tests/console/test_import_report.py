@@ -70,7 +70,7 @@ class WhatTheReportDraws(unittest.TestCase):
             left_behind=[{"what": "ScreenRes.txt", "displays": True}]))
 
         order = ["Needs a Look", "Not Imported", "Need a ROM", "Good to Know",
-                 "Already in VPinFE, Left Alone", "DMD Placed on Its Own", "Left Behind",
+                 "Already in VPinFE, Left Alone", "DMD Positioned on Its Own", "Left Behind",
                  "ScreenRes.txt", "Imported"]
         self.assertEqual(order, [one for one in drawn if one in order])
 
