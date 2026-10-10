@@ -49,6 +49,7 @@ from console import (
     confirm,
     deeplink,
     displays,
+    dof,
     ext_page,
     folder_picker,
     folders,
@@ -500,6 +501,18 @@ def _asked_first(option: dict, save: Callable[[Any], Any],
     return asked
 
 
+def _redrawn_after(save: Callable[[Any], Any],
+                   rerender: Callable[[], None]) -> Callable[[Any], Any]:
+    """`save`, then the page drawn again: something below the field reads what was saved."""
+    async def saved(value: Any) -> bool:
+        done = bool(await save(value))
+        if done:
+            rerender()
+        return done
+
+    return saved
+
+
 def _kind_page(library: Library, rerender: Callable[[], None], note: str,
                section: str, key: str, items: Callable[[Any], dict[str, str]],
                columns: bool = False) -> None:
@@ -637,8 +650,10 @@ async def _vps_foot(library: Library, rerender: Callable[[], None],
     return [last_checked(str(state.get("checked") or ""), now)]
 
 
-def last_checked(checked_at: str, now: Callable[[], Any]) -> tuple[Any, Any]:
-    """When something kept was last read, and the act that reads it now."""
+def last_checked(checked_at: str, now: Callable[[], Any], *,
+                 blocked: str = "") -> tuple[Any, Any]:
+    """When something kept was last read, and the act that reads it now. `blocked` is why
+    the act is dimmed, where it is."""
     def checked() -> None:
         with ui.element("div").classes("console-fact-edit"):
             shown = ui.label(when.ago(checked_at) or t("word.never")) \
@@ -646,7 +661,8 @@ def last_checked(checked_at: str, now: Callable[[], Any]) -> tuple[Any, Any]:
             if checked_at:
                 shown.tooltip(when.local(checked_at))
             panel.action(t("console.settings.check_now"), now, icon=verbs.REFRESH, inline=True,
-                         hint=t("console.settings.check_now.help"))()
+                         enabled=not blocked,
+                         hint=blocked or t("console.settings.check_now.help"))()
 
     return (field_label(t("console.settings.last_checked")), checked)
 
@@ -677,7 +693,7 @@ async def _themes_foot(library: Library, rerender: Callable[[], None],
 # section -> what to draw under its settings. Only where a page has an act in it, or a
 # reading that answers a question its settings raise.
 FOOTERS: dict[str, Callable] = {"updates": _vps_foot, "themes": _themes_foot,
-                                 recording.SECTION: recording.foot}
+                                 recording.SECTION: recording.foot, dof.SECTION: dof.foot}
 
 
 def _browser_rows(found: dict[str, Any]) -> list[tuple[Any, Any]]:
@@ -1552,6 +1568,8 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
         if option.get("moves_with") == config_schema.MOVES_BACKUPS and isinstance(
                 source, Library):
             save = backups_move.asked_first(source, save, rerender)
+        if section == dof.SECTION and option["key"] == "config_tool_api_key":
+            save = _redrawn_after(save, rerender)
         chipped = waiting if option.get("applies") in (
             config_schema.APPLIES_RESTART, config_schema.APPLIES_WINDOWS) else None
         if chipped is not None:

@@ -296,6 +296,16 @@ class DofEventRequest(ApiModel):
     event: str
 
 
+class DofConfigState(ApiModel):
+    """When the DOF Config Tool was last asked and whether it is due again. `has_key` says
+    whether a key is stored, never the key. `checked` is empty before the first ask."""
+
+    schedule: str = "weekly"
+    checked: str = ""
+    due: bool = False
+    has_key: bool = False
+
+
 class DofEventResult(ApiModel):
     """`event` is the one now on this device, or None when none is."""
 

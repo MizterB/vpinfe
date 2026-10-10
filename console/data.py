@@ -1474,6 +1474,13 @@ class Library:
     def vps_sync_state(self) -> dict:
         return self._client.vps_sync_state()
 
+    def dof_config_state(self) -> dict:
+        """Never cached: a press and the schedule both move it."""
+        return self._client.dof_config_state()
+
+    def download_dof_config(self) -> dict:
+        return self._client.download_dof_config()
+
     def vps_catalog_held(self) -> bool:
         """Whether there is a catalog to look a match up in. Held for the page's life,
         as `vps_entry` is, and for the same reason."""

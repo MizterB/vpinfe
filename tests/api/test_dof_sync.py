@@ -236,6 +236,40 @@ class RunTests(OwnStamps):
         self.assertEqual(job.detail, t("said.dof_config.updated"))
         self.assertIn("--force", self._asked())
 
+    def test_a_press_that_changed_a_file_starts_the_helper_over_and_one_that_did_not_does_not(
+            self) -> None:
+        for body, restarts in (("b", 1), ("b", 0)):
+            with self.subTest(restarts=restarts), \
+                    mock.patch.object(dof_service, "reload_config") as reload:
+                self._mode(STAND_IN_BODY=body)
+                jobs.reset_for_tests()
+                job = dof_sync.start(_config())
+                for _ in range(600):
+                    if job.state != jobs.RUNNING:
+                        break
+                    threading.Event().wait(0.05)
+
+                self.assertEqual(job.state, jobs.DONE, job.error)
+                self.assertEqual(reload.call_count, restarts)
+
+    def test_a_helper_that_will_not_restart_does_not_fail_a_download_that_worked(self) -> None:
+        with mock.patch.object(dof_service, "reload_config", side_effect=OSError("busy")):
+            self._mode(STAND_IN_BODY="b")
+            jobs.reset_for_tests()
+            job = dof_sync.start(_config())
+            for _ in range(600):
+                if job.state != jobs.RUNNING:
+                    break
+                threading.Event().wait(0.05)
+
+        self.assertEqual(job.state, jobs.DONE, job.error)
+
+    def test_a_scheduled_run_never_starts_the_helper_over(self) -> None:
+        with mock.patch.object(dof_service, "reload_config") as reload:
+            dof_sync.run(_config(), force=False)
+
+        reload.assert_not_called()
+
 
 class WatchTests(OwnStamps):
     def _watched(self, config: configparser.ConfigParser, real: bool = False,
@@ -269,6 +303,22 @@ class WatchTests(OwnStamps):
         self.assertEqual(self._watched(_config(), jobs=[object()]), [])
 
 
+class StateTests(OwnStamps):
+    def test_it_says_when_it_was_asked_and_whether_a_key_is_stored_and_never_the_key(self) -> None:
+        cache_stamps.put(dof_sync.STAMPS, checked=_ago(60))
+
+        said = dof_sync.state(_config("daily"))
+
+        self.assertEqual(set(said), {"schedule", "checked", "due", "has_key"})
+        self.assertEqual((said["schedule"], said["has_key"], said["due"]), ("daily", True, False))
+        self.assertNotIn("secret-key", json.dumps(said))
+
+    def test_no_key_reads_as_none_stored_and_nothing_due(self) -> None:
+        said = dof_sync.state(_config(key=""))
+
+        self.assertEqual((said["has_key"], said["due"], said["checked"]), (False, False, ""))
+
+
 @unittest.skipIf(TestClient is None, "starlette TestClient unavailable")
 class DofConfigRouteTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -282,6 +332,16 @@ class DofConfigRouteTests(unittest.TestCase):
         self.assertEqual(answer.status_code, 202)
         self.assertEqual(answer.headers["Location"], "/api/v1/jobs/abc")
         self.assertEqual(answer.json()["kind"], jobs.KIND_DOF_CONFIG)
+
+    def test_the_state_is_read_under_config_read_and_carries_no_key(self) -> None:
+        with mock.patch.object(dof_sync, "state", return_value={
+                "schedule": "weekly", "checked": "2026-10-09T10:00:00Z", "due": False,
+                "has_key": True}):
+            answer = self.client.get("/dof/config")
+
+        self.assertEqual(answer.status_code, 200)
+        self.assertEqual(answer.json(), {"schedule": "weekly", "checked": "2026-10-09T10:00:00Z",
+                                         "due": False, "has_key": True})
 
     def test_each_refusal_has_its_own_status_and_words(self) -> None:
         refusals = (

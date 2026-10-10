@@ -27,6 +27,13 @@ def fire(payload: models.DofEventRequest) -> models.DofEventResult:
     return models.DofEventResult(event=dof_service.turn_on(get_ini_config(), payload.event))
 
 
+@router.get("/config", summary="When the DOF config was last downloaded",
+            dependencies=[requires(scopes.CONFIG_READ)])
+def config_state() -> models.DofConfigState:
+    """What a surface needs to say how fresh this device's DOF config is."""
+    return models.DofConfigState(**dof_sync.state(get_ini_config()))
+
+
 @router.post("/config", summary="Download the DOF config from the DOF Config Tool",
              status_code=202, dependencies=[requires(scopes.CONFIG_WRITE)])
 def download_config(response: Response) -> models.JobResource:

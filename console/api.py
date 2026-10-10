@@ -313,6 +313,14 @@ class ApiClient:
         self._answered(response)
         return dict(response.json() or {})
 
+    def dof_config_state(self) -> dict:
+        """When the DOF config was last downloaded, and whether a key is stored."""
+        return self._get("/dof/config")
+
+    def download_dof_config(self) -> dict:
+        """Download the DOF config now, whatever version the tool is at; the job to watch."""
+        return self._post("/dof/config", {})
+
     def vps_state(self, game_id: str) -> list[dict]:
         """Per kind: what this game holds, and what the catalog lists for it."""
         _refuse_the_event_loop(f"/games/{game_id}/vps_state")

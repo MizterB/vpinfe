@@ -412,6 +412,15 @@ def restart_dof_service_if_enabled(iniconfig: ConfigStore | None) -> bool:
     return start_dof_service_if_enabled(iniconfig)
 
 
+def reload_config(iniconfig: ConfigStore | None) -> bool:
+    """Start the helper over so it reads config just written. Left alone when it is not
+    running, or while a table plays: VPX reads the files at each table start, and the
+    helper starts again after every table."""
+    if not is_running() or launch_state.current().launching:
+        return False
+    return restart_dof_service_if_enabled(iniconfig)
+
+
 def normalize_event_token(event_token: str | None) -> str | None:
     token = str(event_token or '').strip().upper()
     if not token:

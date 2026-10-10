@@ -1238,6 +1238,7 @@
   "console.dmd_panel.kind.zedmd": "ŽèĐḾĐ",
   "console.dmd_panel.switch": "ĐḾĐ þàñèŀ",
   "console.dmd_panel.switch.help": "Àñ ĿÈĐ þàñèŀ öƒ îţš öŵñ, řàţĥèř ţĥàñ à šçřèèñ",
+  "console.dof.state_failed": "Çöûŀđ ñöţ řèàđ ŵĥèñ ţĥè ĐÖƑ çöñƒîĝ ŵàš ŀàšţ đöŵñŀöàđèđ",
   "console.ext_action.already": "Àŀřèàđý ĥèřè ({count})",
   "console.ext_action.step_failed": "Çöûŀđ ñöţ ĝö öñ",
   "console.ext_action.matched": "{name} - ɱàţçĥèđ ƀý {how}",

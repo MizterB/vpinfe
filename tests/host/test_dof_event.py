@@ -164,5 +164,38 @@ class EventTests(unittest.TestCase):
             dof_service.send_dof_event_token(None, "905")
 
 
+class ReloadConfigTests(unittest.TestCase):
+    """A pressed download starts the helper over so it reads the new files, and nothing else
+    does."""
+
+    def setUp(self) -> None:
+        self.running = True
+        self.playing = False
+        self.restarted: list[object] = []
+        for patch in (
+                mock.patch.object(dof_service, "is_running", lambda: self.running),
+                mock.patch.object(dof_service, "restart_dof_service_if_enabled",
+                                  lambda ini: self.restarted.append(ini) or True),
+                mock.patch.object(launch_state, "current",
+                                  lambda: launch_state.LaunchState(launching=self.playing))):
+            self.enterContext(patch)
+
+    def test_a_running_helper_is_started_over(self) -> None:
+        self.assertTrue(dof_service.reload_config("ini"))
+        self.assertEqual(self.restarted, ["ini"])
+
+    def test_a_helper_that_is_not_running_is_left_alone(self) -> None:
+        self.running = False
+
+        self.assertFalse(dof_service.reload_config("ini"))
+        self.assertEqual(self.restarted, [])
+
+    def test_a_table_playing_leaves_it_alone(self) -> None:
+        self.playing = True
+
+        self.assertFalse(dof_service.reload_config("ini"))
+        self.assertEqual(self.restarted, [])
+
+
 if __name__ == "__main__":
     unittest.main()

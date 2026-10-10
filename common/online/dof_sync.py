@@ -57,6 +57,12 @@ def checked_at() -> str:
     return cache_stamps.get(STAMPS, "checked")
 
 
+def state(config: ConfigStore) -> dict:
+    """What a page needs to say how fresh the config is: never the key itself."""
+    return {"schedule": schedule(config), "checked": checked_at(), "due": due(config),
+            "has_key": bool(key(config))}
+
+
 def _fingerprint(api_key: str) -> str:
     return hashlib.sha256(api_key.encode("utf-8")).hexdigest()[:16]
 
@@ -181,7 +187,14 @@ def start(config: ConfigStore) -> jobs.Job:
 
     def work(job: jobs.Job) -> dict:
         job.progress(0, 1, t("said.dof_config.download"))
-        return run(config, force=True)
+        done = run(config, force=True)
+        if done["changed"]:
+            try:
+                dof_service.reload_config(config)
+            except Exception:  # noqa: BLE001 - the files are in; the helper reads them next start
+                logger.warning("DOF config downloaded, but the helper did not restart",
+                               exc_info=True)
+        return done
 
     return jobs.submit(jobs.KIND_DOF_CONFIG, work)
 
