@@ -74,6 +74,8 @@ KIND_MARKS = "marks"
 # Getting the VPS catalog because there is none on disk, ahead of a read that has games to
 # match. The watch's later refreshes are not this: they stay silent.
 KIND_SPREADSHEET_DOWNLOAD = "spreadsheet.download"
+# Downloading the cabinet's DOF config. One at a time: two downloads write the same folder.
+KIND_DOF_CONFIG = "dof.config"
 
 # Finished jobs kept since startup, for the Jobs view. Memory only: a restart empties it,
 # apart from the ones that asked to keep their result (`Job.keep_result`).
@@ -94,7 +96,8 @@ _BUSY = {KIND_LIBRARY_SCAN: "error.jobs.library_busy",
          KIND_TOOL_GET: "error.jobs.getting_tool",
          KIND_TABLE_SETTINGS: "error.jobs.settings_busy",
          KIND_MARKS: "error.jobs.marks_busy",
-         KIND_SPREADSHEET_DOWNLOAD: "error.jobs.getting_spreadsheet"}
+         KIND_SPREADSHEET_DOWNLOAD: "error.jobs.getting_spreadsheet",
+         KIND_DOF_CONFIG: "error.jobs.getting_dof_config"}
 
 # Kinds refused while another kind runs, and what the refusal says.
 _BLOCKED_BY = {(KIND_MEDIA_CAPTURE, KIND_MEDIA_FILL): "error.capture.fill_running",

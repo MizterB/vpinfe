@@ -56,6 +56,7 @@
   },
   "dof": {
     "config_tool_api_key": "",
+    "download_config": "weekly",
     "enabled": "false"
   },
   "extensions": {

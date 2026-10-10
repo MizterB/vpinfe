@@ -103,6 +103,12 @@ def _tool(result: Any) -> str:
     return t("said.job_tool_version", version=version) if version else ""
 
 
+def _dof_config(result: Any) -> str:
+    if not isinstance(result, dict) or "changed" not in result:
+        return ""
+    return t("said.dof_config.updated" if result["changed"] else "console.settings.already_date")
+
+
 _KINDS: dict[str, Callable[[Any], str]] = {
     jobs.KIND_LIBRARY_SCAN: _library_scan,
     jobs.KIND_MEDIA_FILL: _media_fill,
@@ -112,4 +118,5 @@ _KINDS: dict[str, Callable[[Any], str]] = {
     jobs.KIND_TOOL_GET: _tool,
     jobs.KIND_TABLE_SETTINGS: _table_settings,
     jobs.KIND_MARKS: _marks,
+    jobs.KIND_DOF_CONFIG: _dof_config,
 }

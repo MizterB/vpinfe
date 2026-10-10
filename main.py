@@ -34,6 +34,18 @@ if "--dof-helper" in sys.argv[1:]:
     from common.host.dof_service_worker import main as _dof_helper_main
     raise SystemExit(_dof_helper_main())
 
+if "--dof-pull" in sys.argv[1:]:
+    # `--dof-pull <script> <its arguments>`: the config downloader run by the frozen build,
+    # which has no other Python to hand it to.
+    import os
+    import runpy
+
+    _pull = sys.argv[sys.argv.index("--dof-pull") + 1:]
+    sys.argv = _pull
+    sys.path.insert(0, os.path.dirname(os.path.abspath(_pull[0])))
+    runpy.run_path(_pull[0], run_name="__main__")
+    raise SystemExit(0)
+
 if "--pinmame-helper" in sys.argv[1:]:
     from common.host.pinmame_worker import main as _pinmame_helper_main
     sys.argv.remove("--pinmame-helper")
@@ -364,11 +376,13 @@ shutdown.exit_if_requested(logger)
 # offered from. It was only ever downloaded by a Manager UI page, so an install that never
 # opened one answered from whatever snapshot it started with.
 def _start_sync_watchers() -> None:
+    from common.online.dof_sync import start_watch as _watch_dof_config
     from common.online.theme_sync import start_watch as _watch_themes
     from common.online.vpsdb_sync import start_watch as _watch_vpsdb
 
     _watch_vpsdb(config_store, _shutdown_event)
     _watch_themes(config_store, _shutdown_event)
+    _watch_dof_config(config_store, _shutdown_event)
 
 
 # While Setup is pending the watchers start when it finishes instead.

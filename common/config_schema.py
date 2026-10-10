@@ -1058,6 +1058,13 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             default="",
             aliases=("dofconfigtoolapikey",),
         ),
+        ConfigOption(
+            "download_config",
+            group=setting_groups.DOF,
+            type="choice",
+            default="weekly",
+            choices=("never", "daily", "weekly", "monthly"),
+        ),
     ),
     *in_section(
         "real_dmd",

@@ -66,6 +66,13 @@ class Describers(unittest.TestCase):
 
         self.assertEqual(t("said.job_info_restored", restored=2, failed=0), said)
 
+    def test_a_dof_config_download_says_whether_a_file_changed(self) -> None:
+        self.assertEqual(t("said.dof_config.updated"),
+                         job_details.of(jobs.KIND_DOF_CONFIG, {"changed": True}))
+        self.assertEqual(t("console.settings.already_date"),
+                         job_details.of(jobs.KIND_DOF_CONFIG, {"changed": False}))
+        self.assertEqual("", job_details.of(jobs.KIND_DOF_CONFIG, {}))
+
     def test_a_result_of_a_shape_not_named_has_no_line(self) -> None:
         for result in (None, "text", 3, [], {}, {"unrelated": 1}):
             for kind in (jobs.KIND_LIBRARY_SCAN, jobs.KIND_MEDIA_FILL,

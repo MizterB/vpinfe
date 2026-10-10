@@ -236,6 +236,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | --- | --- | --- | --- |
 | `enabled` | bool | `false` | Enable DOF |
 | `config_tool_api_key` | string |  | Downloads your DOF config. Sign in to the tool and copy the key from Cabinets |
+| `download_config` | choice (never, daily, weekly, monthly) | `weekly` | How often to ask the DOF Config Tool for newer config |
 
 ### `real_dmd`
 
