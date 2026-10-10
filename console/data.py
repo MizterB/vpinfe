@@ -1474,6 +1474,15 @@ class Library:
     def vps_sync_state(self) -> dict:
         return self._client.vps_sync_state()
 
+    def dof_event_state(self) -> dict:
+        return self._client.dof_event_state()
+
+    def test_dof_event(self, event: str) -> dict:
+        return self._client.test_dof_event(event)
+
+    def stop_dof_event(self) -> None:
+        self._client.stop_dof_event()
+
     def dof_config_state(self) -> dict:
         """Never cached: a press and the schedule both move it."""
         return self._client.dof_config_state()

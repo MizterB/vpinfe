@@ -1568,7 +1568,7 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
         if option.get("moves_with") == config_schema.MOVES_BACKUPS and isinstance(
                 source, Library):
             save = backups_move.asked_first(source, save, rerender)
-        if section == dof.SECTION and option["key"] == "config_tool_api_key":
+        if section == dof.SECTION and option["key"] in dof.READ_BELOW:
             save = _redrawn_after(save, rerender)
         chipped = waiting if option.get("applies") in (
             config_schema.APPLIES_RESTART, config_schema.APPLIES_WINDOWS) else None

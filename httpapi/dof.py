@@ -20,6 +20,16 @@ from .auth import requires
 router = APIRouter(prefix="/dof", tags=["dof"])
 
 
+@router.get("/event", summary="Which DOF event is on, and whether one could be turned on",
+            dependencies=[requires(scopes.CONFIG_READ)])
+def event_state() -> models.DofEventState:
+    """What a surface needs to offer a test: the event on now, and why none could be
+    turned on, in words."""
+    outcome = dof_service.blocked(get_ini_config())
+    return models.DofEventState(event=dof_service.current_event(),
+                                blocked="" if outcome else outcome.words())
+
+
 @router.post("/event", summary="Turn a DOF event on until it is stopped",
              dependencies=[requires(scopes.INPUT_ACT)])
 def fire(payload: models.DofEventRequest) -> models.DofEventResult:

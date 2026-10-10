@@ -55,6 +55,20 @@ class DofEventRouteTests(unittest.TestCase):
                 self.assertEqual(answer.status_code, status)
                 self.assertEqual(answer.json()["error"]["message"], outcome.words())
 
+    def test_the_state_says_which_event_is_on_and_why_none_could_be(self) -> None:
+        for blocked, event, said in ((dof_service.OK, "E905", ""),
+                                     (dof_service.Outcome(False, dof_service.OFF), None,
+                                      t("dof.event.off")),
+                                     (dof_service.Outcome(False, dof_service.PLAYING), None,
+                                      t("dof.event.playing"))):
+            with self.subTest(said=said), \
+                    mock.patch.object(dof_service, "blocked", return_value=blocked), \
+                    mock.patch.object(dof_service, "current_event", return_value=event):
+                answer = self.client.get("/dof/event")
+
+                self.assertEqual(answer.status_code, 200)
+                self.assertEqual(answer.json(), {"event": event, "blocked": said})
+
     def test_stopping_clears_the_event_and_is_fine_with_none_on(self) -> None:
         with mock.patch.object(dof_service, "clear_active_dof_event",
                                return_value=False) as clear:

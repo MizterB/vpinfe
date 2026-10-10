@@ -66,6 +66,7 @@ the documented entry point is a plain 200. Both spellings work.
 | DELETE | `/api/v1/frontend/preview` | Stop showing it, deciding nothing. 202, whether or not one was on show |
 | POST | `/api/v1/input/actions` | Press, hold or release an input action on this install — the door a remote drives the frontend through |
 | GET | `/api/v1/input/play` | Whether this device can press keys into a running table and hear them from outside the frontend, and why not |
+| GET | `/api/v1/dof/event` | Which DOF event is on this device, `event` (null when none), and `blocked`, the reason in words why one could not be turned on now, empty when one could. Under `config:read` |
 | POST | `/api/v1/dof/event` | Turn a DOF event on this device's cabinet until it is stopped, `{"event": "E900"}`, firing it again if it is already on. 400 when the event is not a letter and a number, 409 while a table is playing or when DOF would not start, 501 when DOF is off or not installed here. Under `input:act` |
 | DELETE | `/api/v1/dof/event` | Turn the event off. 200 whether or not one was on |
 | GET | `/api/v1/dof/config` | When the DOF config was last downloaded: `schedule`, `checked` (empty before the first ask), `due` and `has_key`, never the key. Under `config:read` |

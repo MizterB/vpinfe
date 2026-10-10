@@ -492,6 +492,20 @@ def _ask_to_send(event_token: str) -> dict[str, Any] | None:
         return _get_helper().request("send_event_token", timeout=5.0, event_token=event_token)
 
 
+def current_event() -> str | None:
+    """The event on now, from this process's own record of it."""
+    return _CURRENT_EVENT
+
+
+def blocked(iniconfig: ConfigStore | None) -> Outcome:
+    """Falsy, with a reason, while an event could not be turned on right now."""
+    if not _is_enabled(iniconfig):
+        return Outcome(False, OFF)
+    if launch_state.current().launching:
+        return Outcome(False, PLAYING)
+    return OK
+
+
 def test_event(iniconfig: ConfigStore | None, event_token: str) -> Outcome:
     """Fire an event for a person to see, even one that is already on."""
     if normalize_event_token(event_token) == _CURRENT_EVENT:

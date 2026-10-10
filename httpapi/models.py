@@ -306,6 +306,14 @@ class DofConfigState(ApiModel):
     has_key: bool = False
 
 
+class DofEventState(ApiModel):
+    """`event` is the one now on this device, or None. `blocked` says in words why one
+    could not be turned on now, and is empty when one could."""
+
+    event: str | None = None
+    blocked: str = ""
+
+
 class DofEventResult(ApiModel):
     """`event` is the one now on this device, or None when none is."""
 

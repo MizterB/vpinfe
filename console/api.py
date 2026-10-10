@@ -313,6 +313,17 @@ class ApiClient:
         self._answered(response)
         return dict(response.json() or {})
 
+    def dof_event_state(self) -> dict:
+        """The event on now and why none could be turned on, in words."""
+        return self._get("/dof/event")
+
+    def test_dof_event(self, event: str) -> dict:
+        """Turn an event on until it is stopped; a refusal says why in words."""
+        return self._post("/dof/event", {"event": event})
+
+    def stop_dof_event(self) -> None:
+        self._delete("/dof/event")
+
     def dof_config_state(self) -> dict:
         """When the DOF config was last downloaded, and whether a key is stored."""
         return self._get("/dof/config")

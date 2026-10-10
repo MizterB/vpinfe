@@ -51,7 +51,7 @@ class FootTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(self.drawn["checked"], "2026-10-09T10:00:00Z")
         self.assertEqual(self.drawn["blocked"], "")
-        self.assertEqual(len(self.rows), 1)
+        self.assertEqual(len(self.rows), 2)
 
     async def test_without_a_key_check_now_says_to_enter_one(self) -> None:
         await self._foot({"checked": "", "has_key": False})
@@ -62,7 +62,7 @@ class FootTests(unittest.IsolatedAsyncioTestCase):
         await self._foot(RuntimeError("down"))
 
         self.assertNotIn("now", self.drawn)
-        self.assertEqual(len(self.rows), 1)
+        self.assertEqual(len(self.rows), 2)
 
     async def _press(self, ended: dict[str, Any]) -> None:
         await self._foot({"checked": "", "has_key": True})

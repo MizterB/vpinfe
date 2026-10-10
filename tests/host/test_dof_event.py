@@ -197,5 +197,26 @@ class ReloadConfigTests(unittest.TestCase):
         self.assertEqual(self.restarted, [])
 
 
+class BlockedTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.playing = False
+        self.enabled = True
+        for patch in (
+                mock.patch.object(dof_service, "_is_enabled", lambda _ini: self.enabled),
+                mock.patch.object(launch_state, "current",
+                                  lambda: launch_state.LaunchState(launching=self.playing))):
+            self.enterContext(patch)
+
+    def test_nothing_blocks_an_enabled_device_with_no_table_playing(self) -> None:
+        self.assertTrue(dof_service.blocked(None))
+
+    def test_off_and_playing_each_say_why(self) -> None:
+        self.enabled = False
+        self.assertEqual(dof_service.blocked(None).reason, dof_service.OFF)
+
+        self.enabled, self.playing = True, True
+        self.assertEqual(dof_service.blocked(None).reason, dof_service.PLAYING)
+
+
 if __name__ == "__main__":
     unittest.main()
