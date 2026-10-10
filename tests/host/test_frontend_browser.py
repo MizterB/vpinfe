@@ -220,6 +220,10 @@ class ServedTests(_Isolated):
         body = found.json()
         self.assertEqual((body["state"], body["formats"]["vp9"]), (fb.NO_H264, True))
         self.assertEqual(body["finding"], "Most shared videos won't play in this browser")
+        found_here = fb.current()
+        self.assertTrue(found_here["default_path"])
+        self.assertEqual((body["default_path"], body["default_bundled"]),
+                         (found_here["default_path"], found_here["default_bundled"]))
 
     def test_capability_is_unavailable_only_where_nothing_plays(self) -> None:
         self.assertIs(fb.available(), True)

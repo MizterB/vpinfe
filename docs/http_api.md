@@ -901,6 +901,7 @@ frontend's controller window found when it last opened with that browser:
 ```
 {"state": "no_h264", "browser": "Chromium 145.0.7632.0",
  "path": "/opt/vpinfe/_internal/chromium/linux/chrome/chrome", "bundled": true,
+ "default_path": "/opt/vpinfe/_internal/chromium/linux/chrome/chrome", "default_bundled": true,
  "variant": "full",
  "formats": {"h264": false, "hevc": false, "vp9": true, "av1": true,
              "aac": false, "mp3": true, "vorbis": true, "opus": true},
@@ -916,6 +917,9 @@ frontend's controller window found when it last opened with that browser:
   reported since this browser was chosen. Unknown is never a no.
 - `bundled` is whether the browser in use is the one VPinFE ships; `variant` is whether this
   build ships one at all, `full` or `slim`.
+- `default_path` and `default_bundled` are the browser VPinFE finds on its own, which is
+  what an empty `chromium.path` stands for. They differ from `path` when `chromium.path` names
+  another browser.
 - A format is `true`, `false`, or `null` where the probe could not tell. H.264 and VP9 are
   decoded from a real file, not only asked of `canPlayType`, because a file can load with no
   picture.

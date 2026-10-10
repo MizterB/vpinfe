@@ -494,6 +494,10 @@ class FrontendBrowser(ApiModel):
     browser: str
     path: str
     bundled: bool
+    # What an empty Program setting stands for: the browser VPinFE finds on its own, and
+    # whether that is the copy this build ships.
+    default_path: str = ""
+    default_bundled: bool = False
     # `full` where this build ships a browser of its own, `slim` where it does not.
     variant: str = ""
     formats: dict[str, bool | None]
