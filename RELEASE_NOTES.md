@@ -5,9 +5,9 @@ VPinFE 3.0. The Console is the new place to run your library: games, tables, med
 collections, tags, players, devices, settings and backups, with Setup for a first run and an
 import from PinballX, PinballY or PinUP Popper. Every game has an id of its own, a game
 folder can hold more than one table, other programs can build on an HTTP API at `/api/v1`,
-and every word on screen comes from a translation catalog. A 2.x install upgrades on its
-first start and VPinFE keeps a copy of everything it rewrites, so read the next section
-first.
+and every word on screen comes from a translation catalog. An install from an earlier version
+upgrades on its first start and VPinFE keeps a copy of everything it rewrites, so read the
+next section first.
 
 ### Before you upgrade
 - **Update the earlier install to v2.6.0 or newer first, even if you plan to stay on 3.0.**
@@ -21,6 +21,8 @@ first.
 - To undo it, open System > Backups and press Go back to 2.x, or run `--restore-info`.
   That puts back each game's metadata and your collections. Clean up on the same page
   deletes the copies once you are sure you are staying.
+- The interface you used before is still served at `/manager`, because parts of the Console
+  are unfinished.
 - To take a 3.0 development build back off entirely, `--reset-3x-state` removes the
   settings and collections files 3.0 wrote, the `.info` files it made and every backup it
   kept, so the next start migrates from scratch. Settings you changed under 3.0 are lost,
@@ -137,8 +139,6 @@ first.
 - **Core** - Extensions add a feature without changing VPinFE, with a page of their own under
   Extensions in Settings. The Library Importer and VPinPlay, which brings community ratings
   and top lists, are extensions.
-- **Manager UI** - The Manager UI moves to `/manager` and is still there, because parts of
-  the Console are unfinished.
 
 ### Changes you may notice
 These are deliberate. `docs/compatibility-3.0.md` has the full list with the reasoning.
@@ -188,17 +188,17 @@ These are deliberate. `docs/compatibility-3.0.md` has the full list with the rea
   interrupted write cannot leave a truncated one behind.
 - **Core** - One unreadable `.info` no longer stops the whole library from loading. That
   game is left out and named in the log, and its file is not touched.
-- **Core** - A 2.x collection that filters on type keeps its type. It came across from
-  `collections.ini` selecting every game.
+- **Core** - A collection from an earlier version that filters on type keeps its type. It came
+  across from `collections.ini` selecting every game.
 - **Core** - Remote launch failures are logged instead of failing silently, and a remote
   launch no longer raises on Linux.
 
 ### For theme and API authors
-- **Themes** - The selection surface keeps the names 2.x published: `get_tables`,
+- **Themes** - The selection surface keeps the names earlier versions published: `get_tables`,
   `launch_table`, `TableIndexUpdate`, `vpin.tableData` and the rest. A row on the wheel is a
   table, because a collection may hold two tables of one game and both are rows.
 - **Themes** - Nothing changes unless you opt in. The payload is served in the shape your
-  `manifest.json` declares as `contract`, and no declaration means the 2.x shape.
+  `manifest.json` declares as `contract`, and no declaration means the shape earlier versions served.
   `min_vpinfe` says the oldest VPinFE a theme runs on.
 - **Themes** - Core owns the wheel's list and cursor, and the menus run on the same one, so a
   theme can open the collection picker and let core apply the choice and announce it.
