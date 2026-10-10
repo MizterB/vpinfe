@@ -3725,6 +3725,8 @@
   "dof.event.off": "Ţûřñ öñ Èñàƀŀè ĐÖƑ ƒîřšţ",
   "dof.event.playing": "À ţàƀŀè îš þŀàýîñĝ",
   "dof.event.no_runner": "ĐÖƑ îš ñöţ îñšţàŀŀèđ ĥèřè",
+  "dof.event.unloadable": "ĐÖƑ îš îñšţàŀŀèđ ƀûţ ŵöûŀđ ñöţ ŀöàđ ĥèřè",
+  "dof.event.no_config": "Đöŵñŀöàđ ţĥè ĐÖƑ çöñƒîĝ ƒîřšţ",
   "dof.event.no_helper": "ĐÖƑ đîđ ñöţ àñšŵèř",
   "dof.event.failed": "Çöûŀđ ñöţ ţûřñ ţĥè èṽèñţ öñ",
   "dof.event.failed_because": "Çöûŀđ ñöţ ţûřñ ţĥè èṽèñţ öñ. {detail}",

@@ -3725,6 +3725,8 @@
   "dof.event.off": "Turn on Enable DOF first",
   "dof.event.playing": "A table is playing",
   "dof.event.no_runner": "DOF is not installed here",
+  "dof.event.unloadable": "DOF is installed but would not load here",
+  "dof.event.no_config": "Download the DOF config first",
   "dof.event.no_helper": "DOF did not answer",
   "dof.event.failed": "Could not turn the event on",
   "dof.event.failed_because": "Could not turn the event on. {detail}",

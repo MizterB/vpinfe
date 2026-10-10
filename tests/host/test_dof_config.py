@@ -60,6 +60,45 @@ class WhereTheFolderIsTests(unittest.TestCase):
         self.assertIsNone(dof_config.config_folder())
 
 
+class WhetherThereIsConfigTests(unittest.TestCase):
+    def setUp(self) -> None:
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.folder = Path(tmp.name) / "directoutputconfig"
+        self.enterContext(mock.patch.object(dof_config, "config_folder",
+                                            lambda: self.folder))
+
+    def test_a_folder_that_is_not_there_has_none(self) -> None:
+        self.assertFalse(dof_config.present())
+
+    def test_an_empty_folder_has_none(self) -> None:
+        self.folder.mkdir()
+
+        self.assertFalse(dof_config.present())
+
+    def test_a_folder_holding_only_folders_has_none(self) -> None:
+        (self.folder / "sub").mkdir(parents=True)
+
+        self.assertFalse(dof_config.present())
+
+    def test_a_folder_with_a_file_has_some(self) -> None:
+        self.folder.mkdir()
+        (self.folder / "directoutputconfig30.ini").write_text("", encoding="utf-8")
+
+        self.assertTrue(dof_config.present())
+
+    def test_what_a_file_manager_leaves_behind_is_not_config(self) -> None:
+        self.folder.mkdir()
+        for name in (".DS_Store", "Thumbs.db", "desktop.ini"):
+            (self.folder / name).write_text("", encoding="utf-8")
+
+        self.assertFalse(dof_config.present())
+
+    def test_a_platform_that_names_no_folder_is_not_judged(self) -> None:
+        with mock.patch.object(dof_config, "config_folder", lambda: None):
+            self.assertTrue(dof_config.present())
+
+
 class TheHelperIsGivenItTests(unittest.TestCase):
     def test_a_start_gives_the_helper_the_folder(self) -> None:
         helper = mock.Mock()

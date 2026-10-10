@@ -100,6 +100,66 @@ class EventTests(unittest.TestCase):
         self.assertEqual(outcome.reason, dof_service.NO_RUNNER)
         self.assertEqual(self._asked("send_event_token"), [])
 
+    def test_a_runner_that_will_not_load_is_not_called_not_installed(self) -> None:
+        self.helper.replies["start"] = {"ok": True, "started": False,
+                                        "detail": "runner_unloadable"}
+
+        outcome = dof_service.send_dof_event_token(None, "E905")
+
+        self.assertEqual(outcome.reason, dof_service.UNLOADABLE)
+        self.assertEqual(outcome.words(), t("dof.event.unloadable"))
+        self.assertNotEqual(outcome.words(), t("dof.event.no_runner"))
+        self.assertEqual(self._asked("send_event_token"), [])
+
+    def test_no_config_says_so_and_sends_nothing(self) -> None:
+        with mock.patch.object(dof_service.dof_config, "present", lambda: False):
+            outcome = dof_service.send_dof_event_token(None, "E905")
+
+        self.assertEqual(outcome.reason, dof_service.NO_CONFIG)
+        self.assertEqual(outcome.words(), t("dof.event.no_config"))
+        self.assertEqual(self._asked("send_event_token"), [])
+
+    def test_a_missing_runner_is_named_before_a_missing_config(self) -> None:
+        self.helper.replies["start"] = {"ok": True, "started": False,
+                                        "detail": "runner_unavailable"}
+
+        with mock.patch.object(dof_service.dof_config, "present", lambda: False):
+            outcome = dof_service.send_dof_event_token(None, "E905")
+
+        self.assertEqual(outcome.reason, dof_service.NO_RUNNER)
+
+    def test_a_library_that_will_not_load_is_named_while_the_helper_is_up(self) -> None:
+        self.running = True
+        self.helper.replies["start"] = {"ok": True, "started": False,
+                                        "detail": "runner_unloadable"}
+
+        with mock.patch.object(dof_service.dof_config, "present", lambda: False):
+            outcome = dof_service.send_dof_event_token(None, "E905")
+
+        self.assertEqual(outcome.reason, dof_service.UNLOADABLE)
+        self.assertEqual(self._asked("send_event_token"), [])
+
+    def test_a_dead_runner_is_named_when_the_send_finds_it(self) -> None:
+        self.running = True
+        self.helper.replies["send_event_token"] = {"ok": False, "error": "runner_not_running"}
+        self.helper.replies["start"] = {"ok": True, "started": False,
+                                        "detail": "runner_unloadable"}
+
+        with mock.patch.object(dof_service.dof_config, "present", lambda: True):
+            outcome = dof_service.send_dof_event_token(None, "E905")
+
+        self.assertEqual(outcome.reason, dof_service.UNLOADABLE)
+
+    def test_no_config_is_named_once_the_runner_is_up(self) -> None:
+        self.running = True
+        self.helper.replies["start"] = {"ok": True, "started": False,
+                                        "detail": "already_running"}
+
+        with mock.patch.object(dof_service.dof_config, "present", lambda: False):
+            outcome = dof_service.send_dof_event_token(None, "E905")
+
+        self.assertEqual(outcome.reason, dof_service.NO_CONFIG)
+
     def test_a_runner_that_would_not_start_gives_its_own_words(self) -> None:
         self.helper.replies["start"] = {"ok": True, "started": False,
                                         "detail": "start_failed:Could not open the boards"}

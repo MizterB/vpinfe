@@ -46,7 +46,8 @@ class DofEventRouteTests(unittest.TestCase):
 
     def test_each_reason_is_refused_in_its_own_words(self) -> None:
         for reason, status in ((dof_service.PLAYING, 409), (dof_service.OFF, 501),
-                               (dof_service.NO_RUNNER, 501), (dof_service.NO_HELPER, 409),
+                               (dof_service.NO_RUNNER, 501), (dof_service.UNLOADABLE, 501),
+                               (dof_service.NO_CONFIG, 409), (dof_service.NO_HELPER, 409),
                                (dof_service.FAILED, 409)):
             outcome = dof_service.Outcome(False, reason)
             with self.subTest(reason=reason), self._answering(outcome):

@@ -8,6 +8,7 @@ import signal
 import subprocess
 import sys
 import time
+import types
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -183,6 +184,68 @@ class WhyItDidNotStartTests(unittest.TestCase):
 
     def test_no_runner_at_all_is_its_own_answer(self):
         self.assertEqual(self._start(None), (False, "runner_unavailable"))
+
+    def test_a_runner_that_is_there_and_will_not_load_is_not_no_runner(self):
+        worker = dof_service_worker._Worker()
+        with mock.patch.object(dof_service_worker.dof_parent, "_load_runner_class",
+                               side_effect=dof_service_worker.dof_parent.RunnerLoadError):
+            self.assertEqual(worker._start(), (False, "runner_unloadable"))
+
+
+class LoadingTheRunnerTests(unittest.TestCase):
+    def _runner(self, source):
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        (Path(tmp.name) / "dof_runner.py").write_text(source, encoding="utf-8")
+        self.enterContext(mock.patch.dict(os.environ, {"VPINFE_DOF_DIR": tmp.name}))
+        return dof_service_worker.dof_parent._load_runner_class
+
+    def test_nothing_installed_is_no_class(self):
+        with TemporaryDirectory() as empty, \
+                mock.patch.dict(os.environ, {"VPINFE_DOF_DIR": empty}), \
+                mock.patch.object(dof_service_worker.dof_parent, "_get_dof_base_candidates",
+                                  return_value=[Path(empty)]):
+            runner_class, _ = dof_service_worker.dof_parent._load_runner_class()
+
+        self.assertIsNone(runner_class)
+
+    def test_a_runner_that_will_not_import_is_an_error_not_an_absence(self):
+        load = self._runner("raise ImportError('no dof module')")
+
+        with self.assertRaises(dof_service_worker.dof_parent.RunnerLoadError):
+            load()
+
+    def test_a_runner_without_its_class_is_an_error(self):
+        load = self._runner("x = 1")
+
+        with self.assertRaises(dof_service_worker.dof_parent.RunnerLoadError):
+            load()
+
+    def test_a_library_that_will_not_load_is_an_error_before_the_runner_starts(self):
+        load = self._runner("class SingleEventDofRunner: pass")
+        broken = types.SimpleNamespace(load_lib=mock.Mock(side_effect=OSError("dlopen failed")))
+
+        with mock.patch.dict(sys.modules, {"dof": broken}), \
+                self.assertRaises(dof_service_worker.dof_parent.RunnerLoadError):
+            load()
+
+    def test_a_loader_that_raises_anything_is_an_unloadable_library(self):
+        load = self._runner("class SingleEventDofRunner: pass")
+        broken = types.SimpleNamespace(load_lib=mock.Mock(side_effect=ImportError("no ctypes")))
+
+        with mock.patch.dict(sys.modules, {"dof": broken}), \
+                self.assertRaises(dof_service_worker.dof_parent.RunnerLoadError):
+            load()
+
+    def test_a_library_that_loads_gives_the_class(self):
+        load = self._runner("class SingleEventDofRunner: pass")
+        fine = types.SimpleNamespace(load_lib=mock.Mock())
+
+        with mock.patch.dict(sys.modules, {"dof": fine}):
+            runner_class, _ = load()
+
+        self.assertEqual(runner_class.__name__, "SingleEventDofRunner")
+        fine.load_lib.assert_called_once_with()
 
 
 if __name__ == "__main__":

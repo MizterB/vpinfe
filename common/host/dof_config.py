@@ -22,3 +22,24 @@ def config_folder() -> Path | None:
     """The folder holding DOF's config files, or None where the platform names none."""
     base = base_path()
     return base / FOLDER if base is not None else None
+
+
+LITTER = frozenset({"thumbs.db", "desktop.ini"})
+
+
+def _is_litter(path: Path) -> bool:
+    """A file a file manager leaves behind, which is not config."""
+    return path.name.startswith(".") or path.name.lower() in LITTER
+
+
+def present() -> bool:
+    """Whether DOF has config to read. True where the platform names no folder, because
+    there is nothing to look in."""
+    folder = config_folder()
+    if folder is None:
+        return True
+    try:
+        return folder.is_dir() and any(
+            path.is_file() and not _is_litter(path) for path in folder.iterdir())
+    except OSError:
+        return False

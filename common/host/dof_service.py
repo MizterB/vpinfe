@@ -59,7 +59,22 @@ def _get_dof_base_candidates() -> list[Path]:
     return third_party_base_candidates('VPINFE_DOF_DIR', 'dof')
 
 
+class RunnerLoadError(Exception):
+    """A DOF runner is installed and cannot be used."""
+
+
+def _load_library() -> None:
+    """Load libdof now. The runner loads it on its own thread after `start()` has already
+    answered yes, so a library that will not load would otherwise show as a thread that
+    quietly died."""
+    loader = getattr(sys.modules.get('dof'), 'load_lib', None)
+    if callable(loader):
+        loader()
+
+
 def _load_runner_class() -> tuple[Any, Path]:
+    """The runner class and its folder. The class is None when no runner is installed;
+    raises RunnerLoadError when one is and will not load."""
     candidates = _get_dof_base_candidates()
     runner_path = None
     for candidate in candidates:
@@ -81,12 +96,17 @@ def _load_runner_class() -> tuple[Any, Path]:
         module = import_module_from_path(runner_path)
     except Exception as e:
         logger.error("Failed importing dof_runner.py: %s", e)
-        return None, dof_dir
+        raise RunnerLoadError from e
 
     runner_class = getattr(module, 'SingleEventDofRunner', None)
     if runner_class is None:
         logger.error("SingleEventDofRunner class not found in dof_runner.py")
-        return None, dof_dir
+        raise RunnerLoadError
+    try:
+        _load_library()
+    except Exception as e:  # noqa: BLE001 - the loader raises OSError, ImportError or ctypes errors
+        logger.error("The DOF library would not load: %s", e)
+        raise RunnerLoadError from e
     return runner_class, dof_dir
 
 
@@ -323,6 +343,8 @@ OK = Outcome(True)
 OFF = "off"
 PLAYING = "playing"
 NO_RUNNER = "no_runner"
+UNLOADABLE = "unloadable"
+NO_CONFIG = "no_config"
 NO_HELPER = "no_helper"
 FAILED = "failed"
 SAME = "same"
@@ -330,6 +352,8 @@ _REASON_WORDS = {
     OFF: "dof.event.off",
     PLAYING: "dof.event.playing",
     NO_RUNNER: "dof.event.no_runner",
+    UNLOADABLE: "dof.event.unloadable",
+    NO_CONFIG: "dof.event.no_config",
     NO_HELPER: "dof.event.no_helper",
     FAILED: "dof.event.failed",
 }
@@ -384,6 +408,8 @@ def _start(iniconfig: ConfigStore | None) -> tuple[bool, Outcome]:
     logger.info("Service start requested but runner was not started: %s", detail)
     if detail == "runner_unavailable":
         return False, Outcome(False, NO_RUNNER)
+    if detail == "runner_unloadable":
+        return False, Outcome(False, UNLOADABLE)
     if detail.startswith("start_failed"):
         return False, Outcome(False, FAILED, _sentence(detail.partition(":")[2]))
     return False, OK
@@ -469,6 +495,12 @@ def send_dof_event_token(iniconfig: ConfigStore | None, event_token: str) -> Out
         if not started and not is_running():
             return why if not why.ok else Outcome(False, FAILED)
 
+    if not dof_config.present():
+        # A live helper does not mean a live runner: starting again says whether the runner
+        # or the library is what is missing before the config is blamed.
+        _, why = _start(iniconfig)
+        return why if not why.ok else Outcome(False, NO_CONFIG)
+
     response = _ask_to_send(resolved_event)
     if response is not None and response.get("error") == "runner_not_running":
         # The helper is up and its runner is not: starting again says why.
@@ -540,6 +572,7 @@ def clear_active_dof_event(iniconfig: ConfigStore | None) -> bool:
 _REFUSALS: dict[str, type[service_errors.ServiceError]] = {
     OFF: service_errors.UnavailableError,
     NO_RUNNER: service_errors.UnavailableError,
+    UNLOADABLE: service_errors.UnavailableError,
 }
 
 

@@ -50,7 +50,10 @@ class _Worker:
             except Exception:
                 self._runner = None
 
-        runner_class, dof_dir = dof_parent._load_runner_class()
+        try:
+            runner_class, dof_dir = dof_parent._load_runner_class()
+        except dof_parent.RunnerLoadError:
+            return False, "runner_unloadable"
         if runner_class is None:
             return False, "runner_unavailable"
 
