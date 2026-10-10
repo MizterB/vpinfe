@@ -10,9 +10,11 @@ migrated since it was downloaded becomes invisible rather than merely late.
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
-from collections.abc import Iterable
+import threading
+from collections.abc import Callable, Iterable
 from typing import Any
 
 from common import timestamps
@@ -27,6 +29,19 @@ SCHEMA = 1
 # What "review everything" means. Not the empty string: absent has to keep meaning
 # "nobody has answered the question yet", which is a third state.
 FROM_THE_BEGINNING = "1970-01-01T00:00:00Z"
+
+
+_LOCK = threading.Lock()
+
+
+def _changes[F: Callable[..., Any]](work: F) -> F:
+    """Hold the file against another writer for the whole read-modify-write: the API runs
+    its handlers on a thread pool, and two of them would each save the file as they read it."""
+    @functools.wraps(work)
+    def locked(*args: Any, **kwargs: Any) -> Any:
+        with _LOCK:
+            return work(*args, **kwargs)
+    return locked  # type: ignore[return-value]
 
 
 def _load() -> dict[str, Any]:
@@ -56,6 +71,7 @@ def since() -> str:
     return str(_load().get("watching_since") or "")
 
 
+@_changes
 def set_since(value: str) -> None:
     """The first-run answer. "Review them" is the beginning of time, "Start clean" is
     now - one mechanism, no special mode, which is what keeps the dialog honest."""
@@ -75,6 +91,7 @@ def since_for(game_id: str) -> str:
     return str(own or data.get("watching_since") or "")
 
 
+@_changes
 def note_games(game_ids: Iterable[str]) -> int:
     """Stamp any game nothing has seen before, and answer how many were new.
 
@@ -106,6 +123,7 @@ def acknowledged(game_id: str) -> dict[str, set[str]]:
             for kind, ids in found.items()}
 
 
+@_changes
 def acknowledge(game_id: str, kind: str, vps_file_id: str) -> None:
     """Dismiss one record for one game and kind."""
     data = _load()
@@ -119,6 +137,30 @@ def acknowledge(game_id: str, kind: str, vps_file_id: str) -> None:
     _save(data)
 
 
+def dismissed() -> dict[str, list[str]]:
+    """What each Overview row was dismissed over, by row: the ids it counted at the time.
+    A row nobody dismissed is absent."""
+    found = _load().get("dismissed") or {}
+    return {str(row): [str(item) for item in (ids or [])]
+            for row, ids in found.items() if ids}
+
+
+@_changes
+def dismiss(row: str, ids: Iterable[str]) -> None:
+    """Replace what a row was dismissed over. No ids takes the row out of the record,
+    which is how a dismissal is undone."""
+    data = _load()
+    held = dict(data.get("dismissed") or {})
+    keep = list(dict.fromkeys(str(item) for item in ids))
+    if keep:
+        held[str(row)] = keep
+    else:
+        held.pop(str(row), None)
+    data["dismissed"] = held
+    _save(data)
+
+
+@_changes
 def forget(game_id: str) -> None:
     """Drop everything held about a game. For a game that is gone - keeping its
     dismissals would silently apply them to whatever takes its id next."""

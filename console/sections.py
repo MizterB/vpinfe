@@ -18,7 +18,7 @@ from common.failures import why
 from common.i18n import t
 from common.media_specs import media_label_map
 from console import dialog as frame
-from console import media_fill, needs, offload, panel, verbs
+from console import media_fill, needs, offload, panel, set_aside, verbs
 from console.data import Library
 from console.on_page import on_page
 
@@ -144,9 +144,30 @@ def _local_name(registry: list[dict], discovery: dict) -> str:
     return devices.device_label(entry)
 
 
-def _need_row(need: needs.Need, state: dict[str, Any], fix: Callable[[needs.Need], Any]) -> None:
-    """Icon in its tone, label, count in its own unit, the fix, and the whole row opens
-    what it counted."""
+def _need_menu(menu: Any, need: needs.Need, fix: Callable[..., Any],
+               acts: set_aside.Acts) -> None:
+    """What a row offers beyond opening: the fix, for just the new ones where some joined,
+    then setting the row aside."""
+    menu.clear()
+    with menu:
+        if (mine := need.fix) is not None:
+            panel.menu_entry(mine.label, lambda: fix(need), mark=lambda: ui.icon(mine.icon))
+            if need.new and mine.key == needs.GET_MEDIA:
+                panel.menu_entry(
+                    t("console.needs.fix_new", fix=mine.label, count=len(need.new)),
+                    lambda: fix(need, need.new), mark=lambda: ui.icon(mine.icon))
+        panel.menu_entry(
+            t("console.needs.skip_version") if need.key == needs.UPDATE
+            else t("console.needs.dismiss"),
+            lambda: acts.dismiss(need), under=needs.comes_back(need.key))
+        panel.menu_entry(t("console.needs.stop_checking"), lambda: acts.stop(need.key))
+
+
+def _need_row(need: needs.Need, state: dict[str, Any], fix: Callable[..., Any],
+              acts: set_aside.Acts) -> None:
+    """Icon in its tone, label, what joined since it was dismissed, count in its own unit,
+    the fix, and the whole row opens what it counted. Its menu is the button at its end and
+    a right click anywhere on it."""
     row = ui.element("div").classes(f"console-need console-need--{need.tone}") \
         .props("tabindex=0 role=link")
     row.on("click", lambda: state["open_on"](need.opens))
@@ -154,19 +175,59 @@ def _need_row(need: needs.Need, state: dict[str, Any], fix: Callable[[needs.Need
     with row:
         ui.icon(need.icon).classes("console-need-icon")
         ui.label(need.label).classes("console-setting grow min-w-0").tooltip(need.tip)
+        if need.new and not need.opens.then:
+            # A row that opens a step has no grid to narrow.
+            from console import games
+
+            def only_new() -> Any:
+                return state["open_on"](needs.Opens(
+                    need.opens.view, need.opens.arriving,
+                    {**need.opens.keys, games.NEW_KEY: need.new}, need.opens.then))
+
+            with ui.element("div").on("click.stop", lambda: None) \
+                    .on("keydown.enter.stop", lambda: None):
+                chip = ui.label(t("console.needs.new", count=len(need.new))) \
+                    .classes("console-member-chip console-chip-warn console-need-new") \
+                    .props("tabindex=0 role=link") \
+                    .tooltip(t("console.needs.new.tip"))
+                chip.on("click", only_new)
+                chip.on("keydown.enter", only_new)
         if said := need.counted():
             ui.label(said).classes("console-need-count shrink-0")
         if need.fix is not None:
-            with ui.element("div").classes("console-need-fix").on("click.stop", lambda: None):
+            with ui.element("div").classes("console-need-fix").on("click.stop", lambda: None) \
+                    .on("keydown.enter.stop", lambda: None):
                 panel.icon_action(need.fix.label, lambda: fix(need), icon=need.fix.icon,
                                   hint=need.fix.tip)()
+        if not needs.can_set_aside(need.key):
+            return
+        with ui.element("div").classes("console-need-more").on("click.stop", lambda: None) \
+                .on("keydown.enter.stop", lambda: None):
+            _button, menu = panel.menu_button(verbs.MORE, t("console.needs.row_menu"))
+        _need_menu(menu, need, fix, acts)
+        _need_menu(ui.context_menu(), need, fix, acts)
 
 
-def _needs_you(rows: list[needs.Need], state: dict[str, Any],
-               fix: Callable[[needs.Need], Any]) -> None:
+def _aside_line(one: needs.Aside, acts: set_aside.Acts) -> None:
+    with ui.row().classes("console-aside-line items-center gap-3 w-full no-wrap"):
+        ui.icon(one.icon).classes("console-need-icon console-need--muted")
+        ui.label(one.label).classes("console-setting grow min-w-0")
+        ui.label(one.chip).classes("console-member-chip console-chip-quiet") \
+            .tooltip(one.tip)
+        again = acts.check_again if one.stopped else acts.show_again
+        panel.action(t("console.needs.check_again") if one.stopped
+                     else t("console.needs.show_again"),
+                     lambda: again(one.key), inline=True,
+                     icon=verbs.REFRESH if one.stopped else verbs.UNHIDE,
+                     hint=t("console.needs.check_again.help") if one.stopped
+                     else t("console.needs.show_again.help"))()
+
+
+def _needs_you(arranged: needs.Arranged, state: dict[str, Any], fix: Callable[..., Any],
+               acts: set_aside.Acts) -> None:
     ui.label(t("console.needs.title")).classes("console-group")
     with ui.element("div").classes("console-card console-needs"):
-        if not rows:
+        if not arranged.rows:
             with ui.row().classes("items-center gap-3 w-full no-wrap"):
                 ui.icon("check_circle").classes("console-need-icon console-need--none")
                 ui.label(t("console.needs.nothing")).classes("console-setting grow")
@@ -174,9 +235,16 @@ def _needs_you(rows: list[needs.Need], state: dict[str, Any],
                              lambda: state["open_on"](needs.Opens(
                                  "settings", keys={"settings_page": "library.audit"})),
                              icon=verbs.GO, hint=t("console.needs.choose_checks.help"))()
-            return
-        for need in rows:
-            _need_row(need, state, fix)
+        for need in arranged.rows:
+            _need_row(need, state, fix, acts)
+    if arranged.aside:
+        shown = panel.disclosure(t("console.needs.set_aside", count=len(arranged.aside))) \
+            .classes("console-disclosure-rows")
+        shown.value = bool(state.get(_ASIDE_OPEN))
+        shown.on_value_change(lambda event: state.__setitem__(_ASIDE_OPEN, event.value))
+        with shown, ui.element("div").classes("console-card console-needs w-full"):
+            for one in arranged.aside:
+                _aside_line(one, acts)
 
 
 def _coverage(library: Library) -> None:
@@ -202,9 +270,35 @@ def _coverage(library: Library) -> None:
                     .classes("text-xs opacity-60 shrink-0")
 
 
+_ASIDE_OPEN = "aside_open"
+
+
+def _prune(library: Library, record: Mapping[str, list[str]]) -> None:
+    """Write the dismissals back without the ids no row counts any more. Skipped where the
+    record could not be read, which says nothing about what is in it."""
+    if not library.dismissed_was_read():
+        return
+    changed = [(row, list(record.get(row, ()))) for row in list(library.dismissed())
+               if list(record.get(row, ())) != library.dismissed()[row]]
+    if not changed:
+        return
+
+    async def write() -> None:
+        for row, ids in changed:
+            try:
+                await run.io_bound(library.set_dismissed, row, ids)
+            except Exception:  # noqa: BLE001 - kept as it was; the next visit tries again
+                return
+
+    ui.timer(0.05, write, once=True)
+
+
 def overview(library: Library, registry: list[dict], discovery: dict,
              go: Callable[[str], None], state: dict[str, Any]) -> None:
-    rows = needs.collect(library, state)
+    arranged = needs.arrange(needs.collect(library, state), library.dismissed(),
+                             library.stopped(), library.watched().get("unread") or (),
+                             needs.blind(library))
+    _prune(library, arranged.record)
 
     def placed(game_ids: tuple[str, ...]) -> None:
         for game_id in game_ids:
@@ -212,12 +306,13 @@ def overview(library: Library, registry: list[dict], discovery: dict,
         if state.get("view") == "overview":
             go("overview")
 
-    def fix(need: needs.Need) -> Any:
+    def fix(need: needs.Need, only: tuple[str, ...] | None = None) -> Any:
         if need.fix is None:
             return None
         if need.fix.key == needs.GET_MEDIA:
-            return media_fill.confirm_kind(list(need.ids), need.fix.kind, state,
-                                           lambda: placed(need.ids))
+            ids = need.ids if only is None else only
+            return media_fill.confirm_kind(list(ids), need.fix.kind, state,
+                                           lambda: placed(ids))
         from console import devices
 
         return devices.confirm_update(library, _local_name(registry, discovery),
@@ -227,12 +322,14 @@ def overview(library: Library, registry: list[dict], discovery: dict,
         if state.get("view") == "overview":
             go("overview")
 
+    acts = set_aside.Acts(library, drawn_again)
+
     # The container the two columns answer to: this page's own width, not the window's,
     # which the workbench pane shares.
     with ui.element("div").classes("console-overview"), \
             ui.element("div").classes("console-overview-columns"):
         with ui.element("div").classes("console-overview-main"):
-            _needs_you(rows, state, fix)
+            _needs_you(arranged, state, fix, acts)
             with ui.element("div").props(f"id={METADATA_ID}"):
                 metadata(library.metadata_state(), _metadata_action(library, state, drawn_again),
                          state.get(_LEFT))

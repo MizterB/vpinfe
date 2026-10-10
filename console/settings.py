@@ -54,6 +54,7 @@ from console import (
     folder_picker,
     folders,
     input_page,
+    needs,
     offload,
     panel,
     placement_panel,
@@ -88,6 +89,9 @@ SOURCES_NOTE = (t("console.settings.sources_note"))
 # The library's answer, not this install's, so two machines reading one library report
 # the same gaps. Turning one off stops it being counted, never fixes what it found.
 CHECKS_NOTE = t("console.settings.checks_note")
+
+# This install's, unlike the checks: a device row is about the machine it is read on.
+OVERVIEW_NOTE = t("console.settings.overview_note")
 
 
 class Refusal:
@@ -543,10 +547,13 @@ async def _fill_kinds(library: Library, rerender: Callable[[], None], body: Any,
     orders them among its own settings rather than beside them.
 
     `columns` is for the long lists, the media and asset kinds: two columns, in name order
-    down the first and on into the second, so the list is a screen and not a scroll."""
+    down the first and on into the second, so the list is a screen and not a scroll.
+
+    The `console` section holds this install's own list; every other is the library's."""
+    device = section == "console"
     try:
         # This install's lists, read through /config like every other setting.
-        policy = await offload.io(library.library_policy)
+        policy = await offload.io(library.console_policy if device else library.library_policy)
         known = await offload.io(items, library)
     except Exception as exc:  # noqa: BLE001 - a settings page says why, never 500s
         said = [panel.intro(t("said.settings_unreadable"), hint=why(exc))]
@@ -557,13 +564,14 @@ async def _fill_kinds(library: Library, rerender: Callable[[], None], body: Any,
         return said
 
     on = set(known) - _listed(policy.get(key))
+    write = library.put_console_policy if device else library.put_library_policy
 
     @on_page
     async def flip(name: str, wanted_on: bool) -> None:
         after = (on | {name}) if wanted_on else (on - {name})
         store = sorted(set(known) - after)
         try:
-            await run.io_bound(library.put_library_policy, {key: store})
+            await run.io_bound(write, {key: store})
         except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
             ui.notify(t("console.settings.save_failed"), caption=why(exc), type="negative")
             return
@@ -606,8 +614,8 @@ async def _kind_rows(library: Library, rerender: Callable[[], None],
     found = KIND_PAGES.get(page)
     if found is None:
         return []
-    note, _section, name, items = found
-    return await _fill_kinds(library, rerender, None, note, "", name, items,
+    note, section, name, items = found
+    return await _fill_kinds(library, rerender, None, note, section, name, items,
                              page in TWO_COLUMNS)
 
 
@@ -899,6 +907,8 @@ KIND_PAGES: dict[str, tuple[str, str, str, Callable[[Any], dict[str, str]]]] = {
                                        for s in library.media_sources()}),
     "library_checks": (CHECKS_NOTE, "", "hidden_checks",
                        lambda _: _check_labels()),
+    "overview_rows": (OVERVIEW_NOTE, "console", "hidden_overview",
+                      lambda _: {key: needs.name_of(key) for key in needs.DEVICE_ROWS}),
 }
 
 
@@ -909,7 +919,8 @@ TWO_COLUMNS = frozenset({"media_kinds", "asset_kinds"})
 
 def _check_labels() -> dict[str, str]:
     from console.sections import CHECKS
-    return {key: name for key, name, _description, _predicate in CHECKS}
+    return {**{key: name for key, name, _description, _predicate in CHECKS},
+            "unreadable": needs.name_of("unreadable"), "newer": needs.name_of("newer")}
 
 async def _folders_page(library: Library, redraw: Callable[[], None],
                         state: dict[str, Any]) -> Callable[[], None]:
@@ -1064,6 +1075,7 @@ PAGE_KINDS: dict[str, tuple[tuple[str, str, str], ...]] = {
     "library.media": (("media_kinds", "console.settings.heading_kinds", "Wheels"),
               ("media_sources", "console.settings.heading_online_sources", "Wheels")),
     "library.assets": (("asset_kinds", "", ""),),
+    "vpinfe.console": (("overview_rows", "console.settings.heading_overview", ""),),
 }
 
 

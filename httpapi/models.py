@@ -3609,6 +3609,24 @@ class AcknowledgeRequest(ApiModel):
     vps_file_id: str
 
 
+class DismissedRow(ApiModel):
+    row: str
+    ids: list[str] = []
+
+
+class Dismissals(ApiModel):
+    """The Overview rows set aside on this install, each with the ids it counted when it
+    was. A row absent from the list is not dismissed."""
+
+    rows: list[DismissedRow] = []
+
+
+class DismissalRequest(ApiModel):
+    """What the row is dismissed over, replacing what it was. No ids brings it back."""
+
+    ids: list[str] = []
+
+
 class LibraryVpsKindTally(ApiModel):
     """One kind, counted in games rather than files. Games, because the question the
     rollup exists to answer is about the collection: a kind held by no game at all is

@@ -6,7 +6,7 @@ import inspect
 import json
 import logging
 from collections import Counter
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Collection, Mapping
 from dataclasses import replace
 from functools import partial
 from typing import Any
@@ -420,7 +420,7 @@ def _nothing_yet(words: str, library: Any, state: dict[str, Any],
     """What a page shows in place of a grid with no rows: where rows come from, and a
     way to pick up ones that arrived by hand. A link's filter is spent here, not held
     for the first row that appears."""
-    for key in ("arriving", "launcher", "sets", "reported"):
+    for key in ("arriving", "launcher", "sets", "reported", NEW_KEY):
         state.pop(key, None)
     sections.metadata_line(library, state)
     panel.facts(ui, [panel.intro(t(words, page=t("console.section.library_folders")))])
@@ -441,7 +441,11 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
         return
     tag_chips.install(library.tag_looks())
     renderers.install_collection_looks(library.smart_collections(), ui.context.client)
+    only_new = state.pop(NEW_KEY, None)
+    rows = stamp_new(rows, only_new)
     columns = grid_columns(rows, kinds, library)
+    if only_new is not None:
+        columns.append(new_column())
     all_fields = [definition["field"] for definition in columns]
     selected: list[dict[str, Any]] = []
 
@@ -472,6 +476,8 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
         # Taken once: a filter a link asked for is not put back on every redraw after.
         arriving = state.pop("arriving", None) \
             or ({"collections": {"values": [narrowed]}} if narrowed else None)
+        if only_new is not None:
+            arriving = {NEW_COLUMN: {"values": [new_label()]}}
         wire_views, view_picker, showing, describe = view_control(
             library, SCOPE, presets, all_fields, columns, bar=bar, annotate=annotate,
             arriving=arriving, art_in_lists=True)
@@ -850,6 +856,11 @@ OWN_SETTINGS_COLUMN = "own_settings"
 # The group of a kept report a table's game is in; a column only while a report asked for it.
 REPORTED_COLUMN = "reported"
 
+# The ids that joined an Overview row since it was dismissed, as `state[NEW_KEY]`, and the
+# column that lets a grid narrow to them.
+NEW_KEY = "only_new"
+NEW_COLUMN = "new_since"
+
 # The game's rating on a table's row: `rating` there is the table's own.
 GAME_RATING = "game_rating"
 
@@ -1158,6 +1169,25 @@ def stamp_report(built: list[dict[str, Any]],
     return built
 
 
+def new_label() -> str:
+    return t("console.games.new_group")
+
+
+def new_column() -> dict[str, Any]:
+    return grid.list_column(NEW_COLUMN, t("console.games.new_column"), 120,
+                            help=t("console.games.new_column.help"))
+
+
+def stamp_new(built: list[dict[str, Any]],
+              ids: Collection[str] | None) -> list[dict[str, Any]]:
+    """Each row says whether it joined a dismissed row's count since, in the New column.
+    Copies, so the library's own rows carry no mark."""
+    if ids is None:
+        return built
+    label = new_label()
+    return [{**row, NEW_COLUMN: [label] if str(row.get("id")) in ids else []} for row in built]
+
+
 def _mod_cell(mod: dict[str, Any] | None) -> dict[str, Any]:
     said = game_tables.mod_of_said(mod)
     return {"mod_of": _MOD if said else "", "mod_of_said": said}
@@ -1239,19 +1269,24 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
     renderers.install_setting_names(own_setting_names(library.setting_groups()))
     look = library.thumbnail_look()
     reported = state.pop("reported", None)
-    built = stamp_report(table_rows(rows, look is not None), reported)
+    only_new = state.pop(NEW_KEY, None)
+    built = stamp_new(stamp_report(table_rows(rows, look is not None), reported), only_new)
     # Taken once, as the Games grid takes its own.
     arriving = setting_their_own(rows, str(state.pop("launcher", None) or ""),
                                  str(state.pop("sets", None) or ""))
     arriving = state.pop("arriving", None) or arriving
     if reported is not None:
         arriving = {REPORTED_COLUMN: {"values": [reported.label]}}
+    if only_new is not None:
+        arriving = {NEW_COLUMN: {"values": [new_label()]}}
     table_columns = grid.with_art(TABLE_COLUMNS, look) \
         + table_asset_columns(table_asset_keys(library))
     if reported is not None:
         table_columns.append(grid.list_column(
             REPORTED_COLUMN, t("console.games.import_group"), 160,
             help=t("console.games.import_group.help")))
+    if only_new is not None:
+        table_columns.append(new_column())
     fields = [definition["field"] for definition in table_columns]
 
     sections.metadata_line(library, state)

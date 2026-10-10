@@ -8,8 +8,8 @@ can open the grid on exactly what the row counted.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from dataclasses import dataclass, field
+from collections.abc import Collection, Mapping
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from common import feature_checks
@@ -64,10 +64,20 @@ class Need:
     ids: tuple[str, ...] = ()
     unit: str = ""
     fix: Fix | None = None
+    # What a dismissal of a row with no ids of its own is recorded against: the version
+    # that is out, the job that had errors.
+    token: tuple[str, ...] = ()
+    # The ids that joined since the row was dismissed. Only set by `arrange`.
+    new: tuple[str, ...] = ()
 
     @property
     def count(self) -> int:
         return len(self.ids)
+
+    @property
+    def covered(self) -> tuple[str, ...]:
+        """What a dismissal of this row is recorded against."""
+        return self.ids or self.token
 
     def counted(self) -> str:
         """The count in its own unit, or "" for a row that has none."""
@@ -103,7 +113,7 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
     # line from `sections`.
     from console import games, sections
 
-    hidden = library.hidden_checks()
+    hidden = library.stopped()
     found = sections.findings(library)
     names = {key: (name, why) for key, name, why, _ in sections.CHECKS}
     watched = library.watched()
@@ -120,7 +130,7 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
     if any(one.where == feature_checks.WHERE_LAUNCHERS for one in state.get("trouble") or ()):
         rows.append(Need("launchers", t("console.needs.launchers"),
                          t("console.needs.launchers.tip"), DANGER, verbs.CANNOT_PLAY,
-                         Opens("launchers")))
+                         Opens("launchers"), token=("launchers",)))
 
     unreadable = tuple(sorted(str(row.get("folder") or "")
                               for row in library.metadata_state().get("unreadable") or ()))
@@ -153,7 +163,8 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
         rows.append(Need("fill_errors", t("console.needs.fill_errors"),
                          t("console.needs.fill_errors.tip"), WARM, verbs.HAD_ERRORS,
                          Opens("jobs", keys={"jobs_outcome": jobs_list.outcome_of(fill),
-                                             "jobs_find": jobs_list.named(fill)})))
+                                             "jobs_find": jobs_list.named(fill)}),
+                         token=(str(fill.get("id") or "fill"),)))
 
     update = watched.get("update") or {}
     if update.get("update_available") and not update.get("error"):
@@ -165,7 +176,7 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
         rows.append(Need(UPDATE, t("console.needs.update", version=latest) if latest
                          else t("console.needs.update_unnamed"),
                          t("console.needs.update.tip"), ACCENT, verbs.UPDATE,
-                         Opens("about"), fix=fix))
+                         Opens("about"), fix=fix, token=(latest or UPDATE,)))
 
     newer = tuple(sorted(str(row.get("id") or "") for row in library.table_rows()
                          if row.get("update_available")))
@@ -190,3 +201,152 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
                          t("console.needs.unread.tip", what=unread), MUTED, verbs.HAD_ERRORS,
                          Opens(then=RETRY)))
     return [one for one in rows if one is not None and one.key not in hidden]
+
+
+# Every row that can be set aside, in cost order. `unread` is not one: it is the page saying
+# it could not look, and setting that aside would hide the one thing it must say.
+ORDER = ("rom_missing", "launchers", "unreadable", "unmatched", "no_playfield",
+         "no_backglass", "no_media", "fill_errors", "update", "newer", "recordings", "no_year")
+
+# The rows about this install rather than the library. Their stop is this install's alone;
+# a library row's is the library's, as the Audit page already keeps it.
+DEVICE_ROWS = ("launchers", "fill_errors", "update", "recordings")
+
+# What a row's read cannot say while that read failed, by row.
+_READ_BY = {"update": "update", "recordings": "recordings", "fill_errors": "fill"}
+
+_ICONS = {"rom_missing": verbs.CANNOT_PLAY, "launchers": verbs.CANNOT_PLAY,
+          "unreadable": verbs.CANNOT_PLAY, "unmatched": verbs.NO_MATCH,
+          "no_playfield": verbs.NO_ART, "no_backglass": verbs.NO_ART,
+          "no_media": verbs.NO_MEDIA, "fill_errors": verbs.HAD_ERRORS,
+          "update": verbs.UPDATE, "newer": verbs.NEWER_RELEASE,
+          "recordings": verbs.REVIEW, "no_year": verbs.NO_YEAR}
+
+
+def is_device(key: str) -> bool:
+    return key in DEVICE_ROWS
+
+
+def can_set_aside(key: str) -> bool:
+    return key in ORDER
+
+
+def blind(library: Any) -> set[str]:
+    """The rows that are absent because nothing could be counted, not because nothing is
+    wrong: no VPX to audit roms against, no catalog to compare versions with, a kind of
+    media the library does not collect."""
+    from console import sections
+
+    rows = library.table_rows()
+    out: set[str] = set()
+    if all(row.get("rom_installed") is None for row in rows):
+        out.add("rom_missing")
+    if all(row.get("update_available") is None for row in rows):
+        out.add("newer")
+    collected = library.kept_kinds()["media"]
+    out |= {key for key, kind in sections.FILLS.items() if kind not in collected}
+    if not collected:
+        out.add("no_media")
+    return out
+
+
+def name_of(key: str) -> str:
+    """What a row is called while it is not drawn as one: in Set Aside, on the Audit page
+    and beside its switch. The row itself may carry more, like the version."""
+    from console import sections
+
+    checks = {one[0]: one[1] for one in sections.CHECKS}
+    if key in checks:
+        return checks[key]
+    return {"launchers": t("console.needs.launchers"),
+            "unreadable": t("console.needs.unreadable"),
+            "fill_errors": t("console.needs.fill_errors"),
+            "update": t("console.needs.update_unnamed"),
+            "newer": t("console.games.filter_newer"),
+            "recordings": t("console.needs.recordings")}[key]
+
+
+def comes_back(key: str) -> str:
+    """When a dismissed row is drawn again, in the words the menu and the chip both use."""
+    return {"rom_missing": t("console.needs.back.rom_missing"),
+            "launchers": t("console.needs.back.launchers"),
+            "unreadable": t("console.needs.back.unreadable"),
+            "unmatched": t("console.needs.back.unmatched"),
+            "no_playfield": t("console.needs.back.no_playfield"),
+            "no_backglass": t("console.needs.back.no_backglass"),
+            "no_media": t("console.needs.back.no_media"),
+            "fill_errors": t("console.needs.back.fill_errors"),
+            "update": t("console.needs.back.update"),
+            "newer": t("console.needs.back.newer"),
+            "recordings": t("console.needs.back.recordings"),
+            "no_year": t("console.needs.back.no_year")}[key]
+
+
+@dataclass(frozen=True)
+class Aside:
+    """A row that is not drawn among the rest: dismissed over what it counted, or not
+    being checked at all."""
+
+    key: str
+    label: str
+    icon: str
+    chip: str
+    tip: str
+    # False where it was dismissed, which Show Again undoes; True where its check is off,
+    # which Check Again turns back on.
+    stopped: bool = False
+
+
+@dataclass(frozen=True)
+class Arranged:
+    rows: list[Need]
+    aside: list[Aside]
+    # The dismissals as they stand once what no row counts any more has left them.
+    record: dict[str, list[str]]
+
+
+def _dismissed_aside(need: Need) -> Aside:
+    skipped = need.key == UPDATE
+    return Aside(need.key, need.label, need.icon,
+                 t("console.needs.chip_skipped") if skipped else t("console.needs.chip_dismissed"),
+                 comes_back(need.key))
+
+
+def _stopped_aside(key: str) -> Aside:
+    return Aside(key, name_of(key), _ICONS[key], t("console.needs.chip_stopped"),
+                 t("console.needs.chip_stopped.tip"), stopped=True)
+
+
+def arrange(rows: list[Need], record: Mapping[str, list[str]], stopped: set[str],
+            unread: Any = (), blind: Collection[str] = ()) -> Arranged:
+    """Which rows draw, which are set aside, and what is left of the dismissals.
+
+    A row stays away while every id it counts is in its record. When one joins, the row
+    returns with its true total and the new ones marked - unless none of the old ones is
+    left, in which case it is a different finding and carries no mark. An id the row no
+    longer counts leaves the record, except where the row is absent because its check is
+    off, its read failed or it was `blind`: there nothing says the id is gone.
+    """
+    shown: list[Need] = []
+    aside: list[Aside] = []
+    kept: dict[str, list[str]] = {}
+    for need in rows:
+        covered = need.covered
+        held = set(record.get(need.key, ()))
+        still = [one for one in covered if one in held]
+        if still:
+            kept[need.key] = still
+        new = tuple(one for one in covered if one not in held)
+        if not held or not covered:
+            shown.append(need)
+        elif not new:
+            aside.append(_dismissed_aside(need))
+        else:
+            shown.append(replace(need, new=new) if still else need)
+    present = {one.key for one in rows}
+    for key, ids in record.items():
+        if key not in present and (key in stopped or key in blind
+                                     or _READ_BY.get(key) in unread):
+            kept[key] = list(ids)
+    aside += [_stopped_aside(key) for key in ORDER if key in stopped]
+    return Arranged(shown, aside, kept)

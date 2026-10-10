@@ -16,6 +16,12 @@ from tests.support import trees
 CONSOLE = pathlib.Path(__file__).resolve().parent.parent.parent / "console"
 GUARD = "_suppress_empty_menu"
 
+# file -> why its context menu is not a grid's.
+NOT_A_GRID = {
+    "sections.py": "A row on Overview carries the same entries as its more-options menu, "
+                   "and those are never empty.",
+}
+
 
 def _calls(tree: ast.AST, attr: str) -> list[ast.Call]:
     return [node for node in ast.walk(tree)
@@ -49,7 +55,8 @@ class ContextMenusAreGuarded(unittest.TestCase):
         stray: list[str] = []
         for path in sorted(CONSOLE.rglob("*.py")):
             tree = trees.tree_for(path)
-            if _calls(tree, "context_menu") and not _calls(tree, "build"):
+            if (_calls(tree, "context_menu") and not _calls(tree, "build")
+                    and path.name not in NOT_A_GRID):
                 stray.append(path.name)
         self.assertEqual([], stray, f"context menus built outside grid.build: {stray}")
 

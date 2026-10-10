@@ -199,6 +199,20 @@ def acknowledge(payload: models.AcknowledgeRequest) -> models.Acknowledged:
     return models.Acknowledged(ok=True)
 
 
+@router.get("/dismissed", summary="Which Overview rows are set aside, and over what",
+            dependencies=[requires(scopes.GAMES_READ)])
+def get_dismissed() -> models.Dismissals:
+    return models.Dismissals.model_validate(library_ops.dismissed())
+
+
+@router.put("/dismissed/{row}", summary="Set an Overview row aside over these ids",
+            dependencies=[requires(scopes.GAMES_WRITE)])
+def put_dismissed(row: str, payload: models.DismissalRequest) -> models.Dismissals:
+    """Replaces what the row was dismissed over. The row stays away while every id it
+    counts is in the list; none at all brings it back."""
+    return models.Dismissals.model_validate(library_ops.dismiss(row, payload.ids))
+
+
 @router.get("/vps_state", summary="What the catalog lists across the whole library",
             dependencies=[requires(scopes.GAMES_READ)])
 def library_vps_state() -> models.LibraryVpsState:

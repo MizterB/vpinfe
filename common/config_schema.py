@@ -546,6 +546,9 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             choices=("region", "cm", "in"),
             group=setting_groups.MEASUREMENTS,
         ),
+        # Switches on the Console page, so the schema does not also draw it as a line of text.
+        ConfigOption("hidden_overview", type="list", default="", home="vpinfe.console",
+                     group=setting_groups.OVERVIEW),
     ),
     # Programs on this machine VPinFE shells out to. Each is discovered first, and set
     # here only where discovery finds nothing or picks the wrong one.

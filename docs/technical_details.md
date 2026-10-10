@@ -107,6 +107,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | `times` | choice (24h, 12h) | `24h` | How a time of day is written, where the Console shows one |
 | `relative_dates` | bool | `true` | Anything from the last month says how long ago it was, whatever the format |
 | `units` | choice (region, cm, in) | `region` | How the Console writes a length. By default this computer's country decides |
+| `hidden_overview` | list |  | Overview rows that stay quiet. A row left on reports whatever it finds. |
 
 ### `tools`
 

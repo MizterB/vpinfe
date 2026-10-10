@@ -120,6 +120,8 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/library/watching` | Since when a catalog change counts as new. Empty until somebody answers |
 | PUT | `/api/v1/library/watching` | Set it, `{"since": ...}` |
 | POST | `/api/v1/library/watching/acknowledge` | Dismiss one catalog change, `{"game_id", "kind", "vps_file_id"}` |
+| GET | `/api/v1/library/dismissed` | The Overview rows set aside on this install, each with the ids it counted |
+| PUT | `/api/v1/library/dismissed/{row}` | Replace what a row was dismissed over, `{"ids": [...]}`; none brings it back |
 | GET | `/api/v1/devices` | The devices this install knows about |
 | PUT | `/api/v1/devices` | Record an install (idempotent), for one mDNS cannot reach. `port` is declared by the caller - the address is read off the socket, which never says what that device listens on. A `vpx_mobile` body is refused with `400`: a VPX Mobile device is listed at `/config/mobile_devices` |
 | GET | `/api/v1/devices/discovered` | Installs announcing themselves on this network right now. Announcements, not records: nothing here has been decided about |

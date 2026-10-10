@@ -34,6 +34,9 @@ NOT_A_REGION: dict[tuple[str, str], str] = {
     ("app_settings.py", "selection_section"):
         "Shows the line saying the settings are still being read, once the read has taken "
         "a second. It is the busy mark itself and fills nothing.",
+    ("sections.py", "_prune"):
+        "Writes the dismissals back without the ids nothing counts, once Overview is "
+        "drawn. Fills no region.",
     ("about.py", "_show_to_copy"):
         "Selects the text in a dialog once the dialog has focused itself. Draws nothing.",
 }

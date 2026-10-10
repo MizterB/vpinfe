@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import unittest
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 from common import feature_checks
 from common.jobs import DONE, FAILED
@@ -29,6 +30,9 @@ class FakeLibrary:
         return self._tables
 
     def hidden_checks(self):
+        return self._hidden
+
+    def stopped(self):
         return self._hidden
 
     def kept_kinds(self):
@@ -221,6 +225,134 @@ class MediaFill(unittest.TestCase):
     def test_a_clean_fill_is_not(self):
         lib = FakeLibrary(watched={"fill": self._fill(DONE)})
         self.assertEqual([], needs.collect(lib, {}))
+
+
+def bare(key, ids=(), token=()):
+    return needs.Need(key, key, "", needs.WARM, "x", needs.Opens(), tuple(ids),
+                      "console.games.games", token=tuple(token))
+
+
+class SettingAsideOverWhatItCounted(unittest.TestCase):
+    def test_a_row_stays_away_while_every_id_it_counts_is_in_the_record(self):
+        arranged = needs.arrange([bare("unmatched", ["a", "b"])], {"unmatched": ["a", "b"]},
+                                 set())
+        self.assertEqual([], arranged.rows)
+        self.assertEqual(["unmatched"], [one.key for one in arranged.aside])
+        self.assertEqual({"unmatched": ["a", "b"]}, arranged.record)
+
+    def test_a_row_with_nothing_recorded_draws_whole(self):
+        arranged = needs.arrange([bare("unmatched", ["a"])], {}, set())
+        self.assertEqual(["unmatched"], keys(arranged.rows))
+        self.assertEqual((), arranged.rows[0].new)
+
+    def test_a_joiner_brings_it_back_with_the_true_total_and_the_new_marked(self):
+        arranged = needs.arrange([bare("unmatched", ["a", "b", "c"])],
+                                 {"unmatched": ["a", "b"]}, set())
+        self.assertEqual(3, arranged.rows[0].count)
+        self.assertEqual(("c",), arranged.rows[0].new)
+        self.assertEqual([], arranged.aside)
+
+    def test_what_the_row_no_longer_counts_leaves_the_record(self):
+        arranged = needs.arrange([bare("unmatched", ["a", "c"])], {"unmatched": ["a", "b"]},
+                                 set())
+        self.assertEqual({"unmatched": ["a"]}, arranged.record)
+
+    def test_a_row_whose_old_ids_are_all_gone_is_a_different_finding_and_unmarked(self):
+        arranged = needs.arrange([bare("unmatched", ["c"])], {"unmatched": ["a"]}, set())
+        self.assertEqual((), arranged.rows[0].new)
+        self.assertEqual({}, arranged.record)
+
+    def test_a_row_not_checked_keeps_its_record_but_an_absent_one_keeps_nothing(self):
+        record = {"unmatched": ["a"], "no_year": ["b"]}
+        arranged = needs.arrange([], record, {"no_year"})
+        self.assertEqual({"no_year": ["b"]}, arranged.record)
+
+    def test_a_read_that_failed_keeps_its_record(self):
+        arranged = needs.arrange([], {"update": ["3.1"], "unmatched": ["a"]}, set(),
+                                 ["update"])
+        self.assertEqual({"update": ["3.1"]}, arranged.record)
+
+    def test_a_blind_row_keeps_its_record(self):
+        arranged = needs.arrange([], {"rom_missing": ["t-a"], "unmatched": ["a"]}, set(), (),
+                                 {"rom_missing"})
+        self.assertEqual({"rom_missing": ["t-a"]}, arranged.record)
+
+    def test_a_row_with_no_ids_is_dismissed_over_its_token(self):
+        row = bare("update", token=["3.1"])
+        self.assertEqual([], needs.arrange([row], {"update": ["3.1"]}, set()).rows)
+        self.assertEqual(["update"], keys(needs.arrange([row], {"update": ["3.0"]}, set()).rows))
+
+    def test_the_unread_row_is_never_set_aside(self):
+        row = needs.Need("unread", "x", "", needs.MUTED, "x", needs.Opens(then=needs.RETRY))
+        self.assertEqual(["unread"], keys(needs.arrange([row], {"unread": ["x"]}, set()).rows))
+
+    def test_a_stopped_check_is_set_aside_as_not_checked(self):
+        arranged = needs.arrange([], {}, {"no_year", "recordings"})
+        self.assertEqual(["recordings", "no_year"], [one.key for one in arranged.aside])
+        self.assertTrue(all(one.stopped for one in arranged.aside))
+
+    def test_an_update_dismissal_says_skipped(self):
+        arranged = needs.arrange([bare("update", token=["3.1"])], {"update": ["3.1"]}, set())
+        self.assertEqual("Skipped", arranged.aside[0].chip)
+
+
+class WhereAStopIsKept(unittest.TestCase):
+    def test_a_device_row_is_this_installs_and_a_library_row_the_librarys(self):
+        self.assertTrue(all(needs.is_device(key) for key in
+                            ("launchers", "fill_errors", "update", "recordings")))
+        self.assertFalse(any(needs.is_device(key) for key in
+                             ("rom_missing", "unreadable", "unmatched", "newer", "no_year")))
+
+    def test_the_unread_row_cannot_be_set_aside(self):
+        self.assertFalse(needs.can_set_aside("unread"))
+        self.assertTrue(all(needs.can_set_aside(key) for key in needs.ORDER))
+
+    def test_no_vpx_and_no_catalog_leave_the_rom_and_newer_rows_blind(self):
+        library = FakeLibrary(tables=[table("a", rom_installed=None, update_available=None)])
+        self.assertEqual({"rom_missing", "newer"}, needs.blind(library))
+
+    def test_a_row_the_library_can_count_is_not_blind(self):
+        library = FakeLibrary(tables=[table("a", rom_installed=True, update_available=False)])
+        self.assertEqual(set(), needs.blind(library))
+
+    def test_a_kind_the_library_does_not_collect_leaves_its_row_blind(self):
+        library = FakeLibrary(tables=[table("a", rom_installed=True, update_available=False)],
+                              collected=("backglass",))
+        self.assertEqual({"no_playfield"}, needs.blind(library))
+
+    def test_every_row_that_can_be_set_aside_has_a_name_and_a_line_on_when_it_returns(self):
+        for key in needs.ORDER:
+            self.assertTrue(needs.name_of(key), key)
+            self.assertTrue(needs.comes_back(key), key)
+
+
+class StoppingOneRowKeepsTheOthers(unittest.TestCase):
+    def setUp(self) -> None:
+        self.client = Mock()
+        self.client.library_policy.return_value = {"hidden_checks": ["no_year"]}
+        self.client.console_policy.return_value = {"hidden_overview": ["recordings"]}
+        self.client.put_library_policy.return_value = {}
+        self.library = Library(self.client)
+
+    def test_a_library_row_is_added_to_what_the_server_holds_not_to_what_the_page_held(self):
+        self.library.set_checking("unmatched", False, device=False)
+        self.client.put_library_policy.assert_called_once_with(
+            {"hidden_checks": ["no_year", "unmatched"]})
+
+    def test_a_device_row_is_added_to_what_the_server_holds(self):
+        self.library.set_checking("update", False, device=True)
+        self.client.put_console_policy.assert_called_once_with(
+            {"hidden_overview": ["recordings", "update"]})
+
+    def test_checking_again_takes_only_that_row_out(self):
+        self.library.set_checking("recordings", True, device=True)
+        self.client.put_console_policy.assert_called_once_with({"hidden_overview": []})
+
+    def test_a_policy_that_cannot_be_read_writes_nothing(self):
+        self.client.library_policy.side_effect = OSError("refused")
+        with self.assertRaises(OSError):
+            self.library.set_checking("unmatched", False, device=False)
+        self.client.put_library_policy.assert_not_called()
 
 
 if __name__ == "__main__":

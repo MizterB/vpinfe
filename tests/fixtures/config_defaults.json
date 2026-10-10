@@ -46,7 +46,8 @@
     "dates": "language",
     "relative_dates": "true",
     "times": "24h",
-    "units": "region"
+    "units": "region",
+    "hidden_overview": ""
   },
   "device": {
     "features": "library,frontend,devices",

@@ -260,6 +260,16 @@ def acknowledge(game_id: str, kind: str, vps_file_id: str) -> None:
     watching.acknowledge(game_id, kind, vps_file_id)
 
 
+def dismissed() -> dict[str, Any]:
+    return {"rows": [{"row": row, "ids": ids} for row, ids in watching.dismissed().items()]}
+
+
+def dismiss(row: str, ids: Iterable[str]) -> dict[str, Any]:
+    """Replace what one Overview row was dismissed over; none at all brings it back."""
+    watching.dismiss(row, ids)
+    return dismissed()
+
+
 def vps_rollup() -> dict[str, Any]:
     """The last rollup counted, and when. Never live: counting it resolves media for
     every game, which measured 650ms over 149 folders."""

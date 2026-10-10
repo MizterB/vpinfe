@@ -227,6 +227,9 @@ class Library:
         self._launch_apps: list[dict[str, Any]] | None = None
         self._discovery: dict[str, Any] = {}
         self._hidden_checks: set[str] | None = None
+        self._hidden_overview: set[str] | None = None
+        self._dismissed: dict[str, list[str]] = {}
+        self._dismissed_read = False
         self._watched: dict[str, Any] | None = None
         self._watched_at = 0.0
         self._tags: list[dict[str, Any]] = []
@@ -1031,11 +1034,23 @@ class Library:
         except Exception:  # noqa: BLE001 - a report that cannot read a preference still runs
             policy = {}
         self._hidden_checks = {str(one) for one in (policy.get("hidden_checks") or [])}
+        try:
+            console = self.console_policy()
+        except Exception:  # noqa: BLE001 - as above
+            console = {}
+        self._hidden_overview = {str(one) for one in (console.get("hidden_overview") or [])}
+        try:
+            self._dismissed = self._client.dismissed()
+            self._dismissed_read = True
+        except Exception:  # noqa: BLE001 - a row that comes back is better than a page that cannot draw
+            logger.debug("console: could not read what was dismissed", exc_info=True)
+            self._dismissed, self._dismissed_read = {}, False
         self._watched = self._read_watched()
         self._watched_at = time.monotonic()
 
     def has_overview(self) -> bool:
         return (self._table_rows is not None and self._hidden_checks is not None
+                and self._hidden_overview is not None
                 and not self._media_missing() and self._watched is not None
                 and time.monotonic() - self._watched_at < WATCHED_FRESH_S)
 
@@ -1095,6 +1110,47 @@ class Library:
 
     def hidden_checks(self) -> set[str]:
         return self._hidden_checks or set()
+
+    def hidden_overview(self) -> set[str]:
+        """The device rows Overview has stopped checking, as the last read held them."""
+        return self._hidden_overview or set()
+
+    def stopped(self) -> set[str]:
+        """Every Overview row not being checked, library and device alike."""
+        return self.hidden_checks() | self.hidden_overview()
+
+    def dismissed(self) -> dict[str, list[str]]:
+        """Each row set aside, with the ids it counted. Already read - this asks nothing."""
+        return self._dismissed
+
+    def dismissed_was_read(self) -> bool:
+        """False where the record could not be read, which is when it must not be pruned
+        against what the rows now count."""
+        return self._dismissed_read
+
+    def set_dismissed(self, row: str, ids: list[str]) -> None:
+        """Replace what `row` was dismissed over; none brings it back. Off the loop."""
+        self._client.put_dismissed(row, ids)
+        if ids:
+            self._dismissed[row] = list(ids)
+        else:
+            self._dismissed.pop(row, None)
+
+    def set_checking(self, key: str, on: bool, *, device: bool) -> None:
+        """Start or stop checking one Overview row: a device row in the Console's list, a
+        library row in the library's. Off the loop.
+
+        The list is read again here, not taken from the page: that is empty after any write
+        and after a failed read, and writing from it would switch on every other row that is
+        off."""
+        policy = self.console_policy() if device else self.library_policy()
+        kept = {str(one) for one in
+                (policy.get("hidden_overview" if device else "hidden_checks") or [])}
+        after = sorted(kept - {key} if on else kept | {key})
+        if device:
+            self.put_console_policy({"hidden_overview": after})
+        else:
+            self.put_library_policy({"hidden_checks": after})
 
     # --- collections ----------------------------------------------------------
     # Held, because render() runs on the event loop and the client refuses an HTTP call
@@ -1576,6 +1632,14 @@ class Library:
         answer = self._client.put_library_policy(changes)
         self._kept = _kept_of(answer)
         return answer
+
+    def console_policy(self) -> dict:
+        """What this install's Console shows, read when asked for."""
+        return self._client.console_policy()
+
+    def put_console_policy(self, changes: dict) -> dict:
+        self._hidden_overview = None
+        return self._client.put_console_policy(changes)
 
     def offered_media(self, game_id: str) -> dict[str, int]:
         """How many files the catalog lists for each of our media kinds, counting only

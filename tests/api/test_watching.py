@@ -182,5 +182,38 @@ class TransitionTests(TempTree):
         self.assertTrue(self._b2s()["updated"])
 
 
+class OverviewDismissalTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.dir.cleanup)
+        patcher = patch.object(watching, "WATCHING_PATH",
+                               Path(self.dir.name) / "watching.json")
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
+
+    def test_a_row_nobody_dismissed_is_absent(self) -> None:
+        self.assertEqual({"rows": []}, self.client.get("/library/dismissed").json())
+
+    def test_a_dismissal_replaces_what_the_row_held_and_none_takes_it_back(self) -> None:
+        self.client.put("/library/dismissed/no_year", json={"ids": ["a", "b"]})
+        self.client.put("/library/dismissed/no_year", json={"ids": ["b", "c", "c"]})
+
+        self.assertEqual({"rows": [{"row": "no_year", "ids": ["b", "c"]}]},
+                         self.client.get("/library/dismissed").json())
+
+        self.client.put("/library/dismissed/no_year", json={"ids": []})
+
+        self.assertEqual({"rows": []}, self.client.get("/library/dismissed").json())
+
+    def test_a_game_forgotten_leaves_the_rows_alone(self) -> None:
+        """A row is dismissed over ids the library counts; forgetting one game's
+        baseline is not a statement about them."""
+        self.client.put("/library/dismissed/unmatched", json={"ids": ["g1"]})
+        watching.forget("g1")
+
+        self.assertEqual({"unmatched": ["g1"]}, watching.dismissed())
+
+
 if __name__ == "__main__":
     unittest.main()

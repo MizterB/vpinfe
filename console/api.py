@@ -1270,6 +1270,23 @@ class ApiClient:
         """A patch. Only the keys sent are written."""
         return dict(self.put_config({"library": changes}).get("library") or {})
 
+    def console_policy(self) -> dict:
+        """What this install's Console shows: the `console` section of the settings."""
+        return dict(self.config_values().get("console") or {})
+
+    def put_console_policy(self, changes: dict) -> dict:
+        """A patch. Only the keys sent are written."""
+        return dict(self.put_config({"console": changes}).get("console") or {})
+
+    def dismissed(self) -> dict[str, list[str]]:
+        """Each Overview row set aside on this install, with the ids it counted."""
+        found = self._get("/library/dismissed").get("rows") or []
+        return {str(one["row"]): [str(item) for item in one.get("ids") or []] for one in found}
+
+    def put_dismissed(self, row: str, ids: list[str]) -> None:
+        """Replace what a row was dismissed over; none brings it back."""
+        self._put(f"/library/dismissed/{quote(row, safe='')}", {"ids": list(ids)})
+
     def config_path_checks(self) -> list[dict]:
         """Whether each path setting finds anything on the machine holding it. Stats the
         disk, so it is answered by that install and not worked out from the value."""
