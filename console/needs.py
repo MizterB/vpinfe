@@ -23,7 +23,7 @@ DANGER, WARM, ACCENT, MUTED = "danger", "warm", "accent", "muted"
 METADATA, REVIEW, RETRY = "metadata", "review", "retry"
 
 # A fix VPinFE can do itself, drawn as the icon at the row's end.
-GET_MEDIA, UPDATE = "get_media", "update"
+GET_MEDIA, UPDATE, FETCH_FIXES = "get_media", "update", "fetch_fixes"
 
 _UNIT_GAMES = "console.games.games"
 _UNIT_TABLES = "console.games.tables"
@@ -91,6 +91,13 @@ def _games_without(key: str, found: Mapping[str, list[dict[str, Any]]],
     if not ids:
         return None
     return Need(key, label, tip, tone, icon, opens, ids, _UNIT_GAMES, fix)
+
+
+def script_fixes_opens(ids: tuple[str, ...]) -> Opens:
+    """The Tables grid on the tables a script fix is published for."""
+    from console import games
+
+    return Opens("tables", keys={games.FIXES_KEY: ids})
 
 
 def blank(name: str) -> dict[str, Any]:
@@ -186,6 +193,14 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
                          Opens("tables", games.NEWER_ON_VPS),
                          newer, _UNIT_TABLES))
 
+    if mended := library.script_fix_tables():
+        rows.append(Need("script_fixes", t("console.sections.script_fixes"),
+                         t("console.needs.script_fixes.tip"), ACCENT, verbs.FETCH,
+                         script_fixes_opens(mended),
+                         mended, _UNIT_TABLES,
+                         Fix(FETCH_FIXES, t("word.fetch"),
+                             t("console.needs.script_fixes.fetch.help"), verbs.FETCH)))
+
     waiting = tuple(sorted(one for one in watched.get("recordings") or () if one))
     if waiting:
         rows.append(Need("recordings", t("console.needs.recordings"),
@@ -206,7 +221,8 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
 # Every row that can be set aside, in cost order. `unread` is not one: it is the page saying
 # it could not look, and setting that aside would hide the one thing it must say.
 ORDER = ("rom_missing", "launchers", "unreadable", "unmatched", "no_playfield",
-         "no_backglass", "no_media", "fill_errors", "update", "newer", "recordings", "no_year")
+         "no_backglass", "no_media", "fill_errors", "update", "newer", "script_fixes", "recordings",
+         "no_year")
 
 # The rows about this install rather than the library. Their stop is this install's alone;
 # a library row's is the library's, as the Audit page already keeps it.
@@ -220,7 +236,8 @@ _ICONS = {"rom_missing": verbs.CANNOT_PLAY, "launchers": verbs.CANNOT_PLAY,
           "no_playfield": verbs.NO_ART, "no_backglass": verbs.NO_ART,
           "no_media": verbs.NO_MEDIA, "fill_errors": verbs.HAD_ERRORS,
           "update": verbs.UPDATE, "newer": verbs.NEWER_RELEASE,
-          "recordings": verbs.REVIEW, "no_year": verbs.NO_YEAR}
+          "script_fixes": verbs.FETCH, "recordings": verbs.REVIEW,
+          "no_year": verbs.NO_YEAR}
 
 
 def is_device(key: str) -> bool:
@@ -243,6 +260,9 @@ def blind(library: Any) -> set[str]:
         out.add("rom_missing")
     if all(row.get("update_available") is None for row in rows):
         out.add("newer")
+    patches = library.script_patches()
+    if not patches or patches.get("reachable") is False:
+        out.add("script_fixes")
     collected = library.kept_kinds()["media"]
     out |= {key for key, kind in sections.FILLS.items() if kind not in collected}
     if not collected:
@@ -263,6 +283,7 @@ def name_of(key: str) -> str:
             "fill_errors": t("console.needs.fill_errors"),
             "update": t("console.needs.update_unnamed"),
             "newer": t("console.games.filter_newer"),
+            "script_fixes": t("console.sections.script_fixes"),
             "recordings": t("console.needs.recordings")}[key]
 
 
@@ -278,6 +299,7 @@ def comes_back(key: str) -> str:
             "fill_errors": t("console.needs.back.fill_errors"),
             "update": t("console.needs.back.update"),
             "newer": t("console.needs.back.newer"),
+            "script_fixes": t("console.needs.back.script_fixes"),
             "recordings": t("console.needs.back.recordings"),
             "no_year": t("console.needs.back.no_year")}[key]
 

@@ -917,7 +917,8 @@ TWO_COLUMNS = frozenset({"media_kinds", "asset_kinds"})
 def _check_labels() -> dict[str, str]:
     from console.sections import CHECKS
     return {**{key: name for key, name, _description, _predicate in CHECKS},
-            "unreadable": needs.name_of("unreadable"), "newer": needs.name_of("newer")}
+            "unreadable": needs.name_of("unreadable"), "newer": needs.name_of("newer"),
+            "script_fixes": needs.name_of("script_fixes")}
 
 async def _folders_page(library: Library, redraw: Callable[[], None],
                         state: dict[str, Any]) -> Callable[[], None]:

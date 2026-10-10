@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from collections.abc import Iterable
 from typing import Any
@@ -1276,6 +1277,22 @@ class Library:
                            exc_info=True)
             self._script_patches = {}
         return self._script_patches
+
+    def script_fix_tables(self) -> tuple[str, ...]:
+        """The tables the last check offered a fix for, by id: the default table of each
+        game the index named by its folder."""
+        offered = {str(one) for one in self.script_patches().get("offered") or ()}
+        if not offered:
+            return ()
+        games = {str(game["id"]) for game in self.games
+                 if re.split(r"[\\/]", str(game.get("folder") or "").rstrip("\\/"))[-1]
+                 in offered}
+        return tuple(sorted(str(row["id"]) for row in self.table_rows()
+                            if row.get("default") and str(row.get("game_id")) in games))
+
+    def forget_script_patches(self) -> None:
+        """Back to not having asked, once a fetch has begun and the answer is stale."""
+        self._script_patches = None
 
     def read_metadata_state(self) -> dict[str, Any]:
         """Ask again. Off the event loop, and after anything that rewrites a `.info`."""

@@ -17,7 +17,7 @@ from console.data import Library
 
 class FakeLibrary:
     def __init__(self, games_=(), tables=(), watched=None, hidden=(), unreadable=(),
-                 collected=("playfield", "backglass")):
+                 collected=("playfield", "backglass"), patches=None, fixed=()):
         self.games = list(games_)
         self.media = {g["id"]: g.get("media", {}) for g in self.games}
         self._tables = list(tables)
@@ -25,6 +25,14 @@ class FakeLibrary:
         self._hidden = set(hidden)
         self._unreadable = list(unreadable)
         self._collected = set(collected)
+        self._patches = {"reachable": True, "offered": []} if patches is None else patches
+        self._fixed = tuple(fixed)
+
+    def script_patches(self):
+        return self._patches
+
+    def script_fix_tables(self):
+        return self._fixed
 
     def table_rows(self):
         return self._tables
@@ -107,14 +115,14 @@ class OrderedByCost(unittest.TestCase):
             [game("g1", year="", vps_id="")],
             [table("g1", rom_installed=False, update_available=True)],
             watched={"update": update, "recordings": ["r1"]},
-            unreadable=[{"folder": "x"}])
+            unreadable=[{"folder": "x"}], fixed=("t-g1",))
         trouble = [SimpleNamespace(where=feature_checks.WHERE_LAUNCHERS)]
 
         order = keys(needs.collect(lib, {"trouble": trouble}))
 
         self.assertEqual(["rom_missing", "launchers", "unreadable", "unmatched",
                           "no_playfield", "no_backglass", "no_media", "update", "newer",
-                          "recordings", "no_year"], order)
+                          "script_fixes", "recordings", "no_year"], order)
 
     def test_the_tones_follow_the_cost(self):
         lib = FakeLibrary([game("g1", year="", vps_id="")], [table("g1", rom_installed=False)])
@@ -311,6 +319,16 @@ class WhereAStopIsKept(unittest.TestCase):
         library = FakeLibrary(tables=[table("a", rom_installed=None, update_available=None)])
         self.assertEqual({"rom_missing", "newer"}, needs.blind(library))
 
+    def test_script_fixes_are_blind_until_somebody_has_checked(self):
+        library = FakeLibrary(tables=[table("a", rom_installed=True, update_available=False)],
+                              patches={})
+        self.assertEqual({"script_fixes"}, needs.blind(library))
+
+    def test_script_fixes_are_blind_when_the_index_could_not_be_reached(self):
+        library = FakeLibrary(tables=[table("a", rom_installed=True, update_available=False)],
+                              patches={"reachable": False, "offered": []})
+        self.assertEqual({"script_fixes"}, needs.blind(library))
+
     def test_a_row_the_library_can_count_is_not_blind(self):
         library = FakeLibrary(tables=[table("a", rom_installed=True, update_available=False)])
         self.assertEqual(set(), needs.blind(library))
@@ -353,6 +371,61 @@ class StoppingOneRowKeepsTheOthers(unittest.TestCase):
         with self.assertRaises(OSError):
             self.library.set_checking("unmatched", False, device=False)
         self.client.put_library_policy.assert_not_called()
+
+
+class TableScriptFixes(unittest.TestCase):
+    def test_the_row_counts_tables_and_opens_the_grid_on_them_with_fetch_at_its_end(self):
+        lib = FakeLibrary(patches={"reachable": True, "offered": ["Sample Game"]},
+                          fixed=("t-g2", "t-g1"))
+        [row] = [one for one in needs.collect(lib, {}) if one.key == "script_fixes"]
+
+        self.assertEqual(needs.ACCENT, row.tone)
+        self.assertEqual("2 tables", row.counted())
+        self.assertEqual("tables", row.opens.view)
+        self.assertEqual({games.FIXES_KEY: ("t-g2", "t-g1")}, dict(row.opens.keys))
+        self.assertEqual(needs.FETCH_FIXES, row.fix.key)
+
+    def test_no_row_draws_before_anybody_has_checked(self):
+        lib = FakeLibrary(patches={})
+        self.assertNotIn("script_fixes", keys(needs.collect(lib, {})))
+
+    def test_the_stamp_marks_only_the_tables_with_a_fix(self):
+        built = [{"id": "t-a"}, {"id": "t-b"}]
+        stamped = games.stamp_fixes(built, {"t-a"})
+        self.assertEqual([[games.fixes_label()], []], [r[games.FIXES_COLUMN] for r in stamped])
+        self.assertNotIn(games.FIXES_COLUMN, built[0])
+
+    def test_nothing_is_stamped_without_a_fix_list(self):
+        built = [{"id": "t-a"}]
+        self.assertIs(built, games.stamp_fixes(built, None))
+
+
+class WhichTablesTheIndexNamed(unittest.TestCase):
+    def test_the_default_table_of_each_named_folder_is_the_one_counted(self):
+        library = Library.__new__(Library)
+        library._script_patches = {"offered": ["Sample Game (Original 2024)"]}
+        library.games = [{"id": "g1", "folder": "/lib/Sample Game (Original 2024)"},
+                         {"id": "g2", "folder": "/lib/Other"}]
+        library._table_rows = [
+            {"id": "t1", "game_id": "g1", "default": True},
+            {"id": "t2", "game_id": "g1", "default": False},
+            {"id": "t3", "game_id": "g2", "default": True}]
+
+        self.assertEqual(("t1",), library.script_fix_tables())
+
+    def test_a_folder_given_with_backslashes_is_still_matched_by_its_name(self):
+        library = Library.__new__(Library)
+        library._script_patches = {"offered": ["Sample Game"]}
+        library.games = [{"id": "g1", "folder": "C:\\vpx\\Sample Game"}]
+        library._table_rows = [{"id": "t1", "game_id": "g1", "default": True}]
+
+        self.assertEqual(("t1",), library.script_fix_tables())
+
+    def test_nothing_offered_names_no_table(self):
+        library = Library.__new__(Library)
+        library._script_patches = {"reachable": True, "offered": []}
+        library.games, library._table_rows = [], []
+        self.assertEqual((), library.script_fix_tables())
 
 
 if __name__ == "__main__":

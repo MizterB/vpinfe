@@ -420,7 +420,7 @@ def _nothing_yet(words: str, library: Any, state: dict[str, Any],
     """What a page shows in place of a grid with no rows: where rows come from, and a
     way to pick up ones that arrived by hand. A link's filter is spent here, not held
     for the first row that appears."""
-    for key in ("arriving", "launcher", "sets", "reported", NEW_KEY):
+    for key in ("arriving", "launcher", "sets", "reported", NEW_KEY, FIXES_KEY):
         state.pop(key, None)
     sections.metadata_line(library, state)
     panel.facts(ui, [panel.intro(t(words, page=t("console.section.library_folders")))])
@@ -861,6 +861,11 @@ REPORTED_COLUMN = "reported"
 NEW_KEY = "only_new"
 NEW_COLUMN = "new_since"
 
+# The ids of the tables a script fix is published for, as `state[FIXES_KEY]`, and the column
+# that lets the Tables grid narrow to them.
+FIXES_KEY = "script_fixes"
+FIXES_COLUMN = "script_fix"
+
 # The game's rating on a table's row: `rating` there is the table's own.
 GAME_RATING = "game_rating"
 
@@ -1178,14 +1183,33 @@ def new_column() -> dict[str, Any]:
                             help=t("console.games.new_column.help"))
 
 
-def stamp_new(built: list[dict[str, Any]],
-              ids: Collection[str] | None) -> list[dict[str, Any]]:
-    """Each row says whether it joined a dismissed row's count since, in the New column.
-    Copies, so the library's own rows carry no mark."""
+def fixes_label() -> str:
+    return t("console.games.fix_group")
+
+
+def fixes_column() -> dict[str, Any]:
+    return grid.list_column(FIXES_COLUMN, t("console.games.fix_column"), 120,
+                            help=t("console.games.fix_column.help"))
+
+
+def _stamped(built: list[dict[str, Any]], ids: Collection[str] | None, column: str,
+             label: str) -> list[dict[str, Any]]:
+    """Copies, so the library's own rows carry no mark."""
     if ids is None:
         return built
-    label = new_label()
-    return [{**row, NEW_COLUMN: [label] if str(row.get("id")) in ids else []} for row in built]
+    return [{**row, column: [label] if str(row.get("id")) in ids else []} for row in built]
+
+
+def stamp_new(built: list[dict[str, Any]],
+              ids: Collection[str] | None) -> list[dict[str, Any]]:
+    """Each row says whether it joined a dismissed row's count since, in the New column."""
+    return _stamped(built, ids, NEW_COLUMN, new_label())
+
+
+def stamp_fixes(built: list[dict[str, Any]],
+                ids: Collection[str] | None) -> list[dict[str, Any]]:
+    """Each row says whether a script fix is published for it, in the Script Fix column."""
+    return _stamped(built, ids, FIXES_COLUMN, fixes_label())
 
 
 def _mod_cell(mod: dict[str, Any] | None) -> dict[str, Any]:
@@ -1270,15 +1294,22 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
     look = library.thumbnail_look()
     reported = state.pop("reported", None)
     only_new = state.pop(NEW_KEY, None)
-    built = stamp_new(stamp_report(table_rows(rows, look is not None), reported), only_new)
+    mended = state.pop(FIXES_KEY, None)
+    built = stamp_fixes(
+        stamp_new(stamp_report(table_rows(rows, look is not None), reported), only_new),
+        mended)
     # Taken once, as the Games grid takes its own.
     arriving = setting_their_own(rows, str(state.pop("launcher", None) or ""),
                                  str(state.pop("sets", None) or ""))
     arriving = state.pop("arriving", None) or arriving
     if reported is not None:
         arriving = {REPORTED_COLUMN: {"values": [reported.label]}}
-    if only_new is not None:
-        arriving = {NEW_COLUMN: {"values": [new_label()]}}
+    if only_new is not None or mended is not None:
+        arriving = {}
+        if only_new is not None:
+            arriving[NEW_COLUMN] = {"values": [new_label()]}
+        if mended is not None:
+            arriving[FIXES_COLUMN] = {"values": [fixes_label()]}
     table_columns = grid.with_art(TABLE_COLUMNS, look) \
         + table_asset_columns(table_asset_keys(library))
     if reported is not None:
@@ -1287,9 +1318,12 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
             help=t("console.games.import_group.help")))
     if only_new is not None:
         table_columns.append(new_column())
+    if mended is not None:
+        table_columns.append(fixes_column())
     fields = [definition["field"] for definition in table_columns]
 
     sections.metadata_line(library, state)
+    check_scripts = sections.script_fixes_line(library, state)
     with ui.row().classes("w-full items-center gap-2 px-3 py-2 mb-2 shrink-0 "
                                   "console-panel console-grid-bar"):
         bar = panel.grid_bar()
@@ -1336,6 +1370,8 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
         with bar.bottom, panel.bar_end():
             count = ui.label(_tables_said(built, len(built))) \
                 .classes("text-xs console-label")
+            panel.action(t("console.games.check_scripts"), check_scripts, icon=verbs.REVIEW,
+                         hint=t("console.games.check_scripts.help"))()
             show_selection = panel.selection_menu(
                 t("console.games.tables_menu"), lambda: grid.selection(table),
                 lambda chosen: table_verbs(chosen, adding["known"]),

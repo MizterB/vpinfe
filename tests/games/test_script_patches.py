@@ -119,33 +119,25 @@ class OfferedTests(unittest.TestCase):
 
 
 class WordingTests(unittest.TestCase):
-    """What the Overview card says, which is the only part of this most people see."""
-
-    def test_an_unreachable_index_says_nothing_was_checked(self) -> None:
-        good, said = sections._scripts_said({"reachable": False})
-
-        self.assertFalse(good)
-        self.assertIn("could not be reached", said)
+    """What the script-fix notice says, which is the only part of this most people see."""
 
     def test_offered_tables_are_named(self) -> None:
-        good, said = sections._scripts_said(
+        said = sections._script_fixes_said(
             {"reachable": True, "offered": ["Alpha", "Beta"], "checked": 9})
 
-        self.assertFalse(good, "something to do is not a tick")
         self.assertIn("Alpha", said)
         self.assertIn("2 of 9", said)
 
     def test_a_long_list_is_cut_rather_than_run_on(self) -> None:
-        good, said = sections._scripts_said(
+        said = sections._script_fixes_said(
             {"reachable": True, "offered": list("abcdef"), "checked": 9})
 
         self.assertIn("and more", said)
 
     def test_nothing_to_do_says_how_much_was_looked_at(self) -> None:
         """A bare "nothing to do" is indistinguishable from not having looked."""
-        good, said = sections._scripts_said(
+        said = sections._script_fixes_said(
             {"reachable": True, "offered": [], "checked": 77, "already": 3})
 
-        self.assertTrue(good)
         self.assertIn("77 checked", said)
         self.assertIn("3 already", said)

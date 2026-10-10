@@ -460,6 +460,8 @@ def overview(library: Library, registry: list[dict], discovery: dict,
             ids = need.ids if only is None else only
             return media_fill.confirm_kind(list(ids), need.fix.kind, state,
                                            lambda: placed(ids))
+        if need.fix.key == needs.FETCH_FIXES:
+            return fetch_script_fixes(library, drawn_again)
         from console import devices
 
         return devices.confirm_update(library, _local_name(registry, discovery),
@@ -482,7 +484,6 @@ def overview(library: Library, registry: list[dict], discovery: dict,
                 with ui.element("div").props(f"id={METADATA_ID}"):
                     metadata(library.metadata_state(),
                              _metadata_action(library, state, drawn_again), state.get(_LEFT))
-                table_scripts(library)
             with ui.element("div").classes("console-overview-side"):
                 _library(library, state)
                 _recent_jobs(library, state)
@@ -742,71 +743,80 @@ def metadata_line(library: Library, state: dict[str, Any]) -> None:
 # the script the table ships with.
 
 
-def _scripts_said(found: dict[str, Any]) -> tuple[bool, str]:
-    """Whether this is worth acting on, and the sentence for it."""
-    if found.get("reachable") is False:
-        # Not the same as nothing to do, and it must not read that way: the library was
-        # never examined.
-        return False, t("console.sections.index_unreachable")
+def _script_fixes_said(found: dict[str, Any]) -> str:
     offered = list(found.get("offered") or [])
     checked = int(found.get("checked") or 0)
-    already = int(found.get("already") or 0)
     if offered:
-        return False, t("console.sections.fixable", count=len(offered),
+        return t("console.sections.fixable", count=len(offered),
                 checked=(checked), shown=_first_of(offered, 3))
+    already = int(found.get("already") or 0)
     running = t("console.sections.already_run", already=(already)) if already else ""
-    return True, t("console.sections.no_matches", checked=(checked),
-            running=(running))
+    return t("console.sections.no_matches", checked=(checked), running=(running))
 
 
-def table_scripts(library: Library) -> None:
-    """What the published index has for this library, once somebody asks.
-
-    Asked rather than read on every draw. It is a request to somebody else's server, and
-    a page that waited on it would be slow for a question most visits are not asking.
-    """
+@on_page
+async def fetch_script_fixes(library: Library, after: Callable[[], Any]) -> None:
+    """Ask, then start the fetch as a job. `after` redraws what showed the fixes, which are
+    forgotten once it begins: the answer no longer says what is left to fetch."""
     from console import confirm
     from console.api import ApiClient
 
-    ui.label(t("console.sections.table_scripts")).classes("console-group mt-4")
-    card = ui.element("div").classes("console-card w-full")
+    offered = list(library.script_patches().get("offered") or [])
+    if not await confirm.ask(
+            t("console.sections.fetch_confirm", count=len(offered)),
+            detail=t("console.sections.script_fixes_how"),
+            confirm=t("word.fetch"), icon=verbs.FETCH, danger=False):
+        return
+    try:
+        await run.io_bound(ApiClient().apply_script_patches)
+    except Exception as exc:
+        ui.notify(t("console.sections.fetch_failed"), caption=why(exc), type="negative")
+        return
+    ui.notify(t("console.sections.fetching_way"), type="positive")
+    library.forget_script_patches()
+    after()
+
+
+def script_fixes_line(library: Library, state: dict[str, Any]) -> Callable[[], Any]:
+    """The notice above the Tables grid, drawn while the last check found fixes. Returns
+    Check, which the grid's bar offers: asked rather than read on every draw, because it is
+    a request to somebody else's server."""
+    outer = ui.element("div").classes("w-full shrink-0")
 
     def draw() -> None:
-        card.clear()
+        if outer.is_deleted:
+            return
+        outer.clear()
         found = library.script_patches()
-        with card:
-            if not found:
-                _metadata_row(
-                    True, t("console.sections.script_fixes"),
-                    t("console.sections.script_fixes_note"),
-                    (t("console.sections.check"), check))
-                return
-            good, said = _scripts_said(found)
-            _metadata_row(good, t("console.sections.script_fixes"), said,
-                          (t("word.fetch"), fetch)
-                          if found.get("offered")
-                          else (t("console.sections.check"), check))
+        if not found.get("offered"):
+            return
 
-    async def check() -> None:
-        await run.io_bound(library.read_script_patches)
-        draw()
+        def show() -> Any:
+            tables = library.script_fix_tables()
+            if not tables:
+                ui.notify(t("console.sections.fix_tables_gone"))
+                return None
+            return state["open_on"](needs.script_fixes_opens(tables))
+
+        with outer, ui.element("div").classes("console-attention mb-2"):
+            ui.icon(verbs.FETCH).classes("console-attention-icon")
+            ui.label(_script_fixes_said(found)).classes("console-attention-line grow")
+            panel.action(t("console.sections.show"), show,
+                         icon=verbs.GO, hint=t("console.sections.show_fixes.help"))()
+            panel.action(t("word.fetch"), lambda: fetch_script_fixes(library, draw),
+                         icon=verbs.FETCH, hint=t("console.needs.script_fixes.fetch.help"))()
 
     @on_page
-    async def fetch() -> None:
-        offered = list(library.script_patches().get("offered") or [])
-        if not await confirm.ask(
-                t("console.sections.fetch_confirm", count=len(offered)),
-                detail=t("console.sections.script_fixes_how"),
-                confirm=t("word.fetch"), icon=verbs.FETCH, danger=False):
-            return
-        try:
-            await run.io_bound(ApiClient().apply_script_patches)
-        except Exception as exc:
-            ui.notify(t("console.sections.fetch_failed"), caption=why(exc),
-                      type="negative")
-            return
-        ui.notify(t("console.sections.fetching_way"), type="positive")
+    async def check() -> None:
         await run.io_bound(library.read_script_patches)
+        found = library.script_patches()
         draw()
+        if found.get("offered"):
+            return
+        if not found or found.get("reachable") is False:
+            ui.notify(t("console.sections.index_unreachable"), type="warning")
+        else:
+            ui.notify(_script_fixes_said(found))
 
     draw()
+    return check
