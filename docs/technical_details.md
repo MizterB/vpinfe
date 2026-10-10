@@ -216,7 +216,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | --- | --- | --- | --- |
 | `setup_pending` | bool | `false` | Written true on this device's first save. Setup clears it when it finishes. |
 | `name` | string |  | What to call this device where one is listed. Defaults to its hostname. |
-| `features` | list | `library,frontend,devices` | What this device is for. Each one you add appears in the Console. |
+| `features` | list | `library,frontend,devices,overview` | What this device is for. Each one you add appears in the Console. |
 | `language` | choice (auto, en) | `auto` | What language VPinFE speaks. Your library's own words - table names and the rest - are never translated. |
 
 ### `network`

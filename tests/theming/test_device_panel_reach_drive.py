@@ -56,8 +56,8 @@ class DevicePanelReachDrive(unittest.TestCase):
         self.assertEqual(self.features,
                          ["Library", "Frontend", "Device Management", "Overview"])
 
-    def test_the_features_the_device_has_are_lit_and_overview_is_not(self) -> None:
-        self.assertEqual(self.lit, 3)
+    def test_every_feature_the_device_has_is_lit(self) -> None:
+        self.assertEqual(self.lit, 4)
 
     def test_the_chips_say_where_features_are_turned_on(self) -> None:
         self.assertIn("Turned on in this device's Settings", self.facts)

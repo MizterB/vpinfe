@@ -322,7 +322,7 @@ rather than matching a version number against a document.
   "name": "VPinFE",
   "install_id": "7Kq2mVx9Ab",
   "display_name": "basement cab",
-  "features": ["core", "library", "frontend", "devices"],
+  "features": ["core", "library", "frontend", "devices", "overview"],
   "api_version": "v1",
   "vpinfe_version": "2.5.0",
   "capabilities": [],
@@ -355,10 +355,11 @@ person, defaults to the machine's hostname, and is meant to be renamed, so anyth
 resolving through it breaks the first time somebody does.
 
 `features` says what this install is for: `library` curates the game library, `frontend`
-launches games on that machine, and `devices` manages the other installs on the network.
-It defaults to all three, which is what a desktop install and a standalone cabinet are.
+launches games on that machine, `devices` manages the other installs on the network, and
+`overview` is a front page for what needs attention. It defaults to all four. An install
+that wrote its own list keeps exactly what it wrote.
 
-`core` is always in the list and is never one of the three. It is what every install has
+`core` is always in the list and is never one of them. It is what every install has
 whatever else it is for — its identity, its features, the network and logging — so an
 install reporting `core` alone is one that is not currently for anything and can still be
 configured into being for something. It is synthesized rather than stored, so a client

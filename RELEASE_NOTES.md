@@ -136,9 +136,9 @@ These are deliberate. `docs/compatibility-3.0.md` has the full list with the rea
 - **Core** — Launches from the Remote page and the API count as plays now. Start count, last
   played, runtime and NVRAM score were only ever recorded for wheel launches.
 - **Core** — An install is described by the features it has switched on: `library`,
-  `frontend`, `devices`, and `overview` if you ask for it. `[install] roles` on a 3.0
+  `frontend`, `devices`, and `overview`, all on by default. `[install] roles` on a 3.0
   preview build is migrated in place — `hub` becomes `library` and `devices`, `device` and
-  `player` become `frontend`. A config that never set it is unaffected.
+  `player` become `frontend`. A config that already names its features keeps exactly them.
 - **Core** — Tables whose folders are not all lowercase start reporting the PUP packs,
   colorizations, VNI and altsound they always had. The scan compared folder names exactly,
   so `PUPVideos` — the casing PinUP Popper itself writes — went undetected.

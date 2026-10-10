@@ -970,7 +970,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ConfigOption(
             "features",
             type="list",
-            default="library,frontend,devices",
+            default="library,frontend,devices,overview",
             aliases=("roles",),
         ),
         ConfigOption(

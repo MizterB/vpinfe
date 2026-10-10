@@ -54,8 +54,15 @@ class NavTests(unittest.TestCase):
         """Settings is `core` and first in System, so it is always present and always
         what the rail falls back to."""
         self.assertEqual(page.landing_for(_rail([install_identity.CORE])), "settings")
+
+    def test_an_install_that_never_chose_features_opens_on_overview(self) -> None:
         self.assertEqual(page.landing_for(_rail(install_identity.DEFAULT_FEATURES)),
-                         "games")
+                         "overview")
+
+    def test_an_install_without_overview_opens_on_games(self) -> None:
+        self.assertEqual(page.landing_for(_rail([install_identity.LIBRARY,
+                                                 install_identity.FRONTEND,
+                                                 install_identity.DEVICES])), "games")
 
     def test_a_front_door_is_always_in_the_rail_whatever_is_switched_on(self) -> None:
         """Exhaustive, because an ordering has to hold for every combination."""
@@ -119,13 +126,12 @@ class NavTests(unittest.TestCase):
                           in page.nav_for([install_identity.LIBRARY])])
         self.assertIn("launchers", _rail([install_identity.FRONTEND]))
 
-    def test_overview_has_to_be_asked_for(self) -> None:
-        """It is a rollup of the other three rather than something an install does, so
-        the default set and the fallback both leave it out."""
-        self.assertNotIn(install_identity.OVERVIEW,
-                         install_identity.DEFAULT_FEATURES)
-        self.assertNotIn("overview", _rail(install_identity.DEFAULT_FEATURES))
-        self.assertIn("overview", _rail(install_identity.FEATURES))
+    def test_overview_is_on_by_default_and_can_be_switched_off(self) -> None:
+        self.assertIn(install_identity.OVERVIEW, install_identity.DEFAULT_FEATURES)
+        self.assertIn("overview", _rail(install_identity.DEFAULT_FEATURES))
+        self.assertNotIn("overview", _rail([install_identity.LIBRARY,
+                                            install_identity.FRONTEND,
+                                            install_identity.DEVICES]))
 
     def test_core_is_never_one_of_the_switchable_features(self) -> None:
         """Synthesized on every read and never stored, so it is not in the set a person
@@ -133,17 +139,24 @@ class NavTests(unittest.TestCase):
         self.assertNotIn(install_identity.CORE, install_identity.FEATURES)
         self.assertNotIn(install_identity.CORE, install_identity.DEFAULT_FEATURES)
 
-    def test_a_typo_does_not_switch_overview_on(self) -> None:
-        """An unreadable setting falls back to the defaults, which is why a feature that
-        has to be asked for must not be one of them."""
+    def test_an_unreadable_setting_falls_back_to_the_defaults(self) -> None:
         import configparser
 
         config = configparser.ConfigParser()
         config.add_section("device")
         config.set("device", "features", "libary, frontnd")
 
-        self.assertNotIn(install_identity.OVERVIEW,
+        self.assertEqual([install_identity.CORE, *install_identity.DEFAULT_FEATURES],
                          install_identity.features(config))
+
+    def test_features_written_without_overview_stay_without_it(self) -> None:
+        import configparser
+
+        config = configparser.ConfigParser()
+        config.add_section("device")
+        config.set("device", "features", "library, frontend, devices")
+
+        self.assertNotIn(install_identity.OVERVIEW, install_identity.features(config))
 
     def test_no_library_takes_the_library_sections_with_it(self) -> None:
         rail = _rail([install_identity.FRONTEND])

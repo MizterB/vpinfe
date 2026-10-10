@@ -385,8 +385,8 @@ class RetiredRoleTests(ConfigStoreTests):
         self.assertEqual(self._features(), ["library", "frontend", "devices"])
 
     def test_a_migrating_install_does_not_acquire_overview(self) -> None:
-        """Nothing expands into it, so an install coming from roles never gains a feature
-        that has to be asked for."""
+        """Nothing expands into it, and the migration writes the features it found, so an
+        install coming from roles keeps exactly those."""
         self.ini.write_text("[device]\nroles = hub,device\n", encoding="utf-8")
 
         ConfigStore(str(self.ini))

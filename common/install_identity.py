@@ -23,9 +23,8 @@ ID_SECTION = "device"
 LIBRARY = "library"
 FRONTEND = "frontend"
 DEVICES = "devices"
-# A rollup over the other three rather than something this install does. Off unless it
-# is asked for: it answers a question nobody had, and a front door that reports on a
-# library this machine may not have is worse than no front door.
+# A rollup over the other three rather than something this install does. It is on by
+# default and switched off per install.
 OVERVIEW = "overview"
 FEATURES = (LIBRARY, FRONTEND, DEVICES, OVERVIEW)
 
@@ -38,10 +37,10 @@ LABELS = {
     OVERVIEW: "device.feature.overview",
 }
 
-# What every 2.x install and every desktop install already is. Not every feature: this
-# is also what an unreadable setting falls back to, so a feature that has to be asked
-# for must not be in here or a typo would switch it on.
-DEFAULT_FEATURES = (LIBRARY, FRONTEND, DEVICES)
+# What an install that never chose its own features is for, and what an unreadable
+# setting falls back to. A feature added to FEATURES that has to be asked for stays out of
+# here, or a typo would switch it on.
+DEFAULT_FEATURES = (LIBRARY, FRONTEND, DEVICES, OVERVIEW)
 
 # The feature every install has, holding the settings that belong to the machine as a
 # whole - identity, features, network, logging. Synthesized on every read and never
@@ -93,8 +92,7 @@ def features(config: ConfigStore) -> list[str]:
     """What this install is for, in a stable order, `core` first because every one has it.
 
     Unrecognized falls back to the defaults rather than to none: a typo must not decide
-    this machine stopped launching games. It falls back to those rather than to every
-    feature, so one that has to be asked for is never acquired by accident.
+    this machine stopped launching games.
 
     Written down and left empty is a different answer and is taken at its word - an
     install that is not currently for anything. That is a legal state because `core`

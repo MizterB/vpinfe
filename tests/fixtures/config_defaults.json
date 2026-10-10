@@ -50,7 +50,7 @@
     "hidden_overview": ""
   },
   "device": {
-    "features": "library,frontend,devices",
+    "features": "library,frontend,devices,overview",
     "language": "auto",
     "name": "",
     "setup_pending": "false"

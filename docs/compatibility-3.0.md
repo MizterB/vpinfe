@@ -395,8 +395,8 @@ is registered by a person rather than by itself. Covered by `tests/api/test_devi
 and `devices`, and `device` and the 2.x `player` both become `frontend`. A capability's
 `residency` - a list of places - is a nullable `feature`, and one whose feature is off is
 not served at all rather than served and reported unavailable. `overview` is a fourth
-feature and the one that has to be asked for; the rest are on by default, which is what
-every existing install already does.
+feature, on by default like the rest; an install that wrote its own `features` keeps
+exactly what it wrote.
 *Why:* a role was a coarse label trying to name both what an install does and what kind of
 thing it is, and neither word survived the second job. What it does is a feature; what kind
 of thing it is is a device's `kind`. The migration matches on the value rather than the old
@@ -871,9 +871,10 @@ runs against ports chosen at random precisely so an assumed one fails.
 **PAR-52 — An install has an identity of its own.** A new `[device]` section holds `id`,
 `name` and `features`. `id` is minted once on first start and written to the
 config; `name` defaults to this machine's hostname and is not written down by
-reading it; `features` defaults to `library,frontend,devices`, which is what every existing
-install already does. All three are additive to `GET /api/v1`, so no client breaks and
-nothing looks different to anyone running one machine. The key was `roles` when this
+reading it; `features` defaults to `library,frontend,devices,overview`: what every
+existing install already does, plus a front page. All three are additive to
+`GET /api/v1`, so no client breaks. An install that already wrote its own `features`
+keeps exactly what it wrote. The key was `roles` when this
 landed and is migrated in place - see PAR-91.
 *Why:* `GET /api/v1` returned `"name": "VPinFE"` and nothing else, byte-identical on every
 install, so two installs answering one library were indistinguishable at every layer - no

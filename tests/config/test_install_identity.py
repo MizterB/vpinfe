@@ -100,9 +100,9 @@ class FeatureTests(unittest.TestCase):
         return install_identity.features(self.store)
 
     def test_an_install_has_every_feature_by_default(self) -> None:
-        """Every 2.x install and every desktop user, so nobody has to set it."""
+        """So nobody has to set it, and an install that wrote its own list keeps that."""
         self.assertEqual(install_identity.features(self.store),
-                         ["core", "library", "frontend", "devices"])
+                         ["core", "library", "frontend", "devices", "overview"])
 
     def test_one_feature_can_be_declared_on_its_own(self) -> None:
         self.assertEqual(self._features("frontend"), ["core", "frontend"])
@@ -119,7 +119,7 @@ class FeatureTests(unittest.TestCase):
         """Falling back to everything, not to nothing: a misspelling must not decide that
         this machine has stopped launching games."""
         self.assertEqual(self._features("wat"),
-                         ["core", "library", "frontend", "devices"])
+                         ["core", "library", "frontend", "devices", "overview"])
 
     def test_a_recognized_feature_survives_an_unrecognized_one(self) -> None:
         self.assertEqual(self._features("library,wat"), ["core", "library"])
@@ -137,13 +137,13 @@ class FeatureTests(unittest.TestCase):
         bare = configparser.ConfigParser()
 
         self.assertEqual(install_identity.features(bare),
-                         ["core", "library", "frontend", "devices"])
+                         ["core", "library", "frontend", "devices", "overview"])
 
     def test_core_is_not_a_value_the_file_decides(self) -> None:
         """It is synthesized either way, so naming it says nothing about the optional
         ones - a list holding only it has not said, exactly like a typo."""
         self.assertEqual(self._features("core"),
-                         ["core", "library", "frontend", "devices"])
+                         ["core", "library", "frontend", "devices", "overview"])
         self.assertEqual(self._features("core,library"), ["core", "library"])
 
     def test_has_feature_answers_for_one(self) -> None:
