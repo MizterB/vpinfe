@@ -20,7 +20,7 @@ from console import jobs_list, verbs
 DANGER, WARM, ACCENT, MUTED = "danger", "warm", "accent", "muted"
 
 # What a click does that is not opening a grid on a filter.
-METADATA, REVIEW = "metadata", "review"
+METADATA, REVIEW, RETRY = "metadata", "review", "retry"
 
 # A fix VPinFE can do itself, drawn as the icon at the row's end.
 GET_MEDIA, UPDATE = "get_media", "update"
@@ -85,6 +85,14 @@ def _games_without(key: str, found: Mapping[str, list[dict[str, Any]]],
 
 def _blank(name: str) -> dict[str, Any]:
     return {name: {"values": [""]}}
+
+
+def _unread(failed: Any) -> str:
+    """The reads that failed, in the words a person would use for what they were after."""
+    said = (("update", t("console.needs.unread_update")),
+            ("recordings", t("console.needs.unread_recordings")),
+            ("fill", t("console.needs.unread_fill")))
+    return ", ".join(words for key, words in said if key in failed)
 
 
 def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
@@ -177,4 +185,8 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
                                tip=names["no_year"][1], tone=MUTED, icon=verbs.NO_YEAR,
                                opens=Opens("games", {"year": {"filterType": "text",
                                                              "type": "blank"}})))
+    if unread := _unread(watched.get("unread") or ()):
+        rows.append(Need("unread", t("console.needs.unread"),
+                         t("console.needs.unread.tip", what=unread), MUTED, verbs.HAD_ERRORS,
+                         Opens(then=RETRY)))
     return [one for one in rows if one is not None and one.key not in hidden]

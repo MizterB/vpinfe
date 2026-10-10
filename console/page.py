@@ -1195,6 +1195,10 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                 f"document.getElementById('{sections.METADATA_ID}')"
                 "?.scrollIntoView({behavior: 'smooth', block: 'start'})")
             return
+        if opens.then == needs.RETRY:
+            library.forget_watched()
+            go("overview")
+            return
         if opens.then == needs.REVIEW:
             try:
                 waiting_on = {str(row.get("game_id") or "") for row in

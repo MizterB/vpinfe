@@ -2654,6 +2654,11 @@
   "console.needs.newer.tip": "A newer release of these tables is on the Virtual Pinball Spreadsheet",
   "console.needs.recordings": "Recordings to Review",
   "console.needs.recordings.tip": "Recorded media is waiting to be kept or discarded",
+  "console.needs.unread": "Could Not Check Everything",
+  "console.needs.unread.tip": "Could not read {what}, so nothing is said about it here. Click to try again",
+  "console.needs.unread_update": "whether an update is out",
+  "console.needs.unread_recordings": "the recordings waiting",
+  "console.needs.unread_fill": "the last media fill",
   "console.needs.folders": {
     "one": "{count} folder",
     "other": "{count} folders"

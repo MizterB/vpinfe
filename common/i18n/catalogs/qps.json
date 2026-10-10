@@ -2654,6 +2654,11 @@
   "console.needs.newer.tip": "À ñèŵèř řèŀèàšè öƒ ţĥèšè ţàƀŀèš îš öñ ţĥè Ṽîřţûàŀ Þîñƀàŀŀ Šþřèàđšĥèèţ",
   "console.needs.recordings": "Řèçöřđîñĝš ţö Řèṽîèŵ",
   "console.needs.recordings.tip": "Řèçöřđèđ ɱèđîà îš ŵàîţîñĝ ţö ƀè ķèþţ öř đîšçàřđèđ",
+  "console.needs.unread": "Çöûŀđ Ñöţ Çĥèçķ Èṽèřýţĥîñĝ",
+  "console.needs.unread.tip": "Çöûŀđ ñöţ řèàđ {what}, šö ñöţĥîñĝ îš šàîđ àƀöûţ îţ ĥèřè. Çŀîçķ ţö ţřý àĝàîñ",
+  "console.needs.unread_update": "ŵĥèţĥèř àñ ûþđàţè îš öûţ",
+  "console.needs.unread_recordings": "ţĥè řèçöřđîñĝš ŵàîţîñĝ",
+  "console.needs.unread_fill": "ţĥè ŀàšţ ɱèđîà ƒîŀŀ",
   "console.needs.folders": {
     "one": "{count} ƒöŀđèř",
     "other": "{count} ƒöŀđèřš"

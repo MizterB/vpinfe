@@ -11,6 +11,7 @@ from types import SimpleNamespace
 from common import feature_checks
 from common.jobs import DONE, FAILED
 from console import games, needs
+from console.data import Library
 
 
 class FakeLibrary:
@@ -168,6 +169,37 @@ class WhatVPinFECanDoItself(unittest.TestCase):
     def test_a_failed_check_for_an_update_is_not_an_update(self):
         lib = FakeLibrary(watched={"update": {"update_available": True, "error": "offline"}})
         self.assertEqual([], needs.collect(lib, {}))
+
+
+class AReadThatFailedIsSaid(unittest.TestCase):
+    def test_a_page_that_could_not_look_never_says_nothing_needs_you(self):
+        lib = FakeLibrary(watched={"unread": ["recordings", "fill"]})
+        rows = needs.collect(lib, {})
+        self.assertEqual(["unread"], keys(rows))
+        self.assertEqual(needs.RETRY, rows[0].opens.then)
+        self.assertIn("the recordings waiting", rows[0].tip)
+        self.assertIn("the last media fill", rows[0].tip)
+        self.assertNotIn("update", rows[0].tip)
+
+    def test_each_read_that_fails_is_named_and_the_others_still_count(self):
+        def refuse():
+            raise OSError("down")
+
+        client = SimpleNamespace(update_check=lambda: {"error": "offline"},
+                                 capture_proposals=lambda: {"proposals": [{"id": "r1"}]},
+                                 jobs=lambda limit: refuse())
+        library = Library.__new__(Library)
+        library._client = client
+
+        read = library._read_watched()
+
+        self.assertEqual(["update", "fill"], read["unread"])
+        self.assertEqual(["r1"], read["recordings"])
+
+    def test_it_comes_last_and_only_when_a_read_failed(self):
+        lib = FakeLibrary([game("g1", year="")], watched={"unread": ["update"]})
+        self.assertEqual("unread", keys(needs.collect(lib, {}))[-1])
+        self.assertNotIn("unread", keys(needs.collect(FakeLibrary([game("g1", year="")]), {})))
 
 
 class MediaFill(unittest.TestCase):

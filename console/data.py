@@ -1046,22 +1046,28 @@ class Library:
     def watched(self) -> dict[str, Any]:
         """What the install reports of itself that Overview lists: `update` as
         `GET /update` answered, `recordings` the ids waiting for a decision, `fill` the
-        last media fill job. Already read - this asks nothing."""
+        last media fill job, `unread` the reads that failed. Already read - this asks nothing."""
         return self._watched or {}
 
     def _read_watched(self) -> dict[str, Any]:
         """Each read stands alone: an install with no network has no update to report,
-        and that must not take the recordings or the jobs down with it."""
-        out: dict[str, Any] = {"update": {}, "recordings": [], "fill": None}
+        and that must not take the recordings or the jobs down with it. `unread` names
+        the reads that failed, so a page that could not look never reports that
+        nothing is there."""
+        out: dict[str, Any] = {"update": {}, "recordings": [], "fill": None, "unread": []}
         try:
             out["update"] = self._client.update_check() or {}
+            if out["update"].get("error"):
+                out["unread"].append("update")
         except Exception:  # noqa: BLE001 - not knowing is not an update
             logger.debug("console: could not ask whether an update is out", exc_info=True)
+            out["unread"].append("update")
         try:
             out["recordings"] = [str(one.get("id") or "") for one in
                                  self._client.capture_proposals().get("proposals") or []]
         except Exception:  # noqa: BLE001 - recordings are not Overview's to fail on
             logger.debug("console: could not read the recordings waiting", exc_info=True)
+            out["unread"].append("recordings")
         try:
             fills = [job for job in self._client.jobs(WATCHED_JOBS)
                      if job.get("kind") == KIND_MEDIA_FILL]
@@ -1069,6 +1075,7 @@ class Library:
                               default=None)
         except Exception:  # noqa: BLE001
             logger.debug("console: could not read the last media fill", exc_info=True)
+            out["unread"].append("fill")
         return out
 
     def _media_missing(self) -> list[str]:
