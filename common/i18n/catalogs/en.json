@@ -2952,7 +2952,7 @@
   "console.tageditor.merge": "Merge into “{into}”?",
   "console.tageditor.merged": "Merged into {into}",
   "console.tageditor.new_tag": "New tag...",
-  "console.tageditor.empty": "No tags yet. Tag a game from its Play section, or write one down with New tag.",
+  "console.tageditor.empty": "No tags yet. Tag a game under Yours in its Game section, or use New tag.",
   "console.tageditor.one_spelling": "One spelling",
   "console.tageditor.rename": "Rename…",
   "console.tageditor.rename_tag": "Rename this tag",
