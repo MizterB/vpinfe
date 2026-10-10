@@ -66,6 +66,8 @@ the documented entry point is a plain 200. Both spellings work.
 | DELETE | `/api/v1/frontend/preview` | Stop showing it, deciding nothing. 202, whether or not one was on show |
 | POST | `/api/v1/input/actions` | Press, hold or release an input action on this install — the door a remote drives the frontend through |
 | GET | `/api/v1/input/play` | Whether this device can press keys into a running table and hear them from outside the frontend, and why not |
+| POST | `/api/v1/dof/event` | Turn a DOF event on this device's cabinet until it is stopped, `{"event": "E900"}`, firing it again if it is already on. 400 when the event is not a letter and a number, 409 while a table is playing or when DOF would not start, 501 when DOF is off or not installed here. Under `input:act` |
+| DELETE | `/api/v1/dof/event` | Turn the event off. 200 whether or not one was on |
 | GET | `/api/v1/update` | Whether a newer build is published, and whether this install can take it. `update_supported` is the second question, and `support_reason` says which case it is. `update_available` is null where this build's own version does not read as one, so nothing can be weighed. Answered from the last check while it is under a day old, or under an hour after a failed one; `refresh=true` asks GitHub now, unless GitHub has said to wait. `checked_at` is when a check last succeeded, null if none has, and `error` is set when the last attempt failed |
 | POST | `/api/v1/update` | Stage the published build and go down to take it. 501 when this install cannot replace itself, 409 when a table is running and `stop_table` was not set |
 | GET | `/api/v1/collections` | List collections |

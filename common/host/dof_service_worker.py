@@ -64,7 +64,17 @@ class _Worker:
         if started:
             self._current_event = None
             return True, str(dof_dir)
-        return False, "already_running"
+        if self._runner.is_running():
+            return False, "already_running"
+        return False, f"start_failed:{self._last_error()}"
+
+    def _last_error(self) -> str:
+        """What the runner says went wrong, when it says anything."""
+        reader = getattr(self._runner, "last_error", None)
+        try:
+            return str(reader() or "") if callable(reader) else ""
+        except Exception:
+            return ""
 
     def _stop(self, timeout: float = 10.0) -> bool:
         runner = self._runner

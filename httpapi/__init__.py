@@ -23,6 +23,7 @@ from . import (
     config,
     core_capabilities,
     devices,
+    dof,
     events,
     extensions,
     filesystem,
@@ -136,6 +137,7 @@ def create_api_app() -> FastAPI:
     api.include_router(frontend.router)
     api.include_router(capture.router)
     api.include_router(input.router)
+    api.include_router(dof.router)
     api.include_router(games.router)
     api.include_router(tables.router)
     api.include_router(media.router)

@@ -1,0 +1,69 @@
+"""Turning a DOF event on from outside: what is accepted, and each way it is refused."""
+
+from __future__ import annotations
+
+import unittest
+from unittest import mock
+
+import httpapi
+from common.host import dof_service
+from common.i18n import t
+
+try:
+    from starlette.testclient import TestClient
+except ImportError:  # pragma: no cover
+    TestClient = None
+
+
+@unittest.skipIf(TestClient is None, "starlette TestClient unavailable")
+class DofEventRouteTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
+        self.fired: list[str] = []
+
+    def _answering(self, outcome: dof_service.Outcome):
+        def fire(_ini, event):
+            self.fired.append(event)
+            return outcome
+        return mock.patch.object(dof_service, "test_event", fire)
+
+    def test_an_event_goes_on_and_comes_back_normalized(self) -> None:
+        with self._answering(dof_service.OK):
+            answer = self.client.post("/dof/event", json={"event": " e905 "})
+
+        self.assertEqual(answer.status_code, 200)
+        self.assertEqual(answer.json(), {"event": "E905"})
+        self.assertEqual(self.fired, ["E905"])
+
+    def test_anything_but_a_letter_and_a_number_is_refused_unfired(self) -> None:
+        for event in ("905", "", "E9x", "EE905"):
+            with self.subTest(event=event), self._answering(dof_service.OK):
+                answer = self.client.post("/dof/event", json={"event": event})
+
+                self.assertEqual(answer.status_code, 400)
+                self.assertEqual(answer.json()["error"]["message"], t("dof.event.malformed"))
+        self.assertEqual(self.fired, [])
+
+    def test_each_reason_is_refused_in_its_own_words(self) -> None:
+        for reason, status in ((dof_service.PLAYING, 409), (dof_service.OFF, 501),
+                               (dof_service.NO_RUNNER, 501), (dof_service.NO_HELPER, 409),
+                               (dof_service.FAILED, 409)):
+            outcome = dof_service.Outcome(False, reason)
+            with self.subTest(reason=reason), self._answering(outcome):
+                answer = self.client.post("/dof/event", json={"event": "E905"})
+
+                self.assertEqual(answer.status_code, status)
+                self.assertEqual(answer.json()["error"]["message"], outcome.words())
+
+    def test_stopping_clears_the_event_and_is_fine_with_none_on(self) -> None:
+        with mock.patch.object(dof_service, "clear_active_dof_event",
+                               return_value=False) as clear:
+            answer = self.client.delete("/dof/event")
+
+        self.assertEqual(answer.status_code, 200)
+        self.assertEqual(answer.json(), {"event": None})
+        clear.assert_called_once()
+
+
+if __name__ == "__main__":
+    unittest.main()

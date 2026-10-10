@@ -11,7 +11,9 @@ import time
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest import mock
 
+from common.host import dof_service_worker
 from common.paths import APP_ROOT
 
 STUB_RUNNER = '''
@@ -147,6 +149,40 @@ class DofHelperShutdownTests(unittest.TestCase):
         self.proc.wait(timeout=10)
 
         self._assert_runner_stopped()
+
+
+class _Refusing:
+    def __init__(self, **_kwargs):
+        pass
+
+    def start(self):
+        return False
+
+    def is_running(self):
+        return False
+
+    def last_error(self):
+        return "Could not open the boards"
+
+
+class WhyItDidNotStartTests(unittest.TestCase):
+    def _start(self, runner):
+        worker = dof_service_worker._Worker()
+        with mock.patch.object(dof_service_worker.dof_parent, "_load_runner_class",
+                               return_value=(runner, Path("/dof"))):
+            return worker._start()
+
+    def test_a_runner_that_would_not_start_gives_what_it_says(self):
+        self.assertEqual(self._start(_Refusing), (False, "start_failed:Could not open the boards"))
+
+    def test_a_runner_that_cannot_say_gives_an_empty_reason(self):
+        class Mute(_Refusing):
+            last_error = None
+
+        self.assertEqual(self._start(Mute), (False, "start_failed:"))
+
+    def test_no_runner_at_all_is_its_own_answer(self):
+        self.assertEqual(self._start(None), (False, "runner_unavailable"))
 
 
 if __name__ == "__main__":

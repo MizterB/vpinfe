@@ -15,12 +15,15 @@ import re
 import subprocess
 import sys
 import threading
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from common import service_errors
 from common.config_access import cfg_bool
 from common.config_store import ConfigStore
-from common.host import dof_config
+from common.host import dof_config, launch_state
+from common.i18n import t
 from common.paths import APP_ROOT
 from common.third_party import find_named_path, import_module_from_path, third_party_base_candidates
 
@@ -298,12 +301,55 @@ def _get_helper() -> _DofHelperProcess:
     return _HELPER
 
 
-def start_dof_service_if_enabled(iniconfig: ConfigStore | None) -> bool:
+@dataclass(frozen=True)
+class Outcome:
+    """What became of a request to DOF. Truthy when it went through; `reason` says why not."""
+
+    ok: bool
+    reason: str = ""
+    detail: str = ""
+
+    def __bool__(self) -> bool:
+        return self.ok
+
+    def words(self) -> str:
+        """The sentence a person reads for a refusal."""
+        if self.reason == FAILED and self.detail:
+            return t("dof.event.failed_because", detail=self.detail)
+        return t(_REASON_WORDS.get(self.reason, "dof.event.failed"))
+
+
+OK = Outcome(True)
+OFF = "off"
+PLAYING = "playing"
+NO_RUNNER = "no_runner"
+NO_HELPER = "no_helper"
+FAILED = "failed"
+SAME = "same"
+_REASON_WORDS = {
+    OFF: "dof.event.off",
+    PLAYING: "dof.event.playing",
+    NO_RUNNER: "dof.event.no_runner",
+    NO_HELPER: "dof.event.no_helper",
+    FAILED: "dof.event.failed",
+}
+
+
+def _sentence(text: object) -> str:
+    """The runner's own words, or nothing: a code like `runner_not_running` is for the log."""
+    said = str(text or "").strip()
+    return said if " " in said else ""
+
+
+def _start(iniconfig: ConfigStore | None) -> tuple[bool, Outcome]:
+    """Start the helper. The bool is whether this call started it; the outcome is why not."""
     global _HELPER, _CURRENT_EVENT
     if not _is_enabled(iniconfig):
-        return False
+        return False, Outcome(False, OFF)
 
     with _LOCK:
+        if launch_state.current().launching:
+            return False, Outcome(False, PLAYING)
         restarting_after_crash = False
         if _HELPER is not None and not _HELPER.is_alive():
             exit_code = _HELPER.consume_unexpected_exit_code()
@@ -320,10 +366,11 @@ def start_dof_service_if_enabled(iniconfig: ConfigStore | None) -> bool:
                                   base_path=str(base) if base is not None else "")
 
     if response is None:
-        return False
+        return False, Outcome(False, NO_HELPER)
     if not response.get("ok", False):
-        logger.error("Failed to start DOF helper: %s", response.get("error", "unknown"))
-        return False
+        error = str(response.get("error", "unknown"))
+        logger.error("Failed to start DOF helper: %s", error)
+        return False, Outcome(False, FAILED)
 
     started = bool(response.get("started"))
     if started:
@@ -331,9 +378,19 @@ def start_dof_service_if_enabled(iniconfig: ConfigStore | None) -> bool:
         logger.info("Service started using dof_runner.py from %s", response.get("detail"))
         if restarting_after_crash:
             logger.info("DOF helper recovered and is running again.")
-    else:
-        logger.info("Service start requested but runner was already active.")
-    return started
+        return True, OK
+
+    detail = str(response.get("detail", ""))
+    logger.info("Service start requested but runner was not started: %s", detail)
+    if detail == "runner_unavailable":
+        return False, Outcome(False, NO_RUNNER)
+    if detail.startswith("start_failed"):
+        return False, Outcome(False, FAILED, _sentence(detail.partition(":")[2]))
+    return False, OK
+
+
+def start_dof_service_if_enabled(iniconfig: ConfigStore | None) -> bool:
+    return _start(iniconfig)[0]
 
 
 def stop_dof_service(timeout: float = 10.0) -> bool:
@@ -355,7 +412,7 @@ def restart_dof_service_if_enabled(iniconfig: ConfigStore | None) -> bool:
     return start_dof_service_if_enabled(iniconfig)
 
 
-def _normalize_event_token(event_token: str | None) -> str | None:
+def normalize_event_token(event_token: str | None) -> str | None:
     token = str(event_token or '').strip().upper()
     if not token:
         return None
@@ -369,51 +426,68 @@ def _normalize_event_token(event_token: str | None) -> str | None:
 
 
 def _resolve_frontend_event_token(event_token: str | None) -> str:
-    normalized = _normalize_event_token(event_token)
+    normalized = normalize_event_token(event_token)
     if normalized:
         return normalized
     return f"E{random.randint(900, 990)}"
 
 
-def send_dof_event_token(iniconfig: ConfigStore | None, event_token: str) -> bool:
+def send_dof_event_token(iniconfig: ConfigStore | None, event_token: str) -> Outcome:
+    """Turn an event on. Falsy, with a reason, when it did not go out.
+
+    Refuses while a table plays: the helper must never start under Visual Pinball, which
+    holds the same boards. Sending the event already on is a no-op.
+    """
     global _CURRENT_EVENT
     if not _is_enabled(iniconfig):
-        return False
+        return Outcome(False, OFF)
 
-    resolved_event = _normalize_event_token(event_token)
+    resolved_event = normalize_event_token(event_token)
     if not resolved_event:
         raise ValueError("DOF event token is required.")
+
+    if launch_state.current().launching:
+        return Outcome(False, PLAYING)
 
     with _LOCK:
         current_event = _CURRENT_EVENT
 
     if current_event == resolved_event:
-        return False
+        return Outcome(False, SAME)
 
     if not is_running():
-        started = start_dof_service_if_enabled(iniconfig)
+        started, why = _start(iniconfig)
         if not started and not is_running():
-            return False
+            return why if not why.ok else Outcome(False, FAILED)
 
-    with _LOCK:
-        helper = _get_helper()
-        response = helper.request(
-            "send_event_token",
-            timeout=5.0,
-            event_token=resolved_event,
-        )
+    response = _ask_to_send(resolved_event)
+    if response is not None and response.get("error") == "runner_not_running":
+        # The helper is up and its runner is not: starting again says why.
+        started, why = _start(iniconfig)
+        if not started:
+            return why if not why.ok else Outcome(False, FAILED)
+        response = _ask_to_send(resolved_event)
 
     if response is None or not response.get("ok", False):
-        logger.error(
-            "Failed to send frontend DOF event %s: %s",
-            resolved_event,
-            None if response is None else response.get("error", "unknown"),
-        )
-        return False
+        error = None if response is None else response.get("error", "unknown")
+        logger.error("Failed to send frontend DOF event %s: %s", resolved_event, error)
+        return Outcome(False, NO_HELPER if response is None else FAILED)
 
     _CURRENT_EVENT = resolved_event
     logger.debug("Sent frontend DOF event: %s", resolved_event)
-    return True
+    return OK
+
+
+def _ask_to_send(event_token: str) -> dict[str, Any] | None:
+    with _LOCK:
+        return _get_helper().request("send_event_token", timeout=5.0, event_token=event_token)
+
+
+def test_event(iniconfig: ConfigStore | None, event_token: str) -> Outcome:
+    """Fire an event for a person to see, even one that is already on."""
+    if normalize_event_token(event_token) == _CURRENT_EVENT:
+        clear_active_dof_event(iniconfig)
+    return send_dof_event_token(iniconfig, event_token)
 
 
 def clear_active_dof_event(iniconfig: ConfigStore | None) -> bool:
@@ -440,7 +514,29 @@ def clear_active_dof_event(iniconfig: ConfigStore | None) -> bool:
     return bool(response.get("cleared", False))
 
 
+_REFUSALS: dict[str, type[service_errors.ServiceError]] = {
+    OFF: service_errors.UnavailableError,
+    NO_RUNNER: service_errors.UnavailableError,
+}
+
+
+def turn_on(iniconfig: ConfigStore | None, said: str) -> str:
+    """Fire the event a person typed, and the token it comes to. Raises a refusal with the
+    reason in words when it does not go out."""
+    try:
+        event = normalize_event_token(said)
+    except ValueError:
+        event = None
+    if not event:
+        raise service_errors.RefusedError(t("dof.event.malformed"))
+
+    outcome = test_event(iniconfig, event)
+    if not outcome and outcome.reason != SAME:
+        raise _REFUSALS.get(outcome.reason, service_errors.BlockedError)(outcome.words())
+    return event
+
+
 def send_frontend_dof_event(iniconfig: ConfigStore | None,
-                            event_token: str | None = None) -> bool:
+                            event_token: str | None = None) -> Outcome:
     resolved_event = _resolve_frontend_event_token(event_token)
     return send_dof_event_token(iniconfig, resolved_event)

@@ -290,6 +290,18 @@ class InputActionResult(ApiModel):
     holding: list[str]
 
 
+class DofEventRequest(ApiModel):
+    """The DOF event to turn on: a letter and a number, `E900` or `S27`."""
+
+    event: str
+
+
+class DofEventResult(ApiModel):
+    """`event` is the one now on this device, or None when none is."""
+
+    event: str | None
+
+
 class LogRecord(ApiModel):
     """One thing that was logged. `message` carries its continuation lines, so a
     traceback arrives whole rather than as a dozen rows with no level."""
