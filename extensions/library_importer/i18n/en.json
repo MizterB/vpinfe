@@ -144,7 +144,7 @@
   },
   "wizard.summary.confirm_as_is": "Use this folder",
   "kind.tables.label": "Tables",
-  "kind.tables.help": "The .vpx or .fpt files themselves",
+  "kind.tables.help": "The .vpx files themselves",
   "kind.tables.none": "No Tables",
   "kind.tables.not_found": "No tables were found",
   "kind.media.label": "Media",

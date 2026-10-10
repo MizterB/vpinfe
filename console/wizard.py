@@ -165,17 +165,18 @@ class Walk:
         return found
 
 
-async def _asking(calls: Calls, body: Any, buttons: Any, work: Awaitable[Any]) -> Any:
+async def _asking(calls: Calls, wait: Any, buttons: Any, work: Awaitable[Any]) -> Any:
     """Await one of the flow's calls, showing how far it has got once it is slow.
 
     A call that answers at once draws nothing. One that takes longer than a poll gets a
-    bar and the flow's own words under the step, and the buttons are held so a second
-    press does not start the same read twice. The call is awaited where it was asked,
+    bar and the flow's own words in `wait`, the strip above the buttons that the step's
+    scroll never hides, and the buttons are held so a second press does not start the
+    same read twice. The call is awaited where it was asked,
     because a step may need the page it was asked from; it is the watching that runs
     beside it.
     """
     shown: dict[str, Any] = {}
-    watching = asyncio.ensure_future(_watch_slow(calls, body, buttons, shown))
+    watching = asyncio.ensure_future(_watch_slow(calls, wait, buttons, shown))
     try:
         return await work
     finally:
@@ -185,10 +186,10 @@ async def _asking(calls: Calls, body: Any, buttons: Any, work: Awaitable[Any]) -
         _release(shown.get("held", []))
 
 
-async def _watch_slow(calls: Calls, body: Any, buttons: Any, shown: dict[str, Any]) -> None:
+async def _watch_slow(calls: Calls, wait: Any, buttons: Any, shown: dict[str, Any]) -> None:
     await asyncio.sleep(POLL_SECONDS)
     shown["held"] = _hold(buttons)
-    with body, ui.column().classes("w-full gap-1 px-3 mt-2") as block:
+    with wait, ui.column().classes("w-full gap-1 px-3 pt-2") as block:
         shown["bar"] = ui.linear_progress(show_value=False).props("indeterminate") \
             .classes("w-full")
         shown["said"] = ui.label(t("console.ext_action.working")).classes("console-help")
@@ -733,6 +734,7 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
                 .props("tabindex=-1")
             body = ui.column().classes("w-full gap-0 console-wizard-body")
         more = more_below.attach(scroll)
+        wait = ui.element("div").classes("w-full console-wizard-wait")
         buttons = frame.footer()
 
         def draw(found: dict) -> None:
@@ -832,7 +834,7 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
         async def _next() -> None:
             _sync(walk.values, held)
             try:
-                found = await _asking(calls, body, buttons, walk.next())
+                found = await _asking(calls, wait, buttons, walk.next())
             except Exception as exc:  # noqa: BLE001
                 ui.notify(t("console.ext_action.step_failed"), caption=why(exc),
                           type="negative")
@@ -847,7 +849,7 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
         async def _act(key: str) -> None:
             _sync(walk.values, held)
             try:
-                found = await _asking(calls, body, buttons, walk.act(key))
+                found = await _asking(calls, wait, buttons, walk.act(key))
             except Exception as exc:  # noqa: BLE001
                 ui.notify(t("console.ext_action.step_failed"), caption=why(exc),
                           type="negative")
@@ -869,7 +871,7 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
         async def _start() -> None:
             _sync(walk.values, held)
             try:
-                started = await _asking(calls, body, buttons, walk.run())
+                started = await _asking(calls, wait, buttons, walk.run())
             except Exception as exc:  # noqa: BLE001
                 ui.notify(t("said.start_failed"), caption=why(exc), type="negative")
                 return
@@ -925,6 +927,7 @@ async def open_page(*, label: str, calls: Calls, under: str, step: str | None = 
             heading = ui.label("").classes("console-dialog-title console-wizard-title") \
                 .props("tabindex=-1")
             body = ui.column().classes("w-full min-w-0 gap-0")
+        wait = ui.element("div").classes("w-full console-wizard-wait")
         buttons = frame.footer()
 
         def draw(found: dict) -> None:
@@ -987,7 +990,7 @@ async def open_page(*, label: str, calls: Calls, under: str, step: str | None = 
         async def _next() -> None:
             _sync(walk.values, held)
             try:
-                found = await _asking(calls, body, buttons, walk.next())
+                found = await _asking(calls, wait, buttons, walk.next())
             except Exception as exc:  # noqa: BLE001
                 ui.notify(t("console.ext_action.step_failed"), caption=why(exc),
                           type="negative")
@@ -1002,7 +1005,7 @@ async def open_page(*, label: str, calls: Calls, under: str, step: str | None = 
         async def _act(key: str) -> None:
             _sync(walk.values, held)
             try:
-                found = await _asking(calls, body, buttons, walk.act(key))
+                found = await _asking(calls, wait, buttons, walk.act(key))
             except Exception as exc:  # noqa: BLE001
                 ui.notify(t("console.ext_action.step_failed"), caption=why(exc),
                           type="negative")
@@ -1024,7 +1027,7 @@ async def open_page(*, label: str, calls: Calls, under: str, step: str | None = 
         async def _start() -> None:
             _sync(walk.values, held)
             try:
-                started = await _asking(calls, body, buttons, walk.run())
+                started = await _asking(calls, wait, buttons, walk.run())
             except Exception as exc:  # noqa: BLE001
                 ui.notify(t("said.start_failed"), caption=why(exc), type="negative")
                 return

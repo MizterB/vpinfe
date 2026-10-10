@@ -694,25 +694,42 @@ def repaint(mode: str) -> None:
         f"{json.dumps(palette_css(mode))};")
 
 
-# A path field that is not focused shows the end of its path, with `console-path-cut` on
-# the field while the start is out of view. The browser is what changes a field's text, so
-# the page watches for fields arriving and for focus leaving; the server calls
-# `consolePathEnd` after it sets a value itself.
+# A path field that is not focused shows the end of its path, with `data-path-cut` on the
+# field while the start is out of view. The mark is an attribute because Vue rewrites a
+# field's `class` whenever the server redraws it, and a class set here is lost with it. A
+# field settles when it arrives, when its width changes, when its value is set (by Vue, as
+# a property, which no event reports) and when focus leaves; `consolePathEnd` is the
+# server's own call after it sets one.
 PATH_ENDS_JS = """
 (() => {
   const INPUT = 'input.console-path-input';
+  const watched = new WeakSet();
   const settle = (input) => {
     const field = input.closest('.q-field');
     if (!field) return;
-    field.classList.remove('console-path-cut');
+    field.removeAttribute('data-path-cut');
     if (document.activeElement === input) return;
     input.scrollLeft = input.scrollWidth;
     if (input.scrollLeft > 0) {
-      field.classList.add('console-path-cut');
+      field.setAttribute('data-path-cut', '');
       input.scrollLeft = input.scrollWidth;
     }
   };
-  const every = () => document.querySelectorAll(INPUT).forEach(settle);
+  const later = (input) => requestAnimationFrame(() => settle(input));
+  const sized = new ResizeObserver((entries) => entries.forEach((e) => later(e.target)));
+  const adopt = (input) => {
+    if (watched.has(input)) return;
+    watched.add(input);
+    const own = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+    Object.defineProperty(input, 'value', {
+      configurable: true,
+      get() { return own.get.call(this); },
+      set(text) { own.set.call(this, text); later(this); },
+    });
+    sized.observe(input);
+    later(input);
+  };
+  const every = () => document.querySelectorAll(INPUT).forEach(adopt);
   window.consolePathEnd = (id) => setTimeout(() => {
     const input = document.getElementById(id);
     if (input) settle(input);
@@ -732,7 +749,7 @@ PATH_ENDS_JS = """
     waiting = true;
     requestAnimationFrame(() => { waiting = false; every(); });
   }).observe(document.body, {childList: true, subtree: true});
-  window.addEventListener('resize', every);
+  every();
 })();
 """
 
