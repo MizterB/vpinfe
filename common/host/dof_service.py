@@ -20,6 +20,7 @@ from typing import Any
 
 from common.config_access import cfg_bool
 from common.config_store import ConfigStore
+from common.host import dof_config
 from common.paths import APP_ROOT
 from common.third_party import find_named_path, import_module_from_path, third_party_base_candidates
 
@@ -314,7 +315,9 @@ def start_dof_service_if_enabled(iniconfig: ConfigStore | None) -> bool:
                 )
             _HELPER = None
         helper = _get_helper()
-        response = helper.request("start", timeout=10.0)
+        base = dof_config.base_path()
+        response = helper.request("start", timeout=10.0,
+                                  base_path=str(base) if base is not None else "")
 
     if response is None:
         return False

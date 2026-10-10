@@ -63,6 +63,8 @@ os.environ.setdefault(_OFFLINE, "1")
 # test's `patch.stopall()` would lift.
 from apps.vpx import config as _vpx_config  # noqa: E402
 
+# Kept for the tests of the platform's own answer.
+REAL_MACHINE_FOLDERS = _vpx_config._machine_folders
 _vpx_config._machine_folders = lambda: (None, None)  # type: ignore[attr-defined]
 
 # Nothing in the suite may power the machine off, restart it, or replace the test

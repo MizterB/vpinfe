@@ -74,6 +74,8 @@ BASELINE: dict[str, int] = {
     "common/games/table_ops.py": 6,
     "common/games/tables.py": 8,
     "common/games/vpx_parser.py": 13,
+    # The import of the folder Visual Pinball's DOF plugin reads, which the frontend's DOF shares.
+    "common/host/dof_config.py": 1,
     "common/host/launch.py": 6,
     "common/host/launch_state.py": 1,
     "common/host/pinmame_catalog.py": 14,

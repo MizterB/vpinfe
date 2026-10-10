@@ -42,7 +42,7 @@ class _Worker:
             }
         )
 
-    def _start(self) -> tuple[bool, str]:
+    def _start(self, base_path: str = "") -> tuple[bool, str]:
         if self._runner is not None:
             try:
                 if self._runner.is_running():
@@ -56,6 +56,7 @@ class _Worker:
 
         self._runner = runner_class(
             rom="pinupmenu",
+            base_path=base_path,
             debug=logger.isEnabledFor(logging.DEBUG),
             log_callback=self._log_callback,
         )
@@ -98,7 +99,7 @@ class _Worker:
 
         try:
             if command == "start":
-                started, detail = self._start()
+                started, detail = self._start(str(request.get("base_path") or ""))
                 self._reply(request_id, True, started=started, detail=detail)
                 return True
             if command == "stop":

@@ -21,6 +21,8 @@ import os
 class SingleEventDofRunner:
     def __init__(self, rom, **kwargs):
         self._running = False
+        with open(os.environ["VPINFE_TEST_DOF_MARKER"] + ".base", "w", encoding="utf-8") as seen:
+            seen.write(kwargs.get("base_path", "<not given>"))
 
     def start(self):
         self._running = True
@@ -109,6 +111,18 @@ class DofHelperShutdownTests(unittest.TestCase):
                 return
             time.sleep(0.05)
         self.fail("helper exited without stopping the runner; DOF outputs stay on")
+
+    def test_the_runner_is_given_the_base_path_the_parent_sent(self):
+        started = self._request(1, "start", base_path="/prefs/10.8")
+
+        self.assertTrue(started.get("started"), started)
+        self.assertEqual(Path(str(self.marker) + ".base").read_text(encoding="utf-8"),
+                         "/prefs/10.8")
+
+    def test_the_runner_is_given_an_empty_base_path_when_none_was_sent(self):
+        self._request(1, "start")
+
+        self.assertEqual(Path(str(self.marker) + ".base").read_text(encoding="utf-8"), "")
 
     def test_sigterm_stops_the_runner(self):
         self._start_with_active_event()

@@ -233,6 +233,16 @@ def preferences_file(version: str) -> Path | None:
     return base / named / SETTINGS_FILE if base and _VERSION_FOLDER.fullmatch(named) else None
 
 
+def preferences_folder() -> Path | None:
+    """The version folder Visual Pinball reads and writes: the newest one there is, or the
+    newest release's where it has never run. None where the platform names no preferences
+    folder."""
+    base, _ = _machine_folders()
+    if base is None:
+        return None
+    return next(iter(_version_folders(base)), base / NEWEST_VERSION)
+
+
 def own_file(bin_path: str = "") -> Path | None:
     """The settings file Visual Pinball uses when it is not given one, or None where
     there is none yet.
