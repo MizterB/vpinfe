@@ -18,7 +18,7 @@ from common.failures import why
 from common.i18n import t
 from common.media_specs import media_label_map
 from console import dialog as frame
-from console import media_fill, offload, panel, verbs
+from console import media_fill, needs, offload, panel, verbs
 from console.data import Library
 from console.on_page import on_page
 
@@ -30,8 +30,11 @@ from console.on_page import on_page
 # about something a person can act on.
 CHECKS: tuple[tuple[str, str, str, Callable[[dict, dict, dict], bool]], ...] = (
     ("rom_missing", t("console.sections.rom_missing"),
-     "The table will not boot; PinMAME has nothing to load.",
+     t("console.sections.rom_missing_why"),
      lambda g, m, x: bool(x.get("rom_missing"))),
+    ("unmatched", t("console.sections.unmatched"),
+     t("console.sections.unmatched_why"),
+     lambda g, m, x: not g.get("vps_id")),
     ("no_playfield", t("console.sections.playfield_missing"),
      t("console.sections.playfield_empty"),
      lambda g, m, x: not m.get("playfield", {}).get("present")),
@@ -40,11 +43,15 @@ CHECKS: tuple[tuple[str, str, str, Callable[[dict, dict, dict], bool]], ...] = (
      lambda g, m, x: not m.get("backglass", {}).get("present")),
     ("no_media", t("console.sections.media_none"),
      t("console.sections.nothing_found"),
-     lambda g, m, x: not any(e.get("present") for e in m.values())),
+     lambda g, m, x: not any(e.get("present") for kind, e in m.items()
+                             if kind in x["collected"])),
     ("no_year", t("console.sections.year_missing"),
      t("console.sections.year_sort"),
      lambda g, m, x: not g.get("year")),
 )
+
+# The element Unreadable Folder scrolls to.
+METADATA_ID = "console-library-metadata"
 
 # The checks a source can answer, and the kind each one fetches.
 FILLS = {"no_playfield": "playfield", "no_backglass": "backglass"}
@@ -83,12 +90,15 @@ def reported(library: Library) -> tuple:
 
 def findings(library: Library) -> dict[str, list[dict[str, Any]]]:
     """Run the checks this library asks for. Keyed by check, so a section shows counts."""
-    asked = reported(library)
+    collected = library.kept_kinds()["media"]
+    # A kind the library does not collect has no column to land on and is not a gap.
+    asked = tuple(one for one in reported(library)
+                  if one[0] not in FILLS or FILLS[one[0]] in collected)
     out: dict[str, list[dict[str, Any]]] = {key: [] for key, _, _, _ in asked}
     extra = rollups(library)
     for game in library.games:
         entries = library.media.get(game["id"], {})
-        facts = extra.get(game["id"], {})
+        facts = {"collected": collected, **extra.get(game["id"], {})}
         for key, _, _, predicate in asked:
             try:
                 if predicate(game, entries, facts):
@@ -98,13 +108,6 @@ def findings(library: Library) -> dict[str, list[dict[str, Any]]]:
                 # reports nothing rather than taking the page down with it.
                 continue
     return out
-
-
-def _card(title: str) -> Any:
-    card = ui.element("div").classes("console-card")
-    with card:
-        ui.label(title).classes("console-card-title")
-    return card
 
 
 def _bar(fraction: float) -> None:
@@ -133,41 +136,58 @@ def media_coverage(library: Library) -> tuple[int, int, list[tuple[str, int]]]:
     return present, total, sorted(held.items(), key=lambda item: item[1])
 
 
-def overview(library: Library, registry: list[dict], discovery: dict,
-             go: Callable[[str], None], state: dict[str, Any]) -> None:
-    found = findings(library)
+def _local_name(registry: list[dict], discovery: dict) -> str:
+    from console import devices
 
-    def placed(game_ids: list[str]) -> None:
-        for game_id in game_ids:
-            library.forget_media(game_id)
-        if state.get("view") == "overview":
-            go("overview")
+    local = discovery.get("install_id")
+    entry = next((one for one in registry if one.get("device_id") == local), {})
+    return devices.device_label(entry)
 
+
+def _need_row(need: needs.Need, state: dict[str, Any], fix: Callable[[needs.Need], Any]) -> None:
+    """Icon in its tone, label, count in its own unit, the fix, and the whole row opens
+    what it counted."""
+    row = ui.element("div").classes(f"console-need console-need--{need.tone}") \
+        .props("tabindex=0 role=link")
+    row.on("click", lambda: state["open_on"](need.opens))
+    row.on("keydown.enter", lambda: state["open_on"](need.opens))
+    with row:
+        ui.icon(need.icon).classes("console-need-icon")
+        ui.label(need.label).classes("console-setting grow min-w-0").tooltip(need.tip)
+        if said := need.counted():
+            ui.label(said).classes("console-need-count shrink-0")
+        if need.fix is not None:
+            with ui.element("div").classes("console-need-fix").on("click.stop", lambda: None):
+                panel.icon_action(need.fix.label, lambda: fix(need), icon=need.fix.icon,
+                                  hint=need.fix.tip)()
+
+
+def _needs_you(rows: list[needs.Need], state: dict[str, Any],
+               fix: Callable[[needs.Need], Any]) -> None:
+    ui.label(t("console.needs.title")).classes("console-group")
+    with ui.element("div").classes("console-card console-needs"):
+        if not rows:
+            with ui.row().classes("items-center gap-3 w-full no-wrap"):
+                ui.icon("check_circle").classes("console-need-icon console-need--none")
+                ui.label(t("console.needs.nothing")).classes("console-setting grow")
+                panel.action(t("console.needs.choose_checks"),
+                             lambda: state["open_on"](needs.Opens(
+                                 "settings", keys={"settings_page": "library.audit"})),
+                             icon=verbs.GO, hint=t("console.needs.choose_checks.help"))()
+            return
+        for need in rows:
+            _need_row(need, state, fix)
+
+
+def _coverage(library: Library) -> None:
     present, total_slots, counts = media_coverage(library)
-    open_findings = sum(len(games) for games in found.values())
-
-    with ui.row().classes("w-full gap-4 no-wrap"):
-        with _card(t("console.sections.library")):
-            ui.label(str(len(library.games))).classes("console-kpi")
-            ui.label(t("console.sections.games")).classes("text-xs opacity-60")
-        with _card(t("console.sections.media_coverage")):
-            ui.label(f"{(present / total_slots * 100 if total_slots else 0):.0f}%") \
-                .classes("console-kpi")
-            _bar(present / total_slots if total_slots else 0)
-            ui.label(t("console.sections.slots", present=(present),
-                    total_slots=(total_slots))).classes("text-xs opacity-60")
-        with _card(t("console.sections.needs_attention")):
-            ui.label(str(open_findings)).classes("console-kpi")
-            ui.label(t("console.sections.findings_unit")).classes("text-xs opacity-60")
-        with _card(t("console.sections.devices")):
-            ui.label(str(len(registry))).classes("console-kpi")
-            ui.label(t("console.sections.known_here")).classes("text-xs opacity-60")
-        with _card(t("console.sections.build")):
-            ui.label(str(discovery.get("vpinfe_version") or "?")).classes("console-kpi")
-            ui.label(t("console.sections.no_endpoint")).classes("text-xs opacity-60")
-
-    ui.label(t("console.sections.coverage_kind")).classes("console-group mt-4")
+    ui.label(t("console.sections.coverage_kind")).classes("console-group")
     with ui.element("div").classes("console-card w-full"):
+        ui.label(f"{(present / total_slots * 100 if total_slots else 0):.0f}%") \
+            .classes("console-kpi")
+        _bar(present / total_slots if total_slots else 0)
+        ui.label(t("console.sections.slots", present=present, total_slots=total_slots)) \
+            .classes("text-xs opacity-60")
         # A filter says which games lack a topper. Nothing in a grid says "you have no
         # toppers at all" without filtering twenty kinds one at a time, which is the
         # one thing a rollup does that a lens cannot.
@@ -181,36 +201,44 @@ def overview(library: Library, registry: list[dict], discovery: dict,
                            total=len(library.games))) \
                     .classes("text-xs opacity-60 shrink-0")
 
-    ui.label(t("console.sections.attention_title")).classes("console-group mt-4")
-    with ui.element("div").classes("console-card w-full"):
-        for key, name, description, _ in reported(library):
-            games = found.get(key) or []
-            with ui.row().classes("items-center gap-3 w-full no-wrap py-1"):
-                ui.icon("error" if games else "check_circle", size="18px") \
-                    .classes("text-warning" if games else "text-positive")
-                with ui.column().classes("gap-0 grow min-w-0"):
-                    ui.label(name).classes("console-setting")
-                    # The sentence is the finding. Without it a count is a puzzle.
-                    ui.label(description).classes("console-help")
-                ui.label(f"{len(games)}").classes("text-sm opacity-70 shrink-0")
-                if key in FILLS:
-                    ids = [str(game["id"]) for game in games]
-                    panel.action(t("console.media_fill.get_media"),
-                                 lambda ids=ids, kind=FILLS[key]: media_fill.confirm_kind(
-                                     ids, kind, state, lambda: placed(ids)),
-                                 icon=verbs.FETCH, enabled=bool(games),
-                                 hint=t("console.media_fill.get_media.help"))()
-                panel.action(t("console.sections.show"), lambda: go("games"),
-                             icon=verbs.GO, enabled=bool(games),
-                             hint=t("console.sections.show_finding.help"))()
+
+def overview(library: Library, registry: list[dict], discovery: dict,
+             go: Callable[[str], None], state: dict[str, Any]) -> None:
+    rows = needs.collect(library, state)
+
+    def placed(game_ids: tuple[str, ...]) -> None:
+        for game_id in game_ids:
+            library.forget_media(game_id)
+        if state.get("view") == "overview":
+            go("overview")
+
+    def fix(need: needs.Need) -> Any:
+        if need.fix is None:
+            return None
+        if need.fix.key == needs.GET_MEDIA:
+            return media_fill.confirm_kind(list(need.ids), need.fix.kind, state,
+                                           lambda: placed(need.ids))
+        from console import devices
+
+        return devices.confirm_update(library, _local_name(registry, discovery),
+                                      library.watched().get("update") or {})
 
     def drawn_again() -> None:
         if state.get("view") == "overview":
             go("overview")
 
-    metadata(library.metadata_state(), _metadata_action(library, state, drawn_again),
-             state.get(_LEFT))
-    table_scripts(library)
+    # The container the two columns answer to: this page's own width, not the window's,
+    # which the workbench pane shares.
+    with ui.element("div").classes("console-overview"), \
+            ui.element("div").classes("console-overview-columns"):
+        with ui.element("div").classes("console-overview-main"):
+            _needs_you(rows, state, fix)
+            with ui.element("div").props(f"id={METADATA_ID}"):
+                metadata(library.metadata_state(), _metadata_action(library, state, drawn_again),
+                         state.get(_LEFT))
+            table_scripts(library)
+        with ui.element("div").classes("console-overview-side"):
+            _coverage(library)
 
 
 # --- The library's own metadata ---------------------------------------------------

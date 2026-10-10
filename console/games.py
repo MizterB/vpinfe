@@ -858,6 +858,11 @@ TABLE_COLUMN_SECTIONS = {"settings": "table_settings", OWN_SETTINGS_COLUMN: "tab
 
 _ROM_INSTALLED, _ROM_MISSING, _ROM_UNKNOWN = "installed", "missing", "unknown"
 
+# The Tables grid on the tables whose ROM is missing, or that have a newer release, as
+# `state["arriving"]`.
+ROM_MISSING = {"rom_state": {"values": [_ROM_MISSING]}}
+NEWER_ON_VPS = {"update": {"values": [_NEWER]}}
+
 # Tokens, not words: a filter and a saved view store what the cell holds, and the words
 # follow the language. A table that names no ROM holds nothing and is in no choice.
 _ROM_CHOICES = [
@@ -1238,6 +1243,7 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
     # Taken once, as the Games grid takes its own.
     arriving = setting_their_own(rows, str(state.pop("launcher", None) or ""),
                                  str(state.pop("sets", None) or ""))
+    arriving = state.pop("arriving", None) or arriving
     if reported is not None:
         arriving = {REPORTED_COLUMN: {"values": [reported.label]}}
     table_columns = grid.with_art(TABLE_COLUMNS, look) \

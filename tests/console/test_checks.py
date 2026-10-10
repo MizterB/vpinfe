@@ -16,11 +16,15 @@ from console import data, sections
 class FakeLibrary:
     """Just enough of Library for the checks: games, their media, and the flat lens."""
 
-    def __init__(self, games, rows, media=None, hidden=()):
+    def __init__(self, games, rows, media=None, hidden=(), collected=("playfield", "backglass")):
         self.games = games
         self.media = media or {g["id"]: {} for g in games}
         self._rows = rows
         self._hidden = set(hidden)
+        self._collected = set(collected)
+
+    def kept_kinds(self):
+        return {"media": self._collected}
 
     def table_rows(self):
         return self._rows
@@ -85,6 +89,22 @@ class FindingsTests(unittest.TestCase):
     def test_a_check_the_library_keeps_quiet_is_not_run(self):
         lib = FakeLibrary([game("g1")], [table("g1", False)], hidden=["rom_missing"])
         self.assertNotIn("rom_missing", sections.findings(lib))
+
+    def test_a_game_with_no_match_is_unmatched(self):
+        lib = FakeLibrary([game("g1"), game("g2", vps_id="abc")], [])
+        self.assertEqual(["g1"], [g["id"] for g in sections.findings(lib)["unmatched"]])
+
+    def test_a_kind_the_library_does_not_collect_is_not_a_gap(self):
+        lib = FakeLibrary([game("g1")], [], collected=("playfield",))
+        found = sections.findings(lib)
+        self.assertEqual(["g1"], [g["id"] for g in found["no_playfield"]])
+        self.assertNotIn("no_backglass", found)
+
+    def test_no_media_counts_only_the_kinds_collected(self):
+        """A file of a kind nobody collects does not make the game have media."""
+        lib = FakeLibrary([game("g1")], [], collected=("playfield",),
+                          media={"g1": {"backglass": {"present": True}}})
+        self.assertEqual(["g1"], [g["id"] for g in sections.findings(lib)["no_media"]])
 
     def test_every_check_gets_the_third_argument(self):
         """The signature changed for one check; the others must still run."""

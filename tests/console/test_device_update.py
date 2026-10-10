@@ -24,7 +24,7 @@ class UpdateConfirm(unittest.IsolatedAsyncioTestCase):
         with patch.object(devices.offload, "io", new=AsyncMock(return_value=playing)), \
                 patch.object(devices.confirm, "ask", new=ask), \
                 patch.object(devices.ui, "notify", new=Mock()):
-            await press(devices._confirm_update, Mock(), "Basement", UPDATE)
+            await press(devices.confirm_update, Mock(), "Basement", UPDATE)
         return ask
 
     async def test_with_nothing_running_it_asks_to_update(self) -> None:

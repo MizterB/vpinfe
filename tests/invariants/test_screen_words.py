@@ -42,7 +42,6 @@ BUILD = {
     "app.vpx.no_plugins": "the VPX build beside the plugins",
     "console.devices.newer_build": "a VPinFE build",
     "console.devices.published_build": "a VPinFE build",
-    "console.sections.build": "this VPinFE build",
     "console.settings.browser_slim_build": "this VPinFE build",
     "console.sections.newer_build": "this VPinFE build",
     "console.sections.written_later": "this VPinFE build",

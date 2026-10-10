@@ -35,6 +35,7 @@ from console import (
     grid,
     job_report,
     jobs_list,
+    needs,
     offload,
     power,
     rail_marks,
@@ -1185,6 +1186,38 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         go("media")
 
     state["show_recorded"] = _show_recorded
+
+    @on_page
+    async def _open_on(opens: needs.Opens) -> None:
+        """Where a row of Needs You lands: a view, with the filter its grid arrives on."""
+        if opens.then == needs.METADATA:
+            ui.run_javascript(
+                f"document.getElementById('{sections.METADATA_ID}')"
+                "?.scrollIntoView({behavior: 'smooth', block: 'start'})")
+            return
+        if opens.then == needs.REVIEW:
+            try:
+                waiting_on = {str(row.get("game_id") or "") for row in
+                              (await offload.io(library.capture_proposals))
+                              .get("proposals") or []}
+            except Exception:  # noqa: BLE001 - review says it could not read them
+                waiting_on = set()
+
+            async def used() -> None:
+                await run.io_bound(library.reread_media, waiting_on)
+
+            await recorder.review(library, used)
+            library.forget_watched()
+            go("overview")
+            return
+        if not await may_leave(state, opens.view):
+            return
+        state.update(opens.keys)
+        if opens.arriving is not None:
+            state["arriving"] = opens.arriving
+        go(opens.view)
+
+    state["open_on"] = _open_on
 
 
     splitter = ui.splitter(reverse=True, limits=(WORKBENCH_MIN_PX, WORKBENCH_MAX_PX),

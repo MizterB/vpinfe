@@ -2124,6 +2124,35 @@ button.q-btn--flat.text-primary:hover .q-btn__content {
   background: var(--card-bg);
   padding: 14px 16px;
 }
+/* Overview: Needs You in the main column and the library beside it. The page's own width
+   decides, not the window's, because the workbench pane shares the window. */
+.console-overview { container-type: inline-size; width: 100%; }
+.console-overview-columns { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px 24px; }
+.console-overview-main, .console-overview-side {
+  display: flex; flex-direction: column; gap: 16px; min-width: 0;
+}
+@container (min-width: 880px) {
+  .console-overview-columns { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+}
+/* A row of Needs You: the tone is the glyph's alone, so the label stays readable and a
+   column of them says how much each costs without a column of colored text. */
+.console-needs { padding: 6px; }
+.console-need {
+  display: flex; align-items: center; gap: 12px; min-height: var(--target-inline);
+  padding: 2px 10px; border-radius: 6px; cursor: pointer;
+}
+.console-need:hover, .console-need:focus-visible { background: var(--accent-wash); outline: none; }
+.console-need-icon { font-size: var(--icon-mark); flex: none; }
+.console-need--danger .console-need-icon { color: var(--danger); }
+.console-need--warm .console-need-icon { color: var(--warm); }
+.console-need--accent .console-need-icon { color: var(--accent); }
+.console-need--muted .console-need-icon { color: var(--ink-3); }
+.console-need--none { color: var(--positive); }
+.console-need-count { font-size: var(--fs-caption); color: var(--ink-2); }
+.console-need-fix { flex: none; display: flex; }
+.console-need-fix .q-btn { color: var(--ink-3); }
+.console-need-fix .q-btn:hover { color: var(--accent); }
+.console-need-fix .q-icon { font-size: var(--icon-row); }
 /* A heading, wherever one appears: a card's, a group's, a dialog region's. Declared once
    so the three cannot drift apart on colour, which is how they did. What differs between
    them is spacing, and only spacing. */

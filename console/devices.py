@@ -561,7 +561,7 @@ def _available_rows(device: dict[str, Any], client: Any, update: dict[str, Any],
     def update_action() -> None:
         with ui.element("div").classes("console-fact-edit"):
             panel.action(t("console.devices.update_3", latest=(latest)),
-                         lambda: _confirm_update(client, device_label(device), update),
+                         lambda: confirm_update(client, device_label(device), update),
                          icon=verbs.UPDATE, inline=True,
                          hint=t("console.devices.update_3.help"))()
 
@@ -570,7 +570,7 @@ def _available_rows(device: dict[str, Any], client: Any, update: dict[str, Any],
 
 
 @on_page
-async def _confirm_update(client: Any, name: str, update: dict[str, Any]) -> None:
+async def confirm_update(client: Any, name: str, update: dict[str, Any]) -> None:
     """Ask before replacing an install, naming which one it is.
 
     The name is the point of the question. An update replaces the machine it runs on,

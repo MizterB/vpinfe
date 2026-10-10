@@ -10,6 +10,7 @@ from typing import Any
 from common import folder_browse
 from common.games.asset_registry import ASSET_SPECS, lens_kind
 from common.i18n import t
+from common.jobs import KIND_MEDIA_FILL
 from common.labels import field_label
 from common.media_specs import MEDIA_SPECS, media_family, media_label_map
 from console import art, game_tables, media_ownership, thumbnails, when
@@ -22,6 +23,12 @@ logger = logging.getLogger("vpinfe.console.data")
 # nothing; a cold one over a share has been seconds, and that is the number worth having
 # when somebody says the Console is slow.
 _SLOW_READ = 1.0
+
+# How long what Overview lists of the install itself (an update, the recordings waiting,
+# the last fill) is taken as current before the next visit reads it again, and how many
+# jobs that read looks back over for the fill.
+WATCHED_FRESH_S = 30.0
+WATCHED_JOBS = 100
 
 # The cell holds the *word*, never the mark. What a cell is worth filtering and sorting
 # on is the state; how it is drawn is the column's business. Holding the drawn mark makes
@@ -220,6 +227,8 @@ class Library:
         self._launch_apps: list[dict[str, Any]] | None = None
         self._discovery: dict[str, Any] = {}
         self._hidden_checks: set[str] | None = None
+        self._watched: dict[str, Any] | None = None
+        self._watched_at = 0.0
         self._tags: list[dict[str, Any]] = []
 
     def load(self) -> None:
@@ -1022,10 +1031,45 @@ class Library:
         except Exception:  # noqa: BLE001 - a report that cannot read a preference still runs
             policy = {}
         self._hidden_checks = {str(one) for one in (policy.get("hidden_checks") or [])}
+        self._watched = self._read_watched()
+        self._watched_at = time.monotonic()
 
     def has_overview(self) -> bool:
         return (self._table_rows is not None and self._hidden_checks is not None
-                and not self._media_missing())
+                and not self._media_missing() and self._watched is not None
+                and time.monotonic() - self._watched_at < WATCHED_FRESH_S)
+
+    def forget_watched(self) -> None:
+        """Read what Overview lists of the install again on the next visit."""
+        self._watched = None
+
+    def watched(self) -> dict[str, Any]:
+        """What the install reports of itself that Overview lists: `update` as
+        `GET /update` answered, `recordings` the ids waiting for a decision, `fill` the
+        last media fill job. Already read - this asks nothing."""
+        return self._watched or {}
+
+    def _read_watched(self) -> dict[str, Any]:
+        """Each read stands alone: an install with no network has no update to report,
+        and that must not take the recordings or the jobs down with it."""
+        out: dict[str, Any] = {"update": {}, "recordings": [], "fill": None}
+        try:
+            out["update"] = self._client.update_check() or {}
+        except Exception:  # noqa: BLE001 - not knowing is not an update
+            logger.debug("console: could not ask whether an update is out", exc_info=True)
+        try:
+            out["recordings"] = [str(one.get("id") or "") for one in
+                                 self._client.capture_proposals().get("proposals") or []]
+        except Exception:  # noqa: BLE001 - recordings are not Overview's to fail on
+            logger.debug("console: could not read the recordings waiting", exc_info=True)
+        try:
+            fills = [job for job in self._client.jobs(WATCHED_JOBS)
+                     if job.get("kind") == KIND_MEDIA_FILL]
+            out["fill"] = max(fills, key=lambda job: float(job.get("started_at") or 0),
+                              default=None)
+        except Exception:  # noqa: BLE001
+            logger.debug("console: could not read the last media fill", exc_info=True)
+        return out
 
     def _media_missing(self) -> list[str]:
         return [game["id"] for game in self.games if game["id"] not in self.media]

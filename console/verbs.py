@@ -93,6 +93,15 @@ OPEN_OUT = "open_in_new"
 # Giving what one thing holds to another, so the first no longer has it.
 MOVE = "arrow_forward"
 
+# What a row of Needs You is about, drawn in the tone its cost sets.
+CANNOT_PLAY = "error"
+NO_MATCH = "link_off"
+NO_ART = "image_not_supported"
+NO_MEDIA = "hide_image"
+NO_YEAR = "event_busy"
+HAD_ERRORS = "warning"
+NEWER_RELEASE = "upgrade"
+
 # Asking for the current state of something held elsewhere.
 REFRESH = "refresh"
 UPDATE = "system_update_alt"
