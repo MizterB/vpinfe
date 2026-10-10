@@ -10,7 +10,7 @@ from typing import NamedTuple
 from urllib.parse import quote
 
 from common import media_probe, sized_media
-from common.config_access import MediaConfig
+from common.config_access import MediaConfig, cfg_get
 from common.games import asset_origin
 from common.games.game import GameRecord
 from common.games.game_metadata import reorder_leading_article, vpinfe_section
@@ -322,9 +322,48 @@ def ensure_thumb(game_dir_name: str, kind: str, source_path: str) -> str | None:
             img.thumbnail(THUMB_SIZE, Image.Resampling.LANCZOS)
             img.save(path, format="PNG", optimize=True)
         os.utime(path, None)
+        trim_thumb_cache(thumb_cache_limit_bytes())
         return thumb_url(path)
     except Exception:
         return None
+
+
+def thumb_cache_limit_bytes() -> int:
+    """`thumb_cache_max_mb` in bytes; 0 or an unreadable value means no limit."""
+    raw = cfg_get(get_ini_config(), "Media", "thumb_cache_max_mb", "500")
+    try:
+        return max(0, int(raw.strip())) * 1024 * 1024
+    except ValueError:
+        return 0
+
+
+def trim_thumb_cache(limit_bytes: int) -> int:
+    """Delete the least recently used thumbnails until the cache fits `limit_bytes`.
+
+    Reading a thumbnail touches its mtime, so the oldest mtime is the one nobody has
+    shown lately. Returns the number of files removed."""
+    if limit_bytes <= 0:
+        return 0
+    found = []
+    total = 0
+    for path in THUMB_CACHE_ROOT.rglob("*.png"):
+        try:
+            stat = path.stat()
+        except OSError:
+            continue
+        found.append((stat.st_mtime_ns, stat.st_size, path))
+        total += stat.st_size
+    removed = 0
+    for _, size, path in sorted(found):
+        if total <= limit_bytes:
+            break
+        try:
+            path.unlink()
+        except OSError:
+            continue
+        total -= size
+        removed += 1
+    return removed
 
 
 def _game_meta_sections(game: GameRecord) -> tuple[dict, dict]:

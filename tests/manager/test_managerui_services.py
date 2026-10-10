@@ -24,6 +24,7 @@ from common.games.media_service import (
     invalidate_media_cache,
     media_url,
     set_media_cache,
+    trim_thumb_cache,
     update_cache_entry,
 )
 from common.online import theme_service
@@ -242,6 +243,23 @@ class ManagerUiServiceTests(unittest.TestCase):
         self.assertEqual(row["media"]["bg"], "/media_games/A%20B/medias/bg.png")
         self.assertTrue(row["has_bg"])
         self.assertNotIn("bg", row["thumb_errors"])
+
+    def test_thumb_cache_trim_drops_the_least_recently_used_first(self):
+        import os
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for age, name in enumerate(("old", "mid", "new")):
+                path = root / "Game" / f"{name}.png"
+                path.parent.mkdir(exist_ok=True)
+                path.write_bytes(b"x" * 100)
+                os.utime(path, (1000 + age, 1000 + age))
+            with mock.patch("common.games.media_service.THUMB_CACHE_ROOT", root):
+                self.assertEqual(trim_thumb_cache(0), 0)
+                self.assertEqual(trim_thumb_cache(250), 1)
+            left = sorted(p.name for p in root.rglob("*.png"))
+        self.assertEqual(left, ["mid.png", "new.png"])
 
     def test_system_service_formatters(self):
         self.assertEqual(format_bytes(1024), "1.0 KB")
