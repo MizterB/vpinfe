@@ -395,6 +395,9 @@ class TableScriptFixes(unittest.TestCase):
         self.assertEqual([[games.fixes_label()], []], [r[games.FIXES_COLUMN] for r in stamped])
         self.assertNotIn(games.FIXES_COLUMN, built[0])
 
+    def test_the_column_is_offered_on_any_visit_to_the_tables_grid(self):
+        self.assertIn(games.FIXES_COLUMN, [c["field"] for c in games.TABLE_COLUMNS])
+
     def test_nothing_is_stamped_without_a_fix_list(self):
         built = [{"id": "t-a"}]
         self.assertIs(built, games.stamp_fixes(built, None))
