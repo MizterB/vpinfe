@@ -24,6 +24,9 @@ from console.on_page import on_page
 # How many rows of a group are named before the rest is behind a link.
 SHOWN = report_groups.SHOW_ALL_OVER
 
+SECTION = "report-"
+LOOKING, KNOWING, LEAVING, IMPORTING = "look", "know", "left", "imported"
+
 NEED_ROM = report_groups.NEED_ROM
 NOT_MATCHED = report_groups.NOT_MATCHED
 NO_WHEEL = report_groups.NO_WHEEL
@@ -98,52 +101,67 @@ def _link(label: str, to: str, on_click: Callable[[], Any] | None = None,
 
 
 def _row(name: str, note: str = "", *, links: tuple[Callable[[], None], ...] = (),
-         tick: str = "") -> None:
-    with ui.row().classes("items-center gap-3 px-3 w-full"):
-        ui.label(name).classes("console-help")
+         tick: str = "", code: bool = False) -> None:
+    with ui.element("div").classes("console-report-row"):
+        ui.label(name).classes(
+            "console-report-name" + ("" if note else " console-report-name--wide"))
         if note:
-            ui.label(note).classes("console-help")
-        if tick:
-            ui.label(tick).classes("console-member-chip console-chip-quiet")
-            return
-        for draw in links:
-            draw()
+            ui.label(note).classes(
+                "console-help console-report-note" + (" console-report-note--code" if code else ""))
+        with ui.element("div").classes("console-report-act"):
+            if tick:
+                ui.label(tick).classes("console-member-chip console-chip-quiet")
+                return
+            for draw in links:
+                draw()
 
 
-def _heading(text: str) -> None:
-    panel.facts(ui, [(panel.HEADING, text)])
+def _section(key: str, title: str, count: int | None = None, help_: str = "") -> ui.column:
+    """A group of the report: its title with how many are in it, and one line on what it is.
+    Draw the rest of the group inside the returned column."""
+    box = ui.column().classes("console-report-section w-full").props(f"id={SECTION}{key}")
+    with box:
+        with ui.row().classes("console-report-head"):
+            ui.label(t(title)).classes("console-report-title")
+            if count is not None:
+                ui.label(f"{count:,}").classes("console-help")
+        if help_:
+            ui.label(help_).classes("console-help")
+    return box
 
 
-def _more(job: dict[str, Any], group: str, count: int) -> None:
-    """The rows a group did not name, as a link to them in Tables where there is a group
-    to narrow it to."""
-    if count <= 0:
-        return
-    label = t("console.report.more", count=count)
+def _more(job: dict[str, Any], group: str, count: int) -> Callable[[], None]:
+    """The link to a group's games in Tables, or what is left of it where there is no
+    such group to narrow Tables to."""
     if group in report_groups.groups(job):
-        with ui.row().classes("px-3"):
-            _link(label, report_groups.tables_address(str(job.get("id") or ""), group))()
-        return
-    ui.label(label).classes("console-help px-3")
+        return _link(t("console.report.show_all", count=count),
+                     report_groups.tables_address(str(job.get("id") or ""), group))
+    def rest() -> None:
+        ui.label(t("console.report.more", count=count - SHOWN)).classes("console-help")
+    return rest
 
 
 def _group(job: dict[str, Any], group: str, title: str, rows: list[dict[str, Any]],
            draw: Callable[[dict[str, Any], bool], None], *,
            under: tuple[Callable[[], None], ...] = ()) -> None:
-    """One group: its heading with the count, `draw` for each of the first few rows, the
-    rest behind a link, and the links that act on the group as a whole."""
     if not rows:
         return
     fixed = (job.get("checked") or {}).get(group, set())
     ordered = sorted(rows, key=lambda one: str(one.get("game_id") or "") in fixed)
-    ui.label(t(title)).classes("console-help font-bold px-3 pt-2")
-    for one in ordered[:SHOWN]:
-        draw(one, str(one.get("game_id") or "") in fixed)
-    _more(job, group, len(ordered) - SHOWN)
-    if under:
-        with ui.row().classes("items-center gap-3 px-3"):
-            for each in under:
-                each()
+    waiting_here = sum(1 for one in ordered if str(one.get("game_id") or "") not in fixed)
+    with ui.element("div").classes("console-report-group"):
+        with ui.row().classes("console-report-group-head"):
+            ui.label(t(title)).classes("console-report-group-title")
+            ui.label(f"{waiting_here:,}").classes("console-help")
+        for one in ordered[:SHOWN]:
+            draw(one, str(one.get("game_id") or "") in fixed)
+        rest = _more(job, group, len(ordered)) if len(ordered) > SHOWN else None
+        if rest is not None or under:
+            with ui.row().classes("console-report-foot"):
+                if rest is not None:
+                    rest()
+                for each in under:
+                    each()
 
 
 def _items(result: dict[str, Any], group: str) -> list[dict[str, Any]]:
@@ -180,24 +198,30 @@ def _again(job: dict[str, Any], label: str, keys: list[str]) -> Callable[[], Non
                  "font-bold")
 
 
+def _lists(result: dict[str, Any], failed: list[dict[str, Any]]) -> bool:
+    return bool(failed) or any(_items(result, group) for group in LOOK)
+
+
 def _looking(job: dict[str, Any], result: dict[str, Any], failed: list[dict[str, Any]]) -> None:
     """What needs a look."""
-    shown = False
+    if not _lists(result, failed):
+        return
+    with _section(LOOKING, "console.report.look", waiting(job), t("console.report.look.help")):
+        with _card():
+            _failed(job, failed)
+            _unsettled(job, result)
 
-    def head() -> None:
-        nonlocal shown
-        if not shown:
-            _heading(t("console.report.look"))
-            shown = True
 
-    if failed:
-        head()
-        _group(job, "failed", "console.report.failed", failed,
-               lambda one, _fixed: _row(
-                   str(one.get("name") or one.get("key")), _worded(one["error"])[0]),
-               under=(_link(t("console.report.see_log"), "/console?view=logs"),
-                      _again(job, t("console.report.try_again"),
-                             [str(one["key"]) for one in failed])))
+def _failed(job: dict[str, Any], failed: list[dict[str, Any]]) -> None:
+    _group(job, "failed", "console.report.failed", failed,
+           lambda one, _fixed: _row(
+               str(one.get("name") or one.get("key")), _worded(one["error"])[0]),
+           under=(_link(t("console.report.see_log"), "/console?view=logs"),
+                  _again(job, t("console.report.try_again"),
+                         [str(one["key"]) for one in failed])))
+
+
+def _unsettled(job: dict[str, Any], result: dict[str, Any]) -> None:
     for group, title, note, link in (
             (NEED_ROM, "console.report.need_rom", lambda one: str(one.get("reason") or ""),
              lambda one: _link(t("console.report.add_rom"),
@@ -209,14 +233,11 @@ def _looking(job: dict[str, Any], result: dict[str, Any], failed: list[dict[str,
             (NO_WHEEL, "console.report.no_wheel", lambda _one: "",
              lambda one: _link(t("console.report.add_wheel"),
                                _to(str(one["game_id"]), view="media", slot="wheel")))):
-        rows = _items(result, group)
-        if not rows:
-            continue
-        head()
-        _group(job, group, title, rows,
+        _group(job, group, title, _items(result, group),
                lambda one, fixed, group=group, note=note, link=link: _row(  # type: ignore[misc]
                    str(one.get("name") or one.get("key")), note(one),
-                   links=(link(one),), tick=t(TICKS[group]) if fixed else ""))
+                   links=(link(one),), tick=t(TICKS[group]) if fixed else "",
+                   code=group == NEED_ROM))
 
 
 def _known(job: dict[str, Any], result: dict[str, Any]) -> None:
@@ -224,49 +245,136 @@ def _known(job: dict[str, Any], result: dict[str, Any]) -> None:
     dmd = _items(result, DMD_ALONE)
     if not held and not dmd:
         return
-    _heading(t("console.report.know"))
-    if held:
-        _group(job, report_groups.ALREADY_HERE, "console.report.already", held,
-               lambda one, _fixed: _row(
-                   str(one.get("name") or one.get("key")), str(one.get("how") or ""),
-                   links=(_link(t("console.report.open"), _to(str(one.get("game_id") or ""))),)),
-               under=(_again(job, t("console.report.add_missing"),
-                             [str(one["key"]) for one in held]),))
-    if dmd:
-        _group(job, DMD_ALONE, "console.report.dmd", dmd,
-               lambda one, _fixed: _row(
-                   str(one.get("name") or one.get("key")), str(one.get("reason") or ""),
-                   links=(_link(t("console.report.displays"),
-                                _to(str(one["game_id"]), table=str(one.get("table_id") or ""),
-                                    section="table_settings")),)))
+    with _section(KNOWING, "console.report.know", len(held) + len(dmd)):
+        with _card():
+            _group(job, report_groups.ALREADY_HERE, "console.report.already", held,
+                   lambda one, _fixed: _row(
+                       str(one.get("name") or one.get("key")), str(one.get("how") or ""),
+                       links=(_link(t("console.report.open"),
+                                    _to(str(one.get("game_id") or ""))),)),
+                   under=(_again(job, t("console.report.add_missing"),
+                                 [str(one["key"]) for one in held]),))
+            _group(job, DMD_ALONE, "console.report.dmd", dmd,
+                   lambda one, _fixed: _row(
+                       str(one.get("name") or one.get("key")), str(one.get("reason") or ""),
+                       links=(_link(t("console.report.displays"),
+                                    _to(str(one["game_id"]),
+                                        table=str(one.get("table_id") or ""),
+                                        section="table_settings")),)))
 
 
 def _left(result: dict[str, Any]) -> None:
     behind = list(result.get("left_behind") or [])
     if not behind:
         return
-    _heading(t("console.report.left_behind"))
-    for one in behind:
-        _row(str(one.get("what") or ""), links=(
-            (_link(t("console.report.displays"), _displays()),) if one.get("displays") else ()))
+    with _section(LEAVING, "console.report.left_behind", len(behind),
+                  t("console.report.left_behind.help")):
+        with _card(), ui.element("div").classes("console-report-group"):
+            for one in behind:
+                _row(str(one.get("what") or ""), links=(
+                    (_link(t("console.report.displays"), _displays()),)
+                    if one.get("displays") else ()))
 
 
-def draw(job: dict[str, Any], *, counts: Callable[[], None]) -> None:
-    """The report of an import that kept its lists. `counts` draws the facts of what was
-    asked for beside what came across, which belong to the import and not to this page."""
-    result = job.get("result") or {}
-    failed = [row for row in result.get("rows") or [] if row.get("error")]
-    _looking(job, result, failed)
-    _known(job, result)
-    _left(result)
-    _heading(t("console.report.imported"))
-    counts()
+def _imported(job: dict[str, Any], result: dict[str, Any]) -> None:
+    rows = list(result.get("against") or [])
     group = report_groups.groups(job).get(report_groups.IMPORTED)
-    if group is not None and len(group.game_ids) > SHOWN:
-        with ui.row().classes("px-3"):
-            _link(t("console.report.show_all", count=len(group.game_ids)),
+    games = _games(job, result)
+    alone = report_groups.artwork_alone(job)
+    with _section(IMPORTING, "console.report.imported", games):
+        if rows:
+            with ui.element("div").classes("console-tiles"):
+                for one in rows:
+                    _tile(one, alone if one.get("key") == "games" else 0)
+        if group is not None and len(group.game_ids) > SHOWN:
+            _link(t("console.report.show_all", count=report_groups.tables_made(job)),
                   report_groups.tables_address(str(job.get("id") or ""),
                                                report_groups.IMPORTED))()
+
+
+def _games(job: dict[str, Any], result: dict[str, Any]) -> int:
+    """The games that came across: what the import counted, else what Tables can list."""
+    for one in result.get("against") or []:
+        if one.get("key") == "games":
+            return int(one.get("actual") or 0)
+    group = report_groups.groups(job).get(report_groups.IMPORTED)
+    return len(group.game_ids) if group is not None else 0
+
+
+def _tile(row: dict[str, Any], alone: int) -> None:
+    want, got = int(row.get("expected") or 0), int(row.get("actual") or 0)
+    short = max(want - got, 0)
+    with ui.element("div").classes("console-card"):
+        ui.label(f"{got:,}").classes("console-kpi")
+        with ui.row().classes("items-center gap-2"):
+            ui.label(str(row.get("label") or row.get("key") or "")).classes("console-help")
+            if short:
+                ui.label(t("console.ext_action.short", short=short)).classes(
+                    "console-member-chip console-chip-warn")
+        if short:
+            ui.label(t("console.ext_action.of_expected", want=f"{want:,}")).classes("console-help")
+        if alone:
+            ui.label(t("console.report.artwork_alone", count=alone)).classes("console-help")
+
+
+def _card() -> ui.element:
+    return ui.element("div").classes("console-card console-report-card w-full")
+
+
+def _jump(key: str, count: int, label: str, *, warm: bool = False) -> None:
+    """A figure that scrolls to its group. A script, not an address: a hash would change
+    where the Console thinks it is."""
+    cell = ui.element("div").classes(
+        "console-report-cell" + (" console-report-cell--warm" if warm else ""))
+    scroll = (f"() => document.getElementById('{SECTION}{key}')"
+              ".scrollIntoView({behavior: 'smooth'})")
+    cell.props("tabindex=0 role=link")
+    cell.on("click", js_handler=scroll)
+    cell.on("keydown.enter", js_handler=scroll)
+    with cell:
+        ui.label(f"{count:,}").classes("console-kpi")
+        ui.label(label).classes("console-help")
+
+
+def _summary(job: dict[str, Any], result: dict[str, Any], failed: list[dict[str, Any]]) -> None:
+    """How much there is of each group, above the groups. A figure appears only for a group
+    that is drawn."""
+    held = list(result.get("already_here") or [])
+    dmd = _items(result, DMD_ALONE)
+    behind = list(result.get("left_behind") or [])
+    games = _games(job, result)
+    with ui.element("div").classes("console-card console-report-strip w-full"):
+        if _lists(result, failed):
+            left = waiting(job)
+            _jump(LOOKING, left, t("console.report.jump.look"), warm=bool(left))
+        if held or dmd:
+            _jump(KNOWING, len(held) + len(dmd), t("console.report.know"))
+        if behind:
+            _jump(LEAVING, len(behind), t("console.report.left_behind"))
+        _jump(IMPORTING, games, t("console.report.jump.imported"))
+
+
+def _finished(job: dict[str, Any], result: dict[str, Any]) -> None:
+    ended = job.get("finished_at")
+    if not ended:
+        return
+    program = str(result.get("program") or "") or jobs_list.what_ran(IMPORT_KIND)
+    at = datetime.fromtimestamp(float(ended)).astimezone()
+    ui.label(t("console.report.finished", program=program, day=when.day(at),
+               clock=when.clock(at))).classes("console-help")
+
+
+def draw(job: dict[str, Any]) -> None:
+    """The report of an import that kept its lists."""
+    result = job.get("result") or {}
+    failed = [row for row in result.get("rows") or [] if row.get("error")]
+    with ui.column().classes("console-report w-full"):
+        _finished(job, result)
+        _summary(job, result, failed)
+        _looking(job, result, failed)
+        _known(job, result)
+        _left(result)
+        _imported(job, result)
 
 
 # What the import is called in the Jobs list, and so what its jobs are found by.

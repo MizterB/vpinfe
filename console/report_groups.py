@@ -43,9 +43,7 @@ def groups(job: dict[str, Any]) -> dict[str, Group]:
     a game that came as artwork alone has nothing there to show.
     """
     result = job.get("result") or {}
-    made = [str(row["game_id"]) for row in result.get("rows") or []
-            if row.get("game_id") and not row.get("error") and not row.get("existing")
-            and row.get("table") is not False]
+    made = [str(row["game_id"]) for row in _made(job) if row.get("table") is not False]
     held = [str(row["game_id"]) for row in result.get("already_here") or []
             if row.get("game_id")]
     found = {IMPORTED: Group(IMPORTED, t("console.report.imported"), tuple(dict.fromkeys(made))),
@@ -56,6 +54,24 @@ def groups(job: dict[str, Any]) -> dict[str, Group]:
                  if one.get("group") == key and one.get("game_id")]
         found[key] = Group(key, t(label), tuple(dict.fromkeys(asked)))
     return {key: one for key, one in found.items() if one.game_ids}
+
+
+def _made(job: dict[str, Any]) -> list[dict[str, Any]]:
+    """The rows this run made, whatever they hold: no error, not a game left alone."""
+    result = job.get("result") or {}
+    return [row for row in result.get("rows") or []
+            if row.get("game_id") and not row.get("error") and not row.get("existing")]
+
+
+def tables_made(job: dict[str, Any]) -> int:
+    """The game files this run made, which is how many rows Imported shows in Tables."""
+    return sum(1 for row in _made(job) if row.get("table") is not False)
+
+
+def artwork_alone(job: dict[str, Any]) -> int:
+    """The games that came as artwork with no game file, so Tables has no row for them."""
+    held = {str(row["game_id"]) for row in _made(job) if row.get("table") is not False}
+    return len({str(row["game_id"]) for row in _made(job)} - held)
 
 
 def report_address(job_id: str) -> str:

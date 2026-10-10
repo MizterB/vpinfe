@@ -1207,7 +1207,7 @@ def report(body: Any, job: dict, under: str, *, limit: int | None = 20) -> None:
         from console import import_report
 
         if import_report.has_report(job):
-            import_report.draw(job, counts=lambda: _compare(compared))
+            import_report.draw(job)
             return
         if compared:
             _compare(compared)

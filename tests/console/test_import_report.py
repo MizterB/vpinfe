@@ -32,6 +32,16 @@ def _drawn(job: dict[str, Any]) -> list[str]:
     return [one.text for one in body.descendants() if isinstance(one, ui.label)]
 
 
+def _below_the_strip(job: dict[str, Any]) -> list[str]:
+    """The words of the groups, without the figures above them that point at the groups."""
+    with ui.column() as body:
+        wizard.report(body, job, "")
+    strip = [one for one in body.descendants() if "console-report-strip" in one.classes]
+    inside = {id(each) for one in strip for each in one.descendants()}
+    return [one.text for one in body.descendants()
+            if isinstance(one, ui.label) and id(one) not in inside]
+
+
 class TheGroupsTheImporterRecords(unittest.TestCase):
     def test_each_recorded_group_is_a_group_of_its_games(self) -> None:
         found = report_groups.groups(_job(items=[
@@ -53,7 +63,7 @@ class TheGroupsTheImporterRecords(unittest.TestCase):
 
 class WhatTheReportDraws(unittest.TestCase):
     def test_the_headings_come_in_the_order_a_person_works_down(self) -> None:
-        drawn = _drawn(_job(
+        drawn = _below_the_strip(_job(
             items=[_item(import_report.NEED_ROM, 1), _item(import_report.DMD_ALONE, 1)],
             rows=[{"key": "bad", "name": "Bad", "game_id": "", "error": "no table"}],
             already_here=[{"key": "old", "name": "Old", "game_id": "o1"}],
@@ -64,7 +74,7 @@ class WhatTheReportDraws(unittest.TestCase):
                  "ScreenRes.txt", "Imported"]
         self.assertEqual(order, [one for one in drawn if one in order])
 
-    def test_a_group_over_three_rows_names_three_and_the_rest_is_a_count(self) -> None:
+    def test_a_group_over_three_rows_names_three_and_links_to_all_of_it(self) -> None:
         with ui.column() as body:
             wizard.report(body, _job(items=[_item(import_report.NOT_MATCHED, n)
                                             for n in range(5)]), "")
@@ -72,7 +82,13 @@ class WhatTheReportDraws(unittest.TestCase):
         links = [one.text for one in body.descendants() if isinstance(one, ui.link)]
 
         self.assertEqual(3, len([one for one in words if one.startswith("not_matched ")]))
-        self.assertIn("2 more", links)
+        self.assertIn("Show All 5 in Tables", links)
+
+    def test_a_group_with_no_games_to_narrow_tables_to_counts_what_is_left(self) -> None:
+        job = _job(items=[_item(import_report.NOT_MATCHED, n, game_id="") for n in range(5)])
+        words = _drawn(job)
+
+        self.assertIn("2 more", words)
 
     def test_the_rest_of_a_group_is_a_link_to_it_in_tables(self) -> None:
         job = _job(items=[_item(import_report.NO_WHEEL, n) for n in range(5)])
@@ -122,6 +138,48 @@ class WhatTheReportDraws(unittest.TestCase):
         self.assertEqual("/console?view=tables&game=not_matched-1&section=game_details",
                          hrefs["Match"])
         self.assertEqual("/console?view=media&game=no_wheel-1&slot=wheel", hrefs["Add a Wheel"])
+
+    def test_the_figures_above_the_groups_count_what_is_still_to_do(self) -> None:
+        job = _job(items=[_item(import_report.NEED_ROM, 1), _item(import_report.NEED_ROM, 2)],
+                   against=[{"key": "games", "label": "Games", "expected": 2, "actual": 2}])
+        job["checked"] = {import_report.NEED_ROM: {"need_rom-1"}}
+        with ui.column() as body:
+            wizard.report(body, job, "")
+        cells = [one for one in body.descendants() if "console-report-cell" in one.classes]
+        shown = {[each.text for each in one.descendants() if isinstance(each, ui.label)][1]:
+                 [each.text for each in one.descendants() if isinstance(each, ui.label)][0]
+                 for one in cells}
+
+        self.assertEqual({"Need a Look": "1", "Games Imported": "2"}, shown)
+
+    def test_a_figure_for_a_group_that_is_not_drawn_is_not_there(self) -> None:
+        with ui.column() as body:
+            wizard.report(body, _job(), "")
+        cells = [one for one in body.descendants() if "console-report-cell" in one.classes]
+
+        self.assertEqual(1, len(cells))
+
+    def test_the_imported_link_counts_the_game_files_tables_will_list(self) -> None:
+        rows = [{"game_id": f"g{n}", "table": True} for n in range(4)]
+        rows += [{"game_id": "g0", "table": True}, {"game_id": "art", "table": False}]
+        with ui.column() as body:
+            wizard.report(body, _job(rows=rows), "")
+        links = [one.text for one in body.descendants() if isinstance(one, ui.link)]
+
+        self.assertIn("Show All 5 in Tables", links)
+
+    def test_the_games_tile_says_how_many_came_as_artwork_alone(self) -> None:
+        job = _job(rows=[{"game_id": "g1", "table": True}, {"game_id": "art", "table": False}],
+                   against=[{"key": "games", "label": "Games", "expected": 2, "actual": 2}])
+
+        self.assertIn("1 came as media alone", _drawn(job))
+
+    def test_a_tile_that_came_up_short_says_by_how_much(self) -> None:
+        job = _job(against=[{"key": "media", "label": "Media", "expected": 10, "actual": 7}])
+        drawn = _drawn(job)
+
+        self.assertIn("3 short", drawn)
+        self.assertIn("of 10", drawn)
 
     def test_a_report_without_the_lists_is_drawn_the_way_it_was(self) -> None:
         job = {"id": JOB, "state": "done", "result": {"rows": [], "already_here": []}}

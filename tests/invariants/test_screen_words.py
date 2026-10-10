@@ -25,6 +25,7 @@ CABINET = {
     "config.presentation.cab_mode.label": "Cabinet Mode is named for the physical cabinet",
     "config.windows.playfield.orientation.description": "how a screen is mounted in it",
     "console.binding_table.cabinet_note": "a physical cabinet's own buttons",
+    "console.report.left_behind.help": "the physical cabinet's own files",
     "console.screens.hint_cabinet": "where a screen sits in the physical cabinet",
     "console.setup.glass.typical": "the physical cabinet's usual playfield tilt",
     "console.setup.cabinet": "the physical cabinet, Setup's own How you play answer",

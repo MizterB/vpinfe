@@ -2127,6 +2127,36 @@ button.q-btn--flat.text-primary:hover .q-btn__content {
   background: var(--card-bg);
   padding: 14px 16px;
 }
+.console-report { gap: 20px; }
+.console-report-strip {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); padding: 0; overflow: hidden;
+}
+.console-report-cell {
+  display: flex; flex-direction: column; gap: 2px; padding: 12px 16px; cursor: pointer;
+  border-left: 1px solid var(--line);
+}
+.console-report-cell:first-child { border-left: 0; }
+.console-report-cell:hover, .console-report-cell:focus-visible { background: var(--wash-hover); }
+.console-report-cell .console-kpi { font-size: 26px; font-variant-numeric: tabular-nums; }
+.console-report-cell--warm .console-kpi { color: var(--warm); }
+.console-report-section { gap: 8px; }
+.console-report-head { align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.console-report-title { font-size: 16px; font-weight: 600; color: var(--ink); }
+.console-report-card { padding: 0; }
+.console-report-group + .console-report-group { border-top: 1px solid var(--line); }
+.console-report-group-head { align-items: baseline; gap: 8px; padding: 12px 16px 6px; }
+.console-report-group-title { font-weight: 600; color: var(--ink); }
+.console-report-row {
+  display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr) 150px;
+  align-items: center; gap: 16px; padding: 7px 16px; border-top: 1px solid var(--line-soft);
+}
+.console-report-row:hover { background: var(--wash-hover); }
+.console-report-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.console-report-name--wide { grid-column: 1 / 3; }
+.console-report-note--code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.console-report-act { grid-column: 3; text-align: right; }
+.console-report-foot { gap: 16px; padding: 8px 16px 12px; border-top: 1px solid var(--line-soft); }
+.console-tiles .console-kpi { font-variant-numeric: tabular-nums; }
 /* Overview: Needs You in the main column and the library beside it. The page's own width
    decides, not the window's, because the workbench pane shares the window. */
 .console-overview { container-type: inline-size; width: 100%; }

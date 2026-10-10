@@ -61,6 +61,38 @@ class WhichGamesAreInAGroup(unittest.TestCase):
         self.assertEqual({}, report_groups.groups(job))
 
 
+class HowManyThingsTablesWillList(unittest.TestCase):
+    def test_a_game_with_two_game_files_counts_for_each_in_tables_but_once_as_a_game(self) -> None:
+        job = _job(made=2)
+        job["result"]["rows"].append({"name": "Twin", "game_id": "n0", "existing": False})
+
+        self.assertEqual(3, report_groups.tables_made(job))
+        self.assertEqual(2, len(report_groups.groups(job)[report_groups.IMPORTED].game_ids))
+
+    def test_a_game_that_came_as_artwork_alone_is_counted_apart(self) -> None:
+        job = _job(made=1)
+        job["result"]["rows"] += [
+            {"name": "Art", "game_id": "a1", "existing": False, "table": False},
+            {"name": "Art again", "game_id": "a1", "existing": False, "table": False}]
+
+        self.assertEqual(1, report_groups.artwork_alone(job))
+        self.assertEqual(1, report_groups.tables_made(job))
+
+    def test_artwork_for_a_game_that_also_has_a_file_is_not_alone(self) -> None:
+        job = _job(made=1)
+        job["result"]["rows"].append(
+            {"name": "Art", "game_id": "n0", "existing": False, "table": False})
+
+        self.assertEqual(0, report_groups.artwork_alone(job))
+
+    def test_a_game_left_alone_or_failed_is_in_neither(self) -> None:
+        job = _job(failed=1)
+        job["result"]["rows"].append({"name": "Old", "game_id": "o1", "existing": True})
+
+        self.assertEqual(0, report_groups.tables_made(job))
+        self.assertEqual(0, report_groups.artwork_alone(job))
+
+
 class TheAddresses(unittest.TestCase):
     def test_the_report_has_an_address_of_its_own(self) -> None:
         address = urlparse(report_groups.report_address(JOB))
