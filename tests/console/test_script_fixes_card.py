@@ -31,11 +31,11 @@ class FetchTests(unittest.TestCase):
                 mock.patch.object(sections.ui, "notify", wraps=ui.notify) as notify:
             with ui.column() as page:
                 pass
-            client.apply_script_patches.side_effect = page.clear
+            client.apply_script_patches.side_effect = lambda *_: page.clear()
 
             asyncio.run(sections.fetch_script_fixes(library, after))
 
-        client.apply_script_patches.assert_called_once_with()
+        client.apply_script_patches.assert_called_once_with(OFFERED["offered"])
         notify.assert_called_once_with(t("console.sections.fetching_way"), type="positive")
         library.forget_script_patches.assert_called_once_with()
         after.assert_called_once_with()
@@ -92,3 +92,14 @@ class CheckTests(unittest.TestCase):
         for found in ({}, {"reachable": False, "offered": []}):
             [call] = self.check(found).call_args_list
             self.assertEqual(t("console.sections.index_unreachable"), call.args[0])
+
+
+class TheClient(unittest.TestCase):
+    def test_the_offered_folders_are_what_is_posted(self) -> None:
+        from console.api import ApiClient
+        with mock.patch.object(ApiClient, "_post", return_value={}) as post:
+            ApiClient().apply_script_patches(["Fathom (Bally 1981)"])
+            ApiClient().apply_script_patches()
+
+        self.assertEqual([mock.call("/library/patches", {"games": ["Fathom (Bally 1981)"]}),
+                          mock.call("/library/patches", {})], post.call_args_list)

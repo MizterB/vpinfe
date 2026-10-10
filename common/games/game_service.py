@@ -11,7 +11,7 @@ import shutil
 import threading
 import time
 import unicodedata
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Collection, Iterable
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
@@ -647,8 +647,9 @@ def restore_info(progress_cb: ProgressCallback | None = None,
     return _as_a_job(run, progress_cb, log_cb, job, t("said.title_info_restore"))
 
 
-def apply_vpx_patches(progress_cb: ProgressCallback | None = None) -> None:
-    metadata_service.apply_vpx_patches(progress_cb=progress_cb)
+def apply_vpx_patches(progress_cb: ProgressCallback | None = None,
+                      only: Collection[str] | None = None) -> None:
+    metadata_service.apply_vpx_patches(progress_cb=progress_cb, only=only)
 
 
 # The fields a caller may answer, by the name the wire uses. Where each is stored is

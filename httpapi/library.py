@@ -265,8 +265,11 @@ def script_patches() -> models.ScriptPatches:
 
 @router.post("/patches", summary="Fetch the published script fixes", status_code=202,
              dependencies=[requires(scopes.GAMES_WRITE)])
-def apply_script_patches(response: Response) -> models.JobResource:
+def apply_script_patches(response: Response,
+                         request: models.PatchRequest | None = Body(default=None)
+                         ) -> models.JobResource:
     """Accepted, not done. A table that already has a sidecar is left alone and recorded
     as patched: whatever is in that file is what the table runs, and replacing it would
     overwrite somebody else's work."""
-    return _accepted(response, library_ops.apply_script_patches())
+    options = request or models.PatchRequest()
+    return _accepted(response, library_ops.apply_script_patches(options.games))

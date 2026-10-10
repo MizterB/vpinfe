@@ -226,6 +226,16 @@ class ScriptPatches(ApiModel):
     checked: int
 
 
+class PatchRequest(ApiModel):
+    """Which tables to fetch script fixes for: the `offered` names a check reported.
+    Left out, every table the index has a fix for gets one, which is what the command
+    line does."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    games: list[str] | None = None
+
+
 class DeviceGame(ApiModel):
     """One folder a device holds, and the game of this library it is, if any."""
 

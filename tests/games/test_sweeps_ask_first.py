@@ -148,6 +148,11 @@ class ScriptPatchSweepTests(_Sweep):
         self.assertEqual([g.game_dir_name for g in scripts.call_args.args[0]], [GOOD, PLAIN])
         self.assertEqual(said, [t("said.patches_skipped", count=1)])
 
+    def test_only_the_named_folders_are_looked_at(self) -> None:
+        with mock.patch.object(metadata_service, "StandaloneScripts") as scripts:
+            metadata_service.apply_vpx_patches(only=[PLAIN])
+        self.assertEqual([g.game_dir_name for g in scripts.call_args.args[0]], [PLAIN])
+
     def test_nothing_extra_is_said_when_every_folder_answers(self) -> None:
         said: list[str] = []
         with mock.patch.object(metadata_service, "StandaloneScripts"):

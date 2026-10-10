@@ -1481,9 +1481,10 @@ class ApiClient:
         the server's side, and changes nothing."""
         return self._get("/library/patches")
 
-    def apply_script_patches(self) -> dict:
-        """Fetch them. Returns the job to watch, not the finished work."""
-        return self._post("/library/patches", {})
+    def apply_script_patches(self, games: list[str] | None = None) -> dict:
+        """Fetch them, for the tables a check offered when `games` names them. Returns the
+        job to watch, not the finished work."""
+        return self._post("/library/patches", {} if games is None else {"games": games})
 
     def device_games(self, device_id: str) -> list[dict]:
         """What a VPX Mobile device is carrying, asked of the device: each `folder` with

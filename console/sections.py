@@ -768,7 +768,7 @@ async def fetch_script_fixes(library: Library, after: Callable[[], Any]) -> None
             confirm=t("word.fetch"), icon=verbs.FETCH, danger=False):
         return
     try:
-        await run.io_bound(ApiClient().apply_script_patches)
+        await run.io_bound(ApiClient().apply_script_patches, offered)
     except Exception as exc:
         ui.notify(t("console.sections.fetch_failed"), caption=why(exc), type="negative")
         return

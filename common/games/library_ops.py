@@ -11,7 +11,7 @@ busy.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Collection, Iterable
 from typing import Any
 
 from common import job_details, service_errors
@@ -236,10 +236,12 @@ def one_info_pass(work: Callable[..., object], title: str = "") -> job_registry.
     return start(job_registry.KIND_LIBRARY_SCAN, lambda job: work(job=job), title)
 
 
-def apply_script_patches() -> job_registry.Job:
-    """Each fix lands as a `.vbs` sidecar beside the table it is for."""
+def apply_script_patches(only: Collection[str] | None = None) -> job_registry.Job:
+    """Each fix lands as a `.vbs` sidecar beside the table it is for. `only` names the
+    game folders the check offered; left out, every table the index has a fix for."""
     return start(job_registry.KIND_LIBRARY_SCAN,
-                 lambda job: game_service.apply_vpx_patches(progress_cb=job.progress),
+                 lambda job: game_service.apply_vpx_patches(progress_cb=job.progress,
+                                                            only=only),
                  t("said.title_script_fixes"))
 
 

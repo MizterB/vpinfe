@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Collection
 
 from common.config_access import cfg_bool
 from common.config_store import ConfigStore
@@ -142,10 +143,15 @@ def build_metadata(
     return {"found": total, "not_found": not_found_games}
 
 
-def apply_vpx_patches(progress_cb: ProgressCallback | None = None) -> None:
+def apply_vpx_patches(progress_cb: ProgressCallback | None = None,
+                      only: Collection[str] | None = None) -> None:
     """Writes a `.vbs` beside each table that needs one, leaving the games whose folders
-    cannot be written to."""
+    cannot be written to. `only` names the game folders to look at; without it every game
+    is, so a fix published since the last check reaches a table that check never listed."""
     games = game_repository.all_games()
+    if only is not None:
+        named = set(only)
+        games = [game for game in games if game.game_dir_name in named]
     blocked = library_folders.blocked_games(games)
     held = {id(game) for game, _ in blocked}
     for game, said in blocked:
