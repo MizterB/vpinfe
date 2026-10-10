@@ -102,6 +102,10 @@ NO_YEAR = "event_busy"
 HAD_ERRORS = "warning"
 NEWER_RELEASE = "upgrade"
 
+# How a job went, where the list shows a glyph and no word.
+JOB_RUNNING = "autorenew"
+JOB_FAILED = "error"
+
 # Asking for the current state of something held elsewhere.
 REFRESH = "refresh"
 UPDATE = "system_update_alt"

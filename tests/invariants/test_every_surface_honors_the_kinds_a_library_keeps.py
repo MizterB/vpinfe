@@ -64,9 +64,8 @@ def _media_kinds_on_the_media_grid(library: Library) -> set[str]:
     return {row["kind"] for row in library._kept_media(_media_files())}
 
 
-def _media_kinds_on_the_coverage_card(library: Library) -> set[str]:
-    _present, _total, counts = sections.media_coverage(library)
-    return {kind for kind, _held in counts}
+def _media_kinds_on_the_library_card(library: Library) -> set[str]:
+    return {kind for kind, _held in sections.kind_holdings(library)}
 
 
 def _asset_kinds_in_the_games_grid(library: Library) -> set[str]:
@@ -97,7 +96,7 @@ def _counted(library: Library) -> int:
 SURFACES: dict[str, tuple[Callable[[Library], set[str]], set[str]]] = {
     "the Assets grid": (_asset_kinds_on_the_assets_grid, set(HIDDEN_ASSETS)),
     "the Media grid": (_media_kinds_on_the_media_grid, set(HIDDEN_MEDIA)),
-    "the coverage card's bars": (_media_kinds_on_the_coverage_card, set(HIDDEN_MEDIA)),
+    "the Library card's bars": (_media_kinds_on_the_library_card, set(HIDDEN_MEDIA)),
     "the Games grid's asset columns": (_asset_kinds_in_the_games_grid, set(HIDDEN_ASSETS)),
     "the Tables grid's asset columns": (_asset_kinds_in_the_tables_grid,
                                         set(HIDDEN_ASSETS)),
@@ -118,7 +117,7 @@ class EverySurfaceHonorsTheKinds(unittest.TestCase):
     def test_a_kind_switched_on_is_on_every_one(self) -> None:
         library = _library()
         kept = {"the Assets grid": set(KEPT_ASSETS), "the Media grid": set(KEPT_MEDIA),
-                "the coverage card's bars": set(KEPT_MEDIA),
+                "the Library card's bars": set(KEPT_MEDIA),
                 "the Games grid's asset columns": set(KEPT_ASSETS) - set(games.TABLE_ASSET_KEYS),
                 "the Tables grid's asset columns": set(KEPT_ASSETS) & set(games.TABLE_ASSET_KEYS),
                 "the table panel's Assets block": set(KEPT_ASSETS)}
@@ -130,11 +129,6 @@ class EverySurfaceHonorsTheKinds(unittest.TestCase):
 
 
 class WhatTheCountsAdd(unittest.TestCase):
-    def test_the_coverage_percentage_counts_only_the_kinds_collected(self) -> None:
-        present, total, _counts = sections.media_coverage(_library())
-
-        self.assertEqual((present, total), (len(KEPT_MEDIA), len(KEPT_MEDIA)))
-
     def test_the_panel_header_counts_only_the_kinds_collected(self) -> None:
         self.assertEqual(_counted(_library()), len(KEPT_ASSETS))
 

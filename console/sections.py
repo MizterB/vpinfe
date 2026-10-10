@@ -9,7 +9,9 @@ read, and a predicate.
 from __future__ import annotations
 
 import asyncio
+import time
 from collections.abc import Callable, Mapping
+from datetime import UTC, datetime
 from typing import Any
 
 from nicegui import run, ui
@@ -18,7 +20,17 @@ from common.failures import why
 from common.i18n import t
 from common.media_specs import media_label_map
 from console import dialog as frame
-from console import front, media_fill, needs, offload, panel, set_aside, verbs
+from console import (
+    front,
+    jobs_list,
+    media_fill,
+    needs,
+    offload,
+    panel,
+    set_aside,
+    verbs,
+    when,
+)
 from console.data import Library
 from console.on_page import on_page
 
@@ -117,23 +129,20 @@ def _bar(fraction: float) -> None:
 
 # --- Overview --------------------------------------------------------------------
 
-def media_coverage(library: Library) -> tuple[int, int, list[tuple[str, int]]]:
-    """Slots filled, slots in all, and how many games hold each kind, fewest first.
+def kind_holdings(library: Library) -> list[tuple[str, int]]:
+    """How many games hold each kind the library collects, fewest first.
 
-    Only the kinds the library collects, in all three: a kind switched off is not a gap,
-    and counting its slots would hold the percentage down for a file nobody wants."""
-    kept = library.kept_kinds()["media"]
-    held = {kind: 0 for kind in library.kinds() if kind in kept}
-    present = total = 0
-    for entries in library.media.values():
+    Only the kinds collected: a kind switched off is not a gap, and listing it would offer
+    a bar for a file nobody wants."""
+    held = {kind: 0 for kind in library.kinds() if kind in library.kept_kinds()["media"]}
+    ids = {game["id"] for game in library.games}
+    for game_id, entries in library.media.items():
+        if game_id not in ids:
+            continue
         for kind, entry in entries.items():
-            if kind not in kept:
-                continue
-            total += 1
-            if entry.get("present"):
-                present += 1
+            if kind in held and entry.get("present"):
                 held[kind] += 1
-    return present, total, sorted(held.items(), key=lambda item: item[1])
+    return sorted(held.items(), key=lambda item: (item[1], item[0]))
 
 
 def _local_name(registry: list[dict], discovery: dict) -> str:
@@ -247,27 +256,165 @@ def _needs_you(arranged: needs.Arranged, state: dict[str, Any], fix: Callable[..
                 _aside_line(one, acts)
 
 
-def _coverage(library: Library) -> None:
-    present, total_slots, counts = media_coverage(library)
-    ui.label(t("console.sections.coverage_kind")).classes("console-group")
+def _opens(row: Any, state: dict[str, Any], where: needs.Opens) -> None:
+    """Make a row a link: it opens `where` on a click or Enter."""
+    row.props("tabindex=0 role=link")
+    row.on("click", lambda: state["open_on"](where))
+    row.on("keydown.enter", lambda: state["open_on"](where))
+
+
+def _figure(count: int, label: str, state: dict[str, Any], where: needs.Opens) -> None:
+    figure = ui.element("div").classes("console-figure")
+    _opens(figure, state, where)
+    with figure:
+        ui.label(f"{count:,}").classes("console-kpi")
+        ui.label(label).classes("console-help")
+
+
+def _kind_row(kind: str, held: int, total: int, state: dict[str, Any]) -> None:
+    name = media_label_map().get(kind, kind)
+    without = total - held
+    row = ui.element("div").classes("console-need")
+    if not without:
+        row.classes("console-need--static")
+    if without:
+        _opens(row, state, needs.Opens("games", needs.blank(f"media_{kind}")))
+    with row:
+        ui.label(name).classes("console-setting w-40 shrink-0")
+        with ui.element("div").classes("grow min-w-0"):
+            _bar(held / total if total else 0)
+        ui.label(t("console.sections.held_of_games", held=held, total=total)) \
+            .classes("console-need-count shrink-0")
+    row.tooltip(t("console.sections.kind_tip", held=held, total=total, kind=name,
+                  without=without) if without
+                else t("console.sections.kind_all", total=total, kind=name))
+
+
+def _hide_kinds(library: Library, state: dict[str, Any], kinds: list[str]) -> Any:
+    @on_page
+    async def hide() -> None:
+        try:
+            await run.io_bound(library.hide_media_kinds, kinds)
+        except Exception as exc:  # noqa: BLE001 - the reason belongs on screen
+            ui.notify(t("console.sections.hide_failed"), caption=why(exc), type="negative")
+            return
+        await state["open_on"](needs.Opens("settings", keys={"settings_page": "library.media"}))
+
+    return hide
+
+
+_NAMED_KINDS = 2
+
+
+def _library(library: Library, state: dict[str, Any]) -> None:
+    held = kind_holdings(library)
+    total = len(library.games)
+    ui.label(t("console.sections.library")).classes("console-group")
     with ui.element("div").classes("console-card w-full"):
-        ui.label(f"{(present / total_slots * 100 if total_slots else 0):.0f}%") \
-            .classes("console-kpi")
-        _bar(present / total_slots if total_slots else 0)
-        ui.label(t("console.sections.slots", present=present, total_slots=total_slots)) \
-            .classes("text-xs opacity-60")
-        # A filter says which games lack a topper. Nothing in a grid says "you have no
-        # toppers at all" without filtering twenty kinds one at a time, which is the
-        # one thing a rollup does that a lens cannot.
-        for kind, held in counts:
-            with ui.row().classes("items-center gap-3 w-full no-wrap py-1"):
-                ui.label(media_label_map().get(kind, kind)) \
-                    .classes("console-setting w-40 shrink-0")
-                with ui.element("div").classes("grow min-w-0"):
-                    _bar(held / len(library.games) if library.games else 0)
-                ui.label(t("console.sections.held_of_games", held=held,
-                           total=len(library.games))) \
-                    .classes("text-xs opacity-60 shrink-0")
+        with ui.element("div").classes("console-figures"):
+            _figure(total, t("console.section.games"), state, needs.Opens("games"))
+            _figure(len(library.table_rows()), t("console.section.tables"), state,
+                    needs.Opens("tables"))
+        present = [(kind, count) for kind, count in held if count]
+        if present:
+            ui.label(t("console.sections.games_with")).classes("console-fact-heading")
+            for kind, count in present:
+                _kind_row(kind, count, total, state)
+        empty = [kind for kind, count in held if not count]
+        if empty:
+            names = [media_label_map().get(kind, kind) for kind in empty]
+            shown = ", ".join(names[:_NAMED_KINDS])
+            with ui.row().classes("items-center gap-3 w-full no-wrap"):
+                folded = len(names) > _NAMED_KINDS
+                panel.line(t("console.sections.none_have", count=len(empty),
+                             kinds=t("console.sections.more", names=shown) if folded else shown),
+                           hint=", ".join(names) if folded else "",
+                           classes="console-help grow min-w-0")
+                panel.action(t("console.sections.hide_kinds"),
+                             _hide_kinds(library, state, empty), inline=True, icon=verbs.HIDE,
+                             hint=t("console.sections.hide_kinds.help"))()
+
+
+RECENT_JOBS = 5
+
+# How a job went: its glyph and the tone it is drawn in.
+_JOB_MARKS = {
+    "running": (verbs.JOB_RUNNING, "accent"),
+    "done": (verbs.DONE, "none"),
+    jobs_list.WITH_ERRORS: (verbs.HAD_ERRORS, "warm"),
+    "failed": (verbs.JOB_FAILED, "danger"),
+    jobs_list.STOPPED: (verbs.STOP, "muted"),
+}
+
+
+def _latest_jobs(library: Library) -> list[dict[str, Any]] | None:
+    """The last few jobs, newest first. None where they could not be read."""
+    listed = library.front().get("listed")
+    if listed is None:
+        return None
+    progress = {str(one.get("id") or ""): float(one.get("pct") or 0) for one in listed}
+    return [{**one, "pct": progress.get(one["id"], 0.0)}
+            for one in jobs_list.rows(listed, time.time())[:RECENT_JOBS]]
+
+
+def _job_line(one: dict[str, Any], state: dict[str, Any]) -> None:
+    icon, tone = _JOB_MARKS.get(one["outcome"], (verbs.DONE, "muted"))
+    row = ui.element("div").classes("console-need")
+    if tone != "none":
+        row.classes(f"console-need--{tone}")
+    _opens(row, state, needs.Opens("jobs", keys={"jobs_find": one["what"],
+                                                  "jobs_outcome": ""}))
+    with row:
+        ui.icon(icon).classes("console-need-icon" + (" console-need--none" if tone == "none"
+                                                      else ""))
+        with ui.element("div").classes("grow min-w-0"):
+            ui.label(one["what"]).classes("console-setting")
+            if one["detail"]:
+                ui.label(one["detail"]).classes("console-help console-job-detail")
+            if one["outcome"] == "running":
+                bar = ui.linear_progress(value=one["pct"] / 100, show_value=False).props("rounded")
+                if not one["pct"]:
+                    bar.props("indeterminate")
+        ui.label(when.ago(datetime.fromtimestamp(one["started"], UTC).isoformat())) \
+            .classes("console-need-count shrink-0")
+    row.tooltip(t("console.sections.job_open", outcome=t(f"console.jobs.outcome.{one['outcome']}")))
+
+
+def _recent_jobs(library: Library, state: dict[str, Any]) -> None:
+    ui.label(t("console.sections.recent_jobs")).classes("console-group")
+
+    def signature() -> tuple[Any, ...]:
+        shown = _latest_jobs(library)
+        return (int(time.time() // 60), None if shown is None else tuple(
+            (one["id"], one["outcome"], one["detail"], int(one["pct"])) for one in shown))
+
+    held = {"signature": signature()}
+
+    @ui.refreshable
+    def card() -> None:
+        shown = _latest_jobs(library)
+        if shown is None:
+            ui.label(t("console.sections.jobs_unread")).classes("console-help px-2")
+        elif not shown:
+            ui.label(t("console.sections.no_jobs")).classes("console-help px-2")
+        for one in shown or []:
+            _job_line(one, state)
+        if shown:
+            with ui.row().classes("justify-end w-full"):
+                panel.action(t("console.sections.all_jobs"),
+                             lambda: state["open_on"](needs.Opens(
+                                 "jobs", keys={"jobs_find": "", "jobs_outcome": ""})),
+                             inline=True, icon=verbs.GO,
+                             hint=t("console.sections.all_jobs.help"))()
+
+    def tick() -> None:
+        if (now := signature()) != held["signature"]:
+            held["signature"] = now
+            card.refresh()
+
+    with ui.element("div").classes("console-card console-needs w-full"):
+        card()
+    ui.timer(front.POLL_S, tick)
 
 
 _ASIDE_OPEN = "aside_open"
@@ -337,7 +484,8 @@ def overview(library: Library, registry: list[dict], discovery: dict,
                              _metadata_action(library, state, drawn_again), state.get(_LEFT))
                 table_scripts(library)
             with ui.element("div").classes("console-overview-side"):
-                _coverage(library)
+                _library(library, state)
+                _recent_jobs(library, state)
 
 
 # --- The library's own metadata ---------------------------------------------------

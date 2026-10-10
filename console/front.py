@@ -194,12 +194,11 @@ def top(library: Library, state: dict[str, Any], go: Callable[[str], None]) -> N
         front = library.front()
         try:
             play = await offload.io(ApiClient().play_state)
-            jobs = [one for one in await offload.io(ApiClient().jobs)
-                    if one.get("state") == "running"]
+            listed = await offload.io(ApiClient().jobs)
         except Exception:  # noqa: BLE001 - the next poll tries again
             return
         before = front.get("play") or {}
-        library.refresh_front(play, jobs)
+        library.refresh_front(play, listed)
         if bool(play.get("launching")) != bool(before.get("launching")) \
                 or play.get("game_id") != before.get("game_id"):
             library.forget_front()

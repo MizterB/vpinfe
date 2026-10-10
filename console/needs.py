@@ -93,7 +93,7 @@ def _games_without(key: str, found: Mapping[str, list[dict[str, Any]]],
     return Need(key, label, tip, tone, icon, opens, ids, _UNIT_GAMES, fix)
 
 
-def _blank(name: str) -> dict[str, Any]:
+def blank(name: str) -> dict[str, Any]:
     return {name: {"values": [""]}}
 
 
@@ -147,13 +147,13 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
             rows.append(_games_without(
                 key, found, label=names[key][0], tip=names[key][1], tone=WARM,
                 icon=verbs.NO_ART,
-                opens=Opens("games", _blank(f"media_{kind}")),
+                opens=Opens("games", blank(f"media_{kind}")),
                 fix=Fix(GET_MEDIA, t("console.media_fill.get_media"),
                         t("console.media_fill.get_media.help"), verbs.FETCH, kind)))
     if collected:
         everything: dict[str, Any] = {}
         for kind in sorted(collected):
-            everything.update(_blank(f"media_{kind}"))
+            everything.update(blank(f"media_{kind}"))
         rows.append(_games_without("no_media", found, label=names["no_media"][0],
                                    tip=names["no_media"][1], tone=WARM,
                                    icon=verbs.NO_MEDIA, opens=Opens("games", everything)))

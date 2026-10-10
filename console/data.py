@@ -1069,11 +1069,7 @@ class Library:
         self._watched = None
 
     def front(self) -> dict[str, Any]:
-        """What the top of Overview draws from: `players`, the `player` whose plays these
-        are, their `records` by game id, `recent` the game ids newest first, `top` the
-        machine's best score for the game playing, else the first of them, `play` as
-        `/play/state` answered and `jobs` the ones still running. Already read - this
-        asks nothing."""
+        """What the top of Overview draws from, as `_read_front` read it. Asks nothing."""
         return self._front or {}
 
     def forget_front(self) -> None:
@@ -1084,16 +1080,22 @@ class Library:
         self._front_player = player_id
         self._front = None
 
-    def refresh_front(self, play: dict[str, Any], jobs: list[dict[str, Any]]) -> None:
-        """The two parts of the top that change while the page is open."""
+    def refresh_front(self, play: dict[str, Any], listed: list[dict[str, Any]]) -> None:
+        """The parts of the top that change while the page is open."""
         if self._front is not None:
-            self._front = {**self._front, "play": play, "jobs": jobs}
+            self._front = {**self._front, "play": play, "listed": listed,
+                           "jobs": [one for one in listed if one.get("state") == "running"]}
 
     def _read_front(self) -> dict[str, Any]:
         """Each read stands alone, as `_read_watched` does: a roster that cannot be read
-        still leaves the owner's plays, which are the library's own."""
+        still leaves the owner's plays, which are the library's own.
+
+        `player` is whose plays `records` holds by game id, `recent` the game ids newest
+        first, `top` the machine's best score for the game playing, else the first of them,
+        `play` is `/play/state`, `jobs` the ones still running and `listed` the latest
+        jobs, None where they could not be read."""
         out: dict[str, Any] = {"players": [], "player": None, "records": {}, "recent": [],
-                               "top": None, "play": {}, "jobs": []}
+                               "top": None, "play": {}, "jobs": [], "listed": None}
         try:
             self._forget_games()
         except Exception:  # noqa: BLE001 - the list already held still has the owner's plays
@@ -1128,7 +1130,8 @@ class Library:
         except Exception:  # noqa: BLE001 - nothing is shown as playing
             logger.debug("console: could not read what is playing", exc_info=True)
         try:
-            out["jobs"] = [one for one in self._client.jobs() if one.get("state") == "running"]
+            out["listed"] = self._client.jobs()
+            out["jobs"] = [one for one in out["listed"] if one.get("state") == "running"]
         except Exception:  # noqa: BLE001
             logger.debug("console: could not read the jobs running", exc_info=True)
         if out["play"].get("launching"):
@@ -1718,6 +1721,11 @@ class Library:
         answer = self._client.put_library_policy(changes)
         self._kept = _kept_of(answer)
         return answer
+
+    def hide_media_kinds(self, kinds: Iterable[str]) -> None:
+        """Stop collecting these kinds, keeping the ones already switched off. Off the loop."""
+        held = _listed(self.library_policy(), "hidden_media_kinds")
+        self.put_library_policy({"hidden_media_kinds": sorted(held | set(kinds))})
 
     def console_policy(self) -> dict:
         """What this install's Console shows, read when asked for."""

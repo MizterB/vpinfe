@@ -2212,6 +2212,17 @@ button.q-btn--flat.text-primary:hover .q-btn__content {
 .console-need-more .q-btn:hover { color: var(--accent); }
 .console-need-more .q-icon { font-size: var(--icon-row); }
 .console-need-new { flex: none; cursor: pointer; }
+/* A row with nothing to open: the same line, without the hover. */
+.console-need--static { cursor: default; }
+.console-need--static:hover { background: none; }
+/* The Library card's figures and a job's second line. */
+.console-figures { display: flex; gap: 32px; flex-wrap: wrap; }
+.console-figure {
+  display: flex; flex-direction: column; gap: 2px; padding: 4px 8px; border-radius: 6px;
+  cursor: pointer;
+}
+.console-figure:hover, .console-figure:focus-visible { background: var(--accent-wash); outline: none; }
+.console-job-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .console-aside-line { padding: 4px 10px; min-height: var(--target-inline); }
 /* On a narrow page the row keeps its count and the fix moves into the menu. */
 @container (max-width: 480px) {
