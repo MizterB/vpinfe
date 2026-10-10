@@ -429,6 +429,13 @@ def _nothing_yet(words: str, library: Any, state: dict[str, Any],
                      hint=t("console.games.rescan_hint"))()
 
 
+def _narrow(table: Any, search: Any, state: dict[str, Any]) -> None:
+    """Narrow the grid to the search box. `state["searching"]` tells the page a redraw
+    would empty the box."""
+    state["searching"] = bool(search.value)
+    table.run_grid_method("setGridOption", "quickFilterText", search.value or "")
+
+
 def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
           on_select: Callable[[dict | None], Any],
           state: dict[str, Any] | None = None,
@@ -436,6 +443,8 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
           rescan: Callable[[], Any] | None = None,
           on_selection: Callable[[list[str]], Any] | None = None) -> None:
     state = state if state is not None else {}
+    state["ticked"] = 0
+    state["searching"] = False
     if not rows:
         _nothing_yet("console.games.empty", library, state, rescan)
         return
@@ -550,6 +559,7 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
 
     async def on_select_rows(rows_selected: list[dict[str, Any]]) -> None:
         selected[:] = rows_selected
+        state["ticked"] = len(rows_selected)
         show_selection(bool(rows_selected))
         count.text = said()
         await follow_selection()
@@ -718,8 +728,7 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
     table.on("modelUpdated", counted)
     table.on("filterChanged", follow_the_filter, args=[])
     wire_views(table)
-    search.on_value_change(
-        lambda: table.run_grid_method("setGridOption", "quickFilterText", search.value or ""))
+    search.on_value_change(lambda: _narrow(table, search, state))
 
 
 # A tick where it is true and nothing where it is not, so a column of them is scanned
@@ -1284,6 +1293,8 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
     long argument about which subject each line is for.
     """
     state = state if state is not None else {}
+    state["ticked"] = 0
+    state["searching"] = False
     if not rows:
         _nothing_yet("console.games.empty_tables", library, state, rescan)
         return
@@ -1453,6 +1464,7 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
 
     async def on_select_rows(rows_selected: list[dict[str, Any]]) -> None:
         selected[:] = rows_selected
+        state["ticked"] = len(rows_selected)
         show_selection(bool(rows_selected))
         count.text = said()
         await follow_selection()
@@ -1584,9 +1596,7 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
             panel.verb_menu(menu, header, panel.for_selection(table_verbs(on, known), len(on)))
 
     wire_views(table)
-    search.on_value_change(
-        lambda: table.run_grid_method("setGridOption", "quickFilterText",
-                                      search.value or ""))
+    search.on_value_change(lambda: _narrow(table, search, state))
 
 
 def _by_group(columns: list[dict[str, Any]]) -> list[tuple[str, list[dict]]]:

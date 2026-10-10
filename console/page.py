@@ -290,6 +290,13 @@ def reads_ended_since(jobs: list[dict[str, Any]], opened: float,
             and str(job.get("id") or "") not in told]
 
 
+def list_is_idle(state: dict[str, Any]) -> bool:
+    """A games or tables list is on screen with nothing open, ticked or typed in the
+    search box, so it can be redrawn without closing a panel or dropping any of them."""
+    return state.get("view") in LIST_VIEWS and not state.get("game") \
+        and not state.get("ticked") and not state.get("searching")
+
+
 def imports_ended_since(jobs: list[dict[str, Any]], opened: float,
                         told: set[str]) -> list[dict[str, Any]]:
     """The imports that finished after `opened`, not yet told.
@@ -323,6 +330,7 @@ EMPTY_PANE = {
 # `render` adds `console-no-pane` - and the user's own open/closed and width are left alone,
 # so coming back to a page that selects something restores what they arranged.
 WORKBENCH_VIEWS = frozenset(EMPTY_PANE)
+LIST_VIEWS = frozenset({"games", "tables"})
 
 
 def _read_hub() -> dict[str, Any]:
@@ -933,6 +941,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             told.add(str(job.get("id") or ""))
             await run.io_bound(library.refresh_after_import)
             if not wizard.watching(str(job.get("id") or "")):
+                _redraw_if_idle()
                 _tell_import(job)
         failed = None if running else failed_since(found, opened, dismissed)
         if failed is not None and state.get("view") == "jobs":
@@ -1010,10 +1019,15 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         undo.act(said, t("console.page.view_report"),
                  partial(job_report.open_for, str(job.get("id") or "")), warn=warn)
 
-    async def _tell_read(job_id: str) -> None:
-        """A library read this page did not start, said when it found new games.
+    def _redraw_if_idle() -> None:
+        """A games or tables list already on screen shows what the library now holds, but
+        only while nothing is open, ticked or searched: a redraw closes the panel and
+        drops ticks and the search."""
+        if list_is_idle(state):
+            redraw()
 
-        The page is not redrawn, which would close the panel open on it."""
+    async def _tell_read(job_id: str) -> None:
+        """A library read this page did not start, said when it found new games."""
         try:
             found = await offload.io(ApiClient().job, job_id)
         except Exception:
@@ -1023,6 +1037,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             return
         await run.io_bound(library.refresh_after_import)
         with here:
+            _redraw_if_idle()
             _say_read(result)
 
     job_timer = ui.timer(JOBS_RUNNING_S, _watch_jobs)

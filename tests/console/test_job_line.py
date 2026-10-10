@@ -8,7 +8,7 @@ from common.capture import run
 from common.jobs import KIND_LIBRARY_SCAN, KIND_MEDIA_FILL
 from console import record
 from console.library_folders import KIND_IMPORT
-from console.page import failed_since, imports_ended_since, reads_ended_since
+from console.page import failed_since, imports_ended_since, list_is_idle, reads_ended_since
 
 OPENED = 1000.0
 
@@ -114,6 +114,28 @@ class ImportsEndedSinceTests(unittest.TestCase):
         job = {**_import("j1"), "kind": KIND_MEDIA_FILL}
 
         self.assertEqual(imports_ended_since([job], OPENED, set()), [])
+
+
+class ListIsIdleTests(unittest.TestCase):
+    """When the end of a background import may redraw the list that is on screen."""
+
+    def test_a_list_with_nothing_open_or_ticked_is_redrawn(self) -> None:
+        for view in ("games", "tables"):
+            with self.subTest(view=view):
+                self.assertTrue(list_is_idle({"view": view, "game": "", "ticked": 0}))
+                self.assertTrue(list_is_idle({"view": view}))
+
+    def test_an_open_game_or_a_ticked_row_keeps_the_page_as_it_is(self) -> None:
+        self.assertFalse(list_is_idle({"view": "games", "game": "g1", "ticked": 0}))
+        self.assertFalse(list_is_idle({"view": "tables", "game": "", "ticked": 2}))
+
+    def test_a_search_in_the_box_keeps_the_page_as_it_is(self) -> None:
+        self.assertFalse(list_is_idle({"view": "games", "searching": True}))
+
+    def test_a_page_that_is_not_a_list_is_left_alone(self) -> None:
+        for view in ("overview", "settings", "jobs"):
+            with self.subTest(view=view):
+                self.assertFalse(list_is_idle({"view": view}))
 
 
 class WaitingRunTests(unittest.TestCase):
