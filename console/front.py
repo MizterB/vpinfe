@@ -247,10 +247,11 @@ def strip(library: Library, go: Callable[[str], None]) -> None:
                 picture = art.media(game_id, "wheel", version=held.get("version"),
                                     size=art.CELL) if held.get("present") else ""
                 with panel.link_tile(to=_address(game_id), classes="console-front-item"):
-                    if picture:
-                        ui.image(picture).classes("console-front-wheel")
-                    else:
-                        ui.icon(icons.GAMES).classes("console-front-wheel console-front-glyph")
+                    with ui.element("div").classes("console-front-well"):
+                        if picture:
+                            ui.image(picture).props("fit=contain").classes("console-front-wheel")
+                        else:
+                            ui.icon(icons.GAMES).classes("console-front-glyph")
                     ui.label(str(game.get("name") or "")).classes("console-front-name")
                     ui.label(_workbench()._played_when(
                         (front.get("records") or {}).get(game_id, {}).get("last_played"))) \
