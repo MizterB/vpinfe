@@ -74,7 +74,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `timeout` | int | `15` | Seconds to wait for a command before giving up |
-| `on_vpinfe_start` | text |  | One command per line, run before anything else. Arguments split the way a shell splits them; for a pipe, point at a script. |
+| `on_vpinfe_start` | text |  | One command per line, run as VPinFE starts and before its services do. Arguments split the way a shell splits them; for a pipe, point at a script. |
 | `on_vpinfe_exit` | text |  | Run last. These run even if VPinFE is stopping because something went wrong. |
 
 ### `table_commands`
@@ -91,7 +91,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | --- | --- | --- | --- |
 | `path` | string |  | The browser the frontend's windows open in |
 | `defaults` | bool | `true` | Full screen, autoplay, no Chrome prompts. Off leaves only what places a window. |
-| `options_exclude` | text |  | Leave Out |
+| `options_exclude` | text |  | Built-in options to drop, named without their value |
 | `options` | text |  | Added after the defaults. Where one sets the same option, yours is used. For example, --ozone-platform=x11. |
 
 ### `console`
