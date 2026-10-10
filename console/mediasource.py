@@ -507,6 +507,9 @@ class _Slot(_OneFile):
         self.filename_note: Any = None
         self._marks: dict[str, Any] = {}
         self._own_id = ""
+        self._own_name = ""
+        # Which `_show_offers` call is the latest, so a slower earlier one draws nothing.
+        self._asked = 0
 
     def title(self) -> str:
         return t("console.mediasource.title_table" if self.table_id
@@ -885,24 +888,31 @@ class _Slot(_OneFile):
         mod, a table the identifier missed, or a game whose art someone simply prefers.
         Locking this to the game's own id would make the common repair impossible.
 
-        What is on offer comes first and the search under it, because borrowing another
-        game's art is the rare errand and the files are what the tab is for. The search
-        opens holding this game's name, which is both a starting point to edit and the
-        answer to what the list above is showing.
+        The files and the search take the tab one at a time. The search opens holding
+        this game's name, to edit.
         """
         body.clear()
         game = self.context["game"]
         self._own_id = str(game.get("vps_id") or "")
+        self._own_name = str(game.get("name") or t("console.mediasource.game_2").title())
         with body:
+            self.offers_view = ui.column().classes("w-full gap-1 console-source-fill")
+            self.search_view = ui.column().classes("w-full gap-2 console-source-fill")
+        self.search_view.set_visibility(False)
+        with self.offers_view:
             self.online_head = ui.label("").classes("console-card-title")
             self.online_body = ui.column().classes("w-full gap-1 console-source-offers")
-            ui.label(t("console.mediasource.other_game")) \
-                .classes("console-card-title console-source-under")
-            search = ui.input(value=str(game.get("name") or "")) \
+            self.switch_row = ui.row().classes("w-full items-center gap-2")
+        with self.search_view:
+            with ui.row().classes("w-full items-center gap-2 no-wrap"):
+                panel.action(t("word.back"), self._show_files, icon=verbs.BACK,
+                             hint=t("console.mediasource.search_back.help"))()
+                ui.label(t("console.mediasource.other_game")).classes("console-card-title")
+            self.search_box = ui.input(value=str(game.get("name") or "")) \
                 .props("outlined dense clearable").classes("w-full")
             results = ui.column().classes("w-full gap-1 console-source-found")
-        search.on("keydown.enter",
-                  lambda: self._search_games(results, search.value or ""))
+        self.search_box.on("keydown.enter",
+                           lambda: self._search_games(results, self.search_box.value or ""))
         # Read for the names, which label the rows. Not announced up front - every row
         # says where it came from, so a list of the same names above it is furniture.
         try:
@@ -911,6 +921,31 @@ class _Slot(_OneFile):
             self._known_sources = []
         await self._show_offers(self.online_body, self._own_id,
                                 game.get("name") or t("console.mediasource.game_2"))
+
+    def _show_files(self) -> None:
+        self.search_view.set_visibility(False)
+        self.offers_view.set_visibility(True)
+
+    def _show_search(self) -> None:
+        self.offers_view.set_visibility(False)
+        self.search_view.set_visibility(True)
+        self.search_box.run_method("focus")
+
+    async def _back_to_own(self) -> None:
+        await self._show_offers(self.online_body, self._own_id, self._own_name)
+
+    def _draw_switch(self, vps_id: str) -> None:
+        """Under the files: the way to another game's, and the way back from one."""
+        self.switch_row.clear()
+        with self.switch_row:
+            panel.action(t("console.mediasource.other_game"), self._show_search,
+                         icon=verbs.SEARCH,
+                         hint=t("console.mediasource.other_game.help"))()
+            if vps_id != self._own_id:
+                panel.action(t("console.mediasource.back_to_own", name=self._own_name),
+                             self._back_to_own, icon=verbs.BACK,
+                             hint=t("console.mediasource.back_to_own.help",
+                                    name=self._own_name))()
 
     def _searched(self) -> str:
         """Where we looked, for the one case that needs it: nothing came back.
@@ -957,11 +992,13 @@ class _Slot(_OneFile):
     async def _show_offers(self, body: ui.column, vps_id: str, name: str) -> None:
         """The files one game is offered, under a heading that names that game.
 
-        Named because this list and the search above it drift apart: you search for
-        something else, and the files below go on being the ones you were already
-        looking at, with nothing to say which game they belong to.
+        Named when it is another game's, so the files never pass for this game's own.
         """
+        self._asked += 1
+        asked = self._asked
         body.clear()
+        self._show_files()
+        self._draw_switch(vps_id)
         # Named only when it is not this game's own: a heading that says the obvious on
         # every visit stops being read by the time it matters.
         self.online_head.text = (t("console.mediasource.found_online")
@@ -975,8 +1012,11 @@ class _Slot(_OneFile):
         try:
             found = await offload.io(self.library.media_offers, vps_id, self.kind)
         except Exception as exc:
-            with body:
-                panel.line(t("console.mediasource.sources_failed"), hint=why(exc))
+            if asked == self._asked:
+                with body:
+                    panel.line(t("console.mediasource.sources_failed"), hint=why(exc))
+            return
+        if asked != self._asked:
             return
         with body:
             if not found:

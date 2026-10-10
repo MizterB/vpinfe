@@ -3538,10 +3538,6 @@ a.console-slot-file, a.console-slot-file:visited { color: var(--accent); }
   font-size: var(--fs-body); color: var(--ink-2);
   word-break: break-word; line-height: 1.3;
 }
-/* A second heading in a panel that opened with one needs the air, or the list above
-   reads as belonging to it. */
-.console-source-under { padding-top: 10px; }
-
 /* One height for every tab. The lists inside take what is left and scroll. */
 .console-sources-panels { height: min(52vh, 560px); }
 .console-sources-panels .q-tab-panel { display: flex; flex-direction: column; }
@@ -3557,10 +3553,8 @@ a.console-slot-file, a.console-slot-file:visited { color: var(--accent); }
 .console-sources-card .q-tab--active { color: var(--accent); }
 .console-sources-card .q-tab__indicator { background: var(--accent); }
 .console-source-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
-/* The online tab stacks two of these, and they are not equals: the games are how you
-   get to the files, and the files are what you came for. So the search keeps its own
-   size up to a cap and the files give way. */
-.console-source-found { flex: 0 0 auto; max-height: 26vh; overflow-y: auto; }
+/* The online tab shows the files or the search, one at a time. */
+.console-source-found { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .console-source-offers { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 /* A folder is a line, not a picture: it has no thumbnail, so it should not reserve
    the height of one. Nor should a file in a list where nothing has one. */
