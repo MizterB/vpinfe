@@ -543,7 +543,7 @@ def _media_after(ctx: Any, plan: Any, made: list[AdoptedRow], converted: bool) -
     done = {"wheel_logos": False, "media_started": False}
     if not made or not plan:
         return done
-    if plan.wheels_as == mapping.LOGOS and plan.show_logos and converted:
+    if plan.wheels_as == mapping.LOGOS and converted:
         try:
             ctx.games.use_logos_for_wheels()
             done["wheel_logos"] = True

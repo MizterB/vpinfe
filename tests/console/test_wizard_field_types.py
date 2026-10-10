@@ -372,6 +372,27 @@ class PictureFromFilesTests(unittest.TestCase):
             ["/api/v1/filesystem/file?path=%2Flib%2Fwheels%2Fa+b.png",
              "/api/v1/filesystem/file?path=%2Flib%2Fwheels%2Fc.png"], _ran(run))
 
+    def test_the_same_files_on_every_option_are_drawn_once_above_them(self) -> None:
+        shown = ["/lib/wheels/a.png", "/lib/wheels/b.png"]
+        first = {"step": "media", "fields": [{
+            "key": "kind", "type": "choice", "label": "Wheels",
+            "choices": [["logos", "Logos", "Wide and clear", shown],
+                        ["wheels", "Wheels", "Round", shown]]}]}
+
+        async def run() -> tuple[list[str], int]:
+            task, dialog = await _opened(_calls(first=first))
+            sources = [str(one.props.get("src")) for one in dialog.descendants()
+                       if one.tag == "img"]
+            rows = sum(1 for one in dialog.descendants()
+                       if "console-wizard-pick" in one.classes)
+            await _finished(task)
+            return sources, rows
+
+        sources, rows = _ran(run)
+
+        self.assertEqual(2, len(sources))
+        self.assertEqual(2, rows)
+
     def test_a_picture_that_is_a_name_stays_a_name(self) -> None:
         self.assertEqual("desktop", wizard._picture_named("desktop"))
         self.assertEqual("", wizard._picture_named(None))

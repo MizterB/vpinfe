@@ -56,7 +56,9 @@ STEPS = ("source", "sources", "games", "matches", "names", "media", "things", "h
 # The source, its folders and the ticks on the Tables page are about one import and stay out,
 # and so does the wheel images' kind: it is measured from the images each time.
 ANSWERS_KEY = "answers"
-REMEMBERED = ("names", "details", "details_some", "show_logos", "fetch_media", "logos",
+# Where games go on an install that has no library folder yet, inside the home folder.
+SUGGESTED_FOLDER = "VPinFE Tables"
+REMEMBERED = ("names", "details", "details_some", "fetch_media", "logos",
               *[things.switch(key) for key in things.THINGS])
 
 
@@ -275,9 +277,15 @@ def build(ctx: Any) -> None:
         said = str(values.get(answer_key("wheels_as")) or "")
         if said in mapping.WHEELS_AS:
             return said
+        return looks_like(library, values) or mapping.WHEELS
+
+    def looks_like(library: SourceLibrary, values: dict) -> str:
+        """What the wheel images' shapes say they are, whatever was answered; empty where
+        none of them could be measured."""
         key = (library.source_id, library.root, tuple(_systems(values)))
         if key not in shaped:
-            shaped[key] = shapes.measured_as(wheel_files(library, values))
+            files = wheel_files(library, values)
+            shaped[key] = shapes.measured_as(files) if shapes.readable(files) else ""
         return shaped[key]
 
     def real_of(roms: str) -> Callable[[str], str]:
@@ -423,7 +431,6 @@ def build(ctx: Any) -> None:
                               wheels_as_of(library, values))
         made.catalog = catalog
         made.logos = _on(values, "logos")
-        made.show_logos = _on(values, "show_logos")
         made.fetch_media = _on(values, "fetch_media")
         made.scores = _on(values, things.switch("scores"))
         if deciding:
@@ -520,6 +527,41 @@ def build(ctx: Any) -> None:
             return str(values["into"] or "").strip()
         return path_of(location)
 
+    def tables_folder_of(library: SourceLibrary, games: list[SourceGame]) -> str:
+        """The first folder the games going are read from, or the source's own."""
+        return next((plan_for.tables_folder(one)
+                     for one in plan_for.systems_going(library, games)
+                     if plan_for.tables_folder(one)), library.root)
+
+    def carries(mode: str, source_folder: str, into: str) -> bool:
+        """Whether the game files are written rather than renamed. A move is a rename only
+        where the files stay on one drive; with no folder named it stays where it is."""
+        return mode == "copy" or (mode == "move" and bool(into)
+                                  and not plan_for.same_drive(source_folder, into))
+
+    def carried_game(mode: str, game: Any, into: str) -> bool:
+        """`carries` for one game, asked of the folder its own file is in: systems on
+        different drives are not one answer."""
+        return carries(mode, str(Path(game.table_file).parent) if game.table_file else "",
+                       into)
+
+    def suggested_into(values: dict) -> str:
+        """What the Library Folder field starts as: what was typed, else the place new
+        games already go, else a folder of its own in the home folder. A field that was
+        cleared stays cleared, with its error beside it."""
+        if "into" in values:
+            return into_of(values)
+        return into_of(values) or str(Path.home() / SUGGESTED_FOLDER)
+
+    def can_be_made(path: str) -> bool:
+        """Whether a folder is there, or is one level below a folder that is and can be
+        written to. One level only: a mount that is not there must not be made up."""
+        folder = Path(path).expanduser()
+        if folder.is_dir():
+            return True
+        return (not folder.exists() and folder.parent.is_dir()
+                and os.access(folder.parent, os.W_OK))
+
     def space(library: SourceLibrary, values: dict, mode: str,
               games: list[SourceGame]) -> tuple[int, int, str]:
         """Bytes this will write, the room there is for them, and where.
@@ -527,26 +569,31 @@ def build(ctx: Any) -> None:
         Asked of the place the games will actually be made, which is the `into` in
         `values`, or the default where there is none. A caller that names a location
         instead has it put in `values` first. Room is -1 where it cannot be told. A move
-        writes only the artwork, beside the files; a source with systems on different
-        drives is asked at the first.
+        writes only the artwork, beside the files, unless it changes drive; a source with
+        systems on different drives is asked at the first.
         """
         if mode not in ("copy", "move", "in_place"):
             return 0, -1, ""
         values = answers(values)
         folders_of = {one.key: one.path
                       for one in plan_for.derive_sources(library, _switched(values))}
-        need = plan_for.bytes_to_copy(
-            games, library.source_id, ctx.games.kinds(), held.companions_of,
-            move=mode != "copy",
-            sized=held.measured(progress, ctx.t("progress.measuring")),
-            roms=held.roms, roms_dir=folders_of.get("roms", ""),
-            named=held.named, saved=saved_of(folders_of.get("user", "")),
-            real=real_of(folders_of.get("roms", "")),
-            wheels_as=wheels_as_of(library, values))
-        target = (into_of(values) if mode == "copy" else
-                  next((plan_for.tables_folder(one)
-                        for one in plan_for.systems_going(library, games)
-                        if plan_for.tables_folder(one)), library.root))
+        source_folder = tables_folder_of(library, games)
+        into = into_of(values) if "into" in values else ""
+        measure = held.measured(progress, ctx.t("progress.measuring"))
+        saved = saved_of(folders_of.get("user", ""))
+        written = [one for one in games if carried_game(mode, one, into)]
+        renamed = [one for one in games if not carried_game(mode, one, into)]
+        need = sum(
+            plan_for.bytes_to_copy(
+                part, library.source_id, ctx.games.kinds(), held.companions_of,
+                move=not carried, sized=measure,
+                roms=held.roms, roms_dir=folders_of.get("roms", ""),
+                named=held.named, saved=saved,
+                real=real_of(folders_of.get("roms", "")),
+                wheels_as=wheels_as_of(library, values))
+            for carried, part in ((True, written), (False, renamed)) if part)
+        target = (into_of(values) if mode == "copy" or (mode == "move" and into)
+                  else source_folder)
         free, where = plan_for.room_at(target) if target else (-1, "")
         return need, free, where
 
@@ -717,7 +764,7 @@ def build(ctx: Any) -> None:
         mode = _mode(library, values, games)
 
         if leaving == "how" and mode in ("copy", "move"):
-            refused_how = _refuse_how(values)
+            refused_how = _refuse_how(values, mode)
             if refused_how:
                 return _how_step(source, library, values, games, refused_how)
 
@@ -876,8 +923,10 @@ def build(ctx: Any) -> None:
         return {
             "step": "matches",
             "title": ctx.t("wizard.matches.title"),
-            "help": ctx.t("wizard.matches.help",
-                          count=sum(1 for one in rows if not one["settled"])),
+            "help": " ".join((
+                ctx.t("wizard.matches.about"), ctx.t("wizard.matches.gains"),
+                ctx.t("wizard.matches.ask", count=sum(1 for one in rows if not one["settled"])),
+                ctx.t("wizard.matches.leave"))),
             "fields": [{"key": key, "type": "settle",
                         "label": ctx.t("wizard.matches.label"), "rows": rows,
                         "value": dict(values.get(key) or {})}],
@@ -968,26 +1017,24 @@ def build(ctx: Any) -> None:
         fields: list[dict[str, Any]] = []
         if images:
             sample = images[::max(1, len(images) // 3)][:3]
-            fields += [
+            looks = looks_like(library, said)
+
+            def option(kind: str, name: str, help_text: str) -> list[Any]:
+                if kind == looks:
+                    help_text = ctx.t("wizard.media.looks_like", help=help_text)
+                return [kind, name, help_text, sample]
+
+            fields.append(
                 {"key": answer_key("wheels_as"), "type": "choice",
                  "label": (ctx.t("wizard.media.wheels_as.label_plain")
                            if library.source_id == folders.SOURCE_ID
                            else ctx.t("wizard.media.wheels_as.label", source=source)),
                  "value": wheels_as_of(library, said),
                  "choices": [
-                     [mapping.LOGOS, ctx.t("wizard.media.logos"),
-                      ctx.t("wizard.media.logos.help"), sample],
-                     [mapping.WHEELS, ctx.t("wizard.media.wheels"),
-                      ctx.t("wizard.media.wheels.help"), sample]],
-                 "help": f'{ctx.t("wizard.media.wheels_as.logo")} '
-                         f'{ctx.t("wizard.media.wheels_as.round")}'},
-                {"key": "show_logos", "type": "switch",
-                 "label": ctx.t("wizard.media.show_logos.label"),
-                 "value": _on(said, "show_logos"),
-                 "help": {"follows": answer_key("wheels_as"),
-                          "says": {mapping.LOGOS: ctx.t("wizard.media.show_logos.help")},
-                          "else": ctx.t("wizard.media.show_logos.not_logos")}},
-            ]
+                     option(mapping.LOGOS, ctx.t("wizard.media.logos"),
+                            ctx.t("wizard.media.logos.help")),
+                     option(mapping.WHEELS, ctx.t("wizard.media.wheels"),
+                            ctx.t("wizard.media.wheels.help"))]})
         fields.append({"key": "fetch_media", "type": "switch",
                        "label": ctx.t("wizard.media.fetch.label"),
                        "value": _on(said, "fetch_media"),
@@ -1005,10 +1052,7 @@ def build(ctx: Any) -> None:
         return {
             "step": "media",
             "title": ctx.t("wizard.media.title"),
-            "help": " ".join(part for part in (
-                ctx.t("wizard.media.help.wheel"), ctx.t("wizard.media.help.logo"),
-                ctx.t("wizard.media.help.fallback"),
-                ctx.t("wizard.media.found", kinds=found) if found else "") if part),
+            "help": ctx.t("wizard.media.found", kinds=found) if found else "",
             "fields": fields,
         }
 
@@ -1044,15 +1088,16 @@ def build(ctx: Any) -> None:
                        for key in things.THINGS if counts.get(key)],
         }
 
-    def _refuse_how(values: dict) -> dict[str, str]:
-        """What is wrong with the answer to the how step, by field. Moving needs nothing
-        more; copying needs a folder to copy into, and one that is there."""
-        if values.get("how") == "move":
+    def _refuse_how(values: dict, mode: str = "copy") -> dict[str, str]:
+        """What is wrong with the answer to the how step, by field. Both ways need a
+        folder to put the games in; it is made if it is not there yet. A caller that
+        names none and moves leaves the games where they are."""
+        if mode == "move" and "into" not in values:
             return {}
         into = str(values.get("into") or "").strip()
         if not into:
             return {"into": ctx.t("reason.say_into")}
-        if not Path(into).expanduser().is_dir():
+        if not can_be_made(into):
             return {"into": ctx.t("reason.unreachable")}
         return {}
 
@@ -1068,9 +1113,20 @@ def build(ctx: Any) -> None:
         moving_help = (ctx.t("wizard.how.move.folders_help")
                        if library.source_id == folders.SOURCE_ID
                        else ctx.t("wizard.how.move.frontend_help", source=_name(ctx, reader)))
-        into = into_of(values)
-        need, free, where = space(library, {**values, "into": into}, "copy", games)
-        size = plan_for.size_of(need)
+        into = suggested_into(values)
+        made = not Path(into).expanduser().exists() if into else False
+
+        def says(how: str) -> str:
+            need, free, where = space(library, {**values, "into": into}, how, games)
+            return " ".join(part for part in (
+                ctx.t("wizard.how.into.what"),
+                ctx.t("wizard.how.into.new") if made else "",
+                ctx.t("wizard.how.into.room", size=plan_for.size_of(need),
+                      free=plan_for.size_of(free), where=where)
+                if into and free >= 0
+                else ctx.t("wizard.how.into.needs", size=plan_for.size_of(need)))
+                if part)
+
         step: dict[str, Any] = {
             "step": "how",
             "title": ctx.t("wizard.how.title"),
@@ -1088,10 +1144,9 @@ def build(ctx: Any) -> None:
                 {"key": "into", "type": "path", "wants": "dir",
                  "label": ctx.t("wizard.how.into.label"), "value": into,
                  "opens_at": str(Path(library.root).parent),
-                 "help": (ctx.t("wizard.how.into.room", size=size,
-                                free=plan_for.size_of(free), where=where)
-                          if into and free >= 0
-                          else ctx.t("wizard.how.into.needs", size=size))},
+                 "help": {"follows": "how", "says": {"copy": says("copy"),
+                                                      "move": says("move")},
+                          "else": says("copy")}},
             ],
         }
         if errors:
@@ -1147,10 +1202,9 @@ def build(ctx: Any) -> None:
         if media:
             if media["images"]:
                 rows.append([ctx.t("wizard.summary.wheel_images"),
-                             ctx.t("wizard.media.logos") if made.wheels_as == mapping.LOGOS
+                             ctx.t("wizard.media.logos.summary")
+                             if made.wheels_as == mapping.LOGOS
                              else ctx.t("wizard.media.wheels")])
-                if made.wheels_as == mapping.LOGOS:
-                    rows.append([ctx.t("wizard.media.show_logos.label"), _yes(made.show_logos)])
             rows.append([ctx.t("wizard.media.fetch.label"), _yes(made.fetch_media)])
             if media["makers"]:
                 rows.append([ctx.t("wizard.media.logos.label"), _yes(made.logos)])
@@ -1215,7 +1269,9 @@ def build(ctx: Any) -> None:
             rows += [[how, ctx.t("wizard.summary.how.copy")], [going_into, into_of(values)]]
         elif mode == "move":
             rows += [[how, ctx.t("wizard.summary.how.move")],
-                     [going_into, ctx.t("wizard.how.move.where", folder=inside)]]
+                     [going_into,
+                      into_of(values) if "into" in values
+                      else ctx.t("wizard.how.move.where", folder=inside)]]
         elif mode == "in_place":
             rows += [[how, ctx.t("wizard.summary.how.in_place")],
                      [going_into,
@@ -1301,9 +1357,10 @@ def build(ctx: Any) -> None:
         checked = plan_for.going(library, plan(library, values, known(library)), systems)
         mode = _mode(library, values, checked)
         typed_into = "into" in values
-        if mode == "copy":
+        if mode == "copy" or (mode == "move" and typed_into):
             values = {**values, "into": into_of(values, location)}
-            wrong = _refuse_how(values)
+        if mode in ("copy", "move"):
+            wrong = _refuse_how(values, mode)
             if wrong:
                 return refused(wrong["into"])
         short = short_of_room(*space(library, values, mode, checked))
@@ -1321,7 +1378,8 @@ def build(ctx: Any) -> None:
             games = plan_for.going(library, made, systems)
             mode = _mode(library, values, games)
             where, places = location, {}
-            if mode == "copy" and typed_into:
+            if mode in ("copy", "move") and typed_into and not job.halt.is_set():
+                Path(values["into"]).expanduser().mkdir(exist_ok=True)
                 where = ctx.games.use_library_folder(values["into"])["location_id"]
             elif mode in ("move", "in_place"):
                 # Only the systems this run acts on: a deselected one is not a place
@@ -1330,6 +1388,7 @@ def build(ctx: Any) -> None:
                     plan_for.tables_folder(one))["location_id"]
                     for one in plan_for.systems_going(library, games)
                     if plan_for.tables_folder(one)}
+            into_now = str(values.get("into") or "") if typed_into else ""
             plan_for.measure_fill(made, held_of)
             want = plan_for.expected(made)
             measure = held.measured(Progress(), "")
@@ -1342,7 +1401,8 @@ def build(ctx: Any) -> None:
             def weigh(game: Any) -> int:
                 return plan_for.bytes_to_copy([game], library.source_id, kinds,
                                               held.companions_of,
-                                              move=mode != "copy", sized=measure,
+                                              move=not carried_game(mode, game, into_now),
+                                              sized=measure,
                                               roms=held.roms, roms_dir=roms_dir,
                                               named=held.named, saved=kept,
                                               real=real_of(roms_dir),

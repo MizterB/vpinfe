@@ -450,7 +450,9 @@ def _pictured(question: str, options: list[tuple[str, str, str, str | list[str]]
               changed: Callable[[], None] = lambda: None,
               url_for: Callable[[str], str] = str) -> Callable[[], None]:
     """A choice whose options carry pictures: `(key, label, help, picture)`. They are
-    tiles on a welcome and rows elsewhere. The question is drawn over them on a welcome
+    tiles on a welcome and rows elsewhere. Pictures every row shares (a sample of the
+    user's own files, when the options are ways to read them) are drawn once above the
+    rows. The question is drawn over them on a welcome
     and on a step with other fields to tell it from; alone on a step, the step's own
     title is the question and the group carries it as its accessible name only.
 
@@ -459,11 +461,16 @@ def _pictured(question: str, options: list[tuple[str, str, str, str | list[str]]
     `changed` to call after it has. Callables cannot travel as JSON, so only a flow that
     draws in this process (Setup) can give them."""
     details = details or {}
+    pictures = [picture for _, _, _, picture in options]
+    shared = (not tiles and len(pictures) > 1 and isinstance(pictures[0], list)
+              and bool(pictures[0]) and all(one == pictures[0] for one in pictures))
 
     def draw() -> None:
         with ui.column().classes("w-full gap-0"):
             if tiles or labelled:
                 ui.label(question).classes("console-card-title console-wizard-question")
+            if shared:
+                _picture(pictures[0], url_for)
             group = _Picks(value).classes(
                 "console-wizard-picks" + (" console-wizard-picks--tiles" if tiles else ""))
             group.props("role=radiogroup tabindex=-1")
@@ -496,7 +503,8 @@ def _pictured(question: str, options: list[tuple[str, str, str, str | list[str]]
                     row.on("click", lambda key=key: pick(key))
                     row.on("keydown.space.prevent", lambda key=key: pick(key))
                     with row:
-                        _picture(picture, url_for)
+                        if not shared:
+                            _picture(picture, url_for)
                         with ui.column().classes("gap-0 min-w-0 console-wizard-pick-text"):
                             ui.label(name).classes("console-source-name")
                             if help_text:

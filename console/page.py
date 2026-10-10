@@ -74,7 +74,7 @@ from console import themes as themes_page
 from console import whats_new as whats_new_page
 from console.api import ApiClient
 from console.data import Library
-from console.library_folders import KIND_IMPORT
+from console.library_folders import KIND_IMPORT, hold_library
 from console.on_page import on_page
 
 logger = logging.getLogger("vpinfe.console.page")
@@ -811,6 +811,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     warm: dict[str, rail_marks.Mark] = {}
     # A watch started by `watch_jobs` runs as a task of its own, outside the page.
     here = ui.context.client
+    hold_library(library)
     told: set[str] = set()
     shown_failed: dict[str, Any] = {"id": "", "said": None}
     dismissed: set[str] = set()
@@ -927,6 +928,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             background_tasks.create(_tell_read(job_id), name="console-tell-read")
         for job in imports_ended_since(found, opened, told):
             told.add(str(job.get("id") or ""))
+            await run.io_bound(library.refresh_after_import)
             if not wizard.watching(str(job.get("id") or "")):
                 _tell_import(job)
         failed = None if running else failed_since(found, opened, dismissed)

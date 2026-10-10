@@ -9,6 +9,9 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from typing import Any
+from weakref import WeakKeyDictionary
+
+from nicegui import run, ui
 
 from common import path_state
 from common.i18n import t
@@ -26,6 +29,10 @@ STATE_WORDS = {path_state.OK: "word.ready", path_state.READ_ONLY: "word.read_onl
                path_state.NOT_ANSWERING: "word.not_answering"}
 # What each state costs, for its chip. Anything not listed is a location that cannot be read.
 STATE_TIERS = {path_state.OK: "on", path_state.READ_ONLY: "warn"}
+
+# Each open page's library, so an import started anywhere on it (the Folders button, a
+# report's Try Again) can refresh what it changed.
+_LIBRARIES: WeakKeyDictionary[Any, Library] = WeakKeyDictionary()
 
 ASKING = {"updates": {"ask_where_new_games_go": True}}
 NOT_ASKING = {"updates": {"ask_where_new_games_go": False}}
@@ -54,14 +61,24 @@ def import_action_in(extensions: list[dict]) -> dict | None:
                 None)
 
 
+def hold_library(library: Library) -> None:
+    """Make this the library that an import started on the current page refreshes."""
+    _LIBRARIES[ui.context.client] = library
+
+
 @on_page
 async def open_importer(action: dict, rerender: Callable[[], None] | None, *,
                         values: dict[str, Any] | None = None, until: str = "") -> None:
-    """The import dialog, then the page redrawn: it can add a library folder, and the list
-    and its count are read when the page draws. `values` are answers it starts with, and
-    `until` the step it is walked to before it is shown."""
+    """The import dialog, then the page's library read again and the page redrawn: an import
+    adds games, tables and media, and can add a library folder. `values` are answers it
+    starts with, and `until` the step it is walked to before it is shown."""
     from console import ext_action
 
-    if await ext_action.open_action(IMPORTER, action, values=values, until=until) \
-            and rerender is not None:
+    page = ui.context.client
+    if not await ext_action.open_action(IMPORTER, action, values=values, until=until):
+        return
+    library = _LIBRARIES.get(page)
+    if library is not None:
+        await run.io_bound(library.refresh_after_import)
+    if rerender is not None:
         rerender()

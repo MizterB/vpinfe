@@ -60,14 +60,19 @@ def wheel_images(library_games: Sequence, source_id: str, kinds: tuple[str, ...]
             if kind == mapping.WHEELS]
 
 
+def readable(paths: Sequence[str]) -> list[Shape]:
+    """The shapes of the sampled files that could be read; empty where none could."""
+    sample = list(paths[::max(1, len(paths) // SAMPLE)][:SAMPLE])
+    return [one for one in (read(path) for path in sample) if one is not None]
+
+
 def measured_as(paths: Sequence[str]) -> str:
     """`logo` where most of a sample are wide and transparent, `wheel` otherwise.
 
     An image that is not a PNG says nothing either way, so a source of JPEGs is Wheels:
     the answer that leaves its images where the source had them.
     """
-    sample = list(paths[::max(1, len(paths) // SAMPLE)][:SAMPLE])
-    shapes = [one for one in (read(path) for path in sample) if one is not None]
+    shapes = readable(paths)
     if not shapes:
         return mapping.WHEELS
     wide = sum(1 for one in shapes if one.width >= WIDE * one.height and one.transparent)

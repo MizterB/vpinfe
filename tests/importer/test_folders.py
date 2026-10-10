@@ -418,7 +418,17 @@ class StepTests(FolderCase):
         found = self.step(self.tables, leaving="games")
 
         into = next(one for one in found["fields"] if one["key"] == "into")
-        self.assertTrue(into["help"].startswith("Needs 3.4 KB, with "), into["help"])
+        self.assertIn("Needs 3.4 KB, with ", into["help"]["says"]["copy"])
+
+    def test_the_size_follows_whether_copy_or_move_is_picked(self) -> None:
+        self.loose("Harbor Lights", size=3000)
+
+        found = self.step(self.tables, leaving="games")
+
+        into = next(one for one in found["fields"] if one["key"] == "into")
+        self.assertEqual(into["help"]["follows"], "how")
+        self.assertIn("Needs 2.9 KB", into["help"]["says"]["copy"])
+        self.assertIn("Needs 0 B", into["help"]["says"]["move"])
 
     def test_moving_a_frontends_files_says_its_list_will_point_at_nothing(self) -> None:
         source, _ = self.a_frontend()
@@ -442,23 +452,58 @@ class StepTests(FolderCase):
         found = self.step(self.tables, leaving="how", how="copy", into="")
 
         self.assertEqual(found["step"], "how")
-        self.assertEqual(found["errors"], {"into": "Say where the copies go"})
+        self.assertEqual(found["errors"], {"into": "Say which folder the games go in"})
 
-    def test_a_folder_that_is_not_there_is_not_somewhere_to_copy_to(self) -> None:
+    def test_a_folder_one_level_below_one_that_is_there_is_somewhere_to_copy_to(self) -> None:
         self.loose("Harbor Lights")
 
         found = self.step(self.tables, leaving="how", how="copy",
                           into=str(self.root / "not made"))
 
+        self.assertEqual(found["step"], "summary")
+
+    def test_a_folder_below_one_that_is_not_there_is_not_somewhere_to_copy_to(self) -> None:
+        self.loose("Harbor Lights")
+
+        found = self.step(self.tables, leaving="how", how="copy",
+                          into=str(self.root / "unmounted" / "library"))
+
         self.assertEqual(found["step"], "how")
         self.assertIn("into", found["errors"])
 
-    def test_moving_needs_no_place_to_go(self) -> None:
+    def test_moving_with_the_folder_emptied_is_sent_back(self) -> None:
         self.loose("Harbor Lights")
 
         found = self.step(self.tables, leaving="how", how="move", into="")
 
-        self.assertEqual(found["step"], "summary")
+        self.assertEqual(found["step"], "how")
+        self.assertIn("into", found["errors"])
+
+    def test_the_folder_starts_as_a_folder_of_its_own_where_nothing_is_set(self) -> None:
+        self.loose("Harbor Lights")
+
+        self.client.delete("/config/locations/one")
+        with mock.patch("pathlib.Path.home", return_value=self.root):
+            found = self.step(self.tables, leaving="games")
+
+        into = next(one for one in found["fields"] if one["key"] == "into")
+        self.assertEqual(into["value"], str(self.root / "VPinFE Tables"))
+        self.assertIn("VPinFE creates it.", into["help"]["says"]["copy"])
+
+    def test_a_cleared_folder_stays_cleared_beside_its_error(self) -> None:
+        self.loose("Harbor Lights")
+
+        found = self.step(self.tables, leaving="how", how="copy", into="")
+
+        into = next(one for one in found["fields"] if one["key"] == "into")
+        self.assertEqual(into["value"], "")
+
+    def test_a_moves_folder_is_taken_without_the_spaces_around_it(self) -> None:
+        self.loose("Harbor Lights", size=3000)
+
+        found = self.step(self.tables, leaving="how", how="move", into=f" {self.library} ")
+
+        self.assertEqual(self.summary_of(found)["Going Into"], str(self.library))
 
     def test_a_copy_summary_names_where_and_what_it_takes(self) -> None:
         self.loose("Harbor Lights", size=3000)
@@ -482,6 +527,23 @@ class StepTests(FolderCase):
         self.assertIn(str(self.tables), summary["Going Into"])
         self.assertNotIn("Space Needed", summary)
         self.assertEqual(found["confirm"], "Move 1 table")
+
+    def test_a_move_into_a_folder_on_the_same_drive_takes_no_room(self) -> None:
+        self.loose("Harbor Lights", size=3000)
+
+        found = self.step(self.tables, leaving="how", how="move", into=str(self.library))
+        summary = self.summary_of(found)
+
+        self.assertEqual(summary["Going Into"], str(self.library))
+        self.assertNotIn("Space Needed", summary)
+
+    def test_a_move_into_a_folder_on_another_drive_takes_the_room_a_copy_does(self) -> None:
+        self.loose("Harbor Lights", size=3000)
+
+        with mock.patch.object(test_adopt_plan(), "same_drive", return_value=False):
+            found = self.step(self.tables, leaving="how", how="move", into=str(self.library))
+
+        self.assertTrue(self.summary_of(found)["Space Needed"].startswith("2.9 KB, with "))
 
     def test_a_copy_that_would_not_fit_is_not_ready_and_says_so(self) -> None:
         self.loose("Harbor Lights", size=3000)
@@ -858,8 +920,9 @@ class RunRefusesTests(FolderCase):
         if made is not None:
             self.assertFalse(made.exists())
 
-    def test_a_folder_that_is_not_there_is_not_registered_as_a_place_to_copy_to(self) -> None:
-        nowhere = self.root / "not made"
+    def test_a_folder_below_one_that_is_not_there_is_not_registered_as_a_place_to_copy_to(
+            self) -> None:
+        nowhere = self.root / "unmounted" / "library"
 
         found = self.refused_run(how="copy", into=str(nowhere))
 
@@ -869,7 +932,13 @@ class RunRefusesTests(FolderCase):
     def test_a_copy_with_the_place_left_empty_is_refused(self) -> None:
         found = self.refused_run(how="copy", into="")
 
-        self.assertEqual(found["reason"], "Say where the copies go")
+        self.assertEqual(found["reason"], "Say which folder the games go in")
+        self.assert_nothing_was_done()
+
+    def test_a_move_with_the_place_left_empty_is_refused(self) -> None:
+        found = self.refused_run(how="move", into="")
+
+        self.assertEqual(found["reason"], "Say which folder the games go in")
         self.assert_nothing_was_done()
 
     def test_a_copy_that_would_not_fit_is_refused(self) -> None:
@@ -879,6 +948,23 @@ class RunRefusesTests(FolderCase):
         self.assertEqual(found["reason"], "Needs 2.9 KB, but only 1000 B is free on /")
         self.assert_nothing_was_done()
         self.assertFalse((self.library / "Harbor Lights").exists())
+
+    def test_a_folder_that_would_have_been_made_is_not_when_the_room_is_short(self) -> None:
+        made = self.root / "made later"
+
+        with mock.patch.object(test_adopt_plan(), "room_at", return_value=(1000, "/")):
+            found = self.refused_run(how="copy", into=str(made))
+
+        self.assertEqual(found["reason"], "Needs 2.9 KB, but only 1000 B is free on /")
+        self.assert_nothing_was_done(made=made)
+
+    def test_a_cross_drive_move_that_would_not_fit_is_refused(self) -> None:
+        with mock.patch.object(test_adopt_plan(), "same_drive", return_value=False), \
+                mock.patch.object(test_adopt_plan(), "room_at", return_value=(1000, "/")):
+            found = self.refused_run(how="move", into=str(self.library))
+
+        self.assertEqual(found["reason"], "Needs 2.9 KB, but only 1000 B is free on /")
+        self.assert_nothing_was_done()
 
     def test_a_location_that_is_not_one_games_can_go_to_is_refused(self) -> None:
         started = self.client.post(
@@ -898,8 +984,17 @@ class RunRefusesTests(FolderCase):
         self.assertEqual(started.json()["started"], False)
         self.assertIs(started.json()["ok"], False)
 
-    def test_a_move_has_no_place_to_check_and_is_not_refused_for_one(self) -> None:
-        self.run_it(self.tables, how="move", into=str(self.root / "not made"))
+    def test_a_move_goes_into_the_folder_named_and_makes_it_when_it_is_new(self) -> None:
+        made = self.root / "not made"
+
+        self.run_it(self.tables, how="move", into=str(made))
+
+        self.assertTrue((made / "Harbor Lights" / "Harbor Lights.vpx").is_file())
+        self.assertFalse((self.tables / "Harbor Lights").exists())
+        self.assertIn(str(made.resolve()), self.locations_held())
+
+    def test_a_move_naming_no_folder_leaves_the_games_where_they_are(self) -> None:
+        self.run_it(self.tables, how="move")
 
         self.assertTrue((self.tables / "Harbor Lights" / "Harbor Lights.vpx").is_file())
 

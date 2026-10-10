@@ -284,8 +284,9 @@ class ImportTests(AdoptCase):
         ctx.games.get_missing_media.return_value = {"started": True}
         made = [{"game_id": "g1", "matched": True}, {"game_id": "g2", "matched": True},
                 {"game_id": "g1", "matched": True}, {"game_id": "g3"}]
-        wanted = {"wheels_as": "wheel", "show_logos": True, "fetch_media": True, **plan}
-        done = adopt._media_after(ctx, unittest.mock.Mock(**wanted), made, converted)
+        wanted = {"wheels_as": "wheel", "fetch_media": True, **plan}
+        done = adopt._media_after(
+            ctx, unittest.mock.Mock(spec=["wheels_as", "fetch_media"], **wanted), made, converted)
         return ctx, done
 
     def test_missing_media_is_asked_for_once_for_the_matched_games_made(self) -> None:
@@ -296,11 +297,12 @@ class ImportTests(AdoptCase):
 
     def test_the_wheel_shows_logos_only_for_wheel_images_kept_as_logos(self) -> None:
         ctx, done = self._after(wheels_as="logo")
-        other, _ = self._after(wheels_as="logo", show_logos=False)
+        other, other_done = self._after(wheels_as="wheel")
 
         ctx.games.use_logos_for_wheels.assert_called_once_with()
         self.assertTrue(done["wheel_logos"])
         other.games.use_logos_for_wheels.assert_not_called()
+        self.assertFalse(other_done["wheel_logos"])
 
     def test_the_wheel_is_left_alone_when_no_wheel_image_became_a_logo(self) -> None:
         ctx, done = self._after(converted=False, wheels_as="logo")
@@ -312,7 +314,7 @@ class ImportTests(AdoptCase):
         from vpinfe_ext_library_importer import adopt
 
         ctx = unittest.mock.MagicMock()
-        plan = unittest.mock.Mock(wheels_as="wheel", show_logos=True, fetch_media=True)
+        plan = unittest.mock.Mock(wheels_as="wheel", fetch_media=True)
 
         done = adopt._media_after(ctx, plan, [{"game_id": "g1"}], False)
 
@@ -323,7 +325,7 @@ class ImportTests(AdoptCase):
         from vpinfe_ext_library_importer import adopt
 
         library, made = self._planned("")
-        made.wheels_as, made.show_logos, made.fetch_media = "logo", True, True
+        made.wheels_as, made.fetch_media = "logo", True
         self._ctx.games.use_logos_for_wheels = unittest.mock.Mock()
         self._ctx.games.get_missing_media = unittest.mock.Mock()
 
@@ -345,7 +347,7 @@ class ImportTests(AdoptCase):
         ctx = unittest.mock.MagicMock()
         ctx.games.get_missing_media.side_effect = RuntimeError("down")
         ctx.games.use_logos_for_wheels.side_effect = RuntimeError("down")
-        plan = unittest.mock.Mock(wheels_as="logo", show_logos=True, fetch_media=True)
+        plan = unittest.mock.Mock(wheels_as="logo", fetch_media=True)
 
         done = adopt._media_after(ctx, plan, [{"game_id": "g1", "matched": True}], True)
 

@@ -229,10 +229,9 @@ class Plan:
     detail_fields: tuple[str, ...] = ()
     # Whether the source's manufacturer logos are offered to the makers here.
     logos: bool = True
-    # What the source's wheel images are kept as (`mapping.WHEELS_AS`); whether the wheel
-    # then shows logos; whether missing art is fetched for the games this run touches.
+    # What the source's wheel images are kept as (`mapping.WHEELS_AS`), logos then showing
+    # in place of wheels; whether missing art is fetched for the games this run touches.
     wheels_as: str = mapping.WHEELS
-    show_logos: bool = True
     fetch_media: bool = True
     # Whether high scores and game settings come with a game. They sit with the ROM and
     # in the files its script saved, so no source folder stands for them.
@@ -543,6 +542,21 @@ def room_at(path: str) -> tuple[int, str]:
     while not os.path.ismount(here) and here != here.parent:
         here = here.parent
     return free, str(here)
+
+
+def same_drive(first: str, second: str) -> bool:
+    """Whether two places are on one filesystem, each asked as its nearest parent that is
+    there, so a folder not made yet counts as where it will be made."""
+    def device(path: str) -> int:
+        here = Path(path).expanduser()
+        while not here.exists() and here != here.parent:
+            here = here.parent
+        try:
+            return here.stat().st_dev
+        except OSError:
+            return -1
+
+    return device(first) == device(second) != -1
 
 
 def against(expected_counts: dict, actual: dict) -> list[dict]:

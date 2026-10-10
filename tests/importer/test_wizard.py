@@ -303,8 +303,9 @@ class TablesAndMatchesTests(WizardCase):
         self.assertEqual((found["step"], field["type"]), ("matches", "settle"))
         self.assertEqual(settled, {"Attack from Mars (Bally 1995)": False, "Taxi": True,
                                    "Taxi 2": False, "Big Bang Bar (Capcom 1996)": False})
-        self.assertEqual(found["help"], "3 games could not be matched. A game you leave is "
-                                        "imported Not matched")
+        self.assertTrue(found["help"].startswith("VPS, the Virtual Pinball Spreadsheet, is "))
+        self.assertIn("3 games could not be matched on their own", found["help"])
+        self.assertIn("A game you leave is still imported, as Not matched", found["help"])
 
     def test_ticks_given_about_other_systems_are_not_carried_over(self) -> None:
         narrowed = self._step(FIXTURE, leaving="sources", systems=["Visual Pinball X"],
@@ -342,7 +343,7 @@ class TablesAndMatchesTests(WizardCase):
         rows = {one["key"]: one for one in found["fields"][0]["rows"]}
 
         self.assertTrue(rows["Taxi 2"]["settled"])
-        self.assertEqual(found["help"].split()[0], "2")
+        self.assertIn("2 games could not be matched on their own", found["help"])
 
         summary = dict(one for one in self._check(FIXTURE, picks={"Taxi 2": "vps-zebra"})
                        ["summary"] if len(one) == 2)
@@ -650,9 +651,9 @@ class NamesArtAndThingsTests(WizardCase):
     def rows(self, **kwargs) -> dict[str, str]:
         return {row[0]: row[1] for row in self.walk(**kwargs)[-1]["summary"] if len(row) == 2}
 
-    def with_wheels(self, data: bytes) -> Path:
+    def with_wheels(self, data: bytes, name: str = "frontend") -> Path:
         """A copy of the fixture whose wheel images are the given bytes."""
-        source = self.root / "frontend"
+        source = self.root / name
         shutil.copytree(FIXTURE, source)
         for one in (source / "Media" / "Visual Pinball X" / "Wheel Images").iterdir():
             one.write_bytes(data)
@@ -697,8 +698,8 @@ class NamesArtAndThingsTests(WizardCase):
         self.assertEqual([one[0] for one in wheels_as["choices"]], ["logo", "wheel"])
         self.assertEqual([one[1] for one in wheels_as["choices"]], ["Logos", "Wheels"])
         self.assertTrue(all(one[3] for one in wheels_as["choices"]))
-        self.assertIn("A game with no wheel shows its logo.", page["help"])
         self.assertIn("Wheel 1", page["help"])
+        self.assertNotIn("show_logos", [one["key"] for one in page["fields"]])
 
     def test_wheel_images_that_are_not_pictures_it_can_read_are_wheels(self) -> None:
         self.assertEqual(self.page("media")["fields"][0]["value"], "wheel")
@@ -710,22 +711,31 @@ class NamesArtAndThingsTests(WizardCase):
 
         self.assertEqual(page["fields"][0]["value"], "logo")
 
-    def test_the_show_logos_switch_follows_the_answer(self) -> None:
-        page = self.page("media")
+    def test_the_option_the_images_look_like_says_so(self) -> None:
+        from tests.importer.test_shapes import png
 
-        shown = page["fields"][1]
-        self.assertEqual(shown["key"], "show_logos")
-        self.assertEqual(shown["help"]["follows"], "wheels_as")
-        self.assertEqual(list(shown["help"]["says"]), ["logo"])
+        wheels = self.page("media", source=self.with_wheels(png(300, 300)))[
+            "fields"][0]["choices"]
+        logos = self.page("media", source=self.with_wheels(png(800, 200), "logos"))[
+            "fields"][0]["choices"]
+
+        self.assertNotIn("Yours look like this", wheels[0][2])
+        self.assertIn("Yours look like this", wheels[1][2])
+        self.assertIn("Yours look like this", logos[0][2])
+        self.assertNotIn("Yours look like this", logos[1][2])
+
+    def test_nothing_is_claimed_of_images_that_could_not_be_measured(self) -> None:
+        choices = self.page("media")["fields"][0]["choices"]
+
+        for choice in choices:
+            self.assertNotIn("Yours look like this", choice[2])
 
     def test_the_summary_says_what_the_wheel_images_are_kept_as(self) -> None:
         wheels = self.rows(wheels_as="wheel")
         logos = self.rows(wheels_as="logo")
 
         self.assertEqual(wheels["Wheel Images"], "Wheels")
-        self.assertNotIn("Show Logos in the Wheel, as Before", wheels)
-        self.assertEqual(logos["Wheel Images"], "Logos")
-        self.assertEqual(logos["Show Logos in the Wheel, as Before"], "Yes")
+        self.assertEqual(logos["Wheel Images"], "Logos, shown in place of wheels")
         self.assertEqual(logos["Get Missing Media"], "Yes")
 
     def test_missing_media_is_not_fetched_when_the_switch_is_off(self) -> None:

@@ -166,6 +166,14 @@ class ImportALibraryDrive(unittest.TestCase):
             seen["rows_after"] = await browser.evaluate(
                 f"[...document.querySelectorAll({json.dumps(ROWS)})].map(el => el.innerText)")
             seen["into"] = str(into)
+            await browser.click('a.console-nav-row[href="/console?view=games"]')
+            try:
+                await browser.wait_for(
+                    "TABLES.every(name => document.body.innerText.includes(name))"
+                    .replace("TABLES", json.dumps(list(TABLES))))
+                seen["games_after"] = True
+            except TimeoutError:
+                seen["games_after"] = False
             seen["kept"] = await browser.evaluate("window.keptThroughTheImport === true")
         return seen
 
@@ -193,6 +201,11 @@ class ImportALibraryDrive(unittest.TestCase):
         self.assertIn(WORDS["wizard.how.move.folders_help"], self.seen["how_text"])
         self.assertIn(WORDS["wizard.how.move.folders_help"], self.seen["move_text"])
 
+    def test_copy_and_move_both_ask_for_the_library_folder(self) -> None:
+        label = WORDS["wizard.how.into.label"]
+        self.assertIn(label, self.seen["how_text"])
+        self.assertIn(label, self.seen["move_text"])
+
     def test_the_summary_says_what_a_copy_takes(self) -> None:
         self.assertIn(WORDS["wizard.summary.space"], self.seen["summary"])
 
@@ -206,6 +219,10 @@ class ImportALibraryDrive(unittest.TestCase):
         self.assertTrue(self.seen["kept"], "the page was reloaded")
         self.assertEqual(len(self.seen["rows_after"]), 2)
         self.assertTrue(any(self.seen["into"] in row for row in self.seen["rows_after"]))
+
+    def test_the_games_it_made_are_listed_without_a_reload(self) -> None:
+        self.assertIs(self.seen["games_after"], True, self.seen["games_after"])
+        self.assertTrue(self.seen["kept"], "the page was reloaded")
 
 
 if __name__ == "__main__":
