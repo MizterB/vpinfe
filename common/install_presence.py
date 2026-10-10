@@ -87,7 +87,7 @@ def identity() -> dict:
         }
     except Exception as exc:
         logger.warning("Could not read this install's identity: %s", exc)
-        return {"install_id": "", "display_name": "", "features": []}
+        return {"install_id": "", "display_name": ""}
 
 
 def service_ports() -> dict:

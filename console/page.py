@@ -197,16 +197,19 @@ def features_of(item: NavItem) -> tuple[str, ...]:
     return item[3] if isinstance(item[3], tuple) else (item[3],)
 
 
-def nav_for(features: Any, community: tuple[NavItem, ...] = ()
+def nav_for(features: list[str] | tuple[str, ...] | None, community: tuple[NavItem, ...] = ()
             ) -> list[tuple[tuple[str, str, str] | None, tuple[NavItem, ...]]]:
     """The rail this install has. A group whose entries have all gone goes with them -
     a disclosure with nothing under it is a control that does nothing.
 
-    `core` is held whatever arrives, including nothing, which is what keeps System in
-    a rail an install has switched everything else out of.
+    `features` is an install's own answer, which already has `core` in it and is taken at
+    its word: an empty list is an install that is for nothing, as `install_identity.features`
+    reads an empty setting, and gets System alone. `None` is an install that has not
+    answered, and gets the ordinary rail. `core` is held either way, which is what keeps
+    System in a rail an install has switched everything else out of.
     """
-    held = ({str(name).strip().lower() for name in (features or [])}
-            or set(install_identity.FEATURES)) | {install_identity.CORE}
+    said = install_identity.DEFAULT_FEATURES if features is None else features
+    held = {str(name).strip().lower() for name in said} | {install_identity.CORE}
     out = []
     for parent, items in NAV_GROUPS:
         kept = tuple(item for item in items if not held.isdisjoint(features_of(item))) \

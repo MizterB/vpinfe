@@ -41,6 +41,17 @@ def _said(**overrides) -> dict:
     return said
 
 
+class UnreadableConfigTests(unittest.TestCase):
+    def test_features_are_left_unsaid_rather_than_said_empty(self) -> None:
+        """An empty list is an install for nothing, which the Console draws as a rail of
+        Settings alone; an absent key is the 2.x answer and draws the ordinary rail."""
+        with patch.object(install_presence, "get_ini_config", side_effect=OSError("gone")):
+            said = install_presence.identity()
+
+        self.assertNotIn("features", said)
+        self.assertEqual("", said["install_id"])
+
+
 class ReadingAnAnnouncementTests(unittest.TestCase):
     def test_identity_comes_back_whole(self) -> None:
         peer = discovery._as_peer(_Announcement(_said()))

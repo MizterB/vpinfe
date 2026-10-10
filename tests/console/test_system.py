@@ -90,11 +90,12 @@ class NavTests(unittest.TestCase):
         self.assertEqual(page.landing_for(rail), page.landing_for(rail, ""))
 
     def test_reporting_nothing_is_not_the_same_as_being_for_nothing(self) -> None:
-        """An install that is for nothing still reports `core`, so an empty list is a
-        machine that has not answered - and the rail assumes the ordinary install
-        rather than hiding sections it may well have."""
-        self.assertIn("games", _rail([]))
-        self.assertNotIn("games", _rail([install_identity.CORE]))
+        """An install that has not answered gets the ordinary rail. One that answered
+        with an empty list is for nothing - as `install_identity.features` reads an empty
+        setting - and has System alone."""
+        self.assertIn("games", _rail(None))
+        self.assertNotIn("games", _rail([]))
+        self.assertEqual(_rail([]), _rail([install_identity.CORE]))
 
     def test_system_is_a_container(self) -> None:
         """It collapsed into its first child while `build_system` drew the index

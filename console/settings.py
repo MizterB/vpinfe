@@ -1080,13 +1080,14 @@ PAGE_KINDS: dict[str, tuple[tuple[str, str, str], ...]] = {
 def pages_for_features(features: Any) -> list[tuple[str, DevicePage]]:
     """(group, page) for every page the features an install has can answer for.
 
-    `core` is held whatever arrives, including nothing. Identity and features are not
-    filtered here at all - `system_pages` puts them in front - because an install with
-    everything switched off has to be able to switch something on, and that screen is
-    the only way in.
+    `core` is held whatever arrives. A list is taken literally, an empty one being an install
+    for nothing; only `None` is an install that has not said, which has every feature.
+    Identity and features are not filtered here at all - `system_pages` puts them in
+    front - because an install with everything switched off has to be able to switch
+    something on, and that screen is the only way in.
     """
-    held = ({str(f).strip().lower() for f in (features or [])}
-            or set(install_identity.FEATURES)) | {install_identity.CORE}
+    said = install_identity.DEFAULT_FEATURES if features is None else features
+    held = {str(f).strip().lower() for f in said} | {install_identity.CORE}
     return [(group, page) for group, pages in DEVICE_INDEX for page in pages
             if held & set(_features_of(page))]
 

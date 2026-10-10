@@ -436,6 +436,13 @@ class PageIndexTests(unittest.TestCase):
                 settings_page.pages_for_features([install_identity.DEVICES])]
         self.assertNotIn(folders.KEY, held)
 
+    def test_an_install_that_has_not_said_has_every_page_and_one_for_nothing_has_core(self) -> None:
+        def held(features):
+            return [one[0] for _group, one in settings_page.pages_for_features(features)]
+
+        self.assertIn(folders.KEY, held(None))
+        self.assertNotIn(folders.KEY, held([]))
+
     def test_the_page_is_drawn_by_the_folders_module_with_the_settings_it_is_home_to(self) -> None:
         draw = AsyncMock(return_value=lambda: None)
 
