@@ -14,6 +14,7 @@ import subprocess
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, replace
+from datetime import UTC, datetime
 
 from common import events
 
@@ -36,10 +37,15 @@ class LaunchState:
     source: str | None = None
     # The running table says it has paused itself, and not yet that it has resumed.
     paused: bool = False
+    # The game's library id and when the launch began (UTC, ISO 8601): `game_name` is
+    # the folder's name, which two games can share.
+    game_id: str | None = None
+    started_at: str | None = None
 
     def as_dict(self) -> dict:
         return {"launching": self.launching, "game_name": self.game_name,
-                "source": self.source, "paused": self.paused}
+                "source": self.source, "paused": self.paused,
+                "game_id": self.game_id, "started_at": self.started_at}
 
 
 _state = LaunchState()
@@ -75,13 +81,16 @@ def _replace(new_state: LaunchState) -> LaunchState:
     return new_state
 
 
-def set_launching(game_name: str | None, *, source: str) -> LaunchState:
+def set_launching(game_name: str | None, *, source: str,
+                  game_id: str | None = None) -> LaunchState:
     """Record that a launch is starting, for which game, and who asked.
 
     `source` is required rather than defaulted: a caller that does not say is a
     caller the frontend cannot tell apart from itself.
     """
-    return _replace(LaunchState(launching=True, game_name=game_name, source=source))
+    return _replace(LaunchState(launching=True, game_name=game_name, source=source,
+                                game_id=game_id,
+                                started_at=datetime.now(UTC).isoformat()))
 
 
 def clear() -> LaunchState:

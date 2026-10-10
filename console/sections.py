@@ -18,7 +18,7 @@ from common.failures import why
 from common.i18n import t
 from common.media_specs import media_label_map
 from console import dialog as frame
-from console import media_fill, needs, offload, panel, set_aside, verbs
+from console import front, media_fill, needs, offload, panel, set_aside, verbs
 from console.data import Library
 from console.on_page import on_page
 
@@ -326,16 +326,18 @@ def overview(library: Library, registry: list[dict], discovery: dict,
 
     # The container the two columns answer to: this page's own width, not the window's,
     # which the workbench pane shares.
-    with ui.element("div").classes("console-overview"), \
-            ui.element("div").classes("console-overview-columns"):
-        with ui.element("div").classes("console-overview-main"):
-            _needs_you(arranged, state, fix, acts)
-            with ui.element("div").props(f"id={METADATA_ID}"):
-                metadata(library.metadata_state(), _metadata_action(library, state, drawn_again),
-                         state.get(_LEFT))
-            table_scripts(library)
-        with ui.element("div").classes("console-overview-side"):
-            _coverage(library)
+    with ui.element("div").classes("console-overview"):
+        front.top(library, state, go)
+        front.strip(library, go)
+        with ui.element("div").classes("console-overview-columns"):
+            with ui.element("div").classes("console-overview-main"):
+                _needs_you(arranged, state, fix, acts)
+                with ui.element("div").props(f"id={METADATA_ID}"):
+                    metadata(library.metadata_state(),
+                             _metadata_action(library, state, drawn_again), state.get(_LEFT))
+                table_scripts(library)
+            with ui.element("div").classes("console-overview-side"):
+                _coverage(library)
 
 
 # --- The library's own metadata ---------------------------------------------------

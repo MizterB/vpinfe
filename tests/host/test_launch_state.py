@@ -6,6 +6,13 @@ from common import events
 from common.host import launch_state
 
 
+def stamped(state: dict) -> dict:
+    """A launching state with its start time checked for being there and left out of
+    the comparison, since the clock is not something a test sets."""
+    assert state["started_at"] is None or isinstance(state["started_at"], str)
+    return {key: value for key, value in state.items() if key != "started_at"}
+
+
 class FakeProcess:
     """A launched table, as much of one as stopping it needs."""
 
@@ -67,7 +74,7 @@ class LaunchStateTests(unittest.TestCase):
 
         self.assertEqual(launch_state.current().as_dict(),
                          {"launching": False, "game_name": None, "source": None,
-                          "paused": False})
+                          "paused": False, "game_id": None, "started_at": None})
 
     def test_clearing_when_idle_is_harmless(self) -> None:
         """The remote page clears in a finally and in an except; both can run."""
@@ -189,17 +196,20 @@ class LaunchStateEventTests(unittest.TestCase):
         events.subscribe(events.PLAY_STATE_CHANGED, lambda **p: self.seen.append(p["state"]))
 
     def test_a_launch_is_announced(self) -> None:
-        launch_state.set_launching("Medieval Madness", source=launch_state.SOURCE_REMOTE)
+        launch_state.set_launching("Medieval Madness", source=launch_state.SOURCE_REMOTE,
+                                   game_id="mm")
 
-        self.assertEqual(self.seen, [{"launching": True, "game_name": "Medieval Madness",
-                           "source": "remote", "paused": False}])
+        self.assertEqual([stamped(one) for one in self.seen],
+                         [{"launching": True, "game_name": "Medieval Madness",
+                           "source": "remote", "paused": False, "game_id": "mm"}])
 
     def test_clearing_is_announced(self) -> None:
         launch_state.set_launching("Medieval Madness", source=launch_state.SOURCE_REMOTE)
         launch_state.clear()
 
-        self.assertEqual(self.seen[-1], {"launching": False, "game_name": None, "source": None,
-                                         "paused": False})
+        self.assertEqual(self.seen[-1], {"launching": False, "game_name": None,
+                                         "source": None, "paused": False,
+                                         "game_id": None, "started_at": None})
 
     def test_an_unchanged_state_is_not_announced(self) -> None:
         """The remote page clears in both a finally and an except; both can run."""
@@ -213,9 +223,9 @@ class LaunchStateEventTests(unittest.TestCase):
         launch_state.set_launching("A", source=launch_state.SOURCE_REMOTE)
         launch_state.set_launching("B", source=launch_state.SOURCE_API)
 
-        self.assertEqual(self.seen[-1],
+        self.assertEqual(stamped(self.seen[-1]),
                          {"launching": True, "game_name": "B", "source": "api",
-                          "paused": False})
+                          "paused": False, "game_id": None})
 
     def test_a_handler_may_read_the_state_back(self) -> None:
         """The event goes out after the lock is released, so this cannot deadlock."""

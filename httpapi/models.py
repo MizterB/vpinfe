@@ -428,6 +428,8 @@ class PlayState(ApiModel):
     game_name: str | None
     source: str | None
     paused: bool = False
+    game_id: str | None = None
+    started_at: str | None = None
 
 
 class PlayStopped(ApiModel):

@@ -1643,6 +1643,12 @@ def link(label: str, *, to: str, on_click: Callable[[], Any] | None = None,
     return draw
 
 
+def link_tile(*, to: str, classes: str = "") -> ui.link:
+    """An anchor that holds a picture and words, to be entered with `with`. The browser
+    follows the address, which is how a game opens from outside the Games page."""
+    return ui.link(target=to).classes(classes)
+
+
 def menu_link(label: str, *, to: str) -> None:
     """A menu row that goes somewhere else in the Console: an item's look, not accent."""
     row = ui.menu_item(label).classes("console-menu-item")

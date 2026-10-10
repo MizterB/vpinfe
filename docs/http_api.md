@@ -42,7 +42,7 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/openapi.json` | Generated OpenAPI spec |
 | GET | `/api/v1/docs` | Swagger UI |
 | GET | `/api/v1/events` | Subscribe to the event stream (SSE). `?events=` filters by name |
-| GET | `/api/v1/play/state` | What this play host is doing. The snapshot you take once; `play.state_changed` on the stream is how you hear about it after that |
+| GET | `/api/v1/play/state` | What this play host is doing, with the running game's `game_id` and when it `started_at`. The snapshot you take once; `play.state_changed` on the stream is how you hear about it after that |
 | POST | `/api/v1/play/stop` | Close the table this play host is running. `stopped` is false when there was nothing to close, which is an answer rather than a failure |
 | GET | `/api/v1/frontend/state` | What the frontend is showing: whether it is up, its collection, the game on the wheel and any recording shown for a decision. `frontend.state_changed` on the stream carries the same after every change |
 | GET | `/api/v1/frontend/browser` | What this device's frontend browser can play, and how to fix what it cannot. `state` is `unknown` until the frontend has reported since this browser was chosen |
@@ -1224,7 +1224,7 @@ What's on it, each alongside the `install_id` described below:
 | `game.selected` | `{"game": {"id", "name", "links"}, "table": null}` — the wheel stops on a game, so there is no table to name |
 | `game.changed` | `{"game": {"id", "name", "links"}}` — a game's metadata was rewritten, so anything holding it is stale |
 | `collections.changed` | `{}` — the collections were edited, or a read of a Community list moved a ranked order; re-read them |
-| `play.state_changed` | `{"state": {"launching", "game_name", "source", "paused"}}` — `paused` while the running table has paused itself, as Take Picture pauses it |
+| `play.state_changed` | `{"state": {"launching", "game_name", "source", "paused", "game_id", "started_at"}}` — `paused` while the running table has paused itself, as Take Picture pauses it. `game_id` is the game's library id and `started_at` the UTC time the launch began; both are null while nothing runs |
 | `frontend.state_changed` | `{"state": {"running", "collection", "game", "preview"}}`, `game` a reference like the others or null, `preview` the recording shown for a decision or null. The same as `GET /frontend/state` |
 | `players.changed` | `{"state": {"players": [...]}}` - somebody joined, left, was renamed or went up. The whole list, the same as `GET /players` |
 | `job.progress` | `{"job_id", "pct", "message"}` |

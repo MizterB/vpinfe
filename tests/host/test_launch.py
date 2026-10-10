@@ -37,6 +37,13 @@ class _FakePopen:
         return self.returncode
 
 
+def stamped(state: dict) -> dict:
+    """A launching state with its start time checked for being there and left out of
+    the comparison, since the clock is not something a test sets."""
+    assert state["started_at"] is None or isinstance(state["started_at"], str)
+    return {key: value for key, value in state.items() if key != "started_at"}
+
+
 def _game(name="Example"):
     return types.SimpleNamespace(
         full_path_vpx_file=f"/games/{name}/{name}.vpx",
@@ -191,8 +198,9 @@ class LifecycleTests(LaunchTests):
 
         self._run(popen=lambda cmd, **k: _FakePopen(["Startup done\n"]))
 
-        self.assertEqual(during, [{"launching": True, "game_name": "Example",
-                                   "source": "api", "paused": False}])
+        self.assertEqual([stamped(one) for one in during],
+                         [{"launching": True, "game_name": "Example", "source": "api",
+                           "paused": False, "game_id": None}])
         self.assertFalse(launch_state.current().launching)
 
 

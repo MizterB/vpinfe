@@ -28,6 +28,10 @@ _SLOW_READ = 1.0
 # the last fill) is taken as current before the next visit reads it again, and how many
 # jobs that read looks back over for the fill.
 WATCHED_FRESH_S = 30.0
+
+# How long the top of Overview, which says what is playing and what is running, is taken as
+# current before a visit reads it again.
+FRONT_FRESH_S = 5.0
 WATCHED_JOBS = 100
 
 # The cell holds the *word*, never the mark. What a cell is worth filtering and sorting
@@ -232,6 +236,9 @@ class Library:
         self._dismissed_read = False
         self._watched: dict[str, Any] | None = None
         self._watched_at = 0.0
+        self._front: dict[str, Any] | None = None
+        self._front_at = 0.0
+        self._front_player = ""
         self._tags: list[dict[str, Any]] = []
 
     def load(self) -> None:
@@ -1046,17 +1053,96 @@ class Library:
             logger.debug("console: could not read what was dismissed", exc_info=True)
             self._dismissed, self._dismissed_read = {}, False
         self._watched = self._read_watched()
+        self._front = self._read_front()
+        self._front_at = time.monotonic()
         self._watched_at = time.monotonic()
 
     def has_overview(self) -> bool:
         return (self._table_rows is not None and self._hidden_checks is not None
-                and self._hidden_overview is not None
+                and self._hidden_overview is not None and self._front is not None
                 and not self._media_missing() and self._watched is not None
-                and time.monotonic() - self._watched_at < WATCHED_FRESH_S)
+                and time.monotonic() - self._watched_at < WATCHED_FRESH_S
+                and time.monotonic() - self._front_at < FRONT_FRESH_S)
 
     def forget_watched(self) -> None:
         """Read what Overview lists of the install again on the next visit."""
         self._watched = None
+
+    def front(self) -> dict[str, Any]:
+        """What the top of Overview draws from: `players`, the `player` whose plays these
+        are, their `records` by game id, `recent` the game ids newest first, `top` the
+        machine's best score for the game playing, else the first of them, `play` as
+        `/play/state` answered and `jobs` the ones still running. Already read - this
+        asks nothing."""
+        return self._front or {}
+
+    def forget_front(self) -> None:
+        """Read the top of Overview again on the next draw."""
+        self._front = None
+
+    def pick_front_player(self, player_id: str) -> None:
+        self._front_player = player_id
+        self._front = None
+
+    def refresh_front(self, play: dict[str, Any], jobs: list[dict[str, Any]]) -> None:
+        """The two parts of the top that change while the page is open."""
+        if self._front is not None:
+            self._front = {**self._front, "play": play, "jobs": jobs}
+
+    def _read_front(self) -> dict[str, Any]:
+        """Each read stands alone, as `_read_watched` does: a roster that cannot be read
+        still leaves the owner's plays, which are the library's own."""
+        out: dict[str, Any] = {"players": [], "player": None, "records": {}, "recent": [],
+                               "top": None, "play": {}, "jobs": []}
+        try:
+            self._forget_games()
+        except Exception:  # noqa: BLE001 - the list already held still has the owner's plays
+            logger.debug("console: could not read the games again", exc_info=True)
+        try:
+            out["players"] = self._client.players()
+        except Exception:  # noqa: BLE001 - not knowing who is up is not a failed page
+            logger.debug("console: could not read who is up", exc_info=True)
+        roster = out["players"]
+        out["player"] = (next((one for one in roster if one.get("id") == self._front_player), None)
+                         or next((one for one in roster if one.get("up")), None)
+                         or next((one for one in roster if one.get("owner")), None))
+        records: dict[str, dict[str, Any]] = {}
+        if out["player"] is None or out["player"].get("owner"):
+            for game in self.games:
+                user = game.get("user") or {}
+                if user.get("last_played"):
+                    records[str(game["id"])] = user
+        else:
+            held = {str(game["id"]) for game in self.games}
+            try:
+                for row in self._client.player_record(str(out["player"]["id"])):
+                    if row.get("last_played") and str(row.get("game_id") or "") in held:
+                        records[str(row.get("game_id") or "")] = row
+            except Exception:  # noqa: BLE001 - the strip then has nothing to show
+                logger.debug("console: could not read a player's record", exc_info=True)
+        out["records"] = records
+        out["recent"] = sorted(records, key=lambda one: str(records[one]["last_played"]),
+                               reverse=True)
+        try:
+            out["play"] = self._client.play_state()
+        except Exception:  # noqa: BLE001 - nothing is shown as playing
+            logger.debug("console: could not read what is playing", exc_info=True)
+        try:
+            out["jobs"] = [one for one in self._client.jobs() if one.get("state") == "running"]
+        except Exception:  # noqa: BLE001
+            logger.debug("console: could not read the jobs running", exc_info=True)
+        if out["play"].get("launching"):
+            subject = str(out["play"].get("game_id") or "")
+        else:
+            subject = out["recent"][0] if out["recent"] else ""
+        if subject:
+            try:
+                scores = self._client.high_scores(subject)
+                out["top"] = next((entry for section in scores.get("sections") or []
+                                   for entry in section.get("entries") or []), None)
+            except Exception:  # noqa: BLE001 - a hero without a score is still a hero
+                logger.debug("console: could not read the top score", exc_info=True)
+        return out
 
     def watched(self) -> dict[str, Any]:
         """What the install reports of itself that Overview lists: `update` as
