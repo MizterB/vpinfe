@@ -275,6 +275,18 @@ def discovery() -> dict[str, Any]:
     return {"counted": str(counted.get("computed") or ""), "rows": rows}
 
 
+def note_in_library(vps_id: str) -> None:
+    """Record that the library now holds `vps_id`, so a game added from the catalog reads as
+    in the library before the next count. A library never counted stays never counted."""
+    counted = stored()
+    if not counted or not vps_id:
+        return
+    entries = dict(counted.get("entries") or {})
+    entries.setdefault(vps_id, {"tables": 0, "held": []})
+    counted.pop("schema", None)
+    store({**counted, "entries": entries})
+
+
 def recompute(games: dict, per_game: Callable[[Game, str], dict],
               reporter: JobReporter | None = None) -> dict[str, Any]:
     """Count it and keep it."""

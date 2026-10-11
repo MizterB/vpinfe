@@ -22,6 +22,7 @@ from common.games import (
     game_metadata,
     game_service,
     library_folders,
+    library_vps_state,
     media_fill,
 )
 from common.games.game_metadata import (
@@ -113,6 +114,7 @@ def create_from_vps(vps_id: str, location_id: str = "") -> dict:
         shutil.rmtree(folder, ignore_errors=True)
         refresh_game(folder)
         raise
+    library_vps_state.note_in_library(wanted)
     media_fill.request([made["folder"]])
     return made
 

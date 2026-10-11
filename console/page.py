@@ -60,6 +60,7 @@ from console import backups as backups_page
 from console import collections as collections_page
 from console import community as community_page
 from console import devices as devices_page
+from console import discovery as discovery_page
 from console import jobs as jobs_page
 from console import launchers as launchers_page
 from console import logs as logs_page
@@ -157,7 +158,9 @@ NAV_GROUPS: tuple[tuple[tuple[str, str, str] | None, tuple[NavItem, ...]], ...] 
                   ("assets", "console.section.assets", "widgets", install_identity.LIBRARY),
                   ("collections", "console.section.collections", "collections_bookmark",
                    install_identity.LIBRARY),
-                  ("tags", "console.section.tags", "sell", install_identity.LIBRARY))),
+                  ("tags", "console.section.tags", "sell", install_identity.LIBRARY),
+                  ("discovery", "console.section.discovery", "travel_explore",
+                   install_identity.LIBRARY))),
     # Subjects, not settings: both are collections of objects with per-row actions,
     # which is not what a page of (label, value) pairs does. The frontend's *settings*
     # stay in Settings, the way media's do - one holds things, the other holds values.
@@ -234,6 +237,7 @@ SECTIONS = {
     "games": "console.section.games",
     "tables": "console.section.tables",
     "tags": "console.section.tags",
+    "discovery": "console.section.discovery",
     "collections": "console.section.collections",
     "media": "console.section.media",
     "assets": "console.section.assets",
@@ -316,6 +320,7 @@ EMPTY_PANE = {
     "tables": ("console.page.table", "console.page.select_table"),
     "collections": ("console.page.collection", "console.page.select_collection"),
     "tags": ("console.page.tag", "console.page.select_tag"),
+    "discovery": ("console.page.entry", "console.page.select_entry"),
     "media": ("console.page.media", "console.page.select_media"),
     "assets": ("console.page.assets", "console.page.select_asset"),
     "devices": ("console.page.device", "console.page.select_device"),
@@ -539,7 +544,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                    slot: str = "", page: str = "", mode: str = "",
                    collection: str = "", launcher: str = "", sets: str = "",
                    player: str = "", setup: str = "", log: str = "", find: str = "",
-                   backup: str = "", report: str = "", group: str = "") -> None:
+                   backup: str = "", report: str = "", group: str = "",
+                   entry: str = "") -> None:
     """The Console. Query parameters say where in it, so a place can be linked to."""
     # 2.x's own page keys, still sitting in bookmarks and manager-ui-state.json.
     if page.strip().lower() in ("vpinplay_account", "vpinplay_player"):
@@ -639,7 +645,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                            "section": section, "slot": slot, "page": page,
                            "collection": collection, "launcher": launcher, "sets": sets,
                            "player": player, "log": log, "find": find, "backup": backup,
-                           "report": report, "group": group},
+                           "report": report, "group": group, "entry": entry},
                    views=[key for key, _label, _icon, _feature in nav_items],
                    sections=[item.key for item in workbench.SECTIONS])
 
@@ -1206,6 +1212,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         go("media")
 
     state["show_recorded"] = _show_recorded
+    state["show_unmatched"] = _show_unmatched
 
     @on_page
     async def _open_on(opens: needs.Opens) -> None:
@@ -1516,6 +1523,16 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         deeplink.sync(state)
 
     @on_page
+    async def show_discovery(row: dict | None) -> None:
+        """What the grid has selected is what the workbench is about, the same rule
+        every other subject follows."""
+        if row and not state["workbench"]:
+            show_workbench(True)
+        state["entry"] = (row or {}).get("id")
+        await workbench.build_discovery(panel, workbench_title, library, state["entry"], state)
+        deeplink.sync(state)
+
+    @on_page
     async def show_backup(row: dict | None) -> None:
         """What the grid has selected is what the workbench is about, the same rule
         every other subject follows."""
@@ -1656,6 +1673,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             elif view == "backups":
                 state["rerender"] = redraw
                 backups_page.build(library, state, show_backup, redraw)
+            elif view == "discovery":
+                discovery_page.build(library, state, show_discovery, redraw)
             elif view == "about":
                 about_page.build(library, state, redraw)
 
@@ -1793,6 +1812,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         arrival = show_player({"id": state["player"]})
     elif state["view"] == "backups" and state.get("backup"):
         arrival = show_backup({"id": state["backup"]})
+    elif state["view"] == "discovery" and state.get("entry"):
+        arrival = show_discovery({"id": state["entry"]})
     elif state["view"] == "devices":
         # Arriving at Devices lands on this device with its rail open, so reaching a
         # setting is the two clicks it was when Settings was a place of its own. It is
@@ -1873,6 +1894,8 @@ def _land(state: dict[str, Any]) -> None:
         grid.land_on(players_page.SCOPE, {"id": str(state["player"])})
     elif view == "backups" and state.get("backup"):
         grid.land_on(backups_page.SCOPE, {"id": str(state["backup"])})
+    elif view == "discovery" and state.get("entry"):
+        grid.land_on(discovery_page.SCOPE, {"id": str(state["entry"])})
     elif view == "collections" and state.get("collection"):
         grid.land_on(collections_page.SCOPE, {"id": str(state["collection"])})
 
@@ -1921,8 +1944,8 @@ def _show_group(open_now: bool, caret: Any, held: list) -> None:
             row.set_visibility(open_now)
 
 
-# Sections of a file's own panel: they name a file of the game just left.
-FILE_SECTIONS = ("media_file", "asset_file")
+# Sections of another subject's panel: they name a file or catalog entry of the page just left.
+OWN_SUBJECT_SECTIONS = ("media_file", "asset_file", "discovery_details", "discovery_files")
 
 
 def leave_for(state: dict[str, Any], view: str) -> None:
@@ -1938,9 +1961,10 @@ def leave_for(state: dict[str, Any], view: str) -> None:
         state["launcher"] = None
         state["player"] = None
         state["backup"] = None
+        state["entry"] = None
         state["sets"] = None
         state.pop("slot", None)
-        if state.get("section") in FILE_SECTIONS:
+        if state.get("section") in OWN_SUBJECT_SECTIONS:
             state.pop("section", None)
     state["view"] = view
     remembered.put("section", view)

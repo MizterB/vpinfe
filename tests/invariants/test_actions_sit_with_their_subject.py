@@ -33,6 +33,7 @@ GRID_OF = {
     "device": ("devices.py", "acts", "devices.py"),
     "player": ("players.py", "acts", "players.py"),
     "backup": ("backups.py", "acts", "backups.py"),
+    "discovery": ("discovery.py", "acts", "discovery.py"),
     "game": ("game_acts.py", "game_acts", "games.py"),
     "table": ("game_acts.py", "table_acts", "games.py"),
     "selection": ("game_acts.py", "table_acts", "games.py"),

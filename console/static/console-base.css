@@ -3465,6 +3465,11 @@ a.console-slot-file, a.console-slot-file:visited { color: var(--accent); }
 .console-tick { text-align: center; color: var(--positive); }
 .console-unknown { text-align: center; color: var(--ink-3); font-weight: 600; }
 
+/* Discovery's cells: Have is present, so green as everywhere; Missing is the thing to act
+   on, so the amber a warning chip uses. Blank is the kind VPS does not list. */
+.console-have { color: var(--positive); }
+.console-lack { color: var(--tier-table); }
+
 /* One or more tables here use something else. A bar rather than a badge: the tile is
    about a hundred pixels wide and already carries a tier badge and an enlarge, and a
    third piece of text on it is not read by anybody. The count is in the tooltip and

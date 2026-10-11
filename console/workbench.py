@@ -97,6 +97,7 @@ from console import backups as backups_page
 from console import commands as commands_help
 from console import devices as devices_page
 from console import dialog as frame
+from console import discovery as discovery_page
 from console import launchers as launchers_page
 from console import players as players_page
 from console import record as recorder
@@ -1438,6 +1439,40 @@ async def _draw_backup(container: ui.column, title: ui.column, library: Library,
                                        lambda: build_backup(container, title, library,
                                                             backup_id, state))
         await _rail(context, "backup", state)
+
+
+async def build_discovery(container: ui.column, title: ui.column, library: Library,
+                          vps_id: str | None,
+                          state: dict[str, Any] | None = None) -> None:
+    """The panel, for a catalog entry rather than a game of the library's."""
+    state = state if state is not None else {}
+    await _pane_build(container, state,
+                      lambda: _draw_discovery(container, title, library, vps_id, state))
+
+
+async def _draw_discovery(container: ui.column, title: ui.column, library: Library,
+                          vps_id: str | None, state: dict[str, Any]) -> None:
+    if not vps_id:
+        _blank(container, title, t("console.page.entry"), t("console.page.select_entry"))
+        return
+    if not library.has_catalog():
+        await offload.io(library.load_catalog)
+    row = discovery_page.row_of(library, vps_id)
+    if row is None:
+        _blank(container, title, t("console.page.entry"), t("console.page.not_found"))
+        return
+
+    container.clear()
+    title.clear()
+    with container:
+        _title(title, row["name"], " · ".join(
+            part for part in (row["manufacturer"], str(row["year"] or "")) if part))
+        context: dict[str, Any] = {
+            "library": library, "discovery": row, "state": state, "redraws": [], "dock": None}
+        context["rebuild"] = _rebuilds(context, f"discovery:{vps_id}",
+                                       lambda: build_discovery(container, title, library,
+                                                               vps_id, state))
+        await _rail(context, "discovery", state)
 
 
 async def build_launcher(container: ui.column, title: ui.column, library: Library,
@@ -7490,6 +7525,15 @@ def _backup_verbs(context: dict[str, Any]) -> list[panel.Verb]:
     return backups_page.acts(context["library"], [context["backup"]], refresh)
 
 
+def _discovery_verbs(context: dict[str, Any]) -> list[panel.Verb]:
+    async def after() -> None:
+        again = context["state"].get("redraw_discovery")
+        if callable(again):
+            await again()
+
+    return discovery_page.acts(context["library"], [context["discovery"]], after)
+
+
 def _player_verbs(context: dict[str, Any]) -> list[panel.Verb]:
     player = context["player"]
     return players_page.acts(context["library"], context["state"], [player],
@@ -7603,6 +7647,7 @@ SUBJECT_VERBS: dict[str, Callable[[dict[str, Any]], list[panel.Verb]]] = {
     "device": _device_verbs,
     "player": _player_verbs,
     "backup": _backup_verbs,
+    "discovery": _discovery_verbs,
     "media_file": _media_file_verbs,
     "asset_file": _asset_file_verbs,
 }
@@ -7687,4 +7732,9 @@ SECTIONS: tuple[Section, ...] = (
             subjects=frozenset({"backup"})),
     Section("backup_contents", lambda _: t("console.backups.contents"), backups_page.contents,
             subjects=frozenset({"backup"}), shown=backups_page.has_contents),
+    # An entry the catalog lists: what it is, then the files VPS has for it.
+    Section("discovery_details", lambda _: t("console.workbench.details"),
+            discovery_page.details, subjects=frozenset({"discovery"})),
+    Section("discovery_files", lambda _: t("console.discovery.files"),
+            discovery_page.files, subjects=frozenset({"discovery"})),
 )

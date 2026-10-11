@@ -38,6 +38,7 @@ _FIELDS = (
     ("launcher", lambda state: state.get("launcher") or ""),
     ("player", lambda state: state.get("player") or ""),
     ("backup", lambda state: state.get("backup") or ""),
+    ("entry", lambda state: state.get("entry") or ""),
     # A setting by its key: the Tables grid arrives on the launcher's tables that set it.
     ("sets", lambda state: state.get("sets") or ""),
     # The Tables grid on one group of one kept report: the job, then which of its groups.
@@ -58,7 +59,7 @@ _ONLY_ON = {"game": _PANEL, "table": _PANEL, "section": _PANEL, "slot": _PANEL,
             "page": ("settings",), "log": ("logs",), "collection": ("collections", "games"),
             "launcher": ("launchers", "tables"), "sets": ("tables",),
             "report": ("tables",), "group": ("tables",),
-            "player": ("players",), "backup": ("backups",)}
+            "player": ("players",), "backup": ("backups",), "entry": ("discovery",)}
 
 
 # The Logs page's views that have an address; the stream is the one with none.
@@ -139,5 +140,7 @@ def apply(state: dict[str, Any], params: dict[str, str], *,
         state["player"] = str(params["player"]).strip()
     if str(params.get("backup") or "").strip():
         state["backup"] = str(params["backup"]).strip()
+    if str(params.get("entry") or "").strip():
+        state["entry"] = str(params["entry"]).strip()
     if str(params.get("find") or "").strip() and state["view"] == "backups":
         state["find"] = str(params["find"]).strip()

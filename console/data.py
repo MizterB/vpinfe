@@ -224,6 +224,7 @@ class Library:
         # reason.
         self._media_rows: list[dict[str, Any]] | None = None
         self._asset_rows: list[dict[str, Any]] | None = None
+        self._catalog: dict[str, Any] | None = None
         self._vps_entries: dict[str, dict[str, Any]] = {}
         self._vps_held: bool | None = None
         self._vps_releases: dict[tuple[str, str], list[dict[str, Any]]] = {}
@@ -1853,7 +1854,30 @@ class Library:
     def add_game_from_vps(self, vps_id: str, location_id: str = "") -> dict:
         made = self._client.add_game_from_vps(vps_id, location_id)
         self._forget_games()
+        held = self._catalog or {}
+        if held.get("counted"):
+            for row in held.get("rows") or []:
+                if row.get("vps_id") == vps_id:
+                    row["in_library"] = True
         return made
+
+    def has_catalog(self) -> bool:
+        return self._catalog is not None
+
+    def load_catalog(self) -> dict[str, Any]:
+        """Every catalog entry against the library as last counted. Off the loop."""
+        if self._catalog is None:
+            self._catalog = self._client.catalog_discovery()
+        return self._catalog
+
+    def catalog(self) -> dict[str, Any]:
+        return self._catalog or {"counted": "", "rows": []}
+
+    def forget_catalog(self) -> None:
+        self._catalog = None
+
+    def recount_catalog(self) -> dict:
+        return self._client.recount_catalog()
 
     def new_game_destination(self) -> dict:
         return self._client.new_game_destination()
@@ -1879,6 +1903,7 @@ class Library:
         self._table_rows = None
         self._media_rows = None
         self._asset_rows = None
+        self._catalog = None
         self.media.clear()
         self.table_media.clear()
         self._overrides.clear()

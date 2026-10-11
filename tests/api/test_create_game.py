@@ -361,6 +361,10 @@ class FromCatalogTests(CreateGameCase):
         self.requested = self.fill.start()
         self.addCleanup(self.fill.stop)
         self.add_location(self.library)
+        self.rollup = self.root / "vps-rollup.json"
+        stored = patch("common.games.library_vps_state.ROLLUP_PATH", self.rollup)
+        stored.start()
+        self.addCleanup(stored.stop)
 
     def add(self, vps_id: str = "vps-taxi", **body):
         return self.client.post("/games/from_vps", json={"vps_id": vps_id, **body})
@@ -415,6 +419,23 @@ class FromCatalogTests(CreateGameCase):
         self.requested.assert_not_called()
         self.assertEqual(self.client.get("/games").json()["total"], 0)
         self.assertEqual(self.add().status_code, 201)
+
+    def test_a_counted_library_reads_the_new_game_as_in_it_before_the_next_count(self) -> None:
+        self.rollup.write_text(json.dumps({"schema": 2, "computed": "2026-10-01T00:00:00Z",
+                                           "entries": {}}))
+
+        with patch("common.games.library_vps_state.load_vpsdb", return_value=[self.ENTRY]):
+            self.add()
+            found = self.client.get("/library/discovery").json()
+
+        rows = {row["vps_id"]: row for row in found["rows"]}
+        self.assertTrue(rows["vps-taxi"]["in_library"])
+        self.assertEqual(rows["vps-taxi"]["held"], [])
+
+    def test_a_library_never_counted_stays_never_counted(self) -> None:
+        self.add()
+
+        self.assertFalse(self.rollup.exists())
 
     def test_an_entry_the_catalog_does_not_hold_is_a_404(self) -> None:
         found = self.add("nope")
