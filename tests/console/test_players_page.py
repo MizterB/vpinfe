@@ -7,7 +7,7 @@ import asyncio
 import json
 import unittest
 from typing import Any
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import requests
 from nicegui import ui
@@ -327,6 +327,38 @@ class TheClient(unittest.TestCase):
         for call, wanted in cases:
             with self.subTest(wanted[1]):
                 self.assertEqual(self.asked(call), wanted)
+
+
+class ChoosingAUserId(unittest.TestCase):
+    def test_the_id_field_is_left_as_typed(self) -> None:
+        """The id is a handle, so a mobile keyboard may not capitalize or correct it."""
+        holder = ui.card()
+        fields: list[ui.input] = []
+        real_field = players.frame.field
+
+        def kept(*args: Any, **kwargs: Any) -> ui.input:
+            fields.append(real_field(*args, **kwargs))
+            return fields[-1]
+
+        async def asked() -> None:
+            account = {"extension": "vpinplay", "label": "VPinPlay", "check": "", "user_id": ""}
+            context = {"library": Mock(), "rebuild": AsyncMock()}
+            with holder:
+                task = asyncio.ensure_future(players.choose_user_id(context, account))
+                await asyncio.sleep(0)
+                task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+
+        with patch.object(players, "_of", return_value=_player("p-1")), \
+                patch.object(players.frame, "field", kept), \
+                patch.object(players.frame, "enter_presses"):
+            asyncio.run(asked())
+
+        (field,) = fields
+        self.assertEqual({key: field.props.get(key) for key in (
+            "spellcheck", "autocorrect", "autocapitalize", "autocomplete")},
+            {"spellcheck": "false", "autocorrect": "off", "autocapitalize": "off",
+             "autocomplete": "off"})
 
 
 if __name__ == "__main__":

@@ -334,6 +334,9 @@ class PlayersDrive(unittest.TestCase):
             await press(ACTS, "Choose a User ID")
             await browser.wait_for(DIALOG_UP)
             seen["choose_title"] = await browser.wait_for(DIALOG_TEXT)
+            seen["choose_input"] = await browser.evaluate(
+                f"(box => box && ['spellcheck', 'autocorrect', 'autocapitalize', 'autocomplete']"
+                f".map(name => box.getAttribute(name)))(document.querySelector('{DIALOG} input'))")
             await type_into(f"{DIALOG} input", 0, USER_ID)
             seen["choose_checked"] = await browser.wait_for(
                 f"(said => said && said.includes('Available') ? said : null)({DIALOG_TEXT})")
@@ -531,6 +534,9 @@ class PlayersDrive(unittest.TestCase):
         self.assertIn("Choose a User ID for “VPinPlay”", self.seen["choose_title"])
         self.assertIn("Available", self.seen["choose_checked"])
         self.assertIn(USER_ID, self.seen["choose_checked"])
+
+    def test_the_id_input_is_left_as_typed(self) -> None:
+        self.assertEqual(self.seen["choose_input"], ["false", "off", "off", "off"])
 
     def test_state_two_is_text_not_an_input_with_change_and_a_card(self) -> None:
         self.assertIn("Not on VPinPlay until you share", self.seen["state2"])

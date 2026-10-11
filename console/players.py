@@ -1004,7 +1004,8 @@ async def choose_user_id(context: dict[str, Any], account: dict[str, Any]) -> No
 
     with frame.opened(t("console.players.id_title", service=service),
                       persistent=True) as box:
-        field = frame.field(user_id if (user_id := str(account.get("user_id") or "")) else "")
+        field = frame.field(user_id if (user_id := str(account.get("user_id") or "")) else "") \
+            .props("spellcheck=false autocorrect=off autocapitalize=off autocomplete=off")
         holder = ui.element("div").classes("console-fact-edit")
         with frame.footer():
             frame.cancel(lambda: box.submit(None))
