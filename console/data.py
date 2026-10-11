@@ -1984,7 +1984,7 @@ class Library:
                 "id": game_id,
                 "name": game.get("name") or "",
                 "manufacturer": game.get("manufacturer") or "",
-                "year": game.get("year") or "",
+                "year": game_tables.year_of(game.get("year")),
                 # Its own field, so sorting and filtering stay on the name.
                 "said": game_tables.made(game),
                 **_art_of(shown, game_id),

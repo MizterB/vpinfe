@@ -602,6 +602,26 @@ def column(field: str, header: str, width: int = 0, help: str = "",
             "width": max(width, header_width(header))} | tip | search | extra
 
 
+# A number column's comparator: a blank is last whichever way it sorts. The grid turns a
+# descending result round itself, so a blank answers the other way round there.
+BLANK_LAST = (
+    "(a, b, nodeA, nodeB, descending) => {"
+    " const blank = v => v == null || v === '';"
+    " if (blank(a) || blank(b)) {"
+    "  if (blank(a) && blank(b)) return 0;"
+    "  const last = blank(a) ? 1 : -1; return descending ? -last : last; }"
+    " return a - b; }")
+
+NUMBER_COLUMN: dict[str, Any] = {"type": "numericColumn", "filter": "agNumberColumnFilter",
+                                 ":comparator": BLANK_LAST}
+
+
+def year_column(field: str, header: str, width: int = 0, help: str = "",
+                **extra: Any) -> dict[str, Any]:
+    """A year column, whose rows hold `game_tables.year_of(...)` and never a string."""
+    return column(field, header, width, help, **NUMBER_COLUMN, **extra)
+
+
 # `console-base.css` colors this class.
 IDENTIFIER_CLASS = "console-cell-identifier"
 

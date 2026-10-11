@@ -219,7 +219,7 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
 
     rows.append(_games_without("no_year", found, label=names["no_year"][0],
                                tip=names["no_year"][1], tone=MUTED, icon=verbs.NO_YEAR,
-                               opens=Opens("games", {"year": {"filterType": "text",
+                               opens=Opens("games", {"year": {"filterType": "number",
                                                              "type": "blank"}})))
     if unread := _unread(watched.get("unread") or ()):
         rows.append(Need("unread", t("console.needs.unread"),

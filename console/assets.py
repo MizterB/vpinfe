@@ -95,6 +95,7 @@ def rows(found: list[dict[str, Any]],
     """The API's assets, flattened for a grid; `unsaved` is the (game, path) of the files
     with text typed and not saved."""
     return [{**row,
+             "year": game_tables.year_of(row.get("year")),
              "unsaved": (str(row.get("game_id") or ""), str(row.get("path") or "")) in unsaved,
              "scope": game_tables.scope_of(row),
              "used_by": row.get("serves"),
@@ -149,8 +150,8 @@ COLUMNS: list[dict[str, Any]] = [
                 help=t("console.assets.match.help")),
     grid.column("manufacturer", t("word.manufacturer"), 150, group=t(_GAME),
                 help=t("help.who_made_it")),
-    grid.column("year", t("word.year"), group=t(_GAME),
-            help=t("help.year_released")),
+    grid.year_column("year", t("word.year"), group=t(_GAME),
+                     help=t("help.year_released")),
 ]
 
 _ALL = [definition["field"] for definition in COLUMNS]

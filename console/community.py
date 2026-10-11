@@ -37,7 +37,7 @@ ICON = "extension"
 HELD = "held"
 UNDER = "under_said"
 
-_KIND = {"number": {"type": "numericColumn", "filter": "agNumberColumnFilter"},
+_KIND = {"number": grid.NUMBER_COLUMN,
          "text": {}, "date": {}}
 _WIDTH = {"number": 130, "text": 150, "date": 140}
 FIRST_WIDTH = 240

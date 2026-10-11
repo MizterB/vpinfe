@@ -92,6 +92,7 @@ def rows(found: list[dict[str, Any]]) -> list[dict[str, Any]]:
     file, name and folder together.
     """
     return [{**row,
+             "year": game_tables.year_of(row.get("year")),
              "scope": game_tables.scope_of(row),
              # One path, not a name and a folder: `medias/` or the game folder is two
              # values across a whole library, which is a column that says the same
@@ -141,8 +142,8 @@ COLUMNS: list[dict[str, Any]] = [
                 help=t("console.media.covered_by.help")),
     grid.column("manufacturer", t("word.manufacturer"), 150, group=t(_GAME),
                 help=t("help.who_made_it")),
-    grid.column("year", t("word.year"), group=t(_GAME),
-            help=t("help.year_released")),
+    grid.year_column("year", t("word.year"), group=t(_GAME),
+                     help=t("help.year_released")),
 ]
 
 _ALL = [definition["field"] for definition in COLUMNS]

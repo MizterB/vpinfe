@@ -171,6 +171,17 @@ def word_for(pair: tuple[str, str], notable: bool) -> str:
     return pair[0] if notable else pair[1]
 
 
+def year_of(value: Any) -> int | None:
+    """A year as the number a grid sorts and filters on, or None where there is none.
+
+    Catalog and `.info` years arrive as a string, a number or nothing, and the odd one as
+    a range ("1995,1997"), which is read as the year it starts at. Anything without four
+    digits in it is no year.
+    """
+    found = re.search(r"(?<!\d)\d{4}(?!\d)", str(value or ""))
+    return int(found.group()) or None if found else None
+
+
 def made(row: dict[str, Any]) -> str:
     """Who made the game and when: manufacturer then year, blank parts left out. The
     first half of the line under a table's name; `table_name` is the second."""

@@ -158,8 +158,8 @@ COLUMNS = [
                     "chip": "console-chip-quiet"}})),
     grid.column("manufacturer", t("word.manufacturer"), group=t(_GAME),
                 help=t("help.who_made_it")),
-    grid.column("year", t("word.year"), group=t(_GAME),
-                help=t("help.year_released")),
+    grid.year_column("year", t("word.year"), group=t(_GAME),
+                     help=t("help.year_released")),
     grid.column("game_type", t("console.games.type"), group=t(_GAME),
                 help=t("console.games.type.help")),
     # Qualified for the reason Game Rating is: an install has a *frontend* theme and will

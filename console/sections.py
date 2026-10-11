@@ -22,6 +22,7 @@ from common.media_specs import media_label_map
 from console import dialog as frame
 from console import (
     front,
+    game_tables,
     jobs_list,
     media_fill,
     needs,
@@ -62,7 +63,7 @@ CHECKS: tuple[tuple[str, str, str, Callable[[dict, dict, dict], bool]], ...] = (
                              if kind in x["collected"])),
     ("no_year", t("console.sections.year_missing"),
      t("console.sections.year_sort"),
-     lambda g, m, x: not g.get("year")),
+     lambda g, m, x: game_tables.year_of(g.get("year")) is None),
 )
 
 # The element Unreadable Folder scrolls to.
