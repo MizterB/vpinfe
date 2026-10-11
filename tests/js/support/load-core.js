@@ -57,6 +57,11 @@ export function loadCore(options = {}) {
   return { VPinFECore: context.VPinFECore, context, browser };
 }
 
+/** A value the core built, as plain objects of this realm, ready for `assert.deepEqual`. */
+export function plain(value) {
+  return value === undefined ? value : JSON.parse(JSON.stringify(value));
+}
+
 /** The common case: a constructed core for one window. */
 export function newCore(options = {}) {
   const { VPinFECore, context, browser } = loadCore(options);

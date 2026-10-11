@@ -393,7 +393,7 @@ class PictureTests(DirectB2SParserCase):
             self.assertEqual(parser.picture(path, "on"), first)
             draw.assert_not_called()
         self.assertTrue(first.is_relative_to(self.folder / "cache"))
-        self.assertEqual([each.name for each in self.folder.iterdir()],
+        self.assertEqual(sorted(each.name for each in self.folder.iterdir()),
                          ["cache", "table.directb2s"])
 
     def test_a_changed_file_is_drawn_again_and_the_old_picture_goes(self) -> None:

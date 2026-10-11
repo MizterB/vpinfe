@@ -126,7 +126,7 @@ def page_scripts(tree: ast.AST) -> list[tuple[int, str]]:
 
 
 def browser_tests() -> dict[str, ast.Module]:
-    return {str(path.relative_to(ROOT)): tree
+    return {path.relative_to(ROOT).as_posix(): tree
             for path in sorted(TESTS.rglob("test_*.py"))
             if drives_a_browser(tree := trees.tree_for(path))}
 

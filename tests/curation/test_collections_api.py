@@ -36,7 +36,7 @@ class CollectionsApiTests(TempTree):
     def setUp(self) -> None:
         super().setUp()
         self.path = f"{self.root}/collections.ini"
-        open(self.path, "w").close()
+        open(self.path, "w", encoding="utf-8").close()
 
         self.catalog = {GAME_ID: _game("Cactus Canyon (Bally 1998)", GAME_ID),
                         OTHER_ID: _game("Eight Ball (Bally 1977)", OTHER_ID)}
@@ -843,7 +843,7 @@ class MemberTableTests(TempTree):
         self.catalog = {TABLED_ID: game}
 
         self.path = f"{self.root}/collections.ini"
-        open(self.path, "w").close()
+        open(self.path, "w", encoding="utf-8").close()
         manager = CollectionStore(self.path)
         self.manager = manager
         for target in ("common.games.collection_ops.get_collections_manager",

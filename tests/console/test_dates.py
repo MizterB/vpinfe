@@ -78,7 +78,8 @@ class TimeFormat(unittest.TestCase):
 
     def test_nothing_else_in_the_console_writes_a_day(self) -> None:
         found = sorted(path.name for path in CONSOLE.glob("*.py")
-                       if path.name != "when.py" and "i18n.date(" in path.read_text())
+                       if path.name != "when.py"
+                       and "i18n.date(" in path.read_text(encoding="utf-8"))
         self.assertEqual([], found)
 
 

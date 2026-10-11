@@ -61,7 +61,7 @@ def mac_names(count: int) -> list[str]:
 
 def drm_sources(root: Path = DRM_ROOT) -> list[Source]:
     found = []
-    for folder in sorted(root.glob("card*-*")):
+    for folder in sorted(root.glob("card*-*"), key=lambda one: one.name):
         try:
             parsed = edid.parse((folder / "edid").read_bytes())
         except OSError:

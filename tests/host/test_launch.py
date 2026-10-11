@@ -905,9 +905,10 @@ class LaunchedByTests(unittest.TestCase):
         app, entry, settings = launch.launched_by(game)
 
         self.assertEqual(app.id, "vpx")
-        self.assertEqual((entry.entry_id, entry.table), ("t1", "/games/Example/Example.vpx"))
+        self.assertEqual((entry.entry_id, entry.table),
+                         ("t1", os.path.join("/games/Example", "Example.vpx")))
         self.assertEqual((settings["bin_path"], settings["ini_path"]),
-                         ("/opt/other", "/opt/other.ini"))
+                         (str(pathlib.Path("/opt/other")), "/opt/other.ini"))
 
     def test_with_no_game_it_is_the_default_launcher_and_no_entry(self) -> None:
         self.store.save([_launcher()], {})
@@ -915,7 +916,7 @@ class LaunchedByTests(unittest.TestCase):
         app, entry, settings = launch.launched_by()
 
         self.assertEqual((app.id, entry, settings["bin_path"]),
-                         ("vpx", launch.apps.Entry(), "/opt/vpx"))
+                         ("vpx", launch.apps.Entry(), str(pathlib.Path("/opt/vpx"))))
 
     def test_nothing_to_launch_with_is_none(self) -> None:
         self.assertIsNone(launch.launched_by())
@@ -1071,7 +1072,7 @@ class LocationNotConnectedTests(LaunchTests):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         store = LocationStore(pathlib.Path(tmp.name) / "config")
-        store.put(Location("nas", "/mnt/launch-nas/tables"))
+        store.put(Location("nas", str(pathlib.Path("/mnt/launch-nas/tables").absolute())))
         self.origin = mounts.Origin(mounts.NFS, "nas.lan", "/export", "/mnt/launch-nas")
         for patcher in (
                 mock.patch.object(launch.library_folders, "get_location_store",

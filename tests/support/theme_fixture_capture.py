@@ -158,7 +158,7 @@ def main() -> int:
     FIXTURE.parent.mkdir(parents=True, exist_ok=True)
     FIXTURE.write_text(json.dumps(capture(), indent=2, sort_keys=True) + "\n",
                        encoding="utf-8")
-    print(f"wrote {FIXTURE.relative_to(REPO_ROOT)}")
+    print(f"wrote {FIXTURE.relative_to(REPO_ROOT).as_posix()}")
     return 0
 
 

@@ -53,7 +53,7 @@ def _tree_snapshot(root: Path) -> dict[str, str]:
     snapshot = {}
     for path in sorted(root.rglob("*")):
         if path.is_file():
-            rel = str(path.relative_to(root))
+            rel = path.relative_to(root).as_posix()
             snapshot[rel] = hashlib.sha256(path.read_bytes()).hexdigest()[:16]
     return snapshot
 

@@ -389,9 +389,9 @@ class KeySimulator:
         from pynput.keyboard import Key
 
         mapping: dict[str, Any] = dict(KeySimulator.LITERAL_KEYS)
-        names = KeySimulator.NAMED_KEYS
+        names: tuple[str, ...] = KeySimulator.NAMED_KEYS
         if sys.platform != "darwin":
-            names += KeySimulator.NAMED_KEYS_NON_DARWIN
+            names = (*names, *KeySimulator.NAMED_KEYS_NON_DARWIN)
         mapping.update({name: getattr(Key, name) for name in names})
         # Right command types as command; pynput's `cmd_r` is not used.
         mapping["cmd_r"] = Key.cmd

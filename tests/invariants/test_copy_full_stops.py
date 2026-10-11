@@ -93,7 +93,7 @@ class WhereTheConsoleDrawsThem(unittest.TestCase):
             if "__pycache__" in path.parts:
                 continue
             tree = trees.tree_for(path)
-            self.drawn += [(f"{path.relative_to(ROOT)}:{line}", key)
+            self.drawn += [(f"{path.relative_to(ROOT).as_posix()}:{line}", key)
                            for line, key in _help_and_state(tree)]
 
     def test_none_ends_a_lone_line_with_a_stop(self) -> None:

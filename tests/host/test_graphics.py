@@ -3,6 +3,7 @@ from __future__ import annotations
 import plistlib
 import subprocess
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from common.host import about, graphics, tools
@@ -107,7 +108,7 @@ class ProgramTests(unittest.TestCase):
             return graphics.program(answer.tool)
 
     def test_a_program_that_runs_is_its_path(self) -> None:
-        self.assertEqual(self._program(found(NVTOP)), "/usr/bin/nvtop")
+        self.assertEqual(self._program(found(NVTOP)), str(Path("/usr/bin/nvtop")))
 
     def test_one_that_is_not_here_names_the_tool_so_its_remedy_can_be_offered(self) -> None:
         with self.assertRaises(graphics.UnreadableError) as caught:

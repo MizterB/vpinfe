@@ -24,6 +24,7 @@ from common import http_client, jobs, service_errors
 from common.capture import preflight
 from common.host import get_ffmpeg, tools, vpinos
 from common.i18n import size, t
+from tests.support.skips import needs_executable_bit
 
 PROGRAM = b"#!/bin/sh\nexit 0\n"
 
@@ -96,10 +97,17 @@ class GetTests(unittest.TestCase):
 
         self.assertEqual(got, self.folder / "ffmpeg")
         self.assertEqual(got.read_bytes(), PROGRAM)
-        self.assertTrue(got.stat().st_mode & stat.S_IXUSR)
         self.assertEqual(sorted(os.listdir(self.folder)), ["ffmpeg"])
         self.assertEqual(self.seen, [(len(archive), len(archive))])
         self.probed.assert_called_once_with(tools.FFMPEG, got)
+
+    @needs_executable_bit
+    def test_the_unpacked_program_can_be_run(self) -> None:
+        archive = _zip("ffmpeg")
+
+        got = self._get(archive, _pinned(archive, ".zip", "ffmpeg"))
+
+        self.assertTrue(got.stat().st_mode & stat.S_IXUSR)
 
     def test_windows_build_comes_out_of_its_7z_by_its_path_inside(self) -> None:
         member = "ffmpeg-9.0.2-essentials_build/bin/ffmpeg.exe"
@@ -195,7 +203,7 @@ class JobTests(unittest.TestCase):
 
         self.assertEqual(job.kind, jobs.KIND_TOOL_GET)
         self.assertEqual(job.state, jobs.DONE)
-        self.assertEqual(job.result, {"path": "/x/ffmpeg", "version": "9.0.2"})
+        self.assertEqual(job.result, {"path": str(Path("/x/ffmpeg")), "version": "9.0.2"})
         self.assertEqual(job.message, t("tools.get.progress", tool="FFmpeg",
                                         done=size(12_000_000), total=size(34_000_000)))
 

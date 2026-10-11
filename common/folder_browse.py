@@ -170,6 +170,7 @@ def _program_roots() -> list[dict]:
         found = [{"name": _name(Path(candidate)), "path": candidate} for candidate in
                 (os.environ.get("ProgramFiles"), os.environ.get("ProgramFiles(x86)"))
                 if candidate and Path(candidate).exists()]
+        found.append({"name": t("word.home"), "path": str(home)})
         found += [{"name": f"{letter}:", "path": f"{letter}:\\"} for letter in
                  (chr(code) for code in range(ord("A"), ord("Z") + 1))
                  if Path(f"{letter}:\\").exists()]
@@ -246,6 +247,8 @@ def _resolved(path: str) -> Path:
     Every check is on what the path resolves to: a link called `cover.png` that points at
     a key or a document is judged as the key or the document.
     """
+    if "\0" in path:
+        raise service_errors.RefusedError(t("error.filesystem.path_unreadable"))
     try:
         here = Path(os.path.abspath(os.path.expanduser(path))).resolve()
     except (OSError, ValueError, RuntimeError) as exc:

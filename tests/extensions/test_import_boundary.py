@@ -70,7 +70,7 @@ class ImportBoundaryTests(unittest.TestCase):
                     continue
                 with self.subTest(source=source.name, module=module):
                     self.assertNotIn(root, FIRST_PARTY,
-                                     f"{source.relative_to(EXTENSIONS_DIR)} imports "
+                                     f"{source.relative_to(EXTENSIONS_DIR).as_posix()} imports "
                                      f"{module}; an extension reaches core through the "
                                      f"context it is given, or through {CONTRACT}")
 

@@ -41,7 +41,7 @@ def _frames(path: pathlib.Path) -> list[str]:
         lines = _matching(_fragments(trees.tree_for(path)))
     else:
         lines = _matching(list(enumerate(path.read_text(encoding="utf-8").splitlines(), 1)))
-    return [f"{path.relative_to(REPO)}:{line}" for line in lines]
+    return [f"{path.relative_to(REPO).as_posix()}:{line}" for line in lines]
 
 
 # Each shape a list's frame could be drawn in outside the helper: a grid renderer, an

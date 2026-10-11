@@ -576,7 +576,8 @@ class ProbeReasonTests(unittest.TestCase):
 
     def test_a_machine_with_nothing_on_its_port_is_told_apart(self) -> None:
         try:
-            requests.get("http://127.0.0.1:1/api/v1", timeout=1)
+            # Windows retries a closed loopback port for about two seconds before refusing.
+            requests.get("http://127.0.0.1:1/api/v1", timeout=10)
         except requests.ConnectionError as exc:
             self.assertEqual(self._reason(exc), "device.reason.refused")
         else:  # pragma: no cover

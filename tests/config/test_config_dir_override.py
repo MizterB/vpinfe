@@ -7,6 +7,9 @@ import common.paths
 from common.config_bootstrap import apply_configdir_override
 
 ENV_VAR = "VPINFE_CONFIG_DIR"
+# A root-relative path gains the current drive on Windows, so every expectation is
+# built from the same Path the override resolves to.
+OVERRIDE = Path("/tmp/vpinfe-override").absolute()
 
 
 class TestConfigDirEnvOverride(unittest.TestCase):
@@ -27,19 +30,19 @@ class TestConfigDirEnvOverride(unittest.TestCase):
         return importlib.reload(common.paths)
 
     def test_override_relocates_config_dir_and_derived_paths(self) -> None:
-        os.environ[ENV_VAR] = "/tmp/vpinfe-override"
+        os.environ[ENV_VAR] = str(OVERRIDE)
         paths = self._reload()
 
-        self.assertEqual(paths.CONFIG_DIR, Path("/tmp/vpinfe-override"))
-        self.assertEqual(paths.VPINFE_INI_PATH, Path("/tmp/vpinfe-override/vpinfe.ini"))
-        self.assertEqual(paths.THEMES_DIR, Path("/tmp/vpinfe-override/themes"))
-        self.assertEqual(paths.COLLECTIONS_PATH, Path("/tmp/vpinfe-override/collections.json"))
+        self.assertEqual(paths.CONFIG_DIR, OVERRIDE)
+        self.assertEqual(paths.VPINFE_INI_PATH, OVERRIDE / "vpinfe.ini")
+        self.assertEqual(paths.THEMES_DIR, OVERRIDE / "themes")
+        self.assertEqual(paths.COLLECTIONS_PATH, OVERRIDE / "collections.json")
 
     def test_an_override_keeps_the_caches_beside_it(self) -> None:
-        os.environ[ENV_VAR] = "/tmp/vpinfe-override"
+        os.environ[ENV_VAR] = str(OVERRIDE)
         paths = self._reload()
 
-        self.assertEqual(paths.CACHE_DIR, Path("/tmp/vpinfe-override/cache"))
+        self.assertEqual(paths.CACHE_DIR, OVERRIDE / "cache")
         for cached in (paths.VPSDB_PATH, paths.USER_ROMS_PATH, paths.THEME_CACHE_PATH,
                        paths.UPDATE_CHECK_PATH, paths.FRONTEND_BROWSER_PATH,
                        paths.COMMUNITY_KEPT_DIR):
@@ -50,7 +53,9 @@ class TestConfigDirEnvOverride(unittest.TestCase):
         paths = self._reload()
 
         self.assertNotEqual(paths.CACHE_DIR, paths.CONFIG_DIR)
-        self.assertNotEqual(paths.CACHE_DIR, paths.CONFIG_DIR / "cache")
+        # Compared as text: Windows paths ignore case, and its own cache folder is
+        # `Cache` inside the config folder.
+        self.assertNotEqual(str(paths.CACHE_DIR), str(paths.CONFIG_DIR / "cache"))
         self.assertEqual(paths.VPSDB_PATH, paths.CACHE_DIR / "vpsdb.json")
         self.assertEqual(paths.USER_ROMS_PATH, paths.CACHE_DIR / "roms.json")
 

@@ -6,6 +6,7 @@ from __future__ import annotations
 import os
 import sqlite3
 import unittest
+from contextlib import closing
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -162,12 +163,13 @@ class FindsTests(unittest.TestCase):
         _touch(self.root / "emu" / "VPinballX_BGFX.exe")
         database = self.root / "vPinball" / "PinUPSystem" / "PUPDatabase.db"
         database.parent.mkdir(parents=True)
-        with sqlite3.connect(database) as db:
+        with closing(sqlite3.connect(database)) as db:
             db.execute("create table Emulators (EMUID integer, EmuName text, "
                        "EmuLaunchDir text, GamesExt text)")
             db.execute("insert into Emulators values (1, 'Future Pinball', 'nowhere', 'fpt')")
             db.execute("insert into Emulators values (2, 'Visual Pinball X', ?, 'vpx')",
                        (str(self.root / "emu"),))
+            db.commit()
 
         found = vpx_find.finds("win32", drives=[str(self.root)], path="")
 
@@ -178,11 +180,12 @@ class FindsTests(unittest.TestCase):
         (self.root / "vpx" / "Tables").mkdir()
         database = self.root / "vPinball" / "PinUPSystem" / "PUPDatabase.db"
         database.parent.mkdir(parents=True)
-        with sqlite3.connect(database) as db:
+        with closing(sqlite3.connect(database)) as db:
             db.execute("create table Emulators (EMUID integer, EmuName text, "
                        "DirGames text, GamesExt text)")
             db.execute("insert into Emulators values (1, 'Visual Pinball X', ?, 'vpx')",
                        (str(self.root / "vpx" / "Tables"),))
+            db.commit()
 
         found = vpx_find.finds("win32", drives=[str(self.root)], path="")
 

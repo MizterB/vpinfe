@@ -54,7 +54,7 @@ class OffloadIsGivenAnAnswer(unittest.TestCase):
 
     def test_no_console_call_hands_it_one(self) -> None:
         void = _answers_nothing()
-        found = [f"{path.relative_to(REPO)}:{line} {name}"
+        found = [f"{path.relative_to(REPO).as_posix()}:{line} {name}"
                  for path in sorted((REPO / "console").rglob("*.py"))
                  for line, name in _offenders(trees.tree_for(path), void)]
         self.assertEqual(found, [], "a call that answers nothing goes through "

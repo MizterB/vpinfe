@@ -34,7 +34,7 @@ class FixturesAreCommittedTests(unittest.TestCase):
                    if path.is_file() and "__pycache__" not in path.parts
                    and path.name != ".DS_Store"}
 
-        untracked = sorted(str(path.relative_to(REPO)) for path in on_disk - tracked)
+        untracked = sorted(path.relative_to(REPO).as_posix() for path in on_disk - tracked)
 
         self.assertEqual(untracked, [],
                          "these exist locally but are not committed - if .gitignore is "

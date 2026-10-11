@@ -182,7 +182,8 @@ class MobileTransferTests(unittest.TestCase):
     def test_a_device_that_is_not_there_says_so(self) -> None:
         with mock.patch("common.games.mobile_transfer.time.sleep") as slept, \
                 self.assertRaises(mobile_transfer.DeviceUnreachableError) as raised:
-            mobile_transfer.carried("127.0.0.1", 9, timeout=0.2)
+            # Windows retries a closed loopback port for about two seconds before refusing.
+            mobile_transfer.carried("127.0.0.1", 9, timeout=10)
 
         self.assertEqual(str(raised.exception), t("device.reason.refused"))
         slept.assert_not_called()

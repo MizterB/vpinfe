@@ -35,9 +35,9 @@ class DefaultPathsCase(unittest.TestCase):
         with patch.object(backup_folder, "DEFAULT_DIR", Path("/cfg/backups")), \
              patch.object(config_service, "CONFIG_DIR", Path("/cfg")):
             stands_for = config_service.blank_stands_for()
-        self.assertEqual(stands_for[("backups", "folder")], "/cfg/backups")
+        self.assertEqual(stands_for[("backups", "folder")], str(Path("/cfg/backups")))
         self.assertEqual(stands_for[("media", "manufacturer_logos_dir")],
-                         "/cfg/manufacturer_logos")
+                         str(Path("/cfg/manufacturer_logos")))
 
     def test_every_default_names_a_real_path_setting(self) -> None:
         with_paths = {(o.section, o.key) for o in path_state.path_options()}

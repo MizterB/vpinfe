@@ -62,7 +62,7 @@ class SourceTests(unittest.TestCase):
 
         found = {one.key: one for one in plan_for.derive_sources(library)}
 
-        self.assertEqual(found["media"].path, "/src/Media/VPX")
+        self.assertEqual(found["media"].path, str(Path("/src/Media/VPX")))
 
     def test_a_library_with_only_shared_folders_points_at_media_itself(self) -> None:
         library = _library(_game("Taxi", media=(
@@ -71,7 +71,7 @@ class SourceTests(unittest.TestCase):
 
         found = {one.key: one for one in plan_for.derive_sources(library)}
 
-        self.assertEqual(found["media"].path, "/src/Media")
+        self.assertEqual(found["media"].path, str(Path("/src/Media")))
 
     def test_a_kind_with_nowhere_to_go_is_not_offered(self) -> None:
         """A field that carries nothing is a promise the code cannot keep. Registry

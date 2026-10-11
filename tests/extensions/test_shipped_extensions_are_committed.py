@@ -55,7 +55,7 @@ class ShippedExtensionsAreCommittedTests(unittest.TestCase):
                    if path.is_file() and "__pycache__" not in path.parts
                    and path.name != ".DS_Store"}
 
-        self.assertEqual(sorted(str(one.relative_to(REPO)) for one in on_disk - tracked),
+        self.assertEqual(sorted(one.relative_to(REPO).as_posix() for one in on_disk - tracked),
                          [])
 
 

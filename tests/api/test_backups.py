@@ -318,7 +318,7 @@ class LauncherListingTests(BackupsCase):
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(self.ini.read_text(), "[Player]\nFXAA = 0\n")
         kept = pathlib.Path(response.json()["kept"][0]["path"])
-        self.assertEqual(kept.read_text(), "[Player]\nFXAA = 1\n")
+        self.assertEqual(kept.read_text(encoding="utf-8"), "[Player]\nFXAA = 1\n")
 
     def test_a_launcher_copy_is_not_put_back_while_a_table_plays(self) -> None:
         first = self.ini.with_name("VPinballX.ini.vpinfe-20261001T010203Z")

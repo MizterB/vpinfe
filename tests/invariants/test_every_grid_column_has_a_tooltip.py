@@ -44,7 +44,7 @@ class EveryGridColumnHasATooltip(unittest.TestCase):
                 found += 1
                 if not _says_something(node):
                     field = ast.unparse(node.args[0]) if node.args else "?"
-                    bare.append(f"{path.relative_to(REPO)}:{node.lineno} {field}")
+                    bare.append(f"{path.relative_to(REPO).as_posix()}:{node.lineno} {field}")
         self.assertGreater(found, 100, "the scan stopped finding column declarations")
         self.assertEqual(bare, [],
                          "a column explains itself in its header tooltip, passed as "

@@ -201,7 +201,7 @@ class RowsTests(unittest.IsolatedAsyncioTestCase):
         entries = dict(self._rows(self._sway())[1:])
 
         self.assertEqual(entries[t("console.placement.rules_file")],
-                         "/v/window-rules-sway.conf")
+                         str(Path("/v/window-rules-sway.conf")))
 
     def test_without_a_config_only_the_copy_is_offered_and_it_says_why(self) -> None:
         entries = self._rows(self._sway(config=None))

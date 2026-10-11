@@ -45,9 +45,9 @@ def _found(path: Path) -> list[tuple[str, int, str]]:
         name = node.func.attr
         if name in _RE_CALLS and isinstance(node.func.value, ast.Name) \
                 and node.func.value.id == "re" and _PARSER.search(text):
-            out.append((str(path.relative_to(REPO)), node.lineno, text))
+            out.append((path.relative_to(REPO).as_posix(), node.lineno, text))
         elif name == "replace" and _LITERAL.match(text):
-            out.append((str(path.relative_to(REPO)), node.lineno, text))
+            out.append((path.relative_to(REPO).as_posix(), node.lineno, text))
     return out
 
 

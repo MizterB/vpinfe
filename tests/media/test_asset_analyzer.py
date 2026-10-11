@@ -203,7 +203,7 @@ class AssetAnalyzerTests(unittest.TestCase):
               mock.patch.object(tools, "resolve", return_value=found),
               mock.patch.object(asset_analyzer_service, "_pointed_at", None)):
             self.assertTrue(asset_analyzer_service.rar_tool_available())
-        self.assertEqual(fake.SEVENZIP2_TOOL, "/opt/bin/7zz")
+        self.assertEqual(fake.SEVENZIP2_TOOL, str(Path("/opt/bin/7zz")))
         fake.tool_setup.assert_called_once_with(
             force=True, unrar=False, unar=False, sevenzip=False, sevenzip2=True,
             bsdtar=False)

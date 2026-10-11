@@ -42,7 +42,7 @@ def _built_outside_the_panel() -> list[str]:
             for fn in ast.walk(tree):
                 if isinstance(fn, ast.FunctionDef) and fn.name == "disclosure":
                     allowed |= {id(node) for node in ast.walk(fn)}
-        found += [f"{path.relative_to(REPO)}:{node.lineno}" for node in ast.walk(tree)
+        found += [f"{path.relative_to(REPO).as_posix()}:{node.lineno}" for node in ast.walk(tree)
                   if _call_of(node, "ui", "expansion") and id(node) not in allowed]
     return found
 
@@ -77,7 +77,7 @@ def _expansions() -> list[tuple[str, int, list[str]]]:
                                       for word in arg.value.split()]
         for node in ast.walk(tree):
             if _is_ui_expansion(node):
-                found.append((str(path.relative_to(REPO)), node.lineno, classes[id(node)]))
+                found.append((path.relative_to(REPO).as_posix(), node.lineno, classes[id(node)]))
     return found
 
 

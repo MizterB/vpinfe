@@ -7,7 +7,7 @@
 import { test, describe, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
-import { loadCore } from "./support/load-core.js";
+import { loadCore, plain } from "./support/load-core.js";
 import { codeFor } from "./support/browser.js";
 
 // A test that presses without releasing leaves a hold repeating, and the runner waits
@@ -280,7 +280,7 @@ describe("defaults agree across the boundary", () => {
     const { vpin } = controller();
 
     assert.deepEqual([...vpin.keyActionMap.exit], ["keyq"]);
-    assert.deepEqual(vpin.keyHoldMap, { exit: [{ token: "escape", ms: 1500 }] },
+    assert.deepEqual(plain(vpin.keyHoldMap), { exit: [{ token: "escape", ms: 1500 }] },
       "a tap of Escape must be back before the bridge answers, not a one-key exit");
   });
 });
@@ -1404,15 +1404,15 @@ describe("a binding reads as a standard button, a hold, or neither", () => {
     const maps = buildBindingMaps({
       exit: ["key:Escape@hold:1500", "key:KeyQ", "pad:standard/button:1@hold:1500"] });
 
-    assert.deepEqual(maps.keys.exit, ["keyq"]);
-    assert.deepEqual(maps.keyHolds.exit, [{ token: "escape", ms: 1500 }]);
-    assert.deepEqual(maps.buttonHolds["1"], [{ action: "exit", ms: 1500, standard: true }]);
+    assert.deepEqual(plain(maps.keys.exit), ["keyq"]);
+    assert.deepEqual(plain(maps.keyHolds.exit), [{ token: "escape", ms: 1500 }]);
+    assert.deepEqual(plain(maps.buttonHolds["1"]), [{ action: "exit", ms: 1500, standard: true }]);
   });
 
   test("a hold of nothing is no hold", () => {
     const maps = buildBindingMaps({ exit: ["key:Escape@hold:0"] });
 
-    assert.deepEqual(maps.keyHolds, {});
-    assert.deepEqual(maps.keys, {});
+    assert.deepEqual(plain(maps.keyHolds), {});
+    assert.deepEqual(plain(maps.keys), {});
   });
 });

@@ -117,7 +117,7 @@ class TagSweepTests(_Sweep):
     def test_a_merge_with_every_carrier_reachable_goes_ahead(self) -> None:
         with mock.patch.object(library_ops.tag_registry, "moved"):
             self.assertEqual(library_ops.merge_tags(["old"], "new"), {"changed": 2})
-        self.assertIn("new", Path(self.good / f"{GOOD}.info").read_text())
+        self.assertIn("new", Path(self.good / f"{GOOD}.info").read_text(encoding="utf-8"))
 
 
 class AutoMatchSweepTests(_Sweep):

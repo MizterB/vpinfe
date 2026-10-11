@@ -26,10 +26,10 @@ from tests.support import trees
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-# Where a path can reach another machine. Not `frontend/` - its Python serves the
-# browser and its own tests cover the URLs - and not `tests/`, which asserts on the
-# values these produce rather than producing them.
-SOURCES = ("common", "httpapi", "console", "managerui")
+# Where a path can reach another machine, and `tests/`, where the same text is compared
+# with a forward-slashed literal. Not `frontend/` - its Python serves the browser and its
+# own tests cover the URLs.
+SOURCES = ("common", "httpapi", "console", "managerui", "tests")
 
 # Either of these turns a path into text in the host's separator.
 BUILDERS = ("relpath", "relative_to")
@@ -38,16 +38,21 @@ NORMALIZERS = ("as_posix", "sep")
 
 
 def _builds_a_path(node: ast.AST) -> bool:
-    """`os.path.relpath(...)`, or `str()` wrapped around a `.relative_to(...)`."""
+    """`os.path.relpath(...)`, or `str()` or an f-string around a `.relative_to(...)`."""
+    if isinstance(node, ast.FormattedValue):
+        return _is_relative_to(node.value)
     if not isinstance(node, ast.Call):
         return False
     if isinstance(node.func, ast.Attribute) and node.func.attr == "relpath":
         return True
     if isinstance(node.func, ast.Name) and node.func.id == "str" and node.args:
-        inner = node.args[0]
-        return (isinstance(inner, ast.Call) and isinstance(inner.func, ast.Attribute)
-                and inner.func.attr == "relative_to")
+        return _is_relative_to(node.args[0])
     return False
+
+
+def _is_relative_to(node: ast.AST) -> bool:
+    return (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "relative_to")
 
 
 def _normalizes(fn: ast.AST) -> bool:
@@ -100,6 +105,11 @@ class WirePathTests(unittest.TestCase):
         fn = next(n for n in ast.walk(broken) if isinstance(n, ast.FunctionDef))
         self.assertFalse(_normalizes(fn))
         self.assertTrue(any(_builds_a_path(n) for n in ast.walk(fn)))
+
+        lettered = trees.parse_snippet(
+            "def named(path, root):\n"
+            "    return f'{path.relative_to(root)}:1'\n")
+        self.assertTrue(any(_builds_a_path(n) for n in ast.walk(lettered)))
 
         fixed = trees.parse_snippet(
             "def placements(game_dir, going):\n"

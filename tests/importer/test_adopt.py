@@ -434,7 +434,7 @@ class ImportTests(AdoptCase):
                 "Doom.png": ("GameHelp", b"the card"),
                 "Doom.mp4": ("GameHelp", b"a clip")})
 
-        self.assertEqual([call.args[2].rsplit("/", 1)[-1] for call in put.call_args_list],
+        self.assertEqual([Path(call.args[2]).name for call in put.call_args_list],
                          ["Doom.png"])
         self.assertEqual(row["media"], 1)
 

@@ -69,7 +69,7 @@ class TestEveryButtonSaysWhatPressingItDoes(unittest.TestCase):
                 if _excused(path, node, parents):
                     continue
                 if not _has_hint(node):
-                    offenders.append(f"{path.relative_to(REPO)}:{node.lineno}")
+                    offenders.append(f"{path.relative_to(REPO).as_posix()}:{node.lineno}")
         self.assertGreater(total, 70)
         self.assertEqual(offenders, [], "give it a hint= that says what pressing it does")
 

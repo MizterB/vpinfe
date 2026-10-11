@@ -132,7 +132,7 @@ class SenderTests(unittest.TestCase):
 
     def test_a_wlroots_session_presses_through_wtype(self) -> None:
         found = self._sender(self.SWAY)
-        self.assertEqual((found.via, str(found.path)), ("wtype", "/usr/bin/wtype"))
+        self.assertEqual((found.via, str(found.path)), ("wtype", str(Path("/usr/bin/wtype"))))
 
     def test_without_wtype_it_is_ydotool_through_its_socket(self) -> None:
         found = self._sender({**self.SWAY, "XDG_RUNTIME_DIR": "/run/user/1000"},
@@ -203,11 +203,12 @@ class BackendTests(unittest.TestCase):
         self.assertTrue(simulator.hold("page_up", 0.1))
         self.assertTrue(simulator.combo("ctrl_l", "a"))
 
+        wtype = str(Path("/usr/bin/wtype"))
         self.assertEqual([argv for argv, _ in runner.calls], [
-            ["/usr/bin/wtype", "-k", "p"],
-            ["/usr/bin/wtype", "-k", "Escape"],
-            ["/usr/bin/wtype", "-P", "Prior", "-s", "100", "-p", "Prior"],
-            ["/usr/bin/wtype", "-P", "Control_L", "-P", "a", "-p", "a", "-p", "Control_L"],
+            [wtype, "-k", "p"],
+            [wtype, "-k", "Escape"],
+            [wtype, "-P", "Prior", "-s", "100", "-p", "Prior"],
+            [wtype, "-P", "Control_L", "-P", "a", "-p", "a", "-p", "Control_L"],
         ])
 
     def test_ydotool_presses_the_evdev_number_through_its_socket(self) -> None:
@@ -216,7 +217,7 @@ class BackendTests(unittest.TestCase):
         self.assertTrue(simulator.press_code("KeyP"))
 
         argv, env = runner.calls[0]
-        self.assertEqual(argv, ["/usr/bin/ydotool", "key", "25:1", "25:0"])
+        self.assertEqual(argv, [str(Path("/usr/bin/ydotool")), "key", "25:1", "25:0"])
         self.assertEqual(env["YDOTOOL_SOCKET"], "/tmp/.ydotool_socket")
 
     def test_a_key_with_no_name_here_presses_nothing(self) -> None:

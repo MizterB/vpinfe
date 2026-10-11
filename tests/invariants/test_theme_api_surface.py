@@ -71,7 +71,7 @@ def _called_from_javascript() -> dict[str, set[str]]:
         if path.suffix not in (".js", ".html"):
             continue
         for name in JS_CALL.findall(path.read_text(encoding="utf-8")):
-            found.setdefault(name, set()).add(str(path.relative_to(REPO_ROOT)))
+            found.setdefault(name, set()).add(path.relative_to(REPO_ROOT).as_posix())
     return found
 
 

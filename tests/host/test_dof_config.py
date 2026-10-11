@@ -20,7 +20,9 @@ class WhereTheFolderIsTests(unittest.TestCase):
         self.enterContext(mock.patch("apps.vpx.config._machine_folders", REAL_MACHINE_FOLDERS))
 
     def _on(self, platform: str, **env: str) -> None:
-        environ = {"HOME": str(self.root), "APPDATA": "", "XDG_DATA_HOME": "", **env}
+        home = str(self.root)
+        environ = {"HOME": home, "USERPROFILE": home, "APPDATA": "", "XDG_DATA_HOME": "",
+                   **env}
         self.enterContext(mock.patch.dict(os.environ, environ))
         self.enterContext(mock.patch("sys.platform", platform))
 
@@ -109,7 +111,8 @@ class TheHelperIsGivenItTests(unittest.TestCase):
               mock.patch.object(dof_config, "base_path", return_value=Path("/prefs/10.8"))):
             self.assertTrue(dof_service.start_dof_service_if_enabled(mock.Mock()))
 
-        helper.request.assert_called_once_with("start", timeout=10.0, base_path="/prefs/10.8")
+        helper.request.assert_called_once_with("start", timeout=10.0,
+                                              base_path=str(Path("/prefs/10.8")))
 
     def test_a_platform_with_none_gives_the_runner_its_own_default(self) -> None:
         helper = mock.Mock()

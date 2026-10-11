@@ -51,7 +51,7 @@ class TestEveryButtonCarriesAnIcon(unittest.TestCase):
                 if not _labelled(node) or _excused(path, node):
                     continue
                 if not any(kw.arg == "icon" for kw in node.keywords):
-                    offenders.append(f"{path.relative_to(REPO)}:{node.lineno}")
+                    offenders.append(f"{path.relative_to(REPO).as_posix()}:{node.lineno}")
         self.assertEqual(offenders, [], "give it an icon from console/verbs.py")
 
     def test_every_drawing_is_declared(self) -> None:
@@ -68,7 +68,7 @@ class TestEveryButtonCarriesAnIcon(unittest.TestCase):
                         node.value.value, str):
                     if node.value.value not in allowed:
                         offenders.append(
-                            f"{path.relative_to(REPO)}:{node.lineno} "
+                            f"{path.relative_to(REPO).as_posix()}:{node.lineno} "
                             f"{node.value.value!r}")
         self.assertEqual(offenders, [],
                          "name it in console/verbs.py rather than here")
@@ -85,7 +85,7 @@ class TestEveryButtonCarriesAnIcon(unittest.TestCase):
                             (isinstance(value, ast.Attribute) and value.attr == "SMART")
                             or (isinstance(value, ast.Constant)
                                 and value.value == verbs.SMART)):
-                        worn.append(f"{path.relative_to(REPO)}:{node.lineno}")
+                        worn.append(f"{path.relative_to(REPO).as_posix()}:{node.lineno}")
         self.assertGreater(buttons, 50)
         self.assertEqual(worn, [], "the Smart mark says what a collection is; it is not a verb")
 

@@ -31,7 +31,7 @@ def _calls_ast_parse(tree: ast.Module) -> list[int]:
 
 class ASourceTreeIsParsedOnce(unittest.TestCase):
     def test_no_test_calls_ast_parse_directly(self) -> None:
-        offenders = [f"{path.relative_to(ROOT)}:{line}"
+        offenders = [f"{path.relative_to(ROOT).as_posix()}:{line}"
                      for path in _test_sources()
                      for line in _calls_ast_parse(trees.tree_for(path))]
         self.assertEqual(offenders, [],

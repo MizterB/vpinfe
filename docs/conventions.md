@@ -1751,6 +1751,33 @@ the run exits; a run that passes leaves nothing behind.
 `python -m unittest discover -t . -s tests` runs the same tests in one process and is what CI
 runs; `tests/invariants/test_parallel_runner.py` holds the runner to it.
 
+### A test holds on Windows too
+
+CI runs the suite on Windows, and the mistake below is invisible on the machine that makes
+it. What fails there, and what to write instead:
+
+- **An expected path is built the way the code builds it** - `Path("/usr/bin/x")`,
+  `os.path.join(...)` - never a bare `"/usr/bin/x"` compared with what a `Path` returned,
+  which comes back `\usr\bin\x`. A root-relative `Path("/tmp/x")` gains the current
+  drive on Windows, so compare it with another `Path`, not a string.
+- **A repo-relative path in a message, a key or a comparison is `.as_posix()`.**
+  `tests/invariants/test_wire_paths.py` fails on `str(x.relative_to(...))` or an f-string
+  around one, in the source and in `tests/`.
+- **Text I/O names its encoding.** `read_text`, `write_text` and `open` in text mode
+  default to the host's code page on Windows. CI's lint run enforces `PLW1514`
+  (`ruff check --preview --select PLW1514 .`), so `encoding="utf-8"` is required. When the
+  line ending matters, read and write bytes.
+- **A listing is sorted before it is compared.** `iterdir`, `glob` and `os.scandir` answer
+  in the filesystem's order.
+- **What a handle holds, it releases before the folder goes.** Windows cannot delete or
+  replace an open file, so close it, or use a `with`, before the temp directory is removed.
+- **A fixture Windows cannot hold is skipped by name.** `:`, `*`, `?` and a trailing dot or
+  space in a file name, two names differing only in case, and permission bits are decided
+  by the platform, not the code. Add a decorator to `tests/support/skips.py` with the
+  reason, rather than a bare `skipIf`.
+- **A small or negative timestamp raises on Windows** from `fromtimestamp` and `strftime`.
+  A test uses a realistic one, and the code that formats a stored time does not assume it.
+
 ### A source file is parsed once
 
 A test that reads the tree as Python gets it from `tests/support/trees.py`: `tree_for(path)`

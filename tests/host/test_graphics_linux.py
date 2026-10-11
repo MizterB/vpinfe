@@ -12,6 +12,7 @@ from common.host import graphics
 from common.host.graphics import linux
 from common.host.tools import NVTOP
 from tests.support.programs import found, missing
+from tests.support.skips import needs_colons_in_names
 
 PCI_IDS = """\
 # a comment
@@ -75,6 +76,7 @@ class Tree(unittest.TestCase):
         return node
 
 
+@needs_colons_in_names
 class ListingTests(Tree):
     def amd(self, files: dict[str, str] | None = None) -> None:
         self.node("card0", self.device("0000:03:00.0", "0x1002\n", "0x73bf\n", "amdgpu", files))
@@ -183,6 +185,7 @@ class NvtopTests(Tree):
                 mock.patch.object(graphics.subprocess, "run", return_value=_done(text)):
             self.assertEqual(linux.cards()[0]["source"], "nvtop")
 
+    @needs_colons_in_names
     def test_a_card_with_no_pci_vendor_is_read_by_nvtop_and_the_others_are_not(self) -> None:
         self.vendorless()
         self.node("card0", self.device("0000:03:00.0", "0x1002", "0x73bf", "amdgpu",
@@ -207,6 +210,7 @@ class NvtopTests(Tree):
             self.assertEqual(graphics.read()["cards"][0]["reason"], "nvtop is not installed")
 
 
+@needs_colons_in_names
 class IntelTests(Tree):
     ADDRESS = "0000:00:02.0"
 

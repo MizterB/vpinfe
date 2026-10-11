@@ -58,6 +58,11 @@ CHOSEN = Settings(length=20, wait=15, picture_at=5, fps=30, size="1920",
 FFMPEG = Path("/usr/bin/ffmpeg")
 
 
+def _path(one: str) -> str:
+    """How a path reaches an argument on this platform."""
+    return str(Path(one))
+
+
 def _screen(index: int = 1) -> Output:
     return Output("DP-2", 1080, 0, 1920, 1080, (1920, 1080), 59.94, Turn(), index)
 
@@ -88,9 +93,9 @@ class TokenTests(unittest.TestCase):
 
                     recorder = commands.RECORDERS.get(adapter_id, tools.FFMPEG)
                     self.assertEqual(argv, [
-                        "/usr/bin/ffmpeg", f"/usr/bin/{recorder.id}",
+                        _path("/usr/bin/ffmpeg"), _path(f"/usr/bin/{recorder.id}"),
                         *commands.inputs(adapter_id, _screen(index), ":0", hardware),
-                        "/tmp/a b.mkv", "backglass", "DP-2", str(index), "1080", "0",
+                        _path("/tmp/a b.mkv"), "backglass", "DP-2", str(index), "1080", "0",
                         "1920", "1080", "20", "60",
                         *(HARDWARE[adapter_id][1] if hardware else []),
                         "@DEFAULT_MONITOR@"])
@@ -118,7 +123,7 @@ class TokenTests(unittest.TestCase):
                                                       "playfield", _screen()))
 
         self.assertFalse([one for one in argv if "{" in one], argv)
-        self.assertEqual(argv[:8], ["/usr/bin/ffmpeg", "-ss", "0.500", "-t", "20.000",
+        self.assertEqual(argv[:8], [_path("/usr/bin/ffmpeg"), "-ss", "0.500", "-t", "20.000",
                                     "-i", "raw.mkv", "out.mp4"])
         self.assertEqual(argv[8:15], ["playfield", "DP-2", "1920", "1080", "20", "30",
                                       "-vf"])
@@ -155,7 +160,7 @@ class TokenTests(unittest.TestCase):
         values = commands.record_values(commands.PORTAL, found(), _screen(), "playfield",
                                         Path("o.mkv"), CHOSEN, "")
 
-        self.assertEqual(values["recorder"], "/usr/bin/gstreamer")
+        self.assertEqual(values["recorder"], _path("/usr/bin/gstreamer"))
 
     def test_ffmpeg_everywhere_but_wlroots_is_its_own_recorder(self) -> None:
         for adapter_id in commands.FFMPEG_GRABS:
@@ -181,8 +186,8 @@ class TokenTests(unittest.TestCase):
                                                       Path("/o/c d.mp4"), "playfield",
                                                       _screen()))
 
-        self.assertIn("/r/a b.mkv", argv)
-        self.assertEqual(argv[-1], "/o/c d.mp4")
+        self.assertIn(_path("/r/a b.mkv"), argv)
+        self.assertEqual(argv[-1], _path("/o/c d.mp4"))
         self.assertIn("scale=1920:-2", argv)
 
 
@@ -272,11 +277,11 @@ class OwnCommandTests(unittest.TestCase):
                                Path("/tmp/a b/playfield.mkv"), CHOSEN, "")
 
         self.assertEqual(argv, [
-            "/usr/bin/gstreamer", "-q", "-e", "pipewiresrc", "fd=-1", "path=64",
+            _path("/usr/bin/gstreamer"), "-q", "-e", "pipewiresrc", "fd=-1", "path=64",
             "do-timestamp=true", "keepalive-time=1000", "!", "videoconvert", "!",
             "videorate", "!", "video/x-raw,framerate=60/1", "!", "x264enc",
             "speed-preset=ultrafast", "pass=qual", "quantizer=18", "!", "matroskamux", "!",
-            "filesink", "location=/tmp/a b/playfield.mkv"])
+            "filesink", f"location={_path('/tmp/a b/playfield.mkv')}"])
 
     def test_a_session_with_no_way_to_record_has_no_record_command(self) -> None:
         self.assertEqual(commands.own("wayland", {}, ""),

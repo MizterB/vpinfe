@@ -8,6 +8,7 @@ field its row cannot hold is refused before anything is.
 from __future__ import annotations
 
 import configparser
+import socket
 import time
 import unittest
 from pathlib import Path
@@ -27,6 +28,17 @@ from tests.support.library import TempTree, game_info, write_game
 FIRST, SECOND = "Mark00000001", "Mark00000002"
 FOLDERS = {FIRST: "Medieval Madness (Williams 1997)", SECOND: "Twilight Zone (Bally 1993)"}
 EXTRA = "Medieval Madness Remix.vpx"
+
+_LOOPBACK = ("127.0.0.1", "::1", "localhost")
+_CONNECT = socket.socket.connect
+
+
+def _offline(sock: socket.socket, address: object) -> None:
+    """Refuse every connection but the loopback one: Windows builds an event loop's wake-up
+    pair with a connect to itself, and the test client makes a loop for each request."""
+    if isinstance(address, tuple) and address[0] in _LOOPBACK:
+        return _CONNECT(sock, address)
+    raise OSError("offline")
 
 
 class MarksTests(TempTree):
@@ -54,7 +66,7 @@ class MarksTests(TempTree):
 
         for patcher in (
                 mock.patch.object(VPXParser, "single_file_extract", self._read),
-                mock.patch("socket.socket.connect", side_effect=OSError("offline")),
+                mock.patch("socket.socket.connect", _offline),
                 mock.patch("common.games.watching.note_games"),
                 mock.patch("common.games.media_fill.request"),
                 mock.patch.dict(unwritten._HELD, clear=True),

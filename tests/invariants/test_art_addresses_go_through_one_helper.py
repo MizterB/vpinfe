@@ -36,7 +36,7 @@ def _addresses(path: pathlib.Path) -> list[str]:
         pieces = _fragments(path)
     else:
         pieces = list(enumerate(path.read_text(encoding="utf-8").splitlines(), 1))
-    return [f"{path.relative_to(REPO)}:{line}" for line, text in pieces
+    return [f"{path.relative_to(REPO).as_posix()}:{line}" for line, text in pieces
             if any(root in text for root in ART_ROOTS)]
 
 

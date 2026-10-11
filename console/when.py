@@ -96,9 +96,18 @@ def clock_seconds(at: datetime) -> str:
     return at.strftime("%H:%M:%S")
 
 
+def from_epoch(epoch: float) -> datetime:
+    """An epoch time as an aware local datetime.
+
+    Converted from UTC: on Windows a naive datetime near 1970 cannot be placed in the local
+    zone, and a value that small is a clock that was never set or a test's stand-in.
+    """
+    return datetime.fromtimestamp(epoch, UTC).astimezone()
+
+
 def at_second(epoch: float) -> str:
     """An epoch time as local wall time to the second."""
-    at = datetime.fromtimestamp(epoch).astimezone()
+    at = from_epoch(epoch)
     return t("date.day_and_time", day=day(at), time=clock_seconds(at))
 
 

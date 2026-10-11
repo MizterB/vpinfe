@@ -45,7 +45,7 @@ class AStagedFileIsMadeOneWayTests(unittest.TestCase):
         for package in PACKAGES:
             for path in sorted((REPO / package).rglob("*.py")):
                 if path != HELPER:
-                    found += [f"{path.relative_to(REPO)}:{line}"
+                    found += [f"{path.relative_to(REPO).as_posix()}:{line}"
                               for line in _offenders(trees.tree_for(path))]
         self.assertEqual(found, [], "stage it with common.atomic_write.staged_for")
 

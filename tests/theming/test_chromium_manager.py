@@ -102,7 +102,7 @@ class ChromiumManagerTests(unittest.TestCase):
         # Quietly falling back to another browser would hide that the setting is wrong.
         with mock.patch("frontend.chromium_manager.os.path.isfile", return_value=False):
             self.assertEqual(chromium_manager.get_chromium_path("/nowhere/chrome"),
-                             chromium_manager.ChromiumPath("/nowhere/chrome", True))
+                             chromium_manager.ChromiumPath(str(Path("/nowhere/chrome")), True))
 
     def test_blank_browser_program_finds_one_as_before(self) -> None:
         chrome = "/usr/bin/google-chrome-stable"
@@ -119,13 +119,13 @@ class ChromiumManagerTests(unittest.TestCase):
         with mock.patch("frontend.chromium_manager.configured_browser_path",
                         return_value="/opt/chrome/chrome"):
             self.assertEqual(chromium_manager.get_chromium_path(),
-                             chromium_manager.ChromiumPath("/opt/chrome/chrome", True))
+                             chromium_manager.ChromiumPath(str(Path("/opt/chrome/chrome")), True))
 
     def test_a_mac_app_bundle_resolves_to_the_program_inside(self) -> None:
         app = "/Applications/Google Chrome.app"
         with mock.patch("common.launcher_path.sys.platform", "darwin"):
             self.assertEqual(chromium_manager.get_chromium_path(app).path,
-                             f"{app}/Contents/MacOS/Google Chrome")
+                             str(Path(app, "Contents", "MacOS", "Google Chrome")))
 
     def test_google_chrome_path_finds_it_on_linux_and_answers_none_without_it(self) -> None:
         chrome = "/usr/bin/google-chrome"
@@ -400,6 +400,16 @@ class WindowRoleTests(unittest.TestCase):
             events.append((name, override, kwargs["mute_audio"]))
             manager._processes.append((name, mock.Mock(pid=100 + index), "", monitor))
 
+        # `time.sleep` is the process's, so a thread another test left running would
+        # write its pauses into `events` too; only this thread's are the launch's.
+        launching, really_sleep = threading.get_ident(), chromium_manager.time.sleep
+
+        def sleep(seconds: float) -> None:
+            if threading.get_ident() == launching:
+                events.append("pause")
+            else:
+                really_sleep(seconds)
+
         with (
             mock.patch.object(theme_windows, "active",
                               return_value=theme_windows.DEFAULT_WINDOWS[contract]),
@@ -407,8 +417,7 @@ class WindowRoleTests(unittest.TestCase):
             mock.patch.object(chromium_manager, "get_mac_screens", return_value=screens),
             mock.patch.object(ChromiumManager, "launch_window", launch),
             mock.patch.object(ChromiumManager, "_focus_game_window_mac"),
-            mock.patch.object(chromium_manager.time, "sleep",
-                              side_effect=lambda _seconds: events.append("pause")),
+            mock.patch.object(chromium_manager.time, "sleep", side_effect=sleep),
         ):
             manager = ChromiumManager()
             manager.launch_all_windows(config)

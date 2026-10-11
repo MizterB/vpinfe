@@ -89,7 +89,7 @@ class LibraryIsReadOnceTests(unittest.TestCase):
                 for first, second in zip(body, body[1:], strict=False):
                     name = _tableparser_target(first)
                     if name and _is_reload_of(second, name):
-                        offenders.append(f"{path.relative_to(REPO_ROOT)}:{second.lineno}")
+                        offenders.append(f"{path.relative_to(REPO_ROOT).as_posix()}:{second.lineno}")
 
         self.assertEqual(offenders, [], "TableParser is constructed then reloaded at: "
                                         + ", ".join(offenders))

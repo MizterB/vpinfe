@@ -41,7 +41,7 @@ class TestLinksGoThroughTheConstructors(unittest.TestCase):
             if path.name in ALLOWED:
                 continue
             tree = trees.tree_for(path)
-            offenders += [f"{path.relative_to(REPO)}:{node.lineno}"
+            offenders += [f"{path.relative_to(REPO).as_posix()}:{node.lineno}"
                           for node in _calls(tree) if _is_ui_link(node)]
         self.assertEqual(offenders, [],
                          "use panel.link or panel.link_out")

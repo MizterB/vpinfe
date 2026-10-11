@@ -103,7 +103,7 @@ class TheHeaderMenu(unittest.TestCase):
 class EveryGridAsks(unittest.TestCase):
     def test_pin_left_is_drawn_by_the_shared_header_menu_alone(self) -> None:
         """A grid with its own copy of the menu would offer a pin it cannot keep."""
-        drawn = [f"console/{path.relative_to(CONSOLE)}:{node.lineno}"
+        drawn = [f"console/{path.relative_to(CONSOLE).as_posix()}:{node.lineno}"
                  for path in sorted(CONSOLE.rglob("*.py"))
                  for node in ast.walk(trees.tree_for(path))
                  if isinstance(node, ast.Call) and getattr(node.func, "id", "") == "t"

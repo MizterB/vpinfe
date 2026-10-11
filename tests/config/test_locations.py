@@ -464,8 +464,9 @@ class WritesAreCheckedTests(_WithStore, unittest.TestCase):
         self.assertTrue(self._refused({"id": "a", "path": "testbed/tables"}))
 
     def test_a_second_row_for_one_place_is_refused_by_name(self) -> None:
-        said = self._refused({"id": "a", "path": "/mnt/pinball"},
-                             {"id": "b", "path": "/mnt/pinball/"})
+        place = self.root / "pinball"
+        said = self._refused({"id": "a", "path": str(place)},
+                             {"id": "b", "path": f"{place}{os.sep}"})
 
         self.assertIn("pinball", said)
 

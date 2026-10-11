@@ -863,7 +863,7 @@ class ChromiumManager:
         """Recursively find all descendant PIDs via /proc on Linux."""
         descendants = []
         try:
-            with open(f"/proc/{pid}/task/{pid}/children") as f:
+            with open(f"/proc/{pid}/task/{pid}/children", encoding="utf-8") as f:
                 for child_str in f.read().split():
                     child_pid = int(child_str)
                     descendants.append(child_pid)

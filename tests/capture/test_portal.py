@@ -475,10 +475,10 @@ class AdapterTests(_Kept):
 
         argv = self.adapter().still(found(), output, Path("/tmp/a b/playfield.png"))
 
-        self.assertEqual(argv, ["/usr/bin/gstreamer", "-q", "pipewiresrc", "fd=23",
+        self.assertEqual(argv, [str(Path("/usr/bin/gstreamer")), "-q", "pipewiresrc", "fd=23",
                                 "path=64", "do-timestamp=true", "keepalive-time=1000",
                                 "num-buffers=1", "!", "videoconvert", "!", "pngenc", "!",
-                                "filesink", "location=/tmp/a b/playfield.png"])
+                                "filesink", f"location={Path('/tmp/a b/playfield.png')}"])
 
 
 def _unreachable() -> portal.Bus:

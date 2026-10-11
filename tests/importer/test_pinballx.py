@@ -15,6 +15,7 @@ import unittest.mock
 from pathlib import Path
 
 from common.extensions import host
+from tests.support.skips import needs_colons_in_names
 
 REPO = Path(__file__).resolve().parents[2]
 FIXTURE = REPO / "tests" / "fixtures" / "pinballx"
@@ -424,6 +425,7 @@ class NamesTests(unittest.TestCase):
         self.assertEqual(self._images("Terminator 2: Judgment Day"),
                          ["Terminator 2 Judgment Day (Williams 1991).png"])
 
+    @needs_colons_in_names
     def test_a_file_that_kept_the_character_is_still_found(self) -> None:
         self._add_game("Terminator 2: Judgment Day", "Terminator 2: Judgment Day (Williams 1991)")
         (self.images / "Terminator 2: Judgment Day.png").write_bytes(b"x")

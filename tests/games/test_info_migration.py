@@ -398,7 +398,7 @@ class BackupTests(TempTree):
         second = write_backup(str(self.info), json.dumps({"Info": {}}), stamp)
 
         self.assertNotEqual(first, second)
-        self.assertEqual(json.loads(Path(second).read_text()), {"Info": {}})
+        self.assertEqual(json.loads(Path(second).read_text(encoding="utf-8")), {"Info": {}})
 
     def test_an_unreadable_backup_is_refused_rather_than_written(self):
         with self.assertRaises(json.JSONDecodeError):

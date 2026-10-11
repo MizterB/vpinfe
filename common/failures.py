@@ -50,11 +50,39 @@ def why(exc: BaseException, at: str | os.PathLike[str] = "") -> str:
     host, path = _where(at)
     if upstream(exc):
         return _unanswered(exc, host)
-    if isinstance(exc, OSError) and exc.errno in _FILES:
-        bare, named = _FILES[exc.errno]
+    if isinstance(exc, OSError) and _errno(exc) in _FILES:
+        bare, named = _FILES[_errno(exc)]
         path = _path(exc.filename) or path
         return t(named, path=path) if path else t(bare)
     return _raw(exc)
+
+
+def _errno(exc: OSError) -> int:
+    """The exception's errno, with what Windows reports under the wrong one corrected.
+
+    Opening a folder as a file fails there with EACCES, and opening a link that leads
+    back to itself with EINVAL. Both come from the C runtime, which sets no winerror,
+    so a refused folder (which does set one) is not mistaken for a file.
+    """
+    if os.name == "nt" and exc.filename and getattr(exc, "winerror", None) is None:
+        path = _path(exc.filename)
+        if exc.errno == errno.EACCES and os.path.isdir(path):
+            return errno.EISDIR
+        if exc.errno == errno.EINVAL and _loops(path):
+            return errno.ELOOP
+    return exc.errno or 0
+
+
+def _loops(path: str) -> bool:
+    if not os.path.islink(path):
+        return False
+    try:
+        os.path.realpath(path, strict=True)
+    except FileNotFoundError:
+        return False
+    except (OSError, RuntimeError):
+        return True
+    return False
 
 
 def upstream(exc: BaseException) -> bool:

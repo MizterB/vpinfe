@@ -69,7 +69,7 @@ def one_shot_timers(tree: ast.AST) -> list[tuple[int, str]]:
 
 
 def _console() -> dict[str, list[tuple[int, str]]]:
-    return {str(path.relative_to(CONSOLE)): one_shot_timers(trees.tree_for(path))
+    return {path.relative_to(CONSOLE).as_posix(): one_shot_timers(trees.tree_for(path))
             for path in sorted(CONSOLE.rglob("*.py"))}
 
 

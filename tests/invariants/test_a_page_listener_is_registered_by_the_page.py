@@ -101,7 +101,7 @@ def _tree() -> list[tuple[str, int, str, bool]]:
         if where.parts[0] in NOT_SOURCE:
             continue
         tree = trees.tree_for(path)
-        found += [(str(where), *one) for one in _registrations(tree)]
+        found += [(where.as_posix(), *one) for one in _registrations(tree)]
     return found
 
 

@@ -59,7 +59,7 @@ def declared(tree: ast.Module) -> list[str]:
 
 
 def _tests() -> dict[str, ast.Module]:
-    return {str(path.relative_to(ROOT)): trees.tree_for(path)
+    return {path.relative_to(ROOT).as_posix(): trees.tree_for(path)
             for path in sorted(TESTS.rglob("test_*.py"))}
 
 

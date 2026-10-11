@@ -428,7 +428,7 @@ class _TableCase(unittest.TestCase):
         self.table = os.path.join(folder, "afm.vpx")
         pathlib.Path(self.table).touch()
         pathlib.Path(folder, "Attack from Mars.ini").write_text(
-            "[Player]\nBallTrail = 1\nFXAA = 3\n")
+            "[Player]\nBallTrail = 1\nFXAA = 3\n", encoding="utf-8")
         self.beside = os.path.join(folder, "afm.ini")
         patcher = patch("common.games.launcher_ops._game_file", return_value=self.table)
         patcher.start()
@@ -447,7 +447,7 @@ class GameFileTests(_TableCase):
     def test_a_table_s_first_value_of_its_own_is_all_its_file_holds(self) -> None:
         self._write(values={"Backglass.BackglassWndX": "137"})
 
-        self.assertEqual(pathlib.Path(self.beside).read_text(),
+        self.assertEqual(pathlib.Path(self.beside).read_text(encoding="utf-8"),
                          "[Backglass]\nBackglassWndX = 137\n")
 
     def test_a_write_to_the_game_s_file_is_refused(self) -> None:
@@ -474,10 +474,10 @@ class GameFileTests(_TableCase):
 
     def test_what_it_sets_that_a_table_with_its_own_file_does_not_read(self) -> None:
         app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
-        app_ini.write_text("[Player]\nFXAA = 1\n")
+        app_ini.write_text("[Player]\nFXAA = 1\n", encoding="utf-8")
         put_launcher(self.client, "l1", json={"app": "vpx", "settings": {
             "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
-        pathlib.Path(self.beside).write_text("[Player]\nFXAA = 2\n")
+        pathlib.Path(self.beside).write_text("[Player]\nFXAA = 2\n", encoding="utf-8")
 
         at_table = self.client.get("/launchers/l1/config?table=t1&scope=entry").json()
         at_launcher = self.client.get("/launchers/l1/config?table=t1&scope=launcher").json()
@@ -491,7 +491,7 @@ class ClearingTests(_TableCase):
         """The game's value, where clearing takes the table file's last key and the file
         with it."""
         app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
-        app_ini.write_text("[Player]\nFXAA = 1\n")
+        app_ini.write_text("[Player]\nFXAA = 1\n", encoding="utf-8")
         put_launcher(self.client, "l1", json={"app": "vpx", "settings": {
             "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
         self._write(values={"Player.FXAA": "2"})
@@ -610,7 +610,7 @@ class BlankWordsTests(_TableCase):
     def test_a_window_size_left_blank_reads_auto_from_the_screen(self) -> None:
         app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
         app_ini.write_text("[Player]\n; Width: Width of the window [Default: 16384]\n"
-                           "PlayfieldWidth =\nFXAA = 1\n")
+                           "PlayfieldWidth =\nFXAA = 1\n", encoding="utf-8")
         put_launcher(self.client, "l1", json={"app": "vpx", "settings": {
             "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
 
@@ -628,7 +628,7 @@ class NamedValuesTests(_TableCase):
     def test_frame_limit_s_minus_one_and_zero_are_named_in_the_app_s_words(self) -> None:
         app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
         app_ini.write_text("[Player]\n; Limit Framerate:  [Default: -1.0 in -1.0 .. 1000.0]:\n"
-                           "MaxFramerate =\nFXAA = 1\n")
+                           "MaxFramerate =\nFXAA = 1\n", encoding="utf-8")
         put_launcher(self.client, "l1", json={"app": "vpx", "settings": {
             "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
 
@@ -644,10 +644,10 @@ class ReportedValuesTests(_TableCase):
     def test_a_window_s_display_carries_the_names_vpx_used(self) -> None:
         app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
         app_ini.write_text("[Player]\n; Display: Where [Default: '']\nPlayfieldDisplay =\n"
-                           "FXAA = 1\n")
+                           "FXAA = 1\n", encoding="utf-8")
         log = pathlib.Path(self.tmp.name, "vpinball.log")
         log.write_text('INFO [VPX::Window::Window@86] No display configured. '
-                       'Using display "Built-in Display".\n')
+                       'Using display "Built-in Display".\n', encoding="utf-8")
         put_launcher(self.client, "l1", json={"app": "vpx", "settings": {
             "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
 
@@ -667,11 +667,12 @@ class PointOfViewTests(_TableCase):
             "[Player]\n; View Mode: Which setup [Default: 0, 0='Desktop', 1='Cabinet']\n"
             "BGSet = 1\n[TableOverride]\n"
             "; View mode: How [Default: 2, 0='Legacy', 1='Camera', 2='Window']\n"
-            "ViewCabMode =\n; Field of view: How wide [Default: 55]\nViewCabFOV =\n")
+            "ViewCabMode =\n; Field of view: How wide [Default: 55]\nViewCabFOV =\n",
+            encoding="utf-8")
         put_launcher(self.client, "l1", json={"app": "vpx", "settings": {
             "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
         pathlib.Path(self.beside).write_text("[TableOverride]\nViewCabFOV = 50\n"
-                                            "[TableOption]\nBall_Speed = 2\n")
+                                            "[TableOption]\nBall_Speed = 2\n", encoding="utf-8")
 
     def _groups(self) -> dict:
         got = self.client.get("/launchers/l1/config?table=t1&scope=entry")
@@ -703,7 +704,7 @@ class TwoVersionRowTests(_TableCase):
     def setUp(self) -> None:
         super().setUp()
         app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
-        app_ini.write_text("[Plugin.B2SLegacy]\nEnable = 1\nB2SDualMode =\n")
+        app_ini.write_text("[Plugin.B2SLegacy]\nEnable = 1\nB2SDualMode =\n", encoding="utf-8")
         put_launcher(self.client, "l1", json={"app": "vpx", "settings": {
             "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
 
@@ -737,7 +738,8 @@ class BackglassPluginAtATableTests(_TableCase):
         super().setUp()
         app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
         app_ini.write_text("[Plugin.B2S]\nEnable = 1\n"
-                           + "".join(f"{key.rsplit('.', 1)[-1]} = \n" for key in self.VALUES))
+                           + "".join(f"{key.rsplit('.', 1)[-1]} = \n" for key in self.VALUES),
+                           encoding="utf-8")
         put_launcher(self.client, "l1", json={"app": "vpx", "settings": {
             "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
 
@@ -823,7 +825,7 @@ class _BackglassPanel(_TableCase, unittest.IsolatedAsyncioTestCase):
         app_ini.write_text(
             "[Plugin.B2S]\nEnable = 1\nBackglassDMDOverlay = 1\nScoreViewDMDOverlay = 1\n"
             + "".join(f"{key.rsplit('.', 1)[-1]} = \n"
-                      for key in BackglassPluginAtATableTests.VALUES))
+                      for key in BackglassPluginAtATableTests.VALUES), encoding="utf-8")
         put_launcher(self.client, "l1", json={"app": "vpx", "settings": {
             "bin_path": str(program), "ini_path": str(app_ini)}})
         api = ApiClient("http://testserver")
@@ -1028,7 +1030,7 @@ class AllTablesOnlyTests(_TableCase):
         super().setUp()
         app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
         app_ini.write_text("[Input]\nNudgeSensorCount = 2\n\n"
-                           "[Player]\nShowFPS = 0\nFXAA = 1\n")
+                           "[Player]\nShowFPS = 0\nFXAA = 1\n", encoding="utf-8")
         put_launcher(self.client, "l1", json={"app": "vpx", "settings": {
             "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
 
@@ -1052,7 +1054,7 @@ class AllTablesOnlyTests(_TableCase):
                 self.assertIn("Player.FXAA", offered)
 
     def test_one_a_table_s_file_already_holds_is_still_listed(self) -> None:
-        pathlib.Path(self.beside).write_text("[Player]\nShowFPS = 1\n")
+        pathlib.Path(self.beside).write_text("[Player]\nShowFPS = 1\n", encoding="utf-8")
 
         offered = self._offered("entry")
 
@@ -1065,12 +1067,12 @@ class AllTablesOnlyTests(_TableCase):
         self.assertFalse(os.path.exists(self.beside))
 
     def test_clearing_one_at_a_table_is_not(self) -> None:
-        pathlib.Path(self.beside).write_text("[Player]\nShowFPS = 1\nFXAA = 3\n")
+        pathlib.Path(self.beside).write_text("[Player]\nShowFPS = 1\nFXAA = 3\n", encoding="utf-8")
 
         got = self._write(values={"Player.ShowFPS": ""})
 
         self.assertEqual(got.status_code, 200, got.text)
-        self.assertNotIn("ShowFPS", pathlib.Path(self.beside).read_text())
+        self.assertNotIn("ShowFPS", pathlib.Path(self.beside).read_text(encoding="utf-8"))
 
 
 class TableOnlyTests(_TableCase):
@@ -1117,7 +1119,7 @@ class CuratedTests(_TableCase):
         super().setUp()
         app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
         app_ini.write_text("[Player]\nPlaySound = 1\nSound3D = 0\nShowFPS = 0\n\n"
-                           "[Plugin.PinMAME]\nEnable = 1\nPinMAMEPath =\n")
+                           "[Plugin.PinMAME]\nEnable = 1\nPinMAMEPath =\n", encoding="utf-8")
         put_launcher(self.client, "l1", json={"app": "vpx", "settings": {
             "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
 
@@ -1138,7 +1140,8 @@ class CuratedTests(_TableCase):
 
     def test_a_heading_carries_its_pairs_with_their_words(self) -> None:
         pathlib.Path(self.tmp.name, "VPinballX.ini").write_text(
-            "[Player]\nPlayfieldWndX = 0\nPlayfieldWndY = 0\nPlayfieldWidth = 0\n")
+            "[Player]\nPlayfieldWndX = 0\nPlayfieldWndY = 0\nPlayfieldWidth = 0\n",
+            encoding="utf-8")
 
         playfield, = self._groups("launcher")["displays"]["curated"]
 
@@ -1148,9 +1151,10 @@ class CuratedTests(_TableCase):
 
     def test_a_plugin_heading_names_the_rival_switches_the_file_has(self) -> None:
         app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
-        app_ini.write_text("[Plugin.B2S]\nEnable = 1\n\n[Plugin.B2SLegacy]\nEnable = 0\n")
+        app_ini.write_text("[Plugin.B2S]\nEnable = 1\n\n[Plugin.B2SLegacy]\nEnable = 0\n",
+                           encoding="utf-8")
         both = {h["key"]: h["rivals"] for h in self._groups("launcher")["plugins"]["curated"]}
-        app_ini.write_text("[Plugin.B2S]\nEnable = 1\n")
+        app_ini.write_text("[Plugin.B2S]\nEnable = 1\n", encoding="utf-8")
         alone = {h["key"]: h["rivals"] for h in self._groups("launcher")["plugins"]["curated"]}
 
         self.assertEqual(both, {"B2S": ["Plugin.B2SLegacy.Enable"],

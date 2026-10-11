@@ -82,7 +82,7 @@ class TestADeclaredNoneStaysNone(unittest.TestCase):
             for path in sorted((REPO / folder).rglob("*.py")):
                 if "__pycache__" in path.parts:
                     continue
-                name = str(path.relative_to(REPO))
+                name = path.relative_to(REPO).as_posix()
                 if name in REVIEWED:
                     continue
                 for line in _reads(path):

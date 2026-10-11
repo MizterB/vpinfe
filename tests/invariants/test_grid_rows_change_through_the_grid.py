@@ -25,7 +25,7 @@ HELD_AT = {("grid", "transact"): 1, ("grid", "replace_rows"): 1,
 
 
 def _sends(path: pathlib.Path) -> list[str]:
-    return [f"{path.relative_to(REPO)}:{number}"
+    return [f"{path.relative_to(REPO).as_posix()}:{number}"
             for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
             if CALL in line]
 

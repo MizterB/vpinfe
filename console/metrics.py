@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from datetime import datetime
 from typing import Any
 
 from nicegui import ui
@@ -383,7 +382,7 @@ def _keep_marks(target: Any, held: dict[tuple[float, str, str], Any],
 
 def _mark_said(mark: dict[str, Any]) -> str:
     """What happened and when: a job by what it is, a table by its game."""
-    at = datetime.fromtimestamp(float(mark.get("at") or 0)).astimezone()
+    at = when.from_epoch(float(mark.get("at") or 0))
     if mark.get("kind") == "job":
         what = str(mark.get("title") or "") or jobs_list.what_ran(str(mark.get("name") or ""))
     elif mark.get("name"):

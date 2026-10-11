@@ -218,7 +218,9 @@ def place(game_dir: str | Path, kind: str, stem: str, source: str | Path,
     target = medias / name
 
     for sibling in list(_family_at_tier(game_dir, kind, stem, number)):
-        if sibling != target:
+        # By spelling: where the filesystem ignores case, a Path of another case compares
+        # equal, and a file kept under its old spelling would be written over in place.
+        if str(sibling) != str(target):
             try:
                 sibling.unlink()
             except OSError:

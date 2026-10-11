@@ -50,7 +50,7 @@ class X11Tests(unittest.TestCase):
                          [str(FFMPEG), "-hide_banner", "-loglevel", "error", "-y",
                           "-f", "x11grab", "-framerate", "60", "-draw_mouse", "0",
                           "-video_size", "1920x1080", "-i", ":1.0+1080,0",
-                          "-frames:v", "1", "-update", "1", "/w/bg.png"])
+                          "-frames:v", "1", "-update", "1", str(Path("/w/bg.png"))])
 
     def test_x11grab_reads_the_screen_as_shown(self) -> None:
         output = self.adapter.outputs()[0]

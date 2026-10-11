@@ -229,8 +229,9 @@ class InEffectTests(unittest.TestCase):
     def test_an_empty_settings_file_is_visual_pinballs_own(self) -> None:
         one = launchers.Launcher(launcher_id="a", app="vpx", settings={"ini_path": ""})
 
-        with patch("apps.vpx.config.own_file", return_value=Path("/prefs/VPinballX.ini")):
-            self.assertEqual(one.in_effect("ini_path"), "/prefs/VPinballX.ini")
+        own = Path("/prefs/VPinballX.ini")
+        with patch("apps.vpx.config.own_file", return_value=own):
+            self.assertEqual(one.in_effect("ini_path"), str(own))
             self.assertEqual(one.value("ini_path"), "")
 
     def test_a_set_one_is_itself(self) -> None:

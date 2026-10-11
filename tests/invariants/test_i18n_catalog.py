@@ -122,7 +122,7 @@ def _literal_words(tree: ast.AST) -> list[tuple[int, str]]:
 
 class TestRegistriesHoldNoWords(unittest.TestCase):
     def test_no_converted_declaration_carries_a_literal(self) -> None:
-        offenders = [f"{path.relative_to(ROOT)}:{line} {said}"
+        offenders = [f"{path.relative_to(ROOT).as_posix()}:{line} {said}"
                      for root in ("common", "apps")
                      for path in sorted((ROOT / root).rglob("*.py"))
                      if "__pycache__" not in path.parts
@@ -787,7 +787,7 @@ def _fault(path, call, kwarg, node, held: dict[int, list[ast.expr]] | None = Non
     if isinstance(node, ast.Name) and held and node.id not in following:
         return [fault for one in held.get(id(node), ())
                 for fault in _fault(path, call, kwarg, one, held, following | {node.id})]
-    where = f"{path.relative_to(ROOT)}:{node.lineno}"
+    where = f"{path.relative_to(ROOT).as_posix()}:{node.lineno}"
     shown = f"{call}({kwarg}=" if kwarg else f"{call}("
     # A conditional picks between two sentences and a + joins one to another, and both
     # are still words typed where they are shown. Four of these sat behind a check that
@@ -923,7 +923,7 @@ class TestNoBareDisplayLiterals(unittest.TestCase):
                 for spot in spots:
                     if isinstance(spot, ast.Name) and spot.id in held \
                        and _is_text(held[spot.id]):
-                        offenders.append(f"{path.relative_to(ROOT)}:{spot.lineno} "
+                        offenders.append(f"{path.relative_to(ROOT).as_posix()}:{spot.lineno} "
                                          f"{name}({spot.id}) where {spot.id} = "
                                          f"{held[spot.id][:40]!r}")
         self.assertEqual(offenders, [], "the constant should hold a key, not a sentence")
@@ -945,7 +945,7 @@ class TestNoBareDisplayLiterals(unittest.TestCase):
                     # Three words and a capital: a sentence, not a key or a CSS class
                     if len(said.split()) >= 3 and said[:1].isupper() \
                        and not said.startswith(("console.", "frontend.", "error.")):
-                        offenders.append(f"{path.relative_to(ROOT)}:{node.lineno} "
+                        offenders.append(f"{path.relative_to(ROOT).as_posix()}:{node.lineno} "
                                          f"return {said[:44]!r}")
         self.assertEqual(offenders, [], "return a key and let the caller resolve it")
 
@@ -964,7 +964,7 @@ class TestNoBareDisplayLiterals(unittest.TestCase):
                 for key, value in zip(node.keys, node.values, strict=True):
                     if isinstance(key, ast.Constant) and key.value in DISPLAY_KWARGS \
                        and isinstance(value, ast.Constant) and _is_text(value.value):
-                        offenders.append(f"{path.relative_to(ROOT)}:{value.lineno} "
+                        offenders.append(f"{path.relative_to(ROOT).as_posix()}:{value.lineno} "
                                          f'{{"{key.value}": {value.value!r}}}')
         self.assertEqual(offenders, [], "call t() and put the words in the catalog")
 
@@ -1104,7 +1104,8 @@ class TestWordsHandedToQuasar(unittest.TestCase):
             if "__pycache__" in path.parts:
                 continue
             tree = trees.tree_for(path)
-            offenders += [f"{path.relative_to(ROOT)}:{said}" for said in _prop_words(tree)]
+            where = path.relative_to(ROOT).as_posix()
+            offenders += [f"{where}:{said}" for said in _prop_words(tree)]
         self.assertEqual(offenders, [], "call t() and put the words in the catalog")
 
     def test_no_picker_is_handed_words(self) -> None:
@@ -1115,7 +1116,7 @@ class TestWordsHandedToQuasar(unittest.TestCase):
             tree = trees.tree_for(path)
             seen = _Options(_reachable_constants(tree))
             seen.visit(tree)
-            offenders += [f"{path.relative_to(ROOT)}:{said}" for said in seen.found]
+            offenders += [f"{path.relative_to(ROOT).as_posix()}:{said}" for said in seen.found]
         self.assertEqual(offenders, [], "call t() and put the words in the catalog")
 
     def test_each_road_is_read(self) -> None:
@@ -1470,7 +1471,7 @@ class TestPluralsComeFromTheCatalog(unittest.TestCase):
                     continue
                 seen = _PluralSuffixes()
                 seen.visit(trees.tree_for(path))
-                offenders += [f"{path.relative_to(ROOT)}:{line}" for line in seen.found]
+                offenders += [f"{path.relative_to(ROOT).as_posix()}:{line}" for line in seen.found]
         self.assertEqual(offenders, [], "give the key one/other forms and pass count=")
 
     def test_no_entry_writes_a_plural_as_a_suffix(self) -> None:
@@ -1497,7 +1498,8 @@ class TestPluralsComeFromTheCatalog(unittest.TestCase):
             if path.suffix not in (".html", ".js") or "vendor" in path.parts:
                 continue
             text = path.read_text(encoding="utf-8", errors="ignore")
-            offenders += [f"{path.relative_to(ROOT)}:{text.count(chr(10), 0, m.start()) + 1}"
+            where = path.relative_to(ROOT).as_posix()
+            offenders += [f"{where}:{text.count(chr(10), 0, m.start()) + 1}"
                           for m in PAGE_CHOOSES_A_FORM.finditer(text)]
         self.assertEqual(offenders, [], "pass { one, other } as the English and count in params")
 
@@ -1519,7 +1521,8 @@ class TestFrontendChrome(unittest.TestCase):
                 if tag.lower() in UNCHECKED_TAGS or "data-i18n" in attrs:
                     continue
                 if _reads_as_prose(text):
-                    offenders.append(f"{path.relative_to(ROOT)}: <{tag}>{text.strip()[:40]}")
+                    where = path.relative_to(ROOT).as_posix()
+                    offenders.append(f"{where}: <{tag}>{text.strip()[:40]}")
         self.assertEqual(offenders, [], 'add data-i18n="<key>" and put the words in the catalog')
 
     def test_nothing_writes_a_literal_into_the_page(self) -> None:
@@ -1532,7 +1535,7 @@ class TestFrontendChrome(unittest.TestCase):
             for prop, quote, said, template in WRITES_TEXT.findall(text):
                 for one in [said] if quote else _template_words(template):
                     if _reads_as_prose(one):
-                        offenders.append(f"{path.relative_to(ROOT)}: {prop} = "
+                        offenders.append(f"{path.relative_to(ROOT).as_posix()}: {prop} = "
                                          f"{one.strip()[:40]!r}")
         self.assertEqual(offenders, [], "call t(key, english) instead")
 
@@ -1554,7 +1557,7 @@ class TestFrontendChrome(unittest.TestCase):
         for path in sorted(STATIC.rglob("*.html")):
             for key in re.findall(r'data-i18n="([^"]+)"', path.read_text(encoding="utf-8")):
                 if key not in served:
-                    missing.append(f"{path.relative_to(ROOT)}: {key}")
+                    missing.append(f"{path.relative_to(ROOT).as_posix()}: {key}")
         self.assertEqual(missing, [], "the markup names a key the catalog does not hold")
 
 
@@ -1585,7 +1588,7 @@ class TestPanelFactLabels(unittest.TestCase):
                 if len(said) < 3 or not said[:1].isupper():
                     continue
                 if _re.fullmatch(r"[A-Za-z][A-Za-z '/-]*", said):
-                    offenders.append(f"{path.relative_to(ROOT)}:{label.lineno} "
+                    offenders.append(f"{path.relative_to(ROOT).as_posix()}:{label.lineno} "
                                      f"({said!r}, ...)")
         self.assertEqual(offenders, [], "a fact's label belongs in the catalog too")
 
@@ -1615,7 +1618,7 @@ class TestEveryKeyIsServed(unittest.TestCase):
                         continue
                     key = node.args[0].value
                     if isinstance(key, str) and key not in SOURCE:
-                        offenders.append(f"{path.relative_to(ROOT)}:{node.lineno} {key}")
+                        offenders.append(f"{path.relative_to(ROOT).as_posix()}:{node.lineno} {key}")
         self.assertEqual(offenders, [], "the catalog has no entry for these")
 
 
@@ -1684,7 +1687,7 @@ class TestParametersMatchTheirTemplate(unittest.TestCase):
                     fills = {kw.arg for kw in node.keywords if kw.arg}
                     if wants != fills:
                         offenders.append(
-                            f"{path.relative_to(ROOT)}:{node.lineno} "
+                            f"{path.relative_to(ROOT).as_posix()}:{node.lineno} "
                             f"{node.args[0].value} wants {sorted(wants)}, "
                             f"gets {sorted(fills)}")
         self.assertEqual(offenders, [], "a slot nobody fills renders as its own name")
@@ -1711,7 +1714,7 @@ class TestASlotIsNamedForWhatItHolds(unittest.TestCase):
                     if not isinstance(node, ast.Call) \
                        or getattr(node.func, "id", None) not in TAKES_A_KEY:
                         continue
-                    offenders += [f"{path.relative_to(ROOT)}:{node.lineno} {kw.arg}"
+                    offenders += [f"{path.relative_to(ROOT).as_posix()}:{node.lineno} {kw.arg}"
                                   for kw in node.keywords
                                   if kw.arg and isinstance(kw.value, ast.Call)
                                   and _called(kw.value) == kw.arg.rstrip(string.digits)
@@ -1841,7 +1844,7 @@ class TestEachOwnersFileIsInStep(unittest.TestCase):
         self.owners = sorted([*APPS.glob("*/i18n"), *EXTENSIONS.glob("*/i18n")])
 
     def test_the_owners_were_found(self) -> None:
-        found = [str(one.relative_to(ROOT)) for one in self.owners]
+        found = [one.relative_to(ROOT).as_posix() for one in self.owners]
         self.assertIn("apps/vpx/i18n", found)
         self.assertIn("extensions/library_importer/i18n", found)
 
@@ -1851,13 +1854,13 @@ class TestEachOwnersFileIsInStep(unittest.TestCase):
             current = {k: hashlib.sha256(json.dumps(
                 v, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:12]
                 for k, v in _file(owner).items()}
-            with self.subTest(owner=str(owner.relative_to(ROOT))):
+            with self.subTest(owner=owner.relative_to(ROOT).as_posix()):
                 self.assertEqual(_file(owner, "en.hashes"), current,
                                  "run scripts/i18n.py --record")
 
     def test_the_pseudo_locale_is_in_step(self) -> None:
         for owner in self.owners:
-            with self.subTest(owner=str(owner.relative_to(ROOT))):
+            with self.subTest(owner=owner.relative_to(ROOT).as_posix()):
                 self.assertEqual(sorted(_file(owner, "qps")), sorted(_file(owner)),
                                  "run scripts/i18n.py --pseudo")
 
@@ -1867,7 +1870,7 @@ class TestEachOwnersFileIsInStep(unittest.TestCase):
             for path in sorted(owner.glob("*.json")):
                 if path.stem in ("en", "en.hashes", "qps"):
                     continue
-                with self.subTest(owner=str(owner.relative_to(ROOT)), locale=path.stem):
+                with self.subTest(owner=owner.relative_to(ROOT).as_posix(), locale=path.stem):
                     extra = set(json.loads(path.read_text(encoding="utf-8"))) - english
                     self.assertEqual(sorted(extra), [], "keys nothing serves")
 
@@ -1996,7 +1999,7 @@ class TestEachExtensionKeepsItsOwnWords(unittest.TestCase):
         self.assertEqual([one.name for one in _extensions()], ["library_importer", "vpinplay"])
 
     def test_no_sentence_is_written_in_its_code(self) -> None:
-        offenders = [f"{path.relative_to(ROOT)}:{line} {said[:50]!r}"
+        offenders = [f"{path.relative_to(ROOT).as_posix()}:{line} {said[:50]!r}"
                      for package in self.extensions
                      for path, tree in _modules(package)
                      for line, said in _Sentences(tree).found]
@@ -2007,7 +2010,7 @@ class TestEachExtensionKeepsItsOwnWords(unittest.TestCase):
         for package in self.extensions:
             product = json.loads((package / "extension.json").read_text(
                 encoding="utf-8")).get("display_name", "")
-            offenders += [f"{path.relative_to(ROOT)}:{line} {said}"
+            offenders += [f"{path.relative_to(ROOT).as_posix()}:{line} {said}"
                           for path, tree in _modules(package)
                           for line, said in _written_in_place(tree, product)]
         self.assertEqual(offenders, [], "ctx.t() or words(), and the words in i18n/en.json")
@@ -2033,7 +2036,7 @@ class TestEachExtensionKeepsItsOwnWords(unittest.TestCase):
             held = _file(package / "i18n")
             for path, tree in _modules(package):
                 for line, asked, fills in _asks(tree):
-                    where = f"{path.relative_to(ROOT)}:{line}"
+                    where = f"{path.relative_to(ROOT).as_posix()}:{line}"
                     keys = [asked] if isinstance(asked, str) \
                         else [key for key in held if asked.fullmatch(key)]
                     if not keys or any(key not in held for key in keys):

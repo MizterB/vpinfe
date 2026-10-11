@@ -277,7 +277,7 @@ def _number(path: Path) -> float | None:
 
 def _text(path: Path) -> str:
     try:
-        return path.read_text().strip()
+        return path.read_text(encoding="utf-8").strip()
     except OSError:
         return ""
 
@@ -291,7 +291,7 @@ def _hex(path: Path) -> int | None:
 
 def _link_name(path: Path) -> str:
     """What the link points at, by name; empty where there is no link."""
-    return os.path.realpath(path).rsplit("/", 1)[-1] if path.exists() else ""
+    return os.path.basename(os.path.realpath(path)) if path.exists() else ""
 
 
 def _listdir(path: Path) -> list[str]:

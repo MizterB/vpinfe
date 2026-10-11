@@ -149,7 +149,7 @@ class TheRoutes(_Logs):
                 self.assertEqual(body["path"], "")
 
     def test_a_file_is_downloaded_whole(self) -> None:
-        self.vpx.write_text("first\nsecond\n", encoding="utf-8")
+        self.vpx.write_bytes(b"first\nsecond\n")
 
         answer = self.client.get("/logs/file", params={"source": "vpinball.log"})
 

@@ -14,6 +14,7 @@ from unittest import mock
 from common import events
 from common.host import key_reader, keys, launch_state
 from tests.support.catalogs import served
+from tests.support.skips import needs_selectable_files
 
 DEVICES = """I: Bus=0003 Vendor=1209 Product=eaea Version=0111
 N: Name="Pinscape Controller"
@@ -107,6 +108,7 @@ class ReaderTests(unittest.TestCase):
             press=lambda action, source: pressed.append((action, source)), **kwargs)
         return reader, pressed
 
+    @needs_selectable_files
     def test_a_key_going_down_presses_its_action(self) -> None:
         reader, pressed = self._reader()
         read_end, write_end = os.pipe()
@@ -133,6 +135,7 @@ class ReaderTests(unittest.TestCase):
         reader.hear("")
         self.assertEqual(pressed, [])
 
+    @needs_selectable_files
     def test_stopping_ends_a_read(self) -> None:
         reader, _ = self._reader()
         read_end, write_end = os.pipe()

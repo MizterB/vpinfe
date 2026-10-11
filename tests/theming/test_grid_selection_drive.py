@@ -81,13 +81,13 @@ def wait_for_page(port: int, page: subprocess.Popen, log: Path) -> None:
     deadline = time.monotonic() + 60
     while time.monotonic() < deadline:
         if page.poll() is not None:
-            raise AssertionError(f"the page exited:\n{log.read_text()}")
+            raise AssertionError(f"the page exited:\n{log.read_text(encoding='utf-8')}")
         try:
             _heard(port)
             return
         except OSError:
             time.sleep(0.2)
-    raise AssertionError(f"the page never served:\n{log.read_text()}")
+    raise AssertionError(f"the page never served:\n{log.read_text(encoding='utf-8')}")
 
 
 def exit_with_parent() -> None:

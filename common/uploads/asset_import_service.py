@@ -715,14 +715,15 @@ def _apply_patch(source: AssetSource, asset: DetectedAsset, base: Path,
         patch_tmp = Path(tmp.name)
     try:
         _extract_replace(source, asset.entries[0], patch_tmp)
-        with open(original, "rb") as src, open(patch_tmp, "rb") as pat, open(dest, "wb") as out:
-            try:
+        try:
+            with open(original, "rb") as src, open(patch_tmp, "rb") as pat, \
+                    open(dest, "wb") as out:
                 apply_patch(src, pat, out)
-            except PatchError as exc:
-                dest.unlink(missing_ok=True)
-                logger.warning("Patch does not apply to %s: %s", original.name, exc)
-                raise ValueError(t("error.uploads.patch_mismatch",
-                                   table=original.name)) from exc
+        except PatchError as exc:
+            dest.unlink(missing_ok=True)
+            logger.warning("Patch does not apply to %s: %s", original.name, exc)
+            raise ValueError(t("error.uploads.patch_mismatch",
+                               table=original.name)) from exc
         base_hash = _sha256(original)
         logger.info("Patched %s -> %s (base sha256 %s)", original.name, dest.name,
                     base_hash[:16])

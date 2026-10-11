@@ -36,14 +36,14 @@ class TestFolderFieldsOfferBrowse(unittest.TestCase):
         offenders = []
         for path in sorted(CONSOLE.rglob("*.py")):
             for line in _calls_without_browse(trees.tree_for(path), "path_field"):
-                offenders.append(f"{path.relative_to(REPO)}:{line}")
+                offenders.append(f"{path.relative_to(REPO).as_posix()}:{line}")
         self.assertEqual(offenders, [], "give it browse=, so typing is not the only way in")
 
     def test_every_control_for_call_carries_browse(self) -> None:
         offenders = []
         for path in sorted(CONSOLE.rglob("*.py")):
             for line in _calls_without_browse(trees.tree_for(path), "control_for"):
-                offenders.append(f"{path.relative_to(REPO)}:{line}")
+                offenders.append(f"{path.relative_to(REPO).as_posix()}:{line}")
         self.assertEqual(offenders, [], "give it browse=, so a path option can offer it")
 
     def test_the_check_flags_one_with_no_browse_and_passes_one_with_it(self) -> None:

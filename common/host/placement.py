@@ -169,7 +169,7 @@ def is_added(config: Path | None, kind: str, rules_file: Path) -> bool:
             target = line.partition("=")[2].partition(" #")[0].strip()
         else:
             continue
-        if os.path.expandvars(os.path.expanduser(target)) == str(rules_file):
+        if Path(os.path.expandvars(os.path.expanduser(target))) == rules_file:
             return True
     return False
 
@@ -216,5 +216,5 @@ def add(found: Offer, text: str, folder: Path | None = None) -> None:
         return
     held = found.config.read_bytes()
     gap = "\n" if held and not held.endswith(b"\n") else ""
-    with open(found.config, "a", encoding="utf-8") as handle:
+    with open(found.config, "a", encoding="utf-8", newline="\n") as handle:
         handle.write(f"{gap}\n# VPinFE window rules\n{found.line}\n")

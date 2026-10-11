@@ -121,8 +121,8 @@ describe("media is named, and the URL follows from the name", () => {
     const kind = vpin.entries[0].media[0];
 
     assert.equal(vpin.getMediaPages(0, kind).length, 1);
-    assert.deepEqual(vpin.getMediaPages(0, "topper"), []);
-    assert.deepEqual(vpin.getMediaPages(9999, kind), []);
+    assert.deepEqual([...vpin.getMediaPages(0, "topper")], []);
+    assert.deepEqual([...vpin.getMediaPages(9999, kind)], []);
   });
 
   test("a kind the entry lacks answers missing, not undefined", async () => {

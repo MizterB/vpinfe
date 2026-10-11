@@ -84,7 +84,7 @@ class AssetTests(unittest.TestCase):
                 continue
             size = path.stat().st_size
             if size > PLACEHOLDER_BYTES:
-                too_big.append(f"{path.relative_to(REPO)} ({size} bytes)")
+                too_big.append(f"{path.relative_to(REPO).as_posix()} ({size} bytes)")
         self.assertEqual(too_big, [], "\n".join([
             "These look like real files rather than placeholders.",
             "A fixture names a file; it does not contain one.",
@@ -108,7 +108,7 @@ class IdentifierTests(unittest.TestCase):
             for number, line in enumerate(text.splitlines(), 1):
                 hit = PRIVATE.search(line)
                 if hit:
-                    found.append(f"{path.relative_to(REPO)}:{number}: {hit.group(0)}")
+                    found.append(f"{path.relative_to(REPO).as_posix()}:{number}: {hit.group(0)}")
         self.assertEqual(found, [], "\n".join([
             "These name one particular machine, drive or person.",
             "Say the shape instead: /Volumes/share, C:\\Visual Pinball\\tables.",

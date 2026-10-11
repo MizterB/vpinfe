@@ -21,7 +21,7 @@ def _calls() -> list[tuple[str, ast.Call]]:
             for node in ast.walk(trees.tree_for(path)):
                 if isinstance(node, ast.Call) and node.keywords and "t" in (
                         getattr(node.func, "id", None), getattr(node.func, "attr", None)):
-                    found.append((f"{path.relative_to(ROOT)}:{node.lineno}", node))
+                    found.append((f"{path.relative_to(ROOT).as_posix()}:{node.lineno}", node))
     return found
 
 

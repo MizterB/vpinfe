@@ -134,7 +134,8 @@ def _move_one(source: Path, target: Path) -> bool:
     try:
         with atomic_write.naming_folder(target):
             shutil.copy2(source, staged)
-            with open(staged, "rb") as copy:
+            # Windows refuses to fsync a handle that cannot write.
+            with open(staged, "r+b" if os.name == "nt" else "rb") as copy:
                 os.fsync(copy.fileno())
             if staged.stat().st_size != source.stat().st_size:
                 raise OSError(t("error.backups.move_size", name=source.name))

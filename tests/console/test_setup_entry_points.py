@@ -115,6 +115,8 @@ class ThisDeviceRowTests(TempTree):
         async def run() -> None:
             with mock.patch.object(setup_page, "_config", return_value=store), \
                  mock.patch.object(setup_page.setup_vpx, "gather", setup_page.setup_vpx.Vpx), \
+                 mock.patch.object(setup_page.setup_tables, "gather",
+                                   lambda program="": setup_page.setup_tables.Tables()), \
                  mock.patch.object(setup_page.wizard, "open_dialog", host):
                 (button,) = _buttons(holder)
                 said(button, "click")

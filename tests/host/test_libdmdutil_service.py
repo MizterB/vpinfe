@@ -207,10 +207,10 @@ class VideoTests(unittest.TestCase):
         libdmdutil_service._stop_player()
 
         argv = self.spawned[0]
-        self.assertEqual(argv[0], "/usr/bin/ffmpeg")
+        self.assertEqual(argv[0], str(Path("/usr/bin/ffmpeg")))
         self.assertIn("scale=4:2", argv)
         self.assertEqual(argv[argv.index("-pix_fmt") + 1], "rgb24")
-        self.assertIn("/art/dmd.mp4", argv)
+        self.assertIn(str(Path("/art/dmd.mp4")), argv)
 
     def test_the_same_video_is_not_started_twice(self) -> None:
         controller = _Controller(enough=1)
@@ -248,7 +248,7 @@ class VideoTests(unittest.TestCase):
         libdmdutil_service.show_video(self.iniconfig, "/art/two.mp4", None)
         libdmdutil_service._stop_player()
 
-        self.assertTrue(any("/art/two.mp4" in argv for argv in self.spawned))
+        self.assertTrue(any(str(Path("/art/two.mp4")) in argv for argv in self.spawned))
 
     def test_a_launch_stops_it_before_the_panel_is_released(self) -> None:
         controller = _Controller(enough=3)
