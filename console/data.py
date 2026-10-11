@@ -1850,6 +1850,11 @@ class Library:
     def upload_from_path(self, path: str) -> str:
         return self._client.upload_from_path(path)
 
+    def add_game_from_vps(self, vps_id: str, location_id: str = "") -> dict:
+        made = self._client.add_game_from_vps(vps_id, location_id)
+        self._forget_games()
+        return made
+
     def new_game_destination(self) -> dict:
         return self._client.new_game_destination()
 

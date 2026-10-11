@@ -6,6 +6,7 @@ here writes the game's `.info` and answers with what a caller would ask for next
 
 from __future__ import annotations
 
+import shutil
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,7 @@ from common.games import (
     game_metadata,
     game_service,
     library_folders,
+    media_fill,
 )
 from common.games.game_metadata import (
     GUIDES_FIELD,
@@ -40,9 +42,10 @@ from common.games.game_metadata import (
     set_game_tags,
     vps_details_differ,
 )
-from common.games.game_repository import reread_game
+from common.games.game_repository import refresh_game, reread_game
 from common.host import dof_service
 from common.i18n import t
+from common.uploads.asset_import_service import vps_folder_name
 
 # Which keys this level will accept, and what each is called on disk. Declared rather than
 # inferred, so sending a table's key here is refused instead of silently doing nothing - a
@@ -85,6 +88,33 @@ def create(name: str, location_id: str = "") -> dict:
         raise service_errors.BlockedError(t("error.games.created_unseen"),
                                           details={"path": str(folder)})
     return game_lens.detail(game_identity.game_id(made))
+
+
+def create_from_vps(vps_id: str, location_id: str = "") -> dict:
+    """Make a game with no tables from the catalog entry `vps_id` names, matched to it.
+
+    The folder is named as an import names one, so the same machine added here and by a
+    table upload meets in one folder. Nothing is downloaded; the automatic media fill is
+    only requested, and runs when that setting is on.
+    """
+    wanted = str(vps_id or "").strip()
+    entry = next((one for one in game_service.load_vpsdb()
+                  if str(one.get("id") or "") == wanted), None) if wanted else None
+    if entry is None:
+        raise service_errors.NotFoundError(t("error.games.unknown_entry"),
+                                           details={"vps_id": wanted})
+    made = create(vps_folder_name(entry), location_id)
+    folder = Path(made["folder"])
+    try:
+        made = match_game(made["id"], wanted)
+    except Exception:
+        # Taken back whole: left behind, an unmatched folder would answer every retry with
+        # "already there" and leave a game nobody asked for in the library.
+        shutil.rmtree(folder, ignore_errors=True)
+        refresh_game(folder)
+        raise
+    media_fill.request([made["folder"]])
+    return made
 
 
 def _where_else(wanted: str) -> dict:

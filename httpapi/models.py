@@ -1820,6 +1820,14 @@ class NewGameRequest(ApiModel):
     location: str = ""
 
 
+class NewGameFromVpsRequest(ApiModel):
+    """A game to create from a catalog entry: named as an import names it, matched to the
+    entry, with no tables. `location` is as `NewGameRequest.location`."""
+
+    vps_id: str
+    location: str = ""
+
+
 class TableImport(ApiModel):
     """A game file elsewhere on this device to copy into the game, as an absolute path.
     `/games/{id}/tables/import` refuses one that is not under a browsable root;

@@ -70,6 +70,13 @@ def create_game(body: models.NewGameRequest) -> models.GameResource:
     return models.GameResource(**game_ops.create(body.name, body.location))
 
 
+@router.post("/from_vps", summary="Create a game from a catalog entry", status_code=201,
+             dependencies=[requires(scopes.GAMES_WRITE)])
+def create_game_from_vps(body: models.NewGameFromVpsRequest) -> models.GameResource:
+    """A game with no tables, matched to the entry; its media is filled if that is on."""
+    return models.GameResource(**game_ops.create_from_vps(body.vps_id, body.location))
+
+
 @router.get("/{game_id}", summary="One game", dependencies=[requires(scopes.GAMES_READ)])
 def get_game(game_id: str) -> models.GameResource:
     return models.GameResource(**game_lens.detail(game_id))

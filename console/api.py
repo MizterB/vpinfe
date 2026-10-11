@@ -1090,6 +1090,11 @@ class ApiClient:
         never moved."""
         return str(self._post("/folders/uploads", {"path": path})["id"])
 
+    def add_game_from_vps(self, vps_id: str, location_id: str = "") -> dict:
+        """A game with no tables, matched to that catalog entry. Raises when its folder is
+        already there, which the caller reports on that row."""
+        return self._post("/games/from_vps", {"vps_id": vps_id, "location": location_id})
+
     def new_game_destination(self) -> dict:
         """Where a new game would be created, or why it could not, and what else it
         could go to. Read fresh: a share that has dropped is exactly the case."""

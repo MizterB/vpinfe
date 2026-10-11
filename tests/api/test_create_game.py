@@ -348,5 +348,90 @@ class DetailsTests(CreateGameCase):
         self.assertEqual(self._put("nosuchgame", title="x").status_code, 404)
 
 
+class FromCatalogTests(CreateGameCase):
+    ENTRY = {"id": "vps-taxi", "name": "Taxi", "manufacturer": "Williams", "year": 1988,
+             "type": "SS", "theme": ["Cars"]}
+
+    def setUp(self) -> None:
+        super().setUp()
+        catalog = patch("common.games.game_service.load_vpsdb", return_value=[self.ENTRY])
+        catalog.start()
+        self.addCleanup(catalog.stop)
+        self.fill = patch("common.games.media_fill.request")
+        self.requested = self.fill.start()
+        self.addCleanup(self.fill.stop)
+        self.add_location(self.library)
+
+    def add(self, vps_id: str = "vps-taxi", **body):
+        return self.client.post("/games/from_vps", json={"vps_id": vps_id, **body})
+
+    def record(self) -> dict:
+        return json.loads((self.library / "Taxi (Williams 1988)" / "Taxi (Williams 1988).info")
+                          .read_text(encoding="utf-8"))
+
+    def test_the_game_is_named_as_an_import_names_it_and_has_no_table(self) -> None:
+        made = self.add()
+
+        self.assertEqual(made.status_code, 201, made.text)
+        self.assertEqual(made.json()["table_count"], 0)
+        self.assertEqual([one.name for one in
+                          (self.library / "Taxi (Williams 1988)").iterdir()],
+                         ["Taxi (Williams 1988).info"])
+
+    def test_the_entry_is_what_the_catalog_said_and_not_a_person_overriding_it(self) -> None:
+        self.add()
+
+        held = self.record()
+
+        self.assertEqual(held["Info"]["VPSId"], "vps-taxi")
+        self.assertEqual(held["vpinfe"]["alt_vpsid"], "")
+
+    def test_the_match_is_recorded_as_made_on_import(self) -> None:
+        made = self.add()
+
+        self.assertEqual(made.json()["vps_matched_by"], "import")
+        self.assertEqual(made.json()["vps_id"], "vps-taxi")
+
+    def test_media_is_requested_for_the_new_folder_and_nothing_is_downloaded(self) -> None:
+        self.add()
+
+        self.requested.assert_called_once_with([str(self.library / "Taxi (Williams 1988)")])
+
+    def test_a_folder_that_is_already_there_is_a_conflict_and_is_left_alone(self) -> None:
+        (self.library / "Taxi (Williams 1988)").mkdir()
+
+        found = self.add()
+
+        self.assertEqual(found.status_code, 409)
+        self.assertEqual(list((self.library / "Taxi (Williams 1988)").iterdir()), [])
+        self.requested.assert_not_called()
+
+    def test_a_match_that_fails_takes_the_new_folder_back_so_a_retry_can_succeed(self) -> None:
+        with patch("common.games.auto_match.adopt_guess", side_effect=OSError("disk")):
+            failed = self.add()
+
+        self.assertEqual(failed.status_code, 409)
+        self.assertFalse((self.library / "Taxi (Williams 1988)").exists())
+        self.requested.assert_not_called()
+        self.assertEqual(self.client.get("/games").json()["total"], 0)
+        self.assertEqual(self.add().status_code, 201)
+
+    def test_an_entry_the_catalog_does_not_hold_is_a_404(self) -> None:
+        found = self.add("nope")
+
+        self.assertEqual(found.status_code, 404)
+        self.assertEqual(found.json()["error"]["message"], t("error.games.unknown_entry"))
+        self.assertEqual(list(self.library.iterdir()), [])
+
+    def test_a_named_location_overrides_where_it_goes(self) -> None:
+        second = self.root / "second"
+        second.mkdir()
+        self.add_location(second, "two")
+
+        self.add(location="one")
+
+        self.assertTrue((self.library / "Taxi (Williams 1988)").is_dir())
+
+
 if __name__ == "__main__":
     unittest.main()
