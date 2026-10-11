@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from common import i18n
@@ -68,6 +69,7 @@ class AboutTests(unittest.TestCase):
                     for label, value in group["facts"]}
         self.assertIsInstance(held[t("about.fact.library_folder")], about.PathValue)
         self.assertIsInstance(held[t("about.fact.configuration")], about.PathValue)
+        self.assertEqual(Path(str(held[t("about.fact.settings_file")])).name, "vpinfe.json")
 
         with mock.patch("common.games.library_folders.configured", return_value=[]):
             unset = [value for group in about.details(refresh=True)
