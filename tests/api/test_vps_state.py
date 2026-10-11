@@ -62,6 +62,11 @@ class VpsStateTests(TempTree):
         self.client = TestClient(httpapi.create_api_app(),
                                  raise_server_exceptions=False)
 
+    def test_the_entry_the_game_is_matched_to_is_named(self) -> None:
+        body = self.client.get(f"/games/{GAME_ID}/vps_state").json()
+
+        self.assertEqual(body["vps_id"], ENTRY)
+
     def _state(self) -> dict[str, dict]:
         response = self.client.get(f"/games/{GAME_ID}/vps_state")
         self.assertEqual(response.status_code, 200, response.text)

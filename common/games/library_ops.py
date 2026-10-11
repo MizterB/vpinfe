@@ -279,6 +279,11 @@ def vps_rollup() -> dict[str, Any]:
                                           "kinds": []}
 
 
+def vps_discovery() -> dict[str, Any]:
+    """The catalog against the library, as the last count found it. Never live."""
+    return library_vps_state.discovery()
+
+
 def info_maintenance() -> dict[str, Any]:
     """The three states a `.info` file can be in that are worth acting on, the folders
     with no readable one at all, and the games whose id theirs could not take. Counted

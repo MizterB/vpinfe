@@ -3604,6 +3604,7 @@ class VpsState(ApiModel):
     with the library in front of it."""
 
     matched: bool = False
+    vps_id: str = ""
     kinds: list[VpsKindState] = []
 
 
@@ -3672,6 +3673,28 @@ class LibraryVpsState(ApiModel):
     games: int = 0
     matched: int = 0
     kinds: list[LibraryVpsKindTally] = []
+
+
+class DiscoveryRow(ApiModel):
+    """One catalog entry. `listed` and `held` use the catalog's own keys (`b2sFiles`,
+    `tableFiles`), so a kind VPS lists and the library lacks is `listed` and not `held`.
+    `in_library` null means nobody has counted the library yet."""
+
+    vps_id: str
+    name: str | None = None
+    manufacturer: str | None = None
+    year: int | str | None = None
+    type: str | None = None
+    themes: list[str] = []
+    url: str = ""
+    listed: list[str] = []
+    in_library: bool | None = None
+    held: list[str] = []
+
+
+class LibraryDiscovery(ApiModel):
+    counted: str = ""
+    rows: list[DiscoveryRow] = []
 
 
 class VpsFieldDiff(ApiModel):

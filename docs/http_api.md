@@ -117,6 +117,7 @@ the documented entry point is a plain 200. Both spellings work.
 | POST | `/api/v1/library/patches` | Fetch them. Returns `202` and a job. `{"games": [...]}` names the folders a check offered and limits the fetch to those; leaving it out looks at every game. A table with a `.vbs` beside it already is left alone |
 | GET | `/api/v1/library/vps_state` | What the catalog lists across the library, as last counted. `computed` empty means it has never been counted |
 | POST | `/api/v1/library/vps_state` | Count it again. Returns `202` and a job, which can run beside a scan |
+| GET | `/api/v1/library/discovery` | Every catalog entry against what the library holds, as last counted: `listed` and `held` kinds and `in_library`. `counted` empty means never counted, and `in_library` is then null |
 | GET | `/api/v1/library/watching` | Since when a catalog change counts as new. Empty until somebody answers |
 | PUT | `/api/v1/library/watching` | Set it, `{"since": ...}` |
 | POST | `/api/v1/library/watching/acknowledge` | Dismiss one catalog change, `{"game_id", "kind", "vps_file_id"}` |

@@ -222,6 +222,15 @@ def library_vps_state() -> models.LibraryVpsState:
     return models.LibraryVpsState(**library_ops.vps_rollup())
 
 
+@router.get("/discovery", summary="What the catalog lists, against what the library holds",
+            dependencies=[requires(scopes.GAMES_READ)])
+def library_discovery() -> models.LibraryDiscovery:
+    """One row per catalog entry, from the last count and never counted here. `counted`
+    empty means it has never run, and `in_library` is then null on every row rather than
+    false."""
+    return models.LibraryDiscovery.model_validate(library_ops.vps_discovery())
+
+
 @router.post("/vps_state", summary="Count it again", status_code=202,
              dependencies=[requires(scopes.GAMES_READ)])
 def recount_vps_state(response: Response) -> models.JobResource:

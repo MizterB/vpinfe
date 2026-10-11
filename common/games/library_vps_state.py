@@ -33,14 +33,16 @@ from common.games import (
 from common.games.game import Game
 from common.games.game_service import load_vpsdb
 from common.games.media_service import CACHE_DIR
+from common.games.tables import ABSENT_SINCE_KEY, table_entries
 from common.i18n import t
 from common.jobs import JobReporter
-from common.online import obtainability, vps_kinds
+from common.online import obtainability, vps_kinds, vps_lens
 
 logger = logging.getLogger("vpinfe.common.games.library_vps_state")
 
 ROLLUP_PATH = CACHE_DIR / "vps-rollup.json"
-SCHEMA = 1
+SCHEMA = 2
+TABLES = "tableFiles"
 
 
 @lru_cache(maxsize=1)
@@ -146,7 +148,7 @@ def state_of(game: Game, game_id: str = "") -> dict:
             "why_not": sorted({word for word in answers
                                if word != obtainability.AVAILABLE}),
         })
-    return {"matched": bool(entry), "kinds": kinds}
+    return {"matched": bool(entry), "vps_id": str(entry.get("id") or ""), "kinds": kinds}
 
 
 def stored() -> dict[str, Any]:
@@ -176,6 +178,16 @@ def store(rollup: dict[str, Any]) -> None:
 _TALLIES = ("holding", "identified", "listed", "obtainable", "updated", "new_upstream")
 
 
+def _entry_of(entries: dict[str, dict[str, Any]], state: dict) -> dict[str, Any] | None:
+    """What the library holds of the catalog entry this game's state names, or None for a
+    game matched to nothing. Several games can name one entry, and the entry holds what
+    any of them does."""
+    vps_id = str(state.get("vps_id") or "")
+    if not (state.get("matched") and vps_id):
+        return None
+    return entries.setdefault(vps_id, {"tables": 0, "held": set()})
+
+
 def compute(games: dict, per_game: Callable[[Game, str], dict],
             reporter: JobReporter | None = None) -> dict[str, Any]:
     """Count every kind across the library, from `{game_id: game}`.
@@ -186,6 +198,7 @@ def compute(games: dict, per_game: Callable[[Game, str], dict],
     """
     counts = {kind.listed_as: dict.fromkeys(_TALLIES, 0)
               for kind in vps_kinds.KINDS}
+    entries: dict[str, dict[str, Any]] = {}
     matched = 0
     total = len(games)
     for index, (game_id, game) in enumerate(games.items()):
@@ -197,11 +210,18 @@ def compute(games: dict, per_game: Callable[[Game, str], dict],
             logger.warning("Could not read VPS state for %s", game_id, exc_info=True)
             continue
         matched += 1 if state.get("matched") else 0
+        held = _entry_of(entries, state)
+        if held is not None:
+            held["tables"] += sum(
+                1 for one in table_entries(getattr(game, "meta_config", None)).values()
+                if not one.get(ABSENT_SINCE_KEY))
         for item in state.get("kinds") or []:
             tally = counts.get(str(item.get("kind") or ""))
             if tally is None:
                 continue
             tally["holding"] += 1 if item.get("held") else 0
+            if held is not None and item.get("held"):
+                held["held"].add(str(item.get("kind") or ""))
             tally["identified"] += 1 if item.get("identified") else 0
             tally["listed"] += 1 if int(item.get("listed") or 0) else 0
             tally["obtainable"] += 1 if int(item.get("obtainable") or 0) else 0
@@ -211,10 +231,48 @@ def compute(games: dict, per_game: Callable[[Game, str], dict],
         "computed": timestamps.utc_now_iso(),
         "games": total,
         "matched": matched,
+        "entries": {vps_id: {"tables": found["tables"], "held": sorted(found["held"])}
+                    for vps_id, found in entries.items()},
         "kinds": [{"kind": kind.listed_as, "ours": list(kind.ours),
                    "held_in": kind.held_in, **counts[kind.listed_as]}
                   for kind in vps_kinds.KINDS],
     }
+
+
+def discovery() -> dict[str, Any]:
+    """Every catalog entry against what the last count found the library holding.
+
+    `counted` empty means the library has never been counted: `in_library` is then None on
+    every row, because an entry nobody has checked is not an entry you do not own. `held`
+    names the kinds a game of the library holds for the entry, in the catalog's own keys,
+    with `tableFiles` standing for a playable table. Every row has `listed`, so a consumer
+    can say "missing" only for what VPS lists.
+    """
+    counted = stored()
+    held_by = counted.get("entries") or {}
+    known = bool(counted)
+    rows = []
+    for entry in sorted(load_vpsdb(), key=lambda one: (str(one.get("name") or "").lower(),
+                                                      str(one.get("year") or ""))):
+        vps_id = str(entry.get("id") or "")
+        found = held_by.get(vps_id)
+        held = list(found["held"]) if found else []
+        if found and found["tables"]:
+            held.insert(0, TABLES)
+        rows.append({
+            "vps_id": vps_id,
+            "name": entry.get("name"),
+            "manufacturer": entry.get("manufacturer"),
+            "year": entry.get("year"),
+            "type": entry.get("type"),
+            "themes": [str(word) for word in entry.get("theme") or []
+                       if isinstance(entry.get("theme"), list)],
+            "url": vps_lens.entry_address(vps_id),
+            "listed": [kind for kind in (TABLES, *vps_kinds.BY_LISTING) if entry.get(kind)],
+            "in_library": (found is not None) if known else None,
+            "held": held,
+        })
+    return {"counted": str(counted.get("computed") or ""), "rows": rows}
 
 
 def recompute(games: dict, per_game: Callable[[Game, str], dict],
