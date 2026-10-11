@@ -134,7 +134,7 @@ COLUMNS = [
     # than "Tables", which read as the tables themselves - this is a number about the
     # game, and it belongs with the game's other facts.
     grid.column("table_count", t("word.table_count"), type="numericColumn", group=t(_GAME),
-                help=t("console.games.table_count.help")),
+                filter="agNumberColumnFilter", help=t("console.games.table_count.help")),
     grid.column("hidden", game_tables.FRONTEND, group=t(_GAME),
                 help=t("console.games.hidden_game.help"),
                 **{":valueFormatter":
@@ -219,6 +219,19 @@ COLUMN_SECTIONS = {"vps_unmatched": "game_details", "hidden": "game_details",
 # The grid on its Unmatched filter, as `state["arriving"]`.
 UNMATCHED = {"vps_unmatched": {"values": [True]}}
 
+# Games with no table, such as ones added from Discovery or whose last table was removed.
+NO_TABLES_VIEW = "console.view.no_tables"
+NO_TABLES = {"table_count": {"filterType": "number", "type": "equals", "filter": 0}}
+
+# The key in `Opens.keys` naming the built-in view Games should open on.
+ARRIVE_VIEW = "arrive_view"
+
+
+def arrive_on(library: Any, key: str) -> None:
+    """Make this built-in the view the Games grid opens on. Writes, so not on the loop."""
+    kept, _active = views.stored(library, SCOPE)
+    views.remember(library, SCOPE, kept, views.builtin_id(key))
+
 GAME_VIEWS: dict[str, list[str] | views.Preset] = {
     # Named for the workbench group it matches: a view and a panel
     # group about the same facts carry the same word, so crossing between the grid and
@@ -233,6 +246,9 @@ GAME_VIEWS: dict[str, list[str] | views.Preset] = {
     # them is neither.
     _MEDIA: views.Preset(help=t("console.view.game_media.help")),
     _ASSETS: views.Preset(help=t("console.view.game_assets.help")),
+    NO_TABLES_VIEW: views.Preset(
+        columns=("name", "table_count", "manufacturer", "year", "game_type", "vps_unmatched"),
+        filters=NO_TABLES, help=t("console.view.no_tables.help")),
 }
 
 _ALL = [definition["field"] for definition in COLUMNS]
@@ -1333,6 +1349,7 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
     fields = [definition["field"] for definition in table_columns]
 
     sections.metadata_line(library, state)
+    sections.no_tables_line(library, state)
     check_scripts = sections.script_fixes_line(library, state)
     with ui.row().classes("w-full items-center gap-2 px-3 py-2 mb-2 shrink-0 "
                                   "console-panel console-grid-bar"):

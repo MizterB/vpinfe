@@ -100,6 +100,13 @@ def script_fixes_opens(ids: tuple[str, ...]) -> Opens:
     return Opens("tables", keys={games.FIXES_KEY: ids})
 
 
+def no_tables_opens() -> Opens:
+    """Games on the No Tables view."""
+    from console import games
+
+    return Opens("games", keys={games.ARRIVE_VIEW: games.NO_TABLES_VIEW})
+
+
 def blank(name: str) -> dict[str, Any]:
     return {name: {"values": [""]}}
 
@@ -149,6 +156,9 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
     rows.append(_games_without("unmatched", found, label=names["unmatched"][0],
                                tip=names["unmatched"][1], tone=WARM, icon=verbs.NO_MATCH,
                                opens=Opens("games", games.UNMATCHED)))
+    rows.append(_games_without("no_tables", found, label=names["no_tables"][0],
+                               tip=names["no_tables"][1], tone=WARM, icon=verbs.NO_TABLE,
+                               opens=no_tables_opens()))
     for key, kind in sections.FILLS.items():
         if kind in collected:
             rows.append(_games_without(
@@ -220,7 +230,7 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
 
 # Every row that can be set aside, in cost order. `unread` is not one: it is the page saying
 # it could not look, and setting that aside would hide the one thing it must say.
-ORDER = ("rom_missing", "launchers", "unreadable", "unmatched", "no_playfield",
+ORDER = ("rom_missing", "launchers", "unreadable", "unmatched", "no_tables", "no_playfield",
          "no_backglass", "no_media", "fill_errors", "update", "newer", "script_fixes", "recordings",
          "no_year")
 
@@ -233,6 +243,7 @@ _READ_BY = {"update": "update", "recordings": "recordings", "fill_errors": "fill
 
 _ICONS = {"rom_missing": verbs.CANNOT_PLAY, "launchers": verbs.CANNOT_PLAY,
           "unreadable": verbs.CANNOT_PLAY, "unmatched": verbs.NO_MATCH,
+          "no_tables": verbs.NO_TABLE,
           "no_playfield": verbs.NO_ART, "no_backglass": verbs.NO_ART,
           "no_media": verbs.NO_MEDIA, "fill_errors": verbs.HAD_ERRORS,
           "update": verbs.UPDATE, "newer": verbs.NEWER_RELEASE,
@@ -293,6 +304,7 @@ def comes_back(key: str) -> str:
             "launchers": t("console.needs.back.launchers"),
             "unreadable": t("console.needs.back.unreadable"),
             "unmatched": t("console.needs.back.unmatched"),
+            "no_tables": t("console.needs.back.no_tables"),
             "no_playfield": t("console.needs.back.no_playfield"),
             "no_backglass": t("console.needs.back.no_backglass"),
             "no_media": t("console.needs.back.no_media"),

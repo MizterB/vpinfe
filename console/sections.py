@@ -47,6 +47,9 @@ CHECKS: tuple[tuple[str, str, str, Callable[[dict, dict, dict], bool]], ...] = (
     ("unmatched", t("console.sections.unmatched"),
      t("console.sections.unmatched_why"),
      lambda g, m, x: not g.get("vps_id")),
+    ("no_tables", t("console.sections.no_tables"),
+     t("console.sections.no_tables_why"),
+     lambda g, m, x: g.get("table_count") == 0),
     ("no_playfield", t("console.sections.playfield_missing"),
      t("console.sections.playfield_empty"),
      lambda g, m, x: not m.get("playfield", {}).get("present")),
@@ -775,6 +778,25 @@ async def fetch_script_fixes(library: Library, after: Callable[[], Any]) -> None
     ui.notify(t("console.sections.fetching_way"), type="positive")
     library.forget_script_patches()
     after()
+
+
+def no_tables_line(library: Library, state: dict[str, Any]) -> None:
+    """The notice above the Tables grid while some game has no table, which the grid
+    cannot show: it lists files, and these have none. Drawn once; the page redraws it."""
+    count = sum(1 for game in library.games if game.get("table_count") == 0)
+    if not count or "no_tables" in library.hidden_checks():
+        return
+
+    def show() -> Any:
+        return state["open_on"](needs.no_tables_opens())
+
+    with ui.element("div").classes("w-full shrink-0"), \
+            ui.element("div").classes("console-attention mb-2"):
+        ui.icon(verbs.NO_TABLE).classes("console-attention-icon")
+        ui.label(t("console.sections.no_tables_line", count=count)) \
+            .classes("console-attention-line grow")
+        panel.action(t("console.sections.show"), show, icon=verbs.GO,
+                     hint=t("console.sections.show_no_tables.help"))()
 
 
 def script_fixes_line(library: Library, state: dict[str, Any]) -> Callable[[], Any]:

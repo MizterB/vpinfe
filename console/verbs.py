@@ -99,6 +99,7 @@ NO_MATCH = "link_off"
 NO_ART = "image_not_supported"
 NO_MEDIA = "hide_image"
 NO_YEAR = "event_busy"
+NO_TABLE = "layers_clear"
 HAD_ERRORS = "warning"
 NEWER_RELEASE = "upgrade"
 

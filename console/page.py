@@ -1243,7 +1243,10 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             return
         if not await may_leave(state, opens.view):
             return
-        state.update(opens.keys)
+        keys = dict(opens.keys)
+        if view_key := keys.pop(games.ARRIVE_VIEW, None):
+            await run.io_bound(games.arrive_on, library, str(view_key))
+        state.update(keys)
         if opens.arriving is not None:
             state["arriving"] = opens.arriving
         go(opens.view)
