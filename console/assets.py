@@ -196,7 +196,8 @@ def build(found: list[dict[str, Any]], library: Any,
     """The asset lens: one row per file, and one per file that is not there."""
     state = state if state is not None else {}
     built = rows(found, text_editor.drafts_of(state))
-    columns = _with_kind_filter(grid.with_art(COLUMNS, library.thumbnail_look()), library)
+    columns = _with_kind_filter(
+        grid.with_art(grid.with_derived_facets(COLUMNS, built), library.thumbnail_look()), library)
     gaps = sum(1 for row in built if not row.get("present"))
     on_screen = {"rows": len(built)}
 

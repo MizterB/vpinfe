@@ -360,6 +360,36 @@ def choice_filter(choices: list[dict[str, Any]], *,
     return out
 
 
+DERIVED_FACETS = ("manufacturer", "game_type")
+FACET_CEILING = 60
+
+
+def with_derived_facets(columns: list[dict[str, Any]], rows: list[dict[str, Any]],
+                        ceiling: int = FACET_CEILING) -> list[dict[str, Any]]:
+    """Give the columns whose values come from VPS a checkbox filter of what `rows` hold.
+
+    A column past `ceiling` distinct values keeps its text filter. Returns a new list and
+    new dicts for the columns it changes: `COLUMNS` is a module constant and a filter
+    written into it outlives the render.
+    """
+    built = []
+    for definition in columns:
+        field = str(definition.get("field") or "")
+        if field not in DERIVED_FACETS:
+            built.append(definition)
+            continue
+        said = [str(row.get(field) or "").strip() for row in rows]
+        seen = sorted({one for one in said if one}, key=str.casefold)
+        if not seen or len(seen) > ceiling:
+            built.append(definition)
+            continue
+        choices = [{"value": value, "label": value} for value in seen]
+        if "" in said:
+            choices.append({"value": "", "label": t("console.games.not_recorded")})
+        built.append(definition | choice_filter(choices))
+    return built
+
+
 LIST_FILTER = "window.HubListFilter"
 
 def list_comparator(looks: str = "") -> str:

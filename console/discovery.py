@@ -81,6 +81,8 @@ def _kind_column(listed_as: str, field: str, word: str) -> dict[str, Any]:
                               help=t("console.discovery.kind.help", kind=label), **options)
 
 
+CATALOG_FACET_CEILING = 300
+
 COLUMNS = [
     grid_module.identifier("name", t("word.name"), 260, pinned="left",
                            help=t("console.discovery.name.help")),
@@ -212,7 +214,7 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
         return
     counted = bool(found.get("counted"))
     built = rows(found)
-    columns = list(COLUMNS)
+    columns = grid_module.with_derived_facets(COLUMNS, built, CATALOG_FACET_CEILING)
     by_id = {row["id"]: row for row in built}
     on_screen: dict[str, Any] = {"ids": [row["id"] for row in built], "selected": 0}
     unmatched = await offload.io(unmatched_games, library)

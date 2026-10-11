@@ -220,7 +220,8 @@ def build(found: list[dict[str, Any]], library: Any,
     """The media lens: one row per file, and one per file that is not there."""
     state = state if state is not None else {}
     built = rows(found)
-    columns = _with_kind_filter(grid.with_art(COLUMNS, library.thumbnail_look()), library)
+    columns = _with_kind_filter(
+        grid.with_art(grid.with_derived_facets(COLUMNS, built), library.thumbnail_look()), library)
     selected: list[dict[str, Any]] = []
 
     # What is on screen, which on this page is rarely the whole library: the point of
