@@ -65,6 +65,42 @@ class Rows(unittest.TestCase):
         self.assertEqual("v9", discovery.rows(_found(_entry("v9")))[0]["id"])
 
 
+class Cell(unittest.TestCase):
+    def test_the_game_cell_says_who_made_it_and_when(self) -> None:
+        row = discovery.rows(_found(_entry(img_url="https://vps/a.webp")))[0]
+
+        self.assertEqual(("Bally 1995", "https://vps/a.webp"), (row["said"], row["art"]))
+
+    def test_a_game_with_no_year_says_only_who_made_it(self) -> None:
+        row = discovery.rows(_found(_entry(year=None)))[0]
+
+        self.assertEqual("Bally", row["said"])
+
+
+class KeptKinds(unittest.TestCase):
+    def test_a_kind_the_library_does_not_keep_is_blank_and_no_gap(self) -> None:
+        row = discovery.rows(_found(_entry()), kept={"tableFiles", "b2sFiles"})[0]
+
+        self.assertEqual("", row["kind_rom"])
+        self.assertEqual("", row["gap"])
+
+    def test_every_kind_counts_where_none_is_named(self) -> None:
+        self.assertEqual("missing", discovery.rows(_found(_entry()))[0]["gap"])
+
+
+class Views(unittest.TestCase):
+    def test_no_built_in_view_turns_on_what_the_game_cell_already_says(self) -> None:
+        for name, preset in discovery.VIEWS.items():
+            with self.subTest(name):
+                self.assertFalse(set(preset.columns) & {"manufacturer", "year", "game_type",
+                                                        "themes"})
+
+    def test_the_picker_still_offers_them(self) -> None:
+        fields = {one["field"] for one in discovery.COLUMNS}
+
+        self.assertLessEqual({"manufacturer", "year", "game_type", "themes"}, fields)
+
+
 class Unnamed(unittest.TestCase):
     def test_an_entry_with_no_name_is_not_a_row(self) -> None:
         shown = discovery.rows(_found(_entry("a"), _entry("b", name=""), _entry("c", name="  ")))
@@ -108,6 +144,106 @@ class Acts(unittest.TestCase):
 
         self.assertIsNone(add.run)
         self.assertEqual("Count the library first", add.hint)
+
+
+def _library(*, hidden_assets: tuple[str, ...] = (), hidden_media: tuple[str, ...] = ()) -> Library:
+    client = mock.Mock()
+    client.library_policy.return_value = {"hidden_asset_kinds": list(hidden_assets),
+                                          "hidden_media_kinds": list(hidden_media)}
+    library = Library(client)
+    library.load_kept_kinds()
+    return library
+
+
+def _held(**files: list[dict]) -> dict:
+    kinds = [{"kind": listed_as, "held": bool(files.get(listed_as)),
+              "files": files.get(listed_as, [])}
+             for listed_as in ("b2sFiles", "romFiles", "wheelArtFiles")]
+    return {"kinds": kinds, "tables": files.get("tableFiles", [])}
+
+
+class Standing(unittest.TestCase):
+    def test_the_live_state_decides_which_kinds_are_held(self) -> None:
+        row = discovery.rows(_found(_entry(held=[])))[0]
+        held = _held(tableFiles=[{"name": "a.vpx", "vps_file_id": ""}],
+                     romFiles=[{"name": "rom", "vps_file_id": ""}])
+
+        said = discovery.standing(_library(), row, held)
+
+        self.assertEqual({"tableFiles": "have", "b2sFiles": "missing", "romFiles": "have"}, said)
+
+    def test_the_row_answers_where_the_state_cannot_be_read(self) -> None:
+        row = discovery.rows(_found(_entry()))[0]
+
+        said = discovery.standing(_library(), row, None)
+
+        self.assertEqual({"tableFiles": "have", "b2sFiles": "have", "romFiles": "missing"}, said)
+
+    def test_a_game_not_in_the_library_has_no_state_on_any_kind(self) -> None:
+        row = discovery.rows(_found(_entry(in_library=False, held=[])))[0]
+
+        self.assertEqual({}, discovery.standing(_library(), row, None))
+
+    def test_a_library_never_counted_has_no_state_on_any_kind(self) -> None:
+        row = discovery.rows(_found(_entry(in_library=None, held=[]), counted=""))[0]
+
+        self.assertEqual({}, discovery.standing(_library(), row, None))
+
+    def test_a_kind_the_library_does_not_keep_is_not_counted(self) -> None:
+        row = discovery.rows(_found(_entry()))[0]
+
+        said = discovery.standing(_library(hidden_assets=("rom",)), row, None)
+
+        self.assertNotIn("romFiles", said)
+
+
+class Kept(unittest.TestCase):
+    def test_the_table_is_always_kept(self) -> None:
+        self.assertTrue(discovery.kept(_library(hidden_assets=("rom",)), "tableFiles"))
+
+    def test_a_kind_switched_off_in_the_library_is_not(self) -> None:
+        library = _library(hidden_assets=("rom",), hidden_media=("wheel",))
+
+        self.assertFalse(discovery.kept(library, "romFiles"))
+        self.assertFalse(discovery.kept(library, "wheelArtFiles"))
+        self.assertTrue(discovery.kept(library, "b2sFiles"))
+
+    def test_a_kind_that_is_two_of_ours_is_kept_while_either_is(self) -> None:
+        self.assertTrue(discovery.kept(_library(hidden_assets=("altcolor_serum",)),
+                                       "altColorFiles"))
+        self.assertFalse(discovery.kept(
+            _library(hidden_assets=("altcolor_serum", "altcolor_vni")), "altColorFiles"))
+
+
+class Records(unittest.TestCase):
+    def _records(self, count: int) -> list[dict]:
+        return [{"vps_file_id": f"r{index}", "updated_at": f"2024-01-{index + 1:02d}T00:00:00Z"}
+                for index in range(count)]
+
+    def test_the_newest_come_first(self) -> None:
+        ordered = discovery.newest_first(self._records(3))
+
+        self.assertEqual(["r2", "r1", "r0"], [one["vps_file_id"] for one in ordered])
+
+    def test_five_show_and_the_rest_wait(self) -> None:
+        shown, rest = discovery.split_records(discovery.newest_first(self._records(8)), set())
+
+        self.assertEqual((5, 3), (len(shown), len(rest)))
+
+    def test_a_record_you_hold_is_never_behind_the_row(self) -> None:
+        shown, rest = discovery.split_records(discovery.newest_first(self._records(8)), {"r0"})
+
+        self.assertIn("r0", [one["vps_file_id"] for one in shown])
+        self.assertNotIn("r0", [one["vps_file_id"] for one in rest])
+
+
+class TypeWords(unittest.TestCase):
+    def test_the_letters_are_spelled_out(self) -> None:
+        self.assertEqual(["Solid State", "Electro-Mechanical", "Pure Mechanical"],
+                         [discovery.type_word(code) for code in ("SS", "EM", "PM")])
+
+    def test_a_code_it_does_not_know_is_shown_as_it_is(self) -> None:
+        self.assertEqual("XY", discovery.type_word("XY"))
 
 
 class Address(unittest.TestCase):

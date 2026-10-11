@@ -3567,6 +3567,15 @@ class ImportRequest(PlanRequest):
 
 # --- VPS -------------------------------------------------------------------
 
+class VpsHeldFile(ApiModel):
+    """A file the game holds, by its name on disk; a kind held as a folder, by the folder's
+    usual name. `vps_file_id` is the catalog record it is bound to, empty where nobody has
+    said which it is."""
+
+    name: str
+    vps_file_id: str = ""
+
+
 class VpsKindState(ApiModel):
     """One kind of file, for one game: what we hold and what the catalog lists.
 
@@ -3585,6 +3594,8 @@ class VpsKindState(ApiModel):
     # .directb2s among assets and a picture among media, and VPS lists the first.
     held_in: str = ""
     held: bool = False
+    # What `held` is made of: each file, or the folder for a kind kept as one.
+    files: list[VpsHeldFile] = []
     # Whether anything here is bound to one of this kind's records. Without it only
     # the vague transition can be reported, which measures four times noisier.
     identified: bool = False
@@ -3606,6 +3617,8 @@ class VpsState(ApiModel):
     matched: bool = False
     vps_id: str = ""
     kinds: list[VpsKindState] = []
+    # The game's tables, which `kinds` leaves out: a table is what VPS calls the game.
+    tables: list[VpsHeldFile] = []
 
 
 class Watching(ApiModel):
@@ -3687,6 +3700,7 @@ class DiscoveryRow(ApiModel):
     type: str | None = None
     themes: list[str] = []
     url: str = ""
+    img_url: str = ""
     listed: list[str] = []
     in_library: bool | None = None
     held: list[str] = []

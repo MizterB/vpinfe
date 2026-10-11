@@ -332,13 +332,18 @@ class ApiClient:
         """Download the DOF config now, whatever version the tool is at; the job to watch."""
         return self._post("/dof/config", {})
 
-    def vps_state(self, game_id: str) -> list[dict]:
-        """Per kind: what this game holds, and what the catalog lists for it."""
+    def vps_held(self, game_id: str) -> dict:
+        """What this game holds against what the catalog lists for it: per kind, and its
+        tables."""
         _refuse_the_event_loop(f"/games/{game_id}/vps_state")
         response = self._session.get(f"{self._base}/games/{game_id}/vps_state",
                                      timeout=_TIMEOUT)
         self._answered(response)
-        return list((response.json() or {}).get("kinds") or [])
+        return dict(response.json() or {})
+
+    def vps_state(self, game_id: str) -> list[dict]:
+        """Per kind: what this game holds, and what the catalog lists for it."""
+        return list(self.vps_held(game_id).get("kinds") or [])
 
     def catalog_discovery(self) -> dict:
         """Every catalog entry against what the last count found the library holding."""

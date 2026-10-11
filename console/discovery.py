@@ -4,19 +4,25 @@ One row per catalog entry. A kind VPS lists for the entry reads Have where the l
 holds one and Missing where it does not; a kind VPS does not list is blank, and so is
 every cell while the library has never been counted. A game that is not in the library
 is Missing on every kind its entry lists.
+
+The side pane has a Game section (picture, standing, details) and a Files section (the
+records VPS lists, grouped by what the library holds). Kinds the library does not keep
+are not drawn in either.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Collection
 from typing import Any
 
 from nicegui import ui
 
+from common import icons
 from common.failures import why
 from common.i18n import t
+from common.online import vps_kinds
 from console import (
     busy,
     confirm,
@@ -25,6 +31,7 @@ from console import (
     import_dialog,
     offload,
     panel,
+    thumbnails,
     verbs,
     views,
     when,
@@ -84,8 +91,13 @@ def _kind_column(listed_as: str, field: str, word: str) -> dict[str, Any]:
 CATALOG_FACET_CEILING = 300
 
 COLUMNS = [
-    grid_module.identifier("name", t("word.name"), 260, pinned="left",
-                           help=t("console.discovery.name.help")),
+    grid_module.identifier("name", t("word.game"), 260, pinned="left",
+                           subtitle="said", picture=thumbnails.FIELD, glyph=icons.GAMES,
+                           help=t("console.discovery.name.help"),
+                           **{":getQuickFilterText":
+                              "params => [params.data.name, params.data.said, "
+                              "params.data.game_type, ...(params.data.themes || [])]"
+                              ".filter(Boolean).join(' ')"}),
     grid_module.column("in_library", t("console.discovery.in_library"),
                        help=t("console.discovery.in_library.help"),
                        **grid_module.choice_filter(_yes_no())),
@@ -103,20 +115,23 @@ COLUMNS = [
                             help=t("console.games.themes.help")),
 ]
 
-_ALL = [definition["field"] for definition in COLUMNS]
 _KIND_FIELDS = [field for _listed, field, _word in KINDS]
+# The game's own facts are on the Game cell's second line and in the pane. They stay in the
+# column picker for sorting and filtering, and no view turns them on.
+_PICKED = ("manufacturer", "year", "game_type", "themes")
+_ALL = [definition["field"] for definition in COLUMNS]
 _BY_NAME = ({"colId": "name", "sort": "asc", "sortIndex": 0},)
 
 VIEWS: dict[str, list[str] | views.Preset] = {
     "console.view.everything": views.Preset(
-        columns=tuple(_ALL), sort=_BY_NAME,
+        columns=tuple(field for field in _ALL if field not in _PICKED), sort=_BY_NAME,
         help=t("console.view.discovery_everything.help")),
     "console.view.not_held": views.Preset(
-        columns=("name", "in_library", *_KIND_FIELDS, "manufacturer", "year"), sort=_BY_NAME,
+        columns=("name", "in_library", *_KIND_FIELDS), sort=_BY_NAME,
         filters={"in_library": {"values": [NO]}},
         help=t("console.view.not_held.help")),
     "console.view.with_gaps": views.Preset(
-        columns=("name", *_KIND_FIELDS, "gap", "manufacturer", "year"), sort=_BY_NAME,
+        columns=("name", *_KIND_FIELDS, "gap"), sort=_BY_NAME,
         filters={"in_library": {"values": [YES]}, "gap": {"values": [MISSING]}},
         help=t("console.view.with_gaps.help")),
 }
@@ -128,8 +143,11 @@ def _state(listed: bool, counted: bool, in_library: bool, held: bool) -> str:
     return HAVE if in_library and held else MISSING
 
 
-def rows(found: dict[str, Any]) -> list[dict[str, Any]]:
-    """One grid row per named catalog entry. `found` is what `GET /library/discovery` answers."""
+def rows(found: dict[str, Any], kept: Collection[str] | None = None) -> list[dict[str, Any]]:
+    """One grid row per named catalog entry. `found` is what `GET /library/discovery` answers.
+
+    `kept` is the VPS kinds the library collects; a kind outside it is blank on every row
+    and counts toward no gap. None keeps them all."""
     counted = bool(found.get("counted"))
     out = []
     for entry in found.get("rows") or []:
@@ -144,6 +162,7 @@ def rows(found: dict[str, Any]) -> list[dict[str, Any]]:
             "manufacturer": entry.get("manufacturer") or "",
             "year": game_tables.year_of(entry.get("year")),
             "game_type": entry.get("type") or "",
+            thumbnails.FIELD: entry.get("img_url") or "",
             "themes": list(entry.get("themes") or []),
             "url": entry.get("url") or "",
             "in_library": "" if not counted else (YES if in_library else NO),
@@ -152,15 +171,18 @@ def rows(found: dict[str, Any]) -> list[dict[str, Any]]:
         }
         states = []
         for listed_as, field, _word in KINDS:
-            row[field] = _state(listed_as in listed, counted, in_library, listed_as in held)
+            row[field] = _state(listed_as in listed and (kept is None or listed_as in kept),
+                                counted, in_library, listed_as in held)
             states.append(row[field])
+        row["said"] = game_tables.made(row)
         row["gap"] = MISSING if MISSING in states else ""
         out.append(row)
     return out
 
 
 def row_of(library: Library, vps_id: str) -> dict[str, Any] | None:
-    return next((one for one in rows(library.catalog()) if one["id"] == vps_id), None)
+    found = rows(library.catalog(), kept_listings(library))
+    return next((one for one in found if one["id"] == vps_id), None)
 
 
 def summary(shown: list[dict[str, Any]], counted: bool) -> str:
@@ -201,6 +223,15 @@ def _never_counted_line(count_now: Callable[[], Awaitable[Any]]) -> None:
         panel.link(t("console.discovery.count_now"), to=OWN_ADDRESS, on_click=count_now)()
 
 
+def grid_columns(library: Library, built: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The columns the grid declares: a kind column only for a kind the library collects."""
+    off = {field for listed_as, field, _word in KINDS if not kept(library, listed_as)}
+    return grid_module.with_art(
+        grid_module.with_derived_facets([one for one in COLUMNS if one["field"] not in off],
+                                        built, CATALOG_FACET_CEILING),
+        library.thumbnail_look())
+
+
 async def _fill(library: Library, body: Any, state: dict[str, Any],
                 on_select: Callable[[Any], Any], rerender: Callable[[], None]) -> None:
     # Imported here: `games` imports modules that import this one.
@@ -213,8 +244,8 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
             panel.facts(ui, [panel.intro(t("console.discovery.read_failed"), hint=why(exc))])
         return
     counted = bool(found.get("counted"))
-    built = rows(found)
-    columns = grid_module.with_derived_facets(COLUMNS, built, CATALOG_FACET_CEILING)
+    built = rows(found, kept_listings(library))
+    columns = grid_columns(library, built)
     by_id = {row["id"]: row for row in built}
     on_screen: dict[str, Any] = {"ids": [row["id"] for row in built], "selected": 0}
     unmatched = await offload.io(unmatched_games, library)
@@ -225,7 +256,8 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
                 "w-full items-center gap-2 px-3 py-2 mb-2 shrink-0 console-panel console-grid-bar"):
             bar = panel.grid_bar()
             wire_views, _picker, showing, describe = view_control(
-                library, SCOPE, VIEWS, _ALL, columns, bar=bar)
+                library, SCOPE, VIEWS, [one["field"] for one in columns], columns, bar=bar,
+                art_in_lists=True)
             describe()
             with bar.top, panel.bar_end():
                 search = panel.search(t("console.discovery.search"))
@@ -304,7 +336,7 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
         """The rows read again from the library, the grid and the pane put right."""
         if not library.has_catalog():
             await offload.io(library.load_catalog)
-        fresh = rows(library.catalog())
+        fresh = rows(library.catalog(), kept_listings(library))
         built[:] = fresh
         by_id.clear()
         by_id.update({row["id"]: row for row in fresh})
@@ -322,6 +354,7 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
         rerender()
 
     state["redraw_discovery"] = after
+    state["count_discovery"] = count_again
 
 
 _SHOWN = """(() => {
@@ -409,61 +442,274 @@ async def add(library: Library, entries: list[dict[str, Any]],
         await after()
 
 
-def _chip(text: str, level: str) -> None:
-    ui.label(text).classes(f"console-tier console-tier--{level}")
+# A kind with more records than this shows this many, and the rest behind a row.
+SHOWN_RECORDS = 5
+
+_TYPE_WORDS = {"SS": "console.discovery.type.ss", "EM": "console.discovery.type.em",
+               "PM": "console.discovery.type.pm"}
 
 
-async def details(context: dict[str, Any]) -> None:
-    row = context["discovery"]
-    counted = bool(context["library"].catalog().get("counted"))
-    entries: list[tuple[Any, Any]] = [
-        (t("word.manufacturer"), row["manufacturer"] or "-"),
-        (t("word.year"), str(row["year"] or "-")),
-        (t("console.games.type"), row["game_type"] or "-"),
-        (t("console.games.game_themes"), ", ".join(row["themes"]) or "-")]
-    if counted:
-        entries.append((t("console.discovery.in_library"),
-                        panel.state(t("word.yes"), "on") if row["is_in_library"]
-                        else panel.state(t("word.no"), "warn")))
-    if row["url"]:
-        entries.append((t("console.discovery.on_vps"),
-                        panel.link_out(t("console.discovery.open_on_vps"), to=row["url"],
-                                       hint=t("console.vps_match.open_in_vps"))))
-    with ui.column().classes("gap-0 console-form w-full min-w-0"):
-        panel.facts(ui, entries)
+def type_word(code: str) -> str:
+    """VPS's two letters spelled out, or as given for a code this does not know."""
+    key = _TYPE_WORDS.get(code.strip().upper())
+    return t(key) if key else code
 
 
-def _record_line(record: dict[str, Any]) -> None:
+def kept_ours(library: Library, listed_as: str) -> set[str]:
+    """Which of our kinds behind a VPS kind this library collects. The table has no switch."""
+    kind = vps_kinds.BY_LISTING.get(listed_as)
+    if kind is None:
+        return {listed_as}
+    return set(kind.ours) & library.kept_kinds()[kind.held_in]
+
+
+def kept(library: Library, listed_as: str) -> bool:
+    return bool(kept_ours(library, listed_as))
+
+
+def kept_listings(library: Library) -> list[str]:
+    """The VPS kinds this library collects, in the order the grid draws them."""
+    return [listed_as for listed_as, _field, _word in KINDS if kept(library, listed_as)]
+
+
+async def owner_state(context: dict[str, Any]) -> tuple[str, dict[str, Any] | None]:
+    """The game that holds this entry, and what it holds of it. ("", None) where none does
+    or it cannot be read, which the pane answers from the row's own counts.
+
+    Read once per drawing of the pane, whichever section asks first: both sections draw
+    from the same answer."""
+    if "owner" not in context:
+        context["owner"] = asyncio.ensure_future(
+            _read_owner(context["library"], context["discovery"]))
+    return await context["owner"]
+
+
+async def _read_owner(library: Library,
+                      row: dict[str, Any]) -> tuple[str, dict[str, Any] | None]:
+    if not row["is_in_library"]:
+        return "", None
+    try:
+        owned, _other = await offload.io(library.owned, [row["id"]])
+        game_id = str((owned.get(row["id"]) or {}).get("game_id") or "")
+        if not game_id:
+            return "", None
+        return game_id, await offload.io(library.vps_held, game_id)
+    except Exception:  # noqa: BLE001 - the pane still draws from the row
+        logger.warning("console: could not read what %s holds", row["id"], exc_info=True)
+        return "", None
+
+
+def _kind_state(held: dict[str, Any], listed_as: str) -> dict[str, Any]:
+    return next((one for one in held.get("kinds") or [] if one.get("kind") == listed_as), {})
+
+
+def held_of(held: dict[str, Any] | None, listed_as: str) -> list[dict[str, str]]:
+    """The files the owning game holds of one VPS kind, each with the record it is tied to."""
+    if held is None:
+        return []
+    if listed_as == "tableFiles":
+        return list(held.get("tables") or [])
+    return list(_kind_state(held, listed_as).get("files") or [])
+
+
+def standing(library: Library, row: dict[str, Any],
+             held: dict[str, Any] | None) -> dict[str, str]:
+    """Have or Missing for each kept kind VPS lists. Empty where the library says nothing:
+    the game is not in it, or it has never been counted."""
+    if not row["is_in_library"]:
+        return {}
+    said: dict[str, str] = {}
+    for listed_as, field, _word in KINDS:
+        if listed_as not in row["listed"] or not kept(library, listed_as):
+            continue
+        if held is None:
+            answer = row[field]
+        else:
+            has = held_of(held, listed_as) or _kind_state(held, listed_as).get("held")
+            answer = HAVE if has else MISSING
+        if answer:
+            said[listed_as] = answer
+    return said
+
+
+def newest_first(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return sorted(records, key=lambda one: str(one.get("updated_at") or ""), reverse=True)
+
+
+def split_records(records: list[dict[str, Any]],
+                  mine: set[str]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """The newest few, and the rest. A record you hold is never in the rest: a check that
+    cannot be seen says you hold nothing."""
+    first = [one for index, one in enumerate(records)
+             if index < SHOWN_RECORDS or str(one.get("vps_file_id") or "") in mine]
+    return first, [one for one in records if one not in first]
+
+
+def _picture(src: str, address: str) -> None:
+    with ui.element("div").classes("console-vps-picture"):
+        if src:
+            ui.html(f'<img src="{src}" alt="" loading="lazy">')
+        else:
+            ui.label(t("console.discovery.no_picture")).classes("console-help")
+        if address:
+            with ui.element("div").classes("console-vps-picture-open"):
+                panel.link_out(t("console.discovery.picture_open"), to=address)()
+
+
+async def _count_again(state: dict[str, Any]) -> None:
+    again = state.get("count_discovery")
+    if callable(again):
+        await again()
+
+
+def _never_counted(state: dict[str, Any]) -> None:
+    with ui.row().classes("items-center gap-2 w-full"):
+        ui.label(t("console.discovery.never_counted")).classes("console-help")
+        panel.link(t("console.discovery.count_now"), to=OWN_ADDRESS,
+                   on_click=lambda: _count_again(state))()
+
+
+async def game(context: dict[str, Any]) -> None:
+    """The picture, whether the library has the game, and what VPS says it is."""
+    row, library, state = context["discovery"], context["library"], context["state"]
+    counted = bool(library.catalog().get("counted"))
+    game_id, held = await owner_state(context)
+
+    async def after() -> None:
+        again = state.get("redraw_discovery")
+        if callable(again):
+            await again()
+
+    with ui.column().classes("gap-0 w-full min-w-0"):
+        _picture(str(row[thumbnails.FIELD]), row["url"])
+        if not counted:
+            _never_counted(state)
+        else:
+            with ui.row().classes("items-center gap-3 w-full no-wrap console-vps-status"):
+                if row["is_in_library"]:
+                    panel.state(t("console.discovery.in_library"), "on")()
+                    if game_id:
+                        panel.link(t("console.discovery.to_games"),
+                                   to="/console?" + deeplink.query(
+                                       {"view": "games", "game": game_id}))()
+                else:
+                    ui.label(t("console.discovery.absent")).classes("grow")
+                    panel.draft_button(t("console.discovery.add"),
+                                       lambda: add(library, [row], after),
+                                       icon=verbs.ADD, primary=True)
+            said = standing(library, row, held)
+            if said:
+                panel.line(t("console.discovery.have_of",
+                             have=sum(1 for one in said.values() if one == HAVE),
+                             count=len(said)))
+        panel.facts(ui, [
+            (panel.HEADING, t("console.workbench.details")),
+            (t("word.manufacturer"), row["manufacturer"] or "-"),
+            (t("word.year"), str(row["year"] or "-")),
+            (t("console.games.type"), type_word(row["game_type"]) or "-"),
+            (t("console.games.game_themes"), ", ".join(row["themes"]) or "-")])
+
+
+def _mark(held: bool = False) -> None:
+    """The column a check sits in, drawn on every row so the words line up."""
+    with ui.element("span").classes("console-record-mark"):
+        if held:
+            ui.icon("check").tooltip(t("console.discovery.held"))
+
+
+def _record(record: dict[str, Any], *, mine: bool, features: bool) -> None:
     told = " · ".join(part for part in (
         str(record.get("version") or ""),
         ", ".join(str(name) for name in (record.get("authors") or [])[:2])) if part)
-    with ui.row().classes("items-center gap-2 w-full no-wrap console-member-row"):
-        ui.label(told or t("console.discovery.unnamed_file")).classes("grow min-w-0 truncate")
+    stamp = when.parsed(record.get("updated_at"))
+    with ui.row().classes("items-start gap-2 w-full no-wrap console-member-row console-record"):
+        _mark(mine)
+        with ui.column().classes("gap-0 grow min-w-0"):
+            ui.label(told or t("console.discovery.unnamed_file")).classes("truncate")
+            if features and record.get("features"):
+                ui.label(" · ".join(str(one) for one in record["features"])).classes(
+                    "console-help truncate")
+        ui.label(when.day(stamp.astimezone()) if stamp else "").classes(
+            "console-help console-record-when")
         if record.get("url"):
             panel.out(to=str(record["url"]), hint=t("console.vps_match.open_in_vps"))()
+        else:
+            ui.element("span").classes("console-record-out")
+
+
+def _held_row(name: str) -> None:
+    """A file you hold that VPS does not list: its own name, and nowhere to go."""
+    with ui.row().classes("items-center gap-2 w-full no-wrap console-member-row "
+                          "console-record console-record--held"):
+        _mark(True)
+        ui.label(name).classes("grow min-w-0 truncate")
+        ui.element("span").classes("console-record-out")
+
+
+async def _kind(library: Library, row: dict[str, Any], kind: tuple[str, str, str],
+                held: dict[str, Any] | None, *, features: bool) -> None:
+    listed_as, _field, word = kind
+    try:
+        listed = await offload.io(library.vps_releases, row["id"], listed_as)
+    except Exception as exc:  # noqa: BLE001 - the other kinds still draw
+        logger.warning("console: could not read %s for %s", listed_as, row["id"],
+                       exc_info=True)
+        listed = []
+        panel.line(t("console.discovery.files_failed"), hint=why(exc))
+    records = newest_first(listed)
+    listed_ids = {str(one.get("vps_file_id") or "") for one in records}
+    mine = held_of(held, listed_as)
+    tied = {one["vps_file_id"] for one in mine if one.get("vps_file_id") in listed_ids}
+    loose = [one["name"] for one in mine if one.get("vps_file_id") not in tied]
+    shown, rest = split_records(records, tied)
+    features = features and listed_as == "tableFiles"
+
+    with ui.row().classes("items-baseline gap-2 w-full no-wrap console-band"):
+        ui.label(t(word)).classes("grow min-w-0")
+        ui.label(str(len(records))).classes("console-band-count")
+    with ui.column().classes("gap-0 w-full console-plain-rows") as body:
+        for name in loose:
+            _held_row(name)
+        for record in shown:
+            _record(record, mine=str(record.get("vps_file_id") or "") in tied,
+                    features=features)
+        if rest:
+            more = ui.row().classes("w-full console-record console-record-more")
+
+            def expand() -> None:
+                more.delete()
+                with body:
+                    for record in rest:
+                        _record(record, mine=False, features=features)
+
+            with more:
+                _mark()
+                panel.action(t("console.discovery.more", count=len(rest)), expand,
+                             icon=verbs.SHOW_MORE, inline=True,
+                             hint=t("console.discovery.more_hint"))()
 
 
 async def files(context: dict[str, Any]) -> None:
-    """What the entry lists, a block per kind, each saying whether the library has one."""
-    row, library = context["discovery"], context["library"]
-    listed = [kind for kind in KINDS if kind[0] in row["listed"]]
-    with ui.column().classes("gap-0 w-full min-w-0"):
+    """What the entry lists, a band per kind, grouped by whether the library has one."""
+    row, library, state = context["discovery"], context["library"], context["state"]
+    counted = bool(library.catalog().get("counted"))
+    listed = [kind for kind in KINDS if kind[0] in row["listed"] and kept(library, kind[0])]
+    with ui.column().classes("gap-0 w-full min-w-0 console-vps-files"):
         if not listed:
             panel.line(t("console.discovery.lists_nothing"))
             return
-        for listed_as, field, word in listed:
-            try:
-                records = await offload.io(library.vps_releases, row["id"], listed_as)
-            except Exception as exc:  # noqa: BLE001 - the other kinds still draw
-                logger.warning("console: could not read %s for %s", listed_as, row["id"],
-                               exc_info=True)
-                records = []
-                panel.line(t("console.discovery.files_failed"), hint=why(exc))
-            with ui.row().classes("items-center gap-2 w-full no-wrap console-section-bar"):
-                ui.label(t(word)).classes("console-fact-value grow min-w-0")
-                if row[field] == HAVE:
-                    _chip(t("console.view.have"), "on")
-                elif row[field] == MISSING:
-                    _chip(t("console.view.missing"), "warn")
-            for record in records:
-                _record_line(record)
+        if not counted:
+            _never_counted(state)
+        _game_id, held = await owner_state(context)
+        said = standing(library, row, held)
+        groups = [(t("console.discovery.on_vps"), listed)]
+        if said:
+            groups = [
+                (t("console.view.missing"), [one for one in listed if said.get(one[0]) == MISSING]),
+                (t("console.view.have"), [one for one in listed if said.get(one[0]) == HAVE])]
+        for heading, kinds in groups:
+            if not kinds:
+                continue
+            ui.label(heading).classes("console-fact-heading")
+            for kind in kinds:
+                await _kind(library, row, kind, held, features=not said)

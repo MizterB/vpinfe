@@ -29,12 +29,12 @@ def _resource(entry: dict) -> dict:
         "manufacturer": entry.get("manufacturer"), "year": entry.get("year"),
         "type": entry.get("type"), "folder_name": vps_folder_name(entry),
         "releases": len(entry.get("tableFiles") or []),
-        "img_url": _picture(entry),
+        "img_url": picture(entry),
         "url": entry_address(str(entry.get("id") or "")),
     }
 
 
-def _picture(entry: dict) -> str:
+def picture(entry: dict) -> str:
     """The picture VPS's own page leads with for this machine, or "" for none."""
     if entry.get("imgUrl"):
         return str(entry["imgUrl"])

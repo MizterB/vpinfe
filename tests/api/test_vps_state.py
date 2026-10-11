@@ -142,6 +142,30 @@ class VpsStateTests(TempTree):
 
         self.assertFalse(self._state()["b2sFiles"]["identified"])
 
+    def test_each_held_file_is_named_as_it_is_on_disk(self) -> None:
+        state = self._state()
+
+        self.assertEqual([one["name"] for one in state["b2sFiles"]["files"]],
+                         [f"{FOLDER}.directb2s"])
+        self.assertEqual(state["romFiles"]["files"], [])
+
+    def test_a_held_file_names_the_record_it_is_tied_to(self) -> None:
+        self._bind(f"{FOLDER}.directb2s", "b1")
+
+        (held,) = self._state()["b2sFiles"]["files"]
+
+        self.assertEqual(held["vps_file_id"], "b1")
+
+    def test_a_file_tied_to_no_record_says_so(self) -> None:
+        (held,) = self._state()["b2sFiles"]["files"]
+
+        self.assertEqual(held["vps_file_id"], "")
+
+    def test_the_tables_on_disk_are_listed_beside_the_kinds(self) -> None:
+        body = self.client.get(f"/games/{GAME_ID}/vps_state").json()
+
+        self.assertEqual([one["name"] for one in body["tables"]], [f"{FOLDER}.vpx"])
+
     def test_a_game_matched_to_nothing_says_so(self) -> None:
         with patch("common.games.game_service.load_vpsdb", return_value=[]):
             body = self.client.get(f"/games/{GAME_ID}/vps_state").json()

@@ -1768,6 +1768,10 @@ class Library:
                 offered[name] = int(kind.get("obtainable") or 0)
         return offered
 
+    def vps_held(self, game_id: str) -> dict:
+        """Never cached: what a game holds is what a draw is about to show."""
+        return self._client.vps_held(game_id)
+
     def vps_details(self, game_id: str) -> list[dict]:
         """Where this game's details disagree with the entry it is matched to."""
         return self._client.vps_details(game_id)

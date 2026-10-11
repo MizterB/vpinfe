@@ -3465,10 +3465,52 @@ a.console-slot-file, a.console-slot-file:visited { color: var(--accent); }
 .console-tick { text-align: center; color: var(--positive); }
 .console-unknown { text-align: center; color: var(--ink-3); font-weight: 600; }
 
-/* Discovery's cells: Have is present, so green as everywhere; Missing is the thing to act
-   on, so the amber a warning chip uses. Blank is the kind VPS does not list. */
+/* Discovery's cells: Have is present, so green as everywhere. Missing is quiet, not amber:
+   most of a catalog is missing most kinds, which is a gap to browse, not a fault to fix.
+   Blank is the kind VPS does not list. */
 .console-have { color: var(--positive); }
-.console-lack { color: var(--tier-table); }
+.console-lack { color: var(--ink-3); }
+
+/* Discovery's pane. The VPS picture shows whole on a plate, and the way to the entry sits
+   on its corner. */
+.console-vps-picture {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 188px; overflow: hidden; text-align: center; padding: 0 20px;
+  box-sizing: border-box;
+  background: var(--surface-3); border: 1px solid var(--line-soft); border-radius: 6px;
+}
+.console-vps-picture > div:not(.console-vps-picture-open) {
+  display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;
+}
+.console-vps-picture img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.console-vps-picture-open {
+  position: absolute; right: 6px; bottom: 6px;
+  padding: 2px 8px; border-radius: 4px; font-size: var(--fs-caption);
+  background: var(--surface-viewer);
+}
+.console-vps-status { padding: 12px 0 4px; }
+
+/* A kind of file in the list of what VPS offers: a band on a plate, so it reads as the head
+   of the records under it rather than as one of them. */
+.console-band {
+  margin-top: 10px; padding: 7px 10px; border-radius: 4px; font-weight: 600;
+  background: var(--accent-wash); border-left: 3px solid var(--accent);
+}
+.console-band-count { font-size: var(--fs-caption); font-weight: 400; color: var(--ink-3); }
+.console-vps-files > .console-fact-heading:first-child {
+  border-top: none; margin-top: 0; padding-top: 0;
+}
+/* The records under a band: regular weight and indented, the check in the indent. One
+   mark column on every row, so a record you hold does not move its words. */
+.console-record { padding: 5px 8px 5px 12px; font-weight: 400; }
+.console-record-mark { flex: 0 0 18px; color: var(--positive); line-height: 1.3; }
+.console-record-mark .q-icon { font-size: var(--icon-mark); }
+.console-record-when { flex: 0 0 auto; white-space: nowrap; padding-top: 2px; }
+/* The place the way out sits, held on a row without one. */
+.console-record-out { flex: 0 0 25px; }
+/* A file you hold that VPS does not list: present, and not a record. */
+.console-record--held { opacity: 0.62; font-style: italic; }
+.console-record-more { padding: 2px 8px 2px 12px; }
 
 /* One or more tables here use something else. A bar rather than a badge: the tile is
    about a hundred pixels wide and already carries a tier badge and an enlarge, and a

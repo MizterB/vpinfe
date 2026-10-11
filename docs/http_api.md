@@ -117,7 +117,7 @@ the documented entry point is a plain 200. Both spellings work.
 | POST | `/api/v1/library/patches` | Fetch them. Returns `202` and a job. `{"games": [...]}` names the folders a check offered and limits the fetch to those; leaving it out looks at every game. A table with a `.vbs` beside it already is left alone |
 | GET | `/api/v1/library/vps_state` | What the catalog lists across the library, as last counted. `computed` empty means it has never been counted |
 | POST | `/api/v1/library/vps_state` | Count it again. Returns `202` and a job, which can run beside a scan |
-| GET | `/api/v1/library/discovery` | Every catalog entry against what the library holds, as last counted: `listed` and `held` kinds and `in_library`. `counted` empty means never counted, and `in_library` is then null |
+| GET | `/api/v1/library/discovery` | Every catalog entry against what the library holds, as last counted: `listed` and `held` kinds, `in_library` and the entry's `img_url`. `counted` empty means never counted, and `in_library` is then null |
 | GET | `/api/v1/library/watching` | Since when a catalog change counts as new. Empty until somebody answers |
 | PUT | `/api/v1/library/watching` | Set it, `{"since": ...}` |
 | POST | `/api/v1/library/watching/acknowledge` | Dismiss one catalog change, `{"game_id", "kind", "vps_file_id"}` |
@@ -154,7 +154,7 @@ the documented entry point is a plain 200. Both spellings work.
 | DELETE | `/api/v1/games/{id}/vps_match` | Say the game is in no catalog, so the scan's match is not used. Clearing `alt_vps_id` instead puts the scan's match back |
 | GET | `/api/v1/games/{id}/vps_details` | Where the game's details and its VPS entry disagree |
 | PUT | `/api/v1/games/{id}/vps_details` | Take the entry's details: `{"fields": [...]}` for some, no body for all. Answers with what still disagrees |
-| GET | `/api/v1/games/{id}/vps_state` | What the catalog lists for the game, kind by kind |
+| GET | `/api/v1/games/{id}/vps_state` | What the catalog lists for the game, kind by kind, with the files held under each kind and the tables on disk, each naming the record it is tied to |
 | PUT | `/api/v1/games/{id}/asset_source` | Say which VPS record one file in the game's folder is, `{"path", "vps_file_id"}` |
 | GET | `/api/v1/games/{id}` | One game. `vps_matched_by` says who made the match in `vps_id`: `import` for an entry picked on import, `user` for one a person picked or a no-match they declared, and empty for VPinFE's guess from the folder name or no match. `discovered.vps_matched_by` says the same of the entry under an override |
 | GET | `/api/v1/games/{id}/tables` | The game's tables, with resolved assets and dependencies. `update_available` is true where VPS lists a later version of the release a table is matched to than the file's own `version`, false where it does not, and null where nothing can be weighed - no release, or a version on either side that does not read as one. `launcher_settings_keys` lists the settings the program's file for the table changes, by the program's own key, with a saved camera as the one entry `point_of_view`. `launcher_settings_here` and `launcher_settings_from_folder` count that list, under whichever of the two files it is, and `launcher_point_of_view` says whether that file holds a camera |

@@ -12,7 +12,7 @@ from collections.abc import Callable
 from unittest.mock import Mock
 
 from common.i18n import t
-from console import games, sections, workbench
+from console import discovery, games, sections, workbench
 from console.data import Library
 
 HIDDEN_ASSETS = ("ini", "rom", "readme")
@@ -84,6 +84,17 @@ def _asset_kinds_in_the_table_panel(library: Library) -> set[str]:
             if name in labels}
 
 
+def _kinds_in_the_discovery_pane(library: Library) -> set[str]:
+    return {kind for listed_as in discovery.kept_listings(library)
+            for kind in discovery.kept_ours(library, listed_as)}
+
+
+def _kinds_in_the_discovery_grid(library: Library) -> set[str]:
+    drawn = {one["field"] for one in discovery.grid_columns(library, [])}
+    return {kind for listed_as, field, _word in discovery.KINDS if field in drawn
+            for kind in discovery.kept_ours(library, listed_as)}
+
+
 def _counted(library: Library) -> int:
     """How many files the panel header says are here."""
     said = workbench._assets_label(_panel_context(library))
@@ -102,6 +113,10 @@ SURFACES: dict[str, tuple[Callable[[Library], set[str]], set[str]]] = {
                                         set(HIDDEN_ASSETS)),
     "the table panel's Assets block": (_asset_kinds_in_the_table_panel,
                                        set(HIDDEN_ASSETS)),
+    "the Discovery pane's files": (_kinds_in_the_discovery_pane,
+                                   {*HIDDEN_ASSETS, *HIDDEN_MEDIA}),
+    "the Discovery grid's kind columns": (_kinds_in_the_discovery_grid,
+                                          {*HIDDEN_ASSETS, *HIDDEN_MEDIA}),
 }
 
 
@@ -120,7 +135,9 @@ class EverySurfaceHonorsTheKinds(unittest.TestCase):
                 "the Library card's bars": set(KEPT_MEDIA),
                 "the Games grid's asset columns": set(KEPT_ASSETS) - set(games.TABLE_ASSET_KEYS),
                 "the Tables grid's asset columns": set(KEPT_ASSETS) & set(games.TABLE_ASSET_KEYS),
-                "the table panel's Assets block": set(KEPT_ASSETS)}
+                "the table panel's Assets block": set(KEPT_ASSETS),
+                "the Discovery pane's files": {"backglass", "pup_pack", *KEPT_MEDIA},
+                "the Discovery grid's kind columns": {"backglass", "pup_pack", *KEPT_MEDIA}}
 
         absent = {name: kept[name] - reports(library)
                   for name, (reports, _hidden) in SURFACES.items()}

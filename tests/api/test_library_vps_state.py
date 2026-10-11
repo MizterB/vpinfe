@@ -258,6 +258,15 @@ class RollupRouteTests(unittest.TestCase):
         self.assertEqual((row["in_library"], row["year"], row["held"]),
                          (True, 1995, ["tableFiles", "b2sFiles"]))
 
+    def test_a_row_carries_the_picture_vps_leads_with(self) -> None:
+        pictured = [{**CATALOG[0], "imgUrl": "https://vps.example/z.webp"}, CATALOG[1]]
+        with patch.object(rollup, "load_vpsdb", return_value=pictured):
+            body = self.client.get("/library/discovery").json()
+
+        by_id = {one["vps_id"]: one for one in body["rows"]}
+        self.assertEqual((by_id["E2"]["img_url"], by_id["E1"]["img_url"]),
+                         ("https://vps.example/z.webp", ""))
+
     def test_counting_is_accepted_not_done(self) -> None:
         with patch("common.games.game_repository.catalog", return_value={}):
             response = self.client.post("/library/vps_state")

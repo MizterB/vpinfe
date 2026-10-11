@@ -7733,8 +7733,8 @@ SECTIONS: tuple[Section, ...] = (
     Section("backup_contents", lambda _: t("console.backups.contents"), backups_page.contents,
             subjects=frozenset({"backup"}), shown=backups_page.has_contents),
     # An entry the catalog lists: what it is, then the files VPS has for it.
-    Section("discovery_details", lambda _: t("console.workbench.details"),
-            discovery_page.details, subjects=frozenset({"discovery"})),
+    Section("discovery_game", lambda _: t("word.game"),
+            discovery_page.game, subjects=frozenset({"discovery"})),
     Section("discovery_files", lambda _: t("console.discovery.files"),
             discovery_page.files, subjects=frozenset({"discovery"})),
 )

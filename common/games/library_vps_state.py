@@ -24,6 +24,7 @@ from common.atomic_write import write_atomic
 from common.games import (
     asset_origin,
     asset_registry,
+    asset_resolver,
     game_lens,
     game_repository,
     game_service,
@@ -33,7 +34,7 @@ from common.games import (
 from common.games.game import Game
 from common.games.game_service import load_vpsdb
 from common.games.media_service import CACHE_DIR
-from common.games.tables import ABSENT_SINCE_KEY, table_entries
+from common.games.tables import ABSENT_SINCE_KEY, entry_filename, table_entries
 from common.i18n import t
 from common.jobs import JobReporter
 from common.online import obtainability, vps_kinds, vps_lens
@@ -80,6 +81,54 @@ def _we_hold(kind: vps_kinds.VpsKind, inventory: dict, media: dict) -> bool:
     return False
 
 
+# What a kind held as a folder is called on disk; the inventory says only that it is there.
+_FOLDER_NAMES = {"pup_pack": "pupvideos", "altcolor_serum": "serum", "altcolor_vni": "vni"}
+
+
+def _held_file(name: str, vps_file_id: str) -> dict[str, str]:
+    return {"name": name, "vps_file_id": vps_file_id}
+
+
+def _bound(recorded: dict[str, dict], key: str) -> str:
+    return str((recorded.get(key) or {}).get("vps_file_id") or "")
+
+
+def _held_files(kind: vps_kinds.VpsKind, game_dir: Path, inventory: dict, media: dict,
+                recorded: dict[str, dict]) -> list[dict[str, str]]:
+    """What the game holds of this kind, each by the name on disk and the VPS record it is
+    bound to ("" for none). A kind held as a folder is its usual folder name, not the
+    folder's casing on disk, which the inventory does not carry."""
+    found: list[dict[str, str]] = []
+    for name in kind.ours:
+        if kind.held_in == vps_kinds.MEDIA:
+            slot = media.get(name) or {}
+            if slot.get("present") and slot.get("file"):
+                found.append(_held_file(str(slot["file"]), str(slot.get("matched_to") or "")))
+            continue
+        slot = inventory.get(asset_registry.lens_kind(name)) or {}
+        if slot.get("files"):
+            found.extend(_held_file(str(one["file"]), _bound(recorded, str(one["file"])))
+                         for one in slot["files"])
+        elif name == "altsound" and slot.get("present"):
+            folder = asset_registry.altsound_folder(
+                game_dir, asset_resolver.folder_listing(game_dir)[1]) or "altsound"
+            found.append(_held_file(folder, _bound(recorded, folder)))
+        elif slot.get("present") and name in _FOLDER_NAMES:
+            folder = _FOLDER_NAMES[name]
+            formats = slot.get("formats")
+            if formats is None or folder in formats:
+                found.append(_held_file(folder, _bound(recorded, folder)))
+    return found
+
+
+def held_tables(game: Game) -> list[dict[str, str]]:
+    """The game's tables that are on disk, by file name and the release each is bound to."""
+    return [_held_file(entry_filename(one), str((one.get("source") or {}).get("vps_file_id")
+                                                 or ""))
+            for one in table_entries(getattr(game, "meta_config", None)).values()
+            if isinstance(one, dict) and not one.get(ABSENT_SINCE_KEY) and entry_filename(one)]
+
+
 def _moved_since(records: list, baseline: str, dismissed: set) -> list:
     """The records that changed upstream after this game's baseline.
 
@@ -118,8 +167,8 @@ def state_of(game: Game, game_id: str = "") -> dict:
         media_service.resolved_media(game_dir, None), game_dir, prefix)
     shared = _crowded_links()
     # A record id is only in one kind's list, so the ids alone place every binding.
-    bound = {str(source.get("vps_file_id") or "")
-             for source in asset_origin.sources(game_dir).values()}
+    recorded = asset_origin.sources(game_dir)
+    bound = {str(source.get("vps_file_id") or "") for source in recorded.values()}
     bound.discard("")
     baseline = watching.since_for(game_id)
     dismissed = watching.acknowledged(game_id) if game_id else {}
@@ -137,6 +186,7 @@ def state_of(game: Game, game_id: str = "") -> dict:
             "ours": list(kind.ours),
             "held_in": kind.held_in,
             "held": _we_hold(kind, inventory, media),
+            "files": _held_files(kind, game_dir, inventory, media, recorded),
             "identified": any(str(record.get("id") or "") in bound
                               for record in records),
             "updated": any(str(record.get("id") or "") in bound for record in moved),
@@ -148,7 +198,8 @@ def state_of(game: Game, game_id: str = "") -> dict:
             "why_not": sorted({word for word in answers
                                if word != obtainability.AVAILABLE}),
         })
-    return {"matched": bool(entry), "vps_id": str(entry.get("id") or ""), "kinds": kinds}
+    return {"matched": bool(entry), "vps_id": str(entry.get("id") or ""), "kinds": kinds,
+            "tables": held_tables(game)}
 
 
 def stored() -> dict[str, Any]:
@@ -268,6 +319,7 @@ def discovery() -> dict[str, Any]:
             "themes": [str(word) for word in entry.get("theme") or []
                        if isinstance(entry.get("theme"), list)],
             "url": vps_lens.entry_address(vps_id),
+            "img_url": vps_lens.picture(entry),
             "listed": [kind for kind in (TABLES, *vps_kinds.BY_LISTING) if entry.get(kind)],
             "in_library": (found is not None) if known else None,
             "held": held,

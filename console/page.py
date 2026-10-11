@@ -1948,7 +1948,7 @@ def _show_group(open_now: bool, caret: Any, held: list) -> None:
 
 
 # Sections of another subject's panel: they name a file or catalog entry of the page just left.
-OWN_SUBJECT_SECTIONS = ("media_file", "asset_file", "discovery_details", "discovery_files")
+OWN_SUBJECT_SECTIONS = ("media_file", "asset_file", "discovery_game", "discovery_files")
 
 
 def leave_for(state: dict[str, Any], view: str) -> None:
