@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import threading
+import time
 import unittest
 from unittest import mock
 
@@ -276,6 +278,132 @@ class BlockedTests(unittest.TestCase):
 
         self.enabled, self.playing = True, True
         self.assertEqual(dof_service.blocked(None).reason, dof_service.PLAYING)
+
+
+class BoardsTests(unittest.TestCase):
+    """Boards are read from the helper's log, since libdof's `init()` answers nothing."""
+
+    def setUp(self) -> None:
+        self.helper = dof_service._DofHelperProcess()
+        self.helper._runner_started_at = time.monotonic()
+        self.enterContext(mock.patch.object(dof_service, "_HELPER", self.helper))
+        self.enterContext(mock.patch.object(
+            dof_service._DofHelperProcess, "is_alive", lambda _self: True))
+        self.enterContext(mock.patch.object(dof_service, "BOARD_WAIT", 0.0))
+
+    def _said(self, message: str) -> None:
+        self.helper._handle_log({"type": "log", "level": "INFO", "message": message})
+
+    def test_a_board_that_reported_in_is_a_board(self) -> None:
+        self._said("PacLed64 device 1 initialized")
+
+        self.assertFalse(dof_service.no_boards())
+
+    def test_a_board_that_was_not_found_is_no_board(self) -> None:
+        self._said("PacLed64 device 1 not found")
+        self._said("Could not initialize FT245RBitbangController 3. No SerialNumber.")
+        self._said("PinscapePico 2 could not connect to device")
+
+        self.assertTrue(dof_service.no_boards())
+
+    def test_each_controller_type_is_seen_by_the_line_it_logs(self) -> None:
+        for line in (
+            "LedWiz Nr. 08 initialized and updater thread initialized.",
+            "PacDrive initialized and updater thread started.",
+            "PacUIO Id:1 initialized and updater thread started.",
+            "FT245RBitbangController 3 with serial number A1 has been initialized.",
+            "Detected and added Pinscape Controller (KL25Z) #1 with name Cab",
+            "Found Pinscape device: Cab (path=/dev/hidraw1)",
+            "PinscapePico 2 connected successfully",
+            "Pinscape Pico discovery found unit #2 (Cab), 24 output ports",
+            "DudesCab Controller Informations : Device [1,RID:2] Name [Cab], v1.2.3, unit #1",
+        ):
+            with self.subTest(line=line):
+                self.helper._boards_up = 0
+                self._said(line)
+
+                self.assertFalse(dof_service.no_boards())
+
+    def test_the_lines_that_come_before_a_board_are_not_one(self) -> None:
+        for line in (
+            "Initializing LedWiz Nr. 08",
+            "PacLed64 auto-configuration starting",
+            "Pinscape auto-configuration starting",
+            "Global configuration found at: /tmp/x",
+        ):
+            with self.subTest(line=line):
+                self._said(line)
+
+                self.assertTrue(dof_service.no_boards())
+
+    def test_a_helper_that_logged_nothing_of_boards_has_none(self) -> None:
+        self._said("Frontend DOF event sent")
+
+        self.assertTrue(dof_service.no_boards())
+
+    def test_a_board_still_starting_is_waited_for(self) -> None:
+        late = threading.Timer(0.05, self._said, ["PacLed64 device 1 initialized"])
+        with mock.patch.object(dof_service, "BOARD_WAIT", 5.0):
+            late.start()
+            began = time.monotonic()
+
+            self.assertFalse(dof_service.no_boards())
+
+        late.join()
+        self.assertLess(time.monotonic() - began, 2.0)
+
+    def test_no_helper_and_a_runner_never_started_say_nothing_either_way(self) -> None:
+        self.helper._runner_started_at = None
+        self.assertFalse(dof_service.no_boards())
+
+        with mock.patch.object(dof_service, "_HELPER", None):
+            self.assertFalse(dof_service.no_boards())
+
+    def test_starting_the_runner_counts_afresh(self) -> None:
+        self._said("PacLed64 device 1 initialized")
+
+        was = self.helper._boards_started()
+        self.helper._boards_settled(was, started=True)
+
+        self.assertTrue(dof_service.no_boards())
+
+    def _start(self, answer: dict[str, object] | None) -> None:
+        stdin = mock.Mock()
+
+        def reply(_encoded: str) -> None:
+            if answer is not None:
+                for request_id, pending in self.helper._pending.items():
+                    pending["response"] = {"type": "response", "id": request_id, **answer}
+
+        stdin.write.side_effect = reply
+        self.helper._proc = mock.Mock(stdin=stdin)
+        self.enterContext(mock.patch.object(
+            dof_service._DofHelperProcess, "_ensure_started", lambda _self: True))
+        self.helper.request("start", timeout=0.05)
+
+    def test_a_start_request_counts_afresh_and_a_refused_one_keeps_the_count(self) -> None:
+        self._said("PacLed64 device 1 initialized")
+
+        self._start({"started": False})
+        self.assertFalse(dof_service.no_boards())
+
+        self._start({"started": True})
+        self.assertTrue(dof_service.no_boards())
+
+    def test_a_start_that_never_answered_keeps_the_count(self) -> None:
+        self._said("PacLed64 device 1 initialized")
+
+        self._start(None)
+
+        self.assertFalse(dof_service.no_boards())
+
+    def test_a_start_that_found_it_running_keeps_what_was_counted(self) -> None:
+        self._said("PacLed64 device 1 initialized")
+
+        was = self.helper._boards_started()
+        self.helper._boards_settled(was, started=False)
+
+        self.assertFalse(dof_service.no_boards())
 
 
 if __name__ == "__main__":

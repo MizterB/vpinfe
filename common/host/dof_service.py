@@ -15,6 +15,7 @@ import re
 import subprocess
 import sys
 import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -32,6 +33,17 @@ _HELPER = None
 _CURRENT_EVENT = None
 _RUNNER_NAMES = ('dof_runner.py', 'runner_dof.py', 'random_dof_runner.py')
 _EVENT_TOKEN_RE = re.compile(r'^([A-Za-z])(\d+)$')
+# A controller type that logs none of these when it comes up is not counted as a board.
+_BOARD_UP_RE = re.compile(
+    r'\binitialized\b'
+    r'|\bDetected and added\b'
+    r'|\bFound Pinscape device\b'
+    r'|\bconnected successfully\b'
+    r'|\bPinscape Pico discovery found\b'
+    r'|\bDudesCab Controller Informations\b',
+    re.IGNORECASE)
+# How long after the runner starts a board may still report.
+BOARD_WAIT = 3.0
 logger = logging.getLogger("vpinfe.common.host.dof_service")
 
 
@@ -121,6 +133,8 @@ class _DofHelperProcess:
         self._next_request_id = 1
         self._expected_shutdown = False
         self._unexpected_exit_code: int | None = None
+        self._runner_started_at: float | None = None
+        self._boards_up = 0
 
     def _command(self) -> list[str]:
         if getattr(sys, 'frozen', False):
@@ -210,6 +224,10 @@ class _DofHelperProcess:
     def _handle_log(self, payload: dict[str, Any]) -> None:
         level_name = str(payload.get("level", "INFO")).upper()
         message = str(payload.get("message", ""))
+        if _BOARD_UP_RE.search(message):
+            with self._cv:
+                self._boards_up += 1
+                self._cv.notify_all()
         if level_name == "DEBUG":
             logger.debug("[libdof] %s", message)
         elif level_name == "INFO":
@@ -236,6 +254,7 @@ class _DofHelperProcess:
 
         message = {"id": request_id, "command": command}
         message.update(payload)
+        before = self._boards_started() if command == "start" else None
         encoded = json.dumps(message) + "\n"
 
         try:
@@ -253,13 +272,41 @@ class _DofHelperProcess:
             response = state.get("response")
             self._pending.pop(request_id, None)
 
+        if before is not None:
+            self._boards_settled(before, bool(response and response.get("started")))
         if not got_response or response is None:
             logger.error("Timed out waiting for DOF helper command: %s", command)
             return None
         return response
 
+    def _boards_started(self) -> tuple[int, float | None]:
+        """The board count and start time as they were, then begin counting afresh."""
+        with self._cv:
+            was = (self._boards_up, self._runner_started_at)
+            self._boards_up = 0
+            self._runner_started_at = time.monotonic()
+        return was
+
+    def _boards_settled(self, was: tuple[int, float | None], started: bool) -> None:
+        if started:
+            return
+        with self._cv:
+            self._boards_up += was[0]
+            self._runner_started_at = was[1]
+
     def is_alive(self) -> bool:
         return self._proc is not None and self._proc.poll() is None
+
+    def found_no_boards(self) -> bool:
+        """True once the runner has had `BOARD_WAIT` seconds and no board reported in.
+        Holds the caller until the first board does, or that time is up."""
+        with self._cv:
+            if self._runner_started_at is None:
+                return False
+            left = self._runner_started_at + BOARD_WAIT - time.monotonic()
+            if left > 0:
+                self._cv.wait_for(lambda: self._boards_up > 0, timeout=left)
+            return self._boards_up == 0
 
     def consume_unexpected_exit_code(self) -> int | None:
         code = self._unexpected_exit_code
@@ -299,6 +346,14 @@ def is_running() -> bool:
             logger.warning("Detected stopped DOF helper process; last exit code was %s", exit_code)
         _HELPER = None
         return False
+
+
+def no_boards() -> bool:
+    """Whether DOF is up and no board has said it is connected. Waits, once, for boards
+    that are still starting."""
+    with _LOCK:
+        helper = _HELPER
+    return helper is not None and helper.is_alive() and helper.found_no_boards()
 
 
 def find_dof_file(*names: str) -> Path | None:

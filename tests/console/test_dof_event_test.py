@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from common.i18n import t
 from console import dof, offload
+from console.settings import address_for
 
 
 class Library:
@@ -18,6 +19,7 @@ class Library:
         self.refusal = refusal
         self.fired: list[str] = []
         self.stopped = 0
+        self.no_boards = False
 
     def dof_event_state(self) -> dict[str, Any]:
         return self.state
@@ -26,8 +28,8 @@ class Library:
         if self.refusal:
             raise self.refusal
         self.fired.append(event)
-        self.state = {"event": event, "blocked": ""}
-        return {"event": event}
+        self.state = {"event": event, "blocked": "", "no_boards": self.no_boards}
+        return {"event": event, "no_boards": self.no_boards}
 
     def stop_dof_event(self) -> None:
         self.stopped += 1
@@ -101,6 +103,32 @@ class TesterTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(library.fired, ["S27"])
         self.assertEqual(self._last()["label"], t("word.stop"))
+
+    async def test_an_event_with_no_board_says_so_and_links_to_setup(self) -> None:
+        library = Library({"event": None, "blocked": ""})
+        library.no_boards = True
+        await self._draw(library, event="S27")
+        link = MagicMock()
+        links: list[dict[str, Any]] = []
+        self.enterContext(patch.object(
+            dof.panel, "link", lambda label, **how: links.append({"label": label, **how}) or link))
+
+        await self._last()["press"]()
+
+        self.assertIn(t("console.dof.no_boards"), self.said)
+        self.assertEqual([one["label"] for one in links], [t("console.dof.setup")])
+        self.assertEqual(links[0]["to"], address_for(dof.SECTION))
+
+    async def test_the_output_page_says_no_boards_without_linking_to_itself(self) -> None:
+        library = Library({"event": "E900", "blocked": "", "no_boards": True})
+        state = await dof.event_state(library)
+        links: list[str] = []
+        self.enterContext(patch.object(
+            dof.panel, "link", lambda label, **_: links.append(label) or (lambda: None)))
+        dof.Tester(library, state, lambda: "E900", on_dof_page=True)()
+
+        self.assertEqual(self.said, [t("console.dof.no_boards")])
+        self.assertEqual(links, [])
 
     async def test_pressing_stop_turns_it_off_and_the_button_reads_test_again(self) -> None:
         library = Library({"event": "E900", "blocked": ""})

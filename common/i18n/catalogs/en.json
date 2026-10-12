@@ -1309,6 +1309,8 @@
   "console.dmd_panel.kind.zedmd": "ZeDMD",
   "console.dmd_panel.switch": "DMD panel",
   "console.dmd_panel.switch.help": "An LED panel of its own, rather than a screen",
+  "console.dof.no_boards": "No boards connected",
+  "console.dof.setup": "DOF Setup",
   "console.dof.state_failed": "Could not read when the DOF config was last downloaded",
   "console.dof.stop_failed": "Could not stop the event",
   "console.dof.stop_hint": "Turn the event off",

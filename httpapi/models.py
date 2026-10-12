@@ -318,16 +318,20 @@ class DofConfigState(ApiModel):
 
 class DofEventState(ApiModel):
     """`event` is the one now on this device, or None. `blocked` says in words why one
-    could not be turned on now, and is empty when one could."""
+    could not be turned on now, and is empty when one could. `no_boards` is true while an
+    event is on and no board has reported in."""
 
     event: str | None = None
     blocked: str = ""
+    no_boards: bool = False
 
 
 class DofEventResult(ApiModel):
-    """`event` is the one now on this device, or None when none is."""
+    """`event` is the one now on this device, or None when none is. `no_boards` is true
+    when DOF is running and no board has reported in, so the event reached no hardware."""
 
     event: str | None
+    no_boards: bool = False
 
 
 class LogRecord(ApiModel):

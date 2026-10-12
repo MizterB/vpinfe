@@ -1309,6 +1309,8 @@
   "console.dmd_panel.kind.zedmd": "ŽèĐḾĐ",
   "console.dmd_panel.switch": "ĐḾĐ þàñèŀ",
   "console.dmd_panel.switch.help": "Àñ ĿÈĐ þàñèŀ öƒ îţš öŵñ, řàţĥèř ţĥàñ à šçřèèñ",
+  "console.dof.no_boards": "Ñö ƀöàřđš çöññèçţèđ",
+  "console.dof.setup": "ĐÖƑ Šèţûþ",
   "console.dof.state_failed": "Çöûŀđ ñöţ řèàđ ŵĥèñ ţĥè ĐÖƑ çöñƒîĝ ŵàš ŀàšţ đöŵñŀöàđèđ",
   "console.dof.stop_failed": "Çöûŀđ ñöţ šţöþ ţĥè èṽèñţ",
   "console.dof.stop_hint": "Ţûřñ ţĥè èṽèñţ öƒƒ",

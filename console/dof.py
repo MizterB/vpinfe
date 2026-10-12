@@ -50,10 +50,11 @@ class Tester:
     """
 
     def __init__(self, library: Any, state: dict[str, Any],
-                 event: Callable[[], str]) -> None:
+                 event: Callable[[], str], *, on_dof_page: bool = False) -> None:
         self.library = library
         self.state = state
         self.event = event
+        self.on_dof_page = on_dof_page
         self.column: Any = None
 
     def __call__(self) -> None:
@@ -71,12 +72,21 @@ class Tester:
             if token and self.state.get("event") == token:
                 panel.action(t("word.stop"), self._stop, icon=verbs.STOP, inline=True,
                              hint=t("console.dof.stop_hint"))()
+                if self.state.get("no_boards"):
+                    self._no_boards()
                 return
             panel.action(t("console.dof.test"), self._test, icon=verbs.RUN, inline=True,
                          enabled=not reason and bool(token),
                          hint=reason or t("console.dof.test_hint"))()
             if reason:
                 ui.label(reason).classes("console-help")
+
+    def _no_boards(self) -> None:
+        from console.settings import address_for
+
+        ui.label(t("console.dof.no_boards")).classes("console-help")
+        if not self.on_dof_page:
+            panel.link(t("console.dof.setup"), to=address_for(SECTION))()
 
     async def _reread(self) -> None:
         self.state.clear()
@@ -92,7 +102,8 @@ class Tester:
             await self._reread()
             return
         self.state.clear()
-        self.state.update(event=on.get("event"), blocked="")
+        self.state.update(event=on.get("event"), blocked="",
+                          no_boards=bool(on.get("no_boards")))
         self.refresh()
 
     @on_page
@@ -112,7 +123,7 @@ _typed = {"event": FIRST_EVENT}
 
 def event_row(library: Any, state: dict[str, Any]) -> tuple[Any, Any]:
     """Test Event: the field, then Test."""
-    test = Tester(library, state, lambda: _typed["event"])
+    test = Tester(library, state, lambda: _typed["event"], on_dof_page=True)
 
     async def keep(text: str) -> str:
         try:

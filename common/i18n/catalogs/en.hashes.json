@@ -1050,6 +1050,8 @@
   "console.dmd_panel.kind.zedmd": "47a772c26795",
   "console.dmd_panel.switch": "2414736a162a",
   "console.dmd_panel.switch.help": "7083dddd93ce",
+  "console.dof.no_boards": "19e5f5ac1944",
+  "console.dof.setup": "3843e942bab6",
   "console.dof.state_failed": "76595da550df",
   "console.dof.stop_failed": "1836a98e81d1",
   "console.dof.stop_hint": "ababcb3b9a94",

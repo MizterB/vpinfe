@@ -26,15 +26,17 @@ def event_state() -> models.DofEventState:
     """What a surface needs to offer a test: the event on now, and why none could be
     turned on, in words."""
     outcome = dof_service.blocked(get_ini_config())
-    return models.DofEventState(event=dof_service.current_event(),
-                                blocked="" if outcome else outcome.words())
+    event = dof_service.current_event()
+    return models.DofEventState(event=event, blocked="" if outcome else outcome.words(),
+                                no_boards=event is not None and dof_service.no_boards())
 
 
 @router.post("/event", summary="Turn a DOF event on until it is stopped",
              dependencies=[requires(scopes.INPUT_ACT)])
 def fire(payload: models.DofEventRequest) -> models.DofEventResult:
     """Turn the event on, firing it again if it is already on."""
-    return models.DofEventResult(event=dof_service.turn_on(get_ini_config(), payload.event))
+    event = dof_service.turn_on(get_ini_config(), payload.event)
+    return models.DofEventResult(event=event, no_boards=dof_service.no_boards())
 
 
 @router.get("/config", summary="When the DOF config was last downloaded",

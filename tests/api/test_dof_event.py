@@ -32,8 +32,26 @@ class DofEventRouteTests(unittest.TestCase):
             answer = self.client.post("/dof/event", json={"event": " e905 "})
 
         self.assertEqual(answer.status_code, 200)
-        self.assertEqual(answer.json(), {"event": "E905"})
+        self.assertEqual(answer.json(), {"event": "E905", "no_boards": False})
         self.assertEqual(self.fired, ["E905"])
+
+    def test_an_event_with_no_board_to_show_it_says_so(self) -> None:
+        with self._answering(dof_service.OK), \
+                mock.patch.object(dof_service, "no_boards", return_value=True):
+            fired = self.client.post("/dof/event", json={"event": "E905"})
+        with mock.patch.object(dof_service, "blocked", return_value=dof_service.OK), \
+                mock.patch.object(dof_service, "current_event", return_value="E905"), \
+                mock.patch.object(dof_service, "no_boards", return_value=True):
+            state = self.client.get("/dof/event")
+
+        with mock.patch.object(dof_service, "blocked", return_value=dof_service.OK), \
+                mock.patch.object(dof_service, "current_event", return_value=None), \
+                mock.patch.object(dof_service, "no_boards", return_value=True):
+            idle = self.client.get("/dof/event")
+
+        self.assertEqual(idle.json(), {"event": None, "blocked": "", "no_boards": False})
+        self.assertEqual(fired.json(), {"event": "E905", "no_boards": True})
+        self.assertEqual(state.json(), {"event": "E905", "blocked": "", "no_boards": True})
 
     def test_anything_but_a_letter_and_a_number_is_refused_unfired(self) -> None:
         for event in ("905", "", "E9x", "EE905"):
@@ -68,7 +86,8 @@ class DofEventRouteTests(unittest.TestCase):
                 answer = self.client.get("/dof/event")
 
                 self.assertEqual(answer.status_code, 200)
-                self.assertEqual(answer.json(), {"event": event, "blocked": said})
+                self.assertEqual(answer.json(),
+                                 {"event": event, "blocked": said, "no_boards": False})
 
     def test_stopping_clears_the_event_and_is_fine_with_none_on(self) -> None:
         with mock.patch.object(dof_service, "clear_active_dof_event",
@@ -76,7 +95,7 @@ class DofEventRouteTests(unittest.TestCase):
             answer = self.client.delete("/dof/event")
 
         self.assertEqual(answer.status_code, 200)
-        self.assertEqual(answer.json(), {"event": None})
+        self.assertEqual(answer.json(), {"event": None, "no_boards": False})
         clear.assert_called_once()
 
 
