@@ -479,10 +479,11 @@ def overview(library: Library, registry: list[dict], discovery: dict,
         front.top(library, state, go)
         front.strip(library, go)
         with ui.element("div").classes("console-overview-columns"):
-            with ui.element("div").classes("console-overview-main"):
+            with ui.element("div").classes("console-overview-needs"):
                 _needs_you(arranged, state, fix, acts)
-            with ui.element("div").classes("console-overview-side"):
+            with ui.element("div").classes("console-overview-library"):
                 _library(library, state)
+            with ui.element("div").classes("console-overview-jobs"):
                 _recent_jobs(library, state)
 
 

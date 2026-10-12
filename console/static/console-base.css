@@ -2157,15 +2157,27 @@ button.q-btn--flat.text-primary:hover .q-btn__content {
 .console-report-act { grid-column: 3; text-align: right; }
 .console-report-foot { gap: 16px; padding: 8px 16px 12px; border-top: 1px solid var(--line-soft); }
 .console-tiles .console-kpi { font-variant-numeric: tabular-nums; }
-/* Overview: Needs You in the main column and the library beside it. The page's own width
-   decides, not the window's, because the workbench pane shares the window. */
+/* Overview: the page's own width decides the columns, not the window's, because the
+   workbench pane shares the window. DOM order is needs, library, jobs, which is the
+   narrow stacking order. */
 .console-overview { container-type: inline-size; width: 100%; }
-.console-overview-columns { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px 24px; }
-.console-overview-main, .console-overview-side {
+.console-overview-columns {
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px 24px;
+  grid-template-areas: "needs" "library" "jobs";
+}
+.console-overview-needs, .console-overview-library, .console-overview-jobs {
   display: flex; flex-direction: column; gap: 16px; min-width: 0;
 }
+.console-overview-needs { grid-area: needs; }
+.console-overview-library { grid-area: library; }
+.console-overview-jobs { grid-area: jobs; }
 @container (min-width: 880px) {
-  .console-overview-columns { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+  .console-overview-columns {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    grid-template-rows: auto 1fr;
+    grid-template-areas: "needs library" "jobs library";
+    align-items: start;
+  }
 }
 .console-overview { display: flex; flex-direction: column; gap: 16px; }
 /* The hero: the last game played over its backglass. The picture fades into the card
