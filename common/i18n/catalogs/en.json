@@ -4936,7 +4936,7 @@
   "token.duration.says": "How long it ran, in whole seconds",
   "token.exit_code.says": "What the program exited with",
   "token.game_dir.says": "The folder the game is in",
-  "token.game_name.says": "What the game is called",
+  "token.game_name.says": "The name of the game's folder",
   "token.id.says": "The table's id",
   "token.key.says": "The app's own name for the entry, where it has one",
   "token.location.says": "The folder the library found this game under",
