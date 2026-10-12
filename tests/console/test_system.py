@@ -10,7 +10,7 @@ import unittest
 from urllib.parse import parse_qs
 
 from common import feature_checks, install_identity, path_state
-from console import appearance, deeplink, page, panel
+from console import appearance, deeplink, needs, page, panel
 from console import settings as settings_page
 
 
@@ -229,6 +229,16 @@ class SystemIndexTests(unittest.TestCase):
             [install_identity.LIBRARY]) if group == "console.settings.group_library"]
 
         self.assertEqual(library[0][0], "library.folders")
+
+    def test_the_metadata_page_is_in_the_library_group_and_drawn(self) -> None:
+        """Opening Settings at a page that is not in the index falls back to the first
+        page, so a mistyped key would open the wrong screen without failing."""
+        library = [one[0] for group, one in settings_page.system_pages(
+            [install_identity.LIBRARY]) if group == "console.settings.group_library"]
+
+        self.assertIn(needs.METADATA_PAGE, library)
+        self.assertIn(needs.METADATA_PAGE, settings_page.PAGES)
+        self.assertIn(needs.METADATA_PAGE, settings_page.PAGE_NOTES)
 
     def test_identity_survives_an_install_that_is_for_nothing(self) -> None:
         """The whole point of `core`: the screen that switches a feature back on is the

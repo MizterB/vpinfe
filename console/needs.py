@@ -20,7 +20,10 @@ from console import jobs_list, verbs
 DANGER, WARM, ACCENT, MUTED = "danger", "warm", "accent", "muted"
 
 # What a click does that is not opening a grid on a filter.
-METADATA, REVIEW, RETRY = "metadata", "review", "retry"
+REVIEW, RETRY = "review", "retry"
+
+# The Settings page saying whether the library's metadata files read and are current.
+METADATA_PAGE = "library.metadata"
 
 # A fix VPinFE can do itself, drawn as the icon at the row's end.
 GET_MEDIA, UPDATE, FETCH_FIXES = "get_media", "update", "fetch_fixes"
@@ -151,7 +154,8 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
     if unreadable:
         rows.append(Need("unreadable", t("console.needs.unreadable"),
                          t("console.needs.unreadable.tip"), DANGER, verbs.CANNOT_PLAY,
-                         Opens(then=METADATA), unreadable, _UNIT_FOLDERS))
+                         Opens("settings", keys={"settings_page": METADATA_PAGE}),
+                         unreadable, _UNIT_FOLDERS))
 
     rows.append(_games_without("unmatched", found, label=names["unmatched"][0],
                                tip=names["unmatched"][1], tone=WARM, icon=verbs.NO_MATCH,

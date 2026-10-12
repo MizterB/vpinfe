@@ -19,7 +19,6 @@ from nicegui import run, ui
 from common.failures import why
 from common.i18n import t
 from common.media_specs import media_label_map
-from console import dialog as frame
 from console import (
     front,
     game_tables,
@@ -65,9 +64,6 @@ CHECKS: tuple[tuple[str, str, str, Callable[[dict, dict, dict], bool]], ...] = (
      t("console.sections.year_sort"),
      lambda g, m, x: game_tables.year_of(g.get("year")) is None),
 )
-
-# The element Unreadable Folder scrolls to.
-METADATA_ID = "console-library-metadata"
 
 # The checks a source can answer, and the kind each one fetches.
 FILLS = {"no_playfield": "playfield", "no_backglass": "backglass"}
@@ -188,8 +184,8 @@ def _need_row(need: needs.Need, state: dict[str, Any], fix: Callable[..., Any],
     with row:
         ui.icon(need.icon).classes("console-need-icon")
         ui.label(need.label).classes("console-setting grow min-w-0").tooltip(need.tip)
-        if need.new and not need.opens.then:
-            # A row that opens a step has no grid to narrow.
+        if need.new and need.opens.view in ("games", "tables"):
+            # Only a grid has rows to narrow to the new ones.
             from console import games
 
             def only_new() -> Any:
@@ -485,9 +481,6 @@ def overview(library: Library, registry: list[dict], discovery: dict,
         with ui.element("div").classes("console-overview-columns"):
             with ui.element("div").classes("console-overview-main"):
                 _needs_you(arranged, state, fix, acts)
-                with ui.element("div").props(f"id={METADATA_ID}"):
-                    metadata(library.metadata_state(),
-                             _metadata_action(library, state, drawn_again), state.get(_LEFT))
             with ui.element("div").classes("console-overview-side"):
                 _library(library, state)
                 _recent_jobs(library, state)
@@ -622,17 +615,19 @@ def _metadata_row(good: bool, name: str, said: str,
 
 def metadata(state: dict[str, Any], on_start: Callable[[str], Any],
              left: Mapping[str, list[tuple[str, str]]] | None = None) -> None:
-    """What the library's metadata files need, and the way to act on it.
-
-    Drawn whole rather than only when something is wrong, the same as the card above it:
-    a section that comes and goes cannot be looked for, and "everything is current" is
-    worth being able to check rather than infer from an absence.
+    """What the library's metadata files need, drawn whole so an all-clear can be read.
 
     `left` is each folder the last Upgrade could not write, with why.
     """
-    ui.label(t("console.sections.library_metadata")).classes("console-group mt-4")
     with ui.element("div").classes("console-card w-full"):
         _metadata_rows(state, on_start, left)
+
+
+def metadata_page(library: Library, state: dict[str, Any],
+                  redraw: Callable[[], None]) -> None:
+    """Library > Metadata: the card, with Upgrade redrawing the page once it has run."""
+    metadata(library.metadata_state(), _metadata_action(library, state, redraw),
+             state.get(_LEFT))
 
 
 def _metadata_rows(state: dict[str, Any], on_start: Callable[[str], Any],
@@ -687,54 +682,19 @@ def _line_said(state: Mapping[str, Any]) -> str:
 
 def metadata_line(library: Library, state: dict[str, Any]) -> None:
     """The line above the Games grid, drawn only while `_line_said` has something to
-    say, with the metadata card's rows in a dialog behind it."""
-    outer = ui.element("div").classes("w-full shrink-0")
-    with outer:
-        line = ui.element("div").classes("w-full")
-    held: dict[str, Any] = {}
+    say, with Library > Metadata behind its button."""
+    async def show() -> None:
+        await state["open_on"](needs.Opens("settings", keys={"settings_page": needs.METADATA_PAGE}))
 
-    def draw() -> None:
-        line.clear()
+    with ui.element("div").classes("w-full shrink-0"):
         said = _line_said(library.metadata_state())
         if not said:
             return
-        with line, ui.element("div").classes("console-attention mb-2"):
+        with ui.element("div").classes("console-attention mb-2"):
             ui.icon("error_outline").classes("console-attention-icon")
             ui.label(said).classes("console-attention-line grow")
             panel.action(t("console.sections.show"), show, icon=verbs.GO,
                          hint=t("console.sections.show_metadata.help"))()
-
-    def fill() -> None:
-        body = held.get("body")
-        if body is None or body.is_deleted:
-            return
-        body.clear()
-        with body:
-            _metadata_rows(library.metadata_state(), act, state.get(_LEFT))
-
-    def drawn_again() -> None:
-        if outer.is_deleted:
-            return
-        draw()
-        fill()
-
-    act = _metadata_action(library, state, drawn_again)
-
-    def show() -> None:
-        box = held.get("box")
-        if box is None or box.is_deleted:
-            # In `outer` rather than beside the button, so a redraw of the line leaves
-            # the dialog open.
-            with outer, frame.opened(t("console.sections.library_metadata"),
-                                     wide=True) as box:
-                held["body"] = ui.column().classes("w-full gap-0 px-3")
-                with frame.footer():
-                    frame.cancel(box.close, t("word.close"))
-            held["box"] = box
-        fill()
-        box.open()
-
-    draw()
 
 
 # --- The scripts the tables run ---------------------------------------------------

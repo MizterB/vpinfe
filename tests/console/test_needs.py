@@ -157,7 +157,8 @@ class WhereAClickLands(unittest.TestCase):
     def test_the_rows_that_are_not_a_grid_say_what_they_do_instead(self):
         lib = FakeLibrary(watched={"recordings": ["r1"]}, unreadable=[{"folder": "x"}])
         rows = {one.key: one.opens for one in needs.collect(lib, {})}
-        self.assertEqual(needs.METADATA, rows["unreadable"].then)
+        self.assertEqual(("settings", {"settings_page": needs.METADATA_PAGE}),
+                         (rows["unreadable"].view, dict(rows["unreadable"].keys)))
         self.assertEqual(needs.REVIEW, rows["recordings"].then)
 
 

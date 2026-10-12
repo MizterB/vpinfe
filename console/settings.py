@@ -860,6 +860,7 @@ PAGE_NOTES: dict[str, str] = {
     "vpinfe.tools": "console.settings.note_tools",
     "library.updates": "console.settings.note_updates",
     folders.KEY: "console.settings.note_folders",
+    needs.METADATA_PAGE: "console.settings.note_metadata",
 }
 
 
@@ -943,11 +944,20 @@ async def _folders_page(library: Library, redraw: Callable[[], None],
     return await folders.page(library, redraw, state, below)
 
 
+async def _metadata_page(library: Library, redraw: Callable[[], None],
+                         state: dict[str, Any]) -> Callable[[], None]:
+    """Whether the library's metadata files read and are current."""
+    from console import sections
+    await offload.io(library.read_metadata_state)
+    return lambda: sections.metadata_page(library, state, redraw)
+
+
 # A built page's draw: read what it shows, then hand back what draws it. The read is
 # awaited by the caller, so the draw itself never waits.
 PAGES: dict[str, Callable[[Library, Callable[[], None], dict[str, Any]],
                           Awaitable[Callable[[], None]]]] = {
     folders.KEY: _folders_page,
+    needs.METADATA_PAGE: _metadata_page,
 }
 
 
@@ -1049,6 +1059,7 @@ DEVICE_INDEX: tuple[tuple[str, tuple[DevicePage, ...]], ...] = (
         ("library.audit", "console.settings.page_audit", SCHEMA_PAGE, (), "library"),
         ("library.updates", "console.settings.page_updates", SCHEMA_PAGE, ("updates",),
                 "library"),
+        (needs.METADATA_PAGE, "console.settings.page_metadata", BUILT_PAGE, (), "library"),
     )),
     ("console.settings.group_frontend", (
         ("frontend.presentation", "console.settings.page_presentation", SCHEMA_PAGE,

@@ -1217,11 +1217,6 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     @on_page
     async def _open_on(opens: needs.Opens) -> None:
         """Where a row of Needs You lands: a view, with the filter its grid arrives on."""
-        if opens.then == needs.METADATA:
-            ui.run_javascript(
-                f"document.getElementById('{sections.METADATA_ID}')"
-                "?.scrollIntoView({behavior: 'smooth', block: 'start'})")
-            return
         if opens.then == needs.RETRY:
             library.forget_watched()
             go("overview")

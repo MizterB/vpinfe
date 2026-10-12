@@ -18,9 +18,8 @@ from common.games import game_identity, game_repository, library_ops, unwritten
 from common.games.game_parser import GameParser
 from common.games.info_maintenance import upgrade_library
 from common.i18n import t
-from console import games, sections
+from console import games, needs, sections
 from console.data import Library
-from tests.support.clicks import said
 from tests.support.library import game_info, write_game
 from tests.support.skips import needs_posix_permissions
 
@@ -31,11 +30,6 @@ LOCKED = "Locked Game (Original 2024)"
 GAME = {"id": "g-1", "name": KEPT, "folder": f"/games/{KEPT}"}
 LEGACY = {"Info": {"Title": "Older Game", "Rom": "older"},
           "VPXFile": {"filename": f"{OLDER}.vpx", "filehash": "abc", "rom": "older"}}
-
-
-def _dialogs(holder: ui.element) -> list[ui.dialog]:
-    """A dialog is drawn in the page's layout, whatever it was opened from."""
-    return [one for one in holder.client.layout.descendants() if isinstance(one, ui.dialog)]
 
 
 def _press(within: ui.element, label: str) -> None:
@@ -69,12 +63,17 @@ class TheLineAboveTheGrid(unittest.TestCase):
         self.library.media = self.library._shared_media()
         self.library.load_game_collections()
         self.library.load_kept_kinds()
+        self.opened: list[needs.Opens] = []
+        self.state: dict[str, Any] = {"view": "games", "open_on": self._open_on}
         for patcher in (mock.patch.object(ui, "run_javascript"),
                         mock.patch.object(ui, "notify"),
                         mock.patch.dict(unwritten._HELD, clear=True),
                         mock.patch.object(unwritten, "logger")):
             patcher.start()
             self.addCleanup(patcher.stop)
+
+    async def _open_on(self, opens: needs.Opens) -> None:
+        self.opened.append(opens)
 
     def _metadata(self) -> dict[str, Any]:
         parser = GameParser(self.root)
@@ -100,7 +99,7 @@ class TheLineAboveTheGrid(unittest.TestCase):
 
     def _build(self) -> None:
         games.build(self.library.game_rows(), self.library.kinds_present(),
-                    self.library, lambda _row: None, {"view": "games"})
+                    self.library, lambda _row: None, self.state)
 
     def _drawn(self, then: Callable[[ui.element], Awaitable[None]] | None = None
                ) -> ui.element:
@@ -125,12 +124,21 @@ class TheLineAboveTheGrid(unittest.TestCase):
         return [one.text for one in holder.descendants()
                 if isinstance(one, ui.label) and "console-attention-line" in one.classes]
 
-    def _show(self, holder: ui.element) -> ui.dialog:
-        before = set(_dialogs(holder))
-        _press(holder, t("console.sections.show"))
-        return next(one for one in _dialogs(holder) if one not in before and one.value)
+    def _page(self, holder: ui.element) -> ui.element:
+        """Library > Metadata as Settings draws it, redrawn in place by its own Upgrade."""
+        with holder:
+            body = ui.column()
 
-    def _rows(self, box: ui.dialog) -> dict[str, str]:
+        def fill() -> None:
+            self.library.read_metadata_state()
+            body.clear()
+            with body:
+                sections.metadata_page(self.library, self.state, fill)
+
+        fill()
+        return body
+
+    def _rows(self, box: ui.element) -> dict[str, str]:
         """Each of the card's rows, by name, and what it says."""
         labels = [one for one in box.descendants() if isinstance(one, ui.label)]
         return {one.text: after.text for one, after in zip(labels, labels[1:], strict=False)
@@ -159,7 +167,7 @@ class TheLineAboveTheGrid(unittest.TestCase):
         opened: dict[str, str] = {}
 
         async def show(holder: ui.element) -> None:
-            box = self._show(holder)
+            box = self._page(holder)
             tips = {one.props["target"]: one.text
                     for one in box.descendants() if isinstance(one, ui.tooltip)}
             opened.update({one.text: tips.get(f"#{one.html_id}", "")
@@ -170,37 +178,38 @@ class TheLineAboveTheGrid(unittest.TestCase):
         self.assertEqual(t("error.games.info_bad_line", line=1), opened.get(BROKEN),
                          list(opened))
 
-    def test_show_opens_it_again_once_the_last_one_has_gone(self) -> None:
+    def test_show_opens_the_metadata_page_in_settings(self) -> None:
         self._plant_broken()
-        seen: list[Any] = []
 
-        async def twice(holder: ui.element) -> None:
-            first = self._show(holder)
-            first.close()
-            said(first, "hide")
-            again = self._show(holder)
-            seen.extend([first.is_deleted, BROKEN in [one.text for one in again.descendants()
-                                                      if isinstance(one, ui.label)]])
+        async def show(holder: ui.element) -> None:
+            _press(holder, t("console.sections.show"))
 
-        self._drawn(twice)
+        self._drawn(show)
 
-        self.assertEqual([True, True], seen)
+        self.assertEqual([needs.Opens("settings", keys={"settings_page": needs.METADATA_PAGE})],
+                         self.opened)
 
     def test_an_upgrade_that_leaves_nothing_takes_the_line_away(self) -> None:
         write_game(self.root, OLDER, info=LEGACY)
         api = Mock()
         api.upgrade_info.return_value = {"id": "u-1"}
-        seen: list[list[str]] = []
+        seen: dict[str, Any] = {}
 
         async def ended(_client: Any, _job_id: str) -> dict[str, Any]:
             return {"state": "done", "result": upgrade_library(self.root)}
 
         async def upgrade(holder: ui.element) -> None:
-            seen.append(self._line(holder))
-            _press(self._show(holder), t("word.upgrade"))
+            seen["before"] = self._line(holder)
+            page = self._page(holder)
+            _press(page, t("word.upgrade"))
             for _ in range(50):
                 await asyncio.sleep(0)
-            seen.append(self._line(holder))
+            seen["format"] = self._rows(page)[t("console.sections.format")]
+            with holder:
+                again = ui.card()
+            with again:
+                self._build()
+            seen["after"] = self._line(again)
 
         with mock.patch("console.confirm.ask", mock.AsyncMock(return_value=True)), \
                 mock.patch("console.api.ApiClient", return_value=api), \
@@ -208,36 +217,8 @@ class TheLineAboveTheGrid(unittest.TestCase):
                 mock.patch.object(sections, "_ended", ended):
             self._drawn(upgrade)
 
-        self.assertEqual([[t("console.sections.older_format", count=1)], []], seen)
-
-    def test_an_upgrade_that_ends_once_the_dialog_has_gone_draws_nothing_into_it(self) -> None:
-        write_game(self.root, OLDER, info=LEGACY)
-        api = Mock()
-        api.upgrade_info.return_value = {"id": "u-1"}
-        orphans: list[ui.element] = []
-
-        async def ended(_client: Any, _job_id: str) -> dict[str, Any]:
-            return {"state": "done", "result": upgrade_library(self.root)}
-
-        async def upgrade(holder: ui.element) -> None:
-            box = self._show(holder)
-            _press(box, t("word.upgrade"))
-            box.close()
-            said(box, "hide")
-            before = set(holder.client.elements)
-            for _ in range(50):
-                await asyncio.sleep(0)
-            orphans.extend(one for key, one in holder.client.elements.items()
-                           if key not in before and one.parent_slot is not None
-                           and one.parent_slot.parent.is_deleted)
-
-        with mock.patch("console.confirm.ask", mock.AsyncMock(return_value=True)), \
-                mock.patch("console.api.ApiClient", return_value=api), \
-                mock.patch("nicegui.run.io_bound", new=_now), \
-                mock.patch.object(sections, "_ended", ended):
-            self._drawn(upgrade)
-
-        self.assertEqual([], orphans)
+        self.assertEqual({"before": [t("console.sections.older_format", count=1)],
+                          "format": t("console.sections.format_current"), "after": []}, seen)
 
     @needs_posix_permissions
     def test_a_game_whose_folder_could_not_be_written_is_said_above_the_grid(self) -> None:
@@ -252,7 +233,7 @@ class TheLineAboveTheGrid(unittest.TestCase):
         opened: dict[str, str] = {}
 
         async def show(holder: ui.element) -> None:
-            box = self._show(holder)
+            box = self._page(holder)
             tips = {one.props["target"]: one.text
                     for one in box.descendants() if isinstance(one, ui.tooltip)}
             opened.update({one.text: tips.get(f"#{one.html_id}", "")
@@ -270,7 +251,7 @@ class TheLineAboveTheGrid(unittest.TestCase):
 
         async def show(holder: ui.element) -> None:
             seen["line"] = self._line(holder)
-            box = self._show(holder)
+            box = self._page(holder)
             seen["format"] = self._rows(box)[t("console.sections.format")]
             seen["upgrade"] = any(isinstance(one, ui.button) and one.text == t("word.upgrade")
                                   for one in box.descendants())
@@ -289,7 +270,7 @@ class TheLineAboveTheGrid(unittest.TestCase):
         api.upgrade_info.return_value = {"id": "u-1"}
         seen: list[int] = []
 
-        def named(box: ui.dialog) -> int:
+        def named(box: ui.element) -> int:
             return sum(1 for one in box.descendants()
                        if isinstance(one, ui.label) and one.text == LOCKED)
 
@@ -297,7 +278,7 @@ class TheLineAboveTheGrid(unittest.TestCase):
             return {"state": "done", "result": upgrade_library(self.root)}
 
         async def upgrade(holder: ui.element) -> None:
-            box = self._show(holder)
+            box = self._page(holder)
             seen.append(named(box))
             _press(box, t("word.upgrade"))
             for _ in range(50):
@@ -316,7 +297,7 @@ class TheLineAboveTheGrid(unittest.TestCase):
 class TheLineAboveTheTablesGrid(TheLineAboveTheGrid):
     def _build(self) -> None:
         games.build_tables(self.library.table_rows(), self.library, lambda _row: None,
-                           {"view": "tables"})
+                           self.state)
 
 
 if __name__ == "__main__":
