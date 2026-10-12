@@ -2203,9 +2203,44 @@ button.q-btn--flat.text-primary:hover .q-btn__content {
 /* Recently Played: the games played besides the one in the hero. */
 .console-front-strip { display: flex; flex-direction: column; gap: 8px; }
 .console-front-strip-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.console-front-items { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-@container (max-width: 640px) {
+/* One row: n tiles of at least 124px need 136n - 12px. A tile that does not fit is not
+   rendered, so Tab and a screen reader never reach a link nobody can see. */
+.console-front-items { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.console-front-item:nth-child(n+2) { display: none; }
+@container (min-width: 260px) and (max-width: 395px) {
   .console-front-items { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .console-front-item:nth-child(n+2) { display: flex; }
+  .console-front-item:nth-child(n+3) { display: none; }
+}
+@container (min-width: 396px) and (max-width: 531px) {
+  .console-front-items { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .console-front-item:nth-child(n+2) { display: flex; }
+  .console-front-item:nth-child(n+4) { display: none; }
+}
+@container (min-width: 532px) and (max-width: 667px) {
+  .console-front-items { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .console-front-item:nth-child(n+2) { display: flex; }
+  .console-front-item:nth-child(n+5) { display: none; }
+}
+@container (min-width: 668px) and (max-width: 803px) {
+  .console-front-items { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .console-front-item:nth-child(n+2) { display: flex; }
+  .console-front-item:nth-child(n+6) { display: none; }
+}
+@container (min-width: 804px) and (max-width: 939px) {
+  .console-front-items { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .console-front-item:nth-child(n+2) { display: flex; }
+  .console-front-item:nth-child(n+7) { display: none; }
+}
+@container (min-width: 940px) and (max-width: 1075px) {
+  .console-front-items { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  .console-front-item:nth-child(n+2) { display: flex; }
+  .console-front-item:nth-child(n+8) { display: none; }
+}
+@container (min-width: 1076px) {
+  .console-front-items { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+  .console-front-item:nth-child(n+2) { display: flex; }
+  .console-front-item:nth-child(n+9) { display: none; }
 }
 .console-front-item {
   display: flex; flex-direction: column; gap: 4px; padding: 10px; min-width: 0;
@@ -2216,13 +2251,16 @@ button.q-btn--flat.text-primary:hover .q-btn__content {
   background: var(--accent-wash); outline: none;
 }
 .console-front-well {
-  height: 96px; padding: 6px; box-sizing: border-box; border-radius: 6px;
+  position: relative; aspect-ratio: 1; padding: 6px; box-sizing: border-box; border-radius: 6px;
   display: flex; align-items: center; justify-content: center; background: var(--art-ground);
 }
 .console-front-well:has(.console-front-glyph) { background: var(--surface-0); }
-.console-front-wheel { width: 100%; height: 100%; }
+.console-front-wheel { position: absolute; inset: 6px; width: auto; height: auto; }
 .console-front-glyph { color: var(--ink-3); font-size: var(--icon-slot); }
-.console-front-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.console-front-name {
+  font-weight: 600; line-height: 1.25; overflow: hidden; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+}
 /* A row of Needs You: the tone is the glyph's alone, so the label stays readable and a
    column of them says how much each costs without a column of colored text. */
 .console-needs { padding: 6px; }

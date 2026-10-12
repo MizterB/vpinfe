@@ -34,7 +34,7 @@ from console.api import ApiClient
 from console.data import FRONT_FRESH_S, Library
 from console.on_page import on_page
 
-STRIP = 4
+STRIP = 8
 POLL_S = FRONT_FRESH_S
 
 
@@ -215,7 +215,8 @@ def top(library: Library, state: dict[str, Any], go: Callable[[str], None]) -> N
 
 
 def strip(library: Library, go: Callable[[str], None]) -> None:
-    """The next games played after the one in the hero: wheel, name and when."""
+    """The next games played after the one in the hero: wheel, name and when. The page
+    gets STRIP of them and the stylesheet shows the row's worth that fits."""
     front = library.front()
     recent = list(front.get("recent") or [])
     if _playing(front):
@@ -252,7 +253,8 @@ def strip(library: Library, go: Callable[[str], None]) -> None:
                             ui.image(picture).props("fit=contain").classes("console-front-wheel")
                         else:
                             ui.icon(icons.GAMES).classes("console-front-glyph")
-                    ui.label(str(game.get("name") or "")).classes("console-front-name")
+                    name = str(game.get("name") or "")
+                    ui.label(name).classes("console-front-name").tooltip(name)
                     ui.label(_workbench()._played_when(
                         (front.get("records") or {}).get(game_id, {}).get("last_played"))) \
                         .classes("console-help")
