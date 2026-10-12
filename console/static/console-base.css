@@ -2182,18 +2182,21 @@ button.q-btn--flat.text-primary:hover .q-btn__content {
 .console-overview { display: flex; flex-direction: column; gap: 16px; }
 /* The hero: the last game played over its backglass. The picture fades into the card
    colour on the side the words are on, so the text reads on any picture and in either
-   theme. */
+   theme. The picture is its own layer, faded by a mask, so the card colour is never mixed:
+   a look whose card colour is a gradient (Synthwave) would otherwise drop the picture. */
 .console-hero {
+  position: relative; isolation: isolate;
   display: flex; align-items: flex-end; justify-content: space-between; gap: 16px;
   flex-wrap: wrap; min-height: 140px; padding: 20px 24px; border: 1px solid var(--line);
   border-radius: 10px; background: var(--card-bg);
 }
-.console-hero--pictured {
-  background:
-    linear-gradient(90deg, var(--card-bg) 0%,
-                    color-mix(in srgb, var(--card-bg) 55%, transparent) 55%,
-                    color-mix(in srgb, var(--card-bg) 80%, transparent) 100%),
-    var(--hero-picture) center / cover no-repeat;
+.console-hero--pictured::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: 9px;
+  background: var(--hero-picture) center / cover no-repeat; pointer-events: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.45) 55%,
+                                      rgba(0, 0, 0, 0.2) 100%);
+  mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.45) 55%,
+                              rgba(0, 0, 0, 0.2) 100%);
 }
 .console-hero--playing { border-color: var(--accent); }
 .console-hero-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
