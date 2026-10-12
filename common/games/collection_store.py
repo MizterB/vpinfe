@@ -823,76 +823,79 @@ class CollectionStore:
     def migrate_membership_to_game_ids(self, games: Iterable[GameRecord]) -> int:
         """Move VPS-keyed membership onto game ids. Returns how many entries moved.
 
-        Runs once: the file records that it has been through this, so later startups
-        do not rescan. A file written by a newer VPinFE is left alone - an older
-        build of VPinFE must not rewrite membership it does not understand.
+        Acts on whatever is still not a game id, whatever the file's stamp says, so it
+        is safe to call at every startup and again after a library read: a VPS id can
+        arrive from matching after the first call, and a save made before it stamps the
+        file as done. A VPS id moves to every game that carries it. A file from a newer
+        VPinFE is left alone.
 
-        Entries that resolve to a game are rewritten; entries that do not are kept
-        as they are, because the game may simply not be present right now and
-        dropping it would lose that membership for good. The file converges as
-        tables are seen.
+        An entry that matches no game is kept, because the game may simply not be
+        present right now and dropping it would lose that membership for good.
         """
-        version = self.schema_version()
-        if version >= COLLECTIONS_SCHEMA:
-            if version > COLLECTIONS_SCHEMA and version not in _warned_newer_schema:
-                _warned_newer_schema.add(version)
-                logger.warning(
-                    "collections.ini uses schema %s, newer than this build's %s. "
-                    "Leaving membership untouched.", version, COLLECTIONS_SCHEMA)
-            return 0
+        with _write_lock:
+            self.reload()
+            version = self.schema_version()
+            if version > COLLECTIONS_SCHEMA:
+                if version not in _warned_newer_schema:
+                    _warned_newer_schema.add(version)
+                    logger.warning(
+                        "collections.ini uses schema %s, newer than this build's %s. "
+                        "Leaving membership untouched.", version, COLLECTIONS_SCHEMA)
+                return 0
+            names = self.get_collections_name()
+            if not names:
+                return 0
 
-        names = self.get_collections_name()
-        if not names:
-            return 0
+            by_vps: dict[str, list[str]] = {}
+            known_ids: set[str] = set()
+            for game in games:
+                tid = game_id(game)
+                if not tid:
+                    continue
+                known_ids.add(tid)
+                vpinfe = vpinfe_section(getattr(game, "meta_config", {}))
+                for candidate in (base_game_vps_id(game),
+                                  str(vpinfe.get("alt_vpsid", "") or "").strip()):
+                    if candidate and tid not in by_vps.setdefault(candidate, []):
+                        by_vps[candidate].append(tid)
 
-        # Which collection, and which ids. The count alone said 19 members had not
-        # resolved and gave no way to find them - and the UI renders an unresolved
-        # member as raw hex, so the file is the only place to look.
-        unresolved_by_collection: dict[str, list[str]] = {}
+            unresolved_by_collection: dict[str, list[str]] = {}
+            moved = 0
+            for name in names:
+                refs = self.get_member_refs(name)
+                named = {ref[MEMBER_GAME_KEY] for ref in refs}
+                rewritten: list[dict] = []
+                for ref in refs:
+                    member = ref[MEMBER_GAME_KEY]
+                    if member in known_ids:
+                        rewritten.append(ref)
+                    elif member in by_vps:
+                        added = [tid for tid in by_vps[member] if tid not in named]
+                        named.update(added)
+                        rewritten.extend({MEMBER_GAME_KEY: tid} for tid in added)
+                        moved += 1
+                    else:
+                        rewritten.append(ref)
+                        unresolved_by_collection.setdefault(name, []).append(member)
+                if rewritten != refs:
+                    self._require(name)["members"] = rewritten
 
-        by_vps: dict[str, str] = {}
-        for game in games:
-            tid = game_id(game)
-            if not tid:
-                continue
-            vpinfe = vpinfe_section(getattr(game, "meta_config", {}))
-            for candidate in (base_game_vps_id(game),
-                              str(vpinfe.get("alt_vpsid", "") or "").strip()):
-                if candidate:
-                    by_vps.setdefault(candidate, tid)
-
-        known_ids = set(by_vps.values())
-        moved = unresolved = 0
-        for name in names:
-            # Every collection with a member list, criteria or not: a hand-added member
-            # of a filtering collection is stored the same way and migrates the same way.
-            members = self.get_members(name)
-            rewritten = []
-            for member in members:
-                if member in known_ids:
-                    rewritten.append(member)
-                elif member in by_vps:
-                    rewritten.append(by_vps[member])
-                    moved += 1
-                else:
-                    rewritten.append(member)
-                    unresolved += 1
-                    unresolved_by_collection.setdefault(name, []).append(member)
-            if rewritten != members:
-                self._require(name)["members"] = rewritten
-
-        self._stamp_schema()
-        self.save()
-        logger.info("Collection membership moved onto game ids: %s moved, %s left "
-                    "as VPS ids because no game matched", moved, unresolved)
-        for name, ids in sorted(unresolved_by_collection.items()):
-            # Not an error: the game may simply not be present right now, and the file
-            # converges as tables are seen. But a member nothing matches shows in the UI
-            # as raw hex, so say where it is rather than leaving it to be found.
-            logger.warning("Collection %r keeps %s member(s) no game matched: %s",
+            converting = self._converted_from_ini
+            if moved or converting:
+                self._stamp_schema()
+                self.save()
+            # Loud only when the file changed; a game that is simply absent would
+            # otherwise be reported at every startup.
+            level = logging.INFO if moved or converting else logging.DEBUG
+            logger.log(level, "Collection membership moved onto game ids: %s moved, %s "
+                       "members match no game", moved,
+                       sum(len(ids) for ids in unresolved_by_collection.values()))
+            for name, ids in sorted(unresolved_by_collection.items()):
+                logger.log(logging.WARNING if moved or converting else logging.DEBUG,
+                           "Collection %r keeps %s member(s) no game matched: %s",
                            name, len(ids), ", ".join(sorted(ids)[:10])
                            + (", ..." if len(ids) > 10 else ""))
-        return moved
+            return moved
 
     @contextlib.contextmanager
     def mutate(self) -> Iterator[CollectionStore]:

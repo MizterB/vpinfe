@@ -49,7 +49,7 @@ class MigrationTests(TempTree):
         self.assertEqual(moved, 1)
         self.assertEqual(collections.get_members("Favorites"), ["id-mm"])
 
-    def test_it_runs_once(self) -> None:
+    def test_a_second_pass_finds_nothing_to_move(self) -> None:
         game = _game(self.root, "MM", vpsid="vps-mm", game_id="id-mm")
         collections = _collections(self.ini, {"Favorites": ["vps-mm"]})
         collections.migrate_membership_to_game_ids([game])
@@ -101,6 +101,129 @@ class MigrationTests(TempTree):
         collections.migrate_membership_to_game_ids([game])
 
         self.assertEqual(collections.get_members("Favorites"), ["id-mm"])
+
+
+class ResolvesWhateverIsStillRawTests(TempTree):
+    """VPS ids in a file the stamp calls migrated still move onto games once a game
+    carries them: a library read gives games their VPS id after startup, and a save made
+    before the first migration stamps the file as done."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.ini = self.root / "collections.ini"
+        self.json = self.root / "collections.json"
+
+    def test_an_empty_library_leaves_the_ids_for_the_next_pass(self) -> None:
+        collections = _collections(self.ini, {"Favorites": ["vps-mm"]})
+        self.assertEqual(collections.migrate_membership_to_game_ids([]), 0)
+
+        later = CollectionStore(str(self.json))
+        game = _game(self.root, "MM", vpsid="vps-mm", game_id="id-mm")
+
+        self.assertEqual(later.migrate_membership_to_game_ids([game]), 1)
+        self.assertEqual(CollectionStore(str(self.json)).get_members("Favorites"), ["id-mm"])
+
+    def test_a_save_before_the_first_pass_does_not_end_it(self) -> None:
+        collections = _collections(self.ini, {"Favorites": ["vps-mm"]})
+        collections.save()
+        game = _game(self.root, "MM", vpsid="vps-mm", game_id="id-mm")
+
+        reopened = CollectionStore(str(self.json))
+
+        self.assertEqual(reopened.migrate_membership_to_game_ids([game]), 1)
+        self.assertEqual(reopened.get_members("Favorites"), ["id-mm"])
+
+    def test_a_vps_id_moves_to_every_game_that_carries_it(self) -> None:
+        a = _game(self.root, "A", vpsid="shared", game_id="id-a")
+        b = _game(self.root, "B", vpsid="shared", game_id="id-b")
+        collections = _collections(self.ini, {"Favorites": ["shared"]})
+
+        collections.migrate_membership_to_game_ids([a, b])
+
+        self.assertEqual(collections.get_members("Favorites"), ["id-a", "id-b"])
+
+    def test_a_game_already_a_member_is_not_added_twice(self) -> None:
+        a = _game(self.root, "A", vpsid="shared", game_id="id-a")
+        b = _game(self.root, "B", vpsid="shared", game_id="id-b")
+        collections = _collections(self.ini, {"Favorites": ["id-a", "shared"]})
+
+        collections.migrate_membership_to_game_ids([a, b])
+
+        self.assertEqual(collections.get_members("Favorites"), ["id-a", "id-b"])
+
+    def test_a_named_table_survives_a_pass(self) -> None:
+        game = _game(self.root, "MM", vpsid="vps-mm", game_id="id-mm")
+        self.json.write_text(json.dumps(
+            {"schema": COLLECTIONS_SCHEMA,
+             "collections": [{"name": "Favorites", "type": "manual", "members": [
+                 {"game": "id-mm", "table": "t1"}, "vps-other"]}]}), encoding="utf-8")
+        collections = CollectionStore(str(self.json))
+
+        self.assertEqual(collections.migrate_membership_to_game_ids([game]), 0)
+        self.assertEqual(collections.get_member_refs("Favorites"),
+                         [{"game": "id-mm", "table": "t1"}, {"game": "vps-other"}])
+
+    def test_a_game_already_named_with_a_table_is_not_added_whole(self) -> None:
+        a = _game(self.root, "A", vpsid="shared", game_id="id-a")
+        b = _game(self.root, "B", vpsid="shared", game_id="id-b")
+        self.json.write_text(json.dumps(
+            {"schema": COLLECTIONS_SCHEMA,
+             "collections": [{"name": "Favorites", "type": "manual", "members": [
+                 {"game": "id-a", "table": "t1"}, "shared"]}]}), encoding="utf-8")
+        collections = CollectionStore(str(self.json))
+
+        collections.migrate_membership_to_game_ids([a, b])
+
+        self.assertEqual(collections.get_member_refs("Favorites"),
+                         [{"game": "id-a", "table": "t1"}, {"game": "id-b"}])
+
+    def test_a_game_that_is_only_absent_is_not_a_warning_every_time(self) -> None:
+        self.json.write_text(json.dumps(
+            {"schema": COLLECTIONS_SCHEMA,
+             "collections": [{"name": "Favorites", "type": "manual",
+                              "members": ["id-absent"]}]}), encoding="utf-8")
+        game = _game(self.root, "MM", vpsid="vps-mm", game_id="id-mm")
+
+        with self.assertNoLogs("vpinfe.common.games.collection_store", "WARNING"):
+            CollectionStore(str(self.json)).migrate_membership_to_game_ids([game])
+
+    def test_the_startup_read_resolves_them(self) -> None:
+        from common.games import library_refresh
+
+        games = [object()]
+        with (mock.patch.object(library_refresh, "_catalog_for"),
+              mock.patch.object(library_refresh, "enrich", return_value={}),
+              mock.patch.object(library_refresh, "_art_for"),
+              mock.patch.object(library_refresh, "_seen_unmatched", return_value=[]),
+              mock.patch.object(library_refresh, "_waiting", return_value=[]),
+              mock.patch("common.games.auto_match.match_new", return_value={}),
+              mock.patch.object(library_refresh, "_resolve_collections") as resolve):
+            library_refresh.read_at_startup(games, [])
+
+        resolve.assert_called_once_with(games)
+
+    def test_a_pass_that_changes_nothing_writes_nothing(self) -> None:
+        game = _game(self.root, "MM", vpsid="vps-mm", game_id="id-mm")
+        collections = _collections(self.ini, {"Favorites": ["vps-mm"]})
+        collections.migrate_membership_to_game_ids([game])
+        before = self.json.stat().st_mtime_ns
+
+        self.assertEqual(
+            CollectionStore(str(self.json)).migrate_membership_to_game_ids([game]), 0)
+        self.assertEqual(self.json.stat().st_mtime_ns, before)
+
+    def test_a_library_read_resolves_them(self) -> None:
+        from common.games import library_refresh
+
+        game = _game(self.root, "MM", vpsid="vps-mm", game_id="id-mm")
+        collections = _collections(self.ini, {"Favorites": ["vps-mm"]})
+        collections.migrate_membership_to_game_ids([])
+
+        with mock.patch("common.games.collections_service.get_collections_manager",
+                        return_value=CollectionStore(str(self.json))):
+            library_refresh._resolve_collections([game])
+
+        self.assertEqual(CollectionStore(str(self.json)).get_members("Favorites"), ["id-mm"])
 
 
 class MembershipTests(TempTree):
@@ -625,13 +748,7 @@ class UnresolvedMemberReportingTests(TempTree):
     """
 
     def _store(self, members):
-        from common.games.collection_store import CollectionStore
-        path = self.root / "collections.json"
-        store = CollectionStore(str(path))
-        store.add_collection("Favorites")
-        store._require("Favorites")["members"] = list(members)
-        store._schema = 0
-        return store
+        return _collections(self.root / "collections.ini", {"Favorites": list(members)})
 
     def test_it_says_which_collection_and_which_ids(self) -> None:
         store = self._store(["vps-gone-1", "vps-gone-2"])

@@ -58,6 +58,7 @@ def refresh(reporter: JobReporter | None = None) -> dict:
     # next year must not arrive holding a year of upstream activity it was not around
     # for - and a read path that stamped would make asking the question change it.
     watching.note_games(game_identity.ensure_unique_ids(games))
+    _resolve_collections(games)
     _art_for(unseen, waiting)
 
     result = {"games": len(games), **{f"discovered_{k}": v for k, v in found.items()},
@@ -85,11 +86,23 @@ def read_at_startup(games: list, unseen: list, reporter: JobReporter | None = No
     matched = auto_match.match_new(unseen)
     again = auto_match.match_new(waiting)
     read = enrich(games, reporter)
+    _resolve_collections(games)
     _art_for(unseen, waiting)
     return {"games": len(games), **{f"enriched_{k}": v for k, v in read.items()},
             **{f"new_{k}": v for k, v in matched.items()},
             **{f"waiting_{k}": v for k, v in again.items()},
             "new_unmatched_ids": _waiting(unseen)}
+
+
+def _resolve_collections(games: list) -> None:
+    """Collection members stored as VPS ids move onto the games that carry them, now that
+    matching may have given those games one."""
+    from common.games.collections_service import get_collections_manager
+
+    try:
+        get_collections_manager().migrate_membership_to_game_ids(games)
+    except Exception:
+        logger.exception("Could not resolve collection members against the library")
 
 
 def _seen_unmatched(games: list, unseen: list) -> list:
