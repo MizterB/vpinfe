@@ -87,7 +87,7 @@ _LISTING = 20
 
 
 _BUSY = {KIND_LIBRARY_SCAN: "error.jobs.library_busy",
-         KIND_VPS_ROLLUP: "error.jobs.vps_count_busy",
+         KIND_VPS_ROLLUP: "error.jobs.vps_compare_busy",
          KIND_DEVICE_SEND: "error.jobs.sending_busy",
          KIND_MEDIA_FILL: "error.media_fill.busy",
          KIND_MEDIA_CAPTURE: "error.capture.busy",

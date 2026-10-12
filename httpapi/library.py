@@ -216,7 +216,7 @@ def put_dismissed(row: str, payload: models.DismissalRequest) -> models.Dismissa
 @router.get("/vps_state", summary="What the catalog lists across the whole library",
             dependencies=[requires(scopes.GAMES_READ)])
 def library_vps_state() -> models.LibraryVpsState:
-    """The last rollup counted, and when. Never live: a request that counted it would be
+    """The rollup from the last comparison, and when. Never live: a request that ran it would be
     seconds slow on any real library. `computed` empty means it has never run, which is
     not the same as every count being zero."""
     return models.LibraryVpsState(**library_ops.vps_rollup())
@@ -225,13 +225,13 @@ def library_vps_state() -> models.LibraryVpsState:
 @router.get("/discovery", summary="What the catalog lists, against what the library holds",
             dependencies=[requires(scopes.GAMES_READ)])
 def library_discovery() -> models.LibraryDiscovery:
-    """One row per catalog entry, from the last count and never counted here. `counted`
+    """One row per catalog entry, from the last comparison and never compared here. `counted`
     empty means it has never run, and `in_library` is then null on every row rather than
     false."""
     return models.LibraryDiscovery.model_validate(library_ops.vps_discovery())
 
 
-@router.post("/vps_state", summary="Count it again", status_code=202,
+@router.post("/vps_state", summary="Compare with VPS again", status_code=202,
              dependencies=[requires(scopes.GAMES_READ)])
 def recount_vps_state(response: Response) -> models.JobResource:
     """Accepted, not done. Read-only work, so it takes its own job kind and may run beside

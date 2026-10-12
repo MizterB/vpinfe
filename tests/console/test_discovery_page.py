@@ -137,13 +137,13 @@ class Acts(unittest.TestCase):
         self.assertTrue(add.hint)
 
 
-    def test_add_waits_for_a_count_and_says_so(self) -> None:
+    def test_add_waits_for_a_comparison_and_says_so(self) -> None:
         row = discovery.rows(_found(_entry(in_library=None, held=[]), counted=""))[0]
 
         (add,) = discovery.acts(mock.Mock(spec=Library), [row], mock.AsyncMock())
 
         self.assertIsNone(add.run)
-        self.assertEqual("Count the library first", add.hint)
+        self.assertEqual("Compare with VPS first", add.hint)
 
 
 def _library(*, hidden_assets: tuple[str, ...] = (), hidden_media: tuple[str, ...] = ()) -> Library:

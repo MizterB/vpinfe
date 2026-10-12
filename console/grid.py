@@ -361,7 +361,7 @@ def choice_filter(choices: list[dict[str, Any]], *,
 
 
 DERIVED_FACETS = ("manufacturer", "game_type")
-FACET_CEILING = 60
+FACET_CEILING = 300
 
 
 def with_derived_facets(columns: list[dict[str, Any]], rows: list[dict[str, Any]],

@@ -3678,7 +3678,7 @@ class LibraryVpsKindTally(ApiModel):
 
 
 class LibraryVpsState(ApiModel):
-    """The rollup, as last counted. `computed` empty means never - which is not the
+    """The rollup, as last compared. `computed` empty means never - which is not the
     same as every count being zero, and reading it as such would report a library
     nobody has looked at as one holding nothing."""
 
@@ -3691,7 +3691,7 @@ class LibraryVpsState(ApiModel):
 class DiscoveryRow(ApiModel):
     """One catalog entry. `listed` and `held` use the catalog's own keys (`b2sFiles`,
     `tableFiles`), so a kind VPS lists and the library lacks is `listed` and not `held`.
-    `in_library` null means nobody has counted the library yet."""
+    `in_library` null means the library has not been compared yet."""
 
     vps_id: str
     name: str | None = None

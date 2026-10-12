@@ -254,7 +254,7 @@ def compute(games: dict, per_game: Callable[[Game, str], dict],
     total = len(games)
     for index, (game_id, game) in enumerate(games.items()):
         if reporter is not None:
-            reporter.progress(index, total, t("said.vps_count"))
+            reporter.progress(index, total, t("said.vps_compare"))
         try:
             state = per_game(game, game_id)
         except Exception:

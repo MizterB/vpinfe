@@ -188,7 +188,7 @@ def row_of(library: Library, vps_id: str) -> dict[str, Any] | None:
 def summary(shown: list[dict[str, Any]], counted: bool) -> str:
     if not counted:
         return t("console.discovery.summary", count=len(shown))
-    return t("console.discovery.summary_counted", count=len(shown),
+    return t("console.discovery.summary_compared", count=len(shown),
              held=sum(1 for one in shown if one["is_in_library"]))
 
 
@@ -219,8 +219,8 @@ def _unmatched_line(count: int, show: Callable[[], Awaitable[Any]] | None) -> No
 
 def _never_counted_line(count_now: Callable[[], Awaitable[Any]]) -> None:
     with ui.row().classes("w-full items-center gap-2 px-3 pb-2 shrink-0"):
-        ui.label(t("console.discovery.never_counted")).classes("text-xs console-label")
-        panel.link(t("console.discovery.count_now"), to=OWN_ADDRESS, on_click=count_now)()
+        ui.label(t("console.discovery.not_compared")).classes("text-xs console-label")
+        panel.link(t("console.discovery.compare_now"), to=OWN_ADDRESS, on_click=count_now)()
 
 
 def grid_columns(library: Library, built: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -269,7 +269,7 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
                                         check=bool(grid_module.hidden_count(table))),
                     lambda: table.run_grid_method("deselectAll"))
                 ui.label(_counted_text(found)).classes("text-xs console-label")
-                panel.refresh(lambda: count_again(), t("console.discovery.count_again"))
+                panel.refresh(lambda: count_again(), t("console.discovery.compare_again"))
 
         if not built:
             panel.facts(ui, [panel.intro(t("console.discovery.empty"))])
@@ -367,7 +367,7 @@ _SHOWN = """(() => {
 def _counted_text(found: dict[str, Any]) -> str:
     if not found.get("counted"):
         return ""
-    return t("console.discovery.counted", when=when.ago(found["counted"], inline=True))
+    return t("console.discovery.compared", when=when.ago(found["counted"], inline=True))
 
 
 @on_page
@@ -376,7 +376,7 @@ async def recount(library: Library, state: dict[str, Any]) -> bool:
     try:
         job = await offload.io(library.recount_catalog)
     except Exception as exc:  # noqa: BLE001
-        ui.notify(t("console.discovery.count_failed"), caption=why(exc), type="negative")
+        ui.notify(t("console.discovery.compare_failed"), caption=why(exc), type="negative")
         return False
     watch = state.get("watch_jobs")
     if callable(watch):
@@ -390,7 +390,7 @@ async def recount(library: Library, state: dict[str, Any]) -> bool:
         if found.get("state") == "running":
             continue
         if found.get("state") == "failed":
-            ui.notify(t("console.discovery.count_failed"),
+            ui.notify(t("console.discovery.compare_failed"),
                       caption=str(found.get("error") or ""), type="negative")
             return False
         return True
@@ -406,7 +406,7 @@ def acts(library: Library, rows_on: list[dict[str, Any]],
     absent = [one for one in rows_on if one["in_library"] == NO]
     uncounted = any(not one["in_library"] for one in rows_on)
     hint = "" if absent else t(
-        "console.discovery.count_first" if uncounted else "console.discovery.already_in")
+        "console.discovery.compare_first" if uncounted else "console.discovery.already_in")
     return [panel.Verb(
         t("console.discovery.add"),
         (lambda: add(library, absent, after, check=check)) if absent else None,
@@ -564,8 +564,8 @@ async def _count_again(state: dict[str, Any]) -> None:
 
 def _never_counted(state: dict[str, Any]) -> None:
     with ui.row().classes("items-center gap-2 w-full"):
-        ui.label(t("console.discovery.never_counted")).classes("console-help")
-        panel.link(t("console.discovery.count_now"), to=OWN_ADDRESS,
+        ui.label(t("console.discovery.not_compared")).classes("console-help")
+        panel.link(t("console.discovery.compare_now"), to=OWN_ADDRESS,
                    on_click=lambda: _count_again(state))()
 
 
