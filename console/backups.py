@@ -129,11 +129,6 @@ COLUMNS = [
     grid_module.column("reason", t("console.backups.reason"), 160,
                        help=t("console.backups.reason.help"),
                        **grid_module.choice_filter(_choices(REASON_WORDS))),
-    grid_module.column("note", t("console.backups.note"), 220,
-                       help=t("console.backups.note.help")),
-    grid_module.column("written_by", t("console.backups.written_by"), 160,
-                       help=t("console.backups.written_by.help"),
-                       **grid_module.choice_filter(_choices(BY_WORDS))),
     grid_module.column("size", t("word.size"), 100, type="numericColumn",
                        help=t("console.backups.size.help"),
                        **{":valueFormatter": "params => (params.data || {}).size_text || ''"}),
@@ -145,6 +140,11 @@ COLUMNS = [
                               [{"value": True, "label": t("console.backups.gone")},
                                {"value": False, "label": t("console.backups.present")}],
                               formatted=True)}),
+    grid_module.column("note", t("console.backups.note"), 220,
+                       help=t("console.backups.note.help")),
+    grid_module.column("written_by", t("console.backups.written_by"), 160,
+                       help=t("console.backups.written_by.help"),
+                       **grid_module.choice_filter(_choices(BY_WORDS))),
     grid_module.column("file", t("word.file"), 280, tooltipField="path",
                        help=t("console.backups.file.help")),
 ]
@@ -165,28 +165,32 @@ def _by_kind(kinds: list[str], columns: tuple[str, ...], *, help: str) -> views.
 
 VIEWS: dict[str, list[str] | views.Preset] = {
     "console.view.everything": views.Preset(
-        columns=tuple(_ALL), sort=_NEWEST_FIRST, help=t("console.backups.everything_view.help")),
+        columns=("name", "kind", "taken", "reason", "size", "gone"), sort=_NEWEST_FIRST,
+        help=t("console.backups.everything_view.help")),
+    "console.view.backups_deleted": views.Preset(
+        columns=("name", "kind", "taken", "reason", "size"), sort=_NEWEST_FIRST,
+        filters={"gone": {"values": [True]}}, help=t("console.backups.deleted_view.help")),
+    "console.view.backups_yours": _by_kind(
+        [kept_copies.KIND_ARCHIVE], ("name", "taken", "size", "gone", "note"),
+        help=t("console.backups.yours_view.help")),
     "console.view.backups_games": _by_kind(
-        [kept_copies.KIND_GAME], ("name", "taken", "reason", "written_by", "size", "gone"),
+        [kept_copies.KIND_GAME], ("name", "taken", "reason", "size", "gone", "written_by"),
         help=t("console.backups.games_view.help")),
-    "console.view.backups_launchers": _by_kind(
-        [kept_copies.KIND_LAUNCHER], ("name", "taken", "reason", "note", "size", "gone"),
-        help=t("console.backups.launchers_view.help")),
     "console.view.backups_media": _by_kind(
         [kept_copies.KIND_MEDIA], ("name", "taken", "reason", "size", "gone", "file"),
         help=t("console.backups.media_view.help")),
     "console.view.backups_assets": _by_kind(
         [kept_copies.KIND_ASSET], ("name", "taken", "reason", "size", "gone", "file"),
         help=t("console.backups.assets_view.help")),
+    "console.view.backups_launchers": _by_kind(
+        [kept_copies.KIND_LAUNCHER], ("name", "taken", "reason", "size", "gone", "note"),
+        help=t("console.backups.launchers_view.help")),
     "console.view.backups_themes": _by_kind(
         [kept_copies.KIND_THEME], ("name", "taken", "size", "gone"),
         help=t("console.backups.themes_view.help")),
     "console.view.backups_vpinfe": _by_kind(
-        _OWN_RECORDS, ("kind", "taken", "reason", "written_by", "size"),
+        _OWN_RECORDS, ("kind", "taken", "reason", "size", "written_by"),
         help=t("console.backups.vpinfe_view.help")),
-    "console.view.backups_yours": _by_kind(
-        [kept_copies.KIND_ARCHIVE], ("name", "taken", "note", "size", "gone"),
-        help=t("console.backups.yours_view.help")),
 }
 
 

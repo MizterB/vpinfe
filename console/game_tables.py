@@ -18,7 +18,6 @@ _WORD = re.compile(r"[^\W_]+")
 # The groups a fact belongs to, spelled once: the panel draws them as headings and the
 # grid's built-in views are named for them, so crossing between the two is not a
 # translation. Only the groups that have rows.
-GAME = t("console.view.game")
 # "Table File", not "File": a panel that also shows a table ini, a script and a rom
 # left a reader asking which file. Named alongside `Default Table` below.
 FILE = t("console.game_tables.table_file")

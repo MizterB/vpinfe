@@ -106,7 +106,7 @@ COLUMNS: list[dict[str, Any]] = [
 ]
 
 PLAYER_VIEWS: dict[str, list[str] | views.Preset] = {
-    "console.view.overview": ["name", "initials"],
+    "console.view.everything": ["name", "initials"],
 }
 
 

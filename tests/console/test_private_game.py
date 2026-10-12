@@ -29,8 +29,8 @@ class PrivateColumnTests(unittest.TestCase):
                          list(game_tables.PRIVATE_WORDS))
         self.assertEqual([one["value"] for one in choices], [True, False])
 
-    def test_the_game_view_shows_it_beside_hidden(self) -> None:
-        shown = list(getattr(games.GAME_VIEWS["console.view.game"], "columns", ()))
+    def test_the_frontend_view_shows_it_beside_hidden(self) -> None:
+        shown = list(getattr(games.GAME_VIEWS["console.view.frontend"], "columns", ()))
 
         self.assertEqual(shown.index("private"), shown.index("hidden") + 1)
 

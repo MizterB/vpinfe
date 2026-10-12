@@ -135,43 +135,9 @@ COLUMNS = [
     # game, and it belongs with the game's other facts.
     grid.column("table_count", t("word.table_count"), type="numericColumn", group=t(_GAME),
                 filter="agNumberColumnFilter", help=t("console.games.table_count.help")),
-    grid.column("hidden", game_tables.FRONTEND, group=t(_GAME),
-                help=t("console.games.hidden_game.help"),
-                **{":valueFormatter":
-                   "params => params.value ? "
-                   + json.dumps(game_tables.HIDDEN_WORDS[0]) + " : ''",
-                   **grid.choice_filter(_two(game_tables.HIDDEN_WORDS), formatted=True)},
-                **renderers.drawable("state", states={True: {
-                    "label": game_tables.HIDDEN_WORDS[0],
-                    "why": t("console.game_tables.hidden_game.help"),
-                    "chip": "console-chip-warn"}})),
-    # Quiet where Hidden is amber: Private is a choice somebody made, not something to fix.
-    grid.column("private", game_tables.COMMUNITY, group=t(_GAME),
-                help=t("console.games.private_game.help"),
-                **{":valueFormatter":
-                   "params => params.value ? "
-                   + json.dumps(game_tables.PRIVATE_WORDS[0]) + " : ''",
-                   **grid.choice_filter(_two(game_tables.PRIVATE_WORDS), formatted=True)},
-                **renderers.drawable("state", states={True: {
-                    "label": game_tables.PRIVATE_WORDS[0],
-                    "why": game_tables.PRIVATE_HELP,
-                    "chip": "console-chip-quiet"}})),
-    grid.column("manufacturer", t("word.manufacturer"), group=t(_GAME),
-                help=t("help.who_made_it")),
-    grid.year_column("year", t("word.year"), group=t(_GAME),
-                     help=t("help.year_released")),
-    grid.column("game_type", t("console.games.type"), group=t(_GAME),
-                help=t("console.games.type.help")),
-    # Qualified for the reason Game Rating is: an install has a *frontend* theme and will
-    # have a Console one, so "Themes" in a column header is three things one screen apart.
-    # The panel says "Themes" plainly, because a group headed Machine has said which.
-    grid.list_column("themes", t("console.games.game_themes"), 200, group=t(_GAME),
-                     help=t("console.games.themes.help")),
     # The word only where it is missing, and a blank cell everywhere else: most of a
     # library is matched, so a mark on every row says nothing and the few that are not
-    # are the whole point of the column. It sits beside the catalog facts because it
-    # explains them - a game with no manufacturer, year or themes is usually a game the
-    # catalog has never been asked about.
+    # are the whole point of the column.
     grid.column("vps_unmatched", t("console.games.vps_match"), group=t(_GAME),
                 help=t("console.games.vps_match.help"),
                 **_NO_CHECKBOX,
@@ -198,6 +164,38 @@ COLUMNS = [
     grid.list_column("collections", t("console.workbench.collections"), 200,
                      group=t(_GAME), help=t("console.games.collections.help"),
                      looks=renderers.COLLECTION_LOOKS),
+    grid.column("game_type", t("console.games.type"), group=t(_GAME),
+                help=t("console.games.type.help")),
+    # Qualified for the reason Game Rating is: an install has a *frontend* theme and will
+    # have a Console one, so "Themes" in a column header is three things one screen apart.
+    # The panel says "Themes" plainly, because a group headed Machine has said which.
+    grid.list_column("themes", t("console.games.game_themes"), 200, group=t(_GAME),
+                     help=t("console.games.themes.help")),
+    grid.column("manufacturer", t("word.manufacturer"), group=t(_GAME),
+                help=t("help.who_made_it")),
+    grid.year_column("year", t("word.year"), group=t(_GAME),
+                     help=t("help.year_released")),
+    grid.column("hidden", game_tables.FRONTEND, group=t(_GAME),
+                help=t("console.games.hidden_game.help"),
+                **{":valueFormatter":
+                   "params => params.value ? "
+                   + json.dumps(game_tables.HIDDEN_WORDS[0]) + " : ''",
+                   **grid.choice_filter(_two(game_tables.HIDDEN_WORDS), formatted=True)},
+                **renderers.drawable("state", states={True: {
+                    "label": game_tables.HIDDEN_WORDS[0],
+                    "why": t("console.game_tables.hidden_game.help"),
+                    "chip": "console-chip-warn"}})),
+    # Quiet where Hidden is amber: Private is a choice somebody made, not something to fix.
+    grid.column("private", game_tables.COMMUNITY, group=t(_GAME),
+                help=t("console.games.private_game.help"),
+                **{":valueFormatter":
+                   "params => params.value ? "
+                   + json.dumps(game_tables.PRIVATE_WORDS[0]) + " : ''",
+                   **grid.choice_filter(_two(game_tables.PRIVATE_WORDS), formatted=True)},
+                **renderers.drawable("state", states={True: {
+                    "label": game_tables.PRIVATE_WORDS[0],
+                    "why": game_tables.PRIVATE_HELP,
+                    "chip": "console-chip-quiet"}})),
 ]
 
 # Presets, not a replacement for choosing columns: a view sets which columns are
@@ -218,6 +216,7 @@ COLUMN_SECTIONS = {"vps_unmatched": "game_details", "hidden": "game_details",
 
 # The grid on its Unmatched filter, as `state["arriving"]`.
 UNMATCHED = {"vps_unmatched": {"values": [True]}}
+UNMATCHED_VIEW = "console.view.unmatched"
 
 # Games with no table, such as ones added from Discovery or whose last table was removed.
 NO_TABLES_VIEW = "console.view.no_tables"
@@ -233,13 +232,10 @@ def arrive_on(library: Any, key: str) -> None:
     views.remember(library, SCOPE, kept, views.builtin_id(key))
 
 GAME_VIEWS: dict[str, list[str] | views.Preset] = {
-    # Named for the workbench group it matches: a view and a panel
-    # group about the same facts carry the same word, so crossing between the grid and
-    # the panel is not a translation.
-    "console.view.game": views.Preset(
-        columns=("name", "table_count", "hidden", "private", "manufacturer", "year",
-                 "game_type", "themes", "vps_unmatched", "rating", "tags", "collections"),
-        help=t("console.view.game.help")),
+    "console.view.details": views.Preset(
+        columns=("name", "table_count", "vps_unmatched", "rating", "tags", "collections",
+                 "game_type", "themes", "manufacturer", "year"),
+        help=t("console.view.details.help")),
     # Media and Assets are built from what the library reports it has, so both are
     # filled at render time. Two views, not one: they answer different questions - what
     # a game looks like, and what it needs to play as intended - and a matrix that mixes
@@ -247,8 +243,14 @@ GAME_VIEWS: dict[str, list[str] | views.Preset] = {
     _MEDIA: views.Preset(help=t("console.view.game_media.help")),
     _ASSETS: views.Preset(help=t("console.view.game_assets.help")),
     NO_TABLES_VIEW: views.Preset(
-        columns=("name", "table_count", "manufacturer", "year", "game_type", "vps_unmatched"),
+        columns=("name", "table_count", "vps_unmatched", "game_type", "manufacturer", "year"),
         filters=NO_TABLES, help=t("console.view.no_tables.help")),
+    UNMATCHED_VIEW: views.Preset(
+        columns=("name", "vps_unmatched", "manufacturer", "year"),
+        filters=UNMATCHED, help=t("console.view.unmatched.help")),
+    "console.view.frontend": views.Preset(
+        columns=("name", "collections", "hidden", "private"),
+        help=t("console.view.frontend.help")),
 }
 
 _ALL = [definition["field"] for definition in COLUMNS]
@@ -914,6 +916,18 @@ TABLE_COLUMNS = [
     grid.list_column(OWN_SETTINGS_COLUMN, t("console.games.own_settings"), 240, group=t(_TABLE),
                      help=t("console.games.own_settings.help"),
                      looks=renderers.SETTING_LOOKS),
+    grid.column(GAME_RATING, t("console.games.game_rating"), group=t(_GAME),
+                help=t("console.games.game_rating.help"),
+                cellClass="console-stars-cell",
+                **{**grid.choice_filter(_RATING_CHOICES),
+                   ":cellRenderer": stars.renderer("game", on_table=True)}),
+    grid.column("rating", t("console.games.table_rating"), group=t(_TABLE),
+                help=t("console.games.table_rating.help"),
+                cellClass="console-stars-cell",
+                **{**grid.choice_filter(_RATING_CHOICES),
+                   ":cellRenderer": stars.renderer("table")}),
+    grid.list_column("tags", t("console.workbench.tags"), 200, group=t(_TABLE),
+                     help=t("console.games.table_tags.help"), looks=renderers.TAG_LOOKS),
     # One column per fact rather than one word folding three together. "Status" cannot
     # stay one column anyway - has an update, missing its rom and the rest are all
     # status - and folded, a table that is both the default and hidden reads as only
@@ -928,18 +942,6 @@ TABLE_COLUMNS = [
                     + [{"value": "", "label": t("console.games.not_default")}],
                     formatted=True),
                 **renderers.drawable("state", states=_DEFAULT_STATES)),
-    grid.column(GAME_RATING, t("console.games.game_rating"), group=t(_GAME),
-                help=t("console.games.game_rating.help"),
-                cellClass="console-stars-cell",
-                **{**grid.choice_filter(_RATING_CHOICES),
-                   ":cellRenderer": stars.renderer("game", on_table=True)}),
-    grid.column("rating", t("console.games.table_rating"), group=t(_TABLE),
-                help=t("console.games.table_rating.help"),
-                cellClass="console-stars-cell",
-                **{**grid.choice_filter(_RATING_CHOICES),
-                   ":cellRenderer": stars.renderer("table")}),
-    grid.list_column("tags", t("console.workbench.tags"), 200, group=t(_TABLE),
-                     help=t("console.games.table_tags.help"), looks=renderers.TAG_LOOKS),
     # Each column's own words, not a generic pair: "Hidden: Yes" is a question about a
     # question, where "Hidden / Offered" is the fact and its opposite.
     grid.column("hidden", t("word.hidden"), group=t(_IN_PLAY),
@@ -1007,21 +1009,24 @@ TABLE_VIEWS: dict[str, list[str] | views.Preset] = {
     # both were app and on-disk state, which is whether this thing runs - so they are
     # Launch, once.
     "console.game_tables.table_file": views.Preset(
-        columns=("game", GAME_RATING, "rating", "default_state", "hidden", "filename"),
+        columns=("game", "default_state", "hidden", "filename"),
         help=t("console.view.table_file.help")),
     "console.game_tables.launch": views.Preset(
-        columns=("game", "filename", "launcher", "settings", "rom", "rom_state",
-                 "default_state", "hidden", "missing"),
+        columns=("game", "rom", "rom_state", "launcher", "settings",
+                 "default_state", "hidden", "missing", "filename"),
         help=t("console.view.launch.help")),
-    # Its own view, not seven more columns on Play: this is a matrix, the same shape as
-    # Media on the games grid, and Play stays a list somebody can read across.
-    _FEATURES_VIEW: views.Preset(
-        columns=("game", *[f"feature_{key}" for key in table_features.LABELS]),
-        help=t("console.view.features.help")),
     "console.view.updates": views.Preset(
         columns=("game", "version", "on_vps", "default_state", "hidden", "filename"),
         filters={"update": {"values": [_NEWER]}},
         help=t("console.view.updates.help")),
+    "console.view.ratings": views.Preset(
+        columns=("game", GAME_RATING, "rating", "tags"),
+        help=t("console.view.ratings.help")),
+    # Its own view, not seven more columns on Launch: this is a matrix, the same shape as
+    # Media on the games grid, and Launch stays a list somebody can read across.
+    _FEATURES_VIEW: views.Preset(
+        columns=("game", *[f"feature_{key}" for key in table_features.LABELS]),
+        help=t("console.view.features.help")),
 }
 
 

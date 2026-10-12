@@ -89,13 +89,13 @@ class RankedOrders(unittest.TestCase):
 
 
 class TheGrid(unittest.TestCase):
-    def test_the_first_column_is_scanned_by_and_in_library_follows(self) -> None:
+    def test_the_first_column_is_scanned_by_and_in_library_is_the_second(self) -> None:
         shown = community.columns(DECLARED)
 
-        self.assertEqual(["name", "plays", "last", "vps_id", community.HELD],
+        self.assertEqual(["name", community.HELD, "plays", "last", "vps_id"],
                          [one["field"] for one in shown])
         self.assertIn("console-cell-identifier", shown[0]["cellClass"])
-        self.assertEqual("numericColumn", shown[1]["type"])
+        self.assertEqual("numericColumn", shown[2]["type"])
 
     def test_a_view_keeps_its_sort_and_yours_keeps_only_what_is_held(self) -> None:
         presets = community.presets(DECLARED)
@@ -105,8 +105,15 @@ class TheGrid(unittest.TestCase):
         self.assertEqual({community.HELD: {"values": [True]}},
                          presets["console.community.yours"].filters)
 
+    def test_yours_is_the_first_view_and_sorts_as_the_next_one_does(self) -> None:
+        presets = community.presets(DECLARED)
+
+        self.assertEqual("console.community.yours", next(iter(presets)))
+        self.assertEqual(presets["plays"].sort, presets["console.community.yours"].sort)
+        self.assertEqual(presets["plays"].columns, presets["console.community.yours"].columns)
+
     def test_a_view_is_kept_by_its_key_and_shown_by_the_name_it_was_sent(self) -> None:
-        (plays, _yours) = views.builtins(community.presets(DECLARED))
+        (_yours, plays) = views.builtins(community.presets(DECLARED))
 
         self.assertEqual((views.builtin_id("plays"), "Most played"), (plays.id, plays.name))
 

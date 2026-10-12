@@ -76,8 +76,13 @@ class PrivateDrive(unittest.TestCase):
                                 "mobile": False})
             walk = ConsoleWalk(browser, instance)
 
-            async def chips(until: str) -> dict:
+            async def show_private() -> None:
+                """Private is a column of the Frontend view, not of the one Games opens on."""
+                await browser.evaluate(API + ".setColumnsVisible(['private'], true)")
                 await browser.evaluate(API + ".ensureColumnVisible('private')")
+
+            async def chips(until: str) -> dict:
+                await show_private()
                 return await browser.wait_for(f"(c => ({until}) ? c : null)({CHIPS})")
 
             async def pick(*ids: str) -> None:
@@ -120,7 +125,7 @@ class PrivateDrive(unittest.TestCase):
                 " .ag-header-cell-text').textContent.trim()")
 
             # The grid filtered to it, through the column's funnel.
-            await browser.evaluate(API + ".ensureColumnVisible('private')")
+            await show_private()
             await browser.click(".ag-header-cell[col-id=private] .ag-header-cell-filter-button")
             await browser.wait_for("!!document.querySelector('.console-filter-row')")
             seen["funnel"] = await browser.wait_for(

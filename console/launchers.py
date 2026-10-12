@@ -71,7 +71,7 @@ COLUMNS: list[dict[str, Any]] = [
 ]
 
 LAUNCHER_VIEWS: dict[str, list[str] | views.Preset] = {
-    "console.view.overview": views.Preset(
+    "console.view.everything": views.Preset(
         columns=("name", "tables", "state", "default"),
         help=t("console.view.launchers.help")),
 }

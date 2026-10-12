@@ -42,13 +42,13 @@ class GridTests(unittest.TestCase):
                          {fb.NO_H264, fb.NO_VIDEO, fb.NO_BROWSER, fb.UNKNOWN})
 
     def test_the_column_is_in_the_view_the_page_opens_on(self) -> None:
-        opens_on = devices.VIEWS["console.devices.all_devices"]
+        opens_on = devices.VIEWS["console.view.everything"]
 
         self.assertIn("browser", opens_on.columns)
         self.assertIn("browser", [one["field"] for one in devices.COLUMNS])
 
     def test_the_all_devices_view_says_the_order_it_sorts_in(self) -> None:
-        opens_on = devices.VIEWS["console.devices.all_devices"]
+        opens_on = devices.VIEWS["console.view.everything"]
         by_state = next(one for one in opens_on.sort if one["colId"] == "state")
         found = {f"D{index}": {"state": state}
                  for index, state in enumerate(devices._REACH)}

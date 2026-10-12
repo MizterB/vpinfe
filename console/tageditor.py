@@ -44,6 +44,8 @@ COLUMNS = [
                     help=t("console.tageditor.tag.help"),
                     **renderers.drawable("chips", list="tag_list",
                                          looks=renderers.TAG_LOOKS)),
+    grid.column("same", t("console.tageditor.spelled_as"), 160,
+                help=t("console.tageditor.spelled_as.help")),
     grid.column("description", t("console.workbench.description"), 280,
                 help=t("console.tageditor.description.help")),
     grid.column("games", t("console.tageditor.games"), type="numericColumn",
@@ -62,8 +64,6 @@ COLUMNS = [
                     [{"value": True, "label": t("console.tageditor.two_spellings")},
                      {"value": False, "label": t("console.tageditor.one_spelling")}],
                     formatted=True)),
-    grid.column("same", t("console.tageditor.spelled_as"), 160,
-                help=t("console.tageditor.spelled_as.help")),
 ]
 _ALL = [one["field"] for one in COLUMNS]
 _SHOWN = ("tag", "description", "games", "tables", "source")
@@ -75,7 +75,7 @@ VIEWS: dict[str, list[str] | views.Preset] = {
         columns=_SHOWN, filters={"unused": {"values": [True]}},
         help=t("console.view.tags_unused.help")),
     "console.tageditor.two_spellings": views.Preset(
-        columns=_SHOWN, filters={"duplicate": {"values": [True]}},
+        columns=("tag", "same", *_SHOWN[1:]), filters={"duplicate": {"values": [True]}},
         sort=({"colId": "same", "sort": "asc", "sortIndex": 0},
               {"colId": "games", "sort": "desc", "sortIndex": 1}),
         help=t("console.view.tags_two_spellings.help")),

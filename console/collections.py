@@ -183,7 +183,7 @@ COLLECTION_VIEWS: dict[str, list[str] | views.Preset] = {
         columns=("name", "kind", "count", "order"),
         help=t("console.view.collections_everything.help")),
     "console.collections.needs_attention": views.Preset(
-        columns=("name", "kind", "added", "matched", "excluded", "missing", "hidden"),
+        columns=("name", "kind", "count", "added", "matched", "excluded", "missing", "hidden"),
         filters={"attention": {"values": [True]}},
         help=t("console.view.collections_needs_attention.help")),
 }

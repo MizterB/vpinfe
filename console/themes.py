@@ -83,17 +83,19 @@ COLUMNS: list[dict[str, Any]] = [
 _ALL = [one["field"] for one in COLUMNS]
 _SHOWN = ("name", "status", "updated", "made_for")
 
+_QUIET = tuple(one for one in _SHOWN if one != "status")
+
 VIEWS: dict[str, list[str] | views.Preset] = {
-    "console.view.themes_all": views.Preset(
-        columns=_SHOWN, help=t("console.view.themes_all.help")),
-    "console.view.themes_active": views.Preset(
-        columns=_SHOWN, filters={"status": {"values": [ACTIVE]}},
-        help=t("console.view.themes_active.help")),
+    "console.view.everything": views.Preset(
+        columns=_SHOWN, help=t("console.view.themes_everything.help")),
     "console.view.themes_installed": views.Preset(
         columns=_SHOWN, filters={"status": {"values": [ACTIVE, UPDATE, INSTALLED]}},
         help=t("console.view.themes_installed.help")),
+    "console.view.updates": views.Preset(
+        columns=_QUIET, filters={"status": {"values": [UPDATE]}},
+        help=t("console.view.themes_updates.help")),
     "console.view.themes_available": views.Preset(
-        columns=_SHOWN, filters={"status": {"values": [AVAILABLE]}},
+        columns=_QUIET, filters={"status": {"values": [AVAILABLE]}},
         help=t("console.view.themes_available.help")),
 }
 

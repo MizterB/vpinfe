@@ -98,22 +98,26 @@ def columns(declared: dict[str, Any]) -> list[dict[str, Any]]:
         if index == 0:
             out.append(grid.identifier(one["field"], header, FIRST_WIDTH, help=said,
                                        subtitle=UNDER, link=HELD, **extra))
+            if declared.get("relation"):
+                out.append(_in_library())
         else:
             out.append(grid.column(one["field"], header, _WIDTH.get(kind, 0), help=said,
                                    **extra))
-    if declared.get("relation"):
-        out.append(grid.column(HELD, t("console.community.in_library"),
-                               help=t("console.community.in_library.help"),
-                               **grid.choice_filter(
-                                   [{"value": True, "label": t("console.community.held")},
-                                    {"value": False,
-                                     "label": t("console.community.not_held")}],
-                                   formatted=True)))
     return out
 
 
+def _in_library() -> dict[str, Any]:
+    return grid.column(HELD, t("console.community.in_library"),
+                       help=t("console.community.in_library.help"),
+                       **grid.choice_filter(
+                           [{"value": True, "label": t("console.community.held")},
+                            {"value": False, "label": t("console.community.not_held")}],
+                           formatted=True))
+
+
 def presets(declared: dict[str, Any]) -> dict[str, views.Preset]:
-    related = bool(declared.get("relation"))
+    """The extension's views, preceded by Yours, which takes the first view's columns and
+    sort. In Library is in the column picker and in no view: the name is the link."""
     out = {view["key"]: views.Preset(
         name=view["name"],
         columns=tuple(view["columns"]),
@@ -124,11 +128,12 @@ def presets(declared: dict[str, Any]) -> dict[str, views.Preset]:
     first = next(iter(out.values()), None)
     if not out:
         out["console.view.everything"] = views.Preset(columns=shown)
-    if related:
-        out["console.community.yours"] = views.Preset(
-            columns=first.columns if first else shown, filters={HELD: {"values": [True]}},
-            help=t("console.community.yours.help"))
-    return out
+    if not declared.get("relation"):
+        return out
+    yours = views.Preset(
+        columns=first.columns if first else shown, sort=first.sort if first else (),
+        filters={HELD: {"values": [True]}}, help=t("console.community.yours.help"))
+    return {"console.community.yours": yours, **out}
 
 
 def rows(found: list[dict[str, Any]], declared: dict[str, Any],

@@ -208,10 +208,20 @@ class Views(unittest.TestCase):
         """A media or asset copy is of one file among a game's several, so its file is what it
         is."""
         self.assertEqual("file", backups._ALL[-1])
-        shown = {"console.view.everything", "console.view.backups_media",
+        shown = {"console.view.backups_media",
                  "console.view.backups_assets"}
         for key, preset in backups.VIEWS.items():
             self.assertEqual(key in shown, "file" in preset.columns, key)
+
+    def test_everything_is_six_columns_and_deleted_keeps_only_what_is_gone(self) -> None:
+        everything = backups.VIEWS["console.view.everything"]
+        deleted = backups.VIEWS["console.view.backups_deleted"]
+
+        self.assertEqual(("name", "kind", "taken", "reason", "size", "gone"),
+                         everything.columns)
+        self.assertEqual({"gone": {"values": [True]}}, deleted.filters)
+        self.assertEqual(["console.view.everything", "console.view.backups_deleted",
+                          "console.view.backups_yours"], list(backups.VIEWS)[:3])
 
     def test_a_view_leaves_out_a_column_that_holds_one_value_there(self) -> None:
         vpinfe = backups.VIEWS["console.view.backups_vpinfe"].columns

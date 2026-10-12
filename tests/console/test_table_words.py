@@ -220,8 +220,8 @@ class HiddenGameColumnTests(unittest.TestCase):
                          list(game_tables.HIDDEN_WORDS))
         self.assertEqual([one["value"] for one in choices], [True, False])
 
-    def test_the_game_view_shows_it(self) -> None:
-        preset = games.GAME_VIEWS["console.view.game"]
+    def test_the_frontend_view_shows_it(self) -> None:
+        preset = games.GAME_VIEWS["console.view.frontend"]
 
         self.assertIn("hidden", getattr(preset, "columns", ()))
 

@@ -649,6 +649,11 @@ COLUMNS: list[dict[str, Any]] = [
                 help=t("console.devices.kind.help")),
     grid.column("state", t("word.state"), 140, **grid.choice_filter(_STATE_CHOICES),
                 help=t("console.devices.state.help")),
+    grid.column("last_seen", t("word.last_seen"), 170,
+                help=t("console.devices.last_seen.help"),
+                **when.cell("last_seen")),
+    grid.column("address", t("console.devices.address"), 150,
+                help=t("console.devices.address.help")),
     grid.column("version", t("word.version"), 160,
                 help=t("console.devices.version.help")),
     grid.column("browser", t("console.devices.browser"), 150,
@@ -657,11 +662,6 @@ COLUMNS: list[dict[str, Any]] = [
                                       for key, one in browser_state.STATES.items()],
                                      formatted=True),
                 **renderers.drawable("state", states=browser_state.STATES)),
-    grid.column("address", t("console.devices.address"), 150,
-                help=t("console.devices.address.help")),
-    grid.column("last_seen", t("word.last_seen"), 170,
-                help=t("console.devices.last_seen.help"),
-                **when.cell("last_seen")),
     grid.list_column("features", t("console.devices.features"), 150,
                      help=t("console.devices.features.help"),
                      looks=renderers.FEATURE_LOOKS),
@@ -676,26 +676,23 @@ _ALL = [definition["field"] for definition in COLUMNS if definition["field"] != 
 _SELF_FIRST = {"colId": "self", "sort": "desc", "sortIndex": 0}
 
 VIEWS: dict[str, list[str] | views.Preset] = {
-    "console.devices.all_devices": views.Preset(
-        columns=("name", "kind", "state", "version", "browser", "last_seen"),
+    "console.view.everything": views.Preset(
+        columns=("name", "kind", "state", "last_seen", "address", "version", "browser"),
         sort=(_SELF_FIRST,
               {"colId": "state", "sort": "asc", "sortIndex": 1},
               {"colId": "name", "sort": "asc", "sortIndex": 2}),
         help=t("console.devices.all_view.help")),
     "console.view.answering": views.Preset(
-        columns=("name", "kind", "version", "browser", "address", "features"),
+        columns=("name", "kind", "address", "version", "browser", "features"),
         sort=(_SELF_FIRST, {"colId": "name", "sort": "asc", "sortIndex": 1}),
         filters={"state": {"values": [_REACH[device_client.ANSWERING][0]]}},
         help=t("console.devices.answering_view.help")),
     "console.devices.not_answering": views.Preset(
-        columns=("name", "kind", "state", "address", "last_seen"),
+        columns=("name", "kind", "state", "last_seen", "address"),
         sort=(_SELF_FIRST, {"colId": "last_seen", "sort": "asc", "sortIndex": 1}),
         filters={"state": {"values": [_REACH[device_client.UNREACHABLE][0],
                                       _REACH[device_client.UNASKABLE][0]]}},
         help=t("console.devices.unreached_view.help")),
-    "console.view.everything": views.Preset(
-        columns=tuple(_ALL),
-        help=t("console.devices.everything_view.help")),
 }
 
 
