@@ -42,6 +42,9 @@ _BOARD_UP_RE = re.compile(
     r'|\bPinscape Pico discovery found\b'
     r'|\bDudesCab Controller Informations\b',
     re.IGNORECASE)
+# libdof logs "initialized" for a LedWiz it could not connect to, just after saying so.
+_LEDWIZ_DOWN_RE = re.compile(r'\bLedWiz\s+(?:LedWiz\s+)?(\d+)\s+could not connect', re.IGNORECASE)
+_LEDWIZ_UP_RE = re.compile(r'\bLedWiz\s+Nr\.\s*(\d+)\s+initialized', re.IGNORECASE)
 # How long after the runner starts a board may still report.
 BOARD_WAIT = 3.0
 logger = logging.getLogger("vpinfe.common.host.dof_service")
@@ -135,6 +138,7 @@ class _DofHelperProcess:
         self._unexpected_exit_code: int | None = None
         self._runner_started_at: float | None = None
         self._boards_up = 0
+        self._ledwiz_down: set[int] = set()
 
     def _command(self) -> list[str]:
         if getattr(sys, 'frozen', False):
@@ -224,8 +228,8 @@ class _DofHelperProcess:
     def _handle_log(self, payload: dict[str, Any]) -> None:
         level_name = str(payload.get("level", "INFO")).upper()
         message = str(payload.get("message", ""))
-        if _BOARD_UP_RE.search(message):
-            with self._cv:
+        with self._cv:
+            if self._reports_board(message):
                 self._boards_up += 1
                 self._cv.notify_all()
         if level_name == "DEBUG":
@@ -279,20 +283,33 @@ class _DofHelperProcess:
             return None
         return response
 
-    def _boards_started(self) -> tuple[int, float | None]:
+    def _reports_board(self, message: str) -> bool:
+        """Whether `message` says a board came up. Called with `_cv` held."""
+        down = _LEDWIZ_DOWN_RE.search(message)
+        if down:
+            self._ledwiz_down.add(int(down.group(1)))
+            return False
+        up = _LEDWIZ_UP_RE.search(message)
+        if up and int(up.group(1)) in self._ledwiz_down:
+            return False
+        return bool(_BOARD_UP_RE.search(message))
+
+    def _boards_started(self) -> tuple[int, float | None, set[int]]:
         """The board count and start time as they were, then begin counting afresh."""
         with self._cv:
-            was = (self._boards_up, self._runner_started_at)
+            was = (self._boards_up, self._runner_started_at, self._ledwiz_down)
             self._boards_up = 0
+            self._ledwiz_down = set()
             self._runner_started_at = time.monotonic()
         return was
 
-    def _boards_settled(self, was: tuple[int, float | None], started: bool) -> None:
+    def _boards_settled(self, was: tuple[int, float | None, set[int]], started: bool) -> None:
         if started:
             return
         with self._cv:
             self._boards_up += was[0]
             self._runner_started_at = was[1]
+            self._ledwiz_down |= was[2]
 
     def is_alive(self) -> bool:
         return self._proc is not None and self._proc.poll() is None

@@ -306,6 +306,27 @@ class BoardsTests(unittest.TestCase):
 
         self.assertTrue(dof_service.no_boards())
 
+    def test_a_ledwiz_that_could_not_connect_is_no_board_though_it_logs_initialized(self) -> None:
+        self._said("Initializing LedWiz Nr. 08")
+        self._said("LedWiz LedWiz 08 could not connect to device")
+        self._said("LedWiz Nr. 08 initialized and updater thread initialized.")
+
+        self.assertTrue(dof_service.no_boards())
+
+    def test_a_board_beside_a_ledwiz_that_could_not_connect_is_a_board(self) -> None:
+        self._said("LedWiz LedWiz 08 could not connect to device")
+        self._said("LedWiz Nr. 08 initialized and updater thread initialized.")
+        self._said("PacLed64 device 1 initialized at index 3")
+
+        self.assertFalse(dof_service.no_boards())
+
+    def test_a_ledwiz_that_connected_is_a_board_beside_one_that_did_not(self) -> None:
+        self._said("LedWiz LedWiz 08 could not connect to device")
+        self._said("LedWiz Nr. 08 initialized and updater thread initialized.")
+        self._said("LedWiz Nr. 09 initialized and updater thread initialized.")
+
+        self.assertFalse(dof_service.no_boards())
+
     def test_each_controller_type_is_seen_by_the_line_it_logs(self) -> None:
         for line in (
             "LedWiz Nr. 08 initialized and updater thread initialized.",
@@ -402,6 +423,23 @@ class BoardsTests(unittest.TestCase):
 
         was = self.helper._boards_started()
         self.helper._boards_settled(was, started=False)
+
+        self.assertFalse(dof_service.no_boards())
+
+    def test_a_ledwiz_down_before_a_refused_start_is_still_down_after_it(self) -> None:
+        self._said("LedWiz LedWiz 08 could not connect to device")
+
+        self._start({"started": False})
+        self._said("LedWiz Nr. 8 initialized and updater thread initialized.")
+
+        self.assertTrue(dof_service.no_boards())
+
+    def test_a_ledwiz_down_before_a_start_that_took_is_counted_if_it_connects_this_time(
+            self) -> None:
+        self._said("LedWiz LedWiz 08 could not connect to device")
+
+        self._start({"started": True})
+        self._said("LedWiz Nr. 08 initialized and updater thread initialized.")
 
         self.assertFalse(dof_service.no_boards())
 
