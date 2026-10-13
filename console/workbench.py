@@ -2523,7 +2523,10 @@ async def _game_block(context: dict[str, Any]) -> None:
     with ui.column().classes("gap-0 console-form"):
         _rows(ui, findings + _game_entries(context, found, differs, held, links, copies,
                                            dof_state))
-        _tables_block(context, held)
+        # The facts above sit inside `.console-facts`' side padding; this block is drawn
+        # outside that grid and needs the same edge.
+        with ui.column().classes("gap-0 w-full px-3"):
+            _tables_block(context, held)
 
 
 async def _table_block(context: dict[str, Any]) -> None:

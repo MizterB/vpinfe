@@ -2960,9 +2960,7 @@ input.console-path-input { padding-right: 0.6ch; }
 .console-heading-row {
   border-top: 1px solid var(--line-soft);
   margin-top: 14px;
-  /* The sides are `.console-facts`' own, so this heading starts on the same edge as
-     every other one. Drawn outside that grid, it was a heading 12px left of the rest. */
-  padding: 12px 12px 4px;
+  padding: 12px 0 4px;
 }
 .console-heading-row .console-fact-heading {
   border-top: none;
