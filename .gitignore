@@ -50,6 +50,10 @@
 !tests/fixtures/community/*/extension.json
 !tests/fixtures/community/*/i18n/en.json
 
+# A guide recipe is a whole extension, and the cookbook tells a reader to run it.
+!docs/extensions/examples/recipes/*/extension.json
+!docs/extensions/examples/recipes/*/i18n/en.json
+
 # An extension the build ships declares itself in one of these. Without the
 # negation a clean checkout has the code and no manifest, and the host refuses
 # every one of them - which is green here and broken everywhere else.

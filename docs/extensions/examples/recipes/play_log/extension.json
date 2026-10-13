@@ -1,0 +1,7 @@
+{
+  "name": "play_log",
+  "version": "1.0.0",
+  "requires_platform": 1,
+  "scopes": ["games:read"],
+  "capabilities": ["config:own"]
+}
