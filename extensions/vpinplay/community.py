@@ -4,26 +4,22 @@ shares with VPinPlay."""
 from __future__ import annotations
 
 import json
-import logging
 import urllib.parse
 import urllib.request
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any
 
-from fastapi import APIRouter, HTTPException
-
-from common.extensions.contract import why, words
+from common.extensions.contract import Unavailable, why, words
 
 from .accounts import SEND_NOW, USER_ID, page_for
 
-# Not one of the account's own acts: it carries its own `url`, so the Console draws it
-# as a link and never calls back for it.
+# An act that is an address: the Console draws it as a link and never calls back for it.
 YOUR_PAGE = "your_page"
 
 if TYPE_CHECKING:
     from .sending import Sender
 
-logger = logging.getLogger(__name__)
 t = words("vpinplay")
 
 OPEN_SITE = "open_site"
@@ -125,27 +121,23 @@ def _host(endpoint: str) -> str:
         return endpoint
 
 
-def router(endpoint_of: Any, on_read: Any = None) -> APIRouter:
-    """`on_read(rows)` is told of every list read whole, and of no failed one."""
-    reading = APIRouter()
-
-    @reading.get("/community/tables")
-    def community_tables() -> dict:
+def rows_from(endpoint_of: Callable[[], str],
+              on_read: Callable[[list], None] | None = None) -> Callable[[], list]:
+    """The list's `rows()`. `on_read(rows)` is told of every list read whole, and of no
+    failed one."""
+    def rows() -> list:
         endpoint = endpoint_of()
         try:
-            rows = tables(endpoint)
+            found = tables(endpoint)
         except OSError as exc:
-            logger.warning("VPinPlay did not answer at %s: %s", endpoint, exc)
-            raise HTTPException(status_code=502, detail=why(exc, at=endpoint)) from exc
+            raise Unavailable(why(exc, at=endpoint)) from exc
         except ValueError as exc:
-            logger.warning("VPinPlay's answer at %s could not be read: %s", endpoint, exc)
-            raise HTTPException(status_code=502,
-                                detail=t("error.unreadable", host=_host(endpoint))) from exc
+            raise Unavailable(t("error.unreadable", host=_host(endpoint))) from exc
         if on_read is not None:
-            on_read(rows)
-        return {"rows": rows}
+            on_read(found)
+        return found
 
-    return reading
+    return rows
 
 
 def status(ctx: Any, sender: Sender) -> dict[str, str]:
@@ -153,50 +145,33 @@ def status(ctx: Any, sender: Sender) -> dict[str, str]:
     roster = ctx.players.roster()
     holding = [one for one in roster if ctx.players.account(one["id"]).get(USER_ID)]
     if not holding:
-        return {"text": ctx.t("community.status.no_account"), "to": PLAYERS}
+        return {"text": ctx.t("list.tables.status.no_account"), "to": PLAYERS}
     if not any(ctx.players.sharing(one["id"]) for one in holding):
-        return {"text": ctx.t("community.status.share_off"), "to": PLAYERS}
+        return {"text": ctx.t("list.tables.status.share_off"), "to": PLAYERS}
     sending = sender.sharing()
     if not sending:
-        return {"text": ctx.t("community.status.needs_initials"), "to": PLAYERS}
-    return {"text": ctx.t("community.status.sharing", players=ctx.t(
-        "community.status.list_join").join(one.initials for one in sending))}
+        return {"text": ctx.t("list.tables.status.needs_initials"), "to": PLAYERS}
+    return {"text": ctx.t("list.tables.status.sharing", players=ctx.t(
+        "list.tables.status.list_join").join(one.initials for one in sending))}
 
 
-def acts(ctx: Any, site: str, sender: Sender) -> list[dict[str, str]]:
+def acts(ctx: Any, site: str, sender: Sender) -> dict[str, Any]:
     """Send Now while a sharing account has games waiting; the site; the owner's page
     while the owner holds a user id."""
-    offered = []
+    def send_now() -> str:
+        went, waiting = sender.send_all()
+        if waiting:
+            return ctx.t("account.status.waiting", count=waiting)
+        if not went:
+            return ctx.t("account.nothing_waiting")
+        return ctx.t("account.sent", count=went)
+
+    offered: dict[str, Any] = {}
     if any(sender.waiting(one.player_id) for one in sender.sharing()):
-        offered.append({"key": SEND_NOW, "label": ctx.t("account.act.send_now.label")})
-    offered.append({"key": OPEN_SITE, "label": ctx.t("community.act.open_site.label"),
-                    "url": site})
+        offered[SEND_NOW] = send_now
+    offered[OPEN_SITE] = site
     owner = next((one for one in ctx.players.roster() if one.get("owner")), None)
     user_id = ctx.players.account(owner["id"]).get(USER_ID, "") if owner else ""
     if user_id:
-        offered.append({"key": YOUR_PAGE, "label": ctx.t("community.act.your_page.label"),
-                        "url": page_for(site, user_id)})
+        offered[YOUR_PAGE] = page_for(site, user_id)
     return offered
-
-
-def about_routers(ctx: Any, site: str, sender: Sender) -> tuple[APIRouter, APIRouter]:
-    """The list's line and menu, and Send Now from it."""
-    reading = APIRouter()
-    writing = APIRouter()
-
-    @reading.get("/community/tables/about")
-    def about() -> dict:
-        return {"status": status(ctx, sender), "acts": acts(ctx, site, sender)}
-
-    @writing.post("/community/tables/about/acts/{act}")
-    def run_act(act: str) -> dict:
-        if act != SEND_NOW:
-            raise HTTPException(404, detail=ctx.t("error.no_act", act=act))
-        went, waiting = sender.send_all()
-        if waiting:
-            return {"message": ctx.t("account.status.waiting", count=waiting)}
-        if not went:
-            return {"message": ctx.t("account.nothing_waiting")}
-        return {"message": ctx.t("account.sent", count=went)}
-
-    return reading, writing

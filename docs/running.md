@@ -126,6 +126,7 @@ Run `./vpinfe --help` for the list.  Options that change how it starts:
 | `--configdir DIR` | Keep the config in `DIR` instead of the OS default, with the cache in `DIR/cache`, the state in `DIR/state` and the logs in `DIR/logs`.  Same as the `VPINFE_CONFIG_DIR` environment variable |
 | `--listres` | List your screens and their IDs |
 | `--gamepadtest` | Open the gamepad button tester |
+| `--check-extension DIR` | Load the extension in `DIR` as VPinFE would, and say what it declares, what it reads and any word it is missing.  It sends and changes nothing.  Exits with 1 where the extension would not pass |
 
 Options that work on the library without starting VPinFE:
 

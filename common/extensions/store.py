@@ -36,6 +36,10 @@ SWITCHED_OFF_KEY = "switched_off"
 # In an extension's own file: the accounts it holds, `{player_id: {key: value}}`. Not a
 # setting, so it is neither read as one nor writable as one.
 ACCOUNTS_KEY = "accounts"
+# Also in it: what core last saw the extension declare (`{"settings": true}`), for a page
+# that has to say so while the extension is not running. Reserved the same way.
+DECLARED_KEY = "declared"
+RESERVED = frozenset({ACCOUNTS_KEY, DECLARED_KEY})
 
 # The name is already restricted to this by the manifest. Checked again here because
 # this one builds a path out of it, and a name that could contain a separator would be
@@ -100,19 +104,31 @@ class ExtensionStore:
     def settings(self, name: str) -> dict[str, str]:
         with self._lock:
             raw = self._read_settings(name)
-        return {str(key): str(value) for key, value in raw.items() if key != ACCOUNTS_KEY}
+        return {str(key): str(value) for key, value in raw.items() if key not in RESERVED}
 
     def set_setting(self, name: str, key: str, value: str) -> None:
         wanted = str(key or "").strip()
         if not wanted:
             return
-        if wanted == ACCOUNTS_KEY:
-            logger.error("Refusing a setting named %r for %s: that is where its accounts "
-                         "are kept", wanted, name)
+        if wanted in RESERVED:
+            logger.error("Refusing a setting named %r for %s: core keeps its own "
+                         "records there", wanted, name)
             return
         with self._lock:
             held = self._read_settings(name)
             held[wanted] = str(value)
+            self._write_settings(name, held)
+
+    def declared(self, name: str) -> dict[str, Any]:
+        """What core last saw this extension declare; empty before it has run."""
+        with self._lock:
+            raw = self._read_settings(name).get(DECLARED_KEY)
+        return dict(raw) if isinstance(raw, dict) else {}
+
+    def set_declared(self, name: str, what: dict[str, Any]) -> None:
+        with self._lock:
+            held = self._read_settings(name)
+            held[DECLARED_KEY] = dict(what)
             self._write_settings(name, held)
 
     def accounts(self, name: str) -> dict[str, dict[str, str]]:

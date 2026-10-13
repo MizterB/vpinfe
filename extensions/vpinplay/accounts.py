@@ -6,11 +6,12 @@ never sent. **Claiming** checks the id is still free, mints the key and register
 with an empty send; nothing before that reaches VPinPlay. Core draws the account on each
 player and asks the routes below with the player's id; the values live in this extension's
 own file for a kept player, and in memory for a guest.
+
+A refusal is a raise: core words it and shows it under the control that was pressed.
 """
 
 from __future__ import annotations
 
-import logging
 import secrets
 import string
 import threading
@@ -18,17 +19,12 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
-import requests
-from fastapi import APIRouter, HTTPException
-
 from . import client, sync
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from .sending import Sender
-
-logger = logging.getLogger("vpinfe.ext.vpinplay.accounts")
 
 
 def _on_a_thread(work: Callable[[], object]) -> None:
@@ -78,15 +74,14 @@ def page_for(site: str, user_id: str) -> str:
     return f"{site}/players.html?userid={quote(user_id)}"
 
 
-def routers(ctx: Any, site: str, sender: Sender,
-           endpoint: Callable[[], str]) -> tuple[APIRouter, APIRouter]:
-    """Reading and writing, the way settings are split.
+def functions(ctx: Any, site: str, sender: Sender,
+              endpoint: Callable[[], str]) -> dict[str, Any]:
+    """What `ctx.ui.account` is handed: a function for each thing core asks of a player's
+    account.
 
-    An act answers what came of it: Send Now a `message`; Claim, Consent and Disconnect
-    the account, as `GET {base}/{player_id}` does.
+    An act answers what came of it: Send Now a message; Claim, Consent and Disconnect the
+    account, as `read` does.
     """
-    reading = APIRouter()
-    writing = APIRouter()
     # Per extension load: a guest's in-memory account resolves again after a restart
     # the way a kept one does.
     resolved: dict[str, bool] = {}
@@ -164,41 +159,25 @@ def routers(ctx: Any, site: str, sender: Sender,
             "card": card_for(player_id, held) is not None,
         }
 
-    def card_or_404(player_id: str) -> dict:
-        made = card_for(player_id, ctx.players.account(player_id))
-        if made is None:
-            raise HTTPException(404, detail=ctx.t("error.no_card"))
-        return made
-
-    def reached(url: str, user_id: str) -> bool:
-        """Whether `user_id` is free, asked fresh. Raises where VPinPlay could not be."""
-        try:
-            return client.check_available(url, user_id)
-        except requests.RequestException as exc:
-            logger.warning("Could not reach VPinPlay to check %r: %s", user_id, exc)
-            raise HTTPException(503, detail=ctx.t("error.unreachable")) from exc
+    def card(player_id: str) -> dict | None:
+        return card_for(player_id, ctx.players.account(player_id))
 
     def claim(player_id: str) -> dict:
         held = dict(ctx.players.account(player_id))
         user_id = held.get(USER_ID, "").strip()
         if not user_id:
-            raise HTTPException(400, detail=ctx.t("error.no_account"))
+            raise ValueError(ctx.t("error.no_account"))
         if held.get(KEY):
-            raise HTTPException(400, detail=ctx.t("error.already_claimed"))
+            raise ValueError(ctx.t("error.already_claimed"))
         initials = initials_of(player_id)
         if not initials:
-            raise HTTPException(400, detail=ctx.t("error.no_initials"))
+            raise ValueError(ctx.t("error.no_initials"))
         where = sync.endpoint_for(endpoint())
-        if not reached(where, user_id):
-            raise HTTPException(400, detail=ctx.t("error.taken"))
+        if not client.check_available(where, user_id):
+            raise ValueError(ctx.t("error.taken"))
         key = new_key()
-        try:
-            result = client.register(where, user_id, initials, key, ctx.host_version)
-        except requests.RequestException as exc:
-            logger.warning("Could not reach VPinPlay to claim %r: %s", user_id, exc)
-            raise HTTPException(503, detail=ctx.t("error.unreachable")) from exc
-        if not result.get("ok"):
-            raise HTTPException(503, detail=ctx.t("error.claim_failed"))
+        if not client.register(where, user_id, initials, key, ctx.host_version).get("ok"):
+            raise RuntimeError(ctx.t("error.claim_failed"))
         with sender.books():
             ctx.players.set_account(player_id, {USER_ID: user_id, KEY: key,
                                                 CLAIMED: "true", CONSENTED: "true"})
@@ -218,21 +197,12 @@ def routers(ctx: Any, site: str, sender: Sender,
             ctx.players.set_account(player_id, {})
         return answer(player_id)
 
-    # A path of its own, one segment away from `/accounts/{player_id}` below: this must
-    # never be read as that route with `player_id="available"`.
-    @reading.get("/available")
-    def check_available(candidate: str) -> dict:
-        where = sync.endpoint_for(endpoint())
-        return {"available": reached(where, candidate.strip().lower())}
+    def available(candidate: str) -> bool:
+        return client.check_available(sync.endpoint_for(endpoint()),
+                                      candidate.strip().lower())
 
-    @reading.get("/accounts/{player_id}")
-    def read_account(player_id: str) -> dict:
-        return answer(player_id)
-
-    @writing.put("/accounts/{player_id}")
-    def write_account(player_id: str, payload: dict) -> dict:
+    def write(player_id: str, offered: dict) -> None:
         """Saves what is chosen; claiming is its own act, never a side effect of a write."""
-        offered = dict((payload or {}).get("values") or {})
         with sender.books():
             held = dict(ctx.players.account(player_id))
             was = held.get(USER_ID, "")
@@ -251,41 +221,29 @@ def routers(ctx: Any, site: str, sender: Sender,
         written = ctx.players.account(player_id)
         if written.get(USER_ID) and written.get(KEY) and not written.get(CLAIMED):
             ensure_resolved(written[USER_ID])
-        return answer(player_id)
 
-    @writing.post("/accounts/{player_id}/acts/{act}")
-    def run_act(player_id: str, act: str) -> dict:
-        if act == CLAIM:
-            return claim(player_id)
-        if act == CONSENT:
-            return consent(player_id)
-        if act == DISCONNECT:
-            return disconnect(player_id)
-        if act != SEND_NOW:
-            raise HTTPException(404, detail=ctx.t("error.no_act", act=act))
+    def send_now(player_id: str) -> str:
         held = ctx.players.account(player_id)
         if not (held.get(USER_ID) and held.get(KEY)):
-            raise HTTPException(404, detail=ctx.t("error.no_account"))
+            raise ValueError(ctx.t("error.no_account"))
         if not sender.waiting(player_id):
-            return {"message": ctx.t("account.nothing_waiting")}
+            return ctx.t("account.nothing_waiting")
         went, waiting = sender.send_now(player_id)
         if waiting:
-            return {"message": ctx.t("account.status.waiting", count=waiting)}
-        return {"message": ctx.t("account.sent", count=went)}
+            return ctx.t("account.status.waiting", count=waiting)
+        return ctx.t("account.sent", count=went)
 
-    @reading.get("/accounts/{player_id}/card")
-    def read_card_of(player_id: str) -> dict:
-        return card_or_404(player_id)
-
-    @writing.post("/accounts/cards")
-    def read_card(payload: dict) -> dict:
-        card = checked(ctx, (payload or {}).get("card"))
-        return {"name": card["userId"], "initials": card["initials"],
-                "values": {USER_ID: card["userId"], KEY: card["machineId"]}}
+    def read_card(scanned: Any) -> dict:
+        found = checked(ctx, scanned)
+        return {"name": found["userId"], "initials": found["initials"],
+                "values": {USER_ID: found["userId"], KEY: found["machineId"]}}
 
     resolve_unmarked(ctx, ensure_resolved)
 
-    return reading, writing
+    return {"read": answer, "write": write, "card": card, "read_card": read_card,
+            "available": available,
+            "acts": {CLAIM: claim, CONSENT: consent, DISCONNECT: disconnect,
+                     SEND_NOW: send_now}}
 
 
 def resolve_unmarked(ctx: Any, ensure_resolved: Callable[[str], None]) -> None:
@@ -316,8 +274,8 @@ def sent_ago(ctx: Any, when: str) -> str:
 
 def checked(ctx: Any, card: Any) -> dict[str, Any]:
     """A card as 2.x read one: the same checks, in the same order, in 2.x's words."""
-    def refused(said: str) -> HTTPException:
-        return HTTPException(400, detail=said)
+    def refused(said: str) -> ValueError:
+        return ValueError(said)
 
     if not isinstance(card, dict):
         raise refused(ctx.t("error.card.not_an_object"))

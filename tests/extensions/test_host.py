@@ -16,6 +16,7 @@ from pathlib import Path
 from common import apps, i18n
 from common import events as core_events
 from common.extensions import contract, host, provided_apps, store
+from tests.support import served
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "extensions"
 
@@ -211,11 +212,14 @@ class LoadTests(HostCase):
 class WordsTests(HostCase):
     """What an extension says is looked up in its own `i18n/`, when it is read."""
 
-    OFFERS = ('def register(ctx):\n'
-              '    ctx.ui.action("sync", "/sync")\n'
-              '    ctx.ui.settings("/settings")\n'
-              '    ctx.ui.community("tables", "/t", columns=[{"field": "name"}],\n'
-              '                     views=[{"key": "top", "columns": ["name"]}])\n')
+    OFFERS = ('class Sync:\n'
+              '    def ask(self, step):\n'
+              '        return {"fields": []}\n'
+              'def register(ctx):\n'
+              '    ctx.ui.action("sync", Sync())\n'
+              '    ctx.ui.settings([{"key": "account", "type": "string"}])\n'
+              '    ctx.ui.list("scores", lambda: [], columns=[{"field": "name"}],\n'
+              '                views=[{"key": "top", "columns": ["name"]}])\n')
 
     def worded(self, name: str, words: dict, manifest: dict | None = None,
                body: str = "def register(ctx): pass\n") -> Path:
@@ -258,33 +262,35 @@ class WordsTests(HostCase):
         record = self.registry.load(self.worded("worded", {
             "action.sync.label": "Sync now",
             "action.sync.description": "Sends what was played",
-            "settings.label": "Account",
-            "community.tables.title": "Top tables",
-            "community.tables.column.name.header": "Table",
-            "community.tables.view.top.name": "Most played",
+            "settings.account.label": "Account",
+            "list.scores.title": "Top scores",
+            "list.scores.column.name.header": "Table",
+            "list.scores.view.top.name": "Most played",
         }, {"capabilities": ["ui:mount"]}, self.OFFERS))
         found = record.as_dict()
 
         self.assertEqual(found["actions"][0]["label"], "Sync now")
         self.assertEqual(found["actions"][0]["label_key"], "ext.worded.action.sync.label")
         self.assertEqual(found["actions"][0]["description"], "Sends what was played")
-        self.assertEqual(found["surfaces"]["settings_label"], "Account")
-        listing = found["community"][0]
-        self.assertEqual(listing["title"], "Top tables")
+        asked = served.client_for(self, self.registry, record).get("/ext/worded/settings")
+        self.assertEqual(asked.json()["fields"][0]["label"], "Account")
+        listing = found["lists"][0]
+        self.assertEqual(listing["title"], "Top scores")
         self.assertEqual(listing["columns"][0]["header"], "Table")
         self.assertEqual(listing["views"][0]["name"], "Most played")
 
     def test_what_its_catalog_leaves_out_is_called_by_its_key(self) -> None:
-        """The Console has its own word for a settings page with none."""
+        """A setting with none is called by its key, which the Console shows as written."""
         record = self.registry.load(self.worded(
             "bare", {}, {"capabilities": ["ui:mount"]}, self.OFFERS))
         found = record.as_dict()
 
         self.assertEqual(found["actions"][0]["label"], "sync")
         self.assertEqual(found["actions"][0]["label_key"], "")
-        self.assertEqual(found["surfaces"]["settings_label"], "")
-        listing = found["community"][0]
-        self.assertEqual(listing["title"], "tables")
+        asked = served.client_for(self, self.registry, record).get("/ext/bare/settings")
+        self.assertEqual(asked.json()["fields"][0]["label"], "account")
+        listing = found["lists"][0]
+        self.assertEqual(listing["title"], "scores")
         self.assertEqual(listing["columns"][0]["header"], "name")
         self.assertEqual(listing["views"][0]["name"], "top")
 
@@ -393,15 +399,16 @@ class ContextTests(HostCase):
 
         self.assertTrue(self.store.enabled("sample"))
 
-    def test_a_router_gated_on_an_undeclared_scope_is_refused(self) -> None:
+    def test_a_router_gated_on_another_extensions_scope_is_refused(self) -> None:
         body = ("from fastapi import APIRouter\n"
                 "def register(ctx):\n"
                 "    ctx.add_router(APIRouter(), scope='ext:sample:read')\n")
         with self.assertLogs(self.LOG, "ERROR") as logged:
-            record = self.registry.load(self.make("greedy", {"provides": ["read"]}, body))
+            record = self.registry.load(self.make("greedy", body=body))
 
         self.assertEqual(record.state, host.FAILED)
-        self.assertIn("does not provide", logged.output[0])
+        self.assertIn("its scopes are ext:greedy:read and ext:greedy:write",
+                      logged.output[0])
 
     def test_publishing_an_undeclared_event_is_refused(self) -> None:
         body = ("def register(ctx):\n"
@@ -559,13 +566,38 @@ class SwitchTests(HostCase):
         self.assertIn("ext:sample:read", self.registry.granted_scopes())
 
     def test_a_switched_off_extension_still_says_it_has_settings(self) -> None:
-        """Only a running one has `surfaces`, so the flag is what a stopped page reads."""
+        """Only a running one has `surfaces`, and it is `register` that declares
+        settings, so the flag is remembered from the last run for a stopped page to read."""
+        body = ('def register(ctx):\n'
+                '    ctx.ui.settings([{"key": "account", "type": "string"}])\n')
+        directory = self.make("declares", {"capabilities": ["ui:mount"]}, body)
+        self.assertTrue(self.registry.load(directory).has_settings)
         self.store.set_enabled("declares", False)
-        record = self.registry.load(self.make("declares", {"has_settings": True}))
-        found = record.as_dict()
+        later = host.Registry(self.store)
+        self.addCleanup(later.clear)
 
-        self.assertEqual(found["surfaces"], {})
+        found = later.load(directory).as_dict()
+
+        self.assertEqual((found["state"], found["surfaces"]), (host.OFF, {}))
         self.assertTrue(found["has_settings"])
+
+    def test_an_extension_with_no_settings_does_not_say_it_has_any(self) -> None:
+        record = self.registry.load(self.make("plain", body="def register(ctx): pass\n"))
+
+        self.assertFalse(record.as_dict()["has_settings"])
+
+    def test_the_settings_flag_follows_what_register_declares_now(self) -> None:
+        """A later version that drops its settings is not remembered as having them."""
+        directory = self.make("declares", {"capabilities": ["ui:mount"]}, (
+            'def register(ctx):\n'
+            '    ctx.ui.settings([{"key": "account", "type": "string"}])\n'))
+        self.registry.load(directory)
+        (directory / "__init__.py").write_text("def register(ctx): pass\n", encoding="utf-8")
+
+        record = host.Registry(self.store).load(directory)
+
+        self.assertFalse(record.has_settings)
+        self.assertEqual(self.store.declared("declares"), {"settings": False})
 
     def test_a_name_nothing_answers_to_is_not_written(self) -> None:
         self.assertIsNone(self.registry.switch("nothing", False))

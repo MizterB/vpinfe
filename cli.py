@@ -113,11 +113,24 @@ def gamepadtest():
         http_server.on_closed()
 
 
+def check_extension(folder: str) -> int:
+    """Print what the extension in `folder` declares and reads. 1 where it would not pass."""
+    from common.extensions import check
+
+    lines, passed = check.check(folder)
+    print("\n".join(lines))
+    return 0 if passed else 1
+
+
 def parse_args():
     """Parse and dispatch command-line arguments."""
     parser = argparse.ArgumentParser(allow_abbrev=False)
     parser.add_argument("--version", action="store_true", help="Show the app version")
     parser.add_argument("--listres", action="store_true", help="ID and list your screens")
+    parser.add_argument("--check-extension", metavar="DIR",
+                        help="Load the extension in DIR as VPinFE would and say what it "
+                             "declares, what it reads and any word it is missing. Sends "
+                             "and changes nothing")
     parser.add_argument("--listmissing", action="store_true", help="List the games from VPSdb")
     parser.add_argument("--listunknown", action="store_true",
                         help="List the games we can't match in VPSdb")
@@ -211,6 +224,9 @@ def parse_args():
                     'height': s.height,
                 })
         sys.exit()
+
+    if args.check_extension:
+        sys.exit(check_extension(args.check_extension))
 
     if args.listmissing:
         list_missing_games()

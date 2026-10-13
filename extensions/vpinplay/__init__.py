@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urlencode
 
-from . import accounts, client, community, sending, settings
+from . import accounts, client, community, sending
 
 RATING_KEY = "vpinplay"
 LIST_KEY = "tables"
@@ -32,8 +32,10 @@ SITE = "https://www.vpinplay.com"
 def register(ctx: Any) -> None:
     accounts.move_owner_account(ctx)
 
+    ctx.ui.settings([{"key": ENDPOINT_KEY, "type": "string", "default": DEFAULT_ENDPOINT}])
+
     def endpoint() -> str:
-        return str(ctx.config.get(ENDPOINT_KEY, "") or DEFAULT_ENDPOINT)
+        return ctx.config.get(ENDPOINT_KEY)
 
     ratings = client.Ratings()
     kept = ctx.ui.kept(LIST_KEY)
@@ -62,24 +64,15 @@ def register(ctx: Any) -> None:
     ctx.events.subscribe(sending.GAME_RATED, sender.rated)
     ctx.events.subscribe(sending.SHARE_CHANGED, sender.share_changed)
 
-    reading, writing = settings.routers(ctx, DEFAULT_ENDPOINT)
-    ctx.add_router(reading, scope=ctx.scope("read"))
-    ctx.add_router(writing, scope=ctx.scope("write"))
-    ctx.ui.settings("/settings")
-
-    reading, writing = accounts.routers(ctx, SITE, sender, endpoint)
-    ctx.add_router(reading, scope=ctx.scope("read"))
-    ctx.add_router(writing, scope=ctx.scope("write"))
-    ctx.ui.account("/accounts", cards=(accounts.CARD_TYPE,), check="/available",
+    ctx.ui.account(**accounts.functions(ctx, SITE, sender, endpoint),
+                   cards=(accounts.CARD_TYPE,),
                    consent=(ctx.t("account.consent.identity"), ctx.t("account.consent.plays"),
                            ctx.t("account.consent.ratings")))
 
-    ctx.add_router(community.router(endpoint, read), scope=ctx.scope("read"))
-    reading, writing = community.about_routers(ctx, SITE, sender)
-    ctx.add_router(reading, scope=ctx.scope("read"))
-    ctx.add_router(writing, scope=ctx.scope("write"))
-    ctx.ui.community(LIST_KEY, "/community/tables", title="VPinPlay",
-                     columns=community.COLUMNS, views=community.VIEWS,
-                     relation=community.RELATION, about="/community/tables/about")
+    ctx.ui.list(LIST_KEY, community.rows_from(endpoint, read), title="VPinPlay",
+                columns=community.COLUMNS, views=community.VIEWS,
+                relation=community.RELATION,
+                status=lambda: community.status(ctx, sender),
+                acts=lambda: community.acts(ctx, SITE, sender))
 
     ctx.logger.info("Contributing ratings from %s", endpoint())

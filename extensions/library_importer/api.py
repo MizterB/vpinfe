@@ -641,8 +641,7 @@ def build(ctx: Any) -> None:
         follow_the_setting()
         return _state(ctx)
 
-    @reading.get("/wizard")
-    def wizard_form() -> dict:
+    def wizard_form(step: str = "") -> dict:
         """Step one: what are you importing from, and where is it.
 
         The kind comes from the form's source_type; a caller that sends none still gets
@@ -687,23 +686,20 @@ def build(ctx: Any) -> None:
             return next((one for one in READERS if one.SOURCE_ID == wanted), None)
         return reader_for(path, survey)
 
-    @reading.get("/wizard/progress")
     def wizard_progress() -> dict:
         """Where a check or a run in progress has got to: its stage, in words, and how
         far through it is. Empty where nothing is going on."""
         return progress.snapshot()
 
-    @writing.post("/wizard/check")
-    def wizard_check(body: dict) -> dict:
+    def wizard_check(values: dict, step: str = "") -> dict:
         """Whatever comes next: another question, or what it all adds up to."""
         try:
-            return _check(body)
+            return _check(values or {}, step)
         finally:
             progress.clear()
 
-    def _check(body: dict) -> dict:
-        values = body.get("values") or {}
-        leaving = str(body.get("step") or "source")
+    def _check(values: dict, step: str) -> dict:
+        leaving = step or "source"
         typed = str(values.get("path") or "").strip()
         no_frontend = str(values.get("source_type") or "") == folders.SOURCE_ID
 
@@ -1314,8 +1310,7 @@ def build(ctx: Any) -> None:
             "confirm": confirm,
         }
 
-    @writing.post("/wizard/run", status_code=202)
-    def start_import(body: dict) -> dict:
+    def start_import(values: dict) -> dict:
         """Convert the chosen source into game folders. Answers with a job.
 
         A job because it is slow and because it is the shape everything slow here takes:
@@ -1324,14 +1319,13 @@ def build(ctx: Any) -> None:
         Progress and the outcome are on /api/v1/jobs, the same as a library scan.
         """
         try:
-            return _start(body)
+            return _start(values or {})
         finally:
             progress.clear()
 
-    def _start(body: dict) -> dict:
-        values = body.get("values") or {}
+    def _start(values: dict) -> dict:
         typed = str(values.get("path") or "").strip()
-        location = str(body.get("location") or "")
+        location = str(values.get("location") or "")
         systems = _systems(values)
 
         def refused(reason: str) -> dict:
@@ -1434,7 +1428,8 @@ def build(ctx: Any) -> None:
             # Every answer but the ticks and picks, which are held under a key of their own
             # for what was read: a second import starts from these and is asked those again.
             report["answers"] = {key: one for key, one in values.items()
-                                 if "." not in key and key not in ("games", "picks", "only")}
+                                 if "." not in key
+                                 and key not in ("games", "picks", "only", "location")}
             job.stopped = bool(report.get("stopped"))
             # Counted from the rows the report lists, not from `failed`: a game whose
             # folder was made and whose file did not come across is in the report too.
@@ -1457,16 +1452,19 @@ def build(ctx: Any) -> None:
                 job.log("Get missing media was not started: a fill was already running")
             return report
 
-        job = ctx.jobs.submit("import", work, stop_route="/wizard/stop",
-                              keep_result=True)
+        job = ctx.jobs.submit("import", work, stoppable=True, keep_result=True)
         return {"started": True, "job_id": job.id,
                 "links": {"job": f"/api/v1/jobs/{job.id}"}}
 
-    @writing.post("/wizard/stop")
-    def stop_import() -> dict:
-        """Ask a running import to stop after the game in hand. What it made stays."""
-        return {"stopped": ctx.jobs.stop("import")}
+    class ImportDialog:
+        """The dialog core draws for Import a Library. Stopping a run is core's: it asks
+        `ctx.jobs.stop("import")`, which ends the import after the game in hand."""
 
-    ctx.ui.action("import", "/wizard")
+        ask = staticmethod(wizard_form)
+        check = staticmethod(wizard_check)
+        run = staticmethod(start_import)
+        progress = staticmethod(wizard_progress)
+
+    ctx.ui.action("import", ImportDialog())
     ctx.add_router(reading, scope=ctx.scope("read"))
     ctx.add_router(writing, scope=ctx.scope("write"))

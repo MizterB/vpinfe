@@ -390,7 +390,7 @@ class SecretSettingTests(unittest.TestCase):
     def _drawn(self, field: dict) -> tuple[str, Callable[[str], Any], str]:
         given: dict[str, Any] = {}
 
-        def fake(value, on_save, *, placeholder=""):
+        def fake(value, on_save, *, placeholder="", refuses=False):
             given.update(value=value, on_save=on_save, placeholder=placeholder)
             return lambda: None
 

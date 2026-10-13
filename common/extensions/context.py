@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -19,6 +20,7 @@ from . import accounts
 from . import cards as cards_module
 from .contract import ContractError, Manifest, words
 from .contract import why as worded
+from .fields import FieldError, settings_fields
 from .games import ExtensionGames
 from .store import ExtensionStore
 
@@ -35,12 +37,20 @@ def logger_for(name: str) -> logging.Logger:
 class ExtensionConfig:
     """An extension's settings, under its own name."""
 
-    def __init__(self, name: str, store: ExtensionStore) -> None:
+    def __init__(self, name: str, store: ExtensionStore,
+                 declared: Callable[[], dict[str, str]] = dict) -> None:
         self._name = name
         self._store = store
+        self._declared = declared
 
     def get(self, key: str, default: str = "") -> str:
-        return self.all().get(str(key or "").strip(), default)
+        """What is stored under `key`; where that is empty, the default its field
+        declares; where there is neither, `default`."""
+        wanted = str(key or "").strip()
+        stored = self.all()
+        if stored.get(wanted):
+            return stored[wanted]
+        return self._declared().get(wanted) or stored.get(wanted, default)
 
     def all(self) -> dict[str, str]:
         return self._store.settings(self._name)
@@ -211,167 +221,133 @@ COLUMN_KINDS = frozenset({"text", "number", "date"})
 RANKING_KINDS = frozenset({"number", "date"})
 RELATION_KEYS = frozenset({"vps_entry", "vps_release"})
 
+# The groups in the rail a list can be put in, each one core already draws.
+AREAS = ("library", "frontend", "community", "system")
+DEFAULT_AREA = "community"
+
+
+@dataclass
+class ListFunctions:
+    """What a list's extension answers with."""
+
+    rows: Callable[[], Any]
+    status: Callable[[], Any] | None = None
+    acts: Any = None
+
+
+@dataclass
+class AccountFunctions:
+    """What a player's account is answered with, one function for each thing core asks."""
+
+    read: Callable[[str], dict]
+    write: Callable[[str, dict], Any] | None = None
+    acts: dict[str, Callable[[str], Any]] = field(default_factory=dict)
+    card: Callable[[str], dict | None] | None = None
+    read_card: Callable[[Any], dict] | None = None
+    available: Callable[[str], Any] | None = None
+
 
 class ExtensionUI:
-    """What an extension offers a person: its actions, and the page they sit on.
+    """What an extension offers a person: its settings, lists, actions and accounts.
 
-    Declared rather than drawn. An extension that painted its own page would tie the
-    Console's look to whoever wrote it, and would stop working the moment that extension
-    moved out of this process - where a task described as data still does. Core owns the
-    treatment; the extension owns what is asked and what happens.
-
-    An action is one call on the extension's own router. What varies is whether it takes
-    input, whether it warrants confirming, and whether it finishes now or hands back a
-    job - and core reads each of those off what the extension answers rather than from a
-    mode it declares, because a declared mode is a second statement of the same thing and
-    the two drift.
-
-    A form with no fields is pressed and happens. A form with fields is filled in first.
-    A form naming a confirm gets a step showing what would happen before it runs. The
-    run answers with a job where it is slow and with the outcome where it is not.
+    Declared rather than drawn, and served by core rather than by the extension: it hands
+    over fields, a `rows()` and a dialog object, and core mounts the routes the Console
+    reads. An extension that painted its own page would tie the Console's look to whoever
+    wrote it, and would stop working the moment it moved out of this process - where a
+    task described as data still does.
 
     A word left out is looked up in the extension's own `i18n/<language>.json`:
-    `action.<key>.label`, `community.<key>.title`, `settings.label` and so on, as
-    `docs/extensions.md` lists them. One given is shown as written.
+    `settings.<key>.label`, `list.<key>.title`, `action.<key>.label` and so on, as
+    `docs/extensions/reference.md` lists them. One given is shown as written.
     """
 
     def __init__(self, name: str, allowed: bool) -> None:
         self._name = name
         self._allowed = allowed
         self.actions: list[dict] = []
-        self.community_lists: list[dict] = []
-        self.settings_label = ""
+        self.action_objects: dict[str, Any] = {}
+        self.declared_lists: list[dict] = []
+        self.list_functions: dict[str, ListFunctions] = {}
+        self.settings_declared: list[dict] = []
+        self.settings_check: Callable[[dict], Any] | None = None
         self.state_label = ""
-        self.settings_base = ""
         self.state_base = ""
         self.account_offered: dict = {}
+        self.account_functions: AccountFunctions | None = None
 
-    def action(self, key: str, base: str, *, label: str = "",
+    def settings(self, fields: Iterable[dict], *,
+                 check: Callable[[dict], Any] | None = None) -> None:
+        """This extension's settings. A field is `{"key", "type", "default", "choices"}`,
+        `type` one of `common.extensions.fields.SETTINGS_TYPES`.
+
+        `check(values)` gets every setting as it would be after the change and raises to
+        refuse it: the refusal is shown under the field that was changed.
+        """
+        self._needs_ui("settings")
+        if self.settings_declared:
+            raise ContractError(f"{self._name} declares its settings twice")
+        if check is not None and not callable(check):
+            raise ContractError(f"{self._name} gives its settings a check that is not "
+                                "a function")
+        try:
+            self.settings_declared = settings_fields(self._name, fields)
+        except FieldError as exc:
+            raise ContractError(str(exc)) from exc
+        self.settings_check = check
+
+    def settings_defaults(self) -> dict[str, str]:
+        return {one["key"]: one["default"] for one in self.settings_declared}
+
+    def action(self, key: str, dialog: Any, *, label: str = "",
                description: str = "") -> None:
-        """A verb somebody can press, in the vocabulary the rest of the app uses."""
-        if not self._allowed:
-            raise ContractError(f"{self._name} offers an action, which needs the "
-                                "ui:mount capability its manifest does not declare")
+        """A verb somebody can press, in the vocabulary the rest of the app uses.
+
+        `dialog` has `ask(step)`, answering the dialog for that step, and any of
+        `check(values)`, `act(key, values)` and `run(values, progress)`. A method that
+        names `step` or `progress` among its arguments is handed it.
+        """
+        self._needs_ui("an action")
         wanted = str(key or "").strip()
         if not wanted:
             raise ContractError(f"{self._name} offers an action with no key")
+        if wanted in self.action_objects:
+            raise ContractError(f"{self._name} offers the action {wanted!r} twice")
+        if not callable(getattr(dialog, "ask", None)):
+            raise ContractError(f"{self._name} offers the action {wanted!r} with an "
+                                "object that has no ask(step)")
+        self.action_objects[wanted] = dialog
         self.actions.append({
             "key": wanted,
             "label": str(label or "").strip(),
             "description": str(description or "").strip(),
-            "base": str(base or "").strip(),
+            "base": f"/actions/{wanted}",
         })
-
-    def community(self, key: str, base: str, *, columns: list[dict], title: str = "",
-                  views: list[dict] | None = None, relation: dict | None = None,
-                  tag: str = "", about: str = "") -> None:
-        """A list this extension holds, shown under Community.
-
-        `base` is a route of this extension's answering `{"rows": [...]}`. `about` is one
-        answering `{"status", "acts"}`: the line the list's page says, and what its menu
-        offers. A column is
-        `{"field", "header", "kind"}` with `kind` one of `text`, `number`, `date`, and the
-        first may name `under`: row fields drawn on the line beneath its value. A view is
-        `{"key", "name", "columns", "sort": [{"field", "desc"}], "help", "ranks"}`, and one
-        that `ranks` is offered as an order for a collection, so it needs a `relation` and
-        a sort on number or date columns only. `relation` is `{"field", "keys"}`, `keys`
-        being `vps_entry` or `vps_release`. `tag` is put on every game (`vps_entry`) or
-        table (`vps_release`) of this library the list relates to, so it needs a
-        `relation`.
-        """
-        self._needs_ui("a community list")
-        wanted = str(key or "").strip()
-        fields = [str((one or {}).get("field") or "").strip() for one in columns]
-        if not wanted or not columns or not all(fields):
-            raise ContractError(f"{self._name} declares a community list with no key or "
-                                "a column with no field")
-        if any((one or {}).get("under") for one in columns[1:]):
-            raise ContractError(f"{self._name} puts a line under a column other than the "
-                                "first, which is the only one drawn with one")
-        kinds = {str((one or {}).get("kind") or "text") for one in columns}
-        if not kinds <= COLUMN_KINDS:
-            raise ContractError(f"{self._name} declares a column kind core does not draw: "
-                                f"{', '.join(sorted(kinds - COLUMN_KINDS))}")
-        for view in views or []:
-            named = set(view.get("columns") or []) | {str(one.get("field") or "")
-                                                      for one in view.get("sort") or []}
-            if not str(view.get("key") or "").strip() or not named <= set(fields):
-                raise ContractError(f"{self._name} declares a view with no key or on a "
-                                    "column it does not have")
-        if relation and (relation.get("field") not in fields
-                         or relation.get("keys") not in RELATION_KEYS):
-            raise ContractError(f"{self._name} relates its list on a field it does not "
-                                "have, or by something other than a VPS entry or release")
-        derived = " ".join(str(tag or "").split())
-        if derived and not relation:
-            raise ContractError(f"{self._name} derives a tag from a list that relates to "
-                                "nothing in the library")
-        measured = {field for field, one in zip(fields, columns, strict=True)
-                    if str((one or {}).get("kind") or "text") in RANKING_KINDS}
-        for view in views or []:
-            if not view.get("ranks"):
-                continue
-            sorted_on = {str(one.get("field") or "") for one in view.get("sort") or []}
-            if not sorted_on or not sorted_on <= measured:
-                raise ContractError(f"{self._name} ranks by a view that sorts on nothing, "
-                                    "or on a column that is not a number or a date")
-            if not relation:
-                raise ContractError(f"{self._name} ranks by a view of a list that relates "
-                                    "to nothing in the library")
-        self.community_lists.append({
-            "key": wanted, "title": str(title or "").strip(),
-            "base": str(base or "").strip(),
-            "columns": [{"field": field, "header": str(one.get("header") or ""),
-                         "kind": str(one.get("kind") or "text"),
-                         "help": str(one.get("help") or ""),
-                         "under": [str(name) for name in one.get("under") or []]}
-                        for field, one in zip(fields, columns, strict=True)],
-            "views": [{"key": str(view["key"]).strip(),
-                       "name": str(view.get("name") or "").strip(),
-                       "columns": list(view.get("columns") or fields),
-                       "sort": [{"field": str(one["field"]), "desc": bool(one.get("desc"))}
-                                for one in view.get("sort") or []],
-                       "help": str(view.get("help") or ""),
-                       "ranks": bool(view.get("ranks"))} for view in views or []],
-            "relation": dict(relation) if relation else None,
-            "tag": derived,
-            "about": str(about or "").strip(),
-        })
-
-    def settings(self, base: str, label: str = "") -> None:
-        """Say that this extension has settings, and where core may read and write them.
-
-        Declared rather than drawn, like everything else here: the fields come back from
-        that call and core renders them in the one grammar the rest of the application
-        uses, so an extension's settings look like settings.
-        """
-        self._needs_ui("settings")
-        self.settings_base = str(base or "").strip()
-        self.settings_label = str(label or "").strip()
 
     def state(self, base: str, label: str = "") -> None:
-        """Say that this extension holds something worth showing, and where to read it.
-
-        A list of rows, each a label, a line under it, and at most two things you can do
-        to it. Deliberately poor: it is enough for the accounts a connector is holding
-        and not enough to become a page somebody draws, and the day a third extension
-        needs more than this is the day to look again rather than to widen it now.
-        """
+        """Where core reads a list of rows: a label, a line under it, at most two acts."""
         self._needs_ui("state")
         self.state_base = str(base or "").strip()
         self.state_label = str(label or "").strip()
 
-    def account(self, base: str, *, label: str = "", cards: Iterable[str] = (),
-                marker: str = "", check: str = "", consent: Iterable[str] = (),
-                sends_picture: bool = False) -> None:
+    def account(self, *, read: Callable[[str], dict],
+                write: Callable[[str, dict], Any] | None = None,
+                acts: dict[str, Callable[[str], Any]] | None = None,
+                card: Callable[[str], dict | None] | None = None,
+                read_card: Callable[[Any], dict] | None = None,
+                available: Callable[[str], Any] | None = None,
+                label: str = "", cards: Iterable[str] = (), marker: str = "",
+                consent: Iterable[str] = (), sends_picture: bool = False) -> None:
         """Say that a player can hold an account with this extension.
 
-        `base` is a route of this extension's, asked with a player's id as
-        `docs/extensions.md` lists: whether it is claimed, a page, the card, a status
-        line and the acts. `cards` are the `type`s of card it reads. `marker` names where
-        a card it makes hides its text, and is the extension's name unless given.
-        `check` is a route asked with a candidate id, `available`, while it is being
-        chosen. `consent` is what Share tells the player becomes public, each line
+        `read(player_id)` answers what the player's panel draws: whether it is claimed, a
+        page, a status line and the acts. `write(player_id, values)` saves what was
+        chosen. `acts` maps an act's key to a function of the player's id, each answering
+        the account again or a `message`. `cards` are the `type`s of card it reads,
+        `read_card(card)` checks one and answers `{"name", "initials", "values"}`, and
+        `card(player_id)` makes the player's own as `{"card", "filename"}`, or None.
+        `available(candidate)` answers whether an id is free, while it is being chosen.
+        `marker` names where a card it makes hides its text, and is the extension's name
+        unless given. `consent` is what Share tells the player becomes public, each line
         already in its own words from `ctx.t`. `sends_picture` declares that this
         extension sends a player's picture to its service: `ctx.players.picture` answers
         only where it is set, and core adds its own line to the consent.
@@ -380,20 +356,28 @@ class ExtensionUI:
         if self.account_offered:
             raise ContractError(f"{self._name} offers a second account; a player holds "
                                 "one account with an extension")
-        wanted = str(base or "").strip()
         hidden = str(marker or self._name).strip()
-        read = tuple(dict.fromkeys(str(one or "").strip() for one in cards))
-        if not wanted or not all(read) or not cards_module.MARKER.match(hidden):
-            raise ContractError(f"{self._name} offers an account with no route, a card "
-                                "with no type, or a marker that is not a plain name")
-        self.account_offered = {"base": wanted, "label": str(label or "").strip(),
-                                "cards": list(read), "marker": hidden,
-                                "check": str(check or "").strip(),
+        reads = tuple(dict.fromkeys(str(one or "").strip() for one in cards))
+        if not callable(read) or not all(reads) or not cards_module.MARKER.match(hidden):
+            raise ContractError(f"{self._name} offers an account with no read function, a "
+                                "card with no type, or a marker that is not a plain name")
+        if reads and not callable(read_card):
+            raise ContractError(f"{self._name} reads cards without a read_card function")
+        offered = dict(acts or {})
+        if not all(str(key).strip() and callable(one) for key, one in offered.items()):
+            raise ContractError(f"{self._name} gives an account an act that is not a "
+                                "function")
+        self.account_functions = AccountFunctions(
+            read=read, write=write, acts=offered, card=card, read_card=read_card,
+            available=available)
+        self.account_offered = {"base": "/accounts", "label": str(label or "").strip(),
+                                "cards": list(reads), "marker": hidden,
+                                "check": "/available" if available else "",
                                 "consent": [str(one) for one in consent if str(one).strip()],
                                 "sends_picture": bool(sends_picture)}
 
     def kept(self, key: str) -> dict | None:
-        """The last good read core keeps of one of this extension's Community lists:
+        """The last good read core keeps of one of this extension's lists:
         `{"rows", "read_at"}`, or None where there has been none."""
         from common.games import community_lists
 
@@ -407,6 +391,98 @@ class ExtensionUI:
         if not self._allowed:
             raise ContractError(f"{self._name} offers {what}, which needs the ui:mount "
                                 "capability its manifest does not declare")
+
+    def list(self, key: str, rows: Callable[[], Any], *, columns: Sequence[dict],
+             area: str = DEFAULT_AREA, title: str = "", views: Sequence[dict] = (),
+             status: Callable[[], Any] | None = None, acts: Any = None,
+             relation: dict | None = None, tag: str = "") -> None:
+        """A list this extension holds, shown in the rail under `area`.
+
+        `rows()` answers the rows, each a dict. `status()` answers the line the list's
+        page says, text or `{"text", "detail", "to"}`. `acts` is what the title menu
+        offers, a dict of `{key: function or address}` or a function answering one: a
+        function runs when pressed and answers what to say, an address is opened.
+
+        A column is `{"field", "header", "kind"}` with `kind` one of `text`, `number`,
+        `date`, and the first may name `under`: row fields drawn on the line beneath its
+        value. A view is `{"key", "name", "columns", "sort": [{"field", "desc"}], "help",
+        "ranks"}`, and one that `ranks` is offered as an order for a collection, so it
+        needs a `relation` and a sort on number or date columns only. `relation` is
+        `{"field", "keys"}`, `keys` being `vps_entry` or `vps_release`. `tag` is put on
+        every game (`vps_entry`) or table (`vps_release`) of this library the list
+        relates to, so it needs a `relation`.
+        """
+        self._needs_ui("a list")
+        wanted = str(key or "").strip()
+        where = str(area or DEFAULT_AREA).strip()
+        if where not in AREAS:
+            raise ContractError(f"{self._name} puts a list in {where!r}, which is not one "
+                                f"of {', '.join(AREAS)}")
+        names = [str((one or {}).get("field") or "").strip() for one in columns]
+        if not wanted or not columns or not all(names):
+            raise ContractError(f"{self._name} declares a list with no key or "
+                                "a column with no field")
+        if wanted in self.list_functions:
+            raise ContractError(f"{self._name} declares the list {wanted!r} twice")
+        if not callable(rows) or (status is not None and not callable(status)):
+            raise ContractError(f"{self._name} gives the list {wanted!r} rows or a "
+                                "status that is not a function")
+        if acts is not None and not callable(acts) and not isinstance(acts, dict):
+            raise ContractError(f"{self._name} gives the list {wanted!r} acts that are "
+                                "neither a dict nor a function")
+        if any((one or {}).get("under") for one in columns[1:]):
+            raise ContractError(f"{self._name} puts a line under a column other than the "
+                                "first, which is the only one drawn with one")
+        kinds = {str((one or {}).get("kind") or "text") for one in columns}
+        if not kinds <= COLUMN_KINDS:
+            raise ContractError(f"{self._name} declares a column kind core does not draw: "
+                                f"{', '.join(sorted(kinds - COLUMN_KINDS))}")
+        for view in views:
+            named = set(view.get("columns") or []) | {str(one.get("field") or "")
+                                                      for one in view.get("sort") or []}
+            if not str(view.get("key") or "").strip() or not named <= set(names):
+                raise ContractError(f"{self._name} declares a view with no key or on a "
+                                    "column it does not have")
+        if relation and (relation.get("field") not in names
+                         or relation.get("keys") not in RELATION_KEYS):
+            raise ContractError(f"{self._name} relates its list on a field it does not "
+                                "have, or by something other than a VPS entry or release")
+        derived = " ".join(str(tag or "").split())
+        if derived and not relation:
+            raise ContractError(f"{self._name} derives a tag from a list that relates to "
+                                "nothing in the library")
+        measured = {name for name, one in zip(names, columns, strict=True)
+                    if str((one or {}).get("kind") or "text") in RANKING_KINDS}
+        for view in views:
+            if not view.get("ranks"):
+                continue
+            sorted_on = {str(one.get("field") or "") for one in view.get("sort") or []}
+            if not sorted_on or not sorted_on <= measured:
+                raise ContractError(f"{self._name} ranks by a view that sorts on nothing, "
+                                    "or on a column that is not a number or a date")
+            if not relation:
+                raise ContractError(f"{self._name} ranks by a view of a list that relates "
+                                    "to nothing in the library")
+        self.list_functions[wanted] = ListFunctions(rows=rows, status=status, acts=acts)
+        self.declared_lists.append({
+            "key": wanted, "area": where, "title": str(title or "").strip(),
+            "base": f"/lists/{wanted}",
+            "columns": [{"field": name, "header": str(one.get("header") or ""),
+                         "kind": str(one.get("kind") or "text"),
+                         "help": str(one.get("help") or ""),
+                         "under": [str(under) for under in one.get("under") or []]}
+                        for name, one in zip(names, columns, strict=True)],
+            "views": [{"key": str(view["key"]).strip(),
+                       "name": str(view.get("name") or "").strip(),
+                       "columns": [*(view.get("columns") or names)],
+                       "sort": [{"field": str(one["field"]), "desc": bool(one.get("desc"))}
+                                for one in view.get("sort") or []],
+                       "help": str(view.get("help") or ""),
+                       "ranks": bool(view.get("ranks"))} for view in views],
+            "relation": dict(relation) if relation else None,
+            "tag": derived,
+            "about": f"/lists/{wanted}/about",
+        })
 
 
 PLAYERS_READ = "players:read"
@@ -588,9 +664,9 @@ class ExtensionJobs:
         self._name = name
 
     def submit(self, kind: str, work: Callable[[jobs.Job], object], *,
-               stop_route: str = "", keep_result: bool = False) -> jobs.Job:
-        """Run `work` on its own thread. With `stop_route`, a route of this extension that
-        calls `stop(kind)`, the job offers to be stopped there: the work looks at
+               stoppable: bool = False, keep_result: bool = False) -> jobs.Job:
+        """Run `work` on its own thread. With `stoppable`, the job offers to be stopped
+        (core answers that on the extension's write scope): the work looks at
         `job.halt` between its units and ends early when it is set. With `keep_result`
         what `work` returns is written to disk, so the Jobs view can open it after the page
         that started the job has gone; `job.problems` says how many parts did not come
@@ -599,15 +675,17 @@ class ExtensionJobs:
 
         return jobs.submit(
             f"{self._name}.{str(kind or '').strip()}", work,
-            stop_link=f"/api/v1/ext/{self._name}{stop_route}" if stop_route else "",
+            stop_link=f"/api/v1/ext/{self._name}/jobs/{str(kind or '').strip()}/stop"
+            if stoppable else "",
             keep_result=keep_result)
 
     def stop(self, kind: str) -> bool:
         """Ask this extension's running job of that kind to end early. False where there
-        is none."""
+        is none, or where it was not started `stoppable`."""
         from common import jobs
 
-        running = jobs.active(f"{self._name}.{str(kind or '').strip()}")
+        running = [one for one in jobs.active(f"{self._name}.{str(kind or '').strip()}")
+                   if one.stoppable]
         for job in running:
             job.halt.set()
         return bool(running)
@@ -627,7 +705,8 @@ class ExtensionContext:
         self.name = manifest.name
         self.manifest = manifest
         self.logger = logger_for(manifest.name)
-        self.config = ExtensionConfig(manifest.name, store)
+        self.config = ExtensionConfig(manifest.name, store,
+                                      lambda: self.ui.settings_defaults())
         self.events = ExtensionEvents(manifest.name, manifest.events, on_failure)
         self.files = ExtensionFiles(manifest.name, "fs:read" in manifest.capabilities,
                                     "fs:write" in manifest.capabilities)
@@ -664,13 +743,12 @@ class ExtensionContext:
         return f"ext:{self.name}:{str(action or '').strip()}"
 
     def add_router(self, router: Any, *, scope: str) -> None:
-        """Offer routes under `/api/v1/ext/<name>/`, gated on a scope this extension
-        declared. Core attaches the gate; the extension cannot choose to have none."""
+        """Offer routes under `/api/v1/ext/<name>/`, gated on this extension's `read` or
+        `write` scope. Core attaches the gate; the extension cannot choose to have none."""
         if not self.open:
             raise ContractError(f"{self.name} added a router after registering")
-        allowed = {self.scope(action) for action in self.manifest.provides}
+        allowed = (self.scope("read"), self.scope("write"))
         if scope not in allowed:
-            raise ContractError(
-                f"{self.name} gates a router on {scope!r}, which its manifest does not "
-                f"provide. Declared: {', '.join(sorted(allowed)) or 'none'}")
+            raise ContractError(f"{self.name} gates a router on {scope!r}; its scopes "
+                                f"are {' and '.join(allowed)}")
         self.routers.append((router, scope))

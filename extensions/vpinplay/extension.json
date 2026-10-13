@@ -11,10 +11,5 @@
     "net:outbound",
     "config:own",
     "ui:mount"
-  ],
-  "provides": [
-    "read",
-    "write"
-  ],
-  "has_settings": true
+  ]
 }

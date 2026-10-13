@@ -584,10 +584,10 @@ def listed_values(held: dict[str, str]) -> dict[str, list[str]]:
 
 
 class WhatCommunitySays(SendingCase):
-    """The Community list's line and menu, from `GET /community/tables/about`."""
+    """The Community list's line and menu, from `GET /lists/tables/about`."""
 
     def about(self) -> dict:
-        return self.ok(self.client.get(f"/ext/{NAME}/community/tables/about"))
+        return self.ok(self.client.get(f"/ext/{NAME}/lists/tables/about"))
 
     def line(self) -> dict:
         return self.about()["status"]
@@ -595,12 +595,12 @@ class WhatCommunitySays(SendingCase):
     def menu(self) -> list[tuple[str, str]]:
         return [(one["label"], one.get("url", "")) for one in self.about()["acts"]]
 
-    def test_the_list_names_the_route(self) -> None:
+    def test_the_list_is_declared_under_community(self) -> None:
         (listed,) = [one for one in self.ok(self.client.get("/extensions"))["extensions"]
                      if one["name"] == NAME]
 
-        self.assertEqual([one["about"] for one in listed["community"]],
-                         ["/community/tables/about"])
+        self.assertEqual([(one["key"], one["area"]) for one in listed["lists"]],
+                         [("tables", "community")])
 
     def test_with_no_account_anywhere_it_says_so_and_links_to_players(self) -> None:
         self.assertEqual(self.line(), {"text": "Not sharing - no player has a VPinPlay "
@@ -645,7 +645,7 @@ class WhatCommunitySays(SendingCase):
         self.assertEqual(self.menu()[0], ("Send Now", ""))
 
         self.send.return_value = {"ok": True, "status_code": 200, "response_body": ""}
-        said = self.ok(self.client.post(f"/ext/{NAME}/community/tables/about/acts/send_now"))
+        said = self.ok(self.client.post(f"/ext/{NAME}/lists/tables/about/acts/send_now"))
 
         self.assertEqual(said, {"message": "Sent 2 games"})
         self.assertEqual(sorted(self.games_sent()[2:]),
@@ -657,12 +657,12 @@ class WhatCommunitySays(SendingCase):
         self.send.return_value = {"ok": False, "status_code": 503, "response_body": "down"}
         self.play(self.owner)
 
-        said = self.ok(self.client.post(f"/ext/{NAME}/community/tables/about/acts/send_now"))
+        said = self.ok(self.client.post(f"/ext/{NAME}/lists/tables/about/acts/send_now"))
 
         self.assertEqual(said, {"message": "1 game waiting to send"})
 
     def test_an_act_it_does_not_offer_is_refused(self) -> None:
-        said = self.client.post(f"/ext/{NAME}/community/tables/about/acts/dance")
+        said = self.client.post(f"/ext/{NAME}/lists/tables/about/acts/dance")
 
         self.assertEqual(said.status_code, 404)
 

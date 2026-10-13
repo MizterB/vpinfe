@@ -168,12 +168,12 @@ class RunTests(AdoptCase):
 
 class StopTests(AdoptCase):
     def test_nothing_running_is_nothing_to_stop(self) -> None:
-        reply = self.client.post("/ext/library_importer/wizard/stop")
+        reply = self.client.post("/ext/library_importer/jobs/import/stop")
 
         self.assertEqual(reply.json(), {"stopped": False})
 
     def test_progress_is_empty_when_nothing_is_going_on(self) -> None:
-        reply = self.client.get("/ext/library_importer/wizard/progress")
+        reply = self.client.get("/ext/library_importer/actions/import/progress")
 
         self.assertEqual(reply.json()["stage"], "")
 
@@ -188,14 +188,14 @@ class StopTests(AdoptCase):
 
         context = ExtensionContext(self.record.manifest, self.store,
                                    on_failure=lambda why: None)
-        job = context.jobs.submit("import", work, stop_route="/wizard/stop")
+        job = context.jobs.submit("import", work, stoppable=True)
         self.addCleanup(release.append, 1)
         self.assertTrue(job.stoppable)
-        self.assertEqual(job.stop_link, "/api/v1/ext/library_importer/wizard/stop")
+        self.assertEqual(job.stop_link, "/api/v1/ext/library_importer/jobs/import/stop")
         self.assertEqual(self.client.get(f"/jobs/{job.id}").json()["links"]["stop"],
                          job.stop_link)
 
-        self.assertTrue(self.client.post("/ext/library_importer/wizard/stop").json()["stopped"])
+        self.assertTrue(self.client.post("/ext/library_importer/jobs/import/stop").json()["stopped"])
 
         self.assertTrue(job.halt.is_set())
         self.assertIn(job.id, [one.id for one in jobs.active("library_importer.import")])

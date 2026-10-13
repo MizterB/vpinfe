@@ -28,9 +28,17 @@ REPR = re.compile(r"\{[^{}]*![rsa]\}")
 LOGGED = {"debug", "info", "warning", "warn", "error", "exception", "critical", "log"}
 # Functions that hand on a caught exception's own text as it is, and who reads it there.
 HANDED_ON = {
+    "common/extensions/check.py": {
+        "_read": "the report `--check-extension` prints for a developer"},
     "common/extensions/context.py": {
         "contribute": "an extension's author, as the extension registers",
-        "offer": "an extension's author, as the extension registers"},
+        "offer": "an extension's author, as the extension registers",
+        "settings": "an extension's author, as the extension registers"},
+    "common/extensions/host.py": {
+        "_register": "the developer's `--check-extension` report, which prints what "
+                     "register raised"},
+    "common/extensions/serving.py": {
+        "_titled": "an extension's author: the field a dialog answered with is not drawn"},
     "common/games/revert_3x.py": {"_keep_aside": "a command-line tool",
                                   "_remove": "a command-line tool"},
     "common/host/commands.py": {

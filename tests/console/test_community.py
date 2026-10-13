@@ -12,14 +12,14 @@ from unittest.mock import Mock, patch
 
 from nicegui import ui
 
-from common import install_identity
 from common.extensions import host
 from common.i18n import t
 from console import busy, community, page, verbs, views
 from console.api import ApiError
 from console.data import read_state
 
-DECLARED = {"key": "tables", "title": "Site", "base": "/community/tables",
+DECLARED = {"key": "tables", "title": "Site", "area": "community",
+            "base": "/community/tables",
             "columns": [{"field": "name", "header": "Table", "kind": "text",
                          "under": ["maker", "year"]},
                         {"field": "plays", "header": "Plays", "kind": "number"},
@@ -28,13 +28,12 @@ DECLARED = {"key": "tables", "title": "Site", "base": "/community/tables",
             "views": [{"key": "plays", "name": "Most played", "columns": ["name", "plays"],
                        "sort": [{"field": "plays", "desc": True}], "help": ""}],
             "relation": {"field": "vps_id", "keys": "vps_entry"}}
-LOADED = {"name": "site", "state": "loaded", "community": [DECLARED]}
+LOADED = {"name": "site", "state": "loaded", "lists": [DECLARED]}
 
 
 class TheNav(unittest.TestCase):
     def test_a_running_extension_s_list_sits_under_community(self) -> None:
-        items = community.nav_items([LOADED, {**LOADED, "name": "off", "state": "failed"}],
-                                    install_identity.CORE)
+        items = community.nav_items([LOADED, {**LOADED, "name": "off", "state": "failed"}])
         groups = dict(page.nav_for(None, items))
 
         self.assertEqual(["community:site:tables"],
@@ -49,6 +48,30 @@ class TheNav(unittest.TestCase):
     def test_with_no_list_there_is_no_community(self) -> None:
         self.assertNotIn(page.NAV_COMMUNITY, dict(page.nav_for(None)))
 
+    def test_a_list_in_system_sits_before_about(self) -> None:
+        system = {**DECLARED, "area": "system"}
+        items = community.nav_items([{**LOADED, "lists": [system]}])
+        keys = [one[0] for one in dict(page.nav_for(None, items))[page.NAV_SYSTEM]]
+
+        self.assertEqual(["community:site:tables", "about"], keys[-2:])
+
+    def test_a_list_in_library_follows_core_s_own_and_is_held_to_its_feature(self) -> None:
+        library = {**DECLARED, "area": "library"}
+        items = community.nav_items([{**LOADED, "lists": [library]}])
+
+        shown = [one[0] for one in dict(page.nav_for(None, items))[page.NAV_PARENT]]
+        bare = [one[0] for one in dict(page.nav_for(["frontend"], items)).get(
+            page.NAV_PARENT, ())]
+
+        self.assertEqual("community:site:tables", shown[-1])
+        self.assertNotIn("community:site:tables", bare)
+
+    def test_every_page_core_names_is_a_title_a_list_may_not_take(self) -> None:
+        named = {key for _parent, items in page.NAV_GROUPS for key, *_rest in items}
+        named |= {parent[0] for parent, _items in page.NAV_GROUPS if parent}
+
+        self.assertLessEqual(named, set(host.CORE_SECTIONS))
+
     def test_a_view_finds_its_list(self) -> None:
         self.assertEqual((LOADED, DECLARED),
                          community.find("community:site:tables", [LOADED]))
@@ -60,16 +83,16 @@ class RankedOrders(unittest.TestCase):
                                      "sort": [], "help": ""}]}
 
     def test_each_ranked_view_is_named_for_its_page_and_itself(self) -> None:
-        offered = community.ranked_orders([{**LOADED, "community": [self.RANKED]},
+        offered = community.ranked_orders([{**LOADED, "lists": [self.RANKED]},
                                            {**LOADED, "name": "off", "state": "failed",
-                                            "community": [self.RANKED]}])
+                                            "lists": [self.RANKED]}])
 
         self.assertEqual({"site/tables/plays": "Site: Most played"}, offered)
 
     def test_a_list_that_relates_to_nothing_offers_no_order(self) -> None:
         loose = {**self.RANKED, "relation": None}
 
-        self.assertEqual({}, community.ranked_orders([{**LOADED, "community": [loose]}]))
+        self.assertEqual({}, community.ranked_orders([{**LOADED, "lists": [loose]}]))
 
     def test_the_smart_collection_in_a_view_s_order_is_the_one_it_opens(self) -> None:
         collections = [{"name": "Mine", "type": "manual", "order_by": "site/tables/plays"},

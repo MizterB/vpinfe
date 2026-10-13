@@ -2205,6 +2205,30 @@ class ExtensionSwitch(ApiModel):
     enabled: bool
 
 
+class ExtensionValues(ApiModel):
+    """The values a settings or account form sends back, by field key."""
+
+    values: dict[str, Any] = Field(default_factory=dict)
+
+
+class ExtensionStep(ExtensionValues):
+    """A dialog's values, and the step they were entered on where it has steps."""
+
+    step: str = ""
+
+
+class ExtensionAct(ExtensionStep):
+    """One of a dialog's own buttons, pressed with the values on screen."""
+
+    act: str
+
+
+class ExtensionCard(ApiModel):
+    """A card as a player pastes it, for the account to read."""
+
+    card: Any = None
+
+
 class TableHidden(ApiModel):
     """The table, and the one its game now offers first: null when it offers none."""
 

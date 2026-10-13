@@ -5,8 +5,8 @@ the worked example of an extension is something an author can read - the same re
 `apps/generic` is a file rather than a stub. It reaches VPinFE only through the context
 it is handed.
 
-Its secrets are answered with their values on purpose: core takes them out on the way to
-a client, and the tests hold it to that.
+Its account answers its secrets with their values on purpose: core takes them out on the
+way to a client, and the tests hold it to that.
 """
 
 from __future__ import annotations
@@ -36,44 +36,20 @@ def register(ctx) -> None:
 
     @router.get("/hello")
     def hello() -> dict:
-        return {"name": ctx.name, "greeting": ctx.config.get("greeting", "hello")}
+        return {"name": ctx.name, "greeting": ctx.config.get("greeting")}
 
     @router.get("/seen")
     def how_many() -> dict:
         return {"seen": len(seen)}
 
+    @writing.post("/forget")
+    def forget() -> dict:
+        seen.clear()
+        return {"seen": 0}
+
     @router.get("/boom")
     def boom() -> dict:
         raise RuntimeError("the fixture was asked to fail")
-
-    def settings() -> dict:
-        return {"fields": [
-            {"key": "greeting", "label": "Greeting", "type": "string",
-             "value": ctx.config.get("greeting", "")},
-            {"key": "token", "label": "Token", "type": "secret",
-             "value": ctx.config.get("token", "")}]}
-
-    @router.get("/settings")
-    def read_settings() -> dict:
-        return settings()
-
-    @writing.put("/settings")
-    def write_settings(payload: dict) -> dict:
-        for key, value in dict(payload.get("values") or {}).items():
-            ctx.config.set(key, str(value))
-        return settings()
-
-    def account(player_id: str) -> dict:
-        held = ctx.players.account(player_id)
-        return {"fields": [
-                    {"key": "handle", "label": "Handle", "type": "string",
-                     "value": held.get("handle", "")},
-                    {"key": "token", "label": "Token", "type": "secret",
-                     "value": held.get("token", "")}],
-                "status": "Ready" if held.get("handle") else "No handle",
-                "acts": [{"key": "ping", "label": "Ping"}],
-                "card": bool(held.get("handle") and held.get("token")),
-                "picture": held.get("picture") in PICTURES}
 
     @router.get("/accounts/{player_id}/picture")
     def picture(player_id: str) -> Response:
@@ -92,37 +68,36 @@ def register(ctx) -> None:
         Image.new("RGB", (40, 20), color).save(out, format="PNG")
         return Response(out.getvalue(), media_type="image/png")
 
-    @router.get("/accounts/{player_id}")
     def read_account(player_id: str) -> dict:
-        return account(player_id)
-
-    @writing.put("/accounts/{player_id}")
-    def write_account(player_id: str, payload: dict) -> dict:
         held = ctx.players.account(player_id)
-        ctx.players.set_account(player_id, {**held, **dict(payload.get("values") or {})})
-        return account(player_id)
+        return {"fields": [
+                    {"key": "handle", "label": "Handle", "type": "string",
+                     "value": held.get("handle", "")},
+                    {"key": "token", "label": "Token", "type": "secret",
+                     "value": held.get("token", "")}],
+                "status": "Ready" if held.get("handle") else "No handle",
+                "acts": [{"key": "ping", "label": "Ping"}],
+                "card": bool(held.get("handle") and held.get("token")),
+                "picture": held.get("picture") in PICTURES}
 
-    @writing.post("/accounts/{player_id}/acts/{act}")
-    def act(player_id: str, act: str) -> dict:
-        if act != "ping":
-            raise HTTPException(404, detail="No such act")
+    def write_account(player_id: str, values: dict) -> None:
+        ctx.players.set_account(player_id, {**ctx.players.account(player_id), **values})
+
+    def ping(player_id: str) -> dict:
         return {"message": f"Pinged {ctx.players.account(player_id).get('handle', '')}"}
 
-    @router.get("/accounts/{player_id}/card")
-    def card(player_id: str) -> dict:
+    def card(player_id: str) -> dict | None:
         held = ctx.players.account(player_id)
         player = ctx.players.get(player_id) or {}
         if not (held.get("handle") and held.get("token")):
-            raise HTTPException(404, detail="No card yet")
+            return None
         return {"card": {"type": CARD, "version": CARD_VERSION, "handle": held["handle"],
                          "token": held["token"], "initials": player.get("initials", "")},
                 "filename": f"sample-{held['handle']}"}
 
-    @writing.post("/accounts/cards")
-    def read_card(payload: dict) -> dict:
-        found = dict(payload.get("card") or {})
-        if found.get("version") != CARD_VERSION:
-            raise HTTPException(400, detail="Not a card this reads")
+    def read_card(found: dict) -> dict:
+        if (found or {}).get("version") != CARD_VERSION:
+            raise ValueError("Not a card this reads")
         return {"name": "", "initials": str(found.get("initials") or ""),
                 "values": {"handle": str(found.get("handle") or ""),
                            "token": str(found.get("token") or "")}}
@@ -136,5 +111,7 @@ def register(ctx) -> None:
     ctx.events.subscribe(GAME_SELECTED, on_selected)
     ctx.add_router(router, scope=ctx.scope("read"))
     ctx.add_router(writing, scope=ctx.scope("write"))
-    ctx.ui.settings("/settings")
-    ctx.ui.account("/accounts", label="Sample", cards=(CARD,))
+    ctx.ui.settings([{"key": "greeting", "type": "string", "default": "hello"},
+                     {"key": "token", "type": "secret"}])
+    ctx.ui.account(read=read_account, write=write_account, acts={"ping": ping}, card=card,
+                   read_card=read_card, label="Sample", cards=(CARD,))

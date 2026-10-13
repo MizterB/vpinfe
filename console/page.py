@@ -6,7 +6,7 @@ import asyncio
 import json
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from functools import partial
 from typing import Any
 
@@ -200,7 +200,8 @@ def features_of(item: NavItem) -> tuple[str, ...]:
     return item[3] if isinstance(item[3], tuple) else (item[3],)
 
 
-def nav_for(features: list[str] | tuple[str, ...] | None, community: tuple[NavItem, ...] = ()
+def nav_for(features: list[str] | tuple[str, ...] | None,
+            added: Mapping[str, tuple[NavItem, ...]] | None = None
             ) -> list[tuple[tuple[str, str, str] | None, tuple[NavItem, ...]]]:
     """The rail this install has. A group whose entries have all gone goes with them -
     a disclosure with nothing under it is a control that does nothing.
@@ -210,13 +211,19 @@ def nav_for(features: list[str] | tuple[str, ...] | None, community: tuple[NavIt
     reads an empty setting, and gets System alone. `None` is an install that has not
     answered, and gets the ordinary rail. `core` is held either way, which is what keeps
     System in a rail an install has switched everything else out of.
+
+    `added` is what extensions put in each group, by the area's name. It follows the
+    group's own entries, except that About stays last in System, and is held to the same
+    features.
     """
     said = install_identity.DEFAULT_FEATURES if features is None else features
     held = {str(name).strip().lower() for name in said} | {install_identity.CORE}
     out = []
     for parent, items in NAV_GROUPS:
-        kept = tuple(item for item in items if not held.isdisjoint(features_of(item))) \
-            + (community if parent is NAV_COMMUNITY else ())
+        theirs = (added or {}).get(parent[0], ()) if parent else ()
+        ordered = (*items[:-1], *theirs, items[-1]) if parent is NAV_SYSTEM \
+            else (*items, *theirs)
+        kept = tuple(item for item in ordered if not held.isdisjoint(features_of(item)))
         if kept:
             out.append((parent, kept))
     return out
@@ -619,8 +626,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     waiting_bar = waiting.Bar(library, lambda: redraw())
 
     def rail_for(extensions: list[dict[str, Any]]) -> Any:
-        return nav_for(discovery.get("features"),
-                       community_page.nav_items(extensions, install_identity.CORE))
+        return nav_for(discovery.get("features"), community_page.nav_items(extensions))
 
     # The rail this install has: it decides what is drawn and which addresses resolve, and
     # those two disagreeing is a link that lands on a blank page. Drawn again by
@@ -1571,7 +1577,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         listed = community_page.find(state["view"], state["extensions"])
         if listed is not None:
             title = str(listed[1].get("title") or "")
-            purpose = t("console.purpose.community",
+            purpose = t("console.purpose.community.held" if listed[1].get("relation")
+                        else "console.purpose.community",
                         name=str(listed[0].get("display_name") or listed[0].get("name")))
         # The band the other two panes' headers use, so the page name sits in a fixed
         # rhythm rather than at whatever height its text makes. Not aligned *across*

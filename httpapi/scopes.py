@@ -72,6 +72,9 @@ JOBS_READ = "jobs:read"
 # adding a scope to a live route later is churn and declaring one is free.
 INPUT_ACT = "input:act"
 
+# Declared by an extension that provides an app, whether or not it serves routes of its own.
+APPS_PROVIDE = "apps:provide"
+
 CORE = frozenset({
     INSTANCE_READ,
     GAMES_READ, GAMES_WRITE, GAMES_EXPORT_FULL,
@@ -84,6 +87,7 @@ CORE = frozenset({
     DEVICES_READ, DEVICES_WRITE,
     PREFERENCES_READ, PREFERENCES_WRITE,
     PLAYERS_READ, PLAYERS_WRITE,
+    APPS_PROVIDE,
 })
 
 EXTENSION_PREFIX = "ext:"

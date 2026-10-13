@@ -1,15 +1,17 @@
-"""A player's account with an extension, over core's routes, driven through the sample
-fixture: read, written, acted on, shared, carded, and never answering with a secret."""
+"""A player's account with an extension, over core's routes, driven through a sample
+extension: read, written, acted on, shared, carded, and never answering with a secret."""
 
 from __future__ import annotations
 
+import io
 import json
 import tempfile
 import unittest
 from configparser import ConfigParser
 from pathlib import Path
+from typing import Any
 
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI, HTTPException, Response
 from PIL import Image
 from starlette.testclient import TestClient
 
@@ -17,13 +19,121 @@ import httpapi
 from common import extensions, players, service_errors
 from common.extensions import accounts, cards, host, store
 from common.extensions.context import ContractError, ExtensionPlayers, ExtensionUI
+from common.extensions.contract import Unavailable
 from common.games import player_records
 from common.i18n import t
 from httpapi import events as event_stream
 from tests.support import pictures
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "extensions"
+MODULE = "tests.extensions.test_accounts"
 TOKEN = "tok-" + "Zq9" * 20
+
+# The one kind of card the sample reads, and the version of it that it writes.
+CARD = "sample_card"
+CARD_VERSION = 1
+
+# What a player's `picture` value names, and so what its service answers with.
+PICTURES = {"red": (200, 30, 30), "blue": (30, 30, 200)}
+
+
+def sample(ctx: Any) -> None:
+    """An account of a handle and a secret token, with an act, a card, a picture and a
+    secret setting. Its secrets are answered with their values on purpose: core takes them
+    out on the way to a client, and the tests hold it to that."""
+
+    def read(player_id: str) -> dict:
+        held = ctx.players.account(player_id)
+        return {"fields": [
+                    {"key": "handle", "label": "Handle", "type": "string",
+                     "value": held.get("handle", "")},
+                    {"key": "token", "label": "Token", "type": "secret",
+                     "value": held.get("token", "")}],
+                "status": "Ready" if held.get("handle") else "No handle",
+                "acts": [{"key": "ping", "label": "Ping"}],
+                "card": bool(held.get("handle") and held.get("token")),
+                "picture": held.get("picture") in PICTURES}
+
+    def write(player_id: str, values: dict) -> None:
+        ctx.players.set_account(player_id, {**ctx.players.account(player_id), **values})
+
+    def ping(player_id: str) -> str:
+        return f"Pinged {ctx.players.account(player_id).get('handle', '')}"
+
+    def card(player_id: str) -> dict | None:
+        held = ctx.players.account(player_id)
+        if not (held.get("handle") and held.get("token")):
+            return None
+        player = ctx.players.get(player_id) or {}
+        return {"card": {"type": CARD, "version": CARD_VERSION, "handle": held["handle"],
+                         "token": held["token"], "initials": player.get("initials", "")},
+                "filename": f"sample-{held['handle']}"}
+
+    def read_card(found: dict) -> dict:
+        if found.get("version") != CARD_VERSION:
+            raise ValueError("Not a card this reads")
+        return {"name": "", "initials": str(found.get("initials") or ""),
+                "values": {"handle": str(found.get("handle") or ""),
+                           "token": str(found.get("token") or "")}}
+
+    pictured = APIRouter()
+
+    @pictured.get("/accounts/{player_id}/picture")
+    def picture(player_id: str) -> Response:
+        named = ctx.players.account(player_id).get("picture", "")
+        if named == "denied":
+            raise HTTPException(403, detail="The service refused")
+        if named == "text":
+            return Response(b"not an image", media_type="text/plain")
+        color = PICTURES.get(named.removesuffix("-jpg"))
+        if color is None:
+            raise HTTPException(404, detail="No picture yet")
+        out = io.BytesIO()
+        if named.endswith("-jpg"):
+            Image.new("RGB", (40, 20), color).save(out, format="JPEG")
+            return Response(out.getvalue(), media_type="image/jpg")
+        Image.new("RGB", (40, 20), color).save(out, format="PNG")
+        return Response(out.getvalue(), media_type="image/png")
+
+    ctx.ui.settings([{"key": "greeting", "type": "string"},
+                     {"key": "token", "type": "secret"}])
+    ctx.add_router(pictured, scope=ctx.scope("read"))
+    ctx.ui.account(read=read, write=write, acts={"ping": ping}, card=card,
+                   read_card=read_card, label="Sample", cards=(CARD,))
+
+
+def read_only(ctx: Any) -> None:
+    ctx.ui.account(read=lambda player_id: {"status": "Fixed"})
+
+
+def failing(ctx: Any) -> None:
+    """Every function it supplied raises, the way a service that is down or says no does."""
+
+    def read(player_id: str) -> dict:
+        raise Unavailable("The service did not answer")
+
+    def write(player_id: str, values: dict) -> None:
+        raise ValueError("That handle is taken")
+
+    def ping(player_id: str) -> None:
+        raise RuntimeError("The service is down for good")
+
+    ctx.ui.account(read=read, write=write, acts={"ping": ping})
+
+
+def _installed(root: Path, name: str, register: str, display: str) -> Path:
+    """An extension named `name` in a folder under `root`, whose `register` is the function
+    of that name in this module."""
+    directory = root / name
+    directory.mkdir(parents=True)
+    (directory / "extension.json").write_text(json.dumps({
+        "name": name, "display_name": display, "version": "1.0.0",
+        "description": "Holds accounts for the tests that drive them.",
+        "requires_platform": 1, "scopes": ["players:read"],
+        "capabilities": ["config:own", "ui:mount"]}), encoding="utf-8")
+    (directory / "__init__.py").write_text(
+        f"from {MODULE} import {register} as register\n", encoding="utf-8")
+    return directory
 
 
 def _owner_config() -> ConfigParser:
@@ -50,7 +160,8 @@ class AccountsCase(unittest.TestCase):
         owner = players.get_roster().ensure_owner(_owner_config())
         assert owner is not None
         self.owner = owner.player_id
-        self.registry.load_from(FIXTURES)
+        self.registry.load(_installed(self.root / "installed", "sample", "sample", "Sample"))
+        self.registry.load(FIXTURES / "bystander")
         self.client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
         self.addCleanup(event_stream.reset)
 
@@ -94,7 +205,7 @@ class ReadingAccounts(AccountsCase):
         listed = self.ok(self.client.get("/extensions"))["extensions"]
 
         self.assertEqual(next(one for one in listed if one["name"] == "sample")["account"],
-                         {"base": "/accounts", "label": "Sample", "cards": ["sample_card"],
+                         {"base": "/accounts", "label": "Sample", "cards": [CARD],
                           "marker": "sample", "check": "", "consent": [],
                           "sends_picture": False, "share_help": ""})
 
@@ -147,11 +258,12 @@ class WritingAccounts(AccountsCase):
 
         self.assertEqual(said, {"message": "Pinged own-handle"})
 
-    def test_an_act_the_extension_does_not_have_is_its_404(self) -> None:
+    def test_an_act_the_extension_does_not_have_is_a_404(self) -> None:
         response = self.client.post(f"/players/{self.owner}/accounts/sample/acts/dance")
 
         self.assertEqual(response.status_code, 404)
-        self.assertEqual(response.json()["error"]["message"], "No such act")
+        self.assertEqual(response.json()["error"]["message"],
+                         t("error.extensions.no_act", display="Sample", key="dance"))
 
     def test_removing_a_player_forgets_their_accounts(self) -> None:
         kept = players.get_roster().add_player("Jordan", "JOR").player_id
@@ -171,8 +283,8 @@ class WritingAccounts(AccountsCase):
 
 
 class UnderTheMount(AccountsCase):
-    """Served the way the app serves it, under /api/v1, where the extension's route is
-    asked for at a path of its own under that prefix."""
+    """Served the way the app serves it, under /api/v1, where core's routes for the
+    extension are asked for at a path of their own under that prefix."""
 
     def test_an_account_is_asked_for_under_the_prefix(self) -> None:
         outer = FastAPI()
@@ -186,6 +298,68 @@ class UnderTheMount(AccountsCase):
         self.assertEqual((written.status_code, read.status_code), (200, 200), read.text)
         self.assertEqual((read.json()["status"], self.secrets_answered(read.json())),
                          ("Ready", []))
+
+
+class WhatCoreSaysForAnExtension(AccountsCase):
+    """The functions an extension supplies refuse by raising; the words and the status are
+    core's."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        for name, register, display in (("failing", "failing", "Failing"),
+                                        ("readonly", "read_only", "Read Only")):
+            self.registry.load(_installed(self.root / "installed", name, register, display))
+        self.client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
+
+    def test_an_extension_that_holds_no_accounts_has_no_account_routes_to_answer(self) -> None:
+        response = self.client.get(f"/ext/bystander/accounts/{self.owner}")
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json()["error"]["message"],
+                         t("error.extensions.no_account", display="Bystander"))
+
+    def test_a_service_that_does_not_answer_is_a_502_in_the_extensions_words(self) -> None:
+        response = self.client.get(f"/ext/failing/accounts/{self.owner}")
+
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(response.json()["error"]["message"], "The service did not answer")
+
+    def test_a_refusal_is_a_400_in_the_extensions_words(self) -> None:
+        response = self.client.put(f"/ext/failing/accounts/{self.owner}",
+                                   json={"values": {"handle": "h"}})
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"]["message"], "That handle is taken")
+
+    def test_an_act_that_fails_is_a_400_in_the_extensions_words(self) -> None:
+        response = self.client.post(f"/players/{self.owner}/accounts/failing/acts/ping")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"]["message"], "The service is down for good")
+
+    def test_an_account_with_no_write_function_cannot_be_changed(self) -> None:
+        response = self.client.put(f"/players/{self.owner}/accounts/readonly",
+                                   json={"values": {"handle": "h"}})
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"]["message"],
+                         t("error.extensions.account_read_only", display="Read Only"))
+
+    def test_an_account_with_no_card_function_has_no_card(self) -> None:
+        response = self.client.get(f"/players/{self.owner}/accounts/readonly/card")
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_an_extension_that_fails_to_answer_is_listed_with_its_error(self) -> None:
+        found = self.ok(self.client.get(f"/players/{self.owner}/accounts"))["accounts"]
+
+        failed = next(one for one in found if one["extension"] == "failing")
+        self.assertEqual(failed["error"], "The service did not answer")
+
+    def test_a_read_that_fails_does_not_switch_the_extension_off(self) -> None:
+        self.client.get(f"/ext/failing/accounts/{self.owner}")
+
+        self.assertTrue(self.registry.get("failing").running)
 
 
 class Sharing(AccountsCase):
@@ -475,7 +649,7 @@ class SendingAPicture(AccountsCase):
 
     def sender(self, *, declared: bool = True) -> ExtensionPlayers:
         ui = ExtensionUI("sample", allowed=True)
-        ui.account("/accounts", sends_picture=declared)
+        ui.account(read=lambda player_id: {}, sends_picture=declared)
         return ExtensionPlayers("sample", (), self.store, ui)
 
     def given(self, player_id: str) -> None:
@@ -559,49 +733,79 @@ class SecretsNeverLeave(AccountsCase):
                          True)
 
 
+def _read(player_id: str) -> dict:
+    return {}
+
+
+def _read_card(card: Any) -> dict:
+    return {}
+
+
 class TheDeclaration(unittest.TestCase):
     def setUp(self) -> None:
         self.ui = ExtensionUI("site", allowed=True)
 
     def test_an_account_is_recorded_as_data(self) -> None:
-        self.ui.account("/accounts", cards=["site_card"])
+        self.ui.account(read=_read, read_card=_read_card, cards=["site_card"])
 
         self.assertEqual(self.ui.account_offered, {"base": "/accounts", "label": "",
                                                    "cards": ["site_card"], "marker": "site",
                                                    "check": "", "consent": [],
                                                    "sends_picture": False})
 
+    def test_the_functions_are_kept_for_core_to_call(self) -> None:
+        def ping(player_id: str) -> None:
+            return None
+
+        self.ui.account(read=_read, acts={"ping": ping})
+
+        kept = self.ui.account_functions
+        assert kept is not None
+        self.assertEqual((kept.read, kept.write, kept.acts), (_read, None, {"ping": ping}))
+
     def test_sending_a_picture_is_declared_not_assumed(self) -> None:
-        self.ui.account("/accounts", sends_picture=True)
+        self.ui.account(read=_read, sends_picture=True)
 
         self.assertIs(self.ui.account_offered["sends_picture"], True)
 
-    def test_a_check_route_and_consent_lines_are_recorded_too(self) -> None:
-        self.ui.account("/accounts", cards=["site_card"], check="/accounts/available",
+    def test_a_function_that_says_whether_a_name_is_free_gives_it_a_check_route(self) -> None:
+        self.ui.account(read=_read, available=lambda candidate: True,
                         consent=["their id", "what they play"])
 
         self.assertEqual((self.ui.account_offered["check"],
                           self.ui.account_offered["consent"]),
-                         ("/accounts/available", ["their id", "what they play"]))
+                         ("/available", ["their id", "what they play"]))
 
     def test_an_account_needs_ui_mount(self) -> None:
         with self.assertRaises(ContractError):
-            ExtensionUI("site", allowed=False).account("/accounts")
+            ExtensionUI("site", allowed=False).account(read=_read)
 
     def test_a_player_holds_one_account_with_an_extension(self) -> None:
-        self.ui.account("/accounts")
+        self.ui.account(read=_read)
 
         with self.assertRaises(ContractError):
-            self.ui.account("/others")
+            self.ui.account(read=_read)
+
+    def test_an_account_needs_a_function_that_reads_it(self) -> None:
+        with self.assertRaises(ContractError):
+            self.ui.account(read="/accounts")  # type: ignore[arg-type]
 
     def test_a_marker_that_is_not_a_plain_name_is_refused(self) -> None:
         """It becomes part of a comment and two element ids in the card."""
         with self.assertRaises(ContractError):
-            self.ui.account("/accounts", marker="x--><script")
+            self.ui.account(read=_read, marker="x--><script")
 
     def test_a_card_with_no_kind_is_refused(self) -> None:
         with self.assertRaises(ContractError):
-            self.ui.account("/accounts", cards=[""])
+            self.ui.account(read=_read, read_card=_read_card, cards=[""])
+
+    def test_cards_are_read_only_where_a_function_reads_them(self) -> None:
+        with self.assertRaises(ContractError):
+            self.ui.account(read=_read, cards=["site_card"])
+
+    def test_an_act_that_is_not_a_function_is_refused(self) -> None:
+        with self.assertRaises(ContractError):
+            self.ui.account(read=_read, acts={"ping": "/ping"})  # type: ignore[dict-item]
 
 
 class WhatAnExtensionSees(AccountsCase):

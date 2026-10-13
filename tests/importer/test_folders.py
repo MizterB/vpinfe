@@ -65,7 +65,7 @@ class FolderCase(test_adopt.AdoptCase):
         return folder
 
     def step(self, path: Path | str, leaving: str = "source", **values) -> dict:
-        found = self.client.post(f"{BASE}/wizard/check",
+        found = self.client.post(f"{BASE}/actions/import/check",
                                  json={"values": {"path": str(path), **values},
                                        "step": leaving})
         self.assertEqual(found.status_code, 200, found.text)
@@ -76,7 +76,7 @@ class FolderCase(test_adopt.AdoptCase):
 
     def run_it(self, path: Path | str, **values) -> dict:
         """Start the import and wait for the job, answering with what it reported."""
-        started = self.client.post(f"{BASE}/wizard/run",
+        started = self.client.post(f"{BASE}/actions/import/run",
                                    json={"values": {"path": str(path), **values}})
         self.assertEqual(started.status_code, 202, started.text)
         self.assertTrue(started.json()["started"], started.json())
@@ -94,9 +94,9 @@ class FolderCase(test_adopt.AdoptCase):
 
     def refused_run(self, **values) -> dict:
         """Ask for an import that must not start, answering with what was said."""
-        started = self.client.post(f"{BASE}/wizard/run",
+        started = self.client.post(f"{BASE}/actions/import/run",
                                    json={"values": {"path": str(self.tables), **values}})
-        self.assertEqual(started.status_code, 202, started.text)
+        self.assertEqual(started.status_code, 200, started.text)
         found = started.json()
         self.assertIs(found["started"], False, found)
         self.assertIs(found["ok"], False, found)
@@ -219,7 +219,7 @@ class ReaderTests(FolderCase):
 
     def test_the_source_is_offered_by_name(self) -> None:
         choices = {row[0]: row[1] for row in
-                   self.client.get(f"{BASE}/wizard").json()["fields"][0]["choices"]}
+                   self.client.get(f"{BASE}/actions/import").json()["fields"][0]["choices"]}
 
         self.assertEqual(choices["folders"], "No frontend")
         self.assertEqual(list(choices)[-1], "folders")
@@ -892,8 +892,9 @@ class RoomTests(FolderCase):
 
         with self.asked as room_at:
             started = self.client.post(
-                f"{BASE}/wizard/run",
-                json={"values": {"path": str(self.tables), "how": "copy"}, "location": "two"})
+                f"{BASE}/actions/import/run",
+                json={"values": {"path": str(self.tables), "how": "copy",
+                                 "location": "two"}})
             self.assertTrue(started.json()["started"], started.json())
             job_id = started.json()["job_id"]
             deadline = time.monotonic() + 15
@@ -968,8 +969,9 @@ class RunRefusesTests(FolderCase):
 
     def test_a_location_that_is_not_one_games_can_go_to_is_refused(self) -> None:
         started = self.client.post(
-            f"{BASE}/wizard/run",
-            json={"values": {"path": str(self.tables), "how": "copy"}, "location": "nope"})
+            f"{BASE}/actions/import/run",
+            json={"values": {"path": str(self.tables), "how": "copy",
+                                 "location": "nope"}})
 
         self.assertIs(started.json()["ok"], False, started.json())
         self.assert_nothing_was_done()
@@ -978,7 +980,7 @@ class RunRefusesTests(FolderCase):
         empty = self.root / "Empty"
         empty.mkdir()
 
-        started = self.client.post(f"{BASE}/wizard/run",
+        started = self.client.post(f"{BASE}/actions/import/run",
                                    json={"values": {"path": str(empty)}})
 
         self.assertEqual(started.json()["started"], False)

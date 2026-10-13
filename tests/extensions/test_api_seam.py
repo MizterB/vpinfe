@@ -63,7 +63,26 @@ class MountTests(SeamCase):
 
         self.assertTrue(gated)
         self.assertEqual(set(gated.values()),
-                         {"ext:sample:read", "ext:sample:write", "ext:bystander:read"})
+                         {"ext:sample:read", "ext:sample:write",
+                          "ext:bystander:read", "ext:bystander:write"})
+
+    def test_core_mounts_its_routes_for_every_extension_with_a_manifest(self) -> None:
+        """Core writes these itself, so an extension with nothing to offer still has the
+        paths and they answer for it."""
+        client = self.client()
+
+        self.assertEqual(client.get("/ext/bystander/settings").status_code, 200)
+        self.assertEqual(client.get("/ext/bystander/accounts/anyone").status_code, 404)
+
+    def test_the_settings_core_serves_never_carry_a_secret(self) -> None:
+        self.store.set_setting("sample", "token", "hunter2")
+
+        found = self.client().get("/ext/sample/settings").json()["fields"]
+
+        token = next(one for one in found if one["key"] == "token")
+        self.assertEqual((token["type"], token["set"]), ("secret", True))
+        self.assertNotIn("value", token)
+        self.assertNotIn("hunter2", json.dumps(found))
 
     def test_a_running_extension_grants_the_scope_its_routes_need(self) -> None:
         self.registry.load_from(FIXTURES)
@@ -72,6 +91,14 @@ class MountTests(SeamCase):
 
         self.assertTrue(scopes.CORE <= held)
         self.assertIn("ext:sample:read", held)
+
+    def test_every_scope_the_context_checks_is_one_the_manifest_may_declare(self) -> None:
+        from common.extensions import games, provided_apps
+
+        for scope in (provided_apps.APPS_PROVIDE, games.GAMES_READ, games.GAMES_WRITE,
+                      games.CONFIG_WRITE):
+            with self.subTest(scope=scope):
+                self.assertTrue(scopes.is_known(scope))
 
     def test_an_install_with_no_extensions_holds_the_core_scopes_and_no_more(self) -> None:
         self.assertEqual(auth.LocalTrustPolicy().identify(None).scopes, scopes.CORE)
@@ -94,6 +121,9 @@ class MountTests(SeamCase):
 
         self.assertEqual(found.status_code, 403)
         self.assertIn("ext:sample:read", found.json()["error"]["message"])
+        served = client.put("/ext/sample/settings", json={"values": {"greeting": "x"}})
+        self.assertEqual(served.status_code, 403)
+        self.assertIn("ext:sample:write", served.json()["error"]["message"])
 
 
 class ListingTests(SeamCase):
@@ -137,6 +167,7 @@ class SwitchTests(SeamCase):
         self.assertEqual(found.json()["reason_key"], host.SWITCHED_OFF)
         self.assertFalse(self.store.enabled("sample"))
         self.assertEqual(client.get("/ext/sample/hello").status_code, 501)
+        self.assertEqual(client.get("/ext/sample/settings").status_code, 501)
         self.assertEqual(client.get("/ext/bystander/hello").status_code, 200)
 
     def test_on_is_written_and_waits_for_the_next_start(self) -> None:
@@ -176,6 +207,30 @@ class FailureTests(SeamCase):
         self.assertEqual(client.get("/health").status_code, 200)
         self.assertEqual(client.get("/ext/bystander/hello").status_code, 200)
 
+    def test_a_function_it_supplied_that_raises_is_a_refusal_and_not_a_fault(self) -> None:
+        """The extension is answering, with a line a person can read. Disabling it for
+        that would take away every other page it has."""
+        directory = self.root / "refuser"
+        directory.mkdir()
+        (directory / "extension.json").write_text(json.dumps({
+            "name": "refuser", "version": "1.0.0",
+            "requires_platform": contract.PLATFORM_ABI, "capabilities": ["ui:mount"],
+        }), encoding="utf-8")
+        (directory / "__init__.py").write_text(
+            "def register(ctx):\n"
+            "    def rows():\n"
+            "        raise ValueError('The service said no')\n"
+            "    ctx.ui.list('things', rows, columns=[{'field': 'name'}])\n",
+            encoding="utf-8")
+        self.registry.load(directory)
+        client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
+
+        with self.assertLogs("vpinfe.ext.refuser", "WARNING"):
+            found = client.get("/ext/refuser/lists/things")
+
+        self.assertEqual(found.status_code, 400)
+        self.assertEqual(self.registry.get("refuser").state, host.LOADED)
+
     def test_a_disabled_extensions_routes_say_which_one_and_why(self) -> None:
         client = self.client()
         with self.assertLogs("vpinfe.httpapi.errors", "ERROR"), \
@@ -205,7 +260,7 @@ class FailureTests(SeamCase):
         (directory / "extension.json").write_text(json.dumps({
             "name": "invented", "version": "1.0.0",
             "requires_platform": contract.PLATFORM_ABI,
-            "scopes": ["tables:teleport"], "provides": ["read"],
+            "scopes": ["tables:teleport"],
         }), encoding="utf-8")
         (directory / "__init__.py").write_text(
             "from fastapi import APIRouter\n"

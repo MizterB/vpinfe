@@ -48,7 +48,8 @@ def _imports(path: pathlib.Path) -> set[str]:
 # ones about the store as a whole. Every public method is in one or the other - a test
 # below holds that - so a new one has to be placed before this check can pass.
 STORE_CALLS_NAMING_AN_EXTENSION = {"enabled", "set_enabled", "settings", "set_setting",
-                                   "forget", "accounts", "set_account"}
+                                   "forget", "accounts", "set_account", "declared",
+                                   "set_declared"}
 STORE_CALLS_ABOUT_THE_STORE = {"forget_holder"}
 
 

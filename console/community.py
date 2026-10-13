@@ -8,6 +8,7 @@ from urllib.parse import quote
 
 from nicegui import ui
 
+from common import install_identity
 from common.extensions.host import SWITCHED_OFF
 from common.failures import why
 from common.games import rankings
@@ -54,13 +55,25 @@ def lists(extensions: Sequence[dict[str, Any]]) -> list[tuple[dict, dict]]:
     """(extension, list) for every list a running extension declares."""
     return [(one, declared) for one in extensions
             if str(one.get("state") or "") == "loaded"
-            for declared in one.get("community") or []]
+            for declared in one.get("lists") or []]
 
 
-def nav_items(extensions: Sequence[dict[str, Any]], feature: str) -> tuple:
-    return tuple((view_key(str(one.get("name") or ""), str(declared.get("key") or "")),
-                  str(declared.get("title") or ""), ICON, feature)
-                 for one, declared in lists(extensions))
+# What gates an extension's list, by the area it asked for: the feature that owns the
+# area, so a list put in Library is absent from an install that has no library.
+AREA_FEATURE = {"library": install_identity.LIBRARY, "frontend": install_identity.FRONTEND,
+                "community": install_identity.CORE, "system": install_identity.CORE}
+
+
+def nav_items(extensions: Sequence[dict[str, Any]]) -> dict[str, tuple]:
+    """The rail entries extensions add, by the area each list asked for."""
+    found: dict[str, list] = {}
+    for one, declared in lists(extensions):
+        area = str(declared.get("area") or "community")
+        found.setdefault(area, []).append((
+            view_key(str(one.get("name") or ""), str(declared.get("key") or "")),
+            str(declared.get("title") or ""), ICON,
+            AREA_FEATURE.get(area, install_identity.CORE)))
+    return {area: tuple(items) for area, items in found.items()}
 
 
 def find(view: str, extensions: Sequence[dict[str, Any]]) -> tuple[dict, dict] | None:

@@ -13,12 +13,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from fastapi import FastAPI
 from starlette.testclient import TestClient
 
 from common import paths, tokens
 from common.extensions import catalogs, contributions, host, store
 from common.games import community_lists
+from tests.support import served
 
 GAME = {"game_id": "abc", "vps_id": "vps-1"}
 
@@ -54,15 +54,12 @@ class ListRatingTests(unittest.TestCase):
         self.addCleanup(registry.clear)
         record = registry.load(host.BUNDLED_DIR / "vpinplay")
         self.assertEqual(record.state, host.LOADED, record.reason)
-        app = FastAPI()
-        for router, _scope in record.routers:
-            app.include_router(router)
-        return TestClient(app)
+        return served.client_for(self, registry, record)
 
     def _read(self, api: TestClient, rows: list[dict]) -> None:
         community = importlib.import_module("vpinfe_ext_vpinplay.community")
         with patch.object(community, "tables", return_value=rows):
-            self.assertEqual(api.get("/community/tables").status_code, 200)
+            self.assertEqual(api.get("/ext/vpinplay/lists/tables").status_code, 200)
 
     def _rating(self) -> dict | None:
         return contributions.refresh(dict(GAME)).get("vpinplay")
@@ -118,7 +115,7 @@ class ListRatingTests(unittest.TestCase):
         community = importlib.import_module("vpinfe_ext_vpinplay.community")
 
         with patch.object(community, "tables", side_effect=OSError("down")):
-            self.assertEqual(api.get("/community/tables").status_code, 502)
+            self.assertEqual(api.get("/ext/vpinplay/lists/tables").status_code, 502)
 
         self.assertEqual(self._rating()["cumulativeRating"], 3.0)
 

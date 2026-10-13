@@ -7,10 +7,8 @@ import unittest
 import urllib.error
 from unittest.mock import patch
 
-from fastapi import FastAPI
-from starlette.testclient import TestClient
-
 from common.extensions import host
+from tests.support import served
 
 
 def _module():
@@ -86,21 +84,23 @@ class Rows(unittest.TestCase):
         self.assertEqual(2, asked.call_count)
 
     def _refused(self, failure: Exception) -> tuple[int, str]:
-        app = FastAPI()
-        app.include_router(self.community.router(lambda: "https://vpinplay.example"))
-        with patch.object(self.community, "_page", side_effect=failure):
-            response = TestClient(app).get("/community/tables")
-        return response.status_code, response.json()["detail"]
+        registry = host.Registry()
+        self.addCleanup(registry.clear)
+        record = registry.load(host.BUNDLED_DIR / "vpinplay")
+        community = importlib.import_module("vpinfe_ext_vpinplay.community")
+        with patch.object(community, "_page", side_effect=failure):
+            response = served.client_for(self, registry, record).get("/ext/vpinplay/lists/tables")
+        return response.status_code, response.json()["error"]["message"]
 
     def test_a_server_that_does_not_answer_is_said_as_core_says_it(self) -> None:
         self.assertEqual(
-            [(502, "Nothing answers at vpinplay.example"),
-             (502, "vpinplay.example did not answer in time")],
+            [(502, "Nothing answers at api.vpinplay.com"),
+             (502, "api.vpinplay.com did not answer in time")],
             [self._refused(urllib.error.URLError(ConnectionRefusedError())),
              self._refused(TimeoutError("timed out"))])
 
     def test_an_answer_it_cannot_read_is_its_own_line(self) -> None:
-        self.assertEqual((502, "vpinplay.example sent something VPinFE cannot read"),
+        self.assertEqual((502, "api.vpinplay.com sent something VPinFE cannot read"),
                          self._refused(ValueError("Expecting value: line 1 column 1")))
 
 

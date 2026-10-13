@@ -20,7 +20,7 @@ from common import extensions
 from common.extensions import accounts
 from common.i18n import t
 
-from . import models, scopes
+from . import extensions_served, models, scopes
 from .auth import requires
 from .errors import CODE_INTERNAL_ERROR, ApiError, FeatureUnavailableError, NotFoundError
 
@@ -67,7 +67,8 @@ def _running(name: str) -> Any:
 
 
 def mount(api: FastAPI) -> None:
-    """Mount every router an extension registered, gated on the scope it declared.
+    """Mount every router an extension registered, gated on the scope it declared, and the
+    routes core serves for what each declared through `ctx.ui`.
 
     Once, at startup, whatever becomes of the extension after. A disabled one keeps its
     paths and refuses on them, where a 404 would read as a typo.
@@ -86,6 +87,9 @@ def mount(api: FastAPI) -> None:
             route.dependencies.extend([_running(record.name), requires(scope)])
         api.include_router(ext_router, prefix=f"{PREFIX}/{record.name}")
         logger.debug("Mounted %s/%s gated on %s", PREFIX, record.name, scope)
+    for record in extensions.served():
+        api.include_router(extensions_served.router(record.name, _running(record.name)),
+                           prefix=f"{PREFIX}/{record.name}")
 
 
 def _answering_for_an_extension(scope: Scope) -> bool:

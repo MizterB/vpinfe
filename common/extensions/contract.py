@@ -15,9 +15,14 @@ import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from common import install_identity
+
+if TYPE_CHECKING:
+    from .context import ExtensionContext as Context
+else:
+    Context = Any
 
 # The platform ABI: the register/ctx signature, the event vocabulary and the scope
 # vocabulary, versioned as one thing. An extension names the version it was written
@@ -32,7 +37,6 @@ MANIFEST_NAME = "extension.json"
 # restricted to what all five accept. No hyphen: the package is imported by this name,
 # and a name that cannot be one is a trap laid for whoever writes the second module.
 NAME_PATTERN = re.compile(r"^[a-z][a-z0-9_]{1,39}$")
-ACTION_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
 
 # What an extension may ask of the machine, as opposed to of the domain. Declared here
 # because the list is the consent surface: a capability nobody has heard of cannot be
@@ -62,6 +66,12 @@ class ContractError(RuntimeError):
     """An extension asked the context for something its manifest does not declare."""
 
 
+class Unavailable(RuntimeError):  # noqa: N818
+    """Raise from a function core calls when the service it reaches for did not answer, or
+    answered with something unreadable. Core says so as the service's failure (a 502), not
+    as a mistake in the request. The message is the line a person reads."""
+
+
 def words(name: str) -> Callable[..., str]:
     """What the extension `name` says for a key in its `i18n/<language>.json`, in the
     language now set. `ctx.t`, for a module that is not handed the context."""
@@ -81,10 +91,8 @@ def why(exc: BaseException, /, at: str | os.PathLike[str] = "") -> str:
     return worded(exc, at)
 
 
-# What `register(ctx)` receives is built in `common/extensions/context.py` and described
-# in `docs/extensions.md`. Not declared here as a protocol: half of it would be, since
-# the config and event facades are defined in the module that imports this one, and a
-# type an author could not satisfy is worse than none.
+# `Context` is what `register(ctx)` receives, for an author's annotation and nothing else:
+# at run time it is `Any`, so importing this module never imports the context.
 
 
 @dataclass(frozen=True)
@@ -99,9 +107,6 @@ class Manifest:
     # Core scopes it asks to use. A consent declaration; the vocabulary that decides
     # whether one is real lives with the API, so it is checked at the seam.
     scopes: tuple[str, ...] = ()
-    # The actions it gates its own routes on. Core mints `ext:<name>:<action>` from
-    # these, so an extension cannot name a scope belonging to another one.
-    provides: tuple[str, ...] = ()
     capabilities: tuple[str, ...] = ()
     # Install features it needs. An extension over a library is not offered to an
     # install that holds none.
@@ -110,10 +115,6 @@ class Manifest:
     platforms: tuple[str, ...] = ()
     # Event names it publishes, without its namespace.
     events: tuple[str, ...] = ()
-    # It offers settings of its own through `ctx.ui.settings`. Declared as well as
-    # registered because only a running extension has registered, and the Console says
-    # where a stopped one's settings will be.
-    has_settings: bool = False
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -123,12 +124,10 @@ class Manifest:
             "description": self.description,
             "requires_platform": self.requires_platform,
             "scopes": list(self.scopes),
-            "provides": list(self.provides),
             "capabilities": list(self.capabilities),
             "requires_features": list(self.requires_features),
             "platforms": list(self.platforms),
             "events": list(self.events),
-            "has_settings": self.has_settings,
         }
 
 
@@ -157,11 +156,6 @@ def parse(raw: Any) -> Manifest:
         raise ManifestError("extension.reason.platform_mismatch", abi=str(abi),
                             offered=", ".join(str(v) for v in sorted(SUPPORTED_ABI)))
 
-    provides = _strings(raw.get("provides"), "provides")
-    for action in provides:
-        if not ACTION_PATTERN.match(action):
-            raise ManifestError("extension.reason.manifest_bad_action", action=action)
-
     capabilities = _strings(raw.get("capabilities"), "capabilities")
     unknown = sorted(set(capabilities) - CAPABILITIES)
     if unknown:
@@ -187,12 +181,10 @@ def parse(raw: Any) -> Manifest:
         description=str(raw.get("description") or "").strip(),
         requires_platform=abi,
         scopes=_strings(raw.get("scopes"), "scopes"),
-        provides=provides,
         capabilities=capabilities,
         requires_features=features,
         platforms=platforms,
         events=_strings(raw.get("events"), "events"),
-        has_settings=raw.get("has_settings") is True,
     )
 
 

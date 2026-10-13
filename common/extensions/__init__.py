@@ -47,7 +47,7 @@ __all__ = [
     "ContractError", "ExtensionContext", "ExtensionStore", "Manifest", "ManifestError",
     "Record", "Registry", "clear", "disable", "get_extension_store", "granted_scopes",
     "load_from", "load_installed", "logger_for", "mounted", "parse", "read_manifest",
-    "read_roots", "records", "refuse", "registry", "running", "set_registry",
+    "read_roots", "records", "refuse", "registry", "running", "served", "set_registry",
     "switch",
 ]
 
@@ -97,6 +97,11 @@ def mounted() -> list[tuple[Record, Any, str]]:
     be mounted without the caller casting it back.
     """
     return registry().mounted()
+
+
+def served() -> list[Record]:
+    """Each extension core answers for on `/ext/<name>`, whatever state it is in."""
+    return registry().served()
 
 
 def read_roots() -> tuple[str, ...]:

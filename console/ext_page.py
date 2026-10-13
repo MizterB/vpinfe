@@ -158,18 +158,27 @@ def _setting_rows(client: Any, base: str, found: dict[str, Any],
 
 def _control(client: Any, base: str, key: str, field: dict,
              redraw: Callable[[], None]) -> Any:
-    """One setting, in the control its type asks for."""
+    """One setting, in the control its type asks for.
+
+    A text field shows the extension's refusal under itself and keeps what was typed. A
+    switch or a select has no place for one, so it says so in a notice and goes back to
+    what is stored.
+    """
     kind = str(field.get("type") or "string")
     value = field.get("value")
 
     @on_page
-    async def save(new_value: Any) -> None:
+    async def save(new_value: Any, *, under: bool = False) -> str:
         try:
             await run.io_bound(client.ext_put, base, {"values": {key: new_value}})
         except Exception as exc:  # noqa: BLE001
+            if under:
+                return why(exc)
             ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
-            return
+            redraw()
+            return ""
         redraw()
+        return ""
 
     if kind == "switch":
         return panel.switch(bool(value), lambda event: save(bool(event.value)))
@@ -178,11 +187,12 @@ def _control(client: Any, base: str, key: str, field: dict,
         return panel.select(choices, str(value or ""), lambda event: save(event.value))
     if kind == "secret":
         # Never handed the value. Saving an empty field would clear it.
-        return panel.field("", lambda typed: save(typed) if typed else None,
+        return panel.field("", lambda typed: save(typed, under=True) if typed else None,
+                           refuses=True,
                            placeholder=t("console.ext_page.secret_set" if field.get("set")
                                          else "console.ext_page.secret_not_set"))
-    return panel.field(str(value or ""), save,
-                       placeholder=str(field.get("placeholder") or ""))
+    return panel.field(str(value or ""), lambda typed: save(typed, under=True),
+                       refuses=True, placeholder=str(field.get("placeholder") or ""))
 
 
 def _actions(offered: list[dict], name: str) -> None:

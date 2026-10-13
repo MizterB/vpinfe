@@ -261,7 +261,7 @@ class TheAvailabilityCheck(VPinPlayCase):
     def test_unreachable_is_refused_not_read_as_taken(self) -> None:
         response = self.available("jordan", side_effect=requests.ConnectionError("down"))
 
-        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.status_code, 502)
 
 
 class TheClaim(VPinPlayCase):
@@ -322,7 +322,7 @@ class TheClaim(VPinPlayCase):
         response = self.claim(self.owner,
                               get_kwargs={"side_effect": requests.ConnectionError("down")})
 
-        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.status_code, 502)
         self.assertEqual(self.held(self.owner), {"user_id": "jordan"})
 
     def test_a_refused_registration_is_refused_and_no_key_survives(self) -> None:
@@ -331,7 +331,7 @@ class TheClaim(VPinPlayCase):
         response = self.claim(self.owner, post_kwargs={
             "return_value": _answer(200, {"status": "error"})})
 
-        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.status_code, 400)
         self.assertEqual(self.held(self.owner), {"user_id": "jordan"})
 
     def test_claiming_sets_the_claimed_marker(self) -> None:
@@ -516,7 +516,7 @@ class TheActs(VPinPlayCase):
     def test_an_act_with_no_claimed_account_is_refused(self) -> None:
         guest = players.get_roster().add_guest("ABC").player_id
 
-        self.assertEqual(self.act(guest, "send_now").status_code, 404)
+        self.assertEqual(self.act(guest, "send_now").status_code, 400)
 
     def test_an_act_it_does_not_have_is_refused(self) -> None:
         response = self.act(self.owner, "dance")
@@ -686,17 +686,16 @@ class TheSettings(VPinPlayCase):
         self.assertEqual(found["fields"][0]["label"], "Server")
         self.assertNotIn("help", found)
 
-    def test_a_setting_that_left_is_not_written(self) -> None:
+    def test_a_setting_that_left_is_refused_and_nothing_is_written(self) -> None:
         self.load()
 
-        written = self.ok(self.client.put(f"/ext/{NAME}/settings", json={"values": {
+        response = self.client.put(f"/ext/{NAME}/settings", json={"values": {
             "endpoint": "https://mine.example", "user_id": "jordan",
-            "sync_on_exit": True}}))
+            "sync_on_exit": True}})
 
-        self.assertEqual([one["value"] for one in written["fields"]],
-                         ["https://mine.example"])
+        self.assertEqual(response.status_code, 400)
         held = self.store.settings(NAME)
-        self.assertEqual(held["endpoint"], "https://mine.example")
+        self.assertNotIn("endpoint", held)
         self.assertNotIn("user_id", held)
         self.assertNotIn("sync_on_exit", held)
 

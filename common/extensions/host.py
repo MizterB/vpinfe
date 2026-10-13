@@ -22,7 +22,7 @@ from common.paths import CONFIG_DIR, bundled, get_ini_config
 
 from . import catalogs, contributions
 from .context import ExtensionApps, ExtensionContext
-from .contract import MANIFEST_NAME, Manifest, ManifestError, read_manifest
+from .contract import MANIFEST_NAME, ContractError, Manifest, ManifestError, read_manifest
 from .store import ExtensionStore, get_extension_store
 
 logger = logging.getLogger("vpinfe.common.extensions.host")
@@ -35,6 +35,12 @@ BUNDLED_DIR = bundled("extensions")
 SEARCH_PATH = (INSTALLED_DIR, BUNDLED_DIR)
 
 # Running.
+# The names core's rail already uses, by the keys of `console.section.*`.
+CORE_SECTIONS = ("overview", "games", "tables", "media", "assets", "collections", "tags",
+                 "discovery", "players", "launchers", "themes", "settings", "devices",
+                 "metrics", "logs", "jobs", "backups", "about", "library", "frontend",
+                 "community", "system")
+
 LOADED = "loaded"
 # Never got as far as running: a manifest that would not parse, a package that would not
 # import, or a `register` that raised.
@@ -82,9 +88,15 @@ class Record:
     files: Any = None
     actions: list[dict] = field(default_factory=list)
     surfaces: dict = field(default_factory=dict)
-    community: list[dict] = field(default_factory=list)
+    declared_lists: list[dict] = field(default_factory=list)
+    # The registration core calls the functions of; None while it is not running.
+    context: ExtensionContext | None = None
+    # Remembered between runs, so a stopped extension's page can say it has settings.
+    has_settings: bool = False
     # {base, label, cards, marker} when a player can hold an account with it.
     account: dict = field(default_factory=dict)
+    # What `register` raised, for `--check-extension`; the log has the traceback.
+    error: str = ""
 
     @property
     def running(self) -> bool:
@@ -116,11 +128,11 @@ class Record:
                          "description")[0]
 
     def lists(self) -> list[dict]:
-        """Its Community lists, in the language now set."""
-        return [self._list(one) for one in self.community]
+        """Its lists, in the language now set."""
+        return [self._list(one) for one in self.declared_lists]
 
     def _list(self, declared: dict) -> dict:
-        under = f"community.{declared['key']}"
+        under = f"list.{declared['key']}"
         return {
             **declared,
             "title": self.said(declared["title"], f"{under}.title", declared["key"])[0],
@@ -159,9 +171,8 @@ class Record:
 
     def _surfaces(self) -> dict:
         found = dict(self.surfaces)
-        for which in ("settings", "state"):
-            found[f"{which}_label"] = self.said(str(found.get(f"{which}_label") or ""),
-                                                f"{which}.label")[0]
+        found["state_label"] = self.said(str(found.get("state_label") or ""),
+                                         "state.label")[0]
         return found
 
     def as_dict(self) -> dict[str, Any]:
@@ -169,13 +180,14 @@ class Record:
         return {**found, "display_name": self.display_name,
                 "description": self.description, "enabled": self.enabled,
                 "state": self.state, "reason": self.reason, "reason_key": self.why,
+                "has_settings": self.has_settings,
                 "routes": [scope for _router, scope in self.routers],
                 # Only while it is running: an action on an extension that is not
                 # there would draw a button that refuses.
                 "actions": ([self._action(one) for one in self.actions]
                             if self.running else []),
                 "surfaces": self._surfaces() if self.running else {},
-                "community": self.lists() if self.running else [],
+                "lists": self.lists() if self.running else [],
                 "account": self.account_declared() if self.running else {}}
 
 
@@ -186,6 +198,8 @@ class Registry:
         self._store = store or get_extension_store()
         self._records: dict[str, Record] = {}
         self._lock = threading.RLock()
+        # The extensions whose own routers the API has mounted.
+        self._mounted: set[str] = set()
 
     # -- reading -------------------------------------------------------------
 
@@ -212,8 +226,8 @@ class Registry:
         Only from an extension that is running: disabling one takes its scopes with it,
         which is what makes the kill switch reach a route already mounted.
         """
-        return frozenset(scope for record in self.records() if record.running
-                         for _router, scope in record.routers)
+        return frozenset(f"ext:{record.name}:{action}" for record in self.records()
+                         if record.running for action in ("read", "write"))
 
     def read_roots(self) -> tuple[str, ...]:
         """Every folder a running extension says it works from.
@@ -225,13 +239,22 @@ class Registry:
                      for root in (record.files.roots() if record.files else ()))
 
     def mounted(self) -> list[tuple[Record, Any, str]]:
-        """Every router that registered, whatever state its extension is in now.
+        """Every router an extension added itself, whatever state it is in now.
 
         Routes are mounted once, at startup. A disabled extension keeps its paths and
         refuses on them, which is a better answer than a 404 that reads as a typo.
         """
-        return [(record, router, scope) for record in self.records()
-                for router, scope in record.routers]
+        found = [(record, router, scope) for record in self.records()
+                 for router, scope in record.routers]
+        with self._lock:
+            self._mounted.update(record.name for record, _router, _scope in found)
+        return found
+
+    def served(self) -> list[Record]:
+        """Every extension core answers for, whatever state it is in now: all with a
+        manifest. Core's routes for each are mounted once, at startup, and refuse
+        while it is not running."""
+        return [record for record in self.records() if record.manifest is not None]
 
     # -- loading -------------------------------------------------------------
 
@@ -270,48 +293,77 @@ class Registry:
             return self._remember(record)
         i18n.own(f"ext.{record.name}", directory / "i18n")
 
+        record.has_settings = bool(self._store.declared(record.name).get("settings"))
         why, values = ((SWITCHED_OFF, {}) if not record.enabled
                        else _cannot_run(record.manifest))
         if why:
             record.became(OFF, why, **values)
             return self._remember(record)
 
+        self._register(record)
+        return self._remember(record)
+
+    def _register(self, record: Record) -> None:
+        """Import the package, call `register(ctx)` and take what it declared. Leaves
+        the record running, or failed with the reason."""
+        manifest = record.manifest
+        assert manifest is not None
         context: ExtensionContext | None = None
         try:
-            module = _import(record.manifest.name, directory)
+            module = _import(manifest.name, record.directory)
             register = getattr(module, "register", None)
             if not callable(register):
                 raise TypeError("its package defines no register(ctx)")
             name = record.name
             context = ExtensionContext(
-                record.manifest, self._store,
+                manifest, self._store,
                 on_failure=lambda why, **values: self.disable(name, why, **values),
-                directory=directory)
+                directory=record.directory)
             register(context)
             context.open = False
+            record.declared_lists = list(context.ui.declared_lists)
+            self._check_titles(record)
         except Exception as exc:
             logger.exception("Extension %s did not load: %r", record.name, exc)
+            record.error = f"{type(exc).__name__}: {exc}"
+            record.declared_lists = []
             if context is not None:
                 _withdraw(record.name, context.events.registered, context.apps)
             record.became(FAILED, "extension.reason.start_failed")
-            return self._remember(record)
+            return
 
+        record.context = context
         record.routers = list(context.routers)
         record.subscriptions = list(context.events.registered)
         record.apps = context.apps
         record.files = context.files
         record.actions = list(context.ui.actions)
-        record.community = list(context.ui.community_lists)
         record.surfaces = {
-            "settings": context.ui.settings_base,
-            "settings_label": context.ui.settings_label,
+            "settings": "/settings" if context.ui.settings_declared else "",
             "state": context.ui.state_base,
             "state_label": context.ui.state_label,
         }
         record.account = dict(context.ui.account_offered)
+        record.has_settings = bool(context.ui.settings_declared)
+        if record.has_settings != bool(self._store.declared(record.name).get("settings")):
+            self._store.set_declared(record.name, {"settings": record.has_settings})
         record.became(LOADED)
-        logger.info("Extension %s %s loaded", record.name, record.manifest.version)
-        return self._remember(record)
+        logger.info("Extension %s %s loaded", record.name, manifest.version)
+
+    def _check_titles(self, record: Record) -> None:
+        """A list is not titled as a core entry, nor as another list in its area: the rail
+        would show two of the same name, and one of them is not what it says."""
+        core = {i18n.t(f"console.section.{one}").casefold() for one in CORE_SECTIONS}
+        theirs = {(one["area"], one["title"].casefold())
+                  for other in self._records.values() if other is not record and other.running
+                  for one in other.lists()}
+        for one in record.lists():
+            title = one["title"].casefold()
+            if title in core or (one["area"], title) in theirs:
+                raise ContractError(f"{record.name} titles a list {one['title']!r}, which is "
+                                    "the name of a page core has or of another list "
+                                    "in its area")
+            theirs.add((one["area"], title))
 
     # -- the switch ----------------------------------------------------------
 
@@ -338,8 +390,21 @@ class Registry:
                 record.became(OFF, SWITCHED_OFF)
         elif record.state == OFF:
             why, values = _cannot_run(record.manifest)
-            record.became(OFF, why or STARTS_AT_RESTART, **values)
+            if why:
+                record.became(OFF, why, **values)
+            else:
+                self._start_again(record)
         return record
+
+    def _start_again(self, record: Record) -> None:
+        """Register one that was off. Everything it declared with `ctx.ui` is served by
+        core and is live at once; routers it added itself are mounted once at startup,
+        so an extension that has some and had none mounted waits for a restart."""
+        self._register(record)
+        if record.running and record.routers and record.name not in self._mounted:
+            _withdraw(record.name, record.subscriptions, record.apps)
+            record.subscriptions, record.context = [], None
+            record.became(OFF, STARTS_AT_RESTART)
 
     # -- the kill switch -----------------------------------------------------
 
@@ -366,7 +431,7 @@ class Registry:
             if record is None or record.state != LOADED:
                 return False
             _withdraw(record.name, record.subscriptions, record.apps)
-            record.subscriptions = []
+            record.subscriptions, record.context = [], None
             record.became(state, why, **values)
         return True
 
@@ -450,6 +515,10 @@ def _import(name: str, directory: Path) -> Any:
     if spec is None or spec.loader is None:
         raise ImportError(f"{directory.name} could not be loaded")
     module = importlib.util.module_from_spec(spec)
+    # Its modules under the package are imported afresh too, so a switch off and on runs
+    # the code now on disk and not the first import's.
+    for loaded in [one for one in sys.modules if one.startswith(f"{module_name}.")]:
+        del sys.modules[loaded]
     sys.modules[module_name] = module
     try:
         spec.loader.exec_module(module)

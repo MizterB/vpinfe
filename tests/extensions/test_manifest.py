@@ -11,7 +11,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from common.extensions import contract
+from common.extensions import contract, host, store
 from common.i18n import t
 
 GOOD = {
@@ -21,7 +21,6 @@ GOOD = {
     "description": "Does nothing.",
     "requires_platform": contract.PLATFORM_ABI,
     "scopes": ["games:read"],
-    "provides": ["read"],
     "capabilities": ["config:own"],
     "requires_features": ["library"],
     "platforms": ["linux"],
@@ -44,19 +43,25 @@ class ParseTests(unittest.TestCase):
         manifest = contract.parse(GOOD)
 
         self.assertEqual(manifest.name, "sample")
-        self.assertEqual(manifest.provides, ("read",))
         self.assertEqual(manifest.as_dict()["capabilities"], ["config:own"])
 
-    def test_settings_are_declared_only_by_saying_true(self) -> None:
-        self.assertFalse(contract.parse(GOOD).has_settings)
-        self.assertTrue(contract.parse({**GOOD, "has_settings": True}).has_settings)
-        self.assertTrue(contract.parse({**GOOD, "has_settings": True}).as_dict()["has_settings"])
-        self.assertFalse(contract.parse({**GOOD, "has_settings": "yes"}).has_settings)
+    def test_what_the_extension_declares_with_ui_is_not_in_the_manifest(self) -> None:
+        """Routes and settings are declared in `register`, so a manifest that still
+        names them parses and the names go nowhere."""
+        manifest = contract.parse({**GOOD, "provides": ["read"], "has_settings": True})
+
+        self.assertNotIn("provides", manifest.as_dict())
+        self.assertNotIn("has_settings", manifest.as_dict())
 
     def test_vpinplay_declares_the_settings_it_registers(self) -> None:
-        shipped = contract.read_manifest(Path(__file__).parents[2] / "extensions" / "vpinplay")
+        with tempfile.TemporaryDirectory() as tmp:
+            registry = host.Registry(store.ExtensionStore(Path(tmp)))
+            self.addCleanup(registry.clear)
 
-        self.assertTrue(shipped.has_settings)
+            record = registry.load(host.BUNDLED_DIR / "vpinplay")
+
+        self.assertEqual(record.state, host.LOADED, record.reason)
+        self.assertTrue(record.has_settings)
 
     def test_a_display_name_left_out_stays_empty(self) -> None:
         """So the extension's own catalog can answer it, in the language now set."""
@@ -92,8 +97,7 @@ class ParseTests(unittest.TestCase):
         for bad in (["not", "an", "object"], _without("name"),
                     _without("requires_platform", requires_platform="one"),
                     _without("requires_platform", requires_platform=99),
-                    _without("provides", provides="read"),
-                    _without("provides", provides=["read:everything"]),
+                    _without("scopes", scopes="games:read"),
                     _without("capabilities", capabilities=["hardware:laser"]),
                     _without("platforms", platforms=["amiga"]),
                     _without("requires_features", requires_features=["catalog"])):
@@ -112,13 +116,9 @@ class ParseTests(unittest.TestCase):
         with self.assertRaises(contract.ManifestError):
             contract.parse(_without("platforms", platforms=["amiga"]))
 
-    def test_an_action_that_could_not_be_a_scope_is_refused(self) -> None:
-        with self.assertRaises(contract.ManifestError):
-            contract.parse(_without("provides", provides=["read:everything"]))
-
     def test_a_list_field_given_a_string_is_refused(self) -> None:
         with self.assertRaises(contract.ManifestError):
-            contract.parse(_without("provides", provides="read"))
+            contract.parse(_without("scopes", scopes="games:read"))
 
 
 class ReadTests(unittest.TestCase):

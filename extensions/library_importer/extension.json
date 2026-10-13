@@ -4,7 +4,6 @@
   "requires_platform": 1,
   "scopes": ["games:read", "games:write", "filesystem:read", "config:read",
              "config:write"],
-  "provides": ["read", "write"],
   "capabilities": ["ui:mount", "config:own", "fs:read", "fs:write"],
   "requires_features": ["library"]
 }

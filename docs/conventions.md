@@ -406,7 +406,7 @@ app can hold, so it adds words and never changes one of core's.
 file to what the app declares, both ways.
 
 An extension keeps its words the same way, served under `ext.<name>.`, with an app it
-provides under `app.<id>.` in the same file. "Its words" in `docs/extensions.md` lists the
+provides under `app.<id>.` in the same file. "Its words" in `docs/extensions/reference.md` lists the
 keys.
 
 ## Logging

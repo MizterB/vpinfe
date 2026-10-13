@@ -101,7 +101,7 @@ def declared() -> list[dict[str, Any]]:
 def _signature() -> tuple:
     from common import extensions
 
-    return (_generation, tuple((record.name, record.state, id(record.community))
+    return (_generation, tuple((record.name, record.state, id(record.declared_lists))
                                for record in extensions.records()))
 
 

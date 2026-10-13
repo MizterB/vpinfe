@@ -119,7 +119,7 @@ def forget() -> None:
 def _signature() -> tuple:
     from common import extensions
 
-    return (_generation, tuple((record.name, record.state, id(record.community))
+    return (_generation, tuple((record.name, record.state, id(record.declared_lists))
                                for record in extensions.records()))
 
 
@@ -136,7 +136,7 @@ def _index() -> dict[str, tuple[str, dict[str, int]]]:
             for record in extensions.records():
                 if not record.running:
                     continue
-                for listing in record.community:
+                for listing in record.declared_lists:
                     ranked = views_of(listing)
                     rows = (kept(record.name, listing["key"])["rows"] or []) if ranked else []
                     for view in ranked:

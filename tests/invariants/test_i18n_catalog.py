@@ -148,6 +148,7 @@ NOT_WHAT_IT_RAISES = EVERY_WAY - {"raise", "refusal"}
 # Modules nothing a person reads comes from, and why.
 NOT_READ = {
     "common/games/revert_3x.py": "a command-line tool",
+    "common/extensions/check.py": "the report `--check-extension` prints for a developer",
     "common/capture/pipeline.py": "hands FFmpeg its command lines",
     "common/online/update_scripts.py": "writes the scripts an update runs",
     "common/host/dof_service_worker.py": "answers the DOF service, which logs what it says",
@@ -252,7 +253,7 @@ def _logged_lines(name: str) -> set[int]:
 
 # Said to whoever wrote the calling code, which has a bug to fix, or set a developer's
 # switch, rather than to a person with something to do.
-SAID_TO_A_DEVELOPER = {"AttributeError", "ContractError", "ImportError",
+SAID_TO_A_DEVELOPER = {"AttributeError", "ContractError", "FieldError", "ImportError",
                        "ModuleNotFoundError", "NotThisDeviceError", "NotVPinFEError",
                        "OfflineError", "RuntimeError", "TypeError"}
 # A value refused, which a module's caller may show as it was said.
@@ -1881,9 +1882,9 @@ NOT_READ_AT_A_SCREEN = NOT_ON_SCREEN | {"log", "execute"}
 # The wizard's and the report's own, beside what the Console draws.
 EXTENSION_DISPLAY_KEYS = DISPLAY_KWARGS | {"reason", "error", "how"}
 # The first segment of a key the host looks up, rather than the extension's code.
-HOST_READS = {"action", "community", "token", "app"}
+HOST_READS = {"action", "list", "settings", "token", "app"}
 HOST_SEGMENTS = {"label", "description", "title", "column", "header", "help", "view",
-                 "name", "says", "field", "group"}
+                 "name", "says", "field", "group", "act"}
 
 
 def _extensions() -> list[Path]:

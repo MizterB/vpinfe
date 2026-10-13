@@ -45,7 +45,7 @@ class WizardCase(unittest.TestCase):
     def _step(self, path, leaving="source", **values) -> dict:
         """The one step after the one named, with whatever has been answered so far."""
         return self.client.post(
-            f"{BASE}/wizard/check",
+            f"{BASE}/actions/import/check",
             json={"values": {"path": str(path), **values}, "step": leaving}).json()
 
     def _check(self, path, **values) -> dict:
@@ -100,7 +100,7 @@ class DeclarationTests(WizardCase):
 
         action = found["actions"][0]
         self.assertEqual(action["key"], "import")
-        self.assertEqual(action["base"], "/wizard")
+        self.assertEqual(action["base"], "/actions/import")
         self.assertTrue(action["label"])
 
     def test_an_action_declares_no_mode(self) -> None:
@@ -130,7 +130,7 @@ class DeclarationTests(WizardCase):
 
 class FormTests(WizardCase):
     def test_the_first_step_asks_where_the_library_is(self) -> None:
-        found = self.client.get(f"{BASE}/wizard").json()
+        found = self.client.get(f"{BASE}/actions/import").json()
 
         self.assertTrue(found["title"])
         self.assertEqual([one["key"] for one in found["fields"]],

@@ -1,0 +1,61 @@
+# Writing an extension
+
+An extension adds a feature to VPinFE without being part of it. It is a folder with a
+manifest, a `register` function and its words. You hand VPinFE data and functions, and VPinFE
+draws every page and writes every route. It runs inside VPinFE, so installing one is trusting
+it.
+
+## What an extension can add
+
+- **A setting**, drawn on the extension's page in Settings: [the smallest extension](cookbook.md#1-the-smallest-extension).
+- **A dialog**, a verb somebody presses: [the smallest dialog](cookbook.md#3-the-smallest-dialog), and
+  [one with steps and a check](cookbook.md#4-a-dialog-with-steps-and-a-check).
+- **A long job**, followed in Jobs and stoppable: [a long job with progress](cookbook.md#5-a-long-job-with-progress).
+- **A reaction to something VPinFE did**, such as a game ending: [listening to events](cookbook.md#6-listening-to-events).
+- **A list**, shown in the rail: [a list](cookbook.md#7-a-list).
+
+More arrive with the recipes for them. The [Reference](reference.md) lists everything an
+extension can do today.
+
+## What you need
+
+- **VPinFE**, running. An extension is loaded at startup, so restart it after adding one.
+- **A folder to put it in.** Under the config folder, in `extensions/`:
+
+  | Linux | macOS | Windows |
+  |---|---|---|
+  | `~/.config/vpinfe/extensions` | `~/Library/Application Support/vpinfe/extensions` | `%LOCALAPPDATA%\vpinfe\vpinfe\extensions` |
+
+  With `--configdir DIR` it is `DIR/extensions`.
+- **Python**, which is the one VPinFE runs on. An extension imports from it and nothing
+  else of VPinFE: `common.extensions.contract` is the whole of what it may import.
+- **The practice site**, for the recipes that talk to a service. It is a few lines of
+  Python playing a score-sharing service called Example Scores:
+
+  ```bash
+  python docs/extensions/examples/practice_site.py
+  ```
+
+  It answers on `http://127.0.0.1:8790` and accepts the key `practice-key`.
+
+## Try one
+
+Copy [examples/recipes/smallest](examples/recipes/smallest) into the extensions folder and
+restart VPinFE. Open Settings, then Extensions, then Smallest.
+
+Before restarting, ask VPinFE what an extension declares, without running it:
+
+```bash
+./vpinfe --check-extension path/to/your/extension
+```
+
+It loads the extension as VPinFE would, says each thing it declared and each read it
+answered, and names any word its `i18n/en.json` is missing. It sends nothing and changes
+nothing, and it exits with 1 when something would not pass.
+
+## The way through
+
+- **The [Cookbook](cookbook.md)** once you know what you want. Each recipe is a small complete
+  extension that does one thing, and can be copied whole.
+- **The [Reference](reference.md)** once you know the call. Every call, declaration, field
+  type and setting, for lookup.
