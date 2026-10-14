@@ -420,7 +420,7 @@ class RecipesDoWhatTheyClaim(ExamplesLoadedByTheHost):
         self.assertEqual((mine["title"], fields["note"]), ("Game Notes", "Left ramp"))
         self.assertEqual(other["section"]["fields"][0]["value"], "")
         self.assertEqual([one["value"] for one in table["section"]["facts"]], ["1.2", "f9"])
-        self.assertEqual(table["title"], "This table")
+        self.assertEqual(table["title"], "This Table")
 
     def test_the_tool_links_follow_the_port_and_fill_in_the_host_the_console_was_opened_at(
             self) -> None:
@@ -432,7 +432,7 @@ class RecipesDoWhatTheyClaim(ExamplesLoadedByTheHost):
 
         self.assertEqual("http://{host}:9090/", before["console"]["url"])
         self.assertEqual("http://{host}:9191/", after["console"]["url"])
-        self.assertEqual(("Tool console", "system"),
+        self.assertEqual(("Tool Console", "system"),
                          (after["console"]["label"], after["console"]["area"]))
         self.assertEqual("", after["manual"]["area"])
         self.assertEqual("http://cab:9191/",

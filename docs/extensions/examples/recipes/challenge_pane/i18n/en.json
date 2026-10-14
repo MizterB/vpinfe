@@ -10,13 +10,13 @@
   "pane.status.closed": "Closed",
   "pane.tags": "Tags",
   "pane.rules": "Rules",
-  "pane.rules.open": "Open the rules",
+  "pane.rules.open": "Open the Rules",
   "pane.mine": "Yours",
   "pane.note": "Note",
-  "pane.remind": "Remind me",
+  "pane.remind": "Remind Me",
   "pane.remind.help": "Before the week closes",
   "pane.level": "Priority",
   "pane.level.normal": "Normal",
   "pane.level.high": "High",
-  "pane.goal": "Plays to try"
+  "pane.goal": "Plays to Try"
 }

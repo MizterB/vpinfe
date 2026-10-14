@@ -2,8 +2,8 @@
   "name": "OS Update",
   "description": "Installs the operating system's updates on a VPinOS cabinet, after asking.",
   "action.updates.label": "System Updates",
-  "dialog.waiting": "Updates waiting",
-  "dialog.will": "This will",
+  "dialog.waiting": "Updates Waiting",
+  "dialog.will": "This Will",
   "dialog.install": "Install",
   "dialog.no_helper": "This computer has no system helper"
 }

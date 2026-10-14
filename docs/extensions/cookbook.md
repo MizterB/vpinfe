@@ -339,11 +339,11 @@ def register(ctx):
   "description": "Checks a key against Example Scores, then posts a score to it.",
   "settings.site.label": "Site",
   "action.post.label": "Post a Score",
-  "dialog.key.title": "Sign in",
+  "dialog.key.title": "Sign In",
   "dialog.key.help": "The practice site's key is practice-key",
   "dialog.key": "Key",
   "dialog.key.refused": "The site did not accept that key",
-  "dialog.score.title": "The score",
+  "dialog.score.title": "The Score",
   "dialog.player": "Player",
   "dialog.table": "Table",
   "dialog.points": "Score",
@@ -690,8 +690,8 @@ def register(ctx):
   "settings.site.label": "Site",
   "settings.key.label": "Key",
   "error.refused": "The site did not accept the key",
-  "action.post.label": "Add a score",
-  "dialog.post.title": "The score",
+  "action.post.label": "Add a Score",
+  "dialog.post.title": "The Score",
   "dialog.player": "Player",
   "dialog.table": "Table",
   "dialog.points": "Score",
@@ -707,7 +707,7 @@ def register(ctx):
 list. **What triggers it:** the person pressing the button. The dialog's `run` is called with
 what they typed, and core reads the list again afterwards.
 
-**What you'll see:** Add Score under Community in the rail, with an **Add a score** button
+**What you'll see:** Add Score under Community in the rail, with an **Add a Score** button
 beside the search box. While the list is empty the button is there in full words, so a new
 list never looks broken. Press it, type a player, a table and a score, and the dialog closes
 with "Posted a score for Attack from Mars". The new score is in the list.
@@ -1145,15 +1145,15 @@ def register(ctx):
   "pane.status.closed": "Closed",
   "pane.tags": "Tags",
   "pane.rules": "Rules",
-  "pane.rules.open": "Open the rules",
+  "pane.rules.open": "Open the Rules",
   "pane.mine": "Yours",
   "pane.note": "Note",
-  "pane.remind": "Remind me",
+  "pane.remind": "Remind Me",
   "pane.remind.help": "Before the week closes",
   "pane.level": "Priority",
   "pane.level.normal": "Normal",
   "pane.level.high": "High",
-  "pane.goal": "Plays to try"
+  "pane.goal": "Plays to Try"
 }
 ```
 
@@ -1167,7 +1167,7 @@ and again after every change.
 
 **What you'll see:** Challenge Pane under Community with two rows.  Click Medieval Madness and
 the pane opens on its right, headed by the name with "Week 41" under it, and a rail of About and
-Yours.  About shows Open in green, Williams and Classic as two chips, and "Open the rules" as a
+Yours.  About shows Open in green, Williams and Classic as two chips, and "Open the Rules" as a
 link that leaves the Console.  Yours has a text field, a switch, a choice and a number.  Type a
 note and leave the field, and the pane redraws with the note kept.  Click Attack from Mars and
 the pane is about it.  Reload the page and the pane opens on the row you left, because the
@@ -1314,7 +1314,7 @@ def register(ctx):
   "name": "Game Notes",
   "description": "Keeps a note for each game and shows a table's version on its panel.",
   "group.game.title": "Game Notes",
-  "group.table.title": "This table",
+  "group.table.title": "This Table",
   "group.about": "Game",
   "group.note": "Note",
   "group.version": "Version",
@@ -1330,7 +1330,7 @@ calls `read` then, and again after each change to a field.
 
 **What you'll see:** open a game in the library.  Under High Scores a Game Notes heading has the
 game's name and a Note field.  Type a note and leave the field, and it is kept for that game.
-Open one of its tables and the same group is there with a This table group under it, with the
+Open one of its tables and the same group is there with a This Table group under it, with the
 table's version and its VPS file.  Open a game marked Private and neither is drawn.
 
 **Variations:**
@@ -1405,16 +1405,16 @@ def register(ctx):
   "name": "Machine Page",
   "description": "A page in the rail for the machine itself: a fact, a choice and an act.",
   "page.machine.title": "Machine",
-  "page.machine.act.check.label": "Check now",
+  "page.machine.act.check.label": "Check Now",
   "page.machine.act.manual.label": "Manual",
-  "page.machine.heading": "This machine",
+  "page.machine.heading": "This Machine",
   "page.machine.under": "How it starts",
   "page.machine.state": "State",
-  "page.machine.checked": "Last checked",
+  "page.machine.checked": "Last Checked",
   "page.machine.checked.now": "Just now",
   "page.machine.checked.said": "Checked",
-  "page.machine.boot": "Start up",
-  "page.machine.boot.mode": "Starts into",
+  "page.machine.boot": "Start Up",
+  "page.machine.boot.mode": "Starts Into",
   "page.machine.boot.play": "Play",
   "page.machine.boot.desk": "Desktop"
 }
@@ -1422,7 +1422,7 @@ def register(ctx):
 
 **Where it appears:** in the rail under System, above About.  **What triggers it:** the person opening it.  Core reads the page then, and again after each change and each act.
 
-**What you'll see:** Machine in System, just above About.  The page is headed Machine, with This machine and "How it starts" under it as the subject.  State shows Last checked: never, and Start up holds a choice, Starts into, set to Play.  Change it and the page redraws with the choice kept.  The menu at the end of the title holds Check now, which runs and says "Checked" and shows Just now in State, and Manual, which opens the address in a new tab.
+**What you'll see:** Machine in System, just above About.  The page is headed Machine, with This Machine and "How it starts" under it as the subject.  State shows Last Checked: never, and Start Up holds a choice, Starts Into, set to Play.  Change it and the page redraws with the choice kept.  The menu at the end of the title holds Check Now, which runs and says "Checked" and shows Just now in State, and Manual, which opens the address in a new tab.
 
 **Variations:**
 
@@ -1471,7 +1471,7 @@ def register(ctx):
   "description": "Links to a hardware tool's own web page, and to its manual.",
   "settings.port.label": "Port",
   "settings.port.help": "The port the tool's page answers on",
-  "link.console.label": "Tool console",
+  "link.console.label": "Tool Console",
   "link.console.tip": "The tool's own page, in a new tab",
   "link.manual.label": "Manual"
 }
@@ -1479,7 +1479,7 @@ def register(ctx):
 
 **Where it appears:** a link with an `area` is drawn on the Console's rail in that area, and every link is in a menu at the end of the extension's page title.  The manual has no `area`, so it is in that menu only.  **What triggers it:** the person clicking it.  Nothing is fetched until they do, and nothing is drawn while the extension is switched off.
 
-**What you'll see:** System on the rail shows Tool console with a small arrow-out mark, and the extension's page has a menu holding both links.  Both open in a new tab.  Change the Port setting and the next click goes to the new port.
+**What you'll see:** System on the rail shows Tool Console with a small arrow-out mark, and the extension's page has a menu holding both links.  Both open in a new tab.  Change the Port setting and the next click goes to the new port.
 
 **Variations:**
 
@@ -1611,14 +1611,14 @@ def register(ctx):
 {
   "name": "VPinOS Only",
   "description": "Settings for something only a VPinOS cabinet has.",
-  "settings.boot.label": "Start in",
+  "settings.boot.label": "Start In",
   "settings.boot.help": "What the cabinet comes up in after it is switched on"
 }
 ```
 
-**Where it appears:** on a VPinOS cabinet it is a page like any other, with the Start in setting.  Anywhere else it is listed under Extensions marked Off, and its page says "Cannot run on this device" with the reason and shows no settings.  **What triggers it:** core reads the machine's os-release the first time it loads an extension, and compares its `ID` to the list.  Nothing in the extension runs on a machine it is not for, not even `register`.
+**Where it appears:** on a VPinOS cabinet it is a page like any other, with the Start In setting.  Anywhere else it is listed under Extensions marked Off, and its page says "Cannot run on this device" with the reason and shows no settings.  **What triggers it:** core reads the machine's os-release the first time it loads an extension, and compares its `ID` to the list.  Nothing in the extension runs on a machine it is not for, not even `register`.
 
-**What you'll see:** on a Mac the page says "It does not run on macOS", and on Ubuntu "It does not run on Ubuntu".  On a Linux with no `/etc/os-release` it says "It does not run on Linux".  On VPinOS it runs, and the page shows Start in.
+**What you'll see:** on a Mac the page says "It does not run on macOS", and on Ubuntu "It does not run on Ubuntu".  On a Linux with no `/etc/os-release` it says "It does not run on Linux".  On VPinOS it runs, and the page shows Start In.
 
 **Variations:**
 
@@ -1684,8 +1684,8 @@ def register(ctx):
   "name": "OS Update",
   "description": "Installs the operating system's updates on a VPinOS cabinet, after asking.",
   "action.updates.label": "System Updates",
-  "dialog.waiting": "Updates waiting",
-  "dialog.will": "This will",
+  "dialog.waiting": "Updates Waiting",
+  "dialog.will": "This Will",
   "dialog.install": "Install",
   "dialog.no_helper": "This computer has no system helper"
 }
@@ -1693,7 +1693,7 @@ def register(ctx):
 
 **Where it appears:** on a VPinOS cabinet, as an action on the extension's page called System Updates.  **What triggers it:** pressing it.  `ask` runs when the dialog opens and reads `updates.check`, which changes nothing.  `run` runs when Install is pressed, in that request, and starts a job that calls `updates.apply`.
 
-**What you'll see:** the dialog lists how many updates are waiting and, under This will, core's own sentence for the change: "Install system updates on this computer".  The extension chose the label and the layout, and core chose the sentence, so the extension cannot word a careful act as a harmless one.  Install closes the dialog and the job runs in Jobs.  Where no helper answers, the dialog says "This computer has no system helper" and holds Install.  From another device the install is refused with "A system change can only be made from this computer", and because the install runs as a job, that sentence is what Jobs shows for it.
+**What you'll see:** the dialog lists how many updates are waiting and, under This Will, core's own sentence for the change: "Install system updates on this computer".  The extension chose the label and the layout, and core chose the sentence, so the extension cannot word a careful act as a harmless one.  Install closes the dialog and the job runs in Jobs.  Where no helper answers, the dialog says "This computer has no system helper" and holds Install.  From another device the install is refused with "A system change can only be made from this computer", and because the install runs as a job, that sentence is what Jobs shows for it.
 
 **Variations:**
 

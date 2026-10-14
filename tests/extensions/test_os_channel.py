@@ -521,8 +521,8 @@ class RecipeTests(ExtensionCase):
                     == "updates.check" else {"ok": True, "result": {}})
         asked = self.load().ask(None)
 
-        self.assertIn(["Updates waiting", "7"], asked["summary"])
-        self.assertIn(["This will", "Install system updates on this computer"],
+        self.assertIn(["Updates Waiting", "7"], asked["summary"])
+        self.assertIn(["This Will", "Install system updates on this computer"],
                       asked["summary"])
 
     def test_the_dialog_holds_install_where_no_helper_stands(self) -> None:
