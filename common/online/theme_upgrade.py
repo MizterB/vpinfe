@@ -33,14 +33,15 @@ UPDATED = "theme_update"
 @dataclass(frozen=True)
 class Twin:
     """A 2.x theme that 3.0 merged into another, and the option of the other that gives
-    the look the twin had."""
+    the look the twin had. A target that needs no option, because core's media priority
+    already gives that look, has none."""
     target: str
-    option: str
+    option: str | None
     ledger: str
 
 
 TWINS = {
-    "Slider Video": Twin("slider", "playfieldVideo", "theme_slider_video"),
+    "Slider Video": Twin("slider", None, "theme_slider_video"),
     "Texal-Flyer": Twin("Texal", "showFlyer", "theme_texal_flyer"),
 }
 
@@ -116,8 +117,9 @@ def _merge_twins(registry: ThemeRegistry) -> list[str]:
         if active is None:
             continue
         if active == name:
-            held = config_service.theme_options().get(name, {})
-            config_service.put_theme_options({twin.target: {**held, twin.option: True}})
+            if twin.option:
+                held = config_service.theme_options().get(name, {})
+                config_service.put_theme_options({twin.target: {**held, twin.option: True}})
             theme_service.set_active_theme(twin.target)
         config_service.drop_theme_options([name])
         _remove(themes_dir / name)

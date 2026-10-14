@@ -236,7 +236,7 @@ class TwinTests(_Base):
         super().setUp()
         self.themes.mkdir()
 
-    def test_the_active_twin_makes_its_target_active_with_the_option_on(self) -> None:
+    def test_the_active_twin_makes_its_target_active_and_writes_no_option(self) -> None:
         _install(self.themes / "Slider Video", "1.0.0")
         self.choose("Slider Video", **{"Slider Video": {"speed": 4}})
         registry = self.registry(("slider", "2.0.0"))
@@ -244,10 +244,21 @@ class TwinTests(_Base):
         self.assertTrue(theme_upgrade.run(registry))
 
         self.assertEqual(self.active(), "slider")
-        self.assertEqual(config_service.theme_options(),
-                         {"slider": {"speed": 4, "playfieldVideo": True}})
+        self.assertEqual(config_service.theme_options(), {})
         self.assertFalse((self.themes / "Slider Video").exists())
         self.ledger.assert_called_once_with("theme_slider_video", RUNNING, 1)
+
+    def test_the_active_twin_with_an_option_turns_it_on(self) -> None:
+        _install(self.themes / "Texal-Flyer", "1.0.0")
+        self.choose("Texal-Flyer", **{"Texal-Flyer": {"size": 2}})
+        registry = self.registry(("Texal", "2.0.0"))
+
+        self.assertTrue(theme_upgrade.run(registry))
+
+        self.assertEqual(self.active(), "Texal")
+        self.assertEqual(config_service.theme_options(),
+                         {"Texal": {"size": 2, "showFlyer": True}})
+        self.ledger.assert_called_once_with("theme_texal_flyer", RUNNING, 1)
 
     def test_the_twins_values_replace_the_targets_when_the_twin_was_active(self) -> None:
         _install(self.themes / "Texal-Flyer", "1.0.0")
