@@ -4326,6 +4326,7 @@
   "error.games.info_empty": "Its .info file is empty",
   "error.games.info_not_utf8": "Its .info file is not saved as UTF-8",
   "error.games.info_bad_line": "Line {line} of its .info file is not written as it should be",
+  "error.games.release_other_format": "{app} cannot play {format} releases",
   "error.games.rom_needed": "{kind} needs a ROM name",
   "error.games.no_folder": "{kind} has no folder of its own",
   "error.games.no_logo_folder": "No folder is set for manufacturer logos",
@@ -5428,5 +5429,12 @@
   "console.encrypted.problem": "Serving plain HTTP: the certificate could not be used",
   "console.encrypted.problem_no_file": "A certificate or key file is missing. Choose them again.",
   "console.encrypted.problem_unreadable": "VPinFE could not read the certificate with that key. Choose them again.",
-  "console.wizard_lists.all_settled": "All {count} are settled"
+  "console.wizard_lists.all_settled": "All {count} are settled",
+  "vps.format.VPX": "Visual Pinball X",
+  "vps.format.VP9": "Visual Pinball 9",
+  "vps.format.FP": "Future Pinball",
+  "vps.format.FX": "Pinball FX",
+  "vps.format.FX2": "Pinball FX2",
+  "vps.format.FX3": "Pinball FX3",
+  "vps.format.PC": "PC"
 }

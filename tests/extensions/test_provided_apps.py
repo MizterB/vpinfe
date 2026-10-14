@@ -89,6 +89,28 @@ class ProvideTests(unittest.TestCase):
         self.assertEqual(apps.get("fp").claim.companions, (".fpl", ".bam"))
         self.assertEqual(companions_beside(pathlib.Path("/nowhere/x.fpt")), [])
 
+    def test_an_app_declares_which_vps_formats_it_plays(self) -> None:
+        self.apps.provide(**FUTURE, vps_formats=("fp",))
+
+        self.assertEqual(apps.vps_formats("fp"), ("FP",))
+        self.assertEqual(apps.vps_formats("vpx"), ("VPX",))
+
+    def test_an_app_that_declares_none_is_offered_every_release(self) -> None:
+        self.apps.provide(**FUTURE)
+
+        self.assertEqual(apps.vps_formats("fp"), ())
+        self.assertEqual(apps.vps_formats("not-installed"), ())
+
+    def test_formats_given_as_one_string_are_refused(self) -> None:
+        """Iterated, "FP" would be the formats F and P and nothing would ever match."""
+        with self.assertRaises(ValueError):
+            self.apps.provide(**FUTURE, vps_formats="FP")
+
+    def test_a_blank_format_is_refused(self) -> None:
+        for bad in ("", "  ", None, 3):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                self.apps.provide(**FUTURE, vps_formats=(bad,))
+
     def test_providing_needs_the_scope(self) -> None:
         with self.assertRaises(ContractError):
             ExtensionApps("quiet", ()).provide(**FUTURE)

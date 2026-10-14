@@ -17,10 +17,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from common import job_details, jobs, migration_ledger
+from common import apps, job_details, jobs, migration_ledger
 from common.atomic_write import staged_for
 from common.config_store import ConfigStore
-from common.games import game_index_service, game_repository, info_maintenance, metadata_service
+from common.games import (
+    game_index_service,
+    game_repository,
+    info_maintenance,
+    metadata_service,
+    tables,
+)
 from common.games.collection_store import CollectionStore
 from common.games.game import Game, GameRecord
 from common.games.game_metadata import (
@@ -201,6 +207,17 @@ def find_vps_release(vps_file_id: str) -> dict:
     return find_vps_release_and_entry(vps_file_id)[0]
 
 
+def release_fits(release: dict, entry: dict) -> bool:
+    """Whether the app that plays this table entry can play this VPS release.
+
+    A release with no `tableFormat` fits any app, and an app that declares no formats
+    fits every release. An entry no app claims is matched as the default app's.
+    """
+    formats = apps.vps_formats(tables.app_of(entry) or apps.default_app().id)
+    filed = str(release.get("tableFormat") or "").strip().upper()
+    return not formats or not filed or filed in formats
+
+
 def matched_vps_entry(game: GameRecord) -> dict:
     """The catalog entry this game is matched to, effective id first."""
     wanted = game_vps_id(game)
@@ -249,7 +266,7 @@ def route_legacy_match(data: dict) -> str:
 
     entries = table_entries(data)
     _, entry = default_entry(entries, recorded_default(vpinfe))
-    if not entry:
+    if not entry or not release_fits(find_vps_release(wanted), entry):
         return "dropped"
     source = dict(entry.get(SOURCE_KEY) or {})
     source["vps_file_id"] = wanted

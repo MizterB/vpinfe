@@ -10,10 +10,14 @@ from common.games.game_service import classify_vps_id, route_legacy_match
 
 ENTRY = "kGBkVb-v"
 RELEASE = "butCgIcLzI"
+FUTURE = "futurePinb"
+BLANK = "noFormat01"
 
 CATALOG = [
     {"id": ENTRY, "name": "AC/DC (LUCI Premium)", "manufacturer": "Stern",
-     "year": 2013, "tableFiles": [{"id": RELEASE, "version": "1.1.3"}]},
+     "year": 2013, "tableFiles": [{"id": RELEASE, "version": "1.1.3"},
+                                  {"id": FUTURE, "version": "1.0", "tableFormat": "FP"},
+                                  {"id": BLANK, "version": "0.9"}]},
 ]
 
 RECORD = {
@@ -56,6 +60,19 @@ class RouteTests(RoutingCase):
         source = data["tables"]["tbl001"]["source"]
         self.assertEqual(source["vps_file_id"], RELEASE)
         self.assertEqual(source["confirmed_by"], "user")
+
+    def test_a_release_in_a_format_the_table_cannot_play_is_dropped(self) -> None:
+        done, data = self._route(FUTURE)
+
+        self.assertEqual(done, "dropped")
+        self.assertEqual(data["vpinfe"]["alt_vpsid"], "")
+        self.assertNotIn("source", data["tables"]["tbl001"])
+
+    def test_a_release_filed_under_no_format_binds(self) -> None:
+        done, data = self._route(BLANK)
+
+        self.assertEqual(done, "bound")
+        self.assertEqual(data["tables"]["tbl001"]["source"]["vps_file_id"], BLANK)
 
     def test_an_entry_id_stays_as_the_match(self) -> None:
         done, data = self._route(ENTRY)

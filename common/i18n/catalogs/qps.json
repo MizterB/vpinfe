@@ -4326,6 +4326,7 @@
   "error.games.info_empty": "Îţš .îñƒö ƒîŀè îš èɱþţý",
   "error.games.info_not_utf8": "Îţš .îñƒö ƒîŀè îš ñöţ šàṽèđ àš ÛŢƑ-8",
   "error.games.info_bad_line": "Ŀîñè {line} öƒ îţš .îñƒö ƒîŀè îš ñöţ ŵřîţţèñ àš îţ šĥöûŀđ ƀè",
+  "error.games.release_other_format": "{app} çàññöţ þŀàý {format} řèŀèàšèš",
   "error.games.rom_needed": "{kind} ñèèđš à ŘÖḾ ñàɱè",
   "error.games.no_folder": "{kind} ĥàš ñö ƒöŀđèř öƒ îţš öŵñ",
   "error.games.no_logo_folder": "Ñö ƒöŀđèř îš šèţ ƒöř ɱàñûƒàçţûřèř ŀöĝöš",
@@ -5428,5 +5429,12 @@
   "console.encrypted.problem": "Šèřṽîñĝ þŀàîñ ĤŢŢÞ: ţĥè çèřţîƒîçàţè çöûŀđ ñöţ ƀè ûšèđ",
   "console.encrypted.problem_no_file": "À çèřţîƒîçàţè öř ķèý ƒîŀè îš ɱîššîñĝ. Çĥööšè ţĥèɱ àĝàîñ.",
   "console.encrypted.problem_unreadable": "ṼÞîñƑÈ çöûŀđ ñöţ řèàđ ţĥè çèřţîƒîçàţè ŵîţĥ ţĥàţ ķèý. Çĥööšè ţĥèɱ àĝàîñ.",
-  "console.wizard_lists.all_settled": "Àŀŀ {count} àřè šèţţŀèđ"
+  "console.wizard_lists.all_settled": "Àŀŀ {count} àřè šèţţŀèđ",
+  "vps.format.VPX": "Ṽîšûàŀ Þîñƀàŀŀ Ẋ",
+  "vps.format.VP9": "Ṽîšûàŀ Þîñƀàŀŀ 9",
+  "vps.format.FP": "Ƒûţûřè Þîñƀàŀŀ",
+  "vps.format.FX": "Þîñƀàŀŀ ƑẊ",
+  "vps.format.FX2": "Þîñƀàŀŀ ƑẊ2",
+  "vps.format.FX3": "Þîñƀàŀŀ ƑẊ3",
+  "vps.format.PC": "ÞÇ"
 }

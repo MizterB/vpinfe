@@ -172,7 +172,7 @@ the documented entry point is a plain 200. Both spellings work.
 | POST | `/api/v1/games/{id}/tables/{table_id}/contain` | Copy a table the game points at into its folder, and stop pointing. The table keeps its id |
 | DELETE | `/api/v1/games/{id}/tables/{table_id}` | Forget a table whose file is gone. Nothing on disk is deleted, and a table whose file is still there is refused |
 | DELETE | `/api/v1/games/{id}/folder` | Delete the game's whole folder from the disk: tables, media, .info and everything else in it, with no trash and no undo. Protected. 409 while that game is running, and 400 for a folder that is, or holds, a location the library reads |
-| PUT | `/api/v1/games/{id}/tables/{table_id}/source` | Say which release a table is, `{"vps_file_id"}`. Empty takes the claim back |
+| PUT | `/api/v1/games/{id}/tables/{table_id}/source` | Say which release a table is, `{"vps_file_id"}`. Empty takes the claim back. A release filed under a format the table's app does not play (its `vps_formats`) is refused with 400 |
 | PUT | `/api/v1/games/{id}/details` | Say what the game is, where no catalog matched it. A patch - a field left out is left alone, a field sent empty is cleared. Not where a VPS id goes; that is the `alt_vps_id` override |
 | PUT | `/api/v1/games/{id}/guides` | The game's guides, in order. An entry naming a stored guide by its address keeps it and sets `hidden`; any other is a new guide of the person's own. Leaving out a guide VPS lists is refused - hide it instead |
 | PUT | `/api/v1/games/{id}/overrides` | The game's overrides. A patch - a field left out is left alone, a field sent empty clears it |

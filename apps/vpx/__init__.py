@@ -39,6 +39,7 @@ VPX = App(
     claim=Claim(suffixes=(".vpx",),
                 # Stem-matched files that belong to one of its tables.
                 companions=COMPANION_SUFFIXES),
+    vps_formats=("VPX",),
     fields=FIELDS,
     kinds=Kinds(),
     launch=VPXLaunch(),

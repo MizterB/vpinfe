@@ -37,7 +37,7 @@ from common.games.game_metadata import (
     vpinfe_section,
 )
 from common.games.game_repository import game_to_row
-from common.games.game_service import find_vps_release
+from common.games.game_service import find_vps_release, release_fits
 from common.games.info_file import VPINFE_SECTION, MetaConfig
 from common.games.tables import (
     TABLE_ID_KEY,
@@ -176,6 +176,11 @@ def _named_source(described_entry: dict) -> dict | None:
     if not source.get("vps_file_id"):
         return source or None
     release = find_vps_release(str(source["vps_file_id"]))
+    if release and not release_fits(release, described_entry):
+        # It names a build this table cannot be, so the row reads as unmatched.
+        source.pop("vps_file_id")
+        source.pop("confirmed_by", None)
+        return source or None
     if release:
         source["version"] = str(release.get("version") or "")
         source["authors"] = [str(name) for name in (release.get("authors") or [])]
@@ -327,6 +332,9 @@ def table_rows(game: Game, row: dict, *, launcher_settings: bool = False,
             # registry entry and not a search for where ".vpx" was hard-coded.
             "format": app_id,
             "app": app_id,
+            # The VPS formats its app plays; empty where the app declares none, which
+            # offers it every release.
+            "vps_formats": list(apps.vps_formats(app_id)),
             # Named as well as identified: a client showing the bare id would be putting
             # one on screen, and would need a second round trip to avoid it.
             "app_name": apps.app_name(app_id),

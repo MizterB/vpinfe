@@ -103,6 +103,11 @@ def build(name: str, described: dict) -> App:
     if not suffixes and not accepts_keys:
         raise ValueError(f"{app_id} plays nothing: give it suffixes or accepts_keys")
 
+    given = described.get("vps_formats") or ()
+    if isinstance(given, str):
+        raise ValueError(f"{app_id} gives vps_formats as one string; give a list of them")
+    vps_formats = tuple(_vps_format(one) for one in given)
+
     fields = tuple(_field(Field, one) for one in described.get("fields") or ())
     if not any(one.key == "bin_path" for one in fields):
         # Every launcher needs the program it runs, and an extension that forgot would
@@ -115,6 +120,7 @@ def build(name: str, described: dict) -> App:
         name=str(described.get("name") or "").strip(),
         claim=Claim(suffixes=suffixes, accepts_keys=accepts_keys,
                     companions=companions),
+        vps_formats=vps_formats,
         fields=fields,
         kinds=Kinds(frozenset(kinds)) if kinds else Kinds(),
         launch=_ExtensionLaunch(name, described.get("command")),
@@ -127,6 +133,13 @@ def _suffix(value: object) -> str:
     if not found:
         raise ValueError("a suffix cannot be empty")
     return found if found.startswith(".") else f".{found}"
+
+
+def _vps_format(value: object) -> str:
+    """Uppercase, because that is how VPS spells `tableFormat`."""
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("a VPS format is a non-empty string")
+    return value.strip().upper()
 
 
 def _field(field_type: Any, described: object) -> Any:

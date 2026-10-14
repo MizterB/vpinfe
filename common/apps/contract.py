@@ -407,6 +407,10 @@ class App:
     # Empty is looked up. Set, it is a product name.
     name: str = ""
     claim: Claim = Claim()
+    # Which of VPS's `tableFormat` values this app plays: VPX, VP9, FP, FX, FX2, FX3 or PC.
+    # A tuple because one program can play several. Empty filters nothing - every release
+    # is a candidate for a table it plays.
+    vps_formats: tuple[str, ...] = ()
     fields: tuple[Field, ...] = ()
     kinds: Kinds = Kinds()
     format: Format | None = None

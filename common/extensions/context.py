@@ -161,9 +161,9 @@ class ExtensionApps:
         """Add an app, described in plain data. Answers with the id it took.
 
         `id`, `suffixes`, and optionally `name`, `accepts_keys`, `companions`,
-        `fields`, `kinds` and `command`. `command(entry, settings)` answers with a list
-        of arguments, or with nothing to run the launcher's binary and arguments the way
-        the generic app does.
+        `vps_formats`, `fields`, `kinds` and `command`. `command(entry, settings)` answers
+        with a list of arguments, or with nothing to run the launcher's binary and
+        arguments the way the generic app does.
 
         Its words are the extension's `i18n/<language>.json` under `app.<id>.`, keyed as
         an app's own file is. A `name` or a field's `label` given here is shown as written.

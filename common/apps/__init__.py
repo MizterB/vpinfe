@@ -38,7 +38,7 @@ __all__ = [
     "Kinds", "OWN_FIELDS", "Pair", "Parsed", "Pause", "Session", "all_apps", "app_for",
     "app_name", "default_app", "field_blank", "field_help", "field_words", "get",
     "group_words", "heading_words", "launcher_fields", "pair_words",
-    "strip_suffix", "table_suffixes",
+    "strip_suffix", "table_suffixes", "vps_formats",
 ]
 
 # What every launcher has, whatever app it wraps. Commands to run around a table are
@@ -130,6 +130,13 @@ def launcher_fields(app_id: str | None) -> tuple[Field, ...] | None:
 def app_for(filename: str) -> App | None:
     """Which app claims this file, or None for something no app plays."""
     return next((app for app in all_apps() if app.claim.claims(filename)), None)
+
+
+def vps_formats(app_id: str | None) -> tuple[str, ...]:
+    """The VPS formats an app plays. Empty for an app that declares none and for an id
+    this install lacks, and empty means every release is a candidate."""
+    found = get(app_id)
+    return found.vps_formats if found is not None else ()
 
 
 def app_name(app_id: str | None) -> str:

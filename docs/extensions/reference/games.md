@@ -376,8 +376,11 @@ A way to play a table.  See [A way to play a table](offers.md#a-way-to-play-a-ta
 `ctx.apps.provide(**described) -> str`.  Required: `id` and `suffixes`.
 
 Adds an app, described in plain data, and answers the id it took.  Keys: `id`, `suffixes`, and
-optionally `name`, `accepts_keys`, `companions`, `fields`, `kinds` and `command`.
-`command(entry, settings)` receives `entry` as `{entry_id, game_dir, table, key}` and
+optionally `name`, `accepts_keys`, `companions`, `vps_formats`, `fields`, `kinds` and
+`command`.  `vps_formats` is the VPS `tableFormat` values the app plays (`VPX`, `VP9`, `FP`,
+`FX`, `FX2`, `FX3`, `PC`), a tuple because one program can play several.  A table of this app
+can only be matched to a VPS release filed under one of them; an app that declares none is
+matched to any release.  `command(entry, settings)` receives `entry` as `{entry_id, game_dir, table, key}` and
 `settings` as the launcher's values, and answers a **list** of arguments, never a string.  It
 answers nothing to run the launcher's configured binary and arguments instead.  Needs the
 `apps:provide` scope.
@@ -387,6 +390,7 @@ ctx.apps.provide(
     id="fp",
     name="Future Pinball",
     suffixes=(".fpt",),
+    vps_formats=("FP",),
     fields=({"key": "bam_path", "path": "dir"},),
     command=lambda entry, settings: ["/opt/fp", "--play", entry["table"]],
 )

@@ -28,11 +28,13 @@ from common.games.game_metadata import (
     vpinfe_section,
 )
 from common.games.game_repository import game_to_row, reread_game
+from common.games.game_service import find_vps_release, release_fits
 from common.games.ids import new_id
 from common.games.info_file import MetaConfig
 from common.games.tables import ABSENT_SINCE_KEY, entry_filename, table_entries
 from common.host import launch
 from common.i18n import t
+from common.online import vps_formats
 
 # Which keys each level will accept. Declared rather than inferred, so sending a table's
 # key to the game route is refused instead of silently doing nothing - a write that
@@ -162,10 +164,21 @@ def set_source(game_id: str, table_id: str, vps_file_id: str) -> dict:
 
     A person picking from a list, never a guess: the identifier this records was retired
     at chance and is confidently wrong more often than not, so nothing here proposes an
-    answer. An empty id takes the claim back.
+    answer. An empty id takes the claim back. A release filed under a format this table's
+    app does not play is refused: it would name a build the table cannot be.
     """
     game = game_lens.game_for_writing(game_id)
-    set_table_source(game, filename_or_refuse(game, table_id), vps_file_id)
+    filename = filename_or_refuse(game, table_id)
+    wanted = str(vps_file_id or "").strip()
+    release = find_vps_release(wanted) if wanted else {}
+    entry = table_entries(load_game_meta(game)).get(table_id) or {}
+    if release and not release_fits(release, entry):
+        raise service_errors.RefusedError(
+            t("error.games.release_other_format",
+              app=apps.app_name(tables.app_of(entry) or apps.default_app().id),
+              format=vps_formats.name(str(release.get("tableFormat") or ""))),
+            details={"table": table_id, "vps_file_id": wanted})
+    set_table_source(game, filename, vps_file_id)
     game = reread_game(game)
     return row_or_refuse(game, table_id)
 

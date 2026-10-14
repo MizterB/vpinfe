@@ -27,6 +27,7 @@ FOLDER = "The Addams Family (Bally 1992)"
 VPX = f"{FOLDER}.vpx"
 TABLE_ID = "tbl0000001"
 RELEASE = "Wq40ng8f"
+FUTURE_RELEASE = "FpRelease1"
 
 INFO = {
     "Info": {"Title": "The Addams Family", "VPSId": "aT_GONvw"},
@@ -41,6 +42,10 @@ CATALOG = [{
          "authors": ["G5k", "3rdAxis"], "updatedAt": 1719187200000},
         {"id": "Other111", "version": "3.0", "authors": ["Bigus1"]},
     ],
+}, {
+    "id": "futureEntry", "name": "Future Pinball Table", "manufacturer": "Bally", "year": 1980,
+    "tableFiles": [{"id": FUTURE_RELEASE, "version": "1.0", "tableFormat": "FP",
+                    "authors": ["Someone"]}],
 }]
 
 
@@ -149,6 +154,34 @@ class TableSourceTests(TempTree):
 
         self.assertEqual(source["vps_file_id"], "GoneFromVps")
         self.assertEqual(source["version"], "")
+
+    def test_a_release_in_another_format_is_refused(self) -> None:
+        response = self.client.put(f"/games/{GAME_ID}/tables/{TABLE_ID}/source",
+                                   json={"vps_file_id": FUTURE_RELEASE})
+
+        self.assertEqual(response.status_code, 400, response.text)
+        self.assertIn("Visual Pinball X", response.text)
+        self.assertIn("Future Pinball", response.text)
+        self.assertNotIn("source", self._stored())
+
+    def test_a_release_filed_under_no_format_is_accepted(self) -> None:
+        self.assertEqual(self._bind("Other111")["source"]["vps_file_id"], "Other111")
+
+    def test_a_stored_match_in_another_format_reads_as_no_match(self) -> None:
+        self._write_source({"vps_file_id": FUTURE_RELEASE, "confirmed_by": "user"})
+
+        self.assertIsNone(self._table()["source"])
+
+    def test_what_a_stored_cross_format_match_sat_beside_survives_in_the_lens(self) -> None:
+        self._write_source({"vps_file_id": FUTURE_RELEASE, "confirmed_by": "user",
+                            "base": {"file": "old.vpx"}})
+
+        source = self._table()["source"]
+        self.assertEqual(source["vps_file_id"], "")
+        self.assertEqual(source["base"]["file"], "old.vpx")
+
+    def test_the_row_carries_the_formats_its_app_plays(self) -> None:
+        self.assertEqual(self._table()["vps_formats"], ["VPX"])
 
     def test_the_releases_route_lists_the_entry_builds(self) -> None:
         response = self.client.get("/vps/entry/aT_GONvw/releases")

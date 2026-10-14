@@ -1679,6 +1679,9 @@ class Table(ApiModel):
     app: str
     # What to call that app on screen. Ids are for the wire.
     app_name: str = ""
+    # Which of VPS's table formats that app plays. Empty where it declares none, and every
+    # release is then a candidate.
+    vps_formats: list[str] = Field(default_factory=list)
     # The same four the row lens carries, so the two cannot describe one table
     # differently. Resolved, not read off the assignment.
     launcher: str = ""
