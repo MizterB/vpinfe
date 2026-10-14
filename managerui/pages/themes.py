@@ -4,7 +4,7 @@ import json
 
 from nicegui import run, ui
 
-from common.online import theme_service
+from common.online import theme_service, theme_sources
 from common.online.themes import ThemeRegistry, ThemeRegistryError
 from managerui.paths import VPINFE_INI_PATH
 from managerui.services import app_control
@@ -147,7 +147,7 @@ def render_panel(tab=None):
                             with ui.column().classes('gap-2'):
                                 # Name + badges row
                                 with ui.row().classes('items-center gap-2 flex-wrap'):
-                                    ui.label(manifest.get('name', theme_key)).classes('text-xl font-bold').style('color: var(--ink) !important;')
+                                    ui.label(theme_sources.title_of(theme_key, registry_info, manifest)).classes('text-xl font-bold').style('color: var(--ink) !important;')
 
                                     # GitHub repo link
                                     repo_url = ThemeRegistry._base_url(registry_info)
@@ -226,7 +226,7 @@ def render_panel(tab=None):
                                     elif has_update:
                                         _make_install_btn(theme_key, 'Update', 'system_update_alt')
                                     if has_config_options:
-                                        _make_configure_btn(theme_key, manifest.get('name', theme_key), is_active)
+                                        _make_configure_btn(theme_key, theme_sources.title_of(theme_key, registry_info, manifest), is_active)
                                     if is_installed and not is_active:
                                         _make_activate_btn(theme_key)
                                     if is_installed and not is_default:

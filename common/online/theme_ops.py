@@ -154,7 +154,7 @@ def _described(registry: ThemeRegistry, active: str) -> list[dict[str, Any]]:
                   if installed else None)
         out.append({
             "key": key,
-            "name": str(manifest.get("name") or key),
+            "name": theme_sources.title_of(key, info, manifest),
             "author": str(manifest.get("author") or ""),
             "description": str(manifest.get("description") or ""),
             "version": str(update.get("remote_version")

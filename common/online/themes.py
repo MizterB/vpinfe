@@ -186,10 +186,10 @@ class ThemeRegistry:
             manifest = self._fetch_json(self._manifest_url(base_url, theme_info))
             self._validate_manifest(theme_key, manifest)
             # Only now can a repository say what it is called, so the key settles here.
-            name = theme_sources.name_of(theme_key, theme_info, manifest)
+            key = theme_sources.key_of(theme_key, theme_info, manifest)
             ref = self._ref(theme_info)
-            updated = self._dated(name, base_url, ref, previous) if dates else ""
-            return name, theme_info, manifest, ref, updated
+            updated = self._dated(key, base_url, ref, previous) if dates else ""
+            return key, theme_info, manifest, ref, updated
 
         unreadable: dict[str, dict[str, str]] = {}
         kept: dict[str, dict] = {}

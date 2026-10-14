@@ -51,7 +51,7 @@ A list is a JSON object with a top-level `themes` object, keyed by the theme's k
 | Field | Required | Purpose |
 | --- | --- | --- |
 | `url` | Yes | The theme's repository. GitHub, or a Forgejo/Gitea server. |
-| `name` | No | What the Themes page shows. Without it the theme is shown under its key. |
+| `name` | No | What the Themes page shows, and nothing else: the key still decides the folder and the stored active theme. Without it the page shows the `name` in the theme's `manifest.json`. |
 | `ref` | No | A branch or tag to read the theme from, instead of the repository's default branch. |
 | `default_install` | No | If `true`, VPinFE installs the theme at startup and it cannot be deleted. Only the VPinFE Theme List's marks count; another list's are ignored. |
 
@@ -77,8 +77,8 @@ Choose it carefully and keep it stable once published. It does not have to match
 ### How to get listed
 
 Open a pull request against the `vpinfe/themes` repository that adds your entry to
-`themes.json`: a key, the `url` of your repository, and a `name` if the key is not how you
-want the theme shown. `default_install` is the list maintainers' to set.
+`themes.json`: a key, the `url` of your repository, and a `name` if the one in your
+`manifest.json` is not how you want the theme shown. `default_install` is the list maintainers' to set.
 
 A theme does not have to be listed to be installable. See
 [Single themes](#single-themes) below.
@@ -210,7 +210,7 @@ VPinFE validates the manifest in [`common/online/themes.py`](../common/online/th
 
 | Field | Purpose |
 | --- | --- |
-| `name` | Display name shown in the Console. |
+| `name` | Display name shown in the Console, unless the list entry sets its own `name`. |
 | `version` | Version string used for update checks. |
 | `author` | Theme author name. |
 | `description` | Description shown in the Console. |

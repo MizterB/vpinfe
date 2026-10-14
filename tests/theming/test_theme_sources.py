@@ -33,27 +33,33 @@ def _config(registries: str = "", repositories: str = "") -> ConfigParser:
 
 
 class NamingTests(unittest.TestCase):
-    """A theme is called what whoever chose the name said, never what a url looks like."""
+    """What a theme installs as is its key, never what a url looks like or a label says."""
 
     def test_a_repo_takes_the_name_its_author_put_in_the_manifest(self) -> None:
         entry = theme_sources.repository_entry(MINE)
-        self.assertEqual(theme_sources.name_of(MINE, entry, {"name": "Reference"}), "Reference")
+        self.assertEqual(theme_sources.key_of(MINE, entry, {"name": "Reference"}), "Reference")
 
-    def test_a_registry_entry_that_names_itself_is_taken_at_its_word(self) -> None:
-        """The registry shape PAR-42 moves to carries a name beside the url."""
+    def test_a_list_entry_installs_under_its_key_whatever_its_name_says(self) -> None:
         self.assertEqual(
-            theme_sources.name_of("ignored", {"url": MINE, "name": "Aurora"}, {"name": "X"}),
-            "Aurora")
+            theme_sources.key_of("aurora", {"url": MINE, "name": "Aurora Borealis"},
+                                 {"name": "X"}),
+            "aurora")
 
-    def test_the_old_registry_is_still_keyed_by_the_name(self) -> None:
-        """Twelve published themes are this case, and the manifest may disagree - the
-        registry says `cab` where the manifest says `Cab`, and the key is what installs."""
-        self.assertEqual(theme_sources.name_of("cab", {"theme_base_url": MINE}, {"name": "Cab"}),
+    def test_the_old_registry_is_still_keyed_by_the_key(self) -> None:
+        """The registry says `cab` where the manifest says `Cab`, and the key is what
+        installs."""
+        self.assertEqual(theme_sources.key_of("cab", {"theme_base_url": MINE}, {"name": "Cab"}),
                          "cab")
 
     def test_a_manifest_with_no_usable_name_falls_back_to_the_url(self) -> None:
         entry = theme_sources.repository_entry(MINE)
-        self.assertEqual(theme_sources.name_of(MINE, entry, {"name": "  "}), MINE)
+        self.assertEqual(theme_sources.key_of(MINE, entry, {"name": "  "}), MINE)
+
+    def test_a_theme_is_shown_under_the_entrys_name_then_the_manifests_then_its_key(self) -> None:
+        self.assertEqual(theme_sources.title_of("cab", {"name": "Cab Plus"}, {"name": "Cab"}),
+                         "Cab Plus")
+        self.assertEqual(theme_sources.title_of("cab", {"url": MINE}, {"name": "Cab"}), "Cab")
+        self.assertEqual(theme_sources.title_of("cab", {"name": " "}, {"name": ""}), "cab")
 
     def test_a_repo_stands_in_for_a_registry_entry(self) -> None:
         """A registry entry is a name and a url, so one repo is already that shape."""

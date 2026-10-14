@@ -64,6 +64,11 @@ class WhereAThemeCameFrom(unittest.TestCase):
         self.assertEqual((True, False), (listed["Stock"]["default_install"],
                                          listed["Other"]["default_install"]))
 
+    def test_an_entry_names_what_the_page_shows_and_not_its_key(self) -> None:
+        entry = _theme(STOCK, {"url": "https://x.net/o/r", "name": "Cab Plus"})
+        listed = self._listed(_Registry({"cab": entry}))
+        self.assertEqual((listed["cab"]["key"], listed["cab"]["name"]), ("cab", "Cab Plus"))
+
     def test_a_theme_placed_in_the_folder_names_none(self) -> None:
         listed = self._listed(_Registry({}, local={"handmade": {"name": "Handmade"}}))
         self.assertEqual(listed["handmade"]["registry"], "")

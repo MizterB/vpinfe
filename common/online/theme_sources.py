@@ -217,15 +217,20 @@ def repository_entry(url: str) -> dict:
     return entry
 
 
-def name_of(index_key: str, entry: dict, manifest: dict) -> str:
-    """What a theme is called, from whoever chose it: the entry, the registry key, or -
-    for a url, which names nothing - the author's `manifest.json`."""
-    declared = str((entry or {}).get("name") or "").strip()
-    if declared:
-        return declared
+def key_of(index_key: str, entry: dict, manifest: dict) -> str:
+    """What a theme installs as: the key its list gave it, or - for a url, which names
+    nothing - the name in the author's `manifest.json`. An entry's `name` never decides it."""
     if (entry or {}).get(NAMED_BY_MANIFEST):
         return str((manifest or {}).get("name") or "").strip() or index_key
     return index_key
+
+
+def title_of(key: str, entry: dict, manifest: dict) -> str:
+    """What the Themes page calls a theme: the entry's `name`, else the manifest's, else its key."""
+    for named in ((entry or {}).get("name"), (manifest or {}).get("name")):
+        if str(named or "").strip():
+            return str(named).strip()
+    return key
 
 
 def merge(parts: Iterable[tuple[str, dict | None]], origins: dict | None = None,
