@@ -86,7 +86,8 @@ def _fact_value(fact: dict[str, Any], context: dict[str, Any]) -> Any:
         return partial(_chips, list(value))
     if kind == "link":
         to = ext_links.filled(str(fact["to"]), str(context["state"].get("host") or "localhost"))
-        return panel.link_out(str(value), to=to, hint=help_) if to else str(value)
+        return (panel.link_out(str(value), to=to, hint=help_, rel=ext_links.REL)
+                if to else str(value))
     if kind == "picture":
         return partial(_picture, str(value))
     if kind == "date":

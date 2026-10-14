@@ -294,7 +294,7 @@ top, written as a [picture column](#cell-kinds) is.  A section is `{"key", "labe
 A fact's `kind` is `text` (default), `number`, `date`, `state`, `chips`, `link` or `picture`,
 drawn as the same [cell kind](#cell-kinds) is.  A `state` fact carries its look in the fact
 itself, `"tier"` (`on`, `off`, `unknown`, `warn` or `bad`), and no other kind may.
-A `link` fact needs `to`, the address it opens.  A fact's `value` is the word the person
+A `link` fact needs `to`, the address it opens, in a new tab with `noopener` and `noreferrer`.  A fact's `value` is the word the person
 reads, so give it already in their language; `help` is its tooltip.  The `game` and `table`
 looks are not facts yet.
 

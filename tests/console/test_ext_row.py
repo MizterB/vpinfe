@@ -6,6 +6,8 @@ import unittest
 from typing import Any
 from unittest.mock import patch
 
+from nicegui import ui
+
 from console import community, deeplink, ext_row
 
 EXTENSION = {"name": "weekly"}
@@ -78,6 +80,14 @@ class TheFacts(unittest.TestCase):
         fact = {"kind": "link", "value": "Rules", "to": "ftp://nowhere"}
 
         self.assertEqual("Rules", ext_row._fact_value(fact, {"state": {}}))
+
+    def test_a_link_leaves_without_an_opener_or_a_referrer(self) -> None:
+        fact = {"kind": "link", "value": "Rules", "to": "https://example.com/rules"}
+        with ui.column() as body:
+            ext_row._fact_value(fact, {"state": {}})()
+        link = next(one for one in body.descendants() if isinstance(one, ui.link))
+
+        self.assertEqual("noopener noreferrer", link.props["rel"])
 
 
 if __name__ == "__main__":

@@ -1682,20 +1682,23 @@ def tag_link(tag: str, color: str, *, to: str, mark: str = "",
     return draw
 
 
-def link_out(label: str, *, to: str, hint: str = "",
-             opener: bool = False) -> Callable[[], None]:
+def link_out(label: str, *, to: str, hint: str = "", opener: bool = False,
+             rel: str = "") -> Callable[[], None]:
     """A link that leaves the Console, opening in a new tab and marked `open_in_new`.
 
     `label` is the thing being opened wherever the surface has one to give - a name
     already on the row reads better than a verb added beside it.
 
     A new tab has no opener unless `opener` asks for one, and only a tab with an opener can
-    find the Console's window by name from a link of its own.
+    find the Console's window by name from a link of its own. `rel` sets the link's `rel`
+    outright, for an address the Console did not choose.
     """
     def draw() -> None:
         row = ui.link(target=to, new_tab=True).classes("console-link console-link-out")
         if opener:
             row.props("rel=opener")
+        elif rel:
+            row.props["rel"] = rel
         with row:
             ui.label(label)
             ui.icon("open_in_new")
