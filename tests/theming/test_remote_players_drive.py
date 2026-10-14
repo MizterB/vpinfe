@@ -154,7 +154,8 @@ class RemotePlayersDrive(unittest.TestCase):
 
             async def open_identity() -> None:
                 # A click that does not open the sheet is pressed again, as for the
-                # game sheet, rather than waited out for the whole timeout.
+                # game sheet, rather than waited out for the whole timeout. So is a sheet
+                # a redraw closed again before the page settled.
                 for _attempt in range(3):
                     await browser.click(".remote-identity")
                     try:
@@ -162,7 +163,8 @@ class RemotePlayersDrive(unittest.TestCase):
                     except TimeoutError:
                         continue
                     await walk.drawn()
-                    return
+                    if await browser.evaluate(SHEET_OPEN):
+                        return
                 raise AssertionError("no sheet opened for the identity row")
 
             async def sheet_closed() -> None:
@@ -177,7 +179,8 @@ class RemotePlayersDrive(unittest.TestCase):
                     except TimeoutError:
                         continue
                     await walk.drawn()
-                    return
+                    if await browser.evaluate(SHEET_OPEN):
+                        return
                 raise AssertionError("no sheet opened for Alpha")
 
             # -- Join, by Just Initials --------------------------------------------

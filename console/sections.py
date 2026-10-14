@@ -620,7 +620,7 @@ def metadata(state: dict[str, Any], on_start: Callable[[str], Any],
 
     `left` is each folder the last Upgrade could not write, with why.
     """
-    with ui.element("div").classes("console-card w-full"):
+    with ui.element("div").classes("console-card console-metadata w-full"):
         _metadata_rows(state, on_start, left)
 
 

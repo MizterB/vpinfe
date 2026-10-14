@@ -36,7 +36,8 @@ VPX = "vpx-drive"
 UNITS = frozenset({"cm", "in"})
 # What a heading shows when the name it would show is empty: a state, as a value is.
 STATES = frozenset({"No name"})
-# A host or device name stands as the heading of its own page; it is data, not a label.
+# A hyphenated id in the shape it was saved in is data, not a label. A device's own name
+# is data too, whatever its shape, and is read from the instance (`device_names`).
 _IDENTIFIER = re.compile(r"[a-z0-9]+(-[a-z0-9]+)+")
 WHOLE_PANEL = "(whole panel)"
 EMPTY_FOLDERS = "/console?view=settings&page=library.folders"
@@ -295,6 +296,9 @@ class ConsolePagesDrive(unittest.TestCase):
         paths: dict = {"measure": 0, "widths": []}
         texts: dict = {"drawn": 0, "problems": [], "loose": []}
         words: dict[tuple[str, str], set[str]] = {}
+        device_names = {one["display_name"] or one["address"] for one in json.load(
+            urllib.request.urlopen(instance.console_url("/api/v1/devices"),
+                                   timeout=10))["devices"]}
 
         async def look(where: str) -> None:
             said = await browser.evaluate(DROPDOWNS)
@@ -360,7 +364,8 @@ class ConsolePagesDrive(unittest.TestCase):
             stretched["finding"] = await browser.evaluate(
                 "!!document.querySelector('.console-settings-body .console-attention')")
         return {"headings": headings, "drawn": drawn, "dropdowns": dropdowns,
-                "stretched": stretched, "paths": paths, "texts": texts, "words": words}
+                "stretched": stretched, "paths": paths, "texts": texts, "words": words,
+                "device_names": device_names}
 
     def test_every_rail_opened_something(self) -> None:
         for query, found in self.seen["headings"].items():
@@ -416,6 +421,7 @@ class ConsolePagesDrive(unittest.TestCase):
         off = {f"{kind}: {text}": sorted(where)[:2] for (kind, text), where in words.items()
                if text != field_label(text)
                   and not text[0].isdigit() and text not in UNITS | STATES
+                  | self.seen["device_names"]
                   and not _IDENTIFIER.fullmatch(text)}
         self.assertEqual({}, off)
 

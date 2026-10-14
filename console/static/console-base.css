@@ -2994,7 +2994,8 @@ input.console-path-input { padding-right: 0.6ch; }
    pane's width the action sits a screen away from the name it belongs to. Scoped to the
    panel because a dialog sets its own width. */
 .console-section-work .console-facts :is(.console-member-row, .console-source-row),
-.console-section-work .console-attention {
+.console-section-work .console-attention,
+.console-section-work .console-metadata {
   max-width: var(--row-measure);
 }
 /* Anything holding words that is drawn in the value column and is not a control the
