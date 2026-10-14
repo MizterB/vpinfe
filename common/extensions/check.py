@@ -62,7 +62,8 @@ def _report(record: Record, lines: list[str]) -> bool:
     for declared in record.declared_lists:
         lines.append(f"list       {declared['key']} in {declared['area']}: "
                      f"{len(declared['columns'])} columns, {len(declared['views'])} views, "
-                     f"{len(declared['verbs'])} verbs")
+                     f"{len(declared['verbs'])} verbs"
+                     + (f", adds {' '.join(declared['add'])}" if declared["add"] else ""))
     for declared in record.actions:
         dialog = ui.action_objects[declared["key"]]
         methods = [one for one in ("ask", "check", "act", "run", "progress")

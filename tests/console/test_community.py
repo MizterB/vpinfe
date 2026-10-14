@@ -274,7 +274,7 @@ class PressingAVerb(unittest.IsolatedAsyncioTestCase):
                 patch.object(community.ui, "notify", notify), \
                 patch.object(community.ui.navigate, "to", navigate):
             await community.run_verb.__wrapped__(
-                "site", VERBED, verb, [{"id": "a"}, {"id": 2}], renewed)
+                {"name": "site"}, VERBED, verb, [{"id": "a"}, {"id": 2}], renewed)
         return ask, post, notify, navigate, again
 
     async def test_a_danger_asks_first_in_its_own_label_and_does_nothing_when_refused(
@@ -329,6 +329,117 @@ def _answering(*rows: dict) -> Callable[[], dict]:
 
 def _down() -> dict:
     raise ApiError("https://site.example did not answer")
+
+
+NOTED = {"name": "site",
+         "actions": [{"key": "note", "label": "Add a note", "base": "/actions/note"}]}
+
+
+class OpeningADialogOverRows(unittest.IsolatedAsyncioTestCase):
+    """A verb or an act that names a dialog opens it through `ext_action.open_action`."""
+
+    async def open(self, answers: list[Any], ids: list[str], *, each: bool = False,
+                   action: str = "note") -> tuple[bool, Mock]:
+        opened = Mock(side_effect=[_done(one) for one in answers])
+        with patch.object(community.ext_action, "open_action", opened):
+            ran = await community.open_over.__wrapped__(NOTED, action, ids, each=each)
+        return ran, opened
+
+    async def test_one_dialog_covers_every_row_it_was_opened_over(self) -> None:
+        ran, opened = await self.open([True], ["a", "b"])
+
+        self.assertTrue(ran)
+        opened.assert_called_once_with("site", NOTED["actions"][0], rows=["a", "b"])
+
+    async def test_a_cancelled_dialog_ran_nothing(self) -> None:
+        ran, _ = await self.open([False], ["a"])
+
+        self.assertFalse(ran)
+
+    async def test_each_walks_the_rows_one_dialog_at_a_time_saying_where_it_is(self) -> None:
+        ran, opened = await self.open([True, community.walks.SKIPPED, True], ["a", "b", "c"],
+                                      each=True)
+
+        self.assertTrue(ran)
+        self.assertEqual([["a"], ["b"], ["c"]],
+                         [call.kwargs["rows"] for call in opened.call_args_list])
+        self.assertEqual(["1 of 3", "2 of 3", "3 of 3"],
+                         [call.kwargs["place"] for call in opened.call_args_list])
+        self.assertTrue(all(call.kwargs["walking"] for call in opened.call_args_list))
+
+    async def test_stop_ends_the_walk_where_it_is(self) -> None:
+        ran, opened = await self.open([True, community.walks.STOPPED], ["a", "b", "c"],
+                                      each=True)
+
+        self.assertTrue(ran)
+        self.assertEqual(2, opened.call_count)
+
+    async def test_a_walk_that_skipped_every_row_ran_nothing(self) -> None:
+        ran, _ = await self.open([community.walks.SKIPPED, community.walks.SKIPPED],
+                                 ["a", "b"], each=True)
+
+        self.assertFalse(ran)
+
+    async def test_one_row_says_no_position(self) -> None:
+        _, opened = await self.open([True], ["a"], each=True)
+
+        self.assertEqual("", opened.call_args.kwargs["place"])
+
+    async def test_a_dialog_that_cannot_open_mid_walk_is_said_and_the_rows_before_it_count(
+            self) -> None:
+        notify = Mock()
+        opened = Mock(side_effect=[_done(True), ApiError("it went"), _done(True)])
+        with patch.object(community.ext_action, "open_action", opened), \
+                patch.object(community.ui, "notify", notify):
+            ran = await community.open_over.__wrapped__(NOTED, "note", ["a", "b", "c"],
+                                                        each=True)
+
+        self.assertTrue(ran)
+        self.assertEqual(3, opened.call_count)
+        self.assertEqual("negative", notify.call_args.kwargs["type"])
+
+    async def test_a_dialog_the_extension_does_not_have_says_so_and_opens_nothing(self) -> None:
+        notify = Mock()
+        with patch.object(community.ui, "notify", notify):
+            ran, opened = await self.open([], ["a"], action="missing")
+
+        self.assertFalse(ran)
+        opened.assert_not_called()
+        self.assertEqual("negative", notify.call_args.kwargs["type"])
+
+    async def test_a_verb_that_names_a_dialog_reads_the_list_again_once_it_ran(self) -> None:
+        again = Mock()
+
+        async def renewed() -> None:
+            again()
+
+        verb = {"key": "note", "action": "note", "each": True}
+        opened = Mock(side_effect=[_done(True), _done(False)])
+        with patch.object(community, "open_over", opened):
+            await community.run_verb.__wrapped__(
+                NOTED, VERBED, verb, [{"id": "a"}, {"id": 2}], renewed)
+            await community.run_verb.__wrapped__(
+                NOTED, VERBED, verb, [{"id": "a"}], renewed)
+
+        again.assert_called_once()
+        opened.assert_any_call(NOTED, "note", ["a", "2"], each=True)
+
+    async def test_an_act_that_names_a_dialog_opens_it_instead_of_posting(self) -> None:
+        post = Mock()
+        again = Mock()
+
+        async def renewed() -> None:
+            again()
+
+        opened = Mock(side_effect=[_done(True)])
+        with patch.object(community, "open_over", opened), \
+                patch.object(community, "ApiClient", return_value=Mock(ext_post=post)):
+            await community.run_act.__wrapped__(
+                NOTED, "/community/tables/about", {"key": "open", "action": "note"}, renewed)
+
+        opened.assert_called_once_with(NOTED, "note", [])
+        post.assert_not_called()
+        again.assert_called_once()
 
 
 class TheLastGoodRead(unittest.TestCase):

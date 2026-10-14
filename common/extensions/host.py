@@ -21,7 +21,7 @@ from common import i18n, install_identity, tokens
 from common.paths import CONFIG_DIR, bundled, get_ini_config
 
 from . import catalogs, contributions
-from .context import ExtensionApps, ExtensionContext
+from .context import ExtensionApps, ExtensionContext, check_references
 from .contract import MANIFEST_NAME, ContractError, Manifest, ManifestError, read_manifest
 from .store import ExtensionStore, get_extension_store
 
@@ -149,6 +149,8 @@ class Record:
                        "help": self.said(one["help"], f"{under}.view.{one['key']}.help")[0]}
                       for one in declared["views"]],
             "verbs": [self._verb(under, one) for one in declared["verbs"]],
+            "add": [{"action": key, "label": self._action_label(key)}
+                    for key in declared["add"]],
         }
 
     def _verb(self, under: str, declared: dict) -> dict:
@@ -158,6 +160,10 @@ class Record:
                 "tip": self.said("", f"{at}.tip")[0],
                 "needs_reason": self.said("", f"{at}.needs")[0],
                 "confirm_key": i18n.first_key(f"ext.{self.name}.{at}.confirm")}
+
+    def _action_label(self, key: str) -> str:
+        declared = next((one for one in self.actions if one["key"] == key), {})
+        return self.said(declared.get("label") or "", f"action.{key}.label", key)[0]
 
     def _action(self, declared: dict) -> dict:
         key = declared["key"]
@@ -330,6 +336,7 @@ class Registry:
                 directory=record.directory)
             register(context)
             context.open = False
+            check_references(context.ui)
             record.declared_lists = list(context.ui.declared_lists)
             self._check_titles(record)
         except Exception as exc:

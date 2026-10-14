@@ -42,6 +42,12 @@ WORDS = {
                                         "other": "Remove {count} rows?"},
     "list.verbed.verb.remove.needs": "Only a row you can remove",
     "action.greet.label": "Say hello",
+    "action.rowed.label": "Add a note",
+    "action.bare.label": "Add bare",
+    "list.opening.title": "Opening",
+    "list.opening.verb.each.label": "Each",
+    "list.opening.verb.all.label": "All",
+    "list.opening.act.open.label": "Open the dialog",
 }
 
 # What the functions below answer with. A test sets what it wants before it asks.
@@ -52,7 +58,7 @@ def fresh_state() -> None:
     STATE.clear()
     STATE.update(
         checked=[], steps=[], plain_values=None, seen=None, rows=[], status="", acts=None,
-        pressed=[],
+        pressed=[], asked_rows=[], ran_rows=[],
         progress=None, running=threading.Event(), release=threading.Event())
 
 
@@ -122,6 +128,25 @@ def served(ctx: Any) -> None:
                {"key": "remove", "run": remove, "danger": True, "needs": "can", "one": True},
                {"key": "tidy", "run": tidy, "needs": "can"},
                {"key": "break", "run": break_it, "label": "Break it"}])
+
+    class Rowed:
+        def ask(self, step: str, rows: list[str]) -> dict:
+            STATE["asked_rows"].append(list(rows))
+            return {"fields": [{"key": "note", "type": "string"}]}
+
+        def run(self, values: dict) -> None:
+            STATE["ran_rows"].append(list(values.get("rows") or []))
+
+    class Bare:
+        def ask(self, step: str) -> dict:
+            return {"fields": []}
+
+    ctx.ui.list(
+        "opening", lambda: [{"id": 1, "name": "a"}, {"id": 2, "name": "b"}],
+        columns=[{"field": "name"}], title="Opening", add=["rowed", "bare"],
+        acts={"open": {"action": "rowed"}},
+        verbs=[{"key": "each", "action": "rowed", "each": True},
+               {"key": "all", "action": "rowed"}])
 
     class Greet:
         def ask(self, step: str) -> dict:
@@ -203,9 +228,13 @@ def served(ctx: Any) -> None:
                 return {"fields": [], "error": "Not that one"}
             if step == "object":
                 return {"fields": [], "notes": object()}
+            if step == "rows":
+                return {"fields": [{"key": "rows", "type": "string"}]}
             raise ValueError("The service said no")
 
     ctx.ui.action("greet", Greet())
+    ctx.ui.action("rowed", Rowed())
+    ctx.ui.action("bare", Bare())
     ctx.ui.action("plain", Plain())
     ctx.ui.action("worker", Worker())
     ctx.ui.action("tracked", Tracked())
@@ -621,7 +650,8 @@ class Verbs(ServedCase):
         return self.post(f"/lists/verbed/verbs/{verb}", {"ids": list(ids)})
 
     def declared(self) -> dict:
-        return {one["key"]: one for one in self.record.lists()[-1]["verbs"]}
+        (found,) = [one for one in self.record.lists() if one["key"] == "verbed"]
+        return {one["key"]: one for one in found["verbs"]}
 
     def test_a_verb_is_declared_with_the_words_the_catalog_has_for_it(self) -> None:
         found = self.declared()
@@ -695,6 +725,61 @@ class Verbs(ServedCase):
         self.assertEqual(found.status_code, 403)
         self.assertIn(f"ext:{NAME}:write", found.json()["error"]["message"])
         self.assertEqual(STATE["pressed"], [])
+
+
+class DialogsOpenedFromAList(ServedCase):
+    def asked(self, key: str, rows: list[str]) -> Any:
+        return self.client.get(f"{self.base}/actions/{key}", params={"rows": rows})
+
+    def test_the_rows_a_dialog_was_opened_over_are_handed_to_its_ask(self) -> None:
+        self.ok(self.asked("rowed", ["1", "2"]))
+
+        self.assertEqual([["1", "2"]], STATE["asked_rows"])
+
+    def test_a_dialog_opened_over_no_rows_is_asked_with_none(self) -> None:
+        self.ok(self.get("/actions/rowed"))
+
+        self.assertEqual([[]], STATE["asked_rows"])
+
+    def test_a_dialog_that_does_not_name_rows_is_not_handed_any(self) -> None:
+        self.ok(self.asked("bare", ["1"]))
+
+        self.assertEqual([], STATE["asked_rows"])
+
+    def test_a_check_that_is_not_there_asks_again_with_the_rows_of_the_values(self) -> None:
+        self.ok(self.post("/actions/rowed/check", {"values": {"rows": ["1", "2"]}}))
+
+        self.assertEqual([["1", "2"]], STATE["asked_rows"])
+
+    def test_a_field_named_rows_is_refused_as_the_extensions_failure(self) -> None:
+        error = self.refused(self.get("/actions/wrong", step="rows"), 400)
+
+        self.assertIn("'rows'", error["message"])
+
+    def test_the_rows_travel_in_the_values_of_every_later_call(self) -> None:
+        self.ok(self.post("/actions/rowed/run", {"values": {"rows": ["1"]}}))
+
+        self.assertEqual([["1"]], STATE["ran_rows"])
+
+    def test_a_list_declares_the_dialogs_it_adds_with_their_words(self) -> None:
+        (found,) = [one for one in self.record.lists() if one["key"] == "opening"]
+
+        self.assertEqual([{"action": "rowed", "label": "Add a note"},
+                          {"action": "bare", "label": "Add bare"}], found["add"])
+
+    def test_a_verb_that_opens_a_dialog_says_which_and_whether_it_walks_the_rows(self) -> None:
+        (found,) = [one for one in self.record.lists() if one["key"] == "opening"]
+
+        self.assertEqual([("each", "rowed", True), ("all", "rowed", False)],
+                         [(one["key"], one["action"], one["each"]) for one in found["verbs"]])
+        self.refused(self.post("/lists/opening/verbs/each", {"ids": ["1"]}), 404)
+
+    def test_an_act_that_opens_a_dialog_is_listed_with_it_and_is_not_pressed(self) -> None:
+        found = self.ok(self.get("/lists/opening/about"))
+
+        self.assertEqual([{"key": "open", "label": "Open the dialog", "action": "rowed"}],
+                         found["acts"])
+        self.refused(self.post("/lists/opening/about/acts/open"), 404)
 
 
 class Dialogs(ServedCase):

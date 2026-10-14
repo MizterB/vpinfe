@@ -4095,6 +4095,7 @@
   "error.extensions.no_action": "{display} has no action called {key}",
   "error.extensions.bad_answer": "{display} answered {key} with something that is not a step",
   "error.extensions.no_run": "{display} has nothing to run for {key}",
+  "error.extensions.rows_field": "{display} gave a dialog a field named 'rows', which is reserved",
   "error.extensions.not_data": "{display} answered {at} with something VPinFE cannot read",
   "error.extensions.no_account": "{display} does not keep player accounts",
   "error.extensions.account_read_only": "{display} accounts cannot be changed from here",

@@ -44,6 +44,8 @@ DECLARES: dict[str, list[str]] = {
     "slow_sync": ["dialog     sync: ask run"],
     "play_log": [],
     "top_scores": ["settings   key (secret)", "list       top in community: 3 columns"],
+    "add_score": ["settings   key (secret)", "dialog     post: ask run",
+                  "list       scores in community: 3 columns, 0 views, 0 verbs, adds post"],
     "score_rows": ["list       scores in community: 3 columns, 0 views, 3 verbs"],
     "secret_key": ["settings   key (secret)", "dialog     connect: ask run"],
     "player_handle": ["account    a player can hold one"],

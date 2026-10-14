@@ -17,7 +17,7 @@ import inspect
 import json
 import logging
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any
 
 from common import failures, i18n
@@ -228,15 +228,20 @@ def list_about(record: Record, key: str) -> dict:
     offered = []
     for act, what in _acts(record, key, functions).items():
         label = said(record, f"list.{key}.act.{act}.label", act)
+        opens = what.get("action") if isinstance(what, dict) else None
+        if opens is not None and opens not in _context(record).ui.action_objects:
+            raise ExtensionError(i18n.t("error.extensions.no_action",
+                                         display=record.display_name, key=opens))
         offered.append({"key": act, "label": label,
-                        **({"url": str(what)} if isinstance(what, str) else {})})
+                        **({"url": str(what)} if isinstance(what, str) else {}),
+                        **({"action": str(opens)} if opens is not None else {})})
     return {"status": status, "acts": offered}
 
 
 def list_act(record: Record, key: str, act: str) -> dict:
     functions = _list(record, key)
     what = _acts(record, key, functions).get(act)
-    if what is None or isinstance(what, str):
+    if what is None or isinstance(what, (str, dict)):
         raise NotFoundError(i18n.t("error.extensions.no_act", display=record.display_name,
                                    key=act))
     return _message(record, f"list {key} act {act}", called(record, f"list {key} act {act}",
@@ -338,6 +343,9 @@ def _titled(record: Record, key: str, answer: Any) -> dict:
         dialog_fields(record.name, answer.get("fields") or [])
     except FieldError as exc:
         raise ExtensionError(str(exc)) from exc
+    if any(isinstance(one, dict) and one.get("key") == "rows"
+           for one in answer.get("fields") or []):
+        raise ExtensionError(i18n.t("error.extensions.rows_field", display=record.display_name))
     if not answer.get("title"):
         declared: dict = next((one for one in _context(record).ui.actions
                                if one["key"] == key), {})
@@ -346,12 +354,20 @@ def _titled(record: Record, key: str, answer: Any) -> dict:
     return answer
 
 
-def dialog_ask(record: Record, key: str, step: str = "") -> dict:
+def _chosen(values: dict | None) -> list[str]:
+    """The ids of the rows a dialog was opened over, which travel in its values."""
+    rows = (values or {}).get("rows")
+    return [str(one) for one in rows] if isinstance(rows, list) else []
+
+
+def dialog_ask(record: Record, key: str, step: str = "",
+               rows: Sequence[str] = ()) -> dict:
     """The step to draw. A dialog with no `check` has no step after this one, so the step is
-    the last and its button is the title."""
+    the last and its button is the title. `rows` are the ids of the rows it was opened
+    over, handed to an `ask` that names them."""
     dialog = _dialog(record, key)
-    answer = _titled(record, key, plain(record, f"action {key}",
-                                        called(record, f"action {key}", dialog.ask, step)))
+    answer = _titled(record, key, plain(record, f"action {key}", called(
+        record, f"action {key}", dialog.ask, step, **_extras(dialog.ask, rows=list(rows)))))
     if not hasattr(dialog, "check") and not (answer.get("summary") or answer.get("confirm")):
         answer = {**answer, "confirm": answer["title"]}
     return answer
@@ -360,11 +376,11 @@ def dialog_ask(record: Record, key: str, step: str = "") -> dict:
 def dialog_check(record: Record, key: str, values: dict, step: str = "") -> dict:
     check = getattr(_dialog(record, key), "check", None)
     if check is None:
-        return dialog_ask(record, key, step)
+        return dialog_ask(record, key, step, _chosen(values))
     answer = called(record, f"action {key} check", check, values or {},
                     **_extras(check, step=step))
     if answer is None:
-        return dialog_ask(record, key, step)
+        return dialog_ask(record, key, step, _chosen(values))
     return _titled(record, key, plain(record, f"action {key} check", answer))
 
 
@@ -376,7 +392,7 @@ def dialog_act(record: Record, key: str, act: str, values: dict, step: str = "")
     answer = called(record, f"action {key} act {act}", do, act, values or {},
                     **_extras(do, step=step))
     if answer is None:
-        return dialog_ask(record, key, step)
+        return dialog_ask(record, key, step, _chosen(values))
     return _titled(record, key, plain(record, f"action {key} act {act}", answer))
 
 

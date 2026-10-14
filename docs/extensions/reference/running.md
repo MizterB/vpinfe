@@ -1,57 +1,58 @@
 # Running one
 
-Where an extension keeps its settings, switching it off and on, where its log is, and what
-you see when it breaks.
+This page covers where an extension keeps its settings, how to switch it off and on, where its
+log is, and what you see when it breaks.
 
 ## Config
 
-Two homes, because there are two owners.
+There are two homes, because there are two owners.
 
 | file | holds |
 |---|---|
 | `vpinfe.json`, `extensions.switched_off` | the names of the extensions switched off |
 | `extension_settings/<name>.json` | that extension's own settings, its players' `accounts`, and what core remembers it `declared` |
 
-Never the rest of `vpinfe.json`: that file holds what core is configured with, and it is where
-a token would go. `accounts` and `declared` are reserved, so they cannot be setting names.
+Core never touches the rest of `vpinfe.json`.  That file holds what core is configured with,
+and it is where a token would go.  `accounts` and `declared` are reserved, so they cannot be
+setting names.
 
 A setting a 2.x file held for an extension is copied across once, while that file is
-converted, and removed from it. Core keeps the old names in its schema so the file still
+converted, and removed from it.  Core keeps the old names in its schema so the file still
 converts, and nothing writes them again.
 
-A file each rather than a namespace inside one, for the same reason: a namespace in somebody
-else's file is a weaker form of "own" than a file. One extension's bad file costs that
-extension and no other. Settings are not beside an extension's code: one the build ships has
-no directory in the config dir, so they need a home that does not depend on where the code
-came from.
+Each extension gets a file of its own instead of a namespace inside one, because a namespace
+in somebody else's file is a weaker form of "own" than a file.  One extension's bad file costs
+that extension and no other.  Settings do not sit beside an extension's code either: one the
+build ships has no directory in the config dir, so they need a home that does not depend on
+where the code came from.
 
 ### Switching one on or off
 
 Whether an extension is switched off is core's setting, because core has to know before it
-loads anything. A person switches one with the switch on its page under Settings >
+loads anything.  A person switches one with the switch on its page under Settings >
 Extensions, or with `PUT /api/v1/extensions/{name}/enabled` (needs `config:write`;
-`GET /api/v1/extensions` lists them and needs `instance:read`). Either writes
+`GET /api/v1/extensions` lists them and needs `instance:read`).  Either writes
 `extensions.switched_off`.
 
-- **Off is at once.** The extension goes the way a broken one does, below, and says it was
+- **Off is at once.**  The extension goes the way a broken one does, below, and says it was
   switched off rather than that it broke.
-- **On is at once for an extension that only declares through `ctx.ui`**: its lists, settings,
-  actions and account come back with no restart, because core serves them.
-- **On waits for a restart for an extension with routers of its own** (`ctx.add_router`),
-  because routes mount once at startup and one that was off never registered any. It says
-  "Starts at the next restart" until then.
+- **On is at once for an extension that only declares through `ctx.ui`.**  Its lists,
+  settings, actions and account come back with no restart, because core serves them.
+- **On waits for a restart for an extension with routers of its own** (`ctx.add_router`).
+  Routes mount once at startup, and one that was off never registered any.  It says "Starts at
+  the next restart" until then.
 
 ## Logs
 
-`vpinfe.ext.<name>`, issued as `ctx.logger`. An extension never logs into a core namespace,
-because the namespace is how "which extension did this?" stays answerable. Everything below
-that says "the log" means these lines in VPinFE's log.
+An extension logs to `vpinfe.ext.<name>`, which you get as `ctx.logger`.  It never logs into a
+core namespace, because the namespace is how "which extension did this?" stays answerable.
+Everywhere below, "the log" means these lines in VPinFE's log.
 
 ## When one breaks
 
 Reading the manifest, importing the package and calling `register` are each somebody else's
-code, and any of them failing costs one extension and no other. Every failure below says why,
-on the extension's page under Settings > Extensions and in `GET /api/v1/extensions`; the log
+code, and any of them failing costs one extension and no other.  Every failure below says why,
+on the extension's page under Settings > Extensions and in `GET /api/v1/extensions`.  The log
 has the traceback.
 
 | what failed | what happens | where it shows |
@@ -71,20 +72,23 @@ has the traceback.
 | Switched off | Withdrawn like the above, but says so | "Switched off" |
 | Switched on, with routers of its own | *off* until the next start | "Starts at the next restart" |
 
-A *disabled* extension is not written down: a fault that happened once must not take an
-extension away until somebody notices a setting they never set. It starts again on the next
+A *disabled* extension is not written down.  A fault that happened once must not take an
+extension away until somebody notices a setting they never set, so it starts again on the next
 run.
 
-What is withdrawn when one is taken out: its subscriptions are dropped, so it is told nothing
-more; its scopes go with it, so nothing holds a grant into something that is not running; the
-apps it provided, with their words, and the services it answered go too, so no suffix stays
-claimed by it and core asks it nothing; its routes keep their paths and answer `501` rather
-than `404`, because a `404` reads as a typo.
+Taking one out withdraws four things:
+
+- its subscriptions, so it is told nothing more
+- its scopes, so nothing holds a grant into something that is not running
+- the apps it provided, with their words, and the services it answered, so no suffix stays
+  claimed by it and core asks it nothing
+- its routes keep their paths but answer `501` rather than `404`, because a `404` reads as a
+  typo
 
 ### Unavailable
 
-`Unavailable` is for a service that did not answer, or answered with something unreadable.
-Raise it from any function core calls, with the message a person reads.
+Raise `Unavailable` when a service did not answer, or answered with something unreadable.  Any
+function core calls may raise it, with the message a person reads.
 
 ```python
 from common.extensions.contract import Unavailable
@@ -96,15 +100,15 @@ except (OSError, ValueError) as exc:
 ```
 
 Core serves it as `502` with `upstream_unavailable` rather than as a mistake in the request,
-and the Console draws it as "could not reach its service" with that message under it. A
+and the Console draws it as "could not reach its service" with that message under it.  A
 failure to connect raised without `Unavailable` counts too, as long as the error is in the
-cause chain. The extension is not disabled; the next visit or Refresh asks again.
+cause chain.  The extension is not disabled, and the next visit or Refresh asks again.
 
 ### Checking one
 
 `python main.py --check-extension <folder>` loads one extension the way core does, in a
-scratch store, and reports. Exit status 0 means it passed, 1 means it did not. Only read
-functions are called (a list's `rows`, a status, a dialog's first step, the settings) and
+scratch store, and reports.  Exit status 0 means it passed and 1 means it did not.  Only read
+functions are called (a list's `rows`, a status, a dialog's first step, the settings), and
 nothing is sent or saved.
 
 ```

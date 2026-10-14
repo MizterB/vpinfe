@@ -30,7 +30,8 @@ it, what you will see, a few variations and the mistake people make with it.
 - [5. A long job with progress](#5-a-long-job-with-progress)
 - [6. Listening to events](#6-listening-to-events)
 - [7. A list](#7-a-list)
-- [8. Acting on rows](#8-acting-on-rows)
+- [8. A list you can add to](#8-a-list-you-can-add-to)
+- [9. Acting on rows](#9-acting-on-rows)
 - [13. An account per player](#13-an-account-per-player)
 
 ## Basics
@@ -600,7 +601,124 @@ there, it lists the three sample scores, best first.
 in one area may not share a title. The extension is refused at load, and the reason is in its
 page.
 
-### 8. Acting on rows
+### 8. A list you can add to
+
+**Use it when:** the person should be able to put something new into a list, such as a score
+on a site, and see it appear.
+
+A list's `add` names a dialog you declared. Core puts a button for it above the list, opens
+the dialog when it is pressed, and reads the list again once the dialog has run. The dialog is
+the one you already know from recipe 3, so the list only points at it.
+
+`recipes/add_score/extension.json`
+
+```json
+{
+  "name": "add_score",
+  "version": "1.0.0",
+  "requires_platform": 1,
+  "capabilities": ["config:own", "net:outbound", "ui:mount"]
+}
+```
+
+`recipes/add_score/__init__.py`
+
+```python
+import json
+import urllib.error
+import urllib.request
+
+from common.extensions.contract import Unavailable
+
+
+def register(ctx):
+    ctx.ui.settings([
+        {"key": "site", "type": "string", "default": "http://127.0.0.1:8790"},
+        {"key": "key", "type": "secret"},
+    ])
+
+    def call(path, body=None):
+        request = urllib.request.Request(
+            ctx.config.get("site") + path,
+            data=json.dumps(body).encode() if body is not None else None,
+            headers={"X-API-Key": ctx.config.get("key"), "Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(request, timeout=10) as answer:
+                return json.loads(answer.read())
+        except urllib.error.HTTPError as exc:
+            if exc.code == 401:
+                raise Unavailable(ctx.t("error.refused")) from exc
+            raise Unavailable(ctx.why(exc, at=request.full_url)) from exc
+        except OSError as exc:
+            raise Unavailable(ctx.why(exc, at=request.full_url)) from exc
+
+    class Post:
+        def ask(self, step):
+            return {"step": "score", "title": ctx.t("dialog.post.title"), "fields": [
+                {"key": "player", "label": ctx.t("dialog.player"), "type": "string"},
+                {"key": "table", "label": ctx.t("dialog.table"), "type": "string"},
+                {"key": "score", "label": ctx.t("dialog.points"), "type": "number"}]}
+
+        def run(self, values):
+            call("/scores", {"player": values["player"], "table": values["table"],
+                             "score": int(values["score"])})
+            return ctx.t("dialog.posted", table=values["table"])
+
+    ctx.ui.action("post", Post())
+    ctx.ui.list("scores", lambda: call("/top"), area="community", columns=[
+        {"field": "player"},
+        {"field": "table"},
+        {"field": "score", "kind": "number"},
+    ], add="post")
+```
+
+`recipes/add_score/i18n/en.json`
+
+```json
+{
+  "name": "Add Score",
+  "description": "Lists the scores on Example Scores and adds one from a button above the list.",
+  "settings.site.label": "Site",
+  "settings.key.label": "Key",
+  "error.refused": "The site did not accept the key",
+  "action.post.label": "Add a score",
+  "dialog.post.title": "The score",
+  "dialog.player": "Player",
+  "dialog.table": "Table",
+  "dialog.points": "Score",
+  "dialog.posted": "Posted a score for {table}",
+  "list.scores.title": "Add Score",
+  "list.scores.column.player.header": "Player",
+  "list.scores.column.table.header": "Table",
+  "list.scores.column.score.header": "Score"
+}
+```
+
+**Where it appears:** on the list's page under Community in the rail, in the bar above the
+list. **What triggers it:** the person pressing the button. The dialog's `run` is called with
+what they typed, and core reads the list again afterwards.
+
+**What you'll see:** Add Score under Community in the rail, with an **Add a score** button
+beside the search box. While the list is empty the button is there in full words, so a new
+list never looks broken. Press it, type a player, a table and a score, and the dialog closes
+with "Posted a score for Attack from Mars". The new score is in the list.
+
+**Variations:**
+
+- Name more than one dialog, `add=["post", "import"]`, and the button becomes a **+** with a
+  menu of your dialogs' labels.
+- A verb can open a dialog too, over the rows the person picked: give it `"action": "post"`
+  in place of `run`. Your dialog's `ask(step, rows)` is handed the picked ids on its first
+  call and gets them back as `values["rows"]` from then on.
+- Add `"each": True` to that verb and the dialog opens once for each picked row, with **Skip**
+  and **Stop** where Cancel would be.
+- An act in the list's title menu can do the same: `{"key": "sign_in", "action": "connect"}`.
+
+**Watch out:** the dialog named by `add`, a verb or an act has to be declared with
+`ctx.ui.action`, in the same extension. An unknown one is refused at load, with its name in the
+reason.
+
+### 9. Acting on rows
 
 **Use it when:** the person should be able to do something to the rows they pick, such as
 flag a score, open its page or remove it.

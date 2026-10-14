@@ -1,7 +1,7 @@
 # The context
 
-`ctx` is the whole of an extension's reach. There is no way to get from it to the
-application, and that is the guarantee the model rests on.
+`ctx` is the whole of an extension's reach.  There is no way to get from it to the application,
+and the rest of the model rests on that.
 
 | on `ctx` | what it is |
 |---|---|
@@ -19,19 +19,19 @@ application, and that is the guarantee the model rests on.
 | `ctx.games` | The library, and everything core offers by name |
 | `ctx.apps` | A way to play a table |
 
-Every call that needs a capability or a scope its manifest did not declare raises
-`ContractError`, from `common.extensions.contract`. During `register` that fails the
-extension (see [When one breaks](running.md#when-one-breaks)).
+Every call that needs a capability or a scope the manifest did not declare raises
+`ContractError`, from `common.extensions.contract`.  During `register` that fails the extension
+(see [When one breaks](running.md#when-one-breaks)).
 
-An extension imports `common.extensions.contract` and nothing else of VPinFE's. It holds
-`Unavailable`, `ContractError`, `words(name)` and `why(exc, at="")`; the last two are
-`ctx.t` and `ctx.why` for a module that is not handed `ctx`.
+An extension imports `common.extensions.contract` and nothing else of VPinFE's.  It holds
+`Unavailable`, `ContractError`, `words(name)` and `why(exc, at="")`.  The last two are `ctx.t`
+and `ctx.why` for a module that is not handed `ctx`.
 
 ## The extension itself
 
 ### `ctx.name`
 
-The manifest's `name`: a string. It is also the Python package name and the URL segment.
+The manifest's `name`, a string.  It is also the Python package name and the URL segment.
 
 ```python
 ctx.logger.info("%s is registering", ctx.name)
@@ -40,8 +40,8 @@ ctx.logger.info("%s is registering", ctx.name)
 ### `ctx.manifest`
 
 The parsed manifest, frozen: `name`, `display_name`, `version`, `description`,
-`requires_platform`, `scopes`, `capabilities`, `requires_features`, `platforms`, `events`.
-The lists are tuples.
+`requires_platform`, `scopes`, `capabilities`, `requires_features`, `platforms`, `events`.  The
+lists are tuples.
 
 ```python
 if "net:outbound" in ctx.manifest.capabilities:
@@ -58,7 +58,7 @@ headers = {"User-Agent": f"{ctx.name}/{ctx.manifest.version} VPinFE/{ctx.host_ve
 
 ### `ctx.logger`
 
-A `logging.Logger` named `vpinfe.ext.<name>`. See [Logs](running.md#logs).
+A `logging.Logger` named `vpinfe.ext.<name>`.  See [Logs](running.md#logs).
 
 ```python
 ctx.logger.warning("score server answered slowly: %s seconds", 4)
@@ -66,8 +66,8 @@ ctx.logger.warning("score server answered slowly: %s seconds", 4)
 
 ### `ctx.open`
 
-True while `register` runs and False after. Not something to branch on in normal code;
-it is why a router added later is refused.
+True while `register` runs and False after.  You rarely need to branch on it.  It is why a
+router added later is refused.
 
 ```python
 assert ctx.open
@@ -75,8 +75,8 @@ assert ctx.open
 
 ### `ctx.routers`
 
-The routers added so far, as `(router, scope)` pairs. Read by core after `register`.
-An extension has no reason to touch it; use `ctx.add_router`.
+The routers added so far, as `(router, scope)` pairs.  Core reads it after `register`, and an
+extension has no reason to touch it.  Use `ctx.add_router`.
 
 ```python
 ctx.add_router(router, scope=ctx.scope("read"))
@@ -85,27 +85,27 @@ assert (router, "ext:example_scores:read") in ctx.routers
 
 ### `ctx.t`
 
-`ctx.t(key, /, **params) -> str`. Required: `key`.
+`ctx.t(key, /, **params) -> str`.  Required: `key`.
 
-What the extension's own `i18n/<language>.json` says for `key`, in the language now set.
-Slots in braces are filled from `params`. A plural entry is chosen by `count`.
+What the extension's own `i18n/<language>.json` says for `key`, in the language now set.  Slots
+in braces are filled from `params`, and a plural entry is chosen by `count`.
 
 ```python
 line = ctx.t("sent", count=3)    # "3 scores sent"
 ```
 
-The user sees the sentence in their language. A key the catalog lacks answers the full key,
-`ext.<name>.<key>`, so the gap is visible and `--check-extension` reports it. See [Words](words.md).
+The user sees the sentence in their language.  A key the catalog lacks answers the full key,
+`ext.<name>.<key>`, so the gap is visible and `--check-extension` reports it.  See
+[Words](words.md).
 
 ### `ctx.why`
 
-`ctx.why(exc, /, at="") -> str`. Required: `exc`.
+`ctx.why(exc, /, at="") -> str`.  Required: `exc`.
 
-Why something failed, in the words core uses under its own failures: a missing file, a
-refused permission, a host that did not answer. For an exception core has no words for it
-is the exception's own text, so the extension words that one itself. `at` is the URL or
-path being reached, for an exception that does not carry it, such as the standard
-library's `URLError`.
+Why something failed, in the words core uses under its own failures: a missing file, a refused
+permission, a host that did not answer.  For an exception core has no words for, you get the
+exception's own text, so word that one yourself.  `at` is the URL or path being reached, for an
+exception that does not carry it, such as the standard library's `URLError`.
 
 ```python
 try:
@@ -114,31 +114,31 @@ except (urllib.error.URLError, TimeoutError) as exc:
     raise Unavailable(ctx.why(exc, at=address)) from exc
 ```
 
-The user sees a line like `scores.example.com did not answer in time`. It does not raise.
+The user sees a line like `scores.example.com did not answer in time`.  It does not raise.
 
 ### `ctx.scope`
 
-`ctx.scope(action) -> str`. Required: `action`.
+`ctx.scope(action) -> str`.  Required: `action`.
 
-The scope name for one of this extension's actions: `ext:<name>:<action>`. Only `read` and
+The scope name for one of this extension's actions, `ext:<name>:<action>`.  Only `read` and
 `write` are real.
 
 ```python
 router_scope = ctx.scope("write")    # "ext:example_scores:write"
 ```
 
-Nothing is drawn. It raises nothing; a name other than `read` or `write` is refused later,
+Nothing is drawn.  It raises nothing, and a name other than `read` or `write` is refused later,
 by `ctx.add_router`.
 
 ### `ctx.add_router`
 
-`ctx.add_router(router, *, scope)`. Required: `router`, `scope`.
+`ctx.add_router(router, *, scope)`.  Required: `router`, `scope`.
 
-Serve routes of the extension's own under `/api/v1/ext/<name>/`. Core attaches the gate;
-the extension cannot choose to have none. `scope` is `ctx.scope("read")` or
-`ctx.scope("write")`, and a request needs it. Use it for an API that is the extension's
-own, such as a route a theme calls or a picture the service serves. Everything declared
-through `ctx.ui` is served by core and needs no router.
+Serves routes of the extension's own under `/api/v1/ext/<name>/`.  Core attaches the gate, and
+the extension cannot choose to have none.  `scope` is `ctx.scope("read")` or
+`ctx.scope("write")`, and a request needs it.  Use it for an API that is the extension's own,
+such as a route a theme calls or a picture the service serves.  Everything declared through
+`ctx.ui` is served by core and needs no router.
 
 ```python
 from fastapi import APIRouter
@@ -154,39 +154,40 @@ def hello() -> dict:
 ctx.add_router(router, scope=ctx.scope("read"))
 ```
 
-Nothing is drawn; a theme or another program calls `GET /api/v1/ext/<name>/hello`. It
-raises `ContractError` if called after `register` returned, or if `scope` is not this
-extension's `read` or `write`.
+Nothing is drawn.  A theme or another program calls `GET /api/v1/ext/<name>/hello`.  It raises
+`ContractError` if called after `register` returned, or if `scope` is not this extension's
+`read` or `write`.
 
-Routers mount once, at startup. An extension that adds routers and is switched on after
-the run began shows "Starts at the next restart" rather than starting. See "Switching one
-on or off".
+Routers mount once, at startup.  An extension that adds routers and is switched on after the
+run began shows "Starts at the next restart" rather than starting.  See
+[Switching one on or off](running.md#switching-one-on-or-off).
 
 ## `ctx.config`
 
-An extension's settings, under its own name. See [Config](running.md#config) for where they are kept.
+An extension's settings, under its own name.  See [Config](running.md#config) for where they
+are kept.
 
 ### `ctx.config.get`
 
-`ctx.config.get(key, default="") -> str`. Required: `key`.
+`ctx.config.get(key, default="") -> str`.  Required: `key`.
 
-What is stored under `key`; where that is empty, the default the setting declares; where
-there is neither, `default`. Always a string. A switch is `"true"` or `"false"`, a number
-is its digits, and a multi is a JSON list: read it with `ctx.config.get_list`.
+What is stored under `key`.  Where that is empty, you get the default the setting declares, and
+where there is neither, `default`.  Always a string: a switch is `"true"` or `"false"`, a number
+is its digits, and a multi is a JSON list that you read with `ctx.config.get_list`.
 
 ```python
 address = ctx.config.get("server")
 retries = int(ctx.config.get("retries", "3"))
 ```
 
-The user sees the value they typed in the extension's settings. Does not raise.
+The user sees the value they typed in the extension's settings.  Does not raise.
 
 ### `ctx.config.get_list`
 
-`ctx.config.get_list(key) -> list[str]`. Required: `key`.
+`ctx.config.get_list(key) -> list[str]`.  Required: `key`.
 
-The keys ticked in a `multi` setting, in the order they were ticked; the setting's declared
-default where none has been saved, and `[]` where that is empty.
+The keys ticked in a `multi` setting, in the order they were ticked.  Where none has been saved
+you get the setting's declared default, and `[]` where that is empty.
 
 ```python
 regions = ctx.config.get_list("regions")
@@ -198,8 +199,8 @@ Does not raise.
 
 `ctx.config.all() -> dict[str, str]`.
 
-Everything stored, as strings. Settings never written are absent; defaults are not mixed
-in. Includes secrets.
+Everything stored, as strings, secrets included.  Settings never written are absent, and
+defaults are not mixed in.
 
 ```python
 held = ctx.config.all()
@@ -210,29 +211,30 @@ Does not raise.
 
 ### `ctx.config.set`
 
-`ctx.config.set(key, value)`. Required: `key`, `value`.
+`ctx.config.set(key, value)`.  Required: `key`, `value`.
 
-Store `value` under `key`. It need not be a declared setting; a key that is not declared
-is kept but never drawn, and `accounts` and `declared` are reserved names. Values are text.
+Stores `value` under `key`.  The key need not be a declared setting.  One that is not declared
+is kept but never drawn, and `accounts` and `declared` are reserved names.  Values are text.
 
 ```python
 ctx.config.set("last_week", "42")
 ```
 
-The user sees the new value if the key is a declared setting. The file is written at once.
+The user sees the new value if the key is a declared setting.  The file is written at once.
 
 ## `ctx.events`
 
-The bus, seen from one extension. It is told what core did, and publishes under its own
+The bus, seen from one extension.  It is told what core did, and it publishes under its own
 namespace so nothing it emits can be mistaken for a core event.
 
 ### `ctx.events.subscribe`
 
-`ctx.events.subscribe(event, handler)`. Required: `event`, `handler`.
+`ctx.events.subscribe(event, handler)`.  Required: `event`, `handler`.
 
-Call `handler(**payload)` whenever core emits `event`. See [What a game tells you](offers.md#what-a-game-tells-you) for the
-events and what each carries. A handler takes keyword arguments and ignores what it does
-not use. It runs on the thread that emitted the event, so it must return quickly.
+Calls `handler(**payload)` whenever core emits `event`.  See
+[What a game tells you](offers.md#what-a-game-tells-you) for the events and what each carries.
+A handler takes keyword arguments and ignores what it does not use.  It runs on the thread that
+emitted the event, so it must return quickly.
 
 ```python
 def on_played(**payload):
@@ -243,46 +245,46 @@ def on_played(**payload):
 ctx.events.subscribe("table.play_recorded", on_played)
 ```
 
-A handler that raises is contained and logged, and takes the extension out for this run
-with the reason "Failed while handling table.play_recorded". Its subscriptions are
-dropped and its routes answer 501.
+A handler that raises is contained and logged, and takes the extension out for this run with
+the reason "Failed while handling table.play_recorded".  Its subscriptions are dropped and its
+routes answer 501.
 
 ### `ctx.events.publish`
 
-`ctx.events.publish(event, **payload)`. Required: `event`.
+`ctx.events.publish(event, **payload)`.  Required: `event`.
 
-Emit `<name>.<event>` with `payload`. `event` has to be named in the manifest's `events`.
+Emits `<name>.<event>` with `payload`.  The `event` has to be named in the manifest's `events`.
 
 ```python
 ctx.events.publish("scored", game_id="g1", score=10)    # emits "example_scores.scored"
 ```
 
-Other extensions and core subscribers hear it. It raises `ContractError` for an event the
+Other extensions and core subscribers hear it.  It raises `ContractError` for an event the
 manifest does not declare.
 
 ## `ctx.files`
 
-The folders an extension works from, so core accepts a path inside one. Nothing here stops
-an extension reading a file, because in-process Python cannot be prevented from opening
-one. What it does is let core's own routes take a path the extension is working with: an
-importer converting an old library has to hand core files nowhere near VPinFE's, and
-without this every one is refused. Declared rather than assumed, so what an install will
-read is something a person agreed to and can be shown.
+The folders an extension works from, so core accepts a path inside one.  Nothing here stops an
+extension reading a file, since in-process Python cannot be prevented from opening one.  What
+it does is let core's own routes take a path the extension is working with.  An importer
+converting an old library has to hand core files nowhere near VPinFE's, and without this every
+one is refused.  The folders are declared rather than assumed, so what an install will read is
+something a person agreed to and can be shown.
 
 ### `ctx.files.set_roots`
 
-`ctx.files.set_roots(paths)`. Required: `paths`.
+`ctx.files.set_roots(paths)`.  Required: `paths`.
 
-Replace the set of folders. Paths are expanded and resolved. Call it again when the user
-points somewhere else; the set follows rather than accumulates. Needs the `fs:read`
+Replaces the set of folders.  Paths are expanded and resolved.  Call it again when the user
+points somewhere else, and the set follows rather than accumulates.  Needs the `fs:read`
 capability.
 
 ```python
 ctx.files.set_roots([ctx.config.get("source")])
 ```
 
-The user sees, on the extension's page, that it reads files. Raises `ContractError`
-without `fs:read`.
+The user sees, on the extension's page, that it reads files.  Raises `ContractError` without
+`fs:read`.
 
 ### `ctx.files.roots`
 
@@ -312,34 +314,34 @@ Does not raise.
 
 ## `ctx.jobs`
 
-Slow work, run the way core runs it. The job id is `<name>.<kind>`, so a job somebody is
-watching says which extension is doing it. One at a time per kind: two imports of one
-library at once would race each other into the same folders.
+Slow work, run the way core runs it.  The job id is `<name>.<kind>`, so a job somebody is
+watching says which extension is doing it.  There is one at a time per kind, since two imports
+of one library at once would race each other into the same folders.
 
 ### `ctx.jobs.submit`
 
 `ctx.jobs.submit(kind, work, *, stoppable=False, keep_result=False) -> Job`.
 Required: `kind`, `work`.
 
-Run `work(job)` on its own thread. The job appears in the Jobs view and on
-`/api/v1/jobs`. `work` receives the job:
+Runs `work(job)` on its own thread.  The job appears in the Jobs view and on `/api/v1/jobs`.
+`work` receives the job:
 
 | on the job | what it does |
 |---|---|
 | `job.progress(done, total, message)` | Says how far it is |
 | `job.log(message)` | Adds a line to what the job reports |
 | `job.detail` | A line beside the progress |
-| `job.halt` | A `threading.Event`, set when somebody asks the job to stop. Look at it between units |
+| `job.halt` | A `threading.Event`, set when somebody asks the job to stop.  Look at it between units |
 | `job.stopped` | Set it to True when the work ended early because `halt` was set |
 | `job.problems` | How many parts did not come across |
 | `job.id` | The id a run answers with as `job_id` |
 
 With `stoppable=True` the job offers a **Stop** link, which calls
-`POST /api/v1/ext/<name>/jobs/<kind>/stop` on the write scope. With `keep_result=True`
-what `work` returns is written to disk, the latest 20 (the oldest go first), so the Jobs
-view can open it after the page that started the job has gone, after a restart too. A
-result may list `rows`, and every row with an `error` is shown under what did not come
-across, by its `name`; `error` takes a string or `{text, detail}`.
+`POST /api/v1/ext/<name>/jobs/<kind>/stop` on the write scope.  With `keep_result=True` what
+`work` returns is written to disk, the latest 20 with the oldest going first, so the Jobs view
+can open it after the page that started the job has gone, and after a restart too.  A result
+may list `rows`.  Every row with an `error` is shown under what did not come across, by its
+`name`, and `error` takes a string or `{text, detail}`.
 
 ```python
 def work(job):
@@ -354,16 +356,16 @@ def work(job):
 job = ctx.jobs.submit("import", work, stoppable=True, keep_result=True)
 ```
 
-The user sees the job in the Jobs view with its progress, and a Stop link when
-`stoppable`. An exception out of `work` ends the job as failed with that message; it does
-not take the extension out.
+The user sees the job in the Jobs view with its progress, and a Stop link when `stoppable`.  An
+exception out of `work` ends the job as failed with that message.  It does not take the
+extension out.
 
 ### `ctx.jobs.stop`
 
-`ctx.jobs.stop(kind) -> bool`. Required: `kind`.
+`ctx.jobs.stop(kind) -> bool`.  Required: `kind`.
 
-Ask this extension's running job of that kind to end early, by setting `job.halt`. False
-where there is none, or where it was not started `stoppable`. It does not wait.
+Asks this extension's running job of that kind to end early, by setting `job.halt`.  False
+where there is none, or where it was not started `stoppable`.  It does not wait.
 
 ```python
 if not ctx.jobs.stop("import"):

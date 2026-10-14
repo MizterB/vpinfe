@@ -9,9 +9,9 @@ it is asked, so what answers is whatever the extension registered last. The work
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Query, Response
 
 from common import extensions
 from common.extensions import serving
@@ -88,8 +88,9 @@ def router(name: str, running: Any) -> APIRouter:
     # -- dialogs -------------------------------------------------------------------
 
     @get("/actions/{key}", "The step of a dialog the extension declared")
-    def get_action(key: str, step: str = "") -> dict:
-        return ask(serving.dialog_ask, key, step)
+    def get_action(key: str, step: str = "",
+                   rows: Annotated[list[str] | None, Query()] = None) -> dict:
+        return ask(serving.dialog_ask, key, step, rows or [])
 
     @post("/actions/{key}/check", "Check a dialog's values")
     def post_action_check(key: str, body: models.ExtensionStep) -> dict:

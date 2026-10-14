@@ -1,21 +1,21 @@
 # Extensions: reference
 
-An extension adds a feature to an install without being part of VPinFE. It ships as a
-directory, declares what it needs in a manifest, and is handed one object, `ctx`, that it
-reaches everything through. It never receives the application.
+An extension adds a feature to an install without being part of VPinFE.  It ships as a
+folder, says what it needs in a manifest, and gets one object, `ctx`, to reach everything
+through.  It never receives the application.
 
-The word is **extension** throughout. *Plugin* means a Visual Pinball standalone plugin,
-which is a different thing with its own page.
+The word is **extension** throughout.  A *plugin* is a Visual Pinball standalone plugin, which
+is a different thing with its own page.
 
-**Core writes and mounts every route.** An extension hands core data and Python
-functions: settings, rows, a dialog object, an account's functions. Core serves them
-under `/api/v1/ext/<name>`, draws them in the Console and gates them. An extension adds
-routes of its own with `ctx.add_router` only for an API that is its own.
+Core writes and mounts every route.  You hand it data and Python functions - settings, rows, a
+dialog, an account's functions - and it serves them under `/api/v1/ext/<name>`, shows them in
+the Console and gates them.  Add routes of your own with `ctx.add_router` only for an API that
+is yours.
 
-This is the page for looking things up. Each `ctx` call has a heading, each declaration has a
-section, and each section opens with the shape and then shows it. New to this? Start with the
-[README](README.md), then [Build an app](tutorial.md). The [Cookbook](cookbook.md) has a small
-complete extension for each task.
+Use this page to look things up.  Each `ctx` call has a heading, each declaration has a
+section, and each section gives the shape first and then an example.  New to this?  Start
+with the [README](README.md), then [Build an app](tutorial.md).  The [Cookbook](cookbook.md)
+has a small, complete extension for each task.
 
 ## Find a page
 
@@ -37,7 +37,7 @@ complete extension for each task.
 
 ## Where the code is
 
-- `common/extensions/contract.py` - the manifest and the shape of the context. The only
+- `common/extensions/contract.py` - the manifest and the shape of the context.  The only
   module of VPinFE's an extension imports.
 - `common/extensions/context.py` - what `register(ctx)` is handed.
 - `common/extensions/serving.py` - what core answers for what an extension declared.
@@ -47,7 +47,7 @@ complete extension for each task.
 - `common/extensions/check.py` - `--check-extension`.
 - `common/extensions/accounts.py` - where an account's values live, and the secret taken out
   of every answer.
-- `common/extensions/cards.py` - drawing a card and reading one.
+- `common/extensions/cards.py` - making a card and reading one.
 - `httpapi/extensions.py` - the gate, the mount, `GET /api/v1/extensions` and the switch.
 - `httpapi/extensions_served.py` - the routes core serves for what an extension declared.
 - `httpapi/player_accounts.py` - a player's accounts, Share and cards on the wire.

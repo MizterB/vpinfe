@@ -225,7 +225,8 @@ class ExtensionApps:
 COLUMN_KINDS = frozenset({"text", "number", "date"})
 RANKING_KINDS = frozenset({"number", "date"})
 RELATION_KEYS = frozenset({"vps_entry", "vps_release"})
-VERB_KEYS = frozenset({"key", "run", "link", "danger", "needs", "one", "label"})
+VERB_KEYS = frozenset({"key", "run", "link", "action", "each", "danger", "needs", "one",
+                       "label"})
 
 # The groups in the rail a list can be put in, each one core already draws.
 AREAS = ("library", "frontend", "community", "system")
@@ -404,7 +405,7 @@ class ExtensionUI:
              area: str = DEFAULT_AREA, title: str = "", views: Sequence[dict] = (),
              status: Callable[[], Any] | None = None, acts: Any = None,
              relation: dict | None = None, tag: str = "",
-             verbs: Sequence[dict] = ()) -> None:
+             verbs: Sequence[dict] = (), add: str | Sequence[str] = ()) -> None:
         """A list this extension holds, shown in the rail under `area`.
 
         `rows()` answers the rows, each a dict. `status()` answers the line the list's
@@ -422,12 +423,18 @@ class ExtensionUI:
         relates to, so it needs a `relation`.
 
         `verbs` are what can be done to the rows, in the row's menu and the selection's.
-        A verb is `{"key", "run" or "link", "label", "danger", "needs", "one"}`:
-        `run(rows)` is called with the rows chosen and answers a `message` or
+        A verb is `{"key", "run", "link" or "action", "label", "each", "danger", "needs",
+        "one"}`: `run(rows)` is called with the rows chosen and answers a `message` or
         `{"message", "url"}`, `link` names a row field holding a web address to open,
-        `danger` asks first, `needs` names a boolean row field that must be true for the
-        verb to act on a row, and `one` refuses several rows at once. A row needs an `id`,
-        a string unique in the list, to be ticked or to have a menu.
+        `action` names an action declared with `action()` and opens its dialog over the
+        rows chosen, one dialog for them all or, with `each`, one for each row with Skip
+        and Stop. `danger` asks first, `needs` names a boolean row field that must be true
+        for the verb to act on a row, and `one` refuses several rows at once. A row needs
+        an `id`, a string unique in the list, to be ticked or to have a menu.
+
+        `add` names the action, or the actions, that put something into this list: a
+        button in the list's bar that opens that dialog and reads the list again after a
+        run.
         """
         self._needs_ui("a list")
         wanted = str(key or "").strip()
@@ -481,6 +488,12 @@ class ExtensionUI:
                 raise ContractError(f"{self._name} ranks by a view of a list that relates "
                                     "to nothing in the library")
         offered = self._verbs(wanted, verbs)
+        adding = [add] if isinstance(add, str) else [*add] if isinstance(add, Sequence) else [None]
+        adding = [one.strip() if isinstance(one, str) else one for one in adding]
+        if not all(isinstance(one, str) and one for one in adding) \
+                or len(set(adding)) != len(adding):
+            raise ContractError(f"{self._name} gives the list {wanted!r} an add that is "
+                                "not an action key, or names one twice")
         self.list_functions[wanted] = ListFunctions(rows=rows, status=status, acts=acts,
                                                     verbs=offered)
         self.declared_lists.append({
@@ -502,8 +515,10 @@ class ExtensionUI:
             "tag": derived,
             "about": f"/lists/{wanted}/about",
             "verbs": [{"key": verb, "label": one["label"], "link": one["link"],
+                       "action": one["action"], "each": one["each"],
                        "danger": one["danger"], "needs": one["needs"], "one": one["one"]}
                       for verb, one in offered.items()],
+            "add": adding,
         })
 
     def _verbs(self, list_key: str, verbs: Sequence[dict]) -> dict[str, dict[str, Any]]:
@@ -523,14 +538,27 @@ class ExtensionUI:
                                     f"read: {', '.join(unknown)}. It reads "
                                     f"{', '.join(sorted(VERB_KEYS))}")
             run, link = raw.get("run"), str(raw.get("link") or "").strip()
-            if (run is None) == (not link) or (run is not None and not callable(run)):
-                raise ContractError(f"{where} the verb {key!r} with both a run function "
-                                    "and a link, or with neither, or a run that is not "
-                                    "a function")
+            if not isinstance(raw.get("action") or "", str):
+                raise ContractError(f"{where} the verb {key!r} an action that is not the "
+                                    "key of a dialog")
+            action = str(raw.get("action") or "").strip()
+            if sum([run is not None, bool(link), bool(action)]) != 1 \
+                    or (run is not None and not callable(run)):
+                raise ContractError(f"{where} the verb {key!r} with more than one of a run "
+                                    "function, a link and an action, or with none, or a "
+                                    "run that is not a function")
             if link and (raw.get("danger") or raw.get("needs")):
                 raise ContractError(f"{where} the link verb {key!r} danger or needs, "
                                     "which a link has no use for")
-            found[key] = {"run": run, "link": link, "danger": bool(raw.get("danger")),
+            if action and raw.get("danger"):
+                raise ContractError(f"{where} the verb {key!r} danger with an action, "
+                                    "whose dialog asks for itself")
+            if raw.get("each") and not action:
+                raise ContractError(f"{where} the verb {key!r} each without an action "
+                                    "to walk the rows with")
+            found[key] = {"run": run, "link": link, "action": action,
+                          "each": bool(raw.get("each")),
+                          "danger": bool(raw.get("danger")),
                           "needs": str(raw.get("needs") or "").strip(),
                           "one": bool(raw.get("one")) or bool(link),
                           "label": str(raw.get("label") or "").strip()}
@@ -538,6 +566,27 @@ class ExtensionUI:
 
 
 PLAYERS_READ = "players:read"
+
+
+def check_references(ui: ExtensionUI) -> None:
+    """Refuse a list that opens an action the extension never declared. Run once
+    `register` has returned, since an action may be declared after the list."""
+    added = {one["key"]: one["add"] for one in ui.declared_lists}
+    for key, found in ui.list_functions.items():
+        named = [*(one["action"] for one in found.verbs.values() if one["action"]),
+                 *added.get(key, [])]
+        if isinstance(found.acts, dict):
+            for one in found.acts.values():
+                if isinstance(one, dict) and "action" in one:
+                    if not isinstance(one["action"], str) or not one["action"].strip():
+                        raise ContractError(f"{ui._name} has an act on the list {key!r} "
+                                            "whose action is not an action key")
+                    named.append(one["action"])
+        unknown = sorted({one for one in named if one not in ui.action_objects})
+        if unknown:
+            raise ContractError(f"{ui._name} opens, from the list {key!r}, "
+                                f"{'an action' if len(unknown) == 1 else 'actions'} it "
+                                f"never offers: {', '.join(unknown)}")
 
 
 class ExtensionPlayers:

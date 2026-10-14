@@ -4095,6 +4095,7 @@
   "error.extensions.no_action": "{display} ĥàš ñö àçţîöñ çàŀŀèđ {key}",
   "error.extensions.bad_answer": "{display} àñšŵèřèđ {key} ŵîţĥ šöɱèţĥîñĝ ţĥàţ îš ñöţ à šţèþ",
   "error.extensions.no_run": "{display} ĥàš ñöţĥîñĝ ţö řûñ ƒöř {key}",
+  "error.extensions.rows_field": "{display} ĝàṽè à đîàŀöĝ à ƒîèŀđ ñàɱèđ 'řöŵš', ŵĥîçĥ îš řèšèřṽèđ",
   "error.extensions.not_data": "{display} àñšŵèřèđ {at} ŵîţĥ šöɱèţĥîñĝ ṼÞîñƑÈ çàññöţ řèàđ",
   "error.extensions.no_account": "{display} đöèš ñöţ ķèèþ þŀàýèř àççöûñţš",
   "error.extensions.account_read_only": "{display} àççöûñţš çàññöţ ƀè çĥàñĝèđ ƒřöɱ ĥèřè",

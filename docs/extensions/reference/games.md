@@ -1,20 +1,19 @@
 # The library and ways to play
 
-`ctx.games` is the library and everything core offers by name. `ctx.apps` is how another
+`ctx.games` is the library and everything core offers by name.  `ctx.apps` is how another
 format of table becomes first class.
 
 ## `ctx.games`
 
-The library, as an extension is allowed to see it. It is not a second implementation of the
-HTTP API; it calls the API's own route functions, so the two cannot answer differently.
-An extension in this process cannot use the API over HTTP, because a synchronous call into
-the server it is running inside deadlocks, and it may not import the library, so this is
-the door.
+The library, as an extension is allowed to see it.  It is not a second implementation of the
+HTTP API.  It calls the API's own route functions, so the two cannot answer differently.  An
+extension in this process cannot use the API over HTTP, because a synchronous call into the
+server it is running inside deadlocks, and it may not import the library.  This is the door.
 
-It is bounded twice. The manifest's `scopes` decide which calls an extension may make, and
-a path it hands over has to be inside a folder it declared through `ctx.files.set_roots`.
-A call that needs a scope the manifest lacks raises `ContractError`; so does a path outside
-the declared folders.
+It is bounded twice.  The manifest's `scopes` decide which calls an extension may make, and a
+path it hands over has to be inside a folder it declared through `ctx.files.set_roots`.  A call
+that needs a scope the manifest lacks raises `ContractError`, and so does a path outside the
+declared folders.
 
 | call | scope it needs |
 |---|---|
@@ -23,14 +22,15 @@ the declared folders.
 | `put_manufacturer_logos` | `config:write` |
 | `reaches` | none |
 
-The rest of the library is offered by name, listed under [Offered by name](#offered-by-name) below.
+The rest of the library is offered by name, listed under [Offered by name](#offered-by-name)
+below.
 
 ### `ctx.games.kinds`
 
 `ctx.games.kinds() -> tuple[str, ...]`.
 
-Every media kind this build stores: the vocabulary an importer maps onto, so it need not
-hard-code a list that would go stale.
+Every media kind this build stores.  It is the vocabulary an importer maps onto, so the
+importer need not hard-code a list that would go stale.
 
 ```python
 wanted = [kind for kind in ("wheel", "backglass", "flyer") if kind in ctx.games.kinds()]
@@ -41,9 +41,9 @@ wanted = [kind for kind in ("wheel", "backglass", "flyer") if kind in ctx.games.
 `ctx.games.existing() -> list[dict]`.
 
 Every game already here, in the little an importer needs to recognize one: `game_id`,
-`folder_name`, `name`, `vps_id`, `ipdb_id`, and `table_files`, the lowercase names of the
-game files it holds. Not the whole library; a second run asks "have I made this one
-before", and folder name, catalog id and title answer it.
+`folder_name`, `name`, `vps_id`, `ipdb_id`, and `table_files`, the lowercase names of the game
+files it holds.  It is not the whole library.  A second run asks "have I made this one before",
+and folder name, catalog id and title answer it.
 
 ```python
 made = {one["folder_name"] for one in ctx.games.existing()}
@@ -51,11 +51,11 @@ made = {one["folder_name"] for one in ctx.games.existing()}
 
 ### `ctx.games.folder_name_for`
 
-`ctx.games.folder_name_for(name) -> str`. Required: `name`.
+`ctx.games.folder_name_for(name) -> str`.  Required: `name`.
 
-The folder a game of this name would get. Asked rather than guessed: `Star Trek: The Next
-Generation` and `Star Trek The Next Generation` are one folder here, and an importer that
-reads them as two fails on a name already taken.
+The folder a game of this name would get.  Ask rather than guess: `Star Trek: The Next
+Generation` and `Star Trek The Next Generation` are one folder here, and an importer that reads
+them as two fails on a name already taken.
 
 ```python
 folder = ctx.games.folder_name_for("Star Trek: The Next Generation")
@@ -63,9 +63,9 @@ folder = ctx.games.folder_name_for("Star Trek: The Next Generation")
 
 ### `ctx.games.folder`
 
-`ctx.games.folder(game_id) -> str`. Required: `game_id`.
+`ctx.games.folder(game_id) -> str`.  Required: `game_id`.
 
-The game's folder on disk. Raises `LookupError` for an unknown game.
+The game's folder on disk.  Raises `LookupError` for an unknown game.
 
 ```python
 where = ctx.games.folder(game_id)
@@ -73,11 +73,11 @@ where = ctx.games.folder(game_id)
 
 ### `ctx.games.survey`
 
-`ctx.games.survey(path) -> dict`. Required: `path`.
+`ctx.games.survey(path) -> dict`.  Required: `path`.
 
 What a folder holds: `game_folders` the library would read as games, and the `loose` table
-files lying in it. A name that starts with a dot is left out. Only a folder this extension
-works from.
+files lying in it.  A name that starts with a dot is left out.  It works only on a folder this
+extension works from.
 
 ```python
 found = ctx.games.survey(ctx.config.get("source"))
@@ -88,58 +88,58 @@ Raises `ContractError` for a folder outside `ctx.files.roots()`.
 
 ### `ctx.games.create`
 
-`ctx.games.create(name, location="") -> str`. Required: `name`.
+`ctx.games.create(name, location="") -> str`.  Required: `name`.
 
-Make an entry and answer with its id. `location` names a library folder, or is empty for
-the default.
+Makes an entry and answers with its id.  `location` names a library folder, or is empty for the
+default.
 
 ```python
 game_id = ctx.games.create("Taxi")
 ```
 
-The user sees a new game in the library. Raises `LookupError` if the entry is not among
-the games this device reads.
+The user sees a new game in the library.  Raises `LookupError` if the entry is not among the
+games this device reads.
 
 ### `ctx.games.add_table`
 
 `ctx.games.add_table(game_id, path, move=False, names=()) -> dict`.
 Required: `game_id`, `path`.
 
-Copy a game file into an entry, with whatever belongs to it. Answers `table_id`,
-`companions`, `rom` (the ROM the table turns out to need) and `named`, those of `names`
-that the table's script mentions as a string, whole word and any case. `move=True` takes
-the files out of where they were, which needs the `fs:write` capability.
+Copies a game file into an entry, with whatever belongs to it.  It answers `table_id`,
+`companions`, `rom` (the ROM the table turns out to need) and `named`, those of `names` that
+the table's script mentions as a string, whole word and any case.  `move=True` takes the files
+out of where they were, which needs the `fs:write` capability.
 
 ```python
 added = ctx.games.add_table(game_id, "/data/old/Taxi.vpx", names=("Taxi",))
 table_id = added["table_id"]
 ```
 
-Raises `ContractError` for a path outside the declared folders or `move` without
-`fs:write`, and `FileNotFoundError` for a file that is not there.
+Raises `ContractError` for a path outside the declared folders or `move` without `fs:write`,
+and `FileNotFoundError` for a file that is not there.
 
 ### `ctx.games.companions_of`
 
-`ctx.games.companions_of(path) -> tuple[str, ...]`. Required: `path`.
+`ctx.games.companions_of(path) -> tuple[str, ...]`.  Required: `path`.
 
-The file names that would come with this table if it were added. For counting beforehand,
-so a plan and the run that follows it agree.
+The file names that would come with this table if it were added.  Use it for counting
+beforehand, so a plan and the run that follows it agree.
 
 ```python
 beside = ctx.games.companions_of("/data/old/Taxi.vpx")
 ```
 
-Raises `FileNotFoundError` for a table that is gone, and `ContractError` outside the
-declared folders.
+Raises `FileNotFoundError` for a table that is gone, and `ContractError` outside the declared
+folders.
 
 ### `ctx.games.companions_for`
 
-`ctx.games.companions_for(paths) -> dict[str, tuple[str, ...]]`. Required: `paths`.
+`ctx.games.companions_for(paths) -> dict[str, tuple[str, ...]]`.  Required: `paths`.
 
-`companions_of` for many tables, each folder listed once. On a network share a listing is
-the cost, so ask for a library together. Keyed by the path as given; a table that is gone is
-left out where `companions_of` raises, so a table with nothing beside it can be told from
-one that is gone.
+`companions_of` for many tables, each folder listed once.  On a network share the listing is
+the cost, so ask for a library together.  The answer is keyed by the path as given.  Where
+`companions_of` raises for a table that is gone, this leaves it out, so a table with nothing
+beside it can be told from one that is gone.
 
 ```python
 beside = ctx.games.companions_for(["/data/old/Taxi.vpx", "/data/old/Eight Ball.vpx"])
@@ -149,24 +149,24 @@ Raises `ContractError` outside the declared folders.
 
 ### `ctx.games.roms_of`
 
-`ctx.games.roms_of(paths) -> dict[str, str]`. Required: `paths`.
+`ctx.games.roms_of(paths) -> dict[str, str]`.  Required: `paths`.
 
-`{path: rom}` for the tables whose script names a ROM. Each table's script is read; a table
-that is gone, cannot be read or names none is left out.
+`{path: rom}` for the tables whose script names a ROM.  Each table's script is read, and a
+table that is gone, cannot be read or names none is left out.
 
 ```python
 roms = ctx.games.roms_of(["/data/old/Taxi.vpx"])
 ```
 
-Raises `ContractError` outside the declared folders. Opening a table costs a read of the
-file, so ask for a library in batches and keep what you are told.
+Raises `ContractError` outside the declared folders.  Opening a table costs a read of the file,
+so ask for a library in batches and keep what you are told.
 
 ### `ctx.games.reads_of`
 
 `ctx.games.reads_of(paths, names=()) -> dict[str, tuple[str, tuple[str, ...]]]`.
 Required: `paths`.
 
-`roms_of` and, from the same read, which of `names` each script mentions. Answers
+`roms_of` and, from the same read, which of `names` each script mentions.  It answers
 `{path: (rom, named)}` and keeps a table that names no ROM, with `""`.
 
 ```python
@@ -178,7 +178,7 @@ Raises `ContractError` outside the declared folders.
 
 ### `ctx.games.saved_sets`
 
-`ctx.games.saved_sets(path) -> tuple[str, ...]`. Required: `path`.
+`ctx.games.saved_sets(path) -> tuple[str, ...]`.  Required: `path`.
 
 The names of the sets a `VPReg.stg` holds, for matching to the tables that save under them.
 Empty where the file is not one.
@@ -189,11 +189,11 @@ sets = ctx.games.saved_sets("/data/old/VPReg.stg")
 
 ### `ctx.games.put_saved_sets`
 
-`ctx.games.put_saved_sets(game_id, path, sets) -> int`. Required: all three.
+`ctx.games.put_saved_sets(game_id, path, sets) -> int`.  Required: all three.
 
-Write the named sets of a `VPReg.stg` as the game's own `user/VPReg.ini`, rather than
-copying the file (a copy would hand every table the values every other table saved).
-Answers how many sets were written. A set the game's ini already holds is left as it is.
+Writes the named sets of a `VPReg.stg` as the game's own `user/VPReg.ini`, rather than copying
+the file (a copy would hand every table the values every other table saved).  It answers how
+many sets were written.  A set the game's ini already holds is left as it is.
 
 ```python
 written = ctx.games.put_saved_sets(game_id, "/data/old/VPReg.stg", ["Taxi"])
@@ -212,45 +212,45 @@ placeable = ctx.games.asset_kinds()
 
 ### `ctx.games.put_asset`
 
-`ctx.games.put_asset(game_id, kind, path, rom="") -> str`. Required: `game_id`, `kind`,
+`ctx.games.put_asset(game_id, kind, path, rom="") -> str`.  Required: `game_id`, `kind`,
 `path`.
 
-Put a file or a whole folder where this kind of asset belongs: a ROM set, an alternative
-sound bank, a color set. `rom` is for kinds that live under a ROM name. `nvram` and `cfg`
-go under `pinmame/`, `scripts` in the game's `scripts/`, and `dmd_content` as a file or a
-folder beside the table. Answers the path it took, relative to the game, with forward
-slashes. Never replaces.
+Puts a file or a whole folder where this kind of asset belongs: a ROM set, an alternative sound
+bank, a color set.  `rom` is for kinds that live under a ROM name.  `nvram` and `cfg` go under
+`pinmame/`, `scripts` in the game's `scripts/`, and `dmd_content` as a file or a folder beside
+the table.  It answers the path it took, relative to the game, with forward slashes.  It never
+replaces.
 
 ```python
 landed = ctx.games.put_asset(game_id, "nvram", "/data/old/taxi.nv", rom="taxi")
 ```
 
-Raises `FileExistsError` where something is already there, `FileNotFoundError` for a
-missing source, `ValueError` for a kind with no folder or one that needs a ROM, and
-`ContractError` outside the declared folders.
+Raises `FileExistsError` where something is already there, `FileNotFoundError` for a missing
+source, `ValueError` for a kind with no folder or one that needs a ROM, and `ContractError`
+outside the declared folders.
 
 ### `ctx.games.put_rom_alias`
 
-`ctx.games.put_rom_alias(game_id, alias, rom) -> str`. Required: all three.
+`ctx.games.put_rom_alias(game_id, alias, rom) -> str`.  Required: all three.
 
-Write the one `alias,rom` line a table needs as the game's `pinmame/alias.txt`: the name
-the table's script asks for and the ROM set that answers it. Answers the path, relative to
-the game.
+Writes the one `alias,rom` line a table needs as the game's `pinmame/alias.txt`: the name the
+table's script asks for and the ROM set that answers it.  It answers the path, relative to the
+game.
 
 ```python
 ctx.games.put_rom_alias(game_id, "taxi_l4", "taxi")
 ```
 
-Raises `FileExistsError` where the game holds a name map, and `ValueError` for an empty
-name or one with a comma or a newline.
+Raises `FileExistsError` where the game holds a name map, and `ValueError` for an empty name or
+one with a comma or a newline.
 
 ### `ctx.games.put_manufacturer_logos`
 
-`ctx.games.put_manufacturer_logos(makers, candidates) -> dict`. Required: both.
+`ctx.games.put_manufacturer_logos(makers, candidates) -> dict`.  Required: both.
 
-Copy each `(maker name, image)` of `candidates` that serves one of `makers` into the
-manufacturer logos folder, which every theme shares. Replaces none. Answers
-`{"placed": [...], "held": [...]}` by file name. Needs `config:write`.
+Copies each `(maker name, image)` of `candidates` that serves one of `makers` into the
+manufacturer logos folder, which every theme shares.  It replaces none.  It answers
+`{"placed": [...], "held": [...]}` by file name.  Needs `config:write`.
 
 ```python
 done = ctx.games.put_manufacturer_logos(["Bally"], [("Bally", "/data/old/bally.png")])
@@ -263,9 +263,9 @@ Raises `ContractError` outside the declared folders.
 `ctx.games.put_media(game_id, kind, path, table_stem="", replace=True, page=1) -> str`.
 Required: `game_id`, `kind`, `path`.
 
-Put a file in one of an entry's media slots. Answers what it landed as. `replace=False`
-fills an empty slot and raises `FileExistsError` where one is held. `page=n` adds page n of
-a flyer or instruction card beside the page 1 the slot shows, up to one past the last.
+Puts a file in one of an entry's media slots and answers what it landed as.  `replace=False`
+fills an empty slot and raises `FileExistsError` where one is held.  `page=n` adds page n of a
+flyer or instruction card beside the page 1 the slot shows, up to one past the last.
 
 ```python
 ctx.games.put_media(game_id, "wheel", "/data/old/Taxi.png", replace=False)
@@ -278,8 +278,8 @@ and `ContractError` outside the declared folders.
 
 `ctx.games.reaches() -> tuple[str, ...]`.
 
-The names core offers that this extension may actually call: what is offered, narrowed to
-the scopes its manifest declared. Includes the names in [Offered by name](#offered-by-name).
+The names core offers that this extension may actually call: what is offered, narrowed to the
+scopes its manifest declared.  It includes the names in [Offered by name](#offered-by-name).
 
 ```python
 if "rate_table" in ctx.games.reaches():
@@ -290,10 +290,10 @@ Does not raise.
 
 ### Offered by name
 
-Anything else core offers is reached as `ctx.games.<name>(...)`, with the signature the
-API's own function has. Not every name is on every build; `ctx.games.reaches()` lists what
-is. A name that is not offered raises `AttributeError`, and one that needs a scope the
-manifest lacks raises `ContractError` when it is looked up.
+Anything else core offers is reached as `ctx.games.<name>(...)`, with the signature the API's
+own function has.  Not every name is on every build, and `ctx.games.reaches()` lists what is.  A
+name that is not offered raises `AttributeError`, and one that needs a scope the manifest lacks
+raises `ContractError` when it is looked up.
 
 | scope | names |
 |---|---|
@@ -303,30 +303,30 @@ manifest lacks raises `ContractError` when it is looked up.
 | `config:write` | `use_library_folder(path)`, `write_table_settings(table_id, values)`, `use_logos_for_wheels()` |
 | `launch:invoke` | `launch_game(game_id, table="")` |
 
-Notes on the less obvious ones:
+A few of them need a word more:
 
-- `vps_catalog(downloading=None)` answers `{enabled, ready}`. `enabled` is the *Match new
-  games* switch; where it is on and there is no catalog on disk one is fetched first,
-  calling `downloading` just before it starts.
+- `vps_catalog(downloading=None)` answers `{enabled, ready}`.  `enabled` is the *Match new
+  games* switch.  Where it is on and there is no catalog on disk, one is fetched first, calling
+  `downloading` just before it starts.
 - `vps_settle(rows)` takes rows of what a source knows (`vps_id`, `ipdb_id`, `title`,
-  `manufacturer`, `year`, `folder`) and answers each in order with the entry it is:
-  `vps_id`, `how` (`vps_id`, `ipdb` or `name`) and `entry` (`id`, `name`, `manufacturer`,
-  `year`, `type`, `ipdb_id` and `folder_name`, the folder VPinFE would name the game); or
-  `vps_id` empty with a `reason` (`not_found`, `two_entries` or `ipdb_differs`) and up to
-  five `candidates`. It reads the catalog on disk and writes nothing.
-- `match_game` matches a game to an entry as *Matched on import*, or as a plain guess a
-  rematch may replace where `guess` is true.
-- `write_table_settings` writes values as one table's own settings, never the launcher's,
-  and leaves out a value the launcher already has, so a table whose values all match gets no
-  file. `use_logos_for_wheels()` sets `[Media] wheelset` to the reserved `logo` set so every
-  game's wheel shows its logo, and answers `{"wheelset": "logo"}`.
+  `manufacturer`, `year`, `folder`) and answers each in order with the entry it is: `vps_id`,
+  `how` (`vps_id`, `ipdb` or `name`) and `entry` (`id`, `name`, `manufacturer`, `year`, `type`,
+  `ipdb_id` and `folder_name`, the folder VPinFE would name the game).  Where nothing fits, it
+  answers `vps_id` empty with a `reason` (`not_found`, `two_entries` or `ipdb_differs`) and up
+  to five `candidates`.  It reads the catalog on disk and writes nothing.
+- `match_game` matches a game to an entry as *Matched on import*, or as a plain guess a rematch
+  may replace where `guess` is true.
+- `write_table_settings` writes values as one table's own settings, never the launcher's, and
+  leaves out a value the launcher already has, so a table whose values all match gets no file.
+  `use_logos_for_wheels()` sets `[Media] wheelset` to the reserved `logo` set so every game's
+  wheel shows its logo, and answers `{"wheelset": "logo"}`.
 - `get_missing_media(game_ids)` starts the media fill for those games whatever the *Get Media
-  for New Games* switch says, answering `{"started": true}`, or `{"started": false}` while
-  another fill runs. The fill does not queue.
-- Launching is gated apart from the rest. It takes over the cabinet rather than editing a
-  record, so `games:write` does not grant it: an extension that starts a game asks for
+  for New Games* switch says.  It answers `{"started": true}`, or `{"started": false}` while
+  another fill runs.  The fill does not queue.
+- Launching is gated apart from the rest.  It takes over the cabinet rather than editing a
+  record, so `games:write` does not grant it.  An extension that starts a game asks for
   `launch:invoke` by name, and whoever installs it reads it by name.
-- There is no `set_private`. A Private game's flag can be read, never set, by an extension.
+- There is no `set_private`.  An extension can read a Private game's flag and never set it.
 
 ```python
 found = ctx.games.list_games(q="taxi", limit=10, offset=0)
@@ -335,17 +335,17 @@ ctx.games.rate_table(game_id, table_id, 8)
 
 ## `ctx.apps`
 
-A way to play a table. See [A way to play a table](offers.md#a-way-to-play-a-table).
+A way to play a table.  See [A way to play a table](offers.md#a-way-to-play-a-table).
 
 ### `ctx.apps.provide`
 
-`ctx.apps.provide(**described) -> str`. Required: `id` and `suffixes`.
+`ctx.apps.provide(**described) -> str`.  Required: `id` and `suffixes`.
 
-Add an app, described in plain data. Answers the id it took. Keys: `id`, `suffixes`, and
+Adds an app, described in plain data, and answers the id it took.  Keys: `id`, `suffixes`, and
 optionally `name`, `accepts_keys`, `companions`, `fields`, `kinds` and `command`.
 `command(entry, settings)` receives `entry` as `{entry_id, game_dir, table, key}` and
-`settings` as the launcher's values, and answers a **list** of arguments, never a string. It
-answers nothing to run the launcher's configured binary and arguments instead. Needs the
+`settings` as the launcher's values, and answers a **list** of arguments, never a string.  It
+answers nothing to run the launcher's configured binary and arguments instead.  Needs the
 `apps:provide` scope.
 
 ```python
@@ -359,16 +359,16 @@ ctx.apps.provide(
 ```
 
 The user sees a launcher type of that name, and tables of those suffixes are importable.
-Raises `ContractError` without `apps:provide` in `scopes`, and a refusal for an id already in
-use or a suffix an app this build ships already claims.
+Raises `ContractError` without `apps:provide` in `scopes`, and refuses an id already in use or
+a suffix an app this build ships already claims.
 
 ### `ctx.apps.suffixes`
 
 `ctx.apps.suffixes() -> tuple[str, ...]`.
 
-Every file extension this install can play, its own and any provided. Not gated: this says
-what the build can do, not what the user has. An importer deciding whether a foreign library
-is worth importing needs it before it has been granted anything.
+Every file extension this install can play, its own and any provided.  It is not gated, since
+it says what the build can do and not what the user has.  An importer deciding whether a
+foreign library is worth importing needs it before it has been granted anything.
 
 ```python
 playable = ".fpt" in ctx.apps.suffixes()
@@ -378,9 +378,9 @@ playable = ".fpt" in ctx.apps.suffixes()
 
 `ctx.apps.names() -> tuple[str, ...]`.
 
-The product names of the apps here. For a source that says which program a system used but
-not which files it holds; a database found in a folder named after the program is often all
-there is.
+The product names of the apps here.  It is for a source that says which program a system used
+but not which files it holds, where a database found in a folder named after the program is
+often all there is.
 
 ```python
 if "Future Pinball" in ctx.apps.names():
@@ -389,7 +389,7 @@ if "Future Pinball" in ctx.apps.names():
 
 ### `ctx.apps.plays`
 
-`ctx.apps.plays(name) -> bool`. Required: `name`.
+`ctx.apps.plays(name) -> bool`.  Required: `name`.
 
 Whether anything here plays a file of this name, or this bare suffix.
 
@@ -412,8 +412,8 @@ ctx.logger.info("providing %s", ", ".join(ctx.apps.provided()))
 
 `ctx.apps.withdraw()`.
 
-Take every provided app back, and their words. Core calls this when the extension is
-unloaded; an extension has no reason to. A disabled extension therefore leaves no suffix
+Takes every provided app back, and their words.  Core calls this when the extension is
+unloaded, and an extension has no reason to.  A disabled extension therefore leaves no suffix
 claimed by something that is no longer there.
 
 ```python

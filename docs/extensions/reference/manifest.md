@@ -1,10 +1,11 @@
 # A whole extension and its manifest
 
-A whole extension on one page, where an extension lives, and every key `extension.json` takes.
+This page shows a whole extension in one place, says where an extension lives, and lists every
+key `extension.json` takes.
 
 ## A whole extension
 
-An extension with a setting, a secret, and a list of scores read from a server.
+This one has a setting, a secret and a list of scores it reads from a server.
 
 ```
 example_scores/
@@ -88,31 +89,31 @@ def register(ctx):
 }
 ```
 
-Put the folder in `extensions/` under the config directory, or run
-`python main.py --check-extension ./example_scores` first (see [Checking one](running.md#checking-one)). The
-extension then has a page under Settings > Extensions with its two settings, and a list
-called Example Scores under Community.
+Put the folder in `extensions/` under the config directory.  To see what core makes of it
+first, run `python main.py --check-extension ./example_scores` (see
+[Checking one](running.md#checking-one)).  The extension then has a page under Settings >
+Extensions with its two settings, and a list called Example Scores under Community.
 
 ### Where an extension lives
 
-The directory name is the extension's name, and the manifest has to agree. The name
-addresses it in a URL, a scope, a log namespace, a config file and the Python package core
-imports, so two answers to what it is called would each be right somewhere.
+The directory name is the extension's name, and the manifest has to agree.  The name appears
+in a URL, a scope, a log namespace, a config file and the Python package core imports, so two
+answers to what it is called would each be right somewhere.
 
-`__init__.py` defines `register(ctx)`. Core calls it once at startup and never again.
-The package is imported under its name, so the name has to be a legal module name.
+`__init__.py` defines `register(ctx)`.  Core calls it once at startup and never again.  The
+package is imported under its name, so the name has to be a legal module name.
 
-Two places are searched, in this order: `extensions/` under the config directory, then the
-`extensions/` the build ships. An installed extension with the same name as a bundled one
-answers, and the bundled one is left alone.
+Core looks in two places, in this order: `extensions/` under the config directory, then the
+`extensions/` the build ships.  If an installed extension has the same name as a bundled one,
+the installed one answers and the bundled one is left alone.
 
-Registration is a moment. After `register` returns, `ctx.open` is False and anything that
-needs to be declared (a router, for one) is refused.
+Registration is a moment.  After `register` returns, `ctx.open` is False and anything that
+still needs declaring (a router, for one) is refused.
 
 ## The manifest
 
-`extension.json`, snake_case like every other JSON VPinFE writes. A key not in the table
-is ignored.
+`extension.json`, snake_case like every other JSON VPinFE writes.  A key that is not in the
+table is ignored.
 
 | key | Required | Default | what it is |
 |---|---|---|---|
@@ -127,13 +128,13 @@ is ignored.
 | `platforms` | no | every one | `linux`, `windows`, `macos`. Empty means every one |
 | `events` | no | none | Event names it publishes, without its namespace |
 
-Everything in it is a declaration a person can be shown before installing, which is why an
+Everything in it is a declaration a person can be shown before installing.  That is why an
 unknown capability, feature or platform is refused rather than ignored: a name nobody has
 heard of is not something anybody could have agreed to.
 
-An extension whose manifest names a platform this machine is not, or a feature this
-install does not have, is not started. It is still listed, with the reason.
+If the manifest names a platform this machine is not, or a feature this install does not
+have, the extension is not started.  It is still listed, with the reason.
 
-There is no `provides`: core mints `ext:<name>:read` and `ext:<name>:write` for every
-extension. Whether an extension has settings is not declared either; core remembers what
-a running extension registered, so its page can say its settings show while it runs.
+There is no `provides`, since core makes `ext:<name>:read` and `ext:<name>:write` for every
+extension.  Whether an extension has settings is not declared either.  Core remembers what a
+running extension registered, so its page can say the settings show while it runs.

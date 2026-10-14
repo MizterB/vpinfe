@@ -708,7 +708,8 @@ def _aside(help_: Any, values: dict[str, Any] | None = None,
 async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = False,
                       aside: str = "", close_when_done: bool = False,
                       hand_off: Callable[[str], None] | None = None,
-                      values: dict[str, Any] | None = None, until: str = "") -> bool:
+                      values: dict[str, Any] | None = None, until: str = "",
+                      place: str = "", walking: bool = False) -> bool | str | None:
     """Run one flow in the dialog host: ask what it asks, in as many steps as it asks
     it, then do it.
 
@@ -732,7 +733,9 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
     them, before the dialog is drawn.
 
     True when the flow was run and the dialog closed after it, False when it was cancelled
-    before that.
+    before that. In a walk over rows (`walking`, `place` saying where in it) there is no
+    Cancel: Skip answers `walks.SKIPPED` and leaves the row as it was, Stop answers
+    `walks.STOPPED` and ends the run.
     """
     walk = Walk(calls, await calls.first(None))
     if values:
@@ -790,9 +793,11 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
                 with buttons:
                     if aside:
                         frame.aside(aside, lambda: dialog.submit(False), icon=verbs.CLOSE)
+                    if walking:
+                        frame.leave(dialog, True)
                     if walk.history:
                         frame.quiet(t("word.back"), _back, icon=verbs.BACK)
-                    elif not aside:
+                    elif not aside and not walking:
                         frame.cancel(lambda: dialog.submit(False))
                     if summary:
                         go = frame.answer(str(found.get("confirm") or label or t("word.run")),
@@ -820,6 +825,8 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
                 with track:
                     _step_row(list(found["steps"]), current_key, _goto)
             with body:
+                if place:
+                    ui.label(place).classes("console-help px-3")
                 if found.get("help"):
                     ui.label(str(found["help"])).classes("console-wizard-lead")
                 if summary:
@@ -910,6 +917,8 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
                           type="negative")
                 return
             if close_when_done and not job_id:
+                if walking and started.get("message"):
+                    ui.notify(str(started["message"]))
                 dialog.submit(True)
                 return
             if job_id and hand_off is not None:
@@ -927,7 +936,8 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
 
         draw(walk.step)
 
-    return bool(await dialog)
+    answer = await dialog
+    return answer if walking else bool(answer)
 
 
 async def open_page(*, label: str, calls: Calls, under: str, step: str | None = None,

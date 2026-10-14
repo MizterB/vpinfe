@@ -20,6 +20,7 @@ from console import (
     collection_rules,
     confirm,
     deeplink,
+    ext_action,
     ext_page,
     grid,
     offload,
@@ -27,6 +28,7 @@ from console import (
     tag_chips,
     verbs,
     views,
+    walks,
     when,
 )
 from console.api import ApiClient, ApiError
@@ -263,13 +265,51 @@ def said_status(slot: Any, status: dict[str, str], extension: str) -> None:
             panel.line(status["text"], hint=status["detail"])
 
 
+def declared_action(extension: dict[str, Any], key: str) -> dict[str, Any]:
+    """The dialog `key` of `extension`, as the extension record carries it."""
+    return next((one for one in extension.get("actions") or []
+                 if one.get("key") == key), {})
+
+
 @on_page
-async def run_act(extension: str, about: str, act: dict[str, Any],
+async def open_over(extension: dict[str, Any], key: str, ids: Sequence[str], *,
+                    each: bool = False) -> bool:
+    """Open the dialog `key` over the rows `ids`: one dialog for all of them, or with
+    `each` one per row in turn, with Skip and Stop. True once any of them ran."""
+    name, action = str(extension.get("name") or ""), declared_action(extension, key)
+    if not action:
+        ui.notify(t("said.action_failed"), type="negative")
+        return False
+    batches = [list(ids)] if not each else [[one] for one in ids]
+    ran = False
+    for index, batch in enumerate(batches, 1):
+        place = t("console.walk.position", index=index, total=len(batches)) \
+            if each and len(batches) > 1 else ""
+        try:
+            answer = await (
+                ext_action.open_action(name, action, rows=batch, place=place, walking=True)
+                if each else ext_action.open_action(name, action, rows=batch))
+        except Exception as exc:  # noqa: BLE001 - the reason belongs on screen
+            ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
+            answer = False
+        if answer == walks.STOPPED:
+            break
+        ran = ran or answer is True
+    return ran
+
+
+@on_page
+async def run_act(extension: dict[str, Any], about: str, act: dict[str, Any],
                   again: Callable[[], Any]) -> None:
-    """Do one of the list's acts, say what came of it, and read the menu again."""
+    """Do one of the list's acts, say what came of it, and read the menu again. An act that
+    names a dialog opens it instead."""
+    if act.get("action"):
+        await open_over(extension, str(act["action"]), [])
+        await again()
+        return
     try:
         said = await offload.io(ApiClient().ext_post,
-                                f"/ext/{extension}{about}/acts/"
+                                f"/ext/{extension.get('name')}{about}/acts/"
                                 f"{quote(str(act['key']), safe='')}", {})
     except Exception as exc:  # noqa: BLE001 - the reason belongs on screen
         ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
@@ -313,9 +353,15 @@ def verb_entries(declared: dict[str, Any], chosen: list[dict[str, Any]],
 
 
 @on_page
-async def run_verb(extension: str, declared: dict[str, Any], verb: dict[str, Any],
+async def run_verb(extension: dict[str, Any], declared: dict[str, Any], verb: dict[str, Any],
                    chosen: list[dict[str, Any]], again: Callable[[], Any]) -> None:
-    """Press one of the list's verbs on `chosen`, asking first where it is a danger."""
+    """Press one of the list's verbs on `chosen`, asking first where it is a danger. A verb
+    that names a dialog opens it over the rows."""
+    if verb.get("action"):
+        if await open_over(extension, str(verb["action"]),
+                           [str(row["id"]) for row in chosen], each=bool(verb.get("each"))):
+            await again()
+        return
     label = str(verb.get("label") or verb["key"])
     if verb.get("danger"):
         question = t(str(verb.get("confirm_key") or "") or "console.community.verb.confirm",
@@ -325,7 +371,8 @@ async def run_verb(extension: str, declared: dict[str, Any], verb: dict[str, Any
     try:
         said = await offload.io(
             ApiClient().ext_post,
-            f"/ext/{extension}{declared['base']}/verbs/{quote(str(verb['key']), safe='')}",
+            f"/ext/{extension.get('name')}{declared['base']}"
+            f"/verbs/{quote(str(verb['key']), safe='')}",
             {"ids": [str(row["id"]) for row in chosen]})
     except Exception as exc:  # noqa: BLE001 - the reason belongs on screen
         ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
@@ -466,13 +513,19 @@ async def _fill(extension: dict[str, Any], declared: dict[str, Any], library: Li
     stopped = str(now.get("state") or "") != "loaded"
     about = "" if stopped else str(declared.get("about") or "")
     line: list[Any] = []
+    reread: list[Callable[[], Any]] = []
+
+    async def after_act() -> None:
+        await stands()
+        if reread:
+            await reread[0]()
 
     def stood(found: dict[str, Any]) -> None:
         if line and not line[0].is_deleted:
             said_status(line[0], status_of(found), name)
         if subject is not None and not subject.is_deleted:
             panel.subject_menu(subject, acts(
-                now, found, lambda act: run_act(name, about, act, stands)))
+                now, found, lambda act: run_act(now, about, act, after_act)))
 
     async def stands() -> None:
         stood(await offload.io(standing, name, about))
@@ -514,7 +567,16 @@ async def _fill(extension: dict[str, Any], declared: dict[str, Any], library: Li
     offering = bool(declared.get("verbs")) and not stopped
 
     async def pressed(verb: dict[str, Any], chosen: list[dict[str, Any]]) -> None:
-        await run_verb(name, declared, verb, chosen, lambda: read_again())
+        await run_verb(now, declared, verb, chosen, lambda: read_again())
+
+    @on_page
+    async def added(action: str) -> None:
+        if await open_over(now, action, []):
+            await read_again()
+
+    adding = [] if stopped else [
+        (str(one["label"]), partial(added, str(one["action"])))
+        for one in declared.get("add") or []]
 
     body.clear()
     with body:
@@ -543,6 +605,8 @@ async def _fill(extension: dict[str, Any], declared: dict[str, Any], library: Li
                         _collection_action(library, existing,
                                            str(declared.get("title") or ""),
                                            {"tags": [str(tagging["tag"])]})
+                if adding:
+                    panel.add_action(adding, empty=not built)
                 search = panel.search(t("console.community.search"))
             with bar.bottom, panel.bar_end():
                 line.append(ui.element("div"))
@@ -626,5 +690,6 @@ async def _fill(extension: dict[str, Any], declared: dict[str, Any], library: Li
             ui.notify(t("console.community.read_failed", name=said),
                       caption=str(fresh["error"]), type="negative")
 
+    reread.append(read_again)
     if not reading and not stopped:
         asyncio.create_task(read_again())

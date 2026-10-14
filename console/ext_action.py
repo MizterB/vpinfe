@@ -11,6 +11,7 @@ runs somewhere else.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 from urllib.parse import quote
 
@@ -21,15 +22,18 @@ from console.on_page import on_page
 GIVE_UP_AFTER = 3
 
 
-def calls(extension: str, action: dict) -> wizard.Calls:
+def calls(extension: str, action: dict, rows: Sequence[str] = ()) -> wizard.Calls:
     """The action's four calls over HTTP, for the dialog host or for a flow that nests it
-    inside steps of its own."""
+    inside steps of its own. `rows` are the ids of the list rows it was opened over; the
+    first call carries them and the dialog's values carry them after."""
     client = ApiClient()
     base = f"/ext/{extension}{action.get('base') or ''}"
+    asked = [f"rows={quote(one, safe='')}" for one in rows]
 
     async def first(step: str | None = None) -> dict:
-        path = f"{base}?step={quote(step, safe='')}" if step else base
-        return await offload.io(client.ext_get, path)
+        query = [*([f"step={quote(step, safe='')}"] if step else []), *asked]
+        return await offload.io(client.ext_get,
+                                f"{base}?{'&'.join(query)}" if query else base)
 
     async def check(values: dict[str, Any], step: str) -> dict:
         return await offload.io(client.ext_post, f"{base}/check",
@@ -67,14 +71,19 @@ def calls(extension: str, action: dict) -> wizard.Calls:
 
 @on_page
 async def open_action(extension: str, action: dict, *,
-                      values: dict[str, Any] | None = None, until: str = "") -> bool:
+                      values: dict[str, Any] | None = None, until: str = "",
+                      rows: Sequence[str] = (), place: str = "",
+                      walking: bool = False) -> Any:
     """Run one action: ask what it asks, in as many steps as it asks it, then do it.
 
     True once it ran and the dialog was closed, so a page that shows what the action
     changes can redraw; False when it was cancelled first. `values` are answers it starts
-    with, and `until` the step it is walked to, unasked, before it is shown."""
+    with, and `until` the step it is walked to, unasked, before it is shown. `rows` are
+    the ids of the rows it is opened over. In a walk (`walking`, at `place` in it) the way
+    out is Skip or Stop, and the answer is `walks.SKIPPED` or `walks.STOPPED` as well."""
     return await wizard.open_dialog(
         label=str(action.get("label") or ""),
-        calls=calls(extension, action),
+        calls=calls(extension, action, rows),
         under=f"ext.{extension}.action.{action.get('key')}",
-        values=values, until=until)
+        values={**(values or {}), **({"rows": list(rows)} if rows else {})},
+        until=until, place=place, walking=walking, close_when_done=walking)

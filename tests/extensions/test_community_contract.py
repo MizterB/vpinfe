@@ -12,7 +12,7 @@ from starlette.testclient import TestClient
 import httpapi
 from common import extensions
 from common.extensions import host, store
-from common.extensions.context import ContractError, ExtensionUI
+from common.extensions.context import ContractError, ExtensionUI, check_references
 
 ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "community"
 WEEK = "https://challenge.example/week"
@@ -28,6 +28,11 @@ def _rows() -> list[dict]:
 
 def _mark(rows: list) -> None:
     return None
+
+
+class _Dialog:
+    def ask(self, step: str) -> dict:
+        return {"fields": []}
 
 
 class TheDeclaration(unittest.TestCase):
@@ -175,10 +180,10 @@ class TheDeclaration(unittest.TestCase):
 
         (said,) = self.ui.declared_lists
         self.assertEqual(
-            [{"key": "mark", "label": "Mark", "link": "", "danger": True, "needs": "ok",
-              "one": True},
-             {"key": "open", "label": "", "link": "page", "danger": False, "needs": "",
-              "one": True}], said["verbs"])
+            [{"key": "mark", "label": "Mark", "link": "", "action": "", "each": False,
+              "danger": True, "needs": "ok", "one": True},
+             {"key": "open", "label": "", "link": "page", "action": "", "each": False,
+              "danger": False, "needs": "", "one": True}], said["verbs"])
         self.assertIs(self.ui.list_functions["tables"].verbs["mark"]["run"], _mark)
 
     def test_a_verb_core_cannot_read_is_refused_with_what_it_reads(self) -> None:
@@ -204,6 +209,57 @@ class TheDeclaration(unittest.TestCase):
             with self.subTest(what), self.assertRaises(ContractError):
                 self.ui.list("tables", _rows, columns=COLUMNS, verbs=[verb])
         self.assertEqual([], self.ui.declared_lists)
+
+    def test_a_verb_that_opens_a_dialog_is_recorded_with_whether_it_walks_the_rows(self) -> None:
+        self.ui.action("note", _Dialog())
+        self.ui.list("tables", _rows, columns=COLUMNS, verbs=[
+            {"key": "note", "action": "note", "each": True},
+            {"key": "tag", "action": "note"}], add=["note"])
+
+        (said,) = self.ui.declared_lists
+        self.assertEqual([("note", "note", True), ("tag", "note", False)],
+                         [(one["key"], one["action"], one["each"]) for one in said["verbs"]])
+        self.assertEqual(["note"], said["add"])
+        self.assertIsNone(self.ui.list_functions["tables"].verbs["note"]["run"])
+        check_references(self.ui)
+
+    def test_a_verb_that_opens_a_dialog_wrongly_is_refused(self) -> None:
+        wrong = {
+            "action and run": {"key": "n", "action": "note", "run": _mark},
+            "action and link": {"key": "n", "action": "note", "link": "page"},
+            "action that is not a name": {"key": "n", "action": 3},
+            "danger on a dialog": {"key": "n", "action": "note", "danger": True},
+            "each without a dialog": {"key": "n", "run": _mark, "each": True},
+        }
+        for what, verb in wrong.items():
+            with self.subTest(what), self.assertRaises(ContractError):
+                self.ui.list("tables", _rows, columns=COLUMNS, verbs=[verb])
+        self.assertEqual([], self.ui.declared_lists)
+
+    def test_add_is_a_dialog_name_or_several_and_nothing_else(self) -> None:
+        for add in (3, [3], ["a", "a"], ["a", " a"], [""], ["  "]):
+            with self.subTest(add=add), self.assertRaises(ContractError):
+                self.ui.list("tables", _rows, columns=COLUMNS, add=add)
+        self.assertEqual([], self.ui.declared_lists)
+
+    def test_a_dialog_a_list_names_but_the_extension_never_declared_is_refused(self) -> None:
+        for what in ({"add": "missing"},
+                     {"verbs": [{"key": "n", "action": "missing"}]},
+                     {"acts": {"open": {"action": "missing"}}}):
+            with self.subTest(what=what):
+                ui = ExtensionUI("site", allowed=True)
+                ui.list("tables", _rows, columns=COLUMNS, **what)
+                with self.assertRaises(ContractError) as raised:
+                    check_references(ui)
+                self.assertIn("missing", str(raised.exception))
+
+    def test_an_act_whose_action_is_not_a_key_is_refused_at_load(self) -> None:
+        for action in (3, ["x"], None, ""):
+            with self.subTest(action=action):
+                ui = ExtensionUI("site", allowed=True)
+                ui.list("tables", _rows, columns=COLUMNS, acts={"open": {"action": action}})
+                with self.assertRaises(ContractError):
+                    check_references(ui)
 
     def test_two_verbs_with_one_key_are_refused(self) -> None:
         with self.assertRaises(ContractError):
