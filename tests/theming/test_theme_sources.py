@@ -11,16 +11,19 @@ nothing still starts.
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 import unittest
 from configparser import ConfigParser
 from unittest import mock
 
+from common.config_store import ConfigStore
 from common.i18n import t
 from common.online import theme_ops, theme_refs, theme_source_checks, theme_sources
 from common.online.theme_registry_client import ThemeRegistryError
 from common.online.themes import ThemeRegistry, ThemeVersionError
 
-STOCK = "https://raw.githubusercontent.com/superhac/vpinfe-themes/master/themes.json"
+STOCK = "https://raw.githubusercontent.com/vpinfe/themes/main/themes.json"
 MINE = "https://git.example.net/someone/vpinfe-theme-reference"
 
 
@@ -326,8 +329,18 @@ class WhichListInstallsOnItsOwn(unittest.TestCase):
     def test_the_stock_list_is_the_address_the_setting_defaults_to(self) -> None:
         self.assertEqual(STOCK, theme_sources.stock_list())
 
+    def test_a_first_run_and_a_2x_ini_both_read_the_stock_list(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            fresh = ConfigStore(os.path.join(folder, "fresh.ini"))
+            from_2x = os.path.join(folder, "from_2x.ini")
+            with open(from_2x, "w", encoding="utf-8") as handle:
+                handle.write("[Settings]\ntheme = Revolution\n")
+
+            for store in (fresh, ConfigStore(from_2x)):
+                self.assertEqual(theme_sources.from_config(store).registries, (STOCK,))
+
     def test_the_stock_list_is_still_the_stock_list_under_another_spelling(self) -> None:
-        shown = "https://github.com/superhac/vpinfe-themes/blob/master/themes.json"
+        shown = "https://github.com/vpinfe/themes/blob/main/themes.json"
 
         self.assertTrue(theme_sources.is_stock(shown))
         self.assertFalse(theme_sources.is_stock(self.THIRD_PARTY))

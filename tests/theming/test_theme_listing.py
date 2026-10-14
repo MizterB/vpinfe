@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from common.online import theme_ops, theme_sources
 
-STOCK = "https://raw.githubusercontent.com/superhac/vpinfe-themes/master/themes.json"
+STOCK = "https://raw.githubusercontent.com/vpinfe/themes/main/themes.json"
 OTHER = "https://git.example.net/someone/vpinfe-themes/raw/branch/main/themes.json"
 REPO = "https://git.example.net/someone/vpinfe-theme-reference"
 

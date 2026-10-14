@@ -194,11 +194,11 @@ class RowTests(unittest.TestCase):
         self.ui.timer.assert_called_once()
 
     def test_the_stock_list_is_named_and_says_where_it_lives(self) -> None:
-        stock = source(theme_sources.default_list(), name="superhac/vpinfe-themes",
-                       display="superhac/vpinfe-themes", count=12)
+        stock = source(theme_sources.default_list(), name="vpinfe/themes",
+                       display="vpinfe/themes", count=12)
 
         self.assertEqual(theme_sources._title(LISTS, stock), "VPinFE Theme List")
-        self.assertEqual(theme_sources._detail(LISTS, stock), "12 themes · superhac/vpinfe-themes")
+        self.assertEqual(theme_sources._detail(LISTS, stock), "12 themes · vpinfe/themes")
 
     def test_another_list_keeps_its_own_name_and_says_only_its_count(self) -> None:
         other = source(ONE, name="example/one", display="example/one", count=12)
@@ -214,8 +214,8 @@ class RowTests(unittest.TestCase):
         self.assertEqual(theme_sources._detail(THEMES, unread), "")
 
     def test_a_name_somebody_gave_replaces_the_one_a_source_has(self) -> None:
-        stock = source(theme_sources.default_list(), name="superhac/vpinfe-themes",
-                       display="superhac/vpinfe-themes", count=12, label="Mine")
+        stock = source(theme_sources.default_list(), name="vpinfe/themes",
+                       display="vpinfe/themes", count=12, label="Mine")
         other = source(ONE, name="example/one", display="example/one", count=3, label="Dave's")
 
         self.assertEqual(theme_sources._title(LISTS, stock), "Mine")

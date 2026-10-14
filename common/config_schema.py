@@ -907,7 +907,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ConfigOption(
             "registries",
             type="list",
-            default="https://raw.githubusercontent.com/superhac/vpinfe-themes/master/themes.json",
+            default="https://raw.githubusercontent.com/vpinfe/themes/main/themes.json",
         ),
         ConfigOption(
             "repositories",

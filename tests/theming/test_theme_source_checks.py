@@ -21,7 +21,7 @@ from common.online import theme_source_checks as checks
 from common.online.theme_registry_client import ThemeRegistryError
 from common.online.themes import ThemeRegistry
 
-STOCK = "https://raw.githubusercontent.com/superhac/vpinfe-themes/master/themes.json"
+STOCK = "https://raw.githubusercontent.com/vpinfe/themes/main/themes.json"
 OTHER = "https://git.example.net/someone/themes/raw/branch/main/themes.json"
 SINGLE = "https://git.example.net/someone/vpinfe-theme-reference"
 REPO = "https://github.com/someone/pack"
@@ -393,9 +393,9 @@ class WhatAddingWouldBe(unittest.TestCase):
         self.assertTrue(said["addable"])
 
     def test_the_repository_page_of_a_list_already_added_is_already_added(self) -> None:
-        """The stock list is held under `master`; its repository page names no branch."""
-        said = self._check("https://github.com/superhac/vpinfe-themes", {},
-                           pages={"https://github.com/superhac/vpinfe-themes"},
+        """The stock list is held under `main`; its repository page names no branch."""
+        said = self._check("https://github.com/vpinfe/themes", {},
+                           pages={"https://github.com/vpinfe/themes"},
                            registries=(STOCK,))
         self.assertEqual((said["state"], said["address"]), (checks.ALREADY_ADDED, STOCK))
         self.assertFalse(said["addable"])
