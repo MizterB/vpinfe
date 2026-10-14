@@ -365,6 +365,9 @@ def table_rows(game: Game, row: dict, *, launcher_settings: bool = False,
             "manufacturer": str(described_entry.get("manufacturer", "") or ""),
             "year": str(described_entry.get("year", "") or ""),
             "type": str(described_entry.get("type", "") or ""),
+            # The ROM this table's script names, empty where it names none. The game row
+            # carries the default table's; this one is each table's own.
+            "rom": str(described_entry.get("rom", "") or ""),
             # Tri-state throughout: a table nobody has parsed answers null for every
             # feature, which is not the same as answering no to all of them.
             "features": {name: _tristate(described_entry.get(key))

@@ -1755,6 +1755,9 @@ class Table(ApiModel):
     manufacturer: str = ""
     year: str = ""
     type: str = ""
+    # The ROM the script names, empty where it names none. Each table answers for itself;
+    # the game's `rom` is the default table's.
+    rom: str = ""
     # What the script was seen to use. Three-valued per feature: true, false, and
     # null for a table nothing has parsed yet - which is not the same as "no".
     features: dict[str, bool | None] = {}

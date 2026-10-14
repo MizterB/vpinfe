@@ -308,6 +308,37 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(said["sound"]["reason"]["key"], adapters.SOUND_LOOPBACK)
         self.assertEqual(said["tools"][0]["id"], "ffmpeg")
 
+    def test_macos_with_every_display_asleep_says_the_screens_are_asleep(self) -> None:
+        def sleeping() -> list[ffmpeg.MacDisplay]:
+            raise adapters.AsleepError
+
+        mac = _found(_ffmpeg(inputs=frozenset({"avfoundation"})))
+
+        said = report(ffmpeg.MacAdapter(sleeping, lambda: True), found=mac,
+                      probe_hardware=False)
+
+        self.assertFalse(said["available"])
+        self.assertEqual(said["reason"]["key"], adapters.ASLEEP)
+
+    def test_core_graphics_listing_no_active_display_while_all_sleep_is_asleep(self) -> None:
+        quartz = SimpleNamespace(
+            CGGetActiveDisplayList=lambda *_: (0, [], 0),
+            CGGetOnlineDisplayList=lambda *_: (0, [1, 2], 2),
+            CGDisplayIsAsleep=lambda _: True)
+
+        with patch.dict("sys.modules", {"Quartz": quartz}):
+            with self.assertRaises(adapters.AsleepError):
+                ffmpeg.mac_displays()
+
+    def test_core_graphics_with_no_display_at_all_is_not_asleep(self) -> None:
+        quartz = SimpleNamespace(
+            CGGetActiveDisplayList=lambda *_: (0, [], 0),
+            CGGetOnlineDisplayList=lambda *_: (0, [], 0),
+            CGDisplayIsAsleep=lambda _: True)
+
+        with patch.dict("sys.modules", {"Quartz": quartz}):
+            self.assertEqual(ffmpeg.mac_displays(), [])
+
     def test_macos_with_it_records_each_screen_placed_by_the_display_model(self) -> None:
         adapter = ffmpeg.MacAdapter(lambda: [ffmpeg.MacDisplay(
             index, one.x, one.y, one.width, one.height, (one.width, one.height), 60.0)

@@ -25,6 +25,7 @@ LACKS = "capture.tool.lacks"
 REASONS = {
     adapters.NO_SCREEN: tools.FIX_NONE,
     adapters.NOT_FOUND: tools.FIX_NONE,
+    adapters.ASLEEP: tools.FIX_NONE,
     placing.NOT_SHOWN: tools.FIX_NONE,
     adapters.NO_WAY: tools.FIX_NONE,
     adapters.NO_SESSION: tools.FIX_NONE,
@@ -126,11 +127,11 @@ def _sound(adapter: adapters.Adapter, found: Mapping[str, tools.Found],
 
 def _screen(screen: adapters.Screen, adapter: adapters.Adapter,
             found: Mapping[str, tools.Found], codec: str,
-            unreadable: bool) -> dict[str, Any]:
+            unreadable: str) -> dict[str, Any]:
     output = screen.output
     where = None
     if output is None:
-        key = UNREADABLE if unreadable and screen.reason == adapters.NOT_FOUND \
+        key = unreadable if unreadable and screen.reason == adapters.NOT_FOUND \
             else screen.reason
         where = reason(key, {"window": screen.window, **screen.params})
     refused = adapter.refused()
@@ -171,11 +172,13 @@ def report(*, adapter: adapters.Adapter | adapters.Unsupported | None = None,
 
     found = {tool.id: tools.resolve(tool) for tool in adapter.requirements()} \
         if found is None else found
-    unreadable = False
+    unreadable = ""
     try:
         outputs = adapter.outputs()
+    except adapters.AsleepError:
+        outputs, unreadable = [], adapters.ASLEEP
     except (OSError, ValueError):
-        outputs, unreadable = [], True
+        outputs, unreadable = [], UNREADABLE
     monitors = display_service.get_display_monitors() if monitors is None else monitors
     placed = placing.Placing(outputs, config, monitors,
                              placing.shown() if shown is None else shown)

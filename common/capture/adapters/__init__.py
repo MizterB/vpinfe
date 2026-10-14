@@ -27,12 +27,17 @@ SCREEN_SECTIONS = {PLAYFIELD: "windows.playfield", BACKGLASS: "windows.backglass
 
 NO_SCREEN = "capture.screen.none"
 NOT_FOUND = "capture.screen.not_found"
+ASLEEP = "capture.screen.asleep"
 NO_WAY = "capture.unsupported.no_way"
 NO_SESSION = "capture.unsupported.no_session"
 SCREEN_PERMISSION = "capture.permission.screen"
 NOT_CHOSEN = "capture.portal.not_chosen"
 SOUND_NOT_YET = "capture.sound.not_yet"
 SOUND_LOOPBACK = "capture.sound.needs_loopback"
+
+
+class AsleepError(OSError):
+    """The desktop has displays and every one of them is asleep, so it lists none to grab."""
 
 
 @dataclass(frozen=True)

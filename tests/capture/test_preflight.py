@@ -246,6 +246,7 @@ def _blocked_reports() -> list[dict[str, Any]]:
               "found": found(elements=ELEMENTS - {"pipewiresrc"})}]
     ways += [{"adapter": ffmpeg.MacAdapter(mac_displays, lambda: False)},
              {"adapter": ffmpeg.MacAdapter(mac_displays, lambda: True)},
+             {"adapter": ffmpeg.MacAdapter(mac_asleep, lambda: True)},
              {"adapter": ffmpeg.WindowsAdapter(dxgi_outputs, found()["ffmpeg"])},
              {"adapter": ffmpeg.X11Adapter({"DISPLAY": ":0"}, lambda: MONITORS)}]
     return [report(**{**first, **second})
@@ -263,6 +264,10 @@ def mac_displays() -> list[ffmpeg.MacDisplay]:
     return [ffmpeg.MacDisplay(index, one.x, one.y, one.width, one.height,
                               (one.width, one.height), 60.0)
             for index, one in enumerate(MONITORS)]
+
+
+def mac_asleep() -> list[ffmpeg.MacDisplay]:
+    raise adapters.AsleepError
 
 
 def dxgi_outputs() -> list[ffmpeg.DxgiOutput]:

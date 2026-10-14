@@ -110,6 +110,7 @@
   "capture.run.interrupted": "VPinFE closed while it was recording",
   "capture.run.launched": "Someone started a table to play",
   "capture.run.space": "{device} is nearly out of space",
+  "capture.screen.asleep": "The screens are asleep, wake one to record",
   "capture.screen.none": "No screen is set as {window}",
   "capture.screen.not_found": "Can't tell which screen is the {window}",
   "capture.screen.not_shown": "{app} doesn't show the {window} on a screen of its own",

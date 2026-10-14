@@ -12,7 +12,15 @@ from typing import Any
 from common.host import tools
 
 from .. import commands, geometry
-from . import SCREEN_PERMISSION, SOUND_LOOPBACK, SOUND_NOT_YET, Output, Screen, Window
+from . import (
+    SCREEN_PERMISSION,
+    SOUND_LOOPBACK,
+    SOUND_NOT_YET,
+    AsleepError,
+    Output,
+    Screen,
+    Window,
+)
 from .wlr import vaapi_node
 
 Run = Callable[..., Any]
@@ -294,7 +302,8 @@ def mac_outputs(said: Sequence[MacDisplay]) -> list[Output]:
 
 
 def mac_displays() -> list[MacDisplay]:
-    """Raises OSError where Core Graphics cannot be asked."""
+    """Raises OSError where Core Graphics cannot be asked, and AsleepError where every
+    display sleeps, since Core Graphics then lists none as active."""
     try:
         import Quartz
     except ImportError as exc:
@@ -302,6 +311,10 @@ def mac_displays() -> list[MacDisplay]:
     error, ids, _ = Quartz.CGGetActiveDisplayList(32, None, None)
     if error:
         raise OSError(error)
+    if not ids:
+        _, online, _ = Quartz.CGGetOnlineDisplayList(32, None, None)
+        if online and all(Quartz.CGDisplayIsAsleep(one) for one in online):
+            raise AsleepError
     found = []
     for index, display in enumerate(ids or ()):
         bounds = Quartz.CGDisplayBounds(display)
