@@ -30,9 +30,9 @@ jobs:
     timeout-minutes: 30
     env:
       DOF_VERSION: latest
-      DOF_REPO: superhac/libdof-python
+      DOF_REPO: vpinfe/libdof-python
       DMDUTIL_VERSION: latest
-      DMDUTIL_REPO: superhac/libdmdutil-python
+      DMDUTIL_REPO: vpinfe/libdmdutil-python
     strategy:
       matrix:
         os: [ubuntu-latest, ubuntu-24.04-arm, windows-latest, macos-latest]

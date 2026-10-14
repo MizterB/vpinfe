@@ -33,7 +33,7 @@ logger = logging.getLogger("vpinfe.common.online.app_updater")
 
 
 LAST_UPDATE_LOG = LOG_DIR / "last_update.log"
-LATEST_RELEASE_URL = "https://api.github.com/repos/superhac/vpinfe/releases/latest"
+LATEST_RELEASE_URL = "https://api.github.com/repos/vpinfe/vpinfe/releases/latest"
 USER_AGENT = "VPinFE-Updater"
 CHECK_EVERY_SECONDS = 24 * 60 * 60
 RETRY_AFTER_FAILURE_SECONDS = 60 * 60

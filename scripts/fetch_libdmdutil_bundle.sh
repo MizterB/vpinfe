@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-LIBDMDUTIL_REPO="${LIBDMDUTIL_REPO:-superhac/libdmdutil-python}"
+LIBDMDUTIL_REPO="${LIBDMDUTIL_REPO:-vpinfe/libdmdutil-python}"
 LIBDMDUTIL_VERSION="${LIBDMDUTIL_VERSION:-latest}"
 
 if [[ "${1:-}" != "" ]]; then

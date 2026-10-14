@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DOF_REPO="${DOF_REPO:-superhac/libdof-python}"
+DOF_REPO="${DOF_REPO:-vpinfe/libdof-python}"
 DOF_VERSION="${DOF_VERSION:-latest}"
 
 if [[ "${1:-}" != "" ]]; then

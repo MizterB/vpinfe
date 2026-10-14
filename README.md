@@ -11,8 +11,8 @@
 - Automatic [vpx patching](https://github.com/jsm174/vpx-standalone-scripts) for Linux & Mac
 - Fully customizable UI theming using HTML, JS and CSS
 - JSON-based table metadata with VPX file parsing and feature detection
-- DOF Support using [libdof-python](https://github.com/superhac/libdof-python)
-- Real DMD Support using [libdmdutils-python](https://github.com/superhac/libdmdutil-python) ZeDMD, Pixelcade and PIN2DMD.
+- DOF Support using [libdof-python](https://github.com/vpinfe/libdof-python)
+- Real DMD Support using [libdmdutils-python](https://github.com/vpinfe/libdmdutil-python) ZeDMD, Pixelcade and PIN2DMD.
 - Mobile transfer support for VPinball on Android and iOS (Web Send & VPXZ Download)
 - VPinballX.ini config editor with backup/restore for multi-config enviroments
 - Importing roms, pupacks, altcolor, and altsound.
@@ -38,7 +38,7 @@ Visual Pinball **10.8.0**, or a recent **10.8.1** prerelease.  Builds called 10.
 
 ## Download
 
-Download the release for your platform from [Releases](https://github.com/superhac/vpinfe/releases).  There are two builds for each:
+Download the release for your platform from [Releases](https://github.com/vpinfe/vpinfe/releases).  There are two builds for each:
 
 - A slim build (has slim in its name) is for people who already have Chrome installed locally on their machine.  (Recommended)
 - A fat build (no slim in its name, and a larger download) bundles Chromium with VPinFE

@@ -18,7 +18,7 @@ import requests
 from common import http_client
 from common.online import app_updater
 
-MANIFEST_URL = "https://github.com/superhac/vpinfe/releases/download/v3.1.0/manifest.json"
+MANIFEST_URL = "https://github.com/vpinfe/vpinfe/releases/download/v3.1.0/manifest.json"
 RELEASE = {
     "tag_name": "v3.1.0",
     "body": "Notes nobody keeps",

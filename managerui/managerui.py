@@ -207,7 +207,7 @@ def header():
                         else:
                             ui.link(
                                 f"Update Available ({result.get('latest_version', 'latest')})",
-                                'https://github.com/superhac/vpinfe/releases/latest',
+                                'https://github.com/vpinfe/vpinfe/releases/latest',
                                 new_tab=True
                             ).classes('text-yellow-400 text-sm font-medium hover:text-yellow-300').style('text-decoration: none;')
                     elif result.get('error') is None and result.get('update_available') is not None:
@@ -217,7 +217,7 @@ def header():
                         ui.icon('info', size='18px').style('color: var(--ink-muted);')
                         ui.link(
                             f"Latest: {result.get('latest_version', 'unknown')}",
-                            'https://github.com/superhac/vpinfe/releases/latest',
+                            'https://github.com/vpinfe/vpinfe/releases/latest',
                             new_tab=True
                         ).classes('text-sm font-medium').style('text-decoration: none; ')
 

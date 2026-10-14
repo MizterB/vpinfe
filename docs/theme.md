@@ -14,7 +14,7 @@ VPinFE runs up to 3 browser windows, one per monitor:
 
 Contract 1 calls them `table`, `bg` and `dmd`.
 
-Each window has its own webpage but shares an instance of the VPinFE API ([frontend/api.py](https://github.com/superhac/vpinfe/blob/master/frontend/api.py)), accessed via [vpinfe-core.js](#vpinfe-corejs).
+Each window has its own webpage but shares an instance of the VPinFE API ([frontend/api.py](https://github.com/vpinfe/vpinfe/blob/master/frontend/api.py)), accessed via [vpinfe-core.js](#vpinfe-corejs).
 
 ---
 
