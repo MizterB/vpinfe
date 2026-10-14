@@ -11,7 +11,9 @@ CATALOG = [{"id": "vps-afm", "tableFiles": [
                 {"id": "rel-afm-vpw", "urls": [{"url": "https://example.test/afm-vpw"}]},
                 {"id": "rel-afm-new", "urls": [{"url": "https://example.test/afm-new"}]}]},
            {"id": "vps-mm", "tableFiles": [{"id": "rel-mm-new", "urls": []}]},
-           {"id": "vps-taf", "tableFiles": [{"id": "rel-taf", "urls": []}]}]
+           {"id": "vps-taf", "name": "The Addams Family", "manufacturer": "Bally", "year": 1992,
+            "tableFiles": [{"id": "rel-taf", "version": "1.0", "authors": ["Ann", "Bob"],
+                            "urls": []}]}]
 
 
 def _game(game_id: str, vps_id: str, release: str = ""):
@@ -33,8 +35,8 @@ class Owned(TempTree):
         self.addCleanup(patcher.stop)
         self.client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
 
-    def _said(self, ids: list[str]) -> dict:
-        response = self.client.post("/library/owned", json={"ids": ids})
+    def _said(self, ids: list[str], **asked: str) -> dict:
+        response = self.client.post("/library/owned", json={"ids": ids, **asked})
         self.assertEqual(200, response.status_code, response.text)
         return response.json()
 
@@ -65,3 +67,37 @@ class Owned(TempTree):
 
     def test_a_release_held_or_of_a_machine_not_held_is_no_other_version(self) -> None:
         self.assertEqual({}, self._said(["rel-afm-vpw", "rel-taf"])["other_versions"])
+
+    def test_vpinfe_ids_find_a_game_or_a_table_by_the_library_s_own(self) -> None:
+        games = self._said(["afm", "t1", "zz"], keys="vpinfe", kind="game")["owned"]
+        tables = self._said(["afm", "t1", "zz"], keys="vpinfe", kind="table")["owned"]
+
+        self.assertEqual({"afm": ""}, {one: held["table_id"] for one, held in games.items()})
+        self.assertEqual({"t1"}, set(tables))
+        self.assertEqual("afm", tables["t1"]["game_id"])
+
+    def test_a_kind_keeps_a_table_from_answering_for_a_game(self) -> None:
+        self.assertEqual(set(), set(self._said(["vps-afm"], kind="table")["owned"]))
+        self.assertEqual({"rel-afm-vpw"},
+                         set(self._said(["vps-afm", "rel-afm-vpw"], kind="table")["owned"]))
+        self.assertEqual({"vps-afm"},
+                         set(self._said(["vps-afm", "rel-afm-vpw"], kind="game")["owned"]))
+
+    def test_an_id_the_library_lacks_is_named_by_vpsdb(self) -> None:
+        game = self._said(["vps-taf"], kind="game")
+        table = self._said(["rel-taf"], kind="table")
+
+        self.assertEqual({"vps-taf": {"name": "The Addams Family", "manufacturer": "Bally",
+                                      "year": "1992", "version": "", "authors": []}},
+                         game["known"])
+        self.assertEqual({"rel-taf": {"name": "The Addams Family", "manufacturer": "",
+                                      "year": "", "version": "1.0",
+                                      "authors": ["Ann", "Bob"]}},
+                         table["known"])
+
+    def test_what_the_library_holds_is_not_also_known(self) -> None:
+        self.assertEqual({}, self._said(["vps-afm"], kind="game")["known"])
+
+    def test_known_is_asked_only_of_vps_ids_with_a_kind(self) -> None:
+        self.assertEqual({}, self._said(["vps-taf"])["known"])
+        self.assertEqual({}, self._said(["vps-taf"], keys="vpinfe", kind="game")["known"])

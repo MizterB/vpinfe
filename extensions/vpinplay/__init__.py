@@ -71,7 +71,6 @@ def register(ctx: Any) -> None:
 
     ctx.ui.list(LIST_KEY, community.rows_from(endpoint, read), title="VPinPlay",
                 columns=community.COLUMNS, views=community.VIEWS,
-                relation=community.RELATION,
                 status=lambda: community.status(ctx, sender),
                 acts=lambda: community.acts(ctx, SITE, sender))
 

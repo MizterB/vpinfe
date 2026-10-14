@@ -20,6 +20,8 @@ WEEK = "https://challenge.example/week"
 COLUMNS = [{"field": "name", "header": "Table"},
            {"field": "plays", "header": "Plays", "kind": "number"},
            {"field": "vpsId", "header": "VPS"}]
+GAMES = [{"field": "vpsId", "header": "VPS", "kind": "game"}, *COLUMNS[:2]]
+TABLES = [{"field": "vpsId", "header": "VPS", "kind": "table"}, *COLUMNS[:2]]
 
 
 def _rows() -> list[dict]:
@@ -40,14 +42,13 @@ class TheDeclaration(unittest.TestCase):
         self.ui = ExtensionUI("site", allowed=True)
 
     def test_a_list_is_recorded_as_data(self) -> None:
-        self.ui.list("tables", _rows, title="Site", columns=COLUMNS,
+        self.ui.list("tables", _rows, title="Site", columns=GAMES,
                      views=[{"key": "plays", "name": "Most played",
                              "columns": ["name", "plays"],
-                             "sort": [{"field": "plays", "desc": True}]}],
-                     relation={"field": "vpsId", "keys": "vps_entry"})
+                             "sort": [{"field": "plays", "desc": True}]}])
 
         (said,) = self.ui.declared_lists
-        self.assertEqual(("tables", ["text", "number", "text"],
+        self.assertEqual(("tables", ["game", "text", "number"],
                           [{"field": "plays", "desc": True}], "vps_entry"),
                          (said["key"], [one["kind"] for one in said["columns"]],
                           said["views"][0]["sort"], said["relation"]["keys"]))
@@ -142,14 +143,39 @@ class TheDeclaration(unittest.TestCase):
             with self.subTest(kind=kind), self.assertRaises(ContractError):
                 self.ui.list("tables", _rows, title="Site", columns=[column, *COLUMNS[1:]])
 
-    def test_a_relation_by_anything_but_a_vps_id_is_refused(self) -> None:
+    def test_ids_other_than_vps_and_vpinfe_are_refused(self) -> None:
         with self.assertRaises(ContractError):
-            self.ui.list("tables", _rows, title="Site", columns=COLUMNS,
-                         relation={"field": "name", "keys": "rom"})
+            self.ui.list("tables", _rows, title="Site",
+                         columns=[{**GAMES[0], "keys": "rom"}, *GAMES[1:]])
+
+    def test_the_first_column_is_what_the_list_relates_to(self) -> None:
+        for column, keys in ((GAMES[0], "vps_entry"), (TABLES[0], "vps_release"),
+                             ({**GAMES[0], "keys": "vpinfe"}, "vpinfe_game"),
+                             ({**TABLES[0], "keys": "vpinfe"}, "vpinfe_table")):
+            with self.subTest(keys=keys):
+                ui = ExtensionUI("site", allowed=True)
+                ui.list("tables", _rows, title="Site", columns=[column, *COLUMNS[:2]])
+                self.assertEqual({"field": "vpsId", "keys": keys},
+                                 ui.declared_lists[0]["relation"])
+
+    def test_a_game_column_after_the_first_relates_to_nothing(self) -> None:
+        self.ui.list("tables", _rows, title="Site", columns=[*COLUMNS[:2], GAMES[0]])
+
+        self.assertIsNone(self.ui.declared_lists[0]["relation"])
+
+    def test_only_the_first_column_has_a_frame(self) -> None:
+        for named in ("picture", "icon"):
+            with self.subTest(named=named), self.assertRaises(ContractError):
+                self.ui.list("tables", _rows, title="Site",
+                             columns=[*COLUMNS[:2], {"field": "x", named: "image"}])
+
+    def test_keys_and_says_belong_to_the_columns_that_read_them(self) -> None:
+        for column in ({"field": "x", "keys": "vps"}, {"field": "x", "says": "name"}):
+            with self.subTest(column=column), self.assertRaises(ContractError):
+                self.ui.list("tables", _rows, title="Site", columns=[*COLUMNS[:2], column])
 
     def test_a_tag_is_recorded_as_a_tag_would_be_stored(self) -> None:
-        self.ui.list("tables", _rows, title="Site", columns=COLUMNS,
-                     relation={"field": "vpsId", "keys": "vps_release"},
+        self.ui.list("tables", _rows, title="Site", columns=TABLES,
                      tag=" Weekly   Challenge ")
 
         self.assertEqual("Weekly Challenge", self.ui.declared_lists[0]["tag"])
@@ -162,12 +188,11 @@ class TheDeclaration(unittest.TestCase):
 
     def test_a_view_ranks_by_numbers_and_dates(self) -> None:
         self.ui.list("scores", _rows, title="Site",
-                     columns=[*COLUMNS, {"field": "set", "kind": "date"}],
+                     columns=[*TABLES, {"field": "set", "kind": "date"}],
                      views=[{"key": "top", "ranks": True,
                              "sort": [{"field": "plays", "desc": True},
                                       {"field": "set"}]},
-                            {"key": "all", "sort": [{"field": "name"}]}],
-                     relation={"field": "vpsId", "keys": "vps_release"})
+                            {"key": "all", "sort": [{"field": "name"}]}])
 
         self.assertEqual([True, False],
                          [one["ranks"] for one in self.ui.declared_lists[0]["views"]])
@@ -175,17 +200,15 @@ class TheDeclaration(unittest.TestCase):
     def test_a_ranked_view_sorting_on_text_is_refused(self) -> None:
         """A ranking is a number a game has; a name sorts but ranks nothing."""
         with self.assertRaises(ContractError):
-            self.ui.list("tables", _rows, title="Site", columns=COLUMNS,
+            self.ui.list("tables", _rows, title="Site", columns=GAMES,
                          views=[{"key": "top", "ranks": True,
                                  "sort": [{"field": "plays", "desc": True},
-                                          {"field": "name"}]}],
-                         relation={"field": "vpsId", "keys": "vps_entry"})
+                                          {"field": "name"}]}])
 
     def test_a_ranked_view_with_no_sort_is_refused(self) -> None:
         with self.assertRaises(ContractError):
-            self.ui.list("tables", _rows, title="Site", columns=COLUMNS,
-                         views=[{"key": "top", "ranks": True}],
-                         relation={"field": "vpsId", "keys": "vps_entry"})
+            self.ui.list("tables", _rows, title="Site", columns=GAMES,
+                         views=[{"key": "top", "ranks": True}])
 
     def test_a_ranked_view_of_a_list_that_relates_to_nothing_is_refused(self) -> None:
         with self.assertRaises(ContractError):

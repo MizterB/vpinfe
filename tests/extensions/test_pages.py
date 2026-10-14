@@ -279,6 +279,17 @@ class Pictured(Served):
         self.assertRegex(answer["sections"][0]["facts"][0]["value"],
                          rf"^/api/v1/ext/{NAME}/pictures/[0-9a-f]{{20}}$")
 
+    def test_a_game_fact_s_picture_is_an_address_of_cores_own(self) -> None:
+        section = {**ANSWER["sections"][0],
+                   "facts": [{"label": "Machine", "value": "v1", "kind": "game", "keys": "vps",
+                              "picture": self.WEB}]}
+        STATE["answer"] = {**ANSWER, "sections": [section]}
+
+        fact = self.ok(self.client.get(self.base))["sections"][0]["facts"][0]
+
+        self.assertRegex(fact["picture"], rf"^/api/v1/ext/{NAME}/pictures/[0-9a-f]{{20}}$")
+        self.assertEqual("v1", fact["value"])
+
 
 class PicturedWithoutOutbound(Served):
     def test_a_web_picture_is_refused_and_says_which_page(self) -> None:

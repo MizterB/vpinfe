@@ -59,5 +59,22 @@ class Facts(unittest.TestCase):
             self.fact(kind="state", icon="block")
 
 
+
+    def test_a_game_or_table_fact_names_whose_ids_it_holds(self) -> None:
+        for kind in ("game", "table"):
+            with self.subTest(kind=kind):
+                one = self.fact(kind=kind, says="Medieval Madness",
+                                picture="https://x.test/a.png")
+                self.assertEqual(("vps", "Medieval Madness"), (one["keys"], one["says"]))
+                self.assertEqual("vpinfe", self.fact(kind=kind, keys="vpinfe")["keys"])
+        with self.assertRaises(pane.PaneError):
+            self.fact(kind="game", keys="rom")
+
+    def test_says_keys_and_picture_belong_to_a_game_or_table_fact(self) -> None:
+        for own in ({"says": "x"}, {"keys": "vps"}, {"picture": "https://x.test/a.png"}):
+            with self.subTest(own=own), self.assertRaises(pane.PaneError):
+                self.fact(kind="text", **own)
+
+
 if __name__ == "__main__":
     unittest.main()

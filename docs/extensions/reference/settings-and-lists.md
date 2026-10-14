@@ -51,21 +51,18 @@ field.
 
 ## Lists
 
-`ctx.ui.list(key, rows, *, columns, area, title, views, status, acts, relation, tag, verbs, add,
+`ctx.ui.list(key, rows, *, columns, area, title, views, status, acts, tag, verbs, add,
 detail, save)`.
 A list an extension holds, shown in the rail.
 
 ```python
 ctx.ui.list(
     "tables", read_tables, title="Example Scores", area="community",
-    columns=[{"field": "name", "under": ["manufacturer", "year"]},
-             {"field": "manufacturer"},
-             {"field": "year", "kind": "number"},
+    columns=[{"field": "vps_id", "kind": "game", "says": "name"},
              {"field": "plays", "kind": "number"},
-             {"field": "vps_id"}],
-    views=[{"key": "most_played", "columns": ["name", "plays"],
+             {"field": "last_played", "kind": "date"}],
+    views=[{"key": "most_played", "columns": ["vps_id", "plays"],
             "sort": [{"field": "plays", "desc": True}], "ranks": True}],
-    relation={"field": "vps_id", "keys": "vps_entry"},
     status=lambda: {"text": ctx.t("status"), "to": "settings"},
     acts=lambda: {"send_now": send_now, "site": "https://scores.example.com"},
     verbs=[{"key": "open", "link": "page"},
@@ -105,20 +102,23 @@ Backups, About, Library, Frontend, Community, System), or another running extens
 title in the same area, compared without regard to case.  Either one raises `ContractError`
 from `register`, so the extension fails to start and the log names the clash.
 
-**Columns.**  `{"field", "header", "kind", "help", "under", "states", "says"}`.
+**Columns.**  `{"field", "header", "kind", "help", "under", "states", "says", "keys", "picture", "icon"}`.
 
 | key | meaning |
 |---|---|
 | `field` | Required.  The row key it shows |
-| `kind` | `text` (default), `number`, `date`, `state`, `chips`, `link` or `picture`; see [Cell kinds](#cell-kinds) |
+| `kind` | `text` (default), `number`, `date`, `state`, `chips`, `link`, `picture`, `game` or `table`; see [Cell kinds](#cell-kinds) and [Games and tables](#games-and-tables) |
 | `header` | Shown as written; left out, `list.<key>.column.<field>.header`, then the field |
 | `help` | The tooltip on the header.  Left out, `...help` in the catalog, then the header |
 | `under` | First column only.  Row fields shown on the line beneath its value, as a game's maker and year are |
 | `states` | A `state` column only, and required there.  `{value: look}`, the values the field may hold |
-| `says` | A `link` column only.  The row field the link reads as.  Left out, it reads as the column's header |
+| `says` | A `link`, `game` or `table` column only.  The row field the link reads as, or for a game or table the name to draw where neither the library nor VPS knows the id.  Left out, a link reads as the column's header and a game or table as its id |
+| `keys` | A `game` or `table` column only.  Whose ids the field holds, `vps` (default) or `vpinfe` |
+| `picture` | First column only.  The row field holding a picture, drawn where the library has none |
+| `icon` | First column only.  A Material icon name or SVG path, drawn where there is no picture |
 
 A column key core does not read stops the extension from starting, with the key in the reason.
-The first column is the row's name, so it is `text`, `number` or `date`.
+The first column is the row's name, so it is `text`, `number`, `date`, `game` or `table`.
 
 ### Cell kinds
 
@@ -185,18 +185,34 @@ name columns the list has.
 title and the view's name (*Example Scores: Most Played*).  It puts this library's games in the
 view's sort, each field in its own direction, and there is no reversing it.  A game the list
 does not rank follows in title order, so the order never drops one.  A ranked view sorts on
-`number` or `date` columns only, and its list needs a `relation`.  The order is read with the
+`number` or `date` columns only, and its list needs a `game` or `table` first column.  The order is read with the
 tags, on the same schedule, and keeps the last good read if a read fails.  While the extension
 is stopped, a collection in its order keeps it and shows its games in title order until the
 extension runs again.
 
-**Relation.**  `{"field", "keys"}`.  Core asks which of the rows this library holds and makes
-their name a link.  `keys` is `vps_entry` for a link to the game, or `vps_release` for one to
-the table; `field` is the row key that holds the id.
+### Games and tables
 
-**Tag.**  With `tag="Weekly Challenge"` and a relation, core puts that tag on what this library
-holds from the list: the game for a `vps_entry` relation, the table for a `vps_release` one, so
-a challenge naming one build of a machine tags that build and not the others.  The tag belongs
+A `game` or `table` column holds an id and draws the game or table it names, as the Games and
+Tables lists do.  `keys` says whose ids they are: `vps` (default) for a VPS entry, which is a
+game, or a VPS release, which is one build of it, or `vpinfe` for the ids VPinFE gave games and
+tables in this library.
+
+Where this library holds the id, the cell is the library's own: its name, its maker and year
+(for a table, its version and author), the picture the Thumbnails settings choose, and the name
+as a link to the game or table.  Where it does not, the cell is VPSdb's name and line with no
+link, then the row's own picture, or an icon.  The picture and the icon show only where the
+Thumbnails settings have pictures on.  Where neither knows the id, the cell is the row
+field `says` names, or the id.  A VPS release this library holds another version of says so
+under its name and links to the release.  The column is sorted and filtered by the name it
+shows.
+
+The first column is what the list relates to in this library.  A game or table column after it
+draws the name and the line, with no picture.  A game or table can also be a fact in a pane,
+page or group; see the pane below.
+
+**Tag.**  With `tag="Weekly Challenge"` and a game or table first column, core puts that tag on
+what this library holds from the list: the game for a `game` column, the table for a `table`
+one, so a challenge naming one build of a machine tags that build and not the others.  The tag belongs
 to the extension.  Nobody can rename, merge or remove it, or put it on by hand, and it goes
 when the extension stops.  It is written as given in every language, because it is stored on
 games, which makes it data.
@@ -287,16 +303,21 @@ top, written as a [picture column](#cell-kinds) is.  A section is `{"key", "labe
 |---|---|
 | `key` | Unique in the pane.  Left out, `section1`, `section2` and so on |
 | `label` | The section's name in the pane's rail, and required when there is more than one section.  A pane with one section has no rail, and the section fills it |
-| `facts` | Read-only lines, `{"label", "value", "kind", "to", "help", "tier"}` |
+| `facts` | Read-only lines, `{"label", "value", "kind", "to", "help", "tier", "says", "keys", "picture"}` |
 | `fields` | Lines the person can change, in the shape of a [settings field](#settings) |
 | `rows` | Plain lines, `{"label", "under"}`, for a short list of things the row holds |
 
-A fact's `kind` is `text` (default), `number`, `date`, `state`, `chips`, `link` or `picture`,
-drawn as the same [cell kind](#cell-kinds) is.  A `state` fact carries its look in the fact
+A fact's `kind` is `text` (default), `number`, `date`, `state`, `chips`, `link`, `picture`,
+`game` or `table`, drawn as the same [cell kind](#cell-kinds) is.  A `state` fact carries its look in the fact
 itself, `"tier"` (`on`, `off`, `unknown`, `warn` or `bad`), and no other kind may.
 A `link` fact needs `to`, the address it opens, in a new tab with `noopener` and `noreferrer`.  A fact's `value` is the word the person
-reads, so give it already in their language; `help` is its tooltip.  The `game` and `table`
-looks are not facts yet.
+reads, so give it already in their language; `help` is its tooltip.
+
+A `game` or `table` fact's `value` is an id, drawn as a [game or table column](#games-and-tables)
+draws one, with its picture and line.  `keys` says whose ids they are, and `says` is the words
+to show where neither the library nor VPS knows the id, as text and not the name of a row field.
+`picture` is a web address or a file in the extension's folder, shown where the library has none.
+No other kind takes `says`, `keys` or `picture`.
 
 A field is `{"key", "type", "label", "value", "help", "choices", "min", "max", "unit",
 "wants", "placeholder"}`, of any type a setting has.  Its `key` is unique in the whole pane,

@@ -214,14 +214,26 @@ def list_rows(record: Record, key: str, *, addressed: bool = True) -> dict:
     return {"rows": rows}
 
 
+def _addressed_facts(record: Record, facts: list[dict]) -> None:
+    """Turn each picture a fact names into the address core serves it from. Raises
+    `OutboundNotDeclaredError` for a web address the extension did not declare."""
+    for fact in facts:
+        if fact["kind"] == "picture":
+            fact["value"] = pictures.address(record, fact["value"])
+        elif fact["picture"]:
+            fact["picture"] = pictures.address(record, fact["picture"])
+
+
 def _addressed(record: Record, key: str, rows: list[dict]) -> None:
     declared = next((one for one in record.declared_lists if one["key"] == key), {})
-    for column in declared.get("columns", []):
-        if column["kind"] != "picture":
-            continue
+    fields = list(dict.fromkeys(
+        column["field"] if column["kind"] == "picture" else column.get("picture")
+        for column in declared.get("columns", [])
+        if column["kind"] == "picture" or column.get("picture")))
+    for field in fields:
         for row in rows:
             try:
-                row[column["field"]] = pictures.address(record, row.get(column["field"]))
+                row[field] = pictures.address(record, row.get(field))
             except pictures.OutboundNotDeclaredError as exc:
                 raise ExtensionError(i18n.t(
                     "error.extensions.picture_outbound",
@@ -330,9 +342,7 @@ def list_detail(record: Record, key: str, row_id: str) -> dict:
         if shown["picture"]:
             shown["picture"] = pictures.address(record, shown["picture"])
         for section in shown["sections"]:
-            for fact in section["facts"]:
-                if fact["kind"] == "picture":
-                    fact["value"] = pictures.address(record, fact["value"])
+            _addressed_facts(record, section["facts"])
     except pictures.OutboundNotDeclaredError as exc:
         raise ExtensionError(i18n.t("error.extensions.picture_outbound",
                                     display=record.display_name, key=f"list {key}")) from exc
@@ -386,9 +396,7 @@ def page_read(record: Record, key: str) -> dict:
         if shown["picture"]:
             shown["picture"] = pictures.address(record, shown["picture"])
         for section in shown["sections"]:
-            for fact in section["facts"]:
-                if fact["kind"] == "picture":
-                    fact["value"] = pictures.address(record, fact["value"])
+            _addressed_facts(record, section["facts"])
     except pictures.OutboundNotDeclaredError as exc:
         raise ExtensionError(i18n.t("error.extensions.picture_outbound",
                                     display=record.display_name, key=at)) from exc
@@ -448,9 +456,7 @@ def group_read(record: Record, subject: str, who: dict) -> dict:
         raise ExtensionError(i18n.t(exc.line, display=record.display_name,
                                     id=f"its {subject} group", **exc.params)) from exc
     try:
-        for fact in (section or {}).get("facts", []):
-            if fact["kind"] == "picture":
-                fact["value"] = pictures.address(record, fact["value"])
+        _addressed_facts(record, (section or {}).get("facts", []))
     except pictures.OutboundNotDeclaredError as exc:
         raise ExtensionError(i18n.t("error.extensions.picture_outbound",
                                     display=record.display_name, key=at)) from exc

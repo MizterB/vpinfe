@@ -33,6 +33,7 @@ it, what you will see, a few variations and the mistake people make with it.
 - [8. A list you can add to](#8-a-list-you-can-add-to)
 - [9. Acting on rows](#9-acting-on-rows)
 - [10. States, chips, links and pictures in a column](#10-states-chips-links-and-pictures-in-a-column)
+- [11. A game in a list](#11-a-game-in-a-list)
 - [12. A pane beside a list](#12-a-pane-beside-a-list)
 - [13. An account per player](#13-an-account-per-player)
 - [15. A page of one subject](#15-a-page-of-one-subject)
@@ -963,6 +964,83 @@ nothing on the others.
 chips where each row has one is a text column wearing a costume. Use `chips` for what some rows
 have and most do not. The same goes for a tier: when most rows are `on`, give that state `{}`
 and let only the ones worth noticing be colored.
+
+### 11. A game in a list
+
+**Use it when:** a row is about a game or a table, such as the machine a challenge is played
+on, and the person should see it as they see it in the Games and Tables lists.
+
+Give the column `"kind": "game"` and put a VPS id in the field.  Core draws the cell: where
+your library holds the game, its picture, name, maker and year, with the name linking to its
+page; where it does not, VPSdb's name and line; and where VPSdb does not know the id either, the
+row field `says` names.  You write no picture and no link.  Use `"kind": "table"` for the id of
+one build, a VPS release, and `"keys": "vpinfe"` for the ids VPinFE gave a game or a table in
+this library.
+
+This one needs no service.  It lists three games people voted for, written into the file.
+
+`recipes/game_board/extension.json`
+
+```json
+{
+  "name": "game_board",
+  "version": "1.0.0",
+  "requires_platform": 1,
+  "capabilities": ["ui:mount"]
+}
+```
+
+`recipes/game_board/__init__.py`
+
+```python
+PICKS = [
+    {"vps_id": "vps-medieval", "name": "Medieval Madness", "votes": 41},
+    {"vps_id": "vps-mars", "name": "Attack from Mars", "votes": 33},
+    {"vps_id": "vps-homebrew", "name": "A table nobody catalogued", "votes": 2},
+]
+
+
+def register(ctx):
+    ctx.ui.list("picks", lambda: PICKS, area="community", columns=[
+        {"field": "vps_id", "kind": "game", "says": "name"},
+        {"field": "votes", "kind": "number"},
+    ])
+```
+
+`recipes/game_board/i18n/en.json`
+
+```json
+{
+  "name": "Game Board",
+  "description": "Lists the games people voted for, each drawn as the Games list draws it.",
+  "list.picks.title": "Game Picks",
+  "list.picks.column.vps_id.header": "Game",
+  "list.picks.column.votes.header": "Votes"
+}
+```
+
+**Where it appears:** on the list's page under Community in the rail, as the Game column.
+**What triggers it:** the person opening the page.  Core reads the rows, asks the library and
+VPSdb about the ids, and draws each cell.
+
+**What you'll see:** Game Picks under Community in the rail with three rows.  A game the
+library holds shows its picture, its name as a link to the game, and its maker and year.  A game
+it does not hold but VPSdb knows shows VPSdb's name and line, with no link.  An id that neither
+knows shows the row's own `name`.  The Game column is sorted and filtered by the name it shows,
+so searching for a name finds the row.
+
+**Variations:**
+
+- `{"field": "build", "kind": "table"}` names one build of a machine.  A build the library
+  does not hold, of a machine it does, says so under its name and links to the build it has.
+- Add `tag="Weekly Challenge"` to the list and core puts that tag on the games, or the tables, the
+  library holds from it.
+- A game can also be a fact in a pane, a page or a group:
+  `{"kind": "game", "value": vps_id, "says": "Medieval Madness"}`.  A fact's `says` is the
+  words themselves, not a row field.
+
+**Watch out:** the first column is what the list relates to in this library, so it is the one
+that gets a picture and a link.  A game or table column after it draws the name and line alone.
 
 ### 12. A pane beside a list
 

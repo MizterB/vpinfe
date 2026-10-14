@@ -17,7 +17,7 @@ from nicegui import run, ui
 
 from common.failures import why
 from common.i18n import t
-from console import community, ext_links, ext_page, offload, panel, when
+from console import community, ext_cells, ext_links, ext_page, offload, panel, when
 from console.api import ApiClient
 from console.on_page import on_page
 
@@ -64,13 +64,14 @@ def _label(label: str, _context: dict[str, Any]) -> str:
 
 
 async def _draw_section(one: dict[str, Any], context: dict[str, Any]) -> None:
-    panel.facts(ui, section_entries(one, context))
+    panel.facts(ui, section_entries(one, await ext_cells.prepared(context, [one])))
 
 
 def section_entries(one: dict[str, Any], context: dict[str, Any]) -> list[tuple[Any, ...]]:
     """A section's facts, fields and rows as the panel lists them. `context` names the
     route a field is written to, the page's `state`, and `redraw(answer)`, which draws the
-    answer to a write (None where it is to be read again)."""
+    answer to a write (None where it is to be read again). A game or table fact is drawn
+    from what `ext_cells.prepared` added to `context`."""
     client = ApiClient()
     entries: list[tuple[Any, ...]] = []
     for fact in one.get("facts") or []:
@@ -97,6 +98,8 @@ def _fact_value(fact: dict[str, Any], context: dict[str, Any]) -> Any:
                 if to else str(value))
     if kind == "picture":
         return partial(_picture, str(value))
+    if kind in ext_cells.KINDS:
+        return ext_cells.draw(fact, context)
     if kind == "date":
         return when.local(value) or str(value)
     return str(value)

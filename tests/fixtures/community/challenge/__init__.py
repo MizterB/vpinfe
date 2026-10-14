@@ -14,8 +14,13 @@ fixture's own `i18n/en.json`.
 
 from __future__ import annotations
 
-COLUMNS = [{"field": "name", "header": "Table"}, {"field": "vps_id", "header": "VPS"}]
-RATED = [*COLUMNS, {"field": "rating", "header": "Rating", "kind": "number"}]
+
+def columns(kind: str) -> list[dict]:
+    return [{"field": "vps_id", "header": "VPS", "kind": kind, "says": "name"},
+            {"field": "name", "header": "Table"}]
+
+
+RATING = {"field": "rating", "header": "Rating", "kind": "number"}
 TOP = [{"key": "top", "name": "Top Rated", "ranks": True,
         "sort": [{"field": "rating", "desc": True}]}]
 WEEK = "https://challenge.example/week"
@@ -52,11 +57,10 @@ def register(ctx) -> None:
         return {**offered, "week": WEEK}
 
     ctx.ui.list("machines", rows("machines"), title="Machines of the Month",
-                columns=COLUMNS, relation={"field": "vps_id", "keys": "vps_entry"},
-                tag="Machine of the Month")
-    ctx.ui.list("releases", rows("releases"), title="Weekly Challenge", columns=COLUMNS,
-                relation={"field": "vps_id", "keys": "vps_release"}, tag="Weekly Challenge")
-    ctx.ui.list("ratings", rated("ratings"), title="Ratings", columns=RATED, views=TOP,
-                relation={"field": "vps_id", "keys": "vps_entry"}, status=line, acts=acts)
-    ctx.ui.list("builds", rated("builds"), title="Build Ratings", columns=RATED, views=TOP,
-                relation={"field": "vps_id", "keys": "vps_release"})
+                columns=columns("game"), tag="Machine of the Month")
+    ctx.ui.list("releases", rows("releases"), title="Weekly Challenge", columns=columns("table"),
+                tag="Weekly Challenge")
+    ctx.ui.list("ratings", rated("ratings"), title="Ratings",
+                columns=[*columns("game"), RATING], views=TOP, status=line, acts=acts)
+    ctx.ui.list("builds", rated("builds"), title="Build Ratings",
+                columns=[*columns("table"), RATING], views=TOP)

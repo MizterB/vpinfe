@@ -42,11 +42,11 @@ It never raises, and is empty before `settings` is called.
 ## `ctx.ui.list`
 
 `ctx.ui.list(key, rows, *, columns, area="community", title="", views=(), status=None,
-acts=None, relation=None, tag="", verbs=(), add=(), detail=None, save=None)`.  Required:
+acts=None, tag="", verbs=(), add=(), detail=None, save=None)`.  Required:
 `key`, `rows`, `columns`.
 
 Declare a list.  `rows()` returns the rows, each a dict.  See
-[Lists](settings-and-lists.md#lists) for columns, views, acts, relation, tag, verbs, add and
+[Lists](settings-and-lists.md#lists) for columns, views, acts, tag, verbs, add and
 the pane (`detail` and `save`).
 
 ```python
@@ -60,9 +60,12 @@ A person sees the list in the rail under `area`.  It raises `ContractError` for:
 - `rows` or `status` that is not a function
 - `under` on any column but the first, or an unknown column kind
 - a view on a column the list does not have
-- a relation on a missing field, or with `keys` other than `vps_entry` or `vps_release`
-- a `tag` without a relation
-- a ranked view that sorts on anything but number or date columns, or has no relation
+- `keys` on a column that is not a game or table, or `keys` other than `vps` or `vpinfe`
+- `says` on a column that is not a link, game or table
+- `picture` or `icon` on any column but the first, or `picture` on a picture column
+- a `tag` on a list whose first column is not a game or table
+- a ranked view that sorts on anything but number or date columns, or on a list whose first
+  column is not a game or table
 - a verb that is not a dict, has no key or a key already used, or carries a key core does not
   read
 - a verb with more than one of `run`, `link` and `action`, or none of them

@@ -16,7 +16,7 @@ from urllib.parse import quote
 from nicegui import ui
 
 from common.failures import why
-from console import busy, ext_row, offload, panel
+from console import busy, ext_cells, ext_row, offload, panel
 from console.api import ApiClient
 
 logger = logging.getLogger("vpinfe.console.ext_groups")
@@ -62,15 +62,20 @@ async def _show(region: ui.element, extension: dict[str, Any], group: dict[str, 
             return
     if region.is_deleted:
         return
-    region.clear()
     section = answer.get("section")
     if not section:
+        region.clear()
         return
 
     async def redraw(new: dict[str, Any] | None) -> None:
         await _show(region, extension, group, context, new)
 
-    held = {"state": context["state"], "route": where, "redraw": redraw, "again": None}
+    held = await ext_cells.prepared(
+        {"state": context["state"], "route": where, "redraw": redraw, "again": None,
+         "library": context.get("library")}, [section])
+    if region.is_deleted:
+        return
+    region.clear()
     with region:
         panel.facts(ui, [(panel.HEADING, str(answer.get("title") or "")),
                          *ext_row.section_entries(section, held)])

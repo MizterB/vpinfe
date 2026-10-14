@@ -31,7 +31,7 @@ AT_ONCE = 8
 TIMEOUT_SECONDS = 15
 
 COLUMNS = [
-    {"field": "name", "under": ["manufacturer", "year"]},
+    {"field": "vps_id", "kind": "game", "says": "name"},
     {"field": "manufacturer"},
     {"field": "year", "kind": "number"},
     {"field": "rating", "kind": "number"},
@@ -40,9 +40,8 @@ COLUMNS = [
     {"field": "hours", "kind": "number"},
     {"field": "players", "kind": "number"},
     {"field": "last_played", "kind": "date"},
-    {"field": "vps_id"},
 ]
-_SHOWN = ["name", "rating", "ratings", "plays", "hours", "players", "last_played"]
+_SHOWN = ["vps_id", "rating", "ratings", "plays", "hours", "players", "last_played"]
 
 
 def _view(field: str, *then: str) -> dict[str, Any]:
@@ -52,7 +51,6 @@ def _view(field: str, *then: str) -> dict[str, Any]:
 
 VIEWS = [_view("rating", "ratings"), _view("plays"), _view("hours"), _view("last_played"),
          _view("players")]
-RELATION = {"field": "vps_id", "keys": "vps_entry"}
 
 
 def _utc(stamp: Any) -> str:

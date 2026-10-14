@@ -223,15 +223,23 @@ class ExtensionApps:
         self._mine.clear()
 
 
-COLUMN_KINDS = frozenset({"text", "number", "date", "state", "chips", "link", "picture"})
-# The kinds that draw something other than the value's own text.
+COLUMN_KINDS = frozenset({"text", "number", "date", "state", "chips", "link", "picture",
+                          "game", "table"})
+# The kinds that draw something other than the value's own text. `game` and `table` are
+# not among them: the first column may be one, and it is the name core draws.
 CELL_KINDS = frozenset({"state", "chips", "link", "picture"})
-COLUMN_KEYS = frozenset({"field", "header", "kind", "help", "under", "states", "says"})
+LIBRARY_KINDS = frozenset({"game", "table"})
+COLUMN_KEYS = frozenset({"field", "header", "kind", "help", "under", "states", "says", "keys",
+                         "picture", "icon"})
+# Whose ids a `game` or `table` holds: the catalog's, or VPinFE's own.
+ID_KEYS = ("vps", "vpinfe")
 # The chip tiers a state can wear; a state with neither a tier nor an icon is a quiet word.
 STATE_TIERS = frozenset({"on", "off", "unknown", "warn", "bad"})
 STATE_LOOKS = frozenset({"tier", "icon"})
 RANKING_KINDS = frozenset({"number", "date"})
-RELATION_KEYS = frozenset({"vps_entry", "vps_release"})
+# What a list's first column relates its rows to, by its kind and `keys`.
+RELATIONS = {("game", "vps"): "vps_entry", ("table", "vps"): "vps_release",
+             ("game", "vpinfe"): "vpinfe_game", ("table", "vpinfe"): "vpinfe_table"}
 VERB_KEYS = frozenset({"key", "run", "link", "action", "each", "danger", "needs", "one",
                        "label"})
 
@@ -577,8 +585,7 @@ class ExtensionUI:
     def list(self, key: str, rows: Callable[[], Any], *, columns: Sequence[dict],
              area: str = DEFAULT_AREA, title: str = "", views: Sequence[dict] = (),
              status: Callable[[], Any] | None = None, acts: Any = None,
-             relation: dict | None = None, tag: str = "",
-             verbs: Sequence[dict] = (), add: str | Sequence[str] = (),
+             tag: str = "", verbs: Sequence[dict] = (), add: str | Sequence[str] = (),
              detail: Callable[[str], Any] | None = None,
              save: Callable[[str, dict], Any] | None = None) -> None:
         """A list this extension holds, shown in the rail under `area`.
@@ -589,16 +596,21 @@ class ExtensionUI:
         function runs when pressed and answers what to say, an address is opened.
 
         A column is `{"field", "header", "kind"}` with `kind` one of `text`, `number`,
-        `date`, `state`, `chips`, `link` or `picture`, and the first may name `under`: row
-        fields drawn on the line beneath its value. A `state` column names
+        `date`, `state`, `chips`, `link`, `picture`, `game` or `table`, and the first may name
+        `under`: row fields drawn on the line beneath its value. A `state` column names
         `states={value: {"tier"} or {"icon"}}`, a `link` column may name the row field it
         reads as in `says`, and a `picture` column holds a web address or a file in the
-        extension's folder. A view is `{"key", "name", "columns", "sort": [{"field", "desc"}],
-        "help", "ranks"}`, and one that `ranks` is offered as an order for a collection, so it
-        needs a `relation` and a sort on number or date columns only. `relation` is
-        `{"field", "keys"}`, `keys` being `vps_entry` or `vps_release`. `tag` is put on
-        every game (`vps_entry`) or table (`vps_release`) of this library the list
-        relates to, so it needs a `relation`.
+        extension's folder. A `game` or `table` column holds an id, VPS's or VPinFE's own as
+        its `keys` says (`vps`, the default, or `vpinfe`), and `says` names the row field
+        holding the name to draw where neither the library nor VPS knows the id. The first
+        column may name `picture`, a row field holding an image, and `icon`, a Material icon
+        or SVG path drawn where there is no picture.
+
+        A first column of kind `game` or `table` is what the list relates to in this
+        library, so a view that `ranks` and a `tag` need one. A view is `{"key", "name",
+        "columns", "sort": [{"field", "desc"}], "help", "ranks"}`, and one that `ranks` is
+        offered as an order for a collection, with a sort on number or date columns only.
+        `tag` is put on every game or table of this library the list relates to.
 
         `verbs` are what can be done to the rows, in the row's menu and the selection's.
         A verb is `{"key", "run", "link" or "action", "label", "each", "danger", "needs",
@@ -616,12 +628,12 @@ class ExtensionUI:
 
         `detail(row_id)` answers what the pane beside the list shows for a row, so a click on
         a row opens it: `{"title", "under", "picture", "sections": [{"key", "label",
-        "facts": [{"label", "value", "kind", "to", "help", "tier", "icon"}], "fields":
-        [{"key", "type", "label", "value"}], "rows": [{"label", "under"}]}]}`. A fact's `kind`
-        is one of `common.extensions.pane.FACT_KINDS` and a field's `type` one of
-        `fields.SETTINGS_TYPES`. A field is written when it is set: `save(row_id, values)`
-        is called with the keys changed, answers nothing, and core asks `detail` again to
-        draw the pane. `save` needs `detail`.
+        "facts": [{"label", "value", "kind", "to", "help", "tier", "says", "keys",
+        "picture"}], "fields": [{"key", "type", "label", "value"}], "rows": [{"label",
+        "under"}]}]}`. A fact's `kind` is one of `common.extensions.pane.FACT_KINDS` and a
+        field's `type` one of `fields.SETTINGS_TYPES`. A field is written when it is set:
+        `save(row_id, values)` is called with the keys changed, answers nothing, and core
+        asks `detail` again to draw the pane. `save` needs `detail`.
         """
         self._needs_ui("a list")
         wanted = str(key or "").strip()
@@ -667,10 +679,15 @@ class ExtensionUI:
             if not str(view.get("key") or "").strip() or not named <= set(names):
                 raise ContractError(f"{self._name} declares a view with no key or on a "
                                     "column it does not have")
-        if relation and (relation.get("field") not in names
-                         or relation.get("keys") not in RELATION_KEYS):
-            raise ContractError(f"{self._name} relates its list on a field it does not "
-                                "have, or by something other than a VPS entry or release")
+        first = columns[0] or {}
+        first_kind = str(first.get("kind") or "text")
+        relation = ({"field": names[0],
+                     "keys": RELATIONS[(first_kind, str(first.get("keys") or ID_KEYS[0]))]}
+                    if first_kind in LIBRARY_KINDS else None)
+        for one in columns[1:]:
+            if (one or {}).get("picture") is not None or (one or {}).get("icon") is not None:
+                raise ContractError(f"{self._name} gives a picture or an icon to a column "
+                                    "other than the first, which is the only one with a frame")
         derived = " ".join(str(tag or "").split())
         if derived and not relation:
             raise ContractError(f"{self._name} derives a tag from a list that relates to "
@@ -704,6 +721,10 @@ class ExtensionUI:
                          "help": str(one.get("help") or ""),
                          "under": [str(under) for under in one.get("under") or []],
                          "says": str(one.get("says") or ""),
+                         "keys": (str(one.get("keys") or ID_KEYS[0])
+                                  if str(one.get("kind") or "text") in LIBRARY_KINDS else ""),
+                         "picture": str(one.get("picture") or "").strip(),
+                         "icon": str(one.get("icon") or "").strip(),
                          "states": {value: dict(look or {})
                                     for value, look in (one.get("states") or {}).items()}}
                         for name, one in zip(names, columns, strict=True)],
@@ -734,10 +755,22 @@ class ExtensionUI:
         kind = str(column.get("kind") or "text")
         if column.get("states") is not None and kind != "state":
             raise ContractError(f"{where} states, which only a state column has")
-        if column.get("says") is not None and kind != "link":
-            raise ContractError(f"{where} says, which only a link column has")
-        if kind == "link" and not isinstance(column.get("says") or "", str):
+        if column.get("says") is not None and kind != "link" and kind not in LIBRARY_KINDS:
+            raise ContractError(f"{where} says, which only a link, game or table column has")
+        if (kind == "link" or kind in LIBRARY_KINDS) \
+                and not isinstance(column.get("says") or "", str):
             raise ContractError(f"{where} a says that is not the name of a row field")
+        if column.get("keys") is not None and kind not in LIBRARY_KINDS:
+            raise ContractError(f"{where} keys, which only a game or table column has")
+        if kind in LIBRARY_KINDS and (column.get("keys") or ID_KEYS[0]) not in ID_KEYS:
+            raise ContractError(f"{where} keys of {column.get('keys')!r}, which is not one "
+                                f"of {', '.join(ID_KEYS)}")
+        for named in ("picture", "icon"):
+            if column.get(named) is not None \
+                    and not (isinstance(column[named], str) and column[named].strip()):
+                raise ContractError(f"{where} a {named} that is not text")
+        if kind == "picture" and column.get("picture") is not None:
+            raise ContractError(f"{where} a picture key, which a picture column does not take")
         if kind != "state":
             return
         states = column.get("states")

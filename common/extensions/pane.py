@@ -12,12 +12,14 @@ from collections.abc import Callable
 from typing import Any
 
 from .accounts import scrubbed
+from .context import ID_KEYS
 from .fields import PATH_KINDS, SETTINGS_TYPES, number_text, ticked
 from .pictures import is_openable
 
 ANSWER_KEYS = frozenset({"title", "under", "picture", "sections"})
 SECTION_KEYS = frozenset({"key", "label", "facts", "fields", "rows"})
-FACT_KEYS = frozenset({"label", "value", "kind", "to", "help", "tier"})
+FACT_KEYS = frozenset({"label", "value", "kind", "to", "help", "tier", "says", "keys",
+                       "picture"})
 FIELD_KEYS = frozenset({"key", "type", "label", "value", "help", "choices", "min", "max",
                         "unit", "wants", "placeholder"})
 ROW_KEYS = frozenset({"label", "under"})
@@ -25,8 +27,10 @@ ROW_KEYS = frozenset({"label", "under"})
 GROUP_KEYS = frozenset({"facts", "fields", "rows"})
 GROUP_SECTION = "group"
 
-# The cell drawings of a list that a fact can use. `game` and `table` need a library row.
-FACT_KINDS = ("text", "number", "date", "state", "chips", "link", "picture")
+# The cell drawings of a list that a fact can use. A `game` or `table` fact is the id, drawn
+# as one row of the name control.
+FACT_KINDS = ("text", "number", "date", "state", "chips", "link", "picture", "game", "table")
+LIBRARY_FACTS = ("game", "table")
 TIERS = ("on", "off", "unknown", "warn", "bad")
 
 
@@ -101,10 +105,20 @@ def _fact(one: Any, where: str) -> dict:
         value = _text(fact, "value", f"{where} fact")
     if kind == "link" and not is_openable(str(fact.get("to") or "")):
         raise PaneError("error.extensions.pane_link", what=f"{where} fact")
+    keys = str(fact.get("keys") or ID_KEYS[0])
+    if kind in LIBRARY_FACTS:
+        if keys not in ID_KEYS:
+            raise PaneError("error.extensions.pane_shape", what=f"{where} fact keys",
+                            need=f"one of {', '.join(ID_KEYS)}")
+    elif any(fact.get(own) is not None for own in ("says", "keys", "picture")):
+        raise PaneError("error.extensions.pane_own", what=f"{where} fact")
     return {"label": _text(fact, "label", f"{where} fact"), "value": value, "kind": kind,
             "to": _text(fact, "to", f"{where} fact"),
             "help": _text(fact, "help", f"{where} fact"),
-            "tier": tier}
+            "tier": tier,
+            "says": _text(fact, "says", f"{where} fact"),
+            "keys": keys if kind in LIBRARY_FACTS else "",
+            "picture": _text(fact, "picture", f"{where} fact")}
 
 
 def _field(one: Any, where: str) -> dict:

@@ -1688,7 +1688,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             elif ext_pages.is_page(view):
                 paged = ext_pages.find(view, state["extensions"])
                 if paged is not None:
-                    ext_pages.build(*paged, subject=menu, host=state["host"])
+                    ext_pages.build(*paged, library, subject=menu, host=state["host"])
             elif view == "media":
                 media_page.build(library.media_rows(), library, show_slot, state,
                                  rescan=_rescan)

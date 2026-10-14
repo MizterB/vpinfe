@@ -50,6 +50,7 @@ DECLARES: dict[str, list[str]] = {
                   "list       scores in community: 3 columns, 0 views, 0 verbs, adds post"],
     "score_rows": ["list       scores in community: 3 columns, 0 views, 3 verbs"],
     "weekly_board": ["list       board in community: 5 columns, 0 views, 0 verbs"],
+    "game_board": ["list       picks in community: 2 columns, 0 views, 0 verbs"],
     "challenge_pane": ["list       board in community: 1 columns, 0 views, 0 verbs, opens a pane",
                        "a pane of 2 sections"],
     "game_notes": ["group      on a game's panel, with fields",

@@ -12,10 +12,11 @@ from typing import Any
 from common import paths, service_errors
 from common.atomic_write import write_atomic
 from common.games.game import GameRecord
+from common.games.game_identity import game_id
 from common.games.game_metadata import game_tags as own_game_tags
 from common.games.game_metadata import game_vps_id, normalize_tag
 from common.games.game_metadata import table_tags as own_table_tags
-from common.games.tables import table_entries
+from common.games.tables import table_entries, table_id
 from common.i18n import t
 from common.timestamps import utc_now_iso
 
@@ -25,7 +26,7 @@ SCHEMA = 1
 
 _lock = threading.RLock()
 _held: dict[str, dict[str, Any]] | None = None
-_indexed: tuple[Any, dict[str, set[str]], dict[str, set[str]]] | None = None
+_indexed: tuple[Any, dict[tuple[str, str], set[str]]] | None = None
 _generation = 0
 
 
@@ -105,38 +106,41 @@ def _signature() -> tuple:
                                for record in extensions.records()))
 
 
-def _index() -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+def _index() -> dict[tuple[str, str], set[str]]:
+    """The tags of each (relation keys, id) a tagged list reads."""
     global _indexed
     with _lock:
         signature = _signature()
         if _indexed is None or _indexed[0] != signature:
-            games: dict[str, set[str]] = {}
-            tables: dict[str, set[str]] = {}
+            found: dict[tuple[str, str], set[str]] = {}
             for one in declared():
-                into = games if one["keys"] == "vps_entry" else tables
-                for found in one["ids"]:
-                    into.setdefault(found, set()).add(one["tag"])
-            _indexed = (signature, games, tables)
-        return _indexed[1], _indexed[2]
+                for each in one["ids"]:
+                    found.setdefault((one["keys"], each), set()).add(one["tag"])
+            _indexed = (signature, found)
+        return _indexed[1]
 
 
 def _sorted(tags: set[str]) -> list[str]:
     return sorted(tags, key=str.casefold)
 
 
+def _tags_of(*asked: tuple[str, str]) -> list[str]:
+    held = _index()
+    return _sorted(set().union(*(held.get(one, set()) for one in asked if one[1])))
+
+
 def game_tags(game: GameRecord) -> list[str]:
     carried = getattr(game, "derived_tags", None)
     if carried is not None:
         return list(carried)
-    entry = game_vps_id(game)
-    return _sorted(_index()[0].get(entry, set())) if entry else []
+    return _tags_of(("vps_entry", game_vps_id(game)), ("vpinfe_game", game_id(game)))
 
 
 def table_tags(table: dict) -> list[str]:
     if "derived_tags" in table:
         return list(table.get("derived_tags") or [])
     release = str(((table.get("source") or {}).get("vps_file_id")) or "").strip()
-    return _sorted(_index()[1].get(release, set())) if release else []
+    return _tags_of(("vps_release", release), ("vpinfe_table", table_id(table)))
 
 
 def names() -> set[str]:

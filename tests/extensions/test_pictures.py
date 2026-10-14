@@ -31,6 +31,11 @@ def pictured(ctx: Any) -> None:
     ctx.ui.list("covers", lambda: [dict(one) for one in ROWS], title="Covers",
                 columns=[{"field": "name"}, {"field": "art", "kind": "picture"}],
                 verbs=[{"key": "grab", "run": lambda rows: GRABBED.extend(rows)}])
+    ctx.ui.list("games", lambda: [dict(one) for one in ROWS], title="Boards",
+                columns=[{"field": "vps_id", "kind": "game", "says": "name", "picture": "art"}])
+    ctx.ui.list("twice", lambda: [dict(one) for one in ROWS], title="Twice",
+                columns=[{"field": "vps_id", "kind": "game", "says": "name", "picture": "art"},
+                         {"field": "art", "kind": "picture"}])
 
 
 def _installed(root: Path, capabilities: list[str]) -> Path:
@@ -43,7 +48,8 @@ def _installed(root: Path, capabilities: list[str]) -> Path:
         "requires_platform": contract.PLATFORM_ABI,
         "capabilities": capabilities}), encoding="utf-8")
     (directory / "i18n" / "en.json").write_text(
-        json.dumps({"list.covers.title": "Covers",
+        json.dumps({"list.covers.title": "Covers", "list.games.title": "Boards",
+                    "list.twice.title": "Twice",
                     "list.covers.verb.grab.label": "Grab"}), encoding="utf-8")
     (directory / "__init__.py").write_text(
         f"from {MODULE} import pictured as register\n", encoding="utf-8")
@@ -118,6 +124,24 @@ class WhatTheRowsCarry(PicturedCase):
         self.assertEqual(400, response.status_code)
         self.assertIn(t("error.extensions.picture_outbound", display="Pictured",
                         key="list covers"), response.text)
+
+    def test_a_game_column_s_picture_field_is_an_address_too(self) -> None:
+        ROWS.append({"vps_id": "v1", "name": "a", "art": WEB})
+
+        response = self.client.get(f"/ext/{NAME}/lists/games")
+
+        self.assertEqual(response.status_code, 200, response.text)
+        (row,) = response.json()["rows"]
+        self.assertRegex(row["art"], rf"^/api/v1/ext/{NAME}/pictures/[0-9a-f]{{20}}$")
+
+    def test_a_field_named_by_two_columns_is_addressed_once(self) -> None:
+        ROWS.append({"vps_id": "v1", "name": "a", "art": WEB})
+
+        response = self.client.get(f"/ext/{NAME}/lists/twice")
+
+        self.assertEqual(response.status_code, 200, response.text)
+        (row,) = response.json()["rows"]
+        self.assertRegex(row["art"], rf"^/api/v1/ext/{NAME}/pictures/[0-9a-f]{{20}}$")
 
     def test_a_file_picture_needs_no_capability(self) -> None:
         self.capabilities = ["ui:mount"]

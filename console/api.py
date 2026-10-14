@@ -462,8 +462,8 @@ class ApiClient:
         self._answered(response)
         return list((response.json() or {}).get("releases") or [])
 
-    def owned(self, ids: list[str]) -> dict:
-        return self._post("/library/owned", {"ids": list(ids)})
+    def owned(self, ids: list[str], keys: str = "vps", kind: str = "") -> dict:
+        return self._post("/library/owned", {"ids": list(ids), "keys": keys, "kind": kind})
 
     def tags(self) -> list[dict]:
         return list(self._get("/library/tags", _LIBRARY_TIMEOUT).get("tags") or [])

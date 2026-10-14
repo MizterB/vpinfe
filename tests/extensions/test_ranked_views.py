@@ -100,7 +100,7 @@ class TheRead(DerivedTagCase):
         self.assertEqual(["afm-entry", "mm-entry"], [one["vps_id"] for one in said["rows"]])
         self.assertTrue(said["read_at"])
 
-    def test_a_read_that_moves_the_order_tells_the_cabinet(self) -> None:
+    def test_a_read_that_moves_the_order_tells_vpinfe(self) -> None:
         heard = self.told()
         self.week(ratings="afm-entry=8.1,mm-entry=7.9")
         self.read()
@@ -207,6 +207,21 @@ class InACollection(RankedCase):
         self.assertEqual(["mm", "bk", "afm", "cv"],
                          [game_id(one) for one in
                           resolve_games("Builds", self.collections, self.games)])
+
+    def test_a_view_over_vpinfe_ids_ranks_by_vpinfe_s_own_ids(self) -> None:
+        by_game = {"challenge/kept/top": ("vpinfe_game", {"mm": 0, "afm": 1})}
+        by_table = {"challenge/kept/top": ("vpinfe_table", {"vpw": 0})}
+
+        with patch.object(rankings, "_index", return_value=by_game):
+            self.assertEqual(["mm", "afm", "bk", "cv"],
+                             [game_id(one) for one in
+                              sorted([self.afm, self.bk, self.cv, self.mm],
+                                     key=rankings.rank_key("challenge/kept/top"))])
+        with patch.object(rankings, "_index", return_value=by_table):
+            self.assertEqual(["cv", "mm", "bk", "afm"],
+                             [game_id(one) for one in
+                              sorted([self.cv, self.mm, self.bk, self.afm],
+                                     key=rankings.rank_key("challenge/kept/top"))])
 
     def test_the_frontend_is_handed_it_in_that_order(self) -> None:
         with patch("frontend.library_resolver.get_collections_manager",

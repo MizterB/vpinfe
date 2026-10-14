@@ -24,7 +24,7 @@ _RE_CALLS = {"compile", "sub", "subn", "findall", "finditer", "fullmatch", "matc
 
 # Braces that are not a command's tokens, each with what they are.
 ALLOWED: dict[tuple[str, int], str] = {
-    ("console/grid.py", 732): "a JavaScript renderer's source, filled in by code",
+    ("console/grid.py", 744): "a JavaScript renderer's source, filled in by code",
 }
 
 

@@ -20,15 +20,22 @@ from console.data import read_state
 
 DECLARED = {"key": "tables", "title": "Site", "area": "community",
             "base": "/community/tables",
-            "columns": [{"field": "name", "header": "Table", "kind": "text",
-                         "under": ["maker", "year"]},
+            "columns": [{"field": "vps_id", "header": "Table", "kind": "game", "keys": "vps",
+                         "says": "name", "under": ["maker", "year"], "picture": "",
+                         "icon": ""},
                         {"field": "plays", "header": "Plays", "kind": "number"},
-                        {"field": "last", "header": "Last", "kind": "date"},
-                        {"field": "vps_id", "header": "VPS", "kind": "text"}],
-            "views": [{"key": "plays", "name": "Most played", "columns": ["name", "plays"],
+                        {"field": "last", "header": "Last", "kind": "date"}],
+            "views": [{"key": "plays", "name": "Most played", "columns": ["vps_id", "plays"],
                        "sort": [{"field": "plays", "desc": True}], "help": ""}],
             "relation": {"field": "vps_id", "keys": "vps_entry"}}
 LOADED = {"name": "site", "state": "loaded", "lists": [DECLARED]}
+
+
+def _released() -> dict:
+    """DECLARED, its first column a table."""
+    first, *rest = DECLARED["columns"]
+    return {**DECLARED, "columns": [{**first, "kind": "table"}, *rest],
+            "relation": {"field": "vps_id", "keys": "vps_release"}}
 
 
 class TheNav(unittest.TestCase):
@@ -79,7 +86,7 @@ class TheNav(unittest.TestCase):
 
 class RankedOrders(unittest.TestCase):
     RANKED = {**DECLARED, "views": [{**DECLARED["views"][0], "ranks": True},
-                                    {"key": "all", "name": "All", "columns": ["name"],
+                                    {"key": "all", "name": "All", "columns": ["vps_id"],
                                      "sort": [], "help": ""}]}
 
     def test_each_ranked_view_is_named_for_its_page_and_itself(self) -> None:
@@ -115,7 +122,7 @@ class TheGrid(unittest.TestCase):
     def test_the_first_column_is_scanned_by_and_in_library_is_the_second(self) -> None:
         shown = community.columns(DECLARED)
 
-        self.assertEqual(["name", community.HELD, "plays", "last", "vps_id"],
+        self.assertEqual(["vps_id", community.HELD, "plays", "last"],
                          [one["field"] for one in shown])
         self.assertIn("console-cell-identifier", shown[0]["cellClass"])
         self.assertEqual("numericColumn", shown[2]["type"])
@@ -151,14 +158,14 @@ class TheGrid(unittest.TestCase):
         self.assertIn("last_ago", rows[0])
 
     def test_a_held_release_links_to_its_table(self) -> None:
-        released = {**DECLARED, "relation": {"field": "vps_id", "keys": "vps_release"}}
+        released = _released()
         (row,) = community.rows([{"name": "AFM", "vps_id": "rel-1", "last": ""}], released,
                                 {"rel-1": {"game_id": "afm", "table_id": "t1", "name": "AFM"}})
 
         self.assertEqual("/console?view=tables&game=afm&table=t1", row["held_href"])
 
     def test_another_version_says_which_and_links_to_the_release(self) -> None:
-        released = {**DECLARED, "relation": {"field": "vps_id", "keys": "vps_release"}}
+        released = _released()
         (row,) = community.rows(
             [{"name": "AFM", "maker": "Bally", "vps_id": "rel-2", "last": ""}], released, {},
             {"rel-2": {"game_id": "afm", "table_id": "t1", "name": "AFM", "version": "1.2",
@@ -167,6 +174,60 @@ class TheGrid(unittest.TestCase):
         self.assertEqual((False, "https://example.test/afm"),
                          (row[community.HELD], row["held_href"]))
         self.assertEqual("Bally · Different version - you have 1.2", row[community.UNDER])
+
+    TABLES = [{"id": "t1", "game_id": "afm", "game": "Attack from Mars",
+               "manufacturer": "Bally", "year": 1995, "version": "1.2", "authors": ["Ann"],
+               "media_kind": "wheel", "media_version": "v1", "default": True}]
+    HELD_AFM = {"vps-afm": {"game_id": "afm", "table_id": "t1", "name": "AFM"}}
+
+    def test_a_held_game_is_drawn_as_the_games_grid_draws_it(self) -> None:
+        (row,) = community.rows([{"name": "AFM", "vps_id": "vps-afm", "last": ""}],
+                                DECLARED, self.HELD_AFM, tables=self.TABLES, art=True)
+
+        self.assertEqual(("Attack from Mars", "Bally 1995", True),
+                         (row["vps_id"], row[community.UNDER], bool(row["art"])))
+
+    def test_a_game_the_library_lacks_takes_vpsdb_s_words_and_then_the_row_s(self) -> None:
+        rows = community.rows(
+            [{"name": "Own", "vps_id": "a", "last": ""}, {"name": "Own", "vps_id": "b",
+                                                          "last": ""}],
+            DECLARED, {}, known={"a": {"name": "VPS name", "manufacturer": "Williams",
+                                  "year": "1993"}})
+
+        self.assertEqual([("VPS name", "Williams 1993", ""), ("Own", "", "")],
+                         [(one["vps_id"], one[community.UNDER], one["held_href"])
+                          for one in rows])
+
+    def test_the_frame_shows_the_row_s_picture_where_the_library_has_none(self) -> None:
+        declared = {**DECLARED, "columns": [{**DECLARED["columns"][0], "picture": "image"},
+                                            *DECLARED["columns"][1:]]}
+        rows = community.rows(
+            [{"vps_id": "a", "image": "/api/x.png"}, {"vps_id": "vps-afm", "image": "/y.png"}],
+            declared, self.HELD_AFM, tables=self.TABLES, art=True)
+
+        self.assertEqual("/api/x.png", rows[0]["art"])
+        self.assertIn("afm", rows[1]["art"])
+
+    def test_no_art_field_is_written_where_the_lists_draw_none(self) -> None:
+        (row,) = community.rows([{"vps_id": "vps-afm"}], DECLARED, self.HELD_AFM,
+                                tables=self.TABLES)
+
+        self.assertNotIn("art", row)
+
+    def test_a_later_game_column_has_a_line_and_a_link_and_no_art(self) -> None:
+        declared = {**DECLARED, "columns": [*DECLARED["columns"],
+                                            {"field": "other", "header": "Other",
+                                             "kind": "game", "keys": "vps", "says": "",
+                                             "under": [], "picture": "", "icon": ""}]}
+        (row,) = community.rows(
+            [{"vps_id": "a", "other": "vps-afm"}], declared, {}, art=True,
+            later={"other": community.Lookup(self.HELD_AFM, {}, {})}, tables=self.TABLES)
+
+        self.assertEqual(("Attack from Mars", "Bally 1995", "/console?view=games&game=afm"),
+                         (row["other"], row["other_line"], row["other_href"]))
+        later = community.columns(declared)[-1]
+        self.assertIn("d['other_line']", later[":cellRenderer"])
+        self.assertNotIn("d['art']", later[":cellRenderer"])
 
     CELLS = {**DECLARED, "columns": [
         DECLARED["columns"][0],
@@ -575,6 +636,12 @@ async def _here(callback: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
     return callback(*args, **kwargs)
 
 
+def _library() -> Mock:
+    """A library that holds nothing and draws no pictures."""
+    return Mock(table_rows=Mock(return_value=[]), thumbnail_look=Mock(return_value=None),
+                owned_as=Mock(return_value={}))
+
+
 class ItsExtensionNotRunning(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         # Outside the test's task, which has no page to draw into.
@@ -603,11 +670,11 @@ class ItsExtensionNotRunning(unittest.IsolatedAsyncioTestCase):
         if opened:
             with self.body:
                 with patch.object(busy.ui, "timer") as timer:
-                    community.build(LOADED, PLAIN, Mock())
+                    community.build(LOADED, PLAIN, _library())
                 await timer.call_args.args[1]()
         else:
             with self.body:
-                await community._fill(LOADED, PLAIN, Mock(), self.body)
+                await community._fill(LOADED, PLAIN, _library(), self.body)
         # A kept list is read again after it is drawn, in a task of its own.
         await asyncio.gather(*(asyncio.all_tasks() - {asyncio.current_task()}))
         drawn = list(self.body.descendants())
@@ -727,7 +794,7 @@ class TheLineAndItsMenu(unittest.IsolatedAsyncioTestCase):
                                        return_value=Mock(is_deleted=False)))
         self.enterContext(patch.object(community.grid, "replace_rows"))
         with self.body:
-            await community._fill(LOADED, ABOUT, Mock(), self.body, self.subject)
+            await community._fill(LOADED, ABOUT, _library(), self.body, self.subject)
         await asyncio.gather(*(asyncio.all_tasks() - {asyncio.current_task()}))
         return [str(getattr(one, "text", "")) for one in self.body.descendants()], asked
 

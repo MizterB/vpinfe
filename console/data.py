@@ -1833,8 +1833,14 @@ class Library:
                                               dict[str, dict[str, Any]]]:
         """Which of these VPS ids this library holds, and which releases it holds another
         version of, each by id."""
-        said = self._client.owned(ids)
+        said = self.owned_as(ids)
         return said.get("owned") or {}, said.get("other_versions") or {}
+
+    def owned_as(self, ids: list[str], keys: str = "vps", kind: str = "") -> dict[str, Any]:
+        """`owned` whole, for ids of `keys` (`vps` or `vpinfe`) and a `kind` (`game`,
+        `table`, or "" for a VPS id of either): what the library holds, the other versions
+        it holds, and what VPSdb calls an id it does not (`known`)."""
+        return self._client.owned(ids, keys, kind)
 
     def read_tags(self) -> list[dict[str, Any]]:
         """Every tag and what it wears. Off the loop; `tag_looks` is what a draw reads."""

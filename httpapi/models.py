@@ -3293,7 +3293,12 @@ class TagMerge(ApiModel):
 
 
 class OwnedRequest(ApiModel):
+    """`keys` says whose ids these are, `vps` or `vpinfe`. `kind` says `game` or `table`;
+    left out, a VPS id may be either."""
+
     ids: list[str]
+    keys: Literal["vps", "vpinfe"] = "vps"
+    kind: Literal["", "game", "table"] = ""
 
 
 class Owned(ApiModel):
@@ -3312,9 +3317,21 @@ class OtherVersion(Owned):
     url: str = ""
 
 
+class Known(ApiModel):
+    """What VPSdb calls an id the library does not hold. A game has a `manufacturer` and
+    a `year`, a table a `version` and its `authors`."""
+
+    name: str = ""
+    manufacturer: str = ""
+    year: str = ""
+    version: str = ""
+    authors: list[str] = []
+
+
 class OwnedMap(ApiModel):
     owned: dict[str, Owned]
     other_versions: dict[str, OtherVersion] = {}
+    known: dict[str, Known] = {}
 
 
 class TagSource(ApiModel):

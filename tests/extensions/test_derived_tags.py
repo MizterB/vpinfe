@@ -138,6 +138,20 @@ class WhereTheyLand(DerivedTagCase):
 
         self.assertEqual([], resolve("Challenge", collections, self.games))
 
+    def test_a_list_of_vpinfe_ids_tags_by_this_library_own_ids(self) -> None:
+        """A game and a table are told apart by the ids VPinFE gave them, not VPS's."""
+        kept = [{"key": "challenge/kept", "extension": "challenge", "display_name": "",
+                 "list": "kept", "title": "Kept", "base": "", "tag": "Kept",
+                 "field": "id", "keys": keys, "ids": [one], "read_at": "", "stale": False,
+                 "error": ""}
+                for keys, one in (("vpinfe_game", "mm"), ("vpinfe_table", "new"))]
+        with patch.object(derived_tags, "declared", return_value=kept):
+            derived_tags.forget()
+            self.assertEqual(["Kept"], derived_tags.game_tags(self.mm))
+            self.assertEqual([], derived_tags.game_tags(self.afm))
+            self.assertEqual(["Kept"], derived_tags.table_tags(self.table(self.afm, "new")))
+            self.assertEqual([], derived_tags.table_tags(self.table(self.afm, "old")))
+
     def test_the_tags_list_counts_them_and_names_their_source(self) -> None:
         self.week(machines="mm-entry", releases="afm-1-3")
         self.read()
@@ -190,7 +204,7 @@ class WhatKeepsThem(DerivedTagCase):
         self.assertEqual([], derived_tags.game_tags(self.mm))
         self.assertNotIn(MACHINE, {one["name"] for one in library_ops.tags()["tags"]})
 
-    def test_a_read_that_changes_the_list_tells_the_cabinet(self) -> None:
+    def test_a_read_that_changes_the_list_tells_vpinfe(self) -> None:
         told: list[dict] = []
 
         def heard(**payload) -> None:

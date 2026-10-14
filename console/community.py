@@ -3,14 +3,14 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from functools import partial
-from typing import Any
+from typing import Any, NamedTuple
 from urllib.parse import quote
 
 from nicegui import ui
 
-from common import install_identity
+from common import icons, install_identity
 from common.extensions.host import SWITCHED_OFF
 from common.failures import why
 from common.games import rankings
@@ -24,11 +24,13 @@ from console import (
     ext_action,
     ext_links,
     ext_page,
+    game_tables,
     grid,
     offload,
     panel,
     renderers,
     tag_chips,
+    thumbnails,
     verbs,
     views,
     walks,
@@ -53,6 +55,17 @@ _KIND = {"number": grid.NUMBER_COLUMN,
 _WIDTH = {"number": 130, "text": 150, "date": 140, "state": 140, "chips": 220, "link": 170,
           "picture": 90}
 FIRST_WIDTH = 240
+LIBRARY_KINDS = ("game", "table")
+LINE = "_line"
+
+
+class Lookup(NamedTuple):
+    """What the library and VPSdb say of the ids one game or table column holds."""
+
+    held: dict[str, dict[str, Any]] = {}
+    other: dict[str, dict[str, Any]] = {}
+    known: dict[str, dict[str, Any]] = {}
+
 
 def view_key(extension: str, key: str) -> str:
     return f"{PREFIX}{extension}:{key}"
@@ -139,6 +152,21 @@ def ranked_label(ranking: dict[str, Any]) -> str:
                                                   or ranking.get("extension") or ""))
 
 
+def library_columns(declared: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """The columns that hold a game or a table, the first of them the list's subject."""
+    return [one for one in declared.get("columns") or [] if one.get("kind") in LIBRARY_KINDS]
+
+
+def _glyph(column: Mapping[str, Any]) -> str:
+    """What the first column's frame holds where there is no picture."""
+    return (str(column.get("icon") or "")
+            or {"game": icons.GAMES, "table": icons.TABLES}.get(str(column.get("kind")), ICON))
+
+
+def _frames(column: Mapping[str, Any]) -> bool:
+    return column.get("kind") in LIBRARY_KINDS or bool(column.get("picture") or column.get("icon"))
+
+
 def columns(declared: dict[str, Any]) -> list[dict[str, Any]]:
     out = []
     for index, one in enumerate(declared.get("columns") or []):
@@ -149,10 +177,15 @@ def columns(declared: dict[str, Any]) -> list[dict[str, Any]]:
         # refuses a column with no tooltip, and the list is the extension's to declare.
         said = str(one.get("help") or header)
         if index == 0:
-            out.append(grid.identifier(one["field"], header, FIRST_WIDTH, help=said,
-                                       subtitle=UNDER, link=HELD, **extra))
+            out.append(grid.identifier(
+                one["field"], header, FIRST_WIDTH, help=said, subtitle=UNDER, link=HELD,
+                **({"picture": thumbnails.FIELD, "glyph": _glyph(one)} if _frames(one) else {}),
+                **extra))
             if declared.get("relation"):
                 out.append(_in_library())
+        elif kind in LIBRARY_KINDS:
+            out.append(grid.named(one["field"], header, FIRST_WIDTH, help=said,
+                                  subtitle=one["field"] + LINE, link=one["field"]))
         elif kind == "chips":
             out.append(grid.list_column(one["field"], header, _WIDTH[kind], help=said))
         else:
@@ -210,40 +243,105 @@ def presets(declared: dict[str, Any]) -> dict[str, views.Preset]:
     return {"console.community.yours": yours, **out}
 
 
+class Lens:
+    """The library's tables as the Tables grid has them, found by game or by table."""
+
+    def __init__(self, tables: Sequence[dict[str, Any]], art: bool) -> None:
+        self.art = art
+        self.game: dict[str, dict[str, Any]] = {}
+        self.table: dict[tuple[str, str], dict[str, Any]] = {}
+        for row in tables:
+            game = str(row.get("game_id") or "")
+            if game not in self.game or row.get("default"):
+                self.game[game] = row
+            self.table[(game, str(row.get("id") or ""))] = row
+
+    def face(self, kind: str, mine: Mapping[str, Any]) -> tuple[str, str, str]:
+        """(name, line, art) of the game or table the library holds."""
+        game, table = str(mine.get("game_id") or ""), str(mine.get("table_id") or "")
+        hit = self.table.get((game, table)) if kind == "table" and table else self.game.get(game)
+        if hit is None:
+            return str(mine.get("name") or ""), "", ""
+        line = [game_tables.made(hit)]
+        if kind == "table" and table:
+            line.append(game_tables.table_name(hit))
+        return (str(hit.get("game") or mine.get("name") or ""),
+                game_tables.JOIN.join(part for part in line if part),
+                thumbnails.address(hit) if self.art else "")
+
+
+def face_of(column: Mapping[str, Any], row: Mapping[str, Any], lookup: Lookup,
+            lens: Lens) -> dict[str, str]:
+    """Name, line, art, address and tip of the game or table a row's id names."""
+    said = str(row.get(column["field"]) or "")
+    kind = str(column["kind"])
+    mine = lookup.held.get(said)
+    if mine:
+        name, line, art = lens.face(kind, mine)
+        return {"name": name, "line": line, "art": art,
+                "href": _address_of(mine, kind), "tip": t("console.community.held")}
+    known = lookup.known.get(said) or {}
+    name = str(known.get("name") or row.get(column.get("says") or "") or said)
+    line = game_tables.made(known) if kind == "game" else game_tables.table_name(known)
+    elsewhere = lookup.other.get(said)
+    if not elsewhere:
+        return {"name": name, "line": line, "art": "", "href": "", "tip": ""}
+    version = str(elsewhere.get("version") or "")
+    tip = (t("console.community.other_version", version=version) if version
+           else t("console.community.other_version_unknown"))
+    return {"name": name, "line": line, "art": "", "href": str(elsewhere.get("url") or ""),
+            "tip": tip}
+
+
 def rows(found: list[dict[str, Any]], declared: dict[str, Any],
          held: dict[str, dict[str, Any]],
-         other: dict[str, dict[str, Any]] | None = None) -> list[dict[str, Any]]:
-    """`other` is the releases held as another version, by release id."""
-    relation = declared.get("relation") or {}
+         other: dict[str, dict[str, Any]] | None = None, *,
+         known: dict[str, dict[str, Any]] | None = None,
+         later: Mapping[str, Lookup] | None = None,
+         tables: Sequence[dict[str, Any]] = (), art: bool = False) -> list[dict[str, Any]]:
+    """`other` is the releases held as another version, by release id, and `known` what
+    VPSdb calls the ids not held. `later` is the same for each later game or table column,
+    by field; `tables` is the library's tables, and `art` whether the list draws pictures."""
     declared_columns = declared.get("columns") or []
+    first = declared_columns[0] if declared_columns else {}
+    subject = first.get("kind") in LIBRARY_KINDS
     dates = [one["field"] for one in declared_columns if one.get("kind") == "date"]
-    under = list(declared_columns[0].get("under") or []) if declared_columns else []
+    under = list(first.get("under") or [])
+    lens = Lens(tables, art)
     out = []
     for index, row in enumerate(found):
-        said = str(row.get(relation.get("field", "")) or "") if relation else ""
-        mine = held.get(said) if relation else None
-        elsewhere = (other or {}).get(said) if relation and not mine else None
         line = " ".join(str(row[one]) for one in under if row.get(one) not in (None, ""))
-        href, tip = (_address(mine, relation), t("console.community.held")) if mine else ("", "")
-        if elsewhere:
-            version = str(elsewhere.get("version") or "")
-            tip = (t("console.community.other_version", version=version) if version
-                   else t("console.community.other_version_unknown"))
-            href = str(elsewhere.get("url") or "")
-            line = " · ".join(one for one in (line, tip) if one)
+        mine = held.get(str(row.get(first["field"]) or "")) if subject else None
+        shown: dict[str, Any] = {}
+        href = tip = ""
+        if subject:
+            face = face_of(first, row, Lookup(held, other or {}, known or {}), lens)
+            shown[first["field"]] = face["name"]
+            href, tip = face["href"], face["tip"]
+            line = game_tables.JOIN.join(
+                part for part in (face["line"], line, "" if mine else tip) if part)
+        if art and _frames(first):
+            shown[thumbnails.FIELD] = (face["art"] if subject else "") \
+                or str(row.get(first.get("picture") or "") or "")
+        for one in declared_columns[1:]:
+            if one.get("kind") in LIBRARY_KINDS:
+                face = face_of(one, row, (later or {}).get(one["field"], Lookup()), lens)
+                shown |= {one["field"]: face["name"], one["field"] + LINE: face["line"],
+                          one["field"] + "_href": face["href"],
+                          one["field"] + "_tip": face["tip"]}
         named = str(row.get("id") or "")
         built = {**row, "id": named or f"{UNNAMED}{index}", HELD: bool(mine), UNDER: line,
                  **({} if named else {grid.NO_MENU: True, grid.NOT_SELECTABLE: True}),
-                 f"{HELD}_href": href, f"{HELD}_tip": tip}
+                 f"{HELD}_href": href, f"{HELD}_tip": tip, **shown}
         for field in dates:
             built = when.said(built, field)
         out.append(built)
     return out
 
 
-def _address(mine: dict[str, Any], relation: dict[str, Any]) -> str:
+def _address_of(mine: Mapping[str, Any], kind: str) -> str:
     game, table = str(mine.get("game_id") or ""), str(mine.get("table_id") or "")
-    if relation.get("keys") == "vps_release" and table:
+    if kind == "table" and table:
         return "/console?" + deeplink.query({"view": "tables", "game": game, "table": table})
     return "/console?" + deeplink.query({"view": "games", "game": game})
 
@@ -608,18 +706,29 @@ async def _fill(extension: dict[str, Any], declared: dict[str, Any], library: Li
                     _tag_chip(tagging, library)
         stood(standing_now)
         return
-    relation = declared.get("relation") or {}
+    subjects = library_columns(declared)
+    look = library.thumbnail_look()
 
     async def drawn(found: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        held, other = (await offload.io(library.owned,
-                                        [str(one.get(relation["field"]) or "")
-                                         for one in found])
-                       if relation else ({}, {}))
-        return rows(found, declared, held, other)
+        if subjects or look is not None:
+            await offload.io(library.load_tables)
+        looked = {}
+        for one in subjects:
+            said = await offload.io(library.owned_as,
+                                    [str(row.get(one["field"]) or "") for row in found],
+                                    str(one["keys"]), str(one["kind"]))
+            looked[one["field"]] = Lookup(said.get("owned") or {},
+                                          said.get("other_versions") or {},
+                                          said.get("known") or {})
+        first = looked.get(declared["columns"][0]["field"]) if declared.get("columns") else None
+        mine = first or Lookup()
+        return rows(found, declared, dict(mine.held), dict(mine.other), known=mine.known,
+                    later=looked, tables=library.table_rows(), art=look is not None)
 
     built = await drawn(state["rows"])
     by_id = {row["id"]: row for row in built}
-    shown = columns(declared)
+    framed = bool(declared.get("columns")) and _frames(declared["columns"][0])
+    shown = grid.with_art(columns(declared), look if framed else None)
     scope = scope_of(extension, declared)
     fields = [one["field"] for one in shown]
     offering = bool(declared.get("verbs")) and not stopped

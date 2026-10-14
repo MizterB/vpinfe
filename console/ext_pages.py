@@ -15,7 +15,7 @@ from nicegui import ui
 
 from common.failures import why
 from common.i18n import t
-from console import busy, community, ext_row, offload, panel
+from console import busy, community, ext_cells, ext_row, offload, panel
 from console.api import ApiClient
 from console.on_page import on_page
 
@@ -41,17 +41,19 @@ def route(extension: dict[str, Any], declared: dict[str, Any]) -> str:
     return f"/ext/{extension.get('name')}{declared['base']}"
 
 
-def build(extension: dict[str, Any], declared: dict[str, Any], subject: Any = None,
-          host: str = "") -> None:
+def build(extension: dict[str, Any], declared: dict[str, Any], library: Any = None,
+          subject: Any = None, host: str = "") -> None:
     """`subject` is the page header's slot for the page's menu. `host` is where the Console
-    was opened, which a link fact's `{host}` is filled with."""
+    was opened, which a link fact's `{host}` is filled with. `library` is what a game or
+    table fact is looked up in."""
     body = ui.column().classes("w-full grow min-h-0 gap-3 px-3 py-2")
-    busy.fill(body, lambda: show(body, extension, declared, subject, host, None))
+    busy.fill(body, lambda: show(body, extension, declared, subject, host, None, library))
 
 
 @on_page
 async def show(body: Any, extension: dict[str, Any], declared: dict[str, Any],
-               subject: Any, host: str, answer: dict[str, Any] | None) -> None:
+               subject: Any, host: str, answer: dict[str, Any] | None,
+               library: Any = None) -> None:
     """The page from `answer` where the write that came just before it gave one, else read
     again. The menu is read again either way: an act can change what the next one is."""
     said = str(extension.get("display_name") or extension.get("name") or "")
@@ -66,15 +68,18 @@ async def show(body: Any, extension: dict[str, Any], declared: dict[str, Any],
             with body:
                 panel.facts(ui, [panel.intro(t("console.community.read_failed", name=said),
                                              hint=why(exc))])
-            await menu(subject, extension, declared, body, host)
+            await menu(subject, extension, declared, body, host, library)
             return
     if body.is_deleted:
         return
 
     async def redraw(new: dict[str, Any] | None) -> None:
-        await show(body, extension, declared, subject, host, new)
+        await show(body, extension, declared, subject, host, new, library)
 
-    held = {"state": {"host": host}, "route": where, "redraw": redraw, "again": None}
+    sections = answer.get("sections") or []
+    held = await ext_cells.prepared(
+        {"state": {"host": host}, "route": where, "redraw": redraw, "again": None,
+         "library": library}, sections)
     entries: list[tuple[Any, ...]] = [(panel.HEADING, str(answer.get("title") or ""))]
     if answer.get("under"):
         entries.append(panel.note(str(answer["under"])))
@@ -82,16 +87,18 @@ async def show(body: Any, extension: dict[str, Any], declared: dict[str, Any],
         if one.get("label"):
             entries.append((panel.HEADING, str(one["label"])))
         entries += ext_row.section_entries(one, held)
+    if body.is_deleted:
+        return
     body.clear()
     with body:
         if answer.get("picture"):
             ui.image(answer["picture"]).classes("console-pane-picture")
         panel.facts(ui, entries)
-    await menu(subject, extension, declared, body, host)
+    await menu(subject, extension, declared, body, host, library)
 
 
 async def menu(subject: Any, extension: dict[str, Any], declared: dict[str, Any],
-               body: Any, host: str) -> None:
+               body: Any, host: str, library: Any = None) -> None:
     """The page's acts, in the header, read now."""
     if subject is None or subject.is_deleted:
         return
@@ -100,7 +107,7 @@ async def menu(subject: Any, extension: dict[str, Any], declared: dict[str, Any]
     found = await offload.io(community.standing, str(extension.get("name") or ""), about)
 
     async def after_act() -> None:
-        await show(body, extension, declared, subject, host, None)
+        await show(body, extension, declared, subject, host, None, library)
 
     panel.subject_menu(subject, community.acts(
         now, found, lambda act: community.run_act(now, about, act, after_act)))

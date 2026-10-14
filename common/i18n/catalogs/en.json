@@ -4118,6 +4118,7 @@
   "error.extensions.pane_kind": "{display}'s pane for {id}: {what} has kind {kind}; drawn kinds: {drawn}",
   "error.extensions.pane_tier": "{display}'s pane for {id}: {what} has the tier {tier}. Known: {drawn}",
   "error.extensions.pane_looks": "{display}'s pane for {id}: {what} has a tier but is not a state",
+  "error.extensions.pane_own": "{display}'s pane for {id}: {what} has says, keys or picture, not for this kind",
   "error.extensions.pane_link": "{display}'s pane for {id}: {what} is a link whose to is not a web address",
   "error.extensions.pane_field": "{display}'s pane for {id}: {what} has type {kind}; drawn types: {drawn}",
   "error.extensions.pane_choices": "{display}'s pane for {id}: {what} has the type {kind} and no choices",

@@ -51,7 +51,7 @@ def filters() -> models.FilterAxisList:
              dependencies=[requires(scopes.GAMES_READ)])
 def post_owned(payload: models.OwnedRequest) -> models.OwnedMap:
     """A POST so a long list fits: it reads and changes nothing."""
-    return models.OwnedMap.model_validate(owned.owned(payload.ids))
+    return models.OwnedMap.model_validate(owned.owned(payload.ids, payload.keys, payload.kind))
 
 
 @router.get("/game_collections", summary="Which collections hold each game",

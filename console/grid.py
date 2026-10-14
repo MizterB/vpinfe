@@ -725,20 +725,41 @@ def identifier(field: str, header: str, width: int = 0, help: str = "",
     classes = f"{extra_classes} {IDENTIFIER_CLASS}".strip() if extra_classes \
         else IDENTIFIER_CLASS
     if subtitle:
-        made, _, built = (subtitle if isinstance(subtitle, tuple)
-                          else (subtitle, "", ""))
         classes = f"{classes} {TWO_LINE_CLASS}" + (
             f" {PICTURED_CLASS}" if picture and frame == thumbnails.PREVIEW else "")
-        extra.setdefault(":cellRenderer", _SUBTITLE_RENDERER
-                         .replace("{picture}", f"(d['{picture}'] ?? null)" if picture else "null")
-                         .replace("{link}", link or "_")
-                         .replace("{tip}", json.dumps(built_tip))
-                         .replace("{made}", made)
-                         .replace("{built}", f"d['{built}'] || ''" if built else "''")
-                         .replace("{file}", f"!!d['{built}_file']" if built else "false")
-                         .replace("{cls}", SUBTITLE_CLASS)
-                         .replace("{frame}", thumbnails.frame_js(glyph, frame)
-                                  if picture else "lines"))
+        extra.setdefault(":cellRenderer", _two_lines(subtitle, link, picture, glyph, frame,
+                                                      built_tip))
+    return column(field, header, width, help, cellClass=classes, **extra)
+
+
+def _key(name: str) -> str:
+    """`name` as the inside of a single-quoted JavaScript string, since an extension names
+    the fields a column reads."""
+    return json.dumps(name)[1:-1].replace("'", "\\'")
+
+
+def _two_lines(subtitle: str | tuple[str, str, str], link: str, picture: str, glyph: str,
+               frame: str, built_tip: str) -> str:
+    made, _, built = subtitle if isinstance(subtitle, tuple) else (subtitle, "", "")
+    return (_SUBTITLE_RENDERER
+            .replace("{picture}", f"(d['{_key(picture)}'] ?? null)" if picture else "null")
+            .replace("{link}", _key(link) or "_")
+            .replace("{tip}", json.dumps(built_tip))
+            .replace("{made}", _key(made))
+            .replace("{built}", f"d['{_key(built)}'] || ''" if built else "''")
+            .replace("{file}", f"!!d['{_key(built)}_file']" if built else "false")
+            .replace("{cls}", SUBTITLE_CLASS)
+            .replace("{frame}", thumbnails.frame_js(glyph, frame) if picture else "lines"))
+
+
+def named(field: str, header: str, width: int = 0, help: str = "", subtitle: str = "",
+          link: str = "", **extra: Any) -> dict[str, Any]:
+    """A column that draws a name with its line under it and no art, as the identifier
+    does, for a game or table named in a column that is not the first.
+
+    `subtitle` names the field holding the line; `link` as `identifier` takes it."""
+    classes = " ".join(part for part in (extra.pop("cellClass", ""), TWO_LINE_CLASS) if part)
+    extra.setdefault(":cellRenderer", _two_lines(subtitle, link, "", "", thumbnails.LIST, ""))
     return column(field, header, width, help, cellClass=classes, **extra)
 
 

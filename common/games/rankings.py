@@ -8,8 +8,9 @@ import threading
 from collections.abc import Callable, Iterable
 from typing import Any
 
+from common.games.game_identity import game_id
 from common.games.game_metadata import game_vps_id, vpinfe_section
-from common.games.tables import offered_tables, recorded_default, table_entries
+from common.games.tables import offered_tables, recorded_default, table_entries, table_id
 from common.timestamps import iso_to_epoch
 
 DIRECTION = "asc"
@@ -170,4 +171,8 @@ def rank_key(order_by: str) -> Callable[[Any], tuple[int, int]]:
 
     if keys == "vps_release":
         return lambda item: placed(_release(_table_of(item)))
+    if keys == "vpinfe_table":
+        return lambda item: placed(table_id(_table_of(item)))
+    if keys == "vpinfe_game":
+        return lambda item: placed(game_id(item))
     return lambda item: placed(game_vps_id(item))

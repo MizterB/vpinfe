@@ -446,7 +446,7 @@ class DerivedTagTests(_Lens):
 
     def setUp(self) -> None:
         listed = patch("common.games.derived_tags._index",
-                       return_value=({}, {"release01": {"Weekly Challenge"}}))
+                       return_value={("vps_release", "release01"): {"Weekly Challenge"}})
         listed.start()
         self.addCleanup(listed.stop)
         super().setUp()
