@@ -54,7 +54,7 @@ class ResolverTests(unittest.TestCase):
     def test_check_now_asks_the_device_to_ask_now(self) -> None:
         asked: list[str] = []
 
-        def get_json(url: str) -> dict:
+        def get_json(url: str, **kwargs) -> dict:
             asked.append(url)
             return {}
 

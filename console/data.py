@@ -565,6 +565,21 @@ class Library:
     def sign_out_everyone(self) -> None:
         self._client.sign_out_everyone()
 
+    def tokens(self) -> list[dict]:
+        return self._client.tokens()
+
+    def make_token(self, name: str, access: str, can_power: bool) -> dict:
+        return self._client.make_token(name, access, can_power=can_power)
+
+    def set_token_power(self, token_id: str, can_power: bool) -> dict:
+        return self._client.set_token_power(token_id, can_power)
+
+    def revoke_token(self, token_id: str) -> None:
+        self._client.revoke_token(token_id)
+
+    def renew_remote_code(self) -> int:
+        return self._client.renew_remote_code()
+
     def accept_theme(self, key: str) -> dict:
         return self._client.accept_theme(key)
 
@@ -1905,6 +1920,11 @@ class Library:
                 if row.get("vps_id") == vps_id:
                     row["in_library"] = True
         return made
+
+    def delete_game_folder(self, game_id: str) -> None:
+        self._client.delete_game_folder(game_id)
+        self._forget_games()
+        self.tables.pop(game_id, None)
 
     def has_catalog(self) -> bool:
         return self._catalog is not None

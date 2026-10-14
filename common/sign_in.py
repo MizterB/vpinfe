@@ -32,6 +32,9 @@ CODE_SECONDS = 10 * 60
 TRIES = 5
 ASK_SPACING_SECONDS = 30
 SPENT_BEFORE_DOUBLING = 3
+CONFIRM_SECONDS = 30 * 60
+CONFIRM_ASK_SECONDS = 5
+PAIR_SPACING_LIMIT_SECONDS = 60 * 60
 SESSION_DAYS = 90
 SESSION_SECONDS = SESSION_DAYS * 24 * 60 * 60
 # Writing the file on every request would put a disk write behind each page load.
@@ -42,6 +45,9 @@ REMOTE = "remote"
 
 WAITING = "waiting"
 SHOWN = "shown"
+
+CONFIRM = "confirm"
+PAIR = "pair"
 
 
 class SignInError(Exception):
@@ -82,6 +88,21 @@ class Session:
     agent: str
     created: float
     last_used: float
+    # The Remote Code a phone came in with. A new code ends every session that carries the old.
+    via: str = ""
+
+
+@dataclass
+class Confirm:
+    """A Confirm Code asked for by a signed-in browser, shown at once on this computer."""
+
+    id: str
+    session_id: str
+    address: str
+    asked: float
+    code: str
+    tries: int = 0
+    purpose: str = CONFIRM
 
 
 @dataclass
@@ -124,6 +145,11 @@ class SignIn:
         self._last_ask = 0.0
         self._spent_in_a_row = 0
         self._rows: dict[str, _Row] = {}
+        self._confirms: dict[str, Confirm] = {}
+        self._confirmed: dict[str, float] = {}
+        self._pair: Confirm | None = None
+        self._pair_last = 0.0
+        self._pair_spent = 0
         self._loaded = False
         self._listeners: list[Callable[[Request | None], None]] = []
         # With no screen the log is the machine's display, so the digits go there at once.
@@ -143,7 +169,8 @@ class SignIn:
                 session = Session(id=str(held["id"]), kind=str(held["kind"]),
                                   address=str(held["address"]), agent=str(held.get("agent", "")),
                                   created=float(held["created"]),
-                                  last_used=float(held["last_used"]))
+                                  last_used=float(held["last_used"]),
+                                  via=str(held.get("via", "")))
             except (KeyError, TypeError, ValueError):
                 continue
             self._rows[hashed] = _Row(hashed, session)
@@ -152,7 +179,8 @@ class SignIn:
         held: dict[str, Any] = {
             row.hashed: {"id": row.session.id, "kind": row.session.kind,
                          "address": row.session.address, "agent": row.session.agent,
-                         "created": row.session.created, "last_used": row.session.last_used}
+                         "created": row.session.created, "last_used": row.session.last_used,
+                         "via": row.session.via}
             for row in self._rows.values()}
         try:
             machine_secrets.write_private(self._file(), held)
@@ -306,16 +334,20 @@ class SignIn:
 
     # --- sessions ---------------------------------------------------------------------
 
-    def open(self, *, kind: str, address: str, agent: str = "") -> tuple[str, Session]:
+    def open(self, *, kind: str, address: str, agent: str = "",
+             via: str = "") -> tuple[str, Session]:
+        """A new session. An Owner who signs in has just proved presence, so it holds a Confirm."""
         with self._lock:
             self._load()
             self._forget_stale()
             token = secrets.token_urlsafe(32)
             now = self._clock()
             session = Session(id=uuid.uuid4().hex, kind=kind, address=address,
-                              agent=agent[:200], created=now, last_used=now)
+                              agent=agent[:200], created=now, last_used=now, via=via)
             hashed = _hash(token)
             self._rows[hashed] = _Row(hashed, session)
+            if kind == OWNER:
+                self._confirmed[session.id] = now
             self._save()
         return token, session
 
@@ -335,8 +367,7 @@ class SignIn:
                 self._save()
                 return None
             if now - row.session.last_used >= _TOUCH_SECONDS:
-                s = row.session
-                row.session = Session(s.id, s.kind, s.address, s.agent, s.created, now)
+                row.session = replace(row.session, last_used=now)
                 self._save()
             return row.session
 
@@ -347,20 +378,174 @@ class SignIn:
             return sorted((row.session for row in self._rows.values()),
                           key=lambda s: s.last_used, reverse=True)
 
+    def session(self, session_id: str) -> Session | None:
+        """The session with this id if it is still signed in. Does not count as use."""
+        with self._lock:
+            self._load()
+            for row in self._rows.values():
+                if row.session.id == session_id:
+                    return row.session
+        return None
+
     def sign_out(self, session_id: str) -> bool:
         with self._lock:
             self._load()
             for key, row in list(self._rows.items()):
                 if row.session.id == session_id:
                     del self._rows[key]
+                    self._confirmed.pop(session_id, None)
+                    self._confirms.pop(session_id, None)
                     self._save()
                     return True
         return False
 
+    def sign_out_via(self, via: str) -> int:
+        """End every session that came in with this Remote Code."""
+        with self._lock:
+            self._load()
+            gone = [key for key, row in self._rows.items() if row.session.via == via]
+            for key in gone:
+                self._confirmed.pop(self._rows[key].session.id, None)
+                del self._rows[key]
+            if gone:
+                self._save()
+            return len(gone)
+
+    # --- the Confirm ------------------------------------------------------------------
+
+    def confirm_ask(self, session_id: str, address: str) -> Confirm:
+        """A signed-in Owner wants a Confirm. The six digits are drawn on this computer's screen
+        at once, because whoever can see them is already in front of it. Asking again replaces
+        the code, but not faster than every few seconds."""
+        with self._lock:
+            session = self.session(session_id)
+            if session is None or session.kind != OWNER:
+                raise SignInError(NO_CODE)
+            now = self._clock()
+            held = self._confirms.get(session_id)
+            if held is not None and now - held.asked < CONFIRM_ASK_SECONDS:
+                raise SignInError(TOO_SOON, wait=int(CONFIRM_ASK_SECONDS - (now - held.asked)) + 1)
+            code = "".join(secrets.choice("0123456789") for _ in range(CODE_LENGTH))
+            made = Confirm(id=uuid.uuid4().hex, session_id=session_id, address=address,
+                           asked=now, code=code)
+            self._confirms[session_id] = made
+            logger.warning("%s asked for a Confirm Code", address)
+            if self.headless:
+                logger.warning("Confirm code for %s: %s", address, code)
+        self._tell()
+        return made
+
+    def confirm_verify(self, session_id: str, code: str) -> None:
+        """Spend a try on the Confirm Code. On success the session holds a Confirm."""
+        spent = False
+        with self._lock:
+            held = self._confirms.get(session_id)
+            if held is None or self._clock() - held.asked > CODE_SECONDS:
+                self._confirms.pop(session_id, None)
+                raise SignInError(NO_CODE)
+            held.tries += 1
+            right = hmac.compare_digest(held.code.encode(), code.strip().encode())
+            if right:
+                self._confirms.pop(session_id, None)
+                self._confirmed[session_id] = self._clock()
+            elif held.tries >= TRIES:
+                self._confirms.pop(session_id, None)
+                spent = True
+        self._tell()
+        if right:
+            return
+        raise SignInError(USED_UP if spent else WRONG)
+
+    def confirm_grant(self, session_id: str) -> None:
+        """A Confirm from another way of proving presence: an authenticator or a secure link."""
+        with self._lock:
+            self._confirmed[session_id] = self._clock()
+
+    def is_confirmed(self, session_id: str, *, use: bool = False) -> bool:
+        """Whether this session holds a Confirm. `use` extends it, since a Confirm lasts
+        while the person is still using it."""
+        with self._lock:
+            when = self._confirmed.get(session_id, 0.0)
+            now = self._clock()
+            if now - when > CONFIRM_SECONDS:
+                self._confirmed.pop(session_id, None)
+                return False
+            if use:
+                self._confirmed[session_id] = now
+            return True
+
+    def confirm_left(self, session_id: str) -> int:
+        """Seconds this session's Confirm has left, 0 when it holds none."""
+        with self._lock:
+            when = self._confirmed.get(session_id, 0.0)
+            return max(0, int(when + CONFIRM_SECONDS - self._clock())) if when else 0
+
+    def confirms(self) -> list[Confirm]:
+        """The codes this computer should be showing besides a sign-in: Confirm Codes and a
+        pairing code."""
+        with self._lock:
+            now = self._clock()
+            for key in [key for key, held in self._confirms.items()
+                        if now - held.asked > CODE_SECONDS]:
+                del self._confirms[key]
+            if self._pair is not None and now - self._pair.asked > CODE_SECONDS:
+                self._pair = None
+            found = list(self._confirms.values())
+            if self._pair is not None:
+                found.append(self._pair)
+            return found
+
+    # --- pairing ----------------------------------------------------------------------
+
+    def pair_ask(self, address: str) -> Confirm:
+        """Another install wants to pair. The digits are drawn here at once, for whoever is
+        pairing it to read off this computer's screen."""
+        with self._lock:
+            now = self._clock()
+            doublings = max(0, self._pair_spent - SPENT_BEFORE_DOUBLING + 1)
+            spacing = min(CONFIRM_ASK_SECONDS * 2 ** doublings, PAIR_SPACING_LIMIT_SECONDS)
+            if self._pair_last and now - self._pair_last < spacing:
+                raise SignInError(TOO_SOON, wait=int(spacing - (now - self._pair_last)) + 1)
+            self._pair_last = now
+            code = "".join(secrets.choice("0123456789") for _ in range(CODE_LENGTH))
+            self._pair = Confirm(id=uuid.uuid4().hex, session_id="", address=address,
+                                 asked=now, code=code, purpose=PAIR)
+            made = self._pair
+            logger.warning("%s wants to pair", address)
+            if self.headless:
+                logger.warning("Pairing code for %s: %s", address, code)
+        self._tell()
+        return made
+
+    def pair_verify(self, request_id: str, code: str) -> None:
+        """Spend a try on the pairing code. Raises `SignInError` unless it was right."""
+        spent = False
+        with self._lock:
+            held = self._pair
+            if held is None or held.id != request_id or self._clock() - held.asked > CODE_SECONDS:
+                raise SignInError(NO_CODE)
+            held.tries += 1
+            right = hmac.compare_digest(held.code.encode(), code.strip().encode())
+            if right or held.tries >= TRIES:
+                self._pair = None
+                spent = not right
+                self._pair_spent = self._pair_spent + 1 if spent else 0
+        self._tell()
+        if not right:
+            raise SignInError(USED_UP if spent else WRONG)
+
+    def pair_dismiss(self) -> None:
+        with self._lock:
+            self._pair = None
+        self._tell()
+
     def sign_out_token(self, token: str) -> None:
         with self._lock:
             self._load()
-            if self._rows.pop(_hash(token), None) is not None:
+            gone = self._rows.pop(_hash(token), None)
+            if gone is not None:
+                self._confirmed.pop(gone.session.id, None)
+                self._confirms.pop(gone.session.id, None)
                 self._save()
 
     def sign_out_everywhere(self, *, kind: str | None = None) -> int:
@@ -369,6 +554,7 @@ class SignIn:
             gone = [key for key, row in self._rows.items()
                     if kind is None or row.session.kind == kind]
             for key in gone:
+                self._confirmed.pop(self._rows[key].session.id, None)
                 del self._rows[key]
             if gone:
                 self._save()

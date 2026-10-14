@@ -51,6 +51,8 @@ BUDGET = {
     "mediasource.py": (1, "a search, toolbar"),
     "launchers.py": (2, "checkboxes in the copy-to-device dialog"),
     "about.py": (1, "the textarea a browser that will not copy falls back to"),
+    "token_panel.py": (1, "the read-only box a new token is shown in, once, so it can "
+                         "be selected and copied"),
     "placement_panel.py": (1, "the textarea that shows the one line to copy into a "
                               "compositor config, read-only"),
     "backups.py": (2, "the name and the optional note typed into the Back up now dialog, "

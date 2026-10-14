@@ -83,6 +83,15 @@ APPS_PROVIDE = "apps:provide"
 ACCESS_READ = "access:read"
 ACCESS_WRITE = "access:write"
 
+# The third tier: what runs, who gets in, what cannot be undone, and the power. Held by this
+# computer, and by an Owner while a Confirm is live. A token or a Remote pass never holds it.
+PROTECTED = "protected:write"
+# Rating and favoriting, which a Remote pass may do and may not do more than.
+PLAY_RATE = "play:rate"
+# Joining as a guest, signing a guest out and saying who is up: what a phone does to the
+# roster without touching a kept player.
+PLAY_PLAYERS = "play:players"
+
 CORE = frozenset({
     INSTANCE_READ,
     GAMES_READ, GAMES_WRITE, GAMES_EXPORT_FULL,
@@ -97,7 +106,23 @@ CORE = frozenset({
     PLAYERS_READ, PLAYERS_WRITE,
     APPS_PROVIDE,
     ACCESS_READ, ACCESS_WRITE,
+    PROTECTED, PLAY_RATE, PLAY_PLAYERS,
 })
+
+# Read the library, collections, players and what is playing; launch, stop, press buttons,
+# capture, rate and favorite. Not settings, not the account card, not power.
+PLAY = frozenset({
+    INSTANCE_READ, GAMES_READ, COLLECTIONS_READ, PLAYERS_READ, PLAY_READ, LAUNCH_INVOKE,
+    PLAY_STOP, JOBS_READ, EVENTS_SUBSCRIBE, INPUT_ACT, CAPTURE_RUN, PREFERENCES_READ,
+    DEVICES_READ, PLAY_RATE, PLAY_PLAYERS,
+})
+
+# What a token cannot be given, switch or no switch: who is signed in, and the Protected tier.
+NEVER_A_TOKEN = frozenset({ACCESS_READ, ACCESS_WRITE, PROTECTED, SYSTEM_ADMIN})
+# Everything that changes what VPinFE knows or shows. A Library caller is never asked for a Confirm.
+LIBRARY = CORE - NEVER_A_TOKEN
+# What a Confirm adds to an Owner: the Protected scope and the power.
+CONFIRMED = frozenset({PROTECTED, SYSTEM_ADMIN})
 
 EXTENSION_PREFIX = "ext:"
 

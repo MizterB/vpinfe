@@ -33,6 +33,7 @@ from common.host.launch_state import SOURCE_CAPTURE
 from common.i18n import t
 from common.labels import humanize
 from console import (
+    acting,
     appearance,
     busy,
     confirm,
@@ -752,7 +753,8 @@ def _identity_sheet(state: dict[str, Any], client_for_target: Callable[[], Any],
                 panel.remote_action(t("console.players.sign_out"), sign_out,
                                     icon=verbs.SIGN_OUT,
                                     hint=t("console.players.sign_out.help"))
-                _guest_accounts(state, identity, client_for_target, redraw, sheet)
+                if not acting.play_only():
+                    _guest_accounts(state, identity, client_for_target, redraw, sheet)
             else:
                 panel.remote_action(t("console.remote.not_me"), leave, icon=verbs.NOT_ME,
                                     hint=t("console.remote.not_me.help"))
@@ -1549,7 +1551,7 @@ def _game_sheet(game: dict[str, Any], state: dict[str, Any], client_for_target: 
                       on_click=favor) \
                 .props("no-caps flat").classes("remote-action")
 
-        if not (identity is not None and identity.get("guest")):
+        if not (identity is not None and identity.get("guest")) and not acting.play_only():
             _add_to_collection(game, state, sheet, write, client_for_target)
 
         async def started() -> None:
@@ -1719,7 +1721,8 @@ def _control(state: dict[str, Any],
                 _tap_button(action, client_for_target)
         # Apart from the rest and in the danger color: it ends the thing every other
         # button on this screen is for.
-        _tap_button("exit", client_for_target, danger=True)
+        if not acting.play_only():
+            _tap_button("exit", client_for_target, danger=True)
 
 
 def _playing_instead(play: dict[str, Any], state: dict[str, Any],
@@ -1868,12 +1871,20 @@ def where_to_find_it() -> str:
 
     Not the one the Console was reached on: an install is usually administered from the
     machine itself, so that address is loopback and loopback is the one address certain
-    not to work from anywhere else.
+    not to work from anywhere else. Carries the Remote pass, so a scan signs the phone in.
+    Empty while this install answers only itself, since no phone can reach it.
     """
+    from common import access_keys
     from common.host.addresses import best
     from common.paths import get_ini_config
 
-    return best(serving.network(get_ini_config()).http_port, "/remote")
+    network = serving.network(get_ini_config())
+    if not serving.reachable_from_elsewhere(network.http_bind):
+        return ""
+    address = best(network.http_port, "/remote")
+    if not address:
+        return ""
+    return f"{address}?{access_keys.PASS_PARAM}={access_keys.remote_pass()[1]}"
 
 
 def _qr_svg(url: str) -> str:
@@ -1912,7 +1923,20 @@ def invite(labels: list) -> None:
     if not said:
         return
 
+    @on_page
+    async def renew(sheet: Any) -> None:
+        if not await confirm.ask(
+                t("console.remote.new_code_question"),
+                detail=t("console.remote.new_code_detail"),
+                confirm=t("console.remote.new_code"), icon=verbs.REFRESH, danger=False):
+            return
+        ended = await run.io_bound(ApiClient().renew_remote_code)
+        sheet.close()
+        ui.notify(t("console.remote.new_code_made", count=ended or 0), type="positive")
+        show()
+
     def show() -> None:
+        said = where_to_find_it()
         with frame.made() as sheet, ui.card().classes("console-confirm items-center"):
             ui.label(t("console.remote.vpinfe_phone")).classes("console-confirm-title")
             art = _qr_svg(said)
@@ -1922,8 +1946,11 @@ def invite(labels: list) -> None:
             # somebody gets this, and an address nobody can read out is one they cannot
             # type either.
             ui.label(said).classes("console-help text-center")
-            ui.button(t("word.close"), icon=verbs.CLOSE, on_click=sheet.close) \
-                .props("flat no-caps").classes("console-action")
+            with ui.row().classes("justify-center w-full"):
+                panel.action(t("console.remote.new_code"), lambda: renew(sheet),
+                             icon=verbs.REFRESH, hint=t("console.remote.new_code_hint"))()
+                ui.button(t("word.close"), icon=verbs.CLOSE, on_click=sheet.close) \
+                    .props("flat no-caps").classes("console-action")
         sheet.open()
 
     with ui.row().classes("items-center justify-center gap-2 w-full no-wrap "

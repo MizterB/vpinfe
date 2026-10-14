@@ -11,7 +11,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
 
-from fastapi import APIRouter, Body, Response
+from fastapi import APIRouter, Body, Request, Response
 
 from common import config_schema, config_service, events, settings_waiting
 from common.capture import settings as capture_settings
@@ -23,8 +23,8 @@ from common.paths import get_ini_config
 from frontend import theme_windows
 
 from . import jobs as jobs_api
-from . import models, scopes
-from .auth import requires
+from . import models, protected_settings, scopes
+from .auth import require, requires
 from .errors import ConflictError, InvalidRequestError, NotFoundError
 from .events import declare_snapshot
 
@@ -81,7 +81,7 @@ def get_tools() -> models.ConfigTools:
 
 
 @router.post("/tools/{tool_id}/get", summary="Download a Tool VPinFE can get itself",
-             status_code=202, dependencies=[requires(scopes.CONFIG_WRITE)])
+             status_code=202, dependencies=[requires(scopes.PROTECTED)])
 def get_tool(tool_id: str, response: Response) -> models.JobResource:
     """Accepted, not done. The request is the consent. Only FFmpeg, on Windows and macOS,
     can be got."""
@@ -106,12 +106,8 @@ def get_values() -> models.ConfigValues:
     return _config_values(config_service.whole(_windows()))
 
 
-@router.put("", summary="Change settings and lists",
-            dependencies=[requires(scopes.CONFIG_WRITE)])
-def put_values(patch: dict[str, Any] = Body(...)) -> models.ConfigValues:
-    """A patch shaped like the read: `settings` is written key by key, and a list sent
-    replaces that list. In `theme_options`, each theme named takes the values given,
-    checked against what the theme declares, and the others are left alone."""
+def _validated(patch: dict[str, Any]) -> dict[str, Any]:
+    """The patch, once it is known to be a well-formed one. Raises what the caller is told."""
     settings = patch.get(config_service.SETTINGS)
     if settings is not None and not isinstance(settings, dict):
         raise InvalidRequestError(t("error.config.settings_object"))
@@ -125,9 +121,30 @@ def put_values(patch: dict[str, Any] = Body(...)) -> models.ConfigValues:
             if isinstance(value, bool) and config_schema.locate(section, key) in SECRET_SETTINGS:
                 raise InvalidRequestError(
                     t("error.config.secret_is_text", key=f"{section}.{key}"))
-    patch = _with_theme_options_checked(patch)
+    return _with_theme_options_checked(patch)
+
+
+def _applied(patch: dict[str, Any]) -> models.ConfigValues:
     with _refusals():
         return _config_values(config_service.apply(patch, _windows()))
+
+
+def apply_patch(patch: dict[str, Any]) -> models.ConfigValues:
+    """A patch written for work this install does itself, after a request already asked for a
+    Confirm: the move of the backups folder."""
+    return _applied(_validated(patch))
+
+
+@router.put("", summary="Change settings and lists",
+            dependencies=[requires(scopes.CONFIG_WRITE)])
+def put_values(request: Request, patch: dict[str, Any] = Body(...)) -> models.ConfigValues:
+    """A patch shaped like the read: `settings` is written key by key, and a list sent
+    replaces that list. In `theme_options`, each theme named takes the values given,
+    checked against what the theme declares, and the others are left alone."""
+    patch = _validated(patch)
+    if protected_settings.patch_change(patch, config_service.whole(_windows())):
+        require(request, scopes.PROTECTED)
+    return _applied(patch)
 
 
 def _with_theme_options_checked(patch: dict[str, Any]) -> dict[str, Any]:
@@ -204,6 +221,15 @@ def get_theme_option_values(theme: str) -> dict[str, object]:
     return found
 
 
+def _guard_items(request: Request, list_key: str, items: list[dict[str, Any]]) -> None:
+    """A list write that sets a launcher's program or command asks for a Confirm."""
+    if list_key != protected_settings.LAUNCHERS:
+        return
+    held = config_service.list_items(list_key)
+    if protected_settings.launchers_change(items, held):
+        require(request, scopes.PROTECTED)
+
+
 @router.get("/{list_key}", summary="Every item of a list",
             dependencies=[requires(scopes.CONFIG_READ)])
 def get_list(list_key: str) -> list[dict[str, object]]:
@@ -213,19 +239,23 @@ def get_list(list_key: str) -> list[dict[str, object]]:
 
 @router.put("/{list_key}", summary="Replace a list",
             dependencies=[requires(scopes.CONFIG_WRITE)])
-def put_list(list_key: str, items: list[dict[str, Any]] = Body(...)) -> list[dict[str, object]]:
+def put_list(request: Request, list_key: str,
+             items: list[dict[str, Any]] = Body(...)) -> list[dict[str, object]]:
     """The whole list, in the order sent: this is how a list is reordered. An item with
     no `id` is given one."""
     _declared(list_key)
+    _guard_items(request, list_key, items)
     with _refusals():
         return config_service.replace_list(list_key, items)
 
 
 @router.post("/{list_key}", summary="Add an item to a list", status_code=201,
              dependencies=[requires(scopes.CONFIG_WRITE)])
-def post_item(list_key: str, item: dict[str, Any] = Body(...)) -> dict[str, object]:
+def post_item(request: Request, list_key: str,
+              item: dict[str, Any] = Body(...)) -> dict[str, object]:
     """The install gives the item its `id`; `PUT /{list}/{id}` is how a caller names one."""
     _declared(list_key)
+    _guard_items(request, list_key, [item])
     if "id" in item:
         raise InvalidRequestError(t("error.config.list.id_given", list=list_key))
     with _refusals():
@@ -242,10 +272,11 @@ def get_item(list_key: str, item_id: str) -> dict[str, object]:
 
 @router.put("/{list_key}/{item_id}", summary="Add or replace an item",
             dependencies=[requires(scopes.CONFIG_WRITE)])
-def put_item(list_key: str, item_id: str,
+def put_item(request: Request, list_key: str, item_id: str,
              item: dict[str, Any] = Body(...)) -> dict[str, object]:
     """Replaces the item with that id where it stands, or adds it under that id."""
     _declared(list_key)
+    _guard_items(request, list_key, [{**item, "id": item_id}])
     if item.get("id", item_id) != item_id:
         raise InvalidRequestError(t("error.config.list.id_differs"))
     with _refusals():

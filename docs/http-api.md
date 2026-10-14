@@ -48,6 +48,16 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/auth/sessions` | The browsers signed in: what each is, where from, when last used, and which one is asking (`access:read`) |
 | DELETE | `/api/v1/auth/sessions/{session_id}` | Sign one browser out (`access:write`) |
 | DELETE | `/api/v1/auth/sessions` | Sign every browser out (`access:write`) |
+| POST | `/api/v1/auth/confirm/code` | Ask for a Confirm Code. Six digits appear on this computer's screen and in no answer. Only a signed-in Owner can ask; this computer and a token hold no Confirm to ask for |
+| POST | `/api/v1/auth/confirm` | `{"code"}` gives the Owner a Confirm for 30 minutes, extended each time a Protected route is used. 403 `forbidden` with `details.reason` of `wrong`, `used_up` or `no_code` |
+| GET | `/api/v1/auth/confirm` | Whether the caller holds a Confirm, and for how long |
+| POST | `/api/v1/auth/pair/code` | Ask this install for a pairing code. The digits appear on this computer's screen. The answer holds a `request_id` |
+| POST | `/api/v1/auth/pair` | `{"request_id", "code", "name"}` answers with a Full Control token, shown once, in `secret`. The asking install keeps it and sends it as `Authorization: Bearer` on every call to this one |
+| POST | `/api/v1/auth/remote_code/renew` | Make a new Remote Code. Every phone that came in with the old one is signed out; answers with how many (`access:write`) |
+| GET | `/api/v1/auth/tokens` | The tokens made: name, `access`, `can_power`, when made and when last used. Never the secret (`access:read`) |
+| POST | `/api/v1/auth/tokens` | `{"name", "access", "can_power"}` makes a token. `access` is `full` or `play`. The secret is in this answer and cannot be read again. `protected:write` |
+| PUT | `/api/v1/auth/tokens/{token_id}` | `{"can_power"}` changes the Can Shut Down and Restart switch (`access:write`, and `protected:write` to turn it on). `404` for a token that is gone |
+| DELETE | `/api/v1/auth/tokens/{token_id}` | Revoke one (`access:write`) |
 | GET | `/api/v1/events` | Subscribe to the event stream (SSE). `?events=` filters by name |
 | GET | `/api/v1/play/state` | What this play host is doing, with the running game's `game_id` and when it `started_at`. The snapshot you take once; `play.state_changed` on the stream is how you hear about it after that |
 | POST | `/api/v1/play/stop` | Close the table this play host is running. `stopped` is false when there was nothing to close, which is an answer rather than a failure |
@@ -153,6 +163,7 @@ the documented entry point is a plain 200. Both spellings work.
 | POST | `/api/v1/games/{id}/tables` | Add a table the game holds with no file, `{"app", "key"}` - a ROM, a Pinball FX table, anything its program finds by name - or with `{"path"}`, a file the game points at without holding. `201` |
 | POST | `/api/v1/games/{id}/tables/{table_id}/contain` | Copy a table the game points at into its folder, and stop pointing. The table keeps its id |
 | DELETE | `/api/v1/games/{id}/tables/{table_id}` | Forget a table whose file is gone. Nothing on disk is deleted, and a table whose file is still there is refused |
+| DELETE | `/api/v1/games/{id}/folder` | Delete the game's whole folder from the disk: tables, media, .info and everything else in it, with no trash and no undo. Protected. 409 while that game is running, and 400 for a folder that is, or holds, a location the library reads |
 | PUT | `/api/v1/games/{id}/tables/{table_id}/source` | Say which release a table is, `{"vps_file_id"}`. Empty takes the claim back |
 | PUT | `/api/v1/games/{id}/details` | Say what the game is, where no catalog matched it. A patch - a field left out is left alone, a field sent empty is cleared. Not where a VPS id goes; that is the `alt_vps_id` override |
 | PUT | `/api/v1/games/{id}/guides` | The game's guides, in order. An entry naming a stored guide by its address keeps it and sets `hidden`; any other is a new guide of the person's own. Leaving out a guide VPS lists is refused - hide it instead |
@@ -316,7 +327,7 @@ the documented entry point is a plain 200. Both spellings work.
 | PUT | `/api/v1/themes/sources/name` | Call an added source something, `{"address", "name"}`: its `label`, shown in place of the name it has. A blank `name` takes it back. `config:write`. Kept apart from the address lists, which stay addresses. `404` for an address that is not added. Answers with the `address` and `label` |
 | POST | `/api/v1/themes/{key}/install` | Install or update. Installing over an existing copy is what an update is. Refused (`error.themes.not_accepted`) for a theme from a source other than the VPinFE Theme List until it is accepted |
 | GET | `/api/v1/themes/unaccepted` | The installed themes nobody has accepted, `{"themes": [{"key", "name"}]}`. Reads the themes folder alone, never the network. The frontend plays the default theme in place of one of these |
-| POST | `/api/v1/themes/{key}/accept` | Accept a theme from the address this install knows it by - a source other than the VPinFE Theme List, or the themes folder for one no source offers. Answers with its `trust`. A theme from a different address asks again. `config:write` until the Protected scope replaces it. `404` for a theme nothing offers |
+| POST | `/api/v1/themes/{key}/accept` | Accept a theme from the address this install knows it by - a source other than the VPinFE Theme List, or the themes folder for one no source offers. Answers with its `trust`. A theme from a different address asks again. `protected:write`. `404` for a theme nothing offers |
 | DELETE | `/api/v1/themes/{key}` | Remove an installed theme. Refused for the active one - the frontend would come up with no theme at all |
 | PUT | `/api/v1/themes/active` | Choose which theme the frontend plays. Takes effect when the frontend next starts |
 | GET | `/api/v1/themes/{key}/preview` | The picture the theme's manifest names, at `size` 256 or 1024 when given. One not installed is fetched from its host once per release and kept here, so a new release is a new copy; the same release is asked about again after a day. `v` is the listing's `preview_version`, and a request that carries the current one may be kept for good. `404` for a theme with no picture or one that cannot be fetched |
@@ -325,7 +336,7 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/extensions` | Every extension this install looked at, running or not, and what each declared. `enabled` is the switch, which is not the same as running. One that is not running carries `reason`, in this install's language, and `reason_key`, the catalog key it was read from |
 | GET | `/api/v1/extensions/needs` | What the running extensions ask for on Overview, `{"needs": [...], "away": [...], "failed": [...]}`. Each need carries its `key`, `label`, `says`, `count`, `covered` (what a dismissal is kept against), `tone`, and what it opens. `away` lists the extensions that did not answer, a stopped one included, so what was set aside against them is kept, and `failed` the ones that raised. See `docs/extensions/reference/ui.md` |
 | PUT | `/api/v1/extensions/{name}/enabled` | Switch one on or off, `{"enabled": bool}`, written to `extensions.switched_off`. Answers with the extension. Off takes it out at once, as a fault would, and its `reason_key` says it was switched off. On waits for the next start, because routes mount once: until then it stays `off`, with `extension.reason.pending_restart`, or the reason this install cannot run it |
-| POST | `/api/v1/extensions/{name}/accept` | Accept an extension VPinFE did not ship, as it declares itself now (its `scopes` and `capabilities`), and start it. A later version that declares more stops until accepted again. A copy that replaces a built-in starts at the next start, and the built-in runs until then. Answers with the extension. `config:write` until the Protected scope replaces it. `404` for a name nothing answers to |
+| POST | `/api/v1/extensions/{name}/accept` | Accept an extension VPinFE did not ship, as it declares itself now (its `scopes` and `capabilities`), and start it. A later version that declares more stops until accepted again. A copy that replaces a built-in starts at the next start, and the built-in runs until then. Answers with the extension. `protected:write`. `404` for a name nothing answers to |
 | any | `/api/v1/ext/{name}/…` | An extension's own routes, gated on a scope it declared. `501` once it has stopped or been switched off, naming which one and why. One that never started, switched off before this start or not for this install, has no routes, so `404`. See `docs/extensions/reference/served.md` |
 
 Discovery is the entry point: an integrator learns what an instance offers by asking it,
@@ -555,10 +566,35 @@ route declares the scope it needs:
 
 **Who gets which scopes is `SignInPolicy`.** A request from this machine holds every core
 scope. A request from another computer holds `instance:read` alone, which is enough to ask
-what this instance is and to ask for a sign-in code, until a browser on it has signed in.
-Signing in is a six-digit code shown on the machine and typed on the other computer; the
-`/auth` routes above are the whole of it. A signed-in browser holds the same scopes as the
-machine, and a cookie that is not signed in, expired or signed out holds none.
+what this instance is and to ask for a sign-in code, until it has signed in or presents a
+token. Signing in is a six-digit code shown on the machine and typed on the other computer;
+the `/auth` routes above are the whole of it. A cookie that is not signed in, expired or
+signed out holds none.
+
+**Three tiers.** A route's scope puts it in one of them.
+
+| Tier | What it covers | Who holds it |
+|---|---|---|
+| Play | Reading the library, collections, players and what is playing; launching, stopping, pressing buttons, capturing with the configured command, rating and favoriting, joining as a guest, signing a guest out and saying who is up | The Remote's pass, a Play token, any Owner, this computer |
+| Library | Everything that changes what VPinFE knows or shows | A signed-in Owner, a Full Control token, this computer |
+| Protected | What runs (commands, launcher programs, tools, theme and extension sources and acceptance, updating), what destroys the way back (restoring a backup, the backup folder, going back to 2.x, deleting a game's folder from the disk), what hands out access (making a token, pairing, the Trusted Proxies and Encrypted Networks lists) and what takes the machine down (`protected:write`, `system:admin`) | This computer, or an Owner holding a Confirm. Never a token, except `system:admin` on a token whose Can Shut Down and Restart switch is on |
+
+An Owner that reaches a Protected route without a Confirm is answered `403` with
+`details.reason` of `confirm_needed` and the `scope`; a token or a Remote pass is answered
+`details.reason` of `protected`, because nothing it can do changes that. A client that can
+show the Confirm asks `/auth/confirm/code`, then `/auth/confirm`, and repeats the call. The
+Console does exactly this.
+
+**Tokens** are named, shown once, kept hashed and revocable. Send one as
+`Authorization: Bearer <secret>`. Full Control is Play and Library; Play is Play. Neither
+holds `access:*` or `protected:write`. A token made by pairing is Full Control.
+
+**The Console acts for a browser.** The Console draws pages for browsers on other computers
+but calls this API from the same machine over loopback. Each such call carries
+`x-vpinfe-acting`, a 60-second HMAC naming the browser's sign-in (or `-` for a browser that
+is no longer signed in), and is held to that sign-in's tier. A loopback call with no such
+header is this computer. The header is honored only from loopback and only with the
+install's own signature.
 
 An identity carries `origin` (`local` or `network`), decided by the request's own socket,
 `Host` and `Origin` and never by `X-Forwarded-For`, which the caller writes. A signed-in
@@ -588,8 +624,8 @@ one after callers depend on it is not.
 **It answers on every interface by default, and another computer gets in with a code.**
 Anything that can reach the port may ask what this instance is and ask for a code. The code
 is shown on the machine, never sent back to the asker, so someone who can reach the port and
-cannot see the screen gets nothing else. Once typed, the browser holds every scope until it is
-signed out or goes unused for 90 days.
+cannot see the screen gets nothing else. Once typed, the browser holds Play and Library until it
+is signed out or goes unused for 90 days; a Protected change asks for a Confirm on top.
 
 Over plain HTTP the cookie and everything after it cross the network unencrypted, so sign in
 from a network you trust. A home LAN behind a router is the assumption. A shared or public

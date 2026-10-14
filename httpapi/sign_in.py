@@ -9,15 +9,23 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Request, Response
 
-from common import paths, sign_in
+from common import access_keys, paths, sign_in
+from common import api_tokens as tokens
 from common.host import this_machine
 from common.i18n import t
 from common.install_identity import display_name
 
 from . import scopes
-from .auth import COOKIE, caller_is_local, requires, session_for
+from .auth import COOKIE, caller_is_local, caller_session, requires, session_for
 from .errors import CODE_FORBIDDEN, CODE_TOO_MANY_REQUESTS, ApiError
 from .models import (
+    ConfirmAsk,
+    ConfirmAttempt,
+    ConfirmState,
+    PairAsk,
+    PairAttempt,
+    Paired,
+    RemoteCodeRenewed,
     SessionInfo,
     SessionList,
     SessionsEnded,
@@ -105,7 +113,9 @@ def me(request: Request) -> WhoAmI:
     session = session_for(request)
     return WhoAmI(signed_in=session is not None, local=caller_is_local(request),
                   kind=session.kind if session else "",
-                  session_id=session.id if session else "")
+                  session_id=session.id if session else "",
+                  confirmed=session is not None
+                  and sign_in.instance().is_confirmed(session.id))
 
 
 @router.post("/sign_out", summary="Sign this browser out", response_model=SignedIn,
@@ -137,3 +147,76 @@ def end_one(session_id: str) -> SessionsEnded:
                dependencies=[requires(scopes.ACCESS_WRITE)])
 def end_all() -> SessionsEnded:
     return SessionsEnded(ended=sign_in.instance().sign_out_everywhere())
+
+
+@router.post("/confirm/code", summary="Ask for a Confirm Code", response_model=ConfirmAsk,
+             dependencies=[requires(scopes.INSTANCE_READ), Depends(_same_site)])
+def ask_confirm(request: Request) -> ConfirmAsk:
+    """Draws six digits on this computer's screen. Only a signed-in Owner can ask: this
+    computer itself and a token hold no Confirm to ask for."""
+    session = caller_session(request)
+    if session is None:
+        raise ApiError(CODE_FORBIDDEN, t("error.signin.required"), status_code=403)
+    try:
+        sign_in.instance().confirm_ask(session.id, _address(request))
+    except sign_in.SignInError as error:
+        raise _refusal(error) from error
+    return ConfirmAsk(expires_in=sign_in.CODE_SECONDS)
+
+
+@router.post("/confirm", summary="Confirm with the code this computer showed",
+             response_model=ConfirmState,
+             dependencies=[requires(scopes.INSTANCE_READ), Depends(_same_site)])
+def confirm(attempt: ConfirmAttempt, request: Request) -> ConfirmState:
+    session = caller_session(request)
+    if session is None:
+        raise ApiError(CODE_FORBIDDEN, t("error.signin.required"), status_code=403)
+    try:
+        sign_in.instance().confirm_verify(session.id, attempt.code)
+    except sign_in.SignInError as error:
+        raise _refusal(error) from error
+    return ConfirmState(confirmed=True, expires_in=sign_in.instance().confirm_left(session.id))
+
+
+@router.get("/confirm", summary="Whether the caller holds a Confirm", response_model=ConfirmState,
+            dependencies=[requires(scopes.INSTANCE_READ)])
+def confirmed(request: Request) -> ConfirmState:
+    if caller_is_local(request) and caller_session(request) is None:
+        return ConfirmState(confirmed=True, expires_in=sign_in.CONFIRM_SECONDS)
+    session = caller_session(request)
+    left = sign_in.instance().confirm_left(session.id) if session else 0
+    return ConfirmState(confirmed=left > 0, expires_in=left)
+
+
+@router.post("/pair/code", summary="Ask this install for a pairing code",
+             response_model=PairAsk,
+             dependencies=[requires(scopes.INSTANCE_READ), Depends(_same_site)])
+def ask_pair(request: Request) -> PairAsk:
+    """Another install wants to be paired.  The six digits appear on this computer's screen
+    and in no answer."""
+    try:
+        made = sign_in.instance().pair_ask(_address(request))
+    except sign_in.SignInError as error:
+        raise _refusal(error) from error
+    return PairAsk(request_id=made.id, expires_in=sign_in.CODE_SECONDS)
+
+
+@router.post("/pair", summary="Pair with the code this install showed", response_model=Paired,
+             dependencies=[requires(scopes.INSTANCE_READ), Depends(_same_site)])
+def pair(attempt: PairAttempt) -> Paired:
+    """Exchanges the code read off this screen for a Full Control token, shown here once."""
+    try:
+        sign_in.instance().pair_verify(attempt.request_id, attempt.code)
+    except sign_in.SignInError as error:
+        raise _refusal(error) from error
+    name = attempt.name.strip() or t("auth.tokens.paired_name")
+    secret, _ = tokens.instance().make(name, tokens.FULL)
+    return Paired(secret=secret)
+
+
+@router.post("/remote_code/renew", summary="Make a new Remote Code",
+             response_model=RemoteCodeRenewed, dependencies=[requires(scopes.ACCESS_WRITE)])
+def renew_remote_code() -> RemoteCodeRenewed:
+    """Every phone that came in with the old code is signed out."""
+    old_id, _ = access_keys.renew_remote_pass()
+    return RemoteCodeRenewed(ended=sign_in.instance().sign_out_via(old_id))

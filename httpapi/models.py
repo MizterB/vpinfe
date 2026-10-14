@@ -2181,6 +2181,11 @@ class AssetRemoved(ApiModel):
     removed: list[str]
 
 
+class GameFolderDeleted(ApiModel):
+    deleted: bool
+    folder: str
+
+
 class AssetSlotList(ApiModel):
     total: int
     offset: int
@@ -3908,6 +3913,7 @@ class WhoAmI(ApiModel):
     local: bool
     kind: str = ""
     session_id: str = ""
+    confirmed: bool = False
 
 
 class SessionInfo(ApiModel):
@@ -3918,6 +3924,7 @@ class SessionInfo(ApiModel):
     created: float
     last_used: float
     current: bool
+    via: str = ""
 
 
 class SessionList(ApiModel):
@@ -3925,4 +3932,78 @@ class SessionList(ApiModel):
 
 
 class SessionsEnded(ApiModel):
+    ended: int
+
+
+class ConfirmAsk(ApiModel):
+    """A Confirm Code was asked for. Its digits are on this computer's screen."""
+
+    expires_in: int
+
+
+class ConfirmAttempt(ApiModel):
+    code: str
+
+
+class ConfirmState(ApiModel):
+    """Whether the caller may do Protected things now, and for how much longer."""
+
+    confirmed: bool
+    expires_in: int = 0
+
+
+class TokenMake(ApiModel):
+    name: str
+    access: str
+    can_power: bool = False
+
+
+class TokenInfo(ApiModel):
+    id: str
+    name: str
+    access: str
+    can_power: bool
+    created: float
+    last_used: float
+
+
+class TokenList(ApiModel):
+    tokens: list[TokenInfo]
+
+
+class TokenMade(ApiModel):
+    """The secret is in this answer and nowhere else, ever."""
+
+    secret: str
+    token: TokenInfo
+
+
+class TokenChange(ApiModel):
+    can_power: bool
+
+
+class TokensEnded(ApiModel):
+    ended: int
+
+
+class PairAsk(ApiModel):
+    """A pairing code is on this computer's screen."""
+
+    request_id: str
+    expires_in: int
+
+
+class PairAttempt(ApiModel):
+    request_id: str
+    code: str
+    name: str = ""
+
+
+class Paired(ApiModel):
+    """The token this install issued the one that paired. Shown once."""
+
+    secret: str
+
+
+class RemoteCodeRenewed(ApiModel):
     ended: int

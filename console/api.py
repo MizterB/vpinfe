@@ -9,13 +9,15 @@ import threading
 from collections.abc import Iterable, Iterator
 from itertools import takewhile
 from typing import Any
-from urllib.parse import quote, urlencode
+from urllib.parse import quote, urlencode, urlsplit
 
 import requests
 
-from common import device_client, launcher_wire, serving
+from common import device_client, device_registry, launcher_wire, serving, sign_in
 from common.i18n import t
 from common.paths import get_ini_config
+from console import acting
+from httpapi import auth, scopes
 
 logger = logging.getLogger("vpinfe.console.api")
 
@@ -61,12 +63,65 @@ class ApiError(RuntimeError):
         self.details = dict(details or {})
 
 
-class _WordedSession(requests.Session):
-    """Raises ApiError, never a requests exception, for a request nothing answered."""
+def _is_this_install(url: str) -> bool:
+    return urlsplit(url).hostname == "127.0.0.1"
 
-    def request(self, *args: Any, **kwargs: Any) -> requests.Response:
+
+def _wants_confirm(response: requests.Response) -> bool:
+    if response.status_code != 403:
+        return False
+    try:
+        found = (response.json() or {}).get("error") or {}
+    except ValueError:
+        return False
+    return (found.get("details") or {}).get("reason") == auth.CONFIRM_NEEDED
+
+
+class _WordedSession(requests.Session):
+    """Raises ApiError, never a requests exception, for a request nothing answered.
+
+    A call made for a browser on another computer says so, and is held to that browser's
+    tier. When that tier asks for a Confirm, the browser is asked and the call is made once
+    more.
+    """
+
+    def _send(self, who: acting.Acting | None, method: str, url: str,
+              **kwargs: Any) -> requests.Response:
+        if who is not None:
+            kwargs["headers"] = {**(kwargs.get("headers") or {}),
+                                 auth.ACTING_HEADER: auth.sign_acting(who.session_id)}
+        return super().request(method, url, **kwargs)
+
+    @staticmethod
+    def _paired(method: str, url: str, kwargs: dict[str, Any]) -> dict[str, Any]:
+        """A call to another install carries the token this install paired with it, which is
+        Full Control. Made for a Play sign-in it is held to Play here, and for a browser that
+        is no longer signed in it carries nothing."""
+        paired = device_registry.paired_header(url)
+        if paired is None:
+            return kwargs
+        who = acting.current()
+        if who is not None:
+            session = sign_in.instance().session(who.session_id)
+            if session is None:
+                return kwargs
+            if session.kind == sign_in.REMOTE:
+                here = urlsplit(url).path.removeprefix("/api/v1")
+                if auth.request_scope(method, here) not in scopes.PLAY:
+                    raise ApiError(t("error.auth.protected"))
+        return {**kwargs, "headers": {**(kwargs.get("headers") or {}), **paired}}
+
+    def request(self, method: str, url: str, **kwargs: Any) -> requests.Response:  # type: ignore[override]
+        who = acting.current() if _is_this_install(url) else None
+        if not _is_this_install(url):
+            kwargs = self._paired(method, url, kwargs)
         try:
-            return super().request(*args, **kwargs)
+            response = self._send(who, method, url, **kwargs)
+            streamed = any(hasattr(kwargs.get(name), "read") for name in ("data", "files"))
+            if who is not None and not streamed and _wants_confirm(response) \
+                    and acting.confirm():
+                response = self._send(who, method, url, **kwargs)
+            return response
         except requests.RequestException as exc:
             raise ApiError(t(device_client.why_not(exc))) from exc
 
@@ -159,6 +214,37 @@ class ApiClient:
 
     def sign_out_everyone(self) -> None:
         self._delete("/auth/sessions")
+
+    def confirm_code(self) -> None:
+        """Draw a Confirm Code on this computer's screen. Asking again within a few seconds
+        is refused, and the code already shown is still good."""
+        try:
+            self._post("/auth/confirm/code", {})
+        except ApiError as exc:
+            if exc.details.get("reason") != "too_soon":
+                raise
+
+    def confirm(self, code: str) -> dict:
+        return self._post("/auth/confirm", {"code": code})
+
+    def tokens(self) -> list[dict]:
+        return list(self._get("/auth/tokens").get("tokens") or [])
+
+    def make_token(self, name: str, access: str, *, can_power: bool = False) -> dict:
+        """The token as made, with its `secret`, which cannot be read again."""
+        return self._post("/auth/tokens", {"name": name, "access": access,
+                                           "can_power": can_power})
+
+    def set_token_power(self, token_id: str, can_power: bool) -> dict:
+        return self._put(f"/auth/tokens/{quote(token_id, safe='')}",
+                         {"can_power": bool(can_power)})
+
+    def revoke_token(self, token_id: str) -> None:
+        self._delete(f"/auth/tokens/{quote(token_id, safe='')}")
+
+    def renew_remote_code(self) -> int:
+        """Make a new Remote Code. How many phones that came in with the old one are out."""
+        return int(self._post("/auth/remote_code/renew", {}).get("ended") or 0)
 
     def accept_extension(self, name: str) -> dict:
         """The extension as it stands once accepted."""
@@ -1134,6 +1220,11 @@ class ApiClient:
         """A game with no tables, matched to that catalog entry. Raises when its folder is
         already there, which the caller reports on that row."""
         return self._post("/games/from_vps", {"vps_id": vps_id, "location": location_id})
+
+    def delete_game_folder(self, game_id: str) -> None:
+        """Remove the game's whole folder from the disk. Refused unless this computer, or
+        an Owner who has confirmed, is asking."""
+        self._delete(f"/games/{quote(game_id, safe='')}/folder")
 
     def new_game_destination(self) -> dict:
         """Where a new game would be created, or why it could not, and what else it

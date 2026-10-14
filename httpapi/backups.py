@@ -46,7 +46,7 @@ def folder_change(to: str = "") -> models.BackupFolderChange:
 
 
 @router.post("/folder/move", summary="Change the backups folder and move the backups",
-             status_code=202, dependencies=[requires(scopes.CONFIG_WRITE)])
+             status_code=202, dependencies=[requires(scopes.PROTECTED)])
 def folder_move(response: Response, body: models.BackupFolderMove) -> models.JobResource:
     """Accepted, not done. Sets the backups folder to `folder` and moves the backups in
     the old one into it. A file whose name is already taken there is left where it is.
@@ -54,7 +54,7 @@ def folder_move(response: Response, body: models.BackupFolderMove) -> models.Job
     nothing is changed."""
     job = relocate.begin(
         body.folder,
-        lambda: config_api.put_values(
+        lambda: config_api.apply_patch(
             {"settings": {backup_folder.SECTION: {backup_folder.FOLDER: body.folder}}}))
     response.headers["Location"] = f"/api/v1/jobs/{job.id}"
     return models.JobResource(**jobs_api.resource(job))
@@ -80,7 +80,7 @@ def going_back_plan() -> dict[str, Any]:
 
 
 @router.post("/going-back", summary="Go back to 2.x",
-             dependencies=[requires(scopes.SYSTEM_ADMIN)])
+             dependencies=[requires(scopes.PROTECTED)])
 def go_back_to_2x(background: BackgroundTasks) -> dict[str, Any]:
     """Quit VPinFE, and put back each game's newest 2.x copy and the 2.x collections as it
     exits. Nothing is deleted: what is replaced is kept as a copy. Refused with `400` where
@@ -110,7 +110,7 @@ def change_note(copy_id: str, body: BackupNote) -> dict[str, Any]:
 
 
 @router.post("/{copy_id}/restore", summary="Put a copy back",
-             dependencies=[requires(scopes.CONFIG_WRITE)])
+             dependencies=[requires(scopes.PROTECTED)])
 def restore_backup(copy_id: str) -> dict[str, Any]:
     """The copy, what it replaced as `kept`, whether the restore waits on a close, and what a
     backup had nowhere to put as `skipped`."""
@@ -118,6 +118,6 @@ def restore_backup(copy_id: str) -> dict[str, Any]:
 
 
 @router.delete("/{copy_id}", summary="Delete a copy",
-               dependencies=[requires(scopes.CONFIG_WRITE)])
+               dependencies=[requires(scopes.PROTECTED)])
 def delete_backup(copy_id: str) -> dict[str, Any]:
     return ops.delete(copy_id).as_dict()

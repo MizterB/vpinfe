@@ -103,7 +103,7 @@ def build_router(prefix: str, api_version: str) -> APIRouter:
             await run_in_threadpool(app_updater.check_now, refresh))
 
     @router.post("/update", summary="Take the published build", status_code=202,
-                 dependencies=[requires(scopes.SYSTEM_ADMIN)])
+                 dependencies=[requires(scopes.PROTECTED)])
     async def perform_update(
             background: BackgroundTasks,
             # Optional so a caller with nothing to say can post an empty body; the

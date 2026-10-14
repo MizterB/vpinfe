@@ -6,7 +6,6 @@ Owner sees what that let in, and takes it back.
 
 from __future__ import annotations
 
-import ipaddress
 import logging
 from collections.abc import Callable
 from typing import Any
@@ -17,7 +16,7 @@ from common import paths, sign_in
 from common import serving as serving_state
 from common.failures import why
 from common.i18n import t
-from console import confirm, deeplink, offload, panel, verbs, when
+from console import confirm, deeplink, offload, panel, token_panel, verbs, when
 from console.data import Library
 from console.on_page import on_page
 from httpapi import auth
@@ -25,14 +24,6 @@ from httpapi import auth
 logger = logging.getLogger("vpinfe.console.security")
 
 NETWORK_PAGE = "vpinfe.network"
-
-
-def reachable_from_elsewhere(bind: str) -> bool:
-    """Whether the address this install serves on answers other computers."""
-    try:
-        return not ipaddress.ip_address(bind.strip()).is_loopback
-    except ValueError:
-        return bind.strip().lower() not in ("localhost", "")
 
 
 def this_session_id() -> str:
@@ -88,7 +79,7 @@ def entries(rows: list[dict[str, Any]], mine: str, sign_out: Callable[[str], Any
     else:
         out.append(panel.intro(t("console.security.none")))
     out.append(panel.note(t("console.security.idle")))
-    if reachable_from_elsewhere(bind):
+    if serving_state.reachable_from_elsewhere(bind):
         out.append((panel.HEADING, t("console.security.other_computers")))
         out.append(panel.intro(t("console.security.sign_in_steps")))
         out.append(panel.intro(t("console.security.unencrypted")))
@@ -105,6 +96,7 @@ async def page(library: Library, redraw: Callable[[], None],
     mine = this_session_id()
     try:
         rows = await offload.io(library.sessions)
+        made = await offload.io(library.tokens)
     except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
         reason = why(exc)
         return lambda: panel.facts(ui, [panel.intro(t("console.security.read_failed"),
@@ -127,7 +119,8 @@ async def page(library: Library, redraw: Callable[[], None],
         await run.io_bound(library.sign_out_everyone)
         redraw()
 
-    return lambda: panel.facts(ui, entries(rows, mine, sign_out, sign_out_all, bind))
+    return lambda: panel.facts(ui, entries(rows, mine, sign_out, sign_out_all, bind)
+                               + token_panel.page_parts(library, redraw, made))
 
 
 _SIGN_OUT_HERE = ("async () => { await fetch('/api/v1/auth/sign_out', "

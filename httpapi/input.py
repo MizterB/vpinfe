@@ -18,15 +18,19 @@ from common import input_actions
 from common.host import key_reader, key_simulator
 
 from . import models, scopes
-from .auth import requires
+from .auth import require, requires
 
 router = APIRouter(prefix="/input", tags=["input"])
+
+EXIT = "exit"
 
 
 @router.post("/actions", summary="Press, hold or release an input action",
              dependencies=[requires(scopes.INPUT_ACT)])
 def act(payload: models.InputActionRequest, request: Request) -> models.InputActionResult:
-    """Put one press on this install's bus."""
+    """Put one press on this install's bus.  `exit` quits, so it takes what quitting takes."""
+    if payload.action.strip() == EXIT:
+        require(request, scopes.SYSTEM_ADMIN)
     return models.InputActionResult.model_validate(
         input_actions.act(payload.action, payload.phase,
                           source=_source(payload.source, request),

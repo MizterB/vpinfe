@@ -44,7 +44,7 @@ from common.games.game_metadata import (
     vps_details_differ,
 )
 from common.games.game_repository import refresh_game, reread_game
-from common.host import dof_service
+from common.host import dof_service, launch_state
 from common.i18n import t
 from common.uploads.asset_import_service import vps_folder_name
 
@@ -236,6 +236,36 @@ def curate_guides(held: list[Any], wanted: list[dict[str, Any]]) -> list[dict[st
            for address, one in stored.items()):
         raise service_errors.RefusedError(t("error.games.guide_listed"))
     return out
+
+
+def delete_from_disk(game_id: str) -> dict:
+    """Remove a game's whole folder: its tables, media, .info and everything else in it.
+
+    Refused while that game is running, and for a folder that is, or holds, a location the
+    library reads - removing it would take every other game with it. Nothing goes to a
+    trash, so the caller asks first.
+    """
+    game = game_lens.game_for_writing(game_id)
+    folder = Path(str(game.full_path_game))
+    wanted = path_state.canonical(str(folder))
+    running = launch_state.current()
+    if running.launching and (running.game_id == game_id
+                              or (not running.game_id
+                                  and running.game_name == game.game_dir_name)):
+        raise service_errors.BlockedError(t("error.games.delete_running"),
+                                          details={"path": str(folder)})
+    for place in library_folders.configured():
+        held = path_state.canonical(place.path)
+        if library_folders.inside(wanted, held):
+            raise service_errors.RefusedError(t("error.games.delete_location"),
+                                              details={"path": str(folder)})
+    try:
+        shutil.rmtree(folder)
+    except OSError as exc:
+        refresh_game(folder)
+        raise service_errors.BlockedError(why(exc), details={"path": str(folder)}) from exc
+    refresh_game(folder)
+    return {"deleted": True, "folder": str(folder)}
 
 
 def set_favorite(game_id: str, favorite: bool) -> dict:

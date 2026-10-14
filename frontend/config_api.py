@@ -6,7 +6,7 @@ import socket
 from io import BytesIO
 from typing import TYPE_CHECKING, Any
 
-from common import serving
+from common import access_keys, serving
 from common.config_access import (
     ConfigSource,
     DisplayConfig,
@@ -58,7 +58,13 @@ def get_attract_config(iniconfig: ConfigSource) -> dict[str, Any]:
 
 
 def _managerui_remote_urls(config: ConfigSource) -> list[str]:
-    port = serving.network(config).http_port
+    """The Remote's addresses, each carrying the Remote pass so a scan signs the phone in.
+    None while this install answers only itself, since no phone can reach it."""
+    network = serving.network(config)
+    if not serving.reachable_from_elsewhere(network.http_bind):
+        return []
+    port = network.http_port
+    _, secret = access_keys.remote_pass()
     hostname = socket.gethostname().strip()
     urls: list[str] = []
     seen_hosts: set[str] = set()
@@ -80,7 +86,7 @@ def _managerui_remote_urls(config: ConfigSource) -> list[str]:
         if key in seen_hosts:
             return
         seen_hosts.add(key)
-        urls.append(f"http://{normalized}:{port}/remote")
+        urls.append(f"http://{normalized}:{port}/remote?{access_keys.PASS_PARAM}={secret}")
 
     primary_ip = detect_primary_ipv4()
     if primary_ip:
@@ -203,7 +209,7 @@ def get_managerui_remote_link(config: ConfigSource) -> dict[str, Any]:
 def get_managerui_vpinplay_multi_link(config: ConfigSource) -> dict[str, Any]:
     """The main menu's second QR: the Remote's Join screen. Still named for the page
     it opened in 2.x, not the one it answers now."""
-    urls = [f"{url}?screen=join" for url in _managerui_remote_urls(config)]
+    urls = [f"{url}&screen=join" for url in _managerui_remote_urls(config)]
     preferred_url = _preferred_managerui_url(urls)
     return {
         "url": preferred_url,

@@ -598,10 +598,7 @@ class Registry:
         there is no such extension.
 
         The built-in a copy replaces keeps running: its routes are mounted at startup, so
-        the copy starts at the next start.
-
-        Accepting is a Protected action; until that tier exists the route that calls this
-        declares the config scope."""
+        the copy starts at the next start."""
         with self._lock:
             record = self._records.get(str(name or "").strip())
             if record is None:

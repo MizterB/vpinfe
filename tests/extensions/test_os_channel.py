@@ -489,8 +489,7 @@ class RequestTests(ExtensionCase):
 
         found = self.client("192.0.2.7").post("/ext/os_update/apply")
 
-        self.assertGreaterEqual(found.status_code, 400)
-        self.assertIn("this computer", found.text)
+        self.assertEqual(found.status_code, 403, found.text)
         self.assertEqual(fake.requests, [])
 
     def test_an_extension_that_failed_a_change_is_not_disabled_for_it(self) -> None:

@@ -196,6 +196,51 @@ class TheSpacingTests(SignInCase):
         self.assertEqual(self.sign_in._spacing(), sign_in.ASK_SPACING_SECONDS)
 
 
+class ThePairingSpacingTests(SignInCase):
+    def spend_a_code(self) -> None:
+        asked = self.sign_in.pair_ask("192.168.1.30")
+        for _ in range(sign_in.TRIES):
+            self.refusal(lambda: self.sign_in.pair_verify(asked.id, "x"))
+
+    def test_asking_again_at_once_is_turned_away(self) -> None:
+        self.sign_in.pair_ask("192.168.1.30")
+
+        error = self.refusal(lambda: self.sign_in.pair_ask("192.168.1.31"))
+
+        self.assertEqual(error.reason, sign_in.TOO_SOON)
+
+    def test_codes_spent_in_a_row_make_the_wait_grow_to_a_limit(self) -> None:
+        for _ in range(sign_in.SPENT_BEFORE_DOUBLING + 2):
+            self.spend_a_code()
+            self.clock.advance(sign_in.PAIR_SPACING_LIMIT_SECONDS + 1)
+        self.spend_a_code()
+        self.clock.advance(sign_in.CONFIRM_ASK_SECONDS + 1)
+
+        error = self.refusal(lambda: self.sign_in.pair_ask("192.168.1.30"))
+
+        self.assertEqual(error.reason, sign_in.TOO_SOON)
+        self.assertGreater(error.wait, sign_in.CONFIRM_ASK_SECONDS)
+
+    def test_the_wait_stops_growing_at_the_limit(self) -> None:
+        for _ in range(20):
+            self.spend_a_code()
+            self.clock.advance(sign_in.PAIR_SPACING_LIMIT_SECONDS + 1)
+
+        self.assertEqual(self.sign_in.pair_ask("192.168.1.30").address, "192.168.1.30")
+
+    def test_a_right_code_puts_the_wait_back(self) -> None:
+        for _ in range(sign_in.SPENT_BEFORE_DOUBLING + 1):
+            self.spend_a_code()
+            self.clock.advance(sign_in.PAIR_SPACING_LIMIT_SECONDS + 1)
+        asked = self.sign_in.pair_ask("192.168.1.30")
+        code = self.sign_in._pair.code
+        self.sign_in.pair_verify(asked.id, code)
+
+        self.clock.advance(sign_in.CONFIRM_ASK_SECONDS + 1)
+
+        self.assertEqual(self.sign_in.pair_ask("192.168.1.30").address, "192.168.1.30")
+
+
 class TheMachinesSideTests(SignInCase):
     def test_ignoring_refuses_that_address_from_then_on(self) -> None:
         request = self.sign_in.ask("192.168.1.20")

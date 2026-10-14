@@ -389,7 +389,8 @@ class ContractTests(_PlayersCase):
         self.assertEqual({scope for (method, _), scope in declared.items()
                           if method == "GET"}, {scopes.PLAYERS_READ})
         self.assertEqual({scope for (method, _), scope in declared.items()
-                          if method != "GET"}, {scopes.PLAYERS_WRITE})
+                          if method != "GET"},
+                         {scopes.PLAYERS_WRITE, scopes.PLAY_RATE, scopes.PLAY_PLAYERS})
 
     def test_every_caller_is_granted_them(self) -> None:
         """The Console and the Remote reach the API as any caller does, under the local

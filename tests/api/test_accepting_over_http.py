@@ -46,11 +46,11 @@ class TheRoutes(unittest.TestCase):
                 return auth.route_scope(route)
         self.fail(f"no {method} {path}")
 
-    def test_accepting_an_extension_is_gated_on_writing_config(self) -> None:
-        self.assertEqual(self.scope_of("POST", "/extensions/{name}/accept"), scopes.CONFIG_WRITE)
+    def test_accepting_an_extension_is_protected(self) -> None:
+        self.assertEqual(self.scope_of("POST", "/extensions/{name}/accept"), scopes.PROTECTED)
 
-    def test_accepting_a_theme_is_gated_on_writing_config(self) -> None:
-        self.assertEqual(self.scope_of("POST", "/themes/{key}/accept"), scopes.CONFIG_WRITE)
+    def test_accepting_a_theme_is_protected(self) -> None:
+        self.assertEqual(self.scope_of("POST", "/themes/{key}/accept"), scopes.PROTECTED)
 
     def test_reading_what_is_stopped_is_gated_on_reading_config(self) -> None:
         self.assertEqual(self.scope_of("GET", "/themes/unaccepted"), scopes.CONFIG_READ)

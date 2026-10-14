@@ -4,17 +4,17 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Request, Response
 from fastapi.responses import FileResponse
 
 from common import events
-from common.capture import adapters, preflight, proposals, run, trial
+from common.capture import adapters, commands, preflight, proposals, run, trial
 from common.capture.adapters import portal
 from common.host import frontend_state
 
 from . import jobs as jobs_api
 from . import models, scopes
-from .auth import requires
+from .auth import require, requires
 from .events import declare_snapshot
 
 router = APIRouter(prefix="/capture", tags=["capture"])
@@ -48,8 +48,14 @@ def _started(job: Any, response: Response) -> models.JobResource:
 
 @router.post("/runs", summary="Record games or tables, one after another", status_code=202,
              dependencies=[requires(scopes.CAPTURE_RUN)])
-def start_capture(body: models.CaptureRequest, response: Response) -> models.JobResource:
+def start_capture(body: models.CaptureRequest, response: Response,
+                  request: Request) -> models.JobResource:
+    if COMMAND_SETTINGS & set(body.settings):
+        require(request, scopes.PROTECTED)
     return _started(run.start(_request(body)), response)
+
+
+COMMAND_SETTINGS = frozenset(commands.SETTINGS.values())
 
 
 def _current() -> dict:
@@ -87,7 +93,7 @@ def discard_run() -> models.CaptureRunCurrent:
 
 
 @router.post("/test", summary="Record a few seconds of the playfield with the commands",
-             dependencies=[requires(scopes.CAPTURE_RUN)])
+             dependencies=[requires(scopes.PROTECTED)])
 def test_capture(body: models.CaptureTestRequest) -> models.CaptureTest:
     return models.CaptureTest.model_validate(trial.test(body.settings))
 

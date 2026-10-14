@@ -27,6 +27,7 @@ async function controller({ rotation = 0 } = {}) {
   const internal = [];
   vpin.callInternal = async (method) => {
     if (method === "library_waiting") return [];
+    if (method === "signin_pending") return null;
     if (method === "get_attract_config") return { enabled: false };
     internal.push(method);
     return { run: null };

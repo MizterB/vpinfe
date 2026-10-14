@@ -15,7 +15,7 @@ from common.games.player_records import get_records
 from common.players import get_roster
 
 from . import models, scopes
-from .auth import requires
+from .auth import require, requires
 from .events import declare_snapshot
 from .responses import MEDIA_SIZE, MEDIA_VERSION, media_file
 
@@ -43,13 +43,13 @@ def add_player(body: models.PlayerAddRequest = Body(...)) -> models.PlayerResour
 
 
 @router.post("/guests", summary="Add a guest from their initials", status_code=201,
-             dependencies=[requires(scopes.PLAYERS_WRITE)])
+             dependencies=[requires(scopes.PLAY_PLAYERS)])
 def add_guest(body: models.GuestAddRequest = Body(...)) -> models.PlayerResource:
     return _player(get_roster().add_guest(body.initials, body.name).player_id)
 
 
 @router.put("/up", summary="Say who is up",
-            dependencies=[requires(scopes.PLAYERS_WRITE)])
+            dependencies=[requires(scopes.PLAY_PLAYERS)])
 def set_who_is_up(body: models.PlayersUpRequest = Body(...)) -> models.PlayerRoster:
     get_roster().set_who_is_up(body.ids)
     return _roster()
@@ -70,7 +70,7 @@ def change_player(player_id: str,
 
 
 @router.put("/{player_id}/up", summary="Put one player up, or take them down",
-            dependencies=[requires(scopes.PLAYERS_WRITE)])
+            dependencies=[requires(scopes.PLAY_PLAYERS)])
 def set_up(player_id: str,
            body: models.PlayerUpRequest = Body(...)) -> models.PlayerRoster:
     get_roster().set_up(player_id, body.up)
@@ -110,7 +110,7 @@ def get_record(player_id: str) -> models.PlayerRecord:
 
 
 @router.put("/{player_id}/ratings/{game_id}", summary="A player's rating of a game",
-            dependencies=[requires(scopes.PLAYERS_WRITE)])
+            dependencies=[requires(scopes.PLAY_RATE)])
 def put_rating(player_id: str, game_id: str,
                payload: models.RatingRequest = Body(...)) -> models.Rating:
     """Not the owner's, which `PUT /games/{id}/rating` writes."""
@@ -120,9 +120,12 @@ def put_rating(player_id: str, game_id: str,
 
 
 @router.delete("/{player_id}", summary="Remove a player, or sign a guest out",
-               status_code=204, dependencies=[requires(scopes.PLAYERS_WRITE)])
-def remove_player(player_id: str) -> Response:
-    """Their accounts go with them, from every extension, and so does their record."""
+               status_code=204, dependencies=[requires(scopes.PLAY_PLAYERS)])
+def remove_player(request: Request, player_id: str) -> Response:
+    """Their accounts go with them, from every extension, and so does their record.
+    Signing a guest out is Play; removing a kept player is `players:write`."""
+    if not get_roster().player(player_id).guest:
+        require(request, scopes.PLAYERS_WRITE)
     player_records.remove_player(player_id)
     return Response(status_code=204)
 

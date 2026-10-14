@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 from unittest import mock
 
-from common import sign_in
+from common import serving, sign_in
 from console import panel, security, settings
 
 IPHONE = {"id": "a1", "kind": sign_in.OWNER, "address": "192.168.1.31",
@@ -58,7 +58,7 @@ class WhatThePageShows(unittest.TestCase):
         for bind, expected in (("0.0.0.0", True), ("192.168.1.5", True), ("::", True),
                                ("127.0.0.1", False), ("::1", False), ("localhost", False)):
             with self.subTest(bind=bind):
-                self.assertEqual(security.reachable_from_elsewhere(bind), expected)
+                self.assertEqual(serving.reachable_from_elsewhere(bind), expected)
 
 
 class WhereItLives(unittest.TestCase):

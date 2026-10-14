@@ -14,7 +14,16 @@ from common import device_client, device_registry, install_identity, lifecycle
 from common.host import action_ops, addresses
 from common.i18n import t
 from common.labels import humanize
-from console import game_tables, mobile_add, offload, renderers, send_to_device, thumbnails, verbs
+from console import (
+    game_tables,
+    mobile_add,
+    offload,
+    pairing,
+    renderers,
+    send_to_device,
+    thumbnails,
+    verbs,
+)
 from console.on_page import on_page
 
 from . import browser_state, confirm, grid, panel, views, when
@@ -157,7 +166,35 @@ def _state_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     reason = str((reach or {}).get("reason") or "")
     if level != "on" and reason:
         rows.append(panel.note(reason))
-    return rows
+    return rows + _pairing_rows(context)
+
+
+def _pairing_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
+    """An install that answers but has not been paired: it turns away everything past
+    discovery until a code from its own screen is typed here."""
+    reach = context.get("reach") or {}
+    if (is_local(context) or is_phone(context) or reach.get("paired") is not False
+            or reach.get("state") != device_client.ANSWERING):
+        return []
+    client = client_for(context)
+    ask = (context.get("state") or {}).get("ask_device")
+    if client is None:
+        return []
+    device = _of(context)
+
+    @on_page
+    async def start() -> None:
+        if await pairing.pair(client, device_label(device)) and ask is not None:
+            await ask(str(device.get("device_id") or ""))
+
+    def door() -> None:
+        with ui.element("div").classes("console-fact-edit"):
+            panel.state(t("console.devices.needs_pairing"), "warn",
+                        hint=t("console.devices.needs_pairing_hint"))()
+            panel.action(t("console.pairing.pair"), start, icon=verbs.MATCH, inline=True,
+                         hint=t("console.pairing.pair_hint"))()
+
+    return [(t("console.devices.access"), door)]
 
 
 def _last_seen_row(device: dict[str, Any]) -> tuple[Any, Any]:

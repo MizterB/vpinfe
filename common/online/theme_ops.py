@@ -537,10 +537,7 @@ def unaccepted() -> dict[str, Any]:
 def accept(key: str) -> dict[str, Any]:
     """Accept a theme from the address this install knows it by, found here and not
     taken from the caller: a theme in the themes folder that no source offers is accepted
-    as found there. Raises NotFoundError for a key nothing offers.
-
-    Accepting is a Protected action; until that tier exists the route that calls this
-    declares the config scope."""
+    as found there. Raises NotFoundError for a key nothing offers."""
     key = str(key or "").strip()
     registry = _readable()
     offered = registry.themes.get(key)

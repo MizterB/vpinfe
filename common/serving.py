@@ -8,6 +8,7 @@ setting would send it to a port nothing is listening on.
 from __future__ import annotations
 
 import dataclasses
+import ipaddress
 from typing import Any, Literal
 
 from common import device_registry
@@ -30,6 +31,14 @@ def bound_port(field: Port) -> int | None:
 def bound_ports() -> set[int]:
     """The ports this process is listening on."""
     return set(_bound.values())
+
+
+def reachable_from_elsewhere(bind: str) -> bool:
+    """Whether the address this install serves on answers other computers."""
+    try:
+        return not ipaddress.ip_address(bind.strip()).is_loopback
+    except ValueError:
+        return bind.strip().lower() not in ("localhost", "")
 
 
 def network(config: Any) -> NetworkConfig:

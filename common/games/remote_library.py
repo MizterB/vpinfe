@@ -16,6 +16,7 @@ from urllib.parse import quote, urlencode, urljoin
 import requests
 
 from common import http_client
+from common.device_registry import paired_header as _paired
 from common.games.collection_ops import wheel_paths
 from common.games.collection_resolver import Entry
 from common.games.wire_entry import WireGame, table_of
@@ -54,7 +55,7 @@ def remote_services(library_url: str, *,
     """
     url = urljoin(library_url.rstrip("/") + "/", "api/v1/")
     try:
-        payload = http_client.get_json(url, timeout=timeout)
+        payload = http_client.get_json(url, timeout=timeout, headers=_paired(url))
     except Exception:
         logger.debug("Could not read that install's discovery document", exc_info=True)
         return {}
@@ -117,7 +118,7 @@ def _entry_from_wire(row: dict[str, Any]) -> Entry:
 
 def _get_json(url: str, collection: str, timeout: int) -> Any:
     try:
-        return http_client.get_json(url, timeout=timeout)
+        return http_client.get_json(url, timeout=timeout, headers=_paired(url))
     except requests.HTTPError as exc:
         if collection.strip() and getattr(exc.response, "status_code", None) == 404:
             raise NotFoundError(t("error.collections.not_found",
@@ -148,7 +149,8 @@ def fetch_collections(library_url: str, *,
                       timeout: int = http_client.DEFAULT_TIMEOUT) -> list[dict[str, Any]]:
     """Another install's collections as its API lists them, in its order. Raises when it
     cannot be asked, like `fetch_entries`."""
-    payload = http_client.get_json(_on(library_url, "api/v1/collections"), timeout=timeout)
+    asked = _on(library_url, "api/v1/collections")
+    payload = http_client.get_json(asked, timeout=timeout, headers=_paired(asked))
     rows = payload.get("collections") if isinstance(payload, dict) else None
     if not isinstance(rows, list):
         raise ValueError(f"{library_url} did not return a collection list")
@@ -178,8 +180,8 @@ def create_collection(library_url: str, body: dict[str, Any], *,
     does not word raises as it came.
     """
     try:
-        return http_client.post_json(_on(library_url, "api/v1/collections"), body,
-                                     timeout=timeout)
+        made = _on(library_url, "api/v1/collections")
+        return http_client.post_json(made, body, timeout=timeout, headers=_paired(made))
     except requests.HTTPError as exc:
         answer = exc.response
         try:

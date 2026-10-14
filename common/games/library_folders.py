@@ -368,7 +368,7 @@ def _folder_refusal(raw: str, state: path_state.PathState, called: str = "") -> 
         return ""
     where = os.path.normpath(raw)
     home = next((one for one in configured()
-                 if one.kind == KIND_ROOT and _inside(os.path.normpath(one.path), where)),
+                 if one.kind == KIND_ROOT and inside(os.path.normpath(one.path), where)),
                 None)
     # A folder that refuses writes is that folder's own fact; one that cannot be reached
     # is, as often as not, the share the whole library hangs off.
@@ -431,7 +431,7 @@ def portable_reference(game_dir: str, target: str) -> str:
         # Compared canonically, because two spellings of one place have to be recognized
         # as one - but the relative form is computed from those same canonical ends, so
         # what it walks is real rather than through whichever alias was typed.
-        if _inside(root, wanted) and _inside(root, home):
+        if inside(root, wanted) and inside(root, home):
             return Path(os.path.relpath(wanted, home)).as_posix()
     # Stored as given, not as resolved. Somebody who points through a symlink means the
     # symlink: baking today's target in would stop the reference following it, and a
@@ -439,7 +439,7 @@ def portable_reference(game_dir: str, target: str) -> str:
     return stored_reference(os.path.normpath(os.path.expanduser(str(target or ""))))
 
 
-def _inside(root: str, path: str) -> bool:
+def inside(root: str, path: str) -> bool:
     """Whether a path is at or under a root, compared as paths rather than as text -
     `/games2` starts with `/games` and is not in it."""
     return path == root or path.startswith(root.rstrip(os.sep) + os.sep)

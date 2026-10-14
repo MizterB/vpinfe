@@ -82,6 +82,15 @@ def get_game(game_id: str) -> models.GameResource:
     return models.GameResource(**game_lens.detail(game_id))
 
 
+@router.delete("/{game_id}/folder", summary="Delete a game's folder from the disk",
+               dependencies=[requires(scopes.PROTECTED)])
+def delete_game_folder(game_id: str) -> models.GameFolderDeleted:
+    """Removes the whole folder: the tables, media, .info and everything else in it. There
+    is no trash and no undo. A Protected action: this computer, or an Owner who has just
+    confirmed, and never a token."""
+    return models.GameFolderDeleted(**game_ops.delete_from_disk(game_id))
+
+
 @router.get("/{game_id}/collections", summary="The collections holding a game",
             dependencies=[requires(scopes.COLLECTIONS_READ)])
 def get_game_collections(game_id: str) -> models.GameInCollections:
@@ -476,7 +485,7 @@ def delete_table_script(game_id: str, table_id: str) -> models.Table:
 
 
 @router.put("/{game_id}/tables/{table_id}/rating", summary="Rate one table",
-            dependencies=[requires(scopes.GAMES_WRITE)])
+            dependencies=[requires(scopes.PLAY_RATE)])
 def put_table_rating(game_id: str, table_id: str,
                      payload: models.RatingRequest) -> models.Table:
     """Returns the table rather than the rating, because a client that just rated one is
@@ -592,7 +601,7 @@ def put_game_details(game_id: str, body: models.GameDetails) -> models.GameResou
 
 
 @router.put("/{game_id}/rating", summary="Rate a game",
-            dependencies=[requires(scopes.GAMES_WRITE)])
+            dependencies=[requires(scopes.PLAY_RATE)])
 def put_game_rating(game_id: str, payload: models.RatingRequest) -> models.Rating:
     """A whole-value PUT rather than a PATCH: the rating is the resource, and sending it
     again is the same request twice rather than a second increment."""
@@ -695,7 +704,7 @@ def reset_table_record(game_id: str, table_id: str) -> models.TablePlayRecord:
 
 
 @router.put("/{game_id}/favorite", summary="Mark a game a favorite",
-            dependencies=[requires(scopes.GAMES_WRITE)])
+            dependencies=[requires(scopes.PLAY_RATE)])
 def put_game_favorite(game_id: str, payload: models.FavoriteRequest) -> models.Favorite:
     """A whole-value PUT, for the reason the rating gives: the flag is the resource, and
     sending it twice is the same request rather than a toggle that races itself."""

@@ -63,7 +63,7 @@ class ForAGame(unittest.TestCase):
 
         self.assertEqual(["Launch", "Mark Private", "Match to VPS...", "Auto-Match",
                           "Get Missing Media...", "Send to Device...", "Back Up Now",
-                          "Add to Collection"], _labels(verbs))
+                          "Add to Collection", "Delete from Disk"], _labels(verbs))
 
     def test_it_is_filed_only_once_the_collections_are_read(self) -> None:
         verbs = game_acts.game_acts(_library(), [_game()], {}, _refresh)
@@ -116,9 +116,16 @@ class ForAGame(unittest.TestCase):
         offered = game_acts.game_acts(played, [_game()], {}, _refresh)
         quiet = game_acts.game_acts(unplayed, [_game()], {}, _refresh)
 
-        self.assertEqual("Reset Play Record", offered[-1].label)
-        self.assertTrue(offered[-1].danger)
+        self.assertTrue(next(one for one in offered if one.label == "Reset Play Record").danger)
         self.assertNotIn("Reset Play Record", _labels(quiet))
+
+    def test_deleting_from_disk_is_a_danger_offered_for_any_games(self) -> None:
+        for chosen in ([_game()], [_game(), _game("medusa")]):
+            with self.subTest(count=len(chosen)):
+                verbs = game_acts.game_acts(_library(), chosen, {}, _refresh)
+
+                self.assertTrue(next(one for one in verbs
+                                     if one.label == "Delete from Disk").danger)
 
     def test_a_single_game_is_named_in_the_match_walk_and_several_are_not(self) -> None:
         self.assertEqual("Attack from Mars", game_acts._only_name([_game()]))
@@ -209,6 +216,62 @@ class HidingSeveralTables(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual([("afm", "a", True), ("afm", "a", False)],
                          [call.args for call in library.set_table_hidden.call_args_list])
+
+
+class DeletingGamesFromDisk(unittest.IsolatedAsyncioTestCase):
+    async def run_it(self, answer: bool, library: Any, games: list[dict[str, Any]],
+                     refreshed: list[list[str]]) -> list[Any]:
+        asked: list[Any] = []
+
+        async def inline(call, *args):
+            return call(*args)
+
+        async def said(*args, **kwargs):
+            asked.append(kwargs)
+            return answer
+
+        async def refresh(ids: list[str]) -> None:
+            refreshed.append(ids)
+
+        with patch.object(game_acts.run, "io_bound", inline), \
+                patch.object(game_acts.confirm, "ask", said), \
+                patch.object(game_acts.ui, "notify"):
+            verb = game_acts.delete_games(library, games, refresh)
+            with _PAGE:
+                await verb.run()
+        return asked
+
+    async def test_a_no_deletes_nothing(self) -> None:
+        library, refreshed = MagicMock(), []
+
+        await self.run_it(False, library, [_game()], refreshed)
+
+        library.delete_game_folder.assert_not_called()
+        self.assertEqual([], refreshed)
+
+    async def test_the_question_names_each_folder(self) -> None:
+        games = [_game(folder="/tables/Attack"), _game("medusa", folder="/tables/Medusa")]
+
+        asked = await self.run_it(False, MagicMock(), games, [])
+
+        self.assertEqual(["/tables/Attack", "/tables/Medusa"], list(asked[0]["lines"]))
+
+    async def test_a_yes_deletes_each_and_puts_the_page_right(self) -> None:
+        library, refreshed = MagicMock(), []
+
+        await self.run_it(True, library, [_game(), _game("medusa")], refreshed)
+
+        self.assertEqual([("afm",), ("medusa",)],
+                         [call.args for call in library.delete_game_folder.call_args_list])
+        self.assertEqual([["afm", "medusa"]], refreshed)
+
+    async def test_a_failure_part_way_puts_right_what_was_deleted(self) -> None:
+        library, refreshed = MagicMock(), []
+        library.delete_game_folder.side_effect = [None, RuntimeError("busy")]
+
+        await self.run_it(True, library, [_game(), _game("medusa")], refreshed)
+
+        self.assertEqual([["afm"]], refreshed)
 
 
 class ForSeveralTables(unittest.TestCase):

@@ -37,8 +37,9 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
-from common import config_schema
+from common import access_keys, config_schema
 from common.atomic_write import write_atomic
 from common.config_store import ConfigStore
 from common.i18n import t
@@ -251,6 +252,10 @@ class DeviceRegistry:
         however many times it reconnects. Everything else is refreshed, because the
         install owns those and this is only a copy of what it last said.
 
+        A paired device that moves to another address or port loses its pairing token: the
+        token is sent wherever the entry points, and a caller must not be able to point it at
+        itself.
+
         `heard` is false where a person wrote the entry and nothing has answered: it
         leaves `last_seen` and `last_reachable` as they were, blank for a new one.
 
@@ -272,6 +277,9 @@ class DeviceRegistry:
             existing = devices.get(wanted)
             if wanted in {str(item["id"]).strip() for item in self._mobile_items()}:
                 raise ValueError(t("error.devices.mobile_elsewhere"))
+            if (existing is not None and (address and address != existing.address
+                                          or port and port != existing.port)):
+                access_keys.forget_pairing_token(wanted)
             devices[wanted] = Device(
                 device_id=wanted,
                 kind=kind or (existing.kind if existing else KIND_VPINFE),
@@ -514,3 +522,14 @@ def keep_own_row(incoming: Path, current: Path, out: Path) -> None:
     else:
         payload.pop(SELF_KEY, None)
     write_atomic(out, lambda handle: json.dump(payload, handle, indent=2, ensure_ascii=False))
+
+
+def paired_header(url: str) -> dict[str, str] | None:
+    """The token paired with the install this address reaches, if this install has paired
+    with it. Matched on host and port, since that is all an address names."""
+    parts = urlsplit(url)
+    host, port = parts.hostname or "", parts.port or (443 if parts.scheme == "https" else 80)
+    for device in get_device_registry().devices():
+        if device.address == host and device.port == port:
+            return access_keys.pairing_header(device.device_id)
+    return None

@@ -5,8 +5,8 @@ are `/config/launchers/{id}`. What stays here is what a list item cannot say - t
 refusal a switch-off would get, the app's own settings, the default, and which table
 runs on which.
 
-It keeps the config scopes all the same: a token that can already change what program
-plays a table should not need a new grant to keep doing it.
+Writing a field that decides what runs (the program, its flags and environment, a command
+around a table) is Protected; the rest keeps the config scopes.
 
 `common/games/launcher_ops.py` is what answers.
 """
@@ -15,14 +15,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Body, Response
+from fastapi import APIRouter, Body, Request, Response
 
 from common import jobs
 from common.games import launcher_ops
 
 from . import jobs as jobs_api
-from . import scopes
-from .auth import requires
+from . import protected_settings, scopes
+from .auth import require, requires
 
 router = APIRouter(prefix="/launchers", tags=["launchers"])
 
@@ -61,7 +61,7 @@ def launcher_config(launcher_id: str, table: str = "",
 
 @router.put("/{launcher_id}/config", summary="Set values on the app it runs",
             dependencies=[requires(scopes.CONFIG_WRITE)])
-def write_launcher_config(response: Response, launcher_id: str,
+def write_launcher_config(request: Request, response: Response, launcher_id: str,
                           body: dict[str, Any] = Body(...)) -> dict[str, Any]:
     """Values at one scope. The app writes them into its own file in place, and names
     under `cleared` the ones it cleared instead, for holding the launcher's own value.
@@ -69,6 +69,8 @@ def write_launcher_config(response: Response, launcher_id: str,
     `tables` in place of `table` writes the same values into each of them. With more than
     one that is accepted, not done: a job of kind `table_settings` answers, whose result
     names the tables written and each that could not be."""
+    if protected_settings.launcher_body_protected(body):
+        require(request, scopes.PROTECTED)
     done = launcher_ops.write_config(launcher_id, body)
     if isinstance(done, jobs.Job):
         response.status_code = 202

@@ -129,10 +129,7 @@ def default_theme() -> str:
 
 
 def accept_theme(key: str, address: str) -> None:
-    """Accept this theme from `address`, "" for one found in the themes folder.
-
-    Accepting is a Protected action; until that tier exists the route that calls this
-    declares the config scope."""
+    """Accept this theme from `address`, "" for one found in the themes folder."""
     with _lock:
         held = _read()
         held[_THEMES][key] = {"source": address}
@@ -189,10 +186,7 @@ def new_access(name: str, origin: str, scopes: Collection[str],
 def accept_extension(name: str, origin: str, *, folder: str, version: str,
                      scopes: Collection[str], capabilities: Collection[str]) -> None:
     """Accept this extension as it declares itself now. Replaces what an earlier
-    acceptance covered, so the list holds what the Owner last saw.
-
-    Accepting is a Protected action; until that tier exists the route that calls this
-    declares the config scope."""
+    acceptance covered, so the list holds what the Owner last saw."""
     with _lock:
         held = _read()
         held[_EXTENSIONS][name] = {"origin": origin, "folder": folder, "version": version,

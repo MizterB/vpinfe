@@ -184,6 +184,8 @@ def game_acts(library: Any, games: list[dict[str, Any]], state: dict[str, Any],
         offered.append(panel.Verb(t("console.adds.verb"), draw=collections))
     if reset := reset_games(library, ids, refresh):
         offered.append(reset)
+    if deleter := delete_games(library, games, refresh):
+        offered.append(deleter)
     offered += ext_verbs.offered(
         state, "game", [{"game_id": one} for one in ids], lambda: refresh(ids),
         public=[{"game_id": str(one["id"])} for one in games if not one.get("private")])
@@ -242,6 +244,29 @@ def reset_games(library: Any, game_ids: list[str], refresh: Refresh,
         await refresh(clearing)
 
     return panel.Verb(label or t("console.workbench.reset_action"), reset, danger=True)
+
+
+def delete_games(library: Any, games: list[dict[str, Any]], refresh: Refresh) -> panel.Verb:
+    """Remove each game's whole folder from the disk, after a question that names them."""
+    @on_page
+    async def delete() -> None:
+        if not await confirm.ask(
+                t("console.games.delete_question", count=len(games)),
+                detail=t("console.games.delete_detail"),
+                lines=[str(one.get("folder") or one.get("name") or "") for one in games]):
+            return
+        gone: list[str] = []
+        try:
+            for one in games:
+                await run.io_bound(library.delete_game_folder, str(one["id"]))
+                gone.append(str(one["id"]))
+        except Exception as exc:  # noqa: BLE001 - said, with what was already removed
+            ui.notify(t("console.games.delete_failed"), caption=why(exc), type="negative")
+        if gone:
+            ui.notify(t("console.games.deleted", count=len(gone)), type="positive")
+            await refresh(gone)
+
+    return panel.Verb(t("console.games.delete"), delete, danger=True)
 
 
 # --- tables -----------------------------------------------------------------------

@@ -252,6 +252,33 @@ def probe(client: LocalDevice | RemoteDevice | MobileDevice | None) -> dict[str,
 
 
 
+class _Authed:
+    """`http_client`'s JSON calls, each sent with the token paired with that device."""
+
+    def __init__(self, device_id: str) -> None:
+        self.device_id = device_id
+
+    def _headers(self) -> dict[str, str] | None:
+        from common import access_keys
+
+        return access_keys.pairing_header(self.device_id)
+
+    def get_json(self, url: str, **kwargs: Any) -> Any:
+        from common import http_client
+
+        return http_client.get_json(url, headers=self._headers(), **kwargs)
+
+    def post_json(self, url: str, payload: Any = None, **kwargs: Any) -> Any:
+        from common import http_client
+
+        return http_client.post_json(url, payload, headers=self._headers(), **kwargs)
+
+    def put_json(self, url: str, payload: Any, **kwargs: Any) -> Any:
+        from common import http_client
+
+        return http_client.put_json(url, payload, headers=self._headers(), **kwargs)
+
+
 class RemoteDevice:
     """A device on another machine, reached over the API it announced itself from.
 
@@ -261,8 +288,10 @@ class RemoteDevice:
     device is fine because nothing asked it.
     """
 
-    def __init__(self, base_url: str) -> None:
+    def __init__(self, base_url: str, device_id: str = "") -> None:
         self.base_url = base_url.rstrip("/")
+        self.device_id = device_id
+        self._http = _Authed(device_id)
 
     def _url(self, path: str) -> str:
         return f"{self.base_url}/api/v1{path}"
@@ -300,10 +329,10 @@ class RemoteDevice:
         else goes to the actions route. One method either way, so a surface that offers
         these is one code path rather than a local and a remote copy.
         """
-        from common import http_client, lifecycle
+        from common import lifecycle
 
         if (scope, action) == (lifecycle.TABLE, lifecycle.STOP):
-            answer = http_client.post_json(self._url("/play/stop")) or {}
+            answer = self._http.post_json(self._url("/play/stop")) or {}
             return bool(answer.get("stopped"))
         if (scope, action) not in lifecycle.offered():
             raise NotThisDeviceError(f"No route on a device for {action} the {scope}")
@@ -315,19 +344,15 @@ class RemoteDevice:
         """Do one of them over there, and say what was asked for. The install answering
         already put the question to nobody - an HTTP caller confirms with its own user
         before calling, which is what the API origin means."""
-        from common import http_client
-
-        return dict(http_client.post_json(
+        return dict(self._http.post_json(
             self._url("/actions"),
             {"scope": scope, "action": action,
              "reason": reason or "asked from another install"}) or {})
 
     def actions(self) -> list[dict[str, Any]]:
         """What that install says it can be asked to do and performs."""
-        from common import http_client
-
         try:
-            said = http_client.get_json(self._url("/actions")) or {}
+            said = self._http.get_json(self._url("/actions")) or {}
         except Exception as exc:
             if _absent(exc):
                 raise TooOldError(t(TOO_OLD)) from exc
@@ -336,10 +361,8 @@ class RemoteDevice:
 
     def frontend_browser(self) -> dict[str, Any]:
         """What that device's frontend browser plays."""
-        from common import http_client
-
         try:
-            return dict(http_client.get_json(self._url("/frontend/browser")) or {})
+            return dict(self._http.get_json(self._url("/frontend/browser")) or {})
         except Exception as exc:
             if _absent(exc):
                 raise TooOldError(t(TOO_OLD)) from exc
@@ -351,45 +374,33 @@ class RemoteDevice:
         the file, which is the only party that has it."""
         from urllib.parse import urlencode
 
-        from common import http_client
-
         query = urlencode({"limit": limit, "level": level, "contains": contains})
         try:
-            return dict(http_client.get_json(f"{self._url('/logs')}?{query}") or {})
+            return dict(self._http.get_json(f"{self._url('/logs')}?{query}") or {})
         except Exception as exc:
             if _absent(exc):
                 raise TooOldError(t(TOO_OLD)) from exc
             raise
 
     def update_check(self, refresh: bool = False) -> dict[str, Any]:
-        from common import http_client
-
         asked = self._url("/update") + ("?refresh=true" if refresh else "")
-        return dict(http_client.get_json(asked) or {})
+        return dict(self._http.get_json(asked) or {})
 
     def play_state(self) -> dict[str, Any]:
-        from common import http_client
-
-        return dict(http_client.get_json(self._url("/play/state")) or {})
+        return dict(self._http.get_json(self._url("/play/state")) or {})
 
     def perform_update(self, *, stop_table: bool = False) -> dict[str, Any]:
-        from common import http_client
-
-        return dict(http_client.post_json(
+        return dict(self._http.post_json(
             self._url("/update"), {"stop_table": stop_table}) or {})
 
     def config_schema(self) -> list[dict[str, Any]]:
         """What that install says its settings are. Read from the device rather than
         assumed, so one running a newer build offers what it actually has."""
-        from common import http_client
-
-        return list((http_client.get_json(self._url("/config/schema"))
+        return list((self._http.get_json(self._url("/config/schema"))
                      or {}).get("sections") or [])
 
     def config_values(self) -> dict[str, Any]:
-        from common import http_client
-
-        return dict(http_client.get_json(self._url("/config/settings")) or {})
+        return dict(self._http.get_json(self._url("/config/settings")) or {})
 
     def put_launcher(self, launcher_id: str, body: dict[str, Any]) -> dict[str, Any]:
         """Write one whole launcher to another machine, under the id it already has.
@@ -398,29 +409,59 @@ class RemoteDevice:
         cabinet under one name, and what lets a mapping mean the same thing everywhere.
         Renumbering on the way in would break every mapping that travelled with it.
         """
-        from common import http_client, launcher_wire
+        from common import launcher_wire
 
-        held = [one for one in http_client.get_json(self._url("/config/launchers")) or []
+        held = [one for one in self._http.get_json(self._url("/config/launchers")) or []
                 if isinstance(one, dict)]
-        return launcher_wire.from_item(dict(http_client.put_json(
+        return launcher_wire.from_item(dict(self._http.put_json(
             self._url(f"/config/launchers/{launcher_id}"),
             launcher_wire.to_item(launcher_id, body, held)) or {}))
 
     def put_launcher_mapping(self, table_id: str, launcher_id: str) -> dict[str, Any]:
         """Point a table on another machine at a launcher. Table ids travel because they
         live in the `.info`, so the same id names the same table on both."""
-        from common import http_client
-
-        return dict(http_client.put_json(self._url(f"/launchers/mappings/{table_id}"),
+        return dict(self._http.put_json(self._url(f"/launchers/mappings/{table_id}"),
                                          {"launcher_id": launcher_id}) or {})
 
     def put_config(self, changes: dict[str, Any]) -> dict[str, Any]:
         """Write to another machine's config. The capability model allows it and this
         is the first thing to exercise it."""
-        from common import http_client
-
-        return dict((http_client.put_json(self._url("/config"), {"settings": changes})
+        return dict((self._http.put_json(self._url("/config"), {"settings": changes})
                      or {}).get("settings") or {})
+
+    def paired(self) -> bool:
+        """Whether the token this install holds for that device is one it still accepts.
+
+        Discovery answers anyone, so it proves nothing about this. False without a token,
+        and False where the device turns the token away (it was revoked there)."""
+        from common import access_keys
+
+        if not access_keys.pairing_token(self.device_id):
+            return False
+        try:
+            self._http.get_json(self._url("/play/state"), timeout=PROBE_SECONDS)
+        except Exception as exc:  # noqa: BLE001 - only a refusal means unpaired
+            return getattr(getattr(exc, "response", None), "status_code", 0) not in (401, 403)
+        return True
+
+    def pair_ask(self) -> str:
+        """Ask that device to show a pairing code on its own screen. Its request id."""
+        said = self._http.post_json(self._url("/auth/pair/code"), {}) or {}
+        return str(said.get("request_id") or "")
+
+    def pair(self, request_id: str, code: str, name: str) -> None:
+        """Trade the code read off that screen for a Full Control token, and keep it."""
+        from common import access_keys
+
+        said = self._http.post_json(
+            self._url("/auth/pair"),
+            {"request_id": request_id, "code": code, "name": name}) or {}
+        access_keys.keep_pairing_token(self.device_id, str(said.get("secret") or ""))
+
+    def unpair(self) -> None:
+        from common import access_keys
+
+        access_keys.forget_pairing_token(self.device_id)
 
     def probe(self) -> dict[str, Any]:
         """Discovery, which is the cheapest call that proves who answered.
@@ -428,10 +469,9 @@ class RemoteDevice:
         Short timeout on purpose: this runs once per device on a page load, and a
         machine that is off should cost a moment rather than the whole listing.
         """
-        from common import http_client
-
-        said = dict(http_client.get_json(self._url(""), timeout=PROBE_SECONDS) or {})
+        said = dict(self._http.get_json(self._url(""), timeout=PROBE_SECONDS) or {})
         return {"state": ANSWERING,
+                "paired": self.paired(),
                 "version": str(said.get("vpinfe_version") or ""),
                 "features": list(said.get("features") or []),
                 # Already in this response, so asking again would be a second call for
@@ -504,4 +544,4 @@ def for_device(
     # phone as unreachable.
     if str(device.get("kind") or "") == device_registry.KIND_VPX_MOBILE:
         return MobileDevice(f"http://{address}:{port}")
-    return RemoteDevice(f"http://{address}:{port}")
+    return RemoteDevice(f"http://{address}:{port}", device_id)

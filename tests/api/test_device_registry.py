@@ -16,6 +16,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
+from common import access_keys
 from common.device_registry import Device, DeviceRegistry, browser_said, keep_own_row
 from tests.support.library import add_mobile
 
@@ -163,6 +164,39 @@ class DeviceRegistryTests(unittest.TestCase):
         self.assertTrue(self.registry.forget("Aaaa111111"))
         self.assertFalse(self.registry.forget("Aaaa111111"))
         self.assertEqual(self.registry.devices(), [])
+
+
+class APairedDeviceThatMovesTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.registry = DeviceRegistry(Path(self.tmp.name) / "devices.json")
+        self.registry.record("Aaaa111111", address="192.168.1.30", port=8001)
+
+    def record(self, **fields) -> None:
+        with patch.object(access_keys, "forget_pairing_token") as forget:
+            self.registry.record("Aaaa111111", **fields)
+        self.forgotten = forget.called
+
+    def test_a_new_address_drops_the_pairing(self) -> None:
+        self.record(address="192.168.1.99")
+
+        self.assertTrue(self.forgotten)
+
+    def test_a_new_port_drops_the_pairing(self) -> None:
+        self.record(port=9001)
+
+        self.assertTrue(self.forgotten)
+
+    def test_the_same_address_and_port_keep_it(self) -> None:
+        self.record(address="192.168.1.30", port=8001, display_name="renamed")
+
+        self.assertFalse(self.forgotten)
+
+    def test_an_update_that_names_no_address_keeps_it(self) -> None:
+        self.record(display_name="renamed")
+
+        self.assertFalse(self.forgotten)
 
 
 class LastReachableTests(unittest.TestCase):

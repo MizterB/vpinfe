@@ -669,13 +669,20 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
 
     async def refresh_games(ids: list[str]) -> None:
         """The Collections column of the rows an add or its Undo touched, and the panel
-        where it is showing one of them: its rail counts them. Nothing where the grid
-        has gone."""
+        where it is showing one of them: its rail counts them. A game the library no
+        longer holds leaves the grid. Nothing where the grid has gone."""
         if table.is_deleted or state.get("view") != "games":
             return
         wanted = set(ids)
-        grid.transact(table, rows, {"update": await rows_again(wanted)}, by_id)
-        if viewing["on"] and on_selection is not None:
+        fresh = await rows_again(wanted)
+        left = {str(one["id"]) for one in fresh}
+        grid.transact(table, rows, {
+            "update": fresh,
+            "remove": [{"id": one} for one in wanted - left if one in by_id]}, by_id)
+        viewing["ids"] -= wanted - left
+        viewing["on"] = viewing["on"] and bool(viewing["ids"])
+        selected[:] = [one for one in selected if str(one["id"]) in by_id]
+        if viewing["on"] and on_selection is not None and viewing["ids"]:
             selected[:] = [by_id[str(one["id"])] for one in selected if str(one["id"]) in by_id]
             await on_selection(sorted(viewing["ids"]))
         elif state.get("game") in wanted:

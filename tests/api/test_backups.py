@@ -580,7 +580,7 @@ class ChangeFolderTests(BackupsCase):
             saved.append(patch_)
             cfg_set(store, backup_folder.SECTION, backup_folder.FOLDER, str(other))
 
-        with patch.object(config_api, "put_values", side_effect=put):
+        with patch.object(config_api, "apply_patch", side_effect=put):
             response = self.client.post("/backups/folder/move", json={"folder": str(other)})
 
         self.assertEqual(response.status_code, 202)
@@ -598,7 +598,7 @@ class ChangeFolderTests(BackupsCase):
     def test_a_new_folder_that_is_not_there_is_refused_and_nothing_is_saved(self) -> None:
         archive.take(archive.SCOPE_RECORDS)
 
-        with patch.object(config_api, "put_values") as put:
+        with patch.object(config_api, "apply_patch") as put:
             response = self.client.post("/backups/folder/move",
                                         json={"folder": str(self.config.parent / "gone")})
 

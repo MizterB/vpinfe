@@ -19,7 +19,17 @@ def register() -> None:
     """
     from nicegui import app as nicegui_app
 
-    from console import appearance, edit_page, page, remote, report_page, sign_in_gate  # noqa: F401
+    from console import (  # noqa: F401
+        acting,
+        appearance,
+        edit_page,
+        page,
+        remote,
+        report_page,
+        sign_in_gate,
+    )
+
+    acting.install()
 
     nicegui_app.add_static_files(appearance.BASE_MOUNT, str(appearance.BASE_CSS.parent))
     nicegui_app.add_api_route(sign_in_gate.PAGE, sign_in_gate.sign_in_page, methods=["GET"],

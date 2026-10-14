@@ -83,7 +83,7 @@ def sources() -> dict[str, Any]:
 
 
 @router.post("/sources/check", summary="What adding an address would be",
-             dependencies=[requires(scopes.CONFIG_WRITE)])
+             dependencies=[requires(scopes.PROTECTED)])
 def check_source(body: dict[str, Any] = Body(...)) -> dict[str, Any]:
     """Reads `address` and says what it is, without saving it: a list or a theme, the
     address it would be stored under, and `addable`. Nothing is downloaded or installed.
@@ -113,9 +113,8 @@ def install(key: str) -> dict[str, Any]:
         raise ApiError("theme_install_failed", why(exc), status_code=502) from exc
 
 
-# CONFIG_WRITE until the Protected tier exists; the scope that tier declares replaces it.
 @router.post("/{key}/accept", summary="Accept a theme VPinFE did not list",
-             dependencies=[requires(scopes.CONFIG_WRITE)])
+             dependencies=[requires(scopes.PROTECTED)])
 def accept(key: str) -> dict[str, Any]:
     """Accepts the theme from the address this install knows it by: a source that is not the
     VPinFE Theme List, or the themes folder for one no source offers. Returns its `trust`.

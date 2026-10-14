@@ -274,9 +274,11 @@ class ReadsTheEventStreamTests(unittest.TestCase):
 
 class WritesGoToTheTargetTests(unittest.TestCase):
     """A client with no base URL is this install. The Remote may use one only to read
-    what this install knows about the network; everything else goes to the target."""
+    what this install knows about the network and to renew the Remote Code that lets
+    phones into this install's own Remote; everything else goes to the target."""
 
-    ALLOWED = {("console/remote.py", "_read_here")}
+    ALLOWED = {("console/remote.py", "_read_here"), ("console/remote.py", "renew"),
+               ("console/remote.py", "invite")}
 
     def _unaimed_clients(self, relative: str) -> list[tuple[str, int]]:
         tree = trees.tree_for(Path(__file__).resolve().parents[2] / relative)

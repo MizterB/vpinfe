@@ -136,7 +136,7 @@ async def _copy_picture(request: Request, player_id: str, extension: str) -> Non
 
 
 @router.post("/guests/card", summary="Add a guest from their card", status_code=201,
-             dependencies=[requires(scopes.PLAYERS_WRITE)])
+             dependencies=[requires(scopes.PLAY_PLAYERS)])
 async def add_guest_from_card(request: Request, body: models.GuestCardRequest = Body(...),
                               ) -> models.PlayerResource:
     """The extension that reads this kind of card says who it is. Joining again with the

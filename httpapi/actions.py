@@ -8,12 +8,12 @@ actions that take the answer with them.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks, Body
+from fastapi import APIRouter, BackgroundTasks, Body, Request
 
 from common.host import action_ops
 
 from . import models, scopes
-from .auth import requires
+from .auth import require, requires
 
 router = APIRouter(prefix="/actions", tags=["actions"])
 
@@ -26,8 +26,8 @@ def list_actions() -> models.ActionList:
 
 
 @router.post("", summary="Do one of them",
-             dependencies=[requires(scopes.SYSTEM_ADMIN)])
-def perform_action(background: BackgroundTasks,
+             dependencies=[requires(scopes.PLAY_STOP)])
+def perform_action(background: BackgroundTasks, request: Request,
                    payload: models.ActionRequest = Body(...)) -> models.ActionResult:
     """Confirm-announce-perform, through the same path every other surface takes.
 
@@ -41,6 +41,8 @@ def perform_action(background: BackgroundTasks,
     from common import lifecycle
 
     scope, action = action_ops.check(payload.scope, payload.action)
+    if (scope, action) != (lifecycle.TABLE, lifecycle.STOP):
+        require(request, scopes.SYSTEM_ADMIN)
     reason = payload.reason.strip() or "asked over the API"
     body = {"scope": scope, "action": action,
             "what": lifecycle.label(scope, action)}
