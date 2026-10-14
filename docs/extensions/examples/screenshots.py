@@ -57,6 +57,17 @@ async def show(page: BrowserSession, inst: LiveInstance, path: str, ready: str) 
     await page.navigate(inst.console_url(path))
     await page.wait_for(ready, timeout=60)
     await asyncio.sleep(1.0)
+    await reveal(page, "Example Scores")
+
+
+async def reveal(page: BrowserSession, text: str) -> None:
+    """Scrolls every list or rail that holds `text` so that entry is in view."""
+    await page.evaluate(
+        "((text) => [...document.querySelectorAll('*')].filter(el => el.children.length === 0"
+        " && el.innerText?.trim().toLowerCase() === text.toLowerCase())"
+        ".forEach(el => el.scrollIntoView({block: 'center'})))"
+        f"({json.dumps(text)})")
+    await asyncio.sleep(0.4)
 
 
 async def snap(page: BrowserSession, name: str) -> None:
@@ -120,6 +131,16 @@ async def list_page(page: BrowserSession, inst: LiveInstance, name: str) -> None
     await snap(page, name)
 
 
+async def newest_view(page: BrowserSession, inst: LiveInstance) -> None:
+    await show(page, inst, LIST, "document.querySelectorAll('.ag-row').length > 0")
+    await page.click(".q-select", nth=0)
+    await asyncio.sleep(0.6)
+    await click_text(page, ".q-item", "Newest")
+    await page.wait_for("document.querySelectorAll('.ag-row').length === 3", timeout=20)
+    await asyncio.sleep(0.8)
+    await snap(page, "04-reads-well")
+
+
 async def title_menu(page: BrowserSession, inst: LiveInstance) -> None:
     await show(page, inst, LIST, "document.querySelectorAll('.ag-row').length > 0")
     await click_text(page, ".q-btn", "more_vert")
@@ -153,7 +174,7 @@ async def group(page: BrowserSession, inst: LiveInstance) -> None:
     games = inst.api("/api/v1/games")["games"]
     game = next(one["id"] for one in games if one["vps_id"] == "9Paf7-CL")
     await show(page, inst, f"/console?view=games&game={game}&section=play",
-               has_text("Best score"))
+               has_text("Best Score"))
     await snap(page, "09-panel-group")
 
 
@@ -163,7 +184,7 @@ LESSONS: dict[str, tuple[str, bool, list[Shot]]] = {
     "01": ("01-loads", False, [lambda p, i: settings_page(p, i, "01-loads")]),
     "02": ("02-settings", False, [key_set]),
     "03": ("03-list", True, [lambda p, i: list_page(p, i, "03-list")]),
-    "04": ("04-reads-well", True, [lambda p, i: list_page(p, i, "04-reads-well")]),
+    "04": ("04-reads-well", True, [newest_view]),
     "05": ("05-title-menu", True, [title_menu]),
     "06": ("06-rows", True, [rows_menu]),
     "07": ("07-adding", True, [dialog]),

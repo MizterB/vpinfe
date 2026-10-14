@@ -599,7 +599,7 @@ class LessonsDoWhatTheyClaim(ExamplesLoadedByTheHost):
 
         self.assertEqual(there["title"], "Example Scores")
         self.assertEqual([(one["label"], one["value"]) for one in there["section"]["facts"]],
-                         [("Best score", "980,500,000"), ("Scores", "1")])
+                         [("Best Score", "980,500,000"), ("Scores", "1")])
         self.assertIsNone(unknown["section"])
         self.assertIsNone(gone["section"])
 

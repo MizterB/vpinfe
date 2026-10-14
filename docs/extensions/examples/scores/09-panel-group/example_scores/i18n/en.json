@@ -37,7 +37,7 @@
     "other": "Remove these {count} scores from the site?"
   },
   "action.post.label": "Post a Score",
-  "dialog.title": "The score",
+  "dialog.title": "The Score",
   "dialog.player": "Player",
   "dialog.table": "Table",
   "dialog.points": "Score",
@@ -56,7 +56,7 @@
   "pane.mine": "Yours",
   "pane.note": "Note",
   "group.game.title": "Example Scores",
-  "group.best": "Best score",
+  "group.best": "Best Score",
   "group.count": "Scores",
   "log.played": {
     "one": "{game} was played for a minute",

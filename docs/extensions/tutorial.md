@@ -437,7 +437,7 @@ and `rows` told it what happened.
 **What you'll have:** the list with the game drawn the way the Games page draws it, a date, a
 colored status, two views and a line saying where the scores came from.
 
-![The list with each game's picture, name and maker, a player and a score, in the view that shows what the library holds](images/04-reads-well.png)
+![The list in its Newest view: each game's picture, name and maker, a player, a score, a date and a colored status](images/04-reads-well.png)
 
 ### Write it
 
@@ -805,7 +805,7 @@ The words are the title, the labels, the refusal and the confirmation.
 
 ```json
   "action.post.label": "Post a Score",
-  "dialog.title": "The score",
+  "dialog.title": "The Score",
   "dialog.player": "Player",
   "dialog.table": "Table",
   "dialog.points": "Score",
@@ -1033,7 +1033,7 @@ rather than an empty one.  The word for its title is in the catalog.
 
 ```json
   "group.game.title": "Example Scores",
-  "group.best": "Best score",
+  "group.best": "Best Score",
   "group.count": "Scores",
   "log.played": {
     "one": "{game} was played for a minute",
@@ -1420,7 +1420,7 @@ def register(ctx):
     "other": "Remove these {count} scores from the site?"
   },
   "action.post.label": "Post a Score",
-  "dialog.title": "The score",
+  "dialog.title": "The Score",
   "dialog.player": "Player",
   "dialog.table": "Table",
   "dialog.points": "Score",
@@ -1439,7 +1439,7 @@ def register(ctx):
   "pane.mine": "Yours",
   "pane.note": "Note",
   "group.game.title": "Example Scores",
-  "group.best": "Best score",
+  "group.best": "Best Score",
   "group.count": "Scores",
   "log.played": {
     "one": "{game} was played for a minute",
