@@ -1,7 +1,7 @@
 """Stable local identity for games: an opaque id in the .info at `vpinfe.game_id`.
 
 Addresses a game in the HTTP API, in events and in jobs. VPSId cannot do that job
-and keeps its own. Reading never writes; minting is explicit. See docs/http_api.md.
+and keeps its own. Reading never writes; minting is explicit. See docs/http-api.md.
 """
 
 from __future__ import annotations

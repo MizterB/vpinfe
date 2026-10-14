@@ -82,7 +82,7 @@ A table assigned to a disabled launcher **falls back** to the default for its ap
 
 ## The API
 
-`docs/http_api.md` documents the endpoints, in its Endpoints table and its Launcher settings section.
+`docs/http-api.md` documents the endpoints, in its Endpoints table and its Launcher settings section.
 
 ## The Console
 

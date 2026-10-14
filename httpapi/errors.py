@@ -1,6 +1,6 @@
 """One error envelope for /api/v1: {"error": {code, message, details}}.
 
-Routes raise; the handlers here do the shaping. See docs/http_api.md.
+Routes raise; the handlers here do the shaping. See docs/http-api.md.
 """
 
 from __future__ import annotations

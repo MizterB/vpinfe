@@ -95,9 +95,9 @@ Copying or backing up the config folder carries your settings and nothing else, 
 # More
 
 - [Running VPinFE](docs/running.md) - games and tables, media, keyboard and gamepad, DOF and real DMDs, command line options, the ports it listens on, VPinPlay
-- [Technical Details](docs/technical_details.md) - every setting in `vpinfe.json`, the `.info` file, patches and mobile transfer, and the shutdown rule for Linux
+- [Technical Details](docs/technical-details.md) - every setting in `vpinfe.json`, the `.info` file, patches and mobile transfer, and the shutdown rule for Linux
 - [Making a Theme](docs/theme.md)
-- [HTTP API](docs/http_api.md)
+- [HTTP API](docs/http-api.md)
 
 ## Acknowledgements
 - A special thanks to **@jsm174** for making VPX available to all these other platforms.  He's also a great mentor.  I learned a tremendous amount working with him on the vpx project and he is the epitome of the VPinball community.

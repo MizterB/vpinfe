@@ -1,6 +1,6 @@
 # Running VPinFE
 
-Day-to-day use happens in the Console.  This page covers what the Console does not walk you through: how a game folder is laid out, the buttons and keys that drive the frontend, cabinet outputs, the command line and the ports VPinFE listens on.  Where a setting has a page in the Console it is named here as **Settings > Group > Page**.  Every setting, with its key in `vpinfe.json`, is in [Technical Details](technical_details.md).
+Day-to-day use happens in the Console.  This page covers what the Console does not walk you through: how a game folder is laid out, the buttons and keys that drive the frontend, cabinet outputs, the command line and the ports VPinFE listens on.  Where a setting has a page in the Console it is named here as **Settings > Group > Page**.  Every setting, with its key in `vpinfe.json`, is in [Technical Details](technical-details.md).
 
 ## Games and tables
 
@@ -53,7 +53,7 @@ Medieval Madness (Williams 1997)/
 ```
 
 - **Files named for a table** go with that table: the backglass, settings, script and point of view above each follow the `.vpx` they sit beside.  A backglass, settings file or script named for the game folder serves any table in it that has none of its own.
-- **Media** is looked for in `medias/` first and then in the game folder itself.  A file named for a table, such as `(Wheel) Medieval Madness Remake VR 1.2.png`, is used for that table and beats one named for the game, which beats the plain `wheel.png`.  The full list of names is in [Media Flow](media_flow.md).
+- **Media** is looked for in `medias/` first and then in the game folder itself.  A file named for a table, such as `(Wheel) Medieval Madness Remake VR 1.2.png`, is used for that table and beats one named for the game, which beats the plain `wheel.png`.  The full list of names is in [Media Flow](media-flow.md).
 - **ROMs, sounds and packs** live inside the game.  `altsound/`, `pupvideos/`, `music/` and a `serum/` or `vni/` folder are recognized by their names.  Import them with the drag and drop importer, or let the importer convert them from another frontend's layout.
 - **Hidden tables.**  A table you hide stays on disk and is left out of the frontend, which suits a patch base that a patched variant needs.
 - **The `.info` file** is written and kept up to date by VPinFE.  It holds the VPS match, the details it read from each table, your ratings and play history, and which media you added.  It is safe to leave alone.
@@ -75,7 +75,7 @@ Only the kinds your library collects are fetched, and the playfield comes in the
 
 The picture beside a game, table or collection's name in the Console's lists is **Art in Lists**, under **Settings > VPinFE > Console**.  It is the wheel unless you pick the backglass, the playfield, the logo or none, and it offers only the kinds your library collects.  A game or table shows the art the frontend shows for it, and its icon where it has none.  A collection shows its own picture whichever kind you pick.
 
-To supply all your media yourself, build with `--user-media` (see [Technical Details](technical_details.md#using-your-own-media-user-media)).
+To supply all your media yourself, build with `--user-media` (see [Technical Details](technical-details.md#using-your-own-media-user-media)).
 
 ## Keys and buttons
 

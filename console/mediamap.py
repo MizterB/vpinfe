@@ -52,7 +52,7 @@ TILE_AR = {
     "scoreview": 3.0, "scoreview_video": 3.0,
     "real_dmd": 4.0, "real_dmd_color": 4.0,
     "real_dmd_video": 4.0, "real_dmd_color_video": 4.0,
-    # docs/media_flow.md: an fss.png is "the same subject as a table.png photographed
+    # docs/media-flow.md: an fss.png is "the same subject as a table.png photographed
     # differently", so it takes the playfield's shape rather than one of its own.
     "playfield": 1.78, "playfield_video": 1.78,
     "playfield_fss": 1.78,

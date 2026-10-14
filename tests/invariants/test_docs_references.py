@@ -81,7 +81,7 @@ def _doc_files() -> list[Path]:
     return sorted(REPO_ROOT.joinpath("docs").glob("*.md")) + [REPO_ROOT / "README.md"]
 
 
-API_DOC = REPO_ROOT / "docs" / "http_api.md"
+API_DOC = REPO_ROOT / "docs" / "http-api.md"
 
 PLACEHOLDER = re.compile(r"\{[^}]*\}")
 
@@ -255,7 +255,7 @@ class DocRouteTests(unittest.TestCase):
 
 
 class EndpointTableTests(unittest.TestCase):
-    """The endpoint table in docs/http_api.md has a row for every route the API serves,
+    """The endpoint table in docs/http-api.md has a row for every route the API serves,
     by method and path, and no row for one it does not."""
 
     # | GET | `/api/v1/games/{id}` | ... and | PUT/GET/DELETE | `/api/v1/...?q=` | ...

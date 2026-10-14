@@ -666,7 +666,7 @@ the way every renamed method is forwarded. Nothing about the port, the default o
 answers on it changes.
 *Why:* the port was named after one of the four things listening on it. It serves
 `/api/v1`, the Manager UI at `/`, and the remote and mobile pages - and the API is
-explicitly not part of the Manager UI (`docs/http_api.md`: "it belongs to the platform").
+explicitly not part of the Manager UI (`docs/http-api.md`: "it belongs to the platform").
 So `endpoints.library` and `endpoints.device` were being built from a port named for a UI,
 which read as though the library were fetched from the Manager UI. What the four have in
 common is the protocol: the API, the Console, the Manager UI and the remote and mobile
@@ -1052,7 +1052,7 @@ internet URL it cannot reach. The ref spelling is the same problem one layer dow
 serves `/raw/refs/heads/x/` and 404s on Forgejo's `/raw/branch/x/`, Forgejo does the
 reverse, and bare is the only form both resolve - so before this a non-GitHub theme worked
 only while its release sat on the default branch, and silently vanished from the list the
-moment it was read from a branch, which is the layout `theme_publishing.md` describes for a
+moment it was read from a branch, which is the layout `theme-publishing.md` describes for a
 theme that serves two contracts. The `HEAD`-to-`master` rewrite is the same problem: GitHub quietly falls back
 to the default branch when `master` does not exist, so it cost nothing there, but Forgejo
 returns 404 and it would have broken every repository not defaulting to `master`.
@@ -1074,7 +1074,7 @@ shape (`theme_base_url`, `theme_manifest_url`) is still read.
 contract a theme speaks only added a way for it and the manifest to disagree. The `ref` was
 already in the list entry, and `min_vpinfe` was already the gate at install. A 2.x build
 never read the file and installs the default branch regardless, so an author keeps those
-installs working by leaving contract 1 on the default branch, as `theme_publishing.md`
+installs working by leaving contract 1 on the default branch, as `theme-publishing.md`
 says. Covered by `tests/theming/test_theme_refs.py`.
 
 **PAR-30 — One WebSocket method is added so the browser can ask which contract it serves.**

@@ -1,7 +1,7 @@
 """VPinFE's HTTP API: a FastAPI app mounted at /api/v1.
 
 Mounted rather than added to the NiceGUI app so the envelope, CORS and the auth
-boundary apply here and nowhere else. Rationale in docs/http_api.md.
+boundary apply here and nowhere else. Rationale in docs/http-api.md.
 """
 
 from __future__ import annotations

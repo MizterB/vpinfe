@@ -53,7 +53,7 @@ def api_lines() -> list[str]:
     root = Path(__file__).resolve().parents[2]
     lines = [one for path in sorted((root / "httpapi").glob("*.py"))
              for one in SUMMARY.findall(path.read_text())]
-    return lines + (root / "docs" / "http_api.md").read_text().splitlines()
+    return lines + (root / "docs" / "http-api.md").read_text().splitlines()
 
 
 def api_says_art(lines: list[str]) -> list[str]:

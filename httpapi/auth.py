@@ -1,6 +1,6 @@
 """The authorization boundary: identity in, declared scope enforced.
 
-The mechanism ships; the policy it enforces is dormant. See docs/http_api.md.
+The mechanism ships; the policy it enforces is dormant. See docs/http-api.md.
 """
 
 from __future__ import annotations

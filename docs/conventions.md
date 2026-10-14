@@ -120,6 +120,16 @@ on one page works on the next.
 - `tests/invariants/test_one_token_syntax.py` fails on a token pattern or a token replace
   written anywhere else.
 
+### Documentation files
+
+A page under `docs/` is lowercase words joined by dashes: `theme-publishing.md`,
+`http-api.md`. Underscores stay in Python module names, where an import needs them. The
+GitHub wiki already names its pages with dashes, so the docs and the wiki that links to them
+read the same.
+
+The exceptions are the conventional uppercase files, `README.md` and `RELEASE_NOTES.md`, and
+the wiki's own `Title-Case-With-Dashes` page names.
+
 ## Things we version
 
 Three, each versioning a different kind of thing, each with its own word:

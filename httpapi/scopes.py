@@ -1,7 +1,7 @@
 """The scope vocabulary: `<resource>:<action>`, extensions `ext:<name>:<action>`.
 
 Most are reserved rather than used - settling a name is cheap, renaming one after
-callers depend on it is not. See docs/http_api.md.
+callers depend on it is not. See docs/http-api.md.
 """
 
 from __future__ import annotations

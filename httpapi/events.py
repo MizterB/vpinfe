@@ -5,7 +5,7 @@ a client gets a bounded queue, and one that cannot keep up is dropped rather tha
 allowed to slow a launch down. The stream subscribes and never hooks - a client on
 the far end of a socket must not be able to stop an operation.
 
-See docs/http_api.md for the contract.
+See docs/http-api.md for the contract.
 """
 
 from __future__ import annotations

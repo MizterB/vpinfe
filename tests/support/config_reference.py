@@ -1,4 +1,4 @@
-"""The settings reference in `docs/technical_details.md`, rendered from the schema.
+"""The settings reference in `docs/technical-details.md`, rendered from the schema.
 
 The doc had drifted four ways at once - it named the file `vpinfe.ini` after the move to
 JSON, listed sections and keys under names three renames had replaced, and documented the
@@ -14,7 +14,7 @@ from pathlib import Path
 
 from common import config_schema
 
-DOC = Path(__file__).resolve().parent.parent.parent / "docs" / "technical_details.md"
+DOC = Path(__file__).resolve().parent.parent.parent / "docs" / "technical-details.md"
 
 # The generated block ends where the hand-written rest of the document begins.
 END_MARKER = "## Game Metadata File"

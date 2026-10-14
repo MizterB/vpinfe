@@ -1,6 +1,6 @@
 """The settings reference in the docs is the schema, not a copy of it that drifts.
 
-`docs/technical_details.md` had gone stale in four directions at once: it named the file
+`docs/technical-details.md` had gone stale in four directions at once: it named the file
 `vpinfe.ini` after the move to JSON, listed sections and keys under names three renames
 had replaced, and documented the pre-3.0 input vocabulary. Nobody was wrong to miss it -
 a rename touches the schema and a reader would have to know the doc restates it.
@@ -21,7 +21,7 @@ class ReferenceTests(unittest.TestCase):
     def test_the_doc_matches_the_schema(self) -> None:
         self.assertEqual(
             config_reference.current(), config_reference.render(),
-            "docs/technical_details.md is behind common/config_schema.py - regenerate it "
+            "docs/technical-details.md is behind common/config_schema.py - regenerate it "
             'with: python3 -c "from tests.support import config_reference as r; r.write()"')
 
     def test_every_setting_appears(self) -> None:

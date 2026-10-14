@@ -1,7 +1,7 @@
 """Capability declarations for API discovery.
 
 So `GET /api/v1` describes the running instance, not a fixed list in a doc.
-Nothing is declared until the endpoints backing it land. See docs/http_api.md.
+Nothing is declared until the endpoints backing it land. See docs/http-api.md.
 """
 
 from __future__ import annotations

@@ -1,7 +1,7 @@
 """What this instance can do, declared for discovery.
 
 Only capabilities with endpoints behind them - advertising one that nothing serves
-would make discovery a wish list. See docs/http_api.md.
+would make discovery a wish list. See docs/http-api.md.
 """
 
 from __future__ import annotations

@@ -32,7 +32,7 @@ Standard filenames include:
 - Documents: `rulesheet.pdf`
 
 A device can also record its own screens into these slots (`POST /api/v1/capture/runs`,
-`docs/http_api.md` "Recording"): the playfield, backglass and DMD as pictures and videos,
+`docs/http-api.md` "Recording"): the playfield, backglass and DMD as pictures and videos,
 and the sound as `audio.mp3`, written through the same placement as an upload, with the
 origin `capture` in the `.info` ledger. Recorded videos are silent `.mp4`, H.264 or, where
 the device's browser plays no H.264, VP9; the playfield is stored with its bottom at the
