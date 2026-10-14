@@ -30,7 +30,7 @@ METADATA_PAGE = "library.metadata"
 EXTENSION, AWAY = "ext:", "away:"
 AWAY_ALL = AWAY + "*"
 
-# A fix VPinFE can do itself, drawn as the icon at the row's end.
+# A fix VPinFE can do itself, the first entry of the row's menu.
 GET_MEDIA, UPDATE, FETCH_FIXES = "get_media", "update", "fetch_fixes"
 
 _UNIT_GAMES = "console.games.games"
@@ -58,7 +58,6 @@ class Fix:
     key: str
     label: str
     tip: str
-    icon: str
     # What the fix is for: a media kind for Get Media.
     kind: str = ""
 
@@ -209,7 +208,7 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
                 icon=verbs.NO_ART,
                 opens=Opens("games", blank(f"media_{kind}")),
                 fix=Fix(GET_MEDIA, t("console.media_fill.get_media"),
-                        t("console.media_fill.get_media.help"), verbs.FETCH, kind)))
+                        t("console.media_fill.get_media.help"), kind)))
     if collected:
         everything: dict[str, Any] = {}
         for kind in sorted(collected):
@@ -231,7 +230,7 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
         latest = str(update.get("latest_version") or "")
         fix = Fix(UPDATE, t("console.devices.update_3",
                             latest=latest or t("console.devices.newer_build")),
-                  t("console.devices.update_3.help"), verbs.UPDATE) \
+                  t("console.devices.update_3.help")) \
             if update.get("update_supported") else None
         rows.append(Need(UPDATE, t("console.needs.update", version=latest) if latest
                          else t("console.needs.update_unnamed"),
@@ -252,7 +251,7 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
                          script_fixes_opens(mended),
                          mended, _UNIT_TABLES,
                          Fix(FETCH_FIXES, t("word.fetch"),
-                             t("console.needs.script_fixes.fetch.help"), verbs.FETCH)))
+                             t("console.needs.script_fixes.fetch.help"))))
 
     waiting = tuple(sorted(one for one in watched.get("recordings") or () if one))
     if waiting:
@@ -456,3 +455,57 @@ def arrange(rows: list[Need], record: Mapping[str, list[str]], stopped: set[str]
             kept[key] = list(ids)
     aside += [_stopped_aside(key) for key in ORDER if key in stopped]
     return Arranged(shown, aside, kept)
+
+
+LIBRARY, DEVICE = "library", "device"
+
+_COST = {DANGER: 0, WARM: 1, ACCENT: 2, MUTED: 3}
+
+
+@dataclass(frozen=True)
+class Group:
+    """The rows one owner raised. `owner` is "" for the row that says the page could not
+    look, which belongs to none of them and has no heading."""
+
+    owner: str
+    label: str
+    rows: list[Need]
+
+
+def owner_of(need: Need) -> str:
+    """Who raised a row: the library, this device, or one extension."""
+    if is_extension(need.key):
+        return EXTENSION + need.key[len(EXTENSION):].partition(":")[0]
+    if need.key == "unread":
+        return ""
+    return DEVICE if need.key in DEVICE_ROWS else LIBRARY
+
+
+def _group_label(owner: str, rows: list[Need]) -> str:
+    if owner == LIBRARY:
+        return t("console.needs.group.library")
+    if owner == DEVICE:
+        return t("console.needs.group.device")
+    if not owner:
+        return ""
+    return next((one.source for one in rows if one.source), owner[len(EXTENSION):])
+
+
+def grouped(rows: list[Need]) -> list[Group]:
+    """Rows by owner, costliest first inside a group and, on a tie, in the order given. A
+    group goes by its costliest row, so one holding a row that cannot play comes before
+    one holding only tidy-up; groups that tie keep the library, then this device, then the
+    extensions by name. The row that says the page could not look is always last."""
+    by_owner: dict[str, list[Need]] = {}
+    for need in rows:
+        by_owner.setdefault(owner_of(need), []).append(need)
+    groups = [Group(owner, _group_label(owner, members),
+                    sorted(members, key=lambda one: _COST[one.tone]))
+              for owner, members in by_owner.items()]
+
+    def order(group: Group) -> tuple[bool, int, int, str]:
+        place = 0 if group.owner == LIBRARY else 1 if group.owner == DEVICE else 2
+        return (not group.owner, min(_COST[one.tone] for one in group.rows), place,
+                group.label.casefold())
+
+    return sorted(groups, key=order)

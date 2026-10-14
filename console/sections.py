@@ -156,15 +156,16 @@ def _local_name(registry: list[dict], discovery: dict) -> str:
 def _need_menu(menu: Any, need: needs.Need, fix: Callable[..., Any],
                acts: set_aside.Acts) -> None:
     """What a row offers beyond opening: the fix, for just the new ones where some joined,
-    then setting the row aside."""
+    then setting the row aside. The fix is only here: a row's end carries the menu and
+    nothing else, so every row lays out alike."""
     menu.clear()
     with menu:
         if (mine := need.fix) is not None:
-            panel.menu_entry(mine.label, lambda: fix(need), mark=lambda: ui.icon(mine.icon))
+            panel.menu_entry(mine.label, lambda: fix(need), under=mine.tip)
             if need.new and mine.key == needs.GET_MEDIA:
                 panel.menu_entry(
                     t("console.needs.fix_new", fix=mine.label, count=len(need.new)),
-                    lambda: fix(need, need.new), mark=lambda: ui.icon(mine.icon))
+                    lambda: fix(need, need.new))
         panel.menu_entry(
             t("console.needs.skip_version") if need.key == needs.UPDATE
             else t("console.needs.dismiss"),
@@ -178,8 +179,8 @@ def _need_menu(menu: Any, need: needs.Need, fix: Callable[..., Any],
 def _need_row(need: needs.Need, state: dict[str, Any], fix: Callable[..., Any],
               acts: set_aside.Acts) -> None:
     """Icon in its tone, label, what joined since it was dismissed, count in its own unit,
-    the fix, and the whole row opens what it counted. Its menu is the button at its end and
-    a right click anywhere on it."""
+    and the whole row opens what it counted. Its menu is the button at its end and a right
+    click anywhere on it."""
     row = ui.element("div").classes(f"console-need console-need--{need.tone}") \
         .props("tabindex=0 role=link")
     row.on("click", lambda: state["open_on"](need.opens))
@@ -206,11 +207,6 @@ def _need_row(need: needs.Need, state: dict[str, Any], fix: Callable[..., Any],
                 chip.on("keydown.enter", only_new)
         if said := need.counted() or need.source:
             ui.label(said).classes("console-need-count shrink-0")
-        if need.fix is not None:
-            with ui.element("div").classes("console-need-fix").on("click.stop", lambda: None) \
-                    .on("keydown.enter.stop", lambda: None):
-                panel.icon_action(need.fix.label, lambda: fix(need), icon=need.fix.icon,
-                                  hint=need.fix.tip)()
         if not needs.can_set_aside(need.key):
             return
         with ui.element("div").classes("console-need-more").on("click.stop", lambda: None) \
@@ -247,8 +243,13 @@ def _needs_you(arranged: needs.Arranged, state: dict[str, Any], fix: Callable[..
                              lambda: state["open_on"](needs.Opens(
                                  "settings", keys={"settings_page": "library.audit"})),
                              icon=verbs.GO, hint=t("console.needs.choose_checks.help"))()
-        for need in arranged.rows:
-            _need_row(need, state, fix, acts)
+        for group in needs.grouped(arranged.rows):
+            with ui.element("div").classes(
+                    "console-need-group" + ("" if group.label else " console-need-group--loose")):
+                if group.label:
+                    ui.label(group.label).classes("console-group")
+                for need in group.rows:
+                    _need_row(need, state, fix, acts)
     if arranged.aside:
         shown = panel.disclosure(t("console.needs.set_aside", count=len(arranged.aside))) \
             .classes("console-disclosure-rows")

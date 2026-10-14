@@ -2296,10 +2296,7 @@ button.q-btn--flat.text-primary:hover .q-btn__content {
 .console-need--muted .console-need-icon { color: var(--ink-3); }
 .console-need--none { color: var(--positive); }
 .console-need-count { font-size: var(--fs-caption); color: var(--ink-2); }
-.console-need-fix { flex: none; display: flex; }
-.console-need-fix .q-btn { color: var(--ink-3); }
-.console-need-fix .q-btn:hover { color: var(--accent); }
-.console-need-fix .q-icon { font-size: var(--icon-row); }
+.console-need-group--loose { margin-top: 6px; }
 .console-need-more { flex: none; display: flex; }
 .console-need-more .q-btn { color: var(--ink-3); }
 .console-need-more .q-btn:hover { color: var(--accent); }
@@ -2317,10 +2314,6 @@ button.q-btn--flat.text-primary:hover .q-btn__content {
 .console-figure:hover, .console-figure:focus-visible { background: var(--accent-wash); outline: none; }
 .console-job-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .console-aside-line { padding: 4px 10px; min-height: var(--target-inline); }
-/* On a narrow page the row keeps its count and the fix moves into the menu. */
-@container (max-width: 480px) {
-  .console-need-fix { display: none; }
-}
 /* A heading, wherever one appears: a card's, a group's, a dialog region's. Declared once
    so the three cannot drift apart on colour, which is how they did. What differs between
    them is spacing, and only spacing. */

@@ -1768,6 +1768,8 @@
   "console.needs.fill_errors.tip": "0026faacb4c3",
   "console.needs.fix_new": "7223fe768132",
   "console.needs.folders": "c0b2541572e5",
+  "console.needs.group.device": "a7ea9b69418c",
+  "console.needs.group.library": "8d211c78417e",
   "console.needs.launchers": "580a80c62c07",
   "console.needs.launchers.tip": "563ad458d14f",
   "console.needs.new": "41e56e6fd90c",

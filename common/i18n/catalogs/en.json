@@ -2796,6 +2796,8 @@
   "console.sections.rom_missing_why": "The table will not boot: PinMAME has nothing to load",
   "console.needs.title": "Needs You",
   "console.needs.nothing": "Nothing needs you",
+  "console.needs.group.library": "Library",
+  "console.needs.group.device": "This Device",
   "console.needs.choose_checks": "Choose Checks",
   "console.needs.choose_checks.help": "Opens Settings, Library, Audit, where each check can be turned off",
   "console.needs.launchers": "No Working Launcher",

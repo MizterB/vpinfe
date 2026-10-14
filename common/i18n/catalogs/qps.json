@@ -2796,6 +2796,8 @@
   "console.sections.rom_missing_why": "Ţĥè ţàƀŀè ŵîŀŀ ñöţ ƀööţ: ÞîñḾÀḾÈ ĥàš ñöţĥîñĝ ţö ŀöàđ",
   "console.needs.title": "Ñèèđš Ýöû",
   "console.needs.nothing": "Ñöţĥîñĝ ñèèđš ýöû",
+  "console.needs.group.library": "Ŀîƀřàřý",
+  "console.needs.group.device": "Ţĥîš Đèṽîçè",
   "console.needs.choose_checks": "Çĥööšè Çĥèçķš",
   "console.needs.choose_checks.help": "Öþèñš Šèţţîñĝš, Ŀîƀřàřý, Àûđîţ, ŵĥèřè èàçĥ çĥèçķ çàñ ƀè ţûřñèđ öƒƒ",
   "console.needs.launchers": "Ñö Ŵöřķîñĝ Ŀàûñçĥèř",

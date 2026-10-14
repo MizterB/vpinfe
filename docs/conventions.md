@@ -921,6 +921,8 @@ called Actions, which names the mechanism and says nothing about the subject.
 | one value | inline, beside the value |
 | a dialog | the footer |
 
+- **A Needs You row is the exception to "one row".** Its fix (Get Media, Update, Fetch) is
+  the first entry of the row's menu and the row's end carries only `more_vert`.
 - **One list per subject.** Each subject's module has an `acts()` returning `panel.Verb`s;
   `panel.verb_menu` draws it on the grid row and `panel.subject_menu` in the header. A
   verb that only makes sense in one of them says so with `in_panel=False`, as Rename does

@@ -376,8 +376,63 @@ class StoppingOneRowKeepsTheOthers(unittest.TestCase):
         self.client.put_library_policy.assert_not_called()
 
 
+def raised(extension, kind, *, tone=needs.WARM, name=""):
+    return {"extension": extension, "key": f"{needs.EXTENSION}{extension}:{kind}",
+            "label": kind, "to": "x", "opens": "view", "tone": tone,
+            "display_name": name or extension, "count": 1}
+
+
+class RowsAreGroupedByWhoRaisedThem(unittest.TestCase):
+    def labels(self, rows):
+        return [(one.label, [r.key for r in one.rows]) for one in needs.grouped(rows)]
+
+    def test_the_library_this_device_and_each_extension_are_a_group(self):
+        update = {"update_available": True, "latest_version": "9", "update_supported": True}
+        lib = FakeLibrary([game("g1", year="")], watched={
+            "update": update, "extension_needs": [raised("acme", "weekly", name="Acme")]})
+        groups = self.labels(needs.collect(lib, {}))
+        self.assertEqual([("Library", ["no_playfield", "no_backglass", "no_media", "no_year"]),
+                          ("Acme", ["ext:acme:weekly"]),
+                          ("This Device", ["update"])], groups)
+
+    def test_a_group_goes_by_its_costliest_row(self):
+        trouble = [SimpleNamespace(where=feature_checks.WHERE_LAUNCHERS)]
+        lib = FakeLibrary([game("g1", vps_id="")], watched={
+            "extension_needs": [raised("acme", "weekly")]})
+        order = [one.label for one in needs.grouped(needs.collect(lib, {"trouble": trouble}))]
+        self.assertEqual(["This Device", "Library", "acme"], order)
+
+    def test_groups_that_tie_keep_library_then_device_then_extensions_by_name(self):
+        rows = [needs.Need("recordings", "r", "", needs.WARM, "x", needs.Opens()),
+                *needs.extension_rows([raised("zed", "a"), raised("abe", "a")]),
+                needs.Need("no_year", "y", "", needs.WARM, "x", needs.Opens())]
+        self.assertEqual(["Library", "This Device", "abe", "zed"],
+                         [one.label for one in needs.grouped(rows)])
+
+    def test_a_group_puts_its_costliest_row_first(self):
+        rows = [needs.Need("ext:acme:tidy", "t", "", needs.MUTED, "x", needs.Opens()),
+                needs.Need("ext:acme:broken", "b", "", needs.DANGER, "x", needs.Opens())]
+        [group] = needs.grouped(rows)
+        self.assertEqual(["ext:acme:broken", "ext:acme:tidy"], keys(group.rows))
+
+    def test_rows_that_tie_keep_the_order_they_were_given(self):
+        rows = [needs.Need("no_year", "y", "", needs.WARM, "x", needs.Opens()),
+                needs.Need("unmatched", "u", "", needs.WARM, "x", needs.Opens())]
+        [group] = needs.grouped(rows)
+        self.assertEqual(["no_year", "unmatched"], keys(group.rows))
+
+    def test_the_row_saying_the_page_could_not_look_has_no_heading_and_is_last(self):
+        lib = FakeLibrary(watched={"unread": ["fill"], "extension_needs": [raised("acme", "a")]})
+        groups = needs.grouped(needs.collect(lib, {}))
+        self.assertEqual(["acme", ""], [one.label for one in groups])
+        self.assertEqual(["unread"], keys(groups[-1].rows))
+
+    def test_nothing_to_say_is_no_group(self):
+        self.assertEqual([], needs.grouped([]))
+
+
 class TableScriptFixes(unittest.TestCase):
-    def test_the_row_counts_tables_and_opens_the_grid_on_them_with_fetch_at_its_end(self):
+    def test_the_row_counts_tables_and_opens_the_grid_on_them_with_fetch_in_its_menu(self):
         lib = FakeLibrary(patches={"reachable": True, "offered": ["Sample Game"]},
                           fixed=("t-g2", "t-g1"))
         [row] = [one for one in needs.collect(lib, {}) if one.key == "script_fixes"]
