@@ -1574,7 +1574,10 @@ class VPinFECore {
     if (message && MESSAGE_TYPE_CANONICAL[message.type]) {
       message = { ...message, type: canonicalMessageType(message.type) };
     }
-    if (typeof message.index === "number") this._currentTableIndex = message.index;
+    // A picker's index is a place in the picker, not on the wheel.
+    if (typeof message.index === "number" && message.kind !== "collection") {
+      this._currentTableIndex = message.index;
+    }
     if (message.type === "AudioMuteChanged") {
       this.setAudioMuted(!!message.muted);
       return;
@@ -1921,7 +1924,7 @@ class VPinFECore {
   #syncLocalIndexFromOutgoingMessage(message) {
     if (!message || typeof message !== "object") return;
     if (typeof message.index !== "number" || !Number.isFinite(message.index)) return;
-    if (message.index < 0) return;
+    if (message.index < 0 || message.kind === "collection") return;
     if (message.type === "TableIndexUpdate" || message.type === "TableDataChange") {
       this._currentTableIndex = Math.floor(message.index);
     }
