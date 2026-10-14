@@ -253,105 +253,25 @@ class HelpLineTests(unittest.TestCase):
             _, note = settings_page._noted({**base, **option}, "", mock.Mock(), "")
         return note or ""
 
-    def test_a_setting_that_applies_now_says_nothing_more(self) -> None:
-        self.assertEqual(self._line(description="What it does", applies="now"),
-                         "What it does")
-
-    def test_a_setting_read_at_startup_says_so_after_what_it_does(self) -> None:
-        self.assertEqual(
-            self._line(description="What it does", applies="restart"),
-            t("console.settings.described_default", description="What it does",
-              default=t("console.settings.applies.restart")))
-
-    def test_a_setting_with_no_description_says_only_when(self) -> None:
-        for applies in ("restart", "windows", "table"):
+    def test_the_line_under_a_setting_is_what_it_does_whatever_it_waits_for(self) -> None:
+        for applies in config_schema.APPLIES:
             with self.subTest(applies=applies):
-                self.assertEqual(self._line(applies=applies),
-                                 t(f"console.settings.applies.{applies}"))
+                self.assertEqual(self._line(description="What it does", applies=applies),
+                                 "What it does")
 
-    def test_the_language_note_says_when_too(self) -> None:
-        language = config_schema.option("device", "language")
-        assert language is not None
+    def test_a_setting_with_no_description_has_no_line(self) -> None:
+        for applies in config_schema.APPLIES:
+            with self.subTest(applies=applies):
+                self.assertEqual(self._line(applies=applies), "")
 
-        said = settings_page.with_when(language.description, language.applies)
-
-        self.assertTrue(said.endswith(t("console.settings.applies.restart")))
-        self.assertTrue(said.startswith(language.description))
-
-    def test_a_wait_the_page_has_said_is_left_off_the_row(self) -> None:
-        said = self._line(description="What it does", applies="windows")
-        with mock.patch.object(panel, "note", side_effect=lambda text: text):
-            _, note = settings_page._noted(
-                {"key": "x", "type": "string", "default": "", "description": "What it does",
-                 "applies": "windows"}, "", mock.Mock(), "", True)
-
-        self.assertIn(t("console.settings.applies.windows"), said)
-        self.assertEqual(note, "What it does")
-
-    def test_the_active_theme_row_leaves_the_wait_to_the_page_that_changes_it(self) -> None:
-        schema = config_service.schema()["sections"]
-        options = next(block["options"] for block in schema if block["name"] == "themes")
-        active = next(one for one in options if one["key"] == "active")
-        self.assertEqual(active["applies"], config_schema.APPLIES_RESTART)
-
-        with mock.patch.object(panel, "note", side_effect=lambda text: text):
-            rows = settings_page.section_rows(mock.Mock(), "themes", [active], {}, True,
-                                              lambda: None)
-
-        said = [row for row in rows if isinstance(row, str)]
-        self.assertFalse([line for line in said if t("console.settings.applies.restart") in line])
-
-    def test_the_three_moments_are_worded(self) -> None:
-        self.assertEqual(t("console.settings.applies.restart"),
-                         "Takes effect after VPinFE restarts")
-        self.assertEqual(t("console.settings.applies.windows"),
-                         "Takes effect when the windows reopen")
-        self.assertEqual(t("console.settings.applies.table"),
-                         "Takes effect the next time a table starts")
-
-
-class PageWaitsTests(unittest.TestCase):
-    """A page whose settings all wait for the same thing says it once, in its head."""
-
-    def _waits(self, page: str) -> str:
-        schema = config_service.schema()["sections"]
-        sections = next(one[3] for _group, pages in settings_page.DEVICE_INDEX
-                        for one in pages if one[0] == page)
-        return settings_page.page_waits(schema, settings_page._with_windows(sections, schema))
-
-    def test_a_page_of_settings_that_all_wait_says_what_for(self) -> None:
-        for page, waits in (("frontend.chromium", "windows"), ("hardware.input", "windows"),
-                            ("vpinfe.network", "restart"), ("vpinfe.logger", "restart"),
-                            ("frontend.table_commands", "table")):
-            with self.subTest(page=page):
-                self.assertEqual(self._waits(page), waits)
-
-    def test_a_page_whose_settings_differ_says_nothing(self) -> None:
-        for page in ("hardware.displays", "frontend.behavior", "library.updates"):
-            with self.subTest(page=page):
-                self.assertEqual(self._waits(page), "")
-
-    def test_a_page_of_settings_that_apply_now_says_nothing(self) -> None:
-        self.assertEqual(self._waits("vpinfe.console"), "")
-
-    def test_the_head_says_it_after_what_the_page_is_for(self) -> None:
+    def test_a_page_head_carries_only_what_the_page_is_for(self) -> None:
         with mock.patch.object(panel, "header") as header:
-            settings_page.page_head("frontend.chromium", waits="windows")
+            settings_page.page_head("frontend.chromium")
+            settings_page.page_head("vpinfe.network")
 
-        note = header.call_args.args[1]
-        self.assertTrue(note.startswith(t("console.settings.note_chromium")))
-        self.assertTrue(note.endswith(t("console.settings.applies_once.windows")))
+        self.assertEqual(header.call_args_list[0].args[1], t("console.settings.note_chromium"))
+        self.assertEqual(header.call_args_list[1].args[1], "")
 
-    def test_a_page_with_no_note_of_its_own_has_only_the_wait(self) -> None:
-        with mock.patch.object(panel, "header") as header:
-            settings_page.page_head("vpinfe.network", waits="restart")
-
-        self.assertEqual(header.call_args.args[1], t("console.settings.applies_once.restart"))
-
-    def test_every_wait_is_worded(self) -> None:
-        for waits in config_schema.APPLIES:
-            if waits == config_schema.APPLIES_NOW:
-                continue
-            with self.subTest(waits=waits):
-                key = f"console.settings.applies_once.{waits}"
-                self.assertNotEqual(t(key), key)
+    def test_the_chip_words_are_the_two_things_a_change_can_wait_for(self) -> None:
+        self.assertEqual(t("console.settings.chip_reopen"), "Reopen needed")
+        self.assertEqual(t("console.settings.chip_restart"), "Restart needed")

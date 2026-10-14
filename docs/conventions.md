@@ -312,12 +312,18 @@ for a restart reads as broken. Each setting declares `applies` in
   restarts the helper.
 - `table` is read when a table starts. `windows` is read when the frontend's windows open,
   and a change shows once they reopen. `restart` is read at startup.
-- Anything but `now` puts a line under the field - *Takes effect after VPinFE restarts* -
-  from the catalog, so a description never states it itself.
+- A page never writes the moment itself. For a `restart` setting, and a `windows` one while
+  the windows are open, two things say it, on every page: a chip beside the field that was
+  changed - *Reopen needed* or *Restart needed* - and the bar over the page, which asks for
+  the windows to be reopened or VPinFE restarted. The server holds the answer
+  (`GET /config/waiting`) and `console/settings.py` and `console/waiting.py` only draw it.
+  Both clear when the value is changed back.
+- A `table` setting has no chip and no bar, so its label or description says when it runs
+  (*When Any Table Starts*). A description of any other setting never states the moment.
 
-Declaring `applies` is a claim about the setting's read site. Find where it is read, not
-where it is declared: a setting read once at startup that says `now` is a setting that
-looks broken.
+Declaring `applies` is a claim about the setting's read site, and the chip and the bar read
+it. Find where it is read, not where it is declared: a setting read once at startup that
+says `now` shows no chip, and looks broken.
 `tests/invariants/test_a_setting_read_at_startup_does_not_apply_now.py` fails on one whose
 every read runs once, at module level or in a function called only from there. It sees
 only reads written with a literal section and key. A read through a variable, a wrapper

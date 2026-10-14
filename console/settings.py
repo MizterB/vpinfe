@@ -878,28 +878,11 @@ PAGE_NOTES: dict[str, str] = {
 }
 
 
-def page_head(key: str, findings: Sequence[Callable[[], None]] = (),
-              waits: str = "") -> None:
-    """A page's name above its settings, and the line saying what it is for.
-
-    `panel.header`'s treatment rather than a heading inside the panel: the cyan one is
-    for a group within a page, and using it for the page's own name ranked the two the
-    same. `waits` is what every setting on the page waits for, said here once.
-    """
+def page_head(key: str, findings: Sequence[Callable[[], None]] = ()) -> None:
+    """A page's name, in `panel.header`'s treatment: the cyan heading is for a group within
+    a page, and using it for the page's own name ranked the two the same."""
     said = PAGE_NOTES.get(key, "")
-    lines = [t(said) if said else "",
-             t(f"console.settings.applies_once.{waits}") if waits else ""]
-    panel.header(_page_label(key), " ".join(line for line in lines if line), findings)
-
-
-def page_waits(schema: list[dict], sections: Sequence[str]) -> str:
-    """What every setting on a page waits for, or "" where they differ or none wait."""
-    waits = {str(option.get("applies") or config_schema.APPLIES_NOW)
-             for block in schema if str(block.get("name")) in sections
-             for option in block.get("options") or ()}
-    if len(waits) != 1 or waits == {config_schema.APPLIES_NOW}:
-        return ""
-    return next(iter(waits))
+    panel.header(_page_label(key), t(said) if said else "", findings)
 
 
 # The two kind pages are not schema pages. What they switch is a *list* in the config,
@@ -1506,28 +1489,12 @@ def default_said(option: dict, value: Any, resolved: str = "") -> str:
             else t("console.settings.vpinfe_default_is", value=shown))
 
 
-def with_when(description: str, applies: Any) -> str:
-    """What a setting does, followed by when a change to it takes effect.
-
-    Said only where a change waits for something: a setting that applies now has nothing
-    to add, and a line on every row would say nothing.
-    """
-    applies = str(applies or "now")
-    if applies == "now":
-        return description
-    waits = t(f"console.settings.applies.{applies}")
-    return (t("console.settings.described_default", description=description, default=waits)
-            if description else waits)
-
-
 def _noted(option: dict, value: Any, save: Callable[[Any], Any],
-           resolved: str, waits_said: bool = False,
+           resolved: str,
            ) -> tuple[Callable[[Any], Any], tuple[Any, Any] | None]:
-    """The line under a setting - what it does, when a change takes effect where that is
-    not now, and its default - and a `save` that keeps the default's half true as the
-    value changes. `waits_said` leaves the wait out where the page has said it."""
-    described = with_when(str(option.get("description") or ""),
-                          "" if waits_said else option.get("applies"))
+    """The line under a setting - what it does and its default - and a `save` that keeps
+    the default's half true as the value changes."""
+    described = str(option.get("description") or "")
 
     def said(now: Any) -> str:
         reminder = default_said(option, now, resolved)
@@ -1565,7 +1532,6 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
                  from_elsewhere: bool = False,
                  previewed: chrome_options.Preview | None = None,
                  stands_in: dict[str, list[tuple[Any, Any]]] | None = None,
-                 waits_said: bool = False,
                  linked: attract.Attract | None = None,
                 ) -> list[tuple[Any, Any]]:
     """One section's settings as fact rows, from whatever is serving them.
@@ -1606,11 +1572,8 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
             continue
         value = current.get(option["key"], option.get("default"))
         refusal = Refusal() if option.get("unit") == config_schema.UNIT_PORT else None
-        # The active theme is chosen on the Themes page, which says when that takes effect.
-        picked_elsewhere = option.get("editor") == config_schema.EDITOR_FRONTEND_THEME
         save, note = _noted(option, value, saver(source, section, option["key"], refusal),
-                            (resolved or {}).get(option["key"], ""),
-                            waits_said or picked_elsewhere)
+                            (resolved or {}).get(option["key"], ""))
         if linked is not None:
             save = linked.saves(option["key"], save)
         if option.get("cuts_off_console") and from_elsewhere:
@@ -1672,8 +1635,7 @@ async def build_device_page(source: Any, context: dict[str, Any], schema: list[d
                             drawn_elsewhere: bool = False,
                             waiting: Waiting | None = None,
                             stands_in: dict[str, list[tuple[Any, Any]]] | None = None,
-                            waits_said: bool = False,
-                            linked: attract.Attract | None = None,
+                                       linked: attract.Attract | None = None,
                             ) -> None:
     """One page of a device's settings, drawn exactly as this install's are.
 
@@ -1730,7 +1692,7 @@ async def build_device_page(source: Any, context: dict[str, Any], schema: list[d
                             resolved=resolves(offered) if resolves else None,
                             browse=browse, waiting=waiting,
                             from_elsewhere=from_elsewhere, previewed=preview,
-                            stands_in=stands_in, waits_said=waits_said,
+                            stands_in=stands_in,
                             linked=linked if name == attract.SECTION else None)
         # A section that opens with a heading keeps its head under it: nothing sits
         # above the first heading.
@@ -1869,7 +1831,6 @@ async def _draw_system_page(library: Library, redraw: Callable[[], None], body: 
         schema = with_browser_found(schema, browser)
     if play := await _play_input(library, sections):
         schema = with_play_input(schema, play, values)
-    waits = page_waits(schema, sections)
     blocks = []
     if key == input_page.KEY:
         sections = tuple(name for name in sections if name != INPUT)
@@ -1915,13 +1876,13 @@ async def _draw_system_page(library: Library, redraw: Callable[[], None], body: 
                                  theme=theme, left_to_theme=left)
         stands_in = {**(stands_in or {}), **linked.stands_in()}
     with body:
-        page_head(key, findings, waits)
+        page_head(key, findings)
         await build_device_page(library, {"library": library, "rebuild": redraw},
                                 schema, values, sections, checks=marks,
                                 suggestions=offered, blocks=blocks, browse=library.folders,
                                 drawn_elsewhere=key == displays.KEY,
                                 waiting=Waiting(library, await _waiting(library)),
-                                stands_in=stands_in, waits_said=bool(waits), linked=linked)
+                                stands_in=stands_in, linked=linked)
 
 
 def _options_of(schema: list[dict], section: str) -> list[dict]:
@@ -2126,14 +2087,16 @@ async def _identity_page(library: Library, reported: str,
         panel.note(t("console.settings.name_note")),
     ]
     if language is not None:
+        waiting = Waiting(library, await _waiting(library))
         entries.append((language.label or humanize(language.key),
-                        panel.select({value: language.choice_labels.get(value, value)
-                                      for value in language.choices},
-                                     str(held.get("language") or language.default),
-                                     relanguage)))
-        said = with_when(language.description, language.applies)
-        if said:
-            entries.append(panel.note(said))
+                        waiting.beside(
+                            panel.select({value: language.choice_labels.get(value, value)
+                                          for value in language.choices},
+                                         str(held.get("language") or language.default),
+                                         relanguage),
+                            {"section": language.section, "key": language.key})))
+        if language.description:
+            entries.append(panel.note(language.description))
     entries += [
         (panel.HEADING, t("console.settings.features")),
         panel.intro(t("console.settings.features_note")),
