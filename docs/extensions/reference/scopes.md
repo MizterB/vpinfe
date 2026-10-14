@@ -17,13 +17,23 @@ a list, page, panel group or dialog declared Protected needs only Library: it is
 something there that needs the Confirm.  A router at Protected is gated as a whole, so every
 method on it needs the Confirm.
 
-The manifest's `tiers` lists the tiers beyond Library the extension uses.  A list, page, panel
+The manifest's `tiers` lists `protected` when the extension uses it.  A list, page, panel
 group, action, verb or router at a tier it does not list, or at one that does not exist, fails
 when it is declared, and an act marked `@tier(...)` at one is refused when it is called.
-Whoever installs it is shown `tier:play` in plain words, since a Remote can reach it, and an
-update that first puts a route at Play asks again.  Library and Protected say nothing: accepting
-covers both.  Core serves the extension's settings, accounts and job stop at Library, whatever
-the manifest says.
+Library and Protected say nothing to whoever installs it: accepting covers both.  Core serves the
+extension's settings, accounts and job stop at Library, whatever the manifest says.
+
+Play is different, because a Remote pass belongs to somebody who is not the Owner.  The manifest's
+`play` names each surface a Remote can open, as `router`, `action:<key>`, `list:<key>`,
+`page:<key>`, `group:<subject>` or `verb:<subject>:<key>`.  The install page shows the list as
+"A Remote Can Open" before the Owner accepts.  A surface put at Play that `play` does not name fails
+when it is declared, and an act marked `@tier(PLAY)` on a surface that is not Play is refused when it
+is called.  An update that adds a surface asks the Owner again, and only about the one added.
+
+What a request may change is decided by the tier the act is declared at, not by the tier of the
+person who pressed it.  A Library act pressed by an Owner under a live Confirm still runs as
+Library, so `ctx.os` and `ctx.system` refuse its changes.  Declare the act `@tier(PROTECTED)` for
+them to work.
 
 A scope belonging to an extension is granted only while that extension is running.
 

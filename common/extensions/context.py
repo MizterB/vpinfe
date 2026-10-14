@@ -339,11 +339,12 @@ class ExtensionUI:
     """
 
     def __init__(self, name: str, allowed: bool, scopes: Iterable[str] = (),
-                 tiers: Iterable[str] = (reach.LIBRARY,)) -> None:
+                 tiers: Iterable[str] = (reach.LIBRARY,), play: Iterable[str] = ()) -> None:
         self._name = name
         self._allowed = allowed
         self._reads_games = GAMES_READ in frozenset(scopes)
-        self._tiers = frozenset(tiers)
+        self._tiers = frozenset(tiers) - {reach.PLAY}
+        self._play = frozenset(play)
         self.declared_groups: list[dict] = []
         self.group_functions: dict[str, GroupFunctions] = {}
         self.declared_library_verbs: list[dict] = []
@@ -384,13 +385,19 @@ class ExtensionUI:
             raise ContractError(str(exc)) from exc
         self.settings_check = check
 
-    def _tier(self, tier: Any, whose: str) -> str:
-        """`tier` as a surface declares it, or a ContractError for a word that is no tier
-        and for one the manifest's `tiers` leaves out."""
+    def _tier(self, tier: Any, whose: str, surface: str) -> str:
+        """`tier` as the surface named `surface` in the manifest's terms declares it, or a
+        ContractError for a word that is no tier, for Play where the manifest's `play` does
+        not name the surface, and for another tier the manifest's `tiers` leaves out."""
         named = tier.strip() if isinstance(tier, str) else tier
         if named not in reach.TIERS:
             raise ContractError(f"{self._name} gives {whose} the tier {tier!r}; the tiers "
                                 f"are {', '.join(reach.TIERS)}")
+        if named == reach.PLAY:
+            if surface not in self._play:
+                raise ContractError(f"{self._name} puts {whose} at play, and its manifest's "
+                                    f"play does not list {surface!r}")
+            return str(named)
         if named not in self._tiers:
             raise ContractError(f"{self._name} puts {whose} at {named}, and its manifest's "
                                 "tiers does not list it")
@@ -419,7 +426,7 @@ class ExtensionUI:
         if not callable(getattr(dialog, "ask", None)):
             raise ContractError(f"{self._name} offers the action {wanted!r} with an "
                                 "object that has no ask(step)")
-        held = self._tier(tier, f"the action {wanted!r}")
+        held = self._tier(tier, f"the action {wanted!r}", f"action:{wanted}")
         self.action_objects[wanted] = dialog
         self.actions.append({
             "key": wanted,
@@ -559,7 +566,7 @@ class ExtensionUI:
         if acts is not None and not callable(acts) and not isinstance(acts, dict):
             raise ContractError(f"{self._name} gives its {wanted} group acts that are "
                                 "neither a dict nor a function")
-        held = self._tier(tier, f"its {wanted} group")
+        held = self._tier(tier, f"its {wanted} group", f"group:{wanted}")
         placed = str(section or "").strip()
         if placed and placed not in PANEL_SECTIONS:
             raise ContractError(f"{self._name} puts its {wanted} group in the section "
@@ -606,7 +613,7 @@ class ExtensionUI:
         if not callable(run):
             raise ContractError(f"{self._name} gives its {wanted} verb {named!r} a run that "
                                 "is not a function")
-        held = self._tier(tier, f"its {wanted} verb {named!r}")
+        held = self._tier(tier, f"its {wanted} verb {named!r}", f"verb:{wanted}:{named}")
         self.library_verb_functions[(wanted, named)] = run
         self.declared_library_verbs.append({
             "subject": wanted, "key": named, "label": str(label or "").strip(),
@@ -685,7 +692,7 @@ class ExtensionUI:
         if acts is not None and not callable(acts) and not isinstance(acts, dict):
             raise ContractError(f"{self._name} gives the page {wanted!r} acts that are "
                                 "neither a dict nor a function")
-        held = self._tier(tier, f"the page {wanted!r}")
+        held = self._tier(tier, f"the page {wanted!r}", f"page:{wanted}")
         self.page_functions[wanted] = PageFunctions(read=read, acts=acts, save=save, tier=held)
         self.declared_pages.append({"key": wanted, "area": where, "tier": held,
                                     "icon": self._rail_icon(f"the page {wanted!r}", icon),
@@ -848,7 +855,7 @@ class ExtensionUI:
                 or len(set(adding)) != len(adding):
             raise ContractError(f"{self._name} gives the list {wanted!r} an add that is "
                                 "not an action key, or names one twice")
-        held = self._tier(tier, f"the list {wanted!r}")
+        held = self._tier(tier, f"the list {wanted!r}", f"list:{wanted}")
         self.list_functions[wanted] = ListFunctions(rows=rows, status=status, acts=acts,
                                                     verbs=offered, detail=detail, save=save,
                                                     tier=held)
@@ -1317,7 +1324,7 @@ class ExtensionContext:
         self.jobs = ExtensionJobs(manifest.name)
         self.os = ExtensionOS(manifest.name, manifest.capabilities)
         self.ui = ExtensionUI(manifest.name, "ui:mount" in manifest.capabilities,
-                              manifest.scopes, manifest.reaches)
+                              manifest.scopes, manifest.reaches, manifest.play)
         self.players = ExtensionPlayers(manifest.name, manifest.scopes, store, self.ui)
         self.entries = ExtensionEntries(manifest.name)
         self.catalogs = ExtensionCatalogs(manifest.name)
@@ -1357,4 +1364,7 @@ class ExtensionContext:
         if named not in reach.TIERS or named not in self.reaches:
             raise ContractError(f"{self.name} puts a router at {tier!r}; its tiers are "
                                 f"{', '.join(self.reaches)}")
+        if named == reach.PLAY and "router" not in self.manifest.play:
+            raise ContractError(f"{self.name} puts a router at play, and its manifest's "
+                                "play does not list 'router'")
         self.routers.append((router, f"ext:{self.name}:{named}"))

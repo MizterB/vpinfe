@@ -29,12 +29,15 @@ def chips(words: Sequence[str]) -> Callable[[], None]:
 
 
 async def _ask(title: str, lines: Sequence[str], answer: str, *,
-               uses: tuple[str, Sequence[str]] | None = None, closing: str = "") -> bool:
+               uses: tuple[str, Sequence[str]] | None = None, remote: Sequence[str] = (),
+               closing: str = "") -> bool:
     with frame.opened(title, classes="console-confirm") as box:
         for line in lines:
             ui.label(line).classes("console-help px-3")
         if uses is not None:
             panel.facts(ui, [(uses[0], chips(uses[1]))])
+        if remote:
+            panel.facts(ui, [(t("console.accept.remote"), chips(remote))])
         if closing:
             ui.label(closing).classes("console-help px-3")
         with frame.footer():
@@ -59,24 +62,29 @@ async def theme(name: str, *, source: str = "", installing: bool = False) -> boo
 
 
 async def extension(name: str, version: str, folder: str, uses: Sequence[str], *,
-                    replaces: str = "") -> bool:
+                    remote: Sequence[str] = (), replaces: str = "") -> bool:
     """Whether to let this extension run. `uses` is what it says it uses, in words;
-    `replaces` names the built-in it stands in for."""
+    `remote` is what a Remote can open; `replaces` names the built-in it stands in for."""
     lines = [t("console.accept.ext_body", name=name, version=version, folder=folder)]
     if replaces:
         lines.append(t("console.accept.replaces", name=replaces))
     return await _ask(
         t("console.accept.ext_title"), lines, t("console.accept.accept"),
-        uses=(t("console.accept.uses"), uses), closing=t("console.accept.ext_trust"))
+        uses=(t("console.accept.uses"), uses), remote=remote,
+        closing=t("console.accept.ext_trust"))
 
 
-async def new_access(name: str, version: str, added: Sequence[str]) -> bool:
-    """Whether to let a newer version of an accepted extension use `added`, which the
-    version accepted did not say it used."""
+async def new_access(name: str, version: str, added: Sequence[str],
+                     remote: Sequence[str] = ()) -> bool:
+    """Whether to let a newer version of an accepted extension use `added`, and let a Remote
+    open `remote`, which the version accepted did not say."""
     with frame.opened(t("console.accept.access_title", name=name),
                       classes="console-confirm") as box:
         ui.label(t("console.accept.access_body", version=version)).classes("console-help px-3")
-        panel.facts(ui, [(t("console.accept.uses"), chips(added))])
+        if added:
+            panel.facts(ui, [(t("console.accept.uses"), chips(added))])
+        if remote:
+            panel.facts(ui, [(t("console.accept.remote"), chips(remote))])
         ui.label(t("console.accept.access_stopped")).classes("console-help px-3")
         with frame.footer():
             frame.cancel(lambda: box.submit(False))

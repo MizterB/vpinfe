@@ -1735,7 +1735,7 @@ VPinFE never runs as root.  Where the system ships a helper, `ctx.os` is the one
 
 A method that only reads, such as `updates.check`, can be called from anywhere.  A method that changes the machine is refused unless the request it is called from reached Protected, and a job started from that request carries the mark.  A change from an event handler, a timer or a thread the extension started has no request behind it and is refused, so it fails closed even if the declaration is wrong.
 
-A request reaches Protected when an Owner makes it under a live Confirm.  So the extension declares its acts `tier=PROTECTED` and lists `protected` under `tiers`: the Console then asks the Owner to confirm before it runs the install, and a token or a Remote pass is refused.  The restart that finishes the updates is declared the same way.  `system:admin` in `scopes` is what lets `ctx.system` restart VPinFE or the computer.
+A request reaches Protected when an Owner makes it under a live Confirm, and only an act declared Protected keeps that mark.  So the extension declares its acts `tier=PROTECTED` and lists `protected` under `tiers`: the Console then asks the Owner to confirm before it runs the install, and a token or a Remote pass is refused.  The restart that finishes the updates is declared the same way.  `system:admin` in `scopes` is what lets `ctx.system` restart VPinFE or the computer.
 
 `recipes/os_update/extension.json`
 
@@ -1851,7 +1851,7 @@ def register(ctx):
 **Variations:**
 
 - Call `updates.apply` straight from `run` when it is quick.  It still takes a Protected request, since `run` answers one.
-- Leave `tier=PROTECTED` off an act and the Console runs it without a Confirm, and `ctx.os.call` refuses the change unless the person holds a live Confirm, so the install fails rather than runs.
+- Leave `tier=PROTECTED` off an act and the Console runs it without a Confirm, and `ctx.os.call` refuses the change, even from an Owner holding a live Confirm, so the install fails rather than runs.
 - Read `ctx.os.methods` to build the dialog from what the manifest allows rather than naming methods: each entry has `name`, `changes` and `says`.
 - Run `--check-extension` on a Mac.  It loads the extension whatever its `platforms` say, and `ctx.os.available` is false there, so the dialog shows the no-helper line.
 

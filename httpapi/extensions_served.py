@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Depends, Request, Response
 
 from common import extensions
 from common.extensions import reach, serving
@@ -33,12 +33,21 @@ def _envelope(exc: serving.ExtensionError) -> ApiError:
                                details={"field": exc.field} if exc.field else None)
 
 
+def answering_at(tier: str) -> Any:
+    """Marks the request as answered at `tier`, the tier its route is declared at."""
+    async def answer() -> None:
+        reach.answer_at(tier)
+
+    return Depends(answer)
+
+
 def router(name: str, running: Any) -> APIRouter:
     """The routes for extension `name`, each behind `running` and the Play tier, which every
     caller of the extension holds. The handler then holds the caller to the tier of the
     list, page, group, dialog or act it reaches, which only the extension's declaration
-    knows."""
+    knows. Every route answers at Library at most; only an act declared Protected keeps more."""
     floor = requires(scopes.extension_scope(name, reach.PLAY))
+    answering = answering_at(reach.LIBRARY)
     found = APIRouter(tags=["extensions"])
 
     def reading(request: Request, kind: str, key: str) -> None:
@@ -69,13 +78,13 @@ def router(name: str, running: Any) -> APIRouter:
             raise _envelope(exc) from exc
 
     def get(path: str, summary: str) -> Callable[[Callable[..., Any]], Any]:
-        return found.get(path, summary=summary, dependencies=[running, floor])
+        return found.get(path, summary=summary, dependencies=[running, floor, answering])
 
     def post(path: str, summary: str) -> Callable[[Callable[..., Any]], Any]:
-        return found.post(path, summary=summary, dependencies=[running, floor])
+        return found.post(path, summary=summary, dependencies=[running, floor, answering])
 
     def put(path: str, summary: str) -> Callable[[Callable[..., Any]], Any]:
-        return found.put(path, summary=summary, dependencies=[running, floor])
+        return found.put(path, summary=summary, dependencies=[running, floor, answering])
 
     # -- settings ------------------------------------------------------------------
 

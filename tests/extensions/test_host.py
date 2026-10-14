@@ -497,10 +497,33 @@ class ContextTests(HostCase):
                 "def register(ctx):\n"
                 "    ctx.add_router(APIRouter(), tier='play')\n")
 
-        record = self.registry.load(self.make("modest", {"tiers": ["play"]}, body=body))
+        record = self.registry.load(self.make("modest", {"play": ["router"]}, body=body))
 
         self.assertEqual(record.state, host.LOADED)
         self.assertEqual(record.as_dict()["routes"], ["ext:modest:play"])
+
+    def test_a_play_action_the_manifest_does_not_name_is_refused(self) -> None:
+        body = ("class Dialog:\n"
+                "    def ask(self, step):\n"
+                "        return {}\n"
+                "def register(ctx):\n"
+                "    ctx.ui.action('reset', Dialog(), tier='play')\n")
+        manifest = {"capabilities": ["ui:mount"], "play": ["action:other"]}
+        with self.assertLogs(self.LOG, "ERROR"):
+            record = self.registry.load(self.make("sly", manifest, body=body))
+
+        self.assertEqual(record.state, host.FAILED)
+        self.assertIn("does not list 'action:reset'", record.error)
+
+    def test_a_play_router_the_manifest_does_not_name_is_refused(self) -> None:
+        body = ("from fastapi import APIRouter\n"
+                "def register(ctx):\n"
+                "    ctx.add_router(APIRouter(), tier='play')\n")
+        with self.assertLogs(self.LOG, "ERROR"):
+            record = self.registry.load(self.make("sneaky", {"play": ["list:scores"]}, body=body))
+
+        self.assertEqual(record.state, host.FAILED)
+        self.assertIn("does not list 'router'", record.error)
 
     def test_publishing_an_undeclared_event_is_refused(self) -> None:
         body = ("def register(ctx):\n"

@@ -153,7 +153,8 @@ def _unaccepted(extension: dict, copy: dict, redraw: Callable[[], None]
     itself, or the installed copy that would replace this built-in."""
     name = str(extension.get("name") or "")
     trust = dict(copy.get("trust") or {})
-    new = [_plainly(str(one)) for one in trust.get("new_access") or []]
+    new, new_remote = _remote_names([str(one) for one in trust.get("new_access") or []])
+    new = [_plainly(one) for one in new]
     own = copy is extension
 
     @on_page
@@ -161,12 +162,13 @@ def _unaccepted(extension: dict, copy: dict, redraw: Callable[[], None]
         shown = str(extension.get("display_name") or name)
         version = str(copy.get("version") or "")
         if trust.get("accepted_before"):
-            yes = await accept.new_access(shown, version, new)
+            yes = await accept.new_access(shown, version, new, new_remote)
         else:
+            used, remote = _remote_names(
+                [str(one) for one in trust.get("uses") or copy.get("uses") or []])
             yes = await accept.extension(
                 shown, version, str(trust.get("folder") or ""),
-                [_plainly(str(one)) for one in trust.get("uses") or copy.get("uses") or []]
-                or [t("word.none")],
+                [_plainly(one) for one in used] or [t("word.none")], remote=remote,
                 replaces=shown if trust.get("origin") == accepted.REPLACES and not own else "")
         if not yes:
             return
@@ -365,8 +367,25 @@ PLAINLY = {
     "fs:read": "console.ext_page.read_files",
     "fs:write": "console.ext_page.write_files",
     "os:updates": "console.ext_page.os_updates",
-    "tier:play": "console.ext_page.tier_play",
 }
+
+PLAY_PREFIX = "play:"
+
+
+def _remote_name(surface: str) -> str:
+    """A surface the manifest names, as a person would call it: its kind and its key."""
+    kind, _, rest = surface.partition(":")
+    if kind == "router":
+        return t("console.ext_page.play_router")
+    subject, _, key = rest.partition(":") if kind == "verb" else ("", "", rest)
+    return t(f"console.ext_page.play_{kind}", key=key.replace("_", " "), subject=subject)
+
+
+def _remote_names(words: list[str]) -> tuple[list[str], list[str]]:
+    """Split what an extension uses from what a Remote can open, the second named by kind."""
+    rest = [one for one in words if not one.startswith(PLAY_PREFIX)]
+    return rest, [_remote_name(one[len(PLAY_PREFIX):])
+                  for one in words if one.startswith(PLAY_PREFIX)]
 
 
 def _plainly(name: str) -> str:
@@ -384,11 +403,14 @@ def _reach_rows(extension: dict) -> list[tuple[Any, ...]]:
     """
     reaches = [_plainly(str(one)) for one in extension.get("scopes") or []]
     uses = [_plainly(str(one)) for one in extension.get("capabilities") or []]
+    _, remote = _remote_names([f"{PLAY_PREFIX}{one}" for one in extension.get("play") or []])
     entries: list[tuple[Any, ...]] = []
     if reaches:
         entries.append((t("console.ext_page.library"), _chips(reaches)))
     if uses:
         entries.append((t("console.ext_page.this_device"), _chips(uses)))
+    if remote:
+        entries.append((t("console.accept.remote"), _chips(remote)))
     return [(panel.HEADING, t("console.ext_page.reach_title")),
             panel.note(t("console.ext_page.reach_help")), *entries] if entries else []
 

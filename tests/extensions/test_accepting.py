@@ -50,7 +50,7 @@ class Case(unittest.TestCase):
         accepted.accept_extension(name, accepted.IN_FOLDER, folder=str(self.folder),
                                   version=manifest.version, scopes=manifest.scopes,
                                   capabilities=manifest.capabilities,
-                                  tiers=manifest.reaches)
+                                  play=manifest.play)
 
 
 class AnExtensionInAFolder(Case):
@@ -109,18 +109,65 @@ class AnExtensionInAFolder(Case):
         self.assertEqual(trust["new_access"], ["games:write"])
         self.assertTrue(trust["accepted_before"])
 
-    def test_that_adds_the_play_tier_in_a_later_version_stops_again(self) -> None:
+    def test_that_adds_a_surface_a_remote_can_open_in_a_later_version_stops_again(self) -> None:
         directory = _write(self.folder, "tool")
         self.accept("tool")
         (directory / "extension.json").write_text(json.dumps({
             "name": "tool", "version": "2.0.0", "requires_platform": contract.PLATFORM_ABI,
-            "tiers": ["play"]}), encoding="utf-8")
+            "play": ["list:scores"]}), encoding="utf-8")
 
         with self.assertLogs("vpinfe.common.extensions", "WARNING"):
             record = self.registry.load(directory)
 
         self.assertEqual((record.state, record.why), (host.OFF, host.NOT_ACCEPTED))
-        self.assertEqual(record.as_dict()["trust"]["new_access"], ["tier:play"])
+        self.assertEqual(record.as_dict()["trust"]["new_access"], ["play:list:scores"])
+
+    def test_that_adds_a_second_surface_a_remote_can_open_asks_about_that_one_only(self) -> None:
+        directory = _write(self.folder, "tool")
+        (directory / "extension.json").write_text(json.dumps({
+            "name": "tool", "version": "1.0.0", "requires_platform": contract.PLATFORM_ABI,
+            "play": ["list:scores"]}), encoding="utf-8")
+        self.accept("tool")
+        (directory / "extension.json").write_text(json.dumps({
+            "name": "tool", "version": "2.0.0", "requires_platform": contract.PLATFORM_ABI,
+            "play": ["list:scores", "page:rank"]}), encoding="utf-8")
+
+        with self.assertLogs("vpinfe.common.extensions", "WARNING"):
+            record = self.registry.load(directory)
+
+        self.assertEqual(record.as_dict()["trust"]["new_access"], ["play:page:rank"])
+
+    def test_that_names_a_surface_whose_key_has_a_space_or_colon_is_accepted(self) -> None:
+        directory = _write(self.folder, "tool")
+        (directory / "extension.json").write_text(json.dumps({
+            "name": "tool", "version": "1.0.0", "requires_platform": contract.PLATFORM_ABI,
+            "play": ["page:my scores", "verb:game:rate:all"]}), encoding="utf-8")
+
+        record = self.registry.load(directory)
+
+        self.assertEqual(record.manifest.play, ("page:my scores", "verb:game:rate:all"))
+
+    def test_that_names_a_surface_with_no_key_is_refused(self) -> None:
+        directory = _write(self.folder, "tool")
+        (directory / "extension.json").write_text(json.dumps({
+            "name": "tool", "version": "1.0.0", "requires_platform": contract.PLATFORM_ABI,
+            "play": ["list:"]}), encoding="utf-8")
+
+        with self.assertLogs("vpinfe.common.extensions", "ERROR"):
+            record = self.registry.load(directory)
+
+        self.assertEqual(record.state, host.FAILED)
+
+    def test_that_names_play_among_its_tiers_is_refused(self) -> None:
+        directory = _write(self.folder, "tool")
+        (directory / "extension.json").write_text(json.dumps({
+            "name": "tool", "version": "2.0.0", "requires_platform": contract.PLATFORM_ABI,
+            "tiers": ["play"]}), encoding="utf-8")
+
+        with self.assertLogs("vpinfe.common.extensions", "ERROR"):
+            record = self.registry.load(directory)
+
+        self.assertEqual(record.state, host.FAILED)
 
     def test_that_adds_the_protected_tier_in_a_later_version_runs(self) -> None:
         directory = _write(self.folder, "tool")

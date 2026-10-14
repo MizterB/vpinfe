@@ -79,6 +79,8 @@ new tab.  See [A link says whether it leaves](../conventions.md#a-link-says-whet
   file in your folder, and core fetches it once, checks it, makes a copy at the size of a list and
   serves only that copy from VPinFE's own address.  The page never reaches a server of yours, so do not
   put a third-party address in anything you hand to a page.  A web address needs `net:outbound`.
+  A picture has no tier of its own, so one in an extension with a page a Remote can open can be
+  fetched by a Remote.  Show nothing private in a picture there.
 - **A game or a table in a list is a `game` or `table` column, first.**  Give it the id and core draws
   the picture, the name, the maker and the link, as Games does.  It also relates each row to the
   library, adds the In Your Library view and lets a view rank a collection.  A name in a text column

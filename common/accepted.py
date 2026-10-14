@@ -166,13 +166,13 @@ def forget_theme(key: str) -> None:
 
 def extension_accepted(name: str, origin: str, scopes: Collection[str],
                        capabilities: Collection[str], folder: str | None = None,
-                       tiers: Collection[str] = ()) -> bool:
+                       play: Collection[str] = ()) -> bool:
     """Whether this extension may run: shipped with VPinFE, or accepted from where it is
     now with at least the access it declares now. `folder` is the folder it is in, and
     an acceptance given for another folder does not cover it; None leaves the folder out."""
     if origin == SHIPPED:
         return True
-    return (not new_access(name, origin, scopes, capabilities, folder, tiers)
+    return (not new_access(name, origin, scopes, capabilities, folder, play)
             and _kept(name, origin, folder) is not None)
 
 
@@ -190,24 +190,20 @@ def accepted_before(name: str, origin: str, folder: str | None = None) -> bool:
 
 def new_access(name: str, origin: str, scopes: Collection[str],
                capabilities: Collection[str], folder: str | None = None,
-               tiers: Collection[str] = ()) -> list[str]:
+               play: Collection[str] = ()) -> list[str]:
     """What the extension declares that its acceptance did not cover: all of it when it
-    was never accepted. A tier is `tier:<name>`, and is covered by any accepted tier that
-    is no more protected, so Library covers Protected and only Play can be new."""
-    from common.extensions import reach
-
+    was never accepted. A surface a Remote can open is `play:<surface>`, and one more than
+    the acceptance listed is new, so an update cannot add one unasked."""
     found = _kept(name, origin, folder) or {}
-    covered = {*(found.get("scopes") or ()), *(found.get("capabilities") or ())}
-    held = [reach.TIERS.index(one) for one in found.get("tiers") or [reach.LIBRARY]
-            if one in reach.TIERS]
-    return [*(one for one in (*scopes, *capabilities) if one not in covered),
-            *(f"tier:{one}" for one in tiers
-              if one in reach.TIERS and not any(at <= reach.TIERS.index(one) for at in held))]
+    covered = {*(found.get("scopes") or ()), *(found.get("capabilities") or ()),
+               *(f"play:{one}" for one in found.get("play") or ())}
+    return [one for one in (*scopes, *capabilities, *(f"play:{one}" for one in play))
+            if one not in covered]
 
 
 def accept_extension(name: str, origin: str, *, folder: str, version: str,
                      scopes: Collection[str], capabilities: Collection[str],
-                     tiers: Collection[str] = ()) -> None:
+                     play: Collection[str] = ()) -> None:
     """Accept this extension as it declares itself now. Replaces what an earlier
     acceptance covered, so the list holds what the Owner last saw."""
     with _lock:
@@ -215,5 +211,5 @@ def accept_extension(name: str, origin: str, *, folder: str, version: str,
         held[_EXTENSIONS][name] = {"origin": origin, "folder": folder, "version": version,
                                    "scopes": sorted(scopes),
                                    "capabilities": sorted(capabilities),
-                                   "tiers": list(tiers)}
+                                   "play": sorted(play)}
         _write(held)

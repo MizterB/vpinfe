@@ -57,6 +57,9 @@ CAPABILITIES: frozenset[str] = frozenset({
 # distribution's os-release `ID`. Only the shape is checked; which distributions exist is not ours.
 PLATFORM_NAME = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 
+# How a manifest names a surface a Remote can open.
+PLAY_SURFACE = re.compile(r"router|(action|list|page|group):\S(.*\S)?|verb:[^:\s]+:\S(.*\S)?")
+
 # What an install can be meant to do, read from the one list rather than restated: a
 # second copy would be right until somebody added a feature.
 FEATURES: frozenset[str] = frozenset(install_identity.FEATURES)
@@ -147,13 +150,19 @@ class Manifest:
     platforms: tuple[str, ...] = ()
     # Event names it publishes, without its namespace.
     events: tuple[str, ...] = ()
-    # The tiers its routes sit at beyond Library, which every extension has.
+    # Protected, when it has something that asks for the Confirm. Library is every
+    # extension's, and Play is never listed here: see `play`.
     tiers: tuple[str, ...] = ()
+    # The surfaces a Remote can open, by name: "router", "action:<key>", "list:<key>",
+    # "page:<key>", "group:<subject>" or "verb:<subject>:<key>". The Owner is shown the list
+    # before accepting, and a Play surface registered without a line here fails to load.
+    play: tuple[str, ...] = ()
 
     @property
     def reaches(self) -> tuple[str, ...]:
         """Every tier its routes may sit at, least protected first. Library is always one."""
-        return tuple(one for one in TIERS if one == LIBRARY or one in self.tiers)
+        return tuple(one for one in TIERS
+                     if one == LIBRARY or one in self.tiers or (one == PLAY and self.play))
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -168,6 +177,7 @@ class Manifest:
             "platforms": list(self.platforms),
             "events": list(self.events),
             "tiers": list(self.tiers),
+            "play": list(self.play),
         }
 
 
@@ -218,6 +228,13 @@ def parse(raw: Any) -> Manifest:
     unknown = sorted(set(tiers) - set(TIERS))
     if unknown:
         raise ManifestError("extension.reason.manifest_unknown_tiers", tiers=", ".join(unknown))
+    if PLAY in tiers:
+        raise ManifestError("extension.reason.manifest_play_tier")
+
+    play = _strings(raw.get("play"), "play")
+    unknown = sorted(one for one in set(play) if not PLAY_SURFACE.fullmatch(one))
+    if unknown:
+        raise ManifestError("extension.reason.manifest_unknown_play", surfaces=", ".join(unknown))
 
     return Manifest(
         name=name,
@@ -231,6 +248,7 @@ def parse(raw: Any) -> Manifest:
         platforms=platforms,
         events=_strings(raw.get("events"), "events"),
         tiers=tuple(one for one in TIERS if one in tiers),
+        play=tuple(sorted(set(play))),
     )
 
 

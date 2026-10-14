@@ -240,12 +240,13 @@ class ExtensionCase(HelperCase):
         self.addCleanup(extensions.set_registry, host.Registry())
         self.addCleanup(self.registry.clear)
 
-    def make(self, name: str, capabilities: list[str], body: str = "") -> object:
+    def make(self, name: str, capabilities: list[str], body: str = "",
+             tiers: tuple[str, ...] = ()) -> object:
         directory = self.root / "made" / name
         directory.mkdir(parents=True)
         (directory / "extension.json").write_text(json.dumps({
             "name": name, "version": "1.0.0", "requires_platform": contract.PLATFORM_ABI,
-            "capabilities": capabilities}), encoding="utf-8")
+            "capabilities": capabilities, "tiers": list(tiers)}), encoding="utf-8")
         (directory / "__init__.py").write_text(body or "def register(ctx):\n    pass\n",
                                                encoding="utf-8")
         record = self.registry.load(directory)
@@ -456,7 +457,7 @@ def register(ctx):
         ctx.jobs.submit("apply", lambda job: ctx.os.call("updates.apply"))
         return {"started": True}
 
-    ctx.add_router(router)
+    ctx.add_router(router, tier="protected")
 '''
 
 
@@ -464,7 +465,7 @@ class RequestTests(ExtensionCase):
     """The mark is set by core for each request and reaches the thread a route runs on."""
 
     def client(self, peer: str) -> TestClient:
-        self.make("os_update", ["os:updates"], ROUTES)
+        self.make("os_update", ["os:updates"], ROUTES, tiers=("protected",))
         found = TestClient(httpapi.create_api_app(), client=(peer, 50000),
                            base_url="http://localhost", raise_server_exceptions=False)
         if peer != "127.0.0.1":

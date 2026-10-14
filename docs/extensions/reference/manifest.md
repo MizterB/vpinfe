@@ -124,7 +124,8 @@ table is ignored.
 | `description` | no | empty | One line, shown beside it. Left out, it is `description` in its own `i18n/` |
 | `scopes` | no | none | Core scopes it asks to use, such as `games:read`. See [Scopes and the gate](scopes.md#scopes-and-the-gate) |
 | `capabilities` | no | none | What it asks of the machine. See [Scopes and the gate](scopes.md#scopes-and-the-gate) |
-| `tiers` | no | none | The tiers it uses beyond Library: `play`, `protected`. Something at a tier it does not list is refused. See [Scopes and the gate](scopes.md#scopes-and-the-gate) |
+| `tiers` | no | none | `protected`, when something it serves asks for the Confirm. Something at a tier it does not list is refused. `play` is not listed here: see `play` below. See [Scopes and the gate](scopes.md#scopes-and-the-gate) |
+| `play` | no | none | The surfaces a Remote can open, each by name: `router`, `action:<key>`, `list:<key>`, `page:<key>`, `group:<subject>` or `verb:<subject>:<key>`. Whoever installs it is shown the list before accepting, and a surface put at Play that is not listed fails when it is declared. See [Scopes and the gate](scopes.md#scopes-and-the-gate) |
 | `requires_features` | no | none | Install features it needs: `library`, `frontend`, `devices`, `overview` |
 | `platforms` | no | every one | `linux`, `windows`, `macos`, or a Linux distribution's `ID` from `/etc/os-release`, such as `vpinos`.  It runs where any of them matches.  Empty means every one |
 | `events` | no | none | Event names it publishes, without its namespace |

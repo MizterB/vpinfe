@@ -122,13 +122,16 @@ The user sees a line like `scores.example.com did not answer in time`.  It does 
 
 ### `ctx.reaches`
 
-A tuple of the tiers the extension may use, lowest first.  `library` is always in it, and
-`play` or `protected` are in it when the manifest's `tiers` lists them.
+A tuple of the tiers the extension may use, lowest first.  `library` is always in it,
+`protected` is in it when the manifest's `tiers` lists it, and `play` is in it when the
+manifest's `play` names at least one surface.
 
 ```python
 if "play" in ctx.reaches:
     ctx.ui.page("scores", read_scores, area="community", tier=PLAY)
 ```
+
+The manifest names the page under `play`: `"play": ["page:scores"]`.
 
 Nothing is drawn.  A list, page, group, action, verb or router at a tier that is not in it
 raises `ContractError` when it is declared, and an act marked `@tier(...)` at one is refused
@@ -164,7 +167,7 @@ ctx.add_router(router, tier=PLAY)
 
 Nothing is drawn.  A theme or another program calls `GET /api/v1/ext/<name>/hello`.  It raises
 `ContractError` if called after `register` returned, or if `tier` is not one the manifest's
-`tiers` allows.
+`tiers` allows.  A router at `PLAY` needs `"router"` in the manifest's `play`.
 
 Routers mount once, at startup.  An extension that adds routers and is switched on after the
 run began shows "Starts at the next restart" rather than starting.  See
@@ -424,8 +427,8 @@ system updates on this computer".  `ctx.os.methods` is empty without one.
 Asks the helper for `method` and returns what it answers, as JSON would carry it.  A method
 that only reads, such as `updates.check`, can be called from anywhere.  A method that changes
 the machine, such as `updates.apply`, is refused unless the request it is called from reached
-Protected.  Core marks each request with the tier it reached, and the mark follows the request
-into the function core calls and into a job started from it, and it ends when the request does.
+Protected.  Core marks each request with the tier it reached, lowered to the tier the act is
+declared at, and the mark follows the request into the function core calls and into a job started from it, and it ends when the request does.
 An event handler, a timer or a thread the extension started has no mark, and neither has a task
 that is still running after the request was answered, so a change from any of them is refused.
 A request reaches Protected when an Owner makes it under a live Confirm.  The Console asks for

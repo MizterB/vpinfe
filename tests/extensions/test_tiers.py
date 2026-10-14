@@ -11,12 +11,13 @@ import tempfile
 import unittest
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 from fastapi import Depends, FastAPI, Request
 from starlette.testclient import TestClient
 
-from common import extensions, i18n, sign_in
-from common.extensions import contract, host, reach, store
+from common import extensions, i18n, lifecycle, sign_in
+from common.extensions import contract, host, reach, store, system
 from httpapi import auth, errors, extensions_served, scopes
 from tests.support.accepted import owner_accepts
 
@@ -52,8 +53,27 @@ def tiered(ctx: Any) -> None:
     def restart() -> None:
         CALLS.append("restart")
 
+    @contract.tier(reach.PLAY)
+    def sneak() -> None:
+        CALLS.append("sneak")
+
+    @contract.tier(reach.PROTECTED)
+    def reboot_confirmed() -> None:
+        ctx.system.reboot("confirmed")
+
+    def reboot_unconfirmed() -> None:
+        ctx.system.reboot("unconfirmed")
+
+    def rows_that_reboot() -> list[dict]:
+        ctx.system.reboot("from a read")
+        return []
+
+    ctx.ui.list("peek", rows_that_reboot, columns=[{"field": "name"}], area="community")
+
     ctx.ui.list("ops", lambda: [{"name": "a"}], columns=[{"field": "name"}],
-                acts={"tidy": lambda: CALLS.append("tidy"), "restart": restart},
+                acts={"tidy": lambda: CALLS.append("tidy"), "restart": restart,
+                      "sneak": sneak, "reboot_confirmed": reboot_confirmed,
+                      "reboot_unconfirmed": reboot_unconfirmed},
                 area="community")
     if reach.PROTECTED in ctx.reaches:
         ctx.ui.list("locked", lambda: [{"name": "a"}], columns=[{"field": "name"}],
@@ -68,7 +88,9 @@ def _installed(root: Path, tiers: list[str]) -> Path:
         "name": NAME, "display_name": "Tiered", "version": "1.0.0",
         "description": "Declares a route at each tier, for the tests that reach them.",
         "requires_platform": contract.PLATFORM_ABI, "capabilities": ["ui:mount"],
-        "tiers": tiers}), encoding="utf-8")
+        "scopes": ["system:admin"],
+        "tiers": [one for one in tiers if one != "play"],
+        "play": ["list:board"] if "play" in tiers else []}), encoding="utf-8")
     (directory / "i18n" / "en.json").write_text(json.dumps(WORDS), encoding="utf-8")
     (directory / "__init__.py").write_text(
         f"from {MODULE} import tiered as register\n", encoding="utf-8")
@@ -102,6 +124,12 @@ class TierCase(unittest.TestCase):
             request.state.identity = identity
 
         app = FastAPI(dependencies=[Depends(_who)])
+
+        @app.middleware("http")
+        async def marked(request: Request, call_next: Any) -> Any:
+            with reach.marking(identity.tier):
+                return await call_next(request)
+
         errors.install_error_handlers(app)
         app.include_router(extensions_served.router(NAME, Depends(lambda: None)),
                            prefix=f"/ext/{NAME}")
@@ -130,6 +158,15 @@ class WhoReachesWhat(TierCase):
 
         self.assertEqual((read.status_code, pressed.status_code), (403, 403))
         self.assertEqual(CALLS, [])
+
+    def test_an_act_marked_play_on_a_surface_the_manifest_does_not_list_is_refused(self) -> None:
+        everything = _identity(sign_in.OWNER, "play", "library")
+
+        pressed = self.call(everything, "/lists/ops/about/acts/sneak")
+
+        self.assertEqual(pressed.status_code, 400, pressed.text)
+        self.assertEqual(CALLS, [])
+        self.assertIn("does not list under play", pressed.json()["error"]["message"])
 
     def test_a_library_act_runs_for_a_library_holder(self) -> None:
         response = self.call(_identity("", "play", "library"), "/lists/ops/about/acts/tidy")
@@ -186,6 +223,62 @@ class WhoReachesWhat(TierCase):
         self.assertEqual(CALLS, [])
 
 
+def _confirmed_owner() -> auth.Identity:
+    """An Owner holding the Confirm, as the sign-in gives one: core's own scopes too, which
+    are what the request's mark is read from."""
+    return auth.Identity("owner", frozenset({
+        scopes.CONFIG_WRITE, scopes.PROTECTED,
+        *(scopes.extension_scope(NAME, one) for one in reach.TIERS)}), kind=sign_in.OWNER)
+
+
+class ChangingTheComputer(TierCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.asked: list[tuple] = []
+        for held in (
+            patch.object(lifecycle, "performable", return_value=True),
+            patch.object(system, "DELAY", 0),
+            patch.object(system.device_client.local(), "request",
+                         side_effect=lambda *a, **k: self.asked.append((a, k)) or True),
+        ):
+            held.start()
+            self.addCleanup(held.stop)
+
+    def _settled(self) -> None:
+        import threading
+        for one in threading.enumerate():
+            if isinstance(one, threading.Timer):
+                one.join(2)
+
+    def test_an_act_declared_protected_changes_it_for_an_owner_who_has_confirmed(self) -> None:
+        owner = _confirmed_owner()
+
+        response = self.call(owner, "/lists/ops/about/acts/reboot_confirmed")
+        self._settled()
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(len(self.asked), 1)
+
+    def test_an_act_not_declared_protected_cannot_even_under_a_live_confirm(self) -> None:
+        owner = _confirmed_owner()
+
+        response = self.call(owner, "/lists/ops/about/acts/reboot_unconfirmed")
+        self._settled()
+
+        self.assertGreaterEqual(response.status_code, 400, response.text)
+        self.assertEqual(self.asked, [])
+
+
+    def test_a_read_cannot_change_it_under_a_live_confirm_either(self) -> None:
+        owner = _confirmed_owner()
+
+        response = self.call(owner, "/lists/peek", method="get")
+        self._settled()
+
+        self.assertGreaterEqual(response.status_code, 400, response.text)
+        self.assertEqual(self.asked, [])
+
+
 class AnUnlistedTier(TierCase):
     listed = ["play"]
 
@@ -206,6 +299,27 @@ class Marking(unittest.TestCase):
         remote = auth.Identity("remote", scopes.PLAY, kind=sign_in.REMOTE)
 
         self.assertEqual((owner.tier, remote.tier), (reach.LIBRARY, reach.PLAY))
+
+
+    def test_an_act_holds_the_mark_to_its_tier_and_never_above_what_the_caller_reached(
+            self) -> None:
+        with reach.marking(reach.LIBRARY) as mark:
+            reach.answer_at(reach.PLAY)
+            self.assertEqual(mark.tier, reach.PLAY)
+            reach.answer_at(reach.PROTECTED)
+            self.assertEqual(mark.tier, reach.LIBRARY)
+
+    def test_a_protected_act_after_a_library_one_keeps_what_an_owner_reached(self) -> None:
+        with reach.marking(reach.PROTECTED) as mark:
+            reach.answer_at(reach.LIBRARY)
+            self.assertEqual(mark.tier, reach.LIBRARY)
+            reach.answer_at(reach.PROTECTED)
+            self.assertEqual(mark.tier, reach.PROTECTED)
+
+    def test_answering_with_no_request_does_nothing(self) -> None:
+        reach.answer_at(reach.PLAY)
+
+        self.assertIsNone(reach.current())
 
 
 if __name__ == "__main__":

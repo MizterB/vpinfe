@@ -1,10 +1,11 @@
 """How far the request an extension is answering reached.
 
-Core marks each request with the tier it reached, and `ctx.os` reads the mark before it
-lets a change through. The mark lives in a context variable, so it follows the request into
-the threads FastAPI runs a route on and into a job started from it. It is absent from an
-event handler, a timer or a thread the extension started itself, and it stops counting when
-the request ends. Absent means refused.
+Core marks each request with the tier it reached, held to the tier the act answering is
+declared at, and `ctx.os` and `ctx.system` read the mark before they let a change through.
+The mark lives in a context variable, so it follows the request into the threads FastAPI
+runs a route on and into a job started from it. It is absent from an event handler, a timer
+or a thread the extension started itself, and it stops counting when the request ends.
+Absent means refused.
 """
 
 from __future__ import annotations
@@ -36,6 +37,11 @@ class Reach:
     # False once the block that set the mark has ended. A task started inside a request
     # copies the context, and the copy outlives the request.
     live: bool = field(default=True, compare=False)
+    # What the caller reached, which `tier` is held to but never goes above.
+    reached: str = field(init=False, compare=False)
+
+    def __post_init__(self) -> None:
+        self.reached = self.tier
 
 
 _current: contextvars.ContextVar[Reach | None] = contextvars.ContextVar(
@@ -61,6 +67,15 @@ def marking(tier: str, origin: str = "") -> Iterator[Reach]:
     finally:
         mark.live = False
         _current.reset(token)
+
+
+def answer_at(tier: str) -> None:
+    """Hold the mark now in force to `tier`, where the act answering is declared there: a
+    Library act answering a caller who holds a Confirm still runs as Library, so it cannot
+    change the computer. The mark is never above what the caller reached."""
+    mark = current()
+    if mark is not None:
+        mark.tier = min(tier, mark.reached, key=TIERS.index)
 
 
 @contextlib.contextmanager

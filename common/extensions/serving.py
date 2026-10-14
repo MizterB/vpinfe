@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Any
 from common import failures, i18n, sized_media
 from common.service_errors import NotFoundError, RefusedError, ServiceError
 
-from . import contract, pane, pictures
+from . import contract, pane, pictures, reach
 from .fields import FieldError, dialog_fields, dialog_step, listed, number_text, ticked
 
 if TYPE_CHECKING:
@@ -110,8 +110,12 @@ def _need(record: Record, need: Need | None, function: Any, surface: str) -> Non
     if tier not in _context(record).reaches:
         raise RefusedError(i18n.t("error.extensions.tier_not_listed",
                                   display=record.display_name, tier=tier))
+    if tier == contract.PLAY and surface != contract.PLAY:
+        raise RefusedError(i18n.t("error.extensions.play_act_unlisted",
+                                  display=record.display_name))
     if need is not None:
         need(tier)
+    reach.answer_at(tier)
 
 
 def surface_tier(record: Record, kind: str, key: str) -> str:

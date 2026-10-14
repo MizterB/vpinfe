@@ -199,12 +199,12 @@ class Record:
         return str(self.directory.parent)
 
     def uses(self) -> list[str]:
-        """What it says it uses: the core scopes and capabilities it declares, and `tier:play`
-        where a Remote can reach its routes."""
+        """What it says it uses: the core scopes and capabilities it declares, and
+        `play:<surface>` for each surface a Remote can open."""
         if self.manifest is None:
             return []
         return [*self.manifest.scopes, *self.manifest.capabilities,
-                *(f"tier:{one}" for one in self.manifest.reaches if one == reach.PLAY)]
+                *(f"play:{one}" for one in self.manifest.play)]
 
     def is_accepted(self) -> bool:
         """Whether it may run: shipped, or accepted from here with all it declares."""
@@ -212,7 +212,7 @@ class Record:
             return False
         return accepted.extension_accepted(self.name, self.origin, self.manifest.scopes,
                                            self.manifest.capabilities, self.folder,
-                                           self.manifest.reaches)
+                                           self.manifest.play)
 
     def trust(self) -> dict[str, Any]:
         """Where it came from, whether the Owner has accepted it, and what it declares
@@ -225,7 +225,7 @@ class Record:
                 "new_access": accepted.new_access(self.name, self.origin,
                                                   self.manifest.scopes,
                                                   self.manifest.capabilities, self.folder,
-                                                  self.manifest.reaches),
+                                                  self.manifest.play),
                 "accepted_before": accepted.accepted_before(self.name, self.origin,
                                                             self.folder)}
 
@@ -617,7 +617,7 @@ class Registry:
                                       version=target.manifest.version,
                                       scopes=target.manifest.scopes,
                                       capabilities=target.manifest.capabilities,
-                                      tiers=target.manifest.reaches)
+                                      play=target.manifest.play)
             if target is not record:
                 target.became(OFF, STARTS_AT_RESTART)
             elif record.state == OFF and record.why == NOT_ACCEPTED:

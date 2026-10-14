@@ -91,6 +91,18 @@ class Page:
                 if isinstance(one, ui.switch)]
 
 
+class RemoteNameTests(unittest.TestCase):
+    def test_a_surface_a_remote_can_open_is_named_by_its_kind_and_key(self) -> None:
+        used, remote = ext_page._remote_names([
+            "games:read", "play:router", "play:list:scores", "play:page:scores",
+            "play:action:reset_all", "play:group:game", "play:verb:game:rate_all"])
+
+        self.assertEqual(used, ["games:read"])
+        self.assertEqual(remote, [
+            "its web addresses", "the scores list", "the scores page", "the reset all action",
+            "its section on the game panel", "the rate all button on the game panel"])
+
+
 class HeaderTests(unittest.TestCase):
     def test_the_name_is_the_display_name_with_the_version_under_it(self) -> None:
         page = Page(RUNNING)

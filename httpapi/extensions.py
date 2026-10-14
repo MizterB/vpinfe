@@ -106,7 +106,8 @@ def mount(api: FastAPI) -> None:
             # On each route rather than on the inclusion: the startup check that refuses
             # an ungated route reads what a route itself declares, and a gate it cannot
             # see is one nothing would notice the loss of.
-            route.dependencies.extend([_running(record.name), requires(scope)])
+            route.dependencies.extend([_running(record.name), requires(scope),
+                                       extensions_served.answering_at(scopes.extension_tier(scope))])
         api.include_router(ext_router, prefix=f"{PREFIX}/{record.name}")
         logger.debug("Mounted %s/%s gated on %s", PREFIX, record.name, scope)
     for record in extensions.served():
