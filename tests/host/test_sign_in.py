@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+import io
 import json
+import logging
 import os
 import stat
 import sys
 import tempfile
+import threading
 import unittest
 from pathlib import Path
+from unittest import mock
 
-from common import sign_in
+from common import log_setup, sign_in
 from common.sign_in import SignIn, SignInError
 
 
@@ -32,6 +36,7 @@ class SignInCase(unittest.TestCase):
         self.file = Path(holder.name) / "sessions.json"
         self.clock = Clock()
         self.sign_in = SignIn(self.file, self.clock)
+        self.addCleanup(self.sign_in.wait_for_saves)
 
     def shown(self, address: str = "192.168.1.20") -> sign_in.Request:
         request = self.sign_in.ask(address)
@@ -127,6 +132,27 @@ class TheSpacingTests(SignInCase):
         first = self.sign_in.ask("192.168.1.20")
 
         self.assertEqual(self.sign_in.ask("192.168.1.20").id, first.id)
+
+    def test_another_browser_at_the_same_address_is_another_asker(self) -> None:
+        first = self.sign_in.ask("192.168.1.20", "one")
+        self.assertEqual(self.sign_in.ask("192.168.1.20", "one").id, first.id)
+
+        error = self.refusal(lambda: self.sign_in.ask("192.168.1.20", "two"))
+
+        self.assertEqual(error.reason, sign_in.TOO_SOON)
+
+    def test_a_code_is_spent_only_by_the_browser_that_asked(self) -> None:
+        request = self.sign_in.ask("192.168.1.20", "one")
+        shown = self.sign_in.reveal(request.id)
+        assert shown is not None
+
+        error = self.refusal(lambda: self.sign_in.verify(
+            request.id, shown.code, address="192.168.1.20", browser="two"))
+
+        self.assertEqual(error.reason, sign_in.NO_CODE)
+        token, _ = self.sign_in.verify(request.id, shown.code, address="192.168.1.20",
+                                       browser="one")
+        self.assertIsNotNone(self.sign_in.lookup(token))
 
     def test_another_address_must_wait_thirty_seconds(self) -> None:
         self.sign_in.ask("192.168.1.20")
@@ -291,6 +317,29 @@ class TheMachinesSideTests(SignInCase):
         self.assertEqual(request.state, sign_in.SHOWN)
         self.assertTrue(any(request.code in line for line in logged.output))
 
+    def test_with_no_screen_the_digits_reach_the_terminal_and_never_the_log_file(self) -> None:
+        self.sign_in.headless = True
+        root = logging.getLogger()
+        held, level = list(root.handlers), root.level
+        self.addCleanup(lambda: (root.handlers.clear(), root.handlers.extend(held),
+                                 root.setLevel(level)))
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        out = io.StringIO()
+        with mock.patch.object(sys, "stdout", out):
+            written = log_setup.configure_logging(Path(folder.name))
+            request = self.sign_in.ask("192.168.1.20")
+            for handler in root.handlers:
+                handler.flush()
+
+        self.assertIn(request.code, out.getvalue())
+        self.assertNotIn(request.code, written.read_text(encoding="utf-8"))
+        self.assertIn("192.168.1.20 wants to sign in", written.read_text(encoding="utf-8"))
+        for handler in list(root.handlers):
+            if handler not in held:
+                root.removeHandler(handler)
+                handler.close()
+
     def test_a_request_on_the_machine_itself_shows_at_once(self) -> None:
         self.assertEqual(self.sign_in.reveal_now("127.0.0.1").state, sign_in.SHOWN)
 
@@ -342,6 +391,50 @@ class TheSessionTests(SignInCase):
         self.sign_in.lookup(token)
 
         self.assertEqual(self.sign_in.sessions()[0].last_used, session.created + 3 * 3600)
+
+    def test_recording_use_is_written_off_the_calling_thread(self) -> None:
+        """A lookup runs on the event loop, and a save waits on the disk."""
+        token, _ = self.signed_in()
+        self.clock.advance(3 * 3600)
+        writers: list[threading.Thread] = []
+        real = sign_in.machine_secrets.write_private
+
+        def write(path: Path, data: object) -> None:
+            writers.append(threading.current_thread())
+            real(path, data)
+
+        with mock.patch.object(sign_in.machine_secrets, "write_private", write):
+            self.sign_in.lookup(token)
+            self.sign_in.wait_for_saves()
+
+        self.assertEqual(len(writers), 1)
+        self.assertIsNot(writers[0], threading.current_thread())
+        kept = json.loads(self.file.read_text())
+        self.assertEqual([row["last_used"] for row in kept.values()], [self.clock.now])
+
+    def test_a_lookup_does_not_wait_for_a_save_that_is_waiting_on_the_disk(self) -> None:
+        token, _ = self.signed_in()
+        self.clock.advance(3 * 3600)
+        started, release = threading.Event(), threading.Event()
+        real = sign_in.machine_secrets.write_private
+
+        def slow(path: Path, data: object) -> None:
+            started.set()
+            release.wait(5)
+            real(path, data)
+
+        with mock.patch.object(sign_in.machine_secrets, "write_private", slow):
+            self.sign_in.lookup(token)
+            self.assertTrue(started.wait(5))
+            answered: list[object] = []
+            asker = threading.Thread(target=lambda: answered.append(self.sign_in.lookup(token)))
+            asker.start()
+            asker.join(2)
+            release.set()
+            self.sign_in.wait_for_saves()
+
+        self.assertFalse(asker.is_alive())
+        self.assertEqual(len(answered), 1)
 
     def test_signing_one_out_leaves_the_others(self) -> None:
         first, one = self.signed_in()

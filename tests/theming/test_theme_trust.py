@@ -81,6 +81,17 @@ class WhatTheListingSays(Case):
         self.assertTrue(trust["accepted"])
         self.assertTrue(trust["install_accepted"])
 
+    def test_an_installed_stock_theme_with_no_entry_is_stopped_until_accepted(self) -> None:
+        registry = _Registry({"Stock": _offered(STOCK)}, installed=("Stock",))
+        accepted.theme_runs("Stock")
+
+        trust = self.listed(registry)["Stock"]
+        self.assertEqual((trust["origin"], trust["accepted"]), (accepted.STOCK, False))
+
+        accepted.accept_theme("Stock", STOCK)
+
+        self.assertTrue(self.listed(registry)["Stock"]["accepted"])
+
     def test_a_theme_from_another_source_is_not_accepted_before_it_is_installed(self) -> None:
         trust = self.listed(_Registry({"Mine": _offered(OTHER)}))["Mine"]
 

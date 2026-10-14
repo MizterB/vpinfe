@@ -77,6 +77,7 @@ from common import (
 )
 from common.config_store import ConfigStore
 from common.games import launcher_migration, launchers, library_folders  # noqa: F401
+from common.host import this_machine
 from common.host.dof_service import start_dof_service_if_enabled, stop_dof_service
 from common.host.libdmdutil_service import (
     stop_libdmdutil_service,
@@ -245,6 +246,7 @@ def create_api_instances():
 cli_args = parse_args() if len(sys.argv) > 0 else None
 headless = cli_args and cli_args.headless
 sign_in.instance().headless = bool(headless)
+this_machine.warm()
 
 # Register frontend theme assets before NiceGUI can start on the first-run path.
 MOUNT_POINTS, themes_dir = runtime.build_mount_points(base_path, config_dir, config_store)

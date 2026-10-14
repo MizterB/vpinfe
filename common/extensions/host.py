@@ -207,7 +207,7 @@ class Record:
         if self.manifest is None:
             return False
         return accepted.extension_accepted(self.name, self.origin, self.manifest.scopes,
-                                           self.manifest.capabilities)
+                                           self.manifest.capabilities, self.folder)
 
     def trust(self) -> dict[str, Any]:
         """Where it came from, whether the Owner has accepted it, and what it declares
@@ -219,8 +219,9 @@ class Record:
                 "folder": self.folder, "uses": self.uses(),
                 "new_access": accepted.new_access(self.name, self.origin,
                                                   self.manifest.scopes,
-                                                  self.manifest.capabilities),
-                "accepted_before": accepted.accepted_before(self.name, self.origin)}
+                                                  self.manifest.capabilities, self.folder),
+                "accepted_before": accepted.accepted_before(self.name, self.origin,
+                                                            self.folder)}
 
     def pages(self) -> list[dict]:
         """Its pages, titled in the language now set."""

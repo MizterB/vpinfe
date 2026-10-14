@@ -27,11 +27,15 @@ SIGN_OUT_HERE = ("[...document.querySelectorAll('.console-invite')]"
                  f".some(el => el.innerText.includes({SIGN_OUT_WORD}))")
 
 
+_opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor())
+
+
 def _post(instance: LiveInstance, path: str, body: dict) -> dict:
+    """The asking browser's cookie comes back with the code, as a real browser sends it."""
     request = urllib.request.Request(instance.console_url(path), data=json.dumps(body).encode(),
                                      method="POST",
                                      headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(request, timeout=10) as answer:
+    with _opener.open(request, timeout=10) as answer:
         return json.load(answer)
 
 

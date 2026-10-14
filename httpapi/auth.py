@@ -27,7 +27,7 @@ from common.host import this_machine
 from common.i18n import t
 
 from . import scopes
-from .errors import CODE_FORBIDDEN, ApiError
+from .errors import CODE_FORBIDDEN, ApiError, error_response
 
 logger = logging.getLogger("vpinfe.httpapi.auth")
 
@@ -234,6 +234,20 @@ def set_policy(policy: SignInPolicy) -> None:
     _policy = policy
 
 
+def _is_api_description(request: Request) -> bool:
+    """Whether the request is for the generated spec or its explorer page, which FastAPI
+    serves outside any route that could declare a scope."""
+    app = request.scope.get("app")
+    served = [str(url) for url in (getattr(app, "openapi_url", None),
+                                   getattr(app, "docs_url", None),
+                                   getattr(app, "swagger_ui_oauth2_redirect_url", None)) if url]
+    path = request.url.path
+    root = request.scope.get("root_path", "")
+    if root and path.startswith(root):
+        path = path[len(root):]
+    return path.rstrip("/") in served
+
+
 class ScopeMiddleware(BaseHTTPMiddleware):
     """Stamps the caller's identity on every request into the API."""
 
@@ -241,6 +255,10 @@ class ScopeMiddleware(BaseHTTPMiddleware):
                        call_next: RequestResponseEndpoint) -> Response:
         identity = _policy.identify(request)
         request.state.identity = identity
+        # The spec lists every route and scope, so it is for someone who can use them.
+        if not identity.can(scopes.CONFIG_READ) and _is_api_description(request):
+            return error_response(403, CODE_FORBIDDEN, t("error.auth.needs_scope",
+                                                        scope=scopes.CONFIG_READ))
         # What an extension may change reads the tier off the request, so it is set around
         # everything the request runs, and ends with it.
         client = getattr(request, "client", None)

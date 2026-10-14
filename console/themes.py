@@ -126,12 +126,15 @@ def status(theme: dict[str, Any]) -> str:
 
 
 def trust_state(theme: dict[str, Any]) -> str:
-    """UNACCEPTED for an installed theme nobody has accepted, UNOFFICIAL for any other not
-    from the VPinFE Theme List, and nothing for one that is."""
+    """UNACCEPTED for an installed theme nobody has accepted, even one from the VPinFE Theme
+    List that has no entry yet. UNOFFICIAL for any other not from the list, and nothing for
+    one that is."""
     trust = theme.get("trust") or {}
-    if not trust or trust.get("origin") == accepted.STOCK:
+    if not trust:
         return ""
-    return UNACCEPTED if theme.get("installed") and not trust.get("accepted") else UNOFFICIAL
+    if theme.get("installed") and not trust.get("accepted"):
+        return UNACCEPTED
+    return "" if trust.get("origin") == accepted.STOCK else UNOFFICIAL
 
 
 def stopped(theme: dict[str, Any]) -> bool:

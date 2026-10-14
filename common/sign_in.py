@@ -22,7 +22,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from common import machine_secrets, paths
+from common import log_setup, machine_secrets, paths
 from common.i18n import t
 
 logger = logging.getLogger("vpinfe.common.sign_in")
@@ -37,7 +37,8 @@ CONFIRM_ASK_SECONDS = 5
 PAIR_SPACING_LIMIT_SECONDS = 60 * 60
 SESSION_DAYS = 90
 SESSION_SECONDS = SESSION_DAYS * 24 * 60 * 60
-# Writing the file on every request would put a disk write behind each page load.
+# Writing the file on every request would put a disk write behind each page load, and a
+# lookup runs on the event loop, so the write it does make is not waited for.
 _TOUCH_SECONDS = 60
 
 OWNER = "owner"
@@ -74,6 +75,8 @@ class Request:
     id: str
     address: str
     asked: float
+    # What tells two browsers at one address apart: a secret only the asking browser holds.
+    browser: str = field(default="", repr=False)
     state: str = WAITING
     code: str = ""
     tries: int = 0
@@ -128,6 +131,10 @@ def describe_agent(user_agent: str) -> str:
         else browser or device
 
 
+def _same(held: str, offered: str) -> bool:
+    return hmac.compare_digest(held.encode(), offered.encode())
+
+
 def _hash(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
@@ -151,6 +158,10 @@ class SignIn:
         self._pair_last = 0.0
         self._pair_spent = 0
         self._loaded = False
+        self._saving: threading.Thread | None = None
+        self._write_lock = threading.Lock()
+        self._version = 0
+        self._written = 0
         self._listeners: list[Callable[[Request | None], None]] = []
         # With no screen the log is the machine's display, so the digits go there at once.
         self.headless = False
@@ -175,17 +186,53 @@ class SignIn:
                 continue
             self._rows[hashed] = _Row(hashed, session)
 
-    def _save(self) -> None:
-        held: dict[str, Any] = {
+    def _snapshot(self) -> tuple[int, dict[str, Any]]:
+        self._version += 1
+        return self._version, {
             row.hashed: {"id": row.session.id, "kind": row.session.kind,
                          "address": row.session.address, "agent": row.session.agent,
                          "created": row.session.created, "last_used": row.session.last_used,
                          "via": row.session.via}
             for row in self._rows.values()}
-        try:
-            machine_secrets.write_private(self._file(), held)
-        except OSError:
-            logger.warning("Could not save the signed-in browsers", exc_info=True)
+
+    def _write(self, version: int, held: dict[str, Any]) -> None:
+        """Write a snapshot unless a newer one is already on disk."""
+        with self._write_lock:
+            if version < self._written:
+                return
+            try:
+                machine_secrets.write_private(self._file(), held)
+                self._written = version
+            except OSError:
+                logger.warning("Could not save the signed-in browsers", exc_info=True)
+
+    def _save(self) -> None:
+        self._write(*self._snapshot())
+
+    def _save_in_background(self) -> None:
+        """Save from a thread, for a caller on the event loop: a save waits on the disk, and
+        the lock is not held while it does. Saves asked for while one is waiting are the one
+        save."""
+        if self._saving is not None:
+            return
+
+        def run() -> None:
+            with self._lock:
+                version, held = self._snapshot()
+            try:
+                self._write(version, held)
+            finally:
+                self._saving = None
+
+        self._saving = threading.Thread(target=run, daemon=True, name="sign-in-save")
+        self._saving.start()
+
+    def wait_for_saves(self) -> None:
+        """Return once a save asked for from a lookup has finished. For a test, so it does
+        not leave one writing into a folder that is about to go."""
+        waiting = self._saving
+        if waiting is not None:
+            waiting.join()
 
     def _forget_stale(self) -> None:
         cutoff = self._clock() - SESSION_SECONDS
@@ -221,22 +268,27 @@ class SignIn:
                 return 0.0
             return max(0.0, self._last_ask + self._spacing() - self._clock())
 
-    def ask(self, address: str) -> Request:
-        """A browser at `address` wants a code. Raises `SignInError` when it may not have one."""
+    def ask(self, address: str, browser: str = "") -> Request:
+        """A browser at `address` wants a code. Raises `SignInError` when it may not have one.
+
+        `browser` is that browser's own secret. Another browser at the same address is
+        another asker, so it waits its turn rather than sharing the request."""
         with self._lock:
             if address in self._ignored:
                 raise SignInError(IGNORED)
             now = self._clock()
             live = self._live()
             wait = int(self._last_ask + self._spacing() - now)
-            if live is not None and live.address == address and wait > 0:
+            same = live is not None and live.address == address and _same(live.browser, browser)
+            if live is not None and same and wait > 0:
                 return live
-            if live is not None and live.address != address and live.state == SHOWN:
+            if live is not None and not same and live.state == SHOWN:
                 raise SignInError(TOO_SOON, wait=self.seconds_left(live))
             if wait > 0 and self._last_ask:
                 raise SignInError(TOO_SOON, wait=wait)
             self._last_ask = now
-            made = self._request = Request(id=uuid.uuid4().hex, address=address, asked=now)
+            made = self._request = Request(id=uuid.uuid4().hex, address=address, asked=now,
+                                           browser=browser)
             logger.warning("%s wants to sign in", address)
         self._tell()
         if self.headless:
@@ -274,7 +326,8 @@ class SignIn:
                 request.state = SHOWN
                 request.revealed = self._clock()
                 if self.headless:
-                    logger.warning("Sign-in code for %s: %s", request.address, request.code)
+                    logger.warning("Sign-in code for %s: %s", request.address, request.code,
+                                   extra={log_setup.TERMINAL_ONLY: True})
         self._tell()
         return request
 
@@ -305,15 +358,15 @@ class SignIn:
 
     # --- the browser's side -----------------------------------------------------------
 
-    def verify(self, request_id: str, code: str, *, address: str, kind: str = OWNER,
-               agent: str = "") -> tuple[str, Session]:
+    def verify(self, request_id: str, code: str, *, address: str, browser: str = "",
+               kind: str = OWNER, agent: str = "") -> tuple[str, Session]:
         """Spend a try on `code`. Returns the session's secret and the session on success."""
         spent = False
         with self._lock:
             request = self._live()
             if request is None or request.id != request_id or request.state != SHOWN:
                 raise SignInError(NO_CODE)
-            if request.address != address:
+            if request.address != address or not _same(request.browser, browser):
                 raise SignInError(NO_CODE)
             request.tries += 1
             right = hmac.compare_digest(request.code.encode(), code.strip().encode())
@@ -368,7 +421,7 @@ class SignIn:
                 return None
             if now - row.session.last_used >= _TOUCH_SECONDS:
                 row.session = replace(row.session, last_used=now)
-                self._save()
+                self._save_in_background()
             return row.session
 
     def sessions(self) -> list[Session]:

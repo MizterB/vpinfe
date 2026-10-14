@@ -5,6 +5,7 @@ The code itself is shown on this computer and never answered here. See common/si
 
 from __future__ import annotations
 
+import secrets
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request, Response
@@ -36,6 +37,10 @@ from .models import (
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+# Held by the browser that asked for a code, so another browser at the same address cannot
+# take that request or its code.
+ASKING = "vpinfe_asking"
 
 _REFUSALS = {
     sign_in.IGNORED: "error.signin.ignored",
@@ -69,10 +74,10 @@ def _same_site(request: Request) -> None:
         raise ApiError(CODE_FORBIDDEN, t("error.signin.cross_site"), status_code=403)
 
 
-def _asked(address: str) -> SignInAsk:
+def _asked(address: str, browser: str) -> SignInAsk:
     signer = sign_in.instance()
     try:
-        made = signer.ask(address)
+        made = signer.ask(address, browser)
     except sign_in.SignInError as error:
         raise _refusal(error) from error
     return SignInAsk(request_id=made.id, expires_in=signer.seconds_left(made),
@@ -83,6 +88,7 @@ def _verified(attempt: SignInAttempt, request: Request) -> str:
     try:
         token, _ = sign_in.instance().verify(
             attempt.request_id, attempt.code, address=_address(request),
+            browser=request.cookies.get(ASKING, ""),
             agent=sign_in.describe_agent(request.headers.get("user-agent", "")))
     except sign_in.SignInError as error:
         raise _refusal(error) from error
@@ -91,10 +97,14 @@ def _verified(attempt: SignInAttempt, request: Request) -> str:
 
 @router.post("/code", summary="Ask for a sign-in code", response_model=SignInAsk,
              dependencies=[requires(scopes.INSTANCE_READ), Depends(_same_site)])
-def ask(request: Request) -> SignInAsk:
+def ask(request: Request, response: Response) -> SignInAsk:
     """Makes a request this computer shows as "{address} wants to sign in". The digits appear
     only after someone here chooses Show, so this answer holds none."""
-    return _asked(_address(request))
+    browser = request.cookies.get(ASKING) or secrets.token_urlsafe(24)
+    asked = _asked(_address(request), browser)
+    response.set_cookie(ASKING, browser, max_age=sign_in.CODE_SECONDS, httponly=True,
+                        samesite="strict", secure=request.url.scheme == "https", path="/")
+    return asked
 
 
 @router.post("/session", summary="Sign in with the code this computer showed",

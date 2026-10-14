@@ -28,6 +28,12 @@ class TheMarkOnATheme(unittest.TestCase):
         self.assertEqual(themes.trust_state(theme), "")
         self.assertFalse(themes.stopped(theme))
 
+    def test_one_installed_from_the_theme_list_and_not_accepted_is_stopped(self) -> None:
+        theme = _theme(installed=True, trust=_trust(accepted.STOCK, accepted_=False))
+
+        self.assertEqual(themes.trust_state(theme), themes.UNACCEPTED)
+        self.assertTrue(themes.stopped(theme))
+
     def test_a_theme_with_no_word_on_trust_has_none(self) -> None:
         self.assertEqual(themes.trust_state(_theme()), "")
 

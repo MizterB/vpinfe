@@ -150,7 +150,7 @@ def _trust(key: str, source: str, installed: bool, *, in_folder: bool = False
     config = get_ini_config()
     return {"origin": origin, "source": source,
             "source_name": theme_sources.name_of_source(config, source) if source else "",
-            "accepted": on_list or origin == accepted.STOCK,
+            "accepted": on_list,
             "install_accepted": from_here}
 
 

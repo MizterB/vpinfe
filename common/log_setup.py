@@ -119,6 +119,22 @@ class _ExpectedNoiseFilter(logging.Filter):
         return True
 
 
+# A record that carries `extra={TERMINAL_ONLY: True}` is for the screen in front of the
+# machine and is never written to the log file, which the Console shows to others.
+TERMINAL_ONLY = "terminal_only"
+
+
+class _TerminalOnlyFilter(logging.Filter):
+    """Drops the terminal-only records, or with `wanted` keeps nothing else."""
+
+    def __init__(self, wanted: bool = False) -> None:
+        super().__init__()
+        self.wanted = wanted
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return bool(getattr(record, TERMINAL_ONLY, False)) == self.wanted
+
+
 class _ThirdPartyFilter(logging.Filter):
     def __init__(self, include_third_party: bool) -> None:
         super().__init__()
@@ -201,6 +217,12 @@ def configure_logging(log_dir: Path, ini_config: Any = None,
         terminal_handler.addFilter(_ThirdPartyFilter(include_third_party))
         terminal_handler.addFilter(_WindowsFilter(include_windows))
         root_logger.addHandler(terminal_handler)
+    else:
+        # Turning the terminal log off must not hide what a person at the machine has to read.
+        screen_handler = logging.StreamHandler(sys.stdout)
+        screen_handler.setFormatter(formatter)
+        screen_handler.addFilter(_TerminalOnlyFilter(wanted=True))
+        root_logger.addHandler(screen_handler)
 
     if file_enabled:
         log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -214,6 +236,7 @@ def configure_logging(log_dir: Path, ini_config: Any = None,
             # Start each run in a fresh file, with the previous run kept as a backup.
             file_handler.doRollover()
         file_handler.setFormatter(formatter)
+        file_handler.addFilter(_TerminalOnlyFilter())
         file_handler.addFilter(_ExpectedNoiseFilter())
         file_handler.addFilter(_ThirdPartyFilter(include_third_party))
         file_handler.addFilter(_WindowsFilter(include_windows))

@@ -132,6 +132,11 @@ def own_names() -> frozenset[str]:
         return _names
 
 
+def warm() -> None:
+    """Take the names now, from a thread, so the first request does not wait on DNS."""
+    threading.Thread(target=own_names, daemon=True, name="this-machine-warm").start()
+
+
 def forget() -> None:
     """Take the names again at the next ask. For a test."""
     global _names, _taken, _interfaces, _interfaces_taken

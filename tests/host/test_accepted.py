@@ -28,6 +28,7 @@ class Case(unittest.TestCase):
         self.themes.mkdir()
         self.file = self.config / "accepted.json"
         for name, value in (("CONFIG_DIR", self.config), ("ACCEPTED_PATH", self.file),
+                            ("SECRETS_PATH", self.config / "secrets.json"),
                             ("THEMES_DIR", self.themes)):
             patched = mock.patch.object(paths, name, value)
             patched.start()
@@ -118,6 +119,23 @@ class ThemesAlreadyInstalled(Case):
         self.assertFalse(accepted.theme_runs("Old"))
         self.assertFalse(accepted.theme_runs("Later"))
 
+    def test_a_deleted_list_is_an_empty_one_and_never_a_new_seeding(self) -> None:
+        self.install("Old")
+        self.assertTrue(accepted.theme_runs("Old"))
+        self.file.unlink()
+
+        self.assertFalse(accepted.theme_runs("Old"))
+        self.assertEqual(accepted.unaccepted_themes(), ["Old"])
+        accepted.accept_theme("Old", "")
+        self.assertTrue(accepted.theme_runs("Old"))
+
+    def test_the_first_read_with_no_list_still_starts_one(self) -> None:
+        self.install("Old")
+
+        self.assertFalse(self.file.exists())
+        self.assertTrue(accepted.theme_runs("Old"))
+        self.assertTrue(self.file.exists())
+
     def test_the_default_theme_always_runs(self) -> None:
         self.assertTrue(accepted.theme_runs(accepted.default_theme()))
 
@@ -166,6 +184,17 @@ class Extensions(Case):
         self.accept()
 
         self.assertFalse(accepted.extension_accepted("tool", accepted.REPLACES, [], []))
+
+    def test_an_acceptance_belongs_to_the_folder_it_was_given_for(self) -> None:
+        self.accept(folder="/x")
+
+        self.assertTrue(accepted.extension_accepted(
+            "tool", accepted.IN_FOLDER, ["games:read"], ["ui:mount"], "/x"))
+        self.assertFalse(accepted.extension_accepted(
+            "tool", accepted.IN_FOLDER, ["games:read"], ["ui:mount"], "/elsewhere"))
+        self.assertFalse(accepted.accepted_before("tool", accepted.IN_FOLDER, "/elsewhere"))
+        self.assertEqual(accepted.new_access("tool", accepted.IN_FOLDER, ["games:read"], [],
+                                             "/elsewhere"), ["games:read"])
 
     def test_extensions_are_never_carried_over_on_upgrade(self) -> None:
         self.install("Old")

@@ -39,10 +39,10 @@ the documented entry point is a plain 200. Both spellings work.
 |--------|------|---------|
 | GET | `/api/v1` | Discovery — what this instance is and what it can do |
 | GET | `/api/v1/health` | Liveness |
-| GET | `/api/v1/openapi.json` | Generated OpenAPI spec |
-| GET | `/api/v1/docs` | Swagger UI |
-| POST | `/api/v1/auth/code` | Ask for a sign-in code. The machine shows "{address} wants to sign in" with Show and Ignore; the answer holds a `request_id` and no digits. 429 `too_many_requests` while another address's ask is too recent, 403 once the machine has ignored this address |
-| POST | `/api/v1/auth/session` | `{"request_id", "code"}` signs this browser in and sets the `vpinfe_session` cookie: HttpOnly, SameSite Lax, 90 days unused, Secure under HTTPS. 403 `forbidden` with `details.reason` of `wrong`, `used_up`, `no_code` or `ignored` |
+| GET | `/api/v1/openapi.json` | Generated OpenAPI spec; another computer needs to be signed in |
+| GET | `/api/v1/docs` | Swagger UI; another computer needs to be signed in |
+| POST | `/api/v1/auth/code` | Ask for a sign-in code. The machine shows "{address} wants to sign in" with Show and Ignore; the answer holds a `request_id` and no digits, and sets a `vpinfe_asking` cookie (HttpOnly, SameSite Strict, ten minutes) that the browser has to send back with the code. 429 `too_many_requests` while another address's ask is too recent, 403 once the machine has ignored this address |
+| POST | `/api/v1/auth/session` | `{"request_id", "code"}` signs this browser in, from the browser that asked, and sets the `vpinfe_session` cookie: HttpOnly, SameSite Lax, 90 days unused, Secure under HTTPS. 403 `forbidden` with `details.reason` of `wrong`, `used_up`, `no_code` or `ignored` |
 | GET | `/api/v1/auth/me` | Whether this browser is signed in, whether it reached the API from the machine itself, and which kind of sign-in it holds |
 | POST | `/api/v1/auth/sign_out` | Sign this browser out |
 | GET | `/api/v1/auth/sessions` | The browsers signed in: what each is, where from, when last used, and which one is asking (`access:read`) |

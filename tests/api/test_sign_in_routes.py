@@ -10,6 +10,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 import httpapi
@@ -116,6 +117,27 @@ class TheCodeFlow(SignInOverHttp):
 
         self.assertEqual(refused.status_code, 403)
         self.assertEqual(refused.json()["error"]["details"]["reason"], sign_in.NO_CODE)
+
+    def test_a_second_browser_at_the_same_address_cannot_take_the_request(self) -> None:
+        first = self.computer()
+        request_id, code = self.shown(first)
+        second = self.computer()
+
+        asked = second.post("/auth/code")
+        stolen = second.post("/auth/session", json={"request_id": request_id, "code": code})
+
+        self.assertEqual(asked.status_code, 429)
+        self.assertEqual(stolen.status_code, 403)
+        self.assertEqual(stolen.json()["error"]["details"]["reason"], sign_in.NO_CODE)
+        done = first.post("/auth/session", json={"request_id": request_id, "code": code})
+        self.assertEqual(done.status_code, 200, done.text)
+
+    def test_the_same_browser_asking_again_gets_its_request_back(self) -> None:
+        client = self.computer()
+
+        first = client.post("/auth/code").json()["request_id"]
+
+        self.assertEqual(client.post("/auth/code").json()["request_id"], first)
 
     def test_another_address_asking_too_soon_is_told_to_wait(self) -> None:
         self.computer().post("/auth/code")
@@ -244,3 +266,25 @@ class TheScopes(SignInOverHttp):
 
     def test_a_computer_not_signed_in_can_still_ask_what_this_is(self) -> None:
         self.assertEqual(self.computer().get("/").status_code, 200)
+
+    def test_the_spec_and_the_explorer_wait_for_a_sign_in(self) -> None:
+        client = self.computer()
+
+        for path in ("/openapi.json", "/docs", "/docs/oauth2-redirect"):
+            self.assertEqual(client.get(path).status_code, 403, path)
+
+        self.sign_in(client)
+
+        for path in ("/openapi.json", "/docs"):
+            self.assertEqual(client.get(path).status_code, 200, path)
+        self.assertEqual(self.machine.get("/openapi.json").status_code, 200)
+
+    def test_the_gate_is_the_same_when_the_api_is_mounted_under_its_prefix(self) -> None:
+        parent = FastAPI()
+        httpapi.register(parent)
+        client = TestClient(parent, raise_server_exceptions=False, client=(OTHER, 50000))
+        machine = TestClient(parent, raise_server_exceptions=False)
+
+        self.assertEqual(client.get(f"{httpapi.API_PREFIX}/openapi.json").status_code, 403)
+        self.assertEqual(client.get(f"{httpapi.API_PREFIX}/docs").status_code, 403)
+        self.assertEqual(machine.get(f"{httpapi.API_PREFIX}/openapi.json").status_code, 200)

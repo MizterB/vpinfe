@@ -8,6 +8,8 @@ loopback Host is not enough when the page that sent it belongs to another site.
 
 from __future__ import annotations
 
+import threading
+import time
 import unittest
 from unittest import mock
 
@@ -164,6 +166,30 @@ class TheTestClientTests(Machine):
             "testclient", {"host": "testserver"}))
         self.assertFalse(this_machine.request_is_this_machine(
             "127.0.0.1", {"host": "testserver"}))
+
+
+
+class TheWarmingTests(unittest.TestCase):
+    def test_warming_takes_the_names_off_the_calling_thread(self) -> None:
+        this_machine.forget()
+        self.addCleanup(this_machine.forget)
+        taken = threading.Event()
+        callers: list[threading.Thread] = []
+
+        def collect() -> frozenset[str]:
+            callers.append(threading.current_thread())
+            taken.set()
+            return frozenset({"cab"})
+
+        with mock.patch.object(this_machine, "_collect", collect):
+            this_machine.warm()
+            self.assertTrue(taken.wait(5))
+            self.assertIsNot(callers[0], threading.current_thread())
+            for _ in range(100):
+                if this_machine._names:
+                    break
+                time.sleep(0.05)
+            self.assertEqual(this_machine.own_names(), frozenset({"cab"}))
 
 
 if __name__ == "__main__":

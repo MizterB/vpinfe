@@ -32,17 +32,21 @@ REPLACES = "replaces"
 
 _THEMES = "themes"
 _EXTENSIONS = "extensions"
-_SEEDED = "seeded"
+# Kept in the secrets file, which a person clearing the accepted list has no reason to
+# touch, under the list's own path so a list somewhere else starts for itself.
+_SEEDED = "accepted_seeded"
 
 _lock = threading.RLock()
 
 
 def _read() -> dict[str, Any]:
     """The file as it stands, with the themes already installed counted as accepted the
-    first time there is no file. A file that cannot be read is an empty list, never a
-    reason to seed again."""
+    first time there is no file. A file that cannot be read, or that is gone after it was
+    started, is an empty list, never a reason to seed again."""
     with _lock:
         if not paths.ACCEPTED_PATH.exists():
+            if _was_seeded():
+                return {_THEMES: {}, _EXTENSIONS: {}}
             return _seed()
         held = machine_secrets.read_private(paths.ACCEPTED_PATH)
         for part in (_THEMES, _EXTENSIONS):
@@ -55,10 +59,15 @@ def _seed() -> dict[str, Any]:
     """Every theme folder present counts as accepted, with no address: the install being
     upgraded chose them. Extensions are new in 3.0, so there is nothing to carry over."""
     themes: dict[str, Any] = {one: {"source": None} for one in theme_folders()}
-    seeded = {_THEMES: themes, _EXTENSIONS: {}, _SEEDED: True}
+    seeded = {_THEMES: themes, _EXTENSIONS: {}}
     _write(seeded)
+    machine_secrets.put(_SEEDED, str(paths.ACCEPTED_PATH))
     logger.info("Accepted list started with %d theme(s) already installed", len(themes))
     return seeded
+
+
+def _was_seeded() -> bool:
+    return machine_secrets.read().get(_SEEDED) == str(paths.ACCEPTED_PATH)
 
 
 def theme_folders() -> list[str]:
@@ -156,29 +165,33 @@ def forget_theme(key: str) -> None:
 
 
 def extension_accepted(name: str, origin: str, scopes: Collection[str],
-                       capabilities: Collection[str]) -> bool:
+                       capabilities: Collection[str], folder: str | None = None) -> bool:
     """Whether this extension may run: shipped with VPinFE, or accepted from where it is
-    now with at least the access it declares now."""
+    now with at least the access it declares now. `folder` is the folder it is in, and
+    an acceptance given for another folder does not cover it; None leaves the folder out."""
     if origin == SHIPPED:
         return True
-    return not new_access(name, origin, scopes, capabilities) and _kept(name, origin) is not None
+    return (not new_access(name, origin, scopes, capabilities, folder)
+            and _kept(name, origin, folder) is not None)
 
 
-def _kept(name: str, origin: str) -> dict[str, Any] | None:
+def _kept(name: str, origin: str, folder: str | None = None) -> dict[str, Any] | None:
     found = _read()[_EXTENSIONS].get(name)
-    return found if isinstance(found, dict) and found.get("origin") == origin else None
+    if not isinstance(found, dict) or found.get("origin") != origin:
+        return None
+    return found if folder is None or found.get("folder") == folder else None
 
 
-def accepted_before(name: str, origin: str) -> bool:
+def accepted_before(name: str, origin: str, folder: str | None = None) -> bool:
     """Whether there is an acceptance for this extension, whatever it covered."""
-    return _kept(name, origin) is not None
+    return _kept(name, origin, folder) is not None
 
 
 def new_access(name: str, origin: str, scopes: Collection[str],
-               capabilities: Collection[str]) -> list[str]:
+               capabilities: Collection[str], folder: str | None = None) -> list[str]:
     """What the extension declares that its acceptance did not cover: all of it when it
     was never accepted."""
-    found = _kept(name, origin) or {}
+    found = _kept(name, origin, folder) or {}
     covered = {*(found.get("scopes") or ()), *(found.get("capabilities") or ())}
     return [one for one in (*scopes, *capabilities) if one not in covered]
 
