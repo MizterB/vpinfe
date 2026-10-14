@@ -26,8 +26,10 @@ from common.service_errors import RefusedError
 
 GUIDE = Path(__file__).resolve().parents[2] / "docs" / "extensions"
 EXAMPLES = GUIDE / "examples"
-RECIPES = sorted(one for one in (EXAMPLES / "recipes").iterdir() if one.is_dir())
-PAGES = sorted(GUIDE.glob("*.md"))
+RECIPES = sorted(one for one in (EXAMPLES / "recipes").iterdir()
+                 if one.is_dir() and not one.name.startswith("."))
+SCOREBOARD = EXAMPLES / "scoreboard"
+PAGES = sorted(GUIDE.rglob("*.md"))
 
 SPEC = importlib.util.spec_from_file_location("practice_site", EXAMPLES / "practice_site.py")
 assert SPEC is not None and SPEC.loader is not None
@@ -136,8 +138,8 @@ class PracticeSite(unittest.TestCase):
         self.assertNotIn(self.site.server_address[1], (0, practice_site.PORT))
 
 
-class RecipesDoWhatTheyClaim(unittest.TestCase):
-    """The recipes loaded as the host loads them, and driven through what core serves."""
+class ExamplesLoadedByTheHost(unittest.TestCase):
+    """An example folder loaded as the host loads it, with the practice site serving."""
 
     def setUp(self) -> None:
         tmp = tempfile.TemporaryDirectory()
@@ -149,11 +151,22 @@ class RecipesDoWhatTheyClaim(unittest.TestCase):
         self.addCleanup(self.site.server_close)
         self.addCleanup(self.site.shutdown)
 
-    def load(self, name: str) -> host.Record:
+    def load(self, name: str, folder: Path | None = None) -> host.Record:
         self.addCleanup(i18n.disown, f"ext.{name}")
-        record = self.registry.load(EXAMPLES / "recipes" / name)
+        record = self.registry.load(folder or EXAMPLES / "recipes" / name)
         self.assertEqual(record.state, host.LOADED, record.error)
         return record
+
+    def posted_scores(self) -> list[dict]:
+        request = urllib.request.Request(
+            f"http://{practice_site.HOST}:{practice_site.PORT}/top",
+            headers={"X-API-Key": practice_site.KEY})
+        with urllib.request.urlopen(request, timeout=5) as answer:
+            return json.loads(answer.read())
+
+
+class RecipesDoWhatTheyClaim(ExamplesLoadedByTheHost):
+    """The recipes loaded as the host loads them, and driven through what core serves."""
 
     def test_the_smallest_extension_keeps_what_its_setting_is_changed_to(self) -> None:
         record = self.load("smallest")
@@ -197,7 +210,7 @@ class RecipesDoWhatTheyClaim(unittest.TestCase):
         self.assertEqual(sure["step"], "sure")
         self.assertEqual(sure["summary"][2], ["Score", "5,000,000"])
         self.assertEqual(done, {"message": "Posted a score for Taxi"})
-        self.assertIn("ADA", [one["player"] for one in self._top()])
+        self.assertIn("ADA", [one["player"] for one in self.posted_scores()])
 
     def test_the_site_being_down_is_the_services_failure_and_not_the_dialogs(self) -> None:
         record = self.load("post_score")
@@ -265,13 +278,6 @@ class RecipesDoWhatTheyClaim(unittest.TestCase):
         self.assertEqual([one["player"] for one in serving.list_rows(record, "scores")["rows"]],
                          ["AAA", "CJ"])
 
-    def _top(self) -> list[dict]:
-        request = urllib.request.Request(
-            f"http://{practice_site.HOST}:{practice_site.PORT}/top",
-            headers={"X-API-Key": practice_site.KEY})
-        with urllib.request.urlopen(request, timeout=5) as answer:
-            return json.loads(answer.read())
-
     @staticmethod
     def _until(done: Any, seconds: float = 10) -> None:
         stop = time.monotonic() + seconds
@@ -281,8 +287,91 @@ class RecipesDoWhatTheyClaim(unittest.TestCase):
             time.sleep(0.02)
 
 
+class ScoreboardDoesWhatTheTutorialSays(ExamplesLoadedByTheHost):
+    """The tutorial's extension, driven through each thing the tutorial says appears."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.record = self.load("scoreboard", SCOREBOARD)
+        self.record.context.config.set("key", practice_site.KEY)
+
+    def test_it_loads_and_passes_the_check_with_what_the_tutorial_says_it_declares(self) -> None:
+        lines, passed = check.check(SCOREBOARD)
+
+        self.assertTrue(passed, "\n".join(lines))
+        shown = "\n".join(lines)
+        for wanted in ("loads      scoreboard 1.0.0",
+                       "settings   site (string, default 'http://127.0.0.1:8790')",
+                       "settings   key (secret)",
+                       "list       scores in community: 3 columns, 0 views, 3 verbs",
+                       "dialog     post: ask check run"):
+            self.assertIn(wanted, shown)
+
+    def test_the_settings_page_has_the_site_and_a_key_that_is_never_sent_back(self) -> None:
+        shown = serving.settings_read(self.record)["fields"]
+
+        self.assertEqual([one["key"] for one in shown], ["site", "key"])
+        self.assertEqual(shown[0]["placeholder"], "http://127.0.0.1:8790")
+        self.assertEqual((shown[1]["type"], shown[1]["set"]), ("secret", True))
+        self.assertNotIn("value", shown[1])
+
+    def test_the_list_is_the_sites_scores_with_what_each_verb_needs_and_flag_dims_after_use(
+            self) -> None:
+        rows = serving.list_rows(self.record, "scores")["rows"]
+
+        said = serving.list_verb(self.record, "scores", "flag", [rows[0]["id"]])
+        after = serving.list_rows(self.record, "scores")["rows"]
+
+        self.assertEqual([one["player"] for one in rows], ["AAA", "BEE", "CJ"])
+        self.assertEqual(rows[0]["page"], f"http://127.0.0.1:8790/scores/{rows[0]['id']}")
+        self.assertEqual(said, {"message": "Flagged the score"})
+        self.assertEqual([one["can_flag"] for one in after], [False, True, True])
+        with self.assertRaisesRegex(RefusedError, "Already flagged"):
+            serving.list_verb(self.record, "scores", "flag", [rows[0]["id"]])
+
+    def test_a_refused_key_says_so_in_the_pages_words(self) -> None:
+        self.record.context.config.set("key", "nope")
+
+        with self.assertLogs(logger_for("scoreboard").name, "WARNING"):
+            with self.assertRaises(serving.ExtensionError) as raised:
+                serving.list_rows(self.record, "scores")
+
+        self.assertEqual(raised.exception.message, "The site did not accept the key")
+
+    def test_the_dialog_names_each_missing_field_then_summarizes_then_posts(self) -> None:
+        empty = serving.dialog_check(self.record, "post", {})
+        values = {"player": "DEV", "table": "Twilight Zone", "score": 1_500_000}
+        sure = serving.dialog_check(self.record, "post", values)
+        done = serving.dialog_run(self.record, "post", values, "sure")
+
+        self.assertEqual(empty["errors"], {"player": "This is needed", "table": "This is needed",
+                                           "score": "This is needed"})
+        self.assertEqual(sure["title"], "Post this score?")
+        self.assertEqual(sure["summary"][2], ["Score", "1,500,000"])
+        self.assertEqual(done, {"message": "Posted a score for Twilight Zone"})
+        self.assertIn("DEV", [one["player"] for one in self.posted_scores()])
+
+    def test_a_game_ending_writes_a_line_to_the_extensions_log(self) -> None:
+        with self.assertLogs(logger_for("scoreboard").name, "INFO") as logged:
+            events.emit("table.play_recorded", game_id="medieval-madness", seconds=840,
+                        private=False)
+
+        self.assertEqual(logged.records[0].getMessage(),
+                         "medieval-madness was played for 14 minutes")
+
+    def test_one_minute_reads_in_the_singular_and_a_private_game_writes_nothing(self) -> None:
+        with self.assertLogs(logger_for("scoreboard").name, "INFO") as logged:
+            events.emit("table.play_recorded", game_id="a", seconds=60, private=True)
+            events.emit("table.play_recorded", game_id="b", seconds=60, private=False)
+
+        self.assertEqual([one.getMessage() for one in logged.records],
+                         ["b was played for a minute"])
+
+
 # A line holding only a path in backticks, then the block that is that file.
 BLOCK = re.compile(r"^`([\w./-]+\.\w+)`\n\n```\w*\n(.*?)^```$", re.S | re.M)
+# The same with "(excerpt)" after the path, then a piece of that file.
+EXCERPT = re.compile(r"^`([\w./-]+\.\w+)` \(excerpt\)\n\n```\w*\n(.*?)^```$", re.S | re.M)
 
 
 class CodeBlocksAreFiles(unittest.TestCase):
@@ -298,6 +387,35 @@ class CodeBlocksAreFiles(unittest.TestCase):
                     self.assertTrue((EXAMPLES / path).is_file(), f"{path} is not a file")
                     self.assertEqual(text, (EXAMPLES / path).read_text())
         self.assertGreater(found, 0, "no block names a file, so nothing was held to one")
+
+    def test_an_excerpt_is_a_piece_of_the_file_it_names(self) -> None:
+        found = 0
+        for page in PAGES:
+            for match in EXCERPT.finditer(page.read_text()):
+                found += 1
+                path, text = match.group(1), match.group(2).rstrip("\n")
+                with self.subTest(f"{page.name}: {path}: {text.splitlines()[0].strip()}"):
+                    self.assertTrue((EXAMPLES / path).is_file(), f"{path} is not a file")
+                    whole = (EXAMPLES / path).read_text()
+                    if path.endswith(".json"):
+                        self.assertTrue(self.in_order(text.splitlines(), whole.splitlines()))
+                    else:
+                        self.assertIn(text, whole)
+        self.assertGreater(found, 0, "no block is an excerpt, so none was held to its file")
+
+    @staticmethod
+    def in_order(wanted: list[str], lines: list[str]) -> bool:
+        """Every wanted line is in `lines`, in the same order, not necessarily side by side."""
+        rest = iter(lines)
+        return all(any(line == one for one in rest) for line in wanted)
+
+    def test_the_tutorial_shows_every_file_of_the_scoreboard_whole(self) -> None:
+        shown = {path for path, _ in self.blocks(GUIDE / "tutorial.md")}
+        for one in SCOREBOARD.rglob("*"):
+            if one.is_file() and "__pycache__" not in one.parts:
+                name = one.relative_to(EXAMPLES).as_posix()
+                with self.subTest(name):
+                    self.assertIn(name, shown)
 
     def test_every_file_of_a_recipe_is_shown_by_the_cookbook(self) -> None:
         shown = {path for path, _ in self.blocks(GUIDE / "cookbook.md")}
@@ -351,22 +469,29 @@ class LinksResolve(unittest.TestCase):
         self.assertEqual(slug("`ctx.ui.list`"), "ctxuilist")
 
 
-REFERENCE = GUIDE / "reference.md"
+REFERENCE_PAGES = sorted((GUIDE / "reference").glob("*.md"))
+
+
+def reference_text() -> str:
+    """Every page of the reference as one text."""
+    return "\n".join(page.read_text() for page in REFERENCE_PAGES)
 
 
 def reference_sections() -> dict[str, str]:
-    """Each `####` heading's name against the text under it, to the next heading of any level."""
-    text = REFERENCE.read_text()
+    """Each `ctx.` call's name against the text under its heading, to the next heading of any
+    level. A heading that only introduces the calls under it (`ctx.ui`) is not a call."""
     found: dict[str, str] = {}
-    for match in re.finditer(r"^#### `([^`]+)`\n(.*?)(?=^#{1,4} |\Z)", text, re.M | re.S):
+    for match in re.finditer(r"^#{2,4} `(ctx\.[^`]+)`\n(.*?)(?=^#{1,4} |\Z)", reference_text(),
+                             re.M | re.S):
         found[match.group(1)] = match.group(2)
-    return found
+    return {name: text for name, text in found.items()
+            if not any(other.startswith(name + ".") for other in found)}
 
 
 def table_first_column(header: str) -> set[str]:
     """The backticked first cells of the last table whose header row reads `| <header> |`
     (the settings types are listed twice, the later list being the comparison)."""
-    text = REFERENCE.read_text()
+    text = reference_text()
     starts = list(re.finditer(rf"^\| {re.escape(header)} \|$", text, re.M))
     assert starts, f"no table headed {header!r}"
     start = starts[-1]
@@ -381,7 +506,7 @@ def table_first_column(header: str) -> set[str]:
 def table_column_yes(header: str, column: int) -> set[str]:
     """The types of the table headed `| <header> |` whose cell in `column` (counting from
     the asks-for cell as 1) reads `yes`."""
-    text = REFERENCE.read_text()
+    text = reference_text()
     start = re.search(rf"^\| {re.escape(header)} \|$", text, re.M)
     assert start, f"no table headed {header!r}"
     names: set[str] = set()
@@ -426,7 +551,7 @@ class ReferenceMatchesCore(unittest.TestCase):
         self.assertEqual(set(self.sections), self.drawn())
 
     def test_every_keyword_a_declaration_takes_is_named_in_the_reference(self) -> None:
-        text = REFERENCE.read_text()
+        text = reference_text()
         for heading in ("ctx.ui.settings", "ctx.ui.list", "ctx.ui.action", "ctx.ui.account",
                         "ctx.jobs.submit"):
             target: Any = self.ctx
@@ -445,10 +570,10 @@ class ReferenceMatchesCore(unittest.TestCase):
     def test_the_cell_kinds_a_column_may_have_are_all_named(self) -> None:
         for kind in COLUMN_KINDS:
             with self.subTest(kind=kind):
-                self.assertIn(f"`{kind}`", REFERENCE.read_text())
+                self.assertIn(f"`{kind}`", reference_text())
 
     def test_the_step_vocabulary_is_named_whole(self) -> None:
-        text = REFERENCE.read_text()
+        text = reference_text()
         for key in fields.STEP_KEYS:
             with self.subTest(key=key):
                 self.assertIn(f"`{key}`", text)

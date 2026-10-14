@@ -44,7 +44,7 @@ containing it when it breaks.
 
 Depends on the infrastructure layer only. The gate that decides whether an extension's
 route may be reached is in `httpapi/extensions.py`, because that is where a scope means
-something. `docs/extensions/reference.md` is the contract an author reads.
+something. `docs/extensions/reference.md` indexes the contract an author reads.
 
 **`common/games/`** - games, their metadata, and the collections built from them.
 

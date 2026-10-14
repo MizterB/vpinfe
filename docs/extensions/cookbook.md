@@ -5,8 +5,9 @@ one thing, so you can copy its folder whole into your extensions folder and chan
 folders are under [examples/recipes](examples/recipes), and each block of code below is the
 file of the same name there.
 
-New to this? Read [Start here](README.md) first. Once you know the call you want, the
-[Reference](reference.md) lists every one.
+New to this? Read [Start here](README.md) first. Want to see how the pieces fit into one
+extension? [Build an app](tutorial.md) grows one from an empty folder. Once you know the call
+you want, the [Reference](reference.md) lists every one.
 
 Recipes that talk to a service use the practice site, a few lines of standard-library Python
 that plays a score-sharing service called Example Scores. Start it in a terminal and leave it
@@ -19,8 +20,8 @@ python docs/extensions/examples/practice_site.py
 It answers on `http://127.0.0.1:8790` and accepts the key `practice-key`. Stopping it forgets
 what was posted.
 
-Each recipe has the same parts: when to use it, the code, what you will see, a few variations
-and the mistake people make with it.
+Each recipe has the same parts: when to use it, the code, where it appears and what triggers
+it, what you will see, a few variations and the mistake people make with it.
 
 - [1. The smallest extension](#1-the-smallest-extension)
 - [2. A key kept secret](#2-a-key-kept-secret)
@@ -69,6 +70,10 @@ def register(ctx):
   "settings.greeting.label": "Greeting"
 }
 ```
+
+**Where it appears:** on the extension's own page, Settings, then Extensions, then Smallest, and
+in the log. **What triggers it:** VPinFE starting. `register` runs once, declares the setting
+and writes the greeting to the log. After that, nothing runs until somebody opens the page.
 
 **What you'll see:** Settings, then Extensions, then Smallest: a Greeting field with Hello
 shown faintly in it. Until somebody types something, `ctx.config.get("greeting")` answers
@@ -144,7 +149,11 @@ def register(ctx):
 }
 ```
 
-**What you'll see:** Settings, then Extensions, then Secret Key: a masked Key field saying Not set. Type a key and leave the field, and it says Set, with Clear beside it. Clear asks first, then empties it. The Enter the Key button opens a dialog with the same field, and pressing Enter the Key with it empty leaves the key as it was.
+**Where it appears:** on the extension's page in Settings, as a field and as a button.
+**What triggers it:** the person typing in the field, or pressing the Enter the Key button. Nothing
+runs in between.
+
+**What you'll see:** Settings, then Extensions, then Secret Key: a masked Key field saying Not set. Type a key and leave the field, and it says Set, with Clear beside it. Clear asks first, then empties it. The Enter the Key button opens a dialog with the same field, and pressing the Enter the Key button with it empty leaves the key as it was.
 
 **Variations:**
 
@@ -203,6 +212,10 @@ def register(ctx):
   "dialog.done": "Hello, {who}"
 }
 ```
+
+**Where it appears:** as a button on the extension's page in Settings. **What triggers it:**
+the person pressing Say Hello. Nothing in VPinFE changes, so the only effect is the line
+`run` returns.
 
 **What you'll see:** Settings, then Extensions, then Hello Dialog, with a Say Hello button. It
 opens a dialog with one question, and the line `run` returns is shown when it is done.
@@ -330,6 +343,10 @@ def register(ctx):
 }
 ```
 
+**Where it appears:** as a button on the extension's page in Settings. **What triggers it:**
+the person pressing Post a Score. Each press of Next calls `check`. Only the Post button on the
+summary calls `run`, and that is the one step that changes anything, by posting to the site.
+
 **What you'll see:** Settings, then Extensions, then Post Score, with a Post a Score button.
 It asks for a key and refuses a wrong one under the field. A right one leads to the score, and
 then to a summary with a Post button. The practice site has the score afterward.
@@ -412,6 +429,10 @@ def register(ctx):
 }
 ```
 
+**Where it appears:** as a button on the extension's page in Settings, and then in Jobs.
+**What triggers it:** the person pressing Start on the summary. The work then runs on its own
+thread until it finishes or the person presses Stop.
+
 **What you'll see:** a Start the Sync button on the extension's page. It opens a summary with
 a Start button, and the job appears in Jobs with its step count and a Stop button.
 
@@ -452,8 +473,10 @@ break you.
 
 ```python
 def register(ctx):
-    def played(game_id="", seconds=0, **_rest):
-        ctx.logger.info("%s", ctx.t("log.played", game=game_id, minutes=round(seconds / 60)))
+    def played(game_id="", seconds=0, private=False, **_rest):
+        if private:
+            return
+        ctx.logger.info("%s", ctx.t("log.played", game=game_id, count=round(seconds / 60)))
 
     ctx.events.subscribe("table.play_recorded", played)
 ```
@@ -464,12 +487,15 @@ def register(ctx):
 {
   "name": "Play Log",
   "description": "Writes a line to the log each time a game ends.",
-  "log.played": "{game} was played for {minutes} minutes"
+  "log.played": {"one": "{game} was played for a minute", "other": "{game} was played for {count} minutes"}
 }
 ```
 
-**What you'll see:** a line in the extension's log each time a game ends, such as `Medieval
-Madness was played for 14 minutes`. The log is under Logs in the Console.
+**Where it appears:** in the extension's log and nowhere else. It adds no page and no button.
+**What triggers it:** a game ending on the cabinet, once VPinFE has written the play.
+
+**What you'll see:** a line in the extension's log each time a game ends, such as
+`medieval-madness was played for 14 minutes`. The log is under Logs in the Console.
 
 **Variations:**
 
@@ -554,6 +580,9 @@ def register(ctx):
   "list.top.column.score.header": "Score"
 }
 ```
+
+**Where it appears:** as its own page in the rail, under Community. **What triggers it:** the
+person opening the page or pressing refresh. Core calls `rows` each time.
 
 **What you'll see:** Top Scores under Community in the rail. Until the key is set under
 Settings, then Extensions, the page says the site did not accept it. With `practice-key`
@@ -675,6 +704,10 @@ def register(ctx):
 }
 ```
 
+**Where it appears:** on the list's page under Community in the rail, in the menu on each row
+and in the menu above the list when rows are ticked. **What triggers it:** the person picking rows and pressing a verb. Your
+function is handed the rows they picked, and core reads the list again afterwards.
+
 **What you'll see:** Score Rows under Community in the rail, with the three sample scores
 once the key is set. Right-click a row for Open on the site, Flag and, below a rule, Remove.
 Tick two rows and the same menu is under the list, with Open on the site dimmed as One at a
@@ -745,6 +778,10 @@ def register(ctx):
   "account.key": "Key"
 }
 ```
+
+**Where it appears:** on a player's panel, under the extension's name. **What triggers it:**
+the panel opening, which reads the fields, and the person leaving a field, which writes that
+one for that player.
 
 **What you'll see:** Frontend, then Players, then a player, then Player Handle: a Handle field, a masked Key field and a Share switch. Type a handle and leave the field, and it is kept for that player and no other. A key says Set once entered, with Clear beside it.
 

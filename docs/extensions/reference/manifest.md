@@ -1,0 +1,139 @@
+# A whole extension and its manifest
+
+A whole extension on one page, where an extension lives, and every key `extension.json` takes.
+
+## A whole extension
+
+An extension with a setting, a secret, and a list of scores read from a server.
+
+```
+example_scores/
+    extension.json
+    __init__.py
+    i18n/
+        en.json
+```
+
+`extension.json`:
+
+```json
+{
+  "name": "example_scores",
+  "display_name": "Example Scores",
+  "version": "0.1.0",
+  "description": "Lists the top scores from an example scores server.",
+  "requires_platform": 1,
+  "capabilities": ["ui:mount", "config:own", "net:outbound"]
+}
+```
+
+`__init__.py`:
+
+```python
+import json
+import urllib.error
+import urllib.request
+
+from common.extensions.contract import Unavailable
+
+
+def register(ctx):
+    ctx.ui.settings([
+        {"key": "server", "type": "string", "default": "https://scores.example.com"},
+        {"key": "api_key", "type": "secret"},
+    ])
+
+    def top():
+        address = ctx.config.get("server")
+        key = ctx.config.get("api_key")
+        request = urllib.request.Request(
+            f"{address}/top", headers={"Authorization": f"Bearer {key}"} if key else {})
+        try:
+            with urllib.request.urlopen(request, timeout=10) as answer:
+                return json.load(answer)
+        except (urllib.error.URLError, TimeoutError) as exc:
+            raise Unavailable(ctx.why(exc, at=address)) from exc
+
+    def send_now():
+        return ctx.t("sent", count=3)
+
+    ctx.ui.list(
+        "top", top, title="Example Scores",
+        columns=[{"field": "name", "under": ["manufacturer"]},
+                 {"field": "manufacturer"},
+                 {"field": "score", "kind": "number"},
+                 {"field": "played", "kind": "date"}],
+        views=[{"key": "best", "columns": ["name", "score"],
+                "sort": [{"field": "score", "desc": True}]}],
+        acts={"send_now": send_now, "site": "https://scores.example.com"},
+    )
+```
+
+`i18n/en.json`:
+
+```json
+{
+  "description": "Lists the top scores from an example scores server.",
+  "settings.server.label": "Server",
+  "settings.server.help": "Where scores are read from. Blank uses {default}.",
+  "settings.api_key.label": "API key",
+  "list.top.column.name.header": "Table",
+  "list.top.column.manufacturer.header": "Maker",
+  "list.top.column.score.header": "Score",
+  "list.top.column.played.header": "Played",
+  "list.top.view.best.name": "Best Scores",
+  "list.top.act.send_now.label": "Send Now",
+  "list.top.act.site.label": "Open the Site",
+  "sent": {"one": "{count} score sent", "other": "{count} scores sent"}
+}
+```
+
+Put the folder in `extensions/` under the config directory, or run
+`python main.py --check-extension ./example_scores` first (see [Checking one](running.md#checking-one)). The
+extension then has a page under Settings > Extensions with its two settings, and a list
+called Example Scores under Community.
+
+### Where an extension lives
+
+The directory name is the extension's name, and the manifest has to agree. The name
+addresses it in a URL, a scope, a log namespace, a config file and the Python package core
+imports, so two answers to what it is called would each be right somewhere.
+
+`__init__.py` defines `register(ctx)`. Core calls it once at startup and never again.
+The package is imported under its name, so the name has to be a legal module name.
+
+Two places are searched, in this order: `extensions/` under the config directory, then the
+`extensions/` the build ships. An installed extension with the same name as a bundled one
+answers, and the bundled one is left alone.
+
+Registration is a moment. After `register` returns, `ctx.open` is False and anything that
+needs to be declared (a router, for one) is refused.
+
+## The manifest
+
+`extension.json`, snake_case like every other JSON VPinFE writes. A key not in the table
+is ignored.
+
+| key | Required | Default | what it is |
+|---|---|---|---|
+| `name` | yes | none | 2 to 40 characters: `a-z`, `0-9` and `_`, starting with a letter. Matches the directory |
+| `requires_platform` | yes | none | The platform ABI it was built against. This build offers `1`. Any other number is refused |
+| `display_name` | no | empty | A product name, shown as written in every language. Left out, it is `name` in its own `i18n/`, and then the extension's `name` |
+| `version` | no | empty | The extension's own version. Shown, never interpreted |
+| `description` | no | empty | One line, shown beside it. Left out, it is `description` in its own `i18n/` |
+| `scopes` | no | none | Core scopes it asks to use, such as `games:read`. See [Scopes and the gate](scopes.md#scopes-and-the-gate) |
+| `capabilities` | no | none | What it asks of the machine. See [Scopes and the gate](scopes.md#scopes-and-the-gate) |
+| `requires_features` | no | none | Install features it needs: `library`, `frontend`, `devices`, `overview` |
+| `platforms` | no | every one | `linux`, `windows`, `macos`. Empty means every one |
+| `events` | no | none | Event names it publishes, without its namespace |
+
+Everything in it is a declaration a person can be shown before installing, which is why an
+unknown capability, feature or platform is refused rather than ignored: a name nobody has
+heard of is not something anybody could have agreed to.
+
+An extension whose manifest names a platform this machine is not, or a feature this
+install does not have, is not started. It is still listed, with the reason.
+
+There is no `provides`: core mints `ext:<name>:read` and `ext:<name>:write` for every
+extension. Whether an extension has settings is not declared either; core remembers what
+a running extension registered, so its page can say its settings show while it runs.

@@ -40,7 +40,7 @@ from console.on_page import on_page
 POLL_SECONDS = 1.0
 
 # What a field's `type` draws, in the Console's own grammar. Checked against the field
-# table an extension author reads (docs/extensions/reference.md) - the two must agree.
+# table an extension author reads (docs/extensions/reference/actions.md) - the two must agree.
 FIELD_TYPES = {
     "string": "panel.field",
     "secret": "panel.field",

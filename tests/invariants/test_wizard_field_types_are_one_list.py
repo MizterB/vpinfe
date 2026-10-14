@@ -1,6 +1,6 @@
 """A field type is drawn in one place and named in one place, and they agree.
 
-docs/extensions/reference.md's field table is what an extension author reads before writing
+docs/extensions/reference/actions.md's field table is what an extension author reads before writing
 `fields`; `console/wizard.FIELD_TYPES` is what the Console actually draws. This fails the
 moment the two lists differ, in either direction.
 """
@@ -14,7 +14,7 @@ from pathlib import Path
 from console import wizard
 
 REPO = Path(__file__).resolve().parent.parent.parent
-DOC = REPO / "docs" / "extensions" / "reference.md"
+DOC = REPO / "docs" / "extensions" / "reference" / "actions.md"
 
 # A row's first cell, backtick-quoted, under the "type" heading - `| `path` | a file or
 # folder ... |`. Matched from the table itself, not the surrounding prose, so a type
@@ -35,11 +35,11 @@ def _documented() -> set[str] | None:
 class FieldTypesAreOneListTests(unittest.TestCase):
     def test_the_docs_and_the_renderer_name_the_same_types(self) -> None:
         documented = _documented()
-        self.assertIsNotNone(documented, "docs/extensions/reference.md has no field-type table")
+        self.assertIsNotNone(documented, "reference/actions.md has no field-type table")
         drawn = set(wizard.FIELD_TYPES)
 
         self.assertEqual(documented, drawn,
-                         f"docs/extensions/reference.md names {documented - drawn or '{}'} that "
+                         f"reference/actions.md names {documented - drawn or '{}'} that "
                          f"wizard.FIELD_TYPES does not draw, and wizard.FIELD_TYPES draws "
                          f"{drawn - documented or '{}'} the docs never mention")
 

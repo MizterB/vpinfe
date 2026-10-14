@@ -829,7 +829,7 @@ def share_help(account: dict[str, Any]) -> str:
 
 async def _account(context: dict[str, Any], account: dict[str, Any]) -> None:
     """The three states: no account, chosen but not shared, and claimed.
-    `docs/extensions/reference.md` "Offering an account" is the contract this draws -
+    `docs/extensions/reference/accounts.md` is the contract this draws -
     every extension offering one gets the same panel, in its own words."""
     library, player = context["library"], _of(context)
     if account.get("error"):

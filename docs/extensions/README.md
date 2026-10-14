@@ -14,8 +14,8 @@ it.
 - **A reaction to something VPinFE did**, such as a game ending: [listening to events](cookbook.md#6-listening-to-events).
 - **A list**, shown in the rail: [a list](cookbook.md#7-a-list).
 
-More arrive with the recipes for them. The [Reference](reference.md) lists everything an
-extension can do today.
+More arrive with the recipes for them. The [Reference](reference.md) points to a page for
+everything an extension can do today.
 
 ## What you need
 
@@ -55,7 +55,11 @@ nothing, and it exits with 1 when something would not pass.
 
 ## The way through
 
+- **[Build an app](tutorial.md)** to see the pieces fit. It grows one extension, Scoreboard,
+  from an empty folder: settings, a list, a menu of actions, a dialog and a reaction to a
+  game. Each stage says where it shows up in the Console and what triggers it.
 - **The [Cookbook](cookbook.md)** once you know what you want. Each recipe is a small complete
-  extension that does one thing, and can be copied whole.
-- **The [Reference](reference.md)** once you know the call. Every call, declaration, field
-  type and setting, for lookup.
+  extension that does one thing, can be copied whole, and says where it appears and what
+  triggers it.
+- **The [Reference](reference.md)** once you know the call. It is an index to one page for each
+  part of `ctx`, with every call, declaration and field type, for lookup.

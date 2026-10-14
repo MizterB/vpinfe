@@ -265,7 +265,7 @@ class ExtensionUI:
 
     A word left out is looked up in the extension's own `i18n/<language>.json`:
     `settings.<key>.label`, `list.<key>.title`, `action.<key>.label` and so on, as
-    `docs/extensions/reference.md` lists them. One given is shown as written.
+    `docs/extensions/reference/words.md` lists them. One given is shown as written.
     """
 
     def __init__(self, name: str, allowed: bool) -> None:
