@@ -56,6 +56,8 @@ DECLARES: dict[str, list[str]] = {
                    "group      on a table's panel"],
     "machine_page": ["page       machine in system, with fields",
                      "reads      page machine: 2 sections, acts: check, manual"],
+    "review_queue": ["list       queue in community: 3 columns",
+                     "need       to_review opens the list queue, danger"],
     "secret_key": ["settings   key (secret)", "dialog     connect: ask run"],
     "player_handle": ["account    a player can hold one"],
     "tool_link": ["settings   port (number", "link       console in system: http://{host}:9090/",

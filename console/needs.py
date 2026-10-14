@@ -25,6 +25,11 @@ REVIEW, RETRY = "review", "retry"
 # The Settings page saying whether the library's metadata files read and are current.
 METADATA_PAGE = "library.metadata"
 
+# The rows an extension raises are keyed `ext:<extension>:<kind>`; `away:<extension>` in the
+# reads that failed says that extension's needs could not be read, `away:*` that none could.
+EXTENSION, AWAY = "ext:", "away:"
+AWAY_ALL = AWAY + "*"
+
 # A fix VPinFE can do itself, drawn as the icon at the row's end.
 GET_MEDIA, UPDATE, FETCH_FIXES = "get_media", "update", "fetch_fixes"
 
@@ -43,6 +48,9 @@ class Opens:
     arriving: dict[str, Any] | None = None
     keys: Mapping[str, Any] = field(default_factory=dict)
     then: str = ""
+    # One of an extension's dialogs, opened over nothing.
+    extension: str = ""
+    action: str = ""
 
 
 @dataclass(frozen=True)
@@ -72,10 +80,14 @@ class Need:
     token: tuple[str, ...] = ()
     # The ids that joined since the row was dismissed. Only set by `arrange`.
     new: tuple[str, ...] = ()
+    # An extension's row: its name, drawn where a count would be, and the count it gave,
+    # which is in its label and has no ids of its own to open a grid on.
+    source: str = ""
+    total: int = 0
 
     @property
     def count(self) -> int:
-        return len(self.ids)
+        return len(self.ids) or self.total
 
     @property
     def covered(self) -> tuple[str, ...]:
@@ -118,8 +130,29 @@ def _unread(failed: Any) -> str:
     """The reads that failed, in the words a person would use for what they were after."""
     said = (("update", t("console.needs.unread_update")),
             ("recordings", t("console.needs.unread_recordings")),
-            ("fill", t("console.needs.unread_fill")))
+            ("fill", t("console.needs.unread_fill")),
+            ("extensions", t("console.needs.unread_extensions")))
     return ", ".join(words for key, words in said if key in failed)
+
+
+def extension_rows(raised: Any) -> list[Need]:
+    """The rows running extensions raise, after core's own, in the order they answered."""
+    from console import community
+
+    out = []
+    for one in raised:
+        if str(one.get("opens") or "") == "action":
+            opens = Opens(extension=str(one["extension"]), action=str(one["to"]))
+        else:
+            make = community.page_view_key if one.get("opens") == "page" \
+                else community.view_key
+            opens = Opens(make(str(one["extension"]), str(one["to"])))
+        out.append(Need(str(one["key"]), str(one["label"]), str(one.get("says") or ""),
+                        str(one.get("tone") or WARM), community.ICON, opens,
+                        token=tuple(str(each) for each in one.get("covered") or ()),
+                        source=str(one.get("display_name") or ""),
+                        total=int(one.get("count") or 0)))
+    return out
 
 
 def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
@@ -225,6 +258,7 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
                                tip=names["no_year"][1], tone=MUTED, icon=verbs.NO_YEAR,
                                opens=Opens("games", {"year": {"filterType": "number",
                                                              "type": "blank"}})))
+    rows += extension_rows(watched.get("extension_needs") or ())
     if unread := _unread(watched.get("unread") or ()):
         rows.append(Need("unread", t("console.needs.unread"),
                          t("console.needs.unread.tip", what=unread), MUTED, verbs.HAD_ERRORS,
@@ -259,8 +293,12 @@ def is_device(key: str) -> bool:
     return key in DEVICE_ROWS
 
 
+def is_extension(key: str) -> bool:
+    return key.startswith(EXTENSION)
+
+
 def can_set_aside(key: str) -> bool:
-    return key in ORDER
+    return key in ORDER or is_extension(key)
 
 
 def blind(library: Any) -> set[str]:
@@ -304,6 +342,8 @@ def name_of(key: str) -> str:
 
 def comes_back(key: str) -> str:
     """When a dismissed row is drawn again, in the words the menu and the chip both use."""
+    if is_extension(key):
+        return t("console.needs.back.extension")
     return {"rom_missing": t("console.needs.back.rom_missing"),
             "launchers": t("console.needs.back.launchers"),
             "unreadable": t("console.needs.back.unreadable"),
@@ -355,6 +395,14 @@ def _stopped_aside(key: str) -> Aside:
                  t("console.needs.chip_stopped.tip"), stopped=True)
 
 
+def _extension_unread(key: str, unread: Any) -> bool:
+    """Whether the extension a row belongs to could not say what it needs."""
+    if not is_extension(key):
+        return False
+    name = key[len(EXTENSION):].partition(":")[0]
+    return AWAY + name in unread or AWAY_ALL in unread
+
+
 def arrange(rows: list[Need], record: Mapping[str, list[str]], stopped: set[str],
             unread: Any = (), blind: Collection[str] = ()) -> Arranged:
     """Which rows draw, which are set aside, and what is left of the dismissals.
@@ -384,7 +432,8 @@ def arrange(rows: list[Need], record: Mapping[str, list[str]], stopped: set[str]
     present = {one.key for one in rows}
     for key, ids in record.items():
         if key not in present and (key in stopped or key in blind
-                                     or _READ_BY.get(key) in unread):
+                                     or _READ_BY.get(key) in unread
+                                     or _extension_unread(key, unread)):
             kept[key] = list(ids)
     aside += [_stopped_aside(key) for key in ORDER if key in stopped]
     return Arranged(shown, aside, kept)

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -272,6 +272,12 @@ class GroupFunctions:
 # The panels a group can be put on: a game's, and one table's.
 GROUP_SUBJECTS = ("game", "table")
 
+# How much a kind of need costs to leave alone, as Overview draws it; warm unless said.
+NEED_TONES = ("danger", "warm", "accent", "muted")
+DEFAULT_NEED_TONE = "warm"
+# What a kind opens: one of the extension's lists, one of its pages, or one of its dialogs.
+NEED_OPENS = ("list", "page", "action")
+
 
 @dataclass
 class AccountFunctions:
@@ -311,6 +317,8 @@ class ExtensionUI:
         self.list_functions: dict[str, ListFunctions] = {}
         self.declared_pages: list[dict] = []
         self.page_functions: dict[str, PageFunctions] = {}
+        self.declared_needs: list[dict] = []
+        self.needs_function: Callable[[], Any] | None = None
         self.declared_links: list[dict] = []
         self.link_addresses: dict[str, str | Callable[[], Any]] = {}
         self.settings_declared: list[dict] = []
@@ -480,6 +488,48 @@ class ExtensionUI:
         self.group_functions[wanted] = GroupFunctions(read=read, save=save)
         self.declared_groups.append({"subject": wanted, "title": str(title or "").strip(),
                                      "base": f"/groups/{wanted}", "save": save is not None})
+
+    def needs(self, kinds: dict[str, dict], read: Callable[[], Any]) -> None:
+        """The kinds of thing this extension can ask for on Overview, under Needs You.
+
+        `kinds` maps each kind to the one thing a click opens: `{"list": key}`, `{"page":
+        key}` or `{"action": key}` for a list, page or dialog it declares, with an optional
+        `"tone"` of danger, warm, accent or muted. `read()` answers the kinds that hold
+        now, `[{"kind", "ids"}]`: the ids are what the row counts, and what a dismissal is
+        kept against. A kind with no ids to name answers `{"kind", "count", "token"}`, and
+        the dismissal comes back when the token changes.
+
+        A row reads `need.<kind>.label`, given `count`, and shows `need.<kind>.says` as its
+        tip, from the extension's catalog. A stopped extension raises none.
+        """
+        self._needs_ui("a need")
+        if self.needs_function is not None:
+            raise ContractError(f"{self._name} declares its needs twice")
+        if not isinstance(kinds, dict) or not kinds:
+            raise ContractError(f"{self._name} declares needs without a dict of kinds")
+        if not callable(read):
+            raise ContractError(f"{self._name} gives its needs a read that is not a function")
+        declared = []
+        for kind, how in kinds.items():
+            name = str(kind or "").strip()
+            if not name or any(one in name for one in ":/ ") or name != kind:
+                raise ContractError(f"{self._name} names a need {kind!r}, which is empty or "
+                                    "has a colon, a slash or a space in it")
+            how = how if isinstance(how, dict) else {}
+            opened = [one for one in NEED_OPENS if one in how]
+            if len(opened) != 1 or not isinstance(how[opened[0]], str) \
+                    or not how[opened[0]].strip():
+                raise ContractError(f"{self._name} gives the need {name!r} "
+                                    f"{'no' if not opened else 'more than one'} "
+                                    f"{' or '.join(NEED_OPENS)} to open")
+            tone = str(how.get("tone") or DEFAULT_NEED_TONE)
+            if tone not in NEED_TONES:
+                raise ContractError(f"{self._name} gives the need {name!r} the tone {tone!r}, "
+                                    f"which is not one of {', '.join(NEED_TONES)}")
+            declared.append({"kind": name, "tone": tone, "opens": opened[0],
+                             "to": how[opened[0]].strip()})
+        self.declared_needs = declared
+        self.needs_function = read
 
     def page(self, key: str, read: Callable[[], Any], *, area: str = DEFAULT_AREA,
              title: str = "", acts: Any = None,
@@ -764,6 +814,12 @@ def check_references(ui: ExtensionUI) -> None:
                                          if one["action"]), *added.get(key, [])])
             for key, found in ui.list_functions.items()]
     held += [("page", key, found.acts, []) for key, found in ui.page_functions.items()]
+    places: dict[str, Mapping[str, Any]] = {
+        "list": ui.list_functions, "page": ui.page_functions, "action": ui.action_objects}
+    for one in ui.declared_needs:
+        if one["to"] not in places[one["opens"]]:
+            raise ContractError(f"{ui._name} has a need {one['kind']!r} that opens the "
+                                f"{one['opens']} {one['to']!r}, which it never offers")
     for kind, key, acts, named in held:
         if isinstance(acts, dict):
             for one in acts.values():

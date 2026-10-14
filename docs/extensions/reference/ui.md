@@ -161,6 +161,52 @@ It raises `ContractError` without `ui:mount` or without `games:read` in the mani
 for a `subject` that is not `game` or `table`, for a subject declared twice, and for a `read` or
 a `save` that is not a function.  `--check-extension` says each group it finds.
 
+## `ctx.ui.needs`
+
+`ctx.ui.needs(kinds, read)`.  Required: `kinds`, `read`.
+
+Ask for a person's attention on Overview, under Needs You, with the rows core's own checks
+raise.  `kinds` names each thing you may ask for, and what a click on its row opens: exactly
+one of `"list"`, `"page"` or `"action"`, naming something this extension declares, and an
+optional `"tone"` of `danger`, `warm` (the default), `accent` or `muted`.  `read` is a function
+core calls each time Overview is drawn.  It answers a list of `{"kind", "ids"}` or
+`{"kind", "count", "token"}`, one for each kind that has something to ask for now, each kind
+at most once.
+
+```python
+def waiting():
+    return [{"kind": "to_review", "ids": [str(one["id"]) for one in flagged()]}]
+
+
+ctx.ui.needs({"to_review": {"list": "queue", "tone": "danger"}}, waiting)
+```
+
+With `ids` the count is how many there are, and a person who sets the row aside sees it come
+back when an id joins that they had not set aside.  With only a `count`, give a `token` (a string,
+or a list of them) that changes when the need does, such as the version an update is for: the
+row stays away until the token is another.  Without a token the row is set aside against its
+kind, and a row for a kind that answers a count of nothing is not drawn.
+
+A person sees the row among core's own, with the extension's name where the count of an item
+would be, and Dismiss, Undo and Show Again (under Set Aside) like any other row.  There is no Stop Checking:
+an extension is switched off in Settings.  What a dismissal recorded is kept while the extension
+is stopped or its `read` fails, and is dropped once it answers without it.  A click on an
+`action` opens the dialog over no rows, and Overview is drawn again once it closes.
+
+The words are `need.<kind>.label`, required, given `count` so it can have plural forms, and
+`need.<kind>.says`, in the extension's catalog.  A `read` that raises, or answers a kind that
+was not declared or a shape that is not a list of kinds with ids or a count, leaves out only
+this extension's rows, and Overview says that what extensions ask for could not be read.  The
+Console reads every running extension's rows from `GET /api/v1/extensions/needs` (needs
+`instance:read`).
+
+It raises `ContractError` without `ui:mount`, when called twice, for `kinds` that is empty or
+not a dict, for a kind that is empty or has a `:`, `/` or a space in it, for a kind that does
+not name exactly one of `list`, `page` and `action`, for a `tone` that is not one of the four,
+and for a `read` that is not a function.  The same check as for any declaration refuses a kind that
+opens a list, page or action the extension never offers.  `--check-extension` says each kind and
+calls `read` once.
+
 ## `ctx.ui.kept`
 
 `ctx.ui.kept(key) -> dict | None`.  Required: `key`.

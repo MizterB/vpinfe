@@ -37,6 +37,7 @@ it, what you will see, a few variations and the mistake people make with it.
 - [13. An account per player](#13-an-account-per-player)
 - [15. A page of one subject](#15-a-page-of-one-subject)
 - [16. A page of your own](#16-a-page-of-your-own)
+- [17. Asking for attention on Overview](#17-asking-for-attention-on-overview)
 - [18. An extension for one Linux distribution](#18-an-extension-for-one-linux-distribution)
 
 ## Basics
@@ -1407,6 +1408,96 @@ def register(ctx):
 - Link to a page you serve from VPinFE with `ctx.add_router` only if it can run with no sign-in: core answers every page under `/api/v1/ext/` sandboxed, as no origin of its own.  See [`ctx.ui.link`](reference/ui.md#ctxuilink).
 
 **Watch out:** write `{host}` with doubled braces inside an f-string, as above, or Python fills it in and the host is lost.  A link is never drawn with another scheme: `file:`, `javascript:` and the rest are refused when it is declared, or dropped when a function answers one.
+
+### 17. Asking for attention on Overview
+
+**Use it when:** something the extension watches needs a person to act, such as scores flagged for review, a sync that stopped or an update that is ready, and they should see it where the Console already collects such things, without opening the extension first.
+
+`ctx.ui.needs` declares the kinds of thing you may ask for, and what a click on each opens: a list, a page or a dialog the extension offers.  A function you give it is called each time Overview is drawn, and answers the kinds that have something to ask for now, with the ids they cover.  Core draws the rows among its own and keeps what a person set aside.  The line is a word in the extension's catalog that is given the count, so it can say one and many.
+
+`recipes/review_queue/extension.json`
+
+```json
+{
+  "name": "review_queue",
+  "version": "1.0.0",
+  "requires_platform": 1,
+  "capabilities": ["config:own", "ui:mount"]
+}
+```
+
+`recipes/review_queue/__init__.py`
+
+```python
+import json
+import urllib.error
+import urllib.request
+
+from common.extensions.contract import Unavailable
+
+
+def register(ctx):
+    ctx.ui.settings([
+        {"key": "site", "type": "string", "default": "http://127.0.0.1:8790"},
+        {"key": "key", "type": "secret"},
+    ])
+
+    def scores():
+        request = urllib.request.Request(ctx.config.get("site") + "/top",
+                                         headers={"X-API-Key": ctx.config.get("key")})
+        try:
+            with urllib.request.urlopen(request, timeout=10) as answer:
+                return json.loads(answer.read())
+        except urllib.error.HTTPError as exc:
+            if exc.code == 401:
+                raise Unavailable(ctx.t("error.refused")) from exc
+            raise Unavailable(ctx.why(exc, at=request.full_url)) from exc
+        except OSError as exc:
+            raise Unavailable(ctx.why(exc, at=request.full_url)) from exc
+
+    def flagged():
+        return [one for one in scores() if one["flagged"]]
+
+    def waiting():
+        return [{"kind": "to_review", "ids": [str(one["id"]) for one in flagged()]}]
+
+    ctx.ui.list("queue", flagged, area="community", columns=[
+        {"field": "player"},
+        {"field": "table"},
+        {"field": "score", "kind": "number"},
+    ])
+    ctx.ui.needs({"to_review": {"list": "queue", "tone": "danger"}}, waiting)
+```
+
+`recipes/review_queue/i18n/en.json`
+
+```json
+{
+  "name": "Review Queue",
+  "description": "Asks on Overview for the scores flagged on Example Scores, and lists them.",
+  "settings.site.label": "Site",
+  "settings.key.label": "Key",
+  "error.refused": "The site did not accept the key",
+  "list.queue.title": "Flagged Scores",
+  "list.queue.column.player.header": "Player",
+  "list.queue.column.table.header": "Table",
+  "list.queue.column.score.header": "Score",
+  "need.to_review.label": {"one": "{count} flagged score to review", "other": "{count} flagged scores to review"},
+  "need.to_review.says": "Flagged on Example Scores"
+}
+```
+
+**Where it appears:** under Needs You on Overview, among core's own rows, with the extension's name where a count of items would be.  **What triggers it:** Overview being drawn, which asks `waiting` once.  Nothing is asked while the extension is switched off.
+
+**What you'll see:** flag a score on the practice site and Overview gains a red row, 1 flagged score to review.  Clicking it opens the Flagged Scores list.  Dismiss sets the row aside until another score is flagged, Undo takes the Dismiss back, and Set Aside under the rows offers Show Again.
+
+**Variations:**
+
+- Open a page with `"page": "week"`, or a dialog with `"action": "update"`.  A dialog opens over no rows, and Overview is drawn again once it closes.
+- Answer `{"kind": "update_ready", "count": 1, "token": "2.1"}` where there are no ids to list.  The row stays away until the token is another.
+- Give a kind `"tone": "muted"` for something to know, not to do.  See [`ctx.ui.needs`](reference/ui.md#ctxuineeds).
+
+**Watch out:** answer only the kinds that have something to ask for.  A kind that answers a count of nothing is left out, but a `read` that raises, or that names a kind it never declared, leaves out all of that extension's rows and Overview says so.
 
 ### 18. An extension for one Linux distribution
 

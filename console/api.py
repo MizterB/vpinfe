@@ -145,6 +145,11 @@ class ApiClient:
         """Every extension this install looked at, running or not."""
         return list(self._get("/extensions").get("extensions") or [])
 
+    def extension_needs(self) -> dict:
+        """What the running extensions ask for on Overview: `needs`, the extensions `away`
+        whose needs could not be given, and the ones that `failed`."""
+        return self._get("/extensions/needs")
+
     def set_extension_enabled(self, name: str, on: bool) -> dict:
         """The extension as it stands after the switch."""
         return self._put(f"/extensions/{quote(name, safe='')}/enabled",

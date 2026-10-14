@@ -152,6 +152,27 @@ class ListingTests(SeamCase):
         self.assertEqual(sample["reason_key"], "extension.reason.switched_off")
 
 
+class NeedsTests(SeamCase):
+    def test_what_running_extensions_ask_for_is_read_from_one_route(self) -> None:
+        found = self.client().get("/extensions/needs")
+
+        self.assertEqual(found.status_code, 200)
+        self.assertEqual(found.json(), {"needs": [], "away": [], "failed": []})
+
+    def test_an_extension_switched_off_is_away(self) -> None:
+        self.store.set_enabled("sample", False)
+
+        found = self.client().get("/extensions/needs").json()
+
+        self.assertEqual(found["away"], ["sample"])
+
+    def test_the_route_is_gated_on_reading_the_instance(self) -> None:
+        api = httpapi.create_api_app()
+        gated = {path: auth.route_scope(route) for path, route in auth.iter_api_routes(api)}
+
+        self.assertEqual(gated["/extensions/needs"], scopes.INSTANCE_READ)
+
+
 class SwitchTests(SeamCase):
     def switch(self, client: TestClient, name: str, on: bool):
         with self.assertLogs("vpinfe.common.extensions", "INFO"):

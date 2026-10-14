@@ -75,6 +75,9 @@ def _report(record: Record, lines: list[str]) -> bool:
     for declared in record.declared_groups:
         lines.append(f"group      on a {declared['subject']}'s panel"
                      + (", with fields" if declared["save"] else ""))
+    for declared in record.declared_needs:
+        lines.append(f"need       {declared['kind']} opens the {declared['opens']} "
+                     f"{declared['to']}, {declared['tone']}")
     answered = {one["key"]: one["url"] for one in record.links()}
     for declared in record.declared_links:
         where = f" in {declared['area']}" if declared["area"] else ""
@@ -98,6 +101,8 @@ def _report(record: Record, lines: list[str]) -> bool:
         _read(lines, problems, record, f"list {key}", lambda key=key: _read_list(record, key))
     for key in ui.page_functions:
         _read(lines, problems, record, f"page {key}", lambda key=key: _read_page(record, key))
+    if ui.needs_function is not None:
+        _read(lines, problems, record, "needs", lambda: _read_needs(record))
     if ui.settings_declared:
         _read(lines, problems, record, "settings", lambda: _read_settings(record))
     for declared in record.actions:
@@ -147,6 +152,12 @@ def _read_page(record: Record, key: str) -> tuple[str, Any]:
     about = serving.page_about(record, key)
     acts = ", ".join(one["key"] for one in about["acts"]) or "none"
     return f"{len(shown['sections'])} sections, acts: {acts}", [shown, about]
+
+
+def _read_needs(record: Record) -> tuple[str, Any]:
+    raised = serving.needs_read(record)
+    said = ", ".join(f"{one['kind']} ({one['count']})" for one in raised) or "none raised now"
+    return said, [[one["label"], one["says"]] for one in raised]
 
 
 def _read_settings(record: Record) -> tuple[str, Any]:
@@ -206,6 +217,8 @@ def _missing(record: Record, ui: Any) -> list[tuple[str, str]]:
                 wanted.append((f"{at}.confirm", "the question a danger verb asks"))
             if verb["needs"]:
                 wanted.append((f"{at}.needs", "why a verb is not for a row"))
+    wanted.extend((f"need.{one['kind']}.label", "a need's label")
+                  for one in record.declared_needs)
     wanted.extend((f"link.{one['key']}.label", "a link's label")
                   for one in record.declared_links)
     wanted.extend((f"action.{one['key']}.label", "a dialog's label")

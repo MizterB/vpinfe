@@ -2815,6 +2815,7 @@
   "console.needs.unread_update": "whether an update is out",
   "console.needs.unread_recordings": "the recordings waiting",
   "console.needs.unread_fill": "the last media fill",
+  "console.needs.unread_extensions": "what extensions ask for",
   "console.needs.folders": {
     "one": "{count} folder",
     "other": "{count} folders"
@@ -2836,6 +2837,7 @@
   "console.needs.back.newer": "Comes back when another table has a newer release",
   "console.needs.back.script_fixes": "Comes back when another table has a fix published",
   "console.needs.back.recordings": "Comes back when another recording comes in",
+  "console.needs.back.extension": "Comes back when the extension asks for something else",
   "console.needs.back.no_year": "Comes back when another game has no year",
   "console.needs.chip_dismissed": "Dismissed",
   "console.needs.chip_skipped": "Skipped",
@@ -4106,6 +4108,8 @@
   "error.extensions.no_detail": "{display}'s list {key} has no pane",
   "error.extensions.no_save": "{display}'s list {key} cannot be changed from its pane",
   "error.extensions.no_group": "{display} has no {subject} group",
+  "error.extensions.needs_shape": "{display} gave needs that are not each kind once, with ids or a count",
+  "error.extensions.need_unknown": "{display} asked for the need {kind}, which it never declared",
   "error.extensions.no_group_save": "{display}'s {subject} group cannot be changed",
   "error.extensions.no_field": "This pane has no field called {key}",
   "error.extensions.pane_shape": "{display}'s pane for {id}: {what} must be {need}",

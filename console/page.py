@@ -1251,6 +1251,13 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             library.forget_watched()
             go("overview")
             return
+        if opens.action:
+            standing = await offload.io(community_page.as_it_stands,
+                                        {"name": opens.extension})
+            await community_page.open_over(standing, opens.action, [])
+            library.forget_watched()
+            go("overview")
+            return
         if not await may_leave(state, opens.view):
             return
         keys = dict(opens.keys)

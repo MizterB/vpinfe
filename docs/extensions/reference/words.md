@@ -22,6 +22,7 @@ them.
 | `page.<key>.title` | A page's title, in the rail and over the page | The extension's name |
 | `page.<key>.act.<act>.label` | An act in a page's title menu | The act's key |
 | `group.<subject>.title` | The heading over a group on a game's or a table's panel | The extension's name |
+| `need.<kind>.label`, `need.<kind>.says` | A row asking for something on Overview: its line, given `count`, and the line under it | The extension's name; nothing |
 | `link.<key>.label`, `link.<key>.tip` | A link to the extension's own page: its text and its hover | The key; nothing |
 | `action.<key>.label`, `action.<key>.description` | An action, and the button above a list that adds with it | The key; nothing |
 | `action.<key>.result.<field>` | A count a run reports, beside the number | The field |

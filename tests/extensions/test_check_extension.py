@@ -164,6 +164,33 @@ class APage(CheckCase):
         self.assertTrue(any(one.startswith("fails      page week") for one in lines), lines)
 
 
+class ANeed(CheckCase):
+    BODY = (
+        "def register(ctx):\n"
+        "    ctx.ui.list('plays', lambda: [], columns=[{'field': 'name'}])\n"
+        "    ctx.ui.needs({'down': {'list': 'plays', 'tone': 'danger'}},\n"
+        "                 lambda: [{'kind': 'down', 'ids': ['a', 'b']}])\n")
+
+    def test_it_says_each_kind_and_what_the_read_found(self) -> None:
+        words = {"need.down.label": "{count} are down", "list.plays.title": "Plays",
+                 "list.plays.column.name.header": "Name"}
+
+        lines, passed = check.check(build(self.root, self.BODY, words=words))
+
+        self.assertIn("need       down opens the list plays, danger", lines)
+        self.assertIn("reads      needs: down (2)", lines)
+        self.assertTrue(passed, lines)
+
+    def test_a_kind_with_no_label_is_missing_and_it_fails(self) -> None:
+        words = {"list.plays.title": "Plays", "list.plays.column.name.header": "Name"}
+
+        lines, passed = check.check(build(self.root, self.BODY, words=words))
+
+        self.assertFalse(passed)
+        self.assertTrue(any(one.startswith(f"missing    ext.{NAME}.need.down.label")
+                            for one in lines), lines)
+
+
 class AGoodExtension(CheckCase):
     def test_it_passes(self) -> None:
         lines, passed = self.checked()

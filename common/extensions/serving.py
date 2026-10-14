@@ -479,6 +479,70 @@ def group_save(record: Record, subject: str, who: dict, values: dict) -> dict:
     return group_read(record, subject, who)
 
 
+def needs_read(record: Record) -> list[dict]:
+    """What this extension asks for on Overview now, one row for each declared kind that
+    holds, worded in the language set. A kind holds when it names ids or a count above zero.
+    `covered` is what a dismissal of the row is kept against: the ids, else the token the
+    extension gave, else the kind."""
+    functions = _context(record).ui
+    if functions.needs_function is None:
+        return []
+    answer = plain(record, "needs", called(record, "needs", functions.needs_function))
+    if not isinstance(answer, list):
+        raise ExtensionError(i18n.t("error.extensions.needs_shape", display=record.display_name))
+    declared = {one["kind"]: one for one in record.declared_needs}
+    out: list[dict] = []
+    for one in answer:
+        kind = one.get("kind") if isinstance(one, dict) else None
+        if not isinstance(kind, str) or kind not in declared:
+            raise ExtensionError(i18n.t("error.extensions.need_unknown",
+                                        display=record.display_name, kind=str(kind)))
+        try:
+            ids = [str(each) for each in one.get("ids") or [] if str(each)]
+            count = len(ids) or int(one.get("count") or 0)
+            given = one.get("token")
+            token = [str(each) for each in (given if isinstance(given, list) else [given])
+                     if each is not None and str(each)]
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ExtensionError(i18n.t("error.extensions.needs_shape",
+                                        display=record.display_name)) from exc
+        if any(row["kind"] == kind for row in out):
+            raise ExtensionError(i18n.t("error.extensions.needs_shape",
+                                        display=record.display_name))
+        if count <= 0:
+            continue
+        found = declared[kind]
+        out.append({
+            "extension": record.name, "display_name": record.display_name, "kind": kind,
+            "key": f"ext:{record.name}:{kind}",
+            "label": said(record, f"need.{kind}.label", record.display_name, count=count),
+            "says": said(record, f"need.{kind}.says", "", count=count),
+            "tone": found["tone"], "opens": found["opens"], "to": found["to"],
+            "count": count, "covered": ids or token or [str(kind)]})
+    return out
+
+
+def needs_all(records: Sequence[Record]) -> dict:
+    """The needs of every running extension that declared some. `away` names the extensions
+    that gave none this time - not running, or failing to answer - so the dismissals kept
+    against them are left alone; `failed` is the ones that raised."""
+    rows: list[dict] = []
+    away: list[str] = []
+    failed: list[str] = []
+    for record in records:
+        if not record.running:
+            away.append(record.name)
+            continue
+        if not record.declared_needs:
+            continue
+        try:
+            rows += needs_read(record)
+        except ExtensionError:
+            away.append(record.name)
+            failed.append(record.name)
+    return {"needs": rows, "away": away, "failed": failed}
+
+
 def _message(record: Record, at: str, result: Any) -> dict:
     if result is None:
         return {}

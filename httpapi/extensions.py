@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, FastAPI, Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from common import extensions
-from common.extensions import accounts
+from common.extensions import accounts, serving
 from common.i18n import t
 
 from . import extensions_served, models, scopes
@@ -36,6 +36,15 @@ router = APIRouter(prefix="/extensions", tags=["extensions"])
 def list_extensions() -> dict:
     """Every extension this install looked at, running or not."""
     return {"extensions": [record.as_dict() for record in extensions.records()]}
+
+
+@router.get("/needs", summary="What the running extensions ask for on Overview",
+            dependencies=[requires(scopes.INSTANCE_READ)])
+def get_extension_needs() -> dict:
+    """Each need a running extension raises now, with the words and the thing a click
+    opens. `away` names the extensions whose needs could not be read, which a dismissal
+    kept against them must outlast."""
+    return serving.needs_all(extensions.records())
 
 
 @router.put("/{name}/enabled", summary="Switch an extension on or off",

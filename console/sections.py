@@ -169,7 +169,8 @@ def _need_menu(menu: Any, need: needs.Need, fix: Callable[..., Any],
             t("console.needs.skip_version") if need.key == needs.UPDATE
             else t("console.needs.dismiss"),
             lambda: acts.dismiss(need), under=needs.comes_back(need.key))
-        panel.menu_entry(t("console.needs.stop_checking"), lambda: acts.stop(need.key))
+        if not needs.is_extension(need.key):
+            panel.menu_entry(t("console.needs.stop_checking"), lambda: acts.stop(need.key))
 
 
 def _need_row(need: needs.Need, state: dict[str, Any], fix: Callable[..., Any],
@@ -201,7 +202,7 @@ def _need_row(need: needs.Need, state: dict[str, Any], fix: Callable[..., Any],
                     .tooltip(t("console.needs.new.tip"))
                 chip.on("click", only_new)
                 chip.on("keydown.enter", only_new)
-        if said := need.counted():
+        if said := need.counted() or need.source:
             ui.label(said).classes("console-need-count shrink-0")
         if need.fix is not None:
             with ui.element("div").classes("console-need-fix").on("click.stop", lambda: None) \

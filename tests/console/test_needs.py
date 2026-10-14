@@ -200,7 +200,8 @@ class AReadThatFailedIsSaid(unittest.TestCase):
 
         client = SimpleNamespace(update_check=lambda: {"error": "offline"},
                                  capture_proposals=lambda: {"proposals": [{"id": "r1"}]},
-                                 jobs=lambda limit: refuse())
+                                 jobs=lambda limit: refuse(),
+                                 extension_needs=lambda: {"needs": []})
         library = Library.__new__(Library)
         library._client = client
 
@@ -430,6 +431,82 @@ class WhichTablesTheIndexNamed(unittest.TestCase):
         library._script_patches = {"reachable": True, "offered": []}
         library.games, library._table_rows = [], []
         self.assertEqual((), library.script_fix_tables())
+
+
+RAISED = {"extension": "site", "display_name": "Site", "kind": "share_down",
+          "key": "ext:site:share_down", "label": "3 plays are down", "says": "Not sent",
+          "tone": "warm", "opens": "list", "to": "plays", "count": 3,
+          "covered": ["a", "b", "c"]}
+
+
+class WhatExtensionsAskFor(unittest.TestCase):
+    def test_a_row_is_drawn_after_core_s_with_the_extension_named(self):
+        lib = FakeLibrary([game("g1", year="", **present("playfield", "backglass"))],
+                          watched={"extension_needs": [RAISED]})
+
+        rows = needs.collect(lib, {})
+
+        self.assertEqual(["no_year", "ext:site:share_down"], keys(rows))
+        one = rows[-1]
+        self.assertEqual(("3 plays are down", "Not sent", "Site", 3, "warm"),
+                         (one.label, one.tip, one.source, one.count, one.tone))
+
+    def test_each_kind_of_act_opens_its_own_place(self):
+        opened = {kind: needs.extension_rows([{**RAISED, "opens": kind, "to": "x"}])[0].opens
+                  for kind in ("list", "page", "action")}
+
+        self.assertEqual("community:site:x", opened["list"].view)
+        self.assertEqual("page:site:x", opened["page"].view)
+        self.assertEqual(("site", "x", ""),
+                         (opened["action"].extension, opened["action"].action,
+                          opened["action"].view))
+
+    def test_a_row_can_be_dismissed_and_comes_back_for_a_different_token(self):
+        row = needs.extension_rows([RAISED])[0]
+        record = {row.key: ["a", "b", "c"]}
+
+        self.assertEqual([], needs.arrange([row], record, set()).rows)
+        arranged = needs.arrange([needs.extension_rows([{**RAISED, "covered": ["a", "z"]}])[0]],
+                                 record, set())
+        self.assertEqual(("z",), arranged.rows[0].new)
+
+    def test_a_dismissal_outlasts_an_extension_that_could_not_answer(self):
+        record = {"ext:site:share_down": ["a"], "ext:other:old": ["b"]}
+
+        away = needs.arrange([], record, set(), [needs.AWAY + "site"])
+        every = needs.arrange([], record, set(), [needs.AWAY_ALL])
+        read = needs.arrange([], record, set(), [])
+
+        self.assertEqual({"ext:site:share_down": ["a"]}, away.record)
+        self.assertEqual(record, every.record)
+        self.assertEqual({}, read.record)
+
+    def test_it_can_be_set_aside_but_is_not_a_check_to_stop(self):
+        self.assertTrue(needs.can_set_aside("ext:site:share_down"))
+        self.assertTrue(needs.is_extension("ext:site:share_down"))
+        self.assertFalse(needs.is_device("ext:site:share_down"))
+        self.assertIn("extension", needs.comes_back("ext:site:share_down"))
+
+    def test_a_read_that_failed_is_said_and_stays_in_the_row_that_says_so(self):
+        lib = FakeLibrary(watched={"unread": ["extensions", needs.AWAY + "site"]})
+
+        rows = needs.collect(lib, {})
+
+        self.assertEqual(["unread"], keys(rows))
+        self.assertIn("what extensions ask for", rows[0].tip)
+
+    def test_the_read_collects_what_the_api_gave_and_who_was_away(self):
+        client = SimpleNamespace(
+            update_check=lambda: {}, capture_proposals=lambda: {"proposals": []},
+            jobs=lambda limit: [],
+            extension_needs=lambda: {"needs": [RAISED], "away": ["old"], "failed": ["old"]})
+        library = Library.__new__(Library)
+        library._client = client
+
+        read = library._read_watched()
+
+        self.assertEqual([RAISED], read["extension_needs"])
+        self.assertEqual(["away:old", "extensions"], read["unread"])
 
 
 if __name__ == "__main__":

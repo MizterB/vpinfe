@@ -14,7 +14,7 @@ from common.i18n import t
 from common.jobs import KIND_MEDIA_FILL
 from common.labels import field_label
 from common.media_specs import MEDIA_SPECS, media_family, media_label_map
-from console import art, game_tables, media_ownership, thumbnails, when
+from console import art, game_tables, media_ownership, needs, thumbnails, when
 from console.api import ApiClient
 from console.thumbnails import Look
 
@@ -1182,6 +1182,15 @@ class Library:
         except Exception:  # noqa: BLE001
             logger.debug("console: could not read the last media fill", exc_info=True)
             out["unread"].append("fill")
+        try:
+            raised = self._client.extension_needs()
+            out["extension_needs"] = list(raised.get("needs") or [])
+            out["unread"] += [needs.AWAY + name for name in raised.get("away") or []]
+            if raised.get("failed"):
+                out["unread"].append("extensions")
+        except Exception:  # noqa: BLE001 - what extensions ask for is not Overview's to fail on
+            logger.debug("console: could not read what extensions ask for", exc_info=True)
+            out["unread"] += ["extensions", needs.AWAY_ALL]
         return out
 
     def _media_missing(self) -> list[str]:

@@ -112,6 +112,7 @@ class Record:
     declared_links: list[dict] = field(default_factory=list)
     declared_groups: list[dict] = field(default_factory=list)
     declared_pages: list[dict] = field(default_factory=list)
+    declared_needs: list[dict] = field(default_factory=list)
     # The registration core calls the functions of; None while it is not running.
     context: ExtensionContext | None = None
     # Remembered between runs, so a stopped extension's page can say it has settings.
@@ -268,6 +269,7 @@ class Record:
                 "links": self.links() if self.running else [],
                 "groups": self.groups() if self.running else [],
                 "pages": self.pages() if self.running else [],
+                "needs": [dict(one) for one in self.declared_needs] if self.running else [],
                 "account": self.account_declared() if self.running else {}}
 
 
@@ -406,6 +408,7 @@ class Registry:
             record.declared_links = list(context.ui.declared_links)
             record.declared_groups = list(context.ui.declared_groups)
             record.declared_pages = list(context.ui.declared_pages)
+            record.declared_needs = list(context.ui.declared_needs)
             self._check_titles(record)
         except Exception as exc:
             logger.exception("Extension %s did not load: %r", record.name, exc)
@@ -414,6 +417,7 @@ class Registry:
             record.declared_links = []
             record.declared_groups = []
             record.declared_pages = []
+            record.declared_needs = []
             if context is not None:
                 _withdraw(record.name, context.events.registered, context.apps)
             record.became(FAILED, "extension.reason.start_failed")
