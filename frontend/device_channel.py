@@ -280,12 +280,13 @@ class DeviceChannel:
     # Python-callable methods for pushing events to browsers
     # -----------------------------------------------------------
 
-    def send_event(self, window_name: str, message: dict[str, Any]) -> None:
+    def send_event(self, window_name: str, message: dict[str, Any],
+                   forward_iframe: bool = False) -> None:
         """Send an event to a specific window's browser."""
         if self._loop is None:
             return
         asyncio.run_coroutine_threadsafe(
-            self._send_event_async(window_name, message),
+            self._send_event_async(window_name, message, forward_iframe),
             self._loop
         )
 
@@ -308,8 +309,8 @@ class DeviceChannel:
             self._loop
         )
 
-    async def _send_event_async(self, window_name: str,
-                                message: dict[str, Any]) -> None:
+    async def _send_event_async(self, window_name: str, message: dict[str, Any],
+                                forward_iframe: bool = False) -> None:
         """Internal async: send event to one window."""
         ws = self._connections.get(window_name)
         if ws is None:
@@ -317,7 +318,8 @@ class DeviceChannel:
         try:
             await ws.send(json.dumps({
                 'type': 'event',
-                'message': message
+                'message': message,
+                'forward_iframe': forward_iframe
             }))
         except websockets.exceptions.ConnectionClosed:
             pass

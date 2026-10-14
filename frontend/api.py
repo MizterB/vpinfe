@@ -462,9 +462,10 @@ class API:
         if self.ws_bridge:
             self.ws_bridge.send_event_all(message, exclude=self.window_name)
 
-    def send_event(self, window_name: str, message: dict[str, Any]) -> None:
+    def send_event(self, window_name: str, message: dict[str, Any],
+                   forward_iframe: bool = False) -> None:
         if self.ws_bridge:
-            self.ws_bridge.send_event(window_name, message)
+            self.ws_bridge.send_event(window_name, message, forward_iframe)
 
     def send_event_all_windows_incself(self, message: dict[str, Any]) -> None:
         if self.ws_bridge:

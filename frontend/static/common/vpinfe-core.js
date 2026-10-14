@@ -1430,6 +1430,19 @@ class VPinFECore {
     this.#broadcast("send_event_all_windows_incself", message);
   }
 
+  // One window only, with the legacy copy delivered the same way as in #broadcast.
+  #sendToWindow(windowName, message) {
+    this.call("send_event", windowName, message, true);
+    const legacy = this.#servesLegacyNames() && MESSAGE_TYPE_ALIASES[message.type];
+    if (legacy) this.call("send_event", windowName, { ...message, type: legacy }, true);
+  }
+
+  // The controller answers this window alone; the others see nothing.
+  async #askForSelection() {
+    await this.#waitForReceiveEvent();
+    this.sendMessageToAllWindows({ type: "SelectionRequest", window: this._windowName });
+  }
+
   // Open the named overlay, or close it if it is the one that is open. Callable from an
   // overlay's own page, which is how each of them closes itself.
   toggleOverlay(name) {
@@ -1561,6 +1574,12 @@ class VPinFECore {
     // the same path a keystroke reaches it.
     if (message.type === "InputAction") {
       if (this.isController()) this.#applyRemoteInput(message);
+      return;
+    }
+    if (message.type === "SelectionRequest") {
+      if (this.isController() && this.atRoot && message.window) {
+        this.#announceIndex(this._currentTableIndex, { reason: "restore", to: message.window });
+      }
       return;
     }
     if (message.type === "ProposalPreview") {
@@ -2366,6 +2385,7 @@ class VPinFECore {
     // when the remembered index is past the first game, so at index 0 nothing arrives
     // and nothing ever asked this window to paint.
     this.#renderWindowMedia();
+    if (!this.isController()) this.#askForSelection();
    //this.#overrideConsole(); //disabled for now...
 
     // only run on the table window.. Its the master controller for all screens/windows
@@ -2936,10 +2956,12 @@ class VPinFECore {
 
   // One shape for every index message, whichever list moved.
   #announceIndex(at, { previous = at, direction = "", reason = "step",
-                       source = "user" } = {}) {
+                       source = "user", to = "" } = {}) {
     const list = this.activeList();
     const item = this.atRoot ? (this.tableData[at] || {}) : {};
-    this.sendMessageToAllWindowsIncSelf({
+    const send = to ? (message) => this.#sendToWindow(to, message)
+                    : (message) => this.sendMessageToAllWindowsIncSelf(message);
+    send({
       type: "TableIndexUpdate", index: at, previous, direction, reason, source,
       // Which list this index is in. A theme reads it instead of tracking a mode, so a
       // picker no longer has to guess that an index message means "a game was picked".
@@ -2948,7 +2970,8 @@ class VPinFECore {
       // True while the wheel is still settling - what a theme needs to decide whether to
       // load full art or wait. It cannot serve as a jump signal: it is time-based, so one
       // distant jump reports false.
-      moving: this.#stillMoving(),
+      // An answer to one window is not a move, so it neither reads nor restarts the clock.
+      moving: to ? false : this.#stillMoving(),
     });
   }
 

@@ -889,7 +889,7 @@ Events are sent between windows via `receiveEvent()`. These are the built-in eve
 
 | Event Type | Properties | Description |
 |------------|------------|-------------|
-| `TableIndexUpdate` | `index`, `previous`, `direction`, `reason`, `source`, `moving`, `group`, `groupKind`, `list`, `kind` | The selection moved. Sent by the controller to all others, on every path. |
+| `TableIndexUpdate` | `index`, `previous`, `direction`, `reason`, `source`, `moving`, `group`, `groupKind`, `list`, `kind` | The selection moved. Sent by the controller to every window, on every path, and to one window alone when it asks with `SelectionRequest`. |
 | `TableLaunching` | — | A game is about to launch. Frontend keyboard/gamepad routing is suspended until `TableLaunchComplete`; use this to fade out, stop audio, etc. |
 | `TableRunning` | — | The launched game has finished loading and is now running. Sent when the table process outputs "Startup done". |
 | `TableLaunchComplete` | — | The launched game has exited and frontend input routing is restored. Use this to fade back in, resume audio. |
@@ -903,7 +903,7 @@ a page and a startup restore all announce themselves the same way:
 | `index` | where the selection is now |
 | `previous` | where it was. A local diff cannot tell a wrap from a jump: 149 → 0 is either one step forward or 149 back |
 | `direction` | `"previous"` or `"next"`, empty when the move had no direction |
-| `reason` | how far and why — `"step"` for one item, `"page"` for a page press, `"restore"` at startup, `"enter"` and `"leave"` when core descends into a list or comes back out. A page press moves to the next group when group paging is on and a fixed number of rows otherwise; both report `"page"`, because both want the same treatment |
+| `reason` | how far and why — `"step"` for one item, `"page"` for a page press, `"restore"` at startup and when a window opens after the wheel has moved, `"enter"` and `"leave"` when core descends into a list or comes back out. A page press moves to the next group when group paging is on and a fixed number of rows otherwise; both report `"page"`, because both want the same treatment |
 | `source` | who moved it — `"user"`, or `"attract"` when core's [attract mode](#attract-mode) moved it on its own. A theme that animates differently for a move nobody pressed reads this |
 | `moving` | true while the wheel is still settling, so you can defer full-resolution art. Time-based, so a single distant move reports `false` — use `reason` to tell a page from a step |
 | `group` | the group the selection landed in — `"T"`, `"1985"`, `"#"`. Empty when the list's order has no groups |
@@ -954,6 +954,7 @@ window.receiveEvent = (message) => {
 | `RemoteLaunching` | `game_name`, `table_name` | The manager UI triggered a remote game launch. Both names carry the same value; `table_name` is the 2.x spelling. Frontend keyboard/gamepad routing is suspended until `RemoteLaunchComplete`; show an overlay. Not sent for a launch that records a table's media: `TableLaunching` arrives for it, as for every launch, and core says what is happening itself (see Overlays). |
 | `RemoteLaunchComplete` | — | The remote-launched game has exited and frontend input routing is restored. Hide the overlay. |
 | `ProposalPreview` | `preview` | Core's own. A recording waiting for a decision is shown over your windows, and core takes the input until it is decided; `vpin.handleEvent()` draws it and your registered handlers never see it. Nothing for a theme to do. |
+| `SelectionRequest` | `window` | Core's own. A window that opens after the wheel has moved asks the controller where it is, and the answer is a `TableIndexUpdate` with `reason` `"restore"` sent to that window alone. `vpin.handleEvent()` takes it and your registered handlers never see it. Nothing for a theme to do. |
 | `TableDataChange` | `index`, `collection?`, `filters?`, `sort?` | Game data changed (collection switch, filter/sort update, a finished game's play data, a Manager UI edit). Handled automatically by `vpin.handleEvent()`. |
 
 `TableDataChange` also arrives unprompted: when a game exits, and when the Manager UI
