@@ -37,11 +37,12 @@ it, what you will see, a few variations and the mistake people make with it.
 - [12. A pane beside a list](#12-a-pane-beside-a-list)
 - [13. An account per player](#13-an-account-per-player)
 - [14. A group on a game's panel](#14-a-group-on-a-games-panel)
-- [15. A page of one subject](#15-a-page-of-one-subject)
-- [16. A page of your own](#16-a-page-of-your-own)
-- [17. Asking for attention on Overview](#17-asking-for-attention-on-overview)
-- [18. An extension for one Linux distribution](#18-an-extension-for-one-linux-distribution)
-- [19. Asking the operating system to change something](#19-asking-the-operating-system-to-change-something)
+- [15. An entry in a game's menu](#15-an-entry-in-a-games-menu)
+- [16. A page of one subject](#16-a-page-of-one-subject)
+- [17. A page of your own](#17-a-page-of-your-own)
+- [18. Asking for attention on Overview](#18-asking-for-attention-on-overview)
+- [19. An extension for one Linux distribution](#19-an-extension-for-one-linux-distribution)
+- [20. Asking the operating system to change something](#20-asking-the-operating-system-to-change-something)
 
 ## Basics
 
@@ -1345,9 +1346,104 @@ table's version and its VPS file.  Open a game marked Private and neither is dra
 It never holds the panel back, but keep what you can in memory.  And the group needs
 `games:read`; without it the extension is turned down with the reason when it starts.
 
+### 15. An entry in a game's menu
+
+**Use it when:** something you can do to a game or a table belongs next to Launch and Back Up
+Now, where a person already is when they think of it: send it somewhere, mark it, hand it to
+your service.
+
+Call `verb` with the subject, a key and a function.  Core draws the entry in the Games grid's
+row menu, in its selection menu and in the panel's header menu, in a block under your
+extension's name after core's own.  The function is handed the games or tables chosen, so one
+entry works on a row and on a selection without a second code path.  A game marked Private is
+left out of what you are handed.
+
+This one flags games, with a second entry that asks first, and shows a table's version.  It
+needs `games:read` in the manifest, since an entry is about the library.
+
+`recipes/game_verbs/extension.json`
+
+```json
+{
+  "name": "game_verbs",
+  "version": "1.0.0",
+  "requires_platform": 1,
+  "scopes": ["games:read"],
+  "capabilities": ["ui:mount", "config:own"]
+}
+```
+
+`recipes/game_verbs/__init__.py`
+
+```python
+def register(ctx):
+    def flagged():
+        return set((ctx.config.get("flagged") or "").split(",")) - {""}
+
+    def keep(ids):
+        ctx.config.set("flagged", ",".join(sorted(ids)))
+
+    def flag(who):
+        keep(flagged() | {one["game_id"] for one in who})
+        return ctx.t("message.flagged", count=len(who))
+
+    def unflag(who):
+        keep(flagged() - {one["game_id"] for one in who})
+        return ctx.t("message.unflagged", count=len(who))
+
+    def version(who):
+        return ctx.t("message.version", version=who[0]["version"] or "-")
+
+    ctx.ui.verb("game", "flag", flag)
+    ctx.ui.verb("game", "unflag", unflag, danger=True)
+    ctx.ui.verb("table", "version", version, one=True)
+```
+
+`recipes/game_verbs/i18n/en.json`
+
+```json
+{
+  "name": "Game Verbs",
+  "description": "Adds Flag and Unflag to the Games menu and Show Version to the Tables menu.",
+  "verb.game.flag.label": "Flag",
+  "verb.game.flag.tip": "Keep these games in the extension's list of flagged games",
+  "verb.game.unflag.label": "Unflag",
+  "verb.game.unflag.confirm": "Unflag these games?",
+  "verb.table.version.label": "Show Version",
+  "message.flagged": "{count} flagged",
+  "message.unflagged": "{count} unflagged",
+  "message.version": "This table is version {version}"
+}
+```
+
+Each entry's label, hover and question come from `verb.<subject>.<key>.label`, `.tip` and
+`.confirm` in the catalog.
+
+**Where it appears:** in the Games grid, in the menu at the end of a row, in the menu over a
+selection and in the header menu of a game's panel; Show Version is on the Tables grid the
+same way.  The entries sit under a Game Verbs heading, after core's.  **What triggers it:**
+choosing the entry.
+
+**What you'll see:** open a game's menu and, under the Game Verbs heading, Flag, then Unflag
+under a rule.  Choose Flag and a message says how many games were flagged.  Tick three games
+and the selection menu has the same entries, and Flag is handed all three.  Unflag asks first.
+Show Version is dimmed on a selection of several tables, and says so.
+
+**Variations:**
+
+- Answer `{"message": ..., "url": ...}` to open an address as well, such as a page on your
+  service for the game.
+- Give `label` to `verb` when you do not want a catalog entry for it.  It is used as written,
+  in every language.
+- Declare an entry for each subject with the same key.  A key is unique within a subject.
+
+**Watch out:** the function runs once for everything chosen, not once per game, so do not
+assume `who` has one entry unless you passed `one=True`.  And an entry needs `games:read`;
+without it the extension is turned down with the reason when it starts.
+
 ## Beyond the Console
 
-### 15. A page of one subject
+### 16. A page of one subject
 
 **Use it when:** the extension has one thing to show and not a list of them, such as this machine's start up, one board, or one account, and a grid of one row would be a click charged for nothing.
 
@@ -1434,7 +1530,7 @@ def register(ctx):
 
 **Watch out:** the page is read each time it opens, so a slow service makes it late; keep what you can in memory.  The title in the rail is `page.<key>.title` and is held to the same rule as a list's: not a core page's name, and not another list's or page's in the same area.
 
-### 16. A page of your own
+### 17. A page of your own
 
 **Use it when:** the thing you are adding already has a web page of its own, such as a hardware tool's console, a manual or a dashboard on another port, and a person should reach it from the Console in one click.
 
@@ -1490,7 +1586,7 @@ def register(ctx):
 
 **Watch out:** write `{host}` with doubled braces inside an f-string, as above, or Python fills it in and the host is lost.  A link is never drawn with another scheme: `file:`, `javascript:` and the rest are refused when it is declared, or dropped when a function answers one.
 
-### 17. Asking for attention on Overview
+### 18. Asking for attention on Overview
 
 **Use it when:** something the extension watches needs a person to act, such as scores flagged for review, a sync that stopped or an update that is ready, and they should see it where the Console already collects such things, without opening the extension first.
 
@@ -1580,7 +1676,7 @@ def register(ctx):
 
 **Watch out:** answer only the kinds that have something to ask for.  A kind that answers a count of nothing is left out, but a `read` that raises, or that names a kind it never declared, leaves out all of that extension's rows and Overview says so.
 
-### 18. An extension for one Linux distribution
+### 19. An extension for one Linux distribution
 
 **Use it when:** the extension manages something only one kind of machine has, such as a cabinet's boot mode on VPinOS, and it should not be offered anywhere else.
 
@@ -1629,7 +1725,7 @@ def register(ctx):
 
 **Watch out:** the `ID` is lowercase in `/etc/os-release` and here: `VPinOS` is refused, `vpinos` is not.  The name in the reason, "Ubuntu", is the distribution's `NAME`, which is for people to read, and it is not what `platforms` matches.
 
-### 19. Asking the operating system to change something
+### 20. Asking the operating system to change something
 
 **Use it when:** the extension manages something only root can change, such as the operating system's updates on a VPinOS cabinet.
 

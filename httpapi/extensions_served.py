@@ -164,6 +164,17 @@ def router(name: str, running: Any) -> APIRouter:
     def post_game_group_act(game_id: str, act: str) -> dict:
         return ask(serving.group_act, "game", _asked(game_id, "game"), act)
 
+    @post("/verbs/{kind}/{verb}", "Press one of the extension's entries in the Games or "
+          "Tables menu on some of them")
+    def post_library_verb(kind: str, verb: str, body: models.ExtensionLibraryVerb) -> dict:
+        if kind not in ("game", "table"):
+            raise NotFoundError(t("error.extensions.no_verb", display=name, key=verb))
+        chosen = dict.fromkeys((one.game_id, one.table_id if kind == "table" else "")
+                               for one in body.targets)
+        asked = [subject(game_id, table_id) for game_id, table_id in chosen
+                 if table_id or kind == "game"]
+        return ask(serving.library_verb, kind, verb, [who for who in asked if who])
+
     @post("/groups/table/{game_id}/{table_id}/acts/{act}", "Do one of a table group's acts")
     def post_table_group_act(game_id: str, table_id: str, act: str) -> dict:
         return ask(serving.group_act, "table", _asked(game_id, "table", table_id), act)

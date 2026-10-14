@@ -27,6 +27,7 @@ from console import (
     backup_rows,
     collection_adds,
     confirm,
+    ext_verbs,
     game_tables,
     media_fill,
     offload,
@@ -183,6 +184,10 @@ def game_acts(library: Any, games: list[dict[str, Any]], state: dict[str, Any],
         offered.append(panel.Verb(t("console.adds.verb"), draw=collections))
     if reset := reset_games(library, ids, refresh):
         offered.append(reset)
+    offered += ext_verbs.offered(
+        state, "game",
+        [{"game_id": str(one["id"])} for one in games if not one.get("private")],
+        lambda: refresh(ids))
     return offered
 
 
@@ -437,6 +442,9 @@ def table_acts(library: Any, targets: list[Target], after: After, state: dict[st
         offered.append(reset_game)
     if any(game_tables.can_forget(item.table) for item in targets):
         offered.append(panel.Verb(t("word.forget"), forget, danger=True))
+    offered += ext_verbs.offered(
+        state, "table", [{"game_id": item.game_id, "table_id": item.id} for item in targets],
+        lambda: after(games_of(targets), False))
     return offered
 
 

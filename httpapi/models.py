@@ -2218,6 +2218,19 @@ class ExtensionVerb(ApiModel):
     ids: list[str] = Field(default_factory=list)
 
 
+class ExtensionTarget(ApiModel):
+    """A game, or one of its tables, an entry in the Games or Tables menu is pressed on."""
+
+    game_id: str
+    table_id: str = ""
+
+
+class ExtensionLibraryVerb(ApiModel):
+    """The games or tables an extension's entry in their menu is pressed on."""
+
+    targets: list[ExtensionTarget] = Field(default_factory=list)
+
+
 class ExtensionAsk(ApiModel):
     """The step to ask for, and the rows of a list the dialog was opened over, by `id`."""
 

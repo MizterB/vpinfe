@@ -4100,6 +4100,7 @@
   "error.extensions.not_rows": "{display} answered {key} with something that is not a list of rows",
   "error.extensions.no_act": "{display} has no act called {key}",
   "error.extensions.no_verb": "{display} has no verb called {key}",
+  "error.extensions.verb_none": "{display} is not given Private games, so {key} has nothing to run on",
   "error.extensions.verb_rows": "{display} does not take this many rows for {key}",
   "error.extensions.no_row": "{display} no longer has the row {id}",
   "error.extensions.verb_needs": "{key} is not for these rows",

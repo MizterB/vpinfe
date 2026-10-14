@@ -1480,13 +1480,13 @@ Each of these is a small complete extension in the [Cookbook](cookbook.md).
   list](cookbook.md#11-a-game-in-a-list) and [a pane beside a list](cookbook.md#12-a-pane-beside-a-list).
 - **Something per player.**  [An account per player](cookbook.md#13-an-account-per-player).
 - **Something on a game.**  [A group on a game's panel](cookbook.md#14-a-group-on-a-games-panel).
-- **A page that is not a list.**  [A page of one subject](cookbook.md#15-a-page-of-one-subject) and
-  [a page of your own](cookbook.md#16-a-page-of-your-own).
+- **A page that is not a list.**  [A page of one subject](cookbook.md#16-a-page-of-one-subject) and
+  [a page of your own](cookbook.md#17-a-page-of-your-own).
 - **Tell the person something needs them.**  [Asking for attention on
-  Overview](cookbook.md#17-asking-for-attention-on-overview).
+  Overview](cookbook.md#18-asking-for-attention-on-overview).
 - **One Linux distribution.**  [An extension for one Linux
-  distribution](cookbook.md#18-an-extension-for-one-linux-distribution) and [asking the operating
-  system to change something](cookbook.md#19-asking-the-operating-system-to-change-something).
+  distribution](cookbook.md#19-an-extension-for-one-linux-distribution) and [asking the operating
+  system to change something](cookbook.md#20-asking-the-operating-system-to-change-something).
 
 Before you give it to anyone, read [Good extensions](good-extensions.md): the habits that make an
 extension feel like part of VPinFE, ending in a list to tick.

@@ -4100,6 +4100,7 @@
   "error.extensions.not_rows": "{display} àñšŵèřèđ {key} ŵîţĥ šöɱèţĥîñĝ ţĥàţ îš ñöţ à ŀîšţ öƒ řöŵš",
   "error.extensions.no_act": "{display} ĥàš ñö àçţ çàŀŀèđ {key}",
   "error.extensions.no_verb": "{display} ĥàš ñö ṽèřƀ çàŀŀèđ {key}",
+  "error.extensions.verb_none": "{display} îš ñöţ ĝîṽèñ Þřîṽàţè ĝàɱèš, šö {key} ĥàš ñöţĥîñĝ ţö řûñ öñ",
   "error.extensions.verb_rows": "{display} đöèš ñöţ ţàķè ţĥîš ɱàñý řöŵš ƒöř {key}",
   "error.extensions.no_row": "{display} ñö ŀöñĝèř ĥàš ţĥè řöŵ {id}",
   "error.extensions.verb_needs": "{key} îš ñöţ ƒöř ţĥèšè řöŵš",

@@ -90,7 +90,7 @@ new tab.  See [A link says whether it leaves](../conventions.md#a-link-says-whet
 
 A thing that is more than a list, a pane, a dialog or a group has a page of its own, on a site and
 a port of its own, and the Console links to it.  See
-[a page of your own](cookbook.md#16-a-page-of-your-own).
+[a page of your own](cookbook.md#17-a-page-of-your-own).
 
 - **Anything that changes something goes behind its own sign-in.**  A page core serves under
   `/api/v1/ext/` is answered sandboxed, as no origin of its own, so it cannot carry a sign-in.  A
@@ -99,7 +99,7 @@ a port of its own, and the Console links to it.  See
   A change that needs it is a fixed act of the operating system's own helper: `ctx.os.call`, from a
   function core calls on a person's press.  It is refused from an event handler, a timer or a thread,
   because those did not come from somebody pressing something.  See
-  [asking the operating system to change something](cookbook.md#19-asking-the-operating-system-to-change-something).
+  [asking the operating system to change something](cookbook.md#20-asking-the-operating-system-to-change-something).
 
 ## Before you ship
 

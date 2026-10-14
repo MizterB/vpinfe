@@ -111,6 +111,7 @@ class Record:
     declared_lists: list[dict] = field(default_factory=list)
     declared_links: list[dict] = field(default_factory=list)
     declared_groups: list[dict] = field(default_factory=list)
+    declared_library_verbs: list[dict] = field(default_factory=list)
     declared_pages: list[dict] = field(default_factory=list)
     declared_needs: list[dict] = field(default_factory=list)
     # The registration core calls the functions of; None while it is not running.
@@ -160,6 +161,22 @@ class Record:
         return [{**one, "title": self.said(one["title"], f"group.{one['subject']}.title",
                                            self.display_name)[0]}
                 for one in self.declared_groups]
+
+    def library_verbs(self) -> list[dict]:
+        """Its entries for the Games and Tables menus, worded in the language now set."""
+        found = []
+        for one in self.declared_library_verbs:
+            at = f"verb.{one['subject']}.{one['key']}"
+            found.append({**one,
+                          "label": self.said(one["label"], f"{at}.label", one["key"])[0],
+                          "tip": self.said("", f"{at}.tip")[0],
+                          "confirm_key": i18n.first_key(f"ext.{self.name}.{at}.confirm")})
+        return found
+
+    @property
+    def bundled(self) -> bool:
+        """Whether it ships with VPinFE rather than being installed by the person."""
+        return BUNDLED_DIR in self.directory.parents
 
     def pages(self) -> list[dict]:
         """Its pages, titled in the language now set."""
@@ -268,6 +285,8 @@ class Record:
                 "lists": self.lists() if self.running else [],
                 "links": self.links() if self.running else [],
                 "groups": self.groups() if self.running else [],
+                "library_verbs": self.library_verbs() if self.running else [],
+                "bundled": self.bundled,
                 "pages": self.pages() if self.running else [],
                 "needs": [dict(one) for one in self.declared_needs] if self.running else [],
                 "account": self.account_declared() if self.running else {}}
@@ -410,6 +429,7 @@ class Registry:
             record.declared_lists = list(context.ui.declared_lists)
             record.declared_links = list(context.ui.declared_links)
             record.declared_groups = list(context.ui.declared_groups)
+            record.declared_library_verbs = list(context.ui.declared_library_verbs)
             record.declared_pages = list(context.ui.declared_pages)
             record.declared_needs = list(context.ui.declared_needs)
             self._check_titles(record)
@@ -419,6 +439,7 @@ class Registry:
             record.declared_lists = []
             record.declared_links = []
             record.declared_groups = []
+            record.declared_library_verbs = []
             record.declared_pages = []
             record.declared_needs = []
             if context is not None:

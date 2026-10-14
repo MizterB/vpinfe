@@ -142,6 +142,21 @@ class AGroupOnAPanel(CheckCase):
         self.assertIn("games:read", lines[0])
 
 
+class AVerbInAMenu(CheckCase):
+    BODY = (
+        "def register(ctx):\n"
+        "    ctx.ui.verb('game', 'ship', lambda who: None)\n"
+        "    ctx.ui.verb('table', 'scrub', lambda who: None, danger=True)\n")
+
+    def test_it_says_each_entry_and_whether_it_asks_first(self) -> None:
+        lines, passed = check.check(build(self.root, self.BODY, scopes=["games:read"],
+                                          words={}))
+
+        self.assertIn("verb       ship in the game menu", lines)
+        self.assertIn("verb       scrub in the table menu, asks first", lines)
+        self.assertTrue(passed, lines)
+
+
 class APage(CheckCase):
     BODY = (
         "def register(ctx):\n"

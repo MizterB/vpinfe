@@ -58,6 +58,9 @@ DECLARES: dict[str, list[str]] = {
                        "a pane of 2 sections"],
     "game_notes": ["group      on a game's panel, with fields",
                    "group      on a table's panel"],
+    "game_verbs": ["verb       flag in the game menu",
+                   "verb       unflag in the game menu, asks first",
+                   "verb       version in the table menu"],
     "machine_page": ["page       machine in system, with fields",
                      "reads      page machine: 2 sections, acts: check, manual"],
     "review_queue": ["list       queue in community: 3 columns",
@@ -423,6 +426,24 @@ class RecipesDoWhatTheyClaim(ExamplesLoadedByTheHost):
         self.assertEqual(other["section"]["fields"][0]["value"], "")
         self.assertEqual([one["value"] for one in table["section"]["facts"]], ["1.2", "f9"])
         self.assertEqual(table["title"], "This Table")
+
+    def test_the_game_verbs_recipe_flags_the_games_it_is_handed_and_names_a_tables_version(
+            self) -> None:
+        record = self.load("game_verbs")
+        who = [{"game_id": "g1", "vps_id": "v", "name": "Taxi"},
+               {"game_id": "g2", "vps_id": "v", "name": "Medusa"}]
+
+        flagged = serving.library_verb(record, "game", "flag", who)
+        unflagged = serving.library_verb(record, "game", "unflag", who[:1])
+        version = serving.library_verb(record, "table", "version", [{
+            **who[0], "table_id": "t1", "vps_file_id": "f9", "version": "1.2"}])
+
+        self.assertEqual(flagged, {"message": "2 flagged"})
+        self.assertEqual(unflagged, {"message": "1 unflagged"})
+        self.assertEqual(version, {"message": "This table is version 1.2"})
+        self.assertEqual(record.context.config.get("flagged"), "g2")
+        with self.assertRaises(RefusedError):
+            serving.library_verb(record, "table", "version", [who[0], who[1]])
 
     def test_the_tool_links_follow_the_port_and_fill_in_the_host_the_console_was_opened_at(
             self) -> None:

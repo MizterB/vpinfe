@@ -23,6 +23,7 @@ them.
 | `page.<key>.act.<act>.label` | An act in a page's title menu | The act's key |
 | `group.<subject>.title` | The heading over a group on a game's or a table's panel | The extension's name |
 | `group.<subject>.act.<act>.label` | A button in the strip closing a group | The act's key |
+| `verb.<subject>.<key>.label`, `.tip`, `.confirm` | An entry in the Games or Tables menu: its label, its hover, the question a danger entry asks | The key; nothing; core's question |
 | `need.<kind>.label`, `need.<kind>.says` | A row asking for something on Overview: its line, given `count`, and the line under it | The extension's name; nothing |
 | `link.<key>.label`, `link.<key>.tip` | A link to the extension's own page: its text and its hover | The key; nothing |
 | `action.<key>.label`, `action.<key>.description` | An action, and the button above a list that adds with it | The key; nothing |

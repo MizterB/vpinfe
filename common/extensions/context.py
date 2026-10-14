@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -334,6 +335,8 @@ class ExtensionUI:
         self._reads_games = GAMES_READ in frozenset(scopes)
         self.declared_groups: list[dict] = []
         self.group_functions: dict[str, GroupFunctions] = {}
+        self.declared_library_verbs: list[dict] = []
+        self.library_verb_functions: dict[tuple[str, str], Callable[[list[dict]], Any]] = {}
         self.actions: list[dict] = []
         self.action_objects: dict[str, Any] = {}
         self.declared_lists: list[dict] = []
@@ -522,6 +525,42 @@ class ExtensionUI:
         self.group_functions[wanted] = GroupFunctions(read=read, save=save, acts=acts)
         self.declared_groups.append({"subject": wanted, "title": str(title or "").strip(),
                                      "base": f"/groups/{wanted}", "save": save is not None})
+
+    def verb(self, subject: str, key: str, run: Callable[[list[dict]], Any], *,
+             label: str = "", one: bool = False, danger: bool = False) -> None:
+        """An entry in the menu of the Games grid (`subject` `"game"`) or the Tables grid
+        (`"table"`), on a row, on a selection and on the panel's header, in a block of this
+        extension's own after core's.
+
+        `run(who)` is called with the games or tables chosen, each `{"game_id", "vps_id",
+        "name"}` and for a table also `{"table_id", "vps_file_id", "version"}`, and answers
+        a `message` or `{"message", "url"}`. A game marked Private is left out of `who`,
+        and a verb with none left refuses. `one` refuses several at once, and `danger` asks
+        first and draws the entry last in the block, under a rule.
+
+        Reading the games needs `games:read` in the manifest. The words are
+        `verb.<subject>.<key>.label`, `.tip` and `.confirm` in the extension's catalog.
+        """
+        self._needs_ui("a verb")
+        if not self._reads_games:
+            raise ContractError(f"{self._name} offers a verb, which needs "
+                                f"{GAMES_READ}, and its manifest does not declare it")
+        wanted, named = str(subject or "").strip(), str(key or "").strip()
+        if wanted not in GROUP_SUBJECTS:
+            raise ContractError(f"{self._name} puts a verb on {subject!r}, which is not "
+                                f"one of {', '.join(GROUP_SUBJECTS)}")
+        if not re.fullmatch(r"[a-z][a-z0-9_]*", named) or (
+                wanted, named) in self.library_verb_functions:
+            raise ContractError(f"{self._name} gives a {wanted} verb {named!r} for a key, "
+                                "which is not lower-case words joined by underscores, or "
+                                "two with the same one")
+        if not callable(run):
+            raise ContractError(f"{self._name} gives its {wanted} verb {named!r} a run that "
+                                "is not a function")
+        self.library_verb_functions[(wanted, named)] = run
+        self.declared_library_verbs.append({
+            "subject": wanted, "key": named, "label": str(label or "").strip(),
+            "one": bool(one), "danger": bool(danger)})
 
     def needs(self, kinds: dict[str, dict], read: Callable[[], Any]) -> None:
         """The kinds of thing this extension can ask for on Overview, under Needs You.

@@ -190,6 +190,42 @@ It raises `ContractError` without `ui:mount` or without `games:read` in the mani
 for a `subject` that is not `game` or `table`, for a subject declared twice, for a `read` or
 a `save` that is not a function, and for `acts` that are neither a dict nor a function.  `--check-extension` says each group it finds.
 
+## `ctx.ui.verb`
+
+`ctx.ui.verb(subject, key, run, *, label="", one=False, danger=False)`.  Required: `subject`,
+`key`, `run`.
+
+Add an entry to the menu of the Games grid (`subject` `"game"`) or the Tables grid
+(`"table"`).  It is drawn on a row, on a selection and on the panel's header, each time in a
+block of this extension's own after core's, under the extension's name.  Bundled extensions'
+blocks come first, then the others, each by name.  `run(who)` is called with a list of what
+was chosen, each `{"game_id", "vps_id", "name"}` and for a table also `{"table_id",
+"vps_file_id", "version"}`, and answers what to say, as an act does: a message, or
+`{"message", "url"}` to open an address as well.  A game marked Private is left out of `who`,
+and an entry with none left refuses.
+
+```python
+def flag(who):
+    ids = set((ctx.config.get("flagged") or "").split(",")) - {""}
+    ctx.config.set("flagged", ",".join(sorted(ids | {one["game_id"] for one in who})))
+    return ctx.t("message.flagged", count=len(who))
+
+
+ctx.ui.verb("game", "flag", flag)
+```
+
+With `one`, the entry takes a single game or table: with several chosen it stays in the menu,
+dimmed.  With `danger`, core asks first and draws the entry last in the block, under a rule.
+The words are `verb.<subject>.<key>.label`, `.tip` and `.confirm` in the extension's catalog.
+A `label` you give is used as written, and the catalog is read for it only when you give none.  The entry is served at `POST
+/api/v1/ext/<name>/verbs/game/<verb>` and `.../verbs/table/<verb>` with `{"targets":
+[{"game_id", "table_id"}]}`, and needs the extension's write scope.
+
+It raises `ContractError` without `ui:mount` or without `games:read` in the manifest's
+`scopes`, for a `subject` that is not `game` or `table`, for a key that is not lower-case
+words joined by underscores or is declared twice for the subject, and for a `run` that is not
+a function.  `--check-extension` says each entry it finds.
+
 ## `ctx.ui.needs`
 
 `ctx.ui.needs(kinds, read)`.  Required: `kinds`, `read`.

@@ -38,7 +38,7 @@ and that keeps doing so when the Console changes.
 
 It also means there is nothing to style.  A thing that does not fit one of the declarations is
 a page of its own, reached by a link (see
-[a page of your own](cookbook.md#16-a-page-of-your-own)).
+[a page of your own](cookbook.md#17-a-page-of-your-own)).
 
 ## One process, so accepting is trusting
 

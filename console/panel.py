@@ -1490,6 +1490,8 @@ class Verb:
     given what closes that menu, for the one list that is a submenu with state of its own.
     `one` is a verb with no meaning over several rows: with several chosen it stays in the
     menu, dimmed and saying so (`for_selection`). `tip` is what a hover adds to the label.
+    `block` is the extension an entry comes from: its entries follow core's, each block under
+    a rule and its name.
     """
     label: str
     run: Callable[[], Any] | None = None
@@ -1502,6 +1504,7 @@ class Verb:
     draw: Callable[[Callable[[], Any]], None] | None = None
     one: bool = False
     tip: str = ""
+    block: str = ""
 
 
 def for_selection(entries: Sequence[Verb], count: int) -> list[Verb]:
@@ -1552,17 +1555,25 @@ def _verb_entry(verb: Verb) -> None:
 
 
 def verb_entries(entries: Sequence[Verb], close: Callable[[], Any] | None = None) -> None:
-    """Into the menu being built. The destructive ones last, under a rule. `close` shuts
-    that menu, for the entries that draw their own."""
-    safe = [one for one in entries if not one.danger]
-    risky = [one for one in entries if one.danger]
+    """Into the menu being built. In each block the destructive ones last, under a rule.
+    Core's block is first and each extension's follows under its name. `close` shuts that
+    menu, for the entries that draw their own."""
     shut = close or (lambda: None)
-    for one in safe:
-        _draw_verb(one, shut)
-    if safe and risky:
-        ui.separator()
-    for one in risky:
-        _draw_verb(one, shut)
+    blocks: dict[str, list[Verb]] = {"": []}
+    for one in entries:
+        blocks.setdefault(one.block, []).append(one)
+    for name, held in blocks.items():
+        if name and held:
+            ui.separator()
+            ui.item_label(name).props("header").classes("console-menu-header")
+        safe = [one for one in held if not one.danger]
+        risky = [one for one in held if one.danger]
+        for one in safe:
+            _draw_verb(one, shut)
+        if safe and risky:
+            ui.separator()
+        for one in risky:
+            _draw_verb(one, shut)
 
 
 def _draw_verb(verb: Verb, close: Callable[[], Any]) -> None:
