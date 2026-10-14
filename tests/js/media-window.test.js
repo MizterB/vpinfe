@@ -160,6 +160,119 @@ describe("core rendering the window's media", () => {
   });
 });
 
+describe("playfield art drawn by core is turned to fit the surface", () => {
+  const AFM = ROWS.findIndex((row) => row.tableDirName === "Attack from Mars (Bally 1995)");
+  const MM = ROWS.findIndex((row) => row.tableDirName === "Medieval Madness (Williams 1997)");
+
+  /** A marked element that answers attribute reads and holds what core draws into it. */
+  async function drawn(kind, attributes = {}, { layout = true, priority } = {}) {
+    const themeConfig = layout ? { layout: { enabled: true } } : {};
+    const { vpin, browser } = await coreOn("table", { target: false, themeConfig });
+    if (priority) vpin.mediaPriorities = { ...vpin.mediaPriorities, [kind]: priority };
+    const target = {
+      children: [],
+      getAttribute: (name) => (name === "data-vpin-media" ? kind : attributes[name] ?? null),
+      replaceChildren(...kids) { this.children = kids; },
+    };
+    browser.document._queryAll["[data-vpin-media]"] = [target];
+    return { vpin, target, show: (index) => step(vpin, index) };
+  }
+
+  test("a playfield picture is marked and set up for rotation", async () => {
+    const { target, show } = await drawn("playfield", {}, { priority: "image" });
+    show(AFM);
+
+    const [node] = target.children;
+    assert.ok(node.classes.has("vpinfe-playfield-media"));
+    assert.ok(node.listeners.load, "it is measured once the picture knows its size");
+  });
+
+  test("a playfield video is measured when its metadata arrives", async () => {
+    const { target, show } = await drawn("playfield");
+    show(AFM);
+
+    const [node] = target.children;
+    assert.ok(node.classes.has("vpinfe-playfield-media"));
+    assert.ok(node.listeners.loadedmetadata);
+  });
+
+  test("a theme that did not opt into layout gets an unmarked node", async () => {
+    const { target, show } = await drawn("playfield", {}, { layout: false });
+    show(AFM);
+
+    assert.equal(target.children[0].classes.size, 0);
+  });
+
+  test("a backglass is never turned", async () => {
+    const { target, show } = await drawn("backglass");
+    show(AFM);
+
+    assert.equal(target.children[0].classes.size, 0);
+  });
+
+  test("the user's priority decides between the still and the video", async () => {
+    const image = await drawn("playfield", {}, { priority: "image" });
+    image.show(AFM);
+    const video = await drawn("playfield", {}, { priority: "video" });
+    video.show(AFM);
+
+    assert.ok(image.target.children[0].src.endsWith(".png"));
+    assert.ok(video.target.children[0].src.endsWith(".mp4"));
+  });
+
+  test("an element can ask for the still whatever the priority is", async () => {
+    const { target, show } = await drawn("playfield",
+      { "data-vpin-media-prefer": "image" }, { priority: "video" });
+    show(AFM);
+
+    assert.ok(target.children[0].src.endsWith(".png"));
+  });
+
+  test("an element can ask for the video whatever the priority is", async () => {
+    const { target, show } = await drawn("playfield",
+      { "data-vpin-media-prefer": "video" }, { priority: "image" });
+    show(AFM);
+
+    assert.ok(target.children[0].src.endsWith(".mp4"));
+  });
+
+  test("a preference for what a game lacks falls back to what it has", async () => {
+    const { target, show } = await drawn("backglass", { "data-vpin-media-prefer": "video" });
+    show(MM);
+
+    assert.ok(target.children[0]?.src.endsWith(".png"), "no backglass video, so the still");
+  });
+
+  test("the same game again keeps its node", async () => {
+    const { target, show } = await drawn("playfield");
+    show(AFM);
+    const [first] = target.children;
+    show(AFM);
+
+    assert.equal(target.children[0], first, "a playing video is not restarted");
+  });
+
+  test("a reloaded library draws it again", async () => {
+    const { vpin, target, show } = await drawn("playfield");
+    show(AFM);
+    const [first] = target.children;
+    vpin.tableData = ROWS.map((row) => ({ ...row }));
+    show(AFM);
+
+    assert.notEqual(target.children[0], first, "a picture replaced under its URL is fetched anew");
+  });
+
+  test("another game replaces it", async () => {
+    const { target, show } = await drawn("playfield", {}, { priority: "image" });
+    show(AFM);
+    const [first] = target.children;
+    show(ROWS.findIndex((row) => row.tableDirName !== ROWS[AFM].tableDirName
+      && row.playfieldImagePath));
+
+    assert.notEqual(target.children[0], first);
+  });
+});
+
 describe("dimming every window while VPX launches", () => {
   test("it is set on the document, not left to the theme", async () => {
     // A theme's script runs in the controller only, so a theme doing this for itself

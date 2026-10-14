@@ -740,6 +740,10 @@ class VPinFECore {
   #preview = null;
   #previewLayer = null;
 
+  // Keyed on the game's row as well as the URL: a reload hands out new rows, and a picture
+  // replaced under the same URL is only fetched again if the node is built again.
+  #mediaShown = new WeakMap();
+
   constructor() {
     this.tableData = {};
     // The folders an empty library is waiting on, by server where they are on one.
@@ -2058,26 +2062,60 @@ class VPinFECore {
   }
 
   #renderMediaInto(target, kind) {
-    // Video first, then the still - the same order a theme would ask in, and the reason
-    // the kinds are named in pairs.
     const index = this._currentTableIndex;
-    const wanted = [`${kind}_video`, kind].find((name) => {
-      if (!MEDIA_KINDS.includes(name)) return false;
-      const media = this.getMedia(index, name);
-      // `missing` still answers with the placeholder URL, so truthiness is not enough -
-      // it would put the file-missing image on screen inside a <video>.
-      return media.url && media.kind !== "missing";
-    });
-    if (!wanted) return target.replaceChildren();
+    const prefer = target.getAttribute("data-vpin-media-prefer")?.trim();
+    const media = this.#windowMedia(index, kind, prefer);
+    if (!media) return target.replaceChildren();
 
-    const isVideo = wanted.endsWith("_video");
-    const node = document.createElement(isVideo ? "video" : "img");
-    node.src = this.getMediaURL(index, wanted);
+    const row = this.tableData[index];
+    const shown = this.#mediaShown.get(target);
+    if (shown && shown.url === media.url && shown.row === row
+        && target.children?.[0] === shown.node) return;
+
+    const node = document.createElement(media.video ? "video" : "img");
+    node.src = media.url;
     node.alt = this.tableData[index]?.game?.name || "";
-    if (isVideo) {
+    if (media.video) {
       Object.assign(node, { autoplay: true, loop: true, muted: true, playsInline: true });
     }
+    if (kind.startsWith("playfield") && this.enabled("core_layout")) {
+      node.classList.add("vpinfe-playfield-media");
+      this.applyPlayfieldMediaRotation(node);
+    }
+    this.#mediaShown.set(target, { node, url: media.url, row });
     target.replaceChildren(node);
+  }
+
+  /**
+   * What `[data-vpin-media]` draws for a kind: `{ url, video }`, or null when there is
+   * nothing to draw. The user's image-or-video priority decides unless the element says
+   * `data-vpin-media-prefer` "image" or "video"; either falls back to the other.
+   */
+  #windowMedia(index, kind, prefer) {
+    const item = this.tableData[index];
+    if (!item) return null;
+
+    if (["playfield", "backglass", "scoreview"].includes(kind)) {
+      const media = prefer === "image" || prefer === "video"
+        ? this._reader.imageVideo(item, kind, prefer)
+        : this.getMedia(index, kind);
+      return media.kind === "image" || media.kind === "video"
+        ? { url: media.url, video: media.kind === "video" }
+        : null;
+    }
+
+    // Every other kind is named in a pair with its video: the still, then `<kind>_video`.
+    const order = prefer === "image" ? [kind, `${kind}_video`] : [`${kind}_video`, kind];
+    const wanted = order.find((name) => {
+      if (!MEDIA_KINDS.includes(name)) return false;
+      // `missing` still answers with the placeholder URL, so truthiness is not enough -
+      // it would put the file-missing image on screen inside a <video>.
+      const media = this.getMedia(index, name);
+      return media.url && media.kind !== "missing";
+    });
+    return wanted
+      ? { url: this.getMediaURL(index, wanted), video: wanted.endsWith("_video") }
+      : null;
   }
 
   // Neighbors only, and only once the wheel has stopped moving.

@@ -490,11 +490,23 @@ Set this in your `config.json` and core turns both the UI and the art for you:
 { "layout": { "enabled": true } }
 ```
 
-Then mark the two elements it should act on. `vpinfe-style.css`, which your theme already
-links, carries the rules:
+Then mark the element that turns the UI. `vpinfe-style.css`, which your theme already links,
+carries the rules:
 
 ```html
-<div class="vpinfe-upright">…your whole UI…</div>
+<div class="vpinfe-upright">…your whole UI…
+  <div data-vpin-media="playfield"></div>
+</div>
+```
+
+Core draws the selected game's playfield into that element, marks the picture or video with
+`vpinfe-playfield-media`, and turns it to fit, on every selection. The element needs
+`position: relative` and has to fill the surface, because turned art is sized from the
+screen. That is the whole integration — no rotation arithmetic anywhere in your theme.
+
+Art your theme draws itself is marked the same way and handed over once it is in the page:
+
+```html
 <img class="vpinfe-playfield-media" id="playfield">
 ```
 
@@ -502,7 +514,8 @@ links, carries the rules:
 vpin.applyPlayfieldMediaRotation(document.getElementById("playfield"));
 ```
 
-That is the whole integration — no rotation arithmetic anywhere in your theme.
+A video takes the same two lines. Core measures the art once it knows its size, so it works
+for a picture that is still loading.
 
 **The art is measured, not assumed.** There is no reliable convention for how playfield
 captures are authored: a library may be landscape desktop shots, portrait FSS renders, or a
@@ -529,156 +542,43 @@ Good questions to answer up front when starting a new theme:
 - Should portrait mode use a different layout, or just rotate the landscape one?
 - Should only the main playfield UI rotate, or should playfield-only overlays rotate too?
 
-#### Basic Cab portrait pattern
+#### A portrait cabinet, end to end
 
-The Basic Cab theme works on an OS-level Portrait playfield by treating the page as layers:
-
-- `#fadeContainer` contains the playfield UI and media.
-- `#remote-launch-overlay` is rotated with the playfield UI so launch feedback appears in the same orientation.
-- `#overlay-root` stays as the injected menu host, but a child wrapper (`#menu-overlay-container`) catches the menu iframes and applies menu-specific rotation.
-
-The key trick is that a 90-degree or 270-degree rotated surface must swap its CSS dimensions before rotation:
-
-```javascript
-const rotation = Number(vpin.playfieldRotation) || 0;
-const swapAxes = Math.abs(rotation) === 90 || Math.abs(rotation) === 270;
-const rotatedWidth = swapAxes ? "100vh" : "100vw";
-const rotatedHeight = swapAxes ? "100vw" : "100vh";
-
-[document.getElementById("fadeContainer"), document.getElementById("remote-launch-overlay")]
-  .filter(Boolean)
-  .forEach((element) => {
-    element.style.position = "absolute";
-    element.style.top = "50%";
-    element.style.left = "50%";
-    element.style.width = rotatedWidth;
-    element.style.height = rotatedHeight;
-    element.style.transformOrigin = "center center";
-    element.style.transform = `translate(-50%, -50%) rotate(${rotation}deg)`;
-  });
-```
-
-Without the width/height swap, the rotated landscape surface is clipped inside the portrait browser window. With the swap, the theme gets a full-size virtual playfield surface and then rotates it into the monitor.
-
-One easy thing to miss: the built-in menus are injected into `#overlay-root`, not inside your main theme container. If you rotate only your main playfield wrapper, the menus will still appear unrotated.
-
-In other words:
-
-- Rotating your playfield wrapper rotates your theme content
-- Rotating `#overlay-root` rotates `mainmenu.html` and `collectionmenu.html`
-- If you only do the first one, rotated playfield themes will have mismatched menus
-
-Basic Cab handles this by keeping `#overlay-root` aligned to the same virtual surface and moving injected children into a stable wrapper:
+With `layout.enabled` on, a theme written for a landscape screen serves all three setups
+with one page. Nothing in it reads the rotation setting.
 
 ```html
-<div id="overlay-root">
-  <div id="menu-overlay-container"></div>
-</div>
+<body>
+  <div class="vpinfe-upright">
+    <div class="stage" data-vpin-media="playfield"></div>
+    <!-- the wheel, the title, the rest of the theme -->
+  </div>
+</body>
 ```
-
-```javascript
-function ensureMenuOverlayContainer() {
-  const overlayRoot = document.getElementById("overlay-root");
-  if (!overlayRoot) return null;
-
-  let container = document.getElementById("menu-overlay-container");
-  if (!container) {
-    container = document.createElement("div");
-    container.id = "menu-overlay-container";
-    overlayRoot.appendChild(container);
-  }
-
-  Array.from(overlayRoot.children).forEach((child) => {
-    if (child !== container) container.appendChild(child);
-  });
-
-  if (!overlayRoot._menuObserver) {
-    const observer = new MutationObserver(() => {
-      Array.from(overlayRoot.children).forEach((child) => {
-        if (child !== container) container.appendChild(child);
-      });
-    });
-    observer.observe(overlayRoot, { childList: true });
-    overlayRoot._menuObserver = observer;
-  }
-
-  return container;
-}
-```
-
-Then size and center the root surface, and rotate the inner menu wrapper as needed for that theme:
-
-```javascript
-const overlayRoot = document.getElementById("overlay-root");
-if (overlayRoot) {
-  overlayRoot.style.position = "absolute";
-  overlayRoot.style.top = "50%";
-  overlayRoot.style.left = "50%";
-  overlayRoot.style.width = rotatedWidth;
-  overlayRoot.style.height = rotatedHeight;
-  overlayRoot.style.transformOrigin = "center center";
-  overlayRoot.style.transform = "translate(-50%, -50%)";
-}
-
-const menuOverlay = ensureMenuOverlayContainer();
-if (menuOverlay) {
-  menuOverlay.style.transformOrigin = "center center";
-  menuOverlay.style.transform = `rotate(${menuRotation}deg)`;
-}
-```
-
-`menuRotation` is theme-specific. Basic Cab uses a separate menu rotation because its playfield UI, wheel art, and metadata panel are already designed for cabinet viewing, while the injected menus have their own landscape assumptions. When extending this to another theme, copy the layer structure and dimension swap first, then tune `menuRotation` until the main and collection menus read correctly on the cabinet.
-
-For more advanced themes, it helps to think in layers:
-
-- `#tableViewport`: fullscreen viewport wrapper
-- `#tableScreen`: your actual table UI surface that may be rotated and scaled
-- `#overlay-root`: injected menu host that may need the same transform as `#tableScreen`
-
-That wrapper approach is much easier to maintain than rotating individual components one by one.
-
-Recommended CSS baseline:
 
 ```css
-html,
-body {
-  margin: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  background: black;
-}
-
-#fadeContainer {
-  position: fixed;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
-  transform-origin: center center;
-}
-
-#overlay-root {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-#menu-overlay-container {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transform-origin: center center;
-  pointer-events: none;
-}
-
-#menu-overlay-container > iframe,
-#menu-overlay-container > * {
-  pointer-events: auto;
-}
+html, body { margin: 0; background: black; }
+.vpinfe-upright { width: 100vw; height: 100vh; overflow: hidden; }
+.stage { position: relative; width: 100%; height: 100%; }
 ```
+
+- **`vpinfe-upright` on the outermost element** turns the whole page to face the player when
+  VPinFE has to do the turning, and is an ordinary element when it does not. Give it the
+  full viewport as above: when core turns it, core's own rules replace that size with the
+  viewport on its side.
+- **`data-vpin-media="playfield"`** is core drawing the art. It marks the picture or video it
+  creates with `vpinfe-playfield-media`, measures it, and turns it to fill the surface, so
+  landscape captures lie on their side on a portrait cabinet and FSS renders are left as
+  they are. The element it draws into needs `position: relative` and has to fill the surface, because
+  turned art is sized from the screen.
+- **Design for `vpin.layout.surface`** for anything that depends on shape, as above.
+
+Core's own menus are mounted in `#overlay-root`, which core creates when the page has none
+and does not turn. A theme whose page turns and whose menus must turn with it turns that
+element itself.
+
+Art the theme draws itself takes the class and one call instead, as in
+[Letting core do it](#letting-core-do-it).
 
 ### index_backglass.html & index_scoreview.html
 
@@ -703,6 +603,22 @@ Core fills every element carrying `data-vpin-media` on each selection. An empty 
 this window's own media; a value names a kind, `data-vpin-media="playfield"`, to show that
 kind in any window. A value that is not a kind draws nothing. `media_window.enabled` set to
 `false` turns it off.
+
+The playfield, the backglass and the score view each have a still and a video. Which one an
+element shows follows the player's media priority for that kind, and falls back to the other
+when the game lacks it; the playfield falls back to the FSS picture after both. To insist on
+one for an element, say so on it:
+
+```html
+<div data-vpin-media="playfield" data-vpin-media-prefer="image"></div>
+```
+
+`image` shows the still and `video` shows the video, whatever the priority is, and either
+falls back to the other when the game has only one. The same element keeps its picture while
+the selection stays on one game, so a playing video is not restarted.
+
+With `layout.enabled`, playfield art drawn this way is marked `vpinfe-playfield-media` and
+turned to fit the surface, as in [Letting core do it](#letting-core-do-it).
 
 ```html
 <!DOCTYPE html>
@@ -942,6 +858,13 @@ collections to offer.
 change, `onSelection` listeners do not run, and window media is not re-rendered. So a theme
 does not need a mode flag, and does not need to undo anything when the picker closes — the
 wheel is exactly where the player left it.
+
+`vpin.activeList()` is the list the input actions are moving: the wheel until a list is
+open, then the top one. It answers with an object holding `items`, `cursor`, `current`,
+`length`, `id` and `kind`, so a handler that has to act on whatever is on screen reads it
+instead of tracking a mode. `vpin.atRoot` is `true` while the wheel is what the cursor is
+on and `false` while a list is open over it. Move through the input actions rather than
+writing to the list.
 
 ```js
 // Render whichever list core is moving.
@@ -1533,13 +1456,13 @@ If `override` is present, themes that position or scale backglass or score view 
 | `setAudioOptions` | `options` | — | Sets runtime audio options. Supported keys: `maxVolume`/`max_volume`/`volume`, `fadeDuration`/`fade_duration_ms`/`fadeMs`, `loop`. |
 
 #### getImageURL(index, kind)
-Returns an HTTP URL for a table's image. `kind` can be `"playfield"`, `"backglass"`, `"scoreview"`, `"wheel"`, or `"cab"`. Returns a fallback `/core/images/file_missing.png` URL if the file doesn't exist or `index` is outside the list, never `null`.
+Returns an HTTP URL for a table's image, the still, whatever the player's media priority is. For `"playfield"` that is the picture and never the video, which `getVideoURL` or `getMediaURL` returns. `kind` can be `"playfield"`, `"backglass"`, `"scoreview"`, `"wheel"`, or `"cab"`. Returns a fallback `/core/images/file_missing.png` URL if the file doesn't exist or `index` is outside the list, never `null`.
 
 #### getVideoURL(index, kind)
 Returns an HTTP URL for a table's video. `kind` can be `"playfield"`, `"backglass"`, or `"scoreview"`. Returns a fallback `/core/images/file_missing.png` URL if no video exists or `index` is outside the list, never `null`. See [Video Support](#video-support).
 
 #### getMediaURL(index, kind)
-Returns an HTTP URL using the user's configured media priority from Manager UI > Configuration > Media > Media Priorities. For `"playfield"`, `"backglass"`, and `"scoreview"`, VPinFE chooses image or video first based on the setting and falls back to the alternate when the preferred file is missing. For `"real_dmd"`, VPinFE chooses `realdmd-color.png` or `realdmd.png` first based on the setting and falls back to the other frame. It answers with a picture; a theme that wants the video asks for `"real_dmd_video"` or `"real_dmd_color_video"` by their own names. Returns `/core/images/file_missing.png` when neither exists or `index` is outside the list, never `null`.
+Returns an HTTP URL using the user's configured media priority from Manager UI > Configuration > Media > Media Priorities. For `"playfield"`, `"backglass"`, and `"scoreview"`, VPinFE chooses image or video first based on the setting and falls back to the alternate when the preferred file is missing. So `getMediaURL(i, "playfield")` returns the video when the game has one and the priority is video, which is the default, and `getImageURL(i, "playfield")` returns the still. A `<img>` given the first of those shows nothing for a game with a video; ask `getMedia` which it got, or use `getImageURL` for an `<img>`. For `"real_dmd"`, VPinFE chooses `realdmd-color.png` or `realdmd.png` first based on the setting and falls back to the other frame. It answers with a picture; a theme that wants the video asks for `"real_dmd_video"` or `"real_dmd_color_video"` by their own names. Returns `/core/images/file_missing.png` when neither exists or `index` is outside the list, never `null`.
 
 Kind names are snake_case, the same strings the payload and `/api/v1` use, and at contract 2 they are the only names that answer. A contract 1 theme can still use the spellings earlier builds accepted: `bg`, `bg_video`, `dmd`, `dmd_video`, `table`, `table_video`, `fss`, `realdmd`, `realdmd-color`, `rulecard`, `audiolaunch` and `rulesheet`.
 

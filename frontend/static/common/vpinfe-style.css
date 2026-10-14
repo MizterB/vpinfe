@@ -98,12 +98,16 @@
   left: 50%;
 }
 
-[data-vpinfe-surface="portrait"] .vpinfe-playfield-media[data-vpinfe-turned="true"] {
+/* Turned art is the box it fills laid on its side, so the quarter turn lands it back on
+   the box. That box is the viewport, or the viewport on its side inside .vpinfe-upright
+   when a quarter turn of the page is in play. */
+.vpinfe-playfield-media[data-vpinfe-turned="true"] {
   width: 100vh;
   height: 100vw;
 }
 
-[data-vpinfe-surface="landscape"] .vpinfe-playfield-media[data-vpinfe-turned="true"] {
+[data-vpinfe-upright="90"] .vpinfe-playfield-media[data-vpinfe-turned="true"],
+[data-vpinfe-upright="270"] .vpinfe-playfield-media[data-vpinfe-turned="true"] {
   width: 100vw;
   height: 100vh;
 }
