@@ -451,6 +451,11 @@ def _group(record: Record, subject: str) -> Any:
     return found
 
 
+def group_keeps_private(record: Record, subject: str) -> bool:
+    """Whether the group on `subject` was declared to work on Private games."""
+    return bool(_group(record, subject).private_ok)
+
+
 def declared_library_verb(record: Record, subject: str, key: str) -> dict:
     """What the extension declared for its entry `key` in the `subject` menu."""
     ui = _context(record).ui

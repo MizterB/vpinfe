@@ -33,15 +33,15 @@ def route(extension: dict[str, Any], group: dict[str, Any], game_id: str,
 
 def declared(context: dict[str, Any]) -> list[tuple[dict[str, Any], dict[str, Any]]]:
     """(extension, group) for each group that belongs on this panel. A game's group is on
-    a game's panel and on a table's; a table's group is only on a table's. Empty for a
-    Private game: the extension is not told the library holds it."""
-    if context["game"].get("private"):
-        return []
+    a game's panel and on a table's; a table's group is only on a table's. A Private game
+    has only the groups declared to work on one: the others are not told the library holds
+    it."""
+    private = bool(context["game"].get("private"))
     subjects = ("game", "table") if context["lens"] else ("game",)
     return [(extension, group)
             for extension in context["state"].get("extensions") or []
             for group in extension.get("groups") or []
-            if group["subject"] in subjects]
+            if group["subject"] in subjects and (group.get("private_ok") or not private)]
 
 
 def fill(context: dict[str, Any]) -> None:

@@ -9,6 +9,7 @@ from console import ext_groups
 
 GAME_GROUP = {"subject": "game", "title": "Notes", "base": "/groups/game", "save": True}
 TABLE_GROUP = {"subject": "table", "title": "Here", "base": "/groups/table", "save": False}
+CURATING = {**GAME_GROUP, "title": "Tidy", "private_ok": True}
 EXTENSIONS = [{"name": "weekly", "groups": [GAME_GROUP, TABLE_GROUP]},
               {"name": "quiet", "groups": []},
               {"name": "bare"}]
@@ -31,6 +32,13 @@ class Declared(unittest.TestCase):
     def test_a_private_game_has_no_group_on_either_panel(self) -> None:
         self.assertEqual(ext_groups.declared(context(private=True)), [])
         self.assertEqual(ext_groups.declared(context(lens="t1", private=True)), [])
+
+    def test_a_private_game_has_the_groups_declared_to_work_on_one(self) -> None:
+        held = {**context(private=True), "state": {"extensions": [
+            {"name": "curator", "groups": [CURATING, TABLE_GROUP]}]}}
+
+        self.assertEqual(ext_groups.declared(held), [({"name": "curator", "groups": [
+            CURATING, TABLE_GROUP]}, CURATING)])
 
     def test_no_extensions_read_yet_is_no_group(self) -> None:
         held = {**context(), "state": {}}

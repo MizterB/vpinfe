@@ -140,8 +140,8 @@ says each page it finds and reads it once.
 
 ## `ctx.ui.panel_group`
 
-`ctx.ui.panel_group(subject, read, *, title="", save=None, acts=None)`.  Required: `subject`,
-`read`.
+`ctx.ui.panel_group(subject, read, *, title="", save=None, acts=None, private_ok=False)`.
+Required: `subject`, `read`.
 
 Put a group on a game's panel (`subject` `"game"`) or on one table's (`"table"`), in Play after
 High Scores.  `read(who)` answers the group's one section, the same `{"facts", "fields",
@@ -151,7 +151,9 @@ drawn.
 
 `who` is `{"game_id", "vps_id", "name"}`, and for a table also `{"table_id", "vps_file_id",
 "version"}`.  A game marked Private is never asked about: core does not call `read` or `save`
-for it, so the extension is not told the library holds it.  A game's group is also drawn on each
+for it, so the extension is not told the library holds it.  Declare the group `private_ok=True`
+and core asks about Private games too, with `private` true or false in `who`; do it for a group
+that curates the library and sends nothing out.  A game's group is also drawn on each
 of its tables' panels, and a table's group only on a table's.
 
 ```python

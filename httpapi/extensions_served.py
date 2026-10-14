@@ -138,14 +138,19 @@ def router(name: str, running: Any) -> APIRouter:
         return {**who, "table_id": table_id, "vps_file_id": str(source.get("vps_file_id") or ""),
                 "version": str(row.get("version") or "")}
 
+    def group_subject(kind: str, game_id: str, table_id: str = "") -> dict:
+        """Who the `kind` group is asked about: a Private game only where the group was
+        declared to work on one."""
+        return subject(game_id, table_id, keep_private=ask(serving.group_keeps_private, kind))
+
     def _asked(game_id: str, kind: str, table_id: str = "") -> dict:
-        who = subject(game_id, table_id)
+        who = group_subject(kind, game_id, table_id)
         if not who:
             raise NotFoundError(t("error.extensions.no_group", display=name, subject=kind))
         return who
 
     def group_read(kind: str, game_id: str, table_id: str = "") -> dict:
-        who = subject(game_id, table_id)
+        who = group_subject(kind, game_id, table_id)
         if not who:
             return {"title": "", "section": None, "acts": []}
         return ask(serving.group_read, kind, who)
@@ -157,7 +162,7 @@ def router(name: str, running: Any) -> APIRouter:
     @found.put("/groups/game/{game_id}", summary="Change fields in the group on a game's panel",
                dependencies=[running, requires(write)])
     def put_game_group(game_id: str, body: models.ExtensionValues) -> dict:
-        who = subject(game_id)
+        who = group_subject("game", game_id)
         if not who:
             raise NotFoundError(t("error.extensions.no_group", display=name, subject="game"))
         return ask(serving.group_save, "game", who, body.values)
@@ -190,7 +195,7 @@ def router(name: str, running: Any) -> APIRouter:
                summary="Change fields in the group on a table's panel",
                dependencies=[running, requires(write)])
     def put_table_group(game_id: str, table_id: str, body: models.ExtensionValues) -> dict:
-        who = subject(game_id, table_id)
+        who = group_subject("table", game_id, table_id)
         if not who:
             raise NotFoundError(t("error.extensions.no_group", display=name, subject="table"))
         return ask(serving.group_save, "table", who, body.values)

@@ -291,6 +291,7 @@ class GroupFunctions:
     read: Callable[[dict], Any]
     save: Callable[[dict, dict], Any] | None = None
     acts: Any = None
+    private_ok: bool = False
 
 
 # The panels a group can be put on: a game's, and one table's.
@@ -489,15 +490,16 @@ class ExtensionUI:
 
     def panel_group(self, subject: str, read: Callable[[dict], Any], *, title: str = "",
                     save: Callable[[dict, dict], Any] | None = None,
-                    acts: Any = None) -> None:
+                    acts: Any = None, private_ok: bool = False) -> None:
         """A group on a game's panel (`subject` `"game"`) or on one table's (`"table"`),
         in Play after High Scores. One for each subject.
 
         `read(who)` answers the group's one section: `{"facts", "fields", "rows"}`, as a
         pane's section is. `who` is `{"game_id", "vps_id", "name"}`, and for a table also
         `{"table_id", "vps_file_id", "version"}`. Answering `None`, or a section with
-        nothing in it, is no group. A game marked Private is never asked about. `save(who,
-        values)` writes the keys changed among the fields the last answer offered.
+        nothing in it, is no group. A game marked Private is never asked about, unless the
+        group is declared `private_ok=True`: then it is asked, and `who` carries `private`.
+        `save(who, values)` writes the keys changed among the fields the last answer offered.
 
         `acts` is what can be done to the subject, in a strip closing the group: a dict of
         `{key: function or address}` or a function of `who` answering one. A function is
@@ -522,9 +524,11 @@ class ExtensionUI:
         if acts is not None and not callable(acts) and not isinstance(acts, dict):
             raise ContractError(f"{self._name} gives its {wanted} group acts that are "
                                 "neither a dict nor a function")
-        self.group_functions[wanted] = GroupFunctions(read=read, save=save, acts=acts)
+        self.group_functions[wanted] = GroupFunctions(read=read, save=save, acts=acts,
+                                                    private_ok=bool(private_ok))
         self.declared_groups.append({"subject": wanted, "title": str(title or "").strip(),
-                                     "base": f"/groups/{wanted}", "save": save is not None})
+                                     "base": f"/groups/{wanted}", "save": save is not None,
+                                     "private_ok": bool(private_ok)})
 
     def verb(self, subject: str, key: str, run: Callable[[list[dict]], Any], *,
              label: str = "", one: bool = False, danger: bool = False,

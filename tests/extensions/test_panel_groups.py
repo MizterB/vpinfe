@@ -32,7 +32,7 @@ HIDDEN = {"private": True, "vps_id": "vps-2", "name": "Secret"}
 
 def fresh_state() -> None:
     STATE.clear()
-    STATE.update(asked=[], saved=[], acted=[], answer=SECTION, raises=None)
+    STATE.update(asked=[], saved=[], acted=[], answer=SECTION, raises=None, private_ok=False)
 
 
 def grouped(ctx: Any) -> None:
@@ -54,8 +54,9 @@ def grouped(ctx: Any) -> None:
         return "Refreshed"
 
     ctx.ui.panel_group("game", read_game, title="Taxi notes", save=save,
-                       acts={"refresh": refresh, "docs": "https://example.test/docs"})
-    ctx.ui.panel_group("table", read_table)
+                       acts={"refresh": refresh, "docs": "https://example.test/docs"},
+                       private_ok=STATE["private_ok"])
+    ctx.ui.panel_group("table", read_table, private_ok=STATE["private_ok"])
 
 
 def _installed(root: Path, scopes: list[str]) -> Path:
@@ -86,8 +87,10 @@ class Declaring(unittest.TestCase):
 
         self.assertEqual(
             ui.declared_groups,
-            [{"subject": "game", "title": "", "base": "/groups/game", "save": True},
-             {"subject": "table", "title": "Here", "base": "/groups/table", "save": False}])
+            [{"subject": "game", "title": "", "base": "/groups/game", "save": True,
+              "private_ok": False},
+             {"subject": "table", "title": "Here", "base": "/groups/table", "save": False,
+              "private_ok": False}])
 
     def test_a_group_needs_the_ui_capability_and_the_scope_to_read_games(self) -> None:
         with self.assertRaisesRegex(contract.ContractError, "ui:mount"):
@@ -152,6 +155,7 @@ class Grouped(unittest.TestCase):
 
 class Served(unittest.TestCase):
     scopes = ["games:read"]
+    private_ok = False
 
     def setUp(self) -> None:
         tmp = tempfile.TemporaryDirectory()
@@ -161,6 +165,7 @@ class Served(unittest.TestCase):
         self.addCleanup(self.registry.clear)
         self.addCleanup(i18n.disown, f"ext.{NAME}")
         fresh_state()
+        STATE["private_ok"] = self.private_ok
         self.record = self.registry.load(_installed(Path(tmp.name) / "installed", self.scopes))
         self.assertEqual(self.record.state, host.LOADED, self.record.error)
         self.client = client_for(self, self.registry, self.record)
@@ -260,6 +265,38 @@ class Reading(Served):
             response.json()["error"]["message"],
             t("error.extensions.no_group", display=self.record.display_name,
               subject="table"))
+
+
+class WorkingOnPrivateGames(Served):
+    private_ok = True
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.resource = HIDDEN
+
+    def test_a_group_declared_private_ok_is_asked_about_a_private_game_and_told_so(self) -> None:
+        self.ok(self.client.get(f"{self.base}/game/g1"))
+        self.ok(self.client.get(f"{self.base}/table/g1/t1"))
+
+        self.assertEqual([(kind, who["private"]) for kind, who in STATE["asked"]],
+                         [("game", True), ("table", True)])
+
+    def test_it_is_told_a_public_game_is_not_private_and_is_acted_on_and_written_to(self) -> None:
+        self.resource = PUBLIC
+        self.ok(self.client.get(f"{self.base}/game/g1"))
+        self.ok(self.client.post(f"{self.base}/game/g1/acts/refresh", json={}))
+        self.ok(self.put("/game/g1", note="there"))
+
+        self.assertEqual(STATE["asked"][0][1]["private"], False)
+        self.assertEqual(STATE["acted"][0]["private"], False)
+
+    def test_it_is_acted_on_and_written_to_for_a_private_game(self) -> None:
+        self.ok(self.client.post(f"{self.base}/game/g1/acts/refresh", json={}))
+        self.ok(self.put("/game/g1", note="there"))
+
+        self.assertEqual(STATE["acted"], [{"game_id": "g1", "vps_id": "vps-2", "name": "Secret",
+                                           "private": True}])
+        self.assertEqual(STATE["saved"][0][1], {"note": "there"})
 
 
 class Acting(Served):

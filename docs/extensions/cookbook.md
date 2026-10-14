@@ -1268,7 +1268,7 @@ Call `panel_group` with a `read` function and core draws what it answers in Play
 Scores.  You answer with a section of facts, fields and rows, the same as a pane's, and add a
 `save` function to make the fields changeable.  The game, or the table, is handed to `read` as
 ids, a name and the VPS ids.  A game marked Private is never asked about, so there is nothing
-for you to check.
+for you to check, unless the group is declared `private_ok=True`.
 
 This one keeps a note for each game and shows the version of each table.  It needs no service,
 and it needs `games:read` in the manifest, since a group is about the library.
