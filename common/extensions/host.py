@@ -110,6 +110,7 @@ class Record:
     surfaces: dict = field(default_factory=dict)
     declared_lists: list[dict] = field(default_factory=list)
     declared_links: list[dict] = field(default_factory=list)
+    declared_groups: list[dict] = field(default_factory=list)
     # The registration core calls the functions of; None while it is not running.
     context: ExtensionContext | None = None
     # Remembered between runs, so a stopped extension's page can say it has settings.
@@ -151,6 +152,12 @@ class Record:
     def lists(self) -> list[dict]:
         """Its lists, in the language now set."""
         return [self._list(one) for one in self.declared_lists]
+
+    def groups(self) -> list[dict]:
+        """Its panel groups, headed in the language now set."""
+        return [{**one, "title": self.said(one["title"], f"group.{one['subject']}.title",
+                                           self.display_name)[0]}
+                for one in self.declared_groups]
 
     def links(self) -> list[dict]:
         """Its links, with the address each answers now and the words in the language now
@@ -252,6 +259,7 @@ class Record:
                 "surfaces": dict(self.surfaces) if self.running else {},
                 "lists": self.lists() if self.running else [],
                 "links": self.links() if self.running else [],
+                "groups": self.groups() if self.running else [],
                 "account": self.account_declared() if self.running else {}}
 
 
@@ -388,12 +396,14 @@ class Registry:
             check_references(context.ui)
             record.declared_lists = list(context.ui.declared_lists)
             record.declared_links = list(context.ui.declared_links)
+            record.declared_groups = list(context.ui.declared_groups)
             self._check_titles(record)
         except Exception as exc:
             logger.exception("Extension %s did not load: %r", record.name, exc)
             record.error = f"{type(exc).__name__}: {exc}"
             record.declared_lists = []
             record.declared_links = []
+            record.declared_groups = []
             if context is not None:
                 _withdraw(record.name, context.events.registered, context.apps)
             record.became(FAILED, "extension.reason.start_failed")

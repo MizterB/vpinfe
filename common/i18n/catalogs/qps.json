@@ -4102,6 +4102,8 @@
   "error.extensions.not_data": "{display} àñšŵèřèđ {at} ŵîţĥ šöɱèţĥîñĝ ṼÞîñƑÈ çàññöţ řèàđ",
   "error.extensions.no_detail": "{display}'š ŀîšţ {key} ĥàš ñö þàñè",
   "error.extensions.no_save": "{display}'š ŀîšţ {key} çàññöţ ƀè çĥàñĝèđ ƒřöɱ îţš þàñè",
+  "error.extensions.no_group": "{display} ĥàš ñö {subject} ĝřöûþ",
+  "error.extensions.no_group_save": "{display}'š {subject} ĝřöûþ çàññöţ ƀè çĥàñĝèđ",
   "error.extensions.no_field": "Ţĥîš þàñè ĥàš ñö ƒîèŀđ çàŀŀèđ {key}",
   "error.extensions.pane_shape": "{display}'š þàñè ƒöř {id}: {what} ɱûšţ ƀè {need}",
   "error.extensions.pane_key": "{display}'š þàñè ƒöř {id}: {what} ĥàš {key}, ŵĥîçĥ îš ñöţ řèàđ. Řèàđ: {drawn}",

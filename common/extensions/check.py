@@ -69,6 +69,9 @@ def _report(record: Record, lines: list[str]) -> bool:
                      f"{len(declared['verbs'])} verbs"
                      + (f", adds {' '.join(declared['add'])}" if declared["add"] else "")
                      + (", opens a pane" if declared["detail"] else ""))
+    for declared in record.declared_groups:
+        lines.append(f"group      on a {declared['subject']}'s panel"
+                     + (", with fields" if declared["save"] else ""))
     answered = {one["key"]: one["url"] for one in record.links()}
     for declared in record.declared_links:
         where = f" in {declared['area']}" if declared["area"] else ""

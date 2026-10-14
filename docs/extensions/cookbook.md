@@ -1175,6 +1175,93 @@ one for that player.
 
 **Watch out:** `write` is handed `None` under a key when a secret is cleared, so remove the key and do not store the word None. A guest's account is held in memory and never written to disk, so a handle set on a guest is gone when they sign out.
 
+### 14. A group on a game's panel
+
+**Use it when:** something you know about a game or a table should sit on its panel, among the
+rest of what the person sees there: a note, a score from a service, a version your service has.
+
+Call `panel_group` with a `read` function and core draws what it answers in Play, after High
+Scores.  You answer with a section of facts, fields and rows, the same as a pane's, and add a
+`save` function to make the fields changeable.  The game, or the table, is handed to `read` as
+ids, a name and the VPS ids.  A game marked Private is never asked about, so there is nothing
+for you to check.
+
+This one keeps a note for each game and shows the version of each table.  It needs no service,
+and it needs `games:read` in the manifest, since a group is about the library.
+
+`recipes/game_notes/extension.json`
+
+```json
+{
+  "name": "game_notes",
+  "version": "1.0.0",
+  "requires_platform": 1,
+  "scopes": ["games:read"],
+  "capabilities": ["ui:mount", "config:own"]
+}
+```
+
+`recipes/game_notes/__init__.py`
+
+```python
+def register(ctx):
+    def game_group(who):
+        return {
+            "facts": [{"label": ctx.t("group.about"), "value": who["name"]}],
+            "fields": [{"key": "note", "type": "string", "label": ctx.t("group.note"),
+                        "value": ctx.config.get(f"note.{who['game_id']}")}],
+        }
+
+    def save_game(who, values):
+        ctx.config.set(f"note.{who['game_id']}", values["note"] or "")
+
+    def table_group(who):
+        return {"facts": [
+            {"label": ctx.t("group.version"), "value": who["version"] or "-"},
+            {"label": ctx.t("group.file"), "value": who["vps_file_id"] or "-"},
+        ]}
+
+    ctx.ui.panel_group("game", game_group, save=save_game)
+    ctx.ui.panel_group("table", table_group)
+```
+
+`recipes/game_notes/i18n/en.json`
+
+```json
+{
+  "name": "Game Notes",
+  "description": "Keeps a note for each game and shows a table's version on its panel.",
+  "group.game.title": "Game Notes",
+  "group.table.title": "This table",
+  "group.about": "Game",
+  "group.note": "Note",
+  "group.version": "Version",
+  "group.file": "File"
+}
+```
+
+The heading over each group comes from `group.<subject>.title` in the catalog.
+
+**Where it appears:** in Play on a game's panel, after High Scores, and on a table's panel
+too.  The table group is only on a table's.  **What triggers it:** the panel opening.  Core
+calls `read` then, and again after each change to a field.
+
+**What you'll see:** open a game in the library.  Under High Scores a Game Notes heading has the
+game's name and a Note field.  Type a note and leave the field, and it is kept for that game.
+Open one of its tables and the same group is there with a This table group under it, with the
+table's version and its VPS file.  Open a game marked Private and neither is drawn.
+
+**Variations:**
+
+- Answer None when there is nothing to say.  The group is not drawn, and takes no room in the
+  panel.
+- Drop `save` and the fields are shown and cannot be changed.
+- Declare one group of each subject, as here.  A game can have one of each, and no more.
+
+**Watch out:** `read` runs each time the panel opens, so a slow service makes the group late.
+It never holds the panel back, but keep what you can in memory.  And the group needs
+`games:read`; without it the extension is turned down with the reason when it starts.
+
 ## Beyond the Console
 
 ### 16. A page of your own

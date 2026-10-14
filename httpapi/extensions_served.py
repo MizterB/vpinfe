@@ -16,6 +16,7 @@ from fastapi import APIRouter, Query, Request, Response
 from common import extensions
 from common.extensions import serving
 from common.extensions.host import Record
+from common.games import game_lens, table_ops
 from common.i18n import t
 
 from . import models, responses, scopes
@@ -98,6 +99,54 @@ def router(name: str, running: Any) -> APIRouter:
                dependencies=[running, requires(read)])
     def get_picture(picture_id: str, request: Request) -> Response:
         return responses.media_file(ask(serving.picture, picture_id), request, "")
+
+    # -- panel groups --------------------------------------------------------------
+
+    def subject(game_id: str, table_id: str = "") -> dict:
+        """Who a group is asked about, built here so an extension is told only the ids it
+        can use. A Private game is `{}`: asking would tell the extension the library holds
+        it."""
+        game = game_lens.resource_of(game_id)
+        if game["private"]:
+            return {}
+        who = {"game_id": game_id, "vps_id": game["vps_id"], "name": game["name"]}
+        if not table_id:
+            return who
+        row = table_ops.row_or_refuse(game_lens.game_or_refuse(game_id), table_id)
+        source = row.get("source") or {}
+        return {**who, "table_id": table_id, "vps_file_id": str(source.get("vps_file_id") or ""),
+                "version": str(row.get("version") or "")}
+
+    def group_read(kind: str, game_id: str, table_id: str = "") -> dict:
+        who = subject(game_id, table_id)
+        if not who:
+            return {"title": "", "section": None}
+        return ask(serving.group_read, kind, who)
+
+    @get("/groups/game/{game_id}", "What the extension says on a game's panel")
+    def get_game_group(game_id: str) -> dict:
+        return group_read("game", game_id)
+
+    @found.put("/groups/game/{game_id}", summary="Change fields in the group on a game's panel",
+               dependencies=[running, requires(write)])
+    def put_game_group(game_id: str, body: models.ExtensionValues) -> dict:
+        who = subject(game_id)
+        if not who:
+            raise NotFoundError(t("error.extensions.no_group", display=name, subject="game"))
+        return ask(serving.group_save, "game", who, body.values)
+
+    @get("/groups/table/{game_id}/{table_id}", "What the extension says on a table's panel")
+    def get_table_group(game_id: str, table_id: str) -> dict:
+        return group_read("table", game_id, table_id)
+
+    @found.put("/groups/table/{game_id}/{table_id}",
+               summary="Change fields in the group on a table's panel",
+               dependencies=[running, requires(write)])
+    def put_table_group(game_id: str, table_id: str, body: models.ExtensionValues) -> dict:
+        who = subject(game_id, table_id)
+        if not who:
+            raise NotFoundError(t("error.extensions.no_group", display=name, subject="table"))
+        return ask(serving.group_save, "table", who, body.values)
 
     # -- dialogs -------------------------------------------------------------------
 

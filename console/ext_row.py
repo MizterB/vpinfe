@@ -64,6 +64,13 @@ def _label(label: str, _context: dict[str, Any]) -> str:
 
 
 async def _draw_section(one: dict[str, Any], context: dict[str, Any]) -> None:
+    panel.facts(ui, section_entries(one, context))
+
+
+def section_entries(one: dict[str, Any], context: dict[str, Any]) -> list[tuple[Any, ...]]:
+    """A section's facts, fields and rows as the panel lists them. `context` names the
+    route a field is written to, the page's `state`, and `redraw(answer)`, which draws the
+    answer to a write (None where it is to be read again)."""
     client = ApiClient()
     entries: list[tuple[Any, ...]] = []
     for fact in one.get("facts") or []:
@@ -75,7 +82,7 @@ async def _draw_section(one: dict[str, Any], context: dict[str, Any]) -> None:
             entries.append(panel.note(str(field["help"])))
     for each in one.get("rows") or []:
         entries.append((each["label"], each["under"]))
-    panel.facts(ui, entries)
+    return entries
 
 
 def _fact_value(fact: dict[str, Any], context: dict[str, Any]) -> Any:

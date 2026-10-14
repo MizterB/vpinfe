@@ -121,6 +121,27 @@ class CheckCase(unittest.TestCase):
         return found[0]
 
 
+class AGroupOnAPanel(CheckCase):
+    BODY = (
+        "def register(ctx):\n"
+        "    ctx.ui.panel_group('game', lambda who: None, save=lambda who, values: None)\n"
+        "    ctx.ui.panel_group('table', lambda who: None)\n")
+
+    def test_it_says_each_group_and_whether_it_has_fields(self) -> None:
+        lines, passed = check.check(build(self.root, self.BODY, scopes=["games:read"],
+                                          words={}))
+
+        self.assertIn("group      on a game's panel, with fields", lines)
+        self.assertIn("group      on a table's panel", lines)
+        self.assertTrue(passed, lines)
+
+    def test_a_group_without_the_scope_to_read_games_fails_to_load(self) -> None:
+        lines, passed = check.check(build(self.root, self.BODY, words={}))
+
+        self.assertFalse(passed)
+        self.assertIn("games:read", lines[0])
+
+
 class AGoodExtension(CheckCase):
     def test_it_passes(self) -> None:
         lines, passed = self.checked()

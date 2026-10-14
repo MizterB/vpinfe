@@ -21,7 +21,7 @@ from . import cards as cards_module
 from .contract import ContractError, Manifest, words
 from .contract import why as worded
 from .fields import FieldError, settings_fields, ticked
-from .games import ExtensionGames
+from .games import GAMES_READ, ExtensionGames
 from .pictures import is_openable
 from .store import ExtensionStore
 
@@ -253,6 +253,18 @@ class ListFunctions:
 
 
 @dataclass
+class GroupFunctions:
+    """What a panel group's extension answers with."""
+
+    read: Callable[[dict], Any]
+    save: Callable[[dict, dict], Any] | None = None
+
+
+# The panels a group can be put on: a game's, and one table's.
+GROUP_SUBJECTS = ("game", "table")
+
+
+@dataclass
 class AccountFunctions:
     """What a player's account is answered with, one function for each thing core asks."""
 
@@ -278,9 +290,12 @@ class ExtensionUI:
     `docs/extensions/reference/words.md` lists them. One given is shown as written.
     """
 
-    def __init__(self, name: str, allowed: bool) -> None:
+    def __init__(self, name: str, allowed: bool, scopes: Iterable[str] = ()) -> None:
         self._name = name
         self._allowed = allowed
+        self._reads_games = GAMES_READ in frozenset(scopes)
+        self.declared_groups: list[dict] = []
+        self.group_functions: dict[str, GroupFunctions] = {}
         self.actions: list[dict] = []
         self.action_objects: dict[str, Any] = {}
         self.declared_lists: list[dict] = []
@@ -423,6 +438,37 @@ class ExtensionUI:
                                 "is neither a function nor an http:// or https:// address")
         self.link_addresses[wanted] = url
         self.declared_links.append({"key": wanted, "area": where})
+
+    def panel_group(self, subject: str, read: Callable[[dict], Any], *, title: str = "",
+                    save: Callable[[dict, dict], Any] | None = None) -> None:
+        """A group on a game's panel (`subject` `"game"`) or on one table's (`"table"`),
+        in Play after High Scores. One for each subject.
+
+        `read(who)` answers the group's one section: `{"facts", "fields", "rows"}`, as a
+        pane's section is. `who` is `{"game_id", "vps_id", "name"}`, and for a table also
+        `{"table_id", "vps_file_id", "version"}`. Answering `None`, or a section with
+        nothing in it, is no group. A game marked Private is never asked about. `save(who,
+        values)` writes the keys changed among the fields the last answer offered.
+
+        Reading the games needs `games:read` in the manifest. The group is headed with
+        `title`, else `group.<subject>.title` in the extension's catalog, else its name.
+        """
+        self._needs_ui("a panel group")
+        if not self._reads_games:
+            raise ContractError(f"{self._name} offers a panel group, which needs "
+                                f"{GAMES_READ}, and its manifest does not declare it")
+        wanted = str(subject or "").strip()
+        if wanted not in GROUP_SUBJECTS:
+            raise ContractError(f"{self._name} puts a group on {subject!r}, which is not "
+                                f"one of {', '.join(GROUP_SUBJECTS)}")
+        if wanted in self.group_functions:
+            raise ContractError(f"{self._name} declares a group on a {wanted} twice")
+        if not callable(read) or (save is not None and not callable(save)):
+            raise ContractError(f"{self._name} gives its {wanted} group a read or a save "
+                                "that is not a function")
+        self.group_functions[wanted] = GroupFunctions(read=read, save=save)
+        self.declared_groups.append({"subject": wanted, "title": str(title or "").strip(),
+                                     "base": f"/groups/{wanted}", "save": save is not None})
 
     def _needs_ui(self, what: str) -> None:
         if not self._allowed:
@@ -905,7 +951,8 @@ class ExtensionContext:
         self.files = ExtensionFiles(manifest.name, "fs:read" in manifest.capabilities,
                                     "fs:write" in manifest.capabilities)
         self.jobs = ExtensionJobs(manifest.name)
-        self.ui = ExtensionUI(manifest.name, "ui:mount" in manifest.capabilities)
+        self.ui = ExtensionUI(manifest.name, "ui:mount" in manifest.capabilities,
+                              manifest.scopes)
         self.players = ExtensionPlayers(manifest.name, manifest.scopes, store, self.ui)
         self.entries = ExtensionEntries(manifest.name)
         self.catalogs = ExtensionCatalogs(manifest.name)

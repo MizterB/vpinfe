@@ -52,6 +52,8 @@ DECLARES: dict[str, list[str]] = {
     "weekly_board": ["list       board in community: 5 columns, 0 views, 0 verbs"],
     "challenge_pane": ["list       board in community: 1 columns, 0 views, 0 verbs, opens a pane",
                        "a pane of 2 sections"],
+    "game_notes": ["group      on a game's panel, with fields",
+                   "group      on a table's panel"],
     "secret_key": ["settings   key (secret)", "dialog     connect: ask run"],
     "player_handle": ["account    a player can hold one"],
     "tool_link": ["settings   port (number", "link       console in system: http://{host}:9090/",
@@ -323,6 +325,23 @@ class RecipesDoWhatTheyClaim(ExamplesLoadedByTheHost):
         self.assertEqual((fields["note"], fields["goal"]), ("Try the left ramp", "4"))
         with self.assertRaises(NotFoundError):
             serving.list_detail(record, "board", "nobody")
+
+    def test_the_game_notes_group_keeps_a_note_for_each_game_and_names_a_tables_version(
+            self) -> None:
+        record = self.load("game_notes")
+        game = {"game_id": "g1", "vps_id": "v", "name": "Taxi"}
+
+        serving.group_save(record, "game", game, {"note": "Left ramp"})
+        mine = serving.group_read(record, "game", game)
+        other = serving.group_read(record, "game", {**game, "game_id": "g2"})
+        table = serving.group_read(record, "table", {
+            **game, "table_id": "t1", "vps_file_id": "f9", "version": "1.2"})
+
+        fields = {one["key"]: one["value"] for one in mine["section"]["fields"]}
+        self.assertEqual((mine["title"], fields["note"]), ("Game Notes", "Left ramp"))
+        self.assertEqual(other["section"]["fields"][0]["value"], "")
+        self.assertEqual([one["value"] for one in table["section"]["facts"]], ["1.2", "f9"])
+        self.assertEqual(table["title"], "This table")
 
     def test_the_tool_links_follow_the_port_and_fill_in_the_host_the_console_was_opened_at(
             self) -> None:

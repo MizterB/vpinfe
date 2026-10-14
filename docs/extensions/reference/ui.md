@@ -74,6 +74,49 @@ After `register` returns, it also raises when the title matches a core page's ti
 running extension's list in the same area, and when a verb, an act or `add` opens a dialog the
 extension never declared.
 
+## `ctx.ui.panel_group`
+
+`ctx.ui.panel_group(subject, read, *, title="", save=None)`.  Required: `subject`, `read`.
+
+Put a group on a game's panel (`subject` `"game"`) or on one table's (`"table"`), in Play after
+High Scores.  `read(who)` answers the group's one section, the same `{"facts", "fields",
+"rows"}` a [pane's](settings-and-lists.md#lists) section holds, and core draws it as it draws
+the rest of the panel.  Answer None, or a section with nothing in it, and the group is not
+drawn.
+
+`who` is `{"game_id", "vps_id", "name"}`, and for a table also `{"table_id", "vps_file_id",
+"version"}`.  A game marked Private is never asked about: core does not call `read` or `save`
+for it, so the extension is not told the library holds it.  A game's group is also drawn on each
+of its tables' panels, and a table's group only on a table's.
+
+```python
+def notes(who):
+    return {"fields": [{"key": "note", "type": "string", "label": ctx.t("group.note"),
+                        "value": ctx.config.get(f"note.{who['game_id']}")}]}
+
+
+def keep(who, values):
+    ctx.config.set(f"note.{who['game_id']}", values["note"] or "")
+
+
+ctx.ui.panel_group("game", notes, save=keep)
+```
+
+With `save(who, values)` the group's fields can be changed: each is written as it is set, with the
+keys that changed, and core reads the group again to draw what was kept.  It is handed only keys
+the group offers now, and it refuses a value by raising, as a pane's `save` does.  A group
+that is read often should be quick: core reads it each time the panel opens, without holding
+the panel back, and a group that raises or does not answer leaves nothing in the panel.
+
+The heading is `title`, else `group.<subject>.title` in the extension's catalog, else the
+extension's name.  The group is served at `GET /api/v1/ext/<name>/groups/game/<game_id>` and
+`GET /api/v1/ext/<name>/groups/table/<game_id>/<table_id>`, changed with `PUT` at the same
+address and `{"values": {...}}`.  They need the extension's read and write scopes.
+
+It raises `ContractError` without `ui:mount` or without `games:read` in the manifest's `scopes`,
+for a `subject` that is not `game` or `table`, for a subject declared twice, and for a `read` or
+a `save` that is not a function.  `--check-extension` says each group it finds.
+
 ## `ctx.ui.kept`
 
 `ctx.ui.kept(key) -> dict | None`.  Required: `key`.

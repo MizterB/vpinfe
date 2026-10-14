@@ -1,4 +1,5 @@
-"""What a list's `detail(row_id)` may answer, checked before the Console draws any of it.
+"""What a list's `detail(row_id)` or a panel group may answer, checked before the
+Console draws any of it.
 
 The pane has a closed vocabulary, like a dialog's step: a key core does not read would be
 dropped without a word, so it is refused where the extension can see it. A secret goes out
@@ -20,6 +21,9 @@ FACT_KEYS = frozenset({"label", "value", "kind", "to", "help", "tier"})
 FIELD_KEYS = frozenset({"key", "type", "label", "value", "help", "choices", "min", "max",
                         "unit", "wants", "placeholder"})
 ROW_KEYS = frozenset({"label", "under"})
+# A panel group answers the one section itself, with no title or sections around it.
+GROUP_KEYS = frozenset({"facts", "fields", "rows"})
+GROUP_SECTION = "group"
 
 # The cell drawings of a list that a fact can use. `game` and `table` need a library row.
 FACT_KINDS = ("text", "number", "date", "state", "chips", "link", "picture")
@@ -159,6 +163,23 @@ def _row(one: Any, where: str) -> dict:
             "under": _text(row, "under", f"{where} row")}
 
 
+def _section(section: dict, key: str, label: str, names: set[str]) -> dict:
+    """One section's facts, fields and rows, shaped. `names` holds the field keys the pane
+    has so far, and takes this section's."""
+    fields = [_field(each, f"section {key}") for each in _list(section.get("fields"), "fields")]
+    for each in fields:
+        if each["key"] in names:
+            raise PaneError("error.extensions.pane_twice", what="field", key=each["key"])
+        names.add(each["key"])
+    return {
+        "key": key, "label": label,
+        "facts": [_fact(each, f"section {key}")
+                  for each in _list(section.get("facts"), "facts")],
+        "fields": fields,
+        "rows": [_row(each, f"section {key}") for each in _list(section.get("rows"), "rows")],
+    }
+
+
 def shaped(answer: Any, row_id: str) -> dict:
     """`answer` as the pane draws it, or `PaneError` saying what is wrong with it."""
     found = _dict(answer, "the answer")
@@ -181,21 +202,22 @@ def shaped(answer: Any, row_id: str) -> dict:
         if len(declared) > 1 and not label:
             raise PaneError("error.extensions.pane_shape", what=f"section {key}",
                             need="a label, as it is one of several")
-        fields = [_field(each, f"section {key}")
-                  for each in _list(section.get("fields"), "fields")]
-        for each in fields:
-            if each["key"] in names:
-                raise PaneError("error.extensions.pane_twice", what="field", key=each["key"])
-            names.add(each["key"])
-        sections.append({
-            "key": key, "label": label,
-            "facts": [_fact(each, f"section {key}")
-                      for each in _list(section.get("facts"), "facts")],
-            "fields": fields,
-            "rows": [_row(each, f"section {key}") for each in _list(section.get("rows"), "rows")],
-        })
+        sections.append(_section(section, key, label, names))
     return {"id": row_id, "title": title, "under": _text(found, "under", "the answer"),
             "picture": _text(found, "picture", "the answer"), "sections": sections}
+
+
+def grouped(answer: Any) -> dict | None:
+    """What a panel group answers, as the one section the panel draws, or None where it
+    has nothing to say. `PaneError` says what is wrong with an answer that is not one."""
+    if answer is None:
+        return None
+    found = _dict(answer, "the answer")
+    _only(found, GROUP_KEYS, "the answer")
+    section = _section(found, GROUP_SECTION, "", set())
+    if not (section["facts"] or section["fields"] or section["rows"]):
+        return None
+    return section
 
 
 def accepted(fields: list[dict], values: dict, refuse: Callable[..., Exception]

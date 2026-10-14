@@ -64,6 +64,7 @@ from console import (
     deeplink,
     dof,
     dropdown,
+    ext_groups,
     ext_row,
     file_acts,
     game_acts,
@@ -3013,12 +3014,13 @@ def _chosen_table(context: dict[str, Any]) -> dict[str, Any] | None:
 
 
 async def _play_block(context: dict[str, Any]) -> None:
-    """What has been done with this, the machine's high score table after it, and the
-    pictures players took."""
+    """What has been done with this, the machine's high score table after it, the
+    pictures players took, and the groups extensions add."""
     scores = await _high_scores(context)
     shots = await pictures.read(context)
     with ui.column().classes("gap-0 console-form"):
         _rows(ui, _play_section(context, scores, shots))
+        ext_groups.fill(context)
 
 
 def _play_section(context: dict[str, Any], scores: dict[str, Any],

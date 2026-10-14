@@ -351,6 +351,60 @@ def list_save(record: Record, key: str, row_id: str, values: dict) -> dict:
     return list_detail(record, key, row_id)
 
 
+# -- panel groups ----------------------------------------------------------------------
+
+def _group(record: Record, subject: str) -> Any:
+    found = _context(record).ui.group_functions.get(subject)
+    if found is None:
+        raise NotFoundError(i18n.t("error.extensions.no_group", display=record.display_name,
+                                   subject=subject))
+    return found
+
+
+def group_read(record: Record, subject: str, who: dict) -> dict:
+    """The group on a game's or table's panel: its heading, and the one section the
+    extension answered with, or None where it has nothing to say. `who` is the subject core
+    chose to ask about."""
+    functions = _group(record, subject)
+    at = f"{subject} group"
+    answer = plain(record, at, called(record, at, functions.read, dict(who)))
+    try:
+        section = pane.grouped(answer)
+    except pane.PaneError as exc:
+        raise ExtensionError(i18n.t(exc.line, display=record.display_name,
+                                    id=f"its {subject} group", **exc.params)) from exc
+    try:
+        for fact in (section or {}).get("facts", []):
+            if fact["kind"] == "picture":
+                fact["value"] = pictures.address(record, fact["value"])
+    except pictures.OutboundNotDeclaredError as exc:
+        raise ExtensionError(i18n.t("error.extensions.picture_outbound",
+                                    display=record.display_name, key=at)) from exc
+    title = next((one["title"] for one in record.groups() if one["subject"] == subject), "")
+    return {"title": title, "section": section}
+
+
+def group_save(record: Record, subject: str, who: dict, values: dict) -> dict:
+    """Write the fields a group offers for a subject, then answer the group as it stands.
+    The keys must be fields the extension's own answer offers now."""
+    functions = _group(record, subject)
+    if functions.save is None:
+        raise NotFoundError(i18n.t("error.extensions.no_group_save",
+                                   display=record.display_name, subject=subject))
+    offered = (group_read(record, subject, who)["section"] or {}).get("fields", [])
+    changes = pane.accepted(
+        offered, values or {},
+        lambda line, **params: RefusedError(i18n.t(line, display=record.display_name,
+                                                   **params)))
+    if changes:
+        try:
+            called(record, f"{subject} group save", functions.save, dict(who), changes)
+        except ExtensionError as exc:
+            exc.field = next(iter(changes))
+            raise
+    return group_read(record, subject, who)
+
+
 def _message(record: Record, at: str, result: Any) -> dict:
     if result is None:
         return {}

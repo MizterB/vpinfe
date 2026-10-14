@@ -15,6 +15,9 @@ and says why.
 | `GET /lists/{key}/about` | `{"status": ..., "acts": [{key, label[, url][, action]}]}` |
 | `POST /lists/{key}/about/acts/{act}` | `{"message"?, "url"?}` |
 | `POST /lists/{key}/verbs/{verb}` | Body `{"ids": [...]}`.  `{"message"?, "url"?}` |
+| `GET /groups/game/{game_id}` | `{"title", "section"}`: the group's section, or `null` for a game marked Private or a group with nothing in it |
+| `GET /groups/table/{game_id}/{table_id}` | As the game's, for one table |
+| `PUT /groups/game/{game_id}` | Body `{"values": {...}}`.  Saves, answers as `GET` does.  A `404` for a game marked Private.  Likewise `PUT /groups/table/{game_id}/{table_id}` |
 | `GET /actions/{key}?step=&rows=` | A step answer.  `rows` repeats once for each row a verb opened the dialog over |
 | `POST /actions/{key}/check` | Body `{values, step}`.  A step answer |
 | `POST /actions/{key}/act` | Body `{act, values, step}`.  A step answer |

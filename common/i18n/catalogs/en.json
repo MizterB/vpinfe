@@ -4102,6 +4102,8 @@
   "error.extensions.not_data": "{display} answered {at} with something VPinFE cannot read",
   "error.extensions.no_detail": "{display}'s list {key} has no pane",
   "error.extensions.no_save": "{display}'s list {key} cannot be changed from its pane",
+  "error.extensions.no_group": "{display} has no {subject} group",
+  "error.extensions.no_group_save": "{display}'s {subject} group cannot be changed",
   "error.extensions.no_field": "This pane has no field called {key}",
   "error.extensions.pane_shape": "{display}'s pane for {id}: {what} must be {need}",
   "error.extensions.pane_key": "{display}'s pane for {id}: {what} has {key}, which is not read. Read: {drawn}",
