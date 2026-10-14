@@ -2021,7 +2021,7 @@ class TypedRedrawTests(unittest.IsolatedAsyncioTestCase):
         _, rebuild, _, _ = await self._drawn("int")
         await press(marked.call_args.kwargs["clear"])
 
-        kept.assert_awaited_once_with(ANY, rebuild, "Player.SoundVolume")
+        kept.assert_awaited_once_with(ANY, rebuild, "Player.SoundVolume", in_place=False)
 
 
 class KeepingPlaceTests(unittest.IsolatedAsyncioTestCase):

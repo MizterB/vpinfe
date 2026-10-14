@@ -219,6 +219,19 @@ _FOCUSED_SETTING = """(() => {
           lines.indexOf(at.closest('.console-field-line'))];
 })()""".replace("FOCUSABLE", json.dumps(_FOCUSABLE))
 
+# Focus fell to the page because the control that held it was drawn away: `[setting,
+# which of its controls]`. A focus that went elsewhere is left where it is.
+_REFOCUS_IN_PLACE = """(() => {
+  const [key, index] = %s;
+  setTimeout(() => {
+    const at = document.activeElement;
+    if (at && at !== document.body) return;
+    const one = document.querySelector(`[data-setting="${CSS.escape(key)}"]`);
+    const controls = one ? [...one.querySelectorAll(FOCUSABLE)] : [];
+    (controls[index] || controls[0])?.focus();
+  }, 50);
+})()""".replace("FOCUSABLE", json.dumps(_FOCUSABLE))
+
 _REFOCUS_SETTING = """(() => {
   const [places, row] = %s;
   let tries = 0;
@@ -5310,33 +5323,44 @@ def _marked(parts: Sequence[Part], app_name: str,
             redraws: list[Callable[[], None]] | None = None, *, joiner: str = "",
             on_leave: Callable[[], Any] | None = None,
             clear: Callable[[], Awaitable[None]] | None = None,
-            playing: bool = False) -> Callable[[], None]:
+            playing: bool = False,
+            again: Callable[[], Sequence[Part]] | None = None,
+            regrow: dict[str, Callable[[], None]] | None = None) -> Callable[[], None]:
     """One value, or a pair with `joiner` between them, as `(control, held, field)`. A
     value at the default is drawn quiet and unmarked. Where this scope sets any of them
     to something else, a dot comes before it, whose each is on hover, and `clear` after
     the control. Each draw adds to `redraws` what brings the dot, the hover and Reset up to
     each `held` without drawing the controls again. `on_leave` runs when focus leaves the
-    line.
+    line. Where `again` hands back the parts as they are now, `regrow` gets, under the
+    field's key, what draws this line's controls again.
 
     Reset only where there is something to reset: on an untouched row it would be a
     control that does nothing, and a column of inert verbs teaches people to stop reading
     them.
     """
     def draw() -> None:
+        dot: Any = None
+        hover_tip: Any = None
+        whose: Any = None
+
+        def controls() -> None:
+            nonlocal dot, hover_tip, whose
+            dot = ui.element("span").classes(
+                "console-mark console-mark--full console-named-mark")
+            if len(parts) == 1:
+                parts[0][0]()
+            else:
+                _pair(parts, joiner)
+            hover_tip = getattr(parts[0][0], "hover_tip", None) if len(parts) == 1 else None
+            whose = None
+            if hover_tip is None:
+                whose = ui.tooltip("")
+                whose.props('anchor="bottom left" self="top left"')
+
         with ui.row().classes("items-center gap-1 no-wrap console-field-line") as line:
             line.props["data-setting"] = parts[0][2].key
             with ui.row().classes("items-center gap-1 no-wrap console-field-row") as row:
-                dot = ui.element("span").classes(
-                    "console-mark console-mark--full console-named-mark")
-                if len(parts) == 1:
-                    parts[0][0]()
-                else:
-                    _pair(parts, joiner)
-                hover_tip = getattr(parts[0][0], "hover_tip", None) if len(parts) == 1 else None
-                whose = None
-                if hover_tip is None:
-                    whose = ui.tooltip("")
-                    whose.props('anchor="bottom left" self="top left"')
+                controls()
             end = ui.element("div").classes("console-row-action")
         if on_leave is not None:
             row.on("focusout", on_leave)
@@ -5365,9 +5389,21 @@ def _marked(parts: Sequence[Part], app_name: str,
                                           [(field, _clear_hint(held, field, app_name))
                                            for held, field in changed], len(parts)))()
 
+        def again_here() -> None:
+            nonlocal parts
+            if again is None:
+                return
+            parts = again()
+            row.clear()
+            with row:
+                controls()
+            show()
+
         show()
         if redraws is not None:
             redraws.append(show)
+        if again is not None and regrow is not None:
+            regrow[parts[0][2].key] = again_here
     return draw
 
 
@@ -5731,6 +5767,7 @@ async def _setting_entries(context: dict[str, Any],
     seen = await offload.io(screens.connected) if named else []
     rows: dict[str, dict] = {}
     redraws: list[Callable[[], None]] = []
+    regrow: dict[str, Callable[[], None]] = {}
     shown = dict(values)
     pending = {"written": ""}
     reads = {"begun": 0, "shown": 0}
@@ -5747,6 +5784,31 @@ async def _setting_entries(context: dict[str, Any],
         return run.io_bound(library.write_launcher_config, launcher["launcher_id"], values,
                             table=table, scope=scope)
 
+    async def show_fresh(key: str, fresh: dict[str, Any], mine: int,
+                         regrown: Callable[[], None] | None = None) -> None:
+        """Bring the rows up to `fresh`, the read `mine` began, without drawing the page
+        again. `regrown` draws the controls of the row that was written afresh."""
+        saved = context.get("saved")
+        if callable(saved) and _whose(shown, key) != _whose(fresh, key):
+            asyncio.create_task(saved())
+        if more is not None:
+            await more.ready(fresh)
+        if mine < reads["shown"]:
+            return
+        reads["shown"] = mine
+        shown.update(fresh)
+        for other, held in rows.items():
+            held.clear()
+            held.update(fresh.get(other) or {})
+        if regrown is not None:
+            regrown()
+        for redraw in redraws:
+            redraw()
+        for follow in list(context.get("followers", ())):
+            follow(fresh)
+        if (recount := context.get("recount_changed")) is not None:
+            await recount()
+
     def clear(keys: Sequence[str]) -> Callable[[], Awaitable[None]]:
         @on_page
         async def wipe() -> None:
@@ -5760,7 +5822,21 @@ async def _setting_entries(context: dict[str, Any],
             if (done := context.get("config_done")) is not None:
                 done(wrote or {})
             context.pop("config_values", None)
-            await _keeping_place(ui.context.client, context["rebuild"], keys[0])
+            reads["begun"] += 1
+            mine = reads["begun"]
+            try:
+                fresh = await _config_values(context)
+            except Exception:  # noqa: BLE001
+                fresh = {}
+
+            async def in_place() -> None:
+                await show_fresh(keys[0], fresh, mine, regrow.get(keys[0]))
+
+            # A named setting's mark is drawn with its control, which this redraws.
+            moved = (not fresh or (redraw_on - named).intersection(keys)
+                     or _moved(shown, fresh, keys))
+            await _keeping_place(ui.context.client, context["rebuild"] if moved else in_place,
+                                 keys[0], in_place=not moved)
         return wipe
 
     def save(key: str, typed: bool) -> Callable[[Any], Awaitable[bool]]:
@@ -5792,24 +5868,7 @@ async def _setting_entries(context: dict[str, Any],
             elif not fresh or stuck or key in redraw_on or _moved(shown, fresh, key):
                 asyncio.create_task(_keeping_place(ui.context.client, context["rebuild"], key))
                 return True
-            saved = context.get("saved")
-            if callable(saved) and _whose(shown, key) != _whose(fresh, key):
-                asyncio.create_task(saved())
-            if more is not None:
-                await more.ready(fresh)
-            if mine < reads["shown"]:
-                return True
-            reads["shown"] = mine
-            shown.update(fresh)
-            for other, held in rows.items():
-                held.clear()
-                held.update(fresh.get(other) or {})
-            for redraw in redraws:
-                redraw()
-            for follow in list(context.get("followers", ())):
-                follow(fresh)
-            if (recount := context.get("recount_changed")) is not None:
-                await recount()
+            await show_fresh(key, fresh, mine)
             return True
         return write
 
@@ -5863,7 +5922,8 @@ async def _setting_entries(context: dict[str, Any],
             entries.append((pair.label if pair else field.label, _marked(
                 parts, app_name, redraws, joiner=pair.joiner if pair else "",
                 on_leave=settle if any(_as_option(one)["type"] in TYPED for one in members)
-                else None, clear=clear(keys), playing=playing)))
+                else None, clear=clear(keys), playing=playing,
+                again=partial(_again, part, members), regrow=regrow)))
             entries.append((panel.ASIDE, _beside(
                 partial(marks, parts, pair.joiner if pair else ""), parts[0][1], field,
                 redraws, more,
@@ -5879,21 +5939,29 @@ async def _setting_entries(context: dict[str, Any],
     return entries
 
 
+def _again(part: Callable[[Any], Part], members: Sequence[Any]) -> list[Part]:
+    return [part(one) for one in members]
+
+
 def _whose(values: dict[str, Any], key: str) -> str:
     return str((values.get(key) or {}).get("scope") or "")
 
 
 async def _keeping_place(client: Any, rebuild: Callable[[], Awaitable[Any]],
-                         written: str) -> None:
+                         written: str, *, in_place: bool = False) -> None:
     """`rebuild`, then focus the control that held focus, else `written`'s first, else the
     row now where the one that held it was. Nothing is focused where focus was outside the
-    panel."""
+    panel. With `in_place` `rebuild` draws no new line, so focus is only put back on the
+    setting that held it where the draw dropped it."""
     try:
         where = await client.run_javascript(_FOCUSED_SETTING)
     except Exception:  # noqa: BLE001 - a panel that cannot say where focus is still draws
         where = None
     await rebuild()
-    if where is not None:
+    if in_place:
+        if where:
+            client.run_javascript(_REFOCUS_IN_PLACE % json.dumps(where[0]))
+    elif where is not None:
         places, row = ([where[0]], where[1]) if where else ([], -1)
         client.run_javascript(_REFOCUS_SETTING % json.dumps([[*places, [written, 0]], row]))
 
@@ -5957,13 +6025,15 @@ def _tables_of_their_own(launcher: dict[str, Any], keys: Sequence[str],
                           "sets": ",".join(keys)}))
 
 
-def _moved(before: dict[str, Any], after: dict[str, Any], written: str) -> bool:
-    """Whether a setting other than the one written has a different value now, or has it
+def _moved(before: dict[str, Any], after: dict[str, Any], written: str | Collection[str]) -> bool:
+    """Whether a setting other than those written has a different value now, or has it
     from another scope."""
+    own = {written} if isinstance(written, str) else set(written)
+
     def said(held: Any) -> tuple[Any, Any]:
         return (held or {}).get("value"), (held or {}).get("scope")
     return any(said(before.get(key)) != said(after.get(key))
-               for key in before.keys() | after.keys() if key != written)
+               for key in before.keys() | after.keys() if key not in own)
 
 
 def _subheading(title: str) -> None:
