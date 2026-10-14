@@ -83,6 +83,7 @@ def _describe(option: config_schema.ConfigOption) -> dict[str, Any]:
         "description": option.description,
         "choices": list(option.choices),
         "choice_labels": option.choice_labels,
+        "choice_help": option.choice_help,
         "writable": option.section not in READ_ONLY_SECTIONS,
         # So a caller knows which strings name something on disk without matching on the
         # key. Empty for everything that is only text.
@@ -103,6 +104,10 @@ def _describe(option: config_schema.ConfigOption) -> dict[str, Any]:
         "lines": option.lines,
         "default_is": option.default_is,
         "unit": option.unit,
+        "as_buttons": option.as_buttons,
+        "min": option.minimum,
+        "max": option.maximum,
+        "group_note": option.group_note,
         "cuts_off_console": option.cuts_off_console,
         "moves_with": option.moves_with,
         "applies": option.applies,
@@ -260,6 +265,28 @@ def require_sections(wanted: dict[str, Any]) -> None:
             raise MalformedPatchError(t("error.config.section_object", section=section))
 
 
+def _out_of_range(staged: list[tuple[str, str, Any]]) -> dict[str, str]:
+    """Why each staged number falls outside the range its option declares, keyed
+    `section.key`. A value that is not a number is not judged here."""
+    reasons: dict[str, str] = {}
+    for section, key, value in staged:
+        option = config_schema.option(section, key)
+        if option is None or (option.minimum is None and option.maximum is None):
+            continue
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            continue
+        field = f"{section}.{key}"
+        if option.minimum is not None and number < option.minimum:
+            reasons[field] = t("error.config.list.minimum", field=field,
+                               minimum=f"{option.minimum:g}")
+        elif option.maximum is not None and number > option.maximum:
+            reasons[field] = t("error.config.list.maximum", field=field,
+                               maximum=f"{option.maximum:g}")
+    return reasons
+
+
 def _apply(patch: dict[str, Any], windows: Sequence[str]) -> dict[str, Any]:
     store = get_ini_config()
     served = set(settable(windows))
@@ -293,7 +320,7 @@ def _apply(patch: dict[str, Any], windows: Sequence[str]) -> dict[str, Any]:
     chosen = _checked_theme_options(patch.get(THEME_OPTIONS))
     if not staged and not lists and not chosen:
         return whole(windows)
-    if reasons := port_checks.refused(wanted):
+    if reasons := port_checks.refused(wanted) | _out_of_range(staged):
         raise RefusedSettingsError(reasons)
 
     changed: list[str] = []

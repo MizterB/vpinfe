@@ -142,6 +142,11 @@ class ConfigOption:
     default_is: str = ""
     # One of `UNITS`: what the number counts.
     unit: str = ""
+    # A choice of two or three short names, drawn as buttons rather than a list.
+    as_buttons: bool = False
+    # The lowest and highest a number may be. Empty is unbounded.
+    minimum: int | None = None
+    maximum: int | None = None
     # A change to this can put the Console out of reach of the device making it, so a
     # surface on such a device asks before saving.
     cuts_off_console: bool = False
@@ -182,6 +187,24 @@ class ConfigOption:
             if said != key:
                 found[value] = said
         return found
+
+    @property
+    def choice_help(self) -> dict[str, str]:
+        """A line saying what each choice does, for the choices the catalog describes."""
+        found = {}
+        for value in self.choices:
+            said = t(f"{self.keys}.choice_help.{value}")
+            if not said.endswith(f".choice_help.{value}"):
+                found[value] = said
+        return found
+
+    @property
+    def group_note(self) -> str:
+        """The line under this setting's group heading, or "" where the group has none."""
+        if not self.group:
+            return ""
+        said = t(f"config.group.{self.group}.note")
+        return "" if said.endswith(".note") else said
 
     @property
     def blank(self) -> str:
@@ -780,6 +803,9 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             group=setting_groups.NAVIGATION,
             type="int",
             default="10",
+            default_is=DEFAULT_VPINFE,
+            minimum=1,
+            maximum=100,
             legacy=(("Input", "pagingsize"),),
         ),
         ConfigOption(
@@ -835,7 +861,6 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "mute_audio",
-            applies=APPLIES_WINDOWS,
             group=setting_groups.AUDIO,
             type="bool",
             default="false",
@@ -843,41 +868,44 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         # Core moves the wheel on its own once nobody has pressed anything. Whether it does
         # so is the person's switch and the theme's `attract.enabled` together; either one
-        # off is off.
+        # off is off. The Console draws the switch and the idle time as one picker, Start
+        # After, so neither is shown on its own.
         ConfigOption(
             "attract_enabled",
-            applies=APPLIES_WINDOWS,
             group=setting_groups.ATTRACT,
             type="bool",
             default="true",
         ),
         ConfigOption(
             "attract_idle",
-            applies=APPLIES_WINDOWS,
             group=setting_groups.ATTRACT,
             type="int",
             default="60",
+            default_is=DEFAULT_VPINFE,
             unit=UNIT_SECONDS,
+            minimum=10,
+            maximum=3600,
         ),
         ConfigOption(
             "attract_step_time",
-            applies=APPLIES_WINDOWS,
             group=setting_groups.ATTRACT,
             type="int",
             default="8",
+            default_is=DEFAULT_VPINFE,
             unit=UNIT_SECONDS,
+            minimum=2,
+            maximum=300,
         ),
-        # `random` or a count of games to move by, negative to go backwards.
         ConfigOption(
-            "attract_step",
-            applies=APPLIES_WINDOWS,
+            "attract_order",
             group=setting_groups.ATTRACT,
-            type="string",
+            as_buttons=True,
+            type="choice",
             default="random",
+            choices=("random", "in_order"),
         ),
         ConfigOption(
             "attract_on_return",
-            applies=APPLIES_WINDOWS,
             group=setting_groups.ATTRACT,
             type="choice",
             default="restore",
@@ -885,7 +913,6 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "attract_audio",
-            applies=APPLIES_WINDOWS,
             group=setting_groups.ATTRACT,
             type="bool",
             default="false",

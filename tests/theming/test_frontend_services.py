@@ -198,14 +198,14 @@ class FrontendServiceTests(unittest.TestCase):
 
     def test_attract_config_answers_in_milliseconds_with_the_defaults_when_unset(self):
         self.assertEqual(self._attract(), {
-            "enabled": True, "idle_ms": 60000, "step_ms": 8000, "step": "random",
+            "enabled": True, "idle_ms": 60000, "step_ms": 8000, "order": "random",
             "on_return": "restore", "audio": False})
 
     def test_attract_config_reads_what_the_person_set(self):
         self.assertEqual(
             self._attract(attract_enabled="false", attract_idle=30, attract_step_time=5,
-                          attract_step=-2, attract_on_return="stay", attract_audio="true"),
-            {"enabled": False, "idle_ms": 30000, "step_ms": 5000, "step": -2,
+                          attract_order="in_order", attract_on_return="stay", attract_audio="true"),
+            {"enabled": False, "idle_ms": 30000, "step_ms": 5000, "order": "in_order",
              "on_return": "stay", "audio": True})
 
     def test_attract_config_never_answers_a_timer_that_fires_every_frame(self):
@@ -213,9 +213,8 @@ class FrontendServiceTests(unittest.TestCase):
 
         self.assertEqual((found["idle_ms"], found["step_ms"]), (1000, 1000))
 
-    def test_attract_step_of_zero_or_a_typo_does_not_stop_the_wheel(self):
-        self.assertEqual(self._attract(attract_step=0)["step"], 1)
-        self.assertEqual(self._attract(attract_step="sideways")["step"], "random")
+    def test_an_attract_order_that_is_a_typo_does_not_stop_the_wheel(self):
+        self.assertEqual(self._attract(attract_order="sideways")["order"], "random")
 
     def test_attract_on_return_other_than_stay_restores(self):
         self.assertEqual(self._attract(attract_on_return="whatever")["on_return"], "restore")

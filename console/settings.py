@@ -41,6 +41,7 @@ from common.media_specs import media_label_map
 from common.online import theme_source_checks as online_checks
 from console import (
     appearance_picker,
+    attract,
     backups_move,
     binding_table,
     browser_state,
@@ -338,20 +339,27 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
         named = option.get("choice_labels") or {}
         if named and not isinstance(choices, dict):
             choices = {value: named.get(value, value) for value in choices}
+        shown = "" if varies else str(value_for(option, value))
+        if option.get("as_buttons") and isinstance(choices, dict):
+            return panel.choice_buttons(choices, shown, lambda e: save(e.value), disabled=off)
+        helped = option.get("choice_help") or {}
+        labels = choices if isinstance(choices, dict) else {one: one for one in choices}
         return panel.select(choices if isinstance(choices, dict) else list(choices),
-                            "" if varies else str(value_for(option, value)),
-                            lambda e: save(e.value), disabled=off,
-                            describes=option.get("describes"))
+                            shown, lambda e: save(e.value), disabled=off,
+                            describes=option.get("describes")
+                            or {labels.get(one, one): said for one, said in helped.items()}
+                            or None)
     if kind == "color":
         return panel.swatch(str(value or ""), save, disabled=off)
     blank = str(option.get("blank") or "")
     if kind in ("int", "number") and option.get("named"):
         return panel.named_number(value, option["named"], save, disabled=off,
                                   whole=kind == "int", low=option.get("min"),
-                                  high=option.get("max"))
+                                  high=option.get("max"), unit=_unit_word(option))
     if kind == "int":
         return panel.number(
             value, lambda e: save("" if e.value is None else int(e.value)), disabled=off,
+            low=option.get("min"), high=option.get("max"), unit=_unit_word(option),
             placeholder=blank, on_control=refusal.attach if refusal else None,
             on_leave=refusal is not None)
     if kind == "number":
@@ -389,6 +397,11 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
                                               stands_for))
     return panel.field(str(value or ""), lambda text: save(text), disabled=off,
                        placeholder=blank)
+
+
+def _unit_word(option: dict) -> str:
+    """What a number counts, said beside it. A port is a number nobody counts with."""
+    return t("word.seconds") if option.get("unit") == config_schema.UNIT_SECONDS else ""
 
 
 def by_group(options: list[dict]) -> list[dict]:
@@ -1553,6 +1566,7 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
                  previewed: chrome_options.Preview | None = None,
                  stands_in: dict[str, list[tuple[Any, Any]]] | None = None,
                  waits_said: bool = False,
+                 linked: attract.Attract | None = None,
                 ) -> list[tuple[Any, Any]]:
     """One section's settings as fact rows, from whatever is serving them.
 
@@ -1562,7 +1576,8 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
     source decides where the write lands.
 
     `stands_in` draws other rows where a setting would be, named `section.key`, for a
-    setting whose value is better handled one entry at a time than as one field.
+    setting whose value is better handled one entry at a time than as one field. `linked`
+    is the Attract Mode group's own behavior, for the page that has one.
     """
     current = dict(values.get(section) or {})
     # What every setting in this section is *effectively* set to, defaults included. An
@@ -1583,6 +1598,8 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
             group = t("console.settings.group_other")
         if group and group != heading:
             entries.append((panel.HEADING, group))
+            if linked is not None:
+                entries += linked.under_heading(str(option.get("group") or ""))
         heading = group
         if (replaced := (stands_in or {}).get(f"{section}.{option['key']}")) is not None:
             entries += replaced
@@ -1594,6 +1611,8 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
         save, note = _noted(option, value, saver(source, section, option["key"], refusal),
                             (resolved or {}).get(option["key"], ""),
                             waits_said or picked_elsewhere)
+        if linked is not None:
+            save = linked.saves(option["key"], save)
         if option.get("cuts_off_console") and from_elsewhere:
             save = _asked_first(option, save, rerender)
         if option.get("moves_with") == config_schema.MOVES_BACKUPS and isinstance(
@@ -1617,11 +1636,15 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
                 check=(checks or {}).get((section, option["key"])),
                 suggestions=suggestions,
                 section_values=effective, browse=browse, refusal=refusal)
+        if linked is not None:
+            control = linked.draws(option["key"], control)
         entries.append((option.get("label") or humanize(option["key"]),
                         chipped.beside(control, option) if chipped is not None
                         else control))
         if note is not None:
             entries.append(note)
+        if linked is not None:
+            entries += linked.under(option["key"])
         if previewed is not None and option["key"] == chrome_options.ADD:
             entries.append(previewed.warning_row())
         if section == "dof" and option["key"] == "config_tool_api_key":
@@ -1650,6 +1673,7 @@ async def build_device_page(source: Any, context: dict[str, Any], schema: list[d
                             waiting: Waiting | None = None,
                             stands_in: dict[str, list[tuple[Any, Any]]] | None = None,
                             waits_said: bool = False,
+                            linked: attract.Attract | None = None,
                             ) -> None:
     """One page of a device's settings, drawn exactly as this install's are.
 
@@ -1706,7 +1730,8 @@ async def build_device_page(source: Any, context: dict[str, Any], schema: list[d
                             resolved=resolves(offered) if resolves else None,
                             browse=browse, waiting=waiting,
                             from_elsewhere=from_elsewhere, previewed=preview,
-                            stands_in=stands_in, waits_said=waits_said)
+                            stands_in=stands_in, waits_said=waits_said,
+                            linked=linked if name == attract.SECTION else None)
         # A section that opens with a heading keeps its head under it: nothing sits
         # above the first heading.
         under = 1 if rows and rows[0][0] is panel.HEADING else 0
@@ -1881,6 +1906,14 @@ async def _draw_system_page(library: Library, redraw: Callable[[], None], body: 
                                   values, schema, write, rebuild)]))
     stands_in = await _theme_sources(library, state if state is not None else {}, redraw) \
         if theme_sources.SECTION in sections else None
+    linked = None
+    if attract.SECTION in sections:
+        theme, left = attract.left_to_theme(await _themes_listing(library))
+        linked = attract.Attract(lambda changes: _write_many(library, changes), values,
+                                 _options_of(schema, attract.SECTION),
+                                 writable=_writable(schema, attract.SECTION),
+                                 theme=theme, left_to_theme=left)
+        stands_in = {**(stands_in or {}), **linked.stands_in()}
     with body:
         page_head(key, findings, waits)
         await build_device_page(library, {"library": library, "rebuild": redraw},
@@ -1888,7 +1921,24 @@ async def _draw_system_page(library: Library, redraw: Callable[[], None], body: 
                                 suggestions=offered, blocks=blocks, browse=library.folders,
                                 drawn_elsewhere=key == displays.KEY,
                                 waiting=Waiting(library, await _waiting(library)),
-                                stands_in=stands_in, waits_said=bool(waits))
+                                stands_in=stands_in, waits_said=bool(waits), linked=linked)
+
+
+def _options_of(schema: list[dict], section: str) -> list[dict]:
+    return next((list(block.get("options") or []) for block in schema
+                 if block.get("name") == section), [])
+
+
+def _writable(schema: list[dict], section: str) -> bool:
+    return any(block.get("writable") for block in schema if block.get("name") == section)
+
+
+async def _themes_listing(library: Library) -> dict[str, Any]:
+    try:
+        return await offload.io(library.themes)
+    except Exception as exc:  # noqa: BLE001 - the page is drawn without the theme line
+        logger.warning("Could not read the themes: %s", why(exc))
+        return {}
 
 
 async def _extension_draw(redraw: Callable[[], None], key: str,

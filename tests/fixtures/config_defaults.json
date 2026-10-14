@@ -7,7 +7,7 @@
     "attract_enabled": "true",
     "attract_idle": "60",
     "attract_on_return": "restore",
-    "attract_step": "random",
+    "attract_order": "random",
     "attract_step_time": "8",
     "confirm": "false",
     "hide_quit_button": "false",

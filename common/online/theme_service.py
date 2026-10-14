@@ -18,7 +18,7 @@ from common.config_store import ConfigStore
 from common.i18n import t
 from common.online.themes import ThemeRegistry
 from common.paths import THEMES_DIR, VPINFE_INI_PATH
-from common.theme_level import declared_contract
+from common.theme_level import OLDEST_CONTRACT, declared_contract
 
 
 def get_active_theme() -> str:
@@ -138,6 +138,28 @@ def _dynamic_select_options(source: str) -> list[dict[str, Any]] | None:
         pass
     return ([{"label": "Default", "value": ""}]
             + [{"label": name, "value": name} for name in names])
+
+
+ATTRACT_TWO_X = "contract_1"
+ATTRACT_OWN = "own"
+
+
+def attract_left_to_the_theme(theme_key: str, registry: ThemeRegistry | None = None) -> str:
+    """Why core's attract mode does not run under this theme, or "" where it does.
+
+    The same rule vpinfe-core.js applies at its `core_attract` capability: what the theme's
+    config.json states under `attract.enabled` decides, and a theme that states nothing gets
+    it from contract 2 and not from contract 1.
+    """
+    theme_dir = get_installed_theme_dir(theme_key, registry)
+    if theme_dir is None:
+        return ""
+    block = (_read_json_object(theme_dir / "config.json") or {}).get("attract")
+    if isinstance(block, dict) and "enabled" in block:
+        return "" if block["enabled"] else ATTRACT_OWN
+    if declared_contract(theme_dir) <= OLDEST_CONTRACT:
+        return ATTRACT_TWO_X
+    return ""
 
 
 def load_theme_option_schema(

@@ -38,19 +38,15 @@ def get_mainmenu_config(iniconfig: ConfigSource) -> dict[str, bool]:
 def get_attract_config(iniconfig: ConfigSource) -> dict[str, Any]:
     """What the person set for attract mode, in the units core's timers use.
 
-    A step that is neither `random` nor a whole number comes back as `random`: it is a
-    typed setting, and a typo must not stop the wheel.
+    An order that is neither of the two comes back as `random`: it is a typed setting,
+    and a typo must not stop the wheel.
     """
-    step = cfg_get(iniconfig, "behavior", "attract_step", "random").strip().lower()
-    try:
-        step_value: Any = (int(step) or 1) if step != "random" else "random"
-    except ValueError:
-        step_value = "random"
+    order = cfg_get(iniconfig, "behavior", "attract_order", "random").strip().lower()
     return {
         "enabled": cfg_bool(iniconfig, "behavior", "attract_enabled", True),
         "idle_ms": max(1, cfg_int(iniconfig, "behavior", "attract_idle", 60)) * 1000,
         "step_ms": max(1, cfg_int(iniconfig, "behavior", "attract_step_time", 8)) * 1000,
-        "step": step_value,
+        "order": "in_order" if order == "in_order" else "random",
         "on_return": ("stay" if cfg_get(iniconfig, "behavior", "attract_on_return",
                                         "restore").strip().lower() == "stay" else "restore"),
         "audio": cfg_bool(iniconfig, "behavior", "attract_audio", False),

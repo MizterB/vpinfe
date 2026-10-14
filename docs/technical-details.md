@@ -168,20 +168,20 @@ Runtime state written by VPinFE, not shown as a setting.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `paging_group` | choice (sort, count) | `sort` | Page By |
-| `paging_size` | int | `10` | Paging Size |
-| `startup_collection` | string |  | The collection shown first, or Last Collection for the one shown last |
-| `restore_last_table` | bool | `true` | Restore Last Table |
-| `splashscreen` | bool | `false` | Enable Splash Screen |
-| `confirm` | bool | `false` | Ask before quitting VPinFE or powering off this device. Closing the frontend never asks. |
+| `paging_group` | choice (sort, count) | `sort` | A collection can set its own |
+| `paging_size` | int | `10` | Games per Page |
+| `startup_collection` | string |  | Open On |
+| `restore_last_table` | bool | `true` | Select the Last Table Played |
+| `splashscreen` | bool | `false` | The VPinFE intro, played while the theme loads |
+| `confirm` | bool | `false` | Closing the frontend never asks |
 | `hide_quit_button` | bool | `false` | Hide Quit from the Main Menu |
-| `mute_audio` | bool | `false` | Mute Frontend Audio |
+| `mute_audio` | bool | `false` | Tables still play their own sound |
 | `attract_enabled` | bool | `true` | Move through the games on its own while nobody is pressing buttons |
 | `attract_idle` | int | `60` | Start After |
-| `attract_step_time` | int | `8` | Move Every |
-| `attract_step` | string | `random` | Random, or a number of games to move by. A negative number moves backwards. |
-| `attract_on_return` | choice (restore, stay) | `restore` | When Stopped |
-| `attract_audio` | bool | `false` | Play each game's sound as attract mode moves through them |
+| `attract_step_time` | int | `8` | Show Each Game For |
+| `attract_order` | choice (random, in_order) | `random` | Random shows every game once before any repeats |
+| `attract_on_return` | choice (restore, stay) | `restore` | When a Button Is Pressed |
+| `attract_audio` | bool | `false` | Play Game Sound |
 
 ### `themes`
 

@@ -303,6 +303,18 @@ def segmented(options: Any, value: Any, on_change: Callable[[Any], Any]) -> ui.t
         .props("dense no-caps unelevated").classes("console-segmented")
 
 
+def choice_buttons(options: Any, value: Any, on_change: Callable[[Any], Any], *,
+                   disabled: bool = False) -> Callable[[], None]:
+    """`segmented` as a row's control: a choice of two or three whose names are short."""
+    def draw() -> None:
+        with ui.element("div").classes("console-fact-edit"):
+            control = segmented(options, value, on_change)
+            if disabled:
+                control.disable()
+
+    return draw
+
+
 def state(text: str, level: str, *, beside: str = "",
           hint: str = "") -> Callable[[], None]:
     """A state the panel found and the user cannot set, as a chip.
@@ -1254,9 +1266,9 @@ def named_as(value: Any, named: dict[str, str]) -> str:
 
 def named_number(value: Any, named: dict[str, str], on_pick: Callable[[Any], Any], *,
                  disabled: bool = False, whole: bool = True,
-                 low: Any = None, high: Any = None) -> Callable[[], None]:
+                 low: Any = None, high: Any = None, unit: str = "") -> Callable[[], None]:
     """A number some of whose values have names: the names and Custom to pick from, and
-    the number itself beside Custom."""
+    the number itself beside Custom, followed by `unit`."""
     said = named_as(value, named)
 
     async def call(chosen: Any) -> None:
@@ -1268,23 +1280,36 @@ def named_number(value: Any, named: dict[str, str], on_pick: Callable[[Any], Any
         with ui.element("div").classes("console-fact-edit"):
             picker = dropdown.Select({**named, "": t("word.custom")}, value=said)
             box = ui.number(value=None if said else value, format="%d" if whole else None,
-                            min=low, max=high) \
+                            min=low, max=high, suffix=unit or None) \
                 .props("dense borderless").classes("console-edit-field console-edit-narrow")
             box.set_visibility(not said)
+
+            written = [None if said else value]
 
             async def picked(event: Any) -> None:
                 box.set_visibility(not event.value)
                 if event.value:
+                    written[0] = None
                     await call(event.value)
                 else:
                     box.run_method("focus")
 
-            async def typed(event: Any) -> None:
-                if event.value is not None:
-                    await call(int(event.value) if whole else float(event.value))
+            async def typed() -> None:
+                if box.value is None:
+                    return
+                number = int(box.value) if whole else float(box.value)
+                if low is not None:
+                    number = max(low, number)
+                if high is not None:
+                    number = min(high, number)
+                box.set_value(number)
+                if number != written[0]:
+                    written[0] = number
+                    await call(number)
 
             picker.on_value_change(picked)
-            box.on_value_change(typed)
+            box.on("blur", typed)
+            box.on("keydown.enter", typed)
             if disabled:
                 picker.disable()
                 box.disable()

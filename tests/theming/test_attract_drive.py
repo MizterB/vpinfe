@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 import unittest
+import urllib.request
 
 from tests.support.browser_session import BrowserSession, chromium_path
 from tests.support.library import TempTree, write_game
@@ -21,9 +22,10 @@ PNG = bytes.fromhex(
 
 GAMES = ("Alpha Table", "Beta Table", "Gamma Table", "Delta Table")
 
-# The shortest the settings allow, so a test waits seconds and not a minute.
+# Written to the ini directly, below the range the Console offers, so a test waits seconds
+# and not a minute.
 FAST = {("behavior", "attract_idle"): 1, ("behavior", "attract_step_time"): 1,
-        ("behavior", "attract_step"): 1}
+        ("behavior", "attract_order"): "in_order"}
 
 # A check that the wheel stayed still waits as long as attract could have started and
 # stepped twice: FAST's idle time plus two steps, with a second to spare.
@@ -91,7 +93,7 @@ class AttractDriveTests(TempTree):
         moves = self._drive(scenario)
         self.assertTrue(all(move["source"] == "attract" for move in moves), moves)
 
-    def test_a_step_of_one_walks_the_whole_list_in_order(self) -> None:
+    def test_in_order_walks_the_whole_list(self) -> None:
         async def scenario(browser):
             await browser.wait_for("window.__moves.length >= 4", timeout=30.0)
             return await browser.evaluate("window.__moves.slice(0, 4).map(m => m.index)")
@@ -104,7 +106,7 @@ class AttractDriveTests(TempTree):
             await browser.wait_for("window.__moves.length >= 3", timeout=40.0)
             return await browser.evaluate("window.__moves.slice(0, 3).map(m => m.index)")
 
-        indexes = self._drive(scenario, {("behavior", "attract_step"): "random"})
+        indexes = self._drive(scenario, {("behavior", "attract_order"): "random"})
         self.assertEqual(sorted(indexes), [1, 2, 3], indexes)
 
     def test_a_press_puts_the_wheel_back_and_does_nothing_else(self) -> None:
@@ -222,6 +224,37 @@ class AttractDriveTests(TempTree):
             (theme / "config.json").write_text(json.dumps({"attract": {"enabled": True}}))
 
         self.assertGreater(self._stays_still(prepare=contract_1_asking), 0)
+
+    # -- changed while the page is open ----------------------------------------
+
+    def test_a_change_saved_while_the_page_is_open_applies_without_reopening_it(self) -> None:
+        def save(instance: LiveInstance, **changes) -> None:
+            request = urllib.request.Request(
+                f"http://127.0.0.1:{instance.ports['manager']}/api/v1/config",
+                data=json.dumps({"settings": {"behavior": changes}}).encode(), method="PUT",
+                headers={"Content-Type": "application/json"})
+            urllib.request.urlopen(request, timeout=10).close()
+
+        async def run(instance: LiveInstance):
+            async with BrowserSession(chromium_path()) as browser:
+                await self._open(instance, browser)
+                await asyncio.sleep(QUIET_WINDOW_S)
+                still = await browser.evaluate("window.__moves.length")
+                save(instance, attract_enabled=True)
+                await browser.wait_for(ATTRACTING, timeout=30.0)
+                save(instance, attract_step_time=2)
+                await asyncio.sleep(PRESS_ACTS_WITHIN_S)
+                kept = await browser.evaluate(ATTRACTING)
+                save(instance, attract_enabled=False)
+                await browser.wait_for(f"!{ATTRACTING}", timeout=30.0)
+                await browser.wait_for(f"{SELECTED} === 0", timeout=10.0)
+                return still, kept
+
+        with LiveInstance(self.root, extra_settings={
+                **FAST, ("behavior", "attract_enabled"): False}) as instance:
+            still, kept = asyncio.run(run(instance))
+        self.assertEqual(still, 0)
+        self.assertTrue(kept, "a new step time does not end the run in progress")
 
 
 if __name__ == "__main__":

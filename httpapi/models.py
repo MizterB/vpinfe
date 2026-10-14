@@ -764,6 +764,17 @@ class ConfigOptionInfo(ApiModel):
     description: str = ""
     choices: list[str] = []
     choice_labels: dict[str, str] = {}
+    # What each choice does, in this install's language, for a choice that needs more than its
+    # name. Empty for the rest.
+    choice_help: dict[str, str] = {}
+    # Whether the choices read as a row of buttons rather than a menu; a client may ignore it.
+    as_buttons: bool = False
+    # The smallest and largest a number may be, or None where it has no bound.
+    min: int | None = None
+    max: int | None = None
+    # The line under this setting's group heading, repeated on each option of the group.
+    # Empty where the group has none.
+    group_note: str = ""
     writable: bool = True
     # What this string names on disk, when it names something: file, dir or exe. Empty
     # for everything that is only text, so a client need not match on the key's name.

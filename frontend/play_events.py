@@ -13,9 +13,11 @@ from __future__ import annotations
 import logging
 import sys
 import threading
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
 from common import events, player_pictures
+from common.config_access import cfg_bool
 from common.config_store import ConfigStore
 from common.games.game import GameRecord
 from common.host import launch_state
@@ -155,6 +157,22 @@ def on_players_changed(*, state: dict | None = None, **_payload: Any) -> None:
     _broadcast({"type": "PlayersChanged", "state": players_for_themes(state)})
 
 
+def on_settings_changed(*, keys: Sequence[str] = (), ini_config: ConfigStore | None = None,
+                        **_payload: Any) -> None:
+    """Tell the windows about the settings they act on while they are open.
+
+    The mute switch carries its value, because the window has nothing to ask. Attract mode
+    sends only that something changed: the window asks for the whole set, so a change to
+    one of its keys and a change to all of them are one case.
+    """
+    store = ini_config or _ini_config
+    if "behavior.mute_audio" in keys and store is not None:
+        _broadcast({"type": "AudioMuteChanged",
+                    "muted": cfg_bool(store, "behavior", "mute_audio", False)})
+    if any(key.startswith("behavior.attract_") for key in keys):
+        _broadcast({"type": "AttractSettingsChanged"})
+
+
 def _flush_game_changes() -> None:
     global _change_timer
     with _change_lock:
@@ -179,6 +197,7 @@ def register(ws_bridge: DeviceChannel, frontend_browser: ChromiumManager | None 
     events.subscribe(events.GAME_CHANGED, on_game_changed)
     events.subscribe(events.COLLECTIONS_CHANGED, on_game_changed)
     events.subscribe(events.PLAYERS_CHANGED, on_players_changed)
+    events.subscribe(events.SETTINGS_CHANGED, on_settings_changed)
     _registered = True
 
 

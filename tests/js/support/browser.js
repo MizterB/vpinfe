@@ -245,6 +245,8 @@ export function makeBrowser({ windowName = "table", search = null, pathname = "/
     // payload does not have. Keep it drivable.
     EventSource: FakeEventSource,
     URLSearchParams,
+    // The catalog fetch carries a timeout signal.
+    AbortSignal,
     Promise,
     Map,
     Set,

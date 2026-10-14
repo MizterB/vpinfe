@@ -7,6 +7,7 @@ reaching the second leaves the wheel dead for the life of the process.
 
 from __future__ import annotations
 
+import configparser
 import re
 import types
 import unittest
@@ -279,6 +280,52 @@ class LifecycleMessageSpellingTests(unittest.TestCase):
 
         for name in ("TableLaunching", "TableRunning", "TableLaunchComplete"):
             self.assertEqual(bridge.messages.count(name), 1, name)
+
+
+class _FullBridge:
+    def __init__(self):
+        self.messages = []
+
+    def send_event_all_with_iframe(self, message):
+        self.messages.append(message)
+
+
+class SettingsChangedTests(unittest.TestCase):
+    """The settings a window acts on while it is open reach it when they are saved."""
+
+    def setUp(self) -> None:
+        events.clear()
+        play_events.reset_for_tests()
+        self.addCleanup(events.clear)
+        self.addCleanup(play_events.reset_for_tests)
+        self.bridge = _FullBridge()
+        self.store = configparser.ConfigParser()
+        self.store["behavior"] = {"mute_audio": "true"}
+        play_events.register(self.bridge, None, self.store)
+
+    def _saved(self, *keys: str) -> list[dict]:
+        events.emit(events.SETTINGS_CHANGED, keys=list(keys), ini_config=self.store)
+        return self.bridge.messages
+
+    def test_the_mute_switch_carries_the_value_it_was_saved_with(self) -> None:
+        self.assertEqual(self._saved("behavior.mute_audio"),
+                         [{"type": "AudioMuteChanged", "muted": True}])
+
+    def test_any_attract_setting_asks_the_windows_to_read_them_again(self) -> None:
+        for key in ("attract_enabled", "attract_idle", "attract_step_time", "attract_order",
+                    "attract_on_return", "attract_audio"):
+            self.bridge.messages.clear()
+            self.assertEqual(self._saved(f"behavior.{key}"), [{"type": "AttractSettingsChanged"}],
+                             key)
+
+    def test_a_save_of_several_settings_is_answered_once_for_each_kind(self) -> None:
+        self.assertEqual(
+            [m["type"] for m in self._saved("behavior.attract_idle", "behavior.attract_enabled",
+                                            "behavior.mute_audio")],
+            ["AudioMuteChanged", "AttractSettingsChanged"])
+
+    def test_a_setting_no_window_acts_on_sends_nothing(self) -> None:
+        self.assertEqual(self._saved("behavior.confirm", "network.http_port"), [])
 
 
 if __name__ == "__main__":

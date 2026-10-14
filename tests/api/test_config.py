@@ -178,6 +178,21 @@ class ConfigRouteTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400, response.text)
         self.assertIn("not_a_setting", response.text)
 
+    def test_a_number_outside_its_declared_range_is_refused_and_changes_nothing(self):
+        for value in (0, 9, 3601):
+            with self.subTest(value=value):
+                response = self.client.put(
+                    "/config", json={"settings": {"behavior": {"attract_idle": value}}})
+                self.assertEqual(response.status_code, 400, response.text)
+                self.assertIn("behavior.attract_idle", response.text)
+        self.assertEqual(self.store.written, {})
+
+    def test_a_number_inside_its_declared_range_is_written(self):
+        response = self.client.put(
+            "/config", json={"settings": {"behavior": {"attract_idle": 10}}})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(self.store.written[("behavior", "attract_idle")], 10)
+
     def test_a_write_to_the_setup_mark_is_a_bad_request_and_changes_nothing(self):
         response = self.client.put(
             "/config", json={"settings": {"device": {"setup_pending": True, "name": "x"}}})

@@ -1021,7 +1021,7 @@ class VPinFECore {
     // [data-i18n] element already holds its English.
     try {
       // A theme page lives at /themes/<folder>/, and its locales/ words come with core's.
-      const theme = location.pathname.match(/^\/themes\/([^/]+)\//);
+      const theme = window.location.pathname.match(/^\/themes\/([^/]+)\//);
       const url = theme ? `/core/i18n.json?theme=${encodeURIComponent(decodeURIComponent(theme[1]))}` : "/core/i18n.json";
       // `ready` waits on this, so a catalog that never answers must not hold the theme.
       const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(5000) });
@@ -1593,6 +1593,10 @@ class VPinFECore {
     }
     if (message.type === "AudioMuteChanged") {
       this.setAudioMuted(!!message.muted);
+      return;
+    }
+    if (message.type === "AttractSettingsChanged") {
+      this.#readAttractSettings();
       return;
     }
     // A press produced outside the browser - a phone, a button board. It is broadcast to
@@ -2559,11 +2563,19 @@ class VPinFECore {
 
   async #startAttract() {
     if (!this.isController()) return;
+    await this.#readAttractSettings();
+  }
+
+  // Also the answer to the Console changing one. A run in progress goes on with the new
+  // timings, keeping where it began; one that is no longer allowed ends as a press would.
+  async #readAttractSettings() {
+    if (!this.isController()) return;
     try {
       this._attract.settings = await this.callInternal("get_attract_config");
     } catch (_e) {
       return;   // an older build cannot answer; there is no attract mode to run
     }
+    if (!this.#attractAllowed()) this.#endAttract({ restore: true });
     this.#armAttract();
   }
 
@@ -2612,15 +2624,13 @@ class VPinFECore {
   #attractStep() {
     const list = this.activeList();
     const previous = list.cursor;
-    const step = this._attract.settings.step;
-    if (step === "random") {
-      const index = this.#nextFromBag(previous, list.length);
-      if (index === null) return;
-      this.moveTo(index, { previous, reason: "page", source: "attract" });
+    if (this._attract.settings.order === "in_order") {
+      this.moveTo(list.indexAfter(1), { previous, direction: "next", source: "attract" });
       return;
     }
-    this.moveTo(list.indexAfter(step), {
-      previous, direction: step < 0 ? "previous" : "next", source: "attract" });
+    const index = this.#nextFromBag(previous, list.length);
+    if (index === null) return;
+    this.moveTo(index, { previous, reason: "page", source: "attract" });
   }
 
   // The bag is rebuilt when the list it was shuffled from is replaced.

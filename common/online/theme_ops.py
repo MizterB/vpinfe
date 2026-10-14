@@ -196,6 +196,8 @@ def _described(registry: ThemeRegistry, active: str) -> list[dict[str, Any]]:
             "default_install": registry.installs_on_its_own(key),
             "update_available": bool(update.get("update_available")) and installed,
             "configurable": bool(schema and schema.get("options")),
+            "attract_left_to_theme": (theme_service.attract_left_to_the_theme(key, registry)
+                                      if installed else ""),
             "origin": "registry",
             "trust": _trust(key, str(entry.get("source") or ""), installed),
         })
@@ -221,6 +223,7 @@ def _described(registry: ThemeRegistry, active: str) -> list[dict[str, Any]]:
             "default_install": False,
             "update_available": False,
             "configurable": bool(schema and schema.get("options")),
+            "attract_left_to_theme": theme_service.attract_left_to_the_theme(key, registry),
             "origin": "local",
             "trust": _trust(key, "", True, in_folder=True),
         })

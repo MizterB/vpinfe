@@ -983,16 +983,16 @@ controller steps the selection on its own, and the next press puts it back and d
 nothing else. A theme has nothing to write: the wheel moves through the same
 `TableIndexUpdate` path as any other move, with `source: "attract"` on it.
 
-What a person can set, under Attract Mode in the Console's Behavior settings:
+What a person can set, under Attract Mode in the Console's Frontend Behaviors settings. A
+change reaches a running frontend at once:
 
 | Setting | Default | |
 |---|---|---|
-| Run When Idle | on | The person's own switch. Off here is off, whatever the theme says. |
-| Start After | 60 seconds | How long nobody has pressed anything. |
-| Move Every | 8 seconds | The time between moves. |
-| Move By | random | `random` visits every other game before repeating one; a number moves by that many games, and a negative one goes backwards. |
-| When Stopped | Return to the game I left | Or stay on the game it had reached. |
-| Attract Audio | off | Plays each game's sound as it is reached. |
+| Start After | 1 Minute | How long nobody has pressed anything, or Never to turn attract mode off whatever the theme says. |
+| Show Each Game For | 8 seconds | The time between moves. |
+| Order | Random | Random visits every other game before repeating one; In Order walks the list. |
+| When a Button Is Pressed | Return to the Selected Game | Or stay on the game attract mode had reached. |
+| Play Game Sound | off | Plays each game's sound as it is reached. Off while Mute Frontend Audio is on. |
 
 Core holds off by itself while a game is launching or running, while a menu, picker or
 confirmation is up, while input is disabled and while the list shows fewer than two games.
