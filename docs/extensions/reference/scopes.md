@@ -23,14 +23,14 @@ lists them in plain words for whoever installs it, and they decide which `ctx.ga
 | `games:read` | Read the library through `ctx.games` |
 | `games:write` | Create games, add tables and media, change details, ratings and tags through `ctx.games` |
 | `games:export_full` | Export the library in full |
-| `collections:read`, `collections:write` | Read, change collections |
+| `collections:read`, `collections:write` | Read, change collections through `ctx.collections` |
 | `play:read`, `launch:invoke`, `play:stop` | See what is playing, start a game, stop one.  Three separate permissions |
 | `uploads:write` | Upload files |
 | `vps:read` | Read the VPS catalog |
 | `filesystem:read` | Browse folders |
 | `capture:run` | Record media |
 | `config:read`, `config:write` | Read, change VPinFE's configuration |
-| `system:read`, `system:admin` | Read system state, administer it |
+| `system:read`, `system:admin` | Read system state, administer it.  `system:admin` is what lets `ctx.system` restart VPinFE, reboot or power off this computer |
 | `events:subscribe` | Subscribe to the event stream over the API |
 | `jobs:read` | Read jobs |
 | `input:act` | Send input |

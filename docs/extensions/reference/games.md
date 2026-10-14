@@ -1,7 +1,7 @@
 # The library and ways to play
 
-`ctx.games` is the library and everything core offers by name.  `ctx.apps` is how another
-format of table becomes first class.
+`ctx.games` is the library and everything core offers by name.  `ctx.collections` is the
+collections.  `ctx.apps` is how another format of table becomes first class.
 
 ## `ctx.games`
 
@@ -332,6 +332,40 @@ A few of them need a word more:
 found = ctx.games.list_games(q="taxi", limit=10, offset=0)
 ctx.games.rate_table(game_id, table_id, 8)
 ```
+
+## `ctx.collections`
+
+Collections, offered by name the way `ctx.games` is: the API's own functions, gated by the
+scopes its routes use, with `reaches()` listing what the manifest allows.  A name that is not
+offered raises `AttributeError`, and one that needs a scope the manifest lacks raises
+`ContractError` when it is looked up.
+
+| scope | names |
+|---|---|
+| `collections:read` | `list_collections()`, `get_collection(name)`, `collection_games(name)`, `collection_members(name)` |
+| `collections:write` | `create_collection(name, games=(), description="")`, `delete_collection(name)`, `add_to_collection(name, game_id, table_id="", after_table=None)`, `remove_from_collection(name, game_id, table=None)`, `set_collection_order(name, games)`, `rename_collection(name, new_name)`, `describe_collection(name, description)` |
+
+- `create_collection` makes a hand-picked collection.  Rules, ordering by a field, exclusions
+  and pictures are not offered; they are set in the Console.
+- `add_to_collection` and `delete_collection` work on a Smart collection too, as they do over
+  the API.  A game added to one is kept whatever the rules say, and deleting one discards its
+  rules.
+- Adding a game already in the collection succeeds and changes nothing.  `table_id` holds the
+  member to one table; left out, the member is the game and follows its default table.
+- `set_collection_order` takes the game ids of a hand-picked collection in the order wanted,
+  and refuses a list that does not name exactly its members, or a collection whose order
+  its rules decide.
+- A Private game is not left out of these answers, as it is not from `ctx.games`.
+
+```python
+ctx.collections.create_collection("Williams", games=ids)
+ctx.collections.add_to_collection("Williams", game_id)
+```
+
+### `ctx.collections.reaches`
+
+`ctx.collections.reaches() -> tuple[str, ...]`.  The names above this extension may call, which
+is what core offers narrowed to the scopes its manifest declared.  Does not raise.
 
 ## `ctx.apps`
 

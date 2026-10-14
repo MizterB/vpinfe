@@ -12,12 +12,14 @@ and the rest of the model rests on that.
 | `ctx.files` | The folders it works from |
 | `ctx.jobs` | Slow work, run the way core runs it |
 | `ctx.os` | What an operating system's helper does for it, one fixed method at a time |
+| `ctx.system` | Restart VPinFE, reboot or power off this computer |
 | `ctx.ui` | What it offers a person: settings, lists, actions, an account, what it holds |
 | `ctx.players` | Who plays here, and the accounts it holds for them |
 | `ctx.entries` | Something added to every entry a theme is handed |
 | `ctx.catalogs` | Where a game, a table or a file is somewhere else |
 | `ctx.tokens` | A name a user may write into a command |
 | `ctx.games` | The library, and everything core offers by name |
+| `ctx.collections` | Collections: read them, make them, fill them, put them in order |
 | `ctx.apps` | A way to play a table |
 
 Every call that needs a capability or a scope the manifest did not declare raises
@@ -389,7 +391,9 @@ Does not raise.
 
 ## `ctx.os`
 
-What an operating system's helper does for an extension.  VPinFE never runs as root.  Where the
+What an operating system's helper does for an extension.  It reaches the helper an operating
+system ships, and today only VPinOS ships one; where none stands, `ctx.os.available` is false
+and everything an extension needs on every system is in core.  VPinFE never runs as root.  Where the
 system ships a helper, with fixed methods that take no command, no path, no package name and no
 address, this is the one way to ask it.  `ctx.os.available` says whether one stands on this
 computer, and `ctx.os.methods` lists the methods this extension may call.  Each entry has:
@@ -438,3 +442,42 @@ area the manifest did not declare, `ValueError` for an argument the method does 
 cannot carry, `PermissionError` for a change without a Protected request, `Unavailable` where no
 helper answered, answered too late or gave an answer that cannot be read, and `RuntimeError`
 with the helper's own reason where it said no.
+
+## `ctx.system`
+
+Restarting VPinFE, rebooting and powering off this computer, the same on Windows, macOS and
+Linux.  Core runs the system's own command, so an extension never sees the differences.  It
+needs `system:admin` in the manifest's `scopes`, and it is refused unless the request it is
+called from reached Protected, as `ctx.os.call` is for a change.  Until sign-in can raise a
+request to Protected, only a request from this computer qualifies.
+
+Core does not ask the person.  By the time it runs the request is already made, so ask first
+in the extension, in the act's `summary`.  Each call answers at once and acts about a second
+later, so the answer to the request that asked is not lost with the process.  VPinFE's log, under the extension's own name, says where the request came from.
+
+Each call raises `ContractError` where `system:admin` is not declared and `PermissionError`
+for a call outside a Protected request, or for an action this install cannot perform.
+
+### `ctx.system.restart_vpinfe`
+
+`ctx.system.restart_vpinfe(reason="") -> dict`.
+
+Restarts VPinFE on this computer.  Answers `{scope, action, what, scheduled}`, where `what` is
+the action's name in the language now set.
+
+```python
+ctx.system.restart_vpinfe(reason="settings changed")
+```
+
+### `ctx.system.reboot`
+
+`ctx.system.reboot(reason="") -> dict`.
+
+Reboots this computer, with the same answer.  On macOS the first call may ask the person for
+Automation permission.
+
+### `ctx.system.shut_down`
+
+`ctx.system.shut_down(reason="") -> dict`.
+
+Powers this computer off, with the same answer.  It has to be switched on again by hand.

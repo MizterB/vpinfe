@@ -24,6 +24,8 @@ from typing import TYPE_CHECKING, Any
 from common.i18n import t
 
 from .contract import ContractError
+from .library_collections import COLLECTIONS
+from .offered import Offered
 
 if TYPE_CHECKING:
     from .context import ExtensionFiles
@@ -56,47 +58,19 @@ def offered() -> tuple[str, ...]:
 def withdraw_all() -> None:
     """For tests, which build an app per case and must not inherit the last one's."""
     _OFFERED.clear()
+    COLLECTIONS.clear()
 
 
-class ExtensionGames:
+class ExtensionGames(Offered):
+    """The named methods below are worth having a shape for - they take a path and check
+    it, or they answer with something an importer wants. Everything else core offered an
+    extension calls the way the API names it, gated the same way."""
+
     def __init__(self, name: str, scopes: Iterable[str], files: ExtensionFiles) -> None:
-        self._name = name
-        self._scopes = frozenset(scopes)
+        super().__init__(name, scopes, _OFFERED)
         self._files = files
 
-    def __getattr__(self, name: str) -> Callable[..., Any]:
-        """Anything core offered that this does not wrap itself.
-
-        The named methods below stay because they are worth having a shape for - they
-        take a path and check it, or they answer with something an importer wants. The
-        rest an extension calls the way the API names them, gated the same way.
-        """
-        if name.startswith("_") or name not in _OFFERED:
-            raise AttributeError(
-                f"core offers nothing called {name!r} to an extension"
-                + (f"; it offers {', '.join(offered())}" if _OFFERED else ""))
-        scope, run = _OFFERED[name]
-        self._needs(scope)
-
-        def call(*args: Any, **kwargs: Any) -> Any:
-            return run(*args, **kwargs)
-
-        call.__name__ = name
-        return call
-
-    def reaches(self) -> tuple[str, ...]:
-        """What this extension may actually call, which is what core offers narrowed to
-        what its manifest declared."""
-        return tuple(name for name, (scope, _run) in sorted(_OFFERED.items())
-                     if scope in self._scopes)
-
-    # -- the two bounds -------------------------------------------------------
-
-    def _needs(self, scope: str) -> None:
-        if scope not in self._scopes:
-            raise ContractError(
-                f"{self._name} asks core to do something needing {scope}, which its "
-                "manifest does not declare")
+    # -- the bound on a path --------------------------------------------------
 
     def _source(self, path: str | Path) -> Path:
         """A file the extension is handing over, checked against what it declared.

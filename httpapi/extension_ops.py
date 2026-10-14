@@ -18,12 +18,14 @@ named for the noun it acts on; an extension author is reading a list of things t
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import Any
 
 from common.extensions.games import offer
+from common.extensions.library_collections import offer_collection
 from common.games import (
     auto_match,
+    collection_ops,
     game_lens,
     game_ops,
     game_service,
@@ -70,6 +72,19 @@ def _vps_catalog(downloading: Callable[[], object] | None = None) -> dict:
 def _vps_settle(rows: list[dict]) -> list[dict]:
     """`auto_match.settle` over the catalog on disk, one answer per row in the same order."""
     return auto_match.settle(game_service.load_vpsdb(), rows)
+
+
+def _create_collection(name: str, games: Iterable[str] = (), description: str = "") -> dict:
+    """A hand-picked collection. Rules, ordering and copies are for the Console."""
+    return collection_ops.create(name, games, description)
+
+
+def _rename_collection(name: str, new_name: str) -> dict:
+    return collection_ops.patch(name, new_name=new_name)
+
+
+def _describe_collection(name: str, description: str) -> dict:
+    return collection_ops.patch(name, description=description)
 
 
 # Reading is one scope and writing another. Taking an entry's details from a catalog is
@@ -132,6 +147,26 @@ WRITES: dict[str, Callable[..., Any]] = {
 }
 
 
+# Collections have scopes of their own, the ones the routes under /collections use. Rules,
+# exclusions and pictures are not offered.
+COLLECTION_READS: dict[str, Callable[..., Any]] = {
+    "list_collections": collection_ops.listing,
+    "get_collection": collection_ops.resource,
+    "collection_games": collection_ops.games_in,
+    "collection_members": collection_ops.members_of,
+}
+
+COLLECTION_WRITES: dict[str, Callable[..., Any]] = {
+    "create_collection": _create_collection,
+    "delete_collection": collection_ops.delete,
+    "add_to_collection": collection_ops.add_member,
+    "remove_from_collection": collection_ops.remove_member,
+    "set_collection_order": collection_ops.set_arrangement,
+    "rename_collection": _rename_collection,
+    "describe_collection": _describe_collection,
+}
+
+
 def offer_all() -> None:
     """Hand the whole table to the extension host. Once, before anything loads."""
     for name, run in READS.items():
@@ -144,3 +179,7 @@ def offer_all() -> None:
         offer(name, scopes.CONFIG_WRITE, run)
     for name, run in LAUNCHES.items():
         offer(name, scopes.LAUNCH_INVOKE, run)
+    for name, run in COLLECTION_READS.items():
+        offer_collection(name, scopes.COLLECTIONS_READ, run)
+    for name, run in COLLECTION_WRITES.items():
+        offer_collection(name, scopes.COLLECTIONS_WRITE, run)

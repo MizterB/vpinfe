@@ -25,8 +25,10 @@ from .contract import ContractError, Manifest, Unavailable, words
 from .contract import why as worded
 from .fields import FieldError, settings_fields, ticked
 from .games import GAMES_READ, ExtensionGames
+from .library_collections import ExtensionCollections
 from .pictures import is_openable
 from .store import ExtensionStore
+from .system import ExtensionSystem
 
 if TYPE_CHECKING:
     from common import jobs
@@ -1260,6 +1262,8 @@ class ExtensionContext:
         self.catalogs = ExtensionCatalogs(manifest.name)
         self.tokens = ExtensionTokens(manifest.name)
         self.games = ExtensionGames(manifest.name, manifest.scopes, self.files)
+        self.collections = ExtensionCollections(manifest.name, manifest.scopes)
+        self.system = ExtensionSystem(manifest.name, manifest.scopes)
         self.apps = ExtensionApps(manifest.name, manifest.scopes, directory)
         # Which program this is, for an extension that has to say so to somebody else.
         # Through the context rather than an import: the one module an extension may

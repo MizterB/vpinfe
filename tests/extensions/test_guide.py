@@ -895,9 +895,14 @@ class ReferenceMatchesCore(unittest.TestCase):
             if type(value).__module__.startswith("common.extensions.") \
                     and type(value).__name__.startswith("Extension"):
                 # The state a container keeps for core's own reading is not an API.
-                for inner, member in vars(type(value)).items():
-                    if not inner.startswith("_") and (callable(member) or inner.isupper()):
-                        names.add(f"ctx.{one}.{inner}")
+                # Through the bases too: what a container inherits from a core base
+                # is as much its API as what it defines.
+                for klass in type(value).__mro__:
+                    if not klass.__module__.startswith("common.extensions."):
+                        continue
+                    for inner, member in vars(klass).items():
+                        if not inner.startswith("_") and (callable(member) or inner.isupper()):
+                            names.add(f"ctx.{one}.{inner}")
             else:
                 names.add(f"ctx.{one}")
         return names
