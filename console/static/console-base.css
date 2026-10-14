@@ -2729,6 +2729,10 @@ body.console-dragging-rows .q-drawer--mini .console-rail-drops {
    symmetrically around its label. The row carries the height rather than the label
    carrying a nudge: two hand-tuned paddings here put this row 28px into a 26px rhythm
    and moved the label whenever the chips wrapped. */
+.console-pane-picture {
+  display: block; max-width: 100%; max-height: 160px; object-fit: contain;
+  border-radius: 8px;
+}
 .console-chips {
   display: flex; flex-wrap: wrap; gap: 4px; min-width: 0;
   min-height: var(--fact-row);

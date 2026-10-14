@@ -67,7 +67,8 @@ def _report(record: Record, lines: list[str]) -> bool:
         lines.append(f"list       {declared['key']} in {declared['area']}: "
                      f"{len(declared['columns'])} columns, {len(declared['views'])} views, "
                      f"{len(declared['verbs'])} verbs"
-                     + (f", adds {' '.join(declared['add'])}" if declared["add"] else ""))
+                     + (f", adds {' '.join(declared['add'])}" if declared["add"] else "")
+                     + (", opens a pane" if declared["detail"] else ""))
     answered = {one["key"]: one["url"] for one in record.links()}
     for declared in record.declared_links:
         where = f" in {declared['area']}" if declared["area"] else ""
@@ -123,7 +124,14 @@ def _read_list(record: Record, key: str) -> tuple[str, Any]:
     rows = serving.list_rows(record, key)["rows"]
     about = serving.list_about(record, key)
     acts = ", ".join(one["key"] for one in about["acts"]) or "none"
-    return f"{len(rows)} rows, acts: {acts}", [rows, about]
+    said, found = f"{len(rows)} rows, acts: {acts}", [rows, about]
+    first = next((one["id"] for one in rows if "id" in one), None)
+    if first is not None and any(one["key"] == key and one["detail"]
+                                 for one in record.declared_lists):
+        shown = serving.list_detail(record, key, first)
+        said += f", a pane of {len(shown['sections'])} sections for {first}"
+        found.append(shown)
+    return said, found
 
 
 def _read_settings(record: Record) -> tuple[str, Any]:

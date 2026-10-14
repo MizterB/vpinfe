@@ -238,12 +238,6 @@ class Record:
                                    self.display_name)[0],
                 "share_help": self.said("", "account.share.help")[0]}
 
-    def _surfaces(self) -> dict:
-        found = dict(self.surfaces)
-        found["state_label"] = self.said(str(found.get("state_label") or ""),
-                                         "state.label")[0]
-        return found
-
     def as_dict(self) -> dict[str, Any]:
         found = self.manifest.as_dict() if self.manifest else {"name": self.name}
         return {**found, "display_name": self.display_name,
@@ -255,7 +249,7 @@ class Record:
                 # there would draw a button that refuses.
                 "actions": ([self._action(one) for one in self.actions]
                             if self.running else []),
-                "surfaces": self._surfaces() if self.running else {},
+                "surfaces": dict(self.surfaces) if self.running else {},
                 "lists": self.lists() if self.running else [],
                 "links": self.links() if self.running else [],
                 "account": self.account_declared() if self.running else {}}
@@ -413,8 +407,6 @@ class Registry:
         record.actions = list(context.ui.actions)
         record.surfaces = {
             "settings": "/settings" if context.ui.settings_declared else "",
-            "state": context.ui.state_base,
-            "state_label": context.ui.state_label,
         }
         record.account = dict(context.ui.account_offered)
         record.has_settings = bool(context.ui.settings_declared)

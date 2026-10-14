@@ -1,0 +1,6 @@
+{
+  "name": "challenge_pane",
+  "version": "1.0.0",
+  "requires_platform": 1,
+  "capabilities": ["ui:mount"]
+}

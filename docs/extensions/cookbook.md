@@ -33,6 +33,7 @@ it, what you will see, a few variations and the mistake people make with it.
 - [8. A list you can add to](#8-a-list-you-can-add-to)
 - [9. Acting on rows](#9-acting-on-rows)
 - [10. States, chips, links and pictures in a column](#10-states-chips-links-and-pictures-in-a-column)
+- [12. A pane beside a list](#12-a-pane-beside-a-list)
 - [13. An account per player](#13-an-account-per-player)
 - [16. A page of your own](#16-a-page-of-your-own)
 - [18. An extension for one Linux distribution](#18-an-extension-for-one-linux-distribution)
@@ -960,6 +961,151 @@ nothing on the others.
 chips where each row has one is a text column wearing a costume. Use `chips` for what some rows
 have and most do not. The same goes for a tier: when most rows are `on`, give that state `{}`
 and let only the ones worth noticing be colored.
+
+### 12. A pane beside a list
+
+**Use it when:** a row has more to say than its columns can hold, or something the person
+should be able to change without leaving the page: a note, a switch, a priority.
+
+Give the list a `detail` function and clicking a row opens a pane beside it.  You answer with a
+title, a line under it and sections of facts and fields, and core draws them as it draws
+every other panel.  Give the list a `save` function too and the fields can be changed: each one
+is written as soon as it is set, and core asks `detail` again to draw what was kept.  There is
+no Save button, and nothing for you to draw.
+
+This one needs no service.  It lists two weekly challenges written into the file, and the pane
+for each has two sections, so you can see the rail they sit in:
+
+- **About** holds facts, lines the person reads: a state (`tier` colors it, as in a column), some
+  chips and a link.
+- **Yours** holds fields, lines the person changes: a text, a switch, a choice and a number.
+
+`recipes/challenge_pane/extension.json`
+
+```json
+{
+  "name": "challenge_pane",
+  "version": "1.0.0",
+  "requires_platform": 1,
+  "capabilities": ["ui:mount"]
+}
+```
+
+`recipes/challenge_pane/__init__.py`
+
+```python
+WEEK = {
+    "mm": {"name": "Medieval Madness", "week": 41, "status": "open",
+           "tags": ["Williams", "Classic"], "page": "https://scores.example.com/weeks/41",
+           "note": "", "remind": False, "level": "normal", "goal": 2},
+    "afm": {"name": "Attack from Mars", "week": 40, "status": "closed",
+            "tags": ["Bally"], "page": "https://scores.example.com/weeks/40",
+            "note": "Beat the saucer first", "remind": False, "level": "high", "goal": 5},
+}
+
+TIERS = {"open": "on", "closed": "off"}
+
+
+def register(ctx):
+    def rows():
+        return [{"id": key, "name": one["name"]} for key, one in WEEK.items()]
+
+    def detail(row_id):
+        one = WEEK.get(row_id)
+        if one is None:
+            return None
+        return {
+            "title": one["name"],
+            "under": ctx.t("pane.under", week=one["week"]),
+            "sections": [
+                {"key": "about", "label": ctx.t("pane.about"), "facts": [
+                    {"label": ctx.t("pane.status"), "kind": "state",
+                     "value": ctx.t(f"pane.status.{one['status']}"),
+                     "tier": TIERS[one["status"]]},
+                    {"label": ctx.t("pane.tags"), "kind": "chips", "value": one["tags"]},
+                    {"label": ctx.t("pane.rules"), "kind": "link",
+                     "value": ctx.t("pane.rules.open"), "to": one["page"]},
+                ]},
+                {"key": "mine", "label": ctx.t("pane.mine"), "fields": [
+                    {"key": "note", "type": "string", "label": ctx.t("pane.note"),
+                     "value": one["note"]},
+                    {"key": "remind", "type": "switch", "label": ctx.t("pane.remind"),
+                     "value": one["remind"], "help": ctx.t("pane.remind.help")},
+                    {"key": "level", "type": "select", "label": ctx.t("pane.level"),
+                     "value": one["level"],
+                     "choices": [["normal", ctx.t("pane.level.normal")],
+                                 ["high", ctx.t("pane.level.high")]]},
+                    {"key": "goal", "type": "number", "label": ctx.t("pane.goal"),
+                     "value": one["goal"], "min": 0, "max": 10},
+                ]},
+            ],
+        }
+
+    def save(row_id, values):
+        WEEK[row_id].update(values)
+
+    ctx.ui.list("board", rows, area="community", columns=[{"field": "name"}],
+                detail=detail, save=save)
+```
+
+`recipes/challenge_pane/i18n/en.json`
+
+```json
+{
+  "name": "Challenge Pane",
+  "description": "Opens a pane beside the weekly challenges, with facts and fields you can change.",
+  "list.board.title": "Challenge Pane",
+  "list.board.column.name.header": "Challenge",
+  "pane.under": "Week {week}",
+  "pane.about": "About",
+  "pane.status": "Status",
+  "pane.status.open": "Open",
+  "pane.status.closed": "Closed",
+  "pane.tags": "Tags",
+  "pane.rules": "Rules",
+  "pane.rules.open": "Open the rules",
+  "pane.mine": "Yours",
+  "pane.note": "Note",
+  "pane.remind": "Remind me",
+  "pane.remind.help": "Before the week closes",
+  "pane.level": "Priority",
+  "pane.level.normal": "Normal",
+  "pane.level.high": "High",
+  "pane.goal": "Plays to try"
+}
+```
+
+The words in a pane are yours to give, so they go through `ctx.t` like any other, and the
+catalog holds them.  A fact's `value` is the word the person reads, which is why the status is
+looked up and not passed as `open`.
+
+**Where it appears:** beside the list, on its page under Community in the rail.  **What
+triggers it:** the person clicking a row.  Core calls `detail` with the row's `id` each time,
+and again after every change.
+
+**What you'll see:** Challenge Pane under Community with two rows.  Click Medieval Madness and
+the pane opens on its right, headed by the name with "Week 41" under it, and a rail of About and
+Yours.  About shows Open in green, Williams and Classic as two chips, and "Open the rules" as a
+link that leaves the Console.  Yours has a text field, a switch, a choice and a number.  Type a
+note and leave the field, and the pane redraws with the note kept.  Click Attack from Mars and
+the pane is about it.  Reload the page and the pane opens on the row you left, because the
+address names it.
+
+**Variations:**
+
+- Return one section and the rail goes: the section fills the pane.  Several sections each need
+  a `label`.
+- A `secret` field never shows its value.  The person sees that one is set, can type a new one,
+  and leaves it empty to keep what is there.  `None` in a `save` means they pressed Clear.
+- `save` can refuse.  Raise with the reason and the person sees it under the field, which keeps
+  what they typed.
+- `rows` in a section are plain labelled lines for a short list of things the row holds, such
+  as a table's last three plays.
+
+**Watch out:** `detail` is asked for any id, including one you never listed, so look it up and
+return None when it is not there; the person is told the row is gone.  And a field key is
+unique in the whole pane, not only in its section: two sections that both have a `note` leave
+`save` unable to tell them apart, and core refuses the pane.
 
 ## Players and games
 

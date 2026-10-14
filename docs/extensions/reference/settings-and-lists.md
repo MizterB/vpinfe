@@ -51,7 +51,8 @@ field.
 
 ## Lists
 
-`ctx.ui.list(key, rows, *, columns, area, title, views, status, acts, relation, tag, verbs, add)`.
+`ctx.ui.list(key, rows, *, columns, area, title, views, status, acts, relation, tag, verbs, add,
+detail, save)`.
 A list an extension holds, shown in the rail.
 
 ```python
@@ -255,6 +256,79 @@ and a **+** once it has rows.  With several keys the button opens a menu of the 
 (`action.<key>.label`).  The dialog opens with no rows, and the list is read again after it
 runs.  A key that names no declared dialog stops the extension from starting, with the key in
 the reason.
+
+**Pane.**  `detail=` opens a pane beside the list for the row a person clicks, and `save=` writes
+what they change in it.  Core draws the pane, as it draws every other panel, so it looks like
+the Console wherever the extension runs.  `detail(row_id)` is handed the row's `id` and returns
+the pane as a dict, or None for a row that is no longer there; the person is told the
+extension no longer has it.  Core does not check the id against `rows()` first, so look it up
+and do not trust it.
+
+```python
+def detail(row_id):
+    return {"title": "Medieval Madness", "under": "Week 41",
+            "sections": [{"key": "about", "label": "About", "facts": [...]},
+                         {"key": "mine", "label": "Yours", "fields": [...]}]}
+
+
+def save(row_id, values):
+    store[row_id].update(values)
+
+
+ctx.ui.list("board", rows, columns=[...], detail=detail, save=save)
+```
+
+The answer is `{"title", "under", "picture", "sections"}`.  `title` is required and is the
+row's name in the pane's header.  `under` is the line beneath it, and `picture` is drawn at the
+top, written as a [picture column](#cell-kinds) is.  A section is `{"key", "label", "facts",
+"fields", "rows"}`:
+
+| key | meaning |
+|---|---|
+| `key` | Unique in the pane.  Left out, `section1`, `section2` and so on |
+| `label` | The section's name in the pane's rail, and required when there is more than one section.  A pane with one section has no rail, and the section fills it |
+| `facts` | Read-only lines, `{"label", "value", "kind", "to", "help", "tier"}` |
+| `fields` | Lines the person can change, in the shape of a [settings field](#settings) |
+| `rows` | Plain lines, `{"label", "under"}`, for a short list of things the row holds |
+
+A fact's `kind` is `text` (default), `number`, `date`, `state`, `chips`, `link` or `picture`,
+drawn as the same [cell kind](#cell-kinds) is.  A `state` fact carries its look in the fact
+itself, `"tier"` (`on`, `off`, `unknown`, `warn` or `bad`), and no other kind may.
+A `link` fact needs `to`, the address it opens.  A fact's `value` is the word the person
+reads, so give it already in their language; `help` is its tooltip.  The `game` and `table`
+looks are not facts yet.
+
+A field is `{"key", "type", "label", "value", "help", "choices", "min", "max", "unit",
+"wants", "placeholder"}`, of any type a setting has.  Its `key` is unique in the whole pane,
+not only in its section, because it is what `save` is handed.  A `select` or `multi` field
+needs `choices`, a list of `[value, label]` pairs, and a pair of any other shape is refused.  A
+`number`'s `min` and `max` are finite numbers and a `path`'s `wants` is one of the kinds a setting
+has.  Give a `secret` its real value, or empty when none is held: core sends the Console only
+that one is set, never the value.
+
+A field is written when it is set.  There is no Save button: each change calls
+`save(row_id, values)` with the keys that changed, typed as a setting is (a switch is a bool,
+a number is a number, a `multi` is a list).  `save` returns nothing.  Core asks `detail` again
+and draws the answer, so the person sees what was kept.  A secret left empty keeps what it
+was, and None clears it.  A number field cleared arrives as None too.  A change also has the
+list read again, so a column that shows the field follows it.  To refuse a value, raise; the
+person sees the reason under the
+field, and the field keeps what they typed.  Core hands `save` only keys the pane offers now
+(`error.extensions.no_field`), and a select value that is not a choice is turned down
+(`error.extensions.bad_choice`).
+
+**Several rows.**  When the list has verbs, the person can tick several rows, and the pane
+becomes core's own: how many are ticked, and the verbs over them.  `detail` is not called for
+that.
+
+**Pane errors.**  An answer core cannot draw makes the pane say what is wrong, and the
+extension keeps running: `error.extensions.pane_shape`, `pane_key`, `pane_kind`, `pane_tier`,
+`pane_looks`, `pane_link`, `pane_field`, `pane_choices` and `pane_twice`.
+`--check-extension` reads the first row's pane and reports the same faults.
+
+The pane is served at `GET /api/v1/ext/<name>/lists/<key>/detail/<id>`, which needs the
+extension's read scope, and changed with `PUT` at the same address and `{"values": {...}}`,
+which needs its write scope.  The id may hold slashes.
 
 Words: `list.<key>.title`, `list.<key>.column.<field>.header|help`,
 `list.<key>.column.<field>.state.<value>` and `....state.<value>.why`,

@@ -64,6 +64,7 @@ from console import (
     deeplink,
     dof,
     dropdown,
+    ext_row,
     file_acts,
     game_acts,
     game_tables,
@@ -1439,6 +1440,73 @@ async def _draw_backup(container: ui.column, title: ui.column, library: Library,
                                        lambda: build_backup(container, title, library,
                                                             backup_id, state))
         await _rail(context, "backup", state)
+
+
+async def build_extension_row(container: ui.column, title: ui.column, library: Library,
+                              extension: dict[str, Any], declared: dict[str, Any],
+                              ids: Sequence[str], state: dict[str, Any],
+                              again: Callable[[], Any] | None = None) -> None:
+    """The panel, for the row an extension's list has open, or the rows it has ticked. The
+    extension draws nothing: it answers what the row holds and core draws that."""
+    await _pane_build(container, state, lambda: _draw_extension_row(
+        container, title, library, extension, declared, list(ids), state, again))
+
+
+async def _draw_extension_row(container: ui.column, title: ui.column, library: Library,
+                              extension: dict[str, Any], declared: dict[str, Any],
+                              ids: list[str], state: dict[str, Any],
+                              again: Callable[[], Any] | None,
+                              found: dict[str, Any] | None = None,
+                              built: int | None = None) -> None:
+    # A redraw (after a save, a verb, a rail click) carries the build it belongs to and is
+    # dropped once another pane has been built since: it would draw this row over the next.
+    if built is not None and state.get("build_seq") != built:
+        return
+    built = state.get("build_seq", 0)
+    if not ids:
+        _blank(container, title, ext_row.heading(declared), ext_row.prompt())
+        return
+    if len(ids) > 1:
+        _blank(container, title, t("console.community.rows", count=len(ids)),
+               t("console.page.selection"))
+        return
+    row_id = ids[0]
+    if found is None:
+        try:
+            found = await ext_row.read(extension, declared, row_id)
+        except Exception as exc:  # noqa: BLE001 - the extension's words, or the API's
+            _blank(container, title, ext_row.heading(declared), why(exc))
+            return
+    row = await offload.io(ext_row.row_of, extension, declared, row_id)
+    container.clear()
+    title.clear()
+    with container:
+        _title(title, str(found["title"]), str(found["under"]))
+        if found.get("picture"):
+            ui.image(found["picture"]).classes("console-pane-picture")
+        context: dict[str, Any] = {
+            "library": library, "extension": extension, "declared": declared,
+            "row": row, "state": state,
+            "route": ext_row.route(extension, declared, row_id), "redraws": [], "dock": None}
+
+        async def draw(answer: dict[str, Any] | None) -> None:
+            await _draw_extension_row(container, title, library, extension, declared, ids,
+                                      state, again, answer, built)
+
+        async def verbed() -> None:
+            if again is not None:
+                await again()
+            await draw(None)
+
+        context["redraw"] = draw
+        context["verbed"] = verbed
+        context["again"] = again
+        context["rail"] = ext_row.sections(context, found)
+        context["rebuild"] = _rebuilds(context, f"extension:{row_id}", lambda: draw(None))
+        if context["rail"]:
+            await _rail(context, ext_row.SUBJECT, state)
+        elif state.get("subject_menu") is not None:
+            panel.subject_menu(state["subject_menu"], ext_row.verbs(context))
 
 
 async def build_discovery(container: ui.column, title: ui.column, library: Library,
@@ -7650,6 +7718,7 @@ SUBJECT_VERBS: dict[str, Callable[[dict[str, Any]], list[panel.Verb]]] = {
     "device": _device_verbs,
     "player": _player_verbs,
     "backup": _backup_verbs,
+    ext_row.SUBJECT: ext_row.verbs,
     "discovery": _discovery_verbs,
     "media_file": _media_file_verbs,
     "asset_file": _asset_file_verbs,

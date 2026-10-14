@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Any
 from common import failures, i18n, sized_media
 from common.service_errors import NotFoundError, RefusedError, ServiceError
 
-from . import contract, pictures
+from . import contract, pane, pictures
 from .fields import FieldError, dialog_fields, dialog_step, listed, number_text, ticked
 
 if TYPE_CHECKING:
@@ -293,6 +293,62 @@ def list_verb(record: Record, key: str, verb: str, ids: list[str]) -> dict:
                                        display=record.display_name, key=verb)))
     at = f"list {key} verb {verb}"
     return _message(record, at, called(record, at, chosen["run"], rows))
+
+
+def _detail(record: Record, key: str) -> Any:
+    found = _list(record, key).detail
+    if found is None:
+        raise NotFoundError(i18n.t("error.extensions.no_detail", display=record.display_name,
+                                   key=key))
+    return found
+
+
+def list_detail(record: Record, key: str, row_id: str) -> dict:
+    """What the pane shows for a row: the extension's `detail(row_id)`, checked, with each
+    picture turned into core's own address and each secret held back."""
+    at = f"list {key} detail"
+    answer = plain(record, at, called(record, at, _detail(record, key), row_id))
+    if answer is None:
+        raise NotFoundError(i18n.t("error.extensions.no_row", display=record.display_name,
+                                   id=row_id))
+    try:
+        shown = pane.shaped(answer, row_id)
+    except pane.PaneError as exc:
+        raise ExtensionError(i18n.t(exc.line, display=record.display_name, id=row_id,
+                                    **exc.params)) from exc
+    try:
+        if shown["picture"]:
+            shown["picture"] = pictures.address(record, shown["picture"])
+        for section in shown["sections"]:
+            for fact in section["facts"]:
+                if fact["kind"] == "picture":
+                    fact["value"] = pictures.address(record, fact["value"])
+    except pictures.OutboundNotDeclaredError as exc:
+        raise ExtensionError(i18n.t("error.extensions.picture_outbound",
+                                    display=record.display_name, key=key)) from exc
+    return shown
+
+
+def list_save(record: Record, key: str, row_id: str, values: dict) -> dict:
+    """Write the fields a pane offers for a row, then answer the pane as it stands. The
+    keys must be fields the extension's own answer offers now."""
+    functions = _list(record, key)
+    if functions.save is None:
+        raise NotFoundError(i18n.t("error.extensions.no_save", display=record.display_name,
+                                   key=key))
+    offered = [one for section in list_detail(record, key, row_id)["sections"]
+               for one in section["fields"]]
+    changes = pane.accepted(
+        offered, values or {},
+        lambda line, **params: RefusedError(i18n.t(line, display=record.display_name,
+                                                   **params)))
+    if changes:
+        try:
+            called(record, f"list {key} save", functions.save, row_id, changes)
+        except ExtensionError as exc:
+            exc.field = next(iter(changes))
+            raise
+    return list_detail(record, key, row_id)
 
 
 def _message(record: Record, at: str, result: Any) -> dict:

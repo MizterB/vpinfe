@@ -39,6 +39,8 @@ _FIELDS = (
     ("player", lambda state: state.get("player") or ""),
     ("backup", lambda state: state.get("backup") or ""),
     ("entry", lambda state: state.get("entry") or ""),
+    # The row an extension's list has open in its pane, by the id the list gave it.
+    ("row", lambda state: state.get("ext_row") or ""),
     # A setting by its key: the Tables grid arrives on the launcher's tables that set it.
     ("sets", lambda state: state.get("sets") or ""),
     # The Tables grid on one group of one kept report: the job, then which of its groups.
@@ -65,6 +67,9 @@ _ONLY_ON = {"game": _PANEL, "table": _PANEL, "section": _PANEL, "slot": _PANEL,
 # The Logs page's views that have an address; the stream is the one with none.
 LOG_VIEWS = ("digest",)
 
+# An extension's list is a view of its own, named `community:<extension>:<list>`.
+COMMUNITY_PREFIX = "community:"
+
 # What the address calls a panel with nothing open.
 NO_SECTION = "none"
 
@@ -81,12 +86,18 @@ def _slot_kind(state: dict[str, Any]) -> str:
     return str(slot.get("kind") or "") if isinstance(slot, dict) else ""
 
 
+def _meant_for(name: str, view: str) -> bool:
+    if name == "row":
+        return view.startswith(COMMUNITY_PREFIX)
+    return view in _ONLY_ON.get(name, (view,))
+
+
 def query(state: dict[str, Any]) -> str:
     """The address for this state, without the path. A colon is left as it is, so a
     view reads `community:vpinplay:tables` in the bar rather than escaped."""
     view = state.get("view") or ""
     return urlencode([(name, read(state)) for name, read in _FIELDS
-                      if view in _ONLY_ON.get(name, (view,)) and read(state)], safe=":")
+                      if _meant_for(name, view) and read(state)], safe=":")
 
 
 def sync(state: dict[str, Any]) -> None:
@@ -142,5 +153,8 @@ def apply(state: dict[str, Any], params: dict[str, str], *,
         state["backup"] = str(params["backup"]).strip()
     if str(params.get("entry") or "").strip():
         state["entry"] = str(params["entry"]).strip()
+    if str(params.get("row") or "").strip() and str(state.get("view") or "").startswith(
+            COMMUNITY_PREFIX):
+        state["ext_row"] = str(params["row"]).strip()
     if str(params.get("find") or "").strip() and state["view"] == "backups":
         state["find"] = str(params["find"]).strip()

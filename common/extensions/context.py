@@ -248,6 +248,8 @@ class ListFunctions:
     status: Callable[[], Any] | None = None
     acts: Any = None
     verbs: dict[str, dict[str, Any]] = field(default_factory=dict)
+    detail: Callable[[str], Any] | None = None
+    save: Callable[[str, dict], Any] | None = None
 
 
 @dataclass
@@ -287,8 +289,6 @@ class ExtensionUI:
         self.link_addresses: dict[str, str | Callable[[], Any]] = {}
         self.settings_declared: list[dict] = []
         self.settings_check: Callable[[dict], Any] | None = None
-        self.state_label = ""
-        self.state_base = ""
         self.account_offered: dict = {}
         self.account_functions: AccountFunctions | None = None
 
@@ -340,12 +340,6 @@ class ExtensionUI:
             "description": str(description or "").strip(),
             "base": f"/actions/{wanted}",
         })
-
-    def state(self, base: str, label: str = "") -> None:
-        """Where core reads a list of rows: a label, a line under it, at most two acts."""
-        self._needs_ui("state")
-        self.state_base = str(base or "").strip()
-        self.state_label = str(label or "").strip()
 
     def account(self, *, read: Callable[[str], dict],
                 write: Callable[[str, dict], Any] | None = None,
@@ -439,7 +433,9 @@ class ExtensionUI:
              area: str = DEFAULT_AREA, title: str = "", views: Sequence[dict] = (),
              status: Callable[[], Any] | None = None, acts: Any = None,
              relation: dict | None = None, tag: str = "",
-             verbs: Sequence[dict] = (), add: str | Sequence[str] = ()) -> None:
+             verbs: Sequence[dict] = (), add: str | Sequence[str] = (),
+             detail: Callable[[str], Any] | None = None,
+             save: Callable[[str, dict], Any] | None = None) -> None:
         """A list this extension holds, shown in the rail under `area`.
 
         `rows()` answers the rows, each a dict. `status()` answers the line the list's
@@ -472,6 +468,15 @@ class ExtensionUI:
         `add` names the action, or the actions, that put something into this list: a
         button in the list's bar that opens that dialog and reads the list again after a
         run.
+
+        `detail(row_id)` answers what the pane beside the list shows for a row, so a click on
+        a row opens it: `{"title", "under", "picture", "sections": [{"key", "label",
+        "facts": [{"label", "value", "kind", "to", "help", "tier", "icon"}], "fields":
+        [{"key", "type", "label", "value"}], "rows": [{"label", "under"}]}]}`. A fact's `kind`
+        is one of `common.extensions.pane.FACT_KINDS` and a field's `type` one of
+        `fields.SETTINGS_TYPES`. A field is written when it is set: `save(row_id, values)`
+        is called with the keys changed, answers nothing, and core asks `detail` again to
+        draw the pane. `save` needs `detail`.
         """
         self._needs_ui("a list")
         wanted = str(key or "").strip()
@@ -488,6 +493,13 @@ class ExtensionUI:
         if not callable(rows) or (status is not None and not callable(status)):
             raise ContractError(f"{self._name} gives the list {wanted!r} rows or a "
                                 "status that is not a function")
+        if (detail is not None and not callable(detail)) \
+                or (save is not None and not callable(save)):
+            raise ContractError(f"{self._name} gives the list {wanted!r} a detail or a save "
+                                "that is not a function")
+        if save is not None and detail is None:
+            raise ContractError(f"{self._name} gives the list {wanted!r} a save and no "
+                                "detail, which is where its fields come from")
         if acts is not None and not callable(acts) and not isinstance(acts, dict):
             raise ContractError(f"{self._name} gives the list {wanted!r} acts that are "
                                 "neither a dict nor a function")
@@ -538,7 +550,7 @@ class ExtensionUI:
             raise ContractError(f"{self._name} gives the list {wanted!r} an add that is "
                                 "not an action key, or names one twice")
         self.list_functions[wanted] = ListFunctions(rows=rows, status=status, acts=acts,
-                                                    verbs=offered)
+                                                    verbs=offered, detail=detail, save=save)
         self.declared_lists.append({
             "key": wanted, "area": where, "title": str(title or "").strip(),
             "base": f"/lists/{wanted}",
@@ -560,6 +572,7 @@ class ExtensionUI:
             "relation": dict(relation) if relation else None,
             "tag": derived,
             "about": f"/lists/{wanted}/about",
+            "detail": f"/lists/{wanted}/detail" if detail is not None else "",
             "verbs": [{"key": verb, "label": one["label"], "link": one["link"],
                        "action": one["action"], "each": one["each"],
                        "danger": one["danger"], "needs": one["needs"], "one": one["one"]}

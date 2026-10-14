@@ -44,7 +44,7 @@ GRID_OF = {
 
 # Direct `ui.button(` calls outside `panel.py`. A count that only comes down: lower it
 # when one moves to a constructor, never raise it.
-BUTTON_CEILING = 68
+BUTTON_CEILING = 67
 
 
 # Grids that have not yet reached the selection rules in `docs/conventions.md`. A page

@@ -304,6 +304,19 @@ class TheDeclaration(unittest.TestCase):
                 self.ui.list("tables", _rows, columns=COLUMNS, add=add)
         self.assertEqual([], self.ui.declared_lists)
 
+    def test_a_pane_is_a_function_and_saving_it_needs_one_to_save_into(self) -> None:
+        for what in ({"detail": "pane"}, {"detail": _rows, "save": "write"},
+                     {"save": _mark}):
+            with self.subTest(what=what), self.assertRaises(ContractError):
+                self.ui.list("tables", _rows, columns=COLUMNS, **what)
+        self.assertEqual([], self.ui.declared_lists)
+
+        self.ui.list("tables", _rows, columns=COLUMNS, detail=_rows, save=_mark)
+        self.ui.list("plain", _rows, columns=COLUMNS)
+
+        self.assertEqual(["/lists/tables/detail", ""],
+                         [one["detail"] for one in self.ui.declared_lists])
+
     def test_a_dialog_a_list_names_but_the_extension_never_declared_is_refused(self) -> None:
         for what in ({"add": "missing"},
                      {"verbs": [{"key": "n", "action": "missing"}]},

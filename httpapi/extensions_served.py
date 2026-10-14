@@ -85,6 +85,15 @@ def router(name: str, running: Any) -> APIRouter:
     def post_list_verb(key: str, verb: str, body: models.ExtensionVerb) -> dict:
         return ask(serving.list_verb, key, verb, body.ids)
 
+    @get("/lists/{key}/detail/{row_id:path}", "What the pane beside a list shows for a row")
+    def get_list_detail(key: str, row_id: str) -> dict:
+        return ask(serving.list_detail, key, row_id)
+
+    @found.put("/lists/{key}/detail/{row_id:path}", summary="Change fields in a row's pane",
+               dependencies=[running, requires(write)])
+    def put_list_detail(key: str, row_id: str, body: models.ExtensionValues) -> dict:
+        return ask(serving.list_save, key, row_id, body.values)
+
     @found.get("/pictures/{picture_id}", summary="A picture one of the extension's rows named",
                dependencies=[running, requires(read)])
     def get_picture(picture_id: str, request: Request) -> Response:

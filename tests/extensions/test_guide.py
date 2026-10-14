@@ -23,7 +23,7 @@ from typing import Any
 from common import events, i18n, jobs, sized_media
 from common.extensions import check, contract, fields, host, pictures, serving, store
 from common.extensions.context import COLUMN_KINDS, ExtensionContext, logger_for
-from common.service_errors import RefusedError
+from common.service_errors import NotFoundError, RefusedError
 from console import ext_links
 
 GUIDE = Path(__file__).resolve().parents[2] / "docs" / "extensions"
@@ -50,6 +50,8 @@ DECLARES: dict[str, list[str]] = {
                   "list       scores in community: 3 columns, 0 views, 0 verbs, adds post"],
     "score_rows": ["list       scores in community: 3 columns, 0 views, 3 verbs"],
     "weekly_board": ["list       board in community: 5 columns, 0 views, 0 verbs"],
+    "challenge_pane": ["list       board in community: 1 columns, 0 views, 0 verbs, opens a pane",
+                       "a pane of 2 sections"],
     "secret_key": ["settings   key (secret)", "dialog     connect: ask run"],
     "player_handle": ["account    a player can hold one"],
     "tool_link": ["settings   port (number", "link       console in system: http://{host}:9090/",
@@ -306,6 +308,21 @@ class RecipesDoWhatTheyClaim(ExamplesLoadedByTheHost):
         self.assertTrue(served.path.is_file())
         self.assertEqual(["open", "closing", "closed", "cancelled", "planned"],
                          [one["status"] for one in rows])
+
+    def test_the_challenge_pane_answers_a_row_and_keeps_what_is_set_in_it(self) -> None:
+        record = self.load("challenge_pane")
+
+        pane = serving.list_detail(record, "board", "mm")
+        serving.list_save(record, "board", "mm", {"note": "Try the left ramp", "goal": "4"})
+        again = serving.list_detail(record, "board", "mm")
+
+        self.assertEqual((pane["title"], pane["under"]), ("Medieval Madness", "Week 41"))
+        self.assertEqual([one["label"] for one in pane["sections"]], ["About", "Yours"])
+        self.assertEqual(pane["sections"][0]["facts"][0]["tier"], "on")
+        fields = {one["key"]: one["value"] for one in again["sections"][1]["fields"]}
+        self.assertEqual((fields["note"], fields["goal"]), ("Try the left ramp", "4"))
+        with self.assertRaises(NotFoundError):
+            serving.list_detail(record, "board", "nobody")
 
     def test_the_tool_links_follow_the_port_and_fill_in_the_host_the_console_was_opened_at(
             self) -> None:

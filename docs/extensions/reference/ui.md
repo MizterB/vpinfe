@@ -42,10 +42,12 @@ It never raises, and is empty before `settings` is called.
 ## `ctx.ui.list`
 
 `ctx.ui.list(key, rows, *, columns, area="community", title="", views=(), status=None,
-acts=None, relation=None, tag="", verbs=(), add=())`.  Required: `key`, `rows`, `columns`.
+acts=None, relation=None, tag="", verbs=(), add=(), detail=None, save=None)`.  Required:
+`key`, `rows`, `columns`.
 
 Declare a list.  `rows()` returns the rows, each a dict.  See
-[Lists](settings-and-lists.md#lists) for columns, views, acts, relation, tag, verbs and add.
+[Lists](settings-and-lists.md#lists) for columns, views, acts, relation, tag, verbs, add and
+the pane (`detail` and `save`).
 
 ```python
 ctx.ui.list("top", read_top, title="Example Scores",
@@ -66,6 +68,7 @@ A person sees the list in the rail under `area`.  It raises `ContractError` for:
 - a verb with more than one of `run`, `link` and `action`, or none of them
 - `danger` or `needs` on a `link`, `danger` on an `action`, or `each` without an `action`
 - an `add` that is not a key, or names one twice
+- a `detail` or `save` that is not a function, or a `save` with no `detail`
 
 After `register` returns, it also raises when the title matches a core page's title or another
 running extension's list in the same area, and when a verb, an act or `add` opens a dialog the
@@ -145,30 +148,6 @@ address would run as the Console, so [what core serves](served.md#what-core-serv
 anything under `/api/v1/ext/` as a page with no origin of its own.  Anything the page on your
 own port changes should sit behind its own sign-in, as VPinFE does not guard a port it did not
 open.
-
-## `ctx.ui.state`
-
-`ctx.ui.state(base, label="")`.  Required: `base`.
-
-Say where core reads what the extension is holding: rows with at most two buttons each, shown
-on its page.  `base` is a route the extension serves itself with `ctx.add_router`, at
-`GET /api/v1/ext/<name><base>`.
-
-```python
-@router.get("/held")
-def held() -> dict:
-    return {"rows": [{"id": "a", "label": "Taxi", "mark": "Pending",
-                      "detail": "Waiting to send",
-                      "actions": [{"key": "drop", "label": "Drop"}]}],
-            "empty": ctx.t("held.empty")}
-
-
-ctx.ui.state("/held", label=ctx.t("state.label"))
-```
-
-A person sees a section on the extension's page headed by `label`, then `state.label` in the
-catalog, then the Console's own "Held".  See [What it holds](accounts.md#what-it-holds).  It
-raises `ContractError` without `ui:mount`.
 
 ## `ctx.ui.account`
 

@@ -124,20 +124,3 @@ version joins on the other.
 
 Words: `account.label` (the heading over the account; left out, the extension's name) and
 `account.share.help`.
-
-## What it holds
-
-`ctx.ui.state(base, label)` is not an account.  It names a route of the extension's own that
-answers what the extension is holding, and core shows that on the extension's page:
-
-```
-GET /api/v1/ext/<name><base>
-{"rows": [{"id", "label", "mark", "detail", "actions": [{"key", "label"}]}], "empty": "..."}
-POST /api/v1/ext/<name><base>/<key>      {"id": "<row id>"}
-```
-
-`mark` is a chip for the row that is different, never on all of them.  Core shows two
-`actions` at most.  `empty` is the extension's own words for a list with no rows.  Both routes
-are the extension's, added with `ctx.add_router`: the read on the read scope and the posts on
-the write scope.  The heading is the `label`, else `state.label` in the catalog, else the
-Console's own.

@@ -553,7 +553,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                    collection: str = "", launcher: str = "", sets: str = "",
                    player: str = "", setup: str = "", log: str = "", find: str = "",
                    backup: str = "", report: str = "", group: str = "",
-                   entry: str = "") -> None:
+                   entry: str = "", row: str = "") -> None:
     """The Console. Query parameters say where in it, so a place can be linked to."""
     # 2.x's own page keys, still sitting in bookmarks and manager-ui-state.json.
     if page.strip().lower() in ("vpinplay_account", "vpinplay_player"):
@@ -654,7 +654,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                            "section": section, "slot": slot, "page": page,
                            "collection": collection, "launcher": launcher, "sets": sets,
                            "player": player, "log": log, "find": find, "backup": backup,
-                           "report": report, "group": group, "entry": entry},
+                           "report": report, "group": group, "entry": entry,
+                           "row": row},
                    views=[key for key, _label, _icon, _feature in nav_items],
                    sections=[item.key for item in workbench.SECTIONS])
 
@@ -1553,16 +1554,33 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         await workbench.build_backup(panel, workbench_title, library, state["backup"], state)
         deeplink.sync(state)
 
+    @on_page
+    async def show_extension_row(extension: dict, declared: dict, rows: list[dict],
+                                 again: Any) -> None:
+        """What an extension's list has open is what the workbench is about, the same rule
+        every other subject follows."""
+        if rows and not state["workbench"]:
+            show_workbench(True)
+        state["ext_row"] = str(rows[0]["id"]) if len(rows) == 1 else ""
+        await workbench.build_extension_row(panel, workbench_title, library, extension,
+                                            declared, [str(one["id"]) for one in rows],
+                                            state, again)
+        deeplink.sync(state)
+
     def clear_workbench() -> None:
         """Empty the pane. Sync, so render() can call it without awaiting a rebuild."""
         workbench_title.clear()
         panel.clear()
         # The same two-line shape a selected game gets, so the header does not change
         # height or alignment as the selection comes and goes.
-        heading, prompt = EMPTY_PANE.get(
-            state["view"],
-            ("console.page.game", "console.page.select_game"))
-        heading, prompt = t(heading), t(prompt)
+        listed = community_page.find(state["view"], state["extensions"])
+        if listed is not None and listed[1].get("detail"):
+            heading, prompt = str(listed[1].get("title") or ""), t("console.community.pane_select")
+        else:
+            heading, prompt = EMPTY_PANE.get(
+                state["view"],
+                ("console.page.game", "console.page.select_game"))
+            heading, prompt = t(heading), t(prompt)
         with workbench_title:
             ui.label(heading) \
                 .classes("text-base console-workbench-title leading-tight truncate")
@@ -1623,7 +1641,10 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         #
         # On a page with no subject it goes entirely, rail included. Nothing there can
         # fill it, so the strip would be a control that reopens an empty panel.
-        splitter.classes(remove="console-no-pane") if state["view"] in WORKBENCH_VIEWS \
+        listed_here = community_page.find(state["view"], state["extensions"])
+        has_pane = state["view"] in WORKBENCH_VIEWS or bool(
+            listed_here is not None and listed_here[1].get("detail"))
+        splitter.classes(remove="console-no-pane") if has_pane \
             else splitter.classes(add="console-no-pane")
         light_nav()
         if state["view"] == "jobs":
@@ -1649,7 +1670,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             elif view.startswith(community_page.PREFIX):
                 listed = community_page.find(view, state["extensions"])
                 if listed is not None:
-                    community_page.build(*listed, library, subject=menu)
+                    community_page.build(*listed, library, subject=menu,
+                                         on_open=show_extension_row)
             elif view == "media":
                 media_page.build(library.media_rows(), library, show_slot, state,
                                  rescan=_rescan)
@@ -1832,6 +1854,10 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         arrival = show_backup({"id": state["backup"]})
     elif state["view"] == "discovery" and state.get("entry"):
         arrival = show_discovery({"id": state["entry"]})
+    elif state.get("ext_row") and community_page.find(state["view"], state["extensions"]):
+        listed = community_page.find(state["view"], state["extensions"])
+        if listed is not None and listed[1].get("detail"):
+            arrival = show_extension_row(*listed, [{"id": state["ext_row"]}], None)
     elif state["view"] == "devices":
         # Arriving at Devices lands on this device with its rail open, so reaching a
         # setting is the two clicks it was when Settings was a place of its own. It is
@@ -1916,6 +1942,10 @@ def _land(state: dict[str, Any]) -> None:
         grid.land_on(discovery_page.SCOPE, {"id": str(state["entry"])})
     elif view == "collections" and state.get("collection"):
         grid.land_on(collections_page.SCOPE, {"id": str(state["collection"])})
+    elif state.get("ext_row") and community_page.find(view, state["extensions"]):
+        listed = community_page.find(view, state["extensions"])
+        if listed is not None:
+            grid.land_on(community_page.scope_of(*listed), {"id": str(state["ext_row"])})
 
 
 def _nav_parent(parent: tuple[str, str, str], state: dict[str, Any],
@@ -1980,6 +2010,7 @@ def leave_for(state: dict[str, Any], view: str) -> None:
         state["player"] = None
         state["backup"] = None
         state["entry"] = None
+        state["ext_row"] = ""
         state["sets"] = None
         state.pop("slot", None)
         if state.get("section") in OWN_SUBJECT_SECTIONS:

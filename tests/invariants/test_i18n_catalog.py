@@ -2073,7 +2073,7 @@ class TestEachExtensionKeepsItsOwnWords(unittest.TestCase):
                 if key == "name" and not manifest.get("display_name") \
                    or key == "description" and not manifest.get("description"):
                     continue
-                if key in ("settings.label", "state.label", "account.label",
+                if key in ("settings.label", "account.label",
                            "account.share.help") and segments[0] in called:
                     continue
                 if segments[0] in HOST_READS and all(

@@ -58,7 +58,8 @@ def fresh_state() -> None:
     STATE.clear()
     STATE.update(
         checked=[], steps=[], plain_values=None, seen=None, rows=[], status="", acts=None,
-        pressed=[], asked_rows=[], ran_rows=[],
+        pressed=[], asked_rows=[], ran_rows=[], pane=None, saved=[], pane_asked=[],
+        save_raises=None,
         progress=None, running=threading.Event(), release=threading.Event())
 
 
@@ -128,6 +129,21 @@ def served(ctx: Any) -> None:
                {"key": "remove", "run": remove, "danger": True, "needs": "can", "one": True},
                {"key": "tidy", "run": tidy, "needs": "can"},
                {"key": "break", "run": break_it, "label": "Break it"}])
+
+    def detail(row_id: str) -> Any:
+        STATE["pane_asked"].append(row_id)
+        answer = STATE["pane"]
+        return answer(row_id) if callable(answer) else answer
+
+    def save(row_id: str, values: dict) -> None:
+        if STATE["save_raises"] is not None:
+            raise STATE["save_raises"]
+        STATE["saved"].append((row_id, dict(values)))
+
+    ctx.ui.list("paned", lambda: [{"id": "a", "name": "a"}], columns=[{"field": "name"}],
+                title="Paned", detail=detail, save=save)
+    ctx.ui.list("read_only", lambda: [{"id": "a", "name": "a"}], columns=[{"field": "name"}],
+                title="Read only", detail=detail)
 
     class Rowed:
         def ask(self, step: str, rows: list[str]) -> dict:
@@ -643,6 +659,165 @@ class Lists(ServedCase):
 
         self.assertIn("Nothing to refresh", self.refused(found, 400)["message"])
         self.assertEqual(self.registry.get(NAME).state, host.LOADED)
+
+
+SOLO = {"title": "Taxi", "under": "Pinball 2000", "sections": [{
+    "key": "main", "label": "",
+    "facts": [{"label": "Plays", "value": 4, "kind": "number"},
+              {"label": "Status", "value": "Waiting", "kind": "state", "tier": "warn"},
+              {"label": "Page", "value": "Open it", "kind": "link",
+               "to": "https://example.invalid/taxi"},
+              {"label": "Tags", "value": ["a", "b"], "kind": "chips"}],
+    "fields": [{"key": "nickname", "type": "string", "label": "Nickname", "value": "Cab"},
+               {"key": "loud", "type": "switch", "label": "Loud", "value": True},
+               {"key": "mode", "type": "select", "label": "Mode", "value": "fast",
+                "choices": [["fast", "Fast"], ["slow", "Slow"]]},
+               {"key": "volume", "type": "number", "label": "Volume", "value": 3,
+                "min": 0, "max": 10},
+               {"key": "token", "type": "secret", "label": "Token", "value": "hunter2"}],
+    "rows": [{"label": "Bally", "under": "1990"}]}]}
+
+
+class Panes(ServedCase):
+    def pane(self, row: str = "a") -> Any:
+        return self.get(f"/lists/paned/detail/{row}")
+
+    def put(self, row: str = "a", **values: Any) -> Any:
+        return self.client.put(f"{self.base}/lists/paned/detail/{row}", json={"values": values})
+
+    def test_a_list_declares_whether_it_opens_a_pane(self) -> None:
+        by_key = {one["key"]: one for one in self.record.declared_lists}
+
+        self.assertEqual((by_key["paned"]["detail"], by_key["things"]["detail"]),
+                         ("/lists/paned/detail", ""))
+
+    def test_a_pane_is_asked_for_the_row_and_answered_in_the_shape_core_draws(self) -> None:
+        STATE["pane"] = SOLO
+
+        answer = self.ok(self.pane())
+
+        self.assertEqual(STATE["pane_asked"], ["a"])
+        self.assertEqual((answer["id"], answer["title"], answer["under"]),
+                         ("a", "Taxi", "Pinball 2000"))
+        section = answer["sections"][0]
+        self.assertEqual([one["kind"] for one in section["facts"]],
+                         ["number", "state", "link", "chips"])
+        self.assertEqual((section["facts"][1]["tier"], section["facts"][3]["value"]),
+                         ("warn", ["a", "b"]))
+        self.assertEqual(section["rows"], [{"label": "Bally", "under": "1990"}])
+
+    def test_a_secret_goes_out_as_set_and_never_with_its_value(self) -> None:
+        STATE["pane"] = SOLO
+
+        token = next(one for one in self.ok(self.pane())["sections"][0]["fields"]
+                     if one["key"] == "token")
+
+        self.assertEqual(token["set"], True)
+        self.assertNotIn("value", token)
+        self.assertNotIn("hunter2", self.pane().text)
+
+    def test_an_id_with_a_slash_in_it_reaches_the_function_whole(self) -> None:
+        STATE["pane"] = SOLO
+
+        self.ok(self.pane("one/two"))
+
+        self.assertEqual(STATE["pane_asked"], ["one/two"])
+
+    def test_a_row_the_extension_answers_nothing_for_is_a_404(self) -> None:
+        STATE["pane"] = None
+
+        self.refused(self.pane("gone"), 404,
+                     t("error.extensions.no_row", display=self.display(), id="gone"))
+
+    def test_a_list_with_no_detail_has_no_pane(self) -> None:
+        self.refused(self.get("/lists/things/detail/a"), 404,
+                     t("error.extensions.no_detail", display=self.display(), key="things"))
+
+    def test_an_answer_core_does_not_draw_is_the_extensions_failure(self) -> None:
+        wrong = {
+            "a key it does not read": {**SOLO, "colour": "red"},
+            "no title": {"sections": []},
+            "a fact kind it has no drawing for": {"title": "T", "sections": [
+                {"key": "k", "facts": [{"label": "L", "value": "v", "kind": "rating"}]}]},
+            "a field type a pane does not draw": {"title": "T", "sections": [
+                {"key": "k", "fields": [{"key": "f", "type": "choice"}]}]},
+            "a link with nowhere to go": {"title": "T", "sections": [
+                {"key": "k", "facts": [{"label": "L", "value": "v", "kind": "link"}]}]},
+            "a tier on something that is not a state": {"title": "T", "sections": [
+                {"key": "k", "facts": [{"label": "L", "value": "v", "tier": "on"}]}]},
+            "two fields of one key": {"title": "T", "sections": [
+                {"key": "k", "fields": [{"key": "f"}, {"key": "f"}]}]},
+            "several sections and one with no label": {"title": "T", "sections": [
+                {"key": "a", "label": "A"}, {"key": "b"}]},
+            "a select with no choices": {"title": "T", "sections": [
+                {"key": "k", "fields": [{"key": "f", "type": "select"}]}]},
+        }
+        for what, answer in wrong.items():
+            with self.subTest(what):
+                STATE["pane"] = answer
+                self.refused(self.pane(), 400)
+
+    def test_fields_are_written_with_the_values_that_changed_and_the_pane_comes_back(self) -> None:
+        STATE["pane"] = SOLO
+
+        answer = self.ok(self.put(nickname="Taxi", loud=False, mode="slow", volume="4"))
+
+        self.assertEqual(STATE["saved"],
+                         [("a", {"nickname": "Taxi", "loud": False, "mode": "slow", "volume": 4})])
+        self.assertEqual(answer["title"], "Taxi")
+
+    def test_a_secret_is_saved_when_typed_and_cleared_with_none_and_left_alone_when_empty(
+            self) -> None:
+        STATE["pane"] = SOLO
+
+        self.ok(self.put(token="new"))
+        self.ok(self.put(token=None))
+        self.ok(self.put(token=" "))
+
+        self.assertEqual(STATE["saved"], [("a", {"token": "new"}), ("a", {"token": None})])
+
+    def test_a_key_the_pane_does_not_offer_is_refused_and_nothing_is_saved(self) -> None:
+        STATE["pane"] = SOLO
+
+        self.refused(self.put(nickname="x", other="y"), 400,
+                     t("error.extensions.no_field", key="other"))
+
+        self.assertEqual(STATE["saved"], [])
+
+    def test_a_choice_the_field_does_not_offer_and_a_number_outside_its_limits_are_refused(
+            self) -> None:
+        STATE["pane"] = SOLO
+
+        self.refused(self.put(mode="medium"), 400,
+                     t("error.extensions.bad_choice", key="mode", value="medium"))
+        self.refused(self.put(volume="11"), 400,
+                     t("error.extensions.bad_number", key="volume", value="11"))
+
+        self.assertEqual(STATE["saved"], [])
+
+    def test_a_save_that_raises_is_a_refusal_in_its_words_with_the_field_named(self) -> None:
+        STATE["pane"] = SOLO
+        STATE["save_raises"] = ValueError("That nickname is taken")
+
+        error = self.refused(self.put(nickname="Taxi"), 400, "That nickname is taken")
+
+        self.assertEqual(error["details"], {"field": "nickname"})
+
+    def test_a_list_with_a_pane_and_no_save_cannot_be_written(self) -> None:
+        STATE["pane"] = SOLO
+
+        self.refused(self.client.put(f"{self.base}/lists/read_only/detail/a",
+                                     json={"values": {"nickname": "x"}}), 404,
+                     t("error.extensions.no_save", display=self.display(), key="read_only"))
+
+    def test_writing_a_pane_wants_the_write_scope_and_not_the_read_one(self) -> None:
+        STATE["pane"] = SOLO
+        self.client = client_for(self, self.registry, self.record,
+                                 allowed=lambda scope: scope.endswith(":read"))
+
+        self.assertEqual(self.pane().status_code, 200)
+        self.assertEqual(self.put(nickname="x").status_code, 403)
+        self.assertEqual(STATE["saved"], [])
 
 
 class Verbs(ServedCase):

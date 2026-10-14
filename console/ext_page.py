@@ -20,7 +20,7 @@ from nicegui import run, ui
 from common.extensions import host
 from common.failures import why
 from common.i18n import t
-from console import busy, confirm, deeplink, ext_action, ext_links, offload, panel, verbs
+from console import confirm, deeplink, ext_action, ext_links, offload, panel, verbs
 from console.api import ApiClient
 from console.on_page import on_page
 
@@ -95,10 +95,6 @@ def build(extension: dict, settings: dict[str, Any], redraw: Callable[[], None],
     if offered:
         entries += [(panel.HEADING, t("word.actions")),
                     (panel.FULL, lambda: _actions(offered, name, redraw))]
-    if running and surfaces.get("state"):
-        entries += [(panel.HEADING, str(surfaces.get("state_label")
-                                        or t("console.ext_page.held"))),
-                    (panel.FULL, lambda: _state(name, surfaces))]
     entries += _reach_rows(extension)
     panel.facts(ui, entries)
 
@@ -282,64 +278,6 @@ def _actions(offered: list[dict], name: str, redraw: Callable[[], None]) -> None
             panel.action(str(action.get("label") or action.get("key") or ""),
                          lambda _e=None, action=action: run_one(action),
                          icon=verbs.RUN, hint=str(action.get("description") or ""))()
-
-
-def _state(name: str, surfaces: dict) -> None:
-    """What the extension is holding, and the couple of things you can do to a row."""
-    card = ui.element("div").classes("console-card w-full")
-    base = f"/ext/{name}{surfaces['state']}"
-    client = ApiClient()
-
-    async def draw() -> None:
-        try:
-            found = await offload.io(client.ext_get, base)
-        except Exception as exc:  # noqa: BLE001
-            card.clear()
-            with card:
-                panel.line(t("console.ext_page.read_failed"), hint=why(exc))
-            return
-        card.clear()
-        rows = list(found.get("rows") or [])
-        with card:
-            if not rows:
-                # The empty state is the extension's to word: it knows what would be
-                # here and why there is none.
-                ui.label(str(found.get("empty") or t("console.ext_page.nothing_yet"))) \
-                    .classes("console-help")
-                return
-            for row in rows:
-                _row(client, base, row, draw)
-
-    busy.fill(card, draw)
-
-
-def _row(client: Any, base: str, row: dict, redraw: Callable[[], Awaitable[None]]) -> None:
-    @on_page
-    async def press(key: str) -> None:
-        try:
-            await run.io_bound(client.ext_post, f"{base}/{key}",
-                               {"id": str(row.get("id") or "")})
-        except Exception as exc:  # noqa: BLE001
-            ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
-            return
-        await redraw()
-
-    with ui.row().classes("items-center gap-2 w-full console-member-row"):
-        with ui.column().classes("gap-0 min-w-0 grow"):
-            with ui.row().classes("items-center gap-2"):
-                ui.label(str(row.get("label") or "")).classes("console-setting")
-                # A mark on the one row that is different, never on all of them.
-                if row.get("mark"):
-                    ui.label(str(row["mark"])) \
-                        .classes("console-member-chip console-chip-quiet")
-            if row.get("detail"):
-                ui.label(str(row["detail"])).classes("console-help")
-        # Two at most, and that is the whole of what a row can offer.
-        for action in list(row.get("actions") or [])[:2]:
-            key = str(action.get("key") or "")
-            ui.button(str(action.get("label") or ""), icon=verbs.RUN,
-                      on_click=lambda _e=None, key=key: press(key)) \
-                .props("flat dense no-caps")
 
 
 # What a scope or capability is called on screen. The wire says `games:write`; a person

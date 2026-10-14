@@ -8,7 +8,7 @@ them.
 | key | names | falls back to |
 |---|---|---|
 | `name`, `description` | The extension, where the manifest leaves them out | The extension's `name`; nothing |
-| `settings.label`, `state.label` | The heading over its settings and over what it holds | The Console's own |
+| `settings.label` | The heading over its settings | The Console's own |
 | `settings.<key>.label` | A setting | The key |
 | `settings.<key>.help` | A line under the setting; `{default}` is its default | Nothing |
 | `settings.<key>.choice.<value>` | A select option | The label given in `choices` |

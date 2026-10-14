@@ -98,6 +98,12 @@ def nav_items(extensions: Sequence[dict[str, Any]]) -> dict[str, tuple]:
     return {area: tuple(items) for area, items in found.items()}
 
 
+def scope_of(extension: dict[str, Any], declared: dict[str, Any]) -> str:
+    """What names the list's grid to the page, and so the row an address opens it on."""
+    return (f"console.community.{extension.get('name') or ''}"
+            f".{declared.get('key') or ''}")
+
+
 def find(view: str, extensions: Sequence[dict[str, Any]]) -> tuple[dict, dict] | None:
     return next(((one, declared) for one, declared in lists(extensions)
                  if view_key(str(one.get("name") or ""), str(declared.get("key") or ""))
@@ -518,15 +524,18 @@ def not_running(extension: dict[str, Any]) -> None:
 
 
 def build(extension: dict[str, Any], declared: dict[str, Any], library: Library,
-          subject: Any = None) -> None:
-    """`subject` is the page header's slot for the list's menu."""
+          subject: Any = None, on_open: Callable[..., Any] | None = None) -> None:
+    """`subject` is the page header's slot for the list's menu. `on_open(extension,
+    declared, rows, again)` is told which rows the pane beside the list is about: one when a row
+    is focused, several when rows are ticked, none when the ticks go."""
     body = ui.column().classes("w-full grow min-h-0 gap-0")
-    busy.fill(body, lambda: _fill(extension, declared, library, body, subject))
+    busy.fill(body, lambda: _fill(extension, declared, library, body, subject, on_open))
 
 
 @on_page
 async def _fill(extension: dict[str, Any], declared: dict[str, Any], library: Library,
-                body: Any, subject: Any = None) -> None:
+                body: Any, subject: Any = None,
+                on_open: Callable[..., Any] | None = None) -> None:
     from .games import view_control
 
     name = str(extension.get("name") or "")
@@ -599,9 +608,10 @@ async def _fill(extension: dict[str, Any], declared: dict[str, Any], library: Li
     built = await drawn(state["rows"])
     by_id = {row["id"]: row for row in built}
     shown = columns(declared)
-    scope = f"console.community.{name}.{key}"
+    scope = scope_of(extension, declared)
     fields = [one["field"] for one in shown]
     offering = bool(declared.get("verbs")) and not stopped
+    opener = on_open if declared.get("detail") and not stopped else None
 
     async def pressed(verb: dict[str, Any], chosen: list[dict[str, Any]]) -> None:
         await run_verb(now, declared, verb, chosen, lambda: read_again())
@@ -678,10 +688,16 @@ async def _fill(extension: dict[str, Any], declared: dict[str, Any], library: Li
             return (t("console.community.rows", count=len(built)) if seen == len(built)
                     else t("console.community.rows_of", shown=seen, count=len(built)))
 
-        def on_select_rows(chosen: list[dict[str, Any]]) -> None:
+        several = {"on": False}
+
+        def on_select_rows(chosen: list[dict[str, Any]]) -> Any:
             picked[:] = chosen
             show_selection(bool(chosen))
             count.text = counted_said()
+            if opener is not None and (len(chosen) > 1 or several["on"]):
+                several["on"] = len(chosen) > 1
+                return opener(now, declared, chosen if len(chosen) > 1 else [], read_again)
+            return None
 
         def on_context(row: dict | None) -> None:
             if not row or row.get(grid.NO_MENU):
@@ -699,6 +715,18 @@ async def _fill(extension: dict[str, Any], declared: dict[str, Any], library: Li
                 on_context if offering else None, on_header_context, view_of=showing,
                 rows_not_selectable=[] if offering else None)
             menu = ui.context_menu()
+
+        if opener is not None:
+            def focused(event: Any) -> Any:
+                if grid.ticked(event):
+                    return None
+                row = by_id.get(grid.focused_row(event))
+                if row is None or str(row["id"]).startswith(UNNAMED):
+                    return None
+                several["on"] = False
+                return opener(now, declared, [row], read_again)
+
+            grid.on_row_focus(scope, focused)
 
         async def counted() -> None:
             seen = await table.run_grid_method("getDisplayedRowCount")
