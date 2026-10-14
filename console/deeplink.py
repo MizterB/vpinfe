@@ -118,8 +118,11 @@ def apply(state: dict[str, Any], params: dict[str, str], *,
     def clean(name: str) -> str:
         return str(params.get(name) or "").strip().lower()
 
-    if clean("view") in set(views):
-        state["view"] = clean("view")
+    # An extension's list or page key keeps its case, so the view is matched without it and
+    # set to the key as the rail knows it.
+    known = {one.lower(): one for one in views}
+    if clean("view") in known:
+        state["view"] = known[clean("view")]
     if str(params.get("game") or "").strip():
         state["game"] = str(params["game"]).strip()
     if str(params.get("table") or "").strip():

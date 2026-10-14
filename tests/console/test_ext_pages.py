@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 
 from nicegui import ui
 
-from console import community, ext_pages, page
+from console import community, deeplink, ext_pages, page
 
 DECLARED = {"key": "week", "title": "This week", "area": "community", "base": "/pages/week",
             "about": "/pages/week/about", "save": False}
@@ -39,6 +39,24 @@ class TheNav(unittest.TestCase):
         keys = [one[0] for one in dict(page.nav_for(None, items))[page.NAV_COMMUNITY]]
 
         self.assertEqual(["community:site:plays", VIEW], keys)
+
+
+class TheAddress(unittest.TestCase):
+    def test_a_key_with_capitals_comes_back_from_the_address(self) -> None:
+        state: dict = {}
+        view = "page:site:WeekOne"
+
+        deeplink.apply(state, {"view": view}, views=["games", view], sections=[])
+
+        self.assertEqual(view, state["view"])
+        self.assertIn(view, deeplink.query(state))
+
+    def test_an_address_in_other_case_finds_the_same_view(self) -> None:
+        state: dict = {}
+
+        deeplink.apply(state, {"view": "GAMES"}, views=["games"], sections=[])
+
+        self.assertEqual("games", state["view"])
 
 
 class Finding(unittest.TestCase):
