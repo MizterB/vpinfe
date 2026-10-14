@@ -191,6 +191,10 @@ class Job:
     # One line on what it did, counts mostly. Written when the work finishes, by the
     # describer registered for its kind or by the work itself.
     detail: str = ""
+    # The extension that started it and the tier of the request that did, so the API shows
+    # it only to callers who reach that tier. Empty `extension` is core's own work.
+    extension: str = ""
+    tier: str = ""
     progress_cb: ProgressCallback | None = None
     log_cb: LogCallback | None = None
 
@@ -302,7 +306,9 @@ def _keep(job: Job, finished_at: float, detail: str) -> bool:
                      lambda handle: json.dump({**job.snapshot(with_result=True),
                                                   "state": DONE, "pct": 100,
                                                   "finished_at": finished_at,
-                                                  "detail": detail}, handle))
+                                                  "detail": detail,
+                                                  "extension": job.extension,
+                                                  "tier": job.tier}, handle))
     except (OSError, TypeError, ValueError):
         logger.warning("Could not keep the result of job %s", job.id, exc_info=True)
         return False
@@ -334,7 +340,9 @@ def _load_kept() -> None:
                 finished_at=float(said["finished_at"]),
                 result=said.get("result"), stopped=bool(said.get("stopped")),
                 problems=int(said.get("problems") or 0),
-                detail=str(said.get("detail") or ""), keep_result=True, kept=True))
+                detail=str(said.get("detail") or ""), keep_result=True, kept=True,
+                extension=str(said.get("extension") or ""),
+                tier=str(said.get("tier") or "")))
         except (OSError, ValueError, KeyError, TypeError):
             logger.warning("Could not read the kept job %s", path.name, exc_info=True)
     known = {one.id for one in _history}
@@ -364,7 +372,8 @@ def track(kind: str, *, progress_cb: ProgressCallback | None = None,
 def submit(kind: str, work: Callable[[Job], object], *,
            progress_cb: ProgressCallback | None = None,
            log_cb: LogCallback | None = None, stoppable: bool = False,
-           stop_link: str = "", keep_result: bool = False, title: str = "") -> Job:
+           stop_link: str = "", keep_result: bool = False, title: str = "",
+           extension: str = "", tier: str = "") -> Job:
     """Start work on its own thread and return its job immediately.
 
     With `keep_result` the result is written to disk when the work finishes, and the job
@@ -372,7 +381,7 @@ def submit(kind: str, work: Callable[[Job], object], *,
     restart."""
     job = Job(id=uuid.uuid4().hex, kind=kind, title=title, progress_cb=progress_cb,
               log_cb=log_cb, stoppable=stoppable or bool(stop_link), stop_link=stop_link,
-              keep_result=keep_result)
+              keep_result=keep_result, extension=extension, tier=tier)
     with _lock:
         _refuse_if_busy(kind)
         _active[kind] = job

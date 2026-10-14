@@ -351,6 +351,10 @@ can open it after the page that started the job has gone, and after a restart to
 may list `rows`.  Every row with an `error` is shown under what did not come across, by its
 `name`, and `error` takes a string or `{text, detail}`.
 
+A job is shown only to callers who reach the tier of the request that started it, so one a
+Library request starts is not listed for a Remote, and its progress and errors are not streamed
+to one.  A job started with no request behind it counts as Library's.
+
 ```python
 def work(job):
     for index, game in enumerate(games, start=1):

@@ -1754,6 +1754,12 @@ whose work was stopped part way - `state` stays `done`, `failed`, or `running`. 
 counts the parts of a `done` job that did not come across, an import's games that could not
 be made among them; a `done` job with `problems` above zero is the one to look at.
 
+A job an extension started is shown only to a caller who reaches the tier of the request that
+started it: `GET /jobs` leaves it out and `GET /jobs/{id}` answers `404` for anyone below, and
+the event stream sends its `job.progress`, `job.done` and `job.failed` to those callers only,
+on replay as well as live. A job started with no request behind it, a timer's for one, counts
+as Library's. Core's own jobs are for anyone holding `jobs:read`.
+
 Starting work is never a `POST /jobs`. The permission to run something is the permission of
 the thing itself, so a scan is `games:write` because that is what a scan does. `jobs:read`
 covers only asking; the right to watch is not the right to cause.

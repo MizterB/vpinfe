@@ -19,14 +19,17 @@ from collections.abc import AsyncIterator, Callable
 from functools import lru_cache
 from typing import Any
 
-from fastapi import APIRouter, Header, Query
+from fastapi import APIRouter, Header, Query, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import StreamingResponse
 
 from common import events, install_identity
+from common import jobs as job_registry
+from common.extensions import reach
 from common.games import game_identity
 from common.i18n import t
 
+from . import jobs as jobs_api
 from . import scopes
 from .auth import requires
 from .errors import InvalidRequestError
@@ -169,6 +172,9 @@ STREAMED_EVENTS: dict[str, Callable[..., dict]] = {
     events.CONFIG_WAITING_CHANGED: _as_published,
 }
 
+JOB_EVENTS = frozenset({events.JOB_PROGRESS, events.JOB_DONE, events.JOB_FAILED})
+
+
 class _Stream:
     """One connected client.
 
@@ -176,14 +182,16 @@ class _Stream:
     only through `deliver`.
     """
 
-    def __init__(self, loop: asyncio.AbstractEventLoop, names: frozenset[str] | None) -> None:
+    def __init__(self, loop: asyncio.AbstractEventLoop, names: frozenset[str] | None,
+                 tier: str = reach.LIBRARY) -> None:
         self.loop = loop
         self.names = names
+        self.tier = tier
         self.queue: asyncio.Queue[str] = asyncio.Queue(QUEUE_LIMIT)
         self.overrun = False
 
-    def wants(self, name: str) -> bool:
-        return self.names is None or name in self.names
+    def wants(self, name: str, needed: str = "") -> bool:
+        return (self.names is None or name in self.names) and jobs_api.reaches(self.tier, needed)
 
     def deliver(self, frame: str) -> None:
         """Hand a frame over from the publishing thread. Never blocks."""
@@ -208,7 +216,8 @@ _snapshots: dict[str, Callable[[], dict]] = {}
 
 _lock = threading.Lock()
 _streams: list[_Stream] = []
-_history: deque[tuple[int, str, str]] = deque(maxlen=HISTORY_LIMIT)
+# (seq, name, frame, the tier a subscriber must reach to be sent it)
+_history: deque[tuple[int, str, str, str]] = deque(maxlen=HISTORY_LIMIT)
 _seq = 0
 
 
@@ -258,6 +267,15 @@ def _provenance() -> dict:
     return {"install_id": install_id} if install_id else {}
 
 
+def _tier_needed(name: str, payload: dict) -> str:
+    """The tier that may be sent this event. A job's progress and error text are its own
+    work's to show, so they follow the job; an unknown job id is Library's."""
+    if name not in JOB_EVENTS or not payload.get("job_id"):
+        return ""
+    job = job_registry.get(payload["job_id"])
+    return jobs_api.tier_needed(job) if job is not None else reach.LIBRARY
+
+
 def _dispatch(name: str, payload: dict) -> None:
     """Bus subscriber. Runs on whichever thread published, so it only formats and hands off."""
     global _seq
@@ -265,12 +283,13 @@ def _dispatch(name: str, payload: dict) -> None:
     data = _encode(STREAMED_EVENTS[name](**payload) | _provenance())
     if data is None:
         return
+    needed = _tier_needed(name, payload)
 
     with _lock:
         _seq += 1
         frame = _frame(name, data, _seq)
-        _history.append((_seq, name, frame))
-        targets = [stream for stream in _streams if stream.wants(name)]
+        _history.append((_seq, name, frame, needed))
+        targets = [stream for stream in _streams if stream.wants(name, needed)]
 
     for stream in targets:
         stream.deliver(frame)
@@ -332,7 +351,8 @@ def _resume_point(last_event_id: str | None) -> int | None:
         return None
 
 
-def _replay(resume: int | None, wanted: frozenset[str] | None) -> tuple[list[str], bool]:
+def _replay(resume: int | None, wanted: frozenset[str] | None,
+            tier: str = reach.LIBRARY) -> tuple[list[str], bool]:
     """The frames a resuming client missed, and whether the resume was complete.
     Call with `_lock` held, so nothing is both replayed and delivered live.
 
@@ -346,8 +366,9 @@ def _replay(resume: int | None, wanted: frozenset[str] | None) -> tuple[list[str
         return [], resume == _seq
     if resume < _history[0][0] - 1:
         return [], False
-    return [frame for seq, name, frame in _history
-            if seq > resume and (wanted is None or name in wanted)], True
+    return [frame for seq, name, frame, needed in _history
+            if seq > resume and (wanted is None or name in wanted)
+            and jobs_api.reaches(tier, needed)], True
 
 
 def _snapshot_frames(wanted: frozenset[str] | None) -> list[str]:
@@ -366,16 +387,16 @@ def _snapshot_frames(wanted: frozenset[str] | None) -> list[str]:
     return frames
 
 
-async def _stream(wanted: frozenset[str] | None,
-                  last_event_id: str | None) -> AsyncIterator[str]:
+async def _stream(wanted: frozenset[str] | None, last_event_id: str | None,
+                  tier: str = reach.LIBRARY) -> AsyncIterator[str]:
     """Serve one client until it goes away or falls too far behind."""
-    stream = _Stream(asyncio.get_running_loop(), wanted)
+    stream = _Stream(asyncio.get_running_loop(), wanted, tier)
     with _lock:
         # Registering and reading the history together is what stops an event
         # arriving in between from being both replayed and delivered live.
         _streams.append(stream)
         position = _seq
-        backlog, resumed = _replay(_resume_point(last_event_id), wanted)
+        backlog, resumed = _replay(_resume_point(last_event_id), wanted, tier)
 
     try:
         yield f"retry: {RETRY_MS}\n\n"
@@ -405,6 +426,7 @@ async def _stream(wanted: frozenset[str] | None,
             response_class=StreamingResponse,
             dependencies=[requires(scopes.EVENTS_SUBSCRIBE)])
 async def subscribe(
+    request: Request,
     names: str = Query("", alias="events",
                        description="Comma-separated event names. Empty means all of them."),
     last_event_id: str | None = Header(
@@ -412,7 +434,7 @@ async def subscribe(
 ) -> StreamingResponse:
     wanted = _parse_filter(names)
     return StreamingResponse(
-        _stream(wanted, last_event_id),
+        _stream(wanted, last_event_id, jobs_api.caller_tier(request)),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

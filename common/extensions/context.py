@@ -1274,11 +1274,13 @@ class ExtensionJobs:
         across."""
         from common import jobs
 
+        mark = reach.current()
         return jobs.submit(
             f"{self._name}.{str(kind or '').strip()}", reach.carried(work),
             stop_link=f"/api/v1/ext/{self._name}/jobs/{str(kind or '').strip()}/stop"
             if stoppable else "",
-            keep_result=keep_result)
+            keep_result=keep_result, extension=self._name,
+            tier=mark.tier if mark is not None else reach.LIBRARY)
 
     def stop(self, kind: str) -> bool:
         """Ask this extension's running job of that kind to end early. False where there
