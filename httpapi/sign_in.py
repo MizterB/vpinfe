@@ -17,7 +17,16 @@ from common.i18n import t
 from common.install_identity import display_name
 
 from . import scopes
-from .auth import COOKIE, caller_is_local, caller_session, requires, session_for
+from .auth import (
+    COOKIE,
+    caller_address,
+    caller_is_encrypted,
+    caller_is_local,
+    caller_session,
+    request_is_https,
+    requires,
+    session_for,
+)
 from .errors import CODE_FORBIDDEN, CODE_TOO_MANY_REQUESTS, ApiError
 from .models import (
     ConfirmAsk,
@@ -65,8 +74,7 @@ def _refusal(error: sign_in.SignInError) -> ApiError:
 
 
 def _address(request: Request) -> str:
-    client = request.client
-    return this_machine.normalized(client.host) if client and client.host else ""
+    return caller_address(request)
 
 
 def _same_site(request: Request) -> None:
@@ -103,7 +111,7 @@ def ask(request: Request, response: Response) -> SignInAsk:
     browser = request.cookies.get(ASKING) or secrets.token_urlsafe(24)
     asked = _asked(_address(request), browser)
     response.set_cookie(ASKING, browser, max_age=sign_in.CODE_SECONDS, httponly=True,
-                        samesite="strict", secure=request.url.scheme == "https", path="/")
+                        samesite="strict", secure=request_is_https(request), path="/")
     return asked
 
 
@@ -113,7 +121,7 @@ def ask(request: Request, response: Response) -> SignInAsk:
 def sign_in_with_code(attempt: SignInAttempt, request: Request, response: Response) -> SignedIn:
     token = _verified(attempt, request)
     response.set_cookie(COOKIE, token, max_age=sign_in.SESSION_SECONDS, httponly=True,
-                        samesite="lax", secure=request.url.scheme == "https", path="/")
+                        samesite="lax", secure=request_is_https(request), path="/")
     return SignedIn()
 
 
@@ -124,8 +132,9 @@ def me(request: Request) -> WhoAmI:
     return WhoAmI(signed_in=session is not None, local=caller_is_local(request),
                   kind=session.kind if session else "",
                   session_id=session.id if session else "",
-                  confirmed=session is not None
-                  and sign_in.instance().is_confirmed(session.id))
+                  confirmed=session is not None and session.kind == sign_in.OWNER
+                  and (caller_is_encrypted(request)
+                       or sign_in.instance().is_confirmed(session.id)))
 
 
 @router.post("/sign_out", summary="Sign this browser out", response_model=SignedIn,
@@ -194,6 +203,8 @@ def confirmed(request: Request) -> ConfirmState:
     if caller_is_local(request) and caller_session(request) is None:
         return ConfirmState(confirmed=True, expires_in=sign_in.CONFIRM_SECONDS)
     session = caller_session(request)
+    if session is not None and session.kind == sign_in.OWNER and caller_is_encrypted(request):
+        return ConfirmState(confirmed=True, expires_in=sign_in.CONFIRM_SECONDS)
     left = sign_in.instance().confirm_left(session.id) if session else 0
     return ConfirmState(confirmed=left > 0, expires_in=left)
 

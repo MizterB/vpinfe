@@ -248,7 +248,7 @@ def wait_for_manager_ui_ready(port: int, timeout_seconds: float = 15.0) -> None:
     deadline = time.time() + timeout_seconds
     while time.time() < deadline:
         try:
-            _ur.urlopen(f"http://localhost:{port}/api/v1/health", timeout=1)
+            _ur.urlopen(f"http://localhost:{serving.loopback_or(port)}/api/v1/health", timeout=1)
             return
         except Exception:
             time.sleep(0.5)
@@ -267,7 +267,6 @@ def _wait_out_setup(iniconfig: ConfigStore, frontend_browser: ChromiumManager,
     """
     from common.paths import get_ini_config
 
-    network = serving.network(iniconfig)
     displays = DisplayConfig.from_config(iniconfig)
     screen_id = displays.playfield_screen_id
     monitors = get_display_monitors()
@@ -275,7 +274,7 @@ def _wait_out_setup(iniconfig: ConfigStore, frontend_browser: ChromiumManager,
     logger.info("Setup pending: opening Setup in a chromium window.")
     frontend_browser.launch_window(
         window_name="table",
-        url=f"http://localhost:{network.http_port}/?setup=window",
+        url=f"http://localhost:{serving.own_port(iniconfig)}/?setup=window",
         monitor=monitor,
         index=0,
     )

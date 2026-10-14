@@ -55,7 +55,7 @@ def join(card: str) -> dict[str, Any]:
 
     Never call this on the server's event loop: the request waits on the loop it holds.
     """
-    port = serving.network(get_ini_config()).http_port
+    port = serving.own_port(get_ini_config())
     url = f"http://127.0.0.1:{port}/api/v1/players/guests/card"
     try:
         response = requests.post(url, json={"card": card}, timeout=TIMEOUT)

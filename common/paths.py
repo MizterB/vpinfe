@@ -118,6 +118,7 @@ SECRETS_PATH = CONFIG_DIR / "secrets.json"
 ACCEPTED_PATH = CONFIG_DIR / "accepted.json"
 SESSIONS_PATH = CONFIG_DIR / "sessions.json"
 TOKENS_PATH = CONFIG_DIR / "tokens.json"
+CONNECTIONS_PATH = CONFIG_DIR / "connections.json"
 UPDATES_DIR = STATE_DIR / "updates"
 USER_CONFIG_PATH = VPINFE_INI_PATH
 USER_ROMS_PATH = CACHE_DIR / "roms.json"

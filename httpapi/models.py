@@ -3997,6 +3997,33 @@ class TokensEnded(ApiModel):
     ended: int
 
 
+class ConnectionEntry(ApiModel):
+    """One address for Trusted Proxies, or one range for Encrypted Networks."""
+
+    value: str
+
+
+class CertificateChoice(ApiModel):
+    certfile: str
+    keyfile: str
+
+
+class EncryptedConnections(ApiModel):
+    """The two lists, the certificate chosen, and whether this run answers HTTPS.
+
+    `problem` is why a chosen certificate was not used and this run answers plain HTTP.
+    `encrypted` is whether the request being answered arrived inside an encrypted
+    connection."""
+
+    proxies: list[str]
+    networks: list[str]
+    certfile: str = ""
+    keyfile: str = ""
+    https: bool = False
+    problem: str = ""
+    encrypted: bool = False
+
+
 class PairAsk(ApiModel):
     """A pairing code is on this computer's screen."""
 

@@ -577,6 +577,30 @@ class Library:
     def revoke_token(self, token_id: str) -> None:
         self._client.revoke_token(token_id)
 
+    def encrypted(self) -> dict:
+        return self._client.encrypted()
+
+    def add_trusted_proxy(self, address: str) -> dict:
+        return self._client.add_trusted_proxy(address)
+
+    def remove_trusted_proxy(self, address: str) -> None:
+        self._client.remove_trusted_proxy(address)
+
+    def add_encrypted_network(self, text: str) -> dict:
+        return self._client.add_encrypted_network(text)
+
+    def add_tailscale(self) -> dict:
+        return self._client.add_tailscale()
+
+    def remove_encrypted_network(self, text: str) -> None:
+        self._client.remove_encrypted_network(text)
+
+    def choose_certificate(self, certfile: str, keyfile: str) -> dict:
+        return self._client.choose_certificate(certfile, keyfile)
+
+    def clear_certificate(self) -> None:
+        self._client.clear_certificate()
+
     def renew_remote_code(self) -> int:
         return self._client.renew_remote_code()
 

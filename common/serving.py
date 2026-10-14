@@ -14,7 +14,7 @@ from typing import Any, Literal
 from common import device_registry
 from common.config_access import NetworkConfig
 
-Port = Literal["http_port", "ws_port", "theme_assets_port"]
+Port = Literal["http_port", "ws_port", "theme_assets_port", "loopback_port"]
 _bound: dict[str, int] = {}
 
 
@@ -50,6 +50,17 @@ def network(config: Any) -> NetworkConfig:
         http_port=_bound.get("http_port", configured.http_port),
         ws_port=_bound.get("ws_port", configured.ws_port),
         theme_assets_port=_bound.get("theme_assets_port", configured.theme_assets_port))
+
+
+def loopback_or(port: int) -> int:
+    """The port this computer's own windows call this install on: the loopback listener
+    while HTTPS is on, else `port`."""
+    return _bound.get("loopback_port") or port
+
+
+def own_port(config: Any) -> int:
+    """`loopback_or` the HTTP port this process was started on."""
+    return loopback_or(network(config).http_port)
 
 
 def publish() -> None:

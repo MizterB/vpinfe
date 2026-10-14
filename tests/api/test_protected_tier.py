@@ -43,6 +43,7 @@ class TierCase(unittest.TestCase):
         root = Path(holder.name)
         self.clock = Clock()
         self.signer = sign_in.SignIn(root / "sessions.json", self.clock)
+        self.addCleanup(self.signer.wait_for_saves)
         self.tokens = api_tokens.Tokens(root / "tokens.json", self.clock)
         self.addCleanup(sign_in.use, sign_in.instance())
         self.addCleanup(api_tokens.use, api_tokens.instance())
@@ -225,16 +226,16 @@ class TheActingHeaderTests(TierCase):
         self.assertIsNone(auth.acting_for(_request("127.0.0.1", **stale)))
 
     def test_a_header_with_a_forged_signature_counts_for_nothing(self) -> None:
-        forged = f"abc.{int(time.time()) + 30}.{'0' * 64}"
+        forged = f"abc.{int(time.time()) + 30}.0.{'0' * 64}"
 
         self.assertIsNone(auth.acting_for(_request("127.0.0.1", **{auth.ACTING_HEADER: forged})))
 
     def signed(self, offset: int) -> str:
-        body = f"abc.{int(time.time()) + offset}"
+        body = f"abc.{int(time.time()) + offset}.0"
         return f"{body}.{auth._acting_mac(body)}"
 
     def test_a_header_that_does_not_hold_leaves_the_caller_a_stranger(self) -> None:
-        forged = f"abc.{int(time.time()) + 30}.{'0' * 64}"
+        forged = f"abc.{int(time.time()) + 30}.0.{'0' * 64}"
         for name, value in (("garbage", "not-a-header"), ("forged", forged),
                             ("expired", self.signed(-5))):
             with self.subTest(header=name):

@@ -47,7 +47,7 @@ def local_base_url() -> str:
     derived from features, so an install with no library of its own has no library
     sections for a remote catalog to fill.
     """
-    return f"http://127.0.0.1:{serving.network(get_ini_config()).http_port}"
+    return f"http://127.0.0.1:{serving.own_port(get_ini_config())}"
 
 
 class ApiError(RuntimeError):
@@ -88,8 +88,8 @@ class _WordedSession(requests.Session):
     def _send(self, who: acting.Acting | None, method: str, url: str,
               **kwargs: Any) -> requests.Response:
         if who is not None:
-            kwargs["headers"] = {**(kwargs.get("headers") or {}),
-                                 auth.ACTING_HEADER: auth.sign_acting(who.session_id)}
+            signed = auth.sign_acting(who.session_id, who.encrypted)
+            kwargs["headers"] = {**(kwargs.get("headers") or {}), auth.ACTING_HEADER: signed}
         return super().request(method, url, **kwargs)
 
     @staticmethod
@@ -241,6 +241,33 @@ class ApiClient:
 
     def revoke_token(self, token_id: str) -> None:
         self._delete(f"/auth/tokens/{quote(token_id, safe='')}")
+
+    def encrypted(self) -> dict:
+        """The Trusted Proxies, the Encrypted Networks and the certificate chosen, and
+        whether this run answers HTTPS."""
+        return self._get("/auth/encrypted")
+
+    def add_trusted_proxy(self, address: str) -> dict:
+        return self._post("/auth/encrypted/proxies", {"value": address})
+
+    def remove_trusted_proxy(self, address: str) -> None:
+        self._delete(f"/auth/encrypted/proxies?address={quote(address, safe='')}")
+
+    def add_encrypted_network(self, text: str) -> dict:
+        return self._post("/auth/encrypted/networks", {"value": text})
+
+    def add_tailscale(self) -> dict:
+        return self._post("/auth/encrypted/networks/tailscale", {})
+
+    def remove_encrypted_network(self, text: str) -> None:
+        self._delete(f"/auth/encrypted/networks?range={quote(text, safe='')}")
+
+    def choose_certificate(self, certfile: str, keyfile: str) -> dict:
+        return self._put("/auth/encrypted/certificate",
+                         {"certfile": certfile, "keyfile": keyfile})
+
+    def clear_certificate(self) -> None:
+        self._delete("/auth/encrypted/certificate")
 
     def renew_remote_code(self) -> int:
         """Make a new Remote Code. How many phones that came in with the old one are out."""

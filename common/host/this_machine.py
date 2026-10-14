@@ -6,7 +6,9 @@ and a browser that sent it did so from a page of VPinFE's own. A page on another
 the last, a DNS-rebound name fails the third, and a proxy fails the second.
 
 Judged from the socket's address and the request's Host, Origin and Sec-Fetch-Site, never
-from a forwarding header: those are written by the caller.
+from a forwarding header: those are written by the caller. A proxy the Owner has listed is
+the one exception, and only for who the client was and whether it came in over HTTPS
+(common/encrypted_connections.py); a request through it is still never this machine's own.
 """
 
 from __future__ import annotations
@@ -18,7 +20,7 @@ import time
 from collections.abc import Mapping
 from urllib.parse import urlsplit
 
-from common import serving
+from common import encrypted_connections, serving
 from common.host import addresses
 
 LOOPBACK_NAMES = frozenset({"localhost", "ip6-localhost", "ip6-loopback"})
@@ -49,14 +51,7 @@ _interfaces_taken = 0.0
 
 def normalized(address: str) -> str:
     """An address in one spelling, so `::ffff:10.0.0.5` and `10.0.0.5` compare equal."""
-    text = address.split("%", 1)[0].strip().lower()
-    try:
-        parsed = ipaddress.ip_address(text)
-    except ValueError:
-        return text
-    if isinstance(parsed, ipaddress.IPv6Address) and parsed.ipv4_mapped is not None:
-        return str(parsed.ipv4_mapped)
-    return str(parsed)
+    return encrypted_connections.canonical(address)
 
 
 def _interface_addresses() -> set[str]:
@@ -208,11 +203,24 @@ def origin_is_ours(origin: str, host: str, *, test_peer: bool = False) -> bool:
             and names_this_machine(origin_host, test_peer=test_peer))
 
 
-def request_is_this_machine(peer: str | None, headers: Mapping[str, str]) -> bool:
+def came_through_listed_proxy(peer: str | None, port: int | None) -> bool:
+    """Whether the request came from a proxy the Owner listed, and not on the port this
+    machine's own windows use. That port exists only while HTTPS is on; with none, a proxy
+    on this computer cannot be told from a window, and the list changes nothing here."""
+    own = serving.bound_port("loopback_port")
+    return (own is not None and port != own
+            and encrypted_connections.instance().is_proxy(peer))
+
+
+def request_is_this_machine(peer: str | None, headers: Mapping[str, str],
+                            port: int | None = None) -> bool:
     """The machine's own trust. A request with no Origin is not a page's script, so Origin
     is checked only where it is sent; `Sec-Fetch-Site` catches the cross-site request a
-    browser sends without one, such as an image or a navigation."""
+    browser sends without one, such as an image or a navigation. `port` is the one the
+    request came in on."""
     if not peer_is_this_machine(peer):
+        return False
+    if came_through_listed_proxy(peer, port):
         return False
     lowered = {str(key).lower(): value for key, value in headers.items()}
     if is_forwarded(lowered):

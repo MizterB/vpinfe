@@ -40,6 +40,7 @@ class Acting:
     session_id: str
     client: Client
     loop: asyncio.AbstractEventLoop
+    encrypted: bool = False
 
 
 _current: contextvars.ContextVar[Acting | None] = contextvars.ContextVar(
@@ -63,7 +64,8 @@ def _page_acting() -> Acting | None:
     if request is None or auth.caller_is_local(request):
         return None
     session = auth.session_for(request)
-    return Acting(session.id if session else auth.NOBODY, client, loop)
+    return Acting(session.id if session else auth.NOBODY, client, loop,
+                  auth.caller_is_encrypted(request))
 
 
 def play_only() -> bool:

@@ -86,15 +86,13 @@ def _redeem(scope: Scope) -> Response | None:
     held = auth.session_for(request)
     if held is not None and (held.kind == sign_in.OWNER or held.via == pass_id):
         return None
-    client = request.client
-    address = client.host if client and client.host else ""
     token, _ = sign_in.instance().open(
-        kind=sign_in.REMOTE, address=address, via=pass_id,
+        kind=sign_in.REMOTE, address=auth.caller_address(request), via=pass_id,
         agent=sign_in.describe_agent(request.headers.get("user-agent", "")))
     target = scope["path"] + "?" + scope["query_string"].decode("latin-1")
     response = RedirectResponse(target, status_code=303)
     response.set_cookie(auth.COOKIE, token, max_age=sign_in.SESSION_SECONDS, httponly=True,
-                        samesite="lax", secure=request.url.scheme == "https", path="/")
+                        samesite="lax", secure=auth.request_is_https(request), path="/")
     return response
 
 

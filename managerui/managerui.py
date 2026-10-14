@@ -16,7 +16,7 @@ import threading
 
 from nicegui import app, context, ui
 
-from common import machine_secrets, serving
+from common import encrypted_connections, machine_secrets, serving
 from common.failures import why
 from common.online.app_updater import (
     check_now,
@@ -26,6 +26,7 @@ from common.online.app_updater import (
 )
 from common.vpinfe_version import get_version
 
+from . import loopback
 from .page_registry import NAV_PAGES, PAGE_ALIASES
 from .pages import collections as tab_collections
 from .pages import games as tab_games
@@ -371,10 +372,12 @@ _ui_port = 8001
 # Every interface, which is what the Manager UI has always answered on. Configurable so
 # an install can pull it back to this machine, not because the default changes.
 _ui_bind = "0.0.0.0"
+_tls: dict[str, str] = {}
 
 
 def _manager_ui_urls(port: int) -> list[str]:
-    urls = [f"http://localhost:{port}"]
+    scheme = "https" if _tls else "http"
+    urls = [f"{scheme}://localhost:{port}"]
     seen = {"127.0.0.1", "0.0.0.0", "::1"}
     resolved_ips: list[str] = []
     resolve_error: list[Exception] = []
@@ -409,7 +412,7 @@ def _manager_ui_urls(port: int) -> list[str]:
 
     for ip in resolved_ips:
         seen.add(ip)
-        urls.append(f"http://{ip}:{port}")
+        urls.append(f"{scheme}://{ip}:{port}")
     return urls
 
 # The route is named /favicon.ico whatever the file is; the browser reads the content
@@ -431,6 +434,9 @@ def _run_ui():
     # That is *not* the same as a live language switch. 202 labels are built at import,
     # in the module-level COLUMNS lists of eight Console pages, so changing the setting
     # takes a restart. The setting's own description says so.
+    # A forwarding header is believed by `common.encrypted_connections`, from a listed
+    # proxy alone. uvicorn's own rewriting of the peer would hide the real socket address
+    # from that check.
     ui.run(title='VPinFE Manager UI',
            favicon=_FAVICON,
            host=_ui_bind,
@@ -439,16 +445,39 @@ def _run_ui():
            show=False,
            language=i18n.nicegui_language(),
            storage_secret=storage_secret,
-           log_config=None)
+           log_config=None,
+           proxy_headers=False,
+           **_tls)
+
+
+def _certificate_to_serve() -> dict[str, str]:
+    """The keyword arguments that make the network port answer HTTPS, or none where no
+    certificate is chosen or the one chosen cannot be read, in which case this says so and
+    the run is plain HTTP."""
+    certfile, keyfile = encrypted_connections.instance().certificate()
+    if not certfile:
+        encrypted_connections.https_failed("")
+        return {}
+    reason = encrypted_connections.unreadable_reason(certfile, keyfile)
+    if reason:
+        logger.warning("The HTTPS certificate cannot be used (%s); serving plain HTTP", reason)
+        encrypted_connections.https_failed(reason)
+        return {}
+    encrypted_connections.https_started()
+    return {"ssl_certfile": certfile, "ssl_keyfile": keyfile}
+
 
 def start_manager_ui(port=8001, bind="0.0.0.0"):
-    global _ui_thread, _ui_port, _ui_bind
+    global _ui_thread, _ui_port, _ui_bind, _tls
     serving.bound("http_port", port)
     _ui_port = port
     _ui_bind = bind
     if _ui_thread and _ui_thread.is_alive():
         logger.info("Manager UI is already running")
         return _ui_thread
+    _tls = _certificate_to_serve()
+    if _tls:
+        loopback.serve_on_startup(loopback.bind())
     _ui_thread = threading.Thread(target=_run_ui, daemon=True)
     _ui_thread.start()
     return _ui_thread

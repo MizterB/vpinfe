@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import shutil
+import ssl
 import urllib.request
 from http.client import HTTPException
 from pathlib import Path
@@ -81,13 +82,18 @@ def running_instance(http_port: int, timeout: float = 10.0) -> bool:
     The timeout stays long: a busy machine answers late, and a late answer judged as
     none lets the reset through under a live instance.
     """
-    try:
-        with urllib.request.urlopen(
-                f"http://127.0.0.1:{int(http_port)}/api/v1/", timeout=timeout) as handle:
-            document = json.load(handle)
-    except (OSError, ValueError, HTTPException):
-        return False
-    return isinstance(document, dict) and document.get("name") == "VPinFE"
+    unverified = ssl.create_default_context()
+    unverified.check_hostname, unverified.verify_mode = False, ssl.CERT_NONE
+    for scheme in ("http", "https"):
+        try:
+            with urllib.request.urlopen(f"{scheme}://127.0.0.1:{int(http_port)}/api/v1/",
+                                        timeout=timeout, context=unverified) as handle:
+                document = json.load(handle)
+        except (OSError, ValueError, HTTPException):
+            continue
+        if isinstance(document, dict) and document.get("name") == "VPinFE":
+            return True
+    return False
 
 
 def reset(game_root: str | Path | None, config_dir: str | Path, *, http_port: int,

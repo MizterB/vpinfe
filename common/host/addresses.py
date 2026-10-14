@@ -16,6 +16,8 @@ from __future__ import annotations
 import ipaddress
 import socket
 
+from common import encrypted_connections
+
 
 def usable_ipv4(value: str) -> bool:
     """Whether this is an address something else on the network could dial.
@@ -76,9 +78,24 @@ def hosts() -> list[str]:
     return found
 
 
+def served_names() -> list[str]:
+    """The names the certificate vouches for while this run answers HTTPS, else none."""
+    if not encrypted_connections.listening().https:
+        return []
+    return encrypted_connections.certificate_names(
+        encrypted_connections.instance().certificate()[0])
+
+
+def scheme() -> str:
+    return "https" if encrypted_connections.listening().https else "http"
+
+
 def urls(port: int, path: str = "/") -> list[str]:
-    """The same list as somewhere to go."""
-    return [f"http://{host}:{int(port)}{path}" for host in hosts()]
+    """The same list as somewhere to go. While HTTPS is on the names the certificate
+    vouches for lead, so the address handed out is one a browser accepts."""
+    named = served_names()
+    ordered = [*named, *(host for host in hosts() if host not in named)]
+    return [f"{scheme()}://{host}:{int(port)}{path}" for host in ordered]
 
 
 def best(port: int, path: str = "/") -> str:

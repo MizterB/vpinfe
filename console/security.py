@@ -16,7 +16,16 @@ from common import paths, sign_in
 from common import serving as serving_state
 from common.failures import why
 from common.i18n import t
-from console import confirm, deeplink, offload, panel, token_panel, verbs, when
+from console import (
+    confirm,
+    deeplink,
+    encrypted_panel,
+    offload,
+    panel,
+    token_panel,
+    verbs,
+    when,
+)
 from console.data import Library
 from console.on_page import on_page
 from httpapi import auth
@@ -68,7 +77,8 @@ def _session_value(row: dict[str, Any], mine: str,
 
 
 def entries(rows: list[dict[str, Any]], mine: str, sign_out: Callable[[str], Any],
-            sign_out_all: Callable[[], Any], bind: str) -> list[tuple[Any, ...]]:
+            sign_out_all: Callable[[], Any], bind: str,
+            https: bool = False) -> list[tuple[Any, ...]]:
     """What the page shows, in order. Pure of the page, so a test reads it."""
     out: list[tuple[Any, ...]] = [(panel.HEADING, t("console.security.signed_in"))]
     if rows:
@@ -82,7 +92,8 @@ def entries(rows: list[dict[str, Any]], mine: str, sign_out: Callable[[str], Any
     if serving_state.reachable_from_elsewhere(bind):
         out.append((panel.HEADING, t("console.security.other_computers")))
         out.append(panel.intro(t("console.security.sign_in_steps")))
-        out.append(panel.intro(t("console.security.unencrypted")))
+        if not https:
+            out.append(panel.intro(t("console.security.unencrypted")))
         out.append((panel.FULL, panel.link(
             t("console.settings.page_network"),
             to="/console?" + deeplink.query({"view": "settings",
@@ -97,6 +108,7 @@ async def page(library: Library, redraw: Callable[[], None],
     try:
         rows = await offload.io(library.sessions)
         made = await offload.io(library.tokens)
+        held = await offload.io(library.encrypted)
     except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
         reason = why(exc)
         return lambda: panel.facts(ui, [panel.intro(t("console.security.read_failed"),
@@ -119,8 +131,10 @@ async def page(library: Library, redraw: Callable[[], None],
         await run.io_bound(library.sign_out_everyone)
         redraw()
 
-    return lambda: panel.facts(ui, entries(rows, mine, sign_out, sign_out_all, bind)
-                               + token_panel.page_parts(library, redraw, made))
+    return lambda: panel.facts(
+        ui, entries(rows, mine, sign_out, sign_out_all, bind, bool(held.get("https")))
+        + token_panel.page_parts(library, redraw, made)
+        + encrypted_panel.page_parts(library, redraw, held))
 
 
 _SIGN_OUT_HERE = ("async () => { await fetch('/api/v1/auth/sign_out', "

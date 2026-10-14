@@ -18,6 +18,7 @@ from common.config_access import (
     cfg_set,
 )
 from common.extensions.store import get_extension_store
+from common.host import addresses
 from common.host.addresses import usable_ipv4
 from common.values import is_truthy
 
@@ -82,8 +83,11 @@ def _managerui_remote_urls(config: ConfigSource) -> list[str]:
         if key in seen_hosts:
             return
         seen_hosts.add(key)
-        urls.append(f"http://{normalized}:{port}/remote?{access_keys.PASS_PARAM}={secret}")
+        urls.append(f"{addresses.scheme()}://{normalized}:{port}/remote"
+                    f"?{access_keys.PASS_PARAM}={secret}")
 
+    for name in addresses.served_names():
+        add_host(name)
     primary_ip = detect_primary_ipv4()
     if primary_ip:
         add_host(primary_ip)
@@ -189,7 +193,7 @@ def get_theme_assets_port(config: ConfigSource) -> int:
 
 
 def get_http_port(config: ConfigSource) -> int:
-    return serving.network(config).http_port
+    return serving.own_port(config)
 
 
 def get_managerui_remote_link(config: ConfigSource) -> dict[str, Any]:

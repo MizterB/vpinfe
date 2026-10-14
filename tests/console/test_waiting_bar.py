@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 from nicegui import ui
 
+from common import serving
 from console import confirm, offload, remembered, waiting
 from tests.support.clicks import said
 
@@ -91,7 +92,16 @@ class FollowingThePort(unittest.TestCase):
         self.assertIn("location.href = target", script)
 
     def test_does_nothing_on_the_port_already_open(self) -> None:
-        self.assertIn("if (port === here) return;", waiting.follow_script(8001))
+        self.assertIn("port === here", waiting.follow_script(8001))
+
+    def test_does_nothing_on_the_page_served_over_loopback(self) -> None:
+        serving.bound("loopback_port", 54321)
+        self.addCleanup(serving.forget)
+
+        script = waiting.follow_script(8011)
+
+        self.assertIn('const loopback = String(54321);', script)
+        self.assertIn("here === loopback", script)
 
 
 class TheBar(unittest.IsolatedAsyncioTestCase):

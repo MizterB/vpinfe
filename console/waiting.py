@@ -15,7 +15,7 @@ from typing import Any
 
 from nicegui import ui
 
-from common import lifecycle, settings_waiting
+from common import lifecycle, serving, settings_waiting
 from common.failures import why
 from common.i18n import t
 from console import confirm, offload, panel, remembered, verbs
@@ -84,12 +84,14 @@ def undo_plan(answer: dict[str, Any]) -> tuple[dict[str, dict[str, Any]], list[s
 def follow_script(port: int) -> str:
     """The browser's side of a restart that moves the Console: ask the new address until
     it answers, then go there. Nothing is done when the port is the one already open, and
-    the page's own reconnect covers that."""
+    the page's own reconnect covers that. A page on the loopback listener never follows: its
+    port is new at every start, and the one asked here is the network port."""
     return f"""
 (() => {{
   const port = String({int(port)});
   const here = location.port || (location.protocol === 'https:' ? '443' : '80');
-  if (port === here) return;
+  const loopback = String({int(serving.bound_port("loopback_port") or 0)});
+  if (port === here || here === loopback) return;
   const target = location.protocol + '//' + location.hostname + ':' + port;
   const until = Date.now() + {FOLLOW_FOR_S * 1000};
   const ask = async () => {{

@@ -21,7 +21,7 @@ from starlette.responses import Response
 from starlette.routing import BaseRoute, compile_path
 
 from common import api_tokens as tokens
-from common import extensions, machine_secrets, sign_in
+from common import encrypted_connections, extensions, machine_secrets, sign_in
 from common.extensions import reach
 from common.host import this_machine
 from common.i18n import t
@@ -78,16 +78,51 @@ class Identity:
         return reach.LIBRARY if self.can(scopes.CONFIG_WRITE) else reach.PLAY
 
 
+def _peer(request: HTTPConnection) -> str | None:
+    client = getattr(request, "client", None)
+    return getattr(client, "host", None) or None
+
+
+def _port(request: HTTPConnection) -> int | None:
+    server = (getattr(request, "scope", None) or {}).get("server")
+    return server[1] if server and len(server) > 1 else None
+
+
 def caller_is_local(request: HTTPConnection) -> bool:
     """Whether the request is this machine's own: its socket, a name it answers to, no
     forwarding header, and a page of VPinFE's own when a browser sent it. No client at all
     is an in-process call rather than a socket, so there is no remote party to be cautious
     about.
     """
-    client = getattr(request, "client", None)
-    if client is None or not getattr(client, "host", None):
+    peer = _peer(request)
+    if peer is None:
         return True
-    return this_machine.request_is_this_machine(client.host, request.headers)
+    return this_machine.request_is_this_machine(peer, request.headers, _port(request))
+
+
+def caller_address(request: HTTPConnection) -> str:
+    """Who the request came from, as a person would name it: the client a listed proxy
+    forwarded for, else the socket's own address."""
+    return encrypted_connections.forwarded_for(_peer(request), request.headers)
+
+
+def caller_is_encrypted(request: HTTPConnection) -> bool:
+    """Whether the request arrived over HTTPS, through a listed proxy that says it did, or
+    from inside an Encrypted Network. A Console call made for a browser on another computer
+    says whether that browser's page came in over one."""
+    claim = _acting_claim(request)
+    if claim is not None:
+        return claim[1]
+    scheme = getattr(getattr(request, "url", None), "scheme", "http")
+    return encrypted_connections.is_encrypted(_peer(request), request.headers, scheme)
+
+
+def request_is_https(request: HTTPConnection) -> bool:
+    """Whether the browser spoke HTTPS to this server or to a proxy listed for it, for a
+    cookie that should only travel that way. An Encrypted Network says nothing about the
+    scheme."""
+    scheme = getattr(getattr(request, "url", None), "scheme", "http")
+    return scheme == "https" or encrypted_connections.said_https(_peer(request), request.headers)
 
 
 def session_for(request: HTTPConnection) -> sign_in.Session | None:
@@ -107,9 +142,10 @@ def session_for(request: HTTPConnection) -> sign_in.Session | None:
 NOBODY = "-"
 
 
-def sign_acting(session_id: str) -> str:
-    """The header value saying a loopback call is made for this sign-in, or for nobody."""
-    body = f"{session_id}.{int(time.time()) + ACTING_SECONDS}"
+def sign_acting(session_id: str, encrypted: bool = False) -> str:
+    """The header value saying a loopback call is made for this sign-in, or for nobody, and
+    whether the browser it is made for reached this page over an encrypted connection."""
+    body = f"{session_id}.{int(time.time()) + ACTING_SECONDS}.{int(encrypted)}"
     return f"{body}.{_acting_mac(body)}"
 
 
@@ -118,21 +154,28 @@ def _acting_mac(body: str) -> str:
                     "sha256").hexdigest()
 
 
-def acting_for(request: HTTPConnection) -> str | None:
-    """Who a loopback call says it is made for: a sign-in's id, `NOBODY`, or None when it
-    says nothing, or says something that does not hold: a header from anywhere but this
-    computer, a stale one, one signed with another secret. `identify` tells those two apart."""
+def _acting_claim(request: HTTPConnection) -> tuple[str, bool] | None:
     headers = getattr(request, "headers", None)
     value = headers.get(ACTING_HEADER, "") if headers is not None else ""
     if not value or not caller_is_local(request):
         return None
     session_id, _, rest = value.partition(".")
-    expires, _, mac = rest.partition(".")
-    if not session_id or not expires.isdigit() or int(expires) < time.time():
+    expires, _, rest = rest.partition(".")
+    encrypted, _, mac = rest.partition(".")
+    if (not session_id or not expires.isdigit() or int(expires) < time.time()
+            or encrypted not in ("0", "1")):
         return None
-    if not hmac.compare_digest(_acting_mac(f"{session_id}.{expires}"), mac):
+    if not hmac.compare_digest(_acting_mac(f"{session_id}.{expires}.{encrypted}"), mac):
         return None
-    return session_id
+    return session_id, encrypted == "1"
+
+
+def acting_for(request: HTTPConnection) -> str | None:
+    """Who a loopback call says it is made for: a sign-in's id, `NOBODY`, or None when it
+    says nothing, or says something that does not hold: a header from anywhere but this
+    computer, a stale one, one signed with another secret. `identify` tells those two apart."""
+    claim = _acting_claim(request)
+    return claim[0] if claim else None
 
 
 def acting_session(request: HTTPConnection) -> sign_in.Session | None:
@@ -172,15 +215,15 @@ class SignInPolicy:
                     return self._stranger()
                 return Identity(name="local", scopes=everything, origin=LOCAL)
             acting = sign_in.instance().session(claimed)
-            return self._signed_in(acting, everything) if acting is not None \
-                else self._stranger()
+            return self._signed_in(acting, everything, caller_is_encrypted(request)) \
+                if acting is not None else self._stranger()
         bearer = bearer_token(request)
         if bearer:
             token = tokens.instance().lookup(bearer)
             return self._holder(token) if token is not None else self._stranger()
         session = session_for(request)
-        return self._signed_in(session, everything) if session is not None \
-            else self._stranger()
+        return self._signed_in(session, everything, caller_is_encrypted(request)) \
+            if session is not None else self._stranger()
 
     @staticmethod
     def _stranger() -> Identity:
@@ -188,12 +231,13 @@ class SignInPolicy:
                         origin=NETWORK)
 
     @staticmethod
-    def _signed_in(session: sign_in.Session, everything: frozenset[str]) -> Identity:
+    def _signed_in(session: sign_in.Session, everything: frozenset[str],
+                   encrypted: bool = False) -> Identity:
         """A Remote pass is Play and nothing more.  An Owner holds everything but the Protected
-        tier, which a live Confirm adds."""
+        tier, which a live Confirm adds, and an encrypted connection stands in for."""
         if session.kind != sign_in.OWNER:
             held = scopes.PLAY
-        elif sign_in.instance().is_confirmed(session.id):
+        elif encrypted or sign_in.instance().is_confirmed(session.id):
             held = everything
         else:
             held = everything - scopes.CONFIRMED

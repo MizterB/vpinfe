@@ -225,7 +225,8 @@ def _library_endpoint(network: NetworkConfig) -> LibraryEndpoint:
     own_api = network.http_port
     own_files = network.theme_assets_port
     if not trimmed:
-        return LibraryEndpoint("", own_api, own_api, own_files)
+        here = serving.loopback_or(own_api)
+        return LibraryEndpoint("", here, here, own_files)
 
     parsed = urlparse(trimmed)
     files = remote_library.remote_services(trimmed).get("files") or {}

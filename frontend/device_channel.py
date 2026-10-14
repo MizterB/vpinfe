@@ -141,7 +141,8 @@ class DeviceChannel:
             port = parts.port
         except ValueError:
             return False
-        ours = {serving.bound_port("theme_assets_port"), serving.bound_port("http_port")}
+        ours = {serving.bound_port("theme_assets_port"), serving.bound_port("http_port"),
+                serving.bound_port("loopback_port")}
         return parts.hostname in LOOPBACK_HOSTS and port is not None and port in ours
 
     async def _handle_connection(self, websocket: ServerConnection) -> None:
