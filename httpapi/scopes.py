@@ -50,6 +50,10 @@ SYSTEM_ADMIN = "system:admin"
 DEVICES_READ = "devices:read"
 DEVICES_WRITE = "devices:write"
 
+# The USB, serial and display devices this computer has. Not devices:*, which are other
+# VPinFE installs.
+HARDWARE_READ = "hardware:read"
+
 # How a user arranged a UI, kept on the install that holds the library so it follows
 # them between machines. Not
 # config:* - a column layout is not the same permission as reading where VPX lives.
@@ -84,7 +88,7 @@ CORE = frozenset({
     CONFIG_READ, CONFIG_WRITE,
     SYSTEM_READ, SYSTEM_ADMIN,
     EVENTS_SUBSCRIBE, JOBS_READ, INPUT_ACT,
-    DEVICES_READ, DEVICES_WRITE,
+    DEVICES_READ, DEVICES_WRITE, HARDWARE_READ,
     PREFERENCES_READ, PREFERENCES_WRITE,
     PLAYERS_READ, PLAYERS_WRITE,
     APPS_PROVIDE,

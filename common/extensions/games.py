@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Any
 from common.i18n import t
 
 from .contract import ContractError
+from .hardware import HARDWARE
 from .library_collections import COLLECTIONS
 from .offered import Offered
 
@@ -59,6 +60,7 @@ def withdraw_all() -> None:
     """For tests, which build an app per case and must not inherit the last one's."""
     _OFFERED.clear()
     COLLECTIONS.clear()
+    HARDWARE.clear()
 
 
 class ExtensionGames(Offered):

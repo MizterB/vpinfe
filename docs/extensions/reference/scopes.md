@@ -35,6 +35,7 @@ lists them in plain words for whoever installs it, and they decide which `ctx.ga
 | `jobs:read` | Read jobs |
 | `input:act` | Send input |
 | `devices:read`, `devices:write` | Read, change devices |
+| `hardware:read` | List the USB, serial and display devices this computer has, through `ctx.hardware`.  Not `devices:*`, which are other VPinFE installs |
 | `preferences:read`, `preferences:write` | Read, change preferences |
 | `instance:read` | Read the install's identity and the list of extensions |
 | `players:read`, `players:write` | Read, change players.  `ctx.players.roster` and the calls beside it need `players:read` |

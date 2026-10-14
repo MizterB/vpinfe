@@ -13,6 +13,7 @@ and the rest of the model rests on that.
 | `ctx.jobs` | Slow work, run the way core runs it |
 | `ctx.os` | What an operating system's helper does for it, one fixed method at a time |
 | `ctx.system` | Restart VPinFE, reboot or power off this computer |
+| `ctx.hardware` | The USB, serial and display devices this computer has |
 | `ctx.ui` | What it offers a person: settings, lists, actions, an account, what it holds |
 | `ctx.players` | Who plays here, and the accounts it holds for them |
 | `ctx.entries` | Something added to every entry a theme is handed |
@@ -453,7 +454,8 @@ request to Protected, only a request from this computer qualifies.
 
 Core does not ask the person.  By the time it runs the request is already made, so ask first
 in the extension, in the act's `summary`.  Each call answers at once and acts about a second
-later, so the answer to the request that asked is not lost with the process.  VPinFE's log, under the extension's own name, says where the request came from.
+later, so the answer to the request that asked is not lost with the process.  VPinFE's log,
+under the extension's own name, says where the request came from.
 
 Each call raises `ContractError` where `system:admin` is not declared and `PermissionError`
 for a call outside a Protected request, or for an action this install cannot perform.
@@ -481,3 +483,43 @@ Automation permission.
 `ctx.system.shut_down(reason="") -> dict`.
 
 Powers this computer off, with the same answer.  It has to be switched on again by hand.
+
+## `ctx.hardware`
+
+The devices on this computer, read the same way on Windows, macOS and Linux.  It needs
+`hardware:read` in the manifest's `scopes`.  That is the scope for asking core what is plugged
+in; the `hardware:usb` capability is the declaration for an extension that opens a USB device
+itself.  Core only lists devices.  It opens none, installs no udev rule and sets no device
+permission, so reaching one is the extension's own work.
+
+A serial number is never read.  A device's own interfaces are left out, and so is a hub
+where the OS says it is one.  A macOS hub with nothing plugged into it is listed.  A serial
+port is a USB one: `ttyUSB` and `ttyACM` on Linux, `cu.usb*` and the common adapter drivers'
+names on macOS, a COM port with USB ids on Windows.  Its name can carry the adapter's serial
+number, because the OS puts it there, and it is the path the extension opens.  Displays are
+read once when VPinFE starts; USB and serial are read on each call.
+
+| name | answers |
+|---|---|
+| `devices(kind=None)` | Every device of `kind`, which is `"usb"`, `"serial"` or `"display"`, or all three when it is left out |
+| `access_help()` | One line, in the language now set, on what lets a device open on this computer's OS.  Show it where a device is listed as not accessible |
+
+Each device is a dict of `kind`, `vendor_id` and `product_id` (four lowercase hex digits, `""`
+where there are none), `vendor`, `product`, `name`, `port` and `accessible`.  `port` is the
+serial port: a path such as `/dev/ttyACM0`, or `COM3`.  `accessible` is whether VPinFE may
+open the device, `None` where the OS cannot say without opening it.  A display also has `x`,
+`y`, `width` and `height`.
+
+A kind this computer cannot list is left out of the answer, never raised.  An unknown `kind`
+raises `ValueError`.
+
+```python
+for one in ctx.hardware.devices("usb"):
+    if (one["vendor_id"], one["product_id"]) == ("1209", "eaea"):
+        ...
+```
+
+### `ctx.hardware.reaches`
+
+`ctx.hardware.reaches() -> tuple[str, ...]`.  The names above this extension may call, which is
+none without `hardware:read`.

@@ -22,6 +22,7 @@ from collections.abc import Callable, Iterable
 from typing import Any
 
 from common.extensions.games import offer
+from common.extensions.hardware import offer_hardware
 from common.extensions.library_collections import offer_collection
 from common.games import (
     auto_match,
@@ -35,7 +36,8 @@ from common.games import (
     media_ops,
     table_ops,
 )
-from common.host import play_service
+from common.host import hardware, play_service
+from common.i18n import t
 from common.online import vpsdb_sync
 from common.paths import get_ini_config
 
@@ -167,6 +169,16 @@ COLLECTION_WRITES: dict[str, Callable[..., Any]] = {
 }
 
 
+def _access_help() -> str:
+    return t(hardware.access_help_key())
+
+
+HARDWARE_READS: dict[str, Callable[..., Any]] = {
+    "devices": hardware.list_devices,
+    "access_help": _access_help,
+}
+
+
 def offer_all() -> None:
     """Hand the whole table to the extension host. Once, before anything loads."""
     for name, run in READS.items():
@@ -183,3 +195,5 @@ def offer_all() -> None:
         offer_collection(name, scopes.COLLECTIONS_READ, run)
     for name, run in COLLECTION_WRITES.items():
         offer_collection(name, scopes.COLLECTIONS_WRITE, run)
+    for name, run in HARDWARE_READS.items():
+        offer_hardware(name, scopes.HARDWARE_READ, run)
