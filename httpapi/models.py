@@ -598,7 +598,8 @@ class PlayerAccount(ApiModel):
     whether `user_id` is registered with the service - free to change or drop until then,
     read-only after. `page` is the public page for a claimed account, empty otherwise.
     `fields` are as an extension's settings are, a secret one carrying `set` and never its
-    value; the account contract above leaves it empty. `card` says whether a card can be
+    value; with `fields` and no `user_id` the account is drawn as those fields alone, each
+    saved as it is left. `card` says whether a card can be
     made for this player now. `error` is why the extension could not answer, and the rest
     is then empty. `share_help` is what the extension says Share does with this account,
     empty where it says nothing. `consent` is what Share tells the player becomes public;

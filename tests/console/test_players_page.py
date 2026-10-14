@@ -192,6 +192,55 @@ class WhatCanBeDone(unittest.TestCase):
                           t("console.players.remove_card_detail", service="VPinPlay")])
 
 
+class AnAccountThatIsOnlyFields(unittest.TestCase):
+    """An extension that keeps a few values per player and no id: each is drawn as a
+    setting is, and saved to that player's account under its own key."""
+
+    def _rows(self, library: Mock, rebuild: AsyncMock, fields: list[dict[str, Any]]):
+        drawn: list[tuple[dict[str, Any], Any]] = []
+
+        def control(_client: Any, field: dict[str, Any], save: Any) -> Any:
+            drawn.append((field, save))
+            return lambda: None
+
+        context = {"library": library, "player": _player("p-jor"), "rebuild": rebuild}
+        for target, name, replacement in ((players.ext_page, "control", control),
+                                          (players, "on_page", lambda handler: handler)):
+            patcher = patch.object(target, name, replacement)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        rows = players._field_rows(context, {"extension": "scores"}, fields)
+        return rows, drawn
+
+    def test_each_field_is_a_row_under_its_label_with_its_help_after_it(self) -> None:
+        rows, drawn = self._rows(Mock(), AsyncMock(), [
+            {"key": "handle", "label": "Handle", "help": "Shown on the board"},
+            {"key": "key"}])
+
+        self.assertEqual([one[0] for one in rows if isinstance(one, tuple) and len(one) == 2
+                          and isinstance(one[0], str)], ["Handle", "key"])
+        self.assertEqual([field["key"] for field, _ in drawn], ["handle", "key"])
+
+    def test_saving_a_field_writes_it_to_that_players_account_and_redraws(self) -> None:
+        library, rebuild = Mock(), AsyncMock()
+        library.put_account.return_value = {"fields": []}
+        _, drawn = self._rows(library, rebuild, [{"key": "handle"}, {"key": "token"}])
+
+        asyncio.run(drawn[1][1]("abc"))
+
+        library.put_account.assert_called_once_with("p-jor", "scores", {"token": "abc"})
+        rebuild.assert_awaited_once()
+
+    def test_a_refusal_comes_back_for_the_box_to_show(self) -> None:
+        library, rebuild = Mock(), AsyncMock()
+        library.put_account.side_effect = RuntimeError("That handle is taken")
+        _, drawn = self._rows(library, rebuild, [{"key": "handle"}])
+
+        said = asyncio.run(drawn[0][1]("x", under=True))
+
+        self.assertIn("That handle is taken", said)
+
+
 class ThePanel(unittest.TestCase):
     def test_the_header_says_what_the_player_is(self) -> None:
         self.assertEqual([players.kind_word(one) for one in (

@@ -20,7 +20,7 @@ from . import accounts
 from . import cards as cards_module
 from .contract import ContractError, Manifest, words
 from .contract import why as worded
-from .fields import FieldError, settings_fields
+from .fields import FieldError, settings_fields, ticked
 from .games import ExtensionGames
 from .store import ExtensionStore
 
@@ -51,6 +51,11 @@ class ExtensionConfig:
         if stored.get(wanted):
             return stored[wanted]
         return self._declared().get(wanted) or stored.get(wanted, default)
+
+    def get_list(self, key: str) -> list[str]:
+        """The choices ticked in a `multi` setting; the declared default where none has
+        been saved."""
+        return ticked(self.get(key))
 
     def all(self) -> dict[str, str]:
         return self._store.settings(self._name)
@@ -280,7 +285,8 @@ class ExtensionUI:
     def settings(self, fields: Iterable[dict], *,
                  check: Callable[[dict], Any] | None = None) -> None:
         """This extension's settings. A field is `{"key", "type", "default", "choices"}`,
-        `type` one of `common.extensions.fields.SETTINGS_TYPES`.
+        `type` one of `common.extensions.fields.SETTINGS_TYPES`. A `number` may carry
+        `min`, `max` and `unit`; a `path` says what it `wants`: `dir`, `file` or `exe`.
 
         `check(values)` gets every setting as it would be after the change and raises to
         refuse it: the refusal is shown under the field that was changed.

@@ -10,6 +10,7 @@ from unittest import mock
 
 from nicegui import ui
 
+from common.i18n import t
 from console import vps_match, wizard, wizard_lists
 from tests.console.test_wizard_dialog import (
     _calls,
@@ -55,6 +56,52 @@ _TABLES = {
         "chips": [["new", "New"], ["have", "In VPinFE"], ["hidden", "Hidden"]],
     }],
 }
+
+
+_TOKEN = {"step": "key", "fields": [
+    {"key": "token", "type": "secret", "label": "Token", "set": True},
+    {"key": "name", "type": "string", "label": "Name"}]}
+
+
+class SecretTests(unittest.TestCase):
+    def _inputs(self, dialog: ui.dialog) -> list[ui.input]:
+        return [one for one in dialog.descendants() if isinstance(one, ui.input)]
+
+    def test_a_secret_is_drawn_empty_masked_and_says_it_is_set(self) -> None:
+        async def run() -> tuple[str, Any, str]:
+            task, dialog = await _opened(_calls(first=_TOKEN))
+            box = self._inputs(dialog)[0]
+            found = (box.value, box.props.get("type"), box.props.get("placeholder"))
+            await _finished(task)
+            return found
+
+        value, kind, placeholder = _ran(run)
+        self.assertEqual((value, kind), ("", "password"))
+        self.assertEqual(placeholder, t("console.ext_page.secret_set"))
+
+    def test_nothing_typed_sends_no_key_and_what_is_typed_is_sent(self) -> None:
+        seen: list[dict[str, Any]] = []
+
+        async def run() -> None:
+            task, dialog = await _opened(_walked(_TOKEN, seen))
+            said(_forward(dialog), "click")
+            await _settled()
+            await _finished(task)
+
+        _ran(run)
+        self.assertEqual(seen, [{"name": ""}])
+
+        seen.clear()
+
+        async def typed() -> None:
+            task, dialog = await _opened(_walked(_TOKEN, seen))
+            self._inputs(dialog)[0].set_value("abc")
+            said(_forward(dialog), "click")
+            await _settled()
+            await _finished(task)
+
+        _ran(typed)
+        self.assertEqual(seen, [{"token": "abc", "name": ""}])
 
 
 class ChecklistTests(unittest.TestCase):

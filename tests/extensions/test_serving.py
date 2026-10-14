@@ -69,6 +69,10 @@ def served(ctx: Any) -> None:
         {"key": "token", "type": "secret"},
         {"key": "loud", "type": "switch"},
         {"key": "mode", "type": "select", "choices": [["fast", "Fast"], ["slow", "Slow"]]},
+        {"key": "tags", "type": "multi", "default": ["a"],
+         "choices": [["a", "A"], ["b", "B"], ["c", "C"]]},
+        {"key": "volume", "type": "number", "min": 0, "max": 10, "unit": "dB", "default": 5},
+        {"key": "folder", "type": "path", "wants": "file"},
     ], check=check)
 
     def refresh() -> str:
@@ -189,8 +193,8 @@ def served(ctx: Any) -> None:
         def ask(self, step: str) -> Any:
             if step == "good":
                 return {"fields": []}
-            if step == "secret":
-                return {"fields": [{"key": "k", "type": "secret"}]}
+            if step == "unknown":
+                return {"fields": [{"key": "k", "type": "rating"}]}
             if step == "list":
                 return ["not", "a", "step"]
             if step == "down":
@@ -284,7 +288,8 @@ class Settings(ServedCase):
 
         self.assertEqual([(one["key"], one["type"]) for one in found],
                          [("greeting", "string"), ("token", "secret"), ("loud", "switch"),
-                          ("mode", "select")])
+                          ("mode", "select"), ("tags", "multi"), ("volume", "number"),
+                          ("folder", "path")])
 
     def test_a_label_comes_from_the_extensions_catalog_else_the_key(self) -> None:
         found = self.ok(self.get("/settings"))
@@ -345,6 +350,63 @@ class Settings(ServedCase):
                 self.ok(self.put_settings(loud=given))
                 self.assertEqual(self.store.settings(NAME)["loud"], kept)
 
+    def test_a_multi_reads_its_default_then_what_was_ticked(self) -> None:
+        self.assertEqual(self.setting(self.ok(self.get("/settings")), "tags")["value"], ["a"])
+
+        written = self.ok(self.put_settings(tags=["c", "b", "c"]))
+
+        self.assertEqual(self.setting(written, "tags")["value"], ["c", "b"])
+        self.assertEqual(self.store.settings(NAME)["tags"], '["c", "b"]')
+
+    def test_a_multi_with_a_key_that_is_not_a_choice_is_refused(self) -> None:
+        self.refused(self.put_settings(tags=["a", "z"]), 400,
+                     t("error.extensions.bad_choice", key="tags", value="z"))
+
+        self.assertNotIn("tags", self.store.settings(NAME))
+
+    def test_a_multi_that_is_not_a_list_is_refused_and_keeps_what_was_ticked(self) -> None:
+        self.ok(self.put_settings(tags=["a"]))
+
+        for given in ("a", 5, '{"a": 1}'):
+            with self.subTest(given=given):
+                self.refused(self.put_settings(tags=given), 400,
+                             t("error.extensions.bad_choice", key="tags", value=given))
+        self.assertEqual(self.store.settings(NAME)["tags"], '["a"]')
+
+    def test_a_number_reads_with_its_limits_and_is_stored_as_digits(self) -> None:
+        found = self.setting(self.ok(self.get("/settings")), "volume")
+        self.assertEqual((found["value"], found["min"], found["max"], found["unit"]),
+                         ("5", 0.0, 10.0, "dB"))
+
+        self.ok(self.put_settings(volume=7.0))
+
+        self.assertEqual(self.store.settings(NAME)["volume"], "7")
+
+    def test_a_number_outside_its_limits_or_not_a_number_is_refused(self) -> None:
+        for given in (11, "loud", "inf"):
+            with self.subTest(given=given):
+                self.refused(self.put_settings(volume=given), 400,
+                             t("error.extensions.bad_number", key="volume", value=given))
+        self.assertNotIn("volume", self.store.settings(NAME))
+
+    def test_a_path_reads_what_it_wants_and_keeps_the_text(self) -> None:
+        self.ok(self.put_settings(folder="/somewhere/file.txt"))
+
+        found = self.setting(self.ok(self.get("/settings")), "folder")
+
+        self.assertEqual((found["value"], found["wants"]), ("/somewhere/file.txt", "file"))
+
+    def test_none_clears_a_secret_and_empty_keeps_it(self) -> None:
+        self.put_settings(token=TOKEN)
+        self.put_settings(token="")
+        self.put_settings(token="   ")
+        self.assertEqual(self.store.settings(NAME)["token"], TOKEN)
+
+        found = self.ok(self.put_settings(token=None))
+
+        self.assertIs(self.setting(found, "token")["set"], False)
+        self.assertEqual(self.store.settings(NAME)["token"], "")
+
     def test_none_clears_a_setting(self) -> None:
         self.put_settings(greeting="hi")
 
@@ -371,7 +433,8 @@ class Settings(ServedCase):
         self.ok(self.put_settings(greeting="hi"))
 
         self.assertEqual(STATE["checked"],
-                         [{"greeting": "hi", "token": "", "loud": "false", "mode": "slow"}])
+                         [{"greeting": "hi", "token": "", "loud": "false", "mode": "slow",
+                           "tags": '["a"]', "volume": "5", "folder": ""}])
 
     def test_a_check_that_raises_refuses_with_its_line_and_the_field_named(self) -> None:
         with self.assertLogs(f"vpinfe.ext.{NAME}", "WARNING"):
@@ -741,10 +804,10 @@ class Dialogs(ServedCase):
                      t("error.extensions.no_run", display=self.display(), key="plain"))
 
     def test_a_field_the_wizard_does_not_draw_is_the_extensions_failure(self) -> None:
-        found = self.get("/actions/wrong", step="secret")
+        found = self.get("/actions/wrong", step="unknown")
 
         error = self.refused(found, 400)
-        self.assertIn("'k' as 'secret'", error["message"])
+        self.assertIn("'k' as 'rating'", error["message"])
         self.assertIn("Drawn:", error["message"])
         self.assertEqual(self.registry.get(NAME).state, host.LOADED)
 

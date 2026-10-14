@@ -7,19 +7,26 @@ is stopped when it is declared and not when somebody opens the page.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable
 from typing import Any
 
+from .accounts import scrubbed
 from .store import RESERVED
 
 # What `console/wizard.FIELD_TYPES` draws.
 DIALOG_TYPES: frozenset[str] = frozenset({
-    "string", "path", "select", "multi", "switch", "choice", "number", "checklist",
-    "settle",
+    "string", "secret", "path", "select", "multi", "switch", "choice", "number",
+    "checklist", "settle",
 })
 
 # What a settings page draws.
-SETTINGS_TYPES: frozenset[str] = frozenset({"string", "secret", "switch", "select"})
+SETTINGS_TYPES: frozenset[str] = frozenset({
+    "string", "secret", "switch", "select", "multi", "number", "path",
+})
+
+# Where a `path` setting's value must end up.
+PATH_KINDS: tuple[str, ...] = ("dir", "file", "exe")
 
 ALL_TYPES: frozenset[str] = DIALOG_TYPES | SETTINGS_TYPES
 
@@ -39,8 +46,8 @@ def settings_fields(name: str, fields: Iterable[Any]) -> list[dict]:
     """The settings an extension declared, in the form core keeps them: every key
     present once, every type one a settings page draws, a `default` that is text.
 
-    A `switch` defaults to `"false"` and is stored as `"true"`/`"false"`, like every
-    other setting: the file holds strings.
+    The file holds strings: a `switch` is `"true"`/`"false"` (default `"false"`), a `number`
+    its digits, a `multi` a JSON list of the choices ticked (default `"[]"`).
     """
     kept: list[dict] = []
     seen: set[str] = set()
@@ -75,16 +82,97 @@ def settings_fields(name: str, fields: Iterable[Any]) -> list[dict]:
             if default not in offered:
                 raise FieldError(f"{name} defaults the select {key!r} to {default!r}, "
                                  f"which is not one of its choices: {', '.join(offered)}")
+        extra: dict[str, Any] = {}
+        if kind == "multi":
+            if not choices:
+                raise FieldError(f"{name} declares the multi {key!r} with no choices")
+            offered = [value for value, _label in choices]
+            if default not in ("", None) and listed(default) is None:
+                raise FieldError(f"{name} defaults the multi {key!r} to {default!r}, "
+                                 "which is not a list of its choices")
+            chosen = ticked(default)
+            unknown = [one for one in chosen if one not in offered]
+            if unknown:
+                raise FieldError(f"{name} defaults the multi {key!r} to {unknown[0]!r}, "
+                                 f"which is not one of its choices: {', '.join(offered)}")
+            default = json.dumps(chosen)
+        elif kind == "number":
+            extra = _bounds(name, key, one)
+            if default not in ("", None) and number_text(default, extra) is None:
+                raise FieldError(f"{name} defaults the number {key!r} to {default!r}, "
+                                 "which is not a number inside its limits")
+        elif kind == "path":
+            wants = str(one.get("wants") or "dir")
+            if wants not in PATH_KINDS:
+                raise FieldError(f"{name} declares the path {key!r} as {wants!r}. "
+                                 f"Known: {', '.join(PATH_KINDS)}")
+            extra = {"wants": wants}
         kept.append({"key": key, "type": kind, "default": "" if default is None
-                     else str(default), "choices": choices})
+                     else str(default), "choices": choices, **extra})
     return kept
 
 
+def listed(value: Any) -> list[Any] | None:
+    """A multi's value as a list, from a list or from the JSON text it is stored as; None
+    where it is neither, so a malformed value is refused and not read as nothing ticked."""
+    if isinstance(value, str):
+        try:
+            value = json.loads(value) if value.strip() else []
+        except ValueError:
+            return None
+    return value if isinstance(value, list) else None
+
+
+def ticked(value: Any) -> list[str]:
+    """What a multi holds: the choices ticked, once each, in the order they were ticked.
+    Anything that is not a list holds none."""
+    seen: list[str] = []
+    for one in listed(value) or []:
+        if str(one) not in seen:
+            seen.append(str(one))
+    return seen
+
+
+def _bounds(name: str, key: str, one: dict) -> dict[str, Any]:
+    """A number's `min`, `max` and `unit`, where it declared them."""
+    bounds: dict[str, Any] = {}
+    for bound in ("min", "max"):
+        if one.get(bound) not in (None, ""):
+            try:
+                bounds[bound] = float(one[bound])
+            except (TypeError, ValueError) as exc:
+                raise FieldError(f"{name} gives the number {key!r} a {bound} that is not "
+                                 f"a number: {one[bound]!r}") from exc
+    if one.get("unit"):
+        bounds["unit"] = str(one["unit"])
+    return bounds
+
+
+def number_text(value: Any, bounds: dict[str, Any]) -> str | None:
+    """A number setting's value as it is stored - a whole number without its `.0` - or
+    None where it is not a finite number or is outside its limits."""
+    if isinstance(value, str) and "_" in value:
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if number != number or number in (float("inf"), float("-inf")):
+        return None
+    if number < bounds.get("min", number) or number > bounds.get("max", number):
+        return None
+    return str(int(number)) if number == int(number) else str(number)
+
+
 def dialog_fields(name: str, fields: Iterable[Any]) -> list[dict]:
-    """The fields a dialog's `ask` answered with, checked to be ones the wizard draws."""
+    """The fields a dialog's `ask` answered with, checked to be ones the wizard draws. A
+    secret goes out with `set` in place of its `value`: it is drawn empty whatever the
+    extension sent."""
     kept = []
     for one in fields:
         kind = str((one or {}).get("type") or "string")
+        if kind == "secret":
+            one = scrubbed(one)
         if kind not in DIALOG_TYPES:
             raise FieldError(
                 f"{name} asks for {(one or {}).get('key')!r} as {kind!r}, which a dialog "

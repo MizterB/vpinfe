@@ -324,7 +324,8 @@ An extension's settings, under its own name. See "Config" for where they are kep
 `ctx.config.get(key, default="") -> str`. Required: `key`.
 
 What is stored under `key`; where that is empty, the default the setting declares; where
-there is neither, `default`. Always a string. A switch is `"true"` or `"false"`.
+there is neither, `default`. Always a string. A switch is `"true"` or `"false"`, a number
+is its digits, and a multi is a JSON list: read it with `ctx.config.get_list`.
 
 ```python
 address = ctx.config.get("server")
@@ -332,6 +333,19 @@ retries = int(ctx.config.get("retries", "3"))
 ```
 
 The user sees the value they typed in the extension's settings. Does not raise.
+
+#### `ctx.config.get_list`
+
+`ctx.config.get_list(key) -> list[str]`. Required: `key`.
+
+The keys ticked in a `multi` setting, in the order they were ticked; the setting's declared
+default where none has been saved, and `[]` where that is empty.
+
+```python
+regions = ctx.config.get_list("regions")
+```
+
+Does not raise.
 
 #### `ctx.config.all`
 
@@ -535,8 +549,9 @@ declaration in full.
 
 `ctx.ui.settings(fields, *, check=None)`. Required: `fields`.
 
-Declare the extension's settings: a list of `{"key", "type", "default", "choices"}`. Once
-only. See "Settings".
+Declare the extension's settings: a list of `{"key", "type", "default", "choices"}`, with
+`min`, `max` and `unit` on a `number` and `wants` on a `path`. The types are in the table
+under "Fields". Once only. See "Settings".
 
 ```python
 ctx.ui.settings(
@@ -548,8 +563,8 @@ ctx.ui.settings(
 
 The user sees the fields on the extension's page. Raises `ContractError` if called twice,
 if a key repeats, if a type is not one a settings page draws, if a secret has a default, if
-a select has no choices or a default that is not one of them, or if `check` is not
-callable.
+a select or a multi has no choices or a default that is not one of them, if a number's
+default is not a number inside its limits, or if `check` is not callable.
 
 #### `ctx.ui.settings_defaults`
 
@@ -1328,21 +1343,17 @@ A field is `{"key", "type", "default", "choices"}`:
 |---|---|
 | `key` | Required. The name `ctx.config.get` reads it by. Unique |
 | `type` | One of the settings types below. Left out, `string` |
-| `default` | Text. A switch defaults to `"false"` unless true. A secret may not have one. A select's default must be one of its choices, and is the first when left out |
-| `choices` | A select's `[[value, label], ...]` |
+| `default` | Text. A switch defaults to `"false"` unless true. A secret may not have one. A select's default must be one of its choices, and is the first when left out. A multi's is a list of them. A number's is a number |
+| `choices` | A select's or a multi's `[[value, label], ...]` |
 
-The types a settings page draws are exactly `SETTINGS_TYPES`:
-
-| type | draws |
-|---|---|
-| `string` | A line of text, with the default as its placeholder |
-| `secret` | A masked line. The value is never answered; the page is told `set: true` or `false` |
-| `switch` | On or off. Stored as `"true"` or `"false"` |
-| `select` | One of `choices` |
+The types a settings page draws are exactly `SETTINGS_TYPES`: the *settings* column of the
+table under "Fields". A `number` may carry `min`, `max` and `unit`, a `path` says what it
+`wants`, and a `multi` takes `choices` as a select does and may default to a list of them.
 
 Everything is stored as a string. A secret takes `type: "secret"`, never `string`: core
 removes secrets from every answer it gives for the extension, by that type. A `secret`
-write that is empty is skipped, so leaving the field blank keeps what was there.
+write that is empty is skipped, so leaving the field blank keeps what was there; only
+*Clear*, which asks first, empties one.
 
 **`check`.** `check(values)` receives every setting as it would be after the change, with
 the unset ones at their defaults. It raises to refuse the change, and the refusal is shown
@@ -1605,21 +1616,24 @@ description passed in code is shown as written.
 
 ### Fields
 
-The fields a dialog may ask for are `{key, type, label, value, help}` plus what the type
-takes. `help` takes the forms described above. A `path` field may add `opens_at`, the folder
-its picker starts in while the field is empty. The types are exactly `DIALOG_TYPES`:
+One vocabulary: a dialog's steps, the settings page and an account's panel draw the same
+types in the same controls. A field is `{key, type, label, value, help}` plus what the type
+takes. `help` takes the forms described above. A settings field's `label`, `help` and
+choices come from the catalog (`settings.<key>.label`), so a settings field is declared with
+`{key, type, default, choices}` and nothing to say.
 
-| type | asks for |
-|---|---|
-| `string` | a line of text |
-| `path` | a file or folder on the machine core runs on, with `wants`: `dir`, `file` or `exe` |
-| `select` | one of `choices`, each `[key, label]` and optionally `[key, label, help]`, the help shown beside the option in the list, and under the field once it is chosen. Labels within one field are different, since the help is found by label |
-| `multi` | several of `choices` |
-| `switch` | on or off |
-| `choice` | one of `choices`, two to four, each `[key, label, help]` with its own line of help, and optionally a fourth element: the name of a picture, or a list of paths to a few of the person's own images, inside the folders the extension declared in `ctx.files.set_roots` |
-| `number` | a number, with `unit`, `min` and `max` |
-| `checklist` | any of `rows` ticked, for a list too long for `multi`: each row `{key, name, note, groups}`, with `chips` as `[group, label]` pairs, a chip shown only when a row is in its group; the answer is the keys ticked |
-| `settle` | a VPS entry for each of `rows`, `{key, name, entry, vps_id, reason, settled}`, `entry` being the `{name, manufacturer, year}` it would offer: the row says it or Not found, with the reason, and Change... opens the VPS picker; settled rows are behind Show all. The answer maps a row's key to the id picked, with `""` for a row said to be in no catalog; a key left out is a row untouched |
+| type | asks for | dialog | settings | account |
+|---|---|---|---|---|
+| `string` | a line of text | yes | yes | yes |
+| `secret` | a masked line. Drawn empty, with *Set* or *Not set* in it; what is typed is kept across a dialog's steps and never filled back from an answer. An extension answers `set` (true or false) and never the value; leaving it empty keeps the one held. A settings page and an account also draw *Clear* beside a held one, which asks first | yes | yes | yes |
+| `path` | a file or folder on the machine core runs on, with `wants`: `dir`, `file` or `exe`. A dialog's may add `opens_at`, the folder its picker starts in while the field is empty | yes | yes | yes |
+| `select` | one of `choices`, each `[key, label]` and optionally `[key, label, help]`, the help shown beside the option in the list, and under the field once it is chosen. Labels within one field are different, since the help is found by label | yes | yes | yes |
+| `multi` | several of `choices`. A setting is stored as a JSON list of the keys ticked, and `ctx.config.get_list(key)` reads it | yes | yes | yes |
+| `switch` | on or off | yes | yes | yes |
+| `number` | a number, with `unit`, `min` and `max`. A setting is stored as its digits and left empty it falls back to its default | yes | yes | yes |
+| `choice` | one of `choices`, two to four, each `[key, label, help]` with its own line of help, and optionally a fourth element: the name of a picture, or a list of paths to a few of the person's own images, inside the folders the extension declared in `ctx.files.set_roots` | yes | no | no |
+| `checklist` | any of `rows` ticked, for a list too long for `multi`: each row `{key, name, note, groups}`, with `chips` as `[group, label]` pairs, a chip shown only when a row is in its group; the answer is the keys ticked | yes | no | no |
+| `settle` | a VPS entry for each of `rows`, `{key, name, entry, vps_id, reason, settled}`, `entry` being the `{name, manufacturer, year}` it would offer: the row says it or Not found, with the reason, and Change... opens the VPS picker; settled rows are behind Show all. The answer maps a row's key to the id picked, with `""` for a row said to be in no catalog; a key left out is a row untouched | yes | no | no |
 
 A `choice` option's picture is a name, and `null` is none. Core draws `desktop` and
 `cabinet` itself and reads any other name as a Material icon, so a flow never supplies a
@@ -1627,14 +1641,12 @@ drawing. Options with pictures are tiles on a `welcome` step and rows on any oth
 other fields the `choice`'s label heads its rows; alone on a step, its `title` is the
 question.
 
-A settings page draws a smaller set, which is its own table:
-
-| type | draws |
-|---|---|
-| `string` | A line of text |
-| `secret` | A masked line, never answered |
-| `switch` | On or off |
-| `select` | One of `choices` |
+**A secret.** Whatever surface asks for one, the value goes to the extension and never comes
+back: core takes it out of every answer and puts `set` in its place. Declare a setting as
+`{"key": "api_key", "type": "secret"}`; a secret has no default. A dialog's `check` and `run`
+get the typed value under the key, and get no key at all where the person left it empty, so
+`values.get("api_key")` being `None` means keep the one held. *Clear* sends `null` for a
+setting, and an account's `write` is handed `None` under the key.
 
 A type that a surface does not draw is refused when it is declared, not when somebody opens
 the page.
@@ -1680,7 +1692,7 @@ ctx.ui.account(
 | `acts` | `[{key, label, description}]`. `send_now` is the one drawn generically, only while claimed and something waits |
 | `card` | Whether a card can be made for this player now |
 | `picture` | True if the service holds a picture for this player |
-| `fields` | Unused by this shape; `[]` |
+| `fields` | The account as fields, below. `[]` where the account is a user id |
 
 **Claiming is deliberate, never a side effect.** The Console's own dialog checks `available`
 live as an id is typed, saves it with a plain write (nothing sent, no key made), and only
@@ -1705,9 +1717,24 @@ scores, so nothing played while it was on goes later by hand or when it is turne
 Core's words under the switch are `account.share.help` in the catalog when the extension
 has them, else the Console's own naming of a played game, a rating and a high score.
 
+**An account that is only fields.** Where `read` answers `fields` and no `user_id`, core
+draws the fields on the player's panel as a settings page draws them, in the types of the
+"Fields" table: `[{key, type, label, help, value, choices, ...}]`, and for a `secret` a
+`set` and never a `value`. Each is saved as it is left with `write(player_id, {key: value})`;
+a secret cleared with *Clear* arrives as `None`. Share is core's switch under them, and
+`needs_consent` and a `consent` act work as they do for an id. A key per player is this
+shape:
+
+```python
+def read_account(player_id):
+    held = ctx.players.account(player_id)
+    return {"fields": [{"key": "api_key", "type": "secret", "label": ctx.t("account.key"),
+                        "set": bool(held.get("api_key"))}]}
+```
+
 **A secret in an account** is accepted on a write and never answered. Core takes the value
 out of every answer from an extension's routes, settings included, and puts `set`, true or
-false, in its place. This shape's own `user_id` and key pair does not use `fields` at all: the
+false, in its place. The user id and key pair of the shape above does not use `fields`: the
 key never crosses the wire in either direction, only `claimed`.
 
 **A picture.** An account that answers `picture: true` gets a *Use {Service}'s Picture* button in

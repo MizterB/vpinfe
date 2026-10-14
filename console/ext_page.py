@@ -20,7 +20,7 @@ from nicegui import run, ui
 from common.extensions import host
 from common.failures import why
 from common.i18n import t
-from console import busy, deeplink, ext_action, offload, panel, verbs
+from console import busy, confirm, deeplink, ext_action, offload, panel, verbs
 from console.api import ApiClient
 from console.on_page import on_page
 
@@ -92,7 +92,7 @@ def build(extension: dict, settings: dict[str, Any], redraw: Callable[[], None],
     offered = list(extension.get("actions") or []) if running else []
     if offered:
         entries += [(panel.HEADING, t("word.actions")),
-                    (panel.FULL, lambda: _actions(offered, name))]
+                    (panel.FULL, lambda: _actions(offered, name, redraw))]
     if running and surfaces.get("state"):
         entries += [(panel.HEADING, str(surfaces.get("state_label")
                                         or t("console.ext_page.held"))),
@@ -158,15 +158,9 @@ def _setting_rows(client: Any, base: str, found: dict[str, Any],
 
 def _control(client: Any, base: str, key: str, field: dict,
              redraw: Callable[[], None]) -> Any:
-    """One setting, in the control its type asks for.
-
-    A text field shows the extension's refusal under itself and keeps what was typed. A
-    switch or a select has no place for one, so it says so in a notice and goes back to
-    what is stored.
-    """
-    kind = str(field.get("type") or "string")
-    value = field.get("value")
-
+    """One setting, in the control its type asks for. A text field shows the extension's
+    refusal under itself and keeps what was typed. A switch or a select has no place for
+    one, so it says so in a notice and goes back to what is stored."""
     @on_page
     async def save(new_value: Any, *, under: bool = False) -> str:
         try:
@@ -180,26 +174,111 @@ def _control(client: Any, base: str, key: str, field: dict,
         redraw()
         return ""
 
+    return control(client, field, save)
+
+
+def control(client: Any, field: dict, save: Callable[..., Awaitable[str]]) -> Any:
+    """A field in the control its type asks for, wherever it is kept: `save(value)` writes
+    it, and `save(value, under=True)` answers why it was refused where a text field can show
+    that. A secret saves `None` for Clear. The same for a setting and for an account."""
+    kind = str(field.get("type") or "string")
+    value = field.get("value")
+    key = str(field.get("key") or "")
+    label = str(field.get("label") or key)
     if kind == "switch":
         return panel.switch(bool(value), lambda event: save(bool(event.value)))
     if kind == "select":
         choices = {str(one[0]): str(one[1]) for one in field.get("choices") or []}
         return panel.select(choices, str(value or ""), lambda event: save(event.value))
+    if kind == "multi":
+        choices = {str(one[0]): str(one[1]) for one in field.get("choices") or []}
+        return panel.multi_select(choices, list(value or []),
+                                  lambda event: save(list(event.value or [])))
+    if kind == "number":
+        return panel.number(_figure(value), lambda event: save(event.value), whole=False,
+                            low=field.get("min"), high=field.get("max"),
+                            unit=str(field.get("unit") or ""), on_leave=True)
+    if kind == "path":
+        return _path_control(client, field, str(value or ""), lambda text: save(text, under=True))
     if kind == "secret":
-        # Never handed the value. Saving an empty field would clear it.
-        return panel.field("", lambda typed: save(typed, under=True) if typed else None,
-                           refuses=True,
-                           placeholder=t("console.ext_page.secret_set" if field.get("set")
-                                         else "console.ext_page.secret_not_set"))
+        return _secret_control(label, bool(field.get("set")),
+                               lambda typed: save(typed, under=True) if typed.strip() else None,
+                               lambda: save(None))
     return panel.field(str(value or ""), lambda typed: save(typed, under=True),
                        refuses=True, placeholder=str(field.get("placeholder") or ""))
 
 
-def _actions(offered: list[dict], name: str) -> None:
+def _figure(stored: Any) -> float | None:
+    try:
+        return float(stored)
+    except (TypeError, ValueError):
+        return None
+
+
+def _secret_control(label: str, is_set: bool, save_typed: Callable[[str], Any],
+                    clear: Callable[[], Awaitable[Any]]) -> Callable[[], None]:
+    """A secret is never handed back, so the box starts empty and says whether one is
+    held. Saving an empty box would clear it, so only a typed value is saved; Clear is the
+    way to empty it, and asks first."""
+    @on_page
+    async def forget() -> None:
+        if await confirm.ask(t("console.ext_page.clear_question", label=label),
+                             detail=t("console.ext_page.clear_detail"),
+                             confirm=t("console.ext_page.clear"), icon=verbs.CLEAR):
+            await clear()
+
+    def draw() -> None:
+        with ui.row().classes("items-center gap-2 no-wrap"):
+            panel.field("", save_typed, refuses=True, secret=True,
+                        placeholder=t("console.ext_page.secret_set" if is_set
+                                      else "console.ext_page.secret_not_set"))()
+            if is_set:
+                panel.action(t("console.ext_page.clear"), forget, icon=verbs.CLEAR,
+                             inline=True, hint=t("console.ext_page.clear_hint"))()
+
+    return draw
+
+
+def _path_control(client: Any, field: dict, value: str,
+                  save_text: Callable[[str], Awaitable[str]]) -> Callable[[], None]:
+    """A path, saved when the field is left, and at once when Browse chose it."""
+    def draw() -> None:
+        control = panel.path_field(str(field.get("placeholder") or ""),
+                                   wants=str(field.get("wants") or "dir"), value=value,
+                                   browse=client.folders)
+        state = {"focused": False, "saved": value}
+
+        async def leave() -> None:
+            state["focused"] = False
+            text = str(control.value or "").strip()
+            if text == state["saved"]:
+                return
+            state["saved"] = text
+            said = await save_text(text)
+            control.props["error"] = bool(said)
+            control.props["error-message"] = said
+            control.update()
+
+        control.on("focus", lambda: state.update(focused=True))
+        control.on("blur", leave)
+        control.on("keydown.enter", lambda: control.run_method("blur"))
+        # A value that changes while the field is not focused was chosen in Browse.
+        control.on_value_change(lambda: None if state["focused"] else leave())
+
+    return draw
+
+
+def _actions(offered: list[dict], name: str, redraw: Callable[[], None]) -> None:
+    """Redraws once an action has run: it may have changed a setting shown above it."""
+    @on_page
+    async def run_one(action: dict) -> None:
+        if await ext_action.open_action(name, action):
+            redraw()
+
     with ui.element("div").classes("console-slot-actions"):
         for action in offered:
             panel.action(str(action.get("label") or action.get("key") or ""),
-                         lambda _e=None, action=action: ext_action.open_action(name, action),
+                         lambda _e=None, action=action: run_one(action),
                          icon=verbs.RUN, hint=str(action.get("description") or ""))()
 
 

@@ -25,6 +25,7 @@ from console import (
     busy,
     confirm,
     deeplink,
+    ext_page,
     game_tables,
     grid,
     mediasource,
@@ -839,11 +840,13 @@ async def _account(context: dict[str, Any], account: dict[str, Any]) -> None:
     user_id = str(account.get("user_id") or "")
     claimed = bool(account.get("claimed"))
     needs_consent = bool(account.get("needs_consent"))
+    fields = [one for one in account.get("fields") or [] if one.get("key")]
 
     @on_page
     async def share(on: bool) -> None:
         if on and needs_consent:
-            await _share_on(context, account, service, claimed)
+            # Nothing to claim where the account has no id: only the consent is settled.
+            await _share_on(context, account, service, claimed or bool(fields and not user_id))
             return
         try:
             await run.io_bound(library.put_share, player["id"], account["extension"], on)
@@ -852,7 +855,12 @@ async def _account(context: dict[str, Any], account: dict[str, Any]) -> None:
         await context["rebuild"]()
 
     entries: list[tuple[Any, Any]] = []
-    if not user_id:
+    if fields and not user_id:
+        entries += _field_rows(context, account, fields)
+        entries.append((t("console.players.share"), panel.switch(
+            bool(account.get("share")), lambda e: share(bool(e.value)))))
+        entries.append(panel.note(share_help(account)))
+    elif not user_id:
         entries.append(panel.intro(t("console.players.no_account", service=service)))
         entries.append((panel.FULL, lambda: _choose_or_card(context, account)))
     elif not claimed:
@@ -878,6 +886,34 @@ async def _account(context: dict[str, Any], account: dict[str, Any]) -> None:
         entries.append((panel.FULL, lambda: _card_actions(context, account)))
     with ui.column().classes("gap-0 console-form"):
         panel.facts(ui, entries)
+
+
+def _field_rows(context: dict[str, Any], account: dict[str, Any],
+                fields: list[dict[str, Any]]) -> list[Any]:
+    """An account that is only fields: drawn as a settings page draws them, each saved as
+    it is left, with the player's id on the write."""
+    library, player = context["library"], _of(context)
+    extension = str(account["extension"])
+    rows: list[Any] = []
+    for field in fields:
+        key = str(field["key"])
+
+        @on_page
+        async def save(new_value: Any, *, under: bool = False, key: str = key) -> str:
+            try:
+                await offload.io(library.put_account, player["id"], extension,
+                                 {key: new_value})
+            except Exception as exc:  # noqa: BLE001
+                if under:
+                    return why(exc)
+                ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
+            await context["rebuild"]()
+            return ""
+
+        rows.append((str(field.get("label") or key), ext_page.control(library, field, save)))
+        if field.get("help"):
+            rows.append(panel.note(str(field["help"])))
+    return rows
 
 
 def _user_id_value(user_id: str, page: str, service: str) -> Callable[[], None]:
@@ -1040,8 +1076,9 @@ async def _share_on(context: dict[str, Any], account: dict[str, Any], service: s
         ui.notify(t("console.players.share_needs_initials"), type="warning")
         return
 
-    with frame.opened(t("console.players.share_consent_title", id=user_id, service=service),
-                      persistent=True) as box:
+    title = (t("console.players.share_consent_title", id=user_id, service=service) if user_id
+             else t("console.players.share_consent_plain", service=service))
+    with frame.opened(title, persistent=True) as box:
         ui.label(t("console.players.share_consent_heading")).classes("console-help px-3")
         with ui.column().classes("gap-1 px-3"):
             for line in account.get("consent") or []:

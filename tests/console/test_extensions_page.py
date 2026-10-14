@@ -7,6 +7,7 @@ the index marks only what is wrong or off.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import tempfile
 import unittest
@@ -216,6 +217,32 @@ class ActionsGroupTests(unittest.TestCase):
     def test_one_with_none_draws_no_empty_heading(self) -> None:
         self.assertNotIn(i18n.t("word.actions"), Page(RUNNING).headings)
 
+    def _pressed(self, ran: bool) -> mock.Mock:
+        pressed: list[Callable[[], Any]] = []
+        redraw = mock.Mock()
+
+        def action(label: str, on_click: Callable[[], Any], **kwargs: Any) -> Callable[[], None]:
+            pressed.append(on_click)
+            return lambda: None
+
+        for target, name, replacement in (
+                (ext_page.panel, "action", action),
+                (ext_page, "on_page", lambda handler: handler),
+                (ext_page.ext_action, "open_action", mock.AsyncMock(return_value=ran))):
+            patch = mock.patch.object(target, name, replacement)
+            patch.start()
+            self.addCleanup(patch.stop)
+        with ui.column():
+            ext_page._actions(self.ACTIONS, "sample", redraw)
+        asyncio.run(pressed[0]())
+        return redraw
+
+    def test_the_page_is_drawn_again_once_an_action_has_run(self) -> None:
+        self._pressed(True).assert_called_once_with()
+
+    def test_an_action_cancelled_first_draws_nothing_again(self) -> None:
+        self._pressed(False).assert_not_called()
+
 
 class ReachGroupTests(unittest.TestCase):
     def test_what_it_can_reach_is_two_rows_of_chips(self) -> None:
@@ -385,37 +412,134 @@ class IndexMarkTests(unittest.TestCase):
 
 
 class SecretSettingTests(unittest.TestCase):
-    """A secret is drawn empty whatever it holds, and leaving it empty keeps it."""
+    """A secret is drawn empty whatever it holds, leaving it empty keeps it, and Clear asks
+    first and then empties it."""
 
-    def _drawn(self, field: dict) -> tuple[str, Callable[[str], Any], str]:
-        given: dict[str, Any] = {}
+    def _drawn(self, field: dict, asked: bool = True) -> dict[str, Any]:
+        seen: dict[str, Any] = {"actions": []}
 
-        def fake(value, on_save, *, placeholder="", refuses=False):
-            given.update(value=value, on_save=on_save, placeholder=placeholder)
+        def fake(value, on_save, **kwargs):
+            seen.update(value=value, on_save=on_save, **kwargs)
             return lambda: None
 
-        client = mock.Mock()
-        with mock.patch.object(ext_page.panel, "field", fake):
-            ext_page._control(client, "/ext/sample/settings", "token", field, mock.Mock())
-        self.client = client
-        return given["value"], given["on_save"], given["placeholder"]
+        def action(label, on_click, **kwargs):
+            seen["actions"].append((label, on_click))
+            return lambda: None
+
+        async def ask(*args, **kwargs):
+            seen["asked"] = (args, kwargs)
+            return asked
+
+        for target, name, replacement in (
+                (ext_page.panel, "field", fake), (ext_page.panel, "action", action),
+                (ext_page, "on_page", lambda handler: handler),
+                (ext_page.confirm, "ask", ask), (ext_page.ui, "row", mock.MagicMock())):
+            patch = mock.patch.object(target, name, replacement)
+            patch.start()
+            self.addCleanup(patch.stop)
+        seen["saves"] = []
+
+        async def save(new_value, *, under=False):
+            seen["saves"].append((new_value, under))
+            return ""
+
+        ext_page.control(mock.Mock(), {"label": "Token", **field}, save)()
+        return seen
 
     def test_a_value_that_arrived_anyway_is_not_drawn(self) -> None:
-        value, _, placeholder = self._drawn({"key": "token", "type": "secret",
-                                             "value": "leaked", "set": True})
+        seen = self._drawn({"key": "token", "type": "secret", "value": "leaked", "set": True})
 
-        self.assertEqual((value, placeholder), ("", i18n.t("console.ext_page.secret_set")))
+        self.assertEqual((seen["value"], seen["placeholder"]),
+                         ("", i18n.t("console.ext_page.secret_set")))
 
-    def test_one_not_set_says_so(self) -> None:
-        _, _, placeholder = self._drawn({"key": "token", "type": "secret", "set": False})
+    def test_one_not_set_says_so_and_has_no_clear(self) -> None:
+        seen = self._drawn({"key": "token", "type": "secret", "set": False})
 
-        self.assertEqual(placeholder, i18n.t("console.ext_page.secret_not_set"))
+        self.assertEqual(seen["placeholder"], i18n.t("console.ext_page.secret_not_set"))
+        self.assertEqual(seen["actions"], [])
+
+    def test_the_box_is_masked(self) -> None:
+        self.assertTrue(self._drawn({"key": "token", "type": "secret"})["secret"])
 
     def test_leaving_it_empty_writes_nothing(self) -> None:
-        _, on_save, _ = self._drawn({"key": "token", "type": "secret", "set": True})
+        seen = self._drawn({"key": "token", "type": "secret", "set": True})
 
-        self.assertIsNone(on_save(""))
-        self.client.ext_put.assert_not_called()
+        self.assertIsNone(seen["on_save"](""))
+        self.assertEqual(seen["saves"], [])
+
+    def test_a_typed_value_is_saved_under_the_box(self) -> None:
+        seen = self._drawn({"key": "token", "type": "secret", "set": True})
+
+        asyncio.run(seen["on_save"]("abc"))
+
+        self.assertEqual(seen["saves"], [("abc", True)])
+
+    def test_clear_asks_first_and_then_saves_none(self) -> None:
+        seen = self._drawn({"key": "token", "type": "secret", "set": True})
+        [(label, clear)] = seen["actions"]
+
+        asyncio.run(clear())
+
+        self.assertEqual(label, i18n.t("console.ext_page.clear"))
+        self.assertEqual(seen["saves"], [(None, False)])
+        self.assertIn(i18n.t("console.ext_page.clear_question", label="Token"),
+                      seen["asked"][0])
+
+    def test_clear_declined_changes_nothing(self) -> None:
+        seen = self._drawn({"key": "token", "type": "secret", "set": True}, asked=False)
+        [(_, clear)] = seen["actions"]
+
+        asyncio.run(clear())
+
+        self.assertEqual(seen["saves"], [])
+
+
+class ControlTypeTests(unittest.TestCase):
+    """Each type a settings page or an account draws is drawn by the control it asks for."""
+
+    def _which(self, field: dict) -> tuple[str, dict[str, Any]]:
+        seen: dict[str, Any] = {}
+
+        def recorder(name: str) -> Callable[..., Any]:
+            def fake(*args: Any, **kwargs: Any) -> Callable[[], None]:
+                seen.update(name=name, args=args, kwargs=kwargs)
+                return lambda: None
+            return fake
+
+        for target, name in ((ext_page.panel, "switch"), (ext_page.panel, "select"),
+                             (ext_page.panel, "multi_select"), (ext_page.panel, "number"),
+                             (ext_page.panel, "field"), (ext_page, "_path_control")):
+            patch = mock.patch.object(target, name, recorder(name))
+            patch.start()
+            self.addCleanup(patch.stop)
+        ext_page.control(mock.Mock(), field, mock.AsyncMock())
+        return seen["name"], seen
+
+    def test_a_multi_is_ticked_from_its_stored_list(self) -> None:
+        kind, seen = self._which({"key": "m", "type": "multi", "value": ["a"],
+                                  "choices": [["a", "A"], ["b", "B"]]})
+
+        self.assertEqual(kind, "multi_select")
+        self.assertEqual(seen["args"][:2], ({"a": "A", "b": "B"}, ["a"]))
+
+    def test_a_number_carries_its_limits_and_unit(self) -> None:
+        kind, seen = self._which({"key": "n", "type": "number", "value": "7", "min": 1,
+                                  "max": 9, "unit": "dB"})
+
+        self.assertEqual(kind, "number")
+        self.assertEqual(seen["args"][0], 7.0)
+        self.assertEqual((seen["kwargs"]["low"], seen["kwargs"]["high"], seen["kwargs"]["unit"]),
+                         (1, 9, "dB"))
+
+    def test_a_number_that_is_not_set_is_drawn_empty(self) -> None:
+        _, seen = self._which({"key": "n", "type": "number", "value": ""})
+
+        self.assertIsNone(seen["args"][0])
+
+    def test_a_path_is_drawn_by_the_path_control(self) -> None:
+        kind, _ = self._which({"key": "p", "type": "path", "value": "/x"})
+
+        self.assertEqual(kind, "_path_control")
 
 
 class LanguageTests(unittest.TestCase):

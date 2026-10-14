@@ -324,7 +324,7 @@ def field(value: str, on_save: Callable[[str], Any], *, lines: int = 0,
           on_control: Callable[[Any], Any] | None = None,
           prefix: str = "", suffix: str = "", wrap: bool = False,
           held: dict[str, str] | None = None,
-          default: str = "", whose: str = "") -> Callable[[], None]:
+          default: str = "", whose: str = "", secret: bool = False) -> Callable[[], None]:
     """Free text the user can set.
 
     Written when you leave it or when you press Enter, and `debounce=0` is what makes
@@ -356,6 +356,8 @@ def field(value: str, on_save: Callable[[str], Any], *, lines: int = 0,
 
     `prefix` and `suffix` are drawn around a one-line field's text without being part of
     it: what is typed, and what is saved, is the middle.
+
+    `secret` hides what is typed and tells the browser not to offer to remember it.
 
     `on_control` is handed the control once it exists, for a caller that needs it back -
     the wizard's own first-field focus and per-field refusals among them.
@@ -445,6 +447,8 @@ def field(value: str, on_save: Callable[[str], Any], *, lines: int = 0,
                 control.value = value or (default if marks else "")
                 control.props("dense borderless debounce=0" + (" autogrow" if wrap else "")) \
                     .classes("console-edit-field")
+                if secret:
+                    control.props("type=password autocomplete=new-password")
                 if prefix:
                     control.props["prefix"] = prefix
                 if suffix:

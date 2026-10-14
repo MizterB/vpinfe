@@ -43,6 +43,8 @@ DECLARES: dict[str, list[str]] = {
     "play_log": [],
     "top_scores": ["settings   key (secret)", "list       top in community: 3 columns"],
     "score_rows": ["list       scores in community: 3 columns, 0 views, 3 verbs"],
+    "secret_key": ["settings   key (secret)", "dialog     connect: ask run"],
+    "player_handle": ["account    a player can hold one"],
 }
 
 
@@ -376,6 +378,22 @@ def table_first_column(header: str) -> set[str]:
     return names
 
 
+def table_column_yes(header: str, column: int) -> set[str]:
+    """The types of the table headed `| <header> |` whose cell in `column` (counting from
+    the asks-for cell as 1) reads `yes`."""
+    text = REFERENCE.read_text()
+    start = re.search(rf"^\| {re.escape(header)} \|$", text, re.M)
+    assert start, f"no table headed {header!r}"
+    names: set[str] = set()
+    for row in text[start.end():].lstrip("\n").splitlines()[1:]:
+        if not row.startswith("|"):
+            break
+        cells = [cell.strip() for cell in row.strip("|").split("|")]
+        if cells[column] == "yes":
+            names.update(re.findall(r"`([^`]+)`", cells[0]))
+    return names
+
+
 class ReferenceMatchesCore(unittest.TestCase):
     """The reference lists what core accepts, and nothing it does not."""
 
@@ -419,8 +437,10 @@ class ReferenceMatchesCore(unittest.TestCase):
                     self.assertRegex(text, rf"\b{name}\b")
 
     def test_the_field_types_the_reference_lists_are_the_ones_each_surface_draws(self) -> None:
-        self.assertEqual(table_first_column("type | asks for"), set(fields.DIALOG_TYPES))
-        self.assertEqual(table_first_column("type | draws"), set(fields.SETTINGS_TYPES))
+        header = "type | asks for | dialog | settings | account"
+        self.assertEqual(table_first_column(header), set(fields.DIALOG_TYPES))
+        self.assertEqual(table_column_yes(header, 2), set(fields.DIALOG_TYPES))
+        self.assertEqual(table_column_yes(header, 3), set(fields.SETTINGS_TYPES))
 
     def test_the_cell_kinds_a_column_may_have_are_all_named(self) -> None:
         for kind in COLUMN_KINDS:

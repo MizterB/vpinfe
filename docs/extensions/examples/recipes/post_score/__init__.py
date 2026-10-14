@@ -37,7 +37,7 @@ class PostScore:
         return {"step": "key", "title": self.ctx.t("dialog.key.title"),
                 "help": self.ctx.t("dialog.key.help"),
                 "fields": [{"key": "key", "label": self.ctx.t("dialog.key"),
-                            "type": "string"}]}
+                            "type": "secret"}]}
 
     def check(self, values, step):
         if step == "key":

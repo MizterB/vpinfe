@@ -24,7 +24,7 @@ from common import failures, i18n
 from common.service_errors import NotFoundError, RefusedError, ServiceError
 
 from . import contract
-from .fields import FieldError, dialog_fields, dialog_step
+from .fields import FieldError, dialog_fields, dialog_step, listed, number_text, ticked
 
 if TYPE_CHECKING:
     from .host import Record
@@ -113,13 +113,18 @@ def _setting(record: Record, one: dict, held: dict[str, str]) -> dict:
         out["set"] = bool(stored)
     elif kind == "switch":
         out["value"] = (stored or default) == "true"
-    elif kind == "select":
-        out["value"] = stored or default
+    elif kind in ("select", "multi"):
+        out["value"] = (stored or default) if kind == "select" else ticked(stored or default)
         out["choices"] = [[value, said(record, f"settings.{key}.choice.{value}", label)]
                           for value, label in one["choices"]]
+    elif kind == "number":
+        out["value"] = stored or default
+        out.update({bound: one[bound] for bound in ("min", "max", "unit") if bound in one})
     else:
         out["value"] = stored
         out["placeholder"] = default
+        if kind == "path":
+            out["wants"] = one["wants"]
     return out
 
 
@@ -137,13 +142,30 @@ def settings_write(record: Record, values: dict) -> dict:
         one = declared.get(key)
         if one is None:
             raise RefusedError(i18n.t("error.extensions.no_setting", key=key))
+        kind = one["type"]
         text = "" if value is None else str(value)
-        if one["type"] == "secret" and not text:
+        if kind == "secret" and value is not None and not text.strip():
             continue
-        if one["type"] == "switch":
+        if kind == "switch":
             text = "true" if value in (True, "true") else "false"
-        if one["type"] == "select" and text not in {choice[0] for choice in one["choices"]}:
+        offered = {choice[0] for choice in one["choices"]}
+        if kind == "select" and text not in offered:
             raise RefusedError(i18n.t("error.extensions.bad_choice", key=key, value=text))
+        if kind == "multi":
+            chosen = ticked(value)
+            if value not in ("", None) and listed(value) is None:
+                raise RefusedError(i18n.t("error.extensions.bad_choice", key=key,
+                                          value=text))
+            for each in chosen:
+                if each not in offered:
+                    raise RefusedError(i18n.t("error.extensions.bad_choice", key=key,
+                                              value=each))
+            text = json.dumps(chosen)
+        if kind == "number" and text.strip():
+            counted = number_text(text, one)
+            if counted is None:
+                raise RefusedError(i18n.t("error.extensions.bad_number", key=key, value=text))
+            text = counted
         changes[key] = text
     check = context.ui.settings_check
     if check is not None and changes:

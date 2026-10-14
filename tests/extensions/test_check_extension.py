@@ -320,7 +320,7 @@ class AReadThatFails(CheckCase):
     def test_a_step_with_a_field_the_wizard_does_not_draw_fails_it(self) -> None:
         body = ("def register(ctx):\n"
                 "    ctx.ui.action('go', type('D', (), {'ask': lambda self, step: {\n"
-                "        'fields': [{'key': 'k', 'type': 'secret'}]}})(), label='Go')\n")
+                "        'fields': [{'key': 'k', 'type': 'rating'}]}})(), label='Go')\n")
 
         lines, passed = self.checked(build(self.root, body, words={}))
 

@@ -12,14 +12,14 @@ SELECT = {"key": "mode", "type": "select", "choices": [["fast", "Fast"], ["slow"
 
 
 class Vocabulary(unittest.TestCase):
-    def test_a_settings_page_draws_four_types(self) -> None:
-        self.assertEqual(fields.SETTINGS_TYPES, {"string", "secret", "switch", "select"})
+    def test_a_settings_page_draws_seven_types(self) -> None:
+        self.assertEqual(fields.SETTINGS_TYPES,
+                         {"string", "secret", "switch", "select", "multi", "number", "path"})
 
-    def test_a_dialog_draws_nine_types_and_no_secret(self) -> None:
+    def test_a_dialog_draws_ten_types(self) -> None:
         self.assertEqual(fields.DIALOG_TYPES,
-                         {"string", "path", "select", "multi", "switch", "choice", "number",
-                          "checklist", "settle"})
-        self.assertNotIn("secret", fields.DIALOG_TYPES)
+                         {"string", "secret", "path", "select", "multi", "switch", "choice",
+                          "number", "checklist", "settle"})
 
     def test_all_types_is_the_two_together(self) -> None:
         self.assertEqual(fields.ALL_TYPES, fields.DIALOG_TYPES | fields.SETTINGS_TYPES)
@@ -71,11 +71,11 @@ class SettingsFields(unittest.TestCase):
 
     def test_a_type_a_settings_page_does_not_draw_is_refused_with_the_ones_it_does(self):
         with self.assertRaises(FieldError) as raised:
-            settings_fields("x", [{"key": "path", "type": "path"}])
+            settings_fields("x", [{"key": "pick", "type": "choice"}])
 
         said = str(raised.exception)
-        self.assertIn("'path' as 'path'", said)
-        self.assertIn("Drawn: secret, select, string, switch", said)
+        self.assertIn("'pick' as 'choice'", said)
+        self.assertIn("Drawn: multi, number, path, secret, select, string, switch", said)
 
     def test_a_type_only_a_dialog_draws_is_refused_in_settings(self) -> None:
         for kind in sorted(fields.DIALOG_TYPES - fields.SETTINGS_TYPES):
@@ -85,10 +85,83 @@ class SettingsFields(unittest.TestCase):
     def test_every_type_a_settings_page_draws_is_accepted(self) -> None:
         kept = settings_fields("x", [{"key": "a", "type": "string"},
                                      {"key": "b", "type": "secret"},
-                                     {"key": "c", "type": "switch"}, {**SELECT, "key": "d"}])
+                                     {"key": "c", "type": "switch"}, {**SELECT, "key": "d"},
+                                     {"key": "e", "type": "multi", "choices": [["a", "A"]]},
+                                     {"key": "f", "type": "number"},
+                                     {"key": "g", "type": "path"}])
 
         self.assertEqual([one["type"] for one in kept],
-                         ["string", "secret", "switch", "select"])
+                         ["string", "secret", "switch", "select", "multi", "number", "path"])
+
+    def test_a_multi_needs_choices_and_defaults_to_none_ticked(self) -> None:
+        with self.assertRaisesRegex(FieldError, "no choices"):
+            settings_fields("x", [{"key": "m", "type": "multi"}])
+        kept = settings_fields("x", [{"key": "m", "type": "multi", "choices": [["a", "A"]]}])
+
+        self.assertEqual(kept[0]["default"], "[]")
+
+    def test_a_multi_default_is_a_list_of_its_choices_stored_as_json(self) -> None:
+        one = {"key": "m", "type": "multi", "choices": [["a", "A"], ["b", "B"]]}
+
+        self.assertEqual(settings_fields("x", [{**one, "default": ["b", "a", "b"]}])[0]["default"],
+                         '["b", "a"]')
+        self.assertEqual(settings_fields("x", [{**one, "default": '["a"]'}])[0]["default"],
+                         '["a"]')
+        with self.assertRaisesRegex(FieldError, "'z'"):
+            settings_fields("x", [{**one, "default": ["z"]}])
+
+    def test_a_multi_default_that_is_not_a_list_is_refused_and_not_read_as_none_ticked(
+            self) -> None:
+        one = {"key": "m", "type": "multi", "choices": [["a", "A"]]}
+        for default in ("a", 5, '{"a": 1}', "[broken"):
+            with self.subTest(default=default):
+                with self.assertRaisesRegex(FieldError, "not a list"):
+                    settings_fields("x", [{**one, "default": default}])
+
+    def test_a_number_keeps_the_limits_and_unit_it_declared(self) -> None:
+        kept = settings_fields("x", [{"key": "n", "type": "number", "min": 1, "max": "10",
+                                      "unit": "s", "default": 5}])[0]
+
+        self.assertEqual((kept["min"], kept["max"], kept["unit"], kept["default"]),
+                         (1.0, 10.0, "s", "5"))
+
+    def test_a_number_default_outside_its_limits_is_refused(self) -> None:
+        with self.assertRaisesRegex(FieldError, "number 'n'"):
+            settings_fields("x", [{"key": "n", "type": "number", "max": 3, "default": 5}])
+
+    def test_a_number_limit_that_is_not_a_number_is_refused(self) -> None:
+        with self.assertRaisesRegex(FieldError, "min"):
+            settings_fields("x", [{"key": "n", "type": "number", "min": "low"}])
+
+    def test_a_path_wants_a_dir_unless_it_says_otherwise(self) -> None:
+        kept = settings_fields("x", [{"key": "p", "type": "path"},
+                                     {"key": "q", "type": "path", "wants": "exe"}])
+
+        self.assertEqual([one["wants"] for one in kept], ["dir", "exe"])
+        with self.assertRaisesRegex(FieldError, "'socket'"):
+            settings_fields("x", [{"key": "p", "type": "path", "wants": "socket"}])
+
+
+class Numbers(unittest.TestCase):
+    def test_a_whole_number_is_stored_without_its_point(self) -> None:
+        self.assertEqual(fields.number_text("5.0", {}), "5")
+        self.assertEqual(fields.number_text(2.5, {}), "2.5")
+
+    def test_text_nan_and_values_outside_the_limits_are_none(self) -> None:
+        for value in ("abc", "nan", "inf", "1_0", None, 11, 0):
+            with self.subTest(value=value):
+                self.assertIsNone(fields.number_text(value, {"min": 1, "max": 10}))
+
+
+class Ticked(unittest.TestCase):
+    def test_a_list_or_its_json_text_gives_the_keys_once_in_order(self) -> None:
+        self.assertEqual(fields.ticked(["b", "a", "b"]), ["b", "a"])
+        self.assertEqual(fields.ticked('["a", "b"]'), ["a", "b"])
+
+    def test_anything_else_is_none_ticked(self) -> None:
+        for value in ("", "nonsense", "{}", None, 5):
+            with self.subTest(value=value):
+                self.assertEqual(fields.ticked(value), [])
 
     def test_a_secret_is_kept_with_no_default(self) -> None:
         self.assertEqual(settings_fields("x", [{"key": "token", "type": "secret"}])[0],
@@ -143,9 +216,16 @@ class SettingsFields(unittest.TestCase):
 
 class DialogFields(unittest.TestCase):
     def test_every_type_a_dialog_draws_is_accepted_as_it_was_given(self) -> None:
-        asked = [{"key": kind, "type": kind} for kind in sorted(fields.DIALOG_TYPES)]
+        asked = [{"key": kind, "type": kind} for kind in sorted(fields.DIALOG_TYPES)
+                 if kind != "secret"]
 
         self.assertEqual(dialog_fields("x", asked), asked)
+
+    def test_a_secret_goes_out_with_set_and_never_its_value(self) -> None:
+        kept = dialog_fields("x", [{"key": "token", "type": "secret", "value": "hunter2"}])
+
+        self.assertEqual(kept, [{"key": "token", "type": "secret", "set": True}])
+        self.assertEqual(dialog_fields("x", [{"key": "t", "type": "secret"}])[0]["set"], False)
 
     def test_a_field_with_no_type_is_a_string(self) -> None:
         asked = [{"key": "name"}]
@@ -155,12 +235,12 @@ class DialogFields(unittest.TestCase):
     def test_a_type_outside_the_dialog_types_is_refused_with_the_ones_it_draws(self) -> None:
         with self.assertRaises(FieldError) as raised:
             dialog_fields("vpinplay", [{"key": "name", "type": "string"},
-                                       {"key": "token", "type": "secret"}])
+                                       {"key": "stars", "type": "rating"}])
 
         said = str(raised.exception)
-        self.assertIn("vpinplay asks for 'token' as 'secret'", said)
-        self.assertIn("Drawn: checklist, choice, multi, number, path, select, settle, "
-                      "string, switch", said)
+        self.assertIn("vpinplay asks for 'stars' as 'rating'", said)
+        self.assertIn("Drawn: checklist, choice, multi, number, path, secret, select, "
+                      "settle, string, switch", said)
 
     def test_the_first_field_that_is_not_drawn_is_the_one_named(self) -> None:
         with self.assertRaisesRegex(FieldError, "'first' as 'one'"):

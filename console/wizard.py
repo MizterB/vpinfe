@@ -43,6 +43,7 @@ POLL_SECONDS = 1.0
 # table an extension author reads (docs/extensions/reference.md) - the two must agree.
 FIELD_TYPES = {
     "string": "panel.field",
+    "secret": "panel.field",
     "path": "panel.path_field",
     "select": "panel.select",
     "multi": "panel.multi_select",
@@ -399,6 +400,17 @@ def _controls(fields: list[dict], values: dict[str, Any], *,
                 refused(control, key)
 
             entries.append((label, draw_path))
+        elif kind == "secret":
+            def caught(control: Any, key: str = key) -> None:
+                held[key] = ("secret", control)
+                refused(control, key)
+
+            # Drawn empty unless the person has typed one on this walk: what an extension
+            # already holds is never sent here, only whether it holds one.
+            entries.append((label, panel.field(
+                str(values.get(key) or ""), typed(key), secret=True, on_control=caught,
+                placeholder=t("console.ext_page.secret_set" if field.get("set")
+                              else "console.ext_page.secret_not_set"))))
         else:
             def caught(control: Any, key: str = key) -> None:
                 held[key] = ("string", control)
@@ -535,6 +547,12 @@ def _sync(values: dict[str, Any], held: dict[str, tuple[str, Any]]) -> None:
             # Not stringified: a number field holds None or a number, and `str(None)`
             # would write the word "None" into an answer nobody typed.
             values[key] = control.value
+        elif kind == "secret":
+            # Empty means keep what is held, so it is left out and not sent as "".
+            if str(control.value or "").strip():
+                values[key] = str(control.value)
+            else:
+                values.pop(key, None)
         else:
             values[key] = str(control.value or "")
 

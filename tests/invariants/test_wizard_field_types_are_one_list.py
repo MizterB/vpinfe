@@ -19,7 +19,7 @@ DOC = REPO / "docs" / "extensions" / "reference.md"
 # A row's first cell, backtick-quoted, under the "type" heading - `| `path` | a file or
 # folder ... |`. Matched from the table itself, not the surrounding prose, so a type
 # named in passing elsewhere in the doc is not mistaken for one that is documented.
-TABLE = re.compile(r"\|\s*type\s*\|\s*asks for\s*\|\n\|[-|\s]+\|\n((?:\|.+\|\n)+)")
+TABLE = re.compile(r"\|\s*type\s*\|\s*asks for\s*\|[^\n]*\|\n\|[-|\s]+\|\n((?:\|.+\|\n)+)")
 ROW_TYPE = re.compile(r"^\|\s*`([a-z]+)`\s*\|")
 
 
@@ -46,8 +46,9 @@ class FieldTypesAreOneListTests(unittest.TestCase):
     def test_the_table_itself_can_be_found(self) -> None:
         """The regex that reads the table, proven against a table shaped like the real
         one - so a reformatting that breaks the match fails here, not silently."""
-        sample = ("intro\n\n| type | asks for |\n|---|---|\n"
-                  "| `string` | a line of text |\n| `path` | a folder |\n\nmore prose\n")
+        sample = ("intro\n\n| type | asks for | dialog |\n|---|---|---|\n"
+                  "| `string` | a line of text | yes |\n| `path` | a folder | yes |\n\n"
+                  "more prose\n")
         match = TABLE.search(sample)
         self.assertIsNotNone(match)
         rows = {found.group(1) for line in match.group(1).splitlines()

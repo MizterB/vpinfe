@@ -23,12 +23,14 @@ Each recipe has the same parts: when to use it, the code, what you will see, a f
 and the mistake people make with it.
 
 - [1. The smallest extension](#1-the-smallest-extension)
+- [2. A key kept secret](#2-a-key-kept-secret)
 - [3. The smallest dialog](#3-the-smallest-dialog)
 - [4. A dialog with steps and a check](#4-a-dialog-with-steps-and-a-check)
 - [5. A long job with progress](#5-a-long-job-with-progress)
 - [6. Listening to events](#6-listening-to-events)
 - [7. A list](#7-a-list)
 - [8. Acting on rows](#8-acting-on-rows)
+- [13. An account per player](#13-an-account-per-player)
 
 ## Basics
 
@@ -85,6 +87,72 @@ Hello, the default. After they do, it answers what they typed.
 **Watch out:** the folder name, the `name` in the manifest and the words' prefix are one
 name. It is lowercase letters, digits and underscores, starting with a letter. The words file
 has no `ext.smallest.` in front of its keys, core adds that.
+
+### 2. A key kept secret
+
+**Use it when:** the extension needs a password, a token or a key, and it must never be shown again once it is entered.
+
+A `secret` is a field like any other, in a setting and in a dialog, with two differences. The box is masked and drawn empty, with *Set* or *Not set* in it, because core never sends the value back to the page. And leaving it empty keeps the one held, so the person does not have to type it again to change something else. Here one key is entered either way: in Settings, or from a dialog that asks for it.
+
+`recipes/secret_key/extension.json`
+
+```json
+{
+  "name": "secret_key",
+  "version": "1.0.0",
+  "requires_platform": 1,
+  "capabilities": ["config:own", "ui:mount"]
+}
+```
+
+`recipes/secret_key/__init__.py`
+
+```python
+class Connect:
+    def __init__(self, ctx):
+        self.ctx = ctx
+
+    def ask(self, step):
+        return {"fields": [{"key": "key", "label": self.ctx.t("dialog.key"),
+                            "type": "secret",
+                            "set": bool(self.ctx.config.get("key"))}]}
+
+    def run(self, values):
+        typed = values.get("key")
+        if typed:
+            self.ctx.config.set("key", typed)
+            return self.ctx.t("dialog.saved")
+        return self.ctx.t("dialog.kept")
+
+
+def register(ctx):
+    ctx.ui.settings([{"key": "key", "type": "secret"}])
+    ctx.ui.action("connect", Connect(ctx))
+```
+
+`recipes/secret_key/i18n/en.json`
+
+```json
+{
+  "name": "Secret Key",
+  "description": "Keeps a key out of sight, set from a setting or from a dialog.",
+  "settings.key.label": "Key",
+  "action.connect.label": "Enter the Key",
+  "dialog.key": "Key",
+  "dialog.saved": "Saved the key",
+  "dialog.kept": "Kept the key as it was"
+}
+```
+
+**What you'll see:** Settings, then Extensions, then Secret Key: a masked Key field saying Not set. Type a key and leave the field, and it says Set, with Clear beside it. Clear asks first, then empties it. The Enter the Key button opens a dialog with the same field, and pressing Enter the Key with it empty leaves the key as it was.
+
+**Variations:**
+
+- Read it anywhere in the extension with `ctx.config.get("key")`. It is the one place the value is available, and it is empty where none is held.
+- Put a secret in a dialog's first step and use it in `check` to see whether the service accepts it, as the dialog in recipe 4 does.
+- Give a secret a `check` on the settings, `ctx.ui.settings(fields, check=function)`, to refuse a key the service does not know. The refusal shows under the field.
+
+**Watch out:** a secret has no default, and `values.get("key")` in a dialog is `None` where the person left it empty. Treat that as keep, and never write an empty value over a key.
 
 ### 3. The smallest dialog
 
@@ -213,7 +281,7 @@ class PostScore:
         return {"step": "key", "title": self.ctx.t("dialog.key.title"),
                 "help": self.ctx.t("dialog.key.help"),
                 "fields": [{"key": "key", "label": self.ctx.t("dialog.key"),
-                            "type": "string"}]}
+                            "type": "secret"}]}
 
     def check(self, values, step):
         if step == "key":
@@ -623,3 +691,67 @@ from the site?" first, or "Remove these 2 scores from the site?" for two.
 **Watch out:** the `id` of a row is a string and must be different for every row of the list.
 Two rows with the same id make the list fail with the reason, and a row with none can be read
 but not picked.
+
+## Players and games
+
+### 13. An account per player
+
+**Use it when:** each player has something of their own with the extension, such as a handle or a key for a service, and it should sit on that player's panel.
+
+An account whose `read` answers `fields` and no `user_id` is drawn by core as a settings page is, one control for each field, on the player's panel under the extension's name. Each is saved as it is left with `write(player_id, values)`, which is handed just the field that changed. A secret is never answered: `read` says `set` and core draws it empty. Core adds the Share switch under the fields.
+
+`recipes/player_handle/extension.json`
+
+```json
+{
+  "name": "player_handle",
+  "version": "1.0.0",
+  "requires_platform": 1,
+  "capabilities": ["ui:mount"]
+}
+```
+
+`recipes/player_handle/__init__.py`
+
+```python
+def register(ctx):
+    def read(player_id):
+        held = ctx.players.account(player_id)
+        return {"fields": [
+            {"key": "handle", "type": "string", "label": ctx.t("account.handle"),
+             "value": held.get("handle", "")},
+            {"key": "api_key", "type": "secret", "label": ctx.t("account.key"),
+             "set": bool(held.get("api_key"))}]}
+
+    def write(player_id, values):
+        held = dict(ctx.players.account(player_id))
+        for key, value in values.items():
+            if value is None:
+                held.pop(key, None)
+            else:
+                held[key] = value
+        ctx.players.set_account(player_id, held)
+
+    ctx.ui.account(read=read, write=write)
+```
+
+`recipes/player_handle/i18n/en.json`
+
+```json
+{
+  "name": "Player Handle",
+  "description": "Keeps a handle and a key for each player.",
+  "account.handle": "Handle",
+  "account.key": "Key"
+}
+```
+
+**What you'll see:** Frontend, then Players, then a player, then Player Handle: a Handle field, a masked Key field and a Share switch. Type a handle and leave the field, and it is kept for that player and no other. A key says Set once entered, with Clear beside it.
+
+**Variations:**
+
+- Make a field a `select` or a `switch` with `choices`, as in a settings page. The Fields table in the reference lists what an account draws.
+- Raise an error from `write` to refuse a value. The refusal shows under the field, and the value is not kept.
+- Answer `user_id` as well to have core draw the id, the claim and the card instead, which is the shape an account with a service of its own takes.
+
+**Watch out:** `write` is handed `None` under a key when a secret is cleared, so remove the key and do not store the word None. A guest's account is held in memory and never written to disk, so a handle set on a guest is gone when they sign out.

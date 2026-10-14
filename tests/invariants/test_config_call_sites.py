@@ -70,7 +70,9 @@ def _raw_reads():
     """
     for path in project_files("*.py"):
         rel = path.relative_to(REPO).as_posix()
-        if rel.startswith(("tests/", "third_party/", "managerui/maps/")) \
+        # An example extension's `ctx.config` is its own settings, not a parser.
+        if rel.startswith(("tests/", "third_party/", "managerui/maps/",
+                           "docs/extensions/examples/")) \
                 or rel in OWNS_THE_OLD_NAMES:
             continue
         try:
