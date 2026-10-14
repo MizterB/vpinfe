@@ -165,7 +165,7 @@ class LiveInstance:
         store.save()
 
     def _install_harness_theme(self) -> None:
-        target = self.config_dir / "themes" / self.theme
+        target = self.config_dir / "frontend_themes" / self.theme
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copytree(HARNESS_THEME, target)
 

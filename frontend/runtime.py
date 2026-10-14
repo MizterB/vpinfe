@@ -21,6 +21,7 @@ from common.config_store import ConfigStore
 from common.games import remote_library
 from common.host import key_reader, metrics, system_actions
 from common.host.display_service import get_display_monitors
+from common.paths import THEMES_FOLDER
 from frontend import ext_data, input_events, library_resolver, play_events, preview, showing
 from frontend.api import API
 from frontend.chromium_manager import ChromiumManager
@@ -180,7 +181,7 @@ def _apply_theme_media_sets(iniconfig: ConfigStore, logger: logging.Logger) -> N
 
 def build_mount_points(base_path: str, config_dir: Path,
                        iniconfig: ConfigStore) -> tuple[dict[str, str], str]:
-    themes_dir = str(config_dir / "themes")
+    themes_dir = str(config_dir / THEMES_FOLDER)
     collection_icons_dir = str(config_dir / "collection_icons")
     os.makedirs(themes_dir, exist_ok=True)
     os.makedirs(collection_icons_dir, exist_ok=True)

@@ -35,7 +35,7 @@ class TestConfigDirEnvOverride(unittest.TestCase):
 
         self.assertEqual(paths.CONFIG_DIR, OVERRIDE)
         self.assertEqual(paths.VPINFE_INI_PATH, OVERRIDE / "vpinfe.ini")
-        self.assertEqual(paths.THEMES_DIR, OVERRIDE / "themes")
+        self.assertEqual(paths.THEMES_DIR, OVERRIDE / "frontend_themes")
         self.assertEqual(paths.COLLECTIONS_PATH, OVERRIDE / "collections.json")
 
     def test_an_override_keeps_the_caches_beside_it(self) -> None:

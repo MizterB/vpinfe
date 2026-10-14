@@ -67,7 +67,7 @@ class AttractDriveTests(TempTree):
         await browser.evaluate(RECORD)
 
     def _theme_dir(self, instance: LiveInstance):
-        return instance.config_dir / "themes" / instance.theme
+        return instance.config_dir / "frontend_themes" / instance.theme
 
     def _drive(self, scenario, settings=None, *, prepare=None):
         async def run(instance: LiveInstance):

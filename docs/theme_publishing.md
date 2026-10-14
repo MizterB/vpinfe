@@ -107,7 +107,7 @@ them need to do anything.
 The registry key is not just a label. It affects runtime behavior:
 
 - It is the key VPinFE uses internally for install/update/delete operations.
-- It becomes the installed folder name under the local `themes/` directory.
+- It becomes the installed folder name under the local `frontend_themes/` directory.
 - It is the value users set in `vpinfe.ini` for `[Settings] theme = ...`.
 - The Manager UI uses it when building local preview URLs like `/themes/<theme_key>/<preview_image>`.
 
@@ -307,7 +307,7 @@ Important consequences:
 
 Installed themes are stored under the user's VPinFE config directory:
 
-- Linux: `~/.config/vpinfe/themes/`
+- Linux: `~/.config/vpinfe/frontend_themes/`
 - Other platforms: the matching `platformdirs.user_config_dir("vpinfe", "vpinfe")` path
 
 At runtime, VPinFE mounts that directory as `/themes/` in the local HTTP server from [`main.py`](../main.py).

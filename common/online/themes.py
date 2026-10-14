@@ -6,6 +6,7 @@ import concurrent.futures
 import json
 import logging
 import os
+from collections.abc import Collection
 from dataclasses import asdict
 from io import BytesIO
 from typing import Any
@@ -17,7 +18,7 @@ from common.i18n import t
 from common.online import theme_dates, theme_releases, theme_source_checks, theme_sources
 from common.online.theme_installer import ASIDE_SUFFIX, ThemeInstallStore
 from common.online.theme_registry_client import ThemeRegistryClient, ThemeRegistryError
-from common.paths import CONFIG_DIR, get_ini_config
+from common.paths import CONFIG_DIR, THEMES_FOLDER, get_ini_config
 from common.theme_level import CURRENT_CONTRACT, MIN_VERSION_KEY
 from common.values import newer_version, parse_version
 from common.vpinfe_version import get_version
@@ -49,7 +50,7 @@ class ThemeRegistry:
         self.reports: dict[str, dict[str, Any]] = {}
 
         self.base_dir = str(CONFIG_DIR)
-        self.themes_dir = os.path.join(self.base_dir, "themes")
+        self.themes_dir = os.path.join(self.base_dir, THEMES_FOLDER)
         self.store = ThemeInstallStore(self.themes_dir)
 
     # =========================================================
@@ -192,14 +193,16 @@ class ThemeRegistry:
         return chosen, manifest_url, index
 
     def load_theme_manifests(self, default_only: bool = False, *, dates: bool = True,
-                             previous: ThemeRegistry | None = None) -> None:
-        """`dates=False` leaves every `updated` empty. `previous` is the last read."""
+                             previous: ThemeRegistry | None = None,
+                             include: Collection[str] = ()) -> None:
+        """`dates=False` leaves every `updated` empty. `previous` is the last read.
+        `include` names themes read although `default_only` would leave them out."""
         # Reset loaded themes for this pass.
         self.themes = {}
 
         theme_jobs = []
         for theme_key, theme_info in self.themes_index.items():
-            if default_only and not theme_sources.installs_on_its_own(
+            if default_only and theme_key not in include and not theme_sources.installs_on_its_own(
                     theme_info, self.origins.get(theme_key, "")):
                 continue
             base_url = self._base_url(theme_info)
@@ -534,7 +537,7 @@ class ThemeRegistry:
 
     def get_installed_folder(self, theme_key: str) -> str | None:
         """
-        Returns the actual folder name under `themes/` for the given theme.
+        Returns the actual folder name under `frontend_themes/` for the given theme.
         None if theme is not installed.
         """
         # Check for exact theme_key match first (post-rename)

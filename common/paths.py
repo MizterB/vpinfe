@@ -97,7 +97,9 @@ COLLECTIONS_PATH = CONFIG_DIR / "collections.json"
 TAGS_PATH = CONFIG_DIR / "tags.json"
 # Read once and converted; kept as a name so a restore can still find its backups.
 COLLECTIONS_INI_PATH = CONFIG_DIR / "collections.ini"
-THEMES_DIR = CONFIG_DIR / "themes"
+# 2.x reads `themes/` and nothing else, so 3.0 keeps its own beside it.
+THEMES_FOLDER = "frontend_themes"
+THEMES_DIR = CONFIG_DIR / THEMES_FOLDER
 CACHE_DIR = _resolve_cache_dir()
 STATE_DIR = _resolve_state_dir()
 LOG_DIR = _resolve_log_dir()
@@ -147,4 +149,4 @@ def get_games_path(default: str = "~/tables") -> str:
 
 
 def get_themes_dir() -> Path:
-    return ensure_config_dir() / "themes"
+    return ensure_config_dir() / THEMES_FOLDER

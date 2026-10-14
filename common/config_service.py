@@ -354,6 +354,19 @@ def put_theme_options(wanted: dict[str, dict[str, Any]]) -> None:
             _announce(store, [THEME_OPTIONS])
 
 
+def drop_theme_options(folders: Sequence[str]) -> None:
+    """Remove these themes' entries outright, as against an empty one, which says the
+    person took their choices away."""
+    with _WRITING:
+        store = get_ini_config()
+        before = store.theme_options()
+        kept = {folder: values for folder, values in before.items() if folder not in folders}
+        if kept != before:
+            store.set_theme_options(kept)
+            _save(store)
+            _announce(store, [THEME_OPTIONS])
+
+
 def _save(store: Any) -> None:
     try:
         store.save()

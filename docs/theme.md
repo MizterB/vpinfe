@@ -20,7 +20,7 @@ Each window has its own webpage but shares an instance of the VPinFE API ([front
 
 ## Theme Structure
 
-Themes are installed in the user config directory: `~/.config/vpinfe/themes/<THEME NAME>/` (Linux) or the equivalent `platformdirs` location on other platforms.
+Themes are installed in the user config directory: `~/.config/vpinfe/frontend_themes/<THEME NAME>/` (Linux) or the equivalent `platformdirs` location on other platforms. 2.x reads `themes/` and nothing else, so 3.0 keeps its own folder beside it: an upgraded install has its themes copied across once, and the `themes/` folder is left as it was for anyone going back to 2.x.
 
 ```
 <THEME NAME>

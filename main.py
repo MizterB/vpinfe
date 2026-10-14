@@ -82,6 +82,7 @@ from common.host.libdmdutil_service import (
 )
 from common.http_client import unreachable
 from common.log_setup import configure_logging, get_logger
+from common.online import theme_seed, theme_upgrade  # noqa: F401
 from common.online.pinmame_score_parser_updater import ensure_latest_roms_json
 from common.online.theme_registry_client import ThemeRegistryError
 from common.online.themes import ThemeRegistry
@@ -267,7 +268,10 @@ except Exception:
 try:
     theme_registry = ThemeRegistry()
     theme_registry.load_registry()
-    theme_registry.load_theme_manifests(default_only=True, dates=False)
+    theme_registry.load_theme_manifests(default_only=True, dates=False,
+                                        include=theme_upgrade.wanted(theme_registry))
+    if theme_upgrade.run(theme_registry):
+        config_store.reread()
     theme_registry.auto_install_defaults()
 except requests.RequestException as exc:
     unreachable(logger, "Theme registry initialization failed", exc)

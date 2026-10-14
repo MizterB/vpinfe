@@ -44,7 +44,7 @@ class CoreDefaultsDriveTests(TempTree):
 
     def _capabilities(self, *, contract_1: bool = False, config: dict | None = None) -> dict:
         async def run(instance: LiveInstance):
-            theme = instance.config_dir / "themes" / instance.theme
+            theme = instance.config_dir / "frontend_themes" / instance.theme
             if contract_1:
                 manifest = json.loads((theme / "manifest.json").read_text())
                 manifest.pop("min_vpinfe")
@@ -104,7 +104,7 @@ class CoreDefaultsDriveTests(TempTree):
 
     def _indicator(self, config: dict | None, *events: str) -> int:
         async def run(instance: LiveInstance):
-            theme = instance.config_dir / "themes" / instance.theme
+            theme = instance.config_dir / "frontend_themes" / instance.theme
             if config is not None:
                 (theme / "config.json").write_text(json.dumps(config))
             async with BrowserSession(chromium_path()) as browser:
