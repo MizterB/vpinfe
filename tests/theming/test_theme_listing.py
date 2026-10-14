@@ -15,6 +15,10 @@ REPO = "https://git.example.net/someone/vpinfe-theme-reference"
 class _Registry:
     def __init__(self, themes: dict, local: dict | None = None) -> None:
         self._themes, self._local = themes, local or {}
+        self.themes_dir = "themes"
+
+    def get_installed_folder(self, key: str) -> None:
+        return None
 
     def get_themes(self) -> dict:
         return self._themes

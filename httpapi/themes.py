@@ -14,13 +14,18 @@ from contextlib import contextmanager
 from typing import Any
 
 from fastapi import APIRouter, Body
+from starlette.requests import Request
+from starlette.responses import Response
 
+from common import sized_media
 from common.failures import why
+from common.i18n import t
 from common.online import theme_ops
 
 from . import scopes
 from .auth import requires
-from .errors import ApiError
+from .errors import ApiError, NotFoundError
+from .responses import MEDIA_SIZE, MEDIA_VERSION, media_file
 
 router = APIRouter(prefix="/themes", tags=["themes"])
 
@@ -43,6 +48,21 @@ def list_themes(refresh: bool = False) -> dict[str, Any]:
     """
     with _sources_read():
         return theme_ops.listing(refresh)
+
+
+@router.get("/{key}/preview", summary="A theme's preview picture",
+            dependencies=[requires(scopes.CONFIG_READ)])
+def get_preview(key: str, request: Request, size: int | None = MEDIA_SIZE,
+                v: str = MEDIA_VERSION) -> Response:
+    """The picture the theme's manifest names, at `size` (256 or 1024) when given. A theme
+    not installed has it fetched from its host once per release and kept; `v` is the
+    `preview_version` the listing gives, and a request that carries the current one may be
+    kept for good. 404 for a theme with no picture, or one that cannot be fetched."""
+    size_or = sized_media.size_or_refuse(size, "image")
+    served = theme_ops.preview(key, size_or)
+    if served is None:
+        raise NotFoundError(t("error.themes.no_preview", key=key))
+    return media_file(served, request, v)
 
 
 @router.get("/sources", summary="What each theme source said when it was last read",

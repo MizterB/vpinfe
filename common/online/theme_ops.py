@@ -13,13 +13,20 @@ from __future__ import annotations
 import json
 import logging
 import threading
-from typing import Any
+from pathlib import Path
+from typing import Any, NamedTuple
 
-from common import service_errors
+from common import service_errors, sized_media
 from common.atomic_write import write_atomic
 from common.failures import why
 from common.i18n import t
-from common.online import theme_service, theme_source_checks, theme_sources, theme_sync
+from common.online import (
+    theme_previews,
+    theme_service,
+    theme_source_checks,
+    theme_sources,
+    theme_sync,
+)
 from common.online.theme_registry_client import ThemeRegistryError
 from common.online.themes import ThemeRegistry
 from common.paths import THEME_CACHE_PATH, get_ini_config
@@ -163,6 +170,7 @@ def _described(registry: ThemeRegistry, active: str) -> list[dict[str, Any]]:
             # installed theme serves its own from /themes/, and one that is not has to
             # be fetched from where its manifest lives.
             "preview": _preview(key, manifest, info, installed),
+            "preview_version": preview_version(registry, key),
             "change_log": str(manifest.get("change_log") or ""),
             "updated": str(entry.get("updated") or ""),
             "installed": installed,
@@ -186,6 +194,7 @@ def _described(registry: ThemeRegistry, active: str) -> list[dict[str, Any]]:
             "url": "",
             "registry": "",
             "preview": _preview(key, manifest, {}, True),
+            "preview_version": preview_version(registry, key),
             "change_log": str(manifest.get("change_log") or ""),
             "updated": "",
             "installed": True,
@@ -213,6 +222,61 @@ def _preview(key: str, manifest: dict, info: dict, installed: bool) -> str:
     if not base:
         return ""
     return f"{ThemeRegistry._manifest_url(base, info).rsplit('/', 1)[0]}/{name}"
+
+
+class _Picture(NamedTuple):
+    installed: Path | None
+    url: str
+    release: str
+
+
+def _picture(registry: ThemeRegistry, key: str) -> _Picture | None:
+    """Where a theme's preview is: in its installed folder, else at `url` on its host."""
+    entry = registry.get_themes().get(key)
+    if entry is not None:
+        manifest = dict(entry.get("manifest") or {})
+        info = dict(entry.get("registry_info") or {})
+        folder = registry.get_installed_folder(key)
+    else:
+        manifest = dict(registry.local_themes().get(key) or {})
+        info, folder = {}, key
+    name = str(manifest.get("preview_image") or "").strip()
+    if not name:
+        return None
+    installed = None
+    if folder and not name.startswith("http"):
+        root = Path(registry.themes_dir, folder).resolve()
+        candidate = (root / name).resolve()
+        installed = candidate if candidate.is_relative_to(root) and candidate.is_file() else None
+    if entry:
+        url = _preview(key, manifest, info, False)
+    else:
+        url = name if name.startswith("http") else ""
+    return _Picture(installed, url, str(manifest.get("version") or ""))
+
+
+def preview_version(registry: ThemeRegistry, key: str) -> str:
+    """What the address of a theme's preview carries as `v`, which changes when the
+    picture does: a new release of a theme not installed, a new file for one that is."""
+    picture = _picture(registry, key)
+    if picture is None:
+        return ""
+    if picture.installed is not None:
+        return sized_media.version(picture.installed) or ""
+    return theme_previews.version(key, picture.url, picture.release) if picture.url else ""
+
+
+def preview(key: str, size: int | None) -> sized_media.Served | None:
+    """A theme's preview at `size`, or None when it has none or cannot be had. Fetches a
+    picture not yet kept, so not for a path that cannot wait."""
+    registry = _known()
+    picture = _picture(registry, key) if registry is not None else None
+    if picture is None:
+        return None
+    source = picture.installed
+    if source is None and picture.url:
+        source = theme_previews.path(key, picture.url, picture.release)
+    return sized_media.served(source, size) if source is not None else None
 
 
 def _readable(refresh: bool = False) -> ThemeRegistry:

@@ -10,7 +10,8 @@ from common import config_schema
 from console import offload, settings, theme_card, themes, thumbnails
 
 THEME = {"key": "neon", "name": "Neon", "author": "someone", "installed_version": "1.2",
-         "version": "1.2", "preview": "/themes/neon/preview.png", "installed": True}
+         "version": "1.2", "preview": "/themes/neon/preview.png", "preview_version": "ab12",
+         "installed": True}
 
 
 class SaidTests(unittest.TestCase):
@@ -62,7 +63,7 @@ class DrawnTests(unittest.TestCase):
     def test_the_picture_is_the_preview_frame(self) -> None:
         theme_card.active("neon", THEME)
 
-        self.assertEqual(call("/themes/neon/preview.png", theme_card.GLYPH,
+        self.assertEqual(call("/api/v1/themes/neon/preview?size=256&v=ab12", theme_card.GLYPH,
                               size=thumbnails.PREVIEW), self.beside.call_args)
 
     def test_a_theme_with_no_preview_draws_the_glyph(self) -> None:

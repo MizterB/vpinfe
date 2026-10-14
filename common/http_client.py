@@ -178,6 +178,25 @@ def get_bytes(url: str, *, timeout: int = DOWNLOAD_TIMEOUT,
     return response.content
 
 
+def get_if_changed(url: str, etag: str = "", *, timeout: int = DOWNLOAD_TIMEOUT,
+                   limit: int = 20 * 1024 * 1024) -> tuple[bytes, str] | None:
+    """The body at `url` and the ETag it came with, or None when the host says the copy
+    behind `etag` is still current. A body over `limit` bytes is refused, so a source
+    cannot fill the disk by naming something large."""
+    headers = {"If-None-Match": etag} if etag else None
+    with _asked(requests.get, url, timeout=timeout, headers=headers, stream=True) as response:
+        if response.status_code == 304:
+            return None
+        response.raise_for_status()
+        body = bytearray()
+        for chunk in response.iter_content(chunk_size=64 * 1024):
+            body.extend(chunk)
+            if len(body) > limit:
+                raise requests.RequestException(
+                    t("said.why.too_large_at", host=_host(url), size=limit // (1024 * 1024)))
+        return bytes(body), response.headers.get("etag", "")
+
+
 def download_file(
     url: str,
     dest: Path,

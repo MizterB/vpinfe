@@ -268,6 +268,8 @@ The Console uses the manifest's `preview_image` field in two ways:
 
 For the simplest publishing flow, keep `preview_image` as a filename in the repository root, for example `"preview_image": "preview.png"`.
 
+The Console fetches a picture it has not kept once per release and shows it at the size it is drawn, so a new release is the way to have a changed picture picked up everywhere at once. Keep it under about 300 KB: the Console downloads it in full, once per release.
+
 ## Publishing Checklist
 
 1. Create a repository for the theme.

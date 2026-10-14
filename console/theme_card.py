@@ -12,7 +12,7 @@ from typing import Any
 from nicegui import ui
 
 from common.i18n import t
-from console import panel, thumbnails
+from console import art, panel, thumbnails
 
 # A theme's own glyph, where it has no preview.
 GLYPH = "palette"
@@ -25,6 +25,14 @@ def version_said(theme: dict[str, Any]) -> str:
         return t("console.themes.version_to", now=theme.get("installed_version") or "",
                  then=theme.get("version") or "")
     return str(theme.get("installed_version") or theme.get("version") or "")
+
+
+def preview(theme: dict[str, Any], size: int) -> str:
+    """The address of a theme's preview at `size`, or nothing for a theme without one."""
+    if not theme.get("preview"):
+        return ""
+    return art.theme_preview(str(theme["key"]), version=str(theme.get("preview_version") or ""),
+                             size=size)
 
 
 def said(theme: dict[str, Any]) -> str:
@@ -41,7 +49,7 @@ def active(key: str, theme: dict[str, Any] | None) -> None:
     of author and version to say.
     """
     entry = theme or {}
-    with thumbnails.beside(str(entry.get("preview") or ""), GLYPH, size=thumbnails.PREVIEW), \
+    with thumbnails.beside(preview(entry, art.CELL), GLYPH, size=thumbnails.PREVIEW), \
             ui.column().classes("gap-0 grow min-w-0"):
         ui.label(str(entry.get("name") or key)) \
             .classes("console-fact-value truncate min-w-0")

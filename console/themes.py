@@ -23,6 +23,7 @@ from nicegui import run, ui
 from common.failures import why
 from common.i18n import t
 from console import (
+    art,
     backup_rows,
     busy,
     confirm,
@@ -133,7 +134,7 @@ def rows(themes: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def _row(theme: dict[str, Any]) -> dict[str, Any]:
     return {"id": theme["key"], "name": theme.get("name") or theme["key"],
-            "preview": theme.get("preview") or "", "status": status(theme),
+            "preview": theme_card.preview(theme, art.CELL), "status": status(theme),
             "made_for": theme.get("type") if theme.get("type") in MADE_FOR else "",
             "author": str(theme.get("author") or ""),
             "registry": repo_name(str(theme["registry"])) if theme.get("registry") else "",
@@ -331,10 +332,11 @@ async def details(context: dict[str, Any]) -> None:
     with ui.column().classes("gap-0 console-form w-full min-w-0"):
         with ui.element("div").classes("console-theme-hero"):
             if theme.get("preview"):
-                ui.image(theme["preview"]).classes("w-full")
+                picture = theme_card.preview(theme, art.PANEL)
+                ui.image(picture).classes("w-full")
                 ui.button(icon=verbs.ENLARGE,
                           on_click=lambda: mediaview.open_image(
-                              str(theme["preview"]), str(theme.get("name") or ""))) \
+                              picture, str(theme.get("name") or ""))) \
                     .props("flat dense round size=sm") \
                     .classes("console-slot-zoom").tooltip(t("word.enlarge"))
             else:
