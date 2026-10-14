@@ -15,5 +15,5 @@ def register(ctx):
             {"label": ctx.t("group.file"), "value": who["vps_file_id"] or "-"},
         ]}
 
-    ctx.ui.panel_group("game", game_group, save=save_game)
-    ctx.ui.panel_group("table", table_group)
+    ctx.ui.panel_group("game", game_group, section="play", save=save_game)
+    ctx.ui.panel_group("table", table_group, section="play")

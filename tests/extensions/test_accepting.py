@@ -49,7 +49,8 @@ class Case(unittest.TestCase):
         manifest = host._read_manifest(self.folder / name)
         accepted.accept_extension(name, accepted.IN_FOLDER, folder=str(self.folder),
                                   version=manifest.version, scopes=manifest.scopes,
-                                  capabilities=manifest.capabilities)
+                                  capabilities=manifest.capabilities,
+                                  tiers=manifest.reaches)
 
 
 class AnExtensionInAFolder(Case):
@@ -107,6 +108,28 @@ class AnExtensionInAFolder(Case):
         trust = record.as_dict()["trust"]
         self.assertEqual(trust["new_access"], ["games:write"])
         self.assertTrue(trust["accepted_before"])
+
+    def test_that_adds_the_play_tier_in_a_later_version_stops_again(self) -> None:
+        directory = _write(self.folder, "tool")
+        self.accept("tool")
+        (directory / "extension.json").write_text(json.dumps({
+            "name": "tool", "version": "2.0.0", "requires_platform": contract.PLATFORM_ABI,
+            "tiers": ["play"]}), encoding="utf-8")
+
+        with self.assertLogs("vpinfe.common.extensions", "WARNING"):
+            record = self.registry.load(directory)
+
+        self.assertEqual((record.state, record.why), (host.OFF, host.NOT_ACCEPTED))
+        self.assertEqual(record.as_dict()["trust"]["new_access"], ["tier:play"])
+
+    def test_that_adds_the_protected_tier_in_a_later_version_runs(self) -> None:
+        directory = _write(self.folder, "tool")
+        self.accept("tool")
+        (directory / "extension.json").write_text(json.dumps({
+            "name": "tool", "version": "2.0.0", "requires_platform": contract.PLATFORM_ABI,
+            "tiers": ["protected"]}), encoding="utf-8")
+
+        self.assertEqual(self.registry.load(directory).state, host.LOADED)
 
     def test_that_asks_for_no_more_in_a_later_version_does_not_ask_again(self) -> None:
         directory = _write(self.folder, "tool", scopes=["games:read"])

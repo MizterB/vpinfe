@@ -54,6 +54,11 @@ declares, its scopes and capabilities, is a statement it makes about itself, for
 installs it to read.  Core holds the calls that go through `ctx` to what is declared, and the
 rest is trust.  See [scopes and tiers](#scopes-and-tiers) for what is held and what is not.
 
+What an extension declares may not be what it does.  The list a person reads when they accept
+is the author's word, VPinFE cannot check it against the code, and an extension that declares
+little can still do a lot.  Run only extensions you trust, and treat the list as a claim to
+weigh and not as a limit that holds.
+
 For an extension author this means two things.  Ask for what you need and nothing more, because
 the list is what a person reads before they decide.  And write what a person cannot see in the
 page, in the README.
@@ -72,8 +77,8 @@ including one in the extensions folder that has the name of one VPinFE ships:
   Unofficial after, and the page's list of what it reaches reads "What It Says It Uses".  The
   chip's tooltip says "Not included with VPinFE.  Extensions can run programs on this computer."
 - **On its own pages.**  A list's or a page's header names the extension and carries the chip.
-- **Not elsewhere.**  Not in the navigation rail, not on a link that leaves, not on a group it
-  adds to a game's panel and not on a row it adds to Needs You.
+- **Not elsewhere.**  Nothing marks the extension's entry in the navigation rail, a link that
+  leaves, a group it adds to a game's panel or a row it adds to Needs You.
 
 What accepting is kept in:
 
@@ -115,13 +120,15 @@ enforces the ones that go through `ctx`.  The rest are advisory, because Python 
 process can always do them: they say what the extension intends, so a person can see it, and
 they become a boundary only when extensions run out of process.
 
-**Who may reach what the extension serves.**  An extension that adds routes of its own names
-`ext:<name>:read` or `ext:<name>:write`, and core puts the gate on every route.  You never attach
-one, so you cannot ship a route without it.
+**Who may reach what the extension serves.**  Everything an extension serves sits at a
+*tier*: Play for what a Remote pass may reach, Library by default, Protected for an act that
+changes the computer.  Core puts the gate on every route.  You never attach one, so you cannot
+ship a route without it.
 
-A *tier* is a different matter again: how far a request got.  A request that changes the computer,
-such as installing updates through `ctx.os`, is refused unless it reached Protected.  Core marks
-each request with its tier and the mark follows the request into the function it calls.  An event
+A request has a tier too: how far it got.  A request that changes the computer, such as
+installing updates through `ctx.os`, is refused unless it reached Protected, which an Owner
+reaches with a Confirm and a token never does.  Core marks each request with its tier and the
+mark follows the request into the function it calls.  An event
 handler, a timer or a thread the extension started has none, so a change from any of them is
 refused.  It is how VPinFE keeps an act deliberate: a person pressed something.  It is not a lock
 on the machine.  See [`ctx.os`](reference/context.md#ctxos).

@@ -14,13 +14,13 @@ from typing import Any
 from fastapi import APIRouter, Request, Response
 
 from common import extensions
-from common.extensions import serving
+from common.extensions import reach, serving
 from common.extensions.host import Record
 from common.games import game_lens, table_ops
 from common.i18n import t
 
 from . import models, responses, scopes
-from .auth import requires
+from .auth import require, requires
 from .errors import CODE_UPSTREAM_UNAVAILABLE, ApiError, InvalidRequestError, NotFoundError
 
 
@@ -34,10 +34,27 @@ def _envelope(exc: serving.ExtensionError) -> ApiError:
 
 
 def router(name: str, running: Any) -> APIRouter:
-    """The routes for extension `name`, each behind `running` and its read or write scope."""
-    read, write = (scopes.extension_scope(name, "read"),
-                   scopes.extension_scope(name, "write"))
+    """The routes for extension `name`, each behind `running` and the Play tier, which every
+    caller of the extension holds. The handler then holds the caller to the tier of the
+    list, page, group, dialog or act it reaches, which only the extension's declaration
+    knows."""
+    floor = requires(scopes.extension_scope(name, reach.PLAY))
     found = APIRouter(tags=["extensions"])
+
+    def reading(request: Request, kind: str, key: str) -> None:
+        """Hold the caller to what reading a list, page, group or dialog needs."""
+        tier = ask(serving.surface_tier, kind, key)
+        require(request, scopes.extension_scope(name, reach.for_reading(tier)))
+
+    def library(request: Request) -> None:
+        """Hold the caller to Library, for what has no tier of its own."""
+        require(request, scopes.extension_scope(name, reach.LIBRARY))
+
+    def changing(request: Request) -> serving.Need:
+        """What a change calls with the tier it is made at."""
+        def need(tier: str) -> None:
+            require(request, scopes.extension_scope(name, tier))
+        return need
 
     def record() -> Record:
         one = extensions.registry().get(name)
@@ -52,72 +69,82 @@ def router(name: str, running: Any) -> APIRouter:
             raise _envelope(exc) from exc
 
     def get(path: str, summary: str) -> Callable[[Callable[..., Any]], Any]:
-        return found.get(path, summary=summary, dependencies=[running, requires(read)])
+        return found.get(path, summary=summary, dependencies=[running, floor])
 
     def post(path: str, summary: str) -> Callable[[Callable[..., Any]], Any]:
-        return found.post(path, summary=summary, dependencies=[running, requires(write)])
+        return found.post(path, summary=summary, dependencies=[running, floor])
+
+    def put(path: str, summary: str) -> Callable[[Callable[..., Any]], Any]:
+        return found.put(path, summary=summary, dependencies=[running, floor])
 
     # -- settings ------------------------------------------------------------------
 
     @get("/settings", "The settings the extension declared, with their values")
-    def get_settings() -> dict:
+    def get_settings(request: Request) -> dict:
+        library(request)
         return ask(serving.settings_read)
 
-    @found.put("/settings", summary="Change settings the extension declared",
-               dependencies=[running, requires(write)])
-    def put_settings(body: models.ExtensionValues) -> dict:
+    @put("/settings", "Change settings the extension declared")
+    def put_settings(request: Request, body: models.ExtensionValues) -> dict:
+        library(request)
         return ask(serving.settings_write, body.values)
 
     # -- lists ---------------------------------------------------------------------
 
     @get("/lists/{key}", "The rows of a list the extension declared")
-    def get_list(key: str) -> dict:
+    def get_list(request: Request, key: str) -> dict:
+        reading(request, "list", key)
         return ask(serving.list_rows, key)
 
     @get("/lists/{key}/about", "How a list stands, and what it offers to do")
-    def get_list_about(key: str) -> dict:
+    def get_list_about(request: Request, key: str) -> dict:
+        reading(request, "list", key)
         return ask(serving.list_about, key)
 
     @post("/lists/{key}/about/acts/{act}", "Do one of a list's acts")
-    def post_list_act(key: str, act: str) -> dict:
-        return ask(serving.list_act, key, act)
+    def post_list_act(request: Request, key: str, act: str) -> dict:
+        return ask(serving.list_act, key, act, changing(request))
 
     @post("/lists/{key}/verbs/{verb}", "Press one of a list's verbs on some of its rows")
-    def post_list_verb(key: str, verb: str, body: models.ExtensionVerb) -> dict:
-        return ask(serving.list_verb, key, verb, body.ids)
+    def post_list_verb(request: Request, key: str, verb: str,
+                       body: models.ExtensionVerb) -> dict:
+        return ask(serving.list_verb, key, verb, body.ids, changing(request))
 
     @get("/lists/{key}/detail/{row_id:path}", "What the pane beside a list shows for a row")
-    def get_list_detail(key: str, row_id: str) -> dict:
+    def get_list_detail(request: Request, key: str, row_id: str) -> dict:
+        reading(request, "list", key)
         return ask(serving.list_detail, key, row_id)
 
-    @found.put("/lists/{key}/detail/{row_id:path}", summary="Change fields in a row's pane",
-               dependencies=[running, requires(write)])
-    def put_list_detail(key: str, row_id: str, body: models.ExtensionValues) -> dict:
-        return ask(serving.list_save, key, row_id, body.values)
+    @put("/lists/{key}/detail/{row_id:path}", "Change fields in a row's pane")
+    def put_list_detail(request: Request, key: str, row_id: str,
+                        body: models.ExtensionValues) -> dict:
+        return ask(serving.list_save, key, row_id, body.values, changing(request))
 
-    @found.get("/pictures/{picture_id}", summary="A picture one of the extension's rows named",
-               dependencies=[running, requires(read)])
+    @get("/pictures/{picture_id}", "A picture one of the extension's rows named")
     def get_picture(picture_id: str, request: Request) -> Response:
+        if not ask(serving.reaches_play):
+            library(request)
         return responses.media_file(ask(serving.picture, picture_id), request, "")
 
     # -- pages ---------------------------------------------------------------------
 
     @get("/pages/{key}", "What a page the extension declared shows")
-    def get_page(key: str) -> dict:
+    def get_page(request: Request, key: str) -> dict:
+        reading(request, "page", key)
         return ask(serving.page_read, key)
 
-    @found.put("/pages/{key}", summary="Change fields on a page",
-               dependencies=[running, requires(write)])
-    def put_page(key: str, body: models.ExtensionValues) -> dict:
-        return ask(serving.page_save, key, body.values)
+    @put("/pages/{key}", "Change fields on a page")
+    def put_page(request: Request, key: str, body: models.ExtensionValues) -> dict:
+        return ask(serving.page_save, key, body.values, changing(request))
 
     @get("/pages/{key}/about", "What a page offers to do")
-    def get_page_about(key: str) -> dict:
+    def get_page_about(request: Request, key: str) -> dict:
+        reading(request, "page", key)
         return ask(serving.page_about, key)
 
     @post("/pages/{key}/about/acts/{act}", "Do one of a page's acts")
-    def post_page_act(key: str, act: str) -> dict:
-        return ask(serving.page_act, key, act)
+    def post_page_act(request: Request, key: str, act: str) -> dict:
+        return ask(serving.page_act, key, act, changing(request))
 
     # -- panel groups --------------------------------------------------------------
 
@@ -156,24 +183,26 @@ def router(name: str, running: Any) -> APIRouter:
         return ask(serving.group_read, kind, who)
 
     @get("/groups/game/{game_id}", "What the extension says on a game's panel")
-    def get_game_group(game_id: str) -> dict:
+    def get_game_group(request: Request, game_id: str) -> dict:
+        reading(request, "group", "game")
         return group_read("game", game_id)
 
-    @found.put("/groups/game/{game_id}", summary="Change fields in the group on a game's panel",
-               dependencies=[running, requires(write)])
-    def put_game_group(game_id: str, body: models.ExtensionValues) -> dict:
+    @put("/groups/game/{game_id}", "Change fields in the group on a game's panel")
+    def put_game_group(request: Request, game_id: str,
+                       body: models.ExtensionValues) -> dict:
         who = group_subject("game", game_id)
         if not who:
             raise NotFoundError(t("error.extensions.no_group", display=name, subject="game"))
-        return ask(serving.group_save, "game", who, body.values)
+        return ask(serving.group_save, "game", who, body.values, changing(request))
 
     @post("/groups/game/{game_id}/acts/{act}", "Do one of a game group's acts")
-    def post_game_group_act(game_id: str, act: str) -> dict:
-        return ask(serving.group_act, "game", _asked(game_id, "game"), act)
+    def post_game_group_act(request: Request, game_id: str, act: str) -> dict:
+        return ask(serving.group_act, "game", _asked(game_id, "game"), act, changing(request))
 
     @post("/verbs/{kind}/{verb}", "Press one of the extension's entries in the Games or "
           "Tables menu on some of them")
-    def post_library_verb(kind: str, verb: str, body: models.ExtensionLibraryVerb) -> dict:
+    def post_library_verb(request: Request, kind: str, verb: str,
+                          body: models.ExtensionLibraryVerb) -> dict:
         if kind not in ("game", "table"):
             raise NotFoundError(t("error.extensions.no_verb", display=name, key=verb))
         keep = bool(ask(serving.declared_library_verb, kind, verb)["private_ok"])
@@ -181,84 +210,97 @@ def router(name: str, running: Any) -> APIRouter:
                                for one in body.targets)
         asked = [subject(game_id, table_id, keep_private=keep) for game_id, table_id in chosen
                  if table_id or kind == "game"]
-        return ask(serving.library_verb, kind, verb, [who for who in asked if who])
+        return ask(serving.library_verb, kind, verb, [who for who in asked if who],
+                   changing(request))
 
     @post("/groups/table/{game_id}/{table_id}/acts/{act}", "Do one of a table group's acts")
-    def post_table_group_act(game_id: str, table_id: str, act: str) -> dict:
-        return ask(serving.group_act, "table", _asked(game_id, "table", table_id), act)
+    def post_table_group_act(request: Request, game_id: str, table_id: str, act: str) -> dict:
+        return ask(serving.group_act, "table", _asked(game_id, "table", table_id), act,
+                   changing(request))
 
     @get("/groups/table/{game_id}/{table_id}", "What the extension says on a table's panel")
-    def get_table_group(game_id: str, table_id: str) -> dict:
+    def get_table_group(request: Request, game_id: str, table_id: str) -> dict:
+        reading(request, "group", "table")
         return group_read("table", game_id, table_id)
 
-    @found.put("/groups/table/{game_id}/{table_id}",
-               summary="Change fields in the group on a table's panel",
-               dependencies=[running, requires(write)])
-    def put_table_group(game_id: str, table_id: str, body: models.ExtensionValues) -> dict:
+    @put("/groups/table/{game_id}/{table_id}", "Change fields in the group on a table's panel")
+    def put_table_group(request: Request, game_id: str, table_id: str,
+                        body: models.ExtensionValues) -> dict:
         who = group_subject("table", game_id, table_id)
         if not who:
             raise NotFoundError(t("error.extensions.no_group", display=name, subject="table"))
-        return ask(serving.group_save, "table", who, body.values)
+        return ask(serving.group_save, "table", who, body.values, changing(request))
 
     # -- dialogs -------------------------------------------------------------------
 
     @get("/actions/{key}", "The step of a dialog the extension declared")
-    def get_action(key: str, step: str = "") -> dict:
+    def get_action(request: Request, key: str, step: str = "") -> dict:
+        reading(request, "action", key)
         return ask(serving.dialog_ask, key, step)
 
-    @found.post("/actions/{key}/ask", summary="The step of a dialog opened over some rows",
-                dependencies=[running, requires(read)])
-    def post_action_ask(key: str, body: models.ExtensionAsk) -> dict:
+    @post("/actions/{key}/ask", "The step of a dialog opened over some rows")
+    def post_action_ask(request: Request, key: str, body: models.ExtensionAsk) -> dict:
+        reading(request, "action", key)
         return ask(serving.dialog_ask, key, body.step, body.rows)
 
     @post("/actions/{key}/check", "Check a dialog's values")
-    def post_action_check(key: str, body: models.ExtensionStep) -> dict:
-        return ask(serving.dialog_check, key, body.values, body.step)
+    def post_action_check(request: Request, key: str, body: models.ExtensionStep) -> dict:
+        reading(request, "action", key)
+        return ask(serving.dialog_check, key, body.values, body.step, changing(request))
 
     @post("/actions/{key}/act", "Press one of a dialog's own buttons")
-    def post_action_act(key: str, body: models.ExtensionAct) -> dict:
-        return ask(serving.dialog_act, key, body.act, body.values, body.step)
+    def post_action_act(request: Request, key: str, body: models.ExtensionAct) -> dict:
+        return ask(serving.dialog_act, key, body.act, body.values, body.step,
+                   changing(request))
 
     @post("/actions/{key}/run", "Run what a dialog asked for")
-    def post_action_run(key: str, body: models.ExtensionStep, response: Response) -> dict:
-        answer = ask(serving.dialog_run, key, body.values, body.step)
+    def post_action_run(request: Request, key: str, body: models.ExtensionStep,
+                        response: Response) -> dict:
+        answer = ask(serving.dialog_run, key, body.values, body.step, changing(request))
         if answer.get("job_id"):
             response.status_code = 202
         return answer
 
     @get("/actions/{key}/progress", "How far a dialog's run has got")
-    def get_action_progress(key: str) -> dict:
+    def get_action_progress(request: Request, key: str) -> dict:
+        reading(request, "action", key)
         return ask(serving.dialog_progress, key)
 
     @post("/jobs/{kind}/stop", "Ask a running job of the extension to stop")
-    def post_job_stop(kind: str) -> dict:
+    def post_job_stop(request: Request, kind: str) -> dict:
+        library(request)
         return ask(serving.job_stop, kind)
 
     # -- accounts ------------------------------------------------------------------
 
     @get("/accounts/{player_id}", "A player's account with the extension's service")
-    def get_account(player_id: str) -> dict:
+    def get_account(request: Request, player_id: str) -> dict:
+        library(request)
         return ask(serving.account_read, player_id)
 
-    @found.put("/accounts/{player_id}", summary="Change a player's account",
-               dependencies=[running, requires(write)])
-    def put_account(player_id: str, body: models.ExtensionValues) -> dict:
+    @put("/accounts/{player_id}", "Change a player's account")
+    def put_account(request: Request, player_id: str, body: models.ExtensionValues) -> dict:
+        library(request)
         return ask(serving.account_write, player_id, body.values)
 
     @post("/accounts/{player_id}/acts/{act}", "Do one of an account's acts")
-    def post_account_act(player_id: str, act: str) -> dict:
+    def post_account_act(request: Request, player_id: str, act: str) -> dict:
+        library(request)
         return ask(serving.account_act, player_id, act)
 
     @get("/accounts/{player_id}/card", "A player's card, to share")
-    def get_account_card(player_id: str) -> dict:
+    def get_account_card(request: Request, player_id: str) -> dict:
+        library(request)
         return ask(serving.account_card, player_id)
 
     @post("/accounts/cards", "Read a card a player pasted")
-    def post_account_cards(body: models.ExtensionCard) -> dict:
+    def post_account_cards(request: Request, body: models.ExtensionCard) -> dict:
+        library(request)
         return ask(serving.account_read_card, body.card)
 
     @get("/available", "Whether a name is free to take")
-    def get_available(candidate: str = "") -> dict:
+    def get_available(request: Request, candidate: str = "") -> dict:
+        library(request)
         return ask(serving.account_available, candidate)
 
     return found

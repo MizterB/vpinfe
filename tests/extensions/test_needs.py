@@ -39,8 +39,8 @@ def asking(ctx: Any) -> None:
             raise STATE["raises"]
         return STATE["answer"]
 
-    ctx.ui.list("plays", lambda: [], columns=[{"field": "name"}], title="Plays")
-    ctx.ui.page("week", lambda: {"title": "Week", "sections": []}, title="Week")
+    ctx.ui.list("plays", lambda: [], columns=[{"field": "name"}], title="Plays", area="community")
+    ctx.ui.page("week", lambda: {"title": "Week", "sections": []}, title="Week", area="community")
     ctx.ui.action("update", Dialog(), label="Update")
     ctx.ui.needs(KINDS, read)
 

@@ -6,7 +6,7 @@ and the rest of the model rests on that.
 | on `ctx` | what it is |
 |---|---|
 | `ctx.name`, `ctx.manifest`, `ctx.host_version`, `ctx.logger`, `ctx.open`, `ctx.routers` | What this extension is, which VPinFE runs it, its log, and its own routes |
-| `ctx.t`, `ctx.why`, `ctx.scope`, `ctx.add_router` | Words, a failure in words, a scope name, and an API of its own |
+| `ctx.t`, `ctx.why`, `ctx.reaches`, `ctx.add_router` | Words, a failure in words, the tiers it may use, and an API of its own |
 | `ctx.config` | `get`, `all`, `set` over its own settings |
 | `ctx.events` | `subscribe` to a core event, `publish` one of its own |
 | `ctx.files` | The folders it works from |
@@ -79,12 +79,12 @@ assert ctx.open
 
 ### `ctx.routers`
 
-The routers added so far, as `(router, scope)` pairs.  Core reads it after `register`, and an
+The routers added so far, as `(router, scope)` pairs, the scope being `ext:<name>:<tier>`.  Core reads it after `register`, and an
 extension has no reason to touch it.  Use `ctx.add_router`.
 
 ```python
-ctx.add_router(router, scope=ctx.scope("read"))
-assert (router, "ext:example_scores:read") in ctx.routers
+ctx.add_router(router)
+assert (router, "ext:example_scores:library") in ctx.routers
 ```
 
 ### `ctx.t`
@@ -120,32 +120,36 @@ except (urllib.error.URLError, TimeoutError) as exc:
 
 The user sees a line like `scores.example.com did not answer in time`.  It does not raise.
 
-### `ctx.scope`
+### `ctx.reaches`
 
-`ctx.scope(action) -> str`.  Required: `action`.
-
-The scope name for one of this extension's actions, `ext:<name>:<action>`.  Only `read` and
-`write` are real.
+A tuple of the tiers the extension may use, lowest first.  `library` is always in it, and
+`play` or `protected` are in it when the manifest's `tiers` lists them.
 
 ```python
-router_scope = ctx.scope("write")    # "ext:example_scores:write"
+if "play" in ctx.reaches:
+    ctx.ui.page("scores", read_scores, area="community", tier=PLAY)
 ```
 
-Nothing is drawn.  It raises nothing, and a name other than `read` or `write` is refused later,
-by `ctx.add_router`.
+Nothing is drawn.  A list, page, group, action, verb or router at a tier that is not in it
+raises `ContractError` when it is declared, and an act marked `@tier(...)` at one is refused
+when it is called.  See [Scopes](scopes.md).
 
 ### `ctx.add_router`
 
-`ctx.add_router(router, *, scope)`.  Required: `router`, `scope`.
+`ctx.add_router(router, *, tier=LIBRARY)`.  Required: `router`.
 
 Serves routes of the extension's own under `/api/v1/ext/<name>/`.  Core attaches the gate, and
-the extension cannot choose to have none.  `scope` is `ctx.scope("read")` or
-`ctx.scope("write")`, and a request needs it.  Use it for an API that is the extension's own,
-such as a route a theme calls or a picture the service serves.  Everything declared through
-`ctx.ui` is served by core and needs no router.
+the extension cannot choose to have none.  `tier` is `PLAY`, `LIBRARY` or `PROTECTED`, from
+`common.extensions.contract`, and says who may call the routes: `PLAY` also a Remote pass or a
+Play token, `LIBRARY` an Owner or a Full token, `PROTECTED` only an Owner with a Confirm.  It
+says Library when it says nothing.  Use it for an API that is the extension's own, such as a
+route a theme calls or a picture the service serves.  Everything declared through `ctx.ui` is
+served by core and needs no router.
 
 ```python
 from fastapi import APIRouter
+
+from common.extensions.contract import PLAY
 
 router = APIRouter()
 
@@ -155,12 +159,12 @@ def hello() -> dict:
     return {"name": ctx.name}
 
 
-ctx.add_router(router, scope=ctx.scope("read"))
+ctx.add_router(router, tier=PLAY)
 ```
 
 Nothing is drawn.  A theme or another program calls `GET /api/v1/ext/<name>/hello`.  It raises
-`ContractError` if called after `register` returned, or if `scope` is not this extension's
-`read` or `write`.
+`ContractError` if called after `register` returned, or if `tier` is not one the manifest's
+`tiers` allows.
 
 Routers mount once, at startup.  An extension that adds routers and is switched on after the
 run began shows "Starts at the next restart" rather than starting.  See
@@ -341,7 +345,7 @@ Runs `work(job)` on its own thread.  The job appears in the Jobs view and on `/a
 | `job.id` | The id a run answers with as `job_id` |
 
 With `stoppable=True` the job offers a **Stop** link, which calls
-`POST /api/v1/ext/<name>/jobs/<kind>/stop` on the write scope.  With `keep_result=True` what
+`POST /api/v1/ext/<name>/jobs/<kind>/stop` at the Library tier.  With `keep_result=True` what
 `work` returns is written to disk, the latest 20 with the oldest going first, so the Jobs view
 can open it after the page that started the job has gone, and after a restart too.  A result
 may list `rows`.  Every row with an `error` is shown under what did not come across, by its
@@ -420,12 +424,11 @@ Protected.  Core marks each request with the tier it reached, and the mark follo
 into the function core calls and into a job started from it, and it ends when the request does.
 An event handler, a timer or a thread the extension started has no mark, and neither has a task
 that is still running after the request was answered, so a change from any of them is refused.
-Until sign-in can raise a request to Protected, only a request from this computer qualifies.
-Two things count as this computer that a person might not expect: the Console asks the API from
-the computer VPinFE runs on, so a request from the Console counts as one from this computer
-wherever its browser is, and so does a page open in a browser on this computer.  The mark is how
-VPinFE keeps an act deliberate, and it is not a lock on the machine: an accepted extension runs
-as the same user and could open the helper's socket itself.
+A request reaches Protected when an Owner makes it under a live Confirm.  The Console asks for
+the Confirm when the person presses the act, and retries; a token or a Remote pass never reaches
+Protected.  Declare the act `tier=PROTECTED` and core holds the request to it before `run` is
+called.  The mark is how VPinFE keeps an act deliberate, and it is not a lock on the machine: an
+accepted extension runs as the same user and could open the helper's socket itself.
 
 ```python
 def apply(request):
@@ -449,8 +452,7 @@ with the helper's own reason where it said no.
 Restarting VPinFE, rebooting and powering off this computer, the same on Windows, macOS and
 Linux.  Core runs the system's own command, so an extension never sees the differences.  It
 needs `system:admin` in the manifest's `scopes`, and it is refused unless the request it is
-called from reached Protected, as `ctx.os.call` is for a change.  Until sign-in can raise a
-request to Protected, only a request from this computer qualifies.
+called from reached Protected, as `ctx.os.call` is for a change.
 
 Core does not ask the person.  By the time it runs the request is already made, so ask first
 in the extension, in the act's `summary`.  Each call answers at once and acts about a second

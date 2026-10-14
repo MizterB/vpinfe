@@ -153,7 +153,7 @@ def register(ctx):
             {"label": ctx.t("group.count"), "kind": "number", "value": str(len(scores))},
         ]}
 
-    ctx.ui.panel_group("game", game_group)
+    ctx.ui.panel_group("game", game_group, section="play")
 
     def played(game_id="", seconds=0, private=False, **_rest):
         if private:

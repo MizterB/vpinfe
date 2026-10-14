@@ -74,7 +74,9 @@ def _report(record: Record, lines: list[str]) -> bool:
         lines.append(f"page       {declared['key']} in {declared['area']}"
                      + (", with fields" if declared["save"] else ""))
     for declared in record.declared_groups:
-        lines.append(f"group      on a {declared['subject']}'s panel"
+        lines.append(f"group      on a {declared['subject']}'s panel, "
+                     + (f"at the end of {declared['section']}" if declared["section"]
+                        else "in a section of its own")
                      + (", with fields" if declared["save"] else "")
                      + (", works on Private games" if declared["private_ok"] else ""))
     for declared in record.declared_library_verbs:

@@ -56,11 +56,11 @@ def register(ctx) -> None:
         offered = {"post": post} if ctx.config.get("waiting") else {}
         return {**offered, "week": WEEK}
 
-    ctx.ui.list("machines", rows("machines"), title="Machines of the Month",
+    ctx.ui.list("machines", rows("machines"), title="Machines of the Month", area="community",
                 columns=columns("game"), tag="Machine of the Month")
-    ctx.ui.list("releases", rows("releases"), title="Weekly Challenge", columns=columns("table"),
-                tag="Weekly Challenge")
-    ctx.ui.list("ratings", rated("ratings"), title="Ratings",
+    ctx.ui.list("releases", rows("releases"), title="Weekly Challenge", area="community",
+                columns=columns("table"), tag="Weekly Challenge")
+    ctx.ui.list("ratings", rated("ratings"), title="Ratings", area="community",
                 columns=[*columns("game"), RATING], views=TOP, status=line, acts=acts)
-    ctx.ui.list("builds", rated("builds"), title="Build Ratings",
+    ctx.ui.list("builds", rated("builds"), title="Build Ratings", area="community",
                 columns=[*columns("table"), RATING], views=TOP)

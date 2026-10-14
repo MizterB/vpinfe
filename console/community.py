@@ -102,13 +102,13 @@ def nav_items(extensions: Sequence[dict[str, Any]]) -> dict[str, tuple]:
             continue
         name = str(one.get("name") or "")
         for declared in one.get("lists") or []:
-            area = str(declared.get("area") or "community")
+            area = str(declared["area"])
             found.setdefault(area, []).append((
                 view_key(name, str(declared.get("key") or "")),
                 str(declared.get("title") or ""), str(declared.get("icon") or ICON),
                 AREA_FEATURE.get(area, install_identity.CORE)))
         for declared in one.get("pages") or []:
-            area = str(declared.get("area") or "community")
+            area = str(declared["area"])
             found.setdefault(area, []).append((
                 page_view_key(name, str(declared.get("key") or "")),
                 str(declared.get("title") or ""), str(declared.get("icon") or ICON),

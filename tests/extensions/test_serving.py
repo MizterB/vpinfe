@@ -96,14 +96,15 @@ def served(ctx: Any) -> None:
         "things", lambda: [{"name": "a"}, {"name": "b"}], columns=[{"field": "name"}],
         status=lambda: "2 things",
         acts={"refresh": refresh, "docs": "https://example.invalid/docs", "down": down,
-              "refuse": refuse, "quiet": lambda: None, "data": lambda: {"added": 2}})
+              "refuse": refuse, "quiet": lambda: None, "data": lambda: {"added": 2}},
+              area="community")
     ctx.ui.list("shaped", lambda: STATE["rows"], columns=[{"field": "name"}], title="Shaped",
-                status=lambda: STATE["status"], acts=lambda: STATE["acts"])
+                status=lambda: STATE["status"], acts=lambda: STATE["acts"], area="community")
 
     def failing() -> list:
         raise STATE["raises"]
 
-    ctx.ui.list("failing", failing, columns=[{"field": "name"}], title="Failing")
+    ctx.ui.list("failing", failing, columns=[{"field": "name"}], title="Failing", area="community")
 
     def mark(rows: list) -> str:
         STATE["pressed"].append(("mark", [dict(one) for one in rows]))
@@ -129,7 +130,7 @@ def served(ctx: Any) -> None:
                {"key": "open", "link": "page"},
                {"key": "remove", "run": remove, "danger": True, "needs": "can", "one": True},
                {"key": "tidy", "run": tidy, "needs": "can"},
-               {"key": "break", "run": break_it, "label": "Break it"}])
+               {"key": "break", "run": break_it, "label": "Break it"}], area="community")
 
     def detail(row_id: str) -> Any:
         STATE["pane_asked"].append(row_id)
@@ -142,9 +143,9 @@ def served(ctx: Any) -> None:
         STATE["saved"].append((row_id, dict(values)))
 
     ctx.ui.list("paned", lambda: [{"id": "a", "name": "a"}], columns=[{"field": "name"}],
-                title="Paned", detail=detail, save=save)
+                title="Paned", detail=detail, save=save, area="community")
     ctx.ui.list("read_only", lambda: [{"id": "a", "name": "a"}], columns=[{"field": "name"}],
-                title="Read only", detail=detail)
+                title="Read only", detail=detail, area="community")
 
     class Rowed:
         def ask(self, step: str, rows: list[str]) -> dict:
@@ -163,7 +164,7 @@ def served(ctx: Any) -> None:
         columns=[{"field": "name"}], title="Opening", add=["rowed", "bare"],
         acts={"open": {"action": "rowed"}},
         verbs=[{"key": "each", "action": "rowed", "each": True},
-               {"key": "all", "action": "rowed"}])
+               {"key": "all", "action": "rowed"}], area="community")
 
     class Greet:
         def ask(self, step: str) -> dict:
@@ -812,12 +813,12 @@ class Panes(ServedCase):
                                      json={"values": {"nickname": "x"}}), 404,
                      t("error.extensions.no_save", display=self.display(), key="read_only"))
 
-    def test_writing_a_pane_wants_the_write_scope_and_not_the_read_one(self) -> None:
+    def test_a_pane_at_library_is_closed_to_a_caller_holding_only_play(self) -> None:
         STATE["pane"] = SOLO
         self.client = client_for(self, self.registry, self.record,
-                                 allowed=lambda scope: scope.endswith(":read"))
+                                 allowed=lambda scope: scope.endswith(":play"))
 
-        self.assertEqual(self.pane().status_code, 200)
+        self.assertEqual(self.pane().status_code, 403)
         self.assertEqual(self.put(nickname="x").status_code, 403)
         self.assertEqual(STATE["saved"], [])
 
@@ -892,15 +893,15 @@ class Verbs(ServedCase):
         self.assertIn("Could not break it", self.refused(found, 400)["message"])
         self.assertEqual(self.registry.get(NAME).state, host.LOADED)
 
-    def test_pressing_a_verb_wants_the_write_scope_and_not_the_read_one(self) -> None:
+    def test_a_verb_at_library_is_closed_to_a_caller_holding_only_play(self) -> None:
         self.client = client_for(self, self.registry, self.record,
-                                 allowed=lambda scope: scope.endswith(":read"))
+                                 allowed=lambda scope: scope.endswith(":play"))
 
-        self.assertEqual(self.get("/lists/verbed").status_code, 200)
+        self.assertEqual(self.get("/lists/verbed").status_code, 403)
         found = self.press("mark", "1")
 
         self.assertEqual(found.status_code, 403)
-        self.assertIn(f"ext:{NAME}:write", found.json()["error"]["message"])
+        self.assertIn(f"ext:{NAME}:library", found.json()["error"]["message"])
         self.assertEqual(STATE["pressed"], [])
 
 

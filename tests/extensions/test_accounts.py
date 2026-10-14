@@ -98,7 +98,7 @@ def sample(ctx: Any) -> None:
 
     ctx.ui.settings([{"key": "greeting", "type": "string"},
                      {"key": "token", "type": "secret"}])
-    ctx.add_router(pictured, scope=ctx.scope("read"))
+    ctx.add_router(pictured)
     ctx.ui.account(read=read, write=write, acts={"ping": ping}, card=card,
                    read_card=read_card, label="Sample", cards=(CARD,))
 

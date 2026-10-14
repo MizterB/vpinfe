@@ -52,10 +52,10 @@ def paged(ctx: Any) -> None:
         return "Read"
 
     ctx.ui.page("week", read, title=STATE["title"], save=save,
-                acts={"refresh": refresh, "site": "https://example.org"})
+                acts={"refresh": refresh, "site": "https://example.org"}, area="community")
     if STATE["list_title"]:
         ctx.ui.list("plays", lambda: [], columns=[{"field": "name"}],
-                    title=STATE["list_title"])
+                    title=STATE["list_title"], area="community")
 
 
 def _installed(root: Path, *, capabilities: list[str], titles: dict | None = None) -> Path:
@@ -86,22 +86,26 @@ class Declaring(unittest.TestCase):
 
         self.assertEqual(ui.declared_pages, [{
             "key": "week", "area": "system", "title": "Week", "base": "/pages/week",
-            "about": "/pages/week/about", "save": True, "icon": ""}])
+            "about": "/pages/week/about", "save": True, "icon": "",
+            "tier": "library"}])
 
-    def test_a_page_goes_in_community_unless_it_says_otherwise(self) -> None:
+    def test_a_page_with_no_area_is_refused_in_words(self) -> None:
         ui = self.ui()
 
-        ui.page("week", lambda: {})
+        for area in ("", "  ", None):
+            with self.subTest(area=area), self.assertRaisesRegex(
+                    contract.ContractError, "the page 'week' no area"):
+                ui.page("week", lambda: {}, area=area)  # type: ignore[arg-type]
 
-        self.assertEqual(ui.declared_pages[0]["area"], "community")
+        self.assertEqual(ui.declared_pages, [])
 
     def test_a_page_takes_an_icon_of_the_rail_and_refuses_any_other(self) -> None:
         ui = self.ui()
-        ui.page("week", lambda: {}, icon="calendar_month")
+        ui.page("week", lambda: {}, icon="calendar_month", area="community")
 
         self.assertEqual("calendar_month", ui.declared_pages[0]["icon"])
         with self.assertRaisesRegex(contract.ContractError, "'nope'"):
-            ui.page("other", lambda: {}, icon="nope")
+            ui.page("other", lambda: {}, icon="nope", area="community")
 
     def test_a_page_needs_the_ui_capability(self) -> None:
         with self.assertRaisesRegex(contract.ContractError, "ui:mount"):
@@ -109,12 +113,12 @@ class Declaring(unittest.TestCase):
 
     def test_a_page_has_a_key_that_is_its_own_and_an_area_core_has(self) -> None:
         ui = self.ui()
-        ui.page("week", lambda: {})
+        ui.page("week", lambda: {}, area="community")
 
         with self.assertRaisesRegex(contract.ContractError, "no key"):
-            ui.page(" ", lambda: {})
+            ui.page(" ", lambda: {}, area="community")
         with self.assertRaisesRegex(contract.ContractError, "twice"):
-            ui.page("week", lambda: {})
+            ui.page("week", lambda: {}, area="community")
         with self.assertRaisesRegex(contract.ContractError, "not one of"):
             ui.page("other", lambda: {}, area="attic")
 
@@ -122,16 +126,16 @@ class Declaring(unittest.TestCase):
         ui = self.ui()
 
         with self.assertRaisesRegex(contract.ContractError, "not a function"):
-            ui.page("a", "read")  # type: ignore[arg-type]
+            ui.page("a", "read", area="community")  # type: ignore[arg-type]
         with self.assertRaisesRegex(contract.ContractError, "not a function"):
-            ui.page("b", lambda: {}, save="save")  # type: ignore[arg-type]
+            ui.page("b", lambda: {}, save="save", area="community")  # type: ignore[arg-type]
         with self.assertRaisesRegex(contract.ContractError, "neither a dict nor a function"):
-            ui.page("c", lambda: {}, acts=["x"])
+            ui.page("c", lambda: {}, acts=["x"], area="community")
         self.assertEqual(ui.declared_pages, [])
 
     def test_an_act_that_opens_a_dialog_the_extension_never_offers_is_refused(self) -> None:
         ui = self.ui()
-        ui.page("week", lambda: {}, acts={"add": {"action": "add_one"}})
+        ui.page("week", lambda: {}, acts={"add": {"action": "add_one"}}, area="community")
 
         with self.assertRaisesRegex(contract.ContractError, "page 'week'.*add_one"):
             check_references(ui)
@@ -239,13 +243,20 @@ class Saving(Served):
                          t("error.extensions.no_page_save", display=self.record.display_name,
                            key="week"))
 
-    def test_writing_wants_the_write_scope_and_not_the_read_one(self) -> None:
+    def test_a_page_at_library_is_closed_to_a_caller_holding_only_play(self) -> None:
         self.client = client_for(self, self.registry, self.record,
-                                 allowed=lambda scope: scope.endswith(":read"))
+                                 allowed=lambda scope: scope.endswith(":play"))
 
-        self.assertEqual(self.client.get(self.base).status_code, 200)
+        self.assertEqual(self.client.get(self.base).status_code, 403)
         self.assertEqual(self.put(note="x").status_code, 403)
         self.assertEqual(STATE["saved"], [])
+
+    def test_a_caller_holding_library_reads_and_writes_a_page(self) -> None:
+        self.client = client_for(self, self.registry, self.record,
+                                 allowed=lambda scope: not scope.endswith(":protected"))
+
+        self.assertEqual(self.client.get(self.base).status_code, 200)
+        self.assertEqual(self.put(note="x").status_code, 200)
 
 
 class Declared(Served):

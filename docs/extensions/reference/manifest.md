@@ -59,7 +59,7 @@ def register(ctx):
         return ctx.t("sent", count=3)
 
     ctx.ui.list(
-        "top", top, title="Example Scores",
+        "top", top, title="Example Scores", area="community",
         columns=[{"field": "name", "under": ["manufacturer"]},
                  {"field": "manufacturer"},
                  {"field": "score", "kind": "number"},
@@ -124,6 +124,7 @@ table is ignored.
 | `description` | no | empty | One line, shown beside it. Left out, it is `description` in its own `i18n/` |
 | `scopes` | no | none | Core scopes it asks to use, such as `games:read`. See [Scopes and the gate](scopes.md#scopes-and-the-gate) |
 | `capabilities` | no | none | What it asks of the machine. See [Scopes and the gate](scopes.md#scopes-and-the-gate) |
+| `tiers` | no | none | The tiers it uses beyond Library: `play`, `protected`. Something at a tier it does not list is refused. See [Scopes and the gate](scopes.md#scopes-and-the-gate) |
 | `requires_features` | no | none | Install features it needs: `library`, `frontend`, `devices`, `overview` |
 | `platforms` | no | every one | `linux`, `windows`, `macos`, or a Linux distribution's `ID` from `/etc/os-release`, such as `vpinos`.  It runs where any of them matches.  Empty means every one |
 | `events` | no | none | Event names it publishes, without its namespace |
@@ -146,6 +147,6 @@ If the manifest names a platform this machine is not, or a feature this install 
 have, the extension is not started.  It is still listed, with the reason, and on Linux the
 reason names the distribution: "It does not run on Ubuntu".
 
-There is no `provides`, since core makes `ext:<name>:read` and `ext:<name>:write` for every
-extension.  Whether an extension has settings is not declared either.  Core remembers what a
+There is no `provides`, since core makes `ext:<name>:play`, `ext:<name>:library` and
+`ext:<name>:protected` for every extension.  Whether an extension has settings is not declared either.  Core remembers what a
 running extension registered, so its page can say the settings show while it runs.

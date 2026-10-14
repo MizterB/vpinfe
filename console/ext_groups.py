@@ -1,4 +1,5 @@
-"""The groups extensions put on a game's or a table's panel, in Play after High Scores.
+"""The groups extensions put on a game's or a table's panel: a section of their own after
+core's, or the end of one of core's.
 
 The extension answers with one section of facts, fields and rows and core draws it as it
 draws the rest of the panel. The panel never waits for it: each group is a region drawn
@@ -44,11 +45,30 @@ def declared(context: dict[str, Any]) -> list[tuple[dict[str, Any], dict[str, An
             if group["subject"] in subjects and (group.get("private_ok") or not private)]
 
 
-def fill(context: dict[str, Any]) -> None:
-    """A region for each group, in the container now open, each drawn when it is read."""
+def own(context: dict[str, Any]) -> list[tuple[str, dict[str, Any], dict[str, Any]]]:
+    """(rail key, extension, group) for each group that is a section of its own."""
+    return [(f"ext_group.{extension.get('name')}.{group['subject']}", extension, group)
+            for extension, group in declared(context) if not group.get("section")]
+
+
+def title(extension: dict[str, Any], group: dict[str, Any]) -> str:
+    return str(group.get("title") or extension.get("display_name") or extension.get("name")
+               or "")
+
+
+def fill(context: dict[str, Any], section: str, subject: str = "") -> None:
+    """A region for each group that ends `section` (of `subject`'s, where one is named),
+    in the container now open, each drawn when it is read."""
     for extension, group in declared(context):
-        region = ui.column().classes("gap-0")
-        busy.fill(region, partial(_show, region, extension, group, context, None))
+        if group.get("section") == section and (not subject or group["subject"] == subject):
+            show_in_place(context, extension, group)
+
+
+def show_in_place(context: dict[str, Any], extension: dict[str, Any],
+                  group: dict[str, Any]) -> None:
+    """One group's region in the container now open, drawn when it is read."""
+    region = ui.column().classes("gap-0")
+    busy.fill(region, partial(_show, region, extension, group, context, None))
 
 
 async def _show(region: ui.element, extension: dict[str, Any], group: dict[str, Any],
@@ -87,7 +107,8 @@ async def _show(region: ui.element, extension: dict[str, Any], group: dict[str, 
         return
     region.clear()
     with region:
-        panel.facts(ui, [(panel.HEADING, str(answer.get("title") or "")),
+        panel.facts(ui, [*([(panel.HEADING, str(answer.get("title") or ""))]
+                           if group.get("section") else []),
                          *ext_row.section_entries(section, held),
                          *_strip(answer.get("acts") or [], where, redraw,
                                  str(extension.get("display_name") or extension.get("name")

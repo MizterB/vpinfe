@@ -1025,7 +1025,7 @@ refused.
             {"label": ctx.t("group.count"), "kind": "number", "value": str(len(scores))},
         ]}
 
-    ctx.ui.panel_group("game", game_group)
+    ctx.ui.panel_group("game", game_group, section="play")
 ```
 
 `who` is the game's ids and name.  The group answers one section, the same facts a pane's section
@@ -1076,7 +1076,7 @@ None.
 
 ### What core did
 
-- **It put the group where a person looks.**  In Play, after High Scores, drawn the way the rest
+- **It put the group where a person looks.**  At the end of Play, drawn the way the rest
   of the panel is.  You named a game and a function.  See [what core draws and what you
   supply](how-it-works.md#what-core-draws-and-what-you-supply).
 - **It never asked about a Private game.**  When somebody marks a game Private, core does not call
@@ -1158,7 +1158,7 @@ loads      example_scores 1.0.0
 settings   site (string, default 'http://127.0.0.1:8790')
 settings   key (secret)
 list       scores in community: 5 columns, 2 views, 3 verbs, adds post, opens a pane
-group      on a game's panel
+group      on a game's panel, at the end of play
 dialog     post: ask check run
 reads      list scores: could not reach its service - Nothing answers at 127.0.0.1
 reads      settings: 2 fields
@@ -1373,7 +1373,7 @@ def register(ctx):
             {"label": ctx.t("group.count"), "kind": "number", "value": str(len(scores))},
         ]}
 
-    ctx.ui.panel_group("game", game_group)
+    ctx.ui.panel_group("game", game_group, section="play")
 
     def played(game_id="", seconds=0, private=False, **_rest):
         if private:

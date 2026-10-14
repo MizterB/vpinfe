@@ -19,7 +19,14 @@ PLAY = "play"
 LIBRARY = "library"
 PROTECTED = "protected"
 
+# Least protected first: a caller that reaches a tier reaches the ones before it.
 TIERS = (PLAY, LIBRARY, PROTECTED)
+
+
+def for_reading(tier: str) -> str:
+    """What looking at a surface declared at `tier` needs: a Protected surface can be read
+    by a Library caller, and only changing it asks for the Confirm."""
+    return LIBRARY if tier == PROTECTED else tier
 
 
 @dataclass

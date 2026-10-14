@@ -19,6 +19,13 @@ from typing import TYPE_CHECKING, Any
 
 from common import install_identity
 
+from .reach import (  # noqa: F401 - PLAY, PROTECTED are the contract's
+    LIBRARY,
+    PLAY,
+    PROTECTED,
+    TIERS,
+)
+
 if TYPE_CHECKING:
     from .context import ExtensionContext as Context
 else:
@@ -74,6 +81,29 @@ class Unavailable(RuntimeError):  # noqa: N818
     as a mistake in the request. The message is the line a person reads."""
 
 
+TIER_ATTR = "vpinfe_tier"
+
+
+def tier(name: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Mark an act, a verb's `run` or a `save` as needing `name`, `PLAY`, `LIBRARY` or
+    `PROTECTED`, where it differs from the list, page or group it is in:
+    `@tier(PROTECTED)` over an act that restarts something. The manifest's `tiers` must
+    list it, and an act marked with one it does not is refused when it is called."""
+    if name not in TIERS:
+        raise ValueError(f"{name!r} is not a tier; they are {', '.join(TIERS)}")
+
+    def mark(act: Callable[..., Any]) -> Callable[..., Any]:
+        setattr(act, TIER_ATTR, name)
+        return act
+
+    return mark
+
+
+def tier_of(act: Any, default: str = LIBRARY) -> str:
+    """The tier an act was marked with, `default` (its surface's) where it was not."""
+    return str(getattr(act, TIER_ATTR, default))
+
+
 def words(name: str) -> Callable[..., str]:
     """What the extension `name` says for a key in its `i18n/<language>.json`, in the
     language now set. `ctx.t`, for a module that is not handed the context."""
@@ -117,6 +147,13 @@ class Manifest:
     platforms: tuple[str, ...] = ()
     # Event names it publishes, without its namespace.
     events: tuple[str, ...] = ()
+    # The tiers its routes sit at beyond Library, which every extension has.
+    tiers: tuple[str, ...] = ()
+
+    @property
+    def reaches(self) -> tuple[str, ...]:
+        """Every tier its routes may sit at, least protected first. Library is always one."""
+        return tuple(one for one in TIERS if one == LIBRARY or one in self.tiers)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -130,6 +167,7 @@ class Manifest:
             "requires_features": list(self.requires_features),
             "platforms": list(self.platforms),
             "events": list(self.events),
+            "tiers": list(self.tiers),
         }
 
 
@@ -176,6 +214,11 @@ def parse(raw: Any) -> Manifest:
         raise ManifestError("extension.reason.manifest_unknown_features",
                             features=", ".join(unknown))
 
+    tiers = _strings(raw.get("tiers"), "tiers")
+    unknown = sorted(set(tiers) - set(TIERS))
+    if unknown:
+        raise ManifestError("extension.reason.manifest_unknown_tiers", tiers=", ".join(unknown))
+
     return Manifest(
         name=name,
         display_name=str(raw.get("display_name") or "").strip(),
@@ -187,6 +230,7 @@ def parse(raw: Any) -> Manifest:
         requires_features=features,
         platforms=platforms,
         events=_strings(raw.get("events"), "events"),
+        tiers=tuple(one for one in TIERS if one in tiers),
     )
 
 

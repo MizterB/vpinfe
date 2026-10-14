@@ -5,6 +5,12 @@ What an extension offers a person.  You declare it and core serves it: you hand 
 needs the `ui:mount` capability, and every call here raises `ContractError` without it.  The
 sections after this one describe each declaration in full.
 
+A list, page, group, verb or action takes `tier=`, from `common.extensions.contract`: `PLAY`
+for what a Remote pass may reach, `LIBRARY` when it says nothing, `PROTECTED` for what changes
+the computer and so needs a Confirm.  A single act or a `save` that differs from its surface
+takes `@tier(...)` over the function.  The manifest's `tiers` must list `play` and `protected`
+where they are used.  See [Scopes and the gate](scopes.md#scopes-and-the-gate).
+
 ## `ctx.ui.settings`
 
 `ctx.ui.settings(fields, *, check=None)`.  Required: `fields`.
@@ -41,22 +47,22 @@ It never raises, and is empty before `settings` is called.
 
 ## `ctx.ui.list`
 
-`ctx.ui.list(key, rows, *, columns, area="community", title="", icon="", views=(), status=None,
-acts=None, tag="", verbs=(), add=(), detail=None, save=None)`.  Required:
-`key`, `rows`, `columns`.
+`ctx.ui.list(key, rows, *, columns, area, title="", icon="", views=(), status=None,
+acts=None, tag="", verbs=(), add=(), detail=None, save=None, tier=LIBRARY)`.  Required:
+`key`, `rows`, `columns`, `area`.
 
 Declare a list.  `rows()` returns the rows, each a dict.  See
 [Lists](settings-and-lists.md#lists) for columns, views, acts, tag, verbs, add and
 the pane (`detail` and `save`).
 
 ```python
-ctx.ui.list("top", read_top, title="Example Scores",
+ctx.ui.list("top", read_top, title="Example Scores", area="community",
             columns=[{"field": "name"}, {"field": "score", "kind": "number"}])
 ```
 
 A person sees the list in the rail under `area`.  It raises `ContractError` for:
 
-- an unknown area, a missing key or columns, or a repeated key
+- a missing or unknown area, a missing key or columns, or a repeated key
 - `rows` or `status` that is not a function
 - `under` on any column but the identifier, or an unknown column kind
 - a view on a column the list does not have
@@ -96,8 +102,9 @@ The set is `RAIL_ICONS` in `common/extensions/context.py`.
 
 ## `ctx.ui.page`
 
-`ctx.ui.page(key, read, *, area="community", title="", icon="", acts=None, save=None)`.
-Required: `key`, `read`.
+`ctx.ui.page(key, read, *, area, title="", icon="", acts=None, save=None,
+tier=LIBRARY)`.
+Required: `key`, `read`, `area`.
 
 Declare a page: an entry in the rail under `area` that opens one subject drawn as a panel, with
 no grid.  `read()` answers what a [pane's](settings-and-lists.md#lists) `detail` does: a `title`
@@ -129,10 +136,10 @@ A person sees the page in the rail under `area`, after core's own entries and th
 lists (and before About, in System).  The rail entry and the title are `title`, else `page.<key>.title` in the extension's catalog,
 else the extension's name.  The answer's own `title` is the heading over the page.  The page is
 served at `GET /api/v1/ext/<name>/pages/<key>`, changed with `PUT` at the same address and
-`{"values": {...}}`, and its acts are at `.../pages/<key>/about`.  They need the extension's read
-and write scopes.
+`{"values": {...}}`, and its acts are at `.../pages/<key>/about`.  They are served at the page's
+`tier=`.
 
-It raises `ContractError` without `ui:mount`, for an unknown area, a missing key, a key declared
+It raises `ContractError` without `ui:mount`, for a missing or unknown area, a missing key, a key declared
 twice, and a `read` or `save` that is not a function.  After `register` returns, it also raises
 when the title matches a core page's title or another running extension's list or page in the
 same area, and when an act opens a dialog the extension never declared.  `--check-extension`
@@ -140,11 +147,14 @@ says each page it finds and reads it once.
 
 ## `ctx.ui.panel_group`
 
-`ctx.ui.panel_group(subject, read, *, title="", save=None, acts=None, private_ok=False)`.
+`ctx.ui.panel_group(subject, read, *, title="", icon="", section="", save=None, acts=None,
+private_ok=False, tier=LIBRARY)`.
 Required: `subject`, `read`.
 
-Put a group on a game's panel (`subject` `"game"`) or on one table's (`"table"`), in Play after
-High Scores.  `read(who)` answers the group's one section, the same `{"facts", "fields",
+Put a group on a game's panel (`subject` `"game"`) or on one table's (`"table"`).  With no
+`section` it is a section of its own, after core's, named `title` and drawn with `icon`, one of
+`RAIL_ICONS`.  With a `section`, one of `details`, `play`, `collections` or `guides`, it is drawn
+at the end of that section of core's, under a heading of `title`.  `read(who)` answers the group's one section, the same `{"facts", "fields",
 "rows"}` a [pane's](settings-and-lists.md#lists) section holds, and core draws it as it draws
 the rest of the panel.  Answer None, or a section with nothing in it, and the group is not
 drawn.
@@ -166,7 +176,7 @@ def keep(who, values):
     ctx.config.set(f"note.{who['game_id']}", values["note"] or "")
 
 
-ctx.ui.panel_group("game", notes, save=keep)
+ctx.ui.panel_group("game", notes, section="play", save=keep)
 ```
 
 With `save(who, values)` the group's fields can be changed: each is written as it is set, with the
@@ -181,21 +191,23 @@ function of `who` that answers one.  A function is called with `who` when its bu
 and answers what to say, as a list's act does; an address is opened.  Each button's words are
 `group.<subject>.act.<act>.label`.  The strip is drawn only while the group is.
 
-The heading is `title`, else `group.<subject>.title` in the extension's catalog, else the
+The name is `title`, else `group.<subject>.title` in the extension's catalog, else the
 extension's name.  The group is served at `GET /api/v1/ext/<name>/groups/game/<game_id>` and
 `GET /api/v1/ext/<name>/groups/table/<game_id>/<table_id>`, changed with `PUT` at the same
 address and `{"values": {...}}`, and its acts at `POST .../groups/game/<game_id>/acts/<act>`
-and `.../groups/table/<game_id>/<table_id>/acts/<act>`.  They need the extension's read and write
-scopes.
+and `.../groups/table/<game_id>/<table_id>/acts/<act>`.  Reading, `PUT` and the acts need the
+group's tier, except that a group at Protected is read with Library and changed only with the
+Confirm.
 
 It raises `ContractError` without `ui:mount` or without `games:read` in the manifest's `scopes`,
-for a `subject` that is not `game` or `table`, for a subject declared twice, for a `read` or
+for a `subject` that is not `game` or `table`, for a `section` or `icon` that is not in the set,
+for a `tier` the manifest does not list, for a subject declared twice, for a `read` or
 a `save` that is not a function, and for `acts` that are neither a dict nor a function.  `--check-extension` says each group it finds.
 
 ## `ctx.ui.verb`
 
-`ctx.ui.verb(subject, key, run, *, label="", one=False, danger=False, private_ok=False)`.  Required: `subject`,
-`key`, `run`.
+`ctx.ui.verb(subject, key, run, *, label="", one=False, danger=False, private_ok=False,
+tier=LIBRARY)`.  Required: `subject`, `key`, `run`.
 
 Add an entry to the menu of the Games grid (`subject` `"game"`) or the Tables grid
 (`"table"`).  It is drawn on a row, on a selection and on the panel's header, each time in a
@@ -223,7 +235,7 @@ dimmed.  With `danger`, core asks first and draws the entry last in the block, u
 The words are `verb.<subject>.<key>.label`, `.tip` and `.confirm` in the extension's catalog.
 A `label` you give is used as written, and the catalog is read for it only when you give
 none.  The entry is served at `POST /api/v1/ext/<name>/verbs/game/<verb>` and `.../verbs/table/<verb>` with `{"targets":
-[{"game_id", "table_id"}]}`, and needs the extension's write scope.
+[{"game_id", "table_id"}]}`, and needs the verb's `tier=`.
 
 It raises `ContractError` without `ui:mount` or without `games:read` in the manifest's
 `scopes`, for a `subject` that is not `game` or `table`, for a key that is not lower-case
@@ -296,7 +308,8 @@ It raises nothing beyond the `ui:mount` check.
 
 ## `ctx.ui.action`
 
-`ctx.ui.action(key, dialog, *, label="", description="")`.  Required: `key`, `dialog`.
+`ctx.ui.action(key, dialog, *, label="", description="", tier=LIBRARY)`.  Required: `key`,
+`dialog`.  It raises `ContractError` for a `tier` the manifest does not list.
 
 Offer a dialog that core shows.  `dialog` is an object with `ask(step)` and, as far as the
 action needs them, `check`, `act`, `run` and `progress`.  See

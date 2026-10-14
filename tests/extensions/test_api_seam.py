@@ -65,8 +65,8 @@ class MountTests(SeamCase):
 
         self.assertTrue(gated)
         self.assertEqual(set(gated.values()),
-                         {"ext:sample:read", "ext:sample:write",
-                          "ext:bystander:read", "ext:bystander:write"})
+                         {"ext:sample:play", "ext:sample:library",
+                          "ext:bystander:play", "ext:bystander:library"})
 
     def test_core_mounts_its_routes_for_every_extension_with_a_manifest(self) -> None:
         """Core writes these itself, so an extension with nothing to offer still has the
@@ -92,7 +92,7 @@ class MountTests(SeamCase):
         held = auth.SignInPolicy().identify(None).scopes
 
         self.assertTrue(scopes.CORE <= held)
-        self.assertIn("ext:sample:read", held)
+        self.assertLessEqual({"ext:sample:play", "ext:sample:library"}, held)
 
     def test_every_scope_the_context_checks_is_one_the_manifest_may_declare(self) -> None:
         from common.extensions import games, provided_apps
@@ -122,10 +122,10 @@ class MountTests(SeamCase):
         found = client.get("/ext/sample/hello")
 
         self.assertEqual(found.status_code, 403)
-        self.assertIn("ext:sample:read", found.json()["error"]["message"])
+        self.assertIn("ext:sample:library", found.json()["error"]["message"])
         served = client.put("/ext/sample/settings", json={"values": {"greeting": "x"}})
         self.assertEqual(served.status_code, 403)
-        self.assertIn("ext:sample:write", served.json()["error"]["message"])
+        self.assertIn("ext:sample:play", served.json()["error"]["message"])
 
 
 class ListingTests(SeamCase):
@@ -141,7 +141,7 @@ class ListingTests(SeamCase):
 
         self.assertEqual(sample["display_name"], "Sample")
         self.assertEqual(sample["capabilities"], ["config:own", "ui:mount"])
-        self.assertEqual(sample["routes"], ["ext:sample:read", "ext:sample:write"])
+        self.assertEqual(sample["routes"], ["ext:sample:library", "ext:sample:library"])
 
     def test_one_that_did_not_load_is_listed_with_the_reason(self) -> None:
         self.store.set_enabled("sample", False)
@@ -243,7 +243,7 @@ class FailureTests(SeamCase):
             "def register(ctx):\n"
             "    def rows():\n"
             "        raise ValueError('The service said no')\n"
-            "    ctx.ui.list('things', rows, columns=[{'field': 'name'}])\n",
+            "    ctx.ui.list('things', rows, columns=[{'field': 'name'}], area='community')\n",
             encoding="utf-8")
         self.registry.load(directory)
         client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
@@ -272,7 +272,7 @@ class FailureTests(SeamCase):
                 self.assertLogs("vpinfe.common.extensions", "ERROR"):
             client.get("/ext/sample/boom")
 
-        self.assertNotIn("ext:sample:read",
+        self.assertNotIn("ext:sample:library",
                          auth.SignInPolicy().identify(None).scopes)
 
     def test_an_extension_asking_for_a_scope_that_does_not_exist_is_refused(self) -> None:
@@ -292,7 +292,7 @@ class FailureTests(SeamCase):
             "    @router.get('/hello')\n"
             "    def hello() -> dict:\n"
             "        return {}\n"
-            "    ctx.add_router(router, scope=ctx.scope('read'))\n", encoding="utf-8")
+            "    ctx.add_router(router)\n", encoding="utf-8")
         self.registry.load(directory)
 
         with self.assertLogs("vpinfe.common.extensions", "ERROR"):

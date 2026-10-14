@@ -6,6 +6,8 @@ callers depend on it is not. See docs/http-api.md.
 
 from __future__ import annotations
 
+from common.extensions import reach
+
 # What this instance is: discovery, health, version, what it can do. Not domain
 # data - the answer to "what am I talking to", which is what discovery exists for.
 INSTANCE_READ = "instance:read"
@@ -134,6 +136,18 @@ def extension_scope(extension: str, action: str) -> str:
 
 def is_extension_scope(scope: str) -> bool:
     return scope.startswith(EXTENSION_PREFIX)
+
+
+def extension_tier(scope: str) -> str:
+    """The tier an `ext:<name>:<tier>` scope is, or "" for any other scope."""
+    tier = scope.rsplit(":", 1)[-1]
+    return tier if is_extension_scope(scope) and tier in reach.TIERS else ""
+
+
+def is_confirmed(scope: str) -> bool:
+    """Whether using `scope` asks an Owner for a Confirm: core's Protected scopes, and an
+    extension's own Protected tier."""
+    return scope in CONFIRMED or extension_tier(scope) == reach.PROTECTED
 
 
 def is_known(scope: str) -> bool:

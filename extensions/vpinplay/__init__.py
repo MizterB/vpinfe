@@ -70,7 +70,7 @@ def register(ctx: Any) -> None:
                            ctx.t("account.consent.ratings")))
 
     ctx.ui.list(LIST_KEY, community.rows_from(endpoint, read), title="VPinPlay",
-                columns=community.COLUMNS, views=community.VIEWS,
+                area="community", columns=community.COLUMNS, views=community.VIEWS,
                 status=lambda: community.status(ctx, sender),
                 acts=lambda: community.acts(ctx, SITE, sender))
 

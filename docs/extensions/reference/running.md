@@ -124,8 +124,8 @@ reads      settings: 1 fields
 === extensions/library_importer
 loads      library_importer 0.1.0
 dialog     import: ask check run progress
-routes     its own, on ext:library_importer:read (2 routes)
-routes     its own, on ext:library_importer:write (1 routes)
+routes     its own, on ext:library_importer:library (2 routes)
+routes     its own, on ext:library_importer:library (1 routes)
 reads      dialog import: first step has 2 fields
 ```
 

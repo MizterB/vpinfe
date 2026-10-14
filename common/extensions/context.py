@@ -263,7 +263,9 @@ RAIL_ICONS = frozenset({
 
 # The groups in the rail a list can be put in, each one core already draws.
 AREAS = ("library", "frontend", "community", "system")
-DEFAULT_AREA = "community"
+
+# The sections of a game's or a table's panel a group can end, each one core already draws.
+PANEL_SECTIONS = ("details", "play", "collections", "guides")
 
 
 @dataclass
@@ -276,6 +278,7 @@ class ListFunctions:
     verbs: dict[str, dict[str, Any]] = field(default_factory=dict)
     detail: Callable[[str], Any] | None = None
     save: Callable[[str, dict], Any] | None = None
+    tier: str = reach.LIBRARY
 
 
 @dataclass
@@ -285,6 +288,7 @@ class PageFunctions:
     read: Callable[[], Any]
     acts: Any = None
     save: Callable[[dict], Any] | None = None
+    tier: str = reach.LIBRARY
 
 
 @dataclass
@@ -295,6 +299,7 @@ class GroupFunctions:
     save: Callable[[dict, dict], Any] | None = None
     acts: Any = None
     private_ok: bool = False
+    tier: str = reach.LIBRARY
 
 
 # The panels a group can be put on: a game's, and one table's.
@@ -333,10 +338,12 @@ class ExtensionUI:
     `docs/extensions/reference/words.md` lists them. One given is shown as written.
     """
 
-    def __init__(self, name: str, allowed: bool, scopes: Iterable[str] = ()) -> None:
+    def __init__(self, name: str, allowed: bool, scopes: Iterable[str] = (),
+                 tiers: Iterable[str] = (reach.LIBRARY,)) -> None:
         self._name = name
         self._allowed = allowed
         self._reads_games = GAMES_READ in frozenset(scopes)
+        self._tiers = frozenset(tiers)
         self.declared_groups: list[dict] = []
         self.group_functions: dict[str, GroupFunctions] = {}
         self.declared_library_verbs: list[dict] = []
@@ -377,16 +384,31 @@ class ExtensionUI:
             raise ContractError(str(exc)) from exc
         self.settings_check = check
 
+    def _tier(self, tier: Any, whose: str) -> str:
+        """`tier` as a surface declares it, or a ContractError for a word that is no tier
+        and for one the manifest's `tiers` leaves out."""
+        named = tier.strip() if isinstance(tier, str) else tier
+        if named not in reach.TIERS:
+            raise ContractError(f"{self._name} gives {whose} the tier {tier!r}; the tiers "
+                                f"are {', '.join(reach.TIERS)}")
+        if named not in self._tiers:
+            raise ContractError(f"{self._name} puts {whose} at {named}, and its manifest's "
+                                "tiers does not list it")
+        return str(named)
+
     def settings_defaults(self) -> dict[str, str]:
         return {one["key"]: one["default"] for one in self.settings_declared}
 
     def action(self, key: str, dialog: Any, *, label: str = "",
-               description: str = "") -> None:
+               description: str = "", tier: str = reach.LIBRARY) -> None:
         """A verb somebody can press, in the vocabulary the rest of the app uses.
 
         `dialog` has `ask(step)`, answering the dialog for that step, and any of
         `check(values)`, `act(key, values)` and `run(values, progress)`. A method that
         names `step` or `progress` among its arguments is handed it.
+
+        `tier` is who may press it: `act` and `run` need it, and `PROTECTED` asks for the
+        Confirm first. Looking at the dialog needs Library, or Play where `tier` is.
         """
         self._needs_ui("an action")
         wanted = str(key or "").strip()
@@ -397,12 +419,14 @@ class ExtensionUI:
         if not callable(getattr(dialog, "ask", None)):
             raise ContractError(f"{self._name} offers the action {wanted!r} with an "
                                 "object that has no ask(step)")
+        held = self._tier(tier, f"the action {wanted!r}")
         self.action_objects[wanted] = dialog
         self.actions.append({
             "key": wanted,
             "label": str(label or "").strip(),
             "description": str(description or "").strip(),
             "base": f"/actions/{wanted}",
+            "tier": held,
         })
 
     def account(self, *, read: Callable[[str], dict],
@@ -493,9 +517,14 @@ class ExtensionUI:
 
     def panel_group(self, subject: str, read: Callable[[dict], Any], *, title: str = "",
                     save: Callable[[dict, dict], Any] | None = None,
-                    acts: Any = None, private_ok: bool = False) -> None:
-        """A group on a game's panel (`subject` `"game"`) or on one table's (`"table"`),
-        in Play after High Scores. One for each subject.
+                    acts: Any = None, private_ok: bool = False,
+                    tier: str = reach.LIBRARY, icon: str = "", section: str = "") -> None:
+        """A group on a game's panel (`subject` `"game"`) or on one table's (`"table"`). One
+        for each subject.
+
+        With no `section` the group is a section of its own, after core's, named `title`
+        and drawn with `icon`, one of `RAIL_ICONS`. With a `section`, one of
+        `PANEL_SECTIONS`, it is drawn at the end of that section of core's, under `title`.
 
         `read(who)` answers the group's one section: `{"facts", "fields", "rows"}`, as a
         pane's section is. `who` is `{"game_id", "vps_id", "name"}`, and for a table also
@@ -507,6 +536,9 @@ class ExtensionUI:
         `acts` is what can be done to the subject, in a strip closing the group: a dict of
         `{key: function or address}` or a function of `who` answering one. A function is
         called with `who` and answers what to say, an address is opened.
+
+        `tier` is who may read and change the group, and `contract.tier` marks one act or
+        the save that differs.
 
         Reading the games needs `games:read` in the manifest. The group is headed with
         `title`, else `group.<subject>.title` in the extension's catalog, else its name.
@@ -527,15 +559,22 @@ class ExtensionUI:
         if acts is not None and not callable(acts) and not isinstance(acts, dict):
             raise ContractError(f"{self._name} gives its {wanted} group acts that are "
                                 "neither a dict nor a function")
+        held = self._tier(tier, f"its {wanted} group")
+        placed = str(section or "").strip()
+        if placed and placed not in PANEL_SECTIONS:
+            raise ContractError(f"{self._name} puts its {wanted} group in the section "
+                                f"{placed!r}, which is not one of {', '.join(PANEL_SECTIONS)}")
+        glyph = self._rail_icon(f"its {wanted} group", icon)
         self.group_functions[wanted] = GroupFunctions(read=read, save=save, acts=acts,
-                                                    private_ok=bool(private_ok))
+                                                    private_ok=bool(private_ok), tier=held)
         self.declared_groups.append({"subject": wanted, "title": str(title or "").strip(),
                                      "base": f"/groups/{wanted}", "save": save is not None,
-                                     "private_ok": bool(private_ok)})
+                                     "private_ok": bool(private_ok), "tier": held,
+                                     "icon": glyph, "section": placed})
 
     def verb(self, subject: str, key: str, run: Callable[[list[dict]], Any], *,
              label: str = "", one: bool = False, danger: bool = False,
-             private_ok: bool = False) -> None:
+             private_ok: bool = False, tier: str = reach.LIBRARY) -> None:
         """An entry in the menu of the Games grid (`subject` `"game"`) or the Tables grid
         (`"table"`), on a row, on a selection and on the panel's header, in a block of this
         extension's own after core's.
@@ -567,10 +606,12 @@ class ExtensionUI:
         if not callable(run):
             raise ContractError(f"{self._name} gives its {wanted} verb {named!r} a run that "
                                 "is not a function")
+        held = self._tier(tier, f"its {wanted} verb {named!r}")
         self.library_verb_functions[(wanted, named)] = run
         self.declared_library_verbs.append({
             "subject": wanted, "key": named, "label": str(label or "").strip(),
-            "one": bool(one), "danger": bool(danger), "private_ok": bool(private_ok)})
+            "one": bool(one), "danger": bool(danger), "private_ok": bool(private_ok),
+            "tier": held})
 
     def needs(self, kinds: dict[str, dict], read: Callable[[], Any]) -> None:
         """The kinds of thing this extension can ask for on Overview, under Needs You.
@@ -614,11 +655,11 @@ class ExtensionUI:
         self.declared_needs = declared
         self.needs_function = read
 
-    def page(self, key: str, read: Callable[[], Any], *, area: str = DEFAULT_AREA,
+    def page(self, key: str, read: Callable[[], Any], *, area: str = "",
              title: str = "", icon: str = "", acts: Any = None,
-             save: Callable[[dict], Any] | None = None) -> None:
-        """A page of this extension's own, shown in the rail under `area`: one subject
-        drawn as a panel, with no grid.
+             save: Callable[[dict], Any] | None = None, tier: str = reach.LIBRARY) -> None:
+        """A page of this extension's own, shown in the rail under `area`, which it must
+        name: one subject drawn as a panel, with no grid.
 
         `read()` answers what a list's `detail` does: `{"title", "under", "picture",
         "sections": [{"key", "label", "facts", "fields", "rows"}]}`, drawn the same way.
@@ -628,13 +669,12 @@ class ExtensionUI:
 
         The rail entry is named `title`, else `page.<key>.title` in the extension's
         catalog, else the extension's name, and drawn with `icon`, one of `RAIL_ICONS`.
+        `tier` is who may read and change the page, and `contract.tier` marks one act or
+        the save that differs.
         """
         self._needs_ui("a page")
         wanted = str(key or "").strip()
-        where = str(area or DEFAULT_AREA).strip()
-        if where not in AREAS:
-            raise ContractError(f"{self._name} puts a page in {where!r}, which is not one "
-                                f"of {', '.join(AREAS)}")
+        where = self._area(f"the page {wanted!r}", area)
         if not wanted:
             raise ContractError(f"{self._name} declares a page with no key")
         if wanted in self.page_functions:
@@ -645,13 +685,26 @@ class ExtensionUI:
         if acts is not None and not callable(acts) and not isinstance(acts, dict):
             raise ContractError(f"{self._name} gives the page {wanted!r} acts that are "
                                 "neither a dict nor a function")
-        self.page_functions[wanted] = PageFunctions(read=read, acts=acts, save=save)
-        self.declared_pages.append({"key": wanted, "area": where,
+        held = self._tier(tier, f"the page {wanted!r}")
+        self.page_functions[wanted] = PageFunctions(read=read, acts=acts, save=save, tier=held)
+        self.declared_pages.append({"key": wanted, "area": where, "tier": held,
                                     "icon": self._rail_icon(f"the page {wanted!r}", icon),
                                     "title": str(title or "").strip(),
                                     "base": f"/pages/{wanted}",
                                     "about": f"/pages/{wanted}/about",
                                     "save": save is not None})
+
+    def _area(self, whose: str, area: Any) -> str:
+        """`area` as the rail names it, or a ContractError where it is blank or not one the
+        rail has: an entry with no home in the navigation has nowhere to be found."""
+        named = area.strip() if isinstance(area, str) else area
+        if not named:
+            raise ContractError(f"{self._name} gives {whose} no area, which says where in the "
+                                f"navigation it goes: one of {', '.join(AREAS)}")
+        if named not in AREAS:
+            raise ContractError(f"{self._name} puts {whose} in {named!r}, which is not one "
+                                f"of {', '.join(AREAS)}")
+        return str(named)
 
     def _rail_icon(self, whose: str, icon: Any) -> str:
         """`icon` as the rail draws it, "" where there is none, or a ContractError for a
@@ -670,14 +723,15 @@ class ExtensionUI:
                                 "capability its manifest does not declare")
 
     def list(self, key: str, rows: Callable[[], Any], *, columns: Sequence[dict],
-             area: str = DEFAULT_AREA, title: str = "", icon: str = "",
+             area: str = "", title: str = "", icon: str = "",
              views: Sequence[dict] = (),
              status: Callable[[], Any] | None = None, acts: Any = None,
              tag: str = "", verbs: Sequence[dict] = (), add: str | Sequence[str] = (),
              detail: Callable[[str], Any] | None = None,
-             save: Callable[[str, dict], Any] | None = None) -> None:
-        """A list this extension holds, shown in the rail under `area`, drawn with `icon`,
-        one of `RAIL_ICONS`.
+             save: Callable[[str, dict], Any] | None = None,
+             tier: str = reach.LIBRARY) -> None:
+        """A list this extension holds, shown in the rail under `area`, which it must name,
+        drawn with `icon`, one of `RAIL_ICONS`.
 
         `rows()` answers the rows, each a dict. `status()` answers the line the list's
         page says, text or `{"text", "detail", "to"}`. `acts` is what the title menu
@@ -725,13 +779,14 @@ class ExtensionUI:
         field's `type` one of `fields.SETTINGS_TYPES`. A field is written when it is set:
         `save(row_id, values)` is called with the keys changed, answers nothing, and core
         asks `detail` again to draw the pane. `save` needs `detail`.
+
+        `tier` is who may read and change the list: `PLAY` also reaches a Remote pass and a
+        Play token, `PROTECTED` asks the Owner for a Confirm to change it. `contract.tier`
+        marks one act, verb `run` or `save` that differs.
         """
         self._needs_ui("a list")
         wanted = str(key or "").strip()
-        where = str(area or DEFAULT_AREA).strip()
-        if where not in AREAS:
-            raise ContractError(f"{self._name} puts a list in {where!r}, which is not one "
-                                f"of {', '.join(AREAS)}")
+        where = self._area(f"the list {wanted!r}", area)
         rail_icon = self._rail_icon(f"the list {wanted!r}", icon)
         names = [str((one or {}).get("field") or "").strip() for one in columns]
         if not wanted or not columns or not all(names):
@@ -793,10 +848,12 @@ class ExtensionUI:
                 or len(set(adding)) != len(adding):
             raise ContractError(f"{self._name} gives the list {wanted!r} an add that is "
                                 "not an action key, or names one twice")
+        held = self._tier(tier, f"the list {wanted!r}")
         self.list_functions[wanted] = ListFunctions(rows=rows, status=status, acts=acts,
-                                                    verbs=offered, detail=detail, save=save)
+                                                    verbs=offered, detail=detail, save=save,
+                                                    tier=held)
         self.declared_lists.append({
-            "key": wanted, "area": where, "title": str(title or "").strip(),
+            "key": wanted, "area": where, "title": str(title or "").strip(), "tier": held,
             "icon": rail_icon, "base": f"/lists/{wanted}",
             "columns": [{"field": name, "header": str(one.get("header") or ""),
                          "identifier": index == named,
@@ -1248,6 +1305,7 @@ class ExtensionContext:
                  on_failure: Callable[..., None], directory: Path | None = None) -> None:
         self.name = manifest.name
         self.manifest = manifest
+        self.reaches = manifest.reaches
         self.logger = logger_for(manifest.name)
         self.config = ExtensionConfig(manifest.name, store,
                                       lambda: self.ui.settings_defaults())
@@ -1257,7 +1315,7 @@ class ExtensionContext:
         self.jobs = ExtensionJobs(manifest.name)
         self.os = ExtensionOS(manifest.name, manifest.capabilities)
         self.ui = ExtensionUI(manifest.name, "ui:mount" in manifest.capabilities,
-                              manifest.scopes)
+                              manifest.scopes, manifest.reaches)
         self.players = ExtensionPlayers(manifest.name, manifest.scopes, store, self.ui)
         self.entries = ExtensionEntries(manifest.name)
         self.catalogs = ExtensionCatalogs(manifest.name)
@@ -1287,17 +1345,14 @@ class ExtensionContext:
         """What core says under a failure of its own: `contract.why`."""
         return worded(exc, at)
 
-    def scope(self, action: str) -> str:
-        """The scope for one of this extension's own actions."""
-        return f"ext:{self.name}:{str(action or '').strip()}"
-
-    def add_router(self, router: Any, *, scope: str) -> None:
-        """Offer routes under `/api/v1/ext/<name>/`, gated on this extension's `read` or
-        `write` scope. Core attaches the gate; the extension cannot choose to have none."""
+    def add_router(self, router: Any, *, tier: str = reach.LIBRARY) -> None:
+        """Offer routes under `/api/v1/ext/<name>/`, for callers who reach `tier`: `PLAY`,
+        `LIBRARY` or `PROTECTED`, the one the manifest's `tiers` lists. Core attaches the
+        gate; the extension cannot choose to have none."""
         if not self.open:
             raise ContractError(f"{self.name} added a router after registering")
-        allowed = (self.scope("read"), self.scope("write"))
-        if scope not in allowed:
-            raise ContractError(f"{self.name} gates a router on {scope!r}; its scopes "
-                                f"are {' and '.join(allowed)}")
-        self.routers.append((router, scope))
+        named = tier.strip() if isinstance(tier, str) else tier
+        if named not in reach.TIERS or named not in self.reaches:
+            raise ContractError(f"{self.name} puts a router at {tier!r}; its tiers are "
+                                f"{', '.join(self.reaches)}")
+        self.routers.append((router, f"ext:{self.name}:{named}"))

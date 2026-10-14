@@ -109,8 +109,8 @@ def register(ctx) -> None:
         ctx.events.publish("noticed", game_id=payload.get("game_id"))
 
     ctx.events.subscribe(GAME_SELECTED, on_selected)
-    ctx.add_router(router, scope=ctx.scope("read"))
-    ctx.add_router(writing, scope=ctx.scope("write"))
+    ctx.add_router(router)
+    ctx.add_router(writing)
     ctx.ui.settings([{"key": "greeting", "type": "string", "default": "hello"},
                      {"key": "token", "type": "secret"}])
     ctx.ui.account(read=read_account, write=write_account, acts={"ping": ping}, card=card,

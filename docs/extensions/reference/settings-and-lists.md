@@ -83,13 +83,13 @@ rows with one id mean the extension could not answer
 (`error.extensions.duplicate_row_id`), for any list, verbs or not.  A verb finds a row by its
 `id`.  A row with no `id` shows, but it cannot be ticked and has no menu.
 
-**Area.**  Which group of the rail the list is in.
+**Area.**  Which group of the rail the list is in.  Required: an entry with no area has no home in the navigation, so the extension is refused.
 
 | `area` | in the rail under | offered when the install has |
 |---|---|---|
 | `library` | Library | the `library` feature |
 | `frontend` | Frontend | the `frontend` feature |
-| `community` (default) | Community | always |
+| `community` | Community | always |
 | `system` | System | always |
 
 A list is in the rail only while its extension runs.  A page still open when the extension
@@ -292,7 +292,7 @@ def save(row_id, values):
     store[row_id].update(values)
 
 
-ctx.ui.list("board", rows, columns=[...], detail=detail, save=save)
+ctx.ui.list("board", rows, area="community", columns=[...], detail=detail, save=save)
 ```
 
 The answer is `{"title", "under", "picture", "sections"}`.  `title` is required and is the
@@ -349,8 +349,8 @@ extension keeps running: `error.extensions.pane_shape`, `pane_key`, `pane_kind`,
 `--check-extension` reads the first row's pane and reports the same faults.
 
 The pane is served at `GET /api/v1/ext/<name>/lists/<key>/detail/<id>`, which needs the
-extension's read scope, and changed with `PUT` at the same address and `{"values": {...}}`,
-which needs its write scope.  The id may hold slashes.
+list's `tier=` (Library when it says nothing), and changed with `PUT` at the same address and
+`{"values": {...}}`, which needs the tier of the `save`.  The id may hold slashes.
 
 Words: `list.<key>.title`, `list.<key>.column.<field>.header|help`,
 `list.<key>.column.<field>.state.<value>` and `....state.<value>.why`,

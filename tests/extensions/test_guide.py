@@ -57,8 +57,8 @@ DECLARES: dict[str, list[str]] = {
     "game_board": ["list       picks in community: 2 columns, 0 views, 0 verbs"],
     "challenge_pane": ["list       board in community: 1 columns, 0 views, 0 verbs, opens a pane",
                        "a pane of 2 sections"],
-    "game_notes": ["group      on a game's panel, with fields",
-                   "group      on a table's panel"],
+    "game_notes": ["group      on a game's panel, at the end of play, with fields",
+                   "group      on a table's panel, at the end of play"],
     "game_verbs": ["verb       flag in the game menu",
                    "verb       unflag in the game menu, asks first",
                    "verb       version in the table menu"],
@@ -88,8 +88,9 @@ LESSON_DECLARES: dict[str, list[str]] = {
                   "reads      dialog post: first step has 3 fields"],
     "08-pane": ["list       scores in community: 5 columns, 2 views, 3 verbs, adds post, "
                 "opens a pane"],
-    "09-panel-group": ["group      on a game's panel"],
-    "10-shipping": ["loads      example_scores 1.0.0", "group      on a game's panel",
+    "09-panel-group": ["group      on a game's panel, at the end of play"],
+    "10-shipping": ["loads      example_scores 1.0.0",
+                    "group      on a game's panel, at the end of play",
                     "dialog     post: ask check run"],
 }
 

@@ -1466,5 +1466,5 @@ def build(ctx: Any) -> None:
         progress = staticmethod(wizard_progress)
 
     ctx.ui.action("import", ImportDialog())
-    ctx.add_router(reading, scope=ctx.scope("read"))
-    ctx.add_router(writing, scope=ctx.scope("write"))
+    ctx.add_router(reading)
+    ctx.add_router(writing)

@@ -89,9 +89,28 @@ class Declaring(unittest.TestCase):
         self.assertEqual(
             ui.declared_groups,
             [{"subject": "game", "title": "", "base": "/groups/game", "save": True,
-              "private_ok": False},
+              "private_ok": False, "tier": "library", "icon": "", "section": ""},
              {"subject": "table", "title": "Here", "base": "/groups/table", "save": False,
-              "private_ok": False}])
+              "private_ok": False, "tier": "library", "icon": "", "section": ""}])
+
+    def test_a_group_is_a_section_of_its_own_or_ends_one_of_cores(self) -> None:
+        ui = self.ui()
+
+        ui.panel_group("game", lambda who: None, icon="leaderboard", section="play")
+        ui.panel_group("table", lambda who: None)
+
+        self.assertEqual([(one["icon"], one["section"]) for one in ui.declared_groups],
+                         [("leaderboard", "play"), ("", "")])
+
+    def test_a_section_core_does_not_draw_is_refused_in_words(self) -> None:
+        for section in ("Play", "high scores", "media"):
+            with self.subTest(section=section), self.assertRaisesRegex(
+                    contract.ContractError, "not one of details, play, collections, guides"):
+                self.ui().panel_group("game", lambda who: None, section=section)
+
+    def test_an_icon_outside_the_rail_set_is_refused(self) -> None:
+        with self.assertRaisesRegex(contract.ContractError, "'nope'"):
+            self.ui().panel_group("game", lambda who: None, icon="nope")
 
     def test_a_group_needs_the_ui_capability_and_the_scope_to_read_games(self) -> None:
         with self.assertRaisesRegex(contract.ContractError, "ui:mount"):
@@ -380,13 +399,20 @@ class Saving(Served):
         self.assertEqual(response.status_code, 404, response.text)
         self.assertEqual((STATE["asked"], STATE["saved"]), ([], []))
 
-    def test_writing_wants_the_write_scope_and_not_the_read_one(self) -> None:
+    def test_a_group_at_library_is_closed_to_a_caller_holding_only_play(self) -> None:
         self.client = client_for(self, self.registry, self.record,
-                                 allowed=lambda scope: scope.endswith(":read"))
+                                 allowed=lambda scope: scope.endswith(":play"))
 
-        self.assertEqual(self.client.get(f"{self.base}/game/g1").status_code, 200)
+        self.assertEqual(self.client.get(f"{self.base}/game/g1").status_code, 403)
         self.assertEqual(self.put("/game/g1", note="x").status_code, 403)
         self.assertEqual(STATE["saved"], [])
+
+    def test_a_caller_holding_library_reads_and_writes_a_group(self) -> None:
+        self.client = client_for(self, self.registry, self.record,
+                                 allowed=lambda scope: not scope.endswith(":protected"))
+
+        self.assertEqual(self.client.get(f"{self.base}/game/g1").status_code, 200)
+        self.assertEqual(self.put("/game/g1", note="x").status_code, 200)
 
 
 class Declared(Served):

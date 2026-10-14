@@ -1,8 +1,10 @@
 # What core serves
 
 Core serves everything you declare through `ctx.ui` under `/api/v1/ext/<name>`, each route
-behind a check that the extension is running.  `GET` needs `ext:<name>:read`, and `POST` and
-`PUT` need `ext:<name>:write`.  A request for something the extension did not declare gets a
+behind a check that the extension is running.  Each list, page, group, dialog and act is served at the tier
+it was declared at, Library when it said nothing: `ext:<name>:play`, `ext:<name>:library` or
+`ext:<name>:protected`.  Reading something at Protected needs Library, and changing it needs the
+Protected tier.  A request for something the extension did not declare gets a
 `404`.  A request for an extension that is not running gets a `501` that names the extension
 and says why.
 
@@ -52,4 +54,4 @@ UI of your own from another site or a port of its own, and reach it with
 
 Core takes the secrets out of a response from any route under `/ext/` on the way to the
 client, whether core or the extension wrote it.  An extension's own routes are mounted at
-`/api/v1/ext/<name>` too, behind the same running check and the scope given to `ctx.add_router`.
+`/api/v1/ext/<name>` too, behind the same running check and the tier given to `ctx.add_router`.

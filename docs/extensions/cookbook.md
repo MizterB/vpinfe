@@ -1305,8 +1305,8 @@ def register(ctx):
             {"label": ctx.t("group.file"), "value": who["vps_file_id"] or "-"},
         ]}
 
-    ctx.ui.panel_group("game", game_group, save=save_game)
-    ctx.ui.panel_group("table", table_group)
+    ctx.ui.panel_group("game", game_group, section="play", save=save_game)
+    ctx.ui.panel_group("table", table_group, section="play")
 ```
 
 `recipes/game_notes/i18n/en.json`
@@ -1326,11 +1326,11 @@ def register(ctx):
 
 The heading over each group comes from `group.<subject>.title` in the catalog.
 
-**Where it appears:** in Play on a game's panel, after High Scores, and on a table's panel
+**Where it appears:** at the end of Play on a game's panel, and on a table's panel
 too.  The table group is only on a table's.  **What triggers it:** the panel opening.  Core
 calls `read` then, and again after each change to a field.
 
-**What you'll see:** open a game in the library.  Under High Scores a Game Notes heading has the
+**What you'll see:** open a game in the library.  At the end of the Play section a Game Notes heading has the
 game's name and a Note field.  Type a note and leave the field, and it is kept for that game.
 Open one of its tables and the same group is there with a This Table group under it, with the
 table's version and its VPS file.  Open a game marked Private and neither is drawn.
@@ -1341,6 +1341,8 @@ table's version and its VPS file.  Open a game marked Private and neither is dra
   panel.
 - Drop `save` and the fields are shown and cannot be changed.
 - Declare one group of each subject, as here.  A game can have one of each, and no more.
+- Name no `section` and the group is a section of its own, after core's, with `title` as its
+  name and an `icon` beside it.  `section` can also be `details`, `collections` or `guides`.
 
 **Watch out:** `read` runs each time the panel opens, so a slow service makes the group late.
 It never holds the panel back, but keep what you can in memory.  And the group needs
@@ -1524,7 +1526,6 @@ def register(ctx):
 
 **Variations:**
 
-- Leave the `area` out and the page is under Community.
 - Return one section with a title that says what it holds, or none: the page is then its heading alone.
 - A `picture` in the answer is drawn above the sections.
 - An act can open a dialog, as a list's can: give it `{"action": "<dialog key>"}`.
@@ -1732,7 +1733,9 @@ def register(ctx):
 
 VPinFE never runs as root.  Where the system ships a helper, `ctx.os` is the one way to ask it, and the helper has a short list of methods, each fixed: no command, no path, no package name.  Each method belongs to an area, and an area is a capability, so `os:updates` is what lets this extension check for updates and install them.  A call to a method outside the declared areas raises `ContractError`.
 
-A method that only reads, such as `updates.check`, can be called from anywhere.  A method that changes the machine is refused unless the request it is called from reached Protected, and a job started from that request carries the mark.  A change from an event handler, a timer or a thread the extension started has no request behind it and is refused, so it fails closed even if the declaration is wrong.  Until sign-in can raise a request to Protected, only a request from this computer qualifies.
+A method that only reads, such as `updates.check`, can be called from anywhere.  A method that changes the machine is refused unless the request it is called from reached Protected, and a job started from that request carries the mark.  A change from an event handler, a timer or a thread the extension started has no request behind it and is refused, so it fails closed even if the declaration is wrong.
+
+A request reaches Protected when an Owner makes it under a live Confirm.  So the extension declares its acts `tier=PROTECTED` and lists `protected` under `tiers`: the Console then asks the Owner to confirm before it runs the install, and a token or a Remote pass is refused.  The restart that finishes the updates is declared the same way.  `system:admin` in `scopes` is what lets `ctx.system` restart VPinFE or the computer.
 
 `recipes/os_update/extension.json`
 
@@ -1742,16 +1745,26 @@ A method that only reads, such as `updates.check`, can be called from anywhere. 
   "version": "1.0.0",
   "requires_platform": 1,
   "platforms": ["vpinos"],
-  "capabilities": ["os:updates", "ui:mount"]
+  "scopes": ["system:admin"],
+  "capabilities": ["os:updates", "ui:mount"],
+  "tiers": ["protected"]
 }
 ```
 
 `recipes/os_update/__init__.py`
 
 ```python
+import os
+
+from common.extensions.contract import PROTECTED
+
+REBOOT_FILE = "/run/reboot-required"
+
+
 class Updates:
     def __init__(self, ctx):
         self.ctx = ctx
+        self.upgraded = False
 
     def says(self, method):
         return next(one["says"] for one in self.ctx.os.methods if one["name"] == method)
@@ -1767,12 +1780,47 @@ class Updates:
                 "confirm": self.ctx.t("dialog.install")}
 
     def run(self, values):
-        job = self.ctx.jobs.submit("install", lambda job: self.ctx.os.call("updates.apply"))
+        def install(job):
+            done = self.ctx.os.call("updates.apply")
+            if isinstance(done, dict) and done.get("vpinfe_upgraded") is True:
+                self.upgraded = True
+            return done
+
+        job = self.ctx.jobs.submit("install", install)
         return {"job_id": job.id}
 
 
+class Restart:
+    def __init__(self, ctx, updates):
+        self.ctx = ctx
+        self.updates = updates
+
+    def ask(self, step):
+        wording = "dialog.reboot" if os.path.exists(REBOOT_FILE) else "dialog.restart"
+        return {"summary": [[self.ctx.t("dialog.will"), self.ctx.t(wording)]],
+                "confirm": self.ctx.t("dialog.restart_now")}
+
+    def run(self, values):
+        if os.path.exists(REBOOT_FILE):
+            self.ctx.system.reboot("system updates")
+        else:
+            self.ctx.system.restart_vpinfe("system updates")
+        self.updates.upgraded = False
+        return self.ctx.t("dialog.restarting")
+
+
 def register(ctx):
-    ctx.ui.action("updates", Updates(ctx))
+    updates = Updates(ctx)
+    ctx.ui.action("updates", updates, tier=PROTECTED)
+    ctx.ui.action("restart", Restart(ctx, updates), tier=PROTECTED)
+
+    def waiting():
+        if os.path.exists(REBOOT_FILE) or updates.upgraded:
+            return [{"kind": "restart", "count": 1,
+                     "token": "reboot" if os.path.exists(REBOOT_FILE) else "vpinfe"}]
+        return []
+
+    ctx.ui.needs({"restart": {"action": "restart", "tone": "warm"}}, waiting)
 ```
 
 `recipes/os_update/i18n/en.json`
@@ -1782,20 +1830,28 @@ def register(ctx):
   "name": "OS Update",
   "description": "Installs the operating system's updates on a VPinOS cabinet, after asking.",
   "action.updates.label": "System Updates",
+  "action.restart.label": "Restart",
   "dialog.waiting": "Updates Waiting",
   "dialog.will": "This Will",
   "dialog.install": "Install",
-  "dialog.no_helper": "This computer has no system helper"
+  "dialog.no_helper": "This computer has no system helper",
+  "dialog.reboot": "Restart this computer",
+  "dialog.restart": "Restart VPinFE",
+  "dialog.restart_now": "Restart",
+  "dialog.restarting": "Restarting now",
+  "need.restart.label": "Restart to finish the updates",
+  "need.restart.says": "The updates are installed and take effect after a restart"
 }
 ```
 
-**Where it appears:** on a VPinOS cabinet, as an action on the extension's page called System Updates.  **What triggers it:** pressing it.  `ask` runs when the dialog opens and reads `updates.check`, which changes nothing.  `run` runs when Install is pressed, in that request, and starts a job that calls `updates.apply`.
+**Where it appears:** on a VPinOS cabinet, as two actions on the extension's page, System Updates and Restart.  Restart is also a Needs You row, which shows while the system says it needs a restart (`/run/reboot-required` exists) or after an install that upgraded VPinFE itself.  **What triggers it:** pressing System Updates.  `ask` runs when the dialog opens and reads `updates.check`, which changes nothing.  `run` runs when Install is pressed, in that request, and starts a job that calls `updates.apply`.  The helper answers `installed`, `reboot_required` and `vpinfe_upgraded`; the job keeps the last in memory, and reads each as true only when it is `true`.
 
-**What you'll see:** the dialog lists how many updates are waiting and, under This Will, core's own sentence for the change: "Install system updates on this computer".  The extension chose the label and the layout, and core chose the sentence, so the extension cannot word a careful act as a harmless one.  Install closes the dialog and the job runs in Jobs.  Where no helper answers, the dialog says "This computer has no system helper" and holds Install.  From another device the install is refused with "A system change can only be made from this computer", and because the install runs as a job, that sentence is what Jobs shows for it.
+**What you'll see:** the dialog lists how many updates are waiting and, under This Will, core's own sentence for the change: "Install system updates on this computer".  The extension chose the label and the layout, and core chose the sentence, so the extension cannot word a careful act as a harmless one.  Pressing Install asks the Owner to confirm, then closes the dialog and the job runs in Jobs.  When it is done the Needs You row reads "Restart to finish the updates", and pressing it opens a dialog that says whether it will restart this computer or restart VPinFE.  Where no helper answers, the System Updates dialog says "This computer has no system helper" and holds Install.  A token or a Remote pass that tries the install is refused with "Only this computer, or an Owner with a Confirm, can change the system".
 
 **Variations:**
 
 - Call `updates.apply` straight from `run` when it is quick.  It still takes a Protected request, since `run` answers one.
+- Leave `tier=PROTECTED` off an act and the Console runs it without a Confirm, and `ctx.os.call` refuses the change unless the person holds a live Confirm, so the install fails rather than runs.
 - Read `ctx.os.methods` to build the dialog from what the manifest allows rather than naming methods: each entry has `name`, `changes` and `says`.
 - Run `--check-extension` on a Mac.  It loads the extension whatever its `platforms` say, and `ctx.os.available` is false there, so the dialog shows the no-helper line.
 

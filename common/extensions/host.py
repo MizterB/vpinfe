@@ -22,7 +22,7 @@ from common import accepted, i18n, install_identity, tokens
 from common import events as core_events
 from common.paths import CONFIG_DIR, bundled, get_ini_config
 
-from . import catalogs, contributions
+from . import catalogs, contributions, reach
 from .context import ExtensionApps, ExtensionContext, check_references
 from .contract import MANIFEST_NAME, ContractError, Manifest, ManifestError, read_manifest
 from .pictures import is_openable
@@ -199,15 +199,20 @@ class Record:
         return str(self.directory.parent)
 
     def uses(self) -> list[str]:
-        """What it says it uses: the core scopes and the capabilities it declares."""
-        return [*self.manifest.scopes, *self.manifest.capabilities] if self.manifest else []
+        """What it says it uses: the core scopes and capabilities it declares, and `tier:play`
+        where a Remote can reach its routes."""
+        if self.manifest is None:
+            return []
+        return [*self.manifest.scopes, *self.manifest.capabilities,
+                *(f"tier:{one}" for one in self.manifest.reaches if one == reach.PLAY)]
 
     def is_accepted(self) -> bool:
         """Whether it may run: shipped, or accepted from here with all it declares."""
         if self.manifest is None:
             return False
         return accepted.extension_accepted(self.name, self.origin, self.manifest.scopes,
-                                           self.manifest.capabilities, self.folder)
+                                           self.manifest.capabilities, self.folder,
+                                           self.manifest.reaches)
 
     def trust(self) -> dict[str, Any]:
         """Where it came from, whether the Owner has accepted it, and what it declares
@@ -219,7 +224,8 @@ class Record:
                 "folder": self.folder, "uses": self.uses(),
                 "new_access": accepted.new_access(self.name, self.origin,
                                                   self.manifest.scopes,
-                                                  self.manifest.capabilities, self.folder),
+                                                  self.manifest.capabilities, self.folder,
+                                                  self.manifest.reaches),
                 "accepted_before": accepted.accepted_before(self.name, self.origin,
                                                             self.folder)}
 
@@ -384,8 +390,8 @@ class Registry:
         Only from an extension that is running: disabling one takes its scopes with it,
         which is what makes the kill switch reach a route already mounted.
         """
-        return frozenset(f"ext:{record.name}:{action}" for record in self.records()
-                         if record.running for action in ("read", "write"))
+        return frozenset(f"ext:{record.name}:{tier}" for record in self.records()
+                         if record.running for tier in reach.TIERS)
 
     def read_roots(self) -> tuple[str, ...]:
         """Every folder a running extension says it works from.
@@ -610,7 +616,8 @@ class Registry:
             accepted.accept_extension(target.name, target.origin, folder=target.folder,
                                       version=target.manifest.version,
                                       scopes=target.manifest.scopes,
-                                      capabilities=target.manifest.capabilities)
+                                      capabilities=target.manifest.capabilities,
+                                      tiers=target.manifest.reaches)
             if target is not record:
                 target.became(OFF, STARTS_AT_RESTART)
             elif record.state == OFF and record.why == NOT_ACCEPTED:

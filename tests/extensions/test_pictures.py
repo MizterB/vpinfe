@@ -31,13 +31,13 @@ GRABBED: list[dict] = []
 def pictured(ctx: Any) -> None:
     ctx.ui.list("covers", lambda: [dict(one) for one in ROWS], title="Covers",
                 columns=[{"field": "name"}, {"field": "art", "kind": "picture"}],
-                verbs=[{"key": "grab", "run": lambda rows: GRABBED.extend(rows)}])
+                verbs=[{"key": "grab", "run": lambda rows: GRABBED.extend(rows)}], area="community")
     ctx.ui.list("games", lambda: [dict(one) for one in ROWS], title="Boards",
                 columns=[{"field": "vps_id", "kind": "game", "name_from": "name",
-                          "picture": "art"}])
+                          "picture": "art"}], area="community")
     ctx.ui.list("twice", lambda: [dict(one) for one in ROWS], title="Twice",
                 columns=[{"field": "vps_id", "kind": "game", "name_from": "name", "picture": "art"},
-                         {"field": "art", "kind": "picture"}])
+                         {"field": "art", "kind": "picture"}], area="community")
 
 
 def _installed(root: Path, capabilities: list[str]) -> Path:

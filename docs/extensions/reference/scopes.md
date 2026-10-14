@@ -1,13 +1,29 @@
 # Scopes and the gate
 
-Core attaches the gate.  An extension that adds its own routes names one of two scopes and core
-puts it on every route in the router.  You cannot ship a route without a gate, because you
-never attach one.
+Core attaches the gate.  Everything an extension serves sits at one of three tiers, and core
+puts the tier's scope on every route.  You cannot ship a route without a gate, because you never
+attach one.
 
-| scope | gates |
-|---|---|
-| `ext:<name>:read` | Every `GET` core serves for the extension, and a router added with `ctx.scope("read")` |
-| `ext:<name>:write` | Every `POST` and `PUT` core serves for the extension, and a router added with `ctx.scope("write")` |
+| tier | who reaches it | for |
+|---|---|---|
+| `play` (`ext:<name>:play`) | A Remote pass or a Play token, and everyone above | What a person at the cabinet or on a phone may see or press |
+| `library` (`ext:<name>:library`) | An Owner or a Full token | The default: managing the library, the extension's settings and accounts |
+| `protected` (`ext:<name>:protected`) | An Owner who has just confirmed.  Never a token | An act that changes the computer or hands out access |
+
+An extension says it with `tier=` on a list, page, panel group, action or verb, with
+`@tier(...)` over a single act, and with `tier=` on `ctx.add_router`, all from
+`common.extensions.contract`.  A route, page or act says Library when it says nothing.  Looking at
+a list, page, panel group or dialog declared Protected needs only Library: it is changing
+something there that needs the Confirm.  A router at Protected is gated as a whole, so every
+method on it needs the Confirm.
+
+The manifest's `tiers` lists the tiers beyond Library the extension uses.  A list, page, panel
+group, action, verb or router at a tier it does not list, or at one that does not exist, fails
+when it is declared, and an act marked `@tier(...)` at one is refused when it is called.
+Whoever installs it is shown `tier:play` in plain words, since a Remote can reach it, and an
+update that first puts a route at Play asks again.  Library and Protected say nothing: accepting
+covers both.  Core serves the extension's settings, accounts and job stop at Library, whatever
+the manifest says.
 
 A scope belonging to an extension is granted only while that extension is running.
 

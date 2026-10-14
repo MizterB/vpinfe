@@ -46,7 +46,7 @@ class TheDeclaration(unittest.TestCase):
         self.ui.list("tables", _rows, title="Site", columns=GAMES,
                      views=[{"key": "plays", "name": "Most played",
                              "columns": ["name", "plays"],
-                             "sort": [{"field": "plays", "desc": True}]}])
+                             "sort": [{"field": "plays", "desc": True}]}], area="community")
 
         (said,) = self.ui.declared_lists
         self.assertEqual(("tables", ["game", "text", "number"],
@@ -57,22 +57,24 @@ class TheDeclaration(unittest.TestCase):
     def test_a_kind_core_does_not_draw_is_refused(self) -> None:
         with self.assertRaises(ContractError):
             self.ui.list("tables", _rows, title="Site",
-                         columns=[{"field": "art", "header": "Art", "kind": "html"}])
+                         columns=[{"field": "art", "header": "Art", "kind": "html"}],
+                         area="community")
 
     def test_a_view_on_a_column_it_does_not_have_is_refused(self) -> None:
         with self.assertRaises(ContractError):
             self.ui.list("tables", _rows, title="Site", columns=COLUMNS,
-                         views=[{"key": "top", "sort": [{"field": "rating"}]}])
+                         views=[{"key": "top", "sort": [{"field": "rating"}]}], area="community")
 
     def test_a_view_with_no_key_is_refused(self) -> None:
         """The key is what its words are found by, in the extension's catalog."""
         with self.assertRaises(ContractError):
             self.ui.list("tables", _rows, columns=COLUMNS,
-                         views=[{"name": "Top", "sort": [{"field": "plays"}]}])
+                         views=[{"name": "Top", "sort": [{"field": "plays"}]}], area="community")
 
     def test_a_line_under_the_first_column_is_kept(self) -> None:
         self.ui.list("tables", _rows, title="Site",
-                     columns=[{**COLUMNS[0], "under": ["maker", "year"]}, *COLUMNS[1:]])
+                     columns=[{**COLUMNS[0], "under": ["maker", "year"]}, *COLUMNS[1:]],
+                     area="community")
 
         self.assertEqual(["maker", "year"],
                          self.ui.declared_lists[0]["columns"][0]["under"])
@@ -80,10 +82,10 @@ class TheDeclaration(unittest.TestCase):
     def test_a_line_under_any_other_column_is_refused(self) -> None:
         with self.assertRaises(ContractError):
             self.ui.list("tables", _rows, title="Site",
-                         columns=[COLUMNS[0], {**COLUMNS[1], "under": ["year"]}])
+                         columns=[COLUMNS[0], {**COLUMNS[1], "under": ["year"]}], area="community")
 
     def _drawn(self, *more: dict) -> list[dict]:
-        self.ui.list("tables", _rows, title="Site", columns=[COLUMNS[0], *more])
+        self.ui.list("tables", _rows, title="Site", columns=[COLUMNS[0], *more], area="community")
         return self.ui.declared_lists[0]["columns"][1:]
 
     def test_a_state_keeps_its_looks_in_the_order_given(self) -> None:
@@ -143,11 +145,12 @@ class TheDeclaration(unittest.TestCase):
             column = {"field": "name", "kind": kind, "identifier": True,
                       **({"states": {"x": {}}} if kind == "state" else {})}
             with self.subTest(kind=kind), self.assertRaises(ContractError):
-                self.ui.list("tables", _rows, title="Site", columns=[column, *COLUMNS[1:]])
+                self.ui.list("tables", _rows, title="Site", columns=[column, *COLUMNS[1:]],
+                             area="community")
 
     def test_the_identifier_is_the_first_column_that_draws_its_own_text(self) -> None:
         self.ui.list("tables", _rows, title="Site", columns=[
-            {"field": "status", "kind": "state", "states": {"x": {}}}, *COLUMNS])
+            {"field": "status", "kind": "state", "states": {"x": {}}}, *COLUMNS], area="community")
 
         self.assertEqual(["status", "name"],
                          [one["field"] for one in self.ui.declared_lists[0]["columns"]][:2])
@@ -156,7 +159,8 @@ class TheDeclaration(unittest.TestCase):
 
     def test_a_list_names_its_identifier_where_it_sits(self) -> None:
         self.ui.list("tables", _rows, title="Site",
-                     columns=[*COLUMNS[:2], {**GAMES[0], "identifier": True, "under": ["plays"]}])
+                     columns=[*COLUMNS[:2], {**GAMES[0], "identifier": True, "under": ["plays"]}],
+                     area="community")
 
         (said,) = self.ui.declared_lists
         self.assertEqual([False, False, True], [one["identifier"] for one in said["columns"]])
@@ -168,18 +172,18 @@ class TheDeclaration(unittest.TestCase):
                         [COLUMNS[0], {**COLUMNS[1], "picture": "art"}],
                         [{**COLUMNS[0], "identifier": True}, {**COLUMNS[1], "icon": "star"}]):
             with self.subTest(columns=columns), self.assertRaises(ContractError):
-                self.ui.list("tables", _rows, title="Site", columns=columns)
+                self.ui.list("tables", _rows, title="Site", columns=columns, area="community")
 
     def test_a_list_of_only_cells_has_no_name_to_draw(self) -> None:
         with self.assertRaises(ContractError):
             self.ui.list("tables", _rows, title="Site", columns=[
                 {"field": "s", "kind": "state", "states": {"x": {}}},
-                {"field": "c", "kind": "chips"}])
+                {"field": "c", "kind": "chips"}], area="community")
 
     def test_ids_other_than_vps_and_vpinfe_are_refused(self) -> None:
         with self.assertRaises(ContractError):
             self.ui.list("tables", _rows, title="Site",
-                         columns=[{**GAMES[0], "keys": "rom"}, *GAMES[1:]])
+                         columns=[{**GAMES[0], "keys": "rom"}, *GAMES[1:]], area="community")
 
     def test_the_identifier_is_what_the_list_relates_to(self) -> None:
         for column, keys in ((GAMES[0], "vps_entry"), (TABLES[0], "vps_release"),
@@ -187,12 +191,14 @@ class TheDeclaration(unittest.TestCase):
                              ({**TABLES[0], "keys": "vpinfe"}, "vpinfe_table")):
             with self.subTest(keys=keys):
                 ui = ExtensionUI("site", allowed=True)
-                ui.list("tables", _rows, title="Site", columns=[column, *COLUMNS[:2]])
+                ui.list("tables", _rows, title="Site", columns=[column, *COLUMNS[:2]],
+                        area="community")
                 self.assertEqual({"field": "vpsId", "keys": keys},
                                  ui.declared_lists[0]["relation"])
 
     def test_a_game_column_that_is_not_the_identifier_relates_to_nothing(self) -> None:
-        self.ui.list("tables", _rows, title="Site", columns=[*COLUMNS[:2], GAMES[0]])
+        self.ui.list("tables", _rows, title="Site", columns=[*COLUMNS[:2], GAMES[0]],
+                     area="community")
 
         self.assertIsNone(self.ui.declared_lists[0]["relation"])
 
@@ -200,24 +206,28 @@ class TheDeclaration(unittest.TestCase):
         for named in ("picture", "icon"):
             with self.subTest(named=named), self.assertRaises(ContractError):
                 self.ui.list("tables", _rows, title="Site",
-                             columns=[*COLUMNS[:2], {"field": "x", named: "image"}])
+                             columns=[*COLUMNS[:2], {"field": "x", named: "image"}],
+                             area="community")
 
     def test_keys_and_name_from_belong_to_the_columns_that_read_them(self) -> None:
         for column in ({"field": "x", "keys": "vps"}, {"field": "x", "name_from": "name"}):
             with self.subTest(column=column), self.assertRaises(ContractError):
-                self.ui.list("tables", _rows, title="Site", columns=[*COLUMNS[:2], column])
+                self.ui.list("tables", _rows, title="Site", columns=[*COLUMNS[:2], column],
+                             area="community")
 
     def test_a_list_takes_an_icon_of_the_rail_and_refuses_any_other(self) -> None:
-        self.ui.list("tables", _rows, title="Site", columns=TABLES, icon="leaderboard")
-        self.ui.list("plain", _rows, title="Plain", columns=TABLES)
+        self.ui.list("tables", _rows, title="Site", columns=TABLES, icon="leaderboard",
+                     area="community")
+        self.ui.list("plain", _rows, title="Plain", columns=TABLES, area="community")
 
         self.assertEqual(["leaderboard", ""], [one["icon"] for one in self.ui.declared_lists])
         with self.assertRaisesRegex(ContractError, "'nope'"):
-            self.ui.list("other", _rows, title="Other", columns=TABLES, icon="nope")
+            self.ui.list("other", _rows, title="Other", columns=TABLES, icon="nope",
+                         area="community")
 
     def test_a_tag_is_recorded_as_a_tag_would_be_stored(self) -> None:
         self.ui.list("tables", _rows, title="Site", columns=TABLES,
-                     tag=" Weekly   Challenge ")
+                     tag=" Weekly   Challenge ", area="community")
 
         self.assertEqual("Weekly Challenge", self.ui.declared_lists[0]["tag"])
 
@@ -225,7 +235,8 @@ class TheDeclaration(unittest.TestCase):
         """The tag lands on what the list relates to, so without a relation it would
         land nowhere and say nothing about why."""
         with self.assertRaises(ContractError):
-            self.ui.list("tables", _rows, title="Site", columns=COLUMNS, tag="Challenge")
+            self.ui.list("tables", _rows, title="Site", columns=COLUMNS, tag="Challenge",
+                         area="community")
 
     def test_a_view_ranks_by_numbers_and_dates(self) -> None:
         self.ui.list("scores", _rows, title="Site",
@@ -233,7 +244,7 @@ class TheDeclaration(unittest.TestCase):
                      views=[{"key": "top", "ranks": True,
                              "sort": [{"field": "plays", "desc": True},
                                       {"field": "set"}]},
-                            {"key": "all", "sort": [{"field": "name"}]}])
+                            {"key": "all", "sort": [{"field": "name"}]}], area="community")
 
         self.assertEqual([True, False],
                          [one["ranks"] for one in self.ui.declared_lists[0]["views"]])
@@ -244,36 +255,43 @@ class TheDeclaration(unittest.TestCase):
             self.ui.list("tables", _rows, title="Site", columns=GAMES,
                          views=[{"key": "top", "ranks": True,
                                  "sort": [{"field": "plays", "desc": True},
-                                          {"field": "name"}]}])
+                                          {"field": "name"}]}], area="community")
 
     def test_a_ranked_view_with_no_sort_is_refused(self) -> None:
         with self.assertRaises(ContractError):
             self.ui.list("tables", _rows, title="Site", columns=GAMES,
-                         views=[{"key": "top", "ranks": True}])
+                         views=[{"key": "top", "ranks": True}], area="community")
 
     def test_a_ranked_view_of_a_list_that_relates_to_nothing_is_refused(self) -> None:
         with self.assertRaises(ContractError):
             self.ui.list("tables", _rows, title="Site", columns=COLUMNS,
                          views=[{"key": "top", "ranks": True,
-                                 "sort": [{"field": "plays", "desc": True}]}])
+                                 "sort": [{"field": "plays", "desc": True}]}], area="community")
 
     def test_it_needs_the_capability_to_draw(self) -> None:
         with self.assertRaises(ContractError):
             ExtensionUI("site", allowed=False).list("tables", _rows, columns=COLUMNS)
 
     def test_the_routes_core_serves_it_on_are_recorded(self) -> None:
-        self.ui.list("tables", _rows, title="Site", columns=COLUMNS)
+        self.ui.list("tables", _rows, title="Site", columns=COLUMNS, area="community")
 
         (said,) = self.ui.declared_lists
         self.assertEqual(("/lists/tables", "/lists/tables/about"),
                          (said["base"], said["about"]))
 
-    def test_a_list_is_in_community_unless_it_says_otherwise(self) -> None:
-        self.ui.list("tables", _rows, columns=COLUMNS)
+    def test_a_list_goes_where_it_says(self) -> None:
+        self.ui.list("tables", _rows, columns=COLUMNS, area="community")
         self.ui.list("scores", _rows, columns=COLUMNS, area="library")
 
         self.assertEqual(["community", "library"],
                          [one["area"] for one in self.ui.declared_lists])
+
+    def test_a_list_with_no_area_is_refused_in_words(self) -> None:
+        for area in ("", None):
+            with self.subTest(area=area), self.assertRaisesRegex(
+                    ContractError, "the list 'tables' no area"):
+                self.ui.list("tables", _rows, columns=COLUMNS, area=area)  # type: ignore[arg-type]
+        self.assertEqual([], self.ui.declared_lists)
 
     def test_an_area_core_does_not_draw_is_refused(self) -> None:
         for area in ("Community", "sidebar", "provides"):
@@ -284,25 +302,25 @@ class TheDeclaration(unittest.TestCase):
     def test_rows_that_are_not_a_function_are_refused(self) -> None:
         for rows in ("/community/tables", None, [{"name": "AFM"}]):
             with self.subTest(rows=rows), self.assertRaises(ContractError):
-                self.ui.list("tables", rows, columns=COLUMNS)
+                self.ui.list("tables", rows, columns=COLUMNS, area="community")
 
     def test_a_status_or_acts_that_are_not_what_core_calls_are_refused(self) -> None:
         with self.assertRaises(ContractError):
-            self.ui.list("tables", _rows, columns=COLUMNS, status="/tables/about")
+            self.ui.list("tables", _rows, columns=COLUMNS, status="/tables/about", area="community")
         with self.assertRaises(ContractError):
-            self.ui.list("scores", _rows, columns=COLUMNS, acts=["post"])
+            self.ui.list("scores", _rows, columns=COLUMNS, acts=["post"], area="community")
 
     def test_a_key_declared_twice_is_refused(self) -> None:
-        self.ui.list("tables", _rows, columns=COLUMNS)
+        self.ui.list("tables", _rows, columns=COLUMNS, area="community")
 
         with self.assertRaises(ContractError):
-            self.ui.list("tables", _rows, columns=COLUMNS)
+            self.ui.list("tables", _rows, columns=COLUMNS, area="community")
 
     def test_verbs_are_recorded_as_data_without_their_functions(self) -> None:
         self.ui.list("tables", _rows, columns=COLUMNS, verbs=[
             {"key": "mark", "run": _mark, "danger": True, "needs": "ok", "one": True,
              "label": "Mark"},
-            {"key": "open", "link": "page"}])
+            {"key": "open", "link": "page"}], area="community")
 
         (said,) = self.ui.declared_lists
         self.assertEqual(
@@ -315,7 +333,8 @@ class TheDeclaration(unittest.TestCase):
     def test_a_verb_core_cannot_read_is_refused_with_what_it_reads(self) -> None:
         with self.assertRaises(ContractError) as raised:
             self.ui.list("tables", _rows, columns=COLUMNS,
-                         verbs=[{"key": "mark", "run": _mark, "confirm": "Sure?"}])
+                         verbs=[{"key": "mark", "run": _mark, "confirm": "Sure?"}],
+                         area="community")
 
         self.assertIn("confirm", str(raised.exception))
         self.assertIn("danger", str(raised.exception))
@@ -333,14 +352,14 @@ class TheDeclaration(unittest.TestCase):
         }
         for what, verb in wrong.items():
             with self.subTest(what), self.assertRaises(ContractError):
-                self.ui.list("tables", _rows, columns=COLUMNS, verbs=[verb])
+                self.ui.list("tables", _rows, columns=COLUMNS, verbs=[verb], area="community")
         self.assertEqual([], self.ui.declared_lists)
 
     def test_a_verb_that_opens_a_dialog_is_recorded_with_whether_it_walks_the_rows(self) -> None:
         self.ui.action("note", _Dialog())
         self.ui.list("tables", _rows, columns=COLUMNS, verbs=[
             {"key": "note", "action": "note", "each": True},
-            {"key": "tag", "action": "note"}], add=["note"])
+            {"key": "tag", "action": "note"}], add=["note"], area="community")
 
         (said,) = self.ui.declared_lists
         self.assertEqual([("note", "note", True), ("tag", "note", False)],
@@ -359,24 +378,24 @@ class TheDeclaration(unittest.TestCase):
         }
         for what, verb in wrong.items():
             with self.subTest(what), self.assertRaises(ContractError):
-                self.ui.list("tables", _rows, columns=COLUMNS, verbs=[verb])
+                self.ui.list("tables", _rows, columns=COLUMNS, verbs=[verb], area="community")
         self.assertEqual([], self.ui.declared_lists)
 
     def test_add_is_a_dialog_name_or_several_and_nothing_else(self) -> None:
         for add in (3, [3], ["a", "a"], ["a", " a"], [""], ["  "]):
             with self.subTest(add=add), self.assertRaises(ContractError):
-                self.ui.list("tables", _rows, columns=COLUMNS, add=add)
+                self.ui.list("tables", _rows, columns=COLUMNS, add=add, area="community")
         self.assertEqual([], self.ui.declared_lists)
 
     def test_a_pane_is_a_function_and_saving_it_needs_one_to_save_into(self) -> None:
         for what in ({"detail": "pane"}, {"detail": _rows, "save": "write"},
                      {"save": _mark}):
             with self.subTest(what=what), self.assertRaises(ContractError):
-                self.ui.list("tables", _rows, columns=COLUMNS, **what)
+                self.ui.list("tables", _rows, columns=COLUMNS, **what, area="community")
         self.assertEqual([], self.ui.declared_lists)
 
-        self.ui.list("tables", _rows, columns=COLUMNS, detail=_rows, save=_mark)
-        self.ui.list("plain", _rows, columns=COLUMNS)
+        self.ui.list("tables", _rows, columns=COLUMNS, detail=_rows, save=_mark, area="community")
+        self.ui.list("plain", _rows, columns=COLUMNS, area="community")
 
         self.assertEqual(["/lists/tables/detail", ""],
                          [one["detail"] for one in self.ui.declared_lists])
@@ -387,7 +406,7 @@ class TheDeclaration(unittest.TestCase):
                      {"acts": {"open": {"action": "missing"}}}):
             with self.subTest(what=what):
                 ui = ExtensionUI("site", allowed=True)
-                ui.list("tables", _rows, columns=COLUMNS, **what)
+                ui.list("tables", _rows, columns=COLUMNS, **what, area="community")
                 with self.assertRaises(ContractError) as raised:
                     check_references(ui)
                 self.assertIn("missing", str(raised.exception))
@@ -396,14 +415,16 @@ class TheDeclaration(unittest.TestCase):
         for action in (3, ["x"], None, ""):
             with self.subTest(action=action):
                 ui = ExtensionUI("site", allowed=True)
-                ui.list("tables", _rows, columns=COLUMNS, acts={"open": {"action": action}})
+                ui.list("tables", _rows, columns=COLUMNS, acts={"open": {"action": action}},
+                        area="community")
                 with self.assertRaises(ContractError):
                     check_references(ui)
 
     def test_two_verbs_with_one_key_are_refused(self) -> None:
         with self.assertRaises(ContractError):
             self.ui.list("tables", _rows, columns=COLUMNS,
-                         verbs=[{"key": "mark", "run": _mark}, {"key": "mark", "run": _mark}])
+                         verbs=[{"key": "mark", "run": _mark}, {"key": "mark", "run": _mark}],
+                         area="community")
 
 
 class HowTheListStands(unittest.TestCase):

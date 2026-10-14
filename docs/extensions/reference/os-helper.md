@@ -27,7 +27,7 @@ connection closes.  A line is at most 65536 bytes.
 
 ```json
 {"method": "updates.apply", "args": {}, "by": "os_update", "origin": "this computer"}
-{"ok": true, "result": {"installed": 12}}
+{"ok": true, "result": {"installed": 12, "reboot_required": true, "vpinfe_upgraded": false}}
 ```
 
 | key | what it holds |
@@ -52,10 +52,16 @@ long as it takes, and VPinFE waits up to the time in the table below before it g
 | method | changes the machine | takes | answers | waits up to |
 |---|---|---|---|---|
 | `updates.check` | No | nothing | `{"count": n}`, the packages an update would install | 2 minutes |
-| `updates.apply` | Yes | nothing | `{"installed": n}`, the packages it installed | 1 hour |
+| `updates.apply` | Yes | nothing | `{"installed": n, "reboot_required": bool, "vpinfe_upgraded": bool}` | 1 hour |
 
-Both read only the system's own package source.  Every method has an area an extension
-declares as the capability `os:<area>`: both of these belong to `os:updates`.
+`updates.apply` answers how many packages it installed, whether the computer needs a reboot
+for them (`/run/reboot-required` exists) and whether VPinFE itself was upgraded, which needs a
+restart of VPinFE and no more.  VPinFE hands the answer on as the helper sent it, and an
+extension reads each flag as true only when it is `true`.
+
+Both use every package source the system has configured, under the system's own pins, and
+nothing else.  Every method has an area an extension declares as the capability `os:<area>`:
+both of these belong to `os:updates`.
 
 ## What a method may be
 

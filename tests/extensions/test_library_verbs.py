@@ -73,9 +73,9 @@ class Declaring(unittest.TestCase):
 
         self.assertEqual(ui.declared_library_verbs, [
             {"subject": "game", "key": "ship", "label": "Ship", "one": True, "danger": False,
-             "private_ok": False},
+             "private_ok": False, "tier": "library"},
             {"subject": "table", "key": "scrub", "label": "", "one": False, "danger": True,
-             "private_ok": False}])
+             "private_ok": False, "tier": "library"}])
 
     def test_an_entry_needs_the_ui_capability_and_the_scope_to_read_games(self) -> None:
         with self.assertRaisesRegex(contract.ContractError, "ui:mount"):

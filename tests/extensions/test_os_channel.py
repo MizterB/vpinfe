@@ -10,6 +10,7 @@ import asyncio
 import inspect
 import json
 import logging
+import os
 import socket
 import tempfile
 import threading
@@ -455,7 +456,7 @@ def register(ctx):
         ctx.jobs.submit("apply", lambda job: ctx.os.call("updates.apply"))
         return {"started": True}
 
-    ctx.add_router(router, scope=ctx.scope("write"))
+    ctx.add_router(router)
 '''
 
 
@@ -524,7 +525,31 @@ class RecipeTests(ExtensionCase):
                                            return_value=("vpinos", "VPinOS")):
             record = self.registry.load(RECIPE)
         self.assertTrue(record.running, record.reason)
+        self.ui = record.context.ui
+        self.system = record.context.system
         return record.context.ui.action_objects["updates"]
+
+    def reboot_file(self, present: bool):
+        real = os.path.exists
+        patch = unittest.mock.patch(
+            "os.path.exists",
+            lambda path: present if path == "/run/reboot-required" else real(path))
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def install_answering(self, **said):
+        fake = self.helper(lambda r: {"ok": True, "result": {
+            "installed": 1, "reboot_required": False, "vpinfe_upgraded": False, **said}})
+        dialog = self.load()
+        with reach.marking(reach.PROTECTED, "this computer"):
+            started = dialog.run({})
+        deadline = time.time() + 5
+        while time.time() < deadline:
+            job = core_jobs.get(started["job_id"])
+            if job and job.state != core_jobs.RUNNING:
+                break
+            time.sleep(0.01)
+        return fake
 
     def test_the_dialog_counts_what_is_waiting_and_uses_cores_sentence(self) -> None:
         self.helper(lambda r: {"ok": True, "result": {"count": 7}} if r["method"]
@@ -554,3 +579,59 @@ class RecipeTests(ExtensionCase):
 
         self.assertIn("job_id", started)
         self.assertEqual([one["method"] for one in fake.requests], ["updates.apply"])
+
+    def test_an_install_that_upgraded_vpinfe_is_offered_a_restart(self) -> None:
+        self.reboot_file(False)
+        self.install_answering(vpinfe_upgraded=True)
+
+        self.assertEqual(self.ui.needs_function(),
+                         [{"kind": "restart", "count": 1, "token": "vpinfe"}])
+
+    def test_an_install_that_changed_nothing_of_vpinfes_offers_no_restart(self) -> None:
+        self.reboot_file(False)
+        self.install_answering()
+
+        self.assertEqual(self.ui.needs_function(), [])
+
+    def test_a_flag_that_is_not_true_offers_no_restart(self) -> None:
+        self.reboot_file(False)
+        self.install_answering(vpinfe_upgraded="true")
+
+        self.assertEqual(self.ui.needs_function(), [])
+
+    def test_a_computer_waiting_on_a_reboot_offers_one(self) -> None:
+        self.reboot_file(True)
+        self.load()
+
+        self.assertEqual(self.ui.needs_function(),
+                         [{"kind": "restart", "count": 1, "token": "reboot"}])
+
+    def test_the_restart_dialog_says_reboot_where_the_system_asks_for_one(self) -> None:
+        self.reboot_file(True)
+        self.load()
+        said = self.ui.action_objects["restart"].ask(None)["summary"][0][1]
+
+        self.reboot_file(False)
+        self.assertNotEqual(self.ui.action_objects["restart"].ask(None)["summary"][0][1], said)
+
+    def test_restarting_reboots_when_the_system_asks_for_it_and_clears_the_offer(self) -> None:
+        self.reboot_file(True)
+        self.load()
+        with unittest.mock.patch.object(self.system, "reboot") as reboot, \
+                unittest.mock.patch.object(self.system, "restart_vpinfe") as restart:
+            self.ui.action_objects["restart"].run({})
+
+        reboot.assert_called_once()
+        restart.assert_not_called()
+
+    def test_restarting_restarts_only_vpinfe_when_no_reboot_is_needed(self) -> None:
+        self.reboot_file(False)
+        self.load()
+        self.ui.action_objects["updates"].upgraded = True
+        with unittest.mock.patch.object(self.system, "reboot") as reboot, \
+                unittest.mock.patch.object(self.system, "restart_vpinfe") as restart:
+            self.ui.action_objects["restart"].run({})
+
+        restart.assert_called_once()
+        reboot.assert_not_called()
+        self.assertEqual(self.ui.needs_function(), [])

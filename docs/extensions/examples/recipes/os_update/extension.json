@@ -3,5 +3,7 @@
   "version": "1.0.0",
   "requires_platform": 1,
   "platforms": ["vpinos"],
-  "capabilities": ["os:updates", "ui:mount"]
+  "scopes": ["system:admin"],
+  "capabilities": ["os:updates", "ui:mount"],
+  "tiers": ["protected"]
 }

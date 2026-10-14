@@ -236,33 +236,37 @@ class SignInPolicy:
         """A Remote pass is Play and nothing more.  An Owner holds everything but the Protected
         tier, which a live Confirm adds, and an encrypted connection stands in for."""
         if session.kind != sign_in.OWNER:
-            held = scopes.PLAY
+            held = scopes.PLAY | granted_extension_scopes(reach.PLAY)
         elif encrypted or sign_in.instance().is_confirmed(session.id):
             held = everything
         else:
-            held = everything - scopes.CONFIRMED
+            held = frozenset(one for one in everything if not scopes.is_confirmed(one))
         return Identity(name=session.kind, scopes=frozenset(held), origin=NETWORK,
                         session_id=session.id, kind=session.kind)
 
     @staticmethod
     def _holder(token: tokens.Token) -> Identity:
         if token.access == tokens.PLAY:
-            held = scopes.PLAY
+            held = scopes.PLAY | granted_extension_scopes(reach.PLAY)
         else:
-            held = scopes.LIBRARY | granted_extension_scopes()
+            held = scopes.LIBRARY | granted_extension_scopes(reach.PLAY, reach.LIBRARY)
             if token.can_power:
                 held = held | {scopes.SYSTEM_ADMIN}
         return Identity(name=token.name, scopes=frozenset(held), origin=NETWORK,
                         kind="token", token_id=token.id)
 
 
-def granted_extension_scopes() -> frozenset[str]:
-    """The `ext:` scopes an extension that is running has put on its own routes.
+def granted_extension_scopes(*tiers: str) -> frozenset[str]:
+    """The `ext:` scopes of the extensions that are running, at these tiers or at all of
+    them when none is named.
 
     Read per request, not held: disabling an extension takes its scopes with it, which
     is how the kill switch reaches a route that is already mounted.
     """
-    return extensions.granted_scopes()
+    held = extensions.granted_scopes()
+    if not tiers:
+        return held
+    return frozenset(one for one in held if scopes.extension_tier(one) in tiers)
 
 
 _policy: SignInPolicy = SignInPolicy()
@@ -321,7 +325,7 @@ class ForbiddenError(ApiError):
 def _refusal(identity: Identity, scope: str) -> ForbiddenError:
     """Why this caller may not have `scope`.  An Owner without a Confirm is told to confirm;
     a token or a Remote pass is told it never can."""
-    if scope in scopes.CONFIRMED:
+    if scopes.is_confirmed(scope):
         if identity.kind == sign_in.OWNER:
             return ForbiddenError(t("error.auth.confirm_needed"),
                                   details={"reason": CONFIRM_NEEDED, "scope": scope})
@@ -339,7 +343,7 @@ def check(identity: Identity | None, scope: str, path: str = "") -> None:
         raise ForbiddenError(t("error.auth.unavailable"))
     if not identity.can(scope):
         raise _refusal(identity, scope)
-    if scope in scopes.CONFIRMED and identity.session_id:
+    if scopes.is_confirmed(scope) and identity.session_id:
         sign_in.instance().is_confirmed(identity.session_id, use=True)
 
 

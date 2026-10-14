@@ -365,6 +365,7 @@ PLAINLY = {
     "fs:read": "console.ext_page.read_files",
     "fs:write": "console.ext_page.write_files",
     "os:updates": "console.ext_page.os_updates",
+    "tier:play": "console.ext_page.tier_play",
 }
 
 

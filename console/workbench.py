@@ -334,6 +334,8 @@ class Section:
     # A heading over the run of sections it starts. Empty for a rail short enough to
     # read without one, which every rail now is.
     group: str = ""
+    # A Material icon drawn before the name; only an extension's section sets one.
+    icon: str = ""
 
 
 def sections_for(subject: str) -> tuple[Section, ...]:
@@ -1883,7 +1885,9 @@ async def _rail(context: dict[str, Any], subject: str,
     verbs_of = SUBJECT_VERBS.get(subject)
     if header is not None and verbs_of is not None:
         panel.subject_menu(header, verbs_of(context))
-    declared = context.get("rail") or sections_for(subject)
+    declared = context.get("rail") or (
+        (*sections_for(subject), *_group_sections(context)) if subject in ("game", "table")
+        else sections_for(subject))
     rows = tuple(item for item in declared if item.shown is None or item.shown(context))
     # One entry is a section that is always open, so it takes the width and has no row.
     # Counted before `shown`, so a subject's rail does not come and go between two rows.
@@ -1941,6 +1945,24 @@ async def _rail(context: dict[str, Any], subject: str,
             ui.run_javascript(_GRIP)
 
 
+def _group_sections(context: dict[str, Any]) -> tuple[Section, ...]:
+    """The groups extensions made a section of their own, after core's."""
+    return tuple(_group_row(key, extension, group)
+                 for key, extension, group in ext_groups.own(context))
+
+
+def _group_row(key: str, extension: dict[str, Any], group: dict[str, Any]) -> Section:
+    label = ext_groups.title(extension, group)
+    return Section(key, lambda _: label, partial(_group_section, extension, group),
+                   icon=group.get("icon") or "extension")
+
+
+async def _group_section(extension: dict[str, Any], group: dict[str, Any],
+                         context: dict[str, Any]) -> None:
+    with ui.column().classes("gap-0 console-form w-full"):
+        ext_groups.show_in_place(context, extension, group)
+
+
 async def _one_section(context: dict[str, Any], key: str,
                        rows: tuple[Section, ...] = ()) -> None:
     """The chosen section's content. No heading - the row that opened it is the
@@ -1966,6 +1988,8 @@ def _section_row(context: dict[str, Any], section: Section, open_now: bool,
     with row:
         name = ui.row().classes("items-center grow min-w-0 console-section-hit")
         with name:
+            if section.icon:
+                ui.icon(section.icon, size="18px").classes("mr-2")
             text = ui.label(section.label(context)).classes("console-section-name")
         # Shown only where the rows stack, because only there does one open under
         # another. Beside its content it would be pointing at nothing.
@@ -2596,6 +2620,7 @@ async def _game_block(context: dict[str, Any]) -> None:
         # outside that grid and needs the same edge.
         with ui.column().classes("gap-0 w-full px-3"):
             _tables_block(context, held)
+        ext_groups.fill(context, "details", "game")
 
 
 async def _table_block(context: dict[str, Any]) -> None:
@@ -2612,6 +2637,7 @@ async def _table_block(context: dict[str, Any]) -> None:
             ui.label(t("console.workbench.none_selected")).classes("console-help")
             return
         _rows(ui, _table_entries(chosen, context, match, links, findings))
+        ext_groups.fill(context, "details", "table")
     ui.run_javascript(_KEEP_SCROLL % f"table:{chosen.get('id') or ''}".replace("'", "\\'"))
 
 
@@ -3020,7 +3046,7 @@ async def _play_block(context: dict[str, Any]) -> None:
     shots = await pictures.read(context)
     with ui.column().classes("gap-0 console-form"):
         _rows(ui, _play_section(context, scores, shots))
-        ext_groups.fill(context)
+        ext_groups.fill(context, "play")
 
 
 def _play_section(context: dict[str, Any], scores: dict[str, Any],
@@ -3177,6 +3203,7 @@ async def _collections_block(context: dict[str, Any]) -> None:
             _collection_row(context, {**one, "how": "taken_out"})
         with ui.element("div").classes("console-slot-actions px-3"):
             _add_to_collection(context, every, members)
+        ext_groups.fill(context, "collections")
 
 
 def _collection_row(context: dict[str, Any], one: dict[str, Any]) -> None:
@@ -3316,6 +3343,7 @@ async def _guides_block(context: dict[str, Any]) -> None:
             panel.action(t("console.workbench.add_guide"),
                          lambda: _add_guide(context), icon=verbs.ADD,
                          hint=t("console.workbench.add_guide.help"))()
+        ext_groups.fill(context, "guides")
     # Read at the drop by the page's listener, `guide_moved`.
     context["state"]["guide_move"] = context
     if len(shown) > 1:

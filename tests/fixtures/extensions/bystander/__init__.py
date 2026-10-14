@@ -15,4 +15,4 @@ def register(ctx) -> None:
     def hello() -> dict:
         return {"name": ctx.name}
 
-    ctx.add_router(router, scope=ctx.scope("read"))
+    ctx.add_router(router)

@@ -70,7 +70,7 @@ class LoadTests(HostCase):
 
         self.assertEqual(found["state"], host.LOADED)
         self.assertEqual(found["scopes"], ["games:read", "players:read"])
-        self.assertEqual(found["routes"], ["ext:sample:read", "ext:sample:write"])
+        self.assertEqual(found["routes"], ["ext:sample:library", "ext:sample:library"])
         self.assertEqual(found["capabilities"], ["config:own", "ui:mount"])
 
     def test_a_directory_whose_name_is_not_the_manifests_is_refused(self) -> None:
@@ -302,7 +302,7 @@ class WordsTests(HostCase):
               '    ctx.ui.action("sync", Sync())\n'
               '    ctx.ui.settings([{"key": "account", "type": "string"}])\n'
               '    ctx.ui.list("scores", lambda: [], columns=[{"field": "name"}],\n'
-              '                views=[{"key": "top", "columns": ["name"]}])\n')
+              '                views=[{"key": "top", "columns": ["name"]}], area="community")\n')
 
     def worded(self, name: str, words: dict, manifest: dict | None = None,
                body: str = "def register(ctx): pass\n") -> Path:
@@ -482,16 +482,25 @@ class ContextTests(HostCase):
 
         self.assertTrue(self.store.enabled("sample"))
 
-    def test_a_router_gated_on_another_extensions_scope_is_refused(self) -> None:
+    def test_a_router_at_a_tier_the_manifest_does_not_list_is_refused(self) -> None:
         body = ("from fastapi import APIRouter\n"
                 "def register(ctx):\n"
-                "    ctx.add_router(APIRouter(), scope='ext:sample:read')\n")
+                "    ctx.add_router(APIRouter(), tier='play')\n")
         with self.assertLogs(self.LOG, "ERROR") as logged:
             record = self.registry.load(self.make("greedy", body=body))
 
         self.assertEqual(record.state, host.FAILED)
-        self.assertIn("its scopes are ext:greedy:read and ext:greedy:write",
-                      logged.output[0])
+        self.assertIn("its tiers are library", logged.output[0])
+
+    def test_a_router_at_a_listed_tier_is_kept(self) -> None:
+        body = ("from fastapi import APIRouter\n"
+                "def register(ctx):\n"
+                "    ctx.add_router(APIRouter(), tier='play')\n")
+
+        record = self.registry.load(self.make("modest", {"tiers": ["play"]}, body=body))
+
+        self.assertEqual(record.state, host.LOADED)
+        self.assertEqual(record.as_dict()["routes"], ["ext:modest:play"])
 
     def test_publishing_an_undeclared_event_is_refused(self) -> None:
         body = ("def register(ctx):\n"
@@ -541,13 +550,13 @@ class FailureTests(HostCase):
 
     def test_disabling_takes_the_extensions_scopes_with_it(self) -> None:
         self.load()
-        self.assertIn("ext:sample:read", self.registry.granted_scopes())
+        self.assertIn("ext:sample:library", self.registry.granted_scopes())
 
         with self.assertLogs(self.LOG, "ERROR"):
             self.registry.disable("sample", "asked to")
 
-        self.assertNotIn("ext:sample:read", self.registry.granted_scopes())
-        self.assertIn("ext:bystander:read", self.registry.granted_scopes())
+        self.assertNotIn("ext:sample:library", self.registry.granted_scopes())
+        self.assertIn("ext:bystander:library", self.registry.granted_scopes())
 
     def test_a_disable_is_not_written_down(self) -> None:
         """A fault that happened once must not take the extension away until somebody
@@ -576,7 +585,7 @@ class SwitchTests(HostCase):
         self.assertEqual((record.state, record.why), (host.OFF, host.SWITCHED_OFF))
         self.assertFalse(record.enabled)
         self.assertFalse(self.store.enabled("sample"))
-        self.assertNotIn("ext:sample:read", self.registry.granted_scopes())
+        self.assertNotIn("ext:sample:library", self.registry.granted_scopes())
         self.assertEqual(self.heard(), [])
         self.assertTrue(self.registry.running("bystander"))
 
@@ -600,7 +609,7 @@ class SwitchTests(HostCase):
         self.assertTrue(record.enabled)
         self.assertEqual((record.state, record.why), (host.OFF, host.STARTS_AT_RESTART))
         self.assertEqual(record.as_dict()["reason"], "Starts at the next restart")
-        self.assertNotIn("ext:sample:read", self.registry.granted_scopes())
+        self.assertNotIn("ext:sample:library", self.registry.granted_scopes())
 
         again = host.Registry(self.store)
         self.addCleanup(again.clear)
@@ -646,7 +655,7 @@ class SwitchTests(HostCase):
             record = self.registry.switch("sample", True)
 
         self.assertEqual(record.state, host.LOADED)
-        self.assertIn("ext:sample:read", self.registry.granted_scopes())
+        self.assertIn("ext:sample:library", self.registry.granted_scopes())
 
     def test_a_switched_off_extension_still_says_it_has_settings(self) -> None:
         """Only a running one has `surfaces`, and it is `register` that declares

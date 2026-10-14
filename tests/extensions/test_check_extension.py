@@ -59,7 +59,7 @@ def register(ctx: Any) -> None:
     ctx.ui.list("things", rows, columns=[{"field": "name"}], views=[{"key": "all"}],
                 status=status, acts={"refresh": lambda: CALLS.append("refresh")},
                 verbs=[{"key": "drop", "run": lambda rows: CALLS.append("drop"),
-                        "danger": True, "needs": "ok"}])
+                        "danger": True, "needs": "ok"}], area="community")
 
     class Greet:
         def ask(self, step: str) -> dict:
@@ -81,7 +81,7 @@ def register(ctx: Any) -> None:
     ctx.ui.account(read=lambda player_id: {"status": "Fixed"})
     routes = APIRouter()
     routes.add_api_route("/hello", lambda: {}, methods=["GET"])
-    ctx.add_router(routes, scope=ctx.scope("read"))
+    ctx.add_router(routes)
 
 
 def build(root: Path, body: str | None = None, *, name: str = NAME,
@@ -124,15 +124,16 @@ class CheckCase(unittest.TestCase):
 class AGroupOnAPanel(CheckCase):
     BODY = (
         "def register(ctx):\n"
-        "    ctx.ui.panel_group('game', lambda who: None, save=lambda who, values: None)\n"
+        "    ctx.ui.panel_group('game', lambda who: None, section='play',\n"
+        "                       save=lambda who, values: None)\n"
         "    ctx.ui.panel_group('table', lambda who: None)\n")
 
-    def test_it_says_each_group_and_whether_it_has_fields(self) -> None:
+    def test_it_says_each_group_where_it_goes_and_whether_it_has_fields(self) -> None:
         lines, passed = check.check(build(self.root, self.BODY, scopes=["games:read"],
                                           words={}))
 
-        self.assertIn("group      on a game's panel, with fields", lines)
-        self.assertIn("group      on a table's panel", lines)
+        self.assertIn("group      on a game's panel, at the end of play, with fields", lines)
+        self.assertIn("group      on a table's panel, in a section of its own", lines)
         self.assertTrue(passed, lines)
 
     def test_a_group_without_the_scope_to_read_games_fails_to_load(self) -> None:
@@ -184,7 +185,7 @@ class APage(CheckCase):
 class ANeed(CheckCase):
     BODY = (
         "def register(ctx):\n"
-        "    ctx.ui.list('plays', lambda: [], columns=[{'field': 'name'}])\n"
+        "    ctx.ui.list('plays', lambda: [], columns=[{'field': 'name'}], area='community')\n"
         "    ctx.ui.needs({'down': {'list': 'plays', 'tone': 'danger'}},\n"
         "                 lambda: [{'kind': 'down', 'ids': ['a', 'b']}])\n")
 
@@ -237,7 +238,7 @@ class AGoodExtension(CheckCase):
         lines, _ = self.checked()
 
         self.assertIn("account    a player can hold one", lines)
-        self.assertIn("routes     its own, on ext:checked:read (1 routes)", lines)
+        self.assertIn("routes     its own, on ext:checked:library (1 routes)", lines)
 
     def test_it_says_what_each_read_found(self) -> None:
         lines, _ = self.checked()
@@ -348,7 +349,8 @@ class AWordMissing(CheckCase):
             "def register(ctx):\n"
             "    ctx.ui.settings([{'key': 'a'}])\n"
             "    ctx.ui.list('l', lambda: [], title='Mine', columns=[\n"
-            "        {'field': 'f', 'header': 'F'}], views=[{'key': 'v', 'name': 'V'}])\n"
+            "        {'field': 'f', 'header': 'F'}], views=[{'key': 'v', 'name': 'V'}],\n"
+            "        area='community')\n"
             "    ctx.ui.action('go', type('D', (), {'ask': lambda self, step: {'fields': []}})(),\n"
             "                  label='Go')\n")
 
@@ -362,7 +364,7 @@ class AWordMissing(CheckCase):
             "    ctx.ui.list('l', lambda: [], title='Mine', columns=[\n"
             "        {'field': 'f', 'header': 'F'},\n"
             "        {'field': 's', 'header': 'S', 'kind': 'state',\n"
-            "         'states': {'live': {'tier': 'on'}, 'late': {}}}])\n")
+            "         'states': {'live': {'tier': 'on'}, 'late': {}}}], area='community')\n")
 
         lines, passed = self.checked(build(self.root, body, words={
             "list.l.column.s.state.live": "Live"}))
@@ -433,7 +435,7 @@ class AReadThatFails(CheckCase):
     def test_rows_that_are_not_rows_fail_it(self) -> None:
         body = ("def register(ctx):\n"
                 "    ctx.ui.list('l', lambda: {'a': 1}, title='L', columns=[\n"
-                "        {'field': 'f', 'header': 'F'}])\n")
+                "        {'field': 'f', 'header': 'F'}], area='community')\n")
 
         lines, passed = self.checked(build(self.root, body, words={}))
 

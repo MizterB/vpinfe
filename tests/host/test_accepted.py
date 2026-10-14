@@ -172,6 +172,36 @@ class Extensions(Case):
                          ["games:write"])
         self.assertTrue(accepted.accepted_before("tool", accepted.IN_FOLDER))
 
+    def test_an_update_that_adds_the_play_tier_stops_and_says_so(self) -> None:
+        self.accept(tiers=["library"])
+
+        self.assertFalse(accepted.extension_accepted(
+            "tool", accepted.IN_FOLDER, ["games:read"], [], tiers=["play", "library"]))
+        self.assertEqual(
+            accepted.new_access("tool", accepted.IN_FOLDER, ["games:read"], ["ui:mount"],
+                                tiers=["play", "library"]),
+            ["tier:play"])
+
+    def test_an_update_that_adds_protected_runs_without_asking(self) -> None:
+        self.accept(tiers=["library"])
+
+        self.assertTrue(accepted.extension_accepted(
+            "tool", accepted.IN_FOLDER, ["games:read"], [], tiers=["library", "protected"]))
+
+    def test_an_acceptance_that_covered_play_covers_it_again(self) -> None:
+        self.accept(tiers=["play", "library"])
+
+        self.assertTrue(accepted.extension_accepted(
+            "tool", accepted.IN_FOLDER, ["games:read"], [], tiers=["play", "library"]))
+
+    def test_an_acceptance_written_before_tiers_covered_library_only(self) -> None:
+        self.accept()
+
+        self.assertEqual(
+            accepted.new_access("tool", accepted.IN_FOLDER, ["games:read"], [],
+                                tiers=["play"]),
+            ["tier:play"])
+
     def test_accepting_again_covers_the_new_access(self) -> None:
         self.accept()
         self.accept(scopes=["games:read", "games:write"])
