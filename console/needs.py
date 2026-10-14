@@ -94,6 +94,12 @@ class Need:
         """What a dismissal of this row is recorded against."""
         return self.ids or self.token
 
+    @property
+    def by_kind(self) -> bool:
+        """An extension's row that named no ids and no token, so a dismissal is kept against
+        its kind and the count changing does not bring it back."""
+        return is_extension(self.key) and self.token == (self.key.rpartition(":")[2],)
+
     def counted(self) -> str:
         """The count in its own unit, or "" for a row that has none."""
         return t(self.unit, count=self.count) if self.unit and self.ids else ""
@@ -340,9 +346,13 @@ def name_of(key: str) -> str:
             "recordings": t("console.needs.recordings")}[key]
 
 
-def comes_back(key: str) -> str:
-    """When a dismissed row is drawn again, in the words the menu and the chip both use."""
+def comes_back(key: str, need: Need | None = None) -> str:
+    """When a dismissed row is drawn again, in the words the menu and the chip both use.
+    An extension's row that gave no ids or token is only drawn again once the extension has
+    stopped asking, so it is the `need` that says which wording is true."""
     if is_extension(key):
+        if need is not None and need.by_kind:
+            return t("console.needs.back.extension_kind")
         return t("console.needs.back.extension")
     return {"rom_missing": t("console.needs.back.rom_missing"),
             "launchers": t("console.needs.back.launchers"),
@@ -387,7 +397,7 @@ def _dismissed_aside(need: Need) -> Aside:
     skipped = need.key == UPDATE
     return Aside(need.key, need.label, need.icon,
                  t("console.needs.chip_skipped") if skipped else t("console.needs.chip_dismissed"),
-                 comes_back(need.key))
+                 comes_back(need.key, need))
 
 
 def _stopped_aside(key: str) -> Aside:

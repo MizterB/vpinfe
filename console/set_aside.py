@@ -51,7 +51,7 @@ class Acts:
         said = t("console.needs.said_skipped") if need.key == needs.UPDATE \
             else t("console.needs.said_dismissed", label=need.label)
         undo.offer(said, lambda: self._record(need.key, before),
-                   caption=needs.comes_back(need.key))
+                   caption=needs.comes_back(need.key, need))
 
     @on_page
     async def stop(self, key: str) -> None:

@@ -1737,6 +1737,7 @@
   "console.metrics.source.windows": "0b1d1e9a3645",
   "console.metrics.usage": "c44949cd0d55",
   "console.needs.back.extension": "c46e42ece1fb",
+  "console.needs.back.extension_kind": "88e6d06f44ea",
   "console.needs.back.fill_errors": "cc7f0d56f71d",
   "console.needs.back.launchers": "ca82297c4fdb",
   "console.needs.back.newer": "668b856caeb5",

@@ -168,7 +168,7 @@ def _need_menu(menu: Any, need: needs.Need, fix: Callable[..., Any],
         panel.menu_entry(
             t("console.needs.skip_version") if need.key == needs.UPDATE
             else t("console.needs.dismiss"),
-            lambda: acts.dismiss(need), under=needs.comes_back(need.key))
+            lambda: acts.dismiss(need), under=needs.comes_back(need.key, need))
         if not needs.is_extension(need.key):
             panel.menu_entry(t("console.needs.stop_checking"), lambda: acts.stop(need.key))
 

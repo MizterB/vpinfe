@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 from common import feature_checks
+from common.i18n import t
 from common.jobs import DONE, FAILED
 from console import games, needs
 from console.data import Library
@@ -486,6 +487,18 @@ class WhatExtensionsAskFor(unittest.TestCase):
         self.assertTrue(needs.is_extension("ext:site:share_down"))
         self.assertFalse(needs.is_device("ext:site:share_down"))
         self.assertIn("extension", needs.comes_back("ext:site:share_down"))
+
+    def test_a_row_with_only_a_count_says_it_waits_for_the_extension_to_stop_asking(self):
+        by_ids = needs.extension_rows([RAISED])[0]
+        by_kind = needs.extension_rows([{**RAISED, "covered": ["share_down"]}])[0]
+
+        self.assertFalse(by_ids.by_kind)
+        self.assertTrue(by_kind.by_kind)
+        self.assertEqual(t("console.needs.back.extension"),
+                         needs.comes_back(by_ids.key, by_ids))
+        self.assertEqual(t("console.needs.back.extension_kind"),
+                         needs.comes_back(by_kind.key, by_kind))
+        self.assertEqual([], needs.arrange([by_kind], {by_kind.key: ["share_down"]}, set()).rows)
 
     def test_a_read_that_failed_is_said_and_stays_in_the_row_that_says_so(self):
         lib = FakeLibrary(watched={"unread": ["extensions", needs.AWAY + "site"]})

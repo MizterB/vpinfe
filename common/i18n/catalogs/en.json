@@ -2838,6 +2838,7 @@
   "console.needs.back.script_fixes": "Comes back when another table has a fix published",
   "console.needs.back.recordings": "Comes back when another recording comes in",
   "console.needs.back.extension": "Comes back when the extension asks for something else",
+  "console.needs.back.extension_kind": "Comes back once the extension has stopped asking, then asks again",
   "console.needs.back.no_year": "Comes back when another game has no year",
   "console.needs.chip_dismissed": "Dismissed",
   "console.needs.chip_skipped": "Skipped",
