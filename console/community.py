@@ -105,20 +105,20 @@ def nav_items(extensions: Sequence[dict[str, Any]]) -> dict[str, tuple]:
             area = str(declared.get("area") or "community")
             found.setdefault(area, []).append((
                 view_key(name, str(declared.get("key") or "")),
-                str(declared.get("title") or ""), ICON,
+                str(declared.get("title") or ""), str(declared.get("icon") or ICON),
                 AREA_FEATURE.get(area, install_identity.CORE)))
         for declared in one.get("pages") or []:
             area = str(declared.get("area") or "community")
             found.setdefault(area, []).append((
                 page_view_key(name, str(declared.get("key") or "")),
-                str(declared.get("title") or ""), ICON,
+                str(declared.get("title") or ""), str(declared.get("icon") or ICON),
                 AREA_FEATURE.get(area, install_identity.CORE)))
         for link in one.get("links") or []:
             area = str(link.get("area") or "")
             if area:
                 found.setdefault(area, []).append((
                     ext_links.view_key(name, str(link.get("key") or "")),
-                    str(link.get("label") or ""), ICON,
+                    str(link.get("label") or ""), str(link.get("icon") or ICON),
                     AREA_FEATURE.get(area, install_identity.CORE)))
     return {area: tuple(items) for area, items in found.items()}
 
@@ -153,12 +153,19 @@ def ranked_label(ranking: dict[str, Any]) -> str:
 
 
 def library_columns(declared: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """The columns that hold a game or a table, the first of them the list's subject."""
-    return [one for one in declared.get("columns") or [] if one.get("kind") in LIBRARY_KINDS]
+    """The columns that hold a game or a table, the identifier first where it is one."""
+    held = [one for one in declared.get("columns") or [] if one.get("kind") in LIBRARY_KINDS]
+    return sorted(held, key=lambda one: not one.get("identifier"))
+
+
+def identifier_of(declared: Mapping[str, Any]) -> dict[str, Any]:
+    """The column drawn as the row's name: the one core marked, else the first."""
+    found = declared.get("columns") or []
+    return next((one for one in found if one.get("identifier")), found[0] if found else {})
 
 
 def _glyph(column: Mapping[str, Any]) -> str:
-    """What the first column's frame holds where there is no picture."""
+    """What the identifier's frame holds where there is no picture."""
     return (str(column.get("icon") or "")
             or {"game": icons.GAMES, "table": icons.TABLES}.get(str(column.get("kind")), ICON))
 
@@ -169,14 +176,15 @@ def _frames(column: Mapping[str, Any]) -> bool:
 
 def columns(declared: dict[str, Any]) -> list[dict[str, Any]]:
     out = []
-    for index, one in enumerate(declared.get("columns") or []):
+    subject = identifier_of(declared)
+    for one in declared.get("columns") or []:
         kind = str(one.get("kind") or "text")
         extra = {**_KIND.get(kind, {}), **(when.cell(one["field"]) if kind == "date" else {})}
         header = str(one.get("header") or one["field"])
         # An extension that says nothing about a column still gets a page: `grid.build`
         # refuses a column with no tooltip, and the list is the extension's to declare.
         said = str(one.get("help") or header)
-        if index == 0:
+        if one is subject:
             out.append(grid.identifier(
                 one["field"], header, FIRST_WIDTH, help=said, subtitle=UNDER, link=HELD,
                 **({"picture": thumbnails.FIELD, "glyph": _glyph(one)} if _frames(one) else {}),
@@ -207,7 +215,7 @@ def _drawn(kind: str, column: dict[str, Any], header: str) -> dict[str, Any]:
                 + ")[params.value] ?? params.value ?? '')",
                 **renderers.drawable("state", states=states, plain=True)}
     if kind == "link":
-        return renderers.drawable("link", says=column.get("says") or "", header=header)
+        return renderers.drawable("link", says=column.get("name_from") or "", header=header)
     if kind == "picture":
         return {**renderers.drawable("image"), "sortable": False, "filter": False}
     return {}
@@ -281,7 +289,7 @@ def face_of(column: Mapping[str, Any], row: Mapping[str, Any], lookup: Lookup,
         return {"name": name, "line": line, "art": art,
                 "href": _address_of(mine, kind), "tip": t("console.community.held")}
     known = lookup.known.get(said) or {}
-    name = str(known.get("name") or row.get(column.get("says") or "") or said)
+    name = str(known.get("name") or row.get(column.get("name_from") or "") or said)
     line = game_tables.made(known) if kind == "game" else game_tables.table_name(known)
     elsewhere = lookup.other.get(said)
     if not elsewhere:
@@ -303,7 +311,7 @@ def rows(found: list[dict[str, Any]], declared: dict[str, Any],
     VPSdb calls the ids not held. `later` is the same for each later game or table column,
     by field; `tables` is the library's tables, and `art` whether the list draws pictures."""
     declared_columns = declared.get("columns") or []
-    first = declared_columns[0] if declared_columns else {}
+    first = identifier_of(declared)
     subject = first.get("kind") in LIBRARY_KINDS
     dates = [one["field"] for one in declared_columns if one.get("kind") == "date"]
     under = list(first.get("under") or [])
@@ -323,8 +331,8 @@ def rows(found: list[dict[str, Any]], declared: dict[str, Any],
         if art and _frames(first):
             shown[thumbnails.FIELD] = (face["art"] if subject else "") \
                 or str(row.get(first.get("picture") or "") or "")
-        for one in declared_columns[1:]:
-            if one.get("kind") in LIBRARY_KINDS:
+        for one in declared_columns:
+            if one is not first and one.get("kind") in LIBRARY_KINDS:
                 face = face_of(one, row, (later or {}).get(one["field"], Lookup()), lens)
                 shown |= {one["field"]: face["name"], one["field"] + LINE: face["line"],
                           one["field"] + "_href": face["href"],
@@ -467,10 +475,10 @@ async def run_act(extension: dict[str, Any], about: str, act: dict[str, Any],
     except Exception as exc:  # noqa: BLE001 - the reason belongs on screen
         ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
         return
-    await _told(said, again)
+    await told(said, again)
 
 
-async def _told(said: Any, again: Callable[[], Any]) -> None:
+async def told(said: Any, again: Callable[[], Any]) -> None:
     """What an act or a verb answered: its address opened, its message shown, the list
     and the line read again."""
     said = said if isinstance(said, dict) else {}
@@ -531,7 +539,7 @@ async def run_verb(extension: dict[str, Any], declared: dict[str, Any], verb: di
         ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
         await again()
         return
-    await _told(said, again)
+    await told(said, again)
 
 
 def read(extension: str, key: str, fetch: Callable[[], dict]) -> dict[str, Any]:
@@ -720,14 +728,13 @@ async def _fill(extension: dict[str, Any], declared: dict[str, Any], library: Li
             looked[one["field"]] = Lookup(said.get("owned") or {},
                                           said.get("other_versions") or {},
                                           said.get("known") or {})
-        first = looked.get(declared["columns"][0]["field"]) if declared.get("columns") else None
-        mine = first or Lookup()
+        mine = looked.get(identifier_of(declared).get("field")) or Lookup()
         return rows(found, declared, dict(mine.held), dict(mine.other), known=mine.known,
                     later=looked, tables=library.table_rows(), art=look is not None)
 
     built = await drawn(state["rows"])
     by_id = {row["id"]: row for row in built}
-    framed = bool(declared.get("columns")) and _frames(declared["columns"][0])
+    framed = bool(declared.get("columns")) and _frames(identifier_of(declared))
     shown = grid.with_art(columns(declared), look if framed else None)
     scope = scope_of(extension, declared)
     fields = [one["field"] for one in shown]
@@ -826,7 +833,7 @@ async def _fill(extension: dict[str, Any], declared: dict[str, Any], library: Li
                 return
             on = grid.menu_rows(table, row)
             panel.verb_menu(
-                menu, str(row.get(fields[0]) or "") if len(on) == 1
+                menu, str(row.get(identifier_of(declared).get("field")) or "") if len(on) == 1
                 else t("console.community.rows", count=len(on)),
                 panel.for_selection(verb_entries(declared, on, pressed), len(on)))
 

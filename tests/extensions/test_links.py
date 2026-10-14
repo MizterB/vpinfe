@@ -39,7 +39,8 @@ DECLARE: list[dict[str, Any]] = []
 
 def register(ctx: Any) -> None:
     for one in DECLARE:
-        ctx.ui.link(one["key"], one["url"], **({"area": one["area"]} if "area" in one else {}))
+        ctx.ui.link(one["key"], one["url"],
+                    **{name: one[name] for name in ("area", "icon") if name in one})
 
 
 def _installed(root: Path, capabilities: list[str], words: dict | None = None) -> Path:
@@ -88,12 +89,23 @@ class WhatAnExtensionMayDeclare(LinkedCase):
         record = self.declare({"key": "panel", "url": UI})
 
         self.assertEqual(host.LOADED, record.state, record.error)
-        self.assertEqual([{"key": "panel", "area": ""}], record.declared_links)
+        self.assertEqual([{"key": "panel", "area": "", "icon": ""}], record.declared_links)
 
     def test_a_link_can_be_placed_in_an_area_of_the_rail(self) -> None:
         record = self.declare({"key": "panel", "url": UI, "area": "library"})
 
         self.assertEqual("library", record.declared_links[0]["area"])
+
+    def test_a_link_can_name_an_icon_of_the_rail(self) -> None:
+        record = self.declare({"key": "panel", "url": UI, "area": "library", "icon": "wifi"})
+
+        self.assertEqual("wifi", record.declared_links[0]["icon"])
+
+    def test_an_icon_the_rail_does_not_have_fails_the_load(self) -> None:
+        record = self.refused({"key": "panel", "url": UI, "area": "library", "icon": "nope"})
+
+        self.assertEqual(host.FAILED, record.state)
+        self.assertIn("nope", record.error)
 
     def test_a_function_can_answer_the_address(self) -> None:
         record = self.declare({"key": "panel", "url": lambda: UI})
@@ -146,8 +158,9 @@ class WhatTheHostAnswers(LinkedCase):
     def test_a_link_has_its_address_and_the_words_of_the_catalog(self) -> None:
         record = self.running({"key": "panel", "url": UI})
 
-        self.assertEqual([{"key": "panel", "area": "", "url": UI, "label": "Open the panel",
-                           "tip": "Opens in a new tab"}], record.links())
+        self.assertEqual([{"key": "panel", "area": "", "icon": "", "url": UI,
+                           "label": "Open the panel", "tip": "Opens in a new tab"}],
+                         record.links())
 
     def test_a_link_with_no_tip_has_none(self) -> None:
         record = self.running({"key": "docs", "url": UI})
@@ -276,6 +289,13 @@ class WhereTheRailPutsALink(unittest.TestCase):
 
         (entry,) = items["library"]
         self.assertEqual((ext_links.view_key("linked", "panel"), "Open the panel"), entry[:2])
+
+    def test_a_link_is_drawn_with_its_icon_or_the_extension_icon(self) -> None:
+        items = community.nav_items([self.extension(links=[
+            {"key": "a", "area": "library", "label": "A", "icon": "wifi"},
+            {"key": "b", "area": "library", "label": "B", "icon": ""}])])
+
+        self.assertEqual(["wifi", community.ICON], [one[2] for one in items["library"]])
 
     def test_a_link_with_no_area_is_not_in_the_rail(self) -> None:
         items = community.nav_items([self.extension(

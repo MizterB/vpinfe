@@ -84,7 +84,7 @@ async def _dialog(first: dict[str, Any], *, mark: bool = False) -> tuple[asyncio
 
 async def _through_ext_action(first: dict[str, Any]) -> tuple[asyncio.Task, ui.dialog]:
     class Client:
-        def ext_get(self, _path: str) -> dict:
+        def ext_post(self, _path: str, _body: dict, _timeout: int | None = None) -> dict:
             return first
 
     async def direct(callback: Callable[..., Any], *args: Any) -> Any:

@@ -269,7 +269,8 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
         rows.append(Need("unread", t("console.needs.unread"),
                          t("console.needs.unread.tip", what=unread), MUTED, verbs.HAD_ERRORS,
                          Opens(then=RETRY)))
-    return [one for one in rows if one is not None and one.key not in hidden]
+    return [one for one in rows
+            if one is not None and (one.key not in hidden or is_extension(one.key))]
 
 
 # Every row that can be set aside, in cost order. `unread` is not one: it is the page saying
@@ -296,7 +297,8 @@ _ICONS = {"rom_missing": verbs.CANNOT_PLAY, "launchers": verbs.CANNOT_PLAY,
 
 
 def is_device(key: str) -> bool:
-    return key in DEVICE_ROWS
+    """An extension is installed on this install, so a stop of its row is this install's."""
+    return key in DEVICE_ROWS or is_extension(key)
 
 
 def is_extension(key: str) -> bool:
@@ -429,6 +431,13 @@ def arrange(rows: list[Need], record: Mapping[str, list[str]], stopped: set[str]
     for need in rows:
         covered = need.covered
         held = set(record.get(need.key, ()))
+        if is_extension(need.key) and need.key in stopped:
+            # Its dismissal is kept: Check Again brings the row back as it was left.
+            if held:
+                kept[need.key] = list(record[need.key])
+            aside.append(Aside(need.key, need.label, need.icon, t("console.needs.chip_stopped"),
+                               t("console.needs.chip_stopped.tip"), stopped=True))
+            continue
         still = [one for one in covered if one in held]
         if still:
             kept[need.key] = still

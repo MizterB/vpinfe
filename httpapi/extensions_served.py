@@ -9,9 +9,9 @@ it is asked, so what answers is whatever the extension registered last. The work
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Query, Request, Response
+from fastapi import APIRouter, Request, Response
 
 from common import extensions
 from common.extensions import serving
@@ -136,10 +136,16 @@ def router(name: str, running: Any) -> APIRouter:
         return {**who, "table_id": table_id, "vps_file_id": str(source.get("vps_file_id") or ""),
                 "version": str(row.get("version") or "")}
 
+    def _asked(game_id: str, kind: str, table_id: str = "") -> dict:
+        who = subject(game_id, table_id)
+        if not who:
+            raise NotFoundError(t("error.extensions.no_group", display=name, subject=kind))
+        return who
+
     def group_read(kind: str, game_id: str, table_id: str = "") -> dict:
         who = subject(game_id, table_id)
         if not who:
-            return {"title": "", "section": None}
+            return {"title": "", "section": None, "acts": []}
         return ask(serving.group_read, kind, who)
 
     @get("/groups/game/{game_id}", "What the extension says on a game's panel")
@@ -153,6 +159,14 @@ def router(name: str, running: Any) -> APIRouter:
         if not who:
             raise NotFoundError(t("error.extensions.no_group", display=name, subject="game"))
         return ask(serving.group_save, "game", who, body.values)
+
+    @post("/groups/game/{game_id}/acts/{act}", "Do one of a game group's acts")
+    def post_game_group_act(game_id: str, act: str) -> dict:
+        return ask(serving.group_act, "game", _asked(game_id, "game"), act)
+
+    @post("/groups/table/{game_id}/{table_id}/acts/{act}", "Do one of a table group's acts")
+    def post_table_group_act(game_id: str, table_id: str, act: str) -> dict:
+        return ask(serving.group_act, "table", _asked(game_id, "table", table_id), act)
 
     @get("/groups/table/{game_id}/{table_id}", "What the extension says on a table's panel")
     def get_table_group(game_id: str, table_id: str) -> dict:
@@ -170,9 +184,13 @@ def router(name: str, running: Any) -> APIRouter:
     # -- dialogs -------------------------------------------------------------------
 
     @get("/actions/{key}", "The step of a dialog the extension declared")
-    def get_action(key: str, step: str = "",
-                   rows: Annotated[list[str] | None, Query()] = None) -> dict:
-        return ask(serving.dialog_ask, key, step, rows or [])
+    def get_action(key: str, step: str = "") -> dict:
+        return ask(serving.dialog_ask, key, step)
+
+    @found.post("/actions/{key}/ask", summary="The step of a dialog opened over some rows",
+                dependencies=[running, requires(read)])
+    def post_action_ask(key: str, body: models.ExtensionAsk) -> dict:
+        return ask(serving.dialog_ask, key, body.step, body.rows)
 
     @post("/actions/{key}/check", "Check a dialog's values")
     def post_action_check(key: str, body: models.ExtensionStep) -> dict:

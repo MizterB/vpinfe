@@ -904,12 +904,19 @@ class Verbs(ServedCase):
 
 class DialogsOpenedFromAList(ServedCase):
     def asked(self, key: str, rows: list[str]) -> Any:
-        return self.client.get(f"{self.base}/actions/{key}", params={"rows": rows})
+        return self.post(f"/actions/{key}/ask", {"rows": rows})
 
     def test_the_rows_a_dialog_was_opened_over_are_handed_to_its_ask(self) -> None:
         self.ok(self.asked("rowed", ["1", "2"]))
 
         self.assertEqual([["1", "2"]], STATE["asked_rows"])
+
+    def test_the_rows_travel_in_the_body_so_a_long_selection_is_not_a_long_address(self) -> None:
+        many = [f"game-{one}" for one in range(1500)]
+
+        self.ok(self.asked("rowed", many))
+
+        self.assertEqual([many], STATE["asked_rows"])
 
     def test_a_dialog_opened_over_no_rows_is_asked_with_none(self) -> None:
         self.ok(self.get("/actions/rowed"))

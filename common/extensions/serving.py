@@ -244,11 +244,19 @@ def picture(record: Record, picture_id: str) -> sized_media.Served:
     return pictures.served(record, picture_id)
 
 
+def _as_acts(record: Record, at: str, acts: Any) -> dict[str, Any]:
+    """The acts an extension answered, or its failure to answer a dict."""
+    if acts is not None and not isinstance(acts, dict):
+        raise ExtensionError(i18n.t("error.extensions.not_data", display=record.display_name,
+                                    at=at))
+    return dict(acts or {})
+
+
 def _acts(record: Record, kind: str, key: str, functions: Any) -> dict[str, Any]:
     acts = functions.acts
     if callable(acts):
         acts = called(record, f"{kind} {key} acts", acts)
-    return dict(acts or {})
+    return _as_acts(record, f"{kind} {key} acts", acts)
 
 
 def _menu(record: Record, kind: str, key: str, functions: Any) -> list[dict]:
@@ -461,7 +469,34 @@ def group_read(record: Record, subject: str, who: dict) -> dict:
         raise ExtensionError(i18n.t("error.extensions.picture_outbound",
                                     display=record.display_name, key=at)) from exc
     title = next((one["title"] for one in record.groups() if one["subject"] == subject), "")
-    return {"title": title, "section": section}
+    return {"title": title, "section": section,
+            "acts": _group_menu(record, subject, functions, who) if section else []}
+
+
+def _group_acts(record: Record, subject: str, functions: Any, who: dict) -> dict[str, Any]:
+    acts = functions.acts
+    if callable(acts):
+        acts = called(record, f"{subject} group acts", acts, dict(who))
+    return _as_acts(record, f"{subject} group acts", acts)
+
+
+def _group_menu(record: Record, subject: str, functions: Any, who: dict) -> list[dict]:
+    """The strip closing a group: each act with its label, and its address where it opens
+    one."""
+    return [{"key": act, "label": said(record, f"group.{subject}.act.{act}.label", act),
+             **({"url": str(what)} if isinstance(what, str) else {})}
+            for act, what in _group_acts(record, subject, functions, who).items()]
+
+
+def group_act(record: Record, subject: str, who: dict, act: str) -> dict:
+    """Do one of a group's acts for `who`, and answer what to say."""
+    functions = _group(record, subject)
+    what = _group_acts(record, subject, functions, who).get(act)
+    if what is None or isinstance(what, (str, dict)):
+        raise NotFoundError(i18n.t("error.extensions.no_act", display=record.display_name,
+                                   key=act))
+    return _message(record, f"{subject} group act {act}",
+                    called(record, f"{subject} group act {act}", what, dict(who)))
 
 
 def group_save(record: Record, subject: str, who: dict, values: dict) -> dict:

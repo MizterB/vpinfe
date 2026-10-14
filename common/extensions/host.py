@@ -380,6 +380,9 @@ class Registry:
                        else _cannot_run(record.manifest, any_platform=any_platform))
         if why:
             record.became(OFF, why, **values)
+            if why == WRONG_PLATFORM:
+                logger.info("Extension %s: %s", record.name,
+                            platform_refusal(record.manifest))
             return self._remember(record)
 
         self._register(record)

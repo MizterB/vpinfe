@@ -50,6 +50,14 @@ class StepCallsTests(unittest.TestCase):
         self.assertEqual([one[2] for one in self.sent], [api.STEP_TIMEOUT] * 3)
         self.assertGreater(api.STEP_TIMEOUT, api._TIMEOUT)
 
+    def test_the_first_call_carries_the_step_and_the_rows_in_its_body(self) -> None:
+        calls = ext_action.calls("demo", {"base": "/wizard"}, ["a b", "c&d"])
+
+        _ran(calls.first("source"))
+
+        self.assertEqual(self.sent[-1][:2], ("/ext/demo/wizard/ask",
+                                             {"step": "source", "rows": ["a b", "c&d"]}))
+
     def test_progress_is_asked_of_the_action(self) -> None:
         assert self.calls.progress is not None
 

@@ -58,7 +58,7 @@ A list an extension holds, shown in the rail.
 ```python
 ctx.ui.list(
     "tables", read_tables, title="Example Scores", area="community",
-    columns=[{"field": "vps_id", "kind": "game", "says": "name"},
+    columns=[{"field": "vps_id", "kind": "game", "name_from": "name"},
              {"field": "plays", "kind": "number"},
              {"field": "last_played", "kind": "date"}],
     views=[{"key": "most_played", "columns": ["vps_id", "plays"],
@@ -102,23 +102,24 @@ Backups, About, Library, Frontend, Community, System), or another running extens
 title in the same area, compared without regard to case.  Either one raises `ContractError`
 from `register`, so the extension fails to start and the log names the clash.
 
-**Columns.**  `{"field", "header", "kind", "help", "under", "states", "says", "keys", "picture", "icon"}`.
+**Columns.**  `{"field", "header", "kind", "help", "under", "states", "name_from", "keys", "picture", "icon", "identifier"}`.
 
 | key | meaning |
 |---|---|
 | `field` | Required.  The row key it shows |
+| `identifier` | `True` on the one column that is the row's name.  Left out, it is the first column that is not a `state`, `chips`, `link` or `picture`, wherever the columns are put.  Two marked, or a marked `state`, `chips`, `link` or `picture` column, raises `ContractError` |
 | `kind` | `text` (default), `number`, `date`, `state`, `chips`, `link`, `picture`, `game` or `table`; see [Cell kinds](#cell-kinds) and [Games and tables](#games-and-tables) |
 | `header` | Shown as written; left out, `list.<key>.column.<field>.header`, then the field |
 | `help` | The tooltip on the header.  Left out, `...help` in the catalog, then the header |
-| `under` | First column only.  Row fields shown on the line beneath its value, as a game's maker and year are |
+| `under` | The identifier only.  Row fields shown on the line beneath its value, as a game's maker and year are |
 | `states` | A `state` column only, and required there.  `{value: look}`, the values the field may hold |
-| `says` | A `link`, `game` or `table` column only.  The row field the link reads as, or for a game or table the name to draw where neither the library nor VPS knows the id.  Left out, a link reads as the column's header and a game or table as its id |
+| `name_from` | A `link`, `game` or `table` column only.  The row field the link reads as, or for a game or table the name to draw where neither the library nor VPS knows the id.  Left out, a link reads as the column's header and a game or table as its id |
 | `keys` | A `game` or `table` column only.  Whose ids the field holds, `vps` (default) or `vpinfe` |
-| `picture` | First column only.  The row field holding a picture, drawn where the library has none |
-| `icon` | First column only.  A Material icon name or SVG path, drawn where there is no picture |
+| `picture` | The identifier only.  The row field holding a picture, drawn where the library has none |
+| `icon` | The identifier only.  A Material icon name or SVG path, drawn where there is no picture |
 
 A column key core does not read stops the extension from starting, with the key in the reason.
-The first column is the row's name, so it is `text`, `number`, `date`, `game` or `table`.
+The identifier is the row's name, so it is a `text`, `number`, `date`, `game` or `table` column, and the only one that can carry `under`, `picture` or `icon`.
 
 ### Cell kinds
 
@@ -154,7 +155,7 @@ where every row has a chip says nothing; make it text.
 
 **Link.**  The value must start with `http://` or `https://`; anything else, or nothing, draws
 nothing.  The link has the look of an act that leaves the Console.  Say what it reads as with
-`says`, naming a row field (`"says": "title"` reads as the row's `title`); left out it reads
+`name_from`, naming a row field (`"name_from": "title"` reads as the row's `title`); left out it reads
 as the column's header.
 
 **Picture.**  The value is a web address, or a path in the extension's folder (`art/cover.png`).
@@ -185,7 +186,7 @@ name columns the list has.
 title and the view's name (*Example Scores: Most Played*).  It puts this library's games in the
 view's sort, each field in its own direction, and there is no reversing it.  A game the list
 does not rank follows in title order, so the order never drops one.  A ranked view sorts on
-`number` or `date` columns only, and its list needs a `game` or `table` first column.  The order is read with the
+`number` or `date` columns only, and its list needs a `game` or `table` identifier.  The order is read with the
 tags, on the same schedule, and keeps the last good read if a read fails.  While the extension
 is stopped, a collection in its order keeps it and shows its games in title order until the
 extension runs again.
@@ -202,15 +203,15 @@ Where this library holds the id, the cell is the library's own: its name, its ma
 as a link to the game or table.  Where it does not, the cell is VPSdb's name and line with no
 link, then the row's own picture, or an icon.  The picture and the icon show only where the
 Thumbnails settings have pictures on.  Where neither knows the id, the cell is the row
-field `says` names, or the id.  A VPS release this library holds another version of says so
+field `name_from` names, or the id.  A VPS release this library holds another version of says so
 under its name and links to the release.  The column is sorted and filtered by the name it
 shows.
 
-The first column is what the list relates to in this library.  A game or table column after it
-draws the name and the line, with no picture.  A game or table can also be a fact in a pane,
+The identifier is what the list relates to in this library.  A game or table column that is not
+the identifier draws the name and the line, with no picture.  A game or table can also be a fact in a pane,
 page or group; see the pane below.
 
-**Tag.**  With `tag="Weekly Challenge"` and a game or table first column, core puts that tag on
+**Tag.**  With `tag="Weekly Challenge"` and a game or table identifier, core puts that tag on
 what this library holds from the list: the game for a `game` column, the table for a `table`
 one, so a challenge naming one build of a machine tags that build and not the others.  The tag belongs
 to the extension.  Nobody can rename, merge or remove it, or put it on by hand, and it goes

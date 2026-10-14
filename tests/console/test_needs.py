@@ -482,11 +482,30 @@ class WhatExtensionsAskFor(unittest.TestCase):
         self.assertEqual(record, every.record)
         self.assertEqual({}, read.record)
 
-    def test_it_can_be_set_aside_but_is_not_a_check_to_stop(self):
+    def test_it_can_be_set_aside_and_stopped_as_a_row_of_this_install(self):
         self.assertTrue(needs.can_set_aside("ext:site:share_down"))
         self.assertTrue(needs.is_extension("ext:site:share_down"))
-        self.assertFalse(needs.is_device("ext:site:share_down"))
+        self.assertTrue(needs.is_device("ext:site:share_down"))
         self.assertIn("extension", needs.comes_back("ext:site:share_down"))
+
+    def test_a_stopped_row_is_set_aside_as_not_checked_and_the_extension_s_others_stay(self):
+        other = {**RAISED, "kind": "other", "key": "ext:site:other", "label": "1 thing"}
+        lib = FakeLibrary(watched={"extension_needs": [RAISED, other]},
+                          hidden={"ext:site:share_down"})
+
+        arranged = needs.arrange(needs.collect(lib, {}), {}, lib.stopped())
+
+        self.assertEqual(["ext:site:other"], [one.key for one in arranged.rows
+                                              if needs.is_extension(one.key)])
+        (aside,) = [one for one in arranged.aside if one.key == "ext:site:share_down"]
+        self.assertEqual(("3 plays are down", True), (aside.label, aside.stopped))
+
+    def test_a_stopped_row_keeps_what_was_dismissed_over_it(self):
+        row = needs.extension_rows([{**RAISED, "covered": ["a"]}])[0]
+
+        arranged = needs.arrange([row], {row.key: ["a"]}, {row.key})
+
+        self.assertEqual({row.key: ["a"]}, arranged.record)
 
     def test_a_row_with_only_a_count_says_it_waits_for_the_extension_to_stop_asking(self):
         by_ids = needs.extension_rows([RAISED])[0]

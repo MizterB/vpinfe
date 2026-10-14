@@ -2,13 +2,14 @@
 
 The extension answers with one section of facts, fields and rows and core draws it as it
 draws the rest of the panel. The panel never waits for it: each group is a region drawn
-once its answer arrives, and one that has nothing to say, or does not answer, leaves no
-trace in the panel.
+once its answer arrives. A group with nothing to say leaves no trace in the panel; one
+that does not answer says so in one line, so a missing group is never a silent one.
 """
 
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable
 from functools import partial
 from typing import Any
 from urllib.parse import quote
@@ -16,8 +17,10 @@ from urllib.parse import quote
 from nicegui import ui
 
 from common.failures import why
-from console import busy, ext_cells, ext_row, offload, panel
+from common.i18n import t
+from console import busy, community, ext_cells, ext_links, ext_row, offload, panel, verbs
 from console.api import ApiClient
+from console.on_page import on_page
 
 logger = logging.getLogger("vpinfe.console.ext_groups")
 
@@ -56,9 +59,16 @@ async def _show(region: ui.element, extension: dict[str, Any], group: dict[str, 
     if answer is None:
         try:
             answer = dict(await offload.io(ApiClient().ext_get, where))
-        except Exception as exc:  # noqa: BLE001 - a group that does not answer is no group
+        except Exception as exc:  # noqa: BLE001 - a group that does not answer draws a line saying so
             logger.warning("%s's %s group did not answer: %s", extension.get("name"),
                            group["subject"], why(exc))
+            if not region.is_deleted:
+                region.clear()
+                with region:
+                    panel.facts(ui, [panel.intro(
+                        t("console.community.read_failed",
+                          name=str(extension.get("display_name") or extension.get("name") or "")),
+                        hint=why(exc))])
             return
     if region.is_deleted:
         return
@@ -78,4 +88,39 @@ async def _show(region: ui.element, extension: dict[str, Any], group: dict[str, 
     region.clear()
     with region:
         panel.facts(ui, [(panel.HEADING, str(answer.get("title") or "")),
-                         *ext_row.section_entries(section, held)])
+                         *ext_row.section_entries(section, held),
+                         *_strip(answer.get("acts") or [], where, redraw,
+                                 str(extension.get("display_name") or extension.get("name")
+                                     or ""))])
+
+
+def _strip(acts: list[dict[str, Any]], where: str,
+           redraw: Callable[[dict[str, Any] | None], Awaitable[None]], name: str
+           ) -> list[tuple[Any, ...]]:
+    """The acts closing the group, a verb each, or none where the extension offers none."""
+    if not acts:
+        return []
+
+    @on_page
+    async def pressed(act: dict[str, Any]) -> None:
+        try:
+            said = await offload.io(ApiClient().ext_post,
+                                    f"{where}/acts/{quote(str(act['key']), safe='')}", {})
+        except Exception as exc:  # noqa: BLE001 - the reason belongs on screen
+            ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
+            return
+        await community.told(said, lambda: redraw(None))
+
+    def draw() -> None:
+        with ui.row().classes("items-center gap-1 no-wrap"):
+            for act in acts:
+                label = str(act.get("label") or act["key"])
+                if "url" in act:
+                    if community.web(act["url"]):
+                        panel.link_out(label, to=community.web(act["url"]),
+                                       rel=ext_links.REL)()
+                else:
+                    panel.action(label, partial(pressed, act), icon=verbs.GO,
+                                 hint=t("console.community.act_hint", name=name))()
+
+    return [(panel.ASIDE, draw)]

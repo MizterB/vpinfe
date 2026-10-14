@@ -32,9 +32,10 @@ def pictured(ctx: Any) -> None:
                 columns=[{"field": "name"}, {"field": "art", "kind": "picture"}],
                 verbs=[{"key": "grab", "run": lambda rows: GRABBED.extend(rows)}])
     ctx.ui.list("games", lambda: [dict(one) for one in ROWS], title="Boards",
-                columns=[{"field": "vps_id", "kind": "game", "says": "name", "picture": "art"}])
+                columns=[{"field": "vps_id", "kind": "game", "name_from": "name",
+                          "picture": "art"}])
     ctx.ui.list("twice", lambda: [dict(one) for one in ROWS], title="Twice",
-                columns=[{"field": "vps_id", "kind": "game", "says": "name", "picture": "art"},
+                columns=[{"field": "vps_id", "kind": "game", "name_from": "name", "picture": "art"},
                          {"field": "art", "kind": "picture"}])
 
 

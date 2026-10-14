@@ -94,10 +94,10 @@ class TheDeclaration(unittest.TestCase):
                          column["states"])
         self.assertEqual(["live", "late", "gone"], list(column["states"]))
 
-    def test_a_link_says_which_row_field_it_reads_as(self) -> None:
-        (column,) = self._drawn({"field": "page", "kind": "link", "says": "title"})
+    def test_a_link_names_which_row_field_it_reads_as(self) -> None:
+        (column,) = self._drawn({"field": "page", "kind": "link", "name_from": "title"})
 
-        self.assertEqual("title", column["says"])
+        self.assertEqual("title", column["name_from"])
 
     def test_chips_and_pictures_take_nothing_more(self) -> None:
         columns = self._drawn({"field": "tags", "kind": "chips"},
@@ -123,12 +123,13 @@ class TheDeclaration(unittest.TestCase):
             with self.subTest(states=states), self.assertRaises(ContractError):
                 self._drawn({"field": "s", "kind": "state", "states": states})
 
-    def test_states_and_says_belong_to_their_own_kind(self) -> None:
+    def test_states_and_name_from_belong_to_their_own_kind(self) -> None:
         for column in ({"field": "s", "states": {"x": {}}},
                        {"field": "s", "kind": "link", "states": {"x": {}}},
-                       {"field": "s", "says": "title"},
-                       {"field": "s", "kind": "state", "states": {"x": {}}, "says": "t"},
-                       {"field": "s", "kind": "link", "says": 3}):
+                       {"field": "s", "name_from": "title"},
+                       {"field": "s", "kind": "state", "states": {"x": {}}, "name_from": "t"},
+                       {"field": "s", "kind": "link", "name_from": 3},
+                       {"field": "s", "kind": "link", "says": "title"}):
             with self.subTest(column=column), self.assertRaises(ContractError):
                 self._drawn(column)
 
@@ -136,19 +137,50 @@ class TheDeclaration(unittest.TestCase):
         with self.assertRaises(ContractError):
             self._drawn({"field": "s", "color": "red"})
 
-    def test_a_cell_kind_cannot_be_the_first_column(self) -> None:
+    def test_a_cell_kind_is_never_the_identifier(self) -> None:
         for kind in ("state", "chips", "link", "picture"):
-            column = {"field": "name", "kind": kind,
+            column = {"field": "name", "kind": kind, "identifier": True,
                       **({"states": {"x": {}}} if kind == "state" else {})}
             with self.subTest(kind=kind), self.assertRaises(ContractError):
                 self.ui.list("tables", _rows, title="Site", columns=[column, *COLUMNS[1:]])
+
+    def test_the_identifier_is_the_first_column_that_draws_its_own_text(self) -> None:
+        self.ui.list("tables", _rows, title="Site", columns=[
+            {"field": "status", "kind": "state", "states": {"x": {}}}, *COLUMNS])
+
+        self.assertEqual(["status", "name"],
+                         [one["field"] for one in self.ui.declared_lists[0]["columns"]][:2])
+        self.assertEqual([False, True, False, False],
+                         [one["identifier"] for one in self.ui.declared_lists[0]["columns"]])
+
+    def test_a_list_names_its_identifier_where_it_sits(self) -> None:
+        self.ui.list("tables", _rows, title="Site",
+                     columns=[*COLUMNS[:2], {**GAMES[0], "identifier": True, "under": ["plays"]}])
+
+        (said,) = self.ui.declared_lists
+        self.assertEqual([False, False, True], [one["identifier"] for one in said["columns"]])
+        self.assertEqual({"field": "vpsId", "keys": "vps_entry"}, said["relation"])
+
+    def test_two_identifiers_or_a_line_elsewhere_are_refused(self) -> None:
+        for columns in ([{**COLUMNS[0], "identifier": True}, {**COLUMNS[1], "identifier": True}],
+                        [COLUMNS[0], {**COLUMNS[1], "under": ["plays"]}],
+                        [COLUMNS[0], {**COLUMNS[1], "picture": "art"}],
+                        [{**COLUMNS[0], "identifier": True}, {**COLUMNS[1], "icon": "star"}]):
+            with self.subTest(columns=columns), self.assertRaises(ContractError):
+                self.ui.list("tables", _rows, title="Site", columns=columns)
+
+    def test_a_list_of_only_cells_has_no_name_to_draw(self) -> None:
+        with self.assertRaises(ContractError):
+            self.ui.list("tables", _rows, title="Site", columns=[
+                {"field": "s", "kind": "state", "states": {"x": {}}},
+                {"field": "c", "kind": "chips"}])
 
     def test_ids_other_than_vps_and_vpinfe_are_refused(self) -> None:
         with self.assertRaises(ContractError):
             self.ui.list("tables", _rows, title="Site",
                          columns=[{**GAMES[0], "keys": "rom"}, *GAMES[1:]])
 
-    def test_the_first_column_is_what_the_list_relates_to(self) -> None:
+    def test_the_identifier_is_what_the_list_relates_to(self) -> None:
         for column, keys in ((GAMES[0], "vps_entry"), (TABLES[0], "vps_release"),
                              ({**GAMES[0], "keys": "vpinfe"}, "vpinfe_game"),
                              ({**TABLES[0], "keys": "vpinfe"}, "vpinfe_table")):
@@ -158,21 +190,29 @@ class TheDeclaration(unittest.TestCase):
                 self.assertEqual({"field": "vpsId", "keys": keys},
                                  ui.declared_lists[0]["relation"])
 
-    def test_a_game_column_after_the_first_relates_to_nothing(self) -> None:
+    def test_a_game_column_that_is_not_the_identifier_relates_to_nothing(self) -> None:
         self.ui.list("tables", _rows, title="Site", columns=[*COLUMNS[:2], GAMES[0]])
 
         self.assertIsNone(self.ui.declared_lists[0]["relation"])
 
-    def test_only_the_first_column_has_a_frame(self) -> None:
+    def test_only_the_identifier_has_a_frame(self) -> None:
         for named in ("picture", "icon"):
             with self.subTest(named=named), self.assertRaises(ContractError):
                 self.ui.list("tables", _rows, title="Site",
                              columns=[*COLUMNS[:2], {"field": "x", named: "image"}])
 
-    def test_keys_and_says_belong_to_the_columns_that_read_them(self) -> None:
-        for column in ({"field": "x", "keys": "vps"}, {"field": "x", "says": "name"}):
+    def test_keys_and_name_from_belong_to_the_columns_that_read_them(self) -> None:
+        for column in ({"field": "x", "keys": "vps"}, {"field": "x", "name_from": "name"}):
             with self.subTest(column=column), self.assertRaises(ContractError):
                 self.ui.list("tables", _rows, title="Site", columns=[*COLUMNS[:2], column])
+
+    def test_a_list_takes_an_icon_of_the_rail_and_refuses_any_other(self) -> None:
+        self.ui.list("tables", _rows, title="Site", columns=TABLES, icon="leaderboard")
+        self.ui.list("plain", _rows, title="Plain", columns=TABLES)
+
+        self.assertEqual(["leaderboard", ""], [one["icon"] for one in self.ui.declared_lists])
+        with self.assertRaisesRegex(ContractError, "'nope'"):
+            self.ui.list("other", _rows, title="Other", columns=TABLES, icon="nope")
 
     def test_a_tag_is_recorded_as_a_tag_would_be_stored(self) -> None:
         self.ui.list("tables", _rows, title="Site", columns=TABLES,

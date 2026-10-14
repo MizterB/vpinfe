@@ -569,7 +569,7 @@ async def _fill_kinds(library: Library, rerender: Callable[[], None], body: Any,
     @on_page
     async def flip(name: str, wanted_on: bool) -> None:
         after = (on | {name}) if wanted_on else (on - {name})
-        store = sorted(set(known) - after)
+        store = sorted((_listed(policy.get(key)) - set(known)) | (set(known) - after))
         try:
             await run.io_bound(write, {key: store})
         except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
@@ -1151,13 +1151,16 @@ EXTENSIONS_GROUP = "console.settings.group_extensions"
 
 
 def extension_pages(installed: Any) -> list[tuple[str, DevicePage]]:
-    """A page for every installed extension, last in the index and by the name it shows.
+    """A page for every installed extension that can run here, last in the index and by the
+    name it shows. One made for another platform has no page: nothing on it could be
+    changed.
 
     The label is the extension's own words, already in the language set, so it is not a
     catalog key.
     """
     named = sorted(((str(one.get("display_name") or one.get("name") or ""), str(one["name"]))
-                    for one in installed or [] if one.get("name")),
+                    for one in installed or []
+                    if one.get("name") and one.get("reason_key") != extension_host.WRONG_PLATFORM),
                    key=lambda one: (one[0].casefold(), one[1]))
     return [(EXTENSIONS_GROUP, (ext_page.key(name), shown, BUILT_PAGE, (),
                                 install_identity.CORE))

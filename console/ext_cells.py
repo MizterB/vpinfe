@@ -52,7 +52,7 @@ def draw(fact: dict[str, Any], context: dict[str, Any]) -> Any:
     kind, keys = str(fact["kind"]), str(fact["keys"])
     if not fact["value"]:
         return str(fact.get("says") or "")
-    column = {"field": "id", "kind": kind, "says": SAYS}
+    column = {"field": "id", "kind": kind, "name_from": SAYS}
     row = {"id": fact["value"], SAYS: fact.get("says") or ""}
     lookup = (context.get("looks") or {}).get((keys, kind)) or community.Lookup()
     lens = context.get("lens") or community.Lens((), False)

@@ -31,7 +31,7 @@ AT_ONCE = 8
 TIMEOUT_SECONDS = 15
 
 COLUMNS = [
-    {"field": "vps_id", "kind": "game", "says": "name"},
+    {"field": "vps_id", "kind": "game", "name_from": "name"},
     {"field": "manufacturer"},
     {"field": "year", "kind": "number"},
     {"field": "rating", "kind": "number"},

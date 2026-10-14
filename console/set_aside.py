@@ -54,20 +54,21 @@ class Acts:
                    caption=needs.comes_back(need.key, need))
 
     @on_page
-    async def stop(self, key: str) -> None:
-        """Stop checking `key`."""
+    async def stop(self, key: str, label: str = "") -> None:
+        """Stop checking `key`. `label` names it where `needs.name_of` cannot: a row an
+        extension raised."""
         try:
             await self._checking(key, False)
         except Exception as exc:  # noqa: BLE001 - the reason belongs on screen
             logger.warning("console: a check was not stopped", exc_info=True)
             ui.notify(t("console.needs.could_not"), caption=why(exc), type="negative")
             return
-        undo.offer(t("console.needs.said_stopped", label=needs.name_of(key)),
+        undo.offer(t("console.needs.said_stopped", label=label or needs.name_of(key)),
                    lambda: self._checking(key, True),
                    caption=t("console.needs.said_stopped.caption"))
 
     @on_page
-    async def show_again(self, key: str) -> None:
+    async def show_again(self, key: str, label: str = "") -> None:
         """Bring back a dismissed row."""
         before = list(self.library.dismissed().get(key, ()))
         try:
@@ -76,11 +77,11 @@ class Acts:
             logger.warning("console: a dismissal was not undone", exc_info=True)
             ui.notify(t("console.needs.could_not"), caption=why(exc), type="negative")
             return
-        undo.offer(t("console.needs.said_showing", label=needs.name_of(key)),
+        undo.offer(t("console.needs.said_showing", label=label or needs.name_of(key)),
                    lambda: self._record(key, before))
 
     @on_page
-    async def check_again(self, key: str) -> None:
+    async def check_again(self, key: str, label: str = "") -> None:
         """Turn a stopped check back on."""
         try:
             await self._checking(key, True)
@@ -88,5 +89,5 @@ class Acts:
             logger.warning("console: a check was not turned on", exc_info=True)
             ui.notify(t("console.needs.could_not"), caption=why(exc), type="negative")
             return
-        undo.offer(t("console.needs.said_checking", label=needs.name_of(key)),
+        undo.offer(t("console.needs.said_checking", label=label or needs.name_of(key)),
                    lambda: self._checking(key, False))

@@ -7,6 +7,6 @@ PICKS = [
 
 def register(ctx):
     ctx.ui.list("picks", lambda: PICKS, area="community", columns=[
-        {"field": "vps_id", "kind": "game", "says": "name"},
+        {"field": "vps_id", "kind": "game", "name_from": "name"},
         {"field": "votes", "kind": "number"},
     ])

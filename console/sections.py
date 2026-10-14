@@ -169,8 +169,10 @@ def _need_menu(menu: Any, need: needs.Need, fix: Callable[..., Any],
             t("console.needs.skip_version") if need.key == needs.UPDATE
             else t("console.needs.dismiss"),
             lambda: acts.dismiss(need), under=needs.comes_back(need.key, need))
-        if not needs.is_extension(need.key):
-            panel.menu_entry(t("console.needs.stop_checking"), lambda: acts.stop(need.key))
+        panel.menu_entry(
+            t("console.needs.stop_checking"), lambda: acts.stop(need.key, need.label),
+            under=t("console.needs.stop_checking.extension", name=need.source)
+            if needs.is_extension(need.key) else "")
 
 
 def _need_row(need: needs.Need, state: dict[str, Any], fix: Callable[..., Any],
@@ -227,7 +229,7 @@ def _aside_line(one: needs.Aside, acts: set_aside.Acts) -> None:
         again = acts.check_again if one.stopped else acts.show_again
         panel.action(t("console.needs.check_again") if one.stopped
                      else t("console.needs.show_again"),
-                     lambda: again(one.key), inline=True,
+                     lambda: again(one.key, one.label), inline=True,
                      icon=verbs.REFRESH if one.stopped else verbs.UNHIDE,
                      hint=t("console.needs.check_again.help") if one.stopped
                      else t("console.needs.show_again.help"))()

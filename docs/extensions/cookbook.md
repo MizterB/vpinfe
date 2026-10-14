@@ -953,7 +953,7 @@ nothing on the others.
 
 **Variations:**
 
-- `{"field": "page", "kind": "link", "says": "title"}` reads the link as the row's `title`
+- `{"field": "page", "kind": "link", "name_from": "title"}` reads the link as the row's `title`
   instead of the header, so each row's link says what it opens.
 - A picture can be a web address: `"art": "https://example.com/a.png"`. Add `net:outbound` to
   `capabilities`, because core fetches it for you. Without it the list does not read, and says
@@ -975,7 +975,7 @@ on, and the person should see it as they see it in the Games and Tables lists.
 Give the column `"kind": "game"` and put a VPS id in the field.  Core draws the cell: where
 your library holds the game, its picture, name, maker and year, with the name linking to its
 page; where it does not, VPSdb's name and line; and where VPSdb does not know the id either, the
-row field `says` names.  You write no picture and no link.  Use `"kind": "table"` for the id of
+row field `name_from` names.  You write no picture and no link.  Use `"kind": "table"` for the id of
 one build, a VPS release, and `"keys": "vpinfe"` for the ids VPinFE gave a game or a table in
 this library.
 
@@ -1004,7 +1004,7 @@ PICKS = [
 
 def register(ctx):
     ctx.ui.list("picks", lambda: PICKS, area="community", columns=[
-        {"field": "vps_id", "kind": "game", "says": "name"},
+        {"field": "vps_id", "kind": "game", "name_from": "name"},
         {"field": "votes", "kind": "number"},
     ])
 ```
@@ -1041,8 +1041,9 @@ so searching for a name finds the row.
   `{"kind": "game", "value": vps_id, "says": "Medieval Madness"}`.  A fact's `says` is the
   words themselves, not a row field.
 
-**Watch out:** the first column is what the list relates to in this library, so it is the one
-that gets a picture and a link.  A game or table column after it draws the name and line alone.
+**Watch out:** the identifier, the first column that draws its own text (not a state, chips, link or picture) unless another says `"identifier": True`, is what
+the list relates to in this library, so it is the one that gets a picture and a link.  A game or
+table column that is not the identifier draws the name and line alone.
 
 ### 12. A pane beside a list
 
@@ -1616,7 +1617,7 @@ def register(ctx):
 }
 ```
 
-**Where it appears:** on a VPinOS cabinet it is a page like any other, with the Start In setting.  Anywhere else it is listed under Extensions marked Off, and its page says "Cannot run on this device" with the reason and shows no settings.  **What triggers it:** core reads the machine's os-release the first time it loads an extension, and compares its `ID` to the list.  Nothing in the extension runs on a machine it is not for, not even `register`.
+**Where it appears:** on a VPinOS cabinet it is a page like any other, with the Start In setting.  Anywhere else it has no page in Settings, and the log says once which platforms it asked for.  **What triggers it:** core reads the machine's os-release the first time it loads an extension, and compares its `ID` to the list.  Nothing in the extension runs on a machine it is not for, not even `register`.
 
 **What you'll see:** on a Mac the page says "It does not run on macOS", and on Ubuntu "It does not run on Ubuntu".  On a Linux with no `/etc/os-release` it says "It does not run on Linux".  On VPinOS it runs, and the page shows Start In.
 

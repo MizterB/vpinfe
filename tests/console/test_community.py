@@ -21,7 +21,7 @@ from console.data import read_state
 DECLARED = {"key": "tables", "title": "Site", "area": "community",
             "base": "/community/tables",
             "columns": [{"field": "vps_id", "header": "Table", "kind": "game", "keys": "vps",
-                         "says": "name", "under": ["maker", "year"], "picture": "",
+                         "name_from": "name", "under": ["maker", "year"], "picture": "",
                          "icon": ""},
                         {"field": "plays", "header": "Plays", "kind": "number"},
                         {"field": "last", "header": "Last", "kind": "date"}],
@@ -45,6 +45,13 @@ class TheNav(unittest.TestCase):
 
         self.assertEqual(["community:site:tables"],
                          [one[0] for one in groups[page.NAV_COMMUNITY]])
+
+    def test_a_list_is_drawn_with_its_icon_or_the_extension_icon(self) -> None:
+        items = community.nav_items([{**LOADED, "lists": [
+            {**DECLARED, "icon": "leaderboard"}, {**DECLARED, "key": "plain"}]}])
+
+        self.assertEqual(["leaderboard", community.ICON],
+                         [one[2] for one in items["community"]])
 
     def test_community_sits_between_frontend_and_system(self) -> None:
         parents = [parent for parent, _items in page.NAV_GROUPS]
@@ -217,7 +224,7 @@ class TheGrid(unittest.TestCase):
     def test_a_later_game_column_has_a_line_and_a_link_and_no_art(self) -> None:
         declared = {**DECLARED, "columns": [*DECLARED["columns"],
                                             {"field": "other", "header": "Other",
-                                             "kind": "game", "keys": "vps", "says": "",
+                                             "kind": "game", "keys": "vps", "name_from": "",
                                              "under": [], "picture": "", "icon": ""}]}
         (row,) = community.rows(
             [{"vps_id": "a", "other": "vps-afm"}], declared, {}, art=True,
@@ -236,7 +243,7 @@ class TheGrid(unittest.TestCase):
                     "late": {"icon": "schedule", "label": "Late", "why": ""},
                     "gone": {"label": "Gone", "why": ""}}},
         {"field": "tags", "header": "Tags", "kind": "chips"},
-        {"field": "page", "header": "Page", "kind": "link", "says": "title"},
+        {"field": "page", "header": "Page", "kind": "link", "name_from": "title"},
         {"field": "art", "header": "Art", "kind": "picture"}]}
 
     def _cells(self) -> dict[str, dict]:

@@ -10,6 +10,7 @@ import importlib.util
 import inspect
 import json
 import re
+import shutil
 import tempfile
 import time
 import unittest
@@ -90,13 +91,12 @@ LESSON_DECLARES: dict[str, list[str]] = {
 
 
 def serving_practice_site() -> Any:
-    """The practice site on its own port, ended when the test is."""
-    try:
-        return practice_site.serve_in_background(practice_site.PORT)
-    except OSError as exc:
-        raise AssertionError(
-            f"The practice site's port {practice_site.PORT} is taken, probably by a practice "
-            "site left running. Stop it and run this again") from exc
+    """The practice site on a free port, ended when the test is."""
+    return practice_site.serve_in_background(0)
+
+
+def address_of(site: Any) -> str:
+    return f"http://{practice_site.HOST}:{site.server_address[1]}"
 
 
 class ExampleFolders(unittest.TestCase):
@@ -239,6 +239,7 @@ class ExamplesLoadedByTheHost(unittest.TestCase):
         self.addCleanup(self.registry.clear)
         jobs.reset_for_tests()
         self.site = serving_practice_site()
+        self.address = address_of(self.site)
         self.addCleanup(self.site.server_close)
         self.addCleanup(self.site.shutdown)
 
@@ -246,11 +247,12 @@ class ExamplesLoadedByTheHost(unittest.TestCase):
         self.addCleanup(i18n.disown, f"ext.{name}")
         record = self.registry.load(folder or EXAMPLES / "recipes" / name)
         self.assertEqual(record.state, host.LOADED, record.error)
+        record.context.config.set("site", self.address)
         return record
 
     def posted_scores(self) -> list[dict]:
         request = urllib.request.Request(
-            f"http://{practice_site.HOST}:{practice_site.PORT}/top",
+            f"{self.address}/top",
             headers={"X-API-Key": practice_site.KEY})
         with urllib.request.urlopen(request, timeout=5) as answer:
             return json.loads(answer.read())
@@ -363,7 +365,7 @@ class RecipesDoWhatTheyClaim(ExamplesLoadedByTheHost):
             serving.list_verb(record, "scores", "flag", [rows[0]["id"]])
         serving.list_verb(record, "scores", "remove", [rows[1]["id"]])
 
-        self.assertEqual(rows[0]["page"], f"http://127.0.0.1:8790/scores/{rows[0]['id']}")
+        self.assertEqual(rows[0]["page"], f"{self.address}/scores/{rows[0]['id']}")
         self.assertEqual(said, {"message": "Flagged the score"})
         self.assertEqual([one["can_flag"] for one in flagged], [False, True, True])
         self.assertEqual([one["player"] for one in serving.list_rows(record, "scores")["rows"]],
@@ -529,7 +531,7 @@ class LessonsDoWhatTheyClaim(ExamplesLoadedByTheHost):
                          [("best", "Best"), ("newest", "Newest")])
         self.assertTrue(declared["views"][0]["ranks"])
         self.assertEqual(declared["columns"][4]["states"]["pending"]["label"], "Pending")
-        self.assertEqual(about["status"]["text"], "Reading from http://127.0.0.1:8790")
+        self.assertEqual(about["status"]["text"], f"Reading from {self.address}")
 
     def test_the_title_menu_offers_the_site_always_and_the_key_check_only_with_a_key(
             self) -> None:
@@ -553,7 +555,7 @@ class LessonsDoWhatTheyClaim(ExamplesLoadedByTheHost):
             serving.list_verb(record, "scores", "flag", [rows[0]["id"]])
         serving.list_verb(record, "scores", "remove", [rows[1]["id"]])
 
-        self.assertEqual(rows[0]["page"], f"http://127.0.0.1:8790/scores/{rows[0]['id']}")
+        self.assertEqual(rows[0]["page"], f"{self.address}/scores/{rows[0]['id']}")
         self.assertEqual(said, {"message": "Flagged the score"})
         self.assertEqual([one["can_flag"] for one in after], [False, True, True])
         self.assertEqual([one["player"] for one in serving.list_rows(record, "scores")["rows"]],
@@ -629,7 +631,7 @@ class LessonsDoWhatTheyClaim(ExamplesLoadedByTheHost):
 
     def ask_site(self, path: str, method: str) -> None:
         request = urllib.request.Request(
-            f"http://{practice_site.HOST}:{practice_site.PORT}{path}", method=method,
+            f"{self.address}{path}", method=method,
             headers={"X-API-Key": practice_site.KEY})
         with urllib.request.urlopen(request, timeout=5):
             pass
@@ -694,6 +696,69 @@ class CodeBlocksAreFiles(unittest.TestCase):
                             self.assertIn(f"`{name}`", cookbook.read_text())
                         else:
                             self.assertIn(name, shown)
+
+
+TEXT_BLOCK = re.compile(r"^```text\n(loads      example_scores .*?)^```$", re.S | re.M)
+READS_LIST = "reads      list scores:"
+
+
+class TutorialQuotesTheCheck(unittest.TestCase):
+    """What the tutorial says `--check-extension` prints is what it prints."""
+
+    def lesson_copy(self, lesson: str) -> Path:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        folder = Path(tmp.name) / "example_scores"
+        shutil.copytree(EXAMPLES / "scores" / lesson / "example_scores", folder,
+                        ignore=shutil.ignore_patterns("__pycache__"))
+        return folder
+
+    def edit_json(self, path: Path, remove: str) -> None:
+        said = json.loads(path.read_text())
+        del said[remove]
+        path.write_text(json.dumps(said))
+
+    def test_each_listing_is_what_the_check_prints_for_the_lesson_it_follows(self) -> None:
+        shown = {one.splitlines()[0].split()[-1]: one.splitlines()
+                 for one in TEXT_BLOCK.findall((GUIDE / "tutorial.md").read_text())}
+
+        self.assertEqual(sorted(shown), ["0.1.0", "1.0.0"])
+        for version, lesson in (("0.1.0", "01-loads"), ("1.0.0", "10-shipping")):
+            with self.subTest(lesson):
+                lines, passed = check.check(EXAMPLES / "scores" / lesson / "example_scores")
+
+                self.assertTrue(passed, "\n".join(lines))
+                self.assertEqual([one for one in shown[version] if READS_LIST not in one],
+                                 [one for one in lines if READS_LIST not in one])
+
+    def test_the_missing_lines_the_tutorial_quotes_are_what_the_check_prints(self) -> None:
+        tutorial = (GUIDE / "tutorial.md").read_text()
+        for lesson, folder_file, key, quoted in (
+                ("01-loads", "i18n/en.json", "description",
+                 "missing    ext.example_scores.description - the extension's description"),
+                ("10-shipping", "extension.json", "display_name",
+                 "missing    ext.example_scores.name - the extension's name")):
+            with self.subTest(quoted):
+                folder = self.lesson_copy(lesson)
+                self.edit_json(folder / folder_file, key)
+
+                lines, passed = check.check(folder)
+
+                self.assertFalse(passed)
+                self.assertIn(quoted, lines)
+                self.assertIn(quoted, tutorial)
+
+    def test_a_package_with_no_register_fails_with_the_reason_the_tutorial_quotes(self) -> None:
+        folder = self.lesson_copy("01-loads")
+        init = folder / "__init__.py"
+        init.write_text(init.read_text().replace("def register", "def start"))
+
+        lines, passed = check.check(folder)
+
+        said = "The log says why it did not start - TypeError: its package defines no register(ctx)"
+        self.assertFalse(passed)
+        self.assertEqual(lines, [f"fails      {said}"])
+        self.assertIn(f'"{said}"', (GUIDE / "tutorial.md").read_text().replace("\n", " "))
 
 
 LINK = re.compile(r"(?<!!)\[[^\]]*\]\(([^)\s]+)\)")

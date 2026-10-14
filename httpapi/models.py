@@ -2218,6 +2218,13 @@ class ExtensionVerb(ApiModel):
     ids: list[str] = Field(default_factory=list)
 
 
+class ExtensionAsk(ApiModel):
+    """The step to ask for, and the rows of a list the dialog was opened over, by `id`."""
+
+    step: str = ""
+    rows: list[str] = Field(default_factory=list)
+
+
 class ExtensionStep(ExtensionValues):
     """A dialog's values, and the step they were entered on where it has steps."""
 

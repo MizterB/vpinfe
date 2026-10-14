@@ -194,6 +194,18 @@ class LoadTests(HostCase):
         self.assertEqual(record.why, host.WRONG_PLATFORM)
         self.assertEqual(record.reason, "It does not run on Ubuntu")
 
+    def test_an_extension_for_another_platform_says_so_in_one_log_line(self) -> None:
+        directory = self.make("vpinos_only", {"platforms": ["vpinos"]},
+                              "def register(ctx): pass\n")
+        with unittest.mock.patch.object(host, "this_platform", return_value="linux"), \
+                unittest.mock.patch.object(host, "this_distribution",
+                                           return_value=("ubuntu", "Ubuntu")), \
+                self.assertLogs("vpinfe.common.extensions.host", "INFO") as logged:
+            self.registry.load(directory)
+
+        self.assertEqual(["INFO:vpinfe.common.extensions.host:Extension vpinos_only: "
+                          "It does not run on Ubuntu"], logged.output)
+
     def test_a_linux_with_no_os_release_is_named_as_linux(self) -> None:
         directory = self.make("vpinos_only", {"platforms": ["vpinos"]},
                               "def register(ctx): pass\n")

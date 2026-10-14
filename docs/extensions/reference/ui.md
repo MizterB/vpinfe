@@ -41,7 +41,7 @@ It never raises, and is empty before `settings` is called.
 
 ## `ctx.ui.list`
 
-`ctx.ui.list(key, rows, *, columns, area="community", title="", views=(), status=None,
+`ctx.ui.list(key, rows, *, columns, area="community", title="", icon="", views=(), status=None,
 acts=None, tag="", verbs=(), add=(), detail=None, save=None)`.  Required:
 `key`, `rows`, `columns`.
 
@@ -58,14 +58,15 @@ A person sees the list in the rail under `area`.  It raises `ContractError` for:
 
 - an unknown area, a missing key or columns, or a repeated key
 - `rows` or `status` that is not a function
-- `under` on any column but the first, or an unknown column kind
+- `under` on any column but the identifier, or an unknown column kind
 - a view on a column the list does not have
 - `keys` on a column that is not a game or table, or `keys` other than `vps` or `vpinfe`
-- `says` on a column that is not a link, game or table
-- `picture` or `icon` on any column but the first, or `picture` on a picture column
-- a `tag` on a list whose first column is not a game or table
-- a ranked view that sorts on anything but number or date columns, or on a list whose first
-  column is not a game or table
+- `name_from` on a column that is not a link, game or table
+- `picture` or `icon` on any column but the identifier, or `picture` on a picture column
+- more than one `identifier` column, or an `identifier` on a `state`, `chips`, `link` or `picture` column, or a list with no column that can be the row's name
+- a `tag` on a list whose identifier is not a game or table
+- a ranked view that sorts on anything but number or date columns, or on a list whose
+  identifier is not a game or table
 - a verb that is not a dict, has no key or a key already used, or carries a key core does not
   read
 - a verb with more than one of `run`, `link` and `action`, or none of them
@@ -77,10 +78,26 @@ After `register` returns, it also raises when the title matches a core page's ti
 running extension's list in the same area, and when a verb, an act or `add` opens a dialog the
 extension never declared.
 
+### Rail icons
+
+A list, a page or a link wears the icon its `icon` names in the rail, one of these Material icon
+names, and the extension icon where it names none.  A name that is not here raises
+`ContractError` from `register`, and the error lists the names.
+
+`analytics`, `bar_chart`, `build`, `bolt`, `calendar_month`, `campaign`, `chat`, `cloud`,
+`computer`, `dashboard`, `download`, `emoji_events`, `event`, `extension`, `favorite`, `folder`,
+`groups`, `history`, `inventory_2`, `leaderboard`, `link`, `list_alt`, `lock`, `map`,
+`monitoring`, `music_note`, `notifications`, `person`, `photo_library`, `public`,
+`receipt_long`, `rocket_launch`, `schedule`, `sell`, `settings`, `share`, `shopping_cart`,
+`speed`, `sports_esports`, `star`, `storage`, `sync`, `timeline`, `trending_up`, `tune`,
+`upload`, `videogame_asset`, `visibility`, `wifi`.
+
+The set is `RAIL_ICONS` in `common/extensions/context.py`.
+
 ## `ctx.ui.page`
 
-`ctx.ui.page(key, read, *, area="community", title="", acts=None, save=None)`.  Required: `key`,
-`read`.
+`ctx.ui.page(key, read, *, area="community", title="", icon="", acts=None, save=None)`.
+Required: `key`, `read`.
 
 Declare a page: an entry in the rail under `area` that opens one subject drawn as a panel, with
 no grid.  `read()` answers what a [pane's](settings-and-lists.md#lists) `detail` does: a `title`
@@ -123,7 +140,8 @@ says each page it finds and reads it once.
 
 ## `ctx.ui.panel_group`
 
-`ctx.ui.panel_group(subject, read, *, title="", save=None)`.  Required: `subject`, `read`.
+`ctx.ui.panel_group(subject, read, *, title="", save=None, acts=None)`.  Required: `subject`,
+`read`.
 
 Put a group on a game's panel (`subject` `"game"`) or on one table's (`"table"`), in Play after
 High Scores.  `read(who)` answers the group's one section, the same `{"facts", "fields",
@@ -153,16 +171,24 @@ With `save(who, values)` the group's fields can be changed: each is written as i
 keys that changed, and core reads the group again to draw what was kept.  It is handed only keys
 the group offers now, and it refuses a value by raising, as a pane's `save` does.  A group
 that is read often should be quick: core reads it each time the panel opens, without holding
-the panel back, and a group that raises or does not answer leaves nothing in the panel.
+the panel back.  A group that answers nothing leaves nothing in the panel, and one that raises
+or cannot be read draws a single quiet line saying so.
+
+With `acts`, a strip of buttons closes the group: a dict of `{key: function or address}`, or a
+function of `who` that answers one.  A function is called with `who` when its button is pressed
+and answers what to say, as a list's act does; an address is opened.  Each button's words are
+`group.<subject>.act.<act>.label`.  The strip is drawn only while the group is.
 
 The heading is `title`, else `group.<subject>.title` in the extension's catalog, else the
 extension's name.  The group is served at `GET /api/v1/ext/<name>/groups/game/<game_id>` and
 `GET /api/v1/ext/<name>/groups/table/<game_id>/<table_id>`, changed with `PUT` at the same
-address and `{"values": {...}}`.  They need the extension's read and write scopes.
+address and `{"values": {...}}`, and its acts at `POST .../groups/game/<game_id>/acts/<act>`
+and `.../groups/table/<game_id>/<table_id>/acts/<act>`.  They need the extension's read and write
+scopes.
 
 It raises `ContractError` without `ui:mount` or without `games:read` in the manifest's `scopes`,
-for a `subject` that is not `game` or `table`, for a subject declared twice, and for a `read` or
-a `save` that is not a function.  `--check-extension` says each group it finds.
+for a `subject` that is not `game` or `table`, for a subject declared twice, for a `read` or
+a `save` that is not a function, and for `acts` that are neither a dict nor a function.  `--check-extension` says each group it finds.
 
 ## `ctx.ui.needs`
 
@@ -191,8 +217,10 @@ row stays away until the token is another.  Without a token the row is set aside
 kind, and a row for a kind that answers a count of nothing is not drawn.
 
 A person sees the row among core's own, with the extension's name where the count of an item
-would be, and Dismiss, Undo and Show Again (under Set Aside) like any other row.  There is no Stop Checking:
-an extension is switched off in Settings.  What a dismissal recorded is kept while the extension
+would be, and Dismiss, Undo and Show Again (under Set Aside) like any other row.  Stop Checking is there
+too, worded for the row alone ("Only this row from" the extension): it stops this kind from this
+extension, moves the row to Set Aside with Check Again, and survives a restart.  The extension is
+still running, and switching it off in Settings stops all of it.  What a dismissal recorded is kept while the extension
 is stopped or its `read` fails, and is dropped once it answers without it.  A click on an
 `action` opens the dialog over no rows, and Overview is drawn again once it closes.
 
@@ -253,7 +281,7 @@ can open the same dialog from a button above it, from a verb or from an act.  It
 
 ## `ctx.ui.link`
 
-`ctx.ui.link(key, url, *, area="")`.  Required: `key`, `url`.
+`ctx.ui.link(key, url, *, area="", icon="")`.  Required: `key`, `url`.
 
 Link to a page of your own, for an extension that has more than VPinFE draws: a hardware
 tool's web page, a service's dashboard.  `url` is an address, or a function that answers one
@@ -268,7 +296,7 @@ ctx.ui.link("console", "http://{host}:9090/", area="system")
 A person sees the link in a menu at the end of the title of the extension's page, in Settings.
 With an `area` (`library`, `frontend`, `community` or `system`, as a list's) it is also an
 entry in that group of the rail, after core's own and after the extension's lists (and before
-About, in System), with a mark that it leaves the Console.  Every link opens a new tab, with `noopener` and `noreferrer`
+About, in System), drawn with `icon` from [Rail icons](#rail-icons) and with a mark that it leaves the Console.  Every link opens a new tab, with `noopener` and `noreferrer`
 whatever the address, so the page it opens cannot reach back into the Console.  Nothing is drawn
 while the extension is stopped, and a function that raises, or answers something that is not a
 web address, leaves out only its own link.  The words are `link.<key>.label`, required, and

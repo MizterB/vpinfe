@@ -134,7 +134,9 @@ not something anybody could have agreed to.  A platform is refused only when it 
 shape of a name: lowercase letters, digits, `.`, `_` and `-`, starting with a letter or a digit,
 which is what an os-release `ID` is.  Which distributions exist is not core's to list, so
 `platforms: ["vpinos"]` is read as written and an extension for a distribution nobody has
-installed simply never starts.
+installed simply never starts.  An extension that never starts for this reason has no page
+in Settings and is not listed among its siblings, and the log says once, at start, which platforms
+it asked for.  An extension that lacks only a feature stays listed, with the reason on its page.
 
 `linux` matches any Linux, and a distribution's `ID` matches that one.  A machine that is
 Ubuntu is both `linux` and `ubuntu`.  `ID` is read from `/etc/os-release`, and is lowercase

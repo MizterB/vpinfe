@@ -85,7 +85,7 @@ class Declaring(unittest.TestCase):
 
         self.assertEqual(ui.declared_pages, [{
             "key": "week", "area": "system", "title": "Week", "base": "/pages/week",
-            "about": "/pages/week/about", "save": True}])
+            "about": "/pages/week/about", "save": True, "icon": ""}])
 
     def test_a_page_goes_in_community_unless_it_says_otherwise(self) -> None:
         ui = self.ui()
@@ -93,6 +93,14 @@ class Declaring(unittest.TestCase):
         ui.page("week", lambda: {})
 
         self.assertEqual(ui.declared_pages[0]["area"], "community")
+
+    def test_a_page_takes_an_icon_of_the_rail_and_refuses_any_other(self) -> None:
+        ui = self.ui()
+        ui.page("week", lambda: {}, icon="calendar_month")
+
+        self.assertEqual("calendar_month", ui.declared_pages[0]["icon"])
+        with self.assertRaisesRegex(contract.ContractError, "'nope'"):
+            ui.page("other", lambda: {}, icon="nope")
 
     def test_a_page_needs_the_ui_capability(self) -> None:
         with self.assertRaisesRegex(contract.ContractError, "ui:mount"):

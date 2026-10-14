@@ -83,7 +83,7 @@ new tab.  See [A link says whether it leaves](../conventions.md#a-link-says-whet
   the picture, the name, the maker and the link, as Games does.  It also relates each row to the
   library, adds the In Your Library view and lets a view rank a collection.  A name in a text column
   does none of that.
-- **Say what a link reads as.**  A `link` cell is the address, and `says` names the row field that is the
+- **Say what a link reads as.**  A `link` cell is the address, and `name_from` names the row field that is the
   words.  Without it the link reads as the column's header.
 
 ## A page of your own
@@ -114,7 +114,7 @@ a port of its own, and the Console links to it.  See
 - [ ] A secret is `secret`, never logged, never in an address.
 - [ ] A picture is an address or a file in the folder, and `net:outbound` is declared if it is a web
   address.
-- [ ] A game or a table in a list is the first column and a `game` or `table` kind.
+- [ ] A game or a table in a list is the identifier column and a `game` or `table` kind.
 - [ ] A failure is raised with `ctx.why`, and a service that did not answer raises `Unavailable`.
 - [ ] A Private game is never sent anywhere.  See [Private games never
   leave](how-it-works.md#private-games-never-leave).

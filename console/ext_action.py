@@ -1,7 +1,7 @@
 """What core draws when somebody presses an action an extension offers.
 
 The extension describes what to ask and what to call; this binds its four calls -
-`GET {base}`, `POST {base}/check`, `POST {base}/act` and `POST {base}/run`, and
+`POST {base}/ask`, `POST {base}/check`, `POST {base}/act` and `POST {base}/run`, and
 `GET {base}/progress` while one of them is slow - and hands
 them to the shared wizard control (`console/wizard.py`), which does the drawing.
 Nothing about the treatment comes from the extension, so every action looks like the
@@ -13,7 +13,6 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from typing import Any
-from urllib.parse import quote
 
 from console import offload, wizard
 from console.api import STEP_TIMEOUT, ApiClient
@@ -25,15 +24,13 @@ GIVE_UP_AFTER = 3
 def calls(extension: str, action: dict, rows: Sequence[str] = ()) -> wizard.Calls:
     """The action's four calls over HTTP, for the dialog host or for a flow that nests it
     inside steps of its own. `rows` are the ids of the list rows it was opened over; the
-    first call carries them and the dialog's values carry them after."""
+    first call carries them in its body and the dialog's values carry them after."""
     client = ApiClient()
     base = f"/ext/{extension}{action.get('base') or ''}"
-    asked = [f"rows={quote(one, safe='')}" for one in rows]
 
     async def first(step: str | None = None) -> dict:
-        query = [*([f"step={quote(step, safe='')}"] if step else []), *asked]
-        return await offload.io(client.ext_get,
-                                f"{base}?{'&'.join(query)}" if query else base)
+        return await offload.io(client.ext_post, f"{base}/ask",
+                                {"step": step or "", "rows": list(rows)}, STEP_TIMEOUT)
 
     async def check(values: dict[str, Any], step: str) -> dict:
         return await offload.io(client.ext_post, f"{base}/check",

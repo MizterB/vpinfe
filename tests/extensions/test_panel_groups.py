@@ -32,7 +32,7 @@ HIDDEN = {"private": True, "vps_id": "vps-2", "name": "Secret"}
 
 def fresh_state() -> None:
     STATE.clear()
-    STATE.update(asked=[], saved=[], answer=SECTION, raises=None)
+    STATE.update(asked=[], saved=[], acted=[], answer=SECTION, raises=None)
 
 
 def grouped(ctx: Any) -> None:
@@ -49,7 +49,12 @@ def grouped(ctx: Any) -> None:
             raise STATE["raises"]
         STATE["saved"].append((dict(who), dict(changes)))
 
-    ctx.ui.panel_group("game", read_game, title="Taxi notes", save=save)
+    def refresh(who: dict) -> str:
+        STATE["acted"].append(dict(who))
+        return "Refreshed"
+
+    ctx.ui.panel_group("game", read_game, title="Taxi notes", save=save,
+                       acts={"refresh": refresh, "docs": "https://example.test/docs"})
     ctx.ui.panel_group("table", read_table)
 
 
@@ -107,6 +112,14 @@ class Declaring(unittest.TestCase):
         with self.assertRaisesRegex(contract.ContractError, "not a function"):
             ui.panel_group("table", lambda who: None, save="save")  # type: ignore[arg-type]
         self.assertEqual(ui.declared_groups, [])
+
+    def test_acts_are_a_dict_or_a_function(self) -> None:
+        ui = self.ui()
+
+        with self.assertRaisesRegex(contract.ContractError, "neither a dict nor a function"):
+            ui.panel_group("game", lambda who: None, acts=["refresh"])
+        ui.panel_group("table", lambda who: None, acts=lambda who: {"go": "https://x.test"})
+        self.assertEqual([one["subject"] for one in ui.declared_groups], ["table"])
 
 
 class Grouped(unittest.TestCase):
@@ -186,6 +199,28 @@ class Reading(Served):
         self.assertEqual([one["label"] for one in answer["section"]["facts"]], ["Plays"])
         self.assertNotIn("hunter2", json.dumps(answer))
 
+    def test_the_acts_come_with_the_group_labelled_and_an_address_kept(self) -> None:
+        answer = self.ok(self.client.get(f"{self.base}/game/g1"))
+
+        self.assertEqual(answer["acts"], [
+            {"key": "refresh", "label": "refresh"},
+            {"key": "docs", "label": "docs", "url": "https://example.test/docs"}])
+        self.assertEqual(self.ok(self.client.get(f"{self.base}/table/g1/t1"))["acts"], [])
+
+    def test_acts_that_are_not_a_dict_are_the_extensions_failure(self) -> None:
+        self.record.context.ui.group_functions["game"].acts = lambda who: ["refresh"]
+
+        response = self.client.get(f"{self.base}/game/g1")
+
+        self.assertEqual(response.status_code, 400, response.text)
+        self.assertEqual(
+            self.client.post(f"{self.base}/game/g1/acts/refresh", json={}).status_code, 400)
+
+    def test_a_group_with_nothing_to_say_offers_no_acts(self) -> None:
+        STATE["answer"] = None
+
+        self.assertEqual(self.ok(self.client.get(f"{self.base}/game/g1"))["acts"], [])
+
     def test_a_table_group_is_told_the_table_too_and_is_headed_from_the_catalog(self) -> None:
         answer = self.ok(self.client.get(f"{self.base}/table/g1/t1"))
 
@@ -205,7 +240,7 @@ class Reading(Served):
         for path in ("/game/g1", "/table/g1/t1"):
             with self.subTest(path):
                 answer = self.ok(self.client.get(f"{self.base}{path}"))
-                self.assertEqual(answer, {"title": "", "section": None})
+                self.assertEqual(answer, {"title": "", "section": None, "acts": []})
         self.assertEqual(STATE["asked"], [])
 
     def test_an_answer_core_cannot_draw_is_the_extensions_failure(self) -> None:
@@ -225,6 +260,36 @@ class Reading(Served):
             response.json()["error"]["message"],
             t("error.extensions.no_group", display=self.record.display_name,
               subject="table"))
+
+
+class Acting(Served):
+    def act(self, path: str) -> Any:
+        return self.client.post(f"{self.base}{path}", json={})
+
+    def test_an_act_is_called_with_who_and_answers_what_to_say(self) -> None:
+        answer = self.ok(self.act("/game/g1/acts/refresh"))
+
+        self.assertEqual(answer, {"message": "Refreshed"})
+        self.assertEqual(STATE["acted"], [{"game_id": "g1", "vps_id": "vps-1", "name": "Taxi"}])
+
+    def test_an_address_or_an_act_not_offered_is_not_there(self) -> None:
+        for path in ("/game/g1/acts/docs", "/game/g1/acts/nothing", "/table/g1/t1/acts/refresh"):
+            with self.subTest(path):
+                self.assertEqual(self.act(path).status_code, 404)
+        self.assertEqual(STATE["acted"], [])
+
+    def test_a_private_game_is_not_acted_on(self) -> None:
+        self.resource = HIDDEN
+
+        self.assertEqual(self.act("/game/g1/acts/refresh").status_code, 404)
+        self.assertEqual(STATE["acted"], [])
+
+    def test_acting_wants_the_write_scope(self) -> None:
+        self.client = client_for(self, self.registry, self.record,
+                                 allowed=lambda scope: scope.endswith(":read"))
+
+        self.assertEqual(self.act("/game/g1/acts/refresh").status_code, 403)
+        self.assertEqual(STATE["acted"], [])
 
 
 class Saving(Served):

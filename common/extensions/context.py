@@ -229,22 +229,33 @@ class ExtensionApps:
 COLUMN_KINDS = frozenset({"text", "number", "date", "state", "chips", "link", "picture",
                           "game", "table"})
 # The kinds that draw something other than the value's own text. `game` and `table` are
-# not among them: the first column may be one, and it is the name core draws.
+# not among them: the identifier column may be one, and it is the name core draws.
 CELL_KINDS = frozenset({"state", "chips", "link", "picture"})
 LIBRARY_KINDS = frozenset({"game", "table"})
-COLUMN_KEYS = frozenset({"field", "header", "kind", "help", "under", "states", "says", "keys",
-                         "picture", "icon"})
+COLUMN_KEYS = frozenset({"field", "header", "kind", "help", "under", "states", "name_from",
+                         "keys", "picture", "icon", "identifier"})
 # Whose ids a `game` or `table` holds: the catalog's, or VPinFE's own.
 ID_KEYS = ("vps", "vpinfe")
 # The chip tiers a state can wear; a state with neither a tier nor an icon is a quiet word.
 STATE_TIERS = frozenset({"on", "off", "unknown", "warn", "bad"})
 STATE_LOOKS = frozenset({"tier", "icon"})
 RANKING_KINDS = frozenset({"number", "date"})
-# What a list's first column relates its rows to, by its kind and `keys`.
+# What a list's identifier column relates its rows to, by its kind and `keys`.
 RELATIONS = {("game", "vps"): "vps_entry", ("table", "vps"): "vps_release",
              ("game", "vpinfe"): "vpinfe_game", ("table", "vpinfe"): "vpinfe_table"}
 VERB_KEYS = frozenset({"key", "run", "link", "action", "each", "danger", "needs", "one",
                        "label"})
+
+# The Material icons an entry in the rail can wear; the extension icon where it names none.
+RAIL_ICONS = frozenset({
+    "analytics", "bar_chart", "build", "bolt", "calendar_month", "campaign", "chat",
+    "cloud", "computer", "dashboard", "download", "emoji_events", "event", "extension",
+    "favorite", "folder", "groups", "history", "inventory_2", "leaderboard", "link",
+    "list_alt", "lock", "map", "monitoring", "music_note", "notifications", "person",
+    "photo_library", "public", "receipt_long", "rocket_launch", "schedule", "sell",
+    "settings", "share", "shopping_cart", "speed", "sports_esports", "star", "storage",
+    "sync", "timeline", "trending_up", "tune", "upload", "videogame_asset", "visibility",
+    "wifi"})
 
 # The groups in the rail a list can be put in, each one core already draws.
 AREAS = ("library", "frontend", "community", "system")
@@ -278,6 +289,7 @@ class GroupFunctions:
 
     read: Callable[[dict], Any]
     save: Callable[[dict, dict], Any] | None = None
+    acts: Any = None
 
 
 # The panels a group can be put on: a game's, and one table's.
@@ -444,14 +456,16 @@ class ExtensionUI:
             return None
         return {"rows": said["rows"], "read_at": said["read_at"]}
 
-    def link(self, key: str, url: str | Callable[[], Any], *, area: str = "") -> None:
+    def link(self, key: str, url: str | Callable[[], Any], *, area: str = "",
+             icon: str = "") -> None:
         """A link to this extension's own page, opened in a new tab.
 
         `url` is an address or a function answering one, and `{host}` in it is filled with
         the host the Console was opened at. Only `http://` and `https://` are drawn. It is
         on the extension's page in Settings; with an `area` it is also an entry in that
-        group of the rail, as a list's `area` places a list. Its words are
-        `link.<key>.label` and `link.<key>.tip` in the extension's catalog.
+        group of the rail, as a list's `area` places a list, drawn with `icon`, one of
+        `RAIL_ICONS`. Its words are `link.<key>.label` and `link.<key>.tip` in the
+        extension's catalog.
         """
         self._needs_ui("a link")
         wanted = str(key or "").strip()
@@ -467,10 +481,12 @@ class ExtensionUI:
             raise ContractError(f"{self._name} gives the link {wanted!r} an address that "
                                 "is neither a function nor an http:// or https:// address")
         self.link_addresses[wanted] = url
-        self.declared_links.append({"key": wanted, "area": where})
+        self.declared_links.append({"key": wanted, "area": where,
+                                    "icon": self._rail_icon(f"the link {wanted!r}", icon)})
 
     def panel_group(self, subject: str, read: Callable[[dict], Any], *, title: str = "",
-                    save: Callable[[dict, dict], Any] | None = None) -> None:
+                    save: Callable[[dict, dict], Any] | None = None,
+                    acts: Any = None) -> None:
         """A group on a game's panel (`subject` `"game"`) or on one table's (`"table"`),
         in Play after High Scores. One for each subject.
 
@@ -479,6 +495,10 @@ class ExtensionUI:
         `{"table_id", "vps_file_id", "version"}`. Answering `None`, or a section with
         nothing in it, is no group. A game marked Private is never asked about. `save(who,
         values)` writes the keys changed among the fields the last answer offered.
+
+        `acts` is what can be done to the subject, in a strip closing the group: a dict of
+        `{key: function or address}` or a function of `who` answering one. A function is
+        called with `who` and answers what to say, an address is opened.
 
         Reading the games needs `games:read` in the manifest. The group is headed with
         `title`, else `group.<subject>.title` in the extension's catalog, else its name.
@@ -496,7 +516,10 @@ class ExtensionUI:
         if not callable(read) or (save is not None and not callable(save)):
             raise ContractError(f"{self._name} gives its {wanted} group a read or a save "
                                 "that is not a function")
-        self.group_functions[wanted] = GroupFunctions(read=read, save=save)
+        if acts is not None and not callable(acts) and not isinstance(acts, dict):
+            raise ContractError(f"{self._name} gives its {wanted} group acts that are "
+                                "neither a dict nor a function")
+        self.group_functions[wanted] = GroupFunctions(read=read, save=save, acts=acts)
         self.declared_groups.append({"subject": wanted, "title": str(title or "").strip(),
                                      "base": f"/groups/{wanted}", "save": save is not None})
 
@@ -543,7 +566,7 @@ class ExtensionUI:
         self.needs_function = read
 
     def page(self, key: str, read: Callable[[], Any], *, area: str = DEFAULT_AREA,
-             title: str = "", acts: Any = None,
+             title: str = "", icon: str = "", acts: Any = None,
              save: Callable[[dict], Any] | None = None) -> None:
         """A page of this extension's own, shown in the rail under `area`: one subject
         drawn as a panel, with no grid.
@@ -555,7 +578,7 @@ class ExtensionUI:
         `read` again to draw the page.
 
         The rail entry is named `title`, else `page.<key>.title` in the extension's
-        catalog, else the extension's name.
+        catalog, else the extension's name, and drawn with `icon`, one of `RAIL_ICONS`.
         """
         self._needs_ui("a page")
         wanted = str(key or "").strip()
@@ -575,10 +598,22 @@ class ExtensionUI:
                                 "neither a dict nor a function")
         self.page_functions[wanted] = PageFunctions(read=read, acts=acts, save=save)
         self.declared_pages.append({"key": wanted, "area": where,
+                                    "icon": self._rail_icon(f"the page {wanted!r}", icon),
                                     "title": str(title or "").strip(),
                                     "base": f"/pages/{wanted}",
                                     "about": f"/pages/{wanted}/about",
                                     "save": save is not None})
+
+    def _rail_icon(self, whose: str, icon: Any) -> str:
+        """`icon` as the rail draws it, "" where there is none, or a ContractError for a
+        name the rail does not know."""
+        named = icon.strip() if isinstance(icon, str) else icon
+        if not named:
+            return ""
+        if named not in RAIL_ICONS:
+            raise ContractError(f"{self._name} gives {whose} the icon {named!r}, which is not "
+                                f"one of {', '.join(sorted(RAIL_ICONS))}")
+        return str(named)
 
     def _needs_ui(self, what: str) -> None:
         if not self._allowed:
@@ -586,12 +621,14 @@ class ExtensionUI:
                                 "capability its manifest does not declare")
 
     def list(self, key: str, rows: Callable[[], Any], *, columns: Sequence[dict],
-             area: str = DEFAULT_AREA, title: str = "", views: Sequence[dict] = (),
+             area: str = DEFAULT_AREA, title: str = "", icon: str = "",
+             views: Sequence[dict] = (),
              status: Callable[[], Any] | None = None, acts: Any = None,
              tag: str = "", verbs: Sequence[dict] = (), add: str | Sequence[str] = (),
              detail: Callable[[str], Any] | None = None,
              save: Callable[[str, dict], Any] | None = None) -> None:
-        """A list this extension holds, shown in the rail under `area`.
+        """A list this extension holds, shown in the rail under `area`, drawn with `icon`,
+        one of `RAIL_ICONS`.
 
         `rows()` answers the rows, each a dict. `status()` answers the line the list's
         page says, text or `{"text", "detail", "to"}`. `acts` is what the title menu
@@ -599,17 +636,19 @@ class ExtensionUI:
         function runs when pressed and answers what to say, an address is opened.
 
         A column is `{"field", "header", "kind"}` with `kind` one of `text`, `number`,
-        `date`, `state`, `chips`, `link`, `picture`, `game` or `table`, and the first may name
-        `under`: row fields drawn on the line beneath its value. A `state` column names
-        `states={value: {"tier"} or {"icon"}}`, a `link` column may name the row field it
-        reads as in `says`, and a `picture` column holds a web address or a file in the
-        extension's folder. A `game` or `table` column holds an id, VPS's or VPinFE's own as
-        its `keys` says (`vps`, the default, or `vpinfe`), and `says` names the row field
-        holding the name to draw where neither the library nor VPS knows the id. The first
-        column may name `picture`, a row field holding an image, and `icon`, a Material icon
-        or SVG path drawn where there is no picture.
+        `date`, `state`, `chips`, `link`, `picture`, `game` or `table`. One column is the
+        row's name, the identifier: the one that says `identifier: True`, else the first
+        that is not a `state`, `chips`, `link` or `picture`, wherever columns are put. It
+        alone may name `under`, row fields drawn on the line beneath its value. A `state`
+        column names `states={value: {"tier"} or {"icon"}}`, a `link` column may name the
+        row field it reads as in `name_from`, and a `picture` column holds a web address or a
+        file in the extension's folder. A `game` or `table` column holds an id, VPS's or
+        VPinFE's own as its `keys` says (`vps`, the default, or `vpinfe`), and `name_from` names
+        the row field holding the name to draw where neither the library nor VPS knows the
+        id. The identifier may name `picture`, a row field holding an image, and `icon`, a
+        Material icon or SVG path drawn where there is no picture.
 
-        A first column of kind `game` or `table` is what the list relates to in this
+        An identifier column of kind `game` or `table` is what the list relates to in this
         library, so a view that `ranks` and a `tag` need one. A view is `{"key", "name",
         "columns", "sort": [{"field", "desc"}], "help", "ranks"}`, and one that `ranks` is
         offered as an order for a collection, with a sort on number or date columns only.
@@ -644,6 +683,7 @@ class ExtensionUI:
         if where not in AREAS:
             raise ContractError(f"{self._name} puts a list in {where!r}, which is not one "
                                 f"of {', '.join(AREAS)}")
+        rail_icon = self._rail_icon(f"the list {wanted!r}", icon)
         names = [str((one or {}).get("field") or "").strip() for one in columns]
         if not wanted or not columns or not all(names):
             raise ContractError(f"{self._name} declares a list with no key or "
@@ -663,34 +703,24 @@ class ExtensionUI:
         if acts is not None and not callable(acts) and not isinstance(acts, dict):
             raise ContractError(f"{self._name} gives the list {wanted!r} acts that are "
                                 "neither a dict nor a function")
-        if any((one or {}).get("under") for one in columns[1:]):
-            raise ContractError(f"{self._name} puts a line under a column other than the "
-                                "first, which is the only one drawn with one")
         kinds = {str((one or {}).get("kind") or "text") for one in columns}
         if not kinds <= COLUMN_KINDS:
             raise ContractError(f"{self._name} declares a column kind core does not draw: "
                                 f"{', '.join(sorted(kinds - COLUMN_KINDS))}")
         for one in columns:
             self._column(wanted, one or {})
-        if str((columns[0] or {}).get("kind") or "text") in CELL_KINDS:
-            raise ContractError(f"{self._name} makes the first column of the list "
-                                f"{wanted!r} a {columns[0]['kind']}, but the first column "
-                                "is drawn as the row's name")
+        named = self._identifier(wanted, columns)
         for view in views:
-            named = set(view.get("columns") or []) | {str(one.get("field") or "")
-                                                      for one in view.get("sort") or []}
-            if not str(view.get("key") or "").strip() or not named <= set(names):
+            used = set(view.get("columns") or []) | {str(one.get("field") or "")
+                                                     for one in view.get("sort") or []}
+            if not str(view.get("key") or "").strip() or not used <= set(names):
                 raise ContractError(f"{self._name} declares a view with no key or on a "
                                     "column it does not have")
-        first = columns[0] or {}
-        first_kind = str(first.get("kind") or "text")
-        relation = ({"field": names[0],
-                     "keys": RELATIONS[(first_kind, str(first.get("keys") or ID_KEYS[0]))]}
-                    if first_kind in LIBRARY_KINDS else None)
-        for one in columns[1:]:
-            if (one or {}).get("picture") is not None or (one or {}).get("icon") is not None:
-                raise ContractError(f"{self._name} gives a picture or an icon to a column "
-                                    "other than the first, which is the only one with a frame")
+        subject = columns[named] or {}
+        subject_kind = str(subject.get("kind") or "text")
+        relation = ({"field": names[named],
+                     "keys": RELATIONS[(subject_kind, str(subject.get("keys") or ID_KEYS[0]))]}
+                    if subject_kind in LIBRARY_KINDS else None)
         derived = " ".join(str(tag or "").split())
         if derived and not relation:
             raise ContractError(f"{self._name} derives a tag from a list that relates to "
@@ -718,19 +748,20 @@ class ExtensionUI:
                                                     verbs=offered, detail=detail, save=save)
         self.declared_lists.append({
             "key": wanted, "area": where, "title": str(title or "").strip(),
-            "base": f"/lists/{wanted}",
+            "icon": rail_icon, "base": f"/lists/{wanted}",
             "columns": [{"field": name, "header": str(one.get("header") or ""),
+                         "identifier": index == named,
                          "kind": str(one.get("kind") or "text"),
                          "help": str(one.get("help") or ""),
                          "under": [str(under) for under in one.get("under") or []],
-                         "says": str(one.get("says") or ""),
+                         "name_from": str(one.get("name_from") or ""),
                          "keys": (str(one.get("keys") or ID_KEYS[0])
                                   if str(one.get("kind") or "text") in LIBRARY_KINDS else ""),
                          "picture": str(one.get("picture") or "").strip(),
                          "icon": str(one.get("icon") or "").strip(),
                          "states": {value: dict(look or {})
                                     for value, look in (one.get("states") or {}).items()}}
-                        for name, one in zip(names, columns, strict=True)],
+                        for index, (name, one) in enumerate(zip(names, columns, strict=True))],
             "views": [{"key": str(view["key"]).strip(),
                        "name": str(view.get("name") or "").strip(),
                        "columns": [*(view.get("columns") or names)],
@@ -749,6 +780,31 @@ class ExtensionUI:
             "add": adding,
         })
 
+    def _identifier(self, list_key: str, columns: Sequence[dict]) -> int:
+        """The index of the column drawn as the row's name: the one that says
+        `identifier`, else the first that draws its own text. The line under it, its
+        picture and its icon belong to it alone."""
+        where = f"{self._name} gives the list {list_key!r}"
+        marked = [index for index, one in enumerate(columns) if (one or {}).get("identifier")]
+        if len(marked) > 1:
+            raise ContractError(f"{where} more than one identifier column")
+        plain = [index for index, one in enumerate(columns)
+                 if str((one or {}).get("kind") or "text") not in CELL_KINDS]
+        if marked and marked[0] not in plain:
+            raise ContractError(f"{where} a {columns[marked[0]]['kind']} column as its "
+                                "identifier, which is drawn as the row's name")
+        if not plain:
+            raise ContractError(f"{where} no column that can be the row's name; a state, "
+                                "chips, link or picture column cannot")
+        chosen = marked[0] if marked else plain[0]
+        for index, one in enumerate(columns):
+            for part in ("under", "picture", "icon"):
+                if index != chosen and (one or {}).get(part):
+                    raise ContractError(f"{where} a {part} on the column "
+                                        f"{one.get('field')!r}, which is not the identifier "
+                                        f"and the only one drawn with one")
+        return chosen
+
     def _column(self, list_key: str, column: dict) -> None:
         where = f"{self._name} gives the list {list_key!r} the column {column.get('field')!r}"
         unknown = sorted(set(column) - COLUMN_KEYS)
@@ -758,11 +814,13 @@ class ExtensionUI:
         kind = str(column.get("kind") or "text")
         if column.get("states") is not None and kind != "state":
             raise ContractError(f"{where} states, which only a state column has")
-        if column.get("says") is not None and kind != "link" and kind not in LIBRARY_KINDS:
-            raise ContractError(f"{where} says, which only a link, game or table column has")
+        if column.get("name_from") is not None and kind != "link" \
+                and kind not in LIBRARY_KINDS:
+            raise ContractError(f"{where} name_from, which only a link, game or table "
+                                "column has")
         if (kind == "link" or kind in LIBRARY_KINDS) \
-                and not isinstance(column.get("says") or "", str):
-            raise ContractError(f"{where} a says that is not the name of a row field")
+                and not isinstance(column.get("name_from") or "", str):
+            raise ContractError(f"{where} a name_from that is not the name of a row field")
         if column.get("keys") is not None and kind not in LIBRARY_KINDS:
             raise ContractError(f"{where} keys, which only a game or table column has")
         if kind in LIBRARY_KINDS and (column.get("keys") or ID_KEYS[0]) not in ID_KEYS:

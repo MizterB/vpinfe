@@ -447,7 +447,7 @@ The columns change.  The table becomes a game, and two more columns arrive.
 
 ```python
     columns = [
-        {"field": "vps_id", "kind": "game", "says": "table"},
+        {"field": "vps_id", "kind": "game", "name_from": "table"},
         {"field": "player"},
         {"field": "score", "kind": "number"},
         {"field": "posted", "kind": "date"},
@@ -460,8 +460,8 @@ The columns change.  The table becomes a game, and two more columns arrive.
 
 `vps_id` holds an id from the Virtual Pinball Spreadsheet, and `kind: game` tells core to draw
 what that id names, as Games does: the picture, the name, the maker and the year, and the name as
-a link to the game.  The first column is what the list is about, so core also relates each row to
-your library by it.  `says` names the row field to draw where neither your library nor the
+a link to the game.  The first column is the row's name, which core calls the identifier, so core also relates each row to
+your library by it.  `name_from` names the row field to draw where neither your library nor the
 spreadsheet knows the id.  `posted` is a date and sorts by time.  `status` is a state: a word
 from a short list you declare, and the tier says how loud it is.
 
@@ -479,7 +479,7 @@ The views are the orderings a person can pick.
 
 Each view names the columns it shows, and how it sorts.  `best` shows three of them, highest
 score first.  `ranks` offers that order to collections, so a collection can be put in the order
-of the best scores.  Core allows it when the first column is a game or table and the sort is on a
+of the best scores.  Core allows it when the identifier is a game or table and the sort is on a
 number or a date.  `newest` names no columns, so it shows all of them, latest first.
 
 The status line is a sentence above the list.
@@ -516,14 +516,14 @@ A state's word is required, and a tooltip, the line ending `.why`, is optional.
 ### See it
 
 Refresh the list.  The View menu above the grid now has three entries, and the first is In Your
-Library.  Core adds it whenever the first column is a game: it is your first view with only the
+Library.  Core adds it whenever the identifier is a game: it is your first view with only the
 rows whose game your library holds.  Pick Best, and every score shows, whether or not you have
 the game.
 
 ### Try it
 
 Pick Best.  Medieval Madness is in the list and is not in your library, so it has no picture and
-no link, and it is named by what `says` pointed at: the row's `table`.  Take `says` out of the
+no link, and it is named by what `name_from` pointed at: the row's `table`.  Take `name_from` out of the
 column and it is drawn as its id instead.
 
 ### What core did
@@ -1186,7 +1186,7 @@ catalog.  Put it back.
   `i18n/en.json`.  Add it, and restart VPinFE for it to show.
 - **The page shows the folder's name, not the product's.**  `display_name` is not in the manifest.
 - **The extension does not start on a machine that is not yours.**  Its `platforms` names a system
-  that machine is not.  The extension's page says which one it does not run on.
+  that machine is not.  It has no page in Settings, and the log says which platforms it asked for.
 
 ## The whole extension
 
@@ -1254,7 +1254,7 @@ def register(ctx):
                 for one in call("/top")]
 
     columns = [
-        {"field": "vps_id", "kind": "game", "says": "table"},
+        {"field": "vps_id", "kind": "game", "name_from": "table"},
         {"field": "player"},
         {"field": "score", "kind": "number"},
         {"field": "posted", "kind": "date"},

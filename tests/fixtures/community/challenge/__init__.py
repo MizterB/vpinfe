@@ -16,7 +16,7 @@ from __future__ import annotations
 
 
 def columns(kind: str) -> list[dict]:
-    return [{"field": "vps_id", "header": "VPS", "kind": kind, "says": "name"},
+    return [{"field": "vps_id", "header": "VPS", "kind": kind, "name_from": "name"},
             {"field": "name", "header": "Table"}]
 
 

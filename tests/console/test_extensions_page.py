@@ -368,6 +368,17 @@ class IndexTests(unittest.TestCase):
                                 ("extensions.zed", "Zed")])
         self.assertEqual(pages[-1][0], settings.EXTENSIONS_GROUP)
 
+    def test_an_extension_for_another_platform_has_no_page_and_one_that_lacks_a_feature_has(
+            self) -> None:
+        pages = settings.system_pages(install_identity.FEATURES, [
+            {"name": "away", "display_name": "Away", "state": "off",
+             "reason_key": host.WRONG_PLATFORM},
+            {"name": "short", "display_name": "Short", "state": "off",
+             "reason_key": host.LACKS_FEATURES}])
+
+        self.assertEqual(["extensions.short"], [page[0] for group, page in pages
+                                                if group == settings.EXTENSIONS_GROUP])
+
     def test_a_page_key_survives_the_address_lowercasing_the_page(self) -> None:
         self.assertEqual(ext_page.key("My_Ext"), "extensions.my_ext")
 

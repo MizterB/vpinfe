@@ -36,7 +36,7 @@ def register(ctx):
         return call("/top")
 
     columns = [
-        {"field": "vps_id", "kind": "game", "says": "table"},
+        {"field": "vps_id", "kind": "game", "name_from": "table"},
         {"field": "player"},
         {"field": "score", "kind": "number"},
         {"field": "posted", "kind": "date"},
