@@ -64,6 +64,7 @@ DECLARES: dict[str, list[str]] = {
     "tool_link": ["settings   port (number", "link       console in system: http://{host}:9090/",
                   "link       manual: https://tool.example.com/manual"],
     "vpinos_only": ["platforms  vpinos", "settings   boot (select, default 'play')"],
+    "os_update": ["platforms  vpinos", "dialog     updates: ask run"],
 }
 
 

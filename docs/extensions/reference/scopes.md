@@ -54,10 +54,11 @@ is what a person consents to, so a capability nobody has heard of cannot be cons
 | `hardware:usb` | USB devices.  A declaration for the person installing |
 | `fs:read` | `ctx.files.set_roots`: the folders core will take a path from |
 | `fs:write` | Moving a file out of those folders with `ctx.games.add_table(..., move=True)` |
+| `os:updates` | `ctx.os.call("updates.check")` and `ctx.os.call("updates.apply")`: looking for system updates and installing them.  Where the system ships a helper; see [`ctx.os`](context.md#ctxos) |
 
 **Capabilities are advisory.**  An extension runs in VPinFE's process, and Python in the same
 process can always open a file, open a socket or start a program.  What the declaration does is
 make the extension say what it intends, show that to whoever installs it, and hold the calls
-that go through `ctx` to it.  Core enforces `ui:mount`, `fs:read`, `fs:write` and the scopes
+that go through `ctx` to it.  Core enforces `ui:mount`, `fs:read`, `fs:write`, `os:` areas and the scopes
 where it is the one acting, and `net:outbound` where core fetches a web picture for a list
 column.  It does not enforce `proc:spawn` or `hardware:usb` at all.  Once extensions run out of process, the same declarations become the boundary.

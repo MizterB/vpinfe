@@ -1,0 +1,7 @@
+{
+  "name": "os_update",
+  "version": "1.0.0",
+  "requires_platform": 1,
+  "platforms": ["vpinos"],
+  "capabilities": ["os:updates", "ui:mount"]
+}

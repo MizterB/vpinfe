@@ -15,10 +15,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from common import events as core_events
+from common.host import os_helper
+from common.i18n import t
 
-from . import accounts
+from . import accounts, reach
 from . import cards as cards_module
-from .contract import ContractError, Manifest, words
+from .contract import ContractError, Manifest, Unavailable, words
 from .contract import why as worded
 from .fields import FieldError, settings_fields, ticked
 from .games import GAMES_READ, ExtensionGames
@@ -80,7 +82,8 @@ class ExtensionEvents:
     def subscribe(self, event: str, handler: Callable) -> None:
         def contained(**payload: Any) -> None:
             try:
-                handler(**payload)
+                with reach.unmarked():
+                    handler(**payload)
             except Exception:
                 self._logger.exception("Handling %s failed", event)
                 self._on_failure("extension.reason.failed_handling", event=event)
@@ -1031,6 +1034,60 @@ class ExtensionTokens:
             raise ContractError(str(exc)) from exc
 
 
+class ExtensionOS:
+    """What an operating system's helper does for an extension, one fixed method at a time.
+
+    The helper runs with more rights than VPinFE and offers a short list of methods, each
+    a closed set of arguments. This is the one way an extension reaches it. Nothing here
+    contains an extension that opens the helper's socket itself: that code runs as the same
+    user, and what bounds it is the helper's short list.
+
+    A method is offered to an extension that declares the capability for its area. A
+    method that changes the machine is also refused unless the request it is called from
+    reached Protected, so a forgotten declaration fails closed.
+    """
+
+    def __init__(self, name: str, capabilities: Iterable[str]) -> None:
+        self._name = name
+        self._areas = frozenset(one for one in capabilities if one in os_helper.AREAS)
+
+    @property
+    def available(self) -> bool:
+        """Whether a helper stands on this computer."""
+        return os_helper.available()
+
+    @property
+    def methods(self) -> tuple[dict[str, Any], ...]:
+        """The methods this extension may call: `name`, whether it `changes` the machine,
+        and `says`, core's sentence for it, which is what a change asks before it runs."""
+        return tuple({"name": one.name, "changes": one.changes, "says": one.sentence}
+                     for one in os_helper.METHODS.values() if one.area in self._areas)
+
+    def call(self, method: str, **args: Any) -> Any:
+        """Ask the helper for `method`. A call from outside a Protected request is
+        refused when the method changes the machine, and an area the manifest does not
+        declare is refused outright."""
+        one = os_helper.METHODS.get(str(method or ""))
+        if one is None:
+            raise ContractError(f"{self._name} called {method!r}, which no helper offers")
+        if one.area not in self._areas:
+            raise ContractError(f"{self._name} called {one.name}, which needs the "
+                                f"{one.area} capability its manifest does not declare")
+        mark = reach.current()
+        if one.changes:
+            if mark is None:
+                raise PermissionError(t("error.os.no_request"))
+            if mark.tier != reach.PROTECTED:
+                raise PermissionError(t("error.os.not_from_here"))
+        origin = mark.origin if mark is not None else ""
+        logger_for(self._name).info("asked the system for %s from %s", one.name,
+                                    origin or "no request")
+        try:
+            return os_helper.call(one, args, by=self._name, origin=origin)
+        except (os_helper.HelperAbsentError, os_helper.HelperBrokenError) as exc:
+            raise Unavailable(worded(exc)) from exc
+
+
 class ExtensionJobs:
     """Slow work, run the way core runs it.
 
@@ -1054,7 +1111,7 @@ class ExtensionJobs:
         from common import jobs
 
         return jobs.submit(
-            f"{self._name}.{str(kind or '').strip()}", work,
+            f"{self._name}.{str(kind or '').strip()}", reach.carried(work),
             stop_link=f"/api/v1/ext/{self._name}/jobs/{str(kind or '').strip()}/stop"
             if stoppable else "",
             keep_result=keep_result)
@@ -1091,6 +1148,7 @@ class ExtensionContext:
         self.files = ExtensionFiles(manifest.name, "fs:read" in manifest.capabilities,
                                     "fs:write" in manifest.capabilities)
         self.jobs = ExtensionJobs(manifest.name)
+        self.os = ExtensionOS(manifest.name, manifest.capabilities)
         self.ui = ExtensionUI(manifest.name, "ui:mount" in manifest.capabilities,
                               manifest.scopes)
         self.players = ExtensionPlayers(manifest.name, manifest.scopes, store, self.ui)

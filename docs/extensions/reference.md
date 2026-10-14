@@ -32,6 +32,7 @@ has a small, complete extension for each task.
 | A way to play, an outside link, what a game tells you | [More to offer](reference/offers.md) |
 | The words an extension shows, and their keys | [Words](reference/words.md) |
 | What an extension may reach, and what it must ask for | [Scopes and the gate](reference/scopes.md) |
+| What an operating system ships so `ctx.os` has something to ask | [The operating system's helper](reference/os-helper.md) |
 | Config, the log, switching one off, what you see when one breaks, the command line | [Running one](reference/running.md) |
 | The routes core serves for what an extension declared | [What core serves](reference/served.md) |
 

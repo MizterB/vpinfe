@@ -36,10 +36,12 @@ it, what you will see, a few variations and the mistake people make with it.
 - [11. A game in a list](#11-a-game-in-a-list)
 - [12. A pane beside a list](#12-a-pane-beside-a-list)
 - [13. An account per player](#13-an-account-per-player)
+- [14. A group on a game's panel](#14-a-group-on-a-games-panel)
 - [15. A page of one subject](#15-a-page-of-one-subject)
 - [16. A page of your own](#16-a-page-of-your-own)
 - [17. Asking for attention on Overview](#17-asking-for-attention-on-overview)
 - [18. An extension for one Linux distribution](#18-an-extension-for-one-linux-distribution)
+- [19. Asking the operating system to change something](#19-asking-the-operating-system-to-change-something)
 
 ## Basics
 
@@ -1625,3 +1627,78 @@ def register(ctx):
 - Run `--check-extension` on your own computer.  It loads the extension whatever its `platforms` say, so you can try the code anywhere, and a `platforms` line tells you whether this machine would run it: `platforms  vpinos - not this machine: It does not run on macOS`.
 
 **Watch out:** the `ID` is lowercase in `/etc/os-release` and here: `VPinOS` is refused, `vpinos` is not.  The name in the reason, "Ubuntu", is the distribution's `NAME`, which is for people to read, and it is not what `platforms` matches.
+
+### 19. Asking the operating system to change something
+
+**Use it when:** the extension manages something only root can change, such as the operating system's updates on a VPinOS cabinet.
+
+VPinFE never runs as root.  Where the system ships a helper, `ctx.os` is the one way to ask it, and the helper has a short list of methods, each fixed: no command, no path, no package name.  Each method belongs to an area, and an area is a capability, so `os:updates` is what lets this extension check for updates and install them.  A call to a method outside the declared areas raises `ContractError`.
+
+A method that only reads, such as `updates.check`, can be called from anywhere.  A method that changes the machine is refused unless the request it is called from reached Protected, and a job started from that request carries the mark.  A change from an event handler, a timer or a thread the extension started has no request behind it and is refused, so it fails closed even if the declaration is wrong.  Until sign-in can raise a request to Protected, only a request from this computer qualifies.
+
+`recipes/os_update/extension.json`
+
+```json
+{
+  "name": "os_update",
+  "version": "1.0.0",
+  "requires_platform": 1,
+  "platforms": ["vpinos"],
+  "capabilities": ["os:updates", "ui:mount"]
+}
+```
+
+`recipes/os_update/__init__.py`
+
+```python
+class Updates:
+    def __init__(self, ctx):
+        self.ctx = ctx
+
+    def says(self, method):
+        return next(one["says"] for one in self.ctx.os.methods if one["name"] == method)
+
+    def ask(self, step):
+        if not self.ctx.os.available:
+            return {"ready": False, "reason": self.ctx.t("dialog.no_helper"),
+                    "confirm": self.ctx.t("dialog.install")}
+        waiting = self.ctx.os.call("updates.check")
+        count = waiting.get("count", 0) if isinstance(waiting, dict) else 0
+        return {"summary": [[self.ctx.t("dialog.waiting"), str(count)],
+                            [self.ctx.t("dialog.will"), self.says("updates.apply")]],
+                "confirm": self.ctx.t("dialog.install")}
+
+    def run(self, values):
+        job = self.ctx.jobs.submit("install", lambda job: self.ctx.os.call("updates.apply"))
+        return {"job_id": job.id}
+
+
+def register(ctx):
+    ctx.ui.action("updates", Updates(ctx))
+```
+
+`recipes/os_update/i18n/en.json`
+
+```json
+{
+  "name": "OS Update",
+  "description": "Installs the operating system's updates on a VPinOS cabinet, after asking.",
+  "action.updates.label": "System Updates",
+  "dialog.waiting": "Updates waiting",
+  "dialog.will": "This will",
+  "dialog.install": "Install",
+  "dialog.no_helper": "This computer has no system helper"
+}
+```
+
+**Where it appears:** on a VPinOS cabinet, as an action on the extension's page called System Updates.  **What triggers it:** pressing it.  `ask` runs when the dialog opens and reads `updates.check`, which changes nothing.  `run` runs when Install is pressed, in that request, and starts a job that calls `updates.apply`.
+
+**What you'll see:** the dialog lists how many updates are waiting and, under This will, core's own sentence for the change: "Install system updates on this computer".  The extension chose the label and the layout, and core chose the sentence, so the extension cannot word a careful act as a harmless one.  Install closes the dialog and the job runs in Jobs.  Where no helper answers, the dialog says "This computer has no system helper" and holds Install.  From another device the install is refused with "A system change can only be made from this computer", and because the install runs as a job, that sentence is what Jobs shows for it.
+
+**Variations:**
+
+- Call `updates.apply` straight from `run` when it is quick.  It still takes a Protected request, since `run` answers one.
+- Read `ctx.os.methods` to build the dialog from what the manifest allows rather than naming methods: each entry has `name`, `changes` and `says`.
+- Run `--check-extension` on a Mac.  It loads the extension whatever its `platforms` say, and `ctx.os.available` is false there, so the dialog shows the no-helper line.
+
+**Watch out:** a change called from `register`, an event handler or a timer is refused, however the manifest reads.  Start it from an action, a verb, an act or a route, and from a job those start.  And the helper is part of the operating system, not of VPinFE: on a machine without one the method list is still there and `ctx.os.available` is false.

@@ -43,7 +43,7 @@ NAME_PATTERN = re.compile(r"^[a-z][a-z0-9_]{1,39}$")
 # consented to.
 CAPABILITIES: frozenset[str] = frozenset({
     "ui:mount", "config:own", "net:outbound", "proc:spawn",
-    "hardware:usb", "fs:read", "fs:write",
+    "hardware:usb", "fs:read", "fs:write", "os:updates",
 })
 
 # What a manifest may name in `platforms`: `linux`, `windows`, `macos`, or any Linux

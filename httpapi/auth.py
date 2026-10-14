@@ -17,6 +17,7 @@ from starlette.responses import Response
 from starlette.routing import BaseRoute
 
 from common import extensions
+from common.extensions import reach
 from common.i18n import t
 
 from . import scopes
@@ -113,8 +114,14 @@ class ScopeMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request,
                        call_next: RequestResponseEndpoint) -> Response:
-        request.state.identity = _policy.identify(request)
-        return await call_next(request)
+        identity = _policy.identify(request)
+        request.state.identity = identity
+        # What an extension may change reads the tier off the request, so it is set around
+        # everything the request runs, and ends with it.
+        client = getattr(request, "client", None)
+        origin = "this computer" if identity.is_local else str(getattr(client, "host", ""))
+        with reach.marking(reach.PROTECTED if identity.is_local else reach.LIBRARY, origin):
+            return await call_next(request)
 
 
 class ForbiddenError(ApiError):

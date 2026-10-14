@@ -11,6 +11,7 @@ and the rest of the model rests on that.
 | `ctx.events` | `subscribe` to a core event, `publish` one of its own |
 | `ctx.files` | The folders it works from |
 | `ctx.jobs` | Slow work, run the way core runs it |
+| `ctx.os` | What an operating system's helper does for it, one fixed method at a time |
 | `ctx.ui` | What it offers a person: settings, lists, actions, an account, what it holds |
 | `ctx.players` | Who plays here, and the accounts it holds for them |
 | `ctx.entries` | Something added to every entry a theme is handed |
@@ -385,3 +386,55 @@ busy = bool(ctx.jobs.active())
 ```
 
 Does not raise.
+
+## `ctx.os`
+
+What an operating system's helper does for an extension.  VPinFE never runs as root.  Where the
+system ships a helper, with fixed methods that take no command, no path, no package name and no
+address, this is the one way to ask it.  `ctx.os.available` says whether one stands on this
+computer, and `ctx.os.methods` lists the methods this extension may call.  Each entry has:
+
+| key | what it holds |
+|---|---|
+| `name` | What to pass to `call`, such as `updates.check` |
+| `changes` | True where the method changes the machine, False where it only reads |
+| `says` | Core's sentence for it, in the language now set |
+
+A method belongs to an area, and an area is a capability: `os:updates` today.  An extension
+declares the areas it uses, and the install screen tells the person in words, such as "install
+system updates on this computer".  `ctx.os.methods` is empty without one.
+
+### `ctx.os.call`
+
+`ctx.os.call(method, **args) -> Any`.  Required: `method`.
+
+Asks the helper for `method` and returns what it answers, as JSON would carry it.  A method
+that only reads, such as `updates.check`, can be called from anywhere.  A method that changes
+the machine, such as `updates.apply`, is refused unless the request it is called from reached
+Protected.  Core marks each request with the tier it reached, and the mark follows the request
+into the function core calls and into a job started from it, and it ends when the request does.
+An event handler, a timer or a thread the extension started has no mark, and neither has a task
+that is still running after the request was answered, so a change from any of them is refused.
+Until sign-in can raise a request to Protected, only a request from this computer qualifies.
+Two things count as this computer that a person might not expect: the Console asks the API from
+the computer VPinFE runs on, so a request from the Console counts as one from this computer
+wherever its browser is, and so does a page open in a browser on this computer.  The mark is how
+VPinFE keeps an act deliberate, and it is not a lock on the machine: an accepted extension runs
+as the same user and could open the helper's socket itself.
+
+```python
+def apply(request):
+    ctx.jobs.submit("apply", lambda job: ctx.os.call("updates.apply"))
+```
+
+The person sees the sentence in `ctx.os.methods` as the last step before a change: build the
+act's `summary` from it, and do not word a careful act in the extension's own terms.  VPinFE's
+log names the extension, the method and where the request came from.
+
+A change can take as long as an hour, and `call` waits for it on the thread that called.  Start
+one from a job, as above, and never call it from `async` code, where it would stop the whole
+server until the helper answered.  Raises `ContractError` for a method no helper offers or an
+area the manifest did not declare, `ValueError` for an argument the method does not take or JSON
+cannot carry, `PermissionError` for a change without a Protected request, `Unavailable` where no
+helper answered, answered too late or gave an answer that cannot be read, and `RuntimeError`
+with the helper's own reason where it said no.
