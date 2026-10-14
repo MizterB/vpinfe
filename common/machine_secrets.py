@@ -100,6 +100,16 @@ def put(name: str, value: Any) -> None:
         write_private(paths.SECRETS_PATH, kept)
 
 
+def change(name: str, edit: Callable[[Any], Any]) -> None:
+    """Replace the named secret with `edit` of what is held (None where nothing is), the
+    read and the write under one lock so two changes cannot lose each other."""
+    with _lock:
+        kept = _load()
+        kept[name] = edit(kept.get(name))
+        paths.ensure_config_dir()
+        write_private(paths.SECRETS_PATH, kept)
+
+
 def drop(name: str) -> None:
     with _lock:
         kept = _load()

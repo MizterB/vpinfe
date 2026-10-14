@@ -68,7 +68,7 @@ def discovered() -> dict[str, Any]:
                           "display_name": peer.display_name,
                           "features": list(peer.features),
                           "address": peer.address, "port": peer.port,
-                          "url": peer.url} for peer in found]}
+                          "https": peer.https, "url": peer.url} for peer in found]}
 
 
 def announce(device_id: str, kind: str, display_name: str, features: Iterable[str],

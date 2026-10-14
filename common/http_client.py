@@ -22,6 +22,7 @@ from urllib.parse import urlsplit
 
 import requests
 
+from common import pinned_certificates
 from common.i18n import t
 
 DEFAULT_TIMEOUT = 15
@@ -106,8 +107,10 @@ def _wait_until(response: requests.Response, now: float) -> float | None:
     return said if said is not None and said > now else now + QUIET_SECONDS
 
 
-def _asked(verb: Callable[..., requests.Response], url: str,
+def _asked(verb: Callable[..., requests.Response], url: str, *, trust: str | None = None,
            **kwargs: Any) -> requests.Response:
+    """`trust` is a certificate fingerprint to meet in place of the one kept for an https
+    address, or `pinned_certificates.UNVERIFIED` for a call that carries no secret."""
     host = _host(url)
     if os.environ.get(OFFLINE, "").strip() and not _loopback(url):
         raise OfflineError(f"{host} is outside this machine and {OFFLINE} is set")
@@ -116,7 +119,7 @@ def _asked(verb: Callable[..., requests.Response], url: str,
         until = _quiet.get(host, 0.0)
     if until > now:
         raise HostQuietError(host, until)
-    response = verb(url, **kwargs)
+    response = pinned_certificates.sending(verb, url, trust)(url, **kwargs)
     wait = _wait_until(response, time.time())
     if wait is not None:
         with _quiet_lock:
@@ -128,8 +131,9 @@ def _asked(verb: Callable[..., requests.Response], url: str,
 
 
 def get_json(
-        url: str, *, timeout: int = DEFAULT_TIMEOUT, headers: dict[str, str] | None = None) -> Any:
-    response = _asked(requests.get, url, timeout=timeout, headers=headers)
+        url: str, *, timeout: int = DEFAULT_TIMEOUT, headers: dict[str, str] | None = None,
+        trust: str | None = None) -> Any:
+    response = _asked(requests.get, url, timeout=timeout, headers=headers, trust=trust)
     response.raise_for_status()
     try:
         return response.json()
@@ -138,10 +142,11 @@ def get_json(
 
 
 def put_json(url: str, payload: Any, *, timeout: int = DEFAULT_TIMEOUT,
-             headers: dict[str, str] | None = None) -> Any:
+             headers: dict[str, str] | None = None, trust: str | None = None) -> Any:
     """PUT a JSON body and read the answer back. Same rule as the readers: a timeout
     every time, so no call site can hang the app on a server that never answers."""
-    response = _asked(requests.put, url, json=payload, timeout=timeout, headers=headers)
+    response = _asked(requests.put, url, json=payload, timeout=timeout, headers=headers,
+                      trust=trust)
     response.raise_for_status()
     try:
         return response.json()
@@ -150,13 +155,14 @@ def put_json(url: str, payload: Any, *, timeout: int = DEFAULT_TIMEOUT,
 
 
 def post_json(url: str, payload: Any = None, *, timeout: int = DEFAULT_TIMEOUT,
-              headers: dict[str, str] | None = None) -> Any:
+              headers: dict[str, str] | None = None, trust: str | None = None) -> Any:
     """POST a JSON body and read the answer back.
 
     An empty answer is None rather than an error: a 202 that says a thing was started
     need not describe it, and one route here goes down as its own response is sent.
     """
-    response = _asked(requests.post, url, json=payload, timeout=timeout, headers=headers)
+    response = _asked(requests.post, url, json=payload, timeout=timeout, headers=headers,
+                      trust=trust)
     response.raise_for_status()
     try:
         return response.json()

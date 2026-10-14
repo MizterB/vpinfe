@@ -16,7 +16,7 @@ import threading
 
 from nicegui import app, context, ui
 
-from common import encrypted_connections, machine_secrets, serving
+from common import encrypted_connections, install_presence, machine_secrets, serving
 from common.failures import why
 from common.online.app_updater import (
     check_now,
@@ -464,6 +464,7 @@ def _certificate_to_serve() -> dict[str, str]:
         encrypted_connections.https_failed(reason)
         return {}
     encrypted_connections.https_started()
+    install_presence.announce_again()
     return {"ssl_certfile": certfile, "ssl_keyfile": keyfile}
 
 

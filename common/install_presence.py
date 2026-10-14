@@ -53,6 +53,14 @@ def announce_on_the_network() -> None:
     discovery.start(config, on_peer=_heard_from)
 
 
+def announce_again() -> None:
+    """Say it again with what is now true. HTTPS comes up after the first announcement."""
+    try:
+        discovery.refresh(get_ini_config())
+    except Exception as exc:
+        logger.warning("Could not read this install to announce it again: %s", exc)
+
+
 def _heard_from(peer: Peer) -> None:
     """File an install this one heard from, when managing devices is its job.
 
@@ -70,6 +78,7 @@ def _heard_from(peer: Peer) -> None:
             features=peer.features,
             address=peer.address,
             port=peer.port,
+            https=peer.https,
         )
     except Exception:
         logger.debug("Could not record the install that announced itself", exc_info=True)

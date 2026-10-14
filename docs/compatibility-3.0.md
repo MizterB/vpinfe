@@ -423,10 +423,11 @@ to close one when none is running says so. Covered by `tests/api/test_actions.py
 `tests/api/test_logs.py`.
 
 **PAR-89 — An install announces itself on the local network.** 3.0 registers an mDNS
-service, `_vpinfe._tcp.local.`, carrying its id, name, features and version, and browses
-for the same. New dependency: `zeroconf`. Users may see a firewall prompt on Windows the
-first time an install starts, and an install with device management switched on fills its
-device list without anyone typing an address.
+service, `_vpinfe._tcp.local.`, carrying its id, name, features, version and `scheme`
+(`http` or `https`; an install that says nothing is plain HTTP), and browses for the same.
+New dependency: `zeroconf`. Users may see a firewall prompt on Windows the first time an
+install starts, and an install with device management switched on fills its device list
+without anyone typing an address.
 *Why:* the alternative was every install holding the address of whichever machine manages
 it - configuration for a feature it does not have, on the machine least likely to be
 looked after. Announcing puts the configuration where the capability is, and it dissolves
@@ -435,8 +436,11 @@ goodbye packet instead of a timeout per sleeping machine. The record carries ide
 only, because the capability list is four fifths of the discovery document and a TXT
 record has no room for it - capabilities stay an HTTP fetch for a peer somebody has
 decided to care about. Best effort throughout: a network that filters multicast costs
-discovery and never a startup, which is why manual entry stays. Covered by
-`tests/api/test_discovery.py`.
+discovery and never a startup, which is why manual entry stays. An install serving HTTPS
+from a self-signed certificate is paired by taking the certificate it shows when a code is
+asked for; that fingerprint is kept with the pairing and every later call to that address
+must meet it, so a changed certificate stops the call until the pairing is done again.
+Covered by `tests/api/test_discovery.py` and `tests/api/test_pinned_certificates.py`.
 
 **PAR-77 — The table is a first-class object on the wire.** *(machine-checked)* One
 `table_descriptor` builds the table half of both play lenses, so `GET /collections/{name}

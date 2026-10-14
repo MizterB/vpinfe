@@ -6,11 +6,15 @@ it gets back, so a wrong answer here is one install asking the wrong machine.
 
 from __future__ import annotations
 
+import tempfile
 import types
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
-from common import device_client, http_client, lifecycle
+import requests
+
+from common import access_keys, device_client, http_client, lifecycle, paths, pinned_certificates
 
 LOCAL = "Aaaa111111"
 CAB = {"device_id": "Bbbb222222", "address": "192.168.1.50", "port": 8001}
@@ -129,6 +133,156 @@ class RemoteRefusalTests(unittest.TestCase):
     def test_a_remote_device_never_asks_the_person_to_confirm(self) -> None:
         """The confirm belongs on the surface that asked, which is not that machine."""
         self.assertFalse(self.device.wants_confirmation(lifecycle.VPINFE))
+
+
+SECURE = "https://192.168.1.50:8001"
+SHOWN = "ab" * 32
+
+
+class _HttpsInstall(unittest.TestCase):
+    def setUp(self) -> None:
+        holder = tempfile.TemporaryDirectory()
+        self.addCleanup(holder.cleanup)
+        patched = patch.object(paths, "SECRETS_PATH", Path(holder.name) / "secrets.json")
+        patched.start()
+        self.addCleanup(patched.stop)
+        self.device = device_client.RemoteDevice(SECURE, "Bbbb222222")
+        self.sent: list[tuple[str, object]] = []
+
+    def post_json(self, url: str, payload=None, **kwargs) -> dict:
+        self.sent.append((url, kwargs.get("trust")))
+        return {"request_id": "r1"} if url.endswith("/code") else {"secret": "tok"}
+
+
+class PairingAnHttpsInstallTests(_HttpsInstall):
+    """The certificate the address shows when a code is asked for is the one trusted once
+    the code is traded, and the next one it shows is refused."""
+
+    def test_the_code_is_asked_for_over_the_certificate_the_address_shows(self) -> None:
+        with (patch.object(pinned_certificates, "trust_now", lambda _url: SHOWN),
+              patch.object(http_client, "post_json", self.post_json)):
+            self.assertEqual(self.device.pair_ask(), "r1")
+
+        self.assertEqual(self.sent, [(f"{SECURE}/api/v1/auth/pair/code", SHOWN)])
+        self.assertEqual(pinned_certificates.pinned("192.168.1.50", 8001), "")
+
+    def test_the_code_is_traded_over_the_same_certificate_and_the_pin_is_kept(self) -> None:
+        with (patch.object(pinned_certificates, "trust_now", lambda _url: SHOWN),
+              patch.object(http_client, "post_json", self.post_json),
+              patch.object(access_keys, "keep_pairing_token") as keep):
+            self.device.pair_ask()
+            self.device.pair("r1", "123456", "cab")
+
+        self.assertEqual(self.sent[1], (f"{SECURE}/api/v1/auth/pair", SHOWN))
+        self.assertEqual(pinned_certificates.pinned("192.168.1.50", 8001), SHOWN)
+        keep.assert_called_once_with("Bbbb222222", "tok")
+
+    def test_a_token_already_held_is_not_sent_to_a_certificate_not_yet_trusted(self) -> None:
+        carried: list[object] = []
+
+        def post_json(url: str, payload=None, **kwargs) -> dict:
+            carried.append(kwargs.get("headers"))
+            return self.post_json(url, payload, **kwargs)
+
+        with (patch.object(pinned_certificates, "trust_now", lambda _url: SHOWN),
+              patch.object(http_client, "post_json", post_json),
+              patch.object(access_keys, "pairing_token", lambda _id: "old"),
+              patch.object(access_keys, "keep_pairing_token")):
+            self.device.pair_ask()
+            self.device.pair("r1", "123456", "cab")
+
+        self.assertEqual(carried, [None, None])
+
+    def test_no_pin_is_kept_when_the_trade_fails(self) -> None:
+        def refuse(url: str, payload=None, **kwargs) -> dict:
+            if url.endswith("/code"):
+                return {"request_id": "r1"}
+            raise requests.HTTPError("wrong code")
+
+        with (patch.object(pinned_certificates, "trust_now", lambda _url: SHOWN),
+              patch.object(http_client, "post_json", refuse)):
+            self.device.pair_ask()
+            with self.assertRaises(requests.HTTPError):
+                self.device.pair("r1", "000000", "cab")
+
+        self.assertEqual(pinned_certificates.pinned("192.168.1.50", 8001), "")
+
+    def test_a_plain_http_install_pairs_as_it_always_did(self) -> None:
+        plain = device_client.RemoteDevice("http://192.168.1.50:8001", "Bbbb222222")
+        with (patch.object(http_client, "post_json", self.post_json),
+              patch.object(access_keys, "keep_pairing_token")):
+            plain.pair_ask()
+            plain.pair("r1", "123456", "cab")
+
+        self.assertEqual([trust for _url, trust in self.sent], [None, None])
+        self.assertEqual(machine_secrets_pins(), None)
+
+    def test_a_pasted_token_pins_what_the_address_shows_now(self) -> None:
+        with (patch.object(pinned_certificates, "trust_now", lambda _url: SHOWN),
+              patch.object(access_keys, "keep_pairing_token") as keep):
+            self.device.pair_with_token("pasted")
+
+        self.assertEqual(pinned_certificates.pinned("192.168.1.50", 8001), SHOWN)
+        keep.assert_called_once_with("Bbbb222222", "pasted")
+
+    def test_unpairing_forgets_the_pin_with_the_token(self) -> None:
+        pinned_certificates.keep("192.168.1.50", 8001, SHOWN)
+
+        with patch.object(access_keys, "forget_pairing_token") as forget:
+            self.device.unpair()
+
+        forget.assert_called_once_with("Bbbb222222")
+        self.assertEqual(pinned_certificates.pinned("192.168.1.50", 8001), "")
+
+
+class ProbingAnHttpsInstallTests(_HttpsInstall):
+    def test_an_address_nothing_was_paired_with_is_asked_without_a_secret_unverified(
+            self) -> None:
+        asked: list[object] = []
+
+        def get_json(url: str, **kwargs) -> dict:
+            asked.append(kwargs.get("trust"))
+            return {"vpinfe_version": "3.0"}
+
+        with (patch.object(http_client, "get_json", get_json),
+              patch.object(access_keys, "pairing_token", lambda _id: "")):
+            self.device.probe()
+
+        self.assertEqual(asked[0], pinned_certificates.UNVERIFIED)
+
+    def test_a_paired_address_is_asked_over_its_pin(self) -> None:
+        asked: list[object] = []
+
+        def get_json(url: str, **kwargs) -> dict:
+            asked.append(kwargs.get("trust"))
+            return {}
+
+        with (patch.object(http_client, "get_json", get_json),
+              patch.object(access_keys, "pairing_token", lambda _id: "tok")):
+            self.device.probe()
+
+        self.assertEqual(asked[0], None)
+
+    def test_a_changed_certificate_is_said_and_the_pair_door_stays_open(self) -> None:
+        with patch.object(http_client, "get_json",
+                          side_effect=pinned_certificates.CertificateChangedError("x")):
+            reach = self.device.probe()
+
+        self.assertTrue(reach["certificate_changed"])
+        self.assertFalse(reach["paired"])
+        self.assertEqual(reach["state"], device_client.UNREACHABLE)
+        self.assertEqual(reach["reason"], device_client.t("device.reason.certificate_changed"))
+
+    def test_a_changed_certificate_is_not_taken_for_a_dead_machine(self) -> None:
+        error = pinned_certificates.CertificateChangedError("192.168.1.50")
+
+        self.assertEqual(device_client.why_not(error), "device.reason.certificate_changed")
+
+
+def machine_secrets_pins():
+    from common import machine_secrets
+
+    return machine_secrets.read().get(pinned_certificates.PINNED)
 
 
 if __name__ == "__main__":

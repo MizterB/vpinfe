@@ -65,6 +65,26 @@ class ConnectionRowsTests(unittest.TestCase):
         self.assertIs(_labels(rows)[-1], panel.ASIDE)
 
 
+class PairingRowTests(unittest.TestCase):
+    def rows(self, reach: dict) -> list:
+        context = {**_context(address="10.0.0.4", port=8001, https=True), "reach": reach}
+        return devices._pairing_rows(context)
+
+    def test_an_answering_install_that_is_not_paired_offers_the_door(self) -> None:
+        rows = self.rows({"state": device_client.ANSWERING, "paired": False})
+
+        self.assertEqual(_labels(rows), ["Access"])
+
+    def test_a_changed_certificate_keeps_the_door_open_though_it_does_not_answer(self) -> None:
+        rows = self.rows({"state": device_client.UNREACHABLE, "paired": False,
+                          "certificate_changed": True})
+
+        self.assertEqual(_labels(rows), ["Access"])
+
+    def test_an_install_that_does_not_answer_for_any_other_reason_offers_nothing(self) -> None:
+        self.assertEqual(self.rows({"state": device_client.UNREACHABLE, "paired": False}), [])
+
+
 class OwnAddressTests(unittest.TestCase):
     def test_it_is_the_first_host_that_is_not_loopback(self) -> None:
         with mock.patch("common.host.addresses.hosts",

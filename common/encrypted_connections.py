@@ -265,6 +265,7 @@ class Listening:
     def __init__(self) -> None:
         self.https = False
         self.problem = ""
+        self.decided = False
 
 
 _listening = Listening()
@@ -275,16 +276,26 @@ def listening() -> Listening:
 
 
 def https_started() -> None:
-    _listening.https, _listening.problem = True, ""
+    _listening.https, _listening.problem, _listening.decided = True, "", True
 
 
 def https_failed(reason: str) -> None:
-    _listening.https, _listening.problem = False, reason
+    _listening.https, _listening.problem, _listening.decided = False, reason, True
 
 
 def forget_listening() -> None:
     """Nothing has been started. For a test."""
-    _listening.https, _listening.problem = False, ""
+    _listening.https, _listening.problem, _listening.decided = False, "", False
+
+
+def serves_https() -> bool:
+    """Whether this run answers HTTPS, or before the run has decided, whether it will.
+    The first announcement goes out before the port starts, and an install that announced
+    plain HTTP and then HTTPS would make every peer drop its pairing."""
+    if _listening.decided:
+        return _listening.https
+    certfile, keyfile = instance().certificate()
+    return bool(certfile) and not unreadable_reason(certfile, keyfile)
 
 
 def _header(headers: Any, name: str) -> str:

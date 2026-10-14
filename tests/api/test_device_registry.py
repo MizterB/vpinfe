@@ -16,8 +16,15 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from common import access_keys
-from common.device_registry import Device, DeviceRegistry, browser_said, keep_own_row
+from common import access_keys, pinned_certificates
+from common.device_registry import (
+    Device,
+    DeviceRegistry,
+    browser_said,
+    install_url,
+    keep_own_row,
+    paired_header,
+)
 from tests.support.library import add_mobile
 
 
@@ -498,6 +505,65 @@ class DeviceTests(unittest.TestCase):
                                  "checked_at": "2026-01-02T00:00:00Z"})
 
         self.assertEqual(Device.from_dict(device.as_dict()), device)
+
+
+
+class AnInstallThatChangesSchemeTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.registry = DeviceRegistry(Path(self.tmp.name) / "devices.json")
+        self.registry.record("Aaaa111111", address="192.168.1.30", port=8001, https=True)
+
+    def record(self, **fields) -> tuple[bool, list]:
+        with (patch.object(access_keys, "forget_pairing_token") as forget,
+              patch.object(pinned_certificates, "forget") as unpin):
+            self.registry.record("Aaaa111111", **fields)
+        return forget.called, [call.args for call in unpin.call_args_list]
+
+    def test_the_scheme_it_announced_is_kept(self) -> None:
+        self.assertTrue(self.registry.get("Aaaa111111").https)
+        self.assertEqual(install_url(self.registry.get("Aaaa111111").as_dict()),
+                         "https://192.168.1.30:8001")
+
+    def test_being_talked_down_to_http_drops_the_pairing_and_the_pin(self) -> None:
+        forgotten, unpinned = self.record(https=False)
+
+        self.assertTrue(forgotten)
+        self.assertEqual(unpinned, [("192.168.1.30", 8001)])
+        self.assertFalse(self.registry.get("Aaaa111111").https)
+
+    def test_a_move_drops_the_pin_kept_for_the_old_address(self) -> None:
+        forgotten, unpinned = self.record(address="192.168.1.99")
+
+        self.assertTrue(forgotten)
+        self.assertEqual(unpinned, [("192.168.1.30", 8001)])
+
+    def test_forgetting_a_device_drops_its_pairing_and_its_pin(self) -> None:
+        with (patch.object(access_keys, "forget_pairing_token") as forget,
+              patch.object(pinned_certificates, "forget") as unpin):
+            self.assertTrue(self.registry.forget("Aaaa111111"))
+
+        forget.assert_called_once_with("Aaaa111111")
+        unpin.assert_called_once_with("192.168.1.30", 8001)
+
+    def test_an_update_that_does_not_know_the_scheme_leaves_it(self) -> None:
+        forgotten, unpinned = self.record(display_name="renamed")
+
+        self.assertFalse(forgotten)
+        self.assertEqual(unpinned, [])
+        self.assertTrue(self.registry.get("Aaaa111111").https)
+
+    def test_a_token_is_sent_only_over_the_scheme_it_was_paired_over(self) -> None:
+        with (patch("common.device_registry.get_device_registry", lambda: self.registry),
+              patch.object(access_keys, "pairing_header", lambda _id: {"X": "token"})):
+            self.assertEqual(paired_header("https://192.168.1.30:8001/api"), {"X": "token"})
+            self.assertIsNone(paired_header("http://192.168.1.30:8001/api"))
+
+    def test_an_entry_with_no_scheme_said_is_plain_http(self) -> None:
+        self.assertEqual(install_url({"address": "192.168.1.30", "port": 8001}),
+                         "http://192.168.1.30:8001")
+        self.assertEqual(install_url({"address": "", "port": 8001}), "")
 
 
 if __name__ == "__main__":

@@ -9,6 +9,7 @@ record that does not identify itself is not a peer.
 from __future__ import annotations
 
 import unittest
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import httpapi
@@ -60,6 +61,38 @@ class ReadingAnAnnouncementTests(unittest.TestCase):
         self.assertEqual(peer.display_name, "basement cab")
         self.assertEqual(peer.features, ("library", "frontend"))
         self.assertEqual(peer.url, "http://192.168.1.20:8001")
+
+    def test_an_install_serving_https_says_so_and_is_reached_over_it(self) -> None:
+        peer = discovery._as_peer(_Announcement(_said(scheme=b"https")))
+
+        self.assertTrue(peer.https)
+        self.assertEqual(peer.url, "https://192.168.1.20:8001")
+
+    def test_an_install_that_says_nothing_of_a_scheme_is_plain_http(self) -> None:
+        """An install a release behind has no such key."""
+        peer = discovery._as_peer(_Announcement(_said()))
+
+        self.assertFalse(peer.https)
+
+    def test_the_scheme_is_announced_as_it_is_now(self) -> None:
+        sent: list[dict] = []
+
+        class Registered:
+            def register_service(self, info) -> None:
+                sent.append(info.properties)
+
+        found = discovery._Discovery()
+        found._zeroconf = Registered()  # type: ignore[assignment]
+        found._mine = "Aaaa111111"
+        with (patch.object(discovery, "_routable_address", lambda: "192.168.1.20"),
+              patch.object(discovery.serving, "network",
+                           lambda _config: SimpleNamespace(http_port=8001)),
+              patch.object(discovery.encrypted_connections, "serves_https", lambda: True),
+              patch.object(install_identity, "features", lambda _config: []),
+              patch.object(install_identity, "display_name", lambda _config: "cab")):
+            found._announce(SimpleNamespace())  # type: ignore[arg-type]
+
+        self.assertEqual(sent[0][b"scheme"], b"https")
 
     def test_a_record_with_no_identity_is_not_a_peer(self) -> None:
         """Anything on the network can announce a service of this type. What makes one
@@ -207,6 +240,15 @@ class RecordingWhatWasHeardTests(TempTree):
         self.assertEqual(held.display_name, "basement cab")
         self.assertEqual(held.address, "192.168.1.20")
         self.assertEqual(held.port, 8001)
+
+    def test_an_install_heard_over_https_is_filed_as_one(self) -> None:
+        peer = discovery.Peer(install_id="Aaaa111111", display_name="basement cab",
+                              features=("library",), address="192.168.1.20", port=8001,
+                              https=True)
+        with self._with_features(install_identity.DEVICES):
+            install_presence._heard_from(peer)
+
+        self.assertTrue(self.registry.get("Aaaa111111").https)
 
     def test_an_install_that_does_not_keeps_no_list(self) -> None:
         """Announcing is to everybody; what to do with it is each install's own."""

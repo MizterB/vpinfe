@@ -8,7 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-from common import access_keys, api_tokens, machine_secrets, sign_in
+from common import access_keys, api_tokens, paths, sign_in
 from console import acting, panel, token_panel
 from httpapi import auth
 
@@ -50,16 +50,16 @@ class ThePairingTokenTests(unittest.TestCase):
         self.assertIsNone(access_keys.pairing_header(""))
 
     def test_a_paired_device_is_sent_its_token_and_forgetting_stops_it(self) -> None:
-        with mock.patch.object(machine_secrets, "read", return_value={}), \
-                mock.patch.object(machine_secrets, "put") as put:
+        holder = tempfile.TemporaryDirectory()
+        self.addCleanup(holder.cleanup)
+        with mock.patch.object(paths, "SECRETS_PATH", Path(holder.name) / "secrets.json"):
             access_keys.keep_pairing_token("dev", "vpf_x")
-            put.assert_called_once_with(access_keys.PAIRED, {"dev": "vpf_x"})
-
-        with mock.patch.object(machine_secrets, "read",
-                               return_value={access_keys.PAIRED: {"dev": "vpf_x"}}):
             header = access_keys.pairing_header("dev")
+            access_keys.forget_pairing_token("dev")
+            forgotten = access_keys.pairing_header("dev")
 
         self.assertEqual(header, {"Authorization": "bearer vpf_x"})
+        self.assertIsNone(forgotten)
 
 
 class APlayPassTests(unittest.TestCase):

@@ -13,6 +13,7 @@ import requests
 
 from common.http_client import HostQuietError
 from common.i18n import t
+from common.pinned_certificates import CertificateChangedError
 
 # errno: the key with no path, and the key naming the path.
 _FILES: dict[int, tuple[str, str]] = {
@@ -105,6 +106,8 @@ def _unanswered(exc: BaseException, host: str) -> str:
     if isinstance(exc, HostQuietError):
         return t("said.why.rate_limited_at", host=exc.host,
                  time=datetime.fromtimestamp(exc.until).strftime("%H:%M"))
+    if isinstance(exc, CertificateChangedError):
+        return _raw(exc)
     if isinstance(exc, requests.RequestException):
         return _network(exc, host) or _raw(exc)
     if isinstance(exc, HTTPError):

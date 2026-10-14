@@ -495,6 +495,19 @@ class TheCertificateTests(ConnectionsCase):
     def test_without_a_certificate_they_stay_plain_http(self) -> None:
         self.assertTrue(all(one.startswith("http://") for one in addresses.urls(8001)))
 
+    def test_a_run_that_has_not_started_yet_is_announced_as_the_certificate_chosen_says(
+            self) -> None:
+        self.assertFalse(encrypted_connections.serves_https())
+
+        self.connections.set_certificate(self.cert, self.key)
+        self.assertTrue(encrypted_connections.serves_https())
+
+    def test_once_the_run_has_decided_that_is_what_is_announced(self) -> None:
+        self.connections.set_certificate(self.cert, self.key)
+        encrypted_connections.https_failed(encrypted_connections.UNREADABLE)
+
+        self.assertFalse(encrypted_connections.serves_https())
+
     def test_a_certificate_that_cannot_be_served_leaves_the_run_on_http(self) -> None:
         encrypted_connections.https_failed(encrypted_connections.UNREADABLE)
 

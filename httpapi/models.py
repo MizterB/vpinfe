@@ -123,6 +123,9 @@ class DeviceResource(ApiModel):
     # With the address, what it takes to reach this device. 0 means it never said, which
     # is every entry written before an install sent one.
     port: int = 0
+    # Whether it announced that it answers HTTPS at that address. The dialing side reads
+    # the scheme from here, so a listing that drops it is dialed over plain HTTP.
+    https: bool = False
     first_seen: str = ""
     # When it last announced itself, which is once per startup.
     last_seen: str = ""
@@ -398,6 +401,11 @@ class DeviceProbe(ApiModel):
     # than empty - from anything that did not answer, and from a build too old to say.
     capabilities: list[str] | None = None
     browser: DeviceBrowser | None = None
+    # Whether the token this install holds for it is one it still accepts. Absent where it
+    # did not answer, which is not the same as unpaired.
+    paired: bool | None = None
+    # It answers HTTPS but shows a different certificate than when it was paired.
+    certificate_changed: bool = False
 
 
 class DeviceProbeList(ApiModel):

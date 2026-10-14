@@ -171,10 +171,12 @@ def _state_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
 
 def _pairing_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     """An install that answers but has not been paired: it turns away everything past
-    discovery until a code from its own screen is typed here."""
+    discovery until a code from its own screen is typed here. Pairing again is also how a
+    changed certificate is trusted."""
     reach = context.get("reach") or {}
+    changed = bool(reach.get("certificate_changed"))
     if (is_local(context) or is_phone(context) or reach.get("paired") is not False
-            or reach.get("state") != device_client.ANSWERING):
+            or (reach.get("state") != device_client.ANSWERING and not changed)):
         return []
     client = client_for(context)
     ask = (context.get("state") or {}).get("ask_device")
@@ -189,8 +191,10 @@ def _pairing_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
 
     def door() -> None:
         with ui.element("div").classes("console-fact-edit"):
-            panel.state(t("console.devices.needs_pairing"), "warn",
-                        hint=t("console.devices.needs_pairing_hint"))()
+            panel.state(t("console.devices.certificate_changed" if changed
+                          else "console.devices.needs_pairing"), "warn",
+                        hint=t("console.devices.certificate_changed_hint" if changed
+                               else "console.devices.needs_pairing_hint"))()
             panel.action(t("console.pairing.pair"), start, icon=verbs.MATCH, inline=True,
                          hint=t("console.pairing.pair_hint"))()
 
@@ -1219,9 +1223,8 @@ SYSTEM_PATH = "/console?view=system"
 def settings_url(device: dict[str, Any]) -> str:
     """That install's own Console, landing on System. Empty when there is nothing to
     dial - an entry written before ports were recorded has no port."""
-    address = str(device.get("address") or "").strip()
-    port = int(device.get("port") or 0)
-    return f"http://{address}:{port}{SYSTEM_PATH}" if address and port else ""
+    base = device_registry.install_url(device)
+    return f"{base}{SYSTEM_PATH}" if base else ""
 
 
 def door_reason(device: dict[str, Any], reach: dict[str, Any] | None,

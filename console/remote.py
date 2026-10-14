@@ -100,9 +100,7 @@ def base_url_of(device: dict[str, Any], local_device_id: str) -> str:
     """
     if is_here(device, local_device_id):
         return local_base_url()
-    address = str(device.get("address") or "").strip()
-    port = int(device.get("port") or 0)
-    return f"http://{address}:{port}" if address and port else ""
+    return device_registry.install_url(device)
 
 
 def targets(devices: list[dict[str, Any]], local_device_id: str) -> list[dict[str, Any]]:

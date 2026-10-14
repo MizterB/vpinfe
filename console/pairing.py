@@ -13,7 +13,6 @@ from typing import Any
 
 from nicegui import ui
 
-from common import access_keys
 from common.failures import why
 from common.i18n import t
 from common.install_identity import display_name
@@ -91,5 +90,10 @@ async def paste(client: Any, device_name: str) -> bool:
     given = await box
     if not given:
         return False
-    access_keys.keep_pairing_token(client.device_id, str(given))
+    try:
+        await offload.io(client.pair_with_token, str(given))
+    except Exception as exc:  # noqa: BLE001 - an https install that does not answer says so
+        logger.info("Could not read the certificate of %s", device_name, exc_info=True)
+        ui.notify(t("console.pairing.not_checked"), caption=why(exc), type="negative")
+        return False
     return True

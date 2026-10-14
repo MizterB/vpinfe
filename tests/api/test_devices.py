@@ -392,6 +392,16 @@ class DeviceRegistryApiTests(TempTree):
         device = self.client.get(f"/devices/{CAB['device_id']}").json()
         self.assertEqual(device["port"], 8001)
 
+    def test_the_listing_carries_the_scheme_an_install_announced(self) -> None:
+        """A listing without it is dialed over plain HTTP, and an install serving HTTPS
+        resets that connection."""
+        self.registry.record(CAB["device_id"], address="10.0.0.5", port=8001, https=True)
+
+        listed = self.client.get("/devices").json()["devices"][0]
+        one = self.client.get(f"/devices/{CAB['device_id']}").json()
+
+        self.assertEqual((listed["https"], one["https"]), (True, True))
+
     def test_a_device_that_says_no_port_is_recorded_without_one(self) -> None:
         """Every entry written before installs sent one. Half an address is not an
         address, and 0 is what says so."""
@@ -441,6 +451,24 @@ class DeviceRegistryApiTests(TempTree):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["device_id"], CAB["device_id"])
         self.assertEqual(response.json()["state"], "unreachable")
+
+    def test_whether_it_is_paired_and_whether_its_certificate_changed_reach_the_page(
+            self) -> None:
+        """The Devices page opens its pairing door on these two, so a model that drops
+        them leaves a device that needs pairing with no way to ask."""
+        self.client.put("/devices", json={**CAB, "port": 9})
+        answer = {"state": device_client.ANSWERING, "paired": False, "version": "3.0.0"}
+
+        with patch.object(device_client, "probe", return_value=answer):
+            unpaired = self.client.post(f"/devices/{CAB['device_id']}/probe").json()
+        changed = {"state": device_client.UNREACHABLE, "paired": False,
+                   "certificate_changed": True}
+        with patch.object(device_client, "probe", return_value=changed):
+            moved = self.client.post(f"/devices/{CAB['device_id']}/probe").json()
+
+        self.assertIs(unpaired["paired"], False)
+        self.assertFalse(unpaired["certificate_changed"])
+        self.assertTrue(moved["certificate_changed"])
 
     def test_asking_one_it_does_not_know_is_a_404(self) -> None:
         response = self.client.post("/devices/Zzzz999999/probe")

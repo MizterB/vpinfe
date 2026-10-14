@@ -58,14 +58,13 @@ def pairing_header(device_id: str) -> dict[str, str] | None:
 
 
 def keep_pairing_token(device_id: str, token: str) -> None:
-    held = machine_secrets.read().get(PAIRED)
-    kept = dict(held) if isinstance(held, dict) else {}
-    kept[device_id] = token
-    machine_secrets.put(PAIRED, kept)
+    machine_secrets.change(
+        PAIRED, lambda held: {**(held if isinstance(held, dict) else {}), device_id: token})
 
 
 def forget_pairing_token(device_id: str) -> None:
-    held = machine_secrets.read().get(PAIRED)
-    if isinstance(held, dict) and device_id in held:
-        kept = {key: value for key, value in held.items() if key != device_id}
-        machine_secrets.put(PAIRED, kept)
+    if device_id not in (machine_secrets.read().get(PAIRED) or {}):
+        return
+    machine_secrets.change(
+        PAIRED, lambda held: {key: value for key, value in (held or {}).items()
+                              if key != device_id})

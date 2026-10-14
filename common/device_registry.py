@@ -39,7 +39,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-from common import access_keys, config_schema
+from common import access_keys, config_schema, pinned_certificates
 from common.atomic_write import write_atomic
 from common.config_store import ConfigStore
 from common.i18n import t
@@ -136,6 +136,9 @@ class Device:
     # request came from and never what that machine listens on. 0 means it did not say -
     # an entry written before installs sent one, or a device that cannot be dialed back.
     port: int = 0
+    # Whether it announced that it answers HTTPS. Moving between the two drops the pairing,
+    # since a token paired over HTTPS must not follow the install onto plain HTTP.
+    https: bool = False
     first_seen: str = ""
     # When it last announced itself, which is once per startup. An install that has been
     # up for a week said so a week ago, so this is not how recently it was there.
@@ -155,6 +158,7 @@ class Device:
                 "features": list(self.features), "address": self.address, "port": self.port,
                 "first_seen": self.first_seen, "last_seen": self.last_seen,
                 "last_reachable": self.last_reachable,
+                **({"https": True} if self.https else {}),
                 **({"browser": dict(self.browser)} if self.browser else {}),
                 **self.extra}
 
@@ -164,7 +168,7 @@ class Device:
         if not device_id:
             return None
         known = {"device_id", "kind", "display_name", "features", "roles", "address", "port",
-                 "first_seen", "last_seen", "last_reachable", "browser"}
+                 "first_seen", "last_seen", "last_reachable", "browser", "https"}
         browser = raw.get("browser")
         # `roles` is what entries written before the feature model called this. Read
         # rather than migrated: the words differ too - one that said `hub` meant the
@@ -181,6 +185,7 @@ class Device:
             features=tuple(str(f) for f in declared if str(f).strip()),
             address=str(raw.get("address", "") or ""),
             port=_as_port(raw.get("port")),
+            https=raw.get("https") is True,
             first_seen=str(raw.get("first_seen", "") or ""),
             last_seen=str(raw.get("last_seen", "") or ""),
             last_reachable=str(raw.get("last_reachable", "") or ""),
@@ -245,16 +250,18 @@ class DeviceRegistry:
 
     def record(self, device_id: str, *, kind: str = "", display_name: str = "",
                features: Iterable[str] = (), address: str = "",
-               port: int = 0, heard: bool = True) -> Device | None:
+               port: int = 0, https: bool | None = None,
+               heard: bool = True) -> Device | None:
         """Note that a device exists, or that a known one has been heard from.
 
         `first_seen` is kept from the existing entry: a device is the same device
         however many times it reconnects. Everything else is refreshed, because the
         install owns those and this is only a copy of what it last said.
 
-        A paired device that moves to another address or port loses its pairing token: the
-        token is sent wherever the entry points, and a caller must not be able to point it at
-        itself.
+        A paired device that moves to another address or port, or between HTTP and HTTPS,
+        loses its pairing token and the certificate pinned for it: the token is sent wherever
+        the entry points, and a caller must not be able to point it at itself or talk it down
+        to plain HTTP. `https` is None where the caller does not know, which leaves it as it was.
 
         `heard` is false where a person wrote the entry and nothing has answered: it
         leaves `last_seen` and `last_reachable` as they were, blank for a new one.
@@ -278,8 +285,9 @@ class DeviceRegistry:
             if wanted in {str(item["id"]).strip() for item in self._mobile_items()}:
                 raise ValueError(t("error.devices.mobile_elsewhere"))
             if (existing is not None and (address and address != existing.address
-                                          or port and port != existing.port)):
-                access_keys.forget_pairing_token(wanted)
+                                          or port and port != existing.port
+                                          or https is not None and https != existing.https)):
+                _drop_pairing(existing)
             devices[wanted] = Device(
                 device_id=wanted,
                 kind=kind or (existing.kind if existing else KIND_VPINFE),
@@ -288,6 +296,7 @@ class DeviceRegistry:
                           or (existing.features if existing else ())),
                 address=address or (existing.address if existing else ""),
                 port=port or (existing.port if existing else 0),
+                https=(existing.https if existing else False) if https is None else https,
                 first_seen=existing.first_seen if existing and existing.first_seen else now,
                 last_seen=now if heard else (existing.last_seen if existing else ""),
                 # The two timestamps differ in what moves them, not in what they prove:
@@ -354,6 +363,9 @@ class DeviceRegistry:
                          if p.device_id != wanted or p.kind == KIND_VPX_MOBILE]
             if len(remaining) == len(devices):
                 return False
+            for gone in devices:
+                if gone.device_id == wanted:
+                    _drop_pairing(gone)
             self._save(remaining)
             logger.info("DeviceRegistry: forgot device %s", wanted)
             return True
@@ -500,6 +512,14 @@ def reset_for_tests(path: Path | None = None) -> None:
     _registry = DeviceRegistry(path) if path is not None else None
 
 
+def _drop_pairing(device: Device) -> None:
+    """The token and the pinned certificate kept for a device, which a row no longer
+    describes once it moves or is forgotten."""
+    access_keys.forget_pairing_token(device.device_id)
+    if device.address and device.port:
+        pinned_certificates.forget(device.address, device.port)
+
+
 def keep_own_row(incoming: Path, current: Path, out: Path) -> None:
     """Write to `out` the registry in `incoming` with `self` and this install's own row
     taken from `current`, leaving `incoming` as it is.
@@ -526,10 +546,22 @@ def keep_own_row(incoming: Path, current: Path, out: Path) -> None:
 
 def paired_header(url: str) -> dict[str, str] | None:
     """The token paired with the install this address reaches, if this install has paired
-    with it. Matched on host and port, since that is all an address names."""
+    with it. Matched on host, port and scheme: a token paired over HTTPS is never sent in the
+    clear, whatever the address."""
     parts = urlsplit(url)
     host, port = parts.hostname or "", parts.port or (443 if parts.scheme == "https" else 80)
     for device in get_device_registry().devices():
-        if device.address == host and device.port == port:
+        if (device.address == host and device.port == port
+                and parts.scheme == ("https" if device.https else "http")):
             return access_keys.pairing_header(device.device_id)
     return None
+
+
+def install_url(device: dict[str, Any]) -> str:
+    """Where that install answers, over the scheme it announced, or "" where the entry is
+    missing half an address."""
+    address = str(device.get("address") or "").strip()
+    port = _as_port(device.get("port"))
+    if not address or not port:
+        return ""
+    return f"{'https' if device.get('https') is True else 'http'}://{address}:{port}"

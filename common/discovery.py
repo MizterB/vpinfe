@@ -31,7 +31,7 @@ from typing import Any
 
 from zeroconf import ServiceBrowser, ServiceInfo, ServiceStateChange, Zeroconf
 
-from common import install_identity, serving
+from common import encrypted_connections, install_identity, serving
 from common.config_store import ConfigStore
 from common.vpinfe_version import get_version
 
@@ -50,6 +50,7 @@ ID = "id"
 NAME = "name"
 FEATURES = "features"
 VERSION = "version"
+SCHEME = "scheme"
 
 
 @dataclass(frozen=True)
@@ -66,10 +67,12 @@ class Peer:
     features: tuple[str, ...]
     address: str
     port: int
+    # What it is reached over. An install two releases behind says nothing and is plain HTTP.
+    https: bool = False
 
     @property
     def url(self) -> str:
-        return f"http://{self.address}:{self.port}"
+        return f"{'https' if self.https else 'http'}://{self.address}:{self.port}"
 
 
 class _Discovery:
@@ -124,6 +127,7 @@ class _Discovery:
                 NAME: install_identity.display_name(config),
                 FEATURES: ",".join(install_identity.features(config)),
                 VERSION: get_version(),
+                SCHEME: "https" if encrypted_connections.serves_https() else "http",
             },
             server=f"vpinfe-{self._mine}.local.",
         )
@@ -261,6 +265,7 @@ def _as_peer(info: Any) -> Peer | None:
                        if name.strip()),
         address=addresses[0],
         port=int(info.port or 0),
+        https=said.get(SCHEME, "").strip().lower() == "https",
     )
 
 

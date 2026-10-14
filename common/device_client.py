@@ -18,7 +18,9 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, NoReturn
 
+from common import pinned_certificates
 from common.i18n import t
+from common.pinned_certificates import CertificateChangedError
 
 if TYPE_CHECKING:
     from common.config_store import ConfigStore
@@ -217,6 +219,8 @@ def why_not(exc: Exception) -> str:
 
     if isinstance(exc, NotVPinFEError):
         return "device.reason.wrong_app"
+    if any(isinstance(one, CertificateChangedError) for one in _chain(exc)):
+        return "device.reason.certificate_changed"
     if isinstance(exc, (requests.Timeout, TimeoutError)):
         return "device.reason.timed_out"
     if any(isinstance(one, ConnectionRefusedError) for one in _chain(exc)):
@@ -292,6 +296,9 @@ class RemoteDevice:
         self.base_url = base_url.rstrip("/")
         self.device_id = device_id
         self._http = _Authed(device_id)
+        # What the address showed when it was asked for a code, so the pairing that follows
+        # trusts that certificate and no other.
+        self._candidate = ""
 
     def _url(self, path: str) -> str:
         return f"{self.base_url}/api/v1{path}"
@@ -445,23 +452,56 @@ class RemoteDevice:
         return True
 
     def pair_ask(self) -> str:
-        """Ask that device to show a pairing code on its own screen. Its request id."""
-        said = self._http.post_json(self._url("/auth/pair/code"), {}) or {}
+        """Ask that device to show a pairing code on its own screen. Its request id.
+
+        Over HTTPS this takes the certificate the address shows now, ignoring any pinned
+        before: pairing again is how a changed certificate is trusted."""
+        from common import http_client
+
+        self._candidate = pinned_certificates.trust_now(self.base_url)
+        # Sent bare: whatever token is held belongs to the certificate that was paired, and
+        # this one has not been trusted yet.
+        said = http_client.post_json(self._url("/auth/pair/code"), {},
+                                     trust=self._candidate or None) or {}
         return str(said.get("request_id") or "")
 
     def pair(self, request_id: str, code: str, name: str) -> None:
-        """Trade the code read off that screen for a Full Control token, and keep it."""
+        """Trade the code read off that screen for a Full Control token, and keep it along
+        with the certificate that asked for the code."""
+        from common import access_keys, http_client
+
+        said = http_client.post_json(
+            self._url("/auth/pair"),
+            {"request_id": request_id, "code": code, "name": name},
+            trust=self._candidate or None) or {}
+        pinned_certificates.adopt(self.base_url, self._candidate)
+        access_keys.keep_pairing_token(self.device_id, str(said.get("secret") or ""))
+
+    def pair_with_token(self, token: str) -> None:
+        """Keep a token made on that install, with the certificate its address shows now."""
         from common import access_keys
 
-        said = self._http.post_json(
-            self._url("/auth/pair"),
-            {"request_id": request_id, "code": code, "name": name}) or {}
-        access_keys.keep_pairing_token(self.device_id, str(said.get("secret") or ""))
+        pinned_certificates.adopt(self.base_url, pinned_certificates.trust_now(self.base_url))
+        access_keys.keep_pairing_token(self.device_id, token)
 
     def unpair(self) -> None:
         from common import access_keys
 
         access_keys.forget_pairing_token(self.device_id)
+        found = pinned_certificates.split(self.base_url)
+        if found is not None:
+            pinned_certificates.forget(*found)
+
+    def _probe_trust(self) -> str | None:
+        """How to meet an https address that nothing was paired with: unverified, because
+        the call carries no token and only asks who is there."""
+        from common import access_keys
+
+        found = pinned_certificates.split(self.base_url)
+        if (found is None or access_keys.pairing_token(self.device_id)
+                or pinned_certificates.pinned(*found)):
+            return None
+        return pinned_certificates.UNVERIFIED
 
     def probe(self) -> dict[str, Any]:
         """Discovery, which is the cheapest call that proves who answered.
@@ -469,7 +509,12 @@ class RemoteDevice:
         Short timeout on purpose: this runs once per device on a page load, and a
         machine that is off should cost a moment rather than the whole listing.
         """
-        said = dict(self._http.get_json(self._url(""), timeout=PROBE_SECONDS) or {})
+        try:
+            said = dict(self._http.get_json(self._url(""), timeout=PROBE_SECONDS,
+                                            trust=self._probe_trust()) or {})
+        except CertificateChangedError:
+            return {**_not_answering(UNREACHABLE, "device.reason.certificate_changed"),
+                    "paired": False, "certificate_changed": True}
         return {"state": ANSWERING,
                 "paired": self.paired(),
                 "version": str(said.get("vpinfe_version") or ""),
@@ -535,13 +580,12 @@ def for_device(
     if local_device_id and device_id == local_device_id:
         return local()
 
-    address = str(device.get("address") or "").strip()
-    port = int(device.get("port") or 0)
-    if not address or not port:
+    base_url = device_registry.install_url(device)
+    if not base_url:
         return None
     # By kind, because these speak different protocols entirely: a phone runs VPX Mobile
     # and has never heard of /api/v1, so asking it as though it had would report every
     # phone as unreachable.
     if str(device.get("kind") or "") == device_registry.KIND_VPX_MOBILE:
-        return MobileDevice(f"http://{address}:{port}")
-    return RemoteDevice(f"http://{address}:{port}", device_id)
+        return MobileDevice(base_url)
+    return RemoteDevice(base_url, device_id)

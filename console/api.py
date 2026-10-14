@@ -13,7 +13,14 @@ from urllib.parse import quote, urlencode, urlsplit
 
 import requests
 
-from common import device_client, device_registry, launcher_wire, serving, sign_in
+from common import (
+    device_client,
+    device_registry,
+    launcher_wire,
+    pinned_certificates,
+    serving,
+    sign_in,
+)
 from common.i18n import t
 from common.paths import get_ini_config
 from console import acting
@@ -90,7 +97,7 @@ class _WordedSession(requests.Session):
         if who is not None:
             signed = auth.sign_acting(who.session_id, who.encrypted)
             kwargs["headers"] = {**(kwargs.get("headers") or {}), auth.ACTING_HEADER: signed}
-        return super().request(method, url, **kwargs)
+        return pinned_certificates.sending(super().request, url)(method, url, **kwargs)
 
     @staticmethod
     def _paired(method: str, url: str, kwargs: dict[str, Any]) -> dict[str, Any]:
