@@ -100,6 +100,8 @@ Copying or backing up the config folder carries your settings and nothing else, 
 - [HTTP API](docs/http-api.md)
 
 ## Acknowledgements
+VPinFE was created by **@superhac**, who owns the project.  **@MizterB** is a maintainer.
+
 - A special thanks to **@jsm174** for making VPX available to all these other platforms.  He's also a great mentor.  I learned a tremendous amount working with him on the vpx project and he is the epitome of the VPinball community.
 - **@MajorFrenchy** is another great example of what the VPinball community is all about. He jumped in right away and provided invaluable testing and feedback.  And we can't forget his great video on using [VPinFE on the MAC](https://www.youtube.com/watch?v=YD4eZIqHypw)!  He also made the VPinFE logo and splash video!  The favicon is derived from his logo.  Thank you, thank you!!!
 - Huge thanks to **@Gonzonia** for all his work on the Mac app bundle. This simply wouldn't have happened without his knowledge and contributions.
