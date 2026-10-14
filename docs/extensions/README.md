@@ -55,9 +55,13 @@ nothing, and it exits with 1 when something would not pass.
 
 ## The way through
 
-- **[Build an app](tutorial.md)** to see the pieces fit. It grows one extension, Scoreboard,
-  from an empty folder: settings, a list, a menu of actions, a dialog and a reaction to a
-  game. Each stage says where it shows up in the Console and what triggers it.
+- **[Learn](tutorial.md)** to see the pieces fit. It grows one extension, Example Scores, from an
+  empty folder in ten lessons: settings, a list, a menu of actions, a dialog, a pane and a group
+  on a game's panel. Each lesson says what you will have, shows it, and says what core did.
+- **[How it works](how-it-works.md)** for the ideas the lessons keep returning to: what core draws,
+  what accepting an extension means, scopes, Private games and what a restart is for.
+- **[Good extensions](good-extensions.md)** for the habits that make an extension feel like
+  part of VPinFE, ending in a list to go through before you give one to anybody.
 - **The [Cookbook](cookbook.md)** once you know what you want. Each recipe is a small complete
   extension that does one thing, can be copied whole, and says where it appears and what
   triggers it.

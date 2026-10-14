@@ -14,7 +14,7 @@ is yours.
 
 Use this page to look things up.  Each `ctx` call has a heading, each declaration has a
 section, and each section gives the shape first and then an example.  New to this?  Start
-with the [README](README.md), then [Build an app](tutorial.md).  The [Cookbook](cookbook.md)
+with the [README](README.md), then [Learn](tutorial.md).  The [Cookbook](cookbook.md)
 has a small, complete extension for each task.
 
 ## Find a page

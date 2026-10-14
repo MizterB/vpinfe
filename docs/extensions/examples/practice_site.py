@@ -7,12 +7,15 @@ scores in memory, so stopping it forgets what was posted.
     GET  /status   open to anyone: {"open": true}
     GET  /check    200 with the right key, 401 without
     GET  /top      the scores, best first, with the right key
-    POST /scores   {"player", "table", "score"}, with the right key; 201
+    POST /scores   {"player", "table", "score"}, and a "vps_id" if it has one, with the right
+                   key; 201
     GET  /scores/<id>        open to anyone: that score, as a page a link can go to
     POST /scores/<id>/flag   with the right key: marks the score flagged
     DELETE /scores/<id>      with the right key: removes the score
 
-Every score has an `id` and a `flagged` flag.
+Every score has an `id`, a `vps_id` (empty when the poster named only the table), a
+`posted` time, a `status` of `verified` or `pending`, and a `flagged` flag.  A score posted
+here is `pending`.
 
 A test starts it with `make_server(0)` and reads the port the system chose.
 """
@@ -22,6 +25,7 @@ from __future__ import annotations
 import itertools
 import json
 import threading
+from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
@@ -30,11 +34,14 @@ PORT = 8790
 KEY = "practice-key"
 
 SCORES: list[dict[str, Any]] = [
-    {"id": "s1", "player": "AAA", "table": "Medieval Madness", "score": 1_240_000_000,
+    {"id": "s1", "player": "AAA", "table": "Medieval Madness", "vps_id": "practice-medieval",
+     "score": 1_240_000_000, "posted": "2026-10-01T19:30:00Z", "status": "verified",
      "flagged": False},
-    {"id": "s2", "player": "BEE", "table": "Attack from Mars", "score": 980_500_000,
+    {"id": "s2", "player": "BEE", "table": "Attack from Mars", "vps_id": "9Paf7-CL",
+     "score": 980_500_000, "posted": "2026-10-03T21:05:00Z", "status": "verified",
      "flagged": False},
-    {"id": "s3", "player": "CJ", "table": "The Addams Family", "score": 310_000_000,
+    {"id": "s3", "player": "CJ", "table": "The Addams Family", "vps_id": "aT_GONvw",
+     "score": 310_000_000, "posted": "2026-10-08T18:40:00Z", "status": "pending",
      "flagged": False},
 ]
 
@@ -101,7 +108,10 @@ def _handler(scores: list[dict[str, Any]]) -> type[BaseHTTPRequestHandler]:
                     posted = json.loads(self.rfile.read(size) or b"{}")
                     scores.append({"id": f"s{next(counter)}", "player": str(posted["player"]),
                                    "table": str(posted["table"]),
-                                   "score": int(posted["score"]), "flagged": False})
+                                   "vps_id": str(posted.get("vps_id") or ""),
+                                   "score": int(posted["score"]),
+                                   "posted": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                                   "status": "pending", "flagged": False})
                 except (ValueError, KeyError):
                     self._send(400, {"error": "A score needs player, table and score"})
                 else:

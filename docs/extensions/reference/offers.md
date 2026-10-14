@@ -164,8 +164,8 @@ Core events say who played and who rated what, as plain lists and dicts. `game` 
 **A Private game's data is never sent anywhere.**  Not its plays, its time, its scores or its
 rating, and not the fact that the library holds it: to no service, for no player, whoever was
 up and whatever their Share says.  A game is Private when somebody marks it so.  The events
-carry `private`, and a game's rows from `ctx.games` carry it too, for anything an extension
-sends outside a session.  An extension reads the flag and cannot set it.
+carry `private`.  A game's rows from `ctx.games` do not, and that call lists every game.  An
+extension reads the flag and cannot set it.
 
 A table's events carry `source`, who started it: `frontend`, `remote`, `api`, or `capture` for
 a launch that records the table's media.  A recording is not a play.  Nobody is up for it, it

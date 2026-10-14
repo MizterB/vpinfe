@@ -6,7 +6,7 @@ folders are under [examples/recipes](examples/recipes), and each block of code b
 file of the same name there.
 
 New to this? Read [Start here](README.md) first. Want to see how the pieces fit into one
-extension? [Build an app](tutorial.md) grows one from an empty folder. Once you know the call
+extension? [Learn](tutorial.md) grows one from an empty folder. Once you know the call
 you want, the [Reference](reference.md) lists every one.
 
 Recipes that talk to a service use the practice site, a few lines of standard-library Python
@@ -820,7 +820,7 @@ def register(ctx):
   "list.scores.column.player.header": "Player",
   "list.scores.column.table.header": "Table",
   "list.scores.column.score.header": "Score",
-  "list.scores.verb.open.label": "Open on the site",
+  "list.scores.verb.open.label": "Open on the Site",
   "list.scores.verb.flag.label": "Flag",
   "list.scores.verb.flag.needs": "Already flagged",
   "list.scores.verb.remove.label": "Remove",
@@ -836,8 +836,8 @@ and in the menu above the list when rows are ticked. **What triggers it:** the p
 function is handed the rows they picked, and core reads the list again afterwards.
 
 **What you'll see:** Score Rows under Community in the rail, with the three sample scores
-once the key is set. Right-click a row for Open on the site, Flag and, below a rule, Remove.
-Tick two rows and the same menu is under the list, with Open on the site dimmed as One at a
+once the key is set. Right-click a row for Open on the Site, Flag and, below a rule, Remove.
+Tick two rows and the same menu is under the list, with Open on the Site dimmed as One at a
 time. Flag a score and its Flag is dimmed with Already flagged. Remove asks "Remove this score
 from the site?" first, or "Remove these 2 scores from the site?" for two.
 
