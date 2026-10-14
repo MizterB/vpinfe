@@ -723,6 +723,9 @@ class VPinFECore {
   // why the markup keeps its English.
   #words = {};
 
+  // `ready` waits on it, so a theme's first t() after `await vpin.ready` has its words.
+  #wordsLoaded = Promise.resolve();
+
   // Resolves the confirm dialog when one is up, and is null when one is not - which is
   // also how the input handler knows whether it owns the next select or back.
   #pendingConfirm = null;
@@ -943,12 +946,13 @@ class VPinFECore {
   /**
    * What a key says, in the language this install speaks.
    *
-   * Core's own chrome only - the menus, the overlays, the handful of strings every
-   * theme was writing out for itself. A theme's own words stay a theme's business.
+   * Core's own chrome - the menus, the overlays, the handful of strings every theme was
+   * writing out for itself - and the theme's own words from its locales/ folder, which
+   * are keyed `theme.<key>`.
    *
-   * `english` is what shows until the catalog arrives, which is a real window: the
-   * fetch in init is not awaited, so anything drawn before it lands would otherwise
-   * read as a key. Unknown keys with no English answer with the key, never blank.
+   * `english` is what shows before the catalog arrives, which is a real window for
+   * anything drawn before `ready`. Unknown keys with no English answer with the key,
+   * never blank.
    */
   t(key, english = "", params = {}) {
     const said = VPinFECore.pluralForm(this.#words[key], params.count)
@@ -1006,7 +1010,11 @@ class VPinFECore {
     // Same origin as the page core is served from. A failure is not fatal: every
     // [data-i18n] element already holds its English.
     try {
-      const response = await fetch("/core/i18n.json", { cache: "no-store" });
+      // A theme page lives at /themes/<folder>/, and its locales/ words come with core's.
+      const theme = location.pathname.match(/^\/themes\/([^/]+)\//);
+      const url = theme ? `/core/i18n.json?theme=${encodeURIComponent(decodeURIComponent(theme[1]))}` : "/core/i18n.json";
+      // `ready` waits on this, so a catalog that never answers must not hold the theme.
+      const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(5000) });
       if (response.ok) this.#words = await response.json();
     } catch (error) {
       console.warn("[i18n] Could not load the catalog; using the markup's English", error);
@@ -1020,7 +1028,7 @@ class VPinFECore {
 
   init() {
     this.#applyWindowIdentity();
-    this.#loadWords();
+    this.#wordsLoaded = this.#loadWords();
     // The theme's own page, for the same reason an overlay gets it: a theme that throws
     // at startup renders nothing, which looks exactly like a blank screen.
     this.#reportUncaughtFrom(window, "");
@@ -2277,6 +2285,7 @@ class VPinFECore {
       console.log("[WS] Connected to bridge");
       this._reconnectDelayMs = 0;
       await this.#onBridgeReady();
+      await this.#wordsLoaded;
       // ready is a one-shot: a theme awaits it once at startup, and resolving an
       // already-resolved promise on every reconnect is a no-op rather than a second
       // startup.

@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from common import i18n
 from frontend.custom_http_server import CustomHTTPServer
 
 
@@ -65,3 +66,77 @@ class BurstTests(unittest.TestCase):
                     refused.append(exc)
         self.assertEqual(refused, [])
         self.assertEqual(answers, [b"200"] * windows * connections_per_window)
+
+
+class ThemeWordsTests(unittest.TestCase):
+    """`/core/i18n.json?theme=` adds a theme's `locales/` words under `theme.`."""
+
+    def setUp(self) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.themes = tmp.name
+        mine = Path(tmp.name, "mine", "locales")
+        mine.mkdir(parents=True)
+        mine.joinpath("en.json").write_text(
+            '{"authors": "Authors",'
+            ' "tables": {"one": "{count} table", "other": "{count} tables"},'
+            ' "frontend.theme.launching": "Mine"}')
+        mine.joinpath("de.json").write_text('{"authors": "Autoren"}')
+        Path(tmp.name, "bare").mkdir()
+        broken = Path(tmp.name, "broken", "locales")
+        broken.mkdir(parents=True)
+        broken.joinpath("en.json").write_text("{not json")
+        server = CustomHTTPServer({"/themes/": tmp.name})
+        server.start_file_server(port=0)
+        self.addCleanup(server.stop_file_server)
+        self.port = server.file_server.server_address[1]
+        self.addCleanup(i18n.set_language, i18n.language())
+        i18n.set_language("en")
+
+    def words(self, query: str = "") -> dict:
+        import json
+        import urllib.request
+        url = f"http://127.0.0.1:{self.port}/core/i18n.json{query}"
+        with urllib.request.urlopen(url, timeout=5) as response:
+            return json.load(response)
+
+    def test_a_theme_with_locales_adds_its_words_under_theme(self) -> None:
+        words = self.words("?theme=mine")
+        self.assertEqual(words["theme.authors"], "Authors")
+        self.assertEqual(words["theme.tables"]["one"], "{count} table")
+
+    def test_a_theme_cannot_replace_a_core_word(self) -> None:
+        core = self.words()["frontend.theme.launching"]
+        words = self.words("?theme=mine")
+        self.assertEqual(words["frontend.theme.launching"], core)
+        self.assertEqual(words["theme.frontend.theme.launching"], "Mine")
+
+    def test_the_language_in_use_wins_and_english_fills_the_rest(self) -> None:
+        i18n.set_language("de")
+        words = self.words("?theme=mine")
+        self.assertEqual(words["theme.authors"], "Autoren")
+        self.assertEqual(words["theme.tables"]["other"], "{count} tables")
+
+    def test_a_theme_without_locales_changes_nothing(self) -> None:
+        self.assertEqual(self.words("?theme=bare"), self.words())
+
+    def test_a_malformed_file_or_an_unknown_theme_changes_nothing(self) -> None:
+        self.assertEqual(self.words("?theme=broken"), self.words())
+        self.assertEqual(self.words("?theme=nobody"), self.words())
+
+    def test_an_entry_t_could_not_use_is_dropped_so_the_english_shows(self) -> None:
+        for shape in ('[]', '"x"', 'null', '{"a": ""}', '{"a": {"one": 5, "other": "x"}}',
+                      '{"a": {"one": "x"}}', '{"a": {"one": "", "other": "x"}}',
+                      '{"a": null, "b": ["x"]}'):
+            Path(self.themes, "broken", "locales", "en.json").write_text(shape)
+            self.assertEqual(self.words("?theme=broken"), self.words(), shape)
+
+    def test_a_folder_name_with_a_space_is_found(self) -> None:
+        folder = Path(self.themes, "My Theme", "locales")
+        folder.mkdir(parents=True)
+        folder.joinpath("en.json").write_text('{"authors": "Authors"}')
+        self.assertEqual(self.words("?theme=My%20Theme")["theme.authors"], "Authors")
+
+    def test_a_name_that_leaves_the_themes_folder_is_refused(self) -> None:
+        for name in ("..", "../mine", "mine/..", "%2e%2e"):
+            self.assertEqual(self.words(f"?theme={name}"), self.words(), name)

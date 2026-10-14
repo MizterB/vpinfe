@@ -33,6 +33,8 @@ Themes are installed in the user config directory: `~/.config/vpinfe/frontend_th
 ├── index_scoreview.html  (optional at contract 2 - core draws the score view when absent)
 ├── style.css
 ├── theme.js
+├── locales/             (optional - the theme's own words, one <language>.json each)
+│   └── en.json
 └── fonts/               (optional - custom font files)
     └── MyFont.otf
 ```
@@ -1198,17 +1200,19 @@ These properties are available on the `vpin` instance after `vpin.ready` resolve
 
 #### t(key, english, params)
 
-What a key says, in the language this install speaks. Core's own words, and the handful
-every theme was writing out for itself.
+What a key says, in the language this install speaks. Core's own words, the handful
+every theme was writing out for itself, and your theme's own words from its `locales/`
+folder.
 
 ```js
 wheel.textContent = vpin.t("frontend.theme.no_tables_found", "No tables found");
 status.textContent = vpin.t("frontend.theme.launching", "Launching...");
+credit.textContent = vpin.t("theme.authors", "Authors");
 ```
 
-`english` is what shows until the catalog arrives. `init()` starts fetching it and does
-not wait, so a word drawn at startup without its English reads as the key. A key the
-catalog does not have answers with the English too, and with the key when there is none,
+`english` is what shows when the catalog has no entry. The catalog is in by the time
+`await vpin.ready` returns, so a word drawn after it reads in the right language. A key
+the catalog does not have answers with the English, and with the key when there is none,
 so it is never blank.
 
 `params` fills the entry's slots by name: `{count}` from `count`. A `count` also picks
@@ -1230,9 +1234,35 @@ of:
 | `frontend.theme.my_rating` | My Rating |
 | `frontend.theme.detected_features` | Detected Features |
 
-Your own words stay yours. A theme that writes its own English keeps working exactly as
-it does now — `t()` is there when you want your theme to follow the user's language, and
-nothing breaks if you never call it.
+##### Your theme's own words
+
+A theme that writes its own English keeps working as it does: `t()` is there when you
+want your theme to follow the user's language, and nothing breaks if you never call it.
+
+To translate your own words, put one file per language in `locales/`:
+
+```
+locales/en.json
+locales/de.json
+```
+
+```json
+{
+  "authors": "Authors",
+  "tables": { "one": "{count} table", "other": "{count} tables" }
+}
+```
+
+A key in the file is read as `theme.<key>`, so the file above is `vpin.t("theme.authors",
+"Authors")` and `vpin.t("theme.tables", "", { count })`. The file holds the words as plain
+keys; the `theme.` is added by core. Core's own keys never start with `theme.`, so a
+theme adds words and cannot change one of core's.
+
+The language is the install's, and a name like `de-AT` is looked for as `de-AT`, then
+`de`, then `en`. A language the theme does not ship, or a key missing from the one it
+does, falls back to `en.json` and then to the `english` in the call. A missing,
+malformed or empty `locales/` folder is the same as none. Ship `en.json` even if the
+English is already in your code: it is the file a translator starts from.
 
 Feature names are not on that list on purpose. `Nfozzy`, `Fleep`, `SSF`, `PuP-Pack` and
 the rest are what the community calls those things in every language, and translating

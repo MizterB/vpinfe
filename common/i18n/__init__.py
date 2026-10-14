@@ -296,6 +296,32 @@ def nicegui_language() -> str | None:
     return None
 
 
+def theme_words(directory: str | Path) -> dict[str, Any]:
+    """A theme's `<language>.json` files resolved through `chain`, each key as `theme.<key>`.
+
+    Not cached and not an owner: only the theme being shown is asked, and an edit shows on
+    the next load. A file that is not an object, and an entry that is not a non-empty
+    string or a `one`/`other` pair of them, is skipped so the English in the call shows.
+    """
+    out: dict[str, Any] = {}
+    for name in reversed(chain()):
+        found = _read(Path(directory) / f"{name}.json")
+        for key, entry in (found.items() if isinstance(found, dict) else ()):
+            if not key or key.startswith(".") or key.endswith("."):
+                continue
+            if isinstance(entry, dict):
+                forms = {f: entry[f] for f in ("one", "other") if f in entry}
+                whole = "other" in forms and all(_word(v) for v in forms.values())
+                entry = forms if whole else None
+            if _word(entry) or isinstance(entry, dict):
+                out[f"theme.{key}"] = entry
+    return out
+
+
+def _word(value: Any) -> bool:
+    return isinstance(value, str) and bool(value)
+
+
 def under(prefix: str) -> dict[str, Any]:
     """Every entry below a prefix, resolved, with the prefix stripped.
 

@@ -478,16 +478,35 @@ class CustomHTTPServer:
             except (ConnectionResetError, BrokenPipeError):
                 return
 
+        def _theme_locales(self, theme: str) -> str | None:
+            """`<themes>/<theme>/locales` when it is a folder inside the themes mount."""
+            root = self.mount_points.get("/themes/")
+            if not root or not theme or theme.startswith(".") or "/" in theme or "\\" in theme:
+                return None
+            folder = os.path.abspath(os.path.join(root, theme, "locales"))
+            if os.path.commonpath([root, folder]) != root or not os.path.isdir(folder):
+                return None
+            return folder
+
         def _serve_core_words(self) -> None:
             """Core's own chrome, for the pages core serves.
 
             Only `CORE_WORDS`: a theme page has no business with the Console's words,
             and shipping them would put the whole catalog on the frontend to render six
             menu items.
+
+            `?theme=<folder>` adds that theme's own words from its `locales/` folder,
+            under `theme.`. Core's namespaces are never `theme.`, so a theme adds words
+            and cannot change one of core's.
             """
             from common import i18n
             words = {f"{space}.{k}": v
                      for space in CORE_WORDS for k, v in i18n.under(space).items()}
+            wanted = parse_qs(urlsplit(self.path).query).get("theme", [""])[0]
+            directory = self._theme_locales(wanted)
+            if directory is not None:
+                words.update({k: v for k, v in i18n.theme_words(directory).items()
+                              if k.startswith("theme.")})
             body = json.dumps(words).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json; charset=utf-8")
