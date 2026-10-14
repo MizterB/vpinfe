@@ -54,12 +54,6 @@ async def ask(library: Any, game: dict[str, Any], place: str = "",
         if place:
             ui.label(place).classes("console-help px-3")
 
-        def clear() -> None:
-            ui.button(t("console.vps_match.clear_match"), icon=verbs.UNMATCH,
-                      on_click=lambda: box.submit(CLEARED)) \
-                .props("flat dense no-caps size=sm") \
-                .classes("console-action console-action--danger shrink-0")
-
         field: dict[str, Any] = {}
 
         def search_row() -> None:
@@ -77,7 +71,7 @@ async def ask(library: Any, game: dict[str, Any], place: str = "",
         if entry or behind:
             entries.append((panel.HEADING, t("console.vps_match.matched_to")))
         if entry:
-            entries.append((panel.FULL, lambda: entry_row(entry, trailing=clear)))
+            entries.append((panel.FULL, lambda: entry_row(entry)))
         if behind:
             guessed = not (game.get("discovered") or {}).get("vps_matched_by")
             entries.append((panel.FULL, lambda: _own_pick(
@@ -89,24 +83,19 @@ async def ask(library: Any, game: dict[str, Any], place: str = "",
         found = ui.column().classes("w-full gap-0 console-source-list console-pick-list px-3")
 
         with dialog.footer():
-            if walking:
-                ui.button(t("word.stop"), icon=verbs.STOP,
-                          on_click=lambda: box.submit(STOPPED)).props("flat no-caps")
-                ui.button(t("word.skip"), icon=verbs.SKIP,
-                          on_click=lambda: box.submit(CANCELLED)).props("flat no-caps")
-            else:
-                ui.button(t("word.cancel"), icon=verbs.CANCEL,
-                          on_click=lambda: box.submit(CANCELLED)).props("flat no-caps")
-            update = ui.button(t("console.vps_match.pick"), icon=verbs.MATCH,
-                               on_click=lambda: box.submit(str(picked["id"]))) \
-                .props("no-caps")
-        update.set_visibility(False)
+            if entry:
+                dialog.aside(t("console.vps_match.clear_match"),
+                             lambda: box.submit(CLEARED), icon=verbs.UNMATCH)
+            dialog.leave(box, walking)
+            update = dialog.answer(t("console.vps_match.pick"),
+                                   lambda: box.submit(str(picked["id"])), icon=verbs.MATCH)
+        update.disable()
 
         rows: list[dict[str, Any]] = []
 
         def take(vps_id: str) -> None:
             picked["id"] = vps_id
-            update.set_visibility(vps_id != bound)
+            update.set_enabled(vps_id != bound)
             draw()
 
         def draw() -> None:

@@ -3468,6 +3468,33 @@
   "console.view.updates": "Updates",
   "console.view.updates.help": "Tables with a newer version out on VPS",
   "console.views.untitled": "Untitled",
+  "console.release_match.title": "Match “{name}” to a Release on VPS",
+  "console.release_match.files_title": "Match “{name}” to a File on VPS",
+  "console.release_match.yours": "Your File",
+  "console.release_match.releases": "Releases on VPS",
+  "console.release_match.files": "Files on VPS",
+  "console.release_match.filter": "Type a name, an author or a version",
+  "console.release_match.files_filter": "Type an author or a version",
+  "console.release_match.no_match": "No release matches “{said}”",
+  "console.release_match.files_no_match": "No file matches “{said}”",
+  "console.release_match.count": {
+    "one": "{count} release",
+    "other": "{count} releases"
+  },
+  "console.release_match.count_kind": {
+    "one": "{count} {format} release",
+    "other": "{count} {format} releases"
+  },
+  "console.release_match.files_count": {
+    "one": "{count} file",
+    "other": "{count} files"
+  },
+  "console.release_match.of_count": "{shown} of {total}",
+  "console.release_match.none_fit": "VPS lists no {format} release for this game",
+  "console.release_match.none_fit_any": "VPS lists no release this app plays",
+  "console.release_match.updated": "Updated {when}",
+  "console.release_match.and_more": "{names} +{count}",
+  "console.release_match.released": "Released {when}",
   "console.vps_match.clear_match": "Clear Match",
   "console.vps_match.set_failed": "Could not set that match",
   "console.vps_match.title": "Find a Match",
@@ -3698,8 +3725,6 @@
   "console.workbench.false": "False",
   "console.workbench.file_absent": "The file is not on disk",
   "console.workbench.file_offline": "The file is not there right now, usually a drive or share that has not come back",
-  "console.workbench.unversioned": "This file records no version or author to compare",
-  "console.workbench.file_says": "This file says {told}",
   "console.workbench.filename": "Filename",
   "console.workbench.files_in_folder": {
     "one": "{count} file",
@@ -3872,7 +3897,6 @@
   "console.workbench.play_time": "Play time",
   "console.workbench.plugin_section": "Plugin: {name}",
   "console.workbench.keyed_hint": "Its program starts this from its ID rather than a file, so nothing here is on disk to check",
-  "console.workbench.published": "Which published {kind} is this?",
   "console.workbench.published_file": "Which published file this is",
   "console.workbench.put_back_2": "Put Back",
   "console.workbench.restore_into": "Put back in “{name}”",
@@ -3883,7 +3907,6 @@
   "console.workbench.playing_lock.help": "The program rewrites this file when the table exits, and a change made now would be lost",
   "console.workbench.forget_missing": "Its record goes; no file is deleted, because there is none. Put the .vpx back and refresh and it returns as a new table.",
   "console.workbench.release": "Which release this is",
-  "console.workbench.release_table": "Which release is this table?",
   "console.workbench.remove_asset": "Remove “{name}”?",
   "console.workbench.remove_asset.folder": {
     "one": "The folder and the {count} file in it go.",

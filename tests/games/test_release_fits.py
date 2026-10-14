@@ -7,6 +7,7 @@ import unittest
 from common import apps
 from common.extensions import provided_apps
 from common.games.game_service import release_fits
+from common.online import vps_formats
 
 
 class ReleaseFitsTests(unittest.TestCase):
@@ -46,6 +47,20 @@ class ReleaseFitsTests(unittest.TestCase):
             "id": "other", "name": "Other", "suffixes": (".oth",)}))
 
         self.assertTrue(release_fits({"tableFormat": "FP"}, {"filename": "a.oth"}))
+
+
+class FitsTests(unittest.TestCase):
+    def test_a_format_the_app_declares_fits_whatever_the_case(self) -> None:
+        self.assertTrue(vps_formats.fits("vpx", ["VPX"]))
+        self.assertTrue(vps_formats.fits("FX3", ["fx", "fx3"]))
+
+    def test_another_format_does_not(self) -> None:
+        self.assertFalse(vps_formats.fits("FP", ["VPX"]))
+
+    def test_a_blank_filing_or_no_declared_format_fits(self) -> None:
+        self.assertTrue(vps_formats.fits(None, ["VPX"]))
+        self.assertTrue(vps_formats.fits("  ", ["VPX"]))
+        self.assertTrue(vps_formats.fits("FP", []))
 
 
 if __name__ == "__main__":

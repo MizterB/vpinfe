@@ -80,6 +80,7 @@ from console import (
     panel,
     pictures,
     plays_on,
+    release_match,
     row_drag,
     screens,
     stars,
@@ -4827,8 +4828,7 @@ async def _pick_a_record(context: dict[str, Any], listed_as: str, label: str,
                          redraw: Callable[[], None]) -> None:
     """Bind one file to a record VPSdb publishes, or take the binding back.
 
-    The assets ledger's twin of `_pick_a_release`, unordered for the same reason: a
-    scorer over this question is no better than chance.
+    The assets ledger's twin of `_pick_a_release`.
     """
     picked = await ask_a_record(context, listed_as, label, path, bound)
     if picked is None:
@@ -4844,39 +4844,10 @@ async def ask_a_record(context: dict[str, Any], listed_as: str, label: str, path
     nothing, or in a walk (`place` is its position) Skip and Stop."""
     records, empty, reason = await _listed_by_vps(
         context, t("console.workbench.kind_unlisted", kind=label), listed_as)
-
-    with frame.opened(t("console.workbench.published", kind=label), wide=True,
-                      persistent=True) as box:
-        if place:
-            ui.label(place).classes("console-help px-3")
-        ui.label(path).classes("console-help px-3")
-        with ui.column().classes("w-full gap-0 console-source-list console-pick-list px-3"):
-            _in_place_of_list(empty, reason)
-            for item in records:
-                _record_row(item, box, bound)
-        with frame.footer():
-            if bound:
-                frame.aside(t("word.clear"), lambda: box.submit(""), icon=verbs.CLEAR)
-            frame.leave(box, bool(place))
-
-    return await box
-
-
-def _record_row(record: dict[str, Any], dialog: Any, bound: str) -> None:
-    """One published file, by the two things a person can compare against their own."""
-    said = str(record.get("vps_file_id") or "")
-    meta = []
-    made_by = ", ".join(str(name) for name in (record.get("authors") or [])[:3])
-    if made_by:
-        meta.append(made_by)
-    if record.get("updated_at"):
-        meta.append(when.ago(record["updated_at"]))
-    name = str(record.get("version") or "") or t("console.workbench.no_version")
-    if said == bound:
-        name = f"{name}  ✓"
-    candidates.choice(str(record.get("img_url") or ""), name,
-                      " · ".join(meta), lambda: dialog.submit(said),
-                      glyph="inventory_2", missing=vps_match.NO_PICTURE)
+    name = Path(path).name or path
+    return await release_match.ask(
+        release_match.Yours(name=name, file=name, facts=label, glyph="inventory_2"),
+        records, bound=bound, empty=empty, reason=reason, place=place, files=True)
 
 
 async def _listed_by_vps(context: dict[str, Any], none_listed: str,
@@ -4898,59 +4869,42 @@ async def _listed_by_vps(context: dict[str, Any], none_listed: str,
     return [], none_listed if held else t("console.workbench.no_vps_data"), ""
 
 
-def _in_place_of_list(line: str, reason: str) -> None:
-    if line:
-        panel.line(line, hint=reason)
-
-
 @on_page
 async def _pick_a_release(context: dict[str, Any], table: dict[str, Any]) -> None:
-    """Bind this table to one of the entry's builds, or take the binding back.
-
-    Ordered as VPSdb holds them and marked with nothing: a scorer over this exact
-    question is no better than chance. What the panel does offer is the file's own
-    version and authors, which is not a ranking - it is the user's own data, put where
-    they can compare it against the list rather than remembering it.
-    """
+    """Bind this table to one of the entry's builds, or take the binding back."""
     library = context["library"]
     bound = str((table.get("source") or {}).get("vps_file_id") or "")
     releases, empty, reason = await _listed_by_vps(
         context, t("console.workbench.tables_unlisted"))
 
-    with frame.opened(t("console.workbench.release_table"), wide=True,
-                      persistent=True) as box:
-        with ui.element("div").classes("px-3"):
-            _yours(table)
-        with ui.column().classes("w-full gap-0 console-source-list console-pick-list px-3"):
-            _in_place_of_list(empty, reason)
-            for item, under in in_lineage(releases):
-                _release_row(item, box, bound, under)
-        with frame.footer():
-            if bound:
-                frame.aside(t("word.clear"), lambda: box.submit(""), icon=verbs.CLEAR)
-            frame.cancel(lambda: box.submit(None))
-
-    picked = await box
+    picked = await release_match.ask(
+        _yours(table), releases, bound=bound,
+        formats=[str(one) for one in table.get("vps_formats") or []],
+        empty=empty, reason=reason)
     if picked is None:
         return
     await _write(context, library.set_table_source, context["game_id"],
                  str(table.get("id") or ""), str(picked))
 
 
-def _yours(table: dict[str, Any]) -> None:
-    """What this file says about itself, so the list is compared against something.
+def _yours(table: dict[str, Any]) -> release_match.Yours:
+    """What this file says about itself, as a row of the list it is compared against.
 
     A `.vpx` carries a version and its authors and VPS names releases by the same two,
     which is the only honest handle here - VPS records a filename on almost none of them.
     """
-    said = str(table.get("version") or "")
-    made_by = ", ".join(str(name) for name in (table.get("authors") or [])[:4])
-    told = " \u00b7 ".join(part for part in (said, made_by) if part)
-    if table.get("filename"):
-        ui.label(str(table["filename"])).classes("console-slot-file")
-    ui.label(t("console.workbench.file_says", told=(told)) if told
-             else t("console.workbench.unversioned")) \
-        .classes("console-help")
+    version = str(table.get("version") or "")
+    authors = tuple(str(name) for name in (table.get("authors") or []))
+    filename = str(table.get("filename") or "")
+    told = game_tables.JOIN.join(part for part in (version, ", ".join(authors[:4])) if part)
+    facts = [", ".join(str(one) for one in table.get("vps_formats") or [])]
+    held = table.get("features") or {}
+    facts += [label for key, label in table_features.LABELS.items() if held.get(key) is True]
+    if table.get("release_date"):
+        facts.append(t("console.release_match.released", when=when.ago(table["release_date"])))
+    return release_match.Yours(
+        name=told or filename, file=filename, authors=authors,
+        facts=game_tables.JOIN.join(part for part in facts if part), version=version)
 
 
 def _release_words(release: dict[str, Any]) -> tuple[str, str]:
@@ -4963,59 +4917,6 @@ def _release_words(release: dict[str, Any]) -> tuple[str, str]:
         meta.append(when.ago(release["updated_at"]))
     name = str(release.get("version") or "") or t("console.workbench.no_version")
     return name, " \u00b7 ".join(part for part in meta if part)
-
-
-def _release_row(release: dict[str, Any], dialog: Any, bound: str,
-                 under: bool = False) -> None:
-    """One build, with its picture."""
-    said = str(release.get("vps_file_id") or "")
-    name, meta = _release_words(release)
-    if said == bound:
-        name = f"{name}  \u2713"
-    row = candidates.choice(str(release.get("img_url") or ""), name, meta,
-                            lambda: dialog.submit(said), glyph=icons.TABLES,
-                            more=_mod_words(release), missing=vps_match.NO_PICTURE)
-    if under:
-        row.classes("console-source-row--under")
-
-
-def _mod_words(release: dict[str, Any]) -> tuple[str, ...]:
-    """What a mod is a mod of, and VPS's note on it where that line does not carry it."""
-    mod = release.get("mod_of")
-    if not mod:
-        return ()
-    line = game_tables.mod_line(mod)
-    note = str(release.get("comment") or "").strip()
-    return (line, note) if note and mod.get("vps_file_id") else (line,)
-
-
-def in_lineage(releases: list[dict[str, Any]]) -> list[tuple[dict[str, Any], bool]]:
-    """`releases` with each mod straight after the one it is based on, and whether it
-    sits under one. One step in however deep the chain; a mod of a release not in the
-    list keeps its place, and a loop of links is placed where its first member is."""
-    listed = {str(one.get("vps_file_id") or "") for one in releases} - {""}
-    under: dict[str, list[dict[str, Any]]] = {}
-    for one in releases:
-        parent = str((one.get("mod_of") or {}).get("vps_file_id") or "")
-        if parent in listed:
-            under.setdefault(parent, []).append(one)
-    placed: set[int] = set()
-    ordered: list[tuple[dict[str, Any], bool]] = []
-
-    def place(one: dict[str, Any], nested: bool) -> None:
-        if id(one) in placed:
-            return
-        placed.add(id(one))
-        ordered.append((one, nested))
-        for mod in under.get(str(one.get("vps_file_id") or ""), []):
-            place(mod, True)
-
-    for one in releases:
-        if str((one.get("mod_of") or {}).get("vps_file_id") or "") not in listed:
-            place(one, False)
-    for one in releases:
-        place(one, False)
-    return ordered
 
 
 def _release_shown(release: dict[str, Any]) -> None:

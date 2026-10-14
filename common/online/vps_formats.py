@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Collection
+
 from common import i18n
 
 
@@ -12,3 +14,9 @@ def name(token: str) -> str:
     if not wanted:
         return ""
     return i18n.literal_or("", f"vps.format.{wanted}", fallback=wanted)[0]
+
+
+def fits(filed: object, formats: Collection[str]) -> bool:
+    """A release filed under no format fits any app, and an app declaring none fits all."""
+    wanted = str(filed or "").strip().upper()
+    return not formats or not wanted or wanted in {str(one).upper() for one in formats}

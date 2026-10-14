@@ -907,6 +907,10 @@ body::before {
 .console-dialog.console-backups-card.q-card {
   width: min(900px, 94vw); height: min(70vh, 560px); display: flex; flex-direction: column;
 }
+/* A picker is one height whatever its list holds or its filter leaves; the list scrolls. */
+.console-dialog.console-dialog--pick.q-card {
+  height: min(86vh, 780px); display: flex; flex-direction: column;
+}
 .console-dialog--series .console-series-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .console-dialog.console-dialog--full.q-card {
   width: 100%; height: 100%; max-height: none; border-radius: 0;
@@ -3626,6 +3630,18 @@ a.console-slot-file, a.console-slot-file:visited { color: var(--accent); }
 /* A mod under the release it is based on. One step however deep: a deeper chain
    stepping further in leaves no room for the words by the third. */
 .console-source-row--under { margin-left: 32px; width: calc(100% - 32px); }
+/* The file the list is compared against: lifted, and not a target. */
+.console-source-row--yours { background: var(--wash-lift); margin: 0 12px; width: calc(100% - 24px); }
+/* Version, the way out, the check: the same three widths on the file's row and on every
+   release, so the versions stand in one column to read down. */
+.console-pick-end { flex: none; }
+.console-pick-version {
+  width: 82px; text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-2);
+  font-size: var(--fs-caption); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.console-pick-slot { width: 25px; display: inline-flex; justify-content: center; }
+.console-pick-mark { color: var(--accent); font-size: var(--icon-mark); }
+.console-pick-count { min-width: 64px; text-align: right; white-space: nowrap; }
 /* The one decision every way in feeds, so it sits above them rather than inside one.
    Set off by a rule, because it is a different kind of thing from a tab. */
 .console-destination {

@@ -53,6 +53,7 @@ from common.games.tables import (
 from common.games.vpx_parser import VPXParser
 from common.i18n import t
 from common.jobs import LogCallback, ProgressCallback
+from common.online import vps_formats
 from common.paths import COLLECTIONS_PATH, CONFIG_DIR, VPINFE_INI_PATH, VPSDB_PATH
 from common.vpinfe_version import get_version
 
@@ -214,8 +215,7 @@ def release_fits(release: dict, entry: dict) -> bool:
     fits every release. An entry no app claims is matched as the default app's.
     """
     formats = apps.vps_formats(tables.app_of(entry) or apps.default_app().id)
-    filed = str(release.get("tableFormat") or "").strip().upper()
-    return not formats or not filed or filed in formats
+    return vps_formats.fits(release.get("tableFormat"), formats)
 
 
 def matched_vps_entry(game: GameRecord) -> dict:

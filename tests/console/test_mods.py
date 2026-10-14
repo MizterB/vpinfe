@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 from urllib.parse import parse_qs, urlparse
 
 from console import game_tables, workbench
-from console.workbench import in_lineage
+from console.release_match import in_lineage
 
 
 async def _now(callback: Any, *args: Any, **kwargs: Any) -> Any:
