@@ -79,6 +79,10 @@ INPUT_ACT = "input:act"
 # Declared by an extension that provides an app, whether or not it serves routes of its own.
 APPS_PROVIDE = "apps:provide"
 
+# Who is signed in, and signing them out. Not config:* - a list of browsers is not a setting.
+ACCESS_READ = "access:read"
+ACCESS_WRITE = "access:write"
+
 CORE = frozenset({
     INSTANCE_READ,
     GAMES_READ, GAMES_WRITE, GAMES_EXPORT_FULL,
@@ -92,6 +96,7 @@ CORE = frozenset({
     PREFERENCES_READ, PREFERENCES_WRITE,
     PLAYERS_READ, PLAYERS_WRITE,
     APPS_PROVIDE,
+    ACCESS_READ, ACCESS_WRITE,
 })
 
 EXTENSION_PREFIX = "ext:"

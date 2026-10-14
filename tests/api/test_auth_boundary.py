@@ -33,14 +33,14 @@ def _app_with_guarded_routes() -> object:
     return app
 
 
-class DormantPolicyTests(unittest.TestCase):
-    """The boundary exists but changes nothing: that is the whole point of shipping it now."""
+class SignInPolicyTests(unittest.TestCase):
+    """This machine is trusted, so the app answers on it exactly as it always has."""
 
     def setUp(self) -> None:
-        auth.set_policy(auth.LocalTrustPolicy())
-        self.addCleanup(auth.set_policy, auth.LocalTrustPolicy())
+        auth.set_policy(auth.SignInPolicy())
+        self.addCleanup(auth.set_policy, auth.SignInPolicy())
 
-    def test_every_endpoint_still_answers(self) -> None:
+    def test_every_endpoint_answers_on_this_machine(self) -> None:
         client = _client()
 
         for path in ("/", "/health", "/play/state"):
@@ -48,7 +48,7 @@ class DormantPolicyTests(unittest.TestCase):
                 self.assertEqual(client.get(path).status_code, 200)
 
     def test_the_local_identity_holds_every_core_scope(self) -> None:
-        identity = auth.LocalTrustPolicy().identify(None)
+        identity = auth.SignInPolicy().identify(None)
 
         self.assertEqual(identity.scopes, scopes.CORE)
         self.assertTrue(identity.can(scopes.SYSTEM_ADMIN))
@@ -58,7 +58,7 @@ class EnforcementTests(unittest.TestCase):
     """Swap the policy and the same routes start refusing. No route changes."""
 
     def setUp(self) -> None:
-        self.addCleanup(auth.set_policy, auth.LocalTrustPolicy())
+        self.addCleanup(auth.set_policy, auth.SignInPolicy())
 
     def _grant(self, *granted):
         class Policy:

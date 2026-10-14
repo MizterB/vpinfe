@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Sign-In Code</title>
+  <style>
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: rgba(0, 0, 0, 0);
+      color: #f8fafc;
+      font-family: sans-serif;
+    }
+
+    #stage {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.78);
+    }
+
+    #card {
+      box-sizing: border-box;
+      width: 78vmin;
+      padding: 5vmin;
+      text-align: center;
+      background: #1a1e2a;
+      border: 0.3vmin solid rgba(148, 163, 184, 0.28);
+      border-radius: 2.5vmin;
+      box-shadow: 0 1vmin 4vmin rgba(0, 0, 0, 0.8);
+      transform-origin: center center;
+    }
+
+    .heading {
+      margin: 0 0 4vmin;
+      font-size: 4.4vmin;
+      font-weight: 700;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }
+
+    #digits {
+      margin: 0 0 3vmin;
+      font-size: 12vmin;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.2em;
+      /* The trailing gap letter-spacing leaves would pull the digits off centre. */
+      padding-left: 0.2em;
+    }
+
+    .note {
+      margin: 0 0 1.5vmin;
+      font-size: 3vmin;
+      color: #cbd5e1;
+      overflow-wrap: anywhere;
+    }
+
+    #buttons {
+      display: flex;
+      justify-content: center;
+      gap: 3vmin;
+      margin-top: 4vmin;
+    }
+
+    button {
+      min-width: 20vmin;
+      padding: 1.8vmin 4vmin;
+      font-size: 3.6vmin;
+      font-family: inherit;
+      color: #fff;
+      background: #3b4252;
+      border: 0.4vmin solid transparent;
+      border-radius: 1.2vmin;
+      cursor: pointer;
+    }
+
+    button.focus {
+      background: #2196f3;
+      border-color: #fff;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="stage" hidden>
+    <div id="card">
+      <p class="heading" id="heading"></p>
+      <p id="digits" hidden></p>
+      <p class="note" id="from" hidden></p>
+      <p class="note" id="expires" hidden></p>
+      <div id="buttons">
+        <button type="button" id="show" data-i18n="frontend.signin.show">Show</button>
+        <button type="button" id="ignore" data-i18n="frontend.signin.ignore">Ignore</button>
+        <button type="button" id="close" data-i18n="word.close">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // The overlay has no core of its own. The parent hands it `__vpinWords` when the frame
+    // is built; until then, and on an install with no catalog, the English passed here shows.
+    function t(key, english, params) {
+      const words = window.__vpinWords;
+      const form = (entry) => entry && typeof entry === 'object'
+        ? (Math.abs(Number(params && params.count)) === 1 && entry.one) || entry.other
+        : entry;
+      const said = form(words && words[key]) || form(english);
+      return params ? said.replace(/\{(\w+)\}/g, (whole, name) =>
+        params[name] === undefined ? whole : params[name]) : said;
+    }
+
+    const stage = document.getElementById('stage');
+    const card = document.getElementById('card');
+    const heading = document.getElementById('heading');
+    const digits = document.getElementById('digits');
+    const from = document.getElementById('from');
+    const expires = document.getElementById('expires');
+    const buttons = {
+      show: document.getElementById('show'),
+      ignore: document.getElementById('ignore'),
+      close: document.getElementById('close'),
+    };
+
+    let request = null;
+    let deadline = 0;
+    let countdown = null;
+    // The buttons on screen for the request, in the order Left and Right walk them.
+    let row = [];
+    let cursor = 0;
+    // One press at a time: the answer is the machine's, and a second press on the same
+    // request while the first is in flight would be asking twice.
+    let busy = false;
+
+    function vpin() {
+      return window.parent.vpin;
+    }
+
+    function turn() {
+      try {
+        const angle = Number(vpin().layout.uprightRotation) || 0;
+        card.style.transform = angle ? `rotate(${angle}deg)` : '';
+      } catch (_e) {
+        card.style.transform = '';
+      }
+    }
+
+    function drawExpiry() {
+      const minutes = Math.max(1, Math.ceil((deadline - Date.now()) / 60000));
+      expires.textContent = t('frontend.signin.expires', 'Expires in {count} minutes',
+                              { count: minutes });
+    }
+
+    function focusRow() {
+      Object.values(buttons).forEach((button) => button.classList.remove('focus'));
+      if (row[cursor]) row[cursor].classList.add('focus');
+    }
+
+    // What each kind of request looks like. Only the code is drawn for now.
+    const DRAWN = { sign_in: drawSignIn };
+
+    function drawSignIn(shown) {
+      const revealed = shown.state === 'shown' && !!shown.code;
+      heading.textContent = revealed
+        ? t('frontend.signin.title', 'Sign-In Code')
+        : t('frontend.signin.wants', '{address} wants to sign in', { address: shown.address });
+      digits.hidden = !revealed;
+      digits.textContent = revealed ? shown.code : '';
+      from.hidden = !revealed;
+      expires.hidden = !revealed;
+      if (revealed) {
+        from.textContent = t('frontend.signin.from', 'Requested from {address}',
+                             { address: shown.address });
+        drawExpiry();
+      }
+      buttons.show.hidden = revealed;
+      buttons.ignore.hidden = revealed;
+      buttons.close.hidden = !revealed;
+      row = revealed ? [buttons.close] : [buttons.show, buttons.ignore];
+    }
+
+    function render(next) {
+      if (!next || !next.id) {
+        clear();
+        return;
+      }
+      const same = request && request.id === next.id && request.state === next.state;
+      request = next;
+      deadline = Date.now() + (Number(next.expires_in) || 0) * 1000;
+      (DRAWN[next.kind || 'sign_in'] || DRAWN.sign_in)(next);
+      if (!same) cursor = 0;
+      cursor = Math.min(cursor, row.length - 1);
+      focusRow();
+      turn();
+      stage.hidden = false;
+      clearInterval(countdown);
+      countdown = setInterval(() => { if (!expires.hidden) drawExpiry(); }, 15000);
+    }
+
+    function clear() {
+      clearInterval(countdown);
+      countdown = null;
+      request = null;
+      row = [];
+      stage.hidden = true;
+    }
+
+    async function ask(method) {
+      if (!request || busy) return null;
+      busy = true;
+      try {
+        return await vpin().callInternal(method, request.id);
+      } catch (err) {
+        vpin().call('console_out', `Sign-in: ${err.message}`);
+        return null;
+      } finally {
+        busy = false;
+      }
+    }
+
+    // Show keeps this open and swaps it for the digits. Ignore and Close end the request,
+    // and core closes the overlay when the machine says there is none.
+    async function press(name) {
+      if (name === 'show') {
+        const revealed = await ask('signin_show');
+        if (revealed) render(revealed);
+      } else if (name === 'ignore') {
+        await ask('signin_ignore');
+      } else if (name === 'close') {
+        await ask('signin_dismiss');
+      }
+    }
+
+    function handleInput(input) {
+      switch (input) {
+        case 'previous':
+        case 'page_previous':
+          cursor = Math.max(0, cursor - 1);
+          focusRow();
+          break;
+        case 'next':
+        case 'page_next':
+          cursor = Math.min(row.length - 1, cursor + 1);
+          focusRow();
+          break;
+        case 'select':
+          if (row[cursor]) press(row[cursor].id);
+          break;
+        case 'back':
+          press('close');
+          break;
+      }
+    }
+
+    Object.entries(buttons).forEach(([name, button]) => {
+      button.addEventListener('click', () => press(name));
+    });
+
+    window.parent.vpin.registerOverlayHandler('signIn', handleInput);
+
+    // Keyboard input is core's, on this window as well as the parent's - see
+    // #listenForKeysIn in vpinfe-core.js.
+
+    window.__vpinWordsChanged = () => {
+      if (request) render(request);
+    };
+
+    window.addEventListener('message', (event) => {
+      if (event.source !== window.parent) return;
+      const message = event.data;
+      if (!message) return;
+      if (message.event === 'overlay_open') {
+        render(message.context || null);
+      } else if (message.event === 'sign_in_state') {
+        render(message.request || null);
+      } else if (message.event === 'overlay_close' || message.event === 'reset state') {
+        clear();
+      }
+    });
+
+    // Core posts overlay_open ten milliseconds after building this frame, which a slow
+    // page can miss; asking the machine makes the first draw independent of the race.
+    window.parent.vpin.callInternal('signin_pending').then((now) => {
+      if (!request && now) render(now);
+    }).catch(() => {});
+  </script>
+</body>
+</html>

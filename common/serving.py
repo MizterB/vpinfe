@@ -22,6 +22,11 @@ def bound(field: Port, port: int) -> None:
     _bound[field] = int(port)
 
 
+def bound_port(field: Port) -> int | None:
+    """The port this process started the named server on, or None where it has not."""
+    return _bound.get(field)
+
+
 def bound_ports() -> set[int]:
     """The ports this process is listening on."""
     return set(_bound.values())

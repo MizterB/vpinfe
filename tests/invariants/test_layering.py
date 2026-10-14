@@ -98,12 +98,16 @@ class LayeringTests(unittest.TestCase):
         """`docs/common.md`: nothing in `common/` itself may import `games`, `online` or
         `host`. Only the top level - the domain packages may of course import each other.
 
-        Two are grandfathered, both because the thing they reach for is genuinely about
-        that domain. A third would mean a generic helper filed in the wrong place, which
+        Those listed are allowed, each because the thing it reaches for is genuinely about
+        that domain. Another would mean a generic helper filed in the wrong place, which
         is what `common/atomic_write.py` exists to have fixed.
         """
         allowed = {("config_store.py", "common.games.info_migration"),   # .info backups
-                   ("install_identity.py", "common.games.ids")}          # the id alphabet
+                   ("install_identity.py", "common.games.ids"),          # the id alphabet
+                   # The accepted list judges a theme by its source's address and reads the
+                   # themes folder the installer keeps, which only `online` knows.
+                   ("accepted.py", "common.online"),
+                   ("accepted.py", "common.online.theme_installer")}
         domains = {"games", "online", "host"}
         found = set()
         # `_imports` reports the top-level package only; the full dotted name is what

@@ -6,6 +6,7 @@ import sys
 
 from screeninfo import get_monitors
 
+from common import serving
 from common.config_store import ConfigStore
 from common.deprecations import announce
 from common.games import game_report_service, info_maintenance, metadata_service, revert_3x
@@ -90,6 +91,7 @@ def gamepadtest():
     theme_assets_bind = cfg_get(config_store, 'network', 'theme_assets_bind', '127.0.0.1')
     ws_port = cfg_int(config_store, 'network', 'wsport', 8002)
     http_server.start_file_server(port=theme_assets_port, bind=theme_assets_bind)
+    serving.bound("theme_assets_port", theme_assets_port)
 
     monitors = get_monitors()
     ws_bridge = DeviceChannel(port=ws_port)

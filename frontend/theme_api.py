@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
-from common import serving, theme_options
+from common import accepted, serving, theme_options
 from common.config_access import ConfigSource, SettingsConfig
 from common.paths import THEMES_DIR
 from frontend import theme_contract
@@ -16,8 +16,20 @@ from frontend import theme_contract
 logger = logging.getLogger("vpinfe.frontend.theme_api")
 
 
+_warned: set[str] = set()
+
+
 def get_theme_name(config: ConfigSource) -> str:
-    return SettingsConfig.from_config(config).theme
+    """The theme to play: the one chosen, unless nobody has accepted it, which plays the
+    default so a screen is never left with a theme it must not run."""
+    chosen = SettingsConfig.from_config(config).theme
+    if accepted.theme_runs(chosen):
+        return chosen
+    if chosen not in _warned:
+        _warned.add(chosen)
+        logger.warning("Theme %s is not accepted; playing %s instead", chosen,
+                       accepted.default_theme())
+    return accepted.default_theme()
 
 
 def resolve_theme_dir(theme_name: str) -> Path | None:

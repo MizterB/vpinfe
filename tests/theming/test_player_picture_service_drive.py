@@ -17,6 +17,7 @@ import urllib.request
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from common import accepted, machine_secrets
 from tests.support import pictures
 from tests.support.browser_session import BrowserSession, chromium_path
 from tests.support.console_walk import ConsoleWalk
@@ -50,6 +51,13 @@ class PictureFromAService(unittest.TestCase):
                 Info={"Manufacturer": "Bally", "Year": "1992"}))
             instance = LiveInstance(Path(tmp))
             shutil.copytree(SAMPLE, instance.config_dir / "extensions" / "sample")
+            declared = json.loads((SAMPLE / "extension.json").read_text(encoding="utf-8"))
+            machine_secrets.write_private(instance.config_dir / "accepted.json", {
+                "themes": {}, "seeded": True, "extensions": {"sample": {
+                    "origin": accepted.IN_FOLDER,
+                    "folder": str(instance.config_dir / "extensions"),
+                    "version": declared["version"], "scopes": sorted(declared["scopes"]),
+                    "capabilities": sorted(declared["capabilities"])}}})
             with instance:
                 cls.seen = asyncio.run(cls._drive(instance))
 

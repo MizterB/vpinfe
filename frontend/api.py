@@ -48,6 +48,7 @@ from frontend import (
     lifecycle_host,
     metadata_build_service,
     preview,
+    sign_in_prompt,
     theme_api,
     theme_windows,
 )
@@ -173,6 +174,12 @@ API_INTERNAL_METHODS = {
     'switch_preview',
     'decide_preview',
     'end_preview',
+    # The sign-in code on the machine's screen. A theme calling them would read the digits
+    # or press Show for somebody who asked for a code from the other side of the house.
+    'signin_pending',
+    'signin_show',
+    'signin_ignore',
+    'signin_dismiss',
     # The main menu's Player list and its Rating dialog asking whose. A theme reads who
     # is up through get_players/PlayersChanged; only core's own overlay writes it.
     'set_player_up',
@@ -762,6 +769,23 @@ class API:
     def end_preview(self) -> dict[str, Any]:
         """Exit leaves the recordings on show waiting."""
         preview.end()
+        return {}
+
+    def signin_pending(self) -> dict[str, Any] | None:
+        """The sign-in request the screen should be showing, or None."""
+        return sign_in_prompt.pending()
+
+    def signin_show(self, request_id: Any) -> dict[str, Any] | None:
+        """Show: reveal the digits. None when the request has gone."""
+        return sign_in_prompt.show(str(request_id))
+
+    def signin_ignore(self, request_id: Any) -> dict[str, Any]:
+        """Ignore: refuse this address's requests until restart."""
+        sign_in_prompt.ignore(str(request_id))
+        return {}
+
+    def signin_dismiss(self, request_id: Any) -> dict[str, Any]:
+        sign_in_prompt.dismiss(str(request_id))
         return {}
 
     def console_out(self, output: Any, frame: str = "") -> Any:

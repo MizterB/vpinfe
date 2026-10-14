@@ -17,6 +17,7 @@ from common import apps, i18n
 from common import events as core_events
 from common.extensions import contract, host, provided_apps, store
 from tests.support import served
+from tests.support.accepted import owner_accepts
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "extensions"
 
@@ -29,6 +30,7 @@ class HostCase(unittest.TestCase):
     LOG = "vpinfe.common.extensions"
 
     def setUp(self) -> None:
+        owner_accepts(self)
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         self.root = Path(self._tmp.name)

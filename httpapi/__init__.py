@@ -46,6 +46,7 @@ from . import (
     players,
     preferences,
     scopes,
+    sign_in,
     tables,
     themes,
     uploads,
@@ -115,6 +116,7 @@ def create_api_app() -> FastAPI:
 
     install_error_handlers(api, on_unhandled=extensions.blame)
     api.include_router(instance.build_router(API_PREFIX, API_VERSION))
+    api.include_router(sign_in.router)
     api.include_router(events.router)
     api.include_router(collections.router)
     api.include_router(jobs.router)

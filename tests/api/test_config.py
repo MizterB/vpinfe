@@ -186,6 +186,42 @@ class ConfigRouteTests(unittest.TestCase):
         self.assertIn("device.setup_pending", response.text)
         self.assertEqual(self.store.written, {})
 
+    def test_a_read_says_whether_the_dof_key_is_set_and_never_what_it_is(self):
+        self.store.written[("dof", "config_tool_api_key")] = "abc-secret-key"
+
+        for path in ("/config", "/config/settings", "/config/settings/dof"):
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertEqual(response.status_code, 200, response.text)
+                self.assertNotIn("abc-secret-key", response.text)
+        self.assertIs(self.client.get("/config/settings/dof").json()["config_tool_api_key"], True)
+        self.store.written[("dof", "config_tool_api_key")] = ""
+        self.assertIs(self.client.get("/config/settings/dof").json()["config_tool_api_key"], False)
+
+    def test_a_write_answers_without_the_key_it_stored(self):
+        response = self.client.put(
+            "/config", json={"settings": {"dof": {"config_tool_api_key": "abc-secret-key"}}})
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertNotIn("abc-secret-key", response.text)
+        self.assertEqual(self.store.written[("dof", "config_tool_api_key")], "abc-secret-key")
+
+    def test_the_answer_a_read_gives_cannot_be_written_back_as_the_key(self):
+        response = self.client.put(
+            "/config", json={"settings": {"dof": {"config_tool_api_key": True}}})
+
+        self.assertEqual(response.status_code, 400, response.text)
+        self.assertNotIn(("dof", "config_tool_api_key"), self.store.written)
+
+    def test_the_boolean_is_refused_under_any_spelling_of_the_key(self):
+        for body in ({"dof": {"dofconfigtoolapikey": True}},
+                     {"DOF": {"Config_Tool_Api_Key": True}}):
+            with self.subTest(body=body):
+                response = self.client.put("/config", json={"settings": body})
+
+                self.assertEqual(response.status_code, 400, response.text)
+        self.assertEqual(self.store.written, {})
+
     def test_a_theme_source_is_accepted(self):
         response = self.client.put("/config",
                                    json={"settings": {"themes": {"registries": "http://elsewhere"}}})

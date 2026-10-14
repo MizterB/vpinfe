@@ -166,10 +166,10 @@ class FullExportScopeTests(unittest.TestCase):
         games:read cannot pull whole folders. Local trust grants everything, so
         nothing changes for anyone today."""
         from httpapi import scopes
-        from httpapi.auth import LocalTrustPolicy
+        from httpapi.auth import SignInPolicy
 
         self.assertIn(scopes.GAMES_EXPORT_FULL, scopes.CORE)
-        identity = LocalTrustPolicy().identify(None)
+        identity = SignInPolicy().identify(None)
         self.assertTrue(identity.can(scopes.GAMES_EXPORT_FULL))
 
 

@@ -41,6 +41,13 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/health` | Liveness |
 | GET | `/api/v1/openapi.json` | Generated OpenAPI spec |
 | GET | `/api/v1/docs` | Swagger UI |
+| POST | `/api/v1/auth/code` | Ask for a sign-in code. The machine shows "{address} wants to sign in" with Show and Ignore; the answer holds a `request_id` and no digits. 429 `too_many_requests` while another address's ask is too recent, 403 once the machine has ignored this address |
+| POST | `/api/v1/auth/session` | `{"request_id", "code"}` signs this browser in and sets the `vpinfe_session` cookie: HttpOnly, SameSite Lax, 90 days unused, Secure under HTTPS. 403 `forbidden` with `details.reason` of `wrong`, `used_up`, `no_code` or `ignored` |
+| GET | `/api/v1/auth/me` | Whether this browser is signed in, whether it reached the API from the machine itself, and which kind of sign-in it holds |
+| POST | `/api/v1/auth/sign_out` | Sign this browser out |
+| GET | `/api/v1/auth/sessions` | The browsers signed in: what each is, where from, when last used, and which one is asking (`access:read`) |
+| DELETE | `/api/v1/auth/sessions/{session_id}` | Sign one browser out (`access:write`) |
+| DELETE | `/api/v1/auth/sessions` | Sign every browser out (`access:write`) |
 | GET | `/api/v1/events` | Subscribe to the event stream (SSE). `?events=` filters by name |
 | GET | `/api/v1/play/state` | What this play host is doing, with the running game's `game_id` and when it `started_at`. The snapshot you take once; `play.state_changed` on the stream is how you hear about it after that |
 | POST | `/api/v1/play/stop` | Close the table this play host is running. `stopped` is false when there was nothing to close, which is an answer rather than a failure |
@@ -280,7 +287,7 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/config` | What this install is set to: `{settings, theme_options, <list>...}`, `settings` by section and key, `theme_options` by theme folder and one array for each list the schema declares |
 | GET | `/api/v1/config/theme_options` | What was chosen on each theme, `{<theme folder>: {<option>: value}}`. A theme nobody has changed is absent |
 | GET | `/api/v1/config/theme_options/{theme}` | One theme's chosen values, `404` for a theme with none |
-| GET | `/api/v1/config/settings` | The settings alone, by section and key |
+| GET | `/api/v1/config/settings` | The settings alone, by section and key. `dof.config_tool_api_key` reads `true` or `false`, whether a key is set, on this and every other read of the config; it is written as the key itself, and a boolean written to it is refused with `400` |
 | GET | `/api/v1/config/settings/{section}` | One section's settings, `404` for one that does not exist |
 | PUT | `/api/v1/config` | Change settings and lists, `{settings: {section: {key: value}}, <list>: [...]}`. A patch: only what is sent is written, and a list sent replaces that list. `theme_options` is `{<theme folder>: {<option>: value}}`: each theme named takes the values sent, checked against the options that theme declares (a theme that is not installed keeps them as sent), an empty object takes that theme's choices away, and the themes not named are left alone. A key that is neither `settings`, `theme_options` nor a declared list is refused, and a refused setting or list writes nothing. A port that is out of range, that something else is listening on, or that another port setting holds is refused with `400`; `details.settings` says why for each, by `section.key` |
 | GET | `/api/v1/config/{list}` | Every item of a declared list, in order. `404` for a name that is not a list. `schema`, `paths`, `tools`, `waiting` and `settings` are never list names |
@@ -307,7 +314,9 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/themes/sources` | The configured sources in their order, as `registries` (lists of themes) and `repositories` (single themes), each with its `kind`, a `state` (`ready`, `not_checked`, `not_answering`, `not_found`, `not_a_theme`, `needs_vpinfe`, `some_unreadable`, `not_used`), a `level` to color it by, a `reason` in words, what it `took`, and the `label` the person gave it (empty where none). Reads nothing: a source never read is `not_checked` |
 | POST | `/api/v1/themes/sources/check` | What adding `{"address"}` would be, without saving it: the `kind` found, the `address` it would be stored under, `addable`, and the same fields as a source. `config:write`. Nothing is installed. Saving is `PUT /config` |
 | PUT | `/api/v1/themes/sources/name` | Call an added source something, `{"address", "name"}`: its `label`, shown in place of the name it has. A blank `name` takes it back. `config:write`. Kept apart from the address lists, which stay addresses. `404` for an address that is not added. Answers with the `address` and `label` |
-| POST | `/api/v1/themes/{key}/install` | Install or update. Installing over an existing copy is what an update is |
+| POST | `/api/v1/themes/{key}/install` | Install or update. Installing over an existing copy is what an update is. Refused (`error.themes.not_accepted`) for a theme from a source other than the VPinFE Theme List until it is accepted |
+| GET | `/api/v1/themes/unaccepted` | The installed themes nobody has accepted, `{"themes": [{"key", "name"}]}`. Reads the themes folder alone, never the network. The frontend plays the default theme in place of one of these |
+| POST | `/api/v1/themes/{key}/accept` | Accept a theme from the address this install knows it by - a source other than the VPinFE Theme List, or the themes folder for one no source offers. Answers with its `trust`. A theme from a different address asks again. `config:write` until the Protected scope replaces it. `404` for a theme nothing offers |
 | DELETE | `/api/v1/themes/{key}` | Remove an installed theme. Refused for the active one - the frontend would come up with no theme at all |
 | PUT | `/api/v1/themes/active` | Choose which theme the frontend plays. Takes effect when the frontend next starts |
 | GET | `/api/v1/themes/{key}/preview` | The picture the theme's manifest names, at `size` 256 or 1024 when given. One not installed is fetched from its host once per release and kept here, so a new release is a new copy; the same release is asked about again after a day. `v` is the listing's `preview_version`, and a request that carries the current one may be kept for good. `404` for a theme with no picture or one that cannot be fetched |
@@ -316,6 +325,7 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/extensions` | Every extension this install looked at, running or not, and what each declared. `enabled` is the switch, which is not the same as running. One that is not running carries `reason`, in this install's language, and `reason_key`, the catalog key it was read from |
 | GET | `/api/v1/extensions/needs` | What the running extensions ask for on Overview, `{"needs": [...], "away": [...], "failed": [...]}`. Each need carries its `key`, `label`, `says`, `count`, `covered` (what a dismissal is kept against), `tone`, and what it opens. `away` lists the extensions that did not answer, a stopped one included, so what was set aside against them is kept, and `failed` the ones that raised. See `docs/extensions/reference/ui.md` |
 | PUT | `/api/v1/extensions/{name}/enabled` | Switch one on or off, `{"enabled": bool}`, written to `extensions.switched_off`. Answers with the extension. Off takes it out at once, as a fault would, and its `reason_key` says it was switched off. On waits for the next start, because routes mount once: until then it stays `off`, with `extension.reason.pending_restart`, or the reason this install cannot run it |
+| POST | `/api/v1/extensions/{name}/accept` | Accept an extension VPinFE did not ship, as it declares itself now (its `scopes` and `capabilities`), and start it. A later version that declares more stops until accepted again. A copy that replaces a built-in starts at the next start, and the built-in runs until then. Answers with the extension. `config:write` until the Protected scope replaces it. `404` for a name nothing answers to |
 | any | `/api/v1/ext/{name}/…` | An extension's own routes, gated on a scope it declared. `501` once it has stopped or been switched off, naming which one and why. One that never started, switched off before this start or not for this install, has no routes, so `404`. See `docs/extensions/reference/served.md` |
 
 Discovery is the entry point: an integrator learns what an instance offers by asking it,
@@ -531,8 +541,8 @@ becomes a logged `internal_error` with no detail in the response — put anythin
 needs into an explicit `ApiError`.
 
 Codes defined so far: `not_found`, `invalid_request`, `method_not_allowed`, `conflict`,
-`upstream_unavailable`, `feature_unavailable`, `internal_error`, plus `unauthorized` and `forbidden` reserved for the
-authorization boundary. Add new codes to `httpapi/errors.py` rather than inventing them at a call site.
+`upstream_unavailable`, `feature_unavailable`, `too_many_requests`, `internal_error`, plus
+`unauthorized` and `forbidden` for the authorization boundary. Add new codes to `httpapi/errors.py` rather than inventing them at a call site.
 
 ## Authorization
 
@@ -543,17 +553,18 @@ route declares the scope it needs:
 @router.get("/games", dependencies=[requires(scopes.TABLES_READ)])
 ```
 
-**The policy is dormant.** Today whoever can reach the instance is granted every scope, which
-is exactly how the app has always behaved — this changes nothing for anyone. What exists now
-is the mechanism, so tightening later is a policy change rather than a retrofit across every
-endpoint. Replacing `LocalTrustPolicy` is the whole of it.
+**Who gets which scopes is `SignInPolicy`.** A request from this machine holds every core
+scope. A request from another computer holds `instance:read` alone, which is enough to ask
+what this instance is and to ask for a sign-in code, until a browser on it has signed in.
+Signing in is a six-digit code shown on the machine and typed on the other computer; the
+`/auth` routes above are the whole of it. A signed-in browser holds the same scopes as the
+machine, and a cookie that is not signed in, expired or signed out holds none.
 
-An identity does carry `origin` — `local` or `network` — decided by the request's own peer
-address, so a policy that wants to treat the two differently has the fact without re-deriving
-it. It is read from the socket and never from `X-Forwarded-For`, which the caller writes.
-Nothing acts on it yet: VPinFE binds every interface by default so a phone can administer a
-cabinet, and what a network caller should be allowed is a decision that lands on that
-workflow.
+An identity carries `origin` (`local` or `network`), decided by the request's own socket,
+`Host` and `Origin` and never by `X-Forwarded-For`, which the caller writes. A signed-in
+identity also carries `session_id` and `kind`. A cookie on a write that the browser says
+another site began (`Sec-Fetch-Site: cross-site`) is ignored, so a page of someone else's
+cannot act with a sign-in it never held.
 
 Three properties keep it honest:
 
@@ -574,16 +585,15 @@ one after callers depend on it is not.
 
 ## What this API assumes about your network
 
-**It is unauthenticated, and it answers on every interface by default.** Anything that can
-reach the port is granted every scope — reading the library, rewriting config, uploading
-files, launching games, and `system:admin`. There are no tokens and no accounts.
+**It answers on every interface by default, and another computer gets in with a code.**
+Anything that can reach the port may ask what this instance is and ask for a code. The code
+is shown on the machine, never sent back to the asker, so someone who can reach the port and
+cannot see the screen gets nothing else. Once typed, the browser holds every scope until it is
+signed out or goes unused for 90 days.
 
-This is what VPinFE has always done, and 3.0 does not change it. It is written down here
-because 3.0 is the release that makes the API a documented, versioned surface worth
-building against, and a default nobody stated is a default nobody can decide about.
-
-**Run it on a network you trust.** A home LAN behind a router is the assumption. A shared
-or public network is not, and neither is port-forwarding it to the internet.
+Over plain HTTP the cookie and everything after it cross the network unencrypted, so sign in
+from a network you trust. A home LAN behind a router is the assumption. A shared or public
+network is not, and neither is port-forwarding it to the internet.
 
 Two settings decide reachability, and they are separate on purpose:
 
@@ -601,9 +611,7 @@ and mobile pages stop working from other devices, which is the trade.
 itself. Opening it is what a device on another machine needs to fetch artwork, and VPinFE
 logs a warning when it is not loopback.
 
-An identity already records whether a caller reached the API from this machine (`origin`),
-read from the socket rather than a header. Nothing acts on it yet — that is the policy
-decision above, and it is deliberately not made here.
+Set it to `127.0.0.1` and the machine is the only one that can sign in at all.
 
 ## Capabilities
 

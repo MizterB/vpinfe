@@ -480,6 +480,10 @@ const INTERNAL_METHODS = new Set([
   "switch_preview",
   "decide_preview",
   "end_preview",
+  "signin_pending",
+  "signin_show",
+  "signin_ignore",
+  "signin_dismiss",
   "set_player_up",
   "set_player_rating",
   "get_player_rating",
@@ -742,6 +746,12 @@ class VPinFECore {
   // A recording shown for a decision, as core last sent it, and what this window drew.
   #preview = null;
   #previewLayer = null;
+
+  // The sign-in request the machine last said it is showing, or null, and the timer that
+  // drops it when its time is up. Held here whether or not it can be drawn yet.
+  #signIn = null;
+  #signInExpiry = null;
+  #signInOpening = false;
 
   // Keyed on the game's row as well as the URL: a reload hands out new rows, and a picture
   // replaced under the same URL is only fetched again if the node is built again.
@@ -1041,6 +1051,9 @@ class VPinFECore {
     // travelling behind whatever took the focus. The same failure the install guards a
     // network press against by expiring it.
     window.addEventListener('blur', () => this.#loseFocus());
+    // Back from a table, the controller window is asked again: a request made while it
+    // was running was held, and nothing else says it is still waiting.
+    window.addEventListener('focus', () => { if (this.isController()) this.#pullSignIn(); });
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) this.#loseFocus();
     });
@@ -1601,6 +1614,12 @@ class VPinFECore {
       this.#showPreview(message.preview || null);
       return;
     }
+    // Core's, like the preview: the digits are the machine's to show, so a theme's own
+    // handlers never get them from here.
+    if (message.type === "SignInRequest") {
+      this.#showSignIn(message.request || null);
+      return;
+    }
     if (message.type === "LifecycleActing") {
       this.#showLifecycleNotice(message);
       // Still offered to the theme below: a theme may want to say it in its own voice,
@@ -1691,6 +1710,14 @@ class VPinFECore {
       frameId: "collection-menu-frame",
       src: "/core/collectionmenu/collectionmenu.html",
     },
+    // Held back while a table runs, so it is never drawn over one. Its frame fills the
+    // screen and dims it, because it is asking for attention rather than offering a menu.
+    signIn: {
+      frameId: "signin-frame",
+      src: "/core/signin/signin.html",
+      size: ["100vw", "100vh"],
+      prepare: (core) => core.#signInToDraw(),
+    },
     tutorial: {
       frameId: "tutorial-frame",
       src: "/core/tutorial/tutorial.html",
@@ -1755,6 +1782,7 @@ class VPinFECore {
       iframe.className = "vpinfe-overlay-frame";
       iframe.setAttribute("allowTransparency", "true");
       iframe.style.display = "none";                   // start hidden to prevent a flash
+      if (spec.size) [iframe.style.width, iframe.style.height] = spec.size;
       overlayRoot.appendChild(iframe);
       await new Promise(resolve => setTimeout(resolve, 10));   // let the DOM catch up
       this.#listenForKeysIn(iframe);
@@ -1825,6 +1853,7 @@ class VPinFECore {
       this.#pendingConfirm = null;
       releaseMode?.();
       root.remove();
+      this.#syncSignIn();
     }
   }
 
@@ -2445,6 +2474,7 @@ class VPinFECore {
       this.#setupGamepadListeners();
       this.#updateGamepads();           // No await needed here — runs loop
       this.#watchPlayState();           // Subscribe to remote launch events
+      this.#pullSignIn();
       this.#probePlayback();
     }
   }
@@ -2658,6 +2688,7 @@ class VPinFECore {
     } else {
       return;
     }
+    this.#syncSignIn();
     this.#drawRecording();
   }
 
@@ -3322,11 +3353,15 @@ class VPinFECore {
       return;
     }
     const overlay = this.overlay;
+    // A sign-in request owns every action but exit: the menu keys must not open another
+    // overlay over it and strand the request.
+    if (overlay === "signIn" && action !== "exit") return this.#triggerInputAction(action);
     if (action === "exit") {
       // Escape and q default to exit, and an overlay's own Escape handler never runs -
       // nothing focuses the iframe - so this used to quit VPinFE from inside a menu.
       // Closing the overlay is what every overlay's own map already meant by it.
-      if (overlay) this.#toggleOverlay(overlay);
+      if (overlay === "signIn") this.#dismissSignIn();
+      else if (overlay) this.#toggleOverlay(overlay);
       else this.#leave();
     }
     else if (action === "menu") this.#toggleOverlay("menu");
@@ -3817,7 +3852,10 @@ class VPinFECore {
     this.#previewLayer?.remove();
     this.#previewLayer = null;
     this.#preview = preview && preview.proposal ? preview : null;
-    if (!this.#preview) return;
+    if (!this.#preview) {
+      this.#syncSignIn();
+      return;
+    }
     if (this.isController() && this.overlay) this.#toggleOverlay(this.overlay);
 
     const kind = String(preview.kind || "");
@@ -3859,6 +3897,68 @@ class VPinFECore {
     surface.appendChild(words);
     document.body.appendChild(layer);
     this.#previewLayer = layer;
+  }
+
+  // Waiting on a table, a recording shown for a decision or a question to answer.
+  #signInHeld() {
+    return this._launchInputSuppressedByLifecycle || this.remoteLaunchActive
+      || !!this.#preview || !!this.#pendingConfirm;
+  }
+
+  #signInToDraw() {
+    return this.#signIn && !this.#signInHeld() ? this.#signIn : null;
+  }
+
+  #showSignIn(request) {
+    clearTimeout(this.#signInExpiry);
+    this.#signIn = request && request.id ? request : null;
+    if (this.#signIn) {
+      // The machine sends nothing when a request runs out, so this is what closes it.
+      const left = Math.max(0, Number(request.expires_in) || 0) * 1000;
+      this.#signInExpiry = setTimeout(() => this.#showSignIn(null), left);
+    }
+    this.#syncSignIn();
+  }
+
+  // Brings the screen into line with the request: opens it when it can be drawn, hands
+  // it the new state when it is up, and closes it when it has gone.
+  #syncSignIn() {
+    if (!this.isController()) return;
+    if (!this.#signIn) {
+      if (this.overlay === "signIn") this.#toggleOverlay("signIn");
+      return;
+    }
+    if (this.#signInHeld()) return;
+    if (this.overlay === "signIn") {
+      const frame = document.getElementById(VPinFECore.OVERLAYS.signIn.frameId);
+      frame?.contentWindow?.postMessage({ event: "sign_in_state", request: this.#signIn }, "*");
+      return;
+    }
+    if (this.#signInOpening) return;
+    this.#signInOpening = true;
+    this.#toggleOverlay("signIn").finally(() => {
+      this.#signInOpening = false;
+      this.#syncSignIn();
+    });
+  }
+
+  async #pullSignIn() {
+    try {
+      this.#showSignIn(await this.callInternal("signin_pending"));
+    } catch (_e) {
+      /* an older build has no sign-in to ask about */
+    }
+  }
+
+  // Close ends the request on the machine, and the machine's answer closes the screen.
+  async #dismissSignIn() {
+    if (!this.#signIn) return;
+    try {
+      await this.callInternal("signin_dismiss", this.#signIn.id);
+    } catch (err) {
+      this.call("console_out", `Sign-in: ${err.message}`);
+      this.#showSignIn(null);
+    }
   }
 
   #previewMedia(preview, showing, screen) {

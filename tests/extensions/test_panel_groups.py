@@ -14,6 +14,7 @@ from common import i18n
 from common.extensions import contract, host, pane, store
 from common.extensions.context import ExtensionUI
 from common.i18n import t
+from tests.support.accepted import owner_accepts
 from tests.support.served import client_for
 
 MODULE = "tests.extensions.test_panel_groups"
@@ -158,6 +159,7 @@ class Served(unittest.TestCase):
     private_ok = False
 
     def setUp(self) -> None:
+        owner_accepts(self)
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.store = store.ExtensionStore(Path(tmp.name))
@@ -404,6 +406,9 @@ class Declared(Served):
 
 
 class NotAllowed(unittest.TestCase):
+    def setUp(self) -> None:
+        owner_accepts(self)
+
     def test_an_extension_that_declares_a_group_without_the_scope_fails_to_load(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             registry = host.Registry(store.ExtensionStore(Path(tmp)))

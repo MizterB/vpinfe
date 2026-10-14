@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlsplit
 
-from common import config_schema
+from common import config_schema, i18n
 from common.config_access import cfg_get, cfg_list
 
 logger = logging.getLogger("vpinfe.common.online.theme_sources")
@@ -50,9 +50,18 @@ def _name_key(address: str) -> str:
     return (where.url if where is not None else str(address or "").strip()).lower()
 
 
+def claims_stock_title(name: str) -> bool:
+    """Whether `name` is the VPinFE Theme List's title, which only that list may carry:
+    a source called that would borrow the trust the title implies."""
+    wanted = {i18n.t_source("console.theme_sources.stock"), i18n.t("console.theme_sources.stock")}
+    return clean_name(name).casefold() in {one.casefold() for one in wanted}
+
+
 def name_of_source(source: Any, address: str) -> str:
-    """What the person called this source, or "" where they have not."""
-    return cfg_get(source, NAMES_SECTION, _name_key(address)).strip()
+    """What the person called this source, or "" where they have not. A name that is the
+    VPinFE Theme List's title is ignored on any other address, wherever it was written."""
+    named = cfg_get(source, NAMES_SECTION, _name_key(address)).strip()
+    return "" if named and claims_stock_title(named) and not is_stock(address) else named
 
 
 def clean_name(text: str) -> str:
@@ -67,7 +76,7 @@ def keep_names(store: Any, names: dict[str, str]) -> None:
         store.config.add_section(NAMES_SECTION)
     for address, name in names.items():
         key = _name_key(address)
-        if clean_name(name):
+        if clean_name(name) and not (claims_stock_title(name) and not is_stock(address)):
             store.config.set(NAMES_SECTION, key, clean_name(name))
         else:
             store.config.remove_option(NAMES_SECTION, key)

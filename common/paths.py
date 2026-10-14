@@ -114,6 +114,9 @@ COMMUNITY_KEPT_DIR = CACHE_DIR / "community"
 VPSDB_PATH = CACHE_DIR / "vpsdb.json"
 STAMPS_PATH = CACHE_DIR / "stamps.json"
 PLUGIN_PROFILES_DIR = CONFIG_DIR / "plugin_profiles"
+SECRETS_PATH = CONFIG_DIR / "secrets.json"
+ACCEPTED_PATH = CONFIG_DIR / "accepted.json"
+SESSIONS_PATH = CONFIG_DIR / "sessions.json"
 UPDATES_DIR = STATE_DIR / "updates"
 USER_CONFIG_PATH = VPINFE_INI_PATH
 USER_ROMS_PATH = CACHE_DIR / "roms.json"
@@ -121,6 +124,13 @@ USER_ROMS_PATH = CACHE_DIR / "roms.json"
 
 def ensure_config_dir() -> Path:
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    if sys.platform != "win32":
+        # The folder holds the secrets file and the accepted list; other accounts on the
+        # machine have no business listing it. Not fatal where the folder is not ours.
+        try:
+            os.chmod(CONFIG_DIR, 0o700)
+        except OSError:
+            pass
     return CONFIG_DIR
 
 

@@ -60,6 +60,7 @@ from console import (
     placement_panel,
     recording,
     screens,
+    security,
     theme_card,
     theme_sources,
     undo,
@@ -952,12 +953,15 @@ async def _metadata_page(library: Library, redraw: Callable[[], None],
     return lambda: sections.metadata_page(library, state, redraw)
 
 
+SECURITY_PAGE = "vpinfe.security"
+
 # A built page's draw: read what it shows, then hand back what draws it. The read is
 # awaited by the caller, so the draw itself never waits.
 PAGES: dict[str, Callable[[Library, Callable[[], None], dict[str, Any]],
                           Awaitable[Callable[[], None]]]] = {
     folders.KEY: _folders_page,
     needs.METADATA_PAGE: _metadata_page,
+    SECURITY_PAGE: security.page,
 }
 
 
@@ -1024,6 +1028,8 @@ DEVICE_INDEX: tuple[tuple[str, tuple[DevicePage, ...]], ...] = (
         # How much is written down and where it goes. The records themselves are a
         # place of their own under System, so this page is named for the act rather
         # than for them - two things called Logs is one too many.
+        (SECURITY_PAGE, "console.settings.page_security", BUILT_PAGE, (),
+                 install_identity.CORE),
         ("vpinfe.logger", "console.settings.page_logger", SCHEMA_PAGE, ("logger",),
                  install_identity.CORE),
         # Where VPinFE keeps what it copies. The copies are System's own page, as the

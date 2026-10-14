@@ -56,6 +56,20 @@ def put_extension_enabled(name: str, body: models.ExtensionSwitch) -> dict:
     return record.as_dict()
 
 
+# CONFIG_WRITE until the Protected tier exists; the scope that tier declares replaces it.
+@router.post("/{name}/accept", summary="Accept an extension VPinFE did not ship",
+             dependencies=[requires(scopes.CONFIG_WRITE)])
+def accept_extension(name: str) -> dict:
+    """Accepts the extension as it declares itself now - the scopes and capabilities in
+    its manifest - and starts it. A later version that declares more stops until it is
+    accepted again. An installed copy that replaces a built-in starts at the next start;
+    the built-in keeps running until then."""
+    record = extensions.accept(name)
+    if record is None:
+        raise NotFoundError(t("error.extensions.not_found", name=name))
+    return record.as_dict()
+
+
 def _running(name: str) -> Any:
     """Refuse on an extension's own routes while it is not running.
 

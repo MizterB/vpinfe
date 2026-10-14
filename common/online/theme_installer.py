@@ -31,6 +31,11 @@ class ThemeInstallStore:
         os.makedirs(self.themes_dir, exist_ok=True)
 
     def _path(self, folder: str) -> str:
+        """A folder inside the themes folder, never outside it: a key comes from a source
+        the Owner may not have read."""
+        if not folder or folder in (".", "..") or os.path.basename(folder) != folder \
+                or "\\" in folder:
+            raise ValueError(t("error.themes.folder_name_unusable", folder=folder))
         return os.path.join(self.themes_dir, folder)
 
     @staticmethod

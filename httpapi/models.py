@@ -3880,3 +3880,49 @@ class VpsRelease(ApiModel):
 
 class VpsReleases(ApiModel):
     releases: list[VpsRelease]
+
+
+# --- Signing in ------------------------------------------------------------
+
+class SignInAsk(ApiModel):
+    """A code was asked for. Its digits are on this computer's screen, never in this answer."""
+
+    request_id: str
+    expires_in: int
+    can_ask_again_in: int
+
+
+class SignInAttempt(ApiModel):
+    request_id: str
+    code: str
+
+
+class SignedIn(ApiModel):
+    signed_in: bool = True
+
+
+class WhoAmI(ApiModel):
+    """`local` is this computer itself, which is never asked to sign in."""
+
+    signed_in: bool
+    local: bool
+    kind: str = ""
+    session_id: str = ""
+
+
+class SessionInfo(ApiModel):
+    id: str
+    kind: str
+    address: str
+    agent: str
+    created: float
+    last_used: float
+    current: bool
+
+
+class SessionList(ApiModel):
+    sessions: list[SessionInfo]
+
+
+class SessionsEnded(ApiModel):
+    ended: int

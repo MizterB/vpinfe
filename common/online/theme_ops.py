@@ -16,7 +16,7 @@ import threading
 from pathlib import Path
 from typing import Any, NamedTuple
 
-from common import service_errors, sized_media
+from common import accepted, paths, service_errors, sized_media
 from common.atomic_write import write_atomic
 from common.failures import why
 from common.i18n import t
@@ -136,6 +136,24 @@ def _carry_dates(fresh: ThemeRegistry, before: ThemeRegistry | None) -> None:
             entry["updated"] = known["updated"]
 
 
+def _trust(key: str, source: str, installed: bool, *, in_folder: bool = False
+           ) -> dict[str, Any]:
+    """Where a theme came from and whether the Owner has accepted it.
+
+    `accepted` is what an installed theme is judged by: whether it is on the list. One
+    not installed is judged by its address, as installing it will be. `install_accepted`
+    is that second judgement for an installed theme too, which an update from an address
+    it was not accepted from fails."""
+    origin = accepted.theme_origin(source, in_folder=in_folder)
+    from_here = accepted.theme_accepted(key, source, in_folder=in_folder)
+    on_list = accepted.theme_runs(key) if installed else from_here
+    config = get_ini_config()
+    return {"origin": origin, "source": source,
+            "source_name": theme_sources.name_of_source(config, source) if source else "",
+            "accepted": on_list or origin == accepted.STOCK,
+            "install_accepted": from_here}
+
+
 def _described(registry: ThemeRegistry, active: str) -> list[dict[str, Any]]:
     found = registry.get_themes()
     try:
@@ -179,6 +197,7 @@ def _described(registry: ThemeRegistry, active: str) -> list[dict[str, Any]]:
             "update_available": bool(update.get("update_available")) and installed,
             "configurable": bool(schema and schema.get("options")),
             "origin": "registry",
+            "trust": _trust(key, str(entry.get("source") or ""), installed),
         })
     for key, manifest in registry.local_themes().items():
         schema = theme_service.load_theme_option_schema(key, registry)
@@ -203,6 +222,7 @@ def _described(registry: ThemeRegistry, active: str) -> list[dict[str, Any]]:
             "update_available": False,
             "configurable": bool(schema and schema.get("options")),
             "origin": "local",
+            "trust": _trust(key, "", True, in_folder=True),
         })
     # Active first, then installed, then the rest - the order somebody scans in.
     out.sort(key=lambda one: (not one["active"], not one["installed"],
@@ -341,6 +361,9 @@ def rename_source(address: str, name: str) -> dict[str, Any]:
     key = where.url if where is not None else str(address or "").strip()
     if key not in _configured_kinds():
         raise service_errors.NotFoundError(t("error.themes.unknown_source"))
+    if theme_sources.claims_stock_title(name) and not theme_sources.is_stock(key):
+        raise service_errors.RefusedError(
+            t("error.themes.reserved_title", name=theme_sources.clean_name(name)))
     store = get_ini_config()
     theme_sources.keep_names(store, {key: name})
     store.save()
@@ -450,6 +473,9 @@ def install(key: str) -> dict[str, Any]:
     """One call for both. Installing over an existing copy is what an update is, and two
     endpoints doing it would be two names for one act."""
     registry = _readable()
+    offered = registry.themes.get(key)
+    if offered is not None and not accepted.theme_accepted(key, str(offered.get("source") or "")):
+        raise service_errors.RefusedError(t("error.themes.not_accepted", key=key))
     try:
         theme_service.install_theme(registry, key)
     except ThemeRegistryError as exc:
@@ -474,6 +500,7 @@ def remove(key: str) -> dict[str, Any]:
         raise service_errors.RefusedError(why(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         raise RemoveFailedError(why(exc)) from exc
+    accepted.forget_theme(key)
     return {"key": key, "installed": False}
 
 
@@ -486,8 +513,45 @@ def activate(key: str) -> dict[str, Any]:
         raise service_errors.RefusedError(t("error.themes.none_named"))
     if not _readable().is_installed(key):
         raise service_errors.RefusedError(t("error.themes.not_installed", key=key))
+    if not accepted.theme_runs(key):
+        raise service_errors.RefusedError(t("error.themes.not_accepted", key=key))
     theme_service.set_active_theme(key)
     return {"active": theme_service.get_active_theme()}
+
+
+def unaccepted() -> dict[str, Any]:
+    """The installed themes that are stopped for want of being accepted, by key and name.
+    Reads the themes folder alone: no registry, so no network."""
+    found = []
+    for key in accepted.unaccepted_themes():
+        try:
+            manifest = json.loads((paths.THEMES_DIR / key / "manifest.json")
+                                  .read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            manifest = {}
+        name = manifest.get("name") if isinstance(manifest, dict) else ""
+        found.append({"key": key, "name": str(name or key)})
+    return {"themes": found}
+
+
+def accept(key: str) -> dict[str, Any]:
+    """Accept a theme from the address this install knows it by, found here and not
+    taken from the caller: a theme in the themes folder that no source offers is accepted
+    as found there. Raises NotFoundError for a key nothing offers.
+
+    Accepting is a Protected action; until that tier exists the route that calls this
+    declares the config scope."""
+    key = str(key or "").strip()
+    registry = _readable()
+    offered = registry.themes.get(key)
+    if offered is not None:
+        source, in_folder = str(offered.get("source") or ""), False
+    elif key in registry.local_themes():
+        source, in_folder = "", True
+    else:
+        raise service_errors.NotFoundError(t("error.themes.not_offered", key=key))
+    accepted.accept_theme(key, source)
+    return _trust(key, source, registry.is_installed(key), in_folder=in_folder)
 
 
 def options(key: str) -> dict[str, Any]:

@@ -14,6 +14,7 @@ from common import i18n
 from common.extensions import contract, host, store
 from common.extensions.context import ExtensionUI
 from common.i18n import t
+from tests.support.accepted import owner_accepts
 from tests.support.served import client_for
 
 MODULE = "tests.extensions.test_library_verbs"
@@ -110,6 +111,7 @@ class Declaring(unittest.TestCase):
 
 class Served(unittest.TestCase):
     def setUp(self) -> None:
+        owner_accepts(self)
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.store = store.ExtensionStore(Path(tmp.name))

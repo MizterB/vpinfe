@@ -18,8 +18,8 @@ from pathlib import Path
 from platform import freedesktop_os_release
 from typing import Any
 
+from common import accepted, i18n, install_identity, tokens
 from common import events as core_events
-from common import i18n, install_identity, tokens
 from common.paths import CONFIG_DIR, bundled, get_ini_config
 
 from . import catalogs, contributions
@@ -57,6 +57,9 @@ SWITCHED_OFF = "extension.reason.switched_off"
 STARTS_AT_RESTART = "extension.reason.pending_restart"
 WRONG_PLATFORM = "extension.reason.wrong_platform"
 LACKS_FEATURES = "extension.reason.lacks_features"
+# Not shipped with VPinFE and not accepted by the Owner, or accepted before it declared
+# something it declares now. Never imported while this is the reason.
+NOT_ACCEPTED = "extension.reason.not_accepted"
 
 _PLATFORMS = {"linux": "linux", "win32": "windows", "darwin": "macos"}
 PLATFORM_NAMES = {"linux": "extension.platform.linux",
@@ -122,6 +125,9 @@ class Record:
     account: dict = field(default_factory=dict)
     # What `register` raised, for `--check-extension`; the log has the traceback.
     error: str = ""
+    # For a built-in that has an installed copy of the same name waiting to be accepted:
+    # that copy. It runs only once accepted, at the next start.
+    waiting: Record | None = None
 
     @property
     def running(self) -> bool:
@@ -177,6 +183,44 @@ class Record:
     def bundled(self) -> bool:
         """Whether it ships with VPinFE rather than being installed by the person."""
         return BUNDLED_DIR in self.directory.parents
+
+    @property
+    def origin(self) -> str:
+        """SHIPPED, REPLACES a built-in of the same name, or found in a folder. Decided
+        by where the files are, never by what the manifest says."""
+        if self.bundled:
+            return accepted.SHIPPED
+        if (BUNDLED_DIR / self.name / MANIFEST_NAME).is_file():
+            return accepted.REPLACES
+        return accepted.IN_FOLDER
+
+    @property
+    def folder(self) -> str:
+        return str(self.directory.parent)
+
+    def uses(self) -> list[str]:
+        """What it says it uses: the core scopes and the capabilities it declares."""
+        return [*self.manifest.scopes, *self.manifest.capabilities] if self.manifest else []
+
+    def is_accepted(self) -> bool:
+        """Whether it may run: shipped, or accepted from here with all it declares."""
+        if self.manifest is None:
+            return False
+        return accepted.extension_accepted(self.name, self.origin, self.manifest.scopes,
+                                           self.manifest.capabilities)
+
+    def trust(self) -> dict[str, Any]:
+        """Where it came from, whether the Owner has accepted it, and what it declares
+        that the acceptance did not cover."""
+        if self.manifest is None:
+            return {"origin": self.origin, "accepted": False, "folder": self.folder,
+                    "new_access": [], "accepted_before": False}
+        return {"origin": self.origin, "accepted": self.is_accepted(),
+                "folder": self.folder, "uses": self.uses(),
+                "new_access": accepted.new_access(self.name, self.origin,
+                                                  self.manifest.scopes,
+                                                  self.manifest.capabilities),
+                "accepted_before": accepted.accepted_before(self.name, self.origin)}
 
     def pages(self) -> list[dict]:
         """Its pages, titled in the language now set."""
@@ -258,6 +302,15 @@ class Record:
                 "description": self.said(declared["description"],
                                          f"action.{key}.description")[0]}
 
+    def _waiting(self) -> dict[str, Any] | None:
+        """The installed copy that would replace this built-in, once accepted."""
+        copy = self.waiting
+        if copy is None or copy.manifest is None:
+            return None
+        return {"version": copy.manifest.version, "folder": copy.folder,
+                "uses": copy.uses(), "state": copy.state, "reason_key": copy.why,
+                "trust": copy.trust()}
+
     def account_declared(self) -> dict:
         """Its account, in the language now set. Empty when it offers none."""
         if not self.account:
@@ -287,6 +340,9 @@ class Record:
                 "groups": self.groups() if self.running else [],
                 "library_verbs": self.library_verbs() if self.running else [],
                 "bundled": self.bundled,
+                "origin": self.origin,
+                "trust": self.trust(),
+                "waiting": self._waiting(),
                 "pages": self.pages() if self.running else [],
                 "needs": [dict(one) for one in self.declared_needs] if self.running else [],
                 "account": self.account_declared() if self.running else {}}
@@ -377,10 +433,17 @@ class Registry:
                     logger.info("Not loading %s from %s: already loaded",
                                 directory.name, root)
                     continue
-                found.append(self.load(directory))
+                loaded = self.load(directory)
+                found.append(loaded)
+                if loaded.origin == accepted.REPLACES and loaded.why == NOT_ACCEPTED:
+                    # The built-in keeps running until its replacement is accepted.
+                    builtin = self.load(BUNDLED_DIR / loaded.name)
+                    builtin.waiting = loaded
+                    found.append(builtin)
         return found
 
-    def load(self, directory: Path | str, *, any_platform: bool = False) -> Record:
+    def load(self, directory: Path | str, *, any_platform: bool = False,
+             unaccepted: bool = False) -> Record:
         directory = Path(directory)
         record = Record(name=directory.name, directory=directory,
                         enabled=self._store.enabled(directory.name))
@@ -404,14 +467,23 @@ class Registry:
                             platform_refusal(record.manifest))
             return self._remember(record)
 
-        self._register(record)
+        self._register(record, gated=not unaccepted)
         return self._remember(record)
 
-    def _register(self, record: Record) -> None:
+    def _register(self, record: Record, *, gated: bool = True) -> None:
         """Import the package, call `register(ctx)` and take what it declared. Leaves
-        the record running, or failed with the reason."""
+        the record running, or failed with the reason.
+
+        `gated` is False only for `--check-extension`, which loads what it is asked to
+        look at and serves nothing. Everything else stops here, before the import, for
+        code the Owner has not accepted."""
         manifest = record.manifest
         assert manifest is not None
+        if gated and not record.is_accepted():
+            logger.warning("Extension %s from %s is not accepted and was not started",
+                           record.name, record.folder)
+            record.became(OFF, NOT_ACCEPTED)
+            return
         context: ExtensionContext | None = None
         try:
             module = _import(manifest.name, record.directory)
@@ -520,6 +592,38 @@ class Registry:
             _withdraw(record.name, record.subscriptions, record.apps)
             record.subscriptions, record.context = [], None
             record.became(OFF, STARTS_AT_RESTART)
+
+    def accept(self, name: str) -> Record | None:
+        """Accept this extension as it declares itself now, and start it. None when
+        there is no such extension.
+
+        The built-in a copy replaces keeps running: its routes are mounted at startup, so
+        the copy starts at the next start.
+
+        Accepting is a Protected action; until that tier exists the route that calls this
+        declares the config scope."""
+        with self._lock:
+            record = self._records.get(str(name or "").strip())
+            if record is None:
+                return None
+            target = record.waiting or record
+            if target.manifest is None:
+                return record
+            accepted.accept_extension(target.name, target.origin, folder=target.folder,
+                                      version=target.manifest.version,
+                                      scopes=target.manifest.scopes,
+                                      capabilities=target.manifest.capabilities)
+            if target is not record:
+                target.became(OFF, STARTS_AT_RESTART)
+            elif record.state == OFF and record.why == NOT_ACCEPTED:
+                why, values = ((SWITCHED_OFF, {}) if not record.enabled
+                               else _cannot_run(record.manifest or target.manifest))
+                if why:
+                    record.became(OFF, why, **values)
+                else:
+                    self._start_again(record)
+            logger.info("Extension %s accepted", target.name)
+            return record
 
     # -- the kill switch -----------------------------------------------------
 

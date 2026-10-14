@@ -31,7 +31,8 @@ def check(folder: Path | str) -> tuple[list[str], bool]:
     try:
         with tempfile.TemporaryDirectory() as scratch:
             registry = Registry(ExtensionStore(scratch))
-            record = registry.load(Path(folder).resolve(), any_platform=True)
+            record = registry.load(Path(folder).resolve(), any_platform=True,
+                                   unaccepted=True)
             try:
                 if record.state != LOADED:
                     lines.append(f"fails      {_why(record)}")

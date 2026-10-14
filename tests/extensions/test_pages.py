@@ -14,6 +14,7 @@ from common import i18n
 from common.extensions import contract, host, pictures, store
 from common.extensions.context import ExtensionUI, check_references
 from common.i18n import t
+from tests.support.accepted import owner_accepts
 from tests.support.served import client_for
 
 MODULE = "tests.extensions.test_pages"
@@ -140,6 +141,7 @@ class Served(unittest.TestCase):
     capabilities = ["ui:mount"]
 
     def setUp(self) -> None:
+        owner_accepts(self)
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.store = store.ExtensionStore(Path(tmp.name))
@@ -311,6 +313,9 @@ class PicturedWithoutOutbound(Served):
 
 
 class Titled(unittest.TestCase):
+    def setUp(self) -> None:
+        owner_accepts(self)
+
     def load(self, titles: dict | None = None, **state: Any) -> host.Record:
         logging.disable(logging.ERROR)
         self.addCleanup(logging.disable, logging.NOTSET)

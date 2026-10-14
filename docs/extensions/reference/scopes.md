@@ -40,6 +40,7 @@ lists them in plain words for whoever installs it, and they decide which `ctx.ga
 | `instance:read` | Read the install's identity and the list of extensions |
 | `players:read`, `players:write` | Read, change players.  `ctx.players.roster` and the calls beside it need `players:read` |
 | `apps:provide` | Provide an app with `ctx.apps.provide` |
+| `access:read`, `access:write` | List the browsers signed in, sign one out |
 
 ## Capabilities
 

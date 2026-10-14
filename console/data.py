@@ -9,6 +9,7 @@ from collections.abc import Iterable
 from typing import Any
 
 from common import folder_browse
+from common.extensions import host
 from common.games.asset_registry import ASSET_SPECS, lens_kind
 from common.i18n import t
 from common.jobs import KIND_MEDIA_FILL
@@ -554,6 +555,21 @@ class Library:
 
     def install_theme(self, key: str) -> dict:
         return self._client.install_theme(key)
+
+    def sessions(self) -> list[dict]:
+        return self._client.sessions()
+
+    def sign_out_session(self, session_id: str) -> None:
+        self._client.sign_out_session(session_id)
+
+    def sign_out_everyone(self) -> None:
+        self._client.sign_out_everyone()
+
+    def accept_theme(self, key: str) -> dict:
+        return self._client.accept_theme(key)
+
+    def accept_extension(self, name: str) -> dict:
+        return self._client.accept_extension(name)
 
     def remove_theme(self, key: str) -> dict:
         return self._client.remove_theme(key)
@@ -1191,6 +1207,16 @@ class Library:
         except Exception:  # noqa: BLE001 - what extensions ask for is not Overview's to fail on
             logger.debug("console: could not read what extensions ask for", exc_info=True)
             out["unread"] += ["extensions", needs.AWAY_ALL]
+        try:
+            out["unaccepted"] = {
+                "themes": list(self._client.unaccepted_themes().get("themes") or []),
+                "extensions": [one for one in self._client.extensions()
+                               if host.NOT_ACCEPTED in (
+                                   one.get("reason_key"),
+                                   (one.get("waiting") or {}).get("reason_key"))]}
+        except Exception:  # noqa: BLE001 - what waits to be accepted is not Overview's to fail on
+            logger.debug("console: could not read what waits to be accepted", exc_info=True)
+            out["unread"].append("unaccepted")
         return out
 
     def _media_missing(self) -> list[str]:

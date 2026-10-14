@@ -17,6 +17,7 @@ from common import i18n, sized_media
 from common.extensions import contract, host, pictures, store
 from common.i18n import t
 from tests.support import pictures as made
+from tests.support.accepted import owner_accepts
 from tests.support.served import client_for
 
 MODULE = "tests.extensions.test_pictures"
@@ -61,6 +62,7 @@ class PicturedCase(unittest.TestCase):
     capabilities = ["ui:mount", "net:outbound"]
 
     def setUp(self) -> None:
+        owner_accepts(self)
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.root = Path(tmp.name)

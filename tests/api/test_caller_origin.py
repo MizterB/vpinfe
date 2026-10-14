@@ -1,32 +1,41 @@
-"""Whether a caller reached us from this machine or over the network.
+"""Whether a caller reached us from this machine or over the network, and what each may do.
 
-VPinFE binds every interface by default and has since 2.x, so a phone can administer a
-cabinet. That means "on this machine" and "able to reach this machine" have never been
-the same question, and until now nothing could tell them apart - every caller was
-identified as `local` whether it was or not.
-
-This records the difference without acting on it. What a network caller is *allowed* is
-a separate decision; this is the fact that decision needs, and asserting it now is what
-stops the distinction being wrong on the day something starts depending on it.
+VPinFE binds every interface by default, so "on this machine" and "able to reach this
+machine" are different questions. The policy answers them differently: the machine is
+trusted, another computer is trusted once a code shown on the machine has signed its
+browser in, and anyone else may only ask what this instance is.
 """
 
 from __future__ import annotations
 
+import tempfile
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 
+from common import sign_in
 from httpapi import auth, scopes
 
 
-def _request(host, **headers):
-    """A request as Starlette hands one over: a peer address, and headers."""
-    client = SimpleNamespace(host=host) if host is not None else None
-    return SimpleNamespace(client=client, headers=headers)
+def _request(peer, cookies=None, method="GET", **headers):
+    """A request as Starlette hands one over: a peer address, headers and cookies."""
+    client = SimpleNamespace(host=peer) if peer is not None else None
+    return SimpleNamespace(client=client, headers=headers, cookies=cookies or {}, method=method)
 
 
 class CallerOriginTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.policy = auth.LocalTrustPolicy()
+        self.policy = auth.SignInPolicy()
+        holder = tempfile.TemporaryDirectory()
+        self.addCleanup(holder.cleanup)
+        self.addCleanup(sign_in.use, sign_in.instance())
+        sign_in.use(sign_in.SignIn(Path(holder.name) / "sessions.json"))
+
+    def sign_in_from(self, address: str) -> str:
+        signer = sign_in.instance()
+        request = signer.reveal_now(address)
+        token, _ = signer.verify(request.id, request.code, address=address)
+        return token
 
     def test_a_request_from_this_machine_is_local(self) -> None:
         for host in ("127.0.0.1", "::1", "localhost"):
@@ -50,16 +59,79 @@ class CallerOriginTests(unittest.TestCase):
         self.assertFalse(auth.caller_is_local(spoofed))
         self.assertEqual(self.policy.identify(spoofed).origin, auth.NETWORK)
 
+    def test_a_loopback_request_that_was_forwarded_is_not_local(self) -> None:
+        """A proxy on this machine connects from loopback for everyone behind it."""
+        forwarded = _request("127.0.0.1", **{"X-Forwarded-For": "203.0.113.9"})
+
+        self.assertFalse(auth.caller_is_local(forwarded))
+
+    def test_a_loopback_request_for_a_name_that_is_not_ours_is_not_local(self) -> None:
+        """DNS rebinding: a page's own name resolves to loopback."""
+        rebound = _request("127.0.0.1", **{"host": "rebind.example.com:8001"})
+
+        self.assertFalse(auth.caller_is_local(rebound))
+
+    def test_a_loopback_request_from_a_page_of_another_site_is_not_local(self) -> None:
+        foreign = _request("127.0.0.1", **{"host": "localhost:8001",
+                                           "origin": "https://evil.example.com"})
+
+        self.assertFalse(auth.caller_is_local(foreign))
+
+    def test_the_machines_own_address_is_the_machine(self) -> None:
+        from common.host import this_machine
+
+        own = sorted(name for name in this_machine.own_names()
+                     if name.count(".") == 3 and not name.startswith("127."))
+        if not own:
+            self.skipTest("this machine has no other IPv4 address")
+
+        self.assertTrue(auth.caller_is_local(_request(own[0])))
+
     def test_the_identity_records_where_the_caller_came_from(self) -> None:
         self.assertEqual(self.policy.identify(_request("127.0.0.1")).origin, auth.LOCAL)
         self.assertEqual(self.policy.identify(_request("10.0.0.5")).origin, auth.NETWORK)
 
-    def test_nothing_a_caller_may_do_has_changed_yet(self) -> None:
-        """Deliberately: this commit is the distinction, not a policy over it. A network
-        caller keeps exactly the scopes it had, so no install behaves differently."""
-        for host in ("127.0.0.1", "10.0.0.5"):
+    def test_this_machine_may_do_everything(self) -> None:
+        self.assertEqual(self.policy.identify(_request("127.0.0.1")).scopes, scopes.CORE)
+
+    def test_a_computer_that_has_not_signed_in_may_only_ask_what_this_is(self) -> None:
+        for host in ("10.0.0.5", "192.168.110.42"):
             with self.subTest(host=host):
-                self.assertEqual(self.policy.identify(_request(host)).scopes, scopes.CORE)
+                self.assertEqual(self.policy.identify(_request(host)).scopes,
+                                 frozenset({scopes.INSTANCE_READ}))
+
+    def test_a_browser_signed_in_from_another_computer_may_do_everything(self) -> None:
+        token = self.sign_in_from("10.0.0.5")
+
+        identity = self.policy.identify(_request("10.0.0.5", {auth.COOKIE: token}))
+
+        self.assertEqual(identity.scopes, scopes.CORE)
+        self.assertEqual(identity.origin, auth.NETWORK)
+        self.assertEqual(identity.kind, sign_in.OWNER)
+
+    def test_a_sign_in_that_ended_opens_nothing(self) -> None:
+        token = self.sign_in_from("10.0.0.5")
+        sign_in.instance().sign_out_everywhere()
+
+        identity = self.policy.identify(_request("10.0.0.5", {auth.COOKIE: token}))
+
+        self.assertEqual(identity.scopes, frozenset({scopes.INSTANCE_READ}))
+
+    def test_a_write_another_site_began_cannot_use_the_cookie(self) -> None:
+        token = self.sign_in_from("10.0.0.5")
+
+        identity = self.policy.identify(_request(
+            "10.0.0.5", {auth.COOKIE: token}, "POST", **{"sec-fetch-site": "cross-site"}))
+
+        self.assertEqual(identity.scopes, frozenset({scopes.INSTANCE_READ}))
+
+    def test_a_read_another_site_began_still_uses_the_cookie(self) -> None:
+        token = self.sign_in_from("10.0.0.5")
+
+        identity = self.policy.identify(_request(
+            "10.0.0.5", {auth.COOKIE: token}, "GET", **{"sec-fetch-site": "cross-site"}))
+
+        self.assertEqual(identity.scopes, scopes.CORE)
 
     def test_an_identity_built_without_an_origin_reads_as_network(self) -> None:
         """The cautious default: a policy or a test that forgets to say must not have

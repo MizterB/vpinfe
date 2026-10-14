@@ -21,6 +21,7 @@ from common.extensions import contract, host, store
 from common.extensions.contract import Unavailable
 from common.i18n import t
 from httpapi import errors
+from tests.support.accepted import owner_accepts
 from tests.support.served import client_for
 
 MODULE = "tests.extensions.test_serving"
@@ -273,6 +274,7 @@ def _installed(root: Path) -> Path:
 
 class ServedCase(unittest.TestCase):
     def setUp(self) -> None:
+        owner_accepts(self)
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.root = Path(tmp.name)

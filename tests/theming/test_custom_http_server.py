@@ -17,6 +17,25 @@ class TestCustomHttpServer(unittest.TestCase):
         self.assertFalse(handler._is_allowed_pinball_primer_url("http://pinballprimer.github.io/paddock_GR0W9.html"))
         self.assertFalse(handler._is_allowed_pinball_primer_url("https://example.com/tutorial.html"))
 
+    def test_the_error_page_shows_markup_in_the_message_and_url_as_text(self) -> None:
+        handler = CustomHTTPServer.MultiDirHTTPRequestHandler
+
+        page = handler._build_pinball_primer_error_html(
+            "<script>alert(1)</script>", 'https://x/"><img src=x onerror=alert(2)>')
+
+        self.assertNotIn("<script>alert(1)", page)
+        self.assertNotIn("<img src=x", page)
+        self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;", page)
+
+    def test_a_base_address_cannot_close_its_own_tag(self) -> None:
+        handler = CustomHTTPServer.MultiDirHTTPRequestHandler
+
+        updated = handler._inject_base_tag(
+            "<html><head></head></html>",
+            'https://pinballprimer.github.io/x?"><script>alert(1)</script>')
+
+        self.assertNotIn("<script>", updated)
+
     def test_injects_base_tag_into_head(self) -> None:
         handler = CustomHTTPServer.MultiDirHTTPRequestHandler
         html = "<html><head><title>Test</title></head><body>Hello</body></html>"

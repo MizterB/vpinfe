@@ -30,6 +30,23 @@ from .events import declare_snapshot
 
 router = APIRouter(prefix="/config", tags=["config"])
 
+# Settings a read answers as set or not set, so a caller that may read the config cannot read
+# the key. A write still takes the real value.
+SECRET_SETTINGS = frozenset({("dof", "config_tool_api_key")})
+
+
+def _hide_secrets(settings: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    hidden = {section: dict(entries) for section, entries in settings.items()}
+    for section, key in SECRET_SETTINGS:
+        if key in hidden.get(section, {}):
+            hidden[section][key] = bool(str(hidden[section][key] or "").strip())
+    return hidden
+
+
+def _config_values(found: dict[str, Any]) -> models.ConfigValues:
+    shown = {**found, config_service.SETTINGS: _hide_secrets(found[config_service.SETTINGS])}
+    return models.ConfigValues.model_validate(shown)
+
 
 def _windows() -> tuple[str, ...]:
     """The windows the active theme adds, which the schema cannot name in advance."""
@@ -86,7 +103,7 @@ def get_waiting() -> models.ConfigWaiting:
 @router.get("", summary="What this install is set to",
             dependencies=[requires(scopes.CONFIG_READ)])
 def get_values() -> models.ConfigValues:
-    return models.ConfigValues.model_validate(config_service.whole(_windows()))
+    return _config_values(config_service.whole(_windows()))
 
 
 @router.put("", summary="Change settings and lists",
@@ -103,9 +120,14 @@ def put_values(patch: dict[str, Any] = Body(...)) -> models.ConfigValues:
     refused = capture_settings.refused(settings or {})
     if refused:
         raise InvalidRequestError(refused)
+    for section, entries in (settings or {}).items():
+        for key, value in (entries or {}).items():
+            if isinstance(value, bool) and config_schema.locate(section, key) in SECRET_SETTINGS:
+                raise InvalidRequestError(
+                    t("error.config.secret_is_text", key=f"{section}.{key}"))
     patch = _with_theme_options_checked(patch)
     with _refusals():
-        return models.ConfigValues.model_validate(config_service.apply(patch, _windows()))
+        return _config_values(config_service.apply(patch, _windows()))
 
 
 def _with_theme_options_checked(patch: dict[str, Any]) -> dict[str, Any]:
@@ -126,13 +148,13 @@ def _with_theme_options_checked(patch: dict[str, Any]) -> dict[str, Any]:
 @router.get("/settings", summary="Every setting by section and key",
             dependencies=[requires(scopes.CONFIG_READ)])
 def get_settings() -> dict[str, dict[str, object]]:
-    return config_service.values(_windows())
+    return _hide_secrets(config_service.values(_windows()))
 
 
 @router.get("/settings/{section}", summary="The settings of one section",
             dependencies=[requires(scopes.CONFIG_READ)])
 def get_section(section: str) -> dict[str, object]:
-    found = config_service.values(_windows()).get(section)
+    found = _hide_secrets(config_service.values(_windows())).get(section)
     if found is None:
         raise NotFoundError(t("error.config.no_section", section=section))
     return found

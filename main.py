@@ -71,6 +71,7 @@ from common import (
     migration_ledger,
     serving,
     shutdown,
+    sign_in,
     theme_options,
     whats_new,
 )
@@ -147,6 +148,8 @@ from starlette.responses import Response
 import console
 import httpapi
 from cli import parse_args
+from console.origin_guard import SocketOriginGuard
+from console.sign_in_gate import SignInGate
 from frontend import lifecycle_host, runtime
 from managerui.managerui import _shutdown_event, start_manager_ui, stop_manager_ui
 from managerui.services import app_control
@@ -166,6 +169,8 @@ class _SuppressNoResponseReturnedMiddleware(BaseHTTPMiddleware):
 
 
 nicegui_app.add_middleware(_SuppressNoResponseReturnedMiddleware)
+nicegui_app.add_middleware(SignInGate)
+nicegui_app.add_middleware(SocketOriginGuard)
 
 # Load what this install has installed, before the API is built: the API mounts the
 # routers extensions registered, so one loading afterwards would answer nothing.
@@ -239,6 +244,7 @@ def create_api_instances():
 
 cli_args = parse_args() if len(sys.argv) > 0 else None
 headless = cli_args and cli_args.headless
+sign_in.instance().headless = bool(headless)
 
 # Register frontend theme assets before NiceGUI can start on the first-run path.
 MOUNT_POINTS, themes_dir = runtime.build_mount_points(base_path, config_dir, config_store)

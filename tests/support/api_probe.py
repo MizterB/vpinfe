@@ -21,9 +21,12 @@ def probe() -> dict:
     # managerui.managerui is imported for the side effect of registering its routes.
     import httpapi
     import managerui.managerui  # noqa: F401
+    from common import serving
     if not any(getattr(r, "path", "") == httpapi.API_PREFIX for r in nicegui_app.routes):
         httpapi.register(nicegui_app)
 
+    # The theme server's port, which is what makes an Origin on it VPinFE's own page.
+    serving.bound("theme_assets_port", 8000)
     client = TestClient(nicegui_app, raise_server_exceptions=False)
     result: dict = {}
 

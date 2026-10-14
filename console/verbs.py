@@ -127,6 +127,7 @@ ADD_TO_LIST = "playlist_add"
 THIS_IS_ME = "person"
 NOT_ME = "person_off"
 SIGN_OUT = "logout"
+IGNORE = "block"
 JOIN = "qr_code_2"
 INITIALS_ONLY = "badge"
 

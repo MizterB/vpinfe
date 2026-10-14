@@ -150,6 +150,20 @@ class ApiClient:
         whose needs could not be given, and the ones that `failed`."""
         return self._get("/extensions/needs")
 
+    def sessions(self) -> list[dict]:
+        """The browsers signed in, newest use first."""
+        return list(self._get("/auth/sessions").get("sessions") or [])
+
+    def sign_out_session(self, session_id: str) -> None:
+        self._delete(f"/auth/sessions/{quote(session_id, safe='')}")
+
+    def sign_out_everyone(self) -> None:
+        self._delete("/auth/sessions")
+
+    def accept_extension(self, name: str) -> dict:
+        """The extension as it stands once accepted."""
+        return self._post(f"/extensions/{quote(name, safe='')}/accept", {})
+
     def set_extension_enabled(self, name: str, on: bool) -> dict:
         """The extension as it stands after the switch."""
         return self._put(f"/extensions/{quote(name, safe='')}/enabled",
@@ -914,6 +928,14 @@ class ApiClient:
     def install_theme(self, key: str) -> dict:
         """Install or update - installing over an existing copy is what an update is."""
         return dict(self._post(f"/themes/{key}/install", {}) or {})
+
+    def accept_theme(self, key: str) -> dict:
+        """Accept a theme from the address this install knows it by."""
+        return dict(self._post(f"/themes/{quote(key, safe='')}/accept", {}) or {})
+
+    def unaccepted_themes(self) -> dict:
+        """The installed themes stopped until accepted. Reads the folder, not the sources."""
+        return dict(self._get("/themes/unaccepted") or {})
 
     def remove_theme(self, key: str) -> dict:
         self._delete(f"/themes/{key}")

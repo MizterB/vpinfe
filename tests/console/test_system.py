@@ -244,7 +244,8 @@ class SystemIndexTests(unittest.TestCase):
         """The whole point of `core`: the screen that switches a feature back on is the
         one screen an install with everything off still has."""
         self.assertEqual(_pages([install_identity.CORE]),
-                         [settings_page.IDENTITY, "vpinfe.network", "vpinfe.logger",
+                         [settings_page.IDENTITY, "vpinfe.network", "vpinfe.security",
+                          "vpinfe.logger",
                           "vpinfe.backups", "vpinfe.console", "vpinfe.commands",
                           "vpinfe.tools"])
 

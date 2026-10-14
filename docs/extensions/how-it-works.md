@@ -62,8 +62,9 @@ page, in the README.
 
 First met in [lesson 10](tutorial.md#lesson-10-shipping-it).
 
-VPinFE will tell a person which extensions it did not ship.  An extension VPinFE ships, such as
-VPinPlay or the library importer, carries no mark.  Every other extension is marked Unofficial:
+VPinFE tells a person which extensions it did not ship.  An extension VPinFE ships, such as
+VPinPlay or the library importer, carries no mark.  Every other extension is marked Unofficial,
+including one in the extensions folder that has the name of one VPinFE ships:
 
 - **Before it runs.**  A prompt, "Run an Unofficial Extension?", and a row under Needs You on
   Overview while it waits.  Until an owner accepts it, it does not start.
@@ -74,10 +75,28 @@ VPinPlay or the library importer, carries no mark.  Every other extension is mar
 - **Not elsewhere.**  Not in the navigation rail, not on a link that leaves, not on a group it
   adds to a game's panel and not on a row it adds to Needs You.
 
-**This is not built yet.**  Today every extension in the folder is loaded when VPinFE starts, and
-none shows a mark.  An extension author does not do anything for it: the mark and the prompt come
-from core, and an extension cannot remove, move or restyle them.  Write the README as if the prompt
-were there, because the person reading it will be.
+What accepting is kept in:
+
+- **A list of its own.**  `accepted.json` in the config folder, readable by the user VPinFE runs
+  as and no one else.  It is not `vpinfe.json`, so a settings write, a restored backup or a hand
+  edit of the settings cannot accept anything.
+- **Per extension, by what it said it used.**  An update from the same folder that declares the
+  same access runs without asking again.  One that declares more stops, and the prompt, "Accept
+  {Extension}'s New Access?", names only what is new.
+- **A replacement waits.**  An extension in the folder named like one VPinFE ships does not take
+  its place until it is accepted.  The built-in keeps running meanwhile, and after the owner
+  accepts, the replacement starts at the next restart.
+- **Never carried over.**  Extensions are new, so nothing is accepted on upgrade.
+
+A theme works the same way, by the address it came from: a theme from the VPinFE Theme List needs
+nothing, and one from another source or found in the themes folder is Unofficial and the frontend
+plays the default theme until it is accepted.  A theme installed before this existed counts as
+accepted.
+
+An extension author does not do anything for it: the mark and the prompt come from core, and an
+extension cannot remove, move or restyle them.  Write the README as if the prompt were there,
+because the person reading it will be.  `--check-extension` loads the extension without asking,
+because it exists to look at one that is not accepted.
 
 ## Scopes and tiers
 

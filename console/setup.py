@@ -133,7 +133,8 @@ async def _ask_how(session: Session) -> dict[str, Any]:
         }],
     }
     if session.window and (address := await offload.io(_address)):
-        step["notes"] = [t("console.setup.address_note", address=address)]
+        step["notes"] = [t("console.setup.address_note", address=address,
+                           action=t("signin.page.get_code"))]
     return step
 
 

@@ -31,9 +31,9 @@ CODE_FEATURE_UNAVAILABLE = "feature_unavailable"
 CODE_CONFLICT = "conflict"
 CODE_UPSTREAM_UNAVAILABLE = "upstream_unavailable"
 CODE_INTERNAL_ERROR = "internal_error"
-# Reserved for the authorization boundary; nothing raises these yet.
 CODE_UNAUTHORIZED = "unauthorized"
 CODE_FORBIDDEN = "forbidden"
+CODE_TOO_MANY_REQUESTS = "too_many_requests"
 
 # Statuses that map to a specific code when they arrive as a bare HTTPException
 # (from routing, or from code that raises HTTPException directly).
@@ -44,6 +44,7 @@ _STATUS_CODES = {
     405: CODE_METHOD_NOT_ALLOWED,
     409: CODE_CONFLICT,
     422: CODE_INVALID_REQUEST,
+    429: CODE_TOO_MANY_REQUESTS,
     501: CODE_FEATURE_UNAVAILABLE,
 }
 

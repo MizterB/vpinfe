@@ -45,7 +45,7 @@ __all__ = [
     "BUNDLED_DIR", "DISABLED", "FAILED", "INSTALLED_DIR", "LOADED", "LOG_ROOT", "OFF",
     "PLATFORM_ABI",
     "ContractError", "ExtensionContext", "ExtensionStore", "Manifest", "ManifestError",
-    "Record", "Registry", "clear", "disable", "get_extension_store", "granted_scopes",
+    "Record", "Registry", "accept", "clear", "disable", "get_extension_store", "granted_scopes",
     "load_from", "load_installed", "logger_for", "mounted", "parse", "read_manifest",
     "read_roots", "records", "refuse", "registry", "running", "served", "set_registry",
     "switch",
@@ -110,6 +110,10 @@ def read_roots() -> tuple[str, ...]:
 
 def switch(name: str, on: bool) -> Record | None:
     return registry().switch(name, on)
+
+
+def accept(name: str) -> Record | None:
+    return registry().accept(name)
 
 
 def disable(name: str, why: str, **values: str) -> None:

@@ -22,6 +22,7 @@ VERB = re.compile(
 ALLOWED = {
     "tools.ffmpeg.hint.darwin": "a shell command, brew install ffmpeg",
     "tools.rar.hint.darwin": "a shell command, brew install unar",
+    "console.accept.accept_install": "the verb, closing a button that also installs the theme",
 }
 
 

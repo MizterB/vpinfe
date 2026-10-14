@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 from common import feature_checks
+from common.extensions import host
 from common.i18n import t
 from common.jobs import DONE, FAILED
 from console import games, needs
@@ -202,7 +203,9 @@ class AReadThatFailedIsSaid(unittest.TestCase):
         client = SimpleNamespace(update_check=lambda: {"error": "offline"},
                                  capture_proposals=lambda: {"proposals": [{"id": "r1"}]},
                                  jobs=lambda limit: refuse(),
-                                 extension_needs=lambda: {"needs": []})
+                                 extension_needs=lambda: {"needs": []},
+                                 unaccepted_themes=lambda: {"themes": []},
+                                 extensions=lambda: [])
         library = Library.__new__(Library)
         library._client = client
 
@@ -586,7 +589,8 @@ class WhatExtensionsAskFor(unittest.TestCase):
         client = SimpleNamespace(
             update_check=lambda: {}, capture_proposals=lambda: {"proposals": []},
             jobs=lambda limit: [],
-            extension_needs=lambda: {"needs": [RAISED], "away": ["old"], "failed": ["old"]})
+            extension_needs=lambda: {"needs": [RAISED], "away": ["old"], "failed": ["old"]},
+            unaccepted_themes=lambda: {"themes": []}, extensions=lambda: [])
         library = Library.__new__(Library)
         library._client = client
 
@@ -594,6 +598,73 @@ class WhatExtensionsAskFor(unittest.TestCase):
 
         self.assertEqual([RAISED], read["extension_needs"])
         self.assertEqual(["away:old", "extensions"], read["unread"])
+
+
+class WhatWaitsToBeAccepted(unittest.TestCase):
+    THEME = {"key": "Mine", "name": "My Theme"}
+    EXTENSION = {"name": "tool", "display_name": "Tool", "reason_key": host.NOT_ACCEPTED}
+
+    def test_each_theme_and_extension_is_a_row_of_this_device(self):
+        rows = needs.unaccepted_rows({"themes": [self.THEME], "extensions": [self.EXTENSION]})
+
+        self.assertEqual(["unaccepted:theme:Mine", "unaccepted:ext:tool"], keys(rows))
+        self.assertEqual(["This Device"], [one.label for one in needs.grouped(rows)])
+        self.assertEqual([needs.DEVICE, needs.DEVICE], [needs.owner_of(one) for one in rows])
+
+    def test_the_row_names_it_and_opens_where_it_is_accepted(self):
+        theme, extension = needs.unaccepted_rows(
+            {"themes": [self.THEME], "extensions": [self.EXTENSION]})
+
+        self.assertEqual(t("console.needs.unaccepted", name="My Theme"), theme.label)
+        self.assertEqual(t("console.needs.unaccepted", name="Tool"), extension.label)
+        self.assertEqual("themes", theme.opens.view)
+        self.assertEqual("settings", extension.opens.view)
+        self.assertEqual(t("console.needs.unaccepted.tip"), theme.tip)
+
+    def test_a_row_cannot_be_set_aside(self):
+        self.assertFalse(needs.can_set_aside("unaccepted:theme:Mine"))
+        self.assertFalse(needs.can_set_aside("unaccepted:ext:tool"))
+
+    def test_nothing_waiting_is_no_row(self):
+        self.assertEqual([], needs.unaccepted_rows({}))
+
+    def test_collect_draws_them_from_the_watched_read(self):
+        lib = FakeLibrary(watched={"unaccepted": {"themes": [self.THEME], "extensions": []}})
+
+        self.assertEqual(["unaccepted:theme:Mine"], keys(needs.collect(lib, {})))
+
+    def test_the_read_takes_the_themes_and_the_extensions_that_wait(self):
+        waiting = {"name": "tool", "reason_key": None,
+                   "waiting": {"reason_key": host.NOT_ACCEPTED}}
+        running = {"name": "fine", "reason_key": None}
+        library = self.library(extensions=lambda: [self.EXTENSION, waiting, running])
+
+        read = library._read_watched()
+
+        self.assertEqual([self.THEME], read["unaccepted"]["themes"])
+        self.assertEqual([self.EXTENSION, waiting], read["unaccepted"]["extensions"])
+        self.assertNotIn("unaccepted", read["unread"])
+
+    def test_a_read_that_failed_is_said(self):
+        def failing():
+            raise OSError("down")
+
+        library = self.library(unaccepted_themes=failing)
+
+        self.assertIn("unaccepted", library._read_watched()["unread"])
+        self.assertIn(t("console.needs.unread_unaccepted"), needs.collect(
+            FakeLibrary(watched={"unread": ["unaccepted"]}), {})[0].tip)
+
+    def library(self, **replaced):
+        client = SimpleNamespace(
+            update_check=lambda: {}, capture_proposals=lambda: {"proposals": []},
+            jobs=lambda limit: [], extension_needs=lambda: {},
+            unaccepted_themes=lambda: {"themes": [self.THEME]}, extensions=lambda: [])
+        for name, value in replaced.items():
+            setattr(client, name, value)
+        library = Library.__new__(Library)
+        library._client = client
+        return library
 
 
 if __name__ == "__main__":

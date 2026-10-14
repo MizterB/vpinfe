@@ -15,7 +15,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from common import accepted
 from frontend.custom_http_server import NOTHING_HERE, CustomHTTPServer
+from tests.support.accepted import isolated
 
 
 class _Handler(CustomHTTPServer.MultiDirHTTPRequestHandler):
@@ -33,6 +35,10 @@ class TranslateTests(unittest.TestCase):
         self.root = Path(self.tmp.name) / "themes"
         (self.root / "Example").mkdir(parents=True)
         (self.root / "Example" / "index.html").write_text("<html></html>", encoding="utf-8")
+        (self.root / "Dropped").mkdir()
+        (self.root / "Dropped" / "index.html").write_text("<html></html>", encoding="utf-8")
+        isolated(self)
+        accepted.accept_theme("Example", "")
         self.handler = _Handler({"/themes/": str(self.root)})
 
     def _served(self, path: str) -> str:
@@ -44,6 +50,10 @@ class TranslateTests(unittest.TestCase):
     def test_a_mounted_file_is_served(self) -> None:
         self.assertEqual(self._served("/themes/Example/index.html"),
                          str(self.root / "Example" / "index.html"))
+
+    def test_a_theme_nobody_accepted_is_not_served(self) -> None:
+        self.assertTrue(self._is_refusal(self._served("/themes/Dropped/index.html")))
+        self.assertTrue(self._is_refusal(self._served("/themes/Example.previous/index.html")))
 
     def test_an_unmounted_path_is_not_looked_for_in_the_working_directory(self) -> None:
         """The finding: /main.py and /.git/config both returned 200."""

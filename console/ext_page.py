@@ -17,10 +17,11 @@ from typing import Any
 
 from nicegui import run, ui
 
+from common import accepted
 from common.extensions import host
 from common.failures import why
 from common.i18n import t
-from console import confirm, deeplink, ext_action, ext_links, offload, panel, verbs
+from console import accept, confirm, deeplink, ext_action, ext_links, offload, panel, verbs
 from console.api import ApiClient
 from console.on_page import on_page
 
@@ -66,7 +67,7 @@ def build(extension: dict, settings: dict[str, Any], redraw: Callable[[], None],
 
     panel.header(str(extension.get("display_name") or name),
                  str(extension.get("description") or ""),
-                 _findings(extension, open_this_device),
+                 _findings(extension, open_this_device, redraw),
                  caption=t("console.ext_page.version", version=version) if version else "",
                  menu=[panel.Verb(one["label"], to=one["url"], tip=one["tip"])
                        for one in ext_links.drawn(extension, ext_links.opened_at())])
@@ -84,6 +85,7 @@ def build(extension: dict, settings: dict[str, Any], redraw: Callable[[], None],
         (panel.HEADING, t("console.ext_page.settings")),
         (t("console.ext_page.enabled"),
          panel.switch(bool(extension.get("enabled", True)), flip))]
+    entries += _origin_rows(extension)
     if extension.get("reason_key") == host.STARTS_AT_RESTART:
         entries.append(panel.note(t(host.STARTS_AT_RESTART)))
     entries += _setting_rows(client, f"/ext/{name}{surfaces.get('settings', '')}",
@@ -99,17 +101,42 @@ def build(extension: dict, settings: dict[str, Any], redraw: Callable[[], None],
     panel.facts(ui, entries)
 
 
+def _origin_rows(extension: dict) -> list[tuple[Any, ...]]:
+    """Where it was found and what that makes it, for anything VPinFE did not ship."""
+    trust = dict(extension.get("trust") or {})
+    if not trust or trust.get("origin") == accepted.SHIPPED:
+        return []
+    stopped = not trust.get("accepted")
+    tip = t("console.ext_page.unofficial_tip")
+    if trust.get("origin") == accepted.REPLACES:
+        tip = "\n".join((tip, t("console.accept.replaces",
+                                name=extension.get("display_name") or "")))
+    return [(t("console.ext_page.found_in"),
+             panel.state(t("console.ext_page.not_accepted_chip" if stopped
+                           else "console.ext_page.unofficial_chip"),
+                         "bad" if stopped else "warn",
+                         beside=str(trust.get("folder") or ""), hint=tip))]
+
+
 def _cannot_run(extension: dict) -> bool:
     """Not offered on this machine, so it never starts and its settings never show."""
     return extension.get("state") == host.OFF and extension.get("reason_key") in (
         host.WRONG_PLATFORM, host.LACKS_FEATURES)
 
 
-def _findings(extension: dict, open_this_device: Callable[[], None]
-              ) -> list[Callable[[], None]]:
+def _findings(extension: dict, open_this_device: Callable[[], None],
+              redraw: Callable[[], None]) -> list[Callable[[], None]]:
     """What stops it, under the header. Nothing for one that is running or only switched
     off, which the switch already says."""
     state, said = extension.get("state"), str(extension.get("reason") or "")
+    if extension.get("reason_key") == host.NOT_ACCEPTED:
+        return [_unaccepted(extension, extension, redraw)]
+    waiting = extension.get("waiting") or {}
+    if waiting.get("reason_key") == host.NOT_ACCEPTED:
+        return [_unaccepted(extension, waiting, redraw)]
+    if waiting.get("reason_key") == host.STARTS_AT_RESTART:
+        return [_finding(t("console.ext_page.replacement_accepted"),
+                         t(host.STARTS_AT_RESTART))]
     if _cannot_run(extension):
         fix = panel.action(t("console.ext_page.open_device"), open_this_device,
                            icon=verbs.GO, hint=t("console.ext_page.open_hint")) \
@@ -118,6 +145,47 @@ def _findings(extension: dict, open_this_device: Callable[[], None]
     if state in STATE_WORDS:
         return [_finding(t(STATE_WORDS[str(state)]), said)]
     return []
+
+
+def _unaccepted(extension: dict, copy: dict, redraw: Callable[[], None]
+                ) -> Callable[[], None]:
+    """It is stopped until the Owner says yes. `copy` is what would run: the extension
+    itself, or the installed copy that would replace this built-in."""
+    name = str(extension.get("name") or "")
+    trust = dict(copy.get("trust") or {})
+    new = [_plainly(str(one)) for one in trust.get("new_access") or []]
+    own = copy is extension
+
+    @on_page
+    async def decide() -> None:
+        shown = str(extension.get("display_name") or name)
+        version = str(copy.get("version") or "")
+        if trust.get("accepted_before"):
+            yes = await accept.new_access(shown, version, new)
+        else:
+            yes = await accept.extension(
+                shown, version, str(trust.get("folder") or ""),
+                [_plainly(str(one)) for one in trust.get("uses") or copy.get("uses") or []]
+                or [t("word.none")],
+                replaces=shown if trust.get("origin") == accepted.REPLACES and not own else "")
+        if not yes:
+            return
+        try:
+            await offload.io(ApiClient().accept_extension, name)
+        except Exception as exc:  # noqa: BLE001
+            ui.notify(t("console.ext_page.accept_failed"), caption=why(exc), type="negative")
+            return
+        redraw()
+
+    fix = panel.action(t("console.accept.accept"), decide, icon=verbs.ACCEPT,
+                       hint=t("console.ext_page.accept_hint"))
+    if own:
+        return _finding(t("console.ext_page.not_accepted"),
+                        t("console.ext_page.not_accepted_detail"), fix)
+    return _finding(t("console.ext_page.replacement_waiting"),
+                    t("console.ext_page.replacement_detail",
+                      version=str(copy.get("version") or ""), folder=str(copy.get("folder") or "")),
+                    fix)
 
 
 def _finding(line: str, detail: str,
@@ -320,13 +388,9 @@ def _reach_rows(extension: dict) -> list[tuple[Any, ...]]:
         entries.append((t("console.ext_page.library"), _chips(reaches)))
     if uses:
         entries.append((t("console.ext_page.this_device"), _chips(uses)))
-    return [(panel.HEADING, t("console.ext_page.reach_title")), *entries] if entries else []
+    return [(panel.HEADING, t("console.ext_page.reach_title")),
+            panel.note(t("console.ext_page.reach_help")), *entries] if entries else []
 
 
 def _chips(words: list[str]) -> Callable[[], None]:
-    def draw() -> None:
-        with ui.element("div").classes("console-chips"):
-            for word in words:
-                ui.label(word).classes("console-tier console-tier--on")
-
-    return draw
+    return accept.chips(words)

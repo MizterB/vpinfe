@@ -24,6 +24,7 @@ from common.games import player_records
 from common.i18n import t
 from httpapi import events as event_stream
 from tests.support import pictures
+from tests.support.accepted import owner_accepts
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "extensions"
 MODULE = "tests.extensions.test_accounts"
@@ -145,6 +146,7 @@ def _owner_config() -> ConfigParser:
 
 class AccountsCase(unittest.TestCase):
     def setUp(self) -> None:
+        owner_accepts(self)
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.root = Path(tmp.name)

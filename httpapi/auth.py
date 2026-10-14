@@ -1,6 +1,6 @@
 """The authorization boundary: identity in, declared scope enforced.
 
-The mechanism ships; the policy it enforces is dormant. See docs/http-api.md.
+Who a request is comes from `SignInPolicy`. See docs/http-api.md.
 """
 
 from __future__ import annotations
@@ -13,11 +13,13 @@ from typing import Any
 from fastapi import Depends, FastAPI, Request
 from fastapi.routing import APIRoute
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.requests import HTTPConnection
 from starlette.responses import Response
 from starlette.routing import BaseRoute
 
-from common import extensions
+from common import extensions, sign_in
 from common.extensions import reach
+from common.host import this_machine
 from common.i18n import t
 
 from . import scopes
@@ -26,6 +28,9 @@ from .errors import CODE_FORBIDDEN, ApiError
 logger = logging.getLogger("vpinfe.httpapi.auth")
 
 _SCOPE_ATTR = "__vpinfe_scope__"
+
+COOKIE = "vpinfe_session"
+SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 
 # Where a caller reached us from, recorded so a policy has the fact to hand.
@@ -40,6 +45,9 @@ class Identity:
     # Defaults to the cautious answer: an identity that forgets to say must not
     # silently claim to be on the machine.
     origin: str = NETWORK
+    # The sign-in a browser's cookie opened, when it was one.
+    session_id: str = ""
+    kind: str = ""
 
     def can(self, scope: str) -> bool:
         return scope in self.scopes
@@ -49,42 +57,50 @@ class Identity:
         return self.origin == LOCAL
 
 
-# Matched against the socket's own address, never a header: X-Forwarded-For is written
-# by the caller, so trusting it would let anyone declare itself local.
-LOOPBACK_PEERS = frozenset({"127.0.0.1", "::1", "localhost"})
-
-# What Starlette's TestClient reports in place of an address.
-TEST_PEER = "testclient"
-
-
-def caller_is_local(request: Request) -> bool:
-    """Whether the request came from this machine. No client at all is an in-process
-    call rather than a socket, so there is no remote party to be cautious about."""
+def caller_is_local(request: HTTPConnection) -> bool:
+    """Whether the request is this machine's own: its socket, a name it answers to, no
+    forwarding header, and a page of VPinFE's own when a browser sent it. No client at all
+    is an in-process call rather than a socket, so there is no remote party to be cautious
+    about.
+    """
     client = getattr(request, "client", None)
     if client is None or not getattr(client, "host", None):
         return True
-    return client.host in LOOPBACK_PEERS or client.host == TEST_PEER
+    return this_machine.request_is_this_machine(client.host, request.headers)
 
 
-class LocalTrustPolicy:
-    """Whoever can reach this instance may do anything.
+def session_for(request: HTTPConnection) -> sign_in.Session | None:
+    """The sign-in the request's cookie opens. A write the browser says another site began
+    does not count, so a page of someone else's cannot act with a cookie it never held."""
+    token = request.cookies.get(COOKIE, "")
+    if not token:
+        return None
+    if (getattr(request, "method", "GET") not in SAFE_METHODS
+            and request.headers.get("sec-fetch-site", "").lower() == "cross-site"):
+        return None
+    return sign_in.instance().lookup(token)
 
-    The current behavior, written down. A cabinet on a home network has no
-    tokens and no user accounts, and inventing them here would be friction with
-    nothing on the other side of it. Replacing this class is how that changes.
 
-    `origin` records where the caller came from without changing what it may do. A caller
-    binds every interface by default, so "local" and "reachable" have never been the same
-    question - what a network caller is allowed is a later decision than seeing it is one.
+class SignInPolicy:
+    """This machine is trusted; another computer is trusted once a code shown on this
+    machine has signed its browser in. Anyone else may only ask what this instance is.
+
+    `origin` records where the caller came from: a caller binds every interface by default,
+    so "local" and "reachable" have never been the same question.
     """
 
-    name = "local-trust"
+    name = "sign-in"
 
     def identify(self, request: Request) -> Identity:
-        local = caller_is_local(request)
-        return Identity(name="local" if local else "network",
-                        scopes=scopes.CORE | granted_extension_scopes(),
-                        origin=LOCAL if local else NETWORK)
+        everything = scopes.CORE | granted_extension_scopes()
+        if caller_is_local(request):
+            return Identity(name="local", scopes=everything, origin=LOCAL)
+        session = session_for(request)
+        if session is not None:
+            return Identity(name=session.kind, scopes=everything, origin=NETWORK,
+                            session_id=session.id, kind=session.kind)
+        return Identity(name="network", scopes=frozenset({scopes.INSTANCE_READ}),
+                        origin=NETWORK)
 
 
 def granted_extension_scopes() -> frozenset[str]:
@@ -96,14 +112,14 @@ def granted_extension_scopes() -> frozenset[str]:
     return extensions.granted_scopes()
 
 
-_policy: LocalTrustPolicy = LocalTrustPolicy()
+_policy: SignInPolicy = SignInPolicy()
 
 
-def current_policy() -> LocalTrustPolicy:
+def current_policy() -> SignInPolicy:
     return _policy
 
 
-def set_policy(policy: LocalTrustPolicy) -> None:
+def set_policy(policy: SignInPolicy) -> None:
     """Swap the policy. For tests, and for whenever the deployment stops being local."""
     global _policy
     _policy = policy

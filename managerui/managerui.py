@@ -16,7 +16,7 @@ import threading
 
 from nicegui import app, context, ui
 
-from common import serving
+from common import machine_secrets, serving
 from common.failures import why
 from common.online.app_updater import (
     check_now,
@@ -419,7 +419,7 @@ _FAVICON = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 
 def _run_ui():
-    STORAGE_SECRET = "verysecret" # The storage is just to keep the active tab between sessions. Nothing sensitive.
+    storage_secret = machine_secrets.session_secret()
     logger.info("Using NiceGUI storage path: %s", _NICEGUI_STORAGE_PATH)
     logger.info("Starting Manager UI on host=%s port=%s", _ui_bind, _ui_port)
     logger.info("Manager UI expected URLs: %s", ", ".join(_manager_ui_urls(_ui_port)))
@@ -438,7 +438,7 @@ def _run_ui():
            reload=False,
            show=False,
            language=i18n.nicegui_language(),
-           storage_secret=STORAGE_SECRET,
+           storage_secret=storage_secret,
            log_config=None)
 
 def start_manager_ui(port=8001, bind="0.0.0.0"):

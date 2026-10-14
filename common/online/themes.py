@@ -12,6 +12,7 @@ from typing import Any
 
 import requests
 
+from common import accepted
 from common.http_client import get_json, get_text
 from common.i18n import t
 from common.online import theme_dates, theme_refs, theme_source_checks, theme_sources
@@ -25,6 +26,10 @@ from common.vpinfe_version import get_version
 
 class ThemeVersionError(ThemeRegistryError):
     """A theme that needs a newer VPinFE than the one asked to install it."""
+
+class ThemeNotAcceptedError(ThemeRegistryError):
+    """A theme from an address the Owner has not accepted it from."""
+
 
 logger = logging.getLogger("vpinfe.common.online.themes")
 
@@ -392,6 +397,9 @@ class ThemeRegistry:
             raise ThemeRegistryError(t("error.themes.not_offered", key=theme_key))
 
         theme_data = self.themes[theme_key]
+        source = str(theme_data.get("source") or "")
+        if not accepted.theme_accepted(theme_key, source):
+            raise ThemeNotAcceptedError(t("error.themes.not_accepted", key=theme_key))
         manifest = theme_data["manifest"]
         base_url = self._base_url(theme_data["registry_info"])
         ref = self._ref(theme_data["registry_info"])
@@ -419,6 +427,7 @@ class ThemeRegistry:
         zip_data = self._download_zip(zip_url)
 
         self.store.install_zip(theme_key, base_url, zip_data)
+        accepted.note_theme_installed(theme_key, source)
 
         logger.info("Installed %s", theme_key)
 

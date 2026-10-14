@@ -7,6 +7,7 @@ files to a local Chromium, and anything outside that is refused rather than reso
 from __future__ import annotations
 
 # custom_http_server.py
+import html
 import http.server
 import json
 import logging
@@ -24,6 +25,7 @@ from urllib.parse import parse_qs, unquote, urlsplit
 
 import requests
 
+from common import accepted
 from frontend.theme_windows import window_title
 
 logger = logging.getLogger("vpinfe.frontend.custom_http_server")
@@ -110,6 +112,9 @@ class CustomHTTPServer:
                     # Build a filesystem path safely
                     if rel_norm:
                         parts = rel_norm.split('/')
+                        if prefix == '/themes/' and not accepted.theme_runs(parts[0]):
+                            self.log_debug("Theme not accepted:", parts[0])
+                            return self._refuse()
                         full_path = os.path.join(root, *parts)
                     else:
                         full_path = root
@@ -163,7 +168,7 @@ class CustomHTTPServer:
         def _inject_base_tag(cls, html_text: object, base_href: str) -> str:
             if not isinstance(html_text, str):
                 html_text = str(html_text or "")
-            base_tag = f'<base href="{base_href}">'
+            base_tag = f'<base href="{html.escape(base_href)}">'
             if re.search(r"<base\s", html_text, flags=re.IGNORECASE):
                 return html_text
 
@@ -177,8 +182,8 @@ class CustomHTTPServer:
         @classmethod
         def _build_pinball_primer_error_html(cls, message: object,
                                              requested_url: str = "") -> str:
-            safe_message = str(message or "Unable to load Pinball Primer tutorial.")
-            safe_url = str(requested_url or "")
+            safe_message = html.escape(str(message or "Unable to load Pinball Primer tutorial."))
+            safe_url = html.escape(str(requested_url or ""))
             return f"""<!doctype html>
 <html lang="en">
   <head>

@@ -24,6 +24,7 @@ from common import i18n
 from common.extensions import check, contract, host, store
 from console import community, ext_links
 from httpapi import extensions as httpapi_extensions
+from tests.support.accepted import owner_accepts
 from tests.support.browser_session import BrowserSession, chromium_path, free_port
 
 MODULE = "tests.extensions.test_links"
@@ -62,6 +63,7 @@ class LinkedCase(unittest.TestCase):
     capabilities = ["ui:mount"]
 
     def setUp(self) -> None:
+        owner_accepts(self)
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.root = Path(tmp.name)

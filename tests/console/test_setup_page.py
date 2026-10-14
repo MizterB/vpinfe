@@ -15,6 +15,7 @@ from nicegui import ui
 from common import device_registry, install_setup
 from common.config_store import ConfigStore
 from common.games.launchers import Launcher
+from common.i18n import t
 from console import setup, setup_appearance, setup_tables, setup_vpx
 from tests.support.library import TempTree
 
@@ -106,8 +107,9 @@ class AskHowTests(_Fresh):
                                                  return_value="http://192.168.1.20:8001"):
             step = _ran(setup._ask_how(setup.Session(again=False, window=True)))
 
-        self.assertEqual(step["notes"],
-                         ["From another computer, open http://192.168.1.20:8001"])
+        self.assertEqual(step["notes"], [t("console.setup.address_note",
+                                           address="http://192.168.1.20:8001",
+                                           action=t("signin.page.get_code"))])
 
     def test_any_other_window_says_nothing_of_the_address(self) -> None:
         with self._screens(1):

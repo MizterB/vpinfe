@@ -624,7 +624,7 @@ class ChromiumManager:
         displays = DisplayConfig.from_config(iniconfig)
         settings = SettingsConfig.from_config(iniconfig)
         theme_assets_port = network.theme_assets_port
-        theme_name = settings.theme
+        theme_name = theme_api.get_theme_name(iniconfig)
         splash_enabled = settings.splashscreen
         library = _library_endpoint(network)
 

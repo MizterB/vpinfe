@@ -23,6 +23,7 @@ from common.games.collection_store import CollectionStore
 from common.games.game import Game
 from common.games.game_identity import game_id
 from common.games.tables import table_entries
+from tests.support.accepted import owner_accepts
 
 ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "community"
 MACHINE = "Machine of the Month"
@@ -47,6 +48,7 @@ def _unanswered(_path: str) -> dict:
 
 class DerivedTagCase(unittest.TestCase):
     def setUp(self) -> None:
+        owner_accepts(self)
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         self.root = Path(self._tmp.name)

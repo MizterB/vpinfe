@@ -17,11 +17,13 @@ import unittest
 from configparser import ConfigParser
 from unittest import mock
 
+from common import accepted
 from common.config_store import ConfigStore
 from common.i18n import t
 from common.online import theme_ops, theme_refs, theme_source_checks, theme_sources
 from common.online.theme_registry_client import ThemeRegistryError
 from common.online.themes import ThemeRegistry, ThemeVersionError
+from tests.support.accepted import isolated
 
 STOCK = "https://raw.githubusercontent.com/vpinfe/themes/main/themes.json"
 MINE = "https://git.example.net/someone/vpinfe-theme-reference"
@@ -125,6 +127,12 @@ class MergeTests(unittest.TestCase):
 class LoadTests(unittest.TestCase):
     """`load_registry` over several sources, with the network answered from a dict."""
 
+    def setUp(self) -> None:
+        isolated(self)
+
+    def _accept(self, registry: ThemeRegistry, key: str = "Reference") -> None:
+        accepted.accept_theme(key, str(registry.themes[key]["source"]))
+
     def _registry(self, sources, responses: dict) -> ThemeRegistry:
         registry = ThemeRegistry(sources=sources)
 
@@ -159,6 +167,7 @@ class LoadTests(unittest.TestCase):
         downloads: list[str] = []
         registry._download_zip = lambda url: downloads.append(url) or b""
         registry.store.install_zip = lambda *args: None
+        self._accept(registry)
         registry.install_theme("Reference")
         self.assertEqual(downloads, [f"{MINE}/archive/v1.4.zip"])
 
@@ -172,6 +181,7 @@ class LoadTests(unittest.TestCase):
         registry.load_theme_manifests()
         downloads: list[str] = []
         registry._download_zip = lambda url: downloads.append(url) or b""
+        self._accept(registry)
         with mock.patch("common.online.themes.get_version", return_value="3.0.1"):
             with self.assertRaises(ThemeVersionError):
                 registry.install_theme("Reference")

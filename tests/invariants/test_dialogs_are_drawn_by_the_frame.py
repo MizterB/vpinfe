@@ -16,6 +16,7 @@ OPENS_ONE = "ui.dialog("
 NOT_ASKING = {
     "mediaview.py": "an enlarged picture or text, with nothing to answer",
     "remote.py": "the phone remote's own sheets, drawn for a touch screen",
+    "sign_in_notice.py": "a notice that another computer is asking to sign in",
 }
 
 

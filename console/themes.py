@@ -20,9 +20,11 @@ from urllib.parse import urlparse
 
 from nicegui import run, ui
 
+from common import accepted
 from common.failures import why
 from common.i18n import t
 from console import (
+    accept,
     art,
     backup_rows,
     busy,
@@ -57,6 +59,16 @@ STATES = {
     AVAILABLE: {"label": t("console.themes.not_installed")},
 }
 
+# The two ways a theme that is not from the VPinFE Theme List is marked: stopped until it is
+# accepted, and accepted. A theme from the list has neither.
+UNACCEPTED, UNOFFICIAL = "unaccepted", "unofficial"
+TRUST = {
+    UNACCEPTED: {"label": t("console.themes.not_accepted"), "tier": "bad",
+                 "why": t("console.themes.unofficial_tip")},
+    UNOFFICIAL: {"label": t("console.themes.unofficial"), "tier": "warn",
+                 "why": t("console.themes.unofficial_tip")},
+}
+
 # What a theme says it is made for.
 MADE_FOR = {"cab": t("console.themes.cabinet"), "desktop": t("console.themes.desktop"),
             "both": t("console.themes.both")}
@@ -69,6 +81,10 @@ COLUMNS: list[dict[str, Any]] = [
                 **grid.choice_filter([{"value": key, "label": one["label"]}
                                       for key, one in STATES.items()], formatted=True),
                 **renderers.drawable("state", states=STATES)),
+    grid.column("trust", t("console.themes.trust"), 140, help=t("console.themes.trust.help"),
+                **grid.choice_filter([{"value": key, "label": one["label"]}
+                                      for key, one in TRUST.items()], formatted=True),
+                **renderers.drawable("state", states=TRUST)),
     grid.column("updated", t("console.themes.updated"), 150,
                 help=t("console.themes.updated.help"), **when.cell("updated")),
     grid.column("made_for", t("console.themes.made_for"), 150,
@@ -82,7 +98,7 @@ COLUMNS: list[dict[str, Any]] = [
                 help=t("console.themes.repository.help")),
 ]
 _ALL = [one["field"] for one in COLUMNS]
-_SHOWN = ("name", "status", "updated", "made_for")
+_SHOWN = ("name", "status", "trust", "updated", "made_for")
 
 _QUIET = tuple(one for one in _SHOWN if one != "status")
 
@@ -107,6 +123,20 @@ def status(theme: dict[str, Any]) -> str:
     if theme.get("update_available"):
         return UPDATE
     return INSTALLED if theme.get("installed") else AVAILABLE
+
+
+def trust_state(theme: dict[str, Any]) -> str:
+    """UNACCEPTED for an installed theme nobody has accepted, UNOFFICIAL for any other not
+    from the VPinFE Theme List, and nothing for one that is."""
+    trust = theme.get("trust") or {}
+    if not trust or trust.get("origin") == accepted.STOCK:
+        return ""
+    return UNACCEPTED if theme.get("installed") and not trust.get("accepted") else UNOFFICIAL
+
+
+def stopped(theme: dict[str, Any]) -> bool:
+    """Installed and not accepted: the frontend plays the default theme instead."""
+    return trust_state(theme) == UNACCEPTED
 
 
 def repo_name(url: str) -> str:
@@ -135,6 +165,7 @@ def rows(themes: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def _row(theme: dict[str, Any]) -> dict[str, Any]:
     return {"id": theme["key"], "name": theme.get("name") or theme["key"],
             "preview": theme_card.preview(theme, art.CELL), "status": status(theme),
+            "trust": trust_state(theme),
             "made_for": theme.get("type") if theme.get("type") in MADE_FOR else "",
             "author": str(theme.get("author") or ""),
             "registry": repo_name(str(theme["registry"])) if theme.get("registry") else "",
@@ -146,7 +177,7 @@ def _row(theme: dict[str, Any]) -> dict[str, Any]:
 def _has_no_acts(theme: dict[str, Any]) -> bool:
     """True exactly when `acts` returns nothing."""
     return bool(theme.get("installed") and theme.get("active")
-                and not theme.get("update_available"))
+                and not theme.get("update_available") and not stopped(theme))
 
 
 def build(library: Library, state: dict[str, Any],
@@ -345,6 +376,8 @@ async def details(context: dict[str, Any]) -> None:
         if theme.get("description"):
             entries.append(panel.intro(str(theme["description"])))
         entries.append((t("word.status"), _status_value(context, library, theme)))
+        if trust_state(theme):
+            entries.append((t("console.themes.trust"), _trust_value(theme)))
         if theme_card.version_said(theme):
             entries.append((t("word.version"), theme_card.version_said(theme)))
         if theme.get("author"):
@@ -396,6 +429,11 @@ def acts(library: Library, themes: list[dict[str, Any]],
     # and the way out of that is a config file.
     idle = [one for one in themes if one["installed"] and not one["active"]]
     offered: list[panel.Verb] = []
+    waiting = [one for one in themes if stopped(one)]
+    if waiting:
+        offered.append(panel.Verb(t("console.accept.accept"),
+                                  lambda: _accept(library, waiting[0], after),
+                                  icon=verbs.ACCEPT, one=True))
     if absent:
         offered.append(panel.Verb(t("console.themes.install"),
                                   lambda: _install(library, absent, after), icon=verbs.FETCH))
@@ -417,6 +455,7 @@ _STATUS_HINTS = {
     verbs.FETCH: "console.themes.install.help",
     verbs.UPDATE: "console.themes.update.help",
     verbs.ACTIVATE: "console.themes.make_active.help",
+    verbs.ACCEPT: "console.themes.accept.help",
 }
 
 
@@ -436,6 +475,17 @@ def _status_value(context: dict[str, Any], library: Library,
                 panel.action(waiting.label, waiting.run, icon=waiting.icon, inline=True,
                              hint=t(_STATUS_HINTS.get(waiting.icon, "")))()
     return draw
+
+
+def _trust_value(theme: dict[str, Any]) -> Callable[[], None]:
+    """The chip a theme carries when it is not from the VPinFE Theme List, with where it
+    comes from beside it."""
+    look = TRUST[trust_state(theme)]
+    trust = theme.get("trust") or {}
+    where = (str(trust.get("source_name") or "")
+             or (repo_name(str(trust["source"])) if trust.get("source") else "")
+             or t("console.themes.in_folder"))
+    return panel.state(look["label"], look["tier"], beside=where, hint=look["why"])
 
 
 async def settings_section(context: dict[str, Any]) -> None:
@@ -476,6 +526,9 @@ async def _install(library: Library, themes: list[dict[str, Any]],
     done = 0
     for theme in themes:
         key = theme["key"]
+        if not (theme.get("trust") or {}).get("install_accepted", True) \
+                and not await _agreed(library, theme, installing=not theme["installed"]):
+            continue
         downloading = ui.notification(t("console.themes.downloading", key=key),
                                       spinner=True, timeout=None)
         try:
@@ -494,6 +547,8 @@ async def _install(library: Library, themes: list[dict[str, Any]],
 @on_page
 async def _activate(library: Library, theme: dict[str, Any], again: Callable[[], Any]) -> None:
     """Saved, and left for the next start: nothing restarts."""
+    if stopped(theme) and not await _agreed(library, theme, installing=False):
+        return
     try:
         await run.io_bound(library.activate_theme, theme["key"])
     except Exception as exc:  # noqa: BLE001
@@ -503,6 +558,29 @@ async def _activate(library: Library, theme: dict[str, Any], again: Callable[[],
     ui.notify(t("console.themes.activated", name=theme["name"]),
             type="positive")
     await again()
+
+
+async def _agreed(library: Library, theme: dict[str, Any], *, installing: bool) -> bool:
+    """Ask whether this theme may run, and on a yes write the acceptance. False where the
+    answer was no or the acceptance could not be written, which is said."""
+    trust = theme.get("trust") or {}
+    source = "" if trust.get("origin") == accepted.IN_FOLDER else (
+        str(trust.get("source_name") or "") or repo_name(str(trust.get("source") or "")))
+    if not await accept.theme(str(theme["name"]), source=source, installing=installing):
+        return False
+    try:
+        await run.io_bound(library.accept_theme, theme["key"])
+    except Exception as exc:  # noqa: BLE001
+        ui.notify(t("console.themes.accept_failed"), caption=why(exc), type="negative")
+        return False
+    return True
+
+
+@on_page
+async def _accept(library: Library, theme: dict[str, Any], again: Callable[[], Any]) -> None:
+    if await _agreed(library, theme, installing=False):
+        ui.notify(t("console.themes.accepted", name=theme["name"]), type="positive")
+        await again()
 
 
 @on_page

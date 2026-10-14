@@ -30,15 +30,17 @@ next section first.
   list first, because a mobile device you added by hand is the one thing nothing
   re-announces. It refuses while VPinFE is running; `--dry-run` lists what would go, and
   `--config-only` leaves the library alone.
-- **The API has no authentication, and it answers on every interface.** Anything that can
-  reach the port can read your library, change settings, upload files and launch games.
-  That is how VPinFE has always worked and 3.0 does not change it, but 3.0 is the release
-  that makes the API worth building against, so it is worth saying plainly: run it on a
-  network you trust, and do not forward the port to the internet. Set HTTP Address in
-  Settings to `127.0.0.1` to keep it on the machine itself, at the cost of the Console, the
-  Remote and the mobile pages working from other devices.
+- **Other computers sign in once, with a code.** A browser on another computer asks for a
+  code and VPinFE shows it on this machine, where whoever is there chooses Show or Ignore.
+  Settings > Security lists the browsers signed in and ends any of them. This computer never
+  asks. Traffic on your network is not encrypted, so away from home connect through a VPN.
+  Set HTTP Address in Settings to `127.0.0.1` to keep other computers out altogether, at the
+  cost of the Console, the Remote and the mobile pages working from other devices.
 
 ### What's New
+- **Console** - Other computers sign in to VPinFE once, with a code shown on this machine.
+  This computer never asks. Settings > Security lists who is signed in and signs any of them
+  out.
 - **Console** - A new interface, and the page you land on. One place for the library,
   media, devices and settings, in grids you can sort, filter and search, with a picture
   beside each name. Column layouts are kept as views of your own. Select a row and its panel

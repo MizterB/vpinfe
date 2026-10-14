@@ -150,8 +150,11 @@ here.  Nothing in `__init__.py` is a sentence a person reads.
 
 ### See it
 
-Restart VPinFE.  Open Settings, then Extensions, then Example Scores.  The page shows the name,
-the version and the description, and one switch, Enabled.  The switch is on.
+Restart VPinFE.  Open Settings, then Extensions, then Example Scores.  The extension is not
+running yet: VPinFE did not ship it, so it waits for you to accept it.  Press Accept, read the
+prompt, and accept.  The page then shows the name, the version and the description, and one
+switch, Enabled.  The switch is on.  Accepting an extension you wrote
+yourself is the same step a person takes with yours.
 
 Without starting VPinFE you can ask what it would make of the folder:
 
@@ -1169,15 +1172,16 @@ catalog.  Put it back.
 
 ### What core did
 
-- **It listed what the extension asks for.**  The page's What It Can Reach is the manifest's
+- **It listed what the extension asks for.**  The page's What It Says It Uses is the manifest's
   scopes and capabilities in words.  Both are declarations, so the person who installs it can see
   them before it does anything.  See [scopes and tiers](how-it-works.md#scopes-and-tiers).
 - **It ran the extension in VPinFE's own process.**  An extension is Python code on the computer
   it is installed on, which is why putting a folder in `extensions/` is a decision a person makes.
   See [one process, so accepting is trusting](how-it-works.md#one-process-so-accepting-is-trusting).
-- **It will mark the extension Unofficial.**  A later release marks an extension VPinFE did not ship
-  as Unofficial, asks the owner to accept it before it runs, and calls What It Can Reach "What It
-  Says It Uses".  None of that is drawn yet: every extension in the folder is loaded today.  See
+- **It marked the extension Unofficial.**  An extension VPinFE did not ship is marked Unofficial and
+  stays stopped until the owner accepts it.  Its list of what it asks for is headed "What It Says
+  It Uses", because the manifest is the extension's own word.  An update that asks for more stops
+  again until the owner accepts the new access.  See
   [the Unofficial mark](how-it-works.md#the-unofficial-mark).
 
 ### If it does not show

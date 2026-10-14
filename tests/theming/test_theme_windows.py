@@ -17,6 +17,7 @@ from unittest import mock
 from common.config_access import DisplayConfig
 from common.config_store import ConfigStore
 from frontend import theme_api, theme_windows
+from tests.support.accepted import owner_accepts_theme
 from tests.support.library import TempTree
 
 
@@ -129,6 +130,7 @@ class CoreTopperTests(TempTree):
         super().setUp()
         self.themes = self.root / "themes"
         self.enterContext(mock.patch("frontend.theme_api.THEMES_DIR", self.themes))
+        owner_accepts_theme(self, "a-theme")
 
     def _config(self, screen: str = "") -> ConfigParser:
         config = ConfigParser()

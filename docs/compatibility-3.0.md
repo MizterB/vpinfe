@@ -1526,6 +1526,15 @@ are `behavior` settings that core needs once its timers start.
 Covered by `tests/js/internal-methods.test.js`, `tests/invariants/test_theme_api_surface.py`
 and `tests/theming/test_attract_drive.py`.
 
+**PAR-107 - Core shows the sign-in request on the cabinet.** Four WebSocket methods,
+`signin_pending`, `signin_show`, `signin_ignore` and `signin_dismiss`, refused to themes
+like `get_paging_state`. The cabinet's window draws "{address} wants to sign in" and, once
+Show is chosen, the six digits; a theme that could call them could read the digits.
+*Why:* a browser on another computer signs in with a code that is shown on this one, and
+the cabinet's screen is where a person standing at it sees the request.
+Covered by `tests/js/internal-methods.test.js`, `tests/invariants/test_theme_api_surface.py`
+and `tests/theming/test_sign_in_drive.py`.
+
 ## Explicitly *not* exceptions
 
 The theme-facing payload (`tables_json` keys, media path fields, stable values) and
@@ -1616,9 +1625,9 @@ Separately, and the only part of this that is not a rename: the `themes` section
 sole member of `READ_ONLY_SECTIONS` and is now writable, so the active theme, the
 registries and the repositories can be set from the Console. It was read-only because a
 theme source is a URL VPinFE fetches installable themes from, which are code the frontend
-runs, and `LocalTrustPolicy` gives a network caller the same scopes as a local one with
-`network.http_bind` defaulting to `0.0.0.0`. Opened deliberately, with the origin the auth
-layer already records as what closes it again.
+runs, and a network caller reached it with the same scopes as a local one when
+`network.http_bind` defaulted to `0.0.0.0`. Opened deliberately, and another computer now
+holds those scopes only once it has signed in.
 *Why:* a section named `general` records that nobody decided where a setting goes, and it
 had collected six unrelated subjects on one page. A settings page draws a whole config
 section and `_page_holding` answers with the first page holding one, so a section on six

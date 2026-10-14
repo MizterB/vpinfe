@@ -17,6 +17,7 @@ from common.games.tables import entry_for_filename
 from common.host import real_dmd, system_actions
 from common.i18n import t
 from frontend import config_api, theme_api
+from tests.support.accepted import owner_accepts_theme
 from tests.support.library import own_registry, write_game
 
 
@@ -78,6 +79,7 @@ class FrontendServiceTests(unittest.TestCase):
         """get_theme_config for a theme dir holding the given <name>.json files."""
         parser = configparser.ConfigParser()
         parser["general"] = {"theme": "Example"}
+        owner_accepts_theme(self, "Example")
         with (
             TemporaryDirectory() as temp_dir,
             mock.patch("frontend.theme_api.THEMES_DIR", Path(temp_dir)),
@@ -120,6 +122,7 @@ class FrontendServiceTests(unittest.TestCase):
     def test_theme_config_flattens_values_from_theme_json(self):
         parser = configparser.ConfigParser()
         parser["general"] = {"theme": "Example"}
+        owner_accepts_theme(self, "Example")
         with (TemporaryDirectory() as temp_dir,
               mock.patch("frontend.theme_api.THEMES_DIR", Path(temp_dir))):
             theme_dir = Path(temp_dir) / "Example"

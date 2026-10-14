@@ -17,12 +17,14 @@ import httpapi
 from common import extensions
 from common.extensions import contract, host, store
 from httpapi import auth, scopes
+from tests.support.accepted import owner_accepts
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "extensions"
 
 
 class SeamCase(unittest.TestCase):
     def setUp(self) -> None:
+        owner_accepts(self)
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         self.root = Path(self._tmp.name)
@@ -87,7 +89,7 @@ class MountTests(SeamCase):
     def test_a_running_extension_grants_the_scope_its_routes_need(self) -> None:
         self.registry.load_from(FIXTURES)
 
-        held = auth.LocalTrustPolicy().identify(None).scopes
+        held = auth.SignInPolicy().identify(None).scopes
 
         self.assertTrue(scopes.CORE <= held)
         self.assertIn("ext:sample:read", held)
@@ -101,7 +103,7 @@ class MountTests(SeamCase):
                 self.assertTrue(scopes.is_known(scope))
 
     def test_an_install_with_no_extensions_holds_the_core_scopes_and_no_more(self) -> None:
-        self.assertEqual(auth.LocalTrustPolicy().identify(None).scopes, scopes.CORE)
+        self.assertEqual(auth.SignInPolicy().identify(None).scopes, scopes.CORE)
 
     def test_the_gate_actually_runs(self) -> None:
         """Declaring the scope is not the same as enforcing it, and the difference is
@@ -115,7 +117,7 @@ class MountTests(SeamCase):
 
         client = self.client()
         auth.set_policy(CoreOnly())
-        self.addCleanup(auth.set_policy, auth.LocalTrustPolicy())
+        self.addCleanup(auth.set_policy, auth.SignInPolicy())
 
         found = client.get("/ext/sample/hello")
 
@@ -271,7 +273,7 @@ class FailureTests(SeamCase):
             client.get("/ext/sample/boom")
 
         self.assertNotIn("ext:sample:read",
-                         auth.LocalTrustPolicy().identify(None).scopes)
+                         auth.SignInPolicy().identify(None).scopes)
 
     def test_an_extension_asking_for_a_scope_that_does_not_exist_is_refused(self) -> None:
         """The manifest is the consent surface, so a scope nobody could grant is a

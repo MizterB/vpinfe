@@ -50,6 +50,14 @@ def list_themes(refresh: bool = False) -> dict[str, Any]:
         return theme_ops.listing(refresh)
 
 
+@router.get("/unaccepted", summary="Installed themes that are stopped until accepted",
+            dependencies=[requires(scopes.CONFIG_READ)])
+def unaccepted() -> dict[str, Any]:
+    """The themes in the themes folder that nobody has accepted, as `themes` of `key` and
+    `name`. Reads the folder alone, so it never reaches the network."""
+    return theme_ops.unaccepted()
+
+
 @router.get("/{key}/preview", summary="A theme's preview picture",
             dependencies=[requires(scopes.CONFIG_READ)])
 def get_preview(key: str, request: Request, size: int | None = MEDIA_SIZE,
@@ -103,6 +111,17 @@ def install(key: str) -> dict[str, Any]:
             return theme_ops.install(key)
     except theme_ops.InstallFailedError as exc:
         raise ApiError("theme_install_failed", why(exc), status_code=502) from exc
+
+
+# CONFIG_WRITE until the Protected tier exists; the scope that tier declares replaces it.
+@router.post("/{key}/accept", summary="Accept a theme VPinFE did not list",
+             dependencies=[requires(scopes.CONFIG_WRITE)])
+def accept(key: str) -> dict[str, Any]:
+    """Accepts the theme from the address this install knows it by: a source that is not the
+    VPinFE Theme List, or the themes folder for one no source offers. Returns its `trust`.
+    A theme from a different address asks again."""
+    with _sources_read():
+        return theme_ops.accept(key)
 
 
 @router.delete("/{key}", summary="Remove an installed theme",

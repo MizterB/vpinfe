@@ -46,6 +46,8 @@ from console import (
     report_groups,
     row_drag,
     sections,
+    security,
+    sign_in_notice,
     tageditor,
     text_editor,
     theme_sources,
@@ -790,6 +792,9 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             # Where somebody finds the phone surface, which is the one thing in this
             # drawer that is about leaving it.
             remote.invite(labels)
+        with foot:
+            security.sign_out_here(labels)
+            sign_in_notice.watch()
         with foot:
             # What the install is doing, when it is doing anything. Silent otherwise:
             # a line that reads "No active jobs" spends a permanent slot to report

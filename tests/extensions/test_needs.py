@@ -12,6 +12,7 @@ from typing import Any
 from common import i18n
 from common.extensions import contract, host, serving, store
 from common.extensions.context import ExtensionUI, check_references
+from tests.support.accepted import owner_accepts
 
 MODULE = "tests.extensions.test_needs"
 NAME = "asking"
@@ -112,6 +113,7 @@ class Declaring(unittest.TestCase):
 
 class Reading(unittest.TestCase):
     def setUp(self) -> None:
+        owner_accepts(self)
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.registry = host.Registry(store.ExtensionStore(Path(tmp.name)))

@@ -1,0 +1,388 @@
+"""Signing a browser in: a code shown on the machine, and the sessions it opens.
+
+A code is six digits, one live at a time, and only the machine's own screen, Console or log
+shows it. `request` makes one and says nothing about its digits; `reveal` is what Show does.
+A session is a secret the browser keeps in a cookie. Only its hash is stored here, in a file
+beside the secrets, so a copy of the file signs nobody in.
+
+Nothing here knows about HTTP. `httpapi/sign_in.py` and `console/sign_in_gate.py` carry it.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import hmac
+import logging
+import secrets
+import threading
+import time
+import uuid
+from collections.abc import Callable
+from dataclasses import dataclass, field, replace
+from pathlib import Path
+from typing import Any
+
+from common import machine_secrets, paths
+from common.i18n import t
+
+logger = logging.getLogger("vpinfe.common.sign_in")
+
+CODE_LENGTH = 6
+CODE_SECONDS = 10 * 60
+TRIES = 5
+ASK_SPACING_SECONDS = 30
+SPENT_BEFORE_DOUBLING = 3
+SESSION_DAYS = 90
+SESSION_SECONDS = SESSION_DAYS * 24 * 60 * 60
+# Writing the file on every request would put a disk write behind each page load.
+_TOUCH_SECONDS = 60
+
+OWNER = "owner"
+REMOTE = "remote"
+
+WAITING = "waiting"
+SHOWN = "shown"
+
+
+class SignInError(Exception):
+    """A sign-in step refused. `reason` is one of the constants below, for the caller to word."""
+
+    def __init__(self, reason: str, *, wait: int = 0) -> None:
+        super().__init__(reason)
+        self.reason = reason
+        self.wait = wait
+
+
+IGNORED = "ignored"
+TOO_SOON = "too_soon"
+NO_CODE = "no_code"
+WRONG = "wrong"
+USED_UP = "used_up"
+EXPIRED = "expired"
+
+
+@dataclass
+class Request:
+    """A browser asking for a code, as the machine sees it."""
+
+    id: str
+    address: str
+    asked: float
+    state: str = WAITING
+    code: str = ""
+    tries: int = 0
+    revealed: float = 0.0
+
+
+@dataclass(frozen=True)
+class Session:
+    id: str
+    kind: str
+    address: str
+    agent: str
+    created: float
+    last_used: float
+
+
+@dataclass
+class _Row:
+    hashed: str
+    session: Session = field(repr=False)
+
+
+_BROWSERS = (("Edg/", "Edge"), ("EdgiOS/", "Edge"), ("OPR/", "Opera"), ("FxiOS/", "Firefox"),
+             ("Firefox/", "Firefox"), ("CriOS/", "Chrome"), ("Chrome/", "Chrome"),
+             ("Safari/", "Safari"))
+_DEVICES = (("iPhone", "iPhone"), ("iPad", "iPad"), ("Android", "Android"),
+            ("Macintosh", "Mac"), ("Windows", "Windows"), ("CrOS", "Chromebook"),
+            ("Linux", "Linux"))
+
+
+def describe_agent(user_agent: str) -> str:
+    """"Safari on iPhone" for the list of signed-in browsers: enough to tell two apart, and
+    the only part of a User-Agent worth keeping on disk."""
+    browser = next((name for mark, name in _BROWSERS if mark in user_agent), "")
+    device = next((name for mark, name in _DEVICES if mark in user_agent), "")
+    return t("signin.agent", browser=browser, device=device) if browser and device \
+        else browser or device
+
+
+def _hash(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+class SignIn:
+    """The codes asked for and the sessions given, for one install."""
+
+    def __init__(self, path: Path | None = None,
+                 clock: Callable[[], float] = time.time) -> None:
+        self._path = path
+        self._clock = clock
+        self._lock = threading.RLock()
+        self._request: Request | None = None
+        self._ignored: set[str] = set()
+        self._last_ask = 0.0
+        self._spent_in_a_row = 0
+        self._rows: dict[str, _Row] = {}
+        self._loaded = False
+        self._listeners: list[Callable[[Request | None], None]] = []
+        # With no screen the log is the machine's display, so the digits go there at once.
+        self.headless = False
+
+    # --- the file ---------------------------------------------------------------------
+
+    def _file(self) -> Path:
+        return self._path or paths.SESSIONS_PATH
+
+    def _load(self) -> None:
+        if self._loaded:
+            return
+        self._loaded = True
+        for hashed, held in machine_secrets.read_private(self._file()).items():
+            try:
+                session = Session(id=str(held["id"]), kind=str(held["kind"]),
+                                  address=str(held["address"]), agent=str(held.get("agent", "")),
+                                  created=float(held["created"]),
+                                  last_used=float(held["last_used"]))
+            except (KeyError, TypeError, ValueError):
+                continue
+            self._rows[hashed] = _Row(hashed, session)
+
+    def _save(self) -> None:
+        held: dict[str, Any] = {
+            row.hashed: {"id": row.session.id, "kind": row.session.kind,
+                         "address": row.session.address, "agent": row.session.agent,
+                         "created": row.session.created, "last_used": row.session.last_used}
+            for row in self._rows.values()}
+        try:
+            machine_secrets.write_private(self._file(), held)
+        except OSError:
+            logger.warning("Could not save the signed-in browsers", exc_info=True)
+
+    def _forget_stale(self) -> None:
+        cutoff = self._clock() - SESSION_SECONDS
+        stale = [key for key, row in self._rows.items() if row.session.last_used < cutoff]
+        for key in stale:
+            del self._rows[key]
+        if stale:
+            self._save()
+
+    # --- asking for a code ------------------------------------------------------------
+
+    def on_request(self, listener: Callable[[Request | None], None]) -> None:
+        """Be told when the live request changes: made, revealed, ignored, spent or expired."""
+        self._listeners.append(listener)
+
+    def _tell(self) -> None:
+        with self._lock:
+            current = replace(self._request) if self._request is not None else None
+        for listener in list(self._listeners):
+            try:
+                listener(current)
+            except Exception:
+                logger.exception("A sign-in listener failed")
+
+    def _spacing(self) -> int:
+        doublings = max(0, self._spent_in_a_row - SPENT_BEFORE_DOUBLING + 1)
+        return ASK_SPACING_SECONDS * (2 ** doublings)
+
+    def next_ask_in(self) -> float:
+        """Seconds until a different address may ask. Zero when it may now."""
+        with self._lock:
+            if not self._last_ask:
+                return 0.0
+            return max(0.0, self._last_ask + self._spacing() - self._clock())
+
+    def ask(self, address: str) -> Request:
+        """A browser at `address` wants a code. Raises `SignInError` when it may not have one."""
+        with self._lock:
+            if address in self._ignored:
+                raise SignInError(IGNORED)
+            now = self._clock()
+            live = self._live()
+            wait = int(self._last_ask + self._spacing() - now)
+            if live is not None and live.address == address and wait > 0:
+                return live
+            if live is not None and live.address != address and live.state == SHOWN:
+                raise SignInError(TOO_SOON, wait=self.seconds_left(live))
+            if wait > 0 and self._last_ask:
+                raise SignInError(TOO_SOON, wait=wait)
+            self._last_ask = now
+            made = self._request = Request(id=uuid.uuid4().hex, address=address, asked=now)
+            logger.warning("%s wants to sign in", address)
+        self._tell()
+        if self.headless:
+            return self.reveal(made.id) or made
+        return made
+
+    def _live(self) -> Request | None:
+        request = self._request
+        if request is None:
+            return None
+        if self._clock() - request.asked > CODE_SECONDS:
+            self._request = None
+            return None
+        return request
+
+    def seconds_left(self, request: Request) -> int:
+        """How long `request`'s code stays good, by the clock the code is judged by."""
+        return max(0, int(request.asked + CODE_SECONDS - self._clock()))
+
+    def pending(self) -> Request | None:
+        """The request the machine should be showing, or None."""
+        with self._lock:
+            return self._live()
+
+    # --- the machine's side -----------------------------------------------------------
+
+    def reveal(self, request_id: str) -> Request | None:
+        """Show: make the digits and keep them for this request. None if it has gone."""
+        with self._lock:
+            request = self._live()
+            if request is None or request.id != request_id:
+                return None
+            if request.state == WAITING:
+                request.code = "".join(secrets.choice("0123456789") for _ in range(CODE_LENGTH))
+                request.state = SHOWN
+                request.revealed = self._clock()
+                if self.headless:
+                    logger.warning("Sign-in code for %s: %s", request.address, request.code)
+        self._tell()
+        return request
+
+    def ignore(self, request_id: str) -> None:
+        """Ignore: refuse this address's requests until restart."""
+        with self._lock:
+            request = self._live()
+            if request is None or request.id != request_id:
+                return
+            self._ignored.add(request.address)
+            self._request = None
+        self._tell()
+
+    def dismiss(self, request_id: str) -> None:
+        with self._lock:
+            request = self._request
+            if request is not None and request.id == request_id:
+                self._request = None
+        self._tell()
+
+    def reveal_now(self, address: str) -> Request:
+        """A code for a browser that is on the machine itself, or asked for in the log: no
+        Show step, since whoever can see this is already in front of it."""
+        request = self.ask(address)
+        revealed = self.reveal(request.id)
+        assert revealed is not None
+        return revealed
+
+    # --- the browser's side -----------------------------------------------------------
+
+    def verify(self, request_id: str, code: str, *, address: str, kind: str = OWNER,
+               agent: str = "") -> tuple[str, Session]:
+        """Spend a try on `code`. Returns the session's secret and the session on success."""
+        spent = False
+        with self._lock:
+            request = self._live()
+            if request is None or request.id != request_id or request.state != SHOWN:
+                raise SignInError(NO_CODE)
+            if request.address != address:
+                raise SignInError(NO_CODE)
+            request.tries += 1
+            right = hmac.compare_digest(request.code.encode(), code.strip().encode())
+            if right:
+                self._request = None
+                self._spent_in_a_row = 0
+            elif request.tries >= TRIES:
+                self._request = None
+                self._spent_in_a_row += 1
+                spent = True
+        if right:
+            self._tell()
+            return self.open(kind=kind, address=address, agent=agent)
+        if spent:
+            self._tell()
+            raise SignInError(USED_UP)
+        raise SignInError(WRONG)
+
+    # --- sessions ---------------------------------------------------------------------
+
+    def open(self, *, kind: str, address: str, agent: str = "") -> tuple[str, Session]:
+        with self._lock:
+            self._load()
+            self._forget_stale()
+            token = secrets.token_urlsafe(32)
+            now = self._clock()
+            session = Session(id=uuid.uuid4().hex, kind=kind, address=address,
+                              agent=agent[:200], created=now, last_used=now)
+            hashed = _hash(token)
+            self._rows[hashed] = _Row(hashed, session)
+            self._save()
+        return token, session
+
+    def lookup(self, token: str) -> Session | None:
+        """The session this secret opens, or None. Using it counts as use."""
+        if not token:
+            return None
+        with self._lock:
+            self._load()
+            hashed = _hash(token)
+            row = self._rows.get(hashed)
+            if row is None:
+                return None
+            now = self._clock()
+            if row.session.last_used < now - SESSION_SECONDS:
+                del self._rows[hashed]
+                self._save()
+                return None
+            if now - row.session.last_used >= _TOUCH_SECONDS:
+                s = row.session
+                row.session = Session(s.id, s.kind, s.address, s.agent, s.created, now)
+                self._save()
+            return row.session
+
+    def sessions(self) -> list[Session]:
+        with self._lock:
+            self._load()
+            self._forget_stale()
+            return sorted((row.session for row in self._rows.values()),
+                          key=lambda s: s.last_used, reverse=True)
+
+    def sign_out(self, session_id: str) -> bool:
+        with self._lock:
+            self._load()
+            for key, row in list(self._rows.items()):
+                if row.session.id == session_id:
+                    del self._rows[key]
+                    self._save()
+                    return True
+        return False
+
+    def sign_out_token(self, token: str) -> None:
+        with self._lock:
+            self._load()
+            if self._rows.pop(_hash(token), None) is not None:
+                self._save()
+
+    def sign_out_everywhere(self, *, kind: str | None = None) -> int:
+        with self._lock:
+            self._load()
+            gone = [key for key, row in self._rows.items()
+                    if kind is None or row.session.kind == kind]
+            for key in gone:
+                del self._rows[key]
+            if gone:
+                self._save()
+            return len(gone)
+
+
+_instance = SignIn()
+
+
+def instance() -> SignIn:
+    return _instance
+
+
+def use(sign_in: SignIn) -> None:
+    """Swap the process's sign-in. For tests."""
+    global _instance
+    _instance = sign_in

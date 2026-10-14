@@ -25,6 +25,7 @@ from urllib.parse import parse_qs, urlparse
 import websockets
 from websockets.asyncio.server import ServerConnection
 
+from common import serving
 from common.failures import why
 from common.i18n import t
 from common.service_errors import ServiceError
@@ -127,14 +128,21 @@ class DeviceChannel:
 
         A browser sets Origin itself and a page cannot forge it, so this is what keeps any
         other page open on this machine from reaching `shutdown_system` - loopback binding
-        does not, because WebSockets are not subject to same-origin the way XHR is.
+        does not, because WebSockets are not subject to same-origin the way XHR is. The
+        port is held too: a page on another local port is another program's page.
 
         No Origin at all is allowed: that is a non-browser client, which already runs code
         here and so is not held back by anything this check could do.
         """
         if origin is None:
             return True
-        return urlparse(origin).hostname in LOOPBACK_HOSTS
+        parts = urlparse(origin)
+        try:
+            port = parts.port
+        except ValueError:
+            return False
+        ours = {serving.bound_port("theme_assets_port"), serving.bound_port("http_port")}
+        return parts.hostname in LOOPBACK_HOSTS and port is not None and port in ours
 
     async def _handle_connection(self, websocket: ServerConnection) -> None:
         """Handle a new WebSocket connection from a Chromium window."""

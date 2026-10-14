@@ -22,10 +22,12 @@ from starlette.testclient import TestClient
 
 import httpapi
 from common import events as core_events
-from common import extensions
+from common import extensions, sign_in
 from common import jobs as core_jobs
 from common.extensions import contract, host, reach, store
 from common.host import os_helper
+from httpapi import auth
+from tests.support.accepted import owner_accepts
 
 
 class FakeHelper:
@@ -229,6 +231,7 @@ class ExtensionCase(HelperCase):
     """A running extension that declares what a test needs."""
 
     def setUp(self) -> None:
+        owner_accepts(self)
         super().setUp()
         self.store = store.ExtensionStore(self.root)
         self.registry = host.Registry(self.store)
@@ -461,8 +464,16 @@ class RequestTests(ExtensionCase):
 
     def client(self, peer: str) -> TestClient:
         self.make("os_update", ["os:updates"], ROUTES)
-        return TestClient(httpapi.create_api_app(), client=(peer, 50000),
-                          raise_server_exceptions=False)
+        found = TestClient(httpapi.create_api_app(), client=(peer, 50000),
+                           base_url="http://localhost", raise_server_exceptions=False)
+        if peer != "127.0.0.1":
+            held = sign_in.SignIn(self.root / "sessions.json")
+            previous = sign_in.instance()
+            sign_in.use(held)
+            self.addCleanup(sign_in.use, previous)
+            token, _session = held.open(kind=sign_in.REMOTE, address=peer)
+            found.cookies.set(auth.COOKIE, token)
+        return found
 
     def test_a_change_from_this_computer_is_made(self) -> None:
         fake = self.helper()

@@ -28,6 +28,11 @@ METADATA_PAGE = "library.metadata"
 # The rows an extension raises are keyed `ext:<extension>:<kind>`; `away:<extension>` in the
 # reads that failed says that extension's needs could not be read, `away:*` that none could.
 EXTENSION, AWAY = "ext:", "away:"
+
+# The rows for a theme or an extension waiting to be accepted, keyed `unaccepted:theme:<key>`
+# and `unaccepted:ext:<name>`. They are about this install and cannot be set aside:
+# whatever is stopped stays so until the Owner accepts it or removes it.
+UNACCEPTED = "unaccepted:"
 AWAY_ALL = AWAY + "*"
 
 # A fix VPinFE can do itself, the first entry of the row's menu.
@@ -136,7 +141,8 @@ def _unread(failed: Any) -> str:
     said = (("update", t("console.needs.unread_update")),
             ("recordings", t("console.needs.unread_recordings")),
             ("fill", t("console.needs.unread_fill")),
-            ("extensions", t("console.needs.unread_extensions")))
+            ("extensions", t("console.needs.unread_extensions")),
+            ("unaccepted", t("console.needs.unread_unaccepted")))
     return ", ".join(words for key, words in said if key in failed)
 
 
@@ -157,6 +163,26 @@ def extension_rows(raised: Any) -> list[Need]:
                         token=tuple(str(each) for each in one.get("covered") or ()),
                         source=str(one.get("display_name") or ""),
                         total=int(one.get("count") or 0)))
+    return out
+
+
+def unaccepted_rows(waiting: Mapping[str, Any]) -> list[Need]:
+    """A row for each theme and extension that is stopped for want of being accepted."""
+    from console import ext_page
+
+    out = []
+    for theme in waiting.get("themes") or ():
+        out.append(Need(f"{UNACCEPTED}theme:{theme['key']}",
+                        t("console.needs.unaccepted", name=theme.get("name") or theme["key"]),
+                        t("console.needs.unaccepted.tip"), WARM, verbs.LOCKED,
+                        Opens("themes")))
+    for extension in waiting.get("extensions") or ():
+        name = str(extension["name"])
+        out.append(Need(f"{UNACCEPTED}ext:{name}",
+                        t("console.needs.unaccepted",
+                          name=extension.get("display_name") or name),
+                        t("console.needs.unaccepted.tip"), WARM, verbs.LOCKED,
+                        Opens("settings", keys={"settings_page": ext_page.key(name)})))
     return out
 
 
@@ -263,6 +289,7 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
                                tip=names["no_year"][1], tone=MUTED, icon=verbs.NO_YEAR,
                                opens=Opens("games", {"year": {"filterType": "number",
                                                              "type": "blank"}})))
+    rows += unaccepted_rows(watched.get("unaccepted") or {})
     rows += extension_rows(watched.get("extension_needs") or ())
     if unread := _unread(watched.get("unread") or ()):
         rows.append(Need("unread", t("console.needs.unread"),
@@ -478,7 +505,7 @@ def owner_of(need: Need) -> str:
         return EXTENSION + need.key[len(EXTENSION):].partition(":")[0]
     if need.key == "unread":
         return ""
-    return DEVICE if need.key in DEVICE_ROWS else LIBRARY
+    return DEVICE if need.key in DEVICE_ROWS or need.key.startswith(UNACCEPTED) else LIBRARY
 
 
 def _group_label(owner: str, rows: list[Need]) -> str:

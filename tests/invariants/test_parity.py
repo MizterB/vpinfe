@@ -79,6 +79,9 @@ LEDGER_ALLOWS = {
     # PAR-106: one method added so core can read the person's attract mode settings.
     # Additive and refused to themes.
     "PAR-106": {"get_attract_config"},
+    # PAR-107: four methods added for the sign-in request on the cabinet. Additive and
+    # refused to themes, because the digits are in one of them.
+    "PAR-107": {"signin_pending", "signin_show", "signin_ignore", "signin_dismiss"},
     # New media kinds add theme-payload keys. Additive only: every key master
     # had must still be present and equal.
     "PAR-11": {"InstructionCardImagePath", "TopperPath", "TopperVideoPath",
@@ -192,7 +195,8 @@ class ParityTests(unittest.TestCase):
             | LEDGER_ALLOWS["PAR-96"] | LEDGER_ALLOWS["PAR-97"] | LEDGER_ALLOWS["PAR-99"]
             | LEDGER_ALLOWS["PAR-100"] | LEDGER_ALLOWS["PAR-101"]
             | LEDGER_ALLOWS["PAR-102"] | LEDGER_ALLOWS["PAR-103"]
-            | LEDGER_ALLOWS["PAR-104"] | LEDGER_ALLOWS["PAR-106"],
+            | LEDGER_ALLOWS["PAR-104"] | LEDGER_ALLOWS["PAR-106"]
+            | LEDGER_ALLOWS["PAR-107"],
             "only PAR-04's, PAR-21's and PAR-27's additions are permitted")
 
     def test_legacy_endpoints_served_on_master_and_do_not_serve_here(self) -> None:

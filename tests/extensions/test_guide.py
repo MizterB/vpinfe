@@ -26,6 +26,7 @@ from common.extensions import check, contract, fields, host, pictures, serving, 
 from common.extensions.context import COLUMN_KINDS, ExtensionContext, logger_for
 from common.service_errors import NotFoundError, RefusedError
 from console import ext_links
+from tests.support.accepted import owner_accepts
 
 GUIDE = Path(__file__).resolve().parents[2] / "docs" / "extensions"
 EXAMPLES = GUIDE / "examples"
@@ -236,6 +237,7 @@ class ExamplesLoadedByTheHost(unittest.TestCase):
     """An example folder loaded as the host loads it, with the practice site serving."""
 
     def setUp(self) -> None:
+        owner_accepts(self)
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.registry = host.Registry(store.ExtensionStore(Path(tmp.name)))

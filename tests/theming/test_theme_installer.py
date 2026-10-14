@@ -16,8 +16,10 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
+from common import accepted
 from common.online import themes
 from common.online.theme_installer import ASIDE_SUFFIX, ThemeInstallStore
+from tests.support.accepted import isolated
 
 BASE_URL = "https://github.com/someone/Reference"
 
@@ -41,6 +43,13 @@ def _theme(root: Path, name: str, marker: str = "mine") -> Path:
 
 
 class ThemeInstallStoreTests(unittest.TestCase):
+    def test_a_key_that_leaves_the_themes_folder_is_refused(self) -> None:
+        with TemporaryDirectory() as tmp:
+            store = ThemeInstallStore(str(Path(tmp) / "themes"))
+            for key in ("../outside", "/etc", "a/b", "..", ""):
+                with self.subTest(key=key), self.assertRaises(ValueError):
+                    store._path(key)
+
     def test_replacing_a_theme_keeps_the_folder_it_replaced(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -149,6 +158,10 @@ class MinimumVersionGateTests(unittest.TestCase):
     cabinet that is a black screen after an unattended auto-update.
     """
 
+    def setUp(self) -> None:
+        isolated(self)
+        accepted.accept_theme("Fancy", "")
+
     def _registry(self, min_vpinfe):
         registry = themes.ThemeRegistry.__new__(themes.ThemeRegistry)
         registry.themes = {"Fancy": {
@@ -159,6 +172,16 @@ class MinimumVersionGateTests(unittest.TestCase):
         registry.downloads = []
         registry._download_zip = lambda url: registry.downloads.append(url)
         return registry
+
+    def test_a_theme_from_an_address_nobody_accepted_downloads_nothing(self) -> None:
+        registry = self._registry("3.0")
+        registry.themes["Fancy"]["source"] = "https://git.example.net/someone/themes.json"
+
+        with mock.patch.object(themes, "get_version", return_value="3.0.1"):
+            with self.assertRaises(themes.ThemeNotAcceptedError):
+                registry.install_theme("Fancy")
+
+        self.assertEqual(registry.downloads, [])
 
     def test_a_theme_needing_a_newer_build_is_refused(self) -> None:
         registry = self._registry("4.0")

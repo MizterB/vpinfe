@@ -13,6 +13,7 @@ import httpapi
 from common import extensions
 from common.extensions import host, store
 from common.extensions.context import ContractError, ExtensionUI, check_references
+from tests.support.accepted import owner_accepts
 
 ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "community"
 WEEK = "https://challenge.example/week"
@@ -410,6 +411,7 @@ class HowTheListStands(unittest.TestCase):
     the routes core writes."""
 
     def setUp(self) -> None:
+        owner_accepts(self)
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.store = store.ExtensionStore(Path(tmp.name))
@@ -485,6 +487,7 @@ def _extension(root: Path, name: str, *titles: tuple[str, str]) -> Path:
 
 class WhatAListMayBeTitled(unittest.TestCase):
     def setUp(self) -> None:
+        owner_accepts(self)
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.root = Path(tmp.name)
