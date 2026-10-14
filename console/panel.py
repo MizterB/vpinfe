@@ -986,8 +986,9 @@ def value_hover(control: Any, tip: PathTip) -> None:
     hover with a second tip.
     """
     with control:
+        # A picker's html_id is its inner input; the field is the label that names it.
         hover = ui.tooltip().props(
-            f'target="#{control.html_id} .q-field__control-container" '
+            f'target="label[for={control.html_id}] .q-field__control-container" '
             'anchor="bottom left" self="top left"')
 
     def redraw() -> None:

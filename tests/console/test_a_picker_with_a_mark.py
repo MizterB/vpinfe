@@ -61,7 +61,7 @@ class APickerWithAMark(unittest.TestCase):
                 self.assertIsInstance(tip, panel.PathTip)
                 (hover,) = _tips(holder, on_value=True)
                 owner = hover.parent_slot.parent
-                self.assertTrue(hover.props["target"].startswith(f"#{owner.html_id} "))
+                self.assertTrue(hover.props["target"].startswith(f"label[for={owner.html_id}] "))
                 self.assertIn("no-parent-event", hover.props)
 
                 tip.say("Changed from On - Visual Pinball X's default")
