@@ -141,7 +141,8 @@ class Record:
                                              f"{under}.column.{one['field']}.header",
                                              one["field"])[0],
                          "help": self.said(one["help"],
-                                           f"{under}.column.{one['field']}.help")[0]}
+                                           f"{under}.column.{one['field']}.help")[0],
+                         "states": self._states(under, one)}
                         for one in declared["columns"]],
             "views": [{**one,
                        "name": self.said(one["name"], f"{under}.view.{one['key']}.name",
@@ -152,6 +153,13 @@ class Record:
             "add": [{"action": key, "label": self._action_label(key)}
                     for key in declared["add"]],
         }
+
+    def _states(self, under: str, column: dict) -> dict:
+        at = f"{under}.column.{column['field']}.state"
+        return {value: {**look,
+                        "label": self.said("", f"{at}.{value}", value)[0],
+                        "why": self.said("", f"{at}.{value}.why")[0]}
+                for value, look in column["states"].items()}
 
     def _verb(self, under: str, declared: dict) -> dict:
         at = f"{under}.verb.{declared['key']}"

@@ -32,6 +32,7 @@ it, what you will see, a few variations and the mistake people make with it.
 - [7. A list](#7-a-list)
 - [8. A list you can add to](#8-a-list-you-can-add-to)
 - [9. Acting on rows](#9-acting-on-rows)
+- [10. States, chips, links and pictures in a column](#10-states-chips-links-and-pictures-in-a-column)
 - [13. An account per player](#13-an-account-per-player)
 
 ## Basics
@@ -842,6 +843,121 @@ from the site?" first, or "Remove these 2 scores from the site?" for two.
 **Watch out:** the `id` of a row is a string and must be different for every row of the list.
 Two rows with the same id make the list fail with the reason, and a row with none can be read
 but not picked.
+
+### 10. States, chips, links and pictures in a column
+
+**Use it when:** a column holds something the person should take in at a glance: whether a
+challenge is open, which tags a table carries, where its rules are, what it looks like.
+
+A column is text unless you give it a `kind`. Four kinds draw a value as more than text:
+`state` for one of a few fixed values, `chips` for a list, `link` for a web address and
+`picture` for a small image. You hand core the values and say which kind a column is, and core
+draws it the same way on every page. A state names its own words and what it looks like.
+
+This one needs no service. It lists five weekly challenges that are written into the file, so
+you can see all four kinds at once. The state column has five states, one of each look:
+
+- `open` is `{"tier": "on"}`, `closing` is `warn` and `closed` is `off`. A tier is a colored
+  chip. The tiers are `on`, `off`, `unknown`, `warn` and `bad`.
+- `cancelled` is `{"icon": "block"}`, a Material icon drawn before the word.
+- `planned` is `{}`, a quiet word with nothing around it. Most states should look like this one.
+
+`recipes/weekly_board/extension.json`
+
+```json
+{
+  "name": "weekly_board",
+  "version": "1.0.0",
+  "requires_platform": 1,
+  "capabilities": ["ui:mount"]
+}
+```
+
+`recipes/weekly_board/__init__.py`
+
+```python
+CHALLENGES = [
+    {"name": "Medieval Madness", "status": "open", "tags": ["Williams", "Classic"],
+     "page": "https://scores.example.com/weeks/41", "art": "art/flipper.png"},
+    {"name": "Attack from Mars", "status": "closing", "tags": ["Bally"],
+     "page": "https://scores.example.com/weeks/40", "art": "art/flipper.png"},
+    {"name": "The Addams Family", "status": "closed", "tags": [],
+     "page": "https://scores.example.com/weeks/39", "art": ""},
+    {"name": "Twilight Zone", "status": "cancelled", "tags": ["Bally"],
+     "page": "", "art": ""},
+    {"name": "Theatre of Magic", "status": "planned", "tags": [],
+     "page": "", "art": ""},
+]
+
+
+def register(ctx):
+    ctx.ui.list("board", lambda: CHALLENGES, area="community", columns=[
+        {"field": "name"},
+        {"field": "status", "kind": "state", "states": {
+            "open": {"tier": "on"},
+            "closing": {"tier": "warn"},
+            "closed": {"tier": "off"},
+            "cancelled": {"icon": "block"},
+            "planned": {},
+        }},
+        {"field": "tags", "kind": "chips"},
+        {"field": "page", "kind": "link"},
+        {"field": "art", "kind": "picture"},
+    ])
+```
+
+`recipes/weekly_board/i18n/en.json`
+
+```json
+{
+  "name": "Weekly Board",
+  "description": "Lists the weekly challenges, with a state, tags, a link and a picture for each.",
+  "list.board.title": "Weekly Board",
+  "list.board.column.name.header": "Challenge",
+  "list.board.column.status.header": "Status",
+  "list.board.column.status.state.open": "Open",
+  "list.board.column.status.state.open.why": "Scores are being taken",
+  "list.board.column.status.state.closing": "Closing",
+  "list.board.column.status.state.closing.why": "Ends within a day",
+  "list.board.column.status.state.closed": "Closed",
+  "list.board.column.status.state.cancelled": "Cancelled",
+  "list.board.column.status.state.planned": "Planned",
+  "list.board.column.tags.header": "Tags",
+  "list.board.column.page.header": "Rules",
+  "list.board.column.art.header": "Picture"
+}
+```
+
+The first row's picture is a real file, `recipes/weekly_board/art/flipper.png`, in the
+extension's folder. Copy the folder whole and it comes with it.
+
+**Where it appears:** on the list's page under Community in the rail, as the Status, Tags,
+Rules and Picture columns. **What triggers it:** the person opening the page. Core reads the
+rows, draws each column by its kind and serves the picture from VPinFE's own address.
+
+**What you'll see:** Weekly Board under Community in the rail with five rows. Status shows
+Open in green, Closing in amber, Closed in grey, Cancelled with a stop sign before it and
+Planned as plain text. Hover Open and it says "Scores are being taken". The Status filter
+offers all five words. Tags shows Williams and Classic as two chips on the first row, and
+nothing on the rows with none. Rules is a link marked as leaving the Console, with the
+column's header as its text. Picture shows the first two rows' picture at a small size, and
+nothing on the others.
+
+**Variations:**
+
+- `{"field": "page", "kind": "link", "says": "title"}` reads the link as the row's `title`
+  instead of the header, so each row's link says what it opens.
+- A picture can be a web address: `"art": "https://example.com/a.png"`. Add `net:outbound` to
+  `capabilities`, because core fetches it for you. Without it the list does not read, and says
+  why.
+- Leave `states` out of a state column and the extension does not start. The words for each
+  state are `list.<key>.column.<field>.state.<value>`, and `--check-extension` tells you which
+  you have not written.
+
+**Watch out:** chips are for exceptions. A tag on every row says nothing, and a column of
+chips where each row has one is a text column wearing a costume. Use `chips` for what some rows
+have and most do not. The same goes for a tier: when most rows are `on`, give that state `{}`
+and let only the ones worth noticing be colored.
 
 ## Players and games
 

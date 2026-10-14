@@ -159,6 +159,8 @@ def _missing(record: Record, ui: Any) -> list[tuple[str, str]]:
             wanted.append((f"list.{key}.title", "a list's title"))
         wanted.extend((f"list.{key}.column.{one['field']}.header", "a column's header")
                       for one in declared["columns"] if not one["header"])
+        wanted.extend((f"list.{key}.column.{one['field']}.state.{value}", "a state's word")
+                      for one in declared["columns"] for value in one["states"])
         wanted.extend((f"list.{key}.view.{one['key']}.name", "a view's name")
                       for one in declared["views"] if not one["name"])
         for verb in declared["verbs"]:

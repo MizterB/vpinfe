@@ -104,15 +104,76 @@ Backups, About, Library, Frontend, Community, System), or another running extens
 title in the same area, compared without regard to case.  Either one raises `ContractError`
 from `register`, so the extension fails to start and the log names the clash.
 
-**Columns.**  `{"field", "header", "kind", "help", "under"}`.
+**Columns.**  `{"field", "header", "kind", "help", "under", "states", "says"}`.
 
 | key | meaning |
 |---|---|
 | `field` | Required.  The row key it shows |
-| `kind` | `text` (default), `number` or `date` |
+| `kind` | `text` (default), `number`, `date`, `state`, `chips`, `link` or `picture`; see [Cell kinds](#cell-kinds) |
 | `header` | Shown as written; left out, `list.<key>.column.<field>.header`, then the field |
 | `help` | The tooltip on the header.  Left out, `...help` in the catalog, then the header |
 | `under` | First column only.  Row fields shown on the line beneath its value, as a game's maker and year are |
+| `states` | A `state` column only, and required there.  `{value: look}`, the values the field may hold |
+| `says` | A `link` column only.  The row field the link reads as.  Left out, it reads as the column's header |
+
+A column key core does not read stops the extension from starting, with the key in the reason.
+The first column is the row's name, so it is `text`, `number` or `date`.
+
+### Cell kinds
+
+The first three draw a value as text.  The other four draw it as something the person can see
+at a glance.
+
+| `kind` | the field holds | drawn as |
+|---|---|---|
+| `text` | a string | the text |
+| `number` | a number | the number, right-aligned, sorted as a number |
+| `date` | a date and time as text | the date, sorted by time |
+| `state` | one of the values in `states` | a word, as a colored chip, with an icon before it, or plain |
+| `chips` | a list of strings | one plain chip for each string |
+| `link` | a web address | a link that opens in a new tab, marked as leaving |
+| `picture` | a web address, or a file in the extension's folder | a small picture |
+
+**State.**  `states` is `{value: look}`, and a look is one of:
+
+- `{"tier": "on" | "off" | "unknown" | "warn" | "bad"}`, the word as a colored chip.  The colors
+  are the Console's own, so a state reads the same on every page.
+- `{"icon": "block"}`, a Material icon name, drawn before the word.
+- `{}`, a quiet word with nothing before it.
+
+A look takes a tier or an icon, not both.  A row whose value is not in `states` shows the value
+as it is, plain.  The column is filtered by the words, and the filter lists every state you declared,
+including ones no row holds now.  Use a state for something with a few fixed values whose
+difference the person should see without reading, such as Live, Late or Stopped.
+
+**Chips.**  The value is a list of strings, drawn as plain chips with no looks of their own.  It
+is filtered and sorted by what the chips say.  A chip marks an exception, so use the column
+for what some rows have and most do not (a rule that applies, a flag that is set).  A column
+where every row has a chip says nothing; make it text.
+
+**Link.**  The value must start with `http://` or `https://`; anything else, or nothing, draws
+nothing.  The link has the look of an act that leaves the Console.  Say what it reads as with
+`says`, naming a row field (`"says": "title"` reads as the row's `title`); left out it reads
+as the column's header.
+
+**Picture.**  The value is a web address, or a path in the extension's folder (`art/cover.png`).
+Core fetches the picture, checks that it is an image, makes a copy at the size of a list and
+serves only that copy, from VPinFE's own address, so the page never reaches another server.  The row you
+get back from the list route holds that address in place of what you gave; the rows a verb
+runs on still hold your own value.  Core only serves a
+picture that appeared in a row of that extension.
+
+- A web address needs `net:outbound` in the manifest.  Without it the list fails to read
+  (`error.extensions.picture_outbound`).
+- A file must be an image inside the extension's folder.  A path that leaves the folder, or a
+  file that is not an image, shows nothing.
+- A picture that cannot be had shows nothing, never a broken image.  A web picture that failed is not asked for again for ten minutes, and one that came is kept.  A picture fetched from the web is limited to 8 MB.
+- A picture column is not sorted or filtered.
+
+Words for a `state` column:
+`list.<key>.column.<field>.state.<value>` is the word, and is required, so `--check-extension`
+reports one missing.  `list.<key>.column.<field>.state.<value>.why` is the tooltip, and is
+optional.
 
 **Views.**  `{"key", "name", "columns", "sort", "help", "ranks"}`.  A view names the columns it
 shows (all when left out) and how it sorts: `[{"field", "desc"}]`, one field after another.
@@ -196,5 +257,6 @@ runs.  A key that names no declared dialog stops the extension from starting, wi
 the reason.
 
 Words: `list.<key>.title`, `list.<key>.column.<field>.header|help`,
+`list.<key>.column.<field>.state.<value>` and `....state.<value>.why`,
 `list.<key>.view.<viewkey>.name|help`, `list.<key>.act.<act>.label`,
 `list.<key>.verb.<verb>.label|tip|confirm|needs`.  `tip` is what a hover adds to the label.

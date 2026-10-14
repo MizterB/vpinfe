@@ -269,6 +269,22 @@ class AWordMissing(CheckCase):
 
         self.assertEqual([one for one in lines if one.startswith("missing")], [])
 
+    def test_each_state_is_asked_for_its_word_and_its_why_is_optional(self) -> None:
+        body = (
+            "def register(ctx):\n"
+            "    ctx.ui.list('l', lambda: [], title='Mine', columns=[\n"
+            "        {'field': 'f', 'header': 'F'},\n"
+            "        {'field': 's', 'header': 'S', 'kind': 'state',\n"
+            "         'states': {'live': {'tier': 'on'}, 'late': {}}}])\n")
+
+        lines, passed = self.checked(build(self.root, body, words={
+            "list.l.column.s.state.live": "Live"}))
+
+        self.assertFalse(passed)
+        self.assertEqual(["ext.checked.list.l.column.s.state.late - a state's word"],
+                         [one.split(None, 1)[1] for one in lines
+                          if one.startswith("missing")])
+
     def test_a_read_that_shows_a_key_instead_of_words_names_the_read(self) -> None:
         HOW["shows"] = "ext.checked.nothing.here"
 

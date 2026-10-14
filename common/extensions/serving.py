@@ -20,10 +20,10 @@ import threading
 from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any
 
-from common import failures, i18n
+from common import failures, i18n, sized_media
 from common.service_errors import NotFoundError, RefusedError, ServiceError
 
-from . import contract
+from . import contract, pictures
 from .fields import FieldError, dialog_fields, dialog_step, listed, number_text, ticked
 
 if TYPE_CHECKING:
@@ -193,7 +193,7 @@ def _list(record: Record, key: str) -> Any:
     return found
 
 
-def list_rows(record: Record, key: str) -> dict:
+def list_rows(record: Record, key: str, *, addressed: bool = True) -> dict:
     functions = _list(record, key)
     rows = plain(record, f"list {key}", called(record, f"list {key}", functions.rows))
     if not isinstance(rows, list) or not all(isinstance(one, dict) for one in rows):
@@ -209,7 +209,26 @@ def list_rows(record: Record, key: str) -> dict:
             raise ExtensionError(i18n.t("error.extensions.duplicate_row_id",
                                          display=record.display_name, key=key, id=row["id"]))
         seen.add(row["id"])
+    if addressed:
+        _addressed(record, key, rows)
     return {"rows": rows}
+
+
+def _addressed(record: Record, key: str, rows: list[dict]) -> None:
+    declared = next((one for one in record.declared_lists if one["key"] == key), {})
+    for column in declared.get("columns", []):
+        if column["kind"] != "picture":
+            continue
+        for row in rows:
+            try:
+                row[column["field"]] = pictures.address(record, row.get(column["field"]))
+            except pictures.OutboundNotDeclaredError as exc:
+                raise ExtensionError(i18n.t("error.extensions.picture_outbound",
+                                            display=record.display_name, key=key)) from exc
+
+
+def picture(record: Record, picture_id: str) -> sized_media.Served:
+    return pictures.served(record, picture_id)
 
 
 def _acts(record: Record, key: str, functions: Any) -> dict[str, Any]:
@@ -261,7 +280,8 @@ def list_verb(record: Record, key: str, verb: str, ids: list[str]) -> dict:
     if not wanted or (chosen["one"] and len(wanted) != 1):
         raise RefusedError(i18n.t("error.extensions.verb_rows", display=record.display_name,
                                   key=verb))
-    held = {row["id"]: row for row in list_rows(record, key)["rows"] if "id" in row}
+    held = {row["id"]: row for row in list_rows(record, key, addressed=False)["rows"]
+            if "id" in row}
     gone = [one for one in wanted if one not in held]
     if gone:
         raise NotFoundError(i18n.t("error.extensions.no_row", display=record.display_name,

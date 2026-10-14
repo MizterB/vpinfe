@@ -80,6 +80,68 @@ class TheDeclaration(unittest.TestCase):
             self.ui.list("tables", _rows, title="Site",
                          columns=[COLUMNS[0], {**COLUMNS[1], "under": ["year"]}])
 
+    def _drawn(self, *more: dict) -> list[dict]:
+        self.ui.list("tables", _rows, title="Site", columns=[COLUMNS[0], *more])
+        return self.ui.declared_lists[0]["columns"][1:]
+
+    def test_a_state_keeps_its_looks_in_the_order_given(self) -> None:
+        (column,) = self._drawn({"field": "status", "kind": "state",
+                                 "states": {"live": {"tier": "on"}, "late": {"icon": "schedule"},
+                                            "gone": {}}})
+
+        self.assertEqual({"live": {"tier": "on"}, "late": {"icon": "schedule"}, "gone": {}},
+                         column["states"])
+        self.assertEqual(["live", "late", "gone"], list(column["states"]))
+
+    def test_a_link_says_which_row_field_it_reads_as(self) -> None:
+        (column,) = self._drawn({"field": "page", "kind": "link", "says": "title"})
+
+        self.assertEqual("title", column["says"])
+
+    def test_chips_and_pictures_take_nothing_more(self) -> None:
+        columns = self._drawn({"field": "tags", "kind": "chips"},
+                              {"field": "art", "kind": "picture"})
+
+        self.assertEqual(["chips", "picture"], [one["kind"] for one in columns])
+
+    def test_a_state_with_no_states_is_refused(self) -> None:
+        for column in ({"field": "s", "kind": "state"},
+                       {"field": "s", "kind": "state", "states": {}}):
+            with self.subTest(column=column), self.assertRaises(ContractError):
+                self._drawn(column)
+
+    def test_a_state_look_is_a_tier_or_an_icon_and_not_both(self) -> None:
+        for look in ({"tier": "loud"}, {"tier": "on", "icon": "check"}, {"color": "red"},
+                     {"tier": ["on"]}, {"tier": {}}, {"tier": None},
+                     {"icon": ""}, {"icon": 3}, "on"):
+            with self.subTest(look=look), self.assertRaises(ContractError):
+                self._drawn({"field": "s", "kind": "state", "states": {"x": look}})
+
+    def test_a_state_value_is_a_non_empty_string_with_no_dot(self) -> None:
+        for states in ({"": {}}, {3: {}}, {"open.why": {}}):
+            with self.subTest(states=states), self.assertRaises(ContractError):
+                self._drawn({"field": "s", "kind": "state", "states": states})
+
+    def test_states_and_says_belong_to_their_own_kind(self) -> None:
+        for column in ({"field": "s", "states": {"x": {}}},
+                       {"field": "s", "kind": "link", "states": {"x": {}}},
+                       {"field": "s", "says": "title"},
+                       {"field": "s", "kind": "state", "states": {"x": {}}, "says": "t"},
+                       {"field": "s", "kind": "link", "says": 3}):
+            with self.subTest(column=column), self.assertRaises(ContractError):
+                self._drawn(column)
+
+    def test_a_column_key_core_does_not_read_is_refused(self) -> None:
+        with self.assertRaises(ContractError):
+            self._drawn({"field": "s", "color": "red"})
+
+    def test_a_cell_kind_cannot_be_the_first_column(self) -> None:
+        for kind in ("state", "chips", "link", "picture"):
+            column = {"field": "name", "kind": kind,
+                      **({"states": {"x": {}}} if kind == "state" else {})}
+            with self.subTest(kind=kind), self.assertRaises(ContractError):
+                self.ui.list("tables", _rows, title="Site", columns=[column, *COLUMNS[1:]])
+
     def test_a_relation_by_anything_but_a_vps_id_is_refused(self) -> None:
         with self.assertRaises(ContractError):
             self.ui.list("tables", _rows, title="Site", columns=COLUMNS,

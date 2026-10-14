@@ -11,6 +11,7 @@ and says why.
 | `GET /settings` | `{"fields": [...]}`: each `{key, type, label, help, value}`; a secret has `set` instead of `value`; a select has `choices`; a string has `placeholder` |
 | `PUT /settings` | Body `{"values": {...}}`.  Saves, answers as `GET` does.  A refusal is a `400` with the field |
 | `GET /lists/{key}` | `{"rows": [...]}` |
+| `GET /pictures/{id}` | A picture one of this extension's list rows named, at list size, as an image.  The rows carry the address; a `404` for anything no row named |
 | `GET /lists/{key}/about` | `{"status": ..., "acts": [{key, label[, url][, action]}]}` |
 | `POST /lists/{key}/about/acts/{act}` | `{"message"?, "url"?}` |
 | `POST /lists/{key}/verbs/{verb}` | Body `{"ids": [...]}`.  `{"message"?, "url"?}` |

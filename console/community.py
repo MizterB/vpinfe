@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from collections.abc import Callable, Sequence
 from functools import partial
@@ -25,6 +26,7 @@ from console import (
     grid,
     offload,
     panel,
+    renderers,
     tag_chips,
     verbs,
     views,
@@ -46,7 +48,8 @@ UNNAMED = "~unnamed~"
 
 _KIND = {"number": grid.NUMBER_COLUMN,
          "text": {}, "date": {}}
-_WIDTH = {"number": 130, "text": 150, "date": 140}
+_WIDTH = {"number": 130, "text": 150, "date": 140, "state": 140, "chips": 220, "link": 170,
+          "picture": 90}
 FIRST_WIDTH = 240
 
 def view_key(extension: str, key: str) -> str:
@@ -119,10 +122,31 @@ def columns(declared: dict[str, Any]) -> list[dict[str, Any]]:
                                        subtitle=UNDER, link=HELD, **extra))
             if declared.get("relation"):
                 out.append(_in_library())
+        elif kind == "chips":
+            out.append(grid.list_column(one["field"], header, _WIDTH[kind], help=said))
         else:
             out.append(grid.column(one["field"], header, _WIDTH.get(kind, 0), help=said,
-                                   **extra))
+                                   **extra, **_drawn(kind, one, header)))
     return out
+
+
+def _drawn(kind: str, column: dict[str, Any], header: str) -> dict[str, Any]:
+    if kind == "state":
+        states = {value: {"label": look["label"], "why": look.get("why") or "",
+                          **({"tier": look["tier"]} if look.get("tier") else {}),
+                          **({"mark": look["icon"]} if look.get("icon") else {})}
+                  for value, look in column["states"].items()}
+        return {**grid.choice_filter([{"value": value, "label": look["label"]}
+                                      for value, look in states.items()], formatted=True),
+                ":valueFormatter": "params => (("
+                + json.dumps({value: look["label"] for value, look in states.items()})
+                + ")[params.value] ?? params.value ?? '')",
+                **renderers.drawable("state", states=states, plain=True)}
+    if kind == "link":
+        return renderers.drawable("link", says=column.get("says") or "", header=header)
+    if kind == "picture":
+        return {**renderers.drawable("image"), "sortable": False, "filter": False}
+    return {}
 
 
 def _in_library() -> dict[str, Any]:

@@ -222,7 +222,13 @@ class ExtensionApps:
         self._mine.clear()
 
 
-COLUMN_KINDS = frozenset({"text", "number", "date"})
+COLUMN_KINDS = frozenset({"text", "number", "date", "state", "chips", "link", "picture"})
+# The kinds that draw something other than the value's own text.
+CELL_KINDS = frozenset({"state", "chips", "link", "picture"})
+COLUMN_KEYS = frozenset({"field", "header", "kind", "help", "under", "states", "says"})
+# The chip tiers a state can wear; a state with neither a tier nor an icon is a quiet word.
+STATE_TIERS = frozenset({"on", "off", "unknown", "warn", "bad"})
+STATE_LOOKS = frozenset({"tier", "icon"})
 RANKING_KINDS = frozenset({"number", "date"})
 RELATION_KEYS = frozenset({"vps_entry", "vps_release"})
 VERB_KEYS = frozenset({"key", "run", "link", "action", "each", "danger", "needs", "one",
@@ -414,9 +420,12 @@ class ExtensionUI:
         function runs when pressed and answers what to say, an address is opened.
 
         A column is `{"field", "header", "kind"}` with `kind` one of `text`, `number`,
-        `date`, and the first may name `under`: row fields drawn on the line beneath its
-        value. A view is `{"key", "name", "columns", "sort": [{"field", "desc"}], "help",
-        "ranks"}`, and one that `ranks` is offered as an order for a collection, so it
+        `date`, `state`, `chips`, `link` or `picture`, and the first may name `under`: row
+        fields drawn on the line beneath its value. A `state` column names
+        `states={value: {"tier"} or {"icon"}}`, a `link` column may name the row field it
+        reads as in `says`, and a `picture` column holds a web address or a file in the
+        extension's folder. A view is `{"key", "name", "columns", "sort": [{"field", "desc"}],
+        "help", "ranks"}`, and one that `ranks` is offered as an order for a collection, so it
         needs a `relation` and a sort on number or date columns only. `relation` is
         `{"field", "keys"}`, `keys` being `vps_entry` or `vps_release`. `tag` is put on
         every game (`vps_entry`) or table (`vps_release`) of this library the list
@@ -461,6 +470,12 @@ class ExtensionUI:
         if not kinds <= COLUMN_KINDS:
             raise ContractError(f"{self._name} declares a column kind core does not draw: "
                                 f"{', '.join(sorted(kinds - COLUMN_KINDS))}")
+        for one in columns:
+            self._column(wanted, one or {})
+        if str((columns[0] or {}).get("kind") or "text") in CELL_KINDS:
+            raise ContractError(f"{self._name} makes the first column of the list "
+                                f"{wanted!r} a {columns[0]['kind']}, but the first column "
+                                "is drawn as the row's name")
         for view in views:
             named = set(view.get("columns") or []) | {str(one.get("field") or "")
                                                       for one in view.get("sort") or []}
@@ -502,7 +517,10 @@ class ExtensionUI:
             "columns": [{"field": name, "header": str(one.get("header") or ""),
                          "kind": str(one.get("kind") or "text"),
                          "help": str(one.get("help") or ""),
-                         "under": [str(under) for under in one.get("under") or []]}
+                         "under": [str(under) for under in one.get("under") or []],
+                         "says": str(one.get("says") or ""),
+                         "states": {value: dict(look or {})
+                                    for value, look in (one.get("states") or {}).items()}}
                         for name, one in zip(names, columns, strict=True)],
             "views": [{"key": str(view["key"]).strip(),
                        "name": str(view.get("name") or "").strip(),
@@ -520,6 +538,40 @@ class ExtensionUI:
                       for verb, one in offered.items()],
             "add": adding,
         })
+
+    def _column(self, list_key: str, column: dict) -> None:
+        where = f"{self._name} gives the list {list_key!r} the column {column.get('field')!r}"
+        unknown = sorted(set(column) - COLUMN_KEYS)
+        if unknown:
+            raise ContractError(f"{where} keys core does not read: {', '.join(unknown)}. "
+                                f"It reads {', '.join(sorted(COLUMN_KEYS))}")
+        kind = str(column.get("kind") or "text")
+        if column.get("states") is not None and kind != "state":
+            raise ContractError(f"{where} states, which only a state column has")
+        if column.get("says") is not None and kind != "link":
+            raise ContractError(f"{where} says, which only a link column has")
+        if kind == "link" and not isinstance(column.get("says") or "", str):
+            raise ContractError(f"{where} a says that is not the name of a row field")
+        if kind != "state":
+            return
+        states = column.get("states")
+        if not isinstance(states, dict) or not states \
+                or not all(isinstance(value, str) and value and "." not in value
+                           for value in states):
+            raise ContractError(f"{where} no states, or states keyed by something other "
+                                "than the text a row holds, or by a value with a dot in it")
+        for value, look in states.items():
+            look = look if look is not None else {}
+            if not isinstance(look, dict) or not set(look) <= STATE_LOOKS or len(look) > 1:
+                raise ContractError(f"{where} the state {value!r} with more than one of a "
+                                    "tier and an icon, or with something else")
+            if "tier" in look and not (isinstance(look["tier"], str)
+                                       and look["tier"] in STATE_TIERS):
+                raise ContractError(f"{where} the state {value!r} a tier that is not one "
+                                    f"of {', '.join(sorted(STATE_TIERS))}")
+            if "icon" in look and not (isinstance(look["icon"], str) and look["icon"].strip()):
+                raise ContractError(f"{where} the state {value!r} an icon that is not a "
+                                    "Material icon name")
 
     def _verbs(self, list_key: str, verbs: Sequence[dict]) -> dict[str, dict[str, Any]]:
         """The verbs of one list, checked, by key. Each holds its `run`, which is not

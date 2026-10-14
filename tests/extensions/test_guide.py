@@ -13,14 +13,15 @@ import re
 import tempfile
 import time
 import unittest
+import unittest.mock
 import urllib.error
 import urllib.request
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
-from common import events, i18n, jobs
-from common.extensions import check, contract, fields, host, serving, store
+from common import events, i18n, jobs, sized_media
+from common.extensions import check, contract, fields, host, pictures, serving, store
 from common.extensions.context import COLUMN_KINDS, ExtensionContext, logger_for
 from common.service_errors import RefusedError
 
@@ -47,6 +48,7 @@ DECLARES: dict[str, list[str]] = {
     "add_score": ["settings   key (secret)", "dialog     post: ask run",
                   "list       scores in community: 3 columns, 0 views, 0 verbs, adds post"],
     "score_rows": ["list       scores in community: 3 columns, 0 views, 3 verbs"],
+    "weekly_board": ["list       board in community: 5 columns, 0 views, 0 verbs"],
     "secret_key": ["settings   key (secret)", "dialog     connect: ask run"],
     "player_handle": ["account    a player can hold one"],
 }
@@ -280,6 +282,27 @@ class RecipesDoWhatTheyClaim(ExamplesLoadedByTheHost):
         self.assertEqual([one["player"] for one in serving.list_rows(record, "scores")["rows"]],
                          ["AAA", "CJ"])
 
+    def test_the_board_names_a_picture_only_as_an_address_core_serves_and_serves_it(
+            self) -> None:
+        record = self.load("weekly_board")
+        scratch = tempfile.TemporaryDirectory()
+        self.addCleanup(scratch.cleanup)
+        for module in (pictures, sized_media):
+            patcher = unittest.mock.patch.object(
+                module, "ROOT", Path(scratch.name) / module.__name__)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+        rows = serving.list_rows(record, "board")["rows"]
+        served = serving.picture(record, rows[0]["art"].rsplit("/", 1)[1])
+
+        self.assertEqual(["", ""], [one["art"] for one in rows[2:4]])
+        self.assertRegex(rows[0]["art"], r"^/api/v1/ext/weekly_board/pictures/[0-9a-f]+$")
+        self.assertEqual(rows[0]["art"], rows[1]["art"])
+        self.assertTrue(served.path.is_file())
+        self.assertEqual(["open", "closing", "closed", "cancelled", "planned"],
+                         [one["status"] for one in rows])
+
     @staticmethod
     def _until(done: Any, seconds: float = 10) -> None:
         stop = time.monotonic() + seconds
@@ -420,13 +443,17 @@ class CodeBlocksAreFiles(unittest.TestCase):
                     self.assertIn(name, shown)
 
     def test_every_file_of_a_recipe_is_shown_by_the_cookbook(self) -> None:
-        shown = {path for path, _ in self.blocks(GUIDE / "cookbook.md")}
+        cookbook = GUIDE / "cookbook.md"
+        shown = {path for path, _ in self.blocks(cookbook)}
         for folder in RECIPES:
             for one in folder.rglob("*"):
                 if one.is_file() and "__pycache__" not in one.parts:
                     name = one.relative_to(EXAMPLES).as_posix()
                     with self.subTest(name):
-                        self.assertIn(name, shown)
+                        if one.suffix == ".png":
+                            self.assertIn(f"`{name}`", cookbook.read_text())
+                        else:
+                            self.assertIn(name, shown)
 
 
 LINK = re.compile(r"(?<!!)\[[^\]]*\]\(([^)\s]+)\)")

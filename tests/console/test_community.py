@@ -14,7 +14,7 @@ from nicegui import ui
 
 from common.extensions import host
 from common.i18n import t
-from console import busy, community, grid, page, verbs, views
+from console import busy, community, grid, page, renderers, verbs, views
 from console.api import ApiError
 from console.data import read_state
 
@@ -167,6 +167,71 @@ class TheGrid(unittest.TestCase):
         self.assertEqual((False, "https://example.test/afm"),
                          (row[community.HELD], row["held_href"]))
         self.assertEqual("Bally · Different version - you have 1.2", row[community.UNDER])
+
+    CELLS = {**DECLARED, "columns": [
+        DECLARED["columns"][0],
+        {"field": "status", "header": "Status", "kind": "state",
+         "states": {"live": {"tier": "on", "label": "Live", "why": "Taking requests"},
+                    "late": {"icon": "schedule", "label": "Late", "why": ""},
+                    "gone": {"label": "Gone", "why": ""}}},
+        {"field": "tags", "header": "Tags", "kind": "chips"},
+        {"field": "page", "header": "Page", "kind": "link", "says": "title"},
+        {"field": "art", "header": "Art", "kind": "picture"}]}
+
+    def _cells(self) -> dict[str, dict]:
+        return {one["field"]: one for one in community.columns(self.CELLS)}
+
+    def test_a_state_is_drawn_by_name_with_the_looks_the_extension_gave_it(self) -> None:
+        shown = self._cells()["status"]
+
+        self.assertEqual("state", shown["cellRendererParams"]["drawn"])
+        self.assertEqual(
+            {"live": {"label": "Live", "why": "Taking requests", "tier": "on"},
+             "late": {"label": "Late", "why": "", "mark": "schedule"},
+             "gone": {"label": "Gone", "why": ""}},
+            shown["cellRendererParams"]["states"])
+
+    def test_a_state_an_extension_does_not_list_is_drawn_plain_there_only(self) -> None:
+        self.assertTrue(self._cells()["status"]["cellRendererParams"]["plain"])
+        self.assertIn("params.plain", renderers.STATE.js)
+
+    def test_a_state_is_filtered_by_its_value_and_read_by_its_word(self) -> None:
+        shown = self._cells()["status"]
+
+        self.assertEqual(["live", "late", "gone"],
+                         [one["value"] for one in shown["filterParams"]["choices"]])
+        self.assertEqual(["Live", "Late", "Gone"],
+                         [one["label"] for one in shown["filterParams"]["choices"]])
+        self.assertIn('"live": "Live"', shown[":valueFormatter"])
+        self.assertEqual(shown[":valueFormatter"], shown[":getQuickFilterText"])
+
+    def test_chips_are_a_list_column_with_no_looks(self) -> None:
+        shown = self._cells()["tags"]
+
+        self.assertEqual("chips", shown["cellRendererParams"]["drawn"])
+        self.assertEqual("", shown["cellRendererParams"]["looks"])
+        self.assertIn(":filter", shown)
+
+    def test_a_link_reads_as_the_row_field_it_says_or_as_its_header(self) -> None:
+        shown = self._cells()["page"]
+        bare = {**self.CELLS, "columns": [
+            self.CELLS["columns"][0],
+            {"field": "page", "header": "Page", "kind": "link"}]}
+        plain = community.columns(bare)[-1]
+
+        self.assertEqual(("link", "title", "Page"),
+                         (shown["cellRendererParams"]["drawn"],
+                          shown["cellRendererParams"]["says"],
+                          shown["cellRendererParams"]["header"]))
+        self.assertEqual(("", "Page"), (plain["cellRendererParams"]["says"],
+                                        plain["cellRendererParams"]["header"]))
+
+    def test_a_picture_is_drawn_and_has_nothing_to_sort_or_filter(self) -> None:
+        shown = self._cells()["art"]
+
+        self.assertEqual("image", shown["cellRendererParams"]["drawn"])
+        self.assertFalse(shown["sortable"])
+        self.assertFalse(shown["filter"])
 
     def test_the_fields_under_the_name_make_its_second_line(self) -> None:
         (row,) = community.rows([{"name": "AFM", "maker": "Bally", "year": 1995,

@@ -11,14 +11,14 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Query, Response
+from fastapi import APIRouter, Query, Request, Response
 
 from common import extensions
 from common.extensions import serving
 from common.extensions.host import Record
 from common.i18n import t
 
-from . import models, scopes
+from . import models, responses, scopes
 from .auth import requires
 from .errors import CODE_UPSTREAM_UNAVAILABLE, ApiError, InvalidRequestError, NotFoundError
 
@@ -84,6 +84,11 @@ def router(name: str, running: Any) -> APIRouter:
     @post("/lists/{key}/verbs/{verb}", "Press one of a list's verbs on some of its rows")
     def post_list_verb(key: str, verb: str, body: models.ExtensionVerb) -> dict:
         return ask(serving.list_verb, key, verb, body.ids)
+
+    @found.get("/pictures/{picture_id}", summary="A picture one of the extension's rows named",
+               dependencies=[running, requires(read)])
+    def get_picture(picture_id: str, request: Request) -> Response:
+        return responses.media_file(ask(serving.picture, picture_id), request, "")
 
     # -- dialogs -------------------------------------------------------------------
 

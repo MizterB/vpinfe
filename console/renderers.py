@@ -79,7 +79,9 @@ _ESCAPE = ("const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt
 # a chip class or a mark drawn before the word. `why` is the tooltip.
 STATE = Renderer("state", "console.renderers.state", (
     "params => {" + _ESCAPE +
-    " const one = (params.states || {})[params.value]; if (!one) return '';"
+    " const one = (params.states || {})[params.value];"
+    " if (!one) return params.plain && params.value ? '<span class=\"console-cell-quiet\">'"
+    " + esc(params.value) + '</span>' : '';"
     " const tip = one.why ? ' title=\"' + esc(one.why) + '\"' : '';"
     " if (one.chip) return '<span class=\"console-member-chip ' + esc(one.chip) + '\"'"
     " + tip + '>' + esc(one.label) + '</span>';"
@@ -147,8 +149,32 @@ CHIPS = Renderer("chips", "console.renderers.chips", (
     " + dot + mark + esc(look.label || value) + '</span>'; }).join('') + '</span>'; }"
 ))
 
+# A web address as a link that leaves the Console, the look of `panel.link_out`. It reads
+# as the row field `params.says` names, else as `params.header`. Anything that is not an
+# http or https address draws nothing, so a row cannot make the cell run a script.
+LINK = Renderer("link", "console.renderers.link", (
+    "params => {" + _ESCAPE +
+    " const href = String(params.value == null ? '' : params.value).trim();"
+    " if (!/^https?:\\/\\//i.test(href)) return '';"
+    " const said = (params.says ? (params.data || {})[params.says] : '') || params.header;"
+    " return '<a class=\"console-link console-link-out\" href=\"' + esc(href)"
+    " + '\" target=\"_blank\" rel=\"noopener\"><span>' + esc(said)"
+    " + '</span><i class=\"q-icon notranslate material-icons\" aria-hidden=\"true\">'"
+    " + 'open_in_new</i></a>'; }"
+))
+
+# A picture of the row's own, at the address core serves it from. One that will not load
+# draws nothing rather than a broken image.
+IMAGE = Renderer("image", "console.renderers.image", (
+    "params => {" + _ESCAPE +
+    " const src = String(params.value == null ? '' : params.value);"
+    " if (!src) return '';"
+    " return '<img class=\"console-cell-image\" loading=\"lazy\" alt=\"\" src=\"' + esc(src)"
+    " + '\" onerror=\"this.remove()\">'; }"
+))
+
 REGISTRY: dict[str, Renderer] = {one.name: one
-                                 for one in (MARK, PICTURE, STATE, CHIPS)}
+                                 for one in (MARK, PICTURE, STATE, CHIPS, LINK, IMAGE)}
 
 
 def install() -> None:

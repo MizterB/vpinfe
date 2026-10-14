@@ -49,7 +49,7 @@ is what a person consents to, so a capability nobody has heard of cannot be cons
 |---|---|
 | `ui:mount` | Needed for every `ctx.ui` call: settings, lists, actions, an account, what it holds |
 | `config:own` | Its own settings file |
-| `net:outbound` | The network.  A declaration for the person installing; see below |
+| `net:outbound` | The network.  A declaration for the person installing, and what lets a list column show a web picture; see below |
 | `proc:spawn` | Starting programs.  A declaration for the person installing |
 | `hardware:usb` | USB devices.  A declaration for the person installing |
 | `fs:read` | `ctx.files.set_roots`: the folders core will take a path from |
@@ -59,5 +59,5 @@ is what a person consents to, so a capability nobody has heard of cannot be cons
 process can always open a file, open a socket or start a program.  What the declaration does is
 make the extension say what it intends, show that to whoever installs it, and hold the calls
 that go through `ctx` to it.  Core enforces `ui:mount`, `fs:read`, `fs:write` and the scopes
-where it is the one acting.  It does not enforce `net:outbound`, `proc:spawn` or `hardware:usb`
-at all.  Once extensions run out of process, the same declarations become the boundary.
+where it is the one acting, and `net:outbound` where core fetches a web picture for a list
+column.  It does not enforce `proc:spawn` or `hardware:usb` at all.  Once extensions run out of process, the same declarations become the boundary.
