@@ -1356,7 +1356,8 @@ Call `verb` with the subject, a key and a function.  Core draws the entry in the
 row menu, in its selection menu and in the panel's header menu, in a block under your
 extension's name after core's own.  The function is handed the games or tables chosen, so one
 entry works on a row and on a selection without a second code path.  A game marked Private is
-left out of what you are handed.
+left out of what you are handed, unless the entry passes `private_ok=True` to say it sends
+nothing out of VPinFE.
 
 This one flags games, with a second entry that asks first, and shows a table's version.  It
 needs `games:read` in the manifest, since an entry is about the library.

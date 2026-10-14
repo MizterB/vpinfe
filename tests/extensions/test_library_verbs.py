@@ -38,6 +38,7 @@ def verbed(ctx: Any) -> None:
     ctx.ui.verb("game", "ship", run, label="Ship it")
     ctx.ui.verb("game", "just_one", run, one=True)
     ctx.ui.verb("table", "scrub", run, danger=True)
+    ctx.ui.verb("game", "tidy", run, private_ok=True)
 
 
 def _installed(root: Path) -> Path:
@@ -70,8 +71,10 @@ class Declaring(unittest.TestCase):
         ui.verb("table", "scrub", lambda who: None, danger=True)
 
         self.assertEqual(ui.declared_library_verbs, [
-            {"subject": "game", "key": "ship", "label": "Ship", "one": True, "danger": False},
-            {"subject": "table", "key": "scrub", "label": "", "one": False, "danger": True}])
+            {"subject": "game", "key": "ship", "label": "Ship", "one": True, "danger": False,
+             "private_ok": False},
+            {"subject": "table", "key": "scrub", "label": "", "one": False, "danger": True,
+             "private_ok": False}])
 
     def test_an_entry_needs_the_ui_capability_and_the_scope_to_read_games(self) -> None:
         with self.assertRaisesRegex(contract.ContractError, "ui:mount"):
@@ -174,6 +177,13 @@ class Pressing(Served):
 
         self.assertEqual(refused.status_code, 400, refused.text)
         self.assertEqual(STATE["asked"], [])
+
+    def test_a_private_ok_entry_is_given_a_private_game_marked_as_one(self) -> None:
+        self.press("game", "tidy", {"game_id": "g1"}, {"game_id": "hidden"})
+
+        self.assertEqual(STATE["asked"], [[
+            {"game_id": "g1", "vps_id": "vps-1", "name": "Taxi", "private": False},
+            {"game_id": "hidden", "vps_id": "vps-2", "name": "Secret", "private": True}]])
 
     def test_an_entry_for_one_refuses_several(self) -> None:
         refused = self.press("game", "just_one", {"game_id": "g1"}, {"game_id": "g2"})

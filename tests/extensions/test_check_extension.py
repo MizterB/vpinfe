@@ -146,7 +146,8 @@ class AVerbInAMenu(CheckCase):
     BODY = (
         "def register(ctx):\n"
         "    ctx.ui.verb('game', 'ship', lambda who: None)\n"
-        "    ctx.ui.verb('table', 'scrub', lambda who: None, danger=True)\n")
+        "    ctx.ui.verb('table', 'scrub', lambda who: None, danger=True)\n"
+        "    ctx.ui.verb('game', 'tidy', lambda who: None, private_ok=True)\n")
 
     def test_it_says_each_entry_and_whether_it_asks_first(self) -> None:
         lines, passed = check.check(build(self.root, self.BODY, scopes=["games:read"],
@@ -154,6 +155,7 @@ class AVerbInAMenu(CheckCase):
 
         self.assertIn("verb       ship in the game menu", lines)
         self.assertIn("verb       scrub in the table menu, asks first", lines)
+        self.assertIn("verb       tidy in the game menu, works on Private games", lines)
         self.assertTrue(passed, lines)
 
 

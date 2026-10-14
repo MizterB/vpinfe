@@ -192,7 +192,7 @@ a `save` that is not a function, and for `acts` that are neither a dict nor a fu
 
 ## `ctx.ui.verb`
 
-`ctx.ui.verb(subject, key, run, *, label="", one=False, danger=False)`.  Required: `subject`,
+`ctx.ui.verb(subject, key, run, *, label="", one=False, danger=False, private_ok=False)`.  Required: `subject`,
 `key`, `run`.
 
 Add an entry to the menu of the Games grid (`subject` `"game"`) or the Tables grid
@@ -202,7 +202,9 @@ blocks come first, then the others, each by name.  `run(who)` is called with a l
 was chosen, each `{"game_id", "vps_id", "name"}` and for a table also `{"table_id",
 "vps_file_id", "version"}`, and answers what to say, as an act does: a message, or
 `{"message", "url"}` to open an address as well.  A game marked Private is left out of `who`,
-and an entry with none left refuses.
+and an entry with none left refuses, unless the entry says `private_ok=True`: it is then
+offered on Private games too, and each item of `who` carries `private`, true or false.  Say it
+only for an entry that sends nothing out of VPinFE, such as one that tidies the library.
 
 ```python
 def flag(who):
@@ -217,8 +219,8 @@ ctx.ui.verb("game", "flag", flag)
 With `one`, the entry takes a single game or table: with several chosen it stays in the menu,
 dimmed.  With `danger`, core asks first and draws the entry last in the block, under a rule.
 The words are `verb.<subject>.<key>.label`, `.tip` and `.confirm` in the extension's catalog.
-A `label` you give is used as written, and the catalog is read for it only when you give none.  The entry is served at `POST
-/api/v1/ext/<name>/verbs/game/<verb>` and `.../verbs/table/<verb>` with `{"targets":
+A `label` you give is used as written, and the catalog is read for it only when you give
+none.  The entry is served at `POST /api/v1/ext/<name>/verbs/game/<verb>` and `.../verbs/table/<verb>` with `{"targets":
 [{"game_id", "table_id"}]}`, and needs the extension's write scope.
 
 It raises `ContractError` without `ui:mount` or without `games:read` in the manifest's

@@ -24,7 +24,7 @@ async def _refresh(_ids: list[str]) -> None:
 
 def _verb(subject: str, key: str, label: str, **fields: Any) -> dict[str, Any]:
     return {"subject": subject, "key": key, "label": label, "tip": "", "one": False,
-            "danger": False, "confirm_key": "", **fields}
+            "danger": False, "confirm_key": "", "private_ok": False, **fields}
 
 
 def _extension(name: str, display: str, *verbs: dict[str, Any], bundled: bool = False
@@ -93,6 +93,20 @@ class InTheMenus(unittest.TestCase):
 
         self.assertEqual([one.label for one in shown][-4:], ["Pin", "Ask", "Bin", "Zap"])
         self.assertFalse({"Pin", "Ask", "Bin", "Zap"} & {one.label for one in hidden})
+
+    def test_an_entry_that_works_on_private_games_is_offered_on_them(self) -> None:
+        library = MagicMock()
+        library.games = [{"id": "afm", "name": "Attack from Mars"},
+                         {"id": "tz", "name": "Twilight Zone", "private": True}]
+        state = {"extensions": [_extension(
+            "tidy", "Tidy", _verb("game", "t", "Tidy", private_ok=True),
+            _verb("game", "s", "Send"))]}
+
+        shown = game_acts.game_acts(library, library.games, state, _refresh)
+        hidden = game_acts.game_acts(library, library.games[1:], state, _refresh)
+
+        self.assertEqual([one.label for one in shown][-2:], ["Tidy", "Send"])
+        self.assertEqual([one.label for one in hidden][-1:], ["Tidy"])
 
     def test_a_table_s_verbs_end_with_the_extension_blocks(self) -> None:
         table = {"id": "t1", "game_id": "afm", "available": True, "filename": "t1.vpx"}

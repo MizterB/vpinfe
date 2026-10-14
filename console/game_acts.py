@@ -185,9 +185,8 @@ def game_acts(library: Any, games: list[dict[str, Any]], state: dict[str, Any],
     if reset := reset_games(library, ids, refresh):
         offered.append(reset)
     offered += ext_verbs.offered(
-        state, "game",
-        [{"game_id": str(one["id"])} for one in games if not one.get("private")],
-        lambda: refresh(ids))
+        state, "game", [{"game_id": one} for one in ids], lambda: refresh(ids),
+        public=[{"game_id": str(one["id"])} for one in games if not one.get("private")])
     return offered
 
 

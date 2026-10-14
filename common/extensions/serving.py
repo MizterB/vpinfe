@@ -451,17 +451,23 @@ def _group(record: Record, subject: str) -> Any:
     return found
 
 
+def declared_library_verb(record: Record, subject: str, key: str) -> dict:
+    """What the extension declared for its entry `key` in the `subject` menu."""
+    ui = _context(record).ui
+    declared = next((one for one in ui.declared_library_verbs
+                     if (one["subject"], one["key"]) == (subject, key)), None)
+    if declared is None or (subject, key) not in ui.library_verb_functions:
+        raise NotFoundError(i18n.t("error.extensions.no_verb", display=record.display_name,
+                                   key=key))
+    return declared
+
+
 def library_verb(record: Record, subject: str, key: str, who: list[dict]) -> dict:
     """Run one of the extension's entries in the Games or Tables menu on `who`, the games or
     tables core chose to tell it about. Refuses where there are none, which is every one a
-    Private game, or several for a verb that takes one."""
-    ui = _context(record).ui
-    run = ui.library_verb_functions.get((subject, key))
-    declared = next((one for one in ui.declared_library_verbs
-                     if (one["subject"], one["key"]) == (subject, key)), None)
-    if run is None or declared is None:
-        raise NotFoundError(i18n.t("error.extensions.no_verb", display=record.display_name,
-                                   key=key))
+    Private game unless the entry is `private_ok`, or several for a verb that takes one."""
+    declared = declared_library_verb(record, subject, key)
+    run = _context(record).ui.library_verb_functions[(subject, key)]
     if not who:
         raise RefusedError(i18n.t("error.extensions.verb_none", display=record.display_name,
                                   key=key))

@@ -121,14 +121,16 @@ def router(name: str, running: Any) -> APIRouter:
 
     # -- panel groups --------------------------------------------------------------
 
-    def subject(game_id: str, table_id: str = "") -> dict:
+    def subject(game_id: str, table_id: str = "", *, keep_private: bool = False) -> dict:
         """Who a group is asked about, built here so an extension is told only the ids it
         can use. A Private game is `{}`: asking would tell the extension the library holds
-        it."""
+        it, unless the entry asking works on Private games, and then `who` says which."""
         game = game_lens.resource_of(game_id)
-        if game["private"]:
+        if game["private"] and not keep_private:
             return {}
         who = {"game_id": game_id, "vps_id": game["vps_id"], "name": game["name"]}
+        if keep_private:
+            who["private"] = bool(game["private"])
         if not table_id:
             return who
         row = table_ops.row_or_refuse(game_lens.game_or_refuse(game_id), table_id)
@@ -169,9 +171,10 @@ def router(name: str, running: Any) -> APIRouter:
     def post_library_verb(kind: str, verb: str, body: models.ExtensionLibraryVerb) -> dict:
         if kind not in ("game", "table"):
             raise NotFoundError(t("error.extensions.no_verb", display=name, key=verb))
+        keep = bool(ask(serving.declared_library_verb, kind, verb)["private_ok"])
         chosen = dict.fromkeys((one.game_id, one.table_id if kind == "table" else "")
                                for one in body.targets)
-        asked = [subject(game_id, table_id) for game_id, table_id in chosen
+        asked = [subject(game_id, table_id, keep_private=keep) for game_id, table_id in chosen
                  if table_id or kind == "game"]
         return ask(serving.library_verb, kind, verb, [who for who in asked if who])
 

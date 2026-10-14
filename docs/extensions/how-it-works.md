@@ -117,13 +117,16 @@ Somebody can mark a game Private.  From then on its plays, its time, its scores 
 are not sent anywhere, and neither is the fact that the library holds it: not to a service, not
 for a player, whoever was up and whatever their Share says.
 
-For an extension that comes to three rules:
+For an extension that comes to these rules:
 
 - **A Private game is never asked about.**  Core does not call a group's `read` or `save` for
   it, so the extension is not told the library holds the game.  `ctx.games` is not filtered, and
   lists every game, Private ones included.
 - **What reaches you says whether a game is Private.**  An event carries `private`.  A row from
   `ctx.games` does not, so an extension that sends games outside VPinFE keys off the event.
+- **An entry in the Games or Tables menu can say it works on Private games.**  With
+  `private_ok=True` core hands it Private games too, each marked `private`, for an entry that
+  curates the library and sends nothing out.  Without it a Private game is left out.
 - **You can read the flag and never set it.**  There is no `set_private`.
 
 The practice site in the lessons is a service, and the handler in lesson 9 that logs a play

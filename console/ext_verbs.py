@@ -53,9 +53,11 @@ async def press(extension: dict[str, Any], verb: dict[str, Any],
 
 
 def offered(state: dict[str, Any], subject: str, targets: list[dict[str, str]],
-            again: Again) -> list[panel.Verb]:
+            again: Again, *, public: list[dict[str, str]] | None = None) -> list[panel.Verb]:
     """The entries the running extensions have for `subject` (`game` or `table`) over
-    `targets`, each `{"game_id", "table_id"}`, a block for each extension."""
+    `targets`, each `{"game_id", "table_id"}`, a block for each extension. `public` is the
+    part of `targets` that is not a Private game: an entry that does not work on Private
+    games is pressed on those alone, and not offered where none are left."""
     if not targets:
         return []
     out: list[panel.Verb] = []
@@ -64,8 +66,11 @@ def offered(state: dict[str, Any], subject: str, targets: list[dict[str, str]],
         for verb in extension.get("library_verbs") or []:
             if verb["subject"] != subject:
                 continue
+            chosen = targets if public is None or verb.get("private_ok") else public
+            if not chosen:
+                continue
             out.append(panel.Verb(
-                str(verb["label"]), run=partial(press, extension, verb, targets, again),
+                str(verb["label"]), run=partial(press, extension, verb, chosen, again),
                 danger=bool(verb["danger"]), one=bool(verb["one"]), tip=str(verb["tip"]),
                 block=name))
     return out

@@ -527,16 +527,19 @@ class ExtensionUI:
                                      "base": f"/groups/{wanted}", "save": save is not None})
 
     def verb(self, subject: str, key: str, run: Callable[[list[dict]], Any], *,
-             label: str = "", one: bool = False, danger: bool = False) -> None:
+             label: str = "", one: bool = False, danger: bool = False,
+             private_ok: bool = False) -> None:
         """An entry in the menu of the Games grid (`subject` `"game"`) or the Tables grid
         (`"table"`), on a row, on a selection and on the panel's header, in a block of this
         extension's own after core's.
 
         `run(who)` is called with the games or tables chosen, each `{"game_id", "vps_id",
         "name"}` and for a table also `{"table_id", "vps_file_id", "version"}`, and answers
-        a `message` or `{"message", "url"}`. A game marked Private is left out of `who`,
-        and a verb with none left refuses. `one` refuses several at once, and `danger` asks
-        first and draws the entry last in the block, under a rule.
+        a `message` or `{"message", "url"}`. A game marked Private is left out of `who`, and a
+        verb with none left refuses, unless the entry says `private_ok`: it works on Private
+        games, and each `who` then carries `private`. Say it only for an entry that sends
+        nothing out of VPinFE. `one` refuses several at once, and `danger` asks first and
+        draws the entry last in the block, under a rule.
 
         Reading the games needs `games:read` in the manifest. The words are
         `verb.<subject>.<key>.label`, `.tip` and `.confirm` in the extension's catalog.
@@ -560,7 +563,7 @@ class ExtensionUI:
         self.library_verb_functions[(wanted, named)] = run
         self.declared_library_verbs.append({
             "subject": wanted, "key": named, "label": str(label or "").strip(),
-            "one": bool(one), "danger": bool(danger)})
+            "one": bool(one), "danger": bool(danger), "private_ok": bool(private_ok)})
 
     def needs(self, kinds: dict[str, dict], read: Callable[[], Any]) -> None:
         """The kinds of thing this extension can ask for on Overview, under Needs You.
