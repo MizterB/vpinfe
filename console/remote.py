@@ -1630,6 +1630,7 @@ BUTTON_WORDS = {
 # The four that keep going while a thumb is down. The same four core repeats, and for
 # the same reason: a hold means "keep going", and going is something only these do.
 HELD_ACTIONS = ("previous", "next", "page_previous", "page_next")
+HELD_WORDS = {action: t(f"input.{action}.label") for action in HELD_ACTIONS}
 
 # How often a held button says it is still held. A third of the time to live, so a
 # renewal has to be lost twice running before the install lets go.
@@ -1751,7 +1752,8 @@ def _held_button(action: str, icon: str, cls: str) -> None:
     so it feels the same from a thumb as it does from a flipper or a key."""
     ui.button(icon=icon).props("flat round") \
         .classes(f"remote-pad-key {cls}") \
-        .props(f'data-hold-action={action}')
+        .props(f'data-hold-action={action}') \
+        .tooltip(HELD_WORDS[action])
 
 
 def _tap_button(action: str, client_for_target: Callable[[], Any], *, danger: bool = False,

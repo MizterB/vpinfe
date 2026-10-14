@@ -626,7 +626,20 @@ until then the chain reports `required: null`.
   import came from.
 - **Player** — a human who plays. Reserved for that and used for nothing else:
   it meant the machine until 2026-08-19, and every pinball machine ever built
-  prints PLAYER 1 on its display.
+  prints PLAYER 1 on its display. The game's own player is a slot, Player 1 to 4, that
+  belongs to the machine; VPinFE's player is the person who takes one, known before the
+  game and remembered after it. *Multi*, *alternate* and *profile* are not used on screen,
+  and *person* stays in prose and is never a noun on a screen.
+  - **Owner** - the one player the library's own record belongs to. A chip, on one row.
+  - **Guest** - a player for this session only, forgotten when VPinFE closes. A chip.
+  - **Up** - a player the next game counts for, pinball's own word (*PLAYER 1 UP*). Not the
+    folder picker's Up, which goes to the parent folder.
+  - **Account** - a player's identity with one service. Its fields are the extension's,
+    and a player has a section per service.
+  - **Card** - the file that carries an account to another cabinet: *Show Card*, *Save
+    Card*, *Use My Card*. Not *QR code*, which is the format and also what the main menu
+    shows for something that is not a sign-in.
+  - **Roster** - the internal word for the list of players. It never reaches a screen.
 - **Extension** — a feature extending VPinFE under a manifest. Never "plugin", which is
   reserved for VPX standalone plugins.
 - **Third-party** — a library VPinFE bundles and loads at runtime, written by someone else

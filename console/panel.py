@@ -566,7 +566,7 @@ def add_action(choices: Any, *, empty: bool, heading: str = "") -> Any:
             .tooltip(label)
 
     button = ui.button(icon="add").props("flat dense round size=sm") \
-        .classes("shrink-0 console-action")
+        .classes("shrink-0 console-action").tooltip(heading or t("word.add"))
     with button, ui.menu():
         if heading:
             ui.item_label(heading).props("header").classes("console-menu-header")
