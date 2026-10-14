@@ -41,6 +41,7 @@ async function playing({ answers = {} } = {}) {
   const asked = [];
   vpin.callInternal = (method) => {
     if (method === "library_waiting") return Promise.resolve([]);
+    if (method === "get_attract_config") return Promise.resolve({ enabled: false });
     asked.push(method);
     return Promise.resolve(answers[method] || { state: "ignored" });
   };
