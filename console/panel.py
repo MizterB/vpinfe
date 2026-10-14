@@ -505,7 +505,7 @@ def field(value: str, on_save: Callable[[str], Any], *, lines: int = 0,
                 on_control(control)
         return control
 
-    setattr(draw, "path_tip", tip if path else None)  # noqa: B010 - read by `_marked`
+    setattr(draw, "hover_tip", tip if path else None)  # noqa: B010 - read by `_marked`
     return draw
 
 
@@ -711,7 +711,13 @@ def value_state(state: str, reason: str = "") -> Callable[[Any], None]:
         if reason:
             mark.tooltip(reason)
 
+    setattr(draw, "draws", state in _VALUE_STATES)  # noqa: B010 - read by `drawn`
     return draw
+
+
+def drawn(status: Callable[[Any], None] | None) -> bool:
+    """Whether `status` puts a mark in the append slot; a state with no mark draws nothing."""
+    return status is not None and getattr(status, "draws", True)
 
 
 class DescribedSelect(dropdown.Select):
@@ -925,7 +931,7 @@ PATH_INPUT = "console-path-input"
 
 
 class PathTip:
-    """What a path's hover says after the path: whose it is. `say` redraws the tooltip."""
+    """What a field's hover says after its text: whose it is. `say` redraws the tooltip."""
 
     def __init__(self) -> None:
         self.whose = ""
@@ -971,6 +977,28 @@ def path_input(control: ui.input, tip: PathTip | None = None, *,
     tip.redraw = redraw
     redraw()
     return tip
+
+
+def value_hover(control: Any, tip: PathTip) -> None:
+    """The hover of a picker that draws a mark: whose the value is, on the value alone.
+
+    The row's own tooltip would cover the mark too, so the mark's reason would share its
+    hover with a second tip.
+    """
+    with control:
+        hover = ui.tooltip().props(
+            f'target="#{control.html_id} .q-field__control-container" '
+            'anchor="bottom left" self="top left"')
+
+    def redraw() -> None:
+        hover.text = tip.whose
+        if tip.whose:
+            hover.props(remove="no-parent-event")
+        else:
+            hover.props("no-parent-event")
+
+    tip.redraw = redraw
+    redraw()
 
 
 def path_box(value: str, *, name: str) -> ui.input:
@@ -1098,6 +1126,8 @@ def select(options: Any, value: str, on_change: Callable[[Any], Any], *,
     `on_control` is handed the control once it exists, for a caller that needs it back -
     the wizard's own first-field focus and per-field refusals among them.
     """
+    tip = PathTip() if drawn(status) else None
+
     def draw() -> None:
         with ui.element("div").classes("console-fact-edit"):
             control = (DescribedSelect(options, value=value, describes=describes,
@@ -1107,11 +1137,14 @@ def select(options: Any, value: str, on_change: Callable[[Any], Any], *,
             if status is not None:
                 with control.add_slot("append"):
                     status(control)
+            if tip is not None:
+                value_hover(control, tip)
             if disabled:
                 control.disable()
             if on_control is not None:
                 on_control(control)
 
+    setattr(draw, "hover_tip", tip)  # noqa: B010 - read by `_marked`
     return draw
 
 
@@ -1200,6 +1233,8 @@ def combo(value: str, options: Any, on_change: Callable[[Any], Any], *,
     no way to name a machine by hand; a plain field would make the ordinary case a typing
     exercise with a URL in it.
     """
+    tip = PathTip()
+
     def draw() -> None:
         offered = {**(first or {}), **dict(options or {})}
         # What is stored is always one of the choices, even when nothing is offering it
@@ -1222,9 +1257,12 @@ def combo(value: str, options: Any, on_change: Callable[[Any], Any], *,
             if status is not None:
                 with control.add_slot("append"):
                     status(control)
+                if drawn(status):
+                    value_hover(control, tip)
             if disabled:
                 control.disable()
 
+    setattr(draw, "hover_tip", tip if drawn(status) else None)  # noqa: B010 - read by `_marked`
     return draw
 
 

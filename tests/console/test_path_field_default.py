@@ -199,10 +199,10 @@ class APathsHover(unittest.TestCase):
 class APathBrowsedWithoutADefault(unittest.TestCase):
     def test_the_hover_is_handed_to_the_row_that_knows_whose_it_is(self) -> None:
         draw = panel.field("", lambda _text: None, browse=AsyncMock())
-        self.assertIsInstance(getattr(draw, "path_tip"), panel.PathTip)  # noqa: B009
+        self.assertIsInstance(getattr(draw, "hover_tip"), panel.PathTip)  # noqa: B009
 
     def test_a_field_that_is_not_a_path_has_no_path_hover(self) -> None:
-        self.assertIsNone(getattr(panel.field("", lambda _text: None), "path_tip"))  # noqa: B009
+        self.assertIsNone(getattr(panel.field("", lambda _text: None), "hover_tip"))  # noqa: B009
 
 
 if __name__ == "__main__":

@@ -5332,9 +5332,9 @@ def _marked(parts: Sequence[Part], app_name: str,
                     parts[0][0]()
                 else:
                     _pair(parts, joiner)
-                path_tip = getattr(parts[0][0], "path_tip", None) if len(parts) == 1 else None
+                hover_tip = getattr(parts[0][0], "hover_tip", None) if len(parts) == 1 else None
                 whose = None
-                if path_tip is None:
+                if hover_tip is None:
                     whose = ui.tooltip("")
                     whose.props('anchor="bottom left" self="top left"')
             end = ui.element("div").classes("console-row-action")
@@ -5352,8 +5352,8 @@ def _marked(parts: Sequence[Part], app_name: str,
             said = _each_said(
                 [(field, _whose_value(held, field, app_name)) for _, held, field in parts],
                 len(parts))
-            if path_tip is not None:
-                path_tip.say(said)
+            if hover_tip is not None:
+                hover_tip.say(said)
             elif whose is not None:
                 whose.text = said
             end.clear()

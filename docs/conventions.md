@@ -815,7 +815,9 @@ A path field shows its **end** while it is not focused: the folder you are in ma
 than the drive it hangs from, and a cut start is marked with an ellipsis. Focused, it scrolls
 back to the caret like any input. Hover over its text answers the whole path, then whose it
 is, and **Copy path** sits beside Browse. Each control answers with one tooltip, so the
-path's own sits on the input rather than on the field around Copy and Browse.
+path's own sits on the input rather than on the field around Copy and Browse. A picker that
+draws a tick or cross in its end slot does the same: whose it is sits on the value, and the
+mark keeps the one that says why (`panel.value_hover`).
 
 A path with a default shows it, quiet, as the field's text, and whose it is on hover. Typing
 the default or choosing it clears the setting; any other path draws the dot before it and
