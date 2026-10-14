@@ -125,15 +125,24 @@ table is ignored.
 | `scopes` | no | none | Core scopes it asks to use, such as `games:read`. See [Scopes and the gate](scopes.md#scopes-and-the-gate) |
 | `capabilities` | no | none | What it asks of the machine. See [Scopes and the gate](scopes.md#scopes-and-the-gate) |
 | `requires_features` | no | none | Install features it needs: `library`, `frontend`, `devices`, `overview` |
-| `platforms` | no | every one | `linux`, `windows`, `macos`. Empty means every one |
+| `platforms` | no | every one | `linux`, `windows`, `macos`, or a Linux distribution's `ID` from `/etc/os-release`, such as `vpinos`.  It runs where any of them matches.  Empty means every one |
 | `events` | no | none | Event names it publishes, without its namespace |
 
 Everything in it is a declaration a person can be shown before installing.  That is why an
-unknown capability, feature or platform is refused rather than ignored: a name nobody has
-heard of is not something anybody could have agreed to.
+unknown capability or feature is refused rather than ignored: a name nobody has heard of is
+not something anybody could have agreed to.  A platform is refused only when it is not the
+shape of a name: lowercase letters, digits, `.`, `_` and `-`, starting with a letter or a digit,
+which is what an os-release `ID` is.  Which distributions exist is not core's to list, so
+`platforms: ["vpinos"]` is read as written and an extension for a distribution nobody has
+installed simply never starts.
+
+`linux` matches any Linux, and a distribution's `ID` matches that one.  A machine that is
+Ubuntu is both `linux` and `ubuntu`.  `ID` is read from `/etc/os-release`, and is lowercase
+there already; a name with a capital letter is refused, so write `vpinos`, not `VPinOS`.
 
 If the manifest names a platform this machine is not, or a feature this install does not
-have, the extension is not started.  It is still listed, with the reason.
+have, the extension is not started.  It is still listed, with the reason, and on Linux the
+reason names the distribution: "It does not run on Ubuntu".
 
 There is no `provides`, since core makes `ext:<name>:read` and `ext:<name>:write` for every
 extension.  Whether an extension has settings is not declared either.  Core remembers what a

@@ -35,6 +35,7 @@ it, what you will see, a few variations and the mistake people make with it.
 - [10. States, chips, links and pictures in a column](#10-states-chips-links-and-pictures-in-a-column)
 - [13. An account per player](#13-an-account-per-player)
 - [16. A page of your own](#16-a-page-of-your-own)
+- [18. An extension for one Linux distribution](#18-an-extension-for-one-linux-distribution)
 
 ## Basics
 
@@ -1085,3 +1086,52 @@ def register(ctx):
 - Link to a page you serve from VPinFE with `ctx.add_router` only if it can run with no sign-in: core answers every page under `/api/v1/ext/` sandboxed, as no origin of its own.  See [`ctx.ui.link`](reference/ui.md#ctxuilink).
 
 **Watch out:** write `{host}` with doubled braces inside an f-string, as above, or Python fills it in and the host is lost.  A link is never drawn with another scheme: `file:`, `javascript:` and the rest are refused when it is declared, or dropped when a function answers one.
+
+### 18. An extension for one Linux distribution
+
+**Use it when:** the extension manages something only one kind of machine has, such as a cabinet's boot mode on VPinOS, and it should not be offered anywhere else.
+
+`platforms` in the manifest names where it runs.  Beside `linux`, `windows` and `macos` it takes a Linux distribution's `ID`, the `ID=` line of `/etc/os-release`: `vpinos`, `ubuntu`, `debian`, `fedora`.  `linux` matches every Linux, and an `ID` matches that distribution only.  An extension runs where any name in the list matches.  Core does not keep a list of distributions, so any `ID` is accepted as long as it is written the way os-release writes it: lowercase letters, digits, `.`, `_` and `-`.
+
+`recipes/vpinos_only/extension.json`
+
+```json
+{
+  "name": "vpinos_only",
+  "version": "1.0.0",
+  "requires_platform": 1,
+  "platforms": ["vpinos"],
+  "capabilities": ["config:own", "ui:mount"]
+}
+```
+
+`recipes/vpinos_only/__init__.py`
+
+```python
+def register(ctx):
+    ctx.ui.settings([{"key": "boot", "type": "select", "default": "play",
+                      "choices": [["play", "Play"], ["desktop", "Desktop"]]}])
+```
+
+`recipes/vpinos_only/i18n/en.json`
+
+```json
+{
+  "name": "VPinOS Only",
+  "description": "Settings for something only a VPinOS cabinet has.",
+  "settings.boot.label": "Start in",
+  "settings.boot.help": "What the cabinet comes up in after it is switched on"
+}
+```
+
+**Where it appears:** on a VPinOS cabinet it is a page like any other, with the Start in setting.  Anywhere else it is listed under Extensions marked Off, and its page says "Cannot run on this device" with the reason and shows no settings.  **What triggers it:** core reads the machine's os-release the first time it loads an extension, and compares its `ID` to the list.  Nothing in the extension runs on a machine it is not for, not even `register`.
+
+**What you'll see:** on a Mac the page says "It does not run on macOS", and on Ubuntu "It does not run on Ubuntu".  On a Linux with no `/etc/os-release` it says "It does not run on Linux".  On VPinOS it runs, and the page shows Start in.
+
+**Variations:**
+
+- Name several, `["vpinos", "ubuntu"]`, for an extension that runs on either.
+- Name the family, `["linux"]`, to run on every distribution and keep Windows and macOS out.  A distribution built on another is its own `ID`: `ubuntu` does not match Linux Mint, so name both.
+- Run `--check-extension` on your own computer.  It loads the extension whatever its `platforms` say, so you can try the code anywhere, and a `platforms` line tells you whether this machine would run it: `platforms  vpinos - not this machine: It does not run on macOS`.
+
+**Watch out:** the `ID` is lowercase in `/etc/os-release` and here: `VPinOS` is refused, `vpinos` is not.  The name in the reason, "Ubuntu", is the distribution's `NAME`, which is for people to read, and it is not what `platforms` matches.

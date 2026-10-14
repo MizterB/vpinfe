@@ -18,7 +18,7 @@ from typing import Any
 from common import i18n
 
 from . import serving
-from .host import LOADED, Record, Registry
+from .host import LOADED, Record, Registry, platform_refusal
 from .store import ExtensionStore
 
 
@@ -31,7 +31,7 @@ def check(folder: Path | str) -> tuple[list[str], bool]:
     try:
         with tempfile.TemporaryDirectory() as scratch:
             registry = Registry(ExtensionStore(scratch))
-            record = registry.load(Path(folder).resolve())
+            record = registry.load(Path(folder).resolve(), any_platform=True)
             try:
                 if record.state != LOADED:
                     lines.append(f"fails      {_why(record)}")
@@ -54,6 +54,10 @@ def _report(record: Record, lines: list[str]) -> bool:
     assert ui is not None and record.manifest is not None
     manifest = record.manifest
     lines.append(f"loads      {manifest.name} {manifest.version}")
+    if manifest.platforms:
+        refused = platform_refusal(manifest)
+        lines.append(f"platforms  {', '.join(manifest.platforms)}"
+                     + (f" - not this machine: {refused}" if refused else ""))
     problems: list[str] = []
 
     for field in ui.settings_declared:

@@ -99,7 +99,7 @@ class ParseTests(unittest.TestCase):
                     _without("requires_platform", requires_platform=99),
                     _without("scopes", scopes="games:read"),
                     _without("capabilities", capabilities=["hardware:laser"]),
-                    _without("platforms", platforms=["amiga"]),
+                    _without("platforms", platforms=["Not A Platform"]),
                     _without("requires_features", requires_features=["catalog"])):
             with self.subTest(manifest=bad), \
                     self.assertRaises(contract.ManifestError) as caught:
@@ -112,9 +112,18 @@ class ParseTests(unittest.TestCase):
         with self.assertRaises(contract.ManifestError):
             contract.parse(_without("requires_features", requires_features=["catalog"]))
 
-    def test_a_platform_that_does_not_exist_is_refused(self) -> None:
-        with self.assertRaises(contract.ManifestError):
-            contract.parse(_without("platforms", platforms=["amiga"]))
+    def test_a_platform_that_is_not_the_shape_of_an_id_is_refused(self) -> None:
+        for bad in ("Not A Platform", "VPinOS", "-linux", "linux!", "pin os", "vpinos\nx"):
+            with self.subTest(platform=bad), self.assertRaises(contract.ManifestError):
+                contract.parse(_without("platforms", platforms=[bad]))
+
+    def test_a_linux_distributions_id_is_accepted_beside_the_families(self) -> None:
+        manifest = contract.parse(_without(
+            "platforms", platforms=["vpinos", "ubuntu", "linuxmint", "opensuse-leap", "rhel8.4",
+                                    "windows", "macos"]))
+
+        self.assertEqual(("vpinos", "ubuntu", "linuxmint", "opensuse-leap", "rhel8.4",
+                          "windows", "macos"), manifest.platforms)
 
     def test_a_list_field_given_a_string_is_refused(self) -> None:
         with self.assertRaises(contract.ManifestError):

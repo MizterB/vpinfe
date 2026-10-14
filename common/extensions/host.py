@@ -7,6 +7,7 @@ one extension that is not running and a line saying which and why.
 
 from __future__ import annotations
 
+import functools
 import importlib.util
 import logging
 import sys
@@ -14,6 +15,7 @@ import threading
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
+from platform import freedesktop_os_release
 from typing import Any
 
 from common import events as core_events
@@ -64,6 +66,23 @@ PLATFORM_NAMES = {"linux": "extension.platform.linux",
 
 def this_platform() -> str:
     return _PLATFORMS.get(sys.platform, sys.platform)
+
+
+@functools.cache
+def _os_release() -> dict[str, str]:
+    if not sys.platform.startswith("linux"):
+        return {}
+    try:
+        return dict(freedesktop_os_release())
+    except OSError:
+        return {}
+
+
+def this_distribution() -> tuple[str, str]:
+    """This Linux's `ID` and `NAME` from os-release: `("vpinos", "VPinOS")`. Empty where the
+    file is missing, and everywhere off Linux."""
+    found = _os_release()
+    return found.get("ID", "").lower(), found.get("NAME", "")
 
 
 def _read(value: str | tuple[str, ...]) -> str:
@@ -330,7 +349,7 @@ class Registry:
                 found.append(self.load(directory))
         return found
 
-    def load(self, directory: Path | str) -> Record:
+    def load(self, directory: Path | str, *, any_platform: bool = False) -> Record:
         directory = Path(directory)
         record = Record(name=directory.name, directory=directory,
                         enabled=self._store.enabled(directory.name))
@@ -346,7 +365,7 @@ class Registry:
 
         record.has_settings = bool(self._store.declared(record.name).get("settings"))
         why, values = ((SWITCHED_OFF, {}) if not record.enabled
-                       else _cannot_run(record.manifest))
+                       else _cannot_run(record.manifest, any_platform=any_platform))
         if why:
             record.became(OFF, why, **values)
             return self._remember(record)
@@ -514,12 +533,36 @@ def _withdraw(name: str, subscriptions: list[tuple[str, Any]],
         apps.withdraw()
 
 
-def _cannot_run(manifest: Manifest) -> tuple[str, dict[str, str | tuple[str, ...]]]:
-    """Why this device cannot run it whatever the switch says, or `""`."""
+def _wrong_platform(manifest: Manifest) -> dict[str, str | tuple[str, ...]] | None:
+    """The slots of `WRONG_PLATFORM` when this machine is none of the platforms the manifest
+    names, a family or a distribution's ID; else None."""
     platform = this_platform()
-    if manifest.platforms and platform not in manifest.platforms:
-        return WRONG_PLATFORM, {
-            "platform": (PLATFORM_NAMES.get(platform, platform),)}
+    if not manifest.platforms:
+        return None
+    distribution, name = this_distribution() if platform == "linux" else ("", "")
+    if {platform, distribution} & set(manifest.platforms):
+        return None
+    return {"platform": name or (PLATFORM_NAMES.get(platform, platform),)}
+
+
+def platform_refusal(manifest: Manifest) -> str:
+    """The sentence that says this machine is not one it names, or `""`. In English whatever
+    language is set: it goes in a report that is quoted."""
+    slots = _wrong_platform(manifest)
+    if slots is None:
+        return ""
+    return i18n.t_source(WRONG_PLATFORM, **{
+        slot: ", ".join(i18n.t_source(key) for key in value) if isinstance(value, tuple)
+        else value for slot, value in slots.items()})
+
+
+def _cannot_run(manifest: Manifest, *, any_platform: bool = False
+                ) -> tuple[str, dict[str, str | tuple[str, ...]]]:
+    """Why this device cannot run it whatever the switch says, or `""`. `any_platform`
+    leaves the platforms out, for `--check-extension` to load on a machine it is not for."""
+    slots = None if any_platform else _wrong_platform(manifest)
+    if slots is not None:
+        return WRONG_PLATFORM, slots
     missing = [name for name in install_identity.FEATURES
                if name in manifest.requires_features and name not in _features()]
     if missing:

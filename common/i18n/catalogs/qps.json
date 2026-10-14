@@ -4415,7 +4415,7 @@
   "extension.reason.manifest_platform_unsaid": "Îţš ɱàñîƒèšţ đöèš ñöţ šàý ŵĥîçĥ èẋţèñšîöñ þŀàţƒöřɱ îţ îš ƒöř",
   "extension.reason.manifest_unknown_capabilities": "Àšķš ƒöř çàþàƀîŀîţîèš ţĥîš ṽèřšîöñ öƒ ṼÞîñƑÈ đöèš ñöţ öƒƒèř: {capabilities}",
   "extension.reason.manifest_unknown_features": "Ñèèđš ƒèàţûřèš ţĥàţ đö ñöţ èẋîšţ: {features}",
-  "extension.reason.manifest_unknown_platforms": "Ñàɱèš þŀàţƒöřɱš ţĥàţ đö ñöţ èẋîšţ: {platforms}",
+  "extension.reason.manifest_unknown_platforms": "Ñàɱèš þŀàţƒöřɱš ţĥàţ àřè ñöţ à ƒàɱîŀý öř à đîšţřîƀûţîöñ ÎĐ: {platforms}",
   "extension.reason.manifest_unreadable": "Îţš ɱàñîƒèšţ çàññöţ ƀè řèàđ",
   "extension.reason.none_recorded": "Ñö řèàšöñ řèçöřđèđ",
   "extension.reason.wrong_platform": "Îţ đöèš ñöţ řûñ öñ {platform}",

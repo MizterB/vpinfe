@@ -4415,7 +4415,7 @@
   "extension.reason.manifest_platform_unsaid": "Its manifest does not say which extension platform it is for",
   "extension.reason.manifest_unknown_capabilities": "Asks for capabilities this version of VPinFE does not offer: {capabilities}",
   "extension.reason.manifest_unknown_features": "Needs features that do not exist: {features}",
-  "extension.reason.manifest_unknown_platforms": "Names platforms that do not exist: {platforms}",
+  "extension.reason.manifest_unknown_platforms": "Names platforms that are not a family or a distribution ID: {platforms}",
   "extension.reason.manifest_unreadable": "Its manifest cannot be read",
   "extension.reason.none_recorded": "No reason recorded",
   "extension.reason.wrong_platform": "It does not run on {platform}",

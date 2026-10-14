@@ -156,10 +156,79 @@ class LoadTests(HostCase):
         directory = self.make("elsewhere", {"platforms": [other]},
                               "def register(ctx): pass\n")
 
-        record = self.registry.load(directory)
+        with unittest.mock.patch.object(host, "this_distribution", return_value=("", "")):
+            record = self.registry.load(directory)
 
         self.assertEqual(record.state, host.OFF)
         self.assertIn(i18n.t(host.PLATFORM_NAMES[host.this_platform()]), record.reason)
+
+    def test_an_extension_for_this_distribution_runs_on_it(self) -> None:
+        directory = self.make("vpinos_only", {"platforms": ["vpinos"]},
+                              "def register(ctx): pass\n")
+        with unittest.mock.patch.object(host, "this_platform", return_value="linux"), \
+                unittest.mock.patch.object(host, "this_distribution",
+                                           return_value=("vpinos", "VPinOS")):
+            record = self.registry.load(directory)
+
+        self.assertEqual(record.state, host.LOADED)
+
+    def test_the_family_matches_whatever_distribution_this_is(self) -> None:
+        directory = self.make("any_linux", {"platforms": ["linux"]},
+                              "def register(ctx): pass\n")
+        with unittest.mock.patch.object(host, "this_platform", return_value="linux"), \
+                unittest.mock.patch.object(host, "this_distribution",
+                                           return_value=("ubuntu", "Ubuntu")):
+            record = self.registry.load(directory)
+
+        self.assertEqual(record.state, host.LOADED)
+
+    def test_an_extension_for_another_distribution_names_the_one_this_is(self) -> None:
+        directory = self.make("vpinos_only", {"platforms": ["vpinos"]},
+                              "def register(ctx): pass\n")
+        with unittest.mock.patch.object(host, "this_platform", return_value="linux"), \
+                unittest.mock.patch.object(host, "this_distribution",
+                                           return_value=("ubuntu", "Ubuntu")):
+            record = self.registry.load(directory)
+
+        self.assertEqual(record.state, host.OFF)
+        self.assertEqual(record.why, host.WRONG_PLATFORM)
+        self.assertEqual(record.reason, "It does not run on Ubuntu")
+
+    def test_a_linux_with_no_os_release_is_named_as_linux(self) -> None:
+        directory = self.make("vpinos_only", {"platforms": ["vpinos"]},
+                              "def register(ctx): pass\n")
+        with unittest.mock.patch.object(host, "this_platform", return_value="linux"), \
+                unittest.mock.patch.object(host, "this_distribution", return_value=("", "")):
+            record = self.registry.load(directory)
+
+        self.assertEqual(record.reason, "It does not run on Linux")
+
+    def test_a_distribution_id_means_nothing_off_linux(self) -> None:
+        directory = self.make("vpinos_only", {"platforms": ["vpinos"]},
+                              "def register(ctx): pass\n")
+        with unittest.mock.patch.object(host, "this_platform", return_value="macos"), \
+                unittest.mock.patch.object(host, "this_distribution",
+                                           return_value=("vpinos", "VPinOS")):
+            record = self.registry.load(directory)
+
+        self.assertEqual(record.reason, "It does not run on macOS")
+
+    def test_the_distribution_is_read_from_os_release(self) -> None:
+        release = {"ID": "VPinOS", "NAME": "VPinOS"}
+        host._os_release.cache_clear()
+        self.addCleanup(host._os_release.cache_clear)
+        with unittest.mock.patch.object(host.sys, "platform", "linux"), \
+                unittest.mock.patch.object(host, "freedesktop_os_release",
+                                           return_value=release):
+            self.assertEqual(("vpinos", "VPinOS"), host.this_distribution())
+
+    def test_a_missing_os_release_is_no_distribution(self) -> None:
+        host._os_release.cache_clear()
+        self.addCleanup(host._os_release.cache_clear)
+        with unittest.mock.patch.object(host.sys, "platform", "linux"), \
+                unittest.mock.patch.object(host, "freedesktop_os_release",
+                                           side_effect=OSError):
+            self.assertEqual(("", ""), host.this_distribution())
 
     def test_a_platform_reads_as_its_name(self) -> None:
         directory = self.make("elsewhere", {"platforms": ["windows"]},

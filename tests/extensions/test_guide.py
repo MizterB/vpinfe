@@ -54,6 +54,7 @@ DECLARES: dict[str, list[str]] = {
     "player_handle": ["account    a player can hold one"],
     "tool_link": ["settings   port (number", "link       console in system: http://{host}:9090/",
                   "link       manual: https://tool.example.com/manual"],
+    "vpinos_only": ["platforms  vpinos", "settings   boot (select, default 'play')"],
 }
 
 
@@ -321,6 +322,38 @@ class RecipesDoWhatTheyClaim(ExamplesLoadedByTheHost):
         self.assertEqual("", after["manual"]["area"])
         self.assertEqual("http://cab:9191/",
                          ext_links.filled(after["console"]["url"], "cab"))
+
+    def test_the_vpinos_recipe_runs_on_vpinos_and_names_the_distribution_it_is_refused_on(
+            self) -> None:
+        folder = EXAMPLES / "recipes" / "vpinos_only"
+        with unittest.mock.patch.object(host, "this_platform", return_value="linux"), \
+                unittest.mock.patch.object(host, "this_distribution",
+                                           return_value=("ubuntu", "Ubuntu")):
+            refused = self.registry.load(folder)
+            checked, passed = check.check(folder)
+        self.registry.clear()
+        with unittest.mock.patch.object(host, "this_platform", return_value="linux"), \
+                unittest.mock.patch.object(host, "this_distribution",
+                                           return_value=("vpinos", "VPinOS")):
+            self.load("vpinos_only")
+            checked_there, _passed = check.check(folder)
+
+        self.assertEqual((host.OFF, "It does not run on Ubuntu"),
+                         (refused.state, refused.reason))
+        self.assertTrue(passed)
+        self.assertIn("platforms  vpinos - not this machine: It does not run on Ubuntu", checked)
+        self.assertIn("platforms  vpinos", checked_there)
+
+    def test_the_check_says_the_same_in_english_whatever_language_is_set(self) -> None:
+        folder = EXAMPLES / "recipes" / "vpinos_only"
+        self.addCleanup(i18n.set_language, i18n.language())
+        i18n.set_language("qps")
+        with unittest.mock.patch.object(host, "this_platform", return_value="linux"), \
+                unittest.mock.patch.object(host, "this_distribution",
+                                           return_value=("ubuntu", "Ubuntu")):
+            checked, _passed = check.check(folder)
+
+        self.assertIn("platforms  vpinos - not this machine: It does not run on Ubuntu", checked)
 
     @staticmethod
     def _until(done: Any, seconds: float = 10) -> None:

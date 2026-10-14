@@ -46,7 +46,9 @@ CAPABILITIES: frozenset[str] = frozenset({
     "hardware:usb", "fs:read", "fs:write",
 })
 
-PLATFORMS: frozenset[str] = frozenset({"linux", "windows", "macos"})
+# What a manifest may name in `platforms`: `linux`, `windows`, `macos`, or any Linux
+# distribution's os-release `ID`. Only the shape is checked; which distributions exist is not ours.
+PLATFORM_NAME = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 
 # What an install can be meant to do, read from the one list rather than restated: a
 # second copy would be right until somebody added a feature.
@@ -163,7 +165,7 @@ def parse(raw: Any) -> Manifest:
                             capabilities=", ".join(unknown))
 
     platforms = _strings(raw.get("platforms"), "platforms")
-    unknown = sorted(set(platforms) - PLATFORMS)
+    unknown = sorted(one for one in set(platforms) if not PLATFORM_NAME.fullmatch(one))
     if unknown:
         raise ManifestError("extension.reason.manifest_unknown_platforms",
                             platforms=", ".join(unknown))

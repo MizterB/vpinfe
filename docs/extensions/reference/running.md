@@ -57,7 +57,7 @@ has the traceback.
 
 | what failed | what happens | where it shows |
 |---|---|---|
-| The manifest is missing, unreadable, names a bad name or an unknown capability, feature or platform, or says no platform | Not loaded. State *failed* | The extension's page, with the reason in words (for instance "Its folder has no extension.json") |
+| The manifest is missing, unreadable, names a bad name, an unknown capability or feature or a platform that is not a name, or says no platform | Not loaded. State *failed* | The extension's page, with the reason in words (for instance "Its folder has no extension.json") |
 | The manifest's `name` is not the folder's | Not loaded | "Its manifest calls it X, so its folder has to be called that too" |
 | `requires_platform` is not offered | Not loaded | "Built for extension platform 2, and this build offers 1" |
 | The manifest names a platform this machine is not, or a feature this install lacks | Not started, listed as *off* | "It does not run on Windows", or the missing features, with a button to open this device's settings |
@@ -109,7 +109,9 @@ cause chain.  The extension is not disabled, and the next visit or Refresh asks 
 `python main.py --check-extension <folder>` loads one extension the way core does, in a
 scratch store, and reports.  Exit status 0 means it passed and 1 means it did not.  Only read
 functions are called (a list's `rows`, a status, a dialog's first step, the settings), and
-nothing is sent or saved.
+nothing is sent or saved.  The manifest's `platforms` do not stop it: an extension for one
+distribution is checked on any machine, and a `platforms` line says whether this one would run
+it.
 
 ```
 === extensions/vpinplay

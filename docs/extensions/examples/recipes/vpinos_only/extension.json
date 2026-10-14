@@ -1,0 +1,7 @@
+{
+  "name": "vpinos_only",
+  "version": "1.0.0",
+  "requires_platform": 1,
+  "platforms": ["vpinos"],
+  "capabilities": ["config:own", "ui:mount"]
+}
