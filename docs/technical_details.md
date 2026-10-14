@@ -176,6 +176,12 @@ Runtime state written by VPinFE, not shown as a setting.
 | `confirm` | bool | `false` | Ask before quitting VPinFE or powering off this device. Closing the frontend never asks. |
 | `hide_quit_button` | bool | `false` | Hide Quit from the Main Menu |
 | `mute_audio` | bool | `false` | Mute Frontend Audio |
+| `attract_enabled` | bool | `true` | Move through the games on its own while nobody is pressing buttons |
+| `attract_idle` | int | `60` | Start After |
+| `attract_step_time` | int | `8` | Move Every |
+| `attract_step` | string | `random` | Random, or a number of games to move by. A negative number moves backwards. |
+| `attract_on_return` | choice (restore, stay) | `restore` | When Stopped |
+| `attract_audio` | bool | `false` | Play each game's sound as attract mode moves through them |
 
 ### `themes`
 

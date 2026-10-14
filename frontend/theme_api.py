@@ -11,6 +11,7 @@ from urllib.parse import quote
 from common import serving, theme_options
 from common.config_access import ConfigSource, SettingsConfig
 from common.paths import THEMES_DIR
+from frontend import theme_contract
 
 logger = logging.getLogger("vpinfe.frontend.theme_api")
 
@@ -79,9 +80,7 @@ def _build_theme_config_from_schema(schema: dict) -> dict | None:
         key = str(raw_option.get("key") or raw_option.get("id") or "").strip()
         if not key:
             continue
-        value = raw_option.get("value")
-        if value is None and "default" in raw_option:
-            value = raw_option.get("default")
+        value = raw_option.get("default") if "default" in raw_option else raw_option.get("value")
         _deep_set(config, key, value)
         found_option = True
     return config if found_option else None
@@ -100,7 +99,8 @@ def get_theme_config(config: ConfigSource) -> dict | None:
         return None
 
     authored = _read_json_object(theme_dir / "config.json")
-    schema = _read_json_object(theme_dir / "theme.json")
+    schema = _read_json_object(theme_options.schema_path(
+        theme_dir, theme_contract.declared_contract(theme_dir)))
     options = _build_theme_config_from_schema(schema) if schema is not None else None
     # What the user actually chose lives outside the theme, so an update cannot take it.
     # It goes over the schema's defaults and under nothing.
@@ -119,7 +119,11 @@ def get_audio_muted(config: ConfigSource) -> bool:
 
 
 # Windows core draws itself when the theme ships no page for them, and the page it uses.
-CORE_WINDOW_PAGES = {"topper": "index_topper.html"}
+CORE_WINDOW_PAGES = {
+    "topper": "index_topper.html",
+    "backglass": "index_backglass.html",
+    "scoreview": "index_scoreview.html",
+}
 
 
 def window_page_path(config: ConfigSource, window_name: str) -> str:

@@ -160,6 +160,9 @@ export function makeBrowser({ windowName = "table", search = null, pathname = "/
   const rootStub = {
     dataset: {},
     style: { _props: {}, setProperty(name, value) { rootStub.style._props[name] = value; } },
+    // Core mounts what must outlive the body's fade here. The stub keeps one list of
+    // everything added to the page, so remove() and a test's count both find it.
+    appendChild(child) { documentStub.body.children.push(child); },
   };
 
   const documentStub = {

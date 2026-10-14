@@ -12,25 +12,19 @@ theme already reads does. That is what keeps a bump rare.
 
 from __future__ import annotations
 
-import json
 import logging
-from pathlib import Path
 
 from common.deprecations import announce
 from common.games import high_scores
 from common.games.game_metadata import DETECTION_KEYS, default_table
-from common.values import newer_version, parse_version
+from common.theme_level import (  # noqa: F401 - the names a theme-facing caller reads here
+    CURRENT_CONTRACT,
+    MIN_VERSION_KEY,
+    OLDEST_CONTRACT,
+    declared_contract,
+)
 
 logger = logging.getLogger("vpinfe.frontend.theme_contract")
-
-CURRENT_CONTRACT = 2
-OLDEST_CONTRACT = 1
-MIN_VERSION_KEY = "min_vpinfe"
-
-# The VPinFE version each contract arrived in, newest first. A theme states the oldest
-# build it runs on and gets the newest contract that build already served. Contract 1
-# has no entry: it is what a theme gets for saying nothing.
-_CONTRACT_SINCE = ((2, (3, 0)),)
 
 # What contract 1 calls each table field. The .info renamed these; a theme written
 # against 2.x still reads the old spelling, so the projection restores it.
@@ -97,26 +91,6 @@ _LEGACY_ROW_KEYS = {
 
 # 1  the shape 2.x themes read: meta.VPXFile, and Rom and Authors on meta.Info
 # 2  the .info's own shape: meta.tables, meta.vpinfe, and neither of those on Info
-
-
-def declared_contract(theme_dir: str | Path) -> int:
-    """The contract a theme's declared minimum version implies, clamped to this build.
-
-    Whether that minimum is newer than the build running is answered at install, not
-    here - this is reached only once a theme is on disk and being served.
-    """
-    manifest = Path(theme_dir) / "manifest.json"
-    try:
-        manifest_data = json.loads(manifest.read_text(encoding="utf-8"))
-        minimum = parse_version(manifest_data.get(MIN_VERSION_KEY))
-    except (OSError, ValueError, TypeError, AttributeError):
-        return OLDEST_CONTRACT
-
-    level = OLDEST_CONTRACT
-    for contract, since in _CONTRACT_SINCE:
-        if minimum and not newer_version(since, minimum):
-            level = max(level, contract)
-    return min(level, CURRENT_CONTRACT)
 
 
 def project(row: dict, level: int) -> dict:

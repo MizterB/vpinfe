@@ -47,7 +47,7 @@ const DEFAULT_MEDIA_PRIORITIES = {
 // here rather than implied by a constructor - the audio default used to be `true` at
 // construction and `false` after init, and nothing said which was meant.
 //
-// `config` names the theme.json keys that turn it on or off, most specific first. The
+// `config` names the config.json keys that turn it on or off, most specific first. The
 // extra spellings are contract 1's: they accumulated because nothing declared the real
 // one, and they stay only for themes already using them.
 const CAPABILITIES = {
@@ -86,15 +86,19 @@ const CAPABILITIES = {
             + "announces where it went.",
   },
   core_audio: {
+    // On from contract 2. A contract 1 theme plays its own audio, and a second source
+    // would double it.
     default: false,
+    defaultFromContract: 2,
     config: ["use_core_audio", "audio.use_core_audio", "audio.enabled"],
     legacyConfig: ["useCoreAudio", "audio.useCoreAudio"],
     describe: "Core plays, fades and mutes per-game audio.",
   },
-  // Off by default: a theme that already lays itself out must ask before core starts
-  // setting attributes its CSS may fight.
+  // On from contract 2. A contract 1 theme already lays itself out and must ask before
+  // core starts setting attributes its CSS may fight.
   core_layout: {
     default: false,
+    defaultFromContract: 2,
     config: ["layout.enabled"],
     describe: "Core turns the UI and the playfield art to suit the cabinet.",
   },
@@ -121,13 +125,34 @@ const CAPABILITIES = {
     describe: "Core covers each window with what an empty library is waiting for.",
   },
   core_preload: {
-    // Off by default: every published theme preloads for itself, so turning this on
-    // without deleting the theme's own loop just doubles the requests.
+    // On from contract 2. A contract 1 theme preloads for itself, and turning this on
+    // without deleting that loop just doubles the requests.
     default: false,
+    defaultFromContract: 2,
     // One spelling. A capability's settings live in a block named after it, and
     // `enabled` is one of them - which is also the only shape `kinds` can travel in.
     config: ["preload.enabled"],
     describe: "Core fetches the media on either side of the selection once it settles.",
+  },
+  core_launch_indicator: {
+    // On from contract 2. A contract 1 theme draws its own overlay on TableLaunching and
+    // a second one would sit on top of it. Not named "loading": that is a media kind, a
+    // game's own loading video.
+    default: false,
+    defaultFromContract: 2,
+    config: ["launch_indicator.enabled"],
+    describe: "Core draws a spinner in each window from the moment a game starts "
+            + "launching until it is running.",
+  },
+  core_attract: {
+    // On from contract 2. A contract 1 theme may run its own idle timer, which core cannot
+    // intercept, so two of them would both move the wheel. The person's own switch
+    // (`behavior.attract_enabled`) is read beside this one and either being off is off.
+    default: false,
+    defaultFromContract: 2,
+    config: ["attract.enabled"],
+    describe: "Core moves the selection on its own once nobody has pressed anything, "
+            + "and puts it back when someone does.",
   },
   core_hold_ring: {
     // On by default: a hold that shows nothing is a key that appears to do nothing for
@@ -458,6 +483,7 @@ const INTERNAL_METHODS = new Set([
   "set_player_up",
   "set_player_rating",
   "get_player_rating",
+  "get_attract_config",
 ]);
 
 // By the ids `common/host/frontend_browser.py` knows.
@@ -794,7 +820,15 @@ class VPinFECore {
       Object.entries(CAPABILITIES).map(([name, spec]) => [name, spec.default]));
     this._pagingInFlight = false;
 
-    // menu is up?
+    // Attract mode. `settings` is what the person set, null until the bridge answers.
+    // `suspended` holds a reason per cause, so a launch and a picker overlapping do not
+    // race over one flag. `origin` is the index to put the wheel back to while attract
+    // is moving it, valid only for the list `originList` it was taken from.
+    this._attract = {
+      settings: null, suspended: new Set(), timer: null, active: false,
+      origin: null, originList: null, bag: [], bagFor: null,
+    };
+
     // The overlay that is open, or null. One-of by construction - #toggleOverlay closes
     // any other before opening one - so three booleans could only ever disagree.
     this.overlay = null;
@@ -1563,6 +1597,7 @@ class VPinFECore {
     }
     this.#syncSelectionFromMessage(message);
     this.#applyLaunchDim(message.type);
+    this.#applyLaunchIndicator(message.type);
     if (VPinFECore.SELECTION_MESSAGES.has(message.type)) this.#renderWindowMedia();
     await this.#handleCoreAudioEvent(message);
 
@@ -1657,6 +1692,7 @@ class VPinFECore {
 
     if (this.overlay === name) {
       this.overlay = null;
+      this.resumeAttract(name);
       overlayRoot.classList.remove("active");          // fade out
       if (iframe) {
         iframe.style.display = "none";                 // hide, never destroy
@@ -1676,6 +1712,7 @@ class VPinFECore {
     if (this.overlay) await this.#toggleOverlay(this.overlay);
 
     this.overlay = name;
+    this.suspendAttract(name);
     overlayRoot.classList.add("active");               // fade in
     if (!iframe) {
       iframe = document.createElement("iframe");
@@ -1819,6 +1856,12 @@ class VPinFECore {
     if (!this.enabled("core_audio") || !this.isController()) return;
 
     if (message.type === "TableIndexUpdate") {
+      // An attract step is not a person choosing a game; each one starting a track is
+      // noise unless the person asked to hear them. What was playing stops with it.
+      if (message.source === "attract" && !this._attract.settings?.audio) {
+        this.stopTableAudio();
+        return;
+      }
       this.playTableAudio(this._currentTableIndex);
       return;
     }
@@ -1951,21 +1994,51 @@ class VPinFECore {
     else if (type === "TableLaunchComplete") delete root.dataset.vpinfeLaunching;
   }
 
+  // The spinner stays up until the table says it is running, which is later than the dim
+  // clears: TableLaunchComplete is the cleanup for a launch that never got that far.
+  // `.vpinfe-launch-indicator` is what a theme restyles, and `launch_indicator.enabled`
+  // false is for one that draws its own.
+  #applyLaunchIndicator(type) {
+    if (type === "TableLaunching") {
+      if (!this.enabled("core_launch_indicator")) return;
+      if (this._launchIndicator) return;
+      const indicator = document.createElement("div");
+      indicator.className = "vpinfe-launch-indicator";
+      indicator.setAttribute("role", "status");
+      indicator.setAttribute("aria-label",
+        this.t("frontend.theme.loading_table", "Loading Table..."));
+      const spinner = document.createElement("div");
+      spinner.className = "vpinfe-launch-spinner";
+      indicator.appendChild(spinner);
+      // On <html>, not <body>: core_launch_dim fades the body to nothing while a game
+      // launches, and a child of it would go with it.
+      document.documentElement.appendChild(indicator);
+      this._launchIndicator = indicator;
+    } else if (type === "TableRunning" || type === "TableLaunchComplete") {
+      this._launchIndicator?.remove();
+      this._launchIndicator = null;
+    }
+  }
+
   /**
-   * Show this window the media named for it.
+   * Show the selected game's media in every `[data-vpin-media]` element on the page.
    *
-   * Renders into the first `[data-vpin-media]` element on the page, so a theme opts in
-   * with an attribute and opts out by leaving it off or setting `media_window.enabled`
-   * false. Nothing is guessed: a window that is not a display, or a page with no target,
-   * does nothing at all rather than picking somewhere to draw.
+   * The attribute's value names the kind (`data-vpin-media="playfield"`); an empty value
+   * means this window's own media. A theme opts in with the attribute and opts out by
+   * leaving it off or setting `media_window.enabled` false. Nothing is guessed: an empty
+   * value in a window that is not a display, or a kind that is not one, draws nothing
+   * rather than picking something to draw.
    */
   #renderWindowMedia() {
     if (!this.enabled("core_media_window")) return;
-    const kind = this.windowMediaKind;
-    if (!kind) return;
-    const target = document.querySelector("[data-vpin-media]");
-    if (!target) return;
+    for (const target of document.querySelectorAll("[data-vpin-media]")) {
+      const named = target.getAttribute("data-vpin-media").trim();
+      const kind = named ? this.#canonicalKind(named) : this.windowMediaKind;
+      if (kind && MEDIA_KINDS.includes(kind)) this.#renderMediaInto(target, kind);
+    }
+  }
 
+  #renderMediaInto(target, kind) {
     // Video first, then the still - the same order a theme would ask in, and the reason
     // the kinds are named in pairs.
     const index = this._currentTableIndex;
@@ -2254,6 +2327,7 @@ class VPinFECore {
       : {};
     this.#applyCapabilityConfig();
     this.setAudioOptions(audioCfg);
+    this.#startAttract();
 
     // Load network config. The url already carried these, so this now only corrects a
     // page opened without them - `endpoints` derives from the ports, so correcting one
@@ -2365,6 +2439,136 @@ class VPinFECore {
     }
   }
 
+  /**
+   * Hold attract mode off for `reason`, and stop it if it is moving the wheel. Keyed by
+   * reason: attract runs again only once every reason that held it has resumed. A theme
+   * that draws its own picker calls this while the picker is up.
+   */
+  suspendAttract(reason = "theme") {
+    this._attract.suspended.add(String(reason));
+    this.#endAttract({ restore: false });
+    this.#armAttract();
+  }
+
+  resumeAttract(reason = "theme") {
+    this._attract.suspended.delete(String(reason));
+    this.#armAttract();
+  }
+
+  get attractActive() { return this._attract.active; }
+
+  async #startAttract() {
+    if (!this.isController()) return;
+    try {
+      this._attract.settings = await this.callInternal("get_attract_config");
+    } catch (_e) {
+      return;   // an older build cannot answer; there is no attract mode to run
+    }
+    this.#armAttract();
+  }
+
+  // Both the person and the theme have to allow it. The person's off is final, and a
+  // theme that opted out is not overridden by the person's on.
+  #attractAllowed() {
+    const settings = this._attract.settings;
+    return !!settings && settings.enabled && this.enabled("core_attract")
+      && this.isController();
+  }
+
+  // Whether this moment is one the wheel may move in: the entry list is what is on
+  // screen, there is more than one game to show, and nothing has asked for the person's
+  // attention. The library's size is checked here and not in `#attractAllowed` because
+  // the bridge answers before the library has loaded, and the timer has to be running
+  // by then.
+  #attractMayStep() {
+    return this.tableData.length > 1 && this.atRoot && !this.overlay && this.inputMode === "navigation"
+      && !this.#pendingConfirm && !this.#preview && this.frontendInputEnabled
+      && !this._attract.suspended.size;
+  }
+
+  #armAttract() {
+    const state = this._attract;
+    clearTimeout(state.timer);
+    state.timer = null;
+    if (!this.#attractAllowed() || state.suspended.size) return;
+    const wait = state.active ? state.settings.step_ms : state.settings.idle_ms;
+    state.timer = setTimeout(() => this.#attractTick(), wait);
+  }
+
+  #attractTick() {
+    const state = this._attract;
+    state.timer = null;
+    if (this.#attractAllowed() && this.#attractMayStep()) {
+      if (!state.active) {
+        state.active = true;
+        state.origin = this._currentTableIndex;
+        state.originList = this.tableData;
+      }
+      this.#attractStep();
+    }
+    this.#armAttract();
+  }
+
+  #attractStep() {
+    const list = this.activeList();
+    const previous = list.cursor;
+    const step = this._attract.settings.step;
+    if (step === "random") {
+      const index = this.#nextFromBag(previous, list.length);
+      if (index === null) return;
+      this.moveTo(index, { previous, reason: "page", source: "attract" });
+      return;
+    }
+    this.moveTo(list.indexAfter(step), {
+      previous, direction: step < 0 ? "previous" : "next", source: "attract" });
+  }
+
+  // The bag is rebuilt when the list it was shuffled from is replaced.
+  #nextFromBag(current, length) {
+    const state = this._attract;
+    if (state.bagFor !== this.tableData || state.bag.length === 0) {
+      state.bagFor = this.tableData;
+      state.bag = Array.from({ length }, (_, i) => i).filter((i) => i !== current);
+      for (let i = state.bag.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [state.bag[i], state.bag[j]] = [state.bag[j], state.bag[i]];
+      }
+    }
+    while (state.bag.length) {
+      const index = state.bag.pop();
+      if (index !== current && index < length) return index;
+    }
+    return null;
+  }
+
+  /**
+   * Someone pressed something. Returns true when attract was moving the wheel and the
+   * press only woke it: the game on screen was not the person's, so a press that went on
+   * to act on it could launch one they never chose.
+   */
+  #attractActivity() {
+    const woke = this.#endAttract({ restore: true });
+    this.#armAttract();
+    return woke;
+  }
+
+  #endAttract({ restore }) {
+    const state = this._attract;
+    if (!state.active) return false;
+    state.active = false;
+    const origin = state.origin;
+    state.origin = null;
+    const returning = restore && state.settings && state.settings.on_return === "restore"
+      && origin !== null && origin !== this._currentTableIndex
+      && state.originList === this.tableData;
+    if (returning) {
+      this.moveTo(origin, { reason: "restore" });
+    } else if (restore && this.enabled("core_audio")) {
+      this.playTableAudio(this._currentTableIndex);   // it was silent while attract moved
+    }
+    return restore;
+  }
+
   #setFrontendInputEnabled(enabled) {
     this.frontendInputEnabled = !!enabled;
     this.gamepadEnabled = this.frontendInputEnabled;
@@ -2376,9 +2580,11 @@ class VPinFECore {
     if (message.type === "TableLaunching" || message.type === "RemoteLaunching") {
       this._launchInputSuppressedByLifecycle = true;
       this.#setFrontendInputEnabled(false);
+      this.suspendAttract("launch");
     } else if (message.type === "TableLaunchComplete" || message.type === "RemoteLaunchComplete") {
       this._launchInputSuppressedByLifecycle = false;
       this.#setFrontendInputEnabled(true);
+      this.resumeAttract("launch");
     } else {
       return;
     }
@@ -3023,6 +3229,7 @@ class VPinFECore {
   #dispatchAction(action) {
     // Core's own, and answered only while a table runs; never a theme's.
     if (action === "take_picture") return;
+    if (this.isController() && this.#attractActivity()) return;
     if (!this.isController() && action !== "select") return this.#triggerInputAction(action);
 
     // A field owns its keystrokes; back and select still reach the dialog, so a cabinet

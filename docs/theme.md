@@ -25,16 +25,22 @@ Themes are installed in the user config directory: `~/.config/vpinfe/themes/<THE
 ```
 <THEME NAME>
 ├── manifest.json
-├── theme.json           (optional - schema plus saved Manager UI theme options)
+├── config.json          (optional - what the theme turns on or off in core, see below)
+├── options.json         (optional - the settings a person can change; theme.json at contract 1)
 ├── preview.png          (optional - shown in manager UI, can be .png or .gif)
 ├── index_playfield.html  (one per declared window: index_<window>.html)
-├── index_backglass.html
-├── index_scoreview.html
+├── index_backglass.html  (optional at contract 2 - core draws the backglass when absent)
+├── index_scoreview.html  (optional at contract 2 - core draws the score view when absent)
 ├── style.css
 ├── theme.js
 └── fonts/               (optional - custom font files)
     └── MyFont.otf
 ```
+
+A theme at contract 2 can be as small as `manifest.json`, `index_playfield.html`, a stylesheet
+and a script that draws the wheel. Everything else in the list above is core's to do, and
+[What core does for you](#what-core-does-for-you) says what that is and how to take any
+of it back.
 
 ### manifest.json
 
@@ -83,6 +89,10 @@ Declaring nothing and shipping fewer pages also works: a default window whose
 main page gets one window rather than two that 404. That only applies to the default — a
 window you declare is opened whether or not its page is there, because a declaration is
 intent and hiding a missing page would hide your bug.
+
+At contract 2 that is rarely a loss. A cabinet with a backglass or score view screen gets a
+window on it whichever theme is active, and core draws the page when the theme ships none
+(see [What core does for you](#what-core-does-for-you)).
 
 ```json
 "min_vpinfe": "3.0",
@@ -143,6 +153,50 @@ if (typeof vpin.someNewMethod === "function") {
 A contract only goes up when something a theme already reads is **removed or reshaped**, so
 bumps are rare. If you declare a contract newer than the VPinFE you are running on, you get
 the newest that build has and a warning in the log.
+
+### What core does for you
+
+A theme on contract 2 draws what is its own - the wheel, the look, the screens it cares
+about - and core does what is the same in every theme. Each of those is a *capability*:
+core does it by default, and a theme that wants to do it differently turns it off and does
+it itself.
+
+| Capability | `config.json` key | Contract 1 | Contract 2 | What core does | If you turn it off |
+|---|---|---|---|---|---|
+| `core_navigation` | `navigation.enabled` | off | on | Moves the selection by a step or a page, wraps it and announces where it went. | Previous, next and the page actions reach your `handleInput`, and you move the wheel. |
+| `core_paging` | `paging.enabled` | on | - | Contract 1 only: handles the page actions. At contract 2 `core_navigation` covers it. | Page actions reach your handler. |
+| `core_audio` | `audio.enabled` | off | on | Plays, fades and mutes each game's audio. | You play your own with `vpin.getAudioURL()`. |
+| `core_layout` | `layout.enabled` | off | on | Turns the UI and the playfield art to suit the cabinet. | You read `vpin.layout` and lay yourself out. |
+| `core_preload` | `preload.enabled` | off | on | Fetches the media around the selection once the wheel stops. | Your own preloading is the only one. |
+| `core_launch_indicator` | `launch_indicator.enabled` | off | on | Draws a spinner in every window while a game launches. | You draw your own, see [Loading Overlay During Game Launch](#loading-overlay-during-game-launch). |
+| `core_attract` | `attract.enabled` | off | on | Moves the selection on its own once nobody has pressed anything. | You run your own idle timer, see [Attract Mode](#attract-mode). |
+| `core_launch_dim` | `launch_dim.enabled` | on | on | Dims each window while a game launches. | Your windows stay as they are. |
+| `core_media_window` | `media_window.enabled` | on | on | Shows each display window the media named for it. | A window with no element for it shows nothing of its own. |
+| `core_waiting` | `waiting.enabled` | on | on | Covers each window with what an empty library is waiting for. | You read `vpin.libraryWaiting` and draw it. |
+| `core_hold_ring` | `hold_ring.enabled` | on | on | Draws a ring while a key with a hold is kept down. | You draw your own from `vpin.enabled("core_hold_ring")`. |
+
+Every key is an `enabled` flag in a block named after the capability, in `config.json`:
+
+```json
+{
+  "attract":          { "enabled": false },
+  "launch_indicator": { "enabled": false }
+}
+```
+
+A theme names only what it changes. Contract 2 turns on the capabilities marked on, and a
+theme that never mentions one gets it. A contract 1 theme gets none of the ones marked off
+until it asks, so a theme written for 2.x keeps doing everything itself. It can ask for
+any of them the same way, with `"enabled": true`.
+
+`vpin.enabled("core_attract")` tells a theme which it has, and
+[`vpin.capabilities`](#public-properties) lists all of them. Audio and paging can also be
+changed while the theme runs, with `vpin.enableCoreAudio(false)` and
+`vpin.enableCorePaging(false)`.
+
+A person has the last word on attract mode. It has its own switch under Attract Mode in
+the Console's Behavior settings, and it is off if either that or the theme's says so, so a
+theme opting in cannot force it on someone who has turned it off.
 
 ### Contract 2 payload
 
@@ -660,6 +714,19 @@ Important: theme code for these windows should support both static images and vi
 
 Do not hardcode these windows to image-only rendering with `getImageURL()` alone, or `bg.mp4` / `dmd.mp4` will never appear even when the files exist.
 
+**Or leave it to core.** At contract 2 a theme need not ship these pages: core draws the
+selected game's backglass or score view, video first and the still otherwise, on black. A
+theme that wants its own page gets the same result from one attribute, with no script:
+
+```html
+<div class="stage" data-vpin-media></div>
+```
+
+Core fills every element carrying `data-vpin-media` on each selection. An empty value means
+this window's own media; a value names a kind, `data-vpin-media="playfield"`, to show that
+kind in any window. A value that is not a kind draws nothing. `media_window.enabled` set to
+`false` turns it off.
+
 ```html
 <!DOCTYPE html>
 <html>
@@ -806,7 +873,7 @@ vpin.ready.then(async () => {
     // register your input handler
     vpin.registerInputHandler(handleInput);
 
-    // optional: load values from theme.json in your theme dir
+    // optional: load values from the theme config (config.json merged with options.json and the person's choices)
     config = await vpin.call("get_theme_config");
 
     // Initialize the display
@@ -993,7 +1060,7 @@ a page and a startup restore all announce themselves the same way:
 | `previous` | where it was. A local diff cannot tell a wrap from a jump: 149 → 0 is either one step forward or 149 back |
 | `direction` | `"previous"` or `"next"`, empty when the move had no direction |
 | `reason` | how far and why — `"step"` for one item, `"page"` for a page press, `"restore"` at startup, `"enter"` and `"leave"` when core descends into a list or comes back out. A page press moves to the next group when group paging is on and a fixed number of rows otherwise; both report `"page"`, because both want the same treatment |
-| `source` | who moved it — `"user"` today; core will move it on a timer later |
+| `source` | who moved it — `"user"`, or `"attract"` when core's [attract mode](#attract-mode) moved it on its own. A theme that animates differently for a move nobody pressed reads this |
 | `moving` | true while the wheel is still settling, so you can defer full-resolution art. Time-based, so a single distant move reports `false` — use `reason` to tell a page from a step |
 | `group` | the group the selection landed in — `"T"`, `"1985"`, `"#"`. Empty when the list's order has no groups |
 | `groupKind` | what kind of group that is — `"letter"`, `"year"`, `"rating"`. Empty alongside `group`, so you can tell "no grouping here" from "the group happens to be empty" |
@@ -1056,7 +1123,14 @@ You can also define custom event types and send them with `vpin.sendMessageToAll
 
 ### Loading Overlay During Game Launch
 
-Themes can show a loading image or animation while VPX is starting. Use the built-in launch lifecycle instead of guessing with timers:
+**Core draws one for you.** On contract 2, every window shows a spinner from `TableLaunching`
+until `TableRunning`, or `TableLaunchComplete` for a launch that never got as far as
+running. It is a `div.vpinfe-launch-indicator`, added to `<html>` and removed again, so a
+theme restyles it in CSS and has nothing to wire up. A theme that wants a loading image of
+its own sets `launch_indicator.enabled` to `false` in its `config.json` and draws it as
+below.
+
+Themes that draw their own can show a loading image or animation while VPX is starting. Use the built-in launch lifecycle instead of guessing with timers:
 
 - show the overlay on `TableLaunching`
 - hide it on `TableRunning`
@@ -1131,6 +1205,48 @@ async function receiveEvent(message) {
 ```
 
 If the controller launches the game from local input, remember that `vpin.sendMessageToAllWindows(...)` excludes the sender. Call `showTableLoadingOverlay()` directly in the local `joyselect` path before `await vpin.launchTable(...)`, or send the event with `vpin.sendMessageToAllWindowsIncSelf(...)`.
+
+### Attract Mode
+
+**Core runs it for you.** On contract 2, once nobody has pressed anything for a while, the
+controller steps the selection on its own, and the next press puts it back and does
+nothing else. A theme has nothing to write: the wheel moves through the same
+`TableIndexUpdate` path as any other move, with `source: "attract"` on it.
+
+What a person can set, under Attract Mode in the Console's Behavior settings:
+
+| Setting | Default | |
+|---|---|---|
+| Run When Idle | on | The person's own switch. Off here is off, whatever the theme says. |
+| Start After | 60 seconds | How long nobody has pressed anything. |
+| Move Every | 8 seconds | The time between moves. |
+| Move By | random | `random` visits every other game before repeating one; a number moves by that many games, and a negative one goes backwards. |
+| When Stopped | Return to the game I left | Or stay on the game it had reached. |
+| Attract Audio | off | Plays each game's sound as it is reached. |
+
+Core holds off by itself while a game is launching or running, while a menu, picker or
+confirmation is up, while input is disabled and while the list shows fewer than two games.
+A press that ends attract is swallowed, whether it puts the selection back or leaves it,
+because the game on screen was never the person's choice and a press that went on to act on
+it could launch one they did not pick. Presses from a keyboard or controller end attract;
+a touch or mouse on a theme's own page does not, so a theme with those holds attract off
+while they are in use.
+
+A theme that opens something core cannot see - its own picker, a video it wants to finish -
+holds attract off for as long as it is up, and lets go when it closes:
+
+```javascript
+vpin.suspendAttract("picker");
+// ...
+vpin.resumeAttract("picker");
+```
+
+Holds are kept by reason, so attract runs again only when every reason that held it has let
+go. `vpin.attractActive` is `true` while attract is moving the wheel.
+
+A theme that runs its own attract mode sets `attract.enabled` to `false` in its
+`config.json`. A contract 1 theme is not given attract mode, so its own runs alone. Either
+way its own has to meet the rule about launching, below.
 
 ### Attract Mode During Game Launch
 
@@ -1359,10 +1475,10 @@ them would make a theme harder to read, not easier.
 name is `false` rather than an error, so a theme can ask about something a build might not
 have.
 
-Each capability has one stated default: **core paging is on** (opt out if your theme does
-its own), **core audio is off** (opt in), **core preloading is off** (opt in).
+The default of each capability, at each contract, is in the table under
+[What core does for you](#what-core-does-for-you).
 
-Turn one on in your **`config.json`** — the author's file. A capability's settings live in
+Set one in your **`config.json`** — the author's file. A capability's settings live in
 a block named after it, and `enabled` is one of those settings:
 
 ```json
@@ -1393,8 +1509,9 @@ A theme showing a cabinet shot wants `cab` in there, and one with no wheel shoul
 { "preload": { "enabled": true, "kinds": ["playfield", "backglass", "wheel"] } }
 ```
 
-**If you switch this on, delete your own preloading.** Running both just doubles the
-requests, which is why this is opt-in rather than on by default.
+**If core preloads, delete your own preloading.** Running both just doubles the requests.
+It is on for a contract 2 theme, so one that preloads for itself sets `preload.enabled` to
+`false`; a contract 1 theme is not given it until it asks.
 
 #### init()
 Sets up keyboard event listener and connects to the backend over the WebSocket bridge.
@@ -1519,7 +1636,7 @@ change it — `set_tables_by_collection` and the lists above are what a theme ne
 | Method | Args | Returns | Description |
 |--------|------|---------|-------------|
 | `get_theme_name` | — | `string` | Returns the active theme name from `vpinfe.ini`. |
-| `get_theme_config` | — | `object\|null` | Loads and returns the theme's current configuration values. When a theme provides `theme.json`, VPinFE flattens the option `value` fields into the object returned to theme code. |
+| `get_theme_config` | — | `object\|null` | Loads and returns the theme's current configuration values. The theme's `config.json`, the defaults in `options.json` and what the person chose, merged into one object. See [Values Returned To Theme Code](#values-returned-to-theme-code). |
 | `get_theme_assets_port` | — | `number` | Returns the HTTP server port (default `8000`). |
 | `get_theme_index_page` | — | `string` | Returns the full URL for this window's theme index page. |
 | `get_playfield_orientation` | — | `string` | Returns the playfield orientation from config (`"landscape"` or `"portrait"`). |
@@ -1566,7 +1683,7 @@ If `override` is present, themes that position or scale backglass or score view 
 |--------|------|---------|-------------|
 | `playTableAudio` | `indexOrUrl`, `retries=3` | — | Plays game audio using VPinFECore's centralized audio manager. Pass a game index (recommended) or URL string. |
 | `stopTableAudio` | `options={}` | — | Stops audio via centralized manager. Supports fade-out; pass `{ immediate: true }` for an immediate stop. |
-| `enableCoreAudio` | `enabled=true` | — | Enables or disables centralized audio handling for the current window. Core audio is opt-in by default unless enabled in theme config. |
+| `enableCoreAudio` | `enabled=true` | — | Enables or disables centralized audio handling for the current window. Core audio is on by default for a contract 2 theme and off for a contract 1 theme. |
 | `isCoreAudioEnabled` | — | `boolean` | Returns whether centralized audio handling is currently enabled. |
 | `setAudioOptions` | `options` | — | Sets runtime audio options. Supported keys: `maxVolume`/`max_volume`/`volume`, `fadeDuration`/`fade_duration_ms`/`fadeMs`, `loop`. |
 
@@ -1853,7 +1970,7 @@ Matching is case-insensitive. A hand-placed `wheel.jpg` resolves; it does not ha
 `wheel` supports named sets — a folder of alternate wheel art under
 `medias/wheels/<set>/`. When a set is active it slots between tiers 1 and 2, so a
 table-specific wheel still wins and a media refresh never beats the set. A theme picks the
-set it wants with `wheelSet` in its `theme.json`.
+set it wants with `wheelSet` in its `options.json`.
 
 ### Manufacturer logos
 
@@ -1975,7 +2092,7 @@ Place an `audio.mp3` file in the table's `medias/` folder (or root folder). `vpi
 
 On the controller, `await vpin.handleEvent(message)` automatically manages audio transitions when core audio is enabled.
 
-Core audio is opt-in by default. If your theme does not explicitly enable it (or call `vpin.enableCoreAudio(true)` at runtime), no automatic game audio playback will occur.
+Core audio is on by default for a contract 2 theme, and off for a contract 1 theme until it enables it in its `config.json` (or calls `vpin.enableCoreAudio(true)` at runtime). A theme that plays its own audio sets `audio.enabled` to `false`.
 
 When enabled, these transitions are handled automatically:
 - `TableIndexUpdate` -> play selected game audio
@@ -2022,11 +2139,15 @@ async function receiveEvent(message) {
 // vpin.stopTableAudio({ immediate: true });
 ```
 
-### Configuration Schema (theme `theme.json`)
+### Configuration Schema (`options.json`)
 
-If your theme wants Manager UI-editable options, add a `theme.json` file to the theme root.
+If your theme wants options a person can change, add an `options.json` file to the theme root.
+A theme on contract 1 keeps the same file under its old name, `theme.json`; a contract 2
+theme that ships only `theme.json` has no options, and the log says so once.
 
-`theme.json` now serves as both the option schema and the saved value store. VPinFE Manager UI reads this file to build the configuration dialog and writes the selected values back into each option's `value` field.
+The file declares the options and their defaults, and nothing else. VPinFE builds the
+configuration dialog from it and keeps what a person chooses in their own settings, outside
+the theme, so updating the theme never resets a choice.
 
 Example:
 
@@ -2040,7 +2161,7 @@ Example:
       "name": "Wheel Scale",
       "description": "Controls the wheel image scale multiplier.",
       "type": "number",
-      "value": 1,
+      "default": 1,
       "min": 0.5,
       "max": 2,
       "step": 0.1
@@ -2050,21 +2171,21 @@ Example:
       "name": "Show Clock",
       "description": "Show the clock overlay in the playfield window.",
       "type": "boolean",
-      "value": true
+      "default": true
     },
     {
       "key": "audio.mode",
       "name": "Audio Mode",
       "description": "Select how the theme should handle table audio.",
       "type": "select",
-      "value": "core",
+      "default": "core",
       "options": ["off", "core", "theme"]
     }
   ]
 }
 ```
 
-Full sample `theme.json` for quick testing:
+Full sample `options.json` for quick testing:
 
 ```json
 {
@@ -2076,28 +2197,28 @@ Full sample `theme.json` for quick testing:
       "name": "Show Clock",
       "description": "Show a clock overlay on the playfield screen.",
       "type": "boolean",
-      "value": true
+      "default": true
     },
     {
       "key": "headerTitle",
       "name": "Header Title",
       "description": "Text displayed in the theme header.",
       "type": "text",
-      "value": "My Custom Theme"
+      "default": "My Custom Theme"
     },
     {
       "key": "footerMessage",
       "name": "Footer Message",
       "description": "Multi-line text shown at the bottom of the screen.",
       "type": "textarea",
-      "value": "Welcome to VPinFE\nPress Start to Play"
+      "default": "Welcome to VPinFE\nPress Start to Play"
     },
     {
       "key": "wheel.scale",
       "name": "Wheel Scale",
       "description": "Scale multiplier for wheel art.",
       "type": "number",
-      "value": 1,
+      "default": 1,
       "min": 0.5,
       "max": 2,
       "step": 0.1
@@ -2107,7 +2228,7 @@ Full sample `theme.json` for quick testing:
       "name": "Theme Mode",
       "description": "Choose the overall layout style.",
       "type": "select",
-      "value": "arcade",
+      "default": "arcade",
       "options": [
         "minimal",
         "arcade",
@@ -2119,21 +2240,21 @@ Full sample `theme.json` for quick testing:
       "name": "Accent Color",
       "description": "Hex color used for highlights.",
       "type": "text",
-      "value": "#ffd84d"
+      "default": "#ffd84d"
     },
     {
       "key": "audio.enabled",
       "name": "Enable Audio",
       "description": "Turn theme-controlled audio behavior on or off.",
       "type": "boolean",
-      "value": true
+      "default": true
     },
     {
       "key": "audio.maxVolume",
       "name": "Audio Max Volume",
       "description": "Maximum playback volume for theme audio.",
       "type": "number",
-      "value": 0.8,
+      "default": 0.8,
       "min": 0,
       "max": 1,
       "step": 0.05
@@ -2143,7 +2264,7 @@ Full sample `theme.json` for quick testing:
       "name": "Advanced Rules JSON",
       "description": "Raw JSON for advanced theme behavior.",
       "type": "json",
-      "value": {
+      "default": {
         "showTop10": true,
         "animateWheel": false,
         "videoFadeMs": 750
@@ -2153,7 +2274,7 @@ Full sample `theme.json` for quick testing:
 }
 ```
 
-Supported field types in `theme.json`:
+Supported field types in `options.json`:
 
 - `text`
 - `textarea`
@@ -2167,8 +2288,8 @@ Notes:
 - `key` is required and identifies the value returned through `get_theme_config()`. Dot notation such as `audio.enabled` creates nested objects in the returned config.
 - `name` is the display label shown in Manager UI. If omitted, the `key` is shown.
 - `description` is shown as help text in the dialog.
-- `value` is the current saved value edited by the user.
-- `default` is optional and is used as a fallback if `value` is omitted.
+- `default` is what the option is until a person changes it. Their choice is kept in their own settings and is never written back into this file.
+- `value` is the older spelling of `default`, from when this file also held the chosen values. It is still read as the default when `default` is absent.
 - `select` options may be simple scalar values or `{label, value}` objects.
 - A `select` may set `"source": "wheelsets"` instead of a static `options` list. Manager UI then fills the dropdown from the library: every wheel set folder found under any table's `medias/wheels/`, plus the built-in `logo` set, plus a Default entry (saved as `""`, meaning no set). Use the key `wheelSet`; a non-empty saved value overrides the `[Media] wheelset` setting from `vpinfe.ini` while this theme is active.
 
@@ -2179,15 +2300,19 @@ Notes:
   "description": "Which wheel art set this theme uses.",
   "type": "select",
   "source": "wheelsets",
-  "value": ""
+  "default": ""
 }
 ```
 
 ### Values Returned To Theme Code
 
-Themes should continue reading user configuration through `get_theme_config()`, which returns a plain values object derived from `theme.json`.
+Themes read their configuration through `get_theme_config()`, which returns one plain values object built from three sources, each narrowing the one before:
 
-For compatibility, if `theme.json` is missing, VPinFE still falls back to a legacy `config.json` file when present.
+1. `config.json`, the author's fixed settings, including the [capability](#what-core-does-for-you) blocks.
+2. The defaults declared in `options.json` (`theme.json` at contract 1).
+3. What the person chose, kept in their own settings.
+
+A theme with a `config.json` and no options still gets its `config.json` values back.
 
 For the sample schema above, `get_theme_config()` would return an object like this:
 
@@ -2227,7 +2352,8 @@ Core audio can be configured from theme config:
 }
 ```
 
-If omitted, core audio remains disabled by default.
+If omitted, core audio is on for a contract 2 theme and off for a contract 1 theme. Set
+`audio.enabled` to `false` to play your own.
 
 Also accepted for compatibility:
 - `useCoreAudio` (camelCase)

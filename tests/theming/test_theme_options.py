@@ -215,5 +215,35 @@ class SurvivesAnUpdateTests(_Base):
                          {"showFlags": True, "wheelSpan": 7})
 
 
+class SchemaFileTests(_Base):
+    def setUp(self) -> None:
+        super().setUp()
+        self.theme = _installed(self.root / "themes")
+        theme_options._warned_schema.clear()
+
+    def test_contract_1_reads_its_options_from_theme_json(self) -> None:
+        self.assertEqual(theme_options.schema_path(self.theme, 1).name, "theme.json")
+
+    def test_contract_2_reads_them_from_options_json(self) -> None:
+        self.assertEqual(theme_options.schema_path(self.theme, 2).name, "options.json")
+
+    def test_a_later_contract_reads_options_json_too(self) -> None:
+        self.assertEqual(theme_options.schema_path(self.theme, 3).name, "options.json")
+
+    def test_a_contract_2_theme_with_options_only_in_theme_json_is_told_once(self) -> None:
+        with self.assertLogs("vpinfe.common.theme_options", level="WARNING") as logged:
+            theme_options.schema_path(self.theme, 2)
+            theme_options.schema_path(self.theme, 2)
+
+        self.assertEqual(len(logged.records), 1)
+        self.assertIn("options.json", logged.output[0])
+
+    def test_a_theme_with_an_options_file_is_not_told_anything(self) -> None:
+        (self.theme / "options.json").write_text(json.dumps(SCHEMA), encoding="utf-8")
+
+        with self.assertNoLogs("vpinfe.common.theme_options", level="WARNING"):
+            theme_options.schema_path(self.theme, 2)
+
+
 if __name__ == "__main__":
     unittest.main()

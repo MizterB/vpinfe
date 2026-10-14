@@ -178,6 +178,9 @@ API_INTERNAL_METHODS = {
     'set_player_up',
     'set_player_rating',
     'get_player_rating',
+    # What the person set for attract mode, asked by core when it starts its timers.
+    # A theme reads its own `attract` block from its config.json instead.
+    'get_attract_config',
 }
 
 
@@ -778,6 +781,9 @@ class API:
 
     def get_keymapping(self) -> dict[str, str]:
         return input_api.get_keymapping(self._ini_config.config)
+
+    def get_attract_config(self) -> dict[str, Any]:
+        return config_api.get_attract_config(self._ini_config.config)
 
     def get_mainmenu_config(self) -> dict[str, bool]:
         try:

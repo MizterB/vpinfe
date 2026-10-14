@@ -40,6 +40,31 @@ def _read(path: Path) -> dict[str, Any]:
         return {}
 
 
+_warned_schema: set[str] = set()
+
+
+def schema_path(theme_dir: Path, contract: int) -> Path:
+    """The file this theme declares its options in: options.json at contract 2 and above,
+    theme.json below it.
+
+    A contract 2 theme that ships only theme.json is not read from it - the options it
+    lists simply do not appear - and the log says so once, so the cause is not a silent
+    absence.
+    """
+    if contract < 2:
+        return theme_dir / "theme.json"
+    path = theme_dir / "options.json"
+    legacy = theme_dir / "theme.json"
+    key = str(theme_dir)
+    if not path.is_file() and key not in _warned_schema and legacy.is_file() \
+            and isinstance(_read(legacy).get("options"), list):
+        _warned_schema.add(key)
+        logger.warning("%s lists its options in theme.json, but a theme on contract 2 reads "
+                       "them from options.json. Move them there - until then the theme "
+                       "has no options.", theme_dir.name)
+    return path
+
+
 def values_in_package(theme_dir: Path) -> dict[str, Any]:
     """The values a pre-3.0 build wrote into the theme's own schema file."""
     for name in ("options.json", "theme.json"):

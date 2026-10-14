@@ -12,7 +12,9 @@ from common.config_access import (
     DisplayConfig,
     MediaConfig,
     SettingsConfig,
+    cfg_bool,
     cfg_get,
+    cfg_int,
     cfg_set,
 )
 from common.extensions.store import get_extension_store
@@ -30,6 +32,28 @@ def get_mainmenu_config(iniconfig: ConfigSource) -> dict[str, bool]:
     # hide_quit_button silently did nothing.
     return {
         "hideQuitButton": SettingsConfig.from_config(iniconfig).hide_quit_button,
+    }
+
+
+def get_attract_config(iniconfig: ConfigSource) -> dict[str, Any]:
+    """What the person set for attract mode, in the units core's timers use.
+
+    A step that is neither `random` nor a whole number comes back as `random`: it is a
+    typed setting, and a typo must not stop the wheel.
+    """
+    step = cfg_get(iniconfig, "behavior", "attract_step", "random").strip().lower()
+    try:
+        step_value: Any = (int(step) or 1) if step != "random" else "random"
+    except ValueError:
+        step_value = "random"
+    return {
+        "enabled": cfg_bool(iniconfig, "behavior", "attract_enabled", True),
+        "idle_ms": max(1, cfg_int(iniconfig, "behavior", "attract_idle", 60)) * 1000,
+        "step_ms": max(1, cfg_int(iniconfig, "behavior", "attract_step_time", 8)) * 1000,
+        "step": step_value,
+        "on_return": ("stay" if cfg_get(iniconfig, "behavior", "attract_on_return",
+                                        "restore").strip().lower() == "stay" else "restore"),
+        "audio": cfg_bool(iniconfig, "behavior", "attract_audio", False),
     }
 
 

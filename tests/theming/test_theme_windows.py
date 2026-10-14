@@ -182,12 +182,42 @@ class CoreTopperTests(TempTree):
         self.assertTrue((Path(theme_api.__file__).parent / "static" /
                          theme_api.CORE_WINDOW_PAGES["topper"]).is_file())
 
-    def test_no_other_window_falls_back(self) -> None:
+    def test_core_draws_the_backglass_and_score_view_too(self) -> None:
         self._install({"min_vpinfe": "3.0"})
+
+        for window in ("backglass", "scoreview"):
+            with self.subTest(window=window):
+                page = theme_api.get_theme_index_page(self._config(), window)
+                self.assertIn(f"/core/index_{window}.html?window={window}", page)
+
+    def test_a_theme_that_ships_a_display_page_keeps_it(self) -> None:
+        theme = _theme(self.themes, {"min_vpinfe": "3.0"})
+        (theme / "index_backglass.html").write_text("<html></html>", encoding="utf-8")
 
         page = theme_api.get_theme_index_page(self._config(), "backglass")
 
-        self.assertIn("/themes/a-theme/index_backglass.html", page)
+        self.assertIn("/themes/a-theme/index_backglass.html?window=backglass", page)
+
+    def test_a_window_core_has_no_page_for_goes_to_the_theme(self) -> None:
+        self._install({"min_vpinfe": "3.0"})
+
+        page = theme_api.get_theme_index_page(self._config(), "marquee")
+
+        self.assertIn("/themes/a-theme/index_marquee.html", page)
+
+    def test_a_screen_for_a_display_the_theme_left_out_adds_core_s(self) -> None:
+        self._install({"min_vpinfe": "3.0", "windows": ["playfield"]})
+        config = self._config()
+        config.read_dict({"windows.backglass": {"screen_id": "1"}})
+
+        self.assertEqual(theme_windows.active(config), ("playfield", "backglass"))
+
+    def test_a_contract_1_theme_is_not_offered_them(self) -> None:
+        self._install({"name": "a-theme"})
+        config = self._config()
+        config.read_dict({"windows.backglass": {"screen_id": "1"}})
+
+        self.assertNotIn("backglass", theme_windows.active(config))
 
 
 class DeclaredTests(TempTree):

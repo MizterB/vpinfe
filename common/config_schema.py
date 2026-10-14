@@ -841,6 +841,55 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             default="false",
             legacy=(("general", "muteaudio"),),
         ),
+        # Core moves the wheel on its own once nobody has pressed anything. Whether it does
+        # so is the person's switch and the theme's `attract.enabled` together; either one
+        # off is off.
+        ConfigOption(
+            "attract_enabled",
+            applies=APPLIES_WINDOWS,
+            group=setting_groups.ATTRACT,
+            type="bool",
+            default="true",
+        ),
+        ConfigOption(
+            "attract_idle",
+            applies=APPLIES_WINDOWS,
+            group=setting_groups.ATTRACT,
+            type="int",
+            default="60",
+            unit=UNIT_SECONDS,
+        ),
+        ConfigOption(
+            "attract_step_time",
+            applies=APPLIES_WINDOWS,
+            group=setting_groups.ATTRACT,
+            type="int",
+            default="8",
+            unit=UNIT_SECONDS,
+        ),
+        # `random` or a count of games to move by, negative to go backwards.
+        ConfigOption(
+            "attract_step",
+            applies=APPLIES_WINDOWS,
+            group=setting_groups.ATTRACT,
+            type="string",
+            default="random",
+        ),
+        ConfigOption(
+            "attract_on_return",
+            applies=APPLIES_WINDOWS,
+            group=setting_groups.ATTRACT,
+            type="choice",
+            default="restore",
+            choices=("restore", "stay"),
+        ),
+        ConfigOption(
+            "attract_audio",
+            applies=APPLIES_WINDOWS,
+            group=setting_groups.ATTRACT,
+            type="bool",
+            default="false",
+        ),
     ),
     *in_section(
         "themes",

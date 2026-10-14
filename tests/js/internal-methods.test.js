@@ -29,6 +29,7 @@ describe("vpin.call refuses core's own methods", () => {
       "apply_sort",
       "decide_preview",
       "end_preview",
+      "get_attract_config",
       "get_collection_picker_items",
       "get_current_filter_state",
       "get_current_order_state",

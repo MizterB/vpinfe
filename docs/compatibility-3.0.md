@@ -1519,6 +1519,14 @@ wants the video asks for the video kind.
 frontends, and the shared sets of those videos are named this way.
 Covered by `tests/media/test_media_resolution.py`.
 
+**PAR-106 - Core reads the person's attract mode settings.** One WebSocket method,
+`get_attract_config`, refused to themes like `get_paging_state`. A theme reads its own
+`attract` block from its config.json; the method is core asking what the person set.
+*Why:* attract mode is core's on contract 2, and the person's switch, timings and step
+are `behavior` settings that core needs once its timers start.
+Covered by `tests/js/internal-methods.test.js`, `tests/invariants/test_theme_api_surface.py`
+and `tests/theming/test_attract_drive.py`.
+
 ## Explicitly *not* exceptions
 
 The theme-facing payload (`tables_json` keys, media path fields, stable values) and

@@ -42,6 +42,10 @@ CANONICAL = {"table": "playfield", "bg": "backglass", "dmd": "scoreview"}
 # is used when it ships one; theme_api.CORE_WINDOW_PAGES is the page otherwise.
 TOPPER = "topper"
 
+# The same for the backglass and score view, from contract 2. Contract 1 calls those windows
+# `bg` and `dmd`, so a theme on it is never offered these.
+CORE_DISPLAYS = ("backglass", "scoreview")
+
 
 # Windows whose label is not just the capitalized name. The contract 1 spellings keep
 # the titles they shipped with, so a cabinet's window rules keep matching them.
@@ -123,16 +127,19 @@ def declared_windows(theme_dir: str | Path | None, contract: int) -> tuple[str, 
 
 
 def active(config: ConfigSource | None) -> tuple[str, ...]:
-    """The windows to open, controller first: the active theme's, and the topper when the
-    cabinet has a screen for it and the theme does not declare one."""
+    """The windows to open, controller first: the active theme's, then the topper (and at
+    contract 2 the backglass and score view) when the cabinet has a screen for it and the
+    theme does not declare it."""
     theme_dir = (theme_api.resolve_theme_dir(theme_api.get_theme_name(config))
                  if config is not None else None)
     contract = theme_contract.declared_contract(theme_dir) if theme_dir else OLDEST_CONTRACT
     windows = declared_windows(theme_dir, contract)
-    if config is not None and TOPPER not in windows and \
-            DisplayConfig.from_config(config).window_screen_id(screen_key(TOPPER)).strip():
-        return (*windows, TOPPER)
-    return windows
+    if config is None:
+        return windows
+    displays = DisplayConfig.from_config(config)
+    candidates = (TOPPER, *(CORE_DISPLAYS if contract >= theme_contract.CURRENT_CONTRACT else ()))
+    return (*windows, *(name for name in candidates if name not in windows
+                        and displays.window_screen_id(screen_key(name)).strip()))
 
 
 def own_windows(windows: Iterable[str]) -> tuple[str, ...]:

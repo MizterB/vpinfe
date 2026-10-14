@@ -18,21 +18,15 @@ from common.online import theme_dates, theme_releases, theme_source_checks, them
 from common.online.theme_installer import ASIDE_SUFFIX, ThemeInstallStore
 from common.online.theme_registry_client import ThemeRegistryClient, ThemeRegistryError
 from common.paths import CONFIG_DIR, get_ini_config
+from common.theme_level import CURRENT_CONTRACT, MIN_VERSION_KEY
 from common.values import newer_version, parse_version
 from common.vpinfe_version import get_version
-
-# What a theme states as the oldest build it runs on. Named here rather than imported
-# from the frontend: the installer runs on installs that have no frontend at all.
-MIN_VERSION_KEY = "min_vpinfe"
 
 
 class ThemeVersionError(ThemeRegistryError):
     """A theme that needs a newer VPinFE than the one asked to install it."""
 
 logger = logging.getLogger("vpinfe.common.online.themes")
-
-# The highest theme contract this build serves.
-CURRENT_CONTRACT = 2
 
 
 class ThemeRegistry:

@@ -18,6 +18,7 @@ from common.config_store import ConfigStore
 from common.i18n import t
 from common.online.themes import ThemeRegistry
 from common.paths import THEMES_DIR, VPINFE_INI_PATH
+from common.theme_level import declared_contract
 
 
 def get_active_theme() -> str:
@@ -145,7 +146,7 @@ def load_theme_option_schema(
     if theme_dir is None:
         return None
 
-    schema = _read_json_object(theme_dir / "theme.json")
+    schema = _read_json_object(theme_options.schema_path(theme_dir, declared_contract(theme_dir)))
     if not schema:
         return None
 
@@ -200,10 +201,7 @@ def get_theme_option_values(
         if key in chosen:
             values[key] = chosen[key]
             continue
-        current_value = option.get("value")
-        if current_value is None and "default" in option:
-            current_value = option.get("default")
-        values[key] = current_value
+        values[key] = option.get("default") if "default" in option else option.get("value")
 
     return values
 

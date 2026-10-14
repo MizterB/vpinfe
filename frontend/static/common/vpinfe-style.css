@@ -340,6 +340,43 @@ html[data-vpinfe-waiting]::after {
 }
 
 /* ---------------------------------------------------------------------------
+   The spinner shown while a game starts.
+
+   Core's, in every window of every theme from contract 2, from TableLaunching until the
+   table is running. Centered and above the page but below the hold ring and a confirm.
+   A theme restyles .vpinfe-launch-indicator (and .vpinfe-launch-spinner inside it), or
+   turns it off with launch_indicator.enabled and draws its own.
+   --------------------------------------------------------------------------- */
+
+.vpinfe-launch-indicator {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 2147483645;
+  opacity: 0;
+  animation: vpinfe-launch-appear 180ms ease-out forwards;
+}
+
+.vpinfe-launch-spinner {
+  width: clamp(3rem, 12vmin, 8rem);
+  height: clamp(3rem, 12vmin, 8rem);
+  border: 0.4rem solid rgba(255, 255, 255, 0.25);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: vpinfe-launch-spin 900ms linear infinite;
+}
+
+@keyframes vpinfe-launch-appear {
+  to { opacity: 1; }
+}
+
+@keyframes vpinfe-launch-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---------------------------------------------------------------------------
    A recording shown for a decision, on the screen it belongs to.
 
    The window whose screen it is plays it over everything the theme drew; the

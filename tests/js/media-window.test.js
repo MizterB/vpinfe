@@ -36,8 +36,8 @@ async function coreOn(windowName, { target = true, themeConfig = {} } = {}) {
   vpin.init();
   await browser.WebSocket.instances.at(-1).onopen();
 
-  const stage = { children: [], replaceChildren(...kids) { this.children = kids; } };
-  if (target) browser.document._query["[data-vpin-media]"] = stage;
+  const stage = { children: [], getAttribute: () => "", replaceChildren(...kids) { this.children = kids; } };
+  if (target) browser.document._queryAll["[data-vpin-media]"] = [stage];
 
   vpin.tableData = ROWS;
   vpin.themeAssetsPort = 8000;
@@ -82,6 +82,34 @@ describe("core rendering the window's media", () => {
     assert.equal(stage.children.length, 1);
   });
 
+  test("a value on the element names the kind, in any window", async () => {
+    const { vpin, browser } = await coreOn("table", { target: false });
+    const named = { children: [], getAttribute: () => "playfield",
+      replaceChildren(...kids) { this.children = kids; } };
+    browser.document._queryAll["[data-vpin-media]"] = [named];
+    step(vpin);
+    assert.equal(named.children.length, 1);
+  });
+
+  test("every marked element is drawn into, each with its own kind", async () => {
+    const { vpin, stage, browser } = await coreOn("backglass");
+    const other = { children: [], getAttribute: () => "playfield",
+      replaceChildren(...kids) { this.children = kids; } };
+    browser.document._queryAll["[data-vpin-media]"] = [stage, other];
+    step(vpin);
+    assert.equal(stage.children.length, 1);
+    assert.equal(other.children.length, 1);
+  });
+
+  test("a value that is not a kind draws nothing", async () => {
+    const { vpin, browser } = await coreOn("backglass", { target: false });
+    const odd = { children: [], getAttribute: () => "true",
+      replaceChildren(...kids) { this.children = kids; } };
+    browser.document._queryAll["[data-vpin-media]"] = [odd];
+    step(vpin);
+    assert.deepEqual(odd.children, []);
+  });
+
   test("a page with no target is left alone", async () => {
     const { vpin, stage } = await coreOn("backglass", { target: false });
     step(vpin);
@@ -105,8 +133,8 @@ describe("core rendering the window's media", () => {
     // first game. At index 0 nothing arrives, so a window that only drew on a selection
     // message stayed blank from launch - which is what the cabinet showed.
     const { vpin, browser } = newCore({ windowName: "backglass" });
-    const stage = { children: [], replaceChildren(...kids) { this.children = kids; } };
-    browser.document._query["[data-vpin-media]"] = stage;
+    const stage = { children: [], getAttribute: () => "", replaceChildren(...kids) { this.children = kids; } };
+    browser.document._queryAll["[data-vpin-media]"] = [stage];
     vpin.call = (method) => Promise.resolve(
       method === "get_tables" ? JSON.stringify(ROWS) : BRIDGE_DEFAULTS[method]);
 

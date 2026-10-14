@@ -338,7 +338,7 @@ def render_panel(tab=None):
             ui.label(option_schema.get('title') or f'{theme_label} Options').classes('text-xl font-bold').style('color: var(--ink) !important;')
             if option_schema.get('description'):
                 ui.label(option_schema['description']).classes('text-sm').style('color: var(--ink-muted) !important;')
-            ui.label('Values are saved directly into `theme.json` and are available through `get_theme_config()` in theme code.').classes('text-sm').style('color: var(--ink-muted) !important;')
+            ui.label('Values are saved in your VPinFE settings, not in the theme, and are available through `get_theme_config()` in theme code.').classes('text-sm').style('color: var(--ink-muted) !important;')
             if is_active:
                 ui.label('If the active theme does not hot-reload config, restart VPinFE after saving.').classes('text-sm').style('color: var(--neon-yellow) !important;')
 
