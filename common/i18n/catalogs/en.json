@@ -5389,6 +5389,7 @@
   "console.encrypted.none": "Changes from other computers need a code on {device}. A VPN or proxy skips it.",
   "console.encrypted.proxies": "Trusted Proxies",
   "console.encrypted.proxies_line": "Requests from these can say they came over HTTPS",
+  "console.encrypted.proxy_here": "A proxy on this computer only counts once HTTPS is on",
   "console.encrypted.networks": "Encrypted Networks",
   "console.encrypted.networks_line": "Traffic from these is encrypted, so changes from them don't ask for a code",
   "console.encrypted.add": "Add",

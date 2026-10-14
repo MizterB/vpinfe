@@ -59,6 +59,25 @@ class WhatSecurityShows(unittest.TestCase):
 
         self.assertNotIn(t("console.encrypted.none", device="Game Room"), said)
 
+    def test_a_proxy_on_this_computer_says_it_waits_for_https(self) -> None:
+        for proxies in (["127.0.0.1"], ["10.0.0.5", "::1"]):
+            with self.subTest(proxies=proxies):
+                said = _text(_entries(proxies=proxies, https=False))
+
+                self.assertIn(t("console.encrypted.proxy_here"), said)
+
+    def test_that_line_goes_once_https_is_served(self) -> None:
+        said = _text(_entries(proxies=["127.0.0.1"], https=True))
+
+        self.assertNotIn(t("console.encrypted.proxy_here"), said)
+
+    def test_a_proxy_on_another_computer_has_no_such_line(self) -> None:
+        with mock.patch.object(encrypted_panel.this_machine, "peer_is_this_machine",
+                               return_value=False):
+            said = _text(_entries(proxies=["10.0.0.5"], https=False))
+
+        self.assertNotIn(t("console.encrypted.proxy_here"), said)
+
     def test_without_a_certificate_it_offers_to_choose_one(self) -> None:
         said = _text(_entries())
 

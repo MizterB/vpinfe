@@ -12,6 +12,7 @@ from typing import Any
 from nicegui import run, ui
 
 from common.failures import why
+from common.host import this_machine
 from common.i18n import t
 from common.install_identity import display_name
 from common.paths import get_ini_config
@@ -75,6 +76,8 @@ def entries(held: dict[str, Any], device: str, *, add_proxy: Callable[[], Any],
     out.append((panel.FULL, panel.action(t("console.encrypted.add"), add_proxy, icon=verbs.ADD,
                                          hint=t("console.encrypted.add_proxy_hint"))))
     out.append(panel.note(t("console.encrypted.proxies_line")))
+    if not held.get("https") and any(this_machine.peer_is_this_machine(one) for one in proxies):
+        out.append(panel.note(t("console.encrypted.proxy_here")))
     out.append((panel.HEADING, t("console.encrypted.networks")))
     out += [(text, _removable(remove_network, text, t("console.encrypted.remove_hint")))
             for text in networks]
