@@ -1248,6 +1248,35 @@ body::before {
   padding: 0;
 }
 
+/* The mark on anything an extension VPinFE did not ship put on screen. Quiet on purpose:
+   it is on every such entry, so it must not compete with the entry it sits on. Inherits
+   the size of the line it is in, and never takes the case of a heading. */
+.console-ext-mark {
+  color: var(--ink-3);
+  font-size: 1em;
+  text-transform: none;
+  flex: none;
+}
+.console-ext-mark--after { margin-left: 6px; }
+.console-section-name .console-ext-mark { margin-left: 4px; vertical-align: -0.15em; }
+/* The rail paints every icon in it, and brighter on hover; the mark stays quiet. */
+.q-drawer--left .q-icon.console-ext-mark,
+.q-drawer--left .cursor-pointer:hover .q-icon.console-ext-mark { color: var(--ink-3); opacity: 1; }
+/* Collapsed rail only: the label is gone, so the mark moves onto the icon's lower right,
+   opposite the badge. In the open rail the mark follows the label instead. */
+.console-ext-mark--corner {
+  display: none;
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  font-size: 0.95em;
+}
+.q-drawer--mini .console-ext-mark--corner { display: block; }
+.console-menu-header--owned,
+.console-heading-owned { display: flex; align-items: center; gap: 6px; }
+.console-tier--glyph { display: inline-flex; align-items: center; gap: 4px; }
+.console-tier-glyph { font-size: 1.2em; }
+
 /* A log, read the way `tail` shows one: newest last, monospaced so timestamps and levels
    line up down the column, and the message under its own header line rather than beside
    it - a traceback is the case that matters and it has nowhere to go on one line. */

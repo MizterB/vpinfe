@@ -76,9 +76,13 @@ including one in the extensions folder that has the name of one VPinFE ships:
 - **In Settings, under Extensions.**  A chip beside its name, Not Accepted until accepted and
   Unofficial after, and the page's list of what it reaches reads "What It Says It Uses".  The
   chip's tooltip says "Not included with VPinFE.  Extensions can run programs on this computer."
-- **On its own pages.**  A list's or a page's header names the extension and carries the chip.
-- **Not elsewhere.**  Nothing marks the extension's entry in the navigation rail, a link that
-  leaves, a group it adds to a game's panel or a row it adds to Needs You.
+- **On its own pages.**  A page's header says "From {Extension}".  It carries no
+  status of its own, because the rail entry that led there already did.
+- **Wherever its name stands for what it added.**  A small grey shield, with the tooltip
+  "Unofficial, from {Extension}".  It follows the name of its entry in the navigation rail (on
+  the icon's corner when the rail is collapsed), and it leads the name over its entries in a
+  game's or a table's menu, over a group it adds to a game's panel and over its rows in Needs
+  You.  The chip carries it too.  A link that leaves keeps its arrow and takes no shield.
 
 What accepting is kept in:
 

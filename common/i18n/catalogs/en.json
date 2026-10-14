@@ -1378,6 +1378,7 @@
   "console.ext_action.preparing": "Getting it ready",
   "console.ext_action.working": "Working",
   "console.ext_action.worth_knowing": "Worth knowing",
+  "console.ext_mark.tip": "Unofficial, from {name}",
   "console.ext_page.games_write": "add and change games",
   "console.ext_page.config_write": "add library folders",
   "console.ext_page.ui_mount": "add a page to the Console",

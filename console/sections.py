@@ -20,6 +20,7 @@ from common.failures import why
 from common.i18n import t
 from common.media_specs import media_label_map
 from console import (
+    ext_mark,
     front,
     game_tables,
     jobs_list,
@@ -247,7 +248,7 @@ def _needs_you(arranged: needs.Arranged, state: dict[str, Any], fix: Callable[..
             with ui.element("div").classes(
                     "console-need-group" + ("" if group.label else " console-need-group--loose")):
                 if group.label:
-                    ui.label(group.label).classes("console-group")
+                    _group_heading(group, state)
                 for need in group.rows:
                     _need_row(need, state, fix, acts)
     if arranged.aside:
@@ -258,6 +259,18 @@ def _needs_you(arranged: needs.Arranged, state: dict[str, Any], fix: Callable[..
         with shown, ui.element("div").classes("console-card console-needs w-full"):
             for one in arranged.aside:
                 _aside_line(one, acts)
+
+
+def _group_heading(group: needs.Group, state: dict[str, Any]) -> None:
+    mark = ext_mark.drawer(ext_mark.by_name(
+        state.get("extensions") or [], group.owner[len(needs.EXTENSION):])) \
+        if group.owner.startswith(needs.EXTENSION) else None
+    if mark is None:
+        ui.label(group.label).classes("console-group")
+        return
+    with ui.row().classes("console-group items-center gap-1 no-wrap"):
+        mark()
+        ui.label(group.label)
 
 
 def _opens(row: Any, state: dict[str, Any], where: needs.Opens) -> None:

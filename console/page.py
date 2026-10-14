@@ -31,6 +31,7 @@ from console import (
     confirm,
     deeplink,
     ext_links,
+    ext_mark,
     ext_pages,
     folders,
     games,
@@ -768,7 +769,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                         # that is first true.
                         _nav_item(key, label, icon, state, lambda: redraw(), rail_labels,
                                   destinations, badges,
-                                  nested=parent is not None, held=held)
+                                  nested=parent is not None, held=held,
+                                  owner=_owner_of(key, state["extensions"]))
                         if key == "collections":
                             row_drag.rail(state)
                     if parent is not None:
@@ -2058,9 +2060,15 @@ async def may_leave(state: dict[str, Any], view: str) -> bool:
     return True
 
 
+def _owner_of(view: str, extensions: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """The extension a rail entry came from, or None for one VPinFE draws itself."""
+    found = community_page.find(view, extensions) or ext_pages.find(view, extensions)
+    return found[0] if found else None
+
+
 def _nav_item(key: str, label: str, icon: str, state: dict[str, Any], render: Callable[..., Any],
               labels: list, destinations: dict, badges: dict, nested: bool = False,
-              held: list | None = None) -> None:
+              held: list | None = None, owner: dict[str, Any] | None = None) -> None:
     @on_page
     async def choose() -> None:
         if not await may_leave(state, key):
@@ -2088,11 +2096,16 @@ def _nav_item(key: str, label: str, icon: str, state: dict[str, Any], render: Ca
             badge = ui.label("").classes("console-nav-badge")
             badge.set_visibility(False)
             badges[key] = badge
+            # At the icon's corner, shown only where the label that carries it is hidden.
+            ext_mark.draw(owner, classes="console-ext-mark--corner")
         # `no-wrap` on the row and nowrap on the label. A rail entry is one line by
         # definition, and the rail scrolls once there are enough of them - which takes a
         # scrollbar's width off every row and was enough to break "Collections" in two.
         labels.append(ui.label(t(label))
                       .classes("console-nav-item whitespace-nowrap"))
+        after = ext_mark.draw(owner, classes="console-ext-mark--after")
+        if after is not None:
+            labels.append(after)
     destinations[key] = row
     if held is not None and nested:
         held.append(row)

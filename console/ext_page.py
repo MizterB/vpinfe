@@ -21,7 +21,17 @@ from common import accepted
 from common.extensions import host
 from common.failures import why
 from common.i18n import t
-from console import accept, confirm, deeplink, ext_action, ext_links, offload, panel, verbs
+from console import (
+    accept,
+    confirm,
+    deeplink,
+    ext_action,
+    ext_links,
+    ext_mark,
+    offload,
+    panel,
+    verbs,
+)
 from console.api import ApiClient
 from console.on_page import on_page
 
@@ -115,7 +125,8 @@ def _origin_rows(extension: dict) -> list[tuple[Any, ...]]:
              panel.state(t("console.ext_page.not_accepted_chip" if stopped
                            else "console.ext_page.unofficial_chip"),
                          "bad" if stopped else "warn",
-                         beside=str(trust.get("folder") or ""), hint=tip))]
+                         beside=str(trust.get("folder") or ""), hint=tip,
+                         glyph=ext_mark.GLYPH))]
 
 
 def _cannot_run(extension: dict) -> bool:

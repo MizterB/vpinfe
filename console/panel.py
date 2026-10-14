@@ -28,6 +28,9 @@ from console.on_page import on_page
 # Rows that are not a fact. A group's title and an action strip span both columns, so
 # every group keeps the one shared label width.
 HEADING = object()
+# A heading that starts with a mark, as (OWNED, (text, mark)): the extension a group came
+# from, where it is not VPinFE's own.
+OWNED = object()
 FULL = object()
 # The value column alone, for a line that belongs to the control above it rather than
 # to the row. Across both columns it starts at the label's edge and reads as a caption
@@ -138,6 +141,12 @@ def _fact_row(target: Any, label: Any, value: Any) -> None:
     """One entry of `facts`: a heading, a full-width line, or a label and its value."""
     if label is HEADING:
         target.label(str(value)).classes("console-fact-heading")
+        return
+    if label is OWNED:
+        text, mark = value
+        with target.element("div").classes("console-fact-heading console-heading-owned"):
+            mark()
+            ui.label(str(text))
         return
     if label is FULL:
         with target.element("div").classes("console-fact-full"):
@@ -315,20 +324,28 @@ def choice_buttons(options: Any, value: Any, on_change: Callable[[Any], Any], *,
     return draw
 
 
-def state(text: str, level: str, *, beside: str = "",
-          hint: str = "") -> Callable[[], None]:
+def state(text: str, level: str, *, beside: str = "", hint: str = "",
+          glyph: str = "") -> Callable[[], None]:
     """A state the panel found and the user cannot set, as a chip.
 
     The counterpart of the switch: a switch is a setting, a chip is a finding, and the
     shape is what says which. `level` is what the absence costs - `on`, `off`, `unknown`,
-    `warn`, `bad`.
+    `warn`, `bad`. `glyph` is drawn before the word, so the word teaches what the glyph
+    means where it is met alone.
     """
     def draw() -> None:
         with ui.element("div").classes("console-fact-edit"):
             if beside:
                 ui.label(beside).classes("console-fact-value truncate min-w-0") \
                     .tooltip(beside)
-            chip = ui.label(text).classes(f"console-tier console-tier--{level}")
+            if glyph:
+                chip = ui.element("span").classes(
+                    f"console-tier console-tier--{level} console-tier--glyph")
+                with chip:
+                    ui.icon(glyph).classes("console-tier-glyph")
+                    ui.label(text)
+            else:
+                chip = ui.label(text).classes(f"console-tier console-tier--{level}")
             if hint:
                 chip.tooltip(hint)
 
@@ -1555,7 +1572,8 @@ class Verb:
     `one` is a verb with no meaning over several rows: with several chosen it stays in the
     menu, dimmed and saying so (`for_selection`). `tip` is what a hover adds to the label.
     `block` is the extension an entry comes from: its entries follow core's, each block under
-    a rule and its name.
+    a rule and its name. `block_mark` draws before that name, for an extension VPinFE did
+    not ship.
     """
     label: str
     run: Callable[[], Any] | None = None
@@ -1569,6 +1587,7 @@ class Verb:
     one: bool = False
     tip: str = ""
     block: str = ""
+    block_mark: Callable[[], None] | None = None
 
 
 def for_selection(entries: Sequence[Verb], count: int) -> list[Verb]:
@@ -1624,12 +1643,21 @@ def verb_entries(entries: Sequence[Verb], close: Callable[[], Any] | None = None
     menu, for the entries that draw their own."""
     shut = close or (lambda: None)
     blocks: dict[str, list[Verb]] = {"": []}
+    marks: dict[str, Callable[[], None] | None] = {}
     for one in entries:
         blocks.setdefault(one.block, []).append(one)
+        marks.setdefault(one.block, one.block_mark)
     for name, held in blocks.items():
         if name and held:
             ui.separator()
-            ui.item_label(name).props("header").classes("console-menu-header")
+            mark = marks.get(name)
+            if mark is None:
+                ui.item_label(name).props("header").classes("console-menu-header")
+            else:
+                with ui.item_label().props("header").classes(
+                        "console-menu-header console-menu-header--owned"):
+                    mark()
+                    ui.label(name)
         safe = [one for one in held if not one.danger]
         risky = [one for one in held if one.danger]
         for one in safe:

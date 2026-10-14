@@ -19,7 +19,17 @@ from nicegui import ui
 
 from common.failures import why
 from common.i18n import t
-from console import busy, community, ext_cells, ext_links, ext_row, offload, panel, verbs
+from console import (
+    busy,
+    community,
+    ext_cells,
+    ext_links,
+    ext_mark,
+    ext_row,
+    offload,
+    panel,
+    verbs,
+)
 from console.api import ApiClient
 from console.on_page import on_page
 
@@ -107,12 +117,17 @@ async def _show(region: ui.element, extension: dict[str, Any], group: dict[str, 
         return
     region.clear()
     with region:
-        panel.facts(ui, [*([(panel.HEADING, str(answer.get("title") or ""))]
+        panel.facts(ui, [*(_heading(extension, str(answer.get("title") or ""))
                            if group.get("section") else []),
                          *ext_row.section_entries(section, held),
                          *_strip(answer.get("acts") or [], where, redraw,
                                  str(extension.get("display_name") or extension.get("name")
                                      or ""))])
+
+
+def _heading(extension: dict[str, Any], title: str) -> list[tuple[Any, ...]]:
+    mark = ext_mark.drawer(extension)
+    return [(panel.HEADING, title) if mark is None else (panel.OWNED, (title, mark))]
 
 
 def _strip(acts: list[dict[str, Any]], where: str,

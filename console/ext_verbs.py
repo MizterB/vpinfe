@@ -17,7 +17,7 @@ from nicegui import ui
 
 from common.failures import why
 from common.i18n import t
-from console import community, confirm, offload, panel, verbs
+from console import community, confirm, ext_mark, offload, panel, verbs
 from console.api import ApiClient
 from console.on_page import on_page
 
@@ -72,5 +72,5 @@ def offered(state: dict[str, Any], subject: str, targets: list[dict[str, str]],
             out.append(panel.Verb(
                 str(verb["label"]), run=partial(press, extension, verb, chosen, again),
                 danger=bool(verb["danger"]), one=bool(verb["one"]), tip=str(verb["tip"]),
-                block=name))
+                block=name, block_mark=ext_mark.drawer(extension)))
     return out

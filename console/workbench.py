@@ -65,6 +65,7 @@ from console import (
     dof,
     dropdown,
     ext_groups,
+    ext_mark,
     ext_row,
     file_acts,
     game_acts,
@@ -350,6 +351,8 @@ class Section:
     group: str = ""
     # A Material icon drawn before the name; only an extension's section sets one.
     icon: str = ""
+    # Drawn after the name, for a section an extension VPinFE did not ship added.
+    mark: Callable[[], None] | None = None
 
 
 def sections_for(subject: str) -> tuple[Section, ...]:
@@ -1968,7 +1971,7 @@ def _group_sections(context: dict[str, Any]) -> tuple[Section, ...]:
 def _group_row(key: str, extension: dict[str, Any], group: dict[str, Any]) -> Section:
     label = ext_groups.title(extension, group)
     return Section(key, lambda _: label, partial(_group_section, extension, group),
-                   icon=group.get("icon") or "extension")
+                   icon=group.get("icon") or "extension", mark=ext_mark.drawer(extension))
 
 
 async def _group_section(extension: dict[str, Any], group: dict[str, Any],
@@ -2000,11 +2003,15 @@ def _section_row(context: dict[str, Any], section: Section, open_now: bool,
     if open_now:
         row.classes(add="console-section-on")
     with row:
-        name = ui.row().classes("items-center grow min-w-0 console-section-hit")
+        name = ui.row().classes("items-center no-wrap grow min-w-0 console-section-hit")
         with name:
             if section.icon:
                 ui.icon(section.icon, size="18px").classes("mr-2")
             text = ui.label(section.label(context)).classes("console-section-name")
+            if section.mark is not None:
+                # Inside the label, so it wraps with the words and stays on the last one.
+                with text:
+                    section.mark()
         # Shown only where the rows stack, because only there does one open under
         # another. Beside its content it would be pointing at nothing.
         with ui.row().classes("items-center console-section-caret"):
