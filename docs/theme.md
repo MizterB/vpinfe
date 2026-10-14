@@ -352,43 +352,20 @@ and a contract 2 theme shipping `index_table.html` gets a 404 — nothing looks 
 
 ### index_playfield.html
 
-This is the main HTML file. It controls input, displays the primary UI, and hosts the in-theme menu overlays. Below is the minimum required structure:
+This is the main HTML file. It displays the primary UI and hosts the in-theme menu overlays.
+The worked example is [Template](https://github.com/vpinfe/theme-template), a small theme
+that is read end to end: its `index_playfield.html` is the minimum structure, with each part
+commented.
 
 > Core's own files are served at `/core/`, against `/themes/` for what a theme provides.
 > Themes written before 3.0 ask for them at `/web/`, which still serves the same files —
 > nothing needs updating, and both spellings reach the same place.
 
-```html
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8" />
-  <title>VPinFE - My Theme</title>
-  <link rel="stylesheet" href="/core/common/vpinfe-style.css">
-  <link rel="stylesheet" href="style.css">
-  <script src="/core/common/vpinfe-core.js"></script>
-  <script src="theme.js"></script>
-</head>
-<body>
-  <!-- Your theme content goes here -->
-  <div id="fadeContainer">
-    <!-- Wrap your content in a container for fade transitions -->
-  </div>
-
-  <!-- Required: Menu overlay container. VPinFECore injects the main menu
-       and collection menu iframes into this div. -->
-  <div id="overlay-root"></div>
-
-  <!-- Optional: Remote launch overlay shown when manager UI triggers a launch -->
-  <div id="remote-launch-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 9999; justify-content: center; align-items: center; flex-direction: column;">
-    <div style="color: white; font-size: 3em; font-family: Arial, sans-serif; text-align: center;">
-      <div style="margin-bottom: 20px;">Remote Launching...</div>
-      <div id="remote-launch-table-name" style="font-size: 1.5em; color: #4CAF50;"></div>
-    </div>
-  </div>
-</body>
-</html>
-```
+The page links `/core/common/vpinfe-style.css` and `/core/common/vpinfe-core.js`, then its
+own `style.css` and `theme.js`. Put `vpinfe-upright` on the outermost element so the page
+turns to face the player when the cabinet mounts the screen sideways, and style that element
+by class, since an id outranks the rules that turn it. Mark an element
+`data-vpin-media="playfield"` and core fills it with the selected table's art.
 
 #### Required Includes
 
@@ -846,150 +823,17 @@ The main JS file for interacting with VPinFE and controlling the theme UI. Every
 
 VPinFE also passes the current window identity in the page URL as `?window=playfield`, `?window=backglass`, or `?window=scoreview`. For a high-DPI setup, the `backglass` and `scoreview` windows may also get an optional `override` query parameter in the form `x,y,width,height`. Theme authors can read that value when they need to use the configured bounds instead of the auto-detected browser window size.
 
-```javascript
-/*
-Bare minimum theme example.
-*/
+The worked example is [Template](https://github.com/vpinfe/theme-template). Its `theme.js`
+has four parts, in this order in every theme: read its options, draw the list, draw the
+selection, and hand every message to core with `await vpin.handleEvent(message)`, then
+redraw. It has no input switch for stepping or paging, no media URLs, no audio, no
+preloading, no loading overlay and no attract timer, because core does those on contract 2
+(see [What core does for you](#what-core-does-for-you)). The one input action it answers is
+`select`, to launch.
 
-// Globals
-windowName = ""
-currentGameIndex = 0;
-
-// init the core interface to VPinFE
-const vpin = new VPinFECore();
-vpin.init();
-window.vpin = vpin // main menu needs this to call back in.
-
-// Register receiveEvent globally BEFORE vpin.ready to avoid timing issues
-window.receiveEvent = receiveEvent;
-
-// wait for VPinFECore to be ready
-vpin.ready.then(async () => {
-    await vpin.call("get_my_window_name")
-        .then(result => {
-            windowName = result;
-        });
-
-    // register your input handler
-    vpin.registerInputHandler(handleInput);
-
-    // optional: load values from the theme config (config.json merged with options.json and the person's choices)
-    config = await vpin.call("get_theme_config");
-
-    // Initialize the display
-    updateScreen();
-});
-
-// listener for window events
-async function receiveEvent(message) {
-    // Let VPinFECore handle the data refresh logic (TableDataChange, filters, sorts)
-    await vpin.handleEvent(message);
-
-    if (message.type == "TableIndexUpdate") {
-        currentGameIndex = message.index;
-        updateScreen();
-    }
-    else if (message.type == "TableLaunching") {
-        await fadeOut();
-    }
-    else if (message.type == "TableRunning") {
-        // Game has finished loading and is now running
-    }
-    else if (message.type == "TableLaunchComplete") {
-        fadeIn();
-    }
-    else if (message.type == "RemoteLaunching") {
-        // Remote launch from manager UI - message.game_name has the game name
-        showRemoteLaunchOverlay(message.game_name);
-        await fadeOut();
-    }
-    else if (message.type == "RemoteLaunchComplete") {
-        hideRemoteLaunchOverlay();
-        fadeIn();
-    }
-    else if (message.type == "TableDataChange") {
-        currentGameIndex = message.index;
-        updateScreen();
-    }
-}
-
-// input handler - only called on the controller window
-/*  joyleft, joyright, joyup, joydown,
-    joyselect, joymenu, joyback, joycollectionmenu */
-async function handleInput(input) {
-    switch (input) {
-        case "joyleft":
-            currentGameIndex = wrapIndex(currentGameIndex - 1, vpin.tableData.length);
-            updateScreen();
-            vpin.sendMessageToAllWindows({
-                type: 'TableIndexUpdate',
-                index: currentGameIndex
-            });
-            break;
-        case "joyright":
-            currentGameIndex = wrapIndex(currentGameIndex + 1, vpin.tableData.length);
-            updateScreen();
-            vpin.sendMessageToAllWindows({
-                type: 'TableIndexUpdate',
-                index: currentGameIndex
-            });
-            break;
-        case "joyselect":
-            vpin.sendMessageToAllWindows({ type: "TableLaunching" });
-            await fadeOut();
-            await vpin.launchTable(currentGameIndex);
-            break;
-        case "joyback":
-            break;
-    }
-}
-
-function updateScreen() {
-    if (vpin.isController()) {
-        // Update the playfield window: images, carousel, info, audio
-        vpin.playTableAudio(currentGameIndex);
-    } else if (windowName === "backglass") {
-        // Update backglass image
-    } else if (windowName === "scoreview") {
-        // Update score view image
-    }
-}
-
-// circular game index helper
-function wrapIndex(index, length) {
-    return (index + length) % length;
-}
-
-// Fade transition helpers
-async function fadeOut() {
-    const el = document.getElementById('fadeContainer');
-    return new Promise(resolve => {
-        el.addEventListener('transitionend', e => {
-            if (e.propertyName === 'opacity') resolve();
-        }, { once: true });
-        el.style.opacity = '0';
-    });
-}
-
-function fadeIn() {
-    document.getElementById('fadeContainer').style.opacity = '1';
-}
-
-// Remote launch overlay
-function showRemoteLaunchOverlay(gameName) {
-    const overlay = document.getElementById('remote-launch-overlay');
-    const nameEl = document.getElementById('remote-launch-table-name');
-    if (overlay && nameEl) {
-        nameEl.textContent = gameName || 'Unknown Game';
-        overlay.style.display = 'flex';
-    }
-}
-
-function hideRemoteLaunchOverlay() {
-    const overlay = document.getElementById('remote-launch-overlay');
-    if (overlay) overlay.style.display = 'none';
-}
-```
+A theme on contract 1 still does its own, as it always did. Its `handleInput` receives
+`joyleft`, `joyright`, `joyselect` and the rest of the names in the table below, and its
+`receiveEvent` fades and draws its own loading overlay on `TableLaunching`.
 
 > **Important:** Call `await vpin.handleEvent(message)` at the top of your `receiveEvent` function. This lets VPinFECore handle `TableDataChange` events automatically (collection changes, filter/sort updates) so you don't have to manage that logic yourself.
 
