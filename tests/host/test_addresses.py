@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import configparser
 import unittest
 from unittest import mock
 
@@ -29,11 +30,33 @@ class UsableTests(unittest.TestCase):
 class OrderTests(unittest.TestCase):
     """Which one goes in front of a person, and which one never does."""
 
-    def test_the_routed_address_leads(self) -> None:
+    def test_the_name_leads_when_it_resolves_to_this_machine(self) -> None:
         with mock.patch.object(addresses, "primary_ipv4", return_value="192.168.1.20"), \
                 mock.patch.object(addresses, "_hostname", return_value="cab"), \
                 mock.patch.object(addresses, "_resolved", return_value=["192.168.1.20"]):
-            self.assertEqual(addresses.hosts(), ["192.168.1.20", "cab", "localhost"])
+            self.assertEqual(addresses.hosts(), ["cab", "192.168.1.20", "localhost"])
+
+    def test_a_name_on_another_interface_of_this_machine_still_leads(self) -> None:
+        with mock.patch.object(addresses, "primary_ipv4", return_value="192.168.1.20"), \
+                mock.patch.object(addresses, "_hostname", return_value="cab"), \
+                mock.patch.object(addresses, "_interface_ipv4s", return_value={"10.0.0.4"}), \
+                mock.patch.object(addresses, "_resolved", return_value=["10.0.0.4"]):
+            self.assertEqual(addresses.hosts()[0], "cab")
+
+    def test_the_routed_address_leads_while_the_name_points_elsewhere(self) -> None:
+        """A name that resolves to another machine would send a person there."""
+        with mock.patch.object(addresses, "primary_ipv4", return_value="192.168.1.20"), \
+                mock.patch.object(addresses, "_hostname", return_value="cab"), \
+                mock.patch.object(addresses, "_interface_ipv4s", return_value=set()), \
+                mock.patch.object(addresses, "_resolved", return_value=["192.168.1.99"]):
+            self.assertEqual(addresses.hosts(), ["192.168.1.20", "localhost"])
+
+    def test_no_routed_address_and_a_foreign_name_offers_neither(self) -> None:
+        with mock.patch.object(addresses, "primary_ipv4", return_value=""), \
+                mock.patch.object(addresses, "_hostname", return_value="cab"), \
+                mock.patch.object(addresses, "_interface_ipv4s", return_value=set()), \
+                mock.patch.object(addresses, "_resolved", return_value=["192.168.1.99"]):
+            self.assertEqual(addresses.hosts(), ["localhost"])
 
     def test_loopback_is_last_and_never_offered_first(self) -> None:
         """It is the one address certain to be listening and certain not to work from
@@ -68,3 +91,23 @@ class OrderTests(unittest.TestCase):
                 mock.patch.object(addresses, "_hostname", return_value="cab"), \
                 mock.patch.object(addresses, "_resolved", return_value=["10.0.0.4"]):
             self.assertEqual(addresses.hosts().count("10.0.0.4"), 1)
+
+
+class FrontendRemoteLinkTests(unittest.TestCase):
+    """The main menu's QR is drawn from the same list, so a name that leads there leads
+    on the screen too."""
+
+    def test_the_qr_follows_the_list_and_carries_the_pass(self) -> None:
+        from common import access_keys, serving
+        from frontend import config_api
+
+        with mock.patch.object(serving, "reachable_from_elsewhere", return_value=True), \
+                mock.patch.object(access_keys, "remote_pass", return_value=("id", "s3cret")), \
+                mock.patch.object(addresses, "hosts",
+                                  return_value=["cab", "192.168.1.20", "localhost"]), \
+                mock.patch.object(addresses, "scheme", return_value="http"), \
+                mock.patch.object(addresses, "served_names", return_value=[]):
+            link = config_api.get_managerui_remote_link(configparser.ConfigParser())
+
+        self.assertEqual(link["url"], f"http://cab:8001/remote?{access_keys.PASS_PARAM}=s3cret")
+        self.assertEqual(len(link["urls"]), 3)

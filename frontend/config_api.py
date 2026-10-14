@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import socket
 from io import BytesIO
 from typing import TYPE_CHECKING, Any
 
@@ -19,7 +18,6 @@ from common.config_access import (
 )
 from common.extensions.store import get_extension_store
 from common.host import addresses
-from common.host.addresses import usable_ipv4
 from common.values import is_truthy
 
 if TYPE_CHECKING:
@@ -60,54 +58,9 @@ def _managerui_remote_urls(config: ConfigSource) -> list[str]:
     network = serving.network(config)
     if not serving.reachable_from_elsewhere(network.http_bind):
         return []
-    port = network.http_port
     _, secret = access_keys.remote_pass()
-    hostname = socket.gethostname().strip()
-    urls: list[str] = []
-    seen_hosts: set[str] = set()
-
-    def detect_primary_ipv4() -> str:
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-                sock.connect(("8.8.8.8", 80))
-                candidate = str(sock.getsockname()[0]).strip()
-                return candidate if usable_ipv4(candidate) else ""
-        except Exception:
-            return ""
-
-    def add_host(host: str) -> None:
-        normalized = (host or "").strip()
-        if not normalized:
-            return
-        key = normalized.lower()
-        if key in seen_hosts:
-            return
-        seen_hosts.add(key)
-        urls.append(f"{addresses.scheme()}://{normalized}:{port}/remote"
-                    f"?{access_keys.PASS_PARAM}={secret}")
-
-    for name in addresses.served_names():
-        add_host(name)
-    primary_ip = detect_primary_ipv4()
-    if primary_ip:
-        add_host(primary_ip)
-
-    if hostname and hostname.lower() not in {"localhost", "ip6-localhost"}:
-        add_host(hostname)
-
-        try:
-            for family, _, _, _, sockaddr in socket.getaddrinfo(hostname, None, socket.AF_INET):
-                if family != socket.AF_INET:
-                    continue
-                ip = str(sockaddr[0]).strip()
-                if not usable_ipv4(ip):
-                    continue
-                add_host(ip)
-        except Exception:
-            pass
-
-    add_host("localhost")
-    return urls
+    return [f"{url}?{access_keys.PASS_PARAM}={secret}"
+            for url in addresses.urls(network.http_port, "/remote")]
 
 
 def _build_remote_qr_svg(url: str) -> str:
@@ -132,11 +85,8 @@ def _build_remote_qr_svg(url: str) -> str:
 
 
 def _preferred_managerui_url(urls: list[str]) -> str:
-    return next(
-        (url for url in urls if url.startswith("http://") and url.split("://", 1)[1].split(":",
-                1)[0].count(".") == 3),
-        next((url for url in urls if "://localhost:" not in url.lower()), urls[0] if urls else ""),
-    )
+    return next((url for url in urls if "://localhost:" not in url.lower()),
+                urls[0] if urls else "")
 
 
 def get_splashscreen_enabled(config: ConfigSource) -> str:

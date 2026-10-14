@@ -9,6 +9,10 @@ drift on which addresses count.
 Loopback is offered last and never first. It is the one address that is certainly
 listening and the one that certainly does not work from anywhere else, so a list that
 led with it would be a list whose first answer is wrong for the reader holding a phone.
+
+This machine's name leads when it resolves to one of this machine's own addresses, and
+the address follows it. A name that does not resolve at all is listed after the address; a
+name that resolves to another machine is left out, along with that machine's address.
 """
 
 from __future__ import annotations
@@ -55,9 +59,10 @@ def primary_ipv4() -> str:
 def hosts() -> list[str]:
     """Every name and address worth offering, best first, loopback last.
 
-    The routed address leads because it is the one that works from another machine.
-    The hostname follows: it is what a person recognizes, and it is the one that keeps
-    working when the lease changes.
+    The name leads only while it resolves to an address this machine holds: it is what a
+    person recognizes and it keeps working when the lease changes, but a name that
+    points somewhere else would send them to the wrong machine, so it is left out. The
+    routed address follows, and is the lead when there is no such name.
     """
     found: list[str] = []
     seen: set[str] = set()
@@ -68,12 +73,18 @@ def hosts() -> list[str]:
             seen.add(said.lower())
             found.append(said)
 
-    add(primary_ipv4())
+    routed = primary_ipv4()
     name = _hostname()
-    if name:
+    resolved = _resolved(name) if name else []
+    ours = bool(name) and _is_this_machine(resolved, routed)
+    if ours:
         add(name)
-        for address in _resolved(name):
+    add(routed)
+    if ours:
+        for address in resolved:
             add(address)
+    elif name and routed and not resolved:
+        add(name)
     add("localhost")
     return found
 
@@ -115,6 +126,20 @@ def _hostname() -> str:
     except Exception:
         return ""
     return "" if name.lower() in {"localhost", "ip6-localhost"} else name
+
+
+def _is_this_machine(resolved: list[str], routed: str) -> bool:
+    """Whether any of these is an address on one of this machine's own interfaces."""
+    return bool(set(resolved) & ({routed} | _interface_ipv4s()))
+
+
+def _interface_ipv4s() -> set[str]:
+    try:
+        import psutil
+        return {entry.address for entries in psutil.net_if_addrs().values()
+                for entry in entries if entry.family == socket.AF_INET}
+    except Exception:  # noqa: BLE001 - psutil raises on odd interfaces; an empty set only costs the name its lead
+        return set()
 
 
 def _resolved(name: str) -> list[str]:
