@@ -35,6 +35,7 @@ it, what you will see, a few variations and the mistake people make with it.
 - [10. States, chips, links and pictures in a column](#10-states-chips-links-and-pictures-in-a-column)
 - [12. A pane beside a list](#12-a-pane-beside-a-list)
 - [13. An account per player](#13-an-account-per-player)
+- [15. A page of one subject](#15-a-page-of-one-subject)
 - [16. A page of your own](#16-a-page-of-your-own)
 - [18. An extension for one Linux distribution](#18-an-extension-for-one-linux-distribution)
 
@@ -1263,6 +1264,93 @@ It never holds the panel back, but keep what you can in memory.  And the group n
 `games:read`; without it the extension is turned down with the reason when it starts.
 
 ## Beyond the Console
+
+### 15. A page of one subject
+
+**Use it when:** the extension has one thing to show and not a list of them, such as this machine's start up, one board, or one account, and a grid of one row would be a click charged for nothing.
+
+`ctx.ui.page` declares an entry in the rail that opens a panel.  You answer `read` with a title, a line under it and sections of facts and fields, as a [pane](#12-a-pane-beside-a-list) does, and core draws them full width.  Give it `save` and the fields can be changed, each written as it is set.  `acts` is the menu at the end of the page title.
+
+`recipes/machine_page/extension.json`
+
+```json
+{
+  "name": "machine_page",
+  "version": "1.0.0",
+  "requires_platform": 1,
+  "capabilities": ["ui:mount"]
+}
+```
+
+`recipes/machine_page/__init__.py`
+
+```python
+MACHINE = {"boot": "play", "checked": "never"}
+
+
+def register(ctx):
+    def read():
+        return {
+            "title": ctx.t("page.machine.heading"),
+            "under": ctx.t("page.machine.under"),
+            "sections": [
+                {"key": "state", "label": ctx.t("page.machine.state"), "facts": [
+                    {"label": ctx.t("page.machine.checked"), "value": MACHINE["checked"]},
+                ]},
+                {"key": "boot", "label": ctx.t("page.machine.boot"), "fields": [
+                    {"key": "boot", "type": "select", "label": ctx.t("page.machine.boot.mode"),
+                     "value": MACHINE["boot"],
+                     "choices": [["play", ctx.t("page.machine.boot.play")],
+                                 ["desk", ctx.t("page.machine.boot.desk")]]},
+                ]},
+            ],
+        }
+
+    def save(values):
+        MACHINE.update(values)
+
+    def check():
+        MACHINE["checked"] = ctx.t("page.machine.checked.now")
+        return ctx.t("page.machine.checked.said")
+
+    ctx.ui.page("machine", read, area="system", save=save,
+                acts={"check": check, "manual": "https://machine.example.com/manual"})
+```
+
+`recipes/machine_page/i18n/en.json`
+
+```json
+{
+  "name": "Machine Page",
+  "description": "A page in the rail for the machine itself: a fact, a choice and an act.",
+  "page.machine.title": "Machine",
+  "page.machine.act.check.label": "Check now",
+  "page.machine.act.manual.label": "Manual",
+  "page.machine.heading": "This machine",
+  "page.machine.under": "How it starts",
+  "page.machine.state": "State",
+  "page.machine.checked": "Last checked",
+  "page.machine.checked.now": "Just now",
+  "page.machine.checked.said": "Checked",
+  "page.machine.boot": "Start up",
+  "page.machine.boot.mode": "Starts into",
+  "page.machine.boot.play": "Play",
+  "page.machine.boot.desk": "Desktop"
+}
+```
+
+**Where it appears:** in the rail under System, above About.  **What triggers it:** the person opening it.  Core reads the page then, and again after each change and each act.
+
+**What you'll see:** Machine in System, just above About.  The page is headed Machine, with This machine and "How it starts" under it as the subject.  State shows Last checked: never, and Start up holds a choice, Starts into, set to Play.  Change it and the page redraws with the choice kept.  The menu at the end of the title holds Check now, which runs and says "Checked" and shows Just now in State, and Manual, which opens the address in a new tab.
+
+**Variations:**
+
+- Leave the `area` out and the page is under Community.
+- Return one section with a title that says what it holds, or none: the page is then its heading alone.
+- A `picture` in the answer is drawn above the sections.
+- An act can open a dialog, as a list's can: give it `{"action": "<dialog key>"}`.
+
+**Watch out:** the page is read each time it opens, so a slow service makes it late; keep what you can in memory.  The title in the rail is `page.<key>.title` and is held to the same rule as a list's: not a core page's name, and not another list's or page's in the same area.
 
 ### 16. A page of your own
 

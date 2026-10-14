@@ -69,6 +69,9 @@ def _report(record: Record, lines: list[str]) -> bool:
                      f"{len(declared['verbs'])} verbs"
                      + (f", adds {' '.join(declared['add'])}" if declared["add"] else "")
                      + (", opens a pane" if declared["detail"] else ""))
+    for declared in record.declared_pages:
+        lines.append(f"page       {declared['key']} in {declared['area']}"
+                     + (", with fields" if declared["save"] else ""))
     for declared in record.declared_groups:
         lines.append(f"group      on a {declared['subject']}'s panel"
                      + (", with fields" if declared["save"] else ""))
@@ -93,6 +96,8 @@ def _report(record: Record, lines: list[str]) -> bool:
 
     for key in ui.list_functions:
         _read(lines, problems, record, f"list {key}", lambda key=key: _read_list(record, key))
+    for key in ui.page_functions:
+        _read(lines, problems, record, f"page {key}", lambda key=key: _read_page(record, key))
     if ui.settings_declared:
         _read(lines, problems, record, "settings", lambda: _read_settings(record))
     for declared in record.actions:
@@ -135,6 +140,13 @@ def _read_list(record: Record, key: str) -> tuple[str, Any]:
         said += f", a pane of {len(shown['sections'])} sections for {first}"
         found.append(shown)
     return said, found
+
+
+def _read_page(record: Record, key: str) -> tuple[str, Any]:
+    shown = serving.page_read(record, key)
+    about = serving.page_about(record, key)
+    acts = ", ".join(one["key"] for one in about["acts"]) or "none"
+    return f"{len(shown['sections'])} sections, acts: {acts}", [shown, about]
 
 
 def _read_settings(record: Record) -> tuple[str, Any]:

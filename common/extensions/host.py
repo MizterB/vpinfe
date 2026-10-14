@@ -111,6 +111,7 @@ class Record:
     declared_lists: list[dict] = field(default_factory=list)
     declared_links: list[dict] = field(default_factory=list)
     declared_groups: list[dict] = field(default_factory=list)
+    declared_pages: list[dict] = field(default_factory=list)
     # The registration core calls the functions of; None while it is not running.
     context: ExtensionContext | None = None
     # Remembered between runs, so a stopped extension's page can say it has settings.
@@ -158,6 +159,12 @@ class Record:
         return [{**one, "title": self.said(one["title"], f"group.{one['subject']}.title",
                                            self.display_name)[0]}
                 for one in self.declared_groups]
+
+    def pages(self) -> list[dict]:
+        """Its pages, titled in the language now set."""
+        return [{**one, "title": self.said(one["title"], f"page.{one['key']}.title",
+                                           self.display_name)[0]}
+                for one in self.declared_pages]
 
     def links(self) -> list[dict]:
         """Its links, with the address each answers now and the words in the language now
@@ -260,6 +267,7 @@ class Record:
                 "lists": self.lists() if self.running else [],
                 "links": self.links() if self.running else [],
                 "groups": self.groups() if self.running else [],
+                "pages": self.pages() if self.running else [],
                 "account": self.account_declared() if self.running else {}}
 
 
@@ -397,6 +405,7 @@ class Registry:
             record.declared_lists = list(context.ui.declared_lists)
             record.declared_links = list(context.ui.declared_links)
             record.declared_groups = list(context.ui.declared_groups)
+            record.declared_pages = list(context.ui.declared_pages)
             self._check_titles(record)
         except Exception as exc:
             logger.exception("Extension %s did not load: %r", record.name, exc)
@@ -404,6 +413,7 @@ class Registry:
             record.declared_lists = []
             record.declared_links = []
             record.declared_groups = []
+            record.declared_pages = []
             if context is not None:
                 _withdraw(record.name, context.events.registered, context.apps)
             record.became(FAILED, "extension.reason.start_failed")
@@ -426,19 +436,21 @@ class Registry:
         logger.info("Extension %s %s loaded", record.name, manifest.version)
 
     def _check_titles(self, record: Record) -> None:
-        """A list is not titled as a core entry, nor as another list in its area: the rail
-        would show two of the same name, and one of them is not what it says."""
+        """A list or a page is not titled as a core entry, nor as another list or page in its
+        area: the rail would show two of the same name, and one of them is not what it
+        says."""
         core = {i18n.t(f"console.section.{one}").casefold() for one in CORE_SECTIONS}
         theirs = {(one["area"], one["title"].casefold())
                   for other in self._records.values() if other is not record and other.running
-                  for one in other.lists()}
-        for one in record.lists():
-            title = one["title"].casefold()
-            if title in core or (one["area"], title) in theirs:
-                raise ContractError(f"{record.name} titles a list {one['title']!r}, which is "
-                                    "the name of a page core has or of another list "
-                                    "in its area")
-            theirs.add((one["area"], title))
+                  for one in [*other.lists(), *other.pages()]}
+        for kind, shown in (("list", record.lists()), ("page", record.pages())):
+            for one in shown:
+                title = one["title"].casefold()
+                if title in core or (one["area"], title) in theirs:
+                    raise ContractError(f"{record.name} titles a {kind} {one['title']!r}, "
+                                        "which is the name of a page core has or of another "
+                                        "list or page in its area")
+                theirs.add((one["area"], title))
 
     # -- the switch ----------------------------------------------------------
 

@@ -41,6 +41,7 @@ from console.on_page import on_page
 logger = logging.getLogger("vpinfe.console.community")
 
 PREFIX = "community:"
+PAGE_PREFIX = "page:"
 ICON = "extension"
 HELD = "held"
 UNDER = "under_said"
@@ -55,6 +56,11 @@ FIRST_WIDTH = 240
 
 def view_key(extension: str, key: str) -> str:
     return f"{PREFIX}{extension}:{key}"
+
+
+def page_view_key(extension: str, key: str) -> str:
+    """The rail entry of one of an extension's pages, which has no grid to be a list."""
+    return f"{PAGE_PREFIX}{extension}:{key}"
 
 
 def address(extension: str, key: str) -> str:
@@ -75,8 +81,8 @@ AREA_FEATURE = {"library": install_identity.LIBRARY, "frontend": install_identit
 
 
 def nav_items(extensions: Sequence[dict[str, Any]]) -> dict[str, tuple]:
-    """The rail entries extensions add, by the area each list or link asked for. An
-    extension's lists come before its links."""
+    """The rail entries extensions add, by the area each list, page or link asked for. An
+    extension's lists come first, then its pages, then its links."""
     found: dict[str, list] = {}
     for one in extensions:
         if str(one.get("state") or "") != "loaded":
@@ -86,6 +92,12 @@ def nav_items(extensions: Sequence[dict[str, Any]]) -> dict[str, tuple]:
             area = str(declared.get("area") or "community")
             found.setdefault(area, []).append((
                 view_key(name, str(declared.get("key") or "")),
+                str(declared.get("title") or ""), ICON,
+                AREA_FEATURE.get(area, install_identity.CORE)))
+        for declared in one.get("pages") or []:
+            area = str(declared.get("area") or "community")
+            found.setdefault(area, []).append((
+                page_view_key(name, str(declared.get("key") or "")),
                 str(declared.get("title") or ""), ICON,
                 AREA_FEATURE.get(area, install_identity.CORE)))
         for link in one.get("links") or []:

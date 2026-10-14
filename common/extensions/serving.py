@@ -223,19 +223,45 @@ def _addressed(record: Record, key: str, rows: list[dict]) -> None:
             try:
                 row[column["field"]] = pictures.address(record, row.get(column["field"]))
             except pictures.OutboundNotDeclaredError as exc:
-                raise ExtensionError(i18n.t("error.extensions.picture_outbound",
-                                            display=record.display_name, key=key)) from exc
+                raise ExtensionError(i18n.t(
+                    "error.extensions.picture_outbound",
+                    display=record.display_name, key=f"list {key}")) from exc
 
 
 def picture(record: Record, picture_id: str) -> sized_media.Served:
     return pictures.served(record, picture_id)
 
 
-def _acts(record: Record, key: str, functions: Any) -> dict[str, Any]:
+def _acts(record: Record, kind: str, key: str, functions: Any) -> dict[str, Any]:
     acts = functions.acts
     if callable(acts):
-        acts = called(record, f"list {key} acts", acts)
+        acts = called(record, f"{kind} {key} acts", acts)
     return dict(acts or {})
+
+
+def _menu(record: Record, kind: str, key: str, functions: Any) -> list[dict]:
+    """The title menu of a list or a page: each act with its label and, where it opens
+    something, what."""
+    offered = []
+    for act, what in _acts(record, kind, key, functions).items():
+        label = said(record, f"{kind}.{key}.act.{act}.label", act)
+        opens = what.get("action") if isinstance(what, dict) else None
+        if opens is not None and opens not in _context(record).ui.action_objects:
+            raise ExtensionError(i18n.t("error.extensions.no_action",
+                                         display=record.display_name, key=opens))
+        offered.append({"key": act, "label": label,
+                        **({"url": str(what)} if isinstance(what, str) else {}),
+                        **({"action": str(opens)} if opens is not None else {})})
+    return offered
+
+
+def _act(record: Record, kind: str, key: str, functions: Any, act: str) -> dict:
+    what = _acts(record, kind, key, functions).get(act)
+    if what is None or isinstance(what, (str, dict)):
+        raise NotFoundError(i18n.t("error.extensions.no_act", display=record.display_name,
+                                   key=act))
+    return _message(record, f"{kind} {key} act {act}",
+                    called(record, f"{kind} {key} act {act}", what))
 
 
 def list_about(record: Record, key: str) -> dict:
@@ -244,27 +270,11 @@ def list_about(record: Record, key: str) -> dict:
     if functions.status is not None:
         status = plain(record, f"list {key} status",
                        called(record, f"list {key} status", functions.status)) or ""
-    offered = []
-    for act, what in _acts(record, key, functions).items():
-        label = said(record, f"list.{key}.act.{act}.label", act)
-        opens = what.get("action") if isinstance(what, dict) else None
-        if opens is not None and opens not in _context(record).ui.action_objects:
-            raise ExtensionError(i18n.t("error.extensions.no_action",
-                                         display=record.display_name, key=opens))
-        offered.append({"key": act, "label": label,
-                        **({"url": str(what)} if isinstance(what, str) else {}),
-                        **({"action": str(opens)} if opens is not None else {})})
-    return {"status": status, "acts": offered}
+    return {"status": status, "acts": _menu(record, "list", key, functions)}
 
 
 def list_act(record: Record, key: str, act: str) -> dict:
-    functions = _list(record, key)
-    what = _acts(record, key, functions).get(act)
-    if what is None or isinstance(what, (str, dict)):
-        raise NotFoundError(i18n.t("error.extensions.no_act", display=record.display_name,
-                                   key=act))
-    return _message(record, f"list {key} act {act}", called(record, f"list {key} act {act}",
-                                                             what))
+    return _act(record, "list", key, _list(record, key), act)
 
 
 def list_verb(record: Record, key: str, verb: str, ids: list[str]) -> dict:
@@ -325,7 +335,7 @@ def list_detail(record: Record, key: str, row_id: str) -> dict:
                     fact["value"] = pictures.address(record, fact["value"])
     except pictures.OutboundNotDeclaredError as exc:
         raise ExtensionError(i18n.t("error.extensions.picture_outbound",
-                                    display=record.display_name, key=key)) from exc
+                                    display=record.display_name, key=f"list {key}")) from exc
     return shown
 
 
@@ -349,6 +359,70 @@ def list_save(record: Record, key: str, row_id: str, values: dict) -> dict:
             exc.field = next(iter(changes))
             raise
     return list_detail(record, key, row_id)
+
+
+# -- pages -----------------------------------------------------------------------------
+
+
+def _page(record: Record, key: str) -> Any:
+    found = _context(record).ui.page_functions.get(key)
+    if found is None:
+        raise NotFoundError(i18n.t("error.extensions.no_page", display=record.display_name,
+                                   key=key))
+    return found
+
+
+def page_read(record: Record, key: str) -> dict:
+    """A page as the Console draws it: the extension's `read()`, checked, with each picture
+    turned into core's own address and each secret held back."""
+    at = f"page {key}"
+    answer = plain(record, at, called(record, at, _page(record, key).read))
+    try:
+        shown = pane.shaped(answer, key)
+    except pane.PaneError as exc:
+        raise ExtensionError(i18n.t(exc.line, display=record.display_name, id=f"its page {key}",
+                                    **exc.params)) from exc
+    try:
+        if shown["picture"]:
+            shown["picture"] = pictures.address(record, shown["picture"])
+        for section in shown["sections"]:
+            for fact in section["facts"]:
+                if fact["kind"] == "picture":
+                    fact["value"] = pictures.address(record, fact["value"])
+    except pictures.OutboundNotDeclaredError as exc:
+        raise ExtensionError(i18n.t("error.extensions.picture_outbound",
+                                    display=record.display_name, key=at)) from exc
+    return shown
+
+
+def page_save(record: Record, key: str, values: dict) -> dict:
+    """Write the fields a page offers, then answer the page as it stands. The keys must be
+    fields the extension's own answer offers now."""
+    functions = _page(record, key)
+    if functions.save is None:
+        raise NotFoundError(i18n.t("error.extensions.no_page_save",
+                                   display=record.display_name, key=key))
+    offered = [one for section in page_read(record, key)["sections"]
+               for one in section["fields"]]
+    changes = pane.accepted(
+        offered, values or {},
+        lambda line, **params: RefusedError(i18n.t(line, display=record.display_name,
+                                                   **params)))
+    if changes:
+        try:
+            called(record, f"page {key} save", functions.save, changes)
+        except ExtensionError as exc:
+            exc.field = next(iter(changes))
+            raise
+    return page_read(record, key)
+
+
+def page_about(record: Record, key: str) -> dict:
+    return {"acts": _menu(record, "page", key, _page(record, key))}
+
+
+def page_act(record: Record, key: str, act: str) -> dict:
+    return _act(record, "page", key, _page(record, key), act)
 
 
 # -- panel groups ----------------------------------------------------------------------

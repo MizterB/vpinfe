@@ -74,6 +74,50 @@ After `register` returns, it also raises when the title matches a core page's ti
 running extension's list in the same area, and when a verb, an act or `add` opens a dialog the
 extension never declared.
 
+## `ctx.ui.page`
+
+`ctx.ui.page(key, read, *, area="community", title="", acts=None, save=None)`.  Required: `key`,
+`read`.
+
+Declare a page: an entry in the rail under `area` that opens one subject drawn as a panel, with
+no grid.  `read()` answers what a [pane's](settings-and-lists.md#lists) `detail` does: a `title`
+(required), a line `under` it, an optional `picture`, and `sections` of `facts`, `fields` and
+`rows`.  Core draws them full width, as it draws every other panel.
+
+```python
+def read():
+    return {"title": ctx.t("page.machine.heading"),
+            "sections": [{"key": "boot", "label": ctx.t("page.machine.boot"), "fields": [
+                {"key": "boot", "type": "select", "label": ctx.t("page.machine.boot.mode"),
+                 "value": MACHINE["boot"], "choices": [["play", "Play"], ["desk", "Desktop"]]}]}]}
+
+
+def save(values):
+    MACHINE.update(values)
+
+
+ctx.ui.page("machine", read, area="system", save=save, acts={"check": check})
+```
+
+With `save(values)` the fields can be changed: each is written as it is set, with the keys that
+changed, and core reads the page again to draw what was kept.  It is handed only keys the page
+offers now, and it refuses a value by raising, as a pane's `save` does.  `acts` is the page's
+menu, written as a list's acts are: a function, an address, or a dialog to open.  Each is a
+button in the menu at the end of the page title, with the extension's Settings after them.
+
+A person sees the page in the rail under `area`, after core's own entries and the extension's
+lists (and before About, in System).  The rail entry and the title are `title`, else `page.<key>.title` in the extension's catalog,
+else the extension's name.  The answer's own `title` is the heading over the page.  The page is
+served at `GET /api/v1/ext/<name>/pages/<key>`, changed with `PUT` at the same address and
+`{"values": {...}}`, and its acts are at `.../pages/<key>/about`.  They need the extension's read
+and write scopes.
+
+It raises `ContractError` without `ui:mount`, for an unknown area, a missing key, a key declared
+twice, and a `read` or `save` that is not a function.  After `register` returns, it also raises
+when the title matches a core page's title or another running extension's list or page in the
+same area, and when an act opens a dialog the extension never declared.  `--check-extension`
+says each page it finds and reads it once.
+
 ## `ctx.ui.panel_group`
 
 `ctx.ui.panel_group(subject, read, *, title="", save=None)`.  Required: `subject`, `read`.

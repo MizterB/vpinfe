@@ -54,6 +54,8 @@ DECLARES: dict[str, list[str]] = {
                        "a pane of 2 sections"],
     "game_notes": ["group      on a game's panel, with fields",
                    "group      on a table's panel"],
+    "machine_page": ["page       machine in system, with fields",
+                     "reads      page machine: 2 sections, acts: check, manual"],
     "secret_key": ["settings   key (secret)", "dialog     connect: ask run"],
     "player_handle": ["account    a player can hold one"],
     "tool_link": ["settings   port (number", "link       console in system: http://{host}:9090/",

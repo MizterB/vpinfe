@@ -117,7 +117,7 @@ class WhatTheRowsCarry(PicturedCase):
 
         self.assertEqual(400, response.status_code)
         self.assertIn(t("error.extensions.picture_outbound", display="Pictured",
-                        key="covers"), response.text)
+                        key="list covers"), response.text)
 
     def test_a_file_picture_needs_no_capability(self) -> None:
         self.capabilities = ["ui:mount"]

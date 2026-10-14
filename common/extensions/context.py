@@ -253,6 +253,15 @@ class ListFunctions:
 
 
 @dataclass
+class PageFunctions:
+    """What a page's extension answers with."""
+
+    read: Callable[[], Any]
+    acts: Any = None
+    save: Callable[[dict], Any] | None = None
+
+
+@dataclass
 class GroupFunctions:
     """What a panel group's extension answers with."""
 
@@ -300,6 +309,8 @@ class ExtensionUI:
         self.action_objects: dict[str, Any] = {}
         self.declared_lists: list[dict] = []
         self.list_functions: dict[str, ListFunctions] = {}
+        self.declared_pages: list[dict] = []
+        self.page_functions: dict[str, PageFunctions] = {}
         self.declared_links: list[dict] = []
         self.link_addresses: dict[str, str | Callable[[], Any]] = {}
         self.settings_declared: list[dict] = []
@@ -469,6 +480,44 @@ class ExtensionUI:
         self.group_functions[wanted] = GroupFunctions(read=read, save=save)
         self.declared_groups.append({"subject": wanted, "title": str(title or "").strip(),
                                      "base": f"/groups/{wanted}", "save": save is not None})
+
+    def page(self, key: str, read: Callable[[], Any], *, area: str = DEFAULT_AREA,
+             title: str = "", acts: Any = None,
+             save: Callable[[dict], Any] | None = None) -> None:
+        """A page of this extension's own, shown in the rail under `area`: one subject
+        drawn as a panel, with no grid.
+
+        `read()` answers what a list's `detail` does: `{"title", "under", "picture",
+        "sections": [{"key", "label", "facts", "fields", "rows"}]}`, drawn the same way.
+        `acts` is the title menu, as a list's is. A field is written when it is set:
+        `save(values)` is called with the keys changed, answers nothing, and core asks
+        `read` again to draw the page.
+
+        The rail entry is named `title`, else `page.<key>.title` in the extension's
+        catalog, else the extension's name.
+        """
+        self._needs_ui("a page")
+        wanted = str(key or "").strip()
+        where = str(area or DEFAULT_AREA).strip()
+        if where not in AREAS:
+            raise ContractError(f"{self._name} puts a page in {where!r}, which is not one "
+                                f"of {', '.join(AREAS)}")
+        if not wanted:
+            raise ContractError(f"{self._name} declares a page with no key")
+        if wanted in self.page_functions:
+            raise ContractError(f"{self._name} declares the page {wanted!r} twice")
+        if not callable(read) or (save is not None and not callable(save)):
+            raise ContractError(f"{self._name} gives the page {wanted!r} a read or a save "
+                                "that is not a function")
+        if acts is not None and not callable(acts) and not isinstance(acts, dict):
+            raise ContractError(f"{self._name} gives the page {wanted!r} acts that are "
+                                "neither a dict nor a function")
+        self.page_functions[wanted] = PageFunctions(read=read, acts=acts, save=save)
+        self.declared_pages.append({"key": wanted, "area": where,
+                                    "title": str(title or "").strip(),
+                                    "base": f"/pages/{wanted}",
+                                    "about": f"/pages/{wanted}/about",
+                                    "save": save is not None})
 
     def _needs_ui(self, what: str) -> None:
         if not self._allowed:
@@ -711,19 +760,21 @@ def check_references(ui: ExtensionUI) -> None:
     """Refuse a list that opens an action the extension never declared. Run once
     `register` has returned, since an action may be declared after the list."""
     added = {one["key"]: one["add"] for one in ui.declared_lists}
-    for key, found in ui.list_functions.items():
-        named = [*(one["action"] for one in found.verbs.values() if one["action"]),
-                 *added.get(key, [])]
-        if isinstance(found.acts, dict):
-            for one in found.acts.values():
+    held = [("list", key, found.acts, [*(one["action"] for one in found.verbs.values()
+                                         if one["action"]), *added.get(key, [])])
+            for key, found in ui.list_functions.items()]
+    held += [("page", key, found.acts, []) for key, found in ui.page_functions.items()]
+    for kind, key, acts, named in held:
+        if isinstance(acts, dict):
+            for one in acts.values():
                 if isinstance(one, dict) and "action" in one:
                     if not isinstance(one["action"], str) or not one["action"].strip():
-                        raise ContractError(f"{ui._name} has an act on the list {key!r} "
+                        raise ContractError(f"{ui._name} has an act on the {kind} {key!r} "
                                             "whose action is not an action key")
                     named.append(one["action"])
         unknown = sorted({one for one in named if one not in ui.action_objects})
         if unknown:
-            raise ContractError(f"{ui._name} opens, from the list {key!r}, "
+            raise ContractError(f"{ui._name} opens, from the {kind} {key!r}, "
                                 f"{'an action' if len(unknown) == 1 else 'actions'} it "
                                 f"never offers: {', '.join(unknown)}")
 

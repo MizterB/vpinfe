@@ -31,6 +31,7 @@ from console import (
     confirm,
     deeplink,
     ext_links,
+    ext_pages,
     folders,
     games,
     grid,
@@ -1605,6 +1606,11 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             purpose = t("console.purpose.community.held" if listed[1].get("relation")
                         else "console.purpose.community",
                         name=str(listed[0].get("display_name") or listed[0].get("name")))
+        paged = ext_pages.find(state["view"], state["extensions"])
+        if paged is not None:
+            title = str(paged[1].get("title") or "")
+            purpose = t("console.purpose.page",
+                        name=str(paged[0].get("display_name") or paged[0].get("name")))
         # The band the other two panes' headers use, so the page name sits in a fixed
         # rhythm rather than at whatever height its text makes. Not aligned *across*
         # panes - the nav's band is taller than its minimum and starts inside its own
@@ -1672,6 +1678,10 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                 if listed is not None:
                     community_page.build(*listed, library, subject=menu,
                                          on_open=show_extension_row)
+            elif ext_pages.is_page(view):
+                paged = ext_pages.find(view, state["extensions"])
+                if paged is not None:
+                    ext_pages.build(*paged, subject=menu, host=state["host"])
             elif view == "media":
                 media_page.build(library.media_rows(), library, show_slot, state,
                                  rescan=_rescan)

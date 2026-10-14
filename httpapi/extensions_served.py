@@ -100,6 +100,25 @@ def router(name: str, running: Any) -> APIRouter:
     def get_picture(picture_id: str, request: Request) -> Response:
         return responses.media_file(ask(serving.picture, picture_id), request, "")
 
+    # -- pages ---------------------------------------------------------------------
+
+    @get("/pages/{key}", "What a page the extension declared shows")
+    def get_page(key: str) -> dict:
+        return ask(serving.page_read, key)
+
+    @found.put("/pages/{key}", summary="Change fields on a page",
+               dependencies=[running, requires(write)])
+    def put_page(key: str, body: models.ExtensionValues) -> dict:
+        return ask(serving.page_save, key, body.values)
+
+    @get("/pages/{key}/about", "What a page offers to do")
+    def get_page_about(key: str) -> dict:
+        return ask(serving.page_about, key)
+
+    @post("/pages/{key}/about/acts/{act}", "Do one of a page's acts")
+    def post_page_act(key: str, act: str) -> dict:
+        return ask(serving.page_act, key, act)
+
     # -- panel groups --------------------------------------------------------------
 
     def subject(game_id: str, table_id: str = "") -> dict:

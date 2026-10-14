@@ -19,6 +19,8 @@ them.
 | `list.<key>.view.<viewkey>.help` | A view's tooltip | Nothing |
 | `list.<key>.act.<act>.label` | An act in a list's title menu | The act's key |
 | `list.<key>.verb.<verb>.label`, `.tip`, `.confirm`, `.needs` | A verb: its label, its hover, the question a danger verb asks, why it is dimmed | The verb's key; nothing; core's question; nothing |
+| `page.<key>.title` | A page's title, in the rail and over the page | The extension's name |
+| `page.<key>.act.<act>.label` | An act in a page's title menu | The act's key |
 | `group.<subject>.title` | The heading over a group on a game's or a table's panel | The extension's name |
 | `link.<key>.label`, `link.<key>.tip` | A link to the extension's own page: its text and its hover | The key; nothing |
 | `action.<key>.label`, `action.<key>.description` | An action, and the button above a list that adds with it | The key; nothing |

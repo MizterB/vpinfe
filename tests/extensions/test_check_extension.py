@@ -142,6 +142,28 @@ class AGroupOnAPanel(CheckCase):
         self.assertIn("games:read", lines[0])
 
 
+class APage(CheckCase):
+    BODY = (
+        "def register(ctx):\n"
+        "    ctx.ui.page('week', lambda: {'title': 'Week'}, title='Week', area='system',\n"
+        "                save=lambda values: None, acts={'x': lambda: None})\n")
+
+    def test_it_says_the_page_and_reads_it(self) -> None:
+        lines, passed = check.check(build(self.root, self.BODY, words={}))
+
+        self.assertIn("page       week in system, with fields", lines)
+        self.assertIn("reads      page week: 0 sections, acts: x", lines)
+        self.assertTrue(passed, lines)
+
+    def test_a_page_whose_answer_core_cannot_draw_fails(self) -> None:
+        body = self.BODY.replace("{'title': 'Week'}", "{'under': 'no title'}")
+
+        lines, passed = check.check(build(self.root, body, words={}))
+
+        self.assertFalse(passed)
+        self.assertTrue(any(one.startswith("fails      page week") for one in lines), lines)
+
+
 class AGoodExtension(CheckCase):
     def test_it_passes(self) -> None:
         lines, passed = self.checked()
