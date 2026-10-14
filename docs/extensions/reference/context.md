@@ -44,8 +44,8 @@ ctx.logger.info("%s is registering", ctx.name)
 ### `ctx.manifest`
 
 The parsed manifest, frozen: `name`, `display_name`, `version`, `description`,
-`requires_platform`, `scopes`, `capabilities`, `requires_features`, `platforms`, `events`.  The
-lists are tuples.
+`requires_platform`, `scopes`, `capabilities`, `requires_features`, `platforms`, `events`,
+`tiers`, `play`.  The lists are tuples.
 
 ```python
 if "net:outbound" in ctx.manifest.capabilities:
@@ -505,8 +505,9 @@ A serial number is never read.  A device's own interfaces are left out, and so i
 where the OS says it is one.  A macOS hub with nothing plugged into it is listed.  A serial
 port is a USB one: `ttyUSB` and `ttyACM` on Linux, `cu.usb*` and the common adapter drivers'
 names on macOS, a COM port with USB ids on Windows.  Its name can carry the adapter's serial
-number, because the OS puts it there, and it is the path the extension opens.  Displays are
-read once when VPinFE starts; USB and serial are read on each call.
+number, because the OS puts it there, and it is the path the extension opens.  Displays come
+from a list VPinFE keeps, which the Console's Screens page reads again; USB and serial are read
+on each call.
 
 | name | answers |
 |---|---|

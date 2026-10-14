@@ -352,9 +352,12 @@ offered raises `AttributeError`, and one that needs a scope the manifest lacks r
   rules.
 - Adding a game already in the collection succeeds and changes nothing.  `table_id` holds the
   member to one table; left out, the member is the game and follows its default table.
+- `remove_from_collection` with no `table` removes every row that names the game.  `table` set
+  to a table id removes the row for that table, and `""` the row that follows the game's
+  default table.
 - `set_collection_order` takes the game ids of a hand-picked collection in the order wanted,
-  and refuses a list that does not name exactly its members, or a collection whose order
-  its rules decide.
+  one for each row, so a game holding two named tables is listed twice.  It refuses a list that
+  does not name exactly its members, or a collection whose order its rules decide.
 - A Private game is not left out of these answers, as it is not from `ctx.games`.
 
 ```python
