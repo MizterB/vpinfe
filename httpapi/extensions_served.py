@@ -81,6 +81,10 @@ def router(name: str, running: Any) -> APIRouter:
     def post_list_act(key: str, act: str) -> dict:
         return ask(serving.list_act, key, act)
 
+    @post("/lists/{key}/verbs/{verb}", "Press one of a list's verbs on some of its rows")
+    def post_list_verb(key: str, verb: str, body: models.ExtensionVerb) -> dict:
+        return ask(serving.list_verb, key, verb, body.ids)
+
     # -- dialogs -------------------------------------------------------------------
 
     @get("/actions/{key}", "The step of a dialog the extension declared")

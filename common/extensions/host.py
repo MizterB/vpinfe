@@ -148,7 +148,16 @@ class Record:
                                          one["key"])[0],
                        "help": self.said(one["help"], f"{under}.view.{one['key']}.help")[0]}
                       for one in declared["views"]],
+            "verbs": [self._verb(under, one) for one in declared["verbs"]],
         }
+
+    def _verb(self, under: str, declared: dict) -> dict:
+        at = f"{under}.verb.{declared['key']}"
+        return {**declared,
+                "label": self.said(declared["label"], f"{at}.label", declared["key"])[0],
+                "tip": self.said("", f"{at}.tip")[0],
+                "needs_reason": self.said("", f"{at}.needs")[0],
+                "confirm_key": i18n.first_key(f"ext.{self.name}.{at}.confirm")}
 
     def _action(self, declared: dict) -> dict:
         key = declared["key"]

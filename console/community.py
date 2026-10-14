@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Callable, Sequence
+from functools import partial
 from typing import Any
 from urllib.parse import quote
 
@@ -17,6 +18,7 @@ from common.i18n import t
 from console import (
     busy,
     collection_rules,
+    confirm,
     deeplink,
     ext_page,
     grid,
@@ -37,6 +39,8 @@ PREFIX = "community:"
 ICON = "extension"
 HELD = "held"
 UNDER = "under_said"
+# The id of a row its extension gave none: drawn, but it cannot be ticked or act.
+UNNAMED = "~unnamed~"
 
 _KIND = {"number": grid.NUMBER_COLUMN,
          "text": {}, "date": {}}
@@ -170,7 +174,9 @@ def rows(found: list[dict[str, Any]], declared: dict[str, Any],
                    else t("console.community.other_version_unknown"))
             href = str(elsewhere.get("url") or "")
             line = " · ".join(one for one in (line, tip) if one)
-        built = {**row, "id": str(index), HELD: bool(mine), UNDER: line,
+        named = str(row.get("id") or "")
+        built = {**row, "id": named or f"{UNNAMED}{index}", HELD: bool(mine), UNDER: line,
+                 **({} if named else {grid.NO_MENU: True, grid.NOT_SELECTABLE: True}),
                  f"{HELD}_href": href, f"{HELD}_tip": tip}
         for field in dates:
             built = when.said(built, field)
@@ -268,12 +274,64 @@ async def run_act(extension: str, about: str, act: dict[str, Any],
     except Exception as exc:  # noqa: BLE001 - the reason belongs on screen
         ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
         return
+    await _told(said, again)
+
+
+async def _told(said: Any, again: Callable[[], Any]) -> None:
+    """What an act or a verb answered: its address opened, its message shown, the list
+    and the line read again."""
     said = said if isinstance(said, dict) else {}
     if web(said.get("url")):
         ui.navigate.to(web(said["url"]), new_tab=True)
     if said.get("message"):
         ui.notify(str(said["message"]))
     await again()
+
+
+def verb_entries(declared: dict[str, Any], chosen: list[dict[str, Any]],
+                 press: Callable[[dict[str, Any], list[dict[str, Any]]], Any]
+                 ) -> list[panel.Verb]:
+    """What the list's verbs offer for the rows `chosen`. A link verb opens the address in
+    the row's own field; one that `needs` a field acts on the rows where it is true and is
+    dimmed, with the extension's reason, where it is true on none."""
+    out = []
+    for verb in declared.get("verbs") or []:
+        label, tip = str(verb.get("label") or verb["key"]), str(verb.get("tip") or "")
+        if verb.get("link"):
+            to = web(chosen[0].get(verb["link"])) if len(chosen) == 1 else ""
+            out.append(panel.Verb(
+                label, to=to, one=True, tip=tip,
+                hint=t("console.community.verb.no_address") if len(chosen) == 1 else ""))
+            continue
+        needs = str(verb.get("needs") or "")
+        fit = [row for row in chosen if row.get(needs)] if needs else chosen
+        out.append(panel.Verb(
+            label, run=partial(press, verb, fit) if fit else None,
+            danger=bool(verb.get("danger")), one=bool(verb.get("one")), tip=tip,
+            hint=str(verb.get("needs_reason") or t("console.community.verb.inapplicable"))))
+    return out
+
+
+@on_page
+async def run_verb(extension: str, declared: dict[str, Any], verb: dict[str, Any],
+                   chosen: list[dict[str, Any]], again: Callable[[], Any]) -> None:
+    """Press one of the list's verbs on `chosen`, asking first where it is a danger."""
+    label = str(verb.get("label") or verb["key"])
+    if verb.get("danger"):
+        question = t(str(verb.get("confirm_key") or "") or "console.community.verb.confirm",
+                     label=label, count=len(chosen))
+        if not await confirm.ask(question, confirm=label, icon=verbs.ACCEPT):
+            return
+    try:
+        said = await offload.io(
+            ApiClient().ext_post,
+            f"/ext/{extension}{declared['base']}/verbs/{quote(str(verb['key']), safe='')}",
+            {"ids": [str(row["id"]) for row in chosen]})
+    except Exception as exc:  # noqa: BLE001 - the reason belongs on screen
+        ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
+        await again()
+        return
+    await _told(said, again)
 
 
 def read(extension: str, key: str, fetch: Callable[[], dict]) -> dict[str, Any]:
@@ -453,6 +511,11 @@ async def _fill(extension: dict[str, Any], declared: dict[str, Any], library: Li
     shown = columns(declared)
     scope = f"console.community.{name}.{key}"
     fields = [one["field"] for one in shown]
+    offering = bool(declared.get("verbs")) and not stopped
+
+    async def pressed(verb: dict[str, Any], chosen: list[dict[str, Any]]) -> None:
+        await run_verb(name, declared, verb, chosen, lambda: read_again())
+
     body.clear()
     with body:
         with ui.row().classes("w-full items-center gap-2 px-3 py-2 mb-2 shrink-0 "
@@ -489,6 +552,11 @@ async def _fill(extension: dict[str, Any], declared: dict[str, Any], library: Li
                 _said_age(age, state)
                 count = ui.label(t("console.community.rows", count=len(built))) \
                     .classes("text-xs console-label")
+                if offering:
+                    show_selection = panel.selection_menu(
+                        t("console.community.verbs_menu"), lambda: grid.selection(table),
+                        lambda chosen: verb_entries(declared, chosen, pressed),
+                        lambda: table.run_grid_method("deselectAll"))
                 if stopped:
                     not_running(now)
                 else:
@@ -498,15 +566,43 @@ async def _fill(extension: dict[str, Any], declared: dict[str, Any], library: Li
         async def on_header_context(col_id: str | None) -> None:
             await grid.header_menu(menu, table, shown, col_id)
 
+        picked: list[dict[str, Any]] = []
+        on_screen = {"rows": len(built)}
+
+        def counted_said() -> str:
+            seen = on_screen["rows"]
+            if picked:
+                return grid.selection_said(table, len(picked), t(
+                    "console.community.selected", picked=len(picked), shown=seen))
+            return (t("console.community.rows", count=len(built)) if seen == len(built)
+                    else t("console.community.rows_of", shown=seen, count=len(built)))
+
+        def on_select_rows(chosen: list[dict[str, Any]]) -> None:
+            picked[:] = chosen
+            show_selection(bool(chosen))
+            count.text = counted_said()
+
+        def on_context(row: dict | None) -> None:
+            if not row or row.get(grid.NO_MENU):
+                menu.clear()
+                return
+            on = grid.menu_rows(table, row)
+            panel.verb_menu(
+                menu, str(row.get(fields[0]) or "") if len(on) == 1
+                else t("console.community.rows", count=len(on)),
+                panel.for_selection(verb_entries(declared, on, pressed), len(on)))
+
         with ui.element("div").classes("w-full grow min-h-0 flex flex-col"):
-            table = grid.build(shown, built, scope, on_header_context=on_header_context,
-                               view_of=showing)
+            table = grid.build(
+                shown, built, scope, on_select_rows if offering else None,
+                on_context if offering else None, on_header_context, view_of=showing,
+                rows_not_selectable=[] if offering else None)
             menu = ui.context_menu()
+
         async def counted() -> None:
             seen = await table.run_grid_method("getDisplayedRowCount")
-            seen = int(seen if isinstance(seen, int) else len(built))
-            count.text = (t("console.community.rows", count=len(built)) if seen == len(built)
-                          else t("console.community.rows_of", shown=seen, count=len(built)))
+            on_screen["rows"] = int(seen if isinstance(seen, int) else len(built))
+            count.text = counted_said()
 
         table.on("modelUpdated", counted)
         wire_views(table)

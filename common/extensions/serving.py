@@ -177,6 +177,16 @@ def list_rows(record: Record, key: str) -> dict:
     if not isinstance(rows, list) or not all(isinstance(one, dict) for one in rows):
         raise ExtensionError(i18n.t("error.extensions.not_rows",
                                      display=record.display_name, key=key))
+    seen: set[str] = set()
+    for row in rows:
+        if row.get("id") in (None, ""):
+            row.pop("id", None)
+            continue
+        row["id"] = str(row["id"])
+        if row["id"] in seen:
+            raise ExtensionError(i18n.t("error.extensions.duplicate_row_id",
+                                         display=record.display_name, key=key, id=row["id"]))
+        seen.add(row["id"])
     return {"rows": rows}
 
 
@@ -209,6 +219,33 @@ def list_act(record: Record, key: str, act: str) -> dict:
                                    key=act))
     return _message(record, f"list {key} act {act}", called(record, f"list {key} act {act}",
                                                              what))
+
+
+def list_verb(record: Record, key: str, verb: str, ids: list[str]) -> dict:
+    """Run one of a list's verbs on the rows with these ids, as the list holds them now.
+    The rows a verb's `needs` field is false on are left out, and a verb with none left
+    refuses."""
+    functions = _list(record, key)
+    chosen = functions.verbs.get(verb)
+    if chosen is None or chosen["run"] is None:
+        raise NotFoundError(i18n.t("error.extensions.no_verb", display=record.display_name,
+                                   key=verb))
+    wanted = list(dict.fromkeys(ids))
+    if not wanted or (chosen["one"] and len(wanted) != 1):
+        raise RefusedError(i18n.t("error.extensions.verb_rows", display=record.display_name,
+                                  key=verb))
+    held = {row["id"]: row for row in list_rows(record, key)["rows"] if "id" in row}
+    gone = [one for one in wanted if one not in held]
+    if gone:
+        raise NotFoundError(i18n.t("error.extensions.no_row", display=record.display_name,
+                                   id=gone[0]))
+    rows = [held[one] for one in wanted if not chosen["needs"] or held[one].get(chosen["needs"])]
+    if not rows:
+        raise RefusedError(said(record, f"list.{key}.verb.{verb}.needs",
+                                i18n.t("error.extensions.verb_needs",
+                                       display=record.display_name, key=verb)))
+    at = f"list {key} verb {verb}"
+    return _message(record, at, called(record, at, chosen["run"], rows))
 
 
 def _message(record: Record, at: str, result: Any) -> dict:

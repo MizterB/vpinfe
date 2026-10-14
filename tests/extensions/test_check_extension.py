@@ -26,6 +26,9 @@ WORDS = {
     "list.things.title": "Things",
     "list.things.column.name.header": "Name",
     "list.things.view.all.name": "Everything",
+    "list.things.verb.drop.label": "Drop",
+    "list.things.verb.drop.confirm": {"one": "Drop {count} row?", "other": "Drop {count} rows?"},
+    "list.things.verb.drop.needs": "Only a row that can be dropped",
     "action.greet.label": "Greet",
 }
 
@@ -54,7 +57,9 @@ def register(ctx: Any) -> None:
         return "2 things"
 
     ctx.ui.list("things", rows, columns=[{"field": "name"}], views=[{"key": "all"}],
-                status=status, acts={"refresh": lambda: CALLS.append("refresh")})
+                status=status, acts={"refresh": lambda: CALLS.append("refresh")},
+                verbs=[{"key": "drop", "run": lambda rows: CALLS.append("drop"),
+                        "danger": True, "needs": "ok"}])
 
     class Greet:
         def ask(self, step: str) -> dict:
@@ -134,7 +139,7 @@ class AGoodExtension(CheckCase):
     def test_it_says_each_list_with_where_it_sits_and_its_shape(self) -> None:
         lines, _ = self.checked()
 
-        self.assertIn("list       things in community: 1 columns, 1 views", lines)
+        self.assertIn("list       things in community: 1 columns, 1 views, 1 verbs", lines)
 
     def test_it_says_each_dialog_with_the_methods_it_has(self) -> None:
         lines, _ = self.checked()
@@ -220,15 +225,18 @@ class AWordMissing(CheckCase):
             sorted(one.split(" - ")[0].split()[1] for one in lines
                    if one.startswith("missing")),
             ["ext.checked.action.greet.label", "ext.checked.list.things.column.name.header",
-             "ext.checked.list.things.title", "ext.checked.list.things.view.all.name",
+             "ext.checked.list.things.title", "ext.checked.list.things.verb.drop.confirm",
+             "ext.checked.list.things.verb.drop.label",
+             "ext.checked.list.things.verb.drop.needs",
+             "ext.checked.list.things.view.all.name",
              "ext.checked.settings.greeting.label", "ext.checked.settings.mode.label"])
 
     def test_a_missing_word_comes_after_everything_that_was_read(self) -> None:
         lines, _ = self.checked(build(self.root, words={}))
 
         kinds = [one.split()[0] for one in lines]
-        self.assertEqual(kinds[-6:], ["missing"] * 6)
-        self.assertNotIn("missing", kinds[:-6])
+        self.assertEqual(kinds[-9:], ["missing"] * 9)
+        self.assertNotIn("missing", kinds[:-9])
 
     def test_a_name_and_description_are_asked_for_when_the_manifest_has_neither(self) -> None:
         directory = build(self.root, display_name="", description="")

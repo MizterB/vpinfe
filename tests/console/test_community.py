@@ -14,7 +14,7 @@ from nicegui import ui
 
 from common.extensions import host
 from common.i18n import t
-from console import busy, community, page, verbs, views
+from console import busy, community, grid, page, verbs, views
 from console.api import ApiError
 from console.data import read_state
 
@@ -178,6 +178,149 @@ class TheGrid(unittest.TestCase):
         for name, preset in community.presets(DECLARED).items():
             with self.subTest(view=name):
                 self.assertNotIn(community.HELD, preset.columns)
+
+
+VERBED = {**DECLARED, "verbs": [
+    {"key": "open", "link": "page", "label": "Open", "tip": "", "needs_reason": ""},
+    {"key": "flag", "label": "Flag", "needs": "can_flag", "needs_reason": "Already flagged",
+     "danger": False, "one": False, "tip": "Mark it"},
+    {"key": "drop", "label": "Drop", "danger": True, "one": True, "needs": "",
+     "needs_reason": "", "tip": ""}]}
+
+
+class TheVerbs(unittest.TestCase):
+    def entries(self, chosen: list[dict]) -> dict[str, Any]:
+        pressed: list = []
+        found = community.verb_entries(VERBED, chosen, lambda verb, fit: pressed.append(fit))
+        self.pressed = pressed
+        return {one.label: one for one in found}
+
+    def test_a_row_with_no_id_is_drawn_under_a_name_of_its_own_and_one_with_an_id_keeps_it(
+            self) -> None:
+        shown = community.rows([{"name": "A"}, {"id": 7, "name": "B"}, {"id": "", "name": "C"}],
+                               VERBED, {})
+
+        self.assertEqual(["7"], [one["id"] for one in shown if "id" in one
+                                 and not one["id"].startswith(community.UNNAMED)])
+        self.assertEqual(2, sum(one["id"].startswith(community.UNNAMED) for one in shown))
+
+    def test_a_row_with_no_id_has_no_menu_and_cannot_be_ticked(self) -> None:
+        shown = community.rows([{"name": "A"}, {"id": "b", "name": "B"}], VERBED, {})
+
+        self.assertEqual([(True, True), (None, None)],
+                         [(one.get(grid.NO_MENU), one.get(grid.NOT_SELECTABLE))
+                          for one in shown])
+
+    def test_a_link_goes_to_the_rows_own_address_and_is_for_one_row(self) -> None:
+        entries = self.entries([{"id": "a", "page": "https://example.test/a"}])
+
+        self.assertEqual(("https://example.test/a", True),
+                         (entries["Open"].to, entries["Open"].one))
+
+    def test_a_link_with_no_address_says_so_and_a_link_over_several_rows_is_dimmed(
+            self) -> None:
+        none = self.entries([{"id": "a", "page": ""}])["Open"]
+        several = self.entries([{"id": "a", "page": "https://example.test/a"},
+                                {"id": "b", "page": "https://example.test/b"}])["Open"]
+
+        self.assertEqual(("", "No address"), (none.to, none.hint))
+        self.assertEqual(("", True), (several.to, several.one))
+
+    def test_a_link_whose_value_is_not_a_web_address_opens_nothing(self) -> None:
+        for value in ("javascript:alert(1)", "ftp://example.test/a", "example.test/a"):
+            entry = self.entries([{"id": "a", "page": value}])["Open"]
+
+            self.assertEqual(("", "No address"), (entry.to, entry.hint), value)
+
+    def test_a_verb_that_needs_a_field_acts_on_the_rows_it_is_true_on_only(self) -> None:
+        entries = self.entries([{"id": "a", "can_flag": True}, {"id": "b", "can_flag": False}])
+
+        entries["Flag"].run()
+
+        self.assertEqual([[{"id": "a", "can_flag": True}]], self.pressed)
+
+    def test_a_verb_that_needs_a_field_true_on_none_is_dimmed_with_the_extensions_reason(
+            self) -> None:
+        flag = self.entries([{"id": "b", "can_flag": False}])["Flag"]
+
+        self.assertEqual((None, "Already flagged"), (flag.run, flag.hint))
+
+    def test_a_danger_and_a_one_at_a_time_carry_through_to_the_menu(self) -> None:
+        drop = self.entries([{"id": "a"}])["Drop"]
+
+        self.assertEqual((True, True), (drop.danger, drop.one))
+
+
+class PressingAVerb(unittest.IsolatedAsyncioTestCase):
+    """`run_verb` is called under the page; the test calls the handler it wraps."""
+
+    async def press(self, verb: dict, *, asked: bool = True, answer: Any = None,
+                    fails: Exception | None = None) -> tuple[Mock, Mock, Mock, Mock, Mock]:
+        again, post, notify, navigate = Mock(), Mock(return_value=answer), Mock(), Mock()
+        if fails:
+            post.side_effect = fails
+
+        async def io(call: Callable, *args: Any) -> Any:
+            return call(*args)
+
+        ask = Mock(side_effect=lambda *a, **k: _done(asked))
+
+        async def renewed() -> None:
+            again()
+
+        with patch.object(community.confirm, "ask", ask), \
+                patch.object(community.offload, "io", io), \
+                patch.object(community, "ApiClient", return_value=Mock(ext_post=post)), \
+                patch.object(community.ui, "notify", notify), \
+                patch.object(community.ui.navigate, "to", navigate):
+            await community.run_verb.__wrapped__(
+                "site", VERBED, verb, [{"id": "a"}, {"id": 2}], renewed)
+        return ask, post, notify, navigate, again
+
+    async def test_a_danger_asks_first_in_its_own_label_and_does_nothing_when_refused(
+            self) -> None:
+        drop = VERBED["verbs"][2]
+
+        ask, post, _notify, _navigate, again = await self.press(drop, asked=False)
+
+        self.assertEqual(("Drop", verbs.ACCEPT),
+                         (ask.call_args.kwargs["confirm"], ask.call_args.kwargs["icon"]))
+        post.assert_not_called()
+        again.assert_not_called()
+
+    async def test_a_confirmed_danger_posts_the_ids_and_reads_the_list_again(self) -> None:
+        drop = VERBED["verbs"][2]
+
+        _ask, post, _notify, _navigate, again = await self.press(drop, answer={})
+
+        post.assert_called_once_with("/ext/site/community/tables/verbs/drop", {"ids": ["a", "2"]})
+        again.assert_called_once()
+
+    async def test_a_verb_that_is_not_a_danger_does_not_ask(self) -> None:
+        ask, post, *_ = await self.press(VERBED["verbs"][1], answer={})
+
+        ask.assert_not_called()
+        post.assert_called_once()
+
+    async def test_the_address_and_message_a_verb_answers_are_opened_and_said(self) -> None:
+        _ask, _post, notify, navigate, again = await self.press(
+            VERBED["verbs"][1], answer={"message": "Flagged 2", "url": "https://example.test/x"})
+
+        navigate.assert_called_once_with("https://example.test/x", new_tab=True)
+        notify.assert_called_once_with("Flagged 2")
+        again.assert_called_once()
+
+    async def test_a_verb_that_fails_says_why_and_still_reads_the_list_again(self) -> None:
+        _ask, _post, notify, navigate, again = await self.press(
+            VERBED["verbs"][1], fails=ApiError("refused"))
+
+        self.assertEqual("negative", notify.call_args.kwargs["type"])
+        navigate.assert_not_called()
+        again.assert_called_once()
+
+
+async def _done(value: Any) -> Any:
+    return value
 
 
 def _answering(*rows: dict) -> Callable[[], dict]:

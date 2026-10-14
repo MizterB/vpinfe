@@ -51,6 +51,9 @@ _BODY_AG_GRID_KEEPS_UNPINNED_PX = 50
 # A row whose data says this is true has nothing in its context menu, so right-clicking it
 # opens none.
 NO_MENU = "menuless"
+# A row whose data says this is true cannot be ticked, where the grid is given
+# `rows_not_selectable` (an empty list will do).
+NOT_SELECTABLE = "unselectable"
 
 
 @dataclass
@@ -980,8 +983,9 @@ def build(columns: list[dict[str, Any]], rows: list[dict[str, Any]], scope: str,
         "defaultColDef": DEFAULT_COL_DEF,
         **({"rowSelection": {**ROW_SELECTION, **({
             ":isRowSelectable":
-                f"node => !{json.dumps(rows_not_selectable)}.includes(node.data.id)"}
-            if rows_not_selectable else {})}} if on_select_rows is not None else {}),
+                f"node => !{json.dumps(rows_not_selectable)}.includes(node.data.id)"
+                f" && !node.data[{json.dumps(NOT_SELECTABLE)}]"}
+            if rows_not_selectable is not None else {})}} if on_select_rows is not None else {}),
         # The ":" prefix marks this as JavaScript. Without it AG Grid calls a string and
         # the grid dies as an empty table rather than an error.
         ":getRowId": "params => params.data.id",

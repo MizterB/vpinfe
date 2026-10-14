@@ -567,10 +567,10 @@ Does not raise. Empty before `settings` was called.
 #### `ctx.ui.list`
 
 `ctx.ui.list(key, rows, *, columns, area="community", title="", views=(), status=None,
-acts=None, relation=None, tag="")`. Required: `key`, `rows`, `columns`.
+acts=None, relation=None, tag="", verbs=())`. Required: `key`, `rows`, `columns`.
 
 Declare a list. `rows()` returns the rows, each a dict. See "Lists" for columns, views,
-acts, relation and tag.
+acts, relation, tag and verbs.
 
 ```python
 ctx.ui.list("top", read_top, title="Example Scores",
@@ -582,7 +582,9 @@ area, no key or columns, a repeated key, rows or status that are not functions, 
 any column but the first, an unknown column kind, a view on a column the list lacks, a
 relation on a missing field or with `keys` other than `vps_entry` or `vps_release`, a `tag`
 without a relation, or a ranked view that sorts on anything but number or date columns or
-has no relation. After `register` also raises when the title equals a core page's title
+has no relation, or a verb that is not a dict, has no key or a key already used, carries a key
+core does not read, has both a `run` and a `link` or neither, or puts `danger` or `needs` on a
+`link`. After `register` also raises when the title equals a core page's title
 or another running extension's list in the same area.
 
 #### `ctx.ui.kept`
@@ -1367,7 +1369,7 @@ refusal under the field.
 
 ## Lists
 
-`ctx.ui.list(key, rows, *, columns, area, title, views, status, acts, relation, tag)`.
+`ctx.ui.list(key, rows, *, columns, area, title, views, status, acts, relation, tag, verbs)`.
 A list an extension holds, shown in the rail.
 
 ```python
@@ -1383,6 +1385,8 @@ ctx.ui.list(
     relation={"field": "vps_id", "keys": "vps_entry"},
     status=lambda: {"text": ctx.t("status"), "to": "settings"},
     acts=lambda: {"send_now": send_now, "site": "https://scores.example.com"},
+    verbs=[{"key": "open", "link": "page"},
+           {"key": "hide", "run": hide, "danger": True}],
     tag="Weekly Challenge")
 ```
 
@@ -1391,6 +1395,11 @@ that JSON can carry. A row that cannot be carried, or a result that is not a lis
 is the extension's failure to answer: it is shown on the list, and the extension keeps
 running (`error.extensions.not_data`, `error.extensions.not_rows`). A service that did not
 answer raises `Unavailable`; see "Unavailable".
+
+**Row ids.** A row's `id` is a string, unique in the list (a number is read as its text, and
+two rows with one id are the extension's failure to answer,
+`error.extensions.duplicate_row_id`, for any list, verbs or not). It is what a verb is told the row by. A row with no
+`id` is drawn, but it cannot be ticked and has no menu.
 
 **Area.** Which group of the rail the list is in.
 
@@ -1473,8 +1482,28 @@ refused).
 
 An act's label is `list.<key>.act.<act>.label`, falling back to the act's key.
 
+**Verbs.** What a person can do to rows: one, or several ticked. Each verb is in the row's
+right-click menu and in the menu the bar shows while any row is ticked. `{"key", "run" or
+"link", "danger", "needs", "one", "label"}`:
+
+| key | meaning |
+|---|---|
+| `key` | Required, unique in the list. What the catalog finds its words by |
+| `run` | A function, called with the rows as dicts. It returns None, a message string that is said, or `{"message", "url"}`: a `url` is opened in a new tab. Core reads the list again afterwards |
+| `link` | In place of `run`: the row field that holds an address. The verb opens it in a new tab, marked as leaving, and the extension is never called. The field has to start with `http://` or `https://`, or the verb is dimmed, saying **No address**. A link is always `one`, and takes no `danger` or `needs` |
+| `danger` | Draws it last, under a rule, in red, and asks first. The question is `list.<key>.verb.<verb>.confirm`, with `{count}` the number of rows ticked, which can be more than the rows the verb acts on when it also has `needs`. The asking is the Console's; the route itself runs the verb when it is called |
+| `needs` | A row field that is true or false. The verb is dimmed on a row where it is not, saying `list.<key>.verb.<verb>.needs`, and acts on the rows where it is true when several are ticked. Core checks this again when the verb is pressed |
+| `one` | Meaningless over several rows. With several ticked it stays in the menu, dimmed, saying **One at a time**. Core refuses it for any other number of rows |
+| `label` | Shown as written; left out, `list.<key>.verb.<verb>.label`, then the verb's key |
+
+The question a danger verb asks is plural, `{"one": "Remove this row?", "other": "Remove
+{count} rows?"}`, and takes `{count}`. Left out, core asks "`<label>` this row?" or
+"`<label>` `<count>` rows?". A verb is not offered while the extension is stopped. A verb
+that raises is the extension's failure to act, said with its reason (`Unavailable` is a 502).
+
 Words: `list.<key>.title`, `list.<key>.column.<field>.header|help`,
-`list.<key>.view.<viewkey>.name|help`, `list.<key>.act.<act>.label`.
+`list.<key>.view.<viewkey>.name|help`, `list.<key>.act.<act>.label`,
+`list.<key>.verb.<verb>.label|tip|confirm|needs`. `tip` is what a hover adds to the label.
 
 ## Actions and dialogs
 
@@ -2211,6 +2240,7 @@ and `PUT` need `ext:<name>:write`. A request for something the extension did not
 | `GET /lists/{key}` | `{"rows": [...]}` |
 | `GET /lists/{key}/about` | `{"status": ..., "acts": [{key, label[, url]}]}` |
 | `POST /lists/{key}/about/acts/{act}` | `{"message"?, "url"?}` |
+| `POST /lists/{key}/verbs/{verb}` | Body `{"ids": [...]}`. `{"message"?, "url"?}` |
 | `GET /actions/{key}?step=` | A step answer |
 | `POST /actions/{key}/check` | Body `{values, step}`. A step answer |
 | `POST /actions/{key}/act` | Body `{act, values, step}`. A step answer |

@@ -26,6 +26,10 @@ def _rows() -> list[dict]:
     return []
 
 
+def _mark(rows: list) -> None:
+    return None
+
+
 class TheDeclaration(unittest.TestCase):
     def setUp(self) -> None:
         self.ui = ExtensionUI("site", allowed=True)
@@ -162,6 +166,49 @@ class TheDeclaration(unittest.TestCase):
 
         with self.assertRaises(ContractError):
             self.ui.list("tables", _rows, columns=COLUMNS)
+
+    def test_verbs_are_recorded_as_data_without_their_functions(self) -> None:
+        self.ui.list("tables", _rows, columns=COLUMNS, verbs=[
+            {"key": "mark", "run": _mark, "danger": True, "needs": "ok", "one": True,
+             "label": "Mark"},
+            {"key": "open", "link": "page"}])
+
+        (said,) = self.ui.declared_lists
+        self.assertEqual(
+            [{"key": "mark", "label": "Mark", "link": "", "danger": True, "needs": "ok",
+              "one": True},
+             {"key": "open", "label": "", "link": "page", "danger": False, "needs": "",
+              "one": True}], said["verbs"])
+        self.assertIs(self.ui.list_functions["tables"].verbs["mark"]["run"], _mark)
+
+    def test_a_verb_core_cannot_read_is_refused_with_what_it_reads(self) -> None:
+        with self.assertRaises(ContractError) as raised:
+            self.ui.list("tables", _rows, columns=COLUMNS,
+                         verbs=[{"key": "mark", "run": _mark, "confirm": "Sure?"}])
+
+        self.assertIn("confirm", str(raised.exception))
+        self.assertIn("danger", str(raised.exception))
+        self.assertEqual([], self.ui.declared_lists)
+
+    def test_a_verb_wrongly_given_is_refused(self) -> None:
+        wrong = {
+            "not a dict": ["mark"],
+            "no key": {"run": _mark},
+            "neither run nor link": {"key": "mark"},
+            "both run and link": {"key": "mark", "run": _mark, "link": "page"},
+            "run that is not a function": {"key": "mark", "run": "mark"},
+            "danger on a link": {"key": "open", "link": "page", "danger": True},
+            "needs on a link": {"key": "open", "link": "page", "needs": "ok"},
+        }
+        for what, verb in wrong.items():
+            with self.subTest(what), self.assertRaises(ContractError):
+                self.ui.list("tables", _rows, columns=COLUMNS, verbs=[verb])
+        self.assertEqual([], self.ui.declared_lists)
+
+    def test_two_verbs_with_one_key_are_refused(self) -> None:
+        with self.assertRaises(ContractError):
+            self.ui.list("tables", _rows, columns=COLUMNS,
+                         verbs=[{"key": "mark", "run": _mark}, {"key": "mark", "run": _mark}])
 
 
 class HowTheListStands(unittest.TestCase):

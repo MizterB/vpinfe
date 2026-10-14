@@ -22,6 +22,7 @@ from typing import Any
 from common import events, i18n, jobs
 from common.extensions import check, contract, fields, host, serving, store
 from common.extensions.context import COLUMN_KINDS, ExtensionContext, logger_for
+from common.service_errors import RefusedError
 
 GUIDE = Path(__file__).resolve().parents[2] / "docs" / "extensions"
 EXAMPLES = GUIDE / "examples"
@@ -41,6 +42,7 @@ DECLARES: dict[str, list[str]] = {
     "slow_sync": ["dialog     sync: ask run"],
     "play_log": [],
     "top_scores": ["settings   key (secret)", "list       top in community: 3 columns"],
+    "score_rows": ["list       scores in community: 3 columns, 0 views, 3 verbs"],
 }
 
 
@@ -242,6 +244,24 @@ class RecipesDoWhatTheyClaim(unittest.TestCase):
 
         self.assertEqual(raised.exception.message, "The site did not accept the key")
         self.assertEqual([one["player"] for one in rows], ["AAA", "BEE", "CJ"])
+
+    def test_the_rows_carry_what_a_verb_needs_and_a_verb_acts_on_the_rows_it_is_given(
+            self) -> None:
+        record = self.load("score_rows")
+        record.context.config.set("key", practice_site.KEY)
+        rows = serving.list_rows(record, "scores")["rows"]
+
+        said = serving.list_verb(record, "scores", "flag", [rows[0]["id"]])
+        flagged = serving.list_rows(record, "scores")["rows"]
+        with self.assertRaisesRegex(RefusedError, "Already flagged"):
+            serving.list_verb(record, "scores", "flag", [rows[0]["id"]])
+        serving.list_verb(record, "scores", "remove", [rows[1]["id"]])
+
+        self.assertEqual(rows[0]["page"], f"http://127.0.0.1:8790/scores/{rows[0]['id']}")
+        self.assertEqual(said, {"message": "Flagged the score"})
+        self.assertEqual([one["can_flag"] for one in flagged], [False, True, True])
+        self.assertEqual([one["player"] for one in serving.list_rows(record, "scores")["rows"]],
+                         ["AAA", "CJ"])
 
     def _top(self) -> list[dict]:
         request = urllib.request.Request(

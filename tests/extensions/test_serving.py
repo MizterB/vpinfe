@@ -34,6 +34,13 @@ WORDS = {
     "settings.mode.choice.fast": "Quick",
     "list.things.title": "Things",
     "list.things.act.refresh.label": "Refresh now",
+    "list.verbed.verb.mark.label": "Mark",
+    "list.verbed.verb.mark.tip": "Marks the rows",
+    "list.verbed.verb.open.label": "Open page",
+    "list.verbed.verb.remove.label": "Remove",
+    "list.verbed.verb.remove.confirm": {"one": "Remove {count} row?",
+                                        "other": "Remove {count} rows?"},
+    "list.verbed.verb.remove.needs": "Only a row you can remove",
     "action.greet.label": "Say hello",
 }
 
@@ -45,6 +52,7 @@ def fresh_state() -> None:
     STATE.clear()
     STATE.update(
         checked=[], steps=[], plain_values=None, seen=None, rows=[], status="", acts=None,
+        pressed=[],
         progress=None, running=threading.Event(), release=threading.Event())
 
 
@@ -84,6 +92,32 @@ def served(ctx: Any) -> None:
         raise STATE["raises"]
 
     ctx.ui.list("failing", failing, columns=[{"field": "name"}], title="Failing")
+
+    def mark(rows: list) -> str:
+        STATE["pressed"].append(("mark", [dict(one) for one in rows]))
+        return f"Marked {len(rows)}"
+
+    def remove(rows: list) -> dict:
+        STATE["pressed"].append(("remove", [dict(one) for one in rows]))
+        return {"message": "Removed", "url": "https://example.invalid/after"}
+
+    def tidy(rows: list) -> None:
+        STATE["pressed"].append(("tidy", [dict(one) for one in rows]))
+
+    def break_it(rows: list) -> None:
+        raise ValueError("Could not break it")
+
+    ctx.ui.list(
+        "verbed",
+        lambda: [{"id": 1, "name": "a", "can": True, "page": "https://example.invalid/a"},
+                 {"id": "b", "name": "b", "can": False},
+                 {"name": "no id"}],
+        columns=[{"field": "name"}], title="Verbed",
+        verbs=[{"key": "mark", "run": mark},
+               {"key": "open", "link": "page"},
+               {"key": "remove", "run": remove, "danger": True, "needs": "can", "one": True},
+               {"key": "tidy", "run": tidy, "needs": "can"},
+               {"key": "break", "run": break_it, "label": "Break it"}])
 
     class Greet:
         def ask(self, step: str) -> dict:
@@ -411,6 +445,14 @@ class Lists(ServedCase):
         self.assertIn("The service said no", self.refused(found, 400)["message"])
         self.assertEqual(self.registry.get(NAME).state, host.LOADED)
 
+    def test_two_rows_with_one_id_are_refused_for_any_list(self) -> None:
+        STATE["rows"] = [{"id": 1, "name": "a"}, {"id": "1", "name": "b"}]
+
+        found = self.refused(self.get("/lists/shaped"), 400)
+
+        self.assertEqual(found["message"], t("error.extensions.duplicate_row_id",
+                                             display=self.display(), key="shaped", id="1"))
+
     def test_rows_that_cannot_reach_their_service_are_a_502(self) -> None:
         STATE["raises"] = Unavailable("The service did not answer")
 
@@ -509,6 +551,87 @@ class Lists(ServedCase):
 
         self.assertIn("Nothing to refresh", self.refused(found, 400)["message"])
         self.assertEqual(self.registry.get(NAME).state, host.LOADED)
+
+
+class Verbs(ServedCase):
+    def press(self, verb: str, *ids: str) -> Any:
+        return self.post(f"/lists/verbed/verbs/{verb}", {"ids": list(ids)})
+
+    def declared(self) -> dict:
+        return {one["key"]: one for one in self.record.lists()[-1]["verbs"]}
+
+    def test_a_verb_is_declared_with_the_words_the_catalog_has_for_it(self) -> None:
+        found = self.declared()
+
+        self.assertEqual((found["mark"]["label"], found["mark"]["tip"]),
+                         ("Mark", "Marks the rows"))
+        self.assertEqual(found["break"]["label"], "Break it")
+        self.assertEqual(found["remove"]["needs_reason"], "Only a row you can remove")
+        self.assertEqual(i18n.t(found["remove"]["confirm_key"], count=2), "Remove 2 rows?")
+        self.assertNotIn("run", found["mark"])
+
+    def test_a_link_verb_is_for_one_row_and_carries_the_field_it_reads(self) -> None:
+        found = self.declared()["open"]
+
+        self.assertEqual((found["link"], found["one"]), ("page", True))
+        self.refused(self.press("open", "1"), 404)
+
+    def test_rows_without_an_id_are_answered_without_one_and_the_others_as_text(self) -> None:
+        rows = self.ok(self.get("/lists/verbed"))["rows"]
+
+        self.assertEqual([one.get("id") for one in rows], ["1", "b", None])
+
+    def test_a_verb_is_run_on_the_rows_asked_for_and_answers_its_message(self) -> None:
+        self.assertEqual(self.ok(self.press("mark", "1", "b")), {"message": "Marked 2"})
+        self.assertEqual([one["name"] for one in STATE["pressed"][0][1]], ["a", "b"])
+
+    def test_a_verb_that_answers_an_address_hands_it_on(self) -> None:
+        self.assertEqual(self.ok(self.press("remove", "1")),
+                         {"message": "Removed", "url": "https://example.invalid/after"})
+
+    def test_a_row_the_needs_field_is_false_on_is_left_out_of_the_call(self) -> None:
+        self.ok(self.press("tidy", "1", "b"))
+
+        self.assertEqual([one["id"] for one in STATE["pressed"][0][1]], ["1"])
+
+    def test_a_verb_with_no_row_it_is_for_refuses_in_the_extensions_words(self) -> None:
+        self.refused(self.press("remove", "b"), 400, "Only a row you can remove")
+
+        self.assertEqual(STATE["pressed"], [])
+
+    def test_a_one_at_a_time_verb_refuses_several_rows(self) -> None:
+        self.refused(self.press("remove", "1", "b"), 400,
+                     t("error.extensions.verb_rows", display=self.display(), key="remove"))
+
+    def test_no_rows_is_refused(self) -> None:
+        self.refused(self.press("mark"), 400,
+                     t("error.extensions.verb_rows", display=self.display(), key="mark"))
+
+    def test_a_row_the_list_no_longer_has_is_a_404(self) -> None:
+        self.refused(self.press("mark", "gone"), 404,
+                     t("error.extensions.no_row", display=self.display(), id="gone"))
+
+    def test_an_unknown_verb_is_a_404(self) -> None:
+        self.refused(self.press("nothing", "1"), 404,
+                     t("error.extensions.no_verb", display=self.display(), key="nothing"))
+
+    def test_a_verb_that_raises_is_the_extensions_failure(self) -> None:
+        with self.assertLogs(f"vpinfe.ext.{NAME}", "WARNING"):
+            found = self.press("break", "1")
+
+        self.assertIn("Could not break it", self.refused(found, 400)["message"])
+        self.assertEqual(self.registry.get(NAME).state, host.LOADED)
+
+    def test_pressing_a_verb_wants_the_write_scope_and_not_the_read_one(self) -> None:
+        self.client = client_for(self, self.registry, self.record,
+                                 allowed=lambda scope: scope.endswith(":read"))
+
+        self.assertEqual(self.get("/lists/verbed").status_code, 200)
+        found = self.press("mark", "1")
+
+        self.assertEqual(found.status_code, 403)
+        self.assertIn(f"ext:{NAME}:write", found.json()["error"]["message"])
+        self.assertEqual(STATE["pressed"], [])
 
 
 class Dialogs(ServedCase):

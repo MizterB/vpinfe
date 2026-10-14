@@ -2211,6 +2211,12 @@ class ExtensionValues(ApiModel):
     values: dict[str, Any] = Field(default_factory=dict)
 
 
+class ExtensionVerb(ApiModel):
+    """The rows a list's verb is pressed on, by their `id`."""
+
+    ids: list[str] = Field(default_factory=list)
+
+
 class ExtensionStep(ExtensionValues):
     """A dialog's values, and the step they were entered on where it has steps."""
 

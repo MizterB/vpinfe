@@ -28,6 +28,7 @@ and the mistake people make with it.
 - [5. A long job with progress](#5-a-long-job-with-progress)
 - [6. Listening to events](#6-listening-to-events)
 - [7. A list](#7-a-list)
+- [8. Acting on rows](#8-acting-on-rows)
 
 ## Basics
 
@@ -501,3 +502,124 @@ there, it lists the three sample scores, best first.
 **Watch out:** a list's title may not be the name of one of VPinFE's own pages, and two lists
 in one area may not share a title. The extension is refused at load, and the reason is in its
 page.
+
+### 8. Acting on rows
+
+**Use it when:** the person should be able to do something to the rows they pick, such as
+flag a score, open its page or remove it.
+
+`verbs` on a list are the things that can be done to a row. Core draws them in the row's
+menu and, when the person ticks several rows, in the menu under the list. You say what each
+one does, and core asks first when it is dangerous, dims it where it does not fit, and reads
+the list again afterwards.
+
+This one builds on the practice site's scores, which now have an `id`, a `flagged` flag and a
+page of their own. A list's rows need an `id` for the person to be able to pick them.
+
+`recipes/score_rows/extension.json`
+
+```json
+{
+  "name": "score_rows",
+  "version": "1.0.0",
+  "requires_platform": 1,
+  "capabilities": ["config:own", "net:outbound", "ui:mount"]
+}
+```
+
+`recipes/score_rows/__init__.py`
+
+```python
+import json
+import urllib.error
+import urllib.request
+
+from common.extensions.contract import Unavailable
+
+
+def register(ctx):
+    ctx.ui.settings([
+        {"key": "site", "type": "string", "default": "http://127.0.0.1:8790"},
+        {"key": "key", "type": "secret"},
+    ])
+
+    def call(path, method="GET", body=None):
+        request = urllib.request.Request(
+            ctx.config.get("site") + path, method=method,
+            data=json.dumps(body).encode() if body is not None else None,
+            headers={"X-API-Key": ctx.config.get("key"), "Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(request, timeout=10) as answer:
+                return json.loads(answer.read())
+        except urllib.error.HTTPError as exc:
+            if exc.code == 401:
+                raise Unavailable(ctx.t("error.refused")) from exc
+            raise Unavailable(ctx.why(exc, at=request.full_url)) from exc
+        except OSError as exc:
+            raise Unavailable(ctx.why(exc, at=request.full_url)) from exc
+
+    def rows():
+        return [{**one, "page": f"{ctx.config.get('site')}/scores/{one['id']}",
+                 "can_flag": not one["flagged"]} for one in call("/top")]
+
+    def flag(picked):
+        for one in picked:
+            call(f"/scores/{one['id']}/flag", "POST")
+        return ctx.t("message.flagged", count=len(picked))
+
+    def remove(picked):
+        for one in picked:
+            call(f"/scores/{one['id']}", "DELETE")
+
+    ctx.ui.list("scores", rows, area="community", columns=[
+        {"field": "player"},
+        {"field": "table"},
+        {"field": "score", "kind": "number"},
+    ], verbs=[
+        {"key": "open", "link": "page"},
+        {"key": "flag", "run": flag, "needs": "can_flag"},
+        {"key": "remove", "run": remove, "danger": True},
+    ])
+```
+
+`recipes/score_rows/i18n/en.json`
+
+```json
+{
+  "name": "Score Rows",
+  "description": "Lists the scores on Example Scores and acts on the ones you pick.",
+  "settings.site.label": "Site",
+  "settings.key.label": "Key",
+  "error.refused": "The site did not accept the key",
+  "message.flagged": {"one": "Flagged the score", "other": "Flagged {count} scores"},
+  "list.scores.title": "Score Rows",
+  "list.scores.column.player.header": "Player",
+  "list.scores.column.table.header": "Table",
+  "list.scores.column.score.header": "Score",
+  "list.scores.verb.open.label": "Open on the site",
+  "list.scores.verb.flag.label": "Flag",
+  "list.scores.verb.flag.needs": "Already flagged",
+  "list.scores.verb.remove.label": "Remove",
+  "list.scores.verb.remove.confirm": {
+    "one": "Remove this score from the site?",
+    "other": "Remove these {count} scores from the site?"
+  }
+}
+```
+
+**What you'll see:** Score Rows under Community in the rail, with the three sample scores
+once the key is set. Right-click a row for Open on the site, Flag and, below a rule, Remove.
+Tick two rows and the same menu is under the list, with Open on the site dimmed as One at a
+time. Flag a score and its Flag is dimmed with Already flagged. Remove asks "Remove this score
+from the site?" first, or "Remove these 2 scores from the site?" for two.
+
+**Variations:**
+
+- A verb that answers `{"message": ..., "url": ...}` shows the message and offers the address.
+- Add `"one": True` to a run verb that only makes sense for a single row.
+- A verb with no `needs` acts on every row picked. With `needs`, it acts only on the rows where
+  that field is true. It is dimmed, with the `.needs` words, when the field is true on none.
+
+**Watch out:** the `id` of a row is a string and must be different for every row of the list.
+Two rows with the same id make the list fail with the reason, and a row with none can be read
+but not picked.

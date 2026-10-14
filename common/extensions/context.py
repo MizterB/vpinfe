@@ -220,6 +220,7 @@ class ExtensionApps:
 COLUMN_KINDS = frozenset({"text", "number", "date"})
 RANKING_KINDS = frozenset({"number", "date"})
 RELATION_KEYS = frozenset({"vps_entry", "vps_release"})
+VERB_KEYS = frozenset({"key", "run", "link", "danger", "needs", "one", "label"})
 
 # The groups in the rail a list can be put in, each one core already draws.
 AREAS = ("library", "frontend", "community", "system")
@@ -233,6 +234,7 @@ class ListFunctions:
     rows: Callable[[], Any]
     status: Callable[[], Any] | None = None
     acts: Any = None
+    verbs: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
 @dataclass
@@ -395,7 +397,8 @@ class ExtensionUI:
     def list(self, key: str, rows: Callable[[], Any], *, columns: Sequence[dict],
              area: str = DEFAULT_AREA, title: str = "", views: Sequence[dict] = (),
              status: Callable[[], Any] | None = None, acts: Any = None,
-             relation: dict | None = None, tag: str = "") -> None:
+             relation: dict | None = None, tag: str = "",
+             verbs: Sequence[dict] = ()) -> None:
         """A list this extension holds, shown in the rail under `area`.
 
         `rows()` answers the rows, each a dict. `status()` answers the line the list's
@@ -411,6 +414,14 @@ class ExtensionUI:
         `{"field", "keys"}`, `keys` being `vps_entry` or `vps_release`. `tag` is put on
         every game (`vps_entry`) or table (`vps_release`) of this library the list
         relates to, so it needs a `relation`.
+
+        `verbs` are what can be done to the rows, in the row's menu and the selection's.
+        A verb is `{"key", "run" or "link", "label", "danger", "needs", "one"}`:
+        `run(rows)` is called with the rows chosen and answers a `message` or
+        `{"message", "url"}`, `link` names a row field holding a web address to open,
+        `danger` asks first, `needs` names a boolean row field that must be true for the
+        verb to act on a row, and `one` refuses several rows at once. A row needs an `id`,
+        a string unique in the list, to be ticked or to have a menu.
         """
         self._needs_ui("a list")
         wanted = str(key or "").strip()
@@ -463,7 +474,9 @@ class ExtensionUI:
             if not relation:
                 raise ContractError(f"{self._name} ranks by a view of a list that relates "
                                     "to nothing in the library")
-        self.list_functions[wanted] = ListFunctions(rows=rows, status=status, acts=acts)
+        offered = self._verbs(wanted, verbs)
+        self.list_functions[wanted] = ListFunctions(rows=rows, status=status, acts=acts,
+                                                    verbs=offered)
         self.declared_lists.append({
             "key": wanted, "area": where, "title": str(title or "").strip(),
             "base": f"/lists/{wanted}",
@@ -482,7 +495,40 @@ class ExtensionUI:
             "relation": dict(relation) if relation else None,
             "tag": derived,
             "about": f"/lists/{wanted}/about",
+            "verbs": [{"key": verb, "label": one["label"], "link": one["link"],
+                       "danger": one["danger"], "needs": one["needs"], "one": one["one"]}
+                      for verb, one in offered.items()],
         })
+
+    def _verbs(self, list_key: str, verbs: Sequence[dict]) -> dict[str, dict[str, Any]]:
+        """The verbs of one list, checked, by key. Each holds its `run`, which is not
+        declared to the Console."""
+        found: dict[str, dict[str, Any]] = {}
+        for raw in verbs:
+            where = f"{self._name} gives the list {list_key!r}"
+            if not isinstance(raw, dict):
+                raise ContractError(f"{where} a verb that is not a dict")
+            key = str(raw.get("key") or "").strip()
+            if not key or key in found:
+                raise ContractError(f"{where} a verb with no key, or two with the same one")
+            unknown = sorted(set(raw) - VERB_KEYS)
+            if unknown:
+                raise ContractError(f"{where} the verb {key!r} with keys core does not "
+                                    f"read: {', '.join(unknown)}. It reads "
+                                    f"{', '.join(sorted(VERB_KEYS))}")
+            run, link = raw.get("run"), str(raw.get("link") or "").strip()
+            if (run is None) == (not link) or (run is not None and not callable(run)):
+                raise ContractError(f"{where} the verb {key!r} with both a run function "
+                                    "and a link, or with neither, or a run that is not "
+                                    "a function")
+            if link and (raw.get("danger") or raw.get("needs")):
+                raise ContractError(f"{where} the link verb {key!r} danger or needs, "
+                                    "which a link has no use for")
+            found[key] = {"run": run, "link": link, "danger": bool(raw.get("danger")),
+                          "needs": str(raw.get("needs") or "").strip(),
+                          "one": bool(raw.get("one")) or bool(link),
+                          "label": str(raw.get("label") or "").strip()}
+        return found
 
 
 PLAYERS_READ = "players:read"

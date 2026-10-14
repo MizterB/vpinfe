@@ -61,7 +61,8 @@ def _report(record: Record, lines: list[str]) -> bool:
         lines.append(f"settings   {field['key']} ({field['type']}{default})")
     for declared in record.declared_lists:
         lines.append(f"list       {declared['key']} in {declared['area']}: "
-                     f"{len(declared['columns'])} columns, {len(declared['views'])} views")
+                     f"{len(declared['columns'])} columns, {len(declared['views'])} views, "
+                     f"{len(declared['verbs'])} verbs")
     for declared in record.actions:
         dialog = ui.action_objects[declared["key"]]
         methods = [one for one in ("ask", "check", "act", "run", "progress")
@@ -159,6 +160,14 @@ def _missing(record: Record, ui: Any) -> list[tuple[str, str]]:
                       for one in declared["columns"] if not one["header"])
         wanted.extend((f"list.{key}.view.{one['key']}.name", "a view's name")
                       for one in declared["views"] if not one["name"])
+        for verb in declared["verbs"]:
+            at = f"list.{key}.verb.{verb['key']}"
+            if not verb["label"]:
+                wanted.append((f"{at}.label", "a verb's label"))
+            if verb["danger"]:
+                wanted.append((f"{at}.confirm", "the question a danger verb asks"))
+            if verb["needs"]:
+                wanted.append((f"{at}.needs", "why a verb is not for a row"))
     wanted.extend((f"action.{one['key']}.label", "a dialog's label")
                   for one in record.actions if not one["label"])
     return [(f"ext.{record.name}.{suffix}", why) for suffix, why in wanted

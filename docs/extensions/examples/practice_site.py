@@ -8,12 +8,18 @@ scores in memory, so stopping it forgets what was posted.
     GET  /check    200 with the right key, 401 without
     GET  /top      the scores, best first, with the right key
     POST /scores   {"player", "table", "score"}, with the right key; 201
+    GET  /scores/<id>        open to anyone: that score, as a page a link can go to
+    POST /scores/<id>/flag   with the right key: marks the score flagged
+    DELETE /scores/<id>      with the right key: removes the score
+
+Every score has an `id` and a `flagged` flag.
 
 A test starts it with `make_server(0)` and reads the port the system chose.
 """
 
 from __future__ import annotations
 
+import itertools
 import json
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -24,13 +30,18 @@ PORT = 8790
 KEY = "practice-key"
 
 SCORES: list[dict[str, Any]] = [
-    {"player": "AAA", "table": "Medieval Madness", "score": 1_240_000_000},
-    {"player": "BEE", "table": "Attack from Mars", "score": 980_500_000},
-    {"player": "CJ", "table": "The Addams Family", "score": 310_000_000},
+    {"id": "s1", "player": "AAA", "table": "Medieval Madness", "score": 1_240_000_000,
+     "flagged": False},
+    {"id": "s2", "player": "BEE", "table": "Attack from Mars", "score": 980_500_000,
+     "flagged": False},
+    {"id": "s3", "player": "CJ", "table": "The Addams Family", "score": 310_000_000,
+     "flagged": False},
 ]
 
 
 def _handler(scores: list[dict[str, Any]]) -> type[BaseHTTPRequestHandler]:
+    counter = itertools.count(len(scores) + 1)
+
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_args: Any) -> None:
             pass
@@ -56,19 +67,41 @@ def _handler(scores: list[dict[str, Any]]) -> type[BaseHTTPRequestHandler]:
                 self._send(200, {"ok": True})
             elif self.path == "/top" and self._signed_in():
                 self._send(200, sorted(scores, key=lambda one: -one["score"]))
+            elif self.path.startswith("/scores/") and self._one(self.path[8:]):
+                self._send(200, self._one(self.path[8:]))
             elif self.path not in ("/check", "/top"):
                 self._send(404, {"error": "No such page"})
 
+        def _one(self, score_id: str) -> dict[str, Any] | None:
+            return next((one for one in scores if one["id"] == score_id), None)
+
+        def do_DELETE(self) -> None:  # noqa: N802
+            found = self._one(self.path[8:]) if self.path.startswith("/scores/") else None
+            if found is None:
+                self._send(404, {"error": "No such score"})
+            elif self._signed_in():
+                scores.remove(found)
+                self._send(200, {"ok": True})
+
         def do_POST(self) -> None:  # noqa: N802
-            if self.path != "/scores":
+            flagging = self.path.startswith("/scores/") and self.path.endswith("/flag")
+            found = self._one(self.path[8:-5]) if flagging else None
+            if flagging and found is None:
+                self._send(404, {"error": "No such score"})
+            elif flagging and found is not None and self._signed_in():
+                found["flagged"] = True
+                self._send(200, {"ok": True})
+            elif flagging:
+                pass
+            elif self.path != "/scores":
                 self._send(404, {"error": "No such page"})
             elif self._signed_in():
                 size = int(self.headers.get("Content-Length") or 0)
                 try:
                     posted = json.loads(self.rfile.read(size) or b"{}")
-                    scores.append({"player": str(posted["player"]),
+                    scores.append({"id": f"s{next(counter)}", "player": str(posted["player"]),
                                    "table": str(posted["table"]),
-                                   "score": int(posted["score"])})
+                                   "score": int(posted["score"]), "flagged": False})
                 except (ValueError, KeyError):
                     self._send(400, {"error": "A score needs player, table and score"})
                 else:
