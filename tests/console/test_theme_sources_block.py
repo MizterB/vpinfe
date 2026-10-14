@@ -250,7 +250,7 @@ class ChipTests(unittest.TestCase):
                       checks.NOT_A_THEME, checks.SOME_UNREADABLE, checks.NOT_USED,
                       checks.NEEDS_VPINFE):
             if checks.level(state):
-                word = theme_sources._word({"state": state})
+                word = theme_sources._word({"state": state, "needs": "3.0"})
                 self.assertFalse(word.startswith("console."), state)
 
 

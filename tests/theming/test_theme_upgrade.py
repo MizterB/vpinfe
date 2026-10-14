@@ -85,7 +85,7 @@ class _Base(TempTree):
         registry = themes.ThemeRegistry()
         registry.themes = {
             key: {"registry_info": {"url": f"https://example.test/{key}"}, "source": source,
-                  "manifest": _manifest(version, "3.0"), "release": None}
+                  "manifest": _manifest(version, "3.0"), "ref": "HEAD"}
             for key, version in offered}
         registry._download_zip = lambda url, max_retries=3: _archive(  # type: ignore[method-assign]
             self.versions[url.rsplit("/", 3)[-3]])

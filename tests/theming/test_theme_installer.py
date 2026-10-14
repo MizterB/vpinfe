@@ -153,7 +153,7 @@ class MinimumVersionGateTests(unittest.TestCase):
         registry = themes.ThemeRegistry.__new__(themes.ThemeRegistry)
         registry.themes = {"Fancy": {
             "manifest": {"version": "2.0", "min_vpinfe": min_vpinfe},
-            "registry_info": {}, "release": None}}
+            "registry_info": {}, "ref": "HEAD"}}
         registry._base_url = lambda info: "http://example.invalid"
         registry._get_installed_version = lambda key: None
         registry.downloads = []

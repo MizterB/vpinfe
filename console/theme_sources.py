@@ -320,9 +320,7 @@ def _word(source: dict[str, Any]) -> str:
     """What the chip says. Only a source with something wrong has one."""
     state = str(source["state"])
     if state == checks.NEEDS_VPINFE:
-        needs = str(source.get("needs") or "")
-        return (t("console.theme_sources.state.needs_version", needs=needs) if needs
-                else t("console.theme_sources.state.needs_vpinfe"))
+        return t("console.theme_sources.state.needs_version", needs=str(source["needs"]))
     return t(f"console.theme_sources.state.{_CHIP_KEY.get(state, state)}")
 
 

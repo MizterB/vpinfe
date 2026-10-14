@@ -7,7 +7,6 @@ import json
 import logging
 import os
 from collections.abc import Collection
-from dataclasses import asdict
 from io import BytesIO
 from typing import Any
 
@@ -15,11 +14,11 @@ import requests
 
 from common.http_client import get_json, get_text
 from common.i18n import t
-from common.online import theme_dates, theme_releases, theme_source_checks, theme_sources
+from common.online import theme_dates, theme_refs, theme_source_checks, theme_sources
 from common.online.theme_installer import ASIDE_SUFFIX, ThemeInstallStore
 from common.online.theme_registry_client import ThemeRegistryClient, ThemeRegistryError
 from common.paths import CONFIG_DIR, THEMES_FOLDER, get_ini_config
-from common.theme_level import CURRENT_CONTRACT, MIN_VERSION_KEY
+from common.theme_level import MIN_VERSION_KEY
 from common.values import newer_version, parse_version
 from common.vpinfe_version import get_version
 
@@ -33,14 +32,11 @@ logger = logging.getLogger("vpinfe.common.online.themes")
 class ThemeRegistry:
     """Every theme available to install, gathered from all configured sources."""
 
-    def __init__(self, timeout: int = 10, serves_contract: int = CURRENT_CONTRACT,
+    def __init__(self, timeout: int = 10,
                  sources: theme_sources.ThemeSources | None = None) -> None:
         # Read at load time, not here: constructing a registry should not touch the disk,
         # and every test that builds one would otherwise need a config file.
         self.sources = sources
-        # The highest contract this build can run. A theme offering only something newer
-        # is not listed, which is the protection a shipped 2.x client cannot give itself.
-        self.serves_contract = serves_contract
         self.timeout = timeout
         self.client = ThemeRegistryClient(timeout=timeout)
         self.themes_index: dict[str, Any] = {}
@@ -153,44 +149,19 @@ class ThemeRegistry:
         """
         return str(entry.get("url") or entry.get("theme_base_url") or "").strip()
 
-    def _resolve_release(
-            self, base_url: str,
-            entry: dict) -> tuple[theme_releases.Release | None, str | None, Any]:
-        """The release this build should run, and where its manifest is.
+    @staticmethod
+    def _ref(entry: dict) -> str:
+        """The ref a list entry pins, or `HEAD` where it names none."""
+        return str(entry.get("ref") or "").strip() or "HEAD"
 
-        Asks the author's index first. A theme without one is what every published theme
-        is today: a single contract 1 line on the default branch, whose manifest url the
-        old registry names outright.
-        """
-        index = None
-        try:
-            index = self._fetch_json(theme_releases.index_url(base_url))
-        except Exception:
-            index = None
-
-        declared = theme_releases.releases_in(index)
-
-        pinned = str(entry.get("ref") or "").strip()
-        if pinned:
-            # The user named an exact ref, so release selection is theirs. The gate still
-            # applies where it can: if a declared line serves this ref, its contract is
-            # known and a build that cannot run it still declines.
-            chosen = theme_releases.for_ref(declared, pinned)
-            if chosen.contract > self.serves_contract:
-                return None, None, index
-            return chosen, theme_releases.raw_url(base_url, pinned, "manifest.json"), index
-
-        if declared:
-            picked = theme_releases.pick(declared, self.serves_contract)
-            if picked is None:
-                return None, None, index
-            return picked, theme_releases.raw_url(base_url, picked.ref,
-                                                  "manifest.json"), index
-
+    @staticmethod
+    def _manifest_url(base_url: str, entry: dict) -> str:
+        """Where a theme's manifest is: at its pinned ref, else wherever the old list
+        shape names it, else on the default branch."""
+        if str(entry.get("ref") or "").strip():
+            return theme_refs.raw_url(base_url, ThemeRegistry._ref(entry), "manifest.json")
         legacy_url = str(entry.get("theme_manifest_url") or "").strip()
-        chosen = theme_releases.fallback_release()
-        manifest_url = legacy_url or theme_releases.raw_url(base_url, "HEAD", "manifest.json")
-        return chosen, manifest_url, index
+        return legacy_url or theme_refs.raw_url(base_url, "HEAD", "manifest.json")
 
     def load_theme_manifests(self, default_only: bool = False, *, dates: bool = True,
                              previous: ThemeRegistry | None = None,
@@ -212,18 +183,13 @@ class ThemeRegistry:
 
         def _load_one(job: tuple[str, dict, str]) -> tuple[Any, ...]:
             theme_key, theme_info, base_url = job
-            release, manifest_url, index = self._resolve_release(base_url, theme_info)
-            if release is None or manifest_url is None:
-                # Every release this theme offers needs a newer VPinFE than this one.
-                logger.debug("%s offers nothing this build can run", theme_key)
-                needs = self._needed_by(base_url, index, theme_info)
-                return theme_key, theme_info, None, None, None, "", needs
-            manifest = self._fetch_json(manifest_url)
+            manifest = self._fetch_json(self._manifest_url(base_url, theme_info))
             self._validate_manifest(theme_key, manifest)
             # Only now can a repository say what it is called, so the key settles here.
             name = theme_sources.name_of(theme_key, theme_info, manifest)
-            updated = self._dated(name, base_url, release, previous) if dates else ""
-            return name, theme_info, manifest, release, index, updated, ""
+            ref = self._ref(theme_info)
+            updated = self._dated(name, base_url, ref, previous) if dates else ""
+            return name, theme_info, manifest, ref, updated
 
         unreadable: dict[str, dict[str, str]] = {}
         kept: dict[str, dict] = {}
@@ -238,11 +204,7 @@ class ThemeRegistry:
             for provisional, future in futures.items():
                 origin = self.origins.get(provisional, "")
                 try:
-                    theme_key, theme_info, manifest, release, index, updated, needs = \
-                        future.result()
-                    if manifest is None:
-                        self._note_needs_newer(origin, needs)
-                        continue
+                    theme_key, theme_info, manifest, ref, updated = future.result()
                     held = theme_key in self.themes
                     self._note_theme(origin, theme_key, manifest, used=not held)
                     if held:
@@ -258,8 +220,7 @@ class ThemeRegistry:
                         "registry_info": theme_info,
                         "source": self.origins.get(provisional, ""),
                         "manifest": manifest,
-                        "release": release,
-                        "index": index,
+                        "ref": ref,
                         "updated": updated,
                     }
                 except Exception as e:
@@ -327,16 +288,6 @@ class ThemeRegistry:
         self._note(origin, name=name, version=str(manifest.get("version") or ""),
                    state=state, reason=reason, needs=needs)
 
-    def _note_needs_newer(self, origin: str, needs: str) -> None:
-        """A single theme none of whose releases this VPinFE runs. A list's theme in the
-        same case is simply not offered."""
-        if not self._is_single(origin):
-            return
-        name = self.reports[origin]["display"]
-        reason = (t("themes.source.needs_version", name=name, needs=needs) if needs
-                  else t("themes.source.needs_newer", name=name))
-        self._note(origin, state=theme_source_checks.NEEDS_VPINFE, reason=reason, needs=needs)
-
     def _note_failure(self, origin: str, provisional: str, exc: BaseException,
                       unreadable: dict[str, dict[str, str]]) -> None:
         report = self.reports.get(origin)
@@ -361,27 +312,13 @@ class ThemeRegistry:
             return str(manifest[MIN_VERSION_KEY])
         return ""
 
-    def _needed_by(self, base_url: str, index: dict | None, entry: dict) -> str:
-        """The VPinFE the nearest line of a theme asks for, where its manifest says so."""
-        declared = theme_releases.releases_in(index)
-        if not declared:
-            return ""
-        pinned = str(entry.get("ref") or "").strip()
-        line = theme_releases.for_ref(declared, pinned) if pinned else declared[-1]
-        try:
-            manifest = self._fetch_json(theme_releases.raw_url(base_url, line.ref,
-                                                               "manifest.json"))
-        except Exception:  # noqa: BLE001 - the version is detail; the state stands without it
-            return ""
-        return str(manifest.get(MIN_VERSION_KEY) or "")
-
-    def _dated(self, key: str, base_url: str, release: theme_releases.Release,
+    def _dated(self, key: str, base_url: str, ref: str,
                previous: ThemeRegistry | None) -> str:
         before = (previous.themes.get(key) if previous is not None else None) or {}
         kept = str(before.get("updated") or "")
-        if kept and release.is_tag and getattr(before.get("release"), "ref", "") == release.ref:
+        if kept and theme_refs.is_tag(ref) and before.get("ref") == ref:
             return kept
-        return theme_dates.committed_at(base_url, release.ref, self._fetch_any)
+        return theme_dates.committed_at(base_url, ref, self._fetch_any)
 
     # =========================================================
     # VALIDATION
@@ -431,7 +368,7 @@ class ThemeRegistry:
     def _is_version_newer(self, remote: str, local: str) -> bool:
         return self.store.is_version_newer(remote, local)
 
-    def _build_zip_url(self, base_url: str, ref: str = "refs/heads/master") -> str:
+    def _build_zip_url(self, base_url: str, ref: str = "HEAD") -> str:
         return self.store.build_zip_url(base_url, ref)
 
     # =========================================================
@@ -457,7 +394,7 @@ class ThemeRegistry:
         theme_data = self.themes[theme_key]
         manifest = theme_data["manifest"]
         base_url = self._base_url(theme_data["registry_info"])
-        release = theme_data.get("release") or theme_releases.fallback_release()
+        ref = self._ref(theme_data["registry_info"])
 
         remote_version = manifest["version"]
         local_version = self._get_installed_version(theme_key)
@@ -465,8 +402,7 @@ class ThemeRegistry:
         # Before anything is downloaded, and before the up-to-date check: a theme that
         # needs a newer build than this one is not an update, and installing it over a
         # working theme leaves the frontend rendering against a contract this build does
-        # not serve. The theme's own gate decides which contract it *gets*; nothing was
-        # deciding whether it should arrive at all.
+        # not serve.
         needs = self._needs_newer(manifest)
         if needs:
             raise ThemeVersionError(t("error.themes.needs_newer_vpinfe", key=theme_key,
@@ -479,7 +415,7 @@ class ThemeRegistry:
 
         logger.info("Installing %s v%s", theme_key, remote_version)
 
-        zip_url = self._build_zip_url(base_url, release.ref)
+        zip_url = self._build_zip_url(base_url, ref)
         zip_data = self._download_zip(zip_url)
 
         self.store.install_zip(theme_key, base_url, zip_data)
@@ -570,18 +506,13 @@ class ThemeRegistry:
     def snapshot(self) -> dict[str, Any]:
         """What the sources said, in a form that survives a restart."""
         return {"themes_index": self.themes_index, "origins": self.origins,
-                "reports": self.reports,
-                "themes": {key: {**entry, "release": asdict(entry["release"])
-                                 if entry.get("release") else None}
-                           for key, entry in self.themes.items()}}
+                "reports": self.reports, "themes": self.themes}
 
     def restore(self, held: dict[str, Any]) -> None:
         self.themes_index = dict(held.get("themes_index") or {})
         self.origins = dict(held.get("origins") or {})
         self.reports = dict(held.get("reports") or {})
-        self.themes = {key: {**entry, "release": theme_releases.Release(**entry["release"])
-                             if entry.get("release") else None}
-                       for key, entry in (held.get("themes") or {}).items()}
+        self.themes = dict(held.get("themes") or {})
 
 
 # =============================================================

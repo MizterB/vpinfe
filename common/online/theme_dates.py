@@ -1,4 +1,4 @@
-"""When a theme's release last changed, asked of the host that keeps its repository."""
+"""When a theme last changed, asked of the host that keeps its repository."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from typing import Any
 from urllib.parse import quote, urlparse
 
 from common import timestamps
-from common.online import theme_releases
+from common.online import theme_refs
 
 logger = logging.getLogger("vpinfe.common.online.theme_dates")
 
@@ -27,7 +27,7 @@ def _asked(base_url: str, ref: str, fetch_json: Callable[[str], Any]) -> str:
     if not parsed.netloc or len(parts) < 2:
         return ""
     owner, repo = parts[0], parts[1]
-    wanted = theme_releases.bare_ref(ref)
+    wanted = theme_refs.bare_ref(ref)
     try:
         if parsed.netloc == GITHUB:
             body = fetch_json(f"https://api.github.com/repos/{owner}/{repo}/commits/"

@@ -16,7 +16,7 @@ from unittest import mock
 import requests
 
 from common.http_client import HostQuietError
-from common.online import theme_ops, theme_releases, theme_sources
+from common.online import theme_ops, theme_sources
 from common.online import theme_source_checks as checks
 from common.online.theme_registry_client import ThemeRegistryError
 from common.online.themes import ThemeRegistry
@@ -210,11 +210,11 @@ class WhatAReadSaid(unittest.TestCase):
         self.assertEqual(registry.reports[SINGLE]["state"], checks.NOT_FOUND)
 
     def test_a_theme_that_needs_a_newer_vpinfe_says_which(self) -> None:
-        index = {"releases": [{"contract": 99, "ref": "v9", "version": "9.0"}]}
-        registry = self._read(
-            theme_sources.ThemeSources(repositories=(SINGLE,)),
-            {theme_releases.index_url(SINGLE): index,
-             f"{SINGLE}/raw/v9/manifest.json": _manifest("Reference", "9.0", min_vpinfe="9.9.9")})
+        with mock.patch("common.online.themes.get_version", return_value="3.0.1"):
+            registry = self._read(
+                theme_sources.ThemeSources(repositories=(SINGLE,)),
+                {f"{SINGLE}/raw/HEAD/manifest.json": _manifest("Reference", "9.0",
+                                                               min_vpinfe="9.9.9")})
         said = registry.reports[SINGLE]
         self.assertEqual((said["state"], said["needs"]), (checks.NEEDS_VPINFE, "9.9.9"))
         self.assertIn("9.9.9", said["reason"])

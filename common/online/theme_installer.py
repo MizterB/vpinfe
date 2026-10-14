@@ -14,7 +14,7 @@ import zipfile
 from io import BytesIO
 
 from common.i18n import t
-from common.online import theme_releases
+from common.online import theme_refs
 from common.online.theme_registry_client import ThemeRegistryError
 from common.values import newer_version, parse_version
 
@@ -43,11 +43,9 @@ class ThemeInstallStore:
 
     @staticmethod
     def build_zip_url(base_url: str, ref: str = "HEAD") -> str:
-        """The source archive for a ref. A theme serving two contracts serves the older
-        one from a tag, so this cannot assume master any more - and `HEAD` is left alone
-        rather than rewritten to it, which was wrong on any repo defaulting to `main`.
-        """
-        return f"{base_url}/archive/{theme_releases.bare_ref(ref)}.zip"
+        """The source archive for a ref. `HEAD` is left alone rather than rewritten to
+        master, which is wrong on a repo whose default branch is `main`."""
+        return f"{base_url}/archive/{theme_refs.bare_ref(ref)}.zip"
 
     def installed_folder(self, theme_key: str, base_url: str | None = None) -> str | None:
         if os.path.isdir(os.path.join(self.themes_dir, theme_key)):

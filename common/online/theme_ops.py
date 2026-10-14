@@ -115,12 +115,12 @@ def _keep(registry: ThemeRegistry, sources: dict[str, list[str]]) -> None:
 
 
 def _ref(entry: dict[str, Any]) -> str:
-    return str(getattr(entry.get("release"), "ref", "") or "")
+    return str(entry.get("ref") or "")
 
 
 def _carry_dates(fresh: ThemeRegistry, before: ThemeRegistry | None) -> None:
     """A date the host would not give this time is the one it gave last, while the
-    release it dates is still the one on offer."""
+    ref it dates is still the one on offer."""
     if before is None:
         return
     for key, entry in fresh.themes.items():
@@ -209,8 +209,10 @@ def _preview(key: str, manifest: dict, info: dict, installed: bool) -> str:
         return name
     if installed:
         return f"/themes/{key}/{name}"
-    where = str(info.get("theme_manifest_url") or "")
-    return f"{where.rsplit('/', 1)[0]}/{name}" if where else ""
+    base = ThemeRegistry._base_url(info)
+    if not base:
+        return ""
+    return f"{ThemeRegistry._manifest_url(base, info).rsplit('/', 1)[0]}/{name}"
 
 
 def _readable(refresh: bool = False) -> ThemeRegistry:

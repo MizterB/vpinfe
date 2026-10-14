@@ -11,7 +11,6 @@ from unittest.mock import patch
 
 from common import cache_stamps, timestamps
 from common.online import theme_dates, theme_ops, theme_sync
-from common.online.theme_releases import Release
 from common.online.themes import ThemeRegistry
 from tests.support.library import TempTree
 from tests.support.stamps import OwnStamps
@@ -24,7 +23,7 @@ def _registry(updated: str = "", ref: str = "HEAD") -> ThemeRegistry:
     registry.themes = {"Revolution": {
         "registry_info": {"url": "https://github.com/o/r"}, "source": "https://x.net/themes.json",
         "manifest": {"name": "Revolution", "version": "1.2"},
-        "release": Release(1, ref, "1.2"), "index": None, "updated": updated}}
+        "ref": ref, "updated": updated}}
     return registry
 
 
@@ -83,8 +82,8 @@ class TheListKeptBetweenReads(TempTree):
 
         self.assertIsNotNone(back)
         entry = back.themes["Revolution"]
-        self.assertEqual((Release(1, "v2", "1.2"), "2026-04-29T11:26:53Z", "1.2"),
-                         (entry["release"], entry["updated"], entry["manifest"]["version"]))
+        self.assertEqual(("v2", "2026-04-29T11:26:53Z", "1.2"),
+                         (entry["ref"], entry["updated"], entry["manifest"]["version"]))
 
     def test_changed_sources_read_again_rather_than_answer_from_the_old_ones(self) -> None:
         theme_ops._keep(_registry(), self.sources)

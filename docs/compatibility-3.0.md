@@ -1034,15 +1034,14 @@ shape carries one, the registry key in the shape published today, and `manifest.
 before registries and the first mention of a name wins, with the loser logged; because a
 repository's name is not known until its manifest arrives, that contest is settled in
 source order rather than in whichever order the network answered. A repository
-may carry `#<ref>` to pin it to a branch or tag, which overrides release selection but
-still honors the contract of a declared line serving that ref. The stock
+may carry `#<ref>` to pin it to a branch or tag. The stock
 registry is an ordinary entry in `registries` rather than a constant, so it can be
 reordered, mirrored or dropped; an install listing nothing loads no catalog and still runs
 its installed theme, while an install whose every listed source fails is an error. Both
 lists are edited in the Console under Settings > Themes, as Theme Lists and Single Themes,
 and only the VPinFE Theme List installs a theme on its own. Refs are now spelled bare in
 every URL we build (`v2`, not `refs/heads/v2`), and `HEAD` is no longer rewritten to
-`master` - so the source archive for a theme with no declared release line is `archive/HEAD.zip` rather than
+`master` - so the source archive for a theme with no `ref` is `archive/HEAD.zip` rather than
 `archive/refs/heads/master.zip`. That is the same commit either way and the extracted
 folder is found by diffing the directory rather than by name, so all twelve published
 themes install exactly as before.
@@ -1053,30 +1052,30 @@ internet URL it cannot reach. The ref spelling is the same problem one layer dow
 serves `/raw/refs/heads/x/` and 404s on Forgejo's `/raw/branch/x/`, Forgejo does the
 reverse, and bare is the only form both resolve - so before this a non-GitHub theme worked
 only while its release sat on the default branch, and silently vanished from the list the
-moment it declared a branch per contract, which is the layout `theme_publishing.md`
-recommends. The `HEAD`-to-`master` rewrite is the same problem: GitHub quietly falls back
+moment it was read from a branch, which is the layout `theme_publishing.md` describes for a
+theme that serves two contracts. The `HEAD`-to-`master` rewrite is the same problem: GitHub quietly falls back
 to the default branch when `master` does not exist, so it cost nothing there, but Forgejo
 returns 404 and it would have broken every repository not defaulting to `master`.
-Where a theme came from does not decide what it may install - a repository resolves
-through the same contract gate a registry entry does. Covered by
-`tests/theming/test_theme_sources.py` and `tests/theming/test_theme_releases.py`.
+Where a theme came from does not decide what it may install - a repository is held to the
+manifest's `min_vpinfe` as a registry entry is. Covered by
+`tests/theming/test_theme_sources.py` and `tests/theming/test_theme_refs.py`.
 
-**PAR-42 — A theme can publish one release per contract, and the registry stops
-gating that.** A theme repository may carry `vpinfe-theme.json` on its default branch
-listing its release lines - a contract and the ref serving it. VPinFE installs the highest
-contract it can run, taking that line's `manifest.json` and source archive from that ref,
-and does not offer a theme whose only release needs a newer build. A repository without
-the file is read exactly as before: one contract 1 release, `manifest.json` on the default
-branch. All twelve published themes are that case and resolve unchanged.
-*Why:* contract 2 splits the theme population, and the registry entry named a single
-manifest URL - so an author moving to contract 2 broke every installed 2.x client, and the
-only alternatives were registering a second theme or asking the registry owner to
-re-point the entry on every release. Neither scales, and neither is the author's to
-control. Identity belongs in the registry, which is written once; what changes per release
-belongs in the author's own repository. A 2.x build ignores the file and installs
-`master.zip` regardless, so an author keeps those installs working by leaving contract 1
-on the default branch and putting contract 2 on a branch - which is what
-`theme_publishing.md` now recommends. Covered by `tests/theming/test_theme_releases.py`.
+**PAR-42 — A theme does not publish release lines, and a list entry's `ref` covers the
+author who serves two contracts.** An earlier build read a `vpinfe-theme.json` from the
+default branch of a theme repository, listing a contract and the ref serving it, and
+installed the highest contract it could run. That file is no longer read, and
+the module that read it is gone. A list entry is a key, a `url`, optionally a
+`name` and a `ref`; an author who wants a contract 2 branch beside a contract 1 master
+lists the branch as its own entry. Whether a build runs a theme is the manifest's
+`min_vpinfe`, which a 3.0 or newer build checks before it downloads anything. A 2.x
+build does not read it. The older list
+shape (`theme_base_url`, `theme_manifest_url`) is still read.
+*Why:* no theme published a `vpinfe-theme.json`, so the second place that said which
+contract a theme speaks only added a way for it and the manifest to disagree. The `ref` was
+already in the list entry, and `min_vpinfe` was already the gate at install. A 2.x build
+never read the file and installs the default branch regardless, so an author keeps those
+installs working by leaving contract 1 on the default branch, as `theme_publishing.md`
+says. Covered by `tests/theming/test_theme_refs.py`.
 
 **PAR-30 — One WebSocket method is added so the browser can ask which contract it serves.**
 `get_theme_contract()` returns the level the active theme declared. Purely additive: a

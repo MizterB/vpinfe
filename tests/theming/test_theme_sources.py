@@ -16,9 +16,9 @@ from configparser import ConfigParser
 from unittest import mock
 
 from common.i18n import t
-from common.online import theme_ops, theme_releases, theme_source_checks, theme_sources
+from common.online import theme_ops, theme_refs, theme_source_checks, theme_sources
 from common.online.theme_registry_client import ThemeRegistryError
-from common.online.themes import ThemeRegistry
+from common.online.themes import ThemeRegistry, ThemeVersionError
 
 STOCK = "https://raw.githubusercontent.com/superhac/vpinfe-themes/master/themes.json"
 MINE = "https://git.example.net/someone/vpinfe-theme-reference"
@@ -141,55 +141,32 @@ class LoadTests(unittest.TestCase):
         registry.load_theme_manifests()
         self.assertEqual(list(registry.themes), ["Reference"])  # settled
 
-    def test_a_users_own_repo_is_contract_gated_like_any_other(self) -> None:
-        """Where a theme came from must not decide what it is allowed to install.
-
-        A repository entry resolves through the same path a registry entry does, so a
-        build is protected from a theme it cannot run however the user reached it.
-        """
-        index = {"releases": [{"contract": 2, "ref": "v2", "version": "2.0"}]}
-        sources = theme_sources.ThemeSources(repositories=(MINE,))
-
-        serving_2 = self._registry(sources, {theme_releases.index_url(MINE): index})
-        release, manifest_url, _ = serving_2._resolve_release(MINE, {"url": MINE})
-        self.assertEqual((release.contract, manifest_url),
-                         (2, f"{MINE}/raw/v2/manifest.json"))
-
-        serving_1 = ThemeRegistry(sources=sources, serves_contract=1)
-        serving_1._fetch_json = lambda url: index
-        self.assertEqual(serving_1._resolve_release(MINE, {"url": MINE})[:2], (None, None))
-
     def test_a_pinned_ref_is_what_gets_installed(self) -> None:
-        """Pinning is the user overriding release selection, so it wins over the index."""
-        index = {"releases": [{"contract": 1, "ref": "master", "version": "1.6"}]}
-        registry = self._registry(
-            theme_sources.ThemeSources(repositories=(f"{MINE}#v1.4",)),
-            {theme_releases.index_url(MINE): index})
-        entry = theme_sources.repository_entry(f"{MINE}#v1.4")
-        release, manifest_url, _ = registry._resolve_release(MINE, entry)
-        self.assertEqual(release.ref, "v1.4")
-        self.assertEqual(manifest_url, f"{MINE}/raw/v1.4/manifest.json")
+        manifest = self._manifest("Reference", "1.4")
+        registry = self._registry(theme_sources.ThemeSources(repositories=(f"{MINE}#v1.4",)),
+                                  {f"{MINE}/raw/v1.4/manifest.json": manifest})
+        registry.load_registry()
+        registry.load_theme_manifests()
+        downloads: list[str] = []
+        registry._download_zip = lambda url: downloads.append(url) or b""
+        registry.store.install_zip = lambda *args: None
+        registry.install_theme("Reference")
+        self.assertEqual(downloads, [f"{MINE}/archive/v1.4.zip"])
 
-    def test_a_pin_onto_a_declared_line_keeps_that_line_s_contract_gate(self) -> None:
-        """Pinning names a ref, not a license to install what this build cannot run."""
-        index = {"releases": [{"contract": 2, "ref": "refs/heads/v2", "version": "2.0"}]}
-        entry = theme_sources.repository_entry(f"{MINE}#v2")
-
-        serving_2 = self._registry(theme_sources.ThemeSources(),
-                                   {theme_releases.index_url(MINE): index})
-        self.assertEqual(serving_2._resolve_release(MINE, entry)[0].contract, 2)
-
-        serving_1 = ThemeRegistry(sources=theme_sources.ThemeSources(), serves_contract=1)
-        serving_1._fetch_json = lambda url: index
-        self.assertEqual(serving_1._resolve_release(MINE, entry)[:2], (None, None))
-
-    def test_a_pin_no_line_declares_is_taken_at_its_word(self) -> None:
-        """No index, or a ref outside it - nothing knows better than the user here."""
-        registry = self._registry(theme_sources.ThemeSources(), {})
-        release, manifest_url, _ = registry._resolve_release(
-            MINE, theme_sources.repository_entry(f"{MINE}#some-branch"))
-        self.assertEqual((release.contract, release.ref), (1, "some-branch"))
-        self.assertEqual(manifest_url, f"{MINE}/raw/some-branch/manifest.json")
+    def test_a_users_own_repo_is_version_gated_like_any_other(self) -> None:
+        """Where a theme came from must not decide what it is allowed to install: the
+        manifest's `min_vpinfe` is read for a repository exactly as for a list's theme."""
+        manifest = {**self._manifest("Reference", "9.0"), "min_vpinfe": "9.9.9"}
+        registry = self._registry(theme_sources.ThemeSources(repositories=(MINE,)),
+                                  {f"{MINE}/raw/HEAD/manifest.json": manifest})
+        registry.load_registry()
+        registry.load_theme_manifests()
+        downloads: list[str] = []
+        registry._download_zip = lambda url: downloads.append(url) or b""
+        with mock.patch("common.online.themes.get_version", return_value="3.0.1"):
+            with self.assertRaises(ThemeVersionError):
+                registry.install_theme("Reference")
+        self.assertEqual(downloads, [])
 
     def _manifest(self, name: str, version: str = "1.0") -> dict:
         return {"name": name, "version": version, "author": "a", "description": "d",
@@ -398,11 +375,11 @@ class WhenADateIsAsked(unittest.TestCase):
         entry = {"url": self.BASE, "default_install": True, **({"ref": ref} if ref else {})}
         responses: dict[str, dict] = {
             STOCK: {"themes": {"Theme": entry}},
-            theme_releases.raw_url(self.BASE, ref or "HEAD", "manifest.json"): {
+            theme_refs.raw_url(self.BASE, ref or "HEAD", "manifest.json"): {
                 "name": "Theme", "version": "1.0", "author": "a", "description": "d",
                 "preview_image": "p.png", "type": "both", "windows": ["playfield"]},
             f"https://api.github.com/repos/o/theme/commits/"
-            f"{theme_releases.bare_ref(ref)}": {"commit": {"committer": {
+            f"{theme_refs.bare_ref(ref)}": {"commit": {"committer": {
                 "date": "2026-09-01T10:00:00Z"}}},
         }
         asked: list[str] = []
@@ -422,8 +399,7 @@ class WhenADateIsAsked(unittest.TestCase):
 
     def _kept(self, ref: str, updated: str) -> ThemeRegistry:
         kept = ThemeRegistry()
-        kept.themes = {"Theme": {"release": theme_releases.Release(1, ref),
-                                 "updated": updated}}
+        kept.themes = {"Theme": {"ref": ref, "updated": updated}}
         return kept
 
     def test_a_start_asks_no_date(self) -> None:
