@@ -23,7 +23,7 @@ from common import events as core_events
 from common.paths import CONFIG_DIR, bundled, get_ini_config
 
 from . import catalogs, contributions, reach
-from .context import ExtensionApps, ExtensionContext, check_references
+from .context import ExtensionApps, ExtensionContext, check_play, check_references
 from .contract import MANIFEST_NAME, ContractError, Manifest, ManifestError, read_manifest
 from .pictures import is_openable
 from .store import ExtensionStore, get_extension_store
@@ -505,6 +505,7 @@ class Registry:
             register(context)
             context.open = False
             check_references(context.ui)
+            check_play(context.ui, manifest.play)
             record.declared_lists = list(context.ui.declared_lists)
             record.declared_links = list(context.ui.declared_links)
             record.declared_groups = list(context.ui.declared_groups)

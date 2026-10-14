@@ -166,7 +166,9 @@ class WhoReachesWhat(TierCase):
 
         self.assertEqual(pressed.status_code, 400, pressed.text)
         self.assertEqual(CALLS, [])
-        self.assertIn("does not list under play", pressed.json()["error"]["message"])
+        message = pressed.json()["error"]["message"]
+        self.assertIn("list:ops", message)
+        self.assertIn("does not put at play", message)
 
     def test_a_library_act_runs_for_a_library_holder(self) -> None:
         response = self.call(_identity("", "play", "library"), "/lists/ops/about/acts/tidy")

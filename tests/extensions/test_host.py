@@ -525,6 +525,64 @@ class ContextTests(HostCase):
         self.assertEqual(record.state, host.FAILED)
         self.assertIn("does not list 'router'", record.error)
 
+    def test_a_play_entry_the_extension_never_declares_is_refused(self) -> None:
+        body = ("def register(ctx):\n"
+                "    pass\n")
+        with self.assertLogs(self.LOG, "ERROR"):
+            record = self.registry.load(self.make("idle", {"play": ["router", "list:scores"]},
+                                                  body=body))
+
+        self.assertEqual(record.state, host.FAILED)
+        self.assertIn("never puts at play: list:scores, router", record.error)
+
+    def test_a_play_entry_for_a_surface_left_at_library_is_refused(self) -> None:
+        body = ("class Dialog:\n"
+                "    def ask(self, step):\n"
+                "        return {}\n"
+                "def register(ctx):\n"
+                "    ctx.ui.action('reset', Dialog())\n")
+        manifest = {"capabilities": ["ui:mount"], "play": ["action:reset"]}
+        with self.assertLogs(self.LOG, "ERROR"):
+            record = self.registry.load(self.make("timid", manifest, body=body))
+
+        self.assertEqual(record.state, host.FAILED)
+        self.assertIn("never puts at play: action:reset", record.error)
+
+    def test_only_the_play_entries_never_declared_are_named(self) -> None:
+        body = ("class Dialog:\n"
+                "    def ask(self, step):\n"
+                "        return {}\n"
+                "def register(ctx):\n"
+                "    ctx.ui.action('reset', Dialog(), tier='play')\n")
+        manifest = {"capabilities": ["ui:mount"], "play": ["action:reset", "page:rank"]}
+        with self.assertLogs(self.LOG, "ERROR"):
+            record = self.registry.load(self.make("half", manifest, body=body))
+
+        self.assertEqual(record.state, host.FAILED)
+        self.assertIn("never puts at play: page:rank", record.error)
+        self.assertNotIn("action:reset", record.error)
+
+    def test_a_play_router_the_extension_adds_satisfies_its_entry(self) -> None:
+        body = ("from fastapi import APIRouter\n"
+                "def register(ctx):\n"
+                "    ctx.add_router(APIRouter(), tier='play')\n")
+
+        record = self.registry.load(self.make("wired", {"play": ["router"]}, body=body))
+
+        self.assertEqual(record.state, host.LOADED, record.error)
+
+    def test_a_play_entry_the_extension_declares_loads(self) -> None:
+        body = ("class Dialog:\n"
+                "    def ask(self, step):\n"
+                "        return {}\n"
+                "def register(ctx):\n"
+                "    ctx.ui.action('reset', Dialog(), tier='play')\n")
+        manifest = {"capabilities": ["ui:mount"], "play": ["action:reset"]}
+
+        record = self.registry.load(self.make("frank", manifest, body=body))
+
+        self.assertEqual(record.state, host.LOADED, record.error)
+
     def test_publishing_an_undeclared_event_is_refused(self) -> None:
         body = ("def register(ctx):\n"
                 "    ctx.events.publish('surprise')\n")

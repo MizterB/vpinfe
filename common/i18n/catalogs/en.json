@@ -4275,7 +4275,7 @@
   "error.extensions.no_save": "{display}'s list {key} cannot be changed from its pane",
   "error.extensions.no_group": "{display} has no {subject} group",
   "error.extensions.tier_not_listed": "{display} marks something {tier}, which its manifest does not list under tiers",
-  "error.extensions.play_act_unlisted": "{display} marks an act play on a surface its manifest does not list under play",
+  "error.extensions.play_act_unlisted": "{display} marks an act at play on {surface}, which it does not put at play",
   "error.extensions.needs_shape": "{display} gave needs that are not each kind once, with ids or a count",
   "error.extensions.need_unknown": "{display} asked for the need {kind}, which it never declared",
   "error.extensions.no_group_save": "{display}'s {subject} group cannot be changed",

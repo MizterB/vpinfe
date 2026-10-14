@@ -345,6 +345,7 @@ class ExtensionUI:
         self._reads_games = GAMES_READ in frozenset(scopes)
         self._tiers = frozenset(tiers) - {reach.PLAY}
         self._play = frozenset(play)
+        self.played: set[str] = set()
         self.declared_groups: list[dict] = []
         self.group_functions: dict[str, GroupFunctions] = {}
         self.declared_library_verbs: list[dict] = []
@@ -397,6 +398,7 @@ class ExtensionUI:
             if surface not in self._play:
                 raise ContractError(f"{self._name} puts {whose} at play, and its manifest's "
                                     f"play does not list {surface!r}")
+            self.played.add(surface)
             return str(named)
         if named not in self._tiers:
             raise ContractError(f"{self._name} puts {whose} at {named}, and its manifest's "
@@ -1042,6 +1044,15 @@ def check_references(ui: ExtensionUI) -> None:
                                 f"never offers: {', '.join(unknown)}")
 
 
+def check_play(ui: ExtensionUI, play: Iterable[str]) -> None:
+    """Refuse a manifest whose `play` lists a surface the extension never put at Play. Run
+    once `register` has returned, since a surface may be declared after the list is read."""
+    unused = sorted(set(play) - ui.played)
+    if unused:
+        raise ContractError(f"{ui._name}'s manifest lists under play surfaces it never "
+                            f"puts at play: {', '.join(unused)}")
+
+
 class ExtensionPlayers:
     """Who plays here, and the accounts this extension holds for them.
 
@@ -1367,4 +1378,6 @@ class ExtensionContext:
         if named == reach.PLAY and "router" not in self.manifest.play:
             raise ContractError(f"{self.name} puts a router at play, and its manifest's "
                                 "play does not list 'router'")
+        if named == reach.PLAY:
+            self.ui.played.add("router")
         self.routers.append((router, f"ext:{self.name}:{named}"))

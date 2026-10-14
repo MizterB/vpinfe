@@ -103,16 +103,18 @@ def _context(record: Record) -> Any:
 Need = Callable[[str], None]
 
 
-def _need(record: Record, need: Need | None, function: Any, surface: str) -> None:
-    """Hold the caller to the tier `function` runs at: the one it was marked with, else its
-    surface's. A tier the manifest does not list is refused, whoever asks."""
-    tier = contract.tier_of(function, surface)
+def _need(record: Record, need: Need | None, function: Any, base: str, surface: str) -> None:
+    """Hold the caller to the tier `function` runs at: the one it was marked with, else
+    `base`, its surface's. A tier the manifest does not list is refused, whoever asks.
+    `surface` is the name the manifest's `play` uses for it, which an unlisted act is
+    refused by."""
+    tier = contract.tier_of(function, base)
     if tier not in _context(record).reaches:
         raise RefusedError(i18n.t("error.extensions.tier_not_listed",
                                   display=record.display_name, tier=tier))
-    if tier == contract.PLAY and surface != contract.PLAY:
+    if tier == contract.PLAY and base != contract.PLAY:
         raise RefusedError(i18n.t("error.extensions.play_act_unlisted",
-                                  display=record.display_name))
+                                  display=record.display_name, surface=surface))
     if need is not None:
         need(tier)
     reach.answer_at(tier)
@@ -326,7 +328,7 @@ def _act(record: Record, kind: str, key: str, functions: Any, act: str,
     if what is None or isinstance(what, (str, dict)):
         raise NotFoundError(i18n.t("error.extensions.no_act", display=record.display_name,
                                    key=act))
-    _need(record, need, what, functions.tier)
+    _need(record, need, what, functions.tier, f"{kind}:{key}")
     return _message(record, f"{kind} {key} act {act}",
                     called(record, f"{kind} {key} act {act}", what))
 
@@ -354,7 +356,7 @@ def list_verb(record: Record, key: str, verb: str, ids: list[str],
     if chosen is None or chosen["run"] is None:
         raise NotFoundError(i18n.t("error.extensions.no_verb", display=record.display_name,
                                    key=verb))
-    _need(record, need, chosen["run"], functions.tier)
+    _need(record, need, chosen["run"], functions.tier, f"list:{key}")
     wanted = list(dict.fromkeys(ids))
     if not wanted or (chosen["one"] and len(wanted) != 1):
         raise RefusedError(i18n.t("error.extensions.verb_rows", display=record.display_name,
@@ -414,7 +416,7 @@ def list_save(record: Record, key: str, row_id: str, values: dict,
     if functions.save is None:
         raise NotFoundError(i18n.t("error.extensions.no_save", display=record.display_name,
                                    key=key))
-    _need(record, need, functions.save, functions.tier)
+    _need(record, need, functions.save, functions.tier, f"list:{key}")
     offered = [one for section in list_detail(record, key, row_id)["sections"]
                for one in section["fields"]]
     changes = pane.accepted(
@@ -469,7 +471,7 @@ def page_save(record: Record, key: str, values: dict, need: Need | None = None) 
     if functions.save is None:
         raise NotFoundError(i18n.t("error.extensions.no_page_save",
                                    display=record.display_name, key=key))
-    _need(record, need, functions.save, functions.tier)
+    _need(record, need, functions.save, functions.tier, f"page:{key}")
     offered = [one for section in page_read(record, key)["sections"]
                for one in section["fields"]]
     changes = pane.accepted(
@@ -526,7 +528,7 @@ def library_verb(record: Record, subject: str, key: str, who: list[dict],
     Private game unless the entry is `private_ok`, or several for a verb that takes one."""
     declared = declared_library_verb(record, subject, key)
     run = _context(record).ui.library_verb_functions[(subject, key)]
-    _need(record, need, run, declared["tier"])
+    _need(record, need, run, declared["tier"], f"verb:{subject}:{key}")
     if not who:
         raise RefusedError(i18n.t("error.extensions.verb_none", display=record.display_name,
                                   key=key))
@@ -582,7 +584,7 @@ def group_act(record: Record, subject: str, who: dict, act: str,
     if what is None or isinstance(what, (str, dict)):
         raise NotFoundError(i18n.t("error.extensions.no_act", display=record.display_name,
                                    key=act))
-    _need(record, need, what, functions.tier)
+    _need(record, need, what, functions.tier, f"group:{subject}")
     return _message(record, f"{subject} group act {act}",
                     called(record, f"{subject} group act {act}", what, dict(who)))
 
@@ -595,7 +597,7 @@ def group_save(record: Record, subject: str, who: dict, values: dict,
     if functions.save is None:
         raise NotFoundError(i18n.t("error.extensions.no_group_save",
                                    display=record.display_name, subject=subject))
-    _need(record, need, functions.save, functions.tier)
+    _need(record, need, functions.save, functions.tier, f"group:{subject}")
     offered = (group_read(record, subject, who)["section"] or {}).get("fields", [])
     changes = pane.accepted(
         offered, values or {},
@@ -777,7 +779,7 @@ def dialog_check(record: Record, key: str, values: dict, step: str = "",
     check = getattr(_dialog(record, key), "check", None)
     if check is None:
         return dialog_ask(record, key, step, _chosen(values))
-    _need(record, need, check, surface_tier(record, "action", key))
+    _need(record, need, check, surface_tier(record, "action", key), f"action:{key}")
     answer = called(record, f"action {key} check", check, values or {},
                     **_extras(check, step=step))
     if answer is None:
@@ -791,7 +793,7 @@ def dialog_act(record: Record, key: str, act: str, values: dict, step: str = "",
     if do is None:
         raise NotFoundError(i18n.t("error.extensions.no_act", display=record.display_name,
                                    key=act))
-    _need(record, need, do, surface_tier(record, "action", key))
+    _need(record, need, do, surface_tier(record, "action", key), f"action:{key}")
     answer = called(record, f"action {key} act {act}", do, act, values or {},
                     **_extras(do, step=step))
     if answer is None:
@@ -805,7 +807,7 @@ def dialog_run(record: Record, key: str, values: dict, step: str = "",
     if run is None:
         raise NotFoundError(i18n.t("error.extensions.no_run", display=record.display_name,
                                    key=key))
-    _need(record, need, run, surface_tier(record, "action", key))
+    _need(record, need, run, surface_tier(record, "action", key), f"action:{key}")
     tracker = _tracker(record, key)
     try:
         answer = called(record, f"action {key} run", run, values or {},

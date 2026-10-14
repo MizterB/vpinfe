@@ -4275,7 +4275,7 @@
   "error.extensions.no_save": "{display}'š ŀîšţ {key} çàññöţ ƀè çĥàñĝèđ ƒřöɱ îţš þàñè",
   "error.extensions.no_group": "{display} ĥàš ñö {subject} ĝřöûþ",
   "error.extensions.tier_not_listed": "{display} ɱàřķš šöɱèţĥîñĝ {tier}, ŵĥîçĥ îţš ɱàñîƒèšţ đöèš ñöţ ŀîšţ ûñđèř ţîèřš",
-  "error.extensions.play_act_unlisted": "{display} ɱàřķš àñ àçţ þŀàý öñ à šûřƒàçè îţš ɱàñîƒèšţ đöèš ñöţ ŀîšţ ûñđèř þŀàý",
+  "error.extensions.play_act_unlisted": "{display} ɱàřķš àñ àçţ àţ þŀàý öñ {surface}, ŵĥîçĥ îţ đöèš ñöţ þûţ àţ þŀàý",
   "error.extensions.needs_shape": "{display} ĝàṽè ñèèđš ţĥàţ àřè ñöţ èàçĥ ķîñđ öñçè, ŵîţĥ îđš öř à çöûñţ",
   "error.extensions.need_unknown": "{display} àšķèđ ƒöř ţĥè ñèèđ {kind}, ŵĥîçĥ îţ ñèṽèř đèçŀàřèđ",
   "error.extensions.no_group_save": "{display}'š {subject} ĝřöûþ çàññöţ ƀè çĥàñĝèđ",
