@@ -23,7 +23,7 @@ has a small, complete extension for each task.
 |---|---|
 | A whole extension on one page, where one lives, every key of `extension.json` | [A whole extension and its manifest](reference/manifest.md) |
 | The name, log, words, config, events, files and jobs every extension has | [The context](reference/context.md) |
-| Settings, lists, dialogs and an account, as `ctx.ui` takes them | [`ctx.ui`](reference/ui.md) |
+| Settings, lists, dialogs, links to a page of your own and an account, as `ctx.ui` takes them | [`ctx.ui`](reference/ui.md) |
 | What a settings page and a list take: fields, columns, views, verbs | [Settings and lists](reference/settings-and-lists.md) |
 | What a dialog takes: steps, checks, acts, a long job | [Actions and dialogs](reference/actions.md), with the Fields table every surface shares |
 | A player's account with a service, its fields, its card | [Accounts](reference/accounts.md) and [`ctx.players`](reference/players.md) |

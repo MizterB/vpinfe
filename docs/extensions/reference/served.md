@@ -33,6 +33,14 @@ Outside `/ext/`, core serves the parts of a player's account that are core's:
 `POST /api/v1/players/{id}/accounts/{extension}/picture` (which asks the extension's own
 `GET /accounts/{player_id}/picture` route).
 
+Every answer under `/ext/`, from a route core wrote or one of the extension's own, carries
+`Content-Security-Policy: sandbox allow-scripts allow-forms` and `X-Content-Type-Options:
+nosniff`.  A page one of them serves, such as the "you can close this window" a site's sign-in
+sends the browser back to, still shows and still runs its script.  It runs as no origin, so it
+cannot read the Console's cookie or storage, and what it requests carries no sign-in.  Serve a
+UI of your own from another site or a port of its own, and reach it with
+[`ctx.ui.link`](ui.md#ctxuilink).
+
 Core takes the secrets out of a response from any route under `/ext/` on the way to the
 client, whether core or the extension wrote it.  An extension's own routes are mounted at
 `/api/v1/ext/<name>` too, behind the same running check and the scope given to `ctx.add_router`.

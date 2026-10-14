@@ -1581,6 +1581,7 @@ body.console-menu-open .q-tooltip.console-menu-tip { display: block !important; 
   margin-bottom: 0;
 }
 .console-nav-row--nested .q-icon { font-size: var(--icon-nav) !important; }
+.console-nav-row--out .console-nav-out-mark { font-size: var(--icon-mark) !important; }
 .console-nav-row--nested .console-nav-item {
   font-size: var(--fs-caption);
   line-height: 20px;

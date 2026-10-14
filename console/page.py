@@ -30,6 +30,7 @@ from console import (
     busy,
     confirm,
     deeplink,
+    ext_links,
     folders,
     games,
     grid,
@@ -632,7 +633,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     # those two disagreeing is a link that lands on a blank page. Drawn again by
     # `draw_rail` when an extension is switched.
     nav_groups = rail_for(installed_extensions)
-    nav_items = [item for _parent, items in nav_groups for item in items]
+    nav_items = [item for _parent, items in nav_groups for item in items
+                 if not ext_links.is_link(item[0])]
 
     landing_view = landing_for([key for key, *_rest in nav_items],
                                str(remembered.get("section", "") or ""))
@@ -640,6 +642,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     in_the_frontends_window = setup.strip().lower() == "window"
 
     state: dict[str, Any] = {"view": landing_view, "device": None, "mini": False,
+                             "host": ext_links.opened_at(),
                              "workbench": True, "settings_page": "",
                              "collection": None, "trouble": loaded["trouble"],
                              "devices": devices, "extensions": installed_extensions,
@@ -752,6 +755,10 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                     if parent is not None:
                         _nav_parent(parent, state, rail_labels, held, badges)
                     for key, label, icon, _feature in items:
+                        if ext_links.is_link(key):
+                            _nav_link(key, label, icon, state, rail_labels,
+                                      nested=parent is not None, held=held)
+                            continue
                         # redraw, not render: a destination whose rows are read on
                         # demand has to read them before it draws, and arriving is when
                         # that is first true.
@@ -1720,14 +1727,20 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             badge.clear()
             badge.tooltip(mark.tooltip)
 
+    def links_now() -> list[list[dict[str, str]]]:
+        return [ext_links.drawn(one, state["host"]) for one in state["extensions"]]
+
+    nav_links = links_now()
+
     def refresh_rail() -> None:
         """The rail and the collection orders, from the extensions as they now stand."""
-        nonlocal nav_groups
+        nonlocal nav_groups, nav_links
         state["ranked_orders"] = community_page.ranked_orders(state["extensions"])
         groups = rail_for(state["extensions"])
-        if groups != nav_groups:
+        links = links_now()
+        if groups != nav_groups or links != nav_links:
             draw_rail(groups)
-            nav_groups = groups
+            nav_groups, nav_links = groups, links
             light_nav()
             mark_findings()
 
@@ -2028,6 +2041,29 @@ def _nav_item(key: str, label: str, icon: str, state: dict[str, Any], render: Ca
         labels.append(ui.label(t(label))
                       .classes("console-nav-item whitespace-nowrap"))
     destinations[key] = row
+    if held is not None and nested:
+        held.append(row)
+
+
+def _nav_link(key: str, label: str, icon: str, state: dict[str, Any], labels: list,
+              nested: bool = False, held: list | None = None) -> None:
+    """A rail entry that opens an extension's own UI in a new tab. Not a destination: it
+    is never lit, never a view and never the page you land on."""
+    found = ext_links.find(state["extensions"], key, state["host"])
+    if found is None:
+        return
+    row = ui.link(target=found["url"], new_tab=True) \
+        .classes("items-center gap-3 cursor-pointer w-full no-wrap flex console-nav-row "
+                 "console-nav-row--out" + (" console-nav-row--nested" if nested else ""))
+    row.props["rel"] = ext_links.REL
+    row.props["aria-label"] = t("console.page.new_tab", label=label)
+    with row:
+        with ui.element("div").classes("console-nav-mark"):
+            ui.icon(icon, size="24px").classes("opacity-70 shrink-0")
+        labels.append(ui.label(label).classes("console-nav-item whitespace-nowrap"))
+        labels.append(ui.icon(verbs.OPEN_OUT).classes("console-nav-out-mark opacity-50 ml-auto"))
+    if found["tip"]:
+        row.tooltip(found["tip"])
     if held is not None and nested:
         held.append(row)
 

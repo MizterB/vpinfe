@@ -112,6 +112,40 @@ can open the same dialog from a button above it, from a verb or from an act.  It
 `ContractError` for a key that is empty or already used, or a `dialog` without a callable
 `ask`.
 
+## `ctx.ui.link`
+
+`ctx.ui.link(key, url, *, area="")`.  Required: `key`, `url`.
+
+Link to a page of your own, for an extension that has more than VPinFE draws: a hardware
+tool's web page, a service's dashboard.  `url` is an address, or a function that answers one
+each time the Console draws it.  `{host}` in it is filled with the host the Console was opened
+at, so `http://{host}:9090/` reaches a port of the extension's own from a laptop as well as at
+the cabinet.  Only `http://` and `https://` are drawn.
+
+```python
+ctx.ui.link("console", "http://{host}:9090/", area="system")
+```
+
+A person sees the link in a menu at the end of the title of the extension's page, in Settings.
+With an `area` (`library`, `frontend`, `community` or `system`, as a list's) it is also an
+entry in that group of the rail, after core's own and after the extension's lists (and before
+About, in System), with a mark that it leaves the Console.  Every link opens a new tab, with `noopener` and `noreferrer`
+whatever the address, so the page it opens cannot reach back into the Console.  Nothing is drawn
+while the extension is stopped, and a function that raises, or answers something that is not a
+web address, leaves out only its own link.  The words are `link.<key>.label`, required, and
+`link.<key>.tip`, in the extension's catalog.
+
+It raises `ContractError` without `ui:mount`, for a key that is empty or already used, for an
+`area` that is not one of the four, and for a `url` that is neither a function nor a web
+address.  A function's answer cannot be checked until it is asked, so `--check-extension` asks
+it and fails the extension if the answer is not a web address.
+
+Put a page of your own on another site or on a port of its own.  A page served from VPinFE's
+address would run as the Console, so [what core serves](served.md#what-core-serves) answers
+anything under `/api/v1/ext/` as a page with no origin of its own.  Anything the page on your
+own port changes should sit behind its own sign-in, as VPinFE does not guard a port it did not
+open.
+
 ## `ctx.ui.state`
 
 `ctx.ui.state(base, label="")`.  Required: `base`.

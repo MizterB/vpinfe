@@ -64,6 +64,14 @@ def _report(record: Record, lines: list[str]) -> bool:
                      f"{len(declared['columns'])} columns, {len(declared['views'])} views, "
                      f"{len(declared['verbs'])} verbs"
                      + (f", adds {' '.join(declared['add'])}" if declared["add"] else ""))
+    answered = {one["key"]: one["url"] for one in record.links()}
+    for declared in record.declared_links:
+        where = f" in {declared['area']}" if declared["area"] else ""
+        if declared["key"] in answered:
+            lines.append(f"link       {declared['key']}{where}: {answered[declared['key']]}")
+        else:
+            problems.append(f"fails      link {declared['key']}: answers no http:// or "
+                            "https:// address")
     for declared in record.actions:
         dialog = ui.action_objects[declared["key"]]
         methods = [one for one in ("ask", "check", "act", "run", "progress")
@@ -171,6 +179,8 @@ def _missing(record: Record, ui: Any) -> list[tuple[str, str]]:
                 wanted.append((f"{at}.confirm", "the question a danger verb asks"))
             if verb["needs"]:
                 wanted.append((f"{at}.needs", "why a verb is not for a row"))
+    wanted.extend((f"link.{one['key']}.label", "a link's label")
+                  for one in record.declared_links)
     wanted.extend((f"action.{one['key']}.label", "a dialog's label")
                   for one in record.actions if not one["label"])
     return [(f"ext.{record.name}.{suffix}", why) for suffix, why in wanted

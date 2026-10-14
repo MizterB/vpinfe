@@ -22,6 +22,7 @@ from console import (
     confirm,
     deeplink,
     ext_action,
+    ext_links,
     ext_page,
     grid,
     offload,
@@ -74,14 +75,26 @@ AREA_FEATURE = {"library": install_identity.LIBRARY, "frontend": install_identit
 
 
 def nav_items(extensions: Sequence[dict[str, Any]]) -> dict[str, tuple]:
-    """The rail entries extensions add, by the area each list asked for."""
+    """The rail entries extensions add, by the area each list or link asked for. An
+    extension's lists come before its links."""
     found: dict[str, list] = {}
-    for one, declared in lists(extensions):
-        area = str(declared.get("area") or "community")
-        found.setdefault(area, []).append((
-            view_key(str(one.get("name") or ""), str(declared.get("key") or "")),
-            str(declared.get("title") or ""), ICON,
-            AREA_FEATURE.get(area, install_identity.CORE)))
+    for one in extensions:
+        if str(one.get("state") or "") != "loaded":
+            continue
+        name = str(one.get("name") or "")
+        for declared in one.get("lists") or []:
+            area = str(declared.get("area") or "community")
+            found.setdefault(area, []).append((
+                view_key(name, str(declared.get("key") or "")),
+                str(declared.get("title") or ""), ICON,
+                AREA_FEATURE.get(area, install_identity.CORE)))
+        for link in one.get("links") or []:
+            area = str(link.get("area") or "")
+            if area:
+                found.setdefault(area, []).append((
+                    ext_links.view_key(name, str(link.get("key") or "")),
+                    str(link.get("label") or ""), ICON,
+                    AREA_FEATURE.get(area, install_identity.CORE)))
     return {area: tuple(items) for area, items in found.items()}
 
 

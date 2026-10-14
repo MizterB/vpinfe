@@ -34,7 +34,7 @@ class NavTests(unittest.TestCase):
     def test_no_row_is_drawn_deeper_than_a_page_under_its_group(self) -> None:
         drawn = set(re.findall(r"\.console-nav-row--([a-z-]+)", appearance.base_css()))
 
-        self.assertEqual({"nested"}, drawn)
+        self.assertEqual({"nested", "out"}, drawn)
 
     def test_system_survives_an_install_that_is_for_nothing(self) -> None:
         """The bootstrap case: features are switched on from in here, so what System

@@ -14,6 +14,7 @@ import threading
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
+from urllib.parse import urlsplit
 
 import requests
 
@@ -47,8 +48,25 @@ class OutboundNotDeclaredError(Exception):
     """A row names a web address its extension has not declared it may reach."""
 
 
-def is_web(source: str) -> bool:
+HOST_SLOT = "{host}"
+
+
+def is_web_address(source: str) -> bool:
     return source.lower().startswith(("http://", "https://"))
+
+
+def is_openable(url: str, host: str = "localhost") -> bool:
+    """A web address a browser can be sent to: `{host}` filled in, a host named, a port that
+    is a number. One that does not parse is not one."""
+    done = url.replace(HOST_SLOT, host)
+    if not is_web_address(done):
+        return False
+    try:
+        parts = urlsplit(done)
+        has_port = parts.port is None or parts.port >= 0
+    except ValueError:
+        return False
+    return has_port and bool(parts.hostname)
 
 
 def _id(source: str) -> str:
@@ -61,8 +79,8 @@ def address(record: Record, source: object) -> str:
     wanted = str(source or "").strip()
     if not wanted:
         return ""
-    if is_web(wanted) and (record.manifest is None
-                           or OUTBOUND not in record.manifest.capabilities):
+    if is_web_address(wanted) and (record.manifest is None
+                                   or OUTBOUND not in record.manifest.capabilities):
         raise OutboundNotDeclaredError(wanted)
     picture = _id(wanted)
     with _lock:
@@ -86,9 +104,9 @@ def served(record: Record, picture: str) -> sized_media.Served:
         kept = _file(record, source, picture)
         copy = sized_media.served(kept, sized_media.THUMBNAIL) if kept else None
     if copy is None or copy.path == kept:
-        if kept is not None and is_web(source):
+        if kept is not None and is_web_address(source):
             kept.unlink(missing_ok=True)
-        if is_web(source):
+        if is_web_address(source):
             with _lock:
                 _failed[(record.name, picture)] = time.time()
         raise NotFoundError(t("error.extensions.no_picture"))
@@ -96,7 +114,7 @@ def served(record: Record, picture: str) -> sized_media.Served:
 
 
 def _file(record: Record, source: str, picture: str) -> Path | None:
-    if is_web(source):
+    if is_web_address(source):
         return _fetched(record, source, picture)
     root = record.directory.resolve()
     try:

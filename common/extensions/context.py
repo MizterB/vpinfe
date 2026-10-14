@@ -22,6 +22,7 @@ from .contract import ContractError, Manifest, words
 from .contract import why as worded
 from .fields import FieldError, settings_fields, ticked
 from .games import ExtensionGames
+from .pictures import is_openable
 from .store import ExtensionStore
 
 if TYPE_CHECKING:
@@ -282,6 +283,8 @@ class ExtensionUI:
         self.action_objects: dict[str, Any] = {}
         self.declared_lists: list[dict] = []
         self.list_functions: dict[str, ListFunctions] = {}
+        self.declared_links: list[dict] = []
+        self.link_addresses: dict[str, str | Callable[[], Any]] = {}
         self.settings_declared: list[dict] = []
         self.settings_check: Callable[[dict], Any] | None = None
         self.state_label = ""
@@ -401,6 +404,31 @@ class ExtensionUI:
         if said["rows"] is None:
             return None
         return {"rows": said["rows"], "read_at": said["read_at"]}
+
+    def link(self, key: str, url: str | Callable[[], Any], *, area: str = "") -> None:
+        """A link to this extension's own page, opened in a new tab.
+
+        `url` is an address or a function answering one, and `{host}` in it is filled with
+        the host the Console was opened at. Only `http://` and `https://` are drawn. It is
+        on the extension's page in Settings; with an `area` it is also an entry in that
+        group of the rail, as a list's `area` places a list. Its words are
+        `link.<key>.label` and `link.<key>.tip` in the extension's catalog.
+        """
+        self._needs_ui("a link")
+        wanted = str(key or "").strip()
+        where = str(area or "").strip()
+        if not wanted:
+            raise ContractError(f"{self._name} declares a link with no key")
+        if wanted in self.link_addresses:
+            raise ContractError(f"{self._name} declares the link {wanted!r} twice")
+        if where and where not in AREAS:
+            raise ContractError(f"{self._name} puts a link in {where!r}, which is not one "
+                                f"of {', '.join(AREAS)}")
+        if not callable(url) and not (isinstance(url, str) and is_openable(url)):
+            raise ContractError(f"{self._name} gives the link {wanted!r} an address that "
+                                "is neither a function nor an http:// or https:// address")
+        self.link_addresses[wanted] = url
+        self.declared_links.append({"key": wanted, "area": where})
 
     def _needs_ui(self, what: str) -> None:
         if not self._allowed:

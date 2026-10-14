@@ -20,7 +20,7 @@ from nicegui import run, ui
 from common.extensions import host
 from common.failures import why
 from common.i18n import t
-from console import busy, confirm, deeplink, ext_action, offload, panel, verbs
+from console import busy, confirm, deeplink, ext_action, ext_links, offload, panel, verbs
 from console.api import ApiClient
 from console.on_page import on_page
 
@@ -67,7 +67,9 @@ def build(extension: dict, settings: dict[str, Any], redraw: Callable[[], None],
     panel.header(str(extension.get("display_name") or name),
                  str(extension.get("description") or ""),
                  _findings(extension, open_this_device),
-                 caption=t("console.ext_page.version", version=version) if version else "")
+                 caption=t("console.ext_page.version", version=version) if version else "",
+                 menu=[panel.Verb(one["label"], to=one["url"], tip=one["tip"])
+                       for one in ext_links.drawn(extension, ext_links.opened_at())])
 
     @on_page
     async def flip(event: Any) -> None:

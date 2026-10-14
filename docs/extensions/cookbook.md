@@ -34,6 +34,7 @@ it, what you will see, a few variations and the mistake people make with it.
 - [9. Acting on rows](#9-acting-on-rows)
 - [10. States, chips, links and pictures in a column](#10-states-chips-links-and-pictures-in-a-column)
 - [13. An account per player](#13-an-account-per-player)
+- [16. A page of your own](#16-a-page-of-your-own)
 
 ## Basics
 
@@ -1026,3 +1027,61 @@ one for that player.
 - Answer `user_id` as well to have core draw the id, the claim and the card instead, which is the shape an account with a service of its own takes.
 
 **Watch out:** `write` is handed `None` under a key when a secret is cleared, so remove the key and do not store the word None. A guest's account is held in memory and never written to disk, so a handle set on a guest is gone when they sign out.
+
+## Beyond the Console
+
+### 16. A page of your own
+
+**Use it when:** the thing you are adding already has a web page of its own, such as a hardware tool's console, a manual or a dashboard on another port, and a person should reach it from the Console in one click.
+
+`ctx.ui.link` declares an address and core draws it as a link.  The address is a string, or a function that returns one, so a link can follow a setting.  `{host}` is filled in with the host the Console was opened at, so a tool that runs beside VPinFE is reached by the name the person already used, from a laptop or from the cabinet.  The label and the tip are words in the extension's catalog, named for the link.
+
+`recipes/tool_link/extension.json`
+
+```json
+{
+  "name": "tool_link",
+  "version": "1.0.0",
+  "requires_platform": 1,
+  "capabilities": ["config:own", "ui:mount"]
+}
+```
+
+`recipes/tool_link/__init__.py`
+
+```python
+def register(ctx):
+    ctx.ui.settings([{"key": "port", "type": "number", "default": 9090, "min": 1, "max": 65535}])
+
+    def console():
+        return f"http://{{host}}:{ctx.config.get('port')}/"
+
+    ctx.ui.link("console", console, area="system")
+    ctx.ui.link("manual", "https://tool.example.com/manual")
+```
+
+`recipes/tool_link/i18n/en.json`
+
+```json
+{
+  "name": "Tool Link",
+  "description": "Links to a hardware tool's own web page, and to its manual.",
+  "settings.port.label": "Port",
+  "settings.port.help": "The port the tool's page answers on",
+  "link.console.label": "Tool console",
+  "link.console.tip": "The tool's own page, in a new tab",
+  "link.manual.label": "Manual"
+}
+```
+
+**Where it appears:** a link with an `area` is drawn on the Console's rail in that area, and every link is in a menu at the end of the extension's page title.  The manual has no `area`, so it is in that menu only.  **What triggers it:** the person clicking it.  Nothing is fetched until they do, and nothing is drawn while the extension is switched off.
+
+**What you'll see:** System on the rail shows Tool console with a small arrow-out mark, and the extension's page has a menu holding both links.  Both open in a new tab.  Change the Port setting and the next click goes to the new port.
+
+**Variations:**
+
+- Leave the `area` out of a link that belongs only on the extension's page.
+- Return a different address from the function for each situation.  An answer that is not an `http://` or `https://` address leaves out that link, and `--check-extension` fails the extension.
+- Link to a page you serve from VPinFE with `ctx.add_router` only if it can run with no sign-in: core answers every page under `/api/v1/ext/` sandboxed, as no origin of its own.  See [`ctx.ui.link`](reference/ui.md#ctxuilink).
+
+**Watch out:** write `{host}` with doubled braces inside an f-string, as above, or Python fills it in and the host is lost.  A link is never drawn with another scheme: `file:`, `javascript:` and the rest are refused when it is declared, or dropped when a function answers one.

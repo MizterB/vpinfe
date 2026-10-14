@@ -24,6 +24,7 @@ from common import events, i18n, jobs, sized_media
 from common.extensions import check, contract, fields, host, pictures, serving, store
 from common.extensions.context import COLUMN_KINDS, ExtensionContext, logger_for
 from common.service_errors import RefusedError
+from console import ext_links
 
 GUIDE = Path(__file__).resolve().parents[2] / "docs" / "extensions"
 EXAMPLES = GUIDE / "examples"
@@ -51,6 +52,8 @@ DECLARES: dict[str, list[str]] = {
     "weekly_board": ["list       board in community: 5 columns, 0 views, 0 verbs"],
     "secret_key": ["settings   key (secret)", "dialog     connect: ask run"],
     "player_handle": ["account    a player can hold one"],
+    "tool_link": ["settings   port (number", "link       console in system: http://{host}:9090/",
+                  "link       manual: https://tool.example.com/manual"],
 }
 
 
@@ -302,6 +305,22 @@ class RecipesDoWhatTheyClaim(ExamplesLoadedByTheHost):
         self.assertTrue(served.path.is_file())
         self.assertEqual(["open", "closing", "closed", "cancelled", "planned"],
                          [one["status"] for one in rows])
+
+    def test_the_tool_links_follow_the_port_and_fill_in_the_host_the_console_was_opened_at(
+            self) -> None:
+        record = self.load("tool_link")
+
+        before = {one["key"]: one for one in record.links()}
+        serving.settings_write(record, {"port": "9191"})
+        after = {one["key"]: one for one in record.links()}
+
+        self.assertEqual("http://{host}:9090/", before["console"]["url"])
+        self.assertEqual("http://{host}:9191/", after["console"]["url"])
+        self.assertEqual(("Tool console", "system"),
+                         (after["console"]["label"], after["console"]["area"]))
+        self.assertEqual("", after["manual"]["area"])
+        self.assertEqual("http://cab:9191/",
+                         ext_links.filled(after["console"]["url"], "cab"))
 
     @staticmethod
     def _until(done: Any, seconds: float = 10) -> None:

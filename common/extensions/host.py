@@ -23,6 +23,7 @@ from common.paths import CONFIG_DIR, bundled, get_ini_config
 from . import catalogs, contributions
 from .context import ExtensionApps, ExtensionContext, check_references
 from .contract import MANIFEST_NAME, ContractError, Manifest, ManifestError, read_manifest
+from .pictures import is_openable
 from .store import ExtensionStore, get_extension_store
 
 logger = logging.getLogger("vpinfe.common.extensions.host")
@@ -89,6 +90,7 @@ class Record:
     actions: list[dict] = field(default_factory=list)
     surfaces: dict = field(default_factory=dict)
     declared_lists: list[dict] = field(default_factory=list)
+    declared_links: list[dict] = field(default_factory=list)
     # The registration core calls the functions of; None while it is not running.
     context: ExtensionContext | None = None
     # Remembered between runs, so a stopped extension's page can say it has settings.
@@ -130,6 +132,31 @@ class Record:
     def lists(self) -> list[dict]:
         """Its lists, in the language now set."""
         return [self._list(one) for one in self.declared_lists]
+
+    def links(self) -> list[dict]:
+        """Its links, with the address each answers now and the words in the language now
+        set. One whose address is not a web address, or whose function raises, is left
+        out: the page draws the rest."""
+        ui = self.context.ui if self.context is not None else None
+        found = []
+        for declared in self.declared_links:
+            key = declared["key"]
+            url = self._address(ui.link_addresses.get(key) if ui else None, key)
+            if not url:
+                continue
+            under = f"link.{key}"
+            found.append({**declared, "url": url,
+                          "label": self.said("", f"{under}.label", key)[0],
+                          "tip": self.said("", f"{under}.tip")[0]})
+        return found
+
+    def _address(self, given: Any, key: str) -> str:
+        try:
+            url = given() if callable(given) else given
+        except Exception:
+            logger.exception("Extension %s link %s did not answer an address", self.name, key)
+            return ""
+        return url if isinstance(url, str) and is_openable(url) else ""
 
     def _list(self, declared: dict) -> dict:
         under = f"list.{declared['key']}"
@@ -211,6 +238,7 @@ class Record:
                             if self.running else []),
                 "surfaces": self._surfaces() if self.running else {},
                 "lists": self.lists() if self.running else [],
+                "links": self.links() if self.running else [],
                 "account": self.account_declared() if self.running else {}}
 
 
@@ -346,11 +374,13 @@ class Registry:
             context.open = False
             check_references(context.ui)
             record.declared_lists = list(context.ui.declared_lists)
+            record.declared_links = list(context.ui.declared_links)
             self._check_titles(record)
         except Exception as exc:
             logger.exception("Extension %s did not load: %r", record.name, exc)
             record.error = f"{type(exc).__name__}: {exc}"
             record.declared_lists = []
+            record.declared_links = []
             if context is not None:
                 _withdraw(record.name, context.events.registered, context.apps)
             record.became(FAILED, "extension.reason.start_failed")

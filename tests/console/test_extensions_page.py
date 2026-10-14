@@ -107,6 +107,40 @@ class HeaderTests(unittest.TestCase):
         self.assertEqual(Page(RUNNING).labels("console-panel-note"), ["Does a thing"])
 
 
+class LinkTests(unittest.TestCase):
+    PANEL = {"key": "panel", "area": "", "label": "Open the panel",
+             "tip": "Opens in a new tab", "url": "http://{host}:9100/ui"}
+
+    def items(self, found: dict) -> list[ui.menu_item]:
+        return [one for one in Page(found).body.descendants() if isinstance(one, ui.menu_item)]
+
+    def test_a_link_is_a_menu_item_at_the_end_of_the_name(self) -> None:
+        (item,) = self.items({**RUNNING, "links": [self.PANEL]})
+
+        self.assertEqual("http://localhost:9100/ui", item.props["href"])
+        self.assertEqual("_blank", item.props["target"])
+        self.assertEqual("noopener noreferrer", item.props["rel"])
+
+    def test_the_menu_is_in_the_heading_with_the_name(self) -> None:
+        page = Page({**RUNNING, "links": [self.PANEL]})
+
+        self.assertEqual(["Sample"], page.labels("console-workbench-title"))
+        headings = [one for one in page.body.descendants()
+                    if "console-panel-heading" in one.classes
+                    and not isinstance(one, ui.label)]
+        self.assertEqual(["Open the panel"],
+                         [inner.text for heading in headings for inner in heading.descendants()
+                          if isinstance(inner, ui.label) and inner.text == "Open the panel"])
+
+    def test_an_extension_with_no_links_has_no_menu(self) -> None:
+        self.assertEqual([], self.items(RUNNING))
+        self.assertEqual([], self.items({**RUNNING, "links": []}))
+
+    def test_a_link_whose_address_is_not_a_web_address_is_not_drawn(self) -> None:
+        self.assertEqual([], self.items(
+            {**RUNNING, "links": [{**self.PANEL, "url": "javascript:alert(1)"}]}))
+
+
 class FindingTests(unittest.TestCase):
     def finding(self, found: dict) -> list[str]:
         return Page(found).labels("console-attention-line")

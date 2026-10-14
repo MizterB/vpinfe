@@ -58,18 +58,25 @@ def headed(entries: Sequence[tuple[Any, ...]], first: str) -> list[tuple[Any, ..
 
 
 def header(name: str, note: str = "",
-           findings: Sequence[Callable[[], None]] = (), caption: str = "") -> None:
+           findings: Sequence[Callable[[], None]] = (), caption: str = "",
+           menu: Sequence[Verb] = ()) -> None:
     """What the content under it is about, where the rail row is too far away to say it.
 
     `caption` sits under the name, as a game's type line does in its panel. `note` is drawn
     inside the same rule as the name, and so is each of `findings`: what is wrong with
-    everything under it, before the first of its headings.
+    everything under it, before the first of its headings. `menu` is what can be done
+    with the subject as a whole, at the end of the name.
     """
-    if not note and not findings and not caption:
+    if not note and not findings and not caption and not menu:
         ui.label(name).classes("text-base console-workbench-title console-panel-heading")
         return
     with ui.element("div").classes("console-panel-heading"):
-        ui.label(name).classes("text-base console-workbench-title")
+        if menu:
+            with ui.row().classes("items-center no-wrap w-full"):
+                ui.label(name).classes("text-base console-workbench-title grow min-w-0")
+                subject_menu(ui.row().classes("shrink-0 no-wrap"), menu)
+        else:
+            ui.label(name).classes("text-base console-workbench-title")
         if caption:
             ui.label(caption).classes("text-xs console-workbench-label")
         if note:
@@ -1526,6 +1533,7 @@ def _verb_entry(verb: Verb) -> None:
         item.props["href"] = verb.to
         if leaves(verb.to):
             item.props["target"] = "_blank"
+            item.props["rel"] = "noopener noreferrer"
     if verb.tip:
         item.tooltip(verb.tip)
     with item, ui.row().classes("items-center gap-2 no-wrap w-full"):
@@ -1606,7 +1614,7 @@ NAV_CLICK = """
 (() => {
   document.addEventListener('click', (event) => {
     const link = event.target.closest && event.target.closest(
-      'a.console-nav-row, a.console-link--inplace');
+      'a.console-nav-row:not(.console-nav-row--out), a.console-link--inplace');
     if (!link) return;
     if (event.button !== 0 || event.metaKey || event.ctrlKey ||
         event.shiftKey || event.altKey) return;

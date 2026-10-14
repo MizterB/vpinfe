@@ -111,9 +111,11 @@ class SecretsStayHere:
         body: list[bytes] = []
 
         async def hold(message: Message) -> None:
-            if message["type"] == "http.response.start" and _is_json(message):
-                started.append(message)
-                return
+            if message["type"] == "http.response.start":
+                message = _sandboxed(message)
+                if _is_json(message):
+                    started.append(message)
+                    return
             if message["type"] != "http.response.body" or not started:
                 await send(message)
                 return
@@ -128,6 +130,18 @@ class SecretsStayHere:
             await send({"type": "http.response.body", "body": kept})
 
         await self.app(scope, receive, hold)
+
+
+# The API is mounted in the Console's own app, so a page one of these routes serves has the
+# Console's origin. `sandbox` without `allow-same-origin` runs it as no origin at all.
+SANDBOX = (b"content-security-policy", b"sandbox allow-scripts allow-forms")
+NOSNIFF = (b"x-content-type-options", b"nosniff")
+
+
+def _sandboxed(message: Message) -> Message:
+    kept = [(name, value) for name, value in message.get("headers", [])
+            if name.lower() != NOSNIFF[0]]
+    return {**message, "headers": [*kept, SANDBOX, NOSNIFF]}
 
 
 def _is_json(message: Message) -> bool:

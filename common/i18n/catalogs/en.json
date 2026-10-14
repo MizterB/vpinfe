@@ -2089,6 +2089,7 @@
   "console.page.devices_failed": "Could not ask the devices",
   "console.page.could_not_discard": "Couldn't discard the recording",
   "console.page.load_failed": "Could not load the Console",
+  "console.page.new_tab": "{label}, opens in a new tab",
   "console.page.could_not_resume": "Couldn't resume recording",
   "console.page.start_failed": "Could not start",
   "console.page.could_not_stop": "Couldn't stop it",
