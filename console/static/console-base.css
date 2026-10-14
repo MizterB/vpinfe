@@ -916,6 +916,13 @@ body::before {
 /* Reset sits against the control it undoes, and is drawn only where the value is
    changed, so it never waits behind a hover. */
 .console-field-line > .console-field-row { flex: 0 1 auto; min-width: 0; }
+/* A select's floor gives way to the Reset beside it: a minimum wider than the column would
+   run over the button. The line is a container so the floor can be measured against it. */
+.console-facts > .console-field-line { container-type: inline-size; }
+.console-facts > .console-field-line .console-edit-select:where(
+    :not(:has(+ .console-edit-narrow:not(.hidden)))) {
+  min-width: min(var(--select-min), calc(100cqw - var(--target-inline) - 4px));
+}
 /* A path is the long value, so it takes the measure whether it holds a typed path or the
    default it stands for - a field that is as wide as its text is a different width for
    every path. The line adds the Reset slot beside the measure, so the field is the
