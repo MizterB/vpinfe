@@ -130,28 +130,35 @@ def parse_args():
     """Parse and dispatch command-line arguments."""
     parser = argparse.ArgumentParser(allow_abbrev=False)
     parser.add_argument("--version", action="store_true", help="Show the app version")
-    parser.add_argument("--listres", action="store_true", help="ID and list your screens")
+    parser.add_argument("--listres", action="store_true",
+                        help="List your screens, with the number, name, position and size "
+                             "of each")
     parser.add_argument("--check-extension", metavar="DIR",
-                        help="Load the extension in DIR as VPinFE would and say what it "
-                             "declares, what it reads and any word it is missing. Sends "
-                             "and changes nothing")
-    parser.add_argument("--listmissing", action="store_true", help="List the games from VPSdb")
+                        help="Check the extension in the folder DIR the way VPinFE would "
+                             "load it, and report what it declares, what it reads and any "
+                             "on-screen word it has no entry for. Nothing is sent, saved "
+                             "or run")
+    parser.add_argument("--listmissing", action="store_true",
+                        help="List the games the Virtual Pinball Spreadsheet has that "
+                             "your library does not")
     parser.add_argument("--listunknown", action="store_true",
-                        help="List the games we can't match in VPSdb")
+                        help="List the games in your library that VPinFE cannot match "
+                             "to the Virtual Pinball Spreadsheet")
     parser.add_argument("--configdir", metavar="DIR",
-                        help="Use DIR as the config directory (vpinfe.json, frontend_themes) "
-                             "instead of the OS default, with the caches in DIR/cache, "
-                             "the state in DIR/state and the logs in DIR/logs. Same as the "
-                             "VPINFE_CONFIG_DIR env var; applied at startup in main.py.")
+                        help="Keep your settings in the folder DIR instead of the usual "
+                             "place for your system, with the cache in DIR/cache, the "
+                             "state in DIR/state and the logs in DIR/logs. Setting "
+                             "VPINFE_CONFIG_DIR to DIR does the same")
     parser.add_argument("--buildmeta", action="store_true",
-                        help="Builds the .info file in each game dir")
+                        help="Build the .info file, which holds a game's details, in each "
+                             "game folder")
     parser.add_argument("--vpxpatch", action="store_true",
-                        help="Attempt to apply patches automatically")
+                        help="Write a script fix next to each table that needs one")
     parser.add_argument("--gamepadtest", action="store_true",
-                        help="Test and map your gamepad via JS API")
+                        help="Open the gamepad button tester")
     parser.add_argument("--headless", action="store_true",
-                        help="Run web servers/services only, skip the Chromium "
-                             "frontend")
+                        help="Run VPinFE's servers and services only, with no frontend "
+                             "windows")
     parser.add_argument("--claim-user-media", action="store_true",
                         help="Deprecated and does nothing; your own media is "
                              "protected automatically")
@@ -160,10 +167,10 @@ def parse_args():
     parser.add_argument("--no-media", action="store_true",
                         help="Do not download images when building the .info files")
     parser.add_argument("--update-all", action="store_true",
-                        help="Reparse all games when building the .info files")
+                        help="Read every game again when building the .info files")
     parser.add_argument("--user-media", action="store_true",
-                        help="With --buildmeta: skip vpinmediadb downloads entirely "
-                             "and supply all media yourself")
+                        help="With --buildmeta: download nothing from VPinMediaDB and "
+                             "use only the media you supply")
     parser.add_argument("--upgrade-info", action="store_true",
                         help="Upgrade every game's .info file to the current format, "
                              "backing up each one first. Normally done automatically "
@@ -189,7 +196,7 @@ def parse_args():
     # --table is the pre-3.0 spelling, kept working and hidden from --help so the
     # documented flag is the current one. A user's script does not break.
     parser.add_argument("--game", "--table", dest="game",
-                        help="Specify a single game folder name to process with "
+                        help="Do just the one game folder with this name, for "
                              "--buildmeta, --upgrade-info or --restore-info")
 
     args, unknown = parser.parse_known_args()  # macOS-friendly parsing
