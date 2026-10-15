@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from common.uploads.asset_analyzer_service import analyze_path
@@ -349,6 +350,93 @@ class VpsHelperTests(unittest.TestCase):
             self.assertEqual(find_vps_entry("def456")["name"], "Bar")
             self.assertIsNone(find_vps_entry("nope"))
             self.assertIsNone(find_vps_entry(""))
+
+
+class ColorFileNameTests(unittest.TestCase):
+    """A color file lands under the name its plugin loads, or is refused."""
+
+    def setUp(self) -> None:
+        from tempfile import TemporaryDirectory
+        held = TemporaryDirectory()
+        self.addCleanup(held.cleanup)
+        self.tmp = Path(held.name)
+        self.game_dir = self.tmp / "Foo (Bar 1999)"
+        self.game_dir.mkdir()
+        (self.game_dir / "Foo.vpx").write_bytes(b"x")
+
+    def _plan(self, names):
+        zip_path = self.tmp / "drop.zip"
+        make_zip(zip_path, names)
+        return build_import_plan(analyze_path(zip_path), game_dir=self.game_dir,
+                                 rom_name="mm_105")
+
+    def _lands(self, plan):
+        return sorted(Path(item.destination).relative_to(self.game_dir).as_posix()
+                      for item in plan.items)
+
+    def test_a_serum_file_is_named_for_the_rom(self):
+        for dropped, loaded in (("anything.crz", "mm_105.cRZ"),
+                                ("Other.CROMC", "mm_105.cROMc")):
+            with self.subTest(dropped):
+                self.assertEqual(self._lands(self._plan([dropped])),
+                                 [f"serum/mm_105/{loaded}"])
+
+    def test_a_pal_and_vni_pair_both_arrive_named_for_the_rom(self):
+        plan = self._plan(["pack/colors.pal", "pack/colors.vni"])
+
+        self.assertEqual(self._lands(plan), ["vni/mm_105/mm_105.pal", "vni/mm_105/mm_105.vni"])
+
+    def test_the_fallback_name_is_kept(self):
+        plan = self._plan(["PIN2DMD.PAL", "pin2dmd.vni"])
+
+        self.assertEqual(self._lands(plan), ["vni/mm_105/pin2dmd.pal", "vni/mm_105/pin2dmd.vni"])
+
+    def test_a_pac_is_refused_because_vni_never_loads_it(self):
+        from common.i18n import t
+
+        plan = self._plan(["colors.pac"])
+
+        self.assertEqual((plan.items, blocked_reasons(plan)),
+                         ((), {"altcolor_vni": t("error.uploads.pac_not_loaded")}))
+
+    def test_two_files_for_one_name_leave_the_second_refused(self):
+        plan = self._plan(["a/one.pal", "b/two.pal"])
+
+        self.assertEqual(len(plan.items), 1)
+        self.assertIn("altcolor_vni", blocked_reasons(plan))
+        self.assertIn("mm_105.pal", blocked_reasons(plan)["altcolor_vni"])
+
+    def test_a_mixed_group_brings_what_loads_and_refuses_the_pac(self):
+        plan = self._plan(["colors.pal", "colors.vni", "colors.pac"])
+
+        self.assertEqual(self._lands(plan), ["vni/mm_105/mm_105.pal", "vni/mm_105/mm_105.vni"])
+        self.assertIn("altcolor_vni", blocked_reasons(plan))
+
+    def test_serum_files_differing_only_in_case_clash(self):
+        plan = self._plan(["a/x.crz", "b/Y.CRZ"])
+
+        self.assertEqual((len(plan.items), len(plan.blocked)), (1, 1))
+
+    def test_a_rom_with_a_separator_keeps_folder_and_file_together(self):
+        zip_path = self.tmp / "drop.zip"
+        make_zip(zip_path, ["x.crz"])
+
+        plan = build_import_plan(analyze_path(zip_path), game_dir=self.game_dir,
+                                 rom_name="../up")
+
+        self.assertEqual(self._lands(plan), ["serum/up/up.cRZ"])
+
+    def test_the_report_says_what_was_renamed(self):
+        zip_path = self.tmp / "drop.zip"
+        make_zip(zip_path, ["colors.crz", "pin2dmd.pal"])
+        plan = build_import_plan(analyze_path(zip_path), game_dir=self.game_dir,
+                                 rom_name="mm_105")
+
+        report = execute_import_plan(plan, zip_path)
+
+        self.assertEqual(report["renamed"], [{"was": "colors.crz", "now": "mm_105.cRZ"}])
+        self.assertTrue((self.game_dir / "serum" / "mm_105" / "mm_105.cRZ").is_file())
+        self.assertTrue((self.game_dir / "vni" / "mm_105" / "pin2dmd.pal").is_file())
 
 
 if __name__ == "__main__":

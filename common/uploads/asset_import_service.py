@@ -239,10 +239,8 @@ def _plan_asset(asset: DetectedAsset, base: Path, vpx_stem: str, rom_name: str,
     if kind == "rom":
         name, action = _rom_dest_name(asset, source_name)
         return PlannedItem(asset, str(_in_game(kind, base) / name), action)
-    if kind in ("altcolor_serum", "altcolor_vni"):
-        dest = (_in_game(kind, base, rom_name)
-                / _safe_upload_name(_basename(asset.entries[0].arcname)))
-        return PlannedItem(asset, str(dest), "copy")
+    if kind in _COLOR_KINDS:
+        return _plan_color(asset, base, rom_name)
     if kind in ("altsound", "pup_pack", "music"):
         return PlannedItem(asset, str(_in_game(kind, base, rom_name)), "extract_tree")
     if kind == "readme":
@@ -256,6 +254,57 @@ def _plan_asset(asset: DetectedAsset, base: Path, vpx_stem: str, rom_name: str,
     if kind == "media":
         return _plan_media(asset, base)
     return BlockedItem(asset, t("error.uploads.cannot_import_kind"))
+
+
+# The plugins ask for the table's ROM by name: Serum for <rom>/<rom>.cRZ or .cROMc, VNI
+# for <rom>.pal and <rom>.vni, else pin2dmd.pal and pin2dmd.vni. A file under any other
+# name imports and is never loaded. VNI does not look for a .pac at all.
+_COLOR_KINDS = ("altcolor_serum", "altcolor_vni")
+_SERUM_NAMES = {".crz": ".cRZ", ".cromc": ".cROMc"}
+_VNI_FALLBACK = "pin2dmd"
+
+
+def _plan_color(asset: DetectedAsset, base: Path, rom_name: str) -> PlannedItem | BlockedItem:
+    """Where one color file lands, named as its plugin loads it."""
+    own = PurePosixPath(_basename(asset.entries[0].arcname))
+    suffix = own.suffix.lower()
+    rom = _safe_upload_name(rom_name)
+    if asset.kind == "altcolor_vni" and suffix == ".pac":
+        return BlockedItem(asset, t("error.uploads.pac_not_loaded"))
+    if asset.kind == "altcolor_vni" and own.stem.lower() == _VNI_FALLBACK:
+        name = f"{_VNI_FALLBACK}{suffix}"
+    else:
+        name = f"{rom}{_SERUM_NAMES.get(suffix, suffix)}"
+    return PlannedItem(asset, str(_in_game(asset.kind, base, rom) / name), "copy")
+
+
+def _one_file_each(assets: Iterable[DetectedAsset]) -> list[DetectedAsset]:
+    """A VNI group is several files and `copy` carries one, so each gets its own item."""
+    out: list[DetectedAsset] = []
+    for asset in assets:
+        if asset.kind != "altcolor_vni" or len(asset.entries) < 2:
+            out.append(asset)
+            continue
+        out.extend(replace(asset, entries=(one,), size=one.size,
+                           detail=_basename(one.arcname)) for one in asset.entries)
+    return out
+
+
+def _one_to_a_name(items: list[PlannedItem],
+                   blocked: list[BlockedItem]) -> tuple[list[PlannedItem], list[BlockedItem]]:
+    """Two color files that would take one name: the first stays, the rest are refused."""
+    taken: set[str] = set()
+    kept: list[PlannedItem] = []
+    refused = list(blocked)
+    for item in items:
+        if item.asset.kind in _COLOR_KINDS:
+            if item.destination in taken:
+                refused.append(BlockedItem(item.asset, t(
+                    "error.uploads.color_same_name", name=Path(item.destination).name)))
+                continue
+            taken.add(item.destination)
+        kept.append(item)
+    return kept, refused
 
 
 def _info_path(base: Path) -> Path:
@@ -305,7 +354,7 @@ def build_import_plan(analysis: AnalysisResult, *, game_dir: Path | None = None,
         base = Path(games_path or _new_games_under(location_id)).expanduser() \
             / new_dir_name
         sidecar_stem = _sidecar_stem(analysis.assets, base, vpx_stem)
-        for asset in analysis.assets:
+        for asset in _one_file_each(analysis.assets):
             planned = _plan_asset(asset, base, vpx_stem, rom_name,
                                   analysis.source_name, game_kind_action="copy",
                                   sidecar_stem=sidecar_stem)
@@ -313,6 +362,7 @@ def build_import_plan(analysis: AnalysisResult, *, game_dir: Path | None = None,
                 items.append(planned)
             else:
                 blocked.append(planned)
+        items, blocked = _one_to_a_name(items, blocked)
         return ImportPlan(str(base), new_dir_name, "", tuple(items), tuple(blocked))
 
     if game_dir is not None:
@@ -323,7 +373,7 @@ def build_import_plan(analysis: AnalysisResult, *, game_dir: Path | None = None,
             vpx_stem = ""
         sidecar_stem = (_arriving_stem(analysis.assets)
                         or _sidecar_stem(analysis.assets, base, vpx_stem))
-        for asset in analysis.assets:
+        for asset in _one_file_each(analysis.assets):
             planned = _plan_asset(asset, base, vpx_stem, rom_name,
                                   analysis.source_name,
                                   game_kind_action="add_table" if add_table else "replace_vpx",
@@ -332,6 +382,7 @@ def build_import_plan(analysis: AnalysisResult, *, game_dir: Path | None = None,
                 items.append(planned)
             else:
                 blocked.append(planned)
+        items, blocked = _one_to_a_name(items, blocked)
         return ImportPlan(str(base), "", rom_name, tuple(items), tuple(blocked))
 
     for asset in analysis.assets:
@@ -761,6 +812,7 @@ def execute_import_plan(plan: ImportPlan, source_path: Path,
     imported: list[str] = []
     media_kinds: list[str] = []
     added: list[str] = []
+    renamed: list[dict[str, str]] = []
     try:
         for item in plan.items:
             if progress_cb:
@@ -774,6 +826,9 @@ def execute_import_plan(plan: ImportPlan, source_path: Path,
                 _extract_replace(source, item.asset.entries[0], dest)
             elif item.action == "copy":
                 _extract_replace(source, item.asset.entries[0], dest)
+                was = _basename(item.asset.entries[0].arcname)
+                if item.asset.kind in _COLOR_KINDS and was != dest.name:
+                    renamed.append({"was": was, "now": dest.name})
             elif item.action == "apply_patch":
                 _apply_patch(source, item.asset, base, dest)
             elif item.action == "zip_rom":
@@ -806,6 +861,7 @@ def execute_import_plan(plan: ImportPlan, source_path: Path,
         "media_kinds": media_kinds,
         "declared": declared_written,
         "added_tables": added,
+        "renamed": renamed,
     }
 
 

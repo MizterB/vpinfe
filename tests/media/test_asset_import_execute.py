@@ -174,7 +174,7 @@ class ImportExecuteTests(unittest.TestCase):
 
                 self.assertTrue((game_dir / "pinmame" / "roms" / "mm.zip").exists())
                 self.assertTrue((game_dir / "pupvideos" / "s1" / "a.mp4").exists())
-                self.assertTrue((game_dir / "serum" / "mm_rom" / "mm.crz").exists())
+                self.assertTrue((game_dir / "serum" / "mm_rom" / "mm_rom.cRZ").exists())
                 self.assertIn("rom", report["imported"])
 
     def test_the_game_is_read_again_once_its_files_are_in(self):

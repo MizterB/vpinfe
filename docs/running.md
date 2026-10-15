@@ -54,7 +54,7 @@ Medieval Madness (Williams 1997)/
 
 - **Files named for a table** go with that table: the backglass, settings, script and point of view above each follow the `.vpx` they sit beside.  A backglass, settings file or script named for the game folder serves any table in it that has none of its own.
 - **Media** is looked for in `medias/` first and then in the game folder itself.  A file named for a table, such as `(Wheel) Medieval Madness Remake VR 1.2.png`, is used for that table and beats one named for the game, which beats the plain `wheel.png`.  The full list of names is in [Media Flow](media-flow.md).
-- **ROMs, sounds and packs** live inside the game.  `altsound/`, `pupvideos/`, `music/` and a `serum/` or `vni/` folder are recognized by their names.  Import them with the drag and drop importer, or let the importer convert them from another frontend's layout.
+- **ROMs, sounds and packs** live inside the game.  `altsound/`, `pupvideos/`, `music/` and a `serum/` or `vni/` folder are recognized by their names.  A Serum or VNI color file is saved under the game's ROM name (`serum/<rom>/<rom>.cRZ`, `vni/<rom>/<rom>.pal`), because that is the only name VPX's plugins load; `pin2dmd.pal` and `pin2dmd.vni` keep theirs, and a `.pac` is refused.  Import them with the drag and drop importer, or let the importer convert them from another frontend's layout.
 - **Hidden tables.**  A table you hide stays on disk and is left out of the frontend, which suits a patch base that a patched variant needs.
 - **The `.info` file** is written and kept up to date by VPinFE.  It holds the VPS match, the details it read from each table, your ratings and play history, and which media you added.  It is safe to leave alone.
 

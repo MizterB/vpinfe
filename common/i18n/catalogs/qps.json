@@ -1757,6 +1757,7 @@
     "one": "Îɱþöřţèđ {count} îţèɱ",
     "other": "Îɱþöřţèđ {count} îţèɱš"
   },
+  "console.import_dialog.renamed": "{was} ŵàš šàṽèđ àš {now}",
   "console.import_dialog.importing": "Îɱþöřţîñĝ…",
   "console.import_dialog.match": "Ḿàţçĥ",
   "console.import_dialog.match_hint": "Ñàɱè ţĥè ƒöŀđèř ƒřöɱ ţĥè ûþšţřèàɱ řèçöřđ",
@@ -4617,6 +4618,8 @@
   "error.uploads.folder_exists": "À ƒöŀđèř çàŀŀèđ {name} îš àŀřèàđý ţĥèřè",
   "error.uploads.folder_unnamed": "Ţĥè ñèŵ ĝàɱè'š ƒöŀđèř ñèèđš à ñàɱè",
   "error.uploads.no_rom": "Ţĥîš ĝàɱè ĥàš ñö ŘÖḾ ýèţ. Îɱþöřţ îţ ƒîřšţ.",
+  "error.uploads.pac_not_loaded": "ṼÞẊ đöèš ñöţ ŀöàđ .þàç ƒîŀèš",
+  "error.uploads.color_same_name": "Àñöţĥèř ƒîŀè îñ ţĥîš đřöþ îš àŀřèàđý ĝöîñĝ ţö ƀè {name}",
   "error.uploads.info_unreadable": "Îţš .îñƒö ƒîŀè çàññöţ ƀè řèàđ",
   "error.uploads.see_log": "Ţĥè ŀöĝ šàýš ŵĥý",
   "error.uploads.needs_package": "Öþèñîñĝ ţĥîš àřçĥîṽè ñèèđš ţĥè {package} þàçķàĝè",
