@@ -1392,6 +1392,7 @@ different jobs, so each job has a token and the token is where its value is deci
 | the job | the token |
 |---|---|
 | a control at the end of a row | `--icon-row` |
+| a glyph beside the words of a dialog's footer button | `--icon-button` |
 | a state glyph in a menu | `--icon-menu` |
 | a state glyph beside a value | `--icon-mark` |
 | a glyph that is the whole control - a nav row, a tab | `--icon-nav` |

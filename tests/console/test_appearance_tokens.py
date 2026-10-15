@@ -165,6 +165,17 @@ class DeliveryTests(unittest.TestCase):
         self.assertFalse(any(rules in one for one in added), "the rules are in the page")
 
 
+class DialogButtonIconTests(unittest.TestCase):
+    def test_a_footer_button_draws_its_icon_at_the_named_size(self) -> None:
+        """One rule in the frame sizes every dialog's buttons, so no dialog sets its own."""
+        rule = re.search(r"\.console-dialog-footer \.q-btn \.q-icon\s*\{([^}]*)\}",
+                         appearance.base_css())
+
+        self.assertIsNotNone(rule, "no rule sizes the icon of a dialog's footer button")
+        assert rule is not None
+        self.assertIn("font-size: var(--icon-button)", rule.group(1))
+
+
 class LiteralTests(unittest.TestCase):
     """A ceiling on colors typed by hand, not a ban on them.
 

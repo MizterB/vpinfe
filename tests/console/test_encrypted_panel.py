@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+import asyncio
 import unittest
 from typing import Any
 from unittest import mock
 
+from nicegui import ui
+
 from common.i18n import t
 from console import encrypted_panel, panel
+from tests.support.clicks import said as said_to
+
+# Made at import, outside any task, where NiceGUI still hands out the script's own page.
+_PAGE = ui.element()
 
 
 def _noop(*_args: Any) -> None:
@@ -141,6 +148,67 @@ class WhatSecurityShows(unittest.TestCase):
 
         self.assertIn(t("console.encrypted.problem"), said)
         self.assertNotIn(t("console.encrypted.next_start"), said)
+
+
+def _the(kind: type, scope: ui.element) -> list[Any]:
+    return [one for one in scope.descendants() if isinstance(one, kind)]
+
+
+class TheAddDialog(unittest.TestCase):
+    """What the Add Proxy and Add Network dialogs show on opening, and what Add does empty."""
+
+    def setUp(self) -> None:
+        patcher = mock.patch.object(ui, "run_javascript")
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _opened(self, act: Any) -> Any:
+        async def run() -> Any:
+            async def ask() -> Any:
+                with _PAGE:
+                    return await encrypted_panel._ask_entry("Add", "Address", "such as 10.0.0.1")
+
+            was = set(_the(ui.dialog, _PAGE.client.layout))
+            asking = asyncio.create_task(ask())
+            await asyncio.sleep(0)
+            box = next(one for one in _the(ui.dialog, _PAGE.client.layout)
+                       if one not in was and one.value)
+            act(box)
+            return await asking
+
+        return asyncio.run(run())
+
+    def test_the_field_is_empty_and_the_example_is_a_line_under_it(self) -> None:
+        seen: dict[str, Any] = {}
+
+        def act(box: ui.dialog) -> None:
+            field = _the(ui.input, box)[0]
+            drawn = list(box.descendants())
+            below = [one.text for one in drawn[drawn.index(field) + 1:]
+                     if isinstance(one, ui.label)]
+            seen.update(value=field.value, placeholder=field.props.get("placeholder"),
+                        below=below)
+            box.submit(None)
+
+        self._opened(act)
+
+        self.assertEqual(seen["value"], "")
+        self.assertFalse(seen["placeholder"])
+        self.assertIn("such as 10.0.0.1", seen["below"])
+
+    def test_adding_nothing_answers_nothing_and_says_what_is_needed(self) -> None:
+        seen: dict[str, Any] = {}
+
+        def act(box: ui.dialog) -> None:
+            said_to(next(one for one in _the(ui.button, box)
+                         if one.text == t("console.encrypted.add")), "click")
+            seen["open"] = box.value
+            seen["error"] = _the(ui.input, box)[0].props.get("error-message")
+            box.submit(None)
+
+        self.assertIsNone(self._opened(act))
+        self.assertTrue(seen["open"])
+        self.assertEqual(seen["error"], t("console.encrypted.needs_address"))
 
 
 if __name__ == "__main__":

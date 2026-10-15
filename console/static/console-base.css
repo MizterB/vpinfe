@@ -189,6 +189,7 @@
    dialog. White behind it because a camera reads contrast, not palette. */
 .console-qr {
   width: 220px;
+  margin: 0 auto;
   background: #fff;
   border-radius: 8px;
   padding: 6px;
@@ -968,6 +969,7 @@ body::before {
 }
 .console-dialog-footer { justify-content: flex-end; gap: 8px; width: 100%; padding: 14px 12px 0; }
 .console-dialog-footer > .console-dialog-aside { margin-right: auto; }
+.console-dialog-footer .q-btn .q-icon { font-size: var(--icon-button); }
 .console-dialog.console-confirm.q-card { width: min(460px, 92vw); }
 .console-dialog .console-confirm-line { padding: 0 12px; }
 .console-pick-list > .console-source-row:nth-child(even) { background: var(--grid-stripe); }

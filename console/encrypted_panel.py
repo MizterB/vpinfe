@@ -95,7 +95,7 @@ def entries(held: dict[str, Any], device: str, *, add_proxy: Callable[[], Any],
     return out
 
 
-async def _ask_entry(title: str, label: str, placeholder: str) -> str | None:
+async def _ask_entry(title: str, label: str, help_line: str) -> str | None:
     fields: dict[str, Any] = {}
 
     def keep() -> None:
@@ -107,7 +107,8 @@ async def _ask_entry(title: str, label: str, placeholder: str) -> str | None:
 
     with frame.opened(title, classes="console-confirm", ignore_outside_click=True) as box:
         panel.facts(ui, [(label, lambda: fields.update(
-            value=frame.field(placeholder=placeholder, name=label, room=True)))])
+            value=frame.field(name=label, room=True)))])
+        ui.label(help_line).classes("console-help px-3")
         with frame.footer():
             frame.cancel(lambda: box.submit(None))
             go = frame.answer(t("console.encrypted.add"), keep, icon=verbs.ADD)
@@ -171,7 +172,7 @@ def page_parts(library: Library, redraw: Callable[[], None],
     async def add_proxy() -> None:
         address = await _ask_entry(t("console.encrypted.add_proxy_title"),
                                    t("console.encrypted.proxy_label"),
-                                   t("console.encrypted.proxy_placeholder"))
+                                   t("console.encrypted.add_proxy_help"))
         if address:
             await attempt(library.add_trusted_proxy, address)
 
@@ -179,7 +180,7 @@ def page_parts(library: Library, redraw: Callable[[], None],
     async def add_network() -> None:
         text = await _ask_entry(t("console.encrypted.add_network_title"),
                                 t("console.encrypted.network_label"),
-                                t("console.encrypted.network_placeholder"))
+                                t("console.encrypted.add_network_help"))
         if text:
             await attempt(library.add_encrypted_network, text)
 

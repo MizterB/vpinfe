@@ -513,6 +513,8 @@ _STRUCTURE = """
      whatever the control is: two of them side by side at different sizes read as a
      ranking. The box around it is what makes the target, there being no words to. */
   --icon-row: 15px;
+  /* A glyph beside the words of a button in a dialog's footer. */
+  --icon-button: 20px;
   /* A state drawn as a glyph in a menu row, beside the words it qualifies. */
   --icon-menu: 16px;
   /* A state drawn as a glyph beside a value, in a panel or a list. */

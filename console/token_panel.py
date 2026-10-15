@@ -16,7 +16,7 @@ from nicegui import run, ui
 from common import api_tokens
 from common.failures import why
 from common.i18n import t
-from console import about, offload, panel, verbs, when
+from console import about, confirm, offload, panel, verbs, when
 from console import dialog as frame
 from console.api import ApiError
 from console.data import Library
@@ -88,7 +88,7 @@ async def _shown_once(name: str, secret: str) -> None:
 
 async def _ask_new() -> tuple[str, str, bool] | None:
     """The name, the access and the power switch, or None where it was cancelled."""
-    held: dict[str, Any] = {"access": api_tokens.FULL}
+    held: dict[str, Any] = {"access": api_tokens.PLAY}
     fields: dict[str, Any] = {}
 
     def does(access: str) -> str:
@@ -120,10 +120,11 @@ async def _ask_new() -> tuple[str, str, bool] | None:
             (t("console.tokens.access"),
              panel.choice_buttons({api_tokens.FULL: access_label(api_tokens.FULL),
                                    api_tokens.PLAY: access_label(api_tokens.PLAY)},
-                                  api_tokens.FULL, chose)),
-            (panel.ASIDE, lambda: fields.update(does=panel.line(does(api_tokens.FULL)))),
+                                  api_tokens.PLAY, chose)),
+            (panel.ASIDE, lambda: fields.update(does=panel.line(does(api_tokens.PLAY)))),
             (t("console.tokens.power"),
-             panel.switch(False, lambda _event: None, hint=t("console.tokens.power_hint"),
+             panel.switch(False, lambda _event: None, disabled=True,
+                          hint=t("console.tokens.power_hint"),
                           on_control=lambda control: fields.update(power=control))),
         ])
         with frame.footer():
@@ -152,6 +153,11 @@ def page_parts(library: Library, redraw: Callable[[], None],
 
     @on_page
     async def revoke(token_id: str) -> None:
+        name = next((str(row.get("name") or "") for row in rows if row.get("id") == token_id), "")
+        if not await confirm.ask(t("console.tokens.revoke_title", name=name),
+                                 detail=t("console.tokens.revoke_detail"),
+                                 confirm=t("console.tokens.revoke"), icon=verbs.DELETE):
+            return
         await run.io_bound(library.revoke_token, token_id)
         redraw()
 

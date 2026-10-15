@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import re
 import tempfile
 import time
 import unittest
@@ -10,7 +11,7 @@ from pathlib import Path
 from unittest import mock
 
 from common import authenticator, paths, upgrade_needs
-from console import authenticator_panel, panel
+from console import appearance, authenticator_panel, panel
 
 
 def _shown(state: dict) -> list[tuple]:
@@ -41,6 +42,14 @@ class WhatTheSectionShows(unittest.TestCase):
         found = _shown({"enabled": True, "screen_codes": True})
 
         self.assertEqual(len(found), 5)
+
+
+class TheQrDrawing(unittest.TestCase):
+    def test_it_is_centered_in_whatever_dialog_draws_it(self) -> None:
+        rule = re.search(r"\.console-qr\s*\{([^}]*)\}", appearance.base_css())
+
+        assert rule is not None
+        self.assertIn("margin: 0 auto", rule.group(1))
 
 
 class WithAnAuthenticator(unittest.TestCase):
