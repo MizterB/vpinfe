@@ -5,13 +5,12 @@ from __future__ import annotations
 import errno
 import os
 import socket
-from datetime import datetime
+import sqlite3
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 
 import requests
 
-from common.http_client import HostQuietError
 from common.i18n import t
 from common.pinned_certificates import CertificateChangedError
 
@@ -30,6 +29,19 @@ _FILES: dict[int, tuple[str, str]] = {
     errno.ETXTBSY: ("said.why.in_use", "said.why.in_use_at"),
     errno.ENAMETOOLONG: ("said.why.long_name", "said.why.long_name"),
     errno.ELOOP: ("said.why.link_loops", "said.why.link_loops_at"),
+}
+
+# SQLite's primary result code (the low byte of the extended one) and the key saying it;
+# 0 is every code not listed.
+_DATABASE: dict[int, str] = {
+    0: "said.why.db_unread",
+    5: "said.why.in_use",
+    6: "said.why.in_use",
+    8: "said.why.read_only",
+    11: "said.why.db_damaged",
+    13: "said.why.disk_full",
+    14: "said.why.db_unopened",
+    26: "said.why.not_database",
 }
 
 _UNREACHABLE = {errno.ENETUNREACH, errno.EHOSTUNREACH, errno.EHOSTDOWN, errno.ENETDOWN}
@@ -55,6 +67,8 @@ def why(exc: BaseException, at: str | os.PathLike[str] = "") -> str:
         bare, named = _FILES[_errno(exc)]
         path = _path(exc.filename) or path
         return t(named, path=path) if path else t(bare)
+    if isinstance(exc, sqlite3.Error):
+        return t(_DATABASE.get(getattr(exc, "sqlite_errorcode", 0) & 0xFF, _DATABASE[0]))
     return _raw(exc)
 
 
@@ -103,9 +117,6 @@ def _unwrapped(exc: BaseException) -> BaseException:
 
 
 def _unanswered(exc: BaseException, host: str) -> str:
-    if isinstance(exc, HostQuietError):
-        return t("said.why.rate_limited_at", host=exc.host,
-                 time=datetime.fromtimestamp(exc.until).strftime("%H:%M"))
     if isinstance(exc, CertificateChangedError):
         return _raw(exc)
     if isinstance(exc, requests.RequestException):
@@ -181,7 +192,7 @@ def _answered(status: int, host: str) -> str:
         return ""
     if status in (404, 410):
         return t("said.why.not_found_at", host=host)
-    if status in (401, 403):
+    if status in (400, 401, 403):
         return t("said.why.refused_at", host=host)
     if status >= 500:
         return t("said.why.in_trouble_at", host=host)

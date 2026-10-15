@@ -78,5 +78,7 @@
   "list.tables.view.last_played.help": "What was played last, anywhere",
   "list.tables.view.players.name": "Most Installed",
   "list.tables.view.players.help": "What the most players have",
-  "error.unreadable": "{host} sent something VPinFE cannot read"
+  "error.unreadable": "{host} sent something VPinFE cannot read",
+  "error.no_address": "The server address is blank",
+  "error.bad_address": "{address} is not an address VPinPlay can reach"
 }

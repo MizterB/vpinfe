@@ -35,7 +35,7 @@ def register(ctx: Any) -> None:
     ctx.ui.settings([{"key": ENDPOINT_KEY, "type": "string", "default": DEFAULT_ENDPOINT}])
 
     def endpoint() -> str:
-        return ctx.config.get(ENDPOINT_KEY)
+        return str(ctx.config.get(ENDPOINT_KEY) or "").strip() or DEFAULT_ENDPOINT
 
     ratings = client.Ratings()
     kept = ctx.ui.kept(LIST_KEY)

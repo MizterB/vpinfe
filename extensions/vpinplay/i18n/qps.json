@@ -78,5 +78,7 @@
   "list.tables.view.last_played.help": "Ŵĥàţ ŵàš þŀàýèđ ŀàšţ, àñýŵĥèřè",
   "list.tables.view.players.name": "Ḿöšţ Îñšţàŀŀèđ",
   "list.tables.view.players.help": "Ŵĥàţ ţĥè ɱöšţ þŀàýèřš ĥàṽè",
-  "error.unreadable": "{host} šèñţ šöɱèţĥîñĝ ṼÞîñƑÈ çàññöţ řèàđ"
+  "error.unreadable": "{host} šèñţ šöɱèţĥîñĝ ṼÞîñƑÈ çàññöţ řèàđ",
+  "error.no_address": "Ţĥè šèřṽèř àđđřèšš îš ƀŀàñķ",
+  "error.bad_address": "{address} îš ñöţ àñ àđđřèšš ṼÞîñÞŀàý çàñ řèàçĥ"
 }

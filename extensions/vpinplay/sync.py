@@ -17,7 +17,10 @@ from urllib.parse import quote
 
 import requests
 
+from common.extensions.contract import words
+
 logger = logging.getLogger("vpinfe.ext.vpinplay.sync")
+t = words("vpinplay")
 
 GAME_TIMEOUT = 30
 
@@ -300,30 +303,40 @@ def send(endpoint: str, payload: dict, timeout_seconds: int) -> dict:
     }
 
 
-def endpoint_for(said: str) -> str:
-    """Their sync path, from whatever somebody put in the setting.
+def api_root(said: str) -> str:
+    """Their API root, from whatever somebody put in the setting.
 
-    A person types a host, a host and port, the API root, or the whole path - all four
-    have been seen in a config file, and the one that is already complete must not have
-    the path added twice. A scheme is assumed rather than demanded because nobody types
-    one for a machine on their own network.
+    A person types a host, a host and port, the API root, or the whole sync path - all
+    four have been seen in a config file, and the one that is already complete must not
+    have the path added twice. A scheme is assumed rather than demanded because nobody
+    types one for a machine on their own network.
     """
-    from urllib.parse import urlparse
+    from urllib.parse import urlsplit
 
     raw = str(said or "").strip()
     if not raw:
-        raise ValueError("VPinPlay needs a service address before it can sync.")
+        raise ValueError(t("error.no_address"))
     if "://" not in raw:
         raw = f"http://{raw}"
-    if not urlparse(raw).netloc:
-        raise ValueError(f"{said!r} is not an address this can reach.")
+    try:
+        parts = urlsplit(raw)
+        parts.port  # noqa: B018 - a port that is not a number raises here
+    except ValueError:
+        parts = None
+    if parts is None or not parts.netloc:
+        raise ValueError(t("error.bad_address", address=str(said).strip()))
 
-    base = raw.rstrip("/")
-    if base.endswith(SYNC_PATH):
-        return base
-    if base.endswith(API_ROOT):
-        return f"{base}/sync"
-    return f"{base}{SYNC_PATH}"
+    base = parts.path.rstrip("/")
+    for tail in (SYNC_PATH, API_ROOT):
+        if base.lower().endswith(tail):
+            base = base[:-len(tail)]
+            break
+    return f"{parts.scheme}://{parts.netloc}{base}{API_ROOT}"
+
+
+def endpoint_for(said: str) -> str:
+    """Their sync path."""
+    return f"{api_root(said)}/sync"
 
 
 API_ROOT = "/api/v1"

@@ -93,12 +93,12 @@ class ReadFailureTests(unittest.TestCase):
             {"text": "VPinMAME.reg could not be read",
              "detail": f"VPinFE does not have permission for {export}"}])
 
-    def test_a_popper_database_that_is_not_one_says_what_sqlite_said(self) -> None:
+    def test_a_popper_database_that_is_not_one_says_so(self) -> None:
         self._file(popper.DATABASE, data=b"not a database at all, just some text")
 
         self.assertEqual(list(popper.read(self.root).notes),
                          [{"text": "PUPDatabase.db could not be read to the end",
-                           "detail": "file is not a database"}])
+                           "detail": "That file is not a database"}])
 
 
 if __name__ == "__main__":

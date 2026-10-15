@@ -6,6 +6,7 @@ here writes the game's `.info` and answers with what a caller would ask for next
 
 from __future__ import annotations
 
+import os
 import shutil
 from collections.abc import Iterable
 from pathlib import Path
@@ -140,9 +141,10 @@ def set_details(game_id: str, values: dict) -> dict:
     try:
         game_service.set_details(Path(str(game.full_path_game)), values)
     except FileNotFoundError as exc:
-        raise service_errors.BlockedError(t("error.games.info_missing"),
-                                          details={"path": str(exc)}) from exc
-    except OSError as exc:
+        raise service_errors.BlockedError(
+            t("error.games.info_missing"),
+            details={"path": os.fsdecode(exc.filename or game.full_path_game)}) from exc
+    except (OSError, ValueError) as exc:
         raise service_errors.BlockedError(why(exc)) from exc
     return game_lens.detail(game_id)
 

@@ -99,6 +99,28 @@ class Rows(unittest.TestCase):
             [self._refused(urllib.error.URLError(ConnectionRefusedError())),
              self._refused(TimeoutError("timed out"))])
 
+    def _asked(self, endpoint: str) -> str:
+        with patch.object(self.community.urllib.request, "urlopen") as opened:
+            opened.return_value.__enter__.return_value.read.return_value = b"{}"
+            self.community._page(endpoint, 0)
+        return opened.call_args.args[0].split("?")[0]
+
+    def test_an_address_typed_without_a_scheme_is_asked_as_sync_asks_it(self) -> None:
+        self.assertEqual(
+            [self._asked(one) for one in ("pinball.lan:8888", "http://pinball.lan:8888/api/v1/",
+                                          "https://api.vpinplay.example")],
+            ["http://pinball.lan:8888/api/v1/tables-plus/search",
+             "http://pinball.lan:8888/api/v1/tables-plus/search",
+             "https://api.vpinplay.example/api/v1/tables-plus/search"])
+
+    def test_a_blank_address_is_said_in_words_rather_than_as_a_bad_answer(self) -> None:
+        rows = self.community.rows_from(lambda: "  ")
+
+        with self.assertRaises(self.community.Unavailable) as raised:
+            rows()
+
+        self.assertEqual(str(raised.exception), "The server address is blank")
+
     def test_an_answer_it_cannot_read_is_its_own_line(self) -> None:
         self.assertEqual((502, "api.vpinplay.com sent something VPinFE cannot read"),
                          self._refused(ValueError("Expecting value: line 1 column 1")))

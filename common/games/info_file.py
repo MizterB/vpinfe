@@ -200,6 +200,35 @@ def info_from_vps(vps_entry: dict | None) -> dict[str, Any]:
     return info
 
 
+def read_record(path: str | os.PathLike[str]) -> tuple[str, dict[str, Any]]:
+    """A `.info` as stored: its text, and the object the text holds.
+
+    Raises InvalidMetaConfigError, with the reason in words, for a file that is empty, is
+    not UTF-8, is not JSON or does not hold an object, and OSError where it cannot be
+    opened. Not upgraded: a writer puts back what it found.
+    """
+    where = os.fspath(path)
+    try:
+        if os.path.getsize(where) == 0:
+            raise InvalidMetaConfigError(where, t("error.games.info_empty"))
+        with open(where, encoding="utf-8") as f:
+            text = f.read()
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise InvalidMetaConfigError(
+            where, t("error.games.info_bad_line", line=exc.lineno)) from exc
+    except UnicodeDecodeError as exc:
+        raise InvalidMetaConfigError(where, t("error.games.info_not_utf8")) from exc
+    if not isinstance(data, dict):
+        raise InvalidMetaConfigError(where, t("error.games.info_wrong_shape"))
+    return text, data
+
+
+def read_info(path: str | os.PathLike[str]) -> dict[str, Any]:
+    """What `read_record` finds, without its text."""
+    return read_record(path)[1]
+
+
 class MetaConfig:
     """One game's `.info`, upgraded to the current schema as it is read."""
 
@@ -207,26 +236,12 @@ class MetaConfig:
 
     def __init__(self, configfilepath: str) -> None:
         self.config_file_path = configfilepath
-        self.data = {}
+        self.data: dict[str, Any] = {}
         # The file as it was found, held only until a write backs it up.
         self._pre_migration = ""
 
         if os.path.exists(configfilepath):
-            try:
-                if os.path.getsize(configfilepath) == 0:
-                    raise InvalidMetaConfigError(configfilepath, t("error.games.info_empty"))
-                with open(configfilepath, encoding="utf-8") as f:
-                    original = f.read()
-                self.data = json.loads(original)
-                if not isinstance(self.data, dict):
-                    raise InvalidMetaConfigError(
-                        configfilepath, t("error.games.info_wrong_shape"))
-            except json.JSONDecodeError as exc:
-                raise InvalidMetaConfigError(
-                    configfilepath, t("error.games.info_bad_line", line=exc.lineno)) from exc
-            except UnicodeDecodeError as exc:
-                raise InvalidMetaConfigError(
-                    configfilepath, t("error.games.info_not_utf8")) from exc
+            original, self.data = read_record(configfilepath)
             if needs_migration(self.data):
                 self._pre_migration = original
                 self.data = migrate(self.data)

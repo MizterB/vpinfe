@@ -39,7 +39,7 @@ from common.games.game_metadata import (
     vpinfe_section,
 )
 from common.games.game_repository import refresh_game
-from common.games.info_file import VPINFE_SECTION
+from common.games.info_file import VPINFE_SECTION, read_info
 from common.games.info_maintenance import RestoreResult, UpgradeResult
 from common.games.tables import (
     TABLES_KEY,
@@ -122,7 +122,7 @@ def add_game_to_collection(game_id: str, collection_name: str) -> bool:
 def update_info_section(game_dir: Path, section: str, key: str, value: Any) -> None:
     """Raises OSError or ValueError when the .info cannot be read or written."""
     info_file = game_dir / f"{game_dir.name}.info"
-    data = json.loads(info_file.read_text(encoding="utf-8"))
+    data = read_info(info_file)
     data.setdefault(section, {})[key] = value
     info_file.write_text(json.dumps(data, indent=4), encoding="utf-8")
     refresh_game(game_dir)
@@ -148,7 +148,7 @@ def update_table_vpinfe_setting(game_dir: Path, table_id: str, key: str,
     LookupError when it holds no such table.
     """
     info_file = game_dir / f"{game_dir.name}.info"
-    data = json.loads(info_file.read_text(encoding="utf-8"))
+    data = read_info(info_file)
     entry = (data.get(TABLES_KEY) or {}).get(table_id)
     if entry is None:
         raise LookupError(t("error.games.table_id_unknown", table_id=table_id,
@@ -686,9 +686,9 @@ def set_details(game_dir: Path, values: dict) -> dict:
     """
     record = game_dir / f"{game_dir.name}.info"
     if not record.is_file():
-        raise FileNotFoundError(str(record))
+        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(record))
 
-    held = json.loads(record.read_text(encoding="utf-8"))
+    held = read_info(record)
     ours = held.setdefault(VPINFE_SECTION, {})
     if not isinstance(ours, dict):
         ours = held[VPINFE_SECTION] = {}

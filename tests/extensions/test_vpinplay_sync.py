@@ -298,5 +298,49 @@ class TheirRecordTests(unittest.TestCase):
         self.assertIsNone(failing)
 
 
+class AddressTests(unittest.TestCase):
+    def test_all_four_ways_to_type_it_end_at_the_same_place(self) -> None:
+        typed = ["pinball.lan", "pinball.lan:8888", "http://pinball.lan:8888/",
+                 "http://pinball.lan:8888/api/v1", "http://pinball.lan:8888/api/v1/sync"]
+
+        self.assertEqual({sync.api_root(one) for one in typed[2:]},
+                         {"http://pinball.lan:8888/api/v1"})
+        self.assertEqual([sync.endpoint_for(one) for one in typed[:2]],
+                         ["http://pinball.lan/api/v1/sync",
+                          "http://pinball.lan:8888/api/v1/sync"])
+        self.assertEqual(sync.endpoint_for(typed[4]), "http://pinball.lan:8888/api/v1/sync")
+
+    def test_a_scheme_typed_is_kept(self) -> None:
+        self.assertEqual(sync.api_root("https://api.example:8888"),
+                         "https://api.example:8888/api/v1")
+
+    def test_a_blank_or_unusable_address_says_so_in_words(self) -> None:
+        with self.assertRaises(ValueError) as blank:
+            sync.api_root("  ")
+        with self.assertRaises(ValueError) as odd:
+            sync.api_root("http://")
+
+        self.assertEqual([str(blank.exception), str(odd.exception)],
+                         ["The server address is blank",
+                          "http:// is not an address VPinPlay can reach"])
+
+    def test_an_address_that_cannot_be_parsed_is_said_as_unreachable(self) -> None:
+        said = []
+        for typed in ("[::1", "pinball.lan:abc"):
+            with self.assertRaises(ValueError) as raised:
+                sync.api_root(typed)
+            said.append(str(raised.exception))
+
+        self.assertEqual(said, ["[::1 is not an address VPinPlay can reach",
+                                "pinball.lan:abc is not an address VPinPlay can reach"])
+
+    def test_a_query_or_capital_letters_do_not_double_the_path(self) -> None:
+        self.assertEqual([sync.api_root("http://pinball.lan/api/v1?x=1"),
+                          sync.api_root("http://pinball.lan/api/v1/sync?x=1#top"),
+                          sync.api_root("HTTP://PINBALL.LAN/API/V1")],
+                         ["http://pinball.lan/api/v1", "http://pinball.lan/api/v1",
+                          "http://PINBALL.LAN/api/v1"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import errno
 import socket
+import sqlite3
 import unittest
 from email.message import Message
 from urllib.error import HTTPError, URLError
@@ -75,9 +76,9 @@ class WhyTests(TempTree):
                          "catalog.example did not answer in time")
 
     def test_what_a_host_answered(self) -> None:
-        self.assertEqual([why(_answered(status)) for status in (404, 403, 503)],
+        self.assertEqual([why(_answered(status)) for status in (404, 403, 503, 400)],
                          ["catalog.example does not have it", "catalog.example refused it",
-                          "catalog.example is having trouble"])
+                          "catalog.example is having trouble", "catalog.example refused it"])
 
     def test_a_link_that_leads_back_to_itself(self) -> None:
         loop = self.root / "Loop.vpx"
@@ -110,9 +111,10 @@ class WhyTests(TempTree):
     def test_what_a_host_answered_over_urllib(self) -> None:
         url = "https://catalog.example/data.json"
         self.assertEqual([why(HTTPError(url, status, "Refused", Message(), None))
-                          for status in (404, 403, 503, 418)],
+                          for status in (404, 403, 503, 400, 418)],
                          ["catalog.example does not have it", "catalog.example refused it",
-                          "catalog.example is having trouble", "HTTP Error 418: Refused"])
+                          "catalog.example is having trouble", "catalog.example refused it",
+                          "HTTP Error 418: Refused"])
 
     def test_urllib_is_worded_by_where_the_caller_was_reaching(self) -> None:
         with socket.socket() as free:
@@ -154,6 +156,24 @@ class WhyTests(TempTree):
         said = why(HostQuietError("api.example", 0.0))
 
         self.assertTrue(said.startswith("api.example asked VPinFE to wait until "), said)
+
+    def test_a_database_that_would_not_open_is_said_by_its_code(self) -> None:
+        elsewhere = self.root / "no" / "such.db"
+        notes = self.root / "notes.db"
+        notes.write_bytes(b"not a database at all, just some text" * 4)
+        said: list[str] = []
+        for attempt in (lambda: sqlite3.connect(elsewhere),
+                        lambda: sqlite3.connect(notes).execute("select 1 from Games")):
+            with self.assertRaises(sqlite3.Error) as raised:
+                attempt()
+            said.append(why(raised.exception))
+
+        self.assertEqual(said, ["The database could not be opened", "That file is not a database"])
+
+    def test_a_database_error_with_no_code_is_still_a_sentence(self) -> None:
+        self.assertEqual([why(sqlite3.Error("odd")),
+                          why(sqlite3.OperationalError("database is locked"))],
+                         ["The database could not be used", "The database could not be used"])
 
     def test_which_side_failed(self) -> None:
         with self.assertRaises(URLError) as raised:

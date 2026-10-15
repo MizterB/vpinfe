@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 from common.extensions.contract import Unavailable, why, words
 
 from .accounts import SEND_NOW, USER_ID, page_for
+from .sync import api_root
 
 # An act that is an address: the Console draws it as a link and never calls back for it.
 YOUR_PAGE = "your_page"
@@ -82,7 +83,7 @@ def _row(item: dict[str, Any]) -> dict[str, Any]:
 def _page(endpoint: str, offset: int) -> dict[str, Any]:
     query = urllib.parse.urlencode({"limit": PAGE, "offset": offset, "sort_by": "name",
                                     "sort_order": 1})
-    url = f"{endpoint.rstrip('/')}/api/v1/tables-plus/search?{query}"
+    url = f"{api_root(endpoint)}/tables-plus/search?{query}"
     with urllib.request.urlopen(url, timeout=TIMEOUT_SECONDS) as answer:
         return json.loads(answer.read().decode("utf-8"))
 
@@ -124,13 +125,16 @@ def rows_from(endpoint_of: Callable[[], str],
     """The list's `rows()`. `on_read(rows)` is told of every list read whole, and of no
     failed one."""
     def rows() -> list:
-        endpoint = endpoint_of()
         try:
-            found = tables(endpoint)
-        except OSError as exc:
-            raise Unavailable(why(exc, at=endpoint)) from exc
+            root = api_root(endpoint_of())
         except ValueError as exc:
-            raise Unavailable(t("error.unreadable", host=_host(endpoint))) from exc
+            raise Unavailable(why(exc)) from exc
+        try:
+            found = tables(root)
+        except OSError as exc:
+            raise Unavailable(why(exc, at=root)) from exc
+        except ValueError as exc:
+            raise Unavailable(t("error.unreadable", host=_host(root))) from exc
         if on_read is not None:
             on_read(found)
         return found
