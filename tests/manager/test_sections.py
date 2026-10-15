@@ -4,8 +4,9 @@ from unittest import mock
 from urllib.parse import parse_qs
 
 from common.i18n import t
-from manager import workbench
 from manager.kit import deeplink
+from manager.workbench import core, rail
+from tests.support.workbench_patch import patch_workbench
 
 
 def _address(state: dict) -> dict[str, str]:
@@ -18,26 +19,26 @@ class ChosenSectionTests(unittest.TestCase):
     def test_a_fresh_client_lands_on_the_default(self) -> None:
         state: dict = {}
 
-        self.assertEqual(workbench.chosen_section(state), workbench.DEFAULT_SECTION["game"])
+        self.assertEqual(rail.chosen_section(state), core.DEFAULT_SECTION["game"])
 
     def test_a_section_the_subject_cannot_answer_falls_back(self) -> None:
         """Table details under a game is not a section to land on quietly."""
         state = {"section": "table_details"}
 
-        self.assertEqual(workbench.chosen_section(state, "game"),
-                         workbench.DEFAULT_SECTION["game"])
+        self.assertEqual(rail.chosen_section(state, "game"),
+                         core.DEFAULT_SECTION["game"])
 
     def test_closed_stays_closed(self) -> None:
         state = {"section": deeplink.COLLAPSED}
 
-        self.assertEqual(workbench.chosen_section(state, "game"), deeplink.COLLAPSED)
+        self.assertEqual(rail.chosen_section(state, "game"), deeplink.COLLAPSED)
 
     def test_closed_survives_a_change_of_subject(self) -> None:
         """Otherwise the fallback reopens a section the user just shut."""
         state = {"section": deeplink.COLLAPSED}
-        workbench.chosen_section(state, "game")
+        rail.chosen_section(state, "game")
 
-        self.assertEqual(workbench.chosen_section(state, "table"), deeplink.COLLAPSED)
+        self.assertEqual(rail.chosen_section(state, "table"), deeplink.COLLAPSED)
 
 
 class PickTests(unittest.TestCase):
@@ -45,8 +46,8 @@ class PickTests(unittest.TestCase):
 
     def _click(self, open_now: str, key: str) -> mock.Mock:
         context = {"state": {"section": open_now}}
-        with mock.patch.object(workbench, "_choose") as choose:
-            workbench._pick(context, key)
+        with patch_workbench("_choose") as choose:
+            core._pick(context, key)
         return choose
 
     def test_the_open_row_stays_open(self) -> None:
@@ -66,7 +67,7 @@ class AddressTests(unittest.TestCase):
     def _seed(self, params: dict[str, str]) -> dict:
         state: dict = {}
         deeplink.apply(state, params, views=["games"],
-                       sections=[item.key for item in workbench.SECTIONS])
+                       sections=[item.key for item in rail.SECTIONS])
         return state
 
     def test_a_closed_panel_is_named_rather_than_left_out(self) -> None:
@@ -80,19 +81,19 @@ class AddressTests(unittest.TestCase):
         state = self._seed({"view": "games", "game": "abc",
                             "section": deeplink.NO_SECTION})
 
-        self.assertEqual(workbench.chosen_section(state, "game"), deeplink.COLLAPSED)
+        self.assertEqual(rail.chosen_section(state, "game"), deeplink.COLLAPSED)
 
     def test_an_open_section_survives_the_round_trip(self) -> None:
         state = self._seed({"view": "games", "game": "abc", "section": "assets"})
 
-        self.assertEqual(workbench.chosen_section(state, "game"), "assets")
+        self.assertEqual(rail.chosen_section(state, "game"), "assets")
 
     def test_a_section_nobody_has_falls_back_rather_than_erroring(self) -> None:
         """Addresses get hand-typed and go stale; neither is an error."""
         state = self._seed({"view": "games", "game": "abc", "section": "nonsense"})
 
-        self.assertEqual(workbench.chosen_section(state, "game"),
-                         workbench.DEFAULT_SECTION["game"])
+        self.assertEqual(rail.chosen_section(state, "game"),
+                         core.DEFAULT_SECTION["game"])
 
     def test_the_page_reads_every_name_an_address_writes(self) -> None:
         """A name the page takes no parameter for is dropped before `apply` sees it."""
@@ -186,17 +187,17 @@ class SectionTests(unittest.TestCase):
         for subject in ("game", "table"):
             with self.subTest(subject=subject):
                 self.assertIn("collections",
-                              {item.key for item in workbench.sections_for(subject)})
+                              {item.key for item in rail.sections_for(subject)})
 
     def test_a_table_section_is_absent_under_a_game(self) -> None:
-        keys = [item.key for item in workbench.sections_for("game")]
+        keys = [item.key for item in rail.sections_for("game")]
 
         self.assertNotIn("table_details", keys)
         self.assertIn("game_details", keys)
 
     def test_a_table_shows_the_game_first(self) -> None:
         """Parent before the thing it contains, which is the reading order."""
-        keys = [item.key for item in workbench.sections_for("table")]
+        keys = [item.key for item in rail.sections_for("table")]
 
         self.assertLess(keys.index("game_details"), keys.index("table_details"))
 
@@ -204,7 +205,7 @@ class SectionTests(unittest.TestCase):
         """The room is half the panel; a section with nothing to put in it left a void.
         Media and Assets put the picked file beside the map; a file's panel puts its
         picture there when it has one."""
-        docked = {item.key for item in workbench.SECTIONS if item.dock}
+        docked = {item.key for item in rail.SECTIONS if item.dock}
 
         self.assertEqual(docked, {"media", "assets", "media_file", "asset_file"})
 
@@ -221,7 +222,7 @@ class SectionTests(unittest.TestCase):
         the next rail: Assets, the Tag Editor and the VPS section each want a short
         noun somebody has already used.
         """
-        keys = [item.key for item in workbench.SECTIONS]
+        keys = [item.key for item in rail.SECTIONS]
 
         self.assertEqual(sorted(keys), sorted(set(keys)))
 
@@ -230,15 +231,15 @@ class RailDefaultTests(unittest.TestCase):
     """Each rail lands where it declares, not on whatever is first."""
 
     def test_a_game_lands_on_the_game(self) -> None:
-        self.assertEqual(workbench.chosen_section({}, "game"), "game_details")
+        self.assertEqual(rail.chosen_section({}, "game"), "game_details")
 
     def test_a_table_lands_on_the_table(self) -> None:
         """Selecting a file on purpose should not open on the machine holding it."""
-        self.assertEqual(workbench.chosen_section({}, "table"), "table_details")
+        self.assertEqual(rail.chosen_section({}, "table"), "table_details")
 
     def test_every_rail_declares_a_section_it_actually_has(self) -> None:
-        for subject, wanted in workbench.DEFAULT_SECTION.items():
-            keys = {item.key for item in workbench.sections_for(subject)}
+        for subject, wanted in core.DEFAULT_SECTION.items():
+            keys = {item.key for item in rail.sections_for(subject)}
             self.assertIn(wanted, keys, f"{subject} lands nowhere")
 
 
@@ -251,11 +252,11 @@ class TablesBlockTests(unittest.TestCase):
         instead: a sub-table, a related collection with its own columns."""
         for subject in ("game", "table"):
             with self.subTest(subject=subject):
-                keys = {item.key for item in workbench.sections_for(subject)}
+                keys = {item.key for item in rail.sections_for(subject)}
                 self.assertNotIn("tables", keys)
 
     def test_a_game_still_lands_on_details_where_they_now_live(self) -> None:
-        self.assertEqual(workbench.chosen_section({}, "game"), "game_details")
+        self.assertEqual(rail.chosen_section({}, "game"), "game_details")
 
 
 class MatchTests(unittest.TestCase):
@@ -266,13 +267,13 @@ class MatchTests(unittest.TestCase):
         answerable whichever of the two is selected."""
         for subject in ("game", "table"):
             with self.subTest(subject=subject):
-                keys = {item.key for item in workbench.sections_for(subject)}
+                keys = {item.key for item in rail.sections_for(subject)}
                 self.assertIn("game_details", keys)
                 self.assertNotIn("vps", keys)
 
     def test_the_rail_says_game_whether_or_not_it_is_matched(self) -> None:
         """The Match row says Not matched; the rail names the section, not its state."""
-        section = next(one for one in workbench.SECTIONS if one.key == "game_details")
+        section = next(one for one in rail.SECTIONS if one.key == "game_details")
         for game in ({}, {"vps_id": "abc"}, {"overrides": {"alt_vps_id": None}}):
             with self.subTest(game=game):
                 self.assertEqual(section.label({"game": game}),

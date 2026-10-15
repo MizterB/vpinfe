@@ -10,7 +10,9 @@ from unittest import mock
 
 from common.capture import placing
 from common.capture.run import FILL, REPLACE_ALL
-from manager import record, workbench
+from manager import record
+from manager.kit import panel
+from manager.workbench import game_media
 
 NOT_SHOWN = {"key": placing.NOT_SHOWN, "fix": "none", "remedy": None,
              "params": {"app": "Visual Pinball X", "window": "scoreview"}}
@@ -335,8 +337,8 @@ class EntryTests(unittest.TestCase):
         library = SimpleNamespace(discovery=lambda: {"capabilities": capabilities})
         context = {"library": library, "lens": lens, "game_id": "g1",
                    "game": {"name": "Attack from Mars"}, "tables": [], "state": {}}
-        with mock.patch.object(workbench.panel, "action") as action:
-            drawn = workbench._record_media(context, lambda: None)
+        with mock.patch.object(panel, "action") as action:
+            drawn = game_media._record_media(context, lambda: None)
         return drawn, action
 
     def test_dimmed_with_the_devices_reason(self) -> None:

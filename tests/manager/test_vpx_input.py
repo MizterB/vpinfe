@@ -16,7 +16,8 @@ from apps.vpx import areas, bindings
 from apps.vpx.config import VPXConfig
 from common.apps.contract import SCOPE_LAUNCHER
 from common.i18n import t
-from manager import vpx_input, workbench
+from manager import vpx_input
+from manager.workbench import all_settings
 from tests.support.clicks import press
 
 INI = ("[Input]\nMapping.LeftFlipper = Key;225 | SDLJoy_0300_1;4\nMapping.RightFlipper = \n"
@@ -72,7 +73,7 @@ class ThePage(unittest.IsolatedAsyncioTestCase):
         sound = Mock(key="sound", summarized=False, read_only=False,
                      settings=[Mock(key="Player.PlaySound")])
 
-        listed = workbench._listed_groups({"config_groups": [self.group, sound]})
+        listed = all_settings._listed_groups({"config_groups": [self.group, sound]})
 
         self.assertEqual(listed, [sound])
 

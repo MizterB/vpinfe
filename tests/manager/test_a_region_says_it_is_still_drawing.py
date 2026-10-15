@@ -10,8 +10,10 @@ from unittest.mock import Mock, patch
 
 from nicegui import ui
 
-from manager import settings, workbench
+from manager import settings
 from manager.kit import busy
+from manager.workbench import core, rail
+from tests.support.workbench_patch import patch_workbench
 
 # Made at import, outside any task, where NiceGUI still hands out the script's own page.
 _PAGE = ui.element()
@@ -137,12 +139,12 @@ class TheSidePane(unittest.IsolatedAsyncioTestCase):
     """The open section's build, in the region beside the rail."""
 
     async def _open(self, build: Callable[[dict[str, Any]], Any]) -> None:
-        probe = workbench.Section("probe", lambda _context: "Probe", build,
+        probe = core.Section("probe", lambda _context: "Probe", build,
                                   subjects=frozenset({"probe"}))
-        self.enterContext(patch.object(workbench, "SECTIONS", (probe,)))
-        self.enterContext(patch.object(workbench, "sections_for", return_value=(probe,)))
+        self.enterContext(patch_workbench("SECTIONS", (probe,)))
+        self.enterContext(patch_workbench("sections_for", return_value=(probe,)))
         with _PAGE:
-            await workbench._rail({"redraws": []}, "probe", {"section": "probe"})
+            await rail._rail({"redraws": []}, "probe", {"section": "probe"})
 
     async def test_busy_while_the_section_builds_and_idle_after(self) -> None:
         seen: list[ui.element] = []

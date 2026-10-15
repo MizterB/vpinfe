@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from manager.workbench import _guides_label, guide_words
+from manager.workbench.game_guides import _guides_label, guide_words
 
 
 def _context(guides: list[dict], rule_sheet: bool = False) -> dict:

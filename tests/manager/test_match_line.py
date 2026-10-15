@@ -11,7 +11,8 @@ from typing import Any
 from unittest.mock import Mock, patch
 
 from common.online import vps_kinds
-from manager import file_acts, workbench
+from manager import file_acts
+from manager.workbench import game_match
 
 RECORD = "wheel_KtY1"
 
@@ -46,25 +47,25 @@ class MatchLineTests(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(patcher.stop)
 
     async def test_a_bound_file_is_named_by_what_a_person_can_compare(self) -> None:
-        line = await workbench._match_line(_context(), "wheel", RECORD)
+        line = await game_match._match_line(_context(), "wheel", RECORD)
 
         self.assertEqual(line, "Matched to 3.0 · wildman, hauntfreaks")
 
     async def test_the_records_are_read_on_a_worker(self) -> None:
         context = _context()
-        await workbench._match_line(context, "wheel", RECORD)
+        await game_match._match_line(context, "wheel", RECORD)
 
         self.assertIn(context["library"].vps_releases, self.offloaded)
 
     async def test_nothing_is_said_when_nobody_has_said_anything(self) -> None:
         """Absent is the ordinary state - almost every file is unbound, so a line here
         would be on nearly every slot and tell nobody anything."""
-        self.assertEqual(await workbench._match_line(_context(), "wheel", None), "")
+        self.assertEqual(await game_match._match_line(_context(), "wheel", None), "")
 
     async def test_a_record_the_spreadsheet_dropped_still_says_so(self) -> None:
         """Silence here would read as unbound, and the difference matters: no update
         can ever be reported for a file bound to something no longer listed."""
-        line = await workbench._match_line(_context(releases=[]), "wheel", RECORD)
+        line = await game_match._match_line(_context(releases=[]), "wheel", RECORD)
 
         self.assertEqual(line, "Matched to a file the spreadsheet no longer lists")
 
@@ -73,25 +74,25 @@ class MatchLineTests(unittest.IsolatedAsyncioTestCase):
         context["library"].vps_releases.side_effect = TimeoutError("read timed out")
 
         with self.assertLogs("vpinfe.manager.workbench", level="WARNING"):
-            line = await workbench._match_line(context, "wheel", RECORD)
+            line = await game_match._match_line(context, "wheel", RECORD)
 
         self.assertEqual(line, UNNAMED)
 
     async def test_no_catalog_is_not_a_dropped_record(self) -> None:
-        line = await workbench._match_line(_context(releases=[], held=False),
+        line = await game_match._match_line(_context(releases=[], held=False),
                                            "wheel", RECORD)
 
         self.assertEqual(line, UNNAMED)
 
     async def test_a_game_with_no_vps_entry_asks_nothing(self) -> None:
         context = _context(vps_id="")
-        line = await workbench._match_line(context, "wheel", RECORD)
+        line = await game_match._match_line(context, "wheel", RECORD)
 
         self.assertEqual(line, UNNAMED)
         context["library"].vps_releases.assert_not_called()
 
     async def test_a_kind_vps_does_not_publish_says_nothing(self) -> None:
-        line = await workbench._match_line(_context(), "playfield", RECORD)
+        line = await game_match._match_line(_context(), "playfield", RECORD)
 
         self.assertEqual(line, "")
 
@@ -111,7 +112,7 @@ class MatchLineTests(unittest.IsolatedAsyncioTestCase):
         """One entry answers a different list per kind, and the local kind is not the
         name to ask by - `topper` and `topper_video` are one list upstream."""
         context = _context()
-        await workbench._match_line(context, "topper", RECORD)
+        await game_match._match_line(context, "topper", RECORD)
 
         context["library"].vps_releases.assert_called_once_with(
             "mm_1997x", "topperFiles")

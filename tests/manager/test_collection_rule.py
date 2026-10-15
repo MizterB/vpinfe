@@ -240,7 +240,7 @@ class WhatTheRuleDoesNotSay(unittest.TestCase):
 
 class UnsavedRules(unittest.TestCase):
     def test_only_a_draft_asking_something_else_is_unsaved(self) -> None:
-        from manager.workbench import unsaved
+        from manager.workbench.collection import unsaved
 
         stored: list[dict[str, Any]] = [{"name": "Same", "filters": {"manufacturer": ["Bally"]}},
                                         {"name": "Grown", "filters": None},
@@ -282,7 +282,7 @@ class Templates(unittest.TestCase):
 
 class DraftedOrder(unittest.TestCase):
     def test_a_template_s_order_reads_over_the_stored_one(self) -> None:
-        from manager.workbench import _ordered
+        from manager.workbench.collection import _ordered
 
         stored = {"order_by": "title", "direction": "asc", "limit": 5}
 
@@ -302,7 +302,7 @@ class RankedOrder(unittest.TestCase):
                 "state": {"ranked_orders": self.OFFERED}}
 
     def test_the_menu_offers_each_ranked_view_after_the_fields(self) -> None:
-        from manager.workbench import _orders
+        from manager.workbench.collection import _orders
 
         stored = {"type": "filter", "order_by": "title"}
         offered = _orders(self.context(stored), stored, "title")
@@ -311,7 +311,7 @@ class RankedOrder(unittest.TestCase):
         self.assertEqual("site/tables/top", list(offered)[-1])
 
     def test_a_ranked_order_whose_extension_stopped_stays_in_the_menu(self) -> None:
-        from manager.workbench import _orders
+        from manager.workbench.collection import _orders
 
         gone = "other/tables/top"
         stored = {"type": "filter", "order_by": gone,
@@ -322,7 +322,7 @@ class RankedOrder(unittest.TestCase):
                          _orders(self.context(stored), stored, gone)[gone])
 
     def test_the_age_belongs_to_the_stored_order_only(self) -> None:
-        from manager.workbench import _ranking
+        from manager.workbench.collection import _ranking
 
         stored = {"order_by": "site/tables/top", "ranking": {"offered": True}}
 

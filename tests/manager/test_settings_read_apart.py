@@ -20,8 +20,8 @@ from unittest.mock import patch
 from apps.vpx import ini as vini
 from apps.vpx.setting_types import REGISTERED
 from common.games import launcher_ops, launchers
-from manager import app_settings, workbench
 from manager.kit import data
+from manager.workbench import all_settings, app_settings
 
 LABELS = Path(__file__).resolve().parents[1] / "fixtures" / "vpx_labels.json"
 
@@ -85,7 +85,7 @@ class SettingsReadApartTests(unittest.TestCase):
         self._read_apart(offered)
 
     def test_every_table_s_own_settings(self) -> None:
-        names = workbench.setting_names(self.every)
+        names = all_settings.setting_names(self.every)
 
         self.assertIn("Backglass.BackglassFSWidth", names)
         self._read_apart(names)

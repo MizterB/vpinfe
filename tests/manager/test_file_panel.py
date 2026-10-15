@@ -6,8 +6,9 @@ import unittest
 from typing import Any
 
 from common.i18n import t
-from manager import file_acts, workbench
+from manager import file_acts
 from manager.kit import art, grid, media_ownership
+from manager.workbench import core, file, game_media, rail
 
 
 def _row(kind: str = "backglass", table: str = "", present: bool = True, **more: Any) -> dict:
@@ -19,30 +20,30 @@ class FindingTheRowAgain(unittest.TestCase):
     def test_by_id_first(self) -> None:
         wanted = _row(table="t1")
 
-        self.assertIs(wanted, workbench._same_file([_row(), wanted], wanted))
+        self.assertIs(wanted, file._same_file([_row(), wanted], wanted))
 
     def test_an_address_finds_it_by_table_and_kind(self) -> None:
         held = _row(table="t1")
 
-        self.assertIs(held, workbench._same_file([_row(), held],
+        self.assertIs(held, file._same_file([_row(), held],
                                                  {"kind": "backglass", "table": "t1"}))
 
     def test_a_removed_table_file_leaves_its_shared_row(self) -> None:
         shared = _row(present=False)
 
-        self.assertIs(shared, workbench._same_file([shared], _row(table="t1")))
+        self.assertIs(shared, file._same_file([shared], _row(table="t1")))
 
     def test_a_missing_row_filled_on_a_table_is_found_there(self) -> None:
         missing = _row(present=False)
         added = {**_row(table="t1"), "id": "g:backglass:AFM.directb2s"}
 
-        self.assertIs(added, workbench._same_file([_row(kind="wheel"), added], missing))
+        self.assertIs(added, file._same_file([_row(kind="wheel"), added], missing))
 
     def test_a_table_row_is_not_answered_by_another_table(self) -> None:
-        self.assertIsNone(workbench._same_file([_row(table="t2")], _row(table="t1")))
+        self.assertIsNone(file._same_file([_row(table="t2")], _row(table="t1")))
 
     def test_a_kind_the_game_no_longer_has_is_not_found(self) -> None:
-        self.assertIsNone(workbench._same_file([_row(kind="wheel")], _row()))
+        self.assertIsNone(file._same_file([_row(kind="wheel")], _row()))
 
 
 class WhoUsesIt(unittest.TestCase):
@@ -58,7 +59,7 @@ class WhoUsesIt(unittest.TestCase):
             with self.subTest(tier=tier, serves=serves):
                 self.assertEqual(
                     file_acts.tier_of({"via": via, "serves": serves}),
-                    media_ownership.key_of(workbench._used_as(
+                    media_ownership.key_of(game_media._used_as(
                         {"tier": tier, "file": "bg.png", "wins": False, "serves": serves})))
 
     def test_an_asset_named_for_the_folder_that_nothing_loads_is_unused(self) -> None:
@@ -78,7 +79,7 @@ class WhoUsesIt(unittest.TestCase):
 class TheLineUnderIt(unittest.TestCase):
     def _said(self, kind: str, serves: int, tables: int, lens: str = "") -> str:
         row = {"binding": "game", "present": True, "serves": serves, "kind": kind}
-        return workbench._asset_said(
+        return file._asset_said(
             {"kind": kind, "lens": lens,
              "tables": [{"id": f"t{number}"} for number in range(tables)],
              "served": [{"id": f"t{number}"} for number in range(serves)]},
@@ -102,12 +103,12 @@ class TheLineUnderIt(unittest.TestCase):
         self.assertEqual(t("manager.workbench.inert_asset"), self._said("pov", 0, 2))
 
     def test_a_folder_counts_its_files(self) -> None:
-        said = workbench._asset_spec({"folder": True, "files": 12, "size_bytes": 2048})
+        said = file._asset_spec({"folder": True, "files": 12, "size_bytes": 2048})
 
         self.assertTrue(said.startswith("12 files"), said)
 
     def test_a_file_says_its_format(self) -> None:
-        self.assertTrue(workbench._asset_spec({"format": "VBS", "size_bytes": 41})
+        self.assertTrue(file._asset_spec({"format": "VBS", "size_bytes": 41})
                         .startswith("VBS"))
 
 
@@ -117,16 +118,16 @@ class ItsOwnRail(unittest.TestCase):
                               ("asset_file", ["asset_file"])):
             with self.subTest(subject=subject):
                 self.assertEqual(keys, [item.key
-                                        for item in workbench.sections_for(subject)])
+                                        for item in rail.sections_for(subject)])
 
 
-def _section(key: str) -> workbench.Section:
-    return next(item for item in workbench.SECTIONS if item.key == key)
+def _section(key: str) -> core.Section:
+    return next(item for item in rail.SECTIONS if item.key == key)
 
 
 class TheStage(unittest.TestCase):
     def _docked(self, key: str, context: dict) -> bool:
-        return workbench._docked(_section(key), context)
+        return core._docked(_section(key), context)
 
     def test_a_media_file_that_is_there_has_a_stage(self) -> None:
         self.assertTrue(self._docked("media_file", {"row": {"present": True}}))
@@ -159,7 +160,7 @@ class TheStage(unittest.TestCase):
                 self.assertFalse(self._docked("asset_file", context))
 
     def test_a_dock_that_is_a_flag_is_one_still(self) -> None:
-        self.assertTrue(workbench._docked(workbench.Section("x", lambda _: "", None, dock=True),  # type: ignore[arg-type]
+        self.assertTrue(core._docked(core.Section("x", lambda _: "", None, dock=True),  # type: ignore[arg-type]
                                           {}))
 
 
@@ -167,18 +168,18 @@ class TheDocksHeight(unittest.TestCase):
     def test_each_section_keeps_its_own(self) -> None:
         state: dict = {}
 
-        workbench.dock_dragged(state, {"section": "media_file", "px": 410})
+        core.dock_dragged(state, {"section": "media_file", "px": 410})
 
-        self.assertEqual((410, workbench.DOCK_PX),
-                         (workbench.dock_height(state, "media_file"),
-                          workbench.dock_height(state, "asset_file")))
+        self.assertEqual((410, core.DOCK_PX),
+                         (core.dock_height(state, "media_file"),
+                          core.dock_height(state, "asset_file")))
 
     def test_a_report_with_no_section_or_height_is_ignored(self) -> None:
         state: dict = {}
 
         for args in (None, 300, {"px": 300}, {"section": "media_file"},
                      {"section": "a", "px": 0}, {"section": "a", "px": "tall"}):
-            workbench.dock_dragged(state, args)
+            core.dock_dragged(state, args)
 
         self.assertEqual({}, state.get("dock_px", {}))
 
@@ -196,7 +197,7 @@ def _rom(name: str) -> dict:
 
 class WhatABackglassFileSays(unittest.TestCase):
     def _facts(self, glass: dict, *served: dict) -> dict:
-        return dict(workbench._backglass_facts({"served": list(served)}, glass))
+        return dict(file._backglass_facts({"served": list(served)}, glass))
 
     def test_an_author_who_made_the_art_too_is_said_once(self) -> None:
         said = self._facts(_glass())
@@ -235,7 +236,7 @@ class WhatABackglassFileSays(unittest.TestCase):
     def test_the_roms_are_those_of_the_tables_that_read_it(self) -> None:
         context = {"served": [_rom("b"), _rom("a"), _rom("b"), {}]}
 
-        self.assertEqual(["a", "b"], workbench._backglass_roms(context))
+        self.assertEqual(["a", "b"], file._backglass_roms(context))
 
     def test_the_picture_address_carries_the_files_version(self) -> None:
         src = art.backglass("g1", "my glass.directb2s", version="abc", size=art.PANEL)

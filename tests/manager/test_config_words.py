@@ -12,7 +12,8 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from manager import workbench
+from manager.kit import panel
+from manager.workbench import all_settings
 
 
 class _Bool:
@@ -31,32 +32,32 @@ class _Choice:
 
 class ValueWordTests(unittest.TestCase):
     def test_a_switch_reads_on_and_off_rather_than_one_and_zero(self) -> None:
-        self.assertEqual(workbench._said_value(_Bool, "1"), "On")
-        self.assertEqual(workbench._said_value(_Bool, "0"), "Off")
+        self.assertEqual(all_settings._said_value(_Bool, "1"), "On")
+        self.assertEqual(all_settings._said_value(_Bool, "0"), "Off")
 
     def test_a_choice_reads_its_own_label(self) -> None:
-        self.assertEqual(workbench._said_value(_Choice, "1"), "Floating")
+        self.assertEqual(all_settings._said_value(_Choice, "1"), "Floating")
 
     def test_a_value_with_no_label_is_shown_as_it_is(self) -> None:
-        self.assertEqual(workbench._said_value(_Choice, "7"), "7")
+        self.assertEqual(all_settings._said_value(_Choice, "7"), "7")
 
 
 class ClearHintTests(unittest.TestCase):
     def test_clearing_names_the_value_it_goes_back_to_and_whose(self) -> None:
         """So nobody has to change a value to find out what it was following."""
-        said = workbench._clear_hint(
+        said = all_settings._clear_hint(
             {"fallback_scope": "launcher", "fallback": "0"}, _Bool, "Visual Pinball X")
 
         self.assertEqual(said, "Back to Off - All Tables")
 
     def test_whose_is_said_in_the_scope_words(self) -> None:
-        said = workbench._clear_hint(
+        said = all_settings._clear_hint(
             {"fallback_scope": "folder", "fallback": "1"}, _Choice, "Visual Pinball X")
 
         self.assertEqual(said, "Back to Floating - This Game")
 
     def test_with_nothing_under_it_the_program_answers(self) -> None:
-        self.assertEqual(workbench._clear_hint({}, _Bool, "Visual Pinball X"),
+        self.assertEqual(all_settings._clear_hint({}, _Bool, "Visual Pinball X"),
                          "Back to On - Visual Pinball X's default")
 
     def test_a_default_with_no_value_names_only_whose(self) -> None:
@@ -65,7 +66,7 @@ class ClearHintTests(unittest.TestCase):
             choices = ()
             default = ""
 
-        self.assertEqual(workbench._clear_hint({}, _Text, "Visual Pinball X"),
+        self.assertEqual(all_settings._clear_hint({}, _Text, "Visual Pinball X"),
                          "Back to Visual Pinball X's default")
 
     def test_a_blank_that_has_a_word_goes_back_to_that_word(self) -> None:
@@ -76,7 +77,7 @@ class ClearHintTests(unittest.TestCase):
         for held, whose in (({}, "Visual Pinball X's default"),
                             ({"fallback_scope": "folder", "fallback": ""}, "This Game")):
             with self.subTest(whose=whose):
-                self.assertEqual(workbench._clear_hint(held, _ViewMode, "Visual Pinball X"),
+                self.assertEqual(all_settings._clear_hint(held, _ViewMode, "Visual Pinball X"),
                                  f"Back to The table's own - {whose}")
 
 
@@ -85,7 +86,7 @@ class SwitchedOffTests(unittest.TestCase):
     TWO = {"launcher_id": "b", "app": "vpx", "enabled": True, "display_name": "Narrow"}
 
     def test_it_names_where_the_tables_go(self) -> None:
-        self.assertEqual(workbench._switched_off_goes_to(self.ONE, [self.ONE, self.TWO]),
+        self.assertEqual(all_settings._switched_off_goes_to(self.ONE, [self.ONE, self.TWO]),
                          "Narrow")
 
     def test_nothing_is_said_where_nothing_could_take_them(self) -> None:
@@ -93,7 +94,7 @@ class SwitchedOffTests(unittest.TestCase):
         switched_off = dict(self.TWO, enabled=False)
         for held in ([self.ONE], [self.ONE, other_app], [self.ONE, switched_off]):
             with self.subTest(held=held):
-                self.assertEqual(workbench._switched_off_goes_to(self.ONE, held), "")
+                self.assertEqual(all_settings._switched_off_goes_to(self.ONE, held), "")
 
 
 class MarkTests(unittest.TestCase):
@@ -103,21 +104,21 @@ class MarkTests(unittest.TestCase):
     def test_a_value_nobody_has_touched_is_not_marked(self) -> None:
         """Unmarked is the untouched one, so a mark always means somebody did
         something. On 98% of rows a mark would say nothing."""
-        self.assertIsNone(workbench._config_mark(
+        self.assertIsNone(all_settings._config_mark(
             {"set_here": False, "in_effect": True, "scope": ""}, "launcher", _Bool))
 
     def test_a_value_set_at_this_scope_takes_no_word(self) -> None:
-        self.assertIsNone(workbench._config_mark(
+        self.assertIsNone(all_settings._config_mark(
             {"set_here": True, "in_effect": True, "scope": "launcher"}, "launcher",
             _Bool))
 
     def test_at_a_table_following_all_tables_is_silent(self) -> None:
-        self.assertIsNone(workbench._config_mark(
+        self.assertIsNone(all_settings._config_mark(
             {"set_here": False, "in_effect": True, "scope": "launcher"}, "entry", _Bool))
 
     def test_a_value_from_this_game_names_it_at_a_table(self) -> None:
-        with patch.object(workbench.panel, "state") as chip:
-            workbench._config_mark(
+        with patch.object(panel, "state") as chip:
+            all_settings._config_mark(
                 {"set_here": False, "in_effect": True, "scope": "folder"}, "entry", _Bool)
 
         self.assertEqual(chip.call_args.args[0], "This Game")
@@ -127,7 +128,7 @@ class WhoseValueTests(unittest.TestCase):
     """What hovering a value says."""
 
     def whose(self, **held: object) -> str:
-        return workbench._whose_value(held, _Bool, "Visual Pinball X")
+        return all_settings._whose_value(held, _Bool, "Visual Pinball X")
 
     def test_nobody_set_it(self) -> None:
         self.assertEqual(self.whose(), "Visual Pinball X's default")
@@ -156,14 +157,14 @@ class WhoseValueTests(unittest.TestCase):
     def test_left_empty_says_what_its_blank_word_means(self) -> None:
         field = SimpleNamespace(type="int", choices=(), default="", key="Player.PlayfieldWidth",
                                 blank="Auto", left_empty="From the screen")
-        whose = workbench._whose_value
+        whose = all_settings._whose_value
 
         self.assertEqual(whose({"value": ""}, field, "Visual Pinball X"), "From the screen")
         self.assertEqual(whose({"scope": "launcher", "value": "1920"}, field,
                                "Visual Pinball X"), "All Tables")
 
     def test_no_word_on_screen_is_the_wire_s(self) -> None:
-        said = " ".join(workbench.CAME_FROM.values()).lower()
+        said = " ".join(all_settings.CAME_FROM.values()).lower()
 
         self.assertNotIn("unset", said)
         self.assertNotIn("scope", said)
@@ -173,21 +174,21 @@ class IgnoredTests(unittest.TestCase):
     """A value a table's file holds that the program reads only for all tables."""
 
     def test_it_is_marked_ignored_and_says_where_it_works(self) -> None:
-        with patch.object(workbench.panel, "state") as chip:
-            workbench._mark_for({"set_here": True, "in_effect": False, "scope": "entry"},
+        with patch.object(panel, "state") as chip:
+            all_settings._mark_for({"set_here": True, "in_effect": False, "scope": "entry"},
                                 "entry", _Bool, offered=False)
 
         self.assertEqual(chip.call_args.args[:2], ("Ignored", "warn"))
         self.assertEqual(chip.call_args.kwargs["hint"], "Works only for all tables")
 
     def test_one_the_table_does_not_hold_takes_no_mark(self) -> None:
-        self.assertIsNone(workbench._mark_for(
+        self.assertIsNone(all_settings._mark_for(
             {"set_here": False, "in_effect": True, "scope": "launcher"}, "entry", _Bool,
             offered=False))
 
     def test_one_the_program_reads_at_table_start_is_not_ignored(self) -> None:
         """Kept for all tables, and still read from the table's file when it starts."""
-        self.assertIsNone(workbench._mark_for(
+        self.assertIsNone(all_settings._mark_for(
             {"set_here": True, "in_effect": True, "scope": "entry"}, "entry", _Bool,
             offered=False))
 

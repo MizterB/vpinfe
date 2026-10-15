@@ -18,16 +18,20 @@ from typing import Any
 from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
+from nicegui import run, ui
 
 import httpapi
 from common import service_errors
 from common.games import launchers
 from common.runtime import jobs
-from manager import app_settings, workbench
-from manager.kit import data
+from manager import settings as settings_page
+from manager.kit import data, panel
 from manager.kit.api import ApiClient
+from manager.workbench import all_settings, app_settings
+from manager.workbench import file as wb_file
 from tests.support.launchers_api import delete_launcher, put_launcher
 from tests.support.library import own_launchers
+from tests.support.workbench_patch import patch_workbench
 
 
 def _client() -> TestClient:
@@ -851,19 +855,19 @@ class _BackglassPanel(_TableCase, unittest.IsolatedAsyncioTestCase):
         api = ApiClient("http://testserver")
         api._session = _Wire(self.client, "http://testserver/api/v1")  # type: ignore[assignment]
         self.library = data.Library(api)
-        self.enterContext(patch.object(workbench.run, "io_bound", new=_off_the_loop))
-        self.enterContext(patch.object(workbench.ui, "context"))
-        self.enterContext(patch.object(workbench, "_keeping_place", new=AsyncMock()))
+        self.enterContext(patch.object(run, "io_bound", new=_off_the_loop))
+        self.enterContext(patch.object(ui, "context"))
+        self.enterContext(patch_workbench("_keeping_place", new=AsyncMock()))
 
     async def _panel(self) -> tuple[Any, Any]:
-        context = await workbench._file_settings(self.library, self.BACKGLASS,
+        context = await wb_file._file_settings(self.library, self.BACKGLASS,
                                                  [self.BACKGLASS], self.TABLES, {})
         assert context is not None
         context["rebuild"] = AsyncMock()
-        with patch.object(workbench, "ui"), patch.object(workbench.panel, "facts"), \
-                patch.object(workbench.settings_page, "control_for") as control_for, \
-                patch.object(workbench, "_marked") as marked:
-            await workbench._file_settings_entries({"file_settings": context})
+        with patch_workbench("ui"), patch.object(panel, "facts"), \
+                patch.object(settings_page, "control_for") as control_for, \
+                patch_workbench("_marked") as marked:
+            await wb_file._file_settings_entries({"file_settings": context})
         return control_for, marked
 
 
@@ -939,7 +943,7 @@ class SharedBackglassPanelTests(_BackglassPanel):
         self.own = {"t1": pathlib.Path(self.beside), "t2": second.with_suffix(".ini")}
         self.enterContext(patch("common.games.launcher_ops._game_file",
                                 side_effect={"t1": self.table, "t2": str(second)}.get))
-        self.notify = self.enterContext(patch.object(workbench.ui, "notify"))
+        self.notify = self.enterContext(patch.object(ui, "notify"))
 
     async def _set_at(self, table: str, **values: str) -> None:
         await asyncio.to_thread(self.library.write_launcher_config, "l1",
@@ -970,8 +974,8 @@ class SharedBackglassPanelTests(_BackglassPanel):
         control, parts = self._row(control_for, marked, self.X)
         self.assertIs(control.kwargs["varies"], True)
         self.assertIs(self._row(control_for, marked, self.Y)[0].kwargs["varies"], False)
-        with patch.object(workbench.panel, "state") as state:
-            workbench._varies(parts, self.TABLES, "VPX", ",")
+        with patch.object(panel, "state") as state:
+            all_settings._varies(parts, self.TABLES, "VPX", ",")
         self.assertEqual(state.call_args.args[0], "Varies")
         self.assertEqual(state.call_args.kwargs["hint"].splitlines(),
                          ["afm: 120,40", "afm2: 60,40"])
@@ -984,7 +988,7 @@ class SharedBackglassPanelTests(_BackglassPanel):
 
         control, parts = self._row(control_for, marked, self.X)
         self.assertEqual((control.args[1], control.kwargs["varies"]), (120, False))
-        self.assertIsNone(workbench._varies(parts, self.TABLES, "VPX", ","))
+        self.assertIsNone(all_settings._varies(parts, self.TABLES, "VPX", ","))
 
     async def test_a_value_set_here_is_written_to_both_tables(self) -> None:
         await self._set_at("t1", X="120")

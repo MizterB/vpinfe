@@ -6,7 +6,7 @@ import unittest
 
 from common.apps.contract import Field
 from manager.settings import range_words
-from manager.workbench import _as_option
+from manager.workbench.all_settings import _as_option
 
 
 class RangeWordsTests(unittest.TestCase):

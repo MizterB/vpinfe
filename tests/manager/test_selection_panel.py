@@ -9,8 +9,12 @@ from types import SimpleNamespace
 from typing import Any, cast
 from unittest.mock import patch
 
+from nicegui import run
+
 from common.i18n import t
-from manager import app_settings, workbench
+from manager.kit import panel
+from manager.workbench import all_settings, app_settings
+from tests.support.workbench_patch import patch_workbench
 
 KEY = "Player.BallTrail"
 OTHER = "Player.FXAA"
@@ -186,9 +190,9 @@ class VariesByValueTests(unittest.TestCase):
         held = {"varies": True, "each": list(zip(tables, values, strict=True))}
         field = SimpleNamespace(key=KEY, label="Ball Trail", default="0", kind="bool",
                                 options=())
-        with patch.object(workbench, "_said_value", side_effect=lambda _f, v: v), \
-                patch.object(workbench.panel, "state") as state:
-            drawn = workbench._varies([(None, held, field)],  # type: ignore[list-item]
+        with patch_workbench("_said_value", side_effect=lambda _f, v: v), \
+                patch.object(panel, "state") as state:
+            drawn = all_settings._varies([(None, held, field)],  # type: ignore[list-item]
                                       tables, "Visual Pinball X", **kwargs)
         assert drawn is not None
         return state.call_args.kwargs["hint"]
@@ -296,7 +300,7 @@ class MoveToAllTests(unittest.IsolatedAsyncioTestCase):
                        patch.object(app_settings.undo, "offer",
                                     lambda said, reverse, **_k: self.offered.append(
                                         (said, reverse))),
-                       patch.object(app_settings.workbench, "_keeping_place", keeping),
+                       patch_workbench("_keeping_place", keeping),
                        patch.object(app_settings, "ui", SimpleNamespace(
                            context=SimpleNamespace(client=None),
                            notify=lambda *a, **k: self.said.append((a, k))))):
@@ -536,7 +540,7 @@ class MoveToAllOfferTests(unittest.TestCase):
         _, action = self._offer({"set_here": True, "value": "1"}, playing=True)
 
         self.assertFalse(action.call_args.kwargs["enabled"])
-        self.assertEqual(action.call_args.kwargs["hint"], t(workbench.PLAYING_NOTE))
+        self.assertEqual(action.call_args.kwargs["hint"], t(all_settings.PLAYING_NOTE))
 
 
 class ConfigAppliedTests(unittest.IsolatedAsyncioTestCase):
@@ -544,15 +548,15 @@ class ConfigAppliedTests(unittest.IsolatedAsyncioTestCase):
         async def write(values: dict) -> dict:
             return {"cut": [values]}
 
-        self.assertEqual(await workbench.config_applied(write, {KEY: "1"}),
+        self.assertEqual(await all_settings.config_applied(write, {KEY: "1"}),
                          {"cut": [{KEY: "1"}]})
 
     async def test_a_plain_write_runs_off_the_loop(self) -> None:
         async def inline(callback, *args):
             return callback(*args)
 
-        with patch.object(workbench.run, "io_bound", inline):
-            found = await workbench.config_applied(lambda values: {"cut": [values]},
+        with patch.object(run, "io_bound", inline):
+            found = await all_settings.config_applied(lambda values: {"cut": [values]},
                                                    {KEY: "1"})
 
         self.assertEqual(found, {"cut": [{KEY: "1"}]})

@@ -15,11 +15,18 @@ from typing import Any, cast
 from unittest.mock import ANY, AsyncMock, Mock, patch
 from urllib.parse import parse_qs
 
+from nicegui import run
+
 from common import i18n, path_state
 from common.i18n import t
-from manager import app_settings, games, launchers, page, settings, workbench
-from manager.kit import data, deeplink, panel, renderers
+from manager import games, launchers, page, settings
+from manager import settings as settings_page
+from manager.kit import data, deeplink, offload, panel, renderers, verbs
+from manager.workbench import all_settings, app_settings, rail
+from manager.workbench import file as wb_file
+from manager.workbench import launcher as wb_launcher
 from tests.support.clicks import press
+from tests.support.workbench_patch import patch_workbench
 
 
 def _launcher(state: str, *, has_config: bool = True) -> dict:
@@ -37,7 +44,7 @@ def _context(state: str, groups=("displays",), *, has_config: bool = True) -> di
 
 
 def _shown(context: dict) -> list[str]:
-    return [s.key for s in workbench.sections_for("launcher")
+    return [s.key for s in rail.sections_for("launcher")
             if s.shown is None or s.shown(context)]
 
 
@@ -106,7 +113,7 @@ class AllSettingsTests(unittest.TestCase):
 
     def _found(self, values: dict | None = None, **wanted) -> list[tuple[str, list[str]]]:
         return [(section, [f.key for f in fields]) for section, fields in
-                workbench.found_settings(self.GROUPS, values or {}, wanted)]
+                all_settings.found_settings(self.GROUPS, values or {}, wanted)]
 
     def test_everything_under_its_section_in_the_order_the_areas_reach_it(self) -> None:
         self.assertEqual(self._found(), [
@@ -164,8 +171,8 @@ class AllSettingsTests(unittest.TestCase):
         for wanted in ({"query": "height"}, {"differs": True}):
             with self.subTest(**wanted):
                 self.assertEqual([(section, [f.key for f in fields]) for section, fields in
-                                  workbench.found_settings(groups, values, wanted)], pair)
-        self.assertEqual(workbench.curated_pairs(groups), [video_mode])
+                                  all_settings.found_settings(groups, values, wanted)], pair)
+        self.assertEqual(all_settings.curated_pairs(groups), [video_mode])
 
     def test_changed_counts_a_pair_once_and_only_in_the_area_asked(self) -> None:
         video_mode = SimpleNamespace(key="video_mode", keys=("Topper.TopperFSWidth",
@@ -178,24 +185,24 @@ class AllSettingsTests(unittest.TestCase):
                   ("Topper.TopperFSWidth", "Topper.TopperFSHeight", "Player.BallTrail")}
         values["Player.BallTrail"]["value"] = "0"
 
-        self.assertEqual(workbench.changed_count(groups, values), 2)
-        self.assertEqual(workbench.changed_count(groups, values, area="more"), 1)
+        self.assertEqual(all_settings.changed_count(groups, values), 2)
+        self.assertEqual(all_settings.changed_count(groups, values, area="more"), 1)
 
     def test_a_section_reads_as_words(self) -> None:
-        self.assertEqual(workbench.section_title("ScoreView", {}), "Score View")
-        self.assertEqual(workbench.section_title("DMD", {}), "DMD")
+        self.assertEqual(all_settings.section_title("ScoreView", {}), "Score View")
+        self.assertEqual(all_settings.section_title("DMD", {}), "DMD")
 
     def test_a_plugin_takes_the_name_its_area_gives_it(self) -> None:
-        names = workbench._plugin_names([_group("plugins", curated=[
+        names = all_settings._plugin_names([_group("plugins", curated=[
             SimpleNamespace(key="PUP", label="Pin Up Player",
                             keys=("Plugin.PUP.Enable",)),
             SimpleNamespace(key="playfield", label="Playfield", keys=("Player.PlaySound",)),
         ])])
 
         self.assertEqual(names, {"PUP": "Pin Up Player"})
-        self.assertEqual(workbench.section_title("Plugin.PUP", names),
+        self.assertEqual(all_settings.section_title("Plugin.PUP", names),
                          t("manager.workbench.plugin_section", name="Pin Up Player"))
-        self.assertEqual(workbench.section_title("Plugin.HelloWorld", names),
+        self.assertEqual(all_settings.section_title("Plugin.HelloWorld", names),
                          t("manager.workbench.plugin_section", name="Hello World"))
 
 
@@ -222,19 +229,19 @@ class ConflictTests(unittest.TestCase):
                  _heading("DOF", "Plugin.DOF.Enable", enabled_by="Plugin.DOF.Enable")])]
 
     def test_two_rivals_on_each_name_the_other(self) -> None:
-        both = workbench.conflicts(self.RENDERERS, {"Plugin.B2SLegacy.Enable": {"value": "1"}})
+        both = all_settings.conflicts(self.RENDERERS, {"Plugin.B2SLegacy.Enable": {"value": "1"}})
 
         self.assertEqual(both, {"Plugin.B2S.Enable": "B2S Legacy",
                                 "Plugin.B2SLegacy.Enable": "B2S"})
 
     def test_a_rival_off_is_no_conflict(self) -> None:
-        self.assertEqual(workbench.conflicts(self.RENDERERS, {}), {})
-        self.assertEqual(workbench.conflicts(self.RENDERERS, {
+        self.assertEqual(all_settings.conflicts(self.RENDERERS, {}), {})
+        self.assertEqual(all_settings.conflicts(self.RENDERERS, {
             "Plugin.B2S.Enable": {"value": "0"},
             "Plugin.B2SLegacy.Enable": {"value": "1"}}), {})
 
     def test_either_switch_redraws_the_other(self) -> None:
-        self.assertEqual(workbench.rival_switches(self.RENDERERS),
+        self.assertEqual(all_settings.rival_switches(self.RENDERERS),
                          {"Plugin.B2S.Enable", "Plugin.B2SLegacy.Enable"})
 
     def test_rivals_travel_with_their_heading(self) -> None:
@@ -279,7 +286,7 @@ class AFolderSettingReachesTheControl(unittest.TestCase):
         groups = data.config_groups({"groups": [{
             "key": "plugins", "label": "Plugins", "settings": [described]}]})
 
-        option = workbench._as_option(groups[0].settings[0])
+        option = all_settings._as_option(groups[0].settings[0])
 
         self.assertEqual(option["path"], "dir")
 
@@ -298,7 +305,7 @@ class CuratedAreaTests(unittest.TestCase):
 
     def _drawn(self, values: dict) -> list[tuple[str, list[str]]]:
         return [(heading.key, [f.key for f in fields])
-                for heading, fields in workbench.curated_blocks(self.PLUGINS, values)]
+                for heading, fields in all_settings.curated_blocks(self.PLUGINS, values)]
 
     def test_a_switch_that_is_off_draws_alone(self) -> None:
         self.assertEqual(self._drawn({}), [("PinMAME", ["Plugin.PinMAME.Enable"]),
@@ -316,8 +323,8 @@ class CuratedAreaTests(unittest.TestCase):
                        curated=[_heading("B2S", "Plugin.B2S.Enable", "Plugin.B2S.ShowGrill",
                                          enabled_by="Plugin.B2S.Enable")])
 
-        on = workbench.curated_blocks(group, {})
-        off = workbench.curated_blocks(group, {"Plugin.B2S.Enable": {"value": "0"}})
+        on = all_settings.curated_blocks(group, {})
+        off = all_settings.curated_blocks(group, {"Plugin.B2S.Enable": {"value": "0"}})
 
         self.assertEqual([f.key for f in on[0][1]], ["Plugin.B2S.Enable",
                                                      "Plugin.B2S.ShowGrill"])
@@ -336,7 +343,7 @@ class CuratedAreaTests(unittest.TestCase):
     def _overlay(self, **values: dict) -> list[str]:
         held = {f"Plugin.B2S.{key}": value for key, value in values.items()}
         return [f.key.rsplit(".", 1)[-1]
-                for _, fields in workbench.curated_blocks(self.OVERLAY, held)
+                for _, fields in all_settings.curated_blocks(self.OVERLAY, held)
                 for f in fields]
 
     def test_a_row_its_own_switch_gates_is_drawn_only_while_that_is_on(self) -> None:
@@ -353,7 +360,7 @@ class CuratedAreaTests(unittest.TestCase):
                                        BackglassDMDOverlay={"value": "1"}), ["Enable"])
 
     def test_writing_a_row_switch_redraws_the_panel(self) -> None:
-        self.assertEqual(workbench.switches(self.OVERLAY.curated),
+        self.assertEqual(all_settings.switches(self.OVERLAY.curated),
                          {"Plugin.B2S.Enable", "Plugin.B2S.BackglassDMDOverlay"})
 
     WINDOW = _group(
@@ -366,7 +373,7 @@ class CuratedAreaTests(unittest.TestCase):
                                      False)])])
 
     def _window(self, fullscreen: dict) -> list[str]:
-        return [f.key.rsplit(".", 1)[-1] for _, fields in workbench.curated_blocks(
+        return [f.key.rsplit(".", 1)[-1] for _, fields in all_settings.curated_blocks(
             self.WINDOW, {"Topper.TopperFullScreen": fullscreen}) for f in fields]
 
     def test_a_row_switched_the_other_way_is_drawn_only_while_its_switch_is_off(self) -> None:
@@ -409,29 +416,29 @@ class CuratedAreaTests(unittest.TestCase):
         self.assertEqual([h.note for h in groups[0].curated], ["WMP audio", "Drives toys"])
 
     def test_a_row_a_switch_hides_is_still_curated_and_not_one_of_the_rest(self) -> None:
-        self.assertEqual(workbench.curated_keys(self.PLUGINS),
+        self.assertEqual(all_settings.curated_keys(self.PLUGINS),
                          {"Plugin.PinMAME.Enable", "Plugin.PinMAME.PinMAMEPath",
                           "Plugin.DOF.Enable"})
 
 
 class ProgramNoteTests(unittest.TestCase):
     def test_no_program_set_says_to_set_one(self) -> None:
-        self.assertEqual(workbench._program_note(_launcher(path_state.UNSET)),
+        self.assertEqual(all_settings._program_note(_launcher(path_state.UNSET)),
                          t("manager.workbench.program_hint",
                            app="Visual Pinball X"))
 
     def test_a_path_that_finds_nothing_says_so(self) -> None:
-        self.assertEqual(workbench._program_note(_launcher(path_state.MISSING)),
+        self.assertEqual(all_settings._program_note(_launcher(path_state.MISSING)),
                          t("manager.workbench.app_missing", app="Visual Pinball X"))
 
     def test_a_program_that_is_there_needs_no_note(self) -> None:
-        self.assertEqual(workbench._program_note(_launcher(path_state.OK)), "")
+        self.assertEqual(all_settings._program_note(_launcher(path_state.OK)), "")
 
     def test_an_app_with_no_settings_of_its_own_gets_none(self) -> None:
         for state in (path_state.UNSET, path_state.MISSING):
             with self.subTest(state=state):
                 self.assertEqual(
-                    workbench._program_note(_launcher(state, has_config=False)), "")
+                    all_settings._program_note(_launcher(state, has_config=False)), "")
 
 
 class CopyVerbTests(unittest.TestCase):
@@ -466,7 +473,7 @@ class CopyVerbTests(unittest.TestCase):
         copy, restore = self._acts(path_state.OK, playing=True)[1:3]
         self.assertEqual((copy.run, restore.run), (None, None))
         self.assertEqual((copy.hint, restore.hint),
-                         (t(workbench.PLAYING_NOTE), t(workbench.PLAYING_NOTE)))
+                         (t(all_settings.PLAYING_NOTE), t(all_settings.PLAYING_NOTE)))
 
     def test_the_dialog_is_named_for_the_launcher_as_people_know_it(self) -> None:
         library = Mock()
@@ -497,19 +504,19 @@ class PlayingTests(unittest.TestCase):
             def play_state(self):
                 raise RuntimeError("no answer")
 
-        self.assertFalse(workbench._playing(cast(Any, Broken())))
+        self.assertFalse(all_settings._playing(cast(Any, Broken())))
 
     def test_a_table_playing_is_reported(self) -> None:
         class Playing:
             def play_state(self):
                 return {"launching": True}
 
-        self.assertTrue(workbench._playing(cast(Any, Playing())))
+        self.assertTrue(all_settings._playing(cast(Any, Playing())))
 
     def test_the_reason_says_who_the_other_writer_is(self) -> None:
         """The program rewrites this file itself when a table exits, so an edit made now
         is one of two writers and the last one wins."""
-        self.assertIn("rewrites this file", t(workbench.PLAYING_WHY))
+        self.assertIn("rewrites this file", t(all_settings.PLAYING_WHY))
 
 
 class BlankValueTests(unittest.TestCase):
@@ -522,7 +529,7 @@ class BlankValueTests(unittest.TestCase):
         field = SimpleNamespace(key="Player.PlayfieldWidth", type="int", label="Width",
                                 default="", choices=(), blank="Auto")
 
-        self.assertEqual(self._placeholder(workbench._as_option(field)), "Auto")
+        self.assertEqual(self._placeholder(all_settings._as_option(field)), "Auto")
 
     def test_a_choice_s_blank_is_an_option_named_by_it(self) -> None:
         field = SimpleNamespace(key="TableOverride.ViewCabMode", type="int",
@@ -530,7 +537,7 @@ class BlankValueTests(unittest.TestCase):
                                 choices=(("0", "Legacy"), ("2", "Window")),
                                 choice_help={"2": "The screen as a window"})
 
-        option = workbench._as_option(field)
+        option = all_settings._as_option(field)
 
         self.assertEqual(option["choices"],
                          {"": "The table's own", "0": "Legacy", "2": "Window"})
@@ -544,9 +551,9 @@ class BlankValueTests(unittest.TestCase):
         plain = SimpleNamespace(key="Player.ShowFPS", type="string", label="FPS",
                                 default="", choices=())
 
-        self.assertEqual(workbench._as_option(field)["path"], "dir")
-        self.assertEqual(workbench._as_option(file)["suffixes"], (".ini",))
-        self.assertNotIn("path", workbench._as_option(plain))
+        self.assertEqual(all_settings._as_option(field)["path"], "dir")
+        self.assertEqual(all_settings._as_option(file)["suffixes"], (".ini",))
+        self.assertNotIn("path", all_settings._as_option(plain))
 
     def test_a_field_as_the_wire_sends_it_says_so_too(self) -> None:
         field = {"key": "Player.PlayfieldWidth", "type": "int", "label": "Width",
@@ -613,7 +620,7 @@ class NamedNumberTests(unittest.TestCase):
 
     def test_a_number_with_named_values_picks_among_them(self) -> None:
         save = Mock()
-        option = workbench._as_option(self.FIELD)
+        option = all_settings._as_option(self.FIELD)
         with patch.object(settings.panel, "named_number") as named:
             settings.control_for(option, settings.value_for(option, ""), save)
 
@@ -643,10 +650,10 @@ class ReportedNameTests(unittest.IsolatedAsyncioTestCase):
                             scopes=("launcher", "entry"), help="", description="")
 
     def test_it_is_picked_from_the_names_vpx_used_and_can_still_be_typed(self) -> None:
-        option = workbench._as_option(self.FIELD)
+        option = all_settings._as_option(self.FIELD)
         with patch.object(settings.panel, "combo") as combo:
             settings.control_for(option, "Built-in Display", Mock(),
-                                 suggestions={workbench.REPORTED: dict(zip(self.USED, self.USED,
+                                 suggestions={all_settings.REPORTED: dict(zip(self.USED, self.USED,
                                                                            strict=True))})
 
         self.assertEqual(combo.call_args.args[:2],
@@ -655,13 +662,13 @@ class ReportedNameTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(combo.call_args.kwargs["clearable"])
 
     def test_a_name_vpx_has_not_used_is_marked(self) -> None:
-        mark = workbench._unreported("Old Display", self.USED, "Visual Pinball X")
+        mark = all_settings._unreported("Old Display", self.USED, "Visual Pinball X")
 
         self.assertEqual(mark, {"state": "missing", "reason": t(
             "manager.workbench.display_not_used", app="Visual Pinball X")})
 
     def test_nothing_is_marked_where_it_is_one_or_vpx_has_said_nothing(self) -> None:
-        self.assertEqual([workbench._unreported(value, used, "Visual Pinball X")
+        self.assertEqual([all_settings._unreported(value, used, "Visual Pinball X")
                           for value, used in (("Built-in Display", self.USED),
                                               ("", self.USED), ("Old Display", ()))],
                          [None, None, None])
@@ -672,15 +679,15 @@ class ReportedNameTests(unittest.IsolatedAsyncioTestCase):
         rebuild = AsyncMock()
         context = {"library": Mock(), "launcher": {"launcher_id": "probe"},
                    "config_scope": "launcher", "rebuild": rebuild}
-        self.enterContext(patch.object(workbench, "ui"))
-        self.enterContext(patch.object(workbench, "_config_values",
+        self.enterContext(patch_workbench("ui"))
+        self.enterContext(patch_workbench("_config_values",
                                        new=AsyncMock(side_effect=[before, after])))
-        self.enterContext(patch.object(workbench, "_set_by_tables",
+        self.enterContext(patch_workbench("_set_by_tables",
                                        new=AsyncMock(return_value={})))
-        self.enterContext(patch.object(workbench.run, "io_bound",
+        self.enterContext(patch.object(run, "io_bound",
                                        new=AsyncMock(return_value={})))
-        control_for = self.enterContext(patch.object(workbench.settings_page, "control_for"))
-        await workbench._setting_entries(context, [("", "", [self.FIELD])])
+        control_for = self.enterContext(patch.object(settings_page, "control_for"))
+        await all_settings._setting_entries(context, [("", "", [self.FIELD])])
 
         self.assertEqual(control_for.call_args.kwargs["check"]["state"], "missing")
         await press(control_for.call_args.args[2], "Built-in Display")
@@ -700,12 +707,12 @@ class ClearTests(unittest.IsolatedAsyncioTestCase):
 
     def _drawn(self, held: dict, playing: bool = False) -> tuple[Mock, Mock]:
         wipe = AsyncMock()
-        with patch.object(workbench, "ui"), \
-                patch.object(workbench.panel, "icon_action") as icon_action, \
-                patch.object(workbench.panel, "action") as action:
-            workbench._marked([(Mock(), dict(held), self.FIELD)], "Visual Pinball X",
+        with patch_workbench("ui"), \
+                patch.object(panel, "icon_action") as icon_action, \
+                patch.object(panel, "action") as action:
+            all_settings._marked([(Mock(), dict(held), self.FIELD)], "Visual Pinball X",
                               clear=wipe, playing=playing)()
-            workbench._beside(lambda: None, dict(held), self.FIELD)()
+            all_settings._beside(lambda: None, dict(held), self.FIELD)()
         self.wipe = wipe
         return icon_action, action
 
@@ -713,7 +720,7 @@ class ClearTests(unittest.IsolatedAsyncioTestCase):
         icon_action, action = self._drawn(self.SET)
 
         self.assertEqual(icon_action.call_args.args, (t("word.reset"), self.wipe))
-        self.assertEqual(icon_action.call_args.kwargs["icon"], workbench.verbs.RESET)
+        self.assertEqual(icon_action.call_args.kwargs["icon"], verbs.RESET)
         action.assert_not_called()
 
     def test_its_hover_says_what_it_goes_back_to(self) -> None:
@@ -727,7 +734,7 @@ class ClearTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertFalse(icon_action.call_args.kwargs["enabled"])
         self.assertEqual(icon_action.call_args.kwargs["hint"],
-                         t(workbench.PLAYING_NOTE))
+                         t(all_settings.PLAYING_NOTE))
 
     def test_a_value_this_scope_does_not_set_has_none(self) -> None:
         icon_action, action = self._drawn({**self.SET, "set_here": False})
@@ -745,17 +752,17 @@ class ClearTests(unittest.IsolatedAsyncioTestCase):
         library = Mock()
         context = {"library": library, "launcher": {"launcher_id": "probe"},
                    "config_scope": "entry", "config_table": "t1", "rebuild": AsyncMock()}
-        self.enterContext(patch.object(workbench, "ui"))
-        self.enterContext(patch.object(workbench, "_config_values",
+        self.enterContext(patch_workbench("ui"))
+        self.enterContext(patch_workbench("_config_values",
                                        new=AsyncMock(return_value={"Player.BGSet": self.SET})))
-        self.enterContext(patch.object(workbench.settings_page, "control_for"))
-        self.enterContext(patch.object(workbench.run, "io_bound", new=AsyncMock()))
-        marked = self.enterContext(patch.object(workbench, "_marked"))
-        await workbench._setting_entries(context, [("", "", [self.FIELD])])
+        self.enterContext(patch.object(settings_page, "control_for"))
+        self.enterContext(patch.object(run, "io_bound", new=AsyncMock()))
+        marked = self.enterContext(patch_workbench("_marked"))
+        await all_settings._setting_entries(context, [("", "", [self.FIELD])])
 
         await press(marked.call_args.kwargs["clear"])
 
-        cast(Any, workbench.run.io_bound).assert_awaited_once_with(
+        cast(Any, run.io_bound).assert_awaited_once_with(
             library.write_launcher_config, "probe", {"Player.BGSet": ""}, table="t1",
             scope="entry")
 
@@ -774,14 +781,14 @@ class ScopeTests(unittest.IsolatedAsyncioTestCase):
     async def _writable(self, field: SimpleNamespace, scope: str, table: str) -> bool:
         context = {"library": Mock(), "launcher": {"launcher_id": "probe"},
                    "config_scope": scope, "config_table": table, "rebuild": AsyncMock()}
-        self.enterContext(patch.object(workbench, "ui"))
-        self.enterContext(patch.object(workbench, "_config_values",
+        self.enterContext(patch_workbench("ui"))
+        self.enterContext(patch_workbench("_config_values",
                                        new=AsyncMock(return_value={field.key: self.HELD})))
-        self.enterContext(patch.object(workbench, "_set_by_tables",
+        self.enterContext(patch_workbench("_set_by_tables",
                                        new=AsyncMock(return_value=[])))
-        control_for = self.enterContext(patch.object(workbench.settings_page, "control_for"))
-        marked = self.enterContext(patch.object(workbench, "_marked"))
-        await workbench._setting_entries(context, [("", "", [field])])
+        control_for = self.enterContext(patch.object(settings_page, "control_for"))
+        marked = self.enterContext(patch_workbench("_marked"))
+        await all_settings._setting_entries(context, [("", "", [field])])
         self.assertIsNotNone(marked.call_args.kwargs["clear"])
         return control_for.call_args.kwargs["writable"]
 
@@ -795,15 +802,15 @@ class ScopeTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(await self._writable(self.CAMERA, "entry", "t1"))
 
     def test_at_the_launcher_it_is_marked_per_table(self) -> None:
-        with patch.object(workbench.panel, "state") as state:
-            workbench._mark_for(self.HELD, "launcher", self.CAMERA, offered=False)
+        with patch.object(panel, "state") as state:
+            all_settings._mark_for(self.HELD, "launcher", self.CAMERA, offered=False)
 
         state.assert_called_once_with(t("manager.app_settings.per_table"), "off",
                                       hint=t("manager.app_settings.per_table.help"))
 
     def test_at_a_table_one_the_program_does_not_read_is_ignored(self) -> None:
-        with patch.object(workbench.panel, "state") as state:
-            workbench._mark_for({**self.HELD, "scope": "launcher", "in_effect": False},
+        with patch.object(panel, "state") as state:
+            all_settings._mark_for({**self.HELD, "scope": "launcher", "in_effect": False},
                                 "entry", self.INPUT, offered=False)
 
         state.assert_called_once_with(t("manager.app_settings.ignored"), "warn",
@@ -829,23 +836,23 @@ class PairTests(unittest.IsolatedAsyncioTestCase):
         library = Mock()
         context = {"library": library, "launcher": {"launcher_id": "probe", "app_name": self.APP},
                    "config_scope": "launcher", "config_table": "", "rebuild": AsyncMock()}
-        self.enterContext(patch.object(workbench, "ui"))
-        self.enterContext(patch.object(workbench, "_config_values",
+        self.enterContext(patch_workbench("ui"))
+        self.enterContext(patch_workbench("_config_values",
                                        new=AsyncMock(return_value=values)))
-        self.enterContext(patch.object(workbench, "_set_by_tables",
+        self.enterContext(patch_workbench("_set_by_tables",
                                        new=AsyncMock(return_value=[])))
-        self.enterContext(patch.object(workbench.settings_page, "control_for"))
-        self.enterContext(patch.object(workbench.run, "io_bound", new=AsyncMock()))
-        marked = self.enterContext(patch.object(workbench, "_marked"))
-        entries = await workbench._setting_entries(
+        self.enterContext(patch.object(settings_page, "control_for"))
+        self.enterContext(patch.object(run, "io_bound", new=AsyncMock()))
+        marked = self.enterContext(patch_workbench("_marked"))
+        entries = await all_settings._setting_entries(
             context, [("Playfield", "", fields or [self.WIDTH, self.HEIGHT])],
             pairs=[size or self.SIZE], ahead=ahead)
         return entries, marked, library
 
     def _drawn(self, width: dict, height: dict) -> tuple[Mock, Mock]:
-        with patch.object(workbench, "ui") as ui, \
-                patch.object(workbench.panel, "icon_action") as icon_action:
-            workbench._marked([(Mock(), dict(width), self.WIDTH),
+        with patch_workbench("ui") as ui, \
+                patch.object(panel, "icon_action") as icon_action:
+            all_settings._marked([(Mock(), dict(width), self.WIDTH),
                                (Mock(), dict(height), self.HEIGHT)],
                               self.APP, joiner="×", clear=AsyncMock())()
         return ui, icon_action
@@ -882,7 +889,7 @@ class PairTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([label for label, _ in entries if isinstance(label, str)], ["Width"])
 
     async def test_the_pair_s_note_is_the_one_under_it(self) -> None:
-        note = self.enterContext(patch.object(workbench.panel, "note"))
+        note = self.enterContext(patch.object(panel, "note"))
         await self._entries({}, size=SimpleNamespace(**{**vars(self.SIZE), "note": "Wide"}))
 
         note.assert_called_once_with("Wide")
@@ -903,7 +910,7 @@ class PairTests(unittest.IsolatedAsyncioTestCase):
 
                 await press(marked.call_args.kwargs["clear"])
 
-                cast(Any, workbench.run.io_bound).assert_awaited_once_with(
+                cast(Any, run.io_bound).assert_awaited_once_with(
                     library.write_launcher_config, "probe", written, table="",
                     scope="launcher")
 
@@ -942,8 +949,8 @@ class PairTests(unittest.IsolatedAsyncioTestCase):
         none.assert_not_called()
 
     def test_each_number_is_named_and_the_joiner_stands_between_them(self) -> None:
-        with patch.object(workbench, "ui") as ui:
-            workbench._pair([(Mock(), {}, self.WIDTH), (Mock(), {}, self.HEIGHT)], "×")
+        with patch_workbench("ui") as ui:
+            all_settings._pair([(Mock(), {}, self.WIDTH), (Mock(), {}, self.HEIGHT)], "×")
         named = ui.element.return_value.classes.return_value.__enter__.return_value
 
         self.assertEqual([call.args for call in named.props.__setitem__.call_args_list],
@@ -1007,7 +1014,7 @@ class BackglassFileTests(unittest.IsolatedAsyncioTestCase):
         return {"kind": "backglass", "binding": binding, "table": table, "present": present}
 
     def _served(self, row: dict, *others: dict) -> list[str]:
-        return [one["id"] for one in workbench._served(row, [row, *others], self.TABLES)]
+        return [one["id"] for one in wb_file._served(row, [row, *others], self.TABLES)]
 
     async def _settings(self, row: dict, tables=None, *, state: str = path_state.OK,
                         has_config: bool = True, others=(),
@@ -1017,9 +1024,9 @@ class BackglassFileTests(unittest.IsolatedAsyncioTestCase):
             {**_launcher(state, has_config=has_config), "launcher_id": "l1"}, *others]}
         library.launcher_config.return_value = self.WIRE
         library.play_state.return_value = {}
-        self.enterContext(patch.object(workbench.run, "io_bound", new=AsyncMock(
+        self.enterContext(patch.object(run, "io_bound", new=AsyncMock(
             side_effect=lambda call, *args, **kwargs: call(*args, **kwargs))))
-        found = await workbench._file_settings(library, row, [row], tables or self.TABLES[:1],
+        found = await wb_file._file_settings(library, row, [row], tables or self.TABLES[:1],
                                                detail or {})
         return found, library
 
@@ -1090,14 +1097,14 @@ class BackglassFileTests(unittest.IsolatedAsyncioTestCase):
                                             for one, table in zip(found["shared"], tables,
                                                                   strict=True)])
 
-        with patch.object(workbench, "_config_values", AsyncMock(return_value={})), \
-                patch.object(workbench, "_setting_entries", AsyncMock(return_value=[])), \
-                patch.object(workbench.panel, "intro") as intro:
-            entries = await workbench._file_settings_entries({"file_settings": found})
+        with patch_workbench("_config_values", AsyncMock(return_value={})), \
+                patch_workbench("_setting_entries", AsyncMock(return_value=[])), \
+                patch.object(panel, "intro") as intro:
+            entries = await wb_file._file_settings_entries({"file_settings": found})
 
         intro.assert_called_once_with(
             "Changes here apply to the 2 tables that use this file", hint="t1\nt2")
-        self.assertEqual(entries, [(workbench.panel.HEADING, "Settings"), intro.return_value])
+        self.assertEqual(entries, [(panel.HEADING, "Settings"), intro.return_value])
 
     async def test_nor_where_the_launcher_cannot_show_them(self) -> None:
         for state, has_config in ((path_state.MISSING, True), (path_state.OK, False)):
@@ -1119,12 +1126,12 @@ class BackglassFileTests(unittest.IsolatedAsyncioTestCase):
 
 class TableRailTests(unittest.TestCase):
     def test_a_table_s_settings_follow_the_table(self) -> None:
-        keys = [s.key for s in workbench.sections_for("table")]
+        keys = [s.key for s in rail.sections_for("table")]
 
         self.assertEqual(keys[keys.index("table_details") + 1], "table_settings")
 
     def test_a_game_has_none(self) -> None:
-        self.assertNotIn("table_settings", [s.key for s in workbench.sections_for("game")])
+        self.assertNotIn("table_settings", [s.key for s in rail.sections_for("game")])
 
 
 class LaunchReportTests(unittest.TestCase):
@@ -1134,8 +1141,8 @@ class LaunchReportTests(unittest.TestCase):
 
     def _report(self, **table: object) -> tuple[str, str]:
         context = {"state": {"view": "games", "game": "g1", "table": "t1"}}
-        with patch.object(workbench.panel, "link") as link:
-            label, _draw = workbench._launcher_report(context, {**self.TABLE, **table})
+        with patch.object(panel, "link") as link:
+            label, _draw = wb_launcher._launcher_report(context, {**self.TABLE, **table})
         self.assertEqual(label, "Launcher")
         return str(link.call_args.args[0]), str(link.call_args.kwargs["to"])
 
@@ -1215,7 +1222,7 @@ class SettingsColumnTests(unittest.TestCase):
     def test_focusing_it_opens_the_table_s_settings(self) -> None:
         section = games.TABLE_COLUMN_SECTIONS["settings"]
 
-        self.assertIn(section, [s.key for s in workbench.sections_for("table")])
+        self.assertIn(section, [s.key for s in rail.sections_for("table")])
 
 
 def _field(key: str, label: str = "", *, per_table: bool = False,
@@ -1676,8 +1683,8 @@ class SetForAllTests(unittest.TestCase):
     def test_a_row_draws_it_on_the_line_under_its_value(self) -> None:
         verb = Mock()
         more = Mock(return_value=verb)
-        with patch.object(workbench, "ui"):
-            workbench._beside(lambda: None, dict(self.SET), self.FIELD, more=more)()
+        with patch_workbench("ui"):
+            all_settings._beside(lambda: None, dict(self.SET), self.FIELD, more=more)()
 
         more.assert_called_once()
         verb.assert_called_once_with()
@@ -1705,8 +1712,8 @@ class SetForAllTests(unittest.TestCase):
     def test_a_pair_s_row_draws_it_where_only_its_second_row_is_set_here(self) -> None:
         verb = Mock()
         more = Mock(return_value=verb)
-        with patch.object(workbench, "ui"):
-            workbench._beside(lambda: None, dict(self.UNSET), self.FIELD, more=more,
+        with patch_workbench("ui"):
+            all_settings._beside(lambda: None, dict(self.UNSET), self.FIELD, more=more,
                               paired=[(dict(self.SET), self.HEIGHT)])()
 
         more.assert_called_once_with(self.UNSET, self.FIELD, (self.SET, self.HEIGHT))
@@ -1721,7 +1728,7 @@ class SetForAllTests(unittest.TestCase):
                                 read=True)(
                 dict(self.SET), self.FIELD, (dict(self.SET), self.HEIGHT))
         with patch.object(app_settings, "ui"), \
-                patch.object(workbench, "no_longer_reads_game") as warned, \
+                patch_workbench("no_longer_reads_game") as warned, \
                 patch.object(app_settings.offload, "io",
                              new=AsyncMock(side_effect=lambda call: call())):
             asyncio.run(press(action.call_args.args[1]))
@@ -1753,7 +1760,7 @@ class SetForAllTests(unittest.TestCase):
             app_settings.ForAll(inner, [other], False, [], frozenset({"Player.X"}),
                                 inner["rebuild"], read=True)(dict(self.SET), self.FIELD)
         with patch.object(app_settings, "ui"), \
-                patch.object(workbench, "_keeping_place", new=AsyncMock()) as kept, \
+                patch_workbench("_keeping_place", new=AsyncMock()) as kept, \
                 patch.object(app_settings.offload, "io",
                              new=AsyncMock(side_effect=lambda call: call())):
             asyncio.run(press(action.call_args.args[1]))
@@ -1769,12 +1776,12 @@ class SetForAllTests(unittest.TestCase):
                    "config_more": more}
 
         async def drive() -> None:
-            with patch.object(workbench, "ui"), \
-                    patch.object(workbench, "_config_values",
+            with patch_workbench("ui"), \
+                    patch_workbench("_config_values",
                                  new=AsyncMock(side_effect=[before, after])), \
-                    patch.object(workbench.run, "io_bound", new=AsyncMock(return_value={})), \
-                    patch.object(workbench.settings_page, "control_for") as control_for:
-                await workbench._setting_entries(context, [("", "", [self.FIELD])])
+                    patch.object(run, "io_bound", new=AsyncMock(return_value={})), \
+                    patch.object(settings_page, "control_for") as control_for:
+                await all_settings._setting_entries(context, [("", "", [self.FIELD])])
                 await press(control_for.call_args.args[2], "2")
 
         asyncio.run(drive())
@@ -1796,13 +1803,13 @@ class SetForAllTests(unittest.TestCase):
                    "config_more": Mock(ready=AsyncMock(side_effect=ready), return_value=None)}
 
         async def drive() -> dict:
-            with patch.object(workbench, "ui"), \
-                    patch.object(workbench, "_marked") as marked, \
-                    patch.object(workbench, "_config_values",
+            with patch_workbench("ui"), \
+                    patch_workbench("_marked") as marked, \
+                    patch_workbench("_config_values",
                                  new=AsyncMock(side_effect=[unset, *typed])), \
-                    patch.object(workbench.run, "io_bound", new=AsyncMock(return_value={})), \
-                    patch.object(workbench.settings_page, "control_for") as control_for:
-                await workbench._setting_entries(context, [("", "", [self.FIELD])])
+                    patch.object(run, "io_bound", new=AsyncMock(return_value={})), \
+                    patch.object(settings_page, "control_for") as control_for:
+                await all_settings._setting_entries(context, [("", "", [self.FIELD])])
                 save = control_for.call_args.args[2]
                 first = asyncio.create_task(press(save, "2"))
                 await asyncio.sleep(0)
@@ -1815,9 +1822,9 @@ class SetForAllTests(unittest.TestCase):
 
     def test_the_tables_cut_off_the_game_s_file_are_named_a_line_each(self) -> None:
         cut = [{"id": "b", "name": "Addams Family, The"}, {"id": "c", "name": "Other"}]
-        with patch.object(workbench, "ui") as ui, \
-                patch.object(workbench, "_table_line", side_effect=lambda one, _: one["name"]):
-            workbench.no_longer_reads_game(cut, cut)
+        with patch_workbench("ui") as ui, \
+                patch_workbench("_table_line", side_effect=lambda one, _: one["name"]):
+            all_settings.no_longer_reads_game(cut, cut)
 
         self.assertEqual(ui.notify.call_args.args[0].splitlines()[1:],
                          ["Addams Family, The", "Other"])
@@ -1886,7 +1893,7 @@ class SharedFileTests(unittest.TestCase):
         group = _group("plugins", switch, _setting(self.KEY), curated=[
             _heading("B2S", "Plugin.B2S.Enable", self.KEY, enabled_by="Plugin.B2S.Enable")])
 
-        shown = workbench.curated_blocks(group, {"Plugin.B2S.Enable": {"value": "",
+        shown = all_settings.curated_blocks(group, {"Plugin.B2S.Enable": {"value": "",
                                                                       "varies": True}})
 
         self.assertEqual([field.key for field in shown[0][1]],
@@ -1984,14 +1991,14 @@ class RedrawTests(unittest.TestCase):
     def test_a_write_that_changes_only_itself_is_marked_in_place(self) -> None:
         after = {**self.GAME_CAMERA, "Player.SoundVolume": {"value": "45", "scope": "entry"}}
 
-        self.assertFalse(workbench._moved(self.GAME_CAMERA, after, "Player.SoundVolume"))
+        self.assertFalse(all_settings._moved(self.GAME_CAMERA, after, "Player.SoundVolume"))
 
     def test_a_table_s_first_file_takes_the_game_s_values_off_every_setting(self) -> None:
         """The camera is not a row, and it stops reaching the table all the same."""
         after = {"TableOverride.ViewCabFOV": {"value": "", "scope": ""},
                  "Player.SoundVolume": {"value": "45", "scope": "entry"}}
 
-        self.assertTrue(workbench._moved(self.GAME_CAMERA, after, "Player.SoundVolume"))
+        self.assertTrue(all_settings._moved(self.GAME_CAMERA, after, "Player.SoundVolume"))
 
 
 class TypedRedrawTests(unittest.IsolatedAsyncioTestCase):
@@ -2011,12 +2018,12 @@ class TypedRedrawTests(unittest.IsolatedAsyncioTestCase):
         context = {"library": Mock(), "launcher": {"launcher_id": "probe"},
                    "config_scope": "entry", "config_table": "table", "rebuild": rebuild}
         values = AsyncMock(side_effect=[dict(RedrawTests.GAME_CAMERA), dict(self.AFTER)])
-        ui = self.enterContext(patch.object(workbench, "ui"))
-        self.enterContext(patch.object(workbench, "_config_values", new=values))
-        self.enterContext(patch.object(workbench.run, "io_bound",
+        ui = self.enterContext(patch_workbench("ui"))
+        self.enterContext(patch_workbench("_config_values", new=values))
+        self.enterContext(patch.object(run, "io_bound",
                                        new=AsyncMock(return_value={})))
-        control_for = self.enterContext(patch.object(workbench.settings_page, "control_for"))
-        entries = await workbench._setting_entries(context, [("", "", [field])])
+        control_for = self.enterContext(patch.object(settings_page, "control_for"))
+        entries = await all_settings._setting_entries(context, [("", "", [field])])
         return entries, rebuild, control_for.call_args.args[2], ui
 
     async def test_a_number_is_drawn_again_once_focus_leaves_it(self) -> None:
@@ -2043,7 +2050,7 @@ class TypedRedrawTests(unittest.IsolatedAsyncioTestCase):
             return {}
 
         _, _, save, _ = await self._drawn("int")
-        with patch.object(workbench.run, "io_bound", new=slower_first):
+        with patch.object(run, "io_bound", new=slower_first):
             await asyncio.gather(press(save, 4), press(save, 40), press(save, 409))
 
         self.assertEqual(landed, ["4", "40", "409"])
@@ -2057,7 +2064,7 @@ class TypedRedrawTests(unittest.IsolatedAsyncioTestCase):
         rebuild.assert_awaited_once()
 
     async def test_either_draw_keeps_the_place_of_the_setting_written(self) -> None:
-        kept = self.enterContext(patch.object(workbench, "_keeping_place", new=AsyncMock()))
+        kept = self.enterContext(patch_workbench("_keeping_place", new=AsyncMock()))
         entries, rebuild, typed, ui = await self._drawn("int")
         entries[0][1]()
         row = ui.row.return_value.classes.return_value.__enter__.return_value
@@ -2073,8 +2080,8 @@ class TypedRedrawTests(unittest.IsolatedAsyncioTestCase):
         row.props.__setitem__.assert_any_call("data-setting", "Player.SoundVolume")
 
     async def test_a_clear_keeps_the_place_of_the_setting_cleared(self) -> None:
-        kept = self.enterContext(patch.object(workbench, "_keeping_place", new=AsyncMock()))
-        marked = self.enterContext(patch.object(workbench, "_marked"))
+        kept = self.enterContext(patch_workbench("_keeping_place", new=AsyncMock()))
+        marked = self.enterContext(patch_workbench("_marked"))
         _, rebuild, _, _ = await self._drawn("int")
         await press(marked.call_args.kwargs["clear"])
 
@@ -2093,7 +2100,7 @@ class KeepingPlaceTests(unittest.IsolatedAsyncioTestCase):
         else:
             asked.set_result(where)
         client.run_javascript.side_effect = [asked, None]
-        await workbench._keeping_place(client, rebuild, "Player.PlayMusic")
+        await all_settings._keeping_place(client, rebuild, "Player.PlayMusic")
         rebuild.assert_awaited_once()
         return [call.args[0] for call in client.run_javascript.call_args_list[1:]], rebuild
 
@@ -2128,13 +2135,13 @@ class GridBehindTests(unittest.IsolatedAsyncioTestCase):
         context = {"library": Mock(), "launcher": {"launcher_id": "probe"},
                    "config_scope": "entry", "config_table": "table",
                    "rebuild": rebuild, "saved": saved}
-        self.enterContext(patch.object(workbench, "ui"))
-        self.enterContext(patch.object(workbench, "_config_values",
+        self.enterContext(patch_workbench("ui"))
+        self.enterContext(patch_workbench("_config_values",
                                        new=AsyncMock(side_effect=[before, after])))
-        self.enterContext(patch.object(workbench.run, "io_bound",
+        self.enterContext(patch.object(run, "io_bound",
                                        new=AsyncMock(return_value={})))
-        control_for = self.enterContext(patch.object(workbench.settings_page, "control_for"))
-        await workbench._setting_entries(context, [("", "", [field])])
+        control_for = self.enterContext(patch.object(settings_page, "control_for"))
+        await all_settings._setting_entries(context, [("", "", [field])])
 
         await press(control_for.call_args.args[2], True)
         await asyncio.sleep(0)
@@ -2315,12 +2322,12 @@ class SettingNamesTests(unittest.TestCase):
 
     def test_a_label_no_other_setting_has_is_its_name(self) -> None:
         self.assertEqual(
-            workbench.setting_names([_group("sound", _setting("Player.MusicVolume",
+            all_settings.setting_names([_group("sound", _setting("Player.MusicVolume",
                                                               "Volume"))]),
             {"Player.MusicVolume": "Volume"})
 
     def test_a_shared_label_is_led_by_its_heading(self) -> None:
-        names = workbench.setting_names([_group(
+        names = all_settings.setting_names([_group(
             "displays", _setting("Player.PlayfieldWidth", "Width"),
             _setting("Backglass.BackglassWidth", "Width"),
             curated=[_heading("playfield", "Player.PlayfieldWidth"),
@@ -2331,7 +2338,7 @@ class SettingNamesTests(unittest.TestCase):
 
     def test_a_window_s_setting_is_led_by_its_window_though_nothing_shares_it(
             self) -> None:
-        names = workbench.setting_names([_group(
+        names = all_settings.setting_names([_group(
             "more", _setting("PlayerVR.PreviewDisplay", "Display"),
             _setting("PlayerVR.PreviewWidth", "Width"), _setting("Player.Shadows", "Shadows"),
             curated=[_heading("vr_preview", "PlayerVR.PreviewDisplay", "PlayerVR.PreviewWidth",
@@ -2347,7 +2354,7 @@ class SettingNamesTests(unittest.TestCase):
     def test_a_pair_s_setting_is_led_by_its_pair_where_its_window_s_name_is_shared(
             self) -> None:
         mode, size = ("Topper.TopperFSWidth",), ("Topper.TopperWidth",)
-        names = workbench.setting_names([_group(
+        names = all_settings.setting_names([_group(
             "displays", _setting(*mode, "Width"), _setting(*size, "Width"),
             _setting("Topper.TopperDisplay", "Display"),
             curated=[_heading("topper", *mode, *size, "Topper.TopperDisplay",
@@ -2364,7 +2371,7 @@ class SettingNamesTests(unittest.TestCase):
                                       label="Display")})
 
     def test_or_by_its_section_where_no_heading_holds_it(self) -> None:
-        names = workbench.setting_names([_group(
+        names = all_settings.setting_names([_group(
             "displays", _setting("Player.PlayfieldWidth", "Width"),
             _setting("Backglass.BackglassWidth", "Width"))])
 
@@ -2380,7 +2387,7 @@ class SettingNamesTests(unittest.TestCase):
                   _heading("backglass", "Backglass.BackglassWidth")]
         with patch.dict(i18n._catalogs, {"xx": {
                 "manager.app_settings.heading_row": "{label} ({heading})"}}):
-            names = [workbench.setting_names([_group("displays", *width, curated=curated)])
+            names = [all_settings.setting_names([_group("displays", *width, curated=curated)])
                      for curated in (headed, ())]
 
         self.assertEqual(names, [
@@ -2391,7 +2398,7 @@ class SettingNamesTests(unittest.TestCase):
 
     def test_a_plugin_s_setting_is_led_by_its_plugin_as_a_table_s_settings_lead_it(
             self) -> None:
-        names = workbench.setting_names([_group(
+        names = all_settings.setting_names([_group(
             "plugins", _setting("Plugin.PUP.Enable", "Enable"),
             _setting("Plugin.PUP.MainVol", "Main Volume"),
             _setting("Plugin.DOF.Enable", "Enable"),
@@ -2421,16 +2428,16 @@ class CatalogLabelTests(unittest.IsolatedAsyncioTestCase):
                 context = {"library": Mock(), "config_scope": "launcher", "config_table": "",
                            "launcher": {"launcher_id": "probe", "app_name": "VPX"},
                            "rebuild": AsyncMock(), "config_groups": [group]}
-                with patch.object(workbench, "ui"), \
-                        patch.object(workbench, "_config_values",
+                with patch_workbench("ui"), \
+                        patch_workbench("_config_values",
                                      new=AsyncMock(return_value={})), \
-                        patch.object(workbench, "_set_by_tables",
+                        patch_workbench("_set_by_tables",
                                      new=AsyncMock(return_value=[])), \
-                        patch.object(workbench.settings_page, "control_for"), \
-                        patch.object(workbench.panel, "search"), \
-                        patch.object(workbench.panel, "action"), \
-                        patch.object(workbench.panel, "facts") as facts:
-                    await workbench._config_rows(context, group)
+                        patch.object(settings_page, "control_for"), \
+                        patch.object(panel, "search"), \
+                        patch.object(panel, "action"), \
+                        patch.object(panel, "facts") as facts:
+                    await all_settings._config_rows(context, group)
 
                 self.assertIn("PIN2DMD", [label for label, _ in facts.call_args.args[1]])
 
@@ -2445,13 +2452,13 @@ class TablesSetTheirOwnTests(unittest.IsolatedAsyncioTestCase):
             {"launcher": "vpx", "launcher_settings_keys": ["Player.PlayMusic"]},
             {"launcher": "other", "launcher_settings_keys": ["Player.PlayMusic"]},
             {"launcher": "vpx"}]
-        self.enterContext(patch.object(workbench.offload, "io",
+        self.enterContext(patch.object(offload, "io",
                                        new=AsyncMock(side_effect=lambda call: call())))
 
-        held = await workbench._set_by_tables(
+        held = await all_settings._set_by_tables(
             {"library": library, "launcher": {"launcher_id": "vpx"}})
 
-        self.assertEqual([workbench._tables_setting(held, [key])
+        self.assertEqual([all_settings._tables_setting(held, [key])
                           for key in ("Player.PlayMusic", "Player.FXAA", "Player.ShowFPS")],
                          [2, 1, 0])
 
@@ -2459,13 +2466,13 @@ class TablesSetTheirOwnTests(unittest.IsolatedAsyncioTestCase):
         held = [frozenset({"Player.PlayfieldWidth", "Player.PlayfieldHeight"}),
                 frozenset({"Player.PlayfieldHeight"}), frozenset({"Player.FXAA"})]
 
-        self.assertEqual(workbench._tables_setting(
+        self.assertEqual(all_settings._tables_setting(
             held, ["Player.PlayfieldWidth", "Player.PlayfieldHeight"]), 2)
 
     def test_its_link_goes_to_the_tables_grid_on_them(self) -> None:
         for count, said in ((1, "1 table sets its own"), (4, "4 tables set their own")):
             with self.subTest(count=count), patch("manager.kit.panel.ui") as ui:
-                workbench._tables_of_their_own({"launcher_id": "vpx"}, ["Player.PlayMusic"],
+                all_settings._tables_of_their_own({"launcher_id": "vpx"}, ["Player.PlayMusic"],
                                                count)()
                 address = parse_qs(ui.link.call_args.kwargs["target"].split("?", 1)[1])
 
@@ -2475,7 +2482,7 @@ class TablesSetTheirOwnTests(unittest.IsolatedAsyncioTestCase):
 
     def test_a_pair_s_link_asks_for_tables_setting_either(self) -> None:
         with patch("manager.kit.panel.ui") as ui:
-            workbench._tables_of_their_own(
+            all_settings._tables_of_their_own(
                 {"launcher_id": "vpx"}, ["Player.PlayfieldWndX", "Player.PlayfieldWndY"], 2)()
         address = parse_qs(ui.link.call_args.kwargs["target"].split("?", 1)[1])
         arriving = games.setting_their_own(
@@ -2489,15 +2496,14 @@ class TablesSetTheirOwnTests(unittest.IsolatedAsyncioTestCase):
     async def _beyond(self, scope: str, table: str = "") -> list[object]:
         context = {"library": Mock(), "launcher": {"launcher_id": "vpx"},
                    "config_scope": scope, "config_table": table, "rebuild": AsyncMock()}
-        self.enterContext(patch.object(workbench, "ui"))
-        self.enterContext(patch.object(workbench, "_config_values",
+        self.enterContext(patch_workbench("ui"))
+        self.enterContext(patch_workbench("_config_values",
                                        new=AsyncMock(return_value={})))
-        self.enterContext(patch.object(workbench.settings_page, "control_for"))
-        self.counted = self.enterContext(patch.object(
-            workbench, "_set_by_tables",
+        self.enterContext(patch.object(settings_page, "control_for"))
+        self.counted = self.enterContext(patch_workbench("_set_by_tables",
             new=AsyncMock(return_value=[frozenset({"Player.PlayMusic"})] * 2)))
-        beside = self.enterContext(patch.object(workbench, "_beside"))
-        await workbench._setting_entries(
+        beside = self.enterContext(patch_workbench("_beside"))
+        await all_settings._setting_entries(
             context, [("", "", [_field("Player.PlayMusic", scopes=("launcher", "entry")),
                                 _field("Player.FXAA", scopes=("launcher", "entry"))])])
         return [call.args[5] for call in beside.call_args_list]

@@ -139,19 +139,19 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
                                          hint=why(exc))])
         return
 
-    # Imported here: `workbench` imports this module, and `games` imports `workbench`,
-    # so reaching for it at the top would close the loop.
-    from manager import workbench
+    # Imported here: `workbench.launcher` imports this module, and `games` imports
+    # `workbench.all_settings`, so reaching for it at the top would close the loop.
     from manager.games import view_control
+    from manager.workbench import all_settings
 
     held = list(found.get("launchers") or [])
     apps_known = list(found.get("apps") or [])
-    playing = {"now": await offload.io(workbench._playing, library)}
+    playing = {"now": await offload.io(all_settings._playing, library)}
     built = rows(held, dict(found.get("defaults") or {}), dict(found.get("tables") or {}))
     fields = [definition["field"] for definition in COLUMNS]
 
     async def playing_now() -> None:
-        playing["now"] = await offload.io(workbench._playing, library)
+        playing["now"] = await offload.io(all_settings._playing, library)
 
     with body:
         with ui.row().classes("w-full items-center gap-2 px-3 py-2 mb-2 shrink-0 "
@@ -587,13 +587,13 @@ def copy_verbs(library: Library, launchers: list[dict],
 
     `playing` is what the caller knew when it drew the menu; a menu outlives it, so the
     click asks again."""
-    from manager import workbench
+    from manager.workbench import all_settings
 
     def guarded(act: Callable[[dict, str, bool], Awaitable[Any]]) -> Callable[[], Any]:
         @on_page
         async def run_it() -> None:
-            if await offload.io(workbench._playing, library):
-                ui.notify(t(workbench.PLAYING_NOTE), caption=t(workbench.PLAYING_WHY),
+            if await offload.io(all_settings._playing, library):
+                ui.notify(t(all_settings.PLAYING_NOTE), caption=t(all_settings.PLAYING_WHY),
                           type="warning")
                 return
             for index, launcher in enumerate(launchers, 1):
@@ -616,7 +616,7 @@ def copy_verbs(library: Library, launchers: list[dict],
             str(launcher.get("display_name") or launcher_id), after, place=place,
             walking=walking)
 
-    hint = t(workbench.PLAYING_NOTE) if playing else ""
+    hint = t(all_settings.PLAYING_NOTE) if playing else ""
     return [panel.Verb(t("manager.backups.back_up_title"),
                        None if playing else guarded(take), hint=hint),
             panel.Verb(t("manager.backups.restore_dialog"),

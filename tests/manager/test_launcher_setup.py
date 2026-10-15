@@ -6,8 +6,14 @@ import unittest
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
-from manager import launchers, workbench
+from nicegui import run
+
+from manager import launchers
+from manager import settings as settings_page
+from manager.kit import panel
+from manager.workbench import launcher
 from tests.support.clicks import press
+from tests.support.workbench_patch import patch_workbench
 
 LAUNCHER = {"launcher_id": "wide", "display_name": "VPX (4K)", "app_name": "Visual Pinball X",
             "app": "vpx", "enabled": True, "settings": {}, "fields": []}
@@ -33,13 +39,13 @@ class Details:
             "state": {"recheck_trouble": self.recheck, "refresh_launchers": self.refresh}}
 
     async def __aenter__(self) -> Details:
-        self._patches = [patch.object(workbench, "ui"), patch.object(workbench, "_rows"),
-                         patch.object(workbench.run, "io_bound", new=self.put),
-                         patch.object(workbench.panel, "field"),
-                         patch.object(workbench.panel, "switch"),
-                         patch.object(workbench.settings_page, "control_for")]
+        self._patches = [patch_workbench("ui"), patch_workbench("_rows"),
+                         patch.object(run, "io_bound", new=self.put),
+                         patch.object(panel, "field"),
+                         patch.object(panel, "switch"),
+                         patch.object(settings_page, "control_for")]
         _, _, _, field, switch, _ = [one.start() for one in self._patches]
-        await workbench._launcher_details(self.context)
+        await launcher._launcher_details(self.context)
         self.rename = field.call_args.args[1]
         self.default, self.enabled = switch.call_args_list[:2]
         self.flip = self.enabled.args[1]

@@ -8,8 +8,9 @@ from common import apps
 from common.games import asset_origin, asset_registry
 from common.i18n import t
 from common.labels import field_label
-from manager import games, tageditor, workbench
+from manager import games, tageditor
 from manager.kit import data, game_tables, media_ownership, play_facts, stars, table_features, views
+from manager.workbench import game_assets, rail
 
 
 class BuiltinViewTests(unittest.TestCase):
@@ -92,7 +93,7 @@ class UnmatchedColumnTests(unittest.TestCase):
     def test_the_column_click_opens_a_section_that_exists(self) -> None:
         """The click is only worth taking if it lands somewhere - a section key that
         no longer exists would quietly do nothing."""
-        known = {item.key for item in workbench.SECTIONS}
+        known = {item.key for item in rail.SECTIONS}
 
         for field, section in games.COLUMN_SECTIONS.items():
             with self.subTest(column=field):
@@ -110,7 +111,7 @@ class AssetSectionTests(unittest.TestCase):
     def test_the_count_matches_the_rows_drawn(self) -> None:
         """The folder reports a backglass the table resolves too, and the body skips
         what the table already answered - so counting both said four over two rows."""
-        label = workbench._assets_label(self._context(
+        label = game_assets._assets_label(self._context(
             {"backglass": {"resolution": "dedicated"},
              "ini": {"resolution": "shared"},
              "script": {"resolution": "none"}},
@@ -120,7 +121,7 @@ class AssetSectionTests(unittest.TestCase):
         self.assertEqual(label, "Assets (3)")
 
     def test_nothing_here_says_so_without_a_number(self) -> None:
-        label = workbench._assets_label(self._context(
+        label = game_assets._assets_label(self._context(
             {"backglass": {"resolution": "none"}}, {"music": {"present": False}}))
 
         self.assertEqual(label, "Assets")
@@ -437,7 +438,7 @@ class TagRowTests(unittest.TestCase):
 
     def test_a_tag_panel_is_details_and_games(self) -> None:
         self.assertEqual(["tag_details", "tag_games"],
-                         [item.key for item in workbench.sections_for("tag")])
+                         [item.key for item in rail.sections_for("tag")])
 
 
 class StaleViewTests(unittest.TestCase):

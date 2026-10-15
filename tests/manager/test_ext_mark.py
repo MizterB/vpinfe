@@ -9,9 +9,10 @@ from typing import Any
 from nicegui import ui
 
 from common.security import accepted
-from manager import community, ext_groups, ext_mark, ext_page, ext_verbs, needs, sections, workbench
+from manager import community, ext_groups, ext_mark, ext_page, ext_verbs, needs, sections
 from manager import page as app_page
 from manager.kit import panel
+from manager.workbench import core, rail
 
 _PAGE = ui.element()
 
@@ -95,8 +96,8 @@ class InAPanel(unittest.TestCase):
 
     def test_a_group_row_carries_a_mark_only_for_an_extension_that_was_found(self) -> None:
         group = {"key": "g", "title": "Tally"}
-        self.assertIsNotNone(workbench._group_row("g", _found(), group).mark)
-        self.assertIsNone(workbench._group_row("g", _found(accepted.SHIPPED), group).mark)
+        self.assertIsNotNone(rail._group_row("g", _found(), group).mark)
+        self.assertIsNone(rail._group_row("g", _found(accepted.SHIPPED), group).mark)
 
     def test_a_chip_with_a_glyph_draws_it_and_one_without_draws_none(self) -> None:
         with _PAGE:
@@ -160,11 +161,11 @@ class InAFactList(unittest.TestCase):
 class InASectionRow(unittest.TestCase):
     def test_the_row_draws_the_mark_the_section_carries(self) -> None:
         drawn: list[str] = []
-        section = workbench.Section("tally", lambda context: "Tally", _nothing_built,
+        section = core.Section("tally", lambda context: "Tally", _nothing_built,
                                     mark=lambda: drawn.append("mark"))
         context: dict[str, Any] = {"redraws": []}
         with _PAGE:
-            workbench._section_row(context, section, False)
+            core._section_row(context, section, False)
         self.assertEqual(drawn, ["mark"])
 
 

@@ -943,7 +943,7 @@ class GamePicker(dropdown.Select):
 class SettingPicker(dropdown.Select):
     """One setting, typed into, each option with its area under it and a heading above
     the option in `headings` that starts a run. An option's `also` is its key, for
-    `workbench._ADD_BOX`'s filter.
+    `workbench.core._ADD_BOX`'s filter.
 
     A heading is an option of its own with an empty label, so anything typed filters it
     out: a heading left above a filtered list would claim a run that is no longer whole."""

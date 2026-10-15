@@ -8,10 +8,11 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
-from nicegui import ui
+from nicegui import run, ui
 
-from manager import workbench
+from manager.workbench import all_settings
 from tests.support.clicks import press
+from tests.support.workbench_patch import patch_workbench
 
 _PAGE = ui.element()
 
@@ -29,12 +30,12 @@ RESET = {"Player.Speed": {"value": "1", "scope": "", "set_here": False},
 
 class ResetInPlace(unittest.IsolatedAsyncioTestCase):
     async def _drawn(self, reads: list[Any]) -> tuple[ui.element, Any, Mock, list[Any]]:
-        self.reads = self.enterContext(patch.object(
-            workbench, "_config_values", new=AsyncMock(side_effect=reads)))
-        self.enterContext(patch.object(workbench, "_set_by_tables",
+        self.reads = self.enterContext(
+            patch_workbench("_config_values", new=AsyncMock(side_effect=reads)))
+        self.enterContext(patch_workbench("_set_by_tables",
                                        new=AsyncMock(return_value=[])))
         self.enterContext(patch.object(
-            workbench.run, "io_bound",
+            run, "io_bound",
             new=AsyncMock(side_effect=lambda call, *args, **kwargs: call(*args, **kwargs))))
         self.rebuild = AsyncMock()
 
@@ -45,20 +46,20 @@ class ResetInPlace(unittest.IsolatedAsyncioTestCase):
             self.kept.append(in_place)
             await rebuild()
 
-        self.enterContext(patch.object(workbench, "_keeping_place", new=keeping))
+        self.enterContext(patch_workbench("_keeping_place", new=keeping))
         asked: list[dict[str, Any]] = []
-        real = workbench._marked
+        real = all_settings._marked
 
         def marked(*args: Any, **kwargs: Any) -> Any:
             asked.append(kwargs)
             return real(*args, **kwargs)
 
-        self.enterContext(patch.object(workbench, "_marked", new=marked))
+        self.enterContext(patch_workbench("_marked", new=marked))
         write = Mock(return_value={})
         context = {"library": Mock(), "launcher": {"launcher_id": "probe", "app_name": "App"},
                    "config_scope": "launcher", "rebuild": self.rebuild, "config_write": write,
                    "followers": []}
-        entries = await workbench._setting_entries(context, [("", "", [FIELD, OTHER])])
+        entries = await all_settings._setting_entries(context, [("", "", [FIELD, OTHER])])
         with _PAGE:
             holder = ui.element()
             with holder:
@@ -111,8 +112,8 @@ class WhatMoved(unittest.TestCase):
         before = {"a": {"value": "1"}, "b": {"value": "2"}, "c": {"value": "3"}}
         after = {"a": {"value": ""}, "b": {"value": ""}, "c": {"value": "3"}}
 
-        self.assertFalse(workbench._moved(before, after, ["a", "b"]))
-        self.assertTrue(workbench._moved(before, after, "a"))
+        self.assertFalse(all_settings._moved(before, after, ["a", "b"]))
+        self.assertTrue(all_settings._moved(before, after, "a"))
 
 
 if __name__ == "__main__":

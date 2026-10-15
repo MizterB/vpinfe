@@ -9,7 +9,7 @@ from common.i18n import t
 from common.labels import field_label
 from manager.kit import panel
 from manager.kit.play_facts import score_lines
-from manager.workbench import _high_score_rows
+from manager.workbench.game_play import _high_score_rows
 from tests.games.test_high_scores import CHAMPION_AND_RANKED, MULTILINE, ONE_NUMBER
 
 

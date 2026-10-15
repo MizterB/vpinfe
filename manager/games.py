@@ -18,7 +18,7 @@ from common.games import asset_registry
 from common.i18n import t
 from common.labels import humanize
 from common.media.media_specs import media_label_map
-from manager import collection_adds, game_acts, mediaview, row_drag, sections, workbench
+from manager import collection_adds, game_acts, mediaview, row_drag, sections
 from manager import settings as settings_page
 from manager.kit import (
     art,
@@ -41,6 +41,7 @@ from manager.kit import (
 )
 from manager.kit import dialog as frame
 from manager.kit.on_page import on_page
+from manager.workbench import all_settings
 
 logger = logging.getLogger("vpinfe.manager.games")
 
@@ -1233,7 +1234,7 @@ def own_setting_names(groups: Mapping[str, list]) -> dict[str, str]:
     """What each Own Settings chip says, by what a row lists: each launcher's settings
     by name, and a saved camera as the Settings column says it."""
     return {**{key: said for held in groups.values()
-               for key, said in workbench.setting_names(held).items()},
+               for key, said in all_settings.setting_names(held).items()},
             _POINT_OF_VIEW: t("asset.kind.pov.label")}
 
 

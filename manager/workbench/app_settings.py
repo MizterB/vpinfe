@@ -21,11 +21,12 @@ from nicegui import ui
 
 from common.failures import why
 from common.i18n import t
-from manager import workbench
 from manager.kit import confirm, offload, panel, undo, verbs
 from manager.kit import dialog as frame
 from manager.kit.data import config_groups
 from manager.kit.on_page import on_page
+from manager.workbench import all_settings, core
+from manager.workbench import launcher as wb_launcher
 
 SCOPE_ENTRY = "entry"
 SCOPE_LAUNCHER = "launcher"
@@ -73,7 +74,7 @@ async def section(context: dict[str, Any]) -> None:
     table = next((one for one in context["tables"] if one.get("id") == context["lens"]),
                  None)
     entries = ([(panel.HEADING, t("manager.workbench.launcher")),
-                *workbench.launcher_rows(context, table),
+                *wb_launcher.launcher_rows(context, table),
                 *await _program_entries(context, table)]
                if table is not None else [])
     with ui.column().classes("gap-0 manager-form"):
@@ -81,7 +82,7 @@ async def section(context: dict[str, Any]) -> None:
             ui.label(t("manager.workbench.none_selected")).classes("manager-help")
             return
         panel.facts(ui, entries)
-    ui.run_javascript(workbench._KEEP_SCROLL
+    ui.run_javascript(core._KEEP_SCROLL
                       % f"settings:{table.get('id') or ''}".replace("'", "\\'"))
     if said := context["state"].pop(ADDED_NOW, None):
         ui.run_javascript(_SHOW_ADDED % json.dumps(said))
@@ -106,7 +107,7 @@ async def selection_section(context: dict[str, Any]) -> None:
     body.clear()
     with body:
         panel.facts(ui, entries)
-    ui.run_javascript(workbench._KEEP_SCROLL % "settings:selection")
+    ui.run_javascript(core._KEEP_SCROLL % "settings:selection")
     if said := context["state"].pop(ADDED_NOW, None):
         ui.run_javascript(_SHOW_ADDED % json.dumps(said))
 
@@ -140,7 +141,7 @@ async def _selection_entries(context: dict[str, Any],
         return [heading, panel.intro(t("manager.app_settings.no_config"))]
     entries: list[tuple[Any, Any]] = [(panel.HEADING, t(
         "manager.app_settings.tables_title", app=launcher.get("app_name") or ""))]
-    if note := workbench._program_note(launcher):
+    if note := all_settings._program_note(launcher):
         return [*entries, panel.intro(note)]
     library = context["library"]
     shared = [{"table": table, "launcher_id": str((_runs(context, table) or {})
@@ -155,7 +156,7 @@ async def _selection_entries(context: dict[str, Any],
     inner: dict[str, Any] = {
         "library": library, "launcher": launcher, "config_groups": groups,
         "config_scope": SCOPE_ENTRY, "config_table": str(tables[0].get("id") or ""),
-        "playing": await offload.io(workbench._playing, library),
+        "playing": await offload.io(all_settings._playing, library),
         "state": context["state"], "rebuild": context["rebuild"], "tables": tables,
         "shared": shared, "by_value": True,
         "config_read": partial(as_one, library, shared, groups),
@@ -179,7 +180,7 @@ async def _selection_entries(context: dict[str, Any],
         entries.append(panel.intro(t("manager.app_settings.no_override")))
     if view is not None:
         blocks.append((view.label, view.rows))
-    entries += await workbench._setting_entries(
+    entries += await all_settings._setting_entries(
         inner, [(label, "", fields) for label, fields in blocks], curated=True, sub=True,
         pairs=named_pairs(groups))
     remove = partial(_remove, inner)
@@ -257,7 +258,7 @@ async def _program_entries(context: dict[str, Any],
     library = context["library"]
     entries: list[tuple[Any, Any]] = [(panel.HEADING, t(
         "manager.app_settings.table_title", app=launcher.get("app_name") or ""))]
-    if note := workbench._program_note(launcher):
+    if note := all_settings._program_note(launcher):
         return [*entries, panel.intro(note)]
     table_id = str(table.get("id") or "")
     try:
@@ -271,7 +272,7 @@ async def _program_entries(context: dict[str, Any],
     inner: dict[str, Any] = {
         "library": library, "launcher": launcher, "config_groups": groups,
         "config_values": values, "config_scope": SCOPE_ENTRY, "config_table": table_id,
-        "playing": await offload.io(workbench._playing, library),
+        "playing": await offload.io(all_settings._playing, library),
         "state": context["state"], "rebuild": context["rebuild"],
         "saved": context.get("saved"),
     }
@@ -296,7 +297,7 @@ async def _program_entries(context: dict[str, Any],
         entries.append(panel.intro(t("manager.app_settings.no_override")))
     if view is not None:
         blocks.append((view.label, view.rows))
-    entries += await workbench._setting_entries(
+    entries += await all_settings._setting_entries(
         inner, [(label, "", fields) for label, fields in blocks], curated=True, sub=True,
         pairs=named_pairs(groups))
     remove = partial(_remove, inner)
@@ -319,7 +320,7 @@ def differences(groups: Sequence[Any], values: dict[str, Any],
     added, by area: the rows an area curates first, in its order, then the rest in the
     program's. A plugin's rows lead with the plugin's name, which is all that tells five
     Enables apart, and a window's rows lead with the window's."""
-    names = workbench._plugin_names(groups)
+    names = all_settings._plugin_names(groups)
     found = []
     for group in groups:
         if group.summarized or getattr(group, "read_only", False):
@@ -350,7 +351,7 @@ def _whole(group: Any, keys: set[str]) -> set[str]:
 def named_pairs(groups: Sequence[Any]) -> list[Any]:
     """Each pair, named as it is away from its heading: by its plugin, or by its window
     where the heading has a name."""
-    names = workbench._plugin_names(groups)
+    names = all_settings._plugin_names(groups)
     found = []
     for group in groups:
         for heading in group.curated:
@@ -361,9 +362,9 @@ def named_pairs(groups: Sequence[Any]) -> list[Any]:
 
 
 def _pair_name(heading: Any, pair: Any, names: dict[str, str]) -> str:
-    section = workbench._section_of(pair.keys[0])
-    if section.startswith(workbench.PLUGIN_SECTION):
-        return workbench.plugin_row(section, pair.label, names)
+    section = all_settings._section_of(pair.keys[0])
+    if section.startswith(all_settings.PLUGIN_SECTION):
+        return all_settings.plugin_row(section, pair.label, names)
     if heading.label:
         return t("manager.app_settings.window_row", window=heading.label, label=pair.label)
     return pair.label
@@ -391,7 +392,7 @@ def addable(groups: Sequence[Any], values: dict[str, Any],
     """What this table could be given a value of its own for and is not showing yet, each
     with its area: the settings commonly set per table first, then the rest. Of the point
     of view, only the view modes it would draw."""
-    names = workbench._plugin_names(groups)
+    names = all_settings._plugin_names(groups)
     pairs = {pair.keys[0]: pair for pair in named_pairs(groups)}
     first: list[tuple[Any, str]] = []
     rest: list[tuple[Any, str]] = []
@@ -441,13 +442,13 @@ def _add_picker(context: dict[str, Any], added: list[str],
         await context["rebuild"]()
 
     picker.on_value_change(pick)
-    ui.run_javascript(workbench._ADD_BOX % (picker.id, "false"))
+    ui.run_javascript(core._ADD_BOX % (picker.id, "false"))
 
 
 def _named(field: Any, group: Any, names: dict[str, str]) -> Any:
-    section = workbench._section_of(field.key)
-    if section.startswith(workbench.PLUGIN_SECTION):
-        label = workbench.plugin_row(section, field.label, names)
+    section = all_settings._section_of(field.key)
+    if section.startswith(all_settings.PLUGIN_SECTION):
+        label = all_settings.plugin_row(section, field.label, names)
     elif window := _window_of(field.key, group):
         label = t("manager.app_settings.window_row", window=window, label=field.label)
     else:
@@ -464,8 +465,8 @@ def _window_of(key: str, group: Any) -> str:
         names = [one.rsplit(".", 1)[-1] for one in heading.keys]
         stem = os.path.commonprefix(names)
         if (len(names) > 1 and stem and key.rsplit(".", 1)[-1].startswith(stem)
-                and {workbench._section_of(one) for one in heading.keys}
-                == {workbench._section_of(key)}):
+                and {all_settings._section_of(one) for one in heading.keys}
+                == {all_settings._section_of(key)}):
             return str(heading.label)
     return ""
 
@@ -530,7 +531,7 @@ def _option_entries(options: tuple[str, list[Any]], values: dict[str, Any],
                     ) -> list[tuple[Any, Any]]:
     """Each as the file holds it, with Reset where the table holds it, and Reset All."""
     label, fields = options
-    entries: list[tuple[Any, Any]] = [(panel.FULL, partial(workbench._subheading, label))]
+    entries: list[tuple[Any, Any]] = [(panel.FULL, partial(all_settings._subheading, label))]
     own = []
     for field in fields:
         held = values.get(field.key) or {}
@@ -542,7 +543,7 @@ def _option_entries(options: tuple[str, list[Any]], values: dict[str, Any],
                 t("word.reset"), partial(remove, [field.key]),
                 _hint_with(t("manager.app_settings.option_reset.help"), back([field.key])),
                 playing)))
-        elif mark := workbench._config_mark(held, SCOPE_ENTRY, field):
+        elif mark := all_settings._config_mark(held, SCOPE_ENTRY, field):
             entries.append((panel.ASIDE, mark))
     if len(own) > 1:
         entries.append((panel.FULL, _reset(
@@ -587,7 +588,7 @@ def _reset(label: str, on_click: Callable[[], Any], hint: str, playing: bool, *,
            inline: bool = True) -> Callable[[], None]:
     return panel.action(label, on_click, icon=verbs.RESET, inline=inline,
                         enabled=not playing,
-                        hint=t(workbench.PLAYING_NOTE) if playing else hint)
+                        hint=t(all_settings.PLAYING_NOTE) if playing else hint)
 
 
 @on_page
@@ -596,7 +597,7 @@ async def _remove(inner: dict[str, Any], keys: list[str]) -> None:
     blank = dict.fromkeys(keys, "")
     try:
         if (write := inner.get("config_write")) is not None:
-            wrote = await workbench.config_applied(write, blank)
+            wrote = await all_settings.config_applied(write, blank)
         else:
             wrote = await offload.io(inner["library"].write_launcher_config,
                                      inner["launcher"]["launcher_id"], blank,
@@ -615,7 +616,7 @@ async def _every_setting(context: dict[str, Any], table: dict[str, Any],
     out, since anything here may have changed what it lists."""
     count = len(context.get("tables") or []) or 1
     title = title_for(str((context.get("game") or {}).get("name") or ""),
-                      workbench._table_line(table),
+                      core._table_line(table),
                       str(inner["launcher"].get("display_name") or ""), count)
     await _every(context, inner, title)
 
@@ -631,7 +632,7 @@ async def _every(context: dict[str, Any], inner: dict[str, Any], title: str) -> 
             every.pop("config_values", None)
             body.clear()
             with body:
-                await workbench._all_settings(every)
+                await all_settings._all_settings(every)
 
         every["rebuild"] = redraw
         if (more := inner.get("config_more")) is not None:
@@ -653,7 +654,7 @@ def _from_game_entries(inner: dict[str, Any], reach: dict[str, str]) -> list[tup
                 t("manager.app_settings.copy_from_game"),
                 partial(_copy_from_game, inner, reach), icon=verbs.COPY,
                 enabled=not playing,
-                hint=t(workbench.PLAYING_NOTE) if playing
+                hint=t(all_settings.PLAYING_NOTE) if playing
                 else t("manager.app_settings.copy_from_game.help")))]
 
 
@@ -667,7 +668,7 @@ def _follows_game_entries(inner: dict[str, Any],
                 t("manager.app_settings.copy_from_game"),
                 partial(_copy_from_game, inner, reach), icon=verbs.COPY,
                 enabled=not playing,
-                hint=t(workbench.PLAYING_NOTE) if playing
+                hint=t(all_settings.PLAYING_NOTE) if playing
                 else t("manager.app_settings.copy_from_game.follows_help")))]
 
 
@@ -733,7 +734,7 @@ def already_uses(other: dict[str, Any], field: Any, value: str, shares_here: boo
     if shares_here and other.get("reads_game"):
         return True
     held = (other.get("values") or {}).get(field.key) or {}
-    return workbench._same_value(field, str(held.get("value") or ""), value)
+    return all_settings._same_value(field, str(held.get("value") or ""), value)
 
 
 @dataclass
@@ -779,7 +780,7 @@ class ForAll:
             partial(_set_for_all, self.inner, self.others, own, self.shares_here,
                     self.tables, self.rebuild),
             icon=verbs.SHARE, inline=True, enabled=not playing,
-            hint=t(workbench.PLAYING_NOTE) if playing
+            hint=t(all_settings.PLAYING_NOTE) if playing
             else t("manager.app_settings.apply_all.help"))
 
 
@@ -821,7 +822,7 @@ def as_one(library: Any, targets: list[dict[str, Any]],
         merged.update(set_here=bool(setting),
                       in_effect=all(one.get("in_effect", True) for one in setting),
                       each=each)
-        if any(not workbench._same_value(field, each[0][1], value) for _, value in each):
+        if any(not all_settings._same_value(field, each[0][1], value) for _, value in each):
             merged.update(varies=True, value="")
         found[key] = merged
     return found
@@ -937,8 +938,8 @@ async def _set_for_all(inner: dict[str, Any], others: list[dict[str, Any]],
         ui.notify(t("manager.app_settings.apply_done", count=len(others) + 1),
                   type="positive")
         if cut:
-            workbench.no_longer_reads_game(cut, tables)
-    await workbench._keeping_place(ui.context.client, rebuild, own[0][0].key)
+            all_settings.no_longer_reads_game(cut, tables)
+    await all_settings._keeping_place(ui.context.client, rebuild, own[0][0].key)
 
 
 @dataclass
@@ -974,7 +975,7 @@ class MoveToAll:
         launchers = sorted({str(one["launcher_id"]) for one in self.inner["shared"]})
         playing = bool(self.inner.get("playing"))
         if playing:
-            hint = t(workbench.PLAYING_NOTE)
+            hint = t(all_settings.PLAYING_NOTE)
         elif len(launchers) > 1:
             hint = t("manager.app_settings.move_all.launchers", count=len(launchers))
         else:
@@ -1011,7 +1012,7 @@ async def _move_to_all(inner: dict[str, Any], own: Sequence[tuple[Any, str]],
                     and not wanted <= set(row.get("launcher_settings_keys") or ()))
     held = found.get("values") or {}
     if all((held.get(field.key) or {}).get("set_here")
-           and workbench._same_value(field, str(held[field.key].get("value") or ""), value)
+           and all_settings._same_value(field, str(held[field.key].get("value") or ""), value)
            for field, value in own):
         following = 0
     detail = [t("manager.app_settings.move_all.stop" if setting == len(inner["shared"])
@@ -1032,7 +1033,7 @@ async def _move_to_all(inner: dict[str, Any], own: Sequence[tuple[Any, str]],
                          {field.key: value for field, value in own})
     except Exception as exc:  # noqa: BLE001 - said, never raised into the page
         ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
-        await workbench._keeping_place(ui.context.client, rebuild, keys[0])
+        await all_settings._keeping_place(ui.context.client, rebuild, keys[0])
         return
     try:
         wrote = await write_selection(library, inner["state"], inner["shared"],
@@ -1048,7 +1049,7 @@ async def _move_to_all(inner: dict[str, Any], own: Sequence[tuple[Any, str]],
     else:
         with contextlib.suppress(Exception):
             await offload.io(library.write_launcher_config, launcher_id, before)
-    await workbench._keeping_place(ui.context.client, rebuild, keys[0])
+    await all_settings._keeping_place(ui.context.client, rebuild, keys[0])
 
 
 def _move_label(groups: Sequence[Any], own: Sequence[tuple[Any, str]]) -> str:

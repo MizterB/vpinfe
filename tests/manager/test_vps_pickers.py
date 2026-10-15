@@ -10,7 +10,7 @@ from typing import Any
 from unittest.mock import Mock, patch
 
 from common.i18n import t
-from manager import workbench
+from manager.workbench import game_match
 
 NONE_LISTED = "none listed"
 RECORDS = [{"vps_file_id": "topper_1", "version": "1.0"}]
@@ -38,19 +38,19 @@ class PickerListTests(unittest.IsolatedAsyncioTestCase):
     async def test_a_list_is_shown_with_nothing_in_its_place(self) -> None:
         context = _context()
 
-        listed = await workbench._listed_by_vps(context, NONE_LISTED, "topperFiles")
+        listed = await game_match._listed_by_vps(context, NONE_LISTED, "topperFiles")
 
         self.assertEqual((RECORDS, "", ""), listed)
         context["library"].vps_releases.assert_called_once_with("mm_1997x", "topperFiles")
         self.assertIn(context["library"].vps_releases, self.offloaded)
 
     async def test_vps_listing_none_says_so(self) -> None:
-        listed = await workbench._listed_by_vps(_context(records=[]), NONE_LISTED)
+        listed = await game_match._listed_by_vps(_context(records=[]), NONE_LISTED)
 
         self.assertEqual(([], NONE_LISTED, ""), listed)
 
     async def test_no_catalog_is_not_vps_listing_none(self) -> None:
-        listed = await workbench._listed_by_vps(_context(records=[], held=False),
+        listed = await game_match._listed_by_vps(_context(records=[], held=False),
                                                 NONE_LISTED)
 
         self.assertEqual(([], t("manager.workbench.no_vps_data"), ""), listed)
@@ -63,7 +63,7 @@ class PickerListTests(unittest.IsolatedAsyncioTestCase):
                     "read timed out")
 
                 with self.assertLogs("vpinfe.manager.workbench", level="WARNING"):
-                    listed = await workbench._listed_by_vps(context, NONE_LISTED)
+                    listed = await game_match._listed_by_vps(context, NONE_LISTED)
 
                 self.assertEqual(
                     ([], t("manager.workbench.vps_failed"),
@@ -73,7 +73,7 @@ class PickerListTests(unittest.IsolatedAsyncioTestCase):
     async def test_a_game_with_no_vps_entry_asks_nothing_of_the_list(self) -> None:
         context = _context(vps_id="")
 
-        listed = await workbench._listed_by_vps(context, NONE_LISTED)
+        listed = await game_match._listed_by_vps(context, NONE_LISTED)
 
         self.assertEqual(([], NONE_LISTED, ""), listed)
         context["library"].vps_releases.assert_not_called()

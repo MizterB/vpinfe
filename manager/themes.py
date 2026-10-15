@@ -197,8 +197,8 @@ def build(library: Library, state: dict[str, Any],
 async def _fill(library: Library, state: dict[str, Any],
                 on_select: Callable[[dict | None], Any], redraw: Callable[[], None],
                 body: Any, refresh: bool) -> None:
-    # Deferred: `games` imports `workbench`, and `workbench` imports this module for its
-    # sections.
+    # Deferred: `games` imports `workbench.all_settings`, and `workbench.rail` imports this
+    # module for its sections.
     from .games import view_control
 
     try:

@@ -11,11 +11,12 @@ from nicegui import ui
 from common.failures import why
 from common.games import asset_lens
 from common.i18n import t
-from manager import text_editor, workbench
+from manager import text_editor
 from manager.kit import appearance, offload, report_groups
 from manager.kit import panel as panel_parts
 from manager.kit.api import ApiClient
 from manager.kit.data import Library
+from manager.workbench import file
 
 
 @ui.page(text_editor.ADDRESS, title=t("manager.edit.page_title"), reconnect_timeout=300)
@@ -37,7 +38,7 @@ async def edit_page(game: str = "", kind: str = "", path: str = "") -> None:
                 raise ValueError(t("manager.edit.not_text"))
             owner = await offload.io(client.game, game)
             found = await offload.io(library.asset_text, game, path)
-            locked, help_ = await workbench.text_lock(library, kind, found)
+            locked, help_ = await file.text_lock(library, kind, found)
         except Exception as exc:  # noqa: BLE001 - the reason belongs on screen
             ui.label(t("manager.edit.unavailable")).classes("manager-dialog-title")
             ui.notify(t("manager.edit.unavailable"), caption=why(exc), type="negative")

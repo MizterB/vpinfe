@@ -125,23 +125,32 @@ def draws(trees_by_module: dict[str, ast.Module], module: str, name: str) -> set
     return found - {"layout"}
 
 
+def _workbench_modules() -> list[str]:
+    return sorted(path.stem for path in (MANAGER / "workbench").glob("*.py")
+                  if path.stem != "__init__")
+
+
 def _builders(trees_by_module: dict[str, ast.Module]) -> dict[str, list[tuple[str, str]]]:
     """Each rail section's key, with the functions that build it. The workbench's `SECTIONS`
     names them; an account section is built by `players._account`, outside that list."""
-    imports = _imports(trees_by_module["workbench"])
     built: dict[str, list[tuple[str, str]]] = {}
-    for node in ast.walk(trees_by_module["workbench"]):
-        if not (isinstance(node, ast.Call) and getattr(node.func, "id", "") == "Section"
-                and len(node.args) > 2):
-            continue
-        refs: list[tuple[str, str]] = []
-        for ref in ast.walk(node.args[2]):
-            if isinstance(ref, ast.Name):
-                refs.append(("workbench", ref.id))
-            elif (isinstance(ref, ast.Attribute) and isinstance(ref.value, ast.Name)
-                  and ref.value.id in imports and imports[ref.value.id][1] is None):
-                refs.append((imports[ref.value.id][0], ref.attr))
-        built[ast.unparse(node.args[0])] = refs
+    for module in _workbench_modules():
+        tree = trees_by_module[module]
+        imports = _imports(tree)
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Call) and getattr(node.func, "id", "") == "Section"
+                    and len(node.args) > 2):
+                continue
+            refs: list[tuple[str, str]] = []
+            for ref in ast.walk(node.args[2]):
+                if isinstance(ref, ast.Name):
+                    found = imports.get(ref.id)
+                    refs.append((found[0], found[1] or ref.id) if found and found[1]
+                                else (module, ref.id))
+                elif (isinstance(ref, ast.Attribute) and isinstance(ref.value, ast.Name)
+                      and ref.value.id in imports and imports[ref.value.id][1] is None):
+                    refs.append((imports[ref.value.id][0], ref.attr))
+            built[ast.unparse(node.args[0])] = refs
     built["player_account"] = [("players", "_account")]
     return built
 
@@ -151,7 +160,7 @@ def _manager_trees() -> dict[str, ast.Module]:
 
 
 def _subject_verbs() -> set[str]:
-    for node in _tree(MANAGER / "workbench.py").body:
+    for node in _tree(MANAGER / "workbench" / "subject_verbs.py").body:
         target = getattr(node, "target", None)
         value = getattr(node, "value", None)
         if isinstance(target, ast.Name) and target.id == "SUBJECT_VERBS" \
@@ -205,7 +214,8 @@ class TestActionsSitWithTheirSubject(unittest.TestCase):
 
     def test_no_section_key_is_an_actions_bucket(self) -> None:
         keys = [node.args[0].value
-                for node in ast.walk(_tree(MANAGER / "workbench.py"))
+                for module in _workbench_modules()
+                for node in ast.walk(_tree(MANAGER / "workbench" / f"{module}.py"))
                 if isinstance(node, ast.Call) and getattr(node.func, "id", "") == "Section"
                 and node.args and isinstance(node.args[0], ast.Constant)
                 and isinstance(node.args[0].value, str)]

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from manager import workbench
+from manager.workbench import game_match
 
 
 class TheNoteOnALinkedMod(unittest.TestCase):
@@ -12,12 +12,12 @@ class TheNoteOnALinkedMod(unittest.TestCase):
         for release in ({"comment": " Brighter inserts ", "mod_of": {"vps_file_id": "x"}},
                         {"comment": " Brighter inserts ", "features": ["MOD"]}):
             with self.subTest(release=release):
-                self.assertEqual(("Brighter inserts",), workbench._mod_note(release))
+                self.assertEqual(("Brighter inserts",), game_match._mod_note(release))
 
     def test_a_plain_release_and_a_mod_without_a_note_show_none(self) -> None:
-        self.assertEqual((), workbench._mod_note({"comment": "Final release"}))
-        self.assertEqual((), workbench._mod_note({"comment": " ", "features": ["MOD"]}))
-        self.assertEqual((), workbench._mod_note({}))
+        self.assertEqual((), game_match._mod_note({"comment": "Final release"}))
+        self.assertEqual((), game_match._mod_note({"comment": " ", "features": ["MOD"]}))
+        self.assertEqual((), game_match._mod_note({}))
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ from collections import Counter
 from typing import Any, cast
 from unittest.mock import AsyncMock, patch
 
-from manager import selection_marks as marks
+from manager.workbench import selection_marks as marks
 
 
 def _table(table_id: str, game_id: str = "g1", **fields: object) -> dict:

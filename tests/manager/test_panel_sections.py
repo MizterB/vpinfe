@@ -6,8 +6,8 @@ from typing import Any
 from nicegui import ui
 
 from common.i18n import t
-from manager import workbench
 from manager.kit import game_tables
+from manager.workbench import core, game_match, game_play, game_table
 
 
 def _table(table_id: str, **extra: Any) -> dict[str, Any]:
@@ -30,7 +30,7 @@ def _groups(entries: list[tuple[Any, Any]]) -> list[tuple[str, list[str]]]:
     """Each heading, in order, with the labels of the rows under it."""
     groups: list[tuple[str, list[str]]] = [("", [])]
     for label, value in entries:
-        if label == workbench.HEADING:
+        if label == core.HEADING:
             groups.append((value, []))
         elif isinstance(label, str):
             groups[-1][1].append(label)
@@ -58,7 +58,7 @@ DOF_EVENT = t("manager.workbench.dof_event")
 class GameSectionTests(unittest.TestCase):
     def setUp(self) -> None:
         context = _context()
-        self.entries = workbench._game_entries(context, {}, [], held=False)
+        self.entries = game_table._game_entries(context, {}, [], held=False)
 
     def test_the_marks_sit_under_yours(self) -> None:
         self.assertEqual(_under(self.entries, YOURS), [GAME_RATING, FAVORITE, PRIVATE, TAGS])
@@ -79,7 +79,7 @@ class GameSectionTests(unittest.TestCase):
 class TableSectionTests(unittest.TestCase):
     def setUp(self) -> None:
         context = _context()
-        self.entries = workbench._table_entries(context["tables"][0], context)
+        self.entries = game_table._table_entries(context["tables"][0], context)
 
     def test_the_marks_sit_under_yours(self) -> None:
         """A table has no favorite of its own: the game carries it."""
@@ -103,7 +103,7 @@ class TableSectionTests(unittest.TestCase):
 
     def test_without_a_context_there_is_nothing_to_write_to(self) -> None:
         """The same facts drawn read-only elsewhere carry no marks."""
-        entries = workbench._table_entries(_context()["tables"][0])
+        entries = game_table._table_entries(_context()["tables"][0])
 
         self.assertNotIn(YOURS, _headings(entries))
 
@@ -111,7 +111,7 @@ class TableSectionTests(unittest.TestCase):
 def _radio(table: dict[str, Any]) -> tuple[ui.element, str]:
     """The radio a row draws, and its tooltip."""
     with ui.card() as card:
-        workbench._default_mark(_context(), table, several=True)
+        game_match._default_mark(_context(), table, several=True)
     radio, tip = card.default_slot.children
     assert isinstance(tip, ui.tooltip)
     return radio, tip.text
@@ -136,31 +136,31 @@ class DefaultRadioTests(unittest.TestCase):
 
 class PlaySectionTests(unittest.TestCase):
     def test_a_game_s_play_holds_no_marks(self) -> None:
-        labels = {label for _, labels in _groups(workbench._play_entries(_context()))
+        labels = {label for _, labels in _groups(game_play._play_entries(_context()))
                   for label in labels}
 
         self.assertFalse(labels & MARKS)
 
     def test_a_game_s_play_holds_only_its_record(self) -> None:
-        labels = {label for _, labels in _groups(workbench._play_entries(_context()))
+        labels = {label for _, labels in _groups(game_play._play_entries(_context()))
                   for label in labels}
 
         self.assertNotIn(DOF_EVENT, labels)
 
     def test_a_table_s_play_holds_no_marks(self) -> None:
-        entries = workbench._play_entries(_context(lens="beta"))
+        entries = game_play._play_entries(_context(lens="beta"))
         labels = {label for _, labels in _groups(entries) for label in labels}
 
         self.assertFalse(labels & MARKS)
 
     def test_a_table_s_play_holds_only_its_record(self) -> None:
-        entries = workbench._play_entries(_context(lens="beta"))
+        entries = game_play._play_entries(_context(lens="beta"))
         labels = {label for _, labels in _groups(entries) for label in labels}
 
         self.assertFalse(labels & {game_tables.DEFAULT_LABEL, t("word.hidden")})
 
     def test_a_table_s_play_shows_both_records(self) -> None:
-        entries = workbench._play_entries(_context(lens="beta"))
+        entries = game_play._play_entries(_context(lens="beta"))
 
         self.assertEqual(_headings(entries), [t("manager.workbench.game_section"),
                                               t("manager.workbench.table_section")])

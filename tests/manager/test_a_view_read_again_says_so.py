@@ -16,8 +16,10 @@ from unittest.mock import Mock, patch
 
 from nicegui import core, ui
 
-from manager import page, workbench
+from manager import page
 from manager.kit import busy
+from manager.workbench import builds
+from tests.support.workbench_patch import patch_workbench
 
 _PAGE = ui.element()
 OLD, NEW = "what was there", "what replaced it"
@@ -154,10 +156,10 @@ class ARailClick(unittest.IsolatedAsyncioTestCase):
 
 
 BUILDS: tuple[tuple[Callable[..., Any], str], ...] = (
-          (workbench.build, "_draw"), (workbench.build_collection, "_draw_collection"),
-          (workbench.build_tag, "_draw_tag"), (workbench.build_file, "_draw_file"),
-          (workbench.build_launcher, "_draw_launcher"),
-          (workbench.build_device, "_draw_device"), (workbench.build_theme, "_draw_theme"))
+          (builds.build, "_draw"), (builds.build_collection, "_draw_collection"),
+          (builds.build_tag, "_draw_tag"), (builds.build_file, "_draw_file"),
+          (builds.build_launcher, "_draw_launcher"),
+          (builds.build_device, "_draw_device"), (builds.build_theme, "_draw_theme"))
 
 
 class APaneBuild(unittest.IsolatedAsyncioTestCase):
@@ -175,7 +177,7 @@ class APaneBuild(unittest.IsolatedAsyncioTestCase):
         for build, draw in BUILDS:
             with self.subTest(build.__name__):
                 pane, gate, drawn = _region(), asyncio.Event(), list[str]()
-                with patch.object(workbench, draw, new=self._gated(pane, gate, drawn)):
+                with patch_workbench(draw, new=self._gated(pane, gate, drawn)):
                     building = asyncio.create_task(
                         build(pane, _region(), Mock(), "next", {}))
                     await asyncio.sleep(0)
@@ -195,10 +197,10 @@ class APaneBuild(unittest.IsolatedAsyncioTestCase):
         async def draw(*_args: Any) -> None:
             await self._gated(pane, next(gates), drawn)()
 
-        with patch.object(workbench, "_draw", new=draw):
-            one = asyncio.create_task(workbench.build(pane, _region(), Mock(), "a", state))
+        with patch_workbench("_draw", new=draw):
+            one = asyncio.create_task(builds.build(pane, _region(), Mock(), "a", state))
             await asyncio.sleep(0)
-            two = asyncio.create_task(workbench.build(pane, _region(), Mock(), "b", state))
+            two = asyncio.create_task(builds.build(pane, _region(), Mock(), "b", state))
             first.set()
             await one
 

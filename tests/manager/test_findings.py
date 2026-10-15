@@ -7,8 +7,9 @@ from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 from common.i18n import t
-from manager import workbench
-from manager.kit import game_tables
+from manager.kit import game_tables, panel
+from manager.workbench import core, game_table
+from tests.support.workbench_patch import patch_workbench
 
 
 async def _now(callback: Any, *args: Any, **kwargs: Any) -> Any:
@@ -36,18 +37,18 @@ class Findings(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         for patched in (
                 patch("manager.kit.offload.run.io_bound", new=_now),
-                patch.object(workbench.panel, "action",
+                patch.object(panel, "action",
                              new=lambda label, *_a, **_k: ("act", label)),
-                patch.object(workbench.panel, "link_out",
+                patch.object(panel, "link_out",
                              new=lambda label, *, to, **_k: ("link", label, to)),
-                patch.object(workbench, "_alert",
+                patch_workbench("_alert",
                              new=lambda line, act, said="": (line, act, said))):
             patched.start()
             self.addCleanup(patched.stop)
 
     async def _found(self, *tables: dict[str, Any]) -> list[tuple[Any, Any, str]]:
-        entries = await workbench._findings(_context(*tables), tables)
-        self.assertTrue(all(label == workbench.FULL for label, _ in entries))
+        entries = await game_table._findings(_context(*tables), tables)
+        self.assertTrue(all(label == core.FULL for label, _ in entries))
         return [alert for _, alert in entries]
 
     async def test_a_rom_that_is_not_installed_is_added_from_its_alert(self) -> None:
@@ -87,10 +88,10 @@ class Findings(unittest.IsolatedAsyncioTestCase):
                 context = _context(*tables)
                 getattr(context["library"], failing).side_effect = TimeoutError("timed out")
 
-                with patch.object(workbench, "_state",
+                with patch_workbench("_state",
                                   new=lambda text, level, hint="": (text, level, hint)), \
                         self.assertLogs("vpinfe.manager.workbench", level="WARNING"):
-                    entries = await workbench._findings(context, tables)
+                    entries = await game_table._findings(context, tables)
 
                 self.assertEqual([alert for _, alert in entries], [(
                     t("manager.workbench.newer_on_vps", theirs="3.0", ours="1.0"),
@@ -116,7 +117,7 @@ class Findings(unittest.IsolatedAsyncioTestCase):
     async def test_nothing_asks_the_catalog_without_an_update(self) -> None:
         context = _context(_table("a", available=False))
 
-        await workbench._findings(context, context["tables"])
+        await game_table._findings(context, context["tables"])
 
         context["library"].vps_releases.assert_not_called()
 
@@ -124,7 +125,7 @@ class Findings(unittest.IsolatedAsyncioTestCase):
         tables = (_table("a", available=False), _table("b", version="2.0"))
         context = _context(*tables)
 
-        entries = await workbench._findings(context, tables)
+        entries = await game_table._findings(context, tables)
 
         self.assertEqual([said for _, (_, _, said) in entries],
                          [game_tables.name_among(tables[0], list(tables))])
@@ -143,14 +144,14 @@ class OncePerPanel(unittest.IsolatedAsyncioTestCase):
         context["library"].dof_event_state.return_value = {"event": None, "blocked": ""}
         rows = Mock()
         with patch("manager.kit.offload.run.io_bound", new=_now), \
-                patch.object(workbench, "_findings",
+                patch_workbench("_findings",
                              new=AsyncMock(return_value=[("finding", "alert")])), \
-                patch.object(workbench, "_game_entries",
+                patch_workbench("_game_entries",
                              return_value=[("fact", "value")]) as entries, \
-                patch.object(workbench, "_rows", new=rows), \
-                patch.object(workbench, "_tables_block"), \
-                patch.object(workbench, "ui"):
-            await workbench._game_block(context)
+                patch_workbench("_rows", new=rows), \
+                patch_workbench("_tables_block"), \
+                patch_workbench("ui"):
+            await game_table._game_block(context)
         self.dof_state = entries.call_args.args[-1]
         return list(rows.call_args.args[1])
 

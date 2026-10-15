@@ -5,15 +5,16 @@ from __future__ import annotations
 import unittest
 from unittest import mock
 
-from manager import mediasource, workbench
-from manager.kit import data
+from manager import mediasource
+from manager.kit import data, panel
+from manager.workbench import game_assets, game_table
 
 CONTEXT = {"rebuild": object()}
 
 
 def _opens(kind: str):
-    with mock.patch.object(workbench.panel, "action") as action:
-        workbench._add_action(CONTEXT, kind)
+    with mock.patch.object(panel, "action") as action:
+        game_table._add_action(CONTEXT, kind)
     if not action.called:
         return None
     return action.call_args.args[1].func
@@ -37,7 +38,7 @@ class PanelAssetAddTests(unittest.TestCase):
     def test_alt_color_and_alt_sound_have_a_row_to_add_from(self) -> None:
         folder = {"alt_color": {"present": False}, "alt_sound": {"present": False}}
 
-        self.assertEqual(folder, workbench._only_kept(folder, data._kept_of({})["asset"]))
+        self.assertEqual(folder, game_assets._only_kept(folder, data._kept_of({})["asset"]))
 
 
 if __name__ == "__main__":

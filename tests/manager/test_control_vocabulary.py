@@ -34,16 +34,14 @@ CONTROLS = re.compile(r"ui\.(switch|checkbox|input|number|textarea)\(")
 # the grammar and is not counted. Raising a number is a decision: say what the control is
 # for, or use `panel`.
 BUDGET = {
-    "workbench.py": (8, "panel rows with bespoke wiring - chips, debounce - plus one "
-                        "find box. The path a table is pointed at is a "
-                        "`panel.path_field` and its launcher a `panel.MarkedSelect`, and "
-                        "neither is among them. One is a tick per detail a re-match "
-                        "would change: a multi-select would hide the old and new "
-                        "values, which are the whole of what is being decided. Some "
-                        "are a collection's rule rows and order bar, which are rows of "
-                        "several controls rather than a label and a value. Three are "
-                        "All Settings' filter bar, a find and two ticks, which "
-                        "ask what to show rather than hold a value"),
+    "collection.py": (5, "a collection's rule rows and order bar, which are rows of several "
+                         "controls rather than a label and a value, with the find box over "
+                         "its members"),
+    "game_table.py": (2, "a field with bespoke wiring - chips, debounce - and a tick per "
+                         "detail a re-match would change: a multi-select would hide the old "
+                         "and new values, which are the whole of what is being decided"),
+    "all_settings.py": (1, "the changed-only tick in All Settings' filter bar, which asks "
+                           "what to show rather than holds a value"),
     "logs.py": (1, "the find box in the control bar above the viewport"),
     "jobs.py": (1, "the find box in the control bar above the grid"),
     "wizard_lists.py": (1, "the per-row tick in a checklist step, a choice over a list "

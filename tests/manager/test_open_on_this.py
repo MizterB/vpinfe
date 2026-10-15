@@ -6,10 +6,14 @@ import unittest
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
+from nicegui import run, ui
+
 from common.games.collection_store import LAST_COLLECTION
 from common.i18n import t
-from manager import workbench
+from manager.kit import panel
+from manager.workbench import collection, rail
 from tests.support.clicks import press
+from tests.support.workbench_patch import patch_workbench
 
 
 async def _now(callback: Any, *args: Any, **kwargs: Any) -> Any:
@@ -46,17 +50,17 @@ class OpenOn(unittest.IsolatedAsyncioTestCase):
             def classes(self, *_: Any) -> Row:
                 return self
 
-        with patch.object(workbench.panel, "action", new=action), \
-                patch.object(workbench.ui, "row", new=lambda: Row()), \
-                patch.object(workbench.ui, "label", new=Label):
-            workbench._open_on(context, {"name": name}, all_games=all_games)()
+        with patch.object(panel, "action", new=action), \
+                patch.object(ui, "row", new=lambda: Row()), \
+                patch.object(ui, "label", new=Label):
+            collection._open_on(context, {"name": name}, all_games=all_games)()
         label, act = acts[0] if acts else (None, None)
         return shown[0], label, act, context
 
     async def _used(self, name: str, opens_on: str) -> dict[str, Any]:
         _, _, use, context = self._drawn(name, opens_on)
-        with patch.object(workbench.run, "io_bound", new=_now), \
-                patch.object(workbench, "_written", new=AsyncMock()) as written:
+        with patch.object(run, "io_bound", new=_now), \
+                patch_workbench("_written", new=AsyncMock()) as written:
             await press(use)
         context["written"] = written
         return context
@@ -102,8 +106,8 @@ class OpenOn(unittest.IsolatedAsyncioTestCase):
             drawn.append((options, value, on_change))
             return lambda: None
 
-        with patch.object(workbench.panel, "select", new=select):
-            workbench._open_on(context, {"name": ""}, all_games=True)()
+        with patch.object(panel, "select", new=select):
+            collection._open_on(context, {"name": ""}, all_games=True)()
         options, value, on_change = drawn[0]
         return options, value, on_change, context
 
@@ -126,8 +130,8 @@ class OpenOn(unittest.IsolatedAsyncioTestCase):
 
     async def _chosen(self, opens_on: str, picked: str) -> dict[str, Any]:
         _, _, on_change, context = self._all_games_select(opens_on)
-        with patch.object(workbench.run, "io_bound", new=_now), \
-                patch.object(workbench, "_written", new=AsyncMock()):
+        with patch.object(run, "io_bound", new=_now), \
+                patch_workbench("_written", new=AsyncMock()):
             await press(on_change, Mock(value=picked))
         return context
 
@@ -159,7 +163,7 @@ class TheRememberedSection(unittest.TestCase):
     def test_selecting_all_games_leaves_the_section_a_collection_was_on(self) -> None:
         state = {"section": "collection_rules"}
 
-        workbench.chosen_section(state, "all_games")
+        rail.chosen_section(state, "all_games")
 
         self.assertEqual("collection_rules", state["section"])
 

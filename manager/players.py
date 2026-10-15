@@ -214,7 +214,8 @@ async def _fill(library: Library, state: dict[str, Any],
                                          hint=why(exc))])
         return
 
-    # Imported here: `workbench` imports this module, and `games` imports `workbench`.
+    # Imported here: `workbench.rail` imports this module, and `games` imports
+    # `workbench.all_settings`.
     from manager.games import view_control
 
     built = rows(roster, played)

@@ -11,9 +11,10 @@ from unittest.mock import Mock
 
 from nicegui import core, ui
 
-from manager import games, import_dialog, page, uploads, workbench
+from manager import games, import_dialog, page, uploads
 from manager.kit import grid
 from manager.kit.data import Library
+from manager.workbench import game_table
 
 GAME = {"id": "g-1", "name": "Some Game", "folder": "/games/Some Game"}
 TABLE = {"id": "t-1", "filename": "Some Game.vpx", "default": True}
@@ -108,7 +109,7 @@ class ARowPutBackAfterAnImport(unittest.TestCase):
 
     def test_a_table_dropped_on_the_row_leaves_its_media(self) -> None:
         async def drop() -> None:
-            done = await workbench.after_a_row_drop(self.library, self.state, "g-1",
+            done = await game_table.after_a_row_drop(self.library, self.state, "g-1",
                                                     lambda: None)
             self.client.tables.return_value = [TABLE, DROPPED]
             with mock.patch.object(import_dialog, "open_for", self._imported):

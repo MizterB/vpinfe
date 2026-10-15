@@ -6,7 +6,9 @@ import unittest
 from unittest.mock import patch
 
 from common.i18n import t
-from manager import games, launchers, workbench
+from manager import games, launchers
+from manager.kit import panel
+from manager.workbench import launcher
 
 
 def _one(launcher_id: str, app: str = "vpx", *, enabled: bool = True,
@@ -48,8 +50,8 @@ class NoteTests(unittest.TestCase):
                         {"id": "generic", "name": "Generic", "has_config": False}]}
 
     def _said(self, table: dict, listing: dict | None = None) -> list[str]:
-        with patch.object(workbench.panel, "note", side_effect=lambda text: text):
-            return [str(one) for one in workbench._launcher_notes(
+        with patch.object(panel, "note", side_effect=lambda text: text):
+            return [str(one) for one in launcher._launcher_notes(
                 {"launchers": self.LISTING if listing is None else listing}, table)]
 
     def test_another_program_says_what_the_table_does_without(self) -> None:

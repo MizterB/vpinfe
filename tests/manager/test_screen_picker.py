@@ -5,14 +5,18 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
+from nicegui import run
 from screeninfo import Monitor
 
 from common import config_schema, config_service
 from common.host import display_service
 from common.i18n import t
 from frontend.chromium_manager import MonitorInfo
-from manager import screens, settings, workbench
+from manager import screens, settings
+from manager import settings as settings_page
 from manager.kit import panel
+from manager.workbench import all_settings
+from tests.support.workbench_patch import patch_workbench
 
 WINDOWS = ("windows.playfield", "windows.backglass", "windows.scoreview")
 
@@ -162,24 +166,24 @@ class AReportedDisplayShowsItsScreenTests(unittest.IsolatedAsyncioTestCase):
         values = {field.key: {"value": self.NAMED, "scope": "launcher"}}
         context = {"library": Mock(), "launcher": {"launcher_id": "probe"},
                    "config_scope": "launcher", "rebuild": AsyncMock()}
-        self.enterContext(patch.object(workbench, "ui"))
-        self.enterContext(patch.object(workbench, "_config_values",
+        self.enterContext(patch_workbench("ui"))
+        self.enterContext(patch_workbench("_config_values",
                                        new=AsyncMock(return_value=values)))
-        self.enterContext(patch.object(workbench, "_set_by_tables",
+        self.enterContext(patch_workbench("_set_by_tables",
                                        new=AsyncMock(return_value={})))
         self.enterContext(patch.object(
-            workbench.run, "io_bound",
+            run, "io_bound",
             new=AsyncMock(side_effect=lambda call, *args, **kwargs: call(*args, **kwargs))))
         read = self.enterContext(patch.object(display_service, "get_display_monitors",
                                               return_value=[BUILT_IN, BESIDE]))
-        control_for = self.enterContext(patch.object(workbench.settings_page, "control_for"))
-        await workbench._setting_entries(context, [("", "", [field])])
+        control_for = self.enterContext(patch.object(settings_page, "control_for"))
+        await all_settings._setting_entries(context, [("", "", [field])])
         return control_for, read
 
     async def test_the_launcher_page_offers_each_name_with_its_screen(self) -> None:
         control_for, _ = await self._offered(self.FIELD)
 
-        self.assertEqual(control_for.call_args.kwargs["suggestions"][workbench.REPORTED],
+        self.assertEqual(control_for.call_args.kwargs["suggestions"][all_settings.REPORTED],
                          {self.NAMED: "Built-in Retina Display - 1728 x 1117 at 0, 0",
                           "Built-in Retina Display": "Built-in Retina Display"})
 

@@ -11,8 +11,9 @@ import requests
 
 from common.devices import device_client
 from common.i18n import t
-from manager import devices, workbench
+from manager import devices
 from manager.kit.api import ApiError
+from manager.workbench import rail
 
 LOCAL = "Aaaa111111"
 
@@ -110,7 +111,7 @@ class SectionsItServesTests(unittest.TestCase):
                local: set[str] | None = None) -> set[str]:
         context = {"device": device, "local_device_id": LOCAL,
                    "local_capabilities": local or set(), "reach": reach}
-        return {item.key for item in workbench.sections_for("device")
+        return {item.key for item in rail.sections_for("device")
                 if item.shown is None or item.shown(context)}
 
     def test_a_phone_serves_neither(self) -> None:

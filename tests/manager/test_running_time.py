@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from manager.workbench import running_time
+from manager.workbench.game_media import running_time
 
 
 class RunningTime(unittest.TestCase):

@@ -6,7 +6,7 @@ import unittest
 
 from common.i18n import t
 from manager.kit import panel
-from manager.workbench import _play_section
+from manager.workbench.game_play import _play_section
 
 GAME = t("manager.workbench.game_section")
 TABLE = t("manager.workbench.table_section")

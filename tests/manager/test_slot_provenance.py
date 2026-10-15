@@ -3,17 +3,17 @@
 from __future__ import annotations
 
 import unittest
-from unittest import mock
 
 from common.i18n import t
-from manager import workbench
 from manager.kit import media_ownership
+from manager.workbench import core
+from tests.support.workbench_patch import patch_workbench
 
 
 def _drawn(via: str | None, borrowed: bool, lens: str = "tbl") -> tuple[list[str], list[dict]]:
     context = {"lens": lens, "game_id": "g1"}
-    with mock.patch.object(workbench, "ui") as ui, mock.patch.object(workbench, "panel") as panel:
-        workbench._provenance(context, via, borrowed)
+    with patch_workbench("ui") as ui, patch_workbench("panel") as panel:
+        core._provenance(context, via, borrowed)
     labels = [call.args[0] for call in ui.label.call_args_list]
     links = [{"label": call.args[0], **call.kwargs} for call in panel.link.call_args_list]
     return labels, links

@@ -58,7 +58,10 @@ AREAS: dict[str, tuple[str, ...]] = {
                  "sign_in_gate", "sign_in_notice", "signed_in_rows", "token_panel",
                  "origin_guard"),
     "overview": ("front", "needs", "set_aside"),
-    "workbench": ("workbench", "app_settings", "selection_marks"),
+    "workbench": ("core", "builds", "rail", "subject_verbs", "tag", "device", "launcher",
+                  "all_settings", "collection", "file", "game_table", "game_media",
+                  "game_play", "game_guides", "game_assets", "game_match", "app_settings",
+                  "selection_marks"),
     "remote": ("remote", "remote_record"),
     "shell": ("page", "edit_page", "report_page", "power", "rail_marks", "host", "loopback",
               "app_control"),
@@ -69,10 +72,10 @@ AREA_OF = {module: area for area, modules in AREAS.items() for module in modules
 # calling the host it is drawn in, or the grid page drawing the panel beside it, so the
 # names stay and a fifth fails.
 UPWARD = {
-    ("games", "workbench"),
-    ("file_acts", "workbench"),
-    ("launchers", "workbench"),
-    ("ext_row", "workbench"),
+    ("games", "all_settings"),
+    ("file_acts", "game_match"),
+    ("launchers", "all_settings"),
+    ("ext_row", "core"),
 }
 
 

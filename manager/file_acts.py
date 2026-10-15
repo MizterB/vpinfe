@@ -274,10 +274,10 @@ def media_acts(library: Any, files: list[File], state: dict[str, Any],
         by_id = {one.id: one for one in ready}
 
         async def ask(row: dict[str, Any], place: str) -> Any:
-            from manager import workbench
+            from manager.workbench import game_match
 
             one = by_id[str(row["id"])]
-            return await workbench.ask_a_record(
+            return await game_match.ask_a_record(
                 {"library": library, "game": one.game, "game_id": one.game_id},
                 listed_as(one.kind, vps_kinds.MEDIA).listed_as, one.label, one.path,
                 str(one.row.get("matched_to") or ""), place if len(ready) > 1 else "")

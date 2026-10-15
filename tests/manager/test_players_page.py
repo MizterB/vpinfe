@@ -14,9 +14,10 @@ from nicegui import ui
 
 from common.devices import install_identity
 from common.i18n import t
-from manager import page, players, workbench
+from manager import page, players
 from manager.kit import deeplink, grid, panel, thumbnails
 from manager.kit.api import ApiClient
+from manager.workbench import rail
 
 OWNER = {"id": "p-own", "name": "", "initials": "OWN", "owner": True, "guest": False,
          "up": True, "shares_initials_with": []}
@@ -250,10 +251,10 @@ class ThePanel(unittest.TestCase):
              t("manager.players.guest")])
 
     def test_a_player_s_rail_lands_on_details(self) -> None:
-        self.assertEqual(workbench.chosen_section({}, "player"), "player_details")
+        self.assertEqual(rail.chosen_section({}, "player"), "player_details")
 
     def test_the_owner_has_no_plays_section(self) -> None:
-        plays = next(one for one in workbench.sections_for("player")
+        plays = next(one for one in rail.sections_for("player")
                      if one.key == "player_plays")
         assert plays.shown is not None
         self.assertEqual([plays.shown({"player": one}) for one in (

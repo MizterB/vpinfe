@@ -15,12 +15,12 @@ from nicegui import run, ui
 from common.failures import why
 from common.i18n import t
 from manager import launchers
-from manager.app_settings import JOB_POLL_S
 from manager.kit import dropdown, game_tables, offload, panel, stars, tag_chips, undo
 from manager.kit.on_page import on_page
 from manager.kit.panel import HEADING
+from manager.workbench.app_settings import JOB_POLL_S
 
-logger = logging.getLogger("vpinfe.manager.selection_marks")
+logger = logging.getLogger("vpinfe.manager.workbench.selection_marks")
 
 
 @dataclass(frozen=True)

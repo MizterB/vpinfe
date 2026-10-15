@@ -7,9 +7,11 @@ import unittest
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
-from manager import import_dialog, workbench
-from manager.kit import game_tables
+from manager import import_dialog
+from manager.kit import confirm, game_tables, panel
+from manager.workbench import game_table
 from tests.support.clicks import press
+from tests.support.workbench_patch import patch_workbench
 
 BASE_ID, MADE_ID = "tblBase", "tblMade"
 
@@ -28,11 +30,11 @@ def _tables(base: dict[str, Any], *, on_disk: bool = True) -> list[dict[str, Any
 
 class MadeFromRow(unittest.TestCase):
     def setUp(self) -> None:
-        self.ui = self.enterContext(patch.object(workbench, "ui"))
-        self.link = self.enterContext(patch.object(workbench.panel, "link"))
+        self.ui = self.enterContext(patch_workbench("ui"))
+        self.link = self.enterContext(patch.object(panel, "link"))
 
     def _drawn(self, tables: list[dict[str, Any]]) -> list[str]:
-        (label, draw), = workbench._made_from(tables[0], {"tables": tables, "game_id": "g1"})
+        (label, draw), = game_table._made_from(tables[0], {"tables": tables, "game_id": "g1"})
         self.assertEqual("Made from", label)
         if draw is not self.link.return_value:
             draw()
@@ -66,15 +68,15 @@ class MadeFromRow(unittest.TestCase):
 
     def test_a_base_on_disk_with_no_panel_to_open_it_in_is_named(self) -> None:
         self.assertEqual([("Made from", "Example.vpx")],
-                         workbench._made_from(_tables(_base())[0], None))
+                         game_table._made_from(_tables(_base())[0], None))
 
     def test_a_table_no_patch_made_says_nothing(self) -> None:
-        self.assertEqual([], workbench._made_from({"source": {"vps_file_id": "r"}}, None))
+        self.assertEqual([], game_table._made_from({"source": {"vps_file_id": "r"}}, None))
 
 
 class Finding(unittest.TestCase):
     def _lines(self, table: dict[str, Any]) -> list[str]:
-        return [line for line, _act in workbench._faults({"tables": []}, table, {}, "")]
+        return [line for line, _act in game_table._faults({"tables": []}, table, {}, "")]
 
     def test_a_patched_table_whose_base_is_gone_says_so(self) -> None:
         table = _tables(_base(available=False))[0]
@@ -89,8 +91,8 @@ class Forget(unittest.IsolatedAsyncioTestCase):
     async def test_forgetting_a_base_names_what_was_made_from_it(self) -> None:
         tables = _tables(_base(available=False))
         ask = AsyncMock(return_value=False)
-        with patch.object(workbench.confirm, "ask", ask):
-            await press(workbench._forget_table, {"tables": tables}, tables[1])
+        with patch.object(confirm, "ask", ask):
+            await press(game_table._forget_table, {"tables": tables}, tables[1])
 
         self.assertEqual("Made from it: " + game_tables.name_among(tables[0], tables),
                          ask.call_args.kwargs["lines"][-1])
@@ -98,8 +100,8 @@ class Forget(unittest.IsolatedAsyncioTestCase):
     async def test_forgetting_any_other_table_names_only_it(self) -> None:
         tables = _tables(_base(available=False))
         ask = AsyncMock(return_value=False)
-        with patch.object(workbench.confirm, "ask", ask):
-            await press(workbench._forget_table, {"tables": tables}, tables[0])
+        with patch.object(confirm, "ask", ask):
+            await press(game_table._forget_table, {"tables": tables}, tables[0])
 
         self.assertEqual(1, len(ask.call_args.kwargs["lines"]))
 

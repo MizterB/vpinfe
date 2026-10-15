@@ -6,8 +6,12 @@ import unittest
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from nicegui import run
+
 from common.i18n import t
-from manager import dof, workbench
+from manager import dof
+from manager.workbench import core, game_table
+from tests.support.workbench_patch import patch_workbench
 
 
 def _context(event: str = "") -> dict[str, Any]:
@@ -17,8 +21,8 @@ def _context(event: str = "") -> dict[str, Any]:
 
 class GameDofRowTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.override = self.enterContext(patch.object(workbench, "_override"))
-        self.ui = self.enterContext(patch.object(workbench, "ui"))
+        self.override = self.enterContext(patch_workbench("_override"))
+        self.ui = self.enterContext(patch_workbench("ui"))
         self.said: list[str] = []
         self.ui.label.side_effect = self._say
 
@@ -27,7 +31,7 @@ class GameDofRowTests(unittest.TestCase):
         return MagicMock()
 
     def _draw(self, dof_state: dict[str, Any] | None) -> Any:
-        _, row = workbench._game_frontend(_context("E905"), dof_state)[1]
+        _, row = game_table._game_frontend(_context("E905"), dof_state)[1]
         row()
         return self.override.call_args
 
@@ -65,9 +69,9 @@ class RefusedSaveTests(unittest.IsolatedAsyncioTestCase):
         library.set_game_overrides.side_effect = error
         rebuild = AsyncMock()
         context: dict[str, Any] = {"library": library, "game_id": "g1", "rebuild": rebuild}
-        with patch.object(workbench.run, "io_bound", new=now), \
-                patch.object(workbench, "ui"), patch("manager.kit.on_page.ui"):
-            saved = await workbench._save_overrides(context, {"frontend_dof_event": "905"},
+        with patch.object(run, "io_bound", new=now), \
+                patch_workbench("ui"), patch("manager.kit.on_page.ui"):
+            saved = await core._save_overrides(context, {"frontend_dof_event": "905"},
                                                     table=False)
         self.rebuilt = rebuild.await_count
         return saved

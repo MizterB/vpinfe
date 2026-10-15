@@ -12,8 +12,9 @@ from collections.abc import Callable
 from unittest.mock import Mock
 
 from common.i18n import t
-from manager import discovery, games, sections, workbench
+from manager import discovery, games, sections
 from manager.kit.data import Library
+from manager.workbench import core, game_assets
 
 HIDDEN_ASSETS = ("ini", "rom", "readme")
 HIDDEN_MEDIA = ("topper",)
@@ -79,8 +80,8 @@ def _asset_kinds_in_the_tables_grid(library: Library) -> set[str]:
 
 
 def _asset_kinds_in_the_table_panel(library: Library) -> set[str]:
-    labels = {workbench._asset_name(kind): kind for kind in (*HIDDEN_ASSETS, *KEPT_ASSETS)}
-    return {labels[name] for name, _row in workbench._asset_entries(_panel_context(library))
+    labels = {core._asset_name(kind): kind for kind in (*HIDDEN_ASSETS, *KEPT_ASSETS)}
+    return {labels[name] for name, _row in game_assets._asset_entries(_panel_context(library))
             if name in labels}
 
 
@@ -97,7 +98,7 @@ def _kinds_in_the_discovery_grid(library: Library) -> set[str]:
 
 def _counted(library: Library) -> int:
     """How many files the panel header says are here."""
-    said = workbench._assets_label(_panel_context(library))
+    said = game_assets._assets_label(_panel_context(library))
     for have in range(len(HIDDEN_ASSETS) + len(KEPT_ASSETS) + 1):
         if said == t("manager.workbench.assets_2", have=have):
             return have
@@ -150,7 +151,7 @@ class WhatTheCountsAdd(unittest.TestCase):
         self.assertEqual(_counted(_library()), len(KEPT_ASSETS))
 
     def test_the_table_has_no_switch(self) -> None:
-        self.assertTrue(workbench._collects("table", set()))
+        self.assertTrue(game_assets._collects("table", set()))
 
 
 if __name__ == "__main__":

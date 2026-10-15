@@ -10,9 +10,10 @@ from unittest import mock
 
 from nicegui import core, ui
 
-from manager import assets, text_editor, workbench
+from manager import assets, text_editor
 from manager.kit import offload
 from manager.kit.api import ApiError
+from manager.workbench import file
 
 
 def _draft(name: str) -> dict[str, Any]:
@@ -72,11 +73,11 @@ class TheGridMark(unittest.TestCase):
 
 class TheStage(unittest.TestCase):
     def test_a_file_read_as_text_has_a_stage_though_its_head_is_empty(self) -> None:
-        self.assertTrue(workbench._asset_has_stage(
+        self.assertTrue(file._asset_has_stage(
             {"kind": "scv", "detail": {"text": {"text": "x", "editable": True}}}))
 
     def test_a_file_that_is_not_text_has_none(self) -> None:
-        self.assertFalse(workbench._asset_has_stage({"kind": "scv", "detail": {}}))
+        self.assertFalse(file._asset_has_stage({"kind": "scv", "detail": {}}))
 
 
 class _Library:

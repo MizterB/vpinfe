@@ -45,7 +45,6 @@ from manager import (
     uploads,
     waiting,
     wizard_settle,  # noqa: F401 - registers the settle field with the wizard
-    workbench,
 )
 from manager import backups as backups_page
 from manager import collections as collections_page
@@ -82,6 +81,8 @@ from manager.kit.api import ApiClient
 from manager.kit.data import Library
 from manager.kit.on_page import on_page
 from manager.library_folders import KIND_IMPORT, hold_library
+from manager.workbench import builds, core, game_guides, game_table, rail
+from manager.workbench import collection as wb_collection
 
 logger = logging.getLogger("vpinfe.manager.page")
 
@@ -500,7 +501,7 @@ async def _took_a_drop(
         where = chosen
 
     adds = bool(game_dir) and not media_kind
-    done = await workbench.after_a_row_drop(library, state, game_id, redraw) if adds \
+    done = await game_table.after_a_row_drop(library, state, game_id, redraw) if adds \
         else redraw
     await uploads.confirmed_import(
         library, drop.upload_id, analysis, source=drop.name, file_count=drop.count,
@@ -580,16 +581,16 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
     ui.on(text_editor.DARK_EVENT, text_editor.wire())
     ui.on(text_editor.RETURN_EVENT, lambda: text_editor.shown_again(state))
     ui.on("hub_window_px", lambda event: on_window_width(int(event.args or 0)))
-    ui.on("hub_member_moved", lambda event: workbench.member_moved(state, event.args))
+    ui.on("hub_member_moved", lambda event: wb_collection.member_moved(state, event.args))
     ui.on(row_drag.DRAGGED, lambda: row_drag.dragging(library, state))
     ui.on(row_drag.DROPPED,
           lambda event: row_drag.dropped(library, state, event.args))
-    ui.on("hub_guide_moved", lambda event: workbench.guide_moved(state, event.args))
+    ui.on("hub_guide_moved", lambda event: game_guides.guide_moved(state, event.args))
     for source_group, moved in theme_sources.MOVED.items():
         ui.on(moved, lambda event, source_group=source_group: theme_sources.moved(
             state, source_group, event))
     ui.on(folders.MOVED, lambda event: folders.moved(state, event))
-    ui.on("hub_dock_px", lambda event: workbench.dock_dragged(state, event.args))
+    ui.on("hub_dock_px", lambda event: core.dock_dragged(state, event.args))
     ui.on("hub_row_focus", grid.row_focused)
     ui.on("hub_row_pick", lambda: state["open_pane"]())
     ui.on("hub_media_zoom", lambda event: games.media_zoomed(state, event))
@@ -668,7 +669,7 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
                            "report": report, "group": group, "entry": entry,
                            "row": row},
                    views=[key for key, _label, _icon, _feature in nav_items],
-                   sections=[item.key for item in workbench.SECTIONS])
+                   sections=[item.key for item in rail.SECTIONS])
 
     # The saved views, read before anything draws: a grid asks for them while it is
     # being built, which is on the loop, and the client refuses an HTTP call there.
@@ -1472,19 +1473,19 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
         by_table = state["view"] == "tables"
         state["game"] = (row or {}).get("game_id" if by_table else "id")
         state["table"] = (row or {}).get("id") if by_table else ""
-        await workbench.build(panel, workbench_title, library, state["game"], state,
-                              state["table"])
+        await builds.build(panel, workbench_title, library, state["game"], state,
+                           state["table"])
         deeplink.sync(state)
 
     @on_page
     async def show_selection(table_ids: list[str]) -> None:
         """The tables ticked in the grid. The pane is not opened for them: a panel
         somebody shut stays shut."""
-        await workbench.build_selection(panel, workbench_title, library, table_ids, state)
+        await builds.build_selection(panel, workbench_title, library, table_ids, state)
 
     @on_page
     async def show_game_selection(game_ids: list[str]) -> None:
-        await workbench.build_game_selection(panel, workbench_title, library, game_ids, state)
+        await builds.build_game_selection(panel, workbench_title, library, game_ids, state)
 
     @on_page
     async def show_slot(row: dict | None) -> None:
@@ -1496,8 +1497,8 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
         state["table"] = (row or {}).get("table") or ""
         if row:
             state.setdefault("slot", {"kind": None})["kind"] = row.get("kind")
-        await workbench.build_file(panel, workbench_title, library, row, state,
-                                   state["view"])
+        await builds.build_file(panel, workbench_title, library, row, state,
+                                state["view"])
         deeplink.sync(state)
 
     @on_page
@@ -1516,9 +1517,9 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
         state["device_id"] = wanted
         chosen = next((d for d in devices
                        if str(d.get("device_id")) == wanted), None)
-        await workbench.build_device(panel, workbench_title, library, chosen, state,
-                                     discovery.get("install_id"), device_capabilities,
-                                     local_capabilities)
+        await builds.build_device(panel, workbench_title, library, chosen, state,
+                                  discovery.get("install_id"), device_capabilities,
+                                  local_capabilities)
         deeplink.sync(state)
 
     async def show_theme(row: dict | None) -> None:
@@ -1527,8 +1528,8 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
         if row and not state["workbench"]:
             show_workbench(True)
         state["theme_key"] = (row or {}).get("id") or state.get("theme_key")
-        await workbench.build_theme(panel, workbench_title, library, state["theme_key"],
-                                    state)
+        await builds.build_theme(panel, workbench_title, library, state["theme_key"],
+                                 state)
 
     @on_page
     async def _ask(entries: list[dict]) -> None:
@@ -1561,17 +1562,17 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
         # be told to filter by it.
         state["collection"] = None if chosen == BUILTIN_ALL else chosen
         if chosen == BUILTIN_ALL:
-            await workbench.build_all_games(panel, workbench_title, library, state)
+            await builds.build_all_games(panel, workbench_title, library, state)
         else:
-            await workbench.build_collection(panel, workbench_title, library,
-                                             state["collection"], state)
+            await builds.build_collection(panel, workbench_title, library,
+                                          state["collection"], state)
         deeplink.sync(state)
 
     async def show_tag(row: dict | None) -> None:
         if row and not state["workbench"]:
             show_workbench(True)
         state["tag"] = (row or {}).get("id") or None
-        await workbench.build_tag(panel, workbench_title, library, state["tag"], state)
+        await builds.build_tag(panel, workbench_title, library, state["tag"], state)
 
     @on_page
     async def show_launcher(row: dict | None) -> None:
@@ -1580,8 +1581,8 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
         if row and not state["workbench"]:
             show_workbench(True)
         state["launcher"] = (row or {}).get("id")
-        await workbench.build_launcher(panel, workbench_title, library,
-                                       state["launcher"], state)
+        await builds.build_launcher(panel, workbench_title, library,
+                                    state["launcher"], state)
         deeplink.sync(state)
 
     @on_page
@@ -1591,8 +1592,8 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
         if row and not state["workbench"]:
             show_workbench(True)
         state["player"] = (row or {}).get("id")
-        await workbench.build_player(panel, workbench_title, library, state["player"],
-                                     state)
+        await builds.build_player(panel, workbench_title, library, state["player"],
+                                  state)
         deeplink.sync(state)
 
     @on_page
@@ -1602,7 +1603,7 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
         if row and not state["workbench"]:
             show_workbench(True)
         state["entry"] = (row or {}).get("id")
-        await workbench.build_discovery(panel, workbench_title, library, state["entry"], state)
+        await builds.build_discovery(panel, workbench_title, library, state["entry"], state)
         deeplink.sync(state)
 
     @on_page
@@ -1612,7 +1613,7 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
         if row and not state["workbench"]:
             show_workbench(True)
         state["backup"] = (row or {}).get("id")
-        await workbench.build_backup(panel, workbench_title, library, state["backup"], state)
+        await builds.build_backup(panel, workbench_title, library, state["backup"], state)
         deeplink.sync(state)
 
     @on_page
@@ -1623,9 +1624,9 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
         if rows and not state["workbench"]:
             show_workbench(True)
         state["ext_row"] = str(rows[0]["id"]) if len(rows) == 1 else ""
-        await workbench.build_extension_row(panel, workbench_title, library, extension,
-                                            declared, [str(one["id"]) for one in rows],
-                                            state, again)
+        await builds.build_extension_row(panel, workbench_title, library, extension,
+                                         declared, [str(one["id"]) for one in rows],
+                                         state, again)
         deeplink.sync(state)
 
     def clear_workbench() -> None:
@@ -1890,7 +1891,7 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
                if state["view"] in ("games", "tables", "media", "assets") else None)
     if first_width:
         on_window_width(first_width)
-    await workbench.build(panel, workbench_title, library, None, state)
+    await builds.build(panel, workbench_title, library, None, state)
     _land(state)
     render()
     # Once the nav exists to carry it. Read on the way in with everything else, so an

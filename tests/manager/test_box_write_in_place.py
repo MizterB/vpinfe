@@ -8,8 +8,11 @@ import unittest
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
-from manager import workbench
+from nicegui import run
+
+from manager.workbench import file
 from tests.support.clicks import press
+from tests.support.workbench_patch import patch_workbench
 
 VALUES = {"B2SBackglassDMDX": "10"}
 
@@ -22,17 +25,17 @@ def _inner(**held: Any) -> dict[str, Any]:
 class BoxWriteInPlace(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.keeping = self.enterContext(
-            patch.object(workbench, "_keeping_place", new=AsyncMock()))
-        self.enterContext(patch.object(workbench.run, "io_bound",
+            patch_workbench("_keeping_place", new=AsyncMock()))
+        self.enterContext(patch.object(run, "io_bound",
                                        new=AsyncMock(return_value={})))
-        self.enterContext(patch.object(workbench, "_config_values",
+        self.enterContext(patch_workbench("_config_values",
                                        new=AsyncMock(return_value={"fresh": {}})))
 
     async def test_a_dragged_box_draws_the_form_and_the_followers_not_the_panel(self) -> None:
         follow, redraw, grid = Mock(), AsyncMock(), AsyncMock()
         inner = _inner(followers=[follow], redraw_form=redraw, refresh_grid=grid)
 
-        await press(workbench._write_overlay, inner, VALUES, in_place=True)
+        await press(file._write_overlay, inner, VALUES, in_place=True)
 
         follow.assert_called_once_with({"fresh": {}})
         redraw.assert_awaited_once()
@@ -44,22 +47,22 @@ class BoxWriteInPlace(unittest.IsolatedAsyncioTestCase):
         redraw = AsyncMock()
         inner = _inner(redraw_form=redraw)
 
-        await press(workbench._write_overlay, inner, VALUES)
+        await press(file._write_overlay, inner, VALUES)
 
         self.keeping.assert_awaited_once()
         redraw.assert_not_awaited()
 
     async def test_a_form_that_cannot_be_drawn_alone_draws_the_whole_panel(self) -> None:
-        await press(workbench._write_overlay, _inner(), VALUES, in_place=True)
+        await press(file._write_overlay, _inner(), VALUES, in_place=True)
 
         self.keeping.assert_awaited_once()
 
     async def test_settings_that_cannot_be_read_back_draw_the_whole_panel(self) -> None:
         redraw = AsyncMock()
         inner = _inner(redraw_form=redraw)
-        with patch.object(workbench, "_config_values",
+        with patch_workbench("_config_values",
                           new=AsyncMock(side_effect=OSError("gone"))):
-            await press(workbench._write_overlay, inner, VALUES, in_place=True)
+            await press(file._write_overlay, inner, VALUES, in_place=True)
 
         self.keeping.assert_awaited_once()
         redraw.assert_not_awaited()
@@ -67,12 +70,12 @@ class BoxWriteInPlace(unittest.IsolatedAsyncioTestCase):
 
 class TheFitButton(unittest.TestCase):
     def test_only_the_first_number_of_a_dmd_box_carries_it(self) -> None:
-        self.assertEqual("Backglass", workbench._dmd_part("Plugin.B2S.BackglassDMDX"))
-        self.assertEqual("ScoreView", workbench._dmd_part("Plugin.B2SLegacy.ScoreViewDMDX"))
+        self.assertEqual("Backglass", file._dmd_part("Plugin.B2S.BackglassDMDX"))
+        self.assertEqual("ScoreView", file._dmd_part("Plugin.B2SLegacy.ScoreViewDMDX"))
         for key in ("Plugin.B2S.BackglassDMDY", "Plugin.B2S.BackglassDMDW",
                     "Plugin.B2S.BackglassDMDAutoPos", "Plugin.B2S.ShowGrill",
                     "Plugin.DMDUtil.ZeDMD", "Player.DMDX"):
-            self.assertEqual("", workbench._dmd_part(key), key)
+            self.assertEqual("", file._dmd_part(key), key)
 
 
 if __name__ == "__main__":

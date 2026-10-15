@@ -5,8 +5,11 @@ from __future__ import annotations
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
 
+from nicegui import ui
+
 from common.i18n import t
-from manager import workbench
+from manager.kit import confirm, offload
+from manager.workbench import all_settings
 from tests.support.clicks import press
 
 LAUNCHER = {"launcher_id": "wide", "display_name": "VPX (4K)", "app_name": "Visual Pinball X"}
@@ -22,10 +25,10 @@ class SwitchingOff(unittest.IsolatedAsyncioTestCase):
     async def _switch_off(self, found: dict, answer: bool = True):
         ask = AsyncMock(return_value=answer)
         notify = Mock()
-        with patch.object(workbench.offload, "io", new=AsyncMock(return_value=found)), \
-                patch.object(workbench.confirm, "ask", new=ask), \
-                patch.object(workbench.ui, "notify", new=notify):
-            agreed = await press(workbench._agreed_to_switch_off, Mock(), LAUNCHER)
+        with patch.object(offload, "io", new=AsyncMock(return_value=found)), \
+                patch.object(confirm, "ask", new=ask), \
+                patch.object(ui, "notify", new=notify):
+            agreed = await press(all_settings._agreed_to_switch_off, Mock(), LAUNCHER)
         return agreed, ask, notify
 
     async def test_one_no_table_uses_goes_off_without_asking(self) -> None:

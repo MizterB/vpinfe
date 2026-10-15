@@ -5,8 +5,8 @@ from typing import Any
 from unittest.mock import AsyncMock, patch
 
 from common.i18n import t
-from manager import workbench
-from manager.kit import game_tables
+from manager.kit import confirm, game_tables
+from manager.workbench import game_table
 from tests.support.clicks import press
 
 FOLDER_NAMED = "Multi VPX (Original 2024).vpx"
@@ -41,8 +41,8 @@ class OwnScriptTests(unittest.TestCase):
 class DeleteConfirmTests(unittest.IsolatedAsyncioTestCase):
     async def _detail(self, table: dict[str, Any]) -> str:
         ask = AsyncMock(return_value=False)
-        with patch.object(workbench.confirm, "ask", ask):
-            await press(workbench._drop_script, {"library": None}, table)
+        with patch.object(confirm, "ask", ask):
+            await press(game_table._drop_script, {"library": None}, table)
         ask.assert_awaited_once()
         assert ask.await_args is not None
         return str(ask.await_args.kwargs["detail"])

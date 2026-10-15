@@ -6,7 +6,7 @@ import unittest
 
 from nicegui import ui
 
-from manager import workbench
+from manager.workbench import collection
 
 _PAGE = ui.element()
 
@@ -14,7 +14,7 @@ _PAGE = ui.element()
 class ARefusedTableSaysWhy(unittest.TestCase):
     def test_the_reason_is_a_tooltip_the_open_menu_shows(self) -> None:
         with _PAGE, ui.menu() as menu:
-            workbench._table_menu_item({}, {}, "t-2", "Alpha 2", chosen=False,
+            collection._table_menu_item({}, {}, "t-2", "Alpha 2", chosen=False,
                                        blocked="Played by another game in this collection")
         item = next(one for one in menu.descendants() if isinstance(one, ui.menu_item))
 

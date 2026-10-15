@@ -11,8 +11,9 @@ from typing import Any
 from nicegui import ui
 
 from common.timestamps import utc_now_iso
-from manager import collection_rules, community, games, tageditor, workbench
+from manager import collection_rules, community, games, tageditor
 from manager.kit.data import Library, read_state, sources_of
+from manager.workbench import tag
 from tests.support import lines
 
 SOURCE = {"extension": "challenge", "display_name": "Challenge", "list": "releases",
@@ -43,7 +44,7 @@ async def _after(_next: str | None) -> None:
 def _hovered(said: dict[str, Any]) -> dict[str, str]:
     """The read state the panel draws for one source, with what hovering it shows."""
     with ui.column() as body:
-        workbench._tag_source(said)
+        tag._tag_source(said)
     return lines.details(body)
 
 

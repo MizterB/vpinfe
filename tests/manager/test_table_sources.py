@@ -8,8 +8,10 @@ from collections.abc import Mapping
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
+from nicegui import ui
+
 from common.i18n import t
-from manager import import_dialog, mediasource, page, uploads, workbench
+from manager import import_dialog, mediasource, page, uploads
 from tests.support.clicks import press
 
 
@@ -96,7 +98,7 @@ class ADropOnAGamesRow(unittest.IsolatedAsyncioTestCase):
                         patch.object(uploads, "analyzed",
                                      new=AsyncMock(return_value={"has_game": True})),
                         patch.object(uploads, "confirmed_import", new=self.confirmed),
-                        patch.object(workbench.ui, "notify", new=self.said)):
+                        patch.object(ui, "notify", new=self.said)):
             patched.start()
             self.addCleanup(patched.stop)
 

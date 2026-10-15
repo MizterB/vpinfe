@@ -815,8 +815,9 @@ def build(found: list[dict[str, Any]], library: Any, state: dict[str, Any],
     than groups, which is what lets one question - "which of these is not answering" -
     be a sort, a filter and a saved view instead of a fixed arrangement.
     """
-    # Deferred: `games` imports `workbench`, and `workbench` imports this module for
-    # the device sections - so taking the view control at import time closes the loop.
+    # Deferred: `games` imports `workbench.all_settings`, and `workbench.device` imports
+    # this module for the device sections - so taking the view control at import time
+    # closes the loop.
     # Only `build` needs it, and by then every module is loaded.
     from .games import view_control
 

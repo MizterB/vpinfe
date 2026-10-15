@@ -50,7 +50,7 @@ def verbs(context: dict[str, Any]) -> list[panel.Verb]:
 def sections(context: dict[str, Any], found: dict[str, Any]) -> tuple[Any, ...]:
     """The pane's sections as the rail declares them. Imported late: the rail is drawn by
     the workbench, which draws this."""
-    from manager.workbench import Section
+    from manager.workbench.core import Section
 
     out = []
     for one in found.get("sections") or []:
