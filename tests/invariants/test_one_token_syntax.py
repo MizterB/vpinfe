@@ -13,7 +13,7 @@ from pathlib import Path
 from tests.support import trees
 
 REPO = Path(__file__).resolve().parents[2]
-ROOTS = ("apps", "common", "console", "extensions", "frontend", "httpapi", "managerui")
+ROOTS = ("apps", "common", "console", "extensions", "frontend", "httpapi")
 HOME = REPO / "common" / "tokens.py"
 
 # A regex that captures a word between braces or brackets: a token parser.

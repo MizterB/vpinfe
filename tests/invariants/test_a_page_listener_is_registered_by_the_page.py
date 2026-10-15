@@ -13,7 +13,7 @@ from tests.support.project import project_files
 ROOT = Path(__file__).resolve().parents[2]
 NOT_SOURCE = {"tests", "node_modules"}
 
-LATE_TODAY = frozenset({("managerui/pages/dnd_drop_zone.py", "create_drop_zone")})
+LATE_TODAY: frozenset[tuple[str, str]] = frozenset()
 
 
 def _registers(call: ast.Call) -> bool:

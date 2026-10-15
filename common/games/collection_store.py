@@ -752,7 +752,7 @@ class CollectionStore:
 
     def set_members(self, section: str, members: Iterable[object] | None) -> None:
         """Replace the membership outright, taking game ids or refs. For a caller where
-        the order is the point, which is the Manager UI saving a whole edit.
+        the order is the point, which is the Console saving a whole edit.
 
         A caller passing bare ids is naming games rather than tables, so a table this
         collection had named is gone. That is the right meaning for an editor that can

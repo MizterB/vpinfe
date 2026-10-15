@@ -1,10 +1,9 @@
 """The addresses this machine can be reached on.
 
-Written down once because it was written down three times: two copies in the frontend's
-config API and one in the Manager UI, all answering "what would somebody type into a
-phone to reach this install". A page that hands out the wrong address is a page that
-sends a person to a machine that is not there, and three copies is three chances to
-drift on which addresses count.
+Written down once, answering "what would somebody type into a phone to reach this
+install". A page that hands out the wrong address is a page that sends a person to a
+machine that is not there, and a second copy is another chance to drift on which
+addresses count.
 
 Loopback is offered last and never first. It is the one address that is certainly
 listening and the one that certainly does not work from anywhere else, so a list that

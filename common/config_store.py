@@ -565,7 +565,7 @@ class ConfigStore:
     def value(self, section: str, key: str) -> Any:
         """One setting, typed the way this store would write it back.
 
-        Public because the HTTP API needs what the Manager UI reached inside for. The
+        Public because the HTTP API needs it. The
         fallback is the schema's default rather than blank: a setting the file omits is
         still what the install is running on, and answering "" would say the opposite.
         """

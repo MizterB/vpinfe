@@ -309,7 +309,7 @@ def refresh_view(api: API) -> None:
     """Re-derive the current view from the library, without changing what it is.
 
     Membership, order and the game objects themselves all go stale: a finished session
-    moves a game up a LastRun wheel, and a Manager UI edit replaces the object outright
+    moves a game up a LastRun wheel, and a Console edit replaces the object outright
     rather than mutating the one this view is holding.
 
     The view says where its library comes from. Reading the local one here would hand a

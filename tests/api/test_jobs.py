@@ -66,7 +66,7 @@ class TrackTests(unittest.TestCase):
         self.assertEqual(self.bus.payloads(events.JOB_DONE), [{"job_id": job.id}])
 
     def test_a_starters_own_callbacks_still_fire(self) -> None:
-        """The Manager UI keeps its progress bar; the bus is additive."""
+        """A starter keeps its own progress bar; the bus is additive."""
         seen: list[tuple[int, int, str]] = []
         logged: list[str] = []
 

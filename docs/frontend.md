@@ -21,7 +21,7 @@ The windows come and go under the run. `run_frontend_loop` waits on the shutdown
 - `common/games/collections_service.py`: shared collection manager access and filter-collection helpers.
 - `common/games/game_play_service.py`: start count, last-played date, runtime, score update, and NVRAM cleanup.
 - `common/host/display_service.py`: shared monitor discovery.
-- `common/games/metadata_service.py`: build metadata and VPX patch orchestration shared by CLI, frontend, and Manager UI.
+- `common/games/metadata_service.py`: build metadata and VPX patch orchestration shared by CLI, frontend, and the Console.
 - `common/games/game_report_service.py`: CLI-oriented missing/unknown game reports backed by the shared parser and VPSdb lookup.
 - `common/host/system_actions.py`: the app restart request (kept on the install row) and re-launch, clean OS command environment, shutdown, and reboot commands.
 - `frontend/game_state.py`: game JSON serialization, filtering, sorting, collections, and rating mutations for the JS API.
@@ -44,5 +44,5 @@ The windows come and go under the run. `run_frontend_loop` waits on the shutdown
 - Keep `API` as a compatibility facade for JavaScript themes, not a home for business logic.
 - Use `common/paths.py` instead of calling `user_config_dir("vpinfe", "vpinfe")` directly in new code.
 - Use `common/games/game_metadata.py` for metadata reads/writes instead of repeating `Info`/`VPinFE`/`User` normalization.
-- Use service modules for behavior shared by Manager UI and the frontend.
+- Use service modules for behavior shared by the Console and the frontend.
 - Keep `cli.py` as CLI dispatch and compatibility wrappers; put reusable app behavior in `common/`.

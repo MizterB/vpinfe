@@ -39,7 +39,7 @@ next section first.
   both codes. Themes and extensions that did not come with VPinFE stay off until you accept
   them. Traffic on your network is not encrypted, so away from home connect through a VPN.
   Set HTTP Address in Settings to `127.0.0.1` to keep other devices out altogether, at the
-  cost of the Console, the Remote and the mobile pages working from other devices.
+  cost of the Console and the Remote working from other devices.
 
 ### What's New
 - **Console** - Other devices sign in to VPinFE once, with a code shown on this machine

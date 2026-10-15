@@ -15,7 +15,7 @@ from pathlib import Path
 from tests.support import trees
 
 ROOT = Path(__file__).resolve().parents[2]
-CODE = ("apps", "common", "console", "extensions", "frontend", "httpapi", "managerui",
+CODE = ("apps", "common", "console", "extensions", "frontend", "httpapi",
         "cli.py", "main.py")
 GATE = "common/http_client.py"
 ASKS_FIRST = "require_reachable"
@@ -34,11 +34,6 @@ GUARDED = {
     "console/api.py": {
         "_WordedSession": "the Console's requests to this install and to a paired one, "
                           "signed and worded by the session itself"},
-    "managerui/pages/mobile.py": {
-        "_http_request": "the Manager UI's send to a mobile device, on one open connection",
-        "_send_game_to_device": "the Manager UI's send to a mobile device, on one open "
-                                "connection",
-        "_fetch_device_folders": "the Manager UI's read of a mobile device's folders"},
 }
 # Reached only through the gate, through a caller that asks first, or on this machine.
 BEHIND = {

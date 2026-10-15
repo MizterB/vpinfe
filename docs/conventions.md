@@ -164,7 +164,7 @@ feature-detect them. That is what keeps bumps rare enough to be worth doing prop
   service under `common/` where the other callers can reach it, and nothing calls a handler.
   A service refuses with `common/service_errors.py`; the API turns that into its envelope.
 - Files we ship that are not Python live in `<owner>/static/` — `frontend/static/` for what a
-  browser fetches, `managerui/static/` for the Manager UI's, `common/host/static/` for what
+  browser fetches, `console/static/` for the Console's, `common/host/static/` for what
   goes to hardware. Named for who owns them, so a directory does not become the home for
   anything that has no other one.
 - `scripts/` is what the build *runs*; `packaging/` is what it *ships*. The fetch scripts are
@@ -428,7 +428,7 @@ keys.
 ## Logging
 
 Logs are read by one person trying to work out what happened, usually from the Logs page in
-the Manager UI. Everything below serves that.
+the Console. Everything below serves that.
 
 ### Levels
 
@@ -1729,9 +1729,6 @@ What that means in practice:
 - **The checked packages are listed in `pyproject.toml`** rather than passed on the command
   line, so CI, the editor and a local run all measure the same thing.
 
-The Manager UI is not checked. It is replaced by the Console and goes when the Manager UI
-does, so annotating it buys nothing that outlives the removal.
-
 **All six checked packages report zero, and CI fails when they do not.** `mypy` with no
 arguments is the gate, so a finding anywhere in `apps`, `common`, `console`, `extensions`,
 `frontend` or `httpapi` fails the build. The API surface keeps its own step beside it, so
@@ -1755,8 +1752,8 @@ ruff check . --fix    # apply the safe fixes
 
 CI runs it three ways:
 
-- **Advisory over the whole tree.** Reports and does not fail. What it reports is the
-  Manager UI, which retires with it. It is a visible debt register, not a gate.
+- **Advisory over the whole tree.** Reports and does not fail. It is a visible debt
+  register, not a gate.
 - **Blocking everywhere we write Python.** `tests`, `apps`, `common`, `console`,
   `extensions`, `frontend`, `httpapi`, `cli.py` and `main.py` — every rule we select, at
   zero, every file checked whether it is new or not. Nothing leaves this step once it has
@@ -1767,8 +1764,8 @@ CI runs it three ways:
   "get it right going forward" means in practice: new code is born compliant, and existing
   code is cleaned up when it is touched rather than in one enormous diff.
 
-Some rules are ignored per-file for good reasons — `main.py` and `managerui/managerui.py`
-import after executing statements because config has to be resolved before anything under
+Some rules are ignored per-file for good reasons — `main.py`
+imports after executing statements because config has to be resolved before anything under
 `common/` is imported. `tests/games/test_score_parser.py` does the same, because the module
 it tests reads `roms.json` and the config paths at import. Those exemptions are listed in
 `pyproject.toml` with their reasons.
@@ -1798,8 +1795,8 @@ the other side. Gate the half a checker can be certain of, and let the rest be r
 side effects. A trailing comment does not protect it; `# noqa` does:
 
 ```python
-# Imported for the side effect of registering the Manager UI's routes.
-import managerui.managerui  # noqa: F401
+# Imported for the side effect of registering the Console's routes.
+import console.page  # noqa: F401
 ```
 
 Run the tests after `--fix`, not just the linter.

@@ -52,7 +52,7 @@ def get_attract_config(iniconfig: ConfigSource) -> dict[str, Any]:
     }
 
 
-def _managerui_remote_urls(config: ConfigSource) -> list[str]:
+def _remote_urls(config: ConfigSource) -> list[str]:
     """The Remote's addresses, each carrying the Remote pass so a scan signs the phone in.
     None while this install answers only itself, since no phone can reach it."""
     network = serving.network(config)
@@ -84,7 +84,7 @@ def _build_remote_qr_svg(url: str) -> str:
     return stream.getvalue().decode("utf-8")
 
 
-def _preferred_managerui_url(urls: list[str]) -> str:
+def _preferred_url(urls: list[str]) -> str:
     return next((url for url in urls if "://localhost:" not in url.lower()),
                 urls[0] if urls else "")
 
@@ -146,9 +146,9 @@ def get_http_port(config: ConfigSource) -> int:
     return serving.own_port(config)
 
 
-def get_managerui_remote_link(config: ConfigSource) -> dict[str, Any]:
-    urls = _managerui_remote_urls(config)
-    preferred_url = _preferred_managerui_url(urls)
+def get_remote_link(config: ConfigSource) -> dict[str, Any]:
+    urls = _remote_urls(config)
+    preferred_url = _preferred_url(urls)
     return {
         "url": preferred_url,
         "urls": urls,
@@ -156,11 +156,10 @@ def get_managerui_remote_link(config: ConfigSource) -> dict[str, Any]:
     }
 
 
-def get_managerui_vpinplay_multi_link(config: ConfigSource) -> dict[str, Any]:
-    """The main menu's second QR: the Remote's Join screen. Still named for the page
-    it opened in 2.x, not the one it answers now."""
-    urls = [f"{url}&screen=join" for url in _managerui_remote_urls(config)]
-    preferred_url = _preferred_managerui_url(urls)
+def get_vpinplay_multi_link(config: ConfigSource) -> dict[str, Any]:
+    """The main menu's second QR: the Remote's Join screen."""
+    urls = [f"{url}&screen=join" for url in _remote_urls(config)]
+    preferred_url = _preferred_url(urls)
     return {
         "url": preferred_url,
         "urls": urls,

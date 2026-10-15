@@ -19,7 +19,7 @@ from common.games.info_migration import BACKUP_MARKER
 from tests.support import trees
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
-SCANNED = ("common", "apps", "httpapi", "console", "frontend", "managerui", "extensions")
+SCANNED = ("common", "apps", "httpapi", "console", "frontend", "extensions")
 SPELLS_IT = frozenset({"common/games/info_migration.py", "apps/vpx/config.py"})
 
 

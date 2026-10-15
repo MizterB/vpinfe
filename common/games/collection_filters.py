@@ -1,7 +1,7 @@
 """Every axis a filter collection can constrain, declared once.
 
 One definition per axis drives four things at once: what
-a stored filter may contain, how it matches, what control the Manager UI renders, and
+a stored filter may contain, how it matches, what control the Console renders, and
 what the API's schema says. Adding an axis is an entry here.
 
 Because the registry is the only place that knows the axes, a stored filter naming one
@@ -43,7 +43,7 @@ from common.i18n import t
 from common.values import is_truthy
 
 # What a criterion says when it constrains nothing. The vocabulary the filter engine
-# and the Manager UI already share, kept rather than translated.
+# and the Console already share, kept rather than translated.
 UNCONSTRAINED = "All"
 
 GAME_SCOPE = "game"
@@ -459,7 +459,7 @@ class GameListFilters:
 
     # The predicates live in collection_filters, so a filter collection and this class
     # cannot disagree about what "manufacturer = Williams" selects. These stay because
-    # the Manager UI and the frontend both call them one axis at a time.
+    # the Console and the frontend both call them one axis at a time.
 
     def _by_axis(self, games: list[GameRecord], axis_name: str,
                  criterion: object) -> list[GameRecord]:

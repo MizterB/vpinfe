@@ -153,48 +153,6 @@ class RecordingTests(TempTree):
         self.assertEqual(self._source().get("vps_file_id"), "f1")
 
 
-class DropDeclarationTests(TempTree):
-    """The Manager UI half: where the user let go is the declaration.
-
-    Asking again in a modal is the worse design and is what treating upload context as a
-    form would produce, so the gesture has to carry the identity by itself.
-    """
-
-    def setUp(self) -> None:
-        super().setUp()
-        self.folder = write_game(self.root, "Example", info={
-            "Info": {"Name": "Example"}, "vpinfe": {"game_id": "abc123"}, "User": {}})
-
-    def _declared_for(self, game_dir, names):
-        from managerui.pages.dnd_drop_zone import _declared_for
-        return _declared_for(game_dir, names)
-
-    def test_a_drop_on_a_game_declares_that_game(self) -> None:
-        declared = self._declared_for(self.folder, {"wheel.png"})
-        self.assertEqual(declared["wheel.png"].game_id, "abc123")
-
-    def test_a_person_choosing_a_target_is_user_not_declared(self) -> None:
-        """`declared` is reserved for something that fetched the file from a record and
-        therefore witnessed the identity, rather than deciding it."""
-        declared = self._declared_for(self.folder, {"wheel.png"})
-        self.assertEqual(declared["wheel.png"].confirmed_by, claims.USER)
-
-    def test_a_drop_names_no_upstream_record(self) -> None:
-        """Nothing may enter the .info claiming to be a VPS file on the strength of a
-        drag gesture - that binding only comes from a client that fetched one."""
-        identity = self._declared_for(self.folder, {"wheel.png"})["wheel.png"]
-        self.assertFalse(identity.names_a_record)
-        self.assertEqual(identity.problems(), [])
-
-    def test_a_drop_on_no_game_declares_nothing(self) -> None:
-        """The unclaimed file joins the manual queue instead of guessing."""
-        self.assertEqual(self._declared_for(None, {"wheel.png"}), {})
-
-    def test_a_folder_with_no_id_declares_nothing(self) -> None:
-        bare = write_game(self.root, "NoId", info={"Info": {"Name": "NoId"}})
-        self.assertEqual(self._declared_for(bare, {"wheel.png"}), {})
-
-
 class ImportRecordingTests(TempTree):
     """A declared identity surviving a real import, through the code the endpoint calls."""
 

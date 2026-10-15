@@ -18,8 +18,8 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
-# The dirs that are meant to be app-agnostic. `apps/` is where this knowledge belongs
-# and `managerui/` is on its way out, so neither is scanned.
+# The dirs that are meant to be app-agnostic. `apps/` is where this knowledge belongs,
+# so it is not scanned.
 SCANNED = ("common", "console", "httpapi", "frontend")
 
 PATTERN = re.compile(r"\.vpx|vpinballx|directb2s|pinmame|nvram", re.IGNORECASE)

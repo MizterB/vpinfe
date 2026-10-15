@@ -43,7 +43,6 @@ IS_MACOS = sys.platform == "darwin"
 # are in git.
 DATA_ROOTS = [
     "frontend/static",
-    "managerui/static",
     "console/static",
     "common/host/static",
     "common/i18n/catalogs",

@@ -20,9 +20,8 @@ def _resolve_config_dir() -> Path:
     # themes/, and the cache/, state/ and logs/ beside them) somewhere other than the
     # OS default. Read at import time so it also applies to frozen PyInstaller
     # builds. Falls back to the platformdirs location when unset.
-    # Anchored here, once: a relative path would follow the working directory, and the
-    # Manager UI changes that while it runs a script. Written back so a helper started
-    # from another directory resolves the same one.
+    # Anchored here, once: a relative path would follow the working directory. Written
+    # back so a helper started from another directory resolves the same one.
     override = os.environ.get("VPINFE_CONFIG_DIR", "").strip()
     if override:
         anchored = Path(override).expanduser().absolute()

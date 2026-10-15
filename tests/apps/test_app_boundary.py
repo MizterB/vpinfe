@@ -21,7 +21,7 @@ CONTRACT = "common.apps.contract"
 
 # Ours, whatever else is on the path.
 FIRST_PARTY = frozenset({"apps", "common", "console", "frontend", "httpapi",
-                         "managerui", "tests"})
+                         "tests"})
 
 # Third-party an app may use, one line per library. Empty today, and it stays a list
 # rather than a blanket allowance so that adding a dependency to an app is a decision

@@ -57,7 +57,7 @@ class RegistryTests(unittest.TestCase):
 
 
 class BindingProjectionTests(unittest.TestCase):
-    """The Manager UI shows a keyboard field and a controller field over one list."""
+    """The Console shows a keyboard field and a controller field over one list."""
 
     BINDINGS = ["key:ArrowLeft", "key:ShiftLeft", "pad:0/button:4",
                 "chord(pad:0/button:4+pad:0/button:5)@hold:1000"]

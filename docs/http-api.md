@@ -1,7 +1,7 @@
 # HTTP API
 
-VPinFE serves a versioned HTTP API at `/api/v1`, on the same port as the Manager UI
-(`manageruiport`, default 8001).
+VPinFE serves a versioned HTTP API at `/api/v1`, on the same port as the Console
+(`http_port` in the `network` section, default 8001).
 
 > **Unstable.** The API is under active development and may change without notice until v1
 > is declared stable. Nothing outside this repo should depend on it yet.
@@ -14,8 +14,8 @@ VPinFE serves a versioned HTTP API at `/api/v1`, on the same port as the Manager
 - `httpapi/capabilities.py`: the capability registry discovery reads from.
 - `httpapi/events.py`: the event stream — the internal bus (`common/events.py`) on the wire.
 
-The API is not part of the Manager UI. It's served by the same process today, but it belongs
-to the platform — the Manager UI, the frontend themes, the mobile page, and any outside
+The API is not part of the Console. It's served by the same process today, but it belongs
+to the platform — the Console, the frontend themes, the Remote, and any outside
 integration are all just clients of it.
 
 ## Why it's a mounted app
@@ -24,7 +24,7 @@ integration are all just clients of it.
 NiceGUI app directly. That boundary does real work:
 
 - The error envelope, CORS, and eventually the authorization boundary apply to `/api/v1` and to nothing
-  else. The Manager UI's pages can't be affected by an API-level change, by construction.
+  else. The Console's pages can't be affected by an API-level change, by construction.
 - NiceGUI disables OpenAPI on its own app and installs 404/500 handlers that render HTML
   pages. Routes added there get no generated spec and no JSON errors; a mounted app gets
   both.
@@ -1795,7 +1795,7 @@ the thing itself, so a scan is `games:write` because that is what a scan does. `
 covers only asking; the right to watch is not the right to cause.
 
 **One job of a kind at a time**, and the rule is shared with the rest of the app rather than
-being an API-only guard: the Manager UI's own Scan button goes through the same registry, so
+being an API-only guard: the Console's own Scan button goes through the same registry, so
 two library scans can't rewrite the same `.info` files at once, and a scan started from the
 UI shows up on the stream exactly like one started here. A second request gets `409 conflict`
 rather than being queued — queueing would mean a double-click costs two full scans.
@@ -1842,7 +1842,7 @@ Two consequences worth knowing:
 Existing games get an id on their next metadata rebuild, or on demand. Reading a game never
 mints one — a scan is a read path and stays one.
 
-In Manager UI game rows the field is `vpinfe_id`, pairing with `vpsid` so each name says who
+In Console game rows the field is `vpinfe_id`, pairing with `vpsid` so each name says who
 issued the id. The API exposes it as the resource's `id`.
 
 ### Schema version

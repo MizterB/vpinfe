@@ -3,10 +3,10 @@
 Every vocabulary 3.0 renamed - window names, media kinds, action names - is translated
 for a contract 1 theme and left alone for a contract 2 one. So an old name sitting in
 our own code, or in a place that runs at contract 2, resolves to nothing and says
-nothing about it. Five of those shipped before the cabinet found them: a theme whose
+nothing about it. Four of those shipped before the cabinet found them: a theme whose
 windows were `bg` and `dmd`, a `case "joyselect"` that made the launch button dead,
-core's own preload default, the image-or-video branch that made `[Media] bgmediapriority`
-inert at both contracts, and the Manager UI keying its media table on `bg`.
+core's own preload default, and the image-or-video branch that made `[Media] bgmediapriority`
+inert at both contracts.
 
 Each of those was one token in one line, and none of them failed a test. The allowlist
 below is the interesting half of this file: a module is on it because translating is its
@@ -81,7 +81,7 @@ NOT_THE_ACTION = {
 }
 
 SKIP_PARTS = {"build", "third_party", "chromium", "tests"}
-SKIP_PREFIXES = ("managerui/maps/", "frontend/static/themes/")
+SKIP_PREFIXES = ("frontend/static/themes/",)
 
 
 def _source_files():

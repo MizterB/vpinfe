@@ -40,7 +40,7 @@ RETIRED = {
 }
 
 SKIP_PARTS = {"build", "third_party", "chromium", "tests"}
-SKIP_PREFIXES = ("managerui/maps/", "frontend/static/themes/")
+SKIP_PREFIXES = ("frontend/static/themes/",)
 
 
 def _source_files():

@@ -2,7 +2,7 @@
 
 The whole file is rewritten on every save, so a writer that read it before another one
 saved is holding a stale copy - and writing that copy back drops the other's collection
-while reporting success. The theme's collection menu, the API, the Manager UI and the
+while reporting success. The theme's collection menu, the API and the
 launch tracker all write the same file through stores of their own, so the window is
 reachable from any pair of them.
 

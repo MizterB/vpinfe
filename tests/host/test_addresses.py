@@ -107,7 +107,7 @@ class FrontendRemoteLinkTests(unittest.TestCase):
                                   return_value=["cab", "192.168.1.20", "localhost"]), \
                 mock.patch.object(addresses, "scheme", return_value="http"), \
                 mock.patch.object(addresses, "served_names", return_value=[]):
-            link = config_api.get_managerui_remote_link(configparser.ConfigParser())
+            link = config_api.get_remote_link(configparser.ConfigParser())
 
         self.assertEqual(link["url"], f"http://cab:8001/remote?{access_keys.PASS_PARAM}=s3cret")
         self.assertEqual(len(link["urls"]), 3)

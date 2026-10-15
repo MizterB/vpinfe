@@ -272,7 +272,7 @@ def source_trees() -> dict[str, ast.Module]:
     found = {}
     for path in project_files("*.py"):
         rel = path.relative_to(root).as_posix()
-        if rel.startswith(("tests/", "third_party/", "managerui/maps/")):
+        if rel.startswith(("tests/", "third_party/")):
             continue
         try:
             found[rel] = trees.tree_for(path)

@@ -26,7 +26,7 @@ EXTENSIONS_DIR = pathlib.Path(__file__).resolve().parents[2] / "extensions"
 CONTRACT = "common.extensions.contract"
 
 FIRST_PARTY = frozenset({"apps", "common", "console", "extensions", "frontend",
-                         "httpapi", "managerui", "tests"})
+                         "httpapi", "tests"})
 
 # Third-party an extension may use, one line per library, because adding a dependency to
 # an extension should be a decision somebody made rather than one nobody saw.

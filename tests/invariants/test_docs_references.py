@@ -60,10 +60,8 @@ DOTTED_REF = re.compile(r"`(?:managerui|common|httpapi|frontend)((?:\.[a-z_]+){2
 QUOTED_FILE = re.compile(r'"([A-Za-z0-9_.-]+\.(?:py|css))"')
 
 
-# Two paths are cited on purpose by something that is not there, and both are right to be.
+# A path cited on purpose by something that is not there, and right to be.
 KNOWN_ABSENT = {
-    # "Create a module in `managerui/pages/`, for example ..." - a file you would write.
-    "managerui/pages/network.py",
     # PAR-20 records that this module was deleted. The ledger is a history, so it names
     # things that no longer exist; that is the entry's whole point.
     "common/info_restore.py",

@@ -434,7 +434,7 @@ def _collections_for(row: dict[str, Any], collections_map: dict[str, list[str]])
     Matches CollectionStore.is_member. The migration leaves an entry alone when no
     game matched it - the game may simply not be installed yet - and it only runs
     once, so an entry can stay VPS-keyed indefinitely. Without the fallbacks the
-    frontend would show that membership and the Manager UI would not.
+    frontend would show that membership and the Console would not.
     """
     for key in (row.get("vpinfe_id"), row.get("alt_vpsid"), row.get("vpsid")):
         if key and key in collections_map:

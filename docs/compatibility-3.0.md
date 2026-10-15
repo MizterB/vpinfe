@@ -121,7 +121,7 @@ circulates for other frontends works here unchanged. Covered by
 **PAR-12 — `logo` is its own media kind, and the wheel falls back to it.**
 *(machine-checked)* `logo.png` used to import as a wheel; it now imports as the game's
 logo, its own slot with the full chain (token `(Logo)`). A game with a logo and no wheel
-shows the logo wherever the wheel would appear — themes, Manager UI, API — because the
+shows the logo wherever the wheel would appear — themes, the Console, API — because the
 fallback lives at the bottom of the wheel's resolution, below every real wheel tier. The
 API marks such a wheel `via: "logo"`. Themes gain `LogoImagePath`.
 *Why:* the logo is usually the source a wheel is derived from, so showing it beats a
@@ -259,7 +259,7 @@ reverse-engineer a URL out of them. That is where the `medias/` string surgery i
 `vpinfe-core.js` came from, and it needed a special case the first time a wheel set put a
 file one level deeper. Naming the kinds instead also takes several hundred kilobytes off a
 large library's payload, which crosses the socket on every filter and sort. Responses carry
-an `ETag` and `Cache-Control: no-cache`, so a media change in the Manager UI is visible
+an `ETag` and `Cache-Control: no-cache`, so a media change in the Console is visible
 without a version baked into the URL - which would have meant stat-ing every resolved file
 of every game every time the list was built. Covered by `tests/media/test_media_route.py`.
 
@@ -553,7 +553,7 @@ a library's answer with no local library behind it.
 **PAR-70 — Two surfaces writing collections no longer lose each other's edit.**
 `CollectionStore` gains `mutate()`, a context manager that reloads and saves under one
 process-wide lock. Every writer goes through it: the theme's collection menu, the four
-API routes, the seven Manager UI operations and the launch tracker. No payload, route or
+API routes, the seven operations that were the Manager UI's and the launch tracker. No payload, route or
 stored file changes shape.
 *Why:* the whole file is rewritten on every save, so a writer holding a copy read before
 another one saved wrote that stale copy back - dropping the other's collection and
@@ -668,13 +668,13 @@ resolves - the config names through the same alias machinery that has carried
 `manageruiport` since PAR-44, and the method through `_RENAMED_METHODS`, which forwards it
 the way every renamed method is forwarded. Nothing about the port, the default or what
 answers on it changes.
-*Why:* the port was named after one of the four things listening on it. It serves
-`/api/v1`, the Manager UI at `/`, and the remote and mobile pages - and the API is
+*Why:* the port was named after one of the four things listening on it. It served
+`/api/v1`, the Manager UI at `/`, and the remote and mobile pages - and the API was
 explicitly not part of the Manager UI (`docs/http-api.md`: "it belongs to the platform").
 So `endpoints.library` and `endpoints.device` were being built from a port named for a UI,
 which read as though the library were fetched from the Manager UI. What the four have in
 common is the protocol: the API, the Console, the Manager UI and the remote and mobile
-pages all answer on it. Naming it `library_api_port` would have repeated the original mistake from the
+pages all answered on it. Naming it `library_api_port` would have repeated the original mistake from the
 other end - naming one listener while three others share the port. One consequence is
 visible and deliberate: `endpoints.device` points at the library's port for now, because
 one `/api/v1` still answers for both. That is honest about today's topology rather than
@@ -800,7 +800,7 @@ the code lives.
 asset logic, and none of it was UI - business logic filed under a UI package, which is the
 clearest layering break in the tree. It also made the incumbent UI privileged: a
 replacement would have had to import it, which is a skin rather than a replacement. Of the
-18 modules under `managerui/services/`, 17 imported no NiceGUI, so the logic was written
+18 modules in the Manager UI's services package, 17 imported no NiceGUI, so the logic was written
 UI-independent and only filed in the wrong place. The move is by what a module knows about,
 which is how `docs/common.md` already draws these boundaries; `uploads` is its own package
 because it depends on `games` and nothing in `games` depends on it. The four `frontend`
@@ -981,7 +981,7 @@ it an override of the VPS ID the Manager UI shows. Covered by
 endpoint accepts a `declared` map, keyed by the name each file arrived under, carrying
 `vps_file_id` + `host_item_id`, `game_id`, `table_id` and `confirmed_by`. What is declared is
 written into that file's `source` block in the `.info`. Purely additive: an empty body imports
-exactly as before, and a caller that says nothing records nothing. In the Manager UI the drop
+exactly as before, and a caller that says nothing records nothing. In the Console the drop
 target is the declaration - letting go on a game row names that game - so no dialog asks again
 for what the gesture already said.
 *Why:* whatever delivered the bytes knows what it asked for, and VPinFE was throwing that away
@@ -1106,8 +1106,8 @@ likely to be using. Covered by `tests/invariants/test_deprecations.py`.
 `--game` takes the folder name for `--buildmeta`, `--upgrade-info` and `--restore-info`.
 `--table` is accepted as an alias and kept out of `--help`, so a script written against
 2.x keeps running while the documented flag is the current one.
-*Why:* the CLI sits with the API rather than with the Manager UI, which keeps saying
-Tables for 3.0 — see the Manager UI note in `docs/conventions.md`. A flag in somebody's
+*Why:* the CLI sits with the API rather than with the Manager UI, which kept saying
+Tables for 3.0. A flag in somebody's
 script is exactly the kind of thing that should not need editing to survive an upgrade.
 
 **PAR-25 — `vpinfe.ini` keys are read under their old names and written under the new.**
@@ -1192,7 +1192,7 @@ comments `configparser.write()` destroyed on first load. It also makes the setti
 same shape over HTTP as on disk, which is what lets the API and an extension read them
 without a translation. **Comments in an existing ini are not carried over** - they were
 already destroyed by the first write of any 2.x build, so nothing that survives today is
-lost. The Manager UI is the intended editor and covers 84 of the 86 settings.
+lost. The Console is the intended editor.
 Covered by `tests/config/test_config_store.py`.
 
 **PAR-36 — Theme options you set move out of the theme, and survive an update.**
@@ -1538,6 +1538,14 @@ Show is chosen, the six digits; a theme that could call them could read the digi
 the cabinet's screen is where a person standing at it sees the request.
 Covered by `tests/js/internal-methods.test.js`, `tests/invariants/test_theme_api_surface.py`
 and `tests/theming/test_sign_in_drive.py`.
+
+**PAR-108 - The main menu's QR codes are named for what they open.** Two WebSocket
+methods, `get_remote_link` and `get_vpinplay_multi_link`. Master's
+`get_managerui_remote_link` and `get_managerui_vpinplay_multi_link` stay callable and
+forward to them, so a theme written against master gets its answer.
+*Why:* the page the old names pointed at is gone; the codes open the Remote and the
+VPinPlay multi-player page.
+Covered by `tests/host/test_addresses.py` and `tests/invariants/test_parity.py`.
 
 ## Explicitly *not* exceptions
 

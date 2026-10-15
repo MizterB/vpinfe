@@ -1,4 +1,4 @@
-"""The Manager UI starts without uvicorn's logging configuration.
+"""The web server starts without uvicorn's logging configuration.
 
 `logging.config.dictConfig` closes every handler while holding the logging module's lock,
 and `main.reconfigure_app_logging` closes and rebuilds the same handlers on another
@@ -15,7 +15,7 @@ from pathlib import Path
 
 from tests.support import trees
 
-SOURCE = Path(__file__).resolve().parents[2] / "managerui" / "managerui.py"
+SOURCE = Path(__file__).resolve().parents[2] / "console" / "host.py"
 
 
 def _run_calls() -> list[ast.Call]:
@@ -24,11 +24,11 @@ def _run_calls() -> list[ast.Call]:
             and node.func.attr == "run" and getattr(node.func.value, "id", "") == "ui"]
 
 
-class TheManagerUiLeavesLoggingAlone(unittest.TestCase):
+class TheServerLeavesLoggingAlone(unittest.TestCase):
 
     def test_it_starts_nicegui_with_no_log_config(self):
         calls = _run_calls()
-        self.assertEqual(len(calls), 1, "expected one ui.run in managerui.py")
+        self.assertEqual(len(calls), 1, "expected one ui.run in host.py")
         keywords = {kw.arg: kw.value for kw in calls[0].keywords}
         self.assertIn("log_config", keywords, "ui.run must be given log_config=None")
         self.assertIsInstance(keywords["log_config"], ast.Constant)

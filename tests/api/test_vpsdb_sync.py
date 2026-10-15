@@ -1,8 +1,7 @@
 """Keeping the local catalog current, and knowing when a check is owed.
 
 Everything VPS-shaped reads a file: matching, release lists, obtainability, what a kind
-is offered from. Until this existed the only thing that downloaded it was a Manager UI
-page, so an install that never opened one answered from the snapshot it started with.
+is offered from.
 """
 
 from __future__ import annotations

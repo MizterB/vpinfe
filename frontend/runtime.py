@@ -250,7 +250,7 @@ def start_asset_server(mount_points: dict[str, str],
     return http_server
 
 
-def wait_for_manager_ui_ready(port: int, timeout_seconds: float = 15.0) -> None:
+def wait_for_server_ready(port: int, timeout_seconds: float = 15.0) -> None:
     deadline = time.time() + timeout_seconds
     while time.time() < deadline:
         try:
@@ -443,7 +443,7 @@ def run_frontend_loop(headless: bool, iniconfig: ConfigStore,
 def shutdown_services(logger: logging.Logger, *, iniconfig: ConfigStore,
                       ws_bridge: DeviceChannel, stop_dof: Callable[[], Any],
                       stop_dmd: Callable[..., Any], http_server: CustomHTTPServer,
-                      nicegui_app: Any, stop_manager_ui: Callable[[], Any]) -> None:
+                      nicegui_app: Any, stop_server: Callable[[], Any]) -> None:
     logger.info("Shutting down services...")
     for label, action in (
         ("ws_bridge.stop", ws_bridge.stop),
@@ -454,7 +454,7 @@ def shutdown_services(logger: logging.Logger, *, iniconfig: ConfigStore,
         ("stop_discovery", discovery.stop),
         ("http_server.on_closed", http_server.on_closed),
         ("nicegui_app.shutdown", nicegui_app.shutdown),
-        ("stop_manager_ui", stop_manager_ui),
+        ("stop_server", stop_server),
     ):
         try:
             action()

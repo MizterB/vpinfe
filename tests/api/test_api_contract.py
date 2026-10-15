@@ -339,7 +339,7 @@ class ApiContractTests(unittest.TestCase):
         self.assertTrue(files[0]["available"])
 
     def test_archive_downloads_with_the_progress_cookie_preserved(self) -> None:
-        """The mobile page watches for this cookie to know the download started."""
+        """The 2.x Mobile page watches for this cookie to know the download started."""
         entry = self.probe["table_archive"]
 
         self.assertEqual(entry["status"], 200)

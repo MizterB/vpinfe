@@ -737,7 +737,7 @@ def _as_text(value: Any) -> str:
 
 
 def _expected(option: dict[str, Any], kind: str) -> str:
-    """What a valid answer looks like. The Manager UI says this under every option and
+    """What a valid answer looks like. The Console says this under every option and
     it is the difference between a field and a guess.
 
     No full stop: each of these is a fragment naming a shape, not a sentence about it.

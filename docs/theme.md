@@ -27,7 +27,7 @@ Themes are installed in the user config directory: `~/.config/vpinfe/frontend_th
 ├── manifest.json
 ├── config.json          (optional - what the theme turns on or off in core, see below)
 ├── options.json         (optional - the settings a person can change; theme.json at contract 1)
-├── preview.png          (optional - shown in manager UI, can be .png or .gif)
+├── preview.png          (optional - shown in the Console, can be .png or .gif)
 ├── index_playfield.html  (one per declared window: index_<window>.html)
 ├── index_backglass.html  (optional at contract 2 - core draws the backglass when absent)
 ├── index_scoreview.html  (optional at contract 2 - core draws the score view when absent)
@@ -62,16 +62,16 @@ Every theme must include a `manifest.json`:
 
 | Field | Description |
 |-------|-------------|
-| `name` | Display name shown in the manager UI. |
+| `name` | Display name shown in the Console. |
 | `version` | Version string for tracking updates. |
 | `author` | Theme author name. |
-| `description` | Brief description shown in the manager UI. |
+| `description` | Brief description shown in the Console. |
 | `layouts` | The layouts your theme is made for, each with its preview picture: `"cab"` for a cabinet, `"desktop"` for a flat screen. Name one or both. The Console shows a picture for each layout side by side, and the layout you name first stands for the theme where there is room for one. A picture is a filename (`.png` or `.gif`) or an absolute `http...` address. |
 | `preview_image`, `type` | Legacy, from 2.x: one picture, and `"desktop"`, `"cab"` or `"both"`. Still read when `layouts` is absent. A theme that should also appear on a 2.x install keeps both alongside `layouts`: 2.x skips a manifest without them, and 3.x ignores them when `layouts` is there. |
-| `change_log` | What changed in this version. Optional. Shown as "What's new" in the Manager UI, and only to someone who has not installed your theme or has an update waiting — so it is worth writing for them, not as a running history. |
+| `change_log` | What changed in this version. Optional. Shown as "What's new" in the Console, and only to someone who has not installed your theme or has an update waiting — so it is worth writing for them, not as a running history. |
 | `min_vpinfe` | The oldest VPinFE your theme runs on. Optional; absent means it runs on 2.x, which serves contract 1. Declaring `"3.0"` is what gets you the contract 2 surface. See [Theme contract](#theme-contract). |
 | `windows` | The windows your theme wants, **controller first**. Required unless the manifest has the legacy `supported_screens` instead. See [Declaring windows](#declaring-windows). |
-| `supported_screens` | Legacy. A count of screens, shown in the Manager UI and nothing more - it never decided which windows opened. `windows` replaces it and names them. Still accepted. |
+| `supported_screens` | Legacy. A count of screens, shown in the Console and nothing more - it never decided which windows opened. `windows` replaces it and names them. Still accepted. |
 
 `version` is your theme's own release number. `min_vpinfe` is the oldest VPinFE it runs
 on. They are different questions and they move independently.
@@ -279,7 +279,7 @@ server your theme is loaded from. Contract 1 carried a filesystem path per kind 
 every theme to turn it into a URL; contract 2 does not put the filesystem in a web page,
 and on a large library it keeps several hundred kilobytes off the wire each time the list
 is rebuilt. Responses carry an `ETag` and ask to be revalidated, so replacing art in the
-Manager UI shows up without a hard refresh.
+Console shows up without a hard refresh.
 
 **Pages.** The flyer and the instruction card can be several pictures. `entries[].pages` maps
 a kind to its page count, for the kinds that have two or more; a kind with one page is not
@@ -435,7 +435,7 @@ Core draws both and owns the buttons while they are up.
 |---------|---------|
 | `<div id="fadeContainer">` | Wrap your content for fade-to-black transitions on game launch/return. Style with `transition: opacity` in CSS. |
 | `<div id="fadeOverlay">` | Alternative fade pattern: a fixed full-screen black overlay that fades in/out via a CSS class (e.g., `.show { opacity: 1 }`). |
-| `<div id="remote-launch-overlay">` | Overlay shown when the manager UI triggers a remote game launch. Include `<div id="remote-launch-table-name">` inside for the game name. |
+| `<div id="remote-launch-overlay">` | Overlay shown when the Console triggers a remote game launch. Include `<div id="remote-launch-table-name">` inside for the game name. |
 
 ### Playfield Geometry: Mounting, Rotation And Cab Mode
 
@@ -876,13 +876,13 @@ window.receiveEvent = (message) => {
   else moveWheelTo(message.index);
 };
 ```
-| `RemoteLaunching` | `game_name`, `table_name` | The manager UI triggered a remote game launch. Both names carry the same value; `table_name` is the 2.x spelling. Frontend keyboard/gamepad routing is suspended until `RemoteLaunchComplete`; show an overlay. Not sent for a launch that records a table's media: `TableLaunching` arrives for it, as for every launch, and core says what is happening itself (see Overlays). |
+| `RemoteLaunching` | `game_name`, `table_name` | The Console triggered a remote game launch. Both names carry the same value; `table_name` is the 2.x spelling. Frontend keyboard/gamepad routing is suspended until `RemoteLaunchComplete`; show an overlay. Not sent for a launch that records a table's media: `TableLaunching` arrives for it, as for every launch, and core says what is happening itself (see Overlays). |
 | `RemoteLaunchComplete` | — | The remote-launched game has exited and frontend input routing is restored. Hide the overlay. |
 | `ProposalPreview` | `preview` | Core's own. A recording waiting for a decision is shown over your windows, and core takes the input until it is decided; `vpin.handleEvent()` draws it and your registered handlers never see it. Nothing for a theme to do. |
 | `SelectionRequest` | `window` | Core's own. A window that opens after the wheel has moved asks the controller where it is, and the answer is a `TableIndexUpdate` with `reason` `"restore"` sent to that window alone. `vpin.handleEvent()` takes it and your registered handlers never see it. Nothing for a theme to do. |
-| `TableDataChange` | `index`, `collection?`, `filters?`, `sort?` | Game data changed (collection switch, filter/sort update, a finished game's play data, a Manager UI edit). Handled automatically by `vpin.handleEvent()`. |
+| `TableDataChange` | `index`, `collection?`, `filters?`, `sort?` | Game data changed (collection switch, filter/sort update, a finished game's play data, a Console edit). Handled automatically by `vpin.handleEvent()`. |
 
-`TableDataChange` also arrives unprompted: when a game exits, and when the Manager UI
+`TableDataChange` also arrives unprompted: when a game exits, and when the Console
 changes a game or a collection. Those are raised by the backend, which has no wheel
 index to send, so `vpin.handleEvent()` fills `index` in before your handler sees it —
 and it fills in where the game you were on has *moved to*, not the slot it used to
@@ -1497,7 +1497,7 @@ Returns an HTTP URL for a table's image, the still, whatever the player's media 
 Returns an HTTP URL for a table's video. `kind` can be `"playfield"`, `"backglass"`, or `"scoreview"`. Returns a fallback `/core/images/file_missing.png` URL if no video exists or `index` is outside the list, never `null`. See [Video Support](#video-support).
 
 #### getMediaURL(index, kind)
-Returns an HTTP URL using the user's configured media priority from Manager UI > Configuration > Media > Media Priorities. For `"playfield"`, `"backglass"`, and `"scoreview"`, VPinFE chooses image or video first based on the setting and falls back to the alternate when the preferred file is missing. So `getMediaURL(i, "playfield")` returns the video when the game has one and the priority is video, which is the default, and `getImageURL(i, "playfield")` returns the still. A `<img>` given the first of those shows nothing for a game with a video; ask `getMedia` which it got, or use `getImageURL` for an `<img>`. For `"real_dmd"`, VPinFE chooses `realdmd-color.png` or `realdmd.png` first based on the setting and falls back to the other frame. It answers with a picture; a theme that wants the video asks for `"real_dmd_video"` or `"real_dmd_color_video"` by their own names. Returns `/core/images/file_missing.png` when neither exists or `index` is outside the list, never `null`.
+Returns an HTTP URL using the user's configured media priority from Settings > Frontend > Presentation in the Console (Playfield, Backglass, Score View and Real DMD Media Priority). For `"playfield"`, `"backglass"`, and `"scoreview"`, VPinFE chooses image or video first based on the setting and falls back to the alternate when the preferred file is missing. So `getMediaURL(i, "playfield")` returns the video when the game has one and the priority is video, which is the default, and `getImageURL(i, "playfield")` returns the still. A `<img>` given the first of those shows nothing for a game with a video; ask `getMedia` which it got, or use `getImageURL` for an `<img>`. For `"real_dmd"`, VPinFE chooses `realdmd-color.png` or `realdmd.png` first based on the setting and falls back to the other frame. It answers with a picture; a theme that wants the video asks for `"real_dmd_video"` or `"real_dmd_color_video"` by their own names. Returns `/core/images/file_missing.png` when neither exists or `index` is outside the list, never `null`.
 
 Kind names are snake_case, the same strings the payload and `/api/v1` use, and at contract 2 they are the only names that answer. A contract 1 theme can still use the spellings earlier builds accepted: `bg`, `bg_video`, `dmd`, `dmd_video`, `table`, `table_video`, `fss`, `realdmd`, `realdmd-color`, `rulecard`, `audiolaunch` and `rulesheet`.
 
@@ -1654,7 +1654,7 @@ if (playfield) showMedia(playfield);
 
 Checking `media` first is what tells you whether to show a video, an image, or nothing —
 there is no request to make and no placeholder to detect. Responses carry an `ETag` and
-ask to be revalidated, so replacing art in the Manager UI shows up without a hard refresh.
+ask to be revalidated, so replacing art in the Console shows up without a hard refresh.
 
 `vpin.getMedia(index, kind)`, `getImageURL` and `getVideoURL` still work and still honor
 the user's media priority. Use them when you want that behavior; use `media` when you want
@@ -1797,7 +1797,7 @@ const url = (kind) => entry.media.includes(kind)
 showMedia(url('playfield_video') || url('playfield'));
 ```
 
-`vpin.getMedia(index, kind)` **resolves what to show**, honoring the user's Manager UI
+`vpin.getMedia(index, kind)` **resolves what to show**, honoring the user's Console
 media priority and falling back on its own:
 
 ```javascript
@@ -1811,7 +1811,7 @@ Use the first when your theme decides; use the second when the user's priority s
 
 Themes can display looping videos for table, backglass, and DMD screens in addition to (or instead of) static images.
 
-For new themes, prefer `vpin.getMedia(index, kind)` or `vpin.getMediaURL(index, kind)` when you want to honor the user's Manager UI media priority. The default priority is video for table, backglass, and DMD media, and colorized for Real DMD frames. If the preferred file is missing, VPinFE automatically falls back to the available alternate.
+For new themes, prefer `vpin.getMedia(index, kind)` or `vpin.getMediaURL(index, kind)` when you want to honor the user's media priority from the Console. The default priority is video for table, backglass, and DMD media, and colorized for Real DMD frames. If the preferred file is missing, VPinFE automatically falls back to the available alternate.
 
 Priority-aware example:
 ```javascript
@@ -2089,12 +2089,12 @@ Supported field types in `options.json`:
 Notes:
 
 - `key` is required and identifies the value returned through `get_theme_config()`. Dot notation such as `audio.enabled` creates nested objects in the returned config.
-- `name` is the display label shown in Manager UI. If omitted, the `key` is shown.
+- `name` is the display label shown in the Console. If omitted, the `key` is shown.
 - `description` is shown as help text in the dialog.
 - `default` is what the option is until a person changes it. Their choice is kept in their own settings and is never written back into this file.
 - `value` is the older spelling of `default`, from when this file also held the chosen values. It is still read as the default when `default` is absent.
 - `select` options may be simple scalar values or `{label, value}` objects.
-- A `select` may set `"source": "wheelsets"` instead of a static `options` list. Manager UI then fills the dropdown from the library: every wheel set folder found under any table's `medias/wheels/`, plus the built-in `logo` set, plus a Default entry (saved as `""`, meaning no set). Use the key `wheelSet`; a non-empty saved value overrides the `[Media] wheelset` setting from `vpinfe.ini` while this theme is active.
+- A `select` may set `"source": "wheelsets"` instead of a static `options` list. The Console then fills the dropdown from the library: every wheel set folder found under any table's `medias/wheels/`, plus the built-in `logo` set, plus a Default entry (saved as `""`, meaning no set). Use the key `wheelSet`; a non-empty saved value overrides the `[Media] wheelset` setting from `vpinfe.ini` while this theme is active.
 
 ```json
 {

@@ -114,7 +114,7 @@ async function loadRemoteQrPanel() {
   if (!panel || !code) return;
 
   try {
-    const remoteLink = await window.parent.vpin.call('get_managerui_remote_link');
+    const remoteLink = await window.parent.vpin.call('get_remote_link');
     const rawUrl = remoteLink && typeof remoteLink.url === 'string' ? remoteLink.url.trim() : '';
     const qrSvg = remoteLink && typeof remoteLink.qr_svg === 'string' ? remoteLink.qr_svg.trim() : '';
     if (!rawUrl || !qrSvg) return;
@@ -135,8 +135,7 @@ async function loadJoinQrPanel() {
   if (!panel || !code) return;
 
   try {
-    // Still the 2.x method name; it answers the Remote's Join screen now.
-    const joinLink = await window.parent.vpin.call('get_managerui_vpinplay_multi_link');
+    const joinLink = await window.parent.vpin.call('get_vpinplay_multi_link');
     const rawUrl = joinLink && typeof joinLink.url === 'string' ? joinLink.url.trim() : '';
     const qrSvg = joinLink && typeof joinLink.qr_svg === 'string' ? joinLink.qr_svg.trim() : '';
     if (!rawUrl || !qrSvg) return;

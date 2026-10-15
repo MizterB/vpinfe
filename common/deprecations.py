@@ -123,6 +123,8 @@ SHIMS: tuple[Shim, ...] = (
             ("get_table_rotation", "get_playfield_rotation"),
             ("get_manager_ui_port", "get_http_port"),
             ("get_hub_port", "get_http_port"),
+            ("get_managerui_remote_link", "get_remote_link"),
+            ("get_managerui_vpinplay_multi_link", "get_vpinplay_multi_link"),
         ),
     ),
     Shim(

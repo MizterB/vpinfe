@@ -19,7 +19,6 @@ LOADER_SITES = (
     "common.games.media_service",
     "frontend.api",
     "frontend.library_resolver",
-    "managerui.pages.remote",
 )
 
 

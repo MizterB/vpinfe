@@ -61,7 +61,7 @@ class DeclaredIdentity:
 
     def problems(self) -> list[str]:
         """Why this claim cannot be accepted, or an empty list. Here rather than at the
-        endpoint so the Manager UI answers to the same rules."""
+        endpoint so every caller answers to the same rules."""
         found = []
         basis = str(self.confirmed_by or "").strip().lower()
         if basis and basis not in ACCEPTED_FROM_CALLERS:

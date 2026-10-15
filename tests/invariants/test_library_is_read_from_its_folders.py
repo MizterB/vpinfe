@@ -10,7 +10,6 @@ from tests.support import trees
 
 REPO = Path(__file__).resolve().parents[2]
 
-# The Manager UI is not scanned: it retires, and reads the setting until it does.
 SCANNED = ("common", "console", "httpapi", "frontend", "extensions", "apps")
 TOP_LEVEL = ("cli.py", "main.py")
 NAMES = frozenset({"game_root_dir", "gamerootdir", "tablerootdir", "get_games_path"})

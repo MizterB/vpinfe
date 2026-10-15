@@ -124,8 +124,8 @@ API_PUBLISHED_METHODS = {
     'get_playfield_media_rotation',
     'get_theme_assets_port',
     'get_http_port',
-    'get_managerui_remote_link',
-    'get_managerui_vpinplay_multi_link',
+    'get_remote_link',
+    'get_vpinplay_multi_link',
     'get_theme_index_page',
     # Additive: the roster and who is up, for a theme that wants to show it. Kept live
     # by the PlayersChanged window message rather than re-asked for.
@@ -204,13 +204,15 @@ _RENAMED_METHODS = {
     'set_table_rating': 'set_game_rating',
     'get_table_orientation': 'get_playfield_orientation',
     'get_table_rotation': 'get_playfield_rotation',
-    # The port serves the API, the Console, the Manager UI, and the remote and mobile
-    # pages, so it is named for the protocol rather than one thing listening on it. Two
-    # retired spellings rather than one: it was named for the Manager UI, then for a
-    # role that no longer exists. Neither reached a release, but a theme built against a
-    # 3.0 dev build has seen the second.
+    # The port serves the API, the Console and the Remote, so it is named for the protocol
+    # rather than one thing listening on it. Two retired spellings rather than one: it was
+    # named for 2.x's Manager UI, then for a role that no longer exists. Neither reached a
+    # release, but a theme built against a 3.0 dev build has seen the second.
     'get_manager_ui_port': 'get_http_port',
     'get_hub_port': 'get_http_port',
+    # The two QR codes on the main menu; named for the page they opened in 2.x.
+    'get_managerui_remote_link': 'get_remote_link',
+    'get_managerui_vpinplay_multi_link': 'get_vpinplay_multi_link',
 }
 
 API_PUBLISHED_METHODS |= set(_RENAMED_METHODS)
@@ -1076,11 +1078,11 @@ class API:
     def get_http_port(self) -> int:
         return config_api.get_http_port(self._ini_config.config)
 
-    def get_managerui_remote_link(self) -> dict[str, Any]:
-        return config_api.get_managerui_remote_link(self._ini_config.config)
+    def get_remote_link(self) -> dict[str, Any]:
+        return config_api.get_remote_link(self._ini_config.config)
 
-    def get_managerui_vpinplay_multi_link(self) -> dict[str, Any]:
-        return config_api.get_managerui_vpinplay_multi_link(self._ini_config.config)
+    def get_vpinplay_multi_link(self) -> dict[str, Any]:
+        return config_api.get_vpinplay_multi_link(self._ini_config.config)
 
     def get_theme_contract(self) -> int:
         return self._theme_contract()

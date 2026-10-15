@@ -16,7 +16,7 @@ from nicegui import app
 
 from common import serving
 
-logger = logging.getLogger("vpinfe.manager.loopback")
+logger = logging.getLogger("vpinfe.console.loopback")
 
 _server: uvicorn.Server | None = None
 _task: asyncio.Task | None = None

@@ -130,8 +130,6 @@ def _capture_legacy_endpoints() -> dict:
     from nicegui import app as nicegui_app
     from starlette.testclient import TestClient
 
-    import managerui.managerui  # noqa: F401  (registers routes)
-
     client = TestClient(nicegui_app, raise_server_exceptions=False)
     result = {}
     for name, method, path in (

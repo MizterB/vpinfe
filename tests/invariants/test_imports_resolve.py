@@ -23,7 +23,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 # Our own packages, plus the vendored drop we do not lint or own.
 SKIP_DIRS = {"build", "third_party", "chromium", "web", "tests"}
-VENDORED = {"managerui/maps"}
+VENDORED: set[str] = set()
 
 # Modules that only exist on one platform, imported inside the branch that needs them.
 # `find_spec` answers for the machine running the suite, so without this the check says

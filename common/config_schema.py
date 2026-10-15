@@ -1,10 +1,8 @@
 """Every setting VPinFE has, declared once.
 
 One place says what a setting is called, what it accepts, what it defaults to and what
-it means, so the config file, the Manager UI and anything reading us over HTTP describe
-it the same way. Before this the answers were spread over three modules: defaults in the
-config store, labels and help text hardcoded in the Manager UI page, and legal values
-written into the widget that rendered them.
+it means, so the config file, the Console and anything reading us over HTTP describe
+it the same way.
 
 `default` is the string the ini writes today, so this file can be checked against the
 store it replaces rather than trusted.
@@ -784,8 +782,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
     ),
     # How the frontend behaves, as against `themes`, which is what is installed. Both of
-    # these were in `general` beside genuinely global settings, on a Manager UI page
-    # nobody looks at for wheel behavior.
+    # these were in `general` beside genuinely global settings.
     *in_section(
         "behavior",
         # How far a page press moves the wheel. Not in `input`, which is which button

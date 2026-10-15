@@ -1,9 +1,8 @@
 """How a user has arranged a UI, kept with the library so it follows them between
 machines.
 
-Deliberately not `managerui/services/ui_state.py`, whose contract is that losing it
-costs one notice being shown twice. A column layout someone tuned is worth more than
-that, so this is its own file with its own durability expectation, and it is not in
+Losing this costs more than a notice shown twice: a column layout someone tuned is
+worth keeping, so it is its own file with its own durability expectation, and it is not in
 `revert_3x.CONFIG_FILES` - a state reset is about 3.0 data, not about throwing away
 how somebody likes their tables.
 """

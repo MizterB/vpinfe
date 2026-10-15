@@ -110,7 +110,7 @@ class LoaderPatchSitesTests(unittest.TestCase):
         importers = set()
         for path in project_files("*.py"):
             rel = path.relative_to(REPO_ROOT)
-            if rel.parts[0] not in {"common", "frontend", "httpapi", "managerui"}:
+            if rel.parts[0] not in {"common", "frontend", "httpapi"}:
                 continue
             tree = trees.tree_for(path)
             # Module level only. A function-local import resolves through the defining

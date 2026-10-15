@@ -2,14 +2,14 @@
 
 A job is the answer to "this takes minutes and someone wants to watch". The event
 shape is the one common/events.py documents, and it does not vary with who started
-the work - a scan begun in the Manager UI looks the same on the stream as one begun
+the work - a scan begun in the Console looks the same on the stream as one begun
 over the API, because both come through here.
 
 Two entry points, one registry behind them. `submit` runs the work on its own thread
 and hands back immediately, which is what an HTTP caller needs. `track` wraps work
-already running on the caller's thread, which is what the Manager UI needs: its
-dialog keeps its own callbacks and its own return value, and gains the event stream
-and the busy check for free.
+already running on the caller's thread, which is what a caller with its own callbacks
+needs: it keeps them and its own return value, and gains the event stream and the busy
+check for free.
 
 Kinds are exclusive. Two library scans at once would interleave writes to the same
 .info files, so the second caller is refused rather than queued - a queue would mean
@@ -42,7 +42,7 @@ RUNNING = "running"
 DONE = "done"
 FAILED = "failed"
 
-# Well-known kinds. Named here because both the Manager UI and the API start this
+# Well-known kinds. Named here because both the Console and the API start this
 # work and the exclusivity rule only means anything if they agree on the name.
 KIND_LIBRARY_SCAN = "library.scan"
 # Its own kind, not the scan's: this only reads, so it may run beside anything.

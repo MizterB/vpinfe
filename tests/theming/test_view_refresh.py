@@ -1,7 +1,7 @@
 """Re-deriving the wheel's view after something changed the library underneath it.
 
 A view is a collection resolved over game objects, and both go stale from outside: a
-finished session moves a game up a LastRun wheel, and a Manager UI edit replaces the game
+finished session moves a game up a LastRun wheel, and a Console edit replaces the game
 object rather than mutating the one the view holds. Rebuilding only the payload leaves
 every one of those showing what it showed at boot.
 """

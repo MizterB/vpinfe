@@ -126,8 +126,7 @@ def launcher_settings_held(app_id: str, target: str) -> dict:
 
 
 # What the script was seen to use, named for the thing rather than for the .info key
-# it sits under. Scorbit is spelled the way the product is - the Manager UI's
-# "Scorebit" label is the typo, not the key.
+# it sits under.
 FEATURE_KEYS = {
     "nfozzy": "detect_nfozzy", "fleep": "detect_fleep", "ssf": "detect_ssf",
     "lut": "detect_lut", "scorbit": "detect_scorbit",

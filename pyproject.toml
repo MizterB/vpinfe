@@ -1,8 +1,7 @@
 [tool.ruff]
 line-length = 100
 target-version = "py314"
-# managerui/maps is a vendored drop of tomlogic/pinmame-nvram-maps.
-extend-exclude = ["third-party", "chromium", "web", "managerui/maps"]
+extend-exclude = ["third-party", "chromium", "web"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "N", "UP", "B"]
@@ -10,13 +9,8 @@ select = ["E", "W", "F", "I", "N", "UP", "B"]
 [tool.ruff.lint.per-file-ignores]
 # Config must resolve before anything under common/ is imported, so these import late.
 "main.py" = ["E402"]
-"managerui/managerui.py" = ["E402"]
-# E701: handle_button's match arms are a dispatch table, one call each.
-"managerui/pages/remote.py" = ["E402", "E701"]
 # Seeds roms.json and the config paths before importing what it tests.
 "tests/games/test_score_parser.py" = ["E402"]
-# NiceGUI widget chains. Wrapping one splits it across four lines. Pages only.
-"managerui/pages/*.py" = ["E501"]
 # Three scripts in string literals - sh, PowerShell, batch. A continuation is part of
 # each of those grammars, so a wrapped line is a different script. The file holds no
 # Python but the f-string wrappers, so the lifted rule cannot hide one.
@@ -30,13 +24,11 @@ extend-immutable-calls = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["apps", "common", "console", "extensions", "frontend", "httpapi",
-                     "managerui"]
+known-first-party = ["apps", "common", "console", "extensions", "frontend", "httpapi"]
 
 [tool.mypy]
 python_version = "3.14"
 # Named here, not on the command line, so CI, the hook and a local run agree.
-# managerui is left out: it retires with the Manager UI.
 files = ["apps", "common", "console", "extensions", "frontend", "httpapi", "tests"]
 # apps/ and extensions/ are namespace packages with no root __init__.py. Without these two,
 # mypy aborts on a duplicate module name and checks nothing while exiting clean.
@@ -44,12 +36,6 @@ explicit_package_bases = true
 mypy_path = "."
 # NiceGUI, DOF and the third_party drops ship no stubs.
 ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-# A test that imports the Manager UI pulls it into the run; it retires, so what it reports
-# is not ours to fix.
-module = ["managerui.*"]
-ignore_errors = true
 
 [[tool.mypy.overrides]]
 # Every function in these is annotated, and stays that way. It started as the wire

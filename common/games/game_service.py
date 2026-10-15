@@ -1,4 +1,4 @@
-"""What the Manager UI does to a game: rate it, re-match it, put it in a collection."""
+"""What the Console does to a game: rate it, re-match it, put it in a collection."""
 
 from __future__ import annotations
 
@@ -567,14 +567,13 @@ def build_metadata(download_media: bool = True, update_all: bool = True,
                    job: jobs.Job | None = None) -> dict[str, int]:
     """A library scan is a job wherever it was started from.
 
-    Routing the Manager UI's own scan through the registry costs it nothing - it
-    keeps its callbacks and its return value - and buys two things: the scan reaches
-    the event stream, and it shares the one-at-a-time rule with the API instead of
-    the two paths being able to rewrite the same .info files at once.
+    Going through the registry keeps a caller's callbacks and return value, and buys
+    two things: the scan reaches the event stream, and it shares the one-at-a-time
+    rule with the API instead of the two paths being able to rewrite the same .info
+    files at once.
 
     `job` is for a caller that already registered one; without it this call owns the
-    registration, which is what makes the Manager UI's existing call site work
-    unchanged.
+    registration.
     """
     if job is not None:
         return _scan(job, download_media, update_all, game_name, user_media)

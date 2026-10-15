@@ -1,9 +1,7 @@
 """Installing, removing and switching frontend themes, and the options one declares.
 
-Here rather than under a UI package, which is where it began: this is what a theme *is*
-and what can be done to one, and two surfaces now ask - the Console over the API, and
-the Manager UI directly. The HTTP layer may not reach into a user interface, so a
-service only one of them could import was a service in the wrong place.
+Here rather than under a UI package: this is what a theme *is* and what can be done to
+one, and the HTTP layer may not reach into a user interface.
 """
 
 from __future__ import annotations

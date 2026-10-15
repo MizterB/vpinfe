@@ -18,9 +18,7 @@ def probe() -> dict:
     from nicegui import app as nicegui_app
     from starlette.testclient import TestClient
 
-    # managerui.managerui is imported for the side effect of registering its routes.
     import httpapi
-    import managerui.managerui  # noqa: F401
     from common import serving
     if not any(getattr(r, "path", "") == httpapi.API_PREFIX for r in nicegui_app.routes):
         httpapi.register(nicegui_app)

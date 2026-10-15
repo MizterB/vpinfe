@@ -1,14 +1,9 @@
 """Which package may import which, asserted rather than remembered.
 
 `docs/common.md` says nothing in `common/` may import a domain package above it, and
-`docs/managerui.md` says the Manager UI is one consumer of the shared services rather
-than their owner. Neither was checked, and both had drifted: `httpapi` reached into
-`managerui.services` at nine sites for game, archive, upload and asset logic, and
-`managerui` reached into `frontend` at five for the things one install does to another.
-
-Nothing in either direction was deliberate - they are what happens when a rule lives
-only in prose. This file is the check, so the next one fails here instead of being
-found by reading.
+that the Console is one consumer of the shared services rather than their owner.
+A rule that lives only in prose gets broken without anyone choosing to. This file is
+the check, so the next break fails here instead of being found by reading.
 """
 
 from __future__ import annotations
@@ -92,7 +87,7 @@ class LayeringTests(unittest.TestCase):
     def test_common_does_not_import_the_packages_above_it(self) -> None:
         """Anything may depend on `common/`, so it may depend on nothing that depends
         on it - otherwise a library install has to ship a frontend to import a game."""
-        self.assertEqual(_offenders("common", {"managerui", "httpapi", "frontend"}), [])
+        self.assertEqual(_offenders("common", {"httpapi", "frontend", "console"}), [])
 
     def test_the_infrastructure_layer_does_not_import_a_domain_package(self) -> None:
         """`docs/common.md`: nothing in `common/` itself may import `games`, `online` or
@@ -161,12 +156,7 @@ class LayeringTests(unittest.TestCase):
     def test_the_api_does_not_reach_into_a_user_interface(self) -> None:
         """Business logic under a UI package makes that UI privileged: a replacement
         would import the incumbent, which is a skin rather than a replacement."""
-        self.assertEqual(_offenders("httpapi", {"managerui"}), [])
-
-    def test_a_user_interface_does_not_reach_into_the_device(self) -> None:
-        """What the Manager UI does *to* a device goes through `common.device_client`,
-        which is one interface whether that device is local or another machine."""
-        self.assertEqual(_offenders("managerui", {"frontend"}), [])
+        self.assertEqual(_offenders("httpapi", {"console"}), [])
 
     def test_the_allowlist_only_names_files_that_exist(self) -> None:
         """A stale entry silently permits whatever moves into that path."""

@@ -180,7 +180,7 @@ class PlayEventTests(unittest.TestCase):
         self.assertNotIn("TableDataChange", self.bridge.messages)
 
     def test_a_game_changed_outside_the_frontend_reaches_the_windows(self) -> None:
-        """A Manager UI edit is the case: same process, but nothing told the wheel."""
+        """A Console edit is the case: same process, but nothing told the wheel."""
         self._register()
 
         events.emit(events.GAME_CHANGED, game=None, path="/games/Example")

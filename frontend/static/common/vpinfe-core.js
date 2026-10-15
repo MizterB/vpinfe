@@ -1594,7 +1594,7 @@ class VPinFECore {
     // A data change raised by the backend carries no index - the wheel position only
     // exists in the browser, and a theme assigns message.index straight to its wheel.
     // The game under the wheel is held rather than the number, because the refresh can
-    // reorder: a finished session moves a game up a last-played wheel, and a Manager UI edit
+    // reorder: a finished session moves a game up a last-played wheel, and a Console edit
     // can filter it out of the list entirely.
     const raised = message && typeof message === "object"
       && typeof message.index !== "number"
@@ -3767,7 +3767,7 @@ class VPinFECore {
   }
 
 
-  // Subscribe to play state on the manager UI's event stream
+  // Subscribe to play state on the Console's event stream
   #watchPlayState() {
     // Don't subscribe from a file:// origin - CORS blocks it on Chromium/QWebEngine.
     // The theme page loads over http://, where this works.
@@ -3819,12 +3819,12 @@ class VPinFECore {
     });
 
     // EventSource reconnects on its own, and the stream sends the current state on
-    // connect, so a manager UI that is down or restarting needs nothing here beyond
+    // connect, so the server being down or restarting needs nothing here beyond
     // not filling the log with it.
     source.onerror = () => {
       if (reportedOffline) return;
       reportedOffline = true;
-      console.log("[RemoteLaunch] Event stream unavailable (manager UI may not be running)");
+      console.log("[RemoteLaunch] Event stream unavailable (the server may not be running)");
     };
   }
 

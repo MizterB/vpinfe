@@ -355,7 +355,7 @@
   "config.media.wheelset.label": "Ŵĥèèŀ Šèţ",
   "config.network.http_bind.description": "Ŵĥîçĥ àđđřèšš ţö šèřṽè öñ. Ţĥè đèƒàûŀţ àñšŵèřš èṽèřý îñţèřƒàçè - šèţ 127.0.0.1 ţö řèàçĥ îţ öñŀý ƒřöɱ ţĥîš đèṽîçè.",
   "config.network.http_bind.label": "ĤŢŢÞ Àđđřèšš",
-  "config.network.http_port.description": "Þöřţ ţĥîš đèṽîçè àñšŵèřš öñ: ţĥè ĤŢŢÞ ÀÞÎ, ţĥè Çöñšöŀè, àñđ ţĥè řèɱöţè àñđ ɱöƀîŀè þàĝèš",
+  "config.network.http_port.description": "Þöřţ ţĥîš đèṽîçè àñšŵèřš öñ: ţĥè ĤŢŢÞ ÀÞÎ, ţĥè Çöñšöŀè àñđ ţĥè Řèɱöţè",
   "config.network.http_port.label": "ĤŢŢÞ Þöřţ",
   "config.network.library_url.description": "Ŵĥîçĥ đèṽîçè ţĥîš öñè řèàđš îţš ŀîƀřàřý ƒřöɱ. Èɱþţý ɱèàñš îţ ĥöŀđš îţš öŵñ. Đèṽîçèš öñ ýöûř ñèţŵöřķ àřè öƒƒèřèđ; ţýþè àñ àđđřèšš ƒöř öñè ţĥàţ îš ñöţ.",
   "config.network.library_url.label": "Ŀîƀřàřý",

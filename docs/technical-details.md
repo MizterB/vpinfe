@@ -232,7 +232,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | `theme_assets_port` | int | `8000` | Theme Server Port |
 | `theme_assets_bind` | string | `127.0.0.1` | Which address to serve theme packages and table media on. The default answers this device only. Opening it wider shares read access to your table library. |
 | `ws_port` | int | `8002` | Port the frontend windows and the theme use to talk to VPinFE. Reachable from this device only. |
-| `http_port` | int | `8001` | Port this device answers on: the HTTP API, the Console, and the remote and mobile pages |
+| `http_port` | int | `8001` | Port this device answers on: the HTTP API, the Console and the Remote |
 | `library_url` | string |  | Which device this one reads its library from. Empty means it holds its own. Devices on your network are offered; type an address for one that is not. |
 | `verify_shared_library` | bool | `false` | On startup, check that the library this device reads is the one on disk here, by comparing file hashes. Reports what does not match, and changes nothing. |
 | `http_bind` | string | `0.0.0.0` | Which address to serve on. The default answers every interface - set 127.0.0.1 to reach it only from this device. |
@@ -473,7 +473,7 @@ When you run VPinFE with the `--buildmeta` option it recursively goes through yo
 - assets
 
   One entry per file VPinFE placed in the game folder, keyed by the file's path relative to that folder, with forward slashes. Preserved across `--buildmeta --update-all`. Replaces the old `Medias` section, which was keyed by media type and so could hold only one entry per type — no way to describe artwork belonging to one specific table, and the same question applies to backglasses, ROMs and colorizations. Each entry holds a `source`:
-  - host: who supplied the bytes — a remote such as "vpinmediadb", or "user" for a file uploaded through the Manager UI
+  - host: who supplied the bytes — a remote such as "vpinmediadb", or "user" for a file uploaded through the Console
   - hash: the MD5 the host published, when it published one. Absent for a user upload, since a hash is only meaningful compared against a remote.
 
   Nothing else is stored. Which media kind a file is, and which table it belongs to, are read off its name every time media resolves, so a stored copy could only agree or be wrong.

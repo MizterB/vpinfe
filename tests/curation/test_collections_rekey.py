@@ -287,7 +287,7 @@ class MembershipTests(TempTree):
 
 
 class DisplayPathTests(TempTree):
-    """The Manager UI resolves collections by map lookup, not is_member().
+    """The Console resolves collections by map lookup, not is_member().
 
     Both paths have to agree. When they did not, migrating simply emptied the
     collections column - membership was intact on disk and correct in the frontend,
@@ -646,7 +646,7 @@ class MemberRefTests(TempTree):
                          [{"game": "ok"}])
 
     def test_replacing_membership_with_ids_says_it_dropped_a_pin(self) -> None:
-        """The Manager UI saves game ids, so editing a collection that holds a pin
+        """The Console saves game ids, so editing a collection that holds a pin
         loses it. Correct for an editor that cannot show pins - but say so."""
         collections = CollectionStore(str(self.path))
         collections.add_collection("Fav")

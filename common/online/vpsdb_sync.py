@@ -2,8 +2,7 @@
 
 Everything that reads the catalog reads a file: matching, the release list, what a kind
 is offered from, whether a link is a download. `load_vpsdb` opens `vpsdb.json` and
-returns it, so all of those are exactly as fresh as the last download - and until this
-existed the only thing that downloaded was a Manager UI page nobody has to open.
+returns it, so all of those are exactly as fresh as the last download.
 
 The check is cheap and the download is not: `lastUpdate.json` is one line, and the
 catalog is about 7 MB. So the schedule governs how often the *question* is asked; the

@@ -4,13 +4,6 @@
 lives, because the name is how "which thing did this?" stays answerable from the Logs page.
 And arguments are passed to the logger rather than formatted into it, so the work is skipped
 when the level is off.
-
-Both had drifted quietly. Six services that moved out of the Manager UI kept their old
-names and went on announcing themselves as `vpinfe.manager.*` from inside `common/`, which
-is the one thing the naming rule exists to prevent.
-
-The Manager UI is not checked, for the same reason it is not type checked: it retires with
-the Manager UI, and holding it to a rule it will never be cleaned up against is noise.
 """
 
 from __future__ import annotations

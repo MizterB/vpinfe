@@ -54,10 +54,8 @@ class Drop:
     count: int = 0
 
 
-# Adapted from the drag-and-drop the Manager UI already ships, with one simplification
-# that only this surface can make: its rows and cells needed markup added to carry the
-# drop target, and AG Grid already puts `row-id` on every row and `col-id` on every cell.
-# So a grid here is a drop target without any change to how its rows are built.
+# AG Grid already puts `row-id` on every row and `col-id` on every cell, so a grid here
+# is a drop target without any change to how its rows are built.
 #
 # Inline rather than a served file: the Console has no static assets of its own, and the
 # served version needs a cache-busting query or a browser keeps the old script - whose

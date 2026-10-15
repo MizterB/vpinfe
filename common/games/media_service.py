@@ -221,7 +221,7 @@ _SPEC_BY_KIND = {spec.kind: spec for spec in MEDIA_SPECS}
 def source_media_path(game_dir: Path, kind: str,
                       table_stem: str | None = None) -> str | None:
     """The file serving a media kind, through the one resolution chain - so the
-    Manager UI and the scan can never disagree about which file that is."""
+    Console and the scan can never disagree about which file that is."""
     if kind not in _SPEC_BY_KIND:
         return None
     root = Path(game_dir)

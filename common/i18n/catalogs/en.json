@@ -355,7 +355,7 @@
   "config.media.wheelset.label": "Wheel Set",
   "config.network.http_bind.description": "Which address to serve on. The default answers every interface - set 127.0.0.1 to reach it only from this device.",
   "config.network.http_bind.label": "HTTP Address",
-  "config.network.http_port.description": "Port this device answers on: the HTTP API, the Console, and the remote and mobile pages",
+  "config.network.http_port.description": "Port this device answers on: the HTTP API, the Console and the Remote",
   "config.network.http_port.label": "HTTP Port",
   "config.network.library_url.description": "Which device this one reads its library from. Empty means it holds its own. Devices on your network are offered; type an address for one that is not.",
   "config.network.library_url.label": "Library",

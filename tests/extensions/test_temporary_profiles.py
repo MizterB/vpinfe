@@ -17,8 +17,8 @@ import requests
 
 from common import players
 from common.extensions import accounts, temporary_profiles
+from common.service_errors import ServiceError
 from frontend.api import API
-from managerui.services import vpinplay_runtime_service
 from tests.extensions.test_cards import KEY, _2x_card
 from tests.extensions.test_vpinplay_accounts import NAME, VPinPlayCase
 
@@ -108,11 +108,10 @@ class TheThemeMethods(ProfilesCase):
                                            "profile": NOBODY})
 
 
-class TheMultiPage(ProfilesCase):
+class TheGuestFlow(ProfilesCase):
     def upload(self, user_id: str = "visitor", initials: str = "vis") -> dict:
         saved = _2x_card(user_id, initials, KEY)[1]
-        return vpinplay_runtime_service.activate_profile_from_upload(
-            f"vpinplay-{user_id}.svg", saved.encode("utf-8"))
+        return temporary_profiles.join(saved)
 
     def test_an_uploaded_card_file_is_the_active_profile(self) -> None:
         said = self.upload()
@@ -124,7 +123,7 @@ class TheMultiPage(ProfilesCase):
         first = self.upload("visitor", "vis")["activeProfileKey"]
         second = self.upload("another", "ano")["activeProfileKey"]
 
-        said = vpinplay_runtime_service.set_current_profile(first)
+        said = temporary_profiles.choose(first)
 
         self.assertEqual([one["userId"] for one in said["profiles"]],
                          ["another", "visitor"])
@@ -135,20 +134,19 @@ class TheMultiPage(ProfilesCase):
         first = self.upload("visitor", "vis")["activeProfileKey"]
         second = self.upload("another", "ano")["activeProfileKey"]
 
-        said = vpinplay_runtime_service.clear_profile_by_key(second)
+        said = temporary_profiles.leave(second)
 
         self.assertEqual([one["profileKey"] for one in said["profiles"]], [first])
         self.assertIsNone(players.get_roster().get(second))
-        self.assertEqual(vpinplay_runtime_service.clear_profile_by_key(second), said)
 
     def test_clear_all_signs_every_guest_out(self) -> None:
         self.upload()
 
-        self.assertEqual(vpinplay_runtime_service.clear_profile(), NOBODY)
+        self.assertEqual(temporary_profiles.clear(), NOBODY)
 
     def test_a_file_that_is_no_card_is_refused_in_core_s_words(self) -> None:
-        with self.assertRaises(ValueError) as refused:
-            vpinplay_runtime_service.activate_profile_from_upload("x.svg", b"<svg></svg>")
+        with self.assertRaises(ServiceError) as refused:
+            temporary_profiles.join("<svg></svg>")
 
         self.assertEqual(str(refused.exception), "This holds no card VPinFE can read")
 

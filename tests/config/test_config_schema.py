@@ -210,13 +210,6 @@ class LookupTests(unittest.TestCase):
     def test_a_label_falls_back_to_a_readable_key(self) -> None:
         self.assertEqual(config_schema.label_for("some_unknown_key"), "Some Unknown Key")
 
-    def test_the_manager_ui_takes_its_labels_from_here(self) -> None:
-        from managerui.pages.vpinfe_config import get_friendly_name
-
-        for entry in config_schema.settable():
-            if entry.label:
-                self.assertEqual(get_friendly_name(entry.key, entry.section), entry.label)
-
     def test_an_undescribed_setting_says_so_rather_than_guessing(self) -> None:
         self.assertEqual(config_schema.description_for("no_such_setting"), "")
 

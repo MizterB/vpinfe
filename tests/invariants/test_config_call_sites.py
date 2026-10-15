@@ -2,7 +2,7 @@
 
 `config_schema` says it holds every setting VPinFE has, and the store fills a new file
 from it - so a setting the schema does not know about is never written, never offered in
-the Manager UI, and never covered by the naming and alias checks either. Two had already
+the Console, and never covered by the naming and alias checks either. Two had already
 slipped through that way, `assets_dir` and `wheelset`, both live and both documented.
 
 Read from the source rather than by importing, so a call site behind a branch or an
@@ -31,7 +31,7 @@ def _call_sites():
     """(file, line, section, key) for every reader called with both names literal."""
     for path in project_files("*.py"):
         rel = path.relative_to(REPO).as_posix()
-        if rel.startswith(("tests/", "third_party/", "managerui/maps/")):
+        if rel.startswith(("tests/", "third_party/")):
             continue
         try:
             tree = trees.tree_for(path)
@@ -71,7 +71,7 @@ def _raw_reads():
     for path in project_files("*.py"):
         rel = path.relative_to(REPO).as_posix()
         # An example extension's `ctx.config` is its own settings, not a parser.
-        if rel.startswith(("tests/", "third_party/", "managerui/maps/",
+        if rel.startswith(("tests/", "third_party/",
                            "docs/extensions/examples/")) \
                 or rel in OWNS_THE_OLD_NAMES:
             continue
@@ -100,7 +100,7 @@ def _store_reads():
     """(file, line, section, key) for every store accessor called with both names literal."""
     for path in project_files("*.py"):
         rel = path.relative_to(REPO).as_posix()
-        if rel.startswith(("tests/", "third_party/", "managerui/maps/")) \
+        if rel.startswith(("tests/", "third_party/")) \
                 or rel in OWNS_THE_OLD_NAMES:
             continue
         try:

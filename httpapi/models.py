@@ -2765,7 +2765,7 @@ class YearRange(ApiModel):
 class CollectionCriteria(ApiModel):
     """A filter collection's criteria, as a collection reports them. "All" means
     unconstrained on that axis - the vocabulary the filter engine already uses, kept
-    rather than translated so a client sees the same values the Manager UI shows."""
+    rather than translated so a client sees the same values the Console shows."""
 
     # The many-valued axes accept a list and are always reported as one. A criterion
     # has always been stored comma-joined and the matcher has always split it, so this
@@ -2909,9 +2909,7 @@ class CollectionResource(ApiModel):
     # Null unless `order_by` names a ranked view.
     ranking: CollectionRanking | None = None
     # Which boundary the frontend pages between. Empty means the collection says
-    # nothing and the player's own setting decides. Settable in the store since paging
-    # was built and on no wire model until now, so the Manager UI had a control for it
-    # that no API client could have.
+    # nothing and the player's own setting decides.
     paging_group: str = ""
     links: CollectionLinks
 
@@ -3288,7 +3286,7 @@ class MediaRotateRequest(ApiModel):
 
 
 class ScanRequest(ApiModel):
-    """Absent body means both default to true, which is what the Manager UI's own
+    """Absent body means both default to true, which is what the Console's own
     scan does."""
 
     download_media: bool = True

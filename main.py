@@ -100,7 +100,7 @@ from common.vpinfe_version import get_version
 # Get the base path
 base_path = os.path.dirname(os.path.abspath(__file__))
 
-# Load config BEFORE importing cli/managerui (they create ConfigStore at import time)
+# Load config BEFORE importing cli/console (they create ConfigStore at import time)
 config_dir = ensure_config_dir()
 nicegui_storage_path = configure_nicegui_storage()
 log_path = configure_logging(LOG_DIR, enable_file=False)
@@ -149,13 +149,13 @@ from starlette.responses import Response
 import console
 import httpapi
 from cli import parse_args
+from console import app_control
+from console.host import _shutdown_event, start_server, stop_server
 from console.origin_guard import SocketOriginGuard
 from console.sign_in_gate import SignInGate
 from frontend import lifecycle_host, runtime
-from managerui.managerui import _shutdown_event, start_manager_ui, stop_manager_ui
-from managerui.services import app_control
 
-nicegui_app.add_static_files('/static', os.path.join(base_path, 'managerui/static'))
+nicegui_app.add_static_files('/static', os.path.join(base_path, 'console/static'))
 
 
 class _SuppressNoResponseReturnedMiddleware(BaseHTTPMiddleware):
@@ -186,7 +186,7 @@ httpapi.register(nicegui_app)
 # would be another machine as far as anyone listening is concerned.
 httpapi.instance.announce_on_the_network()
 
-# The Console, served alongside the Manager UI while both exist.
+# The Console.
 console.register()
 
 # On Windows, the Proactor event loop logs a noisy ConnectionResetError (WinError 10054)
@@ -256,11 +256,11 @@ nicegui_app.add_static_files('/themes', themes_dir)
 if install_setup.pending(config_store):
     http_port = int(cfg_get(config_store, 'network', 'http_port', '8001'))
     http_bind = cfg_get(config_store, 'network', 'http_bind', '0.0.0.0')
-    start_manager_ui(port=http_port, bind=http_bind)
+    start_server(port=http_port, bind=http_bind)
     serving.publish()
     reconfigure_app_logging()
     # Wait for the NiceGUI server to be ready before chromium tries to load it
-    runtime.wait_for_manager_ui_ready(http_port)
+    runtime.wait_for_server_ready(http_port)
     logger.info("Setup pending: web server ready on port %s", http_port)
 
 # Before anything installs or updates a theme. An update deletes the theme's folder, and
@@ -385,8 +385,7 @@ except Exception:
 shutdown.exit_if_requested(logger)
 
 # The catalog everything VPS-shaped reads from - matching, release lists, what a kind is
-# offered from. It was only ever downloaded by a Manager UI page, so an install that never
-# opened one answered from whatever snapshot it started with.
+# offered from.
 def _start_sync_watchers() -> None:
     from common.online.dof_sync import start_watch as _watch_dof_config
     from common.online.theme_sync import start_watch as _watch_themes
@@ -436,7 +435,7 @@ http_server = runtime.start_asset_server(MOUNT_POINTS, config_store)
 # Start the NiceGUI HTTP server
 http_port = int(cfg_get(config_store, 'network', 'http_port', '8001'))
 http_bind = cfg_get(config_store, 'network', 'http_bind', '0.0.0.0')
-start_manager_ui(port=http_port, bind=http_bind)
+start_server(port=http_port, bind=http_bind)
 serving.publish()
 reconfigure_app_logging()
 
@@ -476,7 +475,7 @@ runtime.shutdown_services(
     stop_dmd=stop_libdmdutil_service,
     http_server=http_server,
     nicegui_app=nicegui_app,
-    stop_manager_ui=stop_manager_ui,
+    stop_server=stop_server,
 )
 
 # Restores of the config folder's files wait for here, where nothing is left to write them.

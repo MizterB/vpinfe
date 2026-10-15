@@ -210,7 +210,7 @@ READ_FOR = {
     "common/games/score_parser.py": NOT_WHAT_IT_RAISES,
     "common/jdiff_patch.py": NOT_WHAT_IT_RAISES,
     "common/online/pinmame_score_parser_updater.py": NOT_WHAT_IT_RAISES,
-    # What this refuses, only the Manager UI shows.
+    # What this refuses, only the Console shows.
     "common/host/dof_service.py": NOT_ITS_REFUSALS,
 }
 
@@ -226,7 +226,7 @@ SPEAKS_TO_A_SURFACE = {**{name: EVERY_WAY for name in _modules_under(READ_WHOLE)
                        **READ_FOR}
 
 # Functions in those modules whose words reach only the log, a program, the command line
-# or the Manager UI.
+# or the Console.
 SAID_TO_THE_LOG = {
     "common/online/themes.py": frozenset({"_validate_manifest"}),
     "common/online/theme_refs.py": frozenset({"bare_ref"}),
@@ -1353,6 +1353,8 @@ NOT_ON_SCREEN = {
     "ValueError", "TypeError", "RuntimeError", "CancelledError", "KeyError", "OSError",
     "FileNotFoundError", "NotImplementedError",
 }
+# Functions whose f-strings go to the terminal, not to a screen.
+TERMINAL_ONLY = {"_say_ready"}
 # A literal carrying one of these is markup, a URL or a selector rather than prose.
 NOT_PROSE = re.compile(r"[<>?&/=;{}#]")
 BYTE_UNITS = {"B", "KB", "MB", "GB", "TB"}
@@ -1426,7 +1428,8 @@ class _Fstrings(ast.NodeVisitor):
         slots = sum(isinstance(v, ast.FormattedValue) for v in node.values)
         joined = slots > 1 and any(c.isspace() for c in said) \
             and not set(self.within) & self.excused
-        if not set(self.calls) & NOT_ON_SCREEN and not NOT_PROSE.search(said) \
+        if not set(self.calls) & NOT_ON_SCREEN and not set(self.within) & TERMINAL_ONLY \
+           and not NOT_PROSE.search(said) \
            and not _is_identifier(said) and said.strip() not in BYTE_UNITS \
            and (re.search(r"[A-Za-z]{2,}", said) or joined):
             self.found.append((node.lineno, said))
