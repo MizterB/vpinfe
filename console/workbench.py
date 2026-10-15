@@ -5417,11 +5417,12 @@ def _clear_hint(held: dict, field: Any, app_name: str) -> str:
 def _beside(mark_of: Callable[[], Callable[[], None] | None], held: dict, field: Any,
             redraws: list[Callable[[], None]] | None = None,
             more: Callable[..., Callable[[], None] | None] | None = None,
-            beyond: Callable[[], None] | None = None,
+            beyond: Callable[[], bool | None] | None = None,
             paired: Sequence[tuple[dict, Any]] = (),
             ) -> Callable[[], None]:
     """The mark, whatever `more` offers for somebody's own value, then `beyond` whoever's
-    value it is. Drawn as a panel ASIDE, whose cell it hides while it holds none of them.
+    value it is, which says False where it drew nothing. Drawn as a panel ASIDE, whose
+    cell it hides while it holds none of them.
     `paired` is the rest of a pair's rows, `(held, field)` each, handed to `more` too.
     """
     def draw() -> None:
@@ -5433,14 +5434,15 @@ def _beside(mark_of: Callable[[], Callable[[], None] | None], held: dict, field:
             mark = mark_of()
             own = any(one.get("set_here") for one in (held, *(said for said, _ in paired)))
             verb = more(held, field, *paired) if more is not None and own else None
+            beyond_drawn = False
             with box:
                 if mark is not None:
                     mark()
                 if verb is not None:
                     verb()
                 if beyond is not None:
-                    beyond()
-            cell.set_visibility(mark is not None or verb is not None or beyond is not None)
+                    beyond_drawn = beyond() is not False
+            cell.set_visibility(mark is not None or verb is not None or beyond_drawn)
 
         fill()
         if redraws is not None:
@@ -5651,10 +5653,11 @@ async def _setting_entries(context: dict[str, Any],
     block that `pairs` names are one row, under the pair's label and note. `ahead` maps a
     setting's key to entries drawn above its row.
 
-    A write marks every row again in place, so a control keeps its focus. The panel is
-    redrawn instead where a setting in `redraw_on` was written, or where the write changed
-    another setting's value or whose it is - drawn or not, since a table's first file of
-    its own changes what it lists. For a number, that waits until it loses focus.
+    A write marks every row again in place, so a control keeps its focus. A named
+    setting's row, and a rival switch's Conflict note, are drawn again in place too. The
+    panel is redrawn instead where a setting in `redraw_on` was written, or where the write
+    changed another setting's value or whose it is - drawn or not, since a table's first
+    file of its own changes what it lists. For a number, that waits until it loses focus.
 
     The value shown is always the one the program will use, never what this scope
     happens to hold: you should not be looking at a number that is not in force.
@@ -5669,12 +5672,14 @@ async def _setting_entries(context: dict[str, Any],
         await more.ready(values)
     groups = context.get("config_groups") or []
     clashing = conflicts(groups, values)
+    rival = rival_switches(groups)
     named = {f.key for _, _, fields in blocks for f in fields if getattr(f, "reported", ())}
-    redraw_on = {*redraw_on, *rival_switches(groups), *named}
+    redraw_on = set(redraw_on)
     seen = await offload.io(screens.connected) if named else []
     rows: dict[str, dict] = {}
     redraws: list[Callable[[], None]] = []
     regrow: dict[str, Callable[[], None]] = {}
+    row_of: dict[str, str] = {}
     shown = dict(values)
     pending = {"written": ""}
     reads = {"begun": 0, "shown": 0}
@@ -5704,6 +5709,8 @@ async def _setting_entries(context: dict[str, Any],
             return
         reads["shown"] = mine
         shown.update(fresh)
+        clashing.clear()
+        clashing.update(conflicts(groups, fresh))
         for other, held in rows.items():
             held.clear()
             held.update(fresh.get(other) or {})
@@ -5739,9 +5746,7 @@ async def _setting_entries(context: dict[str, Any],
             async def in_place() -> None:
                 await show_fresh(keys[0], fresh, mine, regrow.get(keys[0]))
 
-            # A named setting's mark is drawn with its control, which this redraws.
-            moved = (not fresh or (redraw_on - named).intersection(keys)
-                     or _moved(shown, fresh, keys))
+            moved = not fresh or redraw_on.intersection(keys) or _moved(shown, fresh, keys)
             await _keeping_place(ui.context.client, context["rebuild"] if moved else in_place,
                                  keys[0], in_place=not moved)
         return wipe
@@ -5774,6 +5779,12 @@ async def _setting_entries(context: dict[str, Any],
                 pending["written"] = key
             elif not fresh or stuck or key in redraw_on or _moved(shown, fresh, key):
                 asyncio.create_task(_keeping_place(ui.context.client, context["rebuild"], key))
+                return True
+            if key in named:
+                # Its mark is drawn with its control, so the row's control is drawn again.
+                async def regrown() -> None:
+                    await show_fresh(key, fresh, mine, regrow.get(row_of.get(key, key)))
+                await _keeping_place(ui.context.client, regrown, key, in_place=True)
                 return True
             await show_fresh(key, fresh, mine)
             return True
@@ -5825,6 +5836,7 @@ async def _setting_entries(context: dict[str, Any],
             pair, members = paired.get(field.key, (None, [field]))
             parts = [part(one) for one in members]
             keys = [one.key for one in members]
+            row_of.update({key: field.key for key in keys})
             owned = _tables_setting(their_own, keys)
             entries.append((pair.label if pair else field.label, _marked(
                 parts, app_name, redraws, joiner=pair.joiner if pair else "",
@@ -5835,8 +5847,9 @@ async def _setting_entries(context: dict[str, Any],
             entries.append((panel.ASIDE, _beside(
                 partial(marks, parts, pair.joiner if pair else ""), parts[0][1], field,
                 redraws, more,
-                _in_turn(*(_conflict(clashing[key]) for key in keys if key in clashing),
-                         _tables_of_their_own(launcher, keys, owned) if owned else None),
+                _clash_note(clashing, keys, _tables_of_their_own(launcher, keys, owned)
+                            if owned else None) if rival.intersection(keys)
+                else _tables_of_their_own(launcher, keys, owned) if owned else None,
                 paired=[(held, one) for _, held, one in parts[1:]])))
             if pair:
                 said = pair.note
@@ -5910,6 +5923,20 @@ def _unreported(value: Any, reported: Sequence[str], app_name: str) -> dict[str,
 def _conflict(rival: str) -> Callable[[], None]:
     return panel.state(t("console.workbench.conflict"), "warn",
                        hint=t("console.workbench.conflict_hint", rival=rival))
+
+
+def _clash_note(clashing: Mapping[str, str], keys: Sequence[str],
+                after: Callable[[], None] | None) -> Callable[[], bool]:
+    """The Conflict note of whichever of `keys` clashes as `clashing` stands when this is
+    drawn, then `after`. False where it drew nothing."""
+    def draw() -> bool:
+        noted = [clashing[key] for key in keys if key in clashing]
+        for rival in noted:
+            _conflict(rival)()
+        if after is not None:
+            after()
+        return bool(noted) or after is not None
+    return draw
 
 
 def _in_turn(*draws: Callable[[], None] | None) -> Callable[[], None] | None:

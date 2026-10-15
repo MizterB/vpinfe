@@ -676,7 +676,7 @@ class ReportedNameTests(unittest.IsolatedAsyncioTestCase):
                                               ("", self.USED), ("Old Display", ()))],
                          [None, None, None])
 
-    async def test_picking_one_draws_its_mark_again(self) -> None:
+    async def test_picking_one_does_not_draw_the_page_again(self) -> None:
         before = {self.FIELD.key: {"value": "Old Display", "scope": "launcher"}}
         after = {self.FIELD.key: {"value": "Built-in Display", "scope": "launcher"}}
         rebuild = AsyncMock()
@@ -696,7 +696,7 @@ class ReportedNameTests(unittest.IsolatedAsyncioTestCase):
         await press(control_for.call_args.args[2], "Built-in Display")
         await asyncio.sleep(0)
 
-        rebuild.assert_awaited_once()
+        rebuild.assert_not_awaited()
 
 
 class ClearTests(unittest.IsolatedAsyncioTestCase):
