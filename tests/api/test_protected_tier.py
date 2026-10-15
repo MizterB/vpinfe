@@ -16,7 +16,7 @@ from types import SimpleNamespace
 from starlette.testclient import TestClient
 
 import httpapi
-from common import api_tokens, sign_in
+from common.security import api_tokens, sign_in
 from httpapi import auth, protected_settings, scopes
 
 

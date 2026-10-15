@@ -11,9 +11,10 @@ from unittest import mock
 from fastapi.testclient import TestClient
 
 import httpapi
-from common import accepted, extensions, paths
+from common import extensions, paths
 from common.extensions import contract, host, store
 from common.online import theme_ops
+from common.security import accepted
 from httpapi import auth, scopes
 from tests.support.accepted import isolated
 from tests.support.identity import IDENTITY

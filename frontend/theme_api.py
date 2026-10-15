@@ -8,9 +8,10 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
-from common import accepted, serving, theme_options
+from common import serving, theme_options
 from common.config_access import ConfigSource, SettingsConfig
 from common.paths import THEMES_DIR
+from common.security import accepted
 from frontend import theme_contract
 
 logger = logging.getLogger("vpinfe.frontend.theme_api")

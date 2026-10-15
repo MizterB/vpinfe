@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from common import approvals
+from common.security import approvals
 
 
 class Clock:

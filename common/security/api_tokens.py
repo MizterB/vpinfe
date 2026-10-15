@@ -24,9 +24,10 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
-from common import machine_secrets, paths
+from common import paths
+from common.security import machine_secrets
 
-logger = logging.getLogger("vpinfe.common.api_tokens")
+logger = logging.getLogger("vpinfe.common.security.api_tokens")
 
 FULL = "full"
 PLAY = "play"

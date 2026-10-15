@@ -16,10 +16,10 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from common import accepted
 from common.online import themes
 from common.online.theme_installer import ThemeInstallStore
 from common.paths import ASIDE_SUFFIX
+from common.security import accepted
 from tests.support.accepted import isolated
 
 BASE_URL = "https://github.com/someone/Reference"

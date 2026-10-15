@@ -19,7 +19,7 @@ from typing import Any
 
 from common import atomic_write, paths
 
-logger = logging.getLogger("vpinfe.common.machine_secrets")
+logger = logging.getLogger("vpinfe.common.security.machine_secrets")
 
 _lock = threading.RLock()
 

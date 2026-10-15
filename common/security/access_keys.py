@@ -8,7 +8,8 @@ with the old one.
 install sends it with every call to that device.
 
 Both live in the secrets file, which only this user can read. A token this install *issues*
-is not here: it is hashed in `common/api_tokens.py`, because the one holding it is someone else.
+is not here: it is hashed in `common/security/api_tokens.py`, because the one holding it is
+someone else.
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ import hmac
 import secrets
 import uuid
 
-from common import machine_secrets
+from common.security import machine_secrets
 
 PASS = "remote_pass"
 PASS_PARAM = "pass"

@@ -13,10 +13,11 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 import httpapi
-from common import http_client, sized_media
+from common import sized_media
 from common.i18n import t
 from common.online import theme_ops, theme_previews
 from common.online.themes import ThemeRegistry
+from common.security import http_client
 from tests.support.library import TempTree
 
 URL = "https://raw.example.net/someone/theme/main/preview.png"

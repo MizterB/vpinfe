@@ -13,7 +13,7 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-from common import sign_in
+from common.security import sign_in
 from httpapi import auth, scopes
 
 

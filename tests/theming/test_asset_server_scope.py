@@ -15,7 +15,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from common import accepted
+from common.security import accepted
 from frontend.custom_http_server import NOTHING_HERE, CustomHTTPServer
 from tests.support.accepted import isolated
 

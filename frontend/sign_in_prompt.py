@@ -1,10 +1,10 @@
 """What needs the person at the machine, put in front of them: a browser asking to sign in,
 or a program asking to make a change.
 
-`common.sign_in` holds the request and the digits and `common.approvals` holds the asks. This
-sends what the screen should show to the windows as one `SignInRequest` message, and core
-draws it on the controller window. `request` is null once there is nothing to show. A
-sign-in comes first; an ask waits behind it and stays in Needs You meanwhile.
+`common.security.sign_in` holds the request and the digits and `common.security.approvals`
+holds the asks. This sends what the screen should show to the windows as one `SignInRequest`
+message, and core draws it on the controller window. `request` is null once there is nothing
+to show. A sign-in comes first; an ask waits behind it and stays in Needs You meanwhile.
 
 Pushed with `send_event_all`, not the variant that also reaches theme iframes, so the code
 goes to the page core runs in and not on into every frame a theme embeds.
@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from common import approvals, sign_in
+from common.security import approvals, sign_in
 
 if TYPE_CHECKING:
     from frontend.device_channel import DeviceChannel

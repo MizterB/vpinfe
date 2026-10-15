@@ -22,10 +22,11 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from common import log_setup, machine_secrets, paths
+from common import log_setup, paths
 from common.i18n import t
+from common.security import machine_secrets
 
-logger = logging.getLogger("vpinfe.common.sign_in")
+logger = logging.getLogger("vpinfe.common.security.sign_in")
 
 CODE_LENGTH = 6
 CODE_SECONDS = 10 * 60

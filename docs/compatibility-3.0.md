@@ -377,7 +377,7 @@ matched" cannot mean "nothing was checked". Covered by
 **PAR-78 — An install knows which other installs are on its network.** *(machine-checked)*
 New: `GET/PUT/DELETE /api/v1/devices`, `GET /api/v1/devices/discovered`, two scopes
 (`devices:read`, `devices:write`), a `devices` link in discovery, and `put_json` in
-`common/http_client.py`. Every existing route is untouched.
+`common/security/http_client.py`. Every existing route is untouched.
 *Why:* the device registry storage shipped in PAR-66 with nothing writing to it, so it held an
 empty file. Events already carry the `install_id` they happened on (PAR-55); a device registry is
 what turns that id into a name a person recognizes, which is the whole of what item 9 was

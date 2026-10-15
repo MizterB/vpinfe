@@ -13,9 +13,9 @@ from typing import Any
 
 from nicegui import run, ui
 
-from common import api_tokens
 from common.failures import why
 from common.i18n import t
+from common.security import api_tokens
 from manager.kit import clipboard, confirm, offload, panel, verbs, when
 from manager.kit import dialog as frame
 from manager.kit.api import ApiError

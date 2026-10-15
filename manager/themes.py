@@ -20,9 +20,9 @@ from urllib.parse import urlparse
 
 from nicegui import run, ui
 
-from common import accepted
 from common.failures import why
 from common.i18n import t
+from common.security import accepted
 from manager import accept, backup_rows, mediaview, settings, theme_card, theme_sources
 from manager.kit import (
     art,

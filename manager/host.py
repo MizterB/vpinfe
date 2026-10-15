@@ -10,8 +10,9 @@ from typing import Any, cast
 
 from nicegui import app, ui
 
-from common import encrypted_connections, i18n, install_presence, machine_secrets, serving
+from common import i18n, install_presence, serving
 from common.i18n import t
+from common.security import encrypted_connections, machine_secrets
 
 from . import loopback
 
@@ -97,7 +98,7 @@ def _run_ui() -> None:
     # The language is set here, not on the @ui.page decorators: `resolve_language()` reads
     # app.config per request. Labels built at import still need a restart to change.
     # proxy_headers stays off: uvicorn rewriting the peer would hide the real socket
-    # address from `common.encrypted_connections`.
+    # address from `common.security.encrypted_connections`.
     ui.run(title=t("manager.page.vpinfe_manager"),
            favicon=_FAVICON,
            host=_ui_bind,

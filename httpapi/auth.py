@@ -20,11 +20,12 @@ from starlette.requests import HTTPConnection
 from starlette.responses import Response
 from starlette.routing import BaseRoute, compile_path
 
-from common import api_tokens as tokens
-from common import approvals, encrypted_connections, extensions, machine_secrets, sign_in
+from common import extensions
 from common.extensions import reach
 from common.host import this_machine
 from common.i18n import t
+from common.security import api_tokens as tokens
+from common.security import approvals, encrypted_connections, machine_secrets, sign_in
 
 from . import scopes
 from .errors import CODE_FORBIDDEN, ApiError, error_response

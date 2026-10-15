@@ -19,9 +19,10 @@ from urllib.parse import urlsplit
 
 import requests
 
-from common import http_client, sized_media
+from common import sized_media
 from common.atomic_write import staged_for, write_atomic
 from common.paths import CACHE_DIR
+from common.security import http_client
 
 logger = logging.getLogger("vpinfe.common.online.theme_previews")
 

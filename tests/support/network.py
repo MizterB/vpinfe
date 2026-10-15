@@ -12,7 +12,7 @@ import os
 import unittest
 from unittest import mock
 
-from common import http_client
+from common.security import http_client
 
 
 def stubbed(case: unittest.TestCase) -> None:

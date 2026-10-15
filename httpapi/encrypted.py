@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request
 
-from common import encrypted_connections as store
 from common.i18n import t
+from common.security import encrypted_connections as store
 
 from . import scopes
 from .auth import caller_is_encrypted, requires

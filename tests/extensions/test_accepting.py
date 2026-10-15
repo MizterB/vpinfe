@@ -8,8 +8,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from common import accepted, paths
+from common import paths
 from common.extensions import check, contract, host, store
+from common.security import accepted
 from tests.support.accepted import isolated
 from tests.support.identity import IDENTITY
 

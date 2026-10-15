@@ -176,7 +176,7 @@ class ThisInstallsCapabilitiesTests(unittest.TestCase):
         self.assertEqual(self._local(), {"logs"})
 
     def test_it_agrees_with_what_a_probe_of_this_install_hears(self) -> None:
-        with mock.patch("common.http_client.get_json",
+        with mock.patch("common.security.http_client.get_json",
                         return_value={"capabilities": self.LISTING}):
             probed = device_client.RemoteDevice("http://192.168.1.50:8001").probe()
 

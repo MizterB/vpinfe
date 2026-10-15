@@ -15,9 +15,10 @@ import threading
 from collections.abc import Collection
 from typing import Any
 
-from common import machine_secrets, paths
+from common import paths
+from common.security import machine_secrets
 
-logger = logging.getLogger("vpinfe.common.accepted")
+logger = logging.getLogger("vpinfe.common.security.accepted")
 
 # Where a theme came from.
 STOCK = "stock"

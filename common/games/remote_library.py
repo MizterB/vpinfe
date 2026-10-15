@@ -15,12 +15,12 @@ from urllib.parse import quote, urlencode, urljoin
 
 import requests
 
-from common import http_client
 from common.device_registry import paired_header as _paired
 from common.games.collection_ops import wheel_paths
 from common.games.collection_resolver import Entry
 from common.games.wire_entry import WireGame, table_of
 from common.i18n import t
+from common.security import http_client
 from common.service_errors import (
     BlockedError,
     NotFoundError,

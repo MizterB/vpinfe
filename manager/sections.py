@@ -16,10 +16,10 @@ from typing import Any
 
 from nicegui import run, ui
 
-from common import approvals
 from common.failures import why
 from common.i18n import number, t
 from common.media_specs import media_label_map
+from common.security import approvals
 from manager import ext_mark, front, jobs_list, media_fill, needs, set_aside
 from manager.kit import game_tables, offload, panel, verbs, when
 from manager.kit.data import Library

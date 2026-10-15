@@ -16,7 +16,7 @@ import threading
 from pathlib import Path
 from typing import Any, NamedTuple
 
-from common import accepted, paths, service_errors, sized_media
+from common import paths, service_errors, sized_media
 from common.atomic_write import write_atomic
 from common.failures import why
 from common.i18n import t
@@ -31,6 +31,7 @@ from common.online import (
 from common.online.theme_registry_client import ThemeRegistryError
 from common.online.themes import ThemeRegistry
 from common.paths import THEME_CACHE_PATH, get_ini_config
+from common.security import accepted
 
 logger = logging.getLogger("vpinfe.common.online.theme_ops")
 

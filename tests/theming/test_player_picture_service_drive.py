@@ -17,7 +17,7 @@ import urllib.request
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from common import accepted, machine_secrets
+from common.security import accepted, machine_secrets
 from tests.support import pictures
 from tests.support.browser_session import BrowserSession, chromium_path
 from tests.support.library import game_info, write_game

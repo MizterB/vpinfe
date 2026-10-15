@@ -19,7 +19,6 @@ import requests
 
 from common import service_errors, timestamps
 from common.atomic_write import STAGED_PREFIX, STAGED_SUFFIX, staged_for, write_atomic
-from common.http_client import download_file, get_json, unreachable
 from common.i18n import t
 from common.online.update_scripts import (
     _build_posix_update_script,
@@ -27,6 +26,7 @@ from common.online.update_scripts import (
     _build_windows_update_script,
 )
 from common.paths import LOG_DIR, UPDATE_CHECK_PATH, UPDATES_DIR, bundled
+from common.security.http_client import download_file, get_json, unreachable
 from common.vpinfe_version import get_version
 
 logger = logging.getLogger("vpinfe.common.online.app_updater")

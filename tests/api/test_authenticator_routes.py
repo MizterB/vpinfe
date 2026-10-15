@@ -15,7 +15,8 @@ from unittest import mock
 from fastapi.testclient import TestClient
 
 import httpapi
-from common import authenticator, paths, sign_in
+from common import paths
+from common.security import authenticator, sign_in
 from httpapi import auth
 
 OTHER = "192.168.1.31"

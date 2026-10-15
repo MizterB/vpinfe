@@ -24,7 +24,7 @@ from typing import Any
 from nicegui import run, ui
 from nicegui.client import Client
 
-from common import sign_in
+from common.security import sign_in
 from httpapi import auth
 
 logger = logging.getLogger("vpinfe.manager.kit.acting")

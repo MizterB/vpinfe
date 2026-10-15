@@ -15,8 +15,8 @@ from unittest import mock
 
 import requests
 
-from common import http_client
 from common.online import app_updater
+from common.security import http_client
 
 MANIFEST_URL = "https://github.com/vpinfe/vpinfe/releases/download/v3.1.0/manifest.json"
 RELEASE = {

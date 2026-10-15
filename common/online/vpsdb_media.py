@@ -14,8 +14,8 @@ from common.atomic_write import staged_for
 from common.games import asset_origin
 from common.games.game import Game
 from common.games.info_file import MetaConfig
-from common.http_client import download_file
 from common.media_specs import default_media_path
+from common.security.http_client import download_file
 
 logger = logging.getLogger("vpinfe.common.online.vpsdb_media")
 

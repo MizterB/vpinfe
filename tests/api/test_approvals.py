@@ -13,7 +13,7 @@ from pathlib import Path
 from starlette.testclient import TestClient
 
 import httpapi
-from common import api_tokens, approvals, sign_in
+from common.security import api_tokens, approvals, sign_in
 from httpapi import auth
 
 PEER = "192.168.1.50"

@@ -14,7 +14,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 import httpapi
-from common import sign_in
+from common.security import sign_in
 from httpapi import auth, scopes
 
 OTHER = "192.168.1.31"

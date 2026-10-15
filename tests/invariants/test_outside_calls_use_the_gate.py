@@ -17,7 +17,7 @@ from tests.support import trees
 ROOT = Path(__file__).resolve().parents[2]
 CODE = ("apps", "common", "manager", "extensions", "frontend", "httpapi",
         "cli.py", "main.py")
-GATE = "common/http_client.py"
+GATE = "common/security/http_client.py"
 ASKS_FIRST = "require_reachable"
 
 LIBRARIES = {"requests", "httpx", "aiohttp"}
@@ -39,13 +39,13 @@ GUARDED = {
 BEHIND = {
     "common/port_checks.py": {
         "listening": "connects to 127.0.0.1 and no other address"},
-    "common/pinned_certificates.py": {
+    "common/security/pinned_certificates.py": {
         "_session": "`sending()` builds it for a verb the gate or a guarded session passes",
         "shown_by": "reached only through `trust_now`, which asks first",
         "vouched_for": "reached only through `trust_now`, which asks first"},
 }
 # Names that must ask before they connect without being a transport themselves.
-ASKERS = {"common/pinned_certificates.py": ("trust_now",)}
+ASKERS = {"common/security/pinned_certificates.py": ("trust_now",)}
 
 
 def _files() -> list[Path]:
@@ -120,7 +120,7 @@ class OutsideCallsUseTheGateTest(unittest.TestCase):
             for where, lines in _uses(trees.tree_for(path)).items():
                 if where not in allowed:
                     offenders += [f"{rel}:{line} in {where}" for line in lines]
-        self.assertEqual(offenders, [], "ask through common.http_client, or add the "
+        self.assertEqual(offenders, [], "ask through common.security.http_client, or add the "
                          "function to GUARDED with a call to require_reachable")
 
     def test_a_guarded_transport_asks_before_it_connects(self) -> None:

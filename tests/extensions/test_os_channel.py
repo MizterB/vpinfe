@@ -25,11 +25,12 @@ from starlette.testclient import TestClient
 
 import httpapi
 from common import events as core_events
-from common import extensions, sign_in
+from common import extensions
 from common import jobs as core_jobs
 from common.extensions import contract, host, reach, store
 from common.extensions.context import ExtensionContext
 from common.host import os_helper
+from common.security import sign_in
 from httpapi import auth
 from tests.support.accepted import owner_accepts
 from tests.support.identity import IDENTITY

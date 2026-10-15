@@ -98,7 +98,8 @@ class FrontendRemoteLinkTests(unittest.TestCase):
     on the screen too."""
 
     def test_the_qr_follows_the_list_and_carries_the_pass(self) -> None:
-        from common import access_keys, serving
+        from common import serving
+        from common.security import access_keys
         from frontend import config_api
 
         with mock.patch.object(serving, "reachable_from_elsewhere", return_value=True), \

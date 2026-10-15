@@ -19,10 +19,10 @@ from urllib.parse import quote
 
 from nicegui import run, ui
 
-from common import accepted
 from common.extensions import host
 from common.failures import why
 from common.i18n import t
+from common.security import accepted
 from manager import accept, ext_action, ext_links, ext_mark
 from manager.kit import confirm, deeplink, offload, panel, verbs
 from manager.kit.api import ApiClient

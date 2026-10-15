@@ -54,7 +54,7 @@ if CALLER_CONFIG_DIR is None:
 # Nor against any host outside this machine: http_client refuses them as an offline
 # machine would. A test of the transport stubs it; one that needs the real network is
 # a bug in the test.
-from common.http_client import OFFLINE as _OFFLINE  # noqa: E402
+from common.security.http_client import OFFLINE as _OFFLINE  # noqa: E402
 
 os.environ.setdefault(_OFFLINE, "1")
 

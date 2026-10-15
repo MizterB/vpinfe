@@ -1,7 +1,7 @@
 """Asking first: a program with a Full Control token asks the Owner to approve one change.
 
 It names the request, the Owner decides on Needs You or on this device's screen, and the
-program then repeats that one request with the approval's id. See common/approvals.py.
+program then repeats that one request with the approval's id. See common/security/approvals.py.
 Everything under /auth is out of an ask's reach, and these routes are under it.
 """
 
@@ -12,8 +12,8 @@ from typing import Any
 
 from fastapi import APIRouter, Request
 
-from common import approvals
 from common.i18n import t
+from common.security import approvals
 
 from . import scopes
 from .auth import ForbiddenError, request_scope, requires

@@ -31,8 +31,9 @@ from typing import Any
 
 from zeroconf import ServiceBrowser, ServiceInfo, ServiceStateChange, Zeroconf
 
-from common import encrypted_connections, install_identity, serving
+from common import install_identity, serving
 from common.config_store import ConfigStore
+from common.security import encrypted_connections
 from common.vpinfe_version import get_version
 
 logger = logging.getLogger("vpinfe.common.discovery")

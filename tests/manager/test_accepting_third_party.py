@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 from unittest.mock import AsyncMock, patch
 
-from common import accepted
+from common.security import accepted
 from manager import accept, themes
 
 

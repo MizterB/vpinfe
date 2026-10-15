@@ -8,8 +8,8 @@ from urllib.parse import urlsplit
 import requests
 
 from common.failures import why
-from common.http_client import get_bytes, get_json
 from common.i18n import t
+from common.security.http_client import get_bytes, get_json
 
 
 class ThemeRegistryError(Exception):

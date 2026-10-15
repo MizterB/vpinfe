@@ -13,17 +13,10 @@ from urllib.parse import quote, urlencode, urlsplit
 
 import requests
 
-from common import (
-    device_client,
-    device_registry,
-    http_client,
-    launcher_wire,
-    pinned_certificates,
-    serving,
-    sign_in,
-)
+from common import device_client, device_registry, launcher_wire, serving
 from common.i18n import t
 from common.paths import get_ini_config
+from common.security import http_client, pinned_certificates, sign_in
 from httpapi import auth, scopes
 from manager.kit import acting
 

@@ -24,9 +24,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from urllib.parse import quote
 
-from common import machine_secrets, sign_in
+from common.security import machine_secrets, sign_in
 
-logger = logging.getLogger("vpinfe.common.authenticator")
+logger = logging.getLogger("vpinfe.common.security.authenticator")
 
 KEY = "authenticator"
 ISSUER = "VPinFE"

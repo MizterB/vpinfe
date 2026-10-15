@@ -8,7 +8,7 @@ from typing import Any
 
 from nicegui import ui
 
-from common import accepted
+from common.security import accepted
 from manager import community, ext_groups, ext_mark, ext_page, ext_verbs, needs, sections, workbench
 from manager import page as app_page
 from manager.kit import panel

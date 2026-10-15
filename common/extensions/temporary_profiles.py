@@ -12,12 +12,13 @@ from typing import Any
 
 import requests
 
-from common import http_client, service_errors, serving
+from common import service_errors, serving
 from common.failures import why
 from common.games import player_records
 from common.i18n import t
 from common.paths import get_ini_config
 from common.players import get_roster
+from common.security import http_client
 
 from . import accounts
 

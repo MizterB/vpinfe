@@ -14,15 +14,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from common import (
-    discovery,
-    http_client,
-    install_setup,
-    player_pictures,
-    serving,
-    settings_waiting,
-    shutdown,
-)
+from common import discovery, install_setup, player_pictures, serving, settings_waiting, shutdown
 from common.capture import freeze
 from common.config_access import DisplayConfig, NetworkConfig, SettingsConfig
 from common.config_store import ConfigStore
@@ -30,6 +22,7 @@ from common.games import remote_library
 from common.host import key_reader, metrics, system_actions
 from common.host.display_service import get_display_monitors
 from common.paths import THEMES_FOLDER
+from common.security import http_client
 from frontend import (
     ext_data,
     input_events,

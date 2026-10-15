@@ -47,9 +47,18 @@ themes folder from `paths`.
 - `input_registry.py`: every input action, its default bindings and the names it used to have. `[input]` in the config is generated from it, so the two cannot disagree.
 - `lifecycle.py`: starting, stopping and restarting the frontend, VPinFE or the machine, whichever surface asked.
 - `jobs.py`: slow work as a job — one at a time per kind, progress published on the bus, answerable by id after it finishes.
-- `http_client.py`: shared request/download helpers.
 - `shutdown.py`: what a kill signal does. Startup notes it and stops at the next step boundary; once the frontend is up it takes the same route as a user's own quit.
 - `log_setup.py`, `vpinfe_version.py`.
+
+**`common/security/`** - who may do what, and what this install trusts.
+
+- `machine_secrets.py`, `access_keys.py`: the secrets this install makes for itself, and the two keys it holds in plain because it must hand them on (the Remote pass, a pairing token).
+- `api_tokens.py`: the tokens a program holds to call the API, kept as hashes.
+- `sign_in.py`, `authenticator.py`: signing a browser in with a code shown on the device, and the authenticator app's six digits as a second way.
+- `approvals.py`: a program asks first to make one Protected change, and the Owner decides.
+- `accepted.py`: the themes and extensions the Owner has accepted that VPinFE did not ship.
+- `encrypted_connections.py`, `pinned_certificates.py`: which connections count as encrypted and the certificate this install serves HTTPS with, and the certificate a paired install showed when paired.
+- `http_client.py`: shared request/download helpers, which check a paired install's pinned certificate before they connect.
 
 **`common/extensions/`** - the extension host: loading somebody else's code, and
 containing it when it breaks.
@@ -274,7 +283,7 @@ or the HTTP API started it, and both enforce one job per kind — which is what 
 two library scans rewriting the same `.info` files. `track` chains to whatever
 callbacks the caller already had, so an existing progress bar keeps working.
 
-Use `http_client.py` for common network GET/download behavior unless a service
+Use `common/security/http_client.py` for common network GET/download behavior unless a service
 needs a special request shape such as POST.
 
 Use `common/host/third_party.py` to locate and load a bundled third-party library. Where one

@@ -12,8 +12,9 @@ from collections.abc import Collection, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any
 
-from common import approvals, feature_checks
+from common import feature_checks
 from common.i18n import t
+from common.security import approvals
 from manager import jobs_list
 from manager.kit import verbs
 from manager.kit.need_keys import AWAY, AWAY_ALL

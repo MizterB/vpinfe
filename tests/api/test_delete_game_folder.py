@@ -9,8 +9,8 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 import httpapi
-from common import api_tokens, sign_in
 from common.host import launch_state
+from common.security import api_tokens, sign_in
 from httpapi import auth
 from tests.api.test_create_game import CreateGameCase
 

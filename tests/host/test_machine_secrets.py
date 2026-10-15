@@ -11,7 +11,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from common import machine_secrets, paths
+from common import paths
+from common.security import machine_secrets
 
 
 class Secrets(unittest.TestCase):

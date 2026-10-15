@@ -144,21 +144,21 @@ def get_json(url: str, *, timeout: int = 15) -> Any:
     to wait, and nothing outside this machine when VPINFE_OFFLINE is set. Needs
     `net:outbound`. Raises `requests.RequestException`, or ValueError for an unreadable
     answer."""
-    from common import http_client
+    from common.security import http_client
 
     return http_client.get_json(url, timeout=timeout)
 
 
 def get_response(url: str, *, timeout: int = 15) -> Any:
     """`get_json`, returning the answer whatever its status."""
-    from common import http_client
+    from common.security import http_client
 
     return http_client.get_response(url, timeout=timeout)
 
 
 def post_response(url: str, payload: Any = None, *, timeout: int = 15) -> Any:
     """POST a JSON body as `get_json` asks, returning the answer whatever its status."""
-    from common import http_client
+    from common.security import http_client
 
     return http_client.post_response(url, payload, timeout=timeout)
 

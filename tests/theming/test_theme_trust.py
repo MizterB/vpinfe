@@ -7,9 +7,10 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from common import accepted, paths, service_errors
+from common import paths, service_errors
 from common.config_store import ConfigStore
 from common.online import theme_ops, theme_sources
+from common.security import accepted
 from frontend import theme_api
 from tests.support.accepted import isolated
 

@@ -15,11 +15,11 @@ from unittest import mock
 
 import requests
 
-from common.http_client import HostQuietError
 from common.online import theme_ops, theme_sources
 from common.online import theme_source_checks as checks
 from common.online.theme_registry_client import ThemeRegistryError
 from common.online.themes import ThemeRegistry
+from common.security.http_client import HostQuietError
 
 STOCK = "https://raw.githubusercontent.com/vpinfe/themes/main/themes.json"
 OTHER = "https://git.example.net/someone/themes/raw/branch/main/themes.json"

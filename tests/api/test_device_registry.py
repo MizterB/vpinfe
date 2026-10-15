@@ -16,7 +16,6 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from common import access_keys, pinned_certificates
 from common.device_registry import (
     Device,
     DeviceRegistry,
@@ -25,6 +24,7 @@ from common.device_registry import (
     keep_own_row,
     paired_header,
 )
+from common.security import access_keys, pinned_certificates
 from tests.support.library import add_mobile
 
 

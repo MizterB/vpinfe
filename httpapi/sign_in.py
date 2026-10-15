@@ -1,6 +1,6 @@
 """Signing a browser in: ask for a code, type it, and manage who is signed in.
 
-The code itself is shown on this device and never answered here. See common/sign_in.py.
+The code itself is shown on this device and never answered here. See common/security/sign_in.py.
 """
 
 from __future__ import annotations
@@ -10,11 +10,12 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Request, Response
 
-from common import access_keys, authenticator, paths, sign_in
-from common import api_tokens as tokens
+from common import paths
 from common.host import this_machine
 from common.i18n import t
 from common.install_identity import display_name
+from common.security import access_keys, authenticator, sign_in
+from common.security import api_tokens as tokens
 
 from . import scopes
 from .auth import (

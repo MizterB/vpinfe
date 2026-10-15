@@ -14,15 +14,8 @@ from unittest.mock import patch
 
 import requests
 
-from common import (
-    access_keys,
-    device_client,
-    http_client,
-    lifecycle,
-    paths,
-    pinned_certificates,
-    service_errors,
-)
+from common import device_client, lifecycle, paths, service_errors
+from common.security import access_keys, http_client, pinned_certificates
 
 LOCAL = "Aaaa111111"
 CAB = {"device_id": "Bbbb222222", "address": "192.168.1.50", "port": 8001}
@@ -289,7 +282,7 @@ class ProbingAnHttpsInstallTests(_HttpsInstall):
 
 
 def machine_secrets_pins():
-    from common import machine_secrets
+    from common.security import machine_secrets
 
     return machine_secrets.read().get(pinned_certificates.PINNED)
 

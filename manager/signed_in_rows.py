@@ -14,8 +14,8 @@ from typing import Any
 
 from nicegui import run, ui
 
-from common import sign_in
 from common.i18n import t
+from common.security import sign_in
 from manager.kit import confirm, offload, panel, renderers, verbs, when
 from manager.kit import dialog as frame
 from manager.kit import grid as grid_module

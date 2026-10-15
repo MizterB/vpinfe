@@ -11,8 +11,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from common import accepted, paths
+from common import paths
 from common.online import theme_sources
+from common.security import accepted
 
 STOCK = theme_sources.stock_list()
 ELSEWHERE = "https://git.example.net/someone/themes.json"

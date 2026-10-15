@@ -16,7 +16,8 @@ from starlette.routing import Route, WebSocketRoute
 from starlette.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from common import accepted, authenticator, paths, sign_in
+from common import paths
+from common.security import accepted, authenticator, sign_in
 from httpapi import auth
 from manager import sign_in_gate
 from tests.support.accepted import isolated

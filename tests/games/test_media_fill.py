@@ -80,7 +80,7 @@ class _Library(TempTree):
         for patcher in (
                 patch("common.games.game_repository.catalog", return_value=self.games),
                 patch("common.games.game_repository.refresh_game"),
-                patch("common.http_client.download_file", self.downloads),
+                patch("common.security.http_client.download_file", self.downloads),
                 patch.object(asset_sources, "_MANIFEST", MANIFEST),
                 patch.object(media_fill, "get_ini_config", return_value=self.config),
                 patch("common.games.media_service.media_settings",

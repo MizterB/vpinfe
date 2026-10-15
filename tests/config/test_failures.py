@@ -14,7 +14,7 @@ import requests
 
 from common import i18n
 from common.failures import upstream, why
-from common.http_client import HostQuietError
+from common.security.http_client import HostQuietError
 from tests.support.library import TempTree
 from tests.support.skips import needs_posix_permissions
 

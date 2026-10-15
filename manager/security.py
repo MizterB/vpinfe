@@ -14,10 +14,11 @@ from typing import Any
 
 from nicegui import ui
 
-from common import paths, sign_in
+from common import paths
 from common import serving as serving_state
 from common.failures import why
 from common.i18n import t
+from common.security import sign_in
 from httpapi import auth
 from manager import (
     authenticator_panel,

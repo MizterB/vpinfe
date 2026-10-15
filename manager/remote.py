@@ -1874,9 +1874,9 @@ def where_to_find_it() -> str:
     not to work from anywhere else. Carries the Remote pass, so a scan signs the phone in.
     Empty while this install answers only itself, since no phone can reach it.
     """
-    from common import access_keys
     from common.host.addresses import best
     from common.paths import get_ini_config
+    from common.security import access_keys
 
     network = serving.network(get_ini_config())
     if not serving.reachable_from_elsewhere(network.http_bind):

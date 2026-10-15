@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request
 
-from common import api_tokens as tokens
-from common import approvals
 from common.i18n import t
+from common.security import api_tokens as tokens
+from common.security import approvals
 
 from . import scopes
 from .auth import require, requires

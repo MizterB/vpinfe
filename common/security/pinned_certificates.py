@@ -30,11 +30,11 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.exceptions import InsecureRequestWarning
 
-from common import machine_secrets
 from common.i18n import t
+from common.security import machine_secrets
 from common.service_errors import CertificateChangedError
 
-logger = logging.getLogger("vpinfe.common.pinned_certificates")
+logger = logging.getLogger("vpinfe.common.security.pinned_certificates")
 
 PINNED = "pinned_certificates"
 
@@ -133,7 +133,7 @@ def trust_now(url: str) -> str:
     if found is None:
         return ""
     # http_client imports this module, so the gate can only be reached from inside a call.
-    from common import http_client
+    from common.security import http_client
     http_client.require_reachable(url)
     return VERIFIED if vouched_for(*found) else shown_by(*found)
 

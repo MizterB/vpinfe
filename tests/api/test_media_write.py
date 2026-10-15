@@ -194,7 +194,7 @@ class MediaWriteTests(TempTree):
             Path(path).write_bytes(b"\x89PNGfetched")
 
         with patch("common.online.asset_sources.url_for", return_value=offer), \
-                patch("common.http_client.download_file", staged):
+                patch("common.security.http_client.download_file", staged):
             response = self.client.post(
                 f"/games/{GAME_ID}/media/wheel/fetch",
                 json={"source": "vpinmediadb", "vps_id": "abc", "size": ""})

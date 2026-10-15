@@ -12,7 +12,8 @@ from unittest import mock
 
 import requests
 
-from common import http_client, i18n
+from common import i18n
+from common.security import http_client
 
 NOW = 1_800_000_000.0
 URL = "https://api.github.com/repos/o/r/releases/latest"

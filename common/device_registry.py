@@ -39,12 +39,13 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-from common import access_keys, config_schema, pinned_certificates
+from common import config_schema
 from common.atomic_write import write_atomic
 from common.config_store import ConfigStore
 from common.i18n import t
 from common.install_identity import mint_id
 from common.paths import STATE_DIR, get_ini_config
+from common.security import access_keys, pinned_certificates
 from common.timestamps import utc_now_iso
 
 logger = logging.getLogger("vpinfe.common.device_registry")

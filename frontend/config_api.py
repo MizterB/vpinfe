@@ -5,7 +5,7 @@ from __future__ import annotations
 from io import BytesIO
 from typing import TYPE_CHECKING, Any
 
-from common import access_keys, serving
+from common import serving
 from common.config_access import (
     ConfigSource,
     DisplayConfig,
@@ -18,6 +18,7 @@ from common.config_access import (
 )
 from common.extensions.store import get_extension_store
 from common.host import addresses
+from common.security import access_keys
 from common.values import is_truthy
 
 if TYPE_CHECKING:

@@ -20,7 +20,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import Any
 
-logger = logging.getLogger("vpinfe.common.approvals")
+logger = logging.getLogger("vpinfe.common.security.approvals")
 
 LAPSE_SECONDS = 60 * 60
 # What the Owner is shown and what a repeated request is held to. A body past this is not

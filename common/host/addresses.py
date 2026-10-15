@@ -19,7 +19,7 @@ from __future__ import annotations
 import ipaddress
 import socket
 
-from common import encrypted_connections
+from common.security import encrypted_connections
 
 
 def usable_ipv4(value: str) -> bool:

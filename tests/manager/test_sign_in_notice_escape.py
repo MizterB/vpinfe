@@ -7,7 +7,7 @@ import unittest
 
 from nicegui import ui
 
-from common import approvals, sign_in
+from common.security import approvals, sign_in
 from manager import sign_in_notice
 from tests.support.clicks import said
 

@@ -155,8 +155,8 @@ def _fetch(game_id: str, kind: str, asked: str, vps_id: str, size: str,
            live: tuple[str, ...]) -> bool:
     """Put the source's file in the slot. False when no source has one."""
     from common.games import media_ops
-    from common.http_client import download_file
     from common.online import asset_sources
+    from common.security.http_client import download_file
 
     offers = asset_sources.offers(asked, vps_id, live)
     if not offers:

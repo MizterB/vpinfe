@@ -6,7 +6,7 @@ from __future__ import annotations
 import unittest
 from typing import Any
 
-from common import approvals, sign_in
+from common.security import approvals, sign_in
 from frontend import sign_in_prompt
 from frontend.api import API, API_ALLOWED_METHODS, API_INTERNAL_METHODS, API_PUBLISHED_METHODS
 

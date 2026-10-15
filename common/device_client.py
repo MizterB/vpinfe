@@ -18,8 +18,8 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, NoReturn
 
-from common import pinned_certificates
 from common.i18n import t
+from common.security import pinned_certificates
 from common.service_errors import CertificateChangedError
 
 if TYPE_CHECKING:
@@ -263,22 +263,22 @@ class _Authed:
         self.device_id = device_id
 
     def _headers(self) -> dict[str, str] | None:
-        from common import access_keys
+        from common.security import access_keys
 
         return access_keys.pairing_header(self.device_id)
 
     def get_json(self, url: str, **kwargs: Any) -> Any:
-        from common import http_client
+        from common.security import http_client
 
         return http_client.get_json(url, headers=self._headers(), **kwargs)
 
     def post_json(self, url: str, payload: Any = None, **kwargs: Any) -> Any:
-        from common import http_client
+        from common.security import http_client
 
         return http_client.post_json(url, payload, headers=self._headers(), **kwargs)
 
     def put_json(self, url: str, payload: Any, **kwargs: Any) -> Any:
-        from common import http_client
+        from common.security import http_client
 
         return http_client.put_json(url, payload, headers=self._headers(), **kwargs)
 
@@ -441,7 +441,7 @@ class RemoteDevice:
 
         Discovery answers anyone, so it proves nothing about this. False without a token,
         and False where the device turns the token away (it was revoked there)."""
-        from common import access_keys
+        from common.security import access_keys
 
         if not access_keys.pairing_token(self.device_id):
             return False
@@ -456,7 +456,7 @@ class RemoteDevice:
 
         Over HTTPS this takes the certificate the address shows now, ignoring any pinned
         before: pairing again is how a changed certificate is trusted."""
-        from common import http_client
+        from common.security import http_client
 
         self._candidate = pinned_certificates.trust_now(self.base_url)
         # Sent bare: whatever token is held belongs to the certificate that was paired, and
@@ -468,7 +468,7 @@ class RemoteDevice:
     def pair(self, request_id: str, code: str, name: str) -> None:
         """Trade the code read off that screen for a Full Control token, and keep it along
         with the certificate that asked for the code."""
-        from common import access_keys, http_client
+        from common.security import access_keys, http_client
 
         said = http_client.post_json(
             self._url("/auth/pair"),
@@ -479,13 +479,13 @@ class RemoteDevice:
 
     def pair_with_token(self, token: str) -> None:
         """Keep a token made on that install, with the certificate its address shows now."""
-        from common import access_keys
+        from common.security import access_keys
 
         pinned_certificates.adopt(self.base_url, pinned_certificates.trust_now(self.base_url))
         access_keys.keep_pairing_token(self.device_id, token)
 
     def unpair(self) -> None:
-        from common import access_keys
+        from common.security import access_keys
 
         access_keys.forget_pairing_token(self.device_id)
         found = pinned_certificates.split(self.base_url)
@@ -495,7 +495,7 @@ class RemoteDevice:
     def _probe_trust(self) -> str | None:
         """How to meet an https address that nothing was paired with: unverified, because
         the call carries no token and only asks who is there."""
-        from common import access_keys
+        from common.security import access_keys
 
         found = pinned_certificates.split(self.base_url)
         if (found is None or access_keys.pairing_token(self.device_id)
@@ -549,7 +549,7 @@ class MobileDevice:
 
         There is no version to report: the protocol carries no identity.
         """
-        from common import http_client
+        from common.security import http_client
 
         http_client.get_json(f"{self.base_url}/files", timeout=PROBE_SECONDS)
         return {"state": ANSWERING, "version": "", "reason": ""}

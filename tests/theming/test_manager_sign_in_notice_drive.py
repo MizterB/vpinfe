@@ -14,8 +14,8 @@ import urllib.request
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from common import sign_in
 from common.i18n import t
+from common.security import sign_in
 from manager import signed_in_rows
 from tests.support.browser_session import BrowserSession, chromium_path
 from tests.support.live_instance import LiveInstance

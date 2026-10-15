@@ -175,7 +175,7 @@ class ProbeTests(unittest.TestCase):
         self.assertNotIn("what", found)
 
     def test_a_phone_reports_no_version(self) -> None:
-        with mock.patch("common.http_client.get_json", return_value={}):
+        with mock.patch("common.security.http_client.get_json", return_value={}):
             found = device_client.MobileDevice("http://10.0.0.5:8080").probe()
 
         self.assertEqual(found["version"], "")

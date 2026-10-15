@@ -18,9 +18,10 @@ from pathlib import Path
 from platform import freedesktop_os_release
 from typing import Any
 
-from common import accepted, i18n, install_identity, tokens
 from common import events as core_events
+from common import i18n, install_identity, tokens
 from common.paths import CONFIG_DIR, bundled, get_ini_config
+from common.security import accepted
 
 from . import catalogs, contributions, reach
 from .context import ExtensionApps, ExtensionContext, check_play, check_references

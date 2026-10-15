@@ -18,7 +18,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-from common import encrypted_connections, serving
+from common import serving
+from common.security import encrypted_connections
 from manager import host, loopback
 from tests.api.test_encrypted_connections import make_certificate
 

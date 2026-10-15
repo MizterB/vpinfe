@@ -24,9 +24,10 @@ from starlette.requests import HTTPConnection, Request
 from starlette.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from common import accepted, access_keys, authenticator, paths, players, sign_in
+from common import paths, players
 from common.i18n import t
 from common.install_identity import display_name
+from common.security import accepted, access_keys, authenticator, sign_in
 from httpapi import API_PREFIX, auth
 from manager.kit import appearance
 

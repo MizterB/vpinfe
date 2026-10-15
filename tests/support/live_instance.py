@@ -25,7 +25,8 @@ from io import TextIOWrapper
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from common import discovery, http_client
+from common import discovery
+from common.security import http_client
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 HARNESS_THEME = REPO_ROOT / "tests" / "fixtures" / "theme-harness"

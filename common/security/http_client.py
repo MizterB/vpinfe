@@ -22,8 +22,8 @@ from urllib.parse import urlsplit
 
 import requests
 
-from common import pinned_certificates
 from common.i18n import t
+from common.security import pinned_certificates
 
 DEFAULT_TIMEOUT = 15
 DOWNLOAD_TIMEOUT = 60
@@ -32,7 +32,7 @@ QUIET_SECONDS = 60.0
 # Set to refuse every host but this machine, as an offline machine would.
 OFFLINE = "VPINFE_OFFLINE"
 
-logger = logging.getLogger("vpinfe.common.http_client")
+logger = logging.getLogger("vpinfe.common.security.http_client")
 
 _quiet: dict[str, float] = {}
 _quiet_lock = threading.Lock()

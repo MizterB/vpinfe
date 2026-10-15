@@ -8,7 +8,7 @@ the last, a DNS-rebound name fails the third, and a proxy fails the second.
 Judged from the socket's address and the request's Host, Origin and Sec-Fetch-Site, never
 from a forwarding header: those are written by the caller. A proxy the Owner has listed is
 the one exception, and only for who the client was and whether it came in over HTTPS
-(common/encrypted_connections.py); a request through it is still never this machine's own.
+(common/security/encrypted_connections.py); a request through it is still never this machine's own.
 """
 
 from __future__ import annotations
@@ -20,8 +20,9 @@ import time
 from collections.abc import Mapping
 from urllib.parse import urlsplit
 
-from common import encrypted_connections, serving
+from common import serving
 from common.host import addresses
+from common.security import encrypted_connections
 
 LOOPBACK_NAMES = frozenset({"localhost", "ip6-localhost", "ip6-loopback"})
 LOOPBACK_PEERS = frozenset({"127.0.0.1", "::1", "localhost"})

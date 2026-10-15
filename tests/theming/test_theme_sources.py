@@ -17,12 +17,12 @@ import unittest
 from configparser import ConfigParser
 from unittest import mock
 
-from common import accepted
 from common.config_store import ConfigStore
 from common.i18n import t
 from common.online import theme_ops, theme_refs, theme_source_checks, theme_sources
 from common.online.theme_registry_client import ThemeRegistryError
 from common.online.themes import ThemeRegistry, ThemeVersionError
+from common.security import accepted
 from tests.support.accepted import isolated
 
 STOCK = "https://raw.githubusercontent.com/vpinfe/themes/main/themes.json"

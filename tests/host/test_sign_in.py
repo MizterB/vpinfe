@@ -14,8 +14,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from common import log_setup, sign_in
-from common.sign_in import SignIn, SignInError
+from common import log_setup
+from common.security import sign_in
+from common.security.sign_in import SignIn, SignInError
 
 
 class Clock:
@@ -308,7 +309,7 @@ class TheMachinesSideTests(SignInCase):
         self.assertIsNone(self.sign_in.reveal(request.id))
 
     def test_the_digits_stay_out_of_the_log_while_a_screen_can_show_them(self) -> None:
-        with self.assertLogs("vpinfe.common.sign_in", "WARNING") as logged:
+        with self.assertLogs("vpinfe.common.security.sign_in", "WARNING") as logged:
             self.shown()
 
         self.assertFalse(any("Sign-in code" in line for line in logged.output))
@@ -316,7 +317,7 @@ class TheMachinesSideTests(SignInCase):
     def test_with_no_screen_the_code_is_in_the_log_and_needs_no_show(self) -> None:
         self.sign_in.headless = True
 
-        with self.assertLogs("vpinfe.common.sign_in", "WARNING") as logged:
+        with self.assertLogs("vpinfe.common.security.sign_in", "WARNING") as logged:
             request = self.sign_in.ask("192.168.1.20")
 
         self.assertEqual(request.state, sign_in.SHOWN)

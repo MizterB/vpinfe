@@ -12,10 +12,11 @@ from typing import Any
 
 from nicegui import run, ui
 
-from common import authenticator, paths
+from common import paths
 from common.failures import why
 from common.i18n import t
 from common.install_identity import display_name
+from common.security import authenticator
 from manager.kit import confirm, deeplink, offload, panel, qr, verbs
 from manager.kit import dialog as frame
 from manager.kit.api import ApiError

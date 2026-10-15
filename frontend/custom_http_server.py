@@ -25,8 +25,8 @@ from urllib.parse import parse_qs, unquote, urlsplit
 
 import requests
 
-from common import accepted
-from common.http_client import get_text
+from common.security import accepted
+from common.security.http_client import get_text
 from frontend.theme_windows import window_title
 
 logger = logging.getLogger("vpinfe.frontend.custom_http_server")

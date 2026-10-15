@@ -71,7 +71,6 @@ from common import (
     migration_ledger,
     serving,
     shutdown,
-    sign_in,
     theme_options,
     whats_new,
 )
@@ -82,7 +81,6 @@ from common.host.dof_service import start_dof_service_if_enabled, stop_dof_servi
 from common.host.libdmdutil_service import (
     stop_libdmdutil_service,
 )
-from common.http_client import unreachable
 from common.log_setup import configure_logging, get_logger
 from common.online import theme_seed, theme_upgrade  # noqa: F401
 from common.online.pinmame_score_parser_updater import ensure_latest_roms_json
@@ -95,6 +93,8 @@ from common.paths import (
     configure_nicegui_storage,
     ensure_config_dir,
 )
+from common.security import sign_in
+from common.security.http_client import unreachable
 from common.vpinfe_version import get_version
 
 # Get the base path

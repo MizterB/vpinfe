@@ -12,9 +12,9 @@ from typing import Any
 
 from nicegui import ui
 
-from common import accepted
 from common.extensions import contract
 from common.i18n import t
+from common.security import accepted
 
 GLYPH = "gpp_maybe"
 # What the frame in an extension's header holds until it has a picture of its own.

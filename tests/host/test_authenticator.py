@@ -9,7 +9,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from common import authenticator, machine_secrets, paths, sign_in
+from common import paths
+from common.security import authenticator, machine_secrets, sign_in
 
 # RFC 6238 appendix B: the SHA-1 key, and the six digits it gives at each time.
 RFC_KEY = b"12345678901234567890"

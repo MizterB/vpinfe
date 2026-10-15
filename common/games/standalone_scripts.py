@@ -11,8 +11,8 @@ import requests
 
 from common.games.game import Game
 from common.games.info_file import MetaConfig
-from common.http_client import download_file, get_json
 from common.i18n import t
+from common.security.http_client import download_file, get_json
 
 logger = logging.getLogger("vpinfe.common.games.standalone_scripts")
 

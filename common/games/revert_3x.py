@@ -13,7 +13,7 @@ import os
 import shutil
 from pathlib import Path
 
-from common import http_client, pinned_certificates, serving
+from common import serving
 from common.atomic_write import STAGED_PREFIX, STAGED_SUFFIX
 from common.device_registry import DeviceRegistry
 from common.games.collection_store import COLLECTIONS_NAME, COLLECTIONS_NAME_INI
@@ -29,6 +29,7 @@ from common.games.info_migration import (
 )
 from common.games.tables import TABLES_KEY
 from common.jobs import JobReporter, LogCallback, ProgressCallback
+from common.security import http_client, pinned_certificates
 
 logger = logging.getLogger("vpinfe.common.games.revert_3x")
 
