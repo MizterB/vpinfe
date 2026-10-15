@@ -1,0 +1,7 @@
+{
+  "name": "weekend_picks",
+  "version": "1.0.0",
+  "requires_platform": 1,
+  "scopes": ["games:read", "collections:read", "collections:write"],
+  "capabilities": ["config:own", "ui:mount"]
+}

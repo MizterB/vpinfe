@@ -7,6 +7,7 @@ real identities, so a refusal comes back in the words an Owner or a token is giv
 from __future__ import annotations
 
 import json
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -21,6 +22,8 @@ from common.extensions import contract, host, reach, store, system
 from httpapi import auth, errors, extensions_served, scopes
 from tests.support.accepted import owner_accepts
 
+RECIPE = (Path(__file__).resolve().parents[2]
+          / "docs" / "extensions" / "examples" / "recipes" / "cabinet_note")
 MODULE = "tests.extensions.test_tiers"
 NAME = "tiered"
 WORDS = {
@@ -97,13 +100,17 @@ def _installed(root: Path, tiers: list[str]) -> Path:
     return directory
 
 
-def _identity(kind: str, *tiers: str) -> auth.Identity:
-    return auth.Identity("caller", frozenset(scopes.extension_scope(NAME, one) for one in tiers),
+def _identity(kind: str, *tiers: str, name: str = NAME) -> auth.Identity:
+    return auth.Identity("caller", frozenset(scopes.extension_scope(name, one) for one in tiers),
                          kind=kind)
 
 
 class TierCase(unittest.TestCase):
     listed = ["play", "protected"]
+    name = NAME
+
+    def install(self, root: Path) -> Path:
+        return _installed(root, self.listed)
 
     def setUp(self) -> None:
         owner_accepts(self)
@@ -111,9 +118,9 @@ class TierCase(unittest.TestCase):
         self.addCleanup(tmp.cleanup)
         self.registry = host.Registry(store.ExtensionStore(Path(tmp.name)))
         self.addCleanup(self.registry.clear)
-        self.addCleanup(i18n.disown, f"ext.{NAME}")
+        self.addCleanup(i18n.disown, f"ext.{self.name}")
         CALLS.clear()
-        self.record = self.registry.load(_installed(Path(tmp.name) / "installed", self.listed))
+        self.record = self.registry.load(self.install(Path(tmp.name) / "installed"))
         self.assertEqual(self.record.state, host.LOADED, self.record.error)
         extensions.set_registry(self.registry)
         self.addCleanup(extensions.set_registry, host.Registry())
@@ -131,9 +138,9 @@ class TierCase(unittest.TestCase):
                 return await call_next(request)
 
         errors.install_error_handlers(app)
-        app.include_router(extensions_served.router(NAME, Depends(lambda: None)),
-                           prefix=f"/ext/{NAME}")
-        return getattr(TestClient(app), method)(f"/ext/{NAME}{path}", **(
+        app.include_router(extensions_served.router(self.name, Depends(lambda: None)),
+                           prefix=f"/ext/{self.name}")
+        return getattr(TestClient(app), method)(f"/ext/{self.name}{path}", **(
             {"json": body} if body is not None else {}))
 
     def reason(self, response: Any) -> str:
@@ -292,6 +299,55 @@ class AnUnlistedTier(TierCase):
         self.assertEqual(response.status_code, 400, response.text)
         self.assertEqual(CALLS, [])
         self.assertIn("Tiered marks something protected", response.json()["error"]["message"])
+
+
+class CabinetNoteRecipe(TierCase):
+    """The cookbook's Play recipe, reached the way a Remote pass reaches it."""
+
+    name = "cabinet_note"
+
+    def install(self, root: Path) -> Path:
+        shutil.copytree(RECIPE, root / self.name)
+        return root / self.name
+
+    def note(self) -> str:
+        return str(self.record.context.config.get("note") or "")
+
+    def test_a_remote_pass_reads_the_page_saves_it_and_clears_it(self) -> None:
+        remote = _identity(sign_in.REMOTE, "play", name=self.name)
+
+        saved = self.call(remote, "/pages/note", "put", {"values": {"note": "Left flipper sticks"}})
+        read = self.call(remote, "/pages/note", "get")
+        cleared = self.call(remote, "/pages/note/about/acts/clear")
+
+        self.assertEqual((saved.status_code, read.status_code, cleared.status_code),
+                         (200, 200, 200), saved.text + read.text + cleared.text)
+        self.assertEqual(read.json()["sections"][0]["fields"][0]["value"], "Left flipper sticks")
+        self.assertEqual(cleared.json(), {"message": "Cleared"})
+        self.assertEqual(self.note(), "")
+
+    def test_a_remote_pass_for_another_extension_cannot_reach_the_page(self) -> None:
+        stranger = _identity(sign_in.REMOTE, "play", name="another")
+
+        read = self.call(stranger, "/pages/note", "get")
+        saved = self.call(stranger, "/pages/note", "put", {"values": {"note": "x"}})
+
+        self.assertEqual((read.status_code, saved.status_code), (403, 403))
+        self.assertEqual(self.note(), "")
+
+    def test_without_its_play_list_the_recipe_does_not_start(self) -> None:
+        folder = Path(tempfile.mkdtemp()) / self.name
+        self.addCleanup(shutil.rmtree, folder.parent, True)
+        shutil.copytree(RECIPE, folder)
+        manifest = json.loads((folder / "extension.json").read_text())
+        del manifest["play"]
+        (folder / "extension.json").write_text(json.dumps(manifest))
+
+        with self.assertLogs(level="ERROR"):
+            record = self.registry.load(folder)
+
+        self.assertNotEqual(record.state, host.LOADED)
+        self.assertIn("page:note", record.error)
 
 
 class Marking(unittest.TestCase):

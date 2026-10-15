@@ -24,8 +24,10 @@ from typing import Any
 from common import events, i18n, jobs, sized_media
 from common.extensions import check, contract, fields, host, pictures, serving, store
 from common.extensions.context import COLUMN_KINDS, ExtensionContext, logger_for
+from common.extensions.games import withdraw_all
 from common.service_errors import NotFoundError, RefusedError
 from console import ext_links
+from httpapi import extension_ops
 from tests.support.accepted import owner_accepts
 
 GUIDE = Path(__file__).resolve().parents[2] / "docs" / "extensions"
@@ -72,6 +74,11 @@ DECLARES: dict[str, list[str]] = {
                   "link       manual: https://tool.example.com/manual"],
     "vpinos_only": ["platforms  vpinos", "settings   boot (select, default 'play')"],
     "os_update": ["platforms  vpinos", "dialog     updates: ask run"],
+    "weekend_picks": ["settings   collection (string, default 'Weekend Picks')",
+                      "verb       pick in the game menu", "verb       unpick in the game menu"],
+    "plugged_in": ["list       devices in system: 4 columns, 0 views, 0 verbs"],
+    "cabinet_note": ["page       note in community, with fields",
+                     "reads      page note: 1 sections, acts: clear"],
 }
 
 # What `--check-extension` says each lesson's extension declares, as the lesson claims it.
@@ -113,6 +120,9 @@ class ExampleFolders(unittest.TestCase):
         site = serving_practice_site()
         self.addCleanup(site.server_close)
         self.addCleanup(site.shutdown)
+        withdraw_all()
+        self.addCleanup(withdraw_all)
+        extension_ops.offer_all()
         for folder in RECIPES:
             with self.subTest(folder.name):
                 lines, passed = check.check(folder)

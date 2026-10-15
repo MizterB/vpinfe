@@ -118,7 +118,9 @@ def gamepadtest():
 def check_extension(folder: str) -> int:
     """Print what the extension in `folder` declares and reads. 1 where it would not pass."""
     from common.extensions import check
+    from httpapi import extension_ops
 
+    extension_ops.offer_all()
     lines, passed = check.check(folder)
     print("\n".join(lines))
     return 0 if passed else 1

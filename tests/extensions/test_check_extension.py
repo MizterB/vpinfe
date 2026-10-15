@@ -16,6 +16,8 @@ import cli
 from common import extensions, i18n
 from common.extensions import check, contract
 from common.extensions.contract import Unavailable
+from common.extensions.games import offered, withdraw_all
+from common.extensions.hardware import HARDWARE
 
 MODULE = "tests.extensions.test_check_extension"
 NAME = "checked"
@@ -560,6 +562,11 @@ class AnExtensionThatDoesNotLoad(CheckCase):
 
 
 class TheFlag(CheckCase):
+    def setUp(self) -> None:
+        super().setUp()
+        withdraw_all()
+        self.addCleanup(withdraw_all)
+
     def run_flag(self, folder: Path) -> tuple[int, str]:
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
@@ -573,6 +580,12 @@ class TheFlag(CheckCase):
 
         self.assertEqual(status, 0)
         self.assertEqual(printed.splitlines(), self.checked(directory)[0])
+
+    def test_the_flag_offers_the_calls_core_offers_a_running_vpinfe(self) -> None:
+        self.run_flag(build(self.root))
+
+        self.assertIn("list_games", offered())
+        self.assertIn("devices", HARDWARE)
 
     def test_a_failing_one_prints_why_and_exits_1(self) -> None:
         HOW["rows"] = ValueError("The service said no")

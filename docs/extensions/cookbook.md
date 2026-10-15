@@ -43,6 +43,9 @@ it, what you will see, a few variations and the mistake people make with it.
 - [18. Asking for attention on Overview](#18-asking-for-attention-on-overview)
 - [19. An extension for one Linux distribution](#19-an-extension-for-one-linux-distribution)
 - [20. Asking the operating system to change something](#20-asking-the-operating-system-to-change-something)
+- [21. Putting games in a collection](#21-putting-games-in-a-collection)
+- [22. Listing what is plugged in](#22-listing-what-is-plugged-in)
+- [23. A page a Remote can open](#23-a-page-a-remote-can-open)
 
 ## Basics
 
@@ -1856,3 +1859,253 @@ def register(ctx):
 - Run `--check-extension` on a Mac.  It loads the extension whatever its `platforms` say, and `ctx.os.available` is false there, so the dialog shows the no-helper line.
 
 **Watch out:** a change called from `register`, an event handler or a timer is refused, however the manifest reads.  Start it from an action, a verb, an act or a route, and from a job those start.  And the helper is part of the operating system, not of VPinFE: on a machine without one the method list is still there and `ctx.os.available` is false.
+
+## Collections, devices and the Remote
+
+### 21. Putting games in a collection
+
+**Use it when:** the games a person chose belong in a collection, such as the ones to play this weekend, and typing them in again on the Collections page is the slow part.
+
+`ctx.collections` is core's own collection functions, and the manifest decides which of them the extension may call.  `collections:read` lists and reads collections.  `collections:write` makes, fills, empties and orders them.  A game entry also needs `games:read` and `ui:mount`, as in [recipe 15](#15-an-entry-in-a-games-menu).
+
+This extension adds two entries to the game menu.  The first puts the chosen games in one collection and makes the collection the first time.  The second takes them out again.  The collection's name is a setting, so a person can point it somewhere else.
+
+`recipes/weekend_picks/extension.json`
+
+```json
+{
+  "name": "weekend_picks",
+  "version": "1.0.0",
+  "requires_platform": 1,
+  "scopes": ["games:read", "collections:read", "collections:write"],
+  "capabilities": ["config:own", "ui:mount"]
+}
+```
+
+`recipes/weekend_picks/__init__.py`
+
+```python
+def register(ctx):
+    ctx.ui.settings([{"key": "collection", "type": "string", "default": "Weekend Picks"}])
+
+    def exists(name):
+        listed = ctx.collections.list_collections()["collections"]
+        return any(one["name"] == name for one in listed)
+
+    def holds(name):
+        return ctx.t("message.holds", name=name,
+                     count=len(ctx.collections.collection_members(name)["members"]))
+
+    def pick(who):
+        name = ctx.config.get("collection")
+        if not exists(name):
+            ctx.collections.create_collection(name, description=ctx.t("collection.about"))
+        for one in who:
+            ctx.collections.add_to_collection(name, one["game_id"])
+        return holds(name)
+
+    def unpick(who):
+        name = ctx.config.get("collection")
+        if not exists(name):
+            return ctx.t("message.none", name=name)
+        named = {one["game"] for one in ctx.collections.collection_members(name)["members"]
+                 if one["origin"] == "named"}
+        for one in who:
+            if one["game_id"] in named:
+                ctx.collections.remove_from_collection(name, one["game_id"])
+        return holds(name)
+
+    ctx.ui.verb("game", "pick", pick)
+    ctx.ui.verb("game", "unpick", unpick)
+```
+
+`recipes/weekend_picks/i18n/en.json`
+
+```json
+{
+  "name": "Weekend Picks",
+  "description": "Adds the games chosen in the Games grid to a collection, and takes them out again.",
+  "settings.collection.label": "Collection",
+  "settings.collection.help": "The collection the picks go in, made the first time a game is picked",
+  "verb.game.pick.label": "Add to Picks",
+  "verb.game.pick.tip": "Put these games in the picks collection",
+  "verb.game.unpick.label": "Take Out of Picks",
+  "collection.about": "Games picked for the weekend",
+  "message.holds": "{name} now holds {count}",
+  "message.none": "There is no collection called {name} yet"
+}
+```
+
+`list_collections()` answers `{"collections": [...]}`, and each entry has the `name`, the `type` and the `description`.  `collection_members(name)` answers `{"members": [...]}`, one for each row, and a row has the `game` id and an `origin` that reads `named` for a game somebody put in.  `remove_from_collection` raises for a game that is not named in the collection, so Take Out of Picks checks first and a selection that includes a game that was never picked still works.  `create_collection(name, description=...)` makes a hand-picked collection.  `add_to_collection(name, game_id)` adds one game, and adding a game already in it succeeds and changes nothing, so a person can pick the same game twice.
+
+**Where it appears:** in the Games grid, in the same menus as [recipe 15](#15-an-entry-in-a-games-menu), under a Weekend Picks heading.  The setting is on the extension's page.  **What triggers it:** choosing the entry.
+
+**What you'll see:** choose Add to Picks on three games and a message says "Weekend Picks now holds 3".  Collections lists Weekend Picks with the description "Games picked for the weekend", and the three games are in it.  Choose it again on one of the three and the message still says 3.  Take Out of Picks on one of them says 2.  Change the Collection setting to another name and the next pick makes that collection, and leaves the old one as it was.
+
+**Variations:**
+
+- Call `set_collection_order(name, game_ids)` to put the games in an order you choose.  It takes the id of every member, once for each row.
+- Call `collection_games(name)` to read what a collection holds before changing it.
+- Leave `collections:write` out and the extension still starts.  Reaching for a function that needs it, as in `ctx.collections.create_collection`, raises `ContractError` and names the scope.
+
+**Watch out:** the collection you make is hand-picked.  Rules, ordering by a field, exclusions and pictures are set in the Console and are not offered here.  And a Private game is left out of what the entry is handed, so it is never added.  See [`ctx.collections`](reference/games.md#ctxcollections) for every call.
+
+### 22. Listing what is plugged in
+
+**Use it when:** your extension works with a device, such as a controller board or a display, and a person needs to see whether VPinFE can find it, and may open it, before anything else goes wrong.
+
+`ctx.hardware` lists the USB devices, serial ports and displays this computer has.  The manifest needs `hardware:read` in `scopes`.  The answer is the same on Windows, macOS and Linux, and it never holds a serial number.
+
+This extension draws the answer as a list.  Each row is a device, with the vendor and product ids and whether VPinFE may open it.  A line under the list says what lets a device open on this operating system, and shows only when some device cannot be opened.
+
+`recipes/plugged_in/extension.json`
+
+```json
+{
+  "name": "plugged_in",
+  "version": "1.0.0",
+  "requires_platform": 1,
+  "scopes": ["hardware:read"],
+  "capabilities": ["ui:mount"]
+}
+```
+
+`recipes/plugged_in/__init__.py`
+
+```python
+ACCESS = {True: "yes", False: "no"}
+
+
+def register(ctx):
+    def devices():
+        return [{
+            "name": one["name"],
+            "kind": one["kind"],
+            "ids": f"{one['vendor_id']}:{one['product_id']}" if one["vendor_id"] else "",
+            "access": ACCESS.get(one["accessible"], "unknown"),
+        } for one in ctx.hardware.devices()]
+
+    def status():
+        if any(one["access"] == "no" for one in devices()):
+            return ctx.hardware.access_help()
+        return ""
+
+    ctx.ui.list("devices", devices, area="system", status=status, columns=[
+        {"field": "name"},
+        {"field": "kind", "kind": "state", "states": {"usb": {}, "serial": {}, "display": {}}},
+        {"field": "ids"},
+        {"field": "access", "kind": "state", "states": {
+            "yes": {}, "no": {"tier": "bad"}, "unknown": {}}},
+    ])
+```
+
+`recipes/plugged_in/i18n/en.json`
+
+```json
+{
+  "name": "Plugged In",
+  "description": "Lists the USB devices, serial ports and displays this computer has, and whether VPinFE may open each.",
+  "list.devices.title": "Plugged In",
+  "list.devices.column.name.header": "Device",
+  "list.devices.column.kind.header": "Kind",
+  "list.devices.column.kind.state.usb": "USB",
+  "list.devices.column.kind.state.serial": "Serial Port",
+  "list.devices.column.kind.state.display": "Display",
+  "list.devices.column.ids.header": "Vendor and Product",
+  "list.devices.column.access.header": "Can Open",
+  "list.devices.column.access.state.yes": "Yes",
+  "list.devices.column.access.state.no": "No",
+  "list.devices.column.access.state.no.why": "VPinFE may not open this device",
+  "list.devices.column.access.state.unknown": "Not Known"
+}
+```
+
+A device is a dict of `kind`, `vendor_id`, `product_id`, `vendor`, `product`, `name`, `port` and `accessible`.  The ids are four lowercase hex digits, or `""` where the device has none.  `accessible` is `True` or `False` when the operating system can say whether VPinFE may open the device, and `None` when it cannot say without opening it, so the list has a third word for it.
+
+**Where it appears:** on the rail under System, as Plugged In.  **What triggers it:** the person opening the page.  USB devices and serial ports are read each time, so plugging a board in and opening the page again shows it.
+
+**What you'll see:** Plugged In lists each device with its kind as USB, Serial Port or Display.  A display has no ids, so that cell is empty.  Can Open reads Yes, No in red, or Not Known.  Where a device reads No, a line under the list says what to change on this operating system: a udev rule on Linux, a Privacy setting on macOS, a driver on Windows.  Hovering the red No says "VPinFE may not open this device".
+
+**Variations:**
+
+- Ask for one kind with `ctx.hardware.devices("usb")`.  The kinds are `usb`, `serial` and `display`, and any other word raises `ValueError`.
+- A display also has `x`, `y`, `width` and `height`, so a row can say where it sits.
+- Declare the `hardware:usb` capability when the extension opens a device itself.  Core lists devices and opens none, and sets no permission on one, so reaching it is the extension's own work.
+
+**Watch out:** a kind this computer cannot list is left out of the answer, and nothing is raised.  A computer with no serial support shows no serial rows, and the list does not say so.  And `hardware:read` is not `devices:read`: that scope is about the other VPinFE installs a player has.
+
+### 23. A page a Remote can open
+
+**Use it when:** something belongs on a Remote, such as a note for whoever plays next, and the program holding the Remote's pass should not need the Owner's sign-in to read or change it.
+
+A Remote pass reaches only what an extension puts at the Play tier, and the Owner is asked about that when the extension is installed.  VPinFE's own Remote screens do not draw an extension's pages.  A page at Play is reached at its address by whatever holds a Remote pass, such as a tool you write.  Two lines say it.  The manifest's `play` list names the surface, as `page:note`, and the surface is declared with `tier=PLAY`.  Each without the other fails: a surface at Play that the list does not name is refused when it is declared, and a name on the list that is not at Play fails the load.  An update that adds a name asks the Owner again.
+
+The `play` list names a page as `page:<key>`, a list as `list:<key>`, an action as `action:<key>`, a section on a game's panel as `group:<subject>`, an entry in a game's menu as `verb:<subject>:<key>`, and `router` for the web addresses of an extension's own router.
+
+`recipes/cabinet_note/extension.json`
+
+```json
+{
+  "name": "cabinet_note",
+  "version": "1.0.0",
+  "requires_platform": 1,
+  "capabilities": ["config:own", "ui:mount"],
+  "play": ["page:note"]
+}
+```
+
+`recipes/cabinet_note/__init__.py`
+
+```python
+from common.extensions.contract import PLAY
+
+
+def register(ctx):
+    def read():
+        return {
+            "title": ctx.t("page.note.heading"),
+            "sections": [
+                {"key": "note", "label": ctx.t("page.note.section"), "fields": [
+                    {"key": "note", "type": "string", "label": ctx.t("page.note.field"),
+                     "value": ctx.config.get("note") or ""},
+                ]},
+            ],
+        }
+
+    def save(values):
+        ctx.config.set("note", values["note"])
+
+    def clear():
+        ctx.config.set("note", "")
+        return ctx.t("page.note.cleared")
+
+    ctx.ui.page("note", read, area="community", save=save, acts={"clear": clear}, tier=PLAY)
+```
+
+`recipes/cabinet_note/i18n/en.json`
+
+```json
+{
+  "name": "Cabinet Note",
+  "description": "A note for whoever plays next, which a Remote can read and change.",
+  "page.note.title": "Cabinet Note",
+  "page.note.act.clear.label": "Clear Note",
+  "page.note.heading": "Cabinet Note",
+  "page.note.section": "For the Next Player",
+  "page.note.field": "Note",
+  "page.note.cleared": "Cleared"
+}
+```
+
+The page is read, saved and cleared at `/api/v1/ext/cabinet_note/pages/note` and the addresses under it, as [what core serves](reference/served.md) lists.  A request with a Remote pass is answered there, and a request with a Remote pass to anything the extension declared at the Library tier is refused.
+
+**Where it appears:** in the Console as Cabinet Note under Community, like any page.  On the extension's page, under A Remote Can Open, a chip reads "the note page".  **What triggers it:** the person opening the page, changing the field or pressing Clear Note.
+
+**What you'll see:** the page is headed Cabinet Note, with a For the Next Player section holding one field, Note.  Type a note and leave the field, and it is there the next time the page opens.  The menu at the end of the title holds Clear Note, which empties the field and says "Cleared".  When the extension is installed from a folder, the dialog that asks the Owner to accept it lists "the note page" under A Remote Can Open, so the Owner sees before accepting that a Remote can change the note.
+
+**Variations:**
+
+- Put a list at Play to let a Remote read its rows: declare it with `tier=PLAY` and name it `list:<key>` in `play`.  The list's verbs are gated with the list, so they need no name of their own.
+- Keep a surface at the default tier when only the Owner should reach it.  Most surfaces are, so name only what a Remote has a reason to open.
+
+**Watch out:** a picture is served at its own address and carries no tier, so one in an extension with a page a Remote can open can be fetched by a Remote.  Show nothing private in a picture there.

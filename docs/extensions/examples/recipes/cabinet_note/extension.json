@@ -1,0 +1,7 @@
+{
+  "name": "cabinet_note",
+  "version": "1.0.0",
+  "requires_platform": 1,
+  "capabilities": ["config:own", "ui:mount"],
+  "play": ["page:note"]
+}
