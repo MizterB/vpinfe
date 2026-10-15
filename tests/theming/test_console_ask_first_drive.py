@@ -1,4 +1,4 @@
-"""A program's ask on a Console open on this computer, driven in a real browser.
+"""A program's ask on a Console open on this device, driven in a real browser.
 
 Slow: boots a real instance and a real browser. The Console on the machine itself opens a
 dialog the moment a Full Control token asks; Close leaves the ask on the Needs You page.
@@ -20,8 +20,8 @@ from tests.support.console_walk import ConsoleWalk
 from tests.support.live_instance import LiveInstance
 
 DIALOG = ".console-confirm"
-BUTTON = f"{DIALOG} .console-action"
-DECLINE, APPROVE, CLOSE = 0, 1, 2
+BUTTON = f"{DIALOG} .console-dialog-footer button"
+DECLINE, CLOSE, APPROVE = 0, 1, 2
 ROW = ".console-need--static"
 ROW_BUTTON = f"{ROW} .console-action"
 CHANGE = "/extensions/nothing/accept"
@@ -124,10 +124,10 @@ class ConsoleAskFirstDrive(unittest.TestCase):
         self.assertIn(f"POST {CHANGE}", words)
         self.assertIn('{"name":"a"}', words)
 
-    def test_the_dialog_offers_decline_first_then_approve_then_close(self) -> None:
+    def test_the_dialog_sets_decline_apart_and_ends_on_approve(self) -> None:
         self.assertEqual(self.seen["dialog_buttons"],
-                         [t("console.needs.decline"), t("console.needs.approve"),
-                          t("word.close")])
+                         [t("console.needs.decline"), t("word.close"),
+                          t("console.needs.approve")])
 
     def test_approving_lets_that_one_request_through_once(self) -> None:
         self.assertEqual(self.seen["approved"], "approved")

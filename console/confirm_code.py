@@ -1,12 +1,13 @@
-"""The question a Protected change asks a signed-in Owner: a code from this computer's screen.
+"""The question a Protected change asks a signed-in Owner: a code from this device's screen.
 
-Only reached for a browser on another computer. Whoever is at the machine sees the six digits
+Only reached for a browser on another device. Whoever is at the machine sees the six digits
 at once, so reading them off its screen is the proof of being in front of it.
 """
 
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from nicegui import run, ui
 
@@ -16,7 +17,7 @@ from common.i18n import t
 from common.install_identity import display_name
 from common.paths import get_ini_config
 from console import dialog as frame
-from console import offload, verbs
+from console import offload, panel, verbs
 from console.api import ApiClient, ApiError
 from console.on_page import on_page
 
@@ -28,7 +29,7 @@ NEW_CODE = ("no_code", "used_up")
 
 async def ask() -> bool:
     """Whether the person confirmed. With an authenticator set up, its six digits; otherwise
-    (or on request, when this computer shows them) the code drawn on this computer's screen,
+    (or on request, when this device shows them) the code drawn on this device's screen,
     which the same six digits here answer."""
     device = display_name(get_ini_config())
     api = ApiClient()
@@ -66,8 +67,8 @@ async def ask() -> bool:
             await offload.io(api.confirm_authenticator if using_app else api.confirm,
                              str(code.value or ""))
         except ApiError as exc:
-            problem.text = why(exc)
             code.value = ""
+            frame.said(code, why(exc))
             if not using_app and exc.details.get("reason") in NEW_CODE:
                 await run.io_bound(api.confirm_code)
             return
@@ -81,14 +82,16 @@ async def ask() -> bool:
         using_app = not using_app
         said.text = line_text()
         other.text = other_label()
-        problem.text = ""
         code.value = ""
 
     with frame.opened(t("console.confirm.title", device=device),
-                      classes="console-confirm", persistent=True) as box:
+                      classes="console-confirm", ignore_outside_click=True) as box:
         said = ui.label(line_text()).classes("console-help px-3")
-        code = frame.field(placeholder=t("console.confirm.code"))
-        problem = ui.label("").classes("console-help text-negative px-3")
+        typed: dict[str, Any] = {}
+        panel.facts(ui, [(t("console.confirm.code"), lambda: typed.update(
+            code=frame.field(name=t("console.confirm.code"), room=True)))])
+        code = typed["code"]
+        code.props("inputmode=numeric autocomplete=one-time-code")
         with frame.footer():
             if app.get("enabled"):
                 other = frame.aside(other_label(), switch, icon=verbs.LOCK)

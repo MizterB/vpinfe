@@ -88,7 +88,7 @@ def _wants_confirm(response: requests.Response) -> bool:
 class _WordedSession(requests.Session):
     """Raises ApiError, never a requests exception, for a request nothing answered.
 
-    A call made for a browser on another computer says so, and is held to that browser's
+    A call made for a browser on another device says so, and is held to that browser's
     tier. When that tier asks for a Confirm, the browser is asked and the call is made once
     more.
     """
@@ -234,7 +234,7 @@ class ApiClient:
         self._delete("/auth/sessions")
 
     def confirm_code(self) -> None:
-        """Draw a Confirm Code on this computer's screen. Asking again within a few seconds
+        """Draw a Confirm Code on this device's screen. Asking again within a few seconds
         is refused, and the code already shown is still good."""
         try:
             self._post("/auth/confirm/code", {})
@@ -246,7 +246,7 @@ class ApiClient:
         return self._post("/auth/confirm", {"code": code})
 
     def authenticator(self) -> dict:
-        """`enabled`, and `screen_codes`: whether this computer shows a sign-in code."""
+        """`enabled`, and `screen_codes`: whether this device shows a sign-in code."""
         return self._get("/auth/authenticator")
 
     def authenticator_setup(self) -> dict:
@@ -894,7 +894,7 @@ class ApiClient:
 
     def disk_file_url(self, path: str) -> str:
         """Where the browser fetches a file anywhere on this device, to look at it.
-        Loopback only: a Console opened from another computer is refused."""
+        Loopback only: a Console opened from another device is refused."""
         return "/api/v1/folders/file?" + urlencode({"path": path})
 
     def media_file(self, game_id: str, table_id: str, kind: str,
@@ -1287,7 +1287,7 @@ class ApiClient:
         return self._post("/games/from_vps", {"vps_id": vps_id, "location": location_id})
 
     def delete_game_folder(self, game_id: str) -> None:
-        """Remove the game's whole folder from the disk. Refused unless this computer, or
+        """Remove the game's whole folder from the disk. Refused unless this device, or
         an Owner who has confirmed, is asking."""
         self._delete(f"/games/{quote(game_id, safe='')}/folder")
 

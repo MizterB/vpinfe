@@ -25,12 +25,15 @@ from console.on_page import on_page
 CERTIFICATE_SUFFIXES = (".pem", ".crt", ".cer", ".key")
 
 
-def _removable(remove: Callable[[str], Any], value: str, hint: str) -> Callable[[], None]:
+def _entry(remove: Callable[[str], Any], value: str, hint: str) -> tuple[Any, ...]:
+    """One address or range, with the way to take it off the list."""
     def draw() -> None:
-        panel.action(t("console.encrypted.remove"), lambda: remove(value), icon=verbs.DELETE,
-                     inline=True, danger=True, hint=hint)()
+        with ui.row().classes("items-center no-wrap gap-2 w-full"):
+            ui.label(value).classes("console-fact-value min-w-0 truncate").tooltip(value)
+            panel.icon_action(t("console.encrypted.remove_entry", address=value),
+                              lambda: remove(value), icon=verbs.REMOVE, hint=hint)()
 
-    return draw
+    return (panel.FULL, draw)
 
 
 def _certificate_rows(held: dict[str, Any], choose: Callable[[], Any],
@@ -44,7 +47,7 @@ def _certificate_rows(held: dict[str, Any], choose: Callable[[], Any],
                                              icon=verbs.CHOOSE,
                                              hint=t("console.encrypted.certificate_hint"))))
         out.append((panel.FULL, panel.action(t("console.encrypted.certificate_clear"), clear,
-                                             icon=verbs.DELETE, danger=True,
+                                             icon=verbs.CLEAR, danger=True,
                                              hint=t("console.encrypted.certificate_clear_hint"))))
     else:
         out.append(panel.intro(t("console.encrypted.https_none")))
@@ -67,21 +70,21 @@ def entries(held: dict[str, Any], device: str, *, add_proxy: Callable[[], Any],
     """What the section shows, in order.  Pure of the page, so a test reads it."""
     proxies = [str(one) for one in held.get("proxies") or []]
     networks = [str(one) for one in held.get("networks") or []]
-    out: list[tuple[Any, ...]] = [(panel.HEADING, t("console.encrypted.heading"))]
-    if not proxies and not networks:
-        out.append(panel.intro(t("console.encrypted.none", device=device)))
+    out: list[tuple[Any, ...]] = [(panel.HEADING, t("console.encrypted.heading")),
+                                  panel.intro(t("console.encrypted.lead", device=device))]
     out.append((panel.HEADING, t("console.encrypted.proxies")))
-    out += [(address, _removable(remove_proxy, address, t("console.encrypted.remove_hint")))
-            for address in proxies]
-    out.append((panel.FULL, panel.action(t("console.encrypted.add"), add_proxy, icon=verbs.ADD,
+    out += [_entry(remove_proxy, address, t("console.encrypted.remove_proxy_hint"))
+            for address in proxies] or [panel.intro(t("console.encrypted.proxies_none"))]
+    out.append((panel.FULL, panel.action(t("console.encrypted.add_proxy"), add_proxy,
+                                         icon=verbs.ADD,
                                          hint=t("console.encrypted.add_proxy_hint"))))
     out.append(panel.note(t("console.encrypted.proxies_line")))
     if not held.get("https") and any(this_machine.peer_is_this_machine(one) for one in proxies):
         out.append(panel.note(t("console.encrypted.proxy_here")))
     out.append((panel.HEADING, t("console.encrypted.networks")))
-    out += [(text, _removable(remove_network, text, t("console.encrypted.remove_hint")))
-            for text in networks]
-    out.append((panel.FULL, panel.action(t("console.encrypted.add"), add_network,
+    out += [_entry(remove_network, text, t("console.encrypted.remove_network_hint"))
+            for text in networks] or [panel.intro(t("console.encrypted.networks_none"))]
+    out.append((panel.FULL, panel.action(t("console.encrypted.add_network"), add_network,
                                          icon=verbs.ADD,
                                          hint=t("console.encrypted.add_network_hint"))))
     out.append((panel.FULL, panel.action(t("console.encrypted.add_tailscale"), add_tailscale,
@@ -92,16 +95,24 @@ def entries(held: dict[str, Any], device: str, *, add_proxy: Callable[[], Any],
     return out
 
 
-async def _ask_entry(title: str, placeholder: str) -> str | None:
-    with frame.opened(title, classes="console-confirm") as box:
-        value = frame.field(placeholder=placeholder)
+async def _ask_entry(title: str, label: str, placeholder: str) -> str | None:
+    fields: dict[str, Any] = {}
+
+    def keep() -> None:
+        text = str(fields["value"].value or "").strip()
+        if not text:
+            frame.said(fields["value"], t("console.encrypted.needs_address"))
+            return
+        box.submit(text)
+
+    with frame.opened(title, classes="console-confirm", ignore_outside_click=True) as box:
+        panel.facts(ui, [(label, lambda: fields.update(
+            value=frame.field(placeholder=placeholder, name=label, room=True)))])
         with frame.footer():
             frame.cancel(lambda: box.submit(None))
-            go = frame.answer(t("console.encrypted.add"),
-                              lambda: box.submit(str(value.value or "").strip()),
-                              icon=verbs.ADD)
+            go = frame.answer(t("console.encrypted.add"), keep, icon=verbs.ADD)
     frame.enter_presses(go)
-    frame.focus(box, value)
+    frame.focus(box, fields["value"])
     return await box or None
 
 
@@ -111,17 +122,34 @@ async def _ask_certificate(library: Library, certfile: str,
         return await folder_picker.pick_path(library.folders, start, kind="file",
                                              suffixes=CERTIFICATE_SUFFIXES)
 
-    with frame.opened(t("console.encrypted.certificate_title"), wide=True) as box:
-        cert = frame.field(certfile, placeholder=t("console.encrypted.certificate_file"),
-                           browse=browse)
-        key = frame.field(keyfile, placeholder=t("console.encrypted.key_file"), browse=browse)
+    fields: dict[str, Any] = {}
+
+    def keep() -> None:
+        cert, key = (str(fields[one].value or "").strip() for one in ("cert", "key"))
+        if not cert:
+            frame.said(fields["cert"], t("console.encrypted.needs_certificate"))
+        if not key:
+            frame.said(fields["key"], t("console.encrypted.needs_key"))
+        if cert and key:
+            box.submit((cert, key))
+
+    with frame.opened(t("console.encrypted.certificate_title"), wide=True,
+                      ignore_outside_click=True) as box:
+        panel.facts(ui, [
+            (t("console.encrypted.certificate_file"),
+             lambda: fields.update(cert=frame.field(
+                 certfile, browse=browse, name=t("console.encrypted.certificate_file"),
+                 room=True))),
+            (t("console.encrypted.key_file"),
+             lambda: fields.update(key=frame.field(
+                 keyfile, browse=browse, name=t("console.encrypted.key_file"), room=True))),
+        ])
+        ui.label(t("console.encrypted.certificate_hint")).classes("console-help px-3")
         with frame.footer():
             frame.cancel(lambda: box.submit(None))
-            frame.answer(t("console.encrypted.use"),
-                         lambda: box.submit((str(cert.value or "").strip(),
-                                             str(key.value or "").strip())),
-                         icon=verbs.CHOOSE)
-    frame.focus(box, cert)
+            go = frame.answer(t("console.encrypted.use_certificate"), keep, icon=verbs.CHOOSE)
+    frame.enter_presses(go)
+    frame.focus(box, fields["cert"])
     return await box
 
 
@@ -142,6 +170,7 @@ def page_parts(library: Library, redraw: Callable[[], None],
     @on_page
     async def add_proxy() -> None:
         address = await _ask_entry(t("console.encrypted.add_proxy_title"),
+                                   t("console.encrypted.proxy_label"),
                                    t("console.encrypted.proxy_placeholder"))
         if address:
             await attempt(library.add_trusted_proxy, address)
@@ -149,6 +178,7 @@ def page_parts(library: Library, redraw: Callable[[], None],
     @on_page
     async def add_network() -> None:
         text = await _ask_entry(t("console.encrypted.add_network_title"),
+                                t("console.encrypted.network_label"),
                                 t("console.encrypted.network_placeholder"))
         if text:
             await attempt(library.add_encrypted_network, text)

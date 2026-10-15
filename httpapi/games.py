@@ -86,7 +86,7 @@ def get_game(game_id: str) -> models.GameResource:
                dependencies=[requires(scopes.PROTECTED)])
 def delete_game_folder(game_id: str) -> models.GameFolderDeleted:
     """Removes the whole folder: the tables, media, .info and everything else in it. There
-    is no trash and no undo. A Protected action: this computer, or an Owner who has just
+    is no trash and no undo. A Protected action: this device, or an Owner who has just
     confirmed, and never a token."""
     return models.GameFolderDeleted(**game_ops.delete_from_disk(game_id))
 

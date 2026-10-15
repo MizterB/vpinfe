@@ -36,7 +36,7 @@ _SCOPE_ATTR = "__vpinfe_scope__"
 COOKIE = "vpinfe_session"
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 # The Console's own calls to this API are made over loopback for a browser that may be on
-# another computer. This header says which sign-in a call is made for, so the API holds it
+# another device. This header says which sign-in a call is made for, so the API holds it
 # to that sign-in's tier. Only a loopback caller holding the machine secret can sign one.
 ACTING_HEADER = "x-vpinfe-acting"
 ACTING_SECONDS = 60
@@ -112,7 +112,7 @@ def caller_address(request: HTTPConnection) -> str:
 
 def caller_is_encrypted(request: HTTPConnection) -> bool:
     """Whether the request arrived over HTTPS, through a listed proxy that says it did, or
-    from inside an Encrypted Network. A Console call made for a browser on another computer
+    from inside an Encrypted Network. A Console call made for a browser on another device
     says whether that browser's page came in over one."""
     claim = _acting_claim(request)
     if claim is not None:
@@ -142,7 +142,7 @@ def session_for(request: HTTPConnection) -> sign_in.Session | None:
 
 
 # What a Console page open in a browser that is no longer signed in says it acts for. It names
-# no sign-in, so the call is held to a stranger's tier rather than this computer's.
+# no sign-in, so the call is held to a stranger's tier rather than this device's.
 NOBODY = "-"
 
 
@@ -177,7 +177,7 @@ def _acting_claim(request: HTTPConnection) -> tuple[str, bool] | None:
 def acting_for(request: HTTPConnection) -> str | None:
     """Who a loopback call says it is made for: a sign-in's id, `NOBODY`, or None when it
     says nothing, or says something that does not hold: a header from anywhere but this
-    computer, a stale one, one signed with another secret. `identify` tells those two apart."""
+    device, a stale one, one signed with another secret. `identify` tells those two apart."""
     claim = _acting_claim(request)
     return claim[0] if claim else None
 
@@ -200,7 +200,7 @@ def bearer_token(request: HTTPConnection) -> str:
 
 
 class SignInPolicy:
-    """This machine is trusted; another computer is trusted once a code shown on this
+    """This machine is trusted; another device is trusted once a code shown on this
     machine has signed its browser in, or when it holds a token. Anyone else may only ask what
     this instance is.
 

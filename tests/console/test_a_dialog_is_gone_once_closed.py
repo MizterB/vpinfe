@@ -112,6 +112,26 @@ class ADialogIsGoneOnceClosed(unittest.TestCase):
         self.assertEqual((True, True), asyncio.run(run()))
 
 
+class WhatBlocksADismissal(unittest.TestCase):
+    def _props_of(self, **asked: Any) -> ui.dialog:
+        with _PAGE, frame.opened("Name", **asked) as box:
+            frame.field()
+        self.addCleanup(box.delete)
+        return box
+
+    def test_ignoring_the_outside_click_leaves_escape_working(self) -> None:
+        box = self._props_of(ignore_outside_click=True)
+
+        self.assertIn("no-backdrop-dismiss", box.props)
+        self.assertNotIn("persistent", box.props)
+
+    def test_persistent_blocks_both(self) -> None:
+        box = self._props_of(persistent=True)
+
+        self.assertIn("persistent", box.props)
+        self.assertNotIn("no-backdrop-dismiss", box.props)
+
+
 class OnesWithTheirOwnCardGoToo(unittest.TestCase):
     def setUp(self) -> None:
         for patcher in (mock.patch.object(ui, "run_javascript"),

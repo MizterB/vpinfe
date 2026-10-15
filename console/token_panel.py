@@ -64,48 +64,73 @@ def entries(rows: list[dict[str, Any]], make: Callable[[], Any],
         out.append(panel.intro(t("console.tokens.none")))
     out.append((panel.FULL, panel.action(t("console.tokens.new"), make, icon=verbs.ADD,
                                          hint=t("console.tokens.new_hint"))))
-    out.append(panel.note(t("console.tokens.limits")))
     return out
 
 
 async def _shown_once(name: str, secret: str) -> None:
     """The secret, and the one chance to copy it."""
-    with frame.opened(t("console.tokens.made_title", name=name), wide=True) as box:
+    with frame.opened(t("console.tokens.made_title", name=name), wide=True,
+                      ignore_outside_click=True) as box:
         ui.label(t("console.tokens.made_line")).classes("console-help px-3")
         with ui.element("div").classes("w-full px-3"):
-            ui.input(value=secret).props("outlined readonly dense") \
+            shown = ui.input(value=secret).props("outlined readonly dense") \
                 .classes("w-full console-log")
+            shown.props["aria-label"] = t("console.tokens.secret")
         with frame.footer():
             panel.action(t("word.copy"), lambda event: about.copied(bool(event.args), secret),
                          icon=verbs.COPY, hint=t("console.about.copy_hint"),
                          js=about.COPY_JS % json.dumps(secret))()
             frame.answer(t("word.done"), box.close, icon=verbs.DONE)
+    frame.focus(box, shown, select=True)
     box.open()
     await box
 
 
 async def _ask_new() -> tuple[str, str, bool] | None:
     """The name, the access and the power switch, or None where it was cancelled."""
-    held: dict[str, Any] = {"access": api_tokens.FULL, "power": False}
-    with frame.opened(t("console.tokens.new_title"), classes="console-confirm") as box:
-        name = frame.field(placeholder=t("console.tokens.name"))
-        panel.segmented({api_tokens.FULL: access_label(api_tokens.FULL),
-                         api_tokens.PLAY: access_label(api_tokens.PLAY)},
-                        api_tokens.FULL,
-                        lambda event: (held.update(access=event.value),
-                                       power_row.set_visibility(event.value == api_tokens.FULL)))
-        with ui.row().classes("items-center no-wrap gap-3 px-3") as power_row:
-            ui.label(t("console.tokens.power")).classes("console-help grow")
-            panel.switch(False, lambda event: held.update(power=bool(event.value)),
-                         hint=t("console.tokens.power_hint"))()
+    held: dict[str, Any] = {"access": api_tokens.FULL}
+    fields: dict[str, Any] = {}
+
+    def does(access: str) -> str:
+        return t("console.tokens.full_does" if access == api_tokens.FULL
+                 else "console.tokens.play_does")
+
+    def chose(event: Any) -> None:
+        held.update(access=event.value)
+        fields["does"].text = does(event.value)
+        power = fields["power"]
+        if event.value == api_tokens.FULL:
+            power.enable()
+        else:
+            power.value = False
+            power.disable()
+
+    def keep() -> None:
+        name = str(fields["name"].value or "").strip()
+        if not name:
+            frame.said(fields["name"], t("said.needs_name"))
+            return
+        box.submit((name, held["access"], bool(fields["power"].value)))
+
+    with frame.opened(t("console.tokens.new_title"), classes="console-confirm",
+                      ignore_outside_click=True) as box:
+        panel.facts(ui, [
+            (t("console.tokens.name"),
+             lambda: fields.update(name=frame.field(name=t("console.tokens.name"), room=True))),
+            (t("console.tokens.access"),
+             panel.choice_buttons({api_tokens.FULL: access_label(api_tokens.FULL),
+                                   api_tokens.PLAY: access_label(api_tokens.PLAY)},
+                                  api_tokens.FULL, chose)),
+            (panel.ASIDE, lambda: fields.update(does=panel.line(does(api_tokens.FULL)))),
+            (t("console.tokens.power"),
+             panel.switch(False, lambda _event: None, hint=t("console.tokens.power_hint"),
+                          on_control=lambda control: fields.update(power=control))),
+        ])
         with frame.footer():
             frame.cancel(lambda: box.submit(None))
-            go = frame.answer(t("console.tokens.make"),
-                              lambda: box.submit((str(name.value or "").strip(),
-                                                  held["access"], bool(held["power"]))),
-                              icon=verbs.CREATE)
+            go = frame.answer(t("console.tokens.create"), keep, icon=verbs.CREATE)
     frame.enter_presses(go)
-    frame.focus(box, name)
+    frame.focus(box, fields["name"])
     return await box
 
 

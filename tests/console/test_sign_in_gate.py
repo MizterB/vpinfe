@@ -1,4 +1,4 @@
-"""Another computer sees the sign-in page and nothing else until a code has signed it in."""
+"""Another device sees the sign-in page and nothing else until a code has signed it in."""
 
 from __future__ import annotations
 
@@ -175,7 +175,7 @@ class ThePage(Gate):
         self.assertEqual(answer.headers["cache-control"], "no-store")
         self.assertNotIn(" onclick=", answer.text)
 
-    def test_the_page_names_the_computer_and_offers_a_code(self) -> None:
+    def test_the_page_names_the_device_and_offers_a_code(self) -> None:
         answer = self.computer.get("/signin")
 
         self.assertIn('id="ask"', answer.text)

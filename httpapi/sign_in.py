@@ -1,6 +1,6 @@
 """Signing a browser in: ask for a code, type it, and manage who is signed in.
 
-The code itself is shown on this computer and never answered here. See common/sign_in.py.
+The code itself is shown on this device and never answered here. See common/sign_in.py.
 """
 
 from __future__ import annotations
@@ -86,7 +86,7 @@ def _address(request: Request) -> str:
 
 
 def _guessing_as(request: Request) -> str:
-    """Who wrong codes are counted against. A Console call reaches here over this computer's
+    """Who wrong codes are counted against. A Console call reaches here over this device's
     own address on behalf of a browser, so the sign-in it acts for is the one to count."""
     session = caller_session(request)
     return f"session:{session.id}" if session else _address(request)
@@ -121,7 +121,7 @@ def _verified(attempt: SignInAttempt, request: Request) -> str:
 @router.post("/code", summary="Ask for a sign-in code", response_model=SignInAsk,
              dependencies=[requires(scopes.INSTANCE_READ), Depends(_same_site)])
 def ask(request: Request, response: Response) -> SignInAsk:
-    """Makes a request this computer shows as "{address} wants to sign in". The digits appear
+    """Makes a request this device shows as "{address} wants to sign in". The digits appear
     only after someone here chooses Show, so this answer holds none. Refused while an
     authenticator is set up and Game Room is not showing sign-in codes."""
     if not authenticator.instance().screen_codes():
@@ -139,7 +139,7 @@ def _signed_in(token: str, request: Request, response: Response) -> SignedIn:
     return SignedIn()
 
 
-@router.post("/session", summary="Sign in with the code this computer showed",
+@router.post("/session", summary="Sign in with the code this device showed",
              response_model=SignedIn,
              dependencies=[requires(scopes.INSTANCE_READ), Depends(_same_site)])
 def sign_in_with_code(attempt: SignInAttempt, request: Request, response: Response) -> SignedIn:
@@ -192,8 +192,8 @@ def end_all() -> SessionsEnded:
 @router.post("/confirm/code", summary="Ask for a Confirm Code", response_model=ConfirmAsk,
              dependencies=[requires(scopes.INSTANCE_READ), Depends(_same_site)])
 def ask_confirm(request: Request) -> ConfirmAsk:
-    """Draws six digits on this computer's screen. Only a signed-in Owner can ask: this
-    computer itself and a token hold no Confirm to ask for."""
+    """Draws six digits on this device's screen. Only a signed-in Owner can ask: this
+    device itself and a token hold no Confirm to ask for."""
     session = caller_session(request)
     if session is None:
         raise ApiError(CODE_FORBIDDEN, t("error.signin.required"), status_code=403)
@@ -204,7 +204,7 @@ def ask_confirm(request: Request) -> ConfirmAsk:
     return ConfirmAsk(expires_in=sign_in.CODE_SECONDS)
 
 
-@router.post("/confirm", summary="Confirm with the code this computer showed",
+@router.post("/confirm", summary="Confirm with the code this device showed",
              response_model=ConfirmState,
              dependencies=[requires(scopes.INSTANCE_READ), Depends(_same_site)])
 def confirm(attempt: ConfirmAttempt, request: Request) -> ConfirmState:
@@ -234,7 +234,7 @@ def confirmed(request: Request) -> ConfirmState:
              response_model=PairAsk,
              dependencies=[requires(scopes.INSTANCE_READ), Depends(_same_site)])
 def ask_pair(request: Request) -> PairAsk:
-    """Another install wants to be paired.  The six digits appear on this computer's screen
+    """Another install wants to be paired.  The six digits appear on this device's screen
     and in no answer."""
     try:
         made = sign_in.instance().pair_ask(_address(request))
@@ -290,7 +290,7 @@ def remove_authenticator() -> AuthenticatorState:
 
 
 @router.put("/authenticator/screen_codes",
-            summary="Show or stop showing sign-in codes on this computer's screen",
+            summary="Show or stop showing sign-in codes on this device's screen",
             response_model=AuthenticatorState, dependencies=[requires(scopes.PROTECTED)])
 def set_screen_codes(body: ScreenCodes) -> AuthenticatorState:
     try:

@@ -45,7 +45,7 @@ def entries(state: dict[str, Any], device: str, set_up: Callable[[], Any],
                                          icon=verbs.REFRESH,
                                          hint=t("console.authenticator.again_hint"))))
     out.append((panel.FULL, panel.action(t("console.authenticator.remove"), remove,
-                                         icon=verbs.DELETE, danger=True,
+                                         icon=verbs.REMOVE, danger=True,
                                          hint=t("console.authenticator.remove_hint"))))
     return out
 
@@ -66,20 +66,29 @@ async def _enrol(library: Library) -> bool:
         try:
             await offload.io(library.authenticator_finish, str(code.value or ""))
         except ApiError as exc:
-            problem.text = why(exc)
             code.value = ""
+            frame.said(code, why(exc))
             return
         box.submit(True)
 
-    with frame.opened(t("console.authenticator.title"), classes="console-confirm") as box:
+    with frame.opened(t("console.authenticator.title"), classes="console-confirm",
+                      ignore_outside_click=True) as box:
         ui.label(t("console.authenticator.line")).classes("console-help px-3")
         if art:
-            ui.html(art).classes("console-qr")
-        ui.label(t("console.authenticator.key")).classes("console-help px-3")
-        with ui.element("div").classes("w-full px-3"):
-            ui.input(value=secret).props("outlined readonly dense").classes("w-full console-log")
-        code = frame.field(placeholder=t("console.confirm.code"))
-        problem = ui.label("").classes("console-help text-negative px-3")
+            ui.html(art).classes("console-qr").props("aria-hidden=true")
+        entered: dict[str, Any] = {}
+
+        def key_field() -> None:
+            ui.input(value=secret).props("outlined readonly dense").classes("w-full console-log") \
+                .props(f'aria-label="{t("console.authenticator.key_label")}"')
+
+        panel.facts(ui, [
+            (t("console.authenticator.key_label"), key_field),
+            (t("console.confirm.code"), lambda: entered.update(code=frame.field(
+                name=t("console.confirm.code"), room=True))),
+        ])
+        code = entered["code"]
+        code.props("inputmode=numeric autocomplete=one-time-code")
         with frame.footer():
             frame.cancel(lambda: box.submit(False))
             go = frame.answer(t("console.authenticator.set_up"), send, icon=verbs.ACCEPT)
@@ -102,7 +111,7 @@ def page_parts(library: Library, redraw: Callable[[], None],
         if not await confirm.ask(
                 t("console.authenticator.remove_question"),
                 detail=t("console.authenticator.remove_detail"),
-                confirm=t("console.authenticator.remove"), icon=verbs.DELETE, danger=True):
+                confirm=t("console.authenticator.remove"), icon=verbs.REMOVE, danger=True):
             return
         try:
             await run.io_bound(library.authenticator_remove)
@@ -122,7 +131,7 @@ def page_parts(library: Library, redraw: Callable[[], None],
 
 
 def offer_due(*, signed_in_owner: bool) -> bool:
-    """Whether to offer an authenticator now: a browser another computer signed in, nobody
+    """Whether to offer an authenticator now: a browser another device signed in, nobody
     has been offered one, and none is set up."""
     held = authenticator.instance()
     return signed_in_owner and not held.offered() and not held.enabled()

@@ -3915,7 +3915,7 @@ class VpsReleases(ApiModel):
 # --- Signing in ------------------------------------------------------------
 
 class SignInAsk(ApiModel):
-    """A code was asked for. Its digits are on this computer's screen, never in this answer."""
+    """A code was asked for. Its digits are on this device's screen, never in this answer."""
 
     request_id: str
     expires_in: int
@@ -3932,7 +3932,7 @@ class SignedIn(ApiModel):
 
 
 class WhoAmI(ApiModel):
-    """`local` is this computer itself, which is never asked to sign in."""
+    """`local` is this device itself, which is never asked to sign in."""
 
     signed_in: bool
     local: bool
@@ -3961,7 +3961,7 @@ class SessionsEnded(ApiModel):
 
 
 class ConfirmAsk(ApiModel):
-    """A Confirm Code was asked for. Its digits are on this computer's screen."""
+    """A Confirm Code was asked for. Its digits are on this device's screen."""
 
     expires_in: int
 
@@ -3978,7 +3978,7 @@ class ConfirmState(ApiModel):
 
 
 class AuthenticatorState(ApiModel):
-    """`screen_codes` is whether this computer shows a sign-in code to a browser that asks."""
+    """`screen_codes` is whether this device shows a sign-in code to a browser that asks."""
 
     enabled: bool
     screen_codes: bool
@@ -4087,7 +4087,7 @@ class EncryptedConnections(ApiModel):
 
 
 class PairAsk(ApiModel):
-    """A pairing code is on this computer's screen."""
+    """A pairing code is on this device's screen."""
 
     request_id: str
     expires_in: int

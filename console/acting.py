@@ -1,13 +1,13 @@
 """Which sign-in a Console call is made for.
 
-The Console draws pages for browsers on other computers but calls the API from this one,
-over loopback, where every caller is this computer. So each call carries the sign-in of the
-browser it is made for, and the API holds it to that tier. This computer's own browser
+The Console draws pages for browsers on other devices but calls the API from this one,
+over loopback, where every caller is this device. So each call carries the sign-in of the
+browser it is made for, and the API holds it to that tier. This device's own browser
 carries none and stays local.
 
 The sign-in is read off the page when work is handed to a worker thread, because the worker
 has no page. Work that starts with no page at all - a timer, a background task - carries
-nothing, and runs as this computer.
+nothing, and runs as this device.
 """
 
 from __future__ import annotations
@@ -53,7 +53,7 @@ def current() -> Acting | None:
 
 
 def _page_acting() -> Acting | None:
-    """The browser the page being served is open in, None for this computer's own or for
+    """The browser the page being served is open in, None for this device's own or for
     work with no page."""
     try:
         client = ui.context.client

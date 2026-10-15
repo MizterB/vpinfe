@@ -2,7 +2,7 @@
 
 Two kinds of access. **Full Control** can do everything an Owner can without a Confirm: change
 the library, the players, the collections. **Play** can launch, stop, press buttons, capture
-and rate. Neither can change what runs, hand out access, destroy backups or take the computer
+and rate. Neither can change what runs, hand out access, destroy backups or take the device
 down, and neither is ever asked for a Confirm. A Full Control token may be given one more
 right, **Can Shut Down and Restart**, which is off until someone switches it on.
 

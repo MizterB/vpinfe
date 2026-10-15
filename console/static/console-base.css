@@ -988,6 +988,12 @@ body::before {
   color: var(--ink-3);
   word-break: break-all;
 }
+/* Six digits read off one screen and typed on another. The padding on the left is the
+   tracking after the last digit, so the number sits in the middle of the card. */
+.console-digits {
+  font-size: 3rem; line-height: 1.2; text-align: center; color: var(--ink);
+  letter-spacing: 0.3em; padding-left: 0.3em; font-variant-numeric: tabular-nums;
+}
 
 /* The state picker inside a column's filter. The same words and marks as the legend,
    because a filter that named the states differently would be a third vocabulary. */
@@ -3082,7 +3088,8 @@ input.console-path-input { padding-right: 0.6ch; }
    the label instead. Tight to what it explains and loose to the next row, which is what
    groups the two without a rule between them. */
 .console-fact-aside { grid-column: 2; padding: 0; margin-top: -8px; min-width: 0; }
-.console-fact-full + .console-fact-aside { grid-column: 1 / -1; }
+.console-fact-full + .console-fact-aside,
+.console-fact-full + .console-fact-aside + .console-fact-aside { grid-column: 1 / -1; }
 .console-fact-label:has(+ :is(.console-field-line, .console-field-row)
                         + .console-fact-aside:not(.hidden)),
 .console-fact-label:has(+ :is(.console-field-line, .console-field-row)

@@ -1,7 +1,7 @@
 """The three tiers a caller can hold, and what each one reaches.
 
 Play launches and rates. Library changes what VPinFE knows. Protected decides what runs, hands
-out access, destroys the way back or takes the machine down, and only this computer or an
+out access, destroys the way back or takes the machine down, and only this device or an
 Owner holding a live Confirm reaches it; a token never does.
 """
 
@@ -64,7 +64,7 @@ class TierCase(unittest.TestCase):
 
 
 class WhatEachCallerHoldsTests(TierCase):
-    def test_this_computer_holds_every_scope(self) -> None:
+    def test_this_device_holds_every_scope(self) -> None:
         identity = self.identify("127.0.0.1")
 
         self.assertTrue(identity.can(scopes.PROTECTED))
@@ -211,10 +211,10 @@ class TheActingHeaderTests(TierCase):
 
         self.assertEqual(identity.scopes, frozenset({scopes.INSTANCE_READ}))
 
-    def test_a_call_that_says_nothing_stays_this_computers_own(self) -> None:
+    def test_a_call_that_says_nothing_stays_this_devices_own(self) -> None:
         self.assertTrue(self.identify("127.0.0.1").can(scopes.PROTECTED))
 
-    def test_a_header_from_another_computer_counts_for_nothing(self) -> None:
+    def test_a_header_from_another_device_counts_for_nothing(self) -> None:
         _, session = self.owner_cookie()
         header = {auth.ACTING_HEADER: auth.sign_acting(session.id)}
 
@@ -251,7 +251,7 @@ class TheActingHeaderTests(TierCase):
 
 
 class AProtectedRouteOverTheWireTests(TierCase):
-    """The same answers through the real app, from a peer that is not this computer."""
+    """The same answers through the real app, from a peer that is not this device."""
 
     def call(self, peer, *, cookies=None, **headers):
         client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False,
@@ -299,7 +299,7 @@ class AProtectedRouteOverTheWireTests(TierCase):
         self.assertEqual(allowed.status_code, 200)
         self.assertEqual(len(self.tokens.tokens()), 1)
 
-    def test_this_computer_is_let_through(self) -> None:
+    def test_this_device_is_let_through(self) -> None:
         self.assertEqual(self.call("127.0.0.1").status_code, 200)
 
     def press(self, action, peer="192.168.1.50", *, cookies=None, **headers):

@@ -1,6 +1,6 @@
 """Asking first: a program with a Full Control token asks the Owner to approve one change.
 
-It names the request, the Owner decides on Needs You or on this computer's screen, and the
+It names the request, the Owner decides on Needs You or on this device's screen, and the
 program then repeats that one request with the approval's id. See common/approvals.py.
 Everything under /auth is out of an ask's reach, and these routes are under it.
 """

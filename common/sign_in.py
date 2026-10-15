@@ -101,7 +101,7 @@ class Session:
 
 @dataclass
 class Confirm:
-    """A Confirm Code asked for by a signed-in browser, shown at once on this computer."""
+    """A Confirm Code asked for by a signed-in browser, shown at once on this device."""
 
     id: str
     session_id: str
@@ -475,7 +475,7 @@ class SignIn:
     # --- the Confirm ------------------------------------------------------------------
 
     def confirm_ask(self, session_id: str, address: str) -> Confirm:
-        """A signed-in Owner wants a Confirm. The six digits are drawn on this computer's screen
+        """A signed-in Owner wants a Confirm. The six digits are drawn on this device's screen
         at once, because whoever can see them is already in front of it. Asking again replaces
         the code, but not faster than every few seconds."""
         with self._lock:
@@ -542,7 +542,7 @@ class SignIn:
             return max(0, int(when + CONFIRM_SECONDS - self._clock())) if when else 0
 
     def confirms(self) -> list[Confirm]:
-        """The codes this computer should be showing besides a sign-in: Confirm Codes and a
+        """The codes this device should be showing besides a sign-in: Confirm Codes and a
         pairing code."""
         with self._lock:
             now = self._clock()
@@ -560,7 +560,7 @@ class SignIn:
 
     def pair_ask(self, address: str) -> Confirm:
         """Another install wants to pair. The digits are drawn here at once, for whoever is
-        pairing it to read off this computer's screen."""
+        pairing it to read off this device's screen."""
         with self._lock:
             now = self._clock()
             doublings = max(0, self._pair_spent - SPENT_BEFORE_DOUBLING + 1)

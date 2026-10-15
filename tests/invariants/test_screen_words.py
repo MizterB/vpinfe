@@ -75,12 +75,15 @@ ASSET = {
 
 CATALOG_WORD: dict[str, str] = {}
 
-WORDS = {"cabinet": CABINET, "machine": MACHINE, "build": BUILD, "asset": ASSET,
-         "catalog": CATALOG_WORD}
+COMPUTER: dict[str, str] = {}
 
-MEANT = {"cabinet": "the frontend", "machine": "a game, this device or a computer",
+WORDS = {"cabinet": CABINET, "machine": MACHINE, "build": BUILD, "asset": ASSET,
+         "catalog": CATALOG_WORD, "computer": COMPUTER}
+
+MEANT = {"cabinet": "the frontend", "machine": "a game, this device or another device",
          "build": "a table", "asset": "file",
-         "catalog": "VPS for the database, sources for the places media comes from"}
+         "catalog": "VPS for the database, sources for the places media comes from",
+         "computer": "this device, or another device"}
 
 # Setting names and served paths, which a person reads in a config file or a URL.
 NAMED_ASSET = {
@@ -129,7 +132,10 @@ API_BUILD = {
     "paths./uploads/{upload_id}/plan.post.summary": "the verb",
 }
 
-API_WORDS = {"cabinet": API_CABINET, "machine": API_MACHINE, "build": API_BUILD}
+API_COMPUTER: dict[str, str] = {}
+
+API_WORDS = {"cabinet": API_CABINET, "machine": API_MACHINE, "build": API_BUILD,
+             "computer": API_COMPUTER}
 
 
 def _says(value: Any, word: str) -> bool:

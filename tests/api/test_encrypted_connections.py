@@ -158,7 +158,7 @@ class TheListsTests(ConnectionsCase):
         self.assertFalse(self.connections.remove_proxy("10.0.0.5"))
         self.assertEqual((self.connections.proxies(), self.connections.networks()), ([], []))
 
-    def test_the_file_is_private_to_the_owner_of_this_computer(self) -> None:
+    def test_the_file_is_private_to_the_owner_of_this_device(self) -> None:
         self.connections.add_proxy("10.0.0.5")
 
         mode = (self.root / "connections.json").stat().st_mode & 0o777
@@ -311,23 +311,23 @@ class WhatAnEncryptedConnectionSparesTests(ConnectionsCase):
         self.assertFalse(identity.can(scopes.PROTECTED))
 
 
-class AProxyOnThisComputerTests(ConnectionsCase):
-    """With HTTPS on, this computer's own windows have a port of their own, so a request
-    from a listed proxy on this computer to any other port is not one of them."""
+class AProxyOnThisDeviceTests(ConnectionsCase):
+    """With HTTPS on, this device's own windows have a port of their own, so a request
+    from a listed proxy on this device to any other port is not one of them."""
 
-    def test_a_listed_proxy_on_this_computer_is_not_this_computer(self) -> None:
+    def test_a_listed_proxy_on_this_device_is_not_this_device(self) -> None:
         serving.bound("loopback_port", 54321)
         self.connections.add_proxy("127.0.0.1")
 
         self.assertFalse(this_machine.request_is_this_machine("127.0.0.1", {}, 8001))
 
-    def test_the_computers_own_windows_still_are(self) -> None:
+    def test_the_devices_own_windows_still_are(self) -> None:
         serving.bound("loopback_port", 54321)
         self.connections.add_proxy("127.0.0.1")
 
         self.assertTrue(this_machine.request_is_this_machine("127.0.0.1", {}, 54321))
 
-    def test_an_unlisted_loopback_peer_on_the_network_port_is_this_computer(self) -> None:
+    def test_an_unlisted_loopback_peer_on_the_network_port_is_this_device(self) -> None:
         serving.bound("loopback_port", 54321)
 
         self.assertTrue(this_machine.request_is_this_machine("127.0.0.1", {}, 8001))
@@ -351,7 +351,7 @@ class TheEditsAreProtectedTests(ConnectionsCase):
             client.cookies.set(name, value)
         return client.request(method, route + path, json=json, headers=headers)
 
-    def test_this_computer_adds_and_removes(self) -> None:
+    def test_this_device_adds_and_removes(self) -> None:
         added = self.call("POST", "/proxies", "127.0.0.1", json={"value": "10.0.0.5"})
         tailscale = self.call("POST", "/networks/tailscale", "127.0.0.1")
         removed = self.call("DELETE", "/proxies?address=10.0.0.5", "127.0.0.1")
@@ -390,7 +390,7 @@ class TheEditsAreProtectedTests(ConnectionsCase):
         self.assertEqual(response.status_code, 403)
         self.assertEqual(self.connections.networks(), [])
 
-    def test_the_lists_are_read_by_this_computer_and_never_by_a_token(self) -> None:
+    def test_the_lists_are_read_by_this_device_and_never_by_a_token(self) -> None:
         self.connections.add_proxy("10.0.0.5")
         secret, _ = self.tokens.make("home", api_tokens.FULL)
 
@@ -523,7 +523,7 @@ class TheCertificateTests(ConnectionsCase):
 
 
 class TheLoopbackPortTests(ConnectionsCase):
-    def test_the_computers_own_windows_use_the_loopback_port_once_there_is_one(self) -> None:
+    def test_the_devices_own_windows_use_the_loopback_port_once_there_is_one(self) -> None:
         self.assertEqual(serving.loopback_or(8001), 8001)
 
         serving.bound("loopback_port", 54321)

@@ -76,7 +76,7 @@ class APlayPassTests(unittest.TestCase):
         client = SimpleNamespace(request=request)
         return mock.patch.object(acting.ui, "context", SimpleNamespace(client=client))
 
-    def test_a_remote_pass_on_another_computer_is_play_only(self) -> None:
+    def test_a_remote_pass_on_another_device_is_play_only(self) -> None:
         token, _ = self.signer.open(kind=sign_in.REMOTE, address="192.168.1.21")
 
         with self.page_for("192.168.1.21", {auth.COOKIE: token}):
@@ -88,7 +88,7 @@ class APlayPassTests(unittest.TestCase):
         with self.page_for("192.168.1.20", {auth.COOKIE: token}):
             self.assertFalse(acting.play_only())
 
-    def test_this_computer_is_not(self) -> None:
+    def test_this_device_is_not(self) -> None:
         with self.page_for("127.0.0.1", {}):
             self.assertFalse(acting.play_only())
 

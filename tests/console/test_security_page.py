@@ -48,7 +48,7 @@ class WhatThePageShows(unittest.TestCase):
         self.assertEqual(len(self.shown([IPHONE, {**IPHONE, "id": "b2"}]))
                          - len(self.shown([IPHONE])), 1)
 
-    def test_the_network_warning_shows_only_where_other_computers_can_reach_us(self) -> None:
+    def test_the_network_warning_shows_only_where_other_devices_can_reach_us(self) -> None:
         closed = self.shown([IPHONE], "127.0.0.1")
         open_ = self.shown([IPHONE], "0.0.0.0")
 

@@ -14,12 +14,17 @@ from console.on_page import on_page
 
 @contextmanager
 def opened(title: str, *, wide: bool = False, full: bool = False,
-           persistent: bool = False, classes: str = "") -> Iterator[ui.dialog]:
+           persistent: bool = False, ignore_outside_click: bool = False,
+           classes: str = "") -> Iterator[ui.dialog]:
     """Draw the dialog's contents inside; the caller awaits the dialog it yields.
 
     A title of "" draws none, for a dialog whose title changes as it goes.
+
+    Quasar's `persistent` ignores Escape as well as a click outside. A dialog with typed
+    input takes `ignore_outside_click` instead, so Escape still cancels.
     """
     props = " ".join(p for p in ("persistent" if persistent else "",
+                                 "no-backdrop-dismiss" if ignore_outside_click else "",
                                  "maximized" if full else "") if p)
     dialog = made().props(props)
     with dialog, ui.card().classes(" ".join(("console-dialog",
@@ -61,9 +66,17 @@ def footer() -> ui.row:
     return ui.row().classes("console-dialog-footer")
 
 
+def said(control: Any, message: str) -> None:
+    """Put `message` under a field made with `room`, or take it away where it is empty."""
+    control.props["error"] = bool(message)
+    control.props["error-message"] = message
+    control.update()
+
+
 def field(value: str = "", *, placeholder: str = "", lines: int = 0,
           browse: Callable[[str], Awaitable[str | None]] | None = None,
-          default: str = "", whose: str = "", left_empty: str = "") -> Any:
+          default: str = "", whose: str = "", left_empty: str = "",
+          name: str = "", room: bool = False) -> Any:
     """The panel's own field, answering nothing until the dialog does.
 
     `browse` takes the field's current value and returns the path picked, or None; what
@@ -71,6 +84,10 @@ def field(value: str = "", *, placeholder: str = "", lines: int = 0,
 
     A path field given `default` or `left_empty` is the panel's own, which draws what an
     empty field stands for. Its value is that default while empty.
+
+    `name` is what a screen reader calls the field, the label its row shows. `room` keeps
+    the line under the field free for `said`, so an error does not resize the dialog, and
+    takes the error away once the value changes.
     """
     if browse is not None and (default or left_empty):
         held: list[Any] = []
@@ -80,11 +97,19 @@ def field(value: str = "", *, placeholder: str = "", lines: int = 0,
         return held[0]
     with ui.element("div").classes("console-fact-edit"):
         if lines:
-            return ui.textarea(value=value, placeholder=placeholder) \
+            control: Any = ui.textarea(value=value, placeholder=placeholder) \
                 .props(f"dense borderless rows={lines} debounce=0") \
                 .classes("console-edit-field")
-        control = ui.input(value=value, placeholder=placeholder) \
-            .props("dense borderless debounce=0").classes("console-edit-field")
+        else:
+            control = ui.input(value=value, placeholder=placeholder) \
+                .props("dense borderless debounce=0").classes("console-edit-field")
+        if name:
+            control.props["aria-label"] = name
+        if room:
+            control.props["bottom-slots"] = True
+            control.on_value_change(lambda: said(control, ""))
+        if lines:
+            return control
         if browse is not None:
             @on_page
             async def browsed() -> None:
@@ -135,13 +160,15 @@ def focus(box: ui.dialog, control: Any, *, select: bool = False) -> None:
     earlier than `show` is overridden by its own focus.
 
     Steps down to the first `input` or `textarea` inside `control`, or focuses `control`
-    itself where there is none.
+    itself where there is none. A path field draws no element under its own id, only its
+    input, so that is where it looks.
     """
     then = ";requestAnimationFrame(() => target.select())" if select else ""
     box.on("show", lambda: ui.run_javascript(
         "((field) => { const target = field.matches('input,textarea') ? field"
         f" : (field.querySelector('input,textarea') || field); target.focus(){then}; }})"
-        f"(document.getElementById('c{control.id}'))"))
+        f"(document.getElementById('c{control.id}')"
+        f" || document.getElementById('{panel.native_id(control)}'))"))
 
 
 def enter_presses(button: ui.button) -> None:

@@ -61,7 +61,7 @@ class TheOffer(WithAnAuthenticator):
     def test_a_signed_in_browser_is_offered_one_when_nobody_has_been(self) -> None:
         self.assertTrue(authenticator_panel.offer_due(signed_in_owner=True))
 
-    def test_this_computer_is_never_offered_one(self) -> None:
+    def test_this_device_is_never_offered_one(self) -> None:
         self.assertFalse(authenticator_panel.offer_due(signed_in_owner=False))
 
     def test_it_is_offered_once_whatever_the_answer(self) -> None:

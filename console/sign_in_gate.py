@@ -1,6 +1,6 @@
-"""Keeps another computer out of every page until a browser on it has signed in.
+"""Keeps another device out of every page until a browser on it has signed in.
 
-This computer is never asked. Another one is sent to `/signin`, a page served here by
+This device is never asked. Another one is sent to `/signin`, a page served here by
 hand: it must work with none of the Console's scripts, because those are behind this gate.
 The API passes through untouched and answers by scope.
 

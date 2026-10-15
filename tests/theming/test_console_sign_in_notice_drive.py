@@ -1,4 +1,4 @@
-"""A sign-in request on a Console open on this computer, driven in a real browser.
+"""A sign-in request on a Console open on this device, driven in a real browser.
 
 Slow: boots a real instance and a real browser. A headless instance shows the digits at
 once, which is the state the dialog draws after Show.
@@ -67,7 +67,7 @@ class ConsoleSignInNoticeDrive(unittest.TestCase):
                       if part.isdigit() and len(part) == 6]
             _post(instance, "/api/v1/auth/session",
                   {"request_id": asked["request_id"], "code": digits[0]})
-            await browser.click(f"{DIALOG} .console-action")
+            await browser.click(f"{DIALOG} .console-dialog-footer button")
             await browser.wait_for(f"!document.querySelector({json.dumps(DIALOG)})", timeout=30)
             seen["closed"] = True
             await walk.visit("/console?view=settings&page=vpinfe.security")
@@ -79,10 +79,10 @@ class ConsoleSignInNoticeDrive(unittest.TestCase):
                 f"document.querySelectorAll({json.dumps(SIGN_OUT_ROW)}).length")
         return seen
 
-    def test_nothing_shows_until_a_computer_asks(self) -> None:
+    def test_nothing_shows_until_a_device_asks(self) -> None:
         self.assertIsNone(self.seen["quiet_before"])
 
-    def test_this_computer_is_not_offered_a_sign_out(self) -> None:
+    def test_this_device_is_not_offered_a_sign_out(self) -> None:
         self.assertFalse(self.seen["sign_out_here"])
 
     def test_the_dialog_names_the_asker_and_shows_six_digits(self) -> None:

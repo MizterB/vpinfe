@@ -21,12 +21,6 @@ from console.on_page import on_page
 DEFAULT_PORT = 2112
 
 
-def _said(control: Any, said: str) -> None:
-    control.props["error"] = bool(said)
-    control.props["error-message"] = said
-    control.update()
-
-
 def port_of(text: str) -> int | None:
     """The port a person typed, or None where it is not one."""
     text = text.strip()
@@ -57,8 +51,8 @@ async def add_mobile() -> dict[str, Any] | None:
 
     def unrefuse() -> None:
         refused.clear()
-        _said(fields["address"], "")
-        _said(fields["port"], "")
+        frame.said(fields["address"], "")
+        frame.said(fields["port"], "")
         go.text = t("word.add")
 
     async def keep() -> None:
@@ -74,16 +68,16 @@ async def add_mobile() -> dict[str, Any] | None:
         address = str(fields["address"].value or "").strip()
         port = port_of(str(fields["port"].value or ""))
         if problem := address_problem(address):
-            _said(fields["address"], problem)
+            frame.said(fields["address"], problem)
             return
         if port is None:
-            _said(fields["port"], t("console.devices.port_invalid"))
+            frame.said(fields["port"], t("console.devices.port_invalid"))
             return
         if refused.get("asked") != (address, port):
             reason = await _reason_not_answering(address, port)
             if reason:
                 refused["asked"] = (address, port)
-                _said(fields["address"], reason)
+                frame.said(fields["address"], reason)
                 go.text = t("console.devices.add_anyway")
                 return
         try:
@@ -91,7 +85,7 @@ async def add_mobile() -> dict[str, Any] | None:
                 ApiClient().add_device, address, port,
                 str(fields["name"].value or "").strip() or t("console.devices.mobile_name"))
         except Exception as exc:  # noqa: BLE001 - the refusal is about the address
-            _said(fields["address"], why(exc))
+            frame.said(fields["address"], why(exc))
             return
         box.submit(added)
 
@@ -106,7 +100,7 @@ async def add_mobile() -> dict[str, Any] | None:
             fields[key].props("bottom-slots")
         return drawn
 
-    with frame.opened(t("console.devices.add_mobile"), persistent=True) as box:
+    with frame.opened(t("console.devices.add_mobile"), ignore_outside_click=True) as box:
         panel.facts(ui,
                     [(t("word.name"), draw("name")),
                      (t("console.devices.address"), draw("address")),

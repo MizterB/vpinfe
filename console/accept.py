@@ -1,7 +1,7 @@
 """The questions asked before something VPinFE did not ship is let run.
 
 A theme that is not from the VPinFE Theme List and an extension that is not included with
-VPinFE both run code on this computer, and VPinFE cannot check what it does. Each is asked
+VPinFE both run code on this device, and VPinFE cannot check what it does. Each is asked
 about here, in the same words wherever it is met, and answered with the Owner's yes: the
 callers only go on to accept on a True.
 """

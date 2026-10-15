@@ -1,6 +1,6 @@
 """The authenticator over HTTP: who may set it up, and what its six digits open.
 
-The machine is the test client's default peer; another computer is a client whose peer is a
+The machine is the test client's default peer; another device is a client whose peer is a
 LAN address.
 """
 
@@ -81,7 +81,7 @@ class SettingUp(AuthenticatorOverHttp):
         self.assertEqual(self.machine.get("/auth/authenticator").json(),
                          {"enabled": False, "screen_codes": True})
 
-    def test_this_computer_sets_one_up_with_no_confirm(self) -> None:
+    def test_this_device_sets_one_up_with_no_confirm(self) -> None:
         secret = self.set_up()
 
         self.assertTrue(secret)
@@ -114,7 +114,7 @@ class SettingUp(AuthenticatorOverHttp):
             self.assertEqual(refused.status_code, 403)
             self.assertEqual(refused.json()["error"]["details"]["reason"], auth.CONFIRM_NEEDED)
 
-    def test_a_computer_not_signed_in_reads_nothing_about_it(self) -> None:
+    def test_a_device_not_signed_in_reads_nothing_about_it(self) -> None:
         self.assertEqual(self.computer().get("/auth/authenticator").status_code, 403)
 
     def test_removing_it_leaves_nothing_set_up(self) -> None:
@@ -188,7 +188,7 @@ class SigningIn(AuthenticatorOverHttp):
         self.assertIn("1 minute", said)
         self.assertNotIn("get a code", said)
 
-    def test_one_computers_wrong_codes_leave_another_able_to_sign_in(self) -> None:
+    def test_one_devices_wrong_codes_leave_another_able_to_sign_in(self) -> None:
         secret = self.set_up()
         stranger = self.computer("192.168.1.66")
         for _ in range(sign_in.TRIES):
@@ -271,7 +271,7 @@ class Confirming(AuthenticatorOverHttp):
 
 
 class TheOnScreenCode(AuthenticatorOverHttp):
-    def test_switching_it_off_stops_the_computer_handing_out_a_sign_in_code(self) -> None:
+    def test_switching_it_off_stops_the_device_handing_out_a_sign_in_code(self) -> None:
         self.set_up()
 
         off = self.machine.put("/auth/authenticator/screen_codes", json={"on": False})

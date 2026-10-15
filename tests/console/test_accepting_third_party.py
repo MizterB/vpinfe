@@ -107,7 +107,7 @@ class TheQuestions(unittest.IsolatedAsyncioTestCase):
             _title, lines, _answer, _kept = await self.asked(
                 accept.theme("Mine", installing=installing))
 
-            self.assertEqual(lines[1], "Themes can run programs on this computer, and VPinFE "
+            self.assertEqual(lines[1], "Themes can run programs on this device, and VPinFE "
                                        "can't check this one.")
 
     async def test_an_extension_says_what_it_says_it_uses(self) -> None:

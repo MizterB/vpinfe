@@ -2,7 +2,7 @@
 
 VPinFE binds every interface by default, so "on this machine" and "able to reach this
 machine" are different questions. The policy answers them differently: the machine is
-trusted, another computer is trusted once a code shown on the machine has signed its
+trusted, another device is trusted once a code shown on the machine has signed its
 browser in, and anyone else may only ask what this instance is.
 """
 
@@ -94,13 +94,13 @@ class CallerOriginTests(unittest.TestCase):
     def test_this_machine_may_do_everything(self) -> None:
         self.assertEqual(self.policy.identify(_request("127.0.0.1")).scopes, scopes.CORE)
 
-    def test_a_computer_that_has_not_signed_in_may_only_ask_what_this_is(self) -> None:
+    def test_a_device_that_has_not_signed_in_may_only_ask_what_this_is(self) -> None:
         for host in ("10.0.0.5", "192.168.110.42"):
             with self.subTest(host=host):
                 self.assertEqual(self.policy.identify(_request(host)).scopes,
                                  frozenset({scopes.INSTANCE_READ}))
 
-    def test_a_browser_signed_in_from_another_computer_may_do_everything(self) -> None:
+    def test_a_browser_signed_in_from_another_device_may_do_everything(self) -> None:
         token = self.sign_in_from("10.0.0.5")
 
         identity = self.policy.identify(_request("10.0.0.5", {auth.COOKIE: token}))

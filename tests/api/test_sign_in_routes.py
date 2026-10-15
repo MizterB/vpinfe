@@ -1,6 +1,6 @@
 """Signing in over HTTP: ask, type the code the machine showed, hold the cookie, end it.
 
-The machine is the test client's default peer. Another computer is a client whose peer is a
+The machine is the test client's default peer. Another device is a client whose peer is a
 LAN address, which is how the API sees one.
 """
 
@@ -185,7 +185,7 @@ class WhoIAm(SignInOverHttp):
         self.assertTrue(body["local"])
         self.assertFalse(body["signed_in"])
 
-    def test_a_computer_not_signed_in_is_told_so(self) -> None:
+    def test_a_device_not_signed_in_is_told_so(self) -> None:
         body = self.computer().get("/auth/me").json()
 
         self.assertFalse(body["local"])
@@ -258,13 +258,13 @@ class TheScopes(SignInOverHttp):
 
         self.assertEqual(found, wanted)
 
-    def test_a_computer_not_signed_in_cannot_see_or_end_sessions(self) -> None:
+    def test_a_device_not_signed_in_cannot_see_or_end_sessions(self) -> None:
         client = self.computer()
 
         self.assertEqual(client.get("/auth/sessions").status_code, 403)
         self.assertEqual(client.delete("/auth/sessions").status_code, 403)
 
-    def test_a_computer_not_signed_in_can_still_ask_what_this_is(self) -> None:
+    def test_a_device_not_signed_in_can_still_ask_what_this_is(self) -> None:
         self.assertEqual(self.computer().get("/").status_code, 200)
 
     def test_the_spec_and_the_explorer_wait_for_a_sign_in(self) -> None:

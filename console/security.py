@@ -1,6 +1,6 @@
 """Settings > Security: which browsers are signed in to this install, and ending them.
 
-A browser on another computer gets in by a code this machine shows. This page is where the
+A browser on another device gets in by a code this machine shows. This page is where the
 Owner sees what that let in, and takes it back.
 """
 
@@ -91,7 +91,7 @@ def entries(rows: list[dict[str, Any]], mine: str, sign_out: Callable[[str], Any
         out.append(panel.intro(t("console.security.none")))
     out.append(panel.note(t("console.security.idle")))
     if serving_state.reachable_from_elsewhere(bind):
-        out.append((panel.HEADING, t("console.security.other_computers")))
+        out.append((panel.HEADING, t("console.security.other_devices")))
         out.append(panel.intro(t("console.security.sign_in_steps")))
         if not https:
             out.append(panel.intro(t("console.security.unencrypted")))
@@ -145,8 +145,8 @@ _SIGN_OUT_HERE = ("async () => { await fetch('/api/v1/auth/sign_out', "
 
 
 def sign_out_here(labels: list) -> None:
-    """The nav's own Sign Out, drawn only for a browser another computer signed in. This
-    computer is never signed in, so it has nothing to sign out of."""
+    """The nav's own Sign Out, drawn only for a browser another device signed in. This
+    device is never signed in, so it has nothing to sign out of."""
     if not this_session_id():
         return
     with ui.row().classes("items-center justify-center gap-2 w-full no-wrap "

@@ -52,7 +52,7 @@ SYSTEM_ADMIN = "system:admin"
 DEVICES_READ = "devices:read"
 DEVICES_WRITE = "devices:write"
 
-# The USB, serial and display devices this computer has. Not devices:*, which are other
+# The USB, serial and display hardware attached to this device. Not devices:*, which are other
 # VPinFE installs.
 HARDWARE_READ = "hardware:read"
 
@@ -86,7 +86,7 @@ ACCESS_READ = "access:read"
 ACCESS_WRITE = "access:write"
 
 # The third tier: what runs, who gets in, what cannot be undone, and the power. Held by this
-# computer, and by an Owner while a Confirm is live. A token or a Remote pass never holds it.
+# device, and by an Owner while a Confirm is live. A token or a Remote pass never holds it.
 PROTECTED = "protected:write"
 # Rating and favoriting, which a Remote pass may do and may not do more than.
 PLAY_RATE = "play:rate"

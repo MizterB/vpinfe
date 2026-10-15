@@ -353,7 +353,7 @@ class TheOwnersSideTests(AskCase):
         assert ask is not None
         self.assertEqual(ask.state, approvals.WAITING)
 
-    def test_this_computer_approves_without_a_confirm(self) -> None:
+    def test_this_device_approves_without_a_confirm(self) -> None:
         ask_id = self.ask().json()["id"]
 
         response = self.client("127.0.0.1").post(f"/auth/asks/{ask_id}/approve")

@@ -109,7 +109,7 @@ class Authenticator:
         return bool(self._record().get("secret"))
 
     def screen_codes(self) -> bool:
-        """Whether this computer shows a sign-in code to a browser that asks. Always, until an
+        """Whether this device shows a sign-in code to a browser that asks. Always, until an
         authenticator is set up, since there is no other way in."""
         record = self._record()
         return not record.get("secret") or bool(record.get("screen_codes", True))
