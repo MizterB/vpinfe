@@ -1376,7 +1376,7 @@ def named_number(value: Any, named: dict[str, str], on_pick: Callable[[Any], Any
 def number(value: Any, on_change: Callable[[Any], Any], *,
            disabled: bool = False, whole: bool = True,
            low: Any = None, high: Any = None, step: Any = None,
-           placeholder: str = "", unit: str = "",
+           placeholder: str = "", unit: str = "", hint: str = "",
            on_control: Callable[[Any], Any] | None = None,
            on_leave: bool = False) -> Callable[[], None]:
     """A number. Narrow, because a four-digit box in a full-width field says the value
@@ -1420,6 +1420,8 @@ def number(value: Any, on_change: Callable[[Any], Any], *,
                 control.style(f"--blank: {len(placeholder) + 1}ch")
             if disabled:
                 control.disable()
+            if hint:
+                control.tooltip(hint)
             if on_control is not None:
                 on_control(control)
 

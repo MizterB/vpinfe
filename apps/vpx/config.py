@@ -53,7 +53,8 @@ HIDDEN_SECTIONS = frozenset({"Version", "RecentDir"})
 # `Plugin.vpx` is the program itself, and turning it off stops the program.
 HIDDEN_PREFIXES = ("Input.Mapping", "Input.Device", "Plugin.vpx.")
 # A trailing part rather than a whole section: `[Backglass.Priority.PUP]` is one of
-# several, one per plugin, and they arrive as plugins do.
+# several, one per plugin, and they arrive as plugins do. Kept hidden even though a table's
+# own file may carry them: the key names a renderer, known only at runtime.
 HIDDEN_PARTS = ("Priority",)
 # The table editor's: default properties for new parts, its script editor's colors, and
 # the physics sets its physics dialog keeps. Nothing a table plays with.
@@ -71,17 +72,18 @@ FROM_THE_TABLE = areas.VIEW_MODES
 NAMED_VALUES = {"Player.MaxFramerate": (("-1", "match_the_display"), ("0", "no_limit"))}
 DISPLAYS = frozenset(f"{section}.{window}Display" for section, window in _WINDOWS)
 
-# The sets whose members the program labels alike, each member's name by its number.
+# The sets whose members the program labels alike, each member's name by its number, and
+# the word a member's label may open with that its set's name already says.
 NUMBERED_SETS = (
-    (re.compile(r"DMD\.Profile(\d+)"),
+    (re.compile(r"DMD\.Profile(\d+)"), "DMD",
      ("dmd_profile.legacy_vpx", "dmd_profile.neon_plasma", "dmd_profile.red_led",
       "dmd_profile.green_led", "dmd_profile.yellow_led", "dmd_profile.generic_plasma",
       "dmd_profile.generic_led")),
-    (re.compile(r"Alpha\.Profile(\d+)"),
+    (re.compile(r"Alpha\.Profile(\d+)"), "Alpha",
      ("alpha_profile.neon_plasma", "alpha_profile.blue_vfd", "alpha_profile.green_vfd",
       "alpha_profile.red_led", "alpha_profile.green_led", "alpha_profile.yellow_led",
       "alpha_profile.generic_plasma", "alpha_profile.generic_led")),
-    (re.compile(r"Player\.Anaglyph(\d+)"),
+    (re.compile(r"Player\.Anaglyph(\d+)"), "Anaglyph",
      ("anaglyph_glasses.red_cyan", "anaglyph_glasses.green_magenta",
       "anaglyph_glasses.blue_amber", "anaglyph_glasses.cyan_red",
       "anaglyph_glasses.magenta_green", "anaglyph_glasses.amber_blue",
@@ -647,7 +649,7 @@ class VPXConfig:
     def set_word(self, key: str) -> str:
         """The word in this app's catalog naming the set a setting is one of, where the
         program labels every member alike, or "" for one it tells apart itself."""
-        for pattern, names in NUMBERED_SETS:
+        for pattern, _lead, names in NUMBERED_SETS:
             if (found := pattern.match(key)) and 0 < int(found[1]) <= len(names):
                 return names[int(found[1]) - 1]
         return next((word for prefix, word in DEFAULT_CAMERA.items()
@@ -853,6 +855,20 @@ def _scope_of(winning: Path | None, target: str,
     return SCOPE_FOLDER
 
 
+# One word run together, which is a key spelled the way the program wrote it.
+_KEY_AS_LABEL = re.compile(r"[A-Za-z0-9]*[a-z][A-Z][A-Za-z0-9]*")
+
+
+def _without_set_word(key: str, label: str) -> str:
+    """`label` less the word its set's name opens with, which the row says again beside it:
+    "Filter" in "Filter (Anaglyph Red/Cyan)", not "Anaglyph Filter (Anaglyph Red/Cyan)"."""
+    for pattern, lead, names in NUMBERED_SETS:
+        found = pattern.match(key)
+        if found and 0 < int(found[1]) <= len(names) and label.startswith(f"{lead} "):
+            return label[len(lead) + 1:]
+    return label
+
+
 def _field(one: vini.Setting) -> Field:
     """One setting as the control grammar wants it. The key is qualified, because a key
     is only unique inside its section - `Width` is in eight of them."""
@@ -861,7 +877,9 @@ def _field(one: vini.Setting) -> Field:
         # The file gives the key where it has no label. A plugin's declaration may have
         # one, and the catalog has the words for the rest.
         label="" if bindings.is_mapping(one.qualified)
-        else one.label if one.label != one.key else LABELS.get(one.qualified, ""),
+        else _without_set_word(one.qualified, one.label)
+        if one.label != one.key and not _KEY_AS_LABEL.fullmatch(one.label)
+        else LABELS.get(one.qualified, ""),
         type=vini.KIND_CHOICE if one.qualified in areas.CHOICES else _type_of(one),
         default=(bindings.default_of(one.qualified) if bindings.is_action(one.qualified)
                  else "" if one.qualified in FROM_THE_SCREEN | FROM_THE_TABLE

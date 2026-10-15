@@ -88,6 +88,15 @@ class PluginTests(unittest.TestCase):
 
         self.assertEqual(labels, {"Plugin.PinMAME.PinMAMEPath": "PinMAME Path"})
 
+    def test_the_score_view_window_is_spelled_as_its_heading_is(self) -> None:
+        (self.root / "pinmame" / "plugin.cpp").write_text(
+            'MSGPI_BOOL_VAL_SETTING(prop, "ScoreViewDMDOverlay", "ScoreView DMD Overlay", "",\n'
+            '   true, false);\n')
+
+        _types, labels, _registered = script.from_plugins(self.root)
+
+        self.assertEqual(labels, {"Plugin.PinMAME.ScoreViewDMDOverlay": "Score View DMD Overlay"})
+
     def test_each_setting_s_default_is_as_the_file_stores_it(self) -> None:
         _types, _labels, registered = script.from_plugins(self.root)
 

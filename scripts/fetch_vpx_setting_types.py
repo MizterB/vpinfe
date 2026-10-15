@@ -272,7 +272,8 @@ def from_plugins(root: pathlib.Path) -> tuple[dict[str, str], dict[str, str], Re
                 found[qualified] = kind
                 label = _literal(args[2])
                 if label and label != key:
-                    labels[qualified] = label
+                    # The Console's heading for the window is "Score View".
+                    labels[qualified] = label.replace("ScoreView", "Score View")
                 registered[qualified] = names.registered(qualified, macro, args[5:])
     return found, labels, registered
 

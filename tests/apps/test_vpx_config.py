@@ -1377,11 +1377,28 @@ class NumberedSetTests(_Case):
 
         self.assertEqual({key: (words["label"], words["label_key"])
                           for key, words in said.items()},
-                         {"DMD.Profile2DiffuseGlow": ("DMD Diffuse Glow (DMD: Neon Plasma)", ""),
+                         {"DMD.Profile2DiffuseGlow": ("Diffuse Glow (DMD: Neon Plasma)", ""),
                           "Alpha.Profile2Color": ("Color (Alpha: Blue VFD)", ""),
-                          "Player.Anaglyph10Filter": ("Anaglyph Filter (Anaglyph Custom 4)", ""),
+                          "Player.Anaglyph10Filter": ("Filter (Anaglyph Custom 4)", ""),
                           "DefaultCamera.FSSCamX":
                               ("Camera X (Default Camera: Full Single Screen)", "")})
+
+    def test_a_set_member_whose_label_opens_otherwise_keeps_it(self) -> None:
+        said = self._labels("[Player]\n; Anaglyph Left Contrast: Left eye [Default: 1.0]\n"
+                            "Stereo3DLeftContrast = \n")
+
+        self.assertEqual(said["Player.Stereo3DLeftContrast"]["label"], "Anaglyph Left Contrast")
+
+    def test_a_member_past_the_set_s_names_keeps_its_whole_label(self) -> None:
+        said = self._labels("[Player]\n; Anaglyph Filter: Filter [Default: 'None']\n"
+                            "Anaglyph11Filter = \n")
+
+        self.assertEqual(said["Player.Anaglyph11Filter"]["label"], "Anaglyph Filter")
+
+    def test_a_label_that_is_the_key_run_together_is_worded_from_the_catalog(self) -> None:
+        said = self._labels("[Player]\n; AutostartEnable: [Default: 0]\nasenable = \n")
+
+        self.assertEqual(said["Player.asenable"]["label"], "Autostart")
 
     def test_a_label_s_own_aside_shares_the_set_s_parentheses(self) -> None:
         said = self._labels("[DefaultCamera]\n; Field Of View (overall scale): Global view "

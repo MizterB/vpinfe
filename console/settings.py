@@ -16,6 +16,7 @@ through one renderer - what differs is only which install answers.
 from __future__ import annotations
 
 import logging
+import math
 import os
 from collections.abc import Awaitable, Callable, Sequence
 from typing import Any
@@ -360,6 +361,7 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
         return panel.number(
             value, lambda e: save("" if e.value is None else int(e.value)), disabled=off,
             low=option.get("min"), high=option.get("max"), unit=_unit_word(option),
+            hint=_range_hint(option),
             placeholder=blank, on_control=refusal.attach if refusal else None,
             on_leave=refusal is not None)
     if kind == "number":
@@ -368,6 +370,7 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
         return panel.number(
             value, lambda e: save(None if e.value is None else float(e.value)),
             disabled=off, whole=False, low=option.get("min"), high=option.get("max"),
+            hint=_range_hint(option),
             step=option.get("step"), placeholder=blank)
     if kind == "text" and option.get("lines"):
         return panel.field(str(value or ""), lambda text: save(text),
@@ -397,6 +400,35 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
                                               stands_for))
     return panel.field(str(value or ""), lambda text: save(text), disabled=off,
                        placeholder=blank)
+
+
+def _bound(value: Any) -> str:
+    """A bound as a person writes it: 100000000, not 1e+08. Nothing for one that is not a
+    finite number, which a theme's JSON can declare."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return ""
+    if not math.isfinite(number):
+        return ""
+    return str(int(number)) if number.is_integer() else f"{number:g}"
+
+
+def range_words(low: Any, high: Any) -> str:
+    """What a number may be, for its tooltip. Nothing when it is unbounded."""
+    low, high = _bound(low), _bound(high)
+    if low and high:
+        return t("console.settings.range_between", low=low, high=high)
+    if low:
+        return t("console.settings.range_at_least", low=low)
+    if high:
+        return t("console.settings.range_at_most", high=high)
+    return ""
+
+
+def _range_hint(option: dict) -> str:
+    """The tooltip, unless the row already says its range beneath the control."""
+    return "" if option.get("range_beneath") else range_words(option.get("min"), option.get("max"))
 
 
 def _unit_word(option: dict) -> str:

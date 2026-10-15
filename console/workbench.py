@@ -6178,6 +6178,11 @@ def _as_option(field: Any) -> dict[str, Any]:
     option: dict[str, Any] = {"key": field.key, "type": field.type,
                               "label": field.label, "default": field.default,
                               "blank": getattr(field, "blank", "")}
+    low, high = getattr(field, "minimum", None), getattr(field, "maximum", None)
+    if low is not None:
+        option["min"] = low
+    if high is not None:
+        option["max"] = high
     if named := getattr(field, "named", ()):
         option["named"] = {value: label for value, label in named}
     if path := getattr(field, "path", ""):

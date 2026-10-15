@@ -659,7 +659,7 @@ def _as_option(option: dict[str, Any]) -> dict[str, Any]:
         return {"type": "bool"}
     if kind == "number":
         return {"type": "number", "min": option.get("min"), "max": option.get("max"),
-                "step": option.get("step")}
+                "step": option.get("step"), "range_beneath": True}
     if kind == "select":
         return {"type": "choice", "choices": _choices(option)}
     if kind in ("textarea", "json"):
