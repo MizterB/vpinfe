@@ -456,7 +456,7 @@ class SeparationTests(TempTree):
                                        json={"name": "Saved Here", "games": []}, timeout=30)
 
         self.assertEqual(saved, {"success": True,
-                                 "message": "Filter collection 'Saved Here' saved successfully"})
+                                 "message": "Saved as Saved Here"})
         self.assertIn("Saved Here", picker)
         self.assertIn("Saved Here", on_hub)
         self.assertEqual((held["type"], held["count"], held["order_by"], held["direction"]),

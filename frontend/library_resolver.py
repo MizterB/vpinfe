@@ -400,6 +400,8 @@ class LibraryResolver:
             self.rebuild_entries()
 
     def show_all_if_gone(self) -> bool:
+        """Fall back to all games when the collection on screen is gone. False when it is
+        not, and when the library cannot be asked: the view stays as it is."""
         with self.lock:
             name = self.current_collection
             if name == BUILTIN_ALL:
@@ -409,7 +411,12 @@ class LibraryResolver:
                     return False
             elif name in self.collections():
                 return False
-            self.reset_to_default()
+            try:
+                self.reset_to_default()
+            except BlockedError:
+                logger.debug("The library went quiet after dropping %r; keeping what is shown",
+                             name, exc_info=True)
+                return False
             return True
 
     # -- the payload ---------------------------------------------------------

@@ -4721,6 +4721,7 @@
   "frontend.buildmeta.started": "Build metadata started",
   "frontend.buildmeta.library_busy": "The library is busy - try again when it finishes",
   "frontend.buildmeta.stopped": "Stopped partway - the log says why",
+  "frontend.collection.saved": "Saved as {name}",
   "frontend.collectionmenu.all_games": "All Games",
   "frontend.collectionmenu.save_exists": "Already saved as {name}",
   "frontend.collectionmenu.ascending": "Ascending",

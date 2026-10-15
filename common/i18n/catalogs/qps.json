@@ -4721,6 +4721,7 @@
   "frontend.buildmeta.started": "Ɓûîŀđ ɱèţàđàţà šţàřţèđ",
   "frontend.buildmeta.library_busy": "Ţĥè ŀîƀřàřý îš ƀûšý - ţřý àĝàîñ ŵĥèñ îţ ƒîñîšĥèš",
   "frontend.buildmeta.stopped": "Šţöþþèđ þàřţŵàý - ţĥè ŀöĝ šàýš ŵĥý",
+  "frontend.collection.saved": "Šàṽèđ àš {name}",
   "frontend.collectionmenu.all_games": "Àŀŀ Ĝàɱèš",
   "frontend.collectionmenu.save_exists": "Àŀřèàđý šàṽèđ àš {name}",
   "frontend.collectionmenu.ascending": "Àšçèñđîñĝ",

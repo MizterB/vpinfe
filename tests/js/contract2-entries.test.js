@@ -138,6 +138,35 @@ describe("media is named, and the URL follows from the name", () => {
     assert.equal(vpin.getVideoURL(0, "bg"), "/core/images/file_missing.png");
   });
 
+  test("a kind that is an image has no video to answer with", async () => {
+    const vpin = await coreWithEntries();
+    const media = vpin.entries[0].media;
+    assert.ok(media.includes("wheel") && media.includes("playfield_video"),
+              "the fixture moved");
+
+    assert.equal(vpin.getVideoURL(0, "wheel"), "/core/images/file_missing.png");
+    assert.equal(vpin.getVideoURL(0, "audio"), "/core/images/file_missing.png");
+    assert.notEqual(vpin.getVideoURL(0, "playfield"), "/core/images/file_missing.png");
+    assert.equal(vpin.getVideoURL(0, "playfield"), vpin.getVideoURL(0, "playfield_video"));
+  });
+
+  test("every video kind the media spec names is answered when the entry has it", async () => {
+    const kinds = ["playfield_video", "backglass_video", "scoreview_video", "topper_video",
+                   "loading", "real_dmd_video", "real_dmd_color_video"];
+    const everything = {
+      ...PAYLOAD,
+      entries: PAYLOAD.entries.map((entry, n) => (n === 0
+        ? { ...entry, media: [...new Set([...entry.media, ...kinds])] }
+        : entry)),
+    };
+    const vpin = await coreWithEntries(everything);
+
+    for (const kind of kinds) {
+      assert.ok(vpin.getVideoURL(0, kind).includes(`/media/${vpin.entries[0].table.id}/${kind}`),
+        `${kind} has a video to answer with`);
+    }
+  });
+
   test("image versus video is still the user's preference", async () => {
     const vpin = await coreWithEntries();
     const entry = vpin.entries[0];

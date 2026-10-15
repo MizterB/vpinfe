@@ -44,6 +44,7 @@ from common.games.game_metadata import (
 )
 from common.games.media_lookup import page_counts, resolved_kinds
 from common.games.tables import entry_file
+from common.i18n import t
 from common.manufacturer_logos import manufacturer_logo_url
 from common.media_specs import game_media_payload
 from common.timestamps import epoch_to_iso
@@ -328,7 +329,7 @@ def save_current_filter_collection(api: API, name: str, letter: str, theme: str,
                "manufacturer": manufacturer, "year": year, "rating": rating,
                "rating_or_higher": is_truthy(rating_or_higher)},
         order_by, direction)
-    return {"success": True, "message": f"Filter collection '{name}' saved successfully"}
+    return {"success": True, "message": t("frontend.collection.saved", name=name)}
 
 
 def keep_filter_collection(api: API, name: str, letter: str, theme: str, game_type: str,

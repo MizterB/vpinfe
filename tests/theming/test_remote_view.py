@@ -22,7 +22,7 @@ from urllib.parse import quote
 
 from common.games import remote_library
 from common.games.collection_resolver import Entry
-from common.games.collection_store import CollectionStore
+from common.games.collection_store import BUILTIN_ALL, CollectionStore
 from common.games.wire_entry import WireGame
 from common.service_errors import BlockedError
 from frontend import game_state
@@ -227,6 +227,23 @@ class LibraryCollectionTests(unittest.TestCase):
         game_state.apply_collection(self.api, "")
 
         self.assertEqual(self._titles(), sorted(TITLES))
+
+    def test_a_collection_the_library_dropped_falls_back_to_all_games(self) -> None:
+        self.api.library._gone = "Top Ranked"
+
+        game_state.rebuild_view(self.api)
+
+        self.assertEqual(self.api.current_collection, BUILTIN_ALL)
+        self.assertEqual(self._titles(), sorted(TITLES))
+
+    def test_a_library_that_goes_quiet_after_dropping_one_keeps_the_wheel(self) -> None:
+        self.api.library._gone = "Top Ranked"
+        self.reachable = False
+
+        game_state.rebuild_view(self.api)
+
+        self.assertEqual(self.api.current_collection, "Top Ranked")
+        self.assertEqual(self._titles(), list(self.RANKED))
 
     def test_a_pick_the_library_cannot_answer_leaves_the_wheel_as_it_was(self) -> None:
         self.reachable = False
