@@ -4393,6 +4393,7 @@
   "error.games.hidden_default": "À ĥîđđèñ ţàƀŀè çàñ'ţ ƀè ţĥè đèƒàûŀţ",
   "error.games.info_empty": "Îţš .îñƒö ƒîŀè îš èɱþţý",
   "error.games.info_not_utf8": "Îţš .îñƒö ƒîŀè îš ñöţ šàṽèđ àš ÛŢƑ-8",
+  "error.games.info_wrong_shape": "Îţš .îñƒö ƒîŀè đöèš ñöţ đèšçřîƀè à ĝàɱè",
   "error.games.info_bad_line": "Ŀîñè {line} öƒ îţš .îñƒö ƒîŀè îš ñöţ ŵřîţţèñ àš îţ šĥöûŀđ ƀè",
   "error.games.release_other_format": "{app} çàññöţ þŀàý {format} řèŀèàšèš",
   "error.games.rom_needed": "{kind} ñèèđš à ŘÖḾ ñàɱè",
@@ -5143,6 +5144,14 @@
   "said.job_media_filled": {
     "one": "{count} ĝàɱè, {filled} ƒîŀŀèđ, {unmatched} ûñɱàţçĥèđ, {failed} ƒàîŀèđ",
     "other": "{count} ĝàɱèš, {filled} ƒîŀŀèđ, {unmatched} ûñɱàţçĥèđ, {failed} ƒàîŀèđ"
+  },
+  "said.job_filled_left": {
+    "one": "{count} ĝàɱè, {filled} ƒîŀŀèđ, {no} ûñɱàţçĥèđ, {failed} ƒàîŀèđ, {skip} šķîþþèđ",
+    "other": "{count} ĝàɱèš, {filled} ƒîŀŀèđ, {no} ûñɱàţçĥèđ, {failed} ƒàîŀèđ, {skip} šķîþþèđ"
+  },
+  "said.job_replaced_left": {
+    "one": "{count} ĝàɱè, {updated} řèþŀàçèđ, {failed} ƒàîŀèđ, {skipped} šķîþþèđ",
+    "other": "{count} ĝàɱèš, {updated} řèþŀàçèđ, {failed} ƒàîŀèđ, {skipped} šķîþþèđ"
   },
   "said.job_media_replaced": {
     "one": "{count} ĝàɱè, {updated} řèþŀàçèđ, {failed} ƒàîŀèđ",

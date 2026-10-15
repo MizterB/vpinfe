@@ -9,7 +9,15 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from common import device_registry, i18n, jobs, service_errors, sized_media, timestamps
+from common import (
+    device_registry,
+    i18n,
+    job_details,
+    jobs,
+    service_errors,
+    sized_media,
+    timestamps,
+)
 from common.config_store import ConfigStore
 from common.games import (
     asset_origin,
@@ -21,6 +29,7 @@ from common.games import (
     metadata_service,
 )
 from common.games.game import Game
+from common.i18n import t
 from common.online import asset_sources, vpsdb_sync
 from common.online.vpsdb import VPSdb
 from common.online.vpsdb_media import VPSMediaDownloader
@@ -88,6 +97,10 @@ class _Library(TempTree):
         self.games[game_id] = fake_game(folder, name, meta=info,
                                         full_path_vpx_file=str(folder / launched))
         return folder
+
+    def locked(self, folder: Path) -> None:
+        folder.chmod(0o555)
+        self.addCleanup(folder.chmod, 0o755)
 
     def variant(self) -> str:
         return self.config.get("media", "playfield_variant", fallback="table")
@@ -198,6 +211,34 @@ class FillTests(_Library):
         self.assertNotIn(f"(Wheel) {FOLDER}.png", placed)
         self.assertIn(f"(Backglass) {FOLDER}.png", placed)
         self.assertEqual(result["failed"], 1)
+
+    def test_a_folder_that_cannot_be_written_is_skipped_and_said_once(self) -> None:
+        other = self.game(OTHER, "eightball")
+        self.locked(self.folder)
+
+        with self.assertLogs("vpinfe.common.games.media_fill", "WARNING") as logged:
+            result = media_fill.fill([self.folder, other])
+
+        self.assertEqual(self.placed(), {})
+        self.assertTrue(self.placed(other))
+        self.assertEqual(result["skipped"], 1)
+        self.assertEqual(result["failed"], 0)
+        self.assertEqual(len(logged.records), 1)
+        self.assertIn(FOLDER, logged.records[0].getMessage())
+
+    def test_the_job_line_counts_the_folders_it_left(self) -> None:
+        self.assertEqual(job_details.of(jobs.KIND_MEDIA_FILL,
+                                       {"games": 3, "filled": 2, "unmatched": 1,
+                                               "failed": 0, "skipped": 1}),
+                         t("said.job_filled_left", count=3, filled=2, no=1,
+                           failed=0, skip=1))
+
+    def test_the_replace_line_counts_the_folders_it_left(self) -> None:
+        self.assertEqual(job_details.of(jobs.KIND_MEDIA_FILL,
+                                        {"games": 2, "updated": 1, "failed": 0,
+                                         "skipped": 3}),
+                         t("said.job_replaced_left", count=2, updated=1,
+                           failed=0, skipped=3))
 
     def test_turned_off_it_stops_between_games(self) -> None:
         other = self.game(OTHER, "eightball")
@@ -517,6 +558,17 @@ class UpdateTests(_Replaced):
         self.assertEqual(placed[PLAYFIELD], _url("table-4k-new.png"))
         self.assertEqual(self.recorded(WHEEL), "wheel-new-md5")
         self.assertEqual(result["updated"], 2)
+
+    def test_a_folder_that_cannot_be_written_is_left_and_said_once(self) -> None:
+        self.ours(WHEEL, OLD_WHEEL)
+        self.locked(self.folder)
+
+        with self.assertLogs("vpinfe.common.games.media_fill", "WARNING") as logged:
+            result = media_fill.update_downloaded()
+
+        self.assertEqual(self.placed()[WHEEL], OLD_WHEEL.decode())
+        self.assertEqual((result["updated"], result["failed"], result["skipped"]), (0, 0, 1))
+        self.assertEqual(len(logged.records), 1)
 
     def test_the_catalog_is_read_afresh(self) -> None:
         self.ours(WHEEL, OLD_WHEEL)

@@ -7,6 +7,17 @@ changes and not before.
 from __future__ import annotations
 
 import os
+from typing import TypedDict
+
+
+class UnreadableGame(TypedDict):
+    """A game folder left out of the library because its .info could not be read. `error`
+    is the reason, in words."""
+
+    folder: str
+    path: str
+    error: str
+
 
 # path -> ((size, mtime_ns) when it could not be read, why).
 _FAILED: dict[str, tuple[tuple[int, int], str]] = {}

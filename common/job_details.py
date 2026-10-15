@@ -54,12 +54,21 @@ def _media_fill(result: Any) -> str:
     if not isinstance(result, dict):
         return ""
     if "filled" in result:
-        return t("said.job_media_filled", count=int(result.get("games") or 0),
-                 filled=int(result["filled"]), unmatched=int(result.get("unmatched") or 0),
-                 failed=int(result.get("failed") or 0))
+        said = {"count": int(result.get("games") or 0), "filled": int(result["filled"]),
+                "unmatched": int(result.get("unmatched") or 0),
+                "failed": int(result.get("failed") or 0)}
+        skipped = int(result.get("skipped") or 0)
+        if skipped:
+            return t("said.job_filled_left", skip=skipped, no=said["unmatched"],
+                     count=said["count"], filled=said["filled"], failed=said["failed"])
+        return t("said.job_media_filled", **said)
     if "updated" in result:
-        return t("said.job_media_replaced", count=int(result.get("games") or 0),
-                 updated=int(result["updated"]), failed=int(result.get("failed") or 0))
+        said = {"count": int(result.get("games") or 0), "updated": int(result["updated"]),
+                "failed": int(result.get("failed") or 0)}
+        skipped = int(result.get("skipped") or 0)
+        if skipped:
+            return t("said.job_replaced_left", skipped=skipped, **said)
+        return t("said.job_media_replaced", **said)
     return ""
 
 

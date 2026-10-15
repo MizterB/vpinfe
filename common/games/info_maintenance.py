@@ -11,7 +11,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TypedDict
 
-from common import path_state
+from common import path_state, service_errors
 from common.failures import why
 from common.games import library_folders
 from common.games.collection_store import restorable_collections_backup
@@ -142,6 +142,9 @@ def upgrade_library(
             if not meta.pending_migration:
                 result["already_current"] += 1
                 continue
+            # Asked before the match is routed, so a folder that cannot take the file is
+            # not counted as bound and then failed.
+            library_folders.writable_game_folder(game_dir)
             if route_match is not None:
                 routed = route_match(meta.data)
                 if routed == "bound":
@@ -151,7 +154,7 @@ def upgrade_library(
                     result["matches_dropped"] += 1
                     log(f"Dropped a VPS match the catalog does not hold: {game_dir.name}")
             meta.write_config()
-        except (InvalidMetaConfigError, OSError) as exc:
+        except (InvalidMetaConfigError, OSError, service_errors.BlockedError) as exc:
             result["failed"] += 1
             result["failures"].append((game_dir.name, why(exc)))
             log(f"Could not upgrade {game_dir.name}: {why(exc)}")

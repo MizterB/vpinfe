@@ -242,6 +242,15 @@ class UnreadableInfoTests(TempTree):
         self.assertEqual({"Malformed (Original 2024)":
                           t("error.games.info_bad_line", line=1)}, said)
 
+    def test_one_holding_a_list_or_a_string(self) -> None:
+        for content in (b'["Info", "Title"]', b'"just a name"', b"7", b"null"):
+            with self.subTest(content=content):
+                loaded, said = self._scan_beside("Shaped (Original 2024)", content)
+
+                self.assertEqual([self.FINE], loaded)
+                self.assertEqual({"Shaped (Original 2024)":
+                                  t("error.games.info_wrong_shape")}, said)
+
     def test_one_not_saved_as_utf8(self) -> None:
         loaded, said = self._scan_beside("Latin (Original 2024)",
                                          '{"Info": {"Title": "Café"}}'.encode("cp1252"))

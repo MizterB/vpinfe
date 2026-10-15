@@ -210,6 +210,11 @@ class Job:
 
     def log(self, message: str) -> None:
         logger.info(message)
+        self.heard(message)
+
+    def heard(self, message: str) -> None:
+        """A line handed to whoever started the job, and not logged: for a service whose own
+        reporter has logged it, which `log` would repeat."""
         if self.log_cb:
             try:
                 self.log_cb(message)
@@ -217,8 +222,9 @@ class Job:
                 logger.debug("Log callback failed", exc_info=True)
 
     def reporter(self) -> JobReporter:
-        """This job as the surface services already accept."""
-        return JobReporter(logger, progress_cb=self.progress, log_cb=self.log)
+        """This job as the surface services already accept. The reporter logs a line
+        itself, so it hands the job only the listener's half."""
+        return JobReporter(logger, progress_cb=self.progress, log_cb=self.heard)
 
     def snapshot(self, with_result: bool = False) -> dict:
         """What this job is doing. The result is asked for rather than always sent: it

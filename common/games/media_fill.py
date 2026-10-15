@@ -180,19 +180,36 @@ def _folders_to_games() -> dict[str, tuple[str, Any]]:
 Target = tuple[str, Any, set[str]]
 
 
+def _locked(games: list[Any]) -> set[int]:
+    """The games whose folders cannot be written to, each named once in the log. Asked of
+    every folder at once, so one that does not answer costs one wait and not one per file."""
+    from common.games import library_folders
+
+    held = set()
+    for game, said in library_folders.blocked_games(games):
+        logger.warning("Art: left %s alone: %s", game.game_dir_name, said)
+        held.add(id(game))
+    return held
+
+
 def _fill_games(targets: list[Target], live: tuple[str, ...],
                 reporter: JobReporter | None,
                 proceed: Callable[[], bool]) -> dict[str, int]:
     """Fetch each target's gaps. `filled` and `failed` count files; `unmatched` counts
-    games with no VPS id, which nothing can be looked up for. With no source reachable
-    only the kinds a game's own file can supply are filled."""
-    counts = {"games": len(targets), "filled": 0, "unmatched": 0, "failed": 0}
+    games with no VPS id, which nothing can be looked up for; `skipped` counts games whose
+    folder cannot be written to. With no source reachable only the kinds a game's own
+    file can supply are filled."""
+    counts = {"games": len(targets), "filled": 0, "unmatched": 0, "failed": 0, "skipped": 0}
     if not targets:
         return counts
     media = MediaConfig.from_config(get_ini_config())
+    locked = _locked([game for _, game, _ in targets])
     for index, (game_id, game, wanted) in enumerate(targets):
         if not proceed():
             break
+        if id(game) in locked:
+            counts["skipped"] += 1
+            continue
         name = str(game.game_dir_name or "")
         if reporter:
             reporter.progress(index, len(targets), t("said.media_fetch", game=name))
@@ -366,7 +383,7 @@ def _work(job: jobs.Job) -> dict[str, int]:
     reporter = job.reporter()
     wanted = fillable_kinds()
     live = _reachable()
-    totals = {"games": 0, "filled": 0, "unmatched": 0, "failed": 0}
+    totals = {"games": 0, "filled": 0, "unmatched": 0, "failed": 0, "skipped": 0}
     while True:
         with _lock:
             batch = list(_pending)
@@ -374,8 +391,9 @@ def _work(job: jobs.Job) -> dict[str, int]:
             if not batch or not _proceed():
                 _running = False
                 logger.info("Art for new games: %s file(s) for %s game(s), %s not "
-                            "matched, %s failed", totals["filled"], totals["games"],
-                            totals["unmatched"], totals["failed"])
+                            "matched, %s failed, %s left alone", totals["filled"],
+                            totals["games"], totals["unmatched"], totals["failed"],
+                            totals["skipped"])
                 return totals
         for key, value in _fill(batch, wanted, live, reporter, _proceed).items():
             totals[key] += value
@@ -456,18 +474,23 @@ def update_downloaded(reporter: JobReporter | None = None,
     """Replace art we downloaded that the catalog has since replaced.
 
     Only a file whose recorded hash still matches it, of a kind the library keeps, from
-    a source that is on. `updated` and `failed` count files.
+    a source that is on. `updated` and `failed` count files; `skipped` counts games whose
+    folder cannot be written to.
     """
     from common.games import game_repository, media_service
 
-    counts = {"games": 0, "updated": 0, "failed": 0}
+    counts = {"games": 0, "updated": 0, "failed": 0, "skipped": 0}
     update = art_updater(get_ini_config())
     if update is None:
         return counts
     games = list(game_repository.catalog().items())
+    locked = _locked([game for _, game in games])
     for index, (game_id, game) in enumerate(games):
         if not proceed():
             break
+        if id(game) in locked:
+            counts["skipped"] += 1
+            continue
         name = str(game.game_dir_name or "")
         if reporter:
             reporter.progress(index, len(games), t("said.media_update", game=name))
@@ -483,8 +506,9 @@ def update_downloaded(reporter: JobReporter | None = None,
             counts["updated"] += updated
             media_service.invalidate_media_cache()
             game_repository.refresh_game(Path(str(game.full_path_game)))
-    logger.info("Updating art: %s file(s) replaced across %s game(s), %s failed",
-                counts["updated"], counts["games"], counts["failed"])
+    logger.info("Updating art: %s file(s) replaced across %s game(s), %s failed, "
+                "%s left alone", counts["updated"], counts["games"], counts["failed"],
+                counts["skipped"])
     return counts
 
 

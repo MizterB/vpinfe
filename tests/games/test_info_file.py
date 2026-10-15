@@ -218,6 +218,12 @@ class TestMetaConfig(unittest.TestCase):
 
         self.assertEqual(why(refused), t("error.games.info_bad_line", line=2))
 
+    def test_a_file_holding_a_list_or_a_string_says_it_is_not_a_game(self) -> None:
+        for content in (b"[]", b'["a"]', b'"name"', b"3", b"null"):
+            with self.subTest(content=content):
+                self.assertEqual(why(self._refused(content)),
+                                 t("error.games.info_wrong_shape"))
+
     def test_a_file_not_saved_as_utf8_says_so(self) -> None:
         refused = self._refused('{"Info": {"Title": "Café"}}'.encode("cp1252"))
 

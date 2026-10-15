@@ -44,6 +44,7 @@ from common.games.game_metadata import (
 from common.games.game_parser import GameParser
 from common.games.info_migration import INFO_SCHEMA, schema_of
 from common.games.tables import all_hidden, table_entries
+from common.games.unreadable import UnreadableGame
 from common.paths import COLLECTIONS_PATH, get_ini_config
 
 _LOCK = threading.Lock()
@@ -210,11 +211,11 @@ def info_maintenance_counts(reload: bool = False) -> dict[str, int]:
     }
 
 
-def unreadable_games() -> list[dict[str, str]]:
+def unreadable_games() -> list[UnreadableGame]:
     """Folders whose .info could not be read, so the game was left out of the library."""
     all_games()
     with _LOCK:
-        return [dict(row) for parser in _PARSERS.values()
+        return [row for parser in _PARSERS.values()
                 for row in parser.get_unreadable_games()]
 
 

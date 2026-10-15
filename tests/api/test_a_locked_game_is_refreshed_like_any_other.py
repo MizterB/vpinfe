@@ -250,7 +250,7 @@ class LockedUpgradeLogTests(TempTree):
     def test_it_says_which_could_not_be_upgraded_and_why(self) -> None:
         lines = self._said()
 
-        reason = t("said.why.no_permission_at", path=str(self.root / OLD))
+        reason = t("error.path.read_only", name=OLD)
         self.assertIn(f"Could not upgrade {OLD}: {reason}", lines)
 
     def test_a_run_that_upgraded_none_says_so(self) -> None:

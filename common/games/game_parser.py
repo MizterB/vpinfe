@@ -31,6 +31,7 @@ from common.games.tables import (
     table_entries,
     table_names,
 )
+from common.games.unreadable import UnreadableGame
 from common.media_specs import (
     active_set_for,
     apply_media_specs,
@@ -49,7 +50,7 @@ logger = logging.getLogger("vpinfe.common.games.game_parser")
 # What one folder's scan reports: the game, the folders with no table, and the ones whose
 # .info could not be read. Returned rather than appended to the parser, because the scan
 # runs on a thread pool.
-type ScanResult = tuple[Game | None, list[dict], list[dict]]
+type ScanResult = tuple[Game | None, list[dict], list[UnreadableGame]]
 
 
 def _resolved(path: str | Path) -> str:
@@ -78,7 +79,7 @@ class GameParser:
         self.playfieldvariant = "table"
         self.games: list[Game] = []
         self.missing_games: list[dict] = []
-        self.unreadable_games: list[dict] = []
+        self.unreadable_games: list[UnreadableGame] = []
         self.active_sets: dict[str, str] = {}
         if ini_config:
             self.read_media_settings(ini_config)
@@ -152,12 +153,12 @@ class GameParser:
     def _scan_one(self, game_dir: Path) -> ScanResult:
         """One folder, with what it found kept local to this call."""
         missing: list[dict] = []
-        unreadable: list[dict] = []
+        unreadable: list[UnreadableGame] = []
         game = self._build_game(game_dir, missing=missing, unreadable=unreadable)
         return game, missing, unreadable
 
     def _build_game(self, game_dir: Path, *, missing: list[dict] | None = None,
-                    unreadable: list[dict] | None = None) -> Game | None:
+                    unreadable: list[UnreadableGame] | None = None) -> Game | None:
         """One game folder, read from disk. Returns None when it holds no table.
 
         The whole of what a scan does per game, so refreshing one costs one folder
@@ -361,9 +362,9 @@ class GameParser:
     def get_all_games(self) -> list[Game]:
         return list(self.games)
 
-    def get_unreadable_games(self) -> list[dict]:
+    def get_unreadable_games(self) -> list[UnreadableGame]:
         """Folders whose .info could not be read, so the game was left out."""
-        return [dict(row) for row in self.unreadable_games]
+        return [UnreadableGame(**row) for row in self.unreadable_games]
 
     def get_missing_games(self) -> list[dict]:
         return [dict(row) for row in self.missing_games]

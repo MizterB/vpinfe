@@ -255,8 +255,21 @@ class MetadataOutcomeTests(unittest.TestCase):
     def test_the_folder_it_could_not_write_is_named_with_why_on_hover(self) -> None:
         _, drawn = self._upgrade()
 
-        self.assertEqual(drawn.get(LOCKED),
-                         t("said.why.no_permission_at", path=str(self.root / LOCKED)))
+        self.assertEqual(drawn.get(LOCKED), t("error.path.read_only", name=LOCKED))
+
+    def test_a_folder_it_may_not_write_is_not_tried_or_counted_as_matched(self) -> None:
+        self._lock(self.root / LOCKED)
+        routed: list[str] = []
+
+        def route(record: dict) -> str:
+            routed.append(record["Info"]["Title"])
+            return "bound"
+
+        found = upgrade_library(self.root, route_match=route)
+
+        self.assertEqual(found["matches_bound"], len(routed))
+        self.assertEqual(len(routed), 1)
+        self.assertEqual(found["failures"], [(LOCKED, t("error.path.read_only", name=LOCKED))])
 
     def test_a_job_that_fails_leads_with_words_and_its_reason(self) -> None:
         self.root.chmod(0o000)

@@ -50,6 +50,7 @@ from common.games.tables import (
     table_entries,
     table_names,
 )
+from common.games.unreadable import UnreadableGame
 from common.games.vpx_parser import VPXParser
 from common.i18n import t
 from common.jobs import LogCallback, ProgressCallback
@@ -556,7 +557,7 @@ def _scan(job: jobs.Job, download_media: bool, update_all: bool,
     return metadata_service.build_metadata(
         download_media=download_media, update_all=update_all, game_name=game_name,
         user_media=user_media, iniconfig=_fresh_config(),
-        progress_cb=job.progress, log_cb=job.log)
+        progress_cb=job.progress, log_cb=job.heard)
 
 
 def build_metadata(download_media: bool = True, update_all: bool = True,
@@ -586,7 +587,7 @@ def info_maintenance_counts(reload: bool = False) -> dict[str, int]:
     return game_repository.info_maintenance_counts(reload=reload)
 
 
-def unreadable_games() -> list[dict[str, str]]:
+def unreadable_games() -> list[UnreadableGame]:
     return game_repository.unreadable_games()
 
 
@@ -639,7 +640,7 @@ def upgrade_info(progress_cb: ProgressCallback | None = None,
     def run(owned: jobs.Job) -> UpgradeResult:
         done = info_maintenance.upgrade_library(
             game_name=game_name,
-            progress_cb=owned.progress, log_cb=owned.log,
+            progress_cb=owned.progress, log_cb=owned.heard,
             route_match=route_legacy_match)
         owned.detail = job_details.info_upgraded(done)
         return done
@@ -657,7 +658,7 @@ def restore_info(progress_cb: ProgressCallback | None = None,
     def run(owned: jobs.Job) -> RestoreResult:
         done = info_maintenance.restore_library(
             game_name=game_name, config_dir=CONFIG_DIR,
-            progress_cb=owned.progress, log_cb=owned.log)
+            progress_cb=owned.progress, log_cb=owned.heard)
         owned.detail = job_details.info_restored(done)
         return done
 

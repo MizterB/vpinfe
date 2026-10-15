@@ -218,6 +218,9 @@ class MetaConfig:
                 with open(configfilepath, encoding="utf-8") as f:
                     original = f.read()
                 self.data = json.loads(original)
+                if not isinstance(self.data, dict):
+                    raise InvalidMetaConfigError(
+                        configfilepath, t("error.games.info_wrong_shape"))
             except json.JSONDecodeError as exc:
                 raise InvalidMetaConfigError(
                     configfilepath, t("error.games.info_bad_line", line=exc.lineno)) from exc
