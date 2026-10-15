@@ -212,6 +212,15 @@ class ApiClient:
         whose needs could not be given, and the ones that `failed`."""
         return self._get("/extensions/needs")
 
+    def asks(self) -> list[dict]:
+        """The changes programs have asked the Owner to approve, still waiting."""
+        return list(self._get("/auth/asks").get("asks") or [])
+
+    def answer_ask(self, ask_id: str, approve: bool) -> dict:
+        """Approve or decline one ask. Approving is a Protected write; declining is not."""
+        return self._post(f"/auth/asks/{quote(ask_id, safe='')}/"
+                          f"{'approve' if approve else 'decline'}", {})
+
     def sessions(self) -> list[dict]:
         """The browsers signed in, newest use first."""
         return list(self._get("/auth/sessions").get("sessions") or [])

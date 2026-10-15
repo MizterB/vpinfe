@@ -1271,7 +1271,18 @@ class Library:
         except Exception:  # noqa: BLE001 - what waits to be accepted is not Overview's to fail on
             logger.debug("console: could not read what waits to be accepted", exc_info=True)
             out["unread"].append("unaccepted")
+        try:
+            out["asked"] = self._client.asks()
+        except Exception:  # noqa: BLE001 - a Console not allowed to see them has none to show
+            logger.debug("console: could not read what programs ask", exc_info=True)
         return out
+
+    def answer_ask(self, ask_id: str, approve: bool) -> None:
+        """Approve or decline one ask, and drop it from what Overview holds. Off the loop."""
+        self._client.answer_ask(ask_id, approve)
+        if self._watched is not None:
+            self._watched["asked"] = [one for one in self._watched.get("asked") or ()
+                                      if one.get("id") != ask_id]
 
     def _media_missing(self) -> list[str]:
         return [game["id"] for game in self.games if game["id"] not in self.media]

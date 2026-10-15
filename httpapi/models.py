@@ -4025,6 +4025,32 @@ class TokenMade(ApiModel):
     token: TokenInfo
 
 
+class AskMake(ApiModel):
+    """The one request a program wants to make. `path` is relative to the API, with any
+    query, and `body` is the JSON the request will carry, or null."""
+
+    method: str
+    path: str
+    body: Any = None
+
+
+class AskInfo(ApiModel):
+    """`state` is waiting, approved, declined, used or lapsed. Repeat the request with the
+    id in `X-VPinFE-Approval` once it is approved."""
+
+    id: str
+    token: str
+    method: str
+    path: str
+    body: Any = None
+    state: str
+    expires_in: int
+
+
+class AskList(ApiModel):
+    asks: list[AskInfo]
+
+
 class TokenChange(ApiModel):
     can_power: bool
 

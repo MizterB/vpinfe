@@ -667,5 +667,75 @@ class WhatWaitsToBeAccepted(unittest.TestCase):
         return library
 
 
+class WhatProgramsAsk(unittest.TestCase):
+    ASK = {"id": "a1", "token": "Home", "method": "DELETE", "path": "/games/a/folder",
+           "body": {"force": True}, "state": "waiting", "expires_in": 3000}
+
+    def test_each_ask_is_a_row_of_this_device_that_names_the_exact_change(self):
+        (row,) = needs.asked_rows([self.ASK])
+
+        self.assertEqual("asked:a1", row.key)
+        self.assertEqual(t("console.needs.asked", program="Home"), row.label)
+        self.assertEqual('DELETE /games/a/folder {"force":true}', row.detail)
+        self.assertEqual("a1", row.answer)
+        self.assertEqual(needs.DEVICE, needs.owner_of(row))
+
+    def test_the_tip_says_how_long_it_has(self):
+        (row,) = needs.asked_rows([self.ASK])
+
+        self.assertIn("within 50 minutes", row.tip)
+
+    def test_a_row_is_answered_and_never_set_aside(self):
+        self.assertFalse(needs.can_set_aside("asked:a1"))
+
+    def test_a_request_with_no_body_names_only_where_it_goes(self):
+        (row,) = needs.asked_rows([{**self.ASK, "body": None}])
+
+        self.assertEqual("DELETE /games/a/folder", row.detail)
+
+    def test_an_empty_body_is_still_shown_as_one(self):
+        (row,) = needs.asked_rows([{**self.ASK, "body": {}}])
+
+        self.assertEqual("DELETE /games/a/folder {}", row.detail)
+
+    def test_collect_draws_them_from_the_watched_read(self):
+        lib = FakeLibrary(watched={"asked": [self.ASK]})
+
+        self.assertEqual(["asked:a1"], keys(needs.collect(lib, {})))
+
+    def test_nothing_waiting_is_no_row(self):
+        self.assertEqual([], needs.asked_rows([]))
+        self.assertEqual([], needs.asked_rows(()))
+
+    def test_the_read_takes_what_the_api_lists_and_a_failed_read_is_no_rows(self):
+        def library(asks):
+            client = SimpleNamespace(
+                update_check=lambda: {}, capture_proposals=lambda: {"proposals": []},
+                jobs=lambda limit: [], extension_needs=lambda: {},
+                unaccepted_themes=lambda: {"themes": []}, extensions=lambda: [], asks=asks)
+            read = Library.__new__(Library)
+            read._client = client
+            return read
+
+        def refused():
+            raise OSError("not allowed")
+
+        self.assertEqual([self.ASK], library(lambda: [self.ASK])._read_watched()["asked"])
+        self.assertNotIn("asked", library(refused)._read_watched())
+        self.assertEqual([], library(refused)._read_watched()["unread"])
+
+    def test_an_answered_ask_leaves_what_overview_holds(self):
+        answered = []
+        library = Library.__new__(Library)
+        library._client = SimpleNamespace(answer_ask=lambda ask_id, approve:
+                                          answered.append((ask_id, approve)))
+        library._watched = {"asked": [self.ASK, {**self.ASK, "id": "a2"}]}
+
+        library.answer_ask("a1", True)
+
+        self.assertEqual([("a1", True)], answered)
+        self.assertEqual(["a2"], [one["id"] for one in library._watched["asked"]])
+
+
 if __name__ == "__main__":
     unittest.main()

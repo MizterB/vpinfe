@@ -12,7 +12,7 @@ from collections.abc import Collection, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any
 
-from common import feature_checks
+from common import approvals, feature_checks
 from common.i18n import t
 from console import jobs_list, verbs
 
@@ -34,6 +34,10 @@ EXTENSION, AWAY = "ext:", "away:"
 # whatever is stopped stays so until the Owner accepts it or removes it.
 UNACCEPTED = "unaccepted:"
 AWAY_ALL = AWAY + "*"
+
+# A program's ask to make one change, keyed `asked:<id>`. It lapses on its own and is
+# answered, never set aside.
+ASKED = "asked:"
 
 # A fix VPinFE can do itself, the first entry of the row's menu.
 GET_MEDIA, UPDATE, FETCH_FIXES = "get_media", "update", "fetch_fixes"
@@ -88,6 +92,9 @@ class Need:
     # which is in its label and has no ids of its own to open a grid on.
     source: str = ""
     total: int = 0
+    # An ask's id, and the exact request it would let through, in one line.
+    answer: str = ""
+    detail: str = ""
 
     @property
     def count(self) -> int:
@@ -183,6 +190,21 @@ def unaccepted_rows(waiting: Mapping[str, Any]) -> list[Need]:
                           name=extension.get("display_name") or name),
                         t("console.needs.unaccepted.tip"), WARM, verbs.LOCKED,
                         Opens("settings", keys={"settings_page": ext_page.key(name)})))
+    return out
+
+
+def asked_rows(waiting: Any) -> list[Need]:
+    """A row for each change a program has asked to make, waiting on the Owner."""
+    out = []
+    for one in waiting:
+        body = one.get("body")
+        change = " ".join(part for part in (one["method"], one["path"],
+                                            "" if body is None else approvals.canonical(body))
+                          if part)
+        minutes = max(1, -(-int(one.get("expires_in") or 0) // 60))
+        out.append(Need(f"{ASKED}{one['id']}", t("console.needs.asked", program=one["token"]),
+                        t("console.needs.asked.tip", change=change, count=minutes),
+                        WARM, verbs.LOCKED, Opens(), answer=str(one["id"]), detail=change))
     return out
 
 
@@ -289,6 +311,7 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
                                tip=names["no_year"][1], tone=MUTED, icon=verbs.NO_YEAR,
                                opens=Opens("games", {"year": {"filterType": "number",
                                                              "type": "blank"}})))
+    rows += asked_rows(watched.get("asked") or ())
     rows += unaccepted_rows(watched.get("unaccepted") or {})
     rows += extension_rows(watched.get("extension_needs") or ())
     if unread := _unread(watched.get("unread") or ()):
@@ -505,7 +528,8 @@ def owner_of(need: Need) -> str:
         return EXTENSION + need.key[len(EXTENSION):].partition(":")[0]
     if need.key == "unread":
         return ""
-    return DEVICE if need.key in DEVICE_ROWS or need.key.startswith(UNACCEPTED) else LIBRARY
+    return DEVICE if need.key in DEVICE_ROWS or need.key.startswith((UNACCEPTED, ASKED)) \
+        else LIBRARY
 
 
 def _group_label(owner: str, rows: list[Need]) -> str:

@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import (
     about,
     actions,
+    approvals,
     assets,
     auth,
     backups,
@@ -120,6 +121,7 @@ def create_api_app() -> FastAPI:
     api.include_router(instance.build_router(API_PREFIX, API_VERSION))
     api.include_router(sign_in.router)
     api.include_router(tokens.router)
+    api.include_router(approvals.router)
     api.include_router(encrypted.router)
     api.include_router(events.router)
     api.include_router(collections.router)

@@ -119,6 +119,45 @@ describe("a request is drawn on the controller window", () => {
   });
 });
 
+const ASKED = { id: "a1", kind: "approval", program: "Home", method: "DELETE",
+                path: "/games/a/folder", body: "", long: false, expires_in: 3000 };
+
+describe("a program's ask is drawn the same way", () => {
+  test("it opens the same page with the ask and is closed by the machine saying there is none", async () => {
+    const { vpin, push, frame } = window_();
+
+    await push(ASKED);
+    await settle();
+
+    assert.equal(vpin.overlay, "signIn");
+    const opened = frame().posted.find(m => m.event === "overlay_open");
+    assert.equal(opened.context.kind, "approval");
+    assert.equal(opened.context.path, "/games/a/folder");
+
+    await push(null);
+    assert.equal(vpin.overlay, null);
+  });
+
+  test("exit leaves it by the same call, with the ask's id", async () => {
+    const { push, press, asked } = window_();
+    await push(ASKED);
+    await settle();
+
+    await press("q");
+    await settle();
+
+    assert.deepEqual(asked.filter(c => c[0] === "signin_dismiss"), [["signin_dismiss", "a1"]]);
+  });
+
+  test("an ask that runs out closes itself", async () => {
+    const { vpin, push } = window_();
+    await push({ ...ASKED, expires_in: 0 });
+    await settle();
+
+    assert.equal(vpin.overlay, null);
+  });
+});
+
 describe("it waits while a table is running", () => {
   for (const [launching, done] of [["TableLaunching", "TableLaunchComplete"],
                                    ["RemoteLaunching", "RemoteLaunchComplete"]]) {

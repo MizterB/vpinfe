@@ -73,6 +73,12 @@ the documented entry point is a plain 200. Both spellings work.
 | DELETE | `/api/v1/auth/encrypted/networks?range=` | Remove that range. `protected:write` |
 | PUT | `/api/v1/auth/encrypted/certificate` | `{"certfile", "keyfile"}` chooses the certificate VPinFE serves HTTPS with, at the next start. 400 unless the two files exist and load together. `protected:write` |
 | DELETE | `/api/v1/auth/encrypted/certificate` | Serve plain HTTP again at the next start. `protected:write` |
+| POST | `/api/v1/auth/asks` | `{"method", "path", "body"}` asks the Owner to approve one change. Only a Full Control token can ask, and nothing under `/auth` can be asked for. Answers with the ask's `id`, `state` and `expires_in`. Once approved, repeat that exact request with the id in an `X-VPinFE-Approval` header: it is spent by one request and lapses after an hour. 400 for a request that cannot be asked for or a body over 4096 characters, 429 `too_many_requests` while five asks are waiting (`config:write`) |
+| GET | `/api/v1/auth/asks` | The asks waiting for the Owner, oldest first (`access:read`) |
+| GET | `/api/v1/auth/asks/{ask_id}` | Whether this token's ask is `waiting`, `approved`, `declined`, `used` or `lapsed`. `404` for another token's ask (`config:write`) |
+| DELETE | `/api/v1/auth/asks/{ask_id}` | Take this token's ask back (`config:write`) |
+| POST | `/api/v1/auth/asks/{ask_id}/approve` | The Owner approves it. `404` once it is answered or has lapsed. `protected:write` |
+| POST | `/api/v1/auth/asks/{ask_id}/decline` | The Owner declines it, or takes back an approval not yet used (`access:write`) |
 | GET | `/api/v1/events` | Subscribe to the event stream (SSE). `?events=` filters by name |
 | GET | `/api/v1/play/state` | What this play host is doing, with the running game's `game_id` and when it `started_at`. The snapshot you take once; `play.state_changed` on the stream is how you hear about it after that |
 | POST | `/api/v1/play/stop` | Close the table this play host is running. `stopped` is false when there was nothing to close, which is an answer rather than a failure |

@@ -1,9 +1,10 @@
-"""A sign-in request, a Confirm Code or a pairing code, shown on a Console open on this
-computer.
+"""A sign-in request, a Confirm Code, a pairing code or a program's ask to make a change,
+shown on a Console open on this computer.
 
 A sign-in waits for whoever sits at this computer: Show draws the six digits, Ignore turns
 that address away. A Confirm Code and a pairing code are drawn at once, since the person
-reading them off this screen is the proof they are here. A Console opened from another
+reading them off this screen is the proof they are here. An ask is answered here with
+Approve or Decline, or left for Needs You with Close. A Console opened from another
 computer is never given any of them, because the digits are what lets that computer in.
 """
 
@@ -13,7 +14,7 @@ from typing import Any
 
 from nicegui import ui
 
-from common import sign_in
+from common import approvals, sign_in
 from common.i18n import t
 from console import dialog as frame
 from console import panel, verbs
@@ -35,10 +36,14 @@ def watch() -> None:
         signer = sign_in.instance()
         code = next((one for one in signer.confirms() if one.id not in held["closed"]), None)
         request = None if code is not None else signer.pending()
+        asked = None if code is not None or request is not None \
+            else approvals.instance().on_screen()
         if code is not None:
             key: tuple[str, ...] | None = (code.id,)
+        elif request is not None:
+            key = (request.id, request.state)
         else:
-            key = (request.id, request.state) if request is not None else None
+            key = (asked.id,) if asked is not None else None
         if key == held["key"]:
             return
         held["key"] = key
@@ -49,6 +54,8 @@ def watch() -> None:
             held["dialog"] = _show(code, held["closed"])
         elif request is not None:
             held["dialog"] = _ask(request)
+        elif asked is not None:
+            held["dialog"] = _approve(asked)
 
     ui.timer(POLL_SECONDS, poll)
 
@@ -96,5 +103,27 @@ def _ask(request: sign_in.Request) -> ui.dialog:
                 panel.action(t("console.security.ignore"), lambda: signer.ignore(request.id),
                              icon=verbs.IGNORE, danger=True,
                              hint=t("console.security.ignore_hint"))()
+    sheet.open()
+    return sheet
+
+
+def _approve(ask: approvals.Ask) -> ui.dialog:
+    asks = approvals.instance()
+    change = "\n".join(part for part in (" ".join((ask.method, ask.path)), ask.body) if part)
+    with frame.made().props("persistent") as sheet, ui.card().classes("console-confirm"):
+        ui.label(t("console.security.asks", program=ask.token_name)) \
+            .classes("console-confirm-title")
+        ui.label(change).classes("console-need-change") \
+            .style("white-space:pre-wrap;max-height:40vh;overflow:auto")
+        ui.label(t("console.security.asks_lapse", count=max(1, asks.seconds_left(ask) // 60))) \
+            .classes("console-help text-center")
+        with ui.row().classes("justify-center w-full"):
+            panel.action(t("console.needs.decline"), lambda: asks.decline(ask.id),
+                         icon=verbs.IGNORE,
+                         hint=t("console.needs.decline.help"))()
+            panel.action(t("console.needs.approve"), lambda: asks.approve(ask.id),
+                         icon=verbs.ACCEPT, hint=t("console.needs.approve.help"))()
+            panel.action(t("word.close"), lambda: asks.leave_screen(ask.id), icon=verbs.CLOSE,
+                         hint=t("console.security.asks_close_hint"))()
     sheet.open()
     return sheet

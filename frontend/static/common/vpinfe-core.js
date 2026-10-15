@@ -484,6 +484,8 @@ const INTERNAL_METHODS = new Set([
   "signin_show",
   "signin_ignore",
   "signin_dismiss",
+  "approval_approve",
+  "approval_decline",
   "set_player_up",
   "set_player_rating",
   "get_player_rating",

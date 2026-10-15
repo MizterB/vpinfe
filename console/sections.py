@@ -16,6 +16,7 @@ from typing import Any
 
 from nicegui import run, ui
 
+from common import approvals
 from common.failures import why
 from common.i18n import t
 from common.media_specs import media_label_map
@@ -182,6 +183,9 @@ def _need_row(need: needs.Need, state: dict[str, Any], fix: Callable[..., Any],
     """Icon in its tone, label, what joined since it was dismissed, count in its own unit,
     and the whole row opens what it counted. Its menu is the button at its end and a right
     click anywhere on it."""
+    if need.answer:
+        _ask_row(need, acts)
+        return
     row = ui.element("div").classes(f"console-need console-need--{need.tone}") \
         .props("tabindex=0 role=link")
     row.on("click", lambda: state["open_on"](need.opens))
@@ -215,6 +219,22 @@ def _need_row(need: needs.Need, state: dict[str, Any], fix: Callable[..., Any],
             _button, menu = panel.menu_button(verbs.MORE, t("console.needs.row_menu"))
         _need_menu(menu, need, fix, acts)
         _need_menu(ui.context_menu(), need, fix, acts)
+
+
+def _ask_row(need: needs.Need, acts: set_aside.Acts) -> None:
+    """A program's ask: what it would change, exactly, and the two answers. Nothing here
+    opens, because nothing else is where it is decided."""
+    row = ui.element("div").classes(f"console-need console-need--static console-need--{need.tone}")
+    with row:
+        ui.icon(need.icon).classes("console-need-icon")
+        with ui.element("div").classes("grow min-w-0"):
+            ui.label(need.label).classes("console-setting")
+            ui.label(need.detail).classes("console-help console-need-change")
+        panel.action(t("console.needs.decline"), lambda: acts.answer(need, False), inline=True,
+                     icon=verbs.IGNORE, hint=t("console.needs.decline.help"))()
+        panel.action(t("console.needs.approve"), lambda: acts.answer(need, True), inline=True,
+                     icon=verbs.ACCEPT, hint=t("console.needs.approve.help"))()
+    row.tooltip(need.tip)
 
 
 def _aside_line(one: needs.Aside, acts: set_aside.Acts) -> None:
@@ -489,6 +509,19 @@ def overview(library: Library, registry: list[dict], discovery: dict,
             go("overview")
 
     acts = set_aside.Acts(library, drawn_again)
+
+    def waiting() -> tuple[str, ...]:
+        return tuple(one.id for one in approvals.instance().waiting())
+
+    asking = {"seen": waiting()}
+
+    def an_ask_came_or_went() -> None:
+        if (now := waiting()) != asking["seen"]:
+            asking["seen"] = now
+            library.forget_watched()
+            drawn_again()
+
+    ui.timer(front.POLL_S, an_ask_came_or_went)
 
     # The container the two columns answer to: this page's own width, not the window's,
     # which the workbench pane shares.

@@ -180,6 +180,8 @@ API_INTERNAL_METHODS = {
     'signin_show',
     'signin_ignore',
     'signin_dismiss',
+    'approval_approve',
+    'approval_decline',
     # The main menu's Player list and its Rating dialog asking whose. A theme reads who
     # is up through get_players/PlayersChanged; only core's own overlay writes it.
     'set_player_up',
@@ -786,6 +788,15 @@ class API:
 
     def signin_dismiss(self, request_id: Any) -> dict[str, Any]:
         sign_in_prompt.dismiss(str(request_id))
+        return {}
+
+    def approval_approve(self, ask_id: Any) -> dict[str, Any]:
+        """Approve: let the program repeat the one request it asked about."""
+        sign_in_prompt.approve(str(ask_id))
+        return {}
+
+    def approval_decline(self, ask_id: Any) -> dict[str, Any]:
+        sign_in_prompt.decline(str(ask_id))
         return {}
 
     def console_out(self, output: Any, frame: str = "") -> Any:

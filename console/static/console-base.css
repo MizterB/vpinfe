@@ -2353,6 +2353,10 @@ button.q-btn--flat.text-primary:hover .q-btn__content {
 }
 .console-figure:hover, .console-figure:focus-visible { background: var(--accent-wash); outline: none; }
 .console-job-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.console-need-change {
+  white-space: pre-wrap; overflow-wrap: anywhere; max-height: 12em; overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
 .console-aside-line { padding: 4px 10px; min-height: var(--target-inline); }
 /* A heading, wherever one appears: a card's, a group's, a dialog region's. Declared once
    so the three cannot drift apart on colour, which is how they did. What differs between

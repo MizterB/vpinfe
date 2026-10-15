@@ -10,7 +10,7 @@ import logging
 import re
 import time
 from collections.abc import Iterator, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from fastapi import Depends, FastAPI, Request
@@ -21,7 +21,7 @@ from starlette.responses import Response
 from starlette.routing import BaseRoute, compile_path
 
 from common import api_tokens as tokens
-from common import encrypted_connections, extensions, machine_secrets, sign_in
+from common import approvals, encrypted_connections, extensions, machine_secrets, sign_in
 from common.extensions import reach
 from common.host import this_machine
 from common.i18n import t
@@ -49,6 +49,10 @@ NETWORK = "network"
 # The reasons a refusal carries in `details`, for a surface to act on rather than parse.
 CONFIRM_NEEDED = "confirm_needed"
 PROTECTED = "protected"
+APPROVAL_INVALID = "approval_invalid"
+
+# A token repeats a request with the id of the ask the Owner approved.
+APPROVAL_HEADER = "x-vpinfe-approval"
 
 
 @dataclass(frozen=True)
@@ -296,12 +300,42 @@ def _is_api_description(request: Request) -> bool:
     return path.rstrip("/") in served
 
 
+def _relative_path(request: Request) -> str:
+    """The path and query as an ask names them: relative to the API."""
+    path = request.url.path
+    root = request.scope.get("root_path", "")
+    if root and path.startswith(root):
+        path = path[len(root):]
+    return f"{path}?{request.url.query}" if request.url.query else path
+
+
+async def _approved(request: Request, identity: Identity, approval_id: str) -> Identity | None:
+    """The token's identity with the Protected tier added for this one request, or None
+    when the approval is not for this exact request. A match spends the approval."""
+    declared = request.headers.get("content-length", "")
+    if declared.isdigit() and int(declared) > approvals.MAX_BODY_CHARS * 4:
+        return None
+    body = approvals.canonical_bytes(await request.body())
+    if body is None or not approvals.instance().redeem(
+            approval_id, identity.token_id, request.method, _relative_path(request), body):
+        return None
+    return replace(identity, scopes=identity.scopes | scopes.CONFIRMED
+                   | granted_extension_scopes(reach.PROTECTED))
+
+
 class ScopeMiddleware(BaseHTTPMiddleware):
     """Stamps the caller's identity on every request into the API."""
 
     async def dispatch(self, request: Request,
                        call_next: RequestResponseEndpoint) -> Response:
         identity = _policy.identify(request)
+        presented = request.headers.get(APPROVAL_HEADER, "")
+        if presented and identity.kind == "token":
+            approved = await _approved(request, identity, presented)
+            if approved is None:
+                return error_response(403, CODE_FORBIDDEN, t("error.approvals.not_valid"),
+                                      details={"reason": APPROVAL_INVALID})
+            identity = approved
         request.state.identity = identity
         # The spec lists every route and scope, so it is for someone who can use them.
         if not identity.can(scopes.CONFIG_READ) and _is_api_description(request):

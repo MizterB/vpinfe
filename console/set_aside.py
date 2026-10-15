@@ -22,7 +22,7 @@ logger = logging.getLogger("vpinfe.console.set_aside")
 
 
 class Acts:
-    """The four things done to a row from the page, bound to the library they write to and
+    """The things done to a row from the page, bound to the library they write to and
     to what redraws Overview afterwards."""
 
     def __init__(self, library: Library, redraw: Callable[[], None]) -> None:
@@ -91,3 +91,18 @@ class Acts:
             return
         undo.offer(t("console.needs.said_checking", label=label or needs.name_of(key)),
                    lambda: self._checking(key, False))
+
+    @on_page
+    async def answer(self, need: needs.Need, approve: bool) -> None:
+        """Approve or decline the program's ask `need` is a row of."""
+        try:
+            await run.io_bound(self.library.answer_ask, need.answer, approve)
+        except Exception as exc:  # noqa: BLE001 - the reason belongs on screen
+            logger.warning("console: an ask was not answered", exc_info=True)
+            ui.notify(t("console.needs.answer_failed"), caption=why(exc), type="negative")
+            self.library.forget_watched()
+            self.redraw()
+            return
+        ui.notify(t("console.needs.said_approved" if approve else "console.needs.said_declined"),
+                  type="positive" if approve else "info")
+        self.redraw()

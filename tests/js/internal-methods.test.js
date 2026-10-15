@@ -27,6 +27,8 @@ describe("vpin.call refuses core's own methods", () => {
     assert.deepEqual([...internal].sort(), [
       "apply_filters",
       "apply_sort",
+      "approval_approve",
+      "approval_decline",
       "decide_preview",
       "end_preview",
       "get_attract_config",
