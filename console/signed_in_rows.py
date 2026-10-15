@@ -40,11 +40,11 @@ COLUMNS = [
                        help=t("console.security.col_address.help")),
     grid_module.column("access", t("console.security.col_access"), 90,
                        help=t("console.security.col_access.help")),
-    grid_module.column("created", t("console.security.col_first_seen"), 120,
+    grid_module.column("created", t("console.security.col_first_seen"), 130,
                        help=t("console.security.col_first_seen.help"),
                        tooltipField="created_at",
                        **{":valueFormatter": "params => (params.data || {}).created_day || ''"}),
-    grid_module.column("last_used", t("console.security.col_last_used"), 120,
+    grid_module.column("last_used", t("console.security.col_last_used"), 160,
                        help=t("console.security.col_last_used.help"), **when.cell("last_used")),
 ]
 

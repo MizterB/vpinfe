@@ -909,7 +909,7 @@ body::before {
   width: min(900px, 94vw); height: min(70vh, 380px); display: flex; flex-direction: column;
 }
 .console-dialog.console-signed-in-card.q-card {
-  width: min(900px, 94vw); height: min(70vh, 420px); display: flex; flex-direction: column;
+  width: min(1000px, 94vw); height: min(70vh, 420px); display: flex; flex-direction: column;
 }
 /* With no copies the message sits in the middle of the height the dialog opened at. */
 .console-backups-none:not(.hidden) { flex: 1 1 auto; width: 100%; text-align: center; display: flex; align-items: center; justify-content: center; }

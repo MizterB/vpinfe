@@ -16,6 +16,7 @@ from tempfile import TemporaryDirectory
 
 from common import sign_in
 from common.i18n import t
+from console import signed_in_rows
 from tests.support.browser_session import BrowserSession, chromium_path
 from tests.support.console_walk import ConsoleWalk, clicked
 from tests.support.live_instance import LiveInstance
@@ -48,6 +49,38 @@ CELL_OF = ("(() => { const el = document.querySelector("
            f"'{LIST} .ag-row .ag-cell[col-id=%s]'); return el ? el.innerText : null; }})()")
 SIGN_OUT_HERE = ("[...document.querySelectorAll('.console-invite')]"
                  f".some(el => el.innerText.includes({SIGN_OUT_WORD}))")
+FILL = f"getComputedStyle(document.querySelector({json.dumps(SUMMARY)})).backgroundColor"
+CLEAR = "rgba(0, 0, 0, 0)"
+# The longest each column draws: every month's date, the last relative step before the date, an
+# address, and the longest name a browser is given, with the chip on the one in use.
+_AGO = (t("date.minutes_ago", count=59), t("date.hours_ago", count=23),
+        t("date.days_ago", count=29), "28 Sep 2026")
+LONGEST = [
+    {"id": f"long{month}", "browser": t("signin.agent", browser="Firefox", device="Chromebook"),
+     "here": month == 1, "address": "255.255.255.255",
+     "access": "Remote", "created": f"2026-{month:02d}-28T00:00:00+00:00",
+     "created_at": f"2026-{month:02d}-28 00:00",
+     "created_day": f"28 {t(f'date.month.{month}')} 2026", "last_used": "2026-10-15T00:00:00+00:00",
+     "last_used_ago": _AGO[month % len(_AGO)], "last_used_at": "2026-10-15 00:00"}
+    for month in range(1, 13)]
+CELLS = f"{LIST} .ag-center-cols-container .ag-cell"
+_GRID_API = (f"getElement(Number(document.querySelector('{LIST} .ag-root-wrapper')"
+             ".closest('.nicegui-aggrid').id.slice(1))).api")
+# Replaces the list's rows with LONGEST, keeping the ones it had for CUT_OFF_AT_THE_LONGEST.
+SHOW_LONGEST = (
+    f"(() => {{ const api = {_GRID_API}; window.signedInRowsWere = [];"
+    " api.forEachNode(node => window.signedInRowsWere.push(node.data));"
+    f" api.setGridOption('rowData', {json.dumps(LONGEST)}); return true; }})()")
+ALL_LONGEST_DRAWN = (f"document.querySelectorAll('{CELLS}').length"
+                     f" === {len(LONGEST) * len(signed_in_rows.COLUMNS)}")
+# Reports the cells that cut their text off, then puts the rows SHOW_LONGEST replaced back.
+CUT_OFF_AT_THE_LONGEST = (
+    f"(() => {{ const cells = [...document.querySelectorAll('{CELLS}')];"
+    " const cut = cells.filter(cell => cell.scrollWidth > cell.clientWidth)"
+    "  .map(cell => `${cell.getAttribute('col-id')} ${cell.scrollWidth}>${cell.clientWidth}:"
+    " ${cell.innerText}`);"
+    f" {_GRID_API}.setGridOption('rowData', window.signedInRowsWere);"
+    " return {cut, cells: cells.length}; })()")
 
 
 def _browser() -> urllib.request.OpenerDirector:
@@ -118,6 +151,13 @@ class ConsoleSignInNoticeDrive(unittest.TestCase):
                 f"document.querySelector({json.dumps(SUMMARY)}).innerText.includes('2 ')",
                 timeout=30)
             seen["summary_after"] = await browser.evaluate(TEXT_OF % json.dumps(SUMMARY))
+            await browser.unhover()
+            await browser.wait_for(f"{FILL} === {json.dumps(CLEAR)}")
+            seen["fill_at_rest"] = await browser.evaluate(FILL)
+            await browser.hover(SUMMARY)
+            await browser.wait_for(f"{FILL} !== {json.dumps(CLEAR)}")
+            seen["fill_hovered"] = await browser.evaluate(FILL)
+            await browser.unhover()
 
             await walk.act(clicked(browser, f"document.querySelector({json.dumps(SUMMARY)})"
                                             ".click() || true"),
@@ -127,6 +167,10 @@ class ConsoleSignInNoticeDrive(unittest.TestCase):
                 f"document.querySelectorAll({json.dumps(ROWS)}).length")
             seen["first_seen"] = await browser.evaluate(CELL_OF % "created")
             seen["last_used"] = await browser.evaluate(CELL_OF % "last_used")
+            await browser.evaluate(SHOW_LONGEST)
+            await browser.wait_for(ALL_LONGEST_DRAWN)
+            seen["longest"] = await browser.evaluate(CUT_OFF_AT_THE_LONGEST)
+            await browser.wait_for(f"document.querySelectorAll({json.dumps(ROWS)}).length === 2")
             seen["sign_out_before_pick"] = await browser.evaluate(SIGN_OUT_ENABLED)
             await walk.act(lambda: browser.click(ROW_BOX), until=SIGN_OUT_ENABLED)
             await walk.act(clicked(browser, f"({SIGN_OUT_BUTTON}).click() || true"),
@@ -170,6 +214,14 @@ class ConsoleSignInNoticeDrive(unittest.TestCase):
         self.assertEqual(self.seen["list_rows"], 2)
         self.assertTrue(str(self.seen["first_seen"]).strip())
         self.assertTrue(str(self.seen["last_used"]).strip())
+
+    def test_the_summary_lights_under_the_pointer_and_not_otherwise(self) -> None:
+        self.assertEqual(self.seen["fill_at_rest"], CLEAR)
+        self.assertNotEqual(self.seen["fill_hovered"], self.seen["fill_at_rest"])
+
+    def test_no_cell_cuts_its_text_off_at_the_longest_time_and_date(self) -> None:
+        self.assertEqual(self.seen["longest"]["cells"], len(LONGEST) * len(signed_in_rows.COLUMNS))
+        self.assertEqual(self.seen["longest"]["cut"], [])
 
     def test_signing_out_waits_for_a_pick(self) -> None:
         self.assertFalse(self.seen["sign_out_before_pick"])

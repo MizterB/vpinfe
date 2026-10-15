@@ -80,7 +80,7 @@ class WhatTheSummarySays(unittest.TestCase):
     def test_nobody_signed_in_is_plain_words_and_opens_nothing(self) -> None:
         found = signed_in_rows.entry("Signed In", [], mock.Mock())
 
-        self.assertEqual(found, ("Signed In", "No other device signed in"))
+        self.assertEqual(found, ("Signed In", "No other browser signed in"))
 
     def test_someone_signed_in_is_a_summary_that_opens_the_list(self) -> None:
         choose = mock.Mock()

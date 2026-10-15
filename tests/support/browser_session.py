@@ -295,14 +295,8 @@ class BrowserSession:
             await asyncio.sleep(0.1)
         raise TimeoutError(f"never became truthy: {expression} (last={last!r})")
 
-    async def click(self, selector: str, *, nth: int = 0) -> None:
-        """Click something the way a finger does, at its own coordinates, once it has
-        stopped moving.
-
-        A real mouse event, not `element.click()`. Quasar builds several of its controls
-        - a select, a menu item - out of listeners that a synthetic click never reaches,
-        so a test that drives them with `.click()` reports success and changes nothing.
-        """
+    async def _centre(self, selector: str, nth: int) -> dict:
+        """Where the element is once it has stopped moving, scrolled into view."""
         where = await self.evaluate(
             "(async () => {"
             f" const pick = () => document.querySelectorAll({json.dumps(selector)})[{int(nth)}];"
@@ -323,10 +317,33 @@ class BrowserSession:
             raise AssertionError(f"nothing to click at {selector!r}[{nth}]")
         if where.get("moving"):
             raise AssertionError(f"{selector!r}[{nth}] was still moving after 5s")
+        return where
+
+    async def click(self, selector: str, *, nth: int = 0) -> None:
+        """Click something the way a finger does, at its own coordinates, once it has
+        stopped moving.
+
+        A real mouse event, not `element.click()`. Quasar builds several of its controls
+        - a select, a menu item - out of listeners that a synthetic click never reaches,
+        so a test that drives them with `.click()` reports success and changes nothing.
+        """
+        where = await self._centre(selector, nth)
         for event in ("mousePressed", "mouseReleased"):
             await self.send("Input.dispatchMouseEvent",
                             {"type": event, "x": where["x"], "y": where["y"],
                              "button": "left", "clickCount": 1})
+
+    async def hover(self, selector: str, *, nth: int = 0) -> None:
+        """Rest the pointer on something, as a mouse does, so `:hover` applies to it."""
+        where = await self._centre(selector, nth)
+        await self.send("Input.dispatchMouseEvent",
+                        {"type": "mouseMoved", "x": where["x"], "y": where["y"],
+                         "button": "none"})
+
+    async def unhover(self) -> None:
+        """Move the pointer to a corner of the page, off everything."""
+        await self.send("Input.dispatchMouseEvent",
+                        {"type": "mouseMoved", "x": 1, "y": 1, "button": "none"})
 
     async def press(self, key: str, code: str) -> None:
         for event in ("keyDown", "keyUp"):
