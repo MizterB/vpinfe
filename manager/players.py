@@ -20,16 +20,14 @@ from nicegui import run, ui
 from common import icons
 from common.failures import why
 from common.i18n import t
-from manager import (
+from manager import ext_page, mediasource, mediaview
+from manager.kit import (
     art,
     busy,
     confirm,
     deeplink,
-    ext_page,
     game_tables,
     grid,
-    mediasource,
-    mediaview,
     offload,
     panel,
     play_facts,
@@ -38,9 +36,9 @@ from manager import (
     verbs,
     views,
 )
-from manager import dialog as frame
-from manager.data import Library
-from manager.on_page import on_page
+from manager.kit import dialog as frame
+from manager.kit.data import Library
+from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.players")
 

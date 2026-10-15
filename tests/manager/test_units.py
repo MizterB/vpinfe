@@ -7,7 +7,7 @@ import unittest
 from unittest import mock
 
 from common import config_schema, i18n
-from manager import units
+from manager.kit import units
 
 
 class ResolvedTests(unittest.TestCase):

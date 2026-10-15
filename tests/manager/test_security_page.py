@@ -7,7 +7,8 @@ import unittest
 from unittest import mock
 
 from common import serving, sign_in
-from manager import panel, security, settings, signed_in_rows
+from manager import security, settings, signed_in_rows
+from manager.kit import panel
 
 NOW = 2_000_000_000.0
 IPHONE = {"id": "a1", "kind": sign_in.OWNER, "address": "192.168.1.31",

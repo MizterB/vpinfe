@@ -17,7 +17,7 @@ import re
 import unittest
 from unittest import mock
 
-from manager import appearance
+from manager.kit import appearance
 
 # Every block that ships, in one string - a token may be defined in one and used in
 # another, and checking them apart would report both halves as broken.

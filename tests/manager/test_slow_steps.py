@@ -9,7 +9,8 @@ from types import SimpleNamespace
 from typing import Any
 from unittest import mock
 
-from manager import api, ext_action, offload, wizard
+from manager import ext_action
+from manager.kit import api, offload, wizard
 
 
 def _ran(work: Any) -> Any:

@@ -19,21 +19,21 @@ from common import icons
 from common.failures import why
 from common.i18n import t
 from common.labels import humanize
-from manager import (
+from manager import needs
+from manager.kit import (
     art,
     deeplink,
     dropdown,
     game_tables,
-    needs,
     offload,
     panel,
     play_facts,
     verbs,
     when,
 )
-from manager.api import ApiClient
-from manager.data import FRONT_FRESH_S, Library
-from manager.on_page import on_page
+from manager.kit.api import ApiClient
+from manager.kit.data import FRONT_FRESH_S, Library
+from manager.kit.on_page import on_page
 
 STRIP = 8
 POLL_S = FRONT_FRESH_S

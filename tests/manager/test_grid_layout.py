@@ -9,7 +9,7 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
-from manager import grid
+from manager.kit import grid
 
 COLUMNS = [{"field": "name", "width": 240, "pinned": "left"}, {"field": "year", "width": 90},
            {"field": "rating", "width": 130}, {"field": "plays", "width": 130}]
@@ -149,8 +149,8 @@ class AppliedStateTests(unittest.TestCase):
 class ApplyLayoutTests(unittest.IsolatedAsyncioTestCase):
     async def _applied(self, stored: dict[str, Any]) -> dict[str, Any]:
         table = _Grid()
-        with patch("manager.api.ApiClient"), \
-                patch("manager.grid.offload.io", new=AsyncMock(return_value=stored)):
+        with patch("manager.kit.api.ApiClient"), \
+                patch("manager.kit.grid.offload.io", new=AsyncMock(return_value=stored)):
             await grid.apply_layout(table, "test.grid", COLUMNS)  # type: ignore[arg-type]
         [(_, applied)] = [sent for sent in table.sent if sent[0] == "applyColumnState"]
         return applied
@@ -186,9 +186,9 @@ class SaveTests(unittest.IsolatedAsyncioTestCase):
                 raise self.read
             return self.read
 
-        for patcher in (patch("manager.api.ApiClient"),
-                        patch("manager.grid.offload.io", new=read),
-                        patch("manager.grid.run.io_bound", new=put)):
+        for patcher in (patch("manager.kit.api.ApiClient"),
+                        patch("manager.kit.grid.offload.io", new=read),
+                        patch("manager.kit.grid.run.io_bound", new=put)):
             patcher.start()
             self.addCleanup(patcher.stop)
         grid._save_on_change(self.table, "test.grid", None)  # type: ignore[arg-type]
@@ -285,7 +285,7 @@ class SaveTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_a_layout_that_could_not_be_read_is_not_written_over(self) -> None:
         self.read = OSError("unreadable")
-        with self.assertLogs("vpinfe.manager.grid", "WARNING"):
+        with self.assertLogs("vpinfe.manager.kit.grid", "WARNING"):
             await self._drawn()
         self.table.width("name", 200)
 

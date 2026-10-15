@@ -143,7 +143,7 @@ class TabTests(unittest.IsolatedAsyncioTestCase):
     """Record in the tab: one kind, kept for review, at the destination's tier."""
 
     def setUp(self) -> None:
-        self.enterContext(mock.patch("manager.on_page.ui"))
+        self.enterContext(mock.patch("manager.kit.on_page.ui"))
         self.enterContext(mock.patch.object(mediasource, "ui"))
         self.enterContext(mock.patch.object(mediasource.offload, "io",
                                             mock.AsyncMock(side_effect=_io)))

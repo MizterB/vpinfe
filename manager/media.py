@@ -20,17 +20,9 @@ from common import icons
 from common.games import asset_origin
 from common.i18n import t
 from common.media_specs import media_label_map
-from manager import (
-    file_acts,
-    game_tables,
-    grid,
-    media_ownership,
-    offload,
-    panel,
-    thumbnails,
-    views,
-)
+from manager import file_acts
 from manager.games import view_control
+from manager.kit import game_tables, grid, media_ownership, offload, panel, thumbnails, views
 
 SCOPE = "manager.media.columns"
 

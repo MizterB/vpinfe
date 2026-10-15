@@ -14,10 +14,11 @@ from nicegui import run, ui
 
 from common.failures import why
 from common.i18n import t
-from manager import dropdown, game_tables, launchers, offload, panel, stars, tag_chips, undo
+from manager import launchers
 from manager.app_settings import JOB_POLL_S
-from manager.on_page import on_page
-from manager.panel import HEADING
+from manager.kit import dropdown, game_tables, offload, panel, stars, tag_chips, undo
+from manager.kit.on_page import on_page
+from manager.kit.panel import HEADING
 
 logger = logging.getLogger("vpinfe.manager.selection_marks")
 

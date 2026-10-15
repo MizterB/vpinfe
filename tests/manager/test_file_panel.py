@@ -6,7 +6,8 @@ import unittest
 from typing import Any
 
 from common.i18n import t
-from manager import art, file_acts, grid, media_ownership, workbench
+from manager import file_acts, workbench
+from manager.kit import art, grid, media_ownership
 
 
 def _row(kind: str = "backglass", table: str = "", present: bool = True, **more: Any) -> dict:

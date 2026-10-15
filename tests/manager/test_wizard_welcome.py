@@ -13,7 +13,8 @@ from unittest import mock
 
 from nicegui import core, ui
 
-from manager import appearance, ext_action, offload, wizard
+from manager import ext_action
+from manager.kit import appearance, offload, wizard
 from tests.support.clicks import said
 from tests.support.stylesheet import declarations
 
@@ -163,7 +164,7 @@ class PictureTests(unittest.TestCase):
     def _drawn(self, field: dict[str, Any], *, welcome: bool = False,
                errors: dict[str, Any] | None = None, beside: tuple[dict[str, Any], ...] = ()
               ) -> tuple[dict[str, Any], dict[str, tuple[str, Any]], ui.element]:
-        from manager.api import ApiClient
+        from manager.kit.api import ApiClient
 
         values: dict[str, Any] = {}
         with _PAGE:

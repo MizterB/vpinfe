@@ -32,18 +32,10 @@ from nicegui import ui
 
 from common.failures import why
 from common.i18n import t
-from manager import (
-    busy,
-    clipboard,
-    deeplink,
-    dropdown,
-    offload,
-    panel,
-    verbs,
-)
 from manager import devices as devices_page
-from manager.data import Library
-from manager.on_page import on_page
+from manager.kit import busy, clipboard, deeplink, dropdown, offload, panel, verbs
+from manager.kit.data import Library
+from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.logs")
 

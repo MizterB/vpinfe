@@ -26,9 +26,9 @@ from nicegui import ui
 
 from common.failures import why
 from common.i18n import t
-from manager import busy, clipboard, offload, panel, verbs
 from manager import whats_new as whats_new_page
-from manager.data import Library
+from manager.kit import busy, clipboard, offload, panel, verbs
+from manager.kit.data import Library
 
 logger = logging.getLogger("vpinfe.manager.about")
 

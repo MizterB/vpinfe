@@ -6,8 +6,9 @@ import unittest
 from typing import cast
 
 from common.i18n import t
-from manager import data, games, grid, renderers, tageditor, verbs
-from manager.api import ApiClient
+from manager import games, tageditor
+from manager.kit import data, grid, renderers, verbs
+from manager.kit.api import ApiClient
 
 
 def _column(columns: list[dict], field: str) -> dict:

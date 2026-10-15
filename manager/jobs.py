@@ -18,18 +18,10 @@ from nicegui import ui
 
 from common.failures import why
 from common.i18n import t
-from manager import (
-    busy,
-    dropdown,
-    grid,
-    job_report,
-    jobs_list,
-    offload,
-    panel,
-    verbs,
-)
-from manager.data import Library
-from manager.on_page import on_page
+from manager import job_report, jobs_list
+from manager.kit import busy, dropdown, grid, offload, panel, verbs
+from manager.kit.data import Library
+from manager.kit.on_page import on_page
 
 EVERY_SECONDS = 2.0
 

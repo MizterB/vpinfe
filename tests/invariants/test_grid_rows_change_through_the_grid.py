@@ -16,7 +16,7 @@ from tests.support import trees
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 MANAGER = REPO / "manager"
-HELPER = MANAGER / "grid.py"
+HELPER = MANAGER / "kit" / "grid.py"
 CALL = "applyTransaction"
 
 # Each takes the held rows at this position.

@@ -5,7 +5,8 @@ from typing import Any
 from unittest.mock import AsyncMock, patch
 
 from common.i18n import t
-from manager import game_tables, workbench
+from manager import workbench
+from manager.kit import game_tables
 from tests.support.clicks import press
 
 FOLDER_NAMED = "Multi VPX (Original 2024).vpx"

@@ -407,7 +407,7 @@ class MarkWordsTests(unittest.TestCase):
     def _time(self) -> str:
         from datetime import datetime
 
-        from manager import when
+        from manager.kit import when
 
         return when.clock(datetime.fromtimestamp(self.AT).astimezone())
 

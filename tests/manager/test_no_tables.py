@@ -9,7 +9,8 @@ from unittest import mock
 from nicegui import ui
 
 from common.i18n import t
-from manager import games, needs, sections, views
+from manager import games, needs, sections
+from manager.kit import views
 
 
 def _game(game_id: str, **rest):

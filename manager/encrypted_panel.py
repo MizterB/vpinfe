@@ -16,11 +16,11 @@ from common.host import this_machine
 from common.i18n import t
 from common.install_identity import display_name
 from common.paths import get_ini_config
-from manager import dialog as frame
-from manager import folder_picker, offload, panel, verbs
-from manager.api import ApiError
-from manager.data import Library
-from manager.on_page import on_page
+from manager.kit import dialog as frame
+from manager.kit import folder_picker, offload, panel, verbs
+from manager.kit.api import ApiError
+from manager.kit.data import Library
+from manager.kit.on_page import on_page
 
 CERTIFICATE_SUFFIXES = (".pem", ".crt", ".cer", ".key")
 

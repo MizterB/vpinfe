@@ -1,7 +1,7 @@
 """The Manager in a real browser, read only once the page says it is drawn.
 
 The page says so itself: `window.did_handshake`, and nothing on it marked
-`aria-busy="true"` (`manager/busy.py`). Every wait here is on that, or on the change an
+`aria-busy="true"` (`manager/kit/busy.py`). Every wait here is on that, or on the change an
 action causes. Quiet is asked for only after the page has said it is drawn.
 """
 

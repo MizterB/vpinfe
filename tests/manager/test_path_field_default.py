@@ -8,7 +8,8 @@ from unittest.mock import AsyncMock, patch
 
 from nicegui import ui
 
-from manager import folder_picker, panel, settings, verbs
+from manager import settings
+from manager.kit import folder_picker, panel, verbs
 from tests.manager.test_a_field_left_as_it_was import _drawn, _input, _ran, _settled
 from tests.support.clicks import said
 

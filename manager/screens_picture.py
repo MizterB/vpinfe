@@ -17,8 +17,8 @@ from typing import Any
 from nicegui import ui
 
 from common.i18n import t
-from manager import panel, verbs
-from manager.on_page import on_page
+from manager.kit import panel, verbs
+from manager.kit.on_page import on_page
 from manager.screens import Screen
 
 BACKGLASS = "backglass"

@@ -34,7 +34,7 @@ def _buttons(element: ui.element) -> list[str]:
 
 class TheOnlineTab(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
-        patched = patch("manager.offload.run.io_bound", new=_now)
+        patched = patch("manager.kit.offload.run.io_bound", new=_now)
         patched.start()
         self.addCleanup(patched.stop)
         self.probe = _slot()
@@ -101,7 +101,7 @@ class TheOnlineTab(unittest.IsolatedAsyncioTestCase):
 
         self.probe.library.media_offers.side_effect = lambda vps_id, _kind: (
             [{"id": "x", "name": "from-other.png", "source": "x"}] if vps_id == "other" else [])
-        with patch("manager.offload.run.io_bound", new=gated):
+        with patch("manager.kit.offload.run.io_bound", new=gated):
             slow = asyncio.ensure_future(self.probe._show_offers(
                 self.probe.online_body, "other", "Other Game"))
             await asyncio.sleep(0)

@@ -20,7 +20,8 @@ from unittest.mock import patch
 from apps.vpx import ini as vini
 from apps.vpx.setting_types import REGISTERED
 from common.games import launcher_ops, launchers
-from manager import app_settings, data, workbench
+from manager import app_settings, workbench
+from manager.kit import data
 
 LABELS = Path(__file__).resolve().parents[1] / "fixtures" / "vpx_labels.json"
 

@@ -29,7 +29,7 @@ class SizeUnitTests(unittest.TestCase):
 
     def test_nothing_else_in_the_manager_writes_a_unit(self) -> None:
         unit = re.compile(r"^\s*B$|\b[KMGT]B\b")
-        found = sorted(path.name for path in MANAGER.glob("*.py")
+        found = sorted(path.name for path in MANAGER.rglob("*.py")
                        if any(unit.search(one) for one in _literals(path)))
         self.assertEqual([], found)
 

@@ -44,7 +44,7 @@ def serve(port: int) -> None:
     """The page: one grid, and what its selection handler last received."""
     from nicegui import app, ui
 
-    from manager import api, grid
+    from manager.kit import api, grid
 
     api.local_base_url = lambda: "http://127.0.0.1:9"
     rows = _rows()

@@ -41,7 +41,7 @@ class AnIconSizeIsNamed(unittest.TestCase):
         self.assertEqual(loose, [], "name the size in appearance.py and use the token")
 
     def test_every_token_a_glyph_names_is_declared(self) -> None:
-        from manager import appearance
+        from manager.kit import appearance
 
         wanted = {name for size, _ in _icon_sizes()
                   for name in re.findall(r"var\((--[a-z0-9-]+)\)", size)}

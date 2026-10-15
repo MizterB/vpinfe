@@ -35,17 +35,17 @@ def _function(tree: ast.AST, name: str) -> ast.FunctionDef | None:
 
 class ContextMenusAreGuarded(unittest.TestCase):
     def test_build_installs_the_guard(self) -> None:
-        built = _function(trees.tree_for(MANAGER / "grid.py"), "build")
-        self.assertIsNotNone(built, "manager/grid.py no longer defines build()")
+        built = _function(trees.tree_for(MANAGER / "kit" / "grid.py"), "build")
+        self.assertIsNotNone(built, "manager/kit/grid.py no longer defines build()")
         assert built is not None
         called = {getattr(node.func, "id", "") or getattr(node.func, "attr", "")
                   for node in ast.walk(built) if isinstance(node, ast.Call)}
         self.assertIn(GUARD, called, f"grid.build no longer calls {GUARD}")
 
     def test_the_guard_runs_in_the_browser_at_capture(self) -> None:
-        source = (MANAGER / "grid.py").read_text(encoding="utf-8")
-        guard = _function(trees.tree_for(MANAGER / "grid.py"), GUARD)
-        self.assertIsNotNone(guard, f"manager/grid.py no longer defines {GUARD}()")
+        source = (MANAGER / "kit" / "grid.py").read_text(encoding="utf-8")
+        guard = _function(trees.tree_for(MANAGER / "kit" / "grid.py"), GUARD)
+        self.assertIsNotNone(guard, f"manager/kit/grid.py no longer defines {GUARD}()")
         assert guard is not None
         self.assertTrue(_calls(guard, "run_javascript"),
                         f"{GUARD} no longer runs in the browser")

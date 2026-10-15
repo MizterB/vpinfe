@@ -1,5 +1,5 @@
 """An async Manager function that reads the page after a wait runs under the page, with
-`manager.on_page`, unless it draws into the container it is awaited in.
+`manager.kit.on_page`, unless it draws into the container it is awaited in.
 
 Read means anything that goes through the current slot: `ui.*`, and any Manager function
 that does, followed through calls into other modules and into local closures.
@@ -72,14 +72,13 @@ class _Module:
         self.modules: dict[str, str] = {}
         self.names: dict[str, tuple[str, str]] = {}
         for one in ast.walk(tree):
-            if not isinstance(one, ast.ImportFrom) or not one.module:
+            if not isinstance(one, ast.ImportFrom):
                 continue
-            for alias in one.names:
-                if one.module == "manager":
-                    self.modules[alias.asname or alias.name] = alias.name
-                elif one.module.startswith("manager."):
-                    self.names[alias.asname or alias.name] = (
-                        one.module.removeprefix("manager."), alias.name)
+            for bound, module_name, imported in trees.manager_imports(one):
+                if imported is None:
+                    self.modules[bound] = module_name
+                else:
+                    self.names[bound] = (module_name, imported)
         self.scope_of: dict[ast.AST, ast.AST] = {}
         self.defined: dict[ast.AST, dict[str, ast.AST]] = {}
         for scope in ast.walk(tree):
@@ -102,9 +101,7 @@ class Manager:
     @classmethod
     def read(cls, root: Path) -> Manager:
         folder = root / "manager"
-        return cls({".".join(path.relative_to(folder).with_suffix("").parts):
-                    trees.tree_for(path)
-                    for path in sorted(folder.rglob("*.py"))})
+        return cls({path.stem: trees.tree_for(path) for path in sorted(folder.rglob("*.py"))})
 
     def called(self, module: _Module, call: ast.Call) -> tuple[_Module, ast.AST] | None:
         func = call.func
@@ -241,7 +238,7 @@ class SaidOnThePage(unittest.TestCase):
         stray = [where for where, _fn, builder, late, on in self.found
                  if late and not builder and not on]
 
-        self.assertEqual(stray, [], "decorate it with manager.on_page.on_page")
+        self.assertEqual(stray, [], "decorate it with manager.kit.on_page.on_page")
 
     def test_a_builder_draws_where_it_is_awaited(self) -> None:
         moved = [where for where, _fn, builder, _late, on in self.found if builder and on]

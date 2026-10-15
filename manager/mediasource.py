@@ -38,7 +38,8 @@ from common.media_specs import (
     media_family,
     media_label_map,
 )
-from manager import (
+from manager import record, recording, uploads, vps_match
+from manager.kit import (
     art,
     busy,
     candidates,
@@ -49,14 +50,10 @@ from manager import (
     media_ownership,
     offload,
     panel,
-    record,
-    recording,
-    uploads,
     verbs,
-    vps_match,
 )
-from manager import dialog as frame
-from manager.on_page import on_page
+from manager.kit import dialog as frame
+from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.mediasource")
 

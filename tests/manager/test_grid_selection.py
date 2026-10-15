@@ -8,8 +8,8 @@ from types import SimpleNamespace
 from typing import Any
 
 from common.i18n import t
-from manager import grid, stars
 from manager.games import add_index, row_transaction
+from manager.kit import grid, stars
 
 
 class SelectAll(unittest.TestCase):

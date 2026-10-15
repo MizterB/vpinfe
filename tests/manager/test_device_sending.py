@@ -7,7 +7,8 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 from common.i18n import t
-from manager import devices, panel, settings
+from manager import devices, settings
+from manager.kit import panel
 
 SCHEMA = [{"name": "vpxmobile", "options": [
     {"key": "send_masked_config", "type": "bool", "default": "false"},

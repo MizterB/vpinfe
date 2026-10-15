@@ -7,7 +7,8 @@ from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from common.i18n import t
-from manager import dof, offload
+from manager import dof
+from manager.kit import offload
 from manager.settings import address_for
 
 
@@ -52,7 +53,7 @@ class TesterTests(unittest.IsolatedAsyncioTestCase):
         self.buttons = Buttons()
         self.enterContext(patch.object(
             offload, "io", new=AsyncMock(side_effect=lambda call, *args: call(*args))))
-        self.enterContext(patch("manager.on_page.ui"))
+        self.enterContext(patch("manager.kit.on_page.ui"))
         self.enterContext(patch.object(
             dof.run, "io_bound", new=AsyncMock(side_effect=lambda call, *args: call(*args))))
         self.ui = self.enterContext(patch.object(dof, "ui"))

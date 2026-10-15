@@ -19,15 +19,8 @@ def register() -> None:
     """
     from nicegui import app as nicegui_app
 
-    from manager import (  # noqa: F401
-        acting,
-        appearance,
-        edit_page,
-        page,
-        remote,
-        report_page,
-        sign_in_gate,
-    )
+    from manager import edit_page, page, remote, report_page, sign_in_gate  # noqa: F401
+    from manager.kit import acting, appearance  # noqa: F401
 
     acting.install()
 

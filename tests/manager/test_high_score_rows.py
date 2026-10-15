@@ -7,8 +7,8 @@ import unittest
 from common.games import high_scores
 from common.i18n import t
 from common.labels import field_label
-from manager import panel
-from manager.play_facts import score_lines
+from manager.kit import panel
+from manager.kit.play_facts import score_lines
 from manager.workbench import _high_score_rows
 from tests.games.test_high_scores import CHAMPION_AND_RANKED, MULTILINE, ONE_NUMBER
 

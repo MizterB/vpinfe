@@ -16,11 +16,11 @@ from nicegui import run, ui
 
 from common import sign_in
 from common.i18n import t
-from manager import confirm, offload, panel, renderers, verbs, when
-from manager import dialog as frame
-from manager import grid as grid_module
-from manager.data import Library
-from manager.on_page import on_page
+from manager.kit import confirm, offload, panel, renderers, verbs, when
+from manager.kit import dialog as frame
+from manager.kit import grid as grid_module
+from manager.kit.data import Library
+from manager.kit.on_page import on_page
 
 SCOPE = "security.signed_in"
 

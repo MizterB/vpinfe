@@ -12,7 +12,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 from manager import sections
-from manager.data import Library
+from manager.kit.data import Library
 
 
 def library(games: dict[str, dict[str, bool]], *, hidden: tuple[str, ...] = (),
@@ -74,7 +74,7 @@ class HidingTheEmptyKinds(unittest.TestCase):
 
 class TheHideButton(unittest.TestCase):
     def press(self, lib: Library, state: dict, *, writes: AsyncMock) -> None:
-        with patch("manager.on_page.ui", MagicMock()), \
+        with patch("manager.kit.on_page.ui", MagicMock()), \
                 patch.object(sections.run, "io_bound", writes):
             asyncio.run(sections._hide_kinds(lib, state, ["topper"])())
 

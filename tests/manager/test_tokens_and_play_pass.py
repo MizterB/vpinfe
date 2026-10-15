@@ -14,7 +14,8 @@ from nicegui import ui
 
 from common import access_keys, api_tokens, paths, sign_in
 from httpapi import auth
-from manager import acting, panel, token_panel
+from manager import token_panel
+from manager.kit import acting, panel
 from tests.support.clicks import press, said
 
 # Made at import, outside any task, where NiceGUI still hands out the script's own page.

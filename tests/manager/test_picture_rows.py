@@ -6,7 +6,7 @@ import unittest
 from typing import Any
 
 from common.i18n import t
-from manager import game_tables, panel
+from manager.kit import game_tables, panel
 from manager.pictures import rows, table_names
 
 TABLES: list[dict[str, Any]] = [{"id": "t1", "filename": "Example.vpx", "default": True},

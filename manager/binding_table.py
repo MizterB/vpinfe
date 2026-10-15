@@ -18,8 +18,9 @@ from nicegui import ui
 
 from common import input_registry
 from common.i18n import t
-from manager import binding_editor, confirm, panel, verbs
-from manager.on_page import on_page
+from manager import binding_editor
+from manager.kit import confirm, panel, verbs
+from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.binding_table")
 

@@ -13,10 +13,10 @@ from common import i18n
 from common.backups import copies as kept_copies
 from common.failures import why
 from common.i18n import t
-from manager import confirm, panel, verbs, when
-from manager import dialog as frame
-from manager.data import Library
-from manager.on_page import on_page
+from manager.kit import confirm, panel, verbs, when
+from manager.kit import dialog as frame
+from manager.kit.data import Library
+from manager.kit.on_page import on_page
 
 TWO_X = "two_x"
 GONE = "gone"

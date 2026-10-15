@@ -16,9 +16,10 @@ import httpapi
 from common import paths
 from common.host import frontend_browser
 from common.i18n import t
-from manager import panel, settings, undo
-from manager.api import ApiClient
-from manager.data import Library
+from manager import settings
+from manager.kit import panel, undo
+from manager.kit.api import ApiClient
+from manager.kit.data import Library
 from tests.support.clicks import press
 
 CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"

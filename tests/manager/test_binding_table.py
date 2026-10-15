@@ -413,7 +413,7 @@ class AnActedOnTable(unittest.IsolatedAsyncioTestCase):
         return control
 
     def asking(self, *answers: bool) -> Any:
-        return patch("manager.confirm.ask", new=AsyncMock(side_effect=answers))
+        return patch("manager.kit.confirm.ask", new=AsyncMock(side_effect=answers))
 
     async def test_a_press_nobody_holds_is_added_without_a_question(self) -> None:
         control = self.drawn()
@@ -911,7 +911,7 @@ class ASharingTable(unittest.IsolatedAsyncioTestCase):
         return control
 
     def asking(self, *answers: Any) -> Any:
-        return patch("manager.confirm.ask", new=AsyncMock(side_effect=answers))
+        return patch("manager.kit.confirm.ask", new=AsyncMock(side_effect=answers))
 
     async def test_a_press_somebody_holds_can_be_used_for_both(self) -> None:
         control = self.drawn()

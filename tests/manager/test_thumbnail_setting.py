@@ -10,7 +10,8 @@ from unittest.mock import AsyncMock, Mock, patch
 
 from common import config_schema, config_service
 from common.i18n import t
-from manager import panel, settings
+from manager import settings
+from manager.kit import panel
 
 KINDS = ("wheel", "backglass", "playfield", "logo")
 MANAGER = ("manager",)

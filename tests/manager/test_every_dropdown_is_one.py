@@ -11,7 +11,7 @@ import ast
 import pathlib
 import unittest
 
-from manager import dropdown
+from manager.kit import dropdown
 from tests.support import trees
 from tests.support.stylesheet import declarations
 
@@ -28,17 +28,17 @@ def _names(tree: ast.AST, owner: str, attribute: str) -> list[int]:
 class EveryDropdownIsOne(unittest.TestCase):
     def test_no_module_draws_a_raw_ui_select(self) -> None:
         raw = []
-        for path in sorted(MANAGER.glob("*.py")):
+        for path in sorted(MANAGER.rglob("*.py")):
             if path.name == "dropdown.py":
                 continue
             raw += [f"manager/{path.name}:{line}"
                     for line in _names(trees.tree_for(path), "ui", "select")]
-        self.assertEqual([], raw, "use manager.dropdown.Select, or a panel helper over it")
+        self.assertEqual([], raw, "use manager.kit.dropdown.Select, or a panel helper over it")
 
     def test_it_found_the_selects(self) -> None:
         """An empty sweep passes and measures nothing, which reads the same as clean."""
         uses = sum(len(_names(trees.tree_for(path), "dropdown", "Select"))
-                   for path in MANAGER.glob("*.py"))
+                   for path in MANAGER.rglob("*.py"))
         self.assertGreaterEqual(uses, 15)
 
     def test_a_call_site_names_a_look_and_there_are_two(self) -> None:

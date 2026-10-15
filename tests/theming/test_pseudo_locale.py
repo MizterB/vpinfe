@@ -191,7 +191,7 @@ class PseudoLocaleTests(unittest.TestCase):
             # is stored data, and translating it would rename what is on disk
             | {"last", "played"}
             # Table features named after the person or the product that made them -
-            # `manager/table_features.py` writes these as literals for the same reason
+            # `manager/kit/table_features.py` writes these as literals for the same reason
             # the launcher names above are literals. A translated nFozzy is a wrong one.
             | {"nfozzy", "ssf", "lut", "fastflips", "flexdmd"}
             # `alt_color` and `alt_sound` are asset kinds the registry does not name, so

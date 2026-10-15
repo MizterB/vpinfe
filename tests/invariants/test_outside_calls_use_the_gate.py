@@ -31,7 +31,7 @@ CONNECTIONS = {"urlopen", "urlretrieve", "HTTPConnection", "HTTPSConnection",
 GUARDED = {
     "common/games/mobile_transfer.py": {
         "_ask": "a retried request to a mobile device on the network"},
-    "manager/api.py": {
+    "manager/kit/api.py": {
         "_WordedSession": "the Manager's requests to this install and to a paired one, "
                           "signed and worded by the session itself"},
 }

@@ -17,18 +17,8 @@ from urllib.parse import parse_qs
 
 from common import i18n, path_state
 from common.i18n import t
-from manager import (
-    app_settings,
-    data,
-    deeplink,
-    games,
-    launchers,
-    page,
-    panel,
-    renderers,
-    settings,
-    workbench,
-)
+from manager import app_settings, games, launchers, page, settings, workbench
+from manager.kit import data, deeplink, panel, renderers
 from tests.support.clicks import press
 
 
@@ -2210,7 +2200,7 @@ class TableWriteReadsAgainTests(unittest.TestCase):
 
 
 def _said(entry) -> str:
-    with patch("manager.panel.ui") as ui:
+    with patch("manager.kit.panel.ui") as ui:
         entry[1]()
     return str(ui.label.call_args.args[0])
 
@@ -2474,7 +2464,7 @@ class TablesSetTheirOwnTests(unittest.IsolatedAsyncioTestCase):
 
     def test_its_link_goes_to_the_tables_grid_on_them(self) -> None:
         for count, said in ((1, "1 table sets its own"), (4, "4 tables set their own")):
-            with self.subTest(count=count), patch("manager.panel.ui") as ui:
+            with self.subTest(count=count), patch("manager.kit.panel.ui") as ui:
                 workbench._tables_of_their_own({"launcher_id": "vpx"}, ["Player.PlayMusic"],
                                                count)()
                 address = parse_qs(ui.link.call_args.kwargs["target"].split("?", 1)[1])
@@ -2484,7 +2474,7 @@ class TablesSetTheirOwnTests(unittest.IsolatedAsyncioTestCase):
                                            "sets": ["Player.PlayMusic"]})
 
     def test_a_pair_s_link_asks_for_tables_setting_either(self) -> None:
-        with patch("manager.panel.ui") as ui:
+        with patch("manager.kit.panel.ui") as ui:
             workbench._tables_of_their_own(
                 {"launcher_id": "vpx"}, ["Player.PlayfieldWndX", "Player.PlayfieldWndY"], 2)()
         address = parse_qs(ui.link.call_args.kwargs["target"].split("?", 1)[1])

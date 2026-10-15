@@ -6,7 +6,8 @@ import unittest
 from typing import Any
 from unittest.mock import Mock, patch
 
-from manager import folder_picker, library_folders
+from manager import library_folders
+from manager.kit import folder_picker
 
 ACTION = {"key": "import", "label": "Import a Library"}
 

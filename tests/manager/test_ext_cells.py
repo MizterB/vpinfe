@@ -9,7 +9,8 @@ from unittest.mock import Mock
 
 from nicegui import ui
 
-from manager import community, ext_cells, ext_row, grid
+from manager import community, ext_cells, ext_row
+from manager.kit import grid
 
 TABLES = [{"id": "t1", "game_id": "afm", "game": "Attack from Mars",
            "manufacturer": "Bally", "year": 1995, "version": "1.2", "authors": ["Ann"],

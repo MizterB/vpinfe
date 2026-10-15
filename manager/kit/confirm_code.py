@@ -16,12 +16,12 @@ from common.failures import why
 from common.i18n import t
 from common.install_identity import display_name
 from common.paths import get_ini_config
-from manager import dialog as frame
-from manager import offload, panel, verbs
-from manager.api import ApiClient, ApiError
-from manager.on_page import on_page
+from manager.kit import dialog as frame
+from manager.kit import offload, panel, verbs
+from manager.kit.api import ApiClient, ApiError
+from manager.kit.on_page import on_page
 
-logger = logging.getLogger("vpinfe.manager.confirm_code")
+logger = logging.getLogger("vpinfe.manager.kit.confirm_code")
 
 # After these the code is gone and a new one is already on the screen.
 NEW_CODE = ("no_code", "used_up")

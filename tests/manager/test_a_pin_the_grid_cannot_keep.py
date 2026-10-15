@@ -18,8 +18,8 @@ from unittest.mock import Mock
 from nicegui import ui
 
 from common.i18n import t
-from manager import grid
-from manager.grid import Pinning
+from manager.kit import grid
+from manager.kit.grid import Pinning
 from tests.support import trees
 
 MANAGER = Path(__file__).resolve().parents[2] / "manager"
@@ -110,7 +110,7 @@ class EveryGridAsks(unittest.TestCase):
                  and node.args and isinstance(node.args[0], ast.Constant)
                  and node.args[0].value == "word.pin_left"]
 
-        self.assertEqual(["manager/grid.py"], sorted({one.split(":")[0] for one in drawn}),
+        self.assertEqual(["manager/kit/grid.py"], sorted({one.split(":")[0] for one in drawn}),
                          drawn)
 
 

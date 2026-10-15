@@ -25,8 +25,8 @@ class FetchTests(unittest.TestCase):
         library.script_patches.return_value = OFFERED
         client = mock.Mock()
         after = mock.Mock()
-        with mock.patch("manager.confirm.ask", mock.AsyncMock(return_value=True)), \
-                mock.patch("manager.api.ApiClient", return_value=client), \
+        with mock.patch("manager.kit.confirm.ask", mock.AsyncMock(return_value=True)), \
+                mock.patch("manager.kit.api.ApiClient", return_value=client), \
                 mock.patch.object(sections.run, "io_bound", new=_now), \
                 mock.patch.object(sections.ui, "notify", wraps=ui.notify) as notify:
             with ui.column() as page:
@@ -44,8 +44,8 @@ class FetchTests(unittest.TestCase):
         library = mock.Mock()
         library.script_patches.return_value = OFFERED
         client = mock.Mock()
-        with mock.patch("manager.confirm.ask", mock.AsyncMock(return_value=False)), \
-                mock.patch("manager.api.ApiClient", return_value=client):
+        with mock.patch("manager.kit.confirm.ask", mock.AsyncMock(return_value=False)), \
+                mock.patch("manager.kit.api.ApiClient", return_value=client):
             with ui.column():
                 asyncio.run(sections.fetch_script_fixes(library, mock.Mock()))
 
@@ -96,7 +96,7 @@ class CheckTests(unittest.TestCase):
 
 class TheClient(unittest.TestCase):
     def test_the_offered_folders_are_what_is_posted(self) -> None:
-        from manager.api import ApiClient
+        from manager.kit.api import ApiClient
         with mock.patch.object(ApiClient, "_post", return_value={}) as post:
             ApiClient().apply_script_patches(["Fathom (Bally 1981)"])
             ApiClient().apply_script_patches()

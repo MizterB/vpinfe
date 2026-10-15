@@ -25,7 +25,7 @@ from common.games.info_maintenance import upgrade_library
 from common.games.unreadable import UnreadableGame
 from common.i18n import t
 from manager import sections
-from manager.data import Library
+from manager.kit.data import Library
 from tests.support import lines
 from tests.support.library import game_info, write_game
 from tests.support.skips import needs_posix_permissions
@@ -234,8 +234,8 @@ class MetadataOutcomeTests(unittest.TestCase):
             with row:
                 await sections._metadata_action(library, page, mock.Mock())(which)
 
-        with mock.patch("manager.confirm.ask", mock.AsyncMock(return_value=True)), \
-                mock.patch("manager.api.ApiClient", return_value=client), \
+        with mock.patch("manager.kit.confirm.ask", mock.AsyncMock(return_value=True)), \
+                mock.patch("manager.kit.api.ApiClient", return_value=client), \
                 mock.patch("nicegui.run.io_bound", new=_now), \
                 mock.patch.object(sections, "_POLL_S", 0), \
                 mock.patch.object(sections.ui, "notify", wraps=ui.notify) as notify:

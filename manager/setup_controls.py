@@ -14,9 +14,10 @@ from nicegui import ui
 
 from common import input_registry, setting_groups
 from common.i18n import t
-from manager import input_page, offload, panel
-from manager.api import ApiClient
-from manager.data import Library
+from manager import input_page
+from manager.kit import offload, panel
+from manager.kit.api import ApiClient
+from manager.kit.data import Library
 from manager.setup_screens import write
 
 logger = logging.getLogger("vpinfe.manager.setup_controls")

@@ -65,7 +65,7 @@ class ATableWhoseReleasesCouldNotBeRead(unittest.IsolatedAsyncioTestCase):
                 getattr(library, failing).side_effect = TimeoutError("timed out")
                 context = {"library": library, "game": {"vps_id": "entry"}}
 
-                with patch("manager.offload.run.io_bound", new=_now), \
+                with patch("manager.kit.offload.run.io_bound", new=_now), \
                         patch.object(workbench, "_state",
                                      new=lambda text, level, hint="": (text, level, hint)), \
                         patch.object(workbench.panel, "intro", new=lambda text: ("intro", text)), \

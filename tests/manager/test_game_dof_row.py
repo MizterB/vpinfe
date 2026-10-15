@@ -66,7 +66,7 @@ class RefusedSaveTests(unittest.IsolatedAsyncioTestCase):
         rebuild = AsyncMock()
         context: dict[str, Any] = {"library": library, "game_id": "g1", "rebuild": rebuild}
         with patch.object(workbench.run, "io_bound", new=now), \
-                patch.object(workbench, "ui"), patch("manager.on_page.ui"):
+                patch.object(workbench, "ui"), patch("manager.kit.on_page.ui"):
             saved = await workbench._save_overrides(context, {"frontend_dof_event": "905"},
                                                     table=False)
         self.rebuilt = rebuild.await_count

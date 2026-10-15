@@ -28,7 +28,7 @@ def _keys(node: ast.AST) -> Iterator[str]:
 def _titles() -> list[tuple[str, str]]:
     """(where, key) for every catalog entry a Manager dialog uses as its title."""
     found = []
-    for path in sorted((ROOT / "manager").glob("*.py")):
+    for path in sorted((ROOT / "manager").rglob("*.py")):
         for node in ast.walk(trees.tree_for(path)):
             if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
                 continue

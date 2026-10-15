@@ -18,34 +18,29 @@ from common.games import asset_registry
 from common.i18n import t
 from common.labels import humanize
 from common.media_specs import media_label_map
-from manager import (
+from manager import collection_adds, game_acts, mediaview, row_drag, sections, workbench
+from manager import settings as settings_page
+from manager.kit import (
     art,
     busy,
-    collection_adds,
     deeplink,
     dropdown,
-    game_acts,
     game_tables,
     grid,
     media_ownership,
-    mediaview,
     offload,
     panel,
     renderers,
     report_groups,
-    row_drag,
-    sections,
     stars,
     table_features,
     tag_chips,
     thumbnails,
     verbs,
     views,
-    workbench,
 )
-from manager import dialog as frame
-from manager import settings as settings_page
-from manager.on_page import on_page
+from manager.kit import dialog as frame
+from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.games")
 

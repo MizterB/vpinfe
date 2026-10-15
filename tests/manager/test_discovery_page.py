@@ -5,8 +5,9 @@ from __future__ import annotations
 import unittest
 from unittest import mock
 
-from manager import deeplink, discovery, page
-from manager.data import Library
+from manager import discovery, page
+from manager.kit import deeplink
+from manager.kit.data import Library
 
 
 def _entry(vps_id: str = "v1", **over) -> dict:

@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import unittest
 
-from manager import data, sections
+from manager import sections
+from manager.kit import data
 
 
 class FakeLibrary:

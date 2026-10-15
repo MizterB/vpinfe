@@ -11,8 +11,8 @@ from unittest import mock
 from common import config_schema, config_service, events
 from common.host import launch_state, peripherals, real_dmd
 from common.i18n import t
-from manager import panel
 from manager import settings as settings_page
+from manager.kit import panel
 
 _STORE: Any = "store"
 

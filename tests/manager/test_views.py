@@ -8,18 +8,8 @@ from common import apps
 from common.games import asset_origin, asset_registry
 from common.i18n import t
 from common.labels import field_label
-from manager import (
-    data,
-    game_tables,
-    games,
-    media_ownership,
-    play_facts,
-    stars,
-    table_features,
-    tageditor,
-    views,
-    workbench,
-)
+from manager import games, tageditor, workbench
+from manager.kit import data, game_tables, media_ownership, play_facts, stars, table_features, views
 
 
 class BuiltinViewTests(unittest.TestCase):

@@ -67,7 +67,7 @@ REDRAWN = """(() => {
 def serve(port: int) -> None:
     from nicegui import app, ui
 
-    from manager import api, appearance, wizard
+    from manager.kit import api, appearance, wizard
 
     api.local_base_url = lambda: "http://127.0.0.1:9"
     app.add_static_files(appearance.BASE_MOUNT, str(appearance.BASE_CSS.parent))

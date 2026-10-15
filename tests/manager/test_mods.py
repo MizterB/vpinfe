@@ -8,7 +8,8 @@ from typing import Any
 from unittest.mock import Mock, patch
 from urllib.parse import parse_qs, urlparse
 
-from manager import game_tables, workbench
+from manager import workbench
+from manager.kit import game_tables
 from manager.release_match import in_lineage
 
 
@@ -120,7 +121,7 @@ class MatchGroup(unittest.IsolatedAsyncioTestCase):
         library = Mock()
         library.vps_releases.return_value = [{"vps_file_id": "r-1", "version": "1.3"}]
         context = {"library": library, "game": {"vps_id": "e-1"}}
-        with patch("manager.offload.run.io_bound", new=_now):
+        with patch("manager.kit.offload.run.io_bound", new=_now):
             rows = await workbench._release_match(
                 context, {"source": {"vps_file_id": "r-1", "mod_of": mod}})
 

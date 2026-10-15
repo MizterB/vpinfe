@@ -22,7 +22,7 @@ from nicegui import run, ui
 
 from common.failures import why
 from common.i18n import literal_or, t
-from manager import (
+from manager.kit import (
     appearance,
     appearance_picker,
     more_below,
@@ -31,9 +31,9 @@ from manager import (
     verbs,
     wizard_lists,
 )
-from manager import dialog as frame
-from manager.api import ApiClient
-from manager.on_page import on_page
+from manager.kit import dialog as frame
+from manager.kit.api import ApiClient
+from manager.kit.on_page import on_page
 
 # How often to ask a running job how it is doing. A job here is minutes of copying, so a
 # tighter loop would be a question asked hundreds of times for the same answer.

@@ -33,7 +33,7 @@ class _Dropping(unittest.IsolatedAsyncioTestCase):
         self.library.tables_for.return_value = []
         self.shown = AsyncMock()
         self.said = Mock()
-        for patched in (patch("manager.offload.run.io_bound", new=_now),
+        for patched in (patch("manager.kit.offload.run.io_bound", new=_now),
                         patch.object(uploads, "analyzed", new=AsyncMock(return_value={})),
                         patch.object(import_dialog, "open_for", new=self.shown),
                         patch.object(uploads.ui, "notify", new=self.said)):

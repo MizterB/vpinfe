@@ -12,7 +12,7 @@ from unittest import mock
 
 from nicegui import core, ui
 
-from manager import wizard
+from manager.kit import wizard
 from tests.support.clicks import said
 
 # Made at import, outside any task, where NiceGUI still hands out the script's own page.

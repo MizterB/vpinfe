@@ -38,7 +38,7 @@ BAR_CONTAINER = "manager-grid-bar"
 def _bars_without_the_container() -> list[str]:
     """A `view_control` whose bar is not drawn inside a `manager-grid-bar`."""
     loose = []
-    for path in sorted(MANAGER.glob("*.py")):
+    for path in sorted(MANAGER.rglob("*.py")):
         source = path.read_text(encoding="utf-8")
         tree = trees.tree_for(path)
         calls = [node for node in ast.walk(tree)
@@ -64,7 +64,7 @@ class EveryBarIsStacked(unittest.TestCase):
     def test_it_found_the_bars(self):
         """An empty sweep passes and measures nothing, which reads the same as clean."""
         seen = sum("view_control(" in p.read_text(encoding="utf-8")
-                   for p in MANAGER.glob("*.py"))
+                   for p in MANAGER.rglob("*.py"))
         self.assertGreater(seen, 5)
 
 
@@ -73,7 +73,7 @@ class TheKeyIsNotAnAction(unittest.TestCase):
 
     def test_no_key_in_a_row_end(self):
         wrong = []
-        for path in sorted(MANAGER.glob("*.py")):
+        for path in sorted(MANAGER.rglob("*.py")):
             tree = trees.tree_for(path)
             for end in _ends(tree):
                 if _classes_named(end, KEY):
@@ -84,10 +84,10 @@ class TheKeyIsNotAnAction(unittest.TestCase):
     def test_it_found_the_keys_and_the_ends(self):
         """An empty sweep passes and measures nothing, which reads the same as clean."""
         source = "\n".join(p.read_text(encoding="utf-8")
-                           for p in MANAGER.glob("*.py"))
+                           for p in MANAGER.rglob("*.py"))
         self.assertGreater(source.count(KEY), 1)
         self.assertGreater(sum(len(_ends(trees.tree_for(p)))
-                               for p in MANAGER.glob("*.py")), 5)
+                               for p in MANAGER.rglob("*.py")), 5)
 
 
 if __name__ == "__main__":

@@ -12,7 +12,8 @@ from typing import Any
 from nicegui import ui
 
 from common import icons
-from manager import community, game_tables, offload, panel, thumbnails
+from manager import community
+from manager.kit import game_tables, offload, panel, thumbnails
 
 KINDS = community.LIBRARY_KINDS
 SAYS = "said"

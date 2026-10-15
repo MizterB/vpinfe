@@ -16,7 +16,8 @@ from unittest.mock import Mock, patch
 
 from nicegui import core, ui
 
-from manager import busy, page, workbench
+from manager import page, workbench
+from manager.kit import busy
 
 _PAGE = ui.element()
 OLD, NEW = "what was there", "what replaced it"

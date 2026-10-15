@@ -7,8 +7,9 @@ from typing import cast
 
 from common.games.collection_store import BUILTIN_ALL
 from common.i18n import t
-from manager import collections, data, grid, verbs, views
-from manager.api import ApiClient
+from manager import collections
+from manager.kit import data, grid, verbs, views
+from manager.kit.api import ApiClient
 
 _SMART = {"name": "90s Bally", "type": "filter", "count": 6, "before_limit": 6,
           "added": 1, "matched": 5, "excluded": 1, "missing": 0}

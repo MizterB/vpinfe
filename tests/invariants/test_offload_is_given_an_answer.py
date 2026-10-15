@@ -11,7 +11,7 @@ from tests.support import trees
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
 
 # The classes whose methods the Manager hands to `offload.io` by attribute.
-DECLARED = {"manager/data.py": "Library", "manager/api.py": "ApiClient"}
+DECLARED = {"manager/kit/data.py": "Library", "manager/kit/api.py": "ApiClient"}
 
 
 def _answers_nothing() -> set[str]:

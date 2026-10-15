@@ -9,7 +9,7 @@ from unittest.mock import patch
 import requests
 
 from common.i18n import t
-from manager.api import ApiClient, ApiError
+from manager.kit.api import ApiClient, ApiError
 
 
 def _closed_port() -> int:

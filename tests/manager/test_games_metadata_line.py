@@ -19,7 +19,7 @@ from common.games.game_parser import GameParser
 from common.games.info_maintenance import upgrade_library
 from common.i18n import t
 from manager import games, needs, sections
-from manager.data import Library
+from manager.kit.data import Library
 from tests.support.library import game_info, write_game
 from tests.support.skips import needs_posix_permissions
 
@@ -211,8 +211,8 @@ class TheLineAboveTheGrid(unittest.TestCase):
                 self._build()
             seen["after"] = self._line(again)
 
-        with mock.patch("manager.confirm.ask", mock.AsyncMock(return_value=True)), \
-                mock.patch("manager.api.ApiClient", return_value=api), \
+        with mock.patch("manager.kit.confirm.ask", mock.AsyncMock(return_value=True)), \
+                mock.patch("manager.kit.api.ApiClient", return_value=api), \
                 mock.patch("nicegui.run.io_bound", new=_now), \
                 mock.patch.object(sections, "_ended", ended):
             self._drawn(upgrade)
@@ -285,8 +285,8 @@ class TheLineAboveTheGrid(unittest.TestCase):
                 await asyncio.sleep(0)
             seen.append(named(box))
 
-        with mock.patch("manager.confirm.ask", mock.AsyncMock(return_value=True)), \
-                mock.patch("manager.api.ApiClient", return_value=api), \
+        with mock.patch("manager.kit.confirm.ask", mock.AsyncMock(return_value=True)), \
+                mock.patch("manager.kit.api.ApiClient", return_value=api), \
                 mock.patch("nicegui.run.io_bound", new=_now), \
                 mock.patch.object(sections, "_ended", ended):
             self._drawn(upgrade)

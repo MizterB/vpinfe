@@ -12,7 +12,8 @@ import requests
 
 from common.i18n import t
 from common.online import app_updater
-from manager import devices, verbs
+from manager import devices
+from manager.kit import verbs
 from tests.support.clicks import press
 
 UPDATE = {"latest_version": "v3.1.0"}

@@ -7,7 +7,8 @@ from unittest.mock import Mock
 
 from common.games import asset_lens
 from common.media_specs import media_label_map
-from manager import assets, games, media, views
+from manager import assets, games, media
+from manager.kit import views
 
 
 def _library(asset_keys: list[str], kept_assets: set[str] | None = None) -> Mock:

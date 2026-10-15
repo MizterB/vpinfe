@@ -8,7 +8,8 @@ import unittest
 from unittest import mock
 
 from common import device_client
-from manager import devices, panel, renderers
+from manager import devices
+from manager.kit import panel, renderers
 
 LOCAL = "Aaaa111111"
 OTHER = "Bbbb222222"

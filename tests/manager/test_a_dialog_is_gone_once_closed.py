@@ -1,4 +1,4 @@
-"""A dialog from `manager/dialog.py` is deleted once the browser says it has hidden, and
+"""A dialog from `manager/kit/dialog.py` is deleted once the browser says it has hidden, and
 what its caller reads after `await` is still there to read."""
 
 from __future__ import annotations
@@ -11,8 +11,9 @@ from unittest import mock
 
 from nicegui import ui
 
-from manager import dialog as frame
-from manager import mediaview, remote, text_editor, walks
+from manager import mediaview, remote, text_editor
+from manager.kit import dialog as frame
+from manager.kit import walks
 from tests.support.clicks import said
 
 # Made at import, outside any task, where NiceGUI still hands out the script's own page.

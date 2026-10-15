@@ -1,6 +1,6 @@
 """A stepped flow that can go back lives in one place.
 
-`manager/wizard.py` is the one control for asking something in stages with a way back
+`manager/kit/wizard.py` is the one control for asking something in stages with a way back
 (its `Walk`). A file that draws both the forward verb and the back verb is drawing that
 shape again beside it.
 """
@@ -15,7 +15,7 @@ from tests.support import trees
 
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
 MANAGER = REPO / "manager"
-OWN = MANAGER / "wizard.py"
+OWN = MANAGER / "kit" / "wizard.py"
 
 NEXT_WORD = "word.next"
 BACK_WORD = "word.back"
@@ -41,7 +41,7 @@ class OnlyWizardStepsAndGoesBackTests(unittest.TestCase):
                     if path != OWN and _goes_forward_and_back(trees.tree_for(path))]
 
         self.assertEqual(offenders, [],
-                         "a stepped, going-back flow outside manager/wizard.py - move it "
+                         "a stepped, going-back flow outside manager/kit/wizard.py - move it "
                          "onto the shared control instead of drawing Back beside Next again")
 
     def test_the_check_flags_a_file_with_both_and_not_one_alone(self) -> None:

@@ -12,7 +12,7 @@ from typing import Any
 
 from nicegui import ui
 
-from manager import panel
+from manager.kit import panel
 from tests.support.stylesheet import declarations
 
 _PAGE = ui.element()

@@ -15,8 +15,8 @@ from nicegui import run, ui
 
 from common.failures import why
 from common.i18n import t
-from manager import grid
-from manager.on_page import on_page
+from manager.kit import grid
+from manager.kit.on_page import on_page
 
 MOST = 5
 # The character *is* the control. In a tooltip it measures zero and cannot be clicked,

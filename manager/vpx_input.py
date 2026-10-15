@@ -17,9 +17,9 @@ from apps.vpx import bindings
 from common import input_registry
 from common.failures import why
 from common.i18n import t
-from manager import panel
 from manager.binding_table import Kept, Row, Table
-from manager.on_page import on_page
+from manager.kit import panel
+from manager.kit.on_page import on_page
 
 Entries = list[tuple[Any, Any]]
 

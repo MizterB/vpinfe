@@ -14,21 +14,24 @@ from common import device_client, device_registry, install_identity, lifecycle
 from common.host import action_ops, addresses
 from common.i18n import t
 from common.labels import humanize
-from manager import (
+from manager import mobile_add, pairing, send_to_device
+from manager.kit import (
+    confirm,
     game_tables,
-    mobile_add,
+    grid,
     offload,
-    pairing,
+    panel,
     renderers,
-    send_to_device,
     thumbnails,
     verbs,
+    views,
+    when,
 )
-from manager.on_page import on_page
+from manager.kit.api import ApiClient, ApiError
+from manager.kit.on_page import on_page
 
-from . import browser_state, confirm, grid, panel, views, when
+from . import browser_state
 from . import settings as settings_page
-from .api import ApiClient, ApiError
 
 logger = logging.getLogger("vpinfe.manager.devices")
 
@@ -1378,7 +1381,7 @@ def update_checker(is_local: bool, client: Any) -> Any:
     was the one in front of you.
     """
     if is_local:
-        from manager.api import ApiClient
+        from manager.kit.api import ApiClient
 
         return ApiClient().update_check
     return getattr(client, "update_check", None)

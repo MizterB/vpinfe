@@ -17,8 +17,8 @@ from nicegui import ui
 
 from common.i18n import t
 from common.media_specs import media_family
-from manager import dialog as frame
-from manager import panel, verbs
+from manager.kit import dialog as frame
+from manager.kit import panel, verbs
 
 # Rotated a quarter turn, the picture's visual bounds swap - so the limits that keep it
 # inside the window have to swap with them, or a turned landscape frame runs off the

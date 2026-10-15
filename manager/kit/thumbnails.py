@@ -2,7 +2,7 @@
 
 Every row of a list draws the same frame, holding the row's glyph where there is no
 picture. Its shape, height and ground are the Media settings, carried by an ancestor of
-the frame as a `Look`. The address comes from `manager/art.py`.
+the frame as a `Look`. The address comes from `manager/kit/art.py`.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from nicegui import ui
 from common import config_schema
 from common.config_access import cfg_bool, cfg_get
 from common.paths import get_ini_config
-from manager import art, dropdown
+from manager.kit import art, dropdown
 
 # The row field holding the address, "" where the row has none. A row without the field
 # is drawn with no frame at all.

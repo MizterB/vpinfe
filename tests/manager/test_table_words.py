@@ -8,7 +8,8 @@ import unittest
 from typing import Any
 
 from common.i18n import t
-from manager import data, game_tables, games
+from manager import games
+from manager.kit import data, game_tables
 
 WORDS = game_tables.DEFAULT_WORDS
 

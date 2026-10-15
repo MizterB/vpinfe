@@ -59,7 +59,8 @@ class _Library:
 
     def preferences(self, key: str) -> dict:
         """The grid opens on Have; these rows are all gaps, so the drive opens it on Missing."""
-        from manager import media, views
+        from manager import media
+        from manager.kit import views
         if key == media.SCOPE + views.VIEWS_SUFFIX:
             return {"active": views.builtin_id("manager.view.missing")}
         return {}
@@ -94,7 +95,8 @@ def serve(port: int) -> None:
     """The Media page, drawn as the Manager draws it."""
     from nicegui import app, ui
 
-    from manager import api, grid, media, media_fill
+    from manager import media, media_fill
+    from manager.kit import api, grid
 
     api.local_base_url = lambda: "http://127.0.0.1:9"
     library = _Library()

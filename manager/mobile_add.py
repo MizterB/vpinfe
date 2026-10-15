@@ -13,10 +13,10 @@ from nicegui import ui
 from common import device_client, device_registry
 from common.failures import why
 from common.i18n import t
-from manager import dialog as frame
-from manager import offload, panel, verbs
-from manager.api import ApiClient
-from manager.on_page import on_page
+from manager.kit import dialog as frame
+from manager.kit import offload, panel, verbs
+from manager.kit.api import ApiClient
+from manager.kit.on_page import on_page
 
 DEFAULT_PORT = 2112
 

@@ -4,7 +4,7 @@ A grouped rail beside one open page, which is the shape the details pane already
 the index is the map of the product, and it is the thing VPin Studio gets right about
 its preferences even though it throws the rest of the app away to show it.
 
-Everything on a page is drawn through `manager/panel.py`. A config control is the one
+Everything on a page is drawn through `manager/kit/panel.py`. A config control is the one
 place that carries its explanation beneath it rather than in a tooltip: a key's name
 says what it is called, not what turning it off costs.
 
@@ -41,39 +41,41 @@ from common.labels import field_label, humanize
 from common.media_specs import media_label_map
 from common.online import theme_source_checks as online_checks
 from manager import (
-    appearance_picker,
     attract,
     backups_move,
     binding_table,
     browser_state,
-    busy,
     chrome_options,
-    confirm,
-    deeplink,
     displays,
     dof,
     ext_page,
-    folder_picker,
     folders,
     input_page,
     needs,
-    offload,
-    panel,
     placement_panel,
     recording,
     screens,
     security,
     theme_card,
     theme_sources,
-    undo,
-    verbs,
     vpx_displays,
-    when,
 )
 from manager import commands as commands_help
 from manager import setup as setup_page
-from manager.data import Library
-from manager.on_page import on_page
+from manager.kit import (
+    appearance_picker,
+    busy,
+    confirm,
+    deeplink,
+    folder_picker,
+    offload,
+    panel,
+    undo,
+    verbs,
+    when,
+)
+from manager.kit.data import Library
+from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.settings")
 

@@ -5,7 +5,8 @@ from __future__ import annotations
 import unittest
 from unittest import mock
 
-from manager import data, mediasource, workbench
+from manager import mediasource, workbench
+from manager.kit import data
 
 CONTEXT = {"rebuild": object()}
 

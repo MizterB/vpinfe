@@ -4,7 +4,8 @@ from unittest import mock
 from urllib.parse import parse_qs
 
 from common.i18n import t
-from manager import deeplink, workbench
+from manager import workbench
+from manager.kit import deeplink
 
 
 def _address(state: dict) -> dict[str, str]:

@@ -16,11 +16,11 @@ from nicegui import run, ui
 from common import api_tokens
 from common.failures import why
 from common.i18n import t
-from manager import clipboard, confirm, offload, panel, verbs, when
-from manager import dialog as frame
-from manager.api import ApiError
-from manager.data import Library
-from manager.on_page import on_page
+from manager.kit import clipboard, confirm, offload, panel, verbs, when
+from manager.kit import dialog as frame
+from manager.kit.api import ApiError
+from manager.kit.data import Library
+from manager.kit.on_page import on_page
 
 
 def access_label(access: str) -> str:

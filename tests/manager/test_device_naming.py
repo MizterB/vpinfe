@@ -12,7 +12,7 @@ import requests
 from common import device_client
 from common.i18n import t
 from manager import devices, workbench
-from manager.api import ApiError
+from manager.kit.api import ApiError
 
 LOCAL = "Aaaa111111"
 

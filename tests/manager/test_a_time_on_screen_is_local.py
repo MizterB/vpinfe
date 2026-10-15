@@ -9,7 +9,7 @@ from datetime import UTC, datetime, timedelta
 
 from common import i18n
 from common.i18n import t
-from manager import when
+from manager.kit import when
 from tests.support import trees
 
 MANAGER = pathlib.Path(__file__).resolve().parent.parent.parent / "manager"

@@ -59,7 +59,7 @@ def serve(port: int) -> None:
     from nicegui import app, ui
 
     from common import folder_browse
-    from manager import api, appearance, folder_picker
+    from manager.kit import api, appearance, folder_picker
 
     api.local_base_url = lambda: "http://127.0.0.1:9"
     app.add_static_files(appearance.BASE_MOUNT, str(appearance.BASE_CSS.parent))

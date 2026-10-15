@@ -17,8 +17,8 @@ from nicegui import ui
 from common import approvals, sign_in
 from common.i18n import t
 from httpapi import auth
-from manager import dialog as frame
-from manager import verbs
+from manager.kit import dialog as frame
+from manager.kit import verbs
 
 POLL_SECONDS = 2.0
 

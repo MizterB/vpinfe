@@ -14,7 +14,7 @@ from nicegui import Client, ui
 
 from common import install_identity
 from common.i18n import t
-from manager import media_ownership, tag_chips, verbs
+from manager.kit import media_ownership, tag_chips, verbs
 
 # Ours, not AG Grid's: the drawings a column allows, its default first. Stripped by
 # `grid.for_grid` before the definitions reach the grid.
@@ -42,7 +42,7 @@ DISPATCH = (
 )
 
 # Word -> how to draw it. The cell holds the word and the mark is drawn from it here;
-# `manager/data.py` has why.
+# `manager/kit/data.py` has why.
 _MARK_BY_WORD = {
     tier.noun: {"mark": tier.mark, "why": t(tier.why), "word": t(tier.noun)}
     for tier in (media_ownership.tier_for(key) for key in media_ownership.STATES)

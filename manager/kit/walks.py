@@ -15,9 +15,9 @@ from nicegui import ui
 
 from common.failures import why
 from common.i18n import t
-from manager.on_page import on_page
+from manager.kit.on_page import on_page
 
-logger = logging.getLogger("vpinfe.manager.walks")
+logger = logging.getLogger("vpinfe.manager.kit.walks")
 
 # What `ask` answers to leave one row as it was, or to end the run. The stop is a NUL string
 # so no answer a dialog can give is mistaken for it.

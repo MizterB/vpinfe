@@ -18,7 +18,7 @@ from nicegui import ui
 from common.failures import why
 from common.games.tag_registry import derived_color
 from common.i18n import t
-from manager import (
+from manager.kit import (
     confirm,
     grid,
     offload,
@@ -30,9 +30,9 @@ from manager import (
     views,
     walks,
 )
-from manager import dialog as frame
-from manager.data import Library
-from manager.on_page import on_page
+from manager.kit import dialog as frame
+from manager.kit.data import Library
+from manager.kit.on_page import on_page
 
 SUBJECT = "tag"
 LABEL = t("manager.tageditor.tags")

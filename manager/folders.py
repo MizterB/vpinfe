@@ -27,10 +27,11 @@ from common.failures import why
 from common.games import library_folders as model
 from common.games import tables
 from common.i18n import t
-from manager import arrange, confirm, import_report, library_folders, offload, panel, undo, verbs
-from manager import dialog as frame
-from manager.data import Library
-from manager.on_page import on_page
+from manager import import_report, library_folders
+from manager.kit import arrange, confirm, offload, panel, undo, verbs
+from manager.kit import dialog as frame
+from manager.kit.data import Library
+from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.folders")
 

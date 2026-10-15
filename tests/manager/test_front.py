@@ -11,7 +11,7 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 from manager import front
-from manager.data import Library
+from manager.kit.data import Library
 
 OWNER = {"id": "owner", "name": "Owner", "owner": True, "up": False}
 GUEST = {"id": "guest", "name": "Guest", "owner": False, "up": True}

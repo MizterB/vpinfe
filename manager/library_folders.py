@@ -15,9 +15,9 @@ from nicegui import run, ui
 
 from common import path_state
 from common.i18n import t
-from manager import offload
-from manager.data import Library
-from manager.on_page import on_page
+from manager.kit import offload
+from manager.kit.data import Library
+from manager.kit.on_page import on_page
 
 IMPORTER = "library_importer"
 # The kind of job the importer's run is, which names the extension.

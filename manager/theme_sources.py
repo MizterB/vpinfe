@@ -21,10 +21,10 @@ from common.failures import why
 from common.i18n import t
 from common.online import theme_source_checks as checks
 from common.online import theme_sources as online
-from manager import arrange, offload, panel, undo, verbs
-from manager import dialog as frame
-from manager.data import Library
-from manager.on_page import on_page
+from manager.kit import arrange, offload, panel, undo, verbs
+from manager.kit import dialog as frame
+from manager.kit.data import Library
+from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.theme_sources")
 

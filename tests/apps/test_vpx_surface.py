@@ -90,13 +90,13 @@ BASELINE: dict[str, int] = {
     # The two folders a ROM's nvram and cfg are placed in.
     "common/uploads/asset_import_service.py": 20,
     "manager/assets.py": 2,
-    "manager/data.py": 1,
+    "manager/kit/data.py": 1,
     # The DMD panel's kinds are the names the plugin's keys take.
     "manager/dmd_panel.py": 1,
-    "manager/game_tables.py": 1,
+    "manager/kit/game_tables.py": 1,
     "manager/games.py": 9,
     "manager/media.py": 1,
-    "manager/media_ownership.py": 2,
+    "manager/kit/media_ownership.py": 2,
     "manager/mediasource.py": 2,
     "manager/sections.py": 2,
     # Both lines are the VPX Mobile page id and its note key. They go when the page does.
@@ -106,8 +106,8 @@ BASELINE: dict[str, int] = {
     "manager/setup.py": 14,
     # The three pages of that step: the program, the playfield glass, the buttons.
     "manager/setup_vpx.py": 23,
-    "manager/table_features.py": 1,
-    "manager/appearance.py": 2,
+    "manager/kit/table_features.py": 1,
+    "manager/kit/appearance.py": 2,
     # The Displays page of a Visual Pinball launcher: the file's keys are its subject.
     "manager/vpx_displays.py": 12,
     # Where the program is on this machine: the names its builds go by are the subject.

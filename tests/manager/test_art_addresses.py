@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import unittest
 
-from manager import art, mediapages, thumbnails
-from manager.data import _thumb
+from manager import mediapages
+from manager.kit import art, thumbnails
+from manager.kit.data import _thumb
 
 
 class ArtAddressTests(unittest.TestCase):

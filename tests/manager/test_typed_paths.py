@@ -34,7 +34,7 @@ def _placeholder(node: ast.AST, catalog: dict[str, str]) -> str:
 def _bare_path_inputs() -> list[str]:
     catalog = _catalog()
     found = []
-    for path in sorted(MANAGER.glob("*.py")):
+    for path in sorted(MANAGER.rglob("*.py")):
         tree = trees.tree_for(path)
         for node in ast.walk(tree):
             if not (isinstance(node, ast.Call)
@@ -73,7 +73,7 @@ class ATypedPathIsChecked(unittest.TestCase):
     def test_it_found_the_inputs(self):
         """An empty sweep passes and measures nothing, which reads the same as clean."""
         seen = sum(1
-                   for path in MANAGER.glob("*.py")
+                   for path in MANAGER.rglob("*.py")
                    for node in ast.walk(trees.tree_for(path))
                    if isinstance(node, ast.Call)
                    and getattr(node.func, "attr", "") == "input")

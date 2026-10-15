@@ -11,7 +11,8 @@ from pathlib import Path
 from unittest import mock
 
 from common import authenticator, paths, upgrade_needs
-from manager import appearance, authenticator_panel, panel
+from manager import authenticator_panel
+from manager.kit import appearance, panel
 
 
 def _shown(state: dict) -> list[tuple]:

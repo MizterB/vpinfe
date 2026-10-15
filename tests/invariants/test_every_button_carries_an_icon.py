@@ -1,4 +1,4 @@
-"""Every button carries an icon, and the drawing comes from `manager/verbs.py`."""
+"""Every button carries an icon, and the drawing comes from `manager/kit/verbs.py`."""
 
 from __future__ import annotations
 
@@ -52,10 +52,10 @@ class TestEveryButtonCarriesAnIcon(unittest.TestCase):
                     continue
                 if not any(kw.arg == "icon" for kw in node.keywords):
                     offenders.append(f"{path.relative_to(REPO).as_posix()}:{node.lineno}")
-        self.assertEqual(offenders, [], "give it an icon from manager/verbs.py")
+        self.assertEqual(offenders, [], "give it an icon from manager/kit/verbs.py")
 
     def test_every_drawing_is_declared(self) -> None:
-        from manager import verbs
+        from manager.kit import verbs
         allowed = verbs.declared()
         offenders = []
         for path, tree in _sources():
@@ -71,10 +71,10 @@ class TestEveryButtonCarriesAnIcon(unittest.TestCase):
                             f"{path.relative_to(REPO).as_posix()}:{node.lineno} "
                             f"{node.value.value!r}")
         self.assertEqual(offenders, [],
-                         "name it in manager/verbs.py rather than here")
+                         "name it in manager/kit/verbs.py rather than here")
 
     def test_no_button_wears_the_smart_mark(self) -> None:
-        from manager import verbs
+        from manager.kit import verbs
         buttons, worn = 0, []
         for path, tree in _sources():
             for node in _button_calls(tree):

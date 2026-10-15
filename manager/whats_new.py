@@ -1,6 +1,6 @@
 """What's new: the first start after an update, and the same page asked for again from About.
 
-It runs on the wizard's dialog host (`manager/wizard.py`), as Setup does, with three parts
+It runs on the wizard's dialog host (`manager/kit/wizard.py`), as Setup does, with three parts
 in the order a person asks about them: what changed, what it did to their files, and what
 needs them. A part with nothing in it is not a step, and where none has anything the page
 does not open.
@@ -20,8 +20,8 @@ from nicegui import run, ui
 from common import release_notes, whats_new
 from common.i18n import literal_or, t
 from common.vpinfe_version import get_version
-from manager import offload, panel, wizard
-from manager.on_page import on_page
+from manager.kit import offload, panel, wizard
+from manager.kit.on_page import on_page
 
 CHANGED = "changed"
 FILES = "files"

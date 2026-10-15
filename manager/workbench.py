@@ -50,66 +50,68 @@ from common.i18n import t
 from common.labels import field_label, humanize
 from common.media_specs import PAGED_KINDS, media_family, media_label_map
 from common.online import vps_kinds
-from manager import arrange as arranging
 from manager import (
-    art,
     backglass_view,
     backup_rows,
-    busy,
-    candidates,
     collection_adds,
     collection_rules,
     community,
-    confirm,
-    deeplink,
     dof,
-    dropdown,
     ext_groups,
     ext_mark,
     ext_row,
     file_acts,
     game_acts,
-    game_tables,
-    grid,
     media_fill,
-    media_ownership,
     mediamap,
     mediapages,
     mediasource,
     mediaview,
-    offload,
-    panel,
     pictures,
-    play_facts,
     plays_on,
     release_match,
     row_drag,
     screens,
-    stars,
-    table_features,
-    tag_chips,
     tageditor,
     text_editor,
-    thumbnails,
-    undo,
-    verbs,
     vps_match,
     vpx_displays,
     vpx_input,
-    when,
 )
 from manager import backups as backups_page
 from manager import commands as commands_help
 from manager import devices as devices_page
-from manager import dialog as frame
 from manager import discovery as discovery_page
 from manager import launchers as launchers_page
 from manager import players as players_page
 from manager import record as recorder
 from manager import settings as settings_page
 from manager import themes as themes_page
-from manager.data import Library, config_groups, read_state, tag_source
-from manager.on_page import on_page
+from manager.kit import arrange as arranging
+from manager.kit import (
+    art,
+    busy,
+    candidates,
+    confirm,
+    deeplink,
+    dropdown,
+    game_tables,
+    grid,
+    media_ownership,
+    offload,
+    panel,
+    play_facts,
+    stars,
+    table_features,
+    tag_chips,
+    thumbnails,
+    undo,
+    verbs,
+    when,
+)
+from manager.kit import dialog as frame
+from manager.kit.data import Library, config_groups, read_state, tag_source
+from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.workbench")
 

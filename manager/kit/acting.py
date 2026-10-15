@@ -27,7 +27,7 @@ from nicegui.client import Client
 from common import sign_in
 from httpapi import auth
 
-logger = logging.getLogger("vpinfe.manager.acting")
+logger = logging.getLogger("vpinfe.manager.kit.acting")
 
 # Long enough to read six digits off another screen and type them.
 CONFIRM_WAIT_SECONDS = 600
@@ -106,7 +106,7 @@ def confirm() -> bool:
         return False
     held = _asking.get(acting.client.id)
     if held is None:
-        from manager import confirm_code as dialog
+        from manager.kit import confirm_code as dialog
 
         async def ask() -> bool:
             with acting.client:

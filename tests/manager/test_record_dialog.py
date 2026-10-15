@@ -243,7 +243,7 @@ def _io(call: Any, *args: Any, **kwargs: Any) -> Any:
 
 class EndTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
-        self.enterContext(mock.patch("manager.on_page.ui"))
+        self.enterContext(mock.patch("manager.kit.on_page.ui"))
         self.ui = self.enterContext(mock.patch.object(record, "ui"))
         self.enterContext(mock.patch.object(record, "_POLL_S", 0))
         self.enterContext(mock.patch.object(record.offload, "io",
@@ -278,7 +278,7 @@ class EndTests(unittest.IsolatedAsyncioTestCase):
 
 class ReviewTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
-        self.enterContext(mock.patch("manager.on_page.ui"))
+        self.enterContext(mock.patch("manager.kit.on_page.ui"))
         self.enterContext(mock.patch.object(record, "ui"))
         self.enterContext(mock.patch.object(record.mediaview, "preview"))
         self.enterContext(mock.patch.object(record.panel, "facts"))

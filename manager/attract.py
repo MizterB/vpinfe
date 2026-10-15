@@ -19,7 +19,7 @@ from common import setting_groups
 from common.i18n import t
 from common.online import theme_service
 from common.values import is_truthy
-from manager import panel
+from manager.kit import panel
 
 SECTION = "behavior"
 ENABLED = "attract_enabled"

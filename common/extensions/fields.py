@@ -14,7 +14,7 @@ from typing import Any
 from .accounts import scrubbed
 from .store import RESERVED
 
-# What `manager/wizard.FIELD_TYPES` draws.
+# What `manager/kit/wizard.FIELD_TYPES` draws.
 DIALOG_TYPES: frozenset[str] = frozenset({
     "string", "secret", "path", "select", "multi", "switch", "choice", "number",
     "checklist", "settle",

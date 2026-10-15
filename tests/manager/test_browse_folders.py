@@ -8,8 +8,9 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from common import config_service, path_state
-from manager import folders, offload, panel
+from manager import folders
 from manager import settings as settings_page
+from manager.kit import offload, panel
 from manager.settings import settings_here
 
 

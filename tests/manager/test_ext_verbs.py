@@ -9,7 +9,8 @@ from unittest.mock import MagicMock
 
 from nicegui import ui
 
-from manager import ext_verbs, game_acts, panel
+from manager import ext_verbs, game_acts
+from manager.kit import panel
 
 _PAGE = ui.element()
 

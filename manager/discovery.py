@@ -23,12 +23,12 @@ from common import icons
 from common.failures import why
 from common.i18n import t
 from common.online import vps_kinds
-from manager import (
+from manager import import_dialog
+from manager.kit import (
     busy,
     confirm,
     deeplink,
     game_tables,
-    import_dialog,
     offload,
     panel,
     thumbnails,
@@ -36,9 +36,9 @@ from manager import (
     views,
     when,
 )
-from manager import grid as grid_module
-from manager.data import Library
-from manager.on_page import on_page
+from manager.kit import grid as grid_module
+from manager.kit.data import Library
+from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.discovery")
 

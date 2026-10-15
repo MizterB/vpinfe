@@ -16,11 +16,11 @@ from common import authenticator, paths
 from common.failures import why
 from common.i18n import t
 from common.install_identity import display_name
-from manager import confirm, deeplink, offload, panel, qr, verbs
-from manager import dialog as frame
-from manager.api import ApiError
-from manager.data import Library
-from manager.on_page import on_page
+from manager.kit import confirm, deeplink, offload, panel, qr, verbs
+from manager.kit import dialog as frame
+from manager.kit.api import ApiError
+from manager.kit.data import Library
+from manager.kit.on_page import on_page
 
 SECURITY_PAGE = "vpinfe.security"
 

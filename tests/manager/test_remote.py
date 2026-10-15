@@ -11,7 +11,7 @@ from unittest import mock
 
 from httpapi import events
 from manager import remote
-from manager.api import _lines, read_frames
+from manager.kit.api import _lines, read_frames
 from tests.support import trees
 
 

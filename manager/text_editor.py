@@ -21,10 +21,10 @@ from nicegui.elements.codemirror.constants import SUPPORTED_LANGUAGES, SUPPORTED
 
 from common.failures import why
 from common.i18n import t
-from manager import appearance, confirm, offload, panel, verbs
-from manager import dialog as frame
-from manager.api import ApiError
-from manager.on_page import on_page
+from manager.kit import appearance, confirm, offload, panel, verbs
+from manager.kit import dialog as frame
+from manager.kit.api import ApiError
+from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.text_editor")
 

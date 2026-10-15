@@ -17,7 +17,7 @@ from manager import (
     tageditor,
     themes,
 )
-from manager import views as views_module
+from manager.kit import views as views_module
 from tests.support import trees
 
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent

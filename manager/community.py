@@ -16,14 +16,11 @@ from common.failures import why
 from common.games import rankings
 from common.games.community_lists import keep, kept
 from common.i18n import t
-from manager import (
+from manager import collection_rules, ext_action, ext_links, ext_page
+from manager.kit import (
     busy,
-    collection_rules,
     confirm,
     deeplink,
-    ext_action,
-    ext_links,
-    ext_page,
     game_tables,
     grid,
     offload,
@@ -36,9 +33,9 @@ from manager import (
     walks,
     when,
 )
-from manager.api import ApiClient, ApiError
-from manager.data import Library, read_state, sources_of
-from manager.on_page import on_page
+from manager.kit.api import ApiClient, ApiError
+from manager.kit.data import Library, read_state, sources_of
+from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.community")
 

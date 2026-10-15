@@ -9,7 +9,7 @@ from collections.abc import Awaitable, Callable
 
 from nicegui import core, ui
 
-from manager import panel, verbs
+from manager.kit import panel, verbs
 from tests.support.clicks import said
 
 # Made at import, outside any task, where NiceGUI still hands out the script's own page.

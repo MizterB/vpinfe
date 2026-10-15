@@ -24,10 +24,10 @@ from common.host import display_service, placement
 from common.i18n import t
 from common.paths import get_ini_config
 from frontend import theme_windows
-from manager import clipboard, offload, panel
-from manager import dialog as frame
 from manager.displays import Write, stored
-from manager.on_page import on_page
+from manager.kit import clipboard, offload, panel
+from manager.kit import dialog as frame
+from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.placement_panel")
 

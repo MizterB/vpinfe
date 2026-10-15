@@ -25,11 +25,12 @@ from common.games.launchers import Launcher
 from common.host import screen_size
 from common.i18n import t
 from common.path_state import OK as PATH_OK
-from manager import offload, panel, units, verbs, vpx_find, vpx_input, when
-from manager.api import ApiClient
+from manager import vpx_find, vpx_input
 from manager.binding_table import Table
-from manager.data import config_groups
-from manager.on_page import on_page
+from manager.kit import offload, panel, units, verbs, when
+from manager.kit.api import ApiClient
+from manager.kit.data import config_groups
+from manager.kit.on_page import on_page
 from manager.vpx_find import Find
 
 logger = logging.getLogger("vpinfe.manager.setup_vpx")

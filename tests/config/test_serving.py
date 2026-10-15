@@ -5,7 +5,7 @@ import unittest
 
 from common import device_registry, install_presence, serving
 from frontend import config_api
-from manager import api as manager_api
+from manager.kit import api as manager_api
 from tests.support.library import TempTree
 
 

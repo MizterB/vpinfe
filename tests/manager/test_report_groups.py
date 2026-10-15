@@ -9,7 +9,8 @@ from urllib.parse import parse_qs, urlparse
 
 from nicegui import ui
 
-from manager import deeplink, job_report, panel, report_groups, wizard
+from manager import job_report
+from manager.kit import deeplink, panel, report_groups, wizard
 
 JOB = "7f3a"
 

@@ -14,9 +14,10 @@ from nicegui import run, ui
 
 from common.failures import why
 from common.i18n import t
-from manager import needs, undo
-from manager.data import Library
-from manager.on_page import on_page
+from manager import needs
+from manager.kit import undo
+from manager.kit.data import Library
+from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.set_aside")
 

@@ -15,7 +15,7 @@ import unittest
 from nicegui import ui
 
 from common import i18n
-from manager import panel
+from manager.kit import panel
 from tests.support import trees
 
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent

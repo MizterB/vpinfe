@@ -9,9 +9,9 @@ from nicegui import run, ui
 from common.backups import copies as kept_copies
 from common.failures import why
 from common.i18n import t
-from manager import confirm, verbs
-from manager.data import Library
-from manager.on_page import on_page
+from manager.kit import confirm, verbs
+from manager.kit.data import Library
+from manager.kit.on_page import on_page
 
 
 def available(rows: list[dict[str, Any]]) -> bool:

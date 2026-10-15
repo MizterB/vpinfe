@@ -12,7 +12,7 @@ from nicegui import ui
 
 from common.timestamps import utc_now_iso
 from manager import collection_rules, community, games, tageditor, workbench
-from manager.data import Library, read_state, sources_of
+from manager.kit.data import Library, read_state, sources_of
 from tests.support import lines
 
 SOURCE = {"extension": "challenge", "display_name": "Challenge", "list": "releases",

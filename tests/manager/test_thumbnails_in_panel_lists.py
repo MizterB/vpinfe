@@ -28,9 +28,10 @@ from common.games import collection_ops, collections_service, game_repository, l
 from common.games.collection_store import CollectionStore
 from common.games.library_folders import KIND_ROOT, Location
 from common.paths import get_ini_config
-from manager import panel, workbench
-from manager.api import ApiClient
-from manager.data import Library
+from manager import workbench
+from manager.kit import panel
+from manager.kit.api import ApiClient
+from manager.kit.data import Library
 from tests.support.library import TempTree, game_info, write_game
 
 TWO = "Two Tables (Maker 2001)"

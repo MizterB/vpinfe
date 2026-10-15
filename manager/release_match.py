@@ -21,8 +21,9 @@ from nicegui import ui
 from common import icons
 from common.i18n import t
 from common.online import vps_formats
-from manager import candidates, game_tables, panel, verbs, vps_match, when
-from manager import dialog as frame
+from manager import vps_match
+from manager.kit import candidates, game_tables, panel, verbs, when
+from manager.kit import dialog as frame
 
 # "g5k and 3rdaxis" is two people, and so is "g5k & 3rdaxis".
 _PEOPLE = re.compile(r",|&|\s+and\s+", re.IGNORECASE)

@@ -84,14 +84,9 @@ def _imports(tree: ast.Module) -> dict[str, tuple[str, str | None]]:
     for a module."""
     found: dict[str, tuple[str, str | None]] = {}
     for node in ast.walk(tree):
-        if not isinstance(node, ast.ImportFrom) or not node.module:
-            continue
-        for alias in node.names:
-            bound = alias.asname or alias.name
-            if node.module == "manager":
-                found[bound] = (alias.name, None)
-            elif node.module.startswith("manager."):
-                found[bound] = (node.module.removeprefix("manager."), alias.name)
+        if isinstance(node, ast.ImportFrom):
+            for bound, module, name in trees.manager_imports(node):
+                found[bound] = (module, name)
     return found
 
 
@@ -152,7 +147,7 @@ def _builders(trees_by_module: dict[str, ast.Module]) -> dict[str, list[tuple[st
 
 
 def _manager_trees() -> dict[str, ast.Module]:
-    return {path.stem: _tree(path) for path in MANAGER.glob("*.py")}
+    return {path.stem: _tree(path) for path in MANAGER.rglob("*.py")}
 
 
 def _subject_verbs() -> set[str]:
@@ -182,7 +177,7 @@ def _given(call: ast.Call) -> set[str]:
 def _grids() -> dict[str, set[str]]:
     """Each manager module that builds a grid, with the handlers its grids are given."""
     found: dict[str, set[str]] = {}
-    for path in sorted(MANAGER.glob("*.py")):
+    for path in sorted(MANAGER.rglob("*.py")):
         calls = [node for node in ast.walk(_tree(path))
                  if isinstance(node, ast.Call) and _is_grid_build(node)]
         if calls:
@@ -273,12 +268,12 @@ class TestActionsSitWithTheirSubject(unittest.TestCase):
         self.assertEqual(sorted(SELECTION_BY_HAND), sorted(by_hand),
                          "a selection menu is built with panel.selection_menu; a page "
                          "that does is out of SELECTION_BY_HAND")
-        for path in sorted(MANAGER.glob("*.py")):
+        for path in sorted(MANAGER.rglob("*.py")):
             if path.name != "panel.py" and _calls_panel(path, "selection_actions"):
                 self.assertIn(path.name, SELECTION_BY_HAND, "build it with selection_menu")
 
     def test_checkboxes_are_drawn_only_for_a_grid_with_a_selection_handler(self) -> None:
-        build = next(node for node in _tree(MANAGER / "grid.py").body
+        build = next(node for node in _tree(MANAGER / "kit" / "grid.py").body
                      if isinstance(node, ast.FunctionDef) and node.name == "build")
         gated = [node for node in ast.walk(build) if isinstance(node, ast.IfExp)
                  and ast.unparse(node.test) == "on_select_rows is not None"

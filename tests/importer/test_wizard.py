@@ -22,7 +22,7 @@ import httpapi
 from common import extensions
 from common.extensions import host, store
 from common.extensions.contract import ContractError
-from manager import wizard
+from manager.kit import wizard
 
 REPO = Path(__file__).resolve().parents[2]
 FIXTURE = REPO / "tests" / "fixtures" / "pinballx"

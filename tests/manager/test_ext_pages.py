@@ -10,7 +10,8 @@ from unittest.mock import Mock, patch
 
 from nicegui import ui
 
-from manager import community, deeplink, ext_pages, page
+from manager import community, ext_pages, page
+from manager.kit import deeplink
 
 DECLARED = {"key": "week", "title": "This week", "area": "community", "base": "/pages/week",
             "about": "/pages/week/about", "save": False}

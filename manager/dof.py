@@ -15,8 +15,8 @@ from nicegui import run, ui
 from common.failures import why
 from common.host import dof_service
 from common.i18n import t
-from manager import offload, panel, verbs
-from manager.on_page import on_page
+from manager.kit import offload, panel, verbs
+from manager.kit.on_page import on_page
 
 SECTION = "dof"
 FIRST_EVENT = "E900"

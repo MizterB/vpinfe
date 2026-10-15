@@ -18,10 +18,11 @@ from nicegui import run, ui
 from common import device_client, device_registry
 from common.failures import why
 from common.i18n import t
-from manager import confirm, mobile_add, offload, panel, verbs
-from manager import dialog as frame
-from manager.api import ApiClient
-from manager.on_page import on_page
+from manager import mobile_add
+from manager.kit import confirm, offload, panel, verbs
+from manager.kit import dialog as frame
+from manager.kit.api import ApiClient
+from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.send_to_device")
 

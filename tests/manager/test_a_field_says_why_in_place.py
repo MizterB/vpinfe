@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 from typing import Any
 
-from manager import dialog
+from manager.kit import dialog
 
 
 class _Control:

@@ -17,9 +17,10 @@ from nicegui import ui
 
 from common.failures import why
 from common.i18n import t
-from manager import community, confirm, ext_mark, offload, panel, verbs
-from manager.api import ApiClient
-from manager.on_page import on_page
+from manager import community, ext_mark
+from manager.kit import confirm, offload, panel, verbs
+from manager.kit.api import ApiClient
+from manager.kit.on_page import on_page
 
 Again = Callable[[], Awaitable[Any]]
 

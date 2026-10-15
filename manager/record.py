@@ -23,21 +23,10 @@ from common.failures import why
 from common.games import asset_origin
 from common.i18n import size, t
 from common.media_specs import media_label_map
-from manager import (
-    art,
-    confirm,
-    media_ownership,
-    mediaview,
-    offload,
-    panel,
-    recording,
-    remembered,
-    settings,
-    undo,
-    verbs,
-)
-from manager import dialog as frame
-from manager.on_page import on_page
+from manager import mediaview, recording, settings
+from manager.kit import art, confirm, media_ownership, offload, panel, remembered, undo, verbs
+from manager.kit import dialog as frame
+from manager.kit.on_page import on_page
 
 TICKS = "record.kinds"
 # Sound is Media's Audio tick here, not a setting of its own.

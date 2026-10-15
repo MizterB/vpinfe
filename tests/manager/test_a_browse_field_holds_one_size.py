@@ -42,7 +42,7 @@ def _browse_fields() -> list[tuple[str, ast.FunctionDef | ast.AsyncFunctionDef, 
     set in that same function, so the outer one answers for both.
     """
     found = []
-    for path in sorted(MANAGER.glob("*.py")):
+    for path in sorted(MANAGER.rglob("*.py")):
         for node in trees.tree_for(path).body:
             if (isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
                     and node.name not in BROWSE_DRAWERS

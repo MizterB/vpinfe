@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import Mock
 
 from manager import page, uploads
-from manager.data import Library
+from manager.kit.data import Library
 
 GAME = {"id": "g-1", "name": "Some Game", "folder": "/games/Some Game"}
 

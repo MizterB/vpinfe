@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from nicegui import ui
 
-from manager import confirm
+from manager.kit import confirm
 from tests.support.clicks import said
 
 # Made at import, outside any task, where NiceGUI still hands out the script's own page.

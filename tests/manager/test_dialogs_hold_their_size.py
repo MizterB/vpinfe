@@ -72,7 +72,7 @@ def _outermost(tree: ast.AST) -> list[ast.FunctionDef | ast.AsyncFunctionDef]:
 
 def _growing() -> list[str]:
     found = []
-    for path in sorted(MANAGER.glob("*.py")):
+    for path in sorted(MANAGER.rglob("*.py")):
         tree = trees.tree_for(path)
         for scope in _outermost(tree):
             props = _props_by_name(scope)
@@ -96,7 +96,7 @@ class ADialogIsTheSizeItOpenedAt(unittest.TestCase):
     def test_it_found_the_fields(self):
         """An empty sweep passes and measures nothing, which reads the same as clean."""
         seen = sum(one.count(GROWS)
-                   for path in MANAGER.glob("*.py")
+                   for path in MANAGER.rglob("*.py")
                    for one in [path.read_text(encoding="utf-8")])
         self.assertGreater(seen, 3)
 

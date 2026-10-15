@@ -26,7 +26,7 @@ def _lines(tree: ast.AST, owner: str, attribute: str) -> list[int]:
 class EverySegmentedChoiceIsOne(unittest.TestCase):
     def test_no_module_draws_a_raw_ui_toggle(self) -> None:
         raw = []
-        for path in sorted(MANAGER.glob("*.py")):
+        for path in sorted(MANAGER.rglob("*.py")):
             if path.name not in OWN_LOOK:
                 raw += [f"manager/{path.name}:{line}"
                         for line in _lines(trees.tree_for(path), "ui", "toggle")]
@@ -35,7 +35,7 @@ class EverySegmentedChoiceIsOne(unittest.TestCase):
     def test_it_found_the_toggles(self) -> None:
         """An empty sweep passes and measures nothing, which reads the same as clean."""
         uses = sum(len(_lines(trees.tree_for(path), "panel", "segmented"))
-                   for path in MANAGER.glob("*.py"))
+                   for path in MANAGER.rglob("*.py"))
         self.assertGreaterEqual(uses, 7)
 
     def test_the_edge_is_the_control_boundary(self) -> None:

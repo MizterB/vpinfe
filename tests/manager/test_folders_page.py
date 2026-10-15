@@ -16,8 +16,9 @@ from nicegui import ui
 
 from common import install_identity, path_state
 from common.games import library_folders as model
-from manager import folders, offload, panel
+from manager import folders
 from manager import settings as settings_page
+from manager.kit import offload, panel
 from tests.support.clicks import press
 
 # Made at import, outside any task, where NiceGUI still hands out the script's own page.
@@ -269,7 +270,7 @@ class ActTests(unittest.IsolatedAsyncioTestCase):
             offload, "io", new=AsyncMock(side_effect=lambda call, *args: call(*args))))
         self.enterContext(patch("nicegui.run.io_bound",
                                 new=AsyncMock(side_effect=lambda call, *a: call(*a))))
-        self.enterContext(patch("manager.on_page.ui"))
+        self.enterContext(patch("manager.kit.on_page.ui"))
         self.notified = self.enterContext(patch.object(folders.ui, "notify"))
         self.offered = self.enterContext(patch.object(folders.undo, "offer"))
 

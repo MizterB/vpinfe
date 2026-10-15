@@ -7,7 +7,8 @@ import unittest
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
-from manager import game_tables, import_dialog, workbench
+from manager import import_dialog, workbench
+from manager.kit import game_tables
 from tests.support.clicks import press
 
 BASE_ID, MADE_ID = "tblBase", "tblMade"

@@ -27,7 +27,7 @@ class CopyOrUseWhereItIs(unittest.IsolatedAsyncioTestCase):
         self.library = Mock()
         self.done = AsyncMock()
         self.sources = mediasource._Table(_context(self.library), self.done)
-        for patched in (patch("manager.offload.run.io_bound", new=_now),
+        for patched in (patch("manager.kit.offload.run.io_bound", new=_now),
                         patch.object(mediasource.ui, "notify")):
             patched.start()
             self.addCleanup(patched.stop)
@@ -92,7 +92,7 @@ class ADropOnAGamesRow(unittest.IsolatedAsyncioTestCase):
             {"id": "t-1", "version": "0.9", "authors": ["Someone"], "default": True}]
         self.confirmed = AsyncMock()
         self.said = Mock()
-        for patched in (patch("manager.offload.run.io_bound", new=_now),
+        for patched in (patch("manager.kit.offload.run.io_bound", new=_now),
                         patch.object(uploads, "analyzed",
                                      new=AsyncMock(return_value={"has_game": True})),
                         patch.object(uploads, "confirmed_import", new=self.confirmed),
@@ -136,7 +136,7 @@ class AnAddIsSaidOnce(unittest.IsolatedAsyncioTestCase):
         library = Mock()
         library.upload_import.return_value = report
         said = Mock()
-        with patch("manager.offload.run.io_bound", new=_now), \
+        with patch("manager.kit.offload.run.io_bound", new=_now), \
                 patch.object(import_dialog.frame, "opened", return_value=_Confirmed()), \
                 patch.object(import_dialog.frame, "footer"), \
                 patch.object(import_dialog.frame, "cancel"), \

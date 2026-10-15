@@ -7,7 +7,7 @@ from __future__ import annotations
 import unittest
 from typing import Any
 
-from manager import wizard
+from manager.kit import wizard
 
 
 def _calls(steps: dict[str, dict[str, Any]], *,

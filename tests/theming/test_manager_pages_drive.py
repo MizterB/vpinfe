@@ -3,7 +3,7 @@
 Each is drawn once: no listener reaches a layout the browser already has, which NiceGUI
 answers by drawing all of it again. And every section a rail opens is headed properly:
 when any group in it is headed, the first one is too, and a lone heading never says the
-rail row again. Every dropdown on screen is a `manager.dropdown.Select`, and the text in
+rail row again. Every dropdown on screen is a `manager.kit.dropdown.Select`, and the text in
 each one stands at the middle of its box. No row, card or control in an open section is
 wider than the row measure.
 

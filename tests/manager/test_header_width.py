@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import unittest
 
-from manager import grid
+from manager.kit import grid
 
 TWO_KEYS = ({"colId": "rating", "sort": "desc", "sortIndex": 0},
             {"colId": "ratings", "sort": "desc", "sortIndex": 1})

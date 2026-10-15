@@ -14,8 +14,9 @@ from nicegui import ui
 
 from common import install_identity
 from common.i18n import t
-from manager import deeplink, grid, page, panel, players, thumbnails, workbench
-from manager.api import ApiClient
+from manager import page, players, workbench
+from manager.kit import deeplink, grid, panel, thumbnails
+from manager.kit.api import ApiClient
 
 OWNER = {"id": "p-own", "name": "", "initials": "OWN", "owner": True, "guest": False,
          "up": True, "shares_initials_with": []}

@@ -12,8 +12,9 @@ from nicegui import ui
 
 from common.failures import why
 from common.i18n import t
-from manager import art, game_tables, mediaview, offload, panel, undo, verbs, when
-from manager.on_page import on_page
+from manager import mediaview
+from manager.kit import art, game_tables, offload, panel, undo, verbs, when
+from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.pictures")
 

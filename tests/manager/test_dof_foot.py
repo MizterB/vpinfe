@@ -7,7 +7,8 @@ from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from common.i18n import t
-from manager import dof, offload, record, settings
+from manager import dof, record, settings
+from manager.kit import offload
 
 
 class Library:
@@ -33,7 +34,7 @@ class FootTests(unittest.IsolatedAsyncioTestCase):
         self.drawn: dict[str, Any] = {}
         self.enterContext(patch.object(
             offload, "io", new=AsyncMock(side_effect=lambda call, *args: call(*args))))
-        self.enterContext(patch("manager.on_page.ui"))
+        self.enterContext(patch("manager.kit.on_page.ui"))
         self.ui = self.enterContext(patch.object(dof, "ui"))
 
         def last_checked(checked: str, now: Any, *, blocked: str = "") -> tuple[str, Any]:

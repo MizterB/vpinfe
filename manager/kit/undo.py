@@ -11,9 +11,9 @@ from nicegui import ui
 
 from common.failures import why
 from common.i18n import t
-from manager.on_page import on_page
+from manager.kit.on_page import on_page
 
-logger = logging.getLogger("vpinfe.manager.undo")
+logger = logging.getLogger("vpinfe.manager.kit.undo")
 
 STANDS_S = 8.0
 

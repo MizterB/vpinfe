@@ -16,8 +16,9 @@ from common import config_schema, paths
 from common.capture import adapters, commands, preflight
 from common.host import tools
 from common.i18n import t
-from manager import panel, recording, settings
-from manager.data import Library
+from manager import recording, settings
+from manager.kit import panel
+from manager.kit.data import Library
 from tests.capture.test_preflight import report
 
 PAGE = next(page for _group, pages in settings.DEVICE_INDEX for page in pages
@@ -89,7 +90,7 @@ class RecordingPageTests(unittest.IsolatedAsyncioTestCase):
         self.enterContext(patch.object(
             settings.run, "io_bound",
             new=AsyncMock(side_effect=lambda call, *args, **kwargs: call(*args, **kwargs))))
-        self.enterContext(patch("manager.on_page.ui"))
+        self.enterContext(patch("manager.kit.on_page.ui"))
         for module in (settings, recording):
             self.enterContext(patch.object(module, "ui"))
         self.head = self.enterContext(patch.object(settings, "page_head"))
@@ -310,7 +311,7 @@ class RecordingPageTests(unittest.IsolatedAsyncioTestCase):
         choose = await self._choose_screens()
         answered = {"kept": True, "shared": 3, "screens": 3, "reason": None}
 
-        with patch("manager.confirm.ask", new=AsyncMock(return_value=True)) as asked, \
+        with patch("manager.kit.confirm.ask", new=AsyncMock(return_value=True)) as asked, \
                 patch("manager.record.ended_job", new=AsyncMock(return_value=answered)):
             await choose()
 
@@ -327,7 +328,7 @@ class RecordingPageTests(unittest.IsolatedAsyncioTestCase):
         choose = await self._choose_screens()
         answered = {"kept": True, "shared": 2, "screens": 3, "reason": None}
 
-        with patch("manager.confirm.ask", new=AsyncMock(return_value=True)), \
+        with patch("manager.kit.confirm.ask", new=AsyncMock(return_value=True)), \
                 patch("manager.record.ended_job", new=AsyncMock(return_value=answered)):
             await choose()
 
@@ -339,7 +340,7 @@ class RecordingPageTests(unittest.IsolatedAsyncioTestCase):
                     "reason": {"key": "capture.portal.not_kept",
                                "params": {"desktop": "KDE Plasma"}}}
 
-        with patch("manager.confirm.ask", new=AsyncMock(return_value=True)), \
+        with patch("manager.kit.confirm.ask", new=AsyncMock(return_value=True)), \
                 patch("manager.record.ended_job", new=AsyncMock(return_value=answered)):
             await choose()
 
@@ -350,7 +351,7 @@ class RecordingPageTests(unittest.IsolatedAsyncioTestCase):
     async def test_choose_screens_asks_nothing_of_the_desktop_until_agreed(self) -> None:
         choose = await self._choose_screens()
 
-        with patch("manager.confirm.ask", new=AsyncMock(return_value=False)):
+        with patch("manager.kit.confirm.ask", new=AsyncMock(return_value=False)):
             await choose()
 
         self.assertFalse(hasattr(self.served, "chosen"))
@@ -402,7 +403,7 @@ class RecordingPageTests(unittest.IsolatedAsyncioTestCase):
         [discard] = [call.args[1] for call in self.action.call_args_list
                      if call.args[0] == t("manager.recording.discard_all")]
 
-        with patch("manager.confirm.ask", new=AsyncMock(return_value=True)) as asked:
+        with patch("manager.kit.confirm.ask", new=AsyncMock(return_value=True)) as asked:
             await discard()
 
         self.assertEqual(cast(Any, recording.ui).label.call_args.args[0],

@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 from common import config_service
 from common.i18n import t
 from manager import settings, themes
-from manager.api import ApiError
+from manager.kit.api import ApiError
 from tests.support.clicks import press
 
 PORT = "network.http_port"

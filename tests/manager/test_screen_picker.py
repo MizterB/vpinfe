@@ -11,7 +11,8 @@ from common import config_schema, config_service
 from common.host import display_service
 from common.i18n import t
 from frontend.chromium_manager import MonitorInfo
-from manager import panel, screens, settings, workbench
+from manager import screens, settings, workbench
+from manager.kit import panel
 
 WINDOWS = ("windows.playfield", "windows.backglass", "windows.scoreview")
 

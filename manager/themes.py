@@ -23,27 +23,22 @@ from nicegui import run, ui
 from common import accepted
 from common.failures import why
 from common.i18n import t
-from manager import (
-    accept,
+from manager import accept, backup_rows, mediaview, settings, theme_card, theme_sources
+from manager.kit import (
     art,
-    backup_rows,
     busy,
     confirm,
     grid,
-    mediaview,
     offload,
     panel,
     renderers,
-    settings,
-    theme_card,
-    theme_sources,
     thumbnails,
     verbs,
     views,
     when,
 )
-from manager.data import Library
-from manager.on_page import on_page
+from manager.kit.data import Library
+from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.themes")
 

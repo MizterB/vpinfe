@@ -15,9 +15,10 @@ from nicegui import ui
 
 from common.failures import why
 from common.i18n import t
-from manager import busy, community, ext_cells, ext_row, offload, panel
-from manager.api import ApiClient
-from manager.on_page import on_page
+from manager import community, ext_cells, ext_row
+from manager.kit import busy, offload, panel
+from manager.kit.api import ApiClient
+from manager.kit.on_page import on_page
 
 
 def is_page(view: str) -> bool:

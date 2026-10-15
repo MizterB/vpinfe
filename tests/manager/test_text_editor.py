@@ -10,8 +10,9 @@ from unittest import mock
 
 from nicegui import core, ui
 
-from manager import assets, offload, text_editor, workbench
-from manager.api import ApiError
+from manager import assets, text_editor, workbench
+from manager.kit import offload
+from manager.kit.api import ApiError
 
 
 def _draft(name: str) -> dict[str, Any]:

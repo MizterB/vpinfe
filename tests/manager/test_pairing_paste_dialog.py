@@ -9,8 +9,8 @@ from unittest.mock import Mock, patch
 
 from nicegui import ui
 
-from manager import dialog as frame
 from manager import pairing
+from manager.kit import dialog as frame
 from tests.support.clicks import press, said
 
 # Made at import, outside any task, where NiceGUI still hands out the script's own page.

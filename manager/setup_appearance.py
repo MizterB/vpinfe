@@ -9,8 +9,8 @@ from __future__ import annotations
 from typing import Any
 
 from common.i18n import t
-from manager import appearance, appearance_picker, offload
-from manager.api import ApiClient
+from manager.kit import appearance, appearance_picker, offload
+from manager.kit.api import ApiClient
 
 KEY = "appearance"
 

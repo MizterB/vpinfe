@@ -281,7 +281,7 @@ class TheCollectionsAddedToLast(unittest.TestCase):
 
 class WhatAMenuReads(unittest.TestCase):
     def test_a_collection_it_cannot_read_answers_empty_and_is_asked_again(self) -> None:
-        from manager.data import Library
+        from manager.kit.data import Library
 
         asked: list[str] = []
 

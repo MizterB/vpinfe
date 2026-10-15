@@ -60,7 +60,7 @@ def _closed(methods: dict[str, ast.FunctionDef], seed: set[str]) -> set[str]:
 def _sends() -> set[str]:
     """ApiClient methods that make a request, a cached one included: a cache is cold on
     a fresh page."""
-    client = _methods("manager/api.py", "ApiClient")
+    client = _methods("manager/kit/api.py", "ApiClient")
     return _closed(client, {name for name, method in client.items() if any(
         (isinstance(node, ast.Attribute) and node.attr == "_session")
         or (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
@@ -70,7 +70,7 @@ def _sends() -> set[str]:
 
 def _blocking(sends: set[str]) -> set[str]:
     """Library methods that can end in one of `sends`."""
-    library = _methods("manager/data.py", "Library")
+    library = _methods("manager/kit/data.py", "Library")
     asks = {name for name, method in library.items() if any(
         isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
         and isinstance(node.func.value, ast.Attribute)
@@ -128,15 +128,16 @@ class _Module:
                 self._imports(node, known)
 
     def _imports(self, node: ast.ImportFrom, known: set[str]) -> None:
-        dotted = node.module or ""
         if node.level:
-            dotted = f"manager.{dotted}" if dotted else "manager"
-        module = dotted.removeprefix("manager.")
-        for alias in node.names:
-            if dotted == "manager" and alias.name in known:
-                self.modules[alias.asname or alias.name] = alias.name
-            elif dotted.startswith("manager.") and module in known:
-                self.imported[alias.asname or alias.name] = (module, alias.name)
+            dotted = f"manager.{node.module}" if node.module else "manager"
+            node = ast.ImportFrom(module=dotted, names=node.names, level=0)
+        for bound, module, name in trees.manager_imports(node):
+            if module not in known:
+                continue
+            if name is None:
+                self.modules[bound] = module
+            else:
+                self.imported[bound] = (module, name)
 
     def _scope(self, node: ast.AST) -> ast.AST:
         while node in self.parent:
@@ -231,7 +232,7 @@ def _offenders(modules: dict[str, _Module], library: set[str],
 
 def _manager() -> dict[Place, list[str]]:
     sends = _sends()
-    paths = sorted(MANAGER.glob("*.py"))
+    paths = sorted(MANAGER.rglob("*.py"))
     known = {path.stem for path in paths}
     modules = {path.stem: _Module(path.stem, trees.tree_for(path), known) for path in paths}
     return _offenders(modules, _blocking(sends), sends)

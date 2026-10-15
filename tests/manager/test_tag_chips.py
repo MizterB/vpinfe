@@ -8,7 +8,7 @@ import unittest
 from nicegui import ui
 
 from common.games.tag_registry import COLORS, derived_color
-from manager import appearance, renderers, tag_chips
+from manager.kit import appearance, renderers, tag_chips
 
 
 class OneChipTwoDrawings(unittest.TestCase):

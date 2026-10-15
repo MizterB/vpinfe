@@ -16,9 +16,9 @@ from nicegui import background_tasks, ui
 
 from common.failures import why
 from common.i18n import t
-from manager import confirm, offload, verbs
-from manager.data import Library
-from manager.on_page import on_page
+from manager.kit import confirm, offload, verbs
+from manager.kit.data import Library
+from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.backups_move")
 

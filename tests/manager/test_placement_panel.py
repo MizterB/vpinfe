@@ -13,7 +13,8 @@ from unittest.mock import AsyncMock, Mock, patch
 from common import config_service
 from common.host import placement
 from common.i18n import t
-from manager import panel, placement_panel
+from manager import placement_panel
+from manager.kit import panel
 
 SCHEMA = config_service.schema()["sections"]
 WAYLAND = {"WAYLAND_DISPLAY": "wayland-1"}

@@ -31,7 +31,8 @@ from common.failures import why
 from common.host.launch_state import SOURCE_CAPTURE
 from common.i18n import t
 from common.labels import humanize
-from manager import (
+from manager import remote_record
+from manager.kit import (
     acting,
     appearance,
     busy,
@@ -43,14 +44,13 @@ from manager import (
     play_facts,
     qr,
     remembered,
-    remote_record,
     stars,
     verbs,
 )
-from manager import dialog as frame
-from manager.api import ApiClient, ApiError, local_base_url
-from manager.data import Library
-from manager.on_page import on_page
+from manager.kit import dialog as frame
+from manager.kit.api import ApiClient, ApiError, local_base_url
+from manager.kit.data import Library
+from manager.kit.on_page import on_page
 from manager.players import (
     CARD_FILES,
     CLAIM,
@@ -679,7 +679,7 @@ def _tabs(state: dict[str, Any], redraw: Callable[[], None]) -> None:
 
 @contextmanager
 def _asked(title: str) -> Iterator[Any]:
-    """`manager.dialog.opened`'s own shape, without calling it."""
+    """`manager.kit.dialog.opened`'s own shape, without calling it."""
     with frame.made() as box, ui.card().classes("manager-dialog"):
         ui.label(title).classes("manager-dialog-title")
         yield box

@@ -11,7 +11,7 @@ from typing import Any
 
 from common import jobs
 from common.i18n import t
-from manager import grid, when
+from manager.kit import grid, when
 
 SCOPE = "manager.jobs"
 

@@ -6,7 +6,8 @@ import unittest
 
 from nicegui import ui
 
-from manager import candidates, vps_match
+from manager import vps_match
+from manager.kit import candidates
 
 
 def _tips(body: ui.element) -> list[str]:

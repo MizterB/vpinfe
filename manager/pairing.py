@@ -17,9 +17,9 @@ from common.failures import why
 from common.i18n import t
 from common.install_identity import display_name
 from common.paths import get_ini_config
-from manager import dialog as frame
-from manager import offload, verbs
-from manager.on_page import on_page
+from manager.kit import dialog as frame
+from manager.kit import offload, verbs
+from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.pairing")
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from manager import folder_picker
+from manager.kit import folder_picker
 
 
 class SuffixesNamedTests(unittest.TestCase):

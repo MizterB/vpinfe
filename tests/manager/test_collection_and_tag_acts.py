@@ -7,7 +7,8 @@ import unittest
 from types import SimpleNamespace
 from typing import Any
 
-from manager import collections, panel, tageditor
+from manager import collections, tageditor
+from manager.kit import panel
 
 
 async def _after(_next: str | None) -> None:

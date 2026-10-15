@@ -23,7 +23,7 @@ from typing import Any
 from common.i18n import t
 from common.ids import new_id
 
-logger = logging.getLogger("vpinfe.manager.views")
+logger = logging.getLogger("vpinfe.manager.kit.views")
 
 # Where the user's own views live, beside the layout the grid saves for itself.
 VIEWS_SUFFIX = ".views"

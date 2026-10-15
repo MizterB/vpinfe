@@ -35,7 +35,7 @@ class TheRowsFollowTheFolderName(unittest.IsolatedAsyncioTestCase):
         named, redraw, look = self._following(library)
 
         named["folder"] = "New Name"
-        with patch("manager.offload.run.io_bound", new=_now):
+        with patch("manager.kit.offload.run.io_bound", new=_now):
             await look()
 
         library.upload_plan.assert_called_once_with(
@@ -58,7 +58,7 @@ class TheRowsFollowTheFolderName(unittest.IsolatedAsyncioTestCase):
         named, redraw, look = self._following(library)
 
         named["folder"] = ""
-        with patch("manager.offload.run.io_bound", new=_now):
+        with patch("manager.kit.offload.run.io_bound", new=_now):
             await look()
 
         redraw.assert_not_called()

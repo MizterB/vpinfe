@@ -16,11 +16,12 @@ from nicegui import run, ui
 from common.backups import copies as kept_copies
 from common.failures import why
 from common.i18n import t
-from manager import backups, offload, panel, verbs, walks, when
-from manager import dialog as frame
-from manager import grid as grid_module
-from manager.data import Library
-from manager.on_page import on_page
+from manager import backups
+from manager.kit import dialog as frame
+from manager.kit import grid as grid_module
+from manager.kit import offload, panel, verbs, walks, when
+from manager.kit.data import Library
+from manager.kit.on_page import on_page
 
 SCOPE = "backups.subject"
 

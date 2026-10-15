@@ -15,11 +15,11 @@ from common.i18n import t
 from common.jobs import KIND_MEDIA_FILL
 from common.labels import field_label
 from common.media_specs import MEDIA_SPECS, media_family, media_label_map
-from manager import art, game_tables, media_ownership, need_keys, thumbnails, when
-from manager.api import ApiClient
-from manager.thumbnails import Look
+from manager.kit import art, game_tables, media_ownership, need_keys, thumbnails, when
+from manager.kit.api import ApiClient
+from manager.kit.thumbnails import Look
 
-logger = logging.getLogger("vpinfe.manager.data")
+logger = logging.getLogger("vpinfe.manager.kit.data")
 
 # Long enough that somebody waited for it. A warm read is a fifth of a second and says
 # nothing; a cold one over a share has been seconds, and that is the number worth having

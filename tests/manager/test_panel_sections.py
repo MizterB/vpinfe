@@ -6,7 +6,8 @@ from typing import Any
 from nicegui import ui
 
 from common.i18n import t
-from manager import game_tables, workbench
+from manager import workbench
+from manager.kit import game_tables
 
 
 def _table(table_id: str, **extra: Any) -> dict[str, Any]:

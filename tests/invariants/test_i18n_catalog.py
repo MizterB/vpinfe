@@ -732,7 +732,7 @@ DISPLAY_CALLS = {
     "switch", "checkbox", "number", "textarea", "upload", "dialog", "tree", "step",
 }
 # The Manager's own components. Every one of these puts its argument in front of a
-# person, and each was found by reading `manager/panel.py` rather than by the check
+# person, and each was found by reading `manager/kit/panel.py` rather than by the check
 # noticing: a helper the list does not name is a hole the check cannot see.
 DISPLAY_ARG = {"column": 1, "two_line": 0, "intro": 0, "note": 0, "state": 0,
                "header": 0, "fact": 0, "action": 0, "trouble_mark": 0, "disclosure": 0}
@@ -1242,7 +1242,7 @@ def _reads_as_prose(text: str) -> bool:
     return not re.fullmatch(r"[a-z][a-z0-9_-]*", said)
 
 
-# Constructors whose message the Manager shows to the user verbatim: manager/api.py
+# Constructors whose message the Manager shows to the user verbatim: manager/kit/api.py
 # raises ApiError carrying the server's `error.message`, and a page notifies it.
 API_ERRORS = {"NotFoundError", "InvalidRequestError", "ConflictError",
               "FeatureUnavailableError", "ApiError"}
@@ -1361,9 +1361,9 @@ BYTE_UNITS = {"B", "KB", "MB", "GB", "TB"}
 # Functions and constants in the Manager whose values joined by a space are not words.
 JOINED_NOT_SAID = {
     "manager/games.py": {"_RATING_CHOICES": "two star glyphs drawn as one mark"},
-    "manager/grid.py": {"identifier": "a cell's class list", "with_art": "a cell's class list"},
-    "manager/renderers.py": {"install": "a script's object entries"},
-    "manager/tag_chips.py": {"dot_class": "a class list", "chip_class": "a class list"},
+    "manager/kit/grid.py": {"identifier": "a cell's class list", "with_art": "a cell's class list"},
+    "manager/kit/renderers.py": {"install": "a script's object entries"},
+    "manager/kit/tag_chips.py": {"dot_class": "a class list", "chip_class": "a class list"},
 }
 
 
@@ -1626,7 +1626,7 @@ GROUPED_NOT_SAID = {
     "common/i18n/__init__.py": "the formatter that every other number goes through",
     "common/games/high_scores.py": "a score as the table's own text writes it",
     "common/games/score_parser.py": "a score as the table's own text writes it",
-    "manager/play_facts.py": "compared with a score's stored text, which is written in English",
+    "manager/kit/play_facts.py": "compared with a score's stored text, which is written in English",
 }
 
 

@@ -39,8 +39,8 @@ def serve(port: int) -> None:
     three rows, and one for a wizard whose run waits to be released."""
     from nicegui import app, ui
 
-    from manager import api, appearance, walks, wizard
-    from manager import dialog as frame
+    from manager.kit import api, appearance, walks, wizard
+    from manager.kit import dialog as frame
 
     api.local_base_url = lambda: "http://127.0.0.1:9"
     app.add_static_files(appearance.BASE_MOUNT, str(appearance.BASE_CSS.parent))

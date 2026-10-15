@@ -9,8 +9,9 @@ from unittest import mock
 from common import i18n
 from common.backups import copies
 from common.i18n import t
-from manager import backups, deeplink, panel, views, when
-from manager.data import Library
+from manager import backups
+from manager.kit import deeplink, panel, views, when
+from manager.kit.data import Library
 
 
 def _copy(copy_id: str = "c1", **over) -> dict:
@@ -167,7 +168,7 @@ class Deleting(unittest.IsolatedAsyncioTestCase):
         refresh = mock.AsyncMock()
         row = backups.rows([_copy()])[0]
 
-        with mock.patch("manager.on_page.ui"), \
+        with mock.patch("manager.kit.on_page.ui"), \
                 mock.patch.object(backups.confirm, "ask", mock.AsyncMock(return_value=True)), \
                 mock.patch.object(backups, "ui"):
             await backups.delete(library, [row], refresh)

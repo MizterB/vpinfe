@@ -17,7 +17,7 @@ from tests.support import trees
 
 ROOT = Path(__file__).resolve().parents[2]
 MANAGER = ROOT / "manager"
-HELPER = ("manager/panel.py", "line")
+HELPER = ("manager/kit/panel.py", "line")
 
 CAPTION = "manager-help"
 REASON_KEYS = {"error", "detail"}

@@ -22,9 +22,9 @@ from nicegui import run, ui
 from common import i18n
 from common.failures import why
 from common.i18n import t
-from manager import dialog as frame
-from manager import game_tables, offload, panel, verbs
-from manager.on_page import on_page
+from manager.kit import dialog as frame
+from manager.kit import game_tables, offload, panel, verbs
+from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.import_dialog")
 

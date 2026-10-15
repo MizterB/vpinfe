@@ -14,8 +14,9 @@ from typing import Any
 
 from common import approvals, feature_checks
 from common.i18n import t
-from manager import jobs_list, verbs
-from manager.need_keys import AWAY, AWAY_ALL
+from manager import jobs_list
+from manager.kit import verbs
+from manager.kit.need_keys import AWAY, AWAY_ALL
 
 # The tone a row is drawn in, which says how much it costs to leave alone.
 DANGER, WARM, ACCENT, MUTED = "danger", "warm", "accent", "muted"

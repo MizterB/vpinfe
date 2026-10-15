@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 from common import device_client
 from common.i18n import t
 from manager import mobile_add, send_to_device
-from manager.api import ApiClient
+from manager.kit.api import ApiClient
 
 ANSWERING = {"state": device_client.ANSWERING, "version": "", "reason": ""}
 SILENT = {"state": device_client.UNREACHABLE, "version": "", "reason": "No answer"}

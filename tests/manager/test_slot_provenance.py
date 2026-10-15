@@ -6,7 +6,8 @@ import unittest
 from unittest import mock
 
 from common.i18n import t
-from manager import media_ownership, workbench
+from manager import workbench
+from manager.kit import media_ownership
 
 
 def _drawn(via: str | None, borrowed: bool, lens: str = "tbl") -> tuple[list[str], list[dict]]:

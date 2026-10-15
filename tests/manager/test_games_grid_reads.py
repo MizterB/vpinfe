@@ -11,8 +11,9 @@ from unittest.mock import Mock
 
 from nicegui import core, ui
 
-from manager import games, grid, import_dialog, page, uploads, workbench
-from manager.data import Library
+from manager import games, import_dialog, page, uploads, workbench
+from manager.kit import grid
+from manager.kit.data import Library
 
 GAME = {"id": "g-1", "name": "Some Game", "folder": "/games/Some Game"}
 TABLE = {"id": "t-1", "filename": "Some Game.vpx", "default": True}

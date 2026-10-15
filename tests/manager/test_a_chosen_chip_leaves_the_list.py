@@ -14,7 +14,7 @@ from typing import Any
 
 from nicegui import ui
 
-from manager import dropdown, panel, tag_chips
+from manager.kit import dropdown, panel, tag_chips
 from tests.support import trees
 
 MANAGER = pathlib.Path(__file__).resolve().parent.parent.parent / "manager"
@@ -106,7 +106,7 @@ def _is_a_dropdown_select(call: ast.Call) -> bool:
 
 
 def _inside_a_subclass(call: ast.Call) -> bool:
-    for path in MANAGER.glob("*.py"):
+    for path in MANAGER.rglob("*.py"):
         for cls in (n for n in ast.walk(trees.tree_for(path)) if isinstance(n, ast.ClassDef)):
             if call in list(ast.walk(cls)):
                 return any(isinstance(base, ast.Attribute) and base.attr == "Select"
@@ -119,7 +119,7 @@ class EveryChipFieldIsADropdownSelect(unittest.TestCase):
         """`use-chips` is what makes a select a chip field, and `ui.input_chips` is a
         second one that offers nothing to leave out."""
         found = []
-        for path in sorted(MANAGER.glob("*.py")):
+        for path in sorted(MANAGER.rglob("*.py")):
             tree = trees.tree_for(path)
             for node in ast.walk(tree):
                 if path.name != "dropdown.py" and isinstance(node, ast.Constant) \
@@ -133,7 +133,7 @@ class EveryChipFieldIsADropdownSelect(unittest.TestCase):
     def test_only_a_dropdown_select_is_given_multiple(self) -> None:
         """A call names `dropdown.Select`, or is a subclass of it handing `multiple` up."""
         found = []
-        for path in sorted(MANAGER.glob("*.py")):
+        for path in sorted(MANAGER.rglob("*.py")):
             if path.name != "dropdown.py":
                 found += [f"manager/{path.name}:{call.lineno}"
                           for call in _given_multiple(trees.tree_for(path))
@@ -142,7 +142,7 @@ class EveryChipFieldIsADropdownSelect(unittest.TestCase):
 
     def test_it_found_the_chip_fields(self) -> None:
         """An empty sweep passes and measures nothing, which reads the same as clean."""
-        uses = sum(len(_given_multiple(trees.tree_for(path))) for path in MANAGER.glob("*.py"))
+        uses = sum(len(_given_multiple(trees.tree_for(path))) for path in MANAGER.rglob("*.py"))
         self.assertGreaterEqual(uses, 3)
 
 

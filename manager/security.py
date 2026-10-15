@@ -22,16 +22,13 @@ from httpapi import auth
 from manager import (
     authenticator_panel,
     encrypted_panel,
-    offload,
-    panel,
     sign_in_notice,
     signed_in_rows,
     token_panel,
-    verbs,
-    when,
 )
-from manager.data import Library
-from manager.on_page import on_page
+from manager.kit import offload, panel, verbs, when
+from manager.kit.data import Library
+from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.security")
 

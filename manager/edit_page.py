@@ -11,10 +11,11 @@ from nicegui import ui
 from common.failures import why
 from common.games import asset_lens
 from common.i18n import t
-from manager import appearance, offload, report_groups, text_editor, workbench
-from manager import panel as panel_parts
-from manager.api import ApiClient
-from manager.data import Library
+from manager import text_editor, workbench
+from manager.kit import appearance, offload, report_groups
+from manager.kit import panel as panel_parts
+from manager.kit.api import ApiClient
+from manager.kit.data import Library
 
 
 @ui.page(text_editor.ADDRESS, title=t("manager.edit.page_title"), reconnect_timeout=300)

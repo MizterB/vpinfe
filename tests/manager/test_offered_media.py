@@ -12,7 +12,7 @@ import unittest
 from unittest.mock import Mock
 
 from common.media_specs import media_label_map
-from manager.data import Library
+from manager.kit.data import Library
 
 STATE = [
     {"kind": "b2sFiles", "ours": ["backglass"], "held_in": "asset",

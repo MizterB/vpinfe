@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, Mock, create_autospec, patch
 from common import device_client
 from common.i18n import t
 from manager import devices
-from manager.api import ApiClient
+from manager.kit.api import ApiClient
 
 ME = "Aaaa111111"
 MOBILE = {"device_id": "m1", "kind": "vpx_mobile", "display_name": "Tablet",

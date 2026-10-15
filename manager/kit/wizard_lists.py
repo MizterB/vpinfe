@@ -12,7 +12,7 @@ from typing import Any
 from nicegui import ui
 
 from common.i18n import t
-from manager import panel, verbs
+from manager.kit import panel, verbs
 
 
 class Answer(ui.element):

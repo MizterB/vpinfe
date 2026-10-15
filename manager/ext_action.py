@@ -3,7 +3,7 @@
 The extension describes what to ask and what to call; this binds its four calls -
 `POST {base}/ask`, `POST {base}/check`, `POST {base}/act` and `POST {base}/run`, and
 `GET {base}/progress` while one of them is slow - and hands
-them to the shared wizard control (`manager/wizard.py`), which does the drawing.
+them to the shared wizard control (`manager/kit/wizard.py`), which does the drawing.
 Nothing about the treatment comes from the extension, so every action looks like the
 Manager rather than like whoever wrote it, and it keeps working if that extension later
 runs somewhere else.
@@ -14,9 +14,9 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from manager import offload, wizard
-from manager.api import STEP_TIMEOUT, ApiClient
-from manager.on_page import on_page
+from manager.kit import offload, wizard
+from manager.kit.api import STEP_TIMEOUT, ApiClient
+from manager.kit.on_page import on_page
 
 GIVE_UP_AFTER = 3
 

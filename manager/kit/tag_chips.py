@@ -15,7 +15,7 @@ from nicegui import ui
 
 from common.games.tag_registry import COLORS, derived_color
 from common.i18n import t
-from manager import dropdown
+from manager.kit import dropdown
 
 BOX = "manager-tags"
 CHIP = "manager-tag"

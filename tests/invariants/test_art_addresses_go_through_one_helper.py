@@ -1,4 +1,4 @@
-"""A Manager picture's address is built by `manager/art.py` and nowhere else.
+"""A Manager picture's address is built by `manager/kit/art.py` and nowhere else.
 
 The helper is what asks for the copy sized for where the picture is drawn, and for the
 version that lets the browser keep it. An address written out at a call site asks for
@@ -15,9 +15,9 @@ from tests.support import trees
 
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
 MANAGER = REPO / "manager"
-HELPER = MANAGER / "art.py"
+HELPER = MANAGER / "kit" / "art.py"
 
-# The art routes live under these. `manager/api.py` calls the same routes relative to its
+# The art routes live under these. `manager/kit/api.py` calls the same routes relative to its
 # own base, as a client rather than as something a page draws, so it never spells these.
 ART_ROOTS = ("/api/v1/games", "/api/v1/collections")
 
@@ -46,7 +46,7 @@ class ArtAddressesGoThroughOneHelperTests(unittest.TestCase):
         for path in sorted([*MANAGER.rglob("*.py"), *MANAGER.rglob("*.js")]):
             if path != HELPER:
                 offenders += _addresses(path)
-        self.assertEqual(offenders, [], "build it with manager/art.py")
+        self.assertEqual(offenders, [], "build it with manager/kit/art.py")
 
     def test_the_scan_finds_the_helper_s_own_addresses(self) -> None:
         """Or a scan that matches nothing would pass the test above as well."""

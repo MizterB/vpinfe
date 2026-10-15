@@ -9,7 +9,8 @@ from typing import Any
 from nicegui import ui
 
 from common.i18n import t
-from manager import collection_adds, grid, offload, verbs
+from manager import collection_adds
+from manager.kit import grid, offload, verbs
 
 logger = logging.getLogger("vpinfe.manager.row_drag")
 

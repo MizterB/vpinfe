@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import unittest
 
-from manager import appearance, grid, thumbnails
+from manager.kit import appearance, grid, thumbnails
 
 
 def _columns(marked: int) -> list[dict]:

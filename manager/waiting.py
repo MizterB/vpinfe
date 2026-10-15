@@ -18,10 +18,10 @@ from nicegui import ui
 from common import lifecycle, serving, settings_waiting
 from common.failures import why
 from common.i18n import t
-from manager import confirm, offload, panel, remembered, verbs
-from manager.api import ApiClient
-from manager.data import Library
-from manager.on_page import on_page
+from manager.kit import confirm, offload, panel, remembered, verbs
+from manager.kit.api import ApiClient
+from manager.kit.data import Library
+from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.waiting")
 

@@ -26,21 +26,11 @@ from common import install_identity, path_state
 from common.backups import copies as kept_copies
 from common.failures import why
 from common.i18n import t
-from manager import (
-    backup_rows,
-    busy,
-    confirm,
-    folder_picker,
-    grid,
-    offload,
-    panel,
-    verbs,
-    views,
-    walks,
-)
-from manager import dialog as frame
-from manager.data import Library
-from manager.on_page import on_page
+from manager import backup_rows
+from manager.kit import busy, confirm, folder_picker, grid, offload, panel, verbs, views, walks
+from manager.kit import dialog as frame
+from manager.kit.data import Library
+from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.launchers")
 

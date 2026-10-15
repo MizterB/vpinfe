@@ -28,7 +28,7 @@ from common import accepted, access_keys, authenticator, paths, players, sign_in
 from common.i18n import t
 from common.install_identity import display_name
 from httpapi import API_PREFIX, auth
-from manager import appearance
+from manager.kit import appearance
 
 PAGE = "/signin"
 REMOTE_PAGE = "/remote"

@@ -23,8 +23,9 @@ from common.games import library_folders as model
 from common.games import tables
 from common.i18n import t
 from common.path_state import OK as PATH_OK
-from manager import ext_action, offload, panel, wizard
-from manager.api import ApiClient
+from manager import ext_action
+from manager.kit import offload, panel, wizard
+from manager.kit.api import ApiClient
 from manager.library_folders import IMPORTER
 
 logger = logging.getLogger("vpinfe.manager.setup_tables")

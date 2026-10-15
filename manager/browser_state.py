@@ -6,8 +6,7 @@ from __future__ import annotations
 from typing import Any
 
 from common.i18n import t
-
-from . import panel
+from manager.kit import panel
 
 # `plays` is not here: the normal case draws nothing.
 STATES = {

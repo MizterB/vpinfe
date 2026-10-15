@@ -15,8 +15,8 @@ from typing import Any, overload
 from nicegui import ui
 
 from common.i18n import t
-from manager import dialog as frame
-from manager import verbs
+from manager.kit import dialog as frame
+from manager.kit import verbs
 
 
 class Answer(enum.StrEnum):

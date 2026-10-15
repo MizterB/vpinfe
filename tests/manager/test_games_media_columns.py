@@ -6,7 +6,8 @@ import unittest
 from unittest.mock import Mock
 
 from common.media_specs import media_label_map
-from manager import data, games, media_ownership, views
+from manager import games
+from manager.kit import data, media_ownership, views
 
 
 def _library(hidden: frozenset[str] = frozenset()) -> Mock:

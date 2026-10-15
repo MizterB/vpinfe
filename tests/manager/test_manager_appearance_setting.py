@@ -19,7 +19,7 @@ import unittest
 from unittest import mock
 
 from common import config_schema
-from manager import appearance, appearance_picker
+from manager.kit import appearance, appearance_picker
 
 
 class VocabularyTests(unittest.TestCase):

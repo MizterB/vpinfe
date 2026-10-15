@@ -13,7 +13,7 @@ from unittest.mock import Mock
 
 from common.i18n import t
 from manager import discovery, games, sections, workbench
-from manager.data import Library
+from manager.kit.data import Library
 
 HIDDEN_ASSETS = ("ini", "rom", "readme")
 HIDDEN_MEDIA = ("topper",)

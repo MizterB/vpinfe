@@ -5,7 +5,8 @@ from __future__ import annotations
 import asyncio
 import unittest
 
-from manager import grid, media
+from manager import media
+from manager.kit import grid
 
 
 def _gap(game: str, kind: str) -> dict:

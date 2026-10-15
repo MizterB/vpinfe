@@ -8,7 +8,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from manager import on_page, walks
+from manager.kit import on_page, walks
 
 
 def rows(*names: str) -> list[dict]:

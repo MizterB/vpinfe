@@ -6,7 +6,7 @@ import unittest
 
 from nicegui import ui
 
-from manager import panel
+from manager.kit import panel
 
 # Made at import, outside any task, where NiceGUI still hands out the script's own page.
 _PAGE = ui.element()

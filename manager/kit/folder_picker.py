@@ -25,9 +25,9 @@ from nicegui import ui
 from common import path_state
 from common.failures import why
 from common.i18n import t
-from manager import dialog as frame
-from manager import offload, panel, verbs
-from manager.on_page import on_page
+from manager.kit import dialog as frame
+from manager.kit import offload, panel, verbs
+from manager.kit.on_page import on_page
 
 _TITLE = {"dir": "manager.folder_picker.title_folder",
          "exe": "manager.folder_picker.title_program",

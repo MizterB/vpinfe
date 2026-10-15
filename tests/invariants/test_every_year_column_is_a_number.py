@@ -11,7 +11,8 @@ import ast
 import pathlib
 import unittest
 
-from manager import assets, discovery, games, grid, media
+from manager import assets, discovery, games, media
+from manager.kit import grid
 from tests.support import trees
 
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent

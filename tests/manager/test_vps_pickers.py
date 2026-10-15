@@ -31,7 +31,7 @@ class PickerListTests(unittest.IsolatedAsyncioTestCase):
             self.offloaded.append(callback)
             return callback(*args, **kwargs)
 
-        patcher = patch("manager.offload.run.io_bound", new=_worker)
+        patcher = patch("manager.kit.offload.run.io_bound", new=_worker)
         patcher.start()
         self.addCleanup(patcher.stop)
 

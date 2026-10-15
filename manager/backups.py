@@ -19,9 +19,8 @@ from common import i18n
 from common.backups import copies as kept_copies
 from common.failures import why
 from common.i18n import t
-from manager import (
-    backup_cleanup,
-    backup_go_back,
+from manager import backup_cleanup, backup_go_back, waiting
+from manager.kit import (
     busy,
     clipboard,
     confirm,
@@ -31,14 +30,13 @@ from manager import (
     undo,
     verbs,
     views,
-    waiting,
     walks,
     when,
 )
-from manager import dialog as frame
-from manager import grid as grid_module
-from manager.data import Library
-from manager.on_page import on_page
+from manager.kit import dialog as frame
+from manager.kit import grid as grid_module
+from manager.kit.data import Library
+from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.backups")
 

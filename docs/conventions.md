@@ -688,7 +688,7 @@ Two game identifiers exist and are not interchangeable:
 ## Manager
 
 The stylesheet is the design system. `manager/static/manager-base.css` holds every class the
-Manager uses and `manager/appearance.py` holds the palette tokens, and there is no third place a
+Manager uses and `manager/kit/appearance.py` holds the palette tokens, and there is no third place a
 treatment is defined. **Grep the stylesheet before inventing one** — a heading, a chip, a state, a control. Something that looks like it needs a new class
 usually has one already, and two spellings of the same idea is how a surface stops looking
 like one product.
@@ -697,7 +697,7 @@ like one product.
 
 Four modes: `synthwave` (the default), `dark`, `light`, and `system`, which follows the
 operating system and resolves to one of the two neutral palettes. Set with
-`manager.appearance`.
+`manager.kit.appearance`.
 
 A mode is a palette and nothing else. Structure, spacing and the type scale are shared, and
 a mode may not touch them: that is what keeps four modes from becoming four layouts. A
@@ -706,7 +706,7 @@ palette states custom properties, and the rules that use them never name a color
 **And grep the surface next door.** The class is half the answer; the other half is how the
 neighbouring vocabulary already decided the same question — which shape means "nothing here",
 which color means "present", whether a legend names a blank. Those live in the module that
-owns the fact (`manager/media_ownership.py`, `manager/table_features.py`, `manager/game_tables.py`) and in
+owns the fact (`manager/kit/media_ownership.py`, `manager/kit/table_features.py`, `manager/kit/game_tables.py`) and in
 this file, not in the stylesheet. **The tell is proposing a *new* treatment at all**: if the
 Manager already shows this kind of fact anywhere, the answer exists and the job is to find it.
 
@@ -731,7 +731,7 @@ since the lit row names it, and never one that only says the row again. A search
 that acts on the whole section is not a group: it goes above the first heading, in a
 `manager-section-bar`.
 
-**One implementation, in `manager/panel.py`.** The fact list and one constructor per kind of
+**One implementation, in `manager/kit/panel.py`.** The fact list and one constructor per kind of
 value live there, and every surface renders through it. Reaching for `ui.switch` or
 `ui.input` directly forks the design system — which is how the same field ended up with a
 resting edge on one surface and Quasar's default on another. Every constructor hands back
@@ -781,7 +781,7 @@ picks the *filename* a file will be saved under, and the two candidates differ i
 of a long name. Reading them against each other is the choice. The test is not how many
 options there are — it is whether the reader has to hold one in their head to judge the next.
 
-**There is one dropdown, `manager.dropdown.Select`, in two looks.** `FIELD` is the value in
+**There is one dropdown, `manager.kit.dropdown.Select`, in two looks.** `FIELD` is the value in
 a row of a panel or dialog: a bordered box one row tall with the text centered in it.
 `OUTLINED` is a control that stands on its own, such as a toolbar's picker or a box that
 fills a panel. A call site names the look it wants and never writes `dense`, `borderless` or
@@ -833,7 +833,7 @@ device cannot see; the mark is what stands between a typo and a record that neve
 updated as it is typed, the reason on hover, and nothing at all while the box is empty.
 `wants` names what should be at the end of it - `dir`, `file` or `exe` - because "that is
 a folder, and this wants a file" is the useful half of the answer. Browse opens
-`manager/folder_picker.py` on this device's own disk, listing what `wants` asks for and,
+`manager/kit/folder_picker.py` on this device's own disk, listing what `wants` asks for and,
 for a `file` field, narrowed to `suffixes`. The same mark answers for a stored path once
 it has been written, from the same vocabulary.
 
@@ -898,7 +898,7 @@ over twice, and the column picker offered a third set of words for the same colu
   row says nothing. A switch reading "on means restricted" is fine; `Clear NVRAM on exit`
   already does.
 - The **words belong to the module that owns the fact**, and every surface reads them:
-  `manager/game_tables.py`, `manager/media_ownership.py`, `manager/table_features.py`.
+  `manager/kit/game_tables.py`, `manager/kit/media_ownership.py`, `manager/kit/table_features.py`.
 - A **menu item is a verb that produces the state word** — `Hide`, `Clear choice` — not a
   sentence explaining the mechanism.
 - **Never index a word pair by a boolean at the call site.** Ask the vocabulary for the
@@ -1034,7 +1034,7 @@ anywhere but `panel.py`, and the nav rail in `page.py`.
   and the icon is one everybody knows - `more_vert`, `close`, `play_arrow` - and then it
   carries a tooltip. Dialogs are no exception: the confirm verb takes its icon and Cancel
   takes `close`. Menu items take none.
-- **One icon per verb, from `manager/verbs.py`.** A verb that means what another means
+- **One icon per verb, from `manager/kit/verbs.py`.** A verb that means what another means
   takes that one's drawing: Accept, Done, Choose and Keep all draw `check`, and Cancel,
   Close, Skip and Discard all draw `close`, because they are the same act in different
   words. The label is what tells them apart.
@@ -1084,7 +1084,7 @@ no icon, and on an icon name `verbs.py` does not declare.
   page already shows the result.
 
 `tests/invariants/test_dialogs_are_drawn_by_the_frame.py` fails on any `ui.dialog()`
-outside `manager/dialog.py`. The enlarged picture in `mediaview.py` and the phone
+outside `manager/kit/dialog.py`. The enlarged picture in `mediaview.py` and the phone
 remote's sheets are the exceptions, because neither asks anything.
 
 ### A wizard is one size on every step
@@ -1154,7 +1154,7 @@ Setup draws in this process, so a step may carry callables that cannot travel as
 
 ### One confirmation, and one field
 
-- **Anything that cannot be undone asks first, through `manager/confirm.py`.** Four dialogs
+- **Anything that cannot be undone asks first, through `manager/kit/confirm.py`.** Four dialogs
   had been written to the same shape with different spellings — one awaited a bool and
   one took a callback, the buttons swapped `no-caps`, the help lines used two classes.
   The question is a sentence in sentence case (never the section-heading treatment: a
@@ -1171,11 +1171,11 @@ Setup draws in this process, so a step may carry callables that cannot travel as
 ### An act that can be taken back says so, with Undo
 
 A reversible act does not ask first. It does the thing and says what it did, with Undo on
-the message. `manager/undo.py` draws that message and nothing else does: the ordinary green,
+the message. `manager/kit/undo.py` draws that message and nothing else does: the ordinary green,
 or amber with a mark where the act wants a second look - a game added to a smart collection
 becomes an exception to its rules - and each act hands it the reversal that puts back
 exactly what it changed. What cannot be undone still asks first, through
-`manager/confirm.py`.
+`manager/kit/confirm.py`.
 
 ### A copy is kept in one list, and every panel opens onto it
 
@@ -1217,7 +1217,7 @@ not. The copies in Backups and the browsers in Settings > Security are drawn thi
 
 Giving a key to one action takes it from another, and an Undo offered after the answer would
 be a second decision about the same change. So the question comes first, through
-`manager/confirm.py`, in the verb of the act - **Move** - with the title quoting the names it
+`manager/kit/confirm.py`, in the verb of the act - **Move** - with the title quoting the names it
 moves between and the detail stating the cost: who has it now, and which action is left with
 nothing mapped. A yes does it and the page says what it did; there is no Undo on it. Revert
 on a row asks the same way when it would take a key back from another row. Where a change
@@ -1317,7 +1317,7 @@ Green is present. **Amber means go and fix this, and nothing softer.** Each fact
 words: a rom is *Installed*, a script is *Extracted*, a file is *Present*. Do not flatten them
 to Yes/No.
 
-State chips are not media tiers. `manager/media_ownership.py` answers "whose file is this", and its amber
+State chips are not media tiers. `manager/kit/media_ownership.py` answers "whose file is this", and its amber
 means the exception worth spotting in a map of twenty.
 
 ### A finding leads the panel, with its fix
@@ -1559,7 +1559,7 @@ What's busy, puts them in a `.manager-tile-rows`: a name, a share and a size to 
   wider by the frame and its gap (`grid.with_art`). Where the grid is too
   narrow for that, the name gives the room back until its edge and resize handle show,
   never below its width without art; a width somebody dragged stays theirs, and a fitted
-  one is never saved. `manager/thumbnails.py` draws the frame, and
+  one is never saved. `manager/kit/thumbnails.py` draws the frame, and
   `tests/invariants/test_thumbnails_are_drawn_once.py` fails on one drawn anywhere else. It
   is not a control: no tooltip, no zoom, `alt=""`.
 - **Art in a list is still.** An animated file shows its first frame at list size.
@@ -1676,7 +1676,7 @@ alpha.
 NiceGUI runs a handler in the slot of the control that called it. A redraw, or leaving the
 page, can free that control while the handler awaits, and a notify, a confirm or a dialog
 after the `await` then raises instead of showing. So an async handler that touches `ui`
-after a wait is decorated `@on_page` (`manager/on_page.py`): it takes the page when called
+after a wait is decorated `@on_page` (`manager/kit/on_page.py`): it takes the page when called
 and runs the handler under it.
 
 A builder - an async function that draws into whatever container it is awaited in - is not

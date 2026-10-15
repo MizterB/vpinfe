@@ -23,18 +23,9 @@ from nicegui import ui
 from common import icons
 from common.games import asset_lens
 from common.i18n import t
-from manager import (
-    file_acts,
-    game_tables,
-    grid,
-    media_ownership,
-    offload,
-    panel,
-    text_editor,
-    thumbnails,
-    views,
-)
+from manager import file_acts, text_editor
 from manager.games import view_control
+from manager.kit import game_tables, grid, media_ownership, offload, panel, thumbnails, views
 
 logger = logging.getLogger("vpinfe.manager.assets")
 

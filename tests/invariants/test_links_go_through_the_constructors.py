@@ -48,7 +48,7 @@ class TestLinksGoThroughTheConstructors(unittest.TestCase):
 
     def test_the_constructors_are_there_to_be_used(self) -> None:
         """The allowlist is only honest while the thing it defers to exists."""
-        tree = trees.tree_for(MANAGER / "panel.py")
+        tree = trees.tree_for(MANAGER / "kit" / "panel.py")
         built = {node.name for node in ast.walk(tree)
                  if isinstance(node, ast.FunctionDef)}
         self.assertIn("link", built)
@@ -57,7 +57,7 @@ class TestLinksGoThroughTheConstructors(unittest.TestCase):
     def test_only_a_link_that_leaves_the_app_is_marked(self) -> None:
         """`open_in_new` is the mark for leaving, so the internal constructor must not
         carry one - a mark on every link is a mark that says nothing."""
-        tree = trees.tree_for(MANAGER / "panel.py")
+        tree = trees.tree_for(MANAGER / "kit" / "panel.py")
         inside = next(node for node in ast.walk(tree)
                       if isinstance(node, ast.FunctionDef) and node.name == "link")
         self.assertNotIn("open_in_new", ast.unparse(inside))

@@ -17,18 +17,10 @@ from typing import Any
 from nicegui import ui
 
 from common.i18n import number, t
-from manager import (
-    deeplink,
-    jobs_list,
-    library_folders,
-    offload,
-    panel,
-    report_groups,
-    when,
-    wizard,
-)
-from manager.api import ApiClient
-from manager.on_page import on_page
+from manager import jobs_list, library_folders
+from manager.kit import deeplink, offload, panel, report_groups, when, wizard
+from manager.kit.api import ApiClient
+from manager.kit.on_page import on_page
 
 # How many rows of a group are named before the rest is behind a link.
 SHOWN = report_groups.SHOW_ALL_OVER

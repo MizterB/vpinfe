@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 
 from common.i18n import t
-from manager import panel
+from manager.kit import panel
 
 
 def verbs() -> list[panel.Verb]:

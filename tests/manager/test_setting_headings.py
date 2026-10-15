@@ -5,8 +5,8 @@ from __future__ import annotations
 import unittest
 
 from common.i18n import t
-from manager import panel
 from manager import settings as settings_page
+from manager.kit import panel
 
 
 def _option(key: str, group: str = "") -> dict:

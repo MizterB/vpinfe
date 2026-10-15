@@ -10,7 +10,8 @@ from unittest.mock import AsyncMock, Mock, patch
 
 from nicegui import core, ui
 
-from manager import busy, mediasource
+from manager import mediasource
+from manager.kit import busy
 
 _PAGE = ui.element()
 

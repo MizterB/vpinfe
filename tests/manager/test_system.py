@@ -10,8 +10,9 @@ import unittest
 from urllib.parse import parse_qs
 
 from common import feature_checks, install_identity, path_state
-from manager import appearance, deeplink, needs, page, panel
+from manager import needs, page
 from manager import settings as settings_page
+from manager.kit import appearance, deeplink, panel
 
 
 def _rail(features) -> list[str]:

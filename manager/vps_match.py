@@ -18,8 +18,8 @@ from nicegui import run, ui
 
 from common import icons
 from common.i18n import t
-from manager import candidates, dialog, game_tables, offload, panel, verbs, walks
-from manager.on_page import on_page
+from manager.kit import candidates, dialog, game_tables, offload, panel, verbs, walks
+from manager.kit.on_page import on_page
 
 # A NUL cannot occur in a VPS id, so neither of these can be mistaken for one.
 CANCELLED = walks.SKIPPED

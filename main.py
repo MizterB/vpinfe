@@ -448,7 +448,7 @@ except Exception:
 
 try:
     from common.games import community_lists
-    from manager.api import ApiClient
+    from manager.kit.api import ApiClient
     community_lists.start_periodic(lambda path: ApiClient().ext_get(path))
 except Exception:
     logger.exception("Could not start reading the Community lists that tag or rank")

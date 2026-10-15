@@ -15,9 +15,9 @@ from nicegui import run, ui
 from common.failures import why
 from common.games.collection_store import MANUAL_ORDER
 from common.i18n import t
-from manager import dialog as frame
-from manager import offload, panel, remembered, undo, verbs
-from manager.on_page import on_page
+from manager.kit import dialog as frame
+from manager.kit import offload, panel, remembered, undo, verbs
+from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.collection_adds")
 

@@ -22,8 +22,8 @@ from nicegui import ui
 from common import icons, path_state
 from common.games.collection_store import LAST_COLLECTION
 from common.i18n import t
-from manager import dropdown, game_tables, offload, tag_chips, thumbnails, verbs
-from manager.on_page import on_page
+from manager.kit import dropdown, game_tables, offload, tag_chips, thumbnails, verbs
+from manager.kit.on_page import on_page
 
 # Rows that are not a fact. A group's title and an action strip span both columns, so
 # every group keeps the one shared label width.
@@ -1092,7 +1092,7 @@ def path_ends(control: ui.input) -> None:
 def _copy_button(browser_text: str, text: Callable[[], str]) -> ui.button:
     """A Copy path button. `browser_text` is the JavaScript expression for the text, read
     in the browser at the click, which is the only moment the browser will copy."""
-    from manager import clipboard
+    from manager.kit import clipboard
 
     button = ui.button(icon=verbs.COPY).props("flat round dense").tooltip(t("word.copy_path"))
     button.props["aria-label"] = t("word.copy_path")
@@ -1149,7 +1149,7 @@ def path_field(placeholder: str = "", *, wants: str, value: str = "",
     with control.add_slot("append"):
         holder = ui.element("div").classes("manager-value-state")
         if browse is not None:
-            from manager import folder_picker
+            from manager.kit import folder_picker
 
             @on_page
             async def _browsed() -> None:

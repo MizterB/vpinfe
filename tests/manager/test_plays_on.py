@@ -10,7 +10,7 @@ import requests
 
 from common.i18n import t
 from manager import plays_on
-from manager.data import Library
+from manager.kit.data import Library
 
 HERE = "Aaaa111111"
 THERE = "Bbbb222222"

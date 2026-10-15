@@ -12,8 +12,9 @@ from typing import Any
 from nicegui import ui
 
 from common.i18n import t
-from manager import devices, panel, verbs, waiting
-from manager.data import Library
+from manager import devices, waiting
+from manager.kit import panel, verbs
+from manager.kit.data import Library
 
 
 class Power:

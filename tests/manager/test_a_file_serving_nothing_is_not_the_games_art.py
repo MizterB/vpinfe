@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 from unittest.mock import Mock
 
-from manager.data import Library
+from manager.kit.data import Library
 
 GAME = {"id": "g-1", "name": "Some Game", "folder": "/games/Some Game"}
 SHARED_ABSENT = {"id": "g-1:wheel:", "game_id": "g-1", "kind": "wheel", "table": "",

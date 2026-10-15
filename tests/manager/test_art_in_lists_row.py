@@ -14,7 +14,7 @@ from nicegui import core, ui
 
 from common.i18n import t
 from manager import assets, collections, games, media, tageditor
-from manager.data import Library
+from manager.kit.data import Library
 
 SETTINGS = "/manager?view=settings&page=vpinfe.manager"
 GAME = {"id": "g-1", "name": "Some Game", "folder": "/games/Some Game"}

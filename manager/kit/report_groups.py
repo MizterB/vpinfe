@@ -7,7 +7,7 @@ from typing import Any
 from urllib.parse import urlencode
 
 from common.i18n import t
-from manager import deeplink
+from manager.kit import deeplink
 
 # The Manager names its window with this, and a report opened from it keeps the opener, so a
 # link in the report's tab that targets this name lands in the Manager's tab.

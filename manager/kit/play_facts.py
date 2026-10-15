@@ -6,7 +6,7 @@ from typing import Any
 
 from common import i18n
 from common.i18n import t
-from manager import when
+from manager.kit import when
 
 
 def played_when(stamp: str | None) -> str:

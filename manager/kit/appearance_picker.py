@@ -18,8 +18,8 @@ from typing import Any
 from nicegui import ui
 
 from common.i18n import t
-from manager import appearance
-from manager.on_page import on_page
+from manager.kit import appearance
+from manager.kit.on_page import on_page
 
 # The name each mode goes by on screen, in the order a person is offered them: the one a
 # new install starts on, then the classic look, then the two plain ones.

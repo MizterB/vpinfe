@@ -13,7 +13,7 @@ from unittest import mock
 
 from nicegui import core, ui
 
-from manager import wizard
+from manager.kit import wizard
 from tests.support.clicks import said
 
 # Made at import, outside any task, where NiceGUI still hands out the script's own page.
@@ -560,7 +560,7 @@ class TitleFocusTests(unittest.TestCase):
 class FieldTypeTests(unittest.TestCase):
     def _drawn(self, field: dict[str, Any], errors: dict[str, Any] | None = None
               ) -> tuple[dict[str, Any], dict[str, tuple[str, Any]], ui.element]:
-        from manager.api import ApiClient
+        from manager.kit.api import ApiClient
 
         values: dict[str, Any] = {}
         with _PAGE:

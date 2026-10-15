@@ -16,7 +16,7 @@ A phone gets in by scanning the Remote Code, which is the QR on the sheet that *
 
 Players are per install, not per phone, so the Remote asks who is holding it before it writes anything on anybody's behalf.
 
-A phone can say who it is, remembered per browser and per target in `manager/remembered.py` - a phone aimed at two installs can answer differently on each:
+A phone can say who it is, remembered per browser and per target in `manager/kit/remembered.py` - a phone aimed at two installs can answer differently on each:
 
 - **Nobody said** (the ordinary case, and the owner's own phone never has to do anything else): the phone behaves exactly as it always has. A rating goes to the library, Favorite is offered, adding to a collection is offered.
 - **A kept player**, chosen with **This Is Me** on the identity sheet (the person icon in the header): a rating goes to their own record instead of the library's, Favorite is not offered - it is the owner's alone - and adding to a collection still is, since collections are the household's. **Not Me** clears it.
@@ -130,10 +130,10 @@ Every one of these already existed for the Manager and the API; Remote adds none
 manager/page.py      Manager shell, /manager
 manager/remote.py    Remote shell, /remote
 manager/remote_record.py  its part in recording media
-manager/api.py       shared client
-manager/data.py      shared reads
-manager/appearance.py     shared tokens
-manager/panel.py     shared fact list
+manager/kit/api.py       shared client
+manager/kit/data.py      shared reads
+manager/kit/appearance.py     shared tokens
+manager/kit/panel.py     shared fact list
 ```
 
 Two shells in one package. The shared modules are not extracted to a neutral home; see `docs/conventions.md` on the panel being a shape rather than a place.
@@ -142,7 +142,7 @@ Two shells in one package. The shared modules are not extracted to a neutral hom
 
 ## Density
 
-Density is a per-surface token in `manager/appearance.py`, not a second stylesheet. `--target-min` is the Manager's 32px floor and is raised to 44px where the pointer is a finger; `--star-size` is sized on its own, because five 44px boxes is a row 220px wide.
+Density is a per-surface token in `manager/kit/appearance.py`, not a second stylesheet. `--target-min` is the Manager's 32px floor and is raised to 44px where the pointer is a finger; `--star-size` is sized on its own, because five 44px boxes is a row 220px wide.
 
 Palette and treatment stay shared. A second stylesheet is how one product starts looking like two.
 

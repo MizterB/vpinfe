@@ -25,9 +25,9 @@ from common import (
 from common.i18n import t
 from common.paths import get_ini_config
 from httpapi import auth, scopes
-from manager import acting
+from manager.kit import acting
 
-logger = logging.getLogger("vpinfe.manager.api")
+logger = logging.getLogger("vpinfe.manager.kit.api")
 
 _TIMEOUT = 15
 # Reads that cover the whole library. The first one scans it, and on a network share that

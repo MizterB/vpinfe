@@ -17,9 +17,10 @@ from nicegui import run, ui
 
 from common.failures import why
 from common.i18n import t
-from manager import community, ext_cells, ext_links, ext_page, offload, panel, when
-from manager.api import ApiClient
-from manager.on_page import on_page
+from manager import community, ext_cells, ext_links, ext_page
+from manager.kit import offload, panel, when
+from manager.kit.api import ApiClient
+from manager.kit.on_page import on_page
 
 # Not a section of any other rail: a section key an extension chose cannot be one of core's.
 SECTION_PREFIX = "ext:"

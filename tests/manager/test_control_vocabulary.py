@@ -21,7 +21,8 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import patch
 
-from manager import binding_table, panel, settings, themes
+from manager import binding_table, settings, themes
+from manager.kit import panel
 
 MANAGER = Path(__file__).resolve().parent.parent.parent / "manager"
 
@@ -294,7 +295,7 @@ class AHoldCanBeSetRatherThanPerformed(unittest.TestCase):
 class RawControlsAreDeclared(unittest.TestCase):
     def test_no_module_grows_one_unnoticed(self) -> None:
         found = {}
-        for path in sorted(MANAGER.glob("*.py")):
+        for path in sorted(MANAGER.rglob("*.py")):
             if path.name == "panel.py":
                 continue
             count = len(CONTROLS.findall(path.read_text(encoding="utf-8")))

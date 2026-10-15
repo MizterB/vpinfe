@@ -11,8 +11,9 @@ from screeninfo import Monitor
 
 from common import config_service
 from common.i18n import t
-from manager import displays, panel
+from manager import displays
 from manager import screens_picture as picture
+from manager.kit import panel
 from manager.screens import Screen
 from tests.support.clicks import press
 

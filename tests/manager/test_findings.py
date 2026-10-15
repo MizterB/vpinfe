@@ -7,7 +7,8 @@ from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 from common.i18n import t
-from manager import game_tables, workbench
+from manager import workbench
+from manager.kit import game_tables
 
 
 async def _now(callback: Any, *args: Any, **kwargs: Any) -> Any:
@@ -34,7 +35,7 @@ def _context(*tables: dict[str, Any]) -> dict[str, Any]:
 class Findings(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         for patched in (
-                patch("manager.offload.run.io_bound", new=_now),
+                patch("manager.kit.offload.run.io_bound", new=_now),
                 patch.object(workbench.panel, "action",
                              new=lambda label, *_a, **_k: ("act", label)),
                 patch.object(workbench.panel, "link_out",
@@ -141,7 +142,7 @@ class OncePerPanel(unittest.IsolatedAsyncioTestCase):
         context["library"].discovery.return_value = {"features": list(features)}
         context["library"].dof_event_state.return_value = {"event": None, "blocked": ""}
         rows = Mock()
-        with patch("manager.offload.run.io_bound", new=_now), \
+        with patch("manager.kit.offload.run.io_bound", new=_now), \
                 patch.object(workbench, "_findings",
                              new=AsyncMock(return_value=[("finding", "alert")])), \
                 patch.object(workbench, "_game_entries",

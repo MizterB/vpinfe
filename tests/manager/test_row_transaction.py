@@ -16,8 +16,8 @@ from typing import Any
 from unittest import mock
 
 from common.i18n import t
-from manager import grid, stars
 from manager.games import add_index, row_transaction
+from manager.kit import grid, stars
 
 
 def _showing(*pairs):

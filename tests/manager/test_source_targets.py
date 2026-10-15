@@ -17,8 +17,9 @@ from nicegui import core, ui
 from common import i18n, service_errors
 from common.games.collections_service import IMAGE_EXTENSIONS
 from common.media_specs import IMAGE_FAMILY
-from manager import folder_picker, mediasource
-from manager.data import Library
+from manager import mediasource
+from manager.kit import folder_picker
+from manager.kit.data import Library
 from tests.support import clicks
 
 LIBRARY = SimpleNamespace(placements=None, displaced_by=None, place_media=None,
@@ -308,7 +309,7 @@ class TakingAFileFromTheDisk(unittest.IsolatedAsyncioTestCase):
         self.slot = _wheel_slot(self.library)
         self.finished = mock.AsyncMock()
         self.said = mock.Mock()
-        for patched in (mock.patch("manager.offload.run.io_bound", new=_now),
+        for patched in (mock.patch("manager.kit.offload.run.io_bound", new=_now),
                         mock.patch.object(self.slot, "finish", new=self.finished),
                         mock.patch.object(mediasource.ui, "notify", new=self.said),
                         mock.patch.object(mediasource.candidates, "row")):
@@ -460,7 +461,7 @@ class OpeningAFolderUnderAFilter(unittest.IsolatedAsyncioTestCase):
 
     async def test_the_filter_clears_and_the_new_folder_is_drawn_once_in_full(self) -> None:
         self.enterContext(mock.patch.object(core, "loop", asyncio.get_running_loop()))
-        self.enterContext(mock.patch("manager.offload.run.io_bound", new=_now))
+        self.enterContext(mock.patch("manager.kit.offload.run.io_bound", new=_now))
         box = _filter_box(self.host)
         box.value = "y"
         row = next(one for one in self.host.descendants() if isinstance(one, ui.row)

@@ -26,8 +26,9 @@ from nicegui import context, run, ui
 
 from common.failures import why
 from common.i18n import t
-from manager import import_dialog, offload
-from manager.on_page import on_page
+from manager import import_dialog
+from manager.kit import offload
+from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.uploads")
 

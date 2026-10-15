@@ -14,9 +14,10 @@ from nicegui import ui
 
 from common.extensions import host
 from common.i18n import t
-from manager import busy, community, grid, page, renderers, verbs, views
-from manager.api import ApiError
-from manager.data import read_state
+from manager import community, page
+from manager.kit import busy, grid, renderers, verbs, views
+from manager.kit.api import ApiError
+from manager.kit.data import read_state
 
 DECLARED: dict[str, Any] = {"key": "tables", "title": "Site", "area": "community",
             "base": "/community/tables",

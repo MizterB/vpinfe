@@ -7,7 +7,8 @@ the only way this vocabulary can be wrong in a way nobody notices.
 
 import unittest
 
-from manager import games, grid, table_features
+from manager import games
+from manager.kit import grid, table_features
 
 
 class StateTests(unittest.TestCase):

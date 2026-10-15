@@ -20,21 +20,10 @@ from common import approvals
 from common.failures import why
 from common.i18n import number, t
 from common.media_specs import media_label_map
-from manager import (
-    ext_mark,
-    front,
-    game_tables,
-    jobs_list,
-    media_fill,
-    needs,
-    offload,
-    panel,
-    set_aside,
-    verbs,
-    when,
-)
-from manager.data import Library
-from manager.on_page import on_page
+from manager import ext_mark, front, jobs_list, media_fill, needs, set_aside
+from manager.kit import game_tables, offload, panel, verbs, when
+from manager.kit.data import Library
+from manager.kit.on_page import on_page
 
 # name, one-line description, predicate over (game, media entries).
 #
@@ -558,8 +547,8 @@ _LEFT = "metadata_left"
 def _metadata_action(library: Library, state: dict[str, Any],
                      then: Callable[[], None]) -> Callable[[str], Any]:
     """Ask, start the job, say it is under way, and say what came of it once it ends."""
-    from manager import confirm
-    from manager.api import ApiClient
+    from manager.kit import confirm
+    from manager.kit.api import ApiClient
 
     @on_page
     async def start(which: str) -> None:
@@ -773,8 +762,8 @@ def _script_fixes_said(found: dict[str, Any]) -> str:
 async def fetch_script_fixes(library: Library, after: Callable[[], Any]) -> None:
     """Ask, then start the fetch as a job. `after` redraws what showed the fixes, which are
     forgotten once it begins: the answer no longer says what is left to fetch."""
-    from manager import confirm
-    from manager.api import ApiClient
+    from manager.kit import confirm
+    from manager.kit.api import ApiClient
 
     offered = list(library.script_patches().get("offered") or [])
     if not await confirm.ask(

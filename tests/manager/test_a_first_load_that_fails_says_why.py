@@ -7,7 +7,7 @@ import unittest
 import requests
 
 from common.i18n import t
-from manager.api import ApiError
+from manager.kit.api import ApiError
 from manager.page import why_not_loaded
 
 

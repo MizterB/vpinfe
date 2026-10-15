@@ -14,7 +14,8 @@ from fastapi.testclient import TestClient
 import httpapi
 from common import paths
 from common.online import theme_source_checks as checks
-from manager import offload, panel, theme_sources
+from manager import theme_sources
+from manager.kit import offload, panel
 
 LISTS, THEMES = theme_sources.LISTS, theme_sources.THEMES
 
@@ -59,7 +60,7 @@ class BlockTests(unittest.IsolatedAsyncioTestCase):
                                          self.rerender)
         self.enterContext(patch.object(
             offload, "io", new=AsyncMock(side_effect=lambda call, *args: call(*args))))
-        self.enterContext(patch("manager.on_page.ui"))
+        self.enterContext(patch("manager.kit.on_page.ui"))
         self.enterContext(patch.object(theme_sources, "ui"))
         self.offered = self.enterContext(patch.object(theme_sources.undo, "offer"))
 

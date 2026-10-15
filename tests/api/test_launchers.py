@@ -22,8 +22,9 @@ from fastapi.testclient import TestClient
 import httpapi
 from common import jobs, service_errors
 from common.games import launchers
-from manager import app_settings, data, workbench
-from manager.api import ApiClient
+from manager import app_settings, workbench
+from manager.kit import data
+from manager.kit.api import ApiClient
 from tests.support.launchers_api import delete_launcher, put_launcher
 from tests.support.library import own_launchers
 

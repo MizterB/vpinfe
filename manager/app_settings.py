@@ -21,10 +21,11 @@ from nicegui import ui
 
 from common.failures import why
 from common.i18n import t
-from manager import confirm, offload, panel, undo, verbs, workbench
-from manager import dialog as frame
-from manager.data import config_groups
-from manager.on_page import on_page
+from manager import workbench
+from manager.kit import confirm, offload, panel, undo, verbs
+from manager.kit import dialog as frame
+from manager.kit.data import config_groups
+from manager.kit.on_page import on_page
 
 SCOPE_ENTRY = "entry"
 SCOPE_LAUNCHER = "launcher"

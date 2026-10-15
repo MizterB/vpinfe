@@ -17,10 +17,10 @@ from common.failures import why
 from common.games import media_fill
 from common.i18n import t
 from common.media_specs import media_label_map
-from manager import confirm, offload, remembered, verbs
-from manager import dialog as frame
-from manager.api import ApiClient
-from manager.on_page import on_page
+from manager.kit import confirm, offload, remembered, verbs
+from manager.kit import dialog as frame
+from manager.kit.api import ApiClient
+from manager.kit.on_page import on_page
 
 TICKS = "media_fill.kinds"
 _POLL_S = 1.0

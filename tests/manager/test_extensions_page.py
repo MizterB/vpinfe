@@ -21,7 +21,8 @@ from nicegui import ui
 
 from common import feature_checks, i18n, install_identity
 from common.extensions import host
-from manager import ext_page, settings, wizard
+from manager import ext_page, settings
+from manager.kit import wizard
 from tests.support import lines
 
 

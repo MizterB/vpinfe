@@ -1,6 +1,6 @@
 """A region the Manager fills after the page is drawn says so while it waits.
 
-Its first draw is deferred through `manager.busy.fill`, which marks it busy at once,
+Its first draw is deferred through `manager.kit.busy.fill`, which marks it busy at once,
 never through a one-shot `ui.timer` of its own. A one-shot timer that fills no region is
 listed below with what it does instead.
 """
@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[2]
 MANAGER = ROOT / "manager"
 HELPER = "busy.py"
 
-# (file under manager/, enclosing function) -> why it is not a region's first draw.
+# (file name under manager/, enclosing function) -> why it is not a region's first draw.
 NOT_A_REGION: dict[tuple[str, str], str] = {
     ("page.py", "manager_page"):
         "Puts the update count on the Devices entry once the devices have answered: "
@@ -69,7 +69,7 @@ def one_shot_timers(tree: ast.AST) -> list[tuple[int, str]]:
 
 
 def _manager() -> dict[str, list[tuple[int, str]]]:
-    return {path.relative_to(MANAGER).as_posix(): one_shot_timers(trees.tree_for(path))
+    return {path.name: one_shot_timers(trees.tree_for(path))
             for path in sorted(MANAGER.rglob("*.py"))}
 
 

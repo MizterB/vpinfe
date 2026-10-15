@@ -7,7 +7,8 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from manager import confirm, mediamap, mediasource
+from manager import mediamap, mediasource
+from manager.kit import confirm
 
 LIBRARY = SimpleNamespace(placements=None, displaced_by=None, place_media=None,
                           folders=None)

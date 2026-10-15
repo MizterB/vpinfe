@@ -18,7 +18,7 @@ from nicegui import ui
 from common import device_client
 from common.i18n import t
 from common.values import is_truthy
-from manager import clipboard, panel, remembered
+from manager.kit import clipboard, panel, remembered
 
 logger = logging.getLogger("vpinfe.manager.chrome_options")
 

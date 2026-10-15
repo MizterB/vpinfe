@@ -9,7 +9,7 @@ from typing import Any
 
 from common.host import display_service
 from common.i18n import t
-from manager import panel
+from manager.kit import panel
 
 _POSITIONED = re.compile(r"(?P<name>.+?)\s*\[\s*(?P<x>-?\d+),\s*(?P<y>-?\d+)\s*\]")
 

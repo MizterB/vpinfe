@@ -1,7 +1,7 @@
 """Grids, and the column layout kept for each.
 
 Layout only - width, order, pinning. Which columns are shown, how they are
-sorted and what is filtered belong to a view; see manager/views.py.
+sorted and what is filtered belong to a view; see manager/kit/views.py.
 """
 
 from __future__ import annotations
@@ -19,10 +19,10 @@ from nicegui import run, ui
 
 from common import i18n
 from common.i18n import t
-from manager import offload, renderers, thumbnails
-from manager.on_page import on_page
+from manager.kit import offload, renderers, thumbnails
+from manager.kit.on_page import on_page
 
-logger = logging.getLogger("vpinfe.manager.grid")
+logger = logging.getLogger("vpinfe.manager.kit.grid")
 
 DEFAULT_COL_DEF: dict[str, Any] = {
     "sortable": True,
@@ -36,7 +36,7 @@ DEFAULT_COL_DEF: dict[str, Any] = {
 # Layout belongs to the *view*, not to the grid: a tick column wants to be narrow and a
 # name column wants to be wide, and they are the same column under two views. Visibility,
 # sort and filters are the view's too - what keeps a built-in a constant is that none of
-# it is stored against the built-in's definition. See manager/views.py.
+# it is stored against the built-in's definition. See manager/kit/views.py.
 #
 # Each event, and the part of a `Layout` it changes.
 _SAVE_EVENTS = {"columnMoved": "order", "columnResized": "widths", "columnPinned": "pins"}
@@ -1377,7 +1377,7 @@ async def apply_layout(grid: ui.aggrid, scope: str, columns: list[dict[str, Any]
     Called on gridReady and again on every view change, because the grid outlives a
     view: switching without this leaves the last view's widths on the new one's columns.
     """
-    from manager.api import ApiClient
+    from manager.kit.api import ApiClient
 
     where = layout_scope(scope, view_of)
     try:
@@ -1447,7 +1447,7 @@ def _save_on_change(grid: ui.aggrid, scope: str, view_of: Callable[[], str] | No
                     filling: frozenset[str] = frozenset()) -> None:
     """Keep the layout a person leaves. `filling` names the `flex` columns, whose width
     moves with every other column's and is saved only when dragged itself."""
-    from manager.api import ApiClient
+    from manager.kit.api import ApiClient
 
     async def save(done: dict[str, Any], change: str) -> None:
         """Keep what the person just changed, `done` being the column the event names."""

@@ -7,8 +7,9 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock, create_autospec, patch
 
 from common import device_client
-from manager import confirm, send_to_device
-from manager.api import ApiClient
+from manager import send_to_device
+from manager.kit import confirm
+from manager.kit.api import ApiClient
 
 ANSWERING = {"state": device_client.ANSWERING, "version": "", "reason": ""}
 SILENT = {"state": device_client.UNREACHABLE, "version": "", "reason": "Asleep"}

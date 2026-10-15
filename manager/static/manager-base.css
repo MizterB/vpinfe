@@ -6,7 +6,7 @@
    the large, invariant half, so the browser fetches it once and keeps it, instead of
    carrying ~120KB inside every page load.
 
-   Authored here. It used to be five Python strings in manager/appearance.py, which is where
+   Authored here. It used to be five Python strings in manager/kit/appearance.py, which is where
    the palette still lives.
 */
 
@@ -1750,7 +1750,7 @@ body.manager-menu-open .q-tooltip.manager-menu-tip { display: block !important; 
 /* A section's search and filters. They act on the whole section, so no group heading
    goes over them. */
 .manager-section-bar { width: 100%; padding-bottom: 0.5rem; }
-/* A region still being drawn (`manager/busy.py`): shown from a quarter second in, and
+/* A region still being drawn (`manager/kit/busy.py`): shown from a quarter second in, and
    last in its region. */
 @keyframes manager-busy-late { from { visibility: hidden; height: 0; padding: 0; } }
 .manager-busy { order: 1; animation: manager-busy-late 0s 250ms backwards; }
@@ -4009,7 +4009,7 @@ a.manager-slot-file, a.manager-slot-file:visited { color: var(--accent); }
 }
 .manager-section-row { grid-column: 1; }
 /* The picture ahead of a name, whole, in one box every row shares so the names line
-   up; `manager/thumbnails.py` draws it. A row chosen by looking at it takes 128 x 72 and
+   up; `manager/kit/thumbnails.py` draws it. A row chosen by looking at it takes 128 x 72 and
    `grid.PICTURED_ROW_PX`. A list's box is sized by an ancestor carrying a
    `thumbnails.Look`: its height as `--art-h`, twice as wide unless the ancestor makes it
    square, on a ground dark in every palette unless it is bare. With no picture the box

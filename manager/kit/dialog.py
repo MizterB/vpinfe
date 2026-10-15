@@ -8,8 +8,8 @@ from nicegui import ui
 from nicegui.events import ValueChangeEventArguments
 
 from common.i18n import t
-from manager import panel, verbs, walks
-from manager.on_page import on_page
+from manager.kit import panel, verbs, walks
+from manager.kit.on_page import on_page
 
 _UNSET: Any = object()
 

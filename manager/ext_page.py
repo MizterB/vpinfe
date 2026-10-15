@@ -23,19 +23,10 @@ from common import accepted
 from common.extensions import host
 from common.failures import why
 from common.i18n import t
-from manager import (
-    accept,
-    confirm,
-    deeplink,
-    ext_action,
-    ext_links,
-    ext_mark,
-    offload,
-    panel,
-    verbs,
-)
-from manager.api import ApiClient
-from manager.on_page import on_page
+from manager import accept, ext_action, ext_links, ext_mark
+from manager.kit import confirm, deeplink, offload, panel, verbs
+from manager.kit.api import ApiClient
+from manager.kit.on_page import on_page
 
 PREFIX = "extensions."
 

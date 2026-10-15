@@ -19,19 +19,10 @@ from nicegui import ui
 
 from common.failures import why
 from common.i18n import t
-from manager import (
-    busy,
-    community,
-    ext_cells,
-    ext_links,
-    ext_mark,
-    ext_row,
-    offload,
-    panel,
-    verbs,
-)
-from manager.api import ApiClient
-from manager.on_page import on_page
+from manager import community, ext_cells, ext_links, ext_mark, ext_row
+from manager.kit import busy, offload, panel, verbs
+from manager.kit.api import ApiClient
+from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.ext_groups")
 

@@ -15,8 +15,8 @@ from nicegui import ui
 from apps.vpx import screens as vpx
 from common.host import tools
 from common.i18n import t
-from manager import panel
 from manager.displays import Write, stored
+from manager.kit import panel
 
 SECTION = "real_dmd"
 KIND_WORDS = {vpx.ZEDMD: "manager.dmd_panel.kind.zedmd",

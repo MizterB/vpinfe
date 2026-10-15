@@ -49,7 +49,7 @@ def _dressed_calls(tree: ast.AST) -> set[int]:
 
 def _bare() -> list[str]:
     out = []
-    for path in sorted(MANAGER.glob("*.py")):
+    for path in sorted(MANAGER.rglob("*.py")):
         tree = trees.tree_for(path)
         dressed = _dressed_calls(tree)
         for node in ast.walk(tree):
@@ -76,7 +76,7 @@ class MenuItemsAreDressed(unittest.TestCase):
         """An empty sweep passes and measures nothing, which reads the same as clean."""
         seen = sum(
             1
-            for path in MANAGER.glob("*.py")
+            for path in MANAGER.rglob("*.py")
             for node in ast.walk(trees.tree_for(path))
             if isinstance(node, ast.Call) and getattr(node.func, "attr", "") in DRAWN)
         self.assertGreater(seen, 25)

@@ -18,8 +18,9 @@ from common.config_store import ConfigStore
 from common.host import display_service
 from common.i18n import t
 from frontend import theme_windows
-from manager import panel, settings
-from manager.data import Library
+from manager import settings
+from manager.kit import panel
+from manager.kit.data import Library
 
 WIDE = Monitor(x=0, y=0, width=2560, height=1440, width_mm=597, height_mm=336,
                name="DP-1", is_primary=True)

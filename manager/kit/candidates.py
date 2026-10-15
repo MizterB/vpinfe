@@ -14,7 +14,7 @@ from typing import Any
 from nicegui import ui
 
 from common.i18n import t
-from manager import panel, verbs
+from manager.kit import panel, verbs
 
 # A family with no frame of its own still gets a mark, so the slot is never empty.
 GLYPHS = {"audio": "graphic_eq"}

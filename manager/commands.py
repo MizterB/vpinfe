@@ -16,7 +16,7 @@ from nicegui import ui
 
 from common import tokens
 from common.i18n import t
-from manager import panel
+from manager.kit import panel
 
 
 def add_to(entries: list[Any], context: str) -> None:

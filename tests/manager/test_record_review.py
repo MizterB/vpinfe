@@ -75,7 +75,7 @@ class PagesTests(unittest.TestCase):
 
 class ReviewTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
-        self.enterContext(mock.patch("manager.on_page.ui"))
+        self.enterContext(mock.patch("manager.kit.on_page.ui"))
         self.ui = self.enterContext(mock.patch.object(record, "ui"))
         self.enterContext(mock.patch.object(record.offload, "io",
                                             mock.AsyncMock(side_effect=_io)))
@@ -210,7 +210,7 @@ def _game(proposed: list[str] | None = None) -> dict[str, Any]:
 
 class SlotTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
-        self.enterContext(mock.patch("manager.on_page.ui"))
+        self.enterContext(mock.patch("manager.kit.on_page.ui"))
         self.ui = self.enterContext(mock.patch.object(record, "ui"))
         self.enterContext(mock.patch.object(record.offload, "io",
                                             mock.AsyncMock(side_effect=_io)))
@@ -275,7 +275,7 @@ class ChooserTests(unittest.TestCase):
     """The recording beside what it would replace: which column holds which."""
 
     def setUp(self) -> None:
-        self.enterContext(mock.patch("manager.on_page.ui"))
+        self.enterContext(mock.patch("manager.kit.on_page.ui"))
         self.ui = self.enterContext(mock.patch.object(record, "ui"))
         self.enterContext(mock.patch.object(record.mediaview, "preview"))
         self.enterContext(mock.patch.object(record.panel, "line"))
@@ -308,7 +308,7 @@ class ChooserTests(unittest.TestCase):
 
 class NoticeTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
-        self.enterContext(mock.patch("manager.on_page.ui"))
+        self.enterContext(mock.patch("manager.kit.on_page.ui"))
         self.ui = self.enterContext(mock.patch.object(record, "ui"))
         self.act = self.enterContext(mock.patch.object(record.undo, "act"))
         self.state = {"show_recorded": mock.AsyncMock()}
@@ -357,7 +357,7 @@ class SettingsDoorTests(unittest.IsolatedAsyncioTestCase):
             return lambda: None
 
         with mock.patch.object(recording, "ui") as ui, \
-                mock.patch("manager.on_page.ui"), \
+                mock.patch("manager.kit.on_page.ui"), \
                 mock.patch.object(recording.panel, "action", action), \
                 mock.patch.object(recording.run, "io_bound",
                                   mock.AsyncMock(side_effect=_io)), \

@@ -25,27 +25,20 @@ from common.games.collection_store import BUILTIN_ALL
 from common.i18n import t
 from common.jobs import DONE, KIND_LIBRARY_SCAN, KIND_MEDIA_CAPTURE
 from manager import about as about_page
+from manager import assets as assets_page
 from manager import (
-    appearance,
     authenticator_panel,
-    busy,
-    confirm,
-    deeplink,
     ext_links,
     ext_mark,
     ext_pages,
     folders,
     games,
-    grid,
     job_report,
     jobs_list,
     needs,
-    offload,
     power,
     rail_marks,
-    remembered,
     remote,
-    report_groups,
     row_drag,
     sections,
     security,
@@ -53,16 +46,11 @@ from manager import (
     tageditor,
     text_editor,
     theme_sources,
-    undo,
     uploads,
-    verbs,
-    views,
     waiting,
-    wizard,
     wizard_settle,  # noqa: F401 - registers the settle field with the wizard
     workbench,
 )
-from manager import assets as assets_page
 from manager import backups as backups_page
 from manager import collections as collections_page
 from manager import community as community_page
@@ -73,17 +61,31 @@ from manager import launchers as launchers_page
 from manager import logs as logs_page
 from manager import media as media_page
 from manager import metrics as metrics_page
-from manager import panel as panel_parts
 from manager import players as players_page
 from manager import record as recorder
 from manager import settings as settings_page
 from manager import setup as setup_page
 from manager import themes as themes_page
 from manager import whats_new as whats_new_page
-from manager.api import ApiClient
-from manager.data import Library
+from manager.kit import (
+    appearance,
+    busy,
+    confirm,
+    deeplink,
+    grid,
+    offload,
+    remembered,
+    report_groups,
+    undo,
+    verbs,
+    views,
+    wizard,
+)
+from manager.kit import panel as panel_parts
+from manager.kit.api import ApiClient
+from manager.kit.data import Library
+from manager.kit.on_page import on_page
 from manager.library_folders import KIND_IMPORT, hold_library
-from manager.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.page")
 

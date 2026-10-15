@@ -8,7 +8,8 @@ from unittest.mock import patch
 
 from nicegui import ui
 
-from manager import community, deeplink, ext_row
+from manager import community, ext_row
+from manager.kit import deeplink
 
 EXTENSION = {"name": "weekly"}
 DECLARED = {"key": "board", "detail": "/lists/board/detail"}

@@ -6,7 +6,7 @@ import unittest
 
 from nicegui import ui
 
-from manager import panel
+from manager.kit import panel
 
 SAID = {"Alpha": "the first one", "Beta": "the second"}
 

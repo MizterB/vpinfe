@@ -25,21 +25,10 @@ from common.games.collection_store import (
     SORT_LABELS,
 )
 from common.i18n import t
-from manager import (
-    collection_adds,
-    community,
-    confirm,
-    grid,
-    offload,
-    panel,
-    rename,
-    thumbnails,
-    verbs,
-    views,
-    walks,
-)
+from manager import collection_adds, community
 from manager.games import view_control
-from manager.on_page import on_page
+from manager.kit import confirm, grid, offload, panel, rename, thumbnails, verbs, views, walks
+from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.collections")
 

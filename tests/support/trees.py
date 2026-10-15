@@ -55,3 +55,30 @@ def reparsed(path: Path) -> ast.Module:
     resolved = Path(path).resolve()
     source = resolved.read_text(encoding="utf-8", errors="ignore")
     return ast.parse(source, filename=str(resolved))
+
+
+_MANAGER = Path(__file__).resolve().parents[2] / "manager"
+
+
+def manager_imports(node: ast.ImportFrom) -> list[tuple[str, str, str | None]]:
+    """What a `from manager... import` binds, as (bound name, module stem, imported name).
+
+    The imported name is None where the import brings in the module itself. A package on
+    the way is not a module, so `from manager.kit import grid` and `from manager import
+    grid` both name the module `grid`, and module stems are unique across the tree.
+    """
+    parts = (node.module or "").split(".")
+    if node.level or parts[0] != "manager":
+        return []
+    folder, rest = _MANAGER, parts[1:]
+    while rest and (folder / rest[0] / "__init__.py").is_file():
+        folder, rest = folder / rest[0], rest[1:]
+    found: list[tuple[str, str, str | None]] = []
+    for alias in node.names:
+        bound = alias.asname or alias.name
+        if not rest:
+            if (folder / f"{alias.name}.py").is_file():
+                found.append((bound, alias.name, None))
+        elif len(rest) == 1:
+            found.append((bound, rest[0], alias.name))
+    return found

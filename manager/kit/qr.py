@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from io import BytesIO
 
-logger = logging.getLogger("vpinfe.manager.qr")
+logger = logging.getLogger("vpinfe.manager.kit.qr")
 
 
 def svg(text: str) -> str:

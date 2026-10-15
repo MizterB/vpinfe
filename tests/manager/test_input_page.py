@@ -15,8 +15,9 @@ import httpapi
 from common import config_schema, paths, setting_groups
 from common.config_store import ConfigStore
 from common.i18n import t
-from manager import input_page, panel, settings
-from manager.data import Library
+from manager import input_page, settings
+from manager.kit import panel
+from manager.kit.data import Library
 from tests.support.catalogs import served as catalog
 
 INPUT_PAGE = next(page for _group, pages in settings.DEVICE_INDEX for page in pages

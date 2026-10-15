@@ -10,7 +10,8 @@ from unittest.mock import Mock, patch
 
 from nicegui import ui
 
-from manager import busy, settings, workbench
+from manager import settings, workbench
+from manager.kit import busy
 
 # Made at import, outside any task, where NiceGUI still hands out the script's own page.
 _PAGE = ui.element()

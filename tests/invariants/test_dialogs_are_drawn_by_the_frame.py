@@ -1,4 +1,4 @@
-"""Every Manager dialog is made by `manager/dialog.py`, so they all share one design."""
+"""Every Manager dialog is made by `manager/kit/dialog.py`, so they all share one design."""
 
 from __future__ import annotations
 
@@ -40,11 +40,11 @@ def _persistent(path: pathlib.Path) -> list[ast.AST]:
 
 
 def _called(path: pathlib.Path) -> set[str]:
-    """What `path` calls on `manager.dialog`, by name."""
+    """What `path` calls on `manager.kit.dialog`, by name."""
     tree = trees.tree_for(path)
-    names = {alias.asname or alias.name for one in ast.walk(tree)
-             if isinstance(one, ast.ImportFrom) and one.module == "manager"
-             for alias in one.names if alias.name == "dialog"}
+    names = {bound for one in ast.walk(tree) if isinstance(one, ast.ImportFrom)
+             for bound, module, name in trees.manager_imports(one)
+             if module == "dialog" and name is None}
     return {one.func.attr for one in ast.walk(tree)
             if isinstance(one, ast.Call) and isinstance(one.func, ast.Attribute)
             and isinstance(one.func.value, ast.Name) and one.func.value.id in names}
@@ -107,13 +107,13 @@ def _typed_dialogs_that_close_on_a_click(path: pathlib.Path) -> list[int]:
 
 class DialogsAreDrawnByTheFrame(unittest.TestCase):
     def test_no_dialog_is_drawn_by_hand(self) -> None:
-        by_hand = sorted(path.name for path in MANAGER.glob("*.py")
+        by_hand = sorted(path.name for path in MANAGER.rglob("*.py")
                          if path.name != FRAME
                          and OPENS_ONE in path.read_text(encoding="utf-8"))
         self.assertEqual([], by_hand)
 
     def test_only_an_exception_draws_its_own_card(self) -> None:
-        own = sorted(path.name for path in MANAGER.glob("*.py") if "made" in _called(path))
+        own = sorted(path.name for path in MANAGER.rglob("*.py") if "made" in _called(path))
         self.assertEqual(sorted(NOT_ASKING), own)
 
     def test_an_exception_asks_nothing(self) -> None:
@@ -122,17 +122,17 @@ class DialogsAreDrawnByTheFrame(unittest.TestCase):
                 self.assertNotIn("opened", _called(MANAGER / name))
 
     def test_only_a_run_or_a_required_answer_blocks_escape(self) -> None:
-        blocking = {path.name: len(_persistent(path)) for path in sorted(MANAGER.glob("*.py"))
+        blocking = {path.name: len(_persistent(path)) for path in sorted(MANAGER.rglob("*.py"))
                     if path.name != FRAME and _persistent(path)}
         self.assertEqual(PERSISTENT, blocking)
 
     def test_nothing_typed_is_lost_to_a_click_outside(self) -> None:
-        loses = {path.name: lines for path in sorted(MANAGER.glob("*.py"))
+        loses = {path.name: lines for path in sorted(MANAGER.rglob("*.py"))
                  if path.name != FRAME and (lines := _typed_dialogs_that_close_on_a_click(path))}
         self.assertEqual({}, loses)
 
     def test_no_dialog_is_persistent_whatever_happens(self) -> None:
-        always = sorted(path.name for path in MANAGER.glob("*.py")
+        always = sorted(path.name for path in MANAGER.rglob("*.py")
                         for one in _persistent(path)
                         if isinstance(one, ast.keyword) and isinstance(one.value, ast.Constant)
                         and one.value.value is True)

@@ -5,7 +5,7 @@ from __future__ import annotations
 from nicegui import ui
 
 from common.i18n import t
-from manager import dialog as frame
+from manager.kit import dialog as frame
 
 # Both halves run in the browser at the moment of the click, which is the whole point.
 # The clipboard API is a secure-context feature and http://cab.local:8000 - the ordinary

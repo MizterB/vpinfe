@@ -8,7 +8,7 @@ from typing import Any
 from unittest import mock
 
 from manager import remote_record
-from manager.api import ApiError
+from manager.kit.api import ApiError
 
 
 def _waiting(proposal_id: str, game_id: str, kind: str, *, replaces: bool = True
@@ -116,7 +116,7 @@ class WordsTests(unittest.TestCase):
 
 class ReviewTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
-        self.enterContext(mock.patch("manager.on_page.ui"))
+        self.enterContext(mock.patch("manager.kit.on_page.ui"))
         self.ui = self.enterContext(mock.patch.object(remote_record, "ui"))
         self.enterContext(mock.patch.object(remote_record.offload, "io",
                                             mock.AsyncMock(side_effect=_io)))
@@ -237,7 +237,7 @@ class ReviewTests(unittest.IsolatedAsyncioTestCase):
 
 class RunCardTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
-        self.enterContext(mock.patch("manager.on_page.ui"))
+        self.enterContext(mock.patch("manager.kit.on_page.ui"))
         self.enterContext(mock.patch.object(remote_record, "ui"))
         self.buttons: dict[str, Any] = {}
         self.enterContext(mock.patch.object(
@@ -303,7 +303,7 @@ class SheetPlanTests(unittest.IsolatedAsyncioTestCase):
                                                  backglass=(0, 1, False))
         client.start_capture.return_value = {"id": "j1"}
         lacks, started = mock.Mock(), mock.AsyncMock()
-        with mock.patch("manager.on_page.ui"), \
+        with mock.patch("manager.kit.on_page.ui"), \
                 mock.patch.object(remote_record, "ui") as ui, \
                 mock.patch.object(remote_record.panel, "remote_action"), \
                 mock.patch.object(remote_record.offload, "io",

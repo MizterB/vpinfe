@@ -12,14 +12,14 @@ from pathlib import Path
 from unittest.mock import patch
 
 from common import config_schema, i18n
-from manager import when
+from manager.kit import when
 
 DAY = datetime(2026, 4, 29, 11, 26, 53, tzinfo=UTC)
 MANAGER = Path(__file__).resolve().parents[2] / "manager"
 
 
 def _set(**values: str):
-    return patch("manager.when._setting", lambda key, default: values.get(key, default))
+    return patch("manager.kit.when._setting", lambda key, default: values.get(key, default))
 
 
 class DateStyle(unittest.TestCase):
@@ -77,7 +77,7 @@ class TimeFormat(unittest.TestCase):
                              r"^\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}$")
 
     def test_nothing_else_in_the_manager_writes_a_day(self) -> None:
-        found = sorted(path.name for path in MANAGER.glob("*.py")
+        found = sorted(path.name for path in MANAGER.rglob("*.py")
                        if path.name != "when.py"
                        and "i18n.date(" in path.read_text(encoding="utf-8"))
         self.assertEqual([], found)

@@ -12,7 +12,7 @@ from typing import Any
 from nicegui import ui
 
 from common.i18n import t
-from manager import art, panel, thumbnails
+from manager.kit import art, panel, thumbnails
 
 # A theme's own glyph, where it has no preview.
 GLYPH = "palette"

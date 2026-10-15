@@ -1,6 +1,6 @@
 """Setup: VPinFE's first run, and the same questions asked again from System.
 
-It runs on the wizard's dialog host (`manager/wizard.py`) over whichever Manager page the
+It runs on the wizard's dialog host (`manager/kit/wizard.py`) over whichever Manager page the
 person is on, answering the wizard's own protocol with local closures - there is no
 boundary here for an HTTP call to cross. `STEPS` is the whole list, in the order they are
 asked: a step is one entry there and nothing else names the steps.
@@ -26,18 +26,16 @@ from common.games import launchers as launcher_model
 from common.host import addresses
 from common.i18n import t
 from manager import (
-    deeplink,
-    offload,
     screens,
     setup_appearance,
     setup_controls,
     setup_screens,
     setup_tables,
     setup_vpx,
-    wizard,
 )
-from manager.api import ApiClient
-from manager.on_page import on_page
+from manager.kit import deeplink, offload, wizard
+from manager.kit.api import ApiClient
+from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.setup")
 
