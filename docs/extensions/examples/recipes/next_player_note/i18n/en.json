@@ -1,10 +1,10 @@
 {
-  "name": "Cabinet Note",
+  "name": "Next Player Note",
   "description": "A note for whoever plays next, which a Remote can read and change.",
-  "page.note.title": "Cabinet Note",
+  "page.note.title": "Next Player Note",
   "page.note.act.clear.label": "Clear Note",
-  "page.note.heading": "Cabinet Note",
-  "page.note.section": "For the Next Player",
+  "page.note.heading": "Next Player Note",
+  "page.note.section": "Leave a Note",
   "page.note.field": "Note",
   "page.note.cleared": "Cleared"
 }

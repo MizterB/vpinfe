@@ -603,7 +603,7 @@ answers `429` `too_many_requests` with the seconds to wait in `details.wait`.
 |---|---|---|
 | Play | Reading the library, collections, players and what is playing; launching, stopping, pressing buttons, capturing with the configured command, rating and favoriting, joining as a guest, signing a guest out and saying who is up | The Remote's pass, a Play token, any Owner, this device |
 | Library | Everything that changes what VPinFE knows or shows | A signed-in Owner, a Full Control token, this device |
-| Protected | What runs (commands, launcher programs, tools, theme and extension sources and acceptance, updating), what destroys the way back (restoring a backup, the backup folder, going back to 2.x, deleting a game's folder from the disk), what hands out access (making a token, pairing, the Trusted Proxies and Encrypted Networks lists) and what takes the machine down (`protected:write`, `system:admin`) | This device, or an Owner holding a Confirm. Never a token, except `system:admin` on a token whose Can Shut Down and Restart switch is on |
+| Protected | What runs (commands, launcher programs, tools, theme and extension sources and acceptance, updating), what destroys the way back (restoring a backup, the backup folder, going back to 2.x, deleting a game's folder from the disk), what hands out access (making a token, the Trusted Proxies and Trusted Networks lists) and what takes the device down (`protected:write`, `system:admin`) | This device, or an Owner holding a Confirm. Never a token, except `system:admin` on a token whose Can Shut Down and Restart switch is on |
 
 An Owner that reaches a Protected route without a Confirm is answered `403` with
 `details.reason` of `confirm_needed` and the `scope`; a token or a Remote pass is answered
@@ -660,11 +660,11 @@ through a VPN and reach the machine by its VPN name.
 
 **An encrypted connection stands in for the Confirm.** A request counts as encrypted when
 VPinFE itself serves HTTPS, when it comes through a Trusted Proxy that says `https` in
-`X-Forwarded-Proto`, or when its socket address is inside an Encrypted Network (Tailscale's
+`X-Forwarded-Proto`, or when its socket address is inside a Trusted Network (Tailscale's
 range is one click). A Protected change from an encrypted connection needs no Confirm. A
 proxy is believed only by its own single address, never a range, and a proxy on the same
-machine counts only once HTTPS is on, because otherwise every visitor would look like this
-device. Encrypted Networks are judged by the socket address and never by a header.
+device counts only once HTTPS is on, because otherwise every visitor would look like this
+device. Trusted Networks are judged by the socket address and never by a header.
 
 Two settings decide reachability, and they are separate on purpose:
 

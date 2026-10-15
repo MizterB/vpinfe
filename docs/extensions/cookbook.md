@@ -506,7 +506,7 @@ def register(ctx):
 ```
 
 **Where it appears:** in the extension's log and nowhere else. It adds no page and no button.
-**What triggers it:** a game ending on the cabinet, once VPinFE has written the play.
+**What triggers it:** a game ending on the VPinFE device, once VPinFE has written the play.
 
 **What you'll see:** a line in the extension's log each time a game ends, such as
 `medieval-madness was played for 14 minutes`. The log is under Logs in the Console.
@@ -1539,7 +1539,7 @@ def register(ctx):
 
 **Use it when:** the thing you are adding already has a web page of its own, such as a hardware tool's console, a manual or a dashboard on another port, and a person should reach it from the Console in one click.
 
-`ctx.ui.link` declares an address and core draws it as a link.  The address is a string, or a function that returns one, so a link can follow a setting.  `{host}` is filled in with the host the Console was opened at, so a tool that runs beside VPinFE is reached by the name the person already used, from a laptop or from the cabinet.  The label and the tip are words in the extension's catalog, named for the link.
+`ctx.ui.link` declares an address and core draws it as a link.  The address is a string, or a function that returns one, so a link can follow a setting.  `{host}` is filled in with the host the Console was opened at, so a tool that runs beside VPinFE is reached by the name the person already used, from a laptop or from the VPinFE device.  The label and the tip are words in the extension's catalog, named for the link.
 
 `recipes/tool_link/extension.json`
 
@@ -2042,11 +2042,11 @@ A Remote pass reaches only what an extension puts at the Play tier, and the Owne
 
 The `play` list names a page as `page:<key>`, a list as `list:<key>`, an action as `action:<key>`, a section on a game's panel as `group:<subject>`, an entry in a game's menu as `verb:<subject>:<key>`, and `router` for the web addresses of an extension's own router.
 
-`recipes/cabinet_note/extension.json`
+`recipes/next_player_note/extension.json`
 
 ```json
 {
-  "name": "cabinet_note",
+  "name": "next_player_note",
   "version": "1.0.0",
   "requires_platform": 1,
   "capabilities": ["config:own", "ui:mount"],
@@ -2054,7 +2054,7 @@ The `play` list names a page as `page:<key>`, a list as `list:<key>`, an action 
 }
 ```
 
-`recipes/cabinet_note/__init__.py`
+`recipes/next_player_note/__init__.py`
 
 ```python
 from common.extensions.contract import PLAY
@@ -2082,26 +2082,26 @@ def register(ctx):
     ctx.ui.page("note", read, area="community", save=save, acts={"clear": clear}, tier=PLAY)
 ```
 
-`recipes/cabinet_note/i18n/en.json`
+`recipes/next_player_note/i18n/en.json`
 
 ```json
 {
-  "name": "Cabinet Note",
+  "name": "Next Player Note",
   "description": "A note for whoever plays next, which a Remote can read and change.",
-  "page.note.title": "Cabinet Note",
+  "page.note.title": "Next Player Note",
   "page.note.act.clear.label": "Clear Note",
-  "page.note.heading": "Cabinet Note",
-  "page.note.section": "For the Next Player",
+  "page.note.heading": "Next Player Note",
+  "page.note.section": "Leave a Note",
   "page.note.field": "Note",
   "page.note.cleared": "Cleared"
 }
 ```
 
-The page is read, saved and cleared at `/api/v1/ext/cabinet_note/pages/note` and the addresses under it, as [what core serves](reference/served.md) lists.  A request with a Remote pass is answered there, and a request with a Remote pass to anything the extension declared at the Library tier is refused.
+The page is read, saved and cleared at `/api/v1/ext/next_player_note/pages/note` and the addresses under it, as [what core serves](reference/served.md) lists.  A request with a Remote pass is answered there, and a request with a Remote pass to anything the extension declared at the Library tier is refused.
 
-**Where it appears:** in the Console as Cabinet Note under Community, like any page.  On the extension's page, under A Remote Can Open, a chip reads "the note page".  **What triggers it:** the person opening the page, changing the field or pressing Clear Note.
+**Where it appears:** in the Console as Next Player Note under Community, like any page.  On the extension's page, under A Remote Can Open, a chip reads "the note page".  **What triggers it:** the person opening the page, changing the field or pressing Clear Note.
 
-**What you'll see:** the page is headed Cabinet Note, with a For the Next Player section holding one field, Note.  Type a note and leave the field, and it is there the next time the page opens.  The menu at the end of the title holds Clear Note, which empties the field and says "Cleared".  When the extension is installed from a folder, the dialog that asks the Owner to accept it lists "the note page" under A Remote Can Open, so the Owner sees before accepting that a Remote can change the note.
+**What you'll see:** the page is headed Next Player Note, with a Leave a Note section holding one field, Note.  Type a note and leave the field, and it is there the next time the page opens.  The menu at the end of the title holds Clear Note, which empties the field and says "Cleared".  When the extension is installed from a folder, the dialog that asks the Owner to accept it lists "the note page" under A Remote Can Open, so the Owner sees before accepting that a Remote can change the note.
 
 **Variations:**
 

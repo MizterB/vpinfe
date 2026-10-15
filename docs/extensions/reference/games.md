@@ -323,7 +323,7 @@ A few of them need a word more:
 - `get_missing_media(game_ids)` starts the media fill for those games whatever the *Get Media
   for New Games* switch says.  It answers `{"started": true}`, or `{"started": false}` while
   another fill runs.  The fill does not queue.
-- Launching is gated apart from the rest.  It takes over the cabinet rather than editing a
+- Launching is gated apart from the rest.  It takes over the device rather than editing a
   record, so `games:write` does not grant it.  An extension that starts a game asks for
   `launch:invoke` by name, and whoever installs it reads it by name.
 - There is no `set_private`.  An extension can read a Private game's flag and never set it.

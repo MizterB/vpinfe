@@ -23,7 +23,7 @@ from httpapi import auth, errors, extensions_served, scopes
 from tests.support.accepted import owner_accepts
 
 RECIPE = (Path(__file__).resolve().parents[2]
-          / "docs" / "extensions" / "examples" / "recipes" / "cabinet_note")
+          / "docs" / "extensions" / "examples" / "recipes" / "next_player_note")
 MODULE = "tests.extensions.test_tiers"
 NAME = "tiered"
 WORDS = {
@@ -301,10 +301,10 @@ class AnUnlistedTier(TierCase):
         self.assertIn("Tiered marks something protected", response.json()["error"]["message"])
 
 
-class CabinetNoteRecipe(TierCase):
+class NextPlayerNoteRecipe(TierCase):
     """The cookbook's Play recipe, reached the way a Remote pass reaches it."""
 
-    name = "cabinet_note"
+    name = "next_player_note"
 
     def install(self, root: Path) -> Path:
         shutil.copytree(RECIPE, root / self.name)

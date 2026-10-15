@@ -81,11 +81,12 @@ versions serves, so the version you need already says which surface you get.
 
 ### Declaring windows
 
-By default a theme gets three windows, named for the contract it declares: `table`, `bg`
-and `dmd` at contract 1, `playfield`, `backglass` and `scoreview` at contract 2. Declaring
-nothing keeps what you have.
+A manifest that has no `windows` gets three, named for the contract it declares: `table`,
+`bg` and `dmd` at contract 1, `playfield`, `backglass` and `scoreview` at contract 2. A
+manifest has to carry `windows` or the legacy `supported_screens`, so one without `windows`
+is a manifest with `supported_screens`, and it gets the default windows for its contract.
 
-Declaring nothing and shipping fewer pages also works: a default window whose
+Leaving out `windows` and shipping fewer pages also works: a default window whose
 `index_<name>.html` is missing is not opened, so a single-screen theme that ships only its
 main page gets one window rather than two that 404. That only applies to the default — a
 window you declare is opened whether or not its page is there, because a declaration is
@@ -341,7 +342,7 @@ Each window has its own HTML file, named after the window: `index_<window>.html`
 theme's files follow from the windows it declares, and a theme that declares a `topper`
 ships `index_topper.html` without anything else changing.
 
-Declare nothing and you get three, named for your contract:
+Leave out `windows` and you get three, named for your contract:
 
 | Contract | Files |
 |---|---|

@@ -340,7 +340,7 @@ Link to a page of your own, for an extension that has more than VPinFE draws: a 
 tool's web page, a service's dashboard.  `url` is an address, or a function that answers one
 each time the Console draws it.  `{host}` in it is filled with the host the Console was opened
 at, so `http://{host}:9090/` reaches a port of the extension's own from a laptop as well as at
-the cabinet.  Only `http://` and `https://` are drawn.
+the VPinFE device.  Only `http://` and `https://` are drawn.
 
 ```python
 ctx.ui.link("console", "http://{host}:9090/", area="system")

@@ -77,8 +77,8 @@ DECLARES: dict[str, list[str]] = {
     "weekend_picks": ["settings   collection (string, default 'Weekend Picks')",
                       "verb       pick in the game menu", "verb       unpick in the game menu"],
     "plugged_in": ["list       devices in system: 4 columns, 0 views, 0 verbs"],
-    "cabinet_note": ["page       note in community, with fields",
-                     "reads      page note: 1 sections, acts: clear"],
+    "next_player_note": ["page       note in community, with fields",
+                         "reads      page note: 1 sections, acts: clear"],
 }
 
 # What `--check-extension` says each lesson's extension declares, as the lesson claims it.
