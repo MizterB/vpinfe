@@ -18,8 +18,8 @@ class SizeUnitTests(unittest.TestCase):
         i18n.set_language("en")
 
     def test_each_unit_starts_at_its_boundary(self) -> None:
-        for count, said in ((0, "0 B"), (1023, "1023 B"), (KB, "1.0 KB"), (MB, "1.0 MB"),
-                            (GB, "1.0 GB"), (TB, "1.0 TB"), (10**21, "909494701.8 TB")):
+        for count, said in ((0, "0 B"), (1023, "1,023 B"), (KB, "1.0 KB"), (MB, "1.0 MB"),
+                            (GB, "1.0 GB"), (TB, "1.0 TB"), (10**21, "909,494,701.8 TB")):
             self.assertEqual(said, i18n.size(count), count)
 
     def test_the_unit_is_the_languages(self) -> None:

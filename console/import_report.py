@@ -16,7 +16,7 @@ from typing import Any
 
 from nicegui import ui
 
-from common.i18n import t
+from common.i18n import number, t
 from console import deeplink, jobs_list, library_folders, offload, panel, report_groups, when
 from console.api import ApiClient
 from console.on_page import on_page
@@ -124,7 +124,7 @@ def _section(key: str, title: str, count: int | None = None, help_: str = "") ->
         with ui.row().classes("console-report-head"):
             ui.label(t(title)).classes("console-report-title")
             if count is not None:
-                ui.label(f"{count:,}").classes("console-help")
+                ui.label(number(count)).classes("console-help")
         if help_:
             ui.label(help_).classes("console-help")
     return box
@@ -152,7 +152,7 @@ def _group(job: dict[str, Any], group: str, title: str, rows: list[dict[str, Any
     with ui.element("div").classes("console-report-group"):
         with ui.row().classes("console-report-group-head"):
             ui.label(t(title)).classes("console-report-group-title")
-            ui.label(f"{waiting_here:,}").classes("console-help")
+            ui.label(number(waiting_here)).classes("console-help")
         for one in ordered[:SHOWN]:
             draw(one, str(one.get("game_id") or "") in fixed)
         rest = _more(job, group, len(ordered)) if len(ordered) > SHOWN else None
@@ -305,14 +305,14 @@ def _tile(row: dict[str, Any], alone: int) -> None:
     want, got = int(row.get("expected") or 0), int(row.get("actual") or 0)
     short = max(want - got, 0)
     with ui.element("div").classes("console-card"):
-        ui.label(f"{got:,}").classes("console-kpi")
+        ui.label(number(got)).classes("console-kpi")
         with ui.row().classes("items-center gap-2"):
             ui.label(str(row.get("label") or row.get("key") or "")).classes("console-help")
             if short:
                 ui.label(t("console.ext_action.short", short=short)).classes(
                     "console-member-chip console-chip-warn")
         if short:
-            ui.label(t("console.ext_action.of_expected", want=f"{want:,}")).classes("console-help")
+            ui.label(t("console.ext_action.of_expected", want=number(want))).classes("console-help")
         if alone:
             ui.label(t("console.report.artwork_alone", count=alone)).classes("console-help")
 
@@ -332,7 +332,7 @@ def _jump(key: str, count: int, label: str, *, warm: bool = False) -> None:
     cell.on("click", js_handler=scroll)
     cell.on("keydown.enter", js_handler=scroll)
     with cell:
-        ui.label(f"{count:,}").classes("console-kpi")
+        ui.label(number(count)).classes("console-kpi")
         ui.label(label).classes("console-help")
 
 

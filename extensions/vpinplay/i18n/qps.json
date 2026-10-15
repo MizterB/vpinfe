@@ -6,27 +6,27 @@
   "account.consent.plays": "ţĥè ĝàɱèš ţĥèý þŀàý ƒřöɱ ñöŵ öñ, ŵĥèñ àñđ ĥöŵ ŀöñĝ",
   "account.consent.ratings": "ţĥèîř řàţîñĝš àñđ ĥîĝĥ šçöřèš",
   "account.status.waiting": {
-    "one": "{count} ĝàɱè ŵàîţîñĝ ţö šèñđ",
-    "other": "{count} ĝàɱèš ŵàîţîñĝ ţö šèñđ"
+    "one": "{count:n} ĝàɱè ŵàîţîñĝ ţö šèñđ",
+    "other": "{count:n} ĝàɱèš ŵàîţîñĝ ţö šèñđ"
   },
   "account.status.age_now": "Šèñţ ĵûšţ ñöŵ",
   "account.status.age_minutes": {
-    "one": "Šèñţ {count} ɱîñûţè àĝö",
-    "other": "Šèñţ {count} ɱîñûţèš àĝö"
+    "one": "Šèñţ {count:n} ɱîñûţè àĝö",
+    "other": "Šèñţ {count:n} ɱîñûţèš àĝö"
   },
   "account.status.age_hours": {
-    "one": "Šèñţ {count} ĥöûř àĝö",
-    "other": "Šèñţ {count} ĥöûřš àĝö"
+    "one": "Šèñţ {count:n} ĥöûř àĝö",
+    "other": "Šèñţ {count:n} ĥöûřš àĝö"
   },
   "account.status.age_days": {
-    "one": "Šèñţ {count} đàý àĝö",
-    "other": "Šèñţ {count} đàýš àĝö"
+    "one": "Šèñţ {count:n} đàý àĝö",
+    "other": "Šèñţ {count:n} đàýš àĝö"
   },
   "account.act.send_now.label": "Šèñđ Ñöŵ",
   "account.nothing_waiting": "Ñöţĥîñĝ ŵàîţîñĝ ţö šèñđ",
   "account.sent": {
-    "one": "Šèñţ {count} ĝàɱè",
-    "other": "Šèñţ {count} ĝàɱèš"
+    "one": "Šèñţ {count:n} ĝàɱè",
+    "other": "Šèñţ {count:n} ĝàɱèš"
   },
   "error.no_account": "Ţĥîš þŀàýèř ĥàš ñö ṼÞîñÞŀàý ûšèř ÎĐ",
   "error.no_initials": "Ţĥîš þŀàýèř ĥàš ñö îñîţîàŀš",

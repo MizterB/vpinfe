@@ -496,9 +496,9 @@ class CustomHTTPServer:
         def _serve_core_words(self) -> None:
             """Core's own chrome, for the pages core serves.
 
-            Only `CORE_WORDS`: a theme page has no business with the Console's words,
-            and shipping them would put the whole catalog on the frontend to render six
-            menu items.
+            Only `CORE_WORDS` and the two number separators: a theme page has no business
+            with the Console's words, and shipping them would put the whole catalog on the
+            frontend to render six menu items.
 
             `?theme=<folder>` adds that theme's own words from its `locales/` folder,
             under `theme.`. Core's namespaces are never `theme.`, so a theme adds words
@@ -507,6 +507,7 @@ class CustomHTTPServer:
             from common import i18n
             words = {f"{space}.{k}": v
                      for space in CORE_WORDS for k, v in i18n.under(space).items()}
+            words.update({key: i18n.t(key) for key in ("number.group", "number.decimal")})
             wanted = parse_qs(urlsplit(self.path).query).get("theme", [""])[0]
             directory = self._theme_locales(wanted)
             if directory is not None:

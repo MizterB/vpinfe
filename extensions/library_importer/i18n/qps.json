@@ -20,12 +20,12 @@
   "progress.roms": "Řèàđîñĝ ŵĥîçĥ ŘÖḾ èàçĥ ĝàɱè ñèèđš",
   "progress.fetching": "Ƒèţçĥîñĝ ṼÞŠ",
   "progress.matching": "Ḿàţçĥîñĝ ĝàɱèš ţö ṼÞŠ",
-  "job.importing": "Ĝàɱè {number} öƒ {count}: {name} ({done} öƒ {size})",
-  "job.importing_games": "Ĝàɱè {number} öƒ {count}: {name}",
-  "job.detail": "Ḿàđè {made}, ƒàîŀèđ {failed}",
-  "job.detail_stopped": "Ḿàđè {made}, ƒàîŀèđ {failed}, šţöþþèđ ŵîţĥ {left} ŀèƒţ",
-  "job.detail_filled": "Ḿàđè {made}, ƒîŀŀèđ {filled}, ƒàîŀèđ {failed}",
-  "job.detail_stopped_filled": "Ḿàđè {made}, ƒîŀŀèđ {filled}, ƒàîŀèđ {failed}, šţöþþèđ ŵîţĥ {left} ŀèƒţ",
+  "job.importing": "Ĝàɱè {number:n} öƒ {count:n}: {name} ({done:n} öƒ {size})",
+  "job.importing_games": "Ĝàɱè {number:n} öƒ {count:n}: {name}",
+  "job.detail": "Ḿàđè {made:n}, ƒàîŀèđ {failed:n}",
+  "job.detail_stopped": "Ḿàđè {made:n}, ƒàîŀèđ {failed:n}, šţöþþèđ ŵîţĥ {left:n} ŀèƒţ",
+  "job.detail_filled": "Ḿàđè {made:n}, ƒîŀŀèđ {filled}, ƒàîŀèđ {failed:n}",
+  "job.detail_stopped_filled": "Ḿàđè {made}, ƒîŀŀèđ {filled}, ƒàîŀèđ {failed:n}, šţöþþèđ ŵîţĥ {left:n} ŀèƒţ",
   "wizard.source.title": "Îɱþöřţ à Ŀîƀřàřý",
   "wizard.source.help": "Ţĥè ƒöŀđèř ţĥè ŀîƀřàřý îš ķèþţ îñ",
   "wizard.source.source_type.label": "Çöɱîñĝ Ƒřöɱ",
@@ -45,8 +45,8 @@
   "wizard.sources.worked_out": "{help}. Ŵöřķèđ öûţ ƒřöɱ ţĥè šöûřçè.",
   "wizard.how.title": "À ƒöŀđèř ƒöř èàçĥ ţàƀŀè",
   "wizard.how.help": {
-    "one": "{count} ţàƀŀè ƒřöɱ {folder}",
-    "other": "{count} ţàƀŀèš ƒřöɱ {folder}"
+    "one": "{count:n} ţàƀŀè ƒřöɱ {folder}",
+    "other": "{count:n} ţàƀŀèš ƒřöɱ {folder}"
   },
   "wizard.how.how.label": "Çöþý öř Ḿöṽè",
   "wizard.how.copy": "Çöþý ţĥèɱ",
@@ -71,12 +71,12 @@
   "wizard.games.adds": "àđđš {things}",
   "wizard.games.adds.nothing": "ñöţĥîñĝ ţö àđđ",
   "wizard.games.adds.tables": {
-    "one": "{count} ţàƀŀè",
-    "other": "{count} ţàƀŀèš"
+    "one": "{count:n} ţàƀŀè",
+    "other": "{count:n} ţàƀŀèš"
   },
   "wizard.games.adds.pictures": {
-    "one": "{count} þîçţûřè",
-    "other": "{count} þîçţûřèš"
+    "one": "{count:n} þîçţûřè",
+    "other": "{count:n} þîçţûřèš"
   },
   "wizard.games.adds.rom": "îţš ŘÖḾ",
   "wizard.games.adds.history": "îţš þŀàý ĥîšţöřý",
@@ -85,14 +85,14 @@
   "wizard.matches.about": "ṼÞŠ, ţĥè Ṽîřţûàŀ Þîñƀàŀŀ Šþřèàđšĥèèţ, îš ţĥè çöɱɱûñîţý'š đàţàƀàšè öƒ ţàƀŀèš.",
   "wizard.matches.gains": "À ĝàɱè ţĥàţ ɱàţçĥèš àñ èñţřý ĝèţš îţš þřöþèř ñàɱè, ɱèđîà àñđ ûþđàţè ñöţîçèš.",
   "wizard.matches.ask": {
-    "one": "{count} ĝàɱè çöûŀđ ñöţ ƀè ɱàţçĥèđ öñ îţš öŵñ. Þîçķ îţš èñţřý ŵîţĥ Çĥàñĝè.",
-    "other": "{count} ĝàɱèš çöûŀđ ñöţ ƀè ɱàţçĥèđ öñ ţĥèîř öŵñ. Þîçķ ţĥèîř èñţřîèš ŵîţĥ Çĥàñĝè."
+    "one": "{count:n} ĝàɱè çöûŀđ ñöţ ƀè ɱàţçĥèđ öñ îţš öŵñ. Þîçķ îţš èñţřý ŵîţĥ Çĥàñĝè.",
+    "other": "{count:n} ĝàɱèš çöûŀđ ñöţ ƀè ɱàţçĥèđ öñ ţĥèîř öŵñ. Þîçķ ţĥèîř èñţřîèš ŵîţĥ Çĥàñĝè."
   },
   "wizard.matches.leave": "À ĝàɱè ýöû ŀèàṽè îš šţîŀŀ îɱþöřţèđ, àš Ñöţ ɱàţçĥèđ. Ḿàţçĥ îţ ŀàţèř ƒřöɱ Ĝàɱèš.",
   "wizard.matches.label": "Ĝàɱèš ţö Ḿàţçĥ",
   "why.two_entries": "Ţŵö èñţřîèš",
   "why.ipdb_differs": "ÎÞĐƁ šàýš àñöţĥèř èñţřý",
-  "report.dmd_place": "Öŵñ þŀàçè àţ {left}, {top}",
+  "report.dmd_place": "Öŵñ þŀàçè àţ {left:n}, {top}",
   "progress.holding": "Ŀööķîñĝ àţ ŵĥàţ èàçĥ ĝàɱè ĥèřè ĥàš",
   "wizard.summary.title": "Ţĥîš îš ŵĥàţ ŵîŀŀ ĥàþþèñ",
   "wizard.summary.reads_as": "Řèàđš Àš",
@@ -100,23 +100,23 @@
   "wizard.summary.not_imported": "ñöţ ƀèîñĝ îɱþöřţèđ",
   "wizard.summary.roms_missing": "Ḿîššîñĝ ŘÖḾš",
   "wizard.summary.roms_missing_count": {
-    "one": "{count} ţàƀŀè ñèèđš à ŘÖḾ ţĥàţ îš ñöţ ţĥèřè",
-    "other": "{count} ţàƀŀèš ñèèđ à ŘÖḾ ţĥàţ îš ñöţ ţĥèřè"
+    "one": "{count:n} ţàƀŀè ñèèđš à ŘÖḾ ţĥàţ îš ñöţ ţĥèřè",
+    "other": "{count:n} ţàƀŀèš ñèèđ à ŘÖḾ ţĥàţ îš ñöţ ţĥèřè"
   },
   "wizard.summary.as_is": "Ûšèđ ŵĥèřè ţĥèý àřè",
   "wizard.summary.game_folders": {
-    "one": "{count} ĝàɱè ƒöŀđèř",
-    "other": "{count} ĝàɱè ƒöŀđèřš"
+    "one": "{count:n} ĝàɱè ƒöŀđèř",
+    "other": "{count:n} ĝàɱè ƒöŀđèřš"
   },
   "wizard.summary.matching": "ṼÞŠ Ḿàţçĥîñĝ",
   "wizard.summary.matching.off": "Šŵîţçĥèđ öƒƒ, šö ñö ĝàɱè îš ɱàţçĥèđ",
   "wizard.summary.matching.no_catalog": "ṼÞŠ îš ñöţ àṽàîŀàƀŀè, šö ñö ĝàɱè îš ɱàţçĥèđ",
   "wizard.summary.not_matched": "Ñöţ Ḿàţçĥèđ ţö ṼÞŠ",
   "wizard.summary.already_here": "Àŀřèàđý Ĥèřè",
-  "wizard.summary.already.skip": "{count} ŀèƒţ àŀöñè",
-  "wizard.summary.already.fill": "{count} ĝîṽèñ ŵĥàţ ţĥèý àřè ɱîššîñĝ",
+  "wizard.summary.already.skip": "{count:n} ŀèƒţ àŀöñè",
+  "wizard.summary.already.fill": "{count:n} ĝîṽèñ ŵĥàţ ţĥèý àřè ɱîššîñĝ",
   "wizard.summary.left_out": "Ŀèƒţ Öûţ",
-  "wizard.summary.left_out_count": "{count} ñöţ ţîçķèđ",
+  "wizard.summary.left_out_count": "{count:n} ñöţ ţîçķèđ",
   "wizard.summary.how": "Ĥöŵ",
   "wizard.summary.how.copy": "Çöþîèđ",
   "wizard.summary.how.move": "Ḿöṽèđ",
@@ -128,24 +128,24 @@
   "wizard.summary.space_free": "{size}, ŵîţĥ {free} ƒřèè öñ {where}",
   "wizard.summary.comes_across": "Ŵĥàţ Çöɱèš Àçřöšš",
   "wizard.summary.left_behind": "Ŀèƒţ Ɓèĥîñđ",
-  "wizard.summary.left_behind_folder": "{folder} ({count})",
-  "wizard.summary.left_behind_pages": "{folder}, ŀàţèř þàĝèš ({count})",
-  "wizard.summary.left_behind_videos": "{folder} ṽîđèöš ({count})",
+  "wizard.summary.left_behind_folder": "{folder} ({count:n})",
+  "wizard.summary.left_behind_pages": "{folder}, ŀàţèř þàĝèš ({count:n})",
+  "wizard.summary.left_behind_videos": "{folder} ṽîđèöš ({count:n})",
   "wizard.summary.confirm": {
-    "one": "Îɱþöřţ {count} ĝàɱè",
-    "other": "Îɱþöřţ {count} ĝàɱèš"
+    "one": "Îɱþöřţ {count:n} ĝàɱè",
+    "other": "Îɱþöřţ {count:n} ĝàɱèš"
   },
   "wizard.summary.confirm_copy": {
-    "one": "Çöþý {count} ţàƀŀè",
-    "other": "Çöþý {count} ţàƀŀèš"
+    "one": "Çöþý {count:n} ţàƀŀè",
+    "other": "Çöþý {count:n} ţàƀŀèš"
   },
   "wizard.summary.confirm_move": {
-    "one": "Ḿöṽè {count} ţàƀŀè",
-    "other": "Ḿöṽè {count} ţàƀŀèš"
+    "one": "Ḿöṽè {count:n} ţàƀŀè",
+    "other": "Ḿöṽè {count:n} ţàƀŀèš"
   },
   "wizard.summary.confirm_in_place": {
-    "one": "Þûţ {count} ţàƀŀè îñ à ƒöŀđèř",
-    "other": "Þûţ {count} ţàƀŀèš îñ ƒöŀđèřš"
+    "one": "Þûţ {count:n} ţàƀŀè îñ à ƒöŀđèř",
+    "other": "Þûţ {count:n} ţàƀŀèš îñ ƒöŀđèřš"
   },
   "wizard.summary.confirm_as_is": "Ûšè ţĥîš ƒöŀđèř",
   "kind.tables.label": "Ţàƀŀèš",
@@ -191,9 +191,9 @@
   "count.companions": "Ɓàçķĝŀàššèš àñđ Šèţţîñĝš",
   "count.history": "Ĝàɱèš ŵîţĥ Þŀàý Ĥîšţöřý",
   "count.matched": "Ḿàţçĥèđ ţö ṼÞŠ",
-  "unmatched.not_found": "{count} ñöţ ƒöûñđ",
-  "unmatched.two_entries": "{count} çöûŀđ ƀè ţŵö èñţřîèš",
-  "unmatched.ipdb_differs": "{count} ŵĥèřè ÎÞĐƁ šàýš àñöţĥèř èñţřý",
+  "unmatched.not_found": "{count:n} ñöţ ƒöûñđ",
+  "unmatched.two_entries": "{count:n} çöûŀđ ƀè ţŵö èñţřîèš",
+  "unmatched.ipdb_differs": "{count:n} ŵĥèřè ÎÞĐƁ šàýš àñöţĥèř èñţřý",
   "source.folders": "Ñö ƒřöñţèñđ",
   "match.folder": "Šàɱè ƒöŀđèř",
   "match.vps_id": "Šàɱè ṼÞŠ èñţřý",
@@ -217,20 +217,20 @@
   "note.remapped": "Řèàđîñĝ {recorded} àš {local} - ţĥè þàţĥš řèçöřđèđ ĥèřè àřè ţĥè öŀđ çöɱþûţèř'š",
   "note.not_played": "Ñöţ îɱþöřţèđ, ƀèçàûšè ţĥîš đèṽîçè đöèš ñöţ þŀàý ţĥèɱ: {systems}",
   "note.entries_unnamed": {
-    "one": "{file}: {count} èñţřý ĥàš ñö ñàɱè, šö ñöţĥîñĝ çàñ ƀè ɱàţçĥèđ ţö îţ",
-    "other": "{file}: {count} èñţřîèš ĥàṽè ñö ñàɱè, šö ñöţĥîñĝ çàñ ƀè ɱàţçĥèđ ţö ţĥèɱ"
+    "one": "{file}: {count:n} èñţřý ĥàš ñö ñàɱè, šö ñöţĥîñĝ çàñ ƀè ɱàţçĥèđ ţö îţ",
+    "other": "{file}: {count:n} èñţřîèš ĥàṽè ñö ñàɱè, šö ñöţĥîñĝ çàñ ƀè ɱàţçĥèđ ţö ţĥèɱ"
   },
   "note.rows_unnamed": {
-    "one": "{system}: {count} řöŵ ĥàš ñö ñàɱè, šö ñöţĥîñĝ çàñ ƀè ɱàţçĥèđ ţö îţ",
-    "other": "{system}: {count} řöŵš ĥàṽè ñö ñàɱè, šö ñöţĥîñĝ çàñ ƀè ɱàţçĥèđ ţö ţĥèɱ"
+    "one": "{system}: {count:n} řöŵ ĥàš ñö ñàɱè, šö ñöţĥîñĝ çàñ ƀè ɱàţçĥèđ ţö îţ",
+    "other": "{system}: {count:n} řöŵš ĥàṽè ñö ñàɱè, šö ñöţĥîñĝ çàñ ƀè ɱàţçĥèđ ţö ţĥèɱ"
   },
   "note.entries_fileless": {
-    "one": "{file}: {count} èñţřý ñàɱèš ñö ƒîŀè àñđ çàññöţ ƀè îɱþöřţèđ",
-    "other": "{file}: {count} èñţřîèš ñàɱè ñö ƒîŀè àñđ çàññöţ ƀè îɱþöřţèđ"
+    "one": "{file}: {count:n} èñţřý ñàɱèš ñö ƒîŀè àñđ çàññöţ ƀè îɱþöřţèđ",
+    "other": "{file}: {count:n} èñţřîèš ñàɱè ñö ƒîŀè àñđ çàññöţ ƀè îɱþöřţèđ"
   },
   "note.files_unreachable": {
-    "one": "{count} öƒ {total} ĝàɱèš ñàɱèš à ƒîŀè ţĥàţ îš ñöţ řèàçĥàƀŀè ƒřöɱ ĥèřè",
-    "other": "{count} öƒ {total} ĝàɱèš ñàɱè à ƒîŀè ţĥàţ îš ñöţ řèàçĥàƀŀè ƒřöɱ ĥèřè"
+    "one": "{count:n} öƒ {total:n} ĝàɱèš ñàɱèš à ƒîŀè ţĥàţ îš ñöţ řèàçĥàƀŀè ƒřöɱ ĥèřè",
+    "other": "{count:n} öƒ {total:n} ĝàɱèš ñàɱè à ƒîŀè ţĥàţ îš ñöţ řèàçĥàƀŀè ƒřöɱ ĥèřè"
   },
   "wizard.names.title": "Ñàɱèš àñđ đèţàîŀš",
   "wizard.names.help": "Ḿàţçĥèđ ĝàɱèš çàñ ţàķè ṼÞŠ'š ñàɱèš àñđ đèţàîŀš, öř ķèèþ ţĥè öñèš {source} ĥàš",
@@ -242,8 +242,8 @@
   "wizard.names.source_plain": "Àš ţĥèý àřè",
   "wizard.names.source.help": "Èàçĥ ƒöŀđèř ķèèþš ţĥè ñàɱè îţ ĥàš ñöŵ",
   "wizard.names.examples": {
-    "one": "{count} ƒöŀđèř îš ñàɱèđ đîƒƒèřèñţŀý: {examples}",
-    "other": "{count} ƒöŀđèřš àřè ñàɱèđ đîƒƒèřèñţŀý, šûçĥ àš {examples}"
+    "one": "{count:n} ƒöŀđèř îš ñàɱèđ đîƒƒèřèñţŀý: {examples}",
+    "other": "{count:n} ƒöŀđèřš àřè ñàɱèđ đîƒƒèřèñţŀý, šûçĥ àš {examples}"
   },
   "wizard.names.example": "{was} ƀèçöɱèš {now}",
   "wizard.names.same": "ṼÞŠ àñđ ýöûř ĝàɱèš àŀřèàđý àĝřèè öñ èṽèřý ƒöŀđèř ñàɱè",
@@ -256,17 +256,17 @@
   "wizard.names.details.some.help": "Ķèèþ ýöûřš ƒöř ţĥè öñèš ţîçķèđ ƀèŀöŵ, àñđ ţàķè ṼÞŠ ƒöř ţĥè řèšţ",
   "wizard.names.differ": "Ŵĥèřè ţĥèý đîƒƒèř: {counts}",
   "wizard.names.agree": "ṼÞŠ àñđ ýöûř ĝàɱèš àĝřèè öñ èṽèřý đèţàîŀ",
-  "wizard.names.count": "{name} {count}",
+  "wizard.names.count": "{name} {count:n}",
   "wizard.names.field.title": "Ţîţŀè",
   "wizard.names.field.manufacturer": "Ḿàķèř",
   "wizard.names.field.year": "Ýèàř",
   "wizard.names.field.type": "Ţýþè",
   "wizard.names.some.label": "Ķèèþ Ýöûřš Ƒöř",
-  "wizard.names.some.choice": "{name} ({count} đîƒƒèř)",
+  "wizard.names.some.choice": "{name} ({count:n} đîƒƒèř)",
   "wizard.names.some.help": "Ûšèđ ŵĥèñ ýöû çĥööšè Çĥööšè ŵĥîçĥ àƀöṽè",
   "wizard.media.title": "Ḿèđîà",
   "wizard.media.found": "Ýöûř ĝàɱèš çöɱè ŵîţĥ ţĥèšè þîçţûřèš: {kinds}. Àŀŀ öƒ ţĥèɱ çöɱè àçřöšš.",
-  "wizard.media.kind": "{name} {count}",
+  "wizard.media.kind": "{name} {count:n}",
   "wizard.media.logos": "Ŀöĝöš",
   "wizard.media.logos.summary": "Ŀöĝöš, šĥöŵñ îñ þŀàçè öƒ ŵĥèèŀš",
   "wizard.media.looks_like": "{help}. Ýöûřš ŀööķ ŀîķè ţĥîš",
@@ -279,8 +279,8 @@
   "wizard.media.fetch.what": "Đöŵñŀöàđš à þîçţûřè ƒöř èàçĥ ķîñđ à ĝàɱè îš ɱîššîñĝ ƒřöɱ ṼÞîñḾèđîàĐƁ.",
   "wizard.media.logos.label": "Ḿàñûƒàçţûřèř Ŀöĝöš",
   "wizard.media.logos.switch_help": {
-    "one": "Àđđš ţĥè ŀöĝö öƒ {count} ɱàķèř, àñđ ñèṽèř řèþŀàçèš öñè ţĥè ƒöŀđèř ĥàš",
-    "other": "Àđđš ţĥè ŀöĝöš öƒ {count} ɱàķèřš, àñđ ñèṽèř řèþŀàçèš öñè ţĥè ƒöŀđèř ĥàš"
+    "one": "Àđđš ţĥè ŀöĝö öƒ {count:n} ɱàķèř, àñđ ñèṽèř řèþŀàçèš öñè ţĥè ƒöŀđèř ĥàš",
+    "other": "Àđđš ţĥè ŀöĝöš öƒ {count:n} ɱàķèřš, àñđ ñèṽèř řèþŀàçèš öñè ţĥè ƒöŀđèř ĥàš"
   },
   "media.kind.playfield": "Þŀàýƒîèŀđ",
   "media.kind.playfield_video": "Þŀàýƒîèŀđ ṽîđèö",
@@ -304,12 +304,12 @@
   "wizard.things.title": "ŘÖḾš àñđ ɱöřè",
   "wizard.things.help": "Èàçĥ çöɱèš ŵîţĥ ţĥè ĝàɱèš îţ ƀèŀöñĝš ţö. Šŵîţçĥ öƒƒ ŵĥàţ ýöû đö ñöţ ŵàñţ.",
   "wizard.things.missing": {
-    "one": "{count} ţàƀŀè ñèèđš à ŘÖḾ ţĥàţ îš ñöţ ţĥèřè.",
-    "other": "{count} ţàƀŀèš ñèèđ à ŘÖḾ ţĥàţ îš ñöţ ţĥèřè."
+    "one": "{count:n} ţàƀŀè ñèèđš à ŘÖḾ ţĥàţ îš ñöţ ţĥèřè.",
+    "other": "{count:n} ţàƀŀèš ñèèđ à ŘÖḾ ţĥàţ îš ñöţ ţĥèřè."
   },
   "wizard.things.count": {
-    "one": "{count} ĝàɱè",
-    "other": "{count} ĝàɱèš"
+    "one": "{count:n} ĝàɱè",
+    "other": "{count:n} ĝàɱèš"
   },
   "wizard.things.roms.label": "ŘÖḾš",
   "wizard.things.scores.label": "Ĥîĝĥ Šçöřèš àñđ Ĝàɱè Šèţţîñĝš",

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import unittest
 
 from tests.support.catalogs import served
@@ -17,18 +18,21 @@ TOO_LONG_TODAY = frozenset({
     "console.assets.reason.help",
 })
 
+NUMBER_MARK = re.compile(r"\{(\w+):n\}")
+
 RETIRED = ("manager ui", "managerui", "hubui")
 
 
 def _strings() -> dict[str, str]:
-    """Every word a person reads, with a plural's forms under their own keys."""
+    """Every word a person reads, with a plural's forms under their own keys. A slot's
+    `:n` is not read, so it is not counted."""
     said: dict[str, str] = {}
     for key, value in served().items():
         if isinstance(value, str):
-            said[key] = value
+            said[key] = NUMBER_MARK.sub(r"{\1}", value)
         elif isinstance(value, dict):
             for form, text in value.items():
-                said[f"{key}[{form}]"] = str(text)
+                said[f"{key}[{form}]"] = NUMBER_MARK.sub(r"{\1}", str(text))
     return said
 
 

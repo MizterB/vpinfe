@@ -6,27 +6,27 @@
   "account.consent.plays": "the games they play from now on, when and how long",
   "account.consent.ratings": "their ratings and high scores",
   "account.status.waiting": {
-    "one": "{count} game waiting to send",
-    "other": "{count} games waiting to send"
+    "one": "{count:n} game waiting to send",
+    "other": "{count:n} games waiting to send"
   },
   "account.status.age_now": "Sent just now",
   "account.status.age_minutes": {
-    "one": "Sent {count} minute ago",
-    "other": "Sent {count} minutes ago"
+    "one": "Sent {count:n} minute ago",
+    "other": "Sent {count:n} minutes ago"
   },
   "account.status.age_hours": {
-    "one": "Sent {count} hour ago",
-    "other": "Sent {count} hours ago"
+    "one": "Sent {count:n} hour ago",
+    "other": "Sent {count:n} hours ago"
   },
   "account.status.age_days": {
-    "one": "Sent {count} day ago",
-    "other": "Sent {count} days ago"
+    "one": "Sent {count:n} day ago",
+    "other": "Sent {count:n} days ago"
   },
   "account.act.send_now.label": "Send Now",
   "account.nothing_waiting": "Nothing waiting to send",
   "account.sent": {
-    "one": "Sent {count} game",
-    "other": "Sent {count} games"
+    "one": "Sent {count:n} game",
+    "other": "Sent {count:n} games"
   },
   "error.no_account": "This player has no VPinPlay user ID",
   "error.no_initials": "This player has no initials",

@@ -1220,6 +1220,11 @@ the form, so an entry written as `{ "one": "{count} game", "other": "{count} gam
 says "1 game" and "12 games". The English can take the same shape. It comes before the
 parameters, so a call with parameters and no English passes `""` in its place.
 
+A slot written `{count:n}` is a number, and it is written the way this install's language
+writes one: `1,234` or `1.234`, and `1.5` or `1,5`. Write it that way for any count that
+can pass a thousand. A value that is not a number is left as it is. `vpin.number(1234)`
+does the same for a number your theme draws without an entry.
+
 Core ships these, and they are the ones seven themes had each written their own copy
 of:
 

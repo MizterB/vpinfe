@@ -20,9 +20,11 @@ import functools
 import json
 import logging
 import re
+import string
 import subprocess
 import sys
 import threading
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, get_args
 
@@ -219,6 +221,50 @@ class _Blanks(dict):
         return "{" + key + "}"
 
 
+class _Filler(string.Formatter):
+    """`str.format_map` plus one spec: `{count:n}` is a number written as this language
+    writes it, with its group and decimal separators from the catalog.
+
+    A number is marked in the entry, not in the caller, so a translator moves the slot and
+    the digits follow. A value that is not a number is left as it is.
+    """
+
+    def __init__(self, language_name: str | None = None) -> None:
+        super().__init__()
+        self._language = language_name
+
+    def format_field(self, value: Any, format_spec: str) -> str:
+        if format_spec != "n":
+            return super().format_field(value, format_spec)
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return _written(value, self._language)
+        return str(value)
+
+
+def _written(value: int | float, language_name: str | None = None,
+             places: int | None = None) -> str:
+    """`value` with this language's separators. A float with no `places` keeps the decimals
+    it has."""
+    if places is not None:
+        text = f"{value:,.{places}f}"
+    elif isinstance(value, int) or (isinstance(value, float) and value.is_integer()):
+        text = f"{int(value):,}"
+    else:
+        text = f"{Decimal(repr(value)):,f}"
+    whole, _, fraction = text.partition(".")
+    out = whole.replace(",", _separator("number.group", language_name))
+    return out + _separator("number.decimal", language_name) + fraction if fraction else out
+
+
+def _separator(key: str, language_name: str | None) -> str:
+    entry = _load(language_name).get(key) if language_name else None
+    return str(entry) if entry else t(key)
+
+
+def _fill(entry: Any, params: dict[str, Any], language_name: str | None = None) -> str:
+    return _Filler(language_name).vformat(str(entry), (), _Blanks(params))
+
+
 def _plural(forms: dict[str, Any], count: Any, language_name: str) -> str:
     """The form for this count. Two categories cover every language we ship."""
     try:
@@ -242,7 +288,7 @@ def t_source(key: str, /, **params: Any) -> str:
     entry = _load(SOURCE).get(key)
     if isinstance(entry, dict):
         entry = _plural(entry, params.get("count"), SOURCE)
-    return str(entry).format_map(_Blanks(params)) if entry else key
+    return _fill(entry, params, SOURCE) if entry else key
 
 
 def t(key: str, /, **params: Any) -> str:
@@ -261,7 +307,7 @@ def t(key: str, /, **params: Any) -> str:
         if not entry:
             continue
         try:
-            return str(entry).format_map(_Blanks(params))
+            return _fill(entry, params, name)
         except (ValueError, IndexError):
             logger.warning("Could not fill %r from %s", key, name)
             return str(entry)
@@ -347,9 +393,9 @@ def date(when: dt.date) -> str:
     return t("date.short", day=when.day, month=month, year=when.year)
 
 
-def number(value: int) -> str:
-    """A whole number with its digits grouped as this language groups them."""
-    return f"{value:,}".replace(",", t("number.group"))
+def number(value: int | float) -> str:
+    """A number with its digits grouped, and its decimals marked, as this language does."""
+    return _written(value)
 
 
 _SIZE_UNITS = ("bytes", "kilobytes", "megabytes", "gigabytes", "terabytes")
@@ -362,4 +408,4 @@ def size(count: float) -> str:
     while abs(value) >= 1024 and step < len(_SIZE_UNITS) - 1:
         value /= 1024
         step += 1
-    return t(f"size.{_SIZE_UNITS[step]}", value=f"{value:.0f}" if step == 0 else f"{value:.1f}")
+    return t(f"size.{_SIZE_UNITS[step]}", value=_written(value, places=0 if step == 0 else 1))

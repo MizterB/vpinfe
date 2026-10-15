@@ -4,8 +4,10 @@
 function t(key, english, params) {
   const words = window.__vpinWords;
   const said = (words && words[key]) || english;
-  return params ? said.replace(/\{(\w+)\}/g, (whole, name) =>
-    params[name] === undefined ? whole : params[name]) : said;
+  return params ? said.replace(/\{(\w+)(:n)?\}/g, (whole, name, spec) => {
+    if (params[name] === undefined) return whole;
+    return spec && window.__vpinNumber ? window.__vpinNumber(params[name]) : params[name];
+  }) : said;
 }
 let rotationAngle = 0;
 // The menu and its dialog are ordered lists with a cursor, so they are core's list

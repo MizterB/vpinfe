@@ -15,6 +15,7 @@ import string
 import unittest
 from collections.abc import Callable, Iterable
 from pathlib import Path
+from typing import cast
 
 from common import apps, i18n, tokens
 from common.apps import OWN_FIELDS
@@ -1503,6 +1504,57 @@ class TestPluralsComeFromTheCatalog(unittest.TestCase):
             offenders += [f"{where}:{text.count(chr(10), 0, m.start()) + 1}"
                           for m in PAGE_CHOOSES_A_FORM.finditer(text)]
         self.assertEqual(offenders, [], "pass { one, other } as the English and count in params")
+
+
+# Modules that may group digits with a comma in an f-string, and why.
+GROUPED_NOT_SAID = {
+    "common/i18n/__init__.py": "the formatter that every other number goes through",
+    "common/games/high_scores.py": "a score as the table's own text writes it",
+    "common/games/score_parser.py": "a score as the table's own text writes it",
+    "console/workbench.py": "compared with a score's stored text, which is written in English",
+}
+
+
+def _grouped_lines(tree: ast.AST) -> list[int]:
+    """Each f-string slot whose format spec groups digits with a comma."""
+    return [node.lineno for node in ast.walk(tree)
+            if isinstance(node, ast.FormattedValue) and node.format_spec is not None
+            and "," in _glued_words(cast(ast.JoinedStr, node.format_spec))]
+
+
+class TestNumbersAreWrittenByTheCatalog(unittest.TestCase):
+    """A number on screen is grouped with the language's own separators."""
+
+    def test_a_comma_grouped_slot_is_found(self) -> None:
+        tree = trees.parse_snippet('a = f"{n:,}"\nb = f"{n:.1f}"\nc = f"{n:,.0f}"')
+        self.assertEqual([1, 3], _grouped_lines(tree))
+
+    def test_nothing_groups_digits_with_a_comma_of_its_own(self) -> None:
+        offenders = []
+        for folder in ("console", "common", "frontend", "httpapi", "apps", "extensions"):
+            for path in sorted((ROOT / folder).rglob("*.py")):
+                name = path.relative_to(ROOT).as_posix()
+                if "__pycache__" in path.parts or name in GROUPED_NOT_SAID:
+                    continue
+                offenders += [f"{name}:{line}" for line in _grouped_lines(trees.tree_for(path))]
+        self.assertEqual(offenders, [], "write it with i18n.number(), or {name:n} in the entry")
+
+    def test_every_page_that_fills_a_slot_reads_the_number_mark(self) -> None:
+        fills_slots = re.compile(r"replace\(/\\\{\(\\w\+\)")
+        offenders = []
+        for path in sorted(STATIC.rglob("*")):
+            if path.suffix not in (".html", ".js") or "vendor" in path.parts:
+                continue
+            for line, text in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                if fills_slots.search(text) and ":n" not in text:
+                    offenders.append(f"{path.relative_to(ROOT).as_posix()}:{line}")
+        self.assertEqual(offenders, [], "a slot filler must read {name:n} as a number")
+
+    def test_each_module_excused_still_groups_with_a_reason(self) -> None:
+        for name, why in GROUPED_NOT_SAID.items():
+            with self.subTest(name):
+                self.assertTrue(_grouped_lines(trees.tree_for(ROOT / name)))
+                self.assertTrue(why.strip())
 
 
 # A page's t(key, english, params) whose English is picked by comparing a count with 1.

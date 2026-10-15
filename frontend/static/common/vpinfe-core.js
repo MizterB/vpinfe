@@ -976,8 +976,22 @@ class VPinFECore {
     const said = VPinFECore.pluralForm(this.#words[key], params.count)
       ?? VPinFECore.pluralForm(english, params.count);
     if (!said) return key;
-    return said.replace(/\{(\w+)\}/g, (whole, name) =>
-      params[name] === undefined ? whole : params[name]);
+    return said.replace(/\{(\w+)(:n)?\}/g, (whole, name, spec) => {
+      if (params[name] === undefined) return whole;
+      return spec ? this.number(params[name]) : params[name];
+    });
+  }
+
+  /**
+   * A number as this language writes it: the catalog's own group and decimal separators.
+   * Anything that is not a finite number comes back as it was given.
+   */
+  number(value) {
+    if (typeof value !== "number" || !Number.isFinite(value)) return String(value);
+    const group = this.#words["number.group"] ?? ",";
+    const decimal = this.#words["number.decimal"] ?? ".";
+    return value.toLocaleString("en-US", { maximumFractionDigits: 10 })
+      .replace(/[,.]/g, (mark) => (mark === "," ? group : decimal));
   }
 
   static pluralForm(entry, count) {
@@ -1014,6 +1028,7 @@ class VPinFECore {
         // Its own `t()` falls back to the English in the page when it is not here yet.
         if (iframe.contentWindow) {
           iframe.contentWindow.__vpinWords = this.#words;
+          iframe.contentWindow.__vpinNumber = (value) => this.number(value);
           iframe.contentWindow.__vpinWordsChanged?.();
         }
       } catch (error) {

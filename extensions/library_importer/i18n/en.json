@@ -20,12 +20,12 @@
   "progress.roms": "Reading which ROM each game needs",
   "progress.fetching": "Fetching VPS",
   "progress.matching": "Matching games to VPS",
-  "job.importing": "Game {number} of {count}: {name} ({done} of {size})",
-  "job.importing_games": "Game {number} of {count}: {name}",
-  "job.detail": "Made {made}, failed {failed}",
-  "job.detail_stopped": "Made {made}, failed {failed}, stopped with {left} left",
-  "job.detail_filled": "Made {made}, filled {filled}, failed {failed}",
-  "job.detail_stopped_filled": "Made {made}, filled {filled}, failed {failed}, stopped with {left} left",
+  "job.importing": "Game {number:n} of {count:n}: {name} ({done:n} of {size})",
+  "job.importing_games": "Game {number:n} of {count:n}: {name}",
+  "job.detail": "Made {made:n}, failed {failed:n}",
+  "job.detail_stopped": "Made {made:n}, failed {failed:n}, stopped with {left:n} left",
+  "job.detail_filled": "Made {made:n}, filled {filled}, failed {failed:n}",
+  "job.detail_stopped_filled": "Made {made}, filled {filled}, failed {failed:n}, stopped with {left:n} left",
   "wizard.source.title": "Import a Library",
   "wizard.source.help": "The folder the library is kept in",
   "wizard.source.source_type.label": "Coming From",
@@ -45,8 +45,8 @@
   "wizard.sources.worked_out": "{help}. Worked out from the source.",
   "wizard.how.title": "A folder for each table",
   "wizard.how.help": {
-    "one": "{count} table from {folder}",
-    "other": "{count} tables from {folder}"
+    "one": "{count:n} table from {folder}",
+    "other": "{count:n} tables from {folder}"
   },
   "wizard.how.how.label": "Copy or Move",
   "wizard.how.copy": "Copy them",
@@ -56,7 +56,7 @@
   "wizard.how.move.frontend_help": "After moving, {source} won't find these tables",
   "wizard.how.move.where": "Each one moves into a folder of its own, inside {folder}",
   "wizard.how.into.label": "Library Folder",
-  "wizard.how.into.what":"Where VPinFE keeps your games, with a folder for each table.",
+  "wizard.how.into.what": "Where VPinFE keeps your games, with a folder for each table.",
   "wizard.how.into.new": "VPinFE creates it.",
   "wizard.how.into.needs": "Needs {size}",
   "wizard.how.into.room": "Needs {size}, with {free} free on {where}",
@@ -71,12 +71,12 @@
   "wizard.games.adds": "adds {things}",
   "wizard.games.adds.nothing": "nothing to add",
   "wizard.games.adds.tables": {
-    "one": "{count} table",
-    "other": "{count} tables"
+    "one": "{count:n} table",
+    "other": "{count:n} tables"
   },
   "wizard.games.adds.pictures": {
-    "one": "{count} picture",
-    "other": "{count} pictures"
+    "one": "{count:n} picture",
+    "other": "{count:n} pictures"
   },
   "wizard.games.adds.rom": "its ROM",
   "wizard.games.adds.history": "its play history",
@@ -85,14 +85,14 @@
   "wizard.matches.about": "VPS, the Virtual Pinball Spreadsheet, is the community's database of tables.",
   "wizard.matches.gains": "A game that matches an entry gets its proper name, media and update notices.",
   "wizard.matches.ask": {
-    "one": "{count} game could not be matched on its own. Pick its entry with Change.",
-    "other": "{count} games could not be matched on their own. Pick their entries with Change."
+    "one": "{count:n} game could not be matched on its own. Pick its entry with Change.",
+    "other": "{count:n} games could not be matched on their own. Pick their entries with Change."
   },
   "wizard.matches.leave": "A game you leave is still imported, as Not matched. Match it later from Games.",
   "wizard.matches.label": "Games to Match",
   "why.two_entries": "Two entries",
   "why.ipdb_differs": "IPDB says another entry",
-  "report.dmd_place": "Own place at {left}, {top}",
+  "report.dmd_place": "Own place at {left:n}, {top}",
   "progress.holding": "Looking at what each game here has",
   "wizard.summary.title": "This is what will happen",
   "wizard.summary.reads_as": "Reads As",
@@ -100,23 +100,23 @@
   "wizard.summary.not_imported": "not being imported",
   "wizard.summary.roms_missing": "Missing ROMs",
   "wizard.summary.roms_missing_count": {
-    "one": "{count} table needs a ROM that is not there",
-    "other": "{count} tables need a ROM that is not there"
+    "one": "{count:n} table needs a ROM that is not there",
+    "other": "{count:n} tables need a ROM that is not there"
   },
   "wizard.summary.as_is": "Used where they are",
   "wizard.summary.game_folders": {
-    "one": "{count} game folder",
-    "other": "{count} game folders"
+    "one": "{count:n} game folder",
+    "other": "{count:n} game folders"
   },
   "wizard.summary.matching": "VPS Matching",
   "wizard.summary.matching.off": "Switched off, so no game is matched",
   "wizard.summary.matching.no_catalog": "VPS is not available, so no game is matched",
   "wizard.summary.not_matched": "Not Matched to VPS",
   "wizard.summary.already_here": "Already Here",
-  "wizard.summary.already.skip": "{count} left alone",
-  "wizard.summary.already.fill": "{count} given what they are missing",
+  "wizard.summary.already.skip": "{count:n} left alone",
+  "wizard.summary.already.fill": "{count:n} given what they are missing",
   "wizard.summary.left_out": "Left Out",
-  "wizard.summary.left_out_count": "{count} not ticked",
+  "wizard.summary.left_out_count": "{count:n} not ticked",
   "wizard.summary.how": "How",
   "wizard.summary.how.copy": "Copied",
   "wizard.summary.how.move": "Moved",
@@ -128,24 +128,24 @@
   "wizard.summary.space_free": "{size}, with {free} free on {where}",
   "wizard.summary.comes_across": "What Comes Across",
   "wizard.summary.left_behind": "Left Behind",
-  "wizard.summary.left_behind_folder": "{folder} ({count})",
-  "wizard.summary.left_behind_pages": "{folder}, later pages ({count})",
-  "wizard.summary.left_behind_videos": "{folder} videos ({count})",
+  "wizard.summary.left_behind_folder": "{folder} ({count:n})",
+  "wizard.summary.left_behind_pages": "{folder}, later pages ({count:n})",
+  "wizard.summary.left_behind_videos": "{folder} videos ({count:n})",
   "wizard.summary.confirm": {
-    "one": "Import {count} game",
-    "other": "Import {count} games"
+    "one": "Import {count:n} game",
+    "other": "Import {count:n} games"
   },
   "wizard.summary.confirm_copy": {
-    "one": "Copy {count} table",
-    "other": "Copy {count} tables"
+    "one": "Copy {count:n} table",
+    "other": "Copy {count:n} tables"
   },
   "wizard.summary.confirm_move": {
-    "one": "Move {count} table",
-    "other": "Move {count} tables"
+    "one": "Move {count:n} table",
+    "other": "Move {count:n} tables"
   },
   "wizard.summary.confirm_in_place": {
-    "one": "Put {count} table in a folder",
-    "other": "Put {count} tables in folders"
+    "one": "Put {count:n} table in a folder",
+    "other": "Put {count:n} tables in folders"
   },
   "wizard.summary.confirm_as_is": "Use this folder",
   "kind.tables.label": "Tables",
@@ -191,9 +191,9 @@
   "count.companions": "Backglasses and Settings",
   "count.history": "Games with Play History",
   "count.matched": "Matched to VPS",
-  "unmatched.not_found": "{count} not found",
-  "unmatched.two_entries": "{count} could be two entries",
-  "unmatched.ipdb_differs": "{count} where IPDB says another entry",
+  "unmatched.not_found": "{count:n} not found",
+  "unmatched.two_entries": "{count:n} could be two entries",
+  "unmatched.ipdb_differs": "{count:n} where IPDB says another entry",
   "source.folders": "No frontend",
   "match.folder": "Same folder",
   "match.vps_id": "Same VPS entry",
@@ -217,20 +217,20 @@
   "note.remapped": "Reading {recorded} as {local} - the paths recorded here are the old computer's",
   "note.not_played": "Not imported, because this device does not play them: {systems}",
   "note.entries_unnamed": {
-    "one": "{file}: {count} entry has no name, so nothing can be matched to it",
-    "other": "{file}: {count} entries have no name, so nothing can be matched to them"
+    "one": "{file}: {count:n} entry has no name, so nothing can be matched to it",
+    "other": "{file}: {count:n} entries have no name, so nothing can be matched to them"
   },
   "note.rows_unnamed": {
-    "one": "{system}: {count} row has no name, so nothing can be matched to it",
-    "other": "{system}: {count} rows have no name, so nothing can be matched to them"
+    "one": "{system}: {count:n} row has no name, so nothing can be matched to it",
+    "other": "{system}: {count:n} rows have no name, so nothing can be matched to them"
   },
   "note.entries_fileless": {
-    "one": "{file}: {count} entry names no file and cannot be imported",
-    "other": "{file}: {count} entries name no file and cannot be imported"
+    "one": "{file}: {count:n} entry names no file and cannot be imported",
+    "other": "{file}: {count:n} entries name no file and cannot be imported"
   },
   "note.files_unreachable": {
-    "one": "{count} of {total} games names a file that is not reachable from here",
-    "other": "{count} of {total} games name a file that is not reachable from here"
+    "one": "{count:n} of {total:n} games names a file that is not reachable from here",
+    "other": "{count:n} of {total:n} games name a file that is not reachable from here"
   },
   "wizard.names.title": "Names and details",
   "wizard.names.help": "Matched games can take VPS's names and details, or keep the ones {source} has",
@@ -242,8 +242,8 @@
   "wizard.names.source_plain": "As they are",
   "wizard.names.source.help": "Each folder keeps the name it has now",
   "wizard.names.examples": {
-    "one": "{count} folder is named differently: {examples}",
-    "other": "{count} folders are named differently, such as {examples}"
+    "one": "{count:n} folder is named differently: {examples}",
+    "other": "{count:n} folders are named differently, such as {examples}"
   },
   "wizard.names.example": "{was} becomes {now}",
   "wizard.names.same": "VPS and your games already agree on every folder name",
@@ -256,17 +256,17 @@
   "wizard.names.details.some.help": "Keep yours for the ones ticked below, and take VPS for the rest",
   "wizard.names.differ": "Where they differ: {counts}",
   "wizard.names.agree": "VPS and your games agree on every detail",
-  "wizard.names.count": "{name} {count}",
+  "wizard.names.count": "{name} {count:n}",
   "wizard.names.field.title": "Title",
   "wizard.names.field.manufacturer": "Maker",
   "wizard.names.field.year": "Year",
   "wizard.names.field.type": "Type",
   "wizard.names.some.label": "Keep Yours For",
-  "wizard.names.some.choice": "{name} ({count} differ)",
+  "wizard.names.some.choice": "{name} ({count:n} differ)",
   "wizard.names.some.help": "Used when you choose Choose which above",
   "wizard.media.title": "Media",
   "wizard.media.found": "Your games come with these pictures: {kinds}. All of them come across.",
-  "wizard.media.kind": "{name} {count}",
+  "wizard.media.kind": "{name} {count:n}",
   "wizard.media.logos": "Logos",
   "wizard.media.logos.summary": "Logos, shown in place of wheels",
   "wizard.media.looks_like": "{help}. Yours look like this",
@@ -279,8 +279,8 @@
   "wizard.media.fetch.what": "Downloads a picture for each kind a game is missing from VPinMediaDB.",
   "wizard.media.logos.label": "Manufacturer Logos",
   "wizard.media.logos.switch_help": {
-    "one": "Adds the logo of {count} maker, and never replaces one the folder has",
-    "other": "Adds the logos of {count} makers, and never replaces one the folder has"
+    "one": "Adds the logo of {count:n} maker, and never replaces one the folder has",
+    "other": "Adds the logos of {count:n} makers, and never replaces one the folder has"
   },
   "media.kind.playfield": "Playfield",
   "media.kind.playfield_video": "Playfield video",
@@ -304,12 +304,12 @@
   "wizard.things.title": "ROMs and more",
   "wizard.things.help": "Each comes with the games it belongs to. Switch off what you do not want.",
   "wizard.things.missing": {
-    "one": "{count} table needs a ROM that is not there.",
-    "other": "{count} tables need a ROM that is not there."
+    "one": "{count:n} table needs a ROM that is not there.",
+    "other": "{count:n} tables need a ROM that is not there."
   },
   "wizard.things.count": {
-    "one": "{count} game",
-    "other": "{count} games"
+    "one": "{count:n} game",
+    "other": "{count:n} games"
   },
   "wizard.things.roms.label": "ROMs",
   "wizard.things.scores.label": "High Scores and Game Settings",

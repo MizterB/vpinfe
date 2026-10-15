@@ -132,8 +132,10 @@
         ? (Math.abs(Number(params && params.count)) === 1 && entry.one) || entry.other
         : entry;
       const said = form(words && words[key]) || form(english);
-      return params ? said.replace(/\{(\w+)\}/g, (whole, name) =>
-        params[name] === undefined ? whole : params[name]) : said;
+      return params ? said.replace(/\{(\w+)(:n)?\}/g, (whole, name, spec) => {
+        if (params[name] === undefined) return whole;
+        return spec && window.__vpinNumber ? window.__vpinNumber(params[name]) : params[name];
+      }) : said;
     }
 
     const stage = document.getElementById('stage');

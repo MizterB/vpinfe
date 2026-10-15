@@ -40,8 +40,8 @@
   "action.vpinfe.stop": "Quit VPinFE",
   "action.vpinfe.stop.help": "Quits VPinFE on that device. It has to be started again there.",
   "asset.analysis.files": {
-    "one": "{count} file",
-    "other": "{count} files"
+    "one": "{count:n} file",
+    "other": "{count:n} files"
   },
   "asset.analysis.info_skipped": "The bundle's .info is not valid metadata and was skipped",
   "asset.analysis.whole_archive": "Whole archive",
@@ -76,7 +76,7 @@
   "backups.folder_name": "The backups folder",
   "backups.subject.all_games": "All games",
   "backups.subject.everything": "Everything",
-  "backups.subject.several": "{name} and {count} more",
+  "backups.subject.several": "{name} and {count:n} more",
   "capture.command.alone": "{{{token}}} stands for several arguments, so it has to stand alone",
   "capture.command.elsewhere": "{{{token}}} belongs in the {command}",
   "capture.command.in": "{command}: {problem}",
@@ -488,39 +488,39 @@
   "console.adds.verb": "Add to Collection",
   "console.adds.added_games": {
     "one": "Added to “{name}”",
-    "other": "Added {count} games to “{name}”"
+    "other": "Added {count:n} games to “{name}”"
   },
   "console.adds.held_games": {
-    "one": "Added 1 game to “{name}”, {held} already in it",
-    "other": "Added {count} games to “{name}”, {held} already in it"
+    "one": "Added 1 game to “{name}”, {held:n} already in it",
+    "other": "Added {count:n} games to “{name}”, {held:n} already in it"
   },
   "console.adds.added_tables": {
     "one": "Added to “{name}”",
-    "other": "Added {count} tables to “{name}”"
+    "other": "Added {count:n} tables to “{name}”"
   },
   "console.adds.held_tables": {
-    "one": "Added 1 table to “{name}”, {held} already in it",
-    "other": "Added {count} tables to “{name}”, {held} already in it"
+    "one": "Added 1 table to “{name}”, {held:n} already in it",
+    "other": "Added {count:n} tables to “{name}”, {held:n} already in it"
   },
   "console.adds.all_held": {
     "one": "Already in “{name}”",
-    "other": "All {count} already in “{name}”"
+    "other": "All {count:n} already in “{name}”"
   },
   "console.adds.exception_games": {
     "one": "Added to “{name}” as an exception to its rules",
-    "other": "Added {count} games to “{name}” as exceptions to its rules"
+    "other": "Added {count:n} games to “{name}” as exceptions to its rules"
   },
   "console.adds.held_exception_games": {
-    "one": "Added 1 game to “{name}” as an exception to its rules, {held} already in it",
-    "other": "Added {count} games to “{name}” as exceptions to its rules, {held} already in it"
+    "one": "Added 1 game to “{name}” as an exception to its rules, {held:n} already in it",
+    "other": "Added {count:n} games to “{name}” as exceptions to its rules, {held:n} already in it"
   },
   "console.adds.exception_tables": {
     "one": "Added to “{name}” as an exception to its rules",
-    "other": "Added {count} tables to “{name}” as exceptions to its rules"
+    "other": "Added {count:n} tables to “{name}” as exceptions to its rules"
   },
   "console.adds.held_exception_tables": {
-    "one": "Added 1 table to “{name}” as an exception to its rules, {held} already in it",
-    "other": "Added {count} tables to “{name}” as exceptions to its rules, {held} already in it"
+    "one": "Added 1 table to “{name}” as an exception to its rules, {held:n} already in it",
+    "other": "Added {count:n} tables to “{name}” as exceptions to its rules, {held:n} already in it"
   },
   "console.adds.find_collection": "Find a collection",
   "console.adds.from_elsewhere": "Those came from another VPinFE, so nothing was added",
@@ -531,22 +531,22 @@
   "console.adds.none_match": "No collection by that name",
   "console.adds.pick_games": {
     "one": "Add 1 game to a collection",
-    "other": "Add {count} games to a collection"
+    "other": "Add {count:n} games to a collection"
   },
   "console.adds.pick_one": "Add “{name}” to a collection",
   "console.adds.pick_tables": {
     "one": "Add 1 table to a collection",
-    "other": "Add {count} tables to a collection"
+    "other": "Add {count:n} tables to a collection"
   },
   "console.adds.recent": "Recent",
   "console.adds.remove_from": "Remove from “{name}”",
   "console.adds.removed_games": {
     "one": "Removed from “{name}”",
-    "other": "Removed {count} games from “{name}”"
+    "other": "Removed {count:n} games from “{name}”"
   },
   "console.adds.excluded_games": {
     "one": "Removed from “{name}”",
-    "other": "Removed {count} games from “{name}”"
+    "other": "Removed {count:n} games from “{name}”"
   },
   "console.api.api_answered": "The API answered {status_code}",
   "console.app_settings.add": "Add a Setting",
@@ -557,7 +557,7 @@
   "console.app_settings.common_heading": "Commonly Set per Table",
   "console.app_settings.copied_from_game": {
     "one": "Copied 1 setting",
-    "other": "Copied {count} settings"
+    "other": "Copied {count:n} settings"
   },
   "console.app_settings.copy_from_game": "Copy the Game's Settings Here",
   "console.app_settings.copy_from_game.help": "What this table already sets stays as it is",
@@ -568,13 +568,13 @@
   "console.app_settings.table_title": "{app} for This Table",
   "console.app_settings.from_game": {
     "one": "1 of this game's settings does not reach this table, which has its own file",
-    "other": "{count} of this game's settings do not reach this table, which has its own file"
+    "other": "{count:n} of this game's settings do not reach this table, which has its own file"
   },
   "console.app_settings.game_and_table": "{game} - {table}",
   "console.app_settings.heading_row": "{heading} {label}",
   "console.app_settings.detached": {
     "one": "{tables} no longer reads this game's own settings",
-    "other": "{count} tables no longer read this game's own settings:\n{tables}"
+    "other": "{count:n} tables no longer read this game's own settings:\n{tables}"
   },
   "console.app_settings.cleared": "Now the same as all tables",
   "console.app_settings.option_reset.help": "Back to the table's default",
@@ -586,50 +586,50 @@
   "console.app_settings.saved_game": "Saved for this game",
   "console.app_settings.saved_in_views": "{saved} ({views})",
   "console.app_settings.search_settings": "Search settings",
-  "console.app_settings.apply_all": "Set for All {count} Tables",
+  "console.app_settings.apply_all": "Set for All {count:n} Tables",
   "console.app_settings.apply_all.help": "Each of this game's tables gets this value as its own",
-  "console.app_settings.apply_done": "Set for all {count} tables",
+  "console.app_settings.apply_done": "Set for all {count:n} tables",
   "console.app_settings.move_all": "Move to All Tables",
   "console.app_settings.move_all.help": "All Tables gets this value, and these tables stop setting their own",
-  "console.app_settings.move_all.launchers": "The selected tables use {count} launchers",
+  "console.app_settings.move_all.launchers": "The selected tables use {count:n} launchers",
   "console.app_settings.move_all.ask": "Move “{setting}” to All Tables?",
   "console.app_settings.move_all.stop": {
     "one": "The selected table stops setting its own.",
-    "other": "The {count} selected stop setting their own."
+    "other": "The {count:n} selected stop setting their own."
   },
   "console.app_settings.move_all.some": {
-    "one": "{count} of the selected stops setting its own.",
-    "other": "{count} of the selected stop setting their own."
+    "one": "{count:n} of the selected stops setting its own.",
+    "other": "{count:n} of the selected stop setting their own."
   },
   "console.app_settings.move_all.follow": {
-    "one": "{count} other table follows All Tables and changes with it.",
-    "other": "{count} other tables follow All Tables and change with them."
+    "one": "{count:n} other table follows All Tables and changes with it.",
+    "other": "{count:n} other tables follow All Tables and change with them."
   },
   "console.app_settings.move_done": "Moved {setting} to All Tables",
   "console.app_settings.tables_title": "{app} for These Tables",
-  "console.app_settings.many_programs": "These tables run {count} programs. Keep the tables of one to change their settings.",
+  "console.app_settings.many_programs": "These tables run {count:n} programs. Keep the tables of one to change their settings.",
   "console.app_settings.keep_program": {
-    "one": "{app}: {count} table",
-    "other": "{app}: {count} tables"
+    "one": "{app}: {count:n} table",
+    "other": "{app}: {count:n} tables"
   },
   "console.app_settings.keep_program.help": "Leave only these tables ticked",
   "console.app_settings.no_program": "No program",
   "console.app_settings.no_config": "These tables run a program that keeps no settings of its own",
-  "console.app_settings.selection_writes": "Changes here apply to all {count} selected tables",
+  "console.app_settings.selection_writes": "Changes here apply to all {count:n} selected tables",
   "console.app_settings.selection_set": {
-    "one": "Changed on {count} table",
-    "other": "Changed on {count} tables"
+    "one": "Changed on {count:n} table",
+    "other": "Changed on {count:n} tables"
   },
   "console.app_settings.selection_failed": {
-    "one": "{count} table could not be changed",
-    "other": "{count} tables could not be changed"
+    "one": "{count:n} table could not be changed",
+    "other": "{count:n} tables could not be changed"
   },
   "console.app_settings.reading": "Reading the settings of every selected table",
-  "console.app_settings.selection_all": "{count} tables: {launcher_name} Settings",
+  "console.app_settings.selection_all": "{count:n} tables: {launcher_name} Settings",
   "console.app_settings.settings": "{table}: {launcher_name} Settings",
   "console.app_settings.shared_with_game": {
     "one": "Changes here also apply to the other table, unless it has its own",
-    "other": "Changes here also apply to the other {count} tables, unless they have their own"
+    "other": "Changes here also apply to the other {count:n} tables, unless they have their own"
   },
   "console.app_settings.show_all": "Show Every Setting",
   "console.app_settings.show_all.help": "Opens every setting for this table, not just the ones shown here",
@@ -643,36 +643,36 @@
   "console.media_fill.also_unreachable": "{said}, {sources} could not be reached",
   "console.media_fill.ask_kind": {
     "one": "Get {kind} media for 1 game?",
-    "other": "Get {kind} media for {count} games?"
+    "other": "Get {kind} media for {count:n} games?"
   },
   "console.media_fill.ask_kind_of": {
-    "one": "Get {kind} media for 1 of {missing} games?",
-    "other": "Get {kind} media for {count} of {missing} games?"
+    "one": "Get {kind} media for 1 of {missing:n} games?",
+    "other": "Get {kind} media for {count:n} of {missing:n} games?"
   },
   "console.media_fill.ask_slots": {
     "one": "Get media for 1 missing file?",
-    "other": "Get media for {count} missing files?"
+    "other": "Get media for {count:n} missing files?"
   },
   "console.media_rotate.ask": {
     "one": "Turn 1 file?",
-    "other": "Turn {count} files?"
+    "other": "Turn {count:n} files?"
   },
   "console.media_rotate.detail": "Each file is replaced by its turned version. Videos are encoded again, which can cost a little quality.",
   "console.media_rotate.also_left_out": {
     "one": "1 selected row has no picture or video to turn, and is left out",
-    "other": "{count} selected rows have no picture or video to turn, and are left out"
+    "other": "{count:n} selected rows have no picture or video to turn, and are left out"
   },
   "console.backups_move.ask": {
     "one": "Move your backup to the new folder?",
-    "other": "Move your {count} backups to the new folder?"
+    "other": "Move your {count:n} backups to the new folder?"
   },
   "console.backups_move.blocked": {
     "one": "The new folder cannot hold your backup yet",
-    "other": "The new folder cannot hold your {count} backups yet"
+    "other": "The new folder cannot hold your {count:n} backups yet"
   },
   "console.backups_move.in_new": {
     "one": "The new folder already holds 1 backup.",
-    "other": "The new folder already holds {count} backups."
+    "other": "The new folder already holds {count:n} backups."
   },
   "console.backups_move.same_name": "A backup named like one in the new folder is skipped and stays put.",
   "console.backups_move.stays": "Backups you leave stay in {folder}, and Backups stops listing them.",
@@ -682,15 +682,15 @@
   "console.backups_move.failed": "Moving the backups failed",
   "console.backups_move.moved": {
     "one": "Moved 1 backup",
-    "other": "Moved {count} backups"
+    "other": "Moved {count:n} backups"
   },
   "console.backups_move.left_some": {
     "one": "1 backup shares a name with one in the new folder and stays in the old one",
-    "other": "{count} backups share a name with ones in the new folder and stay in the old one"
+    "other": "{count:n} backups share a name with ones in the new folder and stay in the old one"
   },
   "console.backups_move.failed_some": {
     "one": "1 backup could not be moved and is still in {folder}",
-    "other": "{count} backups could not be moved and are still in {folder}"
+    "other": "{count:n} backups could not be moved and are still in {folder}"
   },
   "console.media_rotate.could_not_start": "Could not turn the media",
   "console.media_rotate.failed": "Turning stopped",
@@ -702,13 +702,13 @@
   "console.media_rotate.way_right": "A quarter turn to the right",
   "console.media_rotate.turned": {
     "one": "Turned 1 file",
-    "other": "Turned {count} files"
+    "other": "Turned {count:n} files"
   },
-  "console.media_rotate.turned_skipped": "{turned}, {skipped} skipped",
-  "console.media_fill.available": "{count} available",
+  "console.media_rotate.turned_skipped": "{turned:n}, {skipped:n} skipped",
+  "console.media_fill.available": "{count:n} available",
   "console.media_fill.get_failed": {
     "one": "Could not get 1 file",
-    "other": "Could not get {count} files"
+    "other": "Could not get {count:n} files"
   },
   "console.media_fill.read_failed": "Could not read what is missing",
   "console.media_fill.could_not_start": "Could not get media",
@@ -716,27 +716,27 @@
   "console.media_fill.game_unmatched": "This game is not matched to VPS, so nothing can be looked up for it",
   "console.media_fill.games": {
     "one": "1 game",
-    "other": "{count} games"
+    "other": "{count:n} games"
   },
   "console.media_fill.get": {
     "one": "Get 1",
-    "other": "Get {count}"
+    "other": "Get {count:n}"
   },
   "console.media_fill.get_media": "Get Media",
   "console.media_fill.from_files": {
     "one": "1 backglass picture is drawn from its game's backglass file",
-    "other": "{count} backglass pictures are drawn from their games' backglass files"
+    "other": "{count:n} backglass pictures are drawn from their games' backglass files"
   },
   "console.media_fill.get_media.help": "Asks, then gets this media for these games, online or from their backglass files",
   "console.media_fill.get_missing": "Get Missing Media...",
   "console.media_fill.get_missing.help": "Opens the choice of what to get, online or from each game's backglass file",
   "console.media_fill.got": {
     "one": "Got 1 file",
-    "other": "Got {count} files"
+    "other": "Got {count:n} files"
   },
-  "console.media_fill.got_failed": "{got}, {failed} failed",
+  "console.media_fill.got_failed": "{got:n}, {failed:n} failed",
   "console.media_fill.got_nothing": "No media found",
-  "console.media_fill.missing": "{count} missing",
+  "console.media_fill.missing": "{count:n} missing",
   "console.media_fill.no_sources": "No online sources are switched on, and no game has a backglass file",
   "console.media_fill.none_available": "none available",
   "console.media_fill.none_for_kind": "No source has {kind} media for these games",
@@ -746,11 +746,11 @@
   "console.media_fill.title_several": "Get Missing Media",
   "console.media_fill.unmatched": {
     "one": "1 is not matched to VPS, so nothing can be looked up for it",
-    "other": "{count} are not matched to VPS, so nothing can be looked up for those"
+    "other": "{count:n} are not matched to VPS, so nothing can be looked up for those"
   },
   "console.media_fill.unreachable": "{sources} could not be reached",
-  "console.assets.assets": "{shown} of {count} assets",
-  "console.assets.assets_missing": "{count} assets, {gaps} missing",
+  "console.assets.assets": "{shown:n} of {count:n} assets",
+  "console.assets.assets_missing": "{count:n} assets, {gaps:n} missing",
   "console.assets.unused_view.help": "Correctly named files that nothing loads",
   "console.assets.everything_view.help": "Every row, no filter",
   "console.assets.orphans_view.help": "Files left behind by a renamed, updated or deleted table. Launchers never look for these names again, so they are safe to clear out.",
@@ -815,17 +815,17 @@
   "console.backups.backed_up": "Backed up",
   "console.backups.done_games": {
     "one": "Backed up 1 game",
-    "other": "Backed up {count} games"
+    "other": "Backed up {count:n} games"
   },
   "console.backups.by.2x": "VPinFE 2.x",
   "console.backups.by.3x": "VPinFE 3.0",
   "console.backups.by.version": "VPinFE {version}",
   "console.backups.delete_detail": "A deleted copy cannot be brought back.",
-  "console.backups.delete_many": "Delete {count} copies?",
+  "console.backups.delete_many": "Delete {count:n} copies?",
   "console.backups.delete_one": "Delete this copy?",
   "console.backups.deleted": {
     "one": "Deleted 1 copy",
-    "other": "Deleted {count} copies"
+    "other": "Deleted {count:n} copies"
   },
   "console.backups.empty": "No copies yet. VPinFE keeps one when it upgrades, restores or resets something, and Back up now keeps one on request.",
   "console.backups.everything_view.help": "Every copy VPinFE keeps, newest first",
@@ -864,7 +864,7 @@
   "console.backups.kept.theme_update": "Until the theme's next update",
   "console.backups.kept.until_deleted": "Until you delete it",
   "console.backups.kept.upgraded_again": "Until this file is upgraded from 2.x again",
-  "console.backups.parts_more": "Showing {shown} of {total} - search to find the rest",
+  "console.backups.parts_more": "Showing {shown:n} of {total:n} - search to find the rest",
   "console.backups.parts_none": "Nothing matches",
   "console.backups.present": "Original present",
   "console.backups.read_failed": "Could not read the backups",
@@ -872,24 +872,24 @@
   "console.backups.restarting": "Restarting to put the records back",
   "console.backups.restore_failed": "Could not restore",
   "console.backups.restore_dialog": "Restore...",
-  "console.backups.restore_many": "Restore {count} copies?",
+  "console.backups.restore_many": "Restore {count:n} copies?",
   "console.backups.restore_one": "Restore {name}?",
   "console.backups.restore_skipped": "Some could not go back",
-  "console.backups.restored_many": "Restored {count} copies",
+  "console.backups.restored_many": "Restored {count:n} copies",
   "console.backups.restored_one": "Restored {name}",
-  "console.backups.row": "{count}, newest {newest}",
+  "console.backups.row": "{count:n}, newest {newest}",
   "console.backups.scope.all_games": "All games",
   "console.backups.scope.everything": "Everything",
   "console.backups.scope.launcher": "A launcher's settings file",
   "console.backups.scope.records": "VPinFE's records",
   "console.backups.search": "Search copies",
   "console.backups.search_parts": "Search this backup",
-  "console.backups.selected": "{picked} of {shown} selected",
-  "console.backups.selected_n": "{count} copies",
+  "console.backups.selected": "{picked:n} of {shown:n} selected",
+  "console.backups.selected_n": "{count:n} copies",
   "console.backups.size.help": "The disk the copy takes",
   "console.backups.summary": {
     "one": "1 copy, {size}",
-    "other": "{count} copies, {size}"
+    "other": "{count:n} copies, {size}"
   },
   "console.discovery.actions_selected": "Actions for the selected games",
   "console.discovery.add": "Add to Library",
@@ -897,11 +897,11 @@
   "console.discovery.add_failed": "Could not add {name}",
   "console.discovery.add_many": {
     "one": "Add 1 game to your library",
-    "other": "Add {count} games to your library"
+    "other": "Add {count:n} games to your library"
   },
   "console.discovery.added": {
     "one": "Added 1 game",
-    "other": "Added {count} games"
+    "other": "Added {count:n} games"
   },
   "console.discovery.already_in": "Already in your library",
   "console.discovery.compare_first": "Compare with VPS first",
@@ -926,11 +926,11 @@
   "console.discovery.to_games": "Open in Games",
   "console.discovery.absent": "Not in your library",
   "console.discovery.have_of": {
-    "one": "Have {have} of 1 file kind",
-    "other": "Have {have} of {count} file kinds"
+    "one": "Have {have:n} of 1 file kind",
+    "other": "Have {have:n} of {count:n} file kinds"
   },
   "console.discovery.held": "You have this",
-  "console.discovery.more": "{count} More",
+  "console.discovery.more": "{count:n} More",
   "console.discovery.more_hint": "Show the rest of the records VPS lists for this kind",
   "console.discovery.no_picture": "No picture on VPS",
   "console.discovery.picture_open": "View on VPS",
@@ -939,23 +939,23 @@
   "console.discovery.type.pm": "Pure Mechanical",
   "console.discovery.read_failed": "Could not read what VPS lists",
   "console.discovery.search": "Search games",
-  "console.discovery.selected": "{picked} of {shown} selected",
+  "console.discovery.selected": "{picked:n} of {shown:n} selected",
   "console.discovery.selected_n": {
     "one": "1 game",
-    "other": "{count} games"
+    "other": "{count:n} games"
   },
   "console.discovery.color_kind": "Serum or VNI",
   "console.discovery.summary": {
     "one": "1 game",
-    "other": "{count} games"
+    "other": "{count:n} games"
   },
   "console.discovery.summary_compared": {
-    "one": "1 game, {held} in your library",
-    "other": "{count} games, {held} in your library"
+    "one": "1 game, {held:n} in your library",
+    "other": "{count:n} games, {held:n} in your library"
   },
   "console.discovery.unmatched": {
     "one": "1 of your games isn't matched to VPS",
-    "other": "{count} of your games aren't matched to VPS"
+    "other": "{count:n} of your games aren't matched to VPS"
   },
   "console.discovery.unnamed_file": "Unnamed file",
   "console.view.with_gaps.help": "Games in your library that VPS lists more files for than you have",
@@ -997,11 +997,11 @@
   "console.backups.group.months": "months",
   "console.backups.group.yours_age": {
     "one": "Yours older than 1 month",
-    "other": "Yours older than {count} months"
+    "other": "Yours older than {count:n} months"
   },
   "console.backups.group.automatic_age": {
     "one": "Automatic older than 1 month",
-    "other": "Automatic older than {count} months"
+    "other": "Automatic older than {count:n} months"
   },
   "console.backups.go_back": "Go back to 2.x...",
   "console.backups.go_back_ask": "Go back to 2.x?",
@@ -1010,7 +1010,7 @@
   "console.backups.go_back_detail": "VPinFE quits, then puts the copies back. Nothing is deleted.",
   "console.backups.go_back_games": {
     "one": "1 game goes back to its 2.x copy",
-    "other": "{count} games go back to their 2.x copies"
+    "other": "{count:n} games go back to their 2.x copies"
   },
   "console.backups.go_back_kept": "Your 3.0 settings stay as they are for a return.",
   "console.backups.going_back": "Quitting to go back to 2.x",
@@ -1071,9 +1071,9 @@
   "console.collection_rules.before": "Before",
   "console.collection_rules.between": "Between",
   "console.collection_rules.summary": "Every game where {clauses}",
-  "console.collection_rules.summary_minus": "Every game where {clauses}, minus {taken} you removed",
-  "console.collection_rules.summary_plus": "Every game where {clauses}, plus {added} you added",
-  "console.collection_rules.summary_both": "Every game where {clauses}, plus {added} you added, minus {taken} you removed",
+  "console.collection_rules.summary_minus": "Every game where {clauses}, minus {taken:n} you removed",
+  "console.collection_rules.summary_plus": "Every game where {clauses}, plus {added:n} you added",
+  "console.collection_rules.summary_both": "Every game where {clauses}, plus {added:n} you added, minus {taken:n} you removed",
   "console.collection_rules.favorites": "Favorites",
   "console.collection_rules.op_any": "Is any of",
   "console.collection_rules.is_exactly": "Is exactly",
@@ -1094,43 +1094,43 @@
   "console.collections.rule_matched": "Rule Matched",
   "console.collections.rule_matched.help": "Games its rules add",
   "console.collections.collections": {
-    "one": "{count} collection",
-    "other": "{count} collections"
+    "one": "{count:n} collection",
+    "other": "{count:n} collections"
   },
-  "console.collections.collections_of": "{shown} of {count} collections",
+  "console.collections.collections_of": "{shown:n} of {count:n} collections",
   "console.collections.collections_menu": "Actions for the selected collections",
   "console.collections.duplicated": {
-    "one": "{count} collection duplicated",
-    "other": "{count} collections duplicated"
+    "one": "{count:n} collection duplicated",
+    "other": "{count:n} collections duplicated"
   },
   "console.collections.renamed": "Renamed to “{name}”",
   "console.collections.renamed_several": {
-    "one": "{count} collection renamed",
-    "other": "{count} collections renamed"
+    "one": "{count:n} collection renamed",
+    "other": "{count:n} collections renamed"
   },
   "console.collections.rename_title": "Rename collection",
   "console.collections.deleted_several": {
-    "one": "{count} collection deleted",
-    "other": "{count} collections deleted"
+    "one": "{count:n} collection deleted",
+    "other": "{count:n} collections deleted"
   },
   "console.collections.all_games": "All Games",
   "console.collections.copy_of": "{name} copy",
   "console.collections.copy_of_n": "{name} copy {n}",
   "console.collections.count_hidden": {
-    "one": "{count} hidden",
-    "other": "{count} hidden"
+    "one": "{count:n} hidden",
+    "other": "{count:n} hidden"
   },
   "console.collections.count_missing": {
-    "one": "{count} missing",
-    "other": "{count} missing"
+    "one": "{count:n} missing",
+    "other": "{count:n} missing"
   },
-  "console.collections.count_of": "{count} of {whole}",
+  "console.collections.count_of": "{count:n} of {whole:n}",
   "console.collections.create": "Create",
   "console.collections.created": "Created “{name}”",
   "console.collections.delete": "Delete “{name}”?",
   "console.collections.delete_collections": {
-    "one": "Delete {count} collection?",
-    "other": "Delete {count} collections?"
+    "one": "Delete {count:n} collection?",
+    "other": "Delete {count:n} collections?"
   },
   "console.collections.deleted": "Deleted “{name}”",
   "console.collections.games": "Games",
@@ -1160,7 +1160,7 @@
   "console.collections.order.help": "The order the frontend shows its games in",
   "console.collections.ordered": "{by} · {direction}",
   "console.collections.search_collections": "Search collections",
-  "console.collections.selected": "{picked} of {shown} selected",
+  "console.collections.selected": "{picked:n} of {shown:n} selected",
   "console.collections.smart": "Smart",
   "console.collections.smart.help": "Smart - fills itself from its rules",
   "console.collections.sort_lock": "Sorted by {column} - clear the sort to arrange",
@@ -1168,7 +1168,7 @@
   "console.collections.manually_removed.help": "Games you removed by hand",
   "console.commands.after_finished": "{says} - only after it has finished",
   "console.commands.names_note": "Each is replaced when the command runs. A name not on this list is refused.",
-  "console.commands.names_title": "Names you can use ({count})",
+  "console.commands.names_title": "Names you can use ({count:n})",
   "console.community.collection_n": "{name} {n}",
   "console.community.read_failed": "Could not read {name}",
   "console.community.act_hint": "From {name}",
@@ -1185,20 +1185,20 @@
   "console.community.pane_select": "Select a row",
   "console.community.read_again": "Read the list again from {name}",
   "console.community.rows": {
-    "one": "{count} row",
-    "other": "{count} rows"
+    "one": "{count:n} row",
+    "other": "{count:n} rows"
   },
   "console.community.rows_of": {
-    "one": "{shown} of {count} row",
-    "other": "{shown} of {count} rows"
+    "one": "{shown:n} of {count:n} row",
+    "other": "{shown:n} of {count:n} rows"
   },
   "console.community.search": "Search",
   "console.community.settings": "Settings",
-  "console.community.selected": "{picked} of {shown} selected",
+  "console.community.selected": "{picked:n} of {shown:n} selected",
   "console.community.stopped": "Stopped",
   "console.community.verb.confirm": {
     "one": "{label} this row?",
-    "other": "{label} {count} rows?"
+    "other": "{label} {count:n} rows?"
   },
   "console.community.verb.no_address": "No address",
   "console.community.verb.inapplicable": "Not for this row",
@@ -1255,39 +1255,39 @@
   "console.devices.self_note": "This is the device you are using, so it cannot be forgotten",
   "console.devices.hostname": "This device's hostname",
   "console.devices.settings_note": "Settings are changed in that device's own Console.",
-  "console.devices.devices": "{count} devices",
-  "console.devices.devices_2": "{shown} of {count} devices",
+  "console.devices.devices": "{count:n} devices",
+  "console.devices.devices_2": "{shown:n} of {count:n} devices",
   "console.devices.unreached_view.help": "Devices that did not answer, longest gone first",
-  "console.devices.count_away": "{count} devices, {away} not answering",
+  "console.devices.count_away": "{count:n} devices, {away:n} not answering",
   "console.devices.all_view.help": "Every device, answering first",
   "console.devices.features": "Features",
   "console.devices.first_seen": "First seen",
   "console.devices.forget": "Forget “{name}”?",
   "console.devices.forget_count": {
-    "one": "Forget {count} device?",
-    "other": "Forget {count} devices?"
+    "one": "Forget {count:n} device?",
+    "other": "Forget {count:n} devices?"
   },
   "console.devices.forgot": "Forgot {name}",
   "console.devices.forgot_count": {
-    "one": "Forgot {count} device",
-    "other": "Forgot {count} devices"
+    "one": "Forgot {count:n} device",
+    "other": "Forgot {count:n} devices"
   },
   "console.devices.do_to_many": {
-    "one": "“{label}” on {count} device?",
-    "other": "“{label}” on {count} devices?"
+    "one": "“{label}” on {count:n} device?",
+    "other": "“{label}” on {count:n} devices?"
   },
   "console.devices.failed_on": "{device_label}: {reason}",
   "console.devices.did_to_many": {
-    "one": "{label} on {count} device",
-    "other": "{label} on {count} devices"
+    "one": "{label} on {count:n} device",
+    "other": "{label} on {count:n} devices"
   },
   "console.devices.happens_now_many": {
-    "one": "This happens on {count} device, now.",
-    "other": "This happens on {count} devices, now."
+    "one": "This happens on {count:n} device, now.",
+    "other": "This happens on {count:n} devices, now."
   },
   "console.devices.quit_detail_many": {
-    "one": "VPinFE quits on {count} device. It has to be started again on it.",
-    "other": "VPinFE quits on {count} devices. It has to be started again on each."
+    "one": "VPinFE quits on {count:n} device. It has to be started again on it.",
+    "other": "VPinFE quits on {count:n} devices. It has to be started again on each."
   },
   "console.devices.happens_now": "This happens on {device_label}, now.",
   "console.devices.last_checked": "Last checked {when}",
@@ -1323,7 +1323,7 @@
   "console.devices.forget_detail": "This removes its entry from this list and changes nothing on that device. It is listed again when the device next appears on the network.",
   "console.devices.forget_by_hand": "Nothing on the device changes. Add it again to restore it.",
   "console.devices.search_devices": "Search devices",
-  "console.devices.selected": "{picked} of {shown} selected",
+  "console.devices.selected": "{picked:n} of {shown:n} selected",
   "console.devices.settings": "Settings",
   "console.devices.stop_confirm": "Stop the table and update",
   "console.devices.update": "Update",
@@ -1367,16 +1367,16 @@
   "console.dof.test_event.help": "Turns the event on until you stop it, as the wheel does for a game",
   "console.dof.test_failed": "Could not turn the event on",
   "console.dof.test_hint": "Turn this event on until you press Stop",
-  "console.ext_action.already": "Already here ({count})",
+  "console.ext_action.already": "Already here ({count:n})",
   "console.ext_action.step_failed": "Could not go on",
   "console.ext_action.matched": "{name} - matched by {how}",
   "console.ext_action.missed": "{name} - {error}",
-  "console.ext_action.more": "and {count} more",
-  "console.ext_action.not_found": "Did not come across ({count})",
+  "console.ext_action.more": "and {count:n} more",
+  "console.ext_action.not_found": "Did not come across ({count:n})",
   "console.ext_action.not_finish": "It did not finish",
   "console.ext_action.not_run": "It did not run",
   "console.ext_action.of_expected": "of {want}",
-  "console.ext_action.progress_of": "{message} ({done} of {total})",
+  "console.ext_action.progress_of": "{message} ({done:n} of {total:n})",
   "console.ext_action.short": "{short} short",
   "console.ext_action.what_happened": "What happened",
   "console.ext_action.preparing": "Getting it ready",
@@ -1476,7 +1476,7 @@
   "console.front.playing_now": "Playing Now",
   "console.front.plays": {
     "one": "1 play",
-    "other": "{count} plays"
+    "other": "{count:n} plays"
   },
   "console.front.quit_hint": "Close the table that is running",
   "console.front.recently_played": "Recently Played",
@@ -1544,14 +1544,14 @@
   "console.games.auto_match.help": "Each game is matched again from its folder name. Matches you picked stay.",
   "console.games.auto_matched": {
     "one": "Matched 1 game",
-    "other": "Matched {count} games"
+    "other": "Matched {count:n} games"
   },
   "console.games.auto_match_skipped": {
     "one": "1 game skipped, its folder cannot be written to",
-    "other": "{count} games skipped, their folders cannot be written to"
+    "other": "{count:n} games skipped, their folders cannot be written to"
   },
-  "console.games.auto_matched_all": "{matched}. {waiting}. {skipped}.",
-  "console.games.auto_matched_some": "{matched}. {waiting}.",
+  "console.games.auto_matched_all": "{matched:n}. {waiting}. {skipped:n}.",
+  "console.games.auto_matched_some": "{matched:n}. {waiting}.",
   "console.games.b2s": "B2S",
   "console.games.vps_match.help": "Blank where the game is matched to a VPS entry",
   "console.games.author.help": "Who built this table",
@@ -1563,11 +1563,11 @@
   "console.games.delete_failed": "Could not delete the folder",
   "console.games.delete_question": {
     "one": "Delete this game from the disk?",
-    "other": "Delete {count} games from the disk?"
+    "other": "Delete {count:n} games from the disk?"
   },
   "console.games.deleted": {
-    "one": "{count} game deleted from the disk",
-    "other": "{count} games deleted from the disk"
+    "one": "{count:n} game deleted from the disk",
+    "other": "{count:n} games deleted from the disk"
   },
   "console.games.delete_script": "Delete Script",
   "console.games.delete_view": "Delete View",
@@ -1580,30 +1580,30 @@
   "console.games.game_themes": "Game Themes",
   "console.games.table_game.help": "The game this table is of",
   "console.games.games": {
-    "one": "{count} game",
-    "other": "{count} games"
+    "one": "{count:n} game",
+    "other": "{count:n} games"
   },
-  "console.games.games_of": "{shown} of {count} games",
+  "console.games.games_of": "{shown:n} of {count:n} games",
   "console.games.filter_own": "Has Settings of Its Own",
   "console.games.selection_back": "Show the selection in the panel",
   "console.selection.changed_tables": {
-    "one": "{count} table changed",
-    "other": "{count} tables changed"
+    "one": "{count:n} table changed",
+    "other": "{count:n} tables changed"
   },
   "console.selection.changed_games": {
-    "one": "{count} game changed",
-    "other": "{count} games changed"
+    "one": "{count:n} game changed",
+    "other": "{count:n} games changed"
   },
   "console.selection.value_count_games": {
-    "one": "{said}: {count} game",
-    "other": "{said}: {count} games"
+    "one": "{said}: {count:n} game",
+    "other": "{said}: {count:n} games"
   },
-  "console.selection.of_all": "{count} of {total}",
+  "console.selection.of_all": "{count:n} of {total:n}",
   "console.selection.take_away": "Take it from all",
   "console.selection.give_all": "Give it to all",
   "console.selection.not_written": {
-    "one": "{count} was not written",
-    "other": "{count} were not written"
+    "one": "{count:n} was not written",
+    "other": "{count:n} were not written"
   },
   "console.games.hidden_game.help": "Hidden where the game has no table left to offer",
   "console.games.hide": "Hide",
@@ -1619,12 +1619,12 @@
   "console.games.clear_private": "Mark Not Private",
   "console.games.mark_private": "Mark Private",
   "console.games.cleared_private": {
-    "one": "{count} game marked Not Private",
-    "other": "{count} games marked Not Private"
+    "one": "{count:n} game marked Not Private",
+    "other": "{count:n} games marked Not Private"
   },
   "console.games.marked_private": {
-    "one": "{count} game marked Private",
-    "other": "{count} games marked Private"
+    "one": "{count:n} game marked Private",
+    "other": "{count:n} games marked Private"
   },
   "console.games.match_vps": "Match to VPS...",
   "console.games.missing": "Missing",
@@ -1657,25 +1657,25 @@
   "console.games.private_game.help": "Private where the game is never sent to a community service",
   "console.games.rate": "Rate...",
   "console.games.tables": {
-    "one": "{count} table",
-    "other": "{count} tables"
+    "one": "{count:n} table",
+    "other": "{count:n} tables"
   },
   "console.game_tables.hid_n": {
-    "one": "{count} table hidden",
-    "other": "{count} tables hidden"
+    "one": "{count:n} table hidden",
+    "other": "{count:n} tables hidden"
   },
   "console.game_tables.unhid_n": {
-    "one": "{count} table unhidden",
-    "other": "{count} tables unhidden"
+    "one": "{count:n} table unhidden",
+    "other": "{count:n} tables unhidden"
   },
   "console.workbench.forget_several": "Their records go and no file is deleted. If a file returns, it is a new table.",
   "console.games.rate_game_s": {
-    "one": "Rate {count} game",
-    "other": "Rate {count} games"
+    "one": "Rate {count:n} game",
+    "other": "Rate {count:n} games"
   },
   "console.games.rated_game_s": {
-    "one": "{count} game rated {value} of 5",
-    "other": "{count} games rated {value} of 5"
+    "one": "{count:n} game rated {value} of 5",
+    "other": "{count:n} games rated {value} of 5"
   },
   "console.games.game_rating.help": "Your rating for the game, 0 to 5",
   "console.games.table_rating.help": "Your rating for this table, 0 to 5",
@@ -1692,31 +1692,31 @@
   "console.games.saved_view": "Saved the view “{name}”",
   "console.games.search_games": "Search games",
   "console.games.search_tables": "Search tables",
-  "console.games.selected": "{picked} of {shown} selected",
+  "console.games.selected": "{picked:n} of {shown:n} selected",
   "console.games.send_device": "Send to Device...",
   "console.games.settings.help": "What this table sets differently from all tables, itself or through its game",
   "console.games.settings_from": "From {scope}",
   "console.games.settings_from_game": {
     "one": "1 from {scope}",
-    "other": "{count} from {scope}"
+    "other": "{count:n} from {scope}"
   },
   "console.games.settings_own": {
     "one": "1 of its own",
-    "other": "{count} of its own"
+    "other": "{count:n} of its own"
   },
   "console.games.show_as": "Show {group} As",
   "console.games.type.help": "Solid state, electro-mechanical, mechanical, or an original",
   "console.games.unmatched": {
     "one": "1 still needs a match",
-    "other": "{count} still need a match"
+    "other": "{count:n} still need a match"
   },
   "console.games.table": "Table",
   "console.games.default.help": "Which table the frontend offers when it can show only one\nLocked - stays on this table if you add another\nAutomatic - the newest table you added",
   "console.games.table_rating": "Table Rating",
   "console.games.version.help": "The table's version, as its author set it",
   "console.games.table_tags.help": "Your own words for this table, apart from its game's",
-  "console.games.tables_games": "{count} tables in {games} games",
-  "console.games.tables_of": "{shown} of {count} tables",
+  "console.games.tables_games": "{count:n} tables in {games:n} games",
+  "console.games.tables_of": "{shown:n} of {count:n} tables",
   "console.games.tags.help": "Your own words for the game",
   "console.games.hidden.help": "Ticked where the frontend does not offer this table",
   "console.games.missing.help": "Ticked where the file is not on disk",
@@ -1733,7 +1733,7 @@
   "console.grid.any_of": "Any of",
   "console.grid.filter_hint": "Filter this list",
   "console.grid.pin_refused": "Not enough room to pin this column",
-  "console.grid.selected_hidden": "{count} selected, {hidden} hidden",
+  "console.grid.selected_hidden": "{count:n} selected, {hidden:n} hidden",
   "console.import_dialog.remember": "Always use this one, do not ask again",
   "console.import_dialog.import_failed": "Could not import it",
   "console.import_dialog.remember_failed": "Could not remember that",
@@ -1748,20 +1748,20 @@
   "console.import_dialog.import_3": "Import into “{name}”",
   "console.import_dialog.import_drop": "Import from this drop",
   "console.import_dialog.import_files": {
-    "one": "Import {count} file",
-    "other": "Import {count} files"
+    "one": "Import {count:n} file",
+    "other": "Import {count:n} files"
   },
-  "console.import_dialog.imported": "{wanted} of {count} will be imported",
+  "console.import_dialog.imported": "{wanted:n} of {count:n} will be imported",
   "console.import_dialog.match_failed": "Imported, but could not match it",
   "console.import_dialog.imported_item": {
-    "one": "Imported {count} item",
-    "other": "Imported {count} items"
+    "one": "Imported {count:n} item",
+    "other": "Imported {count:n} items"
   },
   "console.import_dialog.renamed": "{was} was saved as {now}",
   "console.import_dialog.importing": "Importing…",
   "console.import_dialog.match": "Match",
   "console.import_dialog.match_hint": "Name the folder from the upstream record",
-  "console.import_dialog.not_imported": "Not imported ({count})",
+  "console.import_dialog.not_imported": "Not imported ({count:n})",
   "console.import_dialog.not_imported_row": "{kind} - {reason}",
   "console.import_dialog.none_selected": "Nothing was selected, so nothing was imported",
   "console.import_dialog.no_match": "Nothing in the spreadsheet matches that name",
@@ -1804,7 +1804,7 @@
   "console.report.left_behind": "Left Behind",
   "console.report.look": "Needs a Look",
   "console.report.match": "Match",
-  "console.report.more": "{count} more",
+  "console.report.more": "{count:n} more",
   "console.report.need_rom": "Need a ROM",
   "console.report.no_wheel": "Nothing for the Wheel",
   "console.report.not_matched": "Not Matched to VPS",
@@ -1813,7 +1813,7 @@
   "console.report.tick.added": "Added",
   "console.report.tick.matched": "Matched",
   "console.report.try_again": "Try These Again",
-  "console.report.artwork_alone": "{count} came as media alone",
+  "console.report.artwork_alone": "{count:n} came as media alone",
   "console.report.finished": "{program}, finished {day} at {clock}",
   "console.report.jump.imported": "Games Imported",
   "console.report.jump.look": "Need a Look",
@@ -1824,7 +1824,7 @@
   "console.report.own_tab.hint": "Keep it beside the Console while you work through it",
   "console.report.page_title": "Report",
   "console.report.title": "{what} Report",
-  "console.report.show_all": "Show All {count} in Tables",
+  "console.report.show_all": "Show All {count:n} in Tables",
   "console.jobs.outcome": "Outcome",
   "console.jobs.outcome.done": "Done",
   "console.jobs.outcome.done.help": "Done - finished",
@@ -1852,8 +1852,8 @@
   "console.launchers.devices_failed": "Could not read the devices",
   "console.launchers.launchers_failed": "Could not read the launchers",
   "console.launchers.unassigned": {
-    "one": "{count} has no launcher left",
-    "other": "{count} have no launcher left"
+    "one": "{count:n} has no launcher left",
+    "other": "{count:n} have no launcher left"
   },
   "console.launchers.duplicate_title": "Duplicate “{name}”",
   "console.launchers.program.help": "The executable this launcher runs",
@@ -1861,7 +1861,7 @@
   "console.launchers.app.help": "The app the launcher starts tables with",
   "console.launchers.launcher": {
     "one": "1 launcher",
-    "other": "{count} launchers"
+    "other": "{count:n} launchers"
   },
   "console.launchers.name_example": "e.g. {app} 4K",
   "console.launchers.new_launcher": "New Launcher",
@@ -1877,32 +1877,32 @@
   "console.launchers.remove_detail": "{tables} {kept}",
   "console.launchers.remove_keeps_files": "The program and any file it points at stay where they are.",
   "console.launchers.remove_moves_to": {
-    "one": "{count} table uses it. It will launch with {fallback} instead.",
-    "other": "{count} tables use it. They will launch with {fallback} instead."
+    "one": "{count:n} table uses it. It will launch with {fallback} instead.",
+    "other": "{count:n} tables use it. They will launch with {fallback} instead."
   },
   "console.launchers.remove_split": {
-    "one": "{count} table uses it. Once it is removed:",
-    "other": "{count} tables use it. Once it is removed:"
+    "one": "{count:n} table uses it. Once it is removed:",
+    "other": "{count:n} tables use it. Once it is removed:"
   },
   "console.launchers.remove_split_detail": "{kept} {tables}",
   "console.launchers.remove_strands": {
-    "one": "{count} table uses it, and no other launcher can play it.",
-    "other": "{count} tables use it, and no other launcher can play them."
+    "one": "{count:n} table uses it, and no other launcher can play it.",
+    "other": "{count:n} tables use it, and no other launcher can play them."
   },
   "console.launchers.launchers_menu": "Actions for the selected launchers",
-  "console.launchers.selected": "{picked} of {shown} selected",
+  "console.launchers.selected": "{picked:n} of {shown:n} selected",
   "console.launchers.keep_one": "A device keeps at least one launcher",
   "console.launchers.copy_title_many": {
-    "one": "Copy {count} launcher to which devices?",
-    "other": "Copy {count} launchers to which devices?"
+    "one": "Copy {count:n} launcher to which devices?",
+    "other": "Copy {count:n} launchers to which devices?"
   },
   "console.launchers.remove_many": {
-    "one": "Remove {count} launcher?",
-    "other": "Remove {count} launchers?"
+    "one": "Remove {count:n} launcher?",
+    "other": "Remove {count:n} launchers?"
   },
   "console.launchers.remove_many_tables": {
-    "one": "{count} table uses one of them and goes back to the default.",
-    "other": "{count} tables use them and go back to the default."
+    "one": "{count:n} table uses one of them and goes back to the default.",
+    "other": "{count:n} tables use them and go back to the default."
   },
   "console.launchers.search_launchers": "Search launchers",
   "console.launchers.switched_off": "Switched Off",
@@ -1910,15 +1910,15 @@
   "console.launchers.tables.help": "Tables this launcher plays",
   "console.launchers.default.help": "Tables that name no launcher use this one",
   "console.folders.games": {
-    "one": "{count} game",
-    "other": "{count} games"
+    "one": "{count:n} game",
+    "other": "{count:n} games"
   },
   "console.folders.no_games": "No games",
   "console.folders.one_game": "One game",
   "console.folders.on_server": "on {server}",
   "console.folders.duplicates": {
-    "one": "{count} duplicate",
-    "other": "{count} duplicates"
+    "one": "{count:n} duplicate",
+    "other": "{count:n} duplicates"
   },
   "console.folders.new_games": "New games go here",
   "console.folders.chip_away": "Until it can be reached, adding a game asks where it goes",
@@ -1933,14 +1933,14 @@
   "console.folders.import": "Import a Library",
   "console.folders.add_help": "Add a folder of games, or one game folder",
   "console.folders.import_help": "Import the library another program kept",
-  "console.folders.import_look": "{program}, {count} to look at",
+  "console.folders.import_look": "{program}, {count:n} to look at",
   "console.folders.import_done": "{program}, imported {when}",
   "console.folders.more": "More",
   "console.folders.none_yet": "No folders yet",
   "console.folders.none_yet_help": "Add the folder your games are in, or a new one for the games you add",
   "console.folders.removed": {
     "one": "Removed {path}. Its game left the library, and nothing on disk was touched",
-    "other": "Removed {path}. Its {count} games left the library, and nothing on disk was touched"
+    "other": "Removed {path}. Its {count:n} games left the library, and nothing on disk was touched"
   },
   "console.folders.removed_bare": "Removed {path}. Nothing on disk was touched",
   "console.folders.duplicates_title": "Duplicates in “{path}”",
@@ -1958,7 +1958,7 @@
   "console.logs.read_failed": "Could not read the log",
   "console.logs.digest": "Digest",
   "console.logs.download": "Download",
-  "console.logs.distinct_records": "{count} distinct in {records} records",
+  "console.logs.distinct_records": "{count:n} distinct in {records:n} records",
   "console.logs.find": "Find",
   "console.logs.first_last": "{source} - first {first}, last {last}",
   "console.logs.follow_on": "Following. Click to stop.",
@@ -1984,12 +1984,12 @@
   "console.media.scope.help": "Game - every table of the game can use it\nTable - named for one table",
   "console.media.used_by.help": "How many of this game's tables load this file\n0 - nothing loads it\nBlank - no file to load",
   "console.media.match": "VPS Match",
-  "console.media.media": "{shown} of {count} media",
-  "console.media.media_missing": "{count} media, {gaps} missing",
+  "console.media.media": "{shown:n} of {count:n} media",
+  "console.media.media_missing": "{count:n} media, {gaps:n} missing",
   "console.media.source.help": "Who put the file here, as far as anything recorded it\nUnknown - nothing recorded it\nBlank - there is no file",
   "console.media.rescan": "Read the library from disk again",
   "console.media.search_media": "Search media",
-  "console.media.selected": "{picked} of {shown} selected",
+  "console.media.selected": "{picked:n} of {shown:n} selected",
   "console.media.set_named": "Set: {name}",
   "console.media.kind.help": "Which media kind this row is about",
   "console.media.match.help": "The VPS file this media is for\nBlank - nobody has said",
@@ -2017,7 +2017,7 @@
   "console.media_ownership.stand_tip": "Something else is filling this slot",
   "console.media_ownership.stand": "Stand-in",
   "console.media_ownership.standing": "standing in for it",
-  "console.media_ownership.via_stand": "Standing in from the {borrowed} - this kind has none of its own",
+  "console.media_ownership.via_stand": "Standing in from the {borrowed:n} - this kind has none of its own",
   "console.media_ownership.table": "This table",
   "console.media_ownership.table_2": "just this table",
   "console.media_ownership.from_game": "From the Game",
@@ -2027,12 +2027,12 @@
   "console.media_ownership.unused": "Unused",
   "console.media_ownership.you": "You",
   "console.mediamap.in_spreadsheet": "{offered} in the spreadsheet",
-  "console.mediamap.pages": "{count} pages",
+  "console.mediamap.pages": "{count:n} pages",
   "console.mediamap.no_kind": "No {kind}",
   "console.mediamap.offered_one": "One in the spreadsheet",
   "console.mediamap.differs": {
     "one": "1 table uses something else here",
-    "other": "{count} tables use something else here"
+    "other": "{count:n} tables use something else here"
   },
   "console.mediasource.add_keyed_table.help": "Adds a table played through that launcher and ID, with no file needed",
   "console.mediasource.add_launcher": "Add a Launcher…",
@@ -2083,7 +2083,7 @@
   "console.mediasource.id_example": "mm_109c",
   "console.mediasource.its_games": "Its Games",
   "console.mediasource.label_saved": "{label} saved",
-  "console.mediasource.overflow": "{count} more not shown",
+  "console.mediasource.overflow": "{count:n} more not shown",
   "console.mediasource.find_empty": "No game by that name",
   "console.mediasource.vpsdb_empty": "No game by that name in VPSdb",
   "console.mediasource.no_game_wheels": "None of its games has a wheel",
@@ -2098,8 +2098,8 @@
   "console.mediasource.replace": "Replace the {kind} that is there?",
   "console.mediasource.replace_detail": "Replaced files are deleted, not kept.",
   "console.mediasource.overwrites": {
-    "one": "Replaces {count} file already there",
-    "other": "Replaces {count} files already there"
+    "one": "Replaces {count:n} file already there",
+    "other": "Replaces {count:n} files already there"
   },
   "console.mediasource.save": "Save it as",
   "console.mediasource.saved": "Saved as {chosen_extension}",
@@ -2123,13 +2123,13 @@
   "console.mediapages.later": "Move later",
   "console.mediapages.page": "Page {page}",
   "console.mediapages.remove": "Remove “{name}”?",
-  "console.mediapages.remove_all": "Remove all {count} pages of “{name}”?",
+  "console.mediapages.remove_all": "Remove all {count:n} pages of “{name}”?",
   "console.mediapages.remove_renumbers": "The pages after it move down a number.",
   "console.mediaview.nothing_enlarge": "{label} has nothing to enlarge",
-  "console.mediaview.page_of": "Page {page} of {count}",
+  "console.mediaview.page_of": "Page {page} of {count:n}",
   "console.mediaview.step_back": "Previous page",
   "console.mediaview.step_on": "Next page",
-  "console.mediaview.turn_left":"Turn a quarter left (view only)",
+  "console.mediaview.turn_left": "Turn a quarter left (view only)",
   "console.mediaview.turn_right": "Turn a quarter right (view only)",
   "console.metrics.cannot_read": "cannot be read",
   "console.metrics.collecting": "collecting",
@@ -2160,7 +2160,7 @@
   "console.metrics.memory": "Memory",
   "console.metrics.processor": "Processor",
   "console.metrics.share": "{value:.1f}%",
-  "console.metrics.usage": "{used} of {total}",
+  "console.metrics.usage": "{used} of {total:n}",
   "console.page.assets": "Assets",
   "console.page.collection": "Collection",
   "console.page.devices_failed": "Could not ask the devices",
@@ -2173,12 +2173,12 @@
   "console.page.row_unknown": "Could not work out which game that row is",
   "console.page.device": "Device",
   "console.page.job_outcome": "{what}, {outcome}",
-  "console.page.jobs_unseen": "{count} jobs to look at",
-  "console.page.updates_count": "{count} devices have an update waiting",
+  "console.page.jobs_unseen": "{count:n} jobs to look at",
+  "console.page.updates_count": "{count:n} devices have an update waiting",
   "console.page.drop_hint": "Drop this on a game to add it to that one, or drop a table to make a new game",
   "console.page.failed": "Failed",
   "console.page.import_done": "Import finished",
-  "console.page.import_problems": "Import finished - did not come across: {count}",
+  "console.page.import_problems": "Import finished - did not come across: {count:n}",
   "console.page.import_stopped": "Import stopped",
   "console.page.game": "Game",
   "console.page.workbench_max": "Give the workbench the whole window",
@@ -2190,21 +2190,21 @@
   "console.page.loading_console": "Loading the Console",
   "console.page.matched_all": {
     "one": "Matched 1 new game",
-    "other": "Matched {count} new games"
+    "other": "Matched {count:n} new games"
   },
   "console.page.matched_some": {
-    "one": "Matched {matched} of {total} new games. 1 needs a match.",
-    "other": "Matched {matched} of {total} new games. {count} need a match."
+    "one": "Matched {matched:n} of {total:n} new games. 1 needs a match.",
+    "other": "Matched {matched:n} of {total:n} new games. {count:n} need a match."
   },
   "console.page.matched_waiting_games": {
     "one": "Matched 1 game that needed a match",
-    "other": "Matched {count} games that needed a match"
+    "other": "Matched {count:n} games that needed a match"
   },
   "console.page.media": "Media",
-  "console.page.more_running": "+{count} more",
+  "console.page.more_running": "+{count:n} more",
   "console.page.needs_match": {
     "one": "1 new game needs a match",
-    "other": "{count} new games need a match"
+    "other": "{count:n} new games need a match"
   },
   "console.page.next_game": "Next game",
   "console.page.gone": "No longer in this library",
@@ -2301,10 +2301,10 @@
   "console.theme_sources.add_title": "Add Theme Source",
   "console.theme_sources.address": "Address",
   "console.theme_sources.checking": "Checking...",
-  "console.theme_sources.count_many": "{count} themes",
-  "console.theme_sources.count_one": "{count} theme",
+  "console.theme_sources.count_many": "{count:n} themes",
+  "console.theme_sources.count_one": "{count:n} theme",
   "console.theme_sources.installs": "Installed when VPinFE starts: {names}",
-  "console.theme_sources.is_list": "A list of {count} themes",
+  "console.theme_sources.is_list": "A list of {count:n} themes",
   "console.theme_sources.is_list_one": "A list of 1 theme",
   "console.theme_sources.is_theme": "One theme",
   "console.theme_sources.label": "Sources",
@@ -2329,8 +2329,8 @@
   "console.theme_sources.state.not_theme": "Not a theme",
   "console.theme_sources.state.not_used": "Not used",
   "console.theme_sources.state.some_unreadable": "Some unreadable",
-  "console.theme_sources.took": "{count}, {taken} offered above: {names}",
-  "console.theme_sources.took_note_many": "{count} of these themes are offered by a source above, so those stay as they are",
+  "console.theme_sources.took": "{count:n}, {taken:n} offered above: {names}",
+  "console.theme_sources.took_note_many": "{count:n} of these themes are offered by a source above, so those stay as they are",
   "console.theme_sources.took_note_one": "1 of these themes is offered by a source above, so it stays as it is",
   "console.theme_sources.trust": "A source you add can run programs on this computer. Add only ones you trust.",
   "console.view.backups_games": "Games",
@@ -2368,7 +2368,7 @@
   "console.players.game_gone": "A game no longer in the library",
   "console.players.session_total": {
     "one": "1 game this session",
-    "other": "{count} games this session"
+    "other": "{count:n} games this session"
   },
   "console.players.guest": "Guest",
   "console.players.guest.help": "Forgotten when VPinFE closes",
@@ -2393,12 +2393,12 @@
   "console.players.owner_up_alone": "The next game counts for the owner while nobody else is up",
   "console.players.played": {
     "one": "1 play · {time} · {when}",
-    "other": "{count} plays · {time} · {when}"
+    "other": "{count:n} plays · {time} · {when}"
   },
   "console.players.player": "Player",
   "console.players.players_count": {
     "one": "1 player",
-    "other": "{count} players"
+    "other": "{count:n} players"
   },
   "console.players.picture": "Picture",
   "console.players.picture.help": "Shown beside their name",
@@ -2432,18 +2432,18 @@
   "console.players.share_needs_initials": "Add initials in Details first to share",
   "console.players.show": "Show",
   "console.players.players_menu": "Actions for the selected players",
-  "console.players.selected": "{picked} of {shown} selected",
+  "console.players.selected": "{picked:n} of {shown:n} selected",
   "console.players.remove_several": {
-    "one": "Remove {count} player?",
-    "other": "Remove {count} players?"
+    "one": "Remove {count:n} player?",
+    "other": "Remove {count:n} players?"
   },
   "console.players.remove_cards_detail": {
-    "one": "{count} holds a card, and without it that account can never be used again",
-    "other": "{count} hold a card, and without it that account can never be used again"
+    "one": "{count:n} holds a card, and without it that account can never be used again",
+    "other": "{count:n} hold a card, and without it that account can never be used again"
   },
   "console.players.sign_out_several": {
-    "one": "Sign out {count} player?",
-    "other": "Sign out {count} players?"
+    "one": "Sign out {count:n} player?",
+    "other": "Sign out {count:n} players?"
   },
   "console.players.show.help": "Show the card large, to scan with a phone",
   "console.players.sign_out": "Sign Out",
@@ -2462,8 +2462,8 @@
   "console.players.user_id": "User ID",
   "console.players.waiting": "Waiting",
   "console.players.waiting_count": {
-    "one": "{count} game waiting",
-    "other": "{count} games waiting"
+    "one": "{count:n} game waiting",
+    "other": "{count:n} games waiting"
   },
   "console.players.your_page": "Your Page",
   "console.players.your_page.help": "Your public page on {service}",
@@ -2488,28 +2488,28 @@
   "console.purpose.metrics": "What this device is doing right now",
   "console.purpose.overview": "What needs you, and what has been happening",
   "console.purpose.page": "From {name}",
-  "console.purpose.players":"Pick who is up. A score goes to the player whose initials match.",
+  "console.purpose.players": "Pick who is up. A score goes to the player whose initials match.",
   "console.purpose.settings": "How VPinFE behaves on this device",
   "console.purpose.tables": "One row per table file, even when a game has several",
   "console.purpose.tags": "Your own words for grouping games",
   "console.purpose.themes": "How the frontend looks, and which themes you have",
   "console.record.about_minutes": {
     "one": "About 1 min",
-    "other": "About {count} min"
+    "other": "About {count:n} min"
   },
-  "console.record.asks_about": "asks about {count}",
+  "console.record.asks_about": "asks about {count:n}",
   "console.record.could_not_discard": "Couldn't throw it away",
   "console.record.could_not_read": "Couldn't read what would be recorded",
   "console.record.waiting_failed": "Couldn't read the recordings waiting",
   "console.record.waiting_here": {
     "one": "Recording waiting, {size}",
-    "other": "{count} recordings waiting, {size}"
+    "other": "{count:n} recordings waiting, {size}"
   },
   "console.record.could_not_record": "Couldn't record",
   "console.record.could_not_start": "Couldn't start recording",
   "console.record.could_not_use": "Couldn't place the recording",
-  "console.record.count_from": "{count} from {source}",
-  "console.record.count_yours": "{count} of yours",
+  "console.record.count_from": "{count:n} from {source}",
+  "console.record.count_yours": "{count:n} of yours",
   "console.record.current": "Current",
   "console.record.device_default": "Device default: {value}",
   "console.record.discard": "Discard",
@@ -2527,22 +2527,22 @@
   "console.record.existing.replace_downloaded.description": "Also replaces what VPinFE downloaded, and leaves your own files",
   "console.record.failed_games": {
     "one": "{reason}: 1 game",
-    "other": "{reason}: {count} games"
+    "other": "{reason}: {count:n} games"
   },
   "console.record.failed_kinds": "{kinds}: {reason}",
   "console.record.file_from": "{file} - {source}",
   "console.record.fills": {
     "one": "Fills 1",
-    "other": "Fills {count}"
+    "other": "Fills {count:n}"
   },
   "console.record.fills_none": "Fills none",
   "console.record.have_one": {
     "one": "1 has one",
-    "other": "{count} have one"
+    "other": "{count:n} have one"
   },
   "console.record.media": "Media",
-  "console.record.missing": "{count} missing",
-  "console.record.missing_have": "{missing}, {have}",
+  "console.record.missing": "{count:n} missing",
+  "console.record.missing_have": "{missing:n}, {have:n}",
   "console.record.new_recording": "New recording",
   "console.record.nothing_there": "Nothing there yet",
   "console.record.empty": "Nothing to record",
@@ -2551,22 +2551,22 @@
   "console.record.record_media": "Record Media...",
   "console.record.recorded": {
     "one": "Recorded 1 file",
-    "other": "Recorded {count} files"
+    "other": "Recorded {count:n} files"
   },
-  "console.record.recorded_failed": "{recorded}, {failed} failed",
+  "console.record.recorded_failed": "{recorded:n}, {failed:n} failed",
   "console.record.recording_for": {
     "one": "Recording, about 1 min",
-    "other": "Recording, about {count} min"
+    "other": "Recording, about {count:n} min"
   },
   "console.record.replace_ask": {
     "one": "Replace 1 file?",
-    "other": "Replace {count} files?"
+    "other": "Replace {count:n} files?"
   },
   "console.record.replace_detail": "Each is deleted when its recording is placed",
-  "console.record.replaces_downloaded": "replaces {count} downloaded",
+  "console.record.replaces_downloaded": "replaces {count:n} downloaded",
   "console.record.replaces_none": "replaces none",
-  "console.record.replaces_some_yours": "replaces {count}, {yours} of them yours",
-  "console.record.replaces_yours": "replaces {count} of yours",
+  "console.record.replaces_some_yours": "replaces {count:n}, {yours} of them yours",
+  "console.record.replaces_yours": "replaces {count:n} of yours",
   "console.record.review": "Review",
   "console.record.review.help": "Opens each recording so you can use it or throw it away",
   "console.record.review_at": "{at} of {of}",
@@ -2574,16 +2574,16 @@
   "console.record.run_paused": "Recording paused at {at} of {of}",
   "console.record.run_recorded": {
     "one": "Recorded 1 game",
-    "other": "Recorded {count} games"
+    "other": "Recorded {count:n} games"
   },
   "console.record.run_stopped": "Recording stopped at {at} of {of}",
   "console.record.run_waiting": {
     "one": "{said}, 1 waits for a decision",
-    "other": "{said}, {count} wait for a decision"
+    "other": "{said}, {count:n} wait for a decision"
   },
   "console.record.still_waiting": {
     "one": "1 recording still waiting",
-    "other": "{count} recordings still waiting"
+    "other": "{count:n} recordings still waiting"
   },
   "console.record.said_detail": "{said} ({detail})",
   "console.record.save_defaults": "Save as Device Defaults",
@@ -2596,17 +2596,17 @@
   "console.record.title": "Record Media for “{name}”",
   "console.record.title_games": {
     "one": "Record Media for 1 Game",
-    "other": "Record Media for {count} Games"
+    "other": "Record Media for {count:n} Games"
   },
   "console.record.title_missing": {
     "one": "Record Missing Media for 1 Game",
-    "other": "Record Missing Media for {count} Games"
+    "other": "Record Missing Media for {count:n} Games"
   },
   "console.record.title_missing_one": "Record Missing Media for “{name}”",
   "console.record.title_table": "Record Media for “{name}” - {table}",
   "console.record.title_tables": {
     "one": "Record Media for 1 Table",
-    "other": "Record Media for {count} Tables"
+    "other": "Record Media for {count:n} Tables"
   },
   "console.record.touches": "{fills} - {then}",
   "console.record.use_this": "Use This",
@@ -2631,7 +2631,7 @@
   "console.recording.discard_all.help": "Deletes every recording waiting from this device, without reviewing them",
   "console.recording.discard_ask": {
     "one": "Throw away the recording waiting?",
-    "other": "Throw away {count} recordings waiting?"
+    "other": "Throw away {count:n} recordings waiting?"
   },
   "console.recording.discard_detail": "They are deleted from this device. Nothing in the library changes",
   "console.recording.vp9_offer": "Or record this device's media as VP9, which it plays",
@@ -2642,10 +2642,10 @@
   "console.recording.waiting": "Waiting for a Decision",
   "console.recording.waiting_are": {
     "one": "1 recording, {size}",
-    "other": "{count} recordings, {size}"
+    "other": "{count:n} recordings, {size}"
   },
   "console.recording.waiting_for": "{name} - {kind}",
-  "console.recording.waiting_more": "and {count} more",
+  "console.recording.waiting_more": "and {count:n} more",
   "console.remote.add_collection": "Add to Collection",
   "console.remote.added": "Added to “{name}”",
   "console.remote.after": "After",
@@ -2676,7 +2676,7 @@
   "console.remote.loading": "Loading",
   "console.remote.menu": "Menu",
   "console.remote.missing_only": "Missing Only",
-  "console.remote.search_more": "{left} more - keep typing",
+  "console.remote.search_more": "{left:n} more - keep typing",
   "console.remote.manual_empty": "No hand-picked collections yet",
   "console.remote.no_kinds": "No {kinds}",
   "console.remote.not_answering": "{target_name} is not answering",
@@ -2704,8 +2704,8 @@
   "console.remote.recording": "Recording",
   "console.remote.recording_paused": "Recording paused",
   "console.remote.recordings": {
-    "one": "{count} recording",
-    "other": "{count} recordings"
+    "one": "{count:n} recording",
+    "other": "{count:n} recordings"
   },
   "console.remote.remove_favorite": "Remove Favorite",
   "console.remote.replace": "Replace",
@@ -2734,7 +2734,7 @@
   "console.remote.new_code_hint": "Make a new Remote Code. Phones that used the old one sign out",
   "console.remote.new_code_question": "Make a new Remote Code?",
   "console.remote.new_code_detail": "Phones that used the old code are signed out. Scan the new one to come back.",
-  "console.remote.new_code_made": "Phones signed out: {count}",
+  "console.remote.new_code_made": "Phones signed out: {count:n}",
   "console.renderers.chips": "Chips",
   "console.renderers.image": "Picture",
   "console.renderers.link": "Link",
@@ -2795,17 +2795,17 @@
   "console.section.themes": "Themes",
   "console.sections.already_run": ", and {already} already run one",
   "console.sections.upgrade_confirm": "Bring every game onto the current format?",
-  "console.sections.fixable": "{count} of {checked} can take a published fix: {shown}",
+  "console.sections.fixable": "{count:n} of {checked:n} can take a published fix: {shown:n}",
   "console.sections.fetch_failed": "Could not fetch the fixes",
   "console.sections.unreadable_one": "1 could not be read, so that game is not in your library",
-  "console.sections.unreadable_many": "{count} could not be read, so those games are not in your library",
+  "console.sections.unreadable_many": "{count:n} could not be read, so those games are not in your library",
   "console.sections.upgrade_count_failed": {
     "one": "Could not upgrade 1 game",
-    "other": "Could not upgrade {count} games"
+    "other": "Could not upgrade {count:n} games"
   },
   "console.sections.could_not_write": {
     "one": "1 could not be written, so its changes last until VPinFE restarts",
-    "other": "{count} could not be written, so their changes last until VPinFE restarts"
+    "other": "{count:n} could not be written, so their changes last until VPinFE restarts"
   },
   "console.sections.rom_missing": "Missing ROM",
   "console.sections.backup_note": "Each game's metadata file is copied first, so this can be undone",
@@ -2814,12 +2814,12 @@
   "console.sections.format_current": "Every game is on the current format",
   "console.sections.fetch_confirm": {
     "one": "Fetch fixes for 1 table?",
-    "other": "Fetch fixes for {count} tables?"
+    "other": "Fetch fixes for {count:n} tables?"
   },
   "console.sections.fetching_way": "Fetching under way",
   "console.sections.format": "Format",
   "console.sections.playfield_empty": "The frontend has nothing to show on the playfield screen for these games",
-  "console.sections.held_of_games": "{held} of {total}",
+  "console.sections.held_of_games": "{held:n} of {total:n}",
   "console.sections.index_unreachable": "The index could not be reached, so nothing has been checked",
   "console.sections.more": "{names} and more",
   "console.sections.newer_build": "Newer than this build",
@@ -2829,17 +2829,17 @@
   "console.sections.year_missing": "No Year",
   "console.sections.unlisted": {
     "one": "1 game is not in your library",
-    "other": "{count} games are not in your library"
+    "other": "{count:n} games are not in your library"
   },
   "console.sections.not_written": {
     "one": "1 game could not be written",
-    "other": "{count} games could not be written"
+    "other": "{count:n} games could not be written"
   },
-  "console.sections.no_matches": "Nothing published matches your tables ({checked} checked{running})",
+  "console.sections.no_matches": "Nothing published matches your tables ({checked:n} checked{running})",
   "console.sections.nothing_found": "No media of any kind. The folder may be empty",
   "console.sections.older_format": {
     "one": "1 game is on an older format",
-    "other": "{count} games are on an older format"
+    "other": "{count:n} games are on an older format"
   },
   "console.sections.readable": "Readable",
   "console.sections.script_fixes": "Table Script Fixes",
@@ -2849,11 +2849,11 @@
   "console.sections.show": "Show",
   "console.sections.library": "Library",
   "console.sections.games_with": "Games That Have",
-  "console.sections.kind_tip": "{held} of {total} games have {kind}. Click to show the {without} without.",
-  "console.sections.kind_all": "All {total} games have {kind}",
+  "console.sections.kind_tip": "{held:n} of {total:n} games have {kind}. Click to show the {without} without.",
+  "console.sections.kind_all": "All {total:n} games have {kind}",
   "console.sections.none_have": {
     "one": "No game has this kind: {kinds}",
-    "other": "No game has these {count}: {kinds}"
+    "other": "No game has these {count:n}: {kinds}"
   },
   "console.sections.hide_kinds": "Hide These Kinds",
   "console.sections.hide_kinds.help": "Stops collecting these kinds; Settings can switch them back on",
@@ -2870,7 +2870,7 @@
   "console.sections.no_tables_why": "Drop a table file on the game, or look one up on Virtual Pinball Spreadsheet",
   "console.sections.no_tables_line": {
     "one": "1 game has no table",
-    "other": "{count} games have no table"
+    "other": "{count:n} games have no table"
   },
   "console.sections.year_sort": "Sorting and filtering by year will place these games arbitrarily",
   "console.sections.unmatched": "Unmatched",
@@ -2901,8 +2901,8 @@
   "console.needs.unaccepted.tip": "It's unofficial and waiting for you to accept it",
   "console.needs.asked": "“{program}” wants to make a change",
   "console.needs.asked.tip": {
-    "one": "{change} - approving lets it repeat this once, within {count} minute",
-    "other": "{change} - approving lets it repeat this once, within {count} minutes"
+    "one": "{change} - approving lets it repeat this once, within {count:n} minute",
+    "other": "{change} - approving lets it repeat this once, within {count:n} minutes"
   },
   "console.needs.approve": "Approve",
   "console.needs.approve.help": "Let it make this one change",
@@ -2918,12 +2918,12 @@
   "console.needs.unread_extensions": "what extensions ask for",
   "console.needs.unread_unaccepted": "what is waiting for you to accept",
   "console.needs.folders": {
-    "one": "{count} folder",
-    "other": "{count} folders"
+    "one": "{count:n} folder",
+    "other": "{count:n} folders"
   },
   "console.needs.recordings_count": {
-    "one": "{count} recording",
-    "other": "{count} recordings"
+    "one": "{count:n} recording",
+    "other": "{count:n} recordings"
   },
   "console.needs.back.rom_missing": "Comes back when another table is missing its ROM",
   "console.needs.back.launchers": "Comes back if it breaks again",
@@ -2954,10 +2954,10 @@
   "console.needs.show_again.help": "Put this back among the rows that need you",
   "console.needs.check_again.help": "Turn this check back on",
   "console.needs.row_menu": "Options for this row",
-  "console.needs.set_aside": "Set Aside ({count})",
-  "console.needs.new": "{count} New",
+  "console.needs.set_aside": "Set Aside ({count:n})",
+  "console.needs.new": "{count:n} New",
   "console.needs.new.tip": "Opens only what came in since you dismissed this",
-  "console.needs.fix_new": "{fix} for the {count} New",
+  "console.needs.fix_new": "{fix} for the {count:n} New",
   "console.needs.said_dismissed": "{label} dismissed",
   "console.needs.said_skipped": "Skipping this version",
   "console.needs.said_stopped": "Stopped checking {label}",
@@ -2968,14 +2968,14 @@
   "console.sections.upgrade_failed": "The upgrade failed",
   "console.sections.upgraded": {
     "one": "Upgraded 1 game",
-    "other": "Upgraded {count} games"
+    "other": "Upgraded {count:n} games"
   },
-  "console.sections.upgraded_some": "Upgraded {done} of {total} games",
+  "console.sections.upgraded_some": "Upgraded {done:n} of {total:n} games",
   "console.sections.way": "{word} under way",
   "console.sections.written_later": "{newer} were written by a later version of VPinFE. This build reads what it understands and leaves the rest alone.",
   "console.sections.written_older": {
     "one": "1 was written by an older build and can be brought forward",
-    "other": "{count} were written by an older build and can be brought forward"
+    "other": "{count:n} were written by an older build and can be brought forward"
   },
   "console.send_to_device.devices_failed": "Could not read the devices",
   "console.send_to_device.device": "A device",
@@ -2987,12 +2987,12 @@
   "console.send_to_device.send_device": "Send to which device?",
   "console.send_to_device.send_games": {
     "one": "Send 1 game to “{device}”?",
-    "other": "Send {count} games to “{device}”?"
+    "other": "Send {count:n} games to “{device}”?"
   },
-  "console.send_to_device.sending": "Sending {count} to {device}",
+  "console.send_to_device.sending": "Sending {count:n} to {device}",
   "console.send_to_device.mobile_settings": {
     "one": "This game's mobile settings file replaces the device's",
-    "other": "{count} of them send a mobile settings file, replacing the device's"
+    "other": "{count:n} of them send a mobile settings file, replacing the device's"
   },
   "console.send_to_device.send_detail": "The table, its backglass and ROM go across. Settings and media stay here.",
   "console.send_to_device.with_settings": "Send with Settings",
@@ -3072,8 +3072,8 @@
   "console.security.wants": "A browser at “{address}” wants to sign in",
   "console.security.asks": "“{program}” wants to make a change",
   "console.security.asks_lapse": {
-    "one": "Lapses in {count} minute",
-    "other": "Lapses in {count} minutes"
+    "one": "Lapses in {count:n} minute",
+    "other": "Lapses in {count:n} minutes"
   },
   "console.security.asks_close_hint": "Close this. It stays in Needs You",
   "console.security.idle": "Unused for 90 days signs out on its own",
@@ -3200,29 +3200,29 @@
   "console.setup.tables.folder_help": "Visual Pinball's Tables folder, or one of your own",
   "console.setup.tables.folder_placeholder": "Choose a folder",
   "console.setup.tables.found_folders": {
-    "one": "{count} table, in a folder of its own",
-    "other": "{count} tables, each in a folder of its own"
+    "one": "{count:n} table, in a folder of its own",
+    "other": "{count:n} tables, each in a folder of its own"
   },
   "console.setup.tables.found_folders_help": "Used where they are. Nothing is copied or moved.",
   "console.setup.tables.found_loose": {
-    "one": "{count} table, loose in this folder",
-    "other": "{count} tables, loose in this folder"
+    "one": "{count:n} table, loose in this folder",
+    "other": "{count:n} tables, loose in this folder"
   },
   "console.setup.tables.found_loose_help": "Each gets a folder of its own on the next step.",
   "console.setup.tables.found_mixed": {
-    "one": "{count} table in a folder of its own, {loose} loose",
-    "other": "{count} tables in folders of their own, {loose} loose"
+    "one": "{count:n} table in a folder of its own, {loose:n} loose",
+    "other": "{count:n} tables in folders of their own, {loose:n} loose"
   },
   "console.setup.tables.found_mixed_help": {
     "one": "The loose one gets a folder of its own on the next step.",
-    "other": "The {count} loose ones each get a folder of their own on the next step."
+    "other": "The {count:n} loose ones each get a folder of their own on the next step."
   },
   "console.setup.tables.found_none": "No tables in this folder",
   "console.setup.tables.frontend": "In another frontend",
   "console.setup.tables.frontend_help": "PinUP Popper, PinballX or PinballY",
   "console.setup.tables.have": {
-    "one": "{count} game",
-    "other": "{count} games"
+    "one": "{count:n} game",
+    "other": "{count:n} games"
   },
   "console.setup.tables.new_placeholder": "Choose a folder",
   "console.setup.tables.none": "None yet",
@@ -3268,8 +3268,8 @@
   "console.tageditor.duplicate": "Already a tag",
   "console.tageditor.delete": "Delete “{tag}”?",
   "console.tageditor.delete_detail": {
-    "one": "It is on {count} game. Its description and color go too.",
-    "other": "It is on {count} games. Its description and color go too."
+    "one": "It is on {count:n} game. Its description and color go too.",
+    "other": "It is on {count:n} games. Its description and color go too."
   },
   "console.tageditor.deleted": "Deleted “{tag}”",
   "console.tageditor.merge_note": "Merging turns these spellings into the most-used one",
@@ -3277,7 +3277,7 @@
   "console.tageditor.rename_hint": "Every game carrying it is retagged",
   "console.tageditor.game_changed": {
     "one": "{said} - 1 game changed",
-    "other": "{said} - {count} games changed"
+    "other": "{said} - {count:n} games changed"
   },
   "console.tageditor.games": "Games",
   "console.tageditor.games.help": "Games carrying this tag",
@@ -3299,32 +3299,32 @@
   "console.tageditor.tables.help": "Tables carrying this tag of their own",
   "console.tageditor.tag": "Tag",
   "console.tageditor.tag.help": "Renaming this renames it everywhere",
-  "console.tageditor.tag_game": "{tag} - {count} game",
-  "console.tageditor.tag_games": "{tag} - {count} games",
-  "console.tageditor.tag_used": "{tag} ({games})",
+  "console.tageditor.tag_game": "{tag} - {count:n} game",
+  "console.tageditor.tag_games": "{tag} - {count:n} games",
+  "console.tageditor.tag_used": "{tag} ({games:n})",
   "console.tageditor.tags": "Tags",
   "console.tageditor.tags_counted": {
-    "one": "{count} tag",
-    "other": "{count} tags"
+    "one": "{count:n} tag",
+    "other": "{count:n} tags"
   },
   "console.tageditor.tags_of": {
-    "one": "{shown} of {count} tag",
-    "other": "{shown} of {count} tags"
+    "one": "{shown:n} of {count:n} tag",
+    "other": "{shown:n} of {count:n} tags"
   },
-  "console.tageditor.selected": "{picked} of {shown} selected",
+  "console.tageditor.selected": "{picked:n} of {shown:n} selected",
   "console.tageditor.tags_menu": "Actions for the selected tags",
   "console.tageditor.renamed_several": {
-    "one": "{count} tag renamed",
-    "other": "{count} tags renamed"
+    "one": "{count:n} tag renamed",
+    "other": "{count:n} tags renamed"
   },
   "console.tageditor.delete_several": {
-    "one": "Delete {count} tag?",
-    "other": "Delete {count} tags?"
+    "one": "Delete {count:n} tag?",
+    "other": "Delete {count:n} tags?"
   },
   "console.tageditor.delete_several_detail": "Every game carrying one loses it. Their descriptions and colors go too.",
   "console.tageditor.deleted_several": {
-    "one": "{count} tag deleted",
-    "other": "{count} tags deleted"
+    "one": "{count:n} tag deleted",
+    "other": "{count:n} tags deleted"
   },
   "console.tageditor.two_spellings": "Two Spellings",
   "console.tageditor.two_spellings.help": "Another tag is the same word in different case or spacing",
@@ -3345,19 +3345,19 @@
   "console.tags.from.help": "The extension list that puts it on",
   "console.tags.from_source": "From {source}",
   "console.tags.games_counted": {
-    "one": "Games ({count})",
-    "other": "Games ({count})"
+    "one": "Games ({count:n})",
+    "other": "Games ({count:n})"
   },
   "console.tags.merge_into": "Merge Into",
   "console.tags.never_read": "Not read yet",
   "console.tags.on_games": {
-    "one": "On {count} game",
-    "other": "On {count} games"
+    "one": "On {count:n} game",
+    "other": "On {count:n} games"
   },
   "console.tags.on_no_games": "Not on any game yet",
   "console.tags.on_tables": {
-    "one": "On {count} table",
-    "other": "On {count} tables"
+    "one": "On {count:n} table",
+    "other": "On {count:n} tables"
   },
   "console.tags.read": "Read {ago}",
   "console.tags.source": "{extension}: {title}",
@@ -3377,7 +3377,7 @@
   "console.themes.type_json": "Expected: JSON - an object, an array, or a single value",
   "console.themes.expected_number": "Expected: a number",
   "console.themes.type_range": "Expected: a number between {low} and {high}",
-  "console.themes.type_choice": "Expected: one of {count} choices",
+  "console.themes.type_choice": "Expected: one of {count:n} choices",
   "console.themes.expected_text": "Expected: text",
   "console.themes.type_lines": "Expected: text, over as many lines as you like",
   "console.themes.uninstall_detail": {
@@ -3395,7 +3395,7 @@
   "console.themes.none_listed": "No themes to list",
   "console.themes.add_theme": "Add Theme",
   "console.themes.sources_bad_one": "1 theme source could not be read",
-  "console.themes.sources_bad_many": "{count} theme sources could not be read",
+  "console.themes.sources_bad_many": "{count:n} theme sources could not be read",
   "console.themes.sources_review": "Review in Settings",
   "console.themes.not_installed": "Not installed",
   "console.themes.not_json": "{name} is not JSON",
@@ -3410,19 +3410,19 @@
   "console.themes.theme": "Theme",
   "console.themes.theme.help": "The theme's name, with its author and version beneath",
   "console.themes.themes": {
-    "one": "{count} theme",
-    "other": "{count} themes"
+    "one": "{count:n} theme",
+    "other": "{count:n} themes"
   },
-  "console.themes.themes_of": "{shown} of {count} themes",
+  "console.themes.themes_of": "{shown:n} of {count:n} themes",
   "console.themes.themes_menu": "Actions for the selected themes",
-  "console.themes.selected": "{picked} of {shown} selected",
+  "console.themes.selected": "{picked:n} of {shown:n} selected",
   "console.themes.uninstall_many": {
-    "one": "Uninstall {count} theme?",
-    "other": "Uninstall {count} themes?"
+    "one": "Uninstall {count:n} theme?",
+    "other": "Uninstall {count:n} themes?"
   },
   "console.themes.uninstalled_many": {
-    "one": "{count} theme uninstalled",
-    "other": "{count} themes uninstalled"
+    "one": "{count:n} theme uninstalled",
+    "other": "{count:n} themes uninstalled"
   },
   "console.themes.uninstall": "Uninstall “{name}”?",
   "console.themes.uninstalled": "{name} uninstalled",
@@ -3453,7 +3453,7 @@
   "console.uploads.nothing_import": "Nothing to import",
   "console.uploads.empty": "Nothing to upload",
   "console.uploads.reading": "Reading…",
-  "console.uploads.reading_2": "Reading {done} of {total}…",
+  "console.uploads.reading_2": "Reading {done:n} of {total:n}…",
   "console.view.answering": "Answering",
   "console.view.assets": "Assets",
   "console.view.backups_deleted": "Deleted",
@@ -3507,38 +3507,38 @@
   "console.release_match.no_match": "No release matches “{said}”",
   "console.release_match.files_no_match": "No file matches “{said}”",
   "console.release_match.count": {
-    "one": "{count} release",
-    "other": "{count} releases"
+    "one": "{count:n} release",
+    "other": "{count:n} releases"
   },
   "console.release_match.count_kind": {
-    "one": "{count} {format} release",
-    "other": "{count} {format} releases"
+    "one": "{count:n} {format} release",
+    "other": "{count:n} {format} releases"
   },
   "console.release_match.files_count": {
-    "one": "{count} file",
-    "other": "{count} files"
+    "one": "{count:n} file",
+    "other": "{count:n} files"
   },
-  "console.release_match.of_count": "{shown} of {total}",
+  "console.release_match.of_count": "{shown:n} of {total:n}",
   "console.release_match.none_fit": "VPS lists no {format} release for this game",
   "console.release_match.none_fit_any": "VPS lists no release this app plays",
   "console.release_match.updated": "Updated {when}",
-  "console.release_match.and_more": "{names} +{count}",
+  "console.release_match.and_more": "{names} +{count:n}",
   "console.release_match.released": "Released {when}",
   "console.vps_match.clear_match": "Clear Match",
   "console.vps_match.set_failed": "Could not set that match",
   "console.vps_match.title": "Find a Match",
   "console.vps_match.find_another": "Find Another",
   "console.vps_match.found": {
-    "one": "{count} found",
-    "other": "{count} found"
+    "one": "{count:n} found",
+    "other": "{count:n} found"
   },
   "console.vps_match.go_back": "Go back to the auto-match",
   "console.vps_match.restore_earlier": "Go back to your earlier match",
-  "console.walk.position": "{index} of {total}",
+  "console.walk.position": "{index:n} of {total:n}",
   "console.vps_match.match_named": "Match “{name}” to Virtual Pinball Spreadsheet",
   "console.vps_match.match_set": {
     "one": "1 match set",
-    "other": "{count} matches set"
+    "other": "{count:n} matches set"
   },
   "console.vps_match.pick": "Match to This",
   "console.vps_match.matched_to": "Matched To",
@@ -3573,7 +3573,7 @@
   "console.vpx_input.defaults": "Visual Pinball's defaults",
   "console.waiting.changes": {
     "one": "1 change waiting",
-    "other": "{count} changes waiting"
+    "other": "{count:n} changes waiting"
   },
   "console.waiting.could_not_undo": "Could not put the settings back",
   "console.waiting.dismiss": "Dismiss",
@@ -3589,12 +3589,12 @@
   "console.waiting.undo_help": "Puts these settings back to what VPinFE is running with",
   "console.whats_new.file.collection_order.done": {
     "one": "1 collection keeps the order it was showing",
-    "other": "{count} collections keep the order they were showing"
+    "other": "{count:n} collections keep the order they were showing"
   },
   "console.whats_new.file.collection_order.label": "Collection Order",
   "console.whats_new.file.info_upgrade.done": {
     "one": "1 game's metadata brought onto the current format",
-    "other": "{count} games' metadata brought onto the current format"
+    "other": "{count:n} games' metadata brought onto the current format"
   },
   "console.whats_new.file.info_upgrade.label": "Game Metadata",
   "console.whats_new.file.last_played.done": "Now worked out from what you have played",
@@ -3605,7 +3605,7 @@
   "console.whats_new.file.theme_texal_flyer.label": "Texal-Flyer",
   "console.whats_new.file.theme_update.done": {
     "one": "1 theme brought onto its 3.0 version",
-    "other": "{count} themes brought onto their 3.0 versions"
+    "other": "{count:n} themes brought onto their 3.0 versions"
   },
   "console.whats_new.file.theme_update.label": "Themes",
   "console.whats_new.files_undo": "A game whose metadata was changed has the copy it had before beside it",
@@ -3638,7 +3638,7 @@
   "console.workbench.not_created": "Not created yet",
   "console.workbench.page_by.same": "Same as Settings ({choice})",
   "console.workbench.assets": "Assets",
-  "console.workbench.assets_2": "Assets ({have})",
+  "console.workbench.assets_2": "Assets ({have:n})",
   "console.workbench.back_to": "Back to {value} - {whose}",
   "console.workbench.back_link": "Back to {whose}",
   "console.workbench.cancel_rules.help": "Drops these unsaved rule changes",
@@ -3650,25 +3650,25 @@
   "console.workbench.nvram_clear": "Clear NVRAM on Exit",
   "console.workbench.cleared_match": "You cleared the match, so VPinFE leaves this game unmatched",
   "console.workbench.collections": "Collections",
-  "console.workbench.collections_counted": "Collections ({count})",
+  "console.workbench.collections_counted": "Collections ({count:n})",
   "console.workbench.commands": "Commands",
   "console.workbench.conflict": "Conflict",
   "console.workbench.conflict_hint": "{rival} is on too, and a table uses only one of them. Switch one off.",
   "console.workbench.convert": "Convert",
   "console.workbench.convert_detail": {
-    "one": "It keeps the {count} game it shows now and stops updating.",
-    "other": "It keeps the {count} games it shows now and stops updating."
+    "one": "It keeps the {count:n} game it shows now and stops updating.",
+    "other": "It keeps the {count:n} games it shows now and stops updating."
   },
   "console.workbench.convert_static": "Convert to Hand-Picked",
   "console.workbench.convert_question": "Convert “{name}” to hand-picked?",
   "console.workbench.converted": "“{name}” is hand-picked now",
   "console.workbench.converted_several": {
-    "one": "{count} collection is hand-picked now",
-    "other": "{count} collections are hand-picked now"
+    "one": "{count:n} collection is hand-picked now",
+    "other": "{count:n} collections are hand-picked now"
   },
   "console.workbench.convert_several": {
-    "one": "Convert {count} collection to hand-picked?",
-    "other": "Convert {count} collections to hand-picked?"
+    "one": "Convert {count:n} collection to hand-picked?",
+    "other": "Convert {count:n} collections to hand-picked?"
   },
   "console.workbench.convert_several_detail": "Each keeps the games it shows now and stops updating.",
   "console.workbench.copied": "Copied in",
@@ -3693,24 +3693,24 @@
   "console.workbench.save_failed": "Could not save",
   "console.workbench.lookup_failed": "Could not work that out",
   "console.workbench.count_games": {
-    "one": "{count} game",
-    "other": "{count} games"
+    "one": "{count:n} game",
+    "other": "{count:n} games"
   },
   "console.workbench.count_hidden": {
-    "one": "{count} game · {hidden} hidden",
-    "other": "{count} games · {hidden} hidden"
+    "one": "{count:n} game · {hidden:n} hidden",
+    "other": "{count:n} games · {hidden:n} hidden"
   },
   "console.workbench.count_both": {
-    "one": "{count} game · {hidden} hidden · {taken} removed",
-    "other": "{count} games · {hidden} hidden · {taken} removed"
+    "one": "{count:n} game · {hidden:n} hidden · {taken:n} removed",
+    "other": "{count:n} games · {hidden:n} hidden · {taken:n} removed"
   },
   "console.workbench.count_removed": {
-    "one": "{count} game · {taken} removed",
-    "other": "{count} games · {taken} removed"
+    "one": "{count:n} game · {taken:n} removed",
+    "other": "{count:n} games · {taken:n} removed"
   },
   "console.workbench.launch_count": {
-    "one": "{count} launches with {name}",
-    "other": "{count} launch with {name}"
+    "one": "{count:n} launches with {name}",
+    "other": "{count:n} launch with {name}"
   },
   "console.workbench.default_another": "Make another launcher the default instead",
   "console.workbench.default_help": "{app} tables use this launcher unless they name another",
@@ -3718,11 +3718,11 @@
   "console.workbench.default_needs_program": "“{name}” has no program",
   "console.workbench.delete_question": {
     "one": "Delete the script beside this table?",
-    "other": "Delete the scripts beside {count} tables?"
+    "other": "Delete the scripts beside {count:n} tables?"
   },
   "console.workbench.delete_done": {
     "one": "Deleted - the table runs its own script",
-    "other": "Deleted - {count} tables run their own scripts"
+    "other": "Deleted - {count:n} tables run their own scripts"
   },
   "console.workbench.description": "Description",
   "console.workbench.details": "Details",
@@ -3730,7 +3730,7 @@
   "console.workbench.details_new": "New",
   "console.workbench.no_launcher": "This device has no launcher",
   "console.workbench.launcher_hint": "This device has no launcher. Add one under Frontend - Launchers.",
-  "console.workbench.changed_filter_count": "Changed ({count})",
+  "console.workbench.changed_filter_count": "Changed ({count:n})",
   "console.workbench.changed_filter.help": "Only the settings whose value is not {app}'s default",
   "console.workbench.changed_filter.none": "Nothing here differs from {app}'s default",
   "console.workbench.changed_from": "Changed from {value} - {whose}",
@@ -3749,15 +3749,15 @@
   "console.workbench.extract": "Extract",
   "console.workbench.extract_done": {
     "one": "Extracted - the table now runs the .vbs",
-    "other": "Extracted - {count} tables now run their .vbs"
+    "other": "Extracted - {count:n} tables now run their .vbs"
   },
   "console.workbench.false": "False",
   "console.workbench.file_absent": "The file is not on disk",
   "console.workbench.file_offline": "The file is not there right now, usually a drive or share that has not come back",
   "console.workbench.filename": "Filename",
   "console.workbench.files_in_folder": {
-    "one": "{count} file",
-    "other": "{count} files"
+    "one": "{count:n} file",
+    "other": "{count:n} files"
   },
   "console.workbench.find_collection": "Find in this collection",
   "console.workbench.this_game": "This Game",
@@ -3766,7 +3766,7 @@
   "console.workbench.forget_reference": "Its record goes. The file stays where it is.",
   "console.workbench.forget_table": {
     "one": "Forget this table?",
-    "other": "Forget {count} tables?"
+    "other": "Forget {count:n} tables?"
   },
   "console.workbench.forget_table.help": "Asks, then drops its record. If the file returns, it's a new table.",
   "console.workbench.slot_origin": "From its games",
@@ -3775,10 +3775,10 @@
   "console.workbench.game_folder": "The Game Folder",
   "console.workbench.game_rating": "Game rating",
   "console.workbench.games": "Games",
-  "console.workbench.games_counted": "Games ({count})",
+  "console.workbench.games_counted": "Games ({count:n})",
   "console.workbench.games_match": {
-    "one": "{count} game matches",
-    "other": "{count} games match"
+    "one": "{count:n} game matches",
+    "other": "{count:n} games match"
   },
   "console.workbench.get_version": "Get {version}",
   "console.workbench.own_detail": "It joins the library as a game of its own. Collections and plays stay with the other copy.",
@@ -3787,10 +3787,10 @@
   "console.workbench.guide_needs_address": "An address that starts with https://",
   "console.workbench.guide_title": "Title",
   "console.workbench.guides": "Guides",
-  "console.workbench.guides_counted": "Guides ({count})",
+  "console.workbench.guides_counted": "Guides ({count:n})",
   "console.workbench.hand_picked": {
-    "one": "Hand-picked · {count} game",
-    "other": "Hand-picked · {count} games"
+    "one": "Hand-picked · {count:n} game",
+    "other": "Hand-picked · {count:n} games"
   },
   "console.workbench.override_value": "{whose} has its own: {value}",
   "console.workbench.override": "{whose} has its own",
@@ -3798,7 +3798,7 @@
   "console.workbench.held_manually_added": "Manually added",
   "console.workbench.held_rule_matched": "Rule matched",
   "console.workbench.held_manually_removed": "Manually removed",
-  "console.workbench.hidden_guides": "Hidden ({count})",
+  "console.workbench.hidden_guides": "Hidden ({count:n})",
   "console.workbench.hidden_row.help": "Its table is hidden, so the frontend leaves it out",
   "console.workbench.hide": "Hide",
   "console.workbench.high_scores": "High Scores",
@@ -3814,7 +3814,7 @@
   "console.workbench.high_scores_unreadable": "Couldn't read the high scores",
   "console.workbench.high_scores_unsupported": "VPinFE can't read this game's high scores yet",
   "console.workbench.scores_no_map": "The community score map has no entry for the ROM {rom}",
-  "console.workbench.hr": "{count} hr",
+  "console.workbench.hr": "{count:n} hr",
   "console.workbench.hr_min": "{hours} hr {rest} min",
   "console.workbench.in_folder": "In the game folder",
   "console.workbench.no_collections": "In no collections yet",
@@ -3824,31 +3824,31 @@
   "console.workbench.inherited": "Inherited",
   "console.workbench.ipdb": "IPDB",
   "console.workbench.join": {
-    "one": "{count} joins",
-    "other": "{count} join"
+    "one": "{count:n} joins",
+    "other": "{count:n} join"
   },
   "console.workbench.keep_added": {
-    "one": "Keep only the {count} you added",
-    "other": "Keep only the {count} you added"
+    "one": "Keep only the {count:n} you added",
+    "other": "Keep only the {count:n} you added"
   },
   "console.workbench.keep_found": {
-    "one": "Keep the {count} game it found",
-    "other": "Keep the {count} games it found"
+    "one": "Keep the {count:n} game it found",
+    "other": "Keep the {count:n} games it found"
   },
   "console.workbench.keep_none": "Keep none of its games",
   "console.workbench.all_tables": "All Tables",
   "console.workbench.launcher": "Launcher",
   "console.workbench.launcher_from_game": {
-    "one": "{name} · {count} setting from {scope}",
-    "other": "{name} · {count} settings from {scope}"
+    "one": "{name} · {count:n} setting from {scope}",
+    "other": "{name} · {count:n} settings from {scope}"
   },
   "console.workbench.launcher_own": {
-    "one": "{name} · {count} setting of its own",
-    "other": "{name} · {count} settings of its own"
+    "one": "{name} · {count:n} setting of its own",
+    "other": "{name} · {count:n} settings of its own"
   },
   "console.workbench.leave": {
-    "one": "{count} leaves",
-    "other": "{count} leave"
+    "one": "{count:n} leaves",
+    "other": "{count:n} leave"
   },
   "console.workbench.lock_to": "Lock to {table}",
   "console.workbench.logs": "Logs",
@@ -3867,11 +3867,11 @@
   "console.workbench.delisted_file": "Matched to a file the spreadsheet no longer lists",
   "console.workbench.matched_file": "Matched to a published file",
   "console.workbench.matched_to": "VPS Match",
-  "console.workbench.media": "Media ({present}/{total})",
-  "console.workbench.media_borrowed": "Media ({present}/{total}, {borrowed} borrowed)",
-  "console.workbench.min": "{count} min",
+  "console.workbench.media": "Media ({present:n}/{total:n})",
+  "console.workbench.media_borrowed": "Media ({present:n}/{total:n}, {borrowed:n} borrowed)",
+  "console.workbench.min": "{count:n} min",
   "console.workbench.missing": "Missing",
-  "console.workbench.more_settings": "{count} more in All Settings",
+  "console.workbench.more_settings": "{count:n} more in All Settings",
   "console.workbench.more_settings.help": "Opens every setting in this area",
   "console.workbench.named_off": "{name} is switched off, so this table plays {fallback}",
   "console.workbench.newer_on_vps": "VPS lists {theirs}, newer than this file's {ours}",
@@ -3937,8 +3937,8 @@
   "console.workbench.release": "Which release this is",
   "console.workbench.remove_asset": "Remove “{name}”?",
   "console.workbench.remove_asset.folder": {
-    "one": "The folder and the {count} file in it go.",
-    "other": "The folder and the {count} files in it go."
+    "one": "The folder and the {count:n} file in it go.",
+    "other": "The folder and the {count:n} files in it go."
   },
   "console.workbench.remove_asset.game": "Every table without a file of its own loses it.",
   "console.workbench.remove_asset.loose": "Nothing reads it now.",
@@ -3951,19 +3951,19 @@
   "console.workbench.remove_rules": "Remove Rules",
   "console.workbench.removed_files": {
     "one": "Removed 1 file",
-    "other": "Removed {count} files"
+    "other": "Removed {count:n} files"
   },
   "console.workbench.replaced": "Replaced",
   "console.workbench.reset_game_question": {
     "one": "Reset this game's play record?",
-    "other": "Reset the play record of {count} games?"
+    "other": "Reset the play record of {count:n} games?"
   },
   "console.workbench.reset_action": "Reset Play Record",
   "console.workbench.reset_game_action": "Reset game's play record",
   "console.workbench.reset_done": "Play record reset",
   "console.workbench.reset_table_question": {
     "one": "Reset this table's play record?",
-    "other": "Reset the play record of {count} tables?"
+    "other": "Reset the play record of {count:n} tables?"
   },
   "console.workbench.revert": "Revert to {target} - from {source}",
   "console.workbench.rom": "ROM",
@@ -3976,7 +3976,7 @@
   "console.workbench.saved_table": "Saved for this table",
   "console.workbench.script_hash": "Script hash",
   "console.workbench.script_embedded": "The table runs the script inside its .vpx",
-  "console.workbench.sec": "{count} sec",
+  "console.workbench.sec": "{count:n} sec",
   "console.workbench.media_hint": "Select any media item to manage it",
   "console.workbench.file_hint": "Select any file to manage it",
   "console.workbench.program_hint": "Set its program to see {app}'s settings",
@@ -3986,12 +3986,12 @@
   "console.workbench.in_menu.help": "Off keeps it out of the frontend's collection menu",
   "console.workbench.games_visible": "Show in Games",
   "console.workbench.smart_games": {
-    "one": "Smart · {count} game",
-    "other": "Smart · {count} games"
+    "one": "Smart · {count:n} game",
+    "other": "Smart · {count:n} games"
   },
   "console.workbench.all_games.count": {
-    "one": "{count} game",
-    "other": "{count} games"
+    "one": "{count:n} game",
+    "other": "{count:n} games"
   },
   "console.workbench.all_games.paging": "Paging follows Page By and Games per Page in Settings",
   "console.workbench.source": "Source: {source_name}",
@@ -4001,12 +4001,12 @@
   "console.workbench.switch_off": "Switch off",
   "console.workbench.off_question": "Switch off “{name}”?",
   "console.workbench.off_detail": {
-    "one": "{count} table uses it. Switched off, it launches with {fallback}.",
-    "other": "{count} tables use it. Switched off, they launch with {fallback}."
+    "one": "{count:n} table uses it. Switched off, it launches with {fallback}.",
+    "other": "{count:n} tables use it. Switched off, they launch with {fallback}."
   },
   "console.workbench.switched_off_split": {
-    "one": "{count} table uses it. Switched off:",
-    "other": "{count} tables use it. Switched off:"
+    "one": "{count:n} table uses it. Switched off:",
+    "other": "{count:n} tables use it. Switched off:"
   },
   "console.workbench.off_note": "Off, its tables use {default}",
   "console.workbench.table": "This Table",
@@ -4015,7 +4015,7 @@
   "console.workbench.table_section": "Table",
   "console.workbench.table_forgotten": {
     "one": "Table forgotten",
-    "other": "{count} tables forgotten"
+    "other": "{count:n} tables forgotten"
   },
   "console.workbench.offered_table": "The table this game offers",
   "console.workbench.delete_detail": "The table goes back to the script inside its .vpx. Anything the sidecar held - a patch, an edit - goes with it.",
@@ -4024,14 +4024,14 @@
   "console.workbench.table_settings": "Settings",
   "console.workbench.delisted_table": "A table the spreadsheet no longer lists",
   "console.workbench.tables": "Tables",
-  "console.workbench.tables_2": "Tables ({count})",
+  "console.workbench.tables_2": "Tables ({count:n})",
   "console.workbench.override_count": {
     "one": "1 table sets its own",
-    "other": "{count} tables set their own"
+    "other": "{count:n} tables set their own"
   },
   "console.workbench.tags": "Tags",
   "console.workbench.take_rules_away": "Remove the rules from “{name}”?",
-  "console.workbench.removed_count": "Manually removed ({count})",
+  "console.workbench.removed_count": "Manually removed ({count:n})",
   "console.workbench.game_default": "The game's default",
   "console.workbench.theme": "Theme",
   "console.workbench.themes": "Themes",
@@ -4047,8 +4047,8 @@
   "console.workbench.use_spreadsheet": "Use What the Spreadsheet Says",
   "console.workbench.varies": "Varies",
   "console.workbench.value_count": {
-    "one": "{said}: {count} table",
-    "other": "{said}: {count} tables"
+    "one": "{said}: {count:n} table",
+    "other": "{said}: {count:n} tables"
   },
   "console.workbench.script_sidecar": "A .vbs beside the table, and the launcher runs it instead of the one inside",
   "console.workbench.game_unlisted": "VPS does not list the game this one is matched to",
@@ -4065,7 +4065,7 @@
   "console.workbench.width_by_height": "{width} × {height}",
   "console.workbench.writes_to_tables": {
     "one": "Changes here apply to the 1 table that uses this file",
-    "other": "Changes here apply to the {count} tables that use this file"
+    "other": "Changes here apply to the {count:n} tables that use this file"
   },
   "console.workbench.yours": "Yours",
   "date.am": "AM",
@@ -4073,18 +4073,18 @@
   "date.clock_12_seconds": "{hour}:{minute}:{second} {period}",
   "date.day_and_time": "{day} {time}",
   "date.days_ago": {
-    "one": "{count} day ago",
-    "other": "{count} days ago"
+    "one": "{count:n} day ago",
+    "other": "{count:n} days ago"
   },
   "date.hours_ago": {
-    "one": "{count} hour ago",
-    "other": "{count} hours ago"
+    "one": "{count:n} hour ago",
+    "other": "{count:n} hours ago"
   },
   "date.just_now": "Just now",
   "date.just_now.inline": "just now",
   "date.minutes_ago": {
-    "one": "{count} minute ago",
-    "other": "{count} minutes ago"
+    "one": "{count:n} minute ago",
+    "other": "{count:n} minutes ago"
   },
   "date.month.1": "Jan",
   "date.month.10": "Oct",
@@ -4160,8 +4160,8 @@
   "error.signin.required": "Sign in required",
   "error.signin.too_soon": "Wait {seconds} seconds, then get a code",
   "error.signin.app_locked": {
-    "one": "Too many wrong codes. Try again in {count} minute",
-    "other": "Too many wrong codes. Try again in {count} minutes"
+    "one": "Too many wrong codes. Try again in {count:n} minute",
+    "other": "Too many wrong codes. Try again in {count:n} minutes"
   },
   "error.signin.used_up": "That code is used up. Get a new one.",
   "error.signin.wrong": "Wrong code",
@@ -4496,7 +4496,7 @@
   "error.launchers.unknown_launcher": "No launcher called “{launcher_id}”",
   "error.launchers.unknown_scope": "No scope called “{scope}”",
   "error.launchers.tables_list": "Tables is a list of table ids",
-  "error.launchers.tables_scope":"A list of tables goes with the settings of a table, not of the launcher",
+  "error.launchers.tables_scope": "A list of tables goes with the settings of a table, not of the launcher",
   "error.launchers.unknown_scope_app": "No scope called “{scope}”. This app has {scopes}.",
   "error.launchers.no_own_settings": "{app_name} has no settings of its own to write",
   "error.launchers.unknown_table": "No table called “{wanted}”",
@@ -4590,7 +4590,7 @@
   "error.table_commands.launcher_command_failed": "A command the {launcher_name} launcher runs before a table did not work",
   "error.tags.sweep_blocked": {
     "one": "Nothing was changed: {names} cannot be written to",
-    "other": "Nothing was changed: {count} games with this tag cannot be written to ({names})"
+    "other": "Nothing was changed: {count:n} games with this tag cannot be written to ({names})"
   },
   "error.tags.derived": "{tag} is set by an extension and cannot be changed here",
   "error.tags.no_name": "A tag needs a name",
@@ -4734,8 +4734,8 @@
   "frontend.collectionmenu.descending": "Descending",
   "frontend.collectionmenu.exact": "Exact",
   "frontend.collectionmenu.games": {
-    "one": "{count} game",
-    "other": "{count} games"
+    "one": "{count:n} game",
+    "other": "{count:n} games"
   },
   "frontend.collectionmenu.higher": "Or Higher",
   "frontend.collectionmenu.last_played": "Last Played",
@@ -4745,10 +4745,10 @@
   "frontend.collectionmenu.name_collection": "Name the collection",
   "frontend.collectionmenu.named_by_sort": "By {sort}",
   "frontend.collectionmenu.named_stars": {
-    "one": "{count} Star",
-    "other": "{count} Stars"
+    "one": "{count:n} Star",
+    "other": "{count:n} Stars"
   },
-  "frontend.collectionmenu.named_stars_plus": "{count}+ Stars",
+  "frontend.collectionmenu.named_stars_plus": "{count:n}+ Stars",
   "frontend.collectionmenu.named_starting_with": "Starting with {letter}",
   "frontend.collectionmenu.order": "Order By:",
   "frontend.collectionmenu.pages": "Pages by {kind}",
@@ -4786,7 +4786,7 @@
   "frontend.mainmenu.metadata_menu": "Build Metadata Options",
   "frontend.mainmenu.building_metadata": "Building Metadata",
   "frontend.mainmenu.current_rating": "Current: {stars} ({rating}/5)",
-  "frontend.mainmenu.done_with_misses": "Done. {count} could not be matched or read.",
+  "frontend.mainmenu.done_with_misses": "Done. {count:n} could not be matched or read.",
   "frontend.mainmenu.download_media": "Download Media",
   "frontend.mainmenu.download_media.help": "Get media from VPinMediaDB. Media you added stays.",
   "frontend.mainmenu.frontend_audio": "Frontend Audio: {state}",
@@ -4822,8 +4822,8 @@
   "frontend.recording.line_of": "Recording media - {at} of {of}",
   "frontend.recording.stop": "Stop recording",
   "frontend.signin.expires": {
-    "one": "Expires in {count} minute",
-    "other": "Expires in {count} minutes"
+    "one": "Expires in {count:n} minute",
+    "other": "Expires in {count:n} minutes"
   },
   "frontend.signin.from": "Requested from {address}",
   "frontend.signin.ignore": "Ignore",
@@ -5088,6 +5088,7 @@
   "metrics.gpu.value.megahertz": "{value:.0f} MHz",
   "metrics.gpu.value.rpm": "{value:.0f} rpm",
   "number.group": ",",
+  "number.decimal": ".",
   "os.method.updates.apply.says": "Install system updates on this computer",
   "os.method.updates.check.says": "Look for system updates for this computer",
   "order.by.added": "Date Added",
@@ -5111,18 +5112,18 @@
   "order.direction.newest_first": "Newest first",
   "order.direction.oldest_first": "Oldest first",
   "order.direction.alpha_desc": "Z to A",
-  "said.and_more": "...and {count} more",
+  "said.and_more": "...and {count:n} more",
   "said.assignments_lost": "the launchers arrived, the assignments did not",
   "said.patches_skipped": {
     "one": "1 game skipped, its folder cannot be written to",
-    "other": "{count} games skipped, their folders cannot be written to"
+    "other": "{count:n} games skipped, their folders cannot be written to"
   },
   "said.checking_game": "Checking {game}",
   "said.copy_result": {
     "one": "Copied to 1 device",
-    "other": "Copied to {count} devices"
+    "other": "Copied to {count:n} devices"
   },
-  "said.copied_to_some": "Copied to {count} of {total}",
+  "said.copied_to_some": "Copied to {count:n} of {total:n}",
   "said.add_failed": "Could not add it",
   "said.clear_failed": "Could not clear it",
   "said.delete_failed": "Could not delete it",
@@ -5150,55 +5151,55 @@
   "said.media_fetch": "Getting media for {game}",
   "said.needs_name": "Give it a name",
   "said.guides": {
-    "one": "{count} guide",
-    "other": "{count} guides"
+    "one": "{count:n} guide",
+    "other": "{count:n} guides"
   },
   "said.job_media_filled": {
-    "one": "{count} game, {filled} filled, {unmatched} unmatched, {failed} failed",
-    "other": "{count} games, {filled} filled, {unmatched} unmatched, {failed} failed"
+    "one": "{count:n} game, {filled:n} filled, {unmatched:n} unmatched, {failed:n} failed",
+    "other": "{count:n} games, {filled:n} filled, {unmatched:n} unmatched, {failed:n} failed"
   },
   "said.job_filled_left": {
-    "one": "{count} game, {filled} filled, {no} unmatched, {failed} failed, {skip} skipped",
-    "other": "{count} games, {filled} filled, {no} unmatched, {failed} failed, {skip} skipped"
+    "one": "{count:n} game, {filled:n} filled, {no:n} unmatched, {failed:n} failed, {skip:n} skipped",
+    "other": "{count:n} games, {filled:n} filled, {no:n} unmatched, {failed:n} failed, {skip:n} skipped"
   },
   "said.job_replaced_left": {
-    "one": "{count} game, {updated} replaced, {failed} failed, {skipped} skipped",
-    "other": "{count} games, {updated} replaced, {failed} failed, {skipped} skipped"
+    "one": "{count:n} game, {updated:n} replaced, {failed:n} failed, {skipped:n} skipped",
+    "other": "{count:n} games, {updated:n} replaced, {failed:n} failed, {skipped:n} skipped"
   },
   "said.job_media_replaced": {
-    "one": "{count} game, {updated} replaced, {failed} failed",
-    "other": "{count} games, {updated} replaced, {failed} failed"
+    "one": "{count:n} game, {updated:n} replaced, {failed:n} failed",
+    "other": "{count:n} games, {updated:n} replaced, {failed:n} failed"
   },
   "said.job_media_turned": {
-    "one": "{count} game, {turned} turned, {skipped} skipped",
-    "other": "{count} games, {turned} turned, {skipped} skipped"
+    "one": "{count:n} game, {turned:n} turned, {skipped:n} skipped",
+    "other": "{count:n} games, {turned:n} turned, {skipped:n} skipped"
   },
   "said.job_table_settings": {
-    "one": "{count} table changed, {failed} not",
-    "other": "{count} tables changed, {failed} not"
+    "one": "{count:n} table changed, {failed:n} not",
+    "other": "{count:n} tables changed, {failed:n} not"
   },
   "said.job_marks": {
-    "one": "{count} written, {failed} not",
-    "other": "{count} written, {failed} not"
+    "one": "{count:n} written, {failed:n} not",
+    "other": "{count:n} written, {failed:n} not"
   },
   "said.job_backups_moved": {
-    "one": "{count} backup moved, {left} left in the old folder, {failed} failed",
-    "other": "{count} backups moved, {left} left in the old folder, {failed} failed"
+    "one": "{count:n} backup moved, {left:n} left in the old folder, {failed:n} failed",
+    "other": "{count:n} backups moved, {left:n} left in the old folder, {failed:n} failed"
   },
   "said.job_library_read": {
-    "one": "{count} game",
-    "other": "{count} games"
+    "one": "{count:n} game",
+    "other": "{count:n} games"
   },
   "said.job_library_new": {
-    "one": "{count} game, {new} new, {matched} matched",
-    "other": "{count} games, {new} new, {matched} matched"
+    "one": "{count:n} game, {new:n} new, {matched:n} matched",
+    "other": "{count:n} games, {new:n} new, {matched:n} matched"
   },
-  "said.job_recorded": "Recorded {done} of {total}",
-  "said.job_scan_found": "{found} found, {missing} not found",
+  "said.job_recorded": "Recorded {done:n} of {total:n}",
+  "said.job_scan_found": "{found:n} found, {missing:n} not found",
   "said.job_tool_version": "Version {version}",
-  "said.job_auto_matched": "{changed} matched, {unmatched} still unmatched",
-  "said.job_info_upgraded": "{upgraded} upgraded, {current} already current, {failed} failed",
-  "said.job_info_restored": "{restored} restored, {failed} failed",
+  "said.job_auto_matched": "{changed:n} matched, {unmatched:n} still unmatched",
+  "said.job_info_upgraded": "{upgraded:n} upgraded, {current:n} already current, {failed:n} failed",
+  "said.job_info_restored": "{restored:n} restored, {failed:n} failed",
   "said.title_auto_match": "Auto-Match",
   "said.title_put_back": "Put Back a Backup",
   "said.title_backup_restore": "Restore a Backup",
@@ -5219,19 +5220,19 @@
   "said.sending_game": "Sending {game}",
   "said.send_result": {
     "one": "Sent 1 game to {device}",
-    "other": "Sent {count} games to {device}"
+    "other": "Sent {count:n} games to {device}"
   },
   "said.skipping_game": "Skipping {game}",
   "said.starting": "Starting",
   "said.media_update": "Updating media for {game}",
   "said.media_rotate": "Turning {file}",
   "said.table_settings": {
-    "one": "Changing settings, {count} table to go",
-    "other": "Changing settings, {count} tables to go"
+    "one": "Changing settings, {count:n} table to go",
+    "other": "Changing settings, {count:n} tables to go"
   },
   "said.marks": {
-    "one": "Saving, {count} to go",
-    "other": "Saving, {count} to go"
+    "one": "Saving, {count:n} to go",
+    "other": "Saving, {count:n} to go"
   },
   "said.backups_move": "Moving {file}",
   "said.why.already_at": "Something is already at {path}",
@@ -5304,7 +5305,7 @@
   "tools.ffmpeg.hint.darwin": "Install FFmpeg (brew install ffmpeg), or set {setting} in {section}",
   "tools.ffmpeg.hint.get": "Get FFmpeg under Tools in {section}, or set {setting} there",
   "tools.ffmpeg.hint.windows": "Install FFmpeg, or set {setting} in {section}",
-  "tools.get.progress": "Getting {tool} - {done} of {total}",
+  "tools.get.progress": "Getting {tool} - {done:n} of {total:n}",
   "tools.hint.linux": "Install {tool} from your package manager, or set {setting} in {section}",
   "tools.hint.vpinos": "VPinOS doesn't include {tool} yet. Set {setting} in {section} to use your own.",
   "tools.nvidia_smi.hint": "Install the NVIDIA driver, which includes {tool}, or set {setting} in {section}",
@@ -5425,7 +5426,7 @@
   "console.files.either": "Add or Replace...",
   "console.files.remove_several": {
     "one": "Remove 1 file?",
-    "other": "Remove {count} files?"
+    "other": "Remove {count:n} files?"
   },
   "console.files.remove_detail": "Tables that used them go to the next file they can find, or without one.",
   "console.media_rotate.turn": "Turn",
@@ -5435,26 +5436,26 @@
   "console.media.media_menu": "Actions for the selected media",
   "console.media.files": {
     "one": "1 file",
-    "other": "{count} files"
+    "other": "{count:n} files"
   },
   "console.assets.assets_menu": "Actions for the selected files",
   "console.assets.files": {
     "one": "1 file",
-    "other": "{count} files"
+    "other": "{count:n} files"
   },
-  "console.assets.selected": "{picked} of {shown} selected",
+  "console.assets.selected": "{picked:n} of {shown:n} selected",
   "console.wizard_lists.filter": "Filter by name",
   "console.wizard_lists.show": "Show",
   "console.wizard_lists.select_all": "Select All",
   "console.wizard_lists.select_none": "Select None",
-  "console.wizard_lists.ticked": "{ticked} of {total} ticked",
+  "console.wizard_lists.ticked": "{ticked:n} of {total:n} ticked",
   "console.wizard_lists.no_match": "Nothing matches",
   "console.wizard_lists.change": "Change...",
   "console.wizard_lists.not_matched": "Not matched",
   "console.wizard_lists.picked": "Picked",
   "console.wizard_lists.candidate_why": "{candidate} - {reason}",
   "console.wizard_lists.entry": "{name} ({made})",
-  "console.wizard_lists.show_all": "Show All {count}",
+  "console.wizard_lists.show_all": "Show All {count:n}",
   "console.wizard_lists.hide_settled": "Hide the Settled",
   "console.wizard_lists.select_all.hint": "Tick every row shown",
   "console.wizard_lists.select_none.hint": "Untick every row shown",
@@ -5554,7 +5555,7 @@
   "console.encrypted.problem": "Serving plain HTTP: the certificate could not be used",
   "console.encrypted.problem_no_file": "A certificate or key file is missing. Choose them again.",
   "console.encrypted.problem_unreadable": "VPinFE could not read the certificate with that key. Choose them again.",
-  "console.wizard_lists.all_settled": "All {count} are settled",
+  "console.wizard_lists.all_settled": "All {count:n} are settled",
   "vps.format.VPX": "Visual Pinball X",
   "vps.format.VP9": "Visual Pinball 9",
   "vps.format.FP": "Future Pinball",

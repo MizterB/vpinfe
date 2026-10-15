@@ -34,3 +34,21 @@ test("an English fallback picks its form by count too", async () => {
   assert.equal(vpin.t("theme.not.in.the.catalog", english, { count: 1 }), "1 wheel");
   assert.equal(vpin.t("theme.not.in.the.catalog", english, { count: 3 }), "3 wheels");
 });
+
+test("an entry marks which values are numbers", async () => {
+  const vpin = await withWords();
+
+  assert.equal(vpin.t("theme.not.in.the.catalog", "{count:n} files", { count: 1234567 }),
+               "1,234,567 files");
+  assert.equal(vpin.t("theme.not.in.the.catalog", "{size:n} MB", { size: 1.5 }), "1.5 MB");
+  assert.equal(vpin.t("theme.not.in.the.catalog", "{count:n} files", { count: "many" }),
+               "many files");
+  assert.equal(vpin.t("theme.not.in.the.catalog", "{count} files", { count: 1234567 }),
+               "1234567 files");
+});
+
+test("a count in the catalog is grouped", async () => {
+  const vpin = await withWords();
+
+  assert.equal(vpin.t("frontend.collectionmenu.games", "", { count: 1234 }), "1,234 games");
+});

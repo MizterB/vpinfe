@@ -18,7 +18,7 @@ from nicegui import run, ui
 
 from common import approvals
 from common.failures import why
-from common.i18n import t
+from common.i18n import number, t
 from common.media_specs import media_label_map
 from console import (
     ext_mark,
@@ -304,7 +304,7 @@ def _figure(count: int, label: str, state: dict[str, Any], where: needs.Opens) -
     figure = ui.element("div").classes("console-figure")
     _opens(figure, state, where)
     with figure:
-        ui.label(f"{count:,}").classes("console-kpi")
+        ui.label(number(count)).classes("console-kpi")
         ui.label(label).classes("console-help")
 
 
