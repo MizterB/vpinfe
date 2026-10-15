@@ -430,7 +430,7 @@ class Declared(Served):
             [(one["subject"], one["title"], one["save"]) for one in self.record.groups()],
             [("game", "Taxi notes", True), ("table", "On this table", False)])
 
-    def test_the_record_says_so_in_what_the_console_reads(self) -> None:
+    def test_the_record_says_so_in_what_the_manager_reads(self) -> None:
         self.assertEqual([one["subject"] for one in self.record.as_dict()["groups"]],
                          ["game", "table"])
 

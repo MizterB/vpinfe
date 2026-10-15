@@ -40,7 +40,7 @@ def _page(expression: str) -> str:
 def _ask(instance: LiveInstance) -> None:
     """A browser on this machine asking for a code. A headless install shows the digits
     at once, which is the state the page draws after Show."""
-    request = urllib.request.Request(instance.console_url("/api/v1/auth/code"), data=b"{}",
+    request = urllib.request.Request(instance.manager_url("/api/v1/auth/code"), data=b"{}",
                                      method="POST",
                                      headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(request, timeout=10) as answer:

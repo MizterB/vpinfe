@@ -1,7 +1,7 @@
-"""An async Console function that reads the page after a wait runs under the page, with
-`console.on_page`, unless it draws into the container it is awaited in.
+"""An async Manager function that reads the page after a wait runs under the page, with
+`manager.on_page`, unless it draws into the container it is awaited in.
 
-Read means anything that goes through the current slot: `ui.*`, and any Console function
+Read means anything that goes through the current slot: `ui.*`, and any Manager function
 that does, followed through calls into other modules and into local closures.
 """
 
@@ -75,11 +75,11 @@ class _Module:
             if not isinstance(one, ast.ImportFrom) or not one.module:
                 continue
             for alias in one.names:
-                if one.module == "console":
+                if one.module == "manager":
                     self.modules[alias.asname or alias.name] = alias.name
-                elif one.module.startswith("console."):
+                elif one.module.startswith("manager."):
                     self.names[alias.asname or alias.name] = (
-                        one.module.removeprefix("console."), alias.name)
+                        one.module.removeprefix("manager."), alias.name)
         self.scope_of: dict[ast.AST, ast.AST] = {}
         self.defined: dict[ast.AST, dict[str, ast.AST]] = {}
         for scope in ast.walk(tree):
@@ -91,8 +91,8 @@ class _Module:
                         self.defined[scope][one.name] = one
 
 
-class Console:
-    """The Console's modules, with what each of their functions does to the page."""
+class Manager:
+    """The Manager's modules, with what each of their functions does to the page."""
 
     def __init__(self, modules: dict[str, ast.Module]) -> None:
         self.modules = {name: _Module(name, tree) for name, tree in modules.items()}
@@ -100,8 +100,8 @@ class Console:
         self._placed: dict[ast.AST, bool] = {}
 
     @classmethod
-    def read(cls, root: Path) -> Console:
-        folder = root / "console"
+    def read(cls, root: Path) -> Manager:
+        folder = root / "manager"
         return cls({".".join(path.relative_to(folder).with_suffix("").parts):
                     trees.tree_for(path)
                     for path in sorted(folder.rglob("*.py"))})
@@ -218,7 +218,7 @@ class Console:
         for name, module in self.modules.items():
             for fn in ast.walk(module.tree):
                 if isinstance(fn, ast.AsyncFunctionDef) and not _is_page(fn):
-                    yield (f"console/{name.replace('.', '/')}.py:{fn.lineno} {fn.name}", fn,
+                    yield (f"manager/{name.replace('.', '/')}.py:{fn.lineno} {fn.name}", fn,
                            self.placed(module, fn), bool(self.late(module, fn)),
                            _decorated(fn, "on_page"))
 
@@ -227,7 +227,7 @@ def _judged(source: str) -> dict[str, tuple[bool, bool]]:
     """Each async function in `source`: (a builder, reads the page after a wait)."""
     return {fn.name: (builder, late)
             for _where, fn, builder, late, _on
-            in Console({"sample": trees.parse_snippet(source)}).functions()}
+            in Manager({"sample": trees.parse_snippet(source)}).functions()}
 
 
 class SaidOnThePage(unittest.TestCase):
@@ -235,13 +235,13 @@ class SaidOnThePage(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-        cls.found = list(Console.read(ROOT).functions())
+        cls.found = list(Manager.read(ROOT).functions())
 
     def test_a_handler_that_says_after_a_wait_runs_under_the_page(self) -> None:
         stray = [where for where, _fn, builder, late, on in self.found
                  if late and not builder and not on]
 
-        self.assertEqual(stray, [], "decorate it with console.on_page.on_page")
+        self.assertEqual(stray, [], "decorate it with manager.on_page.on_page")
 
     def test_a_builder_draws_where_it_is_awaited(self) -> None:
         moved = [where for where, _fn, builder, _late, on in self.found if builder and on]

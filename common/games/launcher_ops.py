@@ -218,7 +218,7 @@ def _game_file(table_id: str) -> str:
     """The file behind a table id, resolved here rather than sent.
 
     A caller names the table, not the path. Where a game file sits is a fact about this
-    machine, and the Console reads this API over the network - it has no business
+    machine, and the Manager reads this API over the network - it has no business
     knowing, and on another machine it would be wrong.
     """
     wanted = str(table_id or "").strip()

@@ -65,7 +65,7 @@ def _heard_from(peer: Peer) -> None:
     """File an install this one heard from, when managing devices is its job.
 
     The feature is read per announcement rather than once at startup, so switching it on
-    from the Console does not need every other machine to restart before it is noticed.
+    from the Manager does not need every other machine to restart before it is noticed.
     """
     try:
         config = get_ini_config()

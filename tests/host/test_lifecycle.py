@@ -75,13 +75,13 @@ class LifecycleTests(unittest.TestCase):
             return confirm
 
         lifecycle.register_confirmer(lifecycle.SURFACE_FRONTEND, confirm_for("frontend"))
-        lifecycle.register_confirmer(lifecycle.SURFACE_MANAGER_UI, confirm_for("manager_ui"))
+        lifecycle.register_confirmer(lifecycle.SURFACE_MANAGER, confirm_for("manager"))
 
         lifecycle.request(lifecycle.SYSTEM, lifecycle.RESTART,
-                          origin=self._at(lifecycle.SURFACE_MANAGER_UI, "client-7"),
+                          origin=self._at(lifecycle.SURFACE_MANAGER, "client-7"),
                           confirm_scopes=["system"])
 
-        self.assertEqual(asked, ["manager_ui"], "the wrong surface was asked")
+        self.assertEqual(asked, ["manager"], "the wrong surface was asked")
 
     def test_a_signal_has_nobody_to_ask_and_is_not_blocked_by_the_setting(self) -> None:
         """A SIGTERM that waits on a dialog is a process that will not die."""
@@ -134,7 +134,7 @@ class LifecycleTests(unittest.TestCase):
         lifecycle.reset_for_tests()
         self.assertFalse(lifecycle.request(
             lifecycle.FRONTEND, lifecycle.START,
-            origin=self._at(lifecycle.SURFACE_MANAGER_UI)))
+            origin=self._at(lifecycle.SURFACE_MANAGER)))
 
     def test_actions_that_are_not_things_are_refused(self) -> None:
         """`start` the machine and `start` VPinFE have nothing to act on: the process is
@@ -292,18 +292,18 @@ class NoticeTests(unittest.TestCase):
             ws_bridge=bridge,
         )
 
-    def test_the_windows_are_told_when_the_manager_ui_asked(self) -> None:
+    def test_the_windows_are_told_when_the_manager_asked(self) -> None:
         bridge = _Bridge()
         self._install(bridge)
 
         lifecycle.request(lifecycle.SYSTEM, lifecycle.STOP,
-                          origin=lifecycle.Origin(lifecycle.SURFACE_MANAGER_UI, "client-1"))
+                          origin=lifecycle.Origin(lifecycle.SURFACE_MANAGER, "client-1"))
 
         self.assertEqual(len(bridge.sent), 1)
         message, excluded = bridge.sent[0]
         self.assertEqual(message["type"], "LifecycleActing")
         self.assertEqual(message["description"], "Power off")
-        self.assertEqual(message["origin"], lifecycle.SURFACE_MANAGER_UI)
+        self.assertEqual(message["origin"], lifecycle.SURFACE_MANAGER)
         self.assertIsNone(excluded, "no window asked, so no window is left out")
 
     def test_the_window_that_asked_is_not_told(self) -> None:

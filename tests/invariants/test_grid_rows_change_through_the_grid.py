@@ -1,4 +1,4 @@
-"""A Console grid's rows change through `grid.transact`, in the list the grid was built
+"""A Manager grid's rows change through `grid.transact`, in the list the grid was built
 from, and nowhere else.
 
 A selection is resolved against the rows the grid was built from. A transaction sent
@@ -15,8 +15,8 @@ import unittest
 from tests.support import trees
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
-CONSOLE = REPO / "console"
-HELPER = CONSOLE / "grid.py"
+MANAGER = REPO / "manager"
+HELPER = MANAGER / "grid.py"
 CALL = "applyTransaction"
 
 # Each takes the held rows at this position.
@@ -79,7 +79,7 @@ def _strays(path: pathlib.Path) -> list[str]:
 class GridRowsChangeThroughTheGridTests(unittest.TestCase):
     def test_no_other_module_sends_a_transaction(self) -> None:
         offenders = []
-        for path in sorted([*CONSOLE.rglob("*.py"), *CONSOLE.rglob("*.js")]):
+        for path in sorted([*MANAGER.rglob("*.py"), *MANAGER.rglob("*.js")]):
             if path != HELPER:
                 offenders += _sends(path)
         self.assertEqual(offenders, [], "change a grid's rows with grid.transact")
@@ -90,14 +90,14 @@ class GridRowsChangeThroughTheGridTests(unittest.TestCase):
 
     def test_a_grid_s_rows_change_in_the_list_it_was_built_from(self) -> None:
         offenders = []
-        for path in sorted(CONSOLE.rglob("*.py")):
+        for path in sorted(MANAGER.rglob("*.py")):
             offenders += _strays(path)
         self.assertEqual(offenders, [])
 
     def test_the_held_list_scan_sees_every_page_that_changes_rows(self) -> None:
         """Every module that changes a grid's rows, so a scan reading nothing fails."""
         changing = set()
-        for path in CONSOLE.rglob("*.py"):
+        for path in MANAGER.rglob("*.py"):
             tree = trees.tree_for(path)
             if any(_called(node) in HELD_AT for node in ast.walk(tree)):
                 changing.add(path.name)

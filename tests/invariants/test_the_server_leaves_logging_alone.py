@@ -15,7 +15,7 @@ from pathlib import Path
 
 from tests.support import trees
 
-SOURCE = Path(__file__).resolve().parents[2] / "console" / "host.py"
+SOURCE = Path(__file__).resolve().parents[2] / "manager" / "host.py"
 
 
 def _run_calls() -> list[ast.Call]:

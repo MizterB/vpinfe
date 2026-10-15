@@ -35,7 +35,7 @@ _bridge = None
 def confirm_scopes() -> tuple[str, ...]:
     """What asks first: quitting VPinFE and powering off the machine, or nothing.
 
-    Stopping the frontend is not in it. The windows reopen from the Console, so there
+    Stopping the frontend is not in it. The windows reopen from the Manager, so there
     is nothing to lose and it is the scope you would meet most often - a prompt there is
     the one that trains you to dismiss prompts.
     """

@@ -1,6 +1,6 @@
 """What this install collects: media kinds, asset kinds, artwork catalogs, quiet checks.
 
-A view over the `library` section of the settings file. The Console writes through
+A view over the `library` section of the settings file. The Manager writes through
 `PUT /config`; `set` here writes the file directly and announces nothing, which is for
 tests and for code that is not itself a settings change. Each list holds what is
 switched off, so empty means everything and a kind or a source added in a later

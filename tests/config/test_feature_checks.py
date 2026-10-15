@@ -105,7 +105,7 @@ class RequirementTests(unittest.TestCase):
 
     def test_no_folder_is_filed_against_the_folders_page_not_a_setting(self) -> None:
         """The fix is the Folders page, which is not a config key: the finding carries no
-        key, and its section is how the Console finds the page."""
+        key, and its section is how the Manager finds the page."""
         found = feature_checks.unmet(self._config(), ["library"],
                                      launcher=self._launcher_for(self.launcher),
                                      locations=[])

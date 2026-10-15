@@ -22,7 +22,7 @@ import httpapi
 from common import extensions
 from common.extensions import host, store
 from common.extensions.contract import ContractError
-from console import wizard
+from manager import wizard
 
 REPO = Path(__file__).resolve().parents[2]
 FIXTURE = REPO / "tests" / "fixtures" / "pinballx"
@@ -456,7 +456,7 @@ class SummaryShapeTests(WizardCase):
 
         self.assertIn(["Games with Play History", "1"], found["summary"])
 
-    def test_a_database_it_could_not_read_hovers_why_in_the_console(self) -> None:
+    def test_a_database_it_could_not_read_hovers_why_in_the_manager(self) -> None:
         source = self.root / "pinballx"
         shutil.copytree(FIXTURE, source)
         (source / "Databases" / "Visual Pinball X" / "Visual Pinball X.xml").write_text(

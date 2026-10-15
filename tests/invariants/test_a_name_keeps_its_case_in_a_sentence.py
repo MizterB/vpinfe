@@ -9,7 +9,7 @@ from pathlib import Path
 from tests.support import trees
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCES = ("apps", "common", "console", "extensions", "frontend", "httpapi")
+SOURCES = ("apps", "common", "manager", "extensions", "frontend", "httpapi")
 RECASED = {"lower", "upper", "title", "capitalize", "casefold", "swapcase"}
 
 

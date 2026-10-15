@@ -1,4 +1,4 @@
-"""The Console's nav rail at the widths a window can have, in a real browser.
+"""The Manager's nav rail at the widths a window can have, in a real browser.
 
 Under a desk-sized window the rail gives up its labels, and at any width it stays beside the
 page rather than over it. Slow: boots a real instance and a real browser.
@@ -12,8 +12,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from tests.support.browser_session import BrowserSession, chromium_path
-from tests.support.console_walk import ConsoleWalk
 from tests.support.live_instance import LiveInstance
+from tests.support.manager_walk import ManagerWalk
 
 WIDTHS = (1500, 1050, 900, 500)
 RAIL = ("(() => { const drawer = document.querySelector('.q-drawer');"
@@ -21,7 +21,7 @@ RAIL = ("(() => { const drawer = document.querySelector('.q-drawer');"
         " mini: drawer.classList.contains('q-drawer--mini'),"
         " overlay: drawer.classList.contains('q-drawer--mobile'),"
         " backdrop: !!document.querySelector('.q-drawer__backdrop'),"
-        " title: getComputedStyle(document.querySelector('.console-nav-title')).display}; })()")
+        " title: getComputedStyle(document.querySelector('.manager-nav-title')).display}; })()")
 
 
 class NavRailWidthDrive(unittest.TestCase):
@@ -39,12 +39,12 @@ class NavRailWidthDrive(unittest.TestCase):
         seen: dict[int, dict] = {}
         instance.wait_for_api()
         async with BrowserSession(chromium_path() or "") as browser:
-            walk = ConsoleWalk(browser, instance)
+            walk = ManagerWalk(browser, instance)
             for width in WIDTHS:
                 await browser.send("Emulation.setDeviceMetricsOverride",
                                    {"width": width, "height": 800, "deviceScaleFactor": 1,
                                     "mobile": False})
-                await walk.visit("/console?view=devices")
+                await walk.visit("/manager?view=devices")
                 seen[width] = await browser.evaluate(RAIL)
         return seen
 

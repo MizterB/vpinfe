@@ -54,7 +54,7 @@ class Sender:
         # Held across a whole run, network included, so two runs for one account never
         # send the same waiting game twice.
         self._sending = threading.Lock()
-        # Held only to read and write an account's books, so an edit in the Console never
+        # Held only to read and write an account's books, so an edit in the Manager never
         # waits on the network.
         self._books = threading.Lock()
 

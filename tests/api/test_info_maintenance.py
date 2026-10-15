@@ -24,8 +24,8 @@ from common.games.game_parser import GameParser
 from common.games.info_maintenance import upgrade_library
 from common.games.unreadable import UnreadableGame
 from common.i18n import t
-from console import sections
-from console.data import Library
+from manager import sections
+from manager.data import Library
 from tests.support import lines
 from tests.support.library import game_info, write_game
 from tests.support.skips import needs_posix_permissions
@@ -120,7 +120,7 @@ class MetadataCardTests(unittest.TestCase):
 
         self.assertEqual(t("error.games.info_bad_line", line=1),
                          drawn.get("Malformed Info (Original 2024)"), list(drawn))
-        self.assertIn(t("console.sections.unreadable_one"), drawn)
+        self.assertIn(t("manager.sections.unreadable_one"), drawn)
 
     def test_four_are_named_and_the_rest_counted(self) -> None:
         names = [f"Broken {i} (Original 2024)" for i in range(6)]
@@ -131,7 +131,7 @@ class MetadataCardTests(unittest.TestCase):
         self.assertIn(t("said.and_more", count=2), drawn)
 
     def test_one_game_written_by_an_older_build_reads_as_one(self) -> None:
-        one, two = (t("console.sections.written_older", count=n) for n in (1, 2))
+        one, two = (t("manager.sections.written_older", count=n) for n in (1, 2))
 
         self.assertIn(one, _card({"pending_upgrade": 1}))
         self.assertIn(two, _card({"pending_upgrade": 2}))
@@ -176,7 +176,7 @@ async def _now(callback, *args, **kwargs):
 @needs_posix_permissions
 class MetadataOutcomeTests(unittest.TestCase):
     """What Upgrade and Restore say once their job ends, from the job run over a library
-    with one folder it may not write, read back as the resource the Console is handed."""
+    with one folder it may not write, read back as the resource the Manager is handed."""
 
     def setUp(self) -> None:
         job_registry.reset_for_tests()
@@ -212,7 +212,7 @@ class MetadataOutcomeTests(unittest.TestCase):
     def _press(self, which: str, work, *, leave: bool = False
                ) -> tuple[list[tuple[str, str, str]], dict[str, str]]:
         """Press Upgrade over what `work` did, from inside a row of the card;
-        `leave` deletes that row while the job runs. Hand back each thing the Console
+        `leave` deletes that row while the job runs. Hand back each thing the Manager
         said, as lead, caption and type, and the card as it is drawn afterwards."""
         job = self._job(work)
         with ui.column() as card:
@@ -234,8 +234,8 @@ class MetadataOutcomeTests(unittest.TestCase):
             with row:
                 await sections._metadata_action(library, page, mock.Mock())(which)
 
-        with mock.patch("console.confirm.ask", mock.AsyncMock(return_value=True)), \
-                mock.patch("console.api.ApiClient", return_value=client), \
+        with mock.patch("manager.confirm.ask", mock.AsyncMock(return_value=True)), \
+                mock.patch("manager.api.ApiClient", return_value=client), \
                 mock.patch("nicegui.run.io_bound", new=_now), \
                 mock.patch.object(sections, "_POLL_S", 0), \
                 mock.patch.object(sections.ui, "notify", wraps=ui.notify) as notify:
@@ -251,7 +251,7 @@ class MetadataOutcomeTests(unittest.TestCase):
     def test_it_says_how_many_came_through(self) -> None:
         said, _ = self._upgrade()
 
-        self.assertIn((t("console.sections.upgraded_some", done=1, total=2), "", "warning"),
+        self.assertIn((t("manager.sections.upgraded_some", done=1, total=2), "", "warning"),
                       said)
 
     def test_the_folder_it_could_not_write_is_named_with_why_on_hover(self) -> None:
@@ -279,13 +279,13 @@ class MetadataOutcomeTests(unittest.TestCase):
         said, _ = self._press("upgrade", upgrade_library)
 
         lead, caption, kind = said[-1]
-        self.assertEqual((lead, kind), (t("console.sections.upgrade_failed"), "negative"))
+        self.assertEqual((lead, kind), (t("manager.sections.upgrade_failed"), "negative"))
         self.assertTrue(caption.startswith(t("said.why.no_permission")), caption)
 
     def test_how_it_went_is_said_after_the_page_is_left(self) -> None:
         said, _ = self._press("upgrade", upgrade_library, leave=True)
 
-        self.assertIn((t("console.sections.upgraded", count=2), "", "positive"), said)
+        self.assertIn((t("manager.sections.upgraded", count=2), "", "positive"), said)
 
 
 def _never_finishes() -> None:

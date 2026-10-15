@@ -121,5 +121,5 @@ SESSION_SECRET = "session_secret"
 
 
 def session_secret() -> str:
-    """What signs the Console's session cookie."""
+    """What signs the Manager's session cookie."""
     return str(get(SESSION_SECRET))

@@ -1,4 +1,4 @@
-"""Every button carries an icon, and the drawing comes from `console/verbs.py`."""
+"""Every button carries an icon, and the drawing comes from `manager/verbs.py`."""
 
 from __future__ import annotations
 
@@ -9,13 +9,13 @@ import unittest
 from tests.support import trees
 
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
-CONSOLE = REPO / "console"
+MANAGER = REPO / "manager"
 
 NAME_PICKERS = {("send_to_device.py", "name_of")}
 
 
 def _sources() -> list[tuple[pathlib.Path, ast.Module]]:
-    return [(p, trees.tree_for(p)) for p in sorted(CONSOLE.rglob("*.py"))]
+    return [(p, trees.tree_for(p)) for p in sorted(MANAGER.rglob("*.py"))]
 
 
 def _button_calls(tree: ast.Module) -> list[ast.Call]:
@@ -52,10 +52,10 @@ class TestEveryButtonCarriesAnIcon(unittest.TestCase):
                     continue
                 if not any(kw.arg == "icon" for kw in node.keywords):
                     offenders.append(f"{path.relative_to(REPO).as_posix()}:{node.lineno}")
-        self.assertEqual(offenders, [], "give it an icon from console/verbs.py")
+        self.assertEqual(offenders, [], "give it an icon from manager/verbs.py")
 
     def test_every_drawing_is_declared(self) -> None:
-        from console import verbs
+        from manager import verbs
         allowed = verbs.declared()
         offenders = []
         for path, tree in _sources():
@@ -71,10 +71,10 @@ class TestEveryButtonCarriesAnIcon(unittest.TestCase):
                             f"{path.relative_to(REPO).as_posix()}:{node.lineno} "
                             f"{node.value.value!r}")
         self.assertEqual(offenders, [],
-                         "name it in console/verbs.py rather than here")
+                         "name it in manager/verbs.py rather than here")
 
     def test_no_button_wears_the_smart_mark(self) -> None:
-        from console import verbs
+        from manager import verbs
         buttons, worn = 0, []
         for path, tree in _sources():
             for node in _button_calls(tree):

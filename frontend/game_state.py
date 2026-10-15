@@ -160,7 +160,7 @@ def _entry_row(entry: Entry, logo_cache: dict[str, str | None],
             "derived_tags": derived_tags.game_tags(game),
             # Everything the record declares about the machine. These were absent for
             # no reason anybody chose - a projection listed some fields and stopped -
-            # and an extension, a remote frontend and the Console all read this.
+            # and an extension, a remote frontend and the Manager all read this.
             "ipdb_id": game_ipdb_id(game),
             "tutorial": contract_1_tutorial(meta),
             "guides": guides_on_wire(meta),
@@ -309,7 +309,7 @@ def refresh_view(api: API) -> None:
     """Re-derive the current view from the library, without changing what it is.
 
     Membership, order and the game objects themselves all go stale: a finished session
-    moves a game up a LastRun wheel, and a Console edit replaces the object outright
+    moves a game up a LastRun wheel, and a Manager edit replaces the object outright
     rather than mutating the one this view is holding.
 
     The view says where its library comes from. Reading the local one here would hand a

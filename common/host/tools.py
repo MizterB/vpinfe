@@ -534,7 +534,7 @@ def words(said: Mapping[str, Any]) -> str:
     """A remedy or a reason in this install's language."""
     setting = str(said.get("setting") or "")
     extra = {"setting": t(f"config.{setting}.label"),
-             "section": t("console.section.settings")} if setting else {}
+             "section": t("manager.section.settings")} if setting else {}
     return t(str(said.get("key") or ""), **dict(said.get("params") or {}), **extra)
 
 

@@ -67,7 +67,7 @@ class OrderTests(unittest.TestCase):
                              "http://192.168.1.20:8001/remote")
 
     def test_loopback_is_still_offered_when_it_is_all_there_is(self) -> None:
-        """A machine with no network still has a Console on it, and an address that
+        """A machine with no network still has a Manager on it, and an address that
         works there beats no address at all."""
         with mock.patch.object(addresses, "hosts", return_value=["localhost"]):
             self.assertEqual(addresses.best(8001, "/remote"),

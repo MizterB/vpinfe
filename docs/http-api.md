@@ -1,6 +1,6 @@
 # HTTP API
 
-VPinFE serves a versioned HTTP API at `/api/v1`, on the same port as the Console
+VPinFE serves a versioned HTTP API at `/api/v1`, on the same port as the Manager
 (`http_port` in the `network` section, default 8001).
 
 > **Unstable.** The API is under active development and may change without notice until v1
@@ -14,8 +14,8 @@ VPinFE serves a versioned HTTP API at `/api/v1`, on the same port as the Console
 - `httpapi/capabilities.py`: the capability registry discovery reads from.
 - `httpapi/events.py`: the event stream — the internal bus (`common/events.py`) on the wire.
 
-The API is not part of the Console. It's served by the same process today, but it belongs
-to the platform — the Console, the frontend themes, the Remote, and any outside
+The API is not part of the Manager. It's served by the same process today, but it belongs
+to the platform — the Manager, the frontend themes, the Remote, and any outside
 integration are all just clients of it.
 
 ## Why it's a mounted app
@@ -24,7 +24,7 @@ integration are all just clients of it.
 NiceGUI app directly. That boundary does real work:
 
 - The error envelope, CORS, and eventually the authorization boundary apply to `/api/v1` and to nothing
-  else. The Console's pages can't be affected by an API-level change, by construction.
+  else. The Manager's pages can't be affected by an API-level change, by construction.
 - NiceGUI disables OpenAPI on its own app and installs 404/500 handlers that render HTML
   pages. Routes added there get no generated spec and no JSON errors; a mounted app gets
   both.
@@ -314,7 +314,7 @@ the documented entry point is a plain 200. Both spellings work.
 | POST | `/api/v1/players/{id}/accounts/{extension}/picture` | Use the picture the account's service has as this player's. Copied once, kept as `PUT /players/{id}/picture` keeps an upload, and never followed. Answers the player. `404` while the service has none, `400` for a guest. The account says whether there is one: `picture` on `GET .../accounts` |
 | GET | `/api/v1/metrics` | What this device is doing now: `now` holds the processor, memory, `disks` and `graphics`, with `cpu_temperature` in degrees C where the platform reports one (Linux) and `busiest`, the five programs using most of the processor as `{name, cpu_percent, memory}`, a program being an app bundle's every process (`Claude Helper (Renderer)` is Claude) or, with no bundle, every process of one name, `cpu_percent` per core as Activity Monitor and `top` read it (100 is one core, so a program on several cores passes 100) except on Windows, where it is the share of the whole device as Task Manager reads it, and a process the OS will not let this one read, such as root's on macOS, left out; `busiest` is null until a second reading, since a process's first reads 0. Each of `disks` is a volume, carrying `holds`: what is watched on it, as `role` (`library`, `config` or `cache`) and, for a library, the folder's `name`; a volume that cannot be read carries `error`, the reason in words. `graphics` is `{cards, reason, detail}`: one entry per card with `id`, `name` (a number follows the name of cards that share one, `RTX 1` and `RTX 2`), `vendor`, `source` (the reader that answered) and the readings that source has - `busy`, `memory_used`, `memory_total`, `memory_percent`, `temperature`, `power`, `clock`, `fan_percent`, `fan_rpm` - where a reading the source lacks is absent, never 0. A card nothing reads carries a `reason` and no `source`, plus `detail` where the program said more and `tool`, the id of the Tool whose Settings row would fix it; no cards at all is an empty list with the `reason`. `history_seconds` adds as much of this session as you ask for, each point carrying `gpus`, each card's `busy` by `id`, and `marks`, what happened in that time, oldest first, as `{at, kind, name}`: each job started (`kind` `job`, `name` its kind, and `title` too where it has a name of its own) and each table launched (`kind` `table`, `name` the game's title, empty when the game is private); 0 means no history and no marks. Two callers within a second get the same reading |
 | GET | `/api/v1/about` | What this install and this device *are* - version, build, OS, browser, and where files live. Each fact carries `path`, true where the value is a path on disk, which a client draws as a path. `text` is the same answer as something to paste into a report |
-| GET | `/api/v1/config/schema` | Every setting this install has. An option's `group` is a token (`navigation`, `local_services`...) and `group_label` beside it is the heading in this install's language. `path` says what a string names on disk (`file`, `dir` or `exe`). `default_is` says whose the default is, `community` or `vpinfe`, for a client that reminds a person of it from `default`, `unit` what a number counts (`seconds`, `port`), `min` and `max` the bounds of a number, which a write outside them is refused with `400`, `as_buttons` that a choice reads as a row of buttons with `choice_help` saying what each one does, `group_note` a line for the whole group and `cuts_off_console` that a change can put this Console out of reach of the device making it and `moves_with` (`backups`) that the folder it names holds files a client should offer to carry across before saving a new one. `applies` says when a saved change takes effect: `now`, `table` (the next table to start), `windows` (the next time the frontend's windows open) or `restart`. A window the active theme declares beyond the three every theme has is a `windows.<name>` section of its own, with the `screen_id` it opens on, after `windows.scoreview`. `lists` describes each top-level list of objects the file holds, each with its `fields` and, where its items differ by kind, a `variant` naming the field that holds the kind and the fields each kind has now; it is empty until a list is declared |
+| GET | `/api/v1/config/schema` | Every setting this install has. An option's `group` is a token (`navigation`, `local_services`...) and `group_label` beside it is the heading in this install's language. `path` says what a string names on disk (`file`, `dir` or `exe`). `default_is` says whose the default is, `community` or `vpinfe`, for a client that reminds a person of it from `default`, `unit` what a number counts (`seconds`, `port`), `min` and `max` the bounds of a number, which a write outside them is refused with `400`, `as_buttons` that a choice reads as a row of buttons with `choice_help` saying what each one does, `group_note` a line for the whole group and `cuts_off_manager` that a change can put this Manager out of reach of the device making it and `moves_with` (`backups`) that the folder it names holds files a client should offer to carry across before saving a new one. `applies` says when a saved change takes effect: `now`, `table` (the next table to start), `windows` (the next time the frontend's windows open) or `restart`. A window the active theme declares beyond the three every theme has is a `windows.<name>` section of its own, with the `screen_id` it opens on, after `windows.scoreview`. `lists` describes each top-level list of objects the file holds, each with its `fields` and, where its items differ by kind, a `variant` naming the field that holds the kind and the fields each kind has now; it is empty until a list is declared |
 | GET | `/api/v1/config/waiting` | What is saved and not yet in effect. `waiting` lists each change as `{kind, section, key, label, label_key, waits_for, in_effect, set}`: `kind` is `setting` or `extension`, `waits_for` is `restart` or `reopen`, `in_effect` is the value this run is using and `set` the value saved. A setting declared `restart` is compared with the value VPinFE started on, a `windows` one with the value the windows last opened on, and changing a value back clears it. A `windows` setting waits for a restart instead of a reopen while the set of windows has changed - a window added or removed, or a theme declaring others - and never waits on an install with no windows open. An extension switched on since the run began is listed as `extension` with `waits_for: restart`. `reopen` says whether this install can reopen its windows, false when headless; `http_port` is the port the next start listens on |
 | GET | `/api/v1/config` | What this install is set to: `{settings, theme_options, <list>...}`, `settings` by section and key, `theme_options` by theme folder and one array for each list the schema declares |
 | GET | `/api/v1/config/theme_options` | What was chosen on each theme, `{<theme folder>: {<option>: value}}`. A theme nobody has changed is absent |
@@ -337,11 +337,11 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/locations/destination` | Where a new game would be created, or why it could not, and where else it could go |
 | GET | `/api/v1/locations/{id}/shadowed` | Game folders here whose id another folder answers for, with both sides |
 | POST | `/api/v1/locations/{id}/shadowed/adopt` | Give one of them, `{"path"}`, an id of its own |
-| GET | `/api/v1/folders?path=` | This device's folders under a path, for a folder field's Browse button. Unbounded, unlike `/filesystem` - empty `path` starts at the home folder, `roots` names where else browsing can start (home, drives, `/`, `Volumes` on macOS), each once - places of one name are named by their path, with `~` for home where the system has one. `config:write`, since picking where a library folder should be is itself a config-writing act. Answers only this device's own Console - a caller reaching the API from elsewhere is refused - and never lists a folder that is private (`.ssh`, browser profiles, keychains, and their platform equivalents), nor shows one as a child of its parent |
-| GET | `/api/v1/folders/file?path=` | One image, video or sound anywhere on this device, so a picker can show it before it is taken. `config:write`, and this device's own Console only, like the listing. Held to media by extension, and judged on what the path resolves to: a link into a private folder, or to a file that is not media, is refused. `/filesystem/file` stays the bounded one for API clients |
-| POST | `/api/v1/folders` | Make a folder, `{"parent", "name"}`, and answer with its own listing. `config:write`, and this device's own Console only, like the listing. Refuses a name that holds a slash or a control character, a name already taken, no parent, and a private parent |
-| POST | `/api/v1/folders/uploads` | Begin an upload from a file or folder anywhere on this device, `{"path"}` - the same session as `/uploads/from_path`, which stays held to the library folders for API clients. `config:write` and `uploads:write`, this device's own Console only, and a private folder is refused. Answers the upload's id; the upload then runs and is read like any other |
-| POST | `/api/v1/folders/games/{game_id}/tables` | Add a table file from anywhere on this device to a game, `{"path"}` - the same body and answer as `/games/{game_id}/tables/import`, which stays held to the library folders. `config:write` and `games:write`, this device's own Console only, a private folder is refused, and the file still has to be one a program plays |
+| GET | `/api/v1/folders?path=` | This device's folders under a path, for a folder field's Browse button. Unbounded, unlike `/filesystem` - empty `path` starts at the home folder, `roots` names where else browsing can start (home, drives, `/`, `Volumes` on macOS), each once - places of one name are named by their path, with `~` for home where the system has one. `config:write`, since picking where a library folder should be is itself a config-writing act. Answers only this device's own Manager - a caller reaching the API from elsewhere is refused - and never lists a folder that is private (`.ssh`, browser profiles, keychains, and their platform equivalents), nor shows one as a child of its parent |
+| GET | `/api/v1/folders/file?path=` | One image, video or sound anywhere on this device, so a picker can show it before it is taken. `config:write`, and this device's own Manager only, like the listing. Held to media by extension, and judged on what the path resolves to: a link into a private folder, or to a file that is not media, is refused. `/filesystem/file` stays the bounded one for API clients |
+| POST | `/api/v1/folders` | Make a folder, `{"parent", "name"}`, and answer with its own listing. `config:write`, and this device's own Manager only, like the listing. Refuses a name that holds a slash or a control character, a name already taken, no parent, and a private parent |
+| POST | `/api/v1/folders/uploads` | Begin an upload from a file or folder anywhere on this device, `{"path"}` - the same session as `/uploads/from_path`, which stays held to the library folders for API clients. `config:write` and `uploads:write`, this device's own Manager only, and a private folder is refused. Answers the upload's id; the upload then runs and is read like any other |
+| POST | `/api/v1/folders/games/{game_id}/tables` | Add a table file from anywhere on this device to a game, `{"path"}` - the same body and answer as `/games/{game_id}/tables/import`, which stays held to the library folders. `config:write` and `games:write`, this device's own Manager only, a private folder is refused, and the file still has to be one a program plays |
 | GET | `/api/v1/themes` | Every frontend theme this install knows, active first. `refresh=true` re-reads the sources, which reaches the network. Each has `registry`, the address of the registry that offers it - empty for one listed by its own repository or placed by hand - `updated`, the date of the newest commit on the release this build would install, and `preview_version`, which changes when the picture does. `layouts` lists the layouts it is made for (`cab`, `desktop`), and `previews` has `{"url", "version"}` for each layout with a picture of its own, empty for a 2.x theme whose one picture stands for both layouts. `preview` is where the main picture is at its source; a client that draws it asks `/themes/{key}/preview`, with `layout` for one layout's. `checked` is when the sources were last read |
 | GET | `/api/v1/themes/sources` | The configured sources in their order, as `registries` (lists of themes) and `repositories` (single themes), each with its `kind`, a `state` (`ready`, `not_checked`, `not_answering`, `not_found`, `not_a_theme`, `needs_vpinfe`, `some_unreadable`, `not_used`), a `level` to color it by, a `reason` in words, what it `took`, and the `label` the person gave it (empty where none). Reads nothing: a source never read is `not_checked` |
 | POST | `/api/v1/themes/sources/check` | What adding `{"address"}` would be, without saving it: the `kind` found, the `address` it would be stored under, `addable`, and the same fields as a source. `config:write`. Nothing is installed. Saving is `PUT /config` |
@@ -610,13 +610,13 @@ An Owner that reaches a Protected route without a Confirm is answered `403` with
 `details.reason` of `confirm_needed` and the `scope`; a token or a Remote pass is answered
 `details.reason` of `protected`, because nothing it can do changes that. A client that can
 show the Confirm asks `/auth/confirm/code`, then `/auth/confirm`, and repeats the call. The
-Console does exactly this.
+Manager does exactly this.
 
 **Tokens** are named, shown once, kept hashed and revocable. Send one as
 `Authorization: Bearer <secret>`. Full Control is Play and Library; Play is Play. Neither
 holds `access:*` or `protected:write`. A token made by pairing is Full Control.
 
-**The Console acts for a browser.** The Console draws pages for browsers on other devices
+**The Manager acts for a browser.** The Manager draws pages for browsers on other devices
 but calls this API from the same device over loopback. Each such call carries
 `x-vpinfe-acting`, a 60-second HMAC naming the browser's sign-in (or `-` for a browser that
 is no longer signed in), and is held to that sign-in's tier. A loopback call with no such
@@ -671,12 +671,12 @@ Two settings decide reachability, and they are separate on purpose:
 
 | setting | default | what it serves |
 |---|---|---|
-| `network.http_bind` | `0.0.0.0` | the API and the Console |
+| `network.http_bind` | `0.0.0.0` | the API and the Manager |
 | `network.theme_assets_bind` | `127.0.0.1` | theme packages and the table library's media |
 
 `http_bind` answers everywhere because the Remote and the sign-in page are the point - a
 phone administering a VPinFE device is a supported workflow, not an accident. Set it to `127.0.0.1`
-if you want the API reachable only from the device itself; the Remote and the Console on
+if you want the API reachable only from the device itself; the Remote and the Manager on
 other devices stop working, which is the trade.
 
 `theme_assets_bind` is loopback because opening it shares read access to the table library
@@ -1435,7 +1435,7 @@ table does not fall back to the game's default.
 `game_wheels` is up to four wheel URLs of the games it hands out, in its own order and
 within its limit, skipping a game with no wheel - each one this API's own
 `/games/{id}[/tables/{table}]/media/wheel`. It is what to draw for a collection with no
-`image` of its own; the Console draws them as a two-by-two.
+`image` of its own; the Manager draws them as a two-by-two.
 
 `image_version` is the `v` for `/collections/{name}/image`, and null when it has none.
 
@@ -1498,7 +1498,7 @@ since they only said what to leave out of what the criteria found. Sending it be
 `filters` is refused.
 
 `in_frontend` is false on a collection kept out of the frontend: its collection menu and
-core's collection picker leave it out, while this API and the Console still list it. PATCH it
+core's collection picker leave it out, while this API and the Manager still list it. PATCH it
 with `in_frontend`; `true` removes the key rather than storing it. The collection the
 frontend is showing stays in its menu even when it is off, so a setting that opens on it
 still does.
@@ -1795,7 +1795,7 @@ the thing itself, so a scan is `games:write` because that is what a scan does. `
 covers only asking; the right to watch is not the right to cause.
 
 **One job of a kind at a time**, and the rule is shared with the rest of the app rather than
-being an API-only guard: the Console's own Scan button goes through the same registry, so
+being an API-only guard: the Manager's own Scan button goes through the same registry, so
 two library scans can't rewrite the same `.info` files at once, and a scan started from the
 UI shows up on the stream exactly like one started here. A second request gets `409 conflict`
 rather than being queued — queueing would mean a double-click costs two full scans.
@@ -1842,7 +1842,7 @@ Two consequences worth knowing:
 Existing games get an id on their next metadata rebuild, or on demand. Reading a game never
 mints one — a scan is a read path and stays one.
 
-In Console game rows the field is `vpinfe_id`, pairing with `vpsid` so each name says who
+In Manager game rows the field is `vpinfe_id`, pairing with `vpsid` so each name says who
 issued the id. The API exposes it as the resource's `id`.
 
 ### Schema version
@@ -1982,7 +1982,7 @@ def get_game(game_id: str) -> models.GameResource:
     return models.GameResource(**game_lens.detail(game_id))
 ```
 
-**Nothing calls a route handler.** Extensions, the Console and the other route modules all
+**Nothing calls a route handler.** Extensions, the Manager and the other route modules all
 reach the same service, so there is one implementation of every answer and no route doing
 double duty. A service module named `*_ops` writes, a `*_lens` reads; both return dicts,
 because `common/` may not import `httpapi` and so cannot hand back a response model.

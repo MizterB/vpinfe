@@ -77,7 +77,7 @@ def send(device_id: str, game_ids: Iterable[str], everything: bool = False,
 def plan(device_id: str, game_ids: Iterable[str], everything: bool = False) -> dict[str, Any]:
     """Which of these games would send a mobile settings file, for a confirm to say so.
 
-    The Console cannot read a game folder, and the folder is where the answer is.
+    The Manager cannot read a game folder, and the folder is where the answer is.
     """
     device_ops.mobile_or_refuse(device_id)
     _chunk, word = _sending()

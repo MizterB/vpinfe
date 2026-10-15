@@ -79,8 +79,8 @@ class RenderSmokeTests(TempTree):
         CI failure back to guesswork, and guessing costs a push per attempt."""
         lines = [f"{window} never finished starting: {exc}",
                  f"  failed requests: {browser.failed_requests[:6] or 'none'}",
-                 "  console:"]
-        lines += [f"    {line[:160]}" for line in browser.console[:15]] or ["    (silent)"]
+                 "  page log:"]
+        lines += [f"    {line[:160]}" for line in browser.page_log[:15]] or ["    (silent)"]
         lines += ["  instance log:"]
         lines += [f"    {line[:160]}" for line in instance.output().splitlines()[-15:]]
         return "\n".join(lines)
@@ -106,7 +106,7 @@ class RenderSmokeTests(TempTree):
 
     def test_the_theme_reports_no_failure_of_its_own(self) -> None:
         """The harness writes what went wrong into the body rather than throwing into a
-        console nobody reads - a theme that throws at startup renders nothing, which
+        browser log nobody reads - a theme that throws at startup renders nothing, which
         looks exactly like a blank screen."""
         data, _browser, _failed = self._drive()
         self.assertIsNone(data.get("failures"), data.get("failures"))
@@ -235,7 +235,7 @@ class RenderSmokeTests(TempTree):
                 BrowserSession(chromium_path() or "") as phone:
             await self._open(theme, instance, "playfield")
             await theme.evaluate(self.WATCH_MOVES)
-            await phone.navigate(instance.console_url("/remote?screen=control"))
+            await phone.navigate(instance.manager_url("/remote?screen=control"))
             await phone.wait_for(
                 "document.querySelectorAll('[data-hold-action]').length === 4",
                 timeout=self.READY_TIMEOUT)
@@ -307,12 +307,12 @@ class RenderSmokeTests(TempTree):
     def test_the_menu_opens_with_something_selected(self) -> None:
         async def run(instance):
             async with BrowserSession(chromium_path()) as browser:
-                return await self._open_menu(browser, instance), list(browser.console)
+                return await self._open_menu(browser, instance), list(browser.page_log)
 
         with LiveInstance(self.root) as instance:
-            selected, console = asyncio.run(run(instance))
+            selected, page_log = asyncio.run(run(instance))
         self.assertTrue(selected, "the menu opened with no item selected")
-        self.assertEqual([line for line in console if "Uncaught" in line], [])
+        self.assertEqual([line for line in page_log if "Uncaught" in line], [])
 
     def test_the_menu_cursor_moves(self) -> None:
         async def run(instance):
@@ -411,7 +411,7 @@ class RenderSmokeTests(TempTree):
             instance.wait_for_api()
             kid = instance.post("/api/v1/players", {"name": "Kid", "initials": "KID"})["id"]
             requests.put(
-                instance.console_url(f"/api/v1/players/{kid}/picture"),
+                instance.manager_url(f"/api/v1/players/{kid}/picture"),
                 files={"file": ("red.png", pictures.png(80, 60, pictures.RED), "image/png")},
                 timeout=10).raise_for_status()
             circles, kept, fell_back = asyncio.run(run(instance))
@@ -559,7 +559,7 @@ class RenderSmokeTests(TempTree):
 
     # -- what a frame throws reaches the log -------------------------------
     #
-    # An overlay is an iframe with its own console, and nothing reads it on a cabinet.
+    # An overlay is an iframe with its own browser log, and nothing reads it on a cabinet.
     # A ReferenceError in the menu left it not responding to any key with a clean log;
     # the only clue was pressing a button and watching nothing happen.
 

@@ -175,7 +175,7 @@ class RouteTests(unittest.TestCase):
         self.assertEqual(body, b"")
 
     def test_it_asks_to_be_revalidated(self) -> None:
-        """Replacing art in the Console has to show up without a hard refresh."""
+        """Replacing art in the Manager has to show up without a hard refresh."""
         _, headers, _ = self._get("/media/tbl0000001/wheel")
 
         self.assertEqual(headers["Cache-Control"], "no-cache")

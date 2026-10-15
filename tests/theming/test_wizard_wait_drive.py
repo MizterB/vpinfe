@@ -29,24 +29,24 @@ STEP = {"step": "paths", "title": "Where", "help": "Two paths", "steps": [],
         "fields": [{"key": "tables", "type": "path", "wants": "dir", "label": "Tables",
                     "value": LONG}, *TALL]}
 
-SETTLED = ("(() => !!document.querySelector('.console-wizard-card input.console-path-input')"
+SETTLED = ("(() => !!document.querySelector('.manager-wizard-card input.manager-path-input')"
            " && document.getAnimations().every((a) => a.playState !== 'running'))()")
-FORWARD = ".console-wizard-card .console-wizard-forward"
-MARKED = "!!document.querySelector('.console-wizard-card .q-field[data-path-cut]')"
-BARRED = "!!document.querySelector('.console-wizard-wait .q-linear-progress')"
+FORWARD = ".manager-wizard-card .manager-wizard-forward"
+MARKED = "!!document.querySelector('.manager-wizard-card .q-field[data-path-cut]')"
+BARRED = "!!document.querySelector('.manager-wizard-wait .q-linear-progress')"
 WAIT = """(() => {
-  const wait = document.querySelector('.console-wizard-wait').getBoundingClientRect();
-  const foot = document.querySelector('.console-dialog-footer').getBoundingClientRect();
-  const scroll = document.querySelector('.console-wizard-scroll');
-  const card = document.querySelector('.console-wizard-card').getBoundingClientRect();
+  const wait = document.querySelector('.manager-wizard-wait').getBoundingClientRect();
+  const foot = document.querySelector('.manager-dialog-footer').getBoundingClientRect();
+  const scroll = document.querySelector('.manager-wizard-scroll');
+  const card = document.querySelector('.manager-wizard-card').getBoundingClientRect();
   return {
-    outside: !scroll.contains(document.querySelector('.console-wizard-wait')),
+    outside: !scroll.contains(document.querySelector('.manager-wizard-wait')),
     above: wait.bottom <= foot.top + 1, inside: wait.top >= card.top && wait.bottom <= card.bottom,
-    said: document.querySelector('.console-wizard-wait').innerText,
+    said: document.querySelector('.manager-wizard-wait').innerText,
   };
 })()"""
 PATH = """(() => {
-  const input = document.querySelector('.console-wizard-card input.console-path-input');
+  const input = document.querySelector('.manager-wizard-card input.manager-path-input');
   const field = input.closest('.q-field');
   return {
     cut: field.hasAttribute('data-path-cut'),
@@ -57,9 +57,9 @@ PATH = """(() => {
 # What the server's redraw does to a field: Vue writes its class attribute afresh, which
 # drops any class a script added.
 REDRAWN = """(() => {
-  const field = document.querySelector('.console-wizard-card input.console-path-input')
+  const field = document.querySelector('.manager-wizard-card input.manager-path-input')
     .closest('.q-field');
-  field.setAttribute('class', field.className.replace('console-path-cut', '').trim());
+  field.setAttribute('class', field.className.replace('manager-path-cut', '').trim());
   return true;
 })()"""
 
@@ -67,7 +67,7 @@ REDRAWN = """(() => {
 def serve(port: int) -> None:
     from nicegui import app, ui
 
-    from console import api, appearance, wizard
+    from manager import api, appearance, wizard
 
     api.local_base_url = lambda: "http://127.0.0.1:9"
     app.add_static_files(appearance.BASE_MOUNT, str(appearance.BASE_CSS.parent))

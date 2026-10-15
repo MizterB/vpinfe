@@ -1,7 +1,7 @@
 # `ctx.ui`
 
 What an extension offers a person.  You declare it and core serves it: you hand over fields, a
-`rows()` function and a dialog object, and core mounts the routes the Console reads.  All of it
+`rows()` function and a dialog object, and core mounts the routes the Manager reads.  All of it
 needs the `ui:mount` capability, and every call here raises `ContractError` without it.  The
 sections after this one describe each declaration in full.
 
@@ -280,7 +280,7 @@ The words are `need.<kind>.label`, required, given `count` so it can have plural
 `need.<kind>.says`, in the extension's catalog.  A `read` that raises, or answers a kind that
 was not declared or a shape that is not a list of kinds with ids or a count, leaves out only
 this extension's rows, and Overview says that what extensions ask for could not be read.  The
-Console reads every running extension's rows from `GET /api/v1/extensions/needs` (needs
+Manager reads every running extension's rows from `GET /api/v1/extensions/needs` (needs
 `instance:read`).
 
 It raises `ContractError` without `ui:mount`, when called twice, for `kinds` that is empty or
@@ -338,7 +338,7 @@ can open the same dialog from a button above it, from a verb or from an act.  It
 
 Link to a page of your own, for an extension that has more than VPinFE draws: a hardware
 tool's web page, a service's dashboard.  `url` is an address, or a function that answers one
-each time the Console draws it.  `{host}` in it is filled with the host the Console was opened
+each time the Manager draws it.  `{host}` in it is filled with the host the Manager was opened
 at, so `http://{host}:9090/` reaches a port of the extension's own from a laptop as well as at
 the VPinFE device.  Only `http://` and `https://` are drawn.
 
@@ -349,8 +349,8 @@ ctx.ui.link("console", "http://{host}:9090/", area="system")
 A person sees the link in a menu at the end of the title of the extension's page, in Settings.
 With an `area` (`library`, `frontend`, `community` or `system`, as a list's) it is also an
 entry in that group of the rail, after core's own and after the extension's lists (and before
-About, in System), drawn with `icon` from [Rail icons](#rail-icons) and with a mark that it leaves the Console.  Every link opens a new tab, with `noopener` and `noreferrer`
-whatever the address, so the page it opens cannot reach back into the Console.  Nothing is drawn
+About, in System), drawn with `icon` from [Rail icons](#rail-icons) and with a mark that it leaves the Manager.  Every link opens a new tab, with `noopener` and `noreferrer`
+whatever the address, so the page it opens cannot reach back into the Manager.  Nothing is drawn
 while the extension is stopped, and a function that raises, or answers something that is not a
 web address, leaves out only its own link.  The words are `link.<key>.label`, required, and
 `link.<key>.tip`, in the extension's catalog.
@@ -361,7 +361,7 @@ address.  A function's answer cannot be checked until it is asked, so `--check-e
 it and fails the extension if the answer is not a web address.
 
 Put a page of your own on another site or on a port of its own.  A page served from VPinFE's
-address would run as the Console, so [what core serves](served.md#what-core-serves) answers
+address would run as the Manager, so [what core serves](served.md#what-core-serves) answers
 anything under `/api/v1/ext/` as a page with no origin of its own.  Anything the page on your
 own port changes should sit behind its own sign-in, as VPinFE does not guard a port it did not
 open.

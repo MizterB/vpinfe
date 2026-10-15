@@ -17,9 +17,9 @@ from urllib.parse import quote
 
 from common.i18n import t
 from tests.support.browser_session import BrowserSession, chromium_path
-from tests.support.console_walk import MARK, ConsoleWalk, newer, notice
 from tests.support.library import game_info, write_game
 from tests.support.live_instance import LiveInstance
+from tests.support.manager_walk import MARK, ManagerWalk, newer, notice
 
 HAND = "Hand Picked"
 SMART = "Smart Bally"
@@ -30,9 +30,9 @@ API = ("(() => { const el = document.querySelector('.ag-root-wrapper')"
        ".closest('.nicegui-aggrid'); return getElement(Number(el.id.slice(1))).api; })()")
 SHOWN = ("(() => { const out = []; " + API + ".forEachNodeAfterFilterAndSort("
          "n => out.push(n.data.id)); return out; })()")
-MENU = ("[...document.querySelectorAll('.q-menu .console-menu-item')]"
+MENU = ("[...document.querySelectorAll('.q-menu .manager-menu-item')]"
         ".map(e => [e.innerText.replace(/\\n+/g, ' / '),"
-        " e.classList.contains('console-menu-blocked')])")
+        " e.classList.contains('manager-menu-blocked')])")
 MENU_OPEN = "!!document.querySelector('.q-menu')"
 HAS = "[...document.querySelectorAll(%s)].some(el => el.innerText.includes(%s))"
 # The middle of a row's cell, once the grid shows it whole.
@@ -49,21 +49,21 @@ PICKING = ("(typed => { const box = document.activeElement;"
            " const lit = document.querySelector('.q-menu .q-item.q-manual-focusable--focused');"
            " return !!box && box.value === typed && !!lit"
            " && lit.innerText.toLowerCase().includes(typed); })(%s)")
-ADD_BOX = ("[...document.querySelectorAll('.console-section-work .q-select')]"
+ADD_BOX = ("[...document.querySelectorAll('.manager-section-work .q-select')]"
            ".findIndex(e => e.innerText.includes('Add Games'))")
 OPTIONS = ("[...document.querySelectorAll('.q-menu .q-item')].map(e => ["
            "e.innerText.replace(/\\n+/g, ' / '), e.classList.contains('disabled')])")
 BOX_AFTER = ("(() => { const a = document.activeElement;"
              " const box = a && a.closest && a.closest('.q-select');"
              " return [!!box && box.innerText.includes('Add Games'),"
-             " !!document.querySelector('.q-menu.console-picker-popup')]; })()")
-PANEL_ROWS = ("[...document.querySelectorAll('.console-section-work .console-member-row')]"
+             " !!document.querySelector('.q-menu.manager-picker-popup')]; })()")
+PANEL_ROWS = ("[...document.querySelectorAll('.manager-section-work .manager-member-row')]"
               ".map(r => [r.innerText.split('\\n').slice(0, 2).join(' / '),"
               " !!r.querySelector('button')])")
 INDEX_OF = ("(() => [...document.querySelectorAll(%s)]"
             ".findIndex(el => el.innerText.includes(%s)))()")
-ROW_X = ("[...document.querySelectorAll('.console-section-work .console-member-row button')]"
-         ".findIndex(b => b.closest('.console-member-row').innerText.includes(%s)"
+ROW_X = ("[...document.querySelectorAll('.manager-section-work .manager-member-row button')]"
+         ".findIndex(b => b.closest('.manager-member-row').innerText.includes(%s)"
          " && b.innerText.trim() === 'remove')")
 UNDO_AT = ("(() => { const n = [...document.querySelectorAll('.q-notification')]"
            ".find(n => n.innerText.includes(%s)); const b = n && [...n.querySelectorAll("
@@ -101,7 +101,7 @@ class CollectionAddsDrive(unittest.TestCase):
 
         def send(method: str, path: str, body: dict) -> None:
             urllib.request.urlopen(urllib.request.Request(
-                instance.console_url(path), data=json.dumps(body).encode(), method=method,
+                instance.manager_url(path), data=json.dumps(body).encode(), method=method,
                 headers={"Content-Type": "application/json"}), timeout=10).close()
 
         instance.post("/api/v1/collections", {"name": HAND, "games": ["bravo", "charlie"]})
@@ -114,7 +114,7 @@ class CollectionAddsDrive(unittest.TestCase):
                 f"/api/v1/collections/{quote(name)}/members")["members"]]
 
         async with BrowserSession(chromium_path() or "") as browser:
-            walk = ConsoleWalk(browser, instance)
+            walk = ManagerWalk(browser, instance)
 
             async def mouse(kind: str, x: float, y: float, button: str = "left") -> None:
                 await browser.send("Input.dispatchMouseEvent",
@@ -133,7 +133,7 @@ class CollectionAddsDrive(unittest.TestCase):
                     await mouse("mousePressed", x, y, "right")
                     await mouse("mouseReleased", x, y, "right")
 
-                await walk.act(press, mark=MARK, until=newer(".q-menu .console-menu-item"))
+                await walk.act(press, mark=MARK, until=newer(".q-menu .manager-menu-item"))
 
             def click_text(selector: str, text: str) -> Callable[[], Awaitable[None]]:
                 async def click() -> None:
@@ -175,23 +175,23 @@ class CollectionAddsDrive(unittest.TestCase):
                     await mouse("mousePressed", where[0], where[1])
                     await mouse("mouseReleased", where[0], where[1])
 
-                await said(t("console.undo.undone"), press)
+                await said(t("manager.undo.undone"), press)
 
             async def pick_from_dialog(name: str, text: str) -> list:
-                await walk.act(click_text(".q-menu .console-menu-item", "Add to Collection"),
-                               until=HAS % (json.dumps(".q-menu .console-menu-item"),
+                await walk.act(click_text(".q-menu .manager-menu-item", "Add to Collection"),
+                               until=HAS % (json.dumps(".q-menu .manager-menu-item"),
                                             json.dumps("More Collections")))
-                await walk.act(click_text(".q-menu .console-menu-item", "More Collections"),
+                await walk.act(click_text(".q-menu .manager-menu-item", "More Collections"),
                                until="!!document.querySelector('.q-dialog"
-                                     " .console-collection-pick')")
+                                     " .manager-collection-pick')")
                 seen.setdefault("dialogs", []).append(await browser.evaluate(
                     "document.querySelector('.q-dialog').innerText"))
-                await walk.act(click_text(".q-dialog .console-source-row", name),
-                               until=HAS % (json.dumps(".q-dialog .console-source-row--chosen"),
+                await walk.act(click_text(".q-dialog .manager-source-row", name),
+                               until=HAS % (json.dumps(".q-dialog .manager-source-row--chosen"),
                                             json.dumps(name)))
                 return await said(text, click_text(".q-dialog button", "Add"))
 
-            await walk.visit("/console?view=games")
+            await walk.visit("/manager?view=games")
             await browser.wait_for(API + ".getDisplayedRowCount() > 0")
 
             await right_click("delta", "name")
@@ -209,20 +209,20 @@ class CollectionAddsDrive(unittest.TestCase):
             seen["exception"] = await pick_from_dialog(SMART, "exception")
             seen["exception_refs"] = refs(SMART)
 
-            await walk.visit("/console?view=tables")
+            await walk.visit("/manager?view=tables")
             await browser.wait_for(API + ".getDisplayedRowCount() > 0")
             await right_click("t-a1", "game")
             seen["table_menu"] = await browser.evaluate(MENU)
             await pick_from_dialog(HAND, "Added to")
             seen["table_refs"] = refs(HAND)
 
-            await walk.visit(f"/console?view=games&collection={quote(HAND)}")
+            await walk.visit(f"/manager?view=games&collection={quote(HAND)}")
             await browser.wait_for(API + ".getDisplayedRowCount() > 0")
             seen["narrowed"] = await browser.evaluate(SHOWN)
             await right_click("bravo", "name")
             seen["narrowed_menu"] = await browser.evaluate(MENU)
             seen["removed"] = await said("Removed from", click_text(
-                ".q-menu .console-menu-item", f"Remove from “{HAND}”"))
+                ".q-menu .manager-menu-item", f"Remove from “{HAND}”"))
             seen["removed_refs"] = refs(HAND)
             seen["removed_shown"] = await browser.evaluate(SHOWN)
             await undo("Removed from")
@@ -243,12 +243,12 @@ class CollectionAddsDrive(unittest.TestCase):
                 for letter in letters:
                     await key(letter, ord(letter.upper()), letter)
 
-            await walk.visit(f"/console?view=collections&collection={quote(HAND)}")
+            await walk.visit(f"/manager?view=collections&collection={quote(HAND)}")
             await browser.wait_for("document.body.innerText.includes('Add Games')")
             box = await browser.evaluate(ADD_BOX)
 
             async def type_a() -> None:
-                await browser.click(".console-section-work .q-select input", nth=box)
+                await browser.click(".manager-section-work .q-select input", nth=box)
                 await typed("a")
 
             await walk.act(type_a, until=PICKING % json.dumps("a"))
@@ -256,36 +256,36 @@ class CollectionAddsDrive(unittest.TestCase):
             await walk.act(lambda: typed("delta", first="Backspace"),
                            until=PICKING % json.dumps("delta"))
             await said("Added to", lambda: key("Enter", 13, "\r"),
-                       drawn=newer(".console-section-work .console-member-row"))
+                       drawn=newer(".manager-section-work .manager-member-row"))
             seen["box_after"] = await browser.evaluate(BOX_AFTER)
 
             await outside()
             seen["before_x"] = refs(HAND)
             alpha_x = await browser.evaluate(ROW_X % json.dumps("Alpha"))
             seen["x_said"] = await said("Removed from", lambda: browser.click(
-                ".console-section-work .console-member-row button", nth=alpha_x))
+                ".manager-section-work .manager-member-row button", nth=alpha_x))
             seen["x_refs"] = refs(HAND)
             await undo("Removed from")
             seen["x_undone"] = refs(HAND)
 
             send("PUT", f"/api/v1/collections/{quote(SMART)}/excluded/bravo", {"table": ""})
-            await walk.visit("/console?view=games&game=bravo&section=collections")
+            await walk.visit("/manager?view=games&game=bravo&section=collections")
             await browser.wait_for("document.body.innerText.includes('Add to Collection')")
             seen["game_panel"] = await browser.evaluate(PANEL_ROWS)
-            await walk.act(click_text(".console-section-work button", "Add to Collection"),
-                           until="!!document.querySelector('.q-menu .console-menu-item')")
+            await walk.act(click_text(".manager-section-work button", "Add to Collection"),
+                           until="!!document.querySelector('.q-menu .manager-menu-item')")
             seen["game_menu"] = await browser.evaluate(MENU)
             await outside()
-            await said(t("console.workbench.restore_into", name=SMART), lambda: browser.click(
-                ".console-section-work .console-member-row button",
+            await said(t("manager.workbench.restore_into", name=SMART), lambda: browser.click(
+                ".manager-section-work .manager-member-row button",
                 nth=[row for row, _b in seen["game_panel"]].index(f"{SMART} / Manually removed")),
-                drawn=newer(".console-section-work .console-member-row"))
+                drawn=newer(".manager-section-work .manager-member-row"))
             seen["put_back"] = refs(SMART)
 
             seen["before_panel_x"] = refs(HAND)
             rows = [row for row, _b in await browser.evaluate(PANEL_ROWS)]
             seen["panel_x_said"] = await said("Removed from", lambda: browser.click(
-                ".console-section-work .console-member-row button",
+                ".manager-section-work .manager-member-row button",
                 nth=rows.index(f"{HAND} / Manually added")))
             seen["panel_x_refs"] = refs(HAND)
             await undo("Removed from")

@@ -15,7 +15,7 @@ from tests.support import trees
 
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
 CATALOG = REPO / "common/i18n/catalogs/en.json"
-CONSOLE = REPO / "console"
+MANAGER = REPO / "manager"
 
 # Where a heading is declared: the keyword a column carries, and the two dicts of view
 # presets whose keys are what the view picker prints.
@@ -55,7 +55,7 @@ def _looked_up_key(node: ast.AST, consts: dict[str, str]) -> str | None:
 
 def _headings() -> list[tuple[str, int, str, str]]:
     out = []
-    for path in sorted(CONSOLE.rglob("*.py")):
+    for path in sorted(MANAGER.rglob("*.py")):
         tree = trees.tree_for(path)
         consts = _string_constants(tree)
         where = path.relative_to(REPO).as_posix()
@@ -98,10 +98,10 @@ class HeadingsResolve(unittest.TestCase):
 
     def test_it_can_actually_fail(self):
         catalog = _entries()
-        self.assertNotIn("console.games.assets", catalog)
-        planted = [("console/games.py", 44, "column group", "console.games.assets")]
+        self.assertNotIn("manager.games.assets", catalog)
+        planted = [("manager/games.py", 44, "column group", "manager.games.assets")]
         missing = [key for _, _, _, key in planted if key not in catalog]
-        self.assertEqual(["console.games.assets"], missing)
+        self.assertEqual(["manager.games.assets"], missing)
 
 
 if __name__ == "__main__":

@@ -16,7 +16,7 @@ import unittest
 from tests.support import trees
 
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
-CONSOLE = REPO / "console"
+MANAGER = REPO / "manager"
 CATALOG = REPO / "common" / "i18n" / "catalogs" / "en.json"
 
 # `panel.py` is the ⋮ that opens a subject's verbs. `ext_page.py` heads the buttons an
@@ -80,7 +80,7 @@ _LAYOUT = {"row", "column", "element", "space", "separator", "tooltip", "menu", 
 
 
 def _imports(tree: ast.Module) -> dict[str, tuple[str, str | None]]:
-    """What each imported console name is: (module, name) for a function, (module, None)
+    """What each imported manager name is: (module, name) for a function, (module, None)
     for a module."""
     found: dict[str, tuple[str, str | None]] = {}
     for node in ast.walk(tree):
@@ -88,15 +88,15 @@ def _imports(tree: ast.Module) -> dict[str, tuple[str, str | None]]:
             continue
         for alias in node.names:
             bound = alias.asname or alias.name
-            if node.module == "console":
+            if node.module == "manager":
                 found[bound] = (alias.name, None)
-            elif node.module.startswith("console."):
-                found[bound] = (node.module.removeprefix("console."), alias.name)
+            elif node.module.startswith("manager."):
+                found[bound] = (node.module.removeprefix("manager."), alias.name)
     return found
 
 
 def draws(trees_by_module: dict[str, ast.Module], module: str, name: str) -> set[str]:
-    """`button` and `content` for what `module.name` draws, through the console functions
+    """`button` and `content` for what `module.name` draws, through the manager functions
     it calls. A call that resolves to nothing here is a library call, and is not read."""
     defs = {mod: {node.name: node for node in tree.body
                   if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
@@ -151,12 +151,12 @@ def _builders(trees_by_module: dict[str, ast.Module]) -> dict[str, list[tuple[st
     return built
 
 
-def _console_trees() -> dict[str, ast.Module]:
-    return {path.stem: _tree(path) for path in CONSOLE.glob("*.py")}
+def _manager_trees() -> dict[str, ast.Module]:
+    return {path.stem: _tree(path) for path in MANAGER.glob("*.py")}
 
 
 def _subject_verbs() -> set[str]:
-    for node in _tree(CONSOLE / "workbench.py").body:
+    for node in _tree(MANAGER / "workbench.py").body:
         target = getattr(node, "target", None)
         value = getattr(node, "value", None)
         if isinstance(target, ast.Name) and target.id == "SUBJECT_VERBS" \
@@ -180,9 +180,9 @@ def _given(call: ast.Call) -> set[str]:
 
 
 def _grids() -> dict[str, set[str]]:
-    """Each console module that builds a grid, with the handlers its grids are given."""
+    """Each manager module that builds a grid, with the handlers its grids are given."""
     found: dict[str, set[str]] = {}
-    for path in sorted(CONSOLE.glob("*.py")):
+    for path in sorted(MANAGER.glob("*.py")):
         calls = [node for node in ast.walk(_tree(path))
                  if isinstance(node, ast.Call) and _is_grid_build(node)]
         if calls:
@@ -203,14 +203,14 @@ class TestActionsSitWithTheirSubject(unittest.TestCase):
         spelled = sorted(key for key, value in catalog.items() if value == "Actions")
         self.assertEqual(spelled, ["word.actions"],
                          "name the section for what it holds, or put the verbs in a strip")
-        offenders = sorted(path.name for path in CONSOLE.rglob("*.py")
+        offenders = sorted(path.name for path in MANAGER.rglob("*.py")
                            if '"word.actions"' in path.read_text(encoding="utf-8")
                            and path.name not in ACTIONS_WORD_AT)
         self.assertEqual(offenders, [])
 
     def test_no_section_key_is_an_actions_bucket(self) -> None:
         keys = [node.args[0].value
-                for node in ast.walk(_tree(CONSOLE / "workbench.py"))
+                for node in ast.walk(_tree(MANAGER / "workbench.py"))
                 if isinstance(node, ast.Call) and getattr(node.func, "id", "") == "Section"
                 and node.args and isinstance(node.args[0], ast.Constant)
                 and isinstance(node.args[0].value, str)]
@@ -220,9 +220,9 @@ class TestActionsSitWithTheirSubject(unittest.TestCase):
     def test_a_subject_menu_and_its_row_menu_share_one_list(self) -> None:
         self.assertEqual(_subject_verbs(), set(GRID_OF))
         for subject, (written, function, drawn) in GRID_OF.items():
-            defined = {node.name for node in _tree(CONSOLE / written).body
+            defined = {node.name for node in _tree(MANAGER / written).body
                        if isinstance(node, ast.FunctionDef)}
-            tree = _tree(CONSOLE / drawn)
+            tree = _tree(MANAGER / drawn)
             called = {node.func.attr for node in ast.walk(tree)
                       if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
                       and isinstance(node.func.value, ast.Name)
@@ -232,7 +232,7 @@ class TestActionsSitWithTheirSubject(unittest.TestCase):
                 self.assertIn("verb_menu", called)
 
     def test_no_section_is_only_buttons(self) -> None:
-        read = _console_trees()
+        read = _manager_trees()
         sections = _builders(read)
         self.assertGreater(len(sections), 25)
         drawn = {key: set().union(*(draws(read, *ref) for ref in refs))
@@ -255,7 +255,7 @@ class TestActionsSitWithTheirSubject(unittest.TestCase):
         self.assertEqual(draws(found, "snippet", "through"), {"button"})
 
     def test_hand_built_buttons_only_come_down(self) -> None:
-        count = sum(1 for path in CONSOLE.rglob("*.py") if path.name != "panel.py"
+        count = sum(1 for path in MANAGER.rglob("*.py") if path.name != "panel.py"
                     for node in ast.walk(_tree(path)) if _is_ui_call(node, "button"))
         self.assertLessEqual(count, BUTTON_CEILING,
                              "build it with panel.action, panel.verb_menu or dialog.footer")
@@ -268,17 +268,17 @@ class TestActionsSitWithTheirSubject(unittest.TestCase):
         grids = _grids()
         self.assertIn("backups.py", grids)
         selectable = {name for name, given in grids.items() if "on_select_rows" in given}
-        drawn = {name for name in selectable if _calls_panel(CONSOLE / name, "selection_menu")}
+        drawn = {name for name in selectable if _calls_panel(MANAGER / name, "selection_menu")}
         by_hand = selectable - drawn - NO_SELECTION_MENU
         self.assertEqual(sorted(SELECTION_BY_HAND), sorted(by_hand),
                          "a selection menu is built with panel.selection_menu; a page "
                          "that does is out of SELECTION_BY_HAND")
-        for path in sorted(CONSOLE.glob("*.py")):
+        for path in sorted(MANAGER.glob("*.py")):
             if path.name != "panel.py" and _calls_panel(path, "selection_actions"):
                 self.assertIn(path.name, SELECTION_BY_HAND, "build it with selection_menu")
 
     def test_checkboxes_are_drawn_only_for_a_grid_with_a_selection_handler(self) -> None:
-        build = next(node for node in _tree(CONSOLE / "grid.py").body
+        build = next(node for node in _tree(MANAGER / "grid.py").body
                      if isinstance(node, ast.FunctionDef) and node.name == "build")
         gated = [node for node in ast.walk(build) if isinstance(node, ast.IfExp)
                  and ast.unparse(node.test) == "on_select_rows is not None"

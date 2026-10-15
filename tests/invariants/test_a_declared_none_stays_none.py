@@ -78,7 +78,7 @@ class TestADeclaredNoneStaysNone(unittest.TestCase):
 
     def test_every_reader_has_been_read(self) -> None:
         offenders = []
-        for folder in ("common", "httpapi", "console", "frontend"):
+        for folder in ("common", "httpapi", "manager", "frontend"):
             for path in sorted((REPO / folder).rglob("*.py")):
                 if "__pycache__" in path.parts:
                     continue

@@ -86,7 +86,7 @@ def _address(request: Request) -> str:
 
 
 def _guessing_as(request: Request) -> str:
-    """Who wrong codes are counted against. A Console call reaches here over this device's
+    """Who wrong codes are counted against. A Manager call reaches here over this device's
     own address on behalf of a browser, so the sign-in it acts for is the one to count."""
     session = caller_session(request)
     return f"session:{session.id}" if session else _address(request)

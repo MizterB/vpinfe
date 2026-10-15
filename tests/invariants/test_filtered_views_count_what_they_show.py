@@ -11,7 +11,7 @@ import unittest
 
 from tests.support import trees
 
-CONSOLE = pathlib.Path(__file__).resolve().parents[2] / "console"
+MANAGER = pathlib.Path(__file__).resolve().parents[2] / "manager"
 FOLLOWS = ("getDisplayedRowCount", "forEachNodeAfterFilterAndSort")
 
 
@@ -45,7 +45,7 @@ def _selected_counts(tree: ast.Module) -> list[tuple[int, int]]:
 
 class FilteredViewsCountWhatTheyShow(unittest.TestCase):
     def _filtering(self) -> list[pathlib.Path]:
-        return [path for path in sorted(CONSOLE.glob("*.py"))
+        return [path for path in sorted(MANAGER.glob("*.py"))
                 if _filtering_views(trees.tree_for(path))]
 
     def test_the_count_follows_the_grid(self) -> None:
@@ -59,7 +59,7 @@ class FilteredViewsCountWhatTheyShow(unittest.TestCase):
 
     def _following(self) -> dict[str, list[tuple[int, int]]]:
         return {path.name: _selected_counts(trees.tree_for(path))
-                for path in sorted(CONSOLE.glob("*.py"))
+                for path in sorted(MANAGER.glob("*.py"))
                 if any(call in path.read_text(encoding="utf-8") for call in FOLLOWS)}
 
     def test_a_selection_is_counted_against_the_rows_on_screen(self) -> None:

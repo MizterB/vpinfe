@@ -93,7 +93,7 @@ describe("the line over the wheel", () => {
     assert.equal(line(), undefined);
   });
 
-  test("a paused run draws none: it waits for the Console, and the wheel is the player's",
+  test("a paused run draws none: it waits for the Manager, and the wheel is the player's",
        async () => {
     const { recording, line } = await controller();
     await recording(RUNNING);

@@ -115,7 +115,7 @@ def _tool(result: Any) -> str:
 def _dof_config(result: Any) -> str:
     if not isinstance(result, dict) or "changed" not in result:
         return ""
-    return t("said.dof_config.updated" if result["changed"] else "console.settings.already_date")
+    return t("said.dof_config.updated" if result["changed"] else "manager.settings.already_date")
 
 
 _KINDS: dict[str, Callable[[Any], str]] = {

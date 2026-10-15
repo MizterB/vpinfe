@@ -24,12 +24,12 @@ extend-immutable-calls = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["apps", "common", "console", "extensions", "frontend", "httpapi"]
+known-first-party = ["apps", "common", "manager", "extensions", "frontend", "httpapi"]
 
 [tool.mypy]
 python_version = "3.14"
 # Named here, not on the command line, so CI, the hook and a local run agree.
-files = ["apps", "common", "console", "extensions", "frontend", "httpapi", "tests"]
+files = ["apps", "common", "manager", "extensions", "frontend", "httpapi", "tests"]
 # apps/ and extensions/ are namespace packages with no root __init__.py. Without these two,
 # mypy aborts on a duplicate module name and checks nothing while exiting clean.
 explicit_package_bases = true
@@ -41,5 +41,5 @@ ignore_missing_imports = true
 # Every function in these is annotated, and stays that way. It started as the wire
 # contract - an unannotated handler is one whose payload nothing checks - and now covers
 # what the wire is built out of: the domain code under common/ and the theme surface.
-module = ["apps.*", "common.*", "console.*", "extensions.*", "frontend.*", "httpapi.*"]
+module = ["apps.*", "common.*", "manager.*", "extensions.*", "frontend.*", "httpapi.*"]
 disallow_untyped_defs = true

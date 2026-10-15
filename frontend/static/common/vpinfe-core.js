@@ -1,4 +1,4 @@
-//console methods for overriding
+//wrappers for the page's own log methods, to send them to the Python terminal
 const originalConsole = {
   log: console.log,
   info: console.info,
@@ -451,14 +451,14 @@ function announceLegacy(target, oldName, newName) {
   if (announcedLegacy.has(oldName)) return;
   announcedLegacy.add(oldName);
   console.info(`vpinfe: deprecated theme JavaScript '${oldName}' is in use; the current name is ${newName} (PAR-23)`);
-  // Also tell the backend: a console line is invisible on a cabinet. Best effort, and
+  // Also tell the backend: a browser log line is invisible on a cabinet. Best effort, and
   // caught twice - call() is async, so a rejection needs catching on the promise as well
   // as around the invocation, and the bridge may not be connected yet.
   try {
     Promise.resolve(target.call("report_deprecated_use", "vpin-members", oldName))
       .catch(() => {});
   } catch (err) {
-    /* nothing to do; the console line already went out */
+    /* nothing to do; the browser log line already went out */
   }
 }
 
@@ -533,7 +533,7 @@ function decodesPicture(url, timeoutMs = 5000) {
 }
 
 // Same once-per-name reporting as announceLegacy, and for the same reason: without it the
-// only evidence about who still calls these is a console nobody reads on a cabinet.
+// only evidence about who still calls these is a browser log nobody reads on a cabinet.
 const announcedInternal = new Set();
 function announceInternal(target, method) {
   if (announcedInternal.has(method)) return;
@@ -543,7 +543,7 @@ function announceInternal(target, method) {
     Promise.resolve(target.callInternal("report_deprecated_use", "theme-internal-methods", method))
       .catch(() => {});
   } catch (err) {
-    /* nothing to do; the console line already went out */
+    /* nothing to do; the browser log line already went out */
   }
 }
 
@@ -1594,7 +1594,7 @@ class VPinFECore {
     // A data change raised by the backend carries no index - the wheel position only
     // exists in the browser, and a theme assigns message.index straight to its wheel.
     // The game under the wheel is held rather than the number, because the refresh can
-    // reorder: a finished session moves a game up a last-played wheel, and a Console edit
+    // reorder: a finished session moves a game up a last-played wheel, and a Manager edit
     // can filter it out of the list entirely.
     const raised = message && typeof message === "object"
       && typeof message.index !== "number"
@@ -2589,7 +2589,7 @@ class VPinFECore {
     await this.#readAttractSettings();
   }
 
-  // Also the answer to the Console changing one. A run in progress goes on with the new
+  // Also the answer to the Manager changing one. A run in progress goes on with the new
   // timings, keeping where it began; one that is no longer allowed ends as a press would.
   async #readAttractSettings() {
     if (!this.isController()) return;
@@ -2892,7 +2892,7 @@ class VPinFECore {
   /**
    * Forward what a frame throws to the log, because otherwise nobody sees it.
    *
-   * An overlay is an iframe with its own console, and nothing reads it on a cabinet.
+   * An overlay is an iframe with its own browser log, and nothing reads it on a cabinet.
    * A ReferenceError in the menu left it silently not responding to any key, with a
    * clean vpinfe.log - the only clue was pressing a button and watching nothing happen.
    * console_out already reaches the log; what was missing was anything calling it when
@@ -3767,7 +3767,7 @@ class VPinFECore {
   }
 
 
-  // Subscribe to play state on the Console's event stream
+  // Subscribe to play state on the Manager's event stream
   #watchPlayState() {
     // Don't subscribe from a file:// origin - CORS blocks it on Chromium/QWebEngine.
     // The theme page loads over http://, where this works.
@@ -4028,7 +4028,7 @@ class VPinFECore {
     return media;
   }
 
-  // override console and send them to the python console instead
+  // override the page's logging and send it to the Python terminal instead
   #overrideConsole() {
     Object.keys(originalConsole).forEach(method => {
       console[method] = function (...args) {

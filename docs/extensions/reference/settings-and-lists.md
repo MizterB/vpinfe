@@ -139,7 +139,7 @@ at a glance.
 **State.**  `states` is `{value: look}`, and a look is one of:
 
 - `{"tier": "on" | "off" | "unknown" | "warn" | "bad"}`, the word as a colored chip.  The colors
-  are the Console's own, so a state reads the same on every page.
+  are the Manager's own, so a state reads the same on every page.
 - `{"icon": "block"}`, a Material icon name, drawn before the word.
 - `{}`, a quiet word with nothing before it.
 
@@ -154,7 +154,7 @@ for what some rows have and most do not (a rule that applies, a flag that is set
 where every row has a chip says nothing; make it text.
 
 **Link.**  The value must start with `http://` or `https://`; anything else, or nothing, draws
-nothing.  The link has the look of an act that leaves the Console.  Say what it reads as with
+nothing.  The link has the look of an act that leaves the Manager.  Say what it reads as with
 `name_from`, naming a row field (`"name_from": "title"` reads as the row's `title`); left out it reads
 as the column's header.
 
@@ -257,7 +257,7 @@ right-click menu and in the menu the bar shows while any row is ticked.  `{"key"
 | `link` | In place of `run`: the row field that holds an address.  The verb opens it in a new tab, marked as leaving, and the extension is not called.  The field has to start with `http://` or `https://`, or the verb is dimmed and says **No address**.  A link is always `one`, and takes no `danger` or `needs` |
 | `action` | In place of `run`: the key of a dialog declared with [`ctx.ui.action`](actions.md).  It opens over the rows chosen, and its `ask` is handed their ids (see [Over rows](actions.md#over-rows)).  It takes no `danger`, since the dialog asks for itself.  The list is read again after the dialog runs |
 | `each` | With `action`: one dialog for each row chosen, in order, with **Skip** and **Stop** where Cancel would be.  Skip leaves that row as it was and moves on; Stop ends the run.  Without it, one dialog covers every row |
-| `danger` | Puts the verb last, under a rule, in red, and asks first.  The question is `list.<key>.verb.<verb>.confirm`, and `{count}` is the number of rows ticked, which can be more than the rows the verb acts on when it also has `needs`.  The Console does the asking; the route runs the verb whenever it is called |
+| `danger` | Puts the verb last, under a rule, in red, and asks first.  The question is `list.<key>.verb.<verb>.confirm`, and `{count}` is the number of rows ticked, which can be more than the rows the verb acts on when it also has `needs`.  The Manager does the asking; the route runs the verb whenever it is called |
 | `needs` | A row field that is true or false.  The verb is dimmed on a row where it is not, with the words `list.<key>.verb.<verb>.needs`.  With several rows ticked, it acts on the rows where the field is true.  Core checks this again when the verb is pressed |
 | `one` | The verb makes no sense over several rows.  With several ticked it stays in the menu, dimmed, and says **One at a time**.  Core turns it down for any other number of rows |
 | `label` | Shown as written; left out, `list.<key>.verb.<verb>.label`, then the verb's key |
@@ -276,7 +276,7 @@ the reason.
 
 **Pane.**  `detail=` opens a pane beside the list for the row a person clicks, and `save=` writes
 what they change in it.  Core draws the pane, as it draws every other panel, so it looks like
-the Console wherever the extension runs.  `detail(row_id)` is handed the row's `id` and returns
+the Manager wherever the extension runs.  `detail(row_id)` is handed the row's `id` and returns
 the pane as a dict, or None for a row that is no longer there; the person is told the
 extension no longer has it.  Core does not check the id against `rows()` first, so look it up
 and do not trust it.
@@ -325,7 +325,7 @@ A field is `{"key", "type", "label", "value", "help", "choices", "min", "max", "
 not only in its section, because it is what `save` is handed.  A `select` or `multi` field
 needs `choices`, a list of `[value, label]` pairs, and a pair of any other shape is refused.  A
 `number`'s `min` and `max` are finite numbers and a `path`'s `wants` is one of the kinds a setting
-has.  Give a `secret` its real value, or empty when none is held: core sends the Console only
+has.  Give a `secret` its real value, or empty when none is held: core sends the Manager only
 that one is set, never the value.
 
 A field is written when it is set.  There is no Save button: each change calls

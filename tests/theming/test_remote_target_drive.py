@@ -17,9 +17,9 @@ from tempfile import TemporaryDirectory
 
 from common.i18n import t
 from tests.support.browser_session import BrowserSession, chromium_path
-from tests.support.console_walk import ConsoleWalk
 from tests.support.library import game_info, write_game
 from tests.support.live_instance import LiveInstance
+from tests.support.manager_walk import ManagerWalk
 
 TARGET = "Install B"
 PLAYED = {"LastRun": "2026-09-01T10:00:00Z", "StartCount": 1}
@@ -33,7 +33,7 @@ SHEET_OPEN = "!!document.querySelector('.remote-sheet')"
 
 def _call(instance: LiveInstance, method: str, path: str, body: dict | None = None):
     request = urllib.request.Request(
-        instance.console_url(path), method=method,
+        instance.manager_url(path), method=method,
         data=None if body is None else json.dumps(body).encode(),
         headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(request, timeout=10) as handle:
@@ -77,7 +77,7 @@ class RemoteWritesToItsTargetDrive(unittest.TestCase):
         seen: dict = {}
 
         async with BrowserSession(chromium_path() or "") as browser:
-            walk = ConsoleWalk(browser, a)
+            walk = ManagerWalk(browser, a)
 
             async def click_text(selector: str, text: str) -> None:
                 at = await browser.wait_for(
@@ -115,7 +115,7 @@ class RemoteWritesToItsTargetDrive(unittest.TestCase):
             await browser.wait_for("document.body.innerText.includes('Solo')")
 
             await open_sheet("Solo")
-            await browser.click(".remote-sheet .console-star", nth=3)
+            await browser.click(".remote-sheet .manager-star", nth=3)
             await sheet_closed()
             seen["solo rated"] = _user(b_root, "Solo").get("Rating")
 
@@ -125,24 +125,24 @@ class RemoteWritesToItsTargetDrive(unittest.TestCase):
             seen["solo favorite"] = _user(b_root, "Solo").get("Favorite")
 
             await open_sheet("Solo")
-            await click_text(".remote-sheet button", t("console.remote.add_collection"))
-            await click_text(".q-menu .console-menu-item", "Hand B")
+            await click_text(".remote-sheet button", t("manager.remote.add_collection"))
+            await click_text(".q-menu .manager-menu-item", "Hand B")
             await sheet_closed()
             seen["hand b"] = [one.get("id") or one.get("game_id") for one in
                               _call(b, "GET", "/api/v1/collections/Hand%20B/games")
                               .get("games", [])]
 
             await open_sheet("Shared")
-            await browser.click(".remote-sheet .console-star", nth=1)
+            await browser.click(".remote-sheet .manager-star", nth=1)
             await sheet_closed()
             seen["shared on b"] = _user(b_root, "Shared").get("Rating")
             seen["shared on a"] = _user(a_root, "Shared").get("Rating")
 
             # The tab, not a reload: a fresh page is aimed at the install serving it again.
             await click_text(".remote-tab", t("word.now"))
-            await browser.wait_for("!!document.querySelector('.console-stars')")
+            await browser.wait_for("!!document.querySelector('.manager-stars')")
             await walk.drawn()
-            await browser.click(".console-stars .console-star", nth=4)
+            await browser.click(".manager-stars .manager-star", nth=4)
             await walk.drawn()
             seen["solo from now"] = _user(b_root, "Solo").get("Rating")
         seen["hand a"] = _call(a, "GET", "/api/v1/collections/Hand%20A/games").get("games")

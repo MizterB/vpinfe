@@ -26,7 +26,7 @@ from tests.support import trees
 from tests.support.library import TempTree, fake_game, game_info, write_game
 
 REPO = Path(__file__).resolve().parents[2]
-SOURCE_ROOTS = ("apps", "common", "console", "extensions", "frontend", "httpapi")
+SOURCE_ROOTS = ("apps", "common", "manager", "extensions", "frontend", "httpapi")
 
 PLAY_SERVICE = REPO / "common" / "games" / "game_play_service.py"
 # What writes a game's record. A play-service function calling one writes play data.

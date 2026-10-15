@@ -100,7 +100,7 @@ async def _rmtree_persistently(path: str) -> None:
 @dataclass
 class PageResult:
     body: dict = field(default_factory=dict)
-    console: list[str] = field(default_factory=list)
+    page_log: list[str] = field(default_factory=list)
     failed_requests: list[str] = field(default_factory=list)
 
 
@@ -116,7 +116,7 @@ class BrowserSession:
         self._ws: ClientConnection | None = None
         self._next_id = 0
         self._responses: dict[int, dict] = {}
-        self.console: list[str] = []
+        self.page_log: list[str] = []
         self.failed_requests: list[str] = []
         self._status: dict[str, int] = {}
 
@@ -233,11 +233,11 @@ class BrowserSession:
         if method == "Runtime.consoleAPICalled":
             text = " ".join(str(a.get("value", a.get("description", "")))
                             for a in params.get("args", []))
-            self.console.append(f"{params.get('type', 'log')}: {text}")
+            self.page_log.append(f"{params.get('type', 'log')}: {text}")
         elif method == "Log.entryAdded":
             entry = params.get("entry") or {}
             if entry.get("level") in ("error", "warning"):
-                self.console.append(f"{entry['level']}: {entry.get('text', '')}")
+                self.page_log.append(f"{entry['level']}: {entry.get('text', '')}")
         elif method == "Network.responseReceived":
             response = params.get("response") or {}
             status, url = response.get("status", 0), response.get("url", "")

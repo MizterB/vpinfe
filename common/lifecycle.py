@@ -48,7 +48,7 @@ _ALLOWED = {
 
 # Where a request came from. Not a category: a confirm has to reach the person who asked.
 SURFACE_FRONTEND = "frontend"
-SURFACE_MANAGER_UI = "manager_ui"
+SURFACE_MANAGER = "manager"
 SURFACE_SIGNAL = "signal"
 SURFACE_EXTENSION = "extension"
 # An HTTP caller. Never answerable: the request is already over by the time anything
@@ -58,7 +58,7 @@ SURFACE_API = "api"
 
 @dataclass(frozen=True)
 class Origin:
-    """Who asked, and where to reach them: a window name, or a Manager UI client id."""
+    """Who asked, and where to reach them: a window name, or a Manager client id."""
 
     surface: str
     address: str = ""
@@ -66,7 +66,7 @@ class Origin:
     @property
     def is_answerable(self) -> bool:
         """Whether there is anybody there to ask. A signal is not."""
-        return self.surface in (SURFACE_FRONTEND, SURFACE_MANAGER_UI) and bool(self.address)
+        return self.surface in (SURFACE_FRONTEND, SURFACE_MANAGER) and bool(self.address)
 
 
 @dataclass(frozen=True)

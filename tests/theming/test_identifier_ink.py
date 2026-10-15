@@ -14,9 +14,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from tests.support.browser_session import BrowserSession, chromium_path
-from tests.support.console_walk import ConsoleWalk, clicked
 from tests.support.library import write_game
 from tests.support.live_instance import LiveInstance
+from tests.support.manager_walk import ManagerWalk, clicked
 
 GAME = "Attack from Mars"
 
@@ -25,8 +25,8 @@ READ = """(() => {
   const cs = getComputedStyle(document.documentElement);
   const hex = s => '#' + (s.match(/\\d+/g) || ['0','0','0']).slice(0, 3)
       .map(n => (+n).toString(16).padStart(2, '0')).join('');
-  const marked = document.querySelector('.ag-cell.console-cell-identifier');
-  const plain = [...document.querySelectorAll('.ag-cell:not(.console-cell-identifier)')]
+  const marked = document.querySelector('.ag-cell.manager-cell-identifier');
+  const plain = [...document.querySelectorAll('.ag-cell:not(.manager-cell-identifier)')]
       .find(c => (c.innerText || '').trim().length);
   return JSON.stringify({
     ink: cs.getPropertyValue('--ink').trim().toLowerCase(),
@@ -39,20 +39,20 @@ READ = """(() => {
 
 # Through the header menu, which is the only way a user can do this.
 OPEN_MENU = """(() => {
-  const id = document.querySelector('.ag-cell.console-cell-identifier')
+  const id = document.querySelector('.ag-cell.manager-cell-identifier')
       .getAttribute('col-id');
   const header = document.querySelector('.ag-header-cell[col-id="' + id + '"]');
   header.dispatchEvent(
       new MouseEvent('contextmenu', {bubbles: true, clientX: 320, clientY: 180}));
   return id;
 })()"""
-MENU_SHOWN = ("[...document.querySelectorAll('.console-menu-item')]"
+MENU_SHOWN = ("[...document.querySelectorAll('.manager-menu-item')]"
               ".some(item => item.getClientRects().length > 0)")
 
 # The identifier column's side as the grid holds it: "left", or null.
 PINNED = """(async () => {
   const grid = document.querySelector('.ag-root-wrapper').closest('[id^=c]');
-  const col = document.querySelector('.ag-cell.console-cell-identifier')
+  const col = document.querySelector('.ag-cell.manager-cell-identifier')
       .getAttribute('col-id');
   const state = await runMethod(Number(grid.id.slice(1)), 'run_grid_method',
                                 ['getColumnState']);
@@ -79,13 +79,13 @@ class IdentifierInkTests(unittest.TestCase):
         async def run():
             async with BrowserSession(chromium_path()) as browser:
                 await browser.send("Emulation.setDeviceMetricsOverride", WIDE)
-                walk = ConsoleWalk(browser, instance)
-                await walk.visit("/console?view=games")
+                walk = ManagerWalk(browser, instance)
+                await walk.visit("/manager?view=games")
                 pinned = await read(browser)
                 self.assertEqual(pinned["pinned"], "left",
                                  "the column is not pinned, so there is nothing to unpin")
                 await walk.act(clicked(browser, OPEN_MENU), until=MENU_SHOWN)
-                await walk.act(lambda: browser.click(".console-menu-item", nth=0),
+                await walk.act(lambda: browser.click(".manager-menu-item", nth=0),
                                until=f"(async () => (await {PINNED}) === null)()")
                 return pinned, await read(browser)
         return asyncio.run(run())

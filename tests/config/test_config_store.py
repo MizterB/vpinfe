@@ -52,17 +52,17 @@ class FirstRunTests(ConfigStoreTests):
             {s: {k.lower() for k in v} for s, v in settings.items()},
             {s: {k.lower() for k in v} for s, v in config_schema.defaults().items()})
 
-    def test_a_fresh_install_starts_the_console_on_the_devices_own_look(self) -> None:
+    def test_a_fresh_install_starts_the_manager_on_the_devices_own_look(self) -> None:
         ConfigStore(str(self.ini))
-        self.assertEqual(_flatten(self._payload()[SETTINGS_KEY])["console"]["appearance"], "system")
+        self.assertEqual(_flatten(self._payload()[SETTINGS_KEY])["manager"]["appearance"], "system")
 
     def test_an_install_that_was_not_fresh_keeps_the_schema_default(self) -> None:
         """Anything that arrives with a file already written - a hand-made config, a
-        converted 2.x install - is an upgrade, and the Console stays on the palette it
+        converted 2.x install - is an upgrade, and the Manager stays on the palette it
         has always opened in until its owner picks another."""
         self.json.write_text("{}", encoding="utf-8")
         store = ConfigStore(str(self.ini))
-        self.assertEqual(store.config.get("console", "appearance", fallback="synthwave"),
+        self.assertEqual(store.config.get("manager", "appearance", fallback="synthwave"),
                          "synthwave")
 
     def test_the_library_root_is_there_for_a_new_install_to_fill_in(self) -> None:
@@ -88,7 +88,7 @@ class FirstRunTests(ConfigStoreTests):
 
 
 class RereadTests(ConfigStoreTests):
-    """The Console writes through a store of its own; the one a process booted with is
+    """The Manager writes through a store of its own; the one a process booted with is
     stale until it looks again."""
 
     def test_a_write_through_another_store_shows_after_reread(self) -> None:
@@ -224,7 +224,7 @@ class IniConversionTests(ConfigStoreTests):
                 self.json.unlink()
 
     def test_terminal_logging_keeps_the_value_2x_wrote(self) -> None:
-        """`console` named the log destination before it named the web UI, and 2.x wrote
+        """`console` is what 2.x called terminal logging, and 2.x wrote
         it into every vpinfe.ini as a default - so this one is owed an upgrade path."""
         self._write_ini("[logger]\nconsole = false\n")
 

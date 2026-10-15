@@ -15,7 +15,7 @@ from pathlib import Path
 from tests.support import trees
 
 ROOT = Path(__file__).resolve().parents[2]
-CODE = ("apps", "common", "console", "extensions", "frontend", "httpapi",
+CODE = ("apps", "common", "manager", "extensions", "frontend", "httpapi",
         "cli.py", "main.py")
 GATE = "common/http_client.py"
 ASKS_FIRST = "require_reachable"
@@ -31,8 +31,8 @@ CONNECTIONS = {"urlopen", "urlretrieve", "HTTPConnection", "HTTPSConnection",
 GUARDED = {
     "common/games/mobile_transfer.py": {
         "_ask": "a retried request to a mobile device on the network"},
-    "console/api.py": {
-        "_WordedSession": "the Console's requests to this install and to a paired one, "
+    "manager/api.py": {
+        "_WordedSession": "the Manager's requests to this install and to a paired one, "
                           "signed and worded by the session itself"},
 }
 # Reached only through the gate, through a caller that asks first, or on this machine.

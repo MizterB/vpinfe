@@ -1,6 +1,6 @@
 """The field types an extension can ask for, as one list.
 
-A dialog is drawn by the wizard control, a settings page by the Console's extension page.
+A dialog is drawn by the wizard control, a settings page by the Manager's extension page.
 Each draws the types below and refuses to draw any other, so a type an extension invents
 is stopped when it is declared and not when somebody opens the page.
 """
@@ -14,7 +14,7 @@ from typing import Any
 from .accounts import scrubbed
 from .store import RESERVED
 
-# What `console/wizard.FIELD_TYPES` draws.
+# What `manager/wizard.FIELD_TYPES` draws.
 DIALOG_TYPES: frozenset[str] = frozenset({
     "string", "secret", "path", "select", "multi", "switch", "choice", "number",
     "checklist", "settle",

@@ -6,8 +6,8 @@ import pathlib
 import re
 import unittest
 
-CSS = pathlib.Path(__file__).resolve().parents[2] / "console" / "static" / "console-base.css"
-BASE = ".console-facts"
+CSS = pathlib.Path(__file__).resolve().parents[2] / "manager" / "static" / "manager-base.css"
+BASE = ".manager-facts"
 SPACING = re.compile(r"(?:^|[;\s])(row-gap|grid-auto-rows)\s*:")
 
 

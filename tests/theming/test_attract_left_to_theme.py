@@ -1,4 +1,4 @@
-"""Whether core's attract runs under the current theme, and what the Console says if not."""
+"""Whether core's attract runs under the current theme, and what the Manager says if not."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from common.online import theme_service
-from console import attract
+from manager import attract
 
 
 def _theme(root: Path, name: str, *, min_vpinfe: str | None, config: dict | None = None) -> None:
@@ -57,7 +57,7 @@ class WhyAttractIsLeftToTheTheme(unittest.TestCase):
         self.assertEqual(self._why("missing"), "")
 
 
-class TheLineTheConsoleDraws(unittest.TestCase):
+class TheLineTheManagerDraws(unittest.TestCase):
     def _line(self, why: str):
         async def write(_changes: dict) -> bool:
             return True

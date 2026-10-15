@@ -168,7 +168,7 @@ class ActionList(ApiModel):
 
 class ActionRequest(ApiModel):
     """Which one, and why - the reason travels into the log and to every other surface,
-    so "restarted from the Console" reads better afterwards than "restarted"."""
+    so "restarted from the Manager" reads better afterwards than "restarted"."""
 
     scope: str
     action: str
@@ -811,8 +811,8 @@ class ConfigOptionInfo(ApiModel):
     # counts: `seconds`, `port`, or empty.
     default_is: str = ""
     unit: str = ""
-    # Whether a change can put this install's Console out of reach of the device making it.
-    cuts_off_console: bool = False
+    # Whether a change can put this install's Manager out of reach of the device making it.
+    cuts_off_manager: bool = False
     # What the files in this setting's folder are (`backups`), where a surface asks whether
     # they go across before it saves a new folder. Empty for every other setting.
     moves_with: str = ""
@@ -2765,7 +2765,7 @@ class YearRange(ApiModel):
 class CollectionCriteria(ApiModel):
     """A filter collection's criteria, as a collection reports them. "All" means
     unconstrained on that axis - the vocabulary the filter engine already uses, kept
-    rather than translated so a client sees the same values the Console shows."""
+    rather than translated so a client sees the same values the Manager shows."""
 
     # The many-valued axes accept a list and are always reported as one. A criterion
     # has always been stored comma-joined and the matcher has always split it, so this
@@ -3286,7 +3286,7 @@ class MediaRotateRequest(ApiModel):
 
 
 class ScanRequest(ApiModel):
-    """Absent body means both default to true, which is what the Console's own
+    """Absent body means both default to true, which is what the Manager's own
     scan does."""
 
     download_media: bool = True

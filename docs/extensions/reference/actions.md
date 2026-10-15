@@ -1,7 +1,7 @@
 # Actions and dialogs
 
 `ctx.ui.action(key, dialog, *, label, description)`.  An extension does not draw.  It declares
-an **action** and core shows it, so every action looks like the Console and keeps working if
+an **action** and core shows it, so every action looks like the Manager and keeps working if
 that extension later runs out of process.
 
 The dialog is any object.  It must have `ask`; core uses the rest if they are there:
@@ -106,7 +106,7 @@ over rows, the ids of those rows reach it two ways:
 - `check`, `act` and `run` find them in `values["rows"]`.  A field named `rows` is refused.
 
 Treat the ids as what the client sent.  A verb's `needs` and `one` decide which verbs the
-Console offers, and the dialog is not re-checked against them: look each id up in your own
+Manager offers, and the dialog is not re-checked against them: look each id up in your own
 data before you act on it.
 
 A dialog that `add` or an act opens has no rows, and `rows` is empty.

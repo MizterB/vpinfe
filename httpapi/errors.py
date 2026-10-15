@@ -121,7 +121,7 @@ def install_error_handlers(
         app: FastAPI,
         on_unhandled: Callable[[Request], None] | None = None) -> None:
     """Attach the envelope handlers. Only ever the /api/v1 app - these would turn the
-    Console's HTML error pages into JSON.
+    Manager's HTML error pages into JSON.
 
     `on_unhandled` is told which request raised something nobody expected, so the
     extension seam can take the extension that did it out. Passed in rather than

@@ -24,7 +24,7 @@ import unittest
 from tests.support import trees
 
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
-PACKAGES = ("apps", "common", "console", "extensions", "frontend", "httpapi")
+PACKAGES = ("apps", "common", "manager", "extensions", "frontend", "httpapi")
 
 # A module with nothing in it cannot annotate anything. Listed rather than inferred so a
 # file that grows past that has to be looked at.

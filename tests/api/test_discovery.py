@@ -45,7 +45,7 @@ def _said(**overrides) -> dict:
 
 class UnreadableConfigTests(unittest.TestCase):
     def test_features_are_left_unsaid_rather_than_said_empty(self) -> None:
-        """An empty list is an install for nothing, which the Console draws as a rail of
+        """An empty list is an install for nothing, which the Manager draws as a rail of
         Settings alone; an absent key is the 2.x answer and draws the ordinary rail."""
         with patch.object(install_presence, "get_ini_config", side_effect=OSError("gone")):
             said = install_presence.identity()

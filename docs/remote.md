@@ -1,22 +1,22 @@
 # Remote
 
-A phone-shaped surface for driving an install from across the room: what is playing, pick something else, and control it with a thumb. It is served by the Console process at `/remote` and is a separate shell from the Console, not a narrow rendering of it.
+A phone-shaped surface for driving an install from across the room: what is playing, pick something else, and control it with a thumb. It is served by the Manager process at `/remote` and is a separate shell from the Manager, not a narrow rendering of it.
 
-The Console at `/console` is desk-first and organized as a workbench, a grid beside an inspector. That shape does not fit one hand, so `/remote` is its own page with its own layout and the same palette, tokens and API client.
+The Manager at `/manager` is desk-first and organized as a workbench, a grid beside an inspector. That shape does not fit one hand, so `/remote` is its own page with its own layout and the same palette, tokens and API client.
 
 ## Getting in
 
-A phone gets in by scanning the Remote Code, which is the QR on the sheet that **On your phone** opens at the foot of the Console rail, and on the frontend's main menu under **Remote**. The code carries a pass that holds Play and nothing else, so a phone can browse, launch, stop, press buttons and rate, and cannot change the library or anything Protected (`docs/http-api.md`, Authorization).
+A phone gets in by scanning the Remote Code, which is the QR on the sheet that **On your phone** opens at the foot of the Manager rail, and on the frontend's main menu under **Remote**. The code carries a pass that holds Play and nothing else, so a phone can browse, launch, stop, press buttons and rate, and cannot change the library or anything Protected (`docs/http-api.md`, Authorization).
 
 - Anyone who can see the main menu can scan it, which is how a visitor joins (see Join below).
 - **New Remote Code**, on the same sheet, makes the old pass stop working. Phones that used it are signed out.
-- The Console opened on a phone is a browser like any other. It signs in with a code from the screen of the device running VPinFE or from the authenticator app, and a Protected change asks for a Confirm.
+- The Manager opened on a phone is a browser like any other. It signs in with a code from the screen of the device running VPinFE or from the authenticator app, and a Protected change asks for a Confirm.
 
 ## Who is holding this
 
 Players are per install, not per phone, so the Remote asks who is holding it before it writes anything on anybody's behalf.
 
-A phone can say who it is, remembered per browser and per target in `console/remembered.py` - a phone aimed at two installs can answer differently on each:
+A phone can say who it is, remembered per browser and per target in `manager/remembered.py` - a phone aimed at two installs can answer differently on each:
 
 - **Nobody said** (the ordinary case, and the owner's own phone never has to do anything else): the phone behaves exactly as it always has. A rating goes to the library, Favorite is offered, adding to a collection is offered.
 - **A kept player**, chosen with **This Is Me** on the identity sheet (the person icon in the header): a rating goes to their own record instead of the library's, Favorite is not offered - it is the owner's alone - and adding to a collection still is, since collections are the household's. **Not Me** clears it.
@@ -31,7 +31,7 @@ A player's circle leads their name on This Is Me's list and on Now's Up rows, an
 Reached from the cabinet's second QR (`/remote?screen=join`) or from the identity sheet's own way in for a phone already on the page. Two choices, under both the one line said once - *you're a guest here until VPinFE closes*:
 
 - **Use My Card** picks a file and reads the text 2.x's Download QR Code hid inside it - never the QR picture, so there is no decoder and no PNG to carry. A card's account already shares; joining puts the guest up alone.
-- **Just Initials** - three letters, no account, up alone. A guest who wants to share afterwards types a user id from the identity sheet, which makes them a key the same way the Console's Players page does; **Save Card** then downloads what core draws for it, the same file the Console's Save Card would.
+- **Just Initials** - three letters, no account, up alone. A guest who wants to share afterwards types a user id from the identity sheet, which makes them a key the same way the Manager's Players page does; **Save Card** then downloads what core draws for it, the same file the Manager's Save Card would.
 
 ### On Now
 
@@ -41,7 +41,7 @@ The idle card - *Last played*, with a rating - is superseded the moment a play i
 
 ## The three screens
 
-`console/remote.py` defines them in `SCREENS`, and `?screen=` links to one directly.
+`manager/remote.py` defines them in `SCREENS`, and `?screen=` links to one directly.
 
 - **Now** - what is playing, on which target, how long, plus any running job and anything wanting attention. Quit table. When nothing is playing it shows the last game played with its rating control.
   While a table is played, and not recorded, it carries **Take Picture**, and **Back** while the table is paused. Each is a tap of the input action of that name, which the frontend hands to core during play, so a player holding a phone takes a picture with no button bound. The card reads Paused while the table is.
@@ -56,7 +56,7 @@ The idle card - *Last played*, with a rating - is superseded the moment a play i
 While the target's frontend is up, the phone and the screen show the same collection and the same game.
 
 - The Remote opens on the collection the frontend is showing, and a collection picked on the phone switches the frontend.
-- A switch or a wheel move at the screen reaches the phone over the target's event stream. Each open page follows `frontend.state_changed`, `play.state_changed`, `capture.run_changed`, `players.changed` and `table.play_recorded` on a thread of its own, because a read that waits for the next event would otherwise hold the Console's event loop. The thread stops when the page goes. Who is up and the result card live on this same thread, tied to the frontend the way everything else here is - a target too old to report its frontend follows none of these either.
+- A switch or a wheel move at the screen reaches the phone over the target's event stream. Each open page follows `frontend.state_changed`, `play.state_changed`, `capture.run_changed`, `players.changed` and `table.play_recorded` on a thread of its own, because a read that waits for the next event would otherwise hold the Manager's event loop. The thread stops when the page goes. Who is up and the result card live on this same thread, tied to the frontend the way everything else here is - a target too old to report its frontend follows none of these either.
 - The game on the wheel sits under the header on every screen, with Launch. It is not drawn while a table is up.
 - With the frontend closed, Now says so and draws no Take Picture, and Control draws no pad. A press goes to the frontend's windows and nowhere else, so with none up every button would report success and nothing would hear it.
 - A target too old to report its frontend answers `GET /frontend/state` with 404. The Remote then follows nothing and behaves as it did before.
@@ -92,7 +92,7 @@ A rating always goes to the library for the owner and to a player's own record f
 
 ## Routes it uses
 
-Every one of these already existed for the Console and the API; Remote adds none.
+Every one of these already existed for the Manager and the API; Remote adds none.
 
 | Job | Route |
 |---|---|
@@ -127,13 +127,13 @@ Every one of these already existed for the Console and the API; Remote adds none
 ## Where it lives
 
 ```
-console/page.py      Console shell, /console
-console/remote.py    Remote shell, /remote
-console/remote_record.py  its part in recording media
-console/api.py       shared client
-console/data.py      shared reads
-console/appearance.py     shared tokens
-console/panel.py     shared fact list
+manager/page.py      Manager shell, /manager
+manager/remote.py    Remote shell, /remote
+manager/remote_record.py  its part in recording media
+manager/api.py       shared client
+manager/data.py      shared reads
+manager/appearance.py     shared tokens
+manager/panel.py     shared fact list
 ```
 
 Two shells in one package. The shared modules are not extracted to a neutral home; see `docs/conventions.md` on the panel being a shape rather than a place.
@@ -142,15 +142,15 @@ Two shells in one package. The shared modules are not extracted to a neutral hom
 
 ## Density
 
-Density is a per-surface token in `console/appearance.py`, not a second stylesheet. `--target-min` is the Console's 32px floor and is raised to 44px where the pointer is a finger; `--star-size` is sized on its own, because five 44px boxes is a row 220px wide.
+Density is a per-surface token in `manager/appearance.py`, not a second stylesheet. `--target-min` is the Manager's 32px floor and is raised to 44px where the pointer is a finger; `--star-size` is sized on its own, because five 44px boxes is a row 220px wide.
 
 Palette and treatment stay shared. A second stylesheet is how one product starts looking like two.
 
-## `/remote` is not `/mobile`
+## Remote is not Mobile
 
 They are unrelated and the names suggest otherwise.
 
 - `/remote` is this surface: a phone driving an install.
-- `/mobile` means VPX Mobile, a phone we send tables **to**. `KIND_VPX_MOBILE` and the `mobile` config section mean the same thing.
+- Mobile means VPX Mobile, a phone we send tables **to**. `KIND_VPX_MOBILE` and the `mobile` config section mean the same thing.
 
 Nothing about this surface uses the word "mobile".

@@ -17,11 +17,11 @@ ART = re.compile(r"\bart(?:works?)?\b", re.IGNORECASE)
 # is a media file a game has or lacks, so neither is the Media view's word.
 THE_BACKGLASS_PICTURE = "the picture inside a .directb2s, as the file and the B2S plugin call it"
 ALLOWED = {
-    "console.backglass.artwork": "the artist's credit, the file's own Artwork field",
-    "console.backglass.dmd_fit": THE_BACKGLASS_PICTURE,
-    "console.backglass.dmd_fit.none": THE_BACKGLASS_PICTURE,
-    "console.backglass.preview.fit": THE_BACKGLASS_PICTURE,
-    "console.backglass.score_art": THE_BACKGLASS_PICTURE,
+    "manager.backglass.artwork": "the artist's credit, the file's own Artwork field",
+    "manager.backglass.dmd_fit": THE_BACKGLASS_PICTURE,
+    "manager.backglass.dmd_fit.none": THE_BACKGLASS_PICTURE,
+    "manager.backglass.preview.fit": THE_BACKGLASS_PICTURE,
+    "manager.backglass.score_art": THE_BACKGLASS_PICTURE,
     "error.backglass.scoreview_absent": THE_BACKGLASS_PICTURE,
     **{f"app.vpx.field.Plugin.{plugin}.{field}.help": THE_BACKGLASS_PICTURE
        for plugin in ("B2S", "B2SLegacy")
@@ -94,7 +94,7 @@ class EveryCatalog(unittest.TestCase):
 
     def test_the_sweep_reads_every_owner(self) -> None:
         owners = {key.split(".", 2)[0] for key in CATALOG}
-        self.assertLessEqual({"app", "ext", "console", "frontend", "config"}, owners)
+        self.assertLessEqual({"app", "ext", "manager", "frontend", "config"}, owners)
 
     def test_it_can_fail(self) -> None:
         catalog = {

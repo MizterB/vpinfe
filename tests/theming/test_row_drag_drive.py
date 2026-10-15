@@ -20,9 +20,9 @@ from tempfile import TemporaryDirectory
 from urllib.parse import parse_qs, quote, urlparse
 
 from tests.support.browser_session import BrowserSession, chromium_path
-from tests.support.console_walk import MARK, ConsoleWalk, newer, notice
 from tests.support.library import game_info, write_game
 from tests.support.live_instance import LiveInstance
+from tests.support.manager_walk import MARK, ManagerWalk, newer, notice
 
 HAND = "Hand Picked"
 SMART = "Smart Bally"
@@ -38,9 +38,9 @@ API = ("(() => { const el = document.querySelector('.ag-root-wrapper')"
 BOX = ("(() => { const el = document.querySelector(%s); if (!el) return null;"
        " const r = el.getBoundingClientRect();"
        " return [r.left + r.width / 2, r.top + r.height / 2, r.top, r.height]; })()")
-RAIL = ("[...document.querySelectorAll('.console-rail-drops .console-drop-target')]"
+RAIL = ("[...document.querySelectorAll('.manager-rail-drops .manager-drop-target')]"
         ".map(e => [e.innerText.replace(/\\n+/g, ' / '), e.getBoundingClientRect().height > 0])")
-LINE = ("(() => { const line = document.querySelector('.console-drop-line');"
+LINE = ("(() => { const line = document.querySelector('.manager-drop-line');"
         " return line ? [line.getBoundingClientRect().width,"
         " line.parentElement.getBoundingClientRect().width] : null; })()")
 ELSEWHERE_IN_ROW = ("(() => { const id = %s;"
@@ -53,17 +53,17 @@ ELSEWHERE_IN_ROW = ("(() => { const id = %s;"
                     ".reduce((a, b) => (b.left < a.left ? b : a));"
                     " return [box.left + box.width / 2, box.top + box.height / 2]; })()")
 HOVERED = "!!document.querySelector('.ag-row-hover[row-id=%s]')"
-DRAGGING = "document.body.classList.contains('console-dragging-rows')"
+DRAGGING = "document.body.classList.contains('manager-dragging-rows')"
 PINNED_CELLS = "document.querySelectorAll('.ag-pinned-left-cols-container .ag-cell').length"
 # How many drops the page has sent the server.
 TURN = "window.__hubDropTurn || 0"
-RING = ("(() => { const panel = document.querySelector('.console-workbench');"
-        " return [panel.classList.contains('console-drop-hot'),"
+RING = ("(() => { const panel = document.querySelector('.manager-workbench');"
+        " return [panel.classList.contains('manager-drop-hot'),"
         " getComputedStyle(panel).outlineStyle]; })()")
-TOPS = ("[...document.querySelectorAll('[data-drop-list] .console-member-row')]"
+TOPS = ("[...document.querySelectorAll('[data-drop-list] .manager-member-row')]"
         ".map(row => Math.round(row.getBoundingClientRect().top))")
-LINE_AT = ("(() => { const line = document.querySelector('.console-drop-line');"
-           " const rows = [...document.querySelectorAll('[data-drop-list] .console-member-row')];"
+LINE_AT = ("(() => { const line = document.querySelector('.manager-drop-line');"
+           " const rows = [...document.querySelectorAll('[data-drop-list] .manager-member-row')];"
            " return line ? [Math.round(line.getBoundingClientRect().top),"
            " Math.round(rows[rows.length - 1].getBoundingClientRect().bottom)] : null; })()")
 
@@ -96,7 +96,7 @@ class RowDragDrive(unittest.TestCase):
         instance.wait_for_api()
         instance.post("/api/v1/collections", {"name": HAND, "games": ["bravo", "charlie"]})
         urllib.request.urlopen(urllib.request.Request(
-            instance.console_url(f"/api/v1/collections/{quote(HAND)}"),
+            instance.manager_url(f"/api/v1/collections/{quote(HAND)}"),
             data=json.dumps({"order_by": "manual"}).encode(), method="PATCH",
             headers={"Content-Type": "application/json"}), timeout=10).close()
         instance.post("/api/v1/collections", {"name": SMART,
@@ -117,7 +117,7 @@ class RowDragDrive(unittest.TestCase):
 
             browser._on_event = hearing  # type: ignore[method-assign]
             await browser.send("Input.setInterceptDrags", {"enabled": True})
-            walk = ConsoleWalk(browser, instance)
+            walk = ManagerWalk(browser, instance)
 
             async def mouse(kind: str, x: float, y: float) -> None:
                 await browser.send("Input.dispatchMouseEvent",
@@ -180,7 +180,7 @@ class RowDragDrive(unittest.TestCase):
                                until=notice(text) + (f" && {drawn}" if drawn else ""))
                 return await browser.evaluate(notice(text))
 
-            await walk.visit("/console?view=games")
+            await walk.visit("/manager?view=games")
             await browser.wait_for(API + ".getDisplayedRowCount() > 0")
 
             await browser.evaluate(
@@ -215,25 +215,25 @@ class RowDragDrive(unittest.TestCase):
 
             await browser.evaluate(MARK)
             one = await grab("delta", "name")
-            await browser.wait_for(newer(".console-rail-drops .console-drop-target"))
+            await browser.wait_for(newer(".manager-rail-drops .manager-drop-target"))
             await walk.drawn()
             seen["rail"] = await browser.evaluate(RAIL)
-            target = f'.console-rail-drops [data-drop-collection="{SMART}"]'
+            target = f'.manager-rail-drops [data-drop-collection="{SMART}"]'
             x, y, _top, _height = await browser.evaluate(BOX % json.dumps(target))
             seen["rail_note"] = await drop(one, x, y, "exception")
             seen["rail_refs"] = refs(SMART)
             seen["rail_after"] = await browser.evaluate(
-                "getComputedStyle(document.querySelector('.console-rail-drops')).display")
+                "getComputedStyle(document.querySelector('.manager-rail-drops')).display")
 
-            await walk.visit("/console?view=tables")
+            await walk.visit("/manager?view=tables")
             await browser.wait_for(API + ".getDisplayedRowCount() > 0")
             table = await grab("t-a1", "game")
             await let_go(table)
 
-            redrawn = newer("[data-drop-list] .console-member-row")
-            await walk.visit(f"/console?view=collections&collection={quote(HAND)}")
+            redrawn = newer("[data-drop-list] .manager-member-row")
+            await walk.visit(f"/manager?view=collections&collection={quote(HAND)}")
             await browser.wait_for("document.body.innerText.includes('Add Games')")
-            rows = "[data-drop-list] .console-member-row"
+            rows = "[data-drop-list] .manager-member-row"
             x, _y, top, _height = await browser.evaluate(
                 BOX.replace("querySelector(%s)", "querySelectorAll(%s)[1]")
                 % json.dumps(rows))
@@ -249,7 +249,7 @@ class RowDragDrive(unittest.TestCase):
                 "document.addEventListener('dragover', event => { window.__over ="
                 " [event.defaultPrevented, event.dataTransfer.dropEffect]; }); true")
             x, y, _top, _height = await browser.evaluate(
-                BOX % json.dumps(".console-section-hit"))
+                BOX % json.dumps(".manager-section-hit"))
             await hover(lone, x, y)
             seen["ringed_from_rail"] = await browser.evaluate(RING)
             x, _y, top, height = await browser.evaluate(BOX % json.dumps("[data-drop-list]"))
@@ -262,7 +262,7 @@ class RowDragDrive(unittest.TestCase):
             seen["appended"] = refs(HAND)
 
             x, y, _top, _height = await browser.evaluate(
-                BOX % json.dumps("a.console-nav-row"))
+                BOX % json.dumps("a.manager-nav-row"))
             await hover(spare, x, y)
             seen["outside"] = await browser.evaluate("window.__over")
             seen["ring_outside"] = await browser.evaluate(RING)
@@ -277,19 +277,19 @@ class RowDragDrive(unittest.TestCase):
             x, y, _top, _height = await browser.evaluate(BOX % json.dumps(zone))
 
             elsewhere = {"items": [{"mimeType": "text/uri-list",
-                                    "data": "http://elsewhere.example:8001/console?view=games"
+                                    "data": "http://elsewhere.example:8001/manager?view=games"
                                             "&game=bravo"}], "dragOperationsMask": 1}
             seen["refused"] = await drop(elsewhere, x, y, "another VPinFE")
 
             many = {"items": [{"mimeType": "text/uri-list", "data": "\r\n".join(
-                [instance.console_url("/console?view=games&game=delta")] * MANY
-                + [instance.console_url("/console?view=games&game=foxtrot")])}],
+                [instance.manager_url("/manager?view=games&game=delta")] * MANY
+                + [instance.manager_url("/manager?view=games&game=foxtrot")])}],
                 "dragOperationsMask": 1}
             await drop(many, x, y, f"“{HAND}”")
             seen["many"] = refs(HAND)
         return seen
 
-    def test_a_drag_carries_each_row_s_console_address(self) -> None:
+    def test_a_drag_carries_each_row_s_manager_address(self) -> None:
         lines = self.seen["payload"]["text/uri-list"].split("\r\n")
         found = sorted(parse_qs(urlparse(line).query)["game"][0] for line in lines)
         self.assertEqual(["alpha", "delta"], found)

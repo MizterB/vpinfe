@@ -1,4 +1,4 @@
-"""What a click, or the browser, does to the Console, done from a test.
+"""What a click, or the browser, does to the Manager, done from a test.
 
 An async test runs in a task of its own, and a task starts with no slot, so a handler
 that takes the page it is called from finds none there.

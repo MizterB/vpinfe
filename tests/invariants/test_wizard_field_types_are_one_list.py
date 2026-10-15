@@ -1,7 +1,7 @@
 """A field type is drawn in one place and named in one place, and they agree.
 
 docs/extensions/reference/actions.md's field table is what an extension author reads before writing
-`fields`; `console/wizard.FIELD_TYPES` is what the Console actually draws. This fails the
+`fields`; `manager/wizard.FIELD_TYPES` is what the Manager actually draws. This fails the
 moment the two lists differ, in either direction.
 """
 
@@ -11,7 +11,7 @@ import re
 import unittest
 from pathlib import Path
 
-from console import wizard
+from manager import wizard
 
 REPO = Path(__file__).resolve().parent.parent.parent
 DOC = REPO / "docs" / "extensions" / "reference" / "actions.md"

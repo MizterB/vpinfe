@@ -1,4 +1,4 @@
-"""What the Console does to a game: rate it, re-match it, put it in a collection."""
+"""What the Manager does to a game: rate it, re-match it, put it in a collection."""
 
 from __future__ import annotations
 

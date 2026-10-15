@@ -94,19 +94,19 @@ Runtime state written by VPinFE, not shown as a setting.
 | `options_exclude` | text |  | Built-in options to drop, named without their value |
 | `options` | text |  | Added after the defaults. Where one sets the same option, yours is used. For example, --ozone-platform=x11. |
 
-### `console`
+### `manager`
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `appearance` | choice (synthwave, dark, light, system) | `synthwave` | How the Console and remote look |
-| `thumbnail` | choice (none, wheel, backglass, playfield, logo) | `wheel` | The picture beside a game, table or collection's name in the Console's lists |
+| `appearance` | choice (synthwave, dark, light, system) | `synthwave` | How the Manager and remote look |
+| `thumbnail` | choice (none, wheel, backglass, playfield, logo) | `wheel` | The picture beside a game, table or collection's name in the Manager's lists |
 | `thumbnail_shape` | choice (auto, square, wide) | `auto` | Automatic draws wheels square and the rest wide |
 | `thumbnail_height` | choice (small, medium, large) | `small` | Taller grid rows show bigger pictures and fit fewer on a screen |
 | `thumbnail_frame` | bool | `true` | A dark tile behind each picture keeps light pictures readable in the light theme |
-| `dates` | choice (language, iso, mm/dd/yyyy, dd/mm/yyyy, dd.mm.yyyy, yyyy/mm/dd) | `language` | How a day is written, wherever the Console shows one |
-| `times` | choice (24h, 12h) | `24h` | How a time of day is written, where the Console shows one |
+| `dates` | choice (language, iso, mm/dd/yyyy, dd/mm/yyyy, dd.mm.yyyy, yyyy/mm/dd) | `language` | How a day is written, wherever the Manager shows one |
+| `times` | choice (24h, 12h) | `24h` | How a time of day is written, where the Manager shows one |
 | `relative_dates` | bool | `true` | Anything from the last month says how long ago it was, whatever the format |
-| `units` | choice (region, cm, in) | `region` | How the Console writes a length. By default this device's country decides |
+| `units` | choice (region, cm, in) | `region` | How the Manager writes a length. By default this device's country decides |
 | `hidden_overview` | list |  | Overview rows that stay quiet. A row left on reports whatever it finds. |
 
 ### `tools`
@@ -222,7 +222,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | --- | --- | --- | --- |
 | `setup_pending` | bool | `false` | Written true on this device's first save. Setup clears it when it finishes. |
 | `name` | string |  | What to call this device where one is listed. Defaults to its hostname. |
-| `features` | list | `library,frontend,devices,overview` | What this device is for. Each one you add appears in the Console. |
+| `features` | list | `library,frontend,devices,overview` | What this device is for. Each one you add appears in the Manager. |
 | `language` | choice (auto, en) | `auto` | What language VPinFE speaks. Your library's own words - table names and the rest - are never translated. |
 
 ### `network`
@@ -232,7 +232,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | `theme_assets_port` | int | `8000` | Theme Server Port |
 | `theme_assets_bind` | string | `127.0.0.1` | Which address to serve theme packages and table media on. The default answers this device only. Opening it wider shares read access to your table library. |
 | `ws_port` | int | `8002` | Port the frontend windows and the theme use to talk to VPinFE. Reachable from this device only. |
-| `http_port` | int | `8001` | Port this device answers on: the HTTP API, the Console and the Remote |
+| `http_port` | int | `8001` | Port this device answers on: the HTTP API, the Manager and the Remote |
 | `library_url` | string |  | Which device this one reads its library from. Empty means it holds its own. Devices on your network are offered; type an address for one that is not. |
 | `verify_shared_library` | bool | `false` | On startup, check that the library this device reads is the one on disk here, by comparing file hashes. Reports what does not match, and changes nothing. |
 | `http_bind` | string | `0.0.0.0` | Which address to serve on. The default answers every interface - set 127.0.0.1 to reach it only from this device. |
@@ -473,7 +473,7 @@ When you run VPinFE with the `--buildmeta` option it recursively goes through yo
 - assets
 
   One entry per file VPinFE placed in the game folder, keyed by the file's path relative to that folder, with forward slashes. Preserved across `--buildmeta --update-all`. Replaces the old `Medias` section, which was keyed by media type and so could hold only one entry per type — no way to describe artwork belonging to one specific table, and the same question applies to backglasses, ROMs and colorizations. Each entry holds a `source`:
-  - host: who supplied the bytes — a remote such as "vpinmediadb", or "user" for a file uploaded through the Console
+  - host: who supplied the bytes — a remote such as "vpinmediadb", or "user" for a file uploaded through the Manager
   - hash: the MD5 the host published, when it published one. Absent for a user upload, since a hash is only meaningful compared against a remote.
 
   Nothing else is stored. Which media kind a file is, and which table it belongs to, are read off its name every time media resolves, so a stored copy could only agree or be wrong.
@@ -557,12 +557,12 @@ VPinFE can automaticlly pull patches from [vpx-standalone-scripts](https://githu
 
 ## Mobile Transfer
 
-VPinFE sends games to the mobile version of VPinball on Android and iOS from the Console. The device has to be added once, then any game can be sent to it.
+VPinFE sends games to the mobile version of VPinball on Android and iOS from the Manager. The device has to be added once, then any game can be sent to it.
 
 ### Adding the device
 
 1. Open VPinball on the mobile device and turn on the web server in its settings. It shows an address and a port.
-2. In the Console, open **Devices** and choose **Add VPX Mobile**.
+2. In the Manager, open **Devices** and choose **Add VPX Mobile**.
 3. Enter the **Address** and **Port**. VPinFE checks that the device is awake, VPX is open and its web server is on, and offers **Add anyway** if it cannot reach it.
 
 The device is listed with the other devices from then on. Its pane has a **Carrying** heading that lists the games already on it, each with **Remove**, which deletes that game from the device and leaves your own copy alone.
@@ -583,7 +583,7 @@ These are shared by every mobile device, under the **Sending** heading on a mobi
 
 ### Packing a game for another machine
 
-A game can be packed into a `.vpxz` archive (a zip) through the API, `GET /api/v1/games/{id}/archive`, which carries the same files a send does. The Console has no button for it.
+A game can be packed into a `.vpxz` archive (a zip) through the API, `GET /api/v1/games/{id}/archive`, which carries the same files a send does. The Manager has no button for it.
 
 # Enabling the Shutdown Feature
 If you plan on using the Shutdown/Reboot option in the frontend or in the remote you need to have the right permissions on some systems:

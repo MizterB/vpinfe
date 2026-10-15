@@ -521,7 +521,7 @@ def register(ctx):
 **What triggers it:** a game ending on the VPinFE device, once VPinFE has written the play.
 
 **What you'll see:** a line in the extension's log each time a game ends, such as
-`medieval-madness was played for 14 minutes`. The log is under Logs in the Console.
+`medieval-madness was played for 14 minutes`. The log is under Logs in the Manager.
 
 **Variations:**
 
@@ -971,7 +971,7 @@ rows, draws each column by its kind and serves the picture from VPinFE's own add
 Open in green, Closing in amber, Closed in grey, Cancelled with a stop sign before it and
 Planned as plain text. Hover Open and it says "Scores are being taken". The Status filter
 offers all five words. Tags shows Williams and Classic as two chips on the first row, and
-nothing on the rows with none. Rules is a link marked as leaving the Console, with the
+nothing on the rows with none. Rules is a link marked as leaving the Manager, with the
 column's header as its text. Picture shows the first two rows' picture at a small size, and
 nothing on the others.
 
@@ -1197,7 +1197,7 @@ and again after every change.
 **What you'll see:** Challenge Pane under Community with two rows.  Click Medieval Madness and
 the pane opens on its right, headed by the name with "Week 41" under it, and a rail of About and
 Yours.  About shows Open in green, Williams and Classic as two chips, and "Open the Rules" as a
-link that leaves the Console.  Yours has a text field, a switch, a choice and a number.  Type a
+link that leaves the Manager.  Yours has a text field, a switch, a choice and a number.  Type a
 note and leave the field, and the pane redraws with the note kept.  Click Attack from Mars and
 the pane is about it.  Reload the page and the pane opens on the row you left, because the
 address names it.
@@ -1477,7 +1477,7 @@ Show Version is dimmed on a selection of several tables, and says so.
 assume `who` has one entry unless you passed `one=True`.  And an entry needs `games:read`;
 without it the extension is turned down with the reason when it starts.
 
-## Beyond the Console
+## Beyond the Manager
 
 ### 16. A page of one subject
 
@@ -1569,9 +1569,9 @@ def register(ctx):
 
 ### 17. A page of your own
 
-**Use it when:** the thing you are adding already has a web page of its own, such as a hardware tool's console, a manual or a dashboard on another port, and a person should reach it from the Console in one click.
+**Use it when:** the thing you are adding already has a web page of its own, such as a hardware tool's console, a manual or a dashboard on another port, and a person should reach it from the Manager in one click.
 
-`ctx.ui.link` declares an address and core draws it as a link.  The address is a string, or a function that returns one, so a link can follow a setting.  `{host}` is filled in with the host the Console was opened at, so a tool that runs beside VPinFE is reached by the name the person already used, from a laptop or from the VPinFE device.  The label and the tip are words in the extension's catalog, named for the link.
+`ctx.ui.link` declares an address and core draws it as a link.  The address is a string, or a function that returns one, so a link can follow a setting.  `{host}` is filled in with the host the Manager was opened at, so a tool that runs beside VPinFE is reached by the name the person already used, from a laptop or from the VPinFE device.  The label and the tip are words in the extension's catalog, named for the link.
 
 `recipes/tool_link/extension.json`
 
@@ -1613,9 +1613,9 @@ def register(ctx):
 }
 ```
 
-**Where it appears:** a link with an `area` is drawn on the Console's rail in that area, and every link is in a menu at the end of the extension's page title.  The manual has no `area`, so it is in that menu only.  **What triggers it:** the person clicking it.  Nothing is fetched until they do, and nothing is drawn while the extension is switched off.
+**Where it appears:** a link with an `area` is drawn on the Manager's rail in that area, and every link is in a menu at the end of the extension's page title.  The manual has no `area`, so it is in that menu only.  **What triggers it:** the person clicking it.  Nothing is fetched until they do, and nothing is drawn while the extension is switched off.
 
-**What you'll see:** System on the rail shows Tool Console with a small arrow-out mark, and the extension's page has a menu holding both links.  Both open in a new tab.  Change the Port setting and the next click goes to the new port.
+**What you'll see:** System on the rail shows Tool Manager with a small arrow-out mark, and the extension's page has a menu holding both links.  Both open in a new tab.  Change the Port setting and the next click goes to the new port.
 
 **Variations:**
 
@@ -1627,7 +1627,7 @@ def register(ctx):
 
 ### 18. Asking for attention on Overview
 
-**Use it when:** something the extension watches needs a person to act, such as scores flagged for review, a sync that stopped or an update that is ready, and they should see it where the Console already collects such things, without opening the extension first.
+**Use it when:** something the extension watches needs a person to act, such as scores flagged for review, a sync that stopped or an update that is ready, and they should see it where the Manager already collects such things, without opening the extension first.
 
 `ctx.ui.needs` declares the kinds of thing you may ask for, and what a click on each opens: a list, a page or a dialog the extension offers.  A function you give it is called each time Overview is drawn, and answers the kinds that have something to ask for now, with the ids they cover.  Core draws the rows among its own and keeps what a person set aside.  The line is a word in the extension's catalog that is given the count, so it can say one and many.
 
@@ -1776,7 +1776,7 @@ VPinFE never runs as root.  Where the system ships a helper, `ctx.os` is the one
 
 A method that only reads, such as `updates.check`, can be called from anywhere.  A method that changes the machine is refused unless the request it is called from reached Protected, and a job started from that request carries the mark.  A change from an event handler, a timer or a thread the extension started has no request behind it and is refused, so it fails closed even if the declaration is wrong.
 
-A request reaches Protected when an Owner makes it under a live Confirm, and only an act declared Protected keeps that mark.  So the extension declares its acts `tier=PROTECTED` and lists `protected` under `tiers`: the Console then asks the Owner to confirm before it runs the install, and a token or a Remote pass is refused.  The restart that finishes the updates is declared the same way.  `system:admin` in `scopes` is what lets `ctx.system` restart VPinFE or the device.
+A request reaches Protected when an Owner makes it under a live Confirm, and only an act declared Protected keeps that mark.  So the extension declares its acts `tier=PROTECTED` and lists `protected` under `tiers`: the Manager then asks the Owner to confirm before it runs the install, and a token or a Remote pass is refused.  The restart that finishes the updates is declared the same way.  `system:admin` in `scopes` is what lets `ctx.system` restart VPinFE or the device.
 
 `recipes/os_update/extension.json`
 
@@ -1894,7 +1894,7 @@ def register(ctx):
 **Variations:**
 
 - Call `updates.apply` straight from `run` when it is quick.  It still takes a Protected request, since `run` answers one.
-- Leave `tier=PROTECTED` off an act and the Console runs it without a Confirm, and `ctx.os.call` refuses the change, even from an Owner holding a live Confirm, so the install fails rather than runs.
+- Leave `tier=PROTECTED` off an act and the Manager runs it without a Confirm, and `ctx.os.call` refuses the change, even from an Owner holding a live Confirm, so the install fails rather than runs.
 - Read `ctx.os.methods` to build the dialog from what the manifest allows rather than naming methods: each entry has `name`, `changes` and `says`.
 - Run `--check-extension` on a Mac.  It loads the extension whatever its `platforms` say, and `ctx.os.available` is false there, so the dialog shows the no-helper line.
 
@@ -1990,7 +1990,7 @@ def register(ctx):
 - Call `collection_games(name)` to read what a collection holds before changing it.
 - Leave `collections:write` out and the extension still starts.  Reaching for a function that needs it, as in `ctx.collections.create_collection`, raises `ContractError` and names the scope.
 
-**Watch out:** the collection you make is hand-picked.  Rules, ordering by a field, exclusions and pictures are set in the Console and are not offered here.  And a Private game is left out of what the entry is handed, so it is never added.  See [`ctx.collections`](reference/games.md#ctxcollections) for every call.
+**Watch out:** the collection you make is hand-picked.  Rules, ordering by a field, exclusions and pictures are set in the Manager and are not offered here.  And a Private game is left out of what the entry is handed, so it is never added.  See [`ctx.collections`](reference/games.md#ctxcollections) for every call.
 
 ### 22. Listing what is plugged in
 
@@ -2145,7 +2145,7 @@ def register(ctx):
 
 The page is read, saved and cleared at `/api/v1/ext/next_player_note/pages/note` and the addresses under it, as [what core serves](reference/served.md) lists.  A request with a Remote pass is answered there, and a request with a Remote pass to anything the extension declared at the Library tier is refused.
 
-**Where it appears:** in the Console as Next Player Note under Community, like any page.  On the extension's page, under A Remote Can Open, a chip reads "the note page".  **What triggers it:** the person opening the page, changing the field or pressing Clear Note.
+**Where it appears:** in the Manager as Next Player Note under Community, like any page.  On the extension's page, under A Remote Can Open, a chip reads "the note page".  **What triggers it:** the person opening the page, changing the field or pressing Clear Note.
 
 **What you'll see:** the page is headed Next Player Note, with a Leave a Note section holding one field, Note.  Type a note and leave the field, and it is there the next time the page opens.  The menu at the end of the title holds Clear Note, which empties the field and says "Cleared".  When the extension is installed from a folder, the dialog that asks the Owner to accept it lists "the note page" under A Remote Can Open, so the Owner sees before accepting that a Remote can change the note.
 

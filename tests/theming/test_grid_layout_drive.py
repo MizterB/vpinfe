@@ -17,17 +17,17 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from urllib.parse import quote
 
-from console import collections, games, grid, thumbnails
+from manager import collections, games, grid, thumbnails
 from tests.support.browser_session import BrowserSession, chromium_path
-from tests.support.console_walk import MARK, ConsoleWalk, newer
 from tests.support.library import game_info, write_game
 from tests.support.live_instance import LiveInstance
+from tests.support.manager_walk import MARK, ManagerWalk, newer
 
 NOTHING_WRITTEN_S = grid.SAVE_THROTTLE_S + 0.5
 WRITE_LIMIT_S = 30.0
 
 COLLECTION = "Probe"
-BY_LINK = (f"/console?view=collections&collection={quote(COLLECTION)}"
+BY_LINK = (f"/manager?view=collections&collection={quote(COLLECTION)}"
            "&section=collection_details")
 SELECTION = "ag-Grid-SelectionColumn"
 WIDE, NARROW = (1600, 900), (1024, 768)
@@ -59,7 +59,7 @@ TABLE_NAME_DRAWN = NAME_DRAWN.replace('col-id="name"', 'col-id="game"').replace(
     "getColumn('name')", "getColumn('game')")
 PICK = ("(() => { const i = [...document.querySelectorAll(%s)]"
         ".findIndex(el => el.innerText.trim() === %s); return i >= 0 ? i + 1 : 0; })()")
-PICKER = "document.querySelector('.console-view-picker').innerText"
+PICKER = "document.querySelector('.manager-view-picker').innerText"
 RESIZED_FLAG = ("(() => { window.__resized = false; " + API + ".addEventListener("
                 "'gridSizeChanged', () => { window.__resized = true; }); })()")
 # Unpins every column pinned left, as the grid does itself when it has no room for them,
@@ -118,7 +118,7 @@ class GridLayoutDrive(unittest.TestCase):
             return json.loads(stored.read_text())["scopes"] if stored.exists() else {}
 
         async with BrowserSession(chromium_path() or "") as browser:
-            walk = ConsoleWalk(browser, instance)
+            walk = ManagerWalk(browser, instance)
 
             async def load(path: str) -> None:
                 await walk.visit(path)
@@ -178,17 +178,17 @@ class GridLayoutDrive(unittest.TestCase):
                     for kind in ("mousePressed", "mouseReleased"):
                         await mouse(kind, *at, button="right")  # type: ignore[misc]
 
-                await walk.act(press, mark=MARK, until=newer(".q-menu .console-menu-item"))
+                await walk.act(press, mark=MARK, until=newer(".q-menu .manager-menu-item"))
                 return True
 
             seen["first_load"] = await unchanged_by(
-                lambda: load("/console?view=collections"))
+                lambda: load("/manager?view=collections"))
             seen["by_link"] = await unchanged_by(lambda: load(BY_LINK))
-            seen["assets"] = await unchanged_by(lambda: load("/console?view=assets"))
+            seen["assets"] = await unchanged_by(lambda: load("/manager?view=assets"))
 
             async def turn_a_column_on() -> None:
-                await load("/console?view=tables")
-                await walk.act(lambda: browser.click(".console-view-menu"),
+                await load("/manager?view=tables")
+                await walk.act(lambda: browser.click(".manager-view-menu"),
                                until="!!document.querySelector('.q-menu .q-checkbox')")
                 at = await browser.evaluate(
                     "[...document.querySelectorAll('.q-menu .q-checkbox')]"
@@ -201,10 +201,10 @@ class GridLayoutDrive(unittest.TestCase):
             seen["column_on_picker"] = await browser.evaluate(PICKER)
 
             await window(WIDE)
-            await load("/console?view=games")
+            await load("/manager?view=games")
             seen["games_wide"] = await browser.evaluate(NAME_DRAWN)
             if await header_menu("name"):
-                await written_by(lambda: browser.click(".q-menu .console-menu-item"))
+                await written_by(lambda: browser.click(".q-menu .manager-menu-item"))
             seen["games_pinned"] = scopes()
             await window(NARROW)
             seen["games_narrowed"] = await browser.evaluate(NAME_DRAWN)
@@ -238,7 +238,7 @@ class GridLayoutDrive(unittest.TestCase):
 
             await window(WIDE)
             if await header_menu("kind"):
-                await written_by(click_text(".q-menu .console-menu-item", "Pin Left"))
+                await written_by(click_text(".q-menu .manager-menu-item", "Pin Left"))
             seen["pinned"] = scopes()
             seen["resized_widened"] = await browser.evaluate(NAME_DRAWN)
             seen["reloaded"] = await unchanged_by(lambda: load(BY_LINK))
@@ -246,11 +246,11 @@ class GridLayoutDrive(unittest.TestCase):
             seen["unpinned"] = await browser.evaluate(UNPINNED)
 
             await window(NARROW)
-            await load("/console?view=tables")
+            await load("/manager?view=tables")
             seen["tables_narrow"] = await browser.evaluate(TABLE_NAME_DRAWN)
         return seen
 
-    def _layout(self, held: dict, scope: str = "console.collections::") -> dict:
+    def _layout(self, held: dict, scope: str = "manager.collections::") -> dict:
         found = [value for key, value in held.items() if key.startswith(scope)]
         self.assertEqual(1, len(found), sorted(held))
         return found[0]
@@ -292,13 +292,13 @@ class GridLayoutDrive(unittest.TestCase):
         self.assertEqual(self.seen["games_widened"]["width"], _declared(games, True))
 
     def test_a_fitted_width_is_not_saved_with_a_pin(self) -> None:
-        layout = self._layout(self.seen["games_pinned"], "console.games.columns::")
+        layout = self._layout(self.seen["games_pinned"], "manager.games.columns::")
         self.assertEqual(["pins"], sorted(layout))
 
     def test_a_resize_saves_that_width_and_not_the_unpins_a_narrow_window_made(self) -> None:
         before, after = self.seen["resized"]
         self.assertEqual({}, {k: v for k, v in before.items()
-                              if k.startswith("console.collections::")})
+                              if k.startswith("manager.collections::")})
         layout = self._layout(after)
         self.assertEqual(["widths"], sorted(layout))
         self.assertEqual(["name"], sorted(layout["widths"]))

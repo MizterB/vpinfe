@@ -12,14 +12,14 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from tests.support.browser_session import BrowserSession, chromium_path
-from tests.support.console_walk import ConsoleWalk
 from tests.support.library import game_info, write_game
 from tests.support.live_instance import LiveInstance
+from tests.support.manager_walk import ManagerWalk
 
 WIDE, NARROW = 1400, 700
 ROW = (".ag-center-cols-container .ag-row[row-index=\"%d\"] "
        ".ag-cell:not([col-id=\"ag-Grid-SelectionColumn\"])")
-NEXT = ".console-panel-header .q-btn"
+NEXT = ".manager-panel-header .q-btn"
 FOCUSED = ("(() => { const el = document.querySelector('.nicegui-aggrid');"
            " const api = getElement(Number(el.id.slice(1))).api;"
            " const node = api.getRowNode(api.getGridOption('context').focusId);"
@@ -27,10 +27,10 @@ FOCUSED = ("(() => { const el = document.querySelector('.nicegui-aggrid');"
 SHOWN = ("(() => { const box = (selector) => { const el = document.querySelector(selector);"
          " if (!el) return null; const at = el.getBoundingClientRect();"
          " return at.width > 0 && getComputedStyle(el).display !== 'none' ? at.width : 0; };"
-         " return {list: box('.console-pane-box > .q-splitter__before'),"
-         " panel: box('.console-pane-box > .q-splitter__after'),"
-         " back: box('.console-pane-back'),"
-         " box: box('.console-pane-box')}; })()")
+         " return {list: box('.manager-pane-box > .q-splitter__before'),"
+         " panel: box('.manager-pane-box > .q-splitter__after'),"
+         " back: box('.manager-pane-back'),"
+         " box: box('.manager-pane-box')}; })()")
 ROWS = "document.querySelectorAll('.ag-center-cols-container .ag-row').length > 0"
 
 
@@ -54,7 +54,7 @@ class PanelPagesStackDrive(unittest.TestCase):
         seen: dict[str, dict] = {}
         instance.wait_for_api()
         async with BrowserSession(chromium_path() or "") as browser:
-            walk = ConsoleWalk(browser, instance)
+            walk = ManagerWalk(browser, instance)
 
             async def window(width: int) -> None:
                 await browser.send("Emulation.setDeviceMetricsOverride",
@@ -62,26 +62,26 @@ class PanelPagesStackDrive(unittest.TestCase):
                                     "mobile": False})
 
             await window(NARROW)
-            await walk.visit("/console?view=games")
+            await walk.visit("/manager?view=games")
             await browser.wait_for(ROWS)
             seen["narrow list"] = await browser.evaluate(SHOWN)
             await browser.click(ROW % 1)
             await browser.wait_for(
-                "!!document.querySelector('.console-pane-box.console-opened')")
+                "!!document.querySelector('.manager-pane-box.manager-opened')")
             seen["narrow panel"] = await browser.evaluate(SHOWN)
             seen["stepped from"] = {"row": await browser.evaluate(FOCUSED)}
             await browser.click(NEXT, nth=2)
             await browser.wait_for(f"{FOCUSED} !== {seen['stepped from']['row']}")
             seen["stepped to"] = {"row": await browser.evaluate(FOCUSED)}
-            await browser.click(".console-pane-back")
+            await browser.click(".manager-pane-back")
             await browser.wait_for(
-                "!document.querySelector('.console-pane-box.console-opened')")
+                "!document.querySelector('.manager-pane-box.manager-opened')")
             seen["narrow back"] = await browser.evaluate(SHOWN)
 
             await window(WIDE)
             await browser.wait_for(
                 f"innerWidth === {WIDE} && document.querySelector("
-                "'.console-pane-box > .q-splitter__after').getBoundingClientRect().width > 0")
+                "'.manager-pane-box > .q-splitter__after').getBoundingClientRect().width > 0")
             seen["wide"] = await browser.evaluate(SHOWN)
         return seen
 

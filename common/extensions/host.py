@@ -45,7 +45,7 @@ BUNDLED_DIR = bundled("extensions")
 SEARCH_PATH = (INSTALLED_DIR, BUNDLED_DIR)
 
 # Running.
-# The names core's rail already uses, by the keys of `console.section.*`.
+# The names core's rail already uses, by the keys of `manager.section.*`.
 CORE_SECTIONS = ("overview", "games", "tables", "media", "assets", "collections", "tags",
                  "discovery", "players", "launchers", "themes", "settings", "devices",
                  "metrics", "logs", "jobs", "backups", "about", "library", "frontend",
@@ -574,7 +574,7 @@ class Registry:
         """A list or a page is not titled as a core entry, nor as another list or page in its
         area: the rail would show two of the same name, and one of them is not what it
         says."""
-        core = {i18n.t(f"console.section.{one}").casefold() for one in CORE_SECTIONS}
+        core = {i18n.t(f"manager.section.{one}").casefold() for one in CORE_SECTIONS}
         theirs = {(one["area"], one["title"].casefold())
                   for other in self._records.values() if other is not record and other.running
                   for one in [*other.lists(), *other.pages()]}

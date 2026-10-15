@@ -14,8 +14,8 @@ OVER = 80
 OVER_EIGHTY = 102
 
 TOO_LONG_TODAY = frozenset({
-    "console.media.reason.help",
-    "console.assets.reason.help",
+    "manager.media.reason.help",
+    "manager.assets.reason.help",
 })
 
 NUMBER_MARK = re.compile(r"\{(\w+):n\}")

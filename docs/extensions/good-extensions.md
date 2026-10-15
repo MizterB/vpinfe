@@ -40,7 +40,7 @@ An action sits with what it acts on, and the declarations are how you say which 
 | The extension's own page | A setting |
 
 A verb has one word.  **Remove** takes it out and **Delete** means gone for good, so name the one you
-do.  A link that leaves the Console is an address, and core marks it as leaving and opens it in a
+do.  A link that leaves the Manager is an address, and core marks it as leaving and opens it in a
 new tab.  See [A link says whether it leaves](../conventions.md#a-link-says-whether-it-leaves).
 
 ## Danger, empty states and needs
@@ -91,7 +91,7 @@ new tab.  See [A link says whether it leaves](../conventions.md#a-link-says-whet
 ## A page of your own
 
 A thing that is more than a list, a pane, a dialog or a group has a page of its own, on a site and
-a port of its own, and the Console links to it.  See
+a port of its own, and the Manager links to it.  See
 [a page of your own](cookbook.md#17-a-page-of-your-own).
 
 - **Anything that changes something goes behind its own sign-in.**  A page core serves under

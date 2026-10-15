@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 # and has no section and key to name.
 WHERE_SETTINGS = "settings"
 WHERE_LAUNCHERS = "launchers"
-# Each is the Console's view key for that page.
+# Each is the Manager's view key for that page.
 WHERES = (WHERE_SETTINGS, WHERE_LAUNCHERS)
 
 # The section a finding about the library folders is filed under. It names no setting: the

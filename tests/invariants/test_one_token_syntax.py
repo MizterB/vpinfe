@@ -13,7 +13,7 @@ from pathlib import Path
 from tests.support import trees
 
 REPO = Path(__file__).resolve().parents[2]
-ROOTS = ("apps", "common", "console", "extensions", "frontend", "httpapi")
+ROOTS = ("apps", "common", "manager", "extensions", "frontend", "httpapi")
 HOME = REPO / "common" / "tokens.py"
 
 # A regex that captures a word between braces or brackets: a token parser.
@@ -24,7 +24,7 @@ _RE_CALLS = {"compile", "sub", "subn", "findall", "finditer", "fullmatch", "matc
 
 # Braces that are not a command's tokens, each with what they are.
 ALLOWED: dict[tuple[str, int], str] = {
-    ("console/grid.py", 749): "a JavaScript renderer's source, filled in by code",
+    ("manager/grid.py", 749): "a JavaScript renderer's source, filled in by code",
 }
 
 

@@ -328,8 +328,8 @@ class ExtensionUI:
     """What an extension offers a person: its settings, lists, actions and accounts.
 
     Declared rather than drawn, and served by core rather than by the extension: it hands
-    over fields, a `rows()` and a dialog object, and core mounts the routes the Console
-    reads. An extension that painted its own page would tie the Console's look to whoever
+    over fields, a `rows()` and a dialog object, and core mounts the routes the Manager
+    reads. An extension that painted its own page would tie the Manager's look to whoever
     wrote it, and would stop working the moment it moved out of this process - where a
     task described as data still does.
 
@@ -501,7 +501,7 @@ class ExtensionUI:
         """A link to this extension's own page, opened in a new tab.
 
         `url` is an address or a function answering one, and `{host}` in it is filled with
-        the host the Console was opened at. Only `http://` and `https://` are drawn. It is
+        the host the Manager was opened at. Only `http://` and `https://` are drawn. It is
         on the extension's page in Settings; with an `area` it is also an entry in that
         group of the rail, as a list's `area` places a list, drawn with `icon`, one of
         `RAIL_ICONS`. Its words are `link.<key>.label` and `link.<key>.tip` in the
@@ -970,7 +970,7 @@ class ExtensionUI:
 
     def _verbs(self, list_key: str, verbs: Sequence[dict]) -> dict[str, dict[str, Any]]:
         """The verbs of one list, checked, by key. Each holds its `run`, which is not
-        declared to the Console."""
+        declared to the Manager."""
         found: dict[str, dict[str, Any]] = {}
         for raw in verbs:
             where = f"{self._name} gives the list {list_key!r}"

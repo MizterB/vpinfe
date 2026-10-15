@@ -1,8 +1,8 @@
-"""What core answers when the Console asks for something an extension declared.
+"""What core answers when the Manager asks for something an extension declared.
 
 An extension hands core fields, rows and functions; the routes are core's. Each handler
 here reads the declaration of one running extension, calls the function it named, and
-answers in the shape the Console already reads. Nothing in this module imports a web
+answers in the shape the Manager already reads. Nothing in this module imports a web
 framework: the router that carries these over HTTP is `httpapi/extensions_served.py`.
 
 A function the extension supplied that raises is the extension's refusal or its failure,
@@ -444,7 +444,7 @@ def _page(record: Record, key: str) -> Any:
 
 
 def page_read(record: Record, key: str) -> dict:
-    """A page as the Console draws it: the extension's `read()`, checked, with each picture
+    """A page as the Manager draws it: the extension's `read()`, checked, with each picture
     turned into core's own address and each secret held back."""
     at = f"page {key}"
     answer = plain(record, at, called(record, at, _page(record, key).read))

@@ -84,7 +84,7 @@ class ConfigServiceTests(unittest.TestCase):
         self.assertEqual(self.store.saves, 1)
 
     def test_a_retired_spelling_writes_to_the_current_key(self):
-        """`console` named terminal logging before it named the web UI. A client written
+        """`console` is what 2.x called terminal logging. A client written
         against the old name must not write a second, dead key beside the live one."""
         config_service.set_values({"logger": {"console": False}})
         self.assertEqual(self.store.written[("logger", "terminal")], False)

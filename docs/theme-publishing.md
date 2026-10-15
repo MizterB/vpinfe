@@ -70,7 +70,7 @@ The key is not just a label. It affects runtime behavior:
 - It is the key VPinFE uses internally for install, update, and delete.
 - It becomes the installed folder name under `frontend_themes/`.
 - It is the value stored as the active theme.
-- The Console uses it when building local preview URLs like `/themes/<theme_key>/<picture>`.
+- The Manager uses it when building local preview URLs like `/themes/<theme_key>/<picture>`.
 
 Choose it carefully and keep it stable once published. It does not have to match the repository name or the `manifest.json` `name`. Keys with spaces, such as `Slider Video`, are supported, but simple stable keys are easier to maintain.
 
@@ -177,7 +177,7 @@ is an ordinary entry in it, so it can be reordered, replaced with a mirror, or r
 install that should not reach the internet. Repositories are resolved before lists, so
 naming a repository directly wins if a name appears in both.
 
-Both are edited in the Console under Settings > Themes, where they are called Theme Lists
+Both are edited in the Manager under Settings > Themes, where they are called Theme Lists
 and Single Themes. A theme runs inside VPinFE, so add sources you trust.
 
 ### Required repository contents
@@ -210,10 +210,10 @@ VPinFE validates the manifest in [`common/online/themes.py`](../common/online/th
 
 | Field | Purpose |
 | --- | --- |
-| `name` | Display name shown in the Console, unless the list entry sets its own `name`. |
+| `name` | Display name shown in the Manager, unless the list entry sets its own `name`. |
 | `version` | Version string used for update checks. |
 | `author` | Theme author name. |
-| `description` | Description shown in the Console. |
+| `description` | Description shown in the Manager. |
 | `layouts` | The layouts the theme is made for, each with its preview filename or URL: `{"cab": "preview-cabinet.png", "desktop": "preview-desktop.png"}`. Keys are `cab` and `desktop`; name one or both. A 2.x theme that says `preview_image` and `type` (`desktop`, `cab` or `both`) instead is still read. |
 | `windows` | The windows the theme draws. A 2.x theme that says `supported_screens`, a number, is still read. |
 
@@ -259,7 +259,7 @@ moved it. At runtime, VPinFE mounts that folder as `/themes/` in the local HTTP 
 
 ## How Preview Images Are Resolved
 
-The Console shows the picture each layout in the manifest's `layouts` names, side by side
+The Manager shows the picture each layout in the manifest's `layouts` names, side by side
 when there are two. It resolves each one in the same ways:
 
 - If the theme is installed, it serves the preview locally from `/themes/<theme_key>/<picture>`
@@ -268,7 +268,7 @@ when there are two. It resolves each one in the same ways:
 
 For the simplest publishing flow, keep each picture as a filename in the repository root, for example `"layouts": {"cab": "preview-cabinet.png", "desktop": "preview-desktop.png"}`. A theme made for one layout names one.
 
-The Console fetches a picture it has not kept once per release and shows it at the size it is drawn, so a new release is the way to have a changed picture picked up everywhere at once. Keep it under about 300 KB: the Console downloads it in full, once per release.
+The Manager fetches a picture it has not kept once per release and shows it at the size it is drawn, so a new release is the way to have a changed picture picked up everywhere at once. Keep it under about 300 KB: the Manager downloads it in full, once per release.
 
 ## Publishing Checklist
 

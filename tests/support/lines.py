@@ -1,4 +1,4 @@
-"""The lines a Console surface draws, read as somebody reading it would."""
+"""The lines a Manager surface draws, read as somebody reading it would."""
 
 from __future__ import annotations
 

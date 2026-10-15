@@ -17,7 +17,7 @@ from typing import Any
 
 from common.i18n import t
 from tests.support.browser_session import BrowserSession
-from tests.support.console_walk import ConsoleWalk
+from tests.support.manager_walk import ManagerWalk
 from tests.theming.test_grid_selection_drive import (
     API,
     HEADER_BOX,
@@ -28,9 +28,9 @@ from tests.theming.test_grid_selection_drive import (
 
 SEARCH = "Alpha"
 FILLED = "alpha1:wheel:"
-COUNT_SAYS = t("console.media.selected", picked="{picked}", shown="{shown}")
+COUNT_SAYS = t("manager.media.selected", picked="{picked}", shown="{shown}")
 # The bar's count is the grid's own: the rows selected and the rows on screen.
-COUNTED = ("[...document.querySelectorAll('.console-grid-bar .console-label')]"
+COUNTED = ("[...document.querySelectorAll('.manager-grid-bar .manager-label')]"
            ".some(el => el.textContent.trim() === %s"
            f".replace('{{picked}}', {API}.getSelectedNodes().length)"
            f".replace('{{shown}}', {API}.getDisplayedRowCount()))")
@@ -40,7 +40,7 @@ class _Page:
     def __init__(self, port: int) -> None:
         self.port = port
 
-    def console_url(self, path: str = "/") -> str:
+    def manager_url(self, path: str = "/") -> str:
         return f"http://127.0.0.1:{self.port}{path}"
 
 
@@ -59,9 +59,9 @@ class _Library:
 
     def preferences(self, key: str) -> dict:
         """The grid opens on Have; these rows are all gaps, so the drive opens it on Missing."""
-        from console import media, views
+        from manager import media, views
         if key == media.SCOPE + views.VIEWS_SUFFIX:
-            return {"active": views.builtin_id("console.view.missing")}
+            return {"active": views.builtin_id("manager.view.missing")}
         return {}
 
     def put_preferences(self, _key: str, _value: dict) -> None:
@@ -91,10 +91,10 @@ class _Library:
 
 
 def serve(port: int) -> None:
-    """The Media page, drawn as the Console draws it."""
+    """The Media page, drawn as the Manager draws it."""
     from nicegui import app, ui
 
-    from console import api, grid, media, media_fill
+    from manager import api, grid, media, media_fill
 
     api.local_base_url = lambda: "http://127.0.0.1:9"
     library = _Library()
@@ -123,7 +123,7 @@ def serve(port: int) -> None:
         grid.install_filters()
         box = ui.element("div").classes("w-full h-[700px] flex flex-col")
 
-        # After the browser is there, as the Console draws it: a view put on a grid
+        # After the browser is there, as the Manager draws it: a view put on a grid
         # before then is lost.
         await ui.context.client.connected()
         with box:
@@ -147,7 +147,7 @@ class MediaFillDrive(unittest.TestCase):
     async def _drive(cls, binary: str, port: int) -> dict:
         grid_id = ("document.querySelector('.ag-root-wrapper')"
                    ".closest('.nicegui-aggrid').id")
-        search = f"input[placeholder={json.dumps(t('console.media.search_media'))}]"
+        search = f"input[placeholder={json.dumps(t('manager.media.search_media'))}]"
 
         async def looking() -> dict:
             return await browser.evaluate(
@@ -157,11 +157,11 @@ class MediaFillDrive(unittest.TestCase):
                 " shown: " + API + ".getDisplayedRowCount(),"
                 " filters: " + API + ".getFilterModel(),"
                 " selected: " + API + ".getSelectedNodes().map(n => n.id).sort(),"
-                " count: [...document.querySelectorAll('.console-grid-bar .console-label')]"
+                " count: [...document.querySelectorAll('.manager-grid-bar .manager-label')]"
                 ".map(el => el.textContent.trim())})")
 
         async with BrowserSession(binary) as browser:
-            walk = ConsoleWalk(browser, _Page(port))
+            walk = ManagerWalk(browser, _Page(port))
             await walk.visit("/")
             await browser.wait_for(API + ".getDisplayedRowCount() === 20", timeout=60.0)
             await browser.click(search)
@@ -170,19 +170,19 @@ class MediaFillDrive(unittest.TestCase):
             await browser.click(HEADER_BOX)
             await browser.wait_for(API + ".getSelectedNodes().length === 10")
             await browser.wait_for(
-                "[...document.querySelectorAll('.console-grid-bar .console-label')]"
+                "[...document.querySelectorAll('.manager-grid-bar .manager-label')]"
                 ".some(el => el.textContent.trim() === "
-                f"{json.dumps(t('console.media.selected', picked=10, shown=10))})")
+                f"{json.dumps(t('manager.media.selected', picked=10, shown=10))})")
             before = await looking()
             await browser.evaluate(
-                "[...document.querySelectorAll('.console-grid-bar .q-btn')]"
+                "[...document.querySelectorAll('.manager-grid-bar .q-btn')]"
                 ".find(b => b.textContent.includes('more_vert'))"
                 ".setAttribute('data-drive', 'actions')")
             await browser.click("[data-drive=actions]")
-            await browser.wait_for("!!document.querySelector('.console-menu-item')")
+            await browser.wait_for("!!document.querySelector('.manager-menu-item')")
             await browser.evaluate(
-                "[...document.querySelectorAll('.console-menu-item')].find(el => "
-                f"el.textContent.includes({json.dumps(t('console.media_fill.get_missing'))}))"
+                "[...document.querySelectorAll('.manager-menu-item')].find(el => "
+                f"el.textContent.includes({json.dumps(t('manager.media_fill.get_missing'))}))"
                 ".setAttribute('data-drive', 'fill')")
             await walk.act(lambda: browser.click("[data-drive=fill]"),
                            until=f"{API}.getDisplayedRowCount() !== {before['shown']}"
@@ -213,7 +213,7 @@ class MediaFillDrive(unittest.TestCase):
                          [one for one in self.seen["before"]["selected"] if one != FILLED])
 
     def test_the_count_says_what_is_selected(self) -> None:
-        self.assertIn(t("console.media.selected", picked=9, shown=9),
+        self.assertIn(t("manager.media.selected", picked=9, shown=9),
                       self.seen["after"]["count"])
 
 

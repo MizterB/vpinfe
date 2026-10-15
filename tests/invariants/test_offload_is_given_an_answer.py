@@ -10,8 +10,8 @@ from tests.support import trees
 
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
 
-# The classes whose methods the Console hands to `offload.io` by attribute.
-DECLARED = {"console/data.py": "Library", "console/api.py": "ApiClient"}
+# The classes whose methods the Manager hands to `offload.io` by attribute.
+DECLARED = {"manager/data.py": "Library", "manager/api.py": "ApiClient"}
 
 
 def _answers_nothing() -> set[str]:
@@ -52,10 +52,10 @@ class OffloadIsGivenAnAnswer(unittest.TestCase):
                        void),
             [])
 
-    def test_no_console_call_hands_it_one(self) -> None:
+    def test_no_manager_call_hands_it_one(self) -> None:
         void = _answers_nothing()
         found = [f"{path.relative_to(REPO).as_posix()}:{line} {name}"
-                 for path in sorted((REPO / "console").rglob("*.py"))
+                 for path in sorted((REPO / "manager").rglob("*.py"))
                  for line, name in _offenders(trees.tree_for(path), void)]
         self.assertEqual(found, [], "a call that answers nothing goes through "
                                     "`run.io_bound`, not `offload.io`")

@@ -1,4 +1,4 @@
-"""The window on each screen that says its number, for the Console's Show numbers."""
+"""The window on each screen that says its number, for the Manager's Show numbers."""
 
 from __future__ import annotations
 
@@ -136,7 +136,7 @@ class ShowTests(unittest.TestCase):
         with mock.patch.object(screen_numbers, "t", return_value="W by H") as said:
             screen_numbers.show([ONE])
 
-        said.assert_called_once_with("console.screens.size", width=2560, height=1440)
+        said.assert_called_once_with("manager.screens.size", width=2560, height=1440)
         self.assertIn("W by H", unquote(self.launch.call_args.args[1]))
 
     def test_a_second_call_while_one_is_showing_opens_nothing(self) -> None:

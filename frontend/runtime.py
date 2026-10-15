@@ -76,7 +76,7 @@ def register_window_apis(iniconfig: ConfigStore, ws_bridge: DeviceChannel,
                          frontend_browser: ChromiumManager, logger: logging.Logger,
                          library: library_resolver.LibraryResolver | None = None) -> None:
     """Give every window that has a screen an API, once. A window with none is refused at
-    the socket, so this runs again whenever the windows open: Setup and the Console both
+    the socket, so this runs again whenever the windows open: Setup and the Manager both
     assign screens after the process booted."""
     displays = DisplayConfig.from_config(iniconfig)
     registered = ws_bridge.registered_windows()
@@ -347,7 +347,7 @@ def reopen_windows(iniconfig: ConfigStore, frontend_browser: ChromiumManager,
     """Close the windows, if any are up, and open them again on the settings as they are
     now. The same call opens windows that were closed.
 
-    The Console writes through a store of its own, so what this process booted with is
+    The Manager writes through a store of its own, so what this process booted with is
     read again first - the screens, rotation, theme and Chromium settings all come from
     it, and the windows' own API answers from it too. The theme's wheel set is applied
     again, and a library resolved under another set or variant is read once more.
@@ -424,7 +424,7 @@ def run_frontend_loop(headless: bool, iniconfig: ConfigStore,
         # A signal in the gap above already set the flag the reset just cleared.
         if shutdown.requested():
             return
-        # Setup wrote through the Console's own store, a different instance of this
+        # Setup wrote through the Manager's own store, a different instance of this
         # same file - re-read rather than trust what booted this process.
         from common.paths import get_ini_config
         iniconfig = get_ini_config()

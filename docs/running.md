@@ -1,6 +1,6 @@
 # Running VPinFE
 
-Day-to-day use happens in the Console.  This page covers what the Console does not walk you through: how a game folder is laid out, the buttons and keys that drive the frontend, cabinet outputs, the command line and the ports VPinFE listens on.  Where a setting has a page in the Console it is named here as **Settings > Group > Page**.  Every setting, with its key in `vpinfe.json`, is in [Technical Details](technical-details.md).
+Day-to-day use happens in the Manager.  This page covers what the Manager does not walk you through: how a game folder is laid out, the buttons and keys that drive the frontend, cabinet outputs, the command line and the ports VPinFE listens on.  Where a setting has a page in the Manager it is named here as **Settings > Group > Page**.  Every setting, with its key in `vpinfe.json`, is in [Technical Details](technical-details.md).
 
 ## Games and tables
 
@@ -73,7 +73,7 @@ VPinFE gets media for your games from [VPinMediaDB](https://github.com/superhac/
 
 Only the kinds your library collects are fetched, and the playfield comes in the variant and resolution you set.  Both are under **Settings > Library > Media**.
 
-The picture beside a game, table or collection's name in the Console's lists is **Art in Lists**, under **Settings > VPinFE > Console**.  It is the wheel unless you pick the backglass, the playfield, the logo or none, and it offers only the kinds your library collects.  A game or table shows the art the frontend shows for it, and its icon where it has none.  A collection shows its own picture whichever kind you pick.
+The picture beside a game, table or collection's name in the Manager's lists is **Art in Lists**, under **Settings > VPinFE > Manager**.  It is the wheel unless you pick the backglass, the playfield, the logo or none, and it offers only the kinds your library collects.  A game or table shows the art the frontend shows for it, and its icon where it has none.  A collection shows its own picture whichever kind you pick.
 
 To supply all your media yourself, build with `--user-media` (see [Technical Details](technical-details.md#using-your-own-media-user-media)).
 
@@ -153,7 +153,7 @@ VPinFE starts three listeners:
 | Service | Default address | What it does |
 |---|---|---|
 | Theme server | `127.0.0.1:8000` | Serves themes and your table media to the frontend windows |
-| Web server | `0.0.0.0:8001` | The Console at `/`, the remote at `/remote`, and the HTTP API at `/api/v1` |
+| Web server | `0.0.0.0:8001` | The Manager at `/`, the remote at `/remote`, and the HTTP API at `/api/v1` |
 | WebSocket bridge | `127.0.0.1:8002` | How the frontend windows talk to VPinFE.  It stays on this machine |
 
 The web server answers on every interface so you can run a cabinet from another device, such as a phone.  A browser on another device signs in with a code from this machine's screen or from the authenticator app.  The connection is not encrypted until you set up **Encrypted Connections** under **Settings > Security**, so keep it on a network you trust.  To reach it only from the machine itself, set **HTTP Address** to `127.0.0.1` under **Settings > VPinFE > Network**.

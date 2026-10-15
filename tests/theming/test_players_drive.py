@@ -23,16 +23,16 @@ from PIL import Image
 
 from tests.support import pictures, vpinplay_stub
 from tests.support.browser_session import BrowserSession, chromium_path
-from tests.support.console_walk import ConsoleWalk
 from tests.support.library import game_info, write_game
 from tests.support.live_instance import LiveInstance
+from tests.support.manager_walk import ManagerWalk
 
 USER_ID = "player-one"
 CARD_FILE = f"vpinplay-{USER_ID}.svg"
 
 SHOWN = "(el => el.getClientRects().length > 0)"
 DIALOG = ".q-dialog"
-FOOTER = f"{DIALOG} .console-dialog-footer .q-btn"
+FOOTER = f"{DIALOG} .manager-dialog-footer .q-btn"
 # What a control says: its words, or its icon's name where it has none.
 SAYS = ("(el => { const copy = el.cloneNode(true);"
         " copy.querySelectorAll('.q-icon, .material-icons').forEach(i => i.remove());"
@@ -42,12 +42,12 @@ SAYS = ("(el => { const copy = el.cloneNode(true);"
 AT = (f"(() => [...document.querySelectorAll(%s)].findIndex(el => {SHOWN}(el)"
       f" && {SAYS}(el) === %s))()")
 TEXT = "(el => el ? el.innerText.trim().replace(/\\s+/g, ' ') : null)(document.querySelector(%s))"
-WORK = ".console-section-work"
-RAIL = ".console-section-row"
-ACTS = f"{WORK} .console-slot-actions .q-btn"
+WORK = ".manager-section-work"
+RAIL = ".manager-section-row"
+ACTS = f"{WORK} .manager-slot-actions .q-btn"
 SHOWN_ACTS = f"[...document.querySelectorAll('{ACTS}')].filter({SHOWN})"
 TITLE = ("(el => el ? el.innerText.trim() : null)"
-         "(document.querySelector('.console-panel-header .console-workbench-title'))")
+         "(document.querySelector('.manager-panel-header .manager-workbench-title'))")
 RAIL_NAMES = (f"[...document.querySelectorAll('{RAIL}')].filter({SHOWN})"
               ".map(el => el.innerText.trim().split('\\n')[0])")
 # A dialog that has finished opening: Quasar scales it in, and a click on the way lands
@@ -59,9 +59,9 @@ DIALOG_TEXT = ("(() => { const box = [...document.querySelectorAll('.q-dialog')]
                " return box ? box.innerText.trim() : null; })()")
 
 
-NAME_LINES = ".console-cell-identifier .console-cell-lines"
-CIRCLE = ".console-cell-identifier .console-cell-art-box--circle"
-PERSON = f"{WORK} .console-slot-art--person"
+NAME_LINES = ".manager-cell-identifier .manager-cell-lines"
+CIRCLE = ".manager-cell-identifier .manager-cell-art-box--circle"
+PERSON = f"{WORK} .manager-slot-art--person"
 NOTICE = ".q-notification"
 
 
@@ -122,7 +122,7 @@ class PlayersDrive(unittest.TestCase):
                                 "mobile": False})
             await browser.send("Page.setDownloadBehavior",
                                {"behavior": "allow", "downloadPath": str(saved)})
-            walk = ConsoleWalk(browser, instance)
+            walk = ManagerWalk(browser, instance)
 
             async def press(selector: str, says: str) -> None:
                 found = AT % (json.dumps(selector), json.dumps(says))
@@ -147,7 +147,7 @@ class PlayersDrive(unittest.TestCase):
             async def open_section(name: str) -> None:
                 await press(RAIL, name)
                 await browser.wait_for(
-                    f"[...document.querySelectorAll('{RAIL}.console-section-on')]"
+                    f"[...document.querySelectorAll('{RAIL}.manager-section-on')]"
                     f".some(el => el.innerText.trim().startsWith({json.dumps(name)}))")
 
             async def pick(selector: str, path: Path) -> None:
@@ -159,19 +159,19 @@ class PlayersDrive(unittest.TestCase):
 
             async def add(which: str) -> None:
                 await walk.drawn()
-                await press(".console-grid-bar .q-btn", "add")
+                await press(".manager-grid-bar .q-btn", "add")
                 await press(".q-menu .q-item", which)
                 await browser.wait_for(DIALOG_UP)
 
-            await walk.visit("/console?view=players")
-            seen["purpose"] = await browser.wait_for(_text(".console-page-purpose"))
+            await walk.visit("/manager?view=players")
+            seen["purpose"] = await browser.wait_for(_text(".manager-page-purpose"))
             owner_name = _text(_cell(owner, NAME_LINES))
             seen["alone"] = await browser.wait_for(owner_name)
 
             # A key with no `claimed` marker resolves once against the stub; this id
             # is free, so it draws as state 2.
             urllib.request.urlopen(urllib.request.Request(
-                instance.console_url(f"/api/v1/players/{owner}/accounts/vpinplay"),
+                instance.manager_url(f"/api/v1/players/{owner}/accounts/vpinplay"),
                 method="PUT", data=json.dumps({"values": {
                     "user_id": "old-key-holder", "key": "k" * 64}}).encode(),
                 headers={"Content-Type": "application/json"}), timeout=10).close()
@@ -220,7 +220,7 @@ class PlayersDrive(unittest.TestCase):
 
             def stored() -> tuple[int, int, int] | None:
                 try:
-                    with urllib.request.urlopen(instance.console_url(
+                    with urllib.request.urlopen(instance.manager_url(
                             f"/api/v1/players/{jordan}/picture"), timeout=10) as held:
                         return _centre(held.read())
                 except urllib.error.HTTPError:
@@ -251,13 +251,13 @@ class PlayersDrive(unittest.TestCase):
             seen["slot_before"] = await browser.wait_for(_text(PERSON))
             seen["initials_px"] = await browser.evaluate(
                 f"(el => el ? getComputedStyle(el).fontSize : null)(document.querySelector("
-                f"{json.dumps(_cell(jordan, '.console-circle-initials'))}))")
+                f"{json.dumps(_cell(jordan, '.manager-circle-initials'))}))")
             seen["owner_lines_h"] = await browser.evaluate(
                 f"(el => el ? el.getBoundingClientRect().height : null)(document.querySelector("
                 f"{json.dumps(_cell(owner, NAME_LINES + ' > span'))}))")
             seen["owner_row_h"] = await browser.evaluate(
                 f"(el => el ? el.getBoundingClientRect().height : null)(document.querySelector("
-                f"{json.dumps(_cell(owner, '.console-cell-identifier'))}))")
+                f"{json.dumps(_cell(owner, '.manager-cell-identifier'))}))")
             seen["acts_before"] = await browser.evaluate(f"{SHOWN_ACTS}.map({SAYS})")
             await press(ACTS, "Add")
             await browser.wait_for(DIALOG_UP)
@@ -320,7 +320,7 @@ class PlayersDrive(unittest.TestCase):
                 f"(said => said && said.includes('Same') ? said : null)"
                 f"({_text(_cell(one, '.ag-cell[col-id=initials]'))})")
                 for one in (jordan, guest)]
-            chip = _cell(jordan, ".ag-cell[col-id=initials] .console-tier--warn")
+            chip = _cell(jordan, ".ag-cell[col-id=initials] .manager-tier--warn")
             seen["shared_tip"] = await browser.evaluate(
                 f"document.querySelector({json.dumps(chip)}).title")
 
@@ -362,7 +362,7 @@ class PlayersDrive(unittest.TestCase):
             seen["state3_acts"] = await browser.evaluate(f"{SHOWN_ACTS}.map({SAYS})")
 
             # The card: hidden until Show is pressed, then large in the media viewer.
-            await browser.click(f"{WORK} .console-source-thumb")
+            await browser.click(f"{WORK} .manager-source-thumb")
             await browser.wait_for(DIALOG_UP)
             seen["viewer_has_image"] = await browser.evaluate(
                 f"!!document.querySelector('{DIALOG} img')")
@@ -383,11 +383,11 @@ class PlayersDrive(unittest.TestCase):
                                    "initials": "XYZ", "score": 1234560}}}}),
                 encoding="utf-8")
             await open_section("Plays")
-            seen["plays"] = await browser.wait_for(_text(f"{WORK} .console-member-row"))
+            seen["plays"] = await browser.wait_for(_text(f"{WORK} .manager-member-row"))
 
             # A guest joining with the card Jordan's account makes.
             card = saved / "joining.svg"
-            with urllib.request.urlopen(instance.console_url(
+            with urllib.request.urlopen(instance.manager_url(
                     f"/api/v1/players/{jordan}/accounts/vpinplay/card"), timeout=10) as held:
                 card.write_bytes(held.read())
             await add("Add Guest")
@@ -410,7 +410,7 @@ class PlayersDrive(unittest.TestCase):
                 f"/api/v1/players/{owner}/accounts/vpinplay")
             # Initials, so a card can be made of what is held and Save Card is offered.
             urllib.request.urlopen(urllib.request.Request(
-                instance.console_url(f"/api/v1/players/{owner}"), method="PATCH",
+                instance.manager_url(f"/api/v1/players/{owner}"), method="PATCH",
                 data=json.dumps({"initials": "OWN"}).encode(),
                 headers={"Content-Type": "application/json"}), timeout=10).close()
             await open_section("Details")
@@ -424,7 +424,7 @@ class PlayersDrive(unittest.TestCase):
 
             # Removing Jordan offers the card first.
             await open_player(jordan)
-            await press(".console-panel-header .q-btn", "more_vert")
+            await press(".manager-panel-header .q-btn", "more_vert")
             await press(".q-menu .q-item", "Remove")
             await browser.wait_for(DIALOG_UP)
             seen["remove"] = await browser.wait_for(DIALOG_TEXT)
@@ -438,14 +438,14 @@ class PlayersDrive(unittest.TestCase):
 
             # Every guest at once.
             await walk.drawn()
-            await press(".console-grid-bar .q-btn", "remove")
+            await press(".manager-grid-bar .q-btn", "remove")
             await browser.wait_for(DIALOG_UP)
             seen["sign_out"] = await browser.wait_for(DIALOG_TEXT)
             await press(FOOTER, "Sign Out")
             await browser.wait_for(
                 f"!document.querySelector({json.dumps(_cell(guest, '.ag-cell'))})")
             seen["after"] = list(roster())
-            seen["console"] = [line for line in browser.console if "error" in line.lower()]
+            seen["page_log"] = [line for line in browser.page_log if "error" in line.lower()]
         return seen
 
     def test_the_page_says_the_two_rules(self) -> None:
@@ -603,7 +603,7 @@ class PlayersDrive(unittest.TestCase):
         self.assertEqual(len(self.seen["after"]), 1)
 
     def test_nothing_failed_in_the_browser(self) -> None:
-        self.assertEqual(self.seen["console"], [])
+        self.assertEqual(self.seen["page_log"], [])
 
 
 async def _saved(path: Path) -> str:

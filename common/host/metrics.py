@@ -303,7 +303,7 @@ def register() -> None:
 
 def on_launched(game: Any = None, private: bool = False, **_payload: Any) -> None:
     """A private game is marked without its name: the history is read by whoever has the
-    Console open, and Private is what keeps a game out of what others see."""
+    Manager open, and Private is what keeps a game out of what others see."""
     name = ""
     if game is not None and not private:
         try:

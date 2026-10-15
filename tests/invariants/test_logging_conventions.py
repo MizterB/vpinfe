@@ -22,7 +22,7 @@ REPO = pathlib.Path(__file__).resolve().parent.parent.parent
 AREAS = {
     "apps": "apps",
     "common": "common",
-    "console": "console",
+    "manager": "manager",
     "extensions": "ext",
     "frontend": "frontend",
     "httpapi": "httpapi",

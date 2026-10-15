@@ -103,7 +103,7 @@ class SeparationTests(TempTree):
     consecutive suite runs and four in isolation after it. Not diagnosed, so not fixed:
     recorded here rather than guessed at, and the timeouts were already generous enough
     that a slow machine is not the obvious answer. If it recurs, `_diagnose` prints the
-    page's failed requests, its console and the device's log, which is what a real
+    page's failed requests, its browser log and the device's log, which is what a real
     diagnosis would start from.
     """
 
@@ -115,7 +115,7 @@ class SeparationTests(TempTree):
 
     def setUp(self) -> None:
         super().setUp()
-        self.library_root = Path(self.root) / "console-library"
+        self.library_root = Path(self.root) / "manager-library"
         self.device_root = Path(self.root) / "device-library"
         self.library_root.mkdir()
         self.device_root.mkdir()          # and nothing is ever written into it
@@ -533,8 +533,8 @@ class SeparationTests(TempTree):
     def _diagnose(self, exc, browser, instance) -> str:
         lines = [f"the device never finished starting: {exc}",
                  f"  failed requests: {browser.failed_requests[:6] or 'none'}",
-                 "  console:"]
-        lines += [f"    {line[:160]}" for line in browser.console[:15]] or ["    (silent)"]
+                 "  page log:"]
+        lines += [f"    {line[:160]}" for line in browser.page_log[:15]] or ["    (silent)"]
         lines += ["  device log:"]
         lines += [f"    {line[:160]}" for line in instance.output().splitlines()[-15:]]
         return "\n".join(lines)

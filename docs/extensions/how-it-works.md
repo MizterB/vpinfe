@@ -34,7 +34,7 @@ What you supply is a thing that cannot be known without you:
 What core supplies is everything that would otherwise differ from page to page: the layout, the
 colors, the spacing, where an action sits, how a danger is asked, what an empty list says, what a
 failure looks like and how a picture is chosen.  The result is an extension that looks and behaves like VPinFE without having asked to,
-and that keeps doing so when the Console changes.
+and that keeps doing so when the Manager changes.
 
 It also means there is nothing to style.  A thing that does not fit one of the declarations is
 a page of its own, reached by a link (see

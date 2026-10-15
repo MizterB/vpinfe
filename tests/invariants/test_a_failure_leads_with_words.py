@@ -12,7 +12,7 @@ from tests.support import trees
 from tests.support.catalogs import served
 
 ROOT = Path(__file__).resolve().parents[2]
-CODE = ("apps", "common", "console", "extensions", "frontend", "httpapi", "cli.py", "main.py")
+CODE = ("apps", "common", "manager", "extensions", "frontend", "httpapi", "cli.py", "main.py")
 
 LOOKUPS = {"t", "t_source"}
 # Calls that draw their first argument as the message itself.

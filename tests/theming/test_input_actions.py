@@ -57,7 +57,7 @@ class RegistryTests(unittest.TestCase):
 
 
 class BindingProjectionTests(unittest.TestCase):
-    """The Console shows a keyboard field and a controller field over one list."""
+    """The Manager shows a keyboard field and a controller field over one list."""
 
     BINDINGS = ["key:ArrowLeft", "key:ShiftLeft", "pad:0/button:4",
                 "chord(pad:0/button:4+pad:0/button:5)@hold:1000"]
@@ -126,7 +126,7 @@ class CollisionTests(unittest.TestCase):
         self.assertEqual(list(found.values()), [["menu", "exit"]])
 
     def test_holders_names_a_held_key_by_the_key(self) -> None:
-        """So the Console can refuse a second hold on a key before it is stored."""
+        """So the Manager can refuse a second hold on a key before it is stored."""
         found = input_registry.holders({"exit": ["key:Escape@hold:1500"]})
 
         self.assertEqual(
@@ -164,7 +164,7 @@ class CollisionTests(unittest.TestCase):
             input_registry.contention("chord(key:a+key:b)@hold:1500"))
 
     def test_an_install_that_holds_one_is_told(self) -> None:
-        """The Console refuses new ones; an install that already has one gets a line in
+        """The Manager refuses new ones; an install that already has one gets a line in
         the log, because the alternative is a player concluding the cabinet is broken."""
         input_api._said_collisions.clear()
         parser = configparser.ConfigParser()
@@ -621,7 +621,7 @@ class PlayActionsTests(unittest.TestCase):
 
 class ShippedDefaultTests(unittest.TestCase):
     """The keyboard and controller defaults as shipped. Dispatch is tested in
-    `tests/js/input.test.js` and the capture in `tests/console`."""
+    `tests/js/input.test.js` and the capture in `tests/manager`."""
 
     def test_esc_is_back_and_a_held_esc_is_quit(self) -> None:
         shipped = input_registry.defaults()

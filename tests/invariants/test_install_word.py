@@ -22,7 +22,7 @@ VERB = re.compile(
 ALLOWED = {
     "tools.ffmpeg.hint.darwin": "a shell command, brew install ffmpeg",
     "tools.rar.hint.darwin": "a shell command, brew install unar",
-    "console.accept.accept_install": "the verb, closing a button that also installs the theme",
+    "manager.accept.accept_install": "the verb, closing a button that also installs the theme",
 }
 
 
@@ -50,7 +50,7 @@ class EveryCatalog(unittest.TestCase):
 
     def test_the_sweep_reads_every_owner(self) -> None:
         owners = {key.split(".", 2)[0] for key in CATALOG}
-        self.assertLessEqual({"app", "ext", "console", "frontend", "config"}, owners)
+        self.assertLessEqual({"app", "ext", "manager", "frontend", "config"}, owners)
 
     def test_it_can_fail(self) -> None:
         catalog = {

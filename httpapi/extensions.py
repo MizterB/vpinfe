@@ -167,8 +167,8 @@ class SecretsStayHere:
         await self.app(scope, receive, hold)
 
 
-# The API is mounted in the Console's own app, so a page one of these routes serves has the
-# Console's origin. `sandbox` without `allow-same-origin` runs it as no origin at all.
+# The API is mounted in the Manager's own app, so a page one of these routes serves has the
+# Manager's origin. `sandbox` without `allow-same-origin` runs it as no origin at all.
 SANDBOX = (b"content-security-policy", b"sandbox allow-scripts allow-forms")
 NOSNIFF = (b"x-content-type-options", b"nosniff")
 

@@ -53,7 +53,7 @@ def _name_key(address: str) -> str:
 def claims_stock_title(name: str) -> bool:
     """Whether `name` is the VPinFE Theme List's title, which only that list may carry:
     a source called that would borrow the trust the title implies."""
-    wanted = {i18n.t_source("console.theme_sources.stock"), i18n.t("console.theme_sources.stock")}
+    wanted = {i18n.t_source("manager.theme_sources.stock"), i18n.t("manager.theme_sources.stock")}
     return clean_name(name).casefold() in {one.casefold() for one in wanted}
 
 

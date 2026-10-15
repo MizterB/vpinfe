@@ -334,7 +334,7 @@ class WhatAnEncryptedConnectionSparesTests(ConnectionsCase):
 
         self.assertEqual(identity.scopes, frozenset({scopes.INSTANCE_READ}))
 
-    def test_a_console_call_carries_whether_the_browser_it_acts_for_was_encrypted(self) -> None:
+    def test_a_manager_call_carries_whether_the_browser_it_acts_for_was_encrypted(self) -> None:
         _, session = self.owner_cookie()
 
         plain = self.identify("127.0.0.1", **{auth.ACTING_HEADER: auth.sign_acting(session.id)})

@@ -1,7 +1,7 @@
 """Takes the pictures the tutorial shows, one lesson at a time.
 
 Each lesson's extension goes into a VPinFE of its own, started against a copy of a library
-you name, and the Console is photographed in a headless Chromium.  The practice site is
+you name, and the Manager is photographed in a headless Chromium.  The practice site is
 started here, fresh for every lesson, so each picture shows the three sample scores and
 only what that lesson did to them.
 
@@ -36,8 +36,8 @@ from tests.support.live_instance import LiveInstance  # noqa: E402
 
 WIDTH, HEIGHT = 1200, 720
 KEY = "practice-key"
-LIST = "/console?view=community:example_scores:scores"
-SETTINGS = "/console?view=settings&page=extensions.example_scores"
+LIST = "/manager?view=community:example_scores:scores"
+SETTINGS = "/manager?view=settings&page=extensions.example_scores"
 
 Shot = Callable[[BrowserSession, LiveInstance], Awaitable[None]]
 
@@ -54,7 +54,7 @@ def fresh_site():
 async def show(page: BrowserSession, inst: LiveInstance, path: str, ready: str) -> None:
     await page.send("Emulation.setDeviceMetricsOverride", {
         "width": WIDTH, "height": HEIGHT, "deviceScaleFactor": 1, "mobile": False})
-    await page.navigate(inst.console_url(path))
+    await page.navigate(inst.manager_url(path))
     await page.wait_for(ready, timeout=60)
     await asyncio.sleep(1.0)
     await reveal(page, "Example Scores")
@@ -105,7 +105,7 @@ async def type_into(page: BrowserSession, selector: str, text: str, nth: int = 0
 
 
 async def extensions_rail(page: BrowserSession, inst: LiveInstance) -> None:
-    await show(page, inst, "/console?view=settings&page=extensions.vpinplay",
+    await show(page, inst, "/manager?view=settings&page=extensions.vpinplay",
                has_text("VPinPlay"))
     await page.evaluate(
         "[...document.querySelectorAll('*')].find(el => el.children.length === 0"
@@ -173,7 +173,7 @@ async def pane(page: BrowserSession, inst: LiveInstance) -> None:
 async def group(page: BrowserSession, inst: LiveInstance) -> None:
     games = inst.api("/api/v1/games")["games"]
     game = next(one["id"] for one in games if one["vps_id"] == "9Paf7-CL")
-    await show(page, inst, f"/console?view=games&game={game}&section=play",
+    await show(page, inst, f"/manager?view=games&game={game}&section=play",
                has_text("Best Score"))
     await snap(page, "09-panel-group")
 

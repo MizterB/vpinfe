@@ -197,7 +197,7 @@ class TheConfirmTests(TierCase):
 
 
 class TheActingHeaderTests(TierCase):
-    def test_a_console_call_is_held_to_the_browser_it_acts_for(self) -> None:
+    def test_a_manager_call_is_held_to_the_browser_it_acts_for(self) -> None:
         _, session = self.owner_cookie()
         self.clock.advance(sign_in.CONFIRM_SECONDS + 1)
 
@@ -206,7 +206,7 @@ class TheActingHeaderTests(TierCase):
         self.assertTrue(identity.can(scopes.CONFIG_WRITE))
         self.assertFalse(identity.can(scopes.PROTECTED))
 
-    def test_a_console_call_for_nobody_is_a_stranger(self) -> None:
+    def test_a_manager_call_for_nobody_is_a_stranger(self) -> None:
         identity = self.identify("127.0.0.1", **{auth.ACTING_HEADER: auth.sign_acting(auth.NOBODY)})
 
         self.assertEqual(identity.scopes, frozenset({scopes.INSTANCE_READ}))

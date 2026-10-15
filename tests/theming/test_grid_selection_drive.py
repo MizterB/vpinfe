@@ -3,7 +3,7 @@
 The ids alone pass the socket's one-megabyte cap, so the selection only arrives if it
 is sent in parts and put back together.
 
-Slow: serves a bare page holding one Console grid and drives it in a real browser.
+Slow: serves a bare page holding one Manager grid and drives it in a real browser.
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ def serve(port: int) -> None:
     """The page: one grid, and what its selection handler last received."""
     from nicegui import app, ui
 
-    from console import api, grid
+    from manager import api, grid
 
     api.local_base_url = lambda: "http://127.0.0.1:9"
     rows = _rows()

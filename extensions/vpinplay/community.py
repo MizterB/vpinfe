@@ -13,7 +13,7 @@ from common.extensions.contract import Unavailable, get_json, why, words
 from .accounts import SEND_NOW, USER_ID, page_for
 from .sync import api_root
 
-# An act that is an address: the Console draws it as a link and never calls back for it.
+# An act that is an address: the Manager draws it as a link and never calls back for it.
 YOUR_PAGE = "your_page"
 
 if TYPE_CHECKING:

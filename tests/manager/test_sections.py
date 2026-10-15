@@ -1,0 +1,278 @@
+import inspect
+import unittest
+from unittest import mock
+from urllib.parse import parse_qs
+
+from common.i18n import t
+from manager import deeplink, workbench
+
+
+def _address(state: dict) -> dict[str, str]:
+    return {name: values[0] for name, values in parse_qs(deeplink.query(state)).items()}
+
+
+class ChosenSectionTests(unittest.TestCase):
+    """Which section a panel is on, including none of them."""
+
+    def test_a_fresh_client_lands_on_the_default(self) -> None:
+        state: dict = {}
+
+        self.assertEqual(workbench.chosen_section(state), workbench.DEFAULT_SECTION["game"])
+
+    def test_a_section_the_subject_cannot_answer_falls_back(self) -> None:
+        """Table details under a game is not a section to land on quietly."""
+        state = {"section": "table_details"}
+
+        self.assertEqual(workbench.chosen_section(state, "game"),
+                         workbench.DEFAULT_SECTION["game"])
+
+    def test_closed_stays_closed(self) -> None:
+        state = {"section": workbench.COLLAPSED}
+
+        self.assertEqual(workbench.chosen_section(state, "game"), workbench.COLLAPSED)
+
+    def test_closed_survives_a_change_of_subject(self) -> None:
+        """Otherwise the fallback reopens a section the user just shut."""
+        state = {"section": workbench.COLLAPSED}
+        workbench.chosen_section(state, "game")
+
+        self.assertEqual(workbench.chosen_section(state, "table"), workbench.COLLAPSED)
+
+
+class PickTests(unittest.TestCase):
+    """What a click on a rail row does."""
+
+    def _click(self, open_now: str, key: str) -> mock.Mock:
+        context = {"state": {"section": open_now}}
+        with mock.patch.object(workbench, "_choose") as choose:
+            workbench._pick(context, key)
+        return choose
+
+    def test_the_open_row_stays_open(self) -> None:
+        """A rail says where you are, so a second click on it must not blank the pane."""
+        self._click("assets", "assets").assert_not_called()
+
+    def test_another_row_opens(self) -> None:
+        self._click("assets", "media").assert_called_once()
+
+    def test_a_row_opens_from_every_section_closed(self) -> None:
+        self._click(workbench.COLLAPSED, "assets").assert_called_once()
+
+
+class AddressTests(unittest.TestCase):
+    """A place has to survive being written down and read back."""
+
+    def _seed(self, params: dict[str, str]) -> dict:
+        state: dict = {}
+        deeplink.apply(state, params, views=["games"],
+                       sections=[item.key for item in workbench.SECTIONS])
+        return state
+
+    def test_a_closed_panel_is_named_rather_than_left_out(self) -> None:
+        address = _address({"view": "games", "game": "abc",
+                            "section": workbench.COLLAPSED})
+
+        self.assertEqual(address.get("section"), deeplink.NO_SECTION)
+
+    def test_a_closed_panel_survives_the_round_trip(self) -> None:
+        """The reason it is named: dropping it reopens a section on reload."""
+        state = self._seed({"view": "games", "game": "abc",
+                            "section": deeplink.NO_SECTION})
+
+        self.assertEqual(workbench.chosen_section(state, "game"), workbench.COLLAPSED)
+
+    def test_an_open_section_survives_the_round_trip(self) -> None:
+        state = self._seed({"view": "games", "game": "abc", "section": "assets"})
+
+        self.assertEqual(workbench.chosen_section(state, "game"), "assets")
+
+    def test_a_section_nobody_has_falls_back_rather_than_erroring(self) -> None:
+        """Addresses get hand-typed and go stale; neither is an error."""
+        state = self._seed({"view": "games", "game": "abc", "section": "nonsense"})
+
+        self.assertEqual(workbench.chosen_section(state, "game"),
+                         workbench.DEFAULT_SECTION["game"])
+
+    def test_the_page_reads_every_name_an_address_writes(self) -> None:
+        """A name the page takes no parameter for is dropped before `apply` sees it."""
+        from manager import page
+
+        taken = set(inspect.signature(page.manager_page).parameters)
+
+        self.assertEqual([name for name, _value in deeplink._FIELDS if name not in taken],
+                         [])
+
+
+class CollectionAddressTests(unittest.TestCase):
+    def test_a_collection_survives_the_round_trip(self) -> None:
+        state: dict = {}
+        deeplink.apply(state, {"view": "collections", "collection": "Friday Night"},
+                       views=["games", "collections"], sections=[])
+
+        self.assertEqual(_address(state),
+                         {"view": "collections", "collection": "Friday Night"})
+
+    def test_the_games_grid_carries_the_collection_it_is_narrowed_to(self) -> None:
+        self.assertEqual({"view": "games", "collection": "Friday Night"},
+                         _address({"view": "games", "collection": "Friday Night"}))
+
+    def test_a_collection_is_noise_anywhere_else(self) -> None:
+        self.assertNotIn("collection",
+                         _address({"view": "tables", "collection": "Friday Night"}))
+
+    def test_leaving_a_page_drops_the_collection_it_had_open(self) -> None:
+        from manager import page
+
+        state = {"view": "collections", "collection": "Friday Night"}
+        page.leave_for(state, "games")
+
+        self.assertEqual({"view": "games"}, _address(state))
+
+    def test_leaving_a_file_for_another_kind_of_file_drops_it_from_the_address(self) -> None:
+        from manager import page
+
+        state = {"view": "media", "game": "g", "table": "t", "section": "media_file",
+                 "slot": {"kind": "backglass"}}
+        page.leave_for(state, "assets")
+
+        self.assertEqual({"view": "assets"}, _address(state))
+
+    def test_leaving_a_game_keeps_the_section_a_person_was_reading(self) -> None:
+        from manager import page
+
+        state = {"view": "games", "game": "g", "section": "play"}
+        page.leave_for(state, "tables")
+
+        self.assertEqual({"view": "tables", "section": "play"}, _address(state))
+
+
+class ExtensionAddressTests(unittest.TestCase):
+    """An extension's own page is a page of Settings, so it has an address that reloads
+    onto it."""
+
+    def _seed(self, query: dict, views: tuple[str, ...] = ("games", "settings")) -> dict:
+        state: dict = {}
+        deeplink.apply(state, query, views=views, sections=[])
+        return state
+
+    def test_an_extension_s_page_survives_the_round_trip(self) -> None:
+        state = self._seed({"view": "settings", "page": "extensions.vpinplay"})
+
+        self.assertEqual((state["view"], state["settings_page"]),
+                         ("settings", "extensions.vpinplay"))
+        self.assertEqual("view=settings&page=extensions.vpinplay", deeplink.query(state))
+
+    def test_the_address_is_the_one_its_page_links_to(self) -> None:
+        from manager import ext_page
+
+        self.assertEqual("/manager?view=settings&page=extensions.vpinplay",
+                         ext_page.address("vpinplay"))
+
+    def test_the_old_view_is_not_one(self) -> None:
+        """Nothing redirects: a place that was never shipped is not kept alive."""
+        self.assertEqual({}, self._seed({"view": "extensions:vpinplay"},
+                                        views=("games", "extensions")))
+
+    def test_a_page_is_noise_on_any_other_view(self) -> None:
+        self.assertEqual({"view": "games"},
+                         _address({"view": "games", "settings_page": "extensions.x"}))
+
+
+class SectionTests(unittest.TestCase):
+    """What the rows offer, and which of them brings its own work area."""
+
+    def test_both_rails_offer_collections(self) -> None:
+        for subject in ("game", "table"):
+            with self.subTest(subject=subject):
+                self.assertIn("collections",
+                              {item.key for item in workbench.sections_for(subject)})
+
+    def test_a_table_section_is_absent_under_a_game(self) -> None:
+        keys = [item.key for item in workbench.sections_for("game")]
+
+        self.assertNotIn("table_details", keys)
+        self.assertIn("game_details", keys)
+
+    def test_a_table_shows_the_game_first(self) -> None:
+        """Parent before the thing it contains, which is the reading order."""
+        keys = [item.key for item in workbench.sections_for("table")]
+
+        self.assertLess(keys.index("game_details"), keys.index("table_details"))
+
+    def test_only_a_section_with_two_regions_reserves_a_dock(self) -> None:
+        """The room is half the panel; a section with nothing to put in it left a void.
+        Media and Assets put the picked file beside the map; a file's panel puts its
+        picture there when it has one."""
+        docked = {item.key for item in workbench.SECTIONS if item.dock}
+
+        self.assertEqual(docked, {"media", "assets", "media_file", "asset_file"})
+
+    def test_a_key_means_one_section_across_every_rail(self) -> None:
+        """The rail is per subject; the key namespace is not.
+
+        `section=` in an address is resolved before a subject is settled - `deeplink`
+        is handed every rail's keys, not one rail's - so two sections sharing a key
+        would make a link mean whichever one the reader happened to be on. The
+        `subjects` field is what answers it: a section says which rails it appears in
+        rather than a rail owning a namespace.
+
+        Asserted rather than left to the docstring, because the pressure arrives with
+        the next rail: Assets, the Tag Editor and the VPS section each want a short
+        noun somebody has already used.
+        """
+        keys = [item.key for item in workbench.SECTIONS]
+
+        self.assertEqual(sorted(keys), sorted(set(keys)))
+
+
+class RailDefaultTests(unittest.TestCase):
+    """Each rail lands where it declares, not on whatever is first."""
+
+    def test_a_game_lands_on_the_game(self) -> None:
+        self.assertEqual(workbench.chosen_section({}, "game"), "game_details")
+
+    def test_a_table_lands_on_the_table(self) -> None:
+        """Selecting a file on purpose should not open on the machine holding it."""
+        self.assertEqual(workbench.chosen_section({}, "table"), "table_details")
+
+    def test_every_rail_declares_a_section_it_actually_has(self) -> None:
+        for subject, wanted in workbench.DEFAULT_SECTION.items():
+            keys = {item.key for item in workbench.sections_for(subject)}
+            self.assertIn(wanted, keys, f"{subject} lands nowhere")
+
+
+class TablesBlockTests(unittest.TestCase):
+    """A game's tables are a block inside Game Details, not a place of their own."""
+
+    def test_no_rail_offers_tables_as_a_section(self) -> None:
+        """Most games hold one, so "Tables (1)" would be a rail entry you went to in
+        order to read a single row - and the rail holds places. It takes the other shape
+        instead: a sub-table, a related collection with its own columns."""
+        for subject in ("game", "table"):
+            with self.subTest(subject=subject):
+                keys = {item.key for item in workbench.sections_for(subject)}
+                self.assertNotIn("tables", keys)
+
+    def test_a_game_still_lands_on_details_where_they_now_live(self) -> None:
+        self.assertEqual(workbench.chosen_section({}, "game"), "game_details")
+
+
+class MatchTests(unittest.TestCase):
+    """The match heads Game details, on both subjects."""
+
+    def test_both_rails_offer_it(self) -> None:
+        """A game's match identifies the machine, which a table belongs to - so it is
+        answerable whichever of the two is selected."""
+        for subject in ("game", "table"):
+            with self.subTest(subject=subject):
+                keys = {item.key for item in workbench.sections_for(subject)}
+                self.assertIn("game_details", keys)
+                self.assertNotIn("vps", keys)
+
+    def test_the_rail_says_game_whether_or_not_it_is_matched(self) -> None:
+        """The Match row says Not matched; the rail names the section, not its state."""
+        section = next(one for one in workbench.SECTIONS if one.key == "game_details")
+        for game in ({}, {"vps_id": "abc"}, {"overrides": {"alt_vps_id": None}}):
+            with self.subTest(game=game):
+                self.assertEqual(section.label({"game": game}),
+                                 t("manager.workbench.game_section"))

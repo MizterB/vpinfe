@@ -16,9 +16,9 @@ from urllib.parse import quote
 
 from common.i18n import t
 from tests.support.browser_session import BrowserSession, chromium_path
-from tests.support.console_walk import MARK, ConsoleWalk, newer, notice
 from tests.support.library import game_info, write_game
 from tests.support.live_instance import LiveInstance
+from tests.support.manager_walk import MARK, ManagerWalk, newer, notice
 
 NAME = "Smart Bally"
 OTHER = "Hand Picked"
@@ -41,11 +41,11 @@ PARTS = ("(root => { if (!root) return null;"
          " const look = sel => { const el = root.querySelector(sel); if (!el) return null;"
          " const style = getComputedStyle(el);"
          " return [el.innerText.trim(), style.color, style.fontSize]; };"
-         " return [%s, '.console-cell-made', '.console-cell-join', '.console-cell-built']"
+         " return [%s, '.manager-cell-made', '.manager-cell-join', '.manager-cell-built']"
          ".map(look); })(%s)")
-ALPHA_ROW = ("[...document.querySelectorAll('.console-member-row')]"
-             ".find(r => r.querySelector('.console-member-name').innerText === 'Alpha')")
-ALPHA_CELL = ".ag-row[row-id=\"t-a1\"] .console-cell-identifier"
+ALPHA_ROW = ("[...document.querySelectorAll('.manager-member-row')]"
+             ".find(r => r.querySelector('.manager-member-name').innerText === 'Alpha')")
+ALPHA_CELL = ".ag-row[row-id=\"t-a1\"] .manager-cell-identifier"
 
 
 class CollectionPanelDrive(unittest.TestCase):
@@ -79,7 +79,7 @@ class CollectionPanelDrive(unittest.TestCase):
         stored = f"/api/v1/collections/{quote(NAME)}"
 
         async with BrowserSession(chromium_path() or "") as browser:
-            walk = ConsoleWalk(browser, instance)
+            walk = ManagerWalk(browser, instance)
 
             def click_text(selector: str, text: str) -> Callable[[], Awaitable[None]]:
                 async def click() -> None:
@@ -90,76 +90,76 @@ class CollectionPanelDrive(unittest.TestCase):
                     await browser.click(selector, nth=int(at) - 1)
                 return click
 
-            await walk.visit(f"/console?view=collections&collection={quote(NAME)}")
+            await walk.visit(f"/manager?view=collections&collection={quote(NAME)}")
             await browser.wait_for("document.body.innerText.includes('Add a Rule')")
             seen["empty"] = await browser.evaluate(
-                TEXT_OF % json.dumps(".console-section-work"))
+                TEXT_OF % json.dumps(".manager-section-work"))
 
-            await walk.act(click_text(".console-section-work button", "Add a Rule"),
-                           until=SHOWS % json.dumps(".q-menu .console-menu-item"))
-            await walk.act(click_text(".q-menu .console-menu-item", "Manufacturer"),
-                           mark=MARK, until=newer(".console-condition-value"))
-            await walk.act(lambda: browser.click(".console-condition-value .q-field"),
+            await walk.act(click_text(".manager-section-work button", "Add a Rule"),
+                           until=SHOWS % json.dumps(".q-menu .manager-menu-item"))
+            await walk.act(click_text(".q-menu .manager-menu-item", "Manufacturer"),
+                           mark=MARK, until=newer(".manager-condition-value"))
+            await walk.act(lambda: browser.click(".manager-condition-value .q-field"),
                            until=SHOWS % json.dumps(".q-menu .q-item"))
             seen["offered"] = await browser.evaluate(
                 "[...document.querySelectorAll('.q-menu .q-item')].map(i => i.innerText)")
             await walk.answered(click_text(".q-menu .q-item", "Bally"))
             seen["still_open"] = await browser.evaluate(
                 "!!document.querySelector('.q-menu')")
-            await walk.act(lambda: browser.click(".console-workbench-title"),
-                           mark=MARK, until=newer(".console-draft-bar"))
-            seen["bar"] = await browser.evaluate(TEXT_OF % json.dumps(".console-draft-bar"))
+            await walk.act(lambda: browser.click(".manager-workbench-title"),
+                           mark=MARK, until=newer(".manager-draft-bar"))
+            seen["bar"] = await browser.evaluate(TEXT_OF % json.dumps(".manager-draft-bar"))
             seen["marked"] = await browser.evaluate(TEXT_OF % json.dumps(GRID_NAME))
             seen["before_save"] = instance.api(stored)["filters"]
 
             await walk.open_pane(lambda: browser.click(OTHER_NAME))
-            await browser.wait_for(TEXT_OF % json.dumps(".console-workbench-title")
+            await browser.wait_for(TEXT_OF % json.dumps(".manager-workbench-title")
                                    + " === " + json.dumps(OTHER))
             seen["marked_elsewhere"] = await browser.evaluate(UNSAVED_IN_GRID
                                                               % json.dumps(NAME))
             await walk.open_pane(lambda: browser.click(GRID_NAME))
-            await browser.wait_for("!!document.querySelector('.console-draft-bar')")
+            await browser.wait_for("!!document.querySelector('.manager-draft-bar')")
 
-            await walk.act(click_text(".console-draft-bar button", "Save Rules"),
-                           until="!document.querySelector('.console-draft-bar')")
+            await walk.act(click_text(".manager-draft-bar button", "Save Rules"),
+                           until="!document.querySelector('.manager-draft-bar')")
             seen["saved"] = instance.api(stored)["filters"]["manufacturer"]
             seen["unmarked"] = await browser.evaluate(TEXT_OF % json.dumps(GRID_NAME))
 
-            await walk.act(click_text(".console-member-row .console-member-table-line", "2"),
-                           until=SHOWS % json.dumps(".q-menu .console-menu-item"))
-            await walk.act(click_text(".q-menu .console-menu-item", "Lock to 1"),
-                           mark=MARK, until=newer(".console-member-table-line"))
+            await walk.act(click_text(".manager-member-row .manager-member-table-line", "2"),
+                           until=SHOWS % json.dumps(".q-menu .manager-menu-item"))
+            await walk.act(click_text(".q-menu .manager-menu-item", "Lock to 1"),
+                           mark=MARK, until=newer(".manager-member-table-line"))
             members = instance.api(f"{stored}/members")["members"]
             seen["locked"] = [(one["game"], one["origin"], one["ref_table"])
                               for one in members if one["game"] == "alpha"]
             seen["lock_line"] = await browser.evaluate(
-                TEXT_OF % json.dumps(".console-member-row .console-member-table-line"))
+                TEXT_OF % json.dumps(".manager-member-row .manager-member-table-line"))
             seen["row_parts"] = await browser.evaluate(
-                PARTS % (json.dumps(".console-member-name"), ALPHA_ROW))
+                PARTS % (json.dumps(".manager-member-name"), ALPHA_ROW))
 
             async def limit_to_one() -> None:
-                await browser.click(".console-order-bar input[type=number]")
+                await browser.click(".manager-order-bar input[type=number]")
                 await browser.send("Input.insertText", {"text": "1"})
                 await browser.press("Enter", "Enter")
 
-            await walk.act(limit_to_one, mark=MARK, until=newer(".console-limit-line"))
+            await walk.act(limit_to_one, mark=MARK, until=newer(".manager-limit-line"))
             seen["cut"] = await browser.evaluate(
-                "[...document.querySelectorAll('.console-member-row.console-past-limit')]"
-                ".map(r => r.querySelector('.console-member-name').innerText)")
+                "[...document.querySelectorAll('.manager-member-row.manager-past-limit')]"
+                ".map(r => r.querySelector('.manager-member-name').innerText)")
             seen["cut_line"] = await browser.evaluate(
-                TEXT_OF % json.dumps(".console-limit-line"))
+                TEXT_OF % json.dumps(".manager-limit-line"))
 
             await walk.act(
-                lambda: browser.click(".console-condition .console-condition-remove"),
-                until="!document.querySelector('.console-condition')")
-            await walk.act(click_text(".console-draft-bar button", "Save Rules"),
+                lambda: browser.click(".manager-condition .manager-condition-remove"),
+                until="!document.querySelector('.manager-condition')")
+            await walk.act(click_text(".manager-draft-bar button", "Save Rules"),
                            until=SHOWS % json.dumps(".q-dialog"))
             seen["question"] = await browser.evaluate(TEXT_OF % json.dumps(".q-dialog"))
             await walk.act(click_text(".q-dialog .q-radio", "you added"),
                            until=CHECKED % json.dumps("you added"))
             await walk.act(click_text(".q-dialog button", "Remove Rules"), mark=MARK,
-                           until=notice(t("console.workbench.converted", name=NAME))
-                           + " && " + newer(".console-workbench-title"))
+                           until=notice(t("manager.workbench.converted", name=NAME))
+                           + " && " + newer(".manager-workbench-title"))
             after = instance.api(stored)
             seen["kept"] = (after["type"], [one["game"] for one in instance.api(
                 f"{stored}/members")["members"]])
@@ -169,20 +169,20 @@ class CollectionPanelDrive(unittest.TestCase):
                 {"width": 1024, "height": 720, "deviceScaleFactor": 1, "mobile": False}),
                 until="window.innerWidth === 1024")
             seen["order_bar"] = await browser.evaluate(
-                "(() => { const bar = document.querySelector('.console-order-bar');"
+                "(() => { const bar = document.querySelector('.manager-order-bar');"
                 " return bar ? [bar.scrollWidth, bar.clientWidth] : null; })()")
 
-            await walk.visit("/console?view=tables")
+            await walk.visit("/manager?view=tables")
             seen["cell_parts"] = await browser.wait_for(
                 "(parts => parts && parts[0] ? parts : null)("
-                + PARTS % (json.dumps(".console-cell-named"),
+                + PARTS % (json.dumps(".manager-cell-named"),
                            "document.querySelector(" + json.dumps(ALPHA_CELL) + ")") + ")",
                 timeout=90.0)
 
-            await walk.visit(f"/console?view=collections&collection={quote(OTHER)}")
+            await walk.visit(f"/manager?view=collections&collection={quote(OTHER)}")
             seen["no_limit"] = await browser.wait_for(
                 "(() => { const el = document.querySelector("
-                "'.console-section-work input[type=number]'); return el && el.placeholder; })()",
+                "'.manager-section-work input[type=number]'); return el && el.placeholder; })()",
                 timeout=60.0)
         return seen
 

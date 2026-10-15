@@ -1,4 +1,4 @@
-"""What core answers when the Console asks for something an extension declared: its settings,
+"""What core answers when the Manager asks for something an extension declared: its settings,
 its lists, its dialogs and the jobs they start. Every route is core's, driven here over HTTP
 through an extension built in a temp folder."""
 

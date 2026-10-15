@@ -36,7 +36,7 @@ jobs:
 
       - name: Lint everywhere we write Python (blocking)
         run: |
-          ruff check tests/ apps/ common/ console/ extensions/ frontend/ httpapi/ \
+          ruff check tests/ apps/ common/ manager/ extensions/ frontend/ httpapi/ \
             cli.py main.py --output-format=github
 
       # A text read or write with no encoding is the host's code page on Windows. The rule
@@ -44,7 +44,7 @@ jobs:
       # preview rule.
       - name: Text I/O names its encoding (blocking)
         run: |
-          ruff check --preview --select PLW1514 tests/ apps/ common/ console/ extensions/ \
+          ruff check --preview --select PLW1514 tests/ apps/ common/ manager/ extensions/ \
             frontend/ httpapi/ cli.py main.py --output-format=github
 
       # -M5% so a file that moved packages and was rewritten is seen as the move it is.

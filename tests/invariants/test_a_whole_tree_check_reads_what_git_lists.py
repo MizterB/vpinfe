@@ -68,7 +68,7 @@ class WholeTreeChecks(unittest.TestCase):
             "REPO.rglob('*.py')\n"
             "ROOT.glob('*/**/*.py')\n"
             "TESTS.rglob('test_*.py')\n"
-            "(REPO / 'console').rglob('*.py')\n")
+            "(REPO / 'manager').rglob('*.py')\n")
 
         self.assertEqual(root_globs(tree, here), [4, 5])
 

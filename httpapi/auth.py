@@ -35,7 +35,7 @@ _SCOPE_ATTR = "__vpinfe_scope__"
 
 COOKIE = "vpinfe_session"
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
-# The Console's own calls to this API are made over loopback for a browser that may be on
+# The Manager's own calls to this API are made over loopback for a browser that may be on
 # another device. This header says which sign-in a call is made for, so the API holds it
 # to that sign-in's tier. Only a loopback caller holding the machine secret can sign one.
 ACTING_HEADER = "x-vpinfe-acting"
@@ -112,7 +112,7 @@ def caller_address(request: HTTPConnection) -> str:
 
 def caller_is_encrypted(request: HTTPConnection) -> bool:
     """Whether the request arrived over HTTPS, through a listed proxy that says it did, or
-    from inside a Trusted Network. A Console call made for a browser on another device
+    from inside a Trusted Network. A Manager call made for a browser on another device
     says whether that browser's page came in over one."""
     claim = _acting_claim(request)
     if claim is not None:
@@ -141,7 +141,7 @@ def session_for(request: HTTPConnection) -> sign_in.Session | None:
     return sign_in.instance().lookup(token)
 
 
-# What a Console page open in a browser that is no longer signed in says it acts for. It names
+# What a Manager page open in a browser that is no longer signed in says it acts for. It names
 # no sign-in, so the call is held to a stranger's tier rather than this device's.
 NOBODY = "-"
 
@@ -189,7 +189,7 @@ def acting_session(request: HTTPConnection) -> sign_in.Session | None:
 
 
 def caller_session(request: HTTPConnection) -> sign_in.Session | None:
-    """The sign-in whose tier this request is held to: the one a Console call says it acts
+    """The sign-in whose tier this request is held to: the one a Manager call says it acts
     for, else the one its own cookie opens."""
     return acting_session(request) or session_for(request)
 

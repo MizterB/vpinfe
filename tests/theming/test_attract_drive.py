@@ -22,7 +22,7 @@ PNG = bytes.fromhex(
 
 GAMES = ("Alpha Table", "Beta Table", "Gamma Table", "Delta Table")
 
-# Written to the ini directly, below the range the Console offers, so a test waits seconds
+# Written to the ini directly, below the range the Manager offers, so a test waits seconds
 # and not a minute.
 FAST = {("behavior", "attract_idle"): 1, ("behavior", "attract_step_time"): 1,
         ("behavior", "attract_order"): "in_order"}

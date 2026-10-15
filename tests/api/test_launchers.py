@@ -22,8 +22,8 @@ from fastapi.testclient import TestClient
 import httpapi
 from common import jobs, service_errors
 from common.games import launchers
-from console import app_settings, data, workbench
-from console.api import ApiClient
+from manager import app_settings, data, workbench
+from manager.api import ApiClient
 from tests.support.launchers_api import delete_launcher, put_launcher
 from tests.support.library import own_launchers
 
@@ -803,7 +803,7 @@ class BackglassPluginAtATableTests(_TableCase):
 
 
 class _Wire:
-    """The Console's HTTP session, answered by the API in this process."""
+    """The Manager's HTTP session, answered by the API in this process."""
 
     def __init__(self, client: TestClient, base: str) -> None:
         self._client, self._base = client, base
@@ -827,7 +827,7 @@ async def _off_the_loop(callback: Any, *args: Any, **kwargs: Any) -> Any:
 
 class _BackglassPanel(_TableCase, unittest.IsolatedAsyncioTestCase):
     """A backglass file's Settings, over a launcher whose program is there, read and
-    written through the Console's own client."""
+    written through the Manager's own client."""
 
     BACKGLASS = {"kind": "backglass", "binding": "table", "table": "t1", "present": True}
     TABLES = [{"id": "t1", "launcher": "l1", "launcher_app_configurable": True,

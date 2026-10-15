@@ -1,4 +1,4 @@
-"""Every Console dialog is made by `console/dialog.py`, so they all share one design."""
+"""Every Manager dialog is made by `manager/dialog.py`, so they all share one design."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import unittest
 
 from tests.support import trees
 
-CONSOLE = pathlib.Path(__file__).resolve().parents[2] / "console"
+MANAGER = pathlib.Path(__file__).resolve().parents[2] / "manager"
 FRAME = "dialog.py"
 OPENS_ONE = "ui.dialog("
 
@@ -40,10 +40,10 @@ def _persistent(path: pathlib.Path) -> list[ast.AST]:
 
 
 def _called(path: pathlib.Path) -> set[str]:
-    """What `path` calls on `console.dialog`, by name."""
+    """What `path` calls on `manager.dialog`, by name."""
     tree = trees.tree_for(path)
     names = {alias.asname or alias.name for one in ast.walk(tree)
-             if isinstance(one, ast.ImportFrom) and one.module == "console"
+             if isinstance(one, ast.ImportFrom) and one.module == "manager"
              for alias in one.names if alias.name == "dialog"}
     return {one.func.attr for one in ast.walk(tree)
             if isinstance(one, ast.Call) and isinstance(one.func, ast.Attribute)
@@ -107,32 +107,32 @@ def _typed_dialogs_that_close_on_a_click(path: pathlib.Path) -> list[int]:
 
 class DialogsAreDrawnByTheFrame(unittest.TestCase):
     def test_no_dialog_is_drawn_by_hand(self) -> None:
-        by_hand = sorted(path.name for path in CONSOLE.glob("*.py")
+        by_hand = sorted(path.name for path in MANAGER.glob("*.py")
                          if path.name != FRAME
                          and OPENS_ONE in path.read_text(encoding="utf-8"))
         self.assertEqual([], by_hand)
 
     def test_only_an_exception_draws_its_own_card(self) -> None:
-        own = sorted(path.name for path in CONSOLE.glob("*.py") if "made" in _called(path))
+        own = sorted(path.name for path in MANAGER.glob("*.py") if "made" in _called(path))
         self.assertEqual(sorted(NOT_ASKING), own)
 
     def test_an_exception_asks_nothing(self) -> None:
         for name in NOT_ASKING:
             with self.subTest(name=name):
-                self.assertNotIn("opened", _called(CONSOLE / name))
+                self.assertNotIn("opened", _called(MANAGER / name))
 
     def test_only_a_run_or_a_required_answer_blocks_escape(self) -> None:
-        blocking = {path.name: len(_persistent(path)) for path in sorted(CONSOLE.glob("*.py"))
+        blocking = {path.name: len(_persistent(path)) for path in sorted(MANAGER.glob("*.py"))
                     if path.name != FRAME and _persistent(path)}
         self.assertEqual(PERSISTENT, blocking)
 
     def test_nothing_typed_is_lost_to_a_click_outside(self) -> None:
-        loses = {path.name: lines for path in sorted(CONSOLE.glob("*.py"))
+        loses = {path.name: lines for path in sorted(MANAGER.glob("*.py"))
                  if path.name != FRAME and (lines := _typed_dialogs_that_close_on_a_click(path))}
         self.assertEqual({}, loses)
 
     def test_no_dialog_is_persistent_whatever_happens(self) -> None:
-        always = sorted(path.name for path in CONSOLE.glob("*.py")
+        always = sorted(path.name for path in MANAGER.glob("*.py")
                         for one in _persistent(path)
                         if isinstance(one, ast.keyword) and isinstance(one.value, ast.Constant)
                         and one.value.value is True)

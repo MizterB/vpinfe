@@ -84,7 +84,7 @@ class ActionsApiTests(TempTree):
         self.assertEqual([r.pair for r in done], [("frontend", "restart")])
 
     def test_the_reason_travels_with_it(self) -> None:
-        """It reaches the log and every other surface, so "restarted from the Console"
+        """It reaches the log and every other surface, so "restarted from the Manager"
         reads better afterwards than "restarted"."""
         done = self._offer("frontend", "restart")
 

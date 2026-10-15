@@ -22,9 +22,9 @@ import requests
 from common.i18n import t
 from tests.support import pictures, vpinplay_stub
 from tests.support.browser_session import BrowserSession, chromium_path
-from tests.support.console_walk import ConsoleWalk
 from tests.support.library import game_info, write_game
 from tests.support.live_instance import LiveInstance
+from tests.support.manager_walk import ManagerWalk
 
 USER_ID = "visitor-one"
 TAKEN_ID = "taken-one"
@@ -41,7 +41,7 @@ INDEX_OF = ("[...document.querySelectorAll(%s)].findIndex(el => el.innerText.spl
 SHEET_OPEN = "!!document.querySelector('.remote-sheet')"
 NOTHING_OPEN = "!document.querySelector('.remote-sheet')"
 SHEET_CIRCLES = ".remote-sheet .remote-avatar"
-DIALOG_FOOTER = ".console-dialog-footer .q-btn"
+DIALOG_FOOTER = ".manager-dialog-footer .q-btn"
 # A dialog that has finished sliding or scaling in: Quasar animates it, and a click on
 # the way in lands somewhere else. Not a `.remote-sheet` - those are covered by
 # `SHEET_OPEN`, and one closing behind this dialog must not be counted as it.
@@ -59,7 +59,7 @@ NO_DIALOG = "!document.querySelector('.q-dialog')"
 
 def _call(instance: LiveInstance, method: str, path: str, body: dict | None = None):
     request = urllib.request.Request(
-        instance.console_url(path), method=method,
+        instance.manager_url(path), method=method,
         data=None if body is None else json.dumps(body).encode(),
         headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(request, timeout=10) as handle:
@@ -111,7 +111,7 @@ class RemotePlayersDrive(unittest.TestCase):
         seen: dict = {}
         # Kid has a picture; the owner does not.
         put = requests.put(
-            instance.console_url(f"/api/v1/players/{kid}/picture"),
+            instance.manager_url(f"/api/v1/players/{kid}/picture"),
             files={"file": ("red.png", pictures.png(80, 60, pictures.RED), "image/png")},
             timeout=10)
         put.raise_for_status()
@@ -126,7 +126,7 @@ class RemotePlayersDrive(unittest.TestCase):
                                 "mobile": True})
             await browser.send("Page.setDownloadBehavior",
                                {"behavior": "allow", "downloadPath": str(saved)})
-            walk = ConsoleWalk(browser, instance)
+            walk = ManagerWalk(browser, instance)
 
             async def click_text(selector: str, text: str) -> None:
                 at = await browser.wait_for(
@@ -187,10 +187,10 @@ class RemotePlayersDrive(unittest.TestCase):
             await walk.visit("/remote?screen=join")
             seen["join_screen"] = await browser.wait_for(
                 "document.querySelector('.remote-shell').innerText")
-            await click_text(".remote-action", t("console.players.just_initials"))
+            await click_text(".remote-action", t("manager.players.just_initials"))
             await browser.wait_for(DIALOG_READY)
             await type_into(".q-dialog input", GUEST_INITIALS)
-            await click_text(DIALOG_FOOTER, t("console.remote.join"))
+            await click_text(DIALOG_FOOTER, t("manager.remote.join"))
             await browser.wait_for(
                 "document.querySelector('.remote-tab--here')?.innerText.includes"
                 f"({json.dumps(t('word.now'))})")
@@ -209,34 +209,34 @@ class RemotePlayersDrive(unittest.TestCase):
             seen["guest_sheet"] = await browser.evaluate(
                 "document.querySelector('.remote-sheet').innerText")
             await click_text(".remote-action",
-                             t("console.remote.share_with", service="VPinPlay"))
+                             t("manager.remote.share_with", service="VPinPlay"))
             await browser.wait_for(DIALOG_READY)
             seen["choose_title"] = await browser.wait_for(DIALOG_TEXT)
 
             # Taken: offers the Remote's own Use My Card instead of claiming here.
             await retype_into(".q-dialog input", TAKEN_ID)
             seen["choose_taken"] = await dialog_says(
-                t("console.players.id_taken"), t("console.remote.use_card"))
+                t("manager.players.id_taken"), t("manager.remote.use_card"))
 
             # Can't reach VPinPlay: choosing is refused.
             await retype_into(".q-dialog input", UNREACHABLE_ID)
             seen["choose_unreachable"] = await dialog_says(
-                t("console.players.id_unreachable", service="VPinPlay"))
+                t("manager.players.id_unreachable", service="VPinPlay"))
             seen["choose_disabled_while_unreachable"] = await browser.evaluate(
                 f"[...document.querySelectorAll({json.dumps(DIALOG_FOOTER)})]"
                 ".find(b => b.innerText.split('\\n').map(l => l.trim()).includes("
-                f"{json.dumps(t('console.players.choose'))})).disabled")
+                f"{json.dumps(t('manager.players.choose'))})).disabled")
 
             # Available, typed upper case and shown lower - then on to consent.
             await retype_into(".q-dialog input", USER_ID.upper())
             seen["choose_available"] = await dialog_says(
-                t("console.players.id_available"), USER_ID)
-            await click_text(DIALOG_FOOTER, t("console.players.choose"))
+                t("manager.players.id_available"), USER_ID)
+            await click_text(DIALOG_FOOTER, t("manager.players.choose"))
 
             seen["consent"] = await dialog_says(
-                t("console.players.share_consent_heading"),
-                t("console.players.consent_note", service="VPinPlay"))
-            await click_text(DIALOG_FOOTER, t("console.players.share"))
+                t("manager.players.share_consent_heading"),
+                t("manager.players.consent_note", service="VPinPlay"))
+            await click_text(DIALOG_FOOTER, t("manager.players.share"))
             await browser.wait_for(NO_DIALOG)
             await walk.drawn()
             seen["guest_account_after_share"] = _call(
@@ -245,17 +245,17 @@ class RemotePlayersDrive(unittest.TestCase):
             await open_identity()
             seen["guest_sheet_after_share"] = await browser.evaluate(
                 "document.querySelector('.remote-sheet').innerText")
-            await click_text(".remote-action", t("console.players.save_card"))
+            await click_text(".remote-action", t("manager.players.save_card"))
             seen["saved_card"] = await _saved(saved / CARD_FILE)
             await browser.wait_for("!document.querySelector('.q-notification')")
 
             # Save Card does not close the sheet - it is still the one open.
-            await click_text(".remote-action", t("console.players.sign_out"))
+            await click_text(".remote-action", t("manager.players.sign_out"))
             await browser.wait_for(
                 "document.body.innerText.includes("
-                f"{json.dumps(t('console.players.sign_out_one', name=GUEST_INITIALS))})")
+                f"{json.dumps(t('manager.players.sign_out_one', name=GUEST_INITIALS))})")
             await browser.wait_for(DIALOG_READY)
-            await click_text(DIALOG_FOOTER, t("console.players.sign_out"))
+            await click_text(DIALOG_FOOTER, t("manager.players.sign_out"))
             await sheet_closed()
             seen["roster_after_sign_out"] = roster()
 
@@ -284,13 +284,13 @@ class RemotePlayersDrive(unittest.TestCase):
             seen["kid_sheet_words"] = await browser.evaluate(
                 "[...document.querySelectorAll('.remote-sheet button')]"
                 ".map(b => b.innerText.trim())")
-            await browser.click(".remote-sheet .console-star", nth=2)
+            await browser.click(".remote-sheet .manager-star", nth=2)
             await sheet_closed()
             seen["kid_record"] = _call(instance, "GET", f"/api/v1/players/{kid}/record")
             seen["owner_game_after_kid_rated"] = _call(instance, "GET", "/api/v1/games/alpha")
 
             await open_identity()
-            await click_text(".remote-action", t("console.remote.not_me"))
+            await click_text(".remote-action", t("manager.remote.not_me"))
             await sheet_closed()
             seen["header_after_not_me"] = await browser.evaluate(
                 "!document.querySelector('.remote-identity-initials')")
@@ -325,7 +325,7 @@ class RemotePlayersDrive(unittest.TestCase):
             await walk.drawn()
             seen["kid_up_after_toggle"] = roster()[kid]["up"]
 
-            seen["console"] = [line for line in browser.console if "error" in line.lower()]
+            seen["page_log"] = [line for line in browser.page_log if "error" in line.lower()]
         return seen
 
     # -- Join --------------------------------------------------------------------
@@ -333,12 +333,12 @@ class RemotePlayersDrive(unittest.TestCase):
     def test_the_join_screen_offers_both_ways_in(self) -> None:
         said = self.seen["join_screen"]
         # The target's own name fills the sentence - this machine's, whatever it is here.
-        before, after = t("console.remote.play_target", target="\0").split("\0")
+        before, after = t("manager.remote.play_target", target="\0").split("\0")
         self.assertIn(before, said)
         self.assertIn(after, said)
-        self.assertIn(t("console.remote.use_card"), said)
-        self.assertIn(t("console.players.just_initials"), said)
-        self.assertIn(t("console.remote.guest_until_close"), said)
+        self.assertIn(t("manager.remote.use_card"), said)
+        self.assertIn(t("manager.players.just_initials"), said)
+        self.assertIn(t("manager.remote.guest_until_close"), said)
 
     def test_just_initials_joins_up_alone(self) -> None:
         self.assertEqual(self.seen["guest_up_alone"].get(
@@ -353,28 +353,28 @@ class RemotePlayersDrive(unittest.TestCase):
 
     def test_a_guest_who_joined_with_initials_is_offered_sign_out_and_share(self) -> None:
         said = self.seen["guest_sheet"]
-        self.assertIn(t("console.players.sign_out"), said)
-        self.assertIn(t("console.remote.share_with", service="VPinPlay"), said)
+        self.assertIn(t("manager.players.sign_out"), said)
+        self.assertIn(t("manager.remote.share_with", service="VPinPlay"), said)
 
     # -- Choose: an id checked live, on the panel's own flow -----------------------
 
     def test_choosing_opens_on_the_panels_own_title(self) -> None:
-        self.assertIn(t("console.players.id_title", service="VPinPlay"),
+        self.assertIn(t("manager.players.id_title", service="VPinPlay"),
                       self.seen["choose_title"])
 
     def test_a_taken_id_offers_use_my_card_instead(self) -> None:
         said = self.seen["choose_taken"]
-        self.assertIn(t("console.players.id_taken"), said)
-        self.assertIn(t("console.remote.use_card"), said)
+        self.assertIn(t("manager.players.id_taken"), said)
+        self.assertIn(t("manager.remote.use_card"), said)
 
     def test_an_unreachable_id_refuses_to_choose(self) -> None:
-        self.assertIn(t("console.players.id_unreachable", service="VPinPlay"),
+        self.assertIn(t("manager.players.id_unreachable", service="VPinPlay"),
                       self.seen["choose_unreachable"])
         self.assertEqual(self.seen["choose_disabled_while_unreachable"], True)
 
     def test_an_available_id_is_shown_lower_cased(self) -> None:
         said = self.seen["choose_available"]
-        self.assertIn(t("console.players.id_available"), said)
+        self.assertIn(t("manager.players.id_available"), said)
         self.assertIn(USER_ID, said)
         self.assertNotIn(USER_ID.upper(), said)
 
@@ -382,8 +382,8 @@ class RemotePlayersDrive(unittest.TestCase):
 
     def test_consent_names_what_becomes_public(self) -> None:
         said = self.seen["consent"]
-        self.assertIn(t("console.players.share_consent_heading"), said)
-        self.assertIn(t("console.players.consent_note", service="VPinPlay"),
+        self.assertIn(t("manager.players.share_consent_heading"), said)
+        self.assertIn(t("manager.players.consent_note", service="VPinPlay"),
                       said)
 
     def test_sharing_sets_the_user_id_claims_it_and_turns_share_on(self) -> None:
@@ -393,8 +393,8 @@ class RemotePlayersDrive(unittest.TestCase):
 
     def test_once_shared_the_sheet_offers_save_card_not_share_again(self) -> None:
         said = self.seen["guest_sheet_after_share"]
-        self.assertIn(t("console.players.save_card"), said)
-        self.assertNotIn(t("console.remote.share_with", service="VPinPlay"), said)
+        self.assertIn(t("manager.players.save_card"), said)
+        self.assertNotIn(t("manager.remote.share_with", service="VPinPlay"), said)
 
     def test_save_card_downloads_the_account(self) -> None:
         self.assertIn("VPINPLAY_PAYLOAD", self.seen["saved_card"])
@@ -439,7 +439,7 @@ class RemotePlayersDrive(unittest.TestCase):
     def test_a_kept_players_sheet_has_no_favorite_but_has_add_to_collection(self) -> None:
         words = " ".join(self.seen["kid_sheet_words"])
         self.assertNotIn(t("word.favorite"), words)
-        self.assertIn(t("console.remote.add_collection"), words)
+        self.assertIn(t("manager.remote.add_collection"), words)
 
     def test_a_kept_players_rating_goes_to_their_record_not_the_library(self) -> None:
         record = {row["game_id"]: row for row in self.seen["kid_record"]["games"]}
@@ -456,7 +456,7 @@ class RemotePlayersDrive(unittest.TestCase):
         self.assertTrue(self.seen["kid_up_after_toggle"])
 
     def test_nothing_failed_in_the_browser(self) -> None:
-        self.assertEqual(self.seen["console"], [])
+        self.assertEqual(self.seen["page_log"], [])
 
 
 if __name__ == "__main__":

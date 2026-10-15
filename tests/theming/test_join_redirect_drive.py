@@ -1,5 +1,5 @@
 """2.x's own page keys - the ones a bookmark or a cabinet's manager-ui-state.json may
-still carry - open the Remote's Join screen now, not the Console on whatever page was
+still carry - open the Remote's Join screen now, not the Manager on whatever page was
 last open.
 
 Slow: boots a real instance and a real browser.
@@ -34,7 +34,7 @@ class JoinRedirectDrive(unittest.TestCase):
         landed: dict[str, str] = {}
         async with BrowserSession(chromium_path() or "") as browser:
             for key in ("vpinplay_account", "vpinplay_player"):
-                await browser.navigate(instance.console_url(f"/?page={key}"))
+                await browser.navigate(instance.manager_url(f"/?page={key}"))
                 landed[key] = await browser.wait_for(
                     f"(({LOCATION}).startsWith('/remote') ? ({LOCATION}) : false)")
         return landed

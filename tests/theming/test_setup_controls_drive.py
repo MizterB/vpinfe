@@ -16,32 +16,32 @@ from tempfile import TemporaryDirectory
 
 from common.i18n import t
 from tests.support.browser_session import BrowserSession, chromium_path
-from tests.support.console_walk import ConsoleWalk
 from tests.support.live_instance import LiveInstance
+from tests.support.manager_walk import ManagerWalk
 
-CARD = ".console-wizard-card"
-TITLE = f"{CARD} .console-wizard-title"
-FORWARD = f"{CARD} .console-wizard-forward"
-CARD_UP = ("[...document.querySelectorAll('.console-wizard-card')].some(card =>"
+CARD = ".manager-wizard-card"
+TITLE = f"{CARD} .manager-wizard-title"
+FORWARD = f"{CARD} .manager-wizard-forward"
+CARD_UP = ("[...document.querySelectorAll('.manager-wizard-card')].some(card =>"
            " getComputedStyle(card.closest('.q-dialog__inner')).transform === 'none'"
            " && card.getBoundingClientRect().width > 0)")
 TITLE_IS = ("((document.querySelector(%s) || {innerText: ''}).innerText.trim() === %s)")
-ROW = ("[...document.querySelectorAll('.console-binding-row')].find(row =>"
-       " row.querySelector('.console-binding-label').textContent.trim() === %s)")
-LABELS = ("[...document.querySelectorAll('.console-binding-row .console-binding-label')]"
+ROW = ("[...document.querySelectorAll('.manager-binding-row')].find(row =>"
+       " row.querySelector('.manager-binding-label').textContent.trim() === %s)")
+LABELS = ("[...document.querySelectorAll('.manager-binding-row .manager-binding-label')]"
           ".map(el => el.textContent.trim())")
-CHIPS = ("(row => [...row.querySelectorAll('.console-binding-field .console-member-chip')]"
+CHIPS = ("(row => [...row.querySelectorAll('.manager-binding-field .manager-member-chip')]"
          ".map(el => el.textContent.trim()))(" + ROW + ")")
 LINE = ("(el => el ? el.textContent.trim().replace(/\\s+/g, ' ') : null)"
-        "(document.querySelector('.console-binding-live'))")
+        "(document.querySelector('.manager-binding-live'))")
 PAD = """(() => {
   window.__pad = {index: 0, mapping: 'standard', id: 'Stand-in',
                   buttons: Array.from({length: 17}, () => ({pressed: false}))};
   Object.defineProperty(navigator, 'getGamepads',
                         {configurable: true, value: () => [window.__pad]});
 })()"""
-SCROLL = "document.querySelector('.console-wizard-scroll')"
-MORE_HIDDEN = "document.querySelector('.console-more').hidden"
+SCROLL = "document.querySelector('.manager-wizard-scroll')"
+MORE_HIDDEN = "document.querySelector('.manager-more').hidden"
 # The page reads a controller every 40ms, so a button pressed has been seen by this.
 PAD_READ_S = 0.3
 
@@ -76,8 +76,8 @@ class SetupControlsDrive(unittest.TestCase):
             await browser.send("Emulation.setDeviceMetricsOverride",
                                {"width": 1600, "height": 1000, "deviceScaleFactor": 1,
                                 "mobile": False})
-            walk = ConsoleWalk(browser, instance)
-            controls = t("console.setup.controls.title")
+            walk = ManagerWalk(browser, instance)
+            controls = t("manager.setup.controls.title")
 
             await walk.visit("/")
             await browser.wait_for(CARD_UP, timeout=60)
@@ -119,7 +119,7 @@ class SetupControlsDrive(unittest.TestCase):
             seen["select_after_pad"] = await browser.evaluate(CHIPS % json.dumps("Select"))
 
             nth = await browser.evaluate(f"{LABELS}.indexOf('Tutorial')")
-            await browser.click(".console-binding-row .console-binding-label", nth=nth)
+            await browser.click(".manager-binding-row .manager-binding-label", nth=nth)
             await browser.wait_for(
                 "(window.__bindingListen || {}).row === 'tutorial'")
             await browser.press("z", "KeyZ")
@@ -128,27 +128,27 @@ class SetupControlsDrive(unittest.TestCase):
             seen["tutorial_saved"] = stored("tutorial")
 
             await browser.evaluate(f"({ROW % json.dumps('Tutorial')}"
-                                   ".querySelector('.console-binding-label').focus())")
+                                   ".querySelector('.manager-binding-label').focus())")
             await browser.press("Enter", "Enter")
             await browser.wait_for("(window.__bindingListen || {}).row === 'tutorial'")
             await browser.press("x", "KeyX")
             await browser.wait_for(f"{CHIPS % json.dumps('Tutorial')}.includes('X')")
             await browser.wait_for(
                 f"document.activeElement === ({ROW % json.dumps('Tutorial')}"
-                ".querySelector('.console-binding-label'))")
+                ".querySelector('.manager-binding-label'))")
             seen["tutorial_by_key"] = stored("tutorial")
 
             await browser.press("Enter", "Enter")
             await browser.wait_for("(window.__bindingListen || {}).row === 'tutorial'")
             await browser.press("Enter", "Enter")
-            await browser.wait_for("!!document.querySelector('.q-dialog .console-dialog-footer')")
+            await browser.wait_for("!!document.querySelector('.q-dialog .manager-dialog-footer')")
             await asyncio.sleep(PAD_READ_S)
             seen["title_after_enter_bound"] = (await browser.evaluate(
                 f"document.querySelector({json.dumps(TITLE)}).innerText")).strip()
         return seen
 
     def test_the_step_is_the_one_asked_for(self) -> None:
-        self.assertEqual(t("console.setup.controls.title"), self.seen["title"])
+        self.assertEqual(t("manager.setup.controls.title"), self.seen["title"])
 
     def test_what_is_only_heard_during_play_is_not_asked(self) -> None:
         self.assertIn("Previous", self.seen["labels"])
@@ -178,7 +178,7 @@ class SetupControlsDrive(unittest.TestCase):
         self.assertIn("key:KeyX", self.seen["tutorial_by_key"])
 
     def test_enter_taken_as_the_press_does_not_press_next(self) -> None:
-        self.assertEqual(t("console.setup.controls.title"), self.seen["title_after_enter_bound"])
+        self.assertEqual(t("manager.setup.controls.title"), self.seen["title_after_enter_bound"])
 
 
 if __name__ == "__main__":

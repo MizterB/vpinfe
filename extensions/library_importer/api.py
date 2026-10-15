@@ -1329,7 +1329,7 @@ def build(ctx: Any) -> None:
         systems = _systems(values)
 
         def refused(reason: str) -> dict:
-            """The shape the Console reads a refusal by: not started, and why."""
+            """The shape the Manager reads a refusal by: not started, and why."""
             return {"started": False, "ok": False, "reason": reason}
 
         survey = _once(ctx.games.survey)

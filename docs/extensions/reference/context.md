@@ -431,7 +431,7 @@ Protected.  Core marks each request with the tier it reached, lowered to the tie
 declared at, and the mark follows the request into the function core calls and into a job started from it, and it ends when the request does.
 An event handler, a timer or a thread the extension started has no mark, and neither has a task
 that is still running after the request was answered, so a change from any of them is refused.
-A request reaches Protected when an Owner makes it under a live Confirm.  The Console asks for
+A request reaches Protected when an Owner makes it under a live Confirm.  The Manager asks for
 the Confirm when the person presses the act, and retries; a token or a Remote pass never reaches
 Protected.  Declare the act `tier=PROTECTED` and core holds the request to it before `run` is
 called.  The mark is how VPinFE keeps an act deliberate, and it is not a lock on the machine: an
@@ -506,7 +506,7 @@ where the OS says it is one.  A macOS hub with nothing plugged into it is listed
 port is a USB one: `ttyUSB` and `ttyACM` on Linux, `cu.usb*` and the common adapter drivers'
 names on macOS, a COM port with USB ids on Windows.  Its name can carry the adapter's serial
 number, because the OS puts it there, and it is the path the extension opens.  Displays come
-from a list VPinFE keeps, which the Console's Screens page reads again; USB and serial are read
+from a list VPinFE keeps, which the Manager's Screens page reads again; USB and serial are read
 on each call.
 
 | name | answers |

@@ -2,7 +2,7 @@
 
 A row holds a web address or a file in the extension's folder. The page is never given
 either: `address` turns it into one of core's own, and `served` answers it, so a third
-party never learns who is looking at the Console or when. Only a source that came in
+party never learns who is looking at the Manager or when. Only a source that came in
 this extension's own rows has an address, so the route fetches nothing else.
 """
 

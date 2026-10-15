@@ -16,7 +16,7 @@ import unittest
 from tests.support import trees
 
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
-PACKAGES = ("apps", "common", "console", "extensions", "frontend", "httpapi")
+PACKAGES = ("apps", "common", "manager", "extensions", "frontend", "httpapi")
 HELPER = REPO / "common" / "atomic_write.py"
 MAKERS = {"mkstemp", "NamedTemporaryFile"}
 SUFFIXES = (".part", ".uploading", ".tmp")

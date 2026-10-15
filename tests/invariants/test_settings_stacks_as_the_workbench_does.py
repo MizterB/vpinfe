@@ -8,7 +8,7 @@ import unittest
 from tests.support.stylesheet import SHEET
 
 WORKBENCH = "@container (max-width: 519px) {"
-SETTINGS = "@container console-sections (max-width: 599px) {"
+SETTINGS = "@container manager-sections (max-width: 599px) {"
 
 
 def _block(text: str, opening: str) -> str:

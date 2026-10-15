@@ -34,7 +34,7 @@ from common.games.tables import (
 from common.i18n import t
 from common.values import is_truthy
 
-# Re-exported so the theme payload and the Console agree with storage. Sourced
+# Re-exported so the theme payload and the Manager agree with storage. Sourced
 # from the tables module rather than restated, since a second list drifts silently -
 # it already did: these held the old spellings and were writing dead `detectssf`
 # keys over the top of the real `detect_ssf` ones.
@@ -1094,7 +1094,7 @@ def persist_game_meta(game: Game, config: dict[str, Any]) -> None:
     # Nothing is pending once the file is on disk, and an upgrade has just left a
     # restore point behind it. Without this the id backfill upgrades the whole library
     # at startup and every loaded game still claims it needs upgrading - which is what
-    # the Console then reports, for as long as the process lives.
+    # the Manager then reports, for as long as the process lives.
     game.info_pending_upgrade = False
     if upgraded:
         game.info_restorable = True

@@ -8,7 +8,7 @@ them.
 | key | names | falls back to |
 |---|---|---|
 | `name`, `description` | The extension, where the manifest leaves them out | The extension's `name`; nothing |
-| `settings.label` | The heading over its settings | The Console's own |
+| `settings.label` | The heading over its settings | The Manager's own |
 | `settings.<key>.label` | A setting | The key |
 | `settings.<key>.help` | A line under the setting; `{default}` is its default | Nothing |
 | `settings.<key>.choice.<value>` | A select option | The label given in `choices` |
@@ -29,7 +29,7 @@ them.
 | `action.<key>.label`, `action.<key>.description` | An action, and the button above a list that adds with it | The key; nothing |
 | `action.<key>.result.<field>` | A count a run reports, beside the number | The field |
 | `account.label` | The heading over a player's account with it | The extension's name |
-| `account.share.help` | What its account's Share makes of what is played, under the switch | The Console's own naming |
+| `account.share.help` | What its account's Share makes of what is played, under the switch | The Manager's own naming |
 | `token.<name>.says` | What a name a command can use stands for | A name with none is turned down |
 | `app.<id>.name`, `app.<id>.field.<key>.label`, `app.<id>.field.<key>.description` | An app it provides | Core's words for a field it does not name |
 

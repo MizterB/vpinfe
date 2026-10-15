@@ -1,4 +1,4 @@
-// The remote-launch overlay, driven the way the Console drives it.
+// The remote-launch overlay, driven the way the Manager drives it.
 //
 // Nothing reached this handler before: the EventSource stub swallowed its listeners, so
 // the one field it reads was never checked against the payload that carries it. It read

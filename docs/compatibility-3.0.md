@@ -93,7 +93,7 @@ Covered by `tests/media/test_media_resolution.py`.
 
 **PAR-10 — Imported media keeps its real file extension.**
 Importing a `.jpg` wheel used to write JPEG bytes into `medias/wheel.png` — a file that
-lies about itself. It now writes `(Wheel) <folder>.jpg`, the name the Console's Add gives
+lies about itself. It now writes `(Wheel) <folder>.jpg`, the name the Manager's Add gives
 the game's own wheel, and removes same-kind siblings at that name that would shadow it. A
 `wheel.png` a media refresh placed stays, behind it.
 *Why:* the on-disk name should tell the truth; browsers sniffed past it, other tools
@@ -121,7 +121,7 @@ circulates for other frontends works here unchanged. Covered by
 **PAR-12 — `logo` is its own media kind, and the wheel falls back to it.**
 *(machine-checked)* `logo.png` used to import as a wheel; it now imports as the game's
 logo, its own slot with the full chain (token `(Logo)`). A game with a logo and no wheel
-shows the logo wherever the wheel would appear — themes, the Console, API — because the
+shows the logo wherever the wheel would appear — themes, the Manager, API — because the
 fallback lives at the bottom of the wheel's resolution, below every real wheel tier. The
 API marks such a wheel `via: "logo"`. Themes gain `LogoImagePath`.
 *Why:* the logo is usually the source a wheel is derived from, so showing it beats a
@@ -259,7 +259,7 @@ reverse-engineer a URL out of them. That is where the `medias/` string surgery i
 `vpinfe-core.js` came from, and it needed a special case the first time a wheel set put a
 file one level deeper. Naming the kinds instead also takes several hundred kilobytes off a
 large library's payload, which crosses the socket on every filter and sort. Responses carry
-an `ETag` and `Cache-Control: no-cache`, so a media change in the Console is visible
+an `ETag` and `Cache-Control: no-cache`, so a media change in the Manager is visible
 without a version baked into the URL - which would have meant stat-ing every resolved file
 of every game every time the list was built. Covered by `tests/media/test_media_route.py`.
 
@@ -673,7 +673,7 @@ answers on it changes.
 explicitly not part of the Manager UI (`docs/http-api.md`: "it belongs to the platform").
 So `endpoints.library` and `endpoints.device` were being built from a port named for a UI,
 which read as though the library were fetched from the Manager UI. What the four have in
-common is the protocol: the API, the Console, the Manager UI and the remote and mobile
+common is the protocol: the API, the Manager, the legacy Manager UI and the remote and mobile
 pages all answered on it. Naming it `library_api_port` would have repeated the original mistake from the
 other end - naming one listener while three others share the port. One consequence is
 visible and deliberate: `endpoints.device` points at the library's port for now, because
@@ -981,7 +981,7 @@ it an override of the VPS ID the Manager UI shows. Covered by
 endpoint accepts a `declared` map, keyed by the name each file arrived under, carrying
 `vps_file_id` + `host_item_id`, `game_id`, `table_id` and `confirmed_by`. What is declared is
 written into that file's `source` block in the `.info`. Purely additive: an empty body imports
-exactly as before, and a caller that says nothing records nothing. In the Console the drop
+exactly as before, and a caller that says nothing records nothing. In the Manager the drop
 target is the declaration - letting go on a game row names that game - so no dialog asks again
 for what the gesture already said.
 *Why:* whatever delivered the bytes knows what it asked for, and VPinFE was throwing that away
@@ -1042,7 +1042,7 @@ may carry `#<ref>` to pin it to a branch or tag. The stock
 registry is an ordinary entry in `registries` rather than a constant, so it can be
 reordered, mirrored or dropped; an install listing nothing loads no catalog and still runs
 its installed theme, while an install whose every listed source fails is an error. Both
-lists are edited in the Console under Settings > Themes, as Theme Lists and Single Themes,
+lists are edited in the Manager under Settings > Themes, as Theme Lists and Single Themes,
 and only the VPinFE Theme List installs a theme on its own. Refs are now spelled bare in
 every URL we build (`v2`, not `refs/heads/v2`), and `HEAD` is no longer rewritten to
 `master` - so the source archive for a theme with no `ref` is `archive/HEAD.zip` rather than
@@ -1098,7 +1098,7 @@ and hands both to `common/deprecations.py`. Purely additive: a theme that never 
 is unaffected, and no existing method changes.
 *Why:* the WebSocket methods and the ini keys announce their own legacy use into the log,
 so a maintainer can see what is still needed before retiring a shim. The `vpin.*` aliases
-could not - a theme runs in Chromium, and a console line on a cabinet is invisible. This
+could not - a theme runs in Chromium, and a browser log line on a cabinet is invisible. This
 is the one surface that had no evidence behind it, and it is the surface a theme is most
 likely to be using. Covered by `tests/invariants/test_deprecations.py`.
 
@@ -1192,7 +1192,7 @@ comments `configparser.write()` destroyed on first load. It also makes the setti
 same shape over HTTP as on disk, which is what lets the API and an extension read them
 without a translation. **Comments in an existing ini are not carried over** - they were
 already destroyed by the first write of any 2.x build, so nothing that survives today is
-lost. The Console is the intended editor.
+lost. The Manager is the intended editor.
 Covered by `tests/config/test_config_store.py`.
 
 **PAR-36 — Theme options you set move out of the theme, and survive an update.**
@@ -1324,7 +1324,7 @@ the field. Covered by `tests/js/input.test.js`.
 `get_current_order_state` are still dispatched, so the collection menu VPinFE ships keeps
 working, but they are out of `docs/theme.md` and `vpin.call` refuses them by name. A theme
 that calls one gets the same `Method not allowed` it would get for a name that was never
-in the allowlist, plus a console line and a line in the log on the machine.
+in the allowlist, plus a browser log line and a line in the log on the machine.
 *Why:* `frontend/api.py` carried one flat allowlist and said in its own docstring that
 adding a name to it adds to the theme surface, so core had no way to have a private call —
 and these five exist only for core's own collection-menu overlay. Not one of the twelve
@@ -1463,7 +1463,7 @@ Covered by `tests/js/take-picture.test.js`, `tests/js/internal-methods.test.js`,
 
 **PAR-100 - Exit stops a recording run on the cabinet.**
 One WebSocket method, `stop_recording`, ends the recording run this device is doing, as the
-Console's Stop does. Core's own page calls it when Exit is answered *Stop recording?*, which
+Manager's Stop does. Core's own page calls it when Exit is answered *Stop recording?*, which
 it asks in place of quitting while a run is going. Refused to themes, like
 `get_paging_state`. Nothing a theme reads changes, and a recording's launch no longer raises
 `RemoteLaunching`: `TableLaunching` still arrives for it, as for every launch.
@@ -1609,7 +1609,7 @@ Nothing published declares contract 2, so this reshapes a surface no theme reads
 
 
 **PAR-93 — `general` splits into sections named for what they hold, and theme sources
-become writable.** Every settable option leaves `general` for `install`, `console`,
+become writable.** Every settable option leaves `general` for `install`, `manager`,
 `commands`, `table_commands`, `chromium`, `behavior`, `presentation`, `themes`, `media`,
 `assets`, `updates` or `tools`, and `general` keeps only the three internal keys nothing
 offers as settings. Four sections are renamed for what they hold rather than for the
@@ -1635,7 +1635,7 @@ a 3.0 build carries no such promise.
 
 Separately, and the only part of this that is not a rename: the `themes` section was the
 sole member of `READ_ONLY_SECTIONS` and is now writable, so the active theme, the
-registries and the repositories can be set from the Console. It was read-only because a
+registries and the repositories can be set from the Manager. It was read-only because a
 theme source is a URL VPinFE fetches installable themes from, which are code the frontend
 runs, and a network caller reached it with the same scopes as a local one when
 `network.http_bind` defaulted to `0.0.0.0`. Opened deliberately, and another device now
@@ -1644,4 +1644,4 @@ holds those scopes only once it has signed in.
 had collected six unrelated subjects on one page. A settings page draws a whole config
 section and `_page_holding` answers with the first page holding one, so a section on six
 pages puts a failing check's badge on the wrong page five times out of six. Covered by
-`tests/invariants/test_config_conventions.py` and `tests/console/test_system.py`.
+`tests/invariants/test_config_conventions.py` and `tests/manager/test_system.py`.

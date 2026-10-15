@@ -11,7 +11,7 @@ import unittest
 from tests.support import trees
 
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
-CONSOLE = REPO / "console"
+MANAGER = REPO / "manager"
 
 
 def _names_a_call(func: ast.expr, name: str) -> bool:
@@ -34,14 +34,14 @@ def _calls_without_browse(tree: ast.Module, name: str) -> list[int]:
 class TestFolderFieldsOfferBrowse(unittest.TestCase):
     def test_every_path_field_call_carries_browse(self) -> None:
         offenders = []
-        for path in sorted(CONSOLE.rglob("*.py")):
+        for path in sorted(MANAGER.rglob("*.py")):
             for line in _calls_without_browse(trees.tree_for(path), "path_field"):
                 offenders.append(f"{path.relative_to(REPO).as_posix()}:{line}")
         self.assertEqual(offenders, [], "give it browse=, so typing is not the only way in")
 
     def test_every_control_for_call_carries_browse(self) -> None:
         offenders = []
-        for path in sorted(CONSOLE.rglob("*.py")):
+        for path in sorted(MANAGER.rglob("*.py")):
             for line in _calls_without_browse(trees.tree_for(path), "control_for"):
                 offenders.append(f"{path.relative_to(REPO).as_posix()}:{line}")
         self.assertEqual(offenders, [], "give it browse=, so a path option can offer it")

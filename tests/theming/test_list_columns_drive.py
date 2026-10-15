@@ -13,9 +13,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from tests.support.browser_session import BrowserSession, chromium_path
-from tests.support.console_walk import ConsoleWalk
 from tests.support.library import game_info, write_game
 from tests.support.live_instance import LiveInstance
+from tests.support.manager_walk import ManagerWalk
 
 TAGGED = {"Alpha": ["Shortlist", "Night Owl"], "Bravo": ["Late Night"], "Charlie": [],
           "Delta": ["Shortlist"]}
@@ -52,19 +52,19 @@ def _sorted(direction: str) -> str:
 CHIPS_OF_ALPHA = ("(() => { let id = ''; " + API + ".forEachNode(n => { if (n.data.name"
                   " === 'Alpha') id = n.id; }); const cell = document.querySelector("
                   "'.ag-row[row-id=\"' + id + '\"] .ag-cell[col-id=\"tags\"]');"
-                  " return cell ? [...cell.querySelectorAll('.console-tag')]"
+                  " return cell ? [...cell.querySelectorAll('.manager-tag')]"
                   ".map(c => c.innerText) : null; })()")
 
-FILTER_TEXT = ("(() => { const f = document.querySelector('.console-filter');"
+FILTER_TEXT = ("(() => { const f = document.querySelector('.manager-filter');"
                " return f ? f.innerText.split('\\n').map(s => s.trim()).filter(Boolean)"
                " : null; })()")
 
-ROW_INDEX = ("(() => [...document.querySelectorAll('.console-filter-row')]"
+ROW_INDEX = ("(() => [...document.querySelectorAll('.manager-filter-row')]"
              ".findIndex(r => r.innerText.startsWith(%s)))()")
 
-SHOW_IN_GAMES = "a.console-link[href*='view=games']"
+SHOW_IN_GAMES = "a.manager-link[href*='view=games']"
 
-COUNT = ("(() => [...document.querySelectorAll('.console-label')]"
+COUNT = ("(() => [...document.querySelectorAll('.manager-label')]"
          ".map(l => l.innerText).find(s => s.includes('games')))()")
 
 HELD = ("(() => { const out = {}; " + API + ".forEachNode(n => {"
@@ -93,8 +93,8 @@ class ListColumnDrive(unittest.TestCase):
         instance.post("/api/v1/collections",
                       {"name": "Friday Night", "games": [ids["Alpha"], ids["Delta"]]})
         async with BrowserSession(chromium_path() or "") as browser:
-            walk = ConsoleWalk(browser, instance)
-            await walk.visit("/console?view=games")
+            walk = ManagerWalk(browser, instance)
+            await walk.visit("/manager?view=games")
             await browser.wait_for(API + ".getDisplayedRowCount() === 4", timeout=90.0)
             for label, model in (
                     ("any", {"tags": {"values": ["Night Owl", "Shortlist"]}}),
@@ -111,13 +111,13 @@ class ListColumnDrive(unittest.TestCase):
             await browser.wait_for(FILTER_TEXT)
             seen["offered"] = await browser.evaluate(FILTER_TEXT)
             shortlist = await browser.evaluate(ROW_INDEX % json.dumps("Shortlist"))
-            await walk.act(lambda: browser.click(".console-filter-row input", nth=int(shortlist)),
+            await walk.act(lambda: browser.click(".manager-filter-row input", nth=int(shortlist)),
                            mark=UPDATE_FLAG, until="window.__updated")
             seen["ticked"] = await browser.evaluate(SHOWN)
             seen["model"] = await browser.evaluate(API + ".getFilterModel()")
             seen["held"] = await browser.evaluate(HELD)
 
-            await walk.visit("/console?view=collections&collection=Friday%20Night")
+            await walk.visit("/manager?view=collections&collection=Friday%20Night")
             await walk.act(lambda: browser.click(SHOW_IN_GAMES),
                            until="location.search.includes('view=games')")
             await browser.wait_for(API + ".getDisplayedRowCount() === 2", timeout=60.0)

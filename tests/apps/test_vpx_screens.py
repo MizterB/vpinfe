@@ -523,8 +523,8 @@ class ThePanelTests(unittest.TestCase):
         self.assertEqual(vs.dmd_kind({}), "")
 
 
-class TheHeadingsTheConsoleKnowsTests(unittest.TestCase):
-    """The Console tells a part's rows by the headings the displays area declares."""
+class TheHeadingsTheManagerKnowsTests(unittest.TestCase):
+    """The Manager tells a part's rows by the headings the displays area declares."""
 
     def headings(self) -> dict:
         return {heading.key: heading for heading in areas.CURATED[areas.DISPLAYS]}

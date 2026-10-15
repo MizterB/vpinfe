@@ -1,11 +1,11 @@
-"""What the Console's stylesheet declares, read as text for a test that has no browser."""
+"""What the Manager's stylesheet declares, read as text for a test that has no browser."""
 
 from __future__ import annotations
 
 import pathlib
 import re
 
-SHEET = pathlib.Path(__file__).resolve().parent.parent.parent / "console/static/console-base.css"
+SHEET = pathlib.Path(__file__).resolve().parent.parent.parent / "manager/static/manager-base.css"
 
 
 def declarations(selector: str, *, whole: bool = False) -> dict[str, str]:

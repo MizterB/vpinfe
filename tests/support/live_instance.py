@@ -158,7 +158,7 @@ class LiveInstance:
         cfg_set(store, "network", "http_port", self.ports["manager"])
         cfg_set(store, "network", "ws_port", self.ports["ws"])
         cfg_set(store, "themes", "refresh", "never")
-        # A fresh config is a first run, which opens Setup over the Console's root and
+        # A fresh config is a first run, which opens Setup over the Manager's root and
         # holds the sync watchers back. These instances stand for ones already set up;
         # `extra_settings` below puts it back for a test of the first run itself.
         cfg_set(store, "device", "setup_pending", False)
@@ -193,8 +193,8 @@ class LiveInstance:
     def url(self, path: str = "/") -> str:
         return f"http://127.0.0.1:{self.ports['assets']}{path}"
 
-    def console_url(self, path: str = "/") -> str:
-        """The Console and the remote, which are served beside the API rather than by
+    def manager_url(self, path: str = "/") -> str:
+        """The Manager and the remote, which are served beside the API rather than by
         the asset server a theme is loaded from."""
         return f"http://127.0.0.1:{self.ports['manager']}{path}"
 

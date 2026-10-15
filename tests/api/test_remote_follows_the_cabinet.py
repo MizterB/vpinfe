@@ -9,7 +9,7 @@ import httpapi
 from common.games import game_repository
 from common.games.game_parser import GameParser
 from common.games.library_folders import KIND_ROOT, Location
-from console import remote
+from manager import remote
 from tests.support.library import TempTree, write_game
 
 

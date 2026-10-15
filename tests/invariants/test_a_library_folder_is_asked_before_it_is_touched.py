@@ -12,7 +12,7 @@ from pathlib import Path
 from tests.support import trees
 
 REPO = Path(__file__).resolve().parents[2]
-SCANNED = ("common", "console", "httpapi", "frontend", "extensions", "apps")
+SCANNED = ("common", "manager", "httpapi", "frontend", "extensions", "apps")
 
 # Lists the library folders and also touches a path that is on this machine for certain.
 EXEMPT = frozenset({("httpapi/metrics.py", "_watched")})

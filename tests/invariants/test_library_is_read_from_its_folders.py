@@ -10,7 +10,7 @@ from tests.support import trees
 
 REPO = Path(__file__).resolve().parents[2]
 
-SCANNED = ("common", "console", "httpapi", "frontend", "extensions", "apps")
+SCANNED = ("common", "manager", "httpapi", "frontend", "extensions", "apps")
 TOP_LEVEL = ("cli.py", "main.py")
 NAMES = frozenset({"game_root_dir", "gamerootdir", "tablerootdir", "get_games_path"})
 

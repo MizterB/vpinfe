@@ -2,7 +2,7 @@
 
 This page builds one extension, Example Scores, over ten lessons.  It reads and writes the scores
 on the practice site, a stand-in for a score-sharing service, and by the end it has settings of
-its own, a list in the Community part of the Console, a menu of acts, actions on rows, a dialog
+its own, a list in the Community part of the Manager, a menu of acts, actions on rows, a dialog
 that posts a score, a detail pane, a group on a game's panel and a line in the log when a game
 ends.  Nothing here needs an account anywhere.
 
@@ -18,7 +18,7 @@ Every lesson has the same six parts in the same order, so you only learn the rhy
 1. **What you'll have** is one line and a picture of where the lesson ends.
 2. **Write it** gives only the new code, in short pieces, each with a sentence on what it does.
    The line numbers are the lesson folder's own, so you can find a piece in the file.
-3. **See it** says where it shows in the Console and what to click.
+3. **See it** says where it shows in the Manager and what to click.
 4. **Try it** is one change to make and what changes.
 5. **What core did** is what you did not write.  The ideas are taught here a paragraph at a time,
    each with a link to the page that collects them.
@@ -34,7 +34,7 @@ you want, and carry on.
 
 | | Lesson | What it adds |
 |---|---|---|
-| 0 | [Before you start](#lesson-0-before-you-start) | The practice site, the folder, the Console's Extensions pages |
+| 0 | [Before you start](#lesson-0-before-you-start) | The practice site, the folder, the Manager's Extensions pages |
 | 1 | [An extension that loads](#lesson-1-an-extension-that-loads) | A folder, a manifest, `register` and a name |
 | 2 | [Settings](#lesson-2-settings) | A site address and a secret key, with a check |
 | 3 | [A list in Community](#lesson-3-a-list-in-community) | `rows()` and three plain columns |
@@ -48,10 +48,10 @@ you want, and carry on.
 
 ## Lesson 0: Before you start
 
-**What you'll have:** a practice site answering on your device, and the Console's Settings open
+**What you'll have:** a practice site answering on your device, and the Manager's Settings open
 at the Extensions pages.
 
-![Settings in the Console, with the Extensions group at the bottom of its list and VPinPlay open](images/00-extensions.png)
+![Settings in the Manager, with the Extensions group at the bottom of its list and VPinPlay open](images/00-extensions.png)
 
 ### Write it
 
@@ -69,11 +69,11 @@ There is nothing to write yet.  There are three things to find or start.
 - **The extensions folder.**  It is `extensions/` under VPinFE's config folder, and
   [Writing an extension](README.md#what-you-need) says where that is on each system.  Make it
   if it is not there.
-- **A running VPinFE.**  Open its Console in a browser.
+- **A running VPinFE.**  Open its Manager in a browser.
 
 ### See it
 
-In the Console, open Settings.  At the bottom of its list is a group called Extensions, and
+In the Manager, open Settings.  At the bottom of its list is a group called Extensions, and
 under it one page for each extension VPinFE has loaded.  The Library Importer and VPinPlay are
 there already, because VPinFE ships them.  Yours will join them.
 
@@ -221,7 +221,7 @@ that is not one.
 ### Write it
 
 Two things change in the manifest: the extension now says it keeps settings of its own and adds
-to the Console.
+to the Manager.
 
 `scores/02-settings/example_scores/extension.json`
 
@@ -240,7 +240,7 @@ to the Console.
 ```
 
 `config:own` is where it keeps what the person types.  `ui:mount` is the right to add anything to
-the Console, and every call on `ctx.ui` needs it.
+the Manager, and every call on `ctx.ui` needs it.
 
 Next, in `register`, the settings themselves.
 
@@ -545,7 +545,7 @@ column and it is drawn as its id instead.
 - **It drew the game.**  You gave it an id.  Core looked the id up in your library and in the
   spreadsheet, chose the picture the Thumbnails setting asks for, and linked the name to the
   game.  See [what core draws and what you supply](how-it-works.md#what-core-draws-and-what-you-supply).
-- **It chose the colors.**  A tier is a level, and the colors are the Console's own, so a state
+- **It chose the colors.**  A tier is a level, and the colors are the Manager's own, so a state
   reads the same here as on every other page.  See [Good extensions](good-extensions.md#words-and-marks).
 - **It added the view that relates the list to your library.**  A person asks "which of these do I
   have?" and the answer is the first view.
@@ -730,7 +730,7 @@ a right click of a row.
 
 Pick a score and press Flag.  A line says "Flagged the score", the score stays picked, and in the
 menu Flag is now grey with "Already flagged" beneath it: the words from `flag.needs`.  The flag is
-kept on the site, not in the Console, so the grey comes from the list being read again.
+kept on the site, not in the Manager, so the grey comes from the list being read again.
 
 ### What core did
 
@@ -846,7 +846,7 @@ under each empty field.  `check` answered with `errors`, and nothing went to the
 ### What core did
 
 - **It drew the dialog.**  The frame, the buttons and the way forward and back are core's, so the
-  dialog looks like every other one in the Console.  See [what core draws and what you
+  dialog looks like every other one in the Manager.  See [what core draws and what you
   supply](how-it-works.md#what-core-draws-and-what-you-supply).
 - **It chose the number of steps.**  You never declare one.  What `ask` and `check` answer decides it.
 - **It put the errors where they belong.**  A reason keyed by a field is drawn under that field.
@@ -967,7 +967,7 @@ score again and the note is still there.
   core's.  You answered with what to show.  See [what core draws and what you
   supply](how-it-works.md#what-core-draws-and-what-you-supply).
 - **It drew each fact by its kind.**  A game, a date, a state and a number each look as they do
-  everywhere else in the Console.
+  everywhere else in the Manager.
 - **It saved for you.**  A field has no save button of its own: core calls `save` and the value
   is yours to keep.  Settings you declared are saved by core, but a field in a pane is for data
   the extension keeps itself.  See [where an extension's data lives](how-it-works.md#where-an-extensions-data-lives).
@@ -1158,7 +1158,7 @@ the listing below.
 Restart VPinFE.  Open Settings, then Extensions, then Example Scores.  The page shows the name as
 written, the version, the description and the settings.  Below them is What It Can Reach.  It lists
 what the manifest declares, in words: it reads your library, keeps its own settings, adds a page
-to the Console and reaches the internet.  That is the part a person reads before they trust it.
+to the Manager and reaches the internet.  That is the part a person reads before they trust it.
 
 ### Try it
 

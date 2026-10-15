@@ -55,7 +55,7 @@ class BrowserProbeDriveTests(TempTree):
                         return found, kept
                     await asyncio.sleep(POLL_S)
                 raise AssertionError("the page never reported what it plays:\n"
-                                     + "\n".join(browser.console[-15:]))
+                                     + "\n".join(browser.page_log[-15:]))
 
         with LiveInstance(self.root) as instance:
             instance.wait_for_api()

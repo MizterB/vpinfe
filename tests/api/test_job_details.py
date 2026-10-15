@@ -70,7 +70,7 @@ class Describers(unittest.TestCase):
     def test_a_dof_config_download_says_whether_a_file_changed(self) -> None:
         self.assertEqual(t("said.dof_config.updated"),
                          job_details.of(jobs.KIND_DOF_CONFIG, {"changed": True}))
-        self.assertEqual(t("console.settings.already_date"),
+        self.assertEqual(t("manager.settings.already_date"),
                          job_details.of(jobs.KIND_DOF_CONFIG, {"changed": False}))
         self.assertEqual("", job_details.of(jobs.KIND_DOF_CONFIG, {}))
 

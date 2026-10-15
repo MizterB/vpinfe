@@ -20,7 +20,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 # The dirs that are meant to be app-agnostic. `apps/` is where this knowledge belongs,
 # so it is not scanned.
-SCANNED = ("common", "console", "httpapi", "frontend")
+SCANNED = ("common", "manager", "httpapi", "frontend")
 
 PATTERN = re.compile(r"\.vpx|vpinballx|directb2s|pinmame|nvram", re.IGNORECASE)
 
@@ -89,34 +89,34 @@ BASELINE: dict[str, int] = {
     "common/uploads/asset_analyzer_service.py": 6,
     # The two folders a ROM's nvram and cfg are placed in.
     "common/uploads/asset_import_service.py": 20,
-    "console/assets.py": 2,
-    "console/data.py": 1,
+    "manager/assets.py": 2,
+    "manager/data.py": 1,
     # The DMD panel's kinds are the names the plugin's keys take.
-    "console/dmd_panel.py": 1,
-    "console/game_tables.py": 1,
-    "console/games.py": 9,
-    "console/media.py": 1,
-    "console/media_ownership.py": 2,
-    "console/mediasource.py": 2,
-    "console/sections.py": 2,
+    "manager/dmd_panel.py": 1,
+    "manager/game_tables.py": 1,
+    "manager/games.py": 9,
+    "manager/media.py": 1,
+    "manager/media_ownership.py": 2,
+    "manager/mediasource.py": 2,
+    "manager/sections.py": 2,
     # Both lines are the VPX Mobile page id and its note key. They go when the page does.
-    "console/settings.py": 2,
+    "manager/settings.py": 2,
     # Setup's Visual Pinball step: the walk's three pages and the session that holds them,
     # and the Screens answer handed to the launcher it makes.
-    "console/setup.py": 14,
+    "manager/setup.py": 14,
     # The three pages of that step: the program, the playfield glass, the buttons.
-    "console/setup_vpx.py": 23,
-    "console/table_features.py": 1,
-    "console/appearance.py": 2,
+    "manager/setup_vpx.py": 23,
+    "manager/table_features.py": 1,
+    "manager/appearance.py": 2,
     # The Displays page of a Visual Pinball launcher: the file's keys are its subject.
-    "console/vpx_displays.py": 12,
+    "manager/vpx_displays.py": 12,
     # Where the program is on this machine: the names its builds go by are the subject.
-    "console/vpx_find.py": 11,
+    "manager/vpx_find.py": 11,
     # The Input page of a Visual Pinball launcher: the file's keys are its subject.
-    "console/vpx_input.py": 9,
-    "console/file_acts.py": 1,
-    "console/workbench.py": 32,
-    "console/selection_marks.py": 5,
+    "manager/vpx_input.py": 9,
+    "manager/file_acts.py": 1,
+    "manager/workbench.py": 32,
+    "manager/selection_marks.py": 5,
     "common/games/marks_ops.py": 4,
     "httpapi/core_capabilities.py": 5,
     "httpapi/filesystem.py": 1,

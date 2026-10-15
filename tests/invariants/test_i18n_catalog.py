@@ -164,7 +164,7 @@ READ_FOR = {
     "common/uploads/asset_import_service.py": frozenset({"reason", "raise", "refusal"}),
     "common/uploads/upload_session_service.py": frozenset({"raise", "refusal"}),
     "common/games/library_folders.py": frozenset({"reason"}),
-    "console/metrics.py": frozenset({"reason"}),
+    "manager/metrics.py": frozenset({"reason"}),
     "common/games/asset_resolver.py": frozenset({"reason"}),
     "common/games/table_lens.py": frozenset({"reason"}),
     "common/extensions/contract.py": frozenset({"raise"}),
@@ -210,7 +210,7 @@ READ_FOR = {
     "common/games/score_parser.py": NOT_WHAT_IT_RAISES,
     "common/jdiff_patch.py": NOT_WHAT_IT_RAISES,
     "common/online/pinmame_score_parser_updater.py": NOT_WHAT_IT_RAISES,
-    # What this refuses, only the Console shows.
+    # What this refuses, only the Manager shows.
     "common/host/dof_service.py": NOT_ITS_REFUSALS,
 }
 
@@ -226,7 +226,7 @@ SPEAKS_TO_A_SURFACE = {**{name: EVERY_WAY for name in _modules_under(READ_WHOLE)
                        **READ_FOR}
 
 # Functions in those modules whose words reach only the log, a program, the command line
-# or the Console.
+# or the Manager.
 SAID_TO_THE_LOG = {
     "common/online/themes.py": frozenset({"_validate_manifest"}),
     "common/online/theme_refs.py": frozenset({"bare_ref"}),
@@ -671,7 +671,7 @@ class TestANarrowCatchHandedOnIsReviewed(unittest.TestCase):
 
 # Pages where a caught exception reaches the screen only through the function named,
 # which is what turns another machine's connection error into a reason a person can use.
-SAYS_WHAT_WENT_WRONG = {"console/devices.py": "_why"}
+SAYS_WHAT_WENT_WRONG = {"manager/devices.py": "_why"}
 
 
 def _exception_made_text(tree: ast.Module) -> list[ast.expr]:
@@ -724,15 +724,15 @@ class TestAnExceptionIsSaidInWords(unittest.TestCase):
 
 
 # The display positions a string reaches a person through. Kept beside the check rather
-# than imported from the Console, so a surface cannot quietly widen what counts as not
+# than imported from the Manager, so a surface cannot quietly widen what counts as not
 # being text.
 DISPLAY_CALLS = {
     "label", "button", "markdown", "tooltip", "notify", "link", "badge", "chip", "tab",
     "expansion", "item_label", "radio", "toggle", "menu_item", "input", "select",
     "switch", "checkbox", "number", "textarea", "upload", "dialog", "tree", "step",
 }
-# The Console's own components. Every one of these puts its argument in front of a
-# person, and each was found by reading `console/panel.py` rather than by the check
+# The Manager's own components. Every one of these puts its argument in front of a
+# person, and each was found by reading `manager/panel.py` rather than by the check
 # noticing: a helper the list does not name is a hole the check cannot see.
 DISPLAY_ARG = {"column": 1, "two_line": 0, "intro": 0, "note": 0, "state": 0,
                "header": 0, "fact": 0, "action": 0, "trouble_mark": 0, "disclosure": 0}
@@ -845,7 +845,7 @@ def _fault(path, call, kwarg, node, held: dict[int, list[ast.expr]] | None = Non
     """Whether this argument hands a person English the catalog never saw.
 
     An f-string counts. It was the whole of the miss: 174 of these sat in plain sight
-    while a check that only looked at `ast.Constant` reported the Console clean - and a
+    while a check that only looked at `ast.Constant` reported the Manager clean - and a
     sentence assembled from pieces is the one a translator most needs to own, because
     the order of the pieces is different in most languages.
     """
@@ -907,13 +907,13 @@ def _shown_unlooked(path: Path, tree: ast.Module) -> list[str]:
 class TestNoBareDisplayLiterals(unittest.TestCase):
     """A string written where it is shown is one no translator is ever offered.
 
-    Scoped to the Console. `frontend/` static chrome is not here yet, and widening this
+    Scoped to the Manager. `frontend/` static chrome is not here yet, and widening this
     to it is what that pass is measured against.
     """
 
-    def test_the_console_shows_nothing_it_did_not_look_up(self) -> None:
+    def test_the_manager_shows_nothing_it_did_not_look_up(self) -> None:
         offenders = []
-        for path in sorted((ROOT / "console").rglob("*.py")):
+        for path in sorted((ROOT / "manager").rglob("*.py")):
             if "__pycache__" in path.parts:
                 continue
             offenders += _shown_unlooked(path, trees.tree_for(path))
@@ -933,26 +933,26 @@ class TestNoBareDisplayLiterals(unittest.TestCase):
                   "        ui.notify(why)\n"
                   "    ui.label(word)\n")
 
-        said = _shown_unlooked(ROOT / "console" / "planted.py", trees.parse_snippet(source))
+        said = _shown_unlooked(ROOT / "manager" / "planted.py", trees.parse_snippet(source))
 
         self.assertEqual(sorted(said), [
-            "console/planted.py:1 label('Beside it')",
-            "console/planted.py:3 notify('The table runs the script inside its own .vpx')",
-            "console/planted.py:3 tooltip('The table runs the script inside its own .vpx')",
-            "console/planted.py:5 label('Left')",
-            "console/planted.py:7 label('First one')"])
+            "manager/planted.py:1 label('Beside it')",
+            "manager/planted.py:3 notify('The table runs the script inside its own .vpx')",
+            "manager/planted.py:3 tooltip('The table runs the script inside its own .vpx')",
+            "manager/planted.py:5 label('Left')",
+            "manager/planted.py:7 label('First one')"])
 
     def test_two_values_joined_by_a_space_are_read(self) -> None:
         joined = trees.parse_snippet('f"{label} {value}"', mode="eval").body
-        self.assertEqual(len(_fault(ROOT / "console" / "metrics.py", "label", "", joined)), 1)
+        self.assertEqual(len(_fault(ROOT / "manager" / "metrics.py", "label", "", joined)), 1)
 
     def test_a_fallback_is_read_through_str(self) -> None:
         shown = trees.parse_snippet('str(card.get("name") or "GPU")', mode="eval").body
         returned = trees.parse_snippet(
             'str(found and "Only this table uses it")', mode="eval").body
 
-        self.assertEqual(_fault(ROOT / "console" / "metrics.py", "label", "", shown),
-                         ["console/metrics.py:1 label('GPU')"])
+        self.assertEqual(_fault(ROOT / "manager" / "metrics.py", "label", "", shown),
+                         ["manager/metrics.py:1 label('GPU')"])
         self.assertEqual(_literals_in(returned), ["Only this table uses it"])
 
     def test_a_constant_is_not_a_hiding_place(self) -> None:
@@ -963,7 +963,7 @@ class TestNoBareDisplayLiterals(unittest.TestCase):
         because `door_reason` returns it and a test names it - but not a sentence.
         """
         offenders = []
-        for path in sorted((ROOT / "console").rglob("*.py")):
+        for path in sorted((ROOT / "manager").rglob("*.py")):
             if "__pycache__" in path.parts:
                 continue
             tree = trees.tree_for(path)
@@ -1003,7 +1003,7 @@ class TestNoBareDisplayLiterals(unittest.TestCase):
         function it calls, which is the same way a constant hid seven more.
         """
         offenders = []
-        for path in sorted((ROOT / "console").rglob("*.py")):
+        for path in sorted((ROOT / "manager").rglob("*.py")):
             if "__pycache__" in path.parts:
                 continue
             for node in ast.walk(trees.tree_for(path)):
@@ -1012,7 +1012,7 @@ class TestNoBareDisplayLiterals(unittest.TestCase):
                 for said in _literals_in(node.value):
                     # Three words and a capital: a sentence, not a key or a CSS class
                     if len(said.split()) >= 3 and said[:1].isupper() \
-                       and not said.startswith(("console.", "frontend.", "error.")):
+                       and not said.startswith(("manager.", "frontend.", "error.")):
                         offenders.append(f"{path.relative_to(ROOT).as_posix()}:{node.lineno} "
                                          f"return {said[:44]!r}")
         self.assertEqual(offenders, [], "return a key and let the caller resolve it")
@@ -1022,7 +1022,7 @@ class TestNoBareDisplayLiterals(unittest.TestCase):
         check above walks straight past it - which is how thirteen of these survived the
         first pass."""
         offenders = []
-        for path in sorted((ROOT / "console").rglob("*.py")):
+        for path in sorted((ROOT / "manager").rglob("*.py")):
             if "__pycache__" in path.parts:
                 continue
             tree = trees.tree_for(path)
@@ -1168,7 +1168,7 @@ class _Options(ast.NodeVisitor):
 class TestWordsHandedToQuasar(unittest.TestCase):
     def test_no_prop_carries_words(self) -> None:
         offenders = []
-        for path in sorted((ROOT / "console").rglob("*.py")):
+        for path in sorted((ROOT / "manager").rglob("*.py")):
             if "__pycache__" in path.parts:
                 continue
             tree = trees.tree_for(path)
@@ -1178,7 +1178,7 @@ class TestWordsHandedToQuasar(unittest.TestCase):
 
     def test_no_picker_is_handed_words(self) -> None:
         offenders = []
-        for path in sorted((ROOT / "console").rglob("*.py")):
+        for path in sorted((ROOT / "manager").rglob("*.py")):
             if "__pycache__" in path.parts:
                 continue
             tree = trees.tree_for(path)
@@ -1209,7 +1209,7 @@ class TestWordsHandedToQuasar(unittest.TestCase):
 
 
 # Markup the frontend serves itself. A text node here is a cabinet's words, and nothing
-# checked them until this existed - the Console could not drift back to English and these
+# checked them until this existed - the Manager could not drift back to English and these
 # five pages could.
 STATIC = ROOT / "frontend" / "static"
 ELEMENT = re.compile(r"<([a-zA-Z][\w-]*)\b([^<>]*?)>([^<>]*[A-Za-z][^<>]*?)</\1>")
@@ -1242,7 +1242,7 @@ def _reads_as_prose(text: str) -> bool:
     return not re.fullmatch(r"[a-z][a-z0-9_-]*", said)
 
 
-# Constructors whose message the Console shows to the user verbatim: console/api.py
+# Constructors whose message the Manager shows to the user verbatim: manager/api.py
 # raises ApiError carrying the server's `error.message`, and a page notifies it.
 API_ERRORS = {"NotFoundError", "InvalidRequestError", "ConflictError",
               "FeatureUnavailableError", "ApiError"}
@@ -1324,7 +1324,7 @@ class TestTheCatalogHoldsWords(unittest.TestCase):
         """A translation of one restyles the page instead of rewording it."""
         found = [key for key, value in SOURCE.items()
                  for said in (value.values() if isinstance(value, dict) else [value])
-                 if re.search(r"\bconsole-[a-z]", str(said))]
+                 if re.search(r"\bmanager-[a-z]", str(said))]
         self.assertEqual([], found)
 
     def test_no_entry_is_a_fragment_glued_onto_another(self) -> None:
@@ -1348,7 +1348,7 @@ NOT_ON_SCREEN = {
     "run_javascript", "add_body_html", "add_head_html", "html", "classes", "props",
     "style", "dumps", "loads", "getLogger", "debug", "info", "warning", "error",
     "exception", "critical",
-    # The ones the Console does show are the API's own errors, read by
+    # The ones the Manager does show are the API's own errors, read by
     # TestApiErrorMessages.
     "ValueError", "TypeError", "RuntimeError", "CancelledError", "KeyError", "OSError",
     "FileNotFoundError", "NotImplementedError",
@@ -1358,12 +1358,12 @@ TERMINAL_ONLY = {"_say_ready"}
 # A literal carrying one of these is markup, a URL or a selector rather than prose.
 NOT_PROSE = re.compile(r"[<>?&/=;{}#]")
 BYTE_UNITS = {"B", "KB", "MB", "GB", "TB"}
-# Functions and constants in the Console whose values joined by a space are not words.
+# Functions and constants in the Manager whose values joined by a space are not words.
 JOINED_NOT_SAID = {
-    "console/games.py": {"_RATING_CHOICES": "two star glyphs drawn as one mark"},
-    "console/grid.py": {"identifier": "a cell's class list", "with_art": "a cell's class list"},
-    "console/renderers.py": {"install": "a script's object entries"},
-    "console/tag_chips.py": {"dot_class": "a class list", "chip_class": "a class list"},
+    "manager/games.py": {"_RATING_CHOICES": "two star glyphs drawn as one mark"},
+    "manager/grid.py": {"identifier": "a cell's class list", "with_art": "a cell's class list"},
+    "manager/renderers.py": {"install": "a script's object entries"},
+    "manager/tag_chips.py": {"dot_class": "a class list", "chip_class": "a class list"},
 }
 
 
@@ -1461,7 +1461,7 @@ class TestNoWordGluedToAValue(unittest.TestCase):
 
     def test_a_label_styled_in_the_same_line_is_still_read(self) -> None:
         seen = _Fstrings()
-        seen.visit(trees.parse_snippet('ui.label(f"{a} of {b}").classes("console-help")'))
+        seen.visit(trees.parse_snippet('ui.label(f"{a} of {b}").classes("manager-help")'))
         self.assertEqual([" of "], [said for _, said in seen.found])
 
     def test_two_values_joined_by_a_mark_are_read(self) -> None:
@@ -1476,9 +1476,9 @@ class TestNoWordGluedToAValue(unittest.TestCase):
         seen.visit(trees.parse_snippet(source))
         self.assertEqual([(2, " - "), (4, " ")], seen.found)
 
-    def test_no_fstring_in_the_console_carries_a_word(self) -> None:
+    def test_no_fstring_in_the_manager_carries_a_word(self) -> None:
         offenders = []
-        for path in sorted((ROOT / "console").rglob("*.py")):
+        for path in sorted((ROOT / "manager").rglob("*.py")):
             if "__pycache__" in path.parts:
                 continue
             name = path.relative_to(ROOT).as_posix()
@@ -1493,9 +1493,9 @@ class TestNoWordGluedToAValue(unittest.TestCase):
                                    'c = "".join(x)\nd = "_".join(x)\ne = "\\n".join(x)\n')
         self.assertEqual([1], _word_joins(tree))
 
-    def test_no_list_in_the_console_is_joined_by_a_word(self) -> None:
+    def test_no_list_in_the_manager_is_joined_by_a_word(self) -> None:
         offenders = []
-        for path in sorted((ROOT / "console").rglob("*.py")):
+        for path in sorted((ROOT / "manager").rglob("*.py")):
             if "__pycache__" in path.parts:
                 continue
             name = path.relative_to(ROOT).as_posix()
@@ -1582,7 +1582,7 @@ class TestPluralsComeFromTheCatalog(unittest.TestCase):
 
     def test_no_screen_word_is_pluralised_in_code(self) -> None:
         offenders = []
-        for folder in ("console", "common", "httpapi"):
+        for folder in ("manager", "common", "httpapi"):
             for path in sorted((ROOT / folder).rglob("*.py")):
                 if "__pycache__" in path.parts:
                     continue
@@ -1626,7 +1626,7 @@ GROUPED_NOT_SAID = {
     "common/i18n/__init__.py": "the formatter that every other number goes through",
     "common/games/high_scores.py": "a score as the table's own text writes it",
     "common/games/score_parser.py": "a score as the table's own text writes it",
-    "console/workbench.py": "compared with a score's stored text, which is written in English",
+    "manager/workbench.py": "compared with a score's stored text, which is written in English",
 }
 
 
@@ -1646,7 +1646,7 @@ class TestNumbersAreWrittenByTheCatalog(unittest.TestCase):
 
     def test_nothing_groups_digits_with_a_comma_of_its_own(self) -> None:
         offenders = []
-        for folder in ("console", "common", "frontend", "httpapi", "apps", "extensions"):
+        for folder in ("manager", "common", "frontend", "httpapi", "apps", "extensions"):
             for path in sorted((ROOT / folder).rglob("*.py")):
                 name = path.relative_to(ROOT).as_posix()
                 if "__pycache__" in path.parts or name in GROUPED_NOT_SAID:
@@ -1739,7 +1739,7 @@ class TestPanelFactLabels(unittest.TestCase):
     def test_no_pair_carries_a_bare_label(self) -> None:
         import re as _re
         offenders = []
-        for path in sorted((ROOT / "console").rglob("*.py")):
+        for path in sorted((ROOT / "manager").rglob("*.py")):
             if "__pycache__" in path.parts:
                 continue
             for node in ast.walk(trees.tree_for(path)):
@@ -1774,7 +1774,7 @@ class TestEveryKeyIsServed(unittest.TestCase):
         offenders = []
         # `tests` is in here because a re-key that rewrites the source and forgets the
         # suite leaves an assertion naming a key nothing serves.
-        for root in ("console", "frontend", "httpapi", "common", "tests"):
+        for root in ("manager", "frontend", "httpapi", "common", "tests"):
             for path in sorted((ROOT / root).rglob("*.py")):
                 if "__pycache__" in path.parts:
                     continue
@@ -1837,7 +1837,7 @@ class TestParametersMatchTheirTemplate(unittest.TestCase):
 
     def test_every_call_fills_exactly_the_slots_its_entry_has(self) -> None:
         offenders = []
-        for root in ("console", "frontend", "httpapi", "common"):
+        for root in ("manager", "frontend", "httpapi", "common"):
             for path in sorted((ROOT / root).rglob("*.py")):
                 if "__pycache__" in path.parts:
                     continue
@@ -1875,7 +1875,7 @@ class TestASlotIsNamedForWhatItHolds(unittest.TestCase):
 
     def test_no_slot_is_named_after_the_call_that_fills_it(self) -> None:
         offenders = []
-        for root in ("console", "frontend", "httpapi", "common", "extensions"):
+        for root in ("manager", "frontend", "httpapi", "common", "extensions"):
             for path in sorted((ROOT / root).rglob("*.py")):
                 if "__pycache__" in path.parts:
                     continue
@@ -2070,9 +2070,9 @@ class TestEachOwnersFileIsInStep(unittest.TestCase):
 
 
 MATCHED_NOT_SHOWN = {"visual pinball x", "system volume information"}
-# What the Console never shows, beside a log line and a query handed to SQLite.
+# What the Manager never shows, beside a log line and a query handed to SQLite.
 NOT_READ_AT_A_SCREEN = NOT_ON_SCREEN | {"log", "execute"}
-# The wizard's and the report's own, beside what the Console draws.
+# The wizard's and the report's own, beside what the Manager draws.
 EXTENSION_DISPLAY_KEYS = DISPLAY_KWARGS | {"reason", "error", "how"}
 # The first segment of a key the host looks up, rather than the extension's code.
 HOST_READS = {"action", "list", "settings", "token", "app"}

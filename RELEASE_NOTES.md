@@ -1,7 +1,7 @@
 ## VPinFE Release Notes
 
 ### Summary
-VPinFE 3.0. The Console is the new place to run your library: games, tables, media,
+VPinFE 3.0. The Manager is the new place to run your library: games, tables, media,
 collections, tags, players, devices, settings and backups, with Setup for a first run and an
 import from PinballX, PinballY or PinUP Popper. Every game has an id of its own, a game
 folder can hold more than one table, other programs can build on an HTTP API at `/api/v1`,
@@ -21,8 +21,6 @@ next section first.
 - To undo it, open System > Backups and press Go back to 2.x, or run `--restore-info`.
   That puts back each game's metadata and your collections. Clean up on the same page
   deletes the copies once you are sure you are staying.
-- The interface you used before is still served at `/manager`, because parts of the Console
-  are unfinished.
 - To take a 3.0 development build back off entirely, `--reset-3x-state` removes the
   settings and collections files 3.0 wrote, the `.info` files it made and every backup it
   kept, so the next start migrates from scratch. Settings you changed under 3.0 are lost,
@@ -39,54 +37,54 @@ next section first.
   both codes. Themes and extensions that did not come with VPinFE stay off until you accept
   them. Traffic on your network is not encrypted, so away from home connect through a VPN.
   Set HTTP Address in Settings to `127.0.0.1` to keep other devices out altogether, at the
-  cost of the Console and the Remote working from other devices.
+  cost of the Manager and the Remote working from other devices.
 
 ### What's New
-- **Console** - Other devices sign in to VPinFE once, with a code shown on this machine
+- **Manager** - Other devices sign in to VPinFE once, with a code shown on this machine
   or with an authenticator app. This device never asks. Settings > Security lists who is
   signed in and signs any of them out, makes tokens for scripts and other programs, and
   names the networks and proxies whose traffic is encrypted. VPinFE can serve HTTPS from a
   certificate you choose.
-- **Console** - A new interface, and the page you land on. One place for the library,
+- **Manager** - A new interface, and the page you land on. One place for the library,
   media, devices and settings, in grids you can sort, filter and search, with a picture
   beside each name. Column layouts are kept as views of your own. Select a row and its panel
   answers for it; select several and change them together, with one Undo for the lot.
-- **Console** - Overview is the first page: the game last played, what needs you ordered by
+- **Manager** - Overview is the first page: the game last played, what needs you ordered by
   what leaving it costs, the size of the library and the latest jobs. Setup asks the
   first-run questions as a desktop or as a cabinet. What's New opens once after an update
   and again from About.
-- **Console** - Drop a file, a zip or a folder on the Console to make a game, or on a game
+- **Manager** - Drop a file, a zip or a folder on the Manager to make a game, or on a game
   to add to it, and read what will happen before anything is written. Long work runs as a
   job, so you can leave the page and read how it went in Jobs.
-- **Console** - A page address opens on the same game with the same part of its panel
-  showing, so a game can be bookmarked or sent to someone. The Console can be set to System,
+- **Manager** - A page address opens on the same game with the same part of its panel
+  showing, so a game can be bookmarked or sent to someone. The Manager can be set to System,
   Synthwave, Dark or Light.
 - **Core** - Every game gets an id, minted once and kept in its `.info`. It survives
   renaming a folder and updating a `.vpx`, which a VPS id does not. Collections hold their
   games by it, so an ordinary table update no longer drops a game out of its collections.
-- **Core, Console** - A game folder can hold several tables. A desktop table and a VR
+- **Core, Manager** - A game folder can hold several tables. A desktop table and a VR
   table, or a table and a patched variant, are peers: each launches on its own, one is the
   game's default, and any of them can be hidden so it stops being offered. Games lists one
   row per game and Tables one row per `.vpx`.
-- **Core, Console** - Import a library from PinballX, PinballY, PinUP Popper or a plain
+- **Core, Manager** - Import a library from PinballX, PinballY, PinUP Popper or a plain
   folder of tables. The import shows each page of what it found, asks only what it cannot
   settle, and ends with a summary of exactly what it will do. It runs as a job and keeps a
   report of what needs a look afterward. Games are matched to the Virtual Pinball
   Spreadsheet, and several library folders can be kept at once.
-- **Console** - Match a game to the Virtual Pinball Spreadsheet from a picker, see how the
+- **Manager** - Match a game to the Virtual Pinball Spreadsheet from a picker, see how the
   match was made and go back to the earlier one. Take a game's details from the spreadsheet,
   type your own over any of them, and revert a field with a click. See which tables have a
   newer version on the spreadsheet.
-- **Console** - Collections are smart (filled by rules on letter, theme, type, manufacturer,
+- **Manager** - Collections are smart (filled by rules on letter, theme, type, manufacturer,
   year, rating, tags, favorite and played) or hand-picked, ordered and capped as you choose.
   Tags are your own words on games and tables, with rename, merge, color and a clear-out for
   the unused.
-- **Console, Core** - Media has 22 kinds, including instruction cards, toppers and topper
+- **Manager, Core** - Media has 22 kinds, including instruction cards, toppers and topper
   videos, loading videos, launch audio, rule sheets and logos, and a game's coverage is laid
   out like the machine. Flyers and instruction cards can have several pages. Pictures and
   videos turn a quarter or a half turn with the original kept. Gaps fill from VPinMediaDB,
   from a game's backglass file, from a file of your own, or by recording the table running.
-- **Console** - Assets lists each supporting file a table needs (backglass, settings, script,
+- **Manager** - Assets lists each supporting file a table needs (backglass, settings, script,
   point of view, score view layout) and what is missing or left over. A table's INI, script,
   point of view or score view layout can be edited there, with a copy kept in Backups each
   time you save. A table's script can be extracted to a `.vbs` to patch, and the community's
@@ -94,23 +92,23 @@ next section first.
 - **Core** - `.dif` patches apply directly, with no external tool. The base file stays on
   disk because the patched table cannot be rebuilt without it, and VPinFE records which base
   and which patch produced the result.
-- **Console, Core** - Players: a list of the people who play, each with a name, initials and
+- **Manager, Core** - Players: a list of the people who play, each with a name, initials and
   a picture. Say who is up and the next game counts for them. A high score finds its player
   by the initials entered at the machine, a visitor can join as a guest, and each player has
   plays, time and best scores game by game.
-- **Console** - Launchers run beside each other, each with its own program and settings, and
+- **Manager** - Launchers run beside each other, each with its own program and settings, and
   can be chosen for a table. Launcher settings can be given to all tables, to one game or
-  to one table, and the Console shows which layer a value comes from.
-- **Console, Core** - Devices: installs find each other on your network and show their
+  to one table, and the Manager shows which layer a value comes from.
+- **Manager, Core** - Devices: installs find each other on your network and show their
   version, what they can do and what their log says. A machine can be updated, restarted,
   powered off, or told to close the table it is playing from another device. Several
   mobile devices running VPX Mobile can be added by hand and sent tables. A cabinet can play
   a library held on another machine. Windows may ask to let VPinFE through the firewall the
   first time, and a network that filters multicast still takes an address by hand.
-- **Console, Core** - Backups: VPinFE keeps a copy before it changes something it cannot
+- **Manager, Core** - Backups: VPinFE keeps a copy before it changes something it cannot
   easily undo, and System > Backups lists, restores or clears them. A backup of your whole
   setup can be taken at any time and carried to another device.
-- **Console** - Settings save as you change them, with a tag on the ones that wait for a
+- **Manager** - Settings save as you change them, with a tag on the ones that wait for a
   restart or a reopen. Metrics shows the processor, memory, graphics card and disks of a machine, and Logs shows
   what VPinFE has been doing as a stream or as a digest that collapses repeats.
 - **Frontend** - Screens are placed by dragging each one onto the part of your cabinet it
@@ -127,7 +125,7 @@ next section first.
   question appears on whatever you used to ask, and every other screen is told what is about
   to happen.
 - **Core** - VPinFE is localization ready. Every word it puts on screen comes from a
-  translation catalog: the Console, the cabinet's menus and overlays, the settings, the
+  translation catalog: the Manager, the cabinet's menus and overlays, the settings, the
   column headers and the messages the API sends back. English is the only language that
   ships and nothing looks any different, but adding another is a JSON file rather than a
   patch. Your library's own words, such as game names and manufacturers, are never
@@ -137,7 +135,7 @@ next section first.
   anything downloads, and the message names the version it wants. Themes install, update
   and take their options from Themes, from sources you can add and order.
 - **Core** - What a theme or an overlay throws now reaches `vpinfe.log`, tagged with the
-  window it came from. A Chromium console goes nowhere anyone reads on a cabinet, so a theme
+  window it came from. A browser log goes nowhere anyone reads on a cabinet, so a theme
   that broke looked like a frontend that had stopped answering the buttons.
 - **Core** - An HTTP API at `/api/v1` with a written contract: games and tables, launch,
   media, assets, collections, uploads, VPS search and export, one error format and a

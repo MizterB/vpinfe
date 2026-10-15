@@ -29,7 +29,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # Where a path can reach another machine, and `tests/`, where the same text is compared
 # with a forward-slashed literal. Not `frontend/` - its Python serves the browser and its
 # own tests cover the URLs.
-SOURCES = ("common", "httpapi", "console", "tests")
+SOURCES = ("common", "httpapi", "manager", "tests")
 
 # Either of these turns a path into text in the host's separator.
 BUILDERS = ("relpath", "relative_to")

@@ -164,7 +164,7 @@ feature-detect them. That is what keeps bumps rare enough to be worth doing prop
   service under `common/` where the other callers can reach it, and nothing calls a handler.
   A service refuses with `common/service_errors.py`; the API turns that into its envelope.
 - Files we ship that are not Python live in `<owner>/static/` — `frontend/static/` for what a
-  browser fetches, `console/static/` for the Console's, `common/host/static/` for what
+  browser fetches, `manager/static/` for the Manager's, `common/host/static/` for what
   goes to hardware. Named for who owns them, so a directory does not become the home for
   anything that has no other one.
 - `scripts/` is what the build *runs*; `packaging/` is what it *ships*. The fetch scripts are
@@ -211,7 +211,7 @@ Every one of them comes from the catalog. `common/i18n/catalogs/en.json` holds t
 `t("key")` fetches it, and nothing renders a string written where it is shown.
 
 ```python
-ui.label(t("console.games.no_table_selected"))
+ui.label(t("manager.games.no_table_selected"))
 ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
 ```
 
@@ -227,7 +227,7 @@ that did not answer - and hands back the exception's own text for anything else.
 keeps the traceback.
 
 No message key takes the exception or its text, so no entry has an `{exc}` slot. A server
-error raised from one carries `why(exc)` as its message, and the Console puts that under its
+error raised from one carries `why(exc)` as its message, and the Manager puts that under its
 own lead in turn. `tests/invariants/test_a_failure_leads_with_words.py` holds the whole tree
 to it.
 
@@ -276,7 +276,7 @@ Where a string is both — a grid filter matches on it *and* a person reads it �
 the token and the display resolves it:
 
 ```python
-_REACH = {device_client.ANSWERING: ("console.devices.answering", "on", "positive")}
+_REACH = {device_client.ANSWERING: ("manager.devices.answering", "on", "positive")}
 ```
 
 `grid.choice_filter` puts the label on screen through `valueFormatter`. Translating the value
@@ -316,7 +316,7 @@ for a restart reads as broken. Each setting declares `applies` in
   the windows are open, two things say it, on every page: a chip beside the field that was
   changed - *Reopen needed* or *Restart needed* - and the bar over the page, which asks for
   the windows to be reopened or VPinFE restarted. The server holds the answer
-  (`GET /config/waiting`) and `console/settings.py` and `console/waiting.py` only draw it.
+  (`GET /config/waiting`) and `manager/settings.py` and `manager/waiting.py` only draw it.
   Both clear when the value is changed back.
 - A `table` setting has no chip and no bar, so its label or description says when it runs
   (*When Any Table Starts*). A description of any other setting never states the moment.
@@ -354,7 +354,7 @@ The test is rewording. If the English changes and the key is now wrong, the key 
 from the text, so say what the string is for instead of taking words from the sentence. An
 error is named for what went wrong (`error.games.unknown_kind`), not for its sentence.
 Variants of one thing share a stem and differ by a role word (`restored`, `restored_some`,
-`restore_failed`). Column help is named for the column (`console.assets.reason.help`).
+`restore_failed`). Column help is named for the column (`manager.assets.reason.help`).
 
 `tests/invariants/test_a_key_names_a_place_not_a_sentence.py` fails on a leaf of more than
 three words, and on a three-word leaf whose words all appear, in order, in its own text. A
@@ -375,7 +375,7 @@ header or sentence changes, read its key again against the new words and decide:
   words, so `word.save` survives "Save" becoming "Keep".
 - **The key names a word or an idea the English has dropped.** Rename it in the same
   commit: the key in `en.json`, every place that asks for it, and the tests. A translator
-  who finds `console.page.game_details` over the word "Game" has been told something
+  who finds `manager.page.game_details` over the word "Game" has been told something
   false.
 
 A new word for the same thing, such as art becoming media or a location becoming a library
@@ -393,7 +393,7 @@ key and needs no answer. Name the keys kept in the commit message.
 2. If it takes a value, name the slot: `"{count} tables"`, filled as `t(key, count=n)`.
    Never build a sentence by adding fragments — the join is different in most languages.
    An entry with a space at either end is one of those fragments, and the catalog
-   invariant refuses it; a joiner such as `console.collection_rules.list_join` is the one
+   invariant refuses it; a joiner such as `manager.collection_rules.list_join` is the one
    allowance.
 3. `python3 scripts/i18n.py --record --pseudo`, which keeps the staleness hashes and the
    render-check locale in step. Changing the English of a key that already exists is
@@ -428,7 +428,7 @@ keys.
 ## Logging
 
 Logs are read by one person trying to work out what happened, usually from the Logs page in
-the Console. Everything below serves that.
+the Manager. Everything below serves that.
 
 ### Levels
 
@@ -457,7 +457,7 @@ logger = logging.getLogger("vpinfe.common.games.game_identity")
 logger = logging.getLogger("vpinfe.httpapi.games")
 ```
 
-Areas are `apps`, `common`, `console`, `frontend`, `httpapi` and `manager`. Extensions get
+Areas are `apps`, `common`, `manager`, `frontend`, `httpapi` and `manager`. Extensions get
 `vpinfe.ext.<name>`, issued by the extension context — an extension never logs into a core
 namespace, because the namespace is how "which extension did this?" stays answerable.
 
@@ -467,8 +467,8 @@ because a module that moves and keeps its old name reports the wrong area from t
 
 ### The browser side
 
-A theme and the overlays run in Chromium, and their consoles go nowhere anyone reads on a
-cabinet - an overlay is an iframe with a console of its own. Core forwards both to the
+A theme and the overlays run in Chromium, and their browser logs go nowhere anyone reads on a
+cabinet - an overlay is an iframe with a browser log of its own. Core forwards both to the
 same log: whatever a page sends through `console_out`, and every uncaught error and
 unhandled rejection without being asked. They arrive at INFO as `[<window>] ...`, or `[<window>/<overlay>] ...` when an
 overlay is what threw. The window comes from the connection, so it cannot be
@@ -611,7 +611,7 @@ until then the chain reports `required: null`.
   table, and one word cannot be both.
 - **Frontend** - the software a player picks a table and plays in: ours, or another one an
   import reads from. On screen it is the word for anything shown, offered or opened there
-  (*In the Frontend*, *The frontend opens on this collection*), and the Console area that sets
+  (*In the Frontend*, *The frontend opens on this collection*), and the Manager area that sets
   it up is named for it. A collection's `in_frontend` is the same word on the wire.
 - **Cabinet** - the physical cabinet only: Cabinet Mode, how a screen is mounted in it, a
   theme made for a cabinet rather than a desktop, and VPX's own labels. Never the frontend
@@ -678,10 +678,10 @@ Two game identifiers exist and are not interchangeable:
 - `vpsid` / `altvpsid` — correlation with VPSdb and services keyed by it. Note this
   identifies the VPS **game**, not which of its tables you have.
 
-## Console
+## Manager
 
-The stylesheet is the design system. `console/static/console-base.css` holds every class the
-Console uses and `console/appearance.py` holds the palette tokens, and there is no third place a
+The stylesheet is the design system. `manager/static/manager-base.css` holds every class the
+Manager uses and `manager/appearance.py` holds the palette tokens, and there is no third place a
 treatment is defined. **Grep the stylesheet before inventing one** — a heading, a chip, a state, a control. Something that looks like it needs a new class
 usually has one already, and two spellings of the same idea is how a surface stops looking
 like one product.
@@ -690,7 +690,7 @@ like one product.
 
 Four modes: `synthwave` (the default), `dark`, `light`, and `system`, which follows the
 operating system and resolves to one of the two neutral palettes. Set with
-`console.appearance`.
+`manager.appearance`.
 
 A mode is a palette and nothing else. Structure, spacing and the type scale are shared, and
 a mode may not touch them: that is what keeps four modes from becoming four layouts. A
@@ -699,9 +699,9 @@ palette states custom properties, and the rules that use them never name a color
 **And grep the surface next door.** The class is half the answer; the other half is how the
 neighbouring vocabulary already decided the same question — which shape means "nothing here",
 which color means "present", whether a legend names a blank. Those live in the module that
-owns the fact (`console/media_ownership.py`, `console/table_features.py`, `console/game_tables.py`) and in
+owns the fact (`manager/media_ownership.py`, `manager/table_features.py`, `manager/game_tables.py`) and in
 this file, not in the stylesheet. **The tell is proposing a *new* treatment at all**: if the
-Console already shows this kind of fact anywhere, the answer exists and the job is to find it.
+Manager already shows this kind of fact anywhere, the answer exists and the job is to find it.
 
 ### The panel is a shape, not a place
 
@@ -722,9 +722,9 @@ heading, the first takes one too: content left unnamed above the first rule read
 rather than as the start of the section. A section that is one group needs no heading,
 since the lit row names it, and never one that only says the row again. A search or filter
 that acts on the whole section is not a group: it goes above the first heading, in a
-`console-section-bar`.
+`manager-section-bar`.
 
-**One implementation, in `console/panel.py`.** The fact list and one constructor per kind of
+**One implementation, in `manager/panel.py`.** The fact list and one constructor per kind of
 value live there, and every surface renders through it. Reaching for `ui.switch` or
 `ui.input` directly forks the design system — which is how the same field ended up with a
 resting edge on one surface and Quasar's default on another. Every constructor hands back
@@ -774,7 +774,7 @@ picks the *filename* a file will be saved under, and the two candidates differ i
 of a long name. Reading them against each other is the choice. The test is not how many
 options there are — it is whether the reader has to hold one in their head to judge the next.
 
-**There is one dropdown, `console.dropdown.Select`, in two looks.** `FIELD` is the value in
+**There is one dropdown, `manager.dropdown.Select`, in two looks.** `FIELD` is the value in
 a row of a panel or dialog: a bordered box one row tall with the text centered in it.
 `OUTLINED` is a control that stands on its own, such as a toolbar's picker or a box that
 fills a panel. A call site names the look it wants and never writes `dense`, `borderless` or
@@ -783,7 +783,7 @@ row, and every other picker class in `panel.py` and `tag_chips.py` derives from 
 Quasar sizes the text of a select for its own 40px box, so every other height has to
 correct it, and a copy styled by hand at the call site drifts. A select that carries a label
 shows it over the value by design, so its text is not centered alone.
-`tests/console/test_every_dropdown_is_one.py` fails on a raw `ui.select` in `console/`, and
+`tests/manager/test_every_dropdown_is_one.py` fails on a raw `ui.select` in `manager/`, and
 the pages drive measures the text of every one-line, unlabeled dropdown on the pages it
 visits against the middle of its box.
 
@@ -793,7 +793,7 @@ Any control that takes several values from a list is a `dropdown.Select` with
 list that kept them would make picking one a second time remove it, so a click in the list
 means add and the x means remove. `Select` does this itself, so the tags in a panel, the
 ignored Chrome flags, Leave Out and the wizard's multi pickers all behave alike, and a new
-chip field gets it by being one. `tests/console/test_a_chosen_chip_leaves_the_list.py`
+chip field gets it by being one. `tests/manager/test_a_chosen_chip_leaves_the_list.py`
 fails on a chip field that offers a chosen option, and on a module that draws chips
 without going through `Select`.
 
@@ -826,7 +826,7 @@ device cannot see; the mark is what stands between a typo and a record that neve
 updated as it is typed, the reason on hover, and nothing at all while the box is empty.
 `wants` names what should be at the end of it - `dir`, `file` or `exe` - because "that is
 a folder, and this wants a file" is the useful half of the answer. Browse opens
-`console/folder_picker.py` on this device's own disk, listing what `wants` asks for and,
+`manager/folder_picker.py` on this device's own disk, listing what `wants` asks for and,
 for a `file` field, narrowed to `suffixes`. The same mark answers for a stored path once
 it has been written, from the same vocabulary.
 
@@ -891,7 +891,7 @@ over twice, and the column picker offered a third set of words for the same colu
   row says nothing. A switch reading "on means restricted" is fine; `Clear NVRAM on exit`
   already does.
 - The **words belong to the module that owns the fact**, and every surface reads them:
-  `console/game_tables.py`, `console/media_ownership.py`, `console/table_features.py`.
+  `manager/game_tables.py`, `manager/media_ownership.py`, `manager/table_features.py`.
 - A **menu item is a verb that produces the state word** — `Hide`, `Clear choice` — not a
   sentence explaining the mechanism.
 - **Never index a word pair by a boolean at the call site.** Ask the vocabulary for the
@@ -935,7 +935,7 @@ answers.
 - **A setting that changes how the view draws lives in the view menu**, not on the bar.
   Ticks against thumbnails is the case: it is chosen once and left, so a click's depth
   costs nothing and the bar keeps the width.
-- **A choice about how every list draws lives in Settings > Console**, beside Date Format.
+- **A choice about how every list draws lives in Settings > Manager**, beside Date Format.
   A choice about one view lives in that view's menu, which may carry a link to the former
   but never a copy. `panel.menu_link` draws that row: an item's look, because accent in a
   menu is the current value, and an address like any link.
@@ -992,12 +992,12 @@ stretch to the same width.
   reached by "Choose this one". A verb naming a mechanism ("Let VPinFE pick the default")
   is a sentence, and a menu item is a name you read and click.
 - **Weight follows the target.** An action on a *field* or a *section* takes
-  `.console-action`; one sitting beside a **state** takes `.console-action--inline`, the same
+  `.manager-action`; one sitting beside a **state** takes `.manager-action--inline`, the same
   control at the chip's type scale. It keeps its resting edge: a verb with no edge reads
   as a second value, and this panel is worked in rather than read. What made the pair
   feel wrong was the type, not the border — 12px/500 beside a chip at 11px/400.
   It hugs the chip at `--target-inline` rather than taking `--target-min`, which is the
-  only place in the Console below the pointer floor; `@media (pointer: coarse)` gives the
+  only place in the Manager below the pointer floor; `@media (pointer: coarse)` gives the
   floor back where the pointer is a finger.
 - **Section actions sit in their own strip** under the content, as a media slot's do.
   Position is then what tells a row action from a section one.
@@ -1008,11 +1008,11 @@ count of buttons built outside `panel.py` rises.
 
 ### A link says whether it leaves
 
-- **Inside the Console, a link is an anchor in `--accent`, with no icon.** `panel.link`
+- **Inside the Manager, a link is an anchor in `--accent`, with no icon.** `panel.link`
   builds it and its address comes from `deeplink.query()`, so opening it in a new tab,
   middle-clicking it and copying its address all work. A click handler on a label can do
   none of those.
-- **A link that leaves the Console is marked with `open_in_new`** after its words, and
+- **A link that leaves the Manager is marked with `open_in_new`** after its words, and
   opens a new tab. `panel.link_out` builds it. Unmarked stays in the app; marked leaves it.
 - **The chain is not a link.** `link` is the icon for binding two records - a game to its
   VPS entry, a table to its release - so Match and Change match wear it. A link that goes
@@ -1027,7 +1027,7 @@ anywhere but `panel.py`, and the nav rail in `page.py`.
   and the icon is one everybody knows - `more_vert`, `close`, `play_arrow` - and then it
   carries a tooltip. Dialogs are no exception: the confirm verb takes its icon and Cancel
   takes `close`. Menu items take none.
-- **One icon per verb, from `console/verbs.py`.** A verb that means what another means
+- **One icon per verb, from `manager/verbs.py`.** A verb that means what another means
   takes that one's drawing: Accept, Done, Choose and Keep all draw `check`, and Cancel,
   Close, Skip and Discard all draw `close`, because they are the same act in different
   words. The label is what tells them apart.
@@ -1077,25 +1077,25 @@ no icon, and on an icon name `verbs.py` does not declare.
   page already shows the result.
 
 `tests/invariants/test_dialogs_are_drawn_by_the_frame.py` fails on any `ui.dialog()`
-outside `console/dialog.py`. The enlarged picture in `mediaview.py` and the phone
+outside `manager/dialog.py`. The enlarged picture in `mediaview.py` and the phone
 remote's sheets are the exceptions, because neither asks anything.
 
 ### A wizard is one size on every step
 
-- **The card is `console-wizard-card`, with a height of its own that no step changes.**
+- **The card is `manager-wizard-card`, with a height of its own that no step changes.**
   A frame that fits each step moves the footer from one to the next, under a pointer that
   was on it a moment ago. The height gives way only to a short window. The body scrolls
   inside the card; the footer is pinned under a rule.
 - **The title is the step's question at the title size, and `help` is the one sentence of
-  why under it** (`console-wizard-lead`). The frame has no title bar, so nothing else says
+  why under it** (`manager-wizard-lead`). The frame has no title bar, so nothing else says
   what is being asked.
-- **Every flow through `console/ext_action.py` is drawn this way**: the Library Importer
+- **Every flow through `manager/ext_action.py` is drawn this way**: the Library Importer
   and any extension action. A flow does not ask for it and cannot opt out.
 
 ### A wizard says where the person is in a row of segments
 
 - **One segment per named step, with its name under it,** across the top of the frame. The
-  open step is lit with its name in ink, a done step is a `console-link` and reopens, and
+  open step is lit with its name in ink, a done step is a `manager-link` and reopens, and
   a step still ahead waits in the track color and does nothing when clicked.
 - **Drawn only where an answer carries `steps`.** A flow that cannot say how many steps it
   has sends none and draws no row, and no flow shows a count: "step 2 of 4" is wrong the
@@ -1124,8 +1124,8 @@ remote's sheets are the exceptions, because neither asks anything.
   with a small picture and a check mark. Alone on a step, the step's own title is the
   question; beside other fields, the choice's label heads the rows so it can be told from
   them. The group is named for assistive technology either way.
-- **Both are the pick row** (`console-source-row--pick`): the edge and the wash of
-  `console-source-row--chosen` say which is picked, the check mark says it again where
+- **Both are the pick row** (`manager-source-row--pick`): the edge and the wash of
+  `manager-source-row--chosen` say which is picked, the check mark says it again where
   color alone would not. A choice with no pictures stays a radio group.
 
 ### What a step finds, and where a value came from
@@ -1135,19 +1135,19 @@ Setup draws in this process, so a step may carry callables that cannot travel as
 - **A choice's option can ask the next thing under its own row** (`details`), shown only
   while it is the one picked, and `gate(values)` holds Next until the answer is complete.
   A path asked under "Somewhere else" is a step's detail, not a page of its own.
-- **A line saying what a step found, or that it found nothing,** is `console-wizard-found`:
+- **A line saying what a step found, or that it found nothing,** is `manager-wizard-found`:
   an icon, the finding, and what it looked in. It is drawn above the rows by `before`.
 - **A value that was not typed says where it came from, under its field** with
-  `console-wizard-src`: an icon and a few words, with one line of how to do better in the
+  `manager-wizard-src`: an icon and a few words, with one line of how to do better in the
   help color. Typing over the value drops the label, because it is no longer the source's.
   A better value on offer is the same line with an action beside it
-  (`console-wizard-src--offer`).
+  (`manager-wizard-src--offer`).
 - **Pages that answer one question share a name in the step row** (`holds`), so the row
   does not grow a segment for each page a choice can add or drop.
 
 ### One confirmation, and one field
 
-- **Anything that cannot be undone asks first, through `console/confirm.py`.** Four dialogs
+- **Anything that cannot be undone asks first, through `manager/confirm.py`.** Four dialogs
   had been written to the same shape with different spellings — one awaited a bool and
   one took a callback, the buttons swapped `no-caps`, the help lines used two classes.
   The question is a sentence in sentence case (never the section-heading treatment: a
@@ -1164,11 +1164,11 @@ Setup draws in this process, so a step may carry callables that cannot travel as
 ### An act that can be taken back says so, with Undo
 
 A reversible act does not ask first. It does the thing and says what it did, with Undo on
-the message. `console/undo.py` draws that message and nothing else does: the ordinary green,
+the message. `manager/undo.py` draws that message and nothing else does: the ordinary green,
 or amber with a mark where the act wants a second look - a game added to a smart collection
 becomes an exception to its rules - and each act hands it the reversal that puts back
 exactly what it changed. What cannot be undone still asks first, through
-`console/confirm.py`.
+`manager/confirm.py`.
 
 ### A copy is kept in one list, and every panel opens onto it
 
@@ -1182,16 +1182,16 @@ no copies opens it too, because that is where Back Up Now is. A new kind of copy
 the same way and no list of its own.
 
 Back Up Now asks only for a name and a note, and no copy is taken on its own before an edit:
-Back Up Now and the Undo on a restore cover it. The row is drawn by `console/backup_rows.py`.
+Back Up Now and the Undo on a restore cover it. The row is drawn by `manager/backup_rows.py`.
 
 ### A summary row opens its detail in a dialog
 
 A panel field that would hold a count, a date and a verb or two holds a summary instead:
-the answer to the question the person came with on the first line, a `console-summary-sub`
+the answer to the question the person came with on the first line, a `manager-summary-sub`
 detail under it, and `verbs.DRILL` at the end. The whole row is the target (`panel.Pick`),
 so it takes Enter and Space and a hover band, and the verbs live in the dialog it opens.
-A time on a summary is `when.ago`, and the exact one is in the dialog. `console/backup_rows.py`
-is the first user, and `console/signed_in_rows.py` the second.
+A time on a summary is `when.ago`, and the exact one is in the dialog. `manager/backup_rows.py`
+is the first user, and `manager/signed_in_rows.py` the second.
 
 **The control lights as a whole on hover, and the label does not change.** The band is the
 summary itself, reaching 8px past its text, so it clears the label beside it. A row whose
@@ -1210,7 +1210,7 @@ not. The copies in Backups and the browsers in Settings > Security are drawn thi
 
 Giving a key to one action takes it from another, and an Undo offered after the answer would
 be a second decision about the same change. So the question comes first, through
-`console/confirm.py`, in the verb of the act - **Move** - with the title quoting the names it
+`manager/confirm.py`, in the verb of the act - **Move** - with the title quoting the names it
 moves between and the detail stating the cost: who has it now, and which action is left with
 nothing mapped. A yes does it and the page says what it did; there is no Undo on it. Revert
 on a row asks the same way when it would take a key back from another row. Where a change
@@ -1224,7 +1224,7 @@ one that is, so a destructive verb is never one a habit reaches.
 
 ### A drag carries addresses, and a menu does the same
 
-A row dragged out of a grid carries each row's Console address as `text/uri-list`, with
+A row dragged out of a grid carries each row's Manager address as `text/uri-list`, with
 `application/json` beside it, so it means something wherever it is let go. The drop side
 reads the ids back out of the addresses and refuses rows from another install. Every drag
 has a menu entry doing the same thing, so dragging is never the only way.
@@ -1238,7 +1238,7 @@ browser never opens the address it carries.
 
 ### A screen is put on a part of the cabinet, not picked from a list
 
-Wherever a screen is chosen for a window, `console/screens_picture.py` draws the parts and
+Wherever a screen is chosen for a window, `manager/screens_picture.py` draws the parts and
 this device's screens, and a screen is dragged onto the part it serves. The caller hands it
 the screens, what is on each part and the acts to report to, and the control writes nothing
 itself, so the Displays page, Setup and a VPX page can each mount it over their own storage.
@@ -1252,7 +1252,7 @@ A screen is called by its model name, and by its size when it has none. It is nu
 which way its top points and are drawn only for Cabinet Mode; a desktop page draws the
 picture without them.
 
-Window placement is a set of rows, `console/placement_panel.py`, that a page mounts under the
+Window placement is a set of rows, `manager/placement_panel.py`, that a page mounts under the
 screens picture: Displays does today and the Screens step of Setup can. The rows write
 nothing themselves except VPinFE's own rules file. The one line in the person's compositor
 config goes in on **Add it** only, and **I'll add it myself** shows it with a copy button, the
@@ -1268,7 +1268,7 @@ topper is compared only where VPinFE has a screen for one; with none, the launch
 the person set it.
 
 A length that is a setting of the device, such as a screen's size, is shown in centimeters
-or inches by Settings > Console > Units, which follows the region until it is set. The page
+or inches by Settings > Manager > Units, which follows the region until it is set. The page
 that shows one puts the choice beside it as a toggle.
 
 ### A value is written when it is set
@@ -1299,24 +1299,24 @@ asks, listing the files. Save is also Cmd-S or Ctrl-S inside the editor.
 
 A chip's color is about consequence, not about whether something is merely true:
 
-- `console-tier--on` — present, installed, in use
-- `console-tier--off` — absent and unremarkable. Quiet, but filled and outlined enough to still
+- `manager-tier--on` — present, installed, in use
+- `manager-tier--off` — absent and unremarkable. Quiet, but filled and outlined enough to still
   read as a chip
-- `console-tier--unknown` — not determined yet, which is not the same as "no"
-- `console-tier--warn` — absent and worth fixing
-- `console-tier--bad` — absent and breaking
+- `manager-tier--unknown` — not determined yet, which is not the same as "no"
+- `manager-tier--warn` — absent and worth fixing
+- `manager-tier--bad` — absent and breaking
 
 Green is present. **Amber means go and fix this, and nothing softer.** Each fact keeps its own
 words: a rom is *Installed*, a script is *Extracted*, a file is *Present*. Do not flatten them
 to Yes/No.
 
-State chips are not media tiers. `console/media_ownership.py` answers "whose file is this", and its amber
+State chips are not media tiers. `manager/media_ownership.py` answers "whose file is this", and its amber
 means the exception worth spotting in a map of twenty.
 
 ### A finding leads the panel, with its fix
 
 What is wrong with a subject comes before anything merely true about it: one
-`.console-attention` block per finding, at the top of the section it belongs to, ending in
+`.manager-attention` block per finding, at the top of the section it belongs to, ending in
 the act that fixes it. *Add* for a ROM that is not installed, *Forget* for a file that is
 gone, a link to the newer release for a table with an update.
 
@@ -1336,7 +1336,7 @@ columns and rows, the coverage card with its percentage, and the table panel's A
 with the count in its header. A gap in a kind nobody collects is not a gap.
 
 - **The API serves every kind either way.** A theme asking for a topper still gets one, and
-  the files stay on disk. Only what the Console shows follows the setting.
+  the files stay on disk. Only what the Manager shows follows the setting.
 - **`table` has no switch**, and a table that will not launch still says so on the panel's
   Will run row, whatever is switched off.
 - **A new surface joins the list** in
@@ -1345,8 +1345,8 @@ with the count in its header. A gap in a kind nobody collects is not a gap.
 ### Marks, and what color one is
 
 **A binary fact is a tick; a fact with more answers is a shaped circle.** Presence is a
-checkmark wherever the Console says it — asset columns, media columns, feature columns — and the
-circles (`.console-mark--full`, `--outline`, `--set`, `--dashed`) are for a vocabulary with more
+checkmark wherever the Manager says it — asset columns, media columns, feature columns — and the
+circles (`.manager-mark--full`, `--outline`, `--set`, `--dashed`) are for a vocabulary with more
 than two answers to tell apart, where a reader has to distinguish them at a glance. A fact
 that stops having three answers moves to a tick; one that gains a third moves the other way.
 
@@ -1437,14 +1437,14 @@ Draw it with `panel.line(text, hint=...)`, which does all of that, or with `pane
 `detail`, and a caption's hover all go through it. A chip or mark that carries a reason, a
 control's hint and a clipped value's full text are not lines, and keep their tooltips.
 
-`tests/invariants/test_a_line_with_more_to_say_shows_it.py` reads the whole `console/` tree
+`tests/invariants/test_a_line_with_more_to_say_shows_it.py` reads the whole `manager/` tree
 and fails on a tooltip drawn anywhere else that carries a failure's words or sits on a
-`console-help` caption. It does not follow a detail carried in a plain variable onto a line
+`manager-help` caption. It does not follow a detail carried in a plain variable onto a line
 that is not a caption; that half is held by this paragraph alone.
 
 ### A list taller than its pane says so
 
-`console-more` is the fade over the last rows and the **More below** pill that scrolls on. It
+`manager-more` is the fade over the last rows and the **More below** pill that scrolls on. It
 is the last child of the scrolling element, and its `hidden` attribute is set once the end is
 in view. The class draws it and nothing else decides when it shows, so whatever scrolls owns
 that check.
@@ -1471,21 +1471,21 @@ element.
 
 ### A reading is a tile
 
-A live number sits in a `.console-card` in a `.console-tiles` grid, which fills the width
+A live number sits in a `.manager-card` in a `.manager-tiles` grid, which fills the width
 with columns no narrower than 260px. A tile is a title, the number, its history and at most
 two detail lines; the tooltip carries what the tile cuts, such as a full name. A thing that
-happened within the history, such as a job started or a table launched, is a `.console-spark-mark`
+happened within the history, such as a job started or a table launched, is a `.manager-spark-mark`
 on every history: a 1px line at that moment, its words in a tooltip. Where a tile's
 title is the kind of reading and not what it reads - Graphics Processor, over a card - the thing read is
 named under the title and the number takes its unit beside it. A tile that cannot show a number shows
 `-` and says why where the detail lines would be. Several tiles that come and go as a group
-sit in a `.console-tiles-group`, which is not a cell of the grid, so the group can be
+sit in a `.manager-tiles-group`, which is not a cell of the grid, so the group can be
 redrawn without moving the tiles around it. A tile that lists rather than reads, such as
-What's busy, puts them in a `.console-tile-rows`: a name, a share and a size to a row.
+What's busy, puts them in a `.manager-tile-rows`: a name, a share and a size to a row.
 
 ### Type
 
-- **A heading inside a panel** is `.console-card-title` — `--accent` cyan, uppercase,
+- **A heading inside a panel** is `.manager-card-title` — `--accent` cyan, uppercase,
   `--fs-caption`, `0.08em`. Group headings take the same treatment plus a rule and space
   above; the separation carries the break, not extra weight.
 - **Every label takes title case, with acronyms as acronyms** — a panel's fact, a column
@@ -1511,7 +1511,7 @@ What's busy, puts them in a `.console-tile-rows`: a name, a share and a size to 
   follows it. Punctuate where a second sentence makes the boundary worth marking. "Nothing
   in it yet." is a fragment wearing a period. `tests/invariants/test_copy_full_stops.py`
   holds it for every `.help`, `.label`, `.summary` and `.description` entry in every
-  owner's file, and wherever the Console draws a tooltip, a note, a state or a help line.
+  owner's file, and wherever the Manager draws a tooltip, a note, a state or a help line.
 - **The shortest true word wins.** A chip reads `Missing`, not "Not in this library"; the
   sentence goes in the tooltip where it costs nothing.
 - **A grid marks the one column its rows are scanned by, and marks it on the column.**
@@ -1536,15 +1536,15 @@ What's busy, puts them in a `.console-tile-rows`: a name, a share and a size to 
   that lacks it without drawing the page.
 - **A game or table in a list reads as the grid draws it.** The name, then a line under
   it: maker and year from `game_tables.made`, then the table's version and author from
-  `game_tables.table_name`, in the `console-cell-made` and `console-cell-built` colors.
+  `game_tables.table_name`, in the `manager-cell-made` and `manager-cell-built` colors.
   Where a filename stands in for version and author, a line too short for it keeps the
-  end (`console-file-name`), which is where two builds of one game differ.
+  end (`manager-file-name`), which is where two builds of one game differ.
   `tests/invariants/test_maker_and_year_are_joined_once.py` fails on a maker-year join
   written anywhere else.
 - **A game, table or collection in a list carries its art as the Thumbnails settings
   draw it.** One frame ahead of the name holds the chosen kind as the frontend shows it, or a
   collection's own picture, or the row's own glyph where there is none. The settings
-  (Settings > VPinFE > Console) give every list the same frame: square or twice as wide,
+  (Settings > VPinFE > Manager) give every list the same frame: square or twice as wide,
   Automatic making a wheel square and the rest wide; 40, 48 or 72px tall in grid rows of
   56, 64 or 88px; on a ground dark in every palette, or bare. A panel's list and the game
   picker take the shape and ground at 40px. An ancestor of the frame carries it
@@ -1552,7 +1552,7 @@ What's busy, puts them in a `.console-tile-rows`: a name, a share and a size to 
   wider by the frame and its gap (`grid.with_art`). Where the grid is too
   narrow for that, the name gives the room back until its edge and resize handle show,
   never below its width without art; a width somebody dragged stays theirs, and a fitted
-  one is never saved. `console/thumbnails.py` draws the frame, and
+  one is never saved. `manager/thumbnails.py` draws the frame, and
   `tests/invariants/test_thumbnails_are_drawn_once.py` fails on one drawn anywhere else. It
   is not a control: no tooltip, no zoom, `alt=""`.
 - **Art in a list is still.** An animated file shows its first frame at list size.
@@ -1580,7 +1580,7 @@ What's busy, puts them in a `.console-tile-rows`: a name, a share and a size to 
   reader. A label names the thing, not the model.
 - **In a menu, the group label is chrome and the item is content.** One language for every
   menu - dropdowns, grid header and cell menus, bulk actions, pickers:
-  - A **group header** takes `.console-group`'s treatment: small, uppercase, tracked, `--ink-3`.
+  - A **group header** takes `.manager-group`'s treatment: small, uppercase, tracked, `--ink-3`.
     It is a signpost and recedes. Never larger or brighter than the items it labels.
   - An **item** is body voice: sentence case, `--ink-2`, no letter-spacing. You read a
     name and click it, and a name only survives in sentence case.
@@ -1648,7 +1648,7 @@ What's busy, puts them in a `.console-tile-rows`: a name, a share and a size to 
 
 ### Two traps that have both been walked into
 
-- **Source order decides between equal specificity.** `.console-tier` sets `border` as a
+- **Source order decides between equal specificity.** `.manager-tier` sets `border` as a
   *shorthand*, so a variant declaring `border-color` above it is silently reset to
   transparent. When adding a property to a base rule, check what overrides it later, and put
   the override below.
@@ -1669,7 +1669,7 @@ alpha.
 NiceGUI runs a handler in the slot of the control that called it. A redraw, or leaving the
 page, can free that control while the handler awaits, and a notify, a confirm or a dialog
 after the `await` then raises instead of showing. So an async handler that touches `ui`
-after a wait is decorated `@on_page` (`console/on_page.py`): it takes the page when called
+after a wait is decorated `@on_page` (`manager/on_page.py`): it takes the page when called
 and runs the handler under it.
 
 A builder - an async function that draws into whatever container it is awaited in - is not
@@ -1681,22 +1681,22 @@ mistake. A test calls a decorated handler from a slot, as a click does, with `pr
 
 ### A region still being drawn says so
 
-A region the Console fills after the page is up is marked while it waits: `busy.fill(region,
+A region the Manager fills after the page is up is marked while it waits: `busy.fill(region,
 work)` for a first draw put off until the browser has the page, and `with busy.held(region):`
 around an awaited build. Both put `aria-busy="true"` on the region at once and take it off when
-the work ends, however it ends. The spinner goes in with the mark, and `.console-busy` keeps it
+the work ends, however it ends. The spinner goes in with the mark, and `.manager-busy` keeps it
 hidden for its first quarter second, so a region that fills quickly never shows one.
 
 Content left up while what replaces it is read - a view after a rail click, the side pane after
 a grid row or a write - is held with `over`: `busy.start(region, work)` for an act that reads
 before it draws again, `busy.held(region, over=True)` around a pane build. From the same quarter
-second the content dims in place and the spinner sits over its middle (`.console-busy--over`),
+second the content dims in place and the spinner sits over its middle (`.manager-busy--over`),
 so nothing moves, and the rail row lights at the click. A region filling empty space keeps the
 spinner after what it has drawn. Work that overlaps on one region shares one mark and one
 spinner, and the region is let go when the last of it ends.
 
 `tests/invariants/test_a_region_filled_later_says_so.py` fails on a one-shot `ui.timer`
-anywhere else in `console/`; a timer that fills no region is listed there with its reason.
+anywhere else in `manager/`; a timer that fills no region is listed there with its reason.
 
 A page is drawn when its handshake is done and nothing on it is marked `aria-busy`. The loading
 screen holds its region until the view is drawn (`busy.until_gone`), a linked subject's pane is
@@ -1730,7 +1730,7 @@ What that means in practice:
   line, so CI, the editor and a local run all measure the same thing.
 
 **All six checked packages report zero, and CI fails when they do not.** `mypy` with no
-arguments is the gate, so a finding anywhere in `apps`, `common`, `console`, `extensions`,
+arguments is the gate, so a finding anywhere in `apps`, `common`, `manager`, `extensions`,
 `frontend` or `httpapi` fails the build. The API surface keeps its own step beside it, so
 it still fails on its own account rather than inside a whole-tree result.
 
@@ -1754,7 +1754,7 @@ CI runs it three ways:
 
 - **Advisory over the whole tree.** Reports and does not fail. It is a visible debt
   register, not a gate.
-- **Blocking everywhere we write Python.** `tests`, `apps`, `common`, `console`,
+- **Blocking everywhere we write Python.** `tests`, `apps`, `common`, `manager`,
   `extensions`, `frontend`, `httpapi`, `cli.py` and `main.py` — every rule we select, at
   zero, every file checked whether it is new or not. Nothing leaves this step once it has
   joined, which is what stops the sweep that cleaned it from decaying. `N` does not see a
@@ -1795,8 +1795,8 @@ the other side. Gate the half a checker can be certain of, and let the rest be r
 side effects. A trailing comment does not protect it; `# noqa` does:
 
 ```python
-# Imported for the side effect of registering the Console's routes.
-import console.page  # noqa: F401
+# Imported for the side effect of registering the Manager's routes.
+import manager.page  # noqa: F401
 ```
 
 Run the tests after `--fix`, not just the linter.
@@ -1852,10 +1852,10 @@ its file.
 
 ### A browser test waits on the app, never on the clock
 
-A test that drives a browser waits on the change its action causes: `tests/support/console_walk.py`'s
-`visit`, `act(action, until=...)` and `open_pane` for the Console, `BrowserSession.wait_for`,
+A test that drives a browser waits on the change its action causes: `tests/support/manager_walk.py`'s
+`visit`, `act(action, until=...)` and `open_pane` for the Manager, `BrowserSession.wait_for`,
 or the app's own signal - a theme's `document.body.dataset.ready`, an overlay's selected row
-with no bridge call outstanding, the Console's handshake with nothing `aria-busy`. The change
+with no bridge call outstanding, the Manager's handshake with nothing `aria-busy`. The change
 waited on is false before the action, so something already on screen never answers it. Every
 wait has a limit, and reaching it is a failure. A check that nothing happened waits out a named
 window, and the name says what it is sized from (`grid.SAVE_THROTTLE_S`).

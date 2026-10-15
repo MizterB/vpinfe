@@ -26,9 +26,9 @@ def _keys(node: ast.AST) -> Iterator[str]:
 
 
 def _titles() -> list[tuple[str, str]]:
-    """(where, key) for every catalog entry a Console dialog uses as its title."""
+    """(where, key) for every catalog entry a Manager dialog uses as its title."""
     found = []
-    for path in sorted((ROOT / "console").glob("*.py")):
+    for path in sorted((ROOT / "manager").glob("*.py")):
         for node in ast.walk(trees.tree_for(path)):
             if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
                 continue
@@ -38,7 +38,7 @@ def _titles() -> list[tuple[str, str]]:
                     and node.args:
                 found += [(where, key) for key in _keys(node.args[0])]
             if node.func.attr == "classes" and node.args \
-                    and "console-confirm-title" in str(getattr(node.args[0], "value", "")) \
+                    and "manager-confirm-title" in str(getattr(node.args[0], "value", "")) \
                     and isinstance(node.func.value, ast.Call) and node.func.value.args:
                 found += [(where, key) for key in _keys(node.func.value.args[0])]
     return found
@@ -48,7 +48,7 @@ class ADialogTitle(unittest.TestCase):
     def test_the_titles_are_found(self) -> None:
         keys = {key for _, key in _titles()}
         self.assertGreater(len(keys), 30)
-        self.assertIn("console.vps_match.match_named", keys)
+        self.assertIn("manager.vps_match.match_named", keys)
 
     def test_a_name_in_a_title_is_quoted(self) -> None:
         unquoted = []

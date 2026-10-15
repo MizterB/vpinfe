@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SHEET = ROOT / "console" / "static" / "console-base.css"
+SHEET = ROOT / "manager" / "static" / "manager-base.css"
 
 RULE = re.compile(r"([^{}]+)\{([^{}]*)\}")
 SIZE = re.compile(r"font-size:\s*([^;!}]+)")
@@ -41,7 +41,7 @@ class AnIconSizeIsNamed(unittest.TestCase):
         self.assertEqual(loose, [], "name the size in appearance.py and use the token")
 
     def test_every_token_a_glyph_names_is_declared(self) -> None:
-        from console import appearance
+        from manager import appearance
 
         wanted = {name for size, _ in _icon_sizes()
                   for name in re.findall(r"var\((--[a-z0-9-]+)\)", size)}

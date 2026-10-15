@@ -222,7 +222,7 @@ class RegistryTests(unittest.TestCase):
                 self.assertEqual(row["fix"], tools.FIX_AUTO)
                 self.assertEqual(row["remedy"]["key"], "tools.ffmpeg.hint.get")
                 self.assertEqual(row["remedy"]["get"]["version"], "9.0.2")
-                self.assertIn(t("console.settings.get_ffmpeg"), tools.words(row["remedy"]))
+                self.assertIn(t("manager.settings.get_ffmpeg"), tools.words(row["remedy"]))
 
     def test_on_linux_it_is_the_persons_to_install(self) -> None:
         with patch.object(tools, "here", return_value=tools.LINUX):

@@ -393,7 +393,7 @@ class ContractTests(_PlayersCase):
                          {scopes.PLAYERS_WRITE, scopes.PLAY_RATE, scopes.PLAY_PLAYERS})
 
     def test_every_caller_is_granted_them(self) -> None:
-        """The Console and the Remote reach the API as any caller does, under the local
+        """The Manager and the Remote reach the API as any caller does, under the local
         trust policy."""
         self.assertLessEqual({scopes.PLAYERS_READ, scopes.PLAYERS_WRITE}, scopes.CORE)
 

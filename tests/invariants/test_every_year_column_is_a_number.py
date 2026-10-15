@@ -11,11 +11,11 @@ import ast
 import pathlib
 import unittest
 
-from console import assets, discovery, games, grid, media
+from manager import assets, discovery, games, grid, media
 from tests.support import trees
 
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
-CONSOLE = REPO / "console"
+MANAGER = REPO / "manager"
 
 DECLARERS = {"column", "identifier", "list_column"}
 GRID_MODULES = {"grid", "grid_module"}
@@ -45,7 +45,7 @@ def _text_years(tree: ast.Module) -> list[ast.Call]:
 class EveryYearColumnIsANumber(unittest.TestCase):
     def test_no_year_column_is_declared_as_text(self) -> None:
         text = []
-        for path in sorted(CONSOLE.rglob("*.py")):
+        for path in sorted(MANAGER.rglob("*.py")):
             if path.name == "grid.py":
                 continue
             text += [f"{path.relative_to(REPO).as_posix()}:{node.lineno}"

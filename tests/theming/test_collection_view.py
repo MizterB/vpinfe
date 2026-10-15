@@ -272,7 +272,7 @@ class CabinetCollectionRowsTests(_Library):
 
 
 class CollectionGoneTests(_Library):
-    """The collection on show is deleted from the Console while the cabinet shows it."""
+    """The collection on show is deleted from the Manager while the cabinet shows it."""
 
     WHOLE_LIBRARY = [("taf", "t1"), ("afm", "a1"), ("mm", "vpw")]
 

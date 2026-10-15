@@ -23,22 +23,22 @@ _NAMED_AS_THE_PROGRAM = frozenset({
     for name in ("grim", "nvidia_smi", "nvtop", "wf_recorder", "wtype", "ydotool")
 })
 
-# What the Console's helpers draw as a button, a menu entry or a link that acts.
+# What the Manager's helpers draw as a button, a menu entry or a link that acts.
 _BUTTONS = frozenset({
     "button", "quiet", "aside", "answer", "cancel", "action", "Verb", "menu_item", "menu_link",
     "link", "link_out", "_link", "_again", "tab"})
 
 # A count with its noun is a quantity, which a person reads as a phrase.
-_COUNTS = frozenset({"console.workbench.more_settings"})
+_COUNTS = frozenset({"manager.workbench.more_settings"})
 
 # The headings, group titles and links of an import's report, which the pages drive never
 # opens, and the titles of dialogs it does not open either.
-_HEADINGS = frozenset({"console.placement.heading"}) | frozenset(
-    f"console.report.{name}" for name in (
+_HEADINGS = frozenset({"manager.placement.heading"}) | frozenset(
+    f"manager.report.{name}" for name in (
         "know", "left_behind", "look", "imported", "failed", "need_rom", "not_matched",
         "no_wheel", "already", "dmd", "title", "add_missing", "add_rom", "add_wheel", "match",
         "open", "see_log", "try_again", "own_tab", "show_all")
-) | {"console.media_fill.title_several", "ext.library_importer.wizard.source.title"}
+) | {"manager.media_fill.title_several", "ext.library_importer.wizard.source.title"}
 
 # The names down the left of the import summary, which sit beside the field labels.
 _SUMMARY_ROWS = frozenset(
@@ -97,7 +97,7 @@ class LabelsAreTitleCase(unittest.TestCase):
 
     def test_every_button_the_source_draws_is_title_case(self) -> None:
         drawn: set[str] = set()
-        for root in ("console", "common", "apps", "extensions"):
+        for root in ("manager", "common", "apps", "extensions"):
             for path in sorted((ROOT / root).rglob("*.py")):
                 if "__pycache__" not in path.parts:
                     drawn.update(_button_keys(trees.tree_for(path)))

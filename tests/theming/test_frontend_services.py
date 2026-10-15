@@ -424,7 +424,7 @@ class FrontendServiceTests(unittest.TestCase):
             self.assertTrue(other.exists())
 
     def test_a_tables_own_clear_nvram_setting_comes_before_the_folders(self) -> None:
-        """What the Console's switch under a table writes."""
+        """What the Manager's switch under a table writes."""
         for folder, table, cleared in ((False, True, True), (True, False, False)):
             with self.subTest(folder=folder, table=table), TemporaryDirectory() as tmp:
                 game, entry, played, _other = self._nvram(tmp, folder=folder, table=table)

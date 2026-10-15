@@ -64,11 +64,11 @@ def _resolved(path: str | Path) -> str:
 
 
 class GameParser:
-    # static console colors
+    # static terminal colors
     """One pass over the library folder, turning each subfolder into a Game."""
 
-    RED_CONSOLE_TEXT = '\033[31m'
-    RESET_CONSOLE_TEXT = '\033[0m'
+    RED_TERMINAL_TEXT = '\033[31m'
+    RESET_TERMINAL_TEXT = '\033[0m'
 
     def __init__(self, games_root_file_path: str | Path,
                  ini_config: ConfigStore | None = None, *,

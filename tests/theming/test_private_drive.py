@@ -14,9 +14,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from tests.support.browser_session import BrowserSession, chromium_path
-from tests.support.console_walk import MARK, ConsoleWalk, notice
 from tests.support.library import game_info, write_game
 from tests.support.live_instance import LiveInstance
+from tests.support.manager_walk import MARK, ManagerWalk, notice
 
 GAMES = ("Alpha", "Bravo", "Charlie", "Delta")
 
@@ -24,9 +24,9 @@ API = ("(() => { const el = document.querySelector('.ag-root-wrapper')"
        ".closest('.nicegui-aggrid'); return getElement(Number(el.id.slice(1))).api; })()")
 SHOWN = ("(() => { const out = []; " + API + ".forEachNodeAfterFilterAndSort("
          "n => out.push(n.data.id)); return out; })()")
-WORK = ".console-section-work"
+WORK = ".manager-section-work"
 # The switch in the fact row labelled Private, and the line under it.
-SWITCH = ("[...document.querySelectorAll('.console-section-work .console-fact-label')]"
+SWITCH = ("[...document.querySelectorAll('.manager-section-work .manager-fact-label')]"
           ".find(el => el.innerText.trim() === 'Private').nextElementSibling")
 SWITCH_ON = f"({SWITCH}).getAttribute('aria-checked')"
 UNDER_SWITCH = f"({SWITCH}).nextElementSibling.innerText.trim()"
@@ -34,13 +34,13 @@ CHIPS = ("Object.fromEntries([...document.querySelectorAll("
          "'.ag-center-cols-container .ag-row, .ag-pinned-left-cols-container .ag-row')]"
          ".filter(row => row.querySelector('.ag-cell[col-id=private]'))"
          ".map(row => { const chip = row.querySelector("
-         "'.ag-cell[col-id=private] .console-member-chip');"
+         "'.ag-cell[col-id=private] .manager-member-chip');"
          " return [row.getAttribute('row-id'), chip ? [chip.innerText.trim(),"
          " chip.className, chip.title] : null]; }))")
-MENU = ("[...document.querySelectorAll('.q-menu .console-menu-item')]"
+MENU = ("[...document.querySelectorAll('.q-menu .manager-menu-item')]"
         ".map(e => [e.innerText.replace(/\\n+/g, ' / '),"
-        " e.classList.contains('console-menu-blocked')])")
-FILTER_ROWS = ("[...document.querySelectorAll('.console-filter .console-filter-row')]"
+        " e.classList.contains('manager-menu-blocked')])")
+FILTER_ROWS = ("[...document.querySelectorAll('.manager-filter .manager-filter-row')]"
                ".map(r => r.innerText.replace(/\\s+/g, ' ').trim())")
 CHECKBOX = ".ag-row[row-id=%s] .ag-selection-checkbox input"
 
@@ -74,7 +74,7 @@ class PrivateDrive(unittest.TestCase):
             await browser.send("Emulation.setDeviceMetricsOverride",
                                {"width": 1600, "height": 1000, "deviceScaleFactor": 1,
                                 "mobile": False})
-            walk = ConsoleWalk(browser, instance)
+            walk = ManagerWalk(browser, instance)
 
             async def show_private() -> None:
                 """Private is a column of the Frontend view, not of the one Games opens on."""
@@ -93,25 +93,25 @@ class PrivateDrive(unittest.TestCase):
 
             async def selection_menu() -> list:
                 await browser.evaluate(
-                    "[...document.querySelectorAll('.console-grid-bar .q-btn')]"
+                    "[...document.querySelectorAll('.manager-grid-bar .q-btn')]"
                     ".find(b => b.textContent.includes('more_vert'))"
                     ".setAttribute('data-drive', 'actions')")
                 await walk.act(lambda: browser.click("[data-drive=actions]"),
-                               until="!!document.querySelector('.q-menu .console-menu-item')")
+                               until="!!document.querySelector('.q-menu .manager-menu-item')")
                 return await browser.evaluate(MENU)
 
             async def choose(label: str, said: str) -> list:
                 at = await browser.evaluate(
-                    "[...document.querySelectorAll('.q-menu .console-menu-item')]"
+                    "[...document.querySelectorAll('.q-menu .manager-menu-item')]"
                     f".findIndex(e => e.innerText.split('\\n')[0] === {json.dumps(label)})")
-                await walk.act(lambda: browser.click(".q-menu .console-menu-item", nth=at),
+                await walk.act(lambda: browser.click(".q-menu .manager-menu-item", nth=at),
                                mark=MARK, until=notice(said))
                 return await browser.evaluate(notice(said))
 
             seen["before"] = on_disk()
 
             # One game, from its panel.
-            await walk.visit("/console?view=games&game=alpha&section=game_details")
+            await walk.visit("/manager?view=games&game=alpha&section=game_details")
             await browser.wait_for(API + ".getDisplayedRowCount() === 4")
             await browser.wait_for(f"({SWITCH_ON}) === 'false'")
             seen["line"] = await browser.evaluate(UNDER_SWITCH)
@@ -127,13 +127,13 @@ class PrivateDrive(unittest.TestCase):
             # The grid filtered to it, through the column's funnel.
             await show_private()
             await browser.click(".ag-header-cell[col-id=private] .ag-header-cell-filter-button")
-            await browser.wait_for("!!document.querySelector('.console-filter-row')")
+            await browser.wait_for("!!document.querySelector('.manager-filter-row')")
             seen["funnel"] = await browser.wait_for(
                 f"(r => r.length && /\\d/.test(r[0]) ? r : null)({FILTER_ROWS})")
-            await browser.click(".console-filter-row input", nth=0)
+            await browser.click(".manager-filter-row input", nth=0)
             await browser.wait_for(API + ".getDisplayedRowCount() === 1")
             seen["filtered"] = await browser.evaluate(SHOWN)
-            await browser.click(".console-filter-row input", nth=0)
+            await browser.click(".manager-filter-row input", nth=0)
             await browser.wait_for(API + ".getDisplayedRowCount() === 4")
             await browser.press("Escape", "Escape")
             await walk.drawn()
@@ -155,7 +155,7 @@ class PrivateDrive(unittest.TestCase):
                 f"(s => s === 'false' ? s : null)({SWITCH_ON})")
             seen["rows"] = {one["id"]: one["private"]
                             for one in instance.api("/api/v1/games")["games"]}
-            seen["console"] = [line for line in browser.console if "error" in line.lower()]
+            seen["page_log"] = [line for line in browser.page_log if "error" in line.lower()]
         return seen
 
     def test_nothing_is_private_until_somebody_marks_it(self) -> None:
@@ -173,7 +173,7 @@ class PrivateDrive(unittest.TestCase):
         self.assertEqual({key for key, chip in chips.items() if chip}, {"alpha"})
         label, classes, tip = chips["alpha"]
         self.assertEqual(label, "Private")
-        self.assertIn("console-chip-quiet", classes)
+        self.assertIn("manager-chip-quiet", classes)
         self.assertEqual(tip, "Never sent to VPinPlay or any community service")
         self.assertEqual(self.seen["header"], "Community")
 
@@ -212,7 +212,7 @@ class PrivateDrive(unittest.TestCase):
         self.assertEqual(self.seen["panel_after"], "false")
 
     def test_nothing_failed_in_the_browser(self) -> None:
-        self.assertEqual(self.seen["console"], [])
+        self.assertEqual(self.seen["page_log"], [])
 
 
 if __name__ == "__main__":

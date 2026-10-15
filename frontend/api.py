@@ -158,7 +158,7 @@ API_INTERNAL_METHODS = {
     'get_paging_state',
     'keep_filter_collection',
     # Core's own probe of the browser it runs in. A theme reporting here would be
-    # rewriting what the Console says the cabinet can play.
+    # rewriting what the Manager says the cabinet can play.
     'report_browser',
     # Take Picture and Back while a table runs. A theme calling them would pause a game
     # nobody asked to pause.
@@ -204,7 +204,7 @@ _RENAMED_METHODS = {
     'set_table_rating': 'set_game_rating',
     'get_table_orientation': 'get_playfield_orientation',
     'get_table_rotation': 'get_playfield_rotation',
-    # The port serves the API, the Console and the Remote, so it is named for the protocol
+    # The port serves the API, the Manager and the Remote, so it is named for the protocol
     # rather than one thing listening on it. Two retired spellings rather than one: it was
     # named for 2.x's Manager UI, then for a role that no longer exists. Neither reached a
     # release, but a theme built against a 3.0 dev build has seen the second.
@@ -241,7 +241,7 @@ class API:
         """Let the browser tell the log it used a legacy name.
 
         A theme runs in Chromium, so its use of a vpin.* alias is only visible in a
-        console nobody reads on a cabinet. The WebSocket methods announce themselves
+        browser log nobody reads on a cabinet. The WebSocket methods announce themselves
         here already; without this the eleven JS aliases are the one surface that
         cannot be judged from the machine, which is where they would be retired from.
 

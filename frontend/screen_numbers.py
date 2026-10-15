@@ -1,6 +1,6 @@
 """A window on each screen saying its number and name, for a few seconds.
 
-What tells a person which screen the Console means when its sizes are alike. Each window
+What tells a person which screen the Manager means when its sizes are alike. Each window
 is placed the way every frontend window is, so it lands where the frontend would open one.
 The playfield's also draws an arrow pointing up in the page's own frame, before any turn
 the frontend gives its UI, so which way it points on the cabinet is which turn is needed.
@@ -60,7 +60,7 @@ def _open(manager: ChromiumManager, screens: Sequence[Any], arrowed: int | None,
     opened = 0
     failure: Exception | None = None
     for screen in screens:
-        size = t("console.screens.size", width=screen.width, height=screen.height)
+        size = t("manager.screens.size", width=screen.width, height=screen.height)
         try:
             manager.launch_window(
                 f"screen{screen.number}",

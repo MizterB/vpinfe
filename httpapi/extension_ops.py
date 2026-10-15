@@ -77,7 +77,7 @@ def _vps_settle(rows: list[dict]) -> list[dict]:
 
 
 def _create_collection(name: str, games: Iterable[str] = (), description: str = "") -> dict:
-    """A hand-picked collection. Rules, ordering and copies are for the Console."""
+    """A hand-picked collection. Rules, ordering and copies are for the Manager."""
     return collection_ops.create(name, games, description)
 
 

@@ -10,7 +10,7 @@ from pathlib import Path
 from tests.support import trees
 
 REPO = Path(__file__).resolve().parents[2]
-SOURCE_ROOTS = ("apps", "common", "console", "extensions", "frontend", "httpapi")
+SOURCE_ROOTS = ("apps", "common", "manager", "extensions", "frontend", "httpapi")
 
 THE_ONE = ("common/games/player_records.py", "remove_player")
 

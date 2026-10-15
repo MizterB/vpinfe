@@ -100,7 +100,7 @@ except (OSError, ValueError) as exc:
 ```
 
 Core serves it as `502` with `upstream_unavailable` rather than as a mistake in the request,
-and the Console draws it as "could not reach its service" with that message under it.  A
+and the Manager draws it as "could not reach its service" with that message under it.  A
 failure to connect raised without `Unavailable` counts too, as long as the error is in the
 cause chain.  The extension is not disabled, and the next visit or Refresh asks again.
 

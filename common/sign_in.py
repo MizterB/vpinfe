@@ -1,11 +1,11 @@
 """Signing a browser in: a code shown on the machine, and the sessions it opens.
 
-A code is six digits, one live at a time, and only the machine's own screen, Console or log
+A code is six digits, one live at a time, and only the machine's own screen, Manager or log
 shows it. `request` makes one and says nothing about its digits; `reveal` is what Show does.
 A session is a secret the browser keeps in a cookie. Only its hash is stored here, in a file
 beside the secrets, so a copy of the file signs nobody in.
 
-Nothing here knows about HTTP. `httpapi/sign_in.py` and `console/sign_in_gate.py` carry it.
+Nothing here knows about HTTP. `httpapi/sign_in.py` and `manager/sign_in_gate.py` carry it.
 """
 
 from __future__ import annotations

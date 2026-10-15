@@ -1,5 +1,5 @@
 """The links an extension draws to its own UI: what it may declare, what the host answers
-once it runs, how the Console fills in an address and places an entry, and that a page
+once it runs, how the Manager fills in an address and places an entry, and that a page
 core serves for an extension runs as no origin."""
 
 from __future__ import annotations
@@ -22,8 +22,8 @@ from starlette.testclient import TestClient
 
 from common import i18n
 from common.extensions import check, contract, host, store
-from console import community, ext_links
 from httpapi import extensions as httpapi_extensions
+from manager import community, ext_links
 from tests.support.accepted import owner_accepts
 from tests.support.browser_session import BrowserSession, chromium_path, free_port
 from tests.support.identity import IDENTITY
@@ -242,8 +242,8 @@ class WhatTheCheckSays(LinkedCase):
         self.assertTrue(any("link.panel.label" in one for one in lines), lines)
 
 
-class HowTheConsoleFillsAnAddress(unittest.TestCase):
-    def test_host_is_the_name_the_console_was_opened_at(self) -> None:
+class HowTheManagerFillsAnAddress(unittest.TestCase):
+    def test_host_is_the_name_the_manager_was_opened_at(self) -> None:
         for said, expected in (("cab.local:8001", "cab.local"), ("192.168.1.5:8001", "192.168.1.5"),
                                ("localhost", "localhost"), ("[::1]:8001", "[::1]"),
                                ("[fe80::1]:8001", "[fe80::1]")):
@@ -321,7 +321,7 @@ class WhereTheRailPutsALink(unittest.TestCase):
 
 
 class WhatAnExtensionsPageCanDo(unittest.TestCase):
-    """A page core serves under /ext/ runs as no origin: it cannot read the Console's
+    """A page core serves under /ext/ runs as no origin: it cannot read the Manager's
     cookie or storage, and what it requests carries no sign-in."""
 
     PAGE = """<!doctype html><body><script>

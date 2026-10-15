@@ -48,7 +48,7 @@ Every answer under `/ext/`, from a route core wrote or one of the extension's ow
 `Content-Security-Policy: sandbox allow-scripts allow-forms` and `X-Content-Type-Options:
 nosniff`.  A page one of them serves, such as the "you can close this window" a site's sign-in
 sends the browser back to, still shows and still runs its script.  It runs as no origin, so it
-cannot read the Console's cookie or storage, and what it requests carries no sign-in.  Serve a
+cannot read the Manager's cookie or storage, and what it requests carries no sign-in.  Serve a
 UI of your own from another site or a port of its own, and reach it with
 [`ctx.ui.link`](ui.md#ctxuilink).
 

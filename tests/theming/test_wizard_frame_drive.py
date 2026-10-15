@@ -46,32 +46,32 @@ FLOWS: dict[str, dict[str, Any]] = {
 
 # The card is measured once its entrance has finished: Quasar scales it in and grows it,
 # and a box measured mid-transition is a different size from the one a person sees.
-SETTLED = ("(() => !!document.querySelector('.console-wizard-card')"
-           " && !!document.querySelector('.console-wizard-pick, .q-radio')"
+SETTLED = ("(() => !!document.querySelector('.manager-wizard-card')"
+           " && !!document.querySelector('.manager-wizard-pick, .q-radio')"
            " && document.getAnimations().every((a) => a.playState !== 'running'))()")
 MEASURE = """(() => {
   const wide = (selector) => document.querySelector(selector).offsetWidth;
-  const row = document.querySelector('.console-wizard-pick');
+  const row = document.querySelector('.manager-wizard-pick');
   const look = getComputedStyle(row);
-  const card = document.querySelector('.console-wizard-card').getBoundingClientRect();
+  const card = document.querySelector('.manager-wizard-card').getBoundingClientRect();
   const text = document.createRange();
-  text.selectNodeContents(document.querySelector('.console-wizard-title'));
+  text.selectNodeContents(document.querySelector('.manager-wizard-title'));
   const spoken = text.getBoundingClientRect();
   return {
-    steps: wide('.console-wizard-steps'), scroll: wide('.console-wizard-scroll'),
-    picks: wide('.console-wizard-picks'), row: row.offsetWidth,
+    steps: wide('.manager-wizard-steps'), scroll: wide('.manager-wizard-scroll'),
+    picks: wide('.manager-wizard-picks'), row: row.offsetWidth,
     padding: [look.paddingTop, look.paddingRight, look.paddingBottom, look.paddingLeft],
     wraps: getComputedStyle(
-      [...document.querySelectorAll('.console-wizard-pick .console-source-name')].pop()
+      [...document.querySelectorAll('.manager-wizard-pick .manager-source-name')].pop()
     ).whiteSpace,
     card: card.left + card.width / 2, title: spoken.left + spoken.width / 2,
   };
 })()"""
 STACKED = """(() => {
   const edge = (el) => el.getBoundingClientRect().left;
-  const radio = document.querySelector('.console-wizard-card .q-radio');
-  const edit = radio.closest('.console-fact-edit');
-  return {edit: edge(edit), radio: edge(radio), help: edge(edit.querySelector('.console-help'))};
+  const radio = document.querySelector('.manager-wizard-card .q-radio');
+  const edit = radio.closest('.manager-fact-edit');
+  return {edit: edge(edit), radio: edge(radio), help: edge(edit.querySelector('.manager-help'))};
 })()"""
 
 
@@ -79,7 +79,7 @@ def serve(port: int) -> None:
     """One page per flow: the real dialog host over a flow that answers one step."""
     from nicegui import app, ui
 
-    from console import api, appearance, wizard
+    from manager import api, appearance, wizard
 
     api.local_base_url = lambda: "http://127.0.0.1:9"
     app.add_static_files(appearance.BASE_MOUNT, str(appearance.BASE_CSS.parent))
@@ -158,13 +158,13 @@ class WizardFrameDrive(unittest.TestCase):
         self.assertEqual(found["picks"], found["row"])
 
     def test_a_row_has_the_padding_the_stylesheet_declares(self) -> None:
-        rule = declarations(".console-wizard-picks .console-wizard-pick")
+        rule = declarations(".manager-wizard-picks .manager-wizard-pick")
 
         self.assertIn("padding", rule)
         self.assertEqual(sides(rule["padding"]), self.seen["/rows"]["padding"])
 
     def test_a_tile_has_the_padding_the_stylesheet_declares(self) -> None:
-        rule = declarations(".console-wizard-picks .console-wizard-pick--tile")
+        rule = declarations(".manager-wizard-picks .manager-wizard-pick--tile")
 
         self.assertIn("padding", rule)
         self.assertEqual(sides(rule["padding"]), self.seen["/welcome"]["padding"])

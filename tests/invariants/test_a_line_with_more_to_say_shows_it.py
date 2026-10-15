@@ -1,7 +1,7 @@
 """A line whose hover says more is drawn by `panel.line`, which marks it as having more.
 
 What this can be certain of: a tooltip whose words are a failure's - `why(...)`, or a
-record's `error` or `detail` - and a tooltip on a caption, a `console-help` line, whether
+record's `error` or `detail` - and a tooltip on a caption, a `manager-help` line, whether
 the tooltip is chained on it, set on a name bound to it, or opened inside `with` it. What
 it does not follow: a detail carried in a variable onto a line that is not a caption.
 """
@@ -16,10 +16,10 @@ from pathlib import Path
 from tests.support import trees
 
 ROOT = Path(__file__).resolve().parents[2]
-CONSOLE = ROOT / "console"
-HELPER = ("console/panel.py", "line")
+MANAGER = ROOT / "manager"
+HELPER = ("manager/panel.py", "line")
 
-CAPTION = "console-help"
+CAPTION = "manager-help"
 REASON_KEYS = {"error", "detail"}
 
 Lookup = Callable[[str], list[ast.expr]]
@@ -180,7 +180,7 @@ class ALineWithMoreToSayShowsIt(unittest.TestCase):
 
     def test_every_line_with_a_detail_is_drawn_by_the_helper(self) -> None:
         found = []
-        for path in sorted(CONSOLE.rglob("*.py")):
+        for path in sorted(MANAGER.rglob("*.py")):
             name = path.relative_to(ROOT).as_posix()
             found += [f"{name}:{line} {said}"
                       for line, said in offenders(trees.tree_for(path), name)]
@@ -193,15 +193,15 @@ class ALineWithMoreToSayShowsIt(unittest.TestCase):
                   "    except OSError as exc:\n"
                   "        ui.label(t('x.could_not')).tooltip(why(exc))\n"
                   "        ui.label(t('x.could_not')).classes('text-xs').tooltip(ctx.why(exc))\n"
-                  "    age = ui.label(read_state(said)).classes('console-help')\n"
+                  "    age = ui.label(read_state(said)).classes('manager-help')\n"
                   "    age.tooltip(t('x.more'))\n"
-                  "    ui.label(t('x.a')).classes('console-help px-3').tooltip(hover)\n"
-                  "    chip = ui.label(t('x.b')).classes('console-member-chip')\n"
+                  "    ui.label(t('x.a')).classes('manager-help px-3').tooltip(hover)\n"
+                  "    chip = ui.label(t('x.b')).classes('manager-member-chip')\n"
                   "    chip.tooltip(str(said['error']))\n"
                   "    ui.label(t('x.c')).tooltip(said.get('detail') or '')\n"
                   "    detail = str(lens['error'])\n"
                   "    ui.label(t('x.d')).tooltip(detail)\n"
-                  "    note = ui.label('').classes(f'console-help {extra}')\n"
+                  "    note = ui.label('').classes(f'manager-help {extra}')\n"
                   "    def show(detail):\n"
                   "        with note:\n"
                   "            ui.tooltip(detail)\n"
@@ -220,10 +220,10 @@ class ALineWithMoreToSayShowsIt(unittest.TestCase):
 
     def test_the_helper_is_left_to_draw_them(self) -> None:
         source = ("def line(text, *, hint=''):\n"
-                  "    shown = ui.label(text).classes('console-help')\n"
+                  "    shown = ui.label(text).classes('manager-help')\n"
                   "    shown.tooltip(hint)\n"
                   "def elsewhere(hint):\n"
-                  "    ui.label('').classes('console-help').tooltip(hint)\n")
+                  "    ui.label('').classes('manager-help').tooltip(hint)\n")
 
         self.assertEqual(
             [line for line, _ in offenders(trees.parse_snippet(source), HELPER[0])], [5])

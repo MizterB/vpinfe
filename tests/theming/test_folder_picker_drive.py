@@ -15,7 +15,7 @@ from pathlib import Path
 
 from common.i18n import t
 from tests.support.browser_session import BrowserSession
-from tests.support.console_walk import ConsoleWalk
+from tests.support.manager_walk import ManagerWalk
 from tests.theming.test_grid_selection_drive import _heard, drive_page, exit_with_parent
 
 TYPED = "Games"
@@ -26,19 +26,19 @@ HEIGHT = f"document.querySelector('{DIALOG} .q-card').offsetHeight"
 # How far the Cancel row is below the bottom of the window; above zero it is cut off.
 CLIPPED = ("(() => { const b = [...document.querySelectorAll('" + DIALOG + " button')].pop();"
            " return Math.round(b.getBoundingClientRect().bottom - innerHeight); })()")
-ASIDE = f"{DIALOG} .console-dialog-aside"
-NAMING = f"{DIALOG} .console-folder-list input"
+ASIDE = f"{DIALOG} .manager-dialog-aside"
+NAMING = f"{DIALOG} .manager-folder-list input"
 SHOWS = "!!document.querySelector(%s)"
 GONE = "!document.querySelector(%s)"
-FIELD = f"{DIALOG} input.console-path-input"
+FIELD = f"{DIALOG} input.manager-path-input"
 PATH_SHOWN = f"((document.querySelector('{FIELD}') || {{}}).value || '')"
-PLACES = f'{DIALOG} button[aria-label="{t("console.folder_picker.places")}"]'
-MARK = f"{DIALOG} .console-value-state"
+PLACES = f'{DIALOG} button[aria-label="{t("manager.folder_picker.places")}"]'
+MARK = f"{DIALOG} .manager-value-state"
 MARK_ICON = f"((document.querySelector('{MARK}') || {{}}).innerText || '').trim()"
 SELECTION = ("(() => { const el = document.querySelector(%s);"
              " return {from: el.selectionStart, to: el.selectionEnd, length: el.value.length,"
              " focused: document.activeElement === el}; })()")
-MENU_ITEMS = ".q-menu .console-menu-item"
+MENU_ITEMS = ".q-menu .manager-menu-item"
 MENU_TEXTS = (f"[...document.querySelectorAll('{MENU_ITEMS}')]"
               ".map(el => el.querySelector('.nicegui-column > div').innerText)")
 BUTTONS = ("[...document.querySelectorAll('" + DIALOG + " button')]"
@@ -49,7 +49,7 @@ class _Page:
     def __init__(self, port: int) -> None:
         self.port = port
 
-    def console_url(self, path: str = "/") -> str:
+    def manager_url(self, path: str = "/") -> str:
         return f"http://127.0.0.1:{self.port}{path}"
 
 
@@ -59,7 +59,7 @@ def serve(port: int) -> None:
     from nicegui import app, ui
 
     from common import folder_browse
-    from console import api, appearance, folder_picker
+    from manager import api, appearance, folder_picker
 
     api.local_base_url = lambda: "http://127.0.0.1:9"
     app.add_static_files(appearance.BASE_MOUNT, str(appearance.BASE_CSS.parent))
@@ -102,7 +102,7 @@ def serve(port: int) -> None:
     @app.get("/heard")
     def said() -> dict:
         return {**heard, "made": (base / TYPED).is_dir(),
-                "default_left": (base / t("console.folder_picker.new_folder_name")).exists()}
+                "default_left": (base / t("manager.folder_picker.new_folder_name")).exists()}
 
     ui.run(port=port, show=False, reload=False, title="Folder picker drive")
 
@@ -118,7 +118,7 @@ class FolderPickerDrive(unittest.TestCase):
     async def _drive(cls, binary: str, port: int) -> dict:
         seen: dict = {}
         async with BrowserSession(binary) as browser:
-            walk = ConsoleWalk(browser, _Page(port))
+            walk = ManagerWalk(browser, _Page(port))
             await walk.visit("/")
 
             async def click_text(selector: str, text: str) -> None:
@@ -148,7 +148,7 @@ class FolderPickerDrive(unittest.TestCase):
             seen["many_height"] = await browser.evaluate(HEIGHT)
             seen["many_clipped"] = await browser.evaluate(CLIPPED)
             seen["many_rows"] = await browser.evaluate(
-                f"document.querySelectorAll('{DIALOG} .console-folder-list .console-source-row')"
+                f"document.querySelectorAll('{DIALOG} .manager-folder-list .manager-source-row')"
                 ".length")
             await walk.act(lambda: click_text(f"{DIALOG} button", t("word.cancel")),
                            until=GONE % json.dumps(DIALOG))
@@ -170,7 +170,7 @@ class FolderPickerDrive(unittest.TestCase):
             await browser.wait_for(PATH_SHOWN + f".endsWith({json.dumps(TYPED)})")
             seen["inside"] = await browser.evaluate(PATH_SHOWN)
             await walk.act(lambda: click_text(f"{DIALOG} button", t(
-                "console.folder_picker.accept")), until=GONE % json.dumps(DIALOG))
+                "manager.folder_picker.accept")), until=GONE % json.dumps(DIALOG))
             seen["heard"] = _heard(port)
 
             # The path field: what it holds, selecting on focus, typing and pasting.
@@ -212,11 +212,11 @@ class FolderPickerDrive(unittest.TestCase):
             seen["menu"] = await browser.evaluate(MENU_TEXTS)
             seen["menu_rows"] = await browser.evaluate(
                 f"[...document.querySelectorAll('{MENU_ITEMS}')].map(el => ["
-                "el.querySelector('.console-menu-mark').innerText,"
-                " (el.querySelector('.console-menu-sub') || {}).innerText || ''])")
+                "el.querySelector('.manager-menu-mark').innerText,"
+                " (el.querySelector('.manager-menu-sub') || {}).innerText || ''])")
             seen["menu_on_here"] = await browser.evaluate(
                 f"[...document.querySelectorAll('{MENU_ITEMS}')]"
-                ".filter(el => el.classList.contains('console-menu-on')).length")
+                ".filter(el => el.classList.contains('manager-menu-on')).length")
             await walk.act(lambda: click_text(MENU_ITEMS, t("word.home")),
                            until=GONE % json.dumps(".q-menu"))
             await browser.wait_for(PATH_SHOWN + f" === {json.dumps(seen['heard']['home'])}")
@@ -224,7 +224,7 @@ class FolderPickerDrive(unittest.TestCase):
             await walk.act(lambda: browser.click(PLACES), until=SHOWS % json.dumps(MENU_ITEMS))
             seen["menu_on_home"] = await browser.evaluate(
                 f"[...document.querySelectorAll('{MENU_ITEMS}')]"
-                ".filter(el => el.classList.contains('console-menu-on'))"
+                ".filter(el => el.classList.contains('manager-menu-on'))"
                 ".map(el => el.querySelector('.nicegui-column > div').innerText)")
             await browser.press("Escape", "Escape")
             await walk.act(lambda: click_text(f"{DIALOG} button", t("word.cancel")),
@@ -256,7 +256,7 @@ class FolderPickerDrive(unittest.TestCase):
 
     def test_the_picker_that_cannot_make_one_does_not_offer_it(self) -> None:
         self.assertFalse(self.seen["bare_aside"])
-        self.assertNotIn(t("console.folder_picker.new_folder"), self.seen["bare_buttons"])
+        self.assertNotIn(t("manager.folder_picker.new_folder"), self.seen["bare_buttons"])
 
     def test_the_dialog_is_as_tall_for_a_folder_with_two_entries_as_for_one_with_eighty(
             self) -> None:
@@ -268,11 +268,11 @@ class FolderPickerDrive(unittest.TestCase):
 
     def test_new_folder_is_offered_beside_the_answer(self) -> None:
         self.assertEqual(self.seen["aside"].split()[-2:],
-                         t("console.folder_picker.new_folder").split())
+                         t("manager.folder_picker.new_folder").split())
 
     def test_the_row_is_named_and_selected_for_typing(self) -> None:
         named = self.seen["named"]
-        self.assertEqual(named["value"], t("console.folder_picker.new_folder_name"))
+        self.assertEqual(named["value"], t("manager.folder_picker.new_folder_name"))
         self.assertTrue(named["focused"])
         self.assertEqual((named["from"], named["to"]), (0, len(named["value"])))
 

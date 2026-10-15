@@ -91,7 +91,7 @@ class TheOriginTests(Machine):
         return this_machine.request_is_this_machine(
             "127.0.0.1", {"host": host, "origin": origin})
 
-    def test_the_page_the_console_served_is_accepted(self) -> None:
+    def test_the_page_the_manager_served_is_accepted(self) -> None:
         self.assertTrue(self.asked("http://localhost:8001"))
 
     def test_a_theme_page_on_the_theme_server_is_accepted(self) -> None:
@@ -115,7 +115,7 @@ class TheBrowsersOwnNoteTests(Machine):
 
         self.assertFalse(this_machine.request_is_this_machine("127.0.0.1", headers))
 
-    def test_the_consoles_own_requests_are_accepted(self) -> None:
+    def test_the_managers_own_requests_are_accepted(self) -> None:
         for note in ("same-origin", "same-site", "none"):
             with self.subTest(note=note):
                 self.assertTrue(this_machine.request_is_this_machine(

@@ -229,7 +229,7 @@ def _browser_version(path: str) -> str:
 
 
 def _windows_file_version(path: str) -> str:
-    """`--version` writes to a console Chrome does not have on Windows, so the file's
+    """`--version` writes to a terminal Chrome does not have on Windows, so the file's
     own version resource is the only thing that answers."""
     command = ("(Get-Item -LiteralPath '" + path.replace("'", "''") +
                "').VersionInfo.ProductVersion")

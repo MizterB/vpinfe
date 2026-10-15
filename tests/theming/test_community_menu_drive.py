@@ -20,33 +20,33 @@ from tempfile import TemporaryDirectory
 from typing import Any
 
 from tests.support.browser_session import BrowserSession, chromium_path
-from tests.support.console_walk import DRAWN, MARK, ConsoleWalk, notice
 from tests.support.library import game_info, write_game
 from tests.support.live_instance import LiveInstance
+from tests.support.manager_walk import DRAWN, MARK, ManagerWalk, notice
 
 GAME = "alpha"
 VPS_ID = "vps-alpha"
 USER_ID = "owner-id"
 # A send needs a claimed account; claiming itself is Players' own drive.
 KEY = "k" * 64
-LIST = "/console?view=community:vpinplay:tables"
-PAGE = "/console?view=settings&page=extensions.vpinplay"
+LIST = "/manager?view=community:vpinplay:tables"
+PAGE = "/manager?view=settings&page=extensions.vpinplay"
 
 SHOWN = "(el => el.getClientRects().length > 0)"
 HEADING = ("(el => el ? el.innerText.trim() : null)(document.querySelector("
-           "'.console-panel-heading .console-workbench-title,"
-           " .console-workbench-title.console-panel-heading'))")
-FIELDS = ("[...document.querySelectorAll('.console-fact-label')].filter"
+           "'.manager-panel-heading .manager-workbench-title,"
+           " .manager-workbench-title.manager-panel-heading'))")
+FIELDS = ("[...document.querySelectorAll('.manager-fact-label')].filter"
           f"({SHOWN}).map(el => el.innerText.trim())")
 # The line first in the bar's end: its words, and where it links.
 LINE = ("(() => { const end = document.querySelector("
-        "'.console-grid-bar .console-bar-foot .console-bar-end');"
+        "'.manager-grid-bar .manager-bar-foot .manager-bar-end');"
         " const el = end && end.firstElementChild; if (!el || !el.innerText.trim())"
         " return null; const a = el.querySelector('a');"
         " return [el.innerText.trim(), a ? a.getAttribute('href') : null]; })()")
-MENU_BUTTON = ("document.querySelector('.console-page-title').parentElement"
+MENU_BUTTON = ("document.querySelector('.manager-page-title').parentElement"
                ".querySelector('.q-btn')")
-ITEM = ".q-menu .console-menu-item"
+ITEM = ".q-menu .manager-menu-item"
 # Each item: its words, where it goes, whether a new tab, and the mark after it.
 MENU = (f"[...document.querySelectorAll('{ITEM}')].map(e => {{"
         " const copy = e.cloneNode(true); copy.querySelectorAll('.q-icon')"
@@ -54,11 +54,11 @@ MENU = (f"[...document.querySelectorAll('{ITEM}')].map(e => {{"
         " return [copy.innerText.trim(), e.getAttribute('href'), e.getAttribute('target'),"
         " mark ? mark.innerText.trim() : null]; })")
 ENABLED = ("(() => { const label = [...document.querySelectorAll("
-           "'.console-fact-label')].find(el => el.innerText.trim() === 'Enabled');"
+           "'.manager-fact-label')].find(el => el.innerText.trim() === 'Enabled');"
            " return label ? label.nextElementSibling : null; })()")
-COMMUNITY_ROW = "a.console-nav-row[href*=\"community:\"]"
+COMMUNITY_ROW = "a.manager-nav-row[href*=\"community:\"]"
 SHARE = ("(() => { const label = [...document.querySelectorAll("
-         "'.console-section-work .console-fact-label')]"
+         "'.manager-section-work .manager-fact-label')]"
          ".find(el => el.innerText.trim() === 'Share');"
          " return label ? label.nextElementSibling : null; })()")
 
@@ -100,7 +100,7 @@ class _VPinPlay(BaseHTTPRequestHandler):
 
 
 def _call(instance: LiveInstance, method: str, path: str, body: dict) -> dict:
-    request = urllib.request.Request(instance.console_url(path), method=method,
+    request = urllib.request.Request(instance.manager_url(path), method=method,
                                      data=json.dumps(body).encode(),
                                      headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(request, timeout=10) as answer:
@@ -157,7 +157,7 @@ class CommunityMenuDrive(unittest.TestCase):
             await browser.send("Emulation.setDeviceMetricsOverride",
                                {"width": 1600, "height": 1000, "deviceScaleFactor": 1,
                                 "mobile": False})
-            walk = ConsoleWalk(browser, instance)
+            walk = ManagerWalk(browser, instance)
 
             async def reload() -> None:
                 await browser.evaluate("window.__walkLeft = true")
@@ -177,7 +177,7 @@ class CommunityMenuDrive(unittest.TestCase):
                 await walk.act(lambda: browser.click("[data-drive=menu]"),
                                until=f"!!document.querySelector('{ITEM}')")
                 items = await browser.evaluate(MENU)
-                await browser.click(".console-page-title")
+                await browser.click(".manager-page-title")
                 await browser.wait_for(f"!document.querySelector('{ITEM}')")
                 return items
 
@@ -189,9 +189,9 @@ class CommunityMenuDrive(unittest.TestCase):
                                 await browser.evaluate("location.search")]
 
             # Opened from its row in Settings, the address following.
-            await walk.visit("/console?view=settings")
+            await walk.visit("/manager?view=settings")
             await browser.evaluate(
-                "[...document.querySelectorAll('.console-section-row')].find(el =>"
+                "[...document.querySelectorAll('.manager-section-row')].find(el =>"
                 " el.innerText.trim().startsWith('VPinPlay'))"
                 ".setAttribute('data-drive', 'open')")
             await walk.act(lambda: browser.click("[data-drive=open]"),
@@ -241,9 +241,9 @@ class CommunityMenuDrive(unittest.TestCase):
             _VPinPlay.refusing = True
             _call(instance, "PUT", f"/api/v1/games/{GAME}/rating", {"rating": 4})
             await waiting()
-            await walk.visit(f"/console?view=players&player={owner}")
+            await walk.visit(f"/manager?view=players&player={owner}")
             await browser.evaluate(
-                "[...document.querySelectorAll('.console-section-row')].find(el =>"
+                "[...document.querySelectorAll('.manager-section-row')].find(el =>"
                 " el.innerText.trim().startsWith('VPinPlay'))"
                 ".setAttribute('data-drive', 'section')")
             await walk.act(lambda: browser.click("[data-drive=section]"),
@@ -260,8 +260,8 @@ class CommunityMenuDrive(unittest.TestCase):
 
             # The line's link lands on Players.
             await browser.evaluate(
-                "document.querySelector('.console-grid-bar .console-bar-foot"
-                " .console-bar-end a').setAttribute('data-drive', 'line')")
+                "document.querySelector('.manager-grid-bar .manager-bar-foot"
+                " .manager-bar-end a').setAttribute('data-drive', 'line')")
             await browser.evaluate("window.__walkLeft = true")
             await browser.click("[data-drive=line]")
             await browser.wait_for(f"!window.__walkLeft && {DRAWN}", 90)
@@ -275,9 +275,9 @@ class CommunityMenuDrive(unittest.TestCase):
             await browser.click("[data-drive=enabled]")
             await browser.wait_for(f"!document.querySelector('{COMMUNITY_ROW}')")
             seen["rail_after_off"] = await browser.evaluate(
-                "[...document.querySelectorAll('.console-nav-parent, .console-nav-row')]"
+                "[...document.querySelectorAll('.manager-nav-parent, .manager-nav-row')]"
                 ".map(el => el.innerText.trim()).filter(Boolean)")
-            seen["console"] = [line for line in browser.console if "error" in line.lower()]
+            seen["page_log"] = [line for line in browser.page_log if "error" in line.lower()]
         return seen
 
     # -- the extension's page ------------------------------------------------------
@@ -299,11 +299,11 @@ class CommunityMenuDrive(unittest.TestCase):
     def test_no_account_says_so_and_links_to_players(self) -> None:
         line, _menu = self.seen["no_account"]
         self.assertEqual(line, ["Not sharing - no player has a VPinPlay account",
-                                "/console?view=players"])
+                                "/manager?view=players"])
 
     def test_an_account_not_sharing_says_share_is_off(self) -> None:
         line, _menu = self.seen["share_off"]
-        self.assertEqual(line, ["Not sharing - Share is off", "/console?view=players"])
+        self.assertEqual(line, ["Not sharing - Share is off", "/manager?view=players"])
 
     def test_a_sharing_account_is_named_by_its_initials(self) -> None:
         line, _menu = self.seen["sharing"]
@@ -318,7 +318,7 @@ class CommunityMenuDrive(unittest.TestCase):
         _line, menu = self.seen["no_account"]
         self.assertEqual(menu, [
             ["Open VPinPlay", "https://www.vpinplay.com", "_blank", "open_in_new"],
-            ["Settings", "/console?view=settings&page=extensions.vpinplay", None,
+            ["Settings", "/manager?view=settings&page=extensions.vpinplay", None,
              None]])
 
     def test_your_page_is_offered_once_the_owner_has_a_user_id(self) -> None:
@@ -358,11 +358,11 @@ class CommunityMenuDrive(unittest.TestCase):
 
     def test_the_list_says_so_after(self) -> None:
         line, menu = self.seen["off_again"]
-        self.assertEqual(line, ["Not sharing - Share is off", "/console?view=players"])
+        self.assertEqual(line, ["Not sharing - Share is off", "/manager?view=players"])
         self.assertNotIn("Send Now", [one[0] for one in menu])
 
     def test_nothing_failed_in_the_browser(self) -> None:
-        self.assertEqual(self.seen["console"], [])
+        self.assertEqual(self.seen["page_log"], [])
 
 
 if __name__ == "__main__":

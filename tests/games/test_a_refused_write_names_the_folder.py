@@ -2,7 +2,7 @@
 and leaves no such file behind.
 
 Each write goes into a real folder made read-only, and the failure is read the way the
-Console shows it, through `why()`.
+Manager shows it, through `why()`.
 """
 
 from __future__ import annotations

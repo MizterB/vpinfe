@@ -346,7 +346,7 @@ offered raises `AttributeError`, and one that needs a scope the manifest lacks r
 | `collections:write` | `create_collection(name, games=(), description="")`, `delete_collection(name)`, `add_to_collection(name, game_id, table_id="", after_table=None)`, `remove_from_collection(name, game_id, table=None)`, `set_collection_order(name, games)`, `rename_collection(name, new_name)`, `describe_collection(name, description)` |
 
 - `create_collection` makes a hand-picked collection.  Rules, ordering by a field, exclusions
-  and pictures are not offered; they are set in the Console.
+  and pictures are not offered; they are set in the Manager.
 - `add_to_collection` and `delete_collection` work on a Smart collection too, as they do over
   the API.  A game added to one is kept whatever the rules say, and deleting one discards its
   rules.

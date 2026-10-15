@@ -11,7 +11,7 @@ from tests.support import trees
 from tests.support.project import project_files
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-OWNER = "console/game_tables.py"
+OWNER = "manager/game_tables.py"
 SKIP_PARTS = {"build", "third_party", "chromium", "tests"}
 PAIR = {"manufacturer", "year"}
 

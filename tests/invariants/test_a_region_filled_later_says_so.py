@@ -1,6 +1,6 @@
-"""A region the Console fills after the page is drawn says so while it waits.
+"""A region the Manager fills after the page is drawn says so while it waits.
 
-Its first draw is deferred through `console.busy.fill`, which marks it busy at once,
+Its first draw is deferred through `manager.busy.fill`, which marks it busy at once,
 never through a one-shot `ui.timer` of its own. A one-shot timer that fills no region is
 listed below with what it does instead.
 """
@@ -14,12 +14,12 @@ from pathlib import Path
 from tests.support import trees
 
 ROOT = Path(__file__).resolve().parents[2]
-CONSOLE = ROOT / "console"
+MANAGER = ROOT / "manager"
 HELPER = "busy.py"
 
-# (file under console/, enclosing function) -> why it is not a region's first draw.
+# (file under manager/, enclosing function) -> why it is not a region's first draw.
 NOT_A_REGION: dict[tuple[str, str], str] = {
-    ("page.py", "console_page"):
+    ("page.py", "manager_page"):
         "Puts the update count on the Devices entry once the devices have answered: "
         "a badge in the nav, not a region's content.",
     ("settings.py", "build_device_page.rerender"):
@@ -68,15 +68,15 @@ def one_shot_timers(tree: ast.AST) -> list[tuple[int, str]]:
     return found
 
 
-def _console() -> dict[str, list[tuple[int, str]]]:
-    return {path.relative_to(CONSOLE).as_posix(): one_shot_timers(trees.tree_for(path))
-            for path in sorted(CONSOLE.rglob("*.py"))}
+def _manager() -> dict[str, list[tuple[int, str]]]:
+    return {path.relative_to(MANAGER).as_posix(): one_shot_timers(trees.tree_for(path))
+            for path in sorted(MANAGER.rglob("*.py"))}
 
 
 class ARegionFilledLaterSaysSo(unittest.TestCase):
     def test_a_one_shot_timer_is_the_helper_s_or_listed_with_its_reason(self) -> None:
-        stray = [f"console/{name}:{line} in {where or 'the module'}"
-                 for name, found in _console().items() if name != HELPER
+        stray = [f"manager/{name}:{line} in {where or 'the module'}"
+                 for name, found in _manager().items() if name != HELPER
                  for line, where in found if (name, where) not in NOT_A_REGION]
 
         self.assertEqual([], stray,
@@ -85,13 +85,13 @@ class ARegionFilledLaterSaysSo(unittest.TestCase):
                          "in NOT_A_REGION with the reason.")
 
     def test_every_listed_timer_is_still_there(self) -> None:
-        present = {(name, where) for name, found in _console().items()
+        present = {(name, where) for name, found in _manager().items()
                    for _line, where in found}
 
         self.assertEqual([], sorted(set(NOT_A_REGION) - present))
 
     def test_the_helper_s_own_is_found(self) -> None:
-        self.assertEqual(["fill"], [where for _line, where in _console()[HELPER]])
+        self.assertEqual(["fill"], [where for _line, where in _manager()[HELPER]])
 
     def test_only_a_one_shot_timer_is_counted(self) -> None:
         tree = trees.parse_snippet(

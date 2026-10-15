@@ -92,7 +92,7 @@ _RENAMED_KEYS = (
     ('Media', 'tableresolution', 'playfieldresolution'),
     ('Media', 'tablevideoresolution', 'playfieldvideoresolution'),
     ('Media', 'tablemediapriority', 'playfieldmediapriority'),
-    # `console` is the web UI now, so the log destination says which one it means.
+    # `console` is what 2.x called terminal logging; `terminal` says which of the two it means.
     ('logger', 'console', 'terminal'),
 )
 
@@ -250,9 +250,9 @@ class ConfigStore:
             logger.info("Generating default settings at: %s", self.json_path)
             self.format_defaults()
             # Where a new install starts, as against an upgrade, which takes the schema's
-            # defaults: the Console follows the device's light or dark rather than
+            # defaults: the Manager follows the device's light or dark rather than
             # opening in the one palette that no operating system can ask for.
-            self.config.set('console', 'appearance', 'system')
+            self.config.set('manager', 'appearance', 'system')
             self.config.set('device', 'setup_pending', 'true')
             self.save()
 
@@ -545,7 +545,7 @@ class ConfigStore:
 
     def reread(self) -> None:
         """Take in the file as it stands now. A store holds what it read when it was made,
-        and the Console writes through ones of its own, so a long-lived one is what VPinFE
+        and the Manager writes through ones of its own, so a long-lived one is what VPinFE
         started with until it is told to look again. Anything staged and not saved is
         dropped."""
         if not os.path.exists(self.json_path):

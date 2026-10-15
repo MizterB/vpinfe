@@ -3,7 +3,7 @@
 In a test file that imports `tests.support.browser_session` or
 `tests.support.live_instance`, a `sleep` of a literal 0.25s or more fails, and so does a
 `setTimeout` in the page's script with a literal delay of 250ms or more. Wait on the
-change the action causes instead: `console_walk`'s `act`, `BrowserSession.wait_for`, the
+change the action causes instead: `manager_walk`'s `act`, `BrowserSession.wait_for`, the
 app's own signal. A check that nothing happened waits out a named window, whose name says
 what it is sized from.
 """
@@ -138,7 +138,7 @@ class ABrowserTestWaitsOnTheApp(unittest.TestCase):
                  for line, seconds in long_sleeps(tree)]
 
         self.assertEqual([], found,
-                         "Wait on the change the action causes - console_walk's act, "
+                         "Wait on the change the action causes - manager_walk's act, "
                          "BrowserSession.wait_for, the app's own signal. A check that "
                          "nothing happened waits a named window sized from what could "
                          "still cause it.")
@@ -157,7 +157,7 @@ class ABrowserTestWaitsOnTheApp(unittest.TestCase):
         read = browser_tests()
 
         for name in ("tests/theming/test_render_smoke.py",
-                     "tests/theming/test_console_pages_drive.py",
+                     "tests/theming/test_manager_pages_drive.py",
                      "tests/games/test_revert_3x.py"):
             self.assertIn(name, read)
         self.assertNotIn("tests/invariants/test_a_browser_test_waits_on_the_app.py", read)

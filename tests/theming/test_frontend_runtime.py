@@ -467,7 +467,7 @@ class ReopenWindowsTests(unittest.TestCase):
 
 
 class RegisterWindowApisTests(unittest.TestCase):
-    """A window is refused at the socket until it has an API, and Setup and the Console
+    """A window is refused at the socket until it has an API, and Setup and the Manager
     assign screens after the process has booted."""
 
     def _register(self, bridge, screens: dict[str, str], windows=("table", "bg", "dmd")):

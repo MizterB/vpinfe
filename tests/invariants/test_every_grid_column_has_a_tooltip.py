@@ -12,7 +12,7 @@ import unittest
 from tests.support import trees
 
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
-CONSOLE = REPO / "console"
+MANAGER = REPO / "manager"
 
 DECLARERS = {"column", "identifier", "list_column"}
 GRID_MODULES = {"grid", "grid_module"}
@@ -37,7 +37,7 @@ class EveryGridColumnHasATooltip(unittest.TestCase):
     def test_every_declared_column_passes_help(self) -> None:
         found = 0
         bare = []
-        for path in sorted(CONSOLE.rglob("*.py")):
+        for path in sorted(MANAGER.rglob("*.py")):
             if path.name == "grid.py":
                 continue
             for node in _declarations(trees.tree_for(path)):

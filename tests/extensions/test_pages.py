@@ -349,7 +349,7 @@ class Titled(unittest.TestCase):
         self.assertEqual(record.pages()[0]["title"], "Weekly plays")
 
     def test_a_page_may_not_be_named_for_a_core_page(self) -> None:
-        record = self.load(title=t("console.section.games"))
+        record = self.load(title=t("manager.section.games"))
 
         self.assertEqual(record.state, host.FAILED)
         self.assertIn("a page", record.error)

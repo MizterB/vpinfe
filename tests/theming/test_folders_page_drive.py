@@ -15,15 +15,15 @@ from tempfile import TemporaryDirectory
 
 from common.i18n import t
 from tests.support.browser_session import BrowserSession, chromium_path
-from tests.support.console_walk import ConsoleWalk
 from tests.support.library import game_info, write_game
 from tests.support.live_instance import LiveInstance
+from tests.support.manager_walk import ManagerWalk
 
-ADDRESS = "/console?view=settings&page=library.folders"
-BODY = "document.querySelector('.console-settings-body').innerText"
-ROWS = ".console-settings-body .console-member-row"
+ADDRESS = "/manager?view=settings&page=library.folders"
+BODY = "document.querySelector('.manager-settings-body').innerText"
+ROWS = ".manager-settings-body .manager-member-row"
 ROW_TEXTS = f"[...document.querySelectorAll({json.dumps(ROWS)})].map(el => el.innerText)"
-MENU_ITEMS = ".q-menu .console-menu-item"
+MENU_ITEMS = ".q-menu .manager-menu-item"
 MENU_TEXTS = (f"[...document.querySelectorAll({json.dumps(MENU_ITEMS)})]"
               ".map(el => el.innerText.replace(/^[a-z_]+\\s*/, '').trim())")
 NOTICES = "[...document.querySelectorAll('.q-notification')].map(n => n.innerText)"
@@ -54,7 +54,7 @@ class FoldersPageDrive(unittest.TestCase):
     async def _drive(cls, instance: LiveInstance, second: str) -> dict:
         instance.wait_for_api()
         urllib.request.urlopen(urllib.request.Request(
-            instance.console_url("/api/v1/config/locations/second"),
+            instance.manager_url("/api/v1/config/locations/second"),
             data=json.dumps({"path": second, "kind": "root"}).encode(), method="PUT",
             headers={"Content-Type": "application/json"}), timeout=10).close()
         seen: dict = {"second": second}
@@ -62,7 +62,7 @@ class FoldersPageDrive(unittest.TestCase):
             await browser.send("Emulation.setDeviceMetricsOverride",
                                {"width": 1700, "height": 1000, "deviceScaleFactor": 1,
                                 "mobile": False})
-            walk = ConsoleWalk(browser, instance)
+            walk = ManagerWalk(browser, instance)
             await walk.visit(ADDRESS)
             await browser.wait_for(f"document.querySelectorAll({json.dumps(ROWS)}).length === 2")
             seen["body"] = await browser.evaluate(BODY)
@@ -80,7 +80,7 @@ class FoldersPageDrive(unittest.TestCase):
             await walk.visit(ADDRESS)
             await browser.wait_for(f"document.querySelectorAll({json.dumps(ROWS)}).length === 2")
             await walk.act(
-                lambda: browser.click(f"{ROWS} .console-row-action button", nth=1),
+                lambda: browser.click(f"{ROWS} .manager-row-action button", nth=1),
                 until=f"document.querySelectorAll({json.dumps(ROWS)}).length === 1")
             seen["after_remove"] = await browser.evaluate(ROW_TEXTS)
             seen["notices"] = await browser.evaluate(NOTICES)
@@ -93,18 +93,18 @@ class FoldersPageDrive(unittest.TestCase):
 
             await walk.act(lambda: browser.click(f"{ROWS} .q-btn", nth=1),
                            until=f"document.querySelectorAll({json.dumps(MENU_ITEMS)}).length > 0")
-            await browser.evaluate(choose(t("console.theme_sources.move_down")))
+            await browser.evaluate(choose(t("manager.theme_sources.move_down")))
             await browser.wait_for(
                 f"{ROW_TEXTS}[0].includes({json.dumps(second)})")
             seen["after_move"] = await browser.evaluate(ROW_TEXTS)
             seen["moved_on_server"] = [
                 one["path"] for one in json.load(urllib.request.urlopen(
-                    instance.console_url("/api/v1/locations"), timeout=10))["locations"]]
+                    instance.manager_url("/api/v1/locations"), timeout=10))["locations"]]
 
             await walk.act(lambda: browser.click(f"{ROWS} .q-btn", nth=1),
                            until=f"document.querySelectorAll({json.dumps(MENU_ITEMS)}).length > 0")
-            await browser.evaluate(choose(t("console.folders.put_here")))
-            chip = json.dumps(t("console.folders.new_games"))
+            await browser.evaluate(choose(t("manager.folders.put_here")))
+            chip = json.dumps(t("manager.folders.new_games"))
             await browser.wait_for(f"{CHIPS % chip}.some(Boolean)")
             seen["chips"] = await browser.evaluate(CHIPS % chip)
         return seen
@@ -121,14 +121,14 @@ class FoldersPageDrive(unittest.TestCase):
         self.assertNotIn("duplicate", self.seen["rows"][0])
 
     def test_the_page_says_which_folder_wins_and_offers_the_choice(self) -> None:
-        for key in ("console.folders.priority", "console.folders.add_folder"):
+        for key in ("manager.folders.priority", "manager.folders.add_folder"):
             self.assertIn(t(key), self.seen["body"])
 
     def test_the_menu_on_the_first_row_moves_down_and_never_up(self) -> None:
         menu = self.seen["menu_first"]
 
-        self.assertIn(t("console.theme_sources.move_down"), menu)
-        self.assertNotIn(t("console.theme_sources.move_up"), menu)
+        self.assertIn(t("manager.theme_sources.move_down"), menu)
+        self.assertNotIn(t("manager.theme_sources.move_up"), menu)
         self.assertEqual(menu[-1], t("word.remove"))
 
     def test_animation_frames_keep_running_after_an_escape(self) -> None:

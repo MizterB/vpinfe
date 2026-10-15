@@ -35,7 +35,7 @@ PARTICLES = frozenset({"in", "on", "over", "up"})
 def field_label(text: str) -> str:
     """A label as a person reads it: title case, acronyms as acronyms.
 
-    One rule for every label the Console shows - a panel's fact, a column header, a picker
+    One rule for every label the Manager shows - a panel's fact, a column header, a picker
     entry - applied where they all pass rather than at each call site, so a hand-typed
     one cannot drift from the rest.
 

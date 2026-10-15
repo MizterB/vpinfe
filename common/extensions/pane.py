@@ -1,5 +1,5 @@
 """What a list's `detail(row_id)` or a panel group may answer, checked before the
-Console draws any of it.
+Manager draws any of it.
 
 The pane has a closed vocabulary, like a dialog's step: a key core does not read would be
 dropped without a word, so it is refused where the extension can see it. A secret goes out

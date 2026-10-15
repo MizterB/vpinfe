@@ -12,17 +12,17 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from tests.support.browser_session import BrowserSession, chromium_path
-from tests.support.console_walk import ConsoleWalk
 from tests.support.live_instance import LiveInstance
+from tests.support.manager_walk import ManagerWalk
 
 # The panel's State and the grid's cell, each by its words.
-PANEL = "[...document.querySelectorAll('.console-tier')].map(el => el.innerText.trim())"
+PANEL = "[...document.querySelectorAll('.manager-tier')].map(el => el.innerText.trim())"
 GRID = "[...document.querySelectorAll('.ag-cell')].map(el => el.innerText.trim())"
 PANEL_ANSWERS = f"{GRID}.includes('Answering') && {PANEL}.includes('Answering')"
-CHIPS = "[...document.querySelectorAll('.console-chips .console-tier')]"
+CHIPS = "[...document.querySelectorAll('.manager-chips .manager-tier')]"
 FEATURES = f"{CHIPS}.map(el => el.innerText.trim())"
-LIT = f"{CHIPS}.filter(el => el.classList.contains('console-tier--on')).length"
-FACTS = "document.querySelector('.console-workbench-body').innerText"
+LIT = f"{CHIPS}.filter(el => el.classList.contains('manager-tier--on')).length"
+FACTS = "document.querySelector('.manager-workbench-body').innerText"
 
 
 class DevicePanelReachDrive(unittest.TestCase):
@@ -42,7 +42,7 @@ class DevicePanelReachDrive(unittest.TestCase):
     async def _drive(cls, instance: LiveInstance) -> None:
         instance.wait_for_api()
         async with BrowserSession(chromium_path() or "") as browser:
-            await ConsoleWalk(browser, instance).visit("/console?view=devices")
+            await ManagerWalk(browser, instance).visit("/manager?view=devices")
             await browser.wait_for(PANEL_ANSWERS)
             cls.answered = True
             cls.features = await browser.evaluate(FEATURES)

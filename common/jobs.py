@@ -2,7 +2,7 @@
 
 A job is the answer to "this takes minutes and someone wants to watch". The event
 shape is the one common/events.py documents, and it does not vary with who started
-the work - a scan begun in the Console looks the same on the stream as one begun
+the work - a scan begun in the Manager looks the same on the stream as one begun
 over the API, because both come through here.
 
 Two entry points, one registry behind them. `submit` runs the work on its own thread
@@ -42,7 +42,7 @@ RUNNING = "running"
 DONE = "done"
 FAILED = "failed"
 
-# Well-known kinds. Named here because both the Console and the API start this
+# Well-known kinds. Named here because both the Manager and the API start this
 # work and the exclusivity rule only means anything if they agree on the name.
 KIND_LIBRARY_SCAN = "library.scan"
 # Its own kind, not the scan's: this only reads, so it may run beside anything.

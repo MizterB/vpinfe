@@ -20,9 +20,9 @@ from tempfile import TemporaryDirectory
 from common import accepted, machine_secrets
 from tests.support import pictures
 from tests.support.browser_session import BrowserSession, chromium_path
-from tests.support.console_walk import ConsoleWalk
 from tests.support.library import game_info, write_game
 from tests.support.live_instance import REPO_ROOT, LiveInstance
+from tests.support.manager_walk import ManagerWalk
 from tests.theming.test_players_drive import (
     ACTS,
     AT,
@@ -66,7 +66,7 @@ class PictureFromAService(unittest.TestCase):
         seen: dict = {}
         instance.wait_for_api()
         owner = instance.api("/api/v1/players")["players"][0]["id"]
-        account = instance.console_url(f"/api/v1/players/{owner}/accounts/sample")
+        account = instance.manager_url(f"/api/v1/players/{owner}/accounts/sample")
 
         def put(values: dict) -> None:
             urllib.request.urlopen(urllib.request.Request(
@@ -75,7 +75,7 @@ class PictureFromAService(unittest.TestCase):
 
         def stored() -> tuple[int, int, int] | None:
             try:
-                with urllib.request.urlopen(instance.console_url(
+                with urllib.request.urlopen(instance.manager_url(
                         f"/api/v1/players/{owner}/picture"), timeout=10) as held:
                     return _centre(held.read())
             except urllib.error.HTTPError:
@@ -94,7 +94,7 @@ class PictureFromAService(unittest.TestCase):
             await browser.send("Emulation.setDeviceMetricsOverride",
                                {"width": 1600, "height": 1000, "deviceScaleFactor": 1,
                                 "mobile": False})
-            walk = ConsoleWalk(browser, instance)
+            walk = ManagerWalk(browser, instance)
 
             async def press(selector: str, says: str) -> None:
                 found = AT % (json.dumps(selector), json.dumps(says))
@@ -106,7 +106,7 @@ class PictureFromAService(unittest.TestCase):
                 await browser.wait_for(DIALOG_UP)
 
             async def visit() -> None:
-                await walk.visit("/console?view=players")
+                await walk.visit("/manager?view=players")
                 await walk.drawn()
                 await browser.click(_cell(owner, ".ag-cell[col-id=initials]"))
                 await browser.wait_for(f"{TITLE}.length > 0")
@@ -170,7 +170,7 @@ class PictureFromAService(unittest.TestCase):
                 ".querySelector('.q-btn').click()")
             seen["undone"] = await stored_is(pictures.BLUE)
 
-            seen["console"] = [line for line in browser.console if "error" in line.lower()]
+            seen["page_log"] = [line for line in browser.page_log if "error" in line.lower()]
         return seen
 
     def test_the_online_source_is_offered_only_when_the_service_has_a_picture(self) -> None:
@@ -186,7 +186,7 @@ class PictureFromAService(unittest.TestCase):
         self.assertTrue(self.seen["undone"])
 
     def test_nothing_failed_in_the_browser(self) -> None:
-        self.assertEqual(self.seen["console"], [])
+        self.assertEqual(self.seen["page_log"], [])
 
 
 if __name__ == "__main__":

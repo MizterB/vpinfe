@@ -17,21 +17,21 @@ from typing import Any
 
 from common.i18n import t
 from tests.support.browser_session import BrowserSession, chromium_path
-from tests.support.console_walk import ConsoleWalk
 from tests.support.library import write_game
 from tests.support.live_instance import LiveInstance
+from tests.support.manager_walk import ManagerWalk
 
-CARD = ".console-wizard-card"
-TITLE = f"{CARD} .console-wizard-title"
-FORWARD = f"{CARD} .console-wizard-forward"
-RADIO = f"{CARD} .console-wizard-pick"
-FOUND = f"{CARD} .console-wizard-found"
-CARD_UP = ("[...document.querySelectorAll('.console-wizard-card')].some(card =>"
+CARD = ".manager-wizard-card"
+TITLE = f"{CARD} .manager-wizard-title"
+FORWARD = f"{CARD} .manager-wizard-forward"
+RADIO = f"{CARD} .manager-wizard-pick"
+FOUND = f"{CARD} .manager-wizard-found"
+CARD_UP = ("[...document.querySelectorAll('.manager-wizard-card')].some(card =>"
            " getComputedStyle(card.closest('.q-dialog__inner')).transform === 'none'"
            " && card.getBoundingClientRect().width > 0)")
 CARD_GONE = f"!document.querySelector({json.dumps(CARD)})"
 TEXT_OF = "(() => { const el = document.querySelector(%s); return el ? el.innerText : null; })()"
-ASKED = t("console.setup.tables.title")
+ASKED = t("manager.setup.tables.title")
 PENDING = {("device", "setup_pending"): True}
 
 
@@ -75,7 +75,7 @@ class SetupTablesDrive(unittest.TestCase):
         seen: dict[str, Any] = {}
         instance.wait_for_api()
         async with BrowserSession(binary) as browser:
-            walk = ConsoleWalk(browser, instance)
+            walk = ManagerWalk(browser, instance)
 
             async def title() -> str:
                 return (await browser.evaluate(TEXT_OF % json.dumps(TITLE)) or "").strip()
@@ -174,7 +174,7 @@ class SetupTablesDrive(unittest.TestCase):
             await browser.wait_for("location.search.includes('view=jobs')", timeout=60)
         except TimeoutError as exc:
             now = await browser.evaluate(
-                "location.href + '\\n' + (document.querySelector('.console-wizard-card')"
+                "location.href + '\\n' + (document.querySelector('.manager-wizard-card')"
                 " || document.body).innerText")
             raise AssertionError(f"{exc}\n{now}\n{h['instance'].output()[-1500:]}") from exc
         seen["where"] = await browser.evaluate("location.search")
@@ -193,7 +193,7 @@ class SetupTablesDrive(unittest.TestCase):
         seen: dict[str, Any] = {}
         browser, walk = h["browser"], h["walk"]
         await h["at_tables"]()
-        await h["choose"](t("console.setup.tables.none"))
+        await h["choose"](t("manager.setup.tables.none"))
         seen["before_typing"] = await h["forward_says"]()
         await h["type_the_path"](str(h["paths"]["fresh"]))
         await browser.wait_for(
@@ -210,20 +210,20 @@ class SetupTablesDrive(unittest.TestCase):
     async def _again(cls, h: dict[str, Any]) -> dict[str, Any]:
         seen: dict[str, Any] = {}
         browser = h["browser"]
-        await h["walk"].visit("/console?view=settings")
-        await h["click_text"]("button", t("console.setup.open"))
+        await h["walk"].visit("/manager?view=settings")
+        await h["click_text"]("button", t("manager.setup.open"))
         await browser.wait_for(CARD_UP, timeout=60)
         await h["walk"].drawn()
         for _ in range(8):
-            if await h["title"]() == t("console.setup.tables.title_have"):
+            if await h["title"]() == t("manager.setup.tables.title_have"):
                 break
             await h["forward"]()
         seen["card"] = await browser.evaluate(TEXT_OF % json.dumps(CARD))
         seen["games_before"] = len(h["instance"].api("/api/v1/games").get("games", []))
         await h["walk"].act(
-            lambda: h["click_text"](f"{CARD} button", t("console.setup.tables.import")),
+            lambda: h["click_text"](f"{CARD} button", t("manager.setup.tables.import")),
             until=(f"(document.querySelector({json.dumps(TITLE)}) || {{innerText: ''}})"
-                   f".innerText.trim() !== {json.dumps(t('console.setup.tables.title_have'))}"))
+                   f".innerText.trim() !== {json.dumps(t('manager.setup.tables.title_have'))}"))
         seen["next_title"] = await h["title"]()
         seen["games_after"] = len(h["instance"].api("/api/v1/games").get("games", []))
         return seen
@@ -232,7 +232,7 @@ class SetupTablesDrive(unittest.TestCase):
     async def _frontend(cls, h: dict[str, Any]) -> dict[str, Any]:
         seen: dict[str, Any] = {}
         await h["at_tables"]()
-        await h["choose"](t("console.setup.tables.frontend"))
+        await h["choose"](t("manager.setup.tables.frontend"))
         seen["forward"] = await h["forward_says"]()
         await h["forward"]()
         seen["next_title"] = await h["title"]()
@@ -242,7 +242,7 @@ class SetupTablesDrive(unittest.TestCase):
         seen = self.seen["folders"]
 
         self.assertEqual(t("word.next"), seen["before_typing"])
-        self.assertIn(t("console.setup.tables.found_folders", count=2), seen["found"])
+        self.assertIn(t("manager.setup.tables.found_folders", count=2), seen["found"])
         self.assertEqual(t("word.finish"), seen["forward"])
 
     def test_a_folder_of_game_folders_becomes_the_library_and_setup_is_done(self) -> None:
@@ -256,15 +256,15 @@ class SetupTablesDrive(unittest.TestCase):
         shown = self.seen["folders"]["choices"]
 
         self.assertEqual(3, len(shown))
-        for label, text in zip((t("console.setup.tables.folder"),
-                                t("console.setup.tables.frontend"),
-                                t("console.setup.tables.none")), shown, strict=True):
+        for label, text in zip((t("manager.setup.tables.folder"),
+                                t("manager.setup.tables.frontend"),
+                                t("manager.setup.tables.none")), shown, strict=True):
             self.assertIn(label, text)
 
     def test_a_folder_of_loose_tables_goes_on_to_the_importer(self) -> None:
         seen = self.seen["loose"]
 
-        self.assertIn(t("console.setup.tables.found_loose", count=3), seen["found"])
+        self.assertIn(t("manager.setup.tables.found_loose", count=3), seen["found"])
         self.assertEqual(t("word.next"), seen["forward"])
         self.assertTrue(seen["titles"])
 
@@ -297,10 +297,10 @@ class SetupTablesDrive(unittest.TestCase):
     def test_run_again_shows_what_is_there_and_never_imports_on_its_own(self) -> None:
         seen = self.seen["again"]
 
-        self.assertIn(t("console.setup.tables.have", count=1), seen["card"])
-        self.assertIn(t("console.setup.tables.import"), seen["card"])
+        self.assertIn(t("manager.setup.tables.have", count=1), seen["card"])
+        self.assertIn(t("manager.setup.tables.import"), seen["card"])
         self.assertEqual(seen["games_before"], seen["games_after"])
-        self.assertNotEqual(t("console.setup.tables.title_have"), seen["next_title"])
+        self.assertNotEqual(t("manager.setup.tables.title_have"), seen["next_title"])
 
     def test_nothing_waiting_for_finish_failed_to_start(self) -> None:
         for name, seen in self.seen.items():

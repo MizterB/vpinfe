@@ -18,7 +18,7 @@ CATALOG = served()
 # One sentence ending and the next beginning.
 _BOUNDARY = re.compile(r"[.!?][”\"')]?\s+(?=[A-Z0-9“\"(])")
 
-# The Console's helpers that draw their first argument as a help line or a state.
+# The Manager's helpers that draw their first argument as a help line or a state.
 _PANEL_HELP = frozenset({"note", "intro", "lede", "state"})
 
 
@@ -46,7 +46,7 @@ def _styled_as_help(label: ast.Call, parents: dict[ast.AST, ast.AST]) -> bool:
     call = parents.get(chained)
     return isinstance(call, ast.Call) and bool(call.args) \
         and isinstance(call.args[0], ast.Constant) \
-        and "console-help" in str(call.args[0].value)
+        and "manager-help" in str(call.args[0].value)
 
 
 def _help_and_state(tree: ast.AST) -> list[tuple[int, str]]:
@@ -86,10 +86,10 @@ class TheCatalog(unittest.TestCase):
         self.assertEqual(found, {})
 
 
-class WhereTheConsoleDrawsThem(unittest.TestCase):
+class WhereTheManagerDrawsThem(unittest.TestCase):
     def setUp(self) -> None:
         self.drawn: list[tuple[str, str]] = []
-        for path in sorted((ROOT / "console").rglob("*.py")):
+        for path in sorted((ROOT / "manager").rglob("*.py")):
             if "__pycache__" in path.parts:
                 continue
             tree = trees.tree_for(path)
@@ -105,11 +105,11 @@ class WhereTheConsoleDrawsThem(unittest.TestCase):
     def test_every_position_is_read(self) -> None:
         tree = trees.parse_snippet('x.tooltip(t("a"))\n'
                                    'panel.note(t("b"))\n'
-                                   'ui.label(t("c")).classes("text-xs console-help")\n'
+                                   'ui.label(t("c")).classes("text-xs manager-help")\n'
                                    'panel.action("x", go, hint=t("d"))\n'
                                    'panel.hint(field, t("e"))\n'
                                    'panel.state(t("f") if on else t("g"), "on")\n'
-                                   'ui.label(t("h")).classes("console-card-title")\n')
+                                   'ui.label(t("h")).classes("manager-card-title")\n')
 
         self.assertEqual(sorted(key for _line, key in _help_and_state(tree)),
                          ["a", "b", "c", "d", "e", "f", "g"])

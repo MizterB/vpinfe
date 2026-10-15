@@ -1,4 +1,4 @@
-"""Render the Console in a language where every catalog entry is unreadable.
+"""Render the Manager in a language where every catalog entry is unreadable.
 
 The AST checks answer "is there a literal in a display position?" - and four rounds of
 this work showed that a string can reach the screen without ever being one: through a
@@ -22,9 +22,9 @@ from tempfile import TemporaryDirectory
 
 from frontend.chromium_manager import get_chromium_path
 from tests.support.browser_session import BrowserSession, chromium_path
-from tests.support.console_walk import ConsoleWalk, clicked
 from tests.support.library import write_game
 from tests.support.live_instance import LiveInstance
+from tests.support.manager_walk import ManagerWalk, clicked
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -43,7 +43,7 @@ GAME = "Attack from Mars"
 DOTTED = re.compile(r"\b[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+\b", re.IGNORECASE)
 KEYS = {key.lower(): key for key in CATALOG}
 # The Chrome command line on the Browser page is the program's own options, not our chrome.
-ICONS = (".q-icon, .material-icons, .console-options { visibility: hidden !important; }")
+ICONS = (".q-icon, .material-icons, .manager-options { visibility: hidden !important; }")
 
 
 def _without_icons(expression: str) -> str:
@@ -98,11 +98,11 @@ _PICKER = ("[...document.querySelectorAll('.q-btn')].filter(x => x.offsetParent)
 _MENU_OPEN = "document.querySelector('.q-menu') !== null"
 
 _PICKER_TEXT = _without_icons(
-    "[...document.querySelectorAll('.q-menu, .q-item, .console-group, .console-menu-item')]"
+    "[...document.querySelectorAll('.q-menu, .q-item, .manager-group, .manager-menu-item')]"
     ".filter(x => x.offsetParent).map(x => x.innerText || '').join('\\n')")
 
 
-async def _picker_text(walk: ConsoleWalk) -> str:
+async def _picker_text(walk: ManagerWalk) -> str:
     """What the column picker says, or "" on a page that has no picker."""
     if not await walk.browser.evaluate(f"!!{_PICKER}"):
         return ""
@@ -191,7 +191,7 @@ class PseudoLocaleTests(unittest.TestCase):
             # is stored data, and translating it would rename what is on disk
             | {"last", "played"}
             # Table features named after the person or the product that made them -
-            # `console/table_features.py` writes these as literals for the same reason
+            # `manager/table_features.py` writes these as literals for the same reason
             # the launcher names above are literals. A translated nFozzy is a wrong one.
             | {"nfozzy", "ssf", "lut", "fastflips", "flexdmd"}
             # `alt_color` and `alt_sound` are asset kinds the registry does not name, so
@@ -201,8 +201,8 @@ class PseudoLocaleTests(unittest.TestCase):
             | {"color", "sound"})
         allowed = set(content)
 
-        from console import page as console_page
-        sections = sorted(set(console_page.SECTIONS) - CONTENT_HEAVY)
+        from manager import page as manager_page
+        sections = sorted(set(manager_page.SECTIONS) - CONTENT_HEAVY)
         addresses = [f"view={view}" for view in sections] + list(PANELS)
 
         found: dict[str, list[str]] = {}
@@ -218,11 +218,11 @@ class PseudoLocaleTests(unittest.TestCase):
 
         async def look(instance) -> None:
             async with BrowserSession(chromium_path() or "") as browser:
-                walk = ConsoleWalk(browser, instance)
+                walk = ManagerWalk(browser, instance)
                 for view in addresses:
-                    await walk.visit(f"/console?{view}")
+                    await walk.visit(f"/manager?{view}")
                     read(view, await browser.evaluate(PAGE_WORDS) + await _picker_text(walk))
-                await walk.visit("/console?view=settings")
+                await walk.visit("/manager?view=settings")
                 async for _page in walk.sections():
                     where = await browser.evaluate("location.search")
                     settings_pages.append(where)

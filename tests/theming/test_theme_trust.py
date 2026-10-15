@@ -263,7 +263,7 @@ class AStockTitleBelongsToTheStockList(Case):
 
     def title(self) -> str:
         from common.i18n import t
-        return t("console.theme_sources.stock")
+        return t("manager.theme_sources.stock")
 
     def test_another_source_cannot_be_given_it(self) -> None:
         with self.assertRaises(service_errors.RefusedError):

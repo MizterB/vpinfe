@@ -11,8 +11,8 @@ from unittest import mock
 from common import config_schema, config_service, events
 from common.host import launch_state, peripherals, real_dmd
 from common.i18n import t
-from console import panel
-from console import settings as settings_page
+from manager import panel
+from manager import settings as settings_page
 
 _STORE: Any = "store"
 
@@ -274,9 +274,9 @@ class HelpLineTests(unittest.TestCase):
             settings_page.page_head("frontend.chromium")
             settings_page.page_head("vpinfe.network")
 
-        self.assertEqual(header.call_args_list[0].args[1], t("console.settings.note_chromium"))
+        self.assertEqual(header.call_args_list[0].args[1], t("manager.settings.note_chromium"))
         self.assertEqual(header.call_args_list[1].args[1], "")
 
     def test_the_chip_words_are_the_two_things_a_change_can_wait_for(self) -> None:
-        self.assertEqual(t("console.settings.chip_reopen"), "Reopen needed")
-        self.assertEqual(t("console.settings.chip_restart"), "Restart needed")
+        self.assertEqual(t("manager.settings.chip_reopen"), "Reopen needed")
+        self.assertEqual(t("manager.settings.chip_restart"), "Restart needed")

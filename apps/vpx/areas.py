@@ -119,7 +119,7 @@ PLUGIN_ROWS: dict[str, tuple[str, ...]] = {
     "UpscaleDMD": ("Plugin.UpscaleDMD.UpscaleMode",),
 }
 
-# Settings that name a folder, so the console offers Browse beside the typed path.
+# Settings that name a folder, so the manager offers Browse beside the typed path.
 FOLDERS = frozenset({
     "Plugin.ScoreView.LayoutFolder", "Plugin.PinMAME.PinMAMEPath", "Plugin.AltSound.Folder",
     "Plugin.Serum.SerumPath", "Plugin.VNI.VniPath", "Plugin.PUP.PUPFolder",

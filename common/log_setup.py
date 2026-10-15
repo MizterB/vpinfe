@@ -96,7 +96,7 @@ def _is_third_party_logger(logger_name: str) -> bool:
 # Each one is a decision. If a library warns about something we could fix, fix it; this
 # is for the ones where the shape it objects to is the shape we chose.
 _EXPECTED = (
-    # The Console draws its shell, waits for the browser to have it, and only then reads
+    # The Manager draws its shell, waits for the browser to have it, and only then reads
     # the library and builds the page - so handlers are attached to elements the client
     # has already seen, and it re-renders those. That staging is deliberate: reading
     # first meant a page function too slow to return, which nicegui abandons. The cost
@@ -120,7 +120,7 @@ class _ExpectedNoiseFilter(logging.Filter):
 
 
 # A record that carries `extra={TERMINAL_ONLY: True}` is for the screen in front of the
-# machine and is never written to the log file, which the Console shows to others.
+# machine and is never written to the log file, which the Manager shows to others.
 TERMINAL_ONLY = "terminal_only"
 
 

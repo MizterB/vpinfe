@@ -13,8 +13,8 @@ from starlette.testclient import TestClient
 import httpapi
 from common import sized_media
 from common.games.collection_store import CollectionStore
-from console import art
 from httpapi.responses import FOREVER
+from manager import art
 from tests.support.library import TempTree, fake_game, write_game
 
 GAME_ID = "Sized000001"

@@ -26,7 +26,7 @@ import unittest
 from tests.support import trees
 
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
-PACKAGES = ("apps", "common", "console", "extensions", "frontend", "httpapi")
+PACKAGES = ("apps", "common", "manager", "extensions", "frontend", "httpapi")
 
 # Past-tense history. "used to" also means "employed for" - "cannot be used to ask
 # whether a file exists" - and that sense always follows a form of `be`.
@@ -54,7 +54,7 @@ MEASUREMENT = re.compile(
 EXEMPT = {
     ("common/games/library_vps_state.py", "compute"):
         "'measured against its own baseline' is what the code does, not a measurement",
-    ("console/vps_match.py", "ask"):
+    ("manager/vps_match.py", "ask"):
         "`place` is the literal format '3 of 34', which is the contract",
     ("frontend/input_api.py", "set_button_mapping"):
         "the old key names are still accepted, so naming them is a live contract",

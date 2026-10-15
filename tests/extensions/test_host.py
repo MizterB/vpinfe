@@ -374,7 +374,7 @@ class WordsTests(HostCase):
         self.assertEqual(listing["views"][0]["name"], "Most played")
 
     def test_what_its_catalog_leaves_out_is_called_by_its_key(self) -> None:
-        """A setting with none is called by its key, which the Console shows as written."""
+        """A setting with none is called by its key, which the Manager shows as written."""
         record = self.registry.load(self.worded(
             "bare", {}, {"capabilities": ["ui:mount"]}, self.OFFERS))
         found = record.as_dict()

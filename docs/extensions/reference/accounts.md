@@ -41,13 +41,13 @@ ctx.ui.account(
 | `picture` | True if the service holds a picture for this player |
 | `fields` | The account as fields, below.  `[]` where the account is a user id |
 
-**Claiming is deliberate, never a side effect.**  The Console's own dialog checks `available`
+**Claiming is deliberate, never a side effect.**  The Manager's own dialog checks `available`
 live as an id is typed, saves it with a plain write (nothing sent, no key made), and makes the
 key and registers the pair only when the player turns Share on.  The acts it uses:
 
 | act key | what it should do |
 |---|---|
-| `claim` | Check the id is still free, mint the key, register the pair, answer the account.  Raise an ordinary error where the id was taken in the meantime, the player has no initials, or the account already holds a key; the Console shows what it says and leaves Share off |
+| `claim` | Check the id is still free, mint the key, register the pair, answer the account.  Raise an ordinary error where the id was taken in the meantime, the player has no initials, or the account already holds a key; the Manager shows what it says and leaves Share off |
 | `consent` | Settle `needs_consent` with no send of any kind.  Use it instead of `claim` where `claimed` is already true |
 | `disconnect` | Forget the id and key here, `ctx.players.set_account(player_id, {})`.  The account stays with the service, whatever was already shared |
 | `send_now` | Send what is waiting.  Answers a message |
@@ -63,7 +63,7 @@ it, and `account.share_changed` says when it moves; see
 the account holds back to send**, games that failed to go or a queue of scores, so nothing
 played while it was on goes later by hand or when it is turned on again.  Core's words under
 the switch are `account.share.help` in the catalog when the extension has them, else the
-Console's own naming of a played game, a rating and a high score.
+Manager's own naming of a played game, a rating and a high score.
 
 **An account that is only fields.**  Where `read` answers `fields` and no `user_id`, core shows
 the fields on the player's panel the way a settings page shows them, in the types of the

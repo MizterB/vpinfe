@@ -20,7 +20,7 @@ APPS_DIR = pathlib.Path(__file__).resolve().parents[2] / "apps"
 CONTRACT = "common.apps.contract"
 
 # Ours, whatever else is on the path.
-FIRST_PARTY = frozenset({"apps", "common", "console", "frontend", "httpapi",
+FIRST_PARTY = frozenset({"apps", "common", "manager", "frontend", "httpapi",
                          "tests"})
 
 # Third-party an app may use, one line per library. Empty today, and it stays a list

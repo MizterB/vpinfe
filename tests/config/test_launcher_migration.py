@@ -103,7 +103,7 @@ class SeedTests(unittest.TestCase):
         self.assertFalse(self.core.config.has_option("general", "vpx_bin_path"))
 
     def test_an_install_with_nothing_configured_still_gets_one(self) -> None:
-        """A launcher with no binary is something a person can fix from the Console. No
+        """A launcher with no binary is something a person can fix from the Manager. No
         launcher at all is a machine with nothing to point at."""
         self._seed(configparser.ConfigParser())
 

@@ -25,7 +25,7 @@ import unittest
 from tests.support import trees
 
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
-PACKAGES = ("apps", "common", "console", "extensions", "frontend", "httpapi")
+PACKAGES = ("apps", "common", "manager", "extensions", "frontend", "httpapi")
 # The two modules at the root are swept too: cli.py forwards metadata_service's
 # arguments, so leaving it out would have let a name go back to being half renamed.
 MODULES = ("cli.py", "main.py")

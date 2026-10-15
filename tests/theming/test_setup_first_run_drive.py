@@ -1,6 +1,6 @@
 """Setup on a first run, driven as a person would: a bare address opens it by itself,
 Finish later leaves the line over the page, Continue reopens it, the frontend's own window
-names where else to reach it, and Finish closes it onto the Console's usual home with the
+names where else to reach it, and Finish closes it onto the Manager's usual home with the
 line gone and discovery no longer saying it is pending.
 
 Slow: boots a real instance and a real browser. The instance is kept at its first run,
@@ -17,28 +17,28 @@ from tempfile import TemporaryDirectory
 
 from common.i18n import t
 from tests.support.browser_session import BrowserSession, chromium_path
-from tests.support.console_walk import ConsoleWalk
 from tests.support.live_instance import LiveInstance
+from tests.support.manager_walk import ManagerWalk
 
-CARD = ".console-wizard-card"
-TITLE = f"{CARD} .console-wizard-title"
-ASIDE = f"{CARD} .console-dialog-aside"
-FORWARD = f"{CARD} .console-wizard-forward"
-CONTINUE = ".console-action--inline"
+CARD = ".manager-wizard-card"
+TITLE = f"{CARD} .manager-wizard-title"
+ASIDE = f"{CARD} .manager-dialog-aside"
+FORWARD = f"{CARD} .manager-wizard-forward"
+CONTINUE = ".manager-action--inline"
 # The card has finished its entrance: Quasar scales it in, and a click on the way lands
 # somewhere else.
-CARD_UP = ("[...document.querySelectorAll('.console-wizard-card')].some(card =>"
+CARD_UP = ("[...document.querySelectorAll('.manager-wizard-card')].some(card =>"
            " getComputedStyle(card.closest('.q-dialog__inner')).transform === 'none'"
            " && card.getBoundingClientRect().width > 0)")
 CARD_SHOWN = f"!!document.querySelector({json.dumps(CARD)})"
 CARD_GONE = f"!document.querySelector({json.dumps(CARD)})"
 TEXT_OF = "(() => { const el = document.querySelector(%s); return el ? el.innerText : null; })()"
-LINE = ("[...document.querySelectorAll('.console-help')]"
-        f".some(el => el.innerText.trim() === {json.dumps(t('console.setup.not_finished'))})")
-CONTINUE_SHOWN = ("[...document.querySelectorAll('.console-action--inline')]"
+LINE = ("[...document.querySelectorAll('.manager-help')]"
+        f".some(el => el.innerText.trim() === {json.dumps(t('manager.setup.not_finished'))})")
+CONTINUE_SHOWN = ("[...document.querySelectorAll('.manager-action--inline')]"
                   f".some(el => el.innerText.includes({json.dumps(t('word.continue'))}))")
 # Up to the address, which is wherever this machine is reached.
-FROM_ELSEWHERE = t("console.setup.address_note", address="\0", action="").split("\0")[0].strip()
+FROM_ELSEWHERE = t("manager.setup.address_note", address="\0", action="").split("\0")[0].strip()
 
 
 class SetupFirstRunDrive(unittest.TestCase):
@@ -66,7 +66,7 @@ class SetupFirstRunDrive(unittest.TestCase):
             return saved["settings"]["device"]["setup_pending"]
 
         async with BrowserSession(binary) as browser:
-            walk = ConsoleWalk(browser, instance)
+            walk = ManagerWalk(browser, instance)
 
             async def click_text(selector: str, text: str) -> None:
                 await browser.click(selector, nth=int(await browser.wait_for(
@@ -79,8 +79,8 @@ class SetupFirstRunDrive(unittest.TestCase):
                 await walk.drawn()
 
             async def choose_none_yet() -> None:
-                radio = f"{CARD} .console-wizard-pick"
-                await click_text(radio, t("console.setup.tables.none"))
+                radio = f"{CARD} .manager-wizard-pick"
+                await click_text(radio, t("manager.setup.tables.none"))
                 field = f"{CARD} input.q-field__native"
                 shown = (f"[...document.querySelectorAll({json.dumps(field)})]"
                          ".filter(el => el.getBoundingClientRect().width > 0)")
@@ -134,7 +134,7 @@ class SetupFirstRunDrive(unittest.TestCase):
             # Each page but the last says Next, and the one it opens has another title.
             for _ in range(10):
                 title = (await browser.evaluate(TEXT_OF % json.dumps(TITLE))).strip()
-                if title == t("console.setup.tables.title"):
+                if title == t("manager.setup.tables.title"):
                     await choose_none_yet()
                 if await forward_says() == t("word.finish"):
                     break
@@ -145,7 +145,7 @@ class SetupFirstRunDrive(unittest.TestCase):
                            ".innerText.trim() !== window.fromTitle"))
                 await walk.drawn()
             seen["finish_says"] = await forward_says()
-            # Finishing reloads the page onto the Console's usual home, and the marker
+            # Finishing reloads the page onto the Manager's usual home, and the marker
             # goes with the old document.
             await walk.act(lambda: browser.click(FORWARD),
                            mark="window.beforeFinish = true",
@@ -159,7 +159,7 @@ class SetupFirstRunDrive(unittest.TestCase):
         return seen
 
     def test_a_bare_address_opens_setup_on_its_welcome(self) -> None:
-        self.assertEqual(self.seen["arrival_title"], t("console.setup.welcome_title"))
+        self.assertEqual(self.seen["arrival_title"], t("manager.setup.welcome_title"))
 
     def test_the_plain_page_does_not_name_another_address(self) -> None:
         self.assertNotIn(FROM_ELSEWHERE, self.seen["arrival_card"])
@@ -177,7 +177,7 @@ class SetupFirstRunDrive(unittest.TestCase):
         self.assertIs(self.seen["later_pending"], True)
 
     def test_continue_reopens_setup(self) -> None:
-        self.assertEqual(self.seen["continue_title"], t("console.setup.welcome_title"))
+        self.assertEqual(self.seen["continue_title"], t("manager.setup.welcome_title"))
 
     def test_the_frontends_window_names_where_else_setup_can_be_reached(self) -> None:
         self.assertIn(FROM_ELSEWHERE, self.seen["window_card"])
@@ -185,7 +185,7 @@ class SetupFirstRunDrive(unittest.TestCase):
     def test_the_last_question_ends_on_finish(self) -> None:
         self.assertEqual(self.seen["finish_says"], t("word.finish"))
 
-    def test_finish_closes_setup_onto_the_consoles_home(self) -> None:
+    def test_finish_closes_setup_onto_the_managers_home(self) -> None:
         self.assertFalse(self.seen["done_card"])
         self.assertFalse(self.seen["done_line"])
         self.assertEqual(self.seen["done_location"], "/")

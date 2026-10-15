@@ -6,7 +6,7 @@
 - Multiscreen - table, backglass, score view and topper, plus a real DMD
 - Fully remote cabinet management
 - Keyboard & controller input support
-- The Console, a web app for your library, settings and media (auto download via [VPinMediaDB](https://github.com/superhac/vpinmediadb))
+- The Manager, a web app for your library, settings and media (auto download via [VPinMediaDB](https://github.com/superhac/vpinmediadb))
 - Build custom table collections (VPS ID-based and filter-based)
 - Automatic [vpx patching](https://github.com/jsm174/vpx-standalone-scripts) for Linux & Mac
 - Fully customizable UI theming using HTML, JS and CSS
@@ -68,9 +68,9 @@ vpinfe.bat
 
 # First run
 
-The first time VPinFE starts it opens the Console on Setup.  It asks how you play, how it should look, which screen is which (on a cabinet), your controls, which Visual Pinball to run, and where your games are - or imports a library from a folder or another frontend (PinUP Popper, PinballX or PinballY).  Everything it sets can be changed later under Settings.
+The first time VPinFE starts it opens the Manager on Setup.  It asks how you play, how it should look, which screen is which (on a cabinet), your controls, which Visual Pinball to run, and where your games are - or imports a library from a folder or another frontend (PinUP Popper, PinballX or PinballY).  Everything it sets can be changed later under Settings.
 
-Anytime you want to get back to the Console, look in the terminal for the web address.  It is a line that looks like this:
+Anytime you want to get back to the Manager, look in the terminal for the web address.  It is a line that looks like this:
 
 ```
 VPinFE ready to go on http://localhost:8001, and http://192.168.1.228:8001

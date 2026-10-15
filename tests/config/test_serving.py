@@ -4,8 +4,8 @@ import configparser
 import unittest
 
 from common import device_registry, install_presence, serving
-from console import api as console_api
 from frontend import config_api
+from manager import api as manager_api
 from tests.support.library import TempTree
 
 
@@ -35,14 +35,14 @@ class ServingPortsTests(unittest.TestCase):
         self.assertEqual((network.http_port, network.theme_assets_port, network.ws_port),
                          (8001, 8000, 9002))
 
-    def test_the_console_and_the_windows_follow_the_started_port(self) -> None:
-        """Saving a new port in Settings must not point the open Console, a theme or a
+    def test_the_manager_and_the_windows_follow_the_started_port(self) -> None:
+        """Saving a new port in Settings must not point the open Manager, a theme or a
         device at a port nothing is listening on."""
         serving.bound("http_port", 8765)
         serving.bound("theme_assets_port", 8764)
         moved = _settings(http_port=9001, theme_assets_port=9000)
 
-        self.assertEqual(console_api.local_base_url(), "http://127.0.0.1:8765")
+        self.assertEqual(manager_api.local_base_url(), "http://127.0.0.1:8765")
         self.assertEqual(config_api.get_http_port(moved), 8765)
         self.assertEqual(config_api.get_theme_assets_port(moved), 8764)
         self.assertEqual(install_presence.service_ports(), {"files": {"port": 8764}})

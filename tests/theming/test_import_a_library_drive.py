@@ -14,15 +14,15 @@ from tempfile import TemporaryDirectory
 
 from common.i18n import t
 from tests.support.browser_session import BrowserSession, chromium_path
-from tests.support.console_walk import ConsoleWalk
 from tests.support.live_instance import LiveInstance
+from tests.support.manager_walk import ManagerWalk
 
 WORDS = json.loads((Path(__file__).resolve().parents[2] / "extensions" / "library_importer"
                     / "i18n" / "en.json").read_text(encoding="utf-8"))
-CARD = ".console-wizard-card"
-TITLE = f"{CARD} .console-dialog-title"
-FORWARD = f"{CARD} .console-wizard-forward"
-RADIO = f"{CARD} .console-wizard-pick"
+CARD = ".manager-wizard-card"
+TITLE = f"{CARD} .manager-dialog-title"
+FORWARD = f"{CARD} .manager-wizard-forward"
+RADIO = f"{CARD} .manager-wizard-pick"
 SHOWS = "!!document.querySelector(%s)"
 TEXT_OF = "(() => { const el = document.querySelector(%s); return el ? el.innerText : null; })()"
 CHOICES = (f"[...document.querySelectorAll({json.dumps(RADIO)})]"
@@ -31,9 +31,9 @@ TABLES = ("Alpha", "Bravo")
 # The pages between the folder and the question of how to bring the tables in; each is
 # passed with what it offers ticked.
 STEPS_BEFORE_HOW = ("games", "matches", "names", "media", "things")
-ADDRESS = "/console?view=settings&page=library.folders"
-ROWS = ".console-settings-body .console-member-row"
-ACTIONS = ".console-settings-body .console-action"
+ADDRESS = "/manager?view=settings&page=library.folders"
+ROWS = ".manager-settings-body .manager-member-row"
+ACTIONS = ".manager-settings-body .manager-action"
 ROW_COUNT = f"document.querySelectorAll({json.dumps(ROWS)}).length === %d"
 
 
@@ -68,7 +68,7 @@ class ImportALibraryDrive(unittest.TestCase):
         instance.wait_for_api()
 
         async with BrowserSession(chromium_path() or "") as browser:
-            walk = ConsoleWalk(browser, instance)
+            walk = ManagerWalk(browser, instance)
 
             async def click_text(selector: str, text: str) -> None:
                 await browser.click(selector, nth=int(await browser.wait_for(
@@ -166,7 +166,7 @@ class ImportALibraryDrive(unittest.TestCase):
             seen["rows_after"] = await browser.evaluate(
                 f"[...document.querySelectorAll({json.dumps(ROWS)})].map(el => el.innerText)")
             seen["into"] = str(into)
-            await browser.click('a.console-nav-row[href="/console?view=games"]')
+            await browser.click('a.manager-nav-row[href="/manager?view=games"]')
             try:
                 await browser.wait_for(
                     "TABLES.every(name => document.body.innerText.includes(name))"
@@ -178,7 +178,7 @@ class ImportALibraryDrive(unittest.TestCase):
         return seen
 
     def test_the_page_offers_it_beside_add(self) -> None:
-        self.assertEqual(self.seen["buttons"][:2], [t("console.folders.add_folder"),
+        self.assertEqual(self.seen["buttons"][:2], [t("manager.folders.add_folder"),
                                                      WORDS["action.import.label"]])
 
     def test_it_asks_where_the_library_is_first(self) -> None:

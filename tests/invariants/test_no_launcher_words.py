@@ -12,8 +12,8 @@ CATALOG = served()
 SAID = "This device has no launcher"
 
 SAYS_IT = (
-    "console.workbench.no_launcher",
-    "console.workbench.launcher_hint",
+    "manager.workbench.no_launcher",
+    "manager.workbench.launcher_hint",
     "error.capabilities.no_launcher",
     "error.features.no_launcher",
     "error.launch.no_launcher_configured",

@@ -2,7 +2,7 @@
 reports one.
 
 Each surface is listed here, so a new one is added to the list or it is not known to
-honor the setting. The API serves every kind either way; the Console decides what it shows.
+honor the setting. The API serves every kind either way; the Manager decides what it shows.
 """
 
 from __future__ import annotations
@@ -12,8 +12,8 @@ from collections.abc import Callable
 from unittest.mock import Mock
 
 from common.i18n import t
-from console import discovery, games, sections, workbench
-from console.data import Library
+from manager import discovery, games, sections, workbench
+from manager.data import Library
 
 HIDDEN_ASSETS = ("ini", "rom", "readme")
 HIDDEN_MEDIA = ("topper",)
@@ -99,7 +99,7 @@ def _counted(library: Library) -> int:
     """How many files the panel header says are here."""
     said = workbench._assets_label(_panel_context(library))
     for have in range(len(HIDDEN_ASSETS) + len(KEPT_ASSETS) + 1):
-        if said == t("console.workbench.assets_2", have=have):
+        if said == t("manager.workbench.assets_2", have=have):
             return have
     return 0
 

@@ -43,7 +43,7 @@ IS_MACOS = sys.platform == "darwin"
 # are in git.
 DATA_ROOTS = [
     "frontend/static",
-    "console/static",
+    "manager/static",
     "common/host/static",
     "common/i18n/catalogs",
     "apps/generic/i18n",
@@ -119,7 +119,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    # A windowed macOS build has no console; the other platforms keep one, and the
+    # A windowed macOS build has no terminal; the other platforms keep one, and the
     # Windows launcher hides it when VPinFE is started from its .bat rather than a shell.
     console=not IS_MACOS,
     disable_windowed_traceback=False,

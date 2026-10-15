@@ -99,7 +99,7 @@ def forget() -> None:
 
 def answer() -> dict[str, Any]:
     """Every waiting setting, whether a reopen can be done here, and the HTTP port the next
-    start listens on - the one the Console has to move to when that is what changed."""
+    start listens on - the one the Manager has to move to when that is what changed."""
     store = get_ini_config()
     with _lock:
         started, opened, started_windows = _started, _opened, _started_windows

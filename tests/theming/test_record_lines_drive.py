@@ -14,45 +14,45 @@ from tempfile import TemporaryDirectory
 from urllib.parse import quote
 
 from tests.support.browser_session import BrowserSession, chromium_path
-from tests.support.console_walk import ConsoleWalk
 from tests.support.library import game_info, write_game
 from tests.support.live_instance import LiveInstance
+from tests.support.manager_walk import ManagerWalk
 
 EMPTY = "Empty List"
 HELD = "Held List"
 # Two builds of one game told apart only at the end, and too long for any line here.
 LONG = "Delta (Williams 1993) " + "Community Remaster " * 6 + "%s.vpx"
 # Whether a filename's end is on screen and its front is what was cut.
-CUT = ("(root => { const box = root && root.querySelector('.console-file-name');"
+CUT = ("(root => { const box = root && root.querySelector('.manager-file-name');"
        " if (!box) return null; const all = box.getBoundingClientRect();"
        " const text = box.firstElementChild.getBoundingClientRect();"
        " return [text.right <= all.right + 1, text.left < all.left - 1,"
        " box.firstElementChild.innerText]; })(%s)")
-DELTA_ROW = ("[...document.querySelectorAll('.console-section-work .console-member-row')]"
+DELTA_ROW = ("[...document.querySelectorAll('.manager-section-work .manager-member-row')]"
              ".find(r => r.innerText.startsWith('Delta'))")
-DELTA_TABLE = ("[...document.querySelectorAll('.console-member-main')]"
+DELTA_TABLE = ("[...document.querySelectorAll('.manager-member-main')]"
                ".find(r => r.innerText.includes('lw'))")
 # Words, color and size of each part of a line: the name's selector, then the root.
 PARTS = ("(root => { if (!root) return null;"
          " const look = sel => { const el = root.querySelector(sel); if (!el) return null;"
          " const style = getComputedStyle(el);"
          " return [el.innerText.trim(), style.color, style.fontSize]; };"
-         " return [%s, '.console-cell-made', '.console-cell-join', '.console-cell-built']"
+         " return [%s, '.manager-cell-made', '.manager-cell-join', '.manager-cell-built']"
          ".map(look); })(%s)")
 # A cell is drawn before its row's text arrives, so a line is read once it says something.
 SAID = "(line => line && line[1] ? line : null)(%s)"
-GAME_CELL = ".ag-row[row-id=\"alpha\"] .console-cell-identifier"
-TABLE_CELL = ".ag-row[row-id=\"t-a1\"] .console-cell-identifier"
-MEMBER = ("[...document.querySelectorAll('.console-section-work .console-member-row')]"
+GAME_CELL = ".ag-row[row-id=\"alpha\"] .manager-cell-identifier"
+TABLE_CELL = ".ag-row[row-id=\"t-a1\"] .manager-cell-identifier"
+MEMBER = ("[...document.querySelectorAll('.manager-section-work .manager-member-row')]"
           ".find(r => r.innerText.startsWith('Alpha'))")
-HEADER = ("(() => { const title = document.querySelector('.console-workbench-title');"
-          " const el = document.querySelector('.console-workbench-label');"
+HEADER = ("(() => { const title = document.querySelector('.manager-workbench-title');"
+          " const el = document.querySelector('.manager-workbench-label');"
           " return title && title.innerText === 'Charlie' && el ? el.innerText : null; })()")
-GAMES_ROW = ("(() => { const rows = [...document.querySelectorAll('.console-section-row')];"
+GAMES_ROW = ("(() => { const rows = [...document.querySelectorAll('.manager-section-row')];"
              " const at = rows.findIndex(r => r.innerText.startsWith('Games'));"
-             " return at < 0 ? 0 : rows[at].classList.contains('console-section-on')"
+             " return at < 0 ? 0 : rows[at].classList.contains('manager-section-on')"
              " ? -1 : at + 1; })()")
-ADD_BOX = ("[...document.querySelectorAll('.console-section-work .q-select')]"
+ADD_BOX = ("[...document.querySelectorAll('.manager-section-work .q-select')]"
            ".findIndex(e => e.innerText.includes('Add Games'))")
 OPTION = ("(() => { const item = [...document.querySelectorAll('.q-menu .q-item')]"
           ".find(e => e.innerText.startsWith('Alpha')); if (!item) return null;"
@@ -104,7 +104,7 @@ class RecordLinesDrive(unittest.TestCase):
                       {"name": HELD, "games": ["delta"]})
 
         async with BrowserSession(chromium_path() or "") as browser:
-            walk = ConsoleWalk(browser, instance)
+            walk = ManagerWalk(browser, instance)
 
             async def parts(name: str, root: str, key: str) -> None:
                 seen[key] = await browser.wait_for(SAID % (PARTS % (json.dumps(name), root)),
@@ -118,35 +118,35 @@ class RecordLinesDrive(unittest.TestCase):
                 at = await browser.wait_for(GAMES_ROW, timeout=30.0)
                 if at > 0:
                     await walk.act(
-                        lambda: browser.click(".console-section-row", nth=int(at) - 1),
+                        lambda: browser.click(".manager-section-row", nth=int(at) - 1),
                         mark="window.__games = document.querySelectorAll("
-                             f"'.console-section-row')[{int(at) - 1}]",
+                             f"'.manager-section-row')[{int(at) - 1}]",
                         until="!window.__games.isConnected")
                 await browser.wait_for(f"!!({MEMBER})", timeout=30.0)
 
-            await walk.visit("/console?view=games")
-            await parts(".console-cell-named", _cell(GAME_CELL), "grid_game")
-            await walk.visit("/console?view=tables")
-            await parts(".console-cell-named", _cell(TABLE_CELL), "grid_table")
+            await walk.visit("/manager?view=games")
+            await parts(".manager-cell-named", _cell(GAME_CELL), "grid_game")
+            await walk.visit("/manager?view=tables")
+            await parts(".manager-cell-named", _cell(TABLE_CELL), "grid_table")
             seen["cut_grid"] = await browser.wait_for(
-                CUT % _cell(".ag-row[row-id=\"t-dlw\"] .console-cell-identifier"))
+                CUT % _cell(".ag-row[row-id=\"t-dlw\"] .manager-cell-identifier"))
 
-            await walk.visit("/console?view=tags")
+            await walk.visit("/manager?view=tags")
             await open_tag("Night")
-            await parts(".console-link", MEMBER, "tag_game")
+            await parts(".manager-link", MEMBER, "tag_game")
             await open_tag("VR")
-            await parts(".console-link", MEMBER, "tag_table")
+            await parts(".manager-link", MEMBER, "tag_table")
             seen["cut_tag"] = await browser.wait_for(CUT % DELTA_ROW, timeout=30.0)
 
-            await walk.visit("/console?view=games&game=charlie")
+            await walk.visit("/manager?view=games&game=charlie")
             seen["header"] = await browser.wait_for(HEADER, timeout=60.0)
-            await walk.visit("/console?view=games&game=delta")
+            await walk.visit("/manager?view=games&game=delta")
             seen["cut_game"] = await browser.wait_for(CUT % DELTA_TABLE, timeout=60.0)
-            await walk.visit(f"/console?view=collections&collection={quote(HELD)}")
+            await walk.visit(f"/manager?view=collections&collection={quote(HELD)}")
             seen["cut_collection"] = await browser.wait_for(CUT % DELTA_ROW, timeout=60.0)
 
-            await walk.visit(f"/console?view=collections&collection={quote(EMPTY)}")
-            await browser.click(".console-section-work .q-select input",
+            await walk.visit(f"/manager?view=collections&collection={quote(EMPTY)}")
+            await browser.click(".manager-section-work .q-select input",
                                 nth=await browser.evaluate(ADD_BOX))
             seen["option"] = await browser.wait_for(OPTION, timeout=30.0)
         return seen

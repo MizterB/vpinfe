@@ -11,11 +11,11 @@ import unittest
 from tests.support import trees
 
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
-CONSOLE = REPO / "console"
+MANAGER = REPO / "manager"
 
 
 def _sources() -> list[tuple[pathlib.Path, ast.Module]]:
-    return [(p, trees.tree_for(p)) for p in sorted(CONSOLE.rglob("*.py"))]
+    return [(p, trees.tree_for(p)) for p in sorted(MANAGER.rglob("*.py"))]
 
 
 def _action_calls(tree: ast.Module) -> list[ast.Call]:

@@ -197,7 +197,7 @@
     }
 
     // Decline comes first so the default focus is the safe answer, and Close leaves the
-    // ask waiting in the Console. A change too long to read from across the room cannot
+    // ask waiting in the Manager. A change too long to read from across the room cannot
     // be approved here at all.
     function drawApproval(shown) {
       heading.textContent = t('frontend.approval.wants', '“{program}” wants to make a change',
@@ -210,7 +210,7 @@
         : `${shown.method} ${shown.path}`;
       toolong.hidden = !shown.long;
       toolong.textContent = shown.long
-        ? t('frontend.approval.too_long', 'Too long to read here - approve it in the Console') : '';
+        ? t('frontend.approval.too_long', 'Too long to read here - approve it in the Manager') : '';
       expires.hidden = false;
       drawExpiry();
       showOnly(shown.long ? ['decline', 'close'] : ['decline', 'approve', 'close']);

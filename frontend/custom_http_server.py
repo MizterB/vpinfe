@@ -494,7 +494,7 @@ class CustomHTTPServer:
             """Core's own chrome, for the pages core serves.
 
             Only `CORE_WORDS` and the two number separators: a theme page has no business
-            with the Console's words, and shipping them would put the whole catalog on the
+            with the Manager's words, and shipping them would put the whole catalog on the
             frontend to render six menu items.
 
             `?theme=<folder>` adds that theme's own words from its `locales/` folder,

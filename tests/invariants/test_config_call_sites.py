@@ -2,7 +2,7 @@
 
 `config_schema` says it holds every setting VPinFE has, and the store fills a new file
 from it - so a setting the schema does not know about is never written, never offered in
-the Console, and never covered by the naming and alias checks either. Two had already
+the Manager, and never covered by the naming and alias checks either. Two had already
 slipped through that way, `assets_dir` and `wheelset`, both live and both documented.
 
 Read from the source rather than by importing, so a call site behind a branch or an

@@ -43,7 +43,7 @@
     "on_vpinfe_start": "",
     "timeout": "15"
   },
-  "console": {
+  "manager": {
     "appearance": "synthwave",
     "thumbnail": "wheel",
     "thumbnail_frame": "true",

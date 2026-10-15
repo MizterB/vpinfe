@@ -9,7 +9,7 @@ is a different thing with its own page.
 
 Core writes and mounts every route.  You hand it data and Python functions - settings, rows, a
 dialog, an account's functions - and it serves them under `/api/v1/ext/<name>`, shows them in
-the Console and gates them.  Add routes of your own with `ctx.add_router` only for an API that
+the Manager and gates them.  Add routes of your own with `ctx.add_router` only for an API that
 is yours.
 
 Use this page to look things up.  Each `ctx` call has a heading, each declaration has a

@@ -1,7 +1,7 @@
 """Every setting VPinFE has, declared once.
 
 One place says what a setting is called, what it accepts, what it defaults to and what
-it means, so the config file, the Console and anything reading us over HTTP describe
+it means, so the config file, the Manager and anything reading us over HTTP describe
 it the same way.
 
 `default` is the string the ini writes today, so this file can be checked against the
@@ -145,9 +145,9 @@ class ConfigOption:
     # The lowest and highest a number may be. Empty is unbounded.
     minimum: int | None = None
     maximum: int | None = None
-    # A change to this can put the Console out of reach of the device making it, so a
+    # A change to this can put the Manager out of reach of the device making it, so a
     # surface on such a device asks before saving.
-    cuts_off_console: bool = False
+    cuts_off_manager: bool = False
     # One of `MOVES`: a folder this setting names holds files that belong to it, so a
     # surface asks, before saving a new folder, whether they go across.
     moves_with: str = ""
@@ -233,7 +233,7 @@ PATH_KINDS = ("file", "dir", "exe")
 EDITOR_BINDING = "binding"
 # A palette is picked by looking at it. The names carry almost nothing on their own -
 # "Synthwave" means something only once you have seen it - so the control shows each one.
-EDITOR_CONSOLE_APPEARANCE = "console_appearance"
+EDITOR_MANAGER_APPEARANCE = "manager_appearance"
 # Shown in Settings, chosen on the Themes page.
 EDITOR_FRONTEND_THEME = "frontend_theme"
 # The kinds of art the library keeps, which only a running install can say.
@@ -244,7 +244,7 @@ EDITOR_CAPTURE_COMMAND = "capture_command"
 # VPinFE's own browser options, picked from the list rather than typed: the names a
 # person would have to match are the ones VPinFE starts a window with.
 EDITOR_CHROME_LEAVE_OUT = "chrome_leave_out"
-EDITORS = (EDITOR_BINDING, EDITOR_CONSOLE_APPEARANCE, EDITOR_FRONTEND_THEME, EDITOR_THUMBNAIL,
+EDITORS = (EDITOR_BINDING, EDITOR_MANAGER_APPEARANCE, EDITOR_FRONTEND_THEME, EDITOR_THUMBNAIL,
            EDITOR_CAPTURE_COMMAND, EDITOR_CHROME_LEAVE_OUT)
 
 # What a folder setting's files are, for `ConfigOption.moves_with`.
@@ -381,7 +381,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
     ),
     # What this library collects. Each list holds what is switched off, so empty means
-    # everything and a kind added in a later version arrives switched on. The Console
+    # everything and a kind added in a later version arrives switched on. The Manager
     # draws one switch per kind from its own registries, not a text box per list.
     *in_section(
         "library",
@@ -495,9 +495,9 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             legacy=(("general", "chromeoptions"),),
         ),
     ),
-    # What the Console looks like, as against what the frontend shows a player.
+    # What the Manager looks like, as against what the frontend shows a player.
     *in_section(
-        "console",
+        "manager",
         ConfigOption(
             "appearance",
             type="choice",
@@ -506,7 +506,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             # palettes are the only answers an OS preference can give.
             default="synthwave",
             choices=("synthwave", "dark", "light", "system"),
-            editor=EDITOR_CONSOLE_APPEARANCE,
+            editor=EDITOR_MANAGER_APPEARANCE,
             legacy=(),
             group=setting_groups.APPEARANCE,
         ),
@@ -567,8 +567,8 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             choices=("region", "cm", "in"),
             group=setting_groups.MEASUREMENTS,
         ),
-        # Switches on the Console page, so the schema does not also draw it as a line of text.
-        ConfigOption("hidden_overview", type="list", default="", home="vpinfe.console",
+        # Switches on the Manager page, so the schema does not also draw it as a line of text.
+        ConfigOption("hidden_overview", type="list", default="", home="vpinfe.manager",
                      group=setting_groups.OVERVIEW),
     ),
     # Programs on this machine VPinFE shells out to. Each is discovered first, and set
@@ -865,7 +865,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         # Core moves the wheel on its own once nobody has pressed anything. Whether it does
         # so is the person's switch and the theme's `attract.enabled` together; either one
-        # off is off. The Console draws the switch and the idle time as one picker, Start
+        # off is off. The Manager draws the switch and the idle time as one picker, Start
         # After, so neither is shown on its own.
         ConfigOption(
             "attract_enabled",
@@ -1111,7 +1111,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ConfigOption(
             "http_bind",
             applies=APPLIES_RESTART,
-            cuts_off_console=True,
+            cuts_off_manager=True,
             group=setting_groups.LOCAL_SERVICES,
             type="string",
             default="0.0.0.0",
@@ -1278,7 +1278,7 @@ class ConfigList:
 
     key: str
     fields: tuple[Field, ...]
-    # The Console page that edits the list.
+    # The Manager page that edits the list.
     home: str = ""
     variant: ListVariant | None = None
     default: Callable[[], list[dict[str, Any]]] = list

@@ -1,7 +1,7 @@
 """VPinPlay's account on each player: chosen free, claimed deliberately, its card both
 ways, the owner's account made from the old settings, and the settings that are left.
 
-Driven through core's routes over the real extension, the way the Console and the phone
+Driven through core's routes over the real extension, the way the Manager and the phone
 ask. `patch.object` on `requests` stands in for VPinPlay itself - nothing here reaches the
 real service, and a call that is not stubbed for a test fails it.
 """
@@ -114,7 +114,7 @@ class VPinPlayCase(unittest.TestCase):
         return self.client.post(f"/players/{player_id}/accounts/{NAME}/acts/{act}")
 
     def available(self, candidate: str, **get_kwargs: Any):
-        """The Console's own route to it: straight through to the extension, the way its
+        """The Manager's own route to it: straight through to the extension, the way its
         settings and community pages are asked."""
         with patch.object(requests, "get", **get_kwargs):
             return self.client.get(f"/ext/{NAME}/available", params={"candidate": candidate})
@@ -344,7 +344,7 @@ class TheClaim(VPinPlayCase):
         self.assertEqual(self.held(self.owner)["claimed"], "true")
 
     def test_claiming_settles_the_consent_marker_too(self) -> None:
-        """The Console's own dialog already showed consent on this path."""
+        """The Manager's own dialog already showed consent on this path."""
         self.fill(self.owner, user_id="jordan")
 
         self.claim(self.owner)

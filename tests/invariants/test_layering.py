@@ -1,7 +1,7 @@
 """Which package may import which, asserted rather than remembered.
 
 `docs/common.md` says nothing in `common/` may import a domain package above it, and
-that the Console is one consumer of the shared services rather than their owner.
+that the Manager is one consumer of the shared services rather than their owner.
 A rule that lives only in prose gets broken without anyone choosing to. This file is
 the check, so the next break fails here instead of being found by reading.
 """
@@ -87,7 +87,7 @@ class LayeringTests(unittest.TestCase):
     def test_common_does_not_import_the_packages_above_it(self) -> None:
         """Anything may depend on `common/`, so it may depend on nothing that depends
         on it - otherwise a library install has to ship a frontend to import a game."""
-        self.assertEqual(_offenders("common", {"httpapi", "frontend", "console"}), [])
+        self.assertEqual(_offenders("common", {"httpapi", "frontend", "manager"}), [])
 
     def test_the_infrastructure_layer_does_not_import_a_domain_package(self) -> None:
         """`docs/common.md`: nothing in `common/` itself may import `games`, `online` or
@@ -156,7 +156,7 @@ class LayeringTests(unittest.TestCase):
     def test_the_api_does_not_reach_into_a_user_interface(self) -> None:
         """Business logic under a UI package makes that UI privileged: a replacement
         would import the incumbent, which is a skin rather than a replacement."""
-        self.assertEqual(_offenders("httpapi", {"console"}), [])
+        self.assertEqual(_offenders("httpapi", {"manager"}), [])
 
     def test_the_allowlist_only_names_files_that_exist(self) -> None:
         """A stale entry silently permits whatever moves into that path."""

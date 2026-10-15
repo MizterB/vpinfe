@@ -10,7 +10,7 @@ import unittest
 from tests.support import trees
 
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
-WORKBENCH = REPO / "console/workbench.py"
+WORKBENCH = REPO / "manager/workbench.py"
 WRAPPER = "_rebuilds"
 
 
@@ -36,7 +36,7 @@ def _assignments() -> list[tuple[int, str]]:
 class WorkbenchWrites(unittest.TestCase):
 
     def test_every_surface_goes_through_the_wrapper(self):
-        bare = [f"console/workbench.py:{line}: builds its own rebuild"
+        bare = [f"manager/workbench.py:{line}: builds its own rebuild"
                 for line, name in _assignments() if name != WRAPPER]
         self.assertEqual(bare, [], "\n" + "\n".join(bare))
 

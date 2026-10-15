@@ -21,7 +21,7 @@ import unittest
 from tests.support import trees
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
-SCANNED = ("common", "frontend", "httpapi", "console", "extensions")
+SCANNED = ("common", "frontend", "httpapi", "manager", "extensions")
 SKIP = {"__pycache__", ".venv", "third_party"}
 
 

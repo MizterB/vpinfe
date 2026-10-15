@@ -15,13 +15,13 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from console.binding_editor import HOLD_AT_MS, RING_AFTER_MS
+from manager.binding_editor import HOLD_AT_MS, RING_AFTER_MS
 from tests.support.browser_session import BrowserSession, chromium_path
-from tests.support.console_walk import ConsoleWalk
 from tests.support.library import game_info, write_game
 from tests.support.live_instance import LiveInstance
+from tests.support.manager_walk import ManagerWalk
 
-PAGE = "/console?view=settings&page=hardware.input"
+PAGE = "/manager?view=settings&page=hardware.input"
 
 # A press or a click that must change nothing is waited out for a round trip to the server
 # and the redraw it would cause, which lands well inside this.
@@ -37,31 +37,31 @@ HELD_PAST_S = HOLD_AT_MS / 1000 + 0.2
 SAYS = ("(el => { if (!el) return null; const copy = el.cloneNode(true);"
         " copy.querySelectorAll('.q-icon, .material-icons').forEach(i => i.remove());"
         " return copy.textContent.trim().replace(/\\s+/g, ' '); })")
-ROW = ("[...document.querySelectorAll('.console-binding-row')].find(row =>"
-       " row.querySelector('.console-binding-label').textContent.trim() === %s)")
-LABELS = ("[...document.querySelectorAll('.console-binding-row .console-binding-label')]"
+ROW = ("[...document.querySelectorAll('.manager-binding-row')].find(row =>"
+       " row.querySelector('.manager-binding-label').textContent.trim() === %s)")
+LABELS = ("[...document.querySelectorAll('.manager-binding-row .manager-binding-label')]"
           ".map(el => el.textContent.trim())")
-CHIPS = (f"(row => [...row.querySelectorAll('.console-binding-field .console-member-chip')]"
+CHIPS = (f"(row => [...row.querySelectorAll('.manager-binding-field .manager-member-chip')]"
          f".map({SAYS}))({ROW})")
-CHIP_AT = ("(() => { const chips = [...document.querySelectorAll('.console-member-chip')];"
-           f" return chips.findIndex(chip => chip.closest('.console-binding-row') === ({ROW})"
+CHIP_AT = ("(() => { const chips = [...document.querySelectorAll('.manager-member-chip')];"
+           f" return chips.findIndex(chip => chip.closest('.manager-binding-row') === ({ROW})"
            f" && ({SAYS})(chip) === %s); }})()")
 MARK_AT = ("(() => { const marks = [...document.querySelectorAll(%s)];"
-           f" return marks.findIndex(mark => mark.closest('.console-binding-row') === ({ROW}));"
+           f" return marks.findIndex(mark => mark.closest('.manager-binding-row') === ({ROW}));"
            " })()")
-REMOVE_AT = ("(() => { const marks = [...document.querySelectorAll('.console-chip-remove')];"
-             f" return marks.findIndex(mark => mark.closest('.console-binding-row') === ({ROW})"
-             f" && ({SAYS})(mark.closest('.console-chip-holder')"
-             ".querySelector('.console-member-chip')) === %s); })()")
+REMOVE_AT = ("(() => { const marks = [...document.querySelectorAll('.manager-chip-remove')];"
+             f" return marks.findIndex(mark => mark.closest('.manager-binding-row') === ({ROW})"
+             f" && ({SAYS})(mark.closest('.manager-chip-holder')"
+             ".querySelector('.manager-member-chip')) === %s); })()")
 LINE = ("(el => el ? [...el.children].filter(part => !part.classList.contains('q-icon'))"
         ".map(part => part.textContent.trim()).join(' ') : null)"
-        "(document.querySelector('.console-binding-live'))")
+        "(document.querySelector('.manager-binding-live'))")
 LISTENING = "((window.__bindingListen || {}).row || '')"
-LISTENING_ROWS = ("[...document.querySelectorAll('.console-binding-row--listening')]"
-                  ".map(row => row.querySelector('.console-binding-label').textContent.trim())")
-RING_IN = f"(row => !!row.querySelector('.console-binding-ring'))({ROW})"
-RINGS = "document.querySelectorAll('.console-binding-ring').length"
-GAP = ("(() => { const label = document.querySelector('.console-binding-label');"
+LISTENING_ROWS = ("[...document.querySelectorAll('.manager-binding-row--listening')]"
+                  ".map(row => row.querySelector('.manager-binding-label').textContent.trim())")
+RING_IN = f"(row => !!row.querySelector('.manager-binding-ring'))({ROW})"
+RINGS = "document.querySelectorAll('.manager-binding-ring').length"
+GAP = ("(() => { const label = document.querySelector('.manager-binding-label');"
        " label.scrollIntoView({block: 'center'});"
        " const box = label.getBoundingClientRect();"
        " return {x: box.right + 5, y: box.top + box.height / 2}; })()")
@@ -80,9 +80,9 @@ DIALOG_TEXT = ("(() => { const card = document.querySelector('.q-dialog .q-card'
                "   if (text && !icon) parts.push(text);"
                " }"
                " return parts.join(' '); })()")
-BUTTONS = "[...document.querySelectorAll('.q-dialog .console-dialog-footer .q-btn')]"
+BUTTONS = "[...document.querySelectorAll('.q-dialog .manager-dialog-footer .q-btn')]"
 MENU = "document.querySelector('.q-menu')"
-LIT = ("[...document.querySelectorAll('.console-binding-label.console-binding-lit')]"
+LIT = ("[...document.querySelectorAll('.manager-binding-label.manager-binding-lit')]"
        ".map(el => el.innerText.trim())")
 PAD = """(() => {
   window.__pad = {index: 0, mapping: 'standard', id: 'Stand-in',
@@ -121,15 +121,15 @@ class InputTableDrive(unittest.TestCase):
             await browser.send("Emulation.setDeviceMetricsOverride",
                                {"width": 1600, "height": 1000, "deviceScaleFactor": 1,
                                 "mobile": False})
-            walk = ConsoleWalk(browser, instance)
+            walk = ManagerWalk(browser, instance)
 
             async def row(label: str) -> None:
                 nth = await browser.evaluate(f"{LABELS}.indexOf({json.dumps(label)})")
-                await browser.click(".console-binding-row .console-binding-label", nth=nth)
+                await browser.click(".manager-binding-row .manager-binding-label", nth=nth)
 
             async def chip(label: str, words: str) -> None:
                 nth = await browser.evaluate(CHIP_AT % (json.dumps(label), json.dumps(words)))
-                await browser.click(".console-member-chip", nth=nth)
+                await browser.click(".manager-member-chip", nth=nth)
 
             async def mark(selector: str, label: str) -> None:
                 nth = await browser.evaluate(MARK_AT % (json.dumps(selector),
@@ -138,11 +138,11 @@ class InputTableDrive(unittest.TestCase):
 
             async def take_off(label: str, words: str) -> None:
                 nth = await browser.evaluate(REMOVE_AT % (json.dumps(label), json.dumps(words)))
-                await browser.click(".console-chip-remove", nth=nth)
+                await browser.click(".manager-chip-remove", nth=nth)
 
             async def listening(label: str) -> None:
                 await browser.wait_for(
-                    f"(row => !!row && row.classList.contains('console-binding-row--listening')"
+                    f"(row => !!row && row.classList.contains('manager-binding-row--listening')"
                     f" && {LISTENING} === row.dataset.row)({ROW % json.dumps(label)})")
 
             async def stopped() -> None:
@@ -164,7 +164,7 @@ class InputTableDrive(unittest.TestCase):
                 await browser.wait_for(DIALOG_UP)
                 nth = await browser.evaluate(
                     f"{BUTTONS}.findIndex(el => ({SAYS})(el) === {json.dumps(button)})")
-                await browser.click(".q-dialog .console-dialog-footer .q-btn", nth=nth)
+                await browser.click(".q-dialog .manager-dialog-footer .q-btn", nth=nth)
                 await browser.wait_for(DIALOG_GONE)
                 await walk.drawn()
 
@@ -187,7 +187,7 @@ class InputTableDrive(unittest.TestCase):
             await browser.wait_for(f"{LABELS}.length > 5")
             await browser.evaluate(PAD)
             seen["headings"] = await browser.evaluate(
-                "[...document.querySelectorAll('.console-bindings .console-fact-heading')]"
+                "[...document.querySelectorAll('.manager-bindings .manager-fact-heading')]"
                 ".map(el => el.textContent.trim())")
             seen["labels"] = await browser.evaluate(LABELS)
             seen["shipped"] = {label: await browser.evaluate(CHIPS % json.dumps(label))
@@ -219,14 +219,14 @@ class InputTableDrive(unittest.TestCase):
             await listening("Next")
             seen["prompt"] = await browser.evaluate(LINE)
             seen["listening_rows"] = await browser.evaluate(LISTENING_ROWS)
-            await browser.click(".console-bindings .console-fact-heading")
+            await browser.click(".manager-bindings .manager-fact-heading")
             await stopped()
             seen["away_heading"] = {"line": await browser.evaluate(LINE),
                                     "stored": stored("next")}
 
             await row("Next")
             await listening("Next")
-            await browser.click(".console-binding-live")
+            await browser.click(".manager-binding-live")
             await stopped()
             seen["away_live_line"] = await browser.evaluate(LINE)
 
@@ -243,7 +243,7 @@ class InputTableDrive(unittest.TestCase):
             await listening("Menu")
             seen["to_another_row"] = {"listening": await browser.evaluate(LISTENING_ROWS),
                                       "line": await browser.evaluate(LINE)}
-            await browser.click(".console-bindings .console-fact-heading")
+            await browser.click(".manager-bindings .manager-fact-heading")
             await stopped()
 
             await row("Next")
@@ -252,7 +252,7 @@ class InputTableDrive(unittest.TestCase):
             await asyncio.sleep(NOTHING_FOLLOWS_S)
             seen["own_chip"] = {"listening": await browser.evaluate(LISTENING_ROWS),
                                 "menu": await browser.evaluate(f"!!{MENU}")}
-            await browser.click(".console-bindings .console-fact-heading")
+            await browser.click(".manager-bindings .manager-fact-heading")
             await stopped()
 
             await row("Next")
@@ -262,7 +262,7 @@ class InputTableDrive(unittest.TestCase):
             await stopped()
             seen["other_chip"] = {"listening": await browser.evaluate(LISTENING),
                                   "menu": await browser.evaluate(f"!!{MENU}")}
-            await browser.click(".console-bindings .console-fact-heading")
+            await browser.click(".manager-bindings .manager-fact-heading")
             await browser.wait_for(f"!{MENU}")
             await walk.drawn()
 
@@ -304,13 +304,13 @@ class InputTableDrive(unittest.TestCase):
             await walk.drawn()
             seen["held_for"] = stored("exit")
             seen["reverted_mark"] = await browser.evaluate(
-                f"!!({ROW % json.dumps('Quit')}).querySelector('.console-revert')")
+                f"!!({ROW % json.dumps('Quit')}).querySelector('.manager-revert')")
 
-            await mark(".console-revert", "Quit")
+            await mark(".manager-revert", "Quit")
             await walk.drawn()
             seen["quit_reverted"] = stored("exit")
 
-            await mark(".console-revert", "Back")
+            await mark(".manager-revert", "Back")
             await answer("Revert")
             seen["back_reverted"] = {"select": stored("select"), "back": stored("back")}
 
@@ -321,7 +321,7 @@ class InputTableDrive(unittest.TestCase):
             await chip("Take Picture", "P")
             await listening("Take Picture")
             seen["picture_menu"] = await browser.evaluate(f"!!{MENU}")
-            await browser.click(".console-bindings .console-fact-heading")
+            await browser.click(".manager-bindings .manager-fact-heading")
             await stopped()
 
             await row("Take Picture")
@@ -382,7 +382,7 @@ class InputTableDrive(unittest.TestCase):
             await walk.drawn()
             seen["removed"] = stored("next")
             seen["listening_after_remove"] = await browser.evaluate(LISTENING_ROWS)
-            await browser.click(".console-bindings .console-fact-heading")
+            await browser.click(".manager-bindings .manager-fact-heading")
             await stopped()
         return seen
 

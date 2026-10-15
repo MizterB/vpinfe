@@ -21,7 +21,7 @@ EXEMPT_PREFIXES = NAMED_BY_DATA + NAMED_BY_AN_OUTSIDE_CONTRACT
 EXEMPT_KEYS = frozenset({
     "app.vpx.from_the_screen.help",
     "app.vpx.match_the_display",
-    "console.vpx_displays.in_the_playfield_window",
+    "manager.vpx_displays.in_the_playfield_window",
 })
 
 
@@ -88,5 +88,5 @@ class TheCopyCheck(unittest.TestCase):
         self.assertFalse(_in_order_in(["parent", "tables", "now"], said))
 
     def test_a_leaf_with_a_kind_suffix_is_named_by_what_precedes_it(self) -> None:
-        self.assertEqual(_name("console.assets.reason.help"), ["reason"])
-        self.assertEqual(_name("console.assets.title"), ["title"])
+        self.assertEqual(_name("manager.assets.reason.help"), ["reason"])
+        self.assertEqual(_name("manager.assets.title"), ["title"])

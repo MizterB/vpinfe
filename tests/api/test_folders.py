@@ -440,7 +440,7 @@ class FileApiTests(TempTree):
 
 
 class FileOfKindTests(TempTree):
-    """What the Console reads on this machine before it sends the bytes."""
+    """What the Manager reads on this machine before it sends the bytes."""
 
     def test_a_file_with_one_of_the_extensions_is_answered_resolved(self) -> None:
         (self.root / "View.POV").write_bytes(b"pov")

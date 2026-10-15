@@ -2,7 +2,7 @@
 
 `common/config_schema.py` declares what a setting is called, what it accepts and what it
 means. This answers the three questions a settings page asks of that: describe it, read
-it, write it - once, so the config file, the Console and anything reading over HTTP
+it, write it - once, so the config file, the Manager and anything reading over HTTP
 describe the same install the same way.
 
 Values are typed the way the store types them - a bool arrives as a bool, a list as a
@@ -108,7 +108,7 @@ def _describe(option: config_schema.ConfigOption) -> dict[str, Any]:
         "min": option.minimum,
         "max": option.maximum,
         "group_note": option.group_note,
-        "cuts_off_console": option.cuts_off_console,
+        "cuts_off_manager": option.cuts_off_manager,
         "moves_with": option.moves_with,
         "applies": option.applies,
         "blank": option.blank,

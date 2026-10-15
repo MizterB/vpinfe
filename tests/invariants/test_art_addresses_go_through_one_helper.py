@@ -1,4 +1,4 @@
-"""A Console picture's address is built by `console/art.py` and nowhere else.
+"""A Manager picture's address is built by `manager/art.py` and nowhere else.
 
 The helper is what asks for the copy sized for where the picture is drawn, and for the
 version that lets the browser keep it. An address written out at a call site asks for
@@ -14,10 +14,10 @@ import unittest
 from tests.support import trees
 
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
-CONSOLE = REPO / "console"
-HELPER = CONSOLE / "art.py"
+MANAGER = REPO / "manager"
+HELPER = MANAGER / "art.py"
 
-# The art routes live under these. `console/api.py` calls the same routes relative to its
+# The art routes live under these. `manager/api.py` calls the same routes relative to its
 # own base, as a client rather than as something a page draws, so it never spells these.
 ART_ROOTS = ("/api/v1/games", "/api/v1/collections")
 
@@ -41,12 +41,12 @@ def _addresses(path: pathlib.Path) -> list[str]:
 
 
 class ArtAddressesGoThroughOneHelperTests(unittest.TestCase):
-    def test_no_console_module_writes_an_art_address(self) -> None:
+    def test_no_manager_module_writes_an_art_address(self) -> None:
         offenders = []
-        for path in sorted([*CONSOLE.rglob("*.py"), *CONSOLE.rglob("*.js")]):
+        for path in sorted([*MANAGER.rglob("*.py"), *MANAGER.rglob("*.js")]):
             if path != HELPER:
                 offenders += _addresses(path)
-        self.assertEqual(offenders, [], "build it with console/art.py")
+        self.assertEqual(offenders, [], "build it with manager/art.py")
 
     def test_the_scan_finds_the_helper_s_own_addresses(self) -> None:
         """Or a scan that matches nothing would pass the test above as well."""

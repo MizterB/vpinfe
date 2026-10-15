@@ -14,9 +14,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from tests.support.browser_session import BrowserSession, chromium_path
-from tests.support.console_walk import ConsoleWalk
 from tests.support.library import game_info, write_game
 from tests.support.live_instance import LiveInstance
+from tests.support.manager_walk import ManagerWalk
 
 VPX = "vpx-drive"
 INI = """[Player]
@@ -44,7 +44,7 @@ LOG = 'Using display "Built-in Retina Display".\n'
 
 REDRAW_WINDOW_S = 1.5  # a rebuild draws within a second of the write that asks for it
 WRITE_WAIT_S = 20.0
-ROWS = ".console-field-line"
+ROWS = ".manager-field-line"
 MARK = (f"(() => {{ const rows = document.querySelectorAll('{ROWS}'); "
         f"rows.forEach(el => {{ el.dataset.sentinel = '1'; }}); return rows.length; }})()")
 KEPT = f"document.querySelectorAll('{ROWS}[data-sentinel=\"1\"]').length"
@@ -82,7 +82,7 @@ class VpxSettingsInPlaceDrive(unittest.TestCase):
         body = {"id": VPX, "app": "vpx", "enabled": True, "name": "Drive",
                 "settings": {"bin_path": str(bin_path), "ini_path": str(ini)}}
         urllib.request.urlopen(urllib.request.Request(
-            instance.console_url(f"/api/v1/config/launchers/{VPX}"),
+            instance.manager_url(f"/api/v1/config/launchers/{VPX}"),
             data=json.dumps(body).encode(), method="PUT",
             headers={"Content-Type": "application/json"}), timeout=10).close()
         seen: dict = {"kept": {}, "conflict": {}}
@@ -90,8 +90,8 @@ class VpxSettingsInPlaceDrive(unittest.TestCase):
             await browser.send("Emulation.setDeviceMetricsOverride",
                                {"width": 1700, "height": 1000, "deviceScaleFactor": 1,
                                 "mobile": False})
-            walk = ConsoleWalk(browser, instance)
-            await walk.visit(f"/console?view=launchers&launcher={VPX}")
+            walk = ManagerWalk(browser, instance)
+            await walk.visit(f"/manager?view=launchers&launcher={VPX}")
             async for name in walk.sections():
                 if name == "All Settings":
                     break

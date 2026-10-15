@@ -135,7 +135,7 @@ class DeviceRegistryApiTests(TempTree):
         self.assertEqual(self.registry.self_id(), own)
 
     def test_an_unknown_kind_is_refused(self) -> None:
-        """A closed set, checked at the boundary. console switches on this to decide what
+        """A closed set, checked at the boundary. manager switches on this to decide what
         it can do with an entry, so a kind it has never heard of is worse stored than
         rejected - it would reach a screen as a device nothing knows how to talk to."""
         response = self.client.put("/devices", json=CAB | {"kind": "toaster"})
@@ -286,7 +286,7 @@ class DeviceRegistryApiTests(TempTree):
             with self._sending_config(send_masked_config="true", config_mask=mask):
                 self.assertEqual(mobile_ops._sending()[1], "cab", mask)
 
-    def test_the_switch_reads_as_the_console_draws_it(self) -> None:
+    def test_the_switch_reads_as_the_manager_draws_it(self) -> None:
         for on in ("1", "yes", "on", "True"):
             with self._sending_config(send_masked_config=on, config_mask="mobile"):
                 self.assertEqual(mobile_ops._sending()[1], "mobile", on)

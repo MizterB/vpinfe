@@ -2,7 +2,7 @@
 
 A curated view over the same services the API's own routes call, so the two cannot
 answer differently. An extension in this process cannot use the HTTP API - a synchronous
-call into the server it is running inside deadlocks, which the Console already pays for
+call into the server it is running inside deadlocks, which the Manager already pays for
 elsewhere - and it may not import the library either. This is the door.
 
 What it will do is bounded twice. The manifest's scopes decide which of these an

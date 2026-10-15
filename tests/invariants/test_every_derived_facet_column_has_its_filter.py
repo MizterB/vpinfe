@@ -10,11 +10,11 @@ import ast
 import pathlib
 import unittest
 
-from console import grid
+from manager import grid
 from tests.support import trees
 
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
-CONSOLE = REPO / "console"
+MANAGER = REPO / "manager"
 
 DECLARERS = {"column", "identifier", "list_column"}
 
@@ -45,7 +45,7 @@ def _without(tree: ast.Module) -> bool:
 
 class EveryDerivedFacetColumnHasItsFilter(unittest.TestCase):
     def test_no_grid_declares_one_and_leaves_it_on_a_text_box(self) -> None:
-        bare = [path.relative_to(REPO).as_posix() for path in sorted(CONSOLE.rglob("*.py"))
+        bare = [path.relative_to(REPO).as_posix() for path in sorted(MANAGER.rglob("*.py"))
                 if path.name != "grid.py" and _without(trees.tree_for(path))]
         self.assertEqual(bare, [], "pass the columns through grid.with_derived_facets:\n  "
                          + "\n  ".join(bare))

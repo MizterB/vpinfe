@@ -24,12 +24,12 @@ CABINET = {
     "config.presentation.cab_mode.description": "playing standing at the physical cabinet",
     "config.presentation.cab_mode.label": "Cabinet Mode is named for the physical cabinet",
     "config.windows.playfield.orientation.description": "how a screen is mounted in it",
-    "console.screens.hint_cabinet": "where a screen sits in the physical cabinet",
-    "console.setup.glass.typical": "the physical cabinet's usual playfield tilt",
-    "console.setup.cabinet": "the physical cabinet, Setup's own How you play answer",
-    "console.themes.both": "a theme made for a cabinet or a desktop",
-    "console.themes.cabinet": "a theme made for a cabinet rather than a desktop",
-    "console.themes.made_for.help": "what a theme is made for: a cabinet, a desktop or both",
+    "manager.screens.hint_cabinet": "where a screen sits in the physical cabinet",
+    "manager.setup.glass.typical": "the physical cabinet's usual playfield tilt",
+    "manager.setup.cabinet": "the physical cabinet, Setup's own How you play answer",
+    "manager.themes.both": "a theme made for a cabinet or a desktop",
+    "manager.themes.cabinet": "a theme made for a cabinet rather than a desktop",
+    "manager.themes.made_for.help": "what a theme is made for: a cabinet, a desktop or both",
 }
 
 MACHINE: dict[str, str] = {
@@ -39,12 +39,12 @@ MACHINE: dict[str, str] = {
 BUILD = {
     "about.fact.build": "this VPinFE build",
     "app.vpx.no_plugins": "the VPX build beside the plugins",
-    "console.devices.newer_build": "a VPinFE build",
-    "console.devices.published_build": "a VPinFE build",
-    "console.settings.browser_slim_build": "this VPinFE build",
-    "console.sections.newer_build": "this VPinFE build",
-    "console.sections.written_later": "this VPinFE build",
-    "console.sections.written_older": "an older VPinFE build",
+    "manager.devices.newer_build": "a VPinFE build",
+    "manager.devices.published_build": "a VPinFE build",
+    "manager.settings.browser_slim_build": "this VPinFE build",
+    "manager.sections.newer_build": "this VPinFE build",
+    "manager.sections.written_later": "this VPinFE build",
+    "manager.sections.written_older": "an older VPinFE build",
     "ext.library_importer.reason.nothing_readable": "this VPinFE build",
     "extension.reason.platform_mismatch": "this VPinFE build",
     "frontend.buildmeta.started": "the verb",
@@ -60,17 +60,17 @@ ASSETS_PAGE = "the Assets page, of the files a table loads"
 ASSET = {
     "config.library.hidden_asset_kinds.label": LOADS,
     "config.updates.refresh_minutes.description": LOADS,
-    "console.assets.assets": LOADS,
-    "console.assets.assets_missing": LOADS,
-    "console.assets.search_assets": LOADS,
-    "console.backups.kind.asset": "the copy of a file of the Assets page",
-    "console.page.assets": ASSETS_PAGE,
-    "console.section.assets": ASSETS_PAGE,
-    "console.settings.page_assets": ASSETS_PAGE,
-    "console.view.assets": ASSETS_PAGE,
-    "console.view.backups_assets": "the copies of the files the Assets page lists",
-    "console.workbench.assets": ASSETS_PAGE,
-    "console.workbench.assets_2": ASSETS_PAGE,
+    "manager.assets.assets": LOADS,
+    "manager.assets.assets_missing": LOADS,
+    "manager.assets.search_assets": LOADS,
+    "manager.backups.kind.asset": "the copy of a file of the Assets page",
+    "manager.page.assets": ASSETS_PAGE,
+    "manager.section.assets": ASSETS_PAGE,
+    "manager.settings.page_assets": ASSETS_PAGE,
+    "manager.view.assets": ASSETS_PAGE,
+    "manager.view.backups_assets": "the copies of the files the Assets page lists",
+    "manager.workbench.assets": ASSETS_PAGE,
+    "manager.workbench.assets_2": ASSETS_PAGE,
 }
 
 CATALOG_WORD: dict[str, str] = {}
@@ -165,7 +165,7 @@ class EveryCatalog(unittest.TestCase):
 
     def test_the_sweep_reads_every_owner(self) -> None:
         owners = {key.split(".", 2)[0] for key in CATALOG}
-        self.assertLessEqual({"app", "ext", "console", "frontend", "config"}, owners)
+        self.assertLessEqual({"app", "ext", "manager", "frontend", "config"}, owners)
 
     def test_it_can_fail(self) -> None:
         catalog = {"a": "Shown on the Cabinet", "b": {"one": "{count} build", "other": "x"},

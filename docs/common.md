@@ -1,7 +1,7 @@
 # Common Architecture
 
 The `common/` package is the shared application layer used by the frontend,
-the Console, CLI, startup/shutdown flow, and game metadata jobs. Code in this
+the Manager, CLI, startup/shutdown flow, and game metadata jobs. Code in this
 folder should stay UI-independent and should expose stable service functions or
 small facade classes for older call sites.
 
@@ -81,7 +81,7 @@ Depends on `common/games/`, never the reverse: importing assets needs to know th
 
 - `vpsdb.py`: compatibility facade for VPS database lookup and media download.
 - `vpsdb_cache.py`, `vpsdb_media.py`: VPS database cache/update and VPinMediaDB download helpers.
-- `themes.py`: compatibility facade for Console theme registry operations.
+- `themes.py`: compatibility facade for Manager theme registry operations.
 - `theme_registry_client.py`, `theme_installer.py`: theme registry network and local install helpers.
 - `app_updater.py`, `pinmame_score_parser_updater.py`: update checks and downloads.
 
@@ -148,7 +148,7 @@ interchangeable:
 
 - `vpinfe_id` is this install's stable local id from `game_identity.py`. It
   identifies the game - in the HTTP API, in events, in jobs, in collection
-  membership, and as the row key in the Console games grid.
+  membership, and as the row key in the Manager games grid.
 - `vpsid` and `altvpsid` are VPS-derived (`Info.VPSId` and `VPinFE.altvpsid`).
   They correlate with VPSdb, VPinPlay and other services keyed by them. Read the
   one you mean; there is deliberately no combined `id` field to reach for by
@@ -169,7 +169,7 @@ Both membership paths tolerate VPS-keyed entries, and both have to. The migratio
 leaves an entry alone when no game matched it - the game may simply not be
 installed yet - and it runs only once, so such an entry can stay VPS-keyed
 indefinitely. `CollectionStore.is_member` covers the frontend;
-`game_repository._collections_for` covers the Console row. If only one of them
+`game_repository._collections_for` covers the Manager row. If only one of them
 did, a game would show its collections in one place and not the other.
 
 Launch games through `host/launch.py`. It is the only place that starts a game
@@ -213,7 +213,7 @@ one is stale with no way to notice - which is why the announcement has to exist 
 Start, stop and restart things through `common/lifecycle.py`. A request names a scope
 (`frontend`, `vpinfe`, `system`) and an action (`start`, `stop`, `restart`), so rebooting
 the machine is `restart` at system scope rather than a verb of its own, and the
-frontend, the Console, an extension and a signal all arrive at one place. Reaching
+frontend, the Manager, an extension and a signal all arrive at one place. Reaching
 for the browser directly is what used to skip `shutdown_services` and lose a session's
 play data on the way out.
 
@@ -243,7 +243,7 @@ progress callbacks.
 Run anything slow through `jobs.submit` (start it on its own thread, hand the
 caller a job) or `jobs.track` (wrap work already running on the caller's thread).
 Both publish `job.progress` / `job.done` / `job.failed` in the shape `events.py`
-documents, so a workflow looks the same on the event stream whether the Console
+documents, so a workflow looks the same on the event stream whether the Manager
 or the HTTP API started it, and both enforce one job per kind — which is what stops
 two library scans rewriting the same `.info` files. `track` chains to whatever
 callbacks the caller already had, so an existing progress bar keeps working.
@@ -262,7 +262,7 @@ libdmdutil should not each carry their own copy of that reasoning.
    as a facade and delegate into the new module.
 3. Use `common.paths` for user paths and config locations.
 4. Add focused tests for the helper or service boundary.
-5. Update frontend or Console docs only when their caller contract changes.
+5. Update frontend or Manager docs only when their caller contract changes.
 
 ## Adding Metadata Fields
 
@@ -278,7 +278,7 @@ libdmdutil should not each carry their own copy of that reasoning.
 
 1. Add the media key, playfield attribute, and filename template to
    `common.media_specs.MEDIA_SPECS`.
-2. Use the shared filename/key maps in the Console, parser, and download code.
+2. Use the shared filename/key maps in the Manager, parser, and download code.
 3. Update theme documentation if the media becomes part of the frontend API.
 
 ## Adding Networked Services

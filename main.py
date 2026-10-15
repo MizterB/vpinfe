@@ -17,9 +17,9 @@ from common.config_access import cfg_get
 
 multiprocessing.freeze_support()
 
-# On Windows, hide the console window when launched via icon (not from terminal).
-# When double-clicked, the process is the sole owner of its console.
-# When run from cmd/powershell, multiple processes share the console - don't hide it.
+# On Windows, hide the terminal window when launched via icon (not from terminal).
+# When double-clicked, the process is the sole owner of its terminal.
+# When run from cmd/powershell, multiple processes share the terminal - don't hide it.
 if platform.system() == "Windows" and getattr(sys, 'frozen', False):
     import ctypes
     kernel32 = ctypes.windll.kernel32
@@ -100,7 +100,7 @@ from common.vpinfe_version import get_version
 # Get the base path
 base_path = os.path.dirname(os.path.abspath(__file__))
 
-# Load config BEFORE importing cli/console (they create ConfigStore at import time)
+# Load config BEFORE importing cli/manager (they create ConfigStore at import time)
 config_dir = ensure_config_dir()
 nicegui_storage_path = configure_nicegui_storage()
 log_path = configure_logging(LOG_DIR, enable_file=False)
@@ -146,16 +146,16 @@ from nicegui import app as nicegui_app
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
-import console
 import httpapi
+import manager
 from cli import parse_args
-from console import app_control
-from console.host import _shutdown_event, start_server, stop_server
-from console.origin_guard import SocketOriginGuard
-from console.sign_in_gate import SignInGate
 from frontend import lifecycle_host, runtime
+from manager import app_control
+from manager.host import _shutdown_event, start_server, stop_server
+from manager.origin_guard import SocketOriginGuard
+from manager.sign_in_gate import SignInGate
 
-nicegui_app.add_static_files('/static', os.path.join(base_path, 'console/static'))
+nicegui_app.add_static_files('/static', os.path.join(base_path, 'manager/static'))
 
 
 class _SuppressNoResponseReturnedMiddleware(BaseHTTPMiddleware):
@@ -186,8 +186,8 @@ httpapi.register(nicegui_app)
 # would be another machine as far as anyone listening is concerned.
 httpapi.instance.announce_on_the_network()
 
-# The Console.
-console.register()
+# The Manager.
+manager.register()
 
 # On Windows, the Proactor event loop logs a noisy ConnectionResetError (WinError 10054)
 # whenever a browser tab is closed mid-connection. Install a startup handler that
@@ -413,7 +413,7 @@ try:
 except Exception:
     logger.exception("Commands set to run when VPinFE starts did not all work")
 
-# The Console saves through a store of its own, so this one holds what the file said at
+# The Manager saves through a store of its own, so this one holds what the file said at
 # startup until it is told to look again. First, so a subscriber that runs after it reads
 # what was just saved.
 events.subscribe(events.SETTINGS_CHANGED, lambda **_: config_store.reread())
@@ -448,7 +448,7 @@ except Exception:
 
 try:
     from common.games import community_lists
-    from console.api import ApiClient
+    from manager.api import ApiClient
     community_lists.start_periodic(lambda path: ApiClient().ext_get(path))
 except Exception:
     logger.exception("Could not start reading the Community lists that tag or rank")

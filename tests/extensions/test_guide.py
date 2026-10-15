@@ -26,8 +26,8 @@ from common.extensions import check, contract, fields, host, pictures, serving, 
 from common.extensions.context import COLUMN_KINDS, ExtensionContext, logger_for
 from common.extensions.games import withdraw_all
 from common.service_errors import NotFoundError, RefusedError
-from console import ext_links
 from httpapi import extension_ops
+from manager import ext_links
 from tests.support.accepted import owner_accepts
 from tests.support.identity import IDENTITY
 
@@ -460,7 +460,7 @@ class RecipesDoWhatTheyClaim(ExamplesLoadedByTheHost):
         with self.assertRaises(RefusedError):
             serving.library_verb(record, "table", "version", [who[0], who[1]])
 
-    def test_the_tool_links_follow_the_port_and_fill_in_the_host_the_console_was_opened_at(
+    def test_the_tool_links_follow_the_port_and_fill_in_the_host_the_manager_was_opened_at(
             self) -> None:
         record = self.load("tool_link")
 

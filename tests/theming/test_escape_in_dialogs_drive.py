@@ -1,4 +1,4 @@
-"""Escape and a click outside a Console dialog, in a real browser: Escape cancels one with
+"""Escape and a click outside a Manager dialog, in a real browser: Escape cancels one with
 typed input and a click outside does not, a persistent one answers neither, Escape in a
 walk over a selection ends the run, and Escape cannot leave a wizard run in progress but
 closes the report it ends on.
@@ -16,13 +16,13 @@ from collections.abc import Callable
 from typing import Any
 
 from tests.support.browser_session import BrowserSession
-from tests.support.console_walk import ConsoleWalk
+from tests.support.manager_walk import ManagerWalk
 from tests.theming.test_grid_selection_drive import _heard, drive_page, exit_with_parent
 
 DIALOG = ".q-dialog"
 BACKDROP = ".q-dialog__backdrop"
 GONE = "!document.querySelector(%s)"
-TITLE = f"((document.querySelector('{DIALOG} .console-dialog-title') || {{}}).innerText || '')"
+TITLE = f"((document.querySelector('{DIALOG} .manager-dialog-title') || {{}}).innerText || '')"
 ROWS = ["alpha", "beta", "gamma"]
 
 
@@ -30,7 +30,7 @@ class _Page:
     def __init__(self, port: int) -> None:
         self.port = port
 
-    def console_url(self, path: str = "/") -> str:
+    def manager_url(self, path: str = "/") -> str:
         return f"http://127.0.0.1:{self.port}{path}"
 
 
@@ -39,8 +39,8 @@ def serve(port: int) -> None:
     three rows, and one for a wizard whose run waits to be released."""
     from nicegui import app, ui
 
-    from console import api, appearance, walks, wizard
-    from console import dialog as frame
+    from manager import api, appearance, walks, wizard
+    from manager import dialog as frame
 
     api.local_base_url = lambda: "http://127.0.0.1:9"
     app.add_static_files(appearance.BASE_MOUNT, str(appearance.BASE_CSS.parent))
@@ -152,7 +152,7 @@ class EscapeInDialogsDrive(unittest.TestCase):
             raise AssertionError(f"the server never heard what was waited for: {now}")
 
         async with BrowserSession(binary) as browser:
-            walk = ConsoleWalk(browser, _Page(port))
+            walk = ManagerWalk(browser, _Page(port))
             await walk.visit("/")
 
             async def opened(button: str, title: str) -> None:
@@ -177,13 +177,13 @@ class EscapeInDialogsDrive(unittest.TestCase):
             await browser.evaluate(f"document.querySelector('{BACKDROP}').click()")
             await browser.escape()
             seen["required_after_both"] = await pinged("required_open")
-            await browser.click(f"{DIALOG} .console-dialog-footer button")
+            await browser.click(f"{DIALOG} .manager-dialog-footer button")
             await browser.wait_for(GONE % json.dumps(DIALOG))
             await server_says(lambda h: h["required"] == "answered")
 
             # A walk: Save the first row, then Escape on the second ends the run.
             await opened("walk", "Row alpha")
-            await walk.act(lambda: browser.click(f"{DIALOG} .console-dialog-footer button",
+            await walk.act(lambda: browser.click(f"{DIALOG} .manager-dialog-footer button",
                                                  nth=2),
                            until=f"{TITLE} === 'Row beta'")
             await browser.escape()
@@ -193,7 +193,7 @@ class EscapeInDialogsDrive(unittest.TestCase):
             # A wizard run in progress is not left by Escape; the report it ends on is, and
             # that still counts as the run having happened.
             await opened("wizard", "Wizard")
-            await browser.click(f"{DIALOG} .console-wizard-forward")
+            await browser.click(f"{DIALOG} .manager-wizard-forward")
             await server_says(lambda h: h["wizard_run"] == "running")
             await browser.escape()
             await browser.evaluate("fetch('/release')")
