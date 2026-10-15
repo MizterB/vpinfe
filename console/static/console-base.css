@@ -2808,6 +2808,11 @@ body.console-dragging-rows .q-drawer--mini .console-rail-drops {
      the 26px pitch is a text row's, and this one is several. */
   padding: 5px 0;
 }
+/* A chip longer than the line it is on wraps inside itself rather than run past it. */
+.console-chips > .console-tier {
+  flex: 0 1 auto; min-width: 0; max-width: 100%;
+  white-space: normal; overflow-wrap: anywhere;
+}
 
 /* A value the user may set. The read state and the edit state are one element, so the
    alignment cannot drift and nothing moves on the first click. */
@@ -4307,6 +4312,55 @@ svg.console-cell-noart {
      and its content are one block, so a line between them would cut it in half. */
   .console-section-on .console-section-caret { transform: rotate(180deg); }
   .console-section-on { border-bottom-color: transparent; }
+}
+
+/* Settings has no panel above it, so the box `panel.sections` draws around its frame is the
+   container. Its rail is 230px against the panel's 57 or 152, so the same accordion has to
+   begin earlier: below 600px the work beside the rail is under 370px. The block repeats the
+   one above, which a test holds to the same declarations. */
+.console-sections-box {
+  display: flex; flex-direction: column;
+  container: console-sections / inline-size;
+}
+@container console-sections (max-width: 599px) {
+  .console-sections {
+    display: flex; flex-direction: column; background: none;
+    overflow-y: auto;
+  }
+  .console-section-rail { display: contents; }
+  .console-section-row { background-color: var(--surface-1); }
+  .console-section-work {
+    flex: 0 0 auto;
+    min-height: min(420px, 60%);
+    border-left: none; border-top: none;
+    border-bottom: 1px solid var(--line-band);
+  }
+  .console-section-row {
+    flex: 0 0 auto;
+    margin: 0; border-radius: 0;
+    border-bottom: 1px solid var(--line-band);
+  }
+  .console-section-hit { padding-left: var(--panel-gutter); }
+  .console-section-caret { display: flex; }
+  .console-section-on .console-section-caret { transform: rotate(180deg); }
+  .console-section-on { border-bottom-color: transparent; }
+}
+/* Under 660px the work beside the 230px rail, or the whole width once it is an accordion,
+   is too narrow for a label and a value side by side: a value that cannot shrink below its
+   own width ran off the edge. The label goes over its value instead. */
+@container console-sections (max-width: 659px) {
+  .console-facts, .console-facts.console-bindings { grid-template-columns: minmax(0, 1fr); }
+  /* The two :has selectors repeat the ones that span a label over its control and its
+     aside, so this outranks them by coming later at equal weight. */
+  .console-fact-label,
+  .console-fact-label:has(+ :is(.console-field-line, .console-field-row)
+                          + .console-fact-aside:not(.hidden)),
+  .console-fact-label:has(+ :is(.console-field-line, .console-field-row)
+                          + .console-fact-aside.hidden + .console-fact-aside:not(.hidden)) {
+    grid-row: auto; align-self: start;
+    padding-block: 4px 0; margin-bottom: -4px;
+  }
+  .console-fact-aside, .console-binding-aside { grid-column: 1; }
 }
 
 /* One declared section has no row to open it, so the work takes the width and the rail

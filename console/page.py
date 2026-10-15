@@ -607,6 +607,12 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     busy.until_gone(loading)
 
     await ui.context.client.connected()
+    # Asked here, while the loading screen is up: the width event further down is sent
+    # with the shell in one message, so the nav would draw wide first on a narrow window.
+    try:
+        first_width = int(await ui.run_javascript("window.innerWidth", timeout=3.0) or 0)
+    except (TimeoutError, ValueError):
+        first_width = 0
     try:
         loaded = await offload.io(_read_hub)
     except Exception as exc:  # noqa: BLE001 - said on the page, the traceback logged
@@ -1846,6 +1852,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     # what its address names is a collection, which lands by its own route below.
     landing = (state.get("game")
                if state["view"] in ("games", "tables", "media", "assets") else None)
+    if first_width:
+        on_window_width(first_width)
     await workbench.build(panel, workbench_title, library, None, state)
     _land(state)
     render()

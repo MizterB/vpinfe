@@ -120,12 +120,6 @@ logger = logging.getLogger("vpinfe.console.workbench")
 # under it without taking the map's room.
 DOCK_PX = 300
 
-# Where the open section sits among the rows where they stack. Three buckets rather
-# than one order per row: flex keeps document order inside a bucket, so the rows above
-# the open one and the rows below it each need only a number, and the work goes between.
-_WORK = 1
-_AFTER_WORK = 2
-
 # Dragged in the browser, reported once on release - a round trip per pointer move
 # would lag badly. Guarded, because the panel is rebuilt on every section change.
 _GRIP = """
@@ -1938,10 +1932,10 @@ async def _rail(context: dict[str, Any], subject: str,
                     heading = item.group
                     _section_row(context, item, item.key == section, order=after)
                     if item.key == section:
-                        after = _AFTER_WORK
+                        after = panel.AFTER_WORK_ORDER
         if open_item is not None:
             work = ui.element("div").classes("min-w-0 console-section-work") \
-                .style(f"order: {_WORK}")
+                .style(f"order: {panel.WORK_ORDER}")
             if docked:
                 work.classes(add="console-has-dock")
                 work.style(f"--dock-h: {dock_height(state, section)}px")

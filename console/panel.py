@@ -51,6 +51,12 @@ GROUP = object()
 # not, and both rails are the same control.
 RAIL_PX = 152
 
+# Where the open section sits among the rows where they stack. Three buckets rather
+# than one order per row: flex keeps document order inside a bucket, so the rows above
+# the open one and the rows below it each need only a number, and the work goes between.
+WORK_ORDER = 1
+AFTER_WORK_ORDER = 2
+
 
 def headed(entries: Sequence[tuple[Any, ...]], first: str) -> list[tuple[Any, ...]]:
     """`entries`, with `first` heading the opening group when a later one is headed."""
@@ -109,8 +115,7 @@ def _identity_row(name: str, caption: str, menu: Sequence[Verb],
                     with ui.element("div").classes("shrink-0"):
                         chip()
             if caption:
-                ui.label(caption).classes(
-                    "text-xs console-workbench-label truncate max-w-full").tooltip(caption)
+                ui.label(caption).classes("text-xs console-workbench-label max-w-full break-words")
         if menu:
             subject_menu(ui.row().classes("shrink-0 no-wrap"), menu)
 
@@ -230,6 +235,17 @@ def _draw_value(target: Any, value: Any) -> None:
         .tooltip(str(value))
 
 
+# A redraw rebuilds the column at the top, and a deep link opens a row far down it: where the
+# rows stack, the open one is brought to the top so its work is what shows.
+_OPEN_ROW_IN_VIEW_JS = """
+const row = document.querySelector('.console-section-on');
+const column = row && row.closest('.console-sections');
+if (column && getComputedStyle(column).flexDirection === 'column') {
+  row.scrollIntoView({block: 'start'});
+}
+"""
+
+
 def sections(entries: Sequence[tuple[Any, ...]], current: str,
              on_pick: Callable[[str], Any], *, rail_px: int = RAIL_PX) -> Any:
     """The rail and the region it opens into, returning the region.
@@ -242,39 +258,50 @@ def sections(entries: Sequence[tuple[Any, ...]], current: str,
     holds still. Left loose, every row takes a grid track of its own and the region they
     are meant to sit beside gets whatever is left, which on a long index is a few lines.
     """
-    frame = ui.element("div").classes("w-full grow min-h-0 console-sections") \
-        .style(f"--rail-w: {rail_px}px")
-    with frame:
-        with ui.element("div").classes("min-h-0 console-section-rail"):
-            for entry in entries:
-                key, label = entry[0], entry[1]
-                hint = entry[2] if len(entry) > 2 else ""
-                mark = entry[3] if len(entry) > 3 else None
-                if key is GROUP:
-                    _rail_group(t(label), mark)
-                    continue
-                _rail_row(str(key), t(label), str(key) == current, on_pick, t(hint), mark)
-        work = ui.element("div").classes("min-w-0 console-section-work")
+    with ui.element("div").classes("w-full grow min-h-0 console-sections-box"):
+        frame = ui.element("div").classes("w-full grow min-h-0 console-sections") \
+            .style(f"--rail-w: {rail_px}px")
+        with frame:
+            # Where the rows stack, the work sits under the open row: rows after it are
+            # ordered past the work, which is ordered just after the rows before it.
+            with ui.element("div").classes("min-h-0 console-section-rail"):
+                after = 0
+                for entry in entries:
+                    key, label = entry[0], entry[1]
+                    hint = entry[2] if len(entry) > 2 else ""
+                    mark = entry[3] if len(entry) > 3 else None
+                    if key is GROUP:
+                        _rail_group(t(label), mark, order=after)
+                        continue
+                    _rail_row(str(key), t(label), str(key) == current, on_pick, t(hint), mark,
+                              order=after)
+                    if str(key) == current:
+                        after = AFTER_WORK_ORDER
+            work = ui.element("div").classes("min-w-0 console-section-work") \
+                .style(f"order: {WORK_ORDER}")
+    ui.run_javascript(_OPEN_ROW_IN_VIEW_JS)
     return work
 
 
-def _rail_group(label: str, mark: Callable[[], None] | None = None) -> None:
+def _rail_group(label: str, mark: Callable[[], None] | None = None, *,
+                order: int = 0) -> None:
     """A heading over the run of rows that follows it, with a corner for a mark.
 
     The mark is drawn over the heading rather than beside it, so a group reads at the
     same place on the line whether or not something under it wants attention.
     """
     if mark is None:
-        ui.label(label).classes("console-group console-rail-group")
+        ui.label(label).classes("console-group console-rail-group").style(f"order: {order}")
         return
-    with ui.element("div").classes("console-group console-rail-group"):
+    with ui.element("div").classes("console-group console-rail-group") \
+            .style(f"order: {order}"):
         ui.label(label)
         mark()
 
 
 def _rail_row(key: str, label: str, open_now: bool,
               on_pick: Callable[[str], Any], hint: str = "",
-              mark: Callable[[], None] | None = None) -> None:
+              mark: Callable[[], None] | None = None, *, order: int = 0) -> None:
     """One destination's name, which is both the rail entry and the accordion header.
 
     The chevron says the row opens, which is a fact about the control rather than a
@@ -285,7 +312,8 @@ def _rail_row(key: str, label: str, open_now: bool,
     about the destination must not move the word that names it, and the gutter it sits
     in is reserved on every row whether one is drawn or not.
     """
-    row = ui.row().classes("items-stretch gap-0 no-wrap console-section-row")
+    row = ui.row().classes("items-stretch gap-0 no-wrap console-section-row") \
+        .style(f"order: {order}")
     if open_now:
         row.classes(add="console-section-on")
     if hint:

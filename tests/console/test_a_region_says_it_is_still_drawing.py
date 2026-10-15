@@ -180,7 +180,7 @@ class SettingsPages(unittest.IsolatedAsyncioTestCase):
             seen.append(_busy(body))
 
         self.enterContext(patch.object(settings, "_draw_system_page", new=page))
-        with _PAGE, patch.object(busy.ui, "timer") as timer:
+        with _PAGE, patch.object(busy.ui, "timer") as timer, patch.object(ui, "run_javascript"):
             settings.build_system(Mock(), {}, Mock(), {"features": []})
         scheduled = timer.call_args.args[1]
         body = [one for one in _PAGE.descendants()

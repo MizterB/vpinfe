@@ -1801,7 +1801,10 @@ def build_system(library: Library, state: dict[str, Any], redraw: Callable[[], N
 
 
 def open_page(state: dict[str, Any], redraw: Callable[[], None], key: str) -> None:
-    """Show another page of the index."""
+    """Show another page of the index. The open one is already shown: its row is not a
+    toggle, and a redraw would drop what is half typed on it."""
+    if state.get("settings_page") == key:
+        return
     state["settings_page"] = key
     redraw()
     # The address was read on arrival and never written again, so a page opened by
