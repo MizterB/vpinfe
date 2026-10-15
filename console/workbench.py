@@ -3991,7 +3991,7 @@ async def _confirm_details(differs: list[dict[str, Any]]) -> list[str]:
     chosen = {str(item.get("field") or ""): True for item in differs}
 
     with frame.opened(t("console.workbench.new_entry_question"), wide=True,
-                      persistent=True) as box:
+                      ignore_outside_click=True) as box:
         for new in (False, True):
             rows = [one for one in differs if bool(one.get("new")) is new]
             if not rows:

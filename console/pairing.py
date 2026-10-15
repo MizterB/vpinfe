@@ -56,7 +56,7 @@ async def pair(client: Any, device_name: str) -> bool:
         box.submit(True)
 
     with frame.opened(t("console.pairing.title", device=device_name),
-                      classes="console-confirm", persistent=True) as box:
+                      classes="console-confirm", ignore_outside_click=True) as box:
         ui.label(t("console.pairing.line", device=device_name)).classes("console-help px-3")
         code = frame.field(placeholder=t("console.confirm.code"))
         problem = ui.label("").classes("console-help text-negative px-3")

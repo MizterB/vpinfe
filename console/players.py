@@ -392,7 +392,7 @@ async def add_player(library: Library, state: dict[str, Any],
             fields[key] = _initials_field() if key == "initials" else frame.field()
         return drawn
 
-    with frame.opened(t("console.players.add_player"), persistent=True) as box:
+    with frame.opened(t("console.players.add_player"), ignore_outside_click=True) as box:
         panel.facts(ui, [(t("word.name"), draw("name")),
                          (t("console.players.initials"), draw("initials"))])
         with frame.footer():
@@ -439,7 +439,7 @@ async def add_guest(library: Library, state: dict[str, Any],
     def initials_row() -> None:
         held["initials"] = _initials_field()
 
-    with frame.opened(t("console.players.add_guest"), persistent=True) as box:
+    with frame.opened(t("console.players.add_guest"), ignore_outside_click=True) as box:
         ui.label(t("console.players.guest_forgotten")).classes("console-help px-3")
         panel.facts(ui, [(t("console.players.use_card"), card_row),
                          (t("console.players.just_initials"), initials_row)])
@@ -1039,7 +1039,7 @@ async def choose_user_id(context: dict[str, Any], account: dict[str, Any]) -> No
         (go.enable() if free else go.disable())
 
     with frame.opened(t("console.players.id_title", service=service),
-                      persistent=True) as box:
+                      ignore_outside_click=True) as box:
         field = frame.field(user_id if (user_id := str(account.get("user_id") or "")) else "") \
             .props("spellcheck=false autocorrect=off autocapitalize=off autocomplete=off")
         holder = ui.element("div").classes("console-fact-edit")
@@ -1078,7 +1078,7 @@ async def _share_on(context: dict[str, Any], account: dict[str, Any], service: s
 
     title = (t("console.players.share_consent_title", id=user_id, service=service) if user_id
              else t("console.players.share_consent_plain", service=service))
-    with frame.opened(title, persistent=True) as box:
+    with frame.opened(title, ignore_outside_click=True) as box:
         ui.label(t("console.players.share_consent_heading")).classes("console-help px-3")
         with ui.column().classes("gap-1 px-3"):
             for line in account.get("consent") or []:

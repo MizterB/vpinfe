@@ -50,7 +50,7 @@ async def ask(library: Any, game: dict[str, Any], place: str = "",
               if scanned and scanned != bound else {})
 
     with dialog.opened(t("console.vps_match.match_named", name=str(game.get("name") or "")),
-                       wide=True, persistent=True) as box:
+                       wide=True, ignore_outside_click=True) as box:
         if place:
             ui.label(place).classes("console-help px-3")
 

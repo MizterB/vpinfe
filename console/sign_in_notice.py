@@ -69,7 +69,7 @@ def _show(code: sign_in.Confirm, closed: set[str]) -> ui.dialog:
 
     with frame.opened(t("console.security.pair_code" if pairing
                         else "console.security.confirm_code"),
-                      classes="console-confirm", persistent=True) as sheet:
+                      classes="console-confirm", ignore_outside_click=True) as sheet:
         ui.label(code.code).classes("console-digits w-full")
         ui.label(t("console.security.pair_asked" if pairing else "console.security.confirm_asked",
                    address=code.address)).classes("console-help text-center px-3")
@@ -78,15 +78,20 @@ def _show(code: sign_in.Confirm, closed: set[str]) -> ui.dialog:
         with frame.footer():
             frame.answer(t("word.close"), close, icon=verbs.CLOSE) \
                 .tooltip(t("console.security.code_close_hint"))
+    frame.on_escape(sheet, lambda: closed.add(code.id))
     sheet.open()
     return sheet
 
 
 def _ask(request: sign_in.Request) -> ui.dialog:
     signer = sign_in.instance()
+    shown = request.state == sign_in.SHOWN
+    # A request still waiting is answered with Show or Ignore; leaving it any other way
+    # would strand it with nothing on this device to answer it.
     with frame.opened(t("console.security.wants", address=request.address),
-                      classes="console-confirm", persistent=True) as sheet:
-        if request.state == sign_in.SHOWN:
+                      classes="console-confirm", persistent=not shown,
+                      ignore_outside_click=shown) as sheet:
+        if shown:
             ui.label(request.code).classes("console-digits w-full")
             ui.label(t("console.security.type_it", address=request.address)) \
                 .classes("console-help text-center px-3")
@@ -99,6 +104,8 @@ def _ask(request: sign_in.Request) -> ui.dialog:
                             icon=verbs.IGNORE).tooltip(t("console.security.ignore_hint"))
                 frame.answer(t("console.security.show"), lambda: signer.reveal(request.id),
                              icon=verbs.UNHIDE).tooltip(t("console.security.show_hint"))
+    if shown:
+        frame.on_escape(sheet, lambda: signer.dismiss(request.id))
     sheet.open()
     return sheet
 
@@ -107,7 +114,7 @@ def _approve(ask: approvals.Ask) -> ui.dialog:
     asks = approvals.instance()
     change = "\n".join(part for part in (" ".join((ask.method, ask.path)), ask.body) if part)
     with frame.opened(t("console.security.asks", program=ask.token_name),
-                      classes="console-confirm", persistent=True) as sheet:
+                      classes="console-confirm", ignore_outside_click=True) as sheet:
         ui.label(change).classes("console-need-change px-3").props("tabindex=0")
         ui.label(t("console.security.asks_lapse", count=max(1, asks.seconds_left(ask) // 60))) \
             .classes("console-help px-3")
@@ -118,5 +125,6 @@ def _approve(ask: approvals.Ask) -> ui.dialog:
                 .tooltip(t("console.security.asks_close_hint"))
             frame.answer(t("console.needs.approve"), lambda: asks.approve(ask.id),
                          icon=verbs.ACCEPT).tooltip(t("console.needs.approve.help"))
+    frame.on_escape(sheet, lambda: asks.leave_screen(ask.id))
     sheet.open()
     return sheet

@@ -63,8 +63,8 @@ async def ask(yours: Yours, listed: list[dict[str, Any]], *, bound: str,
     chosen = {"id": bound}
     rows: dict[str, tuple[ui.element, ui.element]] = {}
 
-    with frame.opened(t(words["title"], name=yours.name), wide=True, persistent=True,
-                      classes="console-dialog--pick") as box:
+    with frame.opened(t(words["title"], name=yours.name), wide=True,
+                      ignore_outside_click=True, classes="console-dialog--pick") as box:
         if place:
             ui.label(place).classes("console-help px-3")
         panel.facts(ui, [(panel.HEADING, t("console.release_match.yours")),

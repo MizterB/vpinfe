@@ -141,6 +141,8 @@ class ConsoleSignInNoticeDrive(unittest.TestCase):
             asked = _post(instance, "/api/v1/auth/code", {}, second)
             await browser.wait_for(WAITING, timeout=30)
             seen["waiting_while_asked"] = True
+            await browser.wait_for(
+                f"/\\b\\d{{6}}\\b/.test({TEXT_OF % json.dumps(DIALOG)} || '')", timeout=30)
             popup = await browser.evaluate(TEXT_OF % json.dumps(DIALOG))
             _post(instance, "/api/v1/auth/session",
                   {"request_id": asked["request_id"], "code": _digits(popup)}, second)

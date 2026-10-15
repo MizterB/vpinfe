@@ -440,7 +440,7 @@ async def _dialog(library: Any, named: list[Target], title: str,
             return
         box.submit(confirmed(request(), plan))
 
-    with frame.opened(title, wide=True, persistent=True) as box:
+    with frame.opened(title, wide=True, ignore_outside_click=True) as box:
         if running:
             with ui.element("div").classes("console-attention w-full"):
                 ui.icon("error_outline").classes("console-attention-icon")
@@ -857,7 +857,7 @@ async def review(library: Any, then: Callable[[], Any],
         draw()
         ui.run_javascript(f"document.getElementById('c{body.id}')?.scrollTo(0, 0)")
 
-    with frame.opened("", wide=True, persistent=True,
+    with frame.opened("", wide=True, ignore_outside_click=True,
                       classes="console-dialog--series" if many else "") as box:
         title = ui.label("").classes("console-dialog-title")
         if many:

@@ -1057,8 +1057,11 @@ no icon, and on an icon name `verbs.py` does not declare.
   row and is a `panel.action`.
 - **Enter presses the answer and focus lands on the first field** - `dialog.enter_presses`
   and `dialog.focus`, because Quasar's own autofocus does not reach into a dialog.
-- **Typed input or a run in progress makes a dialog `persistent`**, so a stray click on
-  the backdrop cannot throw it away. Escape still cancels.
+- **Typed input takes `ignore_outside_click`**, so a stray click on the backdrop cannot
+  throw it away and Escape still cancels. `persistent` blocks Escape as well and is for a
+  run in progress or an answer that cannot be left unsaid. A dialog that does something
+  other than close when Escape leaves it registers that with `dialog.on_escape`, which
+  needs `ignore_outside_click` too, since a `persistent` dialog fires no Escape event.
 - **`wide=True`** for a list or rows of several facts, **`full=True`** for an editor with
   a toolbar of its own.
 - **A wizard keeps its frame and redraws its body and footer at each step**: Back where

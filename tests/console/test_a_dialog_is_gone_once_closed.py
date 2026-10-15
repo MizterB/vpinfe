@@ -12,7 +12,7 @@ from unittest import mock
 from nicegui import ui
 
 from console import dialog as frame
-from console import mediaview, remote, text_editor
+from console import mediaview, remote, text_editor, walks
 from tests.support.clicks import said
 
 # Made at import, outside any task, where NiceGUI still hands out the script's own page.
@@ -113,7 +113,7 @@ class ADialogIsGoneOnceClosed(unittest.TestCase):
 
 
 class WhatBlocksADismissal(unittest.TestCase):
-    def _props_of(self, **asked: Any) -> ui.dialog:
+    def _props_of(self, **asked: Any) -> frame.Dialog:
         with _PAGE, frame.opened("Name", **asked) as box:
             frame.field()
         self.addCleanup(box.delete)
@@ -130,6 +130,58 @@ class WhatBlocksADismissal(unittest.TestCase):
 
         self.assertIn("persistent", box.props)
         self.assertNotIn("no-backdrop-dismiss", box.props)
+
+    def test_what_escape_does_runs_when_the_browser_says_escape(self) -> None:
+        box = self._props_of(ignore_outside_click=True)
+        heard: list[str] = []
+        frame.on_escape(box, lambda: heard.append("escape"))
+
+        said(box, "escapeKey")
+
+        self.assertEqual(["escape"], heard)
+
+    def test_what_escape_does_does_not_run_for_a_click_outside(self) -> None:
+        box = self._props_of(ignore_outside_click=True)
+        heard: list[str] = []
+        frame.on_escape(box, lambda: heard.append("escape"))
+
+        said(box, "click")
+
+        self.assertEqual([], heard)
+
+
+class EscapeInAWalk(unittest.TestCase):
+    def _left_by_escape(self, walking: bool) -> Any:
+        """What `await box` gives when the browser says Escape and then that it hid."""
+        async def run() -> Any:
+            with _PAGE, frame.opened("Name", ignore_outside_click=True) as box:
+                with frame.footer():
+                    frame.leave(box, walking)
+            waiting = asyncio.create_task(_answer(box))
+            await asyncio.sleep(0)
+            said(box, "escapeKey")
+            said(box, "update:modelValue", False)
+            return await waiting
+
+        return asyncio.run(run())
+
+    def test_escape_stops_the_whole_run(self) -> None:
+        self.assertEqual(walks.STOPPED, self._left_by_escape(True))
+
+    def test_a_dialog_asked_alone_answers_nothing_for_escape(self) -> None:
+        self.assertIsNone(self._left_by_escape(False))
+
+    def test_a_click_outside_in_a_walk_is_not_escape(self) -> None:
+        async def run() -> Any:
+            with _PAGE, frame.opened("Name") as box:
+                with frame.footer():
+                    frame.leave(box, True)
+            waiting = asyncio.create_task(_answer(box))
+            await asyncio.sleep(0)
+            said(box, "update:modelValue", False)
+            return await waiting
+
+        self.assertIsNone(asyncio.run(run()))
 
 
 class OnesWithTheirOwnCardGoToo(unittest.TestCase):

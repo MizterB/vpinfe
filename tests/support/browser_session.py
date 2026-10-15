@@ -345,11 +345,15 @@ class BrowserSession:
         await self.send("Input.dispatchMouseEvent",
                         {"type": "mouseMoved", "x": 1, "y": 1, "button": "none"})
 
-    async def press(self, key: str, code: str) -> None:
+    async def press(self, key: str, code: str, key_code: int = 0) -> None:
         for event in ("keyDown", "keyUp"):
             await self.send("Input.dispatchKeyEvent",
                             {"type": event, "key": key, "code": code,
-                             "windowsVirtualKeyCode": 0})
+                             "windowsVirtualKeyCode": key_code})
+
+    async def escape(self) -> None:
+        """Escape as Quasar reads it, by the legacy `keyCode` that `press` leaves at 0."""
+        await self.press("Escape", "Escape", 27)
 
     async def body_data(self) -> dict:
         return await self.evaluate("Object.assign({}, document.body.dataset)") or {}

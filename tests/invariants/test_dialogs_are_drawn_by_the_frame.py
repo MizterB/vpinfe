@@ -19,6 +19,26 @@ NOT_ASKING = {
 }
 
 
+# `persistent` blocks Escape as well as a click outside, so it is for a run that cannot be
+# left half-way or an answer that cannot be left unsaid. Anything typed into takes
+# `ignore_outside_click` and Escape still cancels. Each file below holds the number of
+# places it says `persistent`, so a further one is a decision made here: a run puts it on
+# and takes it off again, and a request still waiting is drawn with it.
+PERSISTENT = {
+    "mediasource.py": 2,
+    "sign_in_notice.py": 1,
+    "wizard.py": 2,
+}
+
+
+def _persistent(path: pathlib.Path) -> list[ast.AST]:
+    """Where `path` asks for a `persistent` dialog, as a keyword or among the props."""
+    return [one for one in ast.walk(trees.tree_for(path))
+            if (isinstance(one, ast.keyword) and one.arg == "persistent")
+            or (isinstance(one, ast.Constant) and isinstance(one.value, str)
+                and "persistent" in one.value.split())]
+
+
 def _called(path: pathlib.Path) -> set[str]:
     """What `path` calls on `console.dialog`, by name."""
     tree = trees.tree_for(path)
@@ -45,6 +65,18 @@ class DialogsAreDrawnByTheFrame(unittest.TestCase):
         for name in NOT_ASKING:
             with self.subTest(name=name):
                 self.assertNotIn("opened", _called(CONSOLE / name))
+
+    def test_only_a_run_or_a_required_answer_blocks_escape(self) -> None:
+        blocking = {path.name: len(_persistent(path)) for path in sorted(CONSOLE.glob("*.py"))
+                    if path.name != FRAME and _persistent(path)}
+        self.assertEqual(PERSISTENT, blocking)
+
+    def test_no_dialog_is_persistent_whatever_happens(self) -> None:
+        always = sorted(path.name for path in CONSOLE.glob("*.py")
+                        for one in _persistent(path)
+                        if isinstance(one, ast.keyword) and isinstance(one.value, ast.Constant)
+                        and one.value.value is True)
+        self.assertEqual([], always)
 
 
 if __name__ == "__main__":

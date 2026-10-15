@@ -755,7 +755,7 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
     opened = False
     current_key = ""
 
-    with frame.opened("", persistent=True, classes="console-wizard-card") as dialog:
+    with frame.opened("", ignore_outside_click=True, classes="console-wizard-card") as dialog:
         track = ui.element("div").classes("w-full")
         with ui.element("div").classes("console-wizard-scroll") as scroll:
             crest = ui.element("div").classes("console-wizard-crest")
@@ -900,8 +900,17 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
                 return
             draw(found)
 
-        @on_page
         async def _start() -> None:
+            # Escape cannot leave a run: the report it ends on is drawn in this dialog.
+            dialog.props("persistent")
+            try:
+                await _run()
+            finally:
+                if not dialog.is_deleted:
+                    dialog.props(remove="persistent")
+
+        @on_page
+        async def _run() -> None:
             _sync(walk.values, held)
             try:
                 started = await _asking(calls, wait, buttons, walk.run())
@@ -926,6 +935,8 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
                 dialog.submit(True)
                 return
             track.clear()
+            # Escape on the report is Close: the run happened, and callers redraw on True.
+            dialog.escape_answer = True
             if job_id:
                 await _watch(calls.job, job_id, body=body, buttons=buttons, heading=heading,
                             under=under, close=lambda: dialog.submit(True))

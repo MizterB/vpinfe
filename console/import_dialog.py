@@ -180,7 +180,7 @@ async def open_for(library: Any, upload_id: str, plan: dict[str, Any], *,
             dropped_title(source, file_count) if new_folder
             else t("console.import_dialog.import_3",
                    name=Path(str(plan.get("game_dir") or "")).name),
-            wide=True, persistent=True, classes="console-import-card") as dialog:
+            wide=True, ignore_outside_click=True, classes="console-import-card") as dialog:
         if new_folder:
             ui.label(t("console.import_dialog.folder_note")) \
                 .classes("console-help px-3")
