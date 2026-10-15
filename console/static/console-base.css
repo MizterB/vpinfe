@@ -3402,10 +3402,10 @@ a.console-tag:hover { background: var(--wash-hover); }
 
 /* A summary fact: the count over what is newest, and the arrow saying it opens more. */
 .console-summary { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: var(--measure); }
-.console-summary-text { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; line-height: 1.25; }
+.console-summary-text { display: flex; flex-direction: column; min-width: 0; flex: 0 1 auto; line-height: 1.25; }
 .console-summary-sub { font-size: var(--fs-caption); color: var(--ink-3); }
 .console-summary-warn { color: var(--tier-table); }
-.console-summary-go { flex: none; color: var(--ink-3); font-size: var(--icon-mark); }
+.console-summary-go { flex: none; color: var(--ink-2); font-size: var(--icon-mark); }
 .console-fact-pick:hover .console-summary-go,
 .console-fact-pick:focus-visible .console-summary-go { color: var(--ink); }
 
