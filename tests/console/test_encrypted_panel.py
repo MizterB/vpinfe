@@ -31,24 +31,43 @@ def _headings(rows: list[tuple[Any, ...]]) -> list[str]:
     return [row[1] for row in rows if row[0] == panel.HEADING]
 
 
-def _text(rows: list[tuple[Any, ...]]) -> list[str]:
-    """The labels and values, and the lines a `note`, an `intro` or an entry would draw."""
-    said = [str(cell) for row in rows for cell in row if isinstance(cell, str)]
-    drawn: list[str] = []
+def _page(drawn: list[str]) -> mock.MagicMock:
     def label(text: str = "", **_: Any) -> mock.MagicMock:
         drawn.append(text)
         return mock.MagicMock()
 
     page = mock.MagicMock()
     page.label.side_effect = label
+    return page
+
+
+def _text(rows: list[tuple[Any, ...]]) -> list[str]:
+    """The labels and values, and what a `note`, `intro`, `lede` or entry would draw."""
+    said = [str(cell) for row in rows for cell in row if isinstance(cell, str)]
+    drawn: list[str] = []
+    page = _page(drawn)
     with (mock.patch.object(panel, "line", lambda text, **_: drawn.append(text)),
           mock.patch.object(panel, "icon_action", lambda *_args, **_kw: _noop),
+          mock.patch.object(panel, "ui", page),
           mock.patch.object(encrypted_panel, "ui", page)):
         for row in rows:
             for cell in row:
-                if getattr(cell, "__qualname__", "").split(".")[0] in ("note", "intro", "_entry"):
+                if getattr(cell, "__qualname__", "").split(".")[0] in (
+                        "note", "intro", "lede", "_entry"):
                     cell()
     return said + drawn
+
+
+def _under(rows: list[tuple[Any, ...]], heading: str) -> list[str]:
+    """The help lines drawn directly under a heading, before its first entry or button."""
+    at = next(i for i, row in enumerate(rows) if row[0] == panel.HEADING and row[1] == heading)
+    drawn: list[str] = []
+    with mock.patch.object(panel, "ui", _page(drawn)):
+        for row in rows[at + 1:]:
+            if row[0] is not panel.LEDE:
+                break
+            row[1]()
+    return drawn
 
 
 class WhatSecurityShows(unittest.TestCase):
@@ -62,6 +81,18 @@ class WhatSecurityShows(unittest.TestCase):
         self.assertEqual(_headings(_entries()), [
             t("console.encrypted.heading"), t("console.encrypted.proxies"),
             t("console.encrypted.networks"), t("console.encrypted.https")])
+
+    def test_each_heading_says_what_its_group_does_before_any_entry_or_button(self) -> None:
+        rows = _entries()
+
+        self.assertEqual(_under(rows, t("console.encrypted.heading")), [
+            t("console.encrypted.lead", device="Game Room"), t("console.encrypted.lead_skip")])
+        self.assertEqual(_under(rows, t("console.encrypted.proxies")), [
+            t("console.encrypted.proxies_what"), t("console.encrypted.proxies_line")])
+        self.assertEqual(_under(rows, t("console.encrypted.networks")), [
+            t("console.encrypted.networks_what"), t("console.encrypted.networks_line")])
+        self.assertEqual(_under(rows, t("console.encrypted.https")), [
+            t("console.encrypted.https_line")])
 
     def test_an_entry_is_listed_by_its_own_address(self) -> None:
         said = _text(_entries(proxies=["192.168.1.5"], networks=["100.64.0.0/10"]))
@@ -126,7 +157,7 @@ class WhatSecurityShows(unittest.TestCase):
 
         self.assertNotIn(t("console.encrypted.proxy_here"), said)
 
-    def test_without_a_certificate_it_offers_to_choose_one(self) -> None:
+    def test_without_a_certificate_it_says_it_serves_plain_http(self) -> None:
         said = _text(_entries())
 
         self.assertIn(t("console.encrypted.https_none"), said)

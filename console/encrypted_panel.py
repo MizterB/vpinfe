@@ -1,7 +1,7 @@
 """Encrypted Connections on Settings > Security: the two lists and the certificate.
 
 Each edit is Protected, so the Console only calls and its boundary asks for the Confirm.
-What an entry means is explained by the lines under it; the page carries no logic of its own.
+What a list does is said in the lines under its heading; the page carries no logic of its own.
 """
 
 from __future__ import annotations
@@ -39,7 +39,8 @@ def _entry(remove: Callable[[str], Any], value: str, hint: str) -> tuple[Any, ..
 def _certificate_rows(held: dict[str, Any], choose: Callable[[], Any],
                       clear: Callable[[], Any]) -> list[tuple[Any, ...]]:
     certfile, keyfile = str(held.get("certfile") or ""), str(held.get("keyfile") or "")
-    out: list[tuple[Any, ...]] = [(panel.HEADING, t("console.encrypted.https"))]
+    out: list[tuple[Any, ...]] = [(panel.HEADING, t("console.encrypted.https")),
+                                  panel.lede(t("console.encrypted.https_line"))]
     if certfile:
         out.append((t("console.encrypted.certificate_file"), panel.path_value(certfile)))
         out.append((t("console.encrypted.key_file"), panel.path_value(keyfile)))
@@ -70,18 +71,23 @@ def entries(held: dict[str, Any], device: str, *, add_proxy: Callable[[], Any],
     """What the section shows, in order.  Pure of the page, so a test reads it."""
     proxies = [str(one) for one in held.get("proxies") or []]
     networks = [str(one) for one in held.get("networks") or []]
-    out: list[tuple[Any, ...]] = [(panel.HEADING, t("console.encrypted.heading")),
-                                  panel.intro(t("console.encrypted.lead", device=device))]
-    out.append((panel.HEADING, t("console.encrypted.proxies")))
+    out: list[tuple[Any, ...]] = [
+        (panel.HEADING, t("console.encrypted.heading")),
+        panel.lede(t("console.encrypted.lead", device=device)),
+        panel.lede(t("console.encrypted.lead_skip")),
+        (panel.HEADING, t("console.encrypted.proxies")),
+        panel.lede(t("console.encrypted.proxies_what")),
+        panel.lede(t("console.encrypted.proxies_line"))]
     out += [_entry(remove_proxy, address, t("console.encrypted.remove_proxy_hint"))
             for address in proxies] or [panel.intro(t("console.encrypted.proxies_none"))]
     out.append((panel.FULL, panel.action(t("console.encrypted.add_proxy"), add_proxy,
                                          icon=verbs.ADD,
                                          hint=t("console.encrypted.add_proxy_hint"))))
-    out.append(panel.note(t("console.encrypted.proxies_line")))
     if not held.get("https") and any(this_machine.peer_is_this_machine(one) for one in proxies):
         out.append(panel.note(t("console.encrypted.proxy_here")))
-    out.append((panel.HEADING, t("console.encrypted.networks")))
+    out += [(panel.HEADING, t("console.encrypted.networks")),
+            panel.lede(t("console.encrypted.networks_what")),
+            panel.lede(t("console.encrypted.networks_line"))]
     out += [_entry(remove_network, text, t("console.encrypted.remove_network_hint"))
             for text in networks] or [panel.intro(t("console.encrypted.networks_none"))]
     out.append((panel.FULL, panel.action(t("console.encrypted.add_network"), add_network,
@@ -90,7 +96,6 @@ def entries(held: dict[str, Any], device: str, *, add_proxy: Callable[[], Any],
     out.append((panel.FULL, panel.action(t("console.encrypted.add_tailscale"), add_tailscale,
                                          icon=verbs.ADD,
                                          hint=t("console.encrypted.add_tailscale_hint"))))
-    out.append(panel.note(t("console.encrypted.networks_line")))
     out += _certificate_rows(held, choose, clear)
     return out
 
