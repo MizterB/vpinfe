@@ -12,11 +12,11 @@ from nicegui import ui
 
 from common.failures import why
 from common.i18n import t
-from manager import mediaview
 from manager.kit import art, game_tables, offload, panel, undo, verbs, when
 from manager.kit.on_page import on_page
+from manager.library import mediaview
 
-logger = logging.getLogger("vpinfe.manager.pictures")
+logger = logging.getLogger("vpinfe.manager.library.pictures")
 
 
 async def read(context: dict[str, Any]) -> dict[str, Any]:

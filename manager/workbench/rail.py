@@ -10,11 +10,12 @@ from nicegui import ui
 from common.i18n import t
 from manager import backups as backups_page
 from manager import devices as devices_page
-from manager import discovery as discovery_page
-from manager import ext_groups, ext_mark, mediasource, row_drag
+from manager import ext_groups, ext_mark
 from manager import players as players_page
 from manager import themes as themes_page
 from manager.kit import busy, deeplink, game_tables, panel
+from manager.library import discovery as discovery_page
+from manager.library import mediasource, row_drag
 from manager.workbench.all_settings import (
     _all_settings,
     _all_settings_shown,

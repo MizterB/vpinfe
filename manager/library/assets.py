@@ -23,11 +23,11 @@ from nicegui import ui
 from common import icons
 from common.games import asset_lens
 from common.i18n import t
-from manager import file_acts, text_editor
-from manager.games import view_control
 from manager.kit import game_tables, grid, media_ownership, offload, panel, thumbnails, views
+from manager.library import file_acts, text_editor
+from manager.library.games import view_control
 
-logger = logging.getLogger("vpinfe.manager.assets")
+logger = logging.getLogger("vpinfe.manager.library.assets")
 
 SCOPE = "manager.assets.columns"
 

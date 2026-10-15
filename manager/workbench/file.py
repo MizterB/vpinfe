@@ -17,11 +17,11 @@ from common.failures import why
 from common.games import asset_registry
 from common.games.asset_resolver import VPX_ASSET_KINDS
 from common.i18n import t
-from manager import backglass_view, file_acts, mediasource, mediaview, text_editor
-from manager import record as recorder
 from manager.kit import art, confirm, deeplink, media_ownership, offload, panel, verbs, when
 from manager.kit.data import Library, config_groups
 from manager.kit.on_page import on_page
+from manager.library import backglass_view, file_acts, mediasource, mediaview, text_editor
+from manager.library import record as recorder
 from manager.workbench.all_settings import (
     PLAYING_NOTE,
     PLAYING_WHY,

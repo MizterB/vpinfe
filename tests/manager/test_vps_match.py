@@ -12,7 +12,7 @@ import unittest
 from typing import Any
 from unittest.mock import patch
 
-from manager import vps_match
+from manager.library import vps_match
 
 
 async def _ran_here(fn, *args, **kwargs):

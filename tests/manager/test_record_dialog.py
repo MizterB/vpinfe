@@ -10,8 +10,8 @@ from unittest import mock
 
 from common.capture import placing
 from common.capture.run import FILL, REPLACE_ALL
-from manager import record
 from manager.kit import panel
+from manager.library import record
 from manager.workbench import game_media
 
 NOT_SHOWN = {"key": placing.NOT_SHOWN, "fix": "none", "remedy": None,

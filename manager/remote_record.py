@@ -18,10 +18,10 @@ from common.failures import why
 from common.i18n import t
 from common.media.media_specs import media_label_map
 from common.runtime.jobs import KIND_MEDIA_CAPTURE
-from manager import record
 from manager.kit import busy, offload, panel, verbs
 from manager.kit.api import ApiError
 from manager.kit.on_page import on_page
+from manager.library import record
 
 logger = logging.getLogger("vpinfe.manager.remote_record")
 

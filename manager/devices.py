@@ -819,7 +819,7 @@ def build(found: list[dict[str, Any]], library: Any, state: dict[str, Any],
     # this module for the device sections - so taking the view control at import time
     # closes the loop.
     # Only `build` needs it, and by then every module is loaded.
-    from .games import view_control
+    from manager.library.games import view_control
 
     built = rows(found, state.get("device_reach"), local_device_id)
     on_screen = {"rows": len(built)}

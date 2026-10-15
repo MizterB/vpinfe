@@ -99,7 +99,7 @@ class HeadingsResolve(unittest.TestCase):
     def test_it_can_actually_fail(self):
         catalog = _entries()
         self.assertNotIn("manager.games.assets", catalog)
-        planted = [("manager/games.py", 44, "column group", "manager.games.assets")]
+        planted = [("manager/library/games.py", 44, "column group", "manager.games.assets")]
         missing = [key for _, _, _, key in planted if key not in catalog]
         self.assertEqual(["manager.games.assets"], missing)
 

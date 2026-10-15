@@ -168,7 +168,7 @@ def build(rows: list[dict[str, Any]], library: Any,
         if rerender is not None:
             rerender()
 
-    from .games import view_control
+    from manager.library.games import view_control
 
     with ui.row().classes("w-full items-center gap-2 px-3 py-2 mb-2 shrink-0 "
                           "manager-panel manager-grid-bar"):

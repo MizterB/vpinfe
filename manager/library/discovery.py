@@ -23,7 +23,6 @@ from common import icons
 from common.failures import why
 from common.i18n import t
 from common.online import vps_kinds
-from manager import import_dialog
 from manager.kit import (
     busy,
     confirm,
@@ -39,8 +38,9 @@ from manager.kit import (
 from manager.kit import grid as grid_module
 from manager.kit.data import Library
 from manager.kit.on_page import on_page
+from manager.library import import_dialog
 
-logger = logging.getLogger("vpinfe.manager.discovery")
+logger = logging.getLogger("vpinfe.manager.library.discovery")
 
 SCOPE = "discovery"
 GAMES_ADDRESS = "/manager?" + deeplink.query({"view": "games"})
@@ -235,7 +235,7 @@ def grid_columns(library: Library, built: list[dict[str, Any]]) -> list[dict[str
 async def _fill(library: Library, body: Any, state: dict[str, Any],
                 on_select: Callable[[Any], Any], rerender: Callable[[], None]) -> None:
     # Imported here: `games` imports modules that import this one.
-    from manager.games import view_control
+    from manager.library.games import view_control
 
     try:
         found = await _read(library)

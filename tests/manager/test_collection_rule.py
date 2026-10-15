@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 from typing import Any
 
-from manager import collection_rules as rules
+from manager.library import collection_rules as rules
 
 AXES: list[dict[str, Any]] = [{"name": "letter", "kind": "letter", "label": "Letter"},
         {"name": "manufacturer", "kind": "choice", "label": "Manufacturer",

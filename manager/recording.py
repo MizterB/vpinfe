@@ -195,7 +195,7 @@ def _chooser(library: Any, rerender: Callable[[], None],
             ui.notify(t("manager.recording.could_not_choose"), caption=why(exc),
                       type="negative")
             return
-        from manager import record  # record imports this module
+        from manager.library import record  # record imports this module
 
         ended = await record.ended_job(library, str(job.get("id") or ""))
         if not ended or ended.get("error"):
@@ -306,7 +306,7 @@ def _waiting(library: Any, rerender: Callable[[], None],
 
     @on_page
     async def review() -> None:
-        from manager import record  # record imports this module
+        from manager.library import record  # record imports this module
 
         await record.review(library, used)
         rerender()

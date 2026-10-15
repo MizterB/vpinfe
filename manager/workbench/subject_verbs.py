@@ -7,14 +7,15 @@ from functools import partial
 from typing import Any
 
 from manager import backups as backups_page
-from manager import collection_adds, ext_row, file_acts, game_acts, tageditor
 from manager import devices as devices_page
-from manager import discovery as discovery_page
+from manager import ext_row
 from manager import launchers as launchers_page
 from manager import players as players_page
 from manager import themes as themes_page
 from manager.kit import deeplink, game_tables, panel
 from manager.kit.on_page import on_page
+from manager.library import collection_adds, file_acts, game_acts, tageditor
+from manager.library import discovery as discovery_page
 from manager.workbench.collection import _collection, _written
 from manager.workbench.game_table import _game_redrawn, _pick_a_match, _table_gone
 from manager.workbench.tag import _tag_changed
@@ -26,8 +27,8 @@ def _tag_verbs(context: dict[str, Any]) -> list[panel.Verb]:
 
 
 def _collection_verbs(context: dict[str, Any]) -> list[panel.Verb]:
-    # Imported here: manager.collections imports manager.games, which imports this module.
-    from manager.collections import acts
+    # Imported here: library.collections imports library.games, which imports this module.
+    from manager.library.collections import acts
 
     state = context["state"]
 

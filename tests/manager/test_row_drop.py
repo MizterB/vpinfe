@@ -8,8 +8,8 @@ import unittest
 from typing import Any
 from unittest import mock
 
-from manager import collection_adds, row_drag
 from manager.kit import grid
+from manager.library import collection_adds, row_drag
 
 
 def _parts(turn: int, pairs: list[list[str]], **said: Any) -> list[dict[str, Any]]:

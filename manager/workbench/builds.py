@@ -13,13 +13,14 @@ from common.failures import why
 from common.games.collection_store import BUILTIN_ALL
 from common.i18n import t
 from manager import backups as backups_page
-from manager import collection_adds, collection_rules, ext_row
 from manager import devices as devices_page
-from manager import discovery as discovery_page
+from manager import ext_row
 from manager import players as players_page
 from manager import themes as themes_page
 from manager.kit import game_tables, offload, panel, verbs
 from manager.kit.data import Library
+from manager.library import collection_adds, collection_rules
+from manager.library import discovery as discovery_page
 from manager.workbench.all_settings import _playing
 from manager.workbench.collection import _note_unsaved, unsaved
 from manager.workbench.core import Section, _blank, _pane_build, _rebuilds, _table_line, _title

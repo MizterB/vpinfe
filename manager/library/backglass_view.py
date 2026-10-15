@@ -20,9 +20,9 @@ from PIL import Image
 from common.games import backglass_ops
 from common.games.formats import dmd_frame
 from common.i18n import t
-from manager import mediaview
 from manager.kit import art, panel
 from manager.kit.on_page import on_page
+from manager.library import mediaview
 
 logger = logging.getLogger(__name__)
 

@@ -17,9 +17,9 @@ from nicegui import core, ui
 from common import i18n, service_errors
 from common.games.collections_service import IMAGE_EXTENSIONS
 from common.media.media_specs import IMAGE_FAMILY
-from manager import mediasource
 from manager.kit import folder_picker
 from manager.kit.data import Library
+from manager.library import mediasource
 from tests.support import clicks
 
 LIBRARY = SimpleNamespace(placements=None, displaced_by=None, place_media=None,

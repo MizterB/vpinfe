@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from manager import release_match
+from manager.library import release_match
 
 
 def _release(**said: object) -> dict[str, object]:

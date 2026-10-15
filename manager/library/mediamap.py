@@ -18,8 +18,8 @@ from nicegui import ui
 
 from common.i18n import t
 from common.media.media_specs import media_family, media_label_map
-from manager import mediapages, mediaview
 from manager.kit import art, media_ownership, verbs
+from manager.library import mediapages, mediaview
 
 # Top of the cabinet down to the floor. Kinds on the same row are the same screen shown
 # two ways - a still and its video - and share a row so the pair reads as one slot.

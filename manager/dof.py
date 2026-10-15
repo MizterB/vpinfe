@@ -163,7 +163,7 @@ async def _download_row(library: Any, rerender: Any) -> tuple[Any, Any]:
 
     @on_page
     async def now() -> None:
-        from manager import record
+        from manager.library import record
 
         # Held: an ongoing notification never times out on its own.
         downloading = ui.notification(t("said.dof_config.download"), spinner=True,

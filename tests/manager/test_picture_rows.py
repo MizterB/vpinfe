@@ -7,7 +7,7 @@ from typing import Any
 
 from common.i18n import t
 from manager.kit import game_tables, panel
-from manager.pictures import rows, table_names
+from manager.library.pictures import rows, table_names
 
 TABLES: list[dict[str, Any]] = [{"id": "t1", "filename": "Example.vpx", "default": True},
                                 {"id": "t2", "filename": "Example (Mod).vpx"}]

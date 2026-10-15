@@ -13,9 +13,10 @@ from common.extensions import host
 from common.i18n import t
 from common.runtime.jobs import DONE, FAILED
 from common.settings import feature_checks
-from manager import games, needs
+from manager import needs
 from manager.kit import need_keys
 from manager.kit.data import Library
+from manager.library import games
 
 
 class FakeLibrary:

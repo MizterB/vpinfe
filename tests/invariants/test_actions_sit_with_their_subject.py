@@ -19,6 +19,13 @@ REPO = pathlib.Path(__file__).resolve().parent.parent.parent
 MANAGER = REPO / "manager"
 CATALOG = REPO / "common" / "i18n" / "catalogs" / "en.json"
 
+
+def _at(name: str) -> pathlib.Path:
+    """The one file of that name, wherever its area keeps it."""
+    (found,) = MANAGER.rglob(name)
+    return found
+
+
 # `panel.py` is the ⋮ that opens a subject's verbs. `ext_page.py` heads the buttons an
 # extension declares, which have no subject menu to sit in.
 ACTIONS_WORD_AT = {"panel.py", "ext_page.py"}
@@ -225,9 +232,9 @@ class TestActionsSitWithTheirSubject(unittest.TestCase):
     def test_a_subject_menu_and_its_row_menu_share_one_list(self) -> None:
         self.assertEqual(_subject_verbs(), set(GRID_OF))
         for subject, (written, function, drawn) in GRID_OF.items():
-            defined = {node.name for node in _tree(MANAGER / written).body
+            defined = {node.name for node in _tree(_at(written)).body
                        if isinstance(node, ast.FunctionDef)}
-            tree = _tree(MANAGER / drawn)
+            tree = _tree(_at(drawn))
             called = {node.func.attr for node in ast.walk(tree)
                       if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
                       and isinstance(node.func.value, ast.Name)
@@ -273,7 +280,7 @@ class TestActionsSitWithTheirSubject(unittest.TestCase):
         grids = _grids()
         self.assertIn("backups.py", grids)
         selectable = {name for name, given in grids.items() if "on_select_rows" in given}
-        drawn = {name for name in selectable if _calls_panel(MANAGER / name, "selection_menu")}
+        drawn = {name for name in selectable if _calls_panel(_at(name), "selection_menu")}
         by_hand = selectable - drawn - NO_SELECTION_MENU
         self.assertEqual(sorted(SELECTION_BY_HAND), sorted(by_hand),
                          "a selection menu is built with panel.selection_menu; a page "

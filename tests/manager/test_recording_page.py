@@ -312,7 +312,7 @@ class RecordingPageTests(unittest.IsolatedAsyncioTestCase):
         answered = {"kept": True, "shared": 3, "screens": 3, "reason": None}
 
         with patch("manager.kit.confirm.ask", new=AsyncMock(return_value=True)) as asked, \
-                patch("manager.record.ended_job", new=AsyncMock(return_value=answered)):
+                patch("manager.library.record.ended_job", new=AsyncMock(return_value=answered)):
             await choose()
 
         self.assertEqual(asked.call_args.kwargs["detail"],
@@ -329,7 +329,7 @@ class RecordingPageTests(unittest.IsolatedAsyncioTestCase):
         answered = {"kept": True, "shared": 2, "screens": 3, "reason": None}
 
         with patch("manager.kit.confirm.ask", new=AsyncMock(return_value=True)), \
-                patch("manager.record.ended_job", new=AsyncMock(return_value=answered)):
+                patch("manager.library.record.ended_job", new=AsyncMock(return_value=answered)):
             await choose()
 
         self.assertEqual(cast(Any, recording.ui).notify.call_args.kwargs["type"], "warning")
@@ -341,7 +341,7 @@ class RecordingPageTests(unittest.IsolatedAsyncioTestCase):
                                "params": {"desktop": "KDE Plasma"}}}
 
         with patch("manager.kit.confirm.ask", new=AsyncMock(return_value=True)), \
-                patch("manager.record.ended_job", new=AsyncMock(return_value=answered)):
+                patch("manager.library.record.ended_job", new=AsyncMock(return_value=answered)):
             await choose()
 
         notified = cast(Any, recording.ui).notify.call_args

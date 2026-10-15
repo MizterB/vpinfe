@@ -20,7 +20,7 @@ from nicegui import run, ui
 from common import icons
 from common.failures import why
 from common.i18n import t
-from manager import ext_page, mediasource, mediaview
+from manager import ext_page
 from manager.kit import (
     art,
     busy,
@@ -39,6 +39,7 @@ from manager.kit import (
 from manager.kit import dialog as frame
 from manager.kit.data import Library
 from manager.kit.on_page import on_page
+from manager.library import mediasource, mediaview
 
 logger = logging.getLogger("vpinfe.manager.players")
 
@@ -216,7 +217,7 @@ async def _fill(library: Library, state: dict[str, Any],
 
     # Imported here: `workbench.rail` imports this module, and `games` imports
     # `workbench.all_settings`.
-    from manager.games import view_control
+    from manager.library.games import view_control
 
     built = rows(roster, played)
     guests = [one for one in roster if one.get("guest")]

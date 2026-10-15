@@ -17,8 +17,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from urllib.parse import quote
 
-from manager import collections, games
 from manager.kit import grid, thumbnails
+from manager.library import collections, games
 from tests.support.browser_session import BrowserSession, chromium_path
 from tests.support.library import game_info, write_game
 from tests.support.live_instance import LiveInstance

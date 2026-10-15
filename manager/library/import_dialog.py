@@ -26,7 +26,7 @@ from manager.kit import dialog as frame
 from manager.kit import game_tables, offload, panel, verbs
 from manager.kit.on_page import on_page
 
-logger = logging.getLogger("vpinfe.manager.import_dialog")
+logger = logging.getLogger("vpinfe.manager.library.import_dialog")
 
 STOP_ASKING = {"updates": {"ask_where_new_games_go": False}}
 

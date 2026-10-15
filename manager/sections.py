@@ -20,10 +20,11 @@ from common.failures import why
 from common.i18n import number, t
 from common.media.media_specs import media_label_map
 from common.security import approvals
-from manager import ext_mark, front, jobs_list, media_fill, needs, set_aside
+from manager import ext_mark, front, jobs_list, needs, set_aside
 from manager.kit import game_tables, offload, panel, verbs, when
 from manager.kit.data import Library
 from manager.kit.on_page import on_page
+from manager.library import media_fill
 
 # name, one-line description, predicate over (game, media entries).
 #
@@ -184,7 +185,7 @@ def _need_row(need: needs.Need, state: dict[str, Any], fix: Callable[..., Any],
         ui.label(need.label).classes("manager-setting grow min-w-0").tooltip(need.tip)
         if need.new and need.opens.view in ("games", "tables"):
             # Only a grid has rows to narrow to the new ones.
-            from manager import games
+            from manager.library import games
 
             def only_new() -> Any:
                 return state["open_on"](needs.Opens(

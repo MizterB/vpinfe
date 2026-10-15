@@ -7,8 +7,8 @@ import unittest
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
-from manager import import_dialog
 from manager.kit import confirm, game_tables, panel
+from manager.library import import_dialog
 from manager.workbench import game_table
 from tests.support.clicks import press
 from tests.support.workbench_patch import patch_workbench

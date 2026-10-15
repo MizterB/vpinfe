@@ -10,9 +10,9 @@ from unittest import mock
 
 from nicegui import core, ui
 
-from manager import assets, text_editor
 from manager.kit import offload
 from manager.kit.api import ApiError
+from manager.library import assets, text_editor
 from manager.workbench import file
 
 

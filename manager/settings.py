@@ -845,7 +845,7 @@ def _get_tool(library: Library, rerender: Callable[[], None], row: dict[str, Any
             ui.notify(t("manager.settings.ffmpeg_failed"), caption=why(exc),
                       type="negative")
             return
-        from manager import record
+        from manager.library import record
 
         ended = await record.ended_job(library, str(job.get("id") or ""))
         if not ended or ended.get("error"):

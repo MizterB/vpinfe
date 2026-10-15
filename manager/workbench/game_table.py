@@ -14,17 +14,7 @@ from nicegui import run, ui
 from common.devices import install_identity
 from common.failures import why
 from common.i18n import t
-from manager import (
-    backup_rows,
-    collection_adds,
-    community,
-    dof,
-    ext_groups,
-    file_acts,
-    mediamap,
-    mediasource,
-    vps_match,
-)
+from manager import backup_rows, community, dof, ext_groups
 from manager.kit import (
     confirm,
     deeplink,
@@ -41,6 +31,7 @@ from manager.kit import (
 from manager.kit import dialog as frame
 from manager.kit.data import Library, tag_source
 from manager.kit.on_page import on_page
+from manager.library import collection_adds, file_acts, mediamap, mediasource, vps_match
 from manager.workbench.core import (
     _KEEP_SCROLL,
     FULL,
@@ -836,7 +827,7 @@ def _change_match(pick: Callable[[], Any], *, matched: bool) -> Callable[[], Non
 async def _pick_a_match(context: dict[str, Any]) -> None:
     """Ask which catalog entry this game is, and write the answer.
 
-    The picker itself is `manager.vps_match`, because the grid offers the same act over
+    The picker itself is `manager.library.vps_match`, because the grid offers the same act over
     a selection and two copies of it would drift. What stays here is the write: this
     section owns the game in front of it and knows how to redraw itself afterwards.
     """

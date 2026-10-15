@@ -5,8 +5,8 @@ from __future__ import annotations
 import unittest
 from unittest import mock
 
-from manager import mediasource
 from manager.kit import data, panel
+from manager.library import mediasource
 from manager.workbench import game_assets, game_table
 
 CONTEXT = {"rebuild": object()}

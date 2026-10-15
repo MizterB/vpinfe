@@ -7,8 +7,8 @@ import unittest
 from typing import Any
 from unittest import mock
 
-from manager import media_fill
-from manager.media_fill import outcome, remember, ticked
+from manager.library import media_fill
+from manager.library.media_fill import outcome, remember, ticked
 
 KINDS = [{"kind": "wheel", "missing": 12, "available": 9},
          {"kind": "backglass", "missing": 4, "available": 2},

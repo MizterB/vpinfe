@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from manager import uploads
+from manager.library import uploads
 
 ANALYSIS = {"assets": [{"entries": [{"path": "afm/pup/screen.mp4"},
                                     {"path": "afm.cRZ"}]},

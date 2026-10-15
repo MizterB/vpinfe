@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from common.i18n import t
-from manager import uploads
+from manager.library import uploads
 
 
 class WhatAStoppedUploadSays(unittest.TestCase):

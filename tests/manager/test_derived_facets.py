@@ -10,8 +10,8 @@ from __future__ import annotations
 import unittest
 from typing import Any
 
-from manager import games
 from manager.kit import grid
+from manager.library import games
 
 
 def rows(*pairs: tuple[str, str]) -> list[dict[str, Any]]:

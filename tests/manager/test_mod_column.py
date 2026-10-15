@@ -5,8 +5,8 @@ from __future__ import annotations
 import unittest
 from typing import Any
 
-from manager import games
 from manager.kit import views
+from manager.library import games
 
 
 def _row(mod_of: dict[str, Any] | None) -> dict[str, Any]:

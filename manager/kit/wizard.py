@@ -382,7 +382,7 @@ def _controls(fields: list[dict], values: dict[str, Any], *,
                 wrote(key)
 
             if "settle" not in FIELD_DRAWERS:
-                raise RuntimeError("manager.wizard_settle is not imported")
+                raise RuntimeError("manager.library.wizard_settle is not imported")
             entries.append((panel.FULL, refusing(FIELD_DRAWERS["settle"](
                 field, dict(values.get(key) or {}), settled, client=client,
                 question=label if asked > 1 else "", on_control=caught), key)))

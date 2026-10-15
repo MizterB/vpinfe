@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import unittest
 
-from manager import discovery
 from manager.kit import game_tables
+from manager.library import discovery
 
 
 class YearOf(unittest.TestCase):

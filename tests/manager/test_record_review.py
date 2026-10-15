@@ -9,7 +9,8 @@ from contextlib import contextmanager
 from typing import Any
 from unittest import mock
 
-from manager import record, recording
+from manager import recording
+from manager.library import record
 
 NOT_SHOWN = {"key": "capture.screen.not_shown", "fix": "none", "remedy": None,
              "params": {"app": "Visual Pinball X", "window": "scoreview"}}

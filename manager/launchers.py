@@ -141,7 +141,7 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
 
     # Imported here: `workbench.launcher` imports this module, and `games` imports
     # `workbench.all_settings`, so reaching for it at the top would close the loop.
-    from manager.games import view_control
+    from manager.library.games import view_control
     from manager.workbench import all_settings
 
     held = list(found.get("launchers") or [])

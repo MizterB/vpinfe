@@ -9,11 +9,12 @@ from nicegui import ui
 
 from common.failures import why
 from common.i18n import t
-from manager import import_report, jobs_list
+from manager import jobs_list
 from manager.kit import dialog as frame
 from manager.kit import offload, panel, report_groups, wizard
 from manager.kit.api import ApiClient
 from manager.kit.on_page import on_page
+from manager.library import import_report
 
 # Where each kind's result labels live in its catalog; a kind not named reads its keys as written.
 UNDER = {"library_importer.import": "setup"}

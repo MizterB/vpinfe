@@ -21,43 +21,32 @@ from common.i18n import t
 from common.release import whats_new
 from common.runtime.jobs import DONE, KIND_LIBRARY_SCAN, KIND_MEDIA_CAPTURE
 from manager import about as about_page
-from manager import assets as assets_page
 from manager import (
     authenticator_panel,
     ext_links,
     ext_mark,
     ext_pages,
     folders,
-    games,
     job_report,
     jobs_list,
     needs,
     power,
     rail_marks,
     remote,
-    row_drag,
     sections,
     security,
     sign_in_notice,
-    tageditor,
-    text_editor,
     theme_sources,
-    uploads,
     waiting,
-    wizard_settle,  # noqa: F401 - registers the settle field with the wizard
 )
 from manager import backups as backups_page
-from manager import collections as collections_page
 from manager import community as community_page
 from manager import devices as devices_page
-from manager import discovery as discovery_page
 from manager import jobs as jobs_page
 from manager import launchers as launchers_page
 from manager import logs as logs_page
-from manager import media as media_page
 from manager import metrics as metrics_page
 from manager import players as players_page
-from manager import record as recorder
 from manager import settings as settings_page
 from manager import setup as setup_page
 from manager import themes as themes_page
@@ -80,6 +69,19 @@ from manager.kit import panel as panel_parts
 from manager.kit.api import ApiClient
 from manager.kit.data import Library
 from manager.kit.on_page import on_page
+from manager.library import assets as assets_page
+from manager.library import collections as collections_page
+from manager.library import discovery as discovery_page
+from manager.library import (
+    games,
+    row_drag,
+    tageditor,
+    text_editor,
+    uploads,
+    wizard_settle,  # noqa: F401 - registers the settle field with the wizard
+)
+from manager.library import media as media_page
+from manager.library import record as recorder
 from manager.library_folders import KIND_IMPORT, hold_library
 from manager.workbench import builds, core, game_guides, game_table, rail
 from manager.workbench import collection as wb_collection
@@ -462,7 +464,7 @@ async def _took_a_drop(
     grid names nothing - which is what makes it a new game rather than a guess about an
     existing one.
     """
-    from manager import import_dialog, uploads
+    from manager.library import import_dialog, uploads
 
     game_id, game_dir, media_kind = await offload.io(_drop_target, library, state, drop)
 
@@ -519,7 +521,7 @@ def _drop_target(library: Library, state: dict, drop: Any) -> tuple[str, str, st
     table under Tables - so which grid you are on decides how to read it, and the grid
     you are on is the view.
     """
-    from manager import uploads
+    from manager.library import uploads
 
     if drop.target == uploads.TARGET_LIBRARY or not drop.row_id:
         return "", "", ""

@@ -26,12 +26,12 @@ from common.games.asset_resolver import VPX_ASSET_KINDS
 from common.i18n import t
 from common.media.media_specs import PAGED_KINDS
 from common.online import vps_kinds
-from manager import media_fill, media_rotate, mediasource
-from manager import record as recorder
 from manager.kit import confirm, game_tables, media_ownership, offload, panel, verbs, walks
 from manager.kit.on_page import on_page
+from manager.library import media_fill, media_rotate, mediasource
+from manager.library import record as recorder
 
-logger = logging.getLogger("vpinfe.manager.file_acts")
+logger = logging.getLogger("vpinfe.manager.library.file_acts")
 
 After = Callable[[list[str]], Awaitable[Any]]
 

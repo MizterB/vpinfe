@@ -5,8 +5,9 @@ from __future__ import annotations
 import unittest
 from unittest.mock import Mock
 
-from manager import page, uploads
+from manager import page
 from manager.kit.data import Library
+from manager.library import uploads
 
 GAME = {"id": "g-1", "name": "Some Game", "folder": "/games/Some Game"}
 

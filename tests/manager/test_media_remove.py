@@ -10,8 +10,8 @@ import unittest
 from typing import Any
 
 from common.i18n import t
-from manager import file_acts
 from manager.kit import game_tables
+from manager.library import file_acts
 
 GAME = {"folder": "/tables/Multi VPX (Original 2024)"}
 TABLES = [{"id": "a1", "filename": "Multi VPX (Original 2024).vpx"},

@@ -5,8 +5,8 @@ from __future__ import annotations
 import unittest
 from unittest.mock import Mock
 
-from manager import games
 from manager.kit import data, views
+from manager.library import games
 
 
 class TableUpdateTests(unittest.TestCase):

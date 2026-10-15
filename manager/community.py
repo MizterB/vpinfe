@@ -17,7 +17,7 @@ from common.failures import why
 from common.games import rankings
 from common.games.community_lists import keep, kept
 from common.i18n import t
-from manager import collection_rules, ext_action, ext_links, ext_page
+from manager import ext_action, ext_links, ext_page
 from manager.kit import (
     busy,
     confirm,
@@ -37,6 +37,7 @@ from manager.kit import (
 from manager.kit.api import ApiClient, ApiError
 from manager.kit.data import Library, read_state, sources_of
 from manager.kit.on_page import on_page
+from manager.library import collection_rules
 
 logger = logging.getLogger("vpinfe.manager.community")
 
@@ -652,7 +653,7 @@ def build(extension: dict[str, Any], declared: dict[str, Any], library: Library,
 async def _fill(extension: dict[str, Any], declared: dict[str, Any], library: Library,
                 body: Any, subject: Any = None,
                 on_open: Callable[..., Any] | None = None) -> None:
-    from .games import view_control
+    from manager.library.games import view_control
 
     name = str(extension.get("name") or "")
     key = str(declared.get("key") or "")

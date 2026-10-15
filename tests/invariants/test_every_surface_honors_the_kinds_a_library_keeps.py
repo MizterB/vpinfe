@@ -12,8 +12,9 @@ from collections.abc import Callable
 from unittest.mock import Mock
 
 from common.i18n import t
-from manager import discovery, games, sections
+from manager import sections
 from manager.kit.data import Library
+from manager.library import discovery, games
 from manager.workbench import core, game_assets
 
 HIDDEN_ASSETS = ("ini", "rom", "readme")

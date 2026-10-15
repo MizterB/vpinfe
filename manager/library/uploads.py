@@ -26,11 +26,11 @@ from nicegui import context, run, ui
 
 from common.failures import why
 from common.i18n import t
-from manager import import_dialog
 from manager.kit import offload
 from manager.kit.on_page import on_page
+from manager.library import import_dialog
 
-logger = logging.getLogger("vpinfe.manager.uploads")
+logger = logging.getLogger("vpinfe.manager.library.uploads")
 
 # What a drop lands on, and therefore what it means.
 TARGET_LIBRARY = "library"

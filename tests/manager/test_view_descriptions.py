@@ -7,17 +7,9 @@ import pathlib
 import unittest
 
 from common import i18n
-from manager import (
-    assets,
-    collections,
-    devices,
-    games,
-    launchers,
-    media,
-    tageditor,
-    themes,
-)
+from manager import devices, launchers, themes
 from manager.kit import views as views_module
+from manager.library import assets, collections, games, media, tageditor
 from tests.support import trees
 
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
@@ -49,7 +41,7 @@ class BuiltinViewsAreDescribed(unittest.TestCase):
 
     def test_a_view_built_at_render_time_is_a_preset(self):
         """A view built from what the library holds is a `Preset`, not a plain list."""
-        tree = trees.tree_for(REPO / "manager/games.py")
+        tree = trees.tree_for(REPO / "manager/library/games.py")
         plain = []
         for node in ast.walk(tree):
             if not (isinstance(node, ast.Assign) and len(node.targets) == 1
@@ -62,7 +54,7 @@ class BuiltinViewsAreDescribed(unittest.TestCase):
                     continue
                 if not (isinstance(value, ast.Call)
                         and getattr(value.func, "attr", "") == "Preset"):
-                    plain.append(f"manager/games.py:{node.lineno}: a view built here "
+                    plain.append(f"manager/library/games.py:{node.lineno}: a view built here "
                                  "is a plain list, so it has no description")
         self.assertEqual(plain, [], "\n" + "\n".join(plain))
 

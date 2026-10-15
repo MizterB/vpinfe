@@ -13,7 +13,7 @@ from starlette.testclient import TestClient
 
 import httpapi
 from common.games import launchers
-from manager import games
+from manager.library import games
 from tests.support.launchers_api import put_launcher
 from tests.support.library import TempTree, fake_game, own_launchers, write_game
 

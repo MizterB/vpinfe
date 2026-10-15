@@ -6,9 +6,9 @@ from __future__ import annotations
 import unittest
 from unittest.mock import Mock
 
-from manager import games
 from manager.kit import data, game_tables
 from manager.kit.api import ApiClient
+from manager.library import games
 
 
 class PrivateColumnTests(unittest.TestCase):

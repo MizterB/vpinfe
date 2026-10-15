@@ -6,7 +6,7 @@ import unittest
 from typing import Any
 from unittest.mock import Mock, patch
 
-from manager import import_dialog
+from manager.library import import_dialog
 
 ASKED: dict[str, Any] = {"game_dir": "", "rom_name": "", "allow_new_game": True,
                          "media_kind": "", "location_id": "", "asset_kind": "",

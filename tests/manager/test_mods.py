@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 from urllib.parse import parse_qs, urlparse
 
 from manager.kit import game_tables, panel
-from manager.release_match import in_lineage
+from manager.library.release_match import in_lineage
 from manager.workbench import game_match, game_table
 from tests.support.workbench_patch import patch_workbench
 

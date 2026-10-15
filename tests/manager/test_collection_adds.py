@@ -9,8 +9,8 @@ from unittest.mock import patch
 
 from common.games import collection_ops
 from common.games.collection_store import CollectionStore
-from manager import collection_adds
-from manager.collection_adds import GAMES, TABLES, Row, Wrote
+from manager.library import collection_adds
+from manager.library.collection_adds import GAMES, TABLES, Row, Wrote
 from tests.support.library import TempTree, fake_game, game_info, write_game
 
 

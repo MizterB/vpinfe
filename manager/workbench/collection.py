@@ -22,7 +22,7 @@ from common.games.collection_store import (
     SORT_LABELS,
 )
 from common.i18n import t
-from manager import collection_adds, collection_rules, community, mediasource, row_drag, text_editor
+from manager import community
 from manager.kit import arrange as arranging
 from manager.kit import (
     art,
@@ -38,6 +38,7 @@ from manager.kit import (
 from manager.kit import dialog as frame
 from manager.kit.data import read_state, tag_source
 from manager.kit.on_page import on_page
+from manager.library import collection_adds, collection_rules, mediasource, row_drag, text_editor
 from manager.workbench.core import _ADD_BOX, _KEEP_SCROLL, FULL, HEADING, _built_label, _rows
 
 
@@ -146,8 +147,8 @@ def _text_control(context: dict[str, Any], row: dict[str, Any], field: str,
 
 @on_page
 async def _rename(context: dict[str, Any], wanted: str) -> None:
-    # Imported here: manager.collections imports manager.games, which imports this module.
-    from manager.collections import renamed_to
+    # Imported here: library.collections imports library.games, which imports this module.
+    from manager.library.collections import renamed_to
 
     state = context["state"]
     try:
@@ -628,8 +629,8 @@ async def _cancel_rules(context: dict[str, Any]) -> None:
 
 
 async def _keep_what_it_found(context: dict[str, Any]) -> None:
-    # Imported here: manager.collections imports manager.games, which imports this module.
-    from manager.collections import keep_result
+    # Imported here: library.collections imports library.games, which imports this module.
+    from manager.library.collections import keep_result
 
     await keep_result(context["library"], context["state"], [_collection(context)["name"]],
                       lambda name: _written(context, name or ""))

@@ -11,7 +11,8 @@ from unittest.mock import AsyncMock, Mock, patch
 from nicegui import ui
 
 from common.i18n import t
-from manager import import_dialog, mediasource, page, uploads
+from manager import page
+from manager.library import import_dialog, mediasource, uploads
 from tests.support.clicks import press
 
 

@@ -1360,7 +1360,7 @@ NOT_PROSE = re.compile(r"[<>?&/=;{}#]")
 BYTE_UNITS = {"B", "KB", "MB", "GB", "TB"}
 # Functions and constants in the Manager whose values joined by a space are not words.
 JOINED_NOT_SAID = {
-    "manager/games.py": {"_RATING_CHOICES": "two star glyphs drawn as one mark"},
+    "manager/library/games.py": {"_RATING_CHOICES": "two star glyphs drawn as one mark"},
     "manager/kit/grid.py": {"identifier": "a cell's class list", "with_art": "a cell's class list"},
     "manager/kit/renderers.py": {"install": "a script's object entries"},
     "manager/kit/tag_chips.py": {"dot_class": "a class list", "chip_class": "a class list"},

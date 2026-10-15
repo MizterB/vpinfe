@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 from nicegui import ui
 
 from common.i18n import t
-from manager import mediasource
+from manager.library import mediasource
 
 _PAGE = ui.element()
 

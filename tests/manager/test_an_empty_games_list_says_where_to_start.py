@@ -11,7 +11,8 @@ from unittest.mock import Mock
 from nicegui import ui
 
 from common.i18n import t
-from manager import games, sections
+from manager import sections
+from manager.library import games
 
 
 def _words(body: ui.element) -> str:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from manager.game_acts import auto_match_outcome
+from manager.library.game_acts import auto_match_outcome
 from manager.page import read_failure, read_outcome
 
 

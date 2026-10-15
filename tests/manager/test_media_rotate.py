@@ -6,7 +6,7 @@ import unittest
 
 from common.games import media_rotate
 from common.i18n import t
-from manager import media_rotate as page
+from manager.library import media_rotate as page
 
 
 def row(path: str, *, present: bool = True, game_id: str = "g1") -> dict:

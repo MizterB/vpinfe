@@ -15,9 +15,9 @@ from nicegui import ui
 from common.failures import why
 from common.i18n import t
 from common.media.media_specs import PAGED_KINDS, media_label_map
-from manager import mediasource, mediaview
 from manager.kit import art, confirm, media_ownership, offload, panel, verbs
 from manager.kit.on_page import on_page
+from manager.library import mediasource, mediaview
 
 logger = logging.getLogger(__name__)
 

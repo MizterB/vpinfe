@@ -8,8 +8,8 @@ from common import apps
 from common.config.labels import field_label
 from common.games import asset_origin, asset_registry
 from common.i18n import t
-from manager import games, tageditor
 from manager.kit import data, game_tables, media_ownership, play_facts, stars, table_features, views
+from manager.library import games, tageditor
 from manager.workbench import game_assets, rail
 
 
@@ -428,7 +428,7 @@ class TagRowTests(unittest.TestCase):
                          {r["tag"]: r["unused"] for r in rows})
 
     def test_every_tag_view_filters_on_a_column_the_grid_has(self) -> None:
-        from manager import tageditor
+        from manager.library import tageditor
 
         fields = {one["field"] for one in tageditor.COLUMNS}
         for name, preset in tageditor.VIEWS.items():

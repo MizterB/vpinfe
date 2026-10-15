@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import unittest
 
-from manager import games
 from manager.kit import grid
+from manager.library import games
 
 
 class AGridSearch(unittest.TestCase):

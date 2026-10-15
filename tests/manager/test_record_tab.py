@@ -10,7 +10,7 @@ from typing import Any
 from unittest import mock
 
 from common.capture import adapters, placing
-from manager import mediasource, record
+from manager.library import mediasource, record
 
 CAPTURE = {"name": "capture", "available": True, "reason": None}
 NOT_SHOWN = {"key": placing.NOT_SHOWN, "fix": "none", "remedy": None,

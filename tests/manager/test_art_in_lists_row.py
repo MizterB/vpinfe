@@ -13,8 +13,8 @@ from unittest.mock import Mock
 from nicegui import core, ui
 
 from common.i18n import t
-from manager import assets, collections, games, media, tageditor
 from manager.kit.data import Library
+from manager.library import assets, collections, games, media, tageditor
 
 SETTINGS = "/manager?view=settings&page=vpinfe.manager"
 GAME = {"id": "g-1", "name": "Some Game", "folder": "/games/Some Game"}

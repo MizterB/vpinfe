@@ -11,8 +11,9 @@ from typing import Any
 from nicegui import ui
 
 from common.timestamps import utc_now_iso
-from manager import collection_rules, community, games, tageditor
+from manager import community
 from manager.kit.data import Library, read_state, sources_of
+from manager.library import collection_rules, games, tageditor
 from manager.workbench import tag
 from tests.support import lines
 

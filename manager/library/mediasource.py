@@ -38,7 +38,7 @@ from common.media.media_specs import (
     media_family,
     media_label_map,
 )
-from manager import record, recording, uploads, vps_match
+from manager import recording
 from manager.kit import (
     art,
     busy,
@@ -54,8 +54,9 @@ from manager.kit import (
 )
 from manager.kit import dialog as frame
 from manager.kit.on_page import on_page
+from manager.library import record, uploads, vps_match
 
-logger = logging.getLogger("vpinfe.manager.mediasource")
+logger = logging.getLogger("vpinfe.manager.library.mediasource")
 
 # Enough of a list to scroll rather than to page. A folder of artwork is tens of files,
 # not thousands, and a picker with pages in it is a database browser.

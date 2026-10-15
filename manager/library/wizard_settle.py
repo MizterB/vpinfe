@@ -13,12 +13,12 @@ from typing import Any
 from nicegui import background_tasks, ui
 
 from common.i18n import t
-from manager import vps_match
 from manager.kit import game_tables, offload, panel, verbs, wizard
 from manager.kit.api import ApiClient
 from manager.kit.data import Library
 from manager.kit.on_page import on_page
 from manager.kit.wizard_lists import Answer, heading
+from manager.library import vps_match
 
 
 def _offered(entry: dict[str, Any]) -> str:

@@ -5,7 +5,8 @@ from __future__ import annotations
 
 import unittest
 
-from manager import devices, games, tageditor, themes
+from manager import devices, themes
+from manager.library import games, tageditor
 
 
 def _columns(presets: dict, key: str) -> list[str]:

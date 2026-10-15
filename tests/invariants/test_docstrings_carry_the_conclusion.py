@@ -54,7 +54,7 @@ MEASUREMENT = re.compile(
 EXEMPT = {
     ("common/games/library_vps_state.py", "compute"):
         "'measured against its own baseline' is what the code does, not a measurement",
-    ("manager/vps_match.py", "ask"):
+    ("manager/library/vps_match.py", "ask"):
         "`place` is the literal format '3 of 34', which is the contract",
     ("frontend/input_api.py", "set_button_mapping"):
         "the old key names are still accepted, so naming them is a live contract",

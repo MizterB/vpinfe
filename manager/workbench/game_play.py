@@ -11,8 +11,9 @@ from nicegui import ui
 
 from common.failures import why
 from common.i18n import t
-from manager import ext_groups, pictures
+from manager import ext_groups
 from manager.kit import offload, panel, play_facts, when
+from manager.library import pictures
 from manager.workbench.core import HEADING, _rows, _table_line
 
 

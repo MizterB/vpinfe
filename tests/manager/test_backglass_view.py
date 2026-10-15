@@ -6,7 +6,7 @@ import unittest
 
 from common.games import backglass_ops
 from common.games.formats import dmd_frame
-from manager import backglass_view as view
+from manager.library import backglass_view as view
 
 LEGACY, B2S = backglass_ops.LEGACY, backglass_ops.B2S
 FLOATING = {"Backglass.BackglassOutput": "1"}

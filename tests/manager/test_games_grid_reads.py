@@ -11,9 +11,10 @@ from unittest.mock import Mock
 
 from nicegui import core, ui
 
-from manager import games, import_dialog, page, uploads
+from manager import page
 from manager.kit import grid
 from manager.kit.data import Library
+from manager.library import games, import_dialog, uploads
 from manager.workbench import game_table
 
 GAME = {"id": "g-1", "name": "Some Game", "folder": "/games/Some Game"}

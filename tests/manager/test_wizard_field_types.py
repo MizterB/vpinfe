@@ -11,8 +11,8 @@ from unittest import mock
 from nicegui import ui
 
 from common.i18n import t
-from manager import vps_match, wizard_settle
 from manager.kit import wizard
+from manager.library import vps_match, wizard_settle
 from tests.manager.test_wizard_dialog import (
     _calls,
     _finished,

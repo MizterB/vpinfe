@@ -23,7 +23,7 @@ from nicegui import run, ui
 from common.failures import why
 from common.i18n import t
 from common.security import accepted
-from manager import accept, backup_rows, mediaview, settings, theme_card, theme_sources
+from manager import accept, backup_rows, settings, theme_card, theme_sources
 from manager.kit import (
     art,
     busy,
@@ -39,6 +39,7 @@ from manager.kit import (
 )
 from manager.kit.data import Library
 from manager.kit.on_page import on_page
+from manager.library import mediaview
 
 logger = logging.getLogger("vpinfe.manager.themes")
 
@@ -199,7 +200,7 @@ async def _fill(library: Library, state: dict[str, Any],
                 body: Any, refresh: bool) -> None:
     # Deferred: `games` imports `workbench.all_settings`, and `workbench.rail` imports this
     # module for its sections.
-    from .games import view_control
+    from manager.library.games import view_control
 
     try:
         found = await offload.io(library.themes, refresh)

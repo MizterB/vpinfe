@@ -13,7 +13,6 @@ from common import icons
 from common.failures import why
 from common.i18n import t
 from common.online import vps_kinds
-from manager import file_acts, release_match, vps_match
 from manager.kit import (
     candidates,
     deeplink,
@@ -25,6 +24,7 @@ from manager.kit import (
     when,
 )
 from manager.kit.on_page import on_page
+from manager.library import file_acts, release_match, vps_match
 from manager.workbench.core import _write
 
 logger = logging.getLogger("vpinfe.manager.workbench.game_match")

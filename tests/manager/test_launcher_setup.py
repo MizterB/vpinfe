@@ -39,11 +39,11 @@ class Details:
             "state": {"recheck_trouble": self.recheck, "refresh_launchers": self.refresh}}
 
     async def __aenter__(self) -> Details:
-        self._patches = [patch_workbench("ui"), patch_workbench("_rows"),
-                         patch.object(run, "io_bound", new=self.put),
-                         patch.object(panel, "field"),
-                         patch.object(panel, "switch"),
-                         patch.object(settings_page, "control_for")]
+        self._patches: list[Any] = [patch_workbench("ui"), patch_workbench("_rows"),
+                                    patch.object(run, "io_bound", new=self.put),
+                                    patch.object(panel, "field"),
+                                    patch.object(panel, "switch"),
+                                    patch.object(settings_page, "control_for")]
         _, _, _, field, switch, _ = [one.start() for one in self._patches]
         await launcher._launcher_details(self.context)
         self.rename = field.call_args.args[1]

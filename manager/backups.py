@@ -273,7 +273,7 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
                 on_select: Callable[[Any], Any], rerender: Callable[[], None],
                 find: str = "") -> None:
     # Imported here: `games` imports `backup_rows`, which imports this module.
-    from manager.games import view_control
+    from manager.library.games import view_control
 
     if find:
         await run.io_bound(_open_on_everything, library)

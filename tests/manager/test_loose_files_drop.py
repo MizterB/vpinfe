@@ -7,7 +7,8 @@ from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 from common.i18n import t
-from manager import import_dialog, mediasource, page, uploads
+from manager import page
+from manager.library import import_dialog, mediasource, uploads
 from tests.support.clicks import press
 
 GAME = {"id": "g-1", "name": "Medieval Madness", "folder": "/games/Medieval Madness",

@@ -26,7 +26,7 @@ from manager.kit import dialog as frame
 from manager.kit.api import ApiError
 from manager.kit.on_page import on_page
 
-logger = logging.getLogger("vpinfe.manager.text_editor")
+logger = logging.getLogger("vpinfe.manager.library.text_editor")
 
 # The asset kinds whose files this edits, and the language each is highlighted as.
 LANGUAGES: dict[str, SUPPORTED_LANGUAGES | None] = {"script": "VBScript", "ini": "Properties files",

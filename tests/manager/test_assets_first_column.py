@@ -11,8 +11,8 @@ import unittest
 from typing import Any
 
 from common.i18n import t
-from manager import assets, media
 from manager.kit import game_tables, grid, media_ownership
+from manager.library import assets, media
 
 TABLES: dict[str, dict[str, Any]] = {
     "t1": {"id": "t1", "filename": "Example (Author) v1.vpx", "version": "1.2",

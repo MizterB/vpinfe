@@ -6,8 +6,8 @@ import json
 import unittest
 from pathlib import Path
 
-from manager import games
 from manager.kit import grid, renderers, views
+from manager.library import games
 
 CATALOG = json.loads((Path(__file__).resolve().parents[2]
                       / "common/i18n/catalogs/en.json").read_text(encoding="utf-8"))

@@ -8,8 +8,8 @@ from unittest.mock import Mock, patch
 
 from nicegui import core, ui
 
-from manager import mediasource
 from manager.kit import busy
+from manager.library import mediasource
 
 _PAGE = ui.element()
 

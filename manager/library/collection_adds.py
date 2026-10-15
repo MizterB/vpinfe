@@ -19,7 +19,7 @@ from manager.kit import dialog as frame
 from manager.kit import offload, panel, remembered, undo, verbs
 from manager.kit.on_page import on_page
 
-logger = logging.getLogger("vpinfe.manager.collection_adds")
+logger = logging.getLogger("vpinfe.manager.library.collection_adds")
 
 # What a row being added is, which is what the words count.
 GAMES = "games"

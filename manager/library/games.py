@@ -18,7 +18,7 @@ from common.config.labels import humanize
 from common.games import asset_registry
 from common.i18n import t
 from common.media.media_specs import media_label_map
-from manager import collection_adds, game_acts, mediaview, row_drag, sections
+from manager import sections
 from manager import settings as settings_page
 from manager.kit import (
     art,
@@ -41,9 +41,10 @@ from manager.kit import (
 )
 from manager.kit import dialog as frame
 from manager.kit.on_page import on_page
+from manager.library import collection_adds, game_acts, mediaview, row_drag
 from manager.workbench import all_settings
 
-logger = logging.getLogger("vpinfe.manager.games")
+logger = logging.getLogger("vpinfe.manager.library.games")
 
 SCOPE = "manager.games.columns"
 

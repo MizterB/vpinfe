@@ -12,6 +12,13 @@ MANAGER = pathlib.Path(__file__).resolve().parents[2] / "manager"
 FRAME = "dialog.py"
 OPENS_ONE = "ui.dialog("
 
+
+def _at(name: str) -> pathlib.Path:
+    """The one file of that name, wherever its area keeps it."""
+    (found,) = MANAGER.rglob(name)
+    return found
+
+
 # Not questions, so they draw their own card: nothing in them is answered or committed.
 NOT_ASKING = {
     "mediaview.py": "an enlarged picture or text, with nothing to answer",
@@ -119,7 +126,7 @@ class DialogsAreDrawnByTheFrame(unittest.TestCase):
     def test_an_exception_asks_nothing(self) -> None:
         for name in NOT_ASKING:
             with self.subTest(name=name):
-                self.assertNotIn("opened", _called(MANAGER / name))
+                self.assertNotIn("opened", _called(_at(name)))
 
     def test_only_a_run_or_a_required_answer_blocks_escape(self) -> None:
         blocking = {path.name: len(_persistent(path)) for path in sorted(MANAGER.rglob("*.py"))

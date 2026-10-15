@@ -4,7 +4,7 @@ import unittest
 
 from common.config import config_schema
 from common.i18n import t
-from manager.import_dialog import STOP_ASKING, _where
+from manager.library.import_dialog import STOP_ASKING, _where
 
 PLAN = {"game_dir": "/tables/Game (Maker 1990)"}
 

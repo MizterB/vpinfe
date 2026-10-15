@@ -669,7 +669,7 @@ class ItsExtensionNotRunning(unittest.IsolatedAsyncioTestCase):
         self.enterContext(patch.object(community.offload, "io", new=_here))
         self.enterContext(patch.object(community, "as_it_stands", return_value=now))
         self.enterContext(patch.object(community, "kept", return_value=kept))
-        self.enterContext(patch("manager.games.view_control",
+        self.enterContext(patch("manager.library.games.view_control",
                                 return_value=(Mock(), Mock(), Mock(), Mock())))
         # The grid talks to a browser, which a unit test does not have.
         self.enterContext(patch.object(community.grid, "build",
@@ -796,7 +796,7 @@ class TheLineAndItsMenu(unittest.IsolatedAsyncioTestCase):
         self.enterContext(patch.object(community.offload, "io", new=_here))
         self.enterContext(patch.object(community, "as_it_stands", return_value=now))
         self.enterContext(patch.object(community, "kept", return_value=kept))
-        self.enterContext(patch("manager.games.view_control",
+        self.enterContext(patch("manager.library.games.view_control",
                                 return_value=(Mock(), Mock(), Mock(), Mock())))
         self.enterContext(patch.object(community.grid, "build",
                                        return_value=Mock(is_deleted=False)))

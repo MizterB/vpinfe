@@ -23,11 +23,12 @@ from nicegui import run, ui
 
 from common.failures import why
 from common.i18n import t
-from manager import backup_rows, collection_adds, ext_verbs, media_fill, send_to_device, vps_match
-from manager import record as recorder
+from manager import backup_rows, ext_verbs, send_to_device
 from manager.kit import confirm, game_tables, offload, panel, stars, undo, verbs
 from manager.kit import dialog as frame
 from manager.kit.on_page import on_page
+from manager.library import collection_adds, media_fill, vps_match
+from manager.library import record as recorder
 
 Refresh = Callable[[list[str]], Awaitable[None]]
 After = Callable[[list[str], bool], Awaitable[None]]

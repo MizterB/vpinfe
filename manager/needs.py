@@ -128,14 +128,14 @@ def _games_without(key: str, found: Mapping[str, list[dict[str, Any]]],
 
 def script_fixes_opens(ids: tuple[str, ...]) -> Opens:
     """The Tables grid on the tables a script fix is published for."""
-    from manager import games
+    from manager.library import games
 
     return Opens("tables", keys={games.FIXES_KEY: ids})
 
 
 def no_tables_opens() -> Opens:
     """Games on the No Tables view."""
-    from manager import games
+    from manager.library import games
 
     return Opens("games", keys={games.ARRIVE_VIEW: games.NO_TABLES_VIEW})
 
@@ -215,7 +215,8 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
     not draw."""
     # Not at import: `sections` draws these rows, and the grid module draws the metadata
     # line from `sections`.
-    from manager import games, sections
+    from manager import sections
+    from manager.library import games
 
     hidden = library.stopped()
     found = sections.findings(library)
