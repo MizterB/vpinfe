@@ -105,8 +105,9 @@ every extension is switched on and off, set up and read about, whoever wrote it.
 
 Make a folder called `example_scores` in your extensions folder.  An extension has three files.
 
-The manifest is the first thing VPinFE reads.  It names the extension, gives its version, and
-says which version of the extension platform it was written for.
+The manifest is the first thing VPinFE reads.  It names the extension, gives its version, says who
+made it and where the code is kept, and says which version of the extension platform it was
+written for.
 
 `scores/01-loads/example_scores/extension.json`
 
@@ -114,12 +115,16 @@ says which version of the extension platform it was written for.
 {
   "name": "example_scores",
   "version": "0.1.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/example_scores",
   "requires_platform": 1
 }
 ```
 
 The `name` is how VPinFE tells it from every other extension, and it has to be the folder's name
-too.  `requires_platform` is a promise about the shape of the calls you are about to make.
+too.  `author` and `source` are required: the person who installs it sees both before accepting,
+and `source` is a repository address that they can open and read.  `home` and `picture` are
+optional.  `requires_platform` is a promise about the shape of the calls you are about to make.
 
 The package is a function, `register`, that core calls once with a `ctx` in its hand.  Everything
 an extension gives VPinFE, it gives through `ctx`.
@@ -167,6 +172,8 @@ it declared:
 
 ```text
 loads      example_scores 0.1.0
+author     Example Author
+source     https://github.com/example/example_scores
 ```
 
 It sends nothing and changes nothing.  It exits with 1 when something would not pass, so you can
@@ -222,6 +229,8 @@ to the Console.
 {
   "name": "example_scores",
   "version": "0.1.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/example_scores",
   "requires_platform": 1,
   "capabilities": [
     "config:own",
@@ -321,6 +330,8 @@ The list needs to call the site, so the manifest asks for the network too.
 {
   "name": "example_scores",
   "version": "0.1.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/example_scores",
   "requires_platform": 1,
   "capabilities": [
     "config:own",
@@ -993,6 +1004,8 @@ manifest: asking to read the library.
 {
   "name": "example_scores",
   "version": "0.1.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/example_scores",
   "requires_platform": 1,
   "scopes": [
     "games:read"
@@ -1116,6 +1129,8 @@ The manifest gains a name for people and a version of its own.
   "name": "example_scores",
   "display_name": "Example Scores",
   "version": "1.0.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/example_scores",
   "requires_platform": 1,
   "scopes": [
     "games:read"
@@ -1155,6 +1170,8 @@ Check the whole extension before you give it away.
 
 ```text
 loads      example_scores 1.0.0
+author     Example Author
+source     https://github.com/example/example_scores
 settings   site (string, default 'http://127.0.0.1:8790')
 settings   key (secret)
 list       scores in community: 5 columns, 2 views, 3 verbs, adds post, opens a pane
@@ -1172,15 +1189,17 @@ catalog.  Put it back.
 
 ### What core did
 
-- **It listed what the extension asks for.**  The page's What It Says It Uses is the manifest's
-  scopes and capabilities in words.  Both are declarations, so the person who installs it can see
-  them before it does anything.  See [scopes and tiers](how-it-works.md#scopes-and-tiers).
+- **It listed what the extension asks for.**  The page's Reported Capabilities is the manifest's
+  scopes and capabilities in words, with a line that says they are reported by its author and
+  VPinFE can't check them.  Both are declarations, so the person who installs it can see
+  them before it does anything.  Above them are the author, the version, the source as
+  `owner/repo` with a link, and the folder it was found in.  See [scopes and tiers](how-it-works.md#scopes-and-tiers).
 - **It ran the extension in VPinFE's own process.**  An extension is Python code on the device
   it is installed on, which is why putting a folder in `extensions/` is a decision a person makes.
   See [one process, so accepting is trusting](how-it-works.md#one-process-so-accepting-is-trusting).
 - **It marked the extension Unofficial.**  An extension VPinFE did not ship is marked Unofficial and
-  stays stopped until the owner accepts it.  Its list of what it asks for is headed "What It Says
-  It Uses", because the manifest is the extension's own word.  An update that asks for more stops
+  stays stopped until the owner accepts it.  Its list of what it asks for is headed "Reported
+  Capabilities", because the manifest is the extension's own word.  An update that asks for more stops
   again until the owner accepts the new access.  See
   [the Unofficial mark](how-it-works.md#the-unofficial-mark).
 
@@ -1203,6 +1222,8 @@ This is lesson 10 in full, ready to put in `extensions/`.
   "name": "example_scores",
   "display_name": "Example Scores",
   "version": "1.0.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/example_scores",
   "requires_platform": 1,
   "scopes": [
     "games:read"

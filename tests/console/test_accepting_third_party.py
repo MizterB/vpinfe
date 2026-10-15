@@ -110,20 +110,55 @@ class TheQuestions(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(lines[1], "Themes can run programs on this device, and VPinFE "
                                        "can't check this one.")
 
+    OWN = {"author": "Example Author", "source": "https://github.com/example/tool",
+           "path": "/found/tool"}
+
     async def test_an_extension_says_what_it_says_it_uses(self) -> None:
         title, lines, _answer, kept = await self.asked(
-            accept.extension("Tool", "1.0.0", "/found", ["Read games"]))
+            accept.extension("Tool", "1.0.0", uses=["Read Your Library"], **self.OWN))
 
         self.assertEqual(title, "Run an Unofficial Extension?")
         self.assertIn("isn't from VPinFE", lines[0])
-        self.assertEqual(kept["uses"], ("It Says It Uses", ["Read games"]))
+        self.assertEqual(kept["rows"][-1][0], "Reported Capabilities")
         self.assertEqual(kept["closing"], "Run it only if you trust where it came from.")
 
-    async def test_one_that_replaces_a_built_in_says_which(self) -> None:
-        _title, lines, _answer, _kept = await self.asked(
-            accept.extension("Tool", "2.0.0", "/found", [], replaces="Tool"))
+    async def test_it_is_shown_whose_it_is_and_where_it_comes_from(self) -> None:
+        _title, _lines, _answer, kept = await self.asked(
+            accept.extension("Tool", "1.0.0", uses=[], **self.OWN))
 
-        self.assertEqual(lines[-1], "Replaces the Tool that comes with VPinFE.")
+        self.assertEqual(kept["rows"][:2], [("Author", "Example Author"), ("Version", "1.0.0")])
+        self.assertEqual([one[0] for one in kept["rows"]],
+                         ["Author", "Version", "Source", "Folder Path", "Reported Capabilities"])
+
+    async def test_one_that_replaces_a_built_in_says_which_and_what_version(self) -> None:
+        _title, lines, _answer, _kept = await self.asked(
+            accept.extension("Tool", "2.0.0", uses=[], replaces="Tool",
+                             replaces_version="1.0.0", **self.OWN))
+
+        self.assertEqual(lines[-1], "Replaces the Tool 1.0.0 that comes with VPinFE.")
+
+    async def test_a_newer_version_says_what_it_was_and_who_made_it(self) -> None:
+        _title, lines, _answer, kept = await self.asked(
+            accept.new_access("Tool", "2.0.0", "Example Author", ["Read Your Library"],
+                              was="1.0.0"))
+
+        self.assertEqual(lines, ["Updated from 1.0.0 to 2.0.0."])
+        self.assertEqual(kept["rows"][0], ("Author", "Example Author"))
+        self.assertEqual(kept["rows"][1][0], "New Capabilities")
+
+    async def test_a_newer_version_with_no_known_earlier_one_says_only_where_it_went(self) -> None:
+        _title, lines, _answer, _kept = await self.asked(
+            accept.new_access("Tool", "2.0.0", "Example Author", ["Read Your Library"]))
+
+        self.assertEqual(lines, ["Updated to 2.0.0."])
+
+    async def test_more_access_at_the_same_version_does_not_claim_an_update_between_them(
+            self) -> None:
+        _title, lines, _answer, _kept = await self.asked(
+            accept.new_access("Tool", "1.0.0", "Example Author", ["Read Your Library"],
+                              was="1.0.0"))
+
+        self.assertEqual(lines, ["Updated to 1.0.0."])
 
 
 if __name__ == "__main__":

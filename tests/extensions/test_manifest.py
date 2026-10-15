@@ -13,13 +13,14 @@ from pathlib import Path
 
 from common.extensions import contract, host, store
 from common.i18n import t
+from tests.support.identity import IDENTITY
 
 GOOD = {
     "name": "sample",
     "display_name": "Sample",
     "version": "1.0.0",
     "description": "Does nothing.",
-    "requires_platform": contract.PLATFORM_ABI,
+    "requires_platform": contract.PLATFORM_ABI, **IDENTITY,
     "scopes": ["games:read"],
     "capabilities": ["config:own"],
     "requires_features": ["library"],

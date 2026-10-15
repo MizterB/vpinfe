@@ -11,6 +11,7 @@ from unittest import mock
 from common import accepted, paths
 from common.extensions import check, contract, host, store
 from tests.support.accepted import isolated
+from tests.support.identity import IDENTITY
 
 # Written beside the extension when it is imported, so a test can tell code that ran from
 # code that was only found.
@@ -23,7 +24,7 @@ BODY = (f"from pathlib import Path\n"
 def _write(folder: Path, name: str, **changes: object) -> Path:
     directory = folder / name
     directory.mkdir(parents=True)
-    raw = {"name": name, "version": "1.0.0", "requires_platform": contract.PLATFORM_ABI}
+    raw = {"name": name, "version": "1.0.0", "requires_platform": contract.PLATFORM_ABI, **IDENTITY}
     raw.update(changes)
     (directory / "extension.json").write_text(json.dumps(raw), encoding="utf-8")
     (directory / "__init__.py").write_text(BODY, encoding="utf-8")
@@ -100,6 +101,7 @@ class AnExtensionInAFolder(Case):
         self.accept("tool")
         (directory / "extension.json").write_text(json.dumps({
             "name": "tool", "version": "2.0.0", "requires_platform": contract.PLATFORM_ABI,
+            **IDENTITY,
             "scopes": ["games:read", "games:write"]}), encoding="utf-8")
 
         with self.assertLogs("vpinfe.common.extensions", "WARNING"):
@@ -115,6 +117,7 @@ class AnExtensionInAFolder(Case):
         self.accept("tool")
         (directory / "extension.json").write_text(json.dumps({
             "name": "tool", "version": "2.0.0", "requires_platform": contract.PLATFORM_ABI,
+            **IDENTITY,
             "play": ["list:scores"]}), encoding="utf-8")
 
         with self.assertLogs("vpinfe.common.extensions", "WARNING"):
@@ -127,10 +130,12 @@ class AnExtensionInAFolder(Case):
         directory = _write(self.folder, "tool")
         (directory / "extension.json").write_text(json.dumps({
             "name": "tool", "version": "1.0.0", "requires_platform": contract.PLATFORM_ABI,
+            **IDENTITY,
             "play": ["list:scores"]}), encoding="utf-8")
         self.accept("tool")
         (directory / "extension.json").write_text(json.dumps({
             "name": "tool", "version": "2.0.0", "requires_platform": contract.PLATFORM_ABI,
+            **IDENTITY,
             "play": ["list:scores", "page:rank"]}), encoding="utf-8")
 
         with self.assertLogs("vpinfe.common.extensions", "WARNING"):
@@ -142,6 +147,7 @@ class AnExtensionInAFolder(Case):
         directory = _write(self.folder, "tool")
         (directory / "extension.json").write_text(json.dumps({
             "name": "tool", "version": "1.0.0", "requires_platform": contract.PLATFORM_ABI,
+            **IDENTITY,
             "play": ["page:my scores", "verb:game:rate:all"]}), encoding="utf-8")
 
         record = self.registry.load(directory)
@@ -153,6 +159,7 @@ class AnExtensionInAFolder(Case):
         directory = _write(self.folder, "tool")
         (directory / "extension.json").write_text(json.dumps({
             "name": "tool", "version": "1.0.0", "requires_platform": contract.PLATFORM_ABI,
+            **IDENTITY,
             "play": ["list:"]}), encoding="utf-8")
 
         with self.assertLogs("vpinfe.common.extensions", "ERROR"):
@@ -164,6 +171,7 @@ class AnExtensionInAFolder(Case):
         directory = _write(self.folder, "tool")
         (directory / "extension.json").write_text(json.dumps({
             "name": "tool", "version": "2.0.0", "requires_platform": contract.PLATFORM_ABI,
+            **IDENTITY,
             "tiers": ["play"]}), encoding="utf-8")
 
         with self.assertLogs("vpinfe.common.extensions", "ERROR"):
@@ -176,6 +184,7 @@ class AnExtensionInAFolder(Case):
         self.accept("tool")
         (directory / "extension.json").write_text(json.dumps({
             "name": "tool", "version": "2.0.0", "requires_platform": contract.PLATFORM_ABI,
+            **IDENTITY,
             "tiers": ["protected"]}), encoding="utf-8")
 
         self.assertEqual(self.registry.load(directory).state, host.LOADED)
@@ -185,6 +194,7 @@ class AnExtensionInAFolder(Case):
         self.accept("tool")
         (directory / "extension.json").write_text(json.dumps({
             "name": "tool", "version": "2.0.0", "requires_platform": contract.PLATFORM_ABI,
+            **IDENTITY,
             "scopes": ["games:read"]}), encoding="utf-8")
 
         self.assertEqual(self.registry.load(directory).state, host.LOADED)

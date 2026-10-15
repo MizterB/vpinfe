@@ -15,6 +15,7 @@ from common.extensions import contract, host, store
 from common.extensions.context import ExtensionUI
 from common.i18n import t
 from tests.support.accepted import owner_accepts
+from tests.support.identity import IDENTITY
 from tests.support.served import client_for
 
 MODULE = "tests.extensions.test_library_verbs"
@@ -48,7 +49,7 @@ def _installed(root: Path) -> Path:
     (directory / "extension.json").write_text(json.dumps({
         "name": NAME, "display_name": "Verbed", "version": "1.0.0",
         "description": "Puts entries in the Games and Tables menus, for the tests that ask.",
-        "requires_platform": contract.PLATFORM_ABI,
+        "requires_platform": contract.PLATFORM_ABI, **IDENTITY,
         "capabilities": ["ui:mount"], "scopes": ["games:read", "games:write"]}),
         encoding="utf-8")
     (directory / "i18n" / "en.json").write_text(json.dumps({

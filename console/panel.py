@@ -62,30 +62,57 @@ def headed(entries: Sequence[tuple[Any, ...]], first: str) -> list[tuple[Any, ..
 
 def header(name: str, note: str = "",
            findings: Sequence[Callable[[], None]] = (), caption: str = "",
-           menu: Sequence[Verb] = ()) -> None:
+           menu: Sequence[Verb] = (), *, chip: Callable[[], None] | None = None,
+           picture: Callable[[], None] | None = None) -> None:
     """What the content under it is about, where the rail row is too far away to say it.
 
     `caption` sits under the name, as a game's type line does in its panel. `note` is drawn
     inside the same rule as the name, and so is each of `findings`: what is wrong with
     everything under it, before the first of its headings. `menu` is what can be done
-    with the subject as a whole, at the end of the name.
+    with the subject as a whole, at the end of the name. `chip` is a state of the subject
+    drawn beside its name, and `picture` is a frame before it.
     """
-    if not note and not findings and not caption and not menu:
+    if not note and not findings and not caption and not menu and not chip and not picture:
         ui.label(name).classes("text-base console-workbench-title console-panel-heading")
         return
     with ui.element("div").classes("console-panel-heading"):
-        if menu:
-            with ui.row().classes("items-center no-wrap w-full"):
-                ui.label(name).classes("text-base console-workbench-title grow min-w-0")
-                subject_menu(ui.row().classes("shrink-0 no-wrap"), menu)
+        if chip or picture:
+            _identity_row(name, caption, menu, chip, picture)
         else:
-            ui.label(name).classes("text-base console-workbench-title")
-        if caption:
-            ui.label(caption).classes("text-xs console-workbench-label")
+            if menu:
+                with ui.row().classes("items-center no-wrap w-full"):
+                    ui.label(name).classes("text-base console-workbench-title grow min-w-0")
+                    subject_menu(ui.row().classes("shrink-0 no-wrap"), menu)
+            else:
+                ui.label(name).classes("text-base console-workbench-title")
+            if caption:
+                ui.label(caption).classes("text-xs console-workbench-label")
         if note:
             ui.label(note).classes("console-help console-panel-note")
         for finding in findings:
             finding()
+
+
+def _identity_row(name: str, caption: str, menu: Sequence[Verb],
+                  chip: Callable[[], None] | None,
+                  picture: Callable[[], None] | None) -> None:
+    """The name with a frame before it and a chip after it. A long name is cut and shows
+    whole as its tooltip; the chip keeps its width."""
+    with ui.row().classes("items-center no-wrap w-full gap-3"):
+        if picture:
+            picture()
+        with ui.column().classes("gap-0 min-w-0 grow"):
+            with ui.row().classes("items-center no-wrap gap-2 min-w-0 max-w-full"):
+                ui.label(name).classes(
+                    "text-base console-workbench-title truncate min-w-0").tooltip(name)
+                if chip:
+                    with ui.element("div").classes("shrink-0"):
+                        chip()
+            if caption:
+                ui.label(caption).classes(
+                    "text-xs console-workbench-label truncate max-w-full").tooltip(caption)
+        if menu:
+            subject_menu(ui.row().classes("shrink-0 no-wrap"), menu)
 
 
 # A control inside the row acts on its own: Add on a missing kind must not also pick it.

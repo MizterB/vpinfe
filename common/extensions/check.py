@@ -17,7 +17,7 @@ from typing import Any
 
 from common import i18n
 
-from . import serving
+from . import pictures, serving
 from .host import LOADED, Record, Registry, platform_refusal
 from .store import ExtensionStore
 
@@ -55,11 +55,21 @@ def _report(record: Record, lines: list[str]) -> bool:
     assert ui is not None and record.manifest is not None
     manifest = record.manifest
     lines.append(f"loads      {manifest.name} {manifest.version}")
+    lines.append(f"author     {manifest.author}")
+    if manifest.home:
+        lines.append(f"home       {manifest.home}")
+    lines.append(f"source     {manifest.source}")
+    problems: list[str] = []
+    if manifest.picture:
+        if pictures.is_image(record.directory / manifest.picture):
+            lines.append(f"picture    {manifest.picture}")
+        else:
+            problems.append(f"fails      picture {manifest.picture}: is not an image that "
+                            "can be read")
     if manifest.platforms:
         refused = platform_refusal(manifest)
         lines.append(f"platforms  {', '.join(manifest.platforms)}"
                      + (f" - not this machine: {refused}" if refused else ""))
-    problems: list[str] = []
 
     for field in ui.settings_declared:
         default = f", default {field['default']!r}" if field["default"] else ""

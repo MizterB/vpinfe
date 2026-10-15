@@ -188,6 +188,12 @@ def accepted_before(name: str, origin: str, folder: str | None = None) -> bool:
     return _kept(name, origin, folder) is not None
 
 
+def accepted_version(name: str, origin: str, folder: str | None = None) -> str:
+    """The version the Owner last accepted, empty when none was."""
+    found = _kept(name, origin, folder) or {}
+    return str(found.get("version") or "")
+
+
 def new_access(name: str, origin: str, scopes: Collection[str],
                capabilities: Collection[str], folder: str | None = None,
                play: Collection[str] = ()) -> list[str]:

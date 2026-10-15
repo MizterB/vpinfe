@@ -1721,6 +1721,23 @@ body.console-menu-open .q-tooltip.console-menu-tip { display: block !important; 
 }
 /* The header's own line, inside the rule with the name it belongs to. */
 .console-panel-note { margin-top: 4px; }
+/* An extension's picture, or the mark it has until it has one. The image sits over the
+   mark, so one that fails to load shows the mark again. */
+.console-ext-picture {
+  position: relative;
+  flex: none;
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface-sunken);
+  color: var(--ink-3);
+}
+.console-ext-picture-glyph { font-size: var(--icon-slot); }
+.console-ext-picture-image { position: absolute; inset: 0; width: 100%; height: 100%; }
 .console-workbench { overflow-x: hidden !important; }
 /* No side gutter of its own: what it holds carries the shared one, and two would
    stack. Top and bottom are the exception - the section row sits directly above and

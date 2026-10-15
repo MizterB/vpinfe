@@ -15,6 +15,7 @@ from common.extensions import contract, host, pane, store
 from common.extensions.context import ExtensionUI
 from common.i18n import t
 from tests.support.accepted import owner_accepts
+from tests.support.identity import IDENTITY
 from tests.support.served import client_for
 
 MODULE = "tests.extensions.test_panel_groups"
@@ -66,7 +67,7 @@ def _installed(root: Path, scopes: list[str]) -> Path:
     (directory / "extension.json").write_text(json.dumps({
         "name": NAME, "display_name": "Grouped", "version": "1.0.0",
         "description": "Puts a group on a panel, for the tests that ask for it.",
-        "requires_platform": contract.PLATFORM_ABI,
+        "requires_platform": contract.PLATFORM_ABI, **IDENTITY,
         "capabilities": ["ui:mount"], "scopes": scopes}), encoding="utf-8")
     (directory / "i18n" / "en.json").write_text(
         json.dumps({"group.table.title": "On this table"}), encoding="utf-8")

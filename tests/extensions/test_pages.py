@@ -15,6 +15,7 @@ from common.extensions import contract, host, pictures, store
 from common.extensions.context import ExtensionUI, check_references
 from common.i18n import t
 from tests.support.accepted import owner_accepts
+from tests.support.identity import IDENTITY
 from tests.support.served import client_for
 
 MODULE = "tests.extensions.test_pages"
@@ -64,7 +65,7 @@ def _installed(root: Path, *, capabilities: list[str], titles: dict | None = Non
     (directory / "extension.json").write_text(json.dumps({
         "name": NAME, "display_name": "Paged", "version": "1.0.0",
         "description": "Puts a page in the rail, for the tests that ask for it.",
-        "requires_platform": contract.PLATFORM_ABI,
+        "requires_platform": contract.PLATFORM_ABI, **IDENTITY,
         "capabilities": capabilities, "scopes": []}), encoding="utf-8")
     (directory / "i18n" / "en.json").write_text(
         json.dumps({"page.week.act.refresh.label": "Read again", **(titles or {})}),

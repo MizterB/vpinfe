@@ -99,8 +99,8 @@ class RemoteNameTests(unittest.TestCase):
 
         self.assertEqual(used, ["games:read"])
         self.assertEqual(remote, [
-            "its web addresses", "the scores list", "the scores page", "the reset all action",
-            "its section on the game panel", "the rate all button on the game panel"])
+            "Its Web Addresses", "The Scores List", "The Scores Page", "The Reset All Action",
+            "Its Section on the Game Panel", "The Rate All Button on the Game Panel"])
 
 
 class HeaderTests(unittest.TestCase):
@@ -290,30 +290,125 @@ class ActionsGroupTests(unittest.TestCase):
         self._pressed(False).assert_not_called()
 
 
-class ReachGroupTests(unittest.TestCase):
-    def test_what_it_can_reach_is_two_rows_of_chips(self) -> None:
-        page = Page({**RUNNING, "scopes": ["games:read"],
-                     "capabilities": ["net:outbound"]})
+IDENTIFIED = {**RUNNING, "author": "Example Author", "home": "https://example.net/tally/",
+              "source": "https://github.com/example/tally", "path": "/found/tally",
+              "picture_shown": False,
+              "trust": {"origin": "in_folder", "accepted": True, "folder": "found"}}
+SHIPPED_IDENTITY = {**IDENTIFIED, "trust": {"origin": "shipped", "accepted": True}}
 
-        self.assertIn(i18n.t("console.ext_page.reach_title"), page.headings)
-        self.assertEqual(page.rows[-2:], [i18n.t("console.ext_page.library"),
-                                          i18n.t("console.ext_page.this_device")])
+
+def _words(page: Page) -> list[str]:
+    return [one.text for one in page.body.descendants() if isinstance(one, ui.label)]
+
+
+class AboutTests(unittest.TestCase):
+    def test_the_group_comes_before_the_switch(self) -> None:
+        page = Page(IDENTIFIED)
+
+        self.assertEqual(page.headings[:2], [i18n.t("console.ext_page.about"),
+                                             i18n.t("console.ext_page.settings")])
+
+    def test_home_and_source_are_rows_of_their_own_even_when_the_same(self) -> None:
+        same = "https://github.com/vpinfe/vpinfe"
+        page = Page({**SHIPPED_IDENTITY, "home": same, "source": same})
+
+        self.assertEqual(page.rows[:2], [i18n.t("console.ext_page.home"),
+                                         i18n.t("console.ext_page.source")])
+
+    def test_each_address_is_shown_in_the_short_form_and_links_to_the_full_one(self) -> None:
+        body = Page(IDENTIFIED).body
+
+        links = {one.props["href"]: one for one in body.descendants() if one.props.get("href")}
+        self.assertEqual(set(links), {"https://example.net/tally/",
+                                      "https://github.com/example/tally"})
+        shown = _words(Page(IDENTIFIED))
+        self.assertIn("example.net/tally", shown)
+        self.assertIn("example/tally", shown)
+
+    def test_a_link_out_opens_in_a_new_tab_without_the_referrer(self) -> None:
+        body = Page(IDENTIFIED).body
+
+        links = [one for one in body.descendants() if one.props.get("href")]
+        self.assertEqual(len(links), 2)
+        for one in links:
+            self.assertEqual(one.props.get("target"), "_blank")
+            self.assertEqual(one.props.get("rel"), "noopener noreferrer")
+
+    def test_the_folder_path_is_for_what_was_found_not_what_ships(self) -> None:
+        self.assertIn(i18n.t("console.ext_page.folder_path"), Page(IDENTIFIED).rows)
+        self.assertNotIn(i18n.t("console.ext_page.folder_path"), Page(SHIPPED_IDENTITY).rows)
+
+    def test_what_it_reports_is_one_row_last_in_the_group_with_the_line_that_says_so(self) -> None:
+        page = Page({**IDENTIFIED, "scopes": ["games:read"], "capabilities": ["net:outbound"]})
+
+        about = page.rows[:page.rows.index(i18n.t("console.ext_page.enabled"))]
+        self.assertEqual(about[-1], i18n.t("console.accept.uses"))
         self.assertEqual(page.labels("console-tier", "console-tier--on"),
                          [i18n.t("console.ext_page.read_library"),
                           i18n.t("console.ext_page.reach_internet")])
+        self.assertIn(i18n.t("console.ext_page.reach_help"), page.labels("console-help"))
 
     def test_it_is_read_from_the_manifest_whatever_the_state(self) -> None:
-        page = Page({**SWITCHED_OFF, "scopes": ["games:read"]})
+        page = Page({**IDENTIFIED, "state": host.OFF, "enabled": False,
+                     "scopes": ["games:read"]})
 
-        self.assertEqual(page.rows[-1], i18n.t("console.ext_page.library"))
+        self.assertIn(i18n.t("console.accept.uses"), page.rows)
 
-    def test_one_that_reaches_nothing_draws_no_heading(self) -> None:
-        self.assertNotIn(i18n.t("console.ext_page.reach_title"), Page(RUNNING).headings)
+    def test_one_that_reports_nothing_draws_no_row_and_no_line(self) -> None:
+        page = Page(IDENTIFIED)
 
-    def test_a_row_with_nothing_in_it_is_not_drawn(self) -> None:
-        page = Page({**RUNNING, "scopes": ["games:read"]})
+        self.assertNotIn(i18n.t("console.accept.uses"), page.rows)
+        self.assertNotIn(i18n.t("console.ext_page.reach_help"), page.labels("console-help"))
 
-        self.assertNotIn(i18n.t("console.ext_page.this_device"), page.rows)
+    def test_what_a_remote_can_open_is_its_own_row(self) -> None:
+        page = Page({**IDENTIFIED, "play": ["router"]})
+
+        self.assertIn(i18n.t("console.accept.remote"), page.rows)
+
+    def test_one_with_no_manifest_draws_no_group(self) -> None:
+        page = Page(RUNNING)
+
+        self.assertNotIn(i18n.t("console.ext_page.about"), page.headings)
+        self.assertEqual(page.rows, [i18n.t("console.ext_page.enabled")])
+
+
+class IdentityHeaderTests(unittest.TestCase):
+    def test_the_author_is_beside_the_version_under_the_name(self) -> None:
+        self.assertEqual(Page(IDENTIFIED).labels("console-workbench-label"),
+                         ["Example Author · Version 1.2.0"])
+
+    def test_a_chip_beside_the_name_says_it_is_not_from_vpinfe(self) -> None:
+        self.assertIn(i18n.t("console.ext_page.unofficial_chip"), _words(Page(IDENTIFIED)))
+
+    def test_one_not_yet_accepted_says_so_in_the_chip(self) -> None:
+        page = Page({**IDENTIFIED, "trust": {"origin": "in_folder", "accepted": False,
+                                              "folder": "found"}})
+
+        self.assertIn(i18n.t("console.ext_page.not_accepted_chip"), _words(page))
+
+    def test_one_that_ships_draws_no_chip(self) -> None:
+        words = _words(Page(SHIPPED_IDENTITY))
+
+        self.assertNotIn(i18n.t("console.ext_page.unofficial_chip"), words)
+        self.assertNotIn(i18n.t("console.ext_page.not_accepted_chip"), words)
+
+    def test_a_picture_is_drawn_only_once_it_is_to_be_shown(self) -> None:
+        def images(found: dict) -> list[ui.image]:
+            return [one for one in Page(found).body.descendants()
+                    if isinstance(one, ui.image)]
+
+        (image,) = images({**IDENTIFIED, "picture_shown": True})
+
+        self.assertEqual(image.source, "/api/v1/extensions/sample/picture?v=1.2.0")
+        self.assertEqual(images(IDENTIFIED), [])
+
+    def test_one_with_no_manifest_has_no_frame(self) -> None:
+        self.assertEqual([one for one in Page(RUNNING).body.descendants()
+                          if "console-ext-picture" in one.classes], [])
+
+    def test_the_frame_is_there_whether_or_not_a_picture_follows(self) -> None:
+        self.assertEqual(len([one for one in Page(IDENTIFIED).body.descendants()
+                              if "console-ext-picture" in one.classes]), 1)
 
 
 class SwitchTests(unittest.IsolatedAsyncioTestCase):

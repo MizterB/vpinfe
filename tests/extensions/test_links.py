@@ -26,6 +26,7 @@ from console import community, ext_links
 from httpapi import extensions as httpapi_extensions
 from tests.support.accepted import owner_accepts
 from tests.support.browser_session import BrowserSession, chromium_path, free_port
+from tests.support.identity import IDENTITY
 
 MODULE = "tests.extensions.test_links"
 NAME = "linked"
@@ -50,7 +51,7 @@ def _installed(root: Path, capabilities: list[str], words: dict | None = None) -
     (directory / "extension.json").write_text(json.dumps({
         "name": NAME, "display_name": "Linked", "version": "1.0.0",
         "description": "Links to its own page.",
-        "requires_platform": contract.PLATFORM_ABI,
+        "requires_platform": contract.PLATFORM_ABI, **IDENTITY,
         "capabilities": capabilities}), encoding="utf-8")
     (directory / "i18n" / "en.json").write_text(
         json.dumps(WORDS if words is None else words), encoding="utf-8")

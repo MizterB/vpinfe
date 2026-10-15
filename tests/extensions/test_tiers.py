@@ -21,6 +21,7 @@ from common import extensions, i18n, lifecycle, sign_in
 from common.extensions import contract, host, reach, store, system
 from httpapi import auth, errors, extensions_served, scopes
 from tests.support.accepted import owner_accepts
+from tests.support.identity import IDENTITY
 
 RECIPE = (Path(__file__).resolve().parents[2]
           / "docs" / "extensions" / "examples" / "recipes" / "next_player_note")
@@ -90,7 +91,7 @@ def _installed(root: Path, tiers: list[str]) -> Path:
     (directory / "extension.json").write_text(json.dumps({
         "name": NAME, "display_name": "Tiered", "version": "1.0.0",
         "description": "Declares a route at each tier, for the tests that reach them.",
-        "requires_platform": contract.PLATFORM_ABI, "capabilities": ["ui:mount"],
+        "requires_platform": contract.PLATFORM_ABI, **IDENTITY, "capabilities": ["ui:mount"],
         "scopes": ["system:admin"],
         "tiers": [one for one in tiers if one != "play"],
         "play": ["list:board"] if "play" in tiers else []}), encoding="utf-8")

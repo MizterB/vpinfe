@@ -12,12 +12,14 @@ from __future__ import annotations
 import json
 import os
 import re
+import unicodedata
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from common import install_identity
+from common.values import parse_version
 
 from .reach import (  # noqa: F401 - PLAY, PROTECTED are the contract's
     LIBRARY,
@@ -56,6 +58,17 @@ CAPABILITIES: frozenset[str] = frozenset({
 # What a manifest may name in `platforms`: `linux`, `windows`, `macos`, or any Linux
 # distribution's os-release `ID`. Only the shape is checked; which distributions exist is not ours.
 PLATFORM_NAME = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
+
+# `home` is any web address; `source` is the repository, which is how somebody finds what was
+# installed: a host and exactly owner/repo, so it can be drawn as `owner/repo`.
+# The host holds no `@`: `https://github.com@elsewhere/o/r` reads as github.com and goes elsewhere.
+WEB_ADDRESS = re.compile(r"^https?://[^\s/{}@?#\\]+(/[^\s{}]*)?$")
+REPOSITORY = re.compile(r"^https://[^\s/{}@?#\\]+/([^\s/{}]+)/([^\s/{}]+?)(\.git)?/?$")
+LONGEST_AUTHOR = 60
+LONGEST_VERSION = 40
+LONGEST_ADDRESS = 300
+# The image files a manifest picture may be, as `pictures.py` reads them.
+PICTURE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp")
 
 # How a manifest names a surface a Remote can open.
 PLAY_SURFACE = re.compile(r"router|(action|list|page|group):\S(.*\S)?|verb:[^:\s]+:\S(.*\S)?")
@@ -163,6 +176,9 @@ class Manifest:
     # Empty is looked up as `ext.<name>.description`.
     description: str
     requires_platform: int
+    author: str
+    # The repository, as written, `https://<host>/<owner>/<repo>`.
+    source: str
     # Core scopes it asks to use. A consent declaration; the vocabulary that decides
     # whether one is real lives with the API, so it is checked at the seam.
     scopes: tuple[str, ...] = ()
@@ -181,6 +197,16 @@ class Manifest:
     # "page:<key>", "group:<subject>" or "verb:<subject>:<key>". The Owner is shown the list
     # before accepting, and a Play surface registered without a line here fails to load.
     play: tuple[str, ...] = ()
+    # Where it is described, when that is not the repository. Empty is not shown apart.
+    home: str = ""
+    # A path inside its own folder to an image drawn in the header of its page.
+    picture: str = ""
+
+    @property
+    def repository(self) -> str:
+        """`owner/repo`, as `source` names it."""
+        found = REPOSITORY.match(self.source)
+        return f"{found.group(1)}/{found.group(2)}" if found else ""
 
     @property
     def reaches(self) -> tuple[str, ...]:
@@ -202,6 +228,10 @@ class Manifest:
             "events": list(self.events),
             "tiers": list(self.tiers),
             "play": list(self.play),
+            "author": self.author,
+            "home": self.home,
+            "source": self.source,
+            "picture": self.picture,
         }
 
 
@@ -211,6 +241,31 @@ def _strings(raw: Any, field: str) -> tuple[str, ...]:
     if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes)):
         raise ManifestError("extension.reason.manifest_bad_list", field=field)
     return tuple(str(item).strip() for item in raw if str(item).strip())
+
+
+def _text(raw: Any) -> str:
+    return raw.strip() if isinstance(raw, str) else ""
+
+
+def _plain(value: str) -> bool:
+    """Whether `value` is one line of visible characters: no control, bidi or line-break
+    characters, which would let a name draw as something it is not."""
+    return not any(unicodedata.category(c) in ("Cc", "Cf", "Zl", "Zp") for c in value)
+
+
+def _picture_path(raw: Any) -> str:
+    """The picture's path as written, or a ManifestError where it cannot name a file in the
+    extension's own folder. Separators are `/`; a backslash names a different file on each
+    platform, so it is refused."""
+    if raw is None:
+        return ""
+    value = _text(raw)
+    parts = value.split("/")
+    if (not value or "\\" in value or not _plain(value) or value.startswith("~")
+            or ":" in parts[0]
+            or any(part in ("", ".", "..") for part in parts)):
+        raise ManifestError("extension.reason.manifest_bad_picture")
+    return value
 
 
 def parse(raw: Any) -> Manifest:
@@ -260,12 +315,38 @@ def parse(raw: Any) -> Manifest:
     if unknown:
         raise ManifestError("extension.reason.manifest_unknown_play", surfaces=", ".join(unknown))
 
+    author = raw.get("author")
+    if author is None or (isinstance(author, str) and not author.strip()):
+        raise ManifestError("extension.reason.manifest_no_author")
+    if (not isinstance(author, str) or len(author.strip()) > LONGEST_AUTHOR
+            or not _plain(author)):
+        raise ManifestError("extension.reason.manifest_bad_author")
+
+    version = _text(raw.get("version"))
+    if (not parse_version(version) or version != version.lstrip("vV")
+            or len(version) > LONGEST_VERSION or not _plain(version)
+            or any(c.isspace() for c in version)):
+        raise ManifestError("extension.reason.manifest_bad_version")
+
+    home = _text(raw.get("home"))
+    if raw.get("home") is not None and not (
+            WEB_ADDRESS.match(home) and len(home) <= LONGEST_ADDRESS and _plain(home)):
+        raise ManifestError("extension.reason.manifest_bad_home")
+
+    source = _text(raw.get("source"))
+    if not (REPOSITORY.match(source) and len(source) <= LONGEST_ADDRESS and _plain(source)):
+        raise ManifestError("extension.reason.manifest_bad_source")
+
     return Manifest(
         name=name,
         display_name=str(raw.get("display_name") or "").strip(),
-        version=str(raw.get("version") or "").strip(),
+        version=version,
         description=str(raw.get("description") or "").strip(),
         requires_platform=abi,
+        author=author.strip(),
+        home=home,
+        source=source,
+        picture=_picture_path(raw.get("picture")),
         scopes=_strings(raw.get("scopes"), "scopes"),
         capabilities=capabilities,
         requires_features=features,
@@ -274,6 +355,25 @@ def parse(raw: Any) -> Manifest:
         tiers=tuple(one for one in TIERS if one in tiers),
         play=tuple(sorted(set(play))),
     )
+
+
+def check_picture(directory: Path, manifest: Manifest) -> None:
+    """Refuse a manifest picture that is not an image file inside the extension's own
+    folder, within the size cap. Reads no pixels: that waits for the picture to be drawn."""
+    if not manifest.picture:
+        return
+    from .pictures import LARGEST_BYTES
+
+    root = Path(directory).resolve()
+    try:
+        here = (root / manifest.picture).resolve()
+        fits = (here.is_relative_to(root) and here.is_file()
+                and here.suffix.lower() in PICTURE_SUFFIXES
+                and here.stat().st_size <= LARGEST_BYTES)
+    except (OSError, ValueError):
+        fits = False
+    if not fits:
+        raise ManifestError("extension.reason.manifest_bad_picture")
 
 
 def read_manifest(directory: Path) -> Manifest:

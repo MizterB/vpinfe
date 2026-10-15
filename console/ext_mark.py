@@ -13,9 +13,22 @@ from typing import Any
 from nicegui import ui
 
 from common import accepted
+from common.extensions import contract
 from common.i18n import t
 
 GLYPH = "gpp_maybe"
+# What the frame in an extension's header holds until it has a picture of its own.
+PICTURE_GLYPH = "extension"
+
+
+def source_shown(source: str) -> str:
+    """`owner/repo` for a repository on GitHub, and with its host for any other."""
+    found = contract.REPOSITORY.match(source)
+    if not found:
+        return source
+    repo = f"{found.group(1)}/{found.group(2)}"
+    where = source.split("/")[2]
+    return repo if where == "github.com" else f"{where}/{repo}"
 
 
 def unofficial(extension: dict[str, Any] | None) -> bool:

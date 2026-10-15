@@ -34,7 +34,7 @@ PAGE = "/console?view=settings&page=extensions.vpinplay"
 
 SHOWN = "(el => el.getClientRects().length > 0)"
 HEADING = ("(el => el ? el.innerText.trim() : null)(document.querySelector("
-           "'.console-panel-heading > .console-workbench-title,"
+           "'.console-panel-heading .console-workbench-title,"
            " .console-workbench-title.console-panel-heading'))")
 FIELDS = ("[...document.querySelectorAll('.console-fact-label')].filter"
           f"({SHOWN}).map(el => el.innerText.trim())")

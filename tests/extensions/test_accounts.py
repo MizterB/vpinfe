@@ -25,6 +25,7 @@ from common.i18n import t
 from httpapi import events as event_stream
 from tests.support import pictures
 from tests.support.accepted import owner_accepts
+from tests.support.identity import IDENTITY
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "extensions"
 MODULE = "tests.extensions.test_accounts"
@@ -130,7 +131,7 @@ def _installed(root: Path, name: str, register: str, display: str) -> Path:
     (directory / "extension.json").write_text(json.dumps({
         "name": name, "display_name": display, "version": "1.0.0",
         "description": "Holds accounts for the tests that drive them.",
-        "requires_platform": 1, "scopes": ["players:read"],
+        "requires_platform": 1, **IDENTITY, "scopes": ["players:read"],
         "capabilities": ["config:own", "ui:mount"]}), encoding="utf-8")
     (directory / "__init__.py").write_text(
         f"from {MODULE} import {register} as register\n", encoding="utf-8")

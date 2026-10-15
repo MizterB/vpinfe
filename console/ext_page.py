@@ -6,14 +6,16 @@ what it is holding; none of the treatment is its own, so an extension's page loo
 the Console rather than like whoever wrote it - and it keeps working if that extension
 later runs somewhere else.
 
-What it may reach is at the bottom, because that is a question somebody asks once and
-nobody asks while using it.
+Who made it and where it comes from come first, under the name, because that is what
+somebody reads before they decide to leave it on.
 """
 
 from __future__ import annotations
 
+import re
 from collections.abc import Awaitable, Callable
 from typing import Any
+from urllib.parse import quote
 
 from nicegui import run, ui
 
@@ -70,7 +72,6 @@ def build(extension: dict, settings: dict[str, Any], redraw: Callable[[], None],
           open_this_device: Callable[[], None]) -> None:
     """Draw the page for one extension, from what `read` found."""
     name = str(extension.get("name") or "")
-    version = str(extension.get("version") or "")
     running = extension.get("state") == host.LOADED
     surfaces = dict(extension.get("surfaces") or {})
     client = ApiClient()
@@ -78,9 +79,10 @@ def build(extension: dict, settings: dict[str, Any], redraw: Callable[[], None],
     panel.header(str(extension.get("display_name") or name),
                  str(extension.get("description") or ""),
                  _findings(extension, open_this_device, redraw),
-                 caption=t("console.ext_page.version", version=version) if version else "",
+                 caption=_caption(extension),
                  menu=[panel.Verb(one["label"], to=one["url"], tip=one["tip"])
-                       for one in ext_links.drawn(extension, ext_links.opened_at())])
+                       for one in ext_links.drawn(extension, ext_links.opened_at())],
+                 chip=_origin_chip(extension), picture=_picture(extension))
 
     @on_page
     async def flip(event: Any) -> None:
@@ -91,11 +93,10 @@ def build(extension: dict, settings: dict[str, Any], redraw: Callable[[], None],
                       caption=why(exc), type="negative")
         redraw()
 
-    entries: list[tuple[Any, ...]] = [
-        (panel.HEADING, t("console.ext_page.settings")),
-        (t("console.ext_page.enabled"),
-         panel.switch(bool(extension.get("enabled", True)), flip))]
-    entries += _origin_rows(extension)
+    entries: list[tuple[Any, ...]] = _about_rows(extension)
+    entries += [(panel.HEADING, t("console.ext_page.settings")),
+                (t("console.ext_page.enabled"),
+                 panel.switch(bool(extension.get("enabled", True)), flip))]
     if extension.get("reason_key") == host.STARTS_AT_RESTART:
         entries.append(panel.note(t(host.STARTS_AT_RESTART)))
     entries += _setting_rows(client, f"/ext/{name}{surfaces.get('settings', '')}",
@@ -107,26 +108,98 @@ def build(extension: dict, settings: dict[str, Any], redraw: Callable[[], None],
     if offered:
         entries += [(panel.HEADING, t("word.actions")),
                     (panel.FULL, lambda: _actions(offered, name, redraw))]
-    entries += _reach_rows(extension)
     panel.facts(ui, entries)
 
 
-def _origin_rows(extension: dict) -> list[tuple[Any, ...]]:
-    """Where it was found and what that makes it, for anything VPinFE did not ship."""
+def _caption(extension: dict) -> str:
+    """Whose it is and which version, under the name. Either alone when it has only one."""
+    author = str(extension.get("author") or "")
+    version = str(extension.get("version") or "")
+    return " \u00b7 ".join(part for part in (
+        author, t("console.ext_page.version", version=version) if version else "") if part)
+
+
+def _origin_chip(extension: dict) -> Callable[[], None] | None:
+    """What not coming from VPinFE makes it, by its name, for anything VPinFE did not
+    ship. The picture is the author's to choose, so this is what stops it passing as
+    official."""
     trust = dict(extension.get("trust") or {})
     if not trust or trust.get("origin") == accepted.SHIPPED:
-        return []
+        return None
     stopped = not trust.get("accepted")
     tip = t("console.ext_page.unofficial_tip")
     if trust.get("origin") == accepted.REPLACES:
         tip = "\n".join((tip, t("console.accept.replaces",
                                 name=extension.get("display_name") or "")))
-    return [(t("console.ext_page.found_in"),
-             panel.state(t("console.ext_page.not_accepted_chip" if stopped
-                           else "console.ext_page.unofficial_chip"),
-                         "bad" if stopped else "warn",
-                         beside=str(trust.get("folder") or ""), hint=tip,
-                         glyph=ext_mark.GLYPH))]
+    return panel.state(t("console.ext_page.not_accepted_chip" if stopped
+                         else "console.ext_page.unofficial_chip"),
+                       "bad" if stopped else "warn", hint=tip, glyph=ext_mark.GLYPH)
+
+
+def _picture(extension: dict) -> Callable[[], None] | None:
+    """The frame before the name: its own picture once it is shipped or accepted, and the
+    mark every extension has until then. None for one whose manifest was refused, which
+    has no identity to show."""
+    if not extension.get("author"):
+        return None
+    name = quote(str(extension.get("name") or ""), safe="")
+    address = f"/api/v1/extensions/{name}/picture?v={quote(str(extension.get('version') or ''))}"
+    shown = bool(extension.get("picture_shown"))
+
+    def draw() -> None:
+        with ui.element("div").classes("console-ext-picture"):
+            ui.icon(ext_mark.PICTURE_GLYPH).classes("console-ext-picture-glyph")
+            if shown:
+                image = ui.image(address).props("fit=cover no-spinner").classes(
+                    "console-ext-picture-image")
+                image.on("error", lambda: image.set_visibility(False))
+
+    return draw
+
+
+def _home_shown(home: str) -> str:
+    return re.sub(r"^https?://", "", home).rstrip("/")
+
+
+def _about_rows(extension: dict) -> list[tuple[Any, ...]]:
+    """Where it comes from and what its author says it uses, above the switch.
+
+    Nothing for an extension that did not load a manifest: a refused one says why in its
+    finding and has no identity to list. The two addresses are rows of their own even when
+    they are the same, so each can be told apart from the other by its label.
+    """
+    if not extension.get("author"):
+        return []
+    trust = dict(extension.get("trust") or {})
+    entries: list[tuple[Any, ...]] = []
+    home, source = str(extension.get("home") or ""), str(extension.get("source") or "")
+    if home:
+        entries.append((t("console.ext_page.home"),
+                        panel.link_out(_home_shown(home), to=home, hint=home,
+                                       rel="noopener noreferrer")))
+    if source:
+        entries.append((t("console.ext_page.source"),
+                        panel.link_out(ext_mark.source_shown(source), to=source, hint=source,
+                                       rel="noopener noreferrer")))
+    if trust and trust.get("origin") != accepted.SHIPPED and extension.get("path"):
+        entries.append((t("console.ext_page.folder_path"),
+                        panel.path_value(str(extension["path"]))))
+    entries += _reported_rows(extension)
+    return [(panel.HEADING, t("console.ext_page.about")), *entries]
+
+
+def _reported_rows(extension: dict) -> list[tuple[Any, ...]]:
+    """What the author says it uses, in one row: each word already says what it touches.
+    Last in About, with the line that says VPinFE has not checked it."""
+    words = [_plainly(str(one)) for one in
+             [*(extension.get("scopes") or []), *(extension.get("capabilities") or [])]]
+    _, remote = _remote_names([f"{PLAY_PREFIX}{one}" for one in extension.get("play") or []])
+    entries: list[tuple[Any, ...]] = []
+    if words:
+        entries.append((t("console.accept.uses"), _chips(words)))
+    if remote:
+        entries.append((t("console.accept.remote"), _chips(remote)))
+    return [*entries, panel.note(t("console.ext_page.reach_help"))] if entries else []
 
 
 def _cannot_run(extension: dict) -> bool:
@@ -172,15 +245,20 @@ def _unaccepted(extension: dict, copy: dict, redraw: Callable[[], None]
     async def decide() -> None:
         shown = str(extension.get("display_name") or name)
         version = str(copy.get("version") or "")
+        author = str(copy.get("author") or "")
         if trust.get("accepted_before"):
-            yes = await accept.new_access(shown, version, new, new_remote)
+            yes = await accept.new_access(shown, version, author, new, new_remote,
+                                          was=str(trust.get("accepted_version") or ""))
         else:
             used, remote = _remote_names(
                 [str(one) for one in trust.get("uses") or copy.get("uses") or []])
+            replacing = trust.get("origin") == accepted.REPLACES and not own
             yes = await accept.extension(
-                shown, version, str(trust.get("folder") or ""),
-                [_plainly(one) for one in used] or [t("word.none")], remote=remote,
-                replaces=shown if trust.get("origin") == accepted.REPLACES and not own else "")
+                shown, version, author=author, source=str(copy.get("source") or ""),
+                path=str(copy.get("path") or ""),
+                uses=[_plainly(one) for one in used], remote=remote,
+                replaces=shown if replacing else "",
+                replaces_version=str(extension.get("version") or "") if replacing else "")
         if not yes:
             return
         try:
@@ -197,7 +275,8 @@ def _unaccepted(extension: dict, copy: dict, redraw: Callable[[], None]
                         t("console.ext_page.not_accepted_detail"), fix)
     return _finding(t("console.ext_page.replacement_waiting"),
                     t("console.ext_page.replacement_detail",
-                      version=str(copy.get("version") or ""), folder=str(copy.get("folder") or "")),
+                      version=str(copy.get("version") or ""),
+                      author=str(copy.get("author") or "")),
                     fix)
 
 
@@ -389,7 +468,14 @@ def _remote_name(surface: str) -> str:
     if kind == "router":
         return t("console.ext_page.play_router")
     subject, _, key = rest.partition(":") if kind == "verb" else ("", "", rest)
-    return t(f"console.ext_page.play_{kind}", key=key.replace("_", " "), subject=subject)
+    return t(f"console.ext_page.play_{kind}", key=_spaced_words(key),
+             subject=_spaced_words(subject))
+
+
+def _spaced_words(identifier: str) -> str:
+    """A manifest's snake_case key as capitalized words. A key is an identifier, not a name
+    the catalog spells, so it is capitalized here to sit in a Title Case phrase."""
+    return " ".join(word.capitalize() for word in identifier.split("_"))
 
 
 def _remote_names(words: list[str]) -> tuple[list[str], list[str]]:
@@ -404,26 +490,6 @@ def _plainly(name: str) -> str:
     somebody invented is worse than one shown as it is."""
     key = PLAINLY.get(name)
     return t(key) if key else name
-
-
-def _reach_rows(extension: dict) -> list[tuple[Any, ...]]:
-    """What this extension may do, for whoever came looking.
-
-    At the bottom and never on the list of what is installed: a scope is what somebody
-    agrees to when installing something, and in front of everybody else it is jargon.
-    """
-    reaches = [_plainly(str(one)) for one in extension.get("scopes") or []]
-    uses = [_plainly(str(one)) for one in extension.get("capabilities") or []]
-    _, remote = _remote_names([f"{PLAY_PREFIX}{one}" for one in extension.get("play") or []])
-    entries: list[tuple[Any, ...]] = []
-    if reaches:
-        entries.append((t("console.ext_page.library"), _chips(reaches)))
-    if uses:
-        entries.append((t("console.ext_page.this_device"), _chips(uses)))
-    if remote:
-        entries.append((t("console.accept.remote"), _chips(remote)))
-    return [(panel.HEADING, t("console.ext_page.reach_title")),
-            panel.note(t("console.ext_page.reach_help")), *entries] if entries else []
 
 
 def _chips(words: list[str]) -> Callable[[], None]:

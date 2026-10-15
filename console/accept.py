@@ -9,12 +9,13 @@ callers only go on to accept on a True.
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from typing import Any
 
 from nicegui import ui
 
 from common.i18n import t
 from console import dialog as frame
-from console import panel, verbs
+from console import ext_mark, panel, verbs
 
 __all__ = ["chips", "extension", "new_access", "theme"]
 
@@ -29,21 +30,27 @@ def chips(words: Sequence[str]) -> Callable[[], None]:
 
 
 async def _ask(title: str, lines: Sequence[str], answer: str, *,
-               uses: tuple[str, Sequence[str]] | None = None, remote: Sequence[str] = (),
-               closing: str = "") -> bool:
+               rows: Sequence[tuple[Any, ...]] = (), closing: str = "") -> bool:
     with frame.opened(title, classes="console-confirm") as box:
         for line in lines:
             ui.label(line).classes("console-help px-3")
-        if uses is not None:
-            panel.facts(ui, [(uses[0], chips(uses[1]))])
-        if remote:
-            panel.facts(ui, [(t("console.accept.remote"), chips(remote))])
+        if rows:
+            panel.facts(ui, rows)
         if closing:
             ui.label(closing).classes("console-help px-3")
         with frame.footer():
             frame.cancel(lambda: box.submit(False))
             frame.answer(answer, lambda: box.submit(True), icon=verbs.ACCEPT)
     return bool(await box)
+
+
+def _capability_rows(uses: Sequence[str], remote: Sequence[str]) -> list[tuple[Any, ...]]:
+    rows: list[tuple[Any, ...]] = []
+    if uses:
+        rows.append((t("console.accept.uses"), chips(uses)))
+    if remote:
+        rows.append((t("console.accept.remote"), chips(remote)))
+    return rows
 
 
 async def theme(name: str, *, source: str = "", installing: bool = False) -> bool:
@@ -61,33 +68,40 @@ async def theme(name: str, *, source: str = "", installing: bool = False) -> boo
                   else "console.accept.theme_use_trust"))
 
 
-async def extension(name: str, version: str, folder: str, uses: Sequence[str], *,
-                    remote: Sequence[str] = (), replaces: str = "") -> bool:
+async def extension(name: str, version: str, *, author: str, source: str, path: str,
+                    uses: Sequence[str], remote: Sequence[str] = (), replaces: str = "",
+                    replaces_version: str = "") -> bool:
     """Whether to let this extension run. `uses` is what it says it uses, in words;
-    `remote` is what a Remote can open; `replaces` names the built-in it stands in for."""
-    lines = [t("console.accept.ext_body", name=name, version=version, folder=folder)]
+    `remote` is what a Remote can open; `replaces` names the built-in it stands in for,
+    and `replaces_version` the one that comes with VPinFE."""
+    lines = [t("console.accept.ext_body", name=name)]
     if replaces:
-        lines.append(t("console.accept.replaces", name=replaces))
-    return await _ask(
-        t("console.accept.ext_title"), lines, t("console.accept.accept"),
-        uses=(t("console.accept.uses"), uses), remote=remote,
-        closing=t("console.accept.ext_trust"))
+        lines.append(t("console.accept.replaces_version", name=replaces,
+                       version=replaces_version) if replaces_version
+                     else t("console.accept.replaces", name=replaces))
+    rows: list[tuple[Any, ...]] = [(t("console.ext_page.author"), author),
+                                   (t("console.ext_page.version_label"), version)]
+    if source:
+        rows.append((t("console.ext_page.source"),
+                     panel.link_out(ext_mark.source_shown(source), to=source, hint=source,
+                                    rel="noopener noreferrer")))
+    if path:
+        rows.append((t("console.ext_page.folder_path"), panel.path_value(path)))
+    rows += _capability_rows(uses or [t("word.none")], remote)
+    return await _ask(t("console.accept.ext_title"), lines, t("console.accept.accept"),
+                      rows=rows, closing=t("console.accept.ext_trust"))
 
 
-async def new_access(name: str, version: str, added: Sequence[str],
-                     remote: Sequence[str] = ()) -> bool:
+async def new_access(name: str, version: str, author: str, added: Sequence[str],
+                     remote: Sequence[str] = (), *, was: str = "") -> bool:
     """Whether to let a newer version of an accepted extension use `added`, and let a Remote
-    open `remote`, which the version accepted did not say."""
-    with frame.opened(t("console.accept.access_title", name=name),
-                      classes="console-confirm") as box:
-        ui.label(t("console.accept.access_body", version=version)).classes("console-help px-3")
-        if added:
-            panel.facts(ui, [(t("console.accept.uses"), chips(added))])
-        if remote:
-            panel.facts(ui, [(t("console.accept.remote"), chips(remote))])
-        ui.label(t("console.accept.access_stopped")).classes("console-help px-3")
-        with frame.footer():
-            frame.cancel(lambda: box.submit(False))
-            frame.answer(t("console.accept.accept"), lambda: box.submit(True),
-                         icon=verbs.ACCEPT)
-    return bool(await box)
+    open `remote`, which the version accepted did not say. `was` is that version, when it
+    is known. The author is shown again so an update says whose it is."""
+    rows: list[tuple[Any, ...]] = [(t("console.ext_page.author"), author)]
+    if added or remote:
+        rows.append((t("console.accept.new_capabilities"), chips([*added, *remote])))
+    body = (t("console.accept.access_body", was=was, version=version) if was and was != version
+            else t("console.accept.access_body_to", version=version))
+    return await _ask(t("console.accept.access_title", name=name), [body],
+                      t("console.accept.accept"), rows=rows,
+                      closing=t("console.accept.access_stopped"))

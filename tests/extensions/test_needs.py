@@ -13,6 +13,7 @@ from common import i18n
 from common.extensions import contract, host, serving, store
 from common.extensions.context import ExtensionUI, check_references
 from tests.support.accepted import owner_accepts
+from tests.support.identity import IDENTITY
 
 MODULE = "tests.extensions.test_needs"
 NAME = "asking"
@@ -51,7 +52,7 @@ def _installed(root: Path, catalog: dict | None = None) -> Path:
     (directory / "extension.json").write_text(json.dumps({
         "name": NAME, "display_name": "Asking", "version": "1.0.0",
         "description": "Asks for things on Overview, for the tests that need it.",
-        "requires_platform": contract.PLATFORM_ABI,
+        "requires_platform": contract.PLATFORM_ABI, **IDENTITY,
         "capabilities": ["ui:mount"], "scopes": []}), encoding="utf-8")
     (directory / "i18n" / "en.json").write_text(json.dumps({
         "need.share_down.label": "{count} shared plays are down",

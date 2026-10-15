@@ -24,7 +24,14 @@ from common.paths import CONFIG_DIR, bundled, get_ini_config
 
 from . import catalogs, contributions, reach
 from .context import ExtensionApps, ExtensionContext, check_play, check_references
-from .contract import MANIFEST_NAME, ContractError, Manifest, ManifestError, read_manifest
+from .contract import (
+    MANIFEST_NAME,
+    ContractError,
+    Manifest,
+    ManifestError,
+    check_picture,
+    read_manifest,
+)
 from .pictures import is_openable
 from .store import ExtensionStore, get_extension_store
 
@@ -196,7 +203,23 @@ class Record:
 
     @property
     def folder(self) -> str:
+        """The folder it was found in, which an acceptance is keyed to."""
         return str(self.directory.parent)
+
+    @property
+    def path(self) -> str:
+        """The extension's own folder."""
+        return str(self.directory)
+
+    @property
+    def picture_shown(self) -> bool:
+        """Whether its page draws the picture its manifest names: shipped or accepted, and
+        the file still there."""
+        manifest = self.manifest
+        if manifest is None or not manifest.picture:
+            return False
+        return (self.origin == accepted.SHIPPED or self.is_accepted()) \
+            and (self.directory / manifest.picture).is_file()
 
     def uses(self) -> list[str]:
         """What it says it uses: the core scopes and capabilities it declares, and
@@ -227,7 +250,9 @@ class Record:
                                                   self.manifest.capabilities, self.folder,
                                                   self.manifest.play),
                 "accepted_before": accepted.accepted_before(self.name, self.origin,
-                                                            self.folder)}
+                                                            self.folder),
+                "accepted_version": accepted.accepted_version(self.name, self.origin,
+                                                              self.folder)}
 
     def pages(self) -> list[dict]:
         """Its pages, titled in the language now set."""
@@ -314,7 +339,8 @@ class Record:
         copy = self.waiting
         if copy is None or copy.manifest is None:
             return None
-        return {"version": copy.manifest.version, "folder": copy.folder,
+        return {"version": copy.manifest.version, "author": copy.manifest.author,
+                "source": copy.manifest.source, "folder": copy.folder, "path": copy.path,
                 "uses": copy.uses(), "state": copy.state, "reason_key": copy.why,
                 "trust": copy.trust()}
 
@@ -336,6 +362,7 @@ class Record:
                 "description": self.description, "enabled": self.enabled,
                 "state": self.state, "reason": self.reason, "reason_key": self.why,
                 "has_settings": self.has_settings,
+                "path": self.path, "picture_shown": self.picture_shown,
                 "routes": [scope for _router, scope in self.routers],
                 # Only while it is running: an action on an extension that is not
                 # there would draw a button that refuses.
@@ -746,6 +773,7 @@ def _read_manifest(directory: Path) -> Manifest:
     manifest = read_manifest(directory)
     if manifest.name != directory.name:
         raise ManifestError("extension.reason.manifest_names_another", name=manifest.name)
+    check_picture(directory, manifest)
     return manifest
 
 

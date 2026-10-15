@@ -130,14 +130,28 @@ class InTheRailAndSettings(unittest.TestCase):
 
     def test_the_origin_chip_in_settings_carries_the_glyph(self) -> None:
         found = _found(trust={"origin": accepted.IN_FOLDER, "accepted": True, "folder": "tally"})
-        rows = ext_page._origin_rows(found)
+        chip = ext_page._origin_chip(found)
+        assert chip is not None
         with _PAGE:
             holder = ui.column()
             with holder:
-                rows[0][1]()
+                chip()
         self.assertEqual(len(_glyphs(holder)), 1)
-        self.assertEqual(ext_page._origin_rows(
-            _found(trust={"origin": accepted.SHIPPED, "accepted": True})), [])
+        self.assertIsNone(ext_page._origin_chip(
+            _found(trust={"origin": accepted.SHIPPED, "accepted": True})))
+
+
+class TheSourceShown(unittest.TestCase):
+    def test_github_is_shown_as_owner_and_repo(self) -> None:
+        self.assertEqual(ext_mark.source_shown("https://github.com/example/example"),
+                         "example/example")
+
+    def test_another_host_keeps_its_name(self) -> None:
+        self.assertEqual(ext_mark.source_shown("https://git.example.net/example/example"),
+                         "git.example.net/example/example")
+
+    def test_a_value_that_is_not_an_address_is_shown_as_it_is(self) -> None:
+        self.assertEqual(ext_mark.source_shown("not an address"), "not an address")
 
 
 class InAFactList(unittest.TestCase):

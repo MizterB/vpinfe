@@ -113,6 +113,18 @@ def served(record: Record, picture: str) -> sized_media.Served:
     return copy
 
 
+def identity(record: Record) -> sized_media.Served:
+    """The picture its manifest names, at list size. Only for one that is shipped or
+    accepted, and never a file that cannot be decoded and shrunk."""
+    if not record.picture_shown or record.manifest is None:
+        raise NotFoundError(t("error.extensions.no_picture"))
+    here = _file(record, record.manifest.picture, "")
+    copy = sized_media.served(here, sized_media.THUMBNAIL) if here else None
+    if copy is None or copy.path == here:
+        raise NotFoundError(t("error.extensions.no_picture"))
+    return copy
+
+
 def _file(record: Record, source: str, picture: str) -> Path | None:
     if is_web_address(source):
         return _fetched(record, source, picture)
@@ -121,7 +133,7 @@ def _file(record: Record, source: str, picture: str) -> Path | None:
         here = (root / source).resolve()
     except (OSError, ValueError):
         return None
-    if not here.is_relative_to(root) or not here.is_file() or not _is_image(here):
+    if not here.is_relative_to(root) or not here.is_file() or not is_image(here):
         logger.warning("%s names the picture %.200s, which is not an image in its folder",
                        record.name, source)
         return None
@@ -152,7 +164,7 @@ def _fetched(record: Record, source: str, picture: str) -> Path | None:
         with staged_for(kept) as partial:
             http_client.download_file(source, partial, timeout=FETCH_SECONDS,
                                       progress=counted)
-            if not _is_image(partial):
+            if not is_image(partial):
                 raise NotAnImageError
     except (OSError, ValueError, requests.RequestException) as exc:
         logger.warning("%s: no picture from %.200s: %s", record.name, source,
@@ -161,7 +173,7 @@ def _fetched(record: Record, source: str, picture: str) -> Path | None:
     return kept
 
 
-def _is_image(path: Path) -> bool:
+def is_image(path: Path) -> bool:
     from PIL import Image
 
     try:

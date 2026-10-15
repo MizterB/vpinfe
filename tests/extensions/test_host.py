@@ -18,6 +18,7 @@ from common import events as core_events
 from common.extensions import contract, host, provided_apps, store
 from tests.support import served
 from tests.support.accepted import owner_accepts
+from tests.support.identity import IDENTITY
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "extensions"
 
@@ -58,7 +59,7 @@ class HostCase(unittest.TestCase):
         directory = self.root / "made" / name
         directory.mkdir(parents=True)
         raw = {"name": name, "version": "1.0.0",
-               "requires_platform": contract.PLATFORM_ABI}
+               "requires_platform": contract.PLATFORM_ABI, **IDENTITY}
         raw.update(manifest or {})
         (directory / "extension.json").write_text(json.dumps(raw), encoding="utf-8")
         if body:

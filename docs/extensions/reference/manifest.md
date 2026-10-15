@@ -22,6 +22,8 @@ example_scores/
   "name": "example_scores",
   "display_name": "Example Scores",
   "version": "0.1.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/example_scores",
   "description": "Lists the top scores from an example scores server.",
   "requires_platform": 1,
   "capabilities": ["ui:mount", "config:own", "net:outbound"]
@@ -120,7 +122,11 @@ table is ignored.
 | `name` | yes | none | 2 to 40 characters: `a-z`, `0-9` and `_`, starting with a letter. Matches the directory |
 | `requires_platform` | yes | none | The platform ABI it was built against. This build offers `1`. Any other number is refused |
 | `display_name` | no | empty | A product name, shown as written in every language. Left out, it is `name` in its own `i18n/`, and then the extension's `name` |
-| `version` | no | empty | The extension's own version. Shown, never interpreted |
+| `version` | yes | none | The extension's own version, starting with a number, such as `1.2.0`, at most 40 characters with no spaces. Shown and compared to the version a person accepted, never otherwise interpreted |
+| `author` | yes | none | Who made it, one line of 1 to 60 characters, with no control or direction-changing characters. Shown in the page header's Author row and in the accept prompt |
+| `source` | yes | none | Where its code is kept: an `https` repository address of the form `host/owner/repo`, at most 300 characters, with no `@` in the host. A trailing `.git` or slash is tolerated. The page shows it as `owner/repo` for github.com, `host/owner/repo` elsewhere, as a link, so a person can read what they are about to accept |
+| `home` | no | none | A web page about it, `http` or `https`, at most 300 characters. Shown as its own row, separate from Source, even when the address is the same |
+| `picture` | no | none | A path inside its own folder to a `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif` or `.bmp` file of at most 8 MB, written with `/` between folders. Drawn in the page header once the person has accepted the extension, never before, and never in the accept prompt |
 | `description` | no | empty | One line, shown beside it. Left out, it is `description` in its own `i18n/` |
 | `scopes` | no | none | Core scopes it asks to use, such as `games:read`. See [Scopes and the gate](scopes.md#scopes-and-the-gate) |
 | `capabilities` | no | none | What it asks of the machine. See [Scopes and the gate](scopes.md#scopes-and-the-gate) |
@@ -147,6 +153,20 @@ there already; a name with a capital letter is refused, so write `vpinos`, not `
 If the manifest names a platform this machine is not, or a feature this install does not
 have, the extension is not started.  It is still listed, with the reason, and on Linux the
 reason names the distribution: "It does not run on Ubuntu".
+
+### What the page shows of it
+
+An extension that VPinFE did not ship is marked Unofficial beside its name, and Not Accepted until
+the owner accepts it.  Its page lists Author, Version, Home, Source and Folder Path (where the
+folder is, with a Copy Path button), then Reported Capabilities: the scopes, capabilities and
+surfaces from the manifest, in words.  A line under it says they are reported by the extension's
+author and VPinFE can't check them.  The accept prompt shows the same Author, Version, Source and
+Folder Path.  Extensions that ship with VPinFE have the author `VPinFE` and the source
+`https://github.com/vpinfe/vpinfe`, a logo as the picture and no Folder Path.
+
+`--check-extension` prints `author`, `home` (when set), `source` and `picture` right after the
+`loads` line, and a `picture` that does not decode is a failure.  See
+[Running](running.md#checking-one).
 
 There is no `provides`, since core makes `ext:<name>:play`, `ext:<name>:library` and
 `ext:<name>:protected` for every extension.  Whether an extension has settings is not declared either.  Core remembers what a

@@ -62,6 +62,8 @@ words it shows.
 {
   "name": "smallest",
   "version": "1.0.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/smallest",
   "requires_platform": 1,
   "capabilities": ["config:own", "ui:mount"]
 }
@@ -119,6 +121,8 @@ A `secret` is a field like any other, in a setting and in a dialog, with two dif
 {
   "name": "secret_key",
   "version": "1.0.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/secret_key",
   "requires_platform": 1,
   "capabilities": ["config:own", "ui:mount"]
 }
@@ -191,6 +195,8 @@ so the button is the action's own name.
 {
   "name": "hello_dialog",
   "version": "1.0.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/hello_dialog",
   "requires_platform": 1,
   "capabilities": ["ui:mount"]
 }
@@ -261,6 +267,8 @@ why, under the field. A step with a `summary` and a
 {
   "name": "post_score",
   "version": "1.0.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/post_score",
   "requires_platform": 1,
   "capabilities": ["config:own", "net:outbound", "ui:mount"]
 }
@@ -391,6 +399,8 @@ units of work and end early.
 {
   "name": "slow_sync",
   "version": "1.0.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/slow_sync",
   "requires_platform": 1,
   "capabilities": ["ui:mount"]
 }
@@ -477,6 +487,8 @@ break you.
 {
   "name": "play_log",
   "version": "1.0.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/play_log",
   "requires_platform": 1,
   "scopes": ["games:read"],
   "capabilities": ["config:own"]
@@ -538,6 +550,8 @@ the search. The list is shown in the rail under the area you name: `library`, `f
 {
   "name": "top_scores",
   "version": "1.0.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/top_scores",
   "requires_platform": 1,
   "capabilities": ["config:own", "net:outbound", "ui:mount"]
 }
@@ -629,6 +643,8 @@ the one you already know from recipe 3, so the list only points at it.
 {
   "name": "add_score",
   "version": "1.0.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/add_score",
   "requires_platform": 1,
   "capabilities": ["config:own", "net:outbound", "ui:mount"]
 }
@@ -750,6 +766,8 @@ page of their own. A list's rows need an `id` for the person to be able to pick 
 {
   "name": "score_rows",
   "version": "1.0.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/score_rows",
   "requires_platform": 1,
   "capabilities": ["config:own", "net:outbound", "ui:mount"]
 }
@@ -880,6 +898,8 @@ you can see all four kinds at once. The state column has five states, one of eac
 {
   "name": "weekly_board",
   "version": "1.0.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/weekly_board",
   "requires_platform": 1,
   "capabilities": ["ui:mount"]
 }
@@ -991,6 +1011,8 @@ This one needs no service.  It lists three games people voted for, written into 
 {
   "name": "game_board",
   "version": "1.0.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/game_board",
   "requires_platform": 1,
   "capabilities": ["ui:mount"]
 }
@@ -1073,6 +1095,8 @@ for each has two sections, so you can see the rail they sit in:
 {
   "name": "challenge_pane",
   "version": "1.0.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/challenge_pane",
   "requires_platform": 1,
   "capabilities": ["ui:mount"]
 }
@@ -1208,6 +1232,8 @@ An account whose `read` answers `fields` and no `user_id` is drawn by core as a 
 {
   "name": "player_handle",
   "version": "1.0.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/player_handle",
   "requires_platform": 1,
   "capabilities": ["ui:mount"]
 }
@@ -1282,6 +1308,8 @@ and it needs `games:read` in the manifest, since a group is about the library.
 {
   "name": "game_notes",
   "version": "1.0.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/game_notes",
   "requires_platform": 1,
   "scopes": ["games:read"],
   "capabilities": ["ui:mount", "config:own"]
@@ -1373,6 +1401,8 @@ needs `games:read` in the manifest, since an entry is about the library.
 {
   "name": "game_verbs",
   "version": "1.0.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/game_verbs",
   "requires_platform": 1,
   "scopes": ["games:read"],
   "capabilities": ["ui:mount", "config:own"]
@@ -1461,6 +1491,8 @@ without it the extension is turned down with the reason when it starts.
 {
   "name": "machine_page",
   "version": "1.0.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/machine_page",
   "requires_platform": 1,
   "capabilities": ["ui:mount"]
 }
@@ -1547,6 +1579,8 @@ def register(ctx):
 {
   "name": "tool_link",
   "version": "1.0.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/tool_link",
   "requires_platform": 1,
   "capabilities": ["config:own", "ui:mount"]
 }
@@ -1603,6 +1637,8 @@ def register(ctx):
 {
   "name": "review_queue",
   "version": "1.0.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/review_queue",
   "requires_platform": 1,
   "capabilities": ["config:own", "ui:mount"]
 }
@@ -1693,6 +1729,8 @@ def register(ctx):
 {
   "name": "vpinos_only",
   "version": "1.0.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/vpinos_only",
   "requires_platform": 1,
   "platforms": ["vpinos"],
   "capabilities": ["config:own", "ui:mount"]
@@ -1746,6 +1784,8 @@ A request reaches Protected when an Owner makes it under a live Confirm, and onl
 {
   "name": "os_update",
   "version": "1.0.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/os_update",
   "requires_platform": 1,
   "platforms": ["vpinos"],
   "scopes": ["system:admin"],
@@ -1876,6 +1916,8 @@ This extension adds two entries to the game menu.  The first puts the chosen gam
 {
   "name": "weekend_picks",
   "version": "1.0.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/weekend_picks",
   "requires_platform": 1,
   "scopes": ["games:read", "collections:read", "collections:write"],
   "capabilities": ["config:own", "ui:mount"]
@@ -1964,6 +2006,8 @@ This extension draws the answer as a list.  Each row is a device, with the vendo
 {
   "name": "plugged_in",
   "version": "1.0.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/plugged_in",
   "requires_platform": 1,
   "scopes": ["hardware:read"],
   "capabilities": ["ui:mount"]
@@ -2048,6 +2092,8 @@ The `play` list names a page as `page:<key>`, a list as `list:<key>`, an action 
 {
   "name": "next_player_note",
   "version": "1.0.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/next_player_note",
   "requires_platform": 1,
   "capabilities": ["config:own", "ui:mount"],
   "play": ["page:note"]

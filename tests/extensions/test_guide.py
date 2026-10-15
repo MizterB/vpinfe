@@ -29,6 +29,7 @@ from common.service_errors import NotFoundError, RefusedError
 from console import ext_links
 from httpapi import extension_ops
 from tests.support.accepted import owner_accepts
+from tests.support.identity import IDENTITY
 
 GUIDE = Path(__file__).resolve().parents[2] / "docs" / "extensions"
 EXAMPLES = GUIDE / "examples"
@@ -901,7 +902,8 @@ class ReferenceMatchesCore(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-        manifest = contract.parse({"name": "refcheck", "requires_platform": 1})
+        manifest = contract.parse({"name": "refcheck", "version": "1.0.0",
+                                   "requires_platform": 1, **IDENTITY})
         with tempfile.TemporaryDirectory() as folder:
             cls.ctx = ExtensionContext(manifest, store.ExtensionStore(folder),
                                        on_failure=lambda why: None)

@@ -18,6 +18,7 @@ from common import extensions
 from common.extensions import contract, host, store
 from httpapi import auth, scopes
 from tests.support.accepted import owner_accepts
+from tests.support.identity import IDENTITY
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "extensions"
 
@@ -237,7 +238,7 @@ class FailureTests(SeamCase):
         directory.mkdir()
         (directory / "extension.json").write_text(json.dumps({
             "name": "refuser", "version": "1.0.0",
-            "requires_platform": contract.PLATFORM_ABI, "capabilities": ["ui:mount"],
+            "requires_platform": contract.PLATFORM_ABI, **IDENTITY, "capabilities": ["ui:mount"],
         }), encoding="utf-8")
         (directory / "__init__.py").write_text(
             "def register(ctx):\n"
@@ -284,7 +285,7 @@ class FailureTests(SeamCase):
         directory.mkdir()
         (directory / "extension.json").write_text(json.dumps({
             "name": "invented", "version": "1.0.0",
-            "requires_platform": contract.PLATFORM_ABI,
+            "requires_platform": contract.PLATFORM_ABI, **IDENTITY,
             "scopes": ["tables:teleport"],
         }), encoding="utf-8")
         (directory / "__init__.py").write_text(

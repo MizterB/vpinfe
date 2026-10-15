@@ -15,6 +15,7 @@ from common import extensions
 from common.extensions import host, store
 from common.extensions.context import ContractError, ExtensionUI, check_references
 from tests.support.accepted import owner_accepts
+from tests.support.identity import IDENTITY
 
 ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "community"
 WEEK = "https://challenge.example/week"
@@ -505,7 +506,7 @@ def _extension(root: Path, name: str, *titles: tuple[str, str]) -> Path:
     folder.mkdir()
     (folder / "extension.json").write_text(json.dumps({
         "name": name, "display_name": name.title(), "version": "1.0.0",
-        "requires_platform": 1, "capabilities": ["ui:mount"]}))
+        "requires_platform": 1, **IDENTITY, "capabilities": ["ui:mount"]}))
     declared = "".join(
         f"    ctx.ui.list('l{n}', lambda: [], area={area!r}, title={title!r},"
         " columns=[{'field': 'name', 'header': 'Name'}])\n"

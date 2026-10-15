@@ -22,6 +22,7 @@ from common.extensions.contract import Unavailable
 from common.i18n import t
 from httpapi import errors
 from tests.support.accepted import owner_accepts
+from tests.support.identity import IDENTITY
 from tests.support.served import client_for
 
 MODULE = "tests.extensions.test_serving"
@@ -265,7 +266,7 @@ def _installed(root: Path) -> Path:
     (directory / "extension.json").write_text(json.dumps({
         "name": NAME, "display_name": "Served", "version": "1.0.0",
         "description": "Declares what core serves, for the tests that ask for it.",
-        "requires_platform": contract.PLATFORM_ABI,
+        "requires_platform": contract.PLATFORM_ABI, **IDENTITY,
         "capabilities": ["config:own", "ui:mount"]}), encoding="utf-8")
     (directory / "i18n" / "en.json").write_text(json.dumps(WORDS), encoding="utf-8")
     (directory / "__init__.py").write_text(

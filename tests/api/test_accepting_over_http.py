@@ -16,6 +16,7 @@ from common.extensions import contract, host, store
 from common.online import theme_ops
 from httpapi import auth, scopes
 from tests.support.accepted import isolated
+from tests.support.identity import IDENTITY
 
 ELSEWHERE = "https://git.example.net/someone/themes/raw/branch/main/themes.json"
 
@@ -117,7 +118,8 @@ class AcceptingAnExtension(unittest.TestCase):
         directory = self.folder / "tool"
         directory.mkdir()
         (directory / "extension.json").write_text(json.dumps(
-            {"name": "tool", "version": "1.0.0", "requires_platform": contract.PLATFORM_ABI}),
+            {"name": "tool", "version": "1.0.0", "requires_platform": contract.PLATFORM_ABI,
+             **IDENTITY}),
             encoding="utf-8")
         (directory / "__init__.py").write_text("def register(ctx): pass\n", encoding="utf-8")
         self.registry = host.Registry(store.ExtensionStore(root))

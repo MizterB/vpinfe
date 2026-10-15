@@ -13,14 +13,14 @@ from typing import Any
 from urllib.parse import quote
 
 import anyio
-from fastapi import APIRouter, Depends, FastAPI, Request
+from fastapi import APIRouter, Depends, FastAPI, Request, Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from common import extensions
-from common.extensions import accounts, serving
+from common.extensions import accounts, pictures, serving
 from common.i18n import t
 
-from . import extensions_served, models, scopes
+from . import extensions_served, models, responses, scopes
 from .auth import requires
 from .errors import CODE_INTERNAL_ERROR, ApiError, FeatureUnavailableError, NotFoundError
 
@@ -45,6 +45,18 @@ def get_extension_needs() -> dict:
     opens. `away` names the extensions whose needs could not be read, which a dismissal
     kept against them must outlast."""
     return serving.needs_all(extensions.records())
+
+
+@router.get("/{name}/picture", summary="The picture an extension's manifest names",
+            dependencies=[requires(scopes.INSTANCE_READ)])
+def get_extension_picture(name: str, request: Request, v: str = "") -> Response:
+    """The picture in the extension's manifest, at list size, for one that is shipped or
+    accepted. `v` is the version the page was drawn from; it is not read, and makes a new
+    version's address a new one."""
+    record = extensions.registry().get(name)
+    if record is None:
+        raise NotFoundError(t("error.extensions.not_found", name=name))
+    return responses.media_file(pictures.identity(record), request, "")
 
 
 @router.put("/{name}/enabled", summary="Switch an extension on or off",

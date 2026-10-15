@@ -18,6 +18,7 @@ from common.extensions import check, contract
 from common.extensions.contract import Unavailable
 from common.extensions.games import offered, withdraw_all
 from common.extensions.hardware import HARDWARE
+from tests.support.identity import IDENTITY
 
 MODULE = "tests.extensions.test_check_extension"
 NAME = "checked"
@@ -94,7 +95,7 @@ def build(root: Path, body: str | None = None, *, name: str = NAME,
     (directory / "extension.json").write_text(json.dumps({
         "name": name, "display_name": "Checked", "version": "1.2.3",
         "description": "Declares what the check reads.",
-        "requires_platform": contract.PLATFORM_ABI,
+        "requires_platform": contract.PLATFORM_ABI, **IDENTITY,
         "capabilities": ["config:own", "ui:mount"], **manifest}), encoding="utf-8")
     (directory / "i18n" / "en.json").write_text(
         json.dumps(WORDS if words is None else words), encoding="utf-8")
@@ -253,8 +254,8 @@ class AGoodExtension(CheckCase):
         lines, _ = self.checked()
         kinds = [one.split()[0] for one in lines]
 
-        self.assertEqual(kinds, ["loads", "settings", "settings", "list", "dialog", "account",
-                                 "routes", "reads", "reads", "reads"])
+        self.assertEqual(kinds, ["loads", "author", "source", "settings", "settings", "list",
+                                 "dialog", "account", "routes", "reads", "reads", "reads"])
 
     def test_it_reads_and_sends_nothing(self) -> None:
         self.checked()

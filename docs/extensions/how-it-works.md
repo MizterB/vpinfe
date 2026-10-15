@@ -74,7 +74,8 @@ including one in the extensions folder that has the name of one VPinFE ships:
 - **Before it runs.**  A prompt, "Run an Unofficial Extension?", and a row under Needs You on
   Overview while it waits.  Until an owner accepts it, it does not start.
 - **In Settings, under Extensions.**  A chip beside its name, Not Accepted until accepted and
-  Unofficial after, and the page's list of what it reaches reads "What It Says It Uses".  The
+  Unofficial after, and the page's list of what it reaches reads "Reported Capabilities".  The
+  page lists the author, the version, the source and the folder it was found in above it.  The
   chip's tooltip says "Not included with VPinFE.  Extensions can run programs on this device."
 - **On its own pages.**  A page's header says "From {Extension}".  It carries no
   status of its own, because the rail entry that led there already did.

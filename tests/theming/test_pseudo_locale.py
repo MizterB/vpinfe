@@ -182,6 +182,9 @@ class PseudoLocaleTests(unittest.TestCase):
             # VPinPlay's Server setting, which Settings > Extensions draws as the web
             # address it holds
             | {"https"}
+            # the Home address on a bundled extension's page, a web address the manifest
+            # holds and the page draws as written
+            | {"github"}
             # an art source's own name, which Library > Media lists as a source
             | {"vpinmediadb"}
             # `Last Played` is a collection *name*, written into collections.json - it

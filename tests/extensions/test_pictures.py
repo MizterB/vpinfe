@@ -18,6 +18,7 @@ from common.extensions import contract, host, pictures, store
 from common.i18n import t
 from tests.support import pictures as made
 from tests.support.accepted import owner_accepts
+from tests.support.identity import IDENTITY
 from tests.support.served import client_for
 
 MODULE = "tests.extensions.test_pictures"
@@ -47,7 +48,7 @@ def _installed(root: Path, capabilities: list[str]) -> Path:
     (directory / "extension.json").write_text(json.dumps({
         "name": NAME, "display_name": "Pictured", "version": "1.0.0",
         "description": "Rows that name pictures.",
-        "requires_platform": contract.PLATFORM_ABI,
+        "requires_platform": contract.PLATFORM_ABI, **IDENTITY,
         "capabilities": capabilities}), encoding="utf-8")
     (directory / "i18n" / "en.json").write_text(
         json.dumps({"list.covers.title": "Covers", "list.games.title": "Boards",

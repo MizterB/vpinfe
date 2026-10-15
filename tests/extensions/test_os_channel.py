@@ -32,6 +32,7 @@ from common.extensions.context import ExtensionContext
 from common.host import os_helper
 from httpapi import auth
 from tests.support.accepted import owner_accepts
+from tests.support.identity import IDENTITY
 
 
 class FakeHelper:
@@ -249,6 +250,7 @@ class ExtensionCase(HelperCase):
         directory.mkdir(parents=True)
         (directory / "extension.json").write_text(json.dumps({
             "name": name, "version": "1.0.0", "requires_platform": contract.PLATFORM_ABI,
+            **IDENTITY,
             "capabilities": capabilities, "tiers": list(tiers)}), encoding="utf-8")
         (directory / "__init__.py").write_text(body or "def register(ctx):\n    pass\n",
                                                encoding="utf-8")
