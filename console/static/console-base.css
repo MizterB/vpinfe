@@ -4210,6 +4210,39 @@ svg.console-cell-noart {
 .console-full .q-splitter__after { width: auto !important; flex: 10000 1 0% !important; }
 .console-full .q-splitter__separator { display: none; }
 
+/* The list's 380px floor and the panel's 320px do not fit in a page narrower than this,
+   so the page shows one of them. The list comes first; a row picked opens the panel over
+   the whole width, and the arrow at the left of its header goes back. The width is the
+   page's own, not the window's, so a nav somebody opened counts against it. Full is
+   moot here - it is the panel alone, which is what opening it already is - so its
+   button goes and the rules below hold whether or not it was on. */
+.console-pane-box { container: console-pane / inline-size; }
+.console-pane-back { display: none; }
+@container console-pane (max-width: 703px) {
+  .console-pane-box:not(.console-no-pane) > .q-splitter__separator { display: none !important; }
+  .console-pane-box:not(.console-no-pane, .console-opened) > .q-splitter__after {
+    display: none !important;
+  }
+  .console-pane-box:not(.console-no-pane, .console-opened) > .q-splitter__before {
+    display: block !important;
+  }
+  .console-pane-box:not(.console-no-pane) > .q-splitter__before {
+    width: auto !important;
+    flex: 10000 1 0% !important;
+    min-width: 0 !important;
+  }
+  .console-pane-box.console-opened:not(.console-no-pane) > .q-splitter__before {
+    display: none !important;
+  }
+  .console-pane-box.console-opened:not(.console-no-pane) > .q-splitter__after {
+    display: block !important;
+    width: auto !important;
+    flex: 10000 1 0% !important;
+  }
+  .console-opened .console-pane-back { display: inline-flex; }
+  .console-opened .console-pane-full, .console-opened .console-panel-toggle { display: none; }
+}
+
 /* The row is the section's only name - there is no heading under it repeating the
    same words. */
 /* Sized as navigation, because that is what it is. Title case and smaller than the

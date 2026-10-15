@@ -344,6 +344,8 @@ async def _open(state: dict[str, Any], redraw: Callable[[], None], player_id: st
     show = state.get("show_player")
     if callable(show):
         await show({"id": player_id})
+    if callable(opened := state.get("open_pane")):
+        opened()
 
 
 # -- adding --------------------------------------------------------------------

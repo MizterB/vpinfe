@@ -361,6 +361,8 @@ async def _open(state: dict[str, Any], redraw: Callable[[], None], made: str) ->
     show = state.get("show_launcher")
     if callable(show):
         await show({"id": made})
+    if callable(opened := state.get("open_pane")):
+        opened()
 
 
 async def ask_name(title: str, answer: str, names: list[str],

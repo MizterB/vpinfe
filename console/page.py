@@ -592,6 +592,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     ui.on(folders.MOVED, lambda event: folders.moved(state, event))
     ui.on("hub_dock_px", lambda event: workbench.dock_dragged(state, event.args))
     ui.on("hub_row_focus", grid.row_focused)
+    ui.on("hub_row_pick", lambda: state["open_pane"]())
     ui.on("hub_media_zoom", lambda event: games.media_zoomed(state, event))
     ui.on("hub_rate", lambda event: games.rated(state, event))
     ui.on(jobs_list.REPORT_ASKED, jobs_page.report_asked)
@@ -1225,6 +1226,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             await run.io_bound(library.load_games_grid)
         render()
         await show_game({"id": game_id})
+        state["open_pane"]()
 
     async def _show_unmatched() -> None:
         if not await may_leave(state, "games"):
@@ -1287,7 +1289,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
 
     splitter = ui.splitter(reverse=True, limits=(WORKBENCH_MIN_PX, WORKBENCH_MAX_PX),
                            value=WORKBENCH_WIDE_PX) \
-        .props("unit=px").classes("w-full h-full")
+        .props("unit=px").classes("w-full h-full console-pane-box")
     with splitter.after, ui.column().classes("w-full h-full gap-0 console-workbench"):
         # The selected game's name shares the row with the toggle rather than sitting
         # under it - same class list, same height and same gutter as the nav's header,
@@ -1297,10 +1299,14 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                      "no-wrap console-panel-header") \
             .style(f"min-height:{HEADER_H_PX}px")
         with workbench_header:
+            # Only drawn where the panel has the window to itself, which is the way back
+            # to the list.
+            panel_parts.icon_only(verbs.BACK, lambda: close_pane(), hint=t("word.back")) \
+                .props("size=sm").classes("console-pane-back shrink-0")
             # min-w-0 lets the column shrink below its content so the title truncates
             # instead of pushing the toggle onto a second line; shrink-0 keeps the
             # toggle at its own size while that happens.
-            workbench_title = _Title().classes("gap-0 min-w-0 overflow-hidden")
+            workbench_title = _Title().classes("gap-0 min-w-0 overflow-hidden grow")
             with ui.row().classes("items-center gap-1 shrink-0 no-wrap"):
                 # Their own row so they can go with the panel: at the rail there is
                 # nothing to step through, and they do not fit beside a 57px header.
@@ -1317,7 +1323,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                         .props("flat dense round size=sm").tooltip(t("console.page.next_game"))
                     full_icon = ui.button(icon=verbs.ENLARGE,
                                           on_click=lambda: toggle_full()) \
-                        .props("flat dense round size=sm") \
+                        .props("flat dense round size=sm").classes("console-pane-full") \
                         .tooltip(t("console.page.workbench_max"))
                 # Outside that row: it is the only way back once the rest have gone.
                 workbench_icon = ui.icon("menu_open", size="24px") \
@@ -1394,16 +1400,50 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         elif state.pop("nav_collapsed_by_full", None):
             set_mini(False)
 
+    def open_pane() -> None:
+        """Show the panel for the row picked. Where the list and the panel do not fit side
+        by side the stylesheet makes it the page; wide, it only opens a collapsed panel."""
+        if not has_pane():
+            return
+        if not state["workbench"]:
+            show_workbench(True)
+        state["opened"] = True
+        splitter.classes(add="console-opened")
+
+    def has_pane() -> bool:
+        """Whether this page has a subject for the panel to be about."""
+        listed = community_page.find(state["view"], state["extensions"])
+        return state["view"] in WORKBENCH_VIEWS or bool(
+            listed is not None and listed[1].get("detail"))
+
+    def close_pane() -> None:
+        """Back to the list."""
+        state["opened"] = False
+        splitter.classes(remove="console-opened")
+
+    state["open_pane"] = open_pane
+    state["close_pane"] = close_pane
+
     def _step(delta: int) -> None:
         """Move the focused row, which is what the workbench follows. Sent as the key
         the grid already handles rather than reaching into its API, so the buttons and
-        the keyboard cannot drift apart."""
+        the keyboard cannot drift apart. With the list hidden behind the panel the grid
+        has no focused cell to send it to, so the row the panel is about is stepped
+        from by index."""
         key = "ArrowDown" if delta > 0 else "ArrowUp"
         ui.run_javascript(
-            "(() => { const c = document.querySelector('.ag-body-viewport "
-            ".ag-cell-focus') || document.querySelector('.ag-body-viewport .ag-cell');"
+            "(() => { const c = document.querySelector('.ag-body-viewport .ag-cell-focus');"
             " if (c) { c.focus(); c.dispatchEvent(new KeyboardEvent('keydown', "
-            "{key: '" + key + "', bubbles: true})); } })()")
+            "{key: '" + key + "', bubbles: true})); return; }"
+            " const el = document.querySelector('.nicegui-aggrid'); if (!el) return;"
+            " const api = getElement(Number(el.id.slice(1))).api;"
+            " const ctx = api.getGridOption('context') || {};"
+            " const at = ctx.focusId ? api.getRowNode(ctx.focusId) : null;"
+            " if (!at || at.rowIndex == null) return;"
+            f" const next = at.rowIndex + {delta};"
+            " if (next < 0 || next >= api.getDisplayedRowCount()) return;"
+            " api.ensureIndexVisible(next);"
+            " api.setFocusedCell(next, ctx.focusCol); })()")
 
     def remember_width(event: Any) -> None:
         """Keep the width a drag settled on. Quasar only reports it on release, which
@@ -1668,10 +1708,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         #
         # On a page with no subject it goes entirely, rail included. Nothing there can
         # fill it, so the strip would be a control that reopens an empty panel.
-        listed_here = community_page.find(state["view"], state["extensions"])
-        has_pane = state["view"] in WORKBENCH_VIEWS or bool(
-            listed_here is not None and listed_here[1].get("detail"))
-        splitter.classes(remove="console-no-pane") if has_pane \
+        splitter.classes(remove="console-no-pane") if has_pane() \
             else splitter.classes(add="console-no-pane")
         light_nav()
         if state["view"] == "jobs":
@@ -1899,6 +1936,10 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                                or discovery.get("install_id")})
     if arrival is not None:
         await arrival
+        # An address that names a subject lands on its panel. Devices is not one: it
+        # arrives on this device so its rail is open, and the list is the page.
+        if state["view"] != "devices":
+            open_pane()
     if arrives_in_setup(pending, view):
         background_tasks.create(
             setup_page.open_setup(window=in_the_frontends_window), name="console-setup")
@@ -2053,6 +2094,9 @@ def leave_for(state: dict[str, Any], view: str) -> None:
             state.pop("section", None)
     state["view"] = view
     remembered.put("section", view)
+    # The list comes first on a window that shows one of the two.
+    if close_pane := state.get("close_pane"):
+        close_pane()
 
 
 @on_page

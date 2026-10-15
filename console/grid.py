@@ -1039,6 +1039,26 @@ def build(columns: list[dict[str, Any]], rows: list[dict[str, Any]], scope: str,
             f"scope: {json.dumps(scope)}}}); "
             "window.__hubFocusRow = params.rowIndex; "
             "window.__hubMarkFocus && window.__hubMarkFocus(); }",
+        # Picking a row is a press or Enter, which arrowing through the list is not. A
+        # window too narrow for the list and the panel side by side shows one at a time,
+        # and this is what moves from the list to the panel. A press that did not move
+        # the focus (a touch screen's does not always) still has to open that row.
+        ":onCellClicked":
+            "params => { const hit = params.event && params.event.target; "
+            "if (params.column.getColId() === 'ag-Grid-SelectionColumn' || "
+            "(hit && hit.closest && hit.closest('button, a, input, .q-btn'))) return; "
+            "const c = params.context; "
+            "if (params.data && c.focusId !== params.data.id) { "
+            "c.focusId = params.data.id; c.focusCol = params.column.getColId(); "
+            "window.__hubFocusRow = params.rowIndex; "
+            "emitEvent('hub_row_focus', {id: c.focusId, col: c.focusCol, "
+            f"scope: {json.dumps(scope)}}}); }} "
+            f"emitEvent('hub_row_pick', {{scope: {json.dumps(scope)}}}); }}",
+        ":onCellKeyDown":
+            "params => { const key = params.event; "
+            "if (key && key.key === 'Enter' && !(key.target.closest && "
+            "key.target.closest('button, a, input, .q-btn'))) "
+            f"emitEvent('hub_row_pick', {{scope: {json.dumps(scope)}}}); }}",
         # Rows are recycled as you scroll, so the mark rides the wrong row without
         # this.
         ":onBodyScroll": "() => { window.__hubMarkFocus && window.__hubMarkFocus(); }",
