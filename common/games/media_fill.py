@@ -21,7 +21,7 @@ from common.config_store import ConfigStore
 from common.games.game_metadata import effective_vps_id, normalize_meta
 from common.i18n import t
 from common.jobs import JobReporter
-from common.media_specs import MEDIA_SPECS
+from common.media.media_specs import MEDIA_SPECS
 from common.paths import get_ini_config
 
 logger = logging.getLogger("vpinfe.common.games.media_fill")

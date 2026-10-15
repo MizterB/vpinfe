@@ -17,9 +17,9 @@ from unittest.mock import patch
 
 from fastapi import FastAPI
 
-from common import sized_media
 from common.extensions import check, contract, host, pictures, store
 from common.i18n import t
+from common.media import sized_media
 from common.security import accepted
 from httpapi import extensions as extensions_api
 from tests.support import pictures as made

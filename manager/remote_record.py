@@ -17,7 +17,7 @@ from common.capture.run import CHOOSE, FILL, RUNNING
 from common.failures import why
 from common.i18n import t
 from common.jobs import KIND_MEDIA_CAPTURE
-from common.media_specs import media_label_map
+from common.media.media_specs import media_label_map
 from manager import record
 from manager.kit import busy, offload, panel, verbs
 from manager.kit.api import ApiError

@@ -1,6 +1,6 @@
 """This device's folders and files, for a path field's Browse button.
 
-`common/folder_browse.py` decides what is listed and how far it may look.
+`common/media/folder_browse.py` decides what is listed and how far it may look.
 """
 
 from __future__ import annotations
@@ -8,9 +8,9 @@ from __future__ import annotations
 from fastapi import APIRouter, Body, Query, Request
 from starlette.responses import FileResponse
 
-from common import folder_browse
 from common.games import table_ops
 from common.i18n import t
+from common.media import folder_browse
 from common.uploads import upload_ops
 
 from . import models, scopes

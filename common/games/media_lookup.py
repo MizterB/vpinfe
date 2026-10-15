@@ -14,7 +14,7 @@ from common.games import game_identity
 from common.games.game import GameRecord
 from common.games.game_metadata import normalize_meta
 from common.games.tables import entry_filename, table_entries
-from common.media_specs import MEDIA_SPECS, canonical_kind
+from common.media.media_specs import MEDIA_SPECS, canonical_kind
 
 _ATTR_BY_KIND = {spec.kind: spec.attr for spec in MEDIA_SPECS}
 _PAGED = {spec.kind: spec.pages for spec in MEDIA_SPECS}

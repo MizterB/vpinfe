@@ -45,8 +45,8 @@ from common.games.game_metadata import (
 from common.games.media_lookup import page_counts, resolved_kinds
 from common.games.tables import entry_file
 from common.i18n import t
-from common.manufacturer_logos import manufacturer_logo_url
-from common.media_specs import game_media_payload
+from common.media.manufacturer_logos import manufacturer_logo_url
+from common.media.media_specs import game_media_payload
 from common.timestamps import epoch_to_iso
 from common.values import is_truthy
 from frontend.input_api import PAGING_GROUP_ALIASES, PAGING_GROUP_DEFAULT

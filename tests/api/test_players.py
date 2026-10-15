@@ -16,9 +16,10 @@ from unittest import mock
 from starlette.testclient import TestClient
 
 import httpapi
-from common import events, players
+from common import events
 from common.games import player_records
 from common.i18n import t
+from common.players import players
 from httpapi import auth, scopes
 from httpapi import events as event_stream
 from tests.support.library import fake_game, write_game

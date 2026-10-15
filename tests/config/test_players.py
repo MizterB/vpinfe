@@ -13,9 +13,10 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from common import events, player_pictures, service_errors
+from common import events, service_errors
 from common.extensions import store as extension_store
-from common.players import OWNER_MIGRATION, Player, Roster, names_nobody, same_initials
+from common.players import player_pictures
+from common.players.players import OWNER_MIGRATION, Player, Roster, names_nobody, same_initials
 from tests.support.pictures import BLUE, RED, animation, banded, png
 
 
@@ -106,7 +107,7 @@ class FileTests(_RosterCase):
     def test_an_unreadable_file_is_an_empty_roster(self) -> None:
         self.path.write_text("{not json", encoding="utf-8")
 
-        with self.assertLogs("vpinfe.common.players", "WARNING"):
+        with self.assertLogs("vpinfe.common.players.players", "WARNING"):
             self.assertEqual(self.roster.players(), [])
 
     def test_kept_players_come_back_after_a_restart(self) -> None:

@@ -1249,7 +1249,7 @@ class LogosOnImportTests(BesideTheTablesTests):
         super().setUp()
         from vpinfe_ext_library_importer import beside
 
-        from common.manufacturer_logos import configure_manufacturer_logos
+        from common.media.manufacturer_logos import configure_manufacturer_logos
 
         self.logos = self.root / "manufacturer_logos"
         configure_manufacturer_logos(self.logos)

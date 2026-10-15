@@ -37,7 +37,7 @@ class ManufacturerEndpointTests(unittest.TestCase):
         from unittest.mock import patch
 
         from common.games.game import Game
-        from common.manufacturer_logos import configure_manufacturer_logos
+        from common.media.manufacturer_logos import configure_manufacturer_logos
 
         def _game(folder: str, manufacturer: str) -> Game:
             return fake_game(f"/games/{folder}", folder,

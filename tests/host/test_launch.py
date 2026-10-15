@@ -19,11 +19,12 @@ from pathlib import PurePath
 from typing import Any, cast
 from unittest import mock
 
-from common import events, mounts, players
+from common import events, mounts
 from common.games import player_records, tables
 from common.games.library_folders import Location, LocationStore
 from common.games.score_parser import ParsedEntry
 from common.host import commands, launch, launch_state, table_commands
+from common.players import players
 
 
 class _FakePopen:

@@ -30,7 +30,7 @@ from common.capture.session import RECORDABLE
 from common.failures import why
 from common.games.asset_registry import ARCHIVE_EXTENSIONS, spec_for, specs_named
 from common.i18n import t
-from common.media_specs import (
+from common.media.media_specs import (
     DOC_FAMILY,
     IMAGE_FAMILY,
     MEDIA_SPECS,

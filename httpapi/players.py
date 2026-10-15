@@ -1,6 +1,6 @@
 """Who plays on this install, and who the next game counts for.
 
-`common/players.py` is what answers. A write that sets who is up answers with the whole
+`common/players/players.py` is what answers. A write that sets who is up answers with the whole
 roster.
 """
 
@@ -12,7 +12,7 @@ from starlette.concurrency import run_in_threadpool
 from common import events
 from common.games import game_lens, player_records
 from common.games.player_records import get_records
-from common.players import get_roster
+from common.players.players import get_roster
 
 from . import models, scopes
 from .auth import require, requires

@@ -13,9 +13,10 @@ from unittest.mock import patch
 
 import requests
 
-from common import i18n, sized_media
+from common import i18n
 from common.extensions import contract, host, pictures, store
 from common.i18n import t
+from common.media import sized_media
 from tests.support import pictures as made
 from tests.support.accepted import owner_accepts
 from tests.support.identity import IDENTITY

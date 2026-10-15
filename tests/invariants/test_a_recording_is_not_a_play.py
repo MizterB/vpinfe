@@ -16,11 +16,12 @@ from configparser import ConfigParser
 from pathlib import Path
 from unittest import mock
 
-from common import device_registry, events, players
+from common import device_registry, events
 from common.config_store import ConfigStore
 from common.games import player_records
 from common.games.launchers import Launcher
 from common.host import launch, launch_state
+from common.players import players
 from frontend import play_events
 from tests.support import trees
 from tests.support.library import TempTree, fake_game, game_info, write_game

@@ -12,7 +12,7 @@ import unittest
 from pathlib import Path
 
 from common.games.media_lookup import media_path, table_filename
-from common.media_specs import resolve_media_by_table
+from common.media.media_specs import resolve_media_by_table
 
 FOLDER = "Cactus Canyon (Bally 1998)"
 DESKTOP = f"{FOLDER} - VPW 1.2.vpx"

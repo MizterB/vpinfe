@@ -15,7 +15,7 @@ from __future__ import annotations
 from typing import Any
 
 from common.games.tables import TABLE_FILENAME_KEY, TABLE_ID_KEY
-from common.media_specs import MEDIA_SPECS
+from common.media.media_specs import MEDIA_SPECS
 from common.timestamps import iso_to_epoch
 
 

@@ -11,10 +11,10 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from common.config_access import ConfigSource
-from common.release_notes import newer
+from common.release.release_notes import newer
 from common.security import authenticator
 
-logger = logging.getLogger("vpinfe.common.upgrade_needs")
+logger = logging.getLogger("vpinfe.common.release.upgrade_needs")
 
 
 @dataclass(frozen=True)

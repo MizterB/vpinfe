@@ -30,7 +30,7 @@ TRANSLATORS = {
     "frontend/theme_windows.py",      # CANONICAL, TITLES
     "frontend/input_api.py",          # projects the old per-input bridge methods
     "common/input_registry.py",        # each action's legacy spellings
-    "common/media_specs.py",          # MEDIA_KIND_ALIASES, the spec filenames
+    "common/media/media_specs.py",     # MEDIA_KIND_ALIASES, the spec filenames
     "common/config_schema.py",        # every option's aliases and former locations
     "common/config_store.py",         # the migration that rewrites them
     "common/config_access.py",        # reads either spelling

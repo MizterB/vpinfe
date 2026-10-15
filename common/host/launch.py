@@ -22,7 +22,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from common import apps, events, path_state, players, service_errors
+from common import apps, events, path_state, service_errors
 from common.config_store import ConfigStore
 from common.failures import why
 from common.games import (
@@ -50,6 +50,7 @@ from common.host.vpx_log import delete_vpinball_log_on_start_if_configured
 from common.i18n import t
 from common.launcher_path import resolve_launcher_path
 from common.paths import CAPTURE_DIR, PLUGIN_PROFILES_DIR
+from common.players import players
 from common.timestamps import utc_now_iso
 
 logger = logging.getLogger("vpinfe.common.host.launch")

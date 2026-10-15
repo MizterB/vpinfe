@@ -12,9 +12,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from common import device_registry
-from common.release_notes import is_release, newer
+from common.release.release_notes import is_release, newer
 
-logger = logging.getLogger("vpinfe.common.migration_ledger")
+logger = logging.getLogger("vpinfe.common.release.migration_ledger")
 
 KEY = "migrations"
 

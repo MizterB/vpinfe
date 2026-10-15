@@ -16,7 +16,7 @@ from nicegui import core, ui
 
 from common import i18n, service_errors
 from common.games.collections_service import IMAGE_EXTENSIONS
-from common.media_specs import IMAGE_FAMILY
+from common.media.media_specs import IMAGE_FAMILY
 from manager import mediasource
 from manager.kit import folder_picker
 from manager.kit.data import Library
@@ -298,7 +298,7 @@ class ReadingAFileOnThisMachine(unittest.TestCase):
         (self.root / ".ssh").mkdir()
         (self.root / ".ssh" / "key.pov").write_bytes(b"key")
 
-        with mock.patch("common.folder_browse.Path.home", return_value=self.root), \
+        with mock.patch("common.media.folder_browse.Path.home", return_value=self.root), \
                 self.assertRaises(service_errors.RefusedError):
             Library(mock.Mock()).disk_file(str(self.root / ".ssh" / "key.pov"), (".pov",))
 

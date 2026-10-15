@@ -35,7 +35,7 @@ from common.games.info_file import VPINFE_SECTION, MetaConfig
 from common.games.info_migration import IMPORT, copy_aside
 from common.i18n import t
 from common.ids import new_id
-from common.media_specs import media_filename_map
+from common.media.media_specs import media_filename_map
 from common.uploads.asset_analyzer_service import (
     AnalysisResult,
     AssetSource,

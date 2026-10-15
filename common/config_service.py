@@ -23,7 +23,7 @@ from common.backups import folder as backups_folder
 from common.failures import why
 from common.i18n import t
 from common.labels import humanize
-from common.manufacturer_logos import resolve_logos_dir
+from common.media.manufacturer_logos import resolve_logos_dir
 from common.paths import CONFIG_DIR, get_ini_config
 
 logger = logging.getLogger("vpinfe.common.config_service")

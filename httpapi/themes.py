@@ -17,9 +17,9 @@ from fastapi import APIRouter, Body
 from starlette.requests import Request
 from starlette.responses import Response
 
-from common import sized_media
 from common.failures import why
 from common.i18n import t
+from common.media import sized_media
 from common.online import theme_ops
 
 from . import scopes

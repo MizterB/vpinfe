@@ -19,7 +19,6 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any
 
-from common import sized_media
 from common.games import (
     asset_origin,
     asset_resolver,
@@ -31,7 +30,8 @@ from common.games import (
 from common.games.game_metadata import effective_vps_id
 from common.games.game_repository import game_to_row
 from common.i18n import t
-from common.media_specs import (
+from common.media import sized_media
+from common.media.media_specs import (
     MEDIA_SPECS,
     media_candidates,
     media_label_map,

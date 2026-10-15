@@ -22,7 +22,7 @@ from common.games.collection_resolver import Entry, resolve
 from common.games.collection_store import BUILTIN_ALL, CollectionStore
 from common.games.entry_lens import entry_resource
 from common.games.game_metadata import game_title
-from common.media_specs import MEDIA_SPECS
+from common.media.media_specs import MEDIA_SPECS
 from frontend import game_state
 from tests.support.library import TempTree, fake_game, write_game
 

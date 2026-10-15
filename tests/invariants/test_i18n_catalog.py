@@ -24,7 +24,7 @@ from common.config_schema import ConfigOption
 from common.games.asset_registry import ASSET_SPECS, AssetSpec
 from common.games.collection_filters import AXES, FilterAxis
 from common.input_registry import InputAction, actions
-from common.media_specs import MEDIA_SPECS, MediaSpec
+from common.media.media_specs import MEDIA_SPECS, MediaSpec
 from common.tokens import Token
 from frontend.custom_http_server import CORE_WORDS
 from tests.support import trees
@@ -199,7 +199,7 @@ READ_FOR = {
     "common/tokens.py": NOT_ITS_REFUSALS,
     # What these refuse is a declaration in this tree, or a name only calling code makes up.
     "common/games/library_policy.py": NOT_ITS_REFUSALS,
-    "common/media_specs.py": NOT_WHAT_IT_RAISES,
+    "common/media/media_specs.py": NOT_WHAT_IT_RAISES,
     "httpapi/auth.py": NOT_ITS_REFUSALS,
     "httpapi/capabilities.py": NOT_ITS_REFUSALS,
     # Every pair it allows is named from the catalog; one it does not is said in the

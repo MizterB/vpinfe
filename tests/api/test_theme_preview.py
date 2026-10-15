@@ -13,8 +13,8 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 import httpapi
-from common import sized_media
 from common.i18n import t
+from common.media import sized_media
 from common.online import theme_ops, theme_previews
 from common.online.themes import ThemeRegistry
 from common.security import http_client

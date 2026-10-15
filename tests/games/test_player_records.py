@@ -13,12 +13,13 @@ from configparser import ConfigParser
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from common import events, extensions, players, service_errors
+from common import events, extensions, service_errors
 from common.extensions import accounts, host
 from common.extensions.store import ExtensionStore
 from common.games import player_records
 from common.games.player_records import PlayerRecords, best_of
 from common.i18n import t
+from common.players import players
 
 AT = "2026-09-28T20:00:00Z"
 LATER = "2026-09-28T21:00:00Z"

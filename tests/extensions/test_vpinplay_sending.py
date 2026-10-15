@@ -12,10 +12,11 @@ import unittest
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-from common import events, players
+from common import events
 from common.extensions import accounts
 from common.extensions import games as offered_games
 from common.games import player_records
+from common.players import players
 from tests.extensions.test_cards import KEY, _2x_card
 from tests.extensions.test_vpinplay_accounts import NAME, VPinPlayCase
 

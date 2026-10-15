@@ -16,7 +16,7 @@ from nicegui import ui
 from common.failures import why
 from common.games import media_fill
 from common.i18n import t
-from common.media_specs import media_label_map
+from common.media.media_specs import media_label_map
 from manager.kit import confirm, offload, remembered, verbs
 from manager.kit import dialog as frame
 from manager.kit.api import ApiClient

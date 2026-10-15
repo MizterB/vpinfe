@@ -38,7 +38,7 @@ from common.games.asset_registry import ALWAYS_KEPT, ASSET_SPECS
 from common.host import display_service, frontend_browser, key_reader, key_simulator, tools
 from common.i18n import size, t
 from common.labels import field_label, humanize
-from common.media_specs import media_label_map
+from common.media.media_specs import media_label_map
 from common.online import theme_source_checks as online_checks
 from manager import (
     attract,

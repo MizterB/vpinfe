@@ -20,7 +20,7 @@ from collections.abc import Iterable
 from typing import Any
 from urllib.parse import quote
 
-from common import service_errors, sized_media
+from common import service_errors
 from common.failures import why
 from common.games import (
     entry_lens,
@@ -69,6 +69,7 @@ from common.games.collections_service import (
 from common.games.game_repository import collections_by_game_id, game_to_row
 from common.games.media_lookup import resolved_kinds
 from common.i18n import t
+from common.media import sized_media
 from common.values import is_truthy
 
 logger = logging.getLogger("vpinfe.common.games.collection_ops")

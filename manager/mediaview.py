@@ -16,7 +16,7 @@ from typing import Any
 from nicegui import ui
 
 from common.i18n import t
-from common.media_specs import media_family
+from common.media.media_specs import media_family
 from manager.kit import dialog as frame
 from manager.kit import panel, verbs
 

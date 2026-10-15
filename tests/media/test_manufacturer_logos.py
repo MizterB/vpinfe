@@ -15,7 +15,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING
 
-from common.manufacturer_logos import (
+from common.media.manufacturer_logos import (
     add_logos,
     configure_manufacturer_logos,
     manufacturer_logo_file,
@@ -337,7 +337,7 @@ class LookupTests(unittest.TestCase):
 
 class ReportTests(unittest.TestCase):
     def test_the_report_shows_slug_alias_and_resolution_per_name(self) -> None:
-        from common.manufacturer_logos import manufacturer_report
+        from common.media.manufacturer_logos import manufacturer_report
 
         with TemporaryDirectory() as tmp:
             root = _logos(self, tmp)
@@ -359,7 +359,7 @@ class ReportTests(unittest.TestCase):
 
     def test_the_report_exposes_an_alias_bypassing_the_named_file(self) -> None:
         """The invisible failure the report exists for: your file, shadowed by an alias."""
-        from common.manufacturer_logos import manufacturer_report
+        from common.media.manufacturer_logos import manufacturer_report
 
         with TemporaryDirectory() as tmp:
             root = _logos(self, tmp)
@@ -375,7 +375,7 @@ class ReportTests(unittest.TestCase):
                          "the file named for the manufacturer is not what resolves")
 
     def test_the_report_still_slugs_with_no_folder(self) -> None:
-        from common.manufacturer_logos import manufacturer_report
+        from common.media.manufacturer_logos import manufacturer_report
 
         configure_manufacturer_logos(None)
         rows = manufacturer_report(["Williams Electronics", "", "  "])
@@ -387,7 +387,7 @@ class ReportTests(unittest.TestCase):
 
 class ReferenceFileTests(unittest.TestCase):
     def test_the_reference_is_written_beside_the_images(self) -> None:
-        from common.manufacturer_logos import write_manufacturer_reference
+        from common.media.manufacturer_logos import write_manufacturer_reference
 
         with TemporaryDirectory() as tmp:
             root = _logos(self, tmp)
@@ -402,7 +402,7 @@ class ReferenceFileTests(unittest.TestCase):
                          ["bally", "data-east"])
 
     def test_no_folder_or_no_names_writes_nothing(self) -> None:
-        from common.manufacturer_logos import write_manufacturer_reference
+        from common.media.manufacturer_logos import write_manufacturer_reference
 
         configure_manufacturer_logos(None)
         self.assertIsNone(write_manufacturer_reference(["Bally"]))
@@ -412,7 +412,7 @@ class ReferenceFileTests(unittest.TestCase):
             self.assertIsNone(write_manufacturer_reference([]))
 
     def test_vps_names_come_deduped_and_sorted_from_the_cache(self) -> None:
-        from common.manufacturer_logos import vps_manufacturer_names
+        from common.media.manufacturer_logos import vps_manufacturer_names
 
         with TemporaryDirectory() as tmp:
             cache = Path(tmp) / "vpsdb.json"

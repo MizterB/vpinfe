@@ -11,7 +11,7 @@ from typing import Any
 
 from starlette.requests import Request
 
-from common.sized_media import Served
+from common.media.sized_media import Served
 from httpapi import responses
 
 LONG = b"L" * 82

@@ -466,7 +466,7 @@ URL and nothing has to be translated on the way into Python.
 **Media and assets are not the same thing** (`docs/conventions.md`). Media is the artwork
 VPinFE shows you while browsing; assets are what the game needs to *play* as intended.
 
-Media is served under `GET /games/{id}/media`: every kind from `common/media_specs.py`,
+Media is served under `GET /games/{id}/media`: every kind from `common/media/media_specs.py`,
 present or not, so a client enumerates what is possible instead of guessing from omissions.
 A present kind links to `/media/{kind}`, which streams the file with its real content type.
 Each entry carries `pages`: 0 for nothing, 1 for a single file, and for a flyer or an

@@ -15,15 +15,16 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from common import events, player_pictures, service_errors
+from common import events, service_errors
 from common.atomic_write import write_atomic
 from common.config_access import ConfigSource, cfg_get
 from common.i18n import t
 from common.install_identity import mint_id
+from common.media.sized_media import Served
 from common.paths import CONFIG_DIR
-from common.sized_media import Served
+from common.players import player_pictures
 
-logger = logging.getLogger("vpinfe.common.players")
+logger = logging.getLogger("vpinfe.common.players.players")
 
 PLAYERS_PATH = CONFIG_DIR / "players.json"
 SCHEMA = 2

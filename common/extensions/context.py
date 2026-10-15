@@ -1071,7 +1071,7 @@ class ExtensionPlayers:
     def roster(self) -> list[dict]:
         """Every player: the owner, the kept players, then the guests as they joined."""
         self._needs_read()
-        from common import players
+        from common.players import players
 
         return players.get_roster().state()["players"]
 
@@ -1087,8 +1087,8 @@ class ExtensionPlayers:
         """A player's record of one game, as `GET /api/v1/players/{id}/record` lists it.
         None for the owner and for a player nobody has."""
         self._needs_read()
-        from common import players
         from common.games import player_records
+        from common.players import players
 
         player = players.get_roster().get(player_id)
         if player is None or player.owner:
@@ -1097,7 +1097,7 @@ class ExtensionPlayers:
 
     def sharing(self, player_id: str) -> bool:
         """Whether this player's account here is sharing. Off until someone turns it on."""
-        from common import players
+        from common.players import players
 
         return players.get_roster().sharing(player_id, self._name)
 
@@ -1105,7 +1105,7 @@ class ExtensionPlayers:
         """The path of a kept player's picture, for an extension that declared
         `sends_picture` and only while that player's Share here is on. None otherwise,
         including when the player has no picture."""
-        from common import player_pictures, players
+        from common.players import player_pictures, players
 
         offered = self._ui.account_offered if self._ui is not None else {}
         roster = players.get_roster()

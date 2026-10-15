@@ -302,7 +302,7 @@ const VPINFE_RENAMED_MEMBERS = {
   tableOrientation: 'playfieldOrientation',
 };
 
-// Every media kind VPinFE serves, in common/media_specs.py order. Kept in step by
+// Every media kind VPinFE serves, in common/media/media_specs.py order. Kept in step by
 // tests/theming/test_media_kinds.py, because a name that drifts here fails silently:
 // a lookup for a kind nobody serves returns nothing rather than complaining.
 const MEDIA_KINDS = [

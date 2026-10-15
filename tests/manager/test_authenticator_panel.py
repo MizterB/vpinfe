@@ -10,7 +10,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from common import paths, upgrade_needs
+from common import paths
+from common.release import upgrade_needs
 from common.security import authenticator
 from manager import authenticator_panel
 from manager.kit import appearance, panel

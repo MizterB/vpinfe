@@ -12,7 +12,7 @@ import zipfile
 from pathlib import Path
 from unittest import mock
 
-from common import config_service, migration_ledger
+from common import config_service
 from common.config_store import ConfigStore
 from common.online import (
     theme_seed,  # noqa: F401 - registers the seed
@@ -22,6 +22,7 @@ from common.online import (
     themes,
 )
 from common.paths import ASIDE_SUFFIX, THEMES_FOLDER
+from common.release import migration_ledger
 from tests.support.library import TempTree
 
 STOCK = theme_sources.stock_list()

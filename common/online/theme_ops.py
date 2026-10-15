@@ -16,10 +16,11 @@ import threading
 from pathlib import Path
 from typing import Any, NamedTuple
 
-from common import paths, service_errors, sized_media
+from common import paths, service_errors
 from common.atomic_write import write_atomic
 from common.failures import why
 from common.i18n import t
+from common.media import sized_media
 from common.online import (
     theme_layouts,
     theme_previews,

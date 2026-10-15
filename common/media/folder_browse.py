@@ -12,7 +12,7 @@ from pathlib import Path
 
 from common import service_errors
 from common.i18n import t
-from common.media_specs import AUDIO_FAMILY, IMAGE_FAMILY, VIDEO_FAMILY
+from common.media.media_specs import AUDIO_FAMILY, IMAGE_FAMILY, VIDEO_FAMILY
 
 # What a picker may look at before taking a file: the media a slot holds, and nothing
 # else this route could be asked for.

@@ -81,7 +81,7 @@ class _Library:
         return None
 
     def kept_kinds(self) -> dict[str, set[str]]:
-        from common.media_specs import media_label_map
+        from common.media.media_specs import media_label_map
         return {"media": set(media_label_map()), "asset": set()}
 
     def load_media_rows(self) -> list[dict]:

@@ -10,9 +10,10 @@ import io
 import re
 from pathlib import Path
 
-from common import service_errors, sized_media
+from common import service_errors
 from common.atomic_write import staged_for
 from common.i18n import t
+from common.media import sized_media
 
 FOLDER = "player_pictures"
 SUFFIX = ".webp"

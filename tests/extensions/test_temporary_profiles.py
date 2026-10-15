@@ -15,8 +15,8 @@ from unittest.mock import MagicMock, patch
 
 import requests
 
-from common import players
 from common.extensions import accounts, temporary_profiles
+from common.players import players
 from common.service_errors import ServiceError
 from frontend.api import API
 from tests.extensions.test_cards import KEY, _2x_card

@@ -48,7 +48,7 @@ from common.games.collection_store import (
 )
 from common.i18n import t
 from common.labels import field_label, humanize
-from common.media_specs import PAGED_KINDS, media_family, media_label_map
+from common.media.media_specs import PAGED_KINDS, media_family, media_label_map
 from common.online import vps_kinds
 from manager import (
     backglass_view,

@@ -119,7 +119,7 @@ class ExtensionGames(Offered):
         """Every media kind this build stores. The vocabulary an importer maps onto, and
         the reason it does not have to hard-code a list that would go stale."""
         self._needs(GAMES_READ)
-        from common.media_specs import MEDIA_SPECS
+        from common.media.media_specs import MEDIA_SPECS
 
         return tuple(spec.kind for spec in MEDIA_SPECS)
 
@@ -447,7 +447,7 @@ class ExtensionGames(Offered):
         for stays behind. Answers {"placed": [...], "held": [...]}, by file name.
         """
         self._needs(CONFIG_WRITE)
-        from common.manufacturer_logos import add_logos
+        from common.media.manufacturer_logos import add_logos
 
         return add_logos(makers, [(name, self._source(path)) for name, path in candidates])
 

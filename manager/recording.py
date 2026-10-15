@@ -17,7 +17,7 @@ from common import config_schema, tokens
 from common.capture import adapters, commands, preflight, trial
 from common.failures import why
 from common.i18n import size, t
-from common.media_specs import media_label_map
+from common.media.media_specs import media_label_map
 from manager.kit import confirm, offload, panel, verbs
 from manager.kit.on_page import on_page
 

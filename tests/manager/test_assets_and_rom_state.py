@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import Mock
 
 from common.games import asset_lens
-from common.media_specs import media_label_map
+from common.media.media_specs import media_label_map
 from manager import assets, games, media
 from manager.kit import views
 

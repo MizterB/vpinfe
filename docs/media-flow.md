@@ -38,7 +38,7 @@ origin `capture` in the `.info` ledger. Recorded videos are silent `.mp4`, H.264
 the device's browser plays no H.264, VP9; the playfield is stored with its bottom at the
 right unless Playfield Orientation says otherwise.
 
-Each kind also accepts the rest of its extension family (for images: `.png`, `.jpg`, `.jpeg`, `.webp`, `.bmp`, `.gif`), and spec-named files outrank the fixed names: `(Wheel) <table name>.png` beats `(Wheel) <folder name>.png` beats `wheel.png`. The full precedence rules live in `common/media_specs.py`.
+Each kind also accepts the rest of its extension family (for images: `.png`, `.jpg`, `.jpeg`, `.webp`, `.bmp`, `.gif`), and spec-named files outrank the fixed names: `(Wheel) <table name>.png` beats `(Wheel) <folder name>.png` beats `wheel.png`. The full precedence rules live in `common/media/media_specs.py`.
 
 ### Media tokens
 

@@ -17,7 +17,7 @@ from nicegui import ui
 from common.failures import why
 from common.games import media_rotate
 from common.i18n import t
-from common.media_specs import IMAGE_FAMILY, VIDEO_FAMILY
+from common.media.media_specs import IMAGE_FAMILY, VIDEO_FAMILY
 from manager.kit import confirm, offload, verbs
 from manager.kit.api import ApiClient
 from manager.kit.on_page import on_page

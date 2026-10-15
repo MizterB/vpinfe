@@ -19,7 +19,7 @@ from pathlib import Path
 from common import path_state, service_errors
 from common.games import library_folders
 from common.i18n import t
-from common.media_specs import AUDIO_FAMILY, DOC_FAMILY, IMAGE_FAMILY, VIDEO_FAMILY
+from common.media.media_specs import AUDIO_FAMILY, DOC_FAMILY, IMAGE_FAMILY, VIDEO_FAMILY
 
 logger = logging.getLogger("vpinfe.common.games.media_browse")
 

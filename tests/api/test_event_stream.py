@@ -16,7 +16,8 @@ from unittest import mock
 from starlette.testclient import TestClient
 
 import httpapi
-from common import events, players
+from common import events
+from common.players import players
 from httpapi import auth
 from httpapi import events as event_stream
 

@@ -26,7 +26,7 @@ from common.games import game_lens, media_ops, media_placement
 from common.host import tools
 from common.i18n import t
 from common.jobs import JobReporter
-from common.media_specs import IMAGE_FAMILY, VIDEO_FAMILY
+from common.media.media_specs import IMAGE_FAMILY, VIDEO_FAMILY
 
 logger = logging.getLogger("vpinfe.common.games.media_rotate")
 

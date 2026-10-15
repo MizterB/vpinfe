@@ -14,7 +14,7 @@ from tempfile import TemporaryDirectory
 from common.games import media_placement
 from common.games.media_placement import UnplaceableError
 from common.i18n import t
-from common.media_specs import MEDIA_SPECS
+from common.media.media_specs import MEDIA_SPECS
 
 KIND = "backglass"
 GAME = "MyGame"

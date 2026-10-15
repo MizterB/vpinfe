@@ -15,13 +15,14 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from common import events, player_pictures, service_errors
+from common import events, service_errors
 from common.atomic_write import write_atomic
 from common.games import high_scores
 from common.games.game_metadata import normalize_rating
 from common.i18n import t
 from common.paths import CONFIG_DIR
-from common.players import Player, get_roster
+from common.players import player_pictures
+from common.players.players import Player, get_roster
 
 logger = logging.getLogger("vpinfe.common.games.player_records")
 

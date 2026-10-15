@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from common import media_specs
+from common.media import media_specs
 from frontend import chromium_manager, theme_contract, theme_windows
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent

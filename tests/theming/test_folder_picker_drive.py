@@ -58,7 +58,7 @@ def serve(port: int) -> None:
     opens it over a bare function that lists but cannot make."""
     from nicegui import app, ui
 
-    from common import folder_browse
+    from common.media import folder_browse
     from manager.kit import api, appearance, folder_picker
 
     api.local_base_url = lambda: "http://127.0.0.1:9"

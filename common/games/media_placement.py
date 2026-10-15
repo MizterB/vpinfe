@@ -26,7 +26,13 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from common.i18n import t
-from common.media_specs import MEDIA_SPECS, MediaSpec, fixed_page_name, page_numbers, page_token
+from common.media.media_specs import (
+    MEDIA_SPECS,
+    MediaSpec,
+    fixed_page_name,
+    page_numbers,
+    page_token,
+)
 
 logger = logging.getLogger("vpinfe.common.games.media_placement")
 

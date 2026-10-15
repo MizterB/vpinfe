@@ -14,7 +14,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from common import discovery, install_setup, player_pictures, serving, settings_waiting, shutdown
+from common import discovery, install_setup, serving, settings_waiting, shutdown
 from common.capture import freeze
 from common.config_access import DisplayConfig, NetworkConfig, SettingsConfig
 from common.config_store import ConfigStore
@@ -22,6 +22,7 @@ from common.games import remote_library
 from common.host import key_reader, metrics, system_actions
 from common.host.display_service import get_display_monitors
 from common.paths import THEMES_FOLDER
+from common.players import player_pictures
 from common.security import http_client
 from frontend import (
     ext_data,
@@ -175,7 +176,7 @@ def _apply_theme_media_sets(iniconfig: ConfigStore, logger: logging.Logger) -> N
     wheelset stays the default for anything the theme does not override.
     """
     try:
-        from common.media_specs import set_media_set_override
+        from common.media.media_specs import set_media_set_override
         from frontend.theme_api import get_theme_config
 
         theme_config = get_theme_config(iniconfig) or {}
@@ -211,7 +212,7 @@ def build_mount_points(base_path: str, config_dir: Path,
     }
     settings = SettingsConfig.from_config(iniconfig)
 
-    from common.manufacturer_logos import configure_manufacturer_logos, resolve_logos_dir
+    from common.media.manufacturer_logos import configure_manufacturer_logos, resolve_logos_dir
 
     logos_dir = resolve_logos_dir(settings.manufacturer_logos_dir, config_dir)
     os.makedirs(logos_dir, exist_ok=True)
@@ -221,7 +222,10 @@ def build_mount_points(base_path: str, config_dir: Path,
     # path - it exists for people reading it between runs, so boot is the one
     # guaranteed refresh even when no sync happens this session.
     def _refresh_reference() -> None:
-        from common.manufacturer_logos import vps_manufacturer_names, write_manufacturer_reference
+        from common.media.manufacturer_logos import (
+            vps_manufacturer_names,
+            write_manufacturer_reference,
+        )
         from common.paths import VPSDB_PATH
 
         names = vps_manufacturer_names(VPSDB_PATH)

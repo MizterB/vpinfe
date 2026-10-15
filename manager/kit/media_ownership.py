@@ -19,7 +19,7 @@ from nicegui import ui
 
 from common.games import asset_origin
 from common.i18n import t
-from common.media_specs import media_label_map
+from common.media.media_specs import media_label_map
 
 # Who placed a file, where the answer is not a catalog. "Unknown" is honest and common:
 # anything predating the ledger, or placed with another tool, leaves no record.

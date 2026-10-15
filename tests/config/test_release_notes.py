@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from common import release_notes
+from common.release import release_notes
 from tests.support.library import TempTree
 
 CURRENT = """## VPinFE Release Notes

@@ -9,8 +9,8 @@ from fastapi import Query
 from starlette.requests import Request
 from starlette.responses import FileResponse, Response
 
-from common import sized_media
-from common.sized_media import Served
+from common.media import sized_media
+from common.media.sized_media import Served
 
 FOREVER = "public, max-age=31536000, immutable"
 HELD_LIMIT = 16 * 1024 * 1024

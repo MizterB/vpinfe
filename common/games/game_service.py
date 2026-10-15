@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from common import apps, job_details, jobs, migration_ledger
+from common import apps, job_details, jobs
 from common.atomic_write import staged_for
 from common.config_store import ConfigStore
 from common.games import (
@@ -56,6 +56,7 @@ from common.i18n import t
 from common.jobs import LogCallback, ProgressCallback
 from common.online import vps_formats
 from common.paths import COLLECTIONS_PATH, CONFIG_DIR, VPINFE_INI_PATH, VPSDB_PATH
+from common.release import migration_ledger
 from common.vpinfe_version import get_version
 
 logger = logging.getLogger("vpinfe.common.games.game_service")

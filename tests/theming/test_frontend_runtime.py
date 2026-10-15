@@ -520,7 +520,7 @@ class RegisterWindowApisTests(unittest.TestCase):
 
 class ThemeMediaSetTests(unittest.TestCase):
     def _apply(self, theme: dict) -> mock.Mock:
-        with mock.patch("common.media_specs.set_media_set_override") as override, \
+        with mock.patch("common.media.media_specs.set_media_set_override") as override, \
              mock.patch("frontend.theme_api.get_theme_config", return_value=theme):
             runtime._apply_theme_media_sets(mock.Mock(), mock.Mock())
         return override

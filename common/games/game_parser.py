@@ -32,7 +32,7 @@ from common.games.tables import (
     table_names,
 )
 from common.games.unreadable import UnreadableGame
-from common.media_specs import (
+from common.media.media_specs import (
     active_set_for,
     apply_media_specs,
     resolve_media_by_table,

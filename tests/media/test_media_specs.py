@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import unittest
 
-from common.media_specs import (
+from common.media.media_specs import (
     MEDIA_SPECS,
     apply_media_specs,
     canonical_kind,

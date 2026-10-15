@@ -22,9 +22,10 @@ import requests
 from starlette.testclient import TestClient
 
 import httpapi
-from common import extensions, players, tokens
+from common import extensions, tokens
 from common.extensions import accounts, catalogs, contributions, host, store
 from common.i18n import t
+from common.players import players
 from extensions.vpinplay import sending as vpinplay_sending
 from httpapi import events as event_stream
 from tests.extensions.test_cards import KEY, _2x_card

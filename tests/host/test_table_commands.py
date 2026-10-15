@@ -13,10 +13,11 @@ from types import SimpleNamespace
 from typing import Any, cast
 from unittest import mock
 
-from common import apps, players, tokens
+from common import apps, tokens
 from common.config_store import ConfigStore
 from common.host import commands, table_commands
 from common.i18n import t
+from common.players import players
 from tests.support.library import own_registry
 
 

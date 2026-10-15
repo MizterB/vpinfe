@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from common import events, players
+from common import events
 from common.games import high_scores, unwritten
 from common.games.game import Game, GameRecord
 from common.games.info_file import GAME_ID_KEY, VPINFE_SECTION, MetaConfig
@@ -32,6 +32,7 @@ from common.games.tables import (
 )
 from common.i18n import t
 from common.ids import new_id
+from common.players import players
 from common.values import is_truthy
 
 # Re-exported so the theme payload and the Manager agree with storage. Sourced

@@ -21,7 +21,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from common import service_errors, sized_media
+from common import service_errors
 from common.games import (
     asset_origin,
     asset_resolver,
@@ -37,6 +37,7 @@ from common.games.game_metadata import effective_vps_id
 from common.games.game_repository import game_to_row
 from common.games.tables import table_names
 from common.i18n import t
+from common.media import sized_media
 
 logger = logging.getLogger("vpinfe.common.games.asset_lens")
 

@@ -126,7 +126,7 @@ class FromThisDeviceRouteTests(_Here):
         private.mkdir()
         (private / "key.png").write_bytes(b"x")
 
-        with mock.patch("common.folder_browse.Path.home", return_value=self.elsewhere):
+        with mock.patch("common.media.folder_browse.Path.home", return_value=self.elsewhere):
             response = self.client.post("/folders/uploads", json={"path": str(private)})
 
         self.assertEqual(400, response.status_code)

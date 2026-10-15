@@ -11,8 +11,8 @@ from PIL import Image
 from starlette.testclient import TestClient
 
 import httpapi
-from common import sized_media
 from common.games.collection_store import CollectionStore
+from common.media import sized_media
 from httpapi.responses import FOREVER
 from manager.kit import art
 from tests.support.library import TempTree, fake_game, write_game

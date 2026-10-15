@@ -22,7 +22,7 @@ from common.capture.session import AUDIO, KINDS
 from common.failures import why
 from common.games import asset_origin
 from common.i18n import size, t
-from common.media_specs import media_label_map
+from common.media.media_specs import media_label_map
 from manager import mediaview, recording, settings
 from manager.kit import art, confirm, media_ownership, offload, panel, remembered, undo, verbs
 from manager.kit import dialog as frame

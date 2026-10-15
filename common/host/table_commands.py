@@ -17,7 +17,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from common import apps, device_registry, players, tokens
+from common import apps, device_registry, tokens
 from common.config_access import cfg_bool, cfg_get, cfg_int
 from common.config_store import ConfigStore
 from common.games import tables
@@ -25,6 +25,7 @@ from common.games.game import Game
 from common.games.launchers import Launcher
 from common.host import bundled_libraries, commands
 from common.i18n import t
+from common.players import players
 
 logger = logging.getLogger("vpinfe.common.host.table_commands")
 

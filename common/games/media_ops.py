@@ -14,7 +14,7 @@ import logging
 from datetime import UTC, datetime
 from pathlib import Path
 
-from common import service_errors, sized_media
+from common import service_errors
 from common.failures import why
 from common.games import (
     asset_origin,
@@ -28,7 +28,8 @@ from common.games import (
 from common.games.game import Game
 from common.games.game_repository import game_to_row
 from common.i18n import t
-from common.media_specs import (
+from common.media import sized_media
+from common.media.media_specs import (
     MEDIA_SPECS,
     MediaCandidate,
     MediaSpec,

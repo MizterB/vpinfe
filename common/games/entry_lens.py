@@ -23,7 +23,7 @@ from common.games.game_metadata import (
     table_descriptor,
 )
 from common.games.media_lookup import page_counts, resolved_kinds
-from common.manufacturer_logos import manufacturer_logo_url
+from common.media.manufacturer_logos import manufacturer_logo_url
 from common.timestamps import epoch_to_iso
 
 

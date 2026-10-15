@@ -10,15 +10,7 @@ from pathlib import Path
 from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
-from common import (
-    device_registry,
-    i18n,
-    job_details,
-    jobs,
-    service_errors,
-    sized_media,
-    timestamps,
-)
+from common import device_registry, i18n, job_details, jobs, service_errors, timestamps
 from common.config_store import ConfigStore
 from common.games import (
     asset_origin,
@@ -31,6 +23,7 @@ from common.games import (
 from common.games.formats import directb2s_parser
 from common.games.game import Game
 from common.i18n import t
+from common.media import sized_media
 from common.online import asset_sources, vpsdb_sync
 from common.online.vpsdb import VPSdb
 from common.online.vpsdb_media import VPSMediaDownloader

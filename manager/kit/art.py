@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from urllib.parse import quote, urlencode
 
-from common.media_specs import media_family
+from common.media.media_specs import media_family
 
 # The longest edge the API sizes to. CELL is anything drawn at thumbnail scale; PANEL is
 # a slot or a tile someone is looking at.

@@ -16,7 +16,7 @@ from unittest import mock
 from common.games import media_lookup, media_placement
 from common.games.asset_registry import match_media_kind
 from common.games.media_placement import FIXED, UnplaceableError
-from common.media_specs import (
+from common.media.media_specs import (
     SpecName,
     resolve_media_entries,
     resolve_media_pages,

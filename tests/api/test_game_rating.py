@@ -16,7 +16,8 @@ from unittest.mock import patch
 from starlette.testclient import TestClient
 
 import httpapi
-from common import events, players
+from common import events
+from common.players import players
 from tests.support.library import TempTree, fake_game, write_game
 
 GAME_ID = "RateMe0001"

@@ -23,7 +23,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from common.i18n import t
-from common.media_specs import IMAGE_FAMILY
+from common.media.media_specs import IMAGE_FAMILY
 
 _ALIAS_FILE = "manufacturers.json"
 _REFERENCE_FILE = "manufacturers-reference.json"

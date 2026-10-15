@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from common import service_errors, sized_media
+from common import service_errors
 from common.games import game_lens, pictures
 from common.i18n import t
+from common.media import sized_media
 
 
 def _folder(game_id: str) -> Path:

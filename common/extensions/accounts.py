@@ -11,8 +11,9 @@ import json
 import threading
 from typing import Any
 
-from common import players, service_errors
+from common import service_errors
 from common.i18n import t
+from common.players import players
 
 from .store import ExtensionStore
 

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import unittest
 
-from common import device_registry, migration_ledger
+from common import device_registry
+from common.release import migration_ledger
 from tests.support.library import TempTree
 
 

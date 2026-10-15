@@ -18,7 +18,7 @@ from common import service_errors
 from common.extensions import accounts, cards
 from common.failures import why
 from common.i18n import t
-from common.players import get_roster
+from common.players.players import get_roster
 
 from . import models, scopes
 from .auth import requires

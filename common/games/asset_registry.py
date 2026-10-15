@@ -11,7 +11,7 @@ from pathlib import Path
 from common import apps, icons
 from common.games.media_service import IMAGE_EXTENSIONS
 from common.i18n import t
-from common.media_specs import MEDIA_SPECS, PAGED_KINDS, media_filename_map
+from common.media.media_specs import MEDIA_SPECS, PAGED_KINDS, media_filename_map
 
 logger = logging.getLogger("vpinfe.common.games.asset_registry")
 

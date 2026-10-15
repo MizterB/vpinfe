@@ -68,11 +68,9 @@ from common import (
     extensions,
     i18n,
     install_setup,
-    migration_ledger,
     serving,
     shutdown,
     theme_options,
-    whats_new,
 )
 from common.config_store import ConfigStore
 from common.games import launcher_migration, launchers, library_folders  # noqa: F401
@@ -93,6 +91,7 @@ from common.paths import (
     configure_nicegui_storage,
     ensure_config_dir,
 )
+from common.release import migration_ledger, whats_new
 from common.security import sign_in
 from common.security.http_client import unreachable
 from common.vpinfe_version import get_version
@@ -377,7 +376,7 @@ shutdown.exit_if_requested(logger)
 # The owner is the one player every install has, and the one up until somebody else is.
 try:
     from common.paths import get_ini_config
-    from common.players import get_roster
+    from common.players.players import get_roster
     get_roster().ensure_owner(get_ini_config())
 except Exception:
     logger.exception("Could not make the owner; the roster has none until the next start")

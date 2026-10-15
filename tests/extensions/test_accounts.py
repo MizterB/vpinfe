@@ -16,12 +16,13 @@ from PIL import Image
 from starlette.testclient import TestClient
 
 import httpapi
-from common import extensions, players, service_errors
+from common import extensions, service_errors
 from common.extensions import accounts, cards, host, store
 from common.extensions.context import ContractError, ExtensionPlayers, ExtensionUI
 from common.extensions.contract import Unavailable
 from common.games import player_records
 from common.i18n import t
+from common.players import players
 from httpapi import events as event_stream
 from tests.support import pictures
 from tests.support.accepted import owner_accepts

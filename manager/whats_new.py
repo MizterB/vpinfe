@@ -17,8 +17,8 @@ from typing import Any
 
 from nicegui import run, ui
 
-from common import release_notes, whats_new
 from common.i18n import literal_or, t
+from common.release import release_notes, whats_new
 from common.vpinfe_version import get_version
 from manager.kit import offload, panel, wizard
 from manager.kit.on_page import on_page

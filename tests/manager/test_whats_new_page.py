@@ -9,7 +9,7 @@ from collections.abc import Callable
 
 from nicegui import ui
 
-from common import migration_ledger, release_notes, upgrade_needs, whats_new
+from common.release import migration_ledger, release_notes, upgrade_needs, whats_new
 from manager import page
 from manager import whats_new as page_whats_new
 

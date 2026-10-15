@@ -17,7 +17,7 @@ from typing import Any
 from nicegui import ui
 
 from common.i18n import t
-from common.media_specs import media_family, media_label_map
+from common.media.media_specs import media_family, media_label_map
 from manager import mediapages, mediaview
 from manager.kit import art, media_ownership, verbs
 

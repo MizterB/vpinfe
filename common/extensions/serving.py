@@ -20,7 +20,8 @@ import threading
 from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any
 
-from common import failures, i18n, sized_media
+from common import failures, i18n
+from common.media import sized_media
 from common.service_errors import NotFoundError, RefusedError, ServiceError
 
 from . import contract, pane, pictures, reach

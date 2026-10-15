@@ -24,7 +24,7 @@ from common.failures import why
 from common.games import media_fill as gaps_in
 from common.games.asset_resolver import VPX_ASSET_KINDS
 from common.i18n import t
-from common.media_specs import PAGED_KINDS
+from common.media.media_specs import PAGED_KINDS
 from common.online import vps_kinds
 from manager import media_fill, media_rotate, mediasource
 from manager import record as recorder

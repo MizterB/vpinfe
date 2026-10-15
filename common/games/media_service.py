@@ -9,14 +9,14 @@ from pathlib import Path
 from typing import NamedTuple
 from urllib.parse import quote
 
-from common import sized_media
 from common.config_access import MediaConfig, cfg_get
 from common.games import asset_origin, media_probe
 from common.games.game import GameRecord
 from common.games.game_metadata import reorder_leading_article, vpinfe_section
 from common.games.game_repository import all_games
 from common.games.info_file import MetaConfig
-from common.media_specs import (
+from common.media import sized_media
+from common.media.media_specs import (
     MEDIA_SPECS,
     active_set_for,
     list_media_sets,

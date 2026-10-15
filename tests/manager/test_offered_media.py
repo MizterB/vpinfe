@@ -11,7 +11,7 @@ from __future__ import annotations
 import unittest
 from unittest.mock import Mock
 
-from common.media_specs import media_label_map
+from common.media.media_specs import media_label_map
 from manager.kit.data import Library
 
 STATE = [

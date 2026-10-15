@@ -42,13 +42,30 @@ themes folder from `paths`.
 - `ids.py`: how VPinFE mints an opaque local id, for games and tables alike.
 - `config_store.py`, `config_bootstrap.py`: ini reading and first-run config creation. A list of objects in `vpinfe.json` is declared as a `ConfigList` in `config_schema.py` and read and written with `get_list` and `set_list`: an item without an `id` is given one, a field the list does not declare is refused, and the module that owns the list registers its `normalize` rule and the `seed` that fills it from a 2.x ini (`register_normalizer`, `register_seed`) before the store is made.
 - `events.py`: the in-process event bus. Hooks are part of an operation; subscribers are told about it.
-- `players.py`: who plays on this install and who the next game counts for. Kept players are in `players.json`; guests and who is up are held in memory and gone when VPinFE closes. Every comparison of two sets of initials goes through `same_initials`, `Roster.whose_score` says whose a new score is, and every change is announced as `players.changed`.
-- `media_specs.py`: canonical media keys, filenames, playfield attributes, and path resolution.
 - `input_registry.py`: every input action, its default bindings and the names it used to have. `[input]` in the config is generated from it, so the two cannot disagree.
 - `lifecycle.py`: starting, stopping and restarting the frontend, VPinFE or the machine, whichever surface asked.
 - `jobs.py`: slow work as a job — one at a time per kind, progress published on the bus, answerable by id after it finishes.
 - `shutdown.py`: what a kill signal does. Startup notes it and stops at the next step boundary; once the frontend is up it takes the same route as a user's own quit.
 - `log_setup.py`, `vpinfe_version.py`.
+
+**`common/media/`** - the art a game or a manufacturer carries, how it is named and sized, and browsing the disk for the files that hold it.
+
+- `media_specs.py`: canonical media keys, filenames, playfield attributes, and path resolution.
+- `sized_media.py`: art at the size it is drawn, and the version a browser can keep it under.
+- `manufacturer_logos.py`: logos keyed by a game's manufacturer, in a folder of their own.
+- `folder_browse.py`: listing this machine's folders and files for a path field's Browse button.
+
+**`common/release/`** - what an update tells a person and asks of them.
+
+- `release_notes.py`: the notes an update carries, read back for the versions a person has not seen.
+- `whats_new.py`: whether this start is the first after an update, and what there is to tell about it.
+- `upgrade_needs.py`: steps an update asks a person to take, each declaring the version that introduced it.
+- `migration_ledger.py`: what an update did to a person's files, kept so the review of it can say so.
+
+**`common/players/`** - the people who play on this install.
+
+- `players.py`: who plays on this install and who the next game counts for. Kept players are in `players.json`; guests and who is up are held in memory and gone when VPinFE closes. Every comparison of two sets of initials goes through `same_initials`, `Roster.whose_score` says whose a new score is, and every change is announced as `players.changed`.
+- `player_pictures.py`: a kept player's picture, one square WebP named for the player's id.
 
 **`common/security/`** - who may do what, and what this install trusts.
 
@@ -268,7 +285,7 @@ Use `config_access.py` when reading common INI values from code outside the
 configuration editor itself. This keeps defaults and bool/int coercion in one
 place while preserving `ConfigStore.config` for compatibility.
 
-Use `media_specs.py` for media keys, filenames, and playfield path attributes.
+Use `common/media/media_specs.py` for media keys, filenames, and playfield path attributes.
 Frontend payloads, parser discovery, and VPS media downloads should not each
 carry their own filename table.
 
@@ -312,7 +329,7 @@ libdmdutil should not each carry their own copy of that reasoning.
 ## Adding Media Types
 
 1. Add the media key, playfield attribute, and filename template to
-   `common.media_specs.MEDIA_SPECS`.
+   `common.media.media_specs.MEDIA_SPECS`.
 2. Use the shared filename/key maps in the Manager, parser, and download code.
 3. Update theme documentation if the media becomes part of the frontend API.
 

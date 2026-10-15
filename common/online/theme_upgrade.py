@@ -16,11 +16,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from common import config_service, migration_ledger
+from common import config_service
 from common.config_access import cfg_get
 from common.online import theme_service, theme_sources
 from common.online.theme_level import MIN_VERSION_KEY
 from common.online.themes import ThemeRegistry
+from common.release import migration_ledger
 from common.values import newer_version, parse_version
 from common.vpinfe_version import get_version
 

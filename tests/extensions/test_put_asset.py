@@ -46,7 +46,7 @@ class PutAssetCase(unittest.TestCase):
 class ManufacturerLogoTests(PutAssetCase):
     def setUp(self) -> None:
         super().setUp()
-        from common.manufacturer_logos import configure_manufacturer_logos
+        from common.media.manufacturer_logos import configure_manufacturer_logos
 
         self.logos = self.root / "logos"
         self.logos.mkdir()

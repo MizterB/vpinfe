@@ -7,7 +7,7 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
-from common import service_errors, sized_media
+from common import service_errors
 from common.games import (
     asset_lens,
     asset_origin,
@@ -20,6 +20,7 @@ from common.games import (
 from common.games.formats import directb2s_parser
 from common.games.game_repository import game_to_row
 from common.i18n import t
+from common.media import sized_media
 
 logger = logging.getLogger("vpinfe.common.games.backglass_ops")
 

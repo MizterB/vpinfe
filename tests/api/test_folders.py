@@ -10,7 +10,8 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 import httpapi
-from common import folder_browse, service_errors
+from common import service_errors
+from common.media import folder_browse
 from httpapi import auth
 from tests.support.library import TempTree
 
@@ -69,7 +70,7 @@ class FolderApiTests(TempTree):
         self.assertEqual(response.status_code, 404)
 
     def test_an_empty_path_answers_the_home_folder(self) -> None:
-        with patch("common.folder_browse.Path.home", return_value=self.root):
+        with patch("common.media.folder_browse.Path.home", return_value=self.root):
             body = self._get("").json()
 
         self.assertEqual(body["path"], str(self.root))
@@ -88,14 +89,14 @@ class FolderApiTests(TempTree):
         self.assertNotIn("above", self._get(str(self.root)).json())
 
     def test_home_is_named_home_among_the_places(self) -> None:
-        with patch("common.folder_browse.Path.home", return_value=self.root):
+        with patch("common.media.folder_browse.Path.home", return_value=self.root):
             body = self._get(str(self.root)).json()
 
         names = {one["path"]: one["name"] for one in body["roots"]}
         self.assertEqual(names[str(self.root)], "Home")
 
     def test_a_program_pickers_places_name_home_too(self) -> None:
-        with patch("common.folder_browse.Path.home", return_value=self.root):
+        with patch("common.media.folder_browse.Path.home", return_value=self.root):
             body = self._get(str(self.root), kind="exe").json()
 
         names = {one["path"]: one["name"] for one in body["roots"]}
@@ -108,8 +109,8 @@ class FolderApiTests(TempTree):
                   {"name": "bin", "path": "/usr/local/bin"},
                   {"name": "Home", "path": str(home)}]
 
-        with patch("common.folder_browse.Path.home", return_value=home), \
-                patch("common.folder_browse._program_roots", return_value=places):
+        with patch("common.media.folder_browse.Path.home", return_value=home), \
+                patch("common.media.folder_browse._program_roots", return_value=places):
             shown = folder_browse._roots("exe")
 
         mine = "~/Applications" if sys.platform != "win32" else str(home / "Applications")
@@ -130,7 +131,7 @@ class FolderApiTests(TempTree):
     def test_a_private_folder_cannot_be_listed(self) -> None:
         (self.root / ".ssh").mkdir()
 
-        with patch("common.folder_browse.Path.home", return_value=self.root):
+        with patch("common.media.folder_browse.Path.home", return_value=self.root):
             response = self._get(str(self.root / ".ssh"))
 
         self.assertEqual(response.status_code, 400)
@@ -145,7 +146,7 @@ class FolderApiTests(TempTree):
         (parent / child_name).mkdir()
         (parent / "visible").mkdir()
 
-        with patch("common.folder_browse.Path.home", return_value=self.root):
+        with patch("common.media.folder_browse.Path.home", return_value=self.root):
             body = self._get(str(parent)).json()
 
         self.assertEqual([f["name"] for f in body["folders"]], ["visible"])
@@ -200,7 +201,7 @@ class FolderApiTests(TempTree):
         (self.root / ".ssh").mkdir()
         (self.root / ".local").mkdir()
 
-        with patch("common.folder_browse.Path.home", return_value=self.root):
+        with patch("common.media.folder_browse.Path.home", return_value=self.root):
             body = self._get(str(self.root), hidden=True).json()
 
         self.assertEqual([f["name"] for f in body["folders"]], [".local"])
@@ -210,7 +211,7 @@ class FolderApiTests(TempTree):
         private.mkdir()
         (private / "id_ed25519").write_text("not a real key")
 
-        with patch("common.folder_browse.Path.home", return_value=self.root):
+        with patch("common.media.folder_browse.Path.home", return_value=self.root):
             response = self._get(str(private), kind="file")
 
         self.assertEqual(response.status_code, 400)
@@ -316,7 +317,7 @@ class MakeFolderApiTests(TempTree):
     def test_a_private_folder_is_not_written_to(self) -> None:
         (self.root / ".ssh").mkdir()
 
-        with patch("common.folder_browse.Path.home", return_value=self.root):
+        with patch("common.media.folder_browse.Path.home", return_value=self.root):
             response = self._post(str(self.root / ".ssh"), "Games")
 
         self.assertEqual(response.status_code, 400)
@@ -378,7 +379,7 @@ class FileApiTests(TempTree):
         private.mkdir()
         (private / "key.png").write_bytes(b"not a picture")
 
-        with patch("common.folder_browse.Path.home", return_value=self.root):
+        with patch("common.media.folder_browse.Path.home", return_value=self.root):
             response = self._get(private / "key.png")
 
         self.assertEqual(response.status_code, 400)
@@ -392,7 +393,7 @@ class FileApiTests(TempTree):
         if not variant.exists():
             self.skipTest("this volume tells .SSH from .ssh")
 
-        with patch("common.folder_browse.Path.home", return_value=self.root):
+        with patch("common.media.folder_browse.Path.home", return_value=self.root):
             response = self._get(variant)
 
         self.assertEqual(response.status_code, 400)
@@ -408,7 +409,7 @@ class FileApiTests(TempTree):
         except OSError:
             self.skipTest("symlinks need a privilege here")
 
-        with patch("common.folder_browse.Path.home", return_value=self.root):
+        with patch("common.media.folder_browse.Path.home", return_value=self.root):
             responses = {name: self._get(self.root / name).status_code
                          for name in ("to_key.png", "to_document.png")}
 
@@ -460,7 +461,7 @@ class FileOfKindTests(TempTree):
         private.mkdir()
         (private / "credentials.ini").write_text("secret")
 
-        with patch("common.folder_browse.Path.home", return_value=self.root), \
+        with patch("common.media.folder_browse.Path.home", return_value=self.root), \
                 self.assertRaises(service_errors.RefusedError):
             folder_browse.file_of_kind(str(private / "credentials.ini"), (".ini",))
 
@@ -473,7 +474,7 @@ class FileOfKindTests(TempTree):
         except OSError:
             self.skipTest("symlinks need a privilege here")
 
-        with patch("common.folder_browse.Path.home", return_value=self.root), \
+        with patch("common.media.folder_browse.Path.home", return_value=self.root), \
                 self.assertRaises(service_errors.RefusedError):
             folder_browse.file_of_kind(str(self.root / "tweaks.ini"), (".ini",))
 

@@ -38,7 +38,7 @@ from common.games.player_records import get_records
 from common.host import frontend_browser, frontend_state, launch, launch_state
 from common.host.display_service import monitors_as_dicts
 from common.i18n import t
-from common.players import get_roster
+from common.players.players import get_roster
 from common.service_errors import NotFoundError, ServiceError
 from frontend import (
     config_api,

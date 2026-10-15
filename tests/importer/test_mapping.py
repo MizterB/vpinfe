@@ -216,7 +216,7 @@ class MediaTests(unittest.TestCase):
         self.assertEqual([path for _kind, path in first], ["/m/Doom.jpg", "/m/Doom 1.png"])
 
     def test_the_kinds_taken_a_page_at_a_time_are_the_ones_core_gives_pages_to(self) -> None:
-        from common.media_specs import MEDIA_SPECS
+        from common.media.media_specs import MEDIA_SPECS
 
         self.assertEqual({one.kind for one in MEDIA_SPECS if one.pages},
                          set(mapping.PICTURES_ONLY))

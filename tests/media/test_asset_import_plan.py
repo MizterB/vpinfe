@@ -234,7 +234,7 @@ class MediaSlotPlanTests(unittest.TestCase):
         from pathlib import Path
         from tempfile import TemporaryDirectory
 
-        from common.media_specs import MEDIA_SPECS
+        from common.media.media_specs import MEDIA_SPECS
         spec_for_kind = {spec.kind: spec for spec in MEDIA_SPECS}.__getitem__
         with TemporaryDirectory() as tmp:
             for filename, media_kind in (("art.png", "rule_sheet"), ("song.mp3", "wheel"),

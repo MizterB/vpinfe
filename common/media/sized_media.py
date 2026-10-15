@@ -13,7 +13,7 @@ from common.atomic_write import staged_for
 from common.i18n import t
 from common.paths import CACHE_DIR
 
-logger = logging.getLogger("vpinfe.common.sized_media")
+logger = logging.getLogger("vpinfe.common.media.sized_media")
 
 # The longest edge in pixels. Each one is another copy of every picture on disk.
 THUMBNAIL = 256

@@ -1,6 +1,6 @@
 """The media vocabulary, and the two places outside Python that restate it.
 
-`common/media_specs.py` is the list. core.js needs its own copy to tell a theme that
+`common/media/media_specs.py` is the list. core.js needs its own copy to tell a theme that
 `preload.kinds` names something nobody serves, and that copy is the kind of thing that
 drifts silently - a lookup for a kind that does not exist returns nothing rather than
 complaining, which is exactly the bug the check exists to catch.
@@ -12,12 +12,12 @@ import re
 import unittest
 from pathlib import Path
 
-from common import media_specs
+from common.media import media_specs
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 _CORE_JS_PATH = REPO_ROOT / "frontend" / "static" / "common" / "vpinfe-core.js"
 CORE_JS = _CORE_JS_PATH.read_text(encoding="utf-8")
-SPECS_PY = (REPO_ROOT / "common" / "media_specs.py").read_text(encoding="utf-8")
+SPECS_PY = (REPO_ROOT / "common" / "media" / "media_specs.py").read_text(encoding="utf-8")
 
 
 def _python_kinds() -> list[str]:

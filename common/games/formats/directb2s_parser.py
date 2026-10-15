@@ -23,8 +23,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, NamedTuple
 
-from common import sized_media
 from common.atomic_write import staged_for
+from common.media import sized_media
 from common.paths import CACHE_DIR
 
 if TYPE_CHECKING:
