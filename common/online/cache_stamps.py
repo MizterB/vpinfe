@@ -13,7 +13,7 @@ import threading
 from common.atomic_write import write_atomic
 from common.paths import STAMPS_PATH
 
-logger = logging.getLogger("vpinfe.common.cache_stamps")
+logger = logging.getLogger("vpinfe.common.online.cache_stamps")
 
 _LOCK = threading.RLock()
 

@@ -79,7 +79,7 @@ def _read(parser: TableReader, game: Game, filename: str) -> dict | None:
 def _parser() -> TableReader:
     """The thing that reads a table file. One place names it, so this module's coupling
     to a particular program is a single line rather than one per caller."""
-    from common.games.vpx_parser import VPXParser
+    from common.games.formats.vpx_parser import VPXParser
 
     return VPXParser()
 

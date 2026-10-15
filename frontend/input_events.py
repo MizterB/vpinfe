@@ -1,6 +1,6 @@
 """Carrying a press from the bus to the windows.
 
-`common/input_actions.py` decides what a press is; this puts it where the browser can
+`common/host/input_actions.py` decides what a press is; this puts it where the browser can
 answer it. Registered once per process against the shared bridge, for the same reason
 `play_events` is: every API instance sends through the same one, so registering per
 window would send each press three times.
@@ -16,7 +16,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from common import events, input_actions
+from common import events
+from common.host import input_actions
 
 if TYPE_CHECKING:
     from frontend.device_channel import DeviceChannel

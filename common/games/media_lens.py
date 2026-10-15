@@ -19,10 +19,11 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any
 
-from common import collation, sized_media
+from common import sized_media
 from common.games import (
     asset_origin,
     asset_resolver,
+    collation,
     game_repository,
     media_service,
     table_lens,

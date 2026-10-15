@@ -32,6 +32,7 @@ from urllib3.exceptions import InsecureRequestWarning
 
 from common import machine_secrets
 from common.i18n import t
+from common.service_errors import CertificateChangedError
 
 logger = logging.getLogger("vpinfe.common.pinned_certificates")
 
@@ -45,14 +46,6 @@ VERIFIED = "verified"
 
 _MISMATCH = "Fingerprints did not match"
 _CAPTURE_SECONDS = 5
-
-
-class CertificateChangedError(requests.exceptions.SSLError):
-    """The certificate a paired install shows is not the one it showed when paired."""
-
-    def __init__(self, host: str, **kwargs: Any) -> None:
-        self.host = host
-        super().__init__(t("said.why.certificate_changed_at", host=host), **kwargs)
 
 
 def _key(host: str, port: int) -> str:

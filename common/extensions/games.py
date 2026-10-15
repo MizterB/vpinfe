@@ -228,7 +228,7 @@ class ExtensionGames(Offered):
         """
         self._needs(GAMES_WRITE)
         from common.games import game_service, library_folders
-        from common.games.ids import new_id
+        from common.ids import new_id
 
         if move and not (self._files is not None and self._files.may_write()):
             raise ContractError(
@@ -309,8 +309,8 @@ class ExtensionGames(Offered):
         that names no ROM answers an empty one.
         """
         self._needs(GAMES_READ)
+        from common.games.formats.script_names import named_in
         from common.games.library_enrichment import read_one
-        from common.games.script_names import named_in
 
         wanted = tuple(names)
         found: dict[str, tuple[str, tuple[str, ...]]] = {}
@@ -329,7 +329,7 @@ class ExtensionGames(Offered):
         """The names of the sets a `VPReg.stg` holds, for matching to the tables that
         save under them. Empty where the file is not one."""
         self._needs(GAMES_READ)
-        from common.games import vpreg
+        from common.games.formats import vpreg
 
         return tuple(vpreg.sets_in(self._source(path)))
 
@@ -342,7 +342,8 @@ class ExtensionGames(Offered):
         lacks are added to the end.
         """
         self._needs(GAMES_WRITE)
-        from common.games import library_folders, vpreg
+        from common.games import library_folders
+        from common.games.formats import vpreg
         from common.uploads.asset_import_service import folder_for
 
         source = self._source(path)

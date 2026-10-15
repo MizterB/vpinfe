@@ -78,7 +78,7 @@ class AcceptingATheme(unittest.TestCase):
 
         self.assertEqual(answer.status_code, 200)
         self.assertTrue(answer.json()["accepted"])
-        self.assertTrue(accepted.theme_accepted("Mine", ELSEWHERE))
+        self.assertTrue(accepted.theme_accepted("Mine", ELSEWHERE, stock=False))
 
     def test_a_theme_nothing_offers_is_404(self) -> None:
         answer = self.client.post("/themes/Nothing/accept")

@@ -1,7 +1,8 @@
 """Which contract an installed theme was written against.
 
-In `common/` because the installer and the options reader need the answer on installs that
-have no frontend. `frontend/theme_contract.py` serves the contract; this only names it.
+Here rather than in the frontend because the installer and the theme service need the answer
+on installs that have no frontend. `frontend/theme_contract.py` serves the contract; this
+only names it.
 """
 
 from __future__ import annotations

@@ -12,12 +12,12 @@ from common.games import (
     asset_lens,
     asset_origin,
     asset_resolver,
-    directb2s_parser,
     game_lens,
     media_lookup,
     media_ops,
     media_placement,
 )
+from common.games.formats import directb2s_parser
 from common.games.game_repository import game_to_row
 from common.i18n import t
 

@@ -3,7 +3,7 @@ from unittest import mock
 
 from PIL import Image, ImageDraw
 
-from common.games import dmd_frame
+from common.games.formats import dmd_frame
 
 WIDE, HIGH = 960, 540
 LIGHT = (255, 255, 255)

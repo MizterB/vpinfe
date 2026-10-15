@@ -19,6 +19,7 @@ from common.atomic_write import staged_for, write_atomic
 from common.failures import why
 from common.games import library_folders, media_placement
 from common.games.asset_registry import ARCHIVE_EXTENSIONS, lens_kind, spec_for
+from common.games.formats.vpx_parser import VPXParser
 from common.games.game_repository import refresh_game
 from common.games.game_service import (
     _find_directb2s_file,
@@ -30,11 +31,10 @@ from common.games.game_service import (
     sanitize_dir_name,
 )
 from common.games.identity_claims import DeclaredIdentity
-from common.games.ids import new_id
 from common.games.info_file import VPINFE_SECTION, MetaConfig
 from common.games.info_migration import IMPORT, copy_aside
-from common.games.vpx_parser import VPXParser
 from common.i18n import t
+from common.ids import new_id
 from common.media_specs import media_filename_map
 from common.uploads.asset_analyzer_service import (
     AnalysisResult,
@@ -754,7 +754,7 @@ def _apply_patch(source: AssetSource, asset: DetectedAsset, base: Path,
     an error, so the base is recorded by name and hash - in the log for whoever has to work
     out what happened, and in the .info because the result cannot be rebuilt without it.
     """
-    from common.jdiff_patch import PatchError, apply_patch
+    from common.uploads.jdiff_patch import PatchError, apply_patch
 
     candidates = sorted(base.glob("*.vpx"), key=lambda p: p.stat().st_size, reverse=True)
     candidates = [c for c in candidates if c != dest]

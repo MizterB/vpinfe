@@ -99,6 +99,9 @@ COLLECTIONS_INI_PATH = CONFIG_DIR / "collections.ini"
 # 2.x reads `themes/` and nothing else, so 3.0 keeps its own beside it.
 THEMES_FOLDER = "frontend_themes"
 THEMES_DIR = CONFIG_DIR / THEMES_FOLDER
+# A replaced theme is moved to `<theme>.previous` in that folder rather than deleted; the
+# folder listing skips these, so every reader of the folder needs the one spelling.
+ASIDE_SUFFIX = ".previous"
 CACHE_DIR = _resolve_cache_dir()
 STATE_DIR = _resolve_state_dir()
 LOG_DIR = _resolve_log_dir()

@@ -41,41 +41,41 @@ class Case(unittest.TestCase):
 
 class ThemeOrigin(Case):
     def test_the_address_decides_never_the_name(self) -> None:
-        self.assertEqual(accepted.theme_origin(STOCK), accepted.STOCK)
-        self.assertEqual(accepted.theme_origin(ELSEWHERE), accepted.SOURCE)
-        self.assertEqual(accepted.theme_origin("", in_folder=True), accepted.IN_FOLDER)
+        self.assertEqual(accepted.theme_origin(stock=True), accepted.STOCK)
+        self.assertEqual(accepted.theme_origin(stock=False), accepted.SOURCE)
+        self.assertEqual(accepted.theme_origin(stock=False, in_folder=True), accepted.IN_FOLDER)
 
     def test_a_theme_from_the_stock_list_needs_no_entry(self) -> None:
-        self.assertTrue(accepted.theme_accepted("Anything", STOCK))
+        self.assertTrue(accepted.theme_accepted("Anything", STOCK, stock=True))
 
     def test_a_theme_from_another_source_is_not_accepted_until_it_is(self) -> None:
-        self.assertFalse(accepted.theme_accepted("Mine", ELSEWHERE))
+        self.assertFalse(accepted.theme_accepted("Mine", ELSEWHERE, stock=False))
 
         accepted.accept_theme("Mine", ELSEWHERE)
 
-        self.assertTrue(accepted.theme_accepted("Mine", ELSEWHERE))
+        self.assertTrue(accepted.theme_accepted("Mine", ELSEWHERE, stock=False))
 
     def test_the_same_theme_from_a_different_address_asks_again(self) -> None:
         accepted.accept_theme("Mine", ELSEWHERE)
 
-        self.assertFalse(accepted.theme_accepted("Mine", ANOTHER))
+        self.assertFalse(accepted.theme_accepted("Mine", ANOTHER, stock=False))
 
     def test_a_theme_found_in_the_folder_is_accepted_as_found_there(self) -> None:
         accepted.accept_theme("Found", "")
 
-        self.assertTrue(accepted.theme_accepted("Found", "", in_folder=True))
-        self.assertFalse(accepted.theme_accepted("Found", ELSEWHERE))
+        self.assertTrue(accepted.theme_accepted("Found", "", stock=False, in_folder=True))
+        self.assertFalse(accepted.theme_accepted("Found", ELSEWHERE, stock=False))
 
     def test_a_removed_theme_has_to_be_accepted_again(self) -> None:
         accepted.accept_theme("Mine", ELSEWHERE)
 
         accepted.forget_theme("Mine")
 
-        self.assertFalse(accepted.theme_accepted("Mine", ELSEWHERE))
+        self.assertFalse(accepted.theme_accepted("Mine", ELSEWHERE, stock=False))
 
     def test_only_an_install_from_the_stock_list_is_noted_on_its_own(self) -> None:
-        accepted.note_theme_installed("FromStock", STOCK)
-        accepted.note_theme_installed("FromElsewhere", ELSEWHERE)
+        accepted.note_theme_installed("FromStock", STOCK, stock=True)
+        accepted.note_theme_installed("FromElsewhere", ELSEWHERE, stock=False)
 
         self.assertTrue(accepted.theme_runs("FromStock"))
         self.assertFalse(accepted.theme_runs("FromElsewhere"))
@@ -101,13 +101,13 @@ class ThemesAlreadyInstalled(Case):
         accepted.theme_runs("Old")
 
         self.assertTrue(accepted.theme_runs("Old"))
-        self.assertTrue(accepted.theme_accepted("Old", "", in_folder=True))
-        self.assertFalse(accepted.theme_accepted("Old", ELSEWHERE))
+        self.assertTrue(accepted.theme_accepted("Old", "", stock=False, in_folder=True))
+        self.assertFalse(accepted.theme_accepted("Old", ELSEWHERE, stock=False))
 
         accepted.accept_theme("Old", ELSEWHERE)
 
-        self.assertTrue(accepted.theme_accepted("Old", ELSEWHERE))
-        self.assertFalse(accepted.theme_accepted("Old", ANOTHER))
+        self.assertTrue(accepted.theme_accepted("Old", ELSEWHERE, stock=False))
+        self.assertFalse(accepted.theme_accepted("Old", ANOTHER, stock=False))
 
     def test_an_unreadable_list_is_an_empty_one_and_never_a_new_seeding(self) -> None:
         self.install("Old")

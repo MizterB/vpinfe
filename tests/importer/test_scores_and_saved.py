@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest import mock
 
 from common.extensions import host
-from common.games import vpreg
+from common.games.formats import vpreg
 from tests.support.ole import stg_bytes
 
 host.Registry().load(host.BUNDLED_DIR / "library_importer")

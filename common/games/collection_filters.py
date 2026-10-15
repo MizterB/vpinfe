@@ -21,8 +21,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any
 
-from common import collation
-from common.games import derived_tags
+from common.games import collation, derived_tags
 from common.games.game import GameRecord
 from common.games.game_metadata import (
     game_last_run,
@@ -60,7 +59,7 @@ def letter_of(game: GameRecord) -> str:
 
     The one definition, for paging and filtering both: a second is how `300` came to
     page under `#`, match no letter filter, and be offered as `3` by the picker. The
-    rule sits with the ordering in `common.collation`, because a group the sort does not
+    rule sits with the ordering in `common.games.collation`, because a group the sort does not
     keep contiguous is a page jump that lands outside the letter it named.
     """
     return collation.letter_of(game_title(game))

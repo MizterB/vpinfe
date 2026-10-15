@@ -12,7 +12,8 @@ from unittest import mock
 from starlette.testclient import TestClient
 
 import httpapi
-from common.games import game_repository, ids, table_identity, unwritten
+from common import ids
+from common.games import game_repository, table_identity, unwritten
 from common.games.library_folders import KIND_ROOT, Location
 from tests.support.library import TempTree, write_game
 from tests.support.skips import needs_posix_permissions

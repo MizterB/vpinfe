@@ -14,11 +14,12 @@ import sys
 import threading
 from pathlib import Path
 
-from common import cache_stamps, jobs, service_errors, timestamps
+from common import jobs, service_errors, timestamps
 from common.config_access import cfg_get
 from common.config_store import ConfigStore
 from common.host import dof_config, dof_service
 from common.i18n import t
+from common.online import cache_stamps
 from common.online.vpsdb_sync import EVERY, NEVER
 from common.paths import CACHE_DIR
 

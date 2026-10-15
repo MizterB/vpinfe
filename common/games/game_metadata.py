@@ -15,7 +15,6 @@ from urllib.parse import urlparse
 from common import events, players
 from common.games import high_scores, unwritten
 from common.games.game import Game, GameRecord
-from common.games.ids import new_id
 from common.games.info_file import GAME_ID_KEY, VPINFE_SECTION, MetaConfig
 from common.games.info_migration import MATCHED_BY_USER, MATCHED_ON_IMPORT, VPS_MATCHED_BY_KEY
 from common.games.tables import (
@@ -32,6 +31,7 @@ from common.games.tables import (
     table_entries,
 )
 from common.i18n import t
+from common.ids import new_id
 from common.values import is_truthy
 
 # Re-exported so the theme payload and the Manager agree with storage. Sourced

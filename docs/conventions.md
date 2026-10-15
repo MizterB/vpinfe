@@ -159,7 +159,9 @@ feature-detect them. That is what keeps bumps rare enough to be worth doing prop
 - Keep `common/` UI-independent.
 - `common/` is a layer, not a bucket. Domain code goes in `common/games/`, `common/online/`
   or `common/host/`; `common/` itself holds only what knows nothing about any of them, and may
-  never import from those packages. See `docs/common.md`.
+  never import from those packages. A module used by one domain lives in that domain. Within
+  the shared layer the units are ranked and one imports its own rank or below; see
+  `docs/common.md`, Layers, and `tests/invariants/test_layering.py`.
 - `manager/` is a stack, not a pile: every module belongs to one area, the areas are ranked
   (the shared kit, then the area screens, then the workbench and the remote, then the shell),
   and an import goes to the same rank or below. A screen that needs something from above
@@ -649,7 +651,7 @@ until then the chain reports `required: null`.
   reserved for VPX standalone plugins.
 - **Third-party** — a library VPinFE bundles and loads at runtime, written by someone else
   and not installed by the user: DOF and libdmdutil today. They ship in `third_party/` and
-  are loaded through `common/third_party.py`. They are neither extensions (no manifest,
+  are loaded through `common/host/third_party.py`. They are neither extensions (no manifest,
   nothing declared) nor plugins (that word belongs to VPX standalone), so say "third-party"
   and not "integration" or "external service".
 - **Tool** - a program on a device that VPinFE runs but neither ships nor plays tables

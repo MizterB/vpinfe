@@ -14,7 +14,15 @@ from unittest.mock import patch
 
 import requests
 
-from common import access_keys, device_client, http_client, lifecycle, paths, pinned_certificates
+from common import (
+    access_keys,
+    device_client,
+    http_client,
+    lifecycle,
+    paths,
+    pinned_certificates,
+    service_errors,
+)
 
 LOCAL = "Aaaa111111"
 CAB = {"device_id": "Bbbb222222", "address": "192.168.1.50", "port": 8001}
@@ -266,7 +274,7 @@ class ProbingAnHttpsInstallTests(_HttpsInstall):
 
     def test_a_changed_certificate_is_said_and_the_pair_door_stays_open(self) -> None:
         with patch.object(http_client, "get_json",
-                          side_effect=pinned_certificates.CertificateChangedError("x")):
+                          side_effect=service_errors.CertificateChangedError("x")):
             reach = self.device.probe()
 
         self.assertTrue(reach["certificate_changed"])
@@ -275,7 +283,7 @@ class ProbingAnHttpsInstallTests(_HttpsInstall):
         self.assertEqual(reach["reason"], device_client.t("device.reason.certificate_changed"))
 
     def test_a_changed_certificate_is_not_taken_for_a_dead_machine(self) -> None:
-        error = pinned_certificates.CertificateChangedError("192.168.1.50")
+        error = service_errors.CertificateChangedError("192.168.1.50")
 
         self.assertEqual(device_client.why_not(error), "device.reason.certificate_changed")
 

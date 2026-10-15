@@ -30,7 +30,7 @@ from common.paths import CACHE_DIR
 if TYPE_CHECKING:
     from PIL.Image import Image as PILImage
 
-logger = logging.getLogger("vpinfe.common.games.directb2s_parser")
+logger = logging.getLogger("vpinfe.common.games.formats.directb2s_parser")
 
 # Where the pictures made from a file are kept, never beside the file itself.
 ROOT = CACHE_DIR / "backglass"

@@ -8,8 +8,8 @@ from pathlib import Path
 
 import requests
 
-from common import cache_stamps
 from common.http_client import get_bytes, get_json, get_text
+from common.online import cache_stamps
 
 logger = logging.getLogger("vpinfe.common.online.vpsdb_cache")
 

@@ -16,10 +16,11 @@ import threading
 from collections.abc import Callable
 from datetime import timedelta
 
-from common import cache_stamps, device_registry, jobs, timestamps
+from common import device_registry, jobs, timestamps
 from common.config_access import cfg_bool, cfg_get
 from common.config_store import ConfigStore
 from common.i18n import t
+from common.online import cache_stamps
 
 logger = logging.getLogger("vpinfe.common.online.vpsdb_sync")
 

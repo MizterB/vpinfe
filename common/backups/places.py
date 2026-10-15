@@ -42,8 +42,7 @@ from common.games.info_migration import (
     needs_migration,
 )
 from common.i18n import t
-from common.online.theme_installer import ASIDE_SUFFIX
-from common.paths import CONFIG_DIR, STATE_DIR, get_themes_dir
+from common.paths import ASIDE_SUFFIX, CONFIG_DIR, STATE_DIR, get_themes_dir
 
 from . import archive
 from . import folder as backup_folder

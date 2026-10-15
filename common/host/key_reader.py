@@ -3,7 +3,7 @@
 The frontend hears a key only while its page has focus, and during play the table has it.
 So while a table runs, and only where a key is bound to Take Picture, this reads the
 keyboard from outside the page - the keys bound to the play-time actions and no others -
-and presses those actions as any other producer does (`common/input_actions.py`).
+and presses those actions as any other producer does (`common/host/input_actions.py`).
 
 Windows, X11 and macOS are read through pynput; a Wayland session from its input devices,
 which its user reads only in the `input` group.
@@ -20,7 +20,8 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from common import events, input_actions, input_registry
+from common import events, input_registry
+from common.host import input_actions
 
 from . import keys, launch_state, tools
 

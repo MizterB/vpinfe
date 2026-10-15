@@ -17,7 +17,7 @@ import logging
 from common.deprecations import announce
 from common.games import high_scores
 from common.games.game_metadata import DETECTION_KEYS, default_table
-from common.theme_level import (  # noqa: F401 - the names a theme-facing caller reads here
+from common.online.theme_level import (  # noqa: F401 - the names a theme-facing caller reads here
     CURRENT_CONTRACT,
     MIN_VERSION_KEY,
     OLDEST_CONTRACT,

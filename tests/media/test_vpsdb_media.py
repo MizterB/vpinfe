@@ -7,8 +7,8 @@ from unittest import mock
 
 import requests
 
-from common import cache_stamps
 from common.games import asset_origin
+from common.online import cache_stamps
 from common.online.vpsdb_cache import VPSDatabaseCache
 from common.online.vpsdb_media import (
     REMOTE_KEYS,

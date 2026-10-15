@@ -23,12 +23,12 @@ from common.config_store import ConfigStore
 from common.games import (
     asset_origin,
     backglass_ops,
-    directb2s_parser,
     library_policy,
     media_fill,
     media_placement,
     metadata_service,
 )
+from common.games.formats import directb2s_parser
 from common.games.game import Game
 from common.i18n import t
 from common.online import asset_sources, vpsdb_sync

@@ -13,7 +13,6 @@ from typing import Any
 from common.games.game import GameRecord
 from common.games.game_identity import minted_id
 from common.games.game_metadata import keep_game_meta, load_game_meta
-from common.games.ids import new_id
 from common.games.info_file import VPINFE_SECTION
 from common.games.tables import (
     DEFAULT_TABLE_KEY,
@@ -25,6 +24,7 @@ from common.games.tables import (
     stamp_added,
     table_id,
 )
+from common.ids import new_id
 
 logger = logging.getLogger("vpinfe.common.games.table_identity")
 

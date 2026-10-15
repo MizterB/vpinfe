@@ -47,7 +47,7 @@ BASELINE: dict[str, int] = {
     # one per picture it draws.
     "common/games/backglass_ops.py": 9,
     "common/games/collection_resolver.py": 3,
-    "common/games/directb2s_parser.py": 4,
+    "common/games/formats/directb2s_parser.py": 4,
     "common/games/export_bundle.py": 4,
     "common/games/game.py": 2,
     "common/games/game_metadata.py": 2,
@@ -68,12 +68,12 @@ BASELINE: dict[str, int] = {
     "common/games/metadata_service.py": 1,
     "common/games/score_parser.py": 10,
     # Names are read from the table script the way the parser strips its comments.
-    "common/games/script_names.py": 1,
+    "common/games/formats/script_names.py": 1,
     "common/games/standalone_scripts.py": 2,
     "common/games/table_lens.py": 15,
     "common/games/table_ops.py": 6,
     "common/games/tables.py": 8,
-    "common/games/vpx_parser.py": 13,
+    "common/games/formats/vpx_parser.py": 13,
     # The import of the folder Visual Pinball's DOF plugin reads, which the frontend's DOF shares.
     "common/host/dof_config.py": 1,
     "common/host/launch.py": 6,

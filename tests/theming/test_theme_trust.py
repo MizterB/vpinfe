@@ -181,7 +181,7 @@ class WhatInstallingDoes(Case):
                 mock.patch.object(theme_ops.theme_service, "delete_theme"):
             theme_ops.remove("Mine")
 
-        self.assertFalse(accepted.theme_accepted("Mine", OTHER))
+        self.assertFalse(accepted.theme_accepted("Mine", OTHER, stock=False))
 
 
 class WhatAcceptingDoes(Case):
@@ -189,8 +189,8 @@ class WhatAcceptingDoes(Case):
         with self.through(_Registry({"Mine": _offered(OTHER)})):
             theme_ops.accept("Mine")
 
-        self.assertTrue(accepted.theme_accepted("Mine", OTHER))
-        self.assertFalse(accepted.theme_accepted("Mine", ELSEWHERE))
+        self.assertTrue(accepted.theme_accepted("Mine", OTHER, stock=False))
+        self.assertFalse(accepted.theme_accepted("Mine", ELSEWHERE, stock=False))
 
     def test_a_theme_in_the_folder_no_source_offers_is_accepted_as_found_there(self) -> None:
         with self.through(_Registry({}, local={"found": {"name": "Found"}})):

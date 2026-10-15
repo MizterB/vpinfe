@@ -145,8 +145,9 @@ def _trust(key: str, source: str, installed: bool, *, in_folder: bool = False
     not installed is judged by its address, as installing it will be. `install_accepted`
     is that second judgement for an installed theme too, which an update from an address
     it was not accepted from fails."""
-    origin = accepted.theme_origin(source, in_folder=in_folder)
-    from_here = accepted.theme_accepted(key, source, in_folder=in_folder)
+    stock = theme_sources.is_stock(source)
+    origin = accepted.theme_origin(stock=stock, in_folder=in_folder)
+    from_here = accepted.theme_accepted(key, source, stock=stock, in_folder=in_folder)
     on_list = accepted.theme_runs(key) if installed else from_here
     config = get_ini_config()
     return {"origin": origin, "source": source,
@@ -496,7 +497,9 @@ def install(key: str) -> dict[str, Any]:
     endpoints doing it would be two names for one act."""
     registry = _readable()
     offered = registry.themes.get(key)
-    if offered is not None and not accepted.theme_accepted(key, str(offered.get("source") or "")):
+    offered_from = str((offered or {}).get("source") or "")
+    if offered is not None and not accepted.theme_accepted(
+            key, offered_from, stock=theme_sources.is_stock(offered_from)):
         raise service_errors.RefusedError(t("error.themes.not_accepted", key=key))
     try:
         theme_service.install_theme(registry, key)

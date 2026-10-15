@@ -18,7 +18,8 @@ from unittest import mock
 
 from common import accepted
 from common.online import themes
-from common.online.theme_installer import ASIDE_SUFFIX, ThemeInstallStore
+from common.online.theme_installer import ThemeInstallStore
+from common.paths import ASIDE_SUFFIX
 from tests.support.accepted import isolated
 
 BASE_URL = "https://github.com/someone/Reference"

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 from unittest import mock
 
-from common import cache_stamps
+from common.online import cache_stamps
 from tests.support.stamps import OwnStamps
 
 updater = importlib.import_module("common.online.pinmame_score_parser_updater")

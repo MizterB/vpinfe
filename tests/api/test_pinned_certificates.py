@@ -18,7 +18,7 @@ from unittest import mock
 
 import requests
 
-from common import http_client, machine_secrets, paths, pinned_certificates
+from common import http_client, machine_secrets, paths, pinned_certificates, service_errors
 from tests.api.test_encrypted_connections import make_certificate
 
 HOST = "127.0.0.1"
@@ -136,7 +136,7 @@ class PinnedCertificateTests(unittest.TestCase):
         first.stop()
         second = self.serve("two", port)
 
-        with self.assertRaises(pinned_certificates.CertificateChangedError) as raised:
+        with self.assertRaises(service_errors.CertificateChangedError) as raised:
             http_client.get_json(second.url, timeout=5)
 
         self.assertIn(HOST, str(raised.exception))
@@ -176,7 +176,7 @@ class PinnedCertificateTests(unittest.TestCase):
         server = self.serve("one")
         pinned_certificates.keep(HOST, server.port, "00" * 32)
 
-        with self.assertRaises(pinned_certificates.CertificateChangedError):
+        with self.assertRaises(service_errors.CertificateChangedError):
             http_client.get_json(server.url, timeout=5)
 
     def test_a_certificate_an_authority_vouches_for_is_not_pinned_and_forgets_an_old_pin(

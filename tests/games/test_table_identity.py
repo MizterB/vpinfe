@@ -11,7 +11,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from common.games import ids, library_folders, table_identity, unwritten
+from common import ids
+from common.games import library_folders, table_identity, unwritten
 from common.games.game_metadata import write_held_meta
 from common.games.info_file import MetaConfig
 from common.games.library_folders import KIND_ROOT, Location

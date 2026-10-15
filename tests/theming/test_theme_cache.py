@@ -10,8 +10,8 @@ from tempfile import TemporaryDirectory
 from typing import Any
 from unittest.mock import patch
 
-from common import cache_stamps, timestamps
-from common.online import theme_dates, theme_ops, theme_sync
+from common import timestamps
+from common.online import cache_stamps, theme_dates, theme_ops, theme_sync
 from common.online.themes import ThemeRegistry
 from tests.support.library import TempTree
 from tests.support.stamps import OwnStamps

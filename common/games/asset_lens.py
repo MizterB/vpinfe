@@ -21,16 +21,18 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from common import collation, media_probe, service_errors, sized_media
+from common import service_errors, sized_media
 from common.games import (
     asset_origin,
     asset_resolver,
-    directb2s_parser,
+    collation,
     game_lens,
     game_repository,
+    media_probe,
     table_lens,
 )
 from common.games.asset_registry import altsound_folder, altsound_folders, spec_for
+from common.games.formats import directb2s_parser
 from common.games.game_metadata import effective_vps_id
 from common.games.game_repository import game_to_row
 from common.games.tables import table_names

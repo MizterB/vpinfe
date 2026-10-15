@@ -18,11 +18,11 @@ from typing import cast
 from unittest import mock
 
 import httpapi
-from common import cache_stamps, jobs, service_errors, timestamps
+from common import jobs, service_errors, timestamps
 from common.config_store import ConfigStore
 from common.host import dof_service
 from common.i18n import t
-from common.online import dof_sync
+from common.online import cache_stamps, dof_sync
 from tests.support.stamps import OwnStamps
 
 try:

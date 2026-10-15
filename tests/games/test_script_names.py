@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from common.games.script_names import named_in
+from common.games.formats.script_names import named_in
 
 SCRIPT = '''
 Const cGameName = "taxi_l4"

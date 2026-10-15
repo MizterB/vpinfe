@@ -208,7 +208,7 @@ READ_FOR = {
     # What these raise, their callers log, and say in their own words where a person sees.
     "common/games/remote_library.py": NOT_WHAT_IT_RAISES,
     "common/games/score_parser.py": NOT_WHAT_IT_RAISES,
-    "common/jdiff_patch.py": NOT_WHAT_IT_RAISES,
+    "common/uploads/jdiff_patch.py": NOT_WHAT_IT_RAISES,
     "common/online/pinmame_score_parser_updater.py": NOT_WHAT_IT_RAISES,
     # What this refuses, only the Manager shows.
     "common/host/dof_service.py": NOT_ITS_REFUSALS,

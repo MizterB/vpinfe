@@ -14,7 +14,6 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from common.games import identity_claims, unwritten
-from common.games.ids import new_id
 from common.games.info_migration import (
     FROM_CATALOG,
     GUIDE_ORIGIN,
@@ -47,6 +46,7 @@ from common.games.tables import (
     table_entries,
 )
 from common.i18n import t
+from common.ids import new_id
 from common.timestamps import utc_now_iso
 
 logger = logging.getLogger("vpinfe.common.games.info_file")

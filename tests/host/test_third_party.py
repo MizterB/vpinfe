@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from common.third_party import find_named_path, import_module_from_path
+from common.host.third_party import find_named_path, import_module_from_path
 
 
 class ThirdPartyLoaderTests(unittest.TestCase):

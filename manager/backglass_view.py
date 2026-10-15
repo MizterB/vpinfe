@@ -17,7 +17,8 @@ from typing import Any
 from nicegui import run, ui
 from PIL import Image
 
-from common.games import backglass_ops, dmd_frame
+from common.games import backglass_ops
+from common.games.formats import dmd_frame
 from common.i18n import t
 from manager import art, mediaview, panel
 from manager.on_page import on_page

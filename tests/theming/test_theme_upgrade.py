@@ -21,8 +21,7 @@ from common.online import (
     theme_upgrade,
     themes,
 )
-from common.online.theme_installer import ASIDE_SUFFIX
-from common.paths import THEMES_FOLDER
+from common.paths import ASIDE_SUFFIX, THEMES_FOLDER
 from tests.support.library import TempTree
 
 STOCK = theme_sources.stock_list()

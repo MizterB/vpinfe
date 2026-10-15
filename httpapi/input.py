@@ -1,7 +1,7 @@
 """Acting as the player.
 
 The one route that lets a caller press what a cabinet button presses. Everything about
-what a press means - the vocabulary, the hold, the expiry - is `common/input_actions.py`;
+what a press means - the vocabulary, the hold, the expiry - is `common/host/input_actions.py`;
 this is the HTTP door onto it.
 
 It reaches only this install's windows, and that is the whole of the routing story: a
@@ -14,8 +14,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request
 
-from common import input_actions
-from common.host import key_reader, key_simulator
+from common.host import input_actions, key_reader, key_simulator
 
 from . import models, scopes
 from .auth import require, requires

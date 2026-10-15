@@ -14,9 +14,9 @@ from common import config_service, theme_options
 from common.config_access import cfg_get
 from common.config_store import ConfigStore
 from common.i18n import t
+from common.online.theme_level import OLDEST_CONTRACT, declared_contract
 from common.online.themes import ThemeRegistry
 from common.paths import THEMES_DIR, VPINFE_INI_PATH
-from common.theme_level import OLDEST_CONTRACT, declared_contract
 
 
 def get_active_theme() -> str:

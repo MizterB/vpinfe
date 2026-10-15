@@ -22,10 +22,10 @@ from common.online import (
     theme_source_checks,
     theme_sources,
 )
-from common.online.theme_installer import ASIDE_SUFFIX, ThemeInstallStore
+from common.online.theme_installer import ThemeInstallStore
+from common.online.theme_level import MIN_VERSION_KEY
 from common.online.theme_registry_client import ThemeRegistryClient, ThemeRegistryError
-from common.paths import CONFIG_DIR, THEMES_FOLDER, get_ini_config
-from common.theme_level import MIN_VERSION_KEY
+from common.paths import ASIDE_SUFFIX, CONFIG_DIR, THEMES_FOLDER, get_ini_config
 from common.values import newer_version, parse_version
 from common.vpinfe_version import get_version
 
@@ -403,7 +403,8 @@ class ThemeRegistry:
 
         theme_data = self.themes[theme_key]
         source = str(theme_data.get("source") or "")
-        if not accepted.theme_accepted(theme_key, source):
+        stock = theme_sources.is_stock(source)
+        if not accepted.theme_accepted(theme_key, source, stock=stock):
             raise ThemeNotAcceptedError(t("error.themes.not_accepted", key=theme_key))
         manifest = theme_data["manifest"]
         base_url = self._base_url(theme_data["registry_info"])
@@ -432,7 +433,7 @@ class ThemeRegistry:
         zip_data = self._download_zip(zip_url)
 
         self.store.install_zip(theme_key, base_url, zip_data)
-        accepted.note_theme_installed(theme_key, source)
+        accepted.note_theme_installed(theme_key, source, stock=stock)
 
         logger.info("Installed %s", theme_key)
 

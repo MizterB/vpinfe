@@ -29,11 +29,11 @@ from common.games.game_metadata import (
 )
 from common.games.game_repository import game_to_row, reread_game
 from common.games.game_service import find_vps_release, release_fits
-from common.games.ids import new_id
 from common.games.info_file import MetaConfig
 from common.games.tables import ABSENT_SINCE_KEY, entry_filename, table_entries
 from common.host import launch
 from common.i18n import t
+from common.ids import new_id
 from common.online import vps_formats
 
 # Which keys each level will accept. Declared rather than inferred, so sending a table's

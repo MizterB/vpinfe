@@ -13,9 +13,9 @@ from pathlib import Path
 from typing import cast
 from unittest.mock import MagicMock, patch
 
-from common import cache_stamps, jobs, timestamps
+from common import jobs, timestamps
 from common.config_store import ConfigStore
-from common.online import vpsdb_sync
+from common.online import cache_stamps, vpsdb_sync
 from tests.support.stamps import OwnStamps
 
 

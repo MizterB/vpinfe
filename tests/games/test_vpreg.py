@@ -7,7 +7,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from common.games import score_parser, vpreg
+from common.games import score_parser
+from common.games.formats import vpreg
 from tests.support.ole import stg_bytes
 
 SETS = {

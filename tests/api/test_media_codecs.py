@@ -59,7 +59,7 @@ class MediaCodecTests(TempTree):
         self.assertIsNone(media["wheel"]["video_codec"])
 
     def test_not_asked_the_list_reads_no_header(self) -> None:
-        with patch("common.media_probe.probe") as probe:
+        with patch("common.games.media_probe.probe") as probe:
             media = self._get(f"/games/{GAME_ID}/media")["media"]
 
         probe.assert_not_called()

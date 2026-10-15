@@ -9,7 +9,8 @@ import os
 from collections.abc import Iterable
 from pathlib import Path
 
-from common import apps, collation
+from common import apps
+from common.games import collation
 from common.timestamps import epoch_to_iso, iso_from_asctime, iso_from_authored_date
 
 # One entry per .vpx, keyed by the table's id so a rename rewrites one field:

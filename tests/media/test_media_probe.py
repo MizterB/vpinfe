@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from common.media_probe import probe
+from common.games.media_probe import probe
 
 
 def _box(kind: bytes, body: bytes) -> bytes:

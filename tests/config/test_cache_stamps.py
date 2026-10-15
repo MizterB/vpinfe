@@ -6,7 +6,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from common import cache_stamps
+from common.online import cache_stamps
 from tests.support.stamps import OwnStamps
 
 _ROMS_BYTES = b"{}"

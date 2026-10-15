@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import unittest
 
-from common.games import backglass_ops, dmd_frame
+from common.games import backglass_ops
+from common.games.formats import dmd_frame
 from manager import backglass_view as view
 
 LEGACY, B2S = backglass_ops.LEGACY, backglass_ops.B2S

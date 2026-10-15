@@ -13,9 +13,13 @@ from common.config_access import cfg_bool, cfg_get
 from common.config_store import ConfigStore
 from common.failures import why
 from common.host import bundled_libraries, tools
+from common.host.third_party import (
+    find_named_path,
+    import_module_from_path,
+    third_party_base_candidates,
+)
 from common.i18n import t
 from common.paths import bundled
-from common.third_party import find_named_path, import_module_from_path, third_party_base_candidates
 
 _LOCK = threading.Lock()
 _CONTROLLER = None

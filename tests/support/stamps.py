@@ -18,6 +18,6 @@ class OwnStamps(unittest.TestCase):
         held = tempfile.TemporaryDirectory()
         self.addCleanup(held.cleanup)
         self.stamps_path = Path(held.name) / "stamps.json"
-        patcher = mock.patch("common.cache_stamps.STAMPS_PATH", self.stamps_path)
+        patcher = mock.patch("common.online.cache_stamps.STAMPS_PATH", self.stamps_path)
         patcher.start()
         self.addCleanup(patcher.stop)

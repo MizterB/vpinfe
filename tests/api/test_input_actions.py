@@ -11,7 +11,8 @@ from __future__ import annotations
 import unittest
 
 import httpapi
-from common import events, input_actions
+from common import events
+from common.host import input_actions
 from frontend import input_events
 
 try:

@@ -17,7 +17,7 @@ from typing import IO
 
 import olefile
 
-logger = logging.getLogger("vpinfe.common.games.vpx_parser")
+logger = logging.getLogger("vpinfe.common.games.formats.vpx_parser")
 
 
 class VPXParser:

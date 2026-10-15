@@ -15,7 +15,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import IO, Any
 
-logger = logging.getLogger("vpinfe.common.media_probe")
+logger = logging.getLogger("vpinfe.common.games.media_probe")
 
 # Enough for an ID3 tag's worth of padding to be skipped and the first frames read.
 _MP3_WINDOW = 64 * 1024

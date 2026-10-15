@@ -20,10 +20,10 @@ from common.games.game_metadata import (
     persist_game_meta,
     section,
 )
-from common.games.ids import ALPHABET as ID_ALPHABET
-from common.games.ids import LENGTH as ID_LENGTH
-from common.games.ids import derive_id, new_id
 from common.games.info_file import GAME_ID_KEY, VPINFE_SECTION
+from common.ids import ALPHABET as ID_ALPHABET
+from common.ids import LENGTH as ID_LENGTH
+from common.ids import derive_id, new_id
 
 logger = logging.getLogger("vpinfe.common.games.game_identity")
 

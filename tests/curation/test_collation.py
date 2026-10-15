@@ -1,12 +1,12 @@
 """Ordering and grouping titles that are not ASCII.
 
-Every case here was a measured defect before `common.collation` existed: umlauts filed
+Every case here was a measured defect before `common.games.collation` existed: umlauts filed
 after Z, and one letter group per kanji in a library of Japanese tables.
 """
 
 import unittest
 
-from common import collation
+from common.games import collation
 
 
 class TestFold(unittest.TestCase):

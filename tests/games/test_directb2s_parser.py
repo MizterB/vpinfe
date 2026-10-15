@@ -8,7 +8,7 @@ from unittest import mock
 
 from PIL import Image
 
-from common.games import directb2s_parser as parser
+from common.games.formats import directb2s_parser as parser
 
 DARK = (10, 10, 10)
 RED = (250, 0, 0)

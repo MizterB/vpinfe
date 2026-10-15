@@ -5,9 +5,10 @@ from __future__ import annotations
 import logging
 import threading
 
-from common import cache_stamps, timestamps
+from common import timestamps
 from common.config_access import cfg_get
 from common.config_store import ConfigStore
+from common.online import cache_stamps
 from common.online.vpsdb_sync import EVERY
 from common.paths import THEME_CACHE_PATH
 

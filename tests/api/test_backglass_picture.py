@@ -12,7 +12,8 @@ from starlette.testclient import TestClient
 
 import httpapi
 from common import sized_media
-from common.games import asset_origin, backglass_ops, directb2s_parser
+from common.games import asset_origin, backglass_ops
+from common.games.formats import directb2s_parser
 from common.online.vpsdb_media import file_md5
 from tests.support.library import TempTree, fake_game, write_game
 

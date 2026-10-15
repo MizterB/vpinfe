@@ -16,7 +16,6 @@ from collections.abc import Collection
 from typing import Any
 
 from common import machine_secrets, paths
-from common.online import theme_sources
 
 logger = logging.getLogger("vpinfe.common.accepted")
 
@@ -72,14 +71,12 @@ def _was_seeded() -> bool:
 
 def theme_folders() -> list[str]:
     """The themes in the themes folder, by folder name."""
-    from common.online.theme_installer import ASIDE_SUFFIX
-
     root = paths.THEMES_DIR
     if not root.is_dir():
         return []
     return [one.name for one in sorted(root.iterdir())
             if one.is_dir() and not one.name.startswith(".")
-            and not one.name.endswith(ASIDE_SUFFIX)]
+            and not one.name.endswith(paths.ASIDE_SUFFIX)]
 
 
 def unaccepted_themes() -> list[str]:
@@ -102,21 +99,22 @@ def _same_address(kept: str | None, address: str) -> bool:
 # -- themes -------------------------------------------------------------------
 
 
-def theme_origin(address: str, *, in_folder: bool = False) -> str:
+def theme_origin(*, stock: bool, in_folder: bool = False) -> str:
     """STOCK for a theme from the VPinFE Theme List's address, IN_FOLDER for one no source
-    accounts for, else SOURCE. The address decides, never the theme's name."""
+    accounts for, else SOURCE. The address decides, never the theme's name; `stock` is the
+    caller's answer to whether the address is the VPinFE Theme List."""
     if in_folder:
         return IN_FOLDER
-    return STOCK if theme_sources.is_stock(address) else SOURCE
+    return STOCK if stock else SOURCE
 
 
-def theme_accepted(key: str, address: str, *, in_folder: bool = False) -> bool:
+def theme_accepted(key: str, address: str, *, stock: bool, in_folder: bool = False) -> bool:
     """Whether this theme, from this address, may be installed and run.
 
-    `address` is the source it comes from, "" for a theme found in the themes folder. One
-    from the VPinFE Theme List needs no entry. One accepted from another address is not
-    accepted from this one."""
-    if theme_origin(address, in_folder=in_folder) == STOCK:
+    `address` is the source it comes from, "" for a theme found in the themes folder, and
+    `stock` whether that address is the VPinFE Theme List. One from the VPinFE Theme List
+    needs no entry. One accepted from another address is not accepted from this one."""
+    if theme_origin(stock=stock, in_folder=in_folder) == STOCK:
         return True
     found = _read()[_THEMES].get(key)
     return isinstance(found, dict) and _same_address(found.get("source"), address)
@@ -145,11 +143,11 @@ def accept_theme(key: str, address: str) -> None:
         _write(held)
 
 
-def note_theme_installed(key: str, address: str) -> None:
+def note_theme_installed(key: str, address: str, *, stock: bool) -> None:
     """Record a theme VPinFE installed from the VPinFE Theme List, so its provenance
     survives the list changing or being unreachable. Any other address is accepted
     first and recorded by `accept_theme`."""
-    if theme_origin(address) == STOCK:
+    if theme_origin(stock=stock) == STOCK:
         accept_theme(key, address)
 
 

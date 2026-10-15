@@ -24,9 +24,13 @@ from common import service_errors
 from common.config_access import cfg_bool
 from common.config_store import ConfigStore
 from common.host import dof_config, launch_state
+from common.host.third_party import (
+    find_named_path,
+    import_module_from_path,
+    third_party_base_candidates,
+)
 from common.i18n import t
 from common.paths import APP_ROOT
-from common.third_party import find_named_path, import_module_from_path, third_party_base_candidates
 
 _LOCK = threading.Lock()
 _HELPER = None

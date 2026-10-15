@@ -11,7 +11,7 @@ import socket
 
 from common.config_access import cfg_get, cfg_has, cfg_list
 from common.config_store import ConfigStore
-from common.games.ids import new_id
+from common.ids import new_id
 
 logger = logging.getLogger("vpinfe.common.install_identity")
 

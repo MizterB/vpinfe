@@ -28,6 +28,7 @@ from common.games import (
     tables,
 )
 from common.games.collection_store import CollectionStore
+from common.games.formats.vpx_parser import VPXParser
 from common.games.game import Game, GameRecord
 from common.games.game_metadata import (
     CONFIRMED_BY_USER,
@@ -51,7 +52,6 @@ from common.games.tables import (
     table_names,
 )
 from common.games.unreadable import UnreadableGame
-from common.games.vpx_parser import VPXParser
 from common.i18n import t
 from common.jobs import LogCallback, ProgressCallback
 from common.online import vps_formats
@@ -872,7 +872,7 @@ def record_arrived_table(game_dir: Path, landing: Path, table_id: str,
         parsed = read_one(landing)
         if parsed:
             meta.replace_table("", landing.name, parsed)
-            from common.games.script_names import named_in
+            from common.games.formats.script_names import named_in
 
             return Arrived(str(parsed.get("rom") or "").strip(),
                            tuple(sorted(named_in(parsed.get("game_data") or "", names))))

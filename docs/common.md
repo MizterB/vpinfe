@@ -7,18 +7,39 @@ small facade classes for older call sites.
 
 ## Layout
 
-Three domain packages over an infrastructure layer, grouped by what a module knows
-about. The boundaries were drawn from the import graph rather than by hand: 92% of
-the domain-to-domain edges stay inside one package.
+Domain packages over a ranked shared layer, grouped by what a module knows about. The
+boundaries were drawn from the import graph rather than by hand: 92% of the
+domain-to-domain edges stay inside one package.
 
-**`common/` itself is the infrastructure layer.** Nothing here knows about games,
-hardware or any outside service, so anything may depend on it - and nothing in it may
-import from a domain package. That rule is the point of the layer; breaking it is how
-`config_access` ended up importing `game_metadata` to read a boolean.
+**`common/` itself is the shared layer.** Nothing here knows about games, hardware or any
+outside service, so anything may depend on it - and nothing in it may import from a domain
+package. That rule is the point of the layer; breaking it is how `config_access` ended up
+importing `game_metadata` to read a boolean.
+
+### Layers
+
+Inside the shared layer the units are ranked, and a unit imports its own rank or below:
+
+| Rank | Unit | What it holds |
+|---|---|---|
+| 0 | core (the flat modules) | what knows nothing else: errors, values, ids, events, timestamps |
+| 0 | `i18n/`, `apps/` | the catalog and the app registry |
+| 1 | config | the config store, schema, paths and what reads them |
+| 2 | security, media, runtime | keys and trust; media specs; jobs and the process's lifecycle |
+| 3 | devices | other installs: the client, the registry, pairing |
+| 4 | players, release, settings | the roster; release notes and upgrade needs; the settings service |
+| 5 | `games/`, `online/`, `host/`, `uploads/`, `capture/`, `backups/`, `extensions/` | the domains, which may import each other |
+
+`tests/invariants/test_layering.py` holds the table, lists every flat module under the
+package it moves to, and names each import that runs against the ranks. That list only
+shrinks. A module that needs something above it is handed the thing instead of importing it:
+`accepted` is told by `online` whether an address is the VPinFE Theme List, and reads the
+themes folder from `paths`.
 
 - `paths.py`: canonical user config, themes, collections, and game-root paths. `CONFIG_DIR` is resolved once at import time; set `VPINFE_CONFIG_DIR` before import (main.py maps the `--configdir` flag onto it) to relocate the whole config directory. Beside it, each kind of file that is not config has a folder of its own: `CACHE_DIR` (what a fetch can rebuild), `STATE_DIR` (what belongs to this machine and is kept: `devices.json`, `watching.json`, `updates/`, `capture/` as `CAPTURE_DIR`, `jobs/` as `JOBS_DIR` for the results of jobs started with `keep_result`, NiceGUI's `.nicegui/`) and `LOG_DIR` (`vpinfe.log`, `last_update.log`); under an override they are `cache/`, `state/` and `logs/` of it. `APP_ROOT` is where the app itself lives; reach a file the build ships through `bundled()`, which answers for a source checkout and for both kinds of frozen build.
 - `config_access.py`: typed, UI-independent accessors for common INI sections.
 - `values.py`: value coercion (`is_truthy`) shared by config, metadata and filters.
+- `ids.py`: how VPinFE mints an opaque local id, for games and tables alike.
 - `config_store.py`, `config_bootstrap.py`: ini reading and first-run config creation. A list of objects in `vpinfe.json` is declared as a `ConfigList` in `config_schema.py` and read and written with `get_list` and `set_list`: an item without an `id` is given one, a field the list does not declare is refused, and the module that owns the list registers its `normalize` rule and the `seed` that fills it from a 2.x ini (`register_normalizer`, `register_seed`) before the store is made.
 - `events.py`: the in-process event bus. Hooks are part of an operation; subscribers are told about it.
 - `players.py`: who plays on this install and who the next game counts for. Kept players are in `players.json`; guests and who is up are held in memory and gone when VPinFE closes. Every comparison of two sets of initials goes through `same_initials`, `Roster.whose_score` says whose a new score is, and every change is announced as `players.changed`.
@@ -27,7 +48,6 @@ import from a domain package. That rule is the point of the layer; breaking it i
 - `lifecycle.py`: starting, stopping and restarting the frontend, VPinFE or the machine, whichever surface asked.
 - `jobs.py`: slow work as a job — one at a time per kind, progress published on the bus, answerable by id after it finishes.
 - `http_client.py`: shared request/download helpers.
-- `third_party.py`: finding and loading the third_party libraries the build bundles.
 - `shutdown.py`: what a kill signal does. Startup notes it and stops at the next step boundary; once the frontend is up it takes the same route as a user's own quit.
 - `log_setup.py`, `vpinfe_version.py`.
 
@@ -55,7 +75,9 @@ something. `docs/extensions/reference.md` indexes the contract an author reads.
 - `metadata_service.py`, `game_report_service.py`, `game_play_service.py`: workflows over games and metadata.
 - `player_records.py`: what each player other than the owner has done with each game - plays, time, best score and rating. A kept player's is `player_records/<id>.json` in the config directory, a guest's is held in memory. The owner's is the library's `.info`, which nothing here writes. `remove_player` is how anyone leaves: it takes them off the roster and forgets their accounts with every extension and their record.
 - `collections_service.py`, `collection_store.py`, `collection_filters.py`: collection and filter logic. `collections.ini` carries its own schema version in a reserved `[VPinFE]` section.
-- `vpx_parser.py`, `standalone_scripts.py`: reading and patching the .vpx itself.
+- `formats/`: readers for the file formats a table ships in - the .vpx, the .directb2s, VPReg, script names and DMD frames. None imports a module of `common/games/` outside the package.
+- `standalone_scripts.py`: the community script patches that make a table run under VPX Standalone.
+- `collation.py`: ordering and grouping titles nobody wrote in English. `media_probe.py`: what a media file is, read from its own header.
 - `score_parser.py`: PinMAME NVRAM score extraction.
 - `game_service.py`, `game_index_service.py`, `media_service.py`, `asset_registry.py`, `archive_service.py`, `export_bundle.py`: workflows over a game and its media - rating, re-matching, the cached row index, media lookup and invalidation, and packing a game for export.
 
@@ -74,6 +96,7 @@ Depends on `common/games/`, `common/online/` and `common/host/`.
 - `upload_session_service.py`: an upload in progress. Files arrive in chunks into a session directory and every path is checked against it, so an upload naming `../` is refused rather than resolved.
 - `asset_analyzer_service.py`: what a zip, folder or loose file holds, worked out without extracting it.
 - `asset_import_service.py`: an analyzed drop becomes a plan, and only then files on disk - so an import that would overwrite something is declined rather than undone.
+- `jdiff_patch.py`: applying a JojoDiff patch in pure Python.
 
 Depends on `common/games/`, never the reverse: importing assets needs to know the library it is importing into.
 
@@ -84,6 +107,7 @@ Depends on `common/games/`, never the reverse: importing assets needs to know th
 - `themes.py`: compatibility facade for Manager theme registry operations.
 - `theme_registry_client.py`, `theme_installer.py`: theme registry network and local install helpers.
 - `app_updater.py`, `pinmame_score_parser_updater.py`: update checks and downloads.
+- `cache_stamps.py`: what each cache in `CACHE_DIR` was last told. `theme_level.py`: which contract an installed theme was written against.
 
 The VPinPlay client is no longer here. It reached down into `games` to enumerate the
 library, which is the wrong direction, and it now lives in the VPinPlay extension and is
@@ -104,6 +128,8 @@ to 2.x still finds them.
 - `placement.py`: window rules for Sway and Hyprland - VPinFE's own rules file (each window to its screen by output name, no border, the playfield focused, VPX's backglass, score view and topper never), the one `include` or `source` line the person's config needs, and whether it is already there. Nothing here writes the person's config except `add`, and a Sway config is never created, since one of the person's own replaces the system's. The Hyprland syntax follows the documentation and has not been run against a Hyprland session.
 - `keys.py`, `key_simulator.py`: a key by the code a binding names it with, and pressing one into the running table - through `wtype` or `ydotool` on Wayland, pynput elsewhere - with `sender()` saying whether this device can.
 - `key_reader.py`: while a table plays and a key is bound to Take Picture, the keys bound to the play-time actions, heard from outside the frontend's page and pressed as those actions; `hearing()` says whether this device can.
+- `third_party.py`: finding and loading the third_party libraries the build bundles.
+- `input_actions.py`: input produced by something that is not the browser.
 - `display_service.py`, `system_actions.py`, `vpx_log.py`.
 
 **`common/capture/`** - recording this machine's own screens into its tables' media.
@@ -251,7 +277,7 @@ callbacks the caller already had, so an existing progress bar keeps working.
 Use `http_client.py` for common network GET/download behavior unless a service
 needs a special request shape such as POST.
 
-Use `third_party.py` to locate and load a bundled third-party library. Where one
+Use `common/host/third_party.py` to locate and load a bundled third-party library. Where one
 lives depends on whether this is a source checkout or a frozen build, and DOF and
 libdmdutil should not each carry their own copy of that reasoning.
 

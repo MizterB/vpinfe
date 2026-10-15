@@ -9,10 +9,10 @@ from collections.abc import Collection
 from common.config_access import cfg_bool
 from common.config_store import ConfigStore
 from common.games import game_identity, game_repository, library_folders, media_fill
+from common.games.formats.vpx_parser import VPXParser
 from common.games.game_metadata import effective_vps_id, record_vps_match, vps_matched_by
 from common.games.info_file import MetaConfig
 from common.games.standalone_scripts import StandaloneScripts
-from common.games.vpx_parser import VPXParser
 from common.i18n import t
 from common.jobs import JobReporter, LogCallback, ProgressCallback
 from common.online.vpsdb import VPSdb

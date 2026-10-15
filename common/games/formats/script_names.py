@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 
-from common.games.vpx_parser import VPXParser
+from common.games.formats.vpx_parser import VPXParser
 
 _STRING = re.compile(r'"((?:[^"\n]|"")*)"')
 

@@ -16,11 +16,8 @@ from io import BytesIO
 from common.i18n import t
 from common.online import theme_refs
 from common.online.theme_registry_client import ThemeRegistryError
+from common.paths import ASIDE_SUFFIX
 from common.values import newer_version, parse_version
-
-# The folder a replaced theme is moved to, rather than deleted. Kept beside the install
-# so a bad update is one rename away from being undone.
-ASIDE_SUFFIX = ".previous"
 
 
 class ThemeInstallStore:

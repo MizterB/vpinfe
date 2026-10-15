@@ -24,7 +24,7 @@ import threading
 
 from common import events, input_registry
 
-logger = logging.getLogger("vpinfe.common.input_actions")
+logger = logging.getLogger("vpinfe.common.host.input_actions")
 
 PRESS = "press"
 RELEASE = "release"

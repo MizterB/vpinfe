@@ -20,8 +20,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any
 
-from common.games.ids import new_id
 from common.i18n import t
+from common.ids import new_id
 
 logger = logging.getLogger("vpinfe.manager.views")
 

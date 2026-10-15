@@ -27,6 +27,55 @@ ALLOWED = {
     ("common/device_client.py", "frontend"),
 }
 
+# A unit of `common/` is a package, or a flat module standing for the package it will move
+# to. A unit may import its own rank or any below it; the tiers say what is allowed to know
+# about what. Every domain is rank 5 and may import another domain.
+RANK = {
+    "core": 0, "i18n": 0, "apps": 0,
+    "config": 1,
+    "security": 2, "media": 2, "runtime": 2,
+    "devices": 3,
+    "players": 4, "release": 4, "settings": 4,
+    "games": 5, "online": 5, "host": 5, "uploads": 5, "capture": 5, "backups": 5,
+    "extensions": 5,
+}
+
+# The packages that do not exist yet: a flat module is filed under the one it moves to.
+# A module that is in none of these is core, and a move deletes its line.
+FUTURE_HOME = {
+    **dict.fromkeys(("config_access", "config_schema", "config_store", "setting_groups",
+                     "labels", "input_registry", "paths", "path_state",
+                     "ui_preferences"), "config"),
+    **dict.fromkeys(("access_keys", "api_tokens", "approvals", "authenticator",
+                     "machine_secrets", "sign_in", "encrypted_connections",
+                     "pinned_certificates", "http_client", "accepted"),
+                    "security"),
+    **dict.fromkeys(("media_specs", "manufacturer_logos", "sized_media", "folder_browse"),
+                    "media"),
+    **dict.fromkeys(("jobs", "job_details", "lifecycle", "shutdown", "log_setup"),
+                    "runtime"),
+    **dict.fromkeys(("device_client", "device_registry", "device_ops", "device_migration",
+                     "discovery", "install_setup", "launcher_wire", "install_identity",
+                     "install_presence", "serving"), "devices"),
+    **dict.fromkeys(("players", "player_pictures"), "players"),
+    **dict.fromkeys(("release_notes", "whats_new", "upgrade_needs", "migration_ledger"),
+                    "release"),
+    **dict.fromkeys(("config_service", "settings_waiting", "feature_checks", "port_checks",
+                     "theme_options"), "settings"),
+}
+
+# The imports that run against the ranks, each with the file that makes it. This list only
+# shrinks: a new entry means a module reaching for something above it, and the fix is to
+# hand the thing down, not to add a line here.
+UPWARD: dict[tuple[str, str], str] = {
+    ("common/apps/__init__.py", "config"): "reads a label from the config tier",
+    ("common/config_schema.py", "devices"): "looks up the install id, lazily",
+    ("common/config_store.py", "devices"): "looks up the install id, lazily",
+    ("common/config_store.py", "games"): "the .info backups helper",
+    ("common/config_service.py", "backups"): "the settings service names the backups folder",
+    ("common/settings_waiting.py", "extensions"): "asks the extension host what is waiting",
+}
+
 
 def _imports(path: pathlib.Path) -> set[str]:
     """Every top-level package this module imports, however it spells it."""
@@ -71,6 +120,46 @@ def _names_handed_to_the_store(tree: ast.Module) -> list[tuple[int, str]]:
     return found
 
 
+def _unit_of(module: str) -> str | None:
+    """The unit of `common/` a dotted module name belongs to, or None outside it."""
+    parts = module.split(".")
+    if parts[0] != "common":
+        return None
+    if len(parts) == 1:
+        return "core"
+    return parts[1] if parts[1] in RANK else FUTURE_HOME.get(parts[1], "core")
+
+
+def _common_units(tree: ast.Module) -> set[str]:
+    """Every unit of `common/` this module imports, whether it names the module
+    (`from common.paths import X`) or imports it from the package (`from common import paths`)."""
+    found = set()
+    for node in ast.walk(tree):
+        names: list[str] = []
+        if isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+            names = [node.module]
+            if node.module == "common":
+                names = [f"common.{alias.name}" for alias in node.names]
+        elif isinstance(node, ast.Import):
+            names = [alias.name for alias in node.names]
+        found |= {unit for unit in map(_unit_of, names) if unit}
+    return found
+
+
+def _upward_imports() -> list[tuple[str, str]]:
+    """(file, unit) for each import of a unit ranked above the file's own."""
+    found = []
+    for path in sorted((REPO / "common").rglob("*.py")):
+        if "__pycache__" in path.parts:
+            continue
+        relative = path.relative_to(REPO).as_posix()
+        own = _unit_of(".".join(path.relative_to(REPO).with_suffix("").parts)) or "core"
+        for unit in sorted(_common_units(trees.tree_for(path))):
+            if RANK[unit] > RANK[own]:
+                found.append((relative, unit))
+    return found
+
+
 def _offenders(package: str, forbidden: set[str]) -> list[str]:
     out = []
     for path in sorted((REPO / package).rglob("*.py")):
@@ -89,38 +178,34 @@ class LayeringTests(unittest.TestCase):
         on it - otherwise a library install has to ship a frontend to import a game."""
         self.assertEqual(_offenders("common", {"httpapi", "frontend", "manager"}), [])
 
-    def test_the_infrastructure_layer_does_not_import_a_domain_package(self) -> None:
-        """`docs/common.md`: nothing in `common/` itself may import `games`, `online` or
-        `host`. Only the top level - the domain packages may of course import each other.
+    def test_a_unit_imports_only_its_own_rank_or_below(self) -> None:
+        """`docs/common.md`, Layers: the shared services are ranked, and a service that
+        reaches for one above it is a helper filed in the wrong place."""
+        self.assertEqual(sorted(set(_upward_imports()) - set(UPWARD)), [])
 
-        Those listed are allowed, each because the thing it reaches for is genuinely about
-        that domain. Another would mean a generic helper filed in the wrong place, which
-        is what `common/atomic_write.py` exists to have fixed.
-        """
-        allowed = {("config_store.py", "common.games.info_migration"),   # .info backups
-                   ("install_identity.py", "common.games.ids"),          # the id alphabet
-                   # The accepted list judges a theme by its source's address and reads the
-                   # themes folder the installer keeps, which only `online` knows.
-                   ("accepted.py", "common.online"),
-                   ("accepted.py", "common.online.theme_installer")}
-        domains = {"games", "online", "host"}
-        found = set()
-        # `_imports` reports the top-level package only; the full dotted name is what
-        # distinguishes `common.games` from `common.paths`, so this walks it directly.
-        for path in sorted((REPO / "common").glob("*.py")):
-            tree = trees.tree_for(path)
-            for node in ast.walk(tree):
-                names = []
-                if isinstance(node, ast.ImportFrom) and node.module:
-                    names = [node.module]
-                elif isinstance(node, ast.Import):
-                    names = [alias.name for alias in node.names]
-                for name in names:
-                    parts = name.split(".")
-                    if len(parts) >= 2 and parts[0] == "common" and parts[1] in domains:
-                        found.add((path.name, name))
+    def test_every_upward_import_listed_still_happens(self) -> None:
+        """A stale entry silently permits the import coming back."""
+        self.assertEqual(sorted(set(UPWARD) - set(_upward_imports())), [])
 
-        self.assertEqual(sorted(found - allowed), [])
+    def test_every_module_of_common_has_a_rank(self) -> None:
+        """A new package is ranked, and a placement for a module that moved is dropped.
+        A flat module in neither table is core, so it fails only by importing upward."""
+        flat = {path.stem for path in (REPO / "common").glob("*.py")
+                if path.stem != "__init__"}
+        packages = {path.name for path in (REPO / "common").iterdir()
+                    if path.is_dir() and path.name != "__pycache__"}
+        self.assertEqual(sorted(packages - set(RANK)), [])
+        self.assertEqual(sorted(set(FUTURE_HOME) - flat), [])
+        self.assertEqual(sorted(set(FUTURE_HOME.values()) - set(RANK)), [])
+
+    def test_the_rank_check_sees_an_import_however_it_is_spelled(self) -> None:
+        tree = trees.parse_snippet(
+            "from common import paths, games\n"
+            "from common.online import themes\n"
+            "import common.host.dof_service\n"
+            "from . import sibling\n")
+
+        self.assertEqual(sorted(_common_units(tree)), ["config", "games", "host", "online"])
 
     def test_common_names_no_extension_to_the_extension_store(self) -> None:
         """An extension's settings are its own. Core reading one by name makes a core

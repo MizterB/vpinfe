@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any, NoReturn
 
 from common import pinned_certificates
 from common.i18n import t
-from common.pinned_certificates import CertificateChangedError
+from common.service_errors import CertificateChangedError
 
 if TYPE_CHECKING:
     from common.config_store import ConfigStore

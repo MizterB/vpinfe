@@ -24,9 +24,9 @@ from common.games import (
     unreadable,
     unwritten,
 )
+from common.games.formats.vpx_parser import VPXParser
 from common.games.info_maintenance import upgrade_library
 from common.games.library_folders import KIND_ROOT, Location
-from common.games.vpx_parser import VPXParser
 from common.i18n import t
 from common.online.vpsdb import VPSdb
 from tests.support.library import TempTree, game_info, write_game

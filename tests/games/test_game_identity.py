@@ -4,7 +4,8 @@ from pathlib import Path
 from typing import cast
 from unittest import mock
 
-from common.games import game_identity, ids, library_folders
+from common import ids
+from common.games import game_identity, library_folders
 from common.games.game_repository import game_to_row
 from common.games.info_file import MetaConfig
 from common.games.library_folders import KIND_GAME, KIND_ROOT, Location

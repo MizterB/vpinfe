@@ -25,8 +25,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
-from common import collation
-from common.games import collection_filters, rankings
+from common.games import collation, collection_filters, rankings
 from common.games.collection_store import MANUAL_ORDER, CollectionStore
 from common.games.game import GameRecord, ScannedGame
 from common.games.game_identity import game_id
