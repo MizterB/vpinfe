@@ -15,7 +15,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from manager.binding_editor import HOLD_AT_MS, RING_AFTER_MS
+from manager.settings.binding_editor import HOLD_AT_MS, RING_AFTER_MS
 from tests.support.browser_session import BrowserSession, chromium_path
 from tests.support.library import game_info, write_game
 from tests.support.live_instance import LiveInstance

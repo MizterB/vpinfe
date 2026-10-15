@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from common.config import config_schema
 from common.i18n import t
-from manager import settings
 from manager.kit import offload
+from manager.settings import settings
 
 HERE = [{"name": "media", "options": [
     {"key": "wheelset", "suggest": config_schema.SUGGEST_WHEEL_SETS}]}]

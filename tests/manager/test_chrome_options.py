@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 
 from frontend.chromium_manager import CHROMIUM_BASE_FLAGS
-from manager import chrome_options
+from manager.settings import chrome_options
 
 
 def texts(held: dict) -> list[str]:

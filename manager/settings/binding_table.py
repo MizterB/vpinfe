@@ -18,11 +18,11 @@ from nicegui import ui
 
 from common.config import input_registry
 from common.i18n import t
-from manager import binding_editor
 from manager.kit import confirm, panel, verbs
 from manager.kit.on_page import on_page
+from manager.settings import binding_editor
 
-logger = logging.getLogger("vpinfe.manager.binding_table")
+logger = logging.getLogger("vpinfe.manager.settings.binding_table")
 
 Write = Callable[[dict[str, list[str]]], Awaitable[bool]]
 

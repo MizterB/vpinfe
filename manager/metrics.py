@@ -23,9 +23,9 @@ from common.failures import why
 from common.host import tools
 from common.i18n import t
 from manager import jobs_list
-from manager import settings as settings_page
 from manager.kit import busy, offload, panel, when
 from manager.kit.data import Library
+from manager.settings import settings as settings_page
 
 logger = logging.getLogger("vpinfe.manager.metrics")
 

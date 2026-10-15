@@ -11,8 +11,8 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
-from manager import sections
 from manager.kit.data import Library
+from manager.settings import sections
 
 
 def library(games: dict[str, dict[str, bool]], *, hidden: tuple[str, ...] = (),

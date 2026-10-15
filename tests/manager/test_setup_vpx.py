@@ -13,8 +13,9 @@ from unittest import mock
 from nicegui import ui
 
 from common.games.launchers import Launcher
-from manager import setup, setup_vpx, vpx_find
-from manager.vpx_find import Find
+from manager import setup, setup_vpx
+from manager.settings import vpx_find
+from manager.settings.vpx_find import Find
 
 # Made at import, outside any task, where NiceGUI still hands out the script's own page.
 _PAGE = ui.element()

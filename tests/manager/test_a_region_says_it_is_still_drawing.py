@@ -10,8 +10,8 @@ from unittest.mock import Mock, patch
 
 from nicegui import ui
 
-from manager import settings
 from manager.kit import busy
+from manager.settings import settings
 from manager.workbench import core, rail
 from tests.support.workbench_patch import patch_workbench
 

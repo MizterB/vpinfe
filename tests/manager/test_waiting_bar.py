@@ -10,8 +10,8 @@ from unittest.mock import AsyncMock, Mock, patch
 from nicegui import ui
 
 from common.devices import serving
-from manager import waiting
 from manager.kit import confirm, offload, remembered
+from manager.settings import waiting
 from tests.support.clicks import said
 
 _PAGE = ui.element()

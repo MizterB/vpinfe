@@ -323,7 +323,7 @@ for a restart reads as broken. Each setting declares `applies` in
   the windows are open, two things say it, on every page: a chip beside the field that was
   changed - *Reopen needed* or *Restart needed* - and the bar over the page, which asks for
   the windows to be reopened or VPinFE restarted. The server holds the answer
-  (`GET /config/waiting`) and `manager/settings.py` and `manager/waiting.py` only draw it.
+  (`GET /config/waiting`) and `manager/settings/settings.py` and `manager/settings/waiting.py` only draw it.
   Both clear when the value is changed back.
 - A `table` setting has no chip and no bar, so its label or description says when it runs
   (*When Any Table Starts*). A description of any other setting never states the moment.
@@ -1245,7 +1245,7 @@ browser never opens the address it carries.
 
 ### A screen is put on a part of the cabinet, not picked from a list
 
-Wherever a screen is chosen for a window, `manager/screens_picture.py` draws the parts and
+Wherever a screen is chosen for a window, `manager/settings/screens_picture.py` draws the parts and
 this device's screens, and a screen is dragged onto the part it serves. The caller hands it
 the screens, what is on each part and the acts to report to, and the control writes nothing
 itself, so the Displays page, Setup and a VPX page can each mount it over their own storage.
@@ -1259,7 +1259,7 @@ A screen is called by its model name, and by its size when it has none. It is nu
 which way its top points and are drawn only for Cabinet Mode; a desktop page draws the
 picture without them.
 
-Window placement is a set of rows, `manager/placement_panel.py`, that a page mounts under the
+Window placement is a set of rows, `manager/settings/placement_panel.py`, that a page mounts under the
 screens picture: Displays does today and the Screens step of Setup can. The rows write
 nothing themselves except VPinFE's own rules file. The one line in the person's compositor
 config goes in on **Add it** only, and **I'll add it myself** shows it with a copy button, the

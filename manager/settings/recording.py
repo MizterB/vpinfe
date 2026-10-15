@@ -22,7 +22,7 @@ from common.media.media_specs import media_label_map
 from manager.kit import confirm, offload, panel, verbs
 from manager.kit.on_page import on_page
 
-logger = logging.getLogger("vpinfe.manager.recording")
+logger = logging.getLogger("vpinfe.manager.settings.recording")
 
 SECTION = "capture"
 REPORT = config_schema.EDITOR_CAPTURE_COMMAND
@@ -160,7 +160,7 @@ def finding(offered: dict[str, Any], library: Any = None,
     said = preflight.words({**blocked, "remedy": None} if choosable else blocked)
 
     def draw() -> None:
-        from manager.settings import TOOLS, address_for
+        from manager.settings.settings import TOOLS, address_for
 
         with ui.element("div").classes("manager-attention w-full mt-2"):
             ui.icon("error_outline").classes("manager-attention-icon")

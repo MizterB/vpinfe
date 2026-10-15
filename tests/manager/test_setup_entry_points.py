@@ -13,9 +13,10 @@ from nicegui import core, ui
 
 from common.config.config_store import ConfigStore
 from common.devices import install_setup
-from manager import page, settings
+from manager import page
 from manager import setup as setup_page
 from manager.kit import panel
+from manager.settings import settings
 from tests.support.clicks import said
 from tests.support.library import TempTree
 

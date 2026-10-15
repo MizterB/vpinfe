@@ -26,7 +26,7 @@ from common.i18n import t
 from manager import ext_action
 from manager.kit import offload, panel, wizard
 from manager.kit.api import ApiClient
-from manager.library_folders import IMPORTER
+from manager.settings.library_folders import IMPORTER
 
 logger = logging.getLogger("vpinfe.manager.setup_tables")
 

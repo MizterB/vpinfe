@@ -9,9 +9,10 @@ from typing import Any
 from nicegui import ui
 
 from common.security import accepted
-from manager import community, ext_groups, ext_mark, ext_page, ext_verbs, needs, sections
+from manager import community, ext_groups, ext_mark, ext_page, ext_verbs, needs
 from manager import page as app_page
 from manager.kit import panel
+from manager.settings import sections
 from manager.workbench import core, rail
 
 _PAGE = ui.element()

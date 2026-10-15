@@ -24,8 +24,8 @@ from common.games.info_maintenance import upgrade_library
 from common.games.unreadable import UnreadableGame
 from common.i18n import t
 from common.runtime import jobs as job_registry
-from manager import sections
 from manager.kit.data import Library
+from manager.settings import sections
 from tests.support import lines
 from tests.support.library import game_info, write_game
 from tests.support.skips import needs_posix_permissions

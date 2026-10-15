@@ -92,15 +92,15 @@ BASELINE: dict[str, int] = {
     "manager/library/assets.py": 2,
     "manager/kit/data.py": 1,
     # The DMD panel's kinds are the names the plugin's keys take.
-    "manager/dmd_panel.py": 1,
+    "manager/settings/dmd_panel.py": 1,
     "manager/kit/game_tables.py": 1,
     "manager/library/games.py": 9,
     "manager/library/media.py": 1,
     "manager/kit/media_ownership.py": 2,
     "manager/library/mediasource.py": 2,
-    "manager/sections.py": 2,
+    "manager/settings/sections.py": 2,
     # Both lines are the VPX Mobile page id and its note key. They go when the page does.
-    "manager/settings.py": 2,
+    "manager/settings/settings.py": 2,
     # Setup's Visual Pinball step: the walk's three pages and the session that holds them,
     # and the Screens answer handed to the launcher it makes.
     "manager/setup.py": 14,
@@ -109,11 +109,11 @@ BASELINE: dict[str, int] = {
     "manager/kit/table_features.py": 1,
     "manager/kit/appearance.py": 2,
     # The Displays page of a Visual Pinball launcher: the file's keys are its subject.
-    "manager/vpx_displays.py": 12,
+    "manager/settings/vpx_displays.py": 12,
     # Where the program is on this machine: the names its builds go by are the subject.
-    "manager/vpx_find.py": 11,
+    "manager/settings/vpx_find.py": 11,
     # The Input page of a Visual Pinball launcher: the file's keys are its subject.
-    "manager/vpx_input.py": 9,
+    "manager/settings/vpx_input.py": 9,
     "manager/library/file_acts.py": 1,
     "manager/workbench/core.py": 1,
     "manager/workbench/file.py": 1,

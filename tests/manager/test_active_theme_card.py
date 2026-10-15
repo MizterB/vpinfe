@@ -7,8 +7,9 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 from common.config import config_schema
-from manager import settings, theme_card, themes
+from manager import theme_card, themes
 from manager.kit import offload, thumbnails
+from manager.settings import settings
 
 THEME = {"key": "neon", "name": "Neon", "author": "someone", "installed_version": "1.2",
          "version": "1.2", "preview": "/themes/neon/preview.png", "preview_version": "ab12",

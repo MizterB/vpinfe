@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from nicegui import run
 
 from common.i18n import t
-from manager import dof
+from manager.settings import dof
 from manager.workbench import core, game_table
 from tests.support.workbench_patch import patch_workbench
 

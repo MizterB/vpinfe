@@ -17,9 +17,9 @@ from nicegui import ui
 from common.config import path_state
 from common.devices import install_identity
 from common.games import library_folders as model
-from manager import folders
-from manager import settings as settings_page
 from manager.kit import offload, panel
+from manager.settings import folders
+from manager.settings import settings as settings_page
 from tests.support.clicks import press
 
 # Made at import, outside any task, where NiceGUI still hands out the script's own page.

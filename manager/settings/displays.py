@@ -11,11 +11,11 @@ from nicegui import run, ui
 from common.devices import device_client
 from common.failures import why
 from common.i18n import t
-from manager import screens
-from manager import screens_picture as picture
 from manager.kit import panel
 from manager.kit.on_page import on_page
-from manager.screens import Screen
+from manager.settings import screens
+from manager.settings import screens_picture as picture
+from manager.settings.screens import Screen
 
 KEY = "hardware.displays"
 

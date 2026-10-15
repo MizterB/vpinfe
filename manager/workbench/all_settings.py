@@ -19,11 +19,11 @@ from common.config import path_state
 from common.failures import why
 from common.i18n import t
 from manager import launchers as launchers_page
-from manager import screens, vpx_displays, vpx_input
-from manager import settings as settings_page
 from manager.kit import confirm, deeplink, dropdown, offload, panel, verbs
 from manager.kit.data import Library
 from manager.kit.on_page import on_page
+from manager.settings import screens, vpx_displays, vpx_input
+from manager.settings import settings as settings_page
 from manager.workbench.core import (
     _FOCUSED_SETTING,
     _REFOCUS_IN_PLACE,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from manager import settings
+from manager.settings import settings
 from tests.support.catalogs import served
 
 ABLE = {"available": True, "via": "wtype", "reason": None}

@@ -25,17 +25,11 @@ from common.devices import install_setup, serving
 from common.games import launchers as launcher_model
 from common.host import addresses
 from common.i18n import t
-from manager import (
-    screens,
-    setup_appearance,
-    setup_controls,
-    setup_screens,
-    setup_tables,
-    setup_vpx,
-)
+from manager import setup_appearance, setup_controls, setup_screens, setup_tables, setup_vpx
 from manager.kit import deeplink, offload, wizard
 from manager.kit.api import ApiClient
 from manager.kit.on_page import on_page
+from manager.settings import screens
 
 logger = logging.getLogger("vpinfe.manager.setup")
 

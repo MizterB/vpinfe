@@ -14,7 +14,7 @@ from nicegui import run, ui
 from common.devices import install_identity
 from common.failures import why
 from common.i18n import t
-from manager import backup_rows, community, dof, ext_groups
+from manager import backup_rows, community, ext_groups
 from manager.kit import (
     confirm,
     deeplink,
@@ -32,6 +32,7 @@ from manager.kit import dialog as frame
 from manager.kit.data import Library, tag_source
 from manager.kit.on_page import on_page
 from manager.library import collection_adds, file_acts, mediamap, mediasource, vps_match
+from manager.settings import dof
 from manager.workbench.core import (
     _KEEP_SCROLL,
     FULL,

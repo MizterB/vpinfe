@@ -26,18 +26,15 @@ from manager import (
     ext_links,
     ext_mark,
     ext_pages,
-    folders,
     job_report,
     jobs_list,
     needs,
     power,
     rail_marks,
     remote,
-    sections,
     security,
     sign_in_notice,
     theme_sources,
-    waiting,
 )
 from manager import backups as backups_page
 from manager import community as community_page
@@ -47,7 +44,6 @@ from manager import launchers as launchers_page
 from manager import logs as logs_page
 from manager import metrics as metrics_page
 from manager import players as players_page
-from manager import settings as settings_page
 from manager import setup as setup_page
 from manager import themes as themes_page
 from manager import whats_new as whats_new_page
@@ -82,7 +78,9 @@ from manager.library import (
 )
 from manager.library import media as media_page
 from manager.library import record as recorder
-from manager.library_folders import KIND_IMPORT, hold_library
+from manager.settings import folders, sections, waiting
+from manager.settings import settings as settings_page
+from manager.settings.library_folders import KIND_IMPORT, hold_library
 from manager.workbench import builds, core, game_guides, game_table, rail
 from manager.workbench import collection as wb_collection
 

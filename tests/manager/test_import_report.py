@@ -10,9 +10,9 @@ from unittest.mock import AsyncMock, Mock, patch
 
 from nicegui import ui
 
-from manager import library_folders
 from manager.kit import offload, report_groups, wizard
 from manager.library import import_report
+from manager.settings import library_folders
 
 JOB = "7f3a"
 

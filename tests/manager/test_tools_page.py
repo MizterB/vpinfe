@@ -17,9 +17,9 @@ import httpapi
 from common.config import paths
 from common.host import tools, vpinos
 from common.i18n import t
-from manager import settings
 from manager.kit import panel
 from manager.kit.data import Library
+from manager.settings import settings
 
 PAGE = next(page for _group, pages in settings.DEVICE_INDEX for page in pages
             if page[0] == "vpinfe.tools")

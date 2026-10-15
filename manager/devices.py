@@ -15,7 +15,7 @@ from common.devices import device_client, device_registry, install_identity
 from common.host import action_ops, addresses
 from common.i18n import t
 from common.runtime import lifecycle
-from manager import mobile_add, pairing, send_to_device
+from manager import browser_state, mobile_add, pairing, send_to_device
 from manager.kit import (
     confirm,
     game_tables,
@@ -30,9 +30,7 @@ from manager.kit import (
 )
 from manager.kit.api import ApiClient, ApiError
 from manager.kit.on_page import on_page
-
-from . import browser_state
-from . import settings as settings_page
+from manager.settings import settings as settings_page
 
 logger = logging.getLogger("vpinfe.manager.devices")
 

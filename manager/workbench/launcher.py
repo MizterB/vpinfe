@@ -13,12 +13,12 @@ from common import tokens
 from common.failures import why
 from common.i18n import t
 from manager import backup_rows
-from manager import commands as commands_help
 from manager import launchers as launchers_page
-from manager import settings as settings_page
 from manager.kit import deeplink, game_tables, offload, panel, table_features
 from manager.kit.data import Library
 from manager.kit.on_page import on_page
+from manager.settings import commands as commands_help
+from manager.settings import settings as settings_page
 from manager.workbench.all_settings import (
     CAME_FROM,
     COMMANDS_FROM,

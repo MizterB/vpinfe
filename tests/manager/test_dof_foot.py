@@ -7,9 +7,9 @@ from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from common.i18n import t
-from manager import dof, settings
 from manager.kit import offload
 from manager.library import record
+from manager.settings import dof, settings
 
 
 class Library:

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import unittest
 
-from manager.settings import value_for
+from manager.settings.settings import value_for
 
 CHOICE = {"type": "choice", "choices": {"0": "Disabled", "1": "Floating"},
           "default": "0"}

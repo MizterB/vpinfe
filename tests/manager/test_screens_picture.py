@@ -10,8 +10,8 @@ from unittest.mock import AsyncMock
 from nicegui import ui
 
 from common.i18n import t
-from manager import screens_picture as picture
-from manager.screens import Screen
+from manager.settings import screens_picture as picture
+from manager.settings.screens import Screen
 from tests.support.clicks import press
 
 BIG = Screen(1, "Dell P2419H", 2560, 1440, 0, 0)

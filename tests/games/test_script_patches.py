@@ -15,7 +15,7 @@ from typing import cast
 
 from common.games import standalone_scripts as scripts
 from common.games.game import Game
-from manager import sections
+from manager.settings import sections
 
 HASHES = [{"sha256": "aaa", "file": "Alpha.vbs",
            "patched": {"url": "https://example.invalid/Alpha.vbs"}}]

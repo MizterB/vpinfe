@@ -13,8 +13,8 @@ from common.config import path_state
 from common.devices import install_identity
 from common.settings import feature_checks
 from manager import needs, page
-from manager import settings as settings_page
 from manager.kit import appearance, deeplink, panel
+from manager.settings import settings as settings_page
 
 
 def _rail(features) -> list[str]:

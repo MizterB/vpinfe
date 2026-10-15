@@ -11,8 +11,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from nicegui import ui
 
 from common.i18n import t
-from manager import binding_table as table
-from manager.binding_table import Row, Table
+from manager.settings import binding_table as table
+from manager.settings.binding_table import Row, Table
 from tests.support.clicks import press, said
 
 ROWS = (

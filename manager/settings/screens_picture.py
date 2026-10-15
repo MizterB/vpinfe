@@ -19,7 +19,7 @@ from nicegui import ui
 from common.i18n import t
 from manager.kit import panel, verbs
 from manager.kit.on_page import on_page
-from manager.screens import Screen
+from manager.settings.screens import Screen
 
 BACKGLASS = "backglass"
 SCOREVIEW = "scoreview"

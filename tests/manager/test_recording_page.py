@@ -16,9 +16,9 @@ from common.capture import adapters, commands, preflight
 from common.config import config_schema, paths
 from common.host import tools
 from common.i18n import t
-from manager import recording, settings
 from manager.kit import panel
 from manager.kit.data import Library
+from manager.settings import recording, settings
 from tests.capture.test_preflight import report
 
 PAGE = next(page for _group, pages in settings.DEVICE_INDEX for page in pages

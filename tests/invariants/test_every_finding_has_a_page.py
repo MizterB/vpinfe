@@ -8,7 +8,8 @@ from configparser import ConfigParser
 
 from common.devices import install_identity
 from common.settings import feature_checks
-from manager import page, settings
+from manager import page
+from manager.settings import settings
 
 
 def _findings(on: list[str]) -> list[feature_checks.Unmet]:

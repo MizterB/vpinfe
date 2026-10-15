@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 
 from common.apps.contract import Field
-from manager.settings import range_words
+from manager.settings.settings import range_words
 from manager.workbench.all_settings import _as_option
 
 

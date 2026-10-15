@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from common.config import path_state, paths
 from common.settings import config_service
-from manager import settings
+from manager.settings import settings
 
 CHECKS = [{"section": "backups", "key": "folder", "state": "unset", "default": "/cfg/backups"},
           {"section": "tools", "key": "rar_path", "state": "unset", "default": ""}]

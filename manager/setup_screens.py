@@ -17,11 +17,11 @@ from nicegui import run, ui
 from common.failures import why
 from common.host import display_service
 from common.i18n import t
-from manager import displays, dmd_panel, placement_panel, screens, vpx_displays
 from manager.kit import busy, offload, panel
 from manager.kit.api import ApiClient
 from manager.kit.data import Library
 from manager.kit.on_page import on_page
+from manager.settings import displays, dmd_panel, placement_panel, screens, vpx_displays
 from manager.setup_vpx import Vpx
 
 logger = logging.getLogger("vpinfe.manager.setup_screens")

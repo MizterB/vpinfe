@@ -23,7 +23,7 @@ from nicegui import run, ui
 from common.failures import why
 from common.i18n import t
 from common.security import accepted
-from manager import accept, backup_rows, settings, theme_card, theme_sources
+from manager import accept, backup_rows, theme_card, theme_sources
 from manager.kit import (
     art,
     busy,
@@ -40,6 +40,7 @@ from manager.kit import (
 from manager.kit.data import Library
 from manager.kit.on_page import on_page
 from manager.library import mediaview
+from manager.settings import settings
 
 logger = logging.getLogger("vpinfe.manager.themes")
 

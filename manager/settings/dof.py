@@ -82,7 +82,7 @@ class Tester:
                 ui.label(reason).classes("manager-help")
 
     def _no_boards(self) -> None:
-        from manager.settings import address_for
+        from manager.settings.settings import address_for
 
         ui.label(t("manager.dof.no_boards")).classes("manager-help")
         if not self.on_dof_page:
@@ -154,7 +154,7 @@ async def foot(library: Any, rerender: Any, **_: Any) -> list[tuple[Any, Any]]:
 
 async def _download_row(library: Any, rerender: Any) -> tuple[Any, Any]:
     """Dimmed, with the reason, while there is no API key to ask with."""
-    from manager.settings import last_checked
+    from manager.settings.settings import last_checked
 
     try:
         state = await offload.io(library.dof_config_state)

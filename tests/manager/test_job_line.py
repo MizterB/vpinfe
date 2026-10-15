@@ -7,8 +7,8 @@ import unittest
 from common.capture import run
 from common.runtime.jobs import KIND_LIBRARY_SCAN, KIND_MEDIA_FILL
 from manager.library import record
-from manager.library_folders import KIND_IMPORT
 from manager.page import failed_since, imports_ended_since, list_is_idle, reads_ended_since
+from manager.settings.library_folders import KIND_IMPORT
 
 OPENED = 1000.0
 

@@ -20,10 +20,11 @@ from nicegui import run
 from common import i18n
 from common.config import path_state
 from common.i18n import t
-from manager import launchers, page, settings
-from manager import settings as settings_page
+from manager import launchers, page
 from manager.kit import data, deeplink, offload, panel, renderers, verbs
 from manager.library import games
+from manager.settings import settings
+from manager.settings import settings as settings_page
 from manager.workbench import all_settings, app_settings, rail
 from manager.workbench import file as wb_file
 from manager.workbench import launcher as wb_launcher

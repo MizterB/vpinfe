@@ -9,7 +9,7 @@ from unittest import mock
 from nicegui import ui
 
 from common.i18n import t
-from manager import sections
+from manager.settings import sections
 
 OFFERED = {"reachable": True, "offered": ["Sample Game (Original 2024)"], "checked": 1,
            "already": 0}

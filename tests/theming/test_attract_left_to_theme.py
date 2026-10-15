@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from common.online import theme_service
-from manager import attract
+from manager.settings import attract
 
 
 def _theme(root: Path, name: str, *, min_vpinfe: str | None, config: dict | None = None) -> None:

@@ -275,7 +275,7 @@ class ManagerReadsOffTheLoop(unittest.TestCase):
 
     def test_the_check_follows_a_call_into_another_module(self) -> None:
         page = (
-            "from manager import sections as parts\n"
+            "from manager.settings import sections as parts\n"
             "from .media import build\n"
             "async def show(library):\n"
             "    parts.overview(library)\n"

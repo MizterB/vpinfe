@@ -36,26 +36,14 @@ from common.media.media_specs import media_label_map
 from common.online import theme_source_checks as online_checks
 from common.settings import feature_checks
 from manager import (
-    attract,
     backups_move,
-    binding_table,
     browser_state,
-    chrome_options,
-    displays,
-    dof,
     ext_page,
-    folders,
-    input_page,
     needs,
-    placement_panel,
-    recording,
-    screens,
     security,
     theme_card,
     theme_sources,
-    vpx_displays,
 )
-from manager import commands as commands_help
 from manager import setup as setup_page
 from manager.kit import (
     appearance_picker,
@@ -71,8 +59,22 @@ from manager.kit import (
 )
 from manager.kit.data import Library
 from manager.kit.on_page import on_page
+from manager.settings import (
+    attract,
+    binding_table,
+    chrome_options,
+    displays,
+    dof,
+    folders,
+    input_page,
+    placement_panel,
+    recording,
+    screens,
+    vpx_displays,
+)
+from manager.settings import commands as commands_help
 
-logger = logging.getLogger("vpinfe.manager.settings")
+logger = logging.getLogger("vpinfe.manager.settings.settings")
 
 # Wider than the pane's rail: these are page names rather than section names, and
 # "Virtual Pinball Spreadsheet" ellipses at the pane's width.
@@ -942,7 +944,7 @@ TWO_COLUMNS = frozenset({"media_kinds", "asset_kinds"})
 
 
 def _check_labels() -> dict[str, str]:
-    from manager.sections import CHECKS
+    from manager.settings.sections import CHECKS
     return {**{key: name for key, name, _description, _predicate in CHECKS},
             "unreadable": needs.name_of("unreadable"), "newer": needs.name_of("newer"),
             "script_fixes": needs.name_of("script_fixes")}
@@ -973,7 +975,7 @@ async def _folders_page(library: Library, redraw: Callable[[], None],
 async def _metadata_page(library: Library, redraw: Callable[[], None],
                          state: dict[str, Any]) -> Callable[[], None]:
     """Whether the library's metadata files read and are current."""
-    from manager import sections
+    from manager.settings import sections
     await offload.io(library.read_metadata_state)
     return lambda: sections.metadata_page(library, state, redraw)
 

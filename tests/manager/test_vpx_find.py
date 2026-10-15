@@ -10,7 +10,7 @@ from contextlib import closing
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from manager import vpx_find
+from manager.settings import vpx_find
 
 
 def _touch(path: Path, *, when: float | None = None) -> Path:

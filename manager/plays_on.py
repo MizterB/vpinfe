@@ -13,8 +13,8 @@ from typing import Any
 
 from common.host import frontend_browser
 from common.i18n import t
-from manager import settings
 from manager.devices import device_label
+from manager.settings import settings
 
 _NAMES = {one.id: one.name for one in frontend_browser.FORMATS}
 _VIDEO = {one.id for one in frontend_browser.FORMATS if one.kind == frontend_browser.VIDEO}

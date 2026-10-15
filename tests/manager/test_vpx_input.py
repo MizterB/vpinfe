@@ -16,7 +16,7 @@ from apps.vpx import areas, bindings
 from apps.vpx.config import VPXConfig
 from common.apps.contract import SCOPE_LAUNCHER
 from common.i18n import t
-from manager import vpx_input
+from manager.settings import vpx_input
 from manager.workbench import all_settings
 from tests.support.clicks import press
 

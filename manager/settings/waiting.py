@@ -25,7 +25,7 @@ from manager.kit.api import ApiClient
 from manager.kit.data import Library
 from manager.kit.on_page import on_page
 
-logger = logging.getLogger("vpinfe.manager.waiting")
+logger = logging.getLogger("vpinfe.manager.settings.waiting")
 
 POLL_S = 3.0
 REMEMBERED = "waiting.dismissed"

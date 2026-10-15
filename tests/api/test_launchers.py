@@ -24,9 +24,9 @@ import httpapi
 from common import service_errors
 from common.games import launchers
 from common.runtime import jobs
-from manager import settings as settings_page
 from manager.kit import data, panel
 from manager.kit.api import ApiClient
+from manager.settings import settings as settings_page
 from manager.workbench import all_settings, app_settings
 from manager.workbench import file as wb_file
 from tests.support.launchers_api import delete_launcher, put_launcher

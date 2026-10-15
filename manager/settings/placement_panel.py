@@ -24,12 +24,12 @@ from common.failures import why
 from common.host import display_service, placement
 from common.i18n import t
 from frontend import theme_windows
-from manager.displays import Write, stored
 from manager.kit import clipboard, offload, panel
 from manager.kit import dialog as frame
 from manager.kit.on_page import on_page
+from manager.settings.displays import Write, stored
 
-logger = logging.getLogger("vpinfe.manager.placement_panel")
+logger = logging.getLogger("vpinfe.manager.settings.placement_panel")
 
 XWAYLAND_FLAG = "--ozone-platform=x11"
 

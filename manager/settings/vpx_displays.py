@@ -22,12 +22,12 @@ from common.devices import device_client
 from common.failures import why
 from common.host import display_service
 from common.i18n import t
-from manager import displays, screens
-from manager import screens_picture as picture
 from manager.kit import offload, panel, units
 from manager.kit.data import config_groups
 from manager.kit.on_page import on_page
-from manager.screens import Screen
+from manager.settings import displays, screens
+from manager.settings import screens_picture as picture
+from manager.settings.screens import Screen
 
 logger = logging.getLogger(__name__)
 

@@ -9,10 +9,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from common.config import path_state
 from common.settings import config_service
-from manager import folders
-from manager import settings as settings_page
 from manager.kit import offload, panel
-from manager.settings import settings_here
+from manager.settings import folders
+from manager.settings import settings as settings_page
+from manager.settings.settings import settings_here
 
 
 class HomeTests(unittest.TestCase):

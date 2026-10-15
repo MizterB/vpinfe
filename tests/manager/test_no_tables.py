@@ -9,9 +9,10 @@ from unittest import mock
 from nicegui import ui
 
 from common.i18n import t
-from manager import needs, sections
+from manager import needs
 from manager.kit import views
 from manager.library import games
+from manager.settings import sections
 
 
 def _game(game_id: str, **rest):

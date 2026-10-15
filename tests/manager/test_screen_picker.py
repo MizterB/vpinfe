@@ -13,9 +13,9 @@ from common.host import display_service
 from common.i18n import t
 from common.settings import config_service
 from frontend.chromium_manager import MonitorInfo
-from manager import screens, settings
-from manager import settings as settings_page
 from manager.kit import panel
+from manager.settings import screens, settings
+from manager.settings import settings as settings_page
 from manager.workbench import all_settings
 from tests.support.workbench_patch import patch_workbench
 

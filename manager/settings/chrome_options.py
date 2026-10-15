@@ -20,7 +20,7 @@ from common.i18n import t
 from common.values import is_truthy
 from manager.kit import clipboard, panel, remembered
 
-logger = logging.getLogger("vpinfe.manager.chrome_options")
+logger = logging.getLogger("vpinfe.manager.settings.chrome_options")
 
 SECTION = "chromium"
 ADD = "options"

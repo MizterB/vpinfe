@@ -9,8 +9,8 @@ from unittest.mock import AsyncMock, Mock, patch
 from nicegui import run
 
 from manager import launchers
-from manager import settings as settings_page
 from manager.kit import panel
+from manager.settings import settings as settings_page
 from manager.workbench import launcher
 from tests.support.clicks import press
 from tests.support.workbench_patch import patch_workbench

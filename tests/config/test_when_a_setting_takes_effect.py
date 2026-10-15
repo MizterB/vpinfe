@@ -13,8 +13,8 @@ from common.config import config_schema
 from common.host import launch_state, peripherals, real_dmd
 from common.i18n import t
 from common.settings import config_service
-from manager import settings as settings_page
 from manager.kit import panel
+from manager.settings import settings as settings_page
 
 _STORE: Any = "store"
 

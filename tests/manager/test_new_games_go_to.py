@@ -6,7 +6,7 @@ from __future__ import annotations
 import unittest
 
 from common.settings import config_service
-from manager.settings import settings_here
+from manager.settings.settings import settings_here
 
 
 class HomeTests(unittest.TestCase):

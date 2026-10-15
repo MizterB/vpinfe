@@ -11,8 +11,8 @@ from unittest.mock import AsyncMock, Mock, patch
 from common.config import config_schema
 from common.i18n import t
 from common.settings import config_service
-from manager import settings
 from manager.kit import panel
+from manager.settings import settings
 
 KINDS = ("wheel", "backglass", "playfield", "logo")
 MANAGER = ("manager",)

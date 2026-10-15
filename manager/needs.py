@@ -215,8 +215,8 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
     not draw."""
     # Not at import: `sections` draws these rows, and the grid module draws the metadata
     # line from `sections`.
-    from manager import sections
     from manager.library import games
+    from manager.settings import sections
 
     hidden = library.stopped()
     found = sections.findings(library)
@@ -364,7 +364,7 @@ def blind(library: Any) -> set[str]:
     """The rows that are absent because nothing could be counted, not because nothing is
     wrong: no VPX to audit roms against, no catalog to compare versions with, a kind of
     media the library does not collect."""
-    from manager import sections
+    from manager.settings import sections
 
     rows = library.table_rows()
     out: set[str] = set()
@@ -385,7 +385,7 @@ def blind(library: Any) -> set[str]:
 def name_of(key: str) -> str:
     """What a row is called while it is not drawn as one: in Set Aside, on the Audit page
     and beside its switch. The row itself may carry more, like the version."""
-    from manager import sections
+    from manager.settings import sections
 
     checks = {one[0]: one[1] for one in sections.CHECKS}
     if key in checks:
