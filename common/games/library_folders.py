@@ -424,7 +424,7 @@ def portable_reference(game_dir: str, target: str) -> str:
     home = path_state.canonical(game_dir)
     if not wanted or not home:
         return stored_reference(target)
-    for location in configured():
+    for location in answering():
         root = path_state.canonical(location.path)
         if not root:
             continue
@@ -448,6 +448,15 @@ def inside(root: str, path: str) -> bool:
 def configured() -> list[Location]:
     """Every location the scan walks."""
     return get_location_store().locations()
+
+
+def answering() -> list[Location]:
+    """The configured locations that answered a look in time. A caller that resolves or
+    lists each location's path takes these: doing so on one that did not answer never
+    returns."""
+    held = configured()
+    answers = path_state.look_all([path_state.Ask(one.path) for one in held])
+    return [one for one, answer in zip(held, answers, strict=True) if answer.reachable]
 
 
 def seed(store: Any) -> None:

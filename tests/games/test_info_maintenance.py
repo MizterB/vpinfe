@@ -12,6 +12,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from common import path_state
 from common.games.collection_store import CollectionStore, restorable_collections_backup
 from common.games.game_parser import GameParser
 from common.games.info_maintenance import (
@@ -22,6 +23,7 @@ from common.games.info_maintenance import (
 )
 from common.games.info_migration import INFO_SCHEMA, backup_schema, schema_of
 from common.games.library_folders import KIND_GAME, Location
+from tests.support.hung_folder import never_answering
 from tests.support.library import TempTree, write_game
 
 LEGACY = {
@@ -295,6 +297,17 @@ class WalkTests(LibraryTestCase):
     def test_with_no_root_it_walks_every_library_folder(self):
         with self._library():
             self.assertEqual([d.name for d in game_dirs()], ["Dr. Dude", "Taxi", "Whirlwind"])
+
+    def test_a_library_folder_that_does_not_answer_is_left_out_not_waited_for(self):
+        with self._library(), patch.object(path_state, "PROBE_SECONDS", 0.5), \
+                never_answering(str(self.root / "first")):
+            self.assertEqual([d.name for d in game_dirs()], ["Taxi", "Whirlwind"])
+
+    def test_a_root_that_does_not_answer_lists_nothing(self):
+        write_game(self.root / "first", "Dr. Dude", info=LEGACY)
+        with patch.object(path_state, "PROBE_SECONDS", 0.5), \
+                never_answering(str(self.root / "first")):
+            self.assertEqual(game_dirs(self.root / "first"), [])
 
     def test_one_game_is_found_in_whichever_library_folder_holds_it(self):
         with self._library():

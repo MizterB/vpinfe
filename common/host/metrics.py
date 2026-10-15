@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from common import events
+from common import events, path_state
 from common.host import graphics
 from common.i18n import t
 
@@ -220,8 +220,12 @@ def _disks(paths: Iterable[str]) -> list[dict[str, Any]]:
     """
     found: list[dict[str, Any]] = []
     seen: dict[Any, dict[str, Any]] = {}
-    for path in paths:
-        entry = _disk(path)
+    held = list(paths)
+    # All asked at once, each bounded: `disk_usage` on a share that has gone blocks with
+    # no limit of its own.
+    answers = path_state.look_all([path_state.Ask(str(one)) for one in held])
+    for path, answer in zip(held, answers, strict=True):
+        entry = _disk(path, answer)
         key = entry.pop("device", None)
         if key is not None and key in seen:
             # Named on the row that is already there, so somebody looking for the
@@ -235,11 +239,15 @@ def _disks(paths: Iterable[str]) -> list[dict[str, Any]]:
     return found
 
 
-def _disk(path: str) -> dict[str, Any]:
+def _disk(path: str, answer: path_state.PathState) -> dict[str, Any]:
     """One monitored path. Per path rather than per filesystem: a person watches the
-    place their tables live, and which device that is on is not the question."""
+    place their tables live, and which device that is on is not the question. Touches the
+    path only where `answer`, the bounded look at it, found it there."""
     entry: dict[str, Any] = {"path": str(path), "total": None, "used": None,
                              "free": None, "percent": None, "error": "", "device": None}
+    if not answer.reachable:
+        entry["error"] = t("error.metrics.path_unreadable")
+        return entry
     try:
         found = Path(path).expanduser()
         total, used, free = shutil.disk_usage(found)

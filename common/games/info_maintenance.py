@@ -11,6 +11,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TypedDict
 
+from common import path_state
 from common.failures import why
 from common.games import library_folders
 from common.games.collection_store import restorable_collections_backup
@@ -58,18 +59,26 @@ class RestoreResult(TypedDict):
 def game_dirs(game_root: str | Path | None = None,
               game_name: str | None = None) -> list[Path]:
     """Game folders under the root, or in every library folder when given none. Not
-    load_games: that raises on the first bad `.info`."""
+    load_games: that raises on the first bad `.info`. A folder that does not answer is left
+    out rather than waited for: listing one on a dead mount never returns."""
     if game_root is None:
         found: list[Path] = []
-        for location in library_folders.configured():
+        for location in library_folders.answering():
             if location.kind != library_folders.KIND_GAME:
-                found += game_dirs(location.path, game_name)
+                found += _children(Path(location.path), game_name)
                 continue
             folder = Path(location.path)
             if folder.is_dir() and game_name in (None, "", folder.name):
                 found.append(folder)
         return found
     root = Path(game_root)
+    if not path_state.look(str(root)).reachable:
+        return []
+    return _children(root, game_name)
+
+
+def _children(root: Path, game_name: str | None) -> list[Path]:
+    """The game folders in a root that has answered."""
     if not root.is_dir():
         return []
     if game_name:

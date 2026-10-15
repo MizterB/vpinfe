@@ -148,15 +148,19 @@ def _written_by_info(path: Path) -> str:
 
 def _is_game_folder(folder: Path) -> bool:
     """Whether a folder is one the library reads, so a copy is only ever taken to be a
-    game's when it sits in one."""
+    game's when it sits in one. A path is resolved only after it has answered: resolving
+    one on a dead mount never returns."""
+    if not path_state.look(str(folder)).reachable:
+        return False
     wanted = path_state.canonical(str(folder))
-    for location in library_folders.configured():
+    parent = path_state.canonical(str(folder.parent))
+    for location in library_folders.answering():
         held = path_state.canonical(location.path)
-        if location.kind == library_folders.KIND_GAME and held == wanted:
+        if location.kind == library_folders.KIND_GAME:
+            if held == wanted:
+                return True
+        elif held == parent and not folder.name.startswith("."):
             return True
-        if location.kind != library_folders.KIND_GAME and held == path_state.canonical(
-                str(folder.parent)):
-            return folder.is_dir() and not folder.name.startswith(".")
     return False
 
 

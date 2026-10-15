@@ -5,8 +5,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from common import events, jobs
+from common import events, jobs, path_state
 from common.host import metrics
+from tests.support.hung_folder import never_answering
 
 
 class OneSampleTests(unittest.TestCase):
@@ -57,6 +58,20 @@ class OneSampleTests(unittest.TestCase):
         self.assertEqual(len(found["disks"]), 1)
         self.assertEqual(self.cpu.call_count, 1)
         self.assertEqual(metrics.psutil.process_iter.call_count, 1)
+
+    def test_a_volume_that_does_not_answer_is_reported_unreadable_without_being_waited_on(
+            self) -> None:
+        here = str(Path(__file__).parent)
+        gone = str(Path(__file__).parent.parent)
+        with mock.patch.object(path_state, "PROBE_SECONDS", 0.5), never_answering(gone), \
+                mock.patch.object(metrics.shutil, "disk_usage",
+                                  return_value=(10, 4, 6)) as asked:
+            found = metrics.sample([here, gone])
+        rows = {one["path"]: one for one in found["disks"]}
+        self.assertEqual(rows[here]["free"], 6)
+        self.assertTrue(rows[gone]["error"])
+        self.assertIsNone(rows[gone]["free"])
+        self.assertEqual([call.args[0] for call in asked.call_args_list], [Path(here)])
 
     def test_the_sample_carries_the_temperature_and_the_busiest_programs(self) -> None:
         metrics.psutil.sensors_temperatures.return_value = {"coretemp": [_reading("Package", 60)]}

@@ -254,7 +254,7 @@ def delete_from_disk(game_id: str) -> dict:
                                   and running.game_name == game.game_dir_name)):
         raise service_errors.BlockedError(t("error.games.delete_running"),
                                           details={"path": str(folder)})
-    for place in library_folders.configured():
+    for place in library_folders.answering():
         held = path_state.canonical(place.path)
         if library_folders.inside(wanted, held):
             raise service_errors.RefusedError(t("error.games.delete_location"),
