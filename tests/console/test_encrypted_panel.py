@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import unittest
 from typing import Any
 from unittest import mock
@@ -11,7 +12,8 @@ from nicegui import ui
 
 from common.i18n import t
 from console import encrypted_panel, panel
-from tests.support.clicks import said as said_to
+from console.api import ApiError
+from tests.support.clicks import press
 
 # Made at import, outside any task, where NiceGUI still hands out the script's own page.
 _PAGE = ui.element()
@@ -192,19 +194,35 @@ class TheAddDialog(unittest.TestCase):
         patcher = mock.patch.object(ui, "run_javascript")
         patcher.start()
         self.addCleanup(patcher.stop)
+        self.keep: Any = None
+        answer = encrypted_panel.frame.answer
 
-    def _opened(self, act: Any) -> Any:
+        def answering(label: str, on_click: Any, **kwargs: Any) -> ui.button:
+            self.keep = on_click
+            return answer(label, on_click, **kwargs)
+
+        answering_patch = mock.patch.object(encrypted_panel.frame, "answer", answering)
+        answering_patch.start()
+        self.addCleanup(answering_patch.stop)
+
+    def _opened(self, act: Any, add: Any = None) -> Any:
+        async def accepted(text: str) -> None:
+            return None
+
         async def run() -> Any:
             async def ask() -> Any:
                 with _PAGE:
-                    return await encrypted_panel._ask_entry("Add", "Address", "such as 10.0.0.1")
+                    return await encrypted_panel._ask_entry(
+                        "Add", "Address", "such as 10.0.0.1", add or accepted)
 
             was = set(_the(ui.dialog, _PAGE.client.layout))
             asking = asyncio.create_task(ask())
             await asyncio.sleep(0)
             box = next(one for one in _the(ui.dialog, _PAGE.client.layout)
                        if one not in was and one.value)
-            act(box)
+            done = act(box)
+            if inspect.isawaitable(done):
+                await done
             return await asking
 
         return asyncio.run(run())
@@ -230,16 +248,49 @@ class TheAddDialog(unittest.TestCase):
     def test_adding_nothing_answers_nothing_and_says_what_is_needed(self) -> None:
         seen: dict[str, Any] = {}
 
-        def act(box: ui.dialog) -> None:
-            said_to(next(one for one in _the(ui.button, box)
-                         if one.text == t("console.encrypted.add")), "click")
+        async def act(box: ui.dialog) -> None:
+            await press(self.keep)
             seen["open"] = box.value
             seen["error"] = _the(ui.input, box)[0].props.get("error-message")
             box.submit(None)
 
-        self.assertIsNone(self._opened(act))
+        self.assertFalse(self._opened(act))
         self.assertTrue(seen["open"])
         self.assertEqual(seen["error"], t("console.encrypted.needs_address"))
+
+    def test_a_refusal_stays_under_the_field_and_the_dialog_stays_open(self) -> None:
+        asked: list[str] = []
+        seen: dict[str, Any] = {}
+
+        async def refuse(text: str) -> None:
+            asked.append(text)
+            raise ApiError("That range is wider than a /24")
+
+        async def act(box: ui.dialog) -> None:
+            field = _the(ui.input, box)[0]
+            field.value = "10.0.0.0/8"
+            await press(self.keep)
+            seen["open"] = box.value
+            seen["error"] = field.props.get("error-message")
+            box.submit(None)
+
+        self.assertFalse(self._opened(act, refuse))
+        self.assertEqual(asked, ["10.0.0.0/8"])
+        self.assertTrue(seen["open"])
+        self.assertEqual(seen["error"], "That range is wider than a /24")
+
+    def test_an_entry_that_is_taken_closes_the_dialog_with_a_yes(self) -> None:
+        taken: list[str] = []
+
+        async def take(text: str) -> None:
+            taken.append(text)
+
+        async def act(box: ui.dialog) -> None:
+            _the(ui.input, box)[0].value = "  10.8.0.0/24  "
+            await press(self.keep)
+
+        self.assertTrue(self._opened(act, take))
+        self.assertEqual(taken, ["10.8.0.0/24"])
 
 
 if __name__ == "__main__":

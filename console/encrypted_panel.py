@@ -6,7 +6,7 @@ What a list does is said in the lines under its heading; the page carries no log
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from nicegui import run, ui
@@ -100,26 +100,34 @@ def entries(held: dict[str, Any], device: str, *, add_proxy: Callable[[], Any],
     return out
 
 
-async def _ask_entry(title: str, label: str, help_line: str) -> str | None:
+async def _ask_entry(title: str, label: str, help_line: str,
+                     add: Callable[[str], Awaitable[Any]]) -> bool:
+    """True once `add` took what was typed. A refusal stays under the field, with the
+    dialog open, so the entry can be corrected."""
     fields: dict[str, Any] = {}
 
-    def keep() -> None:
+    async def keep() -> None:
         text = str(fields["value"].value or "").strip()
         if not text:
             frame.said(fields["value"], t("console.encrypted.needs_address"))
             return
-        box.submit(text)
+        try:
+            await add(text)
+        except ApiError as exc:
+            frame.said(fields["value"], why(exc))
+            return
+        box.submit(True)
 
     with frame.opened(title, classes="console-confirm", ignore_outside_click=True) as box:
         panel.facts(ui, [(label, lambda: fields.update(
             value=frame.field(name=label, room=True)))])
         ui.label(help_line).classes("console-help px-3")
         with frame.footer():
-            frame.cancel(lambda: box.submit(None))
+            frame.cancel(lambda: box.submit(False))
             go = frame.answer(t("console.encrypted.add"), keep, icon=verbs.ADD)
     frame.enter_presses(go)
     frame.focus(box, fields["value"])
-    return await box or None
+    return bool(await box)
 
 
 async def _ask_certificate(library: Library, certfile: str,
@@ -175,19 +183,23 @@ def page_parts(library: Library, redraw: Callable[[], None],
 
     @on_page
     async def add_proxy() -> None:
-        address = await _ask_entry(t("console.encrypted.add_proxy_title"),
-                                   t("console.encrypted.proxy_label"),
-                                   t("console.encrypted.add_proxy_help"))
-        if address:
-            await attempt(library.add_trusted_proxy, address)
+        async def add(address: str) -> None:
+            await offload.io(library.add_trusted_proxy, address)
+
+        if await _ask_entry(t("console.encrypted.add_proxy_title"),
+                            t("console.encrypted.proxy_label"),
+                            t("console.encrypted.add_proxy_help"), add):
+            redraw()
 
     @on_page
     async def add_network() -> None:
-        text = await _ask_entry(t("console.encrypted.add_network_title"),
-                                t("console.encrypted.network_label"),
-                                t("console.encrypted.add_network_help"))
-        if text:
-            await attempt(library.add_encrypted_network, text)
+        async def add(text: str) -> None:
+            await offload.io(library.add_encrypted_network, text)
+
+        if await _ask_entry(t("console.encrypted.add_network_title"),
+                            t("console.encrypted.network_label"),
+                            t("console.encrypted.add_network_help"), add):
+            redraw()
 
     @on_page
     async def add_tailscale() -> None:

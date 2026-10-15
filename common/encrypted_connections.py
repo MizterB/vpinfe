@@ -2,7 +2,7 @@
 
 Two lists the Owner keeps. **Trusted Proxies** are single addresses of a reverse proxy: only
 a request from one has its forwarding headers believed, and one that says HTTPS counts as
-encrypted. **Encrypted Networks** are address ranges that carry traffic inside a tunnel,
+encrypted. **Trusted Networks** are address ranges that carry traffic inside a tunnel,
 judged by the connection's own address and never by a header.
 
 Kept beside the secrets, not in `vpinfe.json`, so `PUT /config`, a restore or a hand edit of
@@ -24,6 +24,10 @@ from common import machine_secrets, paths
 logger = logging.getLogger("vpinfe.common.encrypted_connections")
 
 TAILSCALE = "100.64.0.0/10"
+
+# The widest range a person may type. Tailscale's is wider and is only added by `add_tailscale`.
+WIDEST_IPV4 = 24
+WIDEST_IPV6 = 64
 
 # Why an entry was refused, for a surface to word.
 BAD_ADDRESS = "bad_address"
@@ -65,7 +69,7 @@ def _address(text: str) -> str:
     return str(found)
 
 
-def _network(text: str) -> str:
+def _network(text: str, *, any_width: bool = False) -> str:
     try:
         found = ipaddress.ip_network(text.split("%", 1)[0].strip(), strict=False)
     except ValueError as error:
@@ -73,7 +77,8 @@ def _network(text: str) -> str:
     if isinstance(found, ipaddress.IPv6Network) and found.network_address.ipv4_mapped:
         found = ipaddress.ip_network(
             f"{found.network_address.ipv4_mapped}/{max(found.prefixlen - 96, 0)}")
-    if found.prefixlen == 0:
+    widest = 1 if any_width else (WIDEST_IPV4 if found.version == 4 else WIDEST_IPV6)
+    if found.prefixlen < widest:
         raise EntryError(TOO_WIDE)
     return str(found)
 
@@ -131,7 +136,8 @@ class Connections:
         self._loaded = True
         held = machine_secrets.read_private(self._file())
         for key, check, into in (("proxies", _address, self._proxies),
-                                 ("networks", _network, self._networks)):
+                                 ("networks", lambda text: _network(text, any_width=True),
+                                  self._networks)):
             for entry in held.get(key) or []:
                 try:
                     into.append(check(str(entry)))
@@ -180,13 +186,15 @@ class Connections:
             return self._add(self._proxies, entry)
 
     def add_network(self, text: str) -> str:
-        entry = _network(text)
+        return self._add_network(_network(text))
+
+    def add_tailscale(self) -> str:
+        return self._add_network(_network(TAILSCALE, any_width=True))
+
+    def _add_network(self, entry: str) -> str:
         with self._lock:
             self._load()
             return self._add(self._networks, entry)
-
-    def add_tailscale(self) -> str:
-        return self.add_network(TAILSCALE)
 
     def _remove(self, held: list[str], entry: str) -> bool:
         if entry not in held:
@@ -205,7 +213,7 @@ class Connections:
         with self._lock:
             self._load()
             try:
-                return self._remove(self._networks, _network(text))
+                return self._remove(self._networks, _network(text, any_width=True))
             except EntryError:
                 return False
 
@@ -332,7 +340,7 @@ def said_https(peer: str | None, headers: Any) -> bool:
 
 def is_encrypted(peer: str | None, headers: Any, scheme: str = "http") -> bool:
     """Whether the request arrived inside an encrypted connection: this server's own TLS, a
-    listed proxy that says it terminated one, or a peer inside an Encrypted Network."""
+    listed proxy that says it terminated one, or a peer inside a Trusted Network."""
     if scheme == "https" or said_https(peer, headers):
         return True
     return not _instance.is_proxy(peer) and _instance.in_encrypted_network(peer)

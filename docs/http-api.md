@@ -68,7 +68,7 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/auth/encrypted` | The encrypted connections set up: `proxies`, `networks`, the `certfile` and `keyfile` chosen, whether VPinFE is answering `https` now and the `problem` when it is not, and whether this caller came `encrypted` (`access:read`) |
 | POST | `/api/v1/auth/encrypted/proxies` | `{"value"}` trusts a reverse proxy by its address. Its `X-Forwarded-For` and `X-Forwarded-Proto` are believed, and a request it says came over HTTPS counts as encrypted. `protected:write` |
 | DELETE | `/api/v1/auth/encrypted/proxies?address=` | Stop trusting that proxy. `protected:write` |
-| POST | `/api/v1/auth/encrypted/networks` | `{"value"}` adds an address range, such as `100.64.0.0/10`. A connection from inside it counts as encrypted, judged by the address it connects from and never by a header. 400 for a range that is not one or is too wide. `protected:write` |
+| POST | `/api/v1/auth/encrypted/networks` | `{"value"}` adds an address range, such as `10.8.0.0/24`. A connection from inside it counts as encrypted, judged by the address it connects from and never by a header. 400 for a range that is not one or is wider than a /24 (a /64 for IPv6). `protected:write` |
 | POST | `/api/v1/auth/encrypted/networks/tailscale` | Add Tailscale's range. `protected:write` |
 | DELETE | `/api/v1/auth/encrypted/networks?range=` | Remove that range. `protected:write` |
 | PUT | `/api/v1/auth/encrypted/certificate` | `{"certfile", "keyfile"}` chooses the certificate VPinFE serves HTTPS with, at the next start. 400 unless the two files exist and load together. `protected:write` |

@@ -121,7 +121,25 @@ class TheListsTests(ConnectionsCase):
         self.assertEqual(self.connections.networks(), [])
 
     def test_a_mapped_range_is_kept_as_the_address_range_it_means(self) -> None:
-        self.assertEqual(self.connections.add_network("::ffff:10.0.0.0/104"), "10.0.0.0/8")
+        self.assertEqual(self.connections.add_network("::ffff:10.0.0.0/120"), "10.0.0.0/24")
+
+    def test_a_typed_range_wider_than_a_subnet_is_refused(self) -> None:
+        for text in ("10.0.0.0/23", "10.0.0.0/8", "0.0.0.0/1", "2001:db8::/48", "fd00::/8",
+                     "::ffff:10.0.0.0/104"):
+            with self.subTest(text=text), self.assertRaises(Refused) as raised:
+                self.connections.add_network(text)
+            self.assertEqual(raised.exception.reason, encrypted_connections.TOO_WIDE)
+        self.assertEqual(self.connections.networks(), [])
+
+    def test_a_subnet_and_anything_narrower_is_kept(self) -> None:
+        for text in ("10.0.0.0/24", "10.0.1.0/25", "192.168.7.5", "2001:db8::/64",
+                     "2001:db8:0:1::/96"):
+            with self.subTest(text=text):
+                self.connections.add_network(text)
+
+        self.assertEqual(self.connections.networks(),
+                         ["10.0.0.0/24", "10.0.1.0/25", "192.168.7.5/32", "2001:db8::/64",
+                          "2001:db8:0:1::/96"])
 
     def test_a_range_that_is_not_one_is_refused(self) -> None:
         with self.assertRaises(encrypted_connections.EntryError) as raised:
@@ -140,6 +158,21 @@ class TheListsTests(ConnectionsCase):
         self.assertFalse(self.connections.in_encrypted_network("192.168.1.20"))
         self.assertFalse(self.connections.in_encrypted_network(None))
 
+    def test_tailscale_is_the_one_range_wider_than_a_subnet(self) -> None:
+        with self.assertRaises(Refused) as raised:
+            self.connections.add_network(encrypted_connections.TAILSCALE)
+
+        self.assertEqual(raised.exception.reason, encrypted_connections.TOO_WIDE)
+        self.assertEqual(self.connections.networks(), [])
+
+    def test_tailscale_is_removed_like_any_other_network(self) -> None:
+        self.connections.add_tailscale()
+        self.connections.add_network("10.8.0.0/24")
+
+        self.assertTrue(self.connections.remove_network(encrypted_connections.TAILSCALE))
+        self.assertEqual(self.connections.networks(), ["10.8.0.0/24"])
+        self.assertFalse(self.connections.remove_network("10.0.0.0/8"))
+
     def test_the_lists_survive_a_restart_and_come_out_in_the_same_form(self) -> None:
         self.connections.add_proxy("10.0.0.5")
         self.connections.add_network("192.168.7.9/24")
@@ -148,6 +181,17 @@ class TheListsTests(ConnectionsCase):
 
         self.assertEqual(again.proxies(), ["10.0.0.5"])
         self.assertEqual(again.networks(), ["192.168.7.0/24"])
+
+    def test_tailscale_survives_a_restart_and_the_next_save(self) -> None:
+        self.connections.add_tailscale()
+
+        again = encrypted_connections.Connections(self.root / "connections.json")
+        again.add_proxy("10.0.0.5")
+        later = encrypted_connections.Connections(self.root / "connections.json")
+
+        self.assertEqual(again.networks(), [encrypted_connections.TAILSCALE])
+        self.assertEqual(later.networks(), [encrypted_connections.TAILSCALE])
+        self.assertTrue(later.in_encrypted_network("100.100.1.1"))
 
     def test_an_entry_can_be_removed_in_any_spelling(self) -> None:
         self.connections.add_proxy("10.0.0.5")
@@ -364,6 +408,13 @@ class TheEditsAreProtectedTests(ConnectionsCase):
         response = self.call("POST", "/networks", "127.0.0.1", json={"value": "0.0.0.0/0"})
 
         self.assertEqual(response.status_code, 400)
+        self.assertEqual(self.connections.networks(), [])
+
+    def test_a_range_wider_than_a_subnet_is_refused_in_words(self) -> None:
+        response = self.call("POST", "/networks", "127.0.0.1", json={"value": "10.0.0.0/8"})
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("/24", response.json()["error"]["message"])
         self.assertEqual(self.connections.networks(), [])
 
     def test_no_token_edits_either_list_or_the_certificate(self) -> None:
