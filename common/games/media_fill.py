@@ -451,12 +451,14 @@ def _update_game(game_id: str, game: Any, vps_id: str, wanted: set[str],
     return updated, failed
 
 
-def art_updater(config: ConfigStore) -> Callable[[str, Any, str], tuple[int, int]] | None:
+def art_updater(config: ConfigStore, catalog: dict | None = None,
+                ) -> Callable[[str, Any, str], tuple[int, int]] | None:
     """`_update_game` for one game at a time, as (game_id, game, vps_id), with the catalog
-    read again and each source asked once. None when nothing can be asked."""
+    read again, or `catalog` where the caller holds a copy it has just read, and each
+    source asked once. None when nothing can be asked."""
     from common.online import asset_sources
 
-    asset_sources.refresh()
+    asset_sources.refresh(catalog)
     live = _reachable()
     wanted = kept_kinds()
     if not live or not wanted:

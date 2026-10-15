@@ -99,12 +99,13 @@ def _manifest() -> dict:
 _MANIFEST: dict | None = None
 
 
-def refresh() -> None:
-    """Read vpinmediadb's index again. A failed read keeps the copy already held."""
+def refresh(fetched: dict | None = None) -> None:
+    """Read vpinmediadb's index again, or take `fetched`, a copy the caller has just read.
+    A failed read keeps the copy already held."""
     global _MANIFEST
     from common.online.vpsdb_cache import VPinMediaDatabase
 
-    fresh = VPinMediaDatabase(vpsdb_media.MANIFEST_URL).load()
+    fresh = fetched or VPinMediaDatabase(vpsdb_media.MANIFEST_URL).load()
     if fresh:
         _MANIFEST = fresh
 

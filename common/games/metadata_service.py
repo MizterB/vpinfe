@@ -59,7 +59,7 @@ def build_metadata(
     refresh_art = None
     if (download_media and update_all and not user_media
             and cfg_bool(config, "updates", "update_downloaded_media", True)):
-        refresh_art = media_fill.art_updater(config)
+        refresh_art = media_fill.art_updater(config, vps.vpinmediadbjson)
 
     if progress_cb:
         reporter.progress(0, total, t("said.starting"))

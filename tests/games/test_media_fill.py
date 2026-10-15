@@ -691,6 +691,7 @@ class BuildMetadataTests(_Replaced):
         vps = VPSdb.__new__(VPSdb)
         vps.data = [{"id": "fathom", "name": "Fathom", "manufacturer": "Bally",
                      "year": 1981}]
+        vps.vpinmediadbjson = REPLACED
         vps._media_downloader = VPSMediaDownloader(
             REPLACED, playfieldvariant="table", playfieldresolution="4k",
             playfieldvideoresolution="4k", update_downloaded=update_downloaded_media)
@@ -706,6 +707,12 @@ class BuildMetadataTests(_Replaced):
 
         self.assertEqual(self.placed()[WHEEL], _url("wheel-new.png"))
         self.assertEqual(self.recorded(WHEEL), "wheel-new-md5")
+
+    def test_the_catalog_the_downloader_holds_is_the_one_the_update_reads(self) -> None:
+        with patch("common.online.vpsdb_cache.VPinMediaDatabase.load") as load:
+            self.build()
+
+        load.assert_not_called()
 
     def test_the_tables_own_wheel_is_left_byte_for_byte(self) -> None:
         self.build()

@@ -18,7 +18,7 @@ from pathlib import Path
 import requests
 
 from common import service_errors, timestamps
-from common.atomic_write import staged_for, write_atomic
+from common.atomic_write import STAGED_PREFIX, STAGED_SUFFIX, staged_for, write_atomic
 from common.http_client import download_file, get_json, unreachable
 from common.i18n import t
 from common.online.update_scripts import (
@@ -39,6 +39,7 @@ CHECK_EVERY_SECONDS = 24 * 60 * 60
 RETRY_AFTER_FAILURE_SECONDS = 60 * 60
 
 _checking = threading.Lock()
+_downloading = threading.Lock()
 
 
 class UpdateError(service_errors.BlockedError):
@@ -117,6 +118,14 @@ def _prune_old_update_dirs(keep_dir: Path) -> None:
         except ValueError:
             pass
         shutil.rmtree(candidate, ignore_errors=True)
+
+
+def _clear_abandoned_downloads(stage_dir: Path) -> None:
+    """A download whose process was killed leaves its staged file, which `staged_for`
+    only removes on a clean unwind. Call it holding `_downloading`, so no live download
+    is in `stage_dir`."""
+    for leftover in stage_dir.glob(f"{STAGED_PREFIX}*{STAGED_SUFFIX}"):
+        leftover.unlink(missing_ok=True)
 
 
 def _get_windows_powershell() -> str:
@@ -466,22 +475,24 @@ def prepare_update() -> dict:
         LAST_UPDATE_LOG, f"[Updater] Preparing update {latest_tag} for {context['triplet']}")
 
     zip_path = stage_dir / asset_name
-    if zip_path.exists() and _sha256_file(zip_path) != expected_sha:
-        _append_log_line(LAST_UPDATE_LOG, f"[Updater] Removing stale cached asset {zip_path}")
-        zip_path.unlink()
+    with _downloading:
+        if zip_path.exists() and _sha256_file(zip_path) != expected_sha:
+            _append_log_line(LAST_UPDATE_LOG, f"[Updater] Removing stale cached asset {zip_path}")
+            zip_path.unlink()
 
-    if not zip_path.exists():
-        with staged_for(zip_path) as temp_path:
-            _append_log_line(LAST_UPDATE_LOG,
-                             f"[Updater] Downloading {asset_name} to {temp_path}")
-            _download_file(asset_url, temp_path)
-            actual_sha = _sha256_file(temp_path)
-            _append_log_line(LAST_UPDATE_LOG, f"[Updater] Downloaded asset sha256={actual_sha}")
-            if actual_sha != expected_sha:
-                raise UpdateError(t("error.instance.download_damaged"))
-        _append_log_line(LAST_UPDATE_LOG, f"[Updater] Cached verified asset at {zip_path}")
-    else:
-        _append_log_line(LAST_UPDATE_LOG, f"[Updater] Reusing cached asset {zip_path}")
+        if not zip_path.exists():
+            _clear_abandoned_downloads(stage_dir)
+            with staged_for(zip_path) as temp_path:
+                _append_log_line(LAST_UPDATE_LOG,
+                                 f"[Updater] Downloading {asset_name} to {temp_path}")
+                _download_file(asset_url, temp_path)
+                actual_sha = _sha256_file(temp_path)
+                _append_log_line(LAST_UPDATE_LOG, f"[Updater] Downloaded asset sha256={actual_sha}")
+                if actual_sha != expected_sha:
+                    raise UpdateError(t("error.instance.download_damaged"))
+            _append_log_line(LAST_UPDATE_LOG, f"[Updater] Cached verified asset at {zip_path}")
+        else:
+            _append_log_line(LAST_UPDATE_LOG, f"[Updater] Reusing cached asset {zip_path}")
 
     return {
         "latest_version": latest_tag,

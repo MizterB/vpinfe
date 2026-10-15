@@ -168,6 +168,12 @@ class _Sources:
     def title(self) -> str:
         raise NotImplementedError
 
+    def shown(self) -> bool:
+        """False once a dialog that was opened has closed: a read that comes back after
+        that has nowhere to draw."""
+        return (self.dialog is None
+                or (not self.dialog.is_deleted and bool(self.dialog.value)))
+
     def starts(self) -> list[dict[str, Any]]:
         """The places the host tab offers. Blocking."""
         raise NotImplementedError
@@ -350,9 +356,12 @@ class _Sources:
                 self.library.folders, self._opens_at(starts), kind="file",
                 suffixes=suffixes, nearest=True)
         except Exception as exc:
-            with body:
-                panel.line(t("console.mediasource.host_failed",
-                             host=_host_name(self.library)), hint=why(exc))
+            if self.shown():
+                with body:
+                    panel.line(t("console.mediasource.host_failed",
+                                 host=_host_name(self.library)), hint=why(exc))
+            return
+        if not self.shown():
             return
         self.browse_roots = starts
         with body:
@@ -523,6 +532,8 @@ class _Slot(_OneFile):
             # feeds, and a picker that appears after the first file is chosen has come
             # too late.
             await self.load_placements()
+            if not self.shown():
+                return
             with above:
                 self._destination_row()
 
@@ -769,8 +780,11 @@ class _Slot(_OneFile):
                 offload.io(library.capture_report), offload.io(library.config_schema),
                 offload.io(library.config_values), offload.io(library.play_state))
         except Exception as exc:  # noqa: BLE001 - the tab says why
-            with body:
-                panel.line(t("console.record.could_not_read"), hint=why(exc))
+            if self.shown():
+                with body:
+                    panel.line(t("console.record.could_not_read"), hint=why(exc))
+            return
+        if not self.shown():
             return
         held = record.Settings(record.options_of(schema),
                                dict((values or {}).get(recording.SECTION) or {}))
@@ -804,7 +818,7 @@ class _Slot(_OneFile):
                 stop = record.stopped(report, (plan.get("kinds") or [{}])[0], running)
             except Exception as exc:  # noqa: BLE001 - the refusal is what stops it
                 plan, stop = {}, why(exc)
-            if asked == now["asked"]:
+            if asked == now["asked"] and self.shown():
                 now["plan"], now["stop"] = plan, stop
                 draw_top()
 
@@ -827,20 +841,24 @@ class _Slot(_OneFile):
             if callable(watch):
                 watch()
             now["busy"] = True
-            self.dialog.props("persistent")
-            draw_top()
-            made.clear()
-            with made:
-                panel.line(record.recording_for(int(now["plan"].get("estimate_seconds") or 0)))
-            with busy.held(made):
+            if self.shown():
+                self.dialog.props("persistent")
+                draw_top()
+                made.clear()
+                with made:
+                    panel.line(
+                        record.recording_for(int(now["plan"].get("estimate_seconds") or 0)))
+                with busy.held(made):
+                    ran = await record.ended(library, str(job.get("id") or ""))
+            else:
                 ran = await record.ended(library, str(job.get("id") or ""))
             now["busy"] = False
-            if self.dialog.is_deleted or not self.dialog.value:
+            if not self.shown():
                 await record.say(library, ran, self.done)
                 return
             self.dialog.props(remove="persistent")
             draw_top()
-            await shown(ran)
+            await review(ran)
 
         async def decided(use: bool) -> None:
             if use:
@@ -848,15 +866,18 @@ class _Slot(_OneFile):
             else:
                 made.clear()
 
-        async def shown(ran: dict[str, Any]) -> None:
+        async def review(ran: dict[str, Any]) -> None:
             made.clear()
             kept = {str(one.get("id") or "") for one in ran.get("proposed") or []}
             if kept:
                 try:
                     listing = await offload.io(library.capture_proposals)
                 except Exception as exc:  # noqa: BLE001 - it still waits on the device
-                    with made:
-                        panel.line(t("console.record.waiting_failed"), hint=why(exc))
+                    if self.shown():
+                        with made:
+                            panel.line(t("console.record.waiting_failed"), hint=why(exc))
+                    return
+                if not self.shown():
                     return
                 row = next((one for one in listing.get("proposals") or []
                             if one.get("id") in kept), None)
@@ -919,6 +940,8 @@ class _Slot(_OneFile):
             self._known_sources = await offload.io(self.library.media_sources)
         except Exception:
             self._known_sources = []
+        if not self.shown():
+            return
         await self._show_offers(self.online_body, self._own_id,
                                 game.get("name") or t("console.mediasource.game_2"))
 
@@ -1012,11 +1035,11 @@ class _Slot(_OneFile):
         try:
             found = await offload.io(self.library.media_offers, vps_id, self.kind)
         except Exception as exc:
-            if asked == self._asked:
+            if asked == self._asked and self.shown():
                 with body:
                     panel.line(t("console.mediasource.sources_failed"), hint=why(exc))
             return
-        if asked != self._asked:
+        if asked != self._asked or not self.shown():
             return
         with body:
             if not found:
