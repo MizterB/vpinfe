@@ -1316,6 +1316,18 @@ class SchemaTests(_Case):
             self.assertEqual((words["label"], words["label_key"]),
                              ("Enable", "app.vpx.enable"), key)
 
+    def test_a_label_the_program_wrote_in_sentence_case_reads_in_title_case(self) -> None:
+        self.app_ini.write_text(APP_INI + "\n[Plugin.B2SLegacy]\n"
+                                "B2SDualMode = 0\nB2SHideB2SBackglass = 0\n")
+        fields = {f.key: f for g in self.config.groups(self.settings) for f in g.settings}
+
+        said = {key: apps.field_words("vpx", fields[key])["label"]
+                for key in ("Plugin.B2SLegacy.B2SDualMode",
+                            "Plugin.B2SLegacy.B2SHideB2SBackglass")}
+
+        self.assertEqual(said, {"Plugin.B2SLegacy.B2SDualMode": "Dual Mode",
+                                "Plugin.B2SLegacy.B2SHideB2SBackglass": "Hide B2S Backglass"})
+
     def test_a_setting_commonly_set_per_table_labeled_by_its_key_is_named_from_the_catalog(
             self) -> None:
         self.app_ini.write_text(APP_INI + "\n[TableOverride]\n"
@@ -1405,7 +1417,7 @@ class NumberedSetTests(_Case):
                             "scale [Default: 50.0 in 25.0 .. 90.0]\nDesktopFov = \n")
 
         self.assertEqual(said["DefaultCamera.DesktopFov"]["label"],
-                         "Field Of View (overall scale, Default Camera: Desktop)")
+                         "Field of View (Overall Scale, Default Camera: Desktop)")
 
     def test_a_profile_the_program_has_not_named_keeps_its_label(self) -> None:
         said = self._labels("[DMD]\n; Dot Tint: Color of lit dots [Default: 0]\n"

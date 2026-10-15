@@ -15,7 +15,7 @@ import re
 from pathlib import Path
 
 from common import i18n
-from common.labels import ACRONYMS
+from common.labels import ACRONYMS, field_label
 
 from .contract import (
     App,
@@ -159,7 +159,8 @@ def field_words(app_id: str, field: Field) -> dict[str, str]:
 
     The app's catalog answers first, then the word its config hands back for a label the
     setting shares, then core's `launcher.field.*`, which holds the fields every launcher
-    has. A setting the app names a set for carries the set's name, and no `label_key`.
+    has. A setting the app names a set for carries the set's name, and no `label_key`. A
+    label the program wrote is shown in title case, as every label is.
     """
     def leaf(name: str, literal: str, fallback: str, *shared: str) -> tuple[str, str]:
         return i18n.literal_or(literal, f"app.{app_id}.field.{field.key}.{name}", *shared,
@@ -170,6 +171,8 @@ def field_words(app_id: str, field: Field) -> dict[str, str]:
     word = naming(field.key) if naming is not None else ""
     label, label_key = leaf("label", field.label, humanized(field.key),
                             *([f"app.{app_id}.{word}"] if word else []))
+    if not label_key:
+        label = field_label(label)
     grouping = getattr(config, "set_word", None)
     among = grouping(field.key) if grouping is not None else ""
     named_set = i18n.literal_or("", f"app.{app_id}.{among}")[0] if among else ""
