@@ -312,8 +312,11 @@ def _relative_path(request: Request) -> str:
 async def _approved(request: Request, identity: Identity, approval_id: str) -> Identity | None:
     """The token's identity with the Protected tier added for this one request, or None
     when the approval is not for this exact request. A match spends the approval."""
+    # A chunked body has no length to check before reading it, and an approved change is
+    # never one this large, so only a declared length is accepted.
     declared = request.headers.get("content-length", "")
-    if declared.isdigit() and int(declared) > approvals.MAX_BODY_CHARS * 4:
+    if "transfer-encoding" in request.headers or (
+            declared.isdigit() and int(declared) > approvals.MAX_BODY_CHARS * 4):
         return None
     body = approvals.canonical_bytes(await request.body())
     if body is None or not approvals.instance().redeem(

@@ -10,6 +10,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Request
 
 from common import api_tokens as tokens
+from common import approvals
 from common.i18n import t
 
 from . import scopes
@@ -59,5 +60,7 @@ def change_token(token_id: str, body: TokenChange, request: Request) -> TokenInf
 @router.delete("/{token_id}", summary="Revoke a token", response_model=TokensEnded,
                dependencies=[requires(scopes.ACCESS_WRITE)])
 def revoke_token(token_id: str) -> TokensEnded:
-    return TokensEnded(ended=1 if tokens.instance().revoke(token_id) else 0)
+    ended = tokens.instance().revoke(token_id)
+    approvals.instance().forget_token(token_id)
+    return TokensEnded(ended=1 if ended else 0)
 

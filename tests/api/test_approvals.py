@@ -222,6 +222,29 @@ class RepeatingTheRequestTests(AskCase):
         self.assertEqual(taken.json()["state"], "declined")
         self.assertEqual(self.repeat(ask_id).status_code, 403)
 
+    def test_a_body_sent_in_chunks_is_refused_and_spends_nothing(self) -> None:
+        ask_id = self.ask(body={"name": "a"}).json()["id"]
+        self.approve(ask_id)
+
+        chunked = self.repeat(ask_id, content=(part for part in (b'{"name":', b'"a"}')),
+                              content_type="application/json")
+        sized = self.repeat(ask_id, json={"name": "a"})
+
+        self.assertEqual(chunked.status_code, 403)
+        self.assertEqual(chunked.json()["error"]["details"]["reason"], auth.APPROVAL_INVALID)
+        self.assertEqual(sized.status_code, 404, sized.text)
+
+    def test_revoking_a_token_drops_what_it_asked(self) -> None:
+        kept = self.tokens.make("other", api_tokens.FULL)[0]
+        self.ask()
+        self.ask(secret=kept, path="/extensions/other/accept")
+        token_id = self.tokens.tokens()[0].id
+
+        revoked = self.owner_call("DELETE", f"/auth/tokens/{token_id}", self.owner())
+
+        self.assertEqual(revoked.status_code, 200, revoked.text)
+        self.assertEqual([one.token_name for one in self.asks.waiting()], ["other"])
+
     def test_another_path_or_method_spends_nothing(self) -> None:
         ask_id = self.ask().json()["id"]
         self.approve(ask_id)

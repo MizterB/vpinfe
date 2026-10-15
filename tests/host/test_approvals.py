@@ -134,6 +134,19 @@ class AnsweringTests(ApprovalsCase):
         self.assertIsNone(self.store.decline(made.id, token_id="t2"))
         self.assertIsNotNone(self.store.decline(made.id, token_id="t1"))
 
+    def test_a_revoked_tokens_asks_go_and_the_others_stay(self) -> None:
+        mine = self.ask()
+        theirs = self.store.ask("t2", "Other", "POST", "/y")
+        self.store.approve(mine.id)
+        before = self.told
+
+        self.store.forget_token("t1")
+
+        self.assertIsNone(self.store.get(mine.id))
+        self.assertEqual([one.id for one in self.store.waiting()], [theirs.id])
+        self.assertFalse(self.store.redeem(mine.id, "t1", "DELETE", "/games/a/folder", ""))
+        self.assertEqual(self.told, before + 1)
+
     def test_an_unknown_id_is_nothing(self) -> None:
         self.assertIsNone(self.store.approve("nope"))
         self.assertFalse(self.store.redeem("nope", "t1", "DELETE", "/x", ""))

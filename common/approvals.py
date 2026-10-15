@@ -236,6 +236,15 @@ class Approvals:
         approval not yet used can be taken back the same way."""
         return self._answer(ask_id, DECLINED, (WAITING, APPROVED), token_id)
 
+    def forget_token(self, token_id: str) -> None:
+        """The token was revoked: nothing it asked for is left for the Owner to answer."""
+        with self._lock:
+            gone = [key for key, ask in self._asks.items() if ask.token_id == token_id]
+            for key in gone:
+                del self._asks[key]
+        if gone:
+            self._tell()
+
     def leave_screen(self, ask_id: str) -> None:
         """The machine's screen was closed without an answer. Needs You still holds it."""
         with self._lock:
