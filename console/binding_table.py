@@ -388,7 +388,7 @@ class Table:
                 ui.icon(verbs.PRESS)
                 ui.label(t("console.binding_table.press_anything"))
                 if self.elsewhere:
-                    ui.label(t("console.binding_table.cabinet_note")) \
+                    ui.label(t("console.binding_table.elsewhere_note")) \
                         .classes("console-binding-live-key console-binding-live-end")
                 return
             ui.icon(verbs.CONTROLLER if live.pad else verbs.KEYBOARD)

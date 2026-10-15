@@ -1049,7 +1049,7 @@
   "console.binding_table.share_question": "Ûšè “{binding}” ƒöř “{row}” ţöö?",
   "console.binding_table.slowed": "{row} ŵîŀŀ ɱöṽè öñè àţ à ţîɱè öñ {binding} îñšţèàđ öƒ šçřöŀŀîñĝ.",
   "console.binding_table.slowed_by": "{hold} îš ɱàþþèđ ţö {holder}, šö {row} ŵîŀŀ ɱöṽè öñè àţ à ţîɱè öñ {binding}.",
-  "console.binding_table.cabinet_note": "À çàƀîñèţ'š ƀûţţöñš àřè ţřîèđ öñ ţĥè çàƀîñèţ",
+  "console.binding_table.elsewhere_note": "Ɓûţţöñš ŵîřèđ ţö ţĥè ṼÞîñƑÈ đèṽîçè àřè ţřîèđ öñ ţĥàţ đèṽîçè",
   "console.binding_table.share": {
     "one": "Ûšè ƒöř ƀöţĥ",
     "other": "Ûšè ƒöř àŀŀ"

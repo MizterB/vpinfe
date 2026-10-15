@@ -1049,7 +1049,7 @@
   "console.binding_table.share_question": "Use “{binding}” for “{row}” too?",
   "console.binding_table.slowed": "{row} will move one at a time on {binding} instead of scrolling.",
   "console.binding_table.slowed_by": "{hold} is mapped to {holder}, so {row} will move one at a time on {binding}.",
-  "console.binding_table.cabinet_note": "A cabinet's buttons are tried on the cabinet",
+  "console.binding_table.elsewhere_note": "Buttons wired to the VPinFE device are tried on that device",
   "console.binding_table.share": {
     "one": "Use for both",
     "other": "Use for all"

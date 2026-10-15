@@ -275,18 +275,18 @@ class DrawnTests(unittest.TestCase):
 
         self.assertIn("Press anything to see what it does", _labels(body))
 
-    def test_a_page_opened_on_the_device_serving_it_says_nothing_of_a_cabinet(self) -> None:
+    def test_a_page_opened_on_the_serving_device_has_no_note_on_the_buttons(self) -> None:
         with patch.object(table, "opened_elsewhere", return_value=False):
             _, body = _drawn()
 
-        self.assertNotIn(t("console.binding_table.cabinet_note"), _labels(body))
+        self.assertNotIn(t("console.binding_table.elsewhere_note"), _labels(body))
 
-    def test_a_page_opened_from_another_device_says_where_a_cabinet_is_tried(self) -> None:
+    def test_a_page_opened_from_another_device_says_where_the_buttons_are_tried(self) -> None:
         with patch.object(table, "opened_elsewhere", return_value=True):
             _, body = _drawn()
 
         self.assertIn("Press anything to see what it does", _labels(body))
-        self.assertIn("A cabinet's buttons are tried on the cabinet", _labels(body))
+        self.assertIn("Buttons wired to the VPinFE device are tried on that device", _labels(body))
 
     def test_a_string_default_is_not_read_letter_by_letter(self) -> None:
         _, body = _drawn({**SHIPPED, "next": "key:ArrowRight,key:KeyD"})
