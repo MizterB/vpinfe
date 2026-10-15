@@ -14,17 +14,18 @@ from pathlib import Path
 from unittest import mock
 
 from common import path_state, service_errors
+from common.extensions.context import ExtensionFiles
 from common.extensions.contract import ContractError
 from common.extensions.games import ExtensionGames
 from common.failures import why
 from tests.support.hung_folder import never_answering
 
 
-class _Files:
+class _Files(ExtensionFiles):
     def __init__(self, *roots: Path) -> None:
         self._roots = tuple(str(one) for one in roots)
 
-    def roots(self):
+    def roots(self) -> tuple[str, ...]:
         return self._roots
 
 
@@ -39,7 +40,7 @@ class PutAssetCase(unittest.TestCase):
         self.game.mkdir()
         self.games = ExtensionGames("probe", ("games:read", "games:write"),
                                     _Files(self.source))
-        self.games.folder = lambda game_id: str(self.game)
+        self.games.folder = lambda game_id: str(self.game)  # type: ignore[method-assign]
 
 
 class ManufacturerLogoTests(PutAssetCase):
@@ -183,7 +184,7 @@ class ScoreAndSavedPlaceTests(PutAssetCase):
         where = self.games.put_rom_alias("g1", "taxi_l1", "taxi_l4")
 
         self.assertEqual(where, "pinmame/alias.txt")
-        self.assertEqual(read_alias_map(self.game).get("taxi_l1"), "taxi_l4")
+        self.assertEqual(read_alias_map(str(self.game)).get("taxi_l1"), "taxi_l4")
 
     def test_a_name_map_the_game_already_holds_is_not_written_over(self) -> None:
         self.games.put_rom_alias("g1", "taxi_l1", "taxi_l4")
@@ -199,7 +200,7 @@ class ScoreAndSavedPlaceTests(PutAssetCase):
 
     def test_a_reader_cannot_write_a_name_map(self) -> None:
         reader = ExtensionGames("reader", ("games:read",), _Files(self.source))
-        reader.folder = lambda game_id: str(self.game)
+        reader.folder = lambda game_id: str(self.game)  # type: ignore[method-assign]
 
         with self.assertRaises(ContractError):
             reader.put_rom_alias("g1", "taxi_l1", "taxi_l4")
@@ -352,7 +353,7 @@ class BoundsTests(PutAssetCase):
         rom = self.source / "afm_113b.zip"
         rom.write_bytes(b"rom")
         reader = ExtensionGames("reader", ("games:read",), _Files(self.source))
-        reader.folder = lambda game_id: str(self.game)
+        reader.folder = lambda game_id: str(self.game)  # type: ignore[method-assign]
 
         with self.assertRaises(ContractError):
             reader.put_asset("g1", "rom", rom)

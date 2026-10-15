@@ -186,6 +186,7 @@ class WeekendPicksRecipeTests(CollectionsCase):
 
     def test_the_setting_names_the_collection_the_next_pick_goes_in(self) -> None:
         self.verb("pick", IDS[0])
+        assert self.record.context is not None
         self.record.context.config.set("collection", "Late Night")
 
         self.verb("pick", IDS[2])

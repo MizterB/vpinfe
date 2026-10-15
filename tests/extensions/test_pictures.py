@@ -8,7 +8,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from unittest.mock import patch
 
 import requests
@@ -297,9 +297,10 @@ class TheCapabilityIsAskedAgainAtFetchTime(PicturedCase):
     def test_a_kept_picture_is_not_served_once_the_capability_is_gone(self) -> None:
         ROWS.append({"name": "a", "art": WEB})
         address = self.rows()[0]["art"]
-        with AWebPicture.fetching(self, made.png(500, 500)):
+        with AWebPicture.fetching(cast(AWebPicture, self), made.png(500, 500)):
             self.assertEqual(200, self.picture(address).status_code)
 
+        assert self.record.manifest is not None
         self.record.manifest = dataclasses.replace(self.record.manifest,
                                                    capabilities=("ui:mount",))
 

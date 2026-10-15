@@ -16,8 +16,8 @@ _PAGE = ui.element()
 
 DEVICE = {"device_id": "m1", "kind": "vpx_mobile", "display_name": "Tablet",
           "address": "192.0.2.7", "port": 2112}
-HELD = [{"folder": "Alpha (Bally 1991)", "game_id": "g1"},
-        {"folder": "Stray", "game_id": None}]
+HELD: list[dict[str, Any]] = [{"folder": "Alpha (Bally 1991)", "game_id": "g1"},
+                              {"folder": "Stray", "game_id": None}]
 GAMES = [{"id": "g1", "name": "Alpha"}, {"id": "g2", "name": "Beta"}]
 
 

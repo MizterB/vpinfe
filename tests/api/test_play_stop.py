@@ -16,7 +16,7 @@ from common.host import launch_state
 try:
     from starlette.testclient import TestClient
 except ImportError:  # pragma: no cover
-    TestClient = None
+    TestClient = None  # type: ignore[assignment,misc]
 
 
 @unittest.skipIf(TestClient is None, "starlette test client unavailable")
@@ -26,7 +26,7 @@ class PlayStopTests(unittest.TestCase):
         lifecycle.reset_for_tests()
         self.addCleanup(launch_state.clear)
         self.addCleanup(lifecycle.reset_for_tests)
-        self.performed = []
+        self.performed: list = []
         lifecycle.register_performer(
             lifecycle.TABLE, lifecycle.STOP,
             lambda request: self.performed.append(request))

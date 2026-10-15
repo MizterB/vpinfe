@@ -7,6 +7,7 @@ import hashlib
 import time
 import unittest
 from pathlib import Path
+from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 from common import (
@@ -64,6 +65,7 @@ def _downloaded(url: str, path: Path) -> None:
 
 class _Library(TempTree):
     launched_as = ""
+    config: Any
 
     def setUp(self) -> None:
         super().setUp()
@@ -502,7 +504,8 @@ class BackglassFileTests(_Library):
             self.assertLess(time.monotonic(), deadline, "the fill never finished")
             time.sleep(0.02)
 
-        self.assertEqual(job.result["filled"], 2)
+        result = cast(dict[str, Any], job.result)
+        self.assertEqual(result["filled"], 2)
         self.assertIn(self.backglass, self.placed())
 
 
@@ -727,6 +730,8 @@ class BuildMetadataTests(_Replaced):
 
 
 class ArtDueTests(TempTree):
+    config: Any
+
     def setUp(self) -> None:
         super().setUp()
         self.config = configparser.ConfigParser()

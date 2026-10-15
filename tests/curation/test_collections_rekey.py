@@ -473,6 +473,7 @@ class JsonConversionTests(TempTree):
         CollectionStore(str(self.json)).save()
 
         filters = CollectionStore(str(self.json)).get_filters("80s Williams")
+        assert filters is not None
         self.assertEqual(filters["manufacturer"], "Williams")
         self.assertEqual(filters["year"], "1985")
         self.assertEqual(filters["game_type"], "SS", "2.x wrote the type as table_type")

@@ -155,8 +155,14 @@ class _Lines:
     def __getattr__(self, name: str) -> Any:
         return getattr(self._stream, name)
 
-    def writeln(self, text: str = "") -> None:
-        self._stream.write(f"{text}\n")
+    def write(self, text: str) -> None:
+        self._stream.write(text)
+
+    def flush(self) -> None:
+        self._stream.flush()
+
+    def writeln(self, text: str | None = None, /) -> None:
+        self._stream.write(f"{text or ''}\n")
 
 
 def run_modules(names: list[str], stream: Any, keep: Callable[[Record], None],
@@ -186,7 +192,7 @@ def run_modules(names: list[str], stream: Any, keep: Callable[[Record], None],
             keep(_record(name, result, importing + time.perf_counter() - start))
 
 
-def _record(name: str, result: unittest.TextTestResult, seconds: float) -> Record:
+def _record(name: str, result: unittest.TextTestResult[Any], seconds: float) -> Record:
     report = ""
     if not result.wasSuccessful():
         text = io.StringIO()
@@ -215,7 +221,7 @@ def run_shard(plan_file: Path) -> int:
 
 def _read_records(path: Path) -> list[Record]:
     """What a shard has recorded so far. A line still being written is left for later."""
-    found = []
+    found: list[Record] = []
     try:
         text = path.read_text(encoding="utf-8")
     except OSError:

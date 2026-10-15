@@ -153,7 +153,7 @@ class CommunityMenuDrive(unittest.TestCase):
         async def waiting() -> None:
             await until_account(lambda held: held["status"] == "1 game waiting to send")
 
-        async with BrowserSession(chromium_path()) as browser:
+        async with BrowserSession(chromium_path() or "") as browser:
             await browser.send("Emulation.setDeviceMetricsOverride",
                                {"width": 1600, "height": 1000, "deviceScaleFactor": 1,
                                 "mobile": False})

@@ -43,7 +43,7 @@ class BrowserProbeDriveTests(TempTree):
 
     def _report(self) -> tuple[dict, dict]:
         async def run(instance: LiveInstance) -> tuple[dict, dict]:
-            async with BrowserSession(chromium_path()) as browser:
+            async with BrowserSession(chromium_path() or "") as browser:
                 await browser.navigate(instance.theme_url("playfield"))
                 await browser.wait_for("document.body.dataset.ready === 'true'",
                                        timeout=READY_TIMEOUT)

@@ -11,6 +11,7 @@ import threading
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 from common.capture import adapters, geometry
@@ -270,6 +271,7 @@ class ReloadTests(unittest.TestCase):
             wlr.reload_config(SWAY, lambda path: MagicMock())
 
     def test_sway_refusing_the_reload_is_an_error(self) -> None:
+        said: Any
         for said in ([], [{"success": False, "error": "no"}],
                      [{"success": True}, {"success": False}], {"success": True}):
             with self.subTest(said=said), self.assertRaises(OSError):
@@ -313,6 +315,7 @@ class ScreenMatchTests(unittest.TestCase):
         found = adapters.screen_of("playfield", self.outputs, _config(playfield="1"),
                                    monitors)
 
+        assert found.output is not None
         self.assertEqual(found.output.name, "DP-1")
 
     def test_a_monitor_with_no_name_is_found_where_it_is(self) -> None:
@@ -321,6 +324,7 @@ class ScreenMatchTests(unittest.TestCase):
         found = adapters.screen_of("backglass", self.outputs, _config(backglass="0"),
                                    monitors)
 
+        assert found.output is not None
         self.assertEqual(found.output.name, "DP-2")
 
     def test_the_index_is_the_display_models_never_the_compositors(self) -> None:
@@ -330,6 +334,7 @@ class ScreenMatchTests(unittest.TestCase):
         found = adapters.screen_of("scoreview", self.outputs,
                                    _config(scoreview="0"), monitors)
 
+        assert found.output is not None
         self.assertEqual(found.output.name, "HDMI-A-1")
 
     def test_the_topper_finds_the_output_of_its_own_screen(self) -> None:
@@ -337,6 +342,7 @@ class ScreenMatchTests(unittest.TestCase):
 
         found = adapters.screen_of("topper", self.outputs, _config(topper="1"), monitors)
 
+        assert found.output is not None
         self.assertEqual(found.output.name, "DP-1")
 
     def test_a_window_with_no_screen_set_says_so(self) -> None:

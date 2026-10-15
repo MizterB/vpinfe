@@ -103,7 +103,7 @@ class RecordLinesDrive(unittest.TestCase):
         instance.post("/api/v1/collections",
                       {"name": HELD, "games": ["delta"]})
 
-        async with BrowserSession(chromium_path()) as browser:
+        async with BrowserSession(chromium_path() or "") as browser:
             walk = ConsoleWalk(browser, instance)
 
             async def parts(name: str, root: str, key: str) -> None:

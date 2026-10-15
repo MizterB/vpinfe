@@ -147,7 +147,8 @@ class Declaring(unittest.TestCase):
 
 class Grouped(unittest.TestCase):
     def test_nothing_or_an_empty_section_is_no_group(self) -> None:
-        for answer in (None, {}, {"facts": [], "fields": [], "rows": []}):
+        answers: tuple[Any, ...] = (None, {}, {"facts": [], "fields": [], "rows": []})
+        for answer in answers:
             with self.subTest(answer=answer):
                 self.assertIsNone(pane.grouped(answer))
 
@@ -234,6 +235,7 @@ class Reading(Served):
         self.assertEqual(self.ok(self.client.get(f"{self.base}/table/g1/t1"))["acts"], [])
 
     def test_acts_that_are_not_a_dict_are_the_extensions_failure(self) -> None:
+        assert self.record.context is not None
         self.record.context.ui.group_functions["game"].acts = lambda who: ["refresh"]
 
         response = self.client.get(f"{self.base}/game/g1")
@@ -277,6 +279,7 @@ class Reading(Served):
         self.assertEqual(response.status_code, 400, response.text)
 
     def test_a_group_the_extension_did_not_declare_is_not_there(self) -> None:
+        assert self.record.context is not None
         self.record.context.ui.group_functions.pop("table")
 
         response = self.client.get(f"{self.base}/table/g1/t1")

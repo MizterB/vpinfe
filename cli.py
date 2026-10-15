@@ -23,7 +23,7 @@ config_store = ConfigStore(str(VPINFE_INI_PATH))
 
 
 def build_metadata(download_media: bool = True, update_all: bool = True,
-                   game_name: str = None, user_media: bool = False,
+                   game_name: str | None = None, user_media: bool = False,
                    progress_cb=None, log_cb=None):
     return metadata_service.build_metadata(
         download_media=download_media,
@@ -36,7 +36,7 @@ def build_metadata(download_media: bool = True, update_all: bool = True,
     )
 
 
-def upgrade_info_files(game_name: str = None, progress_cb=None, log_cb=None):
+def upgrade_info_files(game_name: str | None = None, progress_cb=None, log_cb=None):
     from common.games import game_service
 
     return info_maintenance.upgrade_library(
@@ -44,7 +44,7 @@ def upgrade_info_files(game_name: str = None, progress_cb=None, log_cb=None):
         route_match=game_service.route_legacy_match)
 
 
-def restore_info_files(game_name: str = None, progress_cb=None, log_cb=None):
+def restore_info_files(game_name: str | None = None, progress_cb=None, log_cb=None):
     from common.paths import CONFIG_DIR
 
     return info_maintenance.restore_library(

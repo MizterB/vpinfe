@@ -340,7 +340,7 @@ class TheTokenStoreTests(TierCase):
         again = api_tokens.Tokens(self.tokens._file(), self.clock)
 
         found = again.lookup(secret)
-        self.assertIsNotNone(found)
+        assert found is not None
         self.assertEqual(found.id, token.id)
 
     def test_a_revoked_token_calls_nothing(self) -> None:
@@ -364,6 +364,7 @@ class TheTokenStoreTests(TierCase):
 
         changed = self.tokens.set_power(play.id, True)
 
+        assert changed is not None
         self.assertFalse(changed.can_power)
         self.assertIsNone(self.tokens.set_power("nothing", True))
 

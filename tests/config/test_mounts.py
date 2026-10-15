@@ -49,7 +49,9 @@ class OriginTests(unittest.TestCase):
                          Origin(NFS, "nas.lan", "/export/auto", "/mnt/auto"))
 
     def test_an_nfs_server_given_by_ipv6_address(self) -> None:
-        self.assertEqual(mounts.origin_of("/mnt/v6", LINUX).server, "fd00::5")
+        origin = mounts.origin_of("/mnt/v6", LINUX)
+        assert origin is not None
+        self.assertEqual(origin.server, "fd00::5")
 
     def test_a_macos_share_found_through_bonjour_is_named_as_finder_names_it(self) -> None:
         self.assertEqual(mounts.origin_of("/Volumes/share/games", MACOS),

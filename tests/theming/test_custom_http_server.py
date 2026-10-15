@@ -63,6 +63,7 @@ class BurstTests(unittest.TestCase):
         with mock.patch("frontend.custom_http_server.threading.Thread"):
             server.start_file_server(port=0)
         self.addCleanup(server.stop_file_server)
+        assert server.file_server is not None
         port = server.file_server.server_address[1]
 
         windows, connections_per_window = 3, 6
@@ -108,6 +109,7 @@ class ThemeWordsTests(unittest.TestCase):
         server = CustomHTTPServer({"/themes/": tmp.name})
         server.start_file_server(port=0)
         self.addCleanup(server.stop_file_server)
+        assert server.file_server is not None
         self.port = server.file_server.server_address[1]
         self.addCleanup(i18n.set_language, i18n.language())
         i18n.set_language("en")

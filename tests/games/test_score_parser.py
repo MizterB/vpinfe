@@ -180,6 +180,7 @@ class TestScoreParser(unittest.TestCase):
                 [ParsedEntry(section="HIGH SCORES", rank=1, initials="", score=1000)],
                 initials="")
 
+        assert result is not None
         self.assertEqual(result["entries"][0]["initials"], "")
 
     def test_result_to_jsonable_preserves_existing_initials(self) -> None:
@@ -189,6 +190,7 @@ class TestScoreParser(unittest.TestCase):
                 [ParsedEntry(section="HIGH SCORES", rank=1, initials="AAA", score=1000)],
             )
 
+        assert result is not None
         self.assertEqual(result["entries"][0]["initials"], "AAA")
 
     def test_result_to_jsonable_does_not_fill_blank_non_score_entries(self) -> None:
@@ -199,6 +201,7 @@ class TestScoreParser(unittest.TestCase):
                              extra_lines=["SPECIAL"])],
             )
 
+        assert result is not None
         self.assertEqual(result["entries"][0]["initials"], "")
 
     def test_resolve_score_input_path_prefers_nvram_for_game_directory(self) -> None:

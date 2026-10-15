@@ -60,6 +60,7 @@ class APickerWithAMark(unittest.TestCase):
                 tip = getattr(draw, "hover_tip")  # noqa: B009
                 self.assertIsInstance(tip, panel.PathTip)
                 (hover,) = _tips(holder, on_value=True)
+                assert hover.parent_slot is not None
                 owner = hover.parent_slot.parent
                 self.assertTrue(hover.props["target"].startswith(f"label[for={owner.html_id}] "))
                 self.assertIn("no-parent-event", hover.props)

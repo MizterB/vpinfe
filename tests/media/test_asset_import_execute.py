@@ -177,7 +177,7 @@ class ImportExecuteTests(unittest.TestCase):
                 self.assertTrue((game_dir / "serum" / "mm_rom" / "mm_rom.cRZ").exists())
                 self.assertIn("rom", report["imported"])
 
-    def test_the_game_is_read_again_once_its_files_are_in(self):
+    def test_the_game_is_read_again_once_its_files_are_in(self) -> None:
         from pathlib import Path
         from tempfile import TemporaryDirectory
         with TemporaryDirectory() as tmp:

@@ -6,12 +6,13 @@ import configparser
 import unittest
 
 from common import cache_stamps, device_registry
+from common.config_store import ConfigStore
 from common.online import vpsdb_sync
 from tests.support.library import own_registry
 from tests.support.stamps import OwnStamps
 
 
-class _Config:
+class _Config(ConfigStore):
     """A ConfigStore's surface, as much of it as this reads."""
 
     def __init__(self, schedules: dict[str, str]) -> None:

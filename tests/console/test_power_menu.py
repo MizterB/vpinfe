@@ -54,6 +54,7 @@ async def _click(menu: ui.element, label: str) -> None:
                         for inner in one.descendants()))
     handler = next(listener.handler for listener in item._event_listeners.values()
                    if listener.type == "click")
+    assert handler is not None
 
     async def go() -> None:
         started: list[Any] = []

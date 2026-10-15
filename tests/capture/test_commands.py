@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import unittest
 from pathlib import Path
+from typing import Any, cast
 
 from starlette.testclient import TestClient
 
@@ -300,7 +301,7 @@ class ConfigRouteTests(unittest.TestCase):
     def setUp(self) -> None:
         self.store = Store()
         real = config_service.get_ini_config
-        config_service.get_ini_config = lambda: self.store
+        cast(Any, config_service).get_ini_config = lambda: self.store
         self.addCleanup(setattr, config_service, "get_ini_config", real)
         self.client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
 

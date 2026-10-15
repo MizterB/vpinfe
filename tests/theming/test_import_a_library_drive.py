@@ -67,7 +67,7 @@ class ImportALibraryDrive(unittest.TestCase):
         seen: dict = {"titles": []}
         instance.wait_for_api()
 
-        async with BrowserSession(chromium_path()) as browser:
+        async with BrowserSession(chromium_path() or "") as browser:
             walk = ConsoleWalk(browser, instance)
 
             async def click_text(selector: str, text: str) -> None:

@@ -2,6 +2,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Any
 
 from common.games.tables import (
     ADDED_KEY,
@@ -181,7 +182,8 @@ class IsParsedTests(unittest.TestCase):
         self.assertFalse(is_parsed({"hidden": True}))
 
     def test_junk_is_not_a_parse(self) -> None:
-        for bad in (None, {}, [], "nope"):
+        junk: tuple[Any, ...] = (None, {}, [], "nope")
+        for bad in junk:
             with self.subTest(entry=bad):
                 self.assertFalse(is_parsed(bad))
 

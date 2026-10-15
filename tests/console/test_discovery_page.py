@@ -92,6 +92,7 @@ class Views(unittest.TestCase):
     def test_no_built_in_view_turns_on_what_the_game_cell_already_says(self) -> None:
         for name, preset in discovery.VIEWS.items():
             with self.subTest(name):
+                assert not isinstance(preset, list)
                 self.assertFalse(set(preset.columns) & {"manufacturer", "year", "game_type",
                                                         "themes"})
 

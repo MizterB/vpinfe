@@ -44,7 +44,8 @@ def _strays(path: pathlib.Path) -> list[str]:
     for page in tree.body:
         if not isinstance(page, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
-        calls = [node for node in ast.walk(page) if _called(node)]
+        calls = [node for node in ast.walk(page)
+                 if isinstance(node, ast.Call) and _called(node)]
         # Handed in, so it is checked where this is called from.
         handed = {one.arg for one in page.args.args}
         built: dict[str, int] = {}
@@ -68,6 +69,7 @@ def _strays(path: pathlib.Path) -> list[str]:
                        else [node.target] if isinstance(node, (ast.AnnAssign, ast.AugAssign))
                        else [])
             for target in targets:
+                assert isinstance(node, ast.stmt)
                 if isinstance(target, ast.Name) and node.lineno > built.get(target.id, 1e9):
                     found.append(f"{path.name}:{node.lineno} rebinds {target.id}, which a "
                                  "grid was built from")

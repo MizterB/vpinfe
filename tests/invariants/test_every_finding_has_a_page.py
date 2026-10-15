@@ -11,7 +11,9 @@ from console import page, settings
 
 
 def _findings(on: list[str]) -> list[feature_checks.Unmet]:
-    return feature_checks.unmet(ConfigParser(), features=on, launcher=None, locations=[])
+    return feature_checks.unmet(
+        ConfigParser(),  # type: ignore[arg-type]
+        features=on, launcher=None, locations=[])
 
 
 class EveryFindingHasAPageTests(unittest.TestCase):

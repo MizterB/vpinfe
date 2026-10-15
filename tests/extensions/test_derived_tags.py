@@ -79,9 +79,9 @@ class DerivedTagCase(unittest.TestCase):
         self.mm = _game("mm", "Medieval Madness", "mm-entry", {"vpw": "mm-vpw"},
                         default="vpw")
         self.games = [self.afm, self.mm]
-        patcher = patch("common.games.game_repository.all_games", return_value=self.games)
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        listing = patch("common.games.game_repository.all_games", return_value=self.games)
+        listing.start()
+        self.addCleanup(listing.stop)
 
     def week(self, machines: str = "", releases: str = "", fail: bool = False,
              ratings: str = "", builds: str = "") -> None:
@@ -242,6 +242,7 @@ class WhoMovesThem(DerivedTagCase):
             derived_tags.refuse_added(self.afm, ["Mine", MACHINE])
 
     def test_one_the_user_already_had_does_not_block_an_edit(self) -> None:
+        assert self.afm.meta_config is not None
         self.afm.meta_config["User"]["Tags"] = [MACHINE]
 
         derived_tags.refuse_added(self.afm, [MACHINE, "Mine"])

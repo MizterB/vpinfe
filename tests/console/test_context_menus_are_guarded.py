@@ -37,6 +37,7 @@ class ContextMenusAreGuarded(unittest.TestCase):
     def test_build_installs_the_guard(self) -> None:
         built = _function(trees.tree_for(CONSOLE / "grid.py"), "build")
         self.assertIsNotNone(built, "console/grid.py no longer defines build()")
+        assert built is not None
         called = {getattr(node.func, "id", "") or getattr(node.func, "attr", "")
                   for node in ast.walk(built) if isinstance(node, ast.Call)}
         self.assertIn(GUARD, called, f"grid.build no longer calls {GUARD}")
@@ -45,6 +46,7 @@ class ContextMenusAreGuarded(unittest.TestCase):
         source = (CONSOLE / "grid.py").read_text(encoding="utf-8")
         guard = _function(trees.tree_for(CONSOLE / "grid.py"), GUARD)
         self.assertIsNotNone(guard, f"console/grid.py no longer defines {GUARD}()")
+        assert guard is not None
         self.assertTrue(_calls(guard, "run_javascript"),
                         f"{GUARD} no longer runs in the browser")
         self.assertIn("}, true);", ast.get_source_segment(source, guard) or "",

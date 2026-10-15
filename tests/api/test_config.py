@@ -23,7 +23,7 @@ from common import config_schema, config_service
 class Store:
     """Enough ConfigStore for the service: typed reads, staged writes, one save."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.written: dict[tuple[str, str], object] = {}
         self.saves = 0
 

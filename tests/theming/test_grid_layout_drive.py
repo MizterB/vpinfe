@@ -117,7 +117,7 @@ class GridLayoutDrive(unittest.TestCase):
         def scopes() -> dict:
             return json.loads(stored.read_text())["scopes"] if stored.exists() else {}
 
-        async with BrowserSession(chromium_path()) as browser:
+        async with BrowserSession(chromium_path() or "") as browser:
             walk = ConsoleWalk(browser, instance)
 
             async def load(path: str) -> None:
@@ -176,7 +176,7 @@ class GridLayoutDrive(unittest.TestCase):
 
                 async def press() -> None:
                     for kind in ("mousePressed", "mouseReleased"):
-                        await mouse(kind, *at, button="right")
+                        await mouse(kind, *at, button="right")  # type: ignore[misc]
 
                 await walk.act(press, mark=MARK, until=newer(".q-menu .console-menu-item"))
                 return True

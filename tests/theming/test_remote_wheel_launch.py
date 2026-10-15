@@ -38,7 +38,7 @@ class RemoteWheelLaunchTests(TempTree):
                 "vpinfe": {"game_id": GAME_ID}}
         self.here = fake_game(write_game(self.root, NAME, info=meta), NAME, meta=meta)
         start_library_of(self, [self.here])
-        self.api = API(_Ini(), window_name="playfield")
+        self.api = API(_Ini(), window_name="playfield")  # type: ignore[arg-type]
 
     def _launch(self):
         with patch.object(self.api, "entry_at", return_value=_as_the_library_sends_it()), \

@@ -202,6 +202,7 @@ class BackglassFileAsPicture(BackglassRoutes):
     def test_the_offer_names_the_file_and_its_picture(self) -> None:
         offered = backglass_ops.offer(GAME_ID, "t1")
 
+        assert offered is not None
         self.assertEqual(("t1.directb2s", "t1.directb2s"),
                          (offered["file"], offered["path"]))
         self.assertTrue(offered["version"])
@@ -209,10 +210,16 @@ class BackglassFileAsPicture(BackglassRoutes):
     def test_the_shared_slot_with_no_folder_file_is_offered_the_default_tables(self) -> None:
         (self.folder / f"{FOLDER}.directb2s").unlink()
 
-        self.assertEqual("t1.directb2s", backglass_ops.offer(GAME_ID, "")["file"])
+        offered = backglass_ops.offer(GAME_ID, "")
+
+        assert offered is not None
+        self.assertEqual("t1.directb2s", offered["file"])
 
     def test_a_table_with_no_file_of_its_own_is_offered_the_folders(self) -> None:
-        self.assertEqual(f"{FOLDER}.directb2s", backglass_ops.offer(GAME_ID, "t2")["file"])
+        offered = backglass_ops.offer(GAME_ID, "t2")
+
+        assert offered is not None
+        self.assertEqual(f"{FOLDER}.directb2s", offered["file"])
 
     def test_no_file_means_no_offer(self) -> None:
         (self.folder / "t1.directb2s").unlink()
@@ -330,6 +337,7 @@ class BackglassFileAsPicture(BackglassRoutes):
                    return_value={"Dotted0001": game}):
             offered = backglass_ops.offer("Dotted0001", "d1")
 
+        assert offered is not None
         self.assertEqual("Dotted (v1.1) - Maker.directb2s", offered["file"])
 
     def test_a_picture_with_another_file_at_its_tier_is_left(self) -> None:
@@ -408,9 +416,11 @@ class BackglassFileAsPicture(BackglassRoutes):
                           side_effect=lambda kind, work, **_: work(MagicMock())), \
                 patch.object(media_fill, "update_enabled", return_value=True), \
                 patch.object(backglass_ops, "redraw_all",
-                             side_effect=lambda _proceed: order.append("sweep") or 0), \
+                             side_effect=lambda _proceed: order.append("sweep") or 0,  # type: ignore[func-returns-value]
+                             ), \
                 patch.object(media_fill, "update_downloaded",
-                             side_effect=lambda *_: order.append("update") or {}):
+                             side_effect=lambda *_: order.append("update") or {},  # type: ignore[func-returns-value]
+                             ):
             self.assertTrue(media_fill.start_update())
 
         self.assertEqual(["sweep", "update"], order)

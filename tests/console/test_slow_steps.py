@@ -37,9 +37,9 @@ class StepCallsTests(unittest.TestCase):
         patch = mock.patch.object(ext_action, "ApiClient", Client)
         patch.start()
         self.addCleanup(patch.stop)
-        patch = mock.patch.object(offload, "io", _direct)
-        patch.start()
-        self.addCleanup(patch.stop)
+        patch_io = mock.patch.object(offload, "io", _direct)
+        patch_io.start()
+        self.addCleanup(patch_io.stop)
         self.calls = ext_action.calls("demo", {"base": "/wizard"})
 
     def test_a_step_is_given_longer_than_a_page_load_to_answer(self) -> None:
@@ -81,7 +81,8 @@ class StepCallsTests(unittest.TestCase):
         self.assertEqual(len(asked), ext_action.GIVE_UP_AFTER)
 
     def test_one_slow_answer_does_not_stop_the_asking(self) -> None:
-        answers = [OSError("busy"), {"stage": "reading"}, OSError("busy"), {"stage": "x"}]
+        answers: list[Any] = [OSError("busy"), {"stage": "reading"}, OSError("busy"),
+                              {"stage": "x"}]
 
         class Client:
             def ext_get(self, path: str) -> dict:

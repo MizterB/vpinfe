@@ -317,7 +317,7 @@ class ConsolePagesDrive(unittest.TestCase):
             for kind, text in await browser.evaluate(WORDS):
                 words.setdefault((kind, text), set()).add(where)
 
-        async with BrowserSession(chromium_path()) as browser:
+        async with BrowserSession(chromium_path() or "") as browser:
             await browser.send("Emulation.setDeviceMetricsOverride",
                                {"width": 1700, "height": 1000, "deviceScaleFactor": 1,
                                 "mobile": False})

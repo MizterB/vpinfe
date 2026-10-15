@@ -15,6 +15,7 @@ import time
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from typing import cast
 
 from common import install_setup
 from common.config_store import ConfigStore
@@ -134,8 +135,9 @@ class StubInstance(HTTPServer):
 
 class _StubHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:                                   # noqa: N802 - BaseHTTPRequestHandler
-        name = self.server.name
-        time.sleep(self.server.delay)
+        server = cast(StubInstance, self.server)
+        name = server.name
+        time.sleep(server.delay)
         body = b"not json" if name is None else json.dumps({"name": name}).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")

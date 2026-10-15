@@ -237,6 +237,7 @@ class DrawnOnTheInputPageTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(settings, "_play_input", new=AsyncMock(return_value={})) as asked:
             await self._drawn()
 
+        assert asked.await_args is not None
         self.assertIn("input", asked.await_args.args[1])
 
     async def test_the_values_the_table_is_over_are_the_stored_ones(self) -> None:

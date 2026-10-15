@@ -105,6 +105,7 @@ class ForAGame(unittest.TestCase):
         send = next(one for one in verbs if one.label == "Send to Device...")
 
         with patch.object(game_acts.send_to_device, "ask_where") as ask:
+            assert send.run is not None
             send.run()
 
         ask.assert_called_once_with(games, state)
@@ -210,6 +211,7 @@ class HidingSeveralTables(unittest.IsolatedAsyncioTestCase):
             verbs = _several(shown, already, library=library)
             hide = next(one for one in verbs if one.label == "Hide")
             with _PAGE:
+                assert hide.run is not None
                 await hide.run()
                 library.set_table_hidden.assert_called_once_with("afm", "a", True)
                 await offers[0][1]()
@@ -238,11 +240,13 @@ class DeletingGamesFromDisk(unittest.IsolatedAsyncioTestCase):
                 patch.object(game_acts.ui, "notify"):
             verb = game_acts.delete_games(library, games, refresh)
             with _PAGE:
+                assert verb.run is not None
                 await verb.run()
         return asked
 
     async def test_a_no_deletes_nothing(self) -> None:
-        library, refreshed = MagicMock(), []
+        library = MagicMock()
+        refreshed: list[list[str]] = []
 
         await self.run_it(False, library, [_game()], refreshed)
 
@@ -257,7 +261,8 @@ class DeletingGamesFromDisk(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(["/tables/Attack", "/tables/Medusa"], list(asked[0]["lines"]))
 
     async def test_a_yes_deletes_each_and_puts_the_page_right(self) -> None:
-        library, refreshed = MagicMock(), []
+        library = MagicMock()
+        refreshed: list[list[str]] = []
 
         await self.run_it(True, library, [_game(), _game("medusa")], refreshed)
 
@@ -266,7 +271,8 @@ class DeletingGamesFromDisk(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([["afm", "medusa"]], refreshed)
 
     async def test_a_failure_part_way_puts_right_what_was_deleted(self) -> None:
-        library, refreshed = MagicMock(), []
+        library = MagicMock()
+        refreshed: list[list[str]] = []
         library.delete_game_folder.side_effect = [None, RuntimeError("busy")]
 
         await self.run_it(True, library, [_game(), _game("medusa")], refreshed)
@@ -292,7 +298,7 @@ class ForSeveralTables(unittest.TestCase):
         self.assertEqual("One at a time", make.hint)
 
     def test_forgetting_is_one_verb_for_one_table_or_many(self) -> None:
-        gone = {"available": False, "absent_since": "2026-10-01"}
+        gone: dict[str, Any] = {"available": False, "absent_since": "2026-10-01"}
         one = _acts(_table("a", **gone))
         many = _several(_table("a", **gone), _table("b", "medusa", **gone))
 

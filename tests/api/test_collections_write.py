@@ -488,8 +488,8 @@ class KeepTheResultTests(Harness):
         class _Entry:
             def __init__(self, game, table):
                 self.game, self.table, self.table_id = game, {"id": table}, table
-        ops._resolved = lambda name: [_Entry(g, t) for g, t in pairs]
-        ops.game_identity.game_id = lambda game: game
+        ops._resolved = lambda name: [_Entry(g, t) for g, t in pairs]  # type: ignore[misc]
+        ops.game_identity.game_id = lambda game: game  # type: ignore[return-value]
 
     def test_the_matches_become_members_following_their_default(self):
         self.use(Manager([], is_filter=True))

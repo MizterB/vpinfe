@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import unittest
+from typing import cast
 from unittest import mock
 
 from common import i18n
 from common.backups import copies
 from common.i18n import t
-from console import backups, deeplink, panel, when
+from console import backups, deeplink, panel, views, when
 from console.data import Library
 
 
@@ -185,21 +186,26 @@ class Columns(unittest.TestCase):
 class Views(unittest.TestCase):
     def test_every_kind_a_copy_can_be_is_in_a_view_and_the_first_view_is_everything(self) -> None:
         filtered = {kind for preset in backups.VIEWS.values()
-                    for kind in preset.filters.get("kind", {}).get("values", [])}
+                    for kind in cast(views.Preset, preset).filters.get("kind", {})
+                    .get("values", [])}
 
         self.assertEqual(set(backups.KIND_WORDS), filtered)
         self.assertEqual("console.view.everything", next(iter(backups.VIEWS)))
 
     def test_a_view_names_only_columns_the_grid_has(self) -> None:
         for key, preset in backups.VIEWS.items():
+            assert not isinstance(preset, list)
             self.assertLessEqual(set(preset.columns), set(backups._ALL), key)
 
     def test_a_view_of_one_kind_does_not_repeat_the_kind_in_a_column(self) -> None:
         for key in ("console.view.backups_games", "console.view.backups_themes"):
-            self.assertNotIn("kind", backups.VIEWS[key].columns)
+            preset = backups.VIEWS[key]
+            assert not isinstance(preset, list)
+            self.assertNotIn("kind", preset.columns)
 
     def test_a_view_shows_its_columns_in_the_grids_order(self) -> None:
         for key, preset in backups.VIEWS.items():
+            assert not isinstance(preset, list)
             self.assertEqual(sorted(preset.columns, key=backups._ALL.index),
                              list(preset.columns), key)
 
@@ -211,11 +217,14 @@ class Views(unittest.TestCase):
         shown = {"console.view.backups_media",
                  "console.view.backups_assets"}
         for key, preset in backups.VIEWS.items():
+            assert not isinstance(preset, list)
             self.assertEqual(key in shown, "file" in preset.columns, key)
 
     def test_everything_is_six_columns_and_deleted_keeps_only_what_is_gone(self) -> None:
         everything = backups.VIEWS["console.view.everything"]
         deleted = backups.VIEWS["console.view.backups_deleted"]
+        assert not isinstance(everything, list)
+        assert not isinstance(deleted, list)
 
         self.assertEqual(("name", "kind", "taken", "reason", "size", "gone"),
                          everything.columns)
@@ -224,8 +233,12 @@ class Views(unittest.TestCase):
                           "console.view.backups_yours"], list(backups.VIEWS)[:3])
 
     def test_a_view_leaves_out_a_column_that_holds_one_value_there(self) -> None:
-        vpinfe = backups.VIEWS["console.view.backups_vpinfe"].columns
-        yours = backups.VIEWS["console.view.backups_yours"].columns
+        vpinfe_view = backups.VIEWS["console.view.backups_vpinfe"]
+        yours_view = backups.VIEWS["console.view.backups_yours"]
+        assert not isinstance(vpinfe_view, list)
+        assert not isinstance(yours_view, list)
+        vpinfe = vpinfe_view.columns
+        yours = yours_view.columns
 
         self.assertNotIn("name", vpinfe)
         self.assertIn("kind", vpinfe)

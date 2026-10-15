@@ -17,9 +17,10 @@ from unittest import mock
 from common import events
 from common.host import launch_state
 from frontend import play_events
+from frontend.device_channel import DeviceChannel
 
 
-class _Bridge:
+class _Bridge(DeviceChannel):
     def __init__(self):
         self.messages = []
 
@@ -219,7 +220,7 @@ class PlayEventTests(unittest.TestCase):
         """These are subscribers, so the bus contains them. As hooks they could
         abandon a launch mid-ball."""
         self._register()
-        self.bridge.send_event_all_with_iframe = mock.Mock(side_effect=RuntimeError("bridge down"))
+        self.bridge.send_event_all_with_iframe = mock.Mock(side_effect=RuntimeError("bridge down"))  # type: ignore[method-assign]
 
         with self.assertLogs("vpinfe.common.events", level="ERROR"):
             events.emit(events.TABLE_LAUNCHED, game=None, ini_config=None)
@@ -282,7 +283,7 @@ class LifecycleMessageSpellingTests(unittest.TestCase):
             self.assertEqual(bridge.messages.count(name), 1, name)
 
 
-class _FullBridge:
+class _FullBridge(DeviceChannel):
     def __init__(self):
         self.messages = []
 
@@ -301,7 +302,7 @@ class SettingsChangedTests(unittest.TestCase):
         self.bridge = _FullBridge()
         self.store = configparser.ConfigParser()
         self.store["behavior"] = {"mute_audio": "true"}
-        play_events.register(self.bridge, None, self.store)
+        play_events.register(self.bridge, None, self.store)  # type: ignore[arg-type]
 
     def _saved(self, *keys: str) -> list[dict]:
         events.emit(events.SETTINGS_CHANGED, keys=list(keys), ini_config=self.store)

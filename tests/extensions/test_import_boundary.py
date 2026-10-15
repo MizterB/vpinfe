@@ -40,7 +40,7 @@ STDLIB = frozenset(sys.stdlib_module_names)
 def _imports(tree: ast.AST) -> list[str]:
     """Every module an import names, dotted and absolute. A relative import resolves
     inside the extension itself and carries no module name to check."""
-    found = []
+    found: list[str] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             found.extend(alias.name for alias in node.names)

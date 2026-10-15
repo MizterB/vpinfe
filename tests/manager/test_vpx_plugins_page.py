@@ -16,11 +16,12 @@ try:
 except ImportError:
     sys.modules.setdefault(
         "nicegui",
-        types.SimpleNamespace(ui=types.SimpleNamespace(input=object)),
+        types.SimpleNamespace(ui=types.SimpleNamespace(input=object)),  # type: ignore[arg-type]
     )
 sys.modules.setdefault(
     "platformdirs",
-    types.SimpleNamespace(user_config_dir=lambda *args, **kwargs: "/tmp/vpinfe-test"),
+    types.SimpleNamespace(  # type: ignore[arg-type]
+        user_config_dir=lambda *args, **kwargs: "/tmp/vpinfe-test"),
 )
 
 plugin_profile_service = importlib.import_module("managerui.services.plugin_profile_service")

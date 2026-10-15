@@ -75,7 +75,7 @@ class AttractDriveTests(TempTree):
         async def run(instance: LiveInstance):
             if prepare:
                 prepare(self._theme_dir(instance))
-            async with BrowserSession(chromium_path()) as browser:
+            async with BrowserSession(chromium_path() or "") as browser:
                 await self._open(instance, browser)
                 return await scenario(browser)
 
@@ -236,7 +236,7 @@ class AttractDriveTests(TempTree):
             urllib.request.urlopen(request, timeout=10).close()
 
         async def run(instance: LiveInstance):
-            async with BrowserSession(chromium_path()) as browser:
+            async with BrowserSession(chromium_path() or "") as browser:
                 await self._open(instance, browser)
                 await asyncio.sleep(QUIET_WINDOW_S)
                 still = await browser.evaluate("window.__moves.length")

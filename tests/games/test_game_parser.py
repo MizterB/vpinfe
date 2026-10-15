@@ -56,7 +56,7 @@ class MediaSettingsTests(unittest.TestCase):
 class GameParserTests(unittest.TestCase):
     def test_game_parser_accessors_return_copies(self) -> None:
         parser = GameParser.__new__(GameParser)
-        parser.games = [SimpleNamespace(name="one")]
+        parser.games = [SimpleNamespace(name="one")]  # type: ignore[list-item]
         parser.missing_games = [{"folder": "missing"}]
 
         games = parser.get_all_games()
@@ -216,7 +216,7 @@ class UnreadableInfoTests(TempTree):
     FINE = "Fine (Original 2024)"
 
     def _scan_beside(self, name: str, content: bytes,
-                     mode: int = 0o644) -> tuple[list[str], dict[str, str]]:
+                     mode: int = 0o644) -> tuple[list[str | None], dict[str, str]]:
         write_game(self.root, self.FINE, info={"Info": {"Title": "Fine"}})
         info = write_game(self.root, name) / f"{name}.info"
         info.write_bytes(content)

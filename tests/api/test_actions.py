@@ -18,7 +18,7 @@ from tests.support.library import TempTree
 try:
     from starlette.testclient import TestClient
 except ImportError:  # pragma: no cover
-    TestClient = None
+    TestClient = None  # type: ignore[assignment,misc]
 
 
 @unittest.skipIf(TestClient is None, "starlette test client unavailable")
@@ -29,7 +29,7 @@ class ActionsApiTests(TempTree):
         self.addCleanup(lifecycle.reset_for_tests)
 
     def _offer(self, scope: str, action: str) -> list:
-        done = []
+        done: list = []
         lifecycle.register_performer(scope, action, done.append)
         return done
 

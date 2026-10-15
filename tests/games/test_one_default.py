@@ -44,6 +44,7 @@ class OneDefaultTests(TempTree):
         (self.game,) = GameParser(str(self.root)).get_all_games()
 
     def test_the_scan_points_at_it(self) -> None:
+        assert self.game.full_path_vpx_file is not None
         self.assertEqual(Path(self.game.full_path_vpx_file).name, CHARLIE)
 
     def test_the_metadata_row_names_it(self) -> None:
@@ -65,6 +66,7 @@ class OneDefaultTests(TempTree):
 
     def test_the_rest_lens_flags_where_a_cleared_choice_goes(self) -> None:
         """With a table chosen, the automatic pick is still named."""
+        assert self.game.meta_config is not None
         self.game.meta_config["vpinfe"]["default_table"] = "tbl0000001"
 
         rows = table_lens.table_rows(self.game, {"game_dir": str(self.folder)})
@@ -73,6 +75,7 @@ class OneDefaultTests(TempTree):
         self.assertEqual([r["filename"] for r in rows if r["automatic"]], [CHARLIE])
 
     def test_the_library_lens_says_where_a_cleared_choice_goes(self) -> None:
+        assert self.game.meta_config is not None
         self.game.meta_config["vpinfe"]["default_table"] = "tbl0000001"
 
         with mock.patch.object(table_lens.game_repository, "catalog",
@@ -96,6 +99,7 @@ class EntryRowTests(TempTree):
         (self.game,) = GameParser(str(self.root)).get_all_games()
 
     def _row(self, table_id: str) -> dict:
+        assert self.game.meta_config is not None
         table = self.game.meta_config["tables"][table_id]
         return game_state._entry_row(Entry(game=self.game, table=table, siblings=2), {})
 

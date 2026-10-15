@@ -107,7 +107,9 @@ class TestCollectionSorting(unittest.TestCase):
             manager = CollectionStore(str(ini_path))
             manager.add_filter_collection("Played", sort_by="RunTime")
 
-            self.assertEqual(manager.get_filters("Played")["order_by"], "desc")
+            filters = manager.get_filters("Played")
+            assert filters is not None
+            self.assertEqual(filters["order_by"], "desc")
 
 
 if __name__ == "__main__":

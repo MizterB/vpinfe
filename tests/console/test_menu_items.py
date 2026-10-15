@@ -31,10 +31,11 @@ def _dressed_calls(tree: ast.AST) -> set[int]:
             continue
         # A class list built above the call is still a class list; only a literal that
         # names something else is a miss.
-        literal = [a for a in node.args
+        literal = [a.value for a in node.args
                    if isinstance(a, ast.Constant) and isinstance(a.value, str)]
-        if literal and not any(TREATMENT in a.value for a in literal):
+        if literal and not any(TREATMENT in a for a in literal):
             continue
+        assert isinstance(node.func, ast.Attribute)
         inner = node.func.value
         while isinstance(inner, ast.Call):
             if getattr(inner.func, "attr", "") in DRAWN:

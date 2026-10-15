@@ -14,7 +14,7 @@ from pathlib import Path
 try:
     from common.host.key_simulator import KeySimulator
 except Exception as exc:                    # no display, or no PyObjC
-    KeySimulator = None
+    KeySimulator = None  # type: ignore[assignment,misc]
     IMPORT_ERROR: Exception | None = exc
 else:
     IMPORT_ERROR = None

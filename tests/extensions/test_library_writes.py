@@ -16,12 +16,15 @@ from __future__ import annotations
 
 import json
 import unittest
+from typing import cast
 from unittest.mock import patch
 
 import httpapi
+from common.extensions.context import ExtensionFiles
 from common.extensions.games import ExtensionGames, withdraw_all
 from tests.support.library import TempTree, fake_game, write_game
 
+NO_FILES = cast(ExtensionFiles, None)
 GAME_ID = "Ext000000001"
 FOLDER = "Medieval Madness (Williams 1997)"
 DESKTOP = f"{FOLDER}.vpx"
@@ -51,7 +54,7 @@ class ExtensionWriteTests(TempTree):
         self.addCleanup(patcher.stop)
         # Building the app is what offers the library to the host.
         httpapi.create_api_app()
-        self.extension = ExtensionGames("tester", ("games:read", "games:write"), None)
+        self.extension = ExtensionGames("tester", ("games:read", "games:write"), NO_FILES)
 
     def _vpinfe(self) -> dict:
         held = json.loads((self.folder / f"{FOLDER}.info").read_text(encoding="utf-8"))

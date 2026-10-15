@@ -26,9 +26,9 @@ class OneSampleTests(unittest.TestCase):
         fake.process_iter.return_value = []
         fake.sensors_temperatures.return_value = {}
         for name, value in (("psutil", fake), ("PER_CORE", True)):
-            patch = mock.patch.object(metrics, name, value)
-            patch.start()
-            self.addCleanup(patch.stop)
+            swap = mock.patch.object(metrics, name, value)
+            swap.start()
+            self.addCleanup(swap.stop)
         self.graphics = {"cards": [{"id": "1", "name": "Card", "busy": 30.0, "source": "x"},
                                    {"id": "2", "name": "Other", "source": "x"}],
                          "reason": "", "detail": ""}
@@ -240,6 +240,11 @@ class BusiestTests(unittest.TestCase):
         self.fake.process_iter.return_value = list(processes)
         return metrics.busiest()
 
+    def _listed(self, *processes: mock.Mock) -> list[dict]:
+        found = self._list(*processes)
+        assert found is not None
+        return found
+
     def test_the_first_listing_is_nothing_because_every_process_reads_zero_once(self) -> None:
         self.assertIsNone(self._list(_process(10, "chrome", 0.0, 100)))
         self.assertEqual(self._list(_process(10, "chrome", 80.0, 100)),
@@ -262,7 +267,7 @@ class BusiestTests(unittest.TestCase):
     def test_an_apps_helpers_are_one_row_under_the_apps_name(self) -> None:
         app = "/Applications/Claude.app/Contents"
         self._list()
-        found = self._list(
+        found = self._listed(
             _process(10, "Claude", 10.0, 100, f"{app}/MacOS/Claude"),
             _process(11, "Claude Helper (Renderer)", 30.0, 50,
                      f"{app}/Frameworks/Claude Helper (Renderer).app/Contents/MacOS/Claude Helper"),
@@ -277,22 +282,22 @@ class BusiestTests(unittest.TestCase):
 
     def test_the_busiest_five_are_listed_and_the_ties_by_size(self) -> None:
         self._list()
-        found = self._list(*(_process(10 + n, f"p{n}", float(n), n) for n in range(8)),
-                           _process(30, "big", 0.0, 10 ** 9))
+        found = self._listed(*(_process(10 + n, f"p{n}", float(n), n) for n in range(8)),
+                              _process(30, "big", 0.0, 10 ** 9))
         self.assertEqual([one["name"] for one in found], ["p7", "p6", "p5", "p4", "p3"])
-        self.assertEqual(self._list(_process(31, "small", 0.0, 1), _process(32, "big", 0.0, 9))[0]
-                         ["name"], "big")
+        self.assertEqual(self._listed(_process(31, "small", 0.0, 1),
+                                      _process(32, "big", 0.0, 9))[0]["name"], "big")
 
     def test_this_process_is_named_for_the_app_and_not_the_interpreter(self) -> None:
         self._list()
-        found = self._list(_process(os.getpid(), "python3.12", 40.0, 100))
+        found = self._listed(_process(os.getpid(), "python3.12", 40.0, 100))
         self.assertEqual(found[0]["name"], metrics.OWN)
 
     def test_a_process_the_os_will_not_let_us_read_is_skipped(self) -> None:
         self._list()
-        found = self._list(_process(10, "root-owned", None, 100), _process(11, "also", 8.0, None),
-                           _process(0, "System Idle Process", 400.0, 0),
-                           _process(12, "mine", 8.0, 5))
+        found = self._listed(_process(10, "root-owned", None, 100), _process(11, "also", 8.0, None),
+                              _process(0, "System Idle Process", 400.0, 0),
+                              _process(12, "mine", 8.0, 5))
         self.assertEqual([one["name"] for one in found], ["mine"])
 
     def test_a_listing_that_fails_is_no_list(self) -> None:

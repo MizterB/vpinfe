@@ -13,6 +13,7 @@ import time
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any
 from unittest import mock
 
 from nicegui import ui
@@ -21,6 +22,7 @@ import httpapi
 from common import jobs as job_registry
 from common.games.game_parser import GameParser
 from common.games.info_maintenance import upgrade_library
+from common.games.unreadable import UnreadableGame
 from common.i18n import t
 from console import sections
 from console.data import Library
@@ -31,7 +33,7 @@ from tests.support.skips import needs_posix_permissions
 try:
     from starlette.testclient import TestClient
 except ImportError:  # pragma: no cover
-    TestClient = None
+    TestClient = None  # type: ignore[assignment,misc]
 
 
 @unittest.skipIf(TestClient is None, "starlette test client unavailable")
@@ -102,7 +104,7 @@ class InfoRouteTests(unittest.TestCase):
 class MetadataCardTests(unittest.TestCase):
     """What the Overview says about it."""
 
-    def _unreadable(self, *names: str) -> list[dict]:
+    def _unreadable(self, *names: str) -> list[UnreadableGame]:
         """The rows the scan writes for folders whose `.info` is not valid metadata."""
         with TemporaryDirectory() as tmp:
             for name in names:
@@ -110,7 +112,7 @@ class MetadataCardTests(unittest.TestCase):
                     '{"Info": {"Title": "broken",,,}', encoding="utf-8")
             return GameParser(tmp).get_unreadable_games()
 
-    def _drawn(self, unreadable: list[dict]) -> dict[str, str]:
+    def _drawn(self, unreadable: list[UnreadableGame]) -> dict[str, str]:
         return _card({"unreadable": unreadable})
 
     def test_a_folder_it_could_not_read_is_named_with_why_on_hover(self) -> None:
@@ -226,7 +228,7 @@ class MetadataOutcomeTests(unittest.TestCase):
         client.job.side_effect = asked
         client.info_maintenance.side_effect = self._metadata
         library = Library(client)
-        page = {"view": "overview"}
+        page: dict[str, Any] = {"view": "overview"}
 
         async def pressed() -> None:
             with row:

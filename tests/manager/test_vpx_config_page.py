@@ -17,11 +17,12 @@ try:
 except ImportError:
     sys.modules.setdefault(
         "nicegui",
-        types.SimpleNamespace(ui=types.SimpleNamespace(input=object)),
+        types.SimpleNamespace(ui=types.SimpleNamespace(input=object)),  # type: ignore[arg-type]
     )
 sys.modules.setdefault(
     "platformdirs",
-    types.SimpleNamespace(user_config_dir=lambda *args, **kwargs: "/tmp/vpinfe-test"),
+    types.SimpleNamespace(  # type: ignore[arg-type]
+        user_config_dir=lambda *args, **kwargs: "/tmp/vpinfe-test"),
 )
 
 vpx_config = importlib.import_module("managerui.pages.vpx_config")

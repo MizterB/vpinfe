@@ -29,7 +29,7 @@ class RemoteFollowsTheCabinetTests(TempTree):
         write_game(self.root, "Withheld", info=_info("Hide00000001", "Withheld", True))
         config = configparser.ConfigParser()
         config.read_dict({"Settings": {"gamerootdir": str(self.root)}, "Media": {}})
-        parser = GameParser(str(self.root), config)
+        parser = GameParser(str(self.root), config)  # type: ignore[arg-type]
 
         held = mock.patch.object(
             game_repository.library_folders, "configured",

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import sys
 import unittest
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 from common import events, players
@@ -23,7 +24,8 @@ OTHER = "Gme2222222"
 AT = "2026-09-28T20:00:00Z"
 # As core hands it over: a blank already given the one player up's initials, and a `???`
 # left as the machine wrote it.
-READING = {"rom": "ex", "resolved_rom": "ex", "score_kind": "Leaderboard", "entries": [
+READING: dict[str, Any] = {"rom": "ex", "resolved_rom": "ex",
+                           "score_kind": "Leaderboard", "entries": [
     {"section": "HIGH SCORES", "rank": 1, "initials": "OWN", "score": 900},
     {"section": "HIGH SCORES", "rank": 2, "initials": "???", "score": 800},
     {"section": "HIGH SCORES", "rank": 3, "initials": "ABC", "score": 700}]}
@@ -57,10 +59,10 @@ class SendingCase(VPinPlayCase):
         sync = sys.modules[f"vpinfe_ext_{NAME}.sync"]
         self.send = MagicMock(return_value={"ok": True, "status_code": 200,
                                             "response_body": ""})
-        self.held = MagicMock(return_value={})
+        self.their_record = MagicMock(return_value={})
         self.later: list = []
         for module, name, value in (
-                (sync, "send", self.send), (sync, "their_record", self.held),
+                (sync, "send", self.send), (sync, "their_record", self.their_record),
                 (sys.modules[f"vpinfe_ext_{NAME}.sending"], "_on_a_thread",
                  self.later.append)):
             patched = patch.object(module, name, value)
@@ -130,7 +132,7 @@ class WhatAPlaySends(SendingCase):
                           table["user"]["startCount"], table["user"]["runTime"]),
                          (f"vps-{GAME}", 4, 7, 10))
         self.assertEqual(table["vpinfe"]["alttitle"], "Mine")
-        self.assertEqual(self.held.call_args.args[1:3], ("owner-id", f"vps-{GAME}"))
+        self.assertEqual(self.their_record.call_args.args[1:3], ("owner-id", f"vps-{GAME}"))
 
     def test_the_score_is_the_reading_as_core_filled_it_kept_to_their_own_entry(self) -> None:
         """A blank took the one player up's initials; a `???` stays `???` - and since it
@@ -145,7 +147,7 @@ class WhatAPlaySends(SendingCase):
         held = {"rom": "ex", "entries": [{"section": "HIGH SCORES", "rank": 1,
                                           "initials": "OWN", "score": 5000}]}
         self.sharing(self.owner, "owner-id")
-        self.held.return_value = {"score": held}
+        self.their_record.return_value = {"score": held}
 
         self.play(self.owner, reading={**READING, "entries": [READING["entries"][2]]})
 
@@ -153,7 +155,7 @@ class WhatAPlaySends(SendingCase):
 
     def test_an_owner_score_of_their_own_replaces_the_one_vpinplay_holds(self) -> None:
         self.sharing(self.owner, "owner-id")
-        self.held.return_value = {"score": {"rom": "ex", "entries": []}}
+        self.their_record.return_value = {"score": {"rom": "ex", "entries": []}}
 
         self.play(self.owner)
 
@@ -162,7 +164,7 @@ class WhatAPlaySends(SendingCase):
     def test_an_owner_rating_never_given_here_is_the_one_vpinplay_holds(self) -> None:
         self.sharing(self.owner, "owner-id")
         self.games[GAME]["user"]["rating"] = 0
-        self.held.return_value = {"rating": 3}
+        self.their_record.return_value = {"rating": 3}
 
         self.play(self.owner)
 
@@ -170,7 +172,7 @@ class WhatAPlaySends(SendingCase):
 
     def test_an_owner_rating_given_here_replaces_the_one_vpinplay_holds(self) -> None:
         self.sharing(self.owner, "owner-id")
-        self.held.return_value = {"rating": 3}
+        self.their_record.return_value = {"rating": 3}
 
         self.play(self.owner)
 
@@ -188,7 +190,7 @@ class WhatAPlaySends(SendingCase):
     def test_a_kept_player_s_game_goes_with_their_own_numbers(self) -> None:
         kept = self.sharing(self.kept().player_id, "jordan")
         player_records.get_records().set_rating(players.get_roster().player(kept), GAME, 2)
-        self.held.return_value = {"rating": 5, "alttitle": "Theirs", "altvpsid": "t"}
+        self.their_record.return_value = {"rating": 5, "alttitle": "Theirs", "altvpsid": "t"}
 
         self.play(kept)
 
@@ -199,11 +201,11 @@ class WhatAPlaySends(SendingCase):
         self.assertEqual(table["vpinfe"], {"alttitle": "Theirs", "altvpsid": "t"})
         self.assertEqual(table["user"]["score"], _only(READING["entries"][2]),
                          "their own entry, not the other ranks on the machine")
-        self.assertEqual(self.held.call_args.args[1:3], ("jordan", f"vps-{GAME}"))
+        self.assertEqual(self.their_record.call_args.args[1:3], ("jordan", f"vps-{GAME}"))
 
     def test_a_rating_they_never_gave_here_is_the_one_vpinplay_holds(self) -> None:
         kept = self.sharing(self.kept().player_id, "jordan")
-        self.held.return_value = {"rating": 5}
+        self.their_record.return_value = {"rating": 5}
 
         self.play(kept)
 
@@ -314,7 +316,7 @@ class WhatIsNeverSent(SendingCase):
 
 
 class WhatWaits(SendingCase):
-    def fail(self) -> None:
+    def fail(self) -> None:  # type: ignore[override]
         self.send.return_value = {"ok": False, "status_code": 503, "response_body": "down"}
 
     def succeed(self) -> None:
@@ -384,7 +386,7 @@ class WhatWaits(SendingCase):
 
     def test_nothing_goes_for_a_player_vpinplay_cannot_say_it_holds(self) -> None:
         kept = self.sharing(self.kept().player_id, "jordan")
-        self.held.return_value = None
+        self.their_record.return_value = None
 
         self.play(kept)
 
@@ -393,7 +395,7 @@ class WhatWaits(SendingCase):
 
     def test_nothing_goes_for_an_owner_vpinplay_cannot_say_it_holds(self) -> None:
         self.sharing(self.owner, "owner-id")
-        self.held.return_value = None
+        self.their_record.return_value = None
 
         self.play(self.owner)
 
@@ -477,7 +479,7 @@ class WhatClearingARatingSends(SendingCase):
         self.play(self.owner)
         self.send.reset_mock()
         self.games[GAME]["user"]["rating"] = 0
-        self.held.return_value = {"rating": 3}
+        self.their_record.return_value = {"rating": 3}
 
         events.emit(events.GAME_RATED, game_id=GAME, rating=0,
                     player=players.get_roster().player(self.owner).as_payload())
@@ -492,7 +494,7 @@ class WhatClearingARatingSends(SendingCase):
         player_records.get_records().set_rating(player, GAME, 2)
         self.play(kept)
         self.send.reset_mock()
-        self.held.return_value = {"rating": 5}
+        self.their_record.return_value = {"rating": 5}
 
         player_records.get_records().set_rating(player, GAME, 0)
         self.run_later()

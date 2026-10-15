@@ -5,21 +5,24 @@ import threading
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from typing import cast
 
+from common.config_store import ConfigStore
+from common.games.game import Game
 from common.host import real_dmd
 
 
-def _game(**paths: str) -> SimpleNamespace:
+def _game(**paths: str) -> Game:
     found = {"real_dmd_video_path": "", "real_dmd_color_video_path": "",
              "real_dmd_image_path": "", "real_dmd_color_image_path": ""}
     found.update(paths)
-    return SimpleNamespace(**found)
+    return cast(Game, SimpleNamespace(**found))
 
 
-def _config(priority: str) -> configparser.ConfigParser:
+def _config(priority: str) -> ConfigStore:
     parser = configparser.ConfigParser()
     parser.read_dict({"Media": {"realdmdmediapriority": priority}})
-    return parser
+    return cast(ConfigStore, parser)
 
 
 class ArtTests(unittest.TestCase):

@@ -77,7 +77,7 @@ class BrowserPageTests(unittest.IsolatedAsyncioTestCase):
         self.enterContext(patch.object(paths, "FRONTEND_BROWSER_PATH", self.report))
         self.enterContext(patch.object(frontend_browser, "_in_use",
                                        side_effect=lambda: (str(self.in_use), self.bundled)))
-        self.unset = None
+        self.unset: Path | None = None
         self.enterContext(patch.object(
             frontend_browser, "_unset",
             side_effect=lambda: (str(self.unset or self.in_use), self.bundled)))

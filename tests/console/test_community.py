@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from unittest.mock import Mock, patch
 
 from nicegui import ui
@@ -18,7 +18,7 @@ from console import busy, community, grid, page, renderers, verbs, views
 from console.api import ApiError
 from console.data import read_state
 
-DECLARED = {"key": "tables", "title": "Site", "area": "community",
+DECLARED: dict[str, Any] = {"key": "tables", "title": "Site", "area": "community",
             "base": "/community/tables",
             "columns": [{"field": "vps_id", "header": "Table", "kind": "game", "keys": "vps",
                          "name_from": "name", "under": ["maker", "year"], "picture": "",
@@ -28,7 +28,7 @@ DECLARED = {"key": "tables", "title": "Site", "area": "community",
             "views": [{"key": "plays", "name": "Most played", "columns": ["vps_id", "plays"],
                        "sort": [{"field": "plays", "desc": True}], "help": ""}],
             "relation": {"field": "vps_id", "keys": "vps_entry"}}
-LOADED = {"name": "site", "state": "loaded", "lists": [DECLARED]}
+LOADED: dict[str, Any] = {"name": "site", "state": "loaded", "lists": [DECLARED]}
 
 
 def _released() -> dict:
@@ -406,7 +406,7 @@ class PressingAVerb(unittest.IsolatedAsyncioTestCase):
                 patch.object(community, "ApiClient", return_value=Mock(ext_post=post)), \
                 patch.object(community.ui, "notify", notify), \
                 patch.object(community.ui.navigate, "to", navigate):
-            await community.run_verb.__wrapped__(
+            await cast(Any, community.run_verb).__wrapped__(
                 {"name": "site"}, VERBED, verb, [{"id": "a"}, {"id": 2}], renewed)
         return ask, post, notify, navigate, again
 
@@ -475,7 +475,7 @@ class OpeningADialogOverRows(unittest.IsolatedAsyncioTestCase):
                    action: str = "note") -> tuple[bool, Mock]:
         opened = Mock(side_effect=[_done(one) for one in answers])
         with patch.object(community.ext_action, "open_action", opened):
-            ran = await community.open_over.__wrapped__(NOTED, action, ids, each=each)
+            ran = await cast(Any, community.open_over).__wrapped__(NOTED, action, ids, each=each)
         return ran, opened
 
     async def test_one_dialog_covers_every_row_it_was_opened_over(self) -> None:
@@ -524,7 +524,7 @@ class OpeningADialogOverRows(unittest.IsolatedAsyncioTestCase):
         opened = Mock(side_effect=[_done(True), ApiError("it went"), _done(True)])
         with patch.object(community.ext_action, "open_action", opened), \
                 patch.object(community.ui, "notify", notify):
-            ran = await community.open_over.__wrapped__(NOTED, "note", ["a", "b", "c"],
+            ran = await cast(Any, community.open_over).__wrapped__(NOTED, "note", ["a", "b", "c"],
                                                         each=True)
 
         self.assertTrue(ran)
@@ -549,9 +549,9 @@ class OpeningADialogOverRows(unittest.IsolatedAsyncioTestCase):
         verb = {"key": "note", "action": "note", "each": True}
         opened = Mock(side_effect=[_done(True), _done(False)])
         with patch.object(community, "open_over", opened):
-            await community.run_verb.__wrapped__(
+            await cast(Any, community.run_verb).__wrapped__(
                 NOTED, VERBED, verb, [{"id": "a"}, {"id": 2}], renewed)
-            await community.run_verb.__wrapped__(
+            await cast(Any, community.run_verb).__wrapped__(
                 NOTED, VERBED, verb, [{"id": "a"}], renewed)
 
         again.assert_called_once()
@@ -567,7 +567,7 @@ class OpeningADialogOverRows(unittest.IsolatedAsyncioTestCase):
         opened = Mock(side_effect=[_done(True)])
         with patch.object(community, "open_over", opened), \
                 patch.object(community, "ApiClient", return_value=Mock(ext_post=post)):
-            await community.run_act.__wrapped__(
+            await cast(Any, community.run_act).__wrapped__(
                 NOTED, "/community/tables/about", {"key": "open", "action": "note"}, renewed)
 
         opened.assert_called_once_with(NOTED, "note", [])

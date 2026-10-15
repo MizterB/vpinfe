@@ -13,7 +13,7 @@ class OffloadTests(unittest.IsolatedAsyncioTestCase):
     async def test_the_answer_comes_back_as_it_is(self) -> None:
         """The whole point: a caller reads the result without narrowing first."""
         with patch("console.offload.run.io_bound", new=AsyncMock(return_value={"a": 1})):
-            answered = await offload.io(dict)
+            answered: dict[str, int] = await offload.io(dict)
         self.assertEqual(answered.get("a"), 1)
 
     async def test_a_shutdown_cancels_rather_than_answering_none(self) -> None:
@@ -29,5 +29,5 @@ class OffloadTests(unittest.IsolatedAsyncioTestCase):
         """It forwards, rather than quietly calling with nothing."""
         io_bound = AsyncMock(return_value="done")
         with patch("console.offload.run.io_bound", new=io_bound):
-            await offload.io(str, "a", sep="-")
+            await offload.io(str, "a", sep="-")  # type: ignore[arg-type]
         io_bound.assert_awaited_once_with(str, "a", sep="-")

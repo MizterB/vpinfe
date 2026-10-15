@@ -72,6 +72,9 @@ class Cabinet:
         cabinet = self
 
         class Recorder:
+            returncode: int | None
+            signals: list[int]
+
             def __init__(self) -> None:
                 self.argv, self.returncode, self.signals = argv, None, []
 
@@ -215,9 +218,14 @@ class SessionTests(_Sessions):
 
     def test_every_recorder_is_stopped_as_ctrl_c_would(self) -> None:
         cabinet = Cabinet()
-        seen = []
+        seen: list[Any] = []
         popen = cabinet.popen
-        cabinet.popen = lambda argv, **kw: seen.append(popen(argv, **kw)) or seen[-1]  # type: ignore[method-assign]
+
+        def spy(argv: list[str], **kw: Any) -> Any:
+            seen.append(popen(argv, **kw))
+            return seen[-1]
+
+        cabinet.popen = spy  # type: ignore[method-assign]
 
         self.record(cabinet, VIDEOS)
 
@@ -429,6 +437,7 @@ class SessionTests(_Sessions):
         result = self.record(cabinet, VIDEOS)
 
         self.assertEqual(result.state, session.FAILED)
+        assert result.reason is not None
         self.assertEqual(result.reason["key"], session.WOULD_NOT_START)
         self.assertEqual(result.reason["detail"], "No launcher plays this table")
         self.assertFalse([one for one in cabinet.log if one[0] == "spawn"])

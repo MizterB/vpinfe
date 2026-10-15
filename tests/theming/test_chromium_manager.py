@@ -348,9 +348,10 @@ class ChromiumManagerTests(unittest.TestCase):
     def test_wait_ignores_exited_launcher_while_window_connected(self) -> None:
         manager = ChromiumManager()
         proc = types.SimpleNamespace(poll=mock.Mock(return_value=0), returncode=0)
-        manager._processes = [("table", proc, None, None)]
+        manager._processes = [("table", proc, None, None)]  # type: ignore[list-item]
         connected_states = iter([True, False])
-        manager.terminate_all = mock.Mock(side_effect=lambda: manager._exit_event.set())
+        manager.terminate_all = mock.Mock(  # type: ignore[method-assign]
+            side_effect=lambda: manager._exit_event.set())
 
         manager.wait_for_exit(
             is_window_connected=lambda window_name: next(connected_states, False)
@@ -362,7 +363,7 @@ class ChromiumManagerTests(unittest.TestCase):
     def test_request_exit_unblocks_a_wait_without_closing_the_windows(self) -> None:
         manager = ChromiumManager()
         proc = types.SimpleNamespace(poll=mock.Mock(return_value=None), returncode=None)
-        manager._processes = [("table", proc, None, None)]
+        manager._processes = [("table", proc, None, None)]  # type: ignore[list-item]
         threading.Timer(0.1, manager.request_exit).start()
 
         manager.wait_for_exit()
@@ -589,7 +590,8 @@ class LibraryEndpointTests(unittest.TestCase):
 
     def test_a_library_that_says_nothing_leaves_this_install_s_answer(self) -> None:
         """An older install, or one that could not be reached for its discovery document."""
-        for services in ({}, {"files": {}}, {"files": {"port": "nonsense"}}):
+        cases: tuple[dict[str, Any], ...] = ({}, {"files": {}}, {"files": {"port": "nonsense"}})
+        for services in cases:
             with self.subTest(services=services):
                 self.assertEqual(
                     self._resolve("https://library.example:9000", services=services).files_port,

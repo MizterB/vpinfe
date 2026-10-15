@@ -35,7 +35,7 @@ def _draws_browse(function: ast.AST) -> bool:
                for node in ast.walk(function))
 
 
-def _browse_fields() -> list[tuple[str, ast.FunctionDef, bool]]:
+def _browse_fields() -> list[tuple[str, ast.FunctionDef | ast.AsyncFunctionDef, bool]]:
     """Each top-level function that draws a Browse button, and whether it names the class.
 
     Top-level only: `panel.field` draws Browse inside a nested `draw`, and the class is

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import unittest
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import httpapi
@@ -20,7 +21,7 @@ from tests.support.library import TempTree
 try:
     from starlette.testclient import TestClient
 except ImportError:  # pragma: no cover
-    TestClient = None
+    TestClient = None  # type: ignore[assignment,misc]
 
 
 class _Announcement:
@@ -36,7 +37,7 @@ class _Announcement:
 
 
 def _said(**overrides) -> dict:
-    said = {b"id": b"Aaaa111111", b"name": b"basement cab",
+    said: dict[Any, Any] = {b"id": b"Aaaa111111", b"name": b"basement cab",
             b"features": b"library,frontend", b"version": b"3.0.0"}
     said.update(overrides)
     return said
@@ -57,6 +58,7 @@ class ReadingAnAnnouncementTests(unittest.TestCase):
     def test_identity_comes_back_whole(self) -> None:
         peer = discovery._as_peer(_Announcement(_said()))
 
+        assert peer is not None
         self.assertEqual(peer.install_id, "Aaaa111111")
         self.assertEqual(peer.display_name, "basement cab")
         self.assertEqual(peer.features, ("library", "frontend"))
@@ -65,6 +67,7 @@ class ReadingAnAnnouncementTests(unittest.TestCase):
     def test_an_install_serving_https_says_so_and_is_reached_over_it(self) -> None:
         peer = discovery._as_peer(_Announcement(_said(scheme=b"https")))
 
+        assert peer is not None
         self.assertTrue(peer.https)
         self.assertEqual(peer.url, "https://192.168.1.20:8001")
 
@@ -72,6 +75,7 @@ class ReadingAnAnnouncementTests(unittest.TestCase):
         """An install a release behind has no such key."""
         peer = discovery._as_peer(_Announcement(_said()))
 
+        assert peer is not None
         self.assertFalse(peer.https)
 
     def test_the_scheme_is_announced_as_it_is_now(self) -> None:
@@ -106,6 +110,7 @@ class ReadingAnAnnouncementTests(unittest.TestCase):
     def test_no_features_is_read_as_none_rather_than_as_one_blank(self) -> None:
         peer = discovery._as_peer(_Announcement(_said(features=b"")))
 
+        assert peer is not None
         self.assertEqual(peer.features, ())
 
     def test_the_address_the_route_leaves_on_is_the_one_announced(self) -> None:
@@ -130,6 +135,7 @@ class ReadingAnAnnouncementTests(unittest.TestCase):
         peer = discovery._as_peer(
             _Announcement(_said(), addresses=("127.0.0.1", "192.168.1.20")))
 
+        assert peer is not None
         self.assertEqual(peer.address, "192.168.1.20")
 
     def test_a_machine_with_no_route_has_no_address_to_announce(self) -> None:
@@ -164,7 +170,7 @@ class ReadingAnAnnouncementTests(unittest.TestCase):
         with patch.object(discovery, "_routable_address", return_value=""), \
                 patch.object(discovery.serving, "network",
                              return_value=MagicMock(http_port=8001)):
-            announced = mine._announce(object())
+            announced = mine._announce(object())  # type: ignore[arg-type]
 
         self.assertFalse(announced)
         mine._zeroconf.register_service.assert_not_called()
@@ -177,7 +183,7 @@ class AnnouncingTests(unittest.TestCase):
 
         with patch.object(discovery._discovery, "start", side_effect=NoTextError()), \
                 self.assertLogs("vpinfe.common.discovery", level="WARNING") as seen:
-            discovery.start(object())
+            discovery.start(object())  # type: ignore[arg-type]
 
         self.assertTrue(seen.output[0].endswith("on the network: NoTextError()"), seen.output)
 
@@ -237,6 +243,7 @@ class RecordingWhatWasHeardTests(TempTree):
             install_presence._heard_from(self._peer())
 
         held = self.registry.get("Aaaa111111")
+        assert held is not None
         self.assertEqual(held.display_name, "basement cab")
         self.assertEqual(held.address, "192.168.1.20")
         self.assertEqual(held.port, 8001)
@@ -248,7 +255,9 @@ class RecordingWhatWasHeardTests(TempTree):
         with self._with_features(install_identity.DEVICES):
             install_presence._heard_from(peer)
 
-        self.assertTrue(self.registry.get("Aaaa111111").https)
+        held = self.registry.get("Aaaa111111")
+        assert held is not None
+        self.assertTrue(held.https)
 
     def test_an_install_that_does_not_keeps_no_list(self) -> None:
         """Announcing is to everybody; what to do with it is each install's own."""
@@ -269,7 +278,7 @@ class PublishedServicesTests(unittest.TestCase):
                                     http_port=8001, theme_assets_port=1)
         with patch.object(chromium_manager.remote_library, "remote_services",
                           return_value=published):
-            resolved = chromium_manager._library_endpoint(elsewhere)
+            resolved = chromium_manager._library_endpoint(elsewhere)  # type: ignore[arg-type]
 
         self.assertEqual(resolved.files_port, published["files"]["port"])
         self.assertNotEqual(resolved.files_port, 1)

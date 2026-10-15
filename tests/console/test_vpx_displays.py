@@ -6,7 +6,7 @@ from __future__ import annotations
 import asyncio
 import unittest
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock, Mock, patch
 
 from screeninfo import Monitor
@@ -252,8 +252,8 @@ class DifferencesTests(unittest.TestCase):
 class MovingTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.library = _Library()
-        self.run = self.enterContext(patch.object(vpx_displays.run, "io_bound",
-                                                  new=AsyncMock(side_effect=_inline)))
+        self.run = self.enterContext(  # type: ignore[method-assign]
+            patch.object(vpx_displays.run, "io_bound", new=AsyncMock(side_effect=_inline)))
         self.notify = self.enterContext(patch.object(vpx_displays.ui, "notify"))
 
     def _written(self) -> dict[str, str]:
@@ -348,7 +348,7 @@ class MovingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self._written()["TableOverride.ViewCabRotation"], "90.0")
 
     async def test_a_write_that_fails_says_so_and_holds_nothing(self) -> None:
-        self.run.side_effect = RuntimeError("read-only")
+        cast(Any, self.run).side_effect = RuntimeError("read-only")
         page = _page(self.library)
 
         self.assertFalse(await press(page.move, {"backglass": 3}))
@@ -830,7 +830,7 @@ class EntriesTests(unittest.IsolatedAsyncioTestCase):
     async def _entries(self, shown: list, rows: Any) -> tuple[list, dict]:
         context: dict[str, Any] = {"library": _Library(), "launcher": {"launcher_id": "vpx-1"},
                                    "rebuild": AsyncMock(), "config_values": {"stale": True}}
-        beside = ({}, SCHEMA, self.MONITORS, ["", ""])
+        beside: tuple[Any, ...] = ({}, SCHEMA, self.MONITORS, ["", ""])
         with patch.object(vpx_displays, "_beside", new=AsyncMock(return_value=beside)):
             return await vpx_displays.entries(context, self._group(), shown, self._values(),
                                               rows), context
@@ -855,6 +855,7 @@ class EntriesTests(unittest.IsolatedAsyncioTestCase):
 
         await self._entries(shown, rows)
 
+        assert rows.await_args is not None
         [blocks] = rows.await_args.args
         self.assertEqual([[one.key for one in fields] for _, _, fields in blocks],
                          [["Player.PlayfieldFullScreen"], ["Player.BGSet"]])
@@ -865,6 +866,7 @@ class EntriesTests(unittest.IsolatedAsyncioTestCase):
 
         await self._entries(shown, rows)
 
+        assert rows.await_args is not None
         self.assertEqual(list(rows.await_args.kwargs["ahead"]), ["Player.BGSet"])
         [(label, _)] = rows.await_args.kwargs["ahead"]["Player.BGSet"]
         self.assertEqual(label, t("console.vpx_displays.screen_size"))
@@ -875,6 +877,7 @@ class EntriesTests(unittest.IsolatedAsyncioTestCase):
 
         out, _ = await self._entries(shown, rows)
 
+        assert rows.await_args is not None
         self.assertEqual(rows.await_args.kwargs["ahead"], {})
         self.assertEqual(out[-1][0], t("console.vpx_displays.screen_size"))
 

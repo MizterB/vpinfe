@@ -16,8 +16,9 @@ class Games(unittest.TestCase):
     def test_the_picker_opens_on_details_and_unmatched_has_a_place(self) -> None:
         self.assertEqual("console.view.details", next(iter(games.GAME_VIEWS)))
         self.assertIn("console.view.unmatched", games.GAME_VIEWS)
-        self.assertEqual({"vps_unmatched": {"values": [True]}},
-                         games.GAME_VIEWS["console.view.unmatched"].filters)
+        unmatched = games.GAME_VIEWS["console.view.unmatched"]
+        assert not isinstance(unmatched, list)
+        self.assertEqual({"vps_unmatched": {"values": [True]}}, unmatched.filters)
 
     def test_a_game_s_facts_lead_with_the_name_and_the_exceptions_come_last(self) -> None:
         fields = [one["field"] for one in games.COLUMNS]
@@ -53,7 +54,9 @@ class Themes(unittest.TestCase):
                            ("console.view.themes_installed", False),
                            ("console.view.everything", False)):
             with self.subTest(view=key):
-                self.assertEqual(quiet, "status" not in themes.VIEWS[key].columns)
+                preset = themes.VIEWS[key]
+                assert not isinstance(preset, list)
+                self.assertEqual(quiet, "status" not in preset.columns)
 
 
 class Devices(unittest.TestCase):

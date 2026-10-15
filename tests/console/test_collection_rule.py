@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import unittest
+from typing import Any
 
 from console import collection_rules as rules
 
-AXES = [{"name": "letter", "kind": "letter", "label": "Letter"},
+AXES: list[dict[str, Any]] = [{"name": "letter", "kind": "letter", "label": "Letter"},
         {"name": "manufacturer", "kind": "choice", "label": "Manufacturer",
          "values": ["Bally", "Stern"], "counts": {"Bally": 22, "Stern": 3}},
         {"name": "year", "kind": "choice", "label": "Year"},
@@ -214,8 +215,9 @@ class ConditionsInTheSentence(unittest.TestCase):
                                 "favorite": True}))
 
     def test_the_rows_are_said_in_the_order_they_stand(self) -> None:
-        rows = [{"field": "played", "op": rules.YES, "value": None},
-                {"field": "manufacturer", "op": rules.ANY_OF, "value": ["Bally"]}]
+        rows: list[dict[str, Any]] = [
+            {"field": "played", "op": rules.YES, "value": None},
+            {"field": "manufacturer", "op": rules.ANY_OF, "value": ["Bally"]}]
 
         self.assertEqual("Every game where you have played it and Manufacturer is “Bally”",
                          rules.sentence(rows, FIELDS))
@@ -240,10 +242,10 @@ class UnsavedRules(unittest.TestCase):
     def test_only_a_draft_asking_something_else_is_unsaved(self) -> None:
         from console.workbench import unsaved
 
-        stored = [{"name": "Same", "filters": {"manufacturer": ["Bally"]}},
-                  {"name": "Grown", "filters": None},
-                  {"name": "Half", "filters": None},
-                  {"name": "Untouched", "filters": None}]
+        stored: list[dict[str, Any]] = [{"name": "Same", "filters": {"manufacturer": ["Bally"]}},
+                                        {"name": "Grown", "filters": None},
+                                        {"name": "Half", "filters": None},
+                                        {"name": "Untouched", "filters": None}]
         drafts = {"Same": {"rules": rules.rows_from({"manufacturer": "Bally"}, FIELDS)},
                   "Grown": {"rules": [{"field": "played", "op": rules.YES, "value": None}]},
                   "Half": {"rules": [rules.row_on(rules.by_name(FIELDS)["manufacturer"])]},

@@ -88,7 +88,7 @@ class RenderSmokeTests(TempTree):
     def _drive(self, window: str = "playfield"):
         """Boot, open the window, and hand back what the page and the browser saw."""
         async def run(instance: LiveInstance):
-            async with BrowserSession(chromium_path()) as browser:
+            async with BrowserSession(chromium_path() or "") as browser:
                 await self._open(browser, instance, window)
                 data = await browser.body_data()
                 return data, browser, list(browser.failed_requests)
@@ -131,7 +131,7 @@ class RenderSmokeTests(TempTree):
 
     def test_moving_the_wheel_moves_it(self) -> None:
         async def run(instance: LiveInstance):
-            async with BrowserSession(chromium_path()) as browser:
+            async with BrowserSession(chromium_path() or "") as browser:
                 await self._open(browser, instance, "playfield")
                 before = (await browser.body_data()).get("selected")
                 await browser.press("ArrowRight", "ArrowRight")
@@ -152,7 +152,7 @@ class RenderSmokeTests(TempTree):
         window, and the window moves - which is the only claim worth making.
         """
         async def run(instance: LiveInstance):
-            async with BrowserSession(chromium_path()) as browser:
+            async with BrowserSession(chromium_path() or "") as browser:
                 await self._open(browser, instance, "playfield")
                 before = (await browser.body_data()).get("selected")
                 instance.post("/api/v1/input/actions",
@@ -184,7 +184,7 @@ class RenderSmokeTests(TempTree):
         did not repeat at all before it existed.
         """
         async def run(instance: LiveInstance):
-            async with BrowserSession(chromium_path()) as browser:
+            async with BrowserSession(chromium_path() or "") as browser:
                 await self._open(browser, instance, "playfield")
                 await browser.evaluate(self.WATCH_MOVES)
                 instance.post("/api/v1/input/actions",
@@ -202,7 +202,7 @@ class RenderSmokeTests(TempTree):
         """A phone locks its screen mid-hold and the release never arrives. Without the
         expiry that is a wheel that spins until somebody notices."""
         async def run(instance: LiveInstance):
-            async with BrowserSession(chromium_path()) as browser:
+            async with BrowserSession(chromium_path() or "") as browser:
                 await self._open(browser, instance, "playfield")
                 await browser.evaluate(self.WATCH_MOVES)
                 instance.post("/api/v1/input/actions",
@@ -231,8 +231,8 @@ class RenderSmokeTests(TempTree):
                 " document.querySelector('[data-hold-action=\"next\"]');"
                 " el.dispatchEvent(new PointerEvent(down ? 'pointerdown' : 'pointerup',"
                 " {bubbles: true})); return true; }")
-        async with BrowserSession(chromium_path()) as theme, \
-                BrowserSession(chromium_path()) as phone:
+        async with BrowserSession(chromium_path() or "") as theme, \
+                BrowserSession(chromium_path() or "") as phone:
             await self._open(theme, instance, "playfield")
             await theme.evaluate(self.WATCH_MOVES)
             await phone.navigate(instance.console_url("/remote?screen=control"))

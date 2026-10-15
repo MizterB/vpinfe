@@ -67,7 +67,7 @@ class TestADeclaredNoneStaysNone(unittest.TestCase):
             meta_config = {"vpinfe": {"alt_vpsid": None},
                            "Info": {"VPSId": "SCANNED1"}}
 
-        self.assertEqual(game_vps_id(Game()), "",
+        self.assertEqual(game_vps_id(Game()), "",  # type: ignore[arg-type]
                          "a declared none must not resolve to the scanned id")
 
     def test_the_migration_leaves_it_alone(self) -> None:

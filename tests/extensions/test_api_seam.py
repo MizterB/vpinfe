@@ -89,7 +89,7 @@ class MountTests(SeamCase):
     def test_a_running_extension_grants_the_scope_its_routes_need(self) -> None:
         self.registry.load_from(FIXTURES)
 
-        held = auth.SignInPolicy().identify(None).scopes
+        held = auth.SignInPolicy().identify(None).scopes  # type: ignore[arg-type]
 
         self.assertTrue(scopes.CORE <= held)
         self.assertLessEqual({"ext:sample:play", "ext:sample:library"}, held)
@@ -103,13 +103,13 @@ class MountTests(SeamCase):
                 self.assertTrue(scopes.is_known(scope))
 
     def test_an_install_with_no_extensions_holds_the_core_scopes_and_no_more(self) -> None:
-        self.assertEqual(auth.SignInPolicy().identify(None).scopes, scopes.CORE)
+        self.assertEqual(auth.SignInPolicy().identify(None).scopes, scopes.CORE)  # type: ignore[arg-type]
 
     def test_the_gate_actually_runs(self) -> None:
         """Declaring the scope is not the same as enforcing it, and the difference is
         invisible under local trust - which grants everything. So the policy is swapped
         for one that grants core and nothing else, and the route has to refuse."""
-        class CoreOnly:
+        class CoreOnly(auth.SignInPolicy):
             name = "test"
 
             def identify(self, request) -> auth.Identity:
@@ -252,7 +252,9 @@ class FailureTests(SeamCase):
             found = client.get("/ext/refuser/lists/things")
 
         self.assertEqual(found.status_code, 400)
-        self.assertEqual(self.registry.get("refuser").state, host.LOADED)
+        refuser = self.registry.get("refuser")
+        assert refuser is not None
+        self.assertEqual(refuser.state, host.LOADED)
 
     def test_a_disabled_extensions_routes_say_which_one_and_why(self) -> None:
         client = self.client()
@@ -273,7 +275,7 @@ class FailureTests(SeamCase):
             client.get("/ext/sample/boom")
 
         self.assertNotIn("ext:sample:library",
-                         auth.SignInPolicy().identify(None).scopes)
+                         auth.SignInPolicy().identify(None).scopes)  # type: ignore[arg-type]
 
     def test_an_extension_asking_for_a_scope_that_does_not_exist_is_refused(self) -> None:
         """The manifest is the consent surface, so a scope nobody could grant is a
@@ -298,7 +300,9 @@ class FailureTests(SeamCase):
         with self.assertLogs("vpinfe.common.extensions", "ERROR"):
             client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
 
-        self.assertEqual(self.registry.get("invented").state, host.FAILED)
+        invented = self.registry.get("invented")
+        assert invented is not None
+        self.assertEqual(invented.state, host.FAILED)
         self.assertEqual(client.get("/ext/invented/hello").status_code, 501)
 
 

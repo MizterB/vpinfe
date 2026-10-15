@@ -41,7 +41,7 @@ class DevicePanelReachDrive(unittest.TestCase):
     @classmethod
     async def _drive(cls, instance: LiveInstance) -> None:
         instance.wait_for_api()
-        async with BrowserSession(chromium_path()) as browser:
+        async with BrowserSession(chromium_path() or "") as browser:
             await ConsoleWalk(browser, instance).visit("/console?view=devices")
             await browser.wait_for(PANEL_ANSWERS)
             cls.answered = True

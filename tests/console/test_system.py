@@ -148,7 +148,7 @@ class NavTests(unittest.TestCase):
         config.set("device", "features", "libary, frontnd")
 
         self.assertEqual([install_identity.CORE, *install_identity.DEFAULT_FEATURES],
-                         install_identity.features(config))
+                         install_identity.features(config))  # type: ignore[arg-type]
 
     def test_features_written_without_overview_stay_without_it(self) -> None:
         import configparser
@@ -157,7 +157,8 @@ class NavTests(unittest.TestCase):
         config.add_section("device")
         config.set("device", "features", "library, frontend, devices")
 
-        self.assertNotIn(install_identity.OVERVIEW, install_identity.features(config))
+        self.assertNotIn(install_identity.OVERVIEW,
+                         install_identity.features(config))  # type: ignore[arg-type]
 
     def test_no_library_takes_the_library_sections_with_it(self) -> None:
         rail = _rail([install_identity.FRONTEND])

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import patch
 
 from common.games import collection_ops
@@ -28,9 +29,11 @@ class WhichCollectionsHoldAGame(TempTree):
                  "bk": _game("bk", "Black Knight", {"b": _table("b", "BK.vpx")},
                              manufacturer="Williams")}
         rows = [{"name": name, "is_filter": True} for name in store.get_collections_name()]
-        for target, value in (("get_collections_manager", lambda: store),
-                              ("get_collections_metadata", lambda: rows),
-                              ("_game_or_refuse", lambda game_id: None)):
+        replacements: tuple[tuple[str, Any], ...] = (
+            ("get_collections_manager", lambda: store),
+            ("get_collections_metadata", lambda: rows),
+            ("_game_or_refuse", lambda game_id: None))
+        for target, value in replacements:
             patcher = patch.object(collection_ops, target, value)
             patcher.start()
             self.addCleanup(patcher.stop)

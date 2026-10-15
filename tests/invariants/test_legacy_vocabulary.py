@@ -105,7 +105,7 @@ class LegacyVocabularyTests(unittest.TestCase):
         offenders = []
         for path, rel in _source_files():
             text = path.read_text(encoding="utf-8", errors="ignore")
-            exempt = NOT_THE_ACTION.get(rel, frozenset())
+            exempt: set[str] | frozenset[str] = NOT_THE_ACTION.get(rel, frozenset())
             for old, new in RENAMED.items():
                 if old in exempt:
                     continue

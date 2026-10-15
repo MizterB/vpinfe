@@ -29,6 +29,7 @@ def _props_by_name(scope: ast.AST) -> dict[str, list[str]]:
         said = [a.value for a in node.args
                 if isinstance(a, ast.Constant) and isinstance(a.value, str)]
         # The receiver, through however many chained calls sit between.
+        assert isinstance(node.func, ast.Attribute)
         inner: ast.AST = node.func.value
         while isinstance(inner, ast.Call | ast.Attribute):
             inner = inner.func if isinstance(inner, ast.Call) else inner.value
@@ -54,7 +55,7 @@ def _props_by_name(scope: ast.AST) -> dict[str, list[str]]:
     return props
 
 
-def _outermost(tree: ast.AST) -> list[ast.AST]:
+def _outermost(tree: ast.AST) -> list[ast.FunctionDef | ast.AsyncFunctionDef]:
     """The functions nothing else contains.
 
     A dialog builds its field and sets the error from a nested handler, so a nested

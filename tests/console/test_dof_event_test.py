@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import unittest
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from common.i18n import t
@@ -60,7 +60,8 @@ class TesterTests(unittest.IsolatedAsyncioTestCase):
         self.column.is_deleted = False
         self.enterContext(patch.object(dof.panel, "action", self.buttons.action))
         self.said: list[str] = []
-        self.ui.label.side_effect = lambda text: self.said.append(text) or MagicMock()
+        self.ui.label.side_effect = (
+            lambda text: self.said.append(text) or MagicMock())  # type: ignore[func-returns-value]
 
     async def _draw(self, library: Library, event: str = "E900") -> dof.Tester:
         state = await dof.event_state(library)
@@ -111,7 +112,8 @@ class TesterTests(unittest.IsolatedAsyncioTestCase):
         link = MagicMock()
         links: list[dict[str, Any]] = []
         self.enterContext(patch.object(
-            dof.panel, "link", lambda label, **how: links.append({"label": label, **how}) or link))
+            dof.panel, "link",
+            lambda label, **how: links.append({"label": label, **how}) or link))  # type: ignore[func-returns-value]
 
         await self._last()["press"]()
 
@@ -124,7 +126,8 @@ class TesterTests(unittest.IsolatedAsyncioTestCase):
         state = await dof.event_state(library)
         links: list[str] = []
         self.enterContext(patch.object(
-            dof.panel, "link", lambda label, **_: links.append(label) or (lambda: None)))
+            dof.panel, "link",
+            lambda label, **_: links.append(label) or (lambda: None)))  # type: ignore[func-returns-value]
         dof.Tester(library, state, lambda: "E900", on_dof_page=True)()
 
         self.assertEqual(self.said, [t("console.dof.no_boards")])
@@ -156,7 +159,7 @@ class TesterTests(unittest.IsolatedAsyncioTestCase):
     async def test_a_state_that_cannot_be_read_leaves_test_open_to_answer_for_itself(
             self) -> None:
         library = Library({})
-        library.dof_event_state = MagicMock(side_effect=RuntimeError("down"))
+        cast(Any, library).dof_event_state = MagicMock(side_effect=RuntimeError("down"))
 
         await self._draw(library)
 
@@ -190,7 +193,7 @@ class TesterTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_a_stop_that_did_not_take_says_so(self) -> None:
         library = Library({"event": "E900", "blocked": ""})
-        library.stop_dof_event = lambda: None
+        cast(Any, library).stop_dof_event = lambda: None
         await self._draw(library)
 
         await self._last()["press"]()

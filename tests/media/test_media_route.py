@@ -13,9 +13,11 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any
 from unittest import mock
 
 from common.games import media_lookup
+from common.games.game import Game
 from common.games.game_parser import GameParser
 from frontend.custom_http_server import CustomHTTPServer
 from tests.support.library import TempTree, write_game
@@ -42,6 +44,7 @@ class LookupTests(TempTree):
         path = media_lookup.media_path(self.games, "tbl0000001", "wheel")
 
         self.assertIsNotNone(path)
+        assert path is not None
         self.assertEqual(path.name, "wheel.png")
 
     def test_an_unknown_game_or_kind_is_none_rather_than_an_error(self) -> None:
@@ -79,6 +82,7 @@ class PerTableResolutionTests(TempTree):
         found = media_lookup.media_path(self.games, "t2", "wheel")
 
         self.assertIsNotNone(found)
+        assert found is not None
         self.assertEqual(found.name, "(Wheel) Other.png")
 
     def test_the_other_table_does_not_borrow_it(self) -> None:
@@ -102,11 +106,19 @@ class UnparsedGameTests(TempTree):
         path = media_lookup.media_path(self.games, "untouched1", "wheel")
 
         self.assertIsNotNone(path, "no table id yet, so the game's id addresses it")
+        assert path is not None
         self.assertEqual(path.name, "wheel.png")
 
 
 class RouteTests(unittest.TestCase):
     """Served for real, because conditional GET and Range are HTTP behavior."""
+
+    _tmp: TemporaryDirectory[str]
+    root: Path
+    games: list[Game]
+    _patch: Any
+    server: CustomHTTPServer
+    port: int
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -124,10 +136,12 @@ class RouteTests(unittest.TestCase):
 
         cls.server = CustomHTTPServer({"/tables/": str(cls.root)})
         cls.server.start_file_server(port=0)   # 0 = any free port; it serves on its own thread
+        assert cls.server.file_server is not None
         cls.port = cls.server.file_server.server_address[1]
 
     @classmethod
     def tearDownClass(cls) -> None:
+        assert cls.server.file_server is not None
         cls.server.file_server.shutdown()
         cls.server.file_server.server_close()
         cls._patch.stop()

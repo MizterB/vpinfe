@@ -106,6 +106,7 @@ class WindowsTests(unittest.TestCase):
         for name, (probe, expected, grabs) in cases.items():
             with self.subTest(name):
                 adapter = self._adapter(**probe)
+                assert adapter._ffmpeg is not None
 
                 self.assertEqual(adapter.id, expected)
                 self.assertEqual(adapter.grabs(adapter._ffmpeg), grabs)
@@ -124,6 +125,7 @@ class WindowsTests(unittest.TestCase):
 
     def test_a_picture_is_one_frame_brought_off_the_graphics_card(self) -> None:
         adapter = self._adapter(filters=frozenset({"ddagrab"}))
+        assert adapter._ffmpeg is not None
         argv = adapter.still(_found(adapter._ffmpeg), adapter.outputs()[1], Path("pf.png"))
 
         self.assertEqual(argv[5:9], ["-f", "lavfi", "-i", "ddagrab=output_idx=1:framerate="
@@ -132,6 +134,7 @@ class WindowsTests(unittest.TestCase):
 
     def test_nvenc_then_amf_is_the_hardware_encoder_that_encodes_a_frame(self) -> None:
         adapter = self._adapter()
+        assert adapter._ffmpeg is not None
         for works, expected in (({"h264_nvenc", "h264_amf"}, "h264_nvenc"),
                                 ({"h264_amf"}, "h264_amf"), (set(), "")):
             with (self.subTest(works=sorted(works)),
@@ -226,6 +229,9 @@ class StoppingTests(unittest.TestCase):
     """Windows gives a child no SIGINT: there FFmpeg is asked on its stdin."""
 
     class Process:
+        signals: list[int]
+        returncode: int | None
+
         def __init__(self, stdin: Any = None) -> None:
             self.stdin, self.signals, self.returncode = stdin, [], None
 
@@ -375,6 +381,7 @@ class ReportTests(unittest.TestCase):
     def test_windows_says_sound_is_not_supported_yet(self) -> None:
         adapter = ffmpeg.WindowsAdapter(lambda: DXGI, _ffmpeg(filters=frozenset({"ddagrab"})))
 
+        assert adapter._ffmpeg is not None
         said = report(adapter, found=_found(adapter._ffmpeg), probe_hardware=False)
 
         self.assertEqual(said["sound"]["reason"]["key"], adapters.SOUND_NOT_YET)

@@ -6,6 +6,7 @@ import configparser
 import json
 import unittest
 from pathlib import Path
+from typing import cast
 from unittest.mock import MagicMock, patch
 
 from common import job_details, jobs
@@ -34,7 +35,7 @@ FOLDER = "Fathom (Bally 1981)"
 def _catalog(*entries: dict) -> VPSdb:
     vps = VPSdb.__new__(VPSdb)
     vps.data = list(entries)
-    vps.download_media_for_game = MagicMock()
+    vps.download_media_for_game = MagicMock()  # type: ignore[method-assign]
     return vps
 
 
@@ -46,12 +47,16 @@ class LookupTests(unittest.TestCase):
     def test_the_closest_name_wins_over_the_first_that_passes(self) -> None:
         vps = _catalog(_entry("plural", "Fathoms"), _entry("exact", "Fathom"))
 
-        self.assertEqual(vps.lookup_name("Fathom", "Bally", 1981)["id"], "exact")
+        found = vps.lookup_name("Fathom", "Bally", 1981)
+        assert found is not None
+        self.assertEqual(found["id"], "exact")
 
     def test_a_tie_keeps_the_first_in_the_catalog(self) -> None:
         vps = _catalog(_entry("first", "Fathom"), _entry("second", "Fathom"))
 
-        self.assertEqual(vps.lookup_name("Fathom", "Bally", 1981)["id"], "first")
+        found = vps.lookup_name("Fathom", "Bally", 1981)
+        assert found is not None
+        self.assertEqual(found["id"], "first")
 
     def test_a_different_year_is_no_match(self) -> None:
         vps = _catalog(_entry("other", "Fathom", year=1986))
@@ -214,11 +219,13 @@ class RebuildTests(TempTree):
                    return_value=[fake_game(folder, FOLDER)]), \
                 patch.object(metadata_service, "VPSdb", return_value=self.vps), \
                 patch.object(metadata_service, "VPXParser", return_value=parser):
-            metadata_service.build_metadata(update_all=True, iniconfig=config)
+            metadata_service.build_metadata(
+                update_all=True, iniconfig=config)  # type: ignore[arg-type]
         return json.loads((folder / f"{FOLDER}.info").read_text(encoding="utf-8"))
 
     def art_fetched_for(self) -> list[str]:
-        return [call.args[1] for call in self.vps.download_media_for_game.call_args_list]
+        download = cast(MagicMock, self.vps.download_media_for_game)
+        return [call.args[1] for call in download.call_args_list]
 
     def test_an_import_pick_survives_a_rebuild(self) -> None:
         saved = self.rebuild(game_info("Fathom Deluxe", vps_id="chosen",

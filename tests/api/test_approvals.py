@@ -133,7 +133,9 @@ class WhoMayAskTests(AskCase):
                                       headers=self.as_token(self.full))
 
         self.assertEqual(response.status_code, 403)
-        self.assertEqual(self.asks.get(ask_id).state, approvals.WAITING)
+        ask = self.asks.get(ask_id)
+        assert ask is not None
+        self.assertEqual(ask.state, approvals.WAITING)
 
     def test_a_token_can_take_its_ask_back(self) -> None:
         ask_id = self.ask().json()["id"]
@@ -205,7 +207,9 @@ class RepeatingTheRequestTests(AskCase):
         response = self.repeat(ask_id)
 
         self.assertEqual(response.status_code, 403)
-        self.assertEqual(self.asks.get(ask_id).state, approvals.WAITING)
+        ask = self.asks.get(ask_id)
+        assert ask is not None
+        self.assertEqual(ask.state, approvals.WAITING)
 
     def test_a_declined_ask_does_not_let_it_through(self) -> None:
         ask_id = self.ask().json()["id"]
@@ -254,7 +258,9 @@ class RepeatingTheRequestTests(AskCase):
 
         self.assertEqual(wrong_path.status_code, 403)
         self.assertEqual(wrong_method.status_code, 403)
-        self.assertEqual(self.asks.get(ask_id).state, approvals.APPROVED)
+        ask = self.asks.get(ask_id)
+        assert ask is not None
+        self.assertEqual(ask.state, approvals.APPROVED)
         self.assertEqual(self.repeat(ask_id).status_code, 404)
 
     def test_the_body_must_be_the_one_that_was_asked_for(self) -> None:
@@ -319,7 +325,9 @@ class RepeatingTheRequestTests(AskCase):
                                       headers={auth.APPROVAL_HEADER: ask_id})
 
         self.assertEqual(response.status_code, 403)
-        self.assertEqual(self.asks.get(ask_id).state, approvals.APPROVED)
+        ask = self.asks.get(ask_id)
+        assert ask is not None
+        self.assertEqual(ask.state, approvals.APPROVED)
 
 
 class TheOwnersSideTests(AskCase):
@@ -341,7 +349,9 @@ class TheOwnersSideTests(AskCase):
 
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.json()["error"]["details"]["reason"], auth.CONFIRM_NEEDED)
-        self.assertEqual(self.asks.get(ask_id).state, approvals.WAITING)
+        ask = self.asks.get(ask_id)
+        assert ask is not None
+        self.assertEqual(ask.state, approvals.WAITING)
 
     def test_this_computer_approves_without_a_confirm(self) -> None:
         ask_id = self.ask().json()["id"]

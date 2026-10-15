@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import unittest
+from typing import Any
 from unittest.mock import patch
 
 from common.games.game_service import classify_vps_id, route_legacy_match
@@ -20,7 +21,7 @@ CATALOG = [
                                   {"id": BLANK, "version": "0.9"}]},
 ]
 
-RECORD = {
+RECORD: dict[str, Any] = {
     "Info": {"Title": "AC/DC", "VPSId": ENTRY},
     "vpinfe": {"game_id": "g-0001", "alt_vpsid": RELEASE},
     "tables": {"tbl001": {"id": "tbl001", "filename": "AC-DC.vpx"}},

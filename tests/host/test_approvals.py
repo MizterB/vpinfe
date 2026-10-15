@@ -31,6 +31,16 @@ class ApprovalsCase(unittest.TestCase):
     def ask(self, token="t1", method="DELETE", path="/games/a/folder", body=None):
         return self.store.ask(token, "Home", method, path, body)
 
+    def held(self, ask_id: str) -> approvals.Ask:
+        found = self.store.get(ask_id)
+        assert found is not None
+        return found
+
+    def on_screen(self) -> approvals.Ask:
+        found = self.store.on_screen()
+        assert found is not None
+        return found
+
 
 class AskingTests(ApprovalsCase):
     def test_an_ask_waits_for_the_owner_and_says_so(self) -> None:
@@ -91,7 +101,7 @@ class AnsweringTests(ApprovalsCase):
 
         self.assertTrue(first)
         self.assertFalse(second)
-        self.assertEqual(self.store.get(made.id).state, approvals.USED)
+        self.assertEqual(self.held(made.id).state, approvals.USED)
 
     def test_a_request_that_differs_in_anything_leaves_the_approval_alone(self) -> None:
         made = self.ask(body={"a": 1})
@@ -106,7 +116,7 @@ class AnsweringTests(ApprovalsCase):
             with self.subTest(token=token, method=method, path=path, body=body):
                 self.assertFalse(self.store.redeem(made.id, token, method, path, body))
 
-        self.assertEqual(self.store.get(made.id).state, approvals.APPROVED)
+        self.assertEqual(self.held(made.id).state, approvals.APPROVED)
 
     def test_an_ask_nobody_approved_cannot_be_spent(self) -> None:
         made = self.ask()
@@ -117,7 +127,7 @@ class AnsweringTests(ApprovalsCase):
         made = self.ask()
         self.store.decline(made.id)
 
-        self.assertEqual(self.store.get(made.id).state, approvals.DECLINED)
+        self.assertEqual(self.held(made.id).state, approvals.DECLINED)
         self.assertIsNone(self.store.approve(made.id))
         self.assertFalse(self.store.redeem(made.id, "t1", "DELETE", "/games/a/folder", ""))
         self.assertEqual(self.store.waiting(), [])
@@ -159,7 +169,7 @@ class LapsingTests(ApprovalsCase):
         self.clock.advance(approvals.LAPSE_SECONDS + 1)
 
         self.assertEqual(self.store.waiting(), [])
-        self.assertEqual(self.store.get(made.id).state, approvals.LAPSED)
+        self.assertEqual(self.held(made.id).state, approvals.LAPSED)
         self.assertIsNone(self.store.approve(made.id))
 
     def test_an_approval_lapses_an_hour_after_it_was_given(self) -> None:
@@ -168,11 +178,11 @@ class LapsingTests(ApprovalsCase):
         self.store.approve(made.id)
         self.clock.advance(approvals.LAPSE_SECONDS - 60)
 
-        self.assertEqual(self.store.seconds_left(self.store.get(made.id)), 60)
+        self.assertEqual(self.store.seconds_left(self.held(made.id)), 60)
         self.clock.advance(120)
 
         self.assertFalse(self.store.redeem(made.id, "t1", "DELETE", "/games/a/folder", ""))
-        self.assertEqual(self.store.get(made.id).state, approvals.LAPSED)
+        self.assertEqual(self.held(made.id).state, approvals.LAPSED)
 
     def test_something_over_is_forgotten_after_another_hour(self) -> None:
         made = self.ask()
@@ -198,10 +208,10 @@ class TheScreenTests(ApprovalsCase):
         self.clock.advance(5)
         second = self.ask(path="/games/2/folder")
 
-        self.assertEqual(self.store.on_screen().id, first.id)
+        self.assertEqual(self.on_screen().id, first.id)
         self.store.leave_screen(first.id)
 
-        self.assertEqual(self.store.on_screen().id, second.id)
+        self.assertEqual(self.on_screen().id, second.id)
         self.assertEqual({one.id for one in self.store.waiting()}, {first.id, second.id})
 
     def test_nothing_is_on_the_screen_once_everything_is_answered(self) -> None:

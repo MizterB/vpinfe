@@ -67,7 +67,7 @@ class Case(unittest.TestCase):
                                return_value=None), \
                 mock.patch.object(theme_ops, "get_ini_config",
                                   return_value=ConfigStore(str(self.root / "vpinfe.ini"))):
-            return {one["key"]: one["trust"] for one in theme_ops._described(registry, "")}
+            return {one["key"]: one["trust"] for one in theme_ops._described(registry, "")}  # type: ignore[arg-type]
 
     def through(self, registry: _Registry):
         return mock.patch.object(theme_ops, "_readable", return_value=registry)

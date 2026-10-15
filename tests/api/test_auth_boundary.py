@@ -48,7 +48,7 @@ class SignInPolicyTests(unittest.TestCase):
                 self.assertEqual(client.get(path).status_code, 200)
 
     def test_the_local_identity_holds_every_core_scope(self) -> None:
-        identity = auth.SignInPolicy().identify(None)
+        identity = auth.SignInPolicy().identify(None)  # type: ignore[arg-type]
 
         self.assertEqual(identity.scopes, scopes.CORE)
         self.assertTrue(identity.can(scopes.SYSTEM_ADMIN))

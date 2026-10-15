@@ -144,21 +144,33 @@ class AProgramAsking(_Prompt):
         made = self.ask()
         self.api.approval_approve(made.id)
 
-        self.assertEqual(self.asks.get(made.id).state, approvals.APPROVED)
+        ask = self.asks.get(made.id)
+
+        assert ask is not None
+
+        self.assertEqual(ask.state, approvals.APPROVED)
         self.assertIsNone(self.channel.requests()[-1])
 
     def test_declining_from_the_screen_answers_and_clears_it(self) -> None:
         made = self.ask()
         self.api.approval_decline(made.id)
 
-        self.assertEqual(self.asks.get(made.id).state, approvals.DECLINED)
+        ask = self.asks.get(made.id)
+
+        assert ask is not None
+
+        self.assertEqual(ask.state, approvals.DECLINED)
         self.assertIsNone(self.channel.requests()[-1])
 
     def test_close_leaves_the_screen_and_the_ask_waits(self) -> None:
         made = self.ask()
         self.api.signin_dismiss(made.id)
 
-        self.assertEqual(self.asks.get(made.id).state, approvals.WAITING)
+        ask = self.asks.get(made.id)
+
+        assert ask is not None
+
+        self.assertEqual(ask.state, approvals.WAITING)
         self.assertIsNone(self.channel.requests()[-1])
         self.assertIsNone(self.api.signin_pending())
 
@@ -170,7 +182,11 @@ class AProgramAsking(_Prompt):
         self.assertTrue(shown["long"])
         self.api.approval_approve(made.id)
 
-        self.assertEqual(self.asks.get(made.id).state, approvals.WAITING)
+        ask = self.asks.get(made.id)
+
+        assert ask is not None
+
+        self.assertEqual(ask.state, approvals.WAITING)
 
     def test_a_sign_in_is_shown_first_and_the_ask_comes_back_after_it(self) -> None:
         made = self.ask()

@@ -899,7 +899,7 @@ class RoomTests(FolderCase):
             job_id = started.json()["job_id"]
             deadline = time.monotonic() + 15
             while time.monotonic() < deadline and not (
-                    jobs.get(job_id) and jobs.get(job_id).finished_at):
+                    (job := jobs.get(job_id)) and job.finished_at):
                 time.sleep(0.01)
 
         self.assertEqual(self.asked_of(room_at), {self.elsewhere.resolve()})

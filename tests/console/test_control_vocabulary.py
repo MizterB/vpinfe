@@ -15,8 +15,10 @@ from __future__ import annotations
 import asyncio
 import re
 import unittest
+from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import patch
 
 from console import binding_table, panel, settings, themes
@@ -160,7 +162,7 @@ class WhatTheDialogHolds(unittest.TestCase):
         finally:
             loop.close()
 
-    def _keep(self, wanted: dict) -> tuple[list, object]:
+    def _keep(self, wanted: dict) -> tuple[list, Callable[[], Any]]:
         written: list = []
 
         async def keep() -> bool:

@@ -19,6 +19,7 @@ from __future__ import annotations
 import ast
 import pathlib
 import unittest
+from typing import cast
 
 from tests.support import trees
 
@@ -55,7 +56,7 @@ ALLOWED = {
 
 def _is_route(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     """Decorated with `@<something>router.<method>(...)`."""
-    dumped = ast.dump(ast.Module(body=node.decorator_list, type_ignores=[]))
+    dumped = ast.dump(ast.Module(body=cast("list[ast.stmt]", node.decorator_list), type_ignores=[]))
     return "router" in dumped
 
 
@@ -110,6 +111,7 @@ class RouteHandlerTests(unittest.TestCase):
                 "def wide():\n" + "".join(f"    a{i} = {i}\n" for i in range(LIMIT + 1))
             )
             node = tree.body[0]
+            assert isinstance(node, ast.FunctionDef)
             self.assertTrue(_is_route(node))
             self.assertGreater(_code_lines(node), LIMIT)
         with self.subTest("a docstring does not count against it"):
@@ -119,7 +121,10 @@ class RouteHandlerTests(unittest.TestCase):
                 '    """' + "\n".join(str(i) for i in range(20)) + '"""\n'
                 "    return 1\n"
             )
-            self.assertEqual(_code_lines(tree.body[0]), 1)
+            narrow = tree.body[0]
+            assert isinstance(narrow, ast.FunctionDef)
+            self.assertEqual(_code_lines(narrow), 1)
         with self.subTest("a plain function is not a handler"):
-            self.assertFalse(
-                _is_route(trees.parse_snippet("def helper():\n    return 1\n").body[0]))
+            helper = trees.parse_snippet("def helper():\n    return 1\n").body[0]
+            assert isinstance(helper, ast.FunctionDef)
+            self.assertFalse(_is_route(helper))

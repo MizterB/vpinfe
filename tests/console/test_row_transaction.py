@@ -12,6 +12,7 @@ import asyncio
 import json
 import unittest
 from types import SimpleNamespace
+from typing import Any
 from unittest import mock
 
 from common.i18n import t
@@ -116,8 +117,9 @@ class TransactTests(unittest.TestCase):
     """The rows a grid holds, which a selection is read against, follow its screen."""
 
     def setUp(self) -> None:
-        self.held = [{"id": "a", "v": 1}, {"id": "b", "v": 1}, {"id": "c", "v": 1}]
-        self.by_id = {row["id"]: row for row in self.held}
+        self.held: list[dict[str, Any]] = [
+            {"id": "a", "v": 1}, {"id": "b", "v": 1}, {"id": "c", "v": 1}]
+        self.by_id: dict[str, Any] = {row["id"]: row for row in self.held}
         self.screen = _Grid()
 
     def test_an_edited_row_is_held_as_edited(self) -> None:

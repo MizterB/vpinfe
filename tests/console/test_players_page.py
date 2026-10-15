@@ -165,7 +165,7 @@ class WhatCanBeDone(unittest.TestCase):
         async def after() -> None:
             return None
 
-        accounts = [
+        accounts: list[dict[str, Any]] = [
             {"extension": "vpinplay", "label": "VPinPlay", "user_id": "u-1", "claimed": True},
             {"extension": "other", "label": "Other", "user_id": "u-2", "claimed": False},
             {"extension": "bare", "label": "Bare", "user_id": ""},

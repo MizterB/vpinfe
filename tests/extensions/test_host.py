@@ -42,6 +42,16 @@ class HostCase(unittest.TestCase):
     def load(self) -> None:
         self.registry.load_from(FIXTURES)
 
+    def held(self, name: str) -> host.Record:
+        found = self.registry.get(name)
+        assert found is not None
+        return found
+
+    def switched(self, name: str, on: bool) -> host.Record:
+        found = self.registry.switch(name, on)
+        assert found is not None
+        return found
+
     def make(self, name: str, manifest: dict | None = None, body: str = "") -> Path:
         """An extension written for one test, where the shape under test is a broken
         one and a committed fixture would be a worked example of a mistake."""
@@ -66,7 +76,7 @@ class LoadTests(HostCase):
 
     def test_a_record_carries_what_the_manifest_declared(self) -> None:
         self.load()
-        found = self.registry.get("sample").as_dict()
+        found = self.held("sample").as_dict()
 
         self.assertEqual(found["state"], host.LOADED)
         self.assertEqual(found["scopes"], ["games:read", "players:read"])
@@ -136,7 +146,7 @@ class LoadTests(HostCase):
     def test_why_is_read_in_the_language_set_when_it_is_shown(self) -> None:
         self.store.set_enabled("sample", False)
         self.load()
-        record = self.registry.get("sample")
+        record = self.held("sample")
         self.assertEqual(record.reason, "Switched off")
 
         self.addCleanup(i18n.set_language, i18n.language())
@@ -150,7 +160,7 @@ class LoadTests(HostCase):
 
         self.load()
 
-        self.assertEqual(self.registry.get("sample").state, host.OFF)
+        self.assertEqual(self.held("sample").state, host.OFF)
         self.assertTrue(self.registry.running("bystander"))
 
     def test_an_extension_for_another_platform_is_not_loaded(self) -> None:
@@ -613,8 +623,8 @@ class FailureTests(HostCase):
         # The extension's own namespace carries the traceback: which extension did this
         # is the question the namespace exists to answer.
         self.assertIn("game.selected", blamed.output[0])
-        self.assertEqual(self.registry.get("sample").state, host.DISABLED)
-        self.assertIn("game.selected", self.registry.get("sample").reason)
+        self.assertEqual(self.held("sample").state, host.DISABLED)
+        self.assertIn("game.selected", self.held("sample").reason)
         self.assertTrue(self.registry.running("bystander"))
 
     def test_a_disabled_extension_is_told_nothing_more(self) -> None:
@@ -660,9 +670,9 @@ class SwitchTests(HostCase):
         self.load()
 
         with self.assertLogs(self.LOG, "INFO"):
-            record = self.registry.switch("sample", False)
+            record = self.switched("sample", False)
 
-        self.assertIs(record, self.registry.get("sample"))
+        self.assertIs(record, self.held("sample"))
         self.assertEqual((record.state, record.why), (host.OFF, host.SWITCHED_OFF))
         self.assertFalse(record.enabled)
         self.assertFalse(self.store.enabled("sample"))
@@ -684,7 +694,7 @@ class SwitchTests(HostCase):
         self.load()
 
         with self.assertLogs(self.LOG, "INFO"):
-            record = self.registry.switch("sample", True)
+            record = self.switched("sample", True)
 
         self.assertTrue(self.store.enabled("sample"))
         self.assertTrue(record.enabled)
@@ -703,7 +713,7 @@ class SwitchTests(HostCase):
 
         with self.assertLogs(self.LOG, "INFO"):
             self.registry.switch("sample", True)
-            record = self.registry.switch("sample", False)
+            record = self.switched("sample", False)
 
         self.assertEqual(record.why, host.SWITCHED_OFF)
 
@@ -713,9 +723,9 @@ class SwitchTests(HostCase):
                                      "def register(ctx): pass\n"))
 
         with self.assertLogs(self.LOG, "INFO"):
-            self.assertEqual(self.registry.switch("elsewhere", False).why,
+            self.assertEqual(self.switched("elsewhere", False).why,
                              host.SWITCHED_OFF)
-            record = self.registry.switch("elsewhere", True)
+            record = self.switched("elsewhere", True)
 
         self.assertEqual(record.why, "extension.reason.wrong_platform")
 
@@ -725,7 +735,7 @@ class SwitchTests(HostCase):
             self.registry.disable("sample", "asked to")
 
         with self.assertLogs(self.LOG, "INFO"):
-            record = self.registry.switch("sample", False)
+            record = self.switched("sample", False)
 
         self.assertEqual((record.state, record.why), (host.OFF, host.SWITCHED_OFF))
 
@@ -733,7 +743,7 @@ class SwitchTests(HostCase):
         self.load()
 
         with self.assertLogs(self.LOG, "INFO"):
-            record = self.registry.switch("sample", True)
+            record = self.switched("sample", True)
 
         self.assertEqual(record.state, host.LOADED)
         self.assertIn("ext:sample:library", self.registry.granted_scopes())
@@ -780,8 +790,8 @@ class SwitchTests(HostCase):
         self.store.set_enabled("sample", False)
         self.load()
 
-        self.assertFalse(self.registry.get("sample").as_dict()["enabled"])
-        self.assertTrue(self.registry.get("bystander").as_dict()["enabled"])
+        self.assertFalse(self.held("sample").as_dict()["enabled"])
+        self.assertTrue(self.held("bystander").as_dict()["enabled"])
 
 
 class WithdrawTests(HostCase):
@@ -804,7 +814,9 @@ class WithdrawTests(HostCase):
 
     def test_a_stopped_one_takes_back_its_app(self) -> None:
         self.registry.load(self.make("offers", self.MANIFEST, self.OFFERS))
-        self.assertEqual(apps.app_for("Big Bang Bar.fpt").id, "fp")
+        claimed = apps.app_for("Big Bang Bar.fpt")
+        assert claimed is not None
+        self.assertEqual(claimed.id, "fp")
 
         with self.assertLogs(self.LOG, "ERROR"):
             self.registry.disable("offers", "asked to")

@@ -248,7 +248,7 @@ class ChangingTheComputer(TierCase):
             patch.object(lifecycle, "performable", return_value=True),
             patch.object(system, "DELAY", 0),
             patch.object(system.device_client.local(), "request",
-                         side_effect=lambda *a, **k: self.asked.append((a, k)) or True),
+                         side_effect=lambda *a, **k: self.asked.append((a, k)) or True),  # type: ignore[func-returns-value]
         ):
             held.start()
             self.addCleanup(held.stop)
@@ -311,7 +311,9 @@ class CabinetNoteRecipe(TierCase):
         return root / self.name
 
     def note(self) -> str:
-        return str(self.record.context.config.get("note") or "")
+        context = self.record.context
+        assert context is not None
+        return str(context.config.get("note") or "")
 
     def test_a_remote_pass_reads_the_page_saves_it_and_clears_it(self) -> None:
         remote = _identity(sign_in.REMOTE, "play", name=self.name)

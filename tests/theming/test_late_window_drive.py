@@ -46,13 +46,13 @@ class LateWindowDriveTests(TempTree):
 
     def test_a_backglass_opened_after_the_wheel_moved_shows_that_game(self) -> None:
         async def run(instance: LiveInstance):
-            async with BrowserSession(chromium_path()) as playfield:
+            async with BrowserSession(chromium_path() or "") as playfield:
                 await playfield.navigate(instance.theme_url("playfield"))
                 await playfield.wait_for("document.body.dataset.ready === 'true'", timeout=90.0)
                 await playfield.press("ArrowRight", "ArrowRight")
                 await playfield.press("ArrowRight", "ArrowRight")
                 await playfield.wait_for("Number(document.body.dataset.selected) === 2")
-                async with BrowserSession(chromium_path()) as backglass:
+                async with BrowserSession(chromium_path() or "") as backglass:
                     await backglass.navigate(self._backglass_url(instance))
                     return await backglass.wait_for(f"{DRAWN} === 'Gamma Table' && 'drawn'",
                                                     timeout=30.0)
@@ -62,7 +62,7 @@ class LateWindowDriveTests(TempTree):
 
     def test_a_window_that_was_already_open_is_not_told_the_move_twice(self) -> None:
         async def run(instance: LiveInstance):
-            async with BrowserSession(chromium_path()) as playfield:
+            async with BrowserSession(chromium_path() or "") as playfield:
                 await playfield.navigate(instance.theme_url("playfield"))
                 await playfield.wait_for("document.body.dataset.ready === 'true'", timeout=90.0)
                 await playfield.evaluate("""
@@ -71,7 +71,7 @@ class LateWindowDriveTests(TempTree):
                       vpin.registerEventHandler("TableIndexUpdate",
                         (message) => window.__arrivals.push(message.reason));
                     })()""")
-                async with BrowserSession(chromium_path()) as backglass:
+                async with BrowserSession(chromium_path() or "") as backglass:
                     await backglass.navigate(self._backglass_url(instance))
                     await backglass.wait_for(f"{DRAWN} === 'Alpha Table' && 'drawn'",
                                              timeout=30.0)

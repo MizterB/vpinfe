@@ -79,9 +79,9 @@ class AddingToACollection(TempTree):
             patcher = patch(target, lambda: store)
             patcher.start()
             self.addCleanup(patcher.stop)
-        patcher = patch("common.games.game_repository.catalog", lambda: catalog)
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        catalog_patcher = patch("common.games.game_repository.catalog", lambda: catalog)
+        catalog_patcher.start()
+        self.addCleanup(catalog_patcher.stop)
         self.library = _Library()
 
     def _refs(self, name: str) -> list[dict]:

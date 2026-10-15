@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import unittest
+from typing import Any
 
 from common.i18n import t
 from console import game_tables, panel
 from console.pictures import rows, table_names
 
-TABLES = [{"id": "t1", "filename": "Example.vpx", "default": True},
-          {"id": "t2", "filename": "Example (Mod).vpx"}]
+TABLES: list[dict[str, Any]] = [{"id": "t1", "filename": "Example.vpx", "default": True},
+                                {"id": "t2", "filename": "Example (Mod).vpx"}]
 
 
 def _shot(name: str, table_id: str = "t1") -> dict:

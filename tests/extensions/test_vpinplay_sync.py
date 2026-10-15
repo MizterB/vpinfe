@@ -7,6 +7,7 @@ refuses the whole request, and one they do not know is dropped in silence.
 from __future__ import annotations
 
 import unittest
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import requests
@@ -22,7 +23,7 @@ _loaded.clear()
 import vpinfe_ext_vpinplay  # noqa: E402
 from vpinfe_ext_vpinplay import sync  # noqa: E402
 
-GAME = {
+GAME: dict[str, Any] = {
     "vps_id": "abcd1234",
     "rom": "afm_113b",
     "manufacturer": "Bally",
@@ -35,7 +36,7 @@ GAME = {
              "score": {"player1": 1234, "grandChampion": 9999}},
     "overrides": {"alt_title": "AFM", "alt_vps_id": "other"},
 }
-TABLE = {
+TABLE: dict[str, Any] = {
     "filename": "Attack from Mars.vpx",
     "file_hash": "aaa", "vbs_hash": "bbb", "version": "1.2",
     "release_date": "2020-01-01", "save_date": "2021-02-03", "save_rev": "7",
@@ -281,7 +282,7 @@ class TheirRecordTests(unittest.TestCase):
 
     WHERE = "https://vpinplay.test/api/v1/sync"
 
-    def ask(self, **answer: object) -> tuple[object, MagicMock]:
+    def ask(self, **answer: Any) -> tuple[object, MagicMock]:
         with patch.object(requests, "get", **answer) as get:
             found = sync.their_record(self.WHERE, "some one", "abcd1234", 1)
         return found, get

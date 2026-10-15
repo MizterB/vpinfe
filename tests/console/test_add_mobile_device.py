@@ -100,8 +100,8 @@ class _Dialog:
             stack.enter_context(patch.object(target, name, value))
         self.task = asyncio.ensure_future(mobile_add.add_mobile())
         await asyncio.sleep(0)
-        for key, value in typed.items():
-            self.fields[key].value = value
+        for key, text in typed.items():
+            self.fields[key].value = text
 
 
 class AddMobileDevice(unittest.IsolatedAsyncioTestCase):
@@ -110,12 +110,14 @@ class AddMobileDevice(unittest.IsolatedAsyncioTestCase):
         stack = ExitStack()
         self.addCleanup(stack.close)
         await dialog.open(stack, **typed)
+        assert dialog.task is not None
         self.addCleanup(dialog.task.cancel)
         return dialog
 
     async def test_a_device_that_answers_is_added_with_the_port_it_was_given(self) -> None:
         dialog = await self._open(ANSWERING, name="Tablet", address="192.0.2.7", port="2112")
         await dialog.keep()
+        assert dialog.task is not None
         self.assertEqual(await dialog.task, {"device_id": "m1"})
         dialog.client.add_device.assert_called_once_with("192.0.2.7", 2112, "Tablet")
 
@@ -135,6 +137,7 @@ class AddMobileDevice(unittest.IsolatedAsyncioTestCase):
         dialog = await self._open(ANSWERING, address="192.0.2.7", port="2112")
         dialog.client.add_device.side_effect = RuntimeError("Refused")
         await dialog.keep()
+        assert dialog.task is not None
         self.assertFalse(dialog.task.done())
         self.assertTrue(dialog.fields["address"].props["error"])
 
@@ -150,6 +153,7 @@ class AddMobileDevice(unittest.IsolatedAsyncioTestCase):
     async def test_a_blank_name_is_stored_as_the_product_name(self) -> None:
         dialog = await self._open(ANSWERING, name="", address="192.0.2.7", port="2112")
         await dialog.keep()
+        assert dialog.task is not None
         await dialog.task
         dialog.client.add_device.assert_called_once_with(
             "192.0.2.7", 2112, t("console.devices.mobile_name"))
@@ -158,6 +162,7 @@ class AddMobileDevice(unittest.IsolatedAsyncioTestCase):
             self) -> None:
         dialog = await self._open(SILENT, address="192.0.2.7", port="2112")
         await dialog.keep()
+        assert dialog.task is not None
         self.assertFalse(dialog.task.done())
         dialog.client.add_device.assert_not_called()
         self.assertEqual(dialog.fields["address"].props["error-message"], "No answer")

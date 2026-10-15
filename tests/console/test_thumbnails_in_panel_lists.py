@@ -99,6 +99,7 @@ class _Panel(TempTree):
         held = TemporaryDirectory()
         self.addCleanup(held.cleanup)
         store = CollectionStore(os.path.join(held.name, "collections.json"))
+        patcher: Any
         for patcher in (
                 mock.patch.object(game_repository.library_folders, "configured",
                                   return_value=[Location(location_id="test",

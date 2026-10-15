@@ -37,13 +37,19 @@ known-first-party = ["apps", "common", "console", "extensions", "frontend", "htt
 python_version = "3.14"
 # Named here, not on the command line, so CI, the hook and a local run agree.
 # managerui is left out: it retires with the Manager UI.
-files = ["apps", "common", "console", "extensions", "frontend", "httpapi"]
+files = ["apps", "common", "console", "extensions", "frontend", "httpapi", "tests"]
 # apps/ and extensions/ are namespace packages with no root __init__.py. Without these two,
 # mypy aborts on a duplicate module name and checks nothing while exiting clean.
 explicit_package_bases = true
 mypy_path = "."
 # NiceGUI, DOF and the third_party drops ship no stubs.
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# A test that imports the Manager UI pulls it into the run; it retires, so what it reports
+# is not ours to fix.
+module = ["managerui.*"]
+ignore_errors = true
 
 [[tool.mypy.overrides]]
 # Every function in these is annotated, and stays that way. It started as the wire

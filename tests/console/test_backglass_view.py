@@ -89,6 +89,7 @@ class TheDmd(unittest.TestCase):
 
     def test_a_legacy_box_is_in_percent_of_1024_by_768_counted_up_from_the_bottom(self) -> None:
         box = self._box(Overlay="1", X="256", Y="192", W="512", H="192")
+        assert box is not None
 
         self.assertEqual((25.0, 50.0, 50.0, 25.0),
                          (box.left, box.top, box.width, box.height))
@@ -163,6 +164,7 @@ class TheBoxWritten(unittest.TestCase):
     def test_the_scoreview_has_its_own_keys_and_art(self) -> None:
         held = {**TheScoreView.ON, f"{LEGACY}Enable": "0"}
         screen = view.screens(held, _glass(scoreview=(400, 100)))[1]
+        assert screen is not None
 
         values = view.box_values(B2S, screen, view.Box(10.0, 40.0, 50.0, 50.0))
 
@@ -203,17 +205,23 @@ class TheFrameFound(unittest.TestCase):
 
 class TheWindowFitted(unittest.TestCase):
     def test_the_backglass_is_fitted_on_the_picture_with_the_grill_cut_when_it_is_cut(self) -> None:
-        screen, cut = view.fit_target({f"{LEGACY}B2SHideGrill": "1"}, _glass(), "Backglass")
+        fitted = view.fit_target({f"{LEGACY}B2SHideGrill": "1"}, _glass(), "Backglass")
+        assert fitted is not None
+        screen, cut = fitted
 
         self.assertEqual(("Backglass", True), (screen.part, cut))
 
     def test_the_backglass_is_fitted_on_the_whole_picture_when_the_grill_stays(self) -> None:
-        screen, cut = view.fit_target({}, _glass(), "Backglass")
+        fitted = view.fit_target({}, _glass(), "Backglass")
+        assert fitted is not None
+        screen, cut = fitted
 
         self.assertEqual(("Backglass", False), (screen.part, cut))
 
     def test_the_scoreview_is_fitted_even_while_its_window_is_off(self) -> None:
-        screen, cut = view.fit_target({}, _glass(scoreview=(400, 100)), "ScoreView")
+        fitted = view.fit_target({}, _glass(scoreview=(400, 100)), "ScoreView")
+        assert fitted is not None
+        screen, cut = fitted
 
         self.assertEqual(("ScoreView", (400, 100), False), (screen.part, screen.space, cut))
 

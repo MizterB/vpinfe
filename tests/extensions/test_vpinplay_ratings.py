@@ -64,11 +64,16 @@ class ListRatingTests(unittest.TestCase):
     def _rating(self) -> dict | None:
         return contributions.refresh(dict(GAME)).get("vpinplay")
 
+    def _rated(self) -> dict:
+        found = self._rating()
+        assert found is not None
+        return found
+
     def test_a_rating_comes_from_the_list(self) -> None:
         api = self._load()
         self._read(api, [_row()])
 
-        found = self._rating()
+        found = self._rated()
 
         self.assertAlmostEqual(found["cumulativeRating"], 13 / 3)
         self.assertEqual(found["ratingCount"], 3)
@@ -77,7 +82,7 @@ class ListRatingTests(unittest.TestCase):
         api = self._load()
         self._read(api, [_row()])
 
-        found = self._rating()
+        found = self._rated()
 
         self.assertEqual(sorted(found), ["cumulativeRating", "fetchedAt", "ratingCount",
                                          "vpsId", "vpsdb"])
@@ -89,7 +94,7 @@ class ListRatingTests(unittest.TestCase):
         api = self._load()
         self._read(api, [_row(average=0.0, ratings=0)])
 
-        found = self._rating()
+        found = self._rated()
 
         self.assertIsNone(found["cumulativeRating"])
         self.assertEqual(found["ratingCount"], 0)
@@ -103,11 +108,11 @@ class ListRatingTests(unittest.TestCase):
     def test_a_new_list_replaces_what_was_held(self) -> None:
         api = self._load()
         self._read(api, [_row(average=2.0, ratings=1)])
-        self.assertEqual(self._rating()["cumulativeRating"], 2.0)
+        self.assertEqual(self._rated()["cumulativeRating"], 2.0)
 
         self._read(api, [_row(average=5.0, ratings=2)])
 
-        self.assertEqual(self._rating()["cumulativeRating"], 5.0)
+        self.assertEqual(self._rated()["cumulativeRating"], 5.0)
 
     def test_a_failed_read_keeps_the_last_good_list(self) -> None:
         api = self._load()
@@ -117,7 +122,7 @@ class ListRatingTests(unittest.TestCase):
         with patch.object(community, "tables", side_effect=OSError("down")):
             self.assertEqual(api.get("/ext/vpinplay/lists/tables").status_code, 502)
 
-        self.assertEqual(self._rating()["cumulativeRating"], 3.0)
+        self.assertEqual(self._rated()["cumulativeRating"], 3.0)
 
     def test_the_kept_copy_answers_before_any_read(self) -> None:
         """A frontend started offline, or before core's first read, still has ratings."""
@@ -125,7 +130,7 @@ class ListRatingTests(unittest.TestCase):
 
         self._load()
 
-        found = self._rating()
+        found = self._rated()
         self.assertEqual(found["cumulativeRating"], 4.0)
         self.assertEqual(found["ratingCount"], 5)
 

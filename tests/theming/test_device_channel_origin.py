@@ -67,7 +67,7 @@ class OriginHandshakeTests(unittest.IsolatedAsyncioTestCase):
         # A real window is one this process opened, so it has an API registered before
         # its browser is launched. Without that the channel refuses the name outright
         # and the origin check never runs.
-        self.channel.register_api("bg", object())
+        self.channel.register_api("bg", object())  # type: ignore[arg-type]
         self.channel.start()
         self.addCleanup(self.channel.stop)
         await serving(self.channel)
@@ -90,6 +90,7 @@ class OriginHandshakeTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(websockets.exceptions.ConnectionClosed) as caught:
             await self._connect("https://mail.google.com")
 
+        assert caught.exception.rcvd is not None
         self.assertEqual(caught.exception.rcvd.code, 1008)
         self.assertFalse(self.channel.is_window_connected("bg"),
                          "a refused connection must not displace a real window")

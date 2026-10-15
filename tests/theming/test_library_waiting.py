@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import types
 import unittest
+from typing import Any
 from unittest import mock
 
 from frontend.api import API
 
 
-def _window(remote: bool = False) -> types.SimpleNamespace:
+def _window(remote: bool = False) -> Any:
     return types.SimpleNamespace(library=types.SimpleNamespace(remote=remote), _waited=False)
 
 

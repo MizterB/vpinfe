@@ -17,12 +17,25 @@ import tempfile
 import unittest
 
 from common import apps, i18n
+from common.apps.contract import App, Launch
 from common.extensions import provided_apps
 from common.extensions.context import ExtensionApps
 from common.extensions.contract import ContractError
 
 SCOPES = (provided_apps.APPS_PROVIDE,)
 FUTURE = {"id": "fp", "name": "Future Pinball", "suffixes": ("fpt",)}
+
+
+def _app(app_id: str) -> App:
+    found = apps.get(app_id)
+    assert found is not None
+    return found
+
+
+def _launch(app_id: str) -> Launch:
+    launch = _app(app_id).launch
+    assert launch is not None
+    return launch
 
 
 class ProvideTests(unittest.TestCase):
@@ -42,19 +55,23 @@ class ProvideTests(unittest.TestCase):
 
         self.apps.provide(**FUTURE)
 
-        self.assertEqual(apps.app_for("Big Bang Bar.fpt").id, "fp")
+        claimed = apps.app_for("Big Bang Bar.fpt")
+        assert claimed is not None
+        self.assertEqual(claimed.id, "fp")
 
     def test_a_dot_is_added_to_a_suffix_that_came_without_one(self) -> None:
         self.apps.provide(**FUTURE)
 
-        self.assertEqual(apps.get("fp").claim.suffixes, (".fpt",))
+        self.assertEqual(_app("fp").claim.suffixes, (".fpt",))
 
     def test_it_cannot_take_a_suffix_from_the_app_that_ships_with_this(self) -> None:
         """Built-ins are offered first and `app_for` takes the first that claims, so a
         contributed app cannot capture .vpx by loading before somebody looks."""
         self.apps.provide(id="impostor", name="Impostor", suffixes=(".vpx",))
 
-        self.assertEqual(apps.app_for("Table.vpx").id, "vpx")
+        claimed = apps.app_for("Table.vpx")
+        assert claimed is not None
+        self.assertEqual(claimed.id, "vpx")
 
     def test_an_id_this_build_already_uses_is_refused(self) -> None:
         with self.assertRaises(ValueError):
@@ -77,7 +94,7 @@ class ProvideTests(unittest.TestCase):
         is one nobody can point at anything."""
         self.apps.provide(**FUTURE)
 
-        self.assertIn("bin_path", [one.key for one in apps.get("fp").fields])
+        self.assertIn("bin_path", [one.key for one in _app("fp").fields])
 
     def test_an_app_declares_what_travels_with_its_tables(self) -> None:
         """Its own list. A Future Pinball table's companions are not a VPX table's, and
@@ -86,7 +103,7 @@ class ProvideTests(unittest.TestCase):
 
         self.apps.provide(**FUTURE, companions=("fpl", ".bam"))
 
-        self.assertEqual(apps.get("fp").claim.companions, (".fpl", ".bam"))
+        self.assertEqual(_app("fp").claim.companions, (".fpl", ".bam"))
         self.assertEqual(companions_beside(pathlib.Path("/nowhere/x.fpt")), [])
 
     def test_an_app_declares_which_vps_formats_it_plays(self) -> None:
@@ -151,7 +168,7 @@ class WordsTests(unittest.TestCase):
 
     def test_its_fields_are_worded_there_too(self) -> None:
         self.apps.provide(id="fp", suffixes=("fpt",))
-        field = next(one for one in apps.get("fp").fields if one.key == "bin_path")
+        field = next(one for one in _app("fp").fields if one.key == "bin_path")
 
         self.assertEqual(apps.field_words("fp", field)["description"],
                          "The Future Pinball program")
@@ -182,7 +199,7 @@ class CommandTests(unittest.TestCase):
             return ["/opt/fp", "--play", entry["table"]]
 
         ExtensionApps("fp", SCOPES).provide(**FUTURE, command=command)
-        found = apps.get("fp").launch.command(
+        found = _launch("fp").command(
             self._entry(table="/games/BBB.fpt"), {})
 
         self.assertEqual(found, ["/opt/fp", "--play", "/games/BBB.fpt"])
@@ -193,7 +210,7 @@ class CommandTests(unittest.TestCase):
         argument handling it has no opinion about."""
         ExtensionApps("fp", SCOPES).provide(**FUTURE, command=lambda entry, settings: None)
 
-        found = apps.get("fp").launch.command(
+        found = _launch("fp").command(
             self._entry(table="/games/BBB.fpt"), {"bin_path": "/opt/fp", "args": "-open"})
 
         self.assertEqual(found, ["/opt/fp", "-open", "/games/BBB.fpt"])
@@ -206,7 +223,7 @@ class CommandTests(unittest.TestCase):
             **FUTURE, command=lambda entry, settings: "/opt/fp --play thing")
 
         with self.assertRaises(TypeError):
-            apps.get("fp").launch.command(self._entry(table="/x.fpt"), {})
+            _launch("fp").command(self._entry(table="/x.fpt"), {})
 
 
 if __name__ == "__main__":

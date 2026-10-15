@@ -12,7 +12,7 @@ from common.i18n import t
 try:
     from starlette.testclient import TestClient
 except ImportError:  # pragma: no cover
-    TestClient = None
+    TestClient = None  # type: ignore[assignment,misc]
 
 
 @unittest.skipIf(TestClient is None, "starlette TestClient unavailable")

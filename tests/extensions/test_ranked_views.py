@@ -7,6 +7,7 @@ import configparser
 import json
 import unittest
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import patch
 
 from common import events
@@ -226,7 +227,7 @@ class InACollection(RankedCase):
     def test_the_frontend_is_handed_it_in_that_order(self) -> None:
         with patch("frontend.library_resolver.get_collections_manager",
                    lambda: self.collections):
-            ini = SimpleNamespace(config=configparser.ConfigParser(), save=lambda: None)
+            ini: Any = SimpleNamespace(config=configparser.ConfigParser(), save=lambda: None)
             ini.config.add_section("general")
             api = API.__new__(API)
             api._ini_config = ini
@@ -254,7 +255,7 @@ class InACollection(RankedCase):
 
         with patch("frontend.library_resolver.get_collections_manager",
                    lambda: self.collections), library_of(self.games):
-            ini = SimpleNamespace(config=configparser.ConfigParser(), save=lambda: None)
+            ini: Any = SimpleNamespace(config=configparser.ConfigParser(), save=lambda: None)
             ini.config.add_section("general")
             api = API.__new__(API)
             api._ini_config = ini
@@ -279,10 +280,10 @@ class OverTheApi(RankedCase):
             patcher = patch(target, lambda: self.collections)
             patcher.start()
             self.addCleanup(patcher.stop)
-        patcher = patch("common.games.game_repository.catalog",
+        catalog = patch("common.games.game_repository.catalog",
                         lambda: {game_id(one): one for one in self.games})
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        catalog.start()
+        self.addCleanup(catalog.stop)
 
     def test_a_collection_says_which_view_orders_it_and_how_old_the_read_is(self) -> None:
         said = self.client.get("/collections/Top%20Rated").json()

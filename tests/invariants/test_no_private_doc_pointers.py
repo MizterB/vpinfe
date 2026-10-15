@@ -79,8 +79,8 @@ def _flattened(text: str) -> tuple[str, Callable[[int], int]]:
     wrapped pointer is as common in a comment block as in a docstring. The map back is
     what keeps the report a line number somebody can open.
     """
-    flat = []
-    lines = []
+    flat: list[str] = []
+    lines: list[int] = []
     for number, line in enumerate(text.splitlines(), 1):
         if flat:
             flat.append(" ")
@@ -150,6 +150,7 @@ class PrivateDocPointerTests(unittest.TestCase):
         self.assertFalse(CITED_SECTION.search("VPX 10.8.1 is the supported floor"))
         standard = CITED_SECTION.search("WCAG 1.4.11 puts a floor under it")
         self.assertIsNotNone(standard)
+        assert standard is not None
         self.assertIn(standard.group(1), PUBLIC_STANDARDS)
         for spelling in ("see ADR-0008", "see ADR 0008", "adr/0008-a-title",
                          "docs/adr/0008", "adr0008"):

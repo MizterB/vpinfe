@@ -11,8 +11,10 @@ import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import cast
 
 from common.games import standalone_scripts as scripts
+from common.games.game import Game
 from console import sections
 
 HASHES = [{"sha256": "aaa", "file": "Alpha.vbs",
@@ -72,7 +74,7 @@ class OfferedTests(unittest.TestCase):
         self.tmp = TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
 
-    def _game(self, name: str, vbs_hash: str | None, sidecar: bool = False) -> _Game:
+    def _game(self, name: str, vbs_hash: str | None, sidecar: bool = False) -> Game:
         folder = Path(self.tmp.name) / name
         folder.mkdir()
         vpx = folder / "Table.vpx"
@@ -85,7 +87,7 @@ class OfferedTests(unittest.TestCase):
         (folder / f"{name}.info").write_text(json.dumps(
             {"Info": {"Name": name}, "VPinFE": {}, "User": {},
              "tables": {"Table.vpx": entry}}))
-        return _Game(folder, vpx)
+        return cast(Game, _Game(folder, vpx))
 
     def test_it_names_what_can_take_a_fix(self) -> None:
         found = scripts.offered_for([self._game("Alpha", "aaa")], HASHES)

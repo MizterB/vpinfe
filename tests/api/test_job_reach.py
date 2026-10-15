@@ -15,7 +15,10 @@ import time
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from typing import cast
 from unittest import mock
+
+from starlette.requests import Request
 
 from common import events, paths
 from common import jobs as job_registry
@@ -26,8 +29,9 @@ from httpapi import jobs as jobs_api
 from httpapi.errors import NotFoundError
 
 
-def _request(tier: str) -> SimpleNamespace:
-    return SimpleNamespace(state=SimpleNamespace(identity=SimpleNamespace(tier=tier)))
+def _request(tier: str) -> Request:
+    return cast(
+        Request, SimpleNamespace(state=SimpleNamespace(identity=SimpleNamespace(tier=tier))))
 
 
 def _started(kind: str, *, extension: str = "", tier: str = "") -> job_registry.Job:
@@ -143,7 +147,7 @@ class JobEventReachTests(unittest.IsolatedAsyncioTestCase):
 
     async def _names_seen(self, stream) -> list[str]:
         await asyncio.sleep(0.05)
-        seen = []
+        seen: list[str] = []
         while True:
             try:
                 frame = await asyncio.wait_for(anext(stream), 0.1)
@@ -208,8 +212,8 @@ class JobEventReachTests(unittest.IsolatedAsyncioTestCase):
             await body.aclose()
 
         self.addAsyncCleanup(close)
-        await asyncio.wait_for(anext(body), 2.0)
-        await asyncio.wait_for(anext(body), 2.0)
+        await asyncio.wait_for(anext(body), 2.0)  # type: ignore[call-overload]
+        await asyncio.wait_for(anext(body), 2.0)  # type: ignore[call-overload]
 
         events.emit(events.JOB_PROGRESS, job_id=hidden.id, pct=1, message="library work")
 

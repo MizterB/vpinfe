@@ -170,7 +170,9 @@ class RefusedTests(unittest.TestCase):
         found = self._copy(_launcher("here", "VPX", launch_env="X=1"))
 
         self.assertTrue(found.ok, found.error)
-        self.assertEqual(self.store.get("here").value("launch_env"), "X=1")
+        kept = self.store.get("here")
+        assert kept is not None
+        self.assertEqual(kept.value("launch_env"), "X=1")
 
     def test_a_device_across_the_network_is_quoted_not_its_status(self) -> None:
         answer = requests.Response()

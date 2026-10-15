@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import unittest
+from typing import Any
 
 from common.games import collection_resolver
 from common.games.collection_filters import group_key
@@ -34,7 +35,7 @@ WIRE_ONLY = {"game": {"rating"}, "table": set(), "top": {"links"}}
 
 ORDER_BY = "title"
 
-META = {
+META: dict[str, Any] = {
     "Info": {"Name": "Attack from Mars", "Title": "Attack from Mars",
              "Manufacturer": "Bally", "Year": "1995", "Type": "SS",
              "Themes": ["Space", "Aliens"], "VPSId": "vps-1"},
@@ -55,8 +56,9 @@ class EntryLensParityTests(TempTree):
         # lenses built under different orders would not be the same resolution.
         self.theme = json.loads(game_state.games_json(
             self.entries, contract=2, order_by=ORDER_BY))["entries"][0]
-        self.wire = entry_resource(self.entries[0],
-                                    group_key(ORDER_BY)(self.entries[0].game))
+        grouping = group_key(ORDER_BY)
+        assert grouping is not None
+        self.wire = entry_resource(self.entries[0], grouping(self.entries[0].game))
 
     def test_the_two_lenses_carry_the_same_fields(self) -> None:
         """Every difference is one of the four listed above. A new field on either side

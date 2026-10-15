@@ -10,11 +10,13 @@ import os
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import cast
 from unittest.mock import patch
 
 from common import apps
 from common.config_store import ConfigStore
 from common.games import launcher_migration, launchers
+from common.games.game import Game
 
 
 def _config(**values) -> configparser.ConfigParser:
@@ -171,9 +173,11 @@ class SeedTests(unittest.TestCase):
         """A field left unseeded reads as its default, which for a path means the install
         quietly stopped using what it was configured with."""
         self._seed()
+        declared = apps.launcher_fields("vpx")
+        assert declared is not None
 
         self.assertEqual(sorted(self.store.launchers()[0].settings),
-                         sorted(f.key for f in apps.launcher_fields("vpx")))
+                         sorted(f.key for f in declared))
 
     def test_the_keys_it_read_are_consumed(self) -> None:
         """Seeding runs once because there is nothing left to read, and a launcher
@@ -342,11 +346,11 @@ class TablePatternTests(unittest.TestCase):
         self.game_dir.mkdir()
         (self.game_dir / "Example.vpx").write_text("", encoding="utf-8")
 
-    def _game(self) -> _Game:
+    def _game(self) -> Game:
         game = _Game("Example (Maker 1990)", {},
                      {"t-example": {"filename": "Example.vpx"}})
         game.full_path_game = str(self.game_dir)  # type: ignore[attr-defined]
-        return game
+        return cast(Game, game)
 
     def _run(self, enabled: str = "true", mask: str = "windows") -> int:
         for key, value in (("globaltableinioverrideenabled", enabled),

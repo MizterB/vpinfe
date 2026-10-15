@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 from unittest.mock import patch
 
 from starlette.testclient import TestClient
@@ -72,11 +73,12 @@ class Registry(TempTree):
 class TheSweepComesFirst(TempTree):
     def setUp(self) -> None:
         super().setUp()
-        for target, value in (("common.paths.TAGS_PATH", self.root / "tags.json"),
-                              ("common.games.library_folders.blocked_games",
-                               lambda games: []),
-                              ("common.games.game_repository.all_games",
-                               lambda: [_game("g1", ["widebody"])])):
+        replacements: tuple[tuple[str, Any], ...] = (
+            ("common.paths.TAGS_PATH", self.root / "tags.json"),
+            ("common.games.library_folders.blocked_games", lambda games: []),
+            ("common.games.game_repository.all_games",
+             lambda: [_game("g1", ["widebody"])]))
+        for target, value in replacements:
             patcher = patch(target, value)
             patcher.start()
             self.addCleanup(patcher.stop)

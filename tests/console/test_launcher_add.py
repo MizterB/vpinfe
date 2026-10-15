@@ -9,9 +9,10 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 from console import launchers
 
-ASKED = [{"key": "bin_path", "label": "Program", "path": "exe", "blank": ""},
-         {"key": "ini_path", "label": "Settings File", "path": "file",
-          "suffixes": [".ini"], "blank": "Its own"}]
+ASKED: list[dict[str, Any]] = [
+    {"key": "bin_path", "label": "Program", "path": "exe", "blank": ""},
+    {"key": "ini_path", "label": "Settings File", "path": "file",
+     "suffixes": [".ini"], "blank": "Its own"}]
 
 
 class _Cancelled:

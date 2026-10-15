@@ -56,6 +56,7 @@ class WhichDevice(unittest.IsolatedAsyncioTestCase):
         await ask.run()
 
         ask.which.assert_not_awaited()
+        assert ask.send.await_args is not None
         self.assertEqual(ask.send.await_args.args[1], TABLET)
 
     async def test_one_device_that_does_not_answer_is_shown_dimmed_not_skipped(self) -> None:
@@ -70,6 +71,7 @@ class WhichDevice(unittest.IsolatedAsyncioTestCase):
         await ask.run()
 
         ask.which.assert_awaited_once()
+        assert ask.send.await_args is not None
         self.assertEqual(ask.send.await_args.args[1], PHONE)
 
     async def test_cancelling_the_picker_sends_nothing_and_does_not_confirm(self) -> None:
@@ -85,12 +87,14 @@ class TheConfirm(unittest.IsolatedAsyncioTestCase):
         ask = _Ask([TABLET], {"m1": ANSWERING})
         await ask.run()
 
+        assert ask.send.await_args is not None
         self.assertIs(ask.send.await_args.kwargs["settings"], False)
 
     async def test_the_second_answer_sends_with_it(self) -> None:
         ask = _Ask([TABLET], {"m1": ANSWERING}, answer=confirm.Answer.SECOND)
         await ask.run()
 
+        assert ask.send.await_args is not None
         self.assertIs(ask.send.await_args.kwargs["settings"], True)
 
     async def test_cancelling_sends_nothing(self) -> None:
@@ -103,6 +107,7 @@ class TheConfirm(unittest.IsolatedAsyncioTestCase):
         ask = _Ask([TABLET], {"m1": ANSWERING}, plan=["g2"])
         await ask.run()
 
+        assert ask.confirm.await_args is not None
         kwargs = ask.confirm.await_args.kwargs
         self.assertEqual(kwargs["lines"], ["Beta"])
         self.assertEqual(len(kwargs["detail"]), 2)
@@ -112,6 +117,7 @@ class TheConfirm(unittest.IsolatedAsyncioTestCase):
         ask = _Ask([TABLET], {"m1": ANSWERING})
         await ask.run()
 
+        assert ask.confirm.await_args is not None
         kwargs = ask.confirm.await_args.kwargs
         self.assertEqual(kwargs["lines"], [])
         self.assertFalse(kwargs["detail"][1])

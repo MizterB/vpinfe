@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 
 import websockets
+from websockets.asyncio.client import ClientConnection
 
 
 def free_port() -> int:
@@ -112,7 +113,7 @@ class BrowserSession:
         self._proc: subprocess.Popen | None = None
         self._group = False
         self._profile: str | None = None
-        self._ws = None
+        self._ws: ClientConnection | None = None
         self._next_id = 0
         self._responses: dict[int, dict] = {}
         self.console: list[str] = []
@@ -195,9 +196,11 @@ class BrowserSession:
                         return target["webSocketDebuggerUrl"]
             except Exception:
                 pass
+            assert self._proc is not None
             if self._proc.poll() is not None:
                 break
             await asyncio.sleep(0.1)
+        assert self._proc is not None
         raise RuntimeError(
             "Chromium never opened a page to attach to. It exited "
             f"{self._proc.returncode}; stderr:\n{self._stderr()}")
@@ -217,6 +220,7 @@ class BrowserSession:
 
     async def _pump(self) -> None:
         """Read every frame once, so replies and events cannot consume each other."""
+        assert self._ws is not None
         with suppress(Exception):
             async for raw in self._ws:
                 message = json.loads(raw)
@@ -252,6 +256,7 @@ class BrowserSession:
     async def send(self, method: str, params: dict | None = None) -> dict:
         self._next_id += 1
         message_id = self._next_id
+        assert self._ws is not None
         try:
             await asyncio.wait_for(self._ws.send(json.dumps(
                 {"id": message_id, "method": method, "params": params or {}})),

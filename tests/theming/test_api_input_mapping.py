@@ -3,6 +3,7 @@ import types
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any
 from unittest.mock import patch
 
 from common import events, i18n
@@ -137,7 +138,7 @@ class TestApiInputMapping(unittest.TestCase):
             )
 
             ini = self._build_ini()
-            api = API(ini, ws_bridge=ws_bridge)
+            api = API(ini, ws_bridge=ws_bridge)  # type: ignore[arg-type]
 
             def popen_side_effect(*args, **kwargs):
                 call_order.append("popen")
@@ -148,14 +149,14 @@ class TestApiInputMapping(unittest.TestCase):
             play_events.reset_for_tests()
             self.addCleanup(play_events.reset_for_tests)
             self.addCleanup(events.clear)
+            service: dict[str, Any] = {"parse_score_from_nvram.return_value": (None, None)}
             with (
                 patch("common.host.launch.delete_vpinball_log_on_start_if_configured",
                       side_effect=lambda *_a: call_order.append("delete_log")),
-                patch("common.host.launch.game_play_service",
-                      **{"parse_score_from_nvram.return_value": (None, None)}),
+                patch("common.host.launch.game_play_service", **service),
                 patch("frontend.play_events.save_last_launched"),
             ):
-                play_events.register(ws_bridge)
+                play_events.register(ws_bridge)  # type: ignore[arg-type]
                 api.launch_table(0)
 
             self.assertEqual(call_order[:2], ["delete_log", "popen"])

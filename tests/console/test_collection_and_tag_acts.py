@@ -41,7 +41,7 @@ class ForCollections(unittest.TestCase):
         self.assertIn("Convert to Hand-Picked", _labels(verbs))
 
     def test_unsaved_rules_keep_convert_away(self) -> None:
-        state = {"collection_drafts": {"Recent": {"rules": []}}}
+        state: dict[str, Any] = {"collection_drafts": {"Recent": {"rules": []}}}
 
         verbs = collections.acts(None, state, [_collection("Recent", "filter")], _after)
 

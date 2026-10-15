@@ -4,7 +4,9 @@ Undo, and the hover on a setting the tables hold differently."""
 from __future__ import annotations
 
 import unittest
+from collections.abc import Awaitable
 from types import SimpleNamespace
+from typing import Any, cast
 from unittest.mock import patch
 
 from common.i18n import t
@@ -186,8 +188,8 @@ class VariesByValueTests(unittest.TestCase):
                                 options=())
         with patch.object(workbench, "_said_value", side_effect=lambda _f, v: v), \
                 patch.object(workbench.panel, "state") as state:
-            drawn = workbench._varies([(None, held, field)], tables, "Visual Pinball X",
-                                      **kwargs)
+            drawn = workbench._varies([(None, held, field)],  # type: ignore[list-item]
+                                      tables, "Visual Pinball X", **kwargs)
         assert drawn is not None
         return state.call_args.kwargs["hint"]
 
@@ -311,8 +313,8 @@ class MoveToAllTests(unittest.IsolatedAsyncioTestCase):
                 "tables": [{"id": one} for one in library.values],
                 "shared": shared, "config_groups": GROUPS, **more}
 
-    def _move(self, inner: dict, value: str = "1") -> object:
-        move = app_settings._move_to_all.__wrapped__
+    def _move(self, inner: dict, value: str = "1") -> Awaitable[Any]:
+        move = cast(Any, app_settings._move_to_all).__wrapped__
         return move(inner, [(self.FIELD, value)], "l1", self._rebuild)
 
     async def test_it_writes_all_tables_first_then_clears_each_table_that_sets_its_own(
@@ -472,7 +474,8 @@ class MoveToAllOfferTests(unittest.TestCase):
     def _offer(self, held: dict, *, launchers: tuple[str, ...] = ("l1",),
                playing: bool = False, offered: frozenset[str] = frozenset({KEY})):
         inner = {"shared": [{"launcher_id": one} for one in launchers], "playing": playing}
-        move = app_settings.MoveToAll(inner, offered, lambda: None)  # type: ignore[arg-type]
+        move = app_settings.MoveToAll(
+            inner, offered, lambda: None)  # type: ignore[arg-type,return-value]
         with patch.object(app_settings.panel, "action") as action:
             drawn = move(held, self.FIELD)
         return drawn, action
@@ -505,7 +508,7 @@ class MoveToAllOfferTests(unittest.TestCase):
     def test_a_pair_is_offered_only_when_each_of_its_rows_that_is_set_can_move(self) -> None:
         inner = {"shared": [{"launcher_id": "l1"}], "playing": False}
         move = app_settings.MoveToAll(inner, frozenset({KEY, OTHER}),
-                                      lambda: None)  # type: ignore[arg-type]
+                                      lambda: None)  # type: ignore[arg-type,return-value]
         second = GROUPS[0].settings[1]
         with patch.object(app_settings.panel, "action") as action:
             both = move({"set_here": True, "value": "1"}, self.FIELD,

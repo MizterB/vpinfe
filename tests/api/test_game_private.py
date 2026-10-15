@@ -45,7 +45,7 @@ class GamePrivateTests(TempTree):
         previous = dict(game_repository._PARSERS)
         game_repository._PARSERS.clear()
         game_repository._PARSERS[(str(self.root), KIND_ROOT)] = GameParser(
-            str(self.root), config)
+            str(self.root), config)  # type: ignore[arg-type]
         self.addCleanup(game_repository._PARSERS.update, previous)
         self.addCleanup(game_repository._PARSERS.clear)
 
@@ -163,7 +163,7 @@ class GamePrivateTests(TempTree):
 
     def test_an_extension_reads_it_on_the_rows_it_is_handed(self) -> None:
         self._mark([FIRST])
-        reader = ExtensionGames("reader", ("games:read",), None)
+        reader = ExtensionGames("reader", ("games:read",), None)  # type: ignore[arg-type]
 
         listed = {one["id"]: one["private"] for one in reader.list_games()["games"]}
         self.assertEqual(listed, {FIRST: True, SECOND: False, THIRD: False})

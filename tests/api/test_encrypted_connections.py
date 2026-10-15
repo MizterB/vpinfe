@@ -417,13 +417,18 @@ class TheEditsAreProtectedTests(ConnectionsCase):
     def test_the_answer_says_whether_this_request_was_encrypted(self) -> None:
         self.connections.add_tailscale()
 
-        answer = _held(SimpleNamespace(client=SimpleNamespace(host="100.100.1.2"), headers={},
-                                       url=SimpleNamespace(scheme="http")))
+        request = SimpleNamespace(client=SimpleNamespace(host="100.100.1.2"), headers={},
+                                  url=SimpleNamespace(scheme="http"))
+        answer = _held(request)  # type: ignore[arg-type]
 
         self.assertTrue(answer.encrypted)
 
 
 class TheCertificateTests(ConnectionsCase):
+    holder: tempfile.TemporaryDirectory[str]
+    cert: str
+    key: str
+
     @classmethod
     def setUpClass(cls) -> None:
         if shutil.which("openssl") is None:

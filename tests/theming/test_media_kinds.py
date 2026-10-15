@@ -51,6 +51,7 @@ class VocabularyTests(unittest.TestCase):
     def test_the_contract_1_spellings_all_alias_to_a_real_kind(self) -> None:
         block = re.search(r"const MEDIA_KIND_ALIASES = \{(.*?)\n\};", CORE_JS, re.S)
         self.assertIsNotNone(block, "the alias map moved")
+        assert block is not None
         kinds = set(_python_kinds())
         for old, new in re.findall(r'"?([\w-]+)"?:\s*"(\w+)"', block.group(1)):
             self.assertIn(new, kinds, f"{old} aliases to {new}, which is not a kind")
@@ -62,6 +63,7 @@ class PreloadDefaultTests(unittest.TestCase):
         contract 2 the backglass was never preloaded at all."""
         block = re.search(r"this\._preloadKinds = \[(.*?)\];", CORE_JS, re.S)
         self.assertIsNotNone(block, "the default preload list moved")
+        assert block is not None
         kinds = re.findall(r'"(\w+)"', block.group(1))
         self.assertTrue(kinds)
         for kind in kinds:

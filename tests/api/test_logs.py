@@ -18,7 +18,7 @@ from tests.support.library import TempTree
 try:
     from starlette.testclient import TestClient
 except ImportError:  # pragma: no cover
-    TestClient = None
+    TestClient = None  # type: ignore[assignment,misc]
 
 
 class ReadingTheLogTests(unittest.TestCase):
@@ -47,7 +47,9 @@ class ReadingTheLogTests(unittest.TestCase):
     def test_the_file_being_written_is_the_one_read(self) -> None:
         """Asked of the handler rather than rebuilt from the config dir, which would
         name a file nothing is writing to."""
-        self.assertEqual(log_setup.log_file().parent, Path(self.tmp.name))
+        written = log_setup.log_file()
+        assert written is not None
+        self.assertEqual(written.parent, Path(self.tmp.name))
 
     def test_a_record_arrives_with_its_level_and_its_source(self) -> None:
         self.log.info("something happened")

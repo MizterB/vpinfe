@@ -21,6 +21,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from contextlib import suppress
+from io import TextIOWrapper
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -60,6 +61,7 @@ class LiveInstance:
         self._home_tmp = TemporaryDirectory(prefix="vpinfe-home0")
         self.home = Path(self._home_tmp.name)
         self.proc: subprocess.Popen | None = None
+        self._log: TextIOWrapper | None = None
         self.ports: dict[str, int] = {}
 
     # -- lifecycle ---------------------------------------------------------
@@ -124,7 +126,7 @@ class LiveInstance:
                 self.proc.kill()
                 self.proc.wait(timeout=30)
             self.proc = None
-        if getattr(self, "_log", None) is not None:
+        if self._log is not None:
             self._log.close()
             self._log = None
 
@@ -172,6 +174,7 @@ class LiveInstance:
     def _wait_until_serving(self, timeout: float = 180.0) -> None:
         deadline = time.time() + timeout
         while time.time() < deadline:
+            assert self.proc is not None
             if self.proc.poll() is not None:
                 raise RuntimeError("VPinFE exited during startup:\n" + self.output())
             try:
@@ -231,6 +234,7 @@ class LiveInstance:
         on the asset server: the two come up independently, and the api is the slower."""
         deadline = time.time() + timeout
         while time.time() < deadline:
+            assert self.proc is not None
             if self.proc.poll() is not None:
                 raise RuntimeError("VPinFE exited before its api served:\n" + self.output())
             try:

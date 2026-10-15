@@ -245,6 +245,7 @@ class RegistryTests(unittest.TestCase):
                                                            tools.State.MISSING)},
                                     tools.FFMPEG)
 
+        assert said is not None
         self.assertEqual(said["fix"], tools.FIX_AUTO)
         self.assertTrue(said["remedy"]["get"])
 
@@ -254,6 +255,7 @@ class RegistryTests(unittest.TestCase):
         with patch.object(tools, "here", return_value=tools.DARWIN):
             said = preflight._needs({"ffmpeg": found}, tools.FFMPEG, "libx264", "H.264")
 
+        assert said is not None
         self.assertEqual(said["fix"], tools.FIX_USER)
         self.assertNotIn("get", said["remedy"])
 

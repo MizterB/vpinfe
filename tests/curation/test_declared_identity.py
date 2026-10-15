@@ -13,6 +13,7 @@ stored.
 from __future__ import annotations
 
 import unittest
+from typing import Any
 
 from common.games import identity_claims as claims
 from common.games.info_file import MetaConfig
@@ -112,8 +113,9 @@ class RecordingTests(TempTree):
 
     def _source(self) -> dict:
         meta = MetaConfig(str(self.info))
-        assets = meta.data.get("assets", {})
-        return next(iter(assets.values()), {}).get("source", {})
+        assets: dict[str, Any] = meta.data.get("assets", {})
+        first: dict[str, Any] = next(iter(assets.values()), {})
+        return first.get("source", {})
 
     def test_a_declared_identity_lands_in_the_source_block(self) -> None:
         MetaConfig(str(self.info)).add_asset(

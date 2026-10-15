@@ -15,13 +15,14 @@ import subprocess
 import sys
 import unittest
 from pathlib import Path
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 BASELINE = REPO_ROOT / "tests" / "fixtures" / "parity_baseline_master.json"
 LEDGER = REPO_ROOT / "docs" / "compatibility-3.0.md"
 
 # The differences the ledger permits, keyed by the entries that permit them.
-LEDGER_ALLOWS = {
+LEDGER_ALLOWS: dict[str, Any] = {
     "PAR-03": {"remote_launch", "upload_begin", "archive_download"},
     "PAR-04": {"removed": "update_frontend_dof_for_table",
                "added": "notify_table_selected"},
@@ -127,6 +128,10 @@ class LedgerTests(unittest.TestCase):
 
 
 class ParityTests(unittest.TestCase):
+    master: dict[str, Any]
+    current: dict[str, Any]
+    ledger_text: str
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.master = json.loads(BASELINE.read_text())

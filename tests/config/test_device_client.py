@@ -30,6 +30,7 @@ class ResolverTests(unittest.TestCase):
         client = device_client.for_device(CAB, LOCAL)
 
         self.assertIsInstance(client, device_client.RemoteDevice)
+        assert isinstance(client, device_client.RemoteDevice)
         self.assertEqual(client.base_url, "http://192.168.1.50:8001")
 
     def test_a_device_that_never_said_its_port_cannot_be_dialled(self) -> None:
@@ -87,7 +88,7 @@ class RemoteRefusalTests(unittest.TestCase):
 
     def test_input_bindings_are_not_something_a_hub_can_read(self) -> None:
         with self.assertRaises(device_client.NotThisDeviceError):
-            self.device.bindings(None)
+            self.device.bindings(None)  # type: ignore[arg-type]
 
     def test_something_that_is_not_a_lifecycle_action_is_refused(self) -> None:
         """Refused here rather than dialled: an unknown pair would fail as a timeout on
@@ -110,7 +111,7 @@ class RemoteRefusalTests(unittest.TestCase):
         import requests
 
         gone = requests.HTTPError("nope")
-        gone.response = types.SimpleNamespace(status_code=404)
+        gone.response = types.SimpleNamespace(status_code=404)  # type: ignore[assignment]
         with patch.object(http_client, "get_json", side_effect=gone):
             with self.assertRaises(device_client.TooOldError):
                 self.device.actions()
@@ -125,7 +126,7 @@ class RemoteRefusalTests(unittest.TestCase):
         import requests
 
         broke = requests.HTTPError("server fell over")
-        broke.response = types.SimpleNamespace(status_code=500)
+        broke.response = types.SimpleNamespace(status_code=500)  # type: ignore[assignment]
         with patch.object(http_client, "get_json", side_effect=broke):
             with self.assertRaises(requests.HTTPError):
                 self.device.actions()

@@ -6,6 +6,7 @@ import ast
 import json
 import unittest
 from pathlib import Path
+from typing import Any
 from unittest import mock
 
 from console import remote
@@ -335,6 +336,7 @@ class IdentityTests(unittest.TestCase):
         with mock.patch.object(remote.remembered, "get", return_value={"player_id": "kid"}):
             found = remote.remembered_identity(_device("here"), [_player("kid")])
 
+        assert found is not None
         self.assertEqual(found["id"], "kid")
 
     def test_nothing_remembered_is_nobody_said(self) -> None:
@@ -476,7 +478,7 @@ class PlayRecordedTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_a_private_game_reports_no_send_status(self) -> None:
         self.accounts["kid"] = [{"share": True, "waiting": False, "label": "VPinPlay"}]
-        state = {"identity": None, "screen": remote.NOW}
+        state: dict[str, Any] = {"identity": None, "screen": remote.NOW}
 
         await self._fire(state, {"up": [_player("kid")], "private": True,
                                  "new_entries": [], "game": {"id": "g1", "name": "Alpha"}})
@@ -485,7 +487,7 @@ class PlayRecordedTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_a_credited_solo_play_carries_the_score_line_and_is_sent(self) -> None:
         self.accounts["kid"] = [{"share": True, "waiting": False, "label": "VPinPlay"}]
-        state = {"identity": None, "screen": remote.NOW}
+        state: dict[str, Any] = {"identity": None, "screen": remote.NOW}
         entry = {"score": 12345, "text": "12,345"}
 
         await self._fire(state, {
@@ -500,7 +502,7 @@ class PlayRecordedTests(unittest.IsolatedAsyncioTestCase):
     async def test_the_second_of_two_up_uncredited_is_not_sent(self) -> None:
         self.accounts["own"] = [{"share": True, "waiting": False, "label": "VPinPlay"}]
         self.accounts["kid"] = [{"share": True, "waiting": False, "label": "VPinPlay"}]
-        state = {"identity": None, "screen": remote.NOW}
+        state: dict[str, Any] = {"identity": None, "screen": remote.NOW}
 
         await self._fire(state, {
             "up": [_player("own", owner=True), _player("kid")], "private": False,
@@ -513,7 +515,8 @@ class PlayRecordedTests(unittest.IsolatedAsyncioTestCase):
                          ["Not sent: VPinPlay takes one player per game"])
 
     async def test_a_guest_whose_own_phone_was_not_part_of_the_play_gets_no_card(self) -> None:
-        state = {"identity": _player("someone_else", guest=True), "screen": remote.NOW}
+        state: dict[str, Any] = {"identity": _player("someone_else", guest=True),
+                                 "screen": remote.NOW}
         before = state.get("result")
 
         await self._fire(state, {"up": [_player("kid")], "private": False,
@@ -522,7 +525,7 @@ class PlayRecordedTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(state.get("result"), before)
 
     async def test_now_open_redraws_but_another_screen_does_not(self) -> None:
-        state = {"identity": None, "screen": remote.PLAY}
+        state: dict[str, Any] = {"identity": None, "screen": remote.PLAY}
 
         await self._fire(state, {"up": [_player("kid")], "private": False,
                                  "new_entries": [], "game": {"id": "g1", "name": "Alpha"}})

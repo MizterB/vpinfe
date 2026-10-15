@@ -7,6 +7,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Any
 from unittest import mock
 
 from starlette.testclient import TestClient
@@ -18,7 +19,7 @@ from common.host import frontend_browser as fb
 BUNDLED = "/opt/vpinfe/chromium/linux/chrome/chrome"
 CHROME = "/usr/bin/google-chrome"
 
-BUNDLED_145 = {
+BUNDLED_145: dict[str, Any] = {
     "user_agent": "Mozilla/5.0 (X11; Linux x86_64) Chrome/145.0.0.0 Safari/537.36",
     "brands": [{"brand": "Chromium", "version": "145.0.7632.0"},
                {"brand": "Not.A/Brand", "version": "99.0.0.0"}],
@@ -74,38 +75,44 @@ class FixTests(unittest.TestCase):
     def fix(self, state: str, system: str, bundled: bool, chrome: str = "") -> fb.Fix | None:
         return fb.fix_for(state, system=system, bundled=bundled, in_use=BUNDLED, chrome=chrome)
 
+    def found_fix(self, state: str, system: str, bundled: bool, chrome: str = "") -> fb.Fix:
+        found = self.fix(state, system, bundled, chrome)
+        assert found is not None
+        return found
+
     def test_nothing_to_fix_where_it_plays_or_has_not_said(self) -> None:
         self.assertIsNone(self.fix(fb.PLAYS, "Linux", True))
         self.assertIsNone(self.fix(fb.UNKNOWN, "Linux", True))
 
     def test_chrome_installed_and_not_in_use_is_one_press(self) -> None:
-        found = self.fix(fb.NO_H264, "Windows", True, chrome=CHROME)
+        found = self.found_fix(fb.NO_H264, "Windows", True, chrome=CHROME)
         self.assertEqual((found.action, found.chrome_path), (fb.USE_CHROME, CHROME))
 
     def test_chrome_already_in_use_is_not_offered_again(self) -> None:
         found = fb.fix_for(fb.NO_H264, system="Linux", bundled=False, in_use=CHROME,
                            chrome=CHROME)
+        assert found is not None
         self.assertEqual(found.action, "")
 
     def test_windows_needs_the_setting_because_the_bundled_copy_wins(self) -> None:
-        self.assertEqual(self.fix(fb.NO_H264, "Windows", True).key,
+        self.assertEqual(self.found_fix(fb.NO_H264, "Windows", True).key,
                          "frontend_browser.fix.set_chrome")
 
     def test_macos_needs_only_the_install(self) -> None:
-        self.assertEqual(self.fix(fb.NO_H264, "Darwin", True).key,
+        self.assertEqual(self.found_fix(fb.NO_H264, "Darwin", True).key,
                          "frontend_browser.fix.install_chrome_mac")
 
     def test_linux_with_the_bundled_copy_needs_only_the_install(self) -> None:
-        self.assertEqual(self.fix(fb.NO_VIDEO, "Linux", True).key,
+        self.assertEqual(self.found_fix(fb.NO_VIDEO, "Linux", True).key,
                          "frontend_browser.fix.install_chrome_linux")
 
     def test_linux_with_a_distribution_chromium_needs_the_setting(self) -> None:
         # `chromium` is found ahead of `google-chrome`, so installing Chrome changes nothing.
-        self.assertEqual(self.fix(fb.NO_H264, "Linux", False).key,
+        self.assertEqual(self.found_fix(fb.NO_H264, "Linux", False).key,
                          "frontend_browser.fix.set_chrome")
 
     def test_no_browser_has_its_own_fix(self) -> None:
-        self.assertEqual(self.fix(fb.NO_BROWSER, "Windows", False).key,
+        self.assertEqual(self.found_fix(fb.NO_BROWSER, "Windows", False).key,
                          "frontend_browser.fix.no_browser")
 
 
@@ -166,7 +173,9 @@ class RecordTests(_Isolated):
         with mock.patch.object(install_identity, "install_id", return_value=own):
             fb.record(BUNDLED_145)
 
-        kept = registry.get(own).browser
+        device = registry.get(own)
+        assert device is not None
+        kept = device.browser
         self.assertEqual((kept["state"], kept["name"]), (fb.NO_H264, "Chromium 145.0.7632.0"))
         self.assertEqual((kept["formats"]["h264"], kept["formats"]["vp9"]), (False, True))
         self.assertTrue(kept["checked_at"])

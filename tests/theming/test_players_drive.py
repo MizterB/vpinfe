@@ -17,6 +17,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import cast
 
 from PIL import Image
 
@@ -72,7 +73,7 @@ def _centre(data: bytes) -> tuple[int, int, int]:
     """The color at the middle of a picture."""
     with Image.open(io.BytesIO(data)) as shown:
         rgb = shown.convert("RGB")
-        return rgb.getpixel((rgb.width // 2, rgb.height // 2))
+        return cast(tuple[int, int, int], rgb.getpixel((rgb.width // 2, rgb.height // 2)))
 
 
 def _text(selector: str) -> str:
@@ -115,7 +116,7 @@ class PlayersDrive(unittest.TestCase):
         def named(name: str) -> str:
             return next(key for key, one in roster().items() if one["name"] == name)
 
-        async with BrowserSession(chromium_path()) as browser:
+        async with BrowserSession(chromium_path() or "") as browser:
             await browser.send("Emulation.setDeviceMetricsOverride",
                                {"width": 1600, "height": 1000, "deviceScaleFactor": 1,
                                 "mobile": False})

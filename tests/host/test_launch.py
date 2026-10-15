@@ -12,9 +12,11 @@ import pathlib
 import tempfile
 import types
 import unittest
+from collections.abc import Callable
 from configparser import ConfigParser
 from dataclasses import asdict
 from pathlib import PurePath
+from typing import Any, cast
 from unittest import mock
 
 from common import events, mounts, players
@@ -35,6 +37,14 @@ class _FakePopen:
     def wait(self):
         self.waited = True
         return self.returncode
+
+
+def _recording_popen(started: list[Any]) -> Callable[..., _FakePopen]:
+    def popen(cmd: Any, **_kwargs: Any) -> _FakePopen:
+        started.append(cmd)
+        return _FakePopen()
+
+    return popen
 
 
 def stamped(state: dict) -> dict:
@@ -181,12 +191,12 @@ class LifecycleTests(LaunchTests):
 
     def test_a_hook_that_refuses_stops_the_launch_before_anything_starts(self) -> None:
         """Releasing the peripherals is a hook. If it fails, VPX must not start."""
-        started = []
+        started: list[Any] = []
         events.hook(events.TABLE_LAUNCHING, lambda **_: (_ for _ in ()).throw(
             RuntimeError("device busy")))
 
         with self.assertRaises(RuntimeError):
-            self._run(popen=lambda cmd, **k: started.append(cmd) or _FakePopen())
+            self._run(popen=_recording_popen(started))
 
         self.assertEqual(started, [], "nothing was launched")
         self.assertFalse(launch_state.current().launching)
@@ -239,8 +249,11 @@ class PauseTests(LaunchTests):
             running.stdout = lines()
             return running
 
-        with mock.patch.object(launch.key_simulator, "press_code",
-                               side_effect=lambda code: pressed.append(code) or True), \
+        def press_code(code: str) -> bool:
+            pressed.append(code)
+            return True
+
+        with mock.patch.object(launch.key_simulator, "press_code", side_effect=press_code), \
                 mock.patch("apps.vpx.pause.VPXPause.key", return_value="KeyP"):
             self._run(popen=popen)
 
@@ -426,7 +439,8 @@ class RecordingCommandTests(LaunchTests):
                 mock.patch.multiple(launch, _launcher_for=lambda *a: (launcher, ""),
                                     _binary_of=lambda found: "/opt/vpx"):
             play.parse_score_from_nvram.return_value = (None, None)
-            launch.launch_game(_game(), types.SimpleNamespace(config={}), source=source,
+            launch.launch_game(_game(), cast(Any, types.SimpleNamespace(config={})),
+                               source=source,
                                popen=popen or run, **launch_kwargs)
         return seen
 
@@ -616,7 +630,7 @@ class SessionTests(LaunchTests):
         self.assertEqual(recorded["up"], [self.owner.as_payload()])
 
     def test_both_events_carry_who_played_as_plain_data(self) -> None:
-        heard = {}
+        heard: dict[str, Any] = {}
         for name in (events.TABLE_LAUNCHED, events.TABLE_PLAY_RECORDED):
             events.subscribe(name, lambda _n=name, **payload: heard.setdefault(_n, payload))
         game = _game()
@@ -870,7 +884,7 @@ class FallbackTests(LaunchTests):
         with mock.patch.object(launch.launchers, "get_launcher_store",
                                return_value=store), \
                 self.assertLogs("vpinfe.common.host.launch", "WARNING") as logged:
-            launch.check_launchable(game, types.SimpleNamespace(config={}))
+            launch.check_launchable(game, cast(Any, types.SimpleNamespace(config={})))
             self._run(game=game, _launcher_for=launch._launcher_for,
                       _binary_of=launch._binary_of)
 
@@ -902,7 +916,9 @@ class LaunchedByTests(unittest.TestCase):
         game = _game()
         game.meta_config = {"tables": {"t1": {"id": "t1", "filename": "Example.vpx"}}}
 
-        app, entry, settings = launch.launched_by(game)
+        found = launch.launched_by(game)
+        assert found is not None
+        app, entry, settings = found
 
         self.assertEqual(app.id, "vpx")
         self.assertEqual((entry.entry_id, entry.table),
@@ -913,7 +929,9 @@ class LaunchedByTests(unittest.TestCase):
     def test_with_no_game_it_is_the_default_launcher_and_no_entry(self) -> None:
         self.store.save([_launcher()], {})
 
-        app, entry, settings = launch.launched_by()
+        found = launch.launched_by()
+        assert found is not None
+        app, entry, settings = found
 
         self.assertEqual((app.id, entry, settings["bin_path"]),
                          ("vpx", launch.apps.Entry(), str(pathlib.Path("/opt/vpx"))))
@@ -1085,17 +1103,17 @@ class LocationNotConnectedTests(LaunchTests):
         self.game.location_id = "nas"
 
     def test_the_frontend_s_launch_is_refused_before_anything_starts(self) -> None:
-        started = []
+        started: list[Any] = []
         with self.assertRaises(launch.ReferenceUnreachableError) as caught:
-            self._run(game=self.game,
-                      popen=lambda cmd, **kwargs: started.append(cmd) or _FakePopen())
+            self._run(game=self.game, popen=_recording_popen(started))
 
         self.assertEqual(started, [])
         self.assertIn("launch-nas/tables", str(caught.exception))
 
     def test_the_check_before_a_launch_refuses_it_too(self) -> None:
         with self.assertRaises(launch.ReferenceUnreachableError):
-            launch.check_launchable(self.game, types.SimpleNamespace(config={}))
+            launch.check_launchable(self.game,
+                                    cast(Any, types.SimpleNamespace(config={})))
 
 
 if __name__ == "__main__":

@@ -41,6 +41,7 @@ class StoreTests(unittest.TestCase):
         self.store.put(one)
 
         got = self.store.get("a")
+        assert got is not None
         self.assertEqual(got.settings["bin_path"], "/usr/bin/vpx")
         self.assertTrue(got.owns_ini)
 
@@ -54,7 +55,9 @@ class StoreTests(unittest.TestCase):
 
         self.assertEqual([one.launcher_id for one in self.store.launchers()],
                          ["a", "b"])
-        self.assertEqual(self.store.get("a").display_name, "renamed")
+        renamed = self.store.get("a")
+        assert renamed is not None
+        self.assertEqual(renamed.display_name, "renamed")
 
     def test_a_table_moves_off_a_launcher_whose_app_is_gone(self) -> None:
         """Moving a table changes only which launcher lists it, so a launcher this install
@@ -130,7 +133,9 @@ class StoreTests(unittest.TestCase):
     def test_a_blank_name_is_its_apps(self) -> None:
         self.store.put(_launcher("a", display_name=""))
 
-        self.assertEqual(self.store.get("a").display_name, "Visual Pinball X")
+        named = self.store.get("a")
+        assert named is not None
+        self.assertEqual(named.display_name, "Visual Pinball X")
 
     def test_a_name_another_launcher_has_is_refused(self) -> None:
         self.store.put(_launcher("a", display_name="Cab"))
@@ -170,8 +175,9 @@ class OneToALineTests(unittest.TestCase):
         """A one-line input cannot take the second NAME=value its help text promises."""
         for app_id in ("vpx", "generic"):
             with self.subTest(app=app_id):
-                field = next(f for f in apps.launcher_fields(app_id)
-                             if f.key == "launch_env")
+                declared = apps.launcher_fields(app_id)
+                assert declared is not None
+                field = next(f for f in declared if f.key == "launch_env")
 
                 self.assertEqual(field.type, "text")
                 self.assertGreater(field.lines, 1)

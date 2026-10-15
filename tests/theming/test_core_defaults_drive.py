@@ -51,7 +51,7 @@ class CoreDefaultsDriveTests(TempTree):
                 (theme / "manifest.json").write_text(json.dumps(manifest))
             if config is not None:
                 (theme / "config.json").write_text(json.dumps(config))
-            async with BrowserSession(chromium_path()) as browser:
+            async with BrowserSession(chromium_path() or "") as browser:
                 await browser.navigate(instance.theme_url("playfield"))
                 await browser.wait_for("document.body.dataset.ready === 'true'", timeout=90.0)
                 return json.loads(await browser.evaluate(READ))
@@ -82,7 +82,7 @@ class CoreDefaultsDriveTests(TempTree):
 
     def _display(self, window: str) -> tuple[str, list]:
         async def run(instance: LiveInstance):
-            async with BrowserSession(chromium_path()) as browser:
+            async with BrowserSession(chromium_path() or "") as browser:
                 await browser.navigate(
                     instance.url(f"/core/index_{window}.html?window={window}"
                                  f"&wsPort={instance.ports['ws']}"
@@ -107,7 +107,7 @@ class CoreDefaultsDriveTests(TempTree):
             theme = instance.config_dir / "frontend_themes" / instance.theme
             if config is not None:
                 (theme / "config.json").write_text(json.dumps(config))
-            async with BrowserSession(chromium_path()) as browser:
+            async with BrowserSession(chromium_path() or "") as browser:
                 await browser.navigate(instance.theme_url("playfield"))
                 await browser.wait_for("document.body.dataset.ready === 'true'", timeout=90.0)
                 for event in events:
@@ -125,7 +125,7 @@ class CoreDefaultsDriveTests(TempTree):
         # The page fades to nothing during a launch, and anything inside it with it, so
         # the indicator counts as shown only when no ancestor's opacity hides it.
         async def run(instance: LiveInstance):
-            async with BrowserSession(chromium_path()) as browser:
+            async with BrowserSession(chromium_path() or "") as browser:
                 await browser.navigate(instance.theme_url("playfield"))
                 await browser.wait_for("document.body.dataset.ready === 'true'", timeout=90.0)
                 await browser.evaluate("vpin.handleEvent({type: 'TableLaunching'})")

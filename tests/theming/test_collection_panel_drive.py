@@ -78,7 +78,7 @@ class CollectionPanelDrive(unittest.TestCase):
         instance.post("/api/v1/collections", {"name": OTHER, "games": ["bravo", "charlie"]})
         stored = f"/api/v1/collections/{quote(NAME)}"
 
-        async with BrowserSession(chromium_path()) as browser:
+        async with BrowserSession(chromium_path() or "") as browser:
             walk = ConsoleWalk(browser, instance)
 
             def click_text(selector: str, text: str) -> Callable[[], Awaitable[None]]:

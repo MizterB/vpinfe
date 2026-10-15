@@ -7,6 +7,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any
 from unittest import mock
 
 from common.games.library_folders import Location
@@ -15,6 +16,11 @@ from tests.support.library import fake_game, write_game
 
 
 class TablesRouteTests(unittest.TestCase):
+    _tmp: TemporaryDirectory[str]
+    _patches: list[Any]
+    server: CustomHTTPServer
+    port: int
+
     @classmethod
     def setUpClass(cls) -> None:
         cls._tmp = TemporaryDirectory()
@@ -41,6 +47,7 @@ class TablesRouteTests(unittest.TestCase):
 
         cls.server = CustomHTTPServer({})
         cls.server.start_file_server(port=0)
+        assert cls.server.file_server is not None
         cls.port = cls.server.file_server.server_address[1]
 
     @classmethod

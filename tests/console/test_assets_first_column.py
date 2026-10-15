@@ -8,11 +8,12 @@ and the chip that said it a third time is gone from the file panel.
 from __future__ import annotations
 
 import unittest
+from typing import Any
 
 from common.i18n import t
 from console import assets, game_tables, grid, media, media_ownership
 
-TABLES = {
+TABLES: dict[str, dict[str, Any]] = {
     "t1": {"id": "t1", "filename": "Example (Author) v1.vpx", "version": "1.2",
            "authors": ["Someone"]},
     "t2": {"id": "t2", "filename": "Example Bare.vpx"},

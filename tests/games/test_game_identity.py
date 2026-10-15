@@ -1,6 +1,7 @@
 import json
 import unittest
 from pathlib import Path
+from typing import cast
 from unittest import mock
 
 from common.games import game_identity, ids, library_folders
@@ -157,7 +158,8 @@ class DerivedIdTests(TempTree):
 
         game_identity.resolve_ids(games)
 
-        self.assertEqual(library_folders.configured.call_count, 1)
+        configured = cast(mock.MagicMock, library_folders.configured)
+        self.assertEqual(configured.call_count, 1)
 
     def test_ensure_id_makes_it_and_writes_it_as_it_is(self) -> None:
         self._locations(("here", self.root))

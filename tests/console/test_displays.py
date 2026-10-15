@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import unittest
-from typing import Any
+from collections.abc import Mapping
+from typing import Any, cast
 from unittest.mock import AsyncMock, Mock, patch
 
 from screeninfo import Monitor
@@ -196,7 +197,7 @@ class RowsTests(unittest.IsolatedAsyncioTestCase):
         self.control = self.enterContext(patch.object(displays.picture, "Picture"))
 
     def _drawn(self, values: dict | None = None, monitors: tuple = (BIG, TALL),
-               names: tuple = ("", "")) -> dict[str, Any]:
+               names: tuple = ("", "")) -> Mapping[str, Any]:
         entries = displays.rows(values or {}, SCHEMA, list(monitors), list(names), self.write,
                                 self.rerender)
         [(_, draw)] = [entry for entry in entries if entry[0] is panel.FULL]
@@ -318,8 +319,8 @@ class RowsTests(unittest.IsolatedAsyncioTestCase):
 
         await press(drawn["show"], {"playfield": 2})
 
-        displays.run.io_bound.assert_awaited_once()
-        args = displays.run.io_bound.await_args.args
+        cast(Any, displays.run.io_bound).assert_awaited_once()
+        args = cast(Any, displays.run.io_bound).await_args.args
         self.assertIs(args[0], local.return_value.show_numbers)
         self.assertEqual([one.number for one in args[1]], [1, 2])
         self.assertEqual(args[2], 2)
@@ -331,7 +332,7 @@ class RowsTests(unittest.IsolatedAsyncioTestCase):
 
         await press(drawn["show"], {"playfield": 2})
 
-        self.assertIsNone(displays.run.io_bound.await_args.args[2])
+        self.assertIsNone(cast(Any, displays.run.io_bound).await_args.args[2])
 
     async def test_show_numbers_that_cannot_open_a_window_says_why(self) -> None:
         self.enterContext(patch.object(displays.device_client, "local"))
@@ -353,7 +354,7 @@ class FollowTests(unittest.IsolatedAsyncioTestCase):
         self.follow = AsyncMock()
         self.control = self.enterContext(patch.object(displays.picture, "Picture"))
 
-    def _drawn(self, values: dict | None = None) -> dict[str, Any]:
+    def _drawn(self, values: dict | None = None) -> Mapping[str, Any]:
         entries = displays.rows(values or {"presentation": {"cab_mode": "true"}}, SCHEMA,
                                 [BIG, TALL], ["", ""], self.write, Mock(), self.follow)
         [(_, draw)] = [entry for entry in entries if entry[0] is panel.FULL]

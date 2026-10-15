@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import unittest
 from dataclasses import asdict
+from typing import Any
 
 from common.games import high_scores
 from common.games.score_parser import ParsedEntry
@@ -125,7 +126,7 @@ class TwoPointXTests(unittest.TestCase):
              "entries": CHAMPION_AND_RANKED["entries"]}
 
     def test_the_2x_reading_moves_into_the_rom_it_names(self) -> None:
-        user = {"Rating": 2, "Score": dict(self.TWO_X)}
+        user: dict[str, Any] = {"Rating": 2, "Score": dict(self.TWO_X)}
 
         high_scores.from_2x(user)
 
@@ -136,7 +137,8 @@ class TwoPointXTests(unittest.TestCase):
                          (None, "Leaderboard", []))
 
     def test_a_reading_that_holds_nothing_to_show_is_left_alone(self) -> None:
-        for score in ({"rom": "abc_l1"}, {"entries": []}, "12,345", None):
+        readings: tuple[Any, ...] = ({"rom": "abc_l1"}, {"entries": []}, "12,345", None)
+        for score in readings:
             with self.subTest(score=score):
                 user = {"Score": score}
                 high_scores.from_2x(user)

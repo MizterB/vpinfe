@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import subprocess
 import unittest
+from typing import Any
 from unittest.mock import patch
 
 from starlette.testclient import TestClient
@@ -27,7 +28,7 @@ FOLDER = "Cactus Canyon (Bally 1998)"
 DESKTOP = f"{FOLDER}.vpx"
 VR = f"{FOLDER} - VR.vpx"
 
-INFO = {
+INFO: dict[str, Any] = {
     "Info": {"Name": "Cactus Canyon", "Manufacturer": "Bally", "Year": "1998"},
     "VPinFE": {"game_id": GAME_ID},
     "tables": {

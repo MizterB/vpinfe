@@ -26,10 +26,12 @@ class VocabularyTests(unittest.TestCase):
     def test_the_schema_offers_exactly_the_modes_that_exist(self) -> None:
         option = config_schema.option(appearance.MODE_SECTION, appearance.MODE_KEY)
         self.assertIsNotNone(option, "the setting is gone")
+        assert option is not None
         self.assertEqual(sorted(option.choices), sorted(appearance.MODES))
 
     def test_the_default_is_the_palette_default(self) -> None:
         option = config_schema.option(appearance.MODE_SECTION, appearance.MODE_KEY)
+        assert option is not None
         self.assertEqual(option.default, appearance.DEFAULT_MODE)
         self.assertIn(option.default, appearance.MODES)
 
@@ -68,6 +70,7 @@ class VocabularyTests(unittest.TestCase):
 
     def test_the_editor_the_setting_asks_for_is_one_that_exists(self) -> None:
         option = config_schema.option(appearance.MODE_SECTION, appearance.MODE_KEY)
+        assert option is not None
         self.assertIn(option.editor, config_schema.EDITORS)
 
 

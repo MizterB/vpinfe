@@ -74,6 +74,7 @@ class ImportTests(AdoptCase):
         super().setUp()
         # The same context register() was given, so what the test drives is what runs.
         from common.extensions.context import ExtensionContext
+        assert self.record.manifest is not None
         self._ctx = ExtensionContext(self.record.manifest, self.store,
                                      on_failure=lambda why: None)
         self._ctx.files.set_roots([str(FIXTURE)])
@@ -336,8 +337,8 @@ class ImportTests(AdoptCase):
 
         library, made = self._planned("")
         made.wheels_as, made.fetch_media = "logo", True
-        self._ctx.games.use_logos_for_wheels = unittest.mock.Mock()
-        self._ctx.games.get_missing_media = unittest.mock.Mock()
+        self._ctx.games.use_logos_for_wheels = unittest.mock.Mock()  # type: ignore[attr-defined]
+        self._ctx.games.get_missing_media = unittest.mock.Mock()  # type: ignore[attr-defined]
 
         report = adopt.run(self._ctx, library, [VPX], "", made, halted=lambda: True)
 
@@ -736,6 +737,7 @@ class BoundsTests(AdoptCase):
     def setUp(self) -> None:
         super().setUp()
         from common.extensions.context import ExtensionContext
+        assert self.record.manifest is not None
         self._ctx = ExtensionContext(self.record.manifest, self.store,
                                      on_failure=lambda why: None)
 
@@ -782,7 +784,7 @@ class FolderNameTests(unittest.TestCase):
     def test_core_answers_what_a_name_becomes(self) -> None:
         from common.extensions.games import ExtensionGames
 
-        games = ExtensionGames("probe", ("games:read",), None)
+        games = ExtensionGames("probe", ("games:read",), None)  # type: ignore[arg-type]
 
         self.assertEqual(
             games.folder_name_for("Star Trek: The Next Generation (Williams 1993)"),
@@ -794,7 +796,7 @@ class FolderNameTests(unittest.TestCase):
         from common.extensions.games import ExtensionGames
 
         with self.assertRaises(ContractError):
-            ExtensionGames("silent", (), None).folder_name_for("Anything")
+            ExtensionGames("silent", (), None).folder_name_for("Anything")  # type: ignore[arg-type]
 
 
 class CompanionTests(unittest.TestCase):
@@ -888,6 +890,7 @@ class MatchingTests(AdoptCase):
     def setUp(self) -> None:
         super().setUp()
         from common.extensions.context import ExtensionContext
+        assert self.record.manifest is not None
         self._ctx = ExtensionContext(self.record.manifest, self.store,
                                      on_failure=lambda why: None)
         self._ctx.files.set_roots([str(FIXTURE)])
@@ -1196,6 +1199,7 @@ class BesideTheTablesTests(AdoptCase):
         (install / "VPinMAME" / "VPMAlias.txt").write_text("taxi_l1,taxi_l4\n")
         (install / "VPinMAME" / "roms" / "taxi_l4.zip").write_bytes(b"rom")
 
+        assert self.record.manifest is not None
         self._ctx = ExtensionContext(self.record.manifest, self.store,
                                      on_failure=lambda why: None)
         self.places = {"tables": str(self.tables), "roms": str(install / "VPinMAME" / "roms"),

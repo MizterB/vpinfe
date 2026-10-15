@@ -58,7 +58,7 @@ class FoldersPageDrive(unittest.TestCase):
             data=json.dumps({"path": second, "kind": "root"}).encode(), method="PUT",
             headers={"Content-Type": "application/json"}), timeout=10).close()
         seen: dict = {"second": second}
-        async with BrowserSession(chromium_path()) as browser:
+        async with BrowserSession(chromium_path() or "") as browser:
             await browser.send("Emulation.setDeviceMetricsOverride",
                                {"width": 1700, "height": 1000, "deviceScaleFactor": 1,
                                 "mobile": False})

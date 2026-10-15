@@ -66,7 +66,7 @@ class HandshakeFailureTests(unittest.TestCase):
         crash, or the race `_page_endpoint` already detects through `poll()`. Its
         profile is still ours to remove."""
         session = browser_session.BrowserSession("ignored-binary")
-        session._proc = _AlreadyExitedChromeProcess()
+        session._proc = _AlreadyExitedChromeProcess()  # type: ignore[assignment]
         session._profile = tempfile.mkdtemp(prefix="vpinfe-smoke-test-")
 
         asyncio.run(session.__aexit__(None, None, None))
@@ -113,6 +113,7 @@ class HelperProcessTests(unittest.TestCase):
         browser = browser_session.subprocess.Popen(
             ["sh", "-c", "sleep 30 & echo $!; wait"], stdout=browser_session.subprocess.PIPE,
             text=True, start_new_session=True)
+        assert browser.stdout is not None
         helper = int(browser.stdout.readline())
         session = browser_session.BrowserSession("ignored-binary")
         session._proc, session._profile, session._group = browser, profile, True

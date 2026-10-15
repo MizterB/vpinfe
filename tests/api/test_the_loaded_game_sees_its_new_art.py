@@ -44,7 +44,7 @@ class TheLoadedGameKeepsUp(TempTree):
         previous = dict(game_repository._PARSERS)
         game_repository._PARSERS.clear()
         game_repository._PARSERS[(str(self.root), KIND_ROOT)] = GameParser(
-            str(self.root), config)
+            str(self.root), config)  # type: ignore[arg-type]
         self.addCleanup(game_repository._PARSERS.update, previous)
         self.addCleanup(game_repository._PARSERS.clear)
 
@@ -59,6 +59,7 @@ class TheLoadedGameKeepsUp(TempTree):
 
     def _wheel(self) -> str:
         game = game_repository.game_by_id(GAME_ID)
+        assert game is not None
         return Path(str(game.wheel_image_path)).name if game.wheel_image_path else ""
 
     def test_a_placed_wheel_is_the_one_the_game_shows(self) -> None:

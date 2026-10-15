@@ -378,7 +378,7 @@ class TheWholeAnswerTests(unittest.TestCase):
         self.assertNotIn("TableOverride.ViewCabRotation", got.keys)
 
     def test_a_part_put_in_the_playfield_takes_a_region_of_that_playfield(self) -> None:
-        now = {"playfield": 1, "scoreview": "inside"}
+        now: dict[str, vs.Placement] = {"playfield": 1, "scoreview": "inside"}
 
         got = vs.answer({"scoreview": "inside"}, now, [CAB], LOGGED, {})
 
@@ -428,7 +428,7 @@ class TheWholeAnswerTests(unittest.TestCase):
                 self.assertFalse(set(vs.REGION["scoreview"]) & set(got.keys))
 
     def test_a_part_that_stays_inside_keeps_its_region_as_it_is(self) -> None:
-        now = {"playfield": 1, "scoreview": "inside"}
+        now: dict[str, vs.Placement] = {"playfield": 1, "scoreview": "inside"}
 
         got = vs.answer({"backglass": None}, {**now, "backglass": None}, [CAB], LOGGED,
                         self.REGION_HELD)
@@ -443,7 +443,7 @@ class TheWholeAnswerTests(unittest.TestCase):
         self.assertFalse(set(vs.REGION["scoreview"]) & set(got.keys))
 
     def test_a_part_inside_follows_the_playfield_to_a_window_of_another_shape(self) -> None:
-        now = {"playfield": 1, "scoreview": "inside"}
+        now: dict[str, vs.Placement] = {"playfield": 1, "scoreview": "inside"}
 
         got = vs.answer({"playfield": 1}, now, [LAND], LOGGED, self.REGION_HELD)
 
@@ -464,7 +464,8 @@ class TheWholeAnswerTests(unittest.TestCase):
         self.assertFalse(set(vs.REGION["scoreview"]) & set(got.keys))
 
     def test_a_part_put_inside_along_with_the_playfield_takes_the_new_window_too(self) -> None:
-        now = {"playfield": 1, "scoreview": "inside", "backglass": "inside"}
+        now: dict[str, vs.Placement] = {
+            "playfield": 1, "scoreview": "inside", "backglass": "inside"}
 
         got = vs.answer({"playfield": 1, "backglass": "inside"}, now, [LAND], LOGGED, {})
 

@@ -242,7 +242,7 @@ class ThemesPutThereByHand(unittest.TestCase):
                                          "manifest": {"version": "1.0.0"}}}
         registry.themes_dir = str(root)
         registry.store = ThemeInstallStore(str(root))
-        registry._base_url = lambda info: info.get("theme_base_url")
+        registry._base_url = lambda info: info.get("theme_base_url")  # type: ignore[method-assign, assignment, return-value]
         return registry
 
     def test_only_a_folder_no_source_accounts_for_is_one(self) -> None:

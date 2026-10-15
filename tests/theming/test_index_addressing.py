@@ -71,7 +71,8 @@ class IndexAddressingTests(TempTree):
         self.assertEqual(self.api.game_id_at(99), "")
 
     def test_something_that_is_not_an_index_names_nothing(self) -> None:
-        for value in (None, "", "seven", [], -99):
+        values: tuple[object, ...] = (None, "", "seven", [], -99)
+        for value in values:
             with self.subTest(value=value):
                 self.assertIsNone(self.api.entry_at(value))
 

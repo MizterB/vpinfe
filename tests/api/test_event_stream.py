@@ -53,7 +53,7 @@ def _pinned_id(value: str):
     """A stand-in for the cached `_install_id`, which `reset()` clears - so the
     replacement has to answer `cache_clear` too."""
     stub = lambda: value            # noqa: E731 - one expression, named by assignment
-    stub.cache_clear = lambda: None
+    stub.cache_clear = lambda: None  # type: ignore[attr-defined]
     return stub
 
 

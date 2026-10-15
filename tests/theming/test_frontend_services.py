@@ -370,7 +370,7 @@ class FrontendServiceTests(unittest.TestCase):
                            return_value={"rom": "vpx_rom"}) as to_json,
             ):
                 score_data, score_path = game_play_service.parse_score_from_nvram(
-                    game, "vpx_rom")
+                    game, "vpx_rom")  # type: ignore[arg-type]
 
             read_rom.assert_called_once_with("vpx_rom", str(game_dir))
             to_json.assert_called_once_with("vpx_rom", 123, "/scores/vpx_rom.nv", None)
@@ -388,7 +388,8 @@ class FrontendServiceTests(unittest.TestCase):
             reading = {"rom": "vpx_rom", "score_kind": "Leaderboard", "entries": [
                 {"section": "HIGH SCORES", "rank": 1, "initials": "", "score": 10}]}
 
-            game_play_service.keep_high_scores(game, "vpx_rom", reading, None, "/nv")
+            game_play_service.keep_high_scores(
+                game, "vpx_rom", reading, None, "/nv")  # type: ignore[arg-type]
 
             saved = json.loads(info_path.read_text(encoding="utf-8"))["User"]
             self.assertEqual((saved["Rating"], saved["StartCount"]), (4, 2))

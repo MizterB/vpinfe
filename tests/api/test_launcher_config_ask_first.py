@@ -69,12 +69,12 @@ class TableFolderTests(unittest.TestCase):
                 patch.object(path_state, "PROBE_SECONDS", 0.2), \
                 never_answering(tmp), \
                 self.assertRaises(service_errors.BlockedError):
-            launcher_ops._writable_before_writing(None, "entry",
+            launcher_ops._writable_before_writing(None, "entry",  # type: ignore[arg-type]
                                                   str(pathlib.Path(tmp) / "t.vpx"))
 
     def test_no_table_named_asks_about_nothing(self) -> None:
         with patch.object(path_state, "look") as looked:
-            launcher_ops._writable_before_writing(None, "entry", "")
+            launcher_ops._writable_before_writing(None, "entry", "")  # type: ignore[arg-type]
         looked.assert_not_called()
 
 

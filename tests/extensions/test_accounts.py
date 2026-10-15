@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from configparser import ConfigParser
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from fastapi import APIRouter, FastAPI, HTTPException, Response
 from PIL import Image
@@ -361,7 +361,9 @@ class WhatCoreSaysForAnExtension(AccountsCase):
     def test_a_read_that_fails_does_not_switch_the_extension_off(self) -> None:
         self.client.get(f"/ext/failing/accounts/{self.owner}")
 
-        self.assertTrue(self.registry.get("failing").running)
+        failing = self.registry.get("failing")
+        assert failing is not None
+        self.assertTrue(failing.running)
 
 
 class Sharing(AccountsCase):
@@ -563,7 +565,8 @@ class PictureFromAnAccount(AccountsCase):
         if not found.exists():
             return None
         with Image.open(found) as opened:
-            return opened.convert("RGB").getpixel((opened.width // 2, opened.height // 2))
+            pixel = opened.convert("RGB").getpixel((opened.width // 2, opened.height // 2))
+            return cast(tuple[int, int, int], pixel)
 
     def test_an_account_offers_a_picture_only_where_its_service_answers_one(self) -> None:
         self.assertFalse(self.account(self.owner)["picture"])
@@ -691,7 +694,9 @@ class SendingAPicture(AccountsCase):
     def test_the_consent_names_the_picture_where_it_is_sent(self) -> None:
         self.assertEqual(self.account(self.owner)["consent"], [])
 
-        self.registry.get("sample").account["sends_picture"] = True
+        sample = self.registry.get("sample")
+        assert sample is not None
+        sample.account["sends_picture"] = True
 
         self.assertEqual(self.account(self.owner)["consent"],
                          [t("extension.account.sends_picture")])
@@ -824,7 +829,9 @@ class WhatAnExtensionSees(AccountsCase):
 
         self.assertEqual(seen.roster(), players.get_roster().state()["players"])
         self.assertEqual([one["id"] for one in seen.up()], [guest])
-        self.assertEqual(seen.get(guest)["initials"], "ABC")
+        got = seen.get(guest)
+        assert got is not None
+        self.assertEqual(got["initials"], "ABC")
 
     def test_a_player_s_record_of_a_game_needs_players_read(self) -> None:
         with self.assertRaises(ContractError):
@@ -838,6 +845,7 @@ class WhatAnExtensionSees(AccountsCase):
 
         found = self.players_of("players:read").record(kept.player_id, "g1")
 
+        assert found is not None
         self.assertEqual((found["play_count"], found["rating"], found["last_played"]),
                          (1, 4, "2026-09-28T20:00:00Z"))
         self.assertEqual(found, records.shown(kept, "g1"))

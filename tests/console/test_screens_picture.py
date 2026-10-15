@@ -182,7 +182,7 @@ async def _no_move(_moved: dict[str, int | None]) -> bool:
     return True
 
 
-def _drawn(on: dict[str, int | None], screens: tuple[Screen, ...] = (BIG, TALL, STRIP),
+def _drawn(on: dict[str, picture.Placement], screens: tuple[Screen, ...] = (BIG, TALL, STRIP),
            *, into: ui.element | None = None,
            **kwargs: Any) -> tuple[picture.Picture, ui.element]:
     with into or ui.column() as body:
@@ -386,7 +386,8 @@ class ActedOnTests(unittest.IsolatedAsyncioTestCase):
         # Outside the test's task, which has no page to draw into.
         self.body = ui.column()
 
-    def _drawn(self, on: dict[str, int | None], **kwargs: Any) -> tuple[picture.Picture, Any]:
+    def _drawn(self, on: dict[str, picture.Placement],
+               **kwargs: Any) -> tuple[picture.Picture, Any]:
         return _drawn(on, into=self.body, **kwargs)
 
     async def test_a_screen_put_on_a_part_is_reported_and_then_drawn_there(self) -> None:

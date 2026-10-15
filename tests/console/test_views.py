@@ -1,6 +1,7 @@
 """The built-in views, and the vocabulary they share with the workbench."""
 
 import unittest
+from typing import Any
 from unittest.mock import Mock
 
 from common import apps
@@ -300,14 +301,15 @@ class FeatureLegendTests(unittest.TestCase):
         id, and parsing is a separate job because reading one is a full file read. In
         that window the flags are null, and calling that "Not used" would give an
         unparsed table a clean bill of health it has not earned."""
-        rows = [{"feature_ssf": True}, {"feature_ssf": None}]
+        rows: list[dict[str, Any]] = [{"feature_ssf": True}, {"feature_ssf": None}]
 
         self.assertIn(table_features.UNKNOWN, table_features.states_in(rows))
 
     def test_it_keeps_the_vocabulary_s_own_order(self) -> None:
         """Whatever order the rows arrive in, the legend reads the way the vocabulary
         is declared - so it does not shuffle when a library changes."""
-        rows = [{"feature_ssf": None}, {"feature_lut": False}, {"feature_nfozzy": True}]
+        rows: list[dict[str, Any]] = [{"feature_ssf": None}, {"feature_lut": False},
+                                      {"feature_nfozzy": True}]
 
         self.assertEqual(table_features.states_in(rows),
                          [table_features.IN_SCRIPT, table_features.UNKNOWN])
@@ -439,6 +441,7 @@ class TagRowTests(unittest.TestCase):
         fields = {one["field"] for one in tageditor.COLUMNS}
         for name, preset in tageditor.VIEWS.items():
             with self.subTest(view=name):
+                assert not isinstance(preset, list)
                 self.assertLessEqual(set(preset.filters) | set(preset.columns), fields)
 
     def test_a_tag_panel_is_details_and_games(self) -> None:

@@ -158,7 +158,7 @@ class TheStage(unittest.TestCase):
                 self.assertFalse(self._docked("asset_file", context))
 
     def test_a_dock_that_is_a_flag_is_one_still(self) -> None:
-        self.assertTrue(workbench._docked(workbench.Section("x", lambda _: "", None, dock=True),
+        self.assertTrue(workbench._docked(workbench.Section("x", lambda _: "", None, dock=True),  # type: ignore[arg-type]
                                           {}))
 
 

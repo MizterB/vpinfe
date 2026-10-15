@@ -187,7 +187,9 @@ class TheSpacingTests(SignInCase):
         second = self.sign_in.ask("192.168.1.99")
 
         self.assertNotEqual(first.id, second.id)
-        self.assertEqual(self.sign_in.pending().id, second.id)
+        pending = self.sign_in.pending()
+        assert pending is not None
+        self.assertEqual(pending.id, second.id)
 
     def test_a_code_on_screen_is_not_taken_over_by_another_address(self) -> None:
         shown = self.shown()
@@ -196,7 +198,9 @@ class TheSpacingTests(SignInCase):
         error = self.refusal(lambda: self.sign_in.ask("192.168.1.99"))
 
         self.assertEqual(error.reason, sign_in.TOO_SOON)
-        self.assertEqual(self.sign_in.pending().id, shown.id)
+        pending = self.sign_in.pending()
+        assert pending is not None
+        self.assertEqual(pending.id, shown.id)
         self.sign_in.dismiss(shown.id)
         self.assertEqual(self.sign_in.ask("192.168.1.99").address, "192.168.1.99")
 
@@ -259,6 +263,7 @@ class ThePairingSpacingTests(SignInCase):
             self.spend_a_code()
             self.clock.advance(sign_in.PAIR_SPACING_LIMIT_SECONDS + 1)
         asked = self.sign_in.pair_ask("192.168.1.30")
+        assert self.sign_in._pair is not None
         code = self.sign_in._pair.code
         self.sign_in.pair_verify(asked.id, code)
 
@@ -321,8 +326,13 @@ class TheMachinesSideTests(SignInCase):
         self.sign_in.headless = True
         root = logging.getLogger()
         held, level = list(root.handlers), root.level
-        self.addCleanup(lambda: (root.handlers.clear(), root.handlers.extend(held),
-                                 root.setLevel(level)))
+
+        def restore() -> None:
+            root.handlers.clear()
+            root.handlers.extend(held)
+            root.setLevel(level)
+
+        self.addCleanup(restore)
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         out = io.StringIO()

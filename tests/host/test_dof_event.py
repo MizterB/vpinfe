@@ -5,10 +5,13 @@ from __future__ import annotations
 import threading
 import time
 import unittest
+from typing import Any, cast
 from unittest import mock
 
 from common.host import dof_service, launch_state
 from common.i18n import t
+
+_INI: Any = "ini"
 
 
 class _Helper:
@@ -195,7 +198,7 @@ class EventTests(unittest.TestCase):
     def test_a_runner_that_comes_up_on_the_second_ask_sends(self) -> None:
         self.running = True
         answers = iter([{"ok": False, "error": "runner_not_running"}, {"ok": True}])
-        self.helper.request = lambda command, timeout=0.0, **fields: (
+        cast(Any, self.helper).request = lambda command, timeout=0.0, **fields: (
             next(answers) if command == "send_event_token"
             else {"ok": True, "started": True, "detail": "x"})
 
@@ -237,25 +240,29 @@ class ReloadConfigTests(unittest.TestCase):
         for patch in (
                 mock.patch.object(dof_service, "is_running", lambda: self.running),
                 mock.patch.object(dof_service, "restart_dof_service_if_enabled",
-                                  lambda ini: self.restarted.append(ini) or True),
+                                  self._restart),
                 mock.patch.object(launch_state, "current",
                                   lambda: launch_state.LaunchState(launching=self.playing))):
             self.enterContext(patch)
 
+    def _restart(self, ini: object) -> bool:
+        self.restarted.append(ini)
+        return True
+
     def test_a_running_helper_is_started_over(self) -> None:
-        self.assertTrue(dof_service.reload_config("ini"))
+        self.assertTrue(dof_service.reload_config(_INI))
         self.assertEqual(self.restarted, ["ini"])
 
     def test_a_helper_that_is_not_running_is_left_alone(self) -> None:
         self.running = False
 
-        self.assertFalse(dof_service.reload_config("ini"))
+        self.assertFalse(dof_service.reload_config(_INI))
         self.assertEqual(self.restarted, [])
 
     def test_a_table_playing_leaves_it_alone(self) -> None:
         self.playing = True
 
-        self.assertFalse(dof_service.reload_config("ini"))
+        self.assertFalse(dof_service.reload_config(_INI))
         self.assertEqual(self.restarted, [])
 
 

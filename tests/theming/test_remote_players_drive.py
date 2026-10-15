@@ -120,7 +120,7 @@ class RemotePlayersDrive(unittest.TestCase):
             return {one["id"]: one for one in _call(instance, "GET", "/api/v1/players")
                     ["players"]}
 
-        async with BrowserSession(chromium_path()) as browser:
+        async with BrowserSession(chromium_path() or "") as browser:
             await browser.send("Emulation.setDeviceMetricsOverride",
                                {"width": 390, "height": 844, "deviceScaleFactor": 2,
                                 "mobile": True})

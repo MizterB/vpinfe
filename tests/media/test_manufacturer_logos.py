@@ -13,6 +13,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import TYPE_CHECKING
 
 from common.manufacturer_logos import (
     add_logos,
@@ -23,6 +24,9 @@ from common.manufacturer_logos import (
     resolve_logos_dir,
 )
 from tests.support.library import fake_game
+
+if TYPE_CHECKING:
+    from frontend.custom_http_server import CustomHTTPServer
 
 
 def _logos(test: unittest.TestCase, tmp: str) -> Path:
@@ -249,6 +253,7 @@ class LookupTests(unittest.TestCase):
             for name, file in pairs:
                 found = manufacturer_logo_url(name)
                 self.assertIsNotNone(found, f"{name} lost {file}")
+                assert found is not None
                 self.assertEqual(manufacturer_logo_file(found.split("/")[2]), root / file)
 
     def test_a_folder_that_is_not_an_image_is_not_a_logo(self) -> None:
@@ -388,6 +393,7 @@ class ReferenceFileTests(unittest.TestCase):
             root = _logos(self, tmp)
 
             path = write_manufacturer_reference(["Bally", "Data East"])
+            assert path is not None
             payload = json.loads(path.read_text(encoding="utf-8"))
 
         self.assertEqual(path, root / "manufacturers-reference.json")
@@ -454,6 +460,11 @@ class PayloadTests(unittest.TestCase):
 class RouteTests(unittest.TestCase):
     """What the frontend's file server answers at the URL the payload carries."""
 
+    _tmp: TemporaryDirectory[str]
+    root: Path
+    server: CustomHTTPServer
+    port: int
+
     @classmethod
     def setUpClass(cls) -> None:
         from frontend.custom_http_server import CustomHTTPServer
@@ -466,6 +477,7 @@ class RouteTests(unittest.TestCase):
         configure_manufacturer_logos(cls.root)
         cls.server = CustomHTTPServer({})
         cls.server.start_file_server(port=0)
+        assert cls.server.file_server is not None
         cls.port = cls.server.file_server.server_address[1]
 
     @classmethod

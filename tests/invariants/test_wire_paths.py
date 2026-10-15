@@ -81,6 +81,7 @@ class WirePathTests(unittest.TestCase):
                         continue
                     for node in ast.walk(fn):
                         if _builds_a_path(node):
+                            assert isinstance(node, ast.expr)
                             offenders.append(
                                 f"{rel}:{node.lineno} {fn.name}() builds a relative "
                                 f"path in the host's separator and never makes it "

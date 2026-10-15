@@ -10,18 +10,20 @@ from __future__ import annotations
 import configparser
 import unittest
 from types import SimpleNamespace
+from typing import Any, cast
 from unittest import mock
 
 from common import apps, players, tokens
+from common.config_store import ConfigStore
 from common.host import commands, table_commands
 from common.i18n import t
 from tests.support.library import own_registry
 
 
-def _config(**settings: str) -> configparser.ConfigParser:
+def _config(**settings: str) -> ConfigStore:
     parser = configparser.ConfigParser()
     parser["table_commands"] = dict(settings)
-    return parser
+    return cast(ConfigStore, parser)
 
 
 def _launcher(**settings: str):
@@ -170,7 +172,7 @@ class FailureTests(unittest.TestCase):
                     _game(), _playing(), _launcher(),
                     _config(on_start="mount", start_required="true"))
 
-        self.assertTrue(table_commands._remember.called)
+        self.assertTrue(cast(Any, table_commands._remember).called)
 
     def test_a_launcher_failure_that_was_not_required_lets_the_table_start(self) -> None:
         with mock.patch.object(table_commands.commands, "run",
@@ -210,9 +212,12 @@ class UnfinishedTests(unittest.TestCase):
         self.assertIsNotNone(self.owed())
 
         ran: list[str] = []
-        with mock.patch.object(table_commands.commands, "run",
-                               side_effect=lambda text, *a, **k: (
-                                   ran.append(text) or commands.Outcome(ran=True))):
+
+        def run(text: str, *_a: Any, **_k: Any) -> commands.Outcome:
+            ran.append(text)
+            return commands.Outcome(ran=True)
+
+        with mock.patch.object(table_commands.commands, "run", side_effect=run):
             self.assertTrue(table_commands.finish_unfinished())
 
         self.assertEqual(ran, ["unmute", "restart-service"])

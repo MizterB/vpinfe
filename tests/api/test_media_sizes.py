@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import os
+from typing import Any, cast
 from unittest.mock import patch
 
 from PIL import Image
@@ -115,7 +116,7 @@ class MediaSizeTests(_Sized):
         sized = _opened(self._get("wheel", "?size=256"))
 
         self.assertEqual(sized.mode, "RGBA")
-        self.assertEqual(sized.getpixel((0, 0))[3], 0)
+        self.assertEqual(cast(tuple, sized.getpixel((0, 0)))[3], 0)
 
     def test_a_small_picture_is_never_made_larger(self) -> None:
         self.assertEqual(_opened(self._get("backglass", "?size=1024")).size, (100, 50))
@@ -229,7 +230,7 @@ class CollectionImageSizeTests(_Sized):
             patcher = patch(target, lambda: manager)
             patcher.start()
             self.addCleanup(patcher.stop)
-        catalog = patch("common.games.game_repository.catalog", lambda: {})
+        catalog: Any = patch("common.games.game_repository.catalog", lambda: {})
         catalog.start()
         self.addCleanup(catalog.stop)
         self.client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)

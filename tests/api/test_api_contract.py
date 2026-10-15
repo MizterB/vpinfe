@@ -102,6 +102,8 @@ class ApiContractTests(unittest.TestCase):
     """Each assertion describes behavior a consumer relies on. A failure after a
     route move means the move changed something visible."""
 
+    probe: dict
+
     @classmethod
     def setUpClass(cls) -> None:
         # Deliberately not skipped on failure: a safety net that quietly opts out

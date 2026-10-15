@@ -45,6 +45,7 @@ class HearingTests(unittest.TestCase):
                          "pynput")
         refused = key_reader.hearing({}, "darwin", listen_access=lambda: False)
         self.assertFalse(refused.available)
+        assert refused.reason is not None
         self.assertEqual(refused.reason["key"], key_reader.NO_INPUT_MONITORING)
         self.assertEqual(refused.reason["fix"], "user")
 
@@ -53,11 +54,14 @@ class HearingTests(unittest.TestCase):
                                             devices=lambda: ["/dev/input/event3"]).via,
                          "evdev")
         refused = key_reader.hearing(self.WAYLAND, "linux", devices=list)
+        assert refused.reason is not None
         self.assertEqual(refused.as_dict()["reason"]["key"], key_reader.NO_INPUT_GROUP)
         self.assertEqual(refused.reason["remedy"]["key"], key_reader.JOIN_INPUT_GROUP)
 
     def test_no_session_is_nothing_to_fix(self) -> None:
-        self.assertEqual(key_reader.hearing({}, "linux").reason["fix"], "none")
+        reason = key_reader.hearing({}, "linux").reason
+        assert reason is not None
+        self.assertEqual(reason["fix"], "none")
 
     def test_every_reason_is_in_the_catalog(self) -> None:
         catalog = served()
@@ -118,8 +122,12 @@ class ReaderTests(unittest.TestCase):
         whole = key_reader.event(keys.BY_CODE["KeyB"].evdev)
         # An event split across two reads is still one event.
         os.write(write_end, whole[:10])
-        writer = threading.Timer(0.05, lambda: (os.write(write_end, whole[10:]),
-                                                os.close(write_end)))
+
+        def finish() -> None:
+            os.write(write_end, whole[10:])
+            os.close(write_end)
+
+        writer = threading.Timer(0.05, finish)
         writer.start()
         try:
             reader.read([read_end])

@@ -22,6 +22,7 @@ import sys
 import warnings
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any
 
 warnings.filterwarnings("ignore")
 
@@ -76,14 +77,14 @@ def _capture_theme_payload(games_root: Path) -> dict:
         from common.games.game_parser import GameParser  # 3.0
         from frontend.game_state import games_json
     except ImportError:
-        from common.tableparser import TableParser as GameParser  # 2.x
-        from frontend.table_state import tables_json as games_json
+        from common.tableparser import TableParser as GameParser  # type: ignore[no-redef]  # 2.x
+        from frontend.table_state import tables_json as games_json  # type: ignore[no-redef]
 
-    parser = GameParser(str(games_root))
+    parser: Any = GameParser(str(games_root))
     # Contract 1: what a theme written before 3.0 receives. Capturing the current
     # contract would compare master against a shape no existing theme asks for.
-    games = (parser.get_all_games() if hasattr(parser, "get_all_games")
-             else parser.getAllTables())
+    games: Any = (parser.get_all_games() if hasattr(parser, "get_all_games")
+                  else parser.getAllTables())
     try:
         # 3.0 serves the view as entries and takes a contract; master hands its builder
         # the games directly and has no contract to ask for.

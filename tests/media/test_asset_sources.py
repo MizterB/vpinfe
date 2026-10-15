@@ -115,6 +115,7 @@ class UrlTests(unittest.TestCase):
     def test_a_named_source_produces_its_own_link(self) -> None:
         with self._with(_Fake(id="one"), _Fake(id="two")):
             offer = asset_sources.url_for("two", "wheel", "vps-9")
+        assert offer is not None
         self.assertEqual(offer.url, "https://example.invalid/vps-9.png")
 
     def test_a_source_nobody_ships_produces_nothing(self) -> None:
@@ -146,6 +147,7 @@ class VPinMediaDBTests(unittest.TestCase):
         with patch.object(asset_sources, "_manifest", return_value=self.ENTRY), \
                 patch.object(asset_sources, "BUILT_IN", (asset_sources.VPinMediaDB(),)):
             offer = asset_sources.url_for("vpinmediadb", "playfield", "vps-1", "1k")
+        assert offer is not None
         self.assertEqual(offer.url, "https://example.invalid/1k/table.png")
 
 

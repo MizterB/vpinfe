@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import unittest
+from typing import cast
 
 from common.games.collection_store import BUILTIN_ALL
 from common.i18n import t
 from console import collections, data, grid, verbs, views
+from console.api import ApiClient
 
 _SMART = {"name": "90s Bally", "type": "filter", "count": 6, "before_limit": 6,
           "added": 1, "matched": 5, "excluded": 1, "missing": 0}
@@ -55,6 +57,7 @@ class TheRows(unittest.TestCase):
                           "Tournament": True},
                          {one["name"]: one["attention"] for one in self.built})
         preset = collections.COLLECTION_VIEWS["console.collections.needs_attention"]
+        assert not isinstance(preset, list)
         self.assertIn("hidden", preset.columns)
 
     def test_only_the_collection_the_cabinet_opens_on_is_marked(self) -> None:
@@ -186,13 +189,13 @@ class _Client:
 
 class WhatTheCabinetOpensOn(unittest.TestCase):
     def test_it_is_read_with_the_list(self) -> None:
-        library = data.Library(_Client())
+        library = data.Library(cast(ApiClient, _Client()))
         library.load_collections()
 
         self.assertEqual("Friday Night", library.opens_on())
 
     def test_changing_the_setting_reads_it_again(self) -> None:
-        library = data.Library(_Client())
+        library = data.Library(cast(ApiClient, _Client()))
         library.load_collections()
         library.put_config({"behavior": {"startup_collection": ""}})
         library.load_collections()

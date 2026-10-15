@@ -180,7 +180,7 @@ class LibraryCollectionTests(unittest.TestCase):
 
         ini = _ini(LIBRARY)
         self.api = API.__new__(API)
-        self.api._ini_config = ini
+        self.api._ini_config = ini  # type: ignore[assignment]
         self.api.library = LibraryResolver(ini)
         game_state.apply_collection(self.api, "Top Ranked")
 
@@ -280,7 +280,7 @@ class LibraryPickerTests(unittest.TestCase):
 
         ini = _ini(LIBRARY)
         self.api = API.__new__(API)
-        self.api._ini_config = ini
+        self.api._ini_config = ini  # type: ignore[assignment]
         self.api.library = LibraryResolver(ini)
 
     def _answer(self, url: str, **_: object) -> dict:

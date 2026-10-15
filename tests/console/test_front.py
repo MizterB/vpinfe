@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import unittest
 from types import SimpleNamespace
+from typing import Any, cast
 
 from console import front
 from console.data import Library
@@ -27,7 +28,7 @@ def library(*, roster, games, **client) -> Library:
             "high_scores": lambda game_id, table_id="": {},
             "player_record": lambda player_id: []}
     lib = Library.__new__(Library)
-    lib._client = SimpleNamespace(**{**base, **client})
+    lib._client = cast(Any, SimpleNamespace(**{**base, **client}))
     lib.games = []
     lib._front_player = ""
     return lib

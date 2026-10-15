@@ -430,15 +430,19 @@ class ScanTests(unittest.TestCase):
                                             f"(Wheel) {FOLDER}.png": b"w"})
             config = configparser.ConfigParser()
             config.read_dict({"Settings": {"gamerootdir": tmp}, "Media": {}})
-            parser = GameParser(tmp, config)
+            parser = GameParser(tmp, config)  # type: ignore[arg-type]
 
             game = parser.get_game(0)
 
-        names = [Path(path).name for path in game.media_pages["flyer"]]
+        media_pages = game.media_pages
+        media_pages_by_table = game.media_pages_by_table
+        assert media_pages is not None
+        assert media_pages_by_table is not None
+        names = [Path(path).name for path in media_pages["flyer"]]
         self.assertEqual(names, [f"(Flyer) {FOLDER}.png", f"(Flyer 2) {FOLDER}.png"])
-        self.assertEqual(set(game.media_pages), {"flyer"})
-        self.assertEqual(game.media_pages_by_table[f"{FOLDER}.vpx".lower()]["flyer"],
-                         game.media_pages["flyer"])
+        self.assertEqual(set(media_pages), {"flyer"})
+        self.assertEqual(media_pages_by_table[f"{FOLDER}.vpx".lower()]["flyer"],
+                         media_pages["flyer"])
 
 
 class LookupTests(unittest.TestCase):

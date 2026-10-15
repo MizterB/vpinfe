@@ -408,7 +408,9 @@ class WhatAnExtensionsPageCanDo(unittest.TestCase):
 
     @staticmethod
     async def _drive(port: int) -> tuple[dict, dict]:
-        async with BrowserSession(chromium_path()) as browser:
+        browser_path = chromium_path()
+        assert browser_path is not None
+        async with BrowserSession(browser_path) as browser:
             found = []
             for path in ("/control", "/ext/linked/page"):
                 await browser.navigate(f"http://127.0.0.1:{port}{path}")

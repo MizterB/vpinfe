@@ -15,6 +15,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
+from httpx import Response
 
 import httpapi
 from common.games import game_repository
@@ -62,7 +63,7 @@ class CreateGameCase(unittest.TestCase):
         self.put_location(path, location_id)
         game_repository.all_games(reload=True)
 
-    def create(self, name: str, **body) -> dict:
+    def create(self, name: str, **body) -> Response:
         return self.client.post("/games", json={"name": name, **body})
 
 

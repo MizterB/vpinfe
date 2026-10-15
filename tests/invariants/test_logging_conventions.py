@@ -39,7 +39,7 @@ LOG_METHODS = {"debug", "info", "warning", "error", "exception", "critical"}
 
 
 def _modules() -> list[pathlib.Path]:
-    out = []
+    out: list[pathlib.Path] = []
     for package in AREAS:
         out.extend(
             path for path in sorted((REPO / package).rglob("*.py"))
@@ -118,7 +118,7 @@ class LoggerNameTests(unittest.TestCase):
 class LoggerCallTests(unittest.TestCase):
     def test_nothing_is_formatted_into_a_logger(self) -> None:
         """`logger.debug(f"...")` builds the string whether or not DEBUG is on."""
-        offenders = []
+        offenders: list[str] = []
         for path in _modules():
             tree = trees.tree_for(path)
             offenders.extend(

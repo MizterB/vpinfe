@@ -83,6 +83,7 @@ class AnExtensionInAFolder(Case):
         record = self.registry.accept("tool")
 
         self.assertIsNotNone(record)
+        assert record is not None
         self.assertEqual(record.state, host.LOADED)
         self.assertTrue(_ran(directory))
 
@@ -145,6 +146,7 @@ class AnExtensionInAFolder(Case):
 
         record = self.registry.load(directory)
 
+        assert record.manifest is not None
         self.assertEqual(record.manifest.play, ("page:my scores", "verb:game:rate:all"))
 
     def test_that_names_a_surface_with_no_key_is_refused(self) -> None:
@@ -199,7 +201,9 @@ class AnExtensionInAFolder(Case):
             self.registry.switch("tool", True)
 
         self.assertFalse(_ran(directory))
-        self.assertEqual(self.registry.get("tool").why, host.NOT_ACCEPTED)
+        record = self.registry.get("tool")
+        assert record is not None
+        self.assertEqual(record.why, host.NOT_ACCEPTED)
 
     def test_is_not_started_when_the_list_cannot_be_read(self) -> None:
         directory = _write(self.folder, "tool")
@@ -246,6 +250,7 @@ class AReplacement(Case):
             self.registry.load_installed()
 
         running = self.registry.get("tool")
+        assert running is not None
         self.assertEqual(running.state, host.LOADED)
         self.assertEqual(running.directory, self.shipped)
         self.assertFalse(_ran(self.replacement), "the copy's code ran before it was accepted")
@@ -261,6 +266,7 @@ class AReplacement(Case):
         self.registry.accept("tool")
 
         running = self.registry.get("tool")
+        assert running is not None
         self.assertEqual((running.state, running.directory), (host.LOADED, self.shipped))
         self.assertFalse(_ran(self.replacement))
         self.assertEqual(running.as_dict()["waiting"]["reason_key"], host.STARTS_AT_RESTART)
@@ -273,7 +279,9 @@ class AReplacement(Case):
 
         self.registry.load_installed()
 
-        self.assertEqual(self.registry.get("tool").directory, self.replacement)
+        record = self.registry.get("tool")
+        assert record is not None
+        self.assertEqual(record.directory, self.replacement)
         self.assertTrue(_ran(self.replacement))
 
     def test_an_acceptance_of_the_folder_copy_does_not_cover_a_replacement(self) -> None:
@@ -283,7 +291,9 @@ class AReplacement(Case):
         with self.assertLogs("vpinfe.common.extensions", "WARNING"):
             self.registry.load_installed()
 
-        self.assertEqual(self.registry.get("tool").directory, self.shipped)
+        record = self.registry.get("tool")
+        assert record is not None
+        self.assertEqual(record.directory, self.shipped)
 
 
 class TheCheck(Case):

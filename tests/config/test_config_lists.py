@@ -157,7 +157,7 @@ class WriteTests(ListStoreTests):
             self.assertEqual(store.get_list("widgets"), before)
 
     def test_a_value_the_field_cannot_hold_is_refused(self) -> None:
-        wrong = [{"size": 0}, {"size": 10}, {"size": "many"}, {"size": True},
+        wrong: list[dict[str, Any]] = [{"size": 0}, {"size": 10}, {"size": "many"}, {"size": True},
                  {"shape": "oval"}, {"enabled": "maybe"}, {"tags": [1]}, {"owns": {"a": 1}},
                  {"name": 5}]
         with declared(WIDGETS):
@@ -201,7 +201,7 @@ class WriteTests(ListStoreTests):
     def test_an_item_that_is_not_an_object_is_refused(self) -> None:
         with declared(WIDGETS):
             with self.assertRaises(ConfigListError):
-                self._store().set_list("widgets", ["a"])
+                self._store().set_list("widgets", ["a"])  # type: ignore[list-item]
             with self.assertRaises(ConfigListError):
                 self._store().set_list("widgets", {"id": "a"})  # type: ignore[arg-type]
 
@@ -291,6 +291,8 @@ class VariantTests(ListStoreTests):
 
 
 class SeedTests(ListStoreTests):
+    saw: tuple[bool, str]
+
     def _seed(self, store: ConfigStore) -> None:
         self.calls += 1
         self.saw = store.config.has_option("general", "game_root_dir"), \
@@ -302,7 +304,7 @@ class SeedTests(ListStoreTests):
     def setUp(self) -> None:
         super().setUp()
         self.calls = 0
-        self.saw: tuple[bool, str] = (False, "")
+        self.saw = (False, "")
 
     def test_a_seed_runs_once_when_an_ini_is_converted(self) -> None:
         self.ini.write_text("[Settings]\ntablerootdir = /library\n", encoding="utf-8")

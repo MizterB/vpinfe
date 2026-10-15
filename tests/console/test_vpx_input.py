@@ -7,7 +7,7 @@ import dataclasses
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock, Mock, patch
 
 from nicegui import ui
@@ -148,7 +148,7 @@ class ThePage(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.library.calls, [])
 
     async def test_a_save_that_fails_says_so_and_keeps_nothing(self) -> None:
-        self.library.write_launcher_config = Mock(side_effect=OSError("read-only"))
+        cast(Any, self.library).write_launcher_config = Mock(side_effect=OSError("read-only"))
 
         kept = await press(self.page.put, {"Custom1": ["key:KeyA"]})
 

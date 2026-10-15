@@ -171,6 +171,7 @@ class ReviewTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(said.args[:2], ("2 recordings still waiting", "Review"))
         with mock.patch.object(record, "review", mock.AsyncMock()) as again:
             await said.args[2]()
+        assert again.await_args is not None
         self.assertEqual(again.await_args.args[2], ["b", "c"])
 
     async def test_closing_with_every_file_decided_leaves_no_notice(self) -> None:
@@ -260,6 +261,7 @@ class SlotTests(unittest.IsolatedAsyncioTestCase):
         with mock.patch.object(record, "review", mock.AsyncMock()) as opened:
             await self.actions["Review"]()
 
+        assert opened.await_args is not None
         self.assertEqual(opened.await_args.args[2], ["a"])
         library.forget_media.assert_not_called()
 
@@ -278,7 +280,8 @@ class ChooserTests(unittest.TestCase):
         self.enterContext(mock.patch.object(record.mediaview, "preview"))
         self.enterContext(mock.patch.object(record.panel, "line"))
         self.calls: list[str] = []
-        self.ui.label.side_effect = lambda text="": self.calls.append(text) or mock.MagicMock()
+        self.ui.label.side_effect = (
+            lambda text="": self.calls.append(text) or mock.MagicMock())  # type: ignore[func-returns-value]
 
         def action(label: str, *_args: Any, **_kwargs: Any) -> Any:
             self.calls.append(f"[{label}]")
@@ -328,6 +331,7 @@ class NoticeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(said.kwargs["caption"],
                          "DMD Video: Visual Pinball X doesn't show the DMD on a screen of "
                          "its own")
+        assert review.await_args is not None
         self.assertEqual(review.await_args.args[2], ["a1", "a2", "b1"])
 
     async def test_show_where_nothing_waits_and_no_review_while_the_run_is_paused(
@@ -361,6 +365,7 @@ class SettingsDoorTests(unittest.IsolatedAsyncioTestCase):
             label, draw = recording._waiting(library, rerender, waiting)
             draw()
             await actions["Review"]()
+            assert review.await_args is not None
             await review.await_args.args[1]()
 
         self.assertEqual(label, "Waiting for a Decision")

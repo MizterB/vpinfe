@@ -73,7 +73,7 @@ class ReadTests(unittest.TestCase):
         self.assertEqual([row["id"] for row in found["waiting"]], ["a"])
 
     def test_one_that_does_not_record_or_cannot_say_records_nothing(self) -> None:
-        empty = {"capture": None, "run": {}, "waiting": []}
+        empty: dict[str, Any] = {"capture": None, "run": {}, "waiting": []}
         self.assertEqual(remote_record.read(Target(records=False)), empty)
 
         broken = Target()

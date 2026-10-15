@@ -5,6 +5,7 @@ from __future__ import annotations
 import threading
 import unittest
 from pathlib import Path
+from typing import Any
 from unittest import mock
 
 from common import config_schema, config_service, events
@@ -12,6 +13,8 @@ from common.host import launch_state, peripherals, real_dmd
 from common.i18n import t
 from console import panel
 from console import settings as settings_page
+
+_STORE: Any = "store"
 
 
 class Store:
@@ -130,6 +133,8 @@ class SettingsChangedTests(unittest.TestCase):
 
 
 class PeripheralSettingsTests(unittest.TestCase):
+    playing: bool
+
     def setUp(self) -> None:
         events.clear()
         peripherals.reset_for_tests()
@@ -143,25 +148,25 @@ class PeripheralSettingsTests(unittest.TestCase):
                 side_effect=lambda cfg, label=label: self.calls.append((label, cfg)))
             patched.start()
             self.addCleanup(patched.stop)
-        patched = mock.patch.object(real_dmd.RealDmdUpdater, "show_again",
-                                    lambda one: self.calls.append(("art", one)))
-        patched.start()
-        self.addCleanup(patched.stop)
+        art = mock.patch.object(real_dmd.RealDmdUpdater, "show_again",
+                                lambda one: self.calls.append(("art", one)))
+        art.start()
+        self.addCleanup(art.stop)
         peripherals._realdmd_updater = real_dmd.RealDmdUpdater(
             object(), "t", lambda *_: True)  # type: ignore[arg-type]
-        patched = mock.patch.object(launch_state, "current",
-                                    lambda: launch_state.LaunchState(launching=self.playing))
-        patched.start()
-        self.addCleanup(patched.stop)
+        state = mock.patch.object(launch_state, "current",
+                                  lambda: launch_state.LaunchState(launching=self.playing))
+        state.start()
+        self.addCleanup(state.stop)
         self.playing = False
 
     def test_a_dof_setting_restarts_dof_alone(self) -> None:
-        peripherals.apply_settings(["dof.enabled"], "store")
+        peripherals.apply_settings(["dof.enabled"], _STORE)
 
         self.assertEqual(self.calls, [("dof", "store")])
 
     def test_a_real_dmd_setting_restarts_the_panel_and_puts_the_table_back_on_it(self) -> None:
-        peripherals.apply_settings(["real_dmd.zedmd_serial_port"], "store")
+        peripherals.apply_settings(["real_dmd.zedmd_serial_port"], _STORE)
 
         self.assertEqual([label for label, _ in self.calls], ["dmd", "art"])
         self.assertEqual(self.calls[0], ("dmd", "store"))
@@ -169,12 +174,12 @@ class PeripheralSettingsTests(unittest.TestCase):
     def test_a_panel_nobody_has_shown_media_on_has_nothing_to_put_back(self) -> None:
         peripherals._realdmd_updater = None
 
-        peripherals.apply_settings(["real_dmd.enabled"], "store")
+        peripherals.apply_settings(["real_dmd.enabled"], _STORE)
 
         self.assertEqual(self.calls, [("dmd", "store")])
 
     def test_the_dof_key_the_helper_does_not_read_restarts_nothing(self) -> None:
-        peripherals.apply_settings(["dof.config_tool_api_key"], "store")
+        peripherals.apply_settings(["dof.config_tool_api_key"], _STORE)
 
         self.assertEqual(self.calls, [])
 
@@ -182,12 +187,12 @@ class PeripheralSettingsTests(unittest.TestCase):
         """VPX holds the hardware; `reacquire_after_exit` starts both again afterwards."""
         self.playing = True
 
-        peripherals.apply_settings(["dof.enabled", "real_dmd.enabled"], "store")
+        peripherals.apply_settings(["dof.enabled", "real_dmd.enabled"], _STORE)
 
         self.assertEqual(self.calls, [])
 
     def test_other_settings_touch_neither_helper(self) -> None:
-        peripherals.apply_settings(["logger.level", "behavior.confirm"], "store")
+        peripherals.apply_settings(["logger.level", "behavior.confirm"], _STORE)
 
         self.assertEqual(self.calls, [])
 
@@ -208,7 +213,7 @@ class PeripheralSettingsTests(unittest.TestCase):
 
     def test_a_save_touching_neither_peripheral_starts_no_thread(self) -> None:
         with mock.patch.object(threading, "Thread") as thread:
-            peripherals.on_settings_changed(keys=["logger.level"], ini_config="store")
+            peripherals.on_settings_changed(keys=["logger.level"], ini_config=_STORE)
 
         thread.assert_not_called()
 
@@ -251,7 +256,7 @@ class HelpLineTests(unittest.TestCase):
         base = {"key": "x", "type": "string", "default": "", "description": ""}
         with mock.patch.object(panel, "note", side_effect=lambda text: text):
             _, note = settings_page._noted({**base, **option}, "", mock.Mock(), "")
-        return note or ""
+        return str(note or "")
 
     def test_the_line_under_a_setting_is_what_it_does_whatever_it_waits_for(self) -> None:
         for applies in config_schema.APPLIES:

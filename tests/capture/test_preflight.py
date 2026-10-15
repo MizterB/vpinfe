@@ -230,7 +230,8 @@ def _reasons(value: Any) -> list[dict[str, Any]]:
 
 def _blocked_reports() -> list[dict[str, Any]]:
     """A report for each way recording is blocked, and each pair of them."""
-    ways = [{"found": found(missing=(tool,))} for tool in ("ffmpeg", "grim", "wf_recorder")]
+    ways: list[dict[str, Any]] = [{"found": found(missing=(tool,))}
+                                  for tool in ("ffmpeg", "grim", "wf_recorder")]
     ways += [{"found": found(encoders=ENCODERS - {encoder})}
              for encoder in ("libx264", "png", "libmp3lame")]
     ways += [{"held": config(video_codec="vp9"),
@@ -317,8 +318,10 @@ class CapabilityTests(unittest.TestCase):
     def test_otherwise_it_says_the_first_reason_with_its_remedy(self) -> None:
         blocked = report(found=found(missing=("ffmpeg",)))
         with patch.object(preflight, "report", return_value=blocked):
-            available, said = preflight.available()
+            result = preflight.available()
 
+        assert isinstance(result, tuple)
+        available, said = result
         self.assertFalse(available)
         self.assertEqual(said, preflight.words(blocked["reason"]))
         self.assertIn(t(preflight.NEEDS_TOOL, tool="FFmpeg"), said)

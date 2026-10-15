@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unittest
+from typing import Any
 
 from common import job_details, jobs
 from common.i18n import t
@@ -74,6 +75,7 @@ class Describers(unittest.TestCase):
         self.assertEqual("", job_details.of(jobs.KIND_DOF_CONFIG, {}))
 
     def test_a_result_of_a_shape_not_named_has_no_line(self) -> None:
+        result: Any
         for result in (None, "text", 3, [], {}, {"unrelated": 1}):
             for kind in (jobs.KIND_LIBRARY_SCAN, jobs.KIND_MEDIA_FILL,
                          jobs.KIND_MEDIA_CAPTURE, jobs.KIND_TOOL_GET):

@@ -36,6 +36,7 @@ class PeriodicTests(unittest.TestCase):
 
         ticker = library_refresh._ticker
         self.assertIsNotNone(ticker)
+        assert ticker is not None
         self.assertTrue(ticker.daemon, "it must never hold up a shutdown")
 
     def test_starting_twice_does_not_stack_tickers(self) -> None:
@@ -52,6 +53,7 @@ class PeriodicTests(unittest.TestCase):
             stop.wait.side_effect = [False, True]
             with patch.object(jobs, "submit") as submit:
                 library_refresh.start_periodic(60)
+                assert library_refresh._ticker is not None
                 library_refresh._ticker.join(timeout=5)
 
         submit.assert_called_once()
@@ -63,6 +65,7 @@ class PeriodicTests(unittest.TestCase):
             with patch.object(jobs, "submit",
                               side_effect=jobs.JobBusyError("busy")) as submit:
                 library_refresh.start_periodic(60)
+                assert library_refresh._ticker is not None
                 library_refresh._ticker.join(timeout=5)
 
         # Both ticks tried and neither raised out of the thread.

@@ -478,7 +478,11 @@ class TheRealStepsTests(_Fresh):
             self.assertEqual([setup.HOW, setup.APPEARANCE, setup.SCREENS, setup.CONTROLS, setup.VPX,
                               setup.TABLES],
                              [one.key for one in setup._applicable(session)])
-            self.assertEqual(setup.TABLES, setup._after(session, setup._step(setup.VPX)).key)
+            program = setup._step(setup.VPX)
+            assert program is not None
+            following = setup._after(session, program)
+            assert following is not None
+            self.assertEqual(setup.TABLES, following.key)
 
 
 if __name__ == "__main__":

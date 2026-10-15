@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
+from typing import Any
 from unittest.mock import patch
 
 from starlette.testclient import TestClient
@@ -18,6 +18,7 @@ from starlette.testclient import TestClient
 import httpapi
 from common.games import collection_filters as cf
 from common.games.collection_store import CollectionStore
+from common.games.game import Game
 from common.i18n import t
 from frontend import game_state
 from tests.support.library import TempTree, fake_game, write_game
@@ -26,10 +27,15 @@ GAME_ID = "aaaa1111"
 OTHER_ID = "bbbb2222"
 
 
-def _game(folder: str, game_id: str) -> SimpleNamespace:
+def _game(folder: str, game_id: str) -> Game:
     return fake_game(f"/games/{folder}", folder,
                      meta={"Info": {"Title": folder, "Manufacturer": "Bally"},
                            "vpinfe": {"game_id": game_id}})
+
+
+def _meta(game: Game) -> dict[str, Any]:
+    assert game.meta_config is not None
+    return game.meta_config
 
 
 class CollectionsApiTests(TempTree):
@@ -271,8 +277,8 @@ class CollectionsApiTests(TempTree):
         self.assertEqual({"from": None, "to": 1979}, body["filters"]["year_range"])
 
     def test_a_year_range_selects_by_the_year_released(self) -> None:
-        self.catalog[GAME_ID].meta_config["Info"]["Year"] = "1998"
-        self.catalog[OTHER_ID].meta_config["Info"]["Year"] = "1977"
+        _meta(self.catalog[GAME_ID])["Info"]["Year"] = "1998"
+        _meta(self.catalog[OTHER_ID])["Info"]["Year"] = "1977"
         self.client.post("/collections", json={
             "name": "90s", "filters": {"year_range": {"from": 1990, "to": 1999}}})
 
@@ -281,8 +287,8 @@ class CollectionsApiTests(TempTree):
         self.assertEqual([GAME_ID], [one["id"] for one in games])
 
     def test_none_of_a_manufacturer_leaves_those_games_out(self) -> None:
-        self.catalog[GAME_ID].meta_config["Info"]["Manufacturer"] = "Stern"
-        self.catalog[OTHER_ID].meta_config["Info"]["Manufacturer"] = "Bally"
+        _meta(self.catalog[GAME_ID])["Info"]["Manufacturer"] = "Stern"
+        _meta(self.catalog[OTHER_ID])["Info"]["Manufacturer"] = "Bally"
         self.client.post("/collections", json={
             "name": "Not Stern", "filters": {"manufacturer_none_of": ["Stern"]}})
 
@@ -388,7 +394,9 @@ class CollectionsApiTests(TempTree):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.json()["type"], "filter")
         self.assertEqual(self.manager.get_members("Both"), [GAME_ID])
-        self.assertEqual(self.manager.get_filters("Both")["year"], "1977")
+        filters = self.manager.get_filters("Both")
+        assert filters is not None
+        self.assertEqual(filters["year"], "1977")
 
     def test_a_collection_can_let_go_of_its_rules_over_the_wire(self) -> None:
         self.client.post("/collections", json={
@@ -568,7 +576,7 @@ class CollectionEntriesTests(CollectionsApiTests):
         # nothing has parsed - but it produces no entries by design. Give them one
         # each so there is something for the play lens to answer with.
         for index, game in enumerate(self.catalog.values()):
-            game.meta_config["tables"] = {
+            _meta(game)["tables"] = {
                 f"tbl{index}": {"id": f"tbl{index}", "filename": f"game{index}.vpx",
                                 "version": "1.0", "rom": ""}}
 
@@ -798,7 +806,7 @@ class CollectionEntriesTests(CollectionsApiTests):
         """`default` is the game's own choice, stored in its vpinfe section. Reading it
         off the table entry - where nothing writes it - answers false for everything."""
         game = next(iter(self.catalog.values()))
-        game.meta_config["tables"] = {
+        _meta(game)["tables"] = {
             "aa": {"id": "aa", "filename": "z-later.vpx"},
             "bb": {"id": "bb", "filename": "a-earlier.vpx"},
         }
@@ -817,7 +825,7 @@ TABLED_ID = "Tabled000001"
 FOLDER = "Cactus Canyon (Bally 1998)"
 DESKTOP = f"{FOLDER}.vpx"
 VR = f"{FOLDER} - VR.vpx"
-TABLED_INFO = {
+TABLED_INFO: dict[str, Any] = {
     "Info": {"Name": "Cactus Canyon", "Manufacturer": "Bally"},
     "VPinFE": {"game_id": TABLED_ID},
     "tables": {
@@ -851,9 +859,9 @@ class MemberTableTests(TempTree):
             patcher = patch(target, lambda: manager)
             patcher.start()
             self.addCleanup(patcher.stop)
-        patcher = patch("common.games.game_repository.catalog", lambda: self.catalog)
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        catalog_patch = patch("common.games.game_repository.catalog", lambda: self.catalog)
+        catalog_patch.start()
+        self.addCleanup(catalog_patch.stop)
 
         self.client = TestClient(httpapi.create_api_app(),
                                  raise_server_exceptions=False)

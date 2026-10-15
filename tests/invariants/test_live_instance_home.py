@@ -24,6 +24,8 @@ ASK = ("import json; from pathlib import Path; from apps.vpx import config; "
 
 
 class LiveInstanceHome(unittest.TestCase):
+    instance: LiveInstance
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.instance = LiveInstance(Path(os.devnull))
@@ -36,6 +38,7 @@ class LiveInstanceHome(unittest.TestCase):
     def test_every_folder_the_app_resolves_is_under_the_instances_home(self) -> None:
         with mock.patch("subprocess.Popen") as popen:
             self.instance._start()
+        assert self.instance._log is not None
         self.instance._log.close()
         given = popen.call_args.kwargs["env"]
         answered = subprocess.run(

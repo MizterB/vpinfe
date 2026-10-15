@@ -210,7 +210,7 @@ class TheBar(unittest.IsolatedAsyncioTestCase):
         with _PAGE:
             bar = waiting.Bar(self.library, redraw)
             bar.place()
-        self.addCleanup(lambda: bar._slot and bar._slot.delete())
+        self.addCleanup(lambda: bar._slot and bar._slot.delete())  # type: ignore[func-returns-value]
         await _on_page(bar.refresh)
         self.library.config_waiting.return_value = _answer()
         await _on_page(bar._undo)

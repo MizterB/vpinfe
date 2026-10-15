@@ -4,6 +4,7 @@ its row."""
 from __future__ import annotations
 
 import unittest
+from collections.abc import Mapping
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -63,9 +64,10 @@ class Uploaded(unittest.IsolatedAsyncioTestCase):
             patched.start()
             self.addCleanup(patched.stop)
 
-    async def _dropped(self) -> dict[str, Any]:
+    async def _dropped(self) -> Mapping[str, Any]:
         sources = mediasource._Table(_context(Mock()), self.done)
         await press(sources.arrived, uploads.Drop(upload_id="u-1", name="Other.vpx"))
+        assert self.confirmed.await_args is not None
         return self.confirmed.await_args.kwargs
 
     async def test_it_joins_the_game_rather_than_replacing_its_table(self) -> None:
@@ -99,10 +101,11 @@ class ADropOnAGamesRow(unittest.IsolatedAsyncioTestCase):
             self.addCleanup(patched.stop)
 
     async def _dropped(self, target: str = uploads.TARGET_GAME,
-                       media_kind: str = "") -> dict[str, Any]:
+                       media_kind: str = "") -> Mapping[str, Any]:
         drop = uploads.Drop(target=target, row_id="g-1", media_kind=media_kind,
                             upload_id="u-1", name="Other.vpx")
         await press(page._took_a_drop, self.library, {"view": "games"}, Mock(), drop)
+        assert self.confirmed.await_args is not None
         return self.confirmed.await_args.kwargs
 
     async def test_it_joins_that_game_rather_than_replacing_its_table(self) -> None:

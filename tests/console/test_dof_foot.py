@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import unittest
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from common.i18n import t
@@ -90,7 +90,7 @@ class FootTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_a_refusal_before_any_job_exists_is_said_on_the_page(self) -> None:
         await self._foot({"checked": "", "has_key": True})
-        self.library.download_dof_config = MagicMock(side_effect=RuntimeError("no key"))
+        cast(Any, self.library).download_dof_config = MagicMock(side_effect=RuntimeError("no key"))
 
         await self.drawn["now"]()
 

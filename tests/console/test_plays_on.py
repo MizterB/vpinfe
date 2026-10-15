@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unittest
+from typing import Any, cast
 from unittest.mock import Mock
 
 import requests
@@ -81,7 +82,7 @@ class LibraryTests(unittest.TestCase):
             "wheel": {"video_codec": None}}))
 
         self.assertEqual(library.video_codecs("g1", None), {"playfield_video": "h264"})
-        library._client.media_codecs.assert_called_once_with("g1", "")
+        cast(Any, library._client.media_codecs).assert_called_once_with("g1", "")
 
     def test_a_registry_that_cannot_be_read_is_no_devices(self) -> None:
         library = self._library(devices=Mock(side_effect=requests.ConnectionError("down")))

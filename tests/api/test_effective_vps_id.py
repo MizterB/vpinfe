@@ -11,6 +11,7 @@ release count, the media offered.
 from __future__ import annotations
 
 import unittest
+from typing import Any
 from unittest.mock import patch
 
 from starlette.testclient import TestClient
@@ -23,7 +24,7 @@ FOLDER = "The Addams Family (Bally 1992)"
 FOUND = "aT_GONvw"
 CORRECTED = "P12wTlyY"
 
-INFO = {
+INFO: dict[str, Any] = {
     "Info": {"Title": "The Addams Family", "VPSId": FOUND, "Manufacturer": "Bally"},
     "vpinfe": {"game_id": GAME_ID, "alt_vpsid": CORRECTED, "alt_title": "Addams"},
     "tables": {"tbl0000001": {"id": "tbl0000001", "filename": f"{FOLDER}.vpx"}},

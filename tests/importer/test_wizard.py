@@ -13,6 +13,7 @@ import tempfile
 import unittest
 import unittest.mock
 from pathlib import Path
+from typing import Any
 
 from fastapi.testclient import TestClient
 from nicegui import ui
@@ -55,7 +56,7 @@ class WizardCase(unittest.TestCase):
         up to: a test that jumped to it would pass over the thing being described.
         """
         found = self._step(path, **values)
-        seen = {}
+        seen: dict[str, Any] = {}
         while "summary" not in found and found.get("step"):
             for field in found.get("fields") or []:
                 seen.setdefault(field["key"], field.get("value"))
@@ -646,7 +647,7 @@ class NamesArtAndThingsTests(WizardCase):
             pages.append(found)
         return pages
 
-    def page(self, step: str, **kwargs) -> dict | None:
+    def page(self, step: str, **kwargs) -> Any:
         return next((one for one in self.walk(**kwargs) if one.get("step") == step), None)
 
     def rows(self, **kwargs) -> dict[str, str]:

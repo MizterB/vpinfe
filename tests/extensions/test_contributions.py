@@ -42,7 +42,7 @@ class RegisterTests(unittest.TestCase):
         is lost on each one and a three-screen cabinet fetches thrice."""
         asked = []
         contributions.register("rater", "rating",
-                               lambda game: asked.append(game["game_id"]) or {"stars": 1})
+                               lambda game: asked.append(game["game_id"]) or {"stars": 1})  # type: ignore[func-returns-value]
 
         contributions.refresh({"game_id": "abc"})
         contributions.refresh({"game_id": "abc"})
@@ -53,7 +53,7 @@ class RegisterTests(unittest.TestCase):
         """Or a game with no rating is asked about again on every wheel step."""
         asked = []
         contributions.register("rater", "rating",
-                               lambda game: asked.append(1) or None)
+                               lambda game: asked.append(1) or None)  # type: ignore[func-returns-value]
 
         contributions.refresh({"game_id": "abc"})
         contributions.refresh({"game_id": "abc"})
@@ -132,7 +132,7 @@ class SelectionTests(unittest.TestCase):
         at."""
         asked = []
         contributions.register("rater", "rating",
-                               lambda game: asked.append(game["game_id"]) or {"stars": 1})
+                               lambda game: asked.append(game["game_id"]) or {"stars": 1})  # type: ignore[func-returns-value]
 
         self.ext_data.on_selected(game=self._game("abc"),
                                   neighbors=[self._game("next"), self._game("prev")])
@@ -152,7 +152,7 @@ class SelectionTests(unittest.TestCase):
         context exists to prevent."""
         seen = []
         contributions.register("rater", "rating",
-                               lambda game: seen.append(game) or None)
+                               lambda game: seen.append(game) or None)  # type: ignore[func-returns-value]
 
         self.ext_data.on_selected(game=self._game("abc"))
         self._settle()

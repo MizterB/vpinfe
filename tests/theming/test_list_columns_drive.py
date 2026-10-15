@@ -92,7 +92,7 @@ class ListColumnDrive(unittest.TestCase):
         ids = {one["name"]: one["id"] for one in instance.api("/api/v1/games")["games"]}
         instance.post("/api/v1/collections",
                       {"name": "Friday Night", "games": [ids["Alpha"], ids["Delta"]]})
-        async with BrowserSession(chromium_path()) as browser:
+        async with BrowserSession(chromium_path() or "") as browser:
             walk = ConsoleWalk(browser, instance)
             await walk.visit("/console?view=games")
             await browser.wait_for(API + ".getDisplayedRowCount() === 4", timeout=90.0)

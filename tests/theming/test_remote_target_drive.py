@@ -76,7 +76,7 @@ class RemoteWritesToItsTargetDrive(unittest.TestCase):
         _call(b, "POST", "/api/v1/collections", {"name": "Hand B", "games": []})
         seen: dict = {}
 
-        async with BrowserSession(chromium_path()) as browser:
+        async with BrowserSession(chromium_path() or "") as browser:
             walk = ConsoleWalk(browser, a)
 
             async def click_text(selector: str, text: str) -> None:

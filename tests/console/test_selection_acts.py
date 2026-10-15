@@ -4,6 +4,7 @@ any of them, over the ones they apply to."""
 from __future__ import annotations
 
 import unittest
+from collections.abc import Callable
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -59,6 +60,7 @@ class RemovingSeveralPlayers(unittest.IsolatedAsyncioTestCase):
             assert remove.run is not None
             await press(remove.run)
 
+        assert removed.await_args is not None
         self.assertEqual([one["id"] for one in removed.await_args.args[3]], ["k"])
 
 
@@ -150,7 +152,8 @@ class Devices(unittest.TestCase):
     def test_a_routed_handler_applies_to_a_single_device_only(self) -> None:
         restart = self._entry("vpinfe", "restart")
         handler = Mock()
-        routed = {(lifecycle.VPINFE, lifecycle.RESTART): handler}
+        routed: dict[tuple[str, str], Callable[[], Any]] = {
+            (lifecycle.VPINFE, lifecycle.RESTART): handler}
 
         (one,) = devices.acts(Mock(), [self._target("a", restart, forgettable=False)], None,
                               routed=routed)[:1]
@@ -195,7 +198,7 @@ class TheLocalDeviceGoesLast(unittest.IsolatedAsyncioTestCase):
         targets = []
         for name, client in (("here", library), ("there", Mock())):
             client.perform_action = Mock(
-                side_effect=lambda *_, name=name: order.append(name) or {"performed": True})
+                side_effect=lambda *_, name=name: order.append(name) or {"performed": True})  # type: ignore[func-returns-value]
             targets.append(devices.Target({"device_id": name}, client, [entry], False))
         verb = devices.acts(library, targets, None)[0]
 

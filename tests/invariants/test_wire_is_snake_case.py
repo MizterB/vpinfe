@@ -35,6 +35,7 @@ def _alias_of(node: ast.AnnAssign) -> str | None:
         return None
     for keyword in node.value.keywords:
         if keyword.arg == "alias" and isinstance(keyword.value, ast.Constant):
+            assert isinstance(keyword.value.value, str)
             return keyword.value.value
     return None
 
@@ -76,4 +77,5 @@ class WireNamingTests(unittest.TestCase):
         self.assertFalse(SNAKE.match("gameDirName"))
         self.assertTrue(SNAKE.match("game_dir_name"))
         declared = trees.parse_snippet('x: str = Field(alias="camelCase")').body[0]
+        assert isinstance(declared, ast.AnnAssign)
         self.assertEqual(_alias_of(declared), "camelCase")

@@ -65,6 +65,8 @@ def _snapshot(folder: Path) -> str:
 
 
 class _Base(TempTree):
+    versions: dict[str, str]
+
     def setUp(self) -> None:
         super().setUp()
         self.config_file = self.root / "vpinfe.json"
@@ -87,7 +89,7 @@ class _Base(TempTree):
             key: {"registry_info": {"url": f"https://example.test/{key}"}, "source": source,
                   "manifest": _manifest(version, "3.0"), "ref": "HEAD"}
             for key, version in offered}
-        registry._download_zip = lambda url, max_retries=3: _archive(  # type: ignore[method-assign]
+        registry._download_zip = lambda url, max_retries=3: _archive(  # type: ignore[method-assign, misc]
             self.versions[url.rsplit("/", 3)[-3]])
         self.versions = dict(offered)
         return registry
@@ -319,7 +321,7 @@ class TwinTests(_Base):
         _install(self.themes / "Slider Video", "1.0.0")
         self.choose("Slider Video")
         registry = self.registry(("slider", "2.0.0"))
-        registry._download_zip = lambda url, max_retries=3: io.BytesIO(b"<html>")  # type: ignore[method-assign]
+        registry._download_zip = lambda url, max_retries=3: io.BytesIO(b"<html>")  # type: ignore[method-assign, misc]
 
         self.assertFalse(theme_upgrade.run(registry))
 

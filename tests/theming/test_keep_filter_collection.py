@@ -38,7 +38,9 @@ class LocalTests(TempTree):
 
     def test_the_rules_are_saved_under_the_name_given(self) -> None:
         self.assertEqual(self._keep(), ("Williams, 1992", False))
-        self.assertEqual(self.store.get_filters("Williams, 1992")["manufacturer"], "Williams")
+        saved = self.store.get_filters("Williams, 1992")
+        assert saved is not None
+        self.assertEqual(saved["manufacturer"], "Williams")
 
     def test_the_same_rules_twice_is_one_collection(self) -> None:
         self._keep()

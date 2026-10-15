@@ -315,7 +315,7 @@ class ReservedNameTests(unittest.TestCase):
     def test_every_static_route_under_config_is_reserved(self) -> None:
         from httpapi import config as routes
 
-        named = {route.path.split("/")[2] for route in routes.router.routes
+        named = {route.path.split("/")[2] for route in routes.router.routes  # type: ignore[attr-defined]
                  if route.path.count("/") >= 2}  # type: ignore[attr-defined]
 
         self.assertEqual(named - {"{list_key}"} - self.RESERVED, set())

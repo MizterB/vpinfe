@@ -1,6 +1,8 @@
 import subprocess
 import threading
 import unittest
+from collections.abc import Callable
+from typing import Any, cast
 
 from common import events
 from common.host import launch_state
@@ -38,6 +40,10 @@ class FakeProcess:
         if self.alive:
             raise subprocess.TimeoutExpired("vpx", timeout)
         return 0
+
+
+def _attach(process: FakeProcess, pause: Callable[[], bool] | None = None) -> None:
+    launch_state.attach(cast("subprocess.Popen[Any]", process), pause)
 
 
 class LaunchStateTests(unittest.TestCase):
@@ -131,7 +137,7 @@ class LaunchStateStopTests(unittest.TestCase):
 
     def test_a_running_table_is_asked_first(self) -> None:
         process = FakeProcess()
-        launch_state.attach(process)
+        _attach(process)
 
         self.assertTrue(launch_state.stop())
         self.assertTrue(process.terminated)
@@ -139,7 +145,7 @@ class LaunchStateStopTests(unittest.TestCase):
 
     def test_a_table_that_will_not_go_is_killed(self) -> None:
         process = FakeProcess(stops_when_asked=False)
-        launch_state.attach(process)
+        _attach(process)
 
         with self.assertLogs("vpinfe.common.host.launch_state", level="WARNING"):
             self.assertTrue(launch_state.stop(timeout=0.01))
@@ -150,14 +156,14 @@ class LaunchStateStopTests(unittest.TestCase):
         """The launching thread clears in a finally, but a stop can race it."""
         process = FakeProcess()
         process.alive = False
-        launch_state.attach(process)
+        _attach(process)
 
         self.assertFalse(launch_state.stop())
         self.assertFalse(process.terminated)
 
     def test_clearing_releases_the_process(self) -> None:
         process = FakeProcess()
-        launch_state.attach(process)
+        _attach(process)
 
         launch_state.clear()
 
@@ -176,9 +182,9 @@ class LaunchStateStopTests(unittest.TestCase):
             read_back.append(launch_state.current().launching)
             return original_wait(timeout)
 
-        process.wait = wait_and_read
+        cast(Any, process).wait = wait_and_read
         launch_state.set_launching("Medieval Madness", source=launch_state.SOURCE_API)
-        launch_state.attach(process)
+        _attach(process)
 
         self.assertTrue(launch_state.stop())
         self.assertEqual(read_back, [True])
@@ -192,7 +198,7 @@ class LaunchStateEventTests(unittest.TestCase):
         events.clear()
         self.addCleanup(events.clear)
         self.addCleanup(launch_state.clear)
-        self.seen = []
+        self.seen: list[dict] = []
         events.subscribe(events.PLAY_STATE_CHANGED, lambda **p: self.seen.append(p["state"]))
 
     def test_a_launch_is_announced(self) -> None:
@@ -287,8 +293,13 @@ class PauseTests(unittest.TestCase):
         self.assertFalse(launch_state.wait_paused(False, 0.05))
 
     def test_the_pause_key_is_the_running_tables_own(self) -> None:
-        pressed = []
-        launch_state.attach(FakeProcess(), lambda: pressed.append("key") or True)
+        pressed: list[str] = []
+
+        def press() -> bool:
+            pressed.append("key")
+            return True
+
+        _attach(FakeProcess(), press)
 
         self.assertTrue(launch_state.toggle_pause())
         self.assertEqual(pressed, ["key"])
@@ -296,7 +307,7 @@ class PauseTests(unittest.TestCase):
         self.assertFalse(launch_state.toggle_pause())
 
     def test_a_table_with_no_pause_presses_nothing(self) -> None:
-        launch_state.attach(FakeProcess())
+        _attach(FakeProcess())
         self.assertFalse(launch_state.toggle_pause())
 
 

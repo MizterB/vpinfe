@@ -32,7 +32,7 @@ class JoinRedirectDrive(unittest.TestCase):
     @classmethod
     async def _drive(cls, instance: LiveInstance) -> dict[str, str]:
         landed: dict[str, str] = {}
-        async with BrowserSession(chromium_path()) as browser:
+        async with BrowserSession(chromium_path() or "") as browser:
             for key in ("vpinplay_account", "vpinplay_player"):
                 await browser.navigate(instance.console_url(f"/?page={key}"))
                 landed[key] = await browser.wait_for(

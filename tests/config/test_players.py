@@ -72,7 +72,9 @@ class SameInitialsTests(unittest.TestCase):
 
             with self.assertRaises(service_errors.RefusedError):
                 roster.add_player("Other", "own")
-            self.assertEqual(roster.whose(" own").name, "Jordan")
+            found = roster.whose(" own")
+            assert found is not None
+            self.assertEqual(found.name, "Jordan")
 
 
 class FileTests(_RosterCase):
@@ -87,6 +89,7 @@ class FileTests(_RosterCase):
         self.assertEqual(self.roster.players(), [], "an install is not a player")
 
         owner = self.roster.ensure_owner(_config("OWN"))
+        assert owner is not None
 
         stored = self._file()
         self.assertEqual(stored["schema"], 2)
@@ -150,6 +153,7 @@ class FileTests(_RosterCase):
 class OwnerTests(_RosterCase):
     def test_the_owner_takes_the_2x_initials(self) -> None:
         owner = self.roster.ensure_owner(_config(" own "))
+        assert owner is not None
 
         self.assertTrue(owner.owner)
         self.assertEqual(owner.initials, "OWN")
@@ -158,28 +162,34 @@ class OwnerTests(_RosterCase):
 
     def test_shorter_2x_initials_are_kept_as_they_are(self) -> None:
         owner = self.roster.ensure_owner(_config("OW"))
+        assert owner is not None
 
         self.assertEqual(owner.initials, "OW")
 
     def test_no_initials_anywhere_makes_an_owner_with_none(self) -> None:
         owner = self.roster.ensure_owner(_config())
+        assert owner is not None
 
         self.assertEqual(owner.initials, "")
         self.assertEqual(self.roster.up(), [owner])
 
     def test_it_runs_once(self) -> None:
         first = self.roster.ensure_owner(_config("OWN"))
+        assert first is not None
 
         self.assertIsNone(self._restart().ensure_owner(_config("OWN")))
         self.assertEqual(self.roster.players(), [first])
 
     def test_initials_cleared_afterwards_are_not_brought_back(self) -> None:
         owner = self.roster.ensure_owner(_config("OWN"))
+        assert owner is not None
         self.roster.update_player(owner.player_id, initials="")
 
         self._restart().ensure_owner(_config("OWN"))
 
-        self.assertEqual(self.roster.owner().initials, "")
+        kept = self.roster.owner()
+        assert kept is not None
+        self.assertEqual(kept.initials, "")
 
     def test_an_owner_lost_after_the_first_start_comes_back_without_2x_initials(self) -> None:
         self.roster.ensure_owner(_config("OWN"))
@@ -188,6 +198,7 @@ class OwnerTests(_RosterCase):
         self.path.write_text(json.dumps(stored), encoding="utf-8")
 
         owner = self._restart().ensure_owner(_config("OWN"))
+        assert owner is not None
 
         self.assertEqual(owner.initials, "")
         self.assertEqual(self._file()["migrations"], [OWNER_MIGRATION])
@@ -198,11 +209,13 @@ class OwnerTests(_RosterCase):
 
         with mock.patch.object(extension_store, "_store", held):
             owner = self.roster.ensure_owner(_config())
+            assert owner is not None
 
         self.assertEqual(owner.initials, "")
 
     def test_the_owner_cannot_be_removed(self) -> None:
         owner = self.roster.ensure_owner(_config("OWN"))
+        assert owner is not None
 
         with self.assertRaises(service_errors.RefusedError):
             self.roster.remove(owner.player_id)
@@ -212,7 +225,9 @@ class OwnerTests(_RosterCase):
 class KeptPlayerTests(_RosterCase):
     def setUp(self) -> None:
         super().setUp()
-        self.owner = self.roster.ensure_owner(_config("OWN"))
+        owner = self.roster.ensure_owner(_config("OWN"))
+        assert owner is not None
+        self.owner = owner
 
     def test_initials_are_held_upper_case(self) -> None:
         self.assertEqual(self.roster.add_player(" Alex ", " abc ").initials, "ABC")
@@ -247,6 +262,7 @@ class KeptPlayerTests(_RosterCase):
     def test_a_rename_leaves_shorter_held_initials_alone(self) -> None:
         self.path.unlink()
         owner = self._restart().ensure_owner(_config("OW"))
+        assert owner is not None
 
         renamed = self.roster.update_player(owner.player_id, name="Jordan", initials="ow")
 
@@ -285,7 +301,9 @@ class KeptPlayerTests(_RosterCase):
 class GuestTests(_RosterCase):
     def setUp(self) -> None:
         super().setUp()
-        self.owner = self.roster.ensure_owner(_config("OWN"))
+        owner = self.roster.ensure_owner(_config("OWN"))
+        assert owner is not None
+        self.owner = owner
 
     def test_a_guest_is_never_written(self) -> None:
         guest = self.roster.add_guest("abc")
@@ -370,7 +388,9 @@ class GuestTests(_RosterCase):
 class UpTests(_RosterCase):
     def setUp(self) -> None:
         super().setUp()
-        self.owner = self.roster.ensure_owner(_config("OWN"))
+        owner = self.roster.ensure_owner(_config("OWN"))
+        assert owner is not None
+        self.owner = owner
         self.alex = self.roster.add_player("Alex", "ABC")
 
     def test_the_owner_is_up_by_default(self) -> None:
@@ -429,7 +449,9 @@ class UpTests(_RosterCase):
 class WhoseScoreTests(_RosterCase):
     def setUp(self) -> None:
         super().setUp()
-        self.owner = self.roster.ensure_owner(_config("OWN"))
+        owner = self.roster.ensure_owner(_config("OWN"))
+        assert owner is not None
+        self.owner = owner
         self.alex = self.roster.add_player("Alex", "ABC")
 
     def test_a_score_goes_by_its_initials_up_or_not(self) -> None:
@@ -467,6 +489,7 @@ class ChangedEventTests(_RosterCase):
 
     def test_every_change_carries_the_whole_roster(self) -> None:
         owner = self.roster.ensure_owner(_config("OWN"))
+        assert owner is not None
         guest = self.roster.add_guest("ABC")
 
         self.assertEqual(len(self.heard), 2)
@@ -482,6 +505,7 @@ class ChangedEventTests(_RosterCase):
 
     def test_each_kind_of_change_is_announced(self) -> None:
         owner = self.roster.ensure_owner(_config("OWN"))
+        assert owner is not None
         alex = self.roster.add_player("Alex", "ABC")
         self.roster.update_player(alex.player_id, name="Alexandra")
         self.roster.set_up(alex.player_id)
@@ -494,6 +518,7 @@ class ChangedEventTests(_RosterCase):
 
     def test_nothing_that_changes_nothing_is_announced(self) -> None:
         owner = self.roster.ensure_owner(_config("OWN"))
+        assert owner is not None
         self.heard.clear()
 
         self.roster.ensure_owner(_config("OWN"))
@@ -518,7 +543,9 @@ class ShareTests(_RosterCase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.owner = self.roster.ensure_owner(_config("OWN"))
+        owner = self.roster.ensure_owner(_config("OWN"))
+        assert owner is not None
+        self.owner = owner
 
     def test_nobody_shares_until_somebody_says_so(self) -> None:
         self.assertFalse(self.roster.sharing(self.owner.player_id, "sample"))
@@ -594,7 +621,9 @@ class CardGuestTests(_RosterCase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.owner = self.roster.ensure_owner(_config("OWN"))
+        owner = self.roster.ensure_owner(_config("OWN"))
+        assert owner is not None
+        self.owner = owner
 
     def test_a_card_s_initials_are_one_to_three_characters_as_they_are(self) -> None:
         for initials in ("a", "ab", " abc "):

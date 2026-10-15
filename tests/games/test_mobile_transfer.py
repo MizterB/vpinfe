@@ -80,7 +80,8 @@ class MobileTransferTests(unittest.TestCase):
         _Device.refreshed = 0
         _Device.refuse = ""
         self.server = HTTPServer(("127.0.0.1", 0), _Device)
-        self.host, self.port = self.server.server_address
+        host, port = self.server.server_address[:2]
+        self.host, self.port = str(host), int(port)
         thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         thread.start()
         self.addCleanup(self.server.shutdown)

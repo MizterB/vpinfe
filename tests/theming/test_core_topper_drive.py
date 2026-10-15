@@ -39,7 +39,7 @@ class CoreTopperDriveTests(TempTree):
 
     def test_the_selected_game_s_topper_is_drawn(self) -> None:
         async def run(instance: LiveInstance):
-            async with BrowserSession(chromium_path()) as browser:
+            async with BrowserSession(chromium_path() or "") as browser:
                 await browser.navigate(self._url(instance))
                 src = await browser.wait_for(TOPPER, timeout=90.0)
                 return src, list(browser.failed_requests)
@@ -51,7 +51,7 @@ class CoreTopperDriveTests(TempTree):
 
     def test_the_window_knows_it_is_the_topper(self) -> None:
         async def run(instance: LiveInstance):
-            async with BrowserSession(chromium_path()) as browser:
+            async with BrowserSession(chromium_path() or "") as browser:
                 await browser.navigate(self._url(instance))
                 await browser.wait_for(TOPPER, timeout=90.0)
                 return await browser.evaluate("window.vpin.windowMediaKind")

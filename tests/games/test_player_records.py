@@ -277,8 +277,12 @@ class BestScoreTests(_RecordsCase):
         held = best_of(None, [lap])
         self.assertIs(held, lap)
         self.assertIs(best_of(held, [lap]), lap)
-        self.assertEqual(best_of(held, [_entry("ABC", 10)])["score"], 10)
-        self.assertEqual(best_of(_entry("ABC", 10), [lap])["score"], 10)
+        replaced = best_of(held, [_entry("ABC", 10)])
+        kept = best_of(_entry("ABC", 10), [lap])
+        assert replaced is not None
+        assert kept is not None
+        self.assertEqual(replaced["score"], 10)
+        self.assertEqual(kept["score"], 10)
 
 
 class ViewTests(_RecordsCase):

@@ -101,6 +101,7 @@ class Default(unittest.IsolatedAsyncioTestCase):
     async def test_turning_it_on_makes_it_the_default(self) -> None:
         async with Details() as setup:
             await press(setup.default.args[1], Mock(value=True))
+        assert setup.put.await_args is not None
         self.assertEqual(setup.put.await_args.args,
                          (setup.context["library"].make_launcher_default, "wide"))
         setup.refresh.assert_awaited_once()

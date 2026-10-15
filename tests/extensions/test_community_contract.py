@@ -6,6 +6,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Any
 
 from starlette.testclient import TestClient
 
@@ -115,14 +116,16 @@ class TheDeclaration(unittest.TestCase):
                 self._drawn(column)
 
     def test_a_state_look_is_a_tier_or_an_icon_and_not_both(self) -> None:
-        for look in ({"tier": "loud"}, {"tier": "on", "icon": "check"}, {"color": "red"},
-                     {"tier": ["on"]}, {"tier": {}}, {"tier": None},
-                     {"icon": ""}, {"icon": 3}, "on"):
+        looks: tuple[Any, ...] = ({"tier": "loud"}, {"tier": "on", "icon": "check"},
+                                  {"color": "red"}, {"tier": ["on"]}, {"tier": {}},
+                                  {"tier": None}, {"icon": ""}, {"icon": 3}, "on")
+        for look in looks:
             with self.subTest(look=look), self.assertRaises(ContractError):
                 self._drawn({"field": "s", "kind": "state", "states": {"x": look}})
 
     def test_a_state_value_is_a_non_empty_string_with_no_dot(self) -> None:
-        for states in ({"": {}}, {3: {}}, {"open.why": {}}):
+        wrong_states: tuple[Any, ...] = ({"": {}}, {3: {}}, {"open.why": {}})
+        for states in wrong_states:
             with self.subTest(states=states), self.assertRaises(ContractError):
                 self._drawn({"field": "s", "kind": "state", "states": states})
 
@@ -142,7 +145,7 @@ class TheDeclaration(unittest.TestCase):
 
     def test_a_cell_kind_is_never_the_identifier(self) -> None:
         for kind in ("state", "chips", "link", "picture"):
-            column = {"field": "name", "kind": kind, "identifier": True,
+            column: dict[str, Any] = {"field": "name", "kind": kind, "identifier": True,
                       **({"states": {"x": {}}} if kind == "state" else {})}
             with self.subTest(kind=kind), self.assertRaises(ContractError):
                 self.ui.list("tables", _rows, title="Site", columns=[column, *COLUMNS[1:]],
@@ -167,10 +170,12 @@ class TheDeclaration(unittest.TestCase):
         self.assertEqual({"field": "vpsId", "keys": "vps_entry"}, said["relation"])
 
     def test_two_identifiers_or_a_line_elsewhere_are_refused(self) -> None:
-        for columns in ([{**COLUMNS[0], "identifier": True}, {**COLUMNS[1], "identifier": True}],
-                        [COLUMNS[0], {**COLUMNS[1], "under": ["plays"]}],
-                        [COLUMNS[0], {**COLUMNS[1], "picture": "art"}],
-                        [{**COLUMNS[0], "identifier": True}, {**COLUMNS[1], "icon": "star"}]):
+        wrong_columns: tuple[list[dict[str, Any]], ...] = (
+            [{**COLUMNS[0], "identifier": True}, {**COLUMNS[1], "identifier": True}],
+            [COLUMNS[0], {**COLUMNS[1], "under": ["plays"]}],
+            [COLUMNS[0], {**COLUMNS[1], "picture": "art"}],
+            [{**COLUMNS[0], "identifier": True}, {**COLUMNS[1], "icon": "star"}])
+        for columns in wrong_columns:
             with self.subTest(columns=columns), self.assertRaises(ContractError):
                 self.ui.list("tables", _rows, title="Site", columns=columns, area="community")
 
@@ -300,13 +305,14 @@ class TheDeclaration(unittest.TestCase):
         self.assertEqual([], self.ui.declared_lists)
 
     def test_rows_that_are_not_a_function_are_refused(self) -> None:
-        for rows in ("/community/tables", None, [{"name": "AFM"}]):
+        wrong_rows: tuple[Any, ...] = ("/community/tables", None, [{"name": "AFM"}])
+        for rows in wrong_rows:
             with self.subTest(rows=rows), self.assertRaises(ContractError):
                 self.ui.list("tables", rows, columns=COLUMNS, area="community")
 
     def test_a_status_or_acts_that_are_not_what_core_calls_are_refused(self) -> None:
         with self.assertRaises(ContractError):
-            self.ui.list("tables", _rows, columns=COLUMNS, status="/tables/about", area="community")
+            self.ui.list("tables", _rows, columns=COLUMNS, status="/tables/about", area="community")  # type: ignore[arg-type]
         with self.assertRaises(ContractError):
             self.ui.list("scores", _rows, columns=COLUMNS, acts=["post"], area="community")
 
@@ -341,7 +347,7 @@ class TheDeclaration(unittest.TestCase):
         self.assertEqual([], self.ui.declared_lists)
 
     def test_a_verb_wrongly_given_is_refused(self) -> None:
-        wrong = {
+        wrong: dict[str, Any] = {
             "not a dict": ["mark"],
             "no key": {"run": _mark},
             "neither run nor link": {"key": "mark"},
@@ -369,7 +375,7 @@ class TheDeclaration(unittest.TestCase):
         check_references(self.ui)
 
     def test_a_verb_that_opens_a_dialog_wrongly_is_refused(self) -> None:
-        wrong = {
+        wrong: dict[str, Any] = {
             "action and run": {"key": "n", "action": "note", "run": _mark},
             "action and link": {"key": "n", "action": "note", "link": "page"},
             "action that is not a name": {"key": "n", "action": 3},
@@ -382,19 +388,21 @@ class TheDeclaration(unittest.TestCase):
         self.assertEqual([], self.ui.declared_lists)
 
     def test_add_is_a_dialog_name_or_several_and_nothing_else(self) -> None:
-        for add in (3, [3], ["a", "a"], ["a", " a"], [""], ["  "]):
+        wrong_adds: tuple[Any, ...] = (3, [3], ["a", "a"], ["a", " a"], [""], ["  "])
+        for add in wrong_adds:
             with self.subTest(add=add), self.assertRaises(ContractError):
                 self.ui.list("tables", _rows, columns=COLUMNS, add=add, area="community")
         self.assertEqual([], self.ui.declared_lists)
 
     def test_a_pane_is_a_function_and_saving_it_needs_one_to_save_into(self) -> None:
-        for what in ({"detail": "pane"}, {"detail": _rows, "save": "write"},
-                     {"save": _mark}):
+        wrong_panes: tuple[dict[str, Any], ...] = (
+            {"detail": "pane"}, {"detail": _rows, "save": "write"}, {"save": _mark})
+        for what in wrong_panes:
             with self.subTest(what=what), self.assertRaises(ContractError):
                 self.ui.list("tables", _rows, columns=COLUMNS, **what, area="community")
         self.assertEqual([], self.ui.declared_lists)
 
-        self.ui.list("tables", _rows, columns=COLUMNS, detail=_rows, save=_mark, area="community")
+        self.ui.list("tables", _rows, columns=COLUMNS, detail=_rows, save=_mark, area="community")  # type: ignore[arg-type]
         self.ui.list("plain", _rows, columns=COLUMNS, area="community")
 
         self.assertEqual(["/lists/tables/detail", ""],

@@ -504,7 +504,9 @@ class Settings(ServedCase):
         with self.assertLogs(f"vpinfe.ext.{NAME}", "WARNING"):
             self.put_settings(greeting="bad")
 
-        self.assertEqual(self.registry.get(NAME).state, host.LOADED)
+        loaded = self.registry.get(NAME)
+        assert loaded is not None
+        self.assertEqual(loaded.state, host.LOADED)
 
     def test_a_write_that_changes_nothing_is_not_checked(self) -> None:
         self.ok(self.put_settings(token=""))
@@ -545,7 +547,9 @@ class Lists(ServedCase):
                      t("error.extensions.not_data", display=self.display(),
                        at="list shaped"))
 
-        self.assertEqual(self.registry.get(NAME).state, host.LOADED)
+        loaded = self.registry.get(NAME)
+        assert loaded is not None
+        self.assertEqual(loaded.state, host.LOADED)
 
     def test_rows_that_raise_are_a_refusal_with_the_line_they_said(self) -> None:
         STATE["raises"] = ValueError("The service said no")
@@ -554,7 +558,9 @@ class Lists(ServedCase):
             found = self.get("/lists/failing")
 
         self.assertIn("The service said no", self.refused(found, 400)["message"])
-        self.assertEqual(self.registry.get(NAME).state, host.LOADED)
+        loaded = self.registry.get(NAME)
+        assert loaded is not None
+        self.assertEqual(loaded.state, host.LOADED)
 
     def test_two_rows_with_one_id_are_refused_for_any_list(self) -> None:
         STATE["rows"] = [{"id": 1, "name": "a"}, {"id": "1", "name": "b"}]
@@ -661,7 +667,9 @@ class Lists(ServedCase):
             found = self.post("/lists/things/about/acts/refuse")
 
         self.assertIn("Nothing to refresh", self.refused(found, 400)["message"])
-        self.assertEqual(self.registry.get(NAME).state, host.LOADED)
+        loaded = self.registry.get(NAME)
+        assert loaded is not None
+        self.assertEqual(loaded.state, host.LOADED)
 
 
 SOLO = {"title": "Taxi", "under": "Pinball 2000", "sections": [{
@@ -891,7 +899,9 @@ class Verbs(ServedCase):
             found = self.press("break", "1")
 
         self.assertIn("Could not break it", self.refused(found, 400)["message"])
-        self.assertEqual(self.registry.get(NAME).state, host.LOADED)
+        loaded = self.registry.get(NAME)
+        assert loaded is not None
+        self.assertEqual(loaded.state, host.LOADED)
 
     def test_a_verb_at_library_is_closed_to_a_caller_holding_only_play(self) -> None:
         self.client = client_for(self, self.registry, self.record,
@@ -1079,7 +1089,9 @@ class Dialogs(ServedCase):
         error = self.refused(found, 400)
         self.assertIn("'k' as 'rating'", error["message"])
         self.assertIn("Drawn:", error["message"])
-        self.assertEqual(self.registry.get(NAME).state, host.LOADED)
+        loaded = self.registry.get(NAME)
+        assert loaded is not None
+        self.assertEqual(loaded.state, host.LOADED)
 
     def test_an_answer_that_is_not_a_step_is_refused(self) -> None:
         self.refused(self.get("/actions/wrong", step="list"), 400,
@@ -1170,21 +1182,26 @@ class Stopping(ServedCase):
         self.settle(STATE["running"].is_set)
         return job_id
 
+    def job_of(self, job_id: str) -> jobs.Job:
+        found = jobs.get(job_id)
+        assert found is not None
+        return found
+
     def test_a_job_started_to_be_stopped_says_where_to_ask(self) -> None:
-        job = jobs.get(self.start())
+        job = self.job_of(self.start())
 
         self.assertEqual((job.kind, job.stoppable, job.stop_link),
                          (f"{NAME}.work", True, f"/api/v1/ext/{NAME}/jobs/work/stop"))
 
     def test_a_job_not_started_to_be_stopped_offers_no_stop(self) -> None:
-        job = jobs.get(self.start(stoppable=False))
+        job = self.job_of(self.start(stoppable=False))
 
         self.assertEqual((job.stoppable, job.stop_link), (False, ""))
         self.assertEqual(self.ok(self.post("/jobs/work/stop")), {"stopped": False})
         self.assertFalse(job.halt.is_set())
 
     def test_a_stoppable_job_ends_early_when_it_is_asked_to(self) -> None:
-        job = jobs.get(self.start())
+        job = self.job_of(self.start())
 
         self.assertEqual(self.ok(self.post("/jobs/work/stop")), {"stopped": True})
 
@@ -1196,14 +1213,14 @@ class Stopping(ServedCase):
         self.assertEqual(self.ok(self.post("/jobs/work/stop")), {"stopped": False})
 
     def test_a_job_that_has_finished_is_not_stopped(self) -> None:
-        job = jobs.get(self.start())
+        job = self.job_of(self.start())
         STATE["release"].set()
         self.settle(lambda: job.state == jobs.DONE)
 
         self.assertEqual(self.ok(self.post("/jobs/work/stop")), {"stopped": False})
 
     def test_another_kind_is_left_running(self) -> None:
-        job = jobs.get(self.start(kind="other"))
+        job = self.job_of(self.start(kind="other"))
 
         self.assertEqual(self.ok(self.post("/jobs/work/stop")), {"stopped": False})
 

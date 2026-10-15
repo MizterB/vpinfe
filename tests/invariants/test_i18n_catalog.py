@@ -888,10 +888,10 @@ def _shown_unlooked(path: Path, tree: ast.Module) -> list[str]:
         if not isinstance(node, ast.Call):
             continue
         func = node.func
-        name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
+        name: Any = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
         at = 0 if name in DISPLAY_CALLS else DISPLAY_ARG.get(name)
         if at is None:
-            at = QUALIFIED.get((getattr(func.value, "id", None), name)) \
+            at = QUALIFIED.get((cast(str, getattr(func.value, "id", None)), name)) \
                 if isinstance(func, ast.Attribute) else None
         if at is not None and len(node.args) > at:
             found += _fault(path, name, "", node.args[at], held)
@@ -975,13 +975,13 @@ class TestNoBareDisplayLiterals(unittest.TestCase):
                 if not isinstance(node, ast.Call):
                     continue
                 func = node.func
-                name = func.attr if isinstance(func, ast.Attribute) \
+                name: Any = func.attr if isinstance(func, ast.Attribute) \
                     else getattr(func, "id", None)
                 if name in API_DOCUMENTATION:
                     continue
                 at = 0 if name in DISPLAY_CALLS else DISPLAY_ARG.get(name)
                 if at is None:
-                    at = QUALIFIED.get((getattr(func.value, "id", None), name)) \
+                    at = QUALIFIED.get((cast(str, getattr(func.value, "id", None)), name)) \
                         if isinstance(func, ast.Attribute) else None
                 spots = []
                 if at is not None and len(node.args) > at:
@@ -1121,7 +1121,7 @@ class _Options(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> None:
         func = node.func
-        name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
+        name: Any = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
         if name in OPTION_CALLS:
             for arg in [*node.args[:1], *(kw.value for kw in node.keywords
                                           if kw.arg == "options")]:
@@ -1132,7 +1132,7 @@ class _Options(ast.NodeVisitor):
 
     def _words_in(self, node: ast.expr, seen: tuple[str, ...]) -> list[str]:
         if isinstance(node, ast.Constant):
-            return [node.value] if _words(node.value) else []
+            return [cast(str, node.value)] if _words(node.value) else []
         if isinstance(node, ast.Dict):
             return [said for key, value in zip(node.keys, node.values, strict=True)
                     for said in (self._words_in(value, seen) if key is None
@@ -1843,7 +1843,8 @@ class TestParametersMatchTheirTemplate(unittest.TestCase):
                         continue
                     if not node.args or not isinstance(node.args[0], ast.Constant):
                         continue
-                    entry = SOURCE.get(node.args[0].value)
+                    key = cast(str, node.args[0].value)
+                    entry = SOURCE.get(key)
                     if not isinstance(entry, str):
                         continue
                     wants = {name for _, name, _, _
@@ -1852,7 +1853,7 @@ class TestParametersMatchTheirTemplate(unittest.TestCase):
                     if wants != fills:
                         offenders.append(
                             f"{path.relative_to(ROOT).as_posix()}:{node.lineno} "
-                            f"{node.args[0].value} wants {sorted(wants)}, "
+                            f"{key} wants {sorted(wants)}, "
                             f"gets {sorted(fills)}")
         self.assertEqual(offenders, [], "a slot nobody fills renders as its own name")
 
@@ -1946,7 +1947,7 @@ def _asked_for(key: str, named: set[str], blanks: tuple[str, ...] = ()) -> bool:
 
 def _reasons(app_id: str) -> list[str]:
     """Every reason an app writes into an `Availability`, by position or by name."""
-    found = []
+    found: list[str] = []
     for path in (APPS / app_id).rglob("*.py"):
         for node in ast.walk(trees.tree_for(path)):
             if not isinstance(node, ast.Call) \
@@ -1955,7 +1956,8 @@ def _reasons(app_id: str) -> list[str]:
             given = [*node.args[1:2], *(kw.value for kw in node.keywords
                                         if kw.arg == "reason")]
             found += [one.value for one in given
-                      if isinstance(one, ast.Constant) and one.value]
+                      if isinstance(one, ast.Constant) and isinstance(one.value, str)
+                      and one.value]
     return found
 
 

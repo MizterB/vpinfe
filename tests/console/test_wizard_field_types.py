@@ -68,7 +68,7 @@ class SecretTests(unittest.TestCase):
         return [one for one in dialog.descendants() if isinstance(one, ui.input)]
 
     def test_a_secret_is_drawn_empty_masked_and_says_it_is_set(self) -> None:
-        async def run() -> tuple[str, Any, str]:
+        async def run() -> tuple[Any, Any, Any]:
             task, dialog = await _opened(_calls(first=_TOKEN))
             box = self._inputs(dialog)[0]
             found = (box.value, box.props.get("type"), box.props.get("placeholder"))

@@ -124,7 +124,7 @@ class EnrichmentTests(TempTree):
 
         with patch("common.games.vpx_parser.VPXParser.single_file_extract",
                    return_value=PARSE):
-            enrich([game], _Reporter())
+            enrich([game], _Reporter())  # type: ignore[arg-type]
 
         self.assertEqual(seen, [(1, 2), (2, 2)])
 

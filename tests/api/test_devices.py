@@ -25,9 +25,9 @@ from tests.support.library import TempTree
 try:
     from starlette.testclient import TestClient
 except ImportError:  # pragma: no cover
-    TestClient = None
+    TestClient = None  # type: ignore[assignment,misc]
 
-CAB = {"device_id": "Aaaa111111", "display_name": "basement cab",
+CAB: dict[str, Any] = {"device_id": "Aaaa111111", "display_name": "basement cab",
        "features": ["library", "frontend"]}
 DESK = {"device_id": "Bbbb222222", "display_name": "desktop", "features": ["device"]}
 

@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from collections.abc import Sequence
 from pathlib import Path
 
 from common.capture import commands, geometry, pipeline, settings
@@ -124,7 +125,7 @@ class CommandTests(unittest.TestCase):
         self.assertTrue(pipeline.flat_in(said))
 
 
-def _printed(frames: list[tuple[int, ...]]) -> str:
+def _printed(frames: Sequence[tuple[int, ...]]) -> str:
     """What `metadata=mode=print` logs after signalstats: a frame line, then its values."""
     lines = ["Stream mapping:", "  Stream #0:0 -> #0:0 (h264 (native) -> wrapped_avframe)"]
     for index, levels in enumerate(frames):
@@ -143,6 +144,10 @@ _FFPROBE = shutil.which("ffprobe")
 
 @unittest.skipUnless(_FFMPEG and _FFPROBE, "FFmpeg is not installed here")
 class RealFfmpegTests(unittest.TestCase):
+    tmp: Path
+    ffmpeg: Path
+    raw: Path
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.tmp = Path(tempfile.mkdtemp())

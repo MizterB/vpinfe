@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import unittest
+from typing import Any
 from unittest import mock
 
 from console import media_fill
@@ -184,10 +185,11 @@ class KindTests(unittest.TestCase):
 class FromFilesTests(unittest.TestCase):
     def test_a_source_or_a_file_is_something_to_ask(self) -> None:
         local = {"kinds": [{"kind": "backglass", "local": 1}]}
-        cases = (({"sources": ["VPinMediaDB"], "kinds": []}, True),
-                 ({"sources": [], **local}, True),
-                 ({"sources": [], "kinds": [{"kind": "backglass", "local": 0}]}, False),
-                 ({}, False))
+        cases: tuple[tuple[dict[str, Any], bool], ...] = (
+            ({"sources": ["VPinMediaDB"], "kinds": []}, True),
+            ({"sources": [], **local}, True),
+            ({"sources": [], "kinds": [{"kind": "backglass", "local": 0}]}, False),
+            ({}, False))
         for found, expected in cases:
             with self.subTest(found=found):
                 self.assertEqual(media_fill._anything_to_ask(found), expected)

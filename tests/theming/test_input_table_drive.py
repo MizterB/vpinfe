@@ -117,7 +117,7 @@ class InputTableDrive(unittest.TestCase):
             value = instance.api("/api/v1/config/settings")["input"][key]
             return value.split(",") if isinstance(value, str) else list(value)
 
-        async with BrowserSession(chromium_path()) as browser:
+        async with BrowserSession(chromium_path() or "") as browser:
             await browser.send("Emulation.setDeviceMetricsOverride",
                                {"width": 1600, "height": 1000, "deviceScaleFactor": 1,
                                 "mobile": False})

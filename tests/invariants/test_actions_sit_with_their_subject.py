@@ -158,10 +158,11 @@ def _console_trees() -> dict[str, ast.Module]:
 def _subject_verbs() -> set[str]:
     for node in _tree(CONSOLE / "workbench.py").body:
         target = getattr(node, "target", None)
+        value = getattr(node, "value", None)
         if isinstance(target, ast.Name) and target.id == "SUBJECT_VERBS" \
-                and isinstance(node.value, ast.Dict):
-            return {key.value for key in node.value.keys
-                    if isinstance(key, ast.Constant)}
+                and isinstance(value, ast.Dict):
+            return {key.value for key in value.keys
+                    if isinstance(key, ast.Constant) and isinstance(key.value, str)}
     return set()
 
 
@@ -182,7 +183,8 @@ def _grids() -> dict[str, set[str]]:
     """Each console module that builds a grid, with the handlers its grids are given."""
     found: dict[str, set[str]] = {}
     for path in sorted(CONSOLE.glob("*.py")):
-        calls = [node for node in ast.walk(_tree(path)) if _is_grid_build(node)]
+        calls = [node for node in ast.walk(_tree(path))
+                 if isinstance(node, ast.Call) and _is_grid_build(node)]
         if calls:
             found[path.name] = set().union(*(_given(call) for call in calls))
     return found
@@ -210,7 +212,8 @@ class TestActionsSitWithTheirSubject(unittest.TestCase):
         keys = [node.args[0].value
                 for node in ast.walk(_tree(CONSOLE / "workbench.py"))
                 if isinstance(node, ast.Call) and getattr(node.func, "id", "") == "Section"
-                and node.args and isinstance(node.args[0], ast.Constant)]
+                and node.args and isinstance(node.args[0], ast.Constant)
+                and isinstance(node.args[0].value, str)]
         self.assertTrue(keys)
         self.assertEqual([key for key in keys if key.endswith("_actions")], [])
 
@@ -295,9 +298,15 @@ class TestActionsSitWithTheirSubject(unittest.TestCase):
                          "give the grid a row menu from its subject's list")
 
     def test_a_grid_is_read_by_position_and_by_name(self) -> None:
-        call = trees.parse_snippet("grid.build(a, b, c, pick, on_header_context=h)").body[0].value
+        statement = trees.parse_snippet("grid.build(a, b, c, pick, on_header_context=h)").body[0]
+        assert isinstance(statement, ast.Expr)
+        call = statement.value
+        assert isinstance(call, ast.Call)
         self.assertEqual({"on_select_rows", "on_header_context"}, _given(call))
-        bare = trees.parse_snippet("grid.build(a, b, c)").body[0].value
+        bare_statement = trees.parse_snippet("grid.build(a, b, c)").body[0]
+        assert isinstance(bare_statement, ast.Expr)
+        bare = bare_statement.value
+        assert isinstance(bare, ast.Call)
         self.assertEqual(set(), _given(bare))
 
 

@@ -197,6 +197,7 @@ class TheAddressQuestionTests(_OnAPage):
             self.assertTrue(await save("127.0.0.1"))
 
         ask.assert_awaited_once()
+        assert ask.await_args is not None
         self.assertEqual(ask.await_args.kwargs["detail"],
                          t("console.settings.bind_detail"))
         self.saved.assert_awaited_once_with("127.0.0.1")

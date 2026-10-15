@@ -28,6 +28,12 @@ from common.device_registry import (
 from tests.support.library import add_mobile
 
 
+def _known(registry: DeviceRegistry, device_id: str) -> Device:
+    device = registry.get(device_id)
+    assert device is not None
+    return device
+
+
 class DeviceRegistryTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = TemporaryDirectory()
@@ -43,7 +49,7 @@ class DeviceRegistryTests(unittest.TestCase):
         self.registry.record("Aaaa111111", display_name="basement cab",
                            features=("library", "frontend"))
 
-        device = self.registry.get("Aaaa111111")
+        device = _known(self.registry, "Aaaa111111")
         self.assertEqual(device.display_name, "basement cab")
         self.assertEqual(device.features, ("library", "frontend"))
         self.assertTrue(self.registry.knows("Aaaa111111"))
@@ -58,6 +64,7 @@ class DeviceRegistryTests(unittest.TestCase):
     def test_a_rename_does_not_lose_the_device(self) -> None:
         """`display_name` addresses nothing, which is what makes renaming safe."""
         first = self.registry.record("Aaaa111111", display_name="old name")
+        assert first is not None
         self.registry.record("Aaaa111111", display_name="new name")
 
         devices = self.registry.devices()
@@ -71,6 +78,7 @@ class DeviceRegistryTests(unittest.TestCase):
         week and its identity forever. An address is an attribute that gets updated."""
         first = self.registry.record("Aaaa111111", display_name="phone",
                                      address="192.168.1.50")
+        assert first is not None
         self.registry.record("Aaaa111111", display_name="phone", address="192.168.1.77")
 
         devices = self.registry.devices()
@@ -93,6 +101,7 @@ class DeviceRegistryTests(unittest.TestCase):
 
         later = self.registry.record("Aaaa111111", display_name="b", features=("library",),
                                    address="192.168.1.99")
+        assert later is not None
 
         self.assertEqual((later.display_name, later.features, later.address),
                          ("b", ("library",), "192.168.1.99"))
@@ -118,7 +127,7 @@ class DeviceRegistryTests(unittest.TestCase):
         add_mobile(self.registry, "Pppp444444", "iPhone", "192.168.1.50", 2113)
         self.registry.record_reachable("Pppp444444")
 
-        device = self.registry.get("Pppp444444")
+        device = _known(self.registry, "Pppp444444")
         self.assertEqual((device.kind, device.display_name, device.address, device.port),
                          ("vpx_mobile", "iPhone", "192.168.1.50", 2113))
         self.assertTrue(device.last_reachable, "the answer is state kept beside the entry")
@@ -157,7 +166,7 @@ class DeviceRegistryTests(unittest.TestCase):
         del raw["devices"][0]["kind"]
         self.registry.path.write_text(json.dumps(raw), encoding="utf-8")
 
-        self.assertEqual(self.registry.get("Aaaa111111").kind, "vpinfe")
+        self.assertEqual(_known(self.registry, "Aaaa111111").kind, "vpinfe")
 
     def test_a_device_with_no_id_is_refused(self) -> None:
         """An id is the entry's identity; without one there is nothing to key on."""
@@ -220,7 +229,7 @@ class LastReachableTests(unittest.TestCase):
         self.registry = DeviceRegistry(Path(self.tmp.name) / "devices.json")
 
     def _at(self, device_id: str) -> str:
-        return self.registry.get(device_id).last_reachable
+        return _known(self.registry, device_id).last_reachable
 
     def test_announcing_counts_as_being_seen(self) -> None:
         self.registry.record("Aaaa111111")
@@ -231,11 +240,11 @@ class LastReachableTests(unittest.TestCase):
         """The whole reason for the pull half: an install that has been up for a week
         announced once, at the start of it."""
         self.registry.record("Aaaa111111")
-        announced = self.registry.get("Aaaa111111").last_seen
+        announced = _known(self.registry, "Aaaa111111").last_seen
 
         self.registry.record_reachable("Aaaa111111", when="2099-01-01T00:00:00Z")
 
-        device = self.registry.get("Aaaa111111")
+        device = _known(self.registry, "Aaaa111111")
         self.assertEqual(device.last_reachable, "2099-01-01T00:00:00Z")
         self.assertEqual(device.last_seen, announced, "it has not announced again")
 
@@ -280,12 +289,12 @@ class BrowserTests(unittest.TestCase):
         self.registry.record("Aaaa111111")
 
     def _held(self) -> dict:
-        return self.registry.get("Aaaa111111").browser
+        return _known(self.registry, "Aaaa111111").browser
 
     def test_a_probe_keeps_what_the_browser_said(self) -> None:
         self.registry.record_reachable("Aaaa111111", browser=self.SAID)
 
-        self.assertEqual(DeviceRegistry(self.registry.path).get("Aaaa111111").browser,
+        self.assertEqual(_known(DeviceRegistry(self.registry.path), "Aaaa111111").browser,
                          self.SAID)
 
     def test_a_probe_that_heard_nothing_about_it_keeps_the_last_answer(self) -> None:
@@ -301,7 +310,7 @@ class BrowserTests(unittest.TestCase):
         self.registry.record_reachable("Aaaa111111", browser={})
 
         self.assertEqual(self._held(), {})
-        self.assertNotIn("browser", self.registry.get("Aaaa111111").as_dict())
+        self.assertNotIn("browser", _known(self.registry, "Aaaa111111").as_dict())
 
     def test_announcing_again_keeps_it(self) -> None:
         self.registry.record_reachable("Aaaa111111", browser=self.SAID)
@@ -316,7 +325,7 @@ class BrowserTests(unittest.TestCase):
 
         self.registry.record_reachable("Aaaa111111", browser=said)
 
-        self.assertEqual(DeviceRegistry(self.registry.path).get("Aaaa111111")
+        self.assertEqual(_known(DeviceRegistry(self.registry.path), "Aaaa111111")
                          .browser["formats"], {"h264": False, "vp9": True, "hevc": None})
 
     def test_a_format_answered_with_anything_but_yes_no_or_null_is_dropped(self) -> None:
@@ -338,7 +347,7 @@ class DeviceRegistryStorageTests(unittest.TestCase):
     def test_it_survives_being_reopened(self) -> None:
         DeviceRegistry(self.path).record("Aaaa111111", display_name="cab")
 
-        self.assertEqual(DeviceRegistry(self.path).get("Aaaa111111").display_name, "cab")
+        self.assertEqual(_known(DeviceRegistry(self.path), "Aaaa111111").display_name, "cab")
 
     def test_the_file_carries_its_own_schema(self) -> None:
         DeviceRegistry(self.path).record("Aaaa111111")
@@ -522,8 +531,8 @@ class AnInstallThatChangesSchemeTests(unittest.TestCase):
         return forget.called, [call.args for call in unpin.call_args_list]
 
     def test_the_scheme_it_announced_is_kept(self) -> None:
-        self.assertTrue(self.registry.get("Aaaa111111").https)
-        self.assertEqual(install_url(self.registry.get("Aaaa111111").as_dict()),
+        self.assertTrue(_known(self.registry, "Aaaa111111").https)
+        self.assertEqual(install_url(_known(self.registry, "Aaaa111111").as_dict()),
                          "https://192.168.1.30:8001")
 
     def test_being_talked_down_to_http_drops_the_pairing_and_the_pin(self) -> None:
@@ -531,7 +540,7 @@ class AnInstallThatChangesSchemeTests(unittest.TestCase):
 
         self.assertTrue(forgotten)
         self.assertEqual(unpinned, [("192.168.1.30", 8001)])
-        self.assertFalse(self.registry.get("Aaaa111111").https)
+        self.assertFalse(_known(self.registry, "Aaaa111111").https)
 
     def test_a_move_drops_the_pin_kept_for_the_old_address(self) -> None:
         forgotten, unpinned = self.record(address="192.168.1.99")
@@ -552,7 +561,7 @@ class AnInstallThatChangesSchemeTests(unittest.TestCase):
 
         self.assertFalse(forgotten)
         self.assertEqual(unpinned, [])
-        self.assertTrue(self.registry.get("Aaaa111111").https)
+        self.assertTrue(_known(self.registry, "Aaaa111111").https)
 
     def test_a_token_is_sent_only_over_the_scheme_it_was_paired_over(self) -> None:
         with (patch("common.device_registry.get_device_registry", lambda: self.registry),

@@ -11,12 +11,15 @@ from common.host import graphics
 from common.host.graphics import UnreadableError, windows
 
 GIB = 1 << 30
-DISCRETE = {"name": "NVIDIA GeForce RTX 3070", "luid": (0, 0xD1C3), "handle": 11,
-            "flags": 0b1, "video": 8 * GIB, "temperature": 612, "fan": 1450, "address": (1, 0, 0)}
-INTEGRATED = {"name": "Intel(R) UHD Graphics 630", "luid": (0, 0xA2B4), "handle": 12,
-              "flags": 0b1, "video": 128 << 20, "temperature": 0, "fan": 0}
-WARP = {"name": "Microsoft Basic Render Driver", "luid": (0, 0x1), "handle": 13,
-        "flags": 0b101, "video": 0, "temperature": 0, "fan": 0}
+DISCRETE: dict[str, Any] = {
+    "name": "NVIDIA GeForce RTX 3070", "luid": (0, 0xD1C3), "handle": 11, "flags": 0b1,
+    "video": 8 * GIB, "temperature": 612, "fan": 1450, "address": (1, 0, 0)}
+INTEGRATED: dict[str, Any] = {
+    "name": "Intel(R) UHD Graphics 630", "luid": (0, 0xA2B4), "handle": 12, "flags": 0b1,
+    "video": 128 << 20, "temperature": 0, "fan": 0}
+WARP: dict[str, Any] = {
+    "name": "Microsoft Basic Render Driver", "luid": (0, 0x1), "handle": 13, "flags": 0b101,
+    "video": 0, "temperature": 0, "fan": 0}
 STRUCTS = {windows._ADAPTER_TYPE: windows._AdapterType, windows._REGISTRY_INFO:
            windows._RegistryInfo, windows._GET_SEGMENT_SIZE: windows._SegmentSizes,
            windows._PERF_DATA: windows._PerfData, windows._ADAPTER_ADDRESS:

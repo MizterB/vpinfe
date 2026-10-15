@@ -95,7 +95,8 @@ class PayloadTests(unittest.TestCase):
         loaded.load(host.BUNDLED_DIR / "vpinplay")
         from vpinfe_ext_vpinplay import client
 
-        for raw in (1995, 1995.0, "1995", "1995.0", "", None, "unknown", True, []):
+        raws: tuple[object, ...] = (1995, 1995.0, "1995", "1995.0", "", None, "unknown", True, [])
+        for raw in raws:
             with self.subTest(raw=raw):
                 found = client.normalize("v", {"vpsdb": {"year": raw}})
 

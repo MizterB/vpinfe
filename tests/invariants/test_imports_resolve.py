@@ -79,7 +79,7 @@ class ImportsResolveTests(unittest.TestCase):
 
     def test_the_platform_allowlist_earns_its_place(self) -> None:
         """An entry nothing imports is one nobody will remember to remove."""
-        imported = set()
+        imported: set[str] = set()
         for path, _ in _source_files():
             tree = trees.tree_for(path)
             for node in ast.walk(tree):

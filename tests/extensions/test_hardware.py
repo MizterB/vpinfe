@@ -267,6 +267,7 @@ class PluggedInRecipeTests(unittest.TestCase):
             told = serving.list_about(self.record, "devices")["status"]
 
         self.assertEqual(quiet, "")
+        assert self.record.context is not None
         self.assertEqual(told, self.record.context.hardware.access_help())
 
     def test_a_computer_with_nothing_plugged_in_has_no_rows_and_no_line(self) -> None:

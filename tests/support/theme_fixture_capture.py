@@ -20,6 +20,7 @@ import sys
 from configparser import ConfigParser
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any
 
 from tests.support.library import write_game
 
@@ -140,6 +141,7 @@ def capture() -> dict:
         parser = GameParser(str(root), _config())
         games = parser.get_all_games()
 
+        view: Any
         try:
             from tests.support.entries import entries_for
             view = entries_for(games)

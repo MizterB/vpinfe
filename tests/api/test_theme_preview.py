@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import time
 from pathlib import Path
+from typing import cast
 from unittest.mock import patch
 
 import requests
@@ -15,6 +16,7 @@ import httpapi
 from common import http_client, sized_media
 from common.i18n import t
 from common.online import theme_ops, theme_previews
+from common.online.themes import ThemeRegistry
 from tests.support.library import TempTree
 
 URL = "https://raw.example.net/someone/theme/main/preview.png"
@@ -26,7 +28,7 @@ def _png(edge: int = 1600, color: str = "navy") -> bytes:
     return out.getvalue()
 
 
-class _Registry:
+class _Registry(ThemeRegistry):
     """The few things the preview reads from a registry."""
 
     def __init__(self, themes_dir: Path) -> None:
@@ -102,8 +104,8 @@ class ThemePreviewTests(TempTree):
         self.assertEqual(len(self.fetches), 2)
         self.assertEqual(len(kept), 1)
         self.assertNotEqual(theme_ops.preview_version(self.registry, "Any"), before)
-        self.assertEqual(Image.open(io.BytesIO(again.content)).convert("RGB").getpixel((5, 5))[0],
-                         255)
+        pixel = cast(tuple, Image.open(io.BytesIO(again.content)).convert("RGB").getpixel((5, 5)))
+        self.assertEqual(pixel[0], 255)
 
     def test_the_same_release_is_asked_about_again_only_when_the_copy_is_old(self) -> None:
         self.client.get("/themes/Any/preview", params={"size": 256})

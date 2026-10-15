@@ -37,7 +37,7 @@ class ThemeLocalesDriveTests(TempTree):
                 "authors": "Authors from the file",
                 "tables": {"one": "{count} table", "other": "{count} tables"},
                 "frontend.theme.launching": "Not core's"}))
-            async with BrowserSession(chromium_path()) as browser:
+            async with BrowserSession(chromium_path() or "") as browser:
                 await browser.navigate(instance.theme_url("playfield"))
                 await browser.wait_for("document.body.dataset.ready === 'true'", timeout=90.0)
                 return json.loads(await browser.evaluate(READ))

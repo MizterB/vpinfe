@@ -17,7 +17,9 @@ import threading
 import time
 import unittest
 import unittest.mock
+from collections.abc import Callable, Iterable
 from pathlib import Path
+from typing import Any, cast
 
 from starlette.testclient import TestClient
 
@@ -26,6 +28,7 @@ from common import events as core_events
 from common import extensions, sign_in
 from common import jobs as core_jobs
 from common.extensions import contract, host, reach, store
+from common.extensions.context import ExtensionContext
 from common.host import os_helper
 from httpapi import auth
 from tests.support.accepted import owner_accepts
@@ -34,7 +37,7 @@ from tests.support.accepted import owner_accepts
 class FakeHelper:
     """Answers each connection with what `reply` returns for the request it read."""
 
-    def __init__(self, directory: Path, reply=None) -> None:
+    def __init__(self, directory: Path, reply: Callable[[dict], Any] | None = None) -> None:
         self.path = str(directory / "h.sock")
         self.requests: list[dict] = []
         self.reply = reply or (lambda request: {"ok": True, "result": {"done": request["method"]}})
@@ -62,10 +65,10 @@ class FakeHelper:
                 except ValueError:
                     continue
                 self.requests.append(request)
-                answer = self.reply(request)
+                answer: Any = self.reply(request)
                 if inspect.isgenerator(answer):
                     try:
-                        for chunk in answer:
+                        for chunk in cast(Iterable[bytes], answer):
                             one.sendall(chunk)
                     except OSError:
                         pass
@@ -84,7 +87,7 @@ class HelperCase(unittest.TestCase):
         self.addCleanup(self._tmp.cleanup)
         self.root = Path(self._tmp.name)
 
-    def helper(self, reply=None) -> FakeHelper:
+    def helper(self, reply: Callable[[dict], Any] | None = None) -> FakeHelper:
         try:
             fake = FakeHelper(self.root, reply)
         except PermissionError:
@@ -241,7 +244,7 @@ class ExtensionCase(HelperCase):
         self.addCleanup(self.registry.clear)
 
     def make(self, name: str, capabilities: list[str], body: str = "",
-             tiers: tuple[str, ...] = ()) -> object:
+             tiers: tuple[str, ...] = ()) -> ExtensionContext:
         directory = self.root / "made" / name
         directory.mkdir(parents=True)
         (directory / "extension.json").write_text(json.dumps({
@@ -251,7 +254,7 @@ class ExtensionCase(HelperCase):
                                                encoding="utf-8")
         record = self.registry.load(directory)
         self.assertTrue(record.running, record.reason)
-        return record.context
+        return cast(ExtensionContext, record.context)
 
 
 class CallTests(ExtensionCase):
@@ -321,7 +324,7 @@ class CallTests(ExtensionCase):
                 outcome.append(exc)
 
         ctx.events.subscribe("os.test.event", handler)
-        self.addCleanup(lambda: [core_events.unsubscribe(name, one)
+        self.addCleanup(lambda: [core_events.unsubscribe(name, one)  # type: ignore[func-returns-value]
                                  for name, one in ctx.events.registered])
         with reach.marking(reach.PROTECTED, "this computer"):
             core_events.emit("os.test.event")
@@ -499,7 +502,9 @@ class RequestTests(ExtensionCase):
 
         self.client("192.0.2.7").post("/ext/os_update/apply")
 
-        self.assertTrue(self.registry.get("os_update").running)
+        record = self.registry.get("os_update")
+        assert record is not None
+        self.assertTrue(record.running)
 
     def test_a_job_started_by_a_route_carries_the_requests_mark(self) -> None:
         fake = self.helper()

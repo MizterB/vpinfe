@@ -9,9 +9,10 @@ import types
 import unittest
 from datetime import datetime
 from pathlib import Path
+from typing import Any, cast
 from unittest import mock
 
-from PIL import Image
+from PIL import Image, PngImagePlugin
 
 from common import events
 from common.capture import adapters, freeze, geometry
@@ -46,20 +47,27 @@ class _Flow(unittest.TestCase):
     def setUp(self) -> None:
         self.table = _Table()
         self.now = 100.0
-        self.grabbed: list[str] = []
+        self.grabbed: list[Any] = []
         self.kept: list[freeze.Shot] = []
         self.shot = freeze.Shot(stills={"playfield": Path("/work/playfield.png")})
         kit = freeze.Kit(
             toggle=self.table.toggle, wait=self.table.wait, state=lambda: self.table.state,
-            clock=lambda: self.now, aim=lambda playing: "aimed",
-            grab=lambda aimed: self.grabbed.append(aimed) or self.shot,
-            keep=lambda shot, playing: self.kept.append(shot) or Path("/kept.png"),
+            clock=lambda: self.now, aim=lambda playing: cast(Any, "aimed"),
+            grab=self._grab, keep=self._keep,
             later=lambda work: work())
         self.flow = freeze.reset_for_tests(kit)
         self.addCleanup(freeze.reset_for_tests)
         self.game = types.SimpleNamespace(full_path_game="/games/Example")
         self.flow.launched(game=self.game, table_id="t1",
                            source=launch_state.SOURCE_FRONTEND)
+
+    def _grab(self, aimed: Any) -> freeze.Shot:
+        self.grabbed.append(aimed)
+        return self.shot
+
+    def _keep(self, shot: freeze.Shot, playing: freeze.Playing) -> Path:
+        self.kept.append(shot)
+        return Path("/kept.png")
 
     def _press(self, after: float = 1.0) -> str:
         self.now += after
@@ -365,7 +373,9 @@ class KeepTests(unittest.TestCase):
             self.assertEqual(kept, root / "Example" / "pictures" / "2026-09-28 21-04-05.png")
             self.assertEqual(again.name, "2026-09-28 21-04-05 2.png")
             self.assertFalse(work.exists(), "the stills go once they are kept")
+            assert kept is not None
             with Image.open(kept) as opened:
+                assert isinstance(opened, PngImagePlugin.PngImageFile)
                 self.assertEqual(opened.size, (40, 110))
                 self.assertEqual(opened.text[pictures.TABLE], "t1")
                 self.assertEqual(opened.text[pictures.TAKEN], "2026-09-28T21:04:05")

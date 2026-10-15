@@ -50,6 +50,10 @@ class ManagerUiBindTests(unittest.TestCase):
 
 
 class ManagerUiHttpsTests(unittest.TestCase):
+    holder: tempfile.TemporaryDirectory[str]
+    cert: str
+    key: str
+
     @classmethod
     def setUpClass(cls) -> None:
         if shutil.which("openssl") is None:

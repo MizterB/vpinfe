@@ -7,6 +7,7 @@ import unittest
 from configparser import ConfigParser
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any
 from unittest.mock import patch
 
 from common import cache_stamps, timestamps
@@ -71,9 +72,9 @@ class TheListKeptBetweenReads(TempTree):
             patcher = patch(target, value)
             patcher.start()
             self.addCleanup(patcher.stop)
-        patcher = patch("common.online.theme_ops._sources_now", lambda: self.sources)
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        sources_patcher = patch("common.online.theme_ops._sources_now", lambda: self.sources)
+        sources_patcher.start()
+        self.addCleanup(sources_patcher.stop)
 
     def test_what_was_read_comes_back_the_same(self) -> None:
         theme_ops._keep(_registry("2026-04-29T11:26:53Z", "v2"), self.sources)
@@ -81,6 +82,7 @@ class TheListKeptBetweenReads(TempTree):
         back = theme_ops._cached()
 
         self.assertIsNotNone(back)
+        assert back is not None
         entry = back.themes["Revolution"]
         self.assertEqual(("v2", "2026-04-29T11:26:53Z", "1.2"),
                          (entry["ref"], entry["updated"], entry["manifest"]["version"]))
@@ -120,10 +122,10 @@ class TheListHeldInMemory(TempTree):
             patcher = patch(target, value)
             patcher.start()
             self.addCleanup(patcher.stop)
-        for name, value in (("_registry", None), ("_held_for", None)):
-            patcher = patch.object(theme_ops, name, value)
-            patcher.start()
-            self.addCleanup(patcher.stop)
+        for name in ("_registry", "_held_for"):
+            cleared = patch.object(theme_ops, name, None)
+            cleared.start()
+            self.addCleanup(cleared.stop)
 
     def _read(self, previous: ThemeRegistry | None = None) -> ThemeRegistry:
         fresh = _registry()
@@ -168,7 +170,7 @@ class TheSchedule(OwnStamps):
         patcher.start()
         self.addCleanup(patcher.stop)
 
-    def _config(self, refresh: str, checked: str = "") -> ConfigParser:
+    def _config(self, refresh: str, checked: str = "") -> Any:
         config = ConfigParser()
         config.add_section(theme_sync.SECTION)
         config.set(theme_sync.SECTION, "refresh", refresh)

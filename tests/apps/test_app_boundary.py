@@ -37,7 +37,7 @@ def _imports(tree: ast.AST) -> list[str]:
     A relative import inside `apps/` resolves within the app itself, which is always
     allowed and carries no module name to check.
     """
-    found = []
+    found: list[str] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             found.extend(alias.name for alias in node.names)
@@ -101,7 +101,9 @@ class RegistryTests(unittest.TestCase):
         """It must never take a table away from the app that understands it."""
         from common import apps
 
-        self.assertEqual(apps.app_for("Medieval Madness.vpx").id, "vpx")
+        app = apps.app_for("Medieval Madness.vpx")
+        assert app is not None
+        self.assertEqual(app.id, "vpx")
 
     def test_every_app_answers_the_groups_it_declares(self) -> None:
         """A group is either implemented or None. A half-answer is what the two

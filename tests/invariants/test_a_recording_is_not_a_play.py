@@ -129,7 +129,7 @@ class ARecordingIsNotAPlayTests(TempTree):
         roster.set_who_is_up([owner.player_id, kept.player_id])
 
         self.ini = ConfigStore(str(self.root / "vpinfe.ini"))
-        play_events.register(_Bridge(), None, self.ini)
+        play_events.register(_Bridge(), None, self.ini)  # type: ignore[arg-type]
 
         info = game_info(game_id="Gme1111111",
                          tables={"t1": {"id": "t1", "filename": "Example.vpx"}})
@@ -162,7 +162,7 @@ class ARecordingIsNotAPlayTests(TempTree):
                 _plan=lambda *args, **kwargs: (["/opt/vpx", "-play", "Example.vpx"],
                                                "Startup done")):
             launch.launch_game(self.game, self.ini, source=source,
-                               popen=lambda cmd, **kwargs: _Program())
+                               popen=lambda cmd, **kwargs: _Program())  # type: ignore[arg-type]
         after = self._files()
         return {name: after.get(name, b"") for name in before.keys() | after.keys()
                 if before.get(name) != after.get(name)}

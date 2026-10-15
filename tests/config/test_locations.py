@@ -30,10 +30,20 @@ class _WithStore:
 
     def setUp(self) -> None:
         self.tmp = TemporaryDirectory()
-        self.addCleanup(self.tmp.cleanup)
+        self.addCleanup(self.tmp.cleanup)  # type: ignore[attr-defined]
         self.root = Path(self.tmp.name)
         self.folder = self.root / "config"
         self.store = LocationStore(self.folder)
+
+    def _write_target(self) -> Location:
+        target = self.store.write_to()
+        assert target is not None
+        return target
+
+    def _held(self, location_id: str, store: LocationStore | None = None) -> Location:
+        found = (store or self.store).get(location_id)
+        assert found is not None
+        return found
 
     def _choose(self, location: Location) -> None:
         self.store.save(self.store.locations(), location.location_id)
@@ -78,7 +88,7 @@ class StoreTests(_WithStore, unittest.TestCase):
         self.assertEqual([one.location_id for one in self.store.locations()],
                          [first.location_id, second.location_id])
         self.assertEqual(again.location_id, first.location_id)
-        self.assertEqual(self.store.write_to().location_id, second.location_id)
+        self.assertEqual(self._write_target().location_id, second.location_id)
 
     def test_putting_a_new_folder_puts_it_last(self) -> None:
         first = self._location("first")
@@ -113,7 +123,7 @@ class StoreTests(_WithStore, unittest.TestCase):
     def test_moving_a_row_drops_the_share_it_was_seen_on(self) -> None:
         held = self.store.put(Location("id", str(self.root / "share")))
         self.store.record_origins({"id": NAS})
-        self.assertEqual(self.store.get("id").origin, NAS)
+        self.assertEqual(self._held("id").origin, NAS)
 
         moved = self.store.put(Location("id", str(self.root / "elsewhere")))
 
@@ -161,7 +171,7 @@ class WriteTargetTests(_WithStore, unittest.TestCase):
         second = self._location("second")
         self._choose(second)
 
-        self.assertEqual(self.store.write_to().location_id, second.location_id)
+        self.assertEqual(self._write_target().location_id, second.location_id)
 
     def test_a_target_no_longer_listed_falls_back_to_the_first_that_works(self) -> None:
         kept = self._location("kept")
@@ -169,7 +179,7 @@ class WriteTargetTests(_WithStore, unittest.TestCase):
         self.store.save([kept], write_to="gone")
 
         self.assertEqual(self.store.chosen_write_to(), "gone")
-        self.assertEqual(self.store.write_to().location_id, kept.location_id)
+        self.assertEqual(self._write_target().location_id, kept.location_id)
 
     @needs_posix_permissions
     def test_an_unwritable_target_falls_back_to_one_that_works(self) -> None:
@@ -181,7 +191,7 @@ class WriteTargetTests(_WithStore, unittest.TestCase):
         os.chmod(readonly.path, 0o500)
         self.addCleanup(os.chmod, readonly.path, 0o700)
 
-        self.assertEqual(self.store.write_to().location_id, writable.location_id)
+        self.assertEqual(self._write_target().location_id, writable.location_id)
 
     def test_a_single_game_folder_is_never_the_write_target(self) -> None:
         """A new entry's folder is created inside a root. There is no room in a
@@ -296,7 +306,7 @@ class ShareTests(_WithStore, unittest.TestCase):
         folder = self._location("share")
         with patch.object(mounts, "where", return_value=mounts.Where(NAS)):
             self.assertEqual(state_of(folder).state, path_state.OK)
-        recorded = self.store.get(folder.location_id)
+        recorded = self._held(folder.location_id)
         asked = []
 
         def down(path: str, origin: mounts.Origin | None) -> mounts.Where:
@@ -333,7 +343,7 @@ class ShareTests(_WithStore, unittest.TestCase):
         with patch.object(mounts, "where", return_value=mounts.Where()):
             state_of(folder)
 
-        self.assertIsNone(self.store.get(folder.location_id).origin)
+        self.assertIsNone(self._held(folder.location_id).origin)
 
     def test_changing_what_a_location_holds_keeps_its_share(self) -> None:
         held = self.store.put(Location("id", str(self.root / "share")))
@@ -341,7 +351,7 @@ class ShareTests(_WithStore, unittest.TestCase):
         again = self.store.put(Location(locations.mint_location_id(), held.path,
                                         kind=KIND_GAME))
 
-        self.assertEqual(self.store.get(again.location_id).origin, NAS)
+        self.assertEqual(self._held(again.location_id).origin, NAS)
 
     def test_a_share_is_kept_on_this_install_and_not_in_the_config(self) -> None:
         """A config file carried to another machine must not name the share the folder
@@ -362,7 +372,7 @@ class ShareTests(_WithStore, unittest.TestCase):
         noted["id"]["path"] = str(self.root / "somewhere-else")
         registry.set_self(location_origins=noted)
 
-        self.assertIsNone(LocationStore(self.folder).get("id").origin)
+        self.assertIsNone(self._held("id", LocationStore(self.folder)).origin)
 
     def test_origins_for_rows_that_are_gone_are_forgotten(self) -> None:
         self.store.put(Location("id", str(self.root / "share")))
@@ -402,7 +412,9 @@ class SeedTests(_WithStore, unittest.TestCase):
 
         store = LocationStore(self.folder)
         self.assertEqual(store.chosen_write_to(), store.locations()[0].location_id)
-        self.assertEqual(store.write_to().path, str(games))
+        target = store.write_to()
+        assert target is not None
+        self.assertEqual(target.path, str(games))
 
     def test_the_setting_it_read_is_not_written_back(self) -> None:
         games = self.root / "games"

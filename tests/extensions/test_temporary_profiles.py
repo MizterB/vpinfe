@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import unittest
 from types import SimpleNamespace
+from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 import requests
@@ -21,7 +22,7 @@ from managerui.services import vpinplay_runtime_service
 from tests.extensions.test_cards import KEY, _2x_card
 from tests.extensions.test_vpinplay_accounts import NAME, VPinPlayCase
 
-NOBODY = {"active": False, "profile": None, "active_games": 0, "profiles": [],
+NOBODY: dict[str, Any] = {"active": False, "profile": None, "active_games": 0, "profiles": [],
           "activeProfileKey": ""}
 
 
@@ -48,8 +49,8 @@ class ProfilesCase(VPinPlayCase):
         return json.loads(_2x_card(user_id, initials, KEY)[0])
 
     def told(self) -> list[dict]:
-        return [call.args[0] for call in
-                self.api.ws_bridge.send_event_all_with_iframe.call_args_list]
+        bridge = cast(MagicMock, self.api.ws_bridge)
+        return [call.args[0] for call in bridge.send_event_all_with_iframe.call_args_list]
 
 
 class TheThemeMethods(ProfilesCase):

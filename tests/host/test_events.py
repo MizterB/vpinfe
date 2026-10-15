@@ -1,4 +1,5 @@
 import unittest
+from typing import Any
 from unittest import mock
 
 from common import events
@@ -216,8 +217,9 @@ class GameSelectionTests(unittest.TestCase):
     def test_one_updater_is_shared_across_frontend_windows(self) -> None:
         """Three windows hold an API instance; the panel must not be written three times."""
         with mock.patch.object(peripherals.real_dmd, "RealDmdUpdater") as updater_class:
-            first = peripherals._updater("cfg")
-            second = peripherals._updater("cfg")
+            cfg: Any = "cfg"
+            first = peripherals._updater(cfg)
+            second = peripherals._updater(cfg)
 
         self.assertIs(first, second)
         self.assertEqual(updater_class.call_count, 1)

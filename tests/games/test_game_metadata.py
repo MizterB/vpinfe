@@ -1,5 +1,6 @@
 import unittest
 from types import SimpleNamespace
+from typing import Any
 from unittest import mock
 
 from common.games import game_metadata as gm
@@ -17,7 +18,8 @@ class AsStringListTests(unittest.TestCase):
         self.assertEqual(as_string_list(("Fantasy",)), ["Fantasy"])
 
     def test_absent_means_empty(self) -> None:
-        for value in ([], "", None):
+        absent: tuple[Any, ...] = ([], "", None)
+        for value in absent:
             with self.subTest(value=value):
                 self.assertEqual(as_string_list(value), [])
 
@@ -58,7 +60,7 @@ class FavoriteTests(unittest.TestCase):
         booleans; `Favorite: 0` was an INI-era habit carried into a format that has
         true. Nothing had ever written a non-zero, so no value on disk is at risk."""
         written = {}
-        game = SimpleNamespace(meta_config={"User": {"Favorite": 0}})
+        game: Any = SimpleNamespace(meta_config={"User": {"Favorite": 0}})
 
         with mock.patch.object(gm, "load_game_meta", return_value=game.meta_config), \
              mock.patch.object(gm, "persist_game_meta",

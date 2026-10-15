@@ -90,7 +90,7 @@ class PictureFromAService(unittest.TestCase):
                 await asyncio.sleep(0.05)
             return False
 
-        async with BrowserSession(chromium_path()) as browser:
+        async with BrowserSession(chromium_path() or "") as browser:
             await browser.send("Emulation.setDeviceMetricsOverride",
                                {"width": 1600, "height": 1000, "deviceScaleFactor": 1,
                                 "mobile": False})

@@ -11,6 +11,7 @@ These run every axis and every order against both, on one library, and compare.
 from __future__ import annotations
 
 import unittest
+from typing import Any
 
 from common.games import collection_filters, collection_resolver, derived_tags, wire_entry
 from common.games.entry_lens import entry_resource
@@ -20,7 +21,7 @@ from tests.support.library import TempTree, fake_game, write_game
 
 # Varied on every axis the filters and sorts read, so a comparison can actually
 # distinguish orders rather than pass on a library where everything ties.
-LIBRARY = (
+LIBRARY: tuple[tuple[Any, ...], ...] = (
     # name, manufacturer, year, type, themes, rating, created, last run, secs, plays,
     # favorite, tags. The last two vary across the four, or a filter on either agrees
     # between the library and the wire by matching nothing on both sides.
@@ -34,7 +35,7 @@ LIBRARY = (
      0, 50.0, 0, 0, 0, False, ["Needs Work"]),
 )
 
-FILTERS = (
+FILTERS: tuple[dict[str, Any], ...] = (
     {"manufacturer": "Bally"},
     {"year": "1995,1997"},
     {"game_type": "EM"},

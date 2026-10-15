@@ -32,8 +32,9 @@ class Monitor:
 def _ticking() -> AbstractContextManager[Any]:
     """The clock `apps.vpx.config` stamps an aside from, a second later at every look."""
     ticks = itertools.count()
-    return mock.patch("apps.vpx.config.datetime", **{
-        "now.side_effect": lambda tz=None: datetime(2026, 10, 2, 12, 0, next(ticks), tzinfo=tz)})
+    kwargs: dict[str, Any] = {
+        "now.side_effect": lambda tz=None: datetime(2026, 10, 2, 12, 0, next(ticks), tzinfo=tz)}
+    return mock.patch("apps.vpx.config.datetime", **kwargs)
 
 
 class KeepingTheFirstTests(_Case):
@@ -251,7 +252,7 @@ class TheKeysTheAnswerWritesTests(_Case):
 
     def test_a_part_in_the_playfield_reads_back_with_the_region_it_was_given(self) -> None:
         cab = Monitor(1, "SAMSUNG", 1080, 1920, 0, 0)
-        arrangement = {"playfield": 1, "scoreview": vs.INSIDE}
+        arrangement: dict[str, vs.Placement] = {"playfield": 1, "scoreview": vs.INSIDE}
 
         written = vs.answer({"scoreview": vs.INSIDE}, arrangement, [cab], [], {})
         self.config.write(LAUNCHER, "", written.keys, self.settings)

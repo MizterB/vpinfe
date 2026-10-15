@@ -136,7 +136,7 @@ class FeatureTests(unittest.TestCase):
 
         bare = configparser.ConfigParser()
 
-        self.assertEqual(install_identity.features(bare),
+        self.assertEqual(install_identity.features(bare),  # type: ignore[arg-type]
                          ["core", "library", "frontend", "devices", "overview"])
 
     def test_core_is_not_a_value_the_file_decides(self) -> None:

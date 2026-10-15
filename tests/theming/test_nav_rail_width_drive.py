@@ -38,7 +38,7 @@ class NavRailWidthDrive(unittest.TestCase):
     async def _drive(cls, instance: LiveInstance) -> dict[int, dict]:
         seen: dict[int, dict] = {}
         instance.wait_for_api()
-        async with BrowserSession(chromium_path()) as browser:
+        async with BrowserSession(chromium_path() or "") as browser:
             walk = ConsoleWalk(browser, instance)
             for width in WIDTHS:
                 await browser.send("Emulation.setDeviceMetricsOverride",

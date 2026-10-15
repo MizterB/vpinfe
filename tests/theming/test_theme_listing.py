@@ -45,7 +45,7 @@ class WhereAThemeCameFrom(unittest.TestCase):
     def _listed(self, registry: _Registry) -> dict:
         with patch.object(theme_ops.theme_service, "load_theme_option_schema",
                           return_value=None):
-            return {one["key"]: one for one in theme_ops._described(registry, active="")}
+            return {one["key"]: one for one in theme_ops._described(registry, active="")}  # type: ignore[arg-type]
 
     def test_a_registry_theme_names_its_registry(self) -> None:
         listed = self._listed(_Registry({"Revolution": _theme(STOCK, {"url": "https://x.net/o/r"})}))

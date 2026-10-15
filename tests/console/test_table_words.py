@@ -312,8 +312,8 @@ class ToldApartTests(unittest.TestCase):
 
 class UsualLauncherTests(unittest.TestCase):
     def test_it_is_the_default_table_s(self) -> None:
-        tables = [{"id": "a", "launcher": "one"},
-                  {"id": "b", "launcher": "two", "default": True}]
+        tables: list[dict[str, Any]] = [{"id": "a", "launcher": "one"},
+                                        {"id": "b", "launcher": "two", "default": True}]
 
         self.assertEqual(game_tables.usual_launcher(tables), "two")
 

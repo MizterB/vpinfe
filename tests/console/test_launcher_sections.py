@@ -11,7 +11,7 @@ import asyncio
 import unittest
 from dataclasses import replace
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 from unittest.mock import ANY, AsyncMock, Mock, patch
 from urllib.parse import parse_qs
 
@@ -507,14 +507,14 @@ class PlayingTests(unittest.TestCase):
             def play_state(self):
                 raise RuntimeError("no answer")
 
-        self.assertFalse(workbench._playing(Broken()))
+        self.assertFalse(workbench._playing(cast(Any, Broken())))
 
     def test_a_table_playing_is_reported(self) -> None:
         class Playing:
             def play_state(self):
                 return {"launching": True}
 
-        self.assertTrue(workbench._playing(Playing()))
+        self.assertTrue(workbench._playing(cast(Any, Playing())))
 
     def test_the_reason_says_who_the_other_writer_is(self) -> None:
         """The program rewrites this file itself when a table exits, so an edit made now
@@ -765,7 +765,7 @@ class ClearTests(unittest.IsolatedAsyncioTestCase):
 
         await press(marked.call_args.kwargs["clear"])
 
-        workbench.run.io_bound.assert_awaited_once_with(
+        cast(Any, workbench.run.io_bound).assert_awaited_once_with(
             library.write_launcher_config, "probe", {"Player.BGSet": ""}, table="t1",
             scope="entry")
 
@@ -913,7 +913,7 @@ class PairTests(unittest.IsolatedAsyncioTestCase):
 
                 await press(marked.call_args.kwargs["clear"])
 
-                workbench.run.io_bound.assert_awaited_once_with(
+                cast(Any, workbench.run.io_bound).assert_awaited_once_with(
                     library.write_launcher_config, "probe", written, table="",
                     scope="launcher")
 
@@ -1006,9 +1006,10 @@ class BackglassFileTests(unittest.IsolatedAsyncioTestCase):
 
     TABLES = [{"id": "t1", "launcher": "l1", "launcher_app_configurable": True},
               {"id": "t2", "launcher": "l1", "launcher_app_configurable": True}]
-    WIRE = {"groups": [{"key": "plugins", "label": "Plugins", "settings": [], "curated": [
-        {"key": "B2S", "label": "B2S", "keys": ["Plugin.B2S.Enable"], "kinds": ["backglass"]},
-        {"key": "PinMAME", "label": "PinMAME", "keys": ["Plugin.PinMAME.Enable"]}]}],
+    WIRE: dict[str, Any] = {
+        "groups": [{"key": "plugins", "label": "Plugins", "settings": [], "curated": [
+            {"key": "B2S", "label": "B2S", "keys": ["Plugin.B2S.Enable"], "kinds": ["backglass"]},
+            {"key": "PinMAME", "label": "PinMAME", "keys": ["Plugin.PinMAME.Enable"]}]}],
         "values": {}}
 
     def _file(self, binding: str = "table", table: str = "t1", *,
@@ -1215,7 +1216,9 @@ class SettingsColumnTests(unittest.TestCase):
         self.assertEqual(choices[0]["label"], "Has Settings of Its Own")
 
     def test_the_launch_view_shows_it_after_the_launcher(self) -> None:
-        shown = games.TABLE_VIEWS["console.game_tables.launch"].columns
+        launch = games.TABLE_VIEWS["console.game_tables.launch"]
+        assert not isinstance(launch, list)
+        shown = launch.columns
 
         self.assertEqual(shown[shown.index("launcher") + 1], "settings")
 
@@ -1339,24 +1342,28 @@ class PointOfViewTests(unittest.TestCase):
 
     def test_its_rows_are_each_named_by_their_view(self) -> None:
         view = self._view(**{self.CAB.key: DifferencesTests.SET})
+        assert view is not None
 
         self.assertEqual([row.label for row in view.rows],
                          ["Cabinet View mode", "Desktop View mode"])
 
     def test_the_camera_is_named_by_the_views_it_is_saved_in(self) -> None:
         view = self._view(**{self.CAB.key: DifferencesTests.SET})
+        assert view is not None
 
         self.assertEqual((view.views, view.own), (["Cabinet"], [self.CAB.key]))
         self.assertEqual(app_settings.camera_said(view), "Saved for this table (Cabinet)")
 
     def test_one_from_the_game_says_so_and_is_not_the_table_s_to_reset(self) -> None:
         view = self._view(**{self.DESKTOP.key: DifferencesTests.GAME})
+        assert view is not None
 
         self.assertEqual(view.own, [])
         self.assertEqual(app_settings.camera_said(view), "Saved for this game (Desktop)")
 
     def test_a_view_mode_alone_leaves_the_camera_the_table_s_own(self) -> None:
         view = self._view(**{self.MODE.key: DifferencesTests.SET})
+        assert view is not None
 
         self.assertEqual((view.views, view.own, view.reaching), ([], [], False))
         self.assertEqual(app_settings.camera_said(view), "The table's own")
@@ -1367,6 +1374,7 @@ class PointOfViewTests(unittest.TestCase):
     def test_reset_takes_the_camera_off_and_leaves_the_view_modes(self) -> None:
         view = self._view(**{self.CAB.key: DifferencesTests.SET,
                              self.MODE.key: DifferencesTests.SET})
+        assert view is not None
         remove = Mock()
 
         with patch.object(app_settings.panel, "action") as action:
@@ -1378,6 +1386,7 @@ class PointOfViewTests(unittest.TestCase):
 
     def test_no_reset_where_the_table_does_not_hold_it(self) -> None:
         view = self._view(**{self.DESKTOP.key: DifferencesTests.GAME})
+        assert view is not None
 
         with patch.object(app_settings.panel, "action") as action:
             app_settings._camera_entries(view, Mock(), playing=False)
@@ -1393,6 +1402,7 @@ class TableOptionsTests(unittest.TestCase):
 
     def _resets(self, values: dict) -> list[str]:
         options = app_settings.table_options([self.GROUP], values)
+        assert options is not None
         with patch.object(app_settings.panel, "action") as action:
             app_settings._option_entries(options, values, Mock(), playing=False)
         return [call.args[0] for call in action.call_args_list]
@@ -1715,7 +1725,7 @@ class SetForAllTests(unittest.TestCase):
     def test_a_pair_writes_each_of_its_rows_set_here(self) -> None:
         other = self._pair_other("b", "1", "1", scope="folder")
         game = _Game(other)
-        inner = {"playing": False, "library": game, "rebuild": AsyncMock()}
+        inner: dict[str, Any] = {"playing": False, "library": game, "rebuild": AsyncMock()}
         with patch.object(app_settings.panel, "action") as action:
             app_settings.ForAll(inner, [other], False, [], self.BOTH, inner["rebuild"],
                                 read=True)(
@@ -1733,7 +1743,7 @@ class SetForAllTests(unittest.TestCase):
     def test_every_setting_draws_itself_again_and_not_the_section_under_it(self) -> None:
         other = _other("b", "1")
         section, dialog = AsyncMock(), AsyncMock()
-        inner = {"playing": False, "library": _Game(other), "rebuild": section}
+        inner: dict[str, Any] = {"playing": False, "library": _Game(other), "rebuild": section}
         more = app_settings.ForAll(inner, [other], False, [], frozenset({"Player.X"}),
                                    section, read=True)
         with patch.object(app_settings.panel, "action") as action:
@@ -1748,7 +1758,7 @@ class SetForAllTests(unittest.TestCase):
 
     def test_it_keeps_the_place_of_the_setting_it_wrote(self) -> None:
         other = _other("b", "1")
-        inner = {"playing": False, "library": _Game(other), "rebuild": AsyncMock()}
+        inner: dict[str, Any] = {"playing": False, "library": _Game(other), "rebuild": AsyncMock()}
         with patch.object(app_settings.panel, "action") as action:
             app_settings.ForAll(inner, [other], False, [], frozenset({"Player.X"}),
                                 inner["rebuild"], read=True)(dict(self.SET), self.FIELD)
@@ -1905,7 +1915,7 @@ class CopyFromGameTests(unittest.IsolatedAsyncioTestCase):
                                             "this table, which has its own file")
 
     async def test_copying_writes_them_at_the_table_s_own_scope(self) -> None:
-        inner = {"library": Mock(), "launcher": {"launcher_id": "l1"},
+        inner: dict[str, Any] = {"library": Mock(), "launcher": {"launcher_id": "l1"},
                  "config_table": "t1", "rebuild": AsyncMock()}
         io = self.enterContext(patch.object(app_settings.offload, "io",
                                             new=AsyncMock(return_value={})))
@@ -1930,7 +1940,7 @@ class FollowsGameTests(unittest.IsolatedAsyncioTestCase):
                          "No file of its own, so it follows its game's settings")
 
     async def test_copying_gives_the_table_a_file_with_those_values(self) -> None:
-        inner = {"library": Mock(), "launcher": {"launcher_id": "l1"},
+        inner: dict[str, Any] = {"library": Mock(), "launcher": {"launcher_id": "l1"},
                  "config_table": "t1", "rebuild": AsyncMock()}
         io = self.enterContext(patch.object(app_settings.offload, "io",
                                             new=AsyncMock(return_value={})))
@@ -2291,7 +2301,7 @@ class OwnSettingsColumnTests(unittest.TestCase):
         for name, preset in games.TABLE_VIEWS.items():
             with self.subTest(view=name):
                 self.assertNotIn(games.OWN_SETTINGS_COLUMN,
-                                 getattr(preset, "columns", preset))
+                                 getattr(preset, "columns", cast(Any, preset)))
 
     def test_an_address_arrives_on_the_launcher_s_tables_that_set_it(self) -> None:
         self.assertEqual(
@@ -2482,6 +2492,7 @@ class TablesSetTheirOwnTests(unittest.IsolatedAsyncioTestCase):
             [{"launcher": "vpx", "launcher_name": "Visual Pinball X"}], "vpx",
             address["sets"][0])
 
+        assert arriving is not None
         self.assertEqual(arriving[games.OWN_SETTINGS_COLUMN],
                          {"values": ["Player.PlayfieldWndX", "Player.PlayfieldWndY"]})
 

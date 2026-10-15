@@ -93,6 +93,7 @@ def _uses(tree: ast.Module) -> dict[str, list[int]]:
                     found.setdefault(child.name, []).append(child.lineno)
                 here = child.name
             if _is_transport(child):
+                assert isinstance(child, ast.expr | ast.stmt)
                 found.setdefault(inside or "<module>", []).append(child.lineno)
             walk(child, here)
 
@@ -109,7 +110,8 @@ def _asks_first(tree: ast.Module, name: str) -> bool:
             asks = [one.lineno for one in body
                     if isinstance(one, ast.Call)
                     and getattr(one.func, "attr", getattr(one.func, "id", "")) == ASKS_FIRST]
-            uses = [one.lineno for one in body if _is_transport(one)]
+            uses = [one.lineno for one in body
+                    if isinstance(one, ast.expr | ast.stmt) and _is_transport(one)]
             return bool(asks) and all(min(asks) < line for line in uses)
     return False
 

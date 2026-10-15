@@ -113,7 +113,7 @@ class CollectionAddsDrive(unittest.TestCase):
             return [(one["game"], one["ref_table"], one["origin"]) for one in instance.api(
                 f"/api/v1/collections/{quote(name)}/members")["members"]]
 
-        async with BrowserSession(chromium_path()) as browser:
+        async with BrowserSession(chromium_path() or "") as browser:
             walk = ConsoleWalk(browser, instance)
 
             async def mouse(kind: str, x: float, y: float, button: str = "left") -> None:

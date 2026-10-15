@@ -94,8 +94,8 @@ class CardTileTests(unittest.TestCase):
 
         metrics._draw_cards(target, graphics, [], {})
 
-        graphics = t("console.metrics.graphics")
-        self.assertEqual([graphics, graphics], _titles(target))
+        heading = t("console.metrics.graphics")
+        self.assertEqual([heading, heading], _titles(target))
         self.assertEqual(["RTX 3060", "RX 580"], _names(target))
         self.assertEqual(["40%", "7%"], _values(target))
         self.assertEqual([t("console.metrics.busy")] * 2,

@@ -286,8 +286,9 @@ class RemoteVocabularyTests(unittest.TestCase):
         someone choosing a picture, so the catalog reports both."""
         playfield = offered({"vps-1": self.ENTRY}, "vps-1")["playfield"]
         self.assertEqual([item["size"] for item in playfield], ["4k", "1k"])
-        self.assertEqual(published_url({"vps-1": self.ENTRY}, "vps-1", "playfield")[0],
-                         "https://example.invalid/table4k.png")
+        published = published_url({"vps-1": self.ENTRY}, "vps-1", "playfield")
+        assert published is not None
+        self.assertEqual(published[0], "https://example.invalid/table4k.png")
 
 
 def _game_at(root: Path):

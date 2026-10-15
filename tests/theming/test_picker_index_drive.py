@@ -42,7 +42,7 @@ class PickerIndexDriveTests(TempTree):
             write_game(self.root, name, info={"Info": {"Name": name}, "VPinFE": {}, "User": {}})
 
         async def run(instance: LiveInstance) -> tuple[dict, dict]:
-            async with BrowserSession(chromium_path()) as browser:
+            async with BrowserSession(chromium_path() or "") as browser:
                 await browser.navigate(instance.theme_url("playfield"))
                 await browser.wait_for("document.body.dataset.ready === 'true'", timeout=90.0)
                 await browser.evaluate(WATCH)

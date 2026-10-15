@@ -8,6 +8,7 @@ about deleting a file from somebody's frontend folder.
 from __future__ import annotations
 
 import unittest
+from typing import cast
 from unittest import mock
 
 import httpapi
@@ -16,6 +17,8 @@ from common.extensions.contract import ContractError
 from common.extensions.games import ExtensionGames, offered, withdraw_all
 from common.games import library_folder_ops, library_folders
 from tests.support.library import TempTree, write_game
+
+NO_FILES = cast(ExtensionFiles, None)
 
 
 class SurveyTests(TempTree):
@@ -215,9 +218,9 @@ class LibraryFolderTests(TempTree):
     def test_adding_a_library_folder_and_seeing_where_games_go_take_the_config_scopes(self) -> None:
         """The same scopes the routes under /locations take, so declaring them means what
         it does for an HTTP client."""
-        reader = ExtensionGames("tester", ("config:read",), None)
-        writer = ExtensionGames("tester", ("config:write",), None)
-        nothing = ExtensionGames("tester", ("games:read", "games:write"), None)
+        reader = ExtensionGames("tester", ("config:read",), NO_FILES)
+        writer = ExtensionGames("tester", ("config:write",), NO_FILES)
+        nothing = ExtensionGames("tester", ("games:read", "games:write"), NO_FILES)
 
         self.assertIn("new_game_destination", offered())
         self.assertEqual(reader.reaches(), ("new_game_destination",))

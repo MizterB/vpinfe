@@ -17,7 +17,7 @@ from frontend import input_events
 try:
     from starlette.testclient import TestClient
 except ImportError:  # pragma: no cover
-    TestClient = None
+    TestClient = None  # type: ignore[assignment,misc]
 
 
 class _Bridge:
@@ -190,7 +190,7 @@ class BridgeTests(unittest.TestCase):
         input_events.reset_for_tests()
         input_actions.release_all()
         self.bridge = _Bridge()
-        input_events.register(self.bridge)
+        input_events.register(self.bridge)  # type: ignore[arg-type]
         self.addCleanup(events.clear)
         self.addCleanup(input_events.reset_for_tests)
         self.addCleanup(input_actions.release_all)
@@ -214,7 +214,7 @@ class BridgeTests(unittest.TestCase):
     def test_registering_twice_does_not_send_twice(self) -> None:
         """Every API instance sends through the same bridge, so a per-window
         registration would put each press on the wire once per screen."""
-        input_events.register(self.bridge)
+        input_events.register(self.bridge)  # type: ignore[arg-type]
 
         input_actions.tap("select", source="remote")
 

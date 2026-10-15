@@ -141,8 +141,8 @@ class LoadTests(unittest.TestCase):
                 raise ThemeRegistryError(f"unreachable: {url}")
             return responses[url]
 
-        registry._fetch_json = fetch
-        registry._fetch_any = fetch
+        registry._fetch_json = fetch  # type: ignore[method-assign]
+        registry._fetch_any = fetch  # type: ignore[method-assign]
         return registry
 
     def test_a_repository_needs_no_catalog_to_be_offered(self) -> None:
@@ -165,8 +165,8 @@ class LoadTests(unittest.TestCase):
         registry.load_registry()
         registry.load_theme_manifests()
         downloads: list[str] = []
-        registry._download_zip = lambda url: downloads.append(url) or b""
-        registry.store.install_zip = lambda *args: None
+        registry._download_zip = lambda url: downloads.append(url) or b""  # type: ignore[method-assign, assignment, func-returns-value, return-value]
+        registry.store.install_zip = lambda *args: None  # type: ignore[method-assign]
         self._accept(registry)
         registry.install_theme("Reference")
         self.assertEqual(downloads, [f"{MINE}/archive/v1.4.zip"])
@@ -180,7 +180,7 @@ class LoadTests(unittest.TestCase):
         registry.load_registry()
         registry.load_theme_manifests()
         downloads: list[str] = []
-        registry._download_zip = lambda url: downloads.append(url) or b""
+        registry._download_zip = lambda url: downloads.append(url) or b""  # type: ignore[method-assign, assignment, func-returns-value, return-value]
         self._accept(registry)
         with mock.patch("common.online.themes.get_version", return_value="3.0.1"):
             with self.assertRaises(ThemeVersionError):

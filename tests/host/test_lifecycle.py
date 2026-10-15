@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import unittest
 from types import SimpleNamespace
+from typing import Any, cast
 from unittest import mock
 
 from common import events, lifecycle
@@ -14,7 +15,7 @@ class LifecycleTests(unittest.TestCase):
     def setUp(self) -> None:
         lifecycle.reset_for_tests()
         self.addCleanup(lifecycle.reset_for_tests)
-        self.done = []
+        self.done: list[Any] = []
         for scope, action in (
             (lifecycle.FRONTEND, lifecycle.START),
             (lifecycle.FRONTEND, lifecycle.STOP),
@@ -34,8 +35,12 @@ class LifecycleTests(unittest.TestCase):
     def test_an_unconfigured_install_never_asks(self) -> None:
         """The default is what VPinFE has always done: quit means quit."""
         asked = []
-        lifecycle.register_confirmer(
-            lifecycle.SURFACE_FRONTEND, lambda request: asked.append(request) or True)
+
+        def confirm(request: Any) -> bool:
+            asked.append(request)
+            return True
+
+        lifecycle.register_confirmer(lifecycle.SURFACE_FRONTEND, confirm)
 
         self.assertTrue(lifecycle.request(
             lifecycle.VPINFE, lifecycle.STOP, origin=self._at(lifecycle.SURFACE_FRONTEND)))
@@ -62,10 +67,15 @@ class LifecycleTests(unittest.TestCase):
     def test_the_question_goes_to_the_surface_that_asked(self) -> None:
         """The whole point of an addressed origin: a confirm follows the request home."""
         asked = []
-        lifecycle.register_confirmer(
-            lifecycle.SURFACE_FRONTEND, lambda _r: asked.append("frontend") or True)
-        lifecycle.register_confirmer(
-            lifecycle.SURFACE_MANAGER_UI, lambda _r: asked.append("manager_ui") or True)
+
+        def confirm_for(surface: str):
+            def confirm(_request: Any) -> bool:
+                asked.append(surface)
+                return True
+            return confirm
+
+        lifecycle.register_confirmer(lifecycle.SURFACE_FRONTEND, confirm_for("frontend"))
+        lifecycle.register_confirmer(lifecycle.SURFACE_MANAGER_UI, confirm_for("manager_ui"))
 
         lifecycle.request(lifecycle.SYSTEM, lifecycle.RESTART,
                           origin=self._at(lifecycle.SURFACE_MANAGER_UI, "client-7"),
@@ -96,7 +106,7 @@ class LifecycleTests(unittest.TestCase):
         self.assertEqual(self.done, [])
 
     def test_every_surface_is_told_and_none_of_them_can_veto(self) -> None:
-        told = []
+        told: list[Any] = []
         lifecycle.register_notifier(lambda request: told.append(request.describe()))
         lifecycle.register_notifier(lambda _request: (_ for _ in ()).throw(RuntimeError))
         lifecycle.register_notifier(lambda request: told.append(request.scope))
@@ -110,7 +120,7 @@ class LifecycleTests(unittest.TestCase):
         self.assertEqual(self.done, [(lifecycle.SYSTEM, lifecycle.STOP)])
 
     def test_nobody_is_told_about_something_that_was_declined(self) -> None:
-        told = []
+        told: list[Any] = []
         lifecycle.register_notifier(told.append)
         lifecycle.register_confirmer(lifecycle.SURFACE_FRONTEND, lambda _request: False)
 
@@ -180,9 +190,9 @@ class LifecycleTests(unittest.TestCase):
         self.addCleanup(lifecycle.reset_for_tests)
         with mock.patch("common.host.system_actions.shutdown_system") as power_off:
             lifecycle_host.install(
-                config_store=None,
-                frontend_browser=SimpleNamespace(terminate_all=lambda: None),
-                shutdown_event=SimpleNamespace(set=lambda: None),
+                config_store=cast(Any, None),
+                frontend_browser=cast(Any, SimpleNamespace(terminate_all=lambda: None)),
+                shutdown_event=cast(Any, SimpleNamespace(set=lambda: None)),
             )
             lifecycle.request(lifecycle.SYSTEM, lifecycle.STOP,
                               origin=lifecycle.Origin(lifecycle.SURFACE_SIGNAL))
@@ -199,11 +209,11 @@ class FrontendPerformerTests(unittest.TestCase):
         self.shutdown = mock.Mock()
 
     def _install(self, *, windows: bool = False) -> None:
-        self.closed = []
-        self.opened = []
-        extra = ({"open_windows": lambda: self.opened.append(1),
+        self.closed: list[int] = []
+        self.opened: list[int] = []
+        extra: dict[str, Any] = ({"open_windows": lambda: self.opened.append(1),
                   "close_windows": lambda: self.closed.append(1)} if windows else {})
-        lifecycle_host.install(config_store=None,
+        lifecycle_host.install(config_store=cast(Any, None),
                                frontend_browser=self.browser,
                                shutdown_event=self.shutdown, **extra)
 
@@ -276,9 +286,9 @@ class NoticeTests(unittest.TestCase):
             setattr(self, f"fake_{name}", patcher.start())
 
         lifecycle_host.install(
-            config_store=None,
-            frontend_browser=SimpleNamespace(terminate_all=lambda: None),
-            shutdown_event=SimpleNamespace(set=lambda: None),
+            config_store=cast(Any, None),
+            frontend_browser=cast(Any, SimpleNamespace(terminate_all=lambda: None)),
+            shutdown_event=cast(Any, SimpleNamespace(set=lambda: None)),
             ws_bridge=bridge,
         )
 
@@ -343,7 +353,7 @@ class _Bridge:
     """Records what would have gone to the windows."""
 
     def __init__(self) -> None:
-        self.sent = []
+        self.sent: list[tuple[Any, Any]] = []
 
     def send_event_all(self, message, exclude=None) -> None:
         self.sent.append((message, exclude))

@@ -39,6 +39,7 @@ class LocatorTests(unittest.TestCase):
             found = pinmame_catalog.find_library(str(binary))
 
         self.assertIsNotNone(found)
+        assert found is not None
         self.assertEqual(found.name, "libpinmame.so.3.7")
 
     def test_macos_bundle_layout_finds_the_frameworks_dylib(self) -> None:
@@ -54,6 +55,7 @@ class LocatorTests(unittest.TestCase):
             found = pinmame_catalog.find_library(str(binary))
 
         self.assertIsNotNone(found)
+        assert found is not None
         self.assertEqual(found.parent.name, "Frameworks")
 
     def test_the_env_override_wins_and_a_bad_override_is_none(self) -> None:
@@ -69,6 +71,7 @@ class LocatorTests(unittest.TestCase):
     def test_availability_says_why_not(self) -> None:
         available, reason = pinmame_catalog.availability("")
         self.assertFalse(available)
+        assert reason is not None
         self.assertIn("launcher", reason)
 
         with TemporaryDirectory() as tmp:
@@ -76,6 +79,7 @@ class LocatorTests(unittest.TestCase):
             binary.write_bytes(b"elf")
             available, reason = pinmame_catalog.availability(str(binary))
         self.assertFalse(available)
+        assert reason is not None
         self.assertIn("libpinmame", reason)
 
 
@@ -188,7 +192,7 @@ class WorkerContractTests(unittest.TestCase):
                 found = [pinmame_catalog.lookup(str(binary), tmp, name)
                          for name in ("afm_113b", "mm_109c", "tz_92")]
 
-        self.assertTrue(all(entry["found"] for entry in found))
+        self.assertTrue(all(entry is not None and entry["found"] for entry in found))
         self.assertEqual(popen.call_count, 1)
 
     def test_a_helper_that_stops_answering_is_replaced_for_the_next_lookup(self) -> None:
@@ -213,6 +217,7 @@ class WorkerContractTests(unittest.TestCase):
                 second = pinmame_catalog.lookup(str(binary), tmp, "mm_109c")
 
         self.assertIsNone(first)
+        assert second is not None
         self.assertTrue(second["found"])
 
 
@@ -284,6 +289,12 @@ def _shipped_library() -> str | None:
     return None
 
 
+def _required_library() -> str:
+    library = _shipped_library()
+    assert library is not None
+    return library
+
+
 @unittest.skipUnless(_shipped_library(), "no VPX install with libpinmame on this machine")
 class RealLibraryTests(unittest.TestCase):
     """Runs against the actual shipped library where one exists, and self-skips
@@ -294,7 +305,7 @@ class RealLibraryTests(unittest.TestCase):
         repo = Path(__file__).resolve().parents[2]
         proc = subprocess.run(
             [sys.executable, "-m", "common.host.pinmame_worker",
-             _shipped_library(), roms_dir, *names],
+             _required_library(), roms_dir, *names],
             capture_output=True, text=True, timeout=60, cwd=str(repo),
             env={**os.environ, **env} if env else None,
         )
@@ -327,7 +338,7 @@ class RealLibraryTests(unittest.TestCase):
                                for roms, name in asked)
             proc = subprocess.run(
                 [sys.executable, "-m", "common.host.pinmame_worker", "--serve",
-                 _shipped_library()],
+                 _required_library()],
                 input=requests, capture_output=True, text=True, timeout=60, cwd=str(repo))
             one_shot = [self._run_worker(roms, name) for roms, name in asked]
 

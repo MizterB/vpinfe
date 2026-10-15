@@ -106,7 +106,7 @@ class RowDragDrive(unittest.TestCase):
             return [(one["game"], one["ref_table"], one["origin"]) for one in instance.api(
                 f"/api/v1/collections/{quote(name)}/members")["members"]]
 
-        async with BrowserSession(chromium_path()) as browser:
+        async with BrowserSession(chromium_path() or "") as browser:
             caught: list[dict] = []
             heard = browser._on_event
 

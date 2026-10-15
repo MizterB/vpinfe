@@ -24,7 +24,7 @@ class SystemCallTests(unittest.TestCase):
             WIRED,
             patch.object(system, "DELAY", 0),
             patch.object(system.device_client.local(), "request",
-                         side_effect=lambda *a, **k: self.asked.append((a, k)) or True),
+                         side_effect=lambda *a, **k: self.asked.append((a, k)) or True),  # type: ignore[func-returns-value]
         ):
             held.start()
             self.addCleanup(held.stop)

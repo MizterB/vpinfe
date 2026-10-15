@@ -10,9 +10,9 @@ from console import ext_groups
 GAME_GROUP = {"subject": "game", "title": "Notes", "base": "/groups/game", "save": True}
 TABLE_GROUP = {"subject": "table", "title": "Here", "base": "/groups/table", "save": False}
 CURATING = {**GAME_GROUP, "title": "Tidy", "private_ok": True}
-EXTENSIONS = [{"name": "weekly", "groups": [GAME_GROUP, TABLE_GROUP]},
-              {"name": "quiet", "groups": []},
-              {"name": "bare"}]
+EXTENSIONS: list[dict[str, Any]] = [{"name": "weekly", "groups": [GAME_GROUP, TABLE_GROUP]},
+                                    {"name": "quiet", "groups": []},
+                                    {"name": "bare"}]
 
 
 def context(*, lens: str = "", private: bool = False) -> dict[str, Any]:

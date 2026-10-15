@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 from unittest import mock
 
 from nicegui import core, ui
@@ -317,7 +317,7 @@ class TakingAFileFromTheDisk(unittest.IsolatedAsyncioTestCase):
 
     async def _take(self, name: str = "art.png", path: str = "/Volumes/share/art.png") -> None:
         self.slot.file_row({"name": name, "path": path})
-        take = mediasource.candidates.row.call_args.args[4]
+        take = cast(Any, mediasource.candidates.row).call_args.args[4]
         await clicks.press(take)
 
     async def test_the_file_is_read_here_and_placed_as_bytes_under_its_name(self) -> None:
@@ -357,7 +357,7 @@ class TakingAFileFromTheDisk(unittest.IsolatedAsyncioTestCase):
         taken = mock.AsyncMock()
         with mock.patch.object(image, "took", new=taken):
             image.file_row({"name": "art.png", "path": "/Volumes/share/art.png"})
-            await clicks.press(mediasource.candidates.row.call_args.args[4])
+            await clicks.press(cast(Any, mediasource.candidates.row).call_args.args[4])
 
         self.library.disk_file.assert_called_once_with("/Volumes/share/art.png", image.accept)
         taken.assert_awaited_once_with("art.png", b"bytes")

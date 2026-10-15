@@ -6,6 +6,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from typing import Any
 from unittest import mock
 
 from common import jobs
@@ -126,6 +127,7 @@ class RunTests(AdoptCase):
         super().setUp()
         from common.extensions.context import ExtensionContext
 
+        assert self.record.manifest is not None
         self._ctx = ExtensionContext(self.record.manifest, self.store,
                                      on_failure=lambda why: None)
         self._ctx.files.set_roots([str(FIXTURE)])
@@ -136,7 +138,7 @@ class RunTests(AdoptCase):
         return adopt.run(self._ctx, pinballx.read(FIXTURE), [VPX], **kinds)
 
     def test_each_game_is_reported_before_it_is_made(self) -> None:
-        told = []
+        told: list[Any] = []
 
         self._run(report=told.append, weigh=lambda game: 10)
 
@@ -180,12 +182,13 @@ class StopTests(AdoptCase):
     def test_a_running_import_offers_its_stop_and_is_halted_by_it(self) -> None:
         from common.extensions.context import ExtensionContext
 
-        release = []
+        release: list[int] = []
 
         def work(job: jobs.Job) -> None:
             while not release:
                 time.sleep(0.01)
 
+        assert self.record.manifest is not None
         context = ExtensionContext(self.record.manifest, self.store,
                                    on_failure=lambda why: None)
         job = context.jobs.submit("import", work, stoppable=True)

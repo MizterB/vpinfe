@@ -12,6 +12,7 @@ import socket
 import time
 import unittest
 from pathlib import Path
+from typing import cast
 from unittest import mock
 
 from starlette.testclient import TestClient
@@ -60,7 +61,7 @@ class MarksTests(TempTree):
         previous = dict(game_repository._PARSERS)
         game_repository._PARSERS.clear()
         game_repository._PARSERS[(str(self.root), KIND_ROOT)] = GameParser(
-            str(self.root), config)
+            str(self.root), config)  # type: ignore[arg-type]
         self.addCleanup(game_repository._PARSERS.update, previous)
         self.addCleanup(game_repository._PARSERS.clear)
 
@@ -105,7 +106,7 @@ class MarksTests(TempTree):
             job = jobs.get(job_id)
             if job is not None and job.state != jobs.RUNNING:
                 self.assertIsNone(job.error, job.error)
-                return job.result
+                return cast(dict, job.result)
             time.sleep(0.02)
         self.fail("the marks job did not finish")
 

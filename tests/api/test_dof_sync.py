@@ -14,10 +14,12 @@ import tempfile
 import threading
 import unittest
 from pathlib import Path
+from typing import cast
 from unittest import mock
 
 import httpapi
 from common import cache_stamps, jobs, service_errors, timestamps
+from common.config_store import ConfigStore
 from common.host import dof_service
 from common.i18n import t
 from common.online import dof_sync
@@ -26,7 +28,7 @@ from tests.support.stamps import OwnStamps
 try:
     from starlette.testclient import TestClient
 except ImportError:  # pragma: no cover
-    TestClient = None
+    TestClient = None  # type: ignore[assignment,misc]
 
 STAND_IN = '''\
 import json, os, sys
@@ -45,10 +47,10 @@ print("Done: config updated to v1.")
 '''
 
 
-def _config(download: str = "weekly", key: str = "secret-key") -> configparser.ConfigParser:
+def _config(download: str = "weekly", key: str = "secret-key") -> ConfigStore:
     parser = configparser.ConfigParser()
     parser.read_dict({"dof": {"download_config": download, "config_tool_api_key": key}})
-    return parser
+    return cast(ConfigStore, parser)
 
 
 def _ago(seconds: float) -> str:
@@ -80,7 +82,7 @@ class DueTests(OwnStamps):
     def test_weekly_is_what_a_config_with_no_choice_gets(self) -> None:
         parser = configparser.ConfigParser()
         parser.read_dict({"dof": {"config_tool_api_key": "k"}})
-        self.assertEqual(dof_sync.schedule(parser), "weekly")
+        self.assertEqual(dof_sync.schedule(cast(ConfigStore, parser)), "weekly")
 
 
 class RunTests(OwnStamps):
@@ -272,7 +274,7 @@ class RunTests(OwnStamps):
 
 
 class WatchTests(OwnStamps):
-    def _watched(self, config: configparser.ConfigParser, real: bool = False,
+    def _watched(self, config: ConfigStore, real: bool = False,
                  **busy: object) -> list[bool]:
         stop = threading.Event()
         forced: list[bool] = []

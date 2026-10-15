@@ -123,8 +123,9 @@ class RunTests(_Probe):
                             def test_reads_what_its_import_saw(self):
                                 runnerprobe0.seen.append(AT_IMPORT)
                     """})
+        kept: list[runner.Record] = []
         runner.run_modules([f"{self.PACKAGE}.test_a", f"{self.PACKAGE}.test_b"],
-                           io.StringIO(), [].append, top=self.top)
+                           io.StringIO(), kept.append, top=self.top)
         self.assertEqual(["as imported"], sys.modules[self.PACKAGE].seen)
 
     def test_every_class_is_torn_down_once(self) -> None:
@@ -142,8 +143,9 @@ class RunTests(_Probe):
                     pass
         """
         self.write({"__init__.py": "torn = []\n", "test_a.py": tearing, "test_b.py": tearing})
+        kept: list[runner.Record] = []
         runner.run_modules([f"{self.PACKAGE}.test_a", f"{self.PACKAGE}.test_b"],
-                           io.StringIO(), [].append, top=self.top)
+                           io.StringIO(), kept.append, top=self.top)
         self.assertEqual(["runnerprobe0.test_a", "runnerprobe0.test_b"],
                          sys.modules[self.PACKAGE].torn)
 

@@ -19,7 +19,7 @@ import urllib.error
 import urllib.request
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from common import events, i18n, jobs, sized_media
 from common.extensions import check, contract, fields, host, pictures, serving, store
@@ -263,7 +263,7 @@ class ExamplesLoadedByTheHost(unittest.TestCase):
         self.addCleanup(i18n.disown, f"ext.{name}")
         record = self.registry.load(folder or EXAMPLES / "recipes" / name)
         self.assertEqual(record.state, host.LOADED, record.error)
-        record.context.config.set("site", self.address)
+        _context(record).config.set("site", self.address)
         return record
 
     def posted_scores(self) -> list[dict]:
@@ -282,10 +282,10 @@ class RecipesDoWhatTheyClaim(ExamplesLoadedByTheHost):
 
         shown = serving.settings_read(record)["fields"][0]
         self.assertEqual((shown["value"], shown["placeholder"]), ("", "Hello"))
-        self.assertEqual(record.context.config.get("greeting"), "Hello")
+        self.assertEqual(_context(record).config.get("greeting"), "Hello")
         serving.settings_write(record, {"greeting": "Howdy"})
 
-        self.assertEqual(record.context.config.get("greeting"), "Howdy")
+        self.assertEqual(_context(record).config.get("greeting"), "Howdy")
 
     def test_the_smallest_dialog_asks_one_question_and_says_hello_to_the_answer(self) -> None:
         record = self.load("hello_dialog")
@@ -337,13 +337,14 @@ class RecipesDoWhatTheyClaim(ExamplesLoadedByTheHost):
 
         started = serving.dialog_run(record, "sync", {})
         job = jobs.get(started["job_id"])
+        assert job is not None
         self._until(lambda: job.pct > 0)
         stopped = serving.job_stop(record, "sync")
         self._until(lambda: job.state == jobs.DONE)
 
         self.assertEqual(stopped, {"stopped": True})
         self.assertTrue(job.stopped)
-        self.assertLess(job.result["done"], 20)
+        self.assertLess(cast(Any, job.result)["done"], 20)
         self.assertRegex(job.message, r"^Step \d+ of 20$")
 
     def test_a_game_ending_writes_a_line_to_the_extensions_log(self) -> None:
@@ -363,7 +364,7 @@ class RecipesDoWhatTheyClaim(ExamplesLoadedByTheHost):
         with self.assertLogs(logger_for("top_scores").name, "WARNING"):
             with self.assertRaises(serving.ExtensionError) as raised:
                 serving.list_rows(record, "top")
-        record.context.config.set("key", practice_site.KEY)
+        _context(record).config.set("key", practice_site.KEY)
         rows = serving.list_rows(record, "top")["rows"]
 
         self.assertEqual(raised.exception.message, "The site did not accept the key")
@@ -372,7 +373,7 @@ class RecipesDoWhatTheyClaim(ExamplesLoadedByTheHost):
     def test_the_rows_carry_what_a_verb_needs_and_a_verb_acts_on_the_rows_it_is_given(
             self) -> None:
         record = self.load("score_rows")
-        record.context.config.set("key", practice_site.KEY)
+        _context(record).config.set("key", practice_site.KEY)
         rows = serving.list_rows(record, "scores")["rows"]
 
         said = serving.list_verb(record, "scores", "flag", [rows[0]["id"]])
@@ -454,7 +455,7 @@ class RecipesDoWhatTheyClaim(ExamplesLoadedByTheHost):
         self.assertEqual(flagged, {"message": "2 flagged"})
         self.assertEqual(unflagged, {"message": "1 unflagged"})
         self.assertEqual(version, {"message": "This table is version 1.2"})
-        self.assertEqual(record.context.config.get("flagged"), "g2")
+        self.assertEqual(_context(record).config.get("flagged"), "g2")
         with self.assertRaises(RefusedError):
             serving.library_verb(record, "table", "version", [who[0], who[1]])
 
@@ -520,7 +521,7 @@ class LessonsDoWhatTheyClaim(ExamplesLoadedByTheHost):
 
     def lesson(self, name: str) -> host.Record:
         record = self.load("example_scores", EXAMPLES / "scores" / name / "example_scores")
-        record.context.config.set("key", practice_site.KEY)
+        _context(record).config.set("key", practice_site.KEY)
         return record
 
     def test_the_settings_page_has_the_site_and_a_key_that_is_never_sent_back(self) -> None:
@@ -544,7 +545,7 @@ class LessonsDoWhatTheyClaim(ExamplesLoadedByTheHost):
         record = self.lesson("03-list")
 
         rows = serving.list_rows(record, "scores")["rows"]
-        record.context.config.set("key", "nope")
+        _context(record).config.set("key", "nope")
         with self.assertLogs(logger_for("example_scores").name, "WARNING"):
             with self.assertRaises(serving.ExtensionError) as raised:
                 serving.list_rows(record, "scores")
@@ -573,7 +574,7 @@ class LessonsDoWhatTheyClaim(ExamplesLoadedByTheHost):
 
         with_key = [one["key"] for one in serving.list_about(record, "scores")["acts"]]
         said = serving.list_act(record, "scores", "test")
-        record.context.config.set("key", "")
+        _context(record).config.set("key", "")
         without = [one["key"] for one in serving.list_about(record, "scores")["acts"]]
 
         self.assertEqual((with_key, without), (["site", "test"], ["site"]))
@@ -845,6 +846,11 @@ def reference_text() -> str:
     return "\n".join(page.read_text() for page in REFERENCE_PAGES)
 
 
+def _context(record: host.Record) -> ExtensionContext:
+    assert record.context is not None
+    return record.context
+
+
 def reference_sections() -> dict[str, str]:
     """Each `ctx.` call's name against the text under its heading, to the next heading of any
     level. A heading that only introduces the calls under it (`ctx.ui`) is not a call."""
@@ -889,6 +895,9 @@ def table_column_yes(header: str, column: int) -> set[str]:
 
 class ReferenceMatchesCore(unittest.TestCase):
     """The reference lists what core accepts, and nothing it does not."""
+
+    ctx: ExtensionContext
+    sections: dict[str, str]
 
     @classmethod
     def setUpClass(cls) -> None:

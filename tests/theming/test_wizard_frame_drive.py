@@ -36,7 +36,7 @@ PLAIN = {"step": "how", "title": "Copy or move?", "help": "Two tables", "steps":
          "fields": [{"key": "how", "type": "choice", "label": "How", "value": "copy",
                      "choices": [["copy", "Copy them", "The folder stays as it is"],
                                  ["move", "Move them", "No second copy"]]}]}
-FLOWS = {
+FLOWS: dict[str, dict[str, Any]] = {
     "/welcome": {"step": "welcome", "welcome": True, "title": "Welcome to VPinFE",
                  "help": "A few questions and it is set up", "steps": STEPS,
                  "fields": [PLAY]},

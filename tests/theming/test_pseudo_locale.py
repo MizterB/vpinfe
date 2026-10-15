@@ -214,7 +214,7 @@ class PseudoLocaleTests(unittest.TestCase):
                 keys[where] = named
 
         async def look(instance) -> None:
-            async with BrowserSession(chromium_path()) as browser:
+            async with BrowserSession(chromium_path() or "") as browser:
                 walk = ConsoleWalk(browser, instance)
                 for view in addresses:
                     await walk.visit(f"/console?{view}")
@@ -266,7 +266,7 @@ class FrontendPseudoLocaleTests(unittest.TestCase):
 
         async def look(instance) -> dict[str, list[str]]:
             found: dict[str, list[str]] = {}
-            async with BrowserSession(chromium_path()) as browser:
+            async with BrowserSession(chromium_path() or "") as browser:
                 await _ready(browser, instance)
                 for overlay, frame in (("menu", "menu-frame"),
                                        ("collectionMenu", "collection-menu-frame")):
@@ -310,7 +310,7 @@ class FrontendPseudoLocaleTests(unittest.TestCase):
                   ".dispatchEvent(new Event('load'))")
 
         async def look(instance) -> tuple:
-            async with BrowserSession(chromium_path()) as browser:
+            async with BrowserSession(chromium_path() or "") as browser:
                 await _ready(browser, instance)
                 await _open(browser, "collectionMenu", "collection-menu-frame")
                 said = await browser.evaluate(line)

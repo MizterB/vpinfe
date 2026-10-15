@@ -147,7 +147,7 @@ class CollectionViewTests(_Library):
                 library = LibraryResolver(ini, games=list(self.games))
 
                 with self.assertLogs("vpinfe.frontend.api", level="WARNING") as logged:
-                    api = API(ini, library=library)
+                    api = API(ini, library=library)  # type: ignore[arg-type]
 
                 self.assertEqual(api.current_collection, BUILTIN_ALL)
                 self.assertEqual(len(api.entries), 3)

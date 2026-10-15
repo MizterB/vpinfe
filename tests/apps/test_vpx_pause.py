@@ -24,6 +24,7 @@ class VPXPauseTests(unittest.TestCase):
 
     def test_the_app_says_how_it_pauses(self) -> None:
         self.assertIsInstance(VPX.pause, Pause)
+        assert VPX.pause is not None
         self.assertEqual((VPX.pause.paused_marker, VPX.pause.resumed_marker),
                          ("Pausing Game", "Unpausing Game"))
 

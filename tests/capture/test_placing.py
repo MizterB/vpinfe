@@ -6,6 +6,7 @@ from __future__ import annotations
 import configparser
 import unittest
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import patch
 
 from apps.vpx.capture import VPXCapture
@@ -85,7 +86,9 @@ class PrecedenceTests(unittest.TestCase):
 
         found = _placing(said).screens({"playfield": "DP-7", "backglass": "DP-9"})
 
-        self.assertEqual((found["playfield"].output.name, found["backglass"].output.name),
+        playfield, backglass = found["playfield"].output, found["backglass"].output
+        assert playfield is not None and backglass is not None
+        self.assertEqual((playfield.name, backglass.name),
                          ("HDMI-A-1", "DP-1"))
 
     def test_a_window_the_app_does_not_name_is_found_by_vpinfes_screen_id(self) -> None:
@@ -129,6 +132,7 @@ class ShownTests(unittest.TestCase):
                 patch.object(VPXCapture, "placed_by", return_value="settings-1"):
             said = placing.shown("game", "Example.vpx")
 
+        assert said is not None
         found.assert_called_once_with("game", "Example.vpx")
         self.assertEqual((said.app, dict(said.outputs)), ("Visual Pinball X", {"topper": ""}))
         self.assertEqual(said.window("", "Visual Pinball Player"), "playfield")
@@ -148,6 +152,7 @@ class ShownTests(unittest.TestCase):
         self.assertEqual(said, ("Visual Pinball X", "/games/Example/Example.vpx", "settings-1"))
 
     def test_nothing_is_said_without_a_launcher_or_a_capture_hook(self) -> None:
+        answer: Any
         for answer in (None, (apps.get("generic"), apps.Entry(), {}),
                        launch.LaunchUnavailableError("no table")):
             with self.subTest(answer=answer), patch.object(

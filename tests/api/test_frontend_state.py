@@ -76,9 +76,9 @@ class FrontendStateTests(TempTree):
                  _game("taf", "The Addams Family")]
         start_library_of(self, games)
         self.library = LibraryResolver(_ini(), games=games)
-        self.window = API(_ini(), window_name="table", library=self.library)
+        self.window = API(_ini(), window_name="table", library=self.library)  # type: ignore[arg-type]
         self.channel = _Channel()
-        showing.register(self.channel, self.library)
+        showing.register(self.channel, self.library)  # type: ignore[arg-type]
 
         self.published: list[dict] = []
         events.subscribe(events.FRONTEND_STATE_CHANGED, self._heard)

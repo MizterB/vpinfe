@@ -326,11 +326,14 @@ class RetiredInputDefaultsTests(ConfigStoreTests):
         return ConfigStore(str(self.ini)).config.get("input", action)
 
     def test_the_shipped_2x_keys_take_the_current_defaults(self) -> None:
-        exit_default = config_schema.option("input", "exit").default
+        exit_option = config_schema.option("input", "exit")
+        back_option = config_schema.option("input", "back")
+        assert exit_option is not None
+        assert back_option is not None
+        exit_default = exit_option.default
 
         self.assertEqual(self._migrated(self.TWO_X, "exit"), exit_default)
-        self.assertEqual(self._migrated(self.TWO_X, "back"),
-                         config_schema.option("input", "back").default)
+        self.assertEqual(self._migrated(self.TWO_X, "back"), back_option.default)
 
     def test_a_key_somebody_changed_is_kept_as_they_wrote_it(self) -> None:
         """Each half is judged alone: the controller buttons nobody mapped still take the

@@ -124,10 +124,10 @@ class TransitionTests(TempTree):
         self.addCleanup(patcher.stop)
         self.dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.dir.cleanup)
-        patcher = patch.object(watching, "WATCHING_PATH",
-                               Path(self.dir.name) / "watching.json")
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        path_patch = patch.object(watching, "WATCHING_PATH",
+                                  Path(self.dir.name) / "watching.json")
+        path_patch.start()
+        self.addCleanup(path_patch.stop)
         from common.games.library_vps_state import _crowded_links_for
         _crowded_links_for.cache_clear()
         self.client = TestClient(httpapi.create_api_app(),

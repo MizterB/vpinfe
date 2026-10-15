@@ -29,7 +29,7 @@ from tests.support.library import TempTree, fake_game, write_game
 try:
     from starlette.testclient import TestClient
 except ImportError:  # pragma: no cover - the API tests skip the same way
-    TestClient = None
+    TestClient = None  # type: ignore[assignment, misc]
 
 LIBRARY = (("Attack from Mars (Bally 1995)", "Aaaa111111"),
            ("Medieval Madness (Williams 1997)", "Bbbb222222"),

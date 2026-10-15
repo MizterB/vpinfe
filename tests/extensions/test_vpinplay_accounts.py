@@ -15,6 +15,7 @@ import tempfile
 import unittest
 from configparser import ConfigParser
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import requests
@@ -112,13 +113,14 @@ class VPinPlayCase(unittest.TestCase):
     def act(self, player_id: str, act: str):
         return self.client.post(f"/players/{player_id}/accounts/{NAME}/acts/{act}")
 
-    def available(self, candidate: str, **get_kwargs: object):
+    def available(self, candidate: str, **get_kwargs: Any):
         """The Console's own route to it: straight through to the extension, the way its
         settings and community pages are asked."""
         with patch.object(requests, "get", **get_kwargs):
             return self.client.get(f"/ext/{NAME}/available", params={"candidate": candidate})
 
-    def claim(self, player_id: str, *, get_kwargs: object = None, post_kwargs: object = None):
+    def claim(self, player_id: str, *, get_kwargs: dict[str, Any] | None = None,
+              post_kwargs: dict[str, Any] | None = None):
         patches = [patch.object(requests, "get", **(get_kwargs or {
             "return_value": _answer(200, {"available": True})}))]
         if post_kwargs is not None:
@@ -359,7 +361,7 @@ class TheResolvedClaim(VPinPlayCase):
         self.owner = self.make_owner()
         self.load()
 
-    def resolve_as(self, **get_kwargs: object) -> None:
+    def resolve_as(self, **get_kwargs: Any) -> None:
         with patch.object(requests, "get", **get_kwargs):
             self.run_resolves()
 

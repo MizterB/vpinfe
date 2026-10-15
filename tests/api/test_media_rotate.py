@@ -12,7 +12,8 @@ import pathlib
 import subprocess
 import time
 import unittest
-from unittest.mock import patch
+from typing import cast
+from unittest.mock import MagicMock, patch
 
 from PIL import Image
 
@@ -92,7 +93,7 @@ class RotateCase(BackupsCase):
         while job.state == jobs.RUNNING:
             time.sleep(0.01)
         self.assertEqual(job.state, jobs.DONE, job.error)
-        return job.result
+        return cast(dict, job.result)
 
     def copies(self) -> list[dict]:
         return [one for one in self.listing() if one["kind"] == "media"]
@@ -170,8 +171,9 @@ class TurningPicturesTests(RotateCase):
     def test_the_game_is_read_again_and_the_file_is_recorded_as_the_users(self) -> None:
         self.run_job([(GAME, "medias/wheel.png")], media_rotate.LEFT, keep=False)
 
-        media_placement.record_origin.assert_called_once_with(self.folder, self.wheel())
-        media_rotate.media_ops.reread.assert_called_once_with(self.folder)
+        cast(MagicMock, media_placement.record_origin).assert_called_once_with(
+            self.folder, self.wheel())
+        cast(MagicMock, media_rotate.media_ops.reread).assert_called_once_with(self.folder)
 
 
 class WhatIsLeftAloneTests(RotateCase):
@@ -303,10 +305,12 @@ class RefusalTests(RotateCase):
         while job is not None and job.state == jobs.RUNNING:
             time.sleep(0.01)
 
+        assert job is not None
         self.assertEqual(response.status_code, 202, response.text)
         self.assertEqual(response.json()["kind"], jobs.KIND_MEDIA_ROTATE)
         self.assertIn("/api/v1/jobs/", response.headers["Location"])
-        self.assertEqual(job.result["kept"], 1, "copies are kept unless the caller says not")
+        self.assertEqual(cast(dict, job.result)["kept"], 1,
+                         "copies are kept unless the caller says not")
 
 
 class TheCopyTests(RotateCase):

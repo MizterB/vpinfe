@@ -29,7 +29,7 @@ class WindowIdentityTests(unittest.IsolatedAsyncioTestCase):
         bound_servers.bound("theme_assets_port", 8000)
         self.addCleanup(bound_servers.forget)
         self.channel = DeviceChannel(port=free_port())
-        self.channel.register_api("playfield", object())
+        self.channel.register_api("playfield", object())  # type: ignore[arg-type]
         self.channel.start()
         self.addCleanup(self.channel.stop)
         await serving(self.channel)
@@ -44,6 +44,7 @@ class WindowIdentityTests(unittest.IsolatedAsyncioTestCase):
 
     async def _refusal(self, window: str) -> str:
         closed = await refused(self._url(window), additional_headers=LOCAL)
+        assert closed.rcvd is not None
         self.assertEqual(closed.rcvd.code, 1008)
         return closed.rcvd.reason
 

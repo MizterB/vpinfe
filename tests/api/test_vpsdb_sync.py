@@ -11,21 +11,23 @@ import configparser
 import tempfile
 import unittest
 from pathlib import Path
+from typing import cast
 from unittest.mock import MagicMock, patch
 
 from common import cache_stamps, jobs, timestamps
+from common.config_store import ConfigStore
 from common.online import vpsdb_sync
 from tests.support.stamps import OwnStamps
 
 
-def _config(download: str = "", **stamps: str) -> configparser.ConfigParser:
+def _config(download: str = "", **stamps: str) -> ConfigStore:
     """`download` is the schedule a person sets; `checked` and `last` (the version held)
     are what the sync keeps beside the catalog."""
     parser = configparser.ConfigParser()
     parser.read_dict({"updates": {"download_spreadsheet": download} if download else {}})
     cache_stamps.put("vpsdb", **{{"last": "version"}.get(key, key): value
                                  for key, value in stamps.items()})
-    return parser
+    return cast(ConfigStore, parser)
 
 
 def _ago(seconds: float) -> str:
@@ -114,7 +116,7 @@ class EnsureCatalogTests(OwnStamps):
         jobs.reset_for_tests()
         self.addCleanup(jobs.reset_for_tests)
 
-    def ensure(self, config: configparser.ConfigParser) -> tuple[bool, MagicMock]:
+    def ensure(self, config: ConfigStore) -> tuple[bool, MagicMock]:
         def fetch() -> bool:
             self.catalog.write_text("[]", encoding="utf-8")
             return True

@@ -20,7 +20,7 @@ IMPORT = {"key": "import", "label": "Import a Library", "base": "/wizard"}
 FOLDERS = {"game_folders": ["a", "b"], "loose": []}
 LOOSE = {"game_folders": [], "loose": ["x.vpx"]}
 MIXED = {"game_folders": ["a"], "loose": ["x.vpx", "y.vpx"]}
-NOTHING = {"game_folders": [], "loose": []}
+NOTHING: dict[str, list[str]] = {"game_folders": [], "loose": []}
 
 
 def _ran(coro: Any) -> Any:
@@ -61,7 +61,8 @@ class AnswersTests(unittest.TestCase):
                 self.assertEqual(expected, setup_tables.ends_here(_in_folder(found)))
 
     def test_none_yet_is_complete_with_a_checked_folder_and_ends_there(self) -> None:
-        values = {setup_tables.WHERE: setup_tables.NONE_YET, setup_tables.NEW_FOLDER: "/new"}
+        values: dict[str, Any] = {setup_tables.WHERE: setup_tables.NONE_YET,
+                                  setup_tables.NEW_FOLDER: "/new"}
 
         self.assertFalse(setup_tables.complete(values))
         values[setup_tables.NEW_CHECKED] = ("/new", PATH_OK)

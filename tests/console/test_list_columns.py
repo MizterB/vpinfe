@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import unittest
+from typing import cast
 
 from common.i18n import t
 from console import data, games, grid, renderers, tageditor, verbs
+from console.api import ApiClient
 
 
 def _column(columns: list[dict], field: str) -> dict:
@@ -74,6 +76,7 @@ class TheGridsListColumns(unittest.TestCase):
         self.assertEqual(grid.LIST_FILTER, column[":filter"])
         self.assertEqual(renderers.COLLECTION_LOOKS, column["filterParams"]["looks"])
         preset = games.GAME_VIEWS["console.view.details"]
+        assert not isinstance(preset, list)
         self.assertIn("collections", preset.columns)
 
     def test_a_smart_collection_s_chip_carries_the_smart_mark(self) -> None:
@@ -136,7 +139,7 @@ class _Client:
 class TheOneReadIsKeptUntilACollectionChanges(unittest.TestCase):
     def setUp(self) -> None:
         self.client = _Client()
-        self.library = data.Library(self.client)
+        self.library = data.Library(cast(ApiClient, self.client))
 
     def test_it_is_read_once(self) -> None:
         self.library.load_game_collections()

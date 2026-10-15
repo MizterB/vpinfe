@@ -36,6 +36,7 @@ class FieldTypesAreOneListTests(unittest.TestCase):
     def test_the_docs_and_the_renderer_name_the_same_types(self) -> None:
         documented = _documented()
         self.assertIsNotNone(documented, "reference/actions.md has no field-type table")
+        assert documented is not None
         drawn = set(wizard.FIELD_TYPES)
 
         self.assertEqual(documented, drawn,
@@ -51,6 +52,7 @@ class FieldTypesAreOneListTests(unittest.TestCase):
                   "more prose\n")
         match = TABLE.search(sample)
         self.assertIsNotNone(match)
+        assert match is not None
         rows = {found.group(1) for line in match.group(1).splitlines()
                if (found := ROW_TYPE.match(line))}
         self.assertEqual(rows, {"string", "path"})

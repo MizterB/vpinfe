@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import unittest
 from collections import Counter
+from typing import Any, cast
 from unittest.mock import AsyncMock, patch
 
 from console import selection_marks as marks
@@ -202,7 +203,7 @@ class ApplyTests(unittest.IsolatedAsyncioTestCase):
                 {"game_id": "g", "table_id": "b", "rating": 5}]
 
         with self._writes([("g", "b")], [{"reason": "locked"}]):
-            await marks.apply.__wrapped__(self.context, marks.TABLES, forward, back)
+            await cast(Any, marks.apply).__wrapped__(self.context, marks.TABLES, forward, back)
             said, reverse, kwargs = self.offered[0]
             await reverse.__wrapped__()
 
@@ -213,7 +214,7 @@ class ApplyTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_nothing_written_says_why_and_offers_no_undo(self) -> None:
         with self._writes([], [{"reason": "locked"}]):
-            await marks.apply.__wrapped__(self.context, marks.GAMES,
+            await cast(Any, marks.apply).__wrapped__(self.context, marks.GAMES,
                                           [{"game_id": "g", "rating": 1}],
                                           [{"game_id": "g", "rating": 0}])
 
@@ -227,7 +228,7 @@ class ApplyTests(unittest.IsolatedAsyncioTestCase):
             raise RuntimeError("boom")
 
         with patch.object(marks, "write", broken):
-            await marks.apply.__wrapped__(self.context, marks.GAMES, [{}], [{}])
+            await cast(Any, marks.apply).__wrapped__(self.context, marks.GAMES, [{}], [{}])
 
         self.assertEqual("boom", self.notified[0]["caption"])
         self.assertEqual((1, []), (self.rebuilt, self.offered))
@@ -237,7 +238,7 @@ class ApplyTests(unittest.IsolatedAsyncioTestCase):
         back = [{"game_id": "g", "table_id": "a", "rating": 1}]
 
         with self._writes([("g", "a")]):
-            await marks.apply.__wrapped__(self.context, marks.TABLES, forward, back)
+            await cast(Any, marks.apply).__wrapped__(self.context, marks.TABLES, forward, back)
             _, reverse, _ = self.offered[0]
         async def misses(_context, _edits):
             return [], [{"reason": "locked"}]

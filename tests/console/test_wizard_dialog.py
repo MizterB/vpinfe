@@ -371,7 +371,7 @@ class AsideTests(unittest.TestCase):
                     on_check: Callable[[dict[str, Any], str], dict[str, Any]] | None = None
                     ) -> Callable[[], Any]:
         async def run() -> Any:
-            async def go() -> bool:
+            async def go() -> bool | str | None:
                 with _PAGE:
                     return await wizard.open_dialog(
                         label="Test", calls=_calls(first=first, on_check=on_check),
@@ -457,11 +457,11 @@ class CloseWhenDoneTests(unittest.TestCase):
     def _pressed(self, on_run: Callable[[dict[str, Any], str], dict[str, Any]], *,
                  close_when_done: bool,
                  on_job: Callable[[str], dict[str, Any]] | None = None
-                 ) -> tuple[bool | None, list[str]]:
+                 ) -> tuple[bool | str | None, list[str]]:
         """What open_dialog answered, or None while the dialog is still open, and the
         words left on it."""
-        async def run() -> tuple[bool | None, list[str]]:
-            async def go() -> bool:
+        async def run() -> tuple[bool | str | None, list[str]]:
+            async def go() -> bool | str | None:
                 with _PAGE:
                     return await wizard.open_dialog(
                         label="Test", calls=_calls(first=self._last, on_run=on_run, on_job=on_job),
@@ -609,7 +609,8 @@ class FieldTypeTests(unittest.TestCase):
 class RefusalTests(unittest.TestCase):
     """A refusal is drawn under its field, whatever kind of control the field is."""
 
-    _drawn = FieldTypeTests._drawn
+    _drawn: Callable[..., tuple[dict[str, Any], dict[str, tuple[str, Any]], ui.element]] = (
+        FieldTypeTests._drawn)
 
     def _lines(self, holder: ui.element) -> list[str]:
         return [one.text for one in holder.descendants()

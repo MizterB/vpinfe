@@ -46,6 +46,7 @@ class RegistryTests(unittest.TestCase):
     def test_the_shipped_bindings_are_the_config_default(self) -> None:
         for action in input_registry.actions():
             option = config_schema.option(input_registry.SECTION, action.name)
+            assert option is not None
             self.assertEqual(option.default, ",".join(action.bindings))
 
     def test_an_old_key_still_names_its_action(self) -> None:
@@ -557,6 +558,7 @@ class ScrollingThatWouldStepTests(unittest.TestCase):
     def test_the_actions_that_scroll_are_the_ones_the_frontend_repeats(self) -> None:
         block = re.search(r"const REPEATING_ACTIONS = new Set\(\s*\[(.*?)\]\);", CORE_JS, re.S)
         self.assertIsNotNone(block, "REPEATING_ACTIONS moved; this test needs updating")
+        assert block is not None
 
         self.assertEqual(tuple(re.findall(r'"(\w+)"', block.group(1))),
                          input_registry.SCROLLING)
@@ -566,6 +568,7 @@ class JavaScriptCopiesTests(unittest.TestCase):
     def test_the_fallback_bindings_match_the_shipped_ones(self) -> None:
         block = re.search(r"this\.keyActionMap = \{(.*?)\n    \};", CORE_JS, re.S)
         self.assertIsNotNone(block, "keyActionMap moved; this test needs updating")
+        assert block is not None
         js = {name: [v.strip().strip("'\"").lower() for v in vals.split(",") if v.strip()]
               for name, vals in re.findall(r"(\w+):\s*\[([^\]]*)\]", block.group(1))}
 
@@ -577,11 +580,12 @@ class JavaScriptCopiesTests(unittest.TestCase):
         """Before the bridge answers, a tap of Esc must already be Back and not Quit."""
         block = re.search(r"this\.keyHoldMap = \{(.*?)\};", CORE_JS, re.S)
         self.assertIsNotNone(block, "keyHoldMap moved; this test needs updating")
+        assert block is not None
         js = {name: [(token.lower(), int(ms)) for token, ms in re.findall(
                   r"token:\s*['\"](\w+)['\"],\s*ms:\s*(\d+)", entries)]
               for name, entries in re.findall(r"(\w+):\s*\[([^\]]*)\]", block.group(1))}
 
-        expected = {}
+        expected: dict[str, list[tuple[str, int]]] = {}
         for action in input_registry.actions():
             for binding in action.bindings:
                 held = input_registry.hold_ms(binding)
@@ -599,6 +603,7 @@ class JavaScriptCopiesTests(unittest.TestCase):
         """A missing entry means a published theme's `case` silently stops matching."""
         block = re.search(r"const LEGACY_ACTION_NAMES = \{(.*?)\n\};", CORE_JS, re.S)
         self.assertIsNotNone(block, "the legacy name map moved")
+        assert block is not None
         js = dict(re.findall(r"(\w+):\s*\"(\w+)\"", block.group(1)))
 
         self.assertEqual(js, {a.name: a.legacy_joy_key for a in input_registry.actions()
@@ -609,6 +614,7 @@ class PlayActionsTests(unittest.TestCase):
     def test_the_page_hears_in_play_what_the_registry_says(self) -> None:
         block = re.search(r"const PLAY_ACTIONS = new Set\(\[(.*?)\]\);", CORE_JS, re.S)
         self.assertIsNotNone(block, "PLAY_ACTIONS moved; this test needs updating")
+        assert block is not None
         self.assertEqual(re.findall(r'"(\w+)"', block.group(1)),
                          list(input_registry.IN_PLAY))
 

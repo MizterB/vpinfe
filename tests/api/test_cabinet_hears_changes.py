@@ -9,6 +9,7 @@ from __future__ import annotations
 import configparser
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 from unittest import mock
 
 from starlette.testclient import TestClient
@@ -28,7 +29,7 @@ FOLDER = "Cactus Canyon (Bally 1998)"
 DESKTOP = f"{FOLDER}.vpx"
 VR = f"{FOLDER} - VR.vpx"
 
-INFO = {
+INFO: dict[str, Any] = {
     "Info": {"Name": "Cactus Canyon", "Manufacturer": "Bally", "Year": "1998"},
     "vpinfe": {"schema": 2, "game_id": GAME_ID},
     "tables": {
@@ -60,7 +61,7 @@ class CabinetHearsChangesTests(TempTree):
                    files={DESKTOP: b"vpx", VR: b"vpx"})
         config = configparser.ConfigParser()
         config.read_dict({"Settings": {"gamerootdir": str(self.root)}, "Media": {}})
-        parser = GameParser(str(self.root), config)
+        parser = GameParser(str(self.root), config)  # type: ignore[arg-type]
 
         held = mock.patch.object(
             game_repository.library_folders, "configured",
@@ -80,10 +81,10 @@ class CabinetHearsChangesTests(TempTree):
 
         self.bridge = _Bridge()
         ini = _ini()
-        self.window = API(ini, window_name="playfield", library=LibraryResolver(ini))
+        self.window = API(ini, window_name="playfield", library=LibraryResolver(ini))  # type: ignore[arg-type]
         self.bridge._api_instances["playfield"] = self.window
         with mock.patch.object(play_events, "save_last_launched"):
-            play_events.register(self.bridge, None, None)
+            play_events.register(self.bridge, None, None)  # type: ignore[arg-type]
 
         self.client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
 
@@ -117,5 +118,7 @@ class CabinetHearsChangesTests(TempTree):
                                    json={"hidden": True})
         self.assertEqual(response.status_code, 200, response.text)
 
-        playing = game_repository.game_by_id(GAME_ID).full_path_vpx_file
+        game = game_repository.game_by_id(GAME_ID)
+        assert game is not None
+        playing = game.full_path_vpx_file
         self.assertEqual(Path(playing).name, INFO["tables"][other]["filename"])

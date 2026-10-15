@@ -89,7 +89,7 @@ class CorePlayfieldMediaDriveTests(TempTree):
             theme = instance.config_dir / "frontend_themes" / instance.theme
             (theme / "config.json").write_text(json.dumps({"layout": {"enabled": True}}))
             width, height = setup["viewport"]
-            async with BrowserSession(chromium_path()) as browser:
+            async with BrowserSession(chromium_path() or "") as browser:
                 await browser.send("Emulation.setDeviceMetricsOverride", {
                     "width": width, "height": height, "deviceScaleFactor": 1, "mobile": False})
                 await browser.navigate(instance.theme_url("playfield"))

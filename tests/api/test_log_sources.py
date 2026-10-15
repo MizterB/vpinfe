@@ -19,7 +19,7 @@ from common.host import log_sources
 try:
     from starlette.testclient import TestClient
 except ImportError:  # pragma: no cover
-    TestClient = None
+    TestClient = None  # type: ignore[assignment,misc]
 
 VPX_LINES = (
     "﻿2026-10-02 15:20:32.448 INFO  [3414553] [VPApp::InitInstance@326] Starting\n"

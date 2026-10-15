@@ -6,7 +6,7 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 from starlette.testclient import TestClient
@@ -198,7 +198,7 @@ class RecordingPageTests(unittest.IsolatedAsyncioTestCase):
                   if one == t("config.capture.encode_command.label"))
         keep = next(call.args[1] for call in self.field.call_args_list
                     if call.args[0] == self.report["commands"]["encode"])
-        recording.ui.row.return_value.classes.return_value.is_deleted = False
+        cast(Any, recording.ui).row.return_value.classes.return_value.is_deleted = False
         self.action.reset_mock()
         entries[at][1]()
 
@@ -230,7 +230,7 @@ class RecordingPageTests(unittest.IsolatedAsyncioTestCase):
                   if one == t("config.capture.encode_command.label"))
         keep = next(call.args[1] for call in self.field.call_args_list
                     if call.args[0] == self.report["commands"]["encode"])
-        recording.ui.row.return_value.classes.return_value.is_deleted = False
+        cast(Any, recording.ui).row.return_value.classes.return_value.is_deleted = False
         entries[at][1]()
         changed = commands.OWN_ENCODE.replace("-an", "-an -crf 20")
 
@@ -267,7 +267,7 @@ class RecordingPageTests(unittest.IsolatedAsyncioTestCase):
         [said] = self.head.call_args.args[1]
         said()
 
-        self.assertEqual(recording.ui.label.call_args.args[0],
+        self.assertEqual(cast(Any, recording.ui).label.call_args.args[0],
                          t(adapters.NO_WAY))
 
     async def test_a_missing_ffmpeg_vpinfe_can_get_links_to_the_tools_page(self) -> None:
@@ -301,7 +301,7 @@ class RecordingPageTests(unittest.IsolatedAsyncioTestCase):
     async def test_a_desktop_not_yet_told_which_screens_offers_choose_screens(self) -> None:
         await self._choose_screens()
 
-        labels = [call.args[0] for call in recording.ui.label.call_args_list]
+        labels = [call.args[0] for call in cast(Any, recording.ui).label.call_args_list]
         self.assertIn(t(adapters.NOT_CHOSEN, desktop="KDE Plasma"), labels)
         self.assertNotIn(t("capture.portal.not_chosen.remedy"), " ".join(labels))
 
@@ -317,10 +317,10 @@ class RecordingPageTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(asked.call_args.kwargs["detail"],
                          t("console.recording.choose_screens_detail", desktop="KDE Plasma"))
         self.assertEqual(self.served.chosen, 1)
-        self.assertEqual(recording.ui.notify.call_args.args[0],
+        self.assertEqual(cast(Any, recording.ui).notify.call_args.args[0],
                          t("console.recording.chose_screens", desktop="KDE Plasma",
                            shared="3", screens="3"))
-        self.assertEqual(recording.ui.notify.call_args.kwargs["type"], "positive")
+        self.assertEqual(cast(Any, recording.ui).notify.call_args.kwargs["type"], "positive")
         self.rerender.assert_called_once()
 
     async def test_a_screen_left_out_of_the_choice_is_a_warning(self) -> None:
@@ -331,7 +331,7 @@ class RecordingPageTests(unittest.IsolatedAsyncioTestCase):
                 patch("console.record.ended_job", new=AsyncMock(return_value=answered)):
             await choose()
 
-        self.assertEqual(recording.ui.notify.call_args.kwargs["type"], "warning")
+        self.assertEqual(cast(Any, recording.ui).notify.call_args.kwargs["type"], "warning")
 
     async def test_what_the_desktop_did_not_keep_is_said_as_a_warning(self) -> None:
         choose = await self._choose_screens()
@@ -343,7 +343,7 @@ class RecordingPageTests(unittest.IsolatedAsyncioTestCase):
                 patch("console.record.ended_job", new=AsyncMock(return_value=answered)):
             await choose()
 
-        notified = recording.ui.notify.call_args
+        notified = cast(Any, recording.ui).notify.call_args
         self.assertEqual((notified.kwargs["caption"], notified.kwargs["type"]),
                          (t("capture.portal.not_kept", desktop="KDE Plasma"), "warning"))
 
@@ -374,12 +374,12 @@ class RecordingPageTests(unittest.IsolatedAsyncioTestCase):
                          (False, t(adapters.NO_WAY)))
 
     def test_what_a_test_made_is_said_with_its_picture(self) -> None:
-        recording.ui.reset_mock()
+        cast(Any, recording.ui).reset_mock()
 
         recording.came_out(self.served.tested)
 
-        recording.ui.image.assert_called_once_with("data:image/jpeg;base64,")
-        self.assertEqual(recording.ui.label.call_args.args[0],
+        cast(Any, recording.ui).image.assert_called_once_with("data:image/jpeg;base64,")
+        self.assertEqual(cast(Any, recording.ui).label.call_args.args[0],
                          t("console.recording.test_came_out", width="1920", height="1080",
                            fps="30", frames="90"))
 
@@ -397,7 +397,7 @@ class RecordingPageTests(unittest.IsolatedAsyncioTestCase):
         waiting = dict((label, value) for label, value in entries
                        if isinstance(label, str))[t("console.recording.waiting")]
         self.action.reset_mock()
-        recording.ui.reset_mock()
+        cast(Any, recording.ui).reset_mock()
         waiting()
         [discard] = [call.args[1] for call in self.action.call_args_list
                      if call.args[0] == t("console.recording.discard_all")]
@@ -405,7 +405,7 @@ class RecordingPageTests(unittest.IsolatedAsyncioTestCase):
         with patch("console.confirm.ask", new=AsyncMock(return_value=True)) as asked:
             await discard()
 
-        self.assertEqual(recording.ui.label.call_args.args[0],
+        self.assertEqual(cast(Any, recording.ui).label.call_args.args[0],
                          t("console.recording.waiting_are", count=2, size="3.0 MB"))
         self.assertEqual(asked.call_args.args[0], t("console.recording.discard_ask", count=2))
         self.assertEqual(self.served.discarded, 1)

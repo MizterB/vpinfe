@@ -40,6 +40,7 @@ def _declared_roots() -> set[str]:
         names = {t.id for t in node.targets if isinstance(t, ast.Name)}
         if "DATA_ROOTS" not in names:
             continue
+        assert isinstance(node.value, ast.List)
         return {
             element.value for element in node.value.elts
             if isinstance(element, ast.Constant) and isinstance(element.value, str)
@@ -68,7 +69,7 @@ def _unshipped(paths: list[str], roots: set[str]) -> list[str]:
 
 def _static_dirs_in_tree() -> set[str]:
     """Every directory named `static` that holds a file we ship."""
-    found = set()
+    found: set[str] = set()
     for path in project_files("*"):
         parts = path.relative_to(REPO).parts
         found.update("/".join(parts[:depth]) for depth, part in enumerate(parts[:-1], 1)

@@ -169,7 +169,7 @@ class FullExportScopeTests(unittest.TestCase):
         from httpapi.auth import SignInPolicy
 
         self.assertIn(scopes.GAMES_EXPORT_FULL, scopes.CORE)
-        identity = SignInPolicy().identify(None)
+        identity = SignInPolicy().identify(None)  # type: ignore[arg-type]
         self.assertTrue(identity.can(scopes.GAMES_EXPORT_FULL))
 
 

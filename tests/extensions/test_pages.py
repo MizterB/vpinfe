@@ -22,7 +22,7 @@ NAME = "paged"
 
 STATE: dict[str, Any] = {}
 
-ANSWER = {"title": "Weekly", "under": "Since Monday",
+ANSWER: dict[str, Any] = {"title": "Weekly", "under": "Since Monday",
           "sections": [{"key": "now", "label": "",
                         "facts": [{"label": "Plays", "value": 4, "kind": "number"}],
                         "fields": [{"key": "note", "type": "string", "label": "Note",
@@ -234,6 +234,7 @@ class Saving(Served):
                          (400, "That note is too long", {"field": "note"}))
 
     def test_a_page_with_no_save_cannot_be_written(self) -> None:
+        assert self.record.context is not None
         self.record.context.ui.page_functions["week"].save = None
 
         response = self.put(note="x")

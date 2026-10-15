@@ -21,7 +21,7 @@ from tests.support.skips import needs_posix_permissions
 try:
     from starlette.testclient import TestClient
 except ImportError:  # pragma: no cover
-    TestClient = None
+    TestClient = None  # type: ignore[assignment,misc]
 
 LAYOUT = {"columns": [{"colId": "title", "width": 240}], "sort": "year"}
 
