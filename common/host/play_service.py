@@ -10,11 +10,13 @@ import logging
 import threading
 from pathlib import Path
 
-from common import device_client, lifecycle, service_errors
+from common import service_errors
+from common.devices import device_client
 from common.failures import why
 from common.games import game_lens
 from common.host import launch, launch_state
 from common.paths import get_ini_config
+from common.runtime import lifecycle
 
 logger = logging.getLogger("vpinfe.common.host.play_service")
 

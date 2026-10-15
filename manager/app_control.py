@@ -1,6 +1,6 @@
 """Tell every open Manager tab when VPinFE is about to be restarted or stopped.
 
-The restart, quit and power requests themselves go through common.lifecycle by way of the
+The restart, quit and power requests themselves go through common.runtime.lifecycle by way of the
 HTTP API; this is only the announcement that reaches the tabs.
 """
 

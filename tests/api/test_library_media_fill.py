@@ -9,8 +9,8 @@ from unittest.mock import MagicMock, patch
 from starlette.testclient import TestClient
 
 import httpapi
-from common import jobs
 from common.i18n import t
+from common.runtime import jobs
 
 PLAN = {"games": 2, "unmatched": 1, "sources": ["VPinMediaDB"], "unreachable": [],
         "kinds": [{"kind": "wheel", "missing": 2, "available": 1, "local": 0}]}

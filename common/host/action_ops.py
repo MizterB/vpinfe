@@ -1,6 +1,6 @@
 """What this install can be told to do to itself.
 
-`common/lifecycle.py` owns which pairs exist, what each is called and what performs them,
+`common/runtime/lifecycle.py` owns which pairs exist, what each is called and what performs them,
 so this serves that rather than restating it - a pair added there appears here without
 this file being touched.
 
@@ -14,9 +14,11 @@ from __future__ import annotations
 
 import logging
 
-from common import device_client, lifecycle, service_errors
+from common import service_errors
+from common.devices import device_client
 from common.host import play_service
 from common.i18n import t
+from common.runtime import lifecycle
 
 logger = logging.getLogger("vpinfe.common.host.action_ops")
 

@@ -12,8 +12,9 @@ import threading
 from collections.abc import Iterable
 from typing import Any
 
-from common import device_client, lifecycle
+from common.devices import device_client
 from common.i18n import t
+from common.runtime import lifecycle
 
 from . import reach
 from .contract import ContractError

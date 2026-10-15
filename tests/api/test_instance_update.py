@@ -14,10 +14,10 @@ import requests
 from starlette.testclient import TestClient
 
 import httpapi
-from common import lifecycle
 from common.host import launch_state
 from common.i18n import t
 from common.online import app_updater
+from common.runtime import lifecycle
 
 SUPPORTED = {"supported": True, "reason": None, "triplet": "linux-x64",
              "current_version": "v3.0.0", "install_root": "/opt/vpinfe",

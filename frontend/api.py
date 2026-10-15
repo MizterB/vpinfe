@@ -17,7 +17,7 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any
 
-from common import events, lifecycle
+from common import events
 from common.capture import freeze
 from common.capture import preflight as capture_preflight
 from common.capture import run as capture_run
@@ -39,6 +39,7 @@ from common.host import frontend_browser, frontend_state, launch, launch_state
 from common.host.display_service import monitors_as_dicts
 from common.i18n import t
 from common.players.players import get_roster
+from common.runtime import lifecycle
 from common.service_errors import NotFoundError, ServiceError
 from frontend import (
     config_api,

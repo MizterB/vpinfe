@@ -12,7 +12,7 @@ from unittest.mock import Mock
 from common import feature_checks
 from common.extensions import host
 from common.i18n import t
-from common.jobs import DONE, FAILED
+from common.runtime.jobs import DONE, FAILED
 from manager import games, needs
 from manager.kit import need_keys
 from manager.kit.data import Library

@@ -10,8 +10,8 @@ from __future__ import annotations
 import unittest
 
 import httpapi
-from common import lifecycle
 from common.host import launch_state
+from common.runtime import lifecycle
 
 try:
     from starlette.testclient import TestClient
@@ -69,7 +69,7 @@ class PlayStopTests(unittest.TestCase):
         lifecycle.reset_for_tests()
         launch_state.set_launching("Medieval Madness", source=launch_state.SOURCE_API)
 
-        with self.assertLogs("vpinfe.common.lifecycle", level="ERROR"):
+        with self.assertLogs("vpinfe.common.runtime.lifecycle", level="ERROR"):
             body = self.client.post("/play/stop").json()
 
         self.assertEqual(body, {"stopped": False, "game_name": None})

@@ -21,11 +21,12 @@ from jeepney.low_level import HeaderFields, Parser
 from starlette.testclient import TestClient
 
 import httpapi
-from common import jobs, service_errors
+from common import service_errors
 from common.capture import adapters, geometry, placing, preflight, run, session, trial
 from common.capture.adapters import portal
 from common.host import launch_state, tools
 from common.i18n import t
+from common.runtime import jobs
 from httpapi import models
 from tests.capture.test_preflight import ELEMENTS, MONITORS, found, report
 from tests.capture.test_session import QUICK, Cabinet

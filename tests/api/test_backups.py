@@ -19,18 +19,18 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 import httpapi
-from common import jobs
 from common.backups import archive, copies, pending, places
 from common.backups import folder as backup_folder
 from common.config_access import cfg_set
 from common.config_store import ConfigStore
-from common.device_registry import DeviceRegistry
+from common.devices.device_registry import DeviceRegistry
 from common.games import (
     game_repository,
     launchers,
     library_folders,
 )
 from common.games.info_migration import RESET, RESTORE, backup_path
+from common.runtime import jobs
 from httpapi import config as config_api
 from tests.support.launchers_api import put_launcher
 from tests.support.library import game_info, own_launchers, write_game

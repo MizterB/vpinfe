@@ -321,7 +321,7 @@ def marks(seconds: float = 0.0) -> list[dict[str, Any]]:
     started and each table launched, as `{at, kind, name}`. A job's `name` is its kind,
     which the page puts in words, and it adds `title` where the job has one of its own; a
     table's `name` is the game's title, empty when it is private."""
-    from common import jobs
+    from common.runtime import jobs
 
     cutoff = time.time() - seconds if seconds else 0.0
     found = [{"at": one.started_at, "kind": "job", "name": one.kind,

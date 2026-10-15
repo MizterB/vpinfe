@@ -17,12 +17,13 @@ from unittest.mock import MagicMock, patch
 
 from PIL import Image
 
-from common import jobs, service_errors
+from common import service_errors
 from common.backups import folder as backup_folder
 from common.backups import media as backup_media
 from common.games import game_repository, media_placement, media_rotate
 from common.games.game_identity import game_id as game_id_of
 from common.host import tools
+from common.runtime import jobs
 from tests.api.test_backups import BackupsCase
 from tests.support.library import write_game
 from tests.support.pictures import RED, animation, banded, png

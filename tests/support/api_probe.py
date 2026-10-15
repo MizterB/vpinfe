@@ -19,7 +19,7 @@ def probe() -> dict:
     from starlette.testclient import TestClient
 
     import httpapi
-    from common import serving
+    from common.devices import serving
     if not any(getattr(r, "path", "") == httpapi.API_PREFIX for r in nicegui_app.routes):
         httpapi.register(nicegui_app)
 

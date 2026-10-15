@@ -21,11 +21,12 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, cast
 
-from common import events, i18n, jobs
+from common import events, i18n
 from common.extensions import check, contract, fields, host, pictures, serving, store
 from common.extensions.context import COLUMN_KINDS, ExtensionContext, logger_for
 from common.extensions.games import withdraw_all
 from common.media import sized_media
+from common.runtime import jobs
 from common.service_errors import NotFoundError, RefusedError
 from httpapi import extension_ops
 from manager import ext_links

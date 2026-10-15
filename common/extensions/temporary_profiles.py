@@ -12,7 +12,8 @@ from typing import Any
 
 import requests
 
-from common import service_errors, serving
+from common import service_errors
+from common.devices import serving
 from common.failures import why
 from common.games import player_records
 from common.i18n import t

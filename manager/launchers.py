@@ -22,8 +22,9 @@ from typing import Any
 
 from nicegui import run, ui
 
-from common import install_identity, path_state
+from common import path_state
 from common.backups import copies as kept_copies
+from common.devices import install_identity
 from common.failures import why
 from common.i18n import t
 from manager import backup_rows
@@ -560,7 +561,7 @@ async def _do_copy(library: Library, launchers: list[dict], devices: list[dict],
             return
 
     def client_for(device: Any) -> Any:
-        from common import device_client
+        from common.devices import device_client
 
         return device_client.for_device(device)
 

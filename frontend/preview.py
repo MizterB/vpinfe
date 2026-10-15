@@ -13,10 +13,11 @@ import threading
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
-from common import events, jobs
+from common import events
 from common.capture import proposals
 from common.host import frontend_state, launch_state
 from common.i18n import t
+from common.runtime import jobs
 from common.service_errors import BlockedError, NotFoundError, ServiceError
 
 if TYPE_CHECKING:

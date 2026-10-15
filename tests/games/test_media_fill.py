@@ -10,8 +10,9 @@ from pathlib import Path
 from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
-from common import device_registry, i18n, job_details, jobs, service_errors, timestamps
+from common import i18n, service_errors, timestamps
 from common.config_store import ConfigStore
+from common.devices import device_registry
 from common.games import (
     asset_origin,
     backglass_ops,
@@ -27,6 +28,7 @@ from common.media import sized_media
 from common.online import asset_sources, vpsdb_sync
 from common.online.vpsdb import VPSdb
 from common.online.vpsdb_media import VPSMediaDownloader
+from common.runtime import job_details, jobs
 from tests.api.test_backglass_picture import _directb2s
 from tests.support.library import TempTree, fake_game, game_info, write_game
 

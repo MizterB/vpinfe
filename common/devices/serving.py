@@ -11,8 +11,8 @@ import dataclasses
 import ipaddress
 from typing import Any, Literal
 
-from common import device_registry
 from common.config_access import NetworkConfig
+from common.devices import device_registry
 
 Port = Literal["http_port", "ws_port", "theme_assets_port", "loopback_port"]
 _bound: dict[str, int] = {}

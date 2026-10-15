@@ -15,14 +15,14 @@ from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any
 
-from common import jobs, shutdown
 from common.config_access import MediaConfig, cfg_bool
 from common.config_store import ConfigStore
 from common.games.game_metadata import effective_vps_id, normalize_meta
 from common.i18n import t
-from common.jobs import JobReporter
 from common.media.media_specs import MEDIA_SPECS
 from common.paths import get_ini_config
+from common.runtime import jobs, shutdown
+from common.runtime.jobs import JobReporter
 
 logger = logging.getLogger("vpinfe.common.games.media_fill")
 

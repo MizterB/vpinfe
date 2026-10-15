@@ -11,9 +11,9 @@ from typing import Any
 
 from nicegui import run, ui
 
+from common.devices.install_identity import display_name
 from common.failures import why
 from common.i18n import t
-from common.install_identity import display_name
 from common.paths import get_ini_config
 from common.security import sign_in
 from manager.kit import dialog as frame

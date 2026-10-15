@@ -6,8 +6,8 @@ from __future__ import annotations
 import json
 import unittest
 
-from common import device_registry, install_setup
 from common.config_store import ConfigStore
+from common.devices import device_registry, install_setup
 from tests.support.library import TempTree
 
 
@@ -143,7 +143,7 @@ class AfterFinishTests(TempTree):
         install_setup.after_finish(self.store, fails)
         install_setup.after_finish(self.store, lambda: ran.append(1))
 
-        with self.assertLogs("vpinfe.common.install_setup", level="ERROR"):
+        with self.assertLogs("vpinfe.common.devices.install_setup", level="ERROR"):
             install_setup.finish(ConfigStore(self.path))
 
         self.assertEqual(ran, [1])

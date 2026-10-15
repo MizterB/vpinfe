@@ -7,8 +7,8 @@ import unittest
 from datetime import datetime
 from urllib.parse import parse_qs
 
-from common import jobs
 from common.i18n import t
+from common.runtime import jobs
 from manager import jobs_list
 from manager.kit import deeplink, when
 

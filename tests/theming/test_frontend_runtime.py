@@ -13,7 +13,7 @@ import time
 import unittest
 from unittest import mock
 
-from common import shutdown
+from common.runtime import shutdown
 from frontend import runtime
 from frontend.chromium_manager import ChromiumManager
 

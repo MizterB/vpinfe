@@ -14,8 +14,8 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from common import device_registry
 from common.config_store import ConfigStore
+from common.devices import device_registry
 from common.games.collection_store import LAST_COLLECTION
 from frontend import last_game
 from tests.support.library import own_registry

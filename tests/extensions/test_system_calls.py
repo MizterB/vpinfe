@@ -9,10 +9,10 @@ import time
 import unittest
 from unittest.mock import patch
 
-from common import lifecycle
 from common.extensions import reach, system
 from common.extensions.contract import ContractError
 from common.extensions.system import ExtensionSystem
+from common.runtime import lifecycle
 
 WIRED = patch.object(lifecycle, "performable", return_value=True)
 

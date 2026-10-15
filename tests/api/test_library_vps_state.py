@@ -18,8 +18,8 @@ from unittest.mock import patch
 from starlette.testclient import TestClient
 
 import httpapi
-from common import jobs as job_registry
 from common.games import library_vps_state as rollup
+from common.runtime import jobs as job_registry
 
 
 class _Game:

@@ -11,7 +11,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from common import install_identity
+from common.devices import install_identity
 from common.i18n import t
 
 logger = logging.getLogger("vpinfe.httpapi.capabilities")

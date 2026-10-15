@@ -16,7 +16,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from common.device_registry import (
+from common.devices.device_registry import (
     Device,
     DeviceRegistry,
     browser_said,
@@ -564,7 +564,7 @@ class AnInstallThatChangesSchemeTests(unittest.TestCase):
         self.assertTrue(_known(self.registry, "Aaaa111111").https)
 
     def test_a_token_is_sent_only_over_the_scheme_it_was_paired_over(self) -> None:
-        with (patch("common.device_registry.get_device_registry", lambda: self.registry),
+        with (patch("common.devices.device_registry.get_device_registry", lambda: self.registry),
               patch.object(access_keys, "pairing_header", lambda _id: {"X": "token"})):
             self.assertEqual(paired_header("https://192.168.1.30:8001/api"), {"X": "token"})
             self.assertIsNone(paired_header("http://192.168.1.30:8001/api"))

@@ -13,7 +13,7 @@ from common.config_access import cfg_get, cfg_has, cfg_list
 from common.config_store import ConfigStore
 from common.ids import new_id
 
-logger = logging.getLogger("vpinfe.common.install_identity")
+logger = logging.getLogger("vpinfe.common.devices.install_identity")
 
 ID_SECTION = "device"
 
@@ -51,7 +51,7 @@ CORE = "core"
 
 def install_id() -> str:
     """This install's id, or "" if it has not been minted. Never writes."""
-    from common.device_registry import get_device_registry
+    from common.devices.device_registry import get_device_registry
 
     return get_device_registry().self_id()
 
@@ -66,7 +66,7 @@ def mint_id() -> str:
 def ensure_id() -> str:
     """This install's id, minting and saving one if it has none. An id that is not on
     disk is not an identity: the next start would mint another and become someone else."""
-    from common.device_registry import get_device_registry
+    from common.devices.device_registry import get_device_registry
 
     return get_device_registry().ensure_self()
 

@@ -11,8 +11,8 @@ import os
 import unittest
 from tempfile import TemporaryDirectory
 
-from common import device_migration
 from common.config_store import ConfigStore
+from common.devices import device_migration
 
 
 class SeedTests(unittest.TestCase):

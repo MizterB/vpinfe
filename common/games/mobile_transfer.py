@@ -31,7 +31,7 @@ from collections.abc import Callable, Iterable
 from pathlib import Path
 from urllib.parse import quote, urlparse
 
-from common.device_client import PROBE_SECONDS, why_not
+from common.devices.device_client import PROBE_SECONDS, why_not
 from common.games.export_bundle import bundle_paths, prune_info
 from common.i18n import t
 from common.security import http_client

@@ -5,8 +5,8 @@ from __future__ import annotations
 import unittest
 from typing import Any
 
-from common import job_details, jobs
 from common.i18n import t
+from common.runtime import job_details, jobs
 
 
 class Describers(unittest.TestCase):

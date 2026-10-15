@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import unittest
 
-from common import install_identity
-from common.device_registry import KIND_VPX_MOBILE
+from common.devices import install_identity
+from common.devices.device_registry import KIND_VPX_MOBILE
 from manager import launchers
 
 

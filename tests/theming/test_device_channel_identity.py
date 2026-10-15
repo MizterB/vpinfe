@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import unittest
 
-from common import serving as bound_servers
+from common.devices import serving as bound_servers
 from frontend.device_channel import DeviceChannel
 from tests.support.browser_session import free_port
 from tests.support.channel_answer import refused, registered, released, serving

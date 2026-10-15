@@ -8,7 +8,7 @@ import sys
 import unittest
 from unittest import mock
 
-from common import shutdown
+from common.runtime import shutdown
 
 
 # Windows defines SIGTERM but does not deliver it: os.kill falls through to

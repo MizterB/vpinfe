@@ -13,7 +13,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from common import device_registry
+from common.devices import device_registry
 from common.games.collection_store import (
     BUILTIN_ALL,
     LAST_COLLECTION,

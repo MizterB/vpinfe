@@ -10,12 +10,12 @@ import pathlib
 import time
 from unittest.mock import patch
 
-from common import jobs
 from common.backups import copies, places, relocate
 from common.backups import folder as backup_folder
 from common.backups import media as backup_media
 from common.games import game_repository, media_ops
 from common.games.game_identity import game_id as game_id_of
+from common.runtime import jobs
 from tests.api.test_backups import BackupsCase
 from tests.support.library import write_game
 

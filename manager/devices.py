@@ -10,10 +10,11 @@ from typing import Any
 
 from nicegui import background_tasks, run, ui
 
-from common import device_client, device_registry, install_identity, lifecycle
+from common.devices import device_client, device_registry, install_identity
 from common.host import action_ops, addresses
 from common.i18n import t
 from common.labels import humanize
+from common.runtime import lifecycle
 from manager import mobile_add, pairing, send_to_device
 from manager.kit import (
     confirm,

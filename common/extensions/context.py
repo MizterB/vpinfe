@@ -32,7 +32,7 @@ from .store import ExtensionStore
 from .system import ExtensionSystem
 
 if TYPE_CHECKING:
-    from common import jobs
+    from common.runtime import jobs
 
 LOG_ROOT = "vpinfe.ext"
 
@@ -1290,7 +1290,7 @@ class ExtensionJobs:
         what `work` returns is written to disk, so the Jobs view can open it after the page
         that started the job has gone; `job.problems` says how many parts did not come
         across."""
-        from common import jobs
+        from common.runtime import jobs
 
         mark = reach.current()
         return jobs.submit(
@@ -1303,7 +1303,7 @@ class ExtensionJobs:
     def stop(self, kind: str) -> bool:
         """Ask this extension's running job of that kind to end early. False where there
         is none, or where it was not started `stoppable`."""
-        from common import jobs
+        from common.runtime import jobs
 
         running = [one for one in jobs.active(f"{self._name}.{str(kind or '').strip()}")
                    if one.stoppable]
@@ -1312,7 +1312,7 @@ class ExtensionJobs:
         return bool(running)
 
     def active(self) -> tuple[str, ...]:
-        from common import jobs
+        from common.runtime import jobs
 
         return tuple(job.id for job in jobs.active()
                      if job.kind.startswith(f"{self._name}."))

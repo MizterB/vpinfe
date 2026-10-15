@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import Any
 from unittest import mock
 
-from common import jobs
 from common.games import game_service
+from common.runtime import jobs
 from tests.importer.test_adopt import FIXTURE, VPX, AdoptCase
 
 

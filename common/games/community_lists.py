@@ -11,11 +11,12 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
-from common import events, paths, shutdown
+from common import events, paths
 from common.atomic_write import write_atomic
 from common.failures import why
 from common.games import derived_tags, rankings
 from common.i18n import t
+from common.runtime import shutdown
 from common.timestamps import utc_now_iso
 
 logger = logging.getLogger("vpinfe.common.games.community_lists")

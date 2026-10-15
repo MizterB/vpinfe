@@ -9,10 +9,11 @@ import unittest
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from common import device_registry, lifecycle
 from common.backups import going_back
+from common.devices import device_registry
 from common.games.info_migration import backup_path
 from common.host import system_actions
+from common.runtime import lifecycle
 from tests.api.test_backups import NEWER, OLD, BackupsCase
 from tests.support.library import own_registry
 

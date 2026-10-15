@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 from nicegui import ui
 
-from common import serving
+from common.devices import serving
 from manager import waiting
 from manager.kit import confirm, offload, remembered
 from tests.support.clicks import said

@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from common import install_identity
+from common.devices import install_identity
 from common.values import parse_version
 
 from .reach import (  # noqa: F401 - PLAY, PROTECTED are the contract's

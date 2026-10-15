@@ -12,7 +12,7 @@ import json
 import os
 import unittest
 
-from common import config_schema, input_registry, install_setup
+from common import config_schema, input_registry
 from common.config_store import (
     CONFIG_SCHEMA,
     SCHEMA_KEY,
@@ -20,6 +20,7 @@ from common.config_store import (
     ConfigStore,
     _flatten,
 )
+from common.devices import install_setup
 from tests.support.library import TempTree
 
 
@@ -446,7 +447,7 @@ class RetiredRoleTests(ConfigStoreTests):
     def test_a_migrated_install_survives_being_read_back(self) -> None:
         """The point of the migration: install_identity drops what it does not know, so
         without this an install reported every feature where it had asked for one."""
-        from common import install_identity
+        from common.devices import install_identity
 
         self.ini.write_text("[device]\nroles = device\n", encoding="utf-8")
 

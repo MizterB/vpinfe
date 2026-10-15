@@ -15,8 +15,9 @@ import threading
 from dataclasses import dataclass
 from typing import Any
 
-from common import device_registry, install_identity, paths
+from common import paths
 from common.atomic_write import write_atomic
+from common.devices import device_registry, install_identity
 from common.i18n import t, t_source
 from common.timestamps import utc_now_iso
 
@@ -103,25 +104,25 @@ def _browser_name(brands: Any, user_agent: str) -> str:
 
 
 def _in_use() -> tuple[str, bool]:
-    from common import device_client
+    from common.devices import device_client
 
     return device_client.local().browser_in_use()
 
 
 def _unset() -> tuple[str, bool]:
-    from common import device_client
+    from common.devices import device_client
 
     return device_client.local().browser_in_use("")
 
 
 def _variant() -> str:
-    from common import device_client
+    from common.devices import device_client
 
     return FULL if device_client.local().has_bundled_browser() else SLIM
 
 
 def _google_chrome() -> str:
-    from common import device_client
+    from common.devices import device_client
 
     return device_client.local().google_chrome_path() or ""
 

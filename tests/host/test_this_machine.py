@@ -13,7 +13,7 @@ import time
 import unittest
 from unittest import mock
 
-from common import serving
+from common.devices import serving
 from common.host import this_machine
 
 

@@ -13,8 +13,8 @@ from tempfile import TemporaryDirectory
 from unittest import mock
 
 import httpapi
-from common import log_setup
 from common.host import log_sources
+from common.runtime import log_setup
 
 try:
     from starlette.testclient import TestClient

@@ -10,7 +10,8 @@ from urllib.parse import quote
 
 from nicegui import ui
 
-from common import icons, install_identity
+from common import icons
+from common.devices import install_identity
 from common.extensions.host import SWITCHED_OFF
 from common.failures import why
 from common.games import rankings

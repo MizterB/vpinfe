@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 from common import mounts, path_state
 from common.config_store import ConfigStore
-from common.device_registry import DeviceRegistry
+from common.devices.device_registry import DeviceRegistry
 from common.games import library_folders as locations
 from common.games.library_folders import (
     KIND_GAME,

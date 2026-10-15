@@ -13,7 +13,7 @@ import unittest
 
 import websockets
 
-from common import serving as bound_servers
+from common.devices import serving as bound_servers
 from frontend.device_channel import DeviceChannel
 from tests.support.channel_answer import registered, serving
 

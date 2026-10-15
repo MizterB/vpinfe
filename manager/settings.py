@@ -23,15 +23,8 @@ from typing import Any
 
 from nicegui import run, ui
 
-from common import (
-    config_schema,
-    extensions,
-    feature_checks,
-    input_registry,
-    install_identity,
-    path_state,
-    tokens,
-)
+from common import config_schema, extensions, feature_checks, input_registry, path_state, tokens
+from common.devices import install_identity
 from common.extensions import host as extension_host
 from common.failures import why
 from common.games.asset_registry import ALWAYS_KEPT, ASSET_SPECS

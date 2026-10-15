@@ -13,10 +13,11 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from common import jobs, service_errors
+from common import service_errors
 from common.atomic_write import staged_for
 from common.i18n import size, t
 from common.paths import CONFIG_DIR
+from common.runtime import jobs
 from common.security import http_client
 
 logger = logging.getLogger("vpinfe.common.host.get_ffmpeg")

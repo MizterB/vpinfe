@@ -17,8 +17,9 @@ from unittest.mock import patch
 from fastapi import Depends, FastAPI, Request
 from starlette.testclient import TestClient
 
-from common import extensions, i18n, lifecycle
+from common import extensions, i18n
 from common.extensions import contract, host, reach, store, system
+from common.runtime import lifecycle
 from common.security import sign_in
 from httpapi import auth, errors, extensions_served, scopes
 from tests.support.accepted import owner_accepts

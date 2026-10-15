@@ -24,7 +24,7 @@ ALLOWED = {
     ("common/host/display_service.py", "frontend"),
     # The local resolution of the device client: deferred inside functions so that
     # importing it does not pull the frontend into an install that has no frontend.
-    ("common/device_client.py", "frontend"),
+    ("common/devices/device_client.py", "frontend"),
 }
 
 # A unit of `common/` is a package, or a flat module standing for the package it will move
@@ -46,11 +46,6 @@ FUTURE_HOME = {
     **dict.fromkeys(("config_access", "config_schema", "config_store", "setting_groups",
                      "labels", "input_registry", "paths", "path_state",
                      "ui_preferences"), "config"),
-    **dict.fromkeys(("jobs", "job_details", "lifecycle", "shutdown", "log_setup"),
-                    "runtime"),
-    **dict.fromkeys(("device_client", "device_registry", "device_ops", "device_migration",
-                     "discovery", "install_setup", "launcher_wire", "install_identity",
-                     "install_presence", "serving"), "devices"),
     **dict.fromkeys(("config_service", "settings_waiting", "feature_checks", "port_checks",
                      "theme_options"), "settings"),
 }
@@ -60,8 +55,6 @@ FUTURE_HOME = {
 # hand the thing down, not to add a line here.
 UPWARD: dict[tuple[str, str], str] = {
     ("common/apps/__init__.py", "config"): "reads a label from the config tier",
-    ("common/config_schema.py", "devices"): "looks up the install id, lazily",
-    ("common/config_store.py", "devices"): "looks up the install id, lazily",
     ("common/config_store.py", "games"): "the .info backups helper",
     ("common/config_service.py", "backups"): "the settings service names the backups folder",
     ("common/settings_waiting.py", "extensions"): "asks the extension host what is waiting",

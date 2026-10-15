@@ -12,10 +12,10 @@ from typing import Any, Literal
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Response
 
-from common import lifecycle
 from common.backups import folder as backup_folder
 from common.backups import going_back, ops, relocate
 from common.host import action_ops
+from common.runtime import lifecycle
 
 from . import config as config_api
 from . import jobs as jobs_api

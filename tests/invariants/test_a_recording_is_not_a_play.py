@@ -16,8 +16,9 @@ from configparser import ConfigParser
 from pathlib import Path
 from unittest import mock
 
-from common import device_registry, events
+from common import events
 from common.config_store import ConfigStore
+from common.devices import device_registry
 from common.games import player_records
 from common.games.launchers import Launcher
 from common.host import launch, launch_state

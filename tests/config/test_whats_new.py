@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 import unittest
 
-from common import device_registry, install_setup
 from common.config_store import ConfigStore
+from common.devices import device_registry, install_setup
 from common.release import migration_ledger, whats_new
 from common.release.upgrade_needs import Need
 from tests.support.library import TempTree

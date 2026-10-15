@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import cast
 from unittest.mock import MagicMock, patch
 
-from common import job_details, jobs
 from common.games import (
     auto_match,
     game_identity,
@@ -25,6 +24,7 @@ from common.games.game_metadata import (
 )
 from common.i18n import t
 from common.online.vpsdb import VPSdb
+from common.runtime import job_details, jobs
 from common.uploads import upload_ops
 from httpapi import models
 from tests.support.library import TempTree, fake_game, game_info, write_game

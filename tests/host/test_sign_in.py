@@ -14,7 +14,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from common import log_setup
+from common.runtime import log_setup
 from common.security import sign_in
 from common.security.sign_in import SignIn, SignInError
 

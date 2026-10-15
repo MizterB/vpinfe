@@ -13,11 +13,12 @@ import time
 import unittest
 from unittest.mock import patch
 
-from common import jobs, service_errors
+from common import service_errors
 from common.backups import archive, media, places, relocate
 from common.backups import folder as backup_folder
 from common.config_access import cfg_set
 from common.config_store import ConfigStore
+from common.runtime import jobs
 from tests.support.library import TempTree
 
 

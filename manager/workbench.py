@@ -30,8 +30,9 @@ from urllib.parse import urlencode, urlparse
 
 from nicegui import run, ui
 
-from common import apps, config_schema, icons, install_identity, path_state, tokens
+from common import apps, config_schema, icons, path_state, tokens
 from common.apps import OWN_FIELDS
+from common.devices import install_identity
 from common.failures import why
 from common.games import asset_registry, tag_registry
 from common.games.asset_registry import ALWAYS_KEPT as _ALWAYS_KEPT

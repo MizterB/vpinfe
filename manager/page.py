@@ -13,12 +13,13 @@ from typing import Any
 import requests
 from nicegui import background_tasks, run, ui
 
-from common import device_client, icons, install_identity, install_setup
+from common import icons
+from common.devices import device_client, install_identity, install_setup
 from common.failures import why
 from common.games.collection_store import BUILTIN_ALL
 from common.i18n import t
-from common.jobs import DONE, KIND_LIBRARY_SCAN, KIND_MEDIA_CAPTURE
 from common.release import whats_new
+from common.runtime.jobs import DONE, KIND_LIBRARY_SCAN, KIND_MEDIA_CAPTURE
 from manager import about as about_page
 from manager import assets as assets_page
 from manager import (

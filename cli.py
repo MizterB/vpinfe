@@ -6,12 +6,12 @@ import sys
 
 from screeninfo import get_monitors
 
-from common import serving
 from common.config_store import ConfigStore
 from common.deprecations import announce
+from common.devices import serving
 from common.games import game_report_service, info_maintenance, metadata_service, revert_3x
-from common.log_setup import get_logger
 from common.paths import VPINFE_INI_PATH, ensure_config_dir
+from common.runtime.log_setup import get_logger
 from frontend.custom_http_server import CustomHTTPServer
 
 logger = get_logger("vpinfe.cli")

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from common import launcher_wire
+from common.devices import launcher_wire
 
 
 class Answer:

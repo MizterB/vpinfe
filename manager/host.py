@@ -10,7 +10,8 @@ from typing import Any, cast
 
 from nicegui import app, ui
 
-from common import i18n, install_presence, serving
+from common import i18n
+from common.devices import install_presence, serving
 from common.i18n import t
 from common.security import encrypted_connections, machine_secrets
 

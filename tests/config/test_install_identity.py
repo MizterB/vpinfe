@@ -13,9 +13,9 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from common import device_registry, install_identity
 from common.config_access import cfg_get, cfg_set
 from common.config_store import ConfigStore
+from common.devices import device_registry, install_identity
 
 
 class InstallIdentityTests(unittest.TestCase):

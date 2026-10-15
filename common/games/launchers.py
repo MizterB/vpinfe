@@ -25,8 +25,8 @@ from typing import Any
 
 from common import apps, config_schema, config_service
 from common.config_store import ConfigStore
+from common.devices.install_identity import mint_id
 from common.i18n import t
-from common.install_identity import mint_id
 from common.paths import get_ini_config
 
 logger = logging.getLogger("vpinfe.common.games.launchers")

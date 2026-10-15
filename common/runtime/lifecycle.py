@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 
 from common.i18n import t, t_source
 
-logger = logging.getLogger("vpinfe.common.lifecycle")
+logger = logging.getLogger("vpinfe.common.runtime.lifecycle")
 
 # What a request applies to.
 FRONTEND = "frontend"       # the Chromium windows; VPinFE keeps running

@@ -11,7 +11,7 @@ import threading
 from dataclasses import dataclass
 from typing import Any
 
-from common import device_registry
+from common.devices import device_registry
 from common.release.release_notes import is_release, newer
 
 logger = logging.getLogger("vpinfe.common.release.migration_ledger")

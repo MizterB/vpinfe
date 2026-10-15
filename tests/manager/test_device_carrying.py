@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 from nicegui import ui
 
-from common import device_client
+from common.devices import device_client
 from common.i18n import t
 from manager import devices
 from manager.kit import game_tables, panel

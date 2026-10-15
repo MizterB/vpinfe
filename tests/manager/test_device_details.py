@@ -7,7 +7,7 @@ import asyncio
 import unittest
 from unittest import mock
 
-from common import device_client
+from common.devices import device_client
 from manager import devices
 from manager.kit import panel, renderers
 

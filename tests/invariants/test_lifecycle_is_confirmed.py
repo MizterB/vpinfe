@@ -16,7 +16,7 @@ import re
 import unittest
 from pathlib import Path
 
-from common import lifecycle
+from common.runtime import lifecycle
 
 STATIC = Path(__file__).resolve().parent.parent.parent / "frontend" / "static"
 

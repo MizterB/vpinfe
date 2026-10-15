@@ -413,7 +413,7 @@ capabilities, `logs` and `actions`. Purely additive; every existing route is unt
 *Why:* a control plane that can see a fleet and not read one machine's log sends you to
 an SSH session, and the one lifecycle verb reachable over HTTP was closing a table -
 which meant the Devices surface could offer exactly that and nothing else. Served from
-`common/lifecycle.py` rather than restated, so a pair added there appears without either
+`common/runtime/lifecycle.py` rather than restated, so a pair added there appears without either
 side being touched, and only what this install performs is listed: a headless one owns no
 frontend windows, and a button that reports success while nothing happened is worse than
 one that is not offered. An action that takes the
@@ -606,7 +606,7 @@ is worse than saying nothing. `game.changed` reuses the projection the other gam
 use, so it names the game by id rather than by where it lives. Covered by
 `tests/api/test_event_stream.py`.
 
-**PAR-66 — An install can hold a registry of the devices it knows.** New: `common/device_registry.py`,
+**PAR-66 — An install can hold a registry of the devices it knows.** New: `common/devices/device_registry.py`,
 a `devices.json` beside the other config files, keyed by `install_id`. Nothing writes to
 it yet and no screen shows it, so an existing install never grows the file and behaves
 identically.
@@ -793,7 +793,7 @@ Covered by `tests/api/test_game_rating.py`.
 `archive_service` and `export_bundle` to `common/games/`, and `upload_session_service`,
 `asset_analyzer_service` and `asset_import_service` to a new `common/uploads/`. The four
 things the Manager UI does to a device - enumerate displays, find the browser, read input
-bindings, request a lifecycle change - go through `common/device_client.py` instead of
+bindings, request a lifecycle change - go through `common/devices/device_client.py` instead of
 importing `frontend` directly. No behavior changes and no endpoint moves; this is where
 the code lives.
 *Why:* `httpapi` imported `managerui.services` at nine sites for game, archive, upload and
@@ -934,7 +934,7 @@ harness deliberately keeps one window on the old URL so the alias stays covered.
 
 **PAR-48 — Quitting, restarting and powering off go through one place, and can ask
 first.** `close_app` and `shutdown_system` keep their names and their behavior on a
-default install; both now route through `common/lifecycle.py`, which addresses a request
+default install; both now route through `common/runtime/lifecycle.py`, which addresses a request
 by scope (`frontend`, `app`, `system`) and action (`start`, `stop`, `restart`). Themes get
 `lifecycle_request` and `lifecycle_needs_confirmation`, and `vpin.requestLifecycle(scope,
 action)` wraps both. The new `lifecycle.confirm` setting lists the scopes to ask about and

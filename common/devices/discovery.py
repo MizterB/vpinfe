@@ -31,12 +31,12 @@ from typing import Any
 
 from zeroconf import ServiceBrowser, ServiceInfo, ServiceStateChange, Zeroconf
 
-from common import install_identity, serving
 from common.config_store import ConfigStore
+from common.devices import install_identity, serving
 from common.security import encrypted_connections
 from common.vpinfe_version import get_version
 
-logger = logging.getLogger("vpinfe.common.discovery")
+logger = logging.getLogger("vpinfe.common.devices.discovery")
 
 SERVICE_TYPE = "_vpinfe._tcp.local."
 

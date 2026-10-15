@@ -1,7 +1,7 @@
 """Asking the operating system to restart or power off, and re-launching ourselves.
 
 The three platforms want three different commands for the same thing. Nothing here
-decides whether to do it - that is `common.lifecycle`, which confirms first.
+decides whether to do it - that is `common.runtime.lifecycle`, which confirms first.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
-from common import device_registry
+from common.devices import device_registry
 from common.paths import APP_ROOT
 
 RESTART_KEY = "restart_requested"

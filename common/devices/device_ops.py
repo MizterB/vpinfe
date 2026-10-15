@@ -11,11 +11,12 @@ import logging
 from collections.abc import Iterable
 from typing import Any
 
-from common import device_client, device_registry, discovery, install_identity, service_errors
-from common.device_registry import Device, get_device_registry
+from common import service_errors
+from common.devices import device_client, device_registry, discovery, install_identity
+from common.devices.device_registry import Device, get_device_registry
 from common.i18n import t
 
-logger = logging.getLogger("vpinfe.common.device_ops")
+logger = logging.getLogger("vpinfe.common.devices.device_ops")
 
 
 def _resource(device: Device) -> dict:

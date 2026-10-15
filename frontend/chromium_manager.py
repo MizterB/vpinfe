@@ -25,13 +25,14 @@ from shutil import which
 from typing import Any, NamedTuple
 from urllib.parse import quote, urlparse
 
-from common import i18n, serving
+from common import i18n
 from common.config_access import DisplayConfig, NetworkConfig, SettingsConfig, cfg_get
 from common.config_store import ConfigStore
+from common.devices import serving
 from common.games import remote_library
 from common.host import bundled_libraries
-from common.log_setup import include_thirdparty_logs
 from common.paths import bundled
+from common.runtime.log_setup import include_thirdparty_logs
 from frontend import theme_api, theme_windows
 
 logger = logging.getLogger("vpinfe.frontend.chromium_manager")

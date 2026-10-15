@@ -7,7 +7,8 @@ from types import SimpleNamespace
 from typing import Any, cast
 from unittest import mock
 
-from common import events, lifecycle
+from common import events
+from common.runtime import lifecycle
 from frontend import lifecycle_host
 
 

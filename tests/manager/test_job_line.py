@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 
 from common.capture import run
-from common.jobs import KIND_LIBRARY_SCAN, KIND_MEDIA_FILL
+from common.runtime.jobs import KIND_LIBRARY_SCAN, KIND_MEDIA_FILL
 from manager import record
 from manager.library_folders import KIND_IMPORT
 from manager.page import failed_since, imports_ended_since, list_is_idle, reads_ended_since

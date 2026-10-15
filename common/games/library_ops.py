@@ -14,8 +14,7 @@ from __future__ import annotations
 from collections.abc import Callable, Collection, Iterable
 from typing import Any
 
-from common import job_details, service_errors
-from common import jobs as job_registry
+from common import service_errors
 from common.games import (
     derived_tags,
     entry_lens,
@@ -40,6 +39,8 @@ from common.games.game_metadata import (
 )
 from common.games.tables import table_entries
 from common.i18n import t
+from common.runtime import job_details
+from common.runtime import jobs as job_registry
 
 
 def start(kind: str, work: Callable[[job_registry.Job], object],

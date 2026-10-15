@@ -20,7 +20,7 @@ import time
 from collections.abc import Mapping
 from urllib.parse import urlsplit
 
-from common import serving
+from common.devices import serving
 from common.host import addresses
 from common.security import encrypted_connections
 

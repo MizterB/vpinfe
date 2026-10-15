@@ -5,9 +5,10 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from common import events, jobs, path_state
+from common import events, path_state
 from common.host import metrics
 from common.i18n import t
+from common.runtime import jobs
 from tests.support.hung_folder import never_answering
 
 

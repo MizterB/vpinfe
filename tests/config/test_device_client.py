@@ -14,7 +14,9 @@ from unittest.mock import patch
 
 import requests
 
-from common import device_client, lifecycle, paths, service_errors
+from common import paths, service_errors
+from common.devices import device_client
+from common.runtime import lifecycle
 from common.security import access_keys, http_client, pinned_certificates
 
 LOCAL = "Aaaa111111"

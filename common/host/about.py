@@ -144,7 +144,7 @@ def _release_target() -> str:
 
 
 def _features() -> str:
-    from common import install_identity
+    from common.devices import install_identity
     from common.paths import get_ini_config
 
     try:
@@ -193,7 +193,7 @@ def _graphics() -> str:
 
 def _browser_path() -> str:
     try:
-        from common import device_client
+        from common.devices import device_client
 
         return str(device_client.local().browser_path() or "")
     except Exception:  # noqa: BLE001 - an install with no frontend has no browser
@@ -245,8 +245,8 @@ def _windows_file_version(path: str) -> str:
 def _locations() -> list[tuple[str, str]]:
     """Where this install keeps its things. In a report because half of what looks like
     a bug is VPinFE reading a different directory than somebody edited."""
-    from common.log_setup import log_file
     from common.paths import CONFIG_DIR, VPINFE_INI_PATH
+    from common.runtime.log_setup import log_file
 
     found: list[tuple[str, str]] = [
         (t("about.fact.configuration"), PathValue(CONFIG_DIR)),

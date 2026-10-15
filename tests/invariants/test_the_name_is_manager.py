@@ -32,7 +32,7 @@ MEANS_SOMETHING_ELSE = [
     (r".", r"GetConsoleWindow", "the Win32 call that finds the terminal window"),
     (r"\.spec$", r"\bconsole\s*=", "PyInstaller's flag for a terminal window"),
     (r".", r"""\.on\(\s*["']console["']""", "Playwright's event for a page's log line"),
-    (r"^(common/(log_setup|config_schema|config_store)|tests/(config/test_config_store"
+    (r"^(common/(runtime/log_setup|config_schema|config_store)|tests/(config/test_config_store"
      r"|api/test_config)|tests/fixtures/config_legacy_names)\.(py|json)$", r"console",
      "the 2.x [logger] console key, still read and written back as terminal"),
     (r"^docs/extensions/(cookbook|reference/ui)\.md$", r"console",

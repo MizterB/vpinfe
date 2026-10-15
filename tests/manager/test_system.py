@@ -9,7 +9,8 @@ import re
 import unittest
 from urllib.parse import parse_qs
 
-from common import feature_checks, install_identity, path_state
+from common import feature_checks, path_state
+from common.devices import install_identity
 from manager import needs, page
 from manager import settings as settings_page
 from manager.kit import appearance, deeplink, panel

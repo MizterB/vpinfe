@@ -33,7 +33,7 @@ from common.atomic_write import write_atomic
 from common.failures import why
 from common.i18n import t
 
-logger = logging.getLogger("vpinfe.common.jobs")
+logger = logging.getLogger("vpinfe.common.runtime.jobs")
 
 ProgressCallback = Callable[[int, int, str], None]
 LogCallback = Callable[[str], None]
@@ -262,7 +262,7 @@ def _detail(job: Job) -> str:
     is no line: it must not fail a job that finished."""
     if job.detail or job.result is None:
         return job.detail
-    from common import job_details  # imports this module for the kinds
+    from common.runtime import job_details  # imports this module for the kinds
 
     try:
         return job_details.of(job.kind, job.result)

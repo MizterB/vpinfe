@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Body, Request, Response
 
-from common import jobs as job_registry
 from common.games import (
     collection_ops,
     game_ops,
@@ -24,6 +23,7 @@ from common.games import (
     owned,
 )
 from common.i18n import t
+from common.runtime import jobs as job_registry
 
 from . import jobs as jobs_api
 from . import models, scopes

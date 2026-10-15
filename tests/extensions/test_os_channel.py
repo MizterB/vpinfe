@@ -26,10 +26,10 @@ from starlette.testclient import TestClient
 import httpapi
 from common import events as core_events
 from common import extensions
-from common import jobs as core_jobs
 from common.extensions import contract, host, reach, store
 from common.extensions.context import ExtensionContext
 from common.host import os_helper
+from common.runtime import jobs as core_jobs
 from common.security import sign_in
 from httpapi import auth
 from tests.support.accepted import owner_accepts
@@ -439,7 +439,7 @@ class JobTests(ExtensionCase):
         fake = self.helper()
         ctx = self.make("jobless", ["os:updates"])
 
-        with self.assertLogs("vpinfe.common.jobs", logging.ERROR):
+        with self.assertLogs("vpinfe.common.runtime.jobs", logging.ERROR):
             job = ctx.jobs.submit("apply", lambda _job: ctx.os.call("updates.apply"))
             self.wait(job)
 

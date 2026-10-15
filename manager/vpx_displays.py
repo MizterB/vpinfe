@@ -18,7 +18,7 @@ from typing import Any
 from nicegui import run, ui
 
 from apps.vpx import screens as vpx
-from common import device_client
+from common.devices import device_client
 from common.failures import why
 from common.host import display_service
 from common.i18n import t

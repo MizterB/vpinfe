@@ -21,9 +21,9 @@ from unittest import mock
 from starlette.requests import Request
 
 from common import events, paths
-from common import jobs as job_registry
 from common.extensions import reach
 from common.extensions.context import ExtensionJobs
+from common.runtime import jobs as job_registry
 from httpapi import events as event_stream
 from httpapi import jobs as jobs_api
 from httpapi.errors import NotFoundError

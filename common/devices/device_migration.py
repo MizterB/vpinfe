@@ -11,14 +11,14 @@ from typing import Any
 
 from common import config_schema
 from common.config_access import cfg_get
-from common.device_registry import (
+from common.devices.device_registry import (
     DEFAULT_MOBILE_PORT,
     MOBILE_DEVICES_KEY,
     address_problem,
     mint_device_id,
 )
 
-logger = logging.getLogger("vpinfe.common.device_migration")
+logger = logging.getLogger("vpinfe.common.devices.device_migration")
 
 MOBILE_SECTION = "vpxmobile"
 MOBILE_DISPLAY_NAME = "VPX Mobile"

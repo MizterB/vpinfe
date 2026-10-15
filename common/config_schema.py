@@ -18,6 +18,7 @@ from typing import Any
 from common import i18n, input_registry, setting_groups
 from common.apps.contract import Field
 from common.i18n import t
+from common.ids import new_id
 from common.labels import humanize
 from common.values import is_truthy
 
@@ -1391,9 +1392,8 @@ def _launcher_fields(kind: str) -> Sequence[Field] | None:
 def _default_launchers() -> list[dict[str, Any]]:
     """The shipped launcher, under a fresh id."""
     from common import apps
-    from common.install_identity import mint_id
 
-    return [{"id": mint_id(), "app": "vpx", "name": apps.app_name("vpx"), "enabled": True,
+    return [{"id": new_id(), "app": "vpx", "name": apps.app_name("vpx"), "enabled": True,
              "owns_ini": False, "tables": [], "settings": {}}]
 
 

@@ -5,8 +5,8 @@ from __future__ import annotations
 import configparser
 import unittest
 
-from common import device_registry
 from common.config_store import ConfigStore
+from common.devices import device_registry
 from common.online import cache_stamps, vpsdb_sync
 from tests.support.library import own_registry
 from tests.support.stamps import OwnStamps

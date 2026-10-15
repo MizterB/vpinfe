@@ -5,8 +5,8 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
-from common import jobs
 from common.games import media_ops
+from common.runtime import jobs
 from httpapi import extension_ops
 
 

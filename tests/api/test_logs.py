@@ -12,7 +12,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import httpapi
-from common import log_setup
+from common.runtime import log_setup
 from tests.support.library import TempTree
 
 try:

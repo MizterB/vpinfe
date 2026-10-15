@@ -36,8 +36,8 @@ from common.games.game_service import load_vpsdb
 from common.games.media_service import CACHE_DIR
 from common.games.tables import ABSENT_SINCE_KEY, entry_filename, table_entries
 from common.i18n import t
-from common.jobs import JobReporter
 from common.online import obtainability, vps_kinds, vps_lens
+from common.runtime.jobs import JobReporter
 
 logger = logging.getLogger("vpinfe.common.games.library_vps_state")
 

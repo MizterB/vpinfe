@@ -164,7 +164,7 @@ class LeaveOutEntries(unittest.TestCase):
         self.assertEqual(chrome_options._entries(None, self.NAMES), [])
 
     def test_the_names_offered_are_the_ones_a_window_starts_with(self) -> None:
-        from common import device_client
+        from common.devices import device_client
 
         names = device_client.local().browser_default_option_names()
 

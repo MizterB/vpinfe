@@ -3,7 +3,7 @@
 Not "meta" - every endpoint is metadata about something. These answer "what am I talking
 to", which is the question discovery exists for.
 
-Who this install is and how it announces itself is `common/install_presence.py`; what it
+Who this install is and how it announces itself is `common/devices/install_presence.py`; what it
 could become is `common/online/app_updater.py`. The discovery document is here, because
 links over the wire are this layer's.
 """
@@ -15,7 +15,7 @@ import logging
 from fastapi import APIRouter, BackgroundTasks, Body
 from fastapi.responses import JSONResponse
 
-from common import install_identity, install_presence, install_setup
+from common.devices import install_identity, install_presence, install_setup
 from common.online import app_updater
 from common.paths import get_ini_config
 from common.vpinfe_version import get_version

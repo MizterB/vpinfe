@@ -25,6 +25,7 @@ from common.atomic_write import write_atomic
 from common.deprecations import announce
 from common.games.info_migration import REASON_2X, copy_aside
 from common.i18n import t
+from common.ids import new_id
 from common.values import is_truthy
 
 logger = logging.getLogger("vpinfe.common.config_store")
@@ -639,8 +640,6 @@ class ConfigStore:
     @staticmethod
     def _prepared(spec: config_schema.ConfigList, items: Any,
                   held: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
-        from common.install_identity import mint_id
-
         if not isinstance(items, list):
             raise config_schema.ConfigListError(t("error.config.list.items", list=spec.key))
         already = [item for item in held or [] if isinstance(item, dict)]
@@ -650,7 +649,7 @@ class ConfigStore:
                 return spec.clean(item)
             if any(_same(item, was) for was in already):
                 return copy.deepcopy(item)
-            return spec.clean({**item, "id": item.get("id") or mint_id()})
+            return spec.clean({**item, "id": item.get("id") or new_id()})
 
         cleaned = [clean(item) for item in items]
         for item in cleaned:

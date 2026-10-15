@@ -12,8 +12,9 @@ from unittest import mock
 from fastapi.testclient import TestClient
 
 import httpapi
-from common import config_service, paths, port_checks, serving
+from common import config_service, paths, port_checks
 from common.config_store import ConfigStore
+from common.devices import serving
 from common.i18n import t
 
 _real_listening = port_checks.listening

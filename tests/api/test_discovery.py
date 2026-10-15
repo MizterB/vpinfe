@@ -14,8 +14,8 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import httpapi
-from common import device_registry as registry_module
-from common import discovery, install_identity, install_presence
+from common.devices import device_registry as registry_module
+from common.devices import discovery, install_identity, install_presence
 from tests.support.library import TempTree
 
 try:
@@ -182,7 +182,7 @@ class AnnouncingTests(unittest.TestCase):
             pass
 
         with patch.object(discovery._discovery, "start", side_effect=NoTextError()), \
-                self.assertLogs("vpinfe.common.discovery", level="WARNING") as seen:
+                self.assertLogs("vpinfe.common.devices.discovery", level="WARNING") as seen:
             discovery.start(object())  # type: ignore[arg-type]
 
         self.assertTrue(seen.output[0].endswith("on the network: NoTextError()"), seen.output)
@@ -226,7 +226,7 @@ class RecordingWhatWasHeardTests(TempTree):
                                lambda: self.registry)
         patcher.start()
         self.addCleanup(patcher.stop)
-        also = patch("common.install_presence.get_device_registry",
+        also = patch("common.devices.install_presence.get_device_registry",
                      lambda: self.registry)
         also.start()
         self.addCleanup(also.stop)

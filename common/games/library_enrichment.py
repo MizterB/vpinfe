@@ -27,7 +27,7 @@ from common.games.tables import (
     is_parsed,
     table_entries,
 )
-from common.jobs import JobReporter
+from common.runtime.jobs import JobReporter
 
 logger = logging.getLogger("vpinfe.common.games.library_enrichment")
 

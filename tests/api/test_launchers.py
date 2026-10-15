@@ -20,8 +20,9 @@ from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 
 import httpapi
-from common import jobs, service_errors
+from common import service_errors
 from common.games import launchers
+from common.runtime import jobs
 from manager import app_settings, workbench
 from manager.kit import data
 from manager.kit.api import ApiClient

@@ -6,7 +6,7 @@ import time
 import unittest
 from unittest import mock
 
-from common import serving
+from common.devices import serving
 from common.security import sign_in
 from manager import security, settings, signed_in_rows
 from manager.kit import panel

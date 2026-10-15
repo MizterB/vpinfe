@@ -17,12 +17,13 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Protocol
 
-from common import jobs, service_errors
+from common import service_errors
 from common.atomic_write import write_atomic
 from common.failures import why
 from common.host import launch_state, tools
 from common.i18n import t
 from common.paths import CAPTURE_DIR
+from common.runtime import jobs
 from common.timestamps import utc_now_iso
 
 from .. import commands, geometry

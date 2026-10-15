@@ -16,7 +16,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from common import device_registry
+from common.devices import device_registry
 from common.games.game import Game
 
 

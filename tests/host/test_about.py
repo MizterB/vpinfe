@@ -104,7 +104,7 @@ class AboutTests(unittest.TestCase):
         self.addCleanup(i18n.set_language, i18n.language())
         i18n.set_language("qps")
         with mock.patch.object(about, "_browser_path", return_value=""), \
-                mock.patch("common.log_setup.log_file", return_value=None), \
+                mock.patch("common.runtime.log_setup.log_file", return_value=None), \
                 mock.patch.object(about.platform, "machine", return_value=""), \
                 mock.patch.object(about, "_install_context",
                                   return_value={"reason": "source_build"}):

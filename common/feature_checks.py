@@ -18,9 +18,10 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from common import install_identity, path_state
+from common import path_state
 from common.config_access import cfg_get
 from common.config_store import ConfigStore
+from common.devices import install_identity
 from common.i18n import t
 
 if TYPE_CHECKING:

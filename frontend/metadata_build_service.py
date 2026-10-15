@@ -8,8 +8,8 @@ from collections.abc import Callable
 from queue import Queue
 from typing import TYPE_CHECKING, Any
 
-from common import jobs
 from common.i18n import t
+from common.runtime import jobs
 from frontend import game_state
 
 if TYPE_CHECKING:

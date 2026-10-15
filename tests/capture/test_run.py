@@ -12,12 +12,13 @@ from unittest.mock import patch
 from starlette.testclient import TestClient
 
 import httpapi
-from common import events, jobs, service_errors
+from common import events, service_errors
 from common.capture import adapters, placing, run, session
 from common.capture.run import Request
 from common.games import asset_origin
 from common.host import launch_state
 from common.i18n import t
+from common.runtime import jobs
 from tests.capture.test_preflight import MONITORS, FakeAdapter, found, report
 from tests.support.library import TempTree, fake_game, write_game
 

@@ -20,10 +20,11 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 import httpapi
-from common import jobs, service_errors
+from common import service_errors
 from common.capture import preflight
 from common.host import get_ffmpeg, tools, vpinos
 from common.i18n import size, t
+from common.runtime import jobs
 from common.security import http_client
 from tests.support.skips import needs_executable_bit
 

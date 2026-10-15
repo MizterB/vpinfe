@@ -11,7 +11,8 @@ from __future__ import annotations
 import socket
 from typing import Any
 
-from common import config_schema, serving
+from common import config_schema
+from common.devices import serving
 from common.i18n import t
 from common.paths import get_ini_config
 

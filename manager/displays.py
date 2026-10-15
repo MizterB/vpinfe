@@ -8,7 +8,7 @@ from typing import Any
 
 from nicegui import run, ui
 
-from common import device_client
+from common.devices import device_client
 from common.failures import why
 from common.i18n import t
 from manager import screens

@@ -1,7 +1,7 @@
 """The devices this install knows about, and what it can be asked to do to them.
 
 A device is another machine - a second VPinFE install, or a phone running VPX Mobile.
-`common/device_ops.py` holds the registry side; `common/games/mobile_ops.py` holds what a
+`common/devices/device_ops.py` holds the registry side; `common/games/mobile_ops.py` holds what a
 phone is carrying, because which games are on it is a question about games.
 
 The one thing only a request can answer is where an announcement came from: the socket's
@@ -13,7 +13,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Body, Request, Response
 from starlette.concurrency import run_in_threadpool
 
-from common import device_ops
+from common.devices import device_ops
 from common.games import mobile_ops
 
 from . import jobs as jobs_api

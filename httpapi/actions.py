@@ -38,7 +38,7 @@ def perform_action(background: BackgroundTasks, request: Request,
     A process that is stopping cannot report whether it stopped, so those go to a
     background task and the response goes out first - the same order `POST /update` uses.
     """
-    from common import lifecycle
+    from common.runtime import lifecycle
 
     scope, action = action_ops.check(payload.scope, payload.action)
     if (scope, action) != (lifecycle.TABLE, lifecycle.STOP):

@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import requests
 from nicegui import ui
 
-from common import install_identity
+from common.devices import install_identity
 from common.i18n import t
 from manager import page, players, workbench
 from manager.kit import deeplink, grid, panel, thumbnails

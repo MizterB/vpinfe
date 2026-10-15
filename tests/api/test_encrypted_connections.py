@@ -17,7 +17,7 @@ from starlette.datastructures import Headers
 from starlette.testclient import TestClient
 
 import httpapi
-from common import serving
+from common.devices import serving
 from common.host import addresses, this_machine
 from common.security import api_tokens, encrypted_connections, sign_in
 from httpapi import auth, scopes

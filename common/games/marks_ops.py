@@ -12,7 +12,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from common import jobs, service_errors, shutdown
+from common import service_errors
 from common.failures import why
 from common.games import derived_tags, game_lens, game_service, launcher_ops
 from common.games.game_metadata import (
@@ -28,6 +28,7 @@ from common.games.game_repository import reread_game
 from common.games.info_file import MetaConfig
 from common.games.table_ops import filename_or_refuse
 from common.i18n import t
+from common.runtime import jobs, shutdown
 
 logger = logging.getLogger(__name__)
 

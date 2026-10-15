@@ -19,11 +19,11 @@ from unittest import mock
 from nicegui import ui
 
 import httpapi
-from common import jobs as job_registry
 from common.games.game_parser import GameParser
 from common.games.info_maintenance import upgrade_library
 from common.games.unreadable import UnreadableGame
 from common.i18n import t
+from common.runtime import jobs as job_registry
 from manager import sections
 from manager.kit.data import Library
 from tests.support import lines

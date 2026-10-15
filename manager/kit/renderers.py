@@ -12,7 +12,7 @@ from typing import Any
 
 from nicegui import Client, ui
 
-from common import install_identity
+from common.devices import install_identity
 from common.i18n import t
 from manager.kit import media_ownership, tag_chips, verbs
 

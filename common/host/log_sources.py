@@ -10,8 +10,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from common import log_setup
 from common.host import vpx_log
+from common.runtime import log_setup
 
 # A log nobody rotates can grow without bound, and a download holds the file in memory
 # on the way out.

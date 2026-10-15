@@ -16,10 +16,11 @@ from typing import Any
 from starlette.testclient import TestClient
 
 import httpapi
-from common import i18n, jobs
+from common import i18n
 from common.extensions import contract, host, store
 from common.extensions.contract import Unavailable
 from common.i18n import t
+from common.runtime import jobs
 from httpapi import errors
 from tests.support.accepted import owner_accepts
 from tests.support.identity import IDENTITY

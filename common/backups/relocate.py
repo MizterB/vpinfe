@@ -17,10 +17,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from common import atomic_write, jobs, path_state, service_errors, shutdown
+from common import atomic_write, path_state, service_errors
 from common.failures import why
 from common.games import info_migration
 from common.i18n import t
+from common.runtime import jobs, shutdown
 
 from . import archive
 from . import folder as backup_folder

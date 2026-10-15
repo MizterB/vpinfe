@@ -17,10 +17,11 @@ import threading
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from common import events, lifecycle
+from common import events
 from common.config_access import cfg_bool
 from common.config_store import ConfigStore
 from common.host import launch_state, system_actions
+from common.runtime import lifecycle
 
 if TYPE_CHECKING:
     from frontend.chromium_manager import ChromiumManager

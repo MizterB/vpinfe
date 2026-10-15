@@ -104,7 +104,7 @@ class DiscoveryTests(unittest.TestCase):
         self.assertEqual(links["events"], "/api/v1/events")
 
     def test_discovery_says_so_while_setup_is_pending(self) -> None:
-        with mock.patch("common.install_setup.pending", return_value=True):
+        with mock.patch("common.devices.install_setup.pending", return_value=True):
             body = self.client.get("/").json()
 
         self.assertIs(body["setup_pending"], True)
@@ -112,7 +112,7 @@ class DiscoveryTests(unittest.TestCase):
     def test_discovery_leaves_the_key_out_once_setup_has_finished(self) -> None:
         """A build from before Setup never says it either, so absent has to read as set up
         for both."""
-        with mock.patch("common.install_setup.pending", return_value=False):
+        with mock.patch("common.devices.install_setup.pending", return_value=False):
             body = self.client.get("/").json()
 
         self.assertNotIn("setup_pending", body)
@@ -122,7 +122,7 @@ class DiscoveryTests(unittest.TestCase):
         says both as null, and a client reads that as a statement."""
         for pending in (True, False):
             with self.subTest(pending=pending), \
-                 mock.patch("common.install_setup.pending", return_value=pending):
+                 mock.patch("common.devices.install_setup.pending", return_value=pending):
                 events = next(one for one in self.client.get("/").json()["capabilities"]
                               if one["name"] == "events")
 
@@ -155,7 +155,7 @@ class DiscoveryTests(unittest.TestCase):
         writer, and read-only installs a bug report."""
         from unittest.mock import patch
 
-        with patch("common.install_identity.ensure_id") as mint:
+        with patch("common.devices.install_identity.ensure_id") as mint:
             self.client.get("/")
 
         mint.assert_not_called()
@@ -316,9 +316,9 @@ class ErrorEnvelopeTests(unittest.TestCase):
     def test_something_in_the_way_is_a_conflict_in_its_own_words(self) -> None:
         """A busy job, a device that will not answer and an update that cannot be taken
         are raised far from any route, and reach it without a handler on the way."""
-        from common import jobs
         from common.games import mobile_transfer
         from common.online import app_updater
+        from common.runtime import jobs
 
         def raising(refusal: Exception):
             def route() -> None:
@@ -426,7 +426,7 @@ class RegistrationTests(unittest.TestCase):
         for path in ("/api/v1", "/api/v1/"):
             for pending in (True, False):
                 with self.subTest(path=path, pending=pending), \
-                        mock.patch("common.install_setup.pending", return_value=pending):
+                        mock.patch("common.devices.install_setup.pending", return_value=pending):
                     body = self.client.get(path, follow_redirects=False).json()
                     self.assertEqual(body.get("setup_pending"), True if pending else None)
 

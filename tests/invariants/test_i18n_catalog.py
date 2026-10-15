@@ -160,7 +160,7 @@ NOT_READ = {
 
 # Modules read for fewer ways than every one, and the ones outside those read at all.
 READ_FOR = {
-    "common/device_client.py": frozenset({"reason", "raise"}),
+    "common/devices/device_client.py": frozenset({"reason", "raise"}),
     "common/uploads/asset_import_service.py": frozenset({"reason", "raise", "refusal"}),
     "common/uploads/upload_session_service.py": frozenset({"raise", "refusal"}),
     "common/games/library_folders.py": frozenset({"reason"}),
@@ -179,7 +179,7 @@ READ_FOR = {
     "common/games/info_file.py": frozenset({"refusal"}),
     "common/games/game_service.py": frozenset({"raise", "refusal"}),
     "common/games/mobile_transfer.py": frozenset({"raise", "refusal"}),
-    "common/jobs.py": frozenset({"raise"}),
+    "common/runtime/jobs.py": frozenset({"raise"}),
     "common/online/theme_service.py": frozenset({"refusal"}),
     "common/theme_options.py": frozenset({"refusal"}),
     "common/online/themes.py": frozenset({"raise"}),
@@ -204,7 +204,7 @@ READ_FOR = {
     "httpapi/capabilities.py": NOT_ITS_REFUSALS,
     # Every pair it allows is named from the catalog; one it does not is said in the
     # caller's own codes.
-    "common/lifecycle.py": frozenset({"reason", "raise"}),
+    "common/runtime/lifecycle.py": frozenset({"reason", "raise"}),
     # What these raise, their callers log, and say in their own words where a person sees.
     "common/games/remote_library.py": NOT_WHAT_IT_RAISES,
     "common/games/score_parser.py": NOT_WHAT_IT_RAISES,
@@ -231,7 +231,7 @@ SAID_TO_THE_LOG = {
     "common/online/themes.py": frozenset({"_validate_manifest"}),
     "common/online/theme_refs.py": frozenset({"bare_ref"}),
     "common/online/theme_layouts.py": frozenset({"problem"}),
-    "common/device_client.py": frozenset({"perform_action"}),
+    "common/devices/device_client.py": frozenset({"perform_action"}),
     "common/games/info_maintenance.py": frozenset({"_upgrade_summary", "_restore_summary",
                                                    "_games", "_files"}),
     "httpapi/actions.py": frozenset({"perform_action"}),

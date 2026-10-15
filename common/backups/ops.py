@@ -29,7 +29,7 @@ from common.games import (
 from common.games.info_migration import copied_from
 from common.host import launch_state
 from common.i18n import t
-from common.jobs import KIND_LIBRARY_SCAN, track
+from common.runtime.jobs import KIND_LIBRARY_SCAN, track
 
 from . import archive, pending, places
 from . import folder as backup_folder

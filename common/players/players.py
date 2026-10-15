@@ -1,7 +1,7 @@
 """Who plays on this install, and who the next game counts for.
 
 Kept players are in `players.json`, written whole and atomically like
-`common/device_registry.py`. Guests and who is up are held in memory and never written.
+`common/devices/device_registry.py`. Guests and who is up are held in memory and never written.
 """
 
 from __future__ import annotations
@@ -18,8 +18,8 @@ from typing import Any
 from common import events, service_errors
 from common.atomic_write import write_atomic
 from common.config_access import ConfigSource, cfg_get
+from common.devices.install_identity import mint_id
 from common.i18n import t
-from common.install_identity import mint_id
 from common.media.sized_media import Served
 from common.paths import CONFIG_DIR
 from common.players import player_pictures

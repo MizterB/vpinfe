@@ -25,7 +25,7 @@ from urllib.parse import parse_qs, urlparse
 import websockets
 from websockets.asyncio.server import ServerConnection
 
-from common import serving
+from common.devices import serving
 from common.failures import why
 from common.i18n import t
 from common.service_errors import ServiceError

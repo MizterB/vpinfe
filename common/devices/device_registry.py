@@ -42,13 +42,13 @@ from urllib.parse import urlsplit
 from common import config_schema
 from common.atomic_write import write_atomic
 from common.config_store import ConfigStore
+from common.devices.install_identity import mint_id
 from common.i18n import t
-from common.install_identity import mint_id
 from common.paths import STATE_DIR, get_ini_config
 from common.security import access_keys, pinned_certificates
 from common.timestamps import utc_now_iso
 
-logger = logging.getLogger("vpinfe.common.device_registry")
+logger = logging.getLogger("vpinfe.common.devices.device_registry")
 
 DEVICE_REGISTRY_PATH = STATE_DIR / "devices.json"
 SCHEMA = 1

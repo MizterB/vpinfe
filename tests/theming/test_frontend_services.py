@@ -10,12 +10,13 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from common import device_registry, jobs
+from common.devices import device_registry
 from common.games import game_play_service, game_report_service
 from common.games.game_metadata import game_frontend_dof_event, set_game_rating
 from common.games.tables import entry_for_filename
 from common.host import real_dmd, system_actions
 from common.i18n import t
+from common.runtime import jobs
 from frontend import config_api, theme_api
 from tests.support.accepted import owner_accepts_theme
 from tests.support.library import own_registry, write_game

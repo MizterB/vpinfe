@@ -98,7 +98,7 @@ class FrontendRemoteLinkTests(unittest.TestCase):
     on the screen too."""
 
     def test_the_qr_follows_the_list_and_carries_the_pass(self) -> None:
-        from common import serving
+        from common.devices import serving
         from common.security import access_keys
         from frontend import config_api
 

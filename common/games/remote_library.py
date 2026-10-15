@@ -15,7 +15,7 @@ from urllib.parse import quote, urlencode, urljoin
 
 import requests
 
-from common.device_registry import paired_header as _paired
+from common.devices.device_registry import paired_header as _paired
 from common.games.collection_ops import wheel_paths
 from common.games.collection_resolver import Entry
 from common.games.wire_entry import WireGame, table_of

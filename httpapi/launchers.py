@@ -17,8 +17,8 @@ from typing import Any
 
 from fastapi import APIRouter, Body, Request, Response
 
-from common import jobs
 from common.games import launcher_ops
+from common.runtime import jobs
 
 from . import jobs as jobs_api
 from . import protected_settings, scopes

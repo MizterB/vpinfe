@@ -17,9 +17,10 @@ import threading
 from collections.abc import Sequence
 from typing import Any
 
-from common import config_schema, events, install_presence, path_state, port_checks
+from common import config_schema, events, path_state, port_checks
 from common.apps.contract import Field
 from common.backups import folder as backups_folder
+from common.devices import install_presence
 from common.failures import why
 from common.i18n import t
 from common.labels import humanize

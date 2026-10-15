@@ -11,9 +11,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Query, Request
 
-from common import jobs as job_registry
 from common.extensions import reach
 from common.i18n import t
+from common.runtime import jobs as job_registry
 
 from . import models, scopes
 from .auth import requires

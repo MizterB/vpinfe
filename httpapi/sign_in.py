@@ -11,9 +11,9 @@ from typing import Any
 from fastapi import APIRouter, Depends, Request, Response
 
 from common import paths
+from common.devices.install_identity import display_name
 from common.host import this_machine
 from common.i18n import t
-from common.install_identity import display_name
 from common.security import access_keys, authenticator, sign_in
 from common.security import api_tokens as tokens
 

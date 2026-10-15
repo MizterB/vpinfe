@@ -8,7 +8,7 @@ import asyncio
 import unittest
 from unittest import mock
 
-from common import device_client
+from common.devices import device_client
 from common.i18n import t
 from manager import devices
 
@@ -56,7 +56,7 @@ class AwayTests(unittest.TestCase):
 class RailTests(unittest.TestCase):
     def setUp(self) -> None:
         self.client = _client()
-        patch = mock.patch("common.device_client.for_device", return_value=self.client)
+        patch = mock.patch("common.devices.device_client.for_device", return_value=self.client)
         patch.start()
         self.addCleanup(patch.stop)
 

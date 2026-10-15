@@ -14,7 +14,7 @@ import socket
 import uvicorn
 from nicegui import app
 
-from common import serving
+from common.devices import serving
 
 logger = logging.getLogger("vpinfe.manager.loopback")
 

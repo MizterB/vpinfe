@@ -9,8 +9,8 @@ from unittest.mock import AsyncMock, Mock, patch
 
 from nicegui import background_tasks, ui
 
-from common import lifecycle
 from common.i18n import t
+from common.runtime import lifecycle
 from manager import power, waiting
 from manager.kit import offload, remembered
 from tests.support.clicks import press

@@ -11,9 +11,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from common import device_registry, install_setup
 from common.config_access import ConfigSource
 from common.config_store import ConfigStore
+from common.devices import device_registry, install_setup
 from common.release import migration_ledger, release_notes, upgrade_needs
 
 LAST_KEY = "last_version"

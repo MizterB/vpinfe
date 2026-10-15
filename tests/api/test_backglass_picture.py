@@ -409,8 +409,8 @@ class BackglassFileAsPicture(BackglassRoutes):
             self.assertEqual(0, backglass_ops.redraw_all())
 
     def test_updating_art_runs_the_sweep_first(self) -> None:
-        from common import jobs
         from common.games import media_fill
+        from common.runtime import jobs
 
         order: list[str] = []
         with patch.object(jobs, "submit",

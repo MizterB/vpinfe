@@ -13,11 +13,12 @@ from unittest.mock import patch
 from starlette.testclient import TestClient
 
 import httpapi
-from common import jobs, service_errors
+from common import service_errors
 from common.capture import adapters, placing, run, session, trial
 from common.capture.adapters import wlr
 from common.host import launch_state
 from common.i18n import t
+from common.runtime import jobs
 from tests.capture.test_adapters import SWAY_OUTPUTS
 from tests.capture.test_preflight import found, report
 

@@ -8,8 +8,8 @@ from unittest import mock
 from starlette.testclient import TestClient
 
 import httpapi
-from common import jobs
 from common.games import library_ops, metadata_service
+from common.runtime import jobs
 
 
 class FetchRouteTests(unittest.TestCase):

@@ -31,7 +31,7 @@ from common.games.info_migration import (
     write_json_atomic,
 )
 from common.i18n import t
-from common.jobs import JobReporter, LogCallback, ProgressCallback
+from common.runtime.jobs import JobReporter, LogCallback, ProgressCallback
 
 logger = logging.getLogger("vpinfe.common.games.info_maintenance")
 

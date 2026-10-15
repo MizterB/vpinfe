@@ -18,12 +18,13 @@ from unittest import mock
 from starlette.testclient import TestClient
 
 import httpapi
-from common import events, jobs
+from common import events
 from common.extensions.games import withdraw_all
 from common.games import game_repository, library_refresh, unreadable, unwritten
 from common.games.formats.vpx_parser import VPXParser
 from common.games.game_parser import GameParser
 from common.games.library_folders import KIND_ROOT, Location
+from common.runtime import jobs
 from tests.support.library import TempTree, game_info, write_game
 
 FIRST, SECOND = "Mark00000001", "Mark00000002"

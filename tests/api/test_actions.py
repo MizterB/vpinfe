@@ -11,8 +11,8 @@ import unittest
 from unittest.mock import patch
 
 import httpapi
-from common import lifecycle
 from common.host import action_ops
+from common.runtime import lifecycle
 from tests.support.library import TempTree
 
 try:

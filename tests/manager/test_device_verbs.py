@@ -6,9 +6,10 @@ import unittest
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
-from common import device_client, lifecycle
+from common.devices import device_client
 from common.host import action_ops
 from common.i18n import t
+from common.runtime import lifecycle
 from manager import devices
 from tests.support.clicks import press
 

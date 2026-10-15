@@ -634,8 +634,9 @@ def take_published(*, stop_table: bool = False) -> dict:
     unavailable update costs nobody their game. Only once there is a verified package does
     a running table get closed.
     """
-    from common import device_client, lifecycle
+    from common.devices import device_client
     from common.host import launch_state
+    from common.runtime import lifecycle
 
     context = get_install_context()
     if not context["supported"]:
@@ -669,7 +670,8 @@ def take_published(*, stop_table: bool = False) -> dict:
 
 def quit_for_update() -> None:
     """Go down the ordinary way, so the services shut down and the windows close."""
-    from common import device_client, lifecycle
+    from common.devices import device_client
+    from common.runtime import lifecycle
 
     device_client.local().request(
         lifecycle.VPINFE, lifecycle.STOP,

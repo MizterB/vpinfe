@@ -25,7 +25,7 @@ from common.service_errors import CertificateChangedError
 if TYPE_CHECKING:
     from common.config_store import ConfigStore
 
-logger = logging.getLogger("vpinfe.common.device_client")
+logger = logging.getLogger("vpinfe.common.devices.device_client")
 
 # A probe runs once per device on a page load, so a machine that is off should cost a
 # moment rather than the whole listing. Much shorter than the ordinary call timeout.
@@ -336,7 +336,7 @@ class RemoteDevice:
         else goes to the actions route. One method either way, so a surface that offers
         these is one code path rather than a local and a remote copy.
         """
-        from common import lifecycle
+        from common.runtime import lifecycle
 
         if (scope, action) == (lifecycle.TABLE, lifecycle.STOP):
             answer = self._http.post_json(self._url("/play/stop")) or {}
@@ -416,7 +416,7 @@ class RemoteDevice:
         cabinet under one name, and what lets a mapping mean the same thing everywhere.
         Renumbering on the way in would break every mapping that travelled with it.
         """
-        from common import launcher_wire
+        from common.devices import launcher_wire
 
         held = [one for one in self._http.get_json(self._url("/config/launchers")) or []
                 if isinstance(one, dict)]
@@ -574,7 +574,7 @@ def for_device(
     else needs both halves of an address - a device that announced itself from before
     ports were recorded has no port, and there is nothing to dial.
     """
-    from common import device_registry
+    from common.devices import device_registry
 
     device_id = str(device.get("device_id") or "")
     if local_device_id and device_id == local_device_id:

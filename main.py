@@ -62,24 +62,19 @@ import requests
 
 # device_migration and the games modules below register the seeds the 2.x conversion runs,
 # so they have to be in before the ConfigStore is made.
-from common import (
+from common import events, extensions, i18n, theme_options
+from common.config_store import ConfigStore
+from common.devices import (
     device_migration,  # noqa: F401
-    events,
-    extensions,
-    i18n,
     install_setup,
     serving,
-    shutdown,
-    theme_options,
 )
-from common.config_store import ConfigStore
 from common.games import launcher_migration, launchers, library_folders  # noqa: F401
 from common.host import this_machine
 from common.host.dof_service import start_dof_service_if_enabled, stop_dof_service
 from common.host.libdmdutil_service import (
     stop_libdmdutil_service,
 )
-from common.log_setup import configure_logging, get_logger
 from common.online import theme_seed, theme_upgrade  # noqa: F401
 from common.online.pinmame_score_parser_updater import ensure_latest_roms_json
 from common.online.theme_registry_client import ThemeRegistryError
@@ -92,6 +87,8 @@ from common.paths import (
     ensure_config_dir,
 )
 from common.release import migration_ledger, whats_new
+from common.runtime import shutdown
+from common.runtime.log_setup import configure_logging, get_logger
 from common.security import sign_in
 from common.security.http_client import unreachable
 from common.vpinfe_version import get_version
@@ -320,9 +317,9 @@ except Exception:
 # while requests are served, which is safe because persist_game_meta rebinds
 # meta_config rather than mutating the dict a reader may be holding.
 try:
-    from common import jobs
     from common.games.library_refresh import read_at_startup
     from common.i18n import t
+    from common.runtime import jobs
     jobs.submit(jobs.KIND_LIBRARY_SCAN,
                 lambda job: read_at_startup(games, unseen, job.reporter()),
                 title=t("said.title_startup_read"))

@@ -12,8 +12,8 @@ from unittest.mock import MagicMock, patch
 from starlette.testclient import TestClient
 
 import httpapi
-from common import jobs
 from common.i18n import t
+from common.runtime import jobs
 
 
 class LibraryRefreshTests(unittest.TestCase):

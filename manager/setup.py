@@ -20,8 +20,8 @@ from typing import Any
 
 from nicegui import run, ui
 
-from common import install_setup, serving
 from common.config_access import DisplayConfig
+from common.devices import install_setup, serving
 from common.games import launchers as launcher_model
 from common.host import addresses
 from common.i18n import t

@@ -10,8 +10,8 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
-from common import jobs
 from common.games import library_refresh
+from common.runtime import jobs
 
 
 class PeriodicTests(unittest.TestCase):

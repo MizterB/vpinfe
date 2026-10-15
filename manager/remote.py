@@ -26,7 +26,8 @@ from typing import Any
 
 from nicegui import background_tasks, run, ui
 
-from common import device_registry, events, install_identity, serving
+from common import events
+from common.devices import device_registry, install_identity, serving
 from common.failures import why
 from common.host.launch_state import SOURCE_CAPTURE
 from common.i18n import t

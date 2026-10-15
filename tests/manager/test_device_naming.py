@@ -9,7 +9,7 @@ from unittest import mock
 
 import requests
 
-from common import device_client
+from common.devices import device_client
 from common.i18n import t
 from manager import devices, workbench
 from manager.kit.api import ApiError

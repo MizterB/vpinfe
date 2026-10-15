@@ -16,10 +16,12 @@ from unittest.mock import Mock, patch
 import requests
 
 import httpapi
-from common import config_service, device_client, jobs
-from common import device_registry as registry_module
+from common import config_service
+from common.devices import device_client
+from common.devices import device_registry as registry_module
 from common.games import mobile_ops
 from common.i18n import t
+from common.runtime import jobs
 from tests.support.library import TempTree
 
 try:
@@ -40,7 +42,7 @@ class DeviceRegistryApiTests(TempTree):
         patcher = patch.object(registry_module, "get_device_registry", lambda: registry)
         patcher.start()
         self.addCleanup(patcher.stop)
-        also = patch("common.device_ops.get_device_registry", lambda: registry)
+        also = patch("common.devices.device_ops.get_device_registry", lambda: registry)
         also.start()
         self.addCleanup(also.stop)
         # These tests are about remote devices; this install's own row is pinned elsewhere.
@@ -530,7 +532,7 @@ class ProbeAsksTheBrowserTests(TempTree):
         registry = registry_module.DeviceRegistry(self.root / "devices.json")
         self.enterContext(patch.object(registry_module, "get_device_registry",
                                        lambda: registry))
-        self.enterContext(patch("common.device_ops.get_device_registry", lambda: registry))
+        self.enterContext(patch("common.devices.device_ops.get_device_registry", lambda: registry))
         self.device = _Answering(["library", "frontend"], NO_H264)
         self.enterContext(patch.object(device_client, "for_device",
                                        side_effect=lambda *_: self.device))

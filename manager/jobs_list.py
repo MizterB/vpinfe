@@ -9,8 +9,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from common import jobs
 from common.i18n import t
+from common.runtime import jobs
 from manager.kit import grid, when
 
 SCOPE = "manager.jobs"

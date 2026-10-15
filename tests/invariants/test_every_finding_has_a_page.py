@@ -6,7 +6,8 @@ import itertools
 import unittest
 from configparser import ConfigParser
 
-from common import feature_checks, install_identity
+from common import feature_checks
+from common.devices import install_identity
 from manager import page, settings
 
 

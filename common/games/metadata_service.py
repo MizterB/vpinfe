@@ -14,9 +14,9 @@ from common.games.game_metadata import effective_vps_id, record_vps_match, vps_m
 from common.games.info_file import MetaConfig
 from common.games.standalone_scripts import StandaloneScripts
 from common.i18n import t
-from common.jobs import JobReporter, LogCallback, ProgressCallback
 from common.online.vpsdb import VPSdb
 from common.paths import get_ini_config
+from common.runtime.jobs import JobReporter, LogCallback, ProgressCallback
 
 logger = logging.getLogger("vpinfe.common.games.metadata_service")
 

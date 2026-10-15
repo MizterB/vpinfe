@@ -9,8 +9,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from common import jobs
 from common.i18n import t
+from common.runtime import jobs
 
 
 def of(kind: str, result: object) -> str:

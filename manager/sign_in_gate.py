@@ -25,8 +25,8 @@ from starlette.responses import HTMLResponse, PlainTextResponse, RedirectRespons
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from common import paths
+from common.devices.install_identity import display_name
 from common.i18n import t
-from common.install_identity import display_name
 from common.players import players
 from common.security import accepted, access_keys, authenticator, sign_in
 from httpapi import API_PREFIX, auth

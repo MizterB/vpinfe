@@ -8,8 +8,8 @@ from collections.abc import Callable
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
-from common import lifecycle
 from common.i18n import t
+from common.runtime import lifecycle
 from manager import devices, launchers, players, themes
 from tests.support.clicks import press
 

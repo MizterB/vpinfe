@@ -17,11 +17,12 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from common import apps, config_schema, failures, i18n, jobs, path_state, service_errors, shutdown
+from common import apps, config_schema, failures, i18n, path_state, service_errors
 from common.apps.contract import SCOPE_ENTRY, SCOPE_FOLDER, SCOPE_LAUNCHER, Standing
 from common.games import game_repository, launchers, library_folders, tables
 from common.games.table_identity import find_table_by_id
 from common.i18n import t
+from common.runtime import jobs, shutdown
 
 logger = logging.getLogger("vpinfe.common.games.launcher_ops")
 

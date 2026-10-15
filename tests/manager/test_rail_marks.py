@@ -6,8 +6,8 @@ from __future__ import annotations
 import unittest
 from types import SimpleNamespace
 
-from common import jobs
 from common.i18n import t
+from common.runtime import jobs
 from manager import jobs_list, rail_marks
 from manager.rail_marks import Mark
 

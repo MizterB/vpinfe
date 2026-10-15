@@ -19,9 +19,10 @@ import requests
 from fastapi.testclient import TestClient
 
 import httpapi
-from common import events, jobs, paths
-from common import jobs as job_registry
+from common import events, paths
 from common.i18n import t
+from common.runtime import jobs
+from common.runtime import jobs as job_registry
 
 
 def _held(job_id: str) -> jobs.Job:
@@ -84,7 +85,7 @@ class TrackTests(unittest.TestCase):
         def explode(*_args):
             raise RuntimeError("bad listener")
 
-        with self.assertLogs("vpinfe.common.jobs", level="DEBUG") as caught:
+        with self.assertLogs("vpinfe.common.runtime.jobs", level="DEBUG") as caught:
             with jobs.track("test.kind", progress_cb=explode, log_cb=explode) as job:
                 job.progress(1, 2, "still fine")
                 job.log("still fine")
@@ -173,7 +174,7 @@ class RegistryTests(unittest.TestCase):
         def work(_job):
             raise RuntimeError("worker died")
 
-        with self.assertLogs("vpinfe.common.jobs", level="ERROR"):
+        with self.assertLogs("vpinfe.common.runtime.jobs", level="ERROR"):
             job = jobs.submit("test.kind", work)
             for _ in range(500):
                 if _held(job.id).state != jobs.RUNNING:

@@ -17,7 +17,7 @@ from typing import Any
 
 from PIL import Image, ImageOps
 
-from common import atomic_write, jobs, service_errors, shutdown
+from common import atomic_write, service_errors
 from common.backups import folder as backup_folder
 from common.backups import media as backup_media
 from common.capture.geometry import Turn
@@ -25,8 +25,9 @@ from common.failures import why
 from common.games import game_lens, media_ops, media_placement
 from common.host import tools
 from common.i18n import t
-from common.jobs import JobReporter
 from common.media.media_specs import IMAGE_FAMILY, VIDEO_FAMILY
+from common.runtime import jobs, shutdown
+from common.runtime.jobs import JobReporter
 
 logger = logging.getLogger("vpinfe.common.games.media_rotate")
 

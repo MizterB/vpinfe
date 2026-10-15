@@ -8,10 +8,11 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from common import config_service, events, extensions, lifecycle, port_checks, settings_waiting
+from common import config_service, events, extensions, port_checks, settings_waiting
 from common.config_store import ConfigStore
 from common.extensions import host as extension_host
 from common.online import theme_service
+from common.runtime import lifecycle
 
 PORT = "network.http_port"
 ROTATION = "windows.playfield.rotation"

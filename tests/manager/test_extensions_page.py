@@ -19,7 +19,8 @@ from unittest import mock
 
 from nicegui import ui
 
-from common import feature_checks, i18n, install_identity
+from common import feature_checks, i18n
+from common.devices import install_identity
 from common.extensions import host
 from manager import ext_page, settings
 from manager.kit import wizard

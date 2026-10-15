@@ -1,7 +1,7 @@
 """This install is addressed on the ports its servers were started on, never on the setting.
 
 A port setting saved while VPinFE runs moves nothing until the next start, so a read of the
-setting sends the caller to a port nothing is listening on. `common.serving.network`
+setting sends the caller to a port nothing is listening on. `common.devices.serving.network`
 answers with the started ports.
 """
 
@@ -16,7 +16,7 @@ from tests.support.project import REPO, project_files
 # What reads the network settings themselves, and why that is right for it.
 READS_THE_SETTING = {
     # The fallback for a port nothing in this process has started.
-    "common/serving.py",
+    "common/devices/serving.py",
     # Starts the window channel and the file server, so the setting is what it binds.
     "frontend/runtime.py",
     # Another process, asking whether an install is running.
@@ -46,10 +46,10 @@ class RunningInstallIsReachedWhereItListens(unittest.TestCase):
             if lines and name not in READS_THE_SETTING:
                 offenders += [f"{name}:{line}" for line in lines]
 
-        self.assertEqual(offenders, [], "ask common.serving.network(config) instead:\n  "
+        self.assertEqual(offenders, [], "ask common.devices.serving.network(config) instead:\n  "
                                         + "\n  ".join(offenders))
         # A sweep that finds nothing passes and measures nothing.
-        self.assertTrue(readers >= {"common/serving.py", "frontend/runtime.py"})
+        self.assertTrue(readers >= {"common/devices/serving.py", "frontend/runtime.py"})
 
 
 if __name__ == "__main__":

@@ -5,7 +5,6 @@ from __future__ import annotations
 from io import BytesIO
 from typing import TYPE_CHECKING, Any
 
-from common import serving
 from common.config_access import (
     ConfigSource,
     DisplayConfig,
@@ -16,6 +15,7 @@ from common.config_access import (
     cfg_int,
     cfg_set,
 )
+from common.devices import serving
 from common.extensions.store import get_extension_store
 from common.host import addresses
 from common.security import access_keys

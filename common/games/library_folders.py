@@ -28,9 +28,9 @@ from typing import Any
 
 from common import config_schema, config_service, mounts, path_state, service_errors
 from common.config_store import ConfigStore
-from common.device_registry import DeviceRegistry, get_device_registry
+from common.devices.device_registry import DeviceRegistry, get_device_registry
+from common.devices.install_identity import mint_id
 from common.i18n import t
-from common.install_identity import mint_id
 from common.paths import get_ini_config
 
 logger = logging.getLogger("vpinfe.common.games.library_folders")

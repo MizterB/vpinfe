@@ -13,7 +13,7 @@ from unittest import mock
 from starlette.testclient import TestClient
 
 import httpapi
-from common import device_client, device_registry, install_identity
+from common.devices import device_client, device_registry, install_identity
 from common.host import frontend_browser as fb
 
 BUNDLED = "/opt/vpinfe/chromium/linux/chrome/chrome"

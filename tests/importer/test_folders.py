@@ -19,8 +19,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from common import jobs
 from common.games import library_folders, tables
+from common.runtime import jobs
 from tests.importer import test_adopt
 from tests.support.skips import needs_posix_permissions
 
@@ -700,7 +700,7 @@ class RunTests(FolderCase):
         lost = copies / "Harbor Lights" / "Harbor Lights.vpx"
         lost.unlink()
 
-        with self.assertLogs("vpinfe.common.jobs", "INFO") as logged:
+        with self.assertLogs("vpinfe.common.runtime.jobs", "INFO") as logged:
             report = self.run_it(self.tables, how="copy", into=str(copies),
                                  games=["Harbor Lights"])
 

@@ -497,7 +497,7 @@ def get_missing_media(game_ids: list[str]) -> dict:
     caller says so rather than waiting.
     """
     from common.games import media_fill
-    from common.jobs import JobBusyError
+    from common.runtime.jobs import JobBusyError
 
     try:
         media_fill.start(game_ids)

@@ -15,11 +15,11 @@ import os
 import threading
 from collections.abc import Callable
 
-from common import device_registry
 from common.config_access import ConfigSource, cfg_bool
 from common.config_store import ConfigStore
+from common.devices import device_registry
 
-logger = logging.getLogger("vpinfe.common.install_setup")
+logger = logging.getLogger("vpinfe.common.devices.install_setup")
 
 SECTION = "device"
 KEY = "setup_pending"

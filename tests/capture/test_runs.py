@@ -12,10 +12,11 @@ from unittest.mock import patch
 from starlette.testclient import TestClient
 
 import httpapi
-from common import events, jobs, service_errors
+from common import events, service_errors
 from common.capture import run, session, space
 from common.capture.run import Request
 from common.host import launch_state
+from common.runtime import jobs
 from tests.capture.test_run import GAME_ID, MOD, PLAIN, _Library, _Started
 
 THREE = Request(games=[GAME_ID], tables=[(GAME_ID, PLAIN), (GAME_ID, MOD)],

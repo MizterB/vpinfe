@@ -23,11 +23,12 @@ from fastapi import APIRouter, Header, Query, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import StreamingResponse
 
-from common import events, install_identity
-from common import jobs as job_registry
+from common import events
+from common.devices import install_identity
 from common.extensions import reach
 from common.games import game_identity
 from common.i18n import t
+from common.runtime import jobs as job_registry
 
 from . import jobs as jobs_api
 from . import scopes

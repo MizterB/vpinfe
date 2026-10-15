@@ -42,11 +42,27 @@ themes folder from `paths`.
 - `ids.py`: how VPinFE mints an opaque local id, for games and tables alike.
 - `config_store.py`, `config_bootstrap.py`: ini reading and first-run config creation. A list of objects in `vpinfe.json` is declared as a `ConfigList` in `config_schema.py` and read and written with `get_list` and `set_list`: an item without an `id` is given one, a field the list does not declare is refused, and the module that owns the list registers its `normalize` rule and the `seed` that fills it from a 2.x ini (`register_normalizer`, `register_seed`) before the store is made.
 - `events.py`: the in-process event bus. Hooks are part of an operation; subscribers are told about it.
+- `vpinfe_version.py`: the build's version string.
 - `input_registry.py`: every input action, its default bindings and the names it used to have. `[input]` in the config is generated from it, so the two cannot disagree.
-- `lifecycle.py`: starting, stopping and restarting the frontend, VPinFE or the machine, whichever surface asked.
+
+**`common/runtime/`** - how the running process behaves.
+
 - `jobs.py`: slow work as a job — one at a time per kind, progress published on the bus, answerable by id after it finishes.
+- `job_details.py`: a finished job's result as the one line the Jobs view shows beside it.
+- `lifecycle.py`: starting, stopping and restarting the frontend, VPinFE or the machine, whichever surface asked.
 - `shutdown.py`: what a kill signal does. Startup notes it and stops at the next step boundary; once the frontend is up it takes the same route as a user's own quit.
-- `log_setup.py`, `vpinfe_version.py`.
+- `log_setup.py`: one logger tree, configured once, written to a file that cannot grow forever.
+
+**`common/devices/`** - other installs, and this one's place among them.
+
+- `device_client.py`: what one install asks of another, whether that device is this process or another machine.
+- `device_registry.py`, `device_ops.py`: the devices an install knows about, keyed by `device_id`, and what it can ask them.
+- `device_migration.py`: turning the one mobile device a 2.x install could hold into a listed one.
+- `discovery.py`: saying what this install is on the network, and hearing what else is out there.
+- `install_identity.py`, `install_presence.py`: the opaque id of this install, and how it presents itself to everything else.
+- `install_setup.py`: whether this install has finished Setup.
+- `launcher_wire.py`: a launcher as a caller names it, and as `/config/launchers` holds it.
+- `serving.py`: the ports this process answers on.
 
 **`common/media/`** - the art a game or a manufacturer carries, how it is named and sized, and browsing the disk for the files that hold it.
 
@@ -262,7 +278,7 @@ re-read and every path that edits a collection comes through the second to be wr
 Re-reading a game *replaces* the object rather than mutating it, so a holder of the old
 one is stale with no way to notice - which is why the announcement has to exist at all.
 
-Start, stop and restart things through `common/lifecycle.py`. A request names a scope
+Start, stop and restart things through `common/runtime/lifecycle.py`. A request names a scope
 (`frontend`, `vpinfe`, `system`) and an action (`start`, `stop`, `restart`), so rebooting
 the machine is `restart` at system scope rather than a verb of its own, and the
 frontend, the Manager, an extension and a signal all arrive at one place. Reaching

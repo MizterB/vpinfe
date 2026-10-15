@@ -8,7 +8,7 @@ from contextlib import ExitStack
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
-from common import device_client
+from common.devices import device_client
 from common.i18n import t
 from manager import mobile_add, send_to_device
 from manager.kit.api import ApiClient

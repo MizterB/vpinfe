@@ -12,12 +12,12 @@ from __future__ import annotations
 import logging
 import threading
 
-from common import jobs, shutdown
 from common.games.library_discovery import discover
 from common.games.library_enrichment import enrich
 from common.games.table_identity import ensure_unique_table_ids
 from common.i18n import t
-from common.jobs import JobReporter
+from common.runtime import jobs, shutdown
+from common.runtime.jobs import JobReporter
 
 logger = logging.getLogger("vpinfe.common.games.library_refresh")
 
