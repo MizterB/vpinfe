@@ -905,12 +905,10 @@ body::before {
   height: min(86vh, 900px); display: flex; flex-direction: column;
 }
 .console-dialog.console-backups-card.q-card {
-  width: min(900px, 94vw); height: min(70vh, 560px); display: flex; flex-direction: column;
+  width: min(900px, 94vw); height: min(70vh, 380px); display: flex; flex-direction: column;
 }
-/* With no copies the card is as tall as its one line, not the grid's height. */
-.console-dialog.console-backups-card.q-card:has(.console-backups-none:not(.hidden)) {
-  height: auto;
-}
+/* With no copies the message sits in the middle of the height the dialog opened at. */
+.console-backups-none:not(.hidden) { flex: 1 1 auto; width: 100%; text-align: center; display: flex; align-items: center; justify-content: center; }
 /* A picker is one height whatever its list holds or its filter leaves; the list scrolls. */
 .console-dialog.console-dialog--pick.q-card {
   height: min(86vh, 780px); display: flex; flex-direction: column;

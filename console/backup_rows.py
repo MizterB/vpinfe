@@ -172,7 +172,7 @@ async def open_for(library: Library, subject_kind: str, subject_id: str, name: s
 
     with frame.opened(t("console.backups.title", name=name),
                       classes="console-backups-card") as box:
-        with ui.row().classes("w-full items-center justify-between no-wrap px-3"):
+        with ui.row().classes("w-full items-center justify-between no-wrap px-3 -mt-2"):
             ui.label(place).classes("console-help")
             frame.quiet(t("console.backups.open_in"), lambda: _open_in_backups(seek),
                         icon=verbs.GO)
@@ -184,7 +184,7 @@ async def open_for(library: Library, subject_kind: str, subject_id: str, name: s
                 on_header_context=lambda col_id: header(col_id))
             menu: ui.context_menu = ui.context_menu()
         empty = ui.label(_none_said(found)).classes(
-            "console-help console-backups-none px-3 py-3")
+            "console-help console-backups-none px-3")
 
         def show(now: list[dict[str, Any]]) -> None:
             empty.set_text(_none_said(now))
