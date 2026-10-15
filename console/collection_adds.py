@@ -550,7 +550,7 @@ async def _pick_one(title: str, collections: list[dict[str, Any]],
                     held: dict[str, list[dict[str, Any]]], rows: list[Row]) -> str | None:
     chosen: dict[str, str] = {"name": ""}
     ordered = sorted(collections, key=lambda one: str(one.get("name") or "").casefold())
-    with frame.opened(title) as box:
+    with frame.opened(title, ignore_outside_click=True) as box:
         with ui.element("div").classes("w-full px-3"):
             find = frame.field(placeholder=t("console.adds.find_collection"))
         with ui.element("div").classes("w-full px-3 mt-2 console-source-list "
@@ -677,7 +677,7 @@ def ask_new(library: Any, made: Callable[[str], Awaitable[Any]], *,
             ui.notify(t("console.collections.created", name=wanted), type="positive")
         await made(str(created.get("name") or wanted))
 
-    with frame.opened(t("console.collections.new_collection")) as dialog:
+    with frame.opened(t("console.collections.new_collection"), ignore_outside_click=True) as dialog:
         panel.facts(ui, [(t("word.name"), lambda: held.update(name=frame.field()))])
         with frame.footer():
             frame.cancel(dialog.close)

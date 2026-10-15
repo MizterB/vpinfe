@@ -24,7 +24,7 @@ async def ask(current: str, *, title: str, label: str, hint: str = "", place: st
         said = " ".join(str(held["field"].value or "").split())
         return said if said and said != current else walks.SKIPPED
 
-    with frame.opened(title) as box:
+    with frame.opened(title, ignore_outside_click=True) as box:
         if place:
             ui.label(place).classes("console-help px-3")
         if hint:

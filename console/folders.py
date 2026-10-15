@@ -540,7 +540,7 @@ def folder_dialog(library: Library, saved: Callable[[str, str], Any], *,
              (model.KIND_GAME, t("console.folders.one_game_folder"), "")],
             found["kind"], kind_changed, on_control=remember)))
     with frame.opened(t("console.folders.change_title") if changing
-                      else t("console.folders.add_folder")) as box:
+                      else t("console.folders.add_folder"), ignore_outside_click=True) as box:
         panel.facts(ui, entries)
         with frame.footer():
             frame.cancel(box.close)

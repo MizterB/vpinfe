@@ -589,7 +589,7 @@ async def ask_details(suggested: str, take: Callable[[str, str], Awaitable[None]
         held["sent"] = True
         box.submit((wanted["name"].strip(), wanted["note"].strip()))
 
-    with frame.opened(t("console.backups.back_up_title")) as box:
+    with frame.opened(t("console.backups.back_up_title"), ignore_outside_click=True) as box:
         if place:
             ui.label(place).classes("console-help px-3")
         panel.facts(ui, [(t("console.backups.name"), lambda: _name_input(wanted, held)),
@@ -667,7 +667,7 @@ async def _ask_now(library: Library, refresh: Callable[[], Awaitable[None]]) -> 
         ui.notify(t("console.backups.backed_up"), type="positive")
         await refresh()
 
-    with frame.opened(t("console.backups.back_up_title")) as box:
+    with frame.opened(t("console.backups.back_up_title"), ignore_outside_click=True) as box:
         panel.facts(ui, [(t("console.backups.what"), draw_what),
                          (t("console.backups.name"), lambda: _name_input(wanted, held)),
                          (t("console.backups.note"), lambda: _note_input(wanted, held))])

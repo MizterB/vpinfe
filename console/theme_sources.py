@@ -353,7 +353,7 @@ async def rename_source(block: Block, group: str, source: dict[str, Any]) -> Non
                        _kept(str(shown["name"].value or ""), own)):
             block.rerender()
 
-    with frame.opened(t("console.theme_sources.rename_title")) as box:
+    with frame.opened(t("console.theme_sources.rename_title"), ignore_outside_click=True) as box:
         def draw_name() -> None:
             shown["name"] = frame.field(_title(group, source), placeholder=own)
             shown["name"].props(f"maxlength={online.NAME_LIMIT}")
@@ -453,7 +453,7 @@ async def add_source(library: Library, done: Callable[[], None]) -> None:
             await _save_name(library, address, name)
             done()
 
-    with frame.opened(t("console.theme_sources.add_title")) as box:
+    with frame.opened(t("console.theme_sources.add_title"), ignore_outside_click=True) as box:
         panel.facts(ui, [
             (t("console.theme_sources.address"), draw_address),
             (panel.ASIDE, draw_result),

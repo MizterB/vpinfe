@@ -50,33 +50,59 @@ def _called(path: pathlib.Path) -> set[str]:
             and isinstance(one.func.value, ast.Name) and one.func.value.id in names}
 
 
-TYPED_SECRET = ("token", "code")
+TYPED_INTO = {"field", "input", "textarea"}
 
 
 def _can_be_clicked_away(call: ast.expr) -> bool:
     """Whether `call` is `dialog.opened(...)` with neither way to keep a click outside out."""
     return (isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)
             and call.func.attr == "opened"
-            and not {"ignore_outside_click", "persistent"} & {key.arg for key in call.keywords})
+            and not any(key.arg in {"ignore_outside_click", "persistent"}
+                        and not (isinstance(key.value, ast.Constant) and key.value.value is False)
+                        for key in call.keywords))
 
 
-def _takes_a_typed_secret(body: list[ast.stmt]) -> bool:
-    """Whether a field in `body` is labelled by a catalog key that names a token or a code."""
+def _calls(nodes: list[ast.stmt] | ast.AST, names: set[str]) -> bool:
+    """Whether anything under `nodes` calls an attribute named in `names`."""
+    roots = nodes if isinstance(nodes, list) else [nodes]
     return any(isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)
-               and call.func.attr == "field"
-               and any(isinstance(one, ast.Constant) and isinstance(one.value, str)
-                       and one.value.startswith("console.")
-                       and any(word in one.value.rsplit(".", 1)[-1] for word in TYPED_SECRET)
-                       for one in ast.walk(call))
-               for statement in body for call in ast.walk(statement))
+               and call.func.attr in names
+               for root in roots for call in ast.walk(root))
 
 
-def _secret_dialogs_that_close_on_a_click(path: pathlib.Path) -> list[int]:
-    """Lines where `path` opens a dialog with a typed token or code and no way to ignore the
-    click outside."""
-    return [one.lineno for one in ast.walk(trees.tree_for(path)) if isinstance(one, ast.With)
-            for item in one.items if _can_be_clicked_away(item.context_expr)
-            and _takes_a_typed_secret(one.body)]
+def _typed_into(body: list[ast.stmt]) -> bool:
+    """Whether `body` draws a field that can be typed into, a read-only box being shown to copy."""
+    return any(_calls([statement], TYPED_INTO)
+               and not any(isinstance(one, ast.Constant) and isinstance(one.value, str)
+                           and "readonly" in one.value.split() for one in ast.walk(statement))
+               for root in body for statement in ast.walk(root)
+               if isinstance(statement, (ast.Expr, ast.Assign)))
+
+
+def _typed_dialogs_that_close_on_a_click(path: pathlib.Path) -> list[int]:
+    """Lines where `path` opens a dialog that is typed into and has no way to ignore the click
+    outside. Typed into means the dialog draws a field, directly or in a helper of the same
+    file it names, or the function that opens it puts the cursor in one with `frame.focus`."""
+    tree = trees.tree_for(path)
+    helpers: dict[str, list[ast.FunctionDef | ast.AsyncFunctionDef]] = {}
+    for function in ast.walk(tree):
+        if isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            helpers.setdefault(function.name, []).append(function)
+    lines = set()
+    for function in ast.walk(tree):
+        if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        focuses = _calls(function, {"focus"})
+        for one in ast.walk(function):
+            if not isinstance(one, ast.With):
+                continue
+            named = {name.id for statement in one.body for name in ast.walk(statement)
+                     if isinstance(name, ast.Name)}
+            drawn = [one.body] + [helper.body for name in named for helper in helpers.get(name, [])]
+            if (any(_can_be_clicked_away(item.context_expr) for item in one.items)
+                    and (focuses or any(_typed_into(body) for body in drawn))):
+                lines.add(one.lineno)
+    return sorted(lines)
 
 
 class DialogsAreDrawnByTheFrame(unittest.TestCase):
@@ -100,9 +126,9 @@ class DialogsAreDrawnByTheFrame(unittest.TestCase):
                     if path.name != FRAME and _persistent(path)}
         self.assertEqual(PERSISTENT, blocking)
 
-    def test_a_typed_token_or_code_is_not_lost_to_a_click_outside(self) -> None:
+    def test_nothing_typed_is_lost_to_a_click_outside(self) -> None:
         loses = {path.name: lines for path in sorted(CONSOLE.glob("*.py"))
-                 if (lines := _secret_dialogs_that_close_on_a_click(path))}
+                 if path.name != FRAME and (lines := _typed_dialogs_that_close_on_a_click(path))}
         self.assertEqual({}, loses)
 
     def test_no_dialog_is_persistent_whatever_happens(self) -> None:

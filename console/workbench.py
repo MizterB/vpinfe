@@ -3435,7 +3435,8 @@ async def _add_guide(context: dict[str, Any]) -> None:
                                       "title": str(held["title"].value or "").strip()}])
 
     with frame.opened(t("console.workbench.guide_dialog",
-                        name=str(context["game"].get("name") or ""))) as box:
+                        name=str(context["game"].get("name") or "")),
+                       ignore_outside_click=True) as box:
         panel.facts(ui, [
             (t("console.workbench.guide_address"), draw_address),
             (t("console.workbench.guide_title"), draw_title),

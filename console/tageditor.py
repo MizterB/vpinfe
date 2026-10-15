@@ -299,7 +299,7 @@ async def _new_tag(library: Library) -> tuple[str, dict[str, str]] | None:
             box.submit((name, {"description": str(fields["said"].value or "").strip(),
                                "color": held["color"]}))
 
-    with frame.opened(t("console.tageditor.add_title")) as box:
+    with frame.opened(t("console.tageditor.add_title"), ignore_outside_click=True) as box:
         panel.facts(ui, [(t("console.tageditor.tag"), draw_name),
                          (t("console.workbench.description"), draw_said),
                          (t("console.tags.color"), draw_colors)])

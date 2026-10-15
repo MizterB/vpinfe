@@ -171,7 +171,7 @@ async def pick_path(list_entries: Callable[..., dict], start: str = "", *,
         if "button" in choose:
             choose["button"].set_enabled(enabled)
 
-    with frame.opened(t(_TITLE[kind]), wide=True) as box:
+    with frame.opened(t(_TITLE[kind]), wide=True, ignore_outside_click=True) as box:
         browser = draw_browser(first, list_entries, kind=kind, suffixes=suffixes,
                                take=box.submit, on_ready=ready)
         with frame.footer().classes("console-dialog-footer--ruled"):

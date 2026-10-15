@@ -475,7 +475,7 @@ async def ask_name(title: str, answer: str, names: list[str],
         except Exception:  # noqa: BLE001 - the fields draw as the app declares them
             logger.exception("what a launcher field stands for could not be read")
 
-    with frame.opened(title) as box:
+    with frame.opened(title, ignore_outside_click=True) as box:
         if place:
             ui.label(place).classes("console-help px-3")
         panel.facts(ui, [(t("word.name"), draw("name", named, placeholder))]

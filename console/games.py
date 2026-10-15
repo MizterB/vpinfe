@@ -1960,7 +1960,7 @@ def _ask_name(save: Callable[..., Any], *, named: str = "",
         box.close()
         await save(name.value, held["purpose"].value or "")
 
-    with frame.opened(title or t("console.games.save_view")) as box:
+    with frame.opened(title or t("console.games.save_view"), ignore_outside_click=True) as box:
         panel.facts(ui, [
             (t("word.name"), draw_name),
             (t("console.workbench.description"),
