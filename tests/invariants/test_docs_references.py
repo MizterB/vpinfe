@@ -290,6 +290,33 @@ class EndpointTableTests(unittest.TestCase):
         self.assertEqual(unserved, [], "\n".join(unserved))
 
 
+class ExtensionRoutesRowTests(unittest.TestCase):
+    """The `any` row stands for routes that exist only while an extension runs, so the
+    walk of the served routes cannot read it; it is held to what mounts them instead."""
+
+    ROW = re.compile(r"^\| any \| `([^`]*)` \|(.*)$", re.MULTILINE)
+
+    def _row(self) -> tuple[str, str]:
+        found = self.ROW.findall(API_DOC.read_text(encoding="utf-8"))
+        self.assertEqual(len(found), 1, "one row stands for every extension's routes")
+        return found[0]
+
+    def test_the_row_names_the_path_extensions_are_mounted_at(self) -> None:
+        import httpapi
+        from httpapi import extensions
+
+        path, _ = self._row()
+
+        self.assertEqual(path, f"{httpapi.API_PREFIX}{extensions.PREFIX}/{{name}}/…")
+
+    def test_the_row_names_each_tier_an_extension_can_declare(self) -> None:
+        from common.extensions import reach
+
+        _, said = self._row()
+
+        self.assertEqual(set(re.findall(r":(play|library|protected)\b", said)), set(reach.TIERS))
+
+
 @functools.cache
 def _api_routes() -> dict[tuple[str, str], Any]:
     import httpapi
@@ -414,8 +441,55 @@ def unread_body_keys(lines: list[str]) -> list[str]:
     return unread
 
 
+def _required_body_keys(route: Any) -> set[str]:
+    params = route.dependant.body_params
+    if not params:
+        return set()
+    if len(params) > 1 or getattr(params[0].field_info, "embed", False):
+        return {param.alias for param in params if param.field_info.is_required()}
+    model = _model_of(params[0].field_info.annotation)
+    if model is None:
+        return set()
+    return {field.alias or name for name, field in model.model_fields.items()
+            if field.is_required()}
+
+
+def left_out_body_keys(lines: list[str]) -> list[str]:
+    """Each required body key a row that gives a body example never names in it."""
+    routes = _api_routes()
+    left_out = []
+    for number, line in enumerate(lines, 1):
+        found = EndpointTableTests.ROW.match(line)
+        if not found:
+            continue
+        named = {key for body in BODY.findall(line.split("→", 1)[0])
+                 for path, key in body_keys(body) if not path}
+        if not named:
+            continue
+        for method in found.group(1).split("/"):
+            route = routes.get((method, _route_shape(found.group(2) or "")))
+            if method == "GET" or route is None:
+                continue
+            left_out += [f"{API_DOC.name}:{number} {method} /api/v1{found.group(2)}: {key}"
+                         for key in sorted(_required_body_keys(route) - named)]
+    return left_out
+
+
 class EndpointBodyTests(unittest.TestCase):
     """A request body key the endpoint table names is one the route reads."""
+
+    def test_every_required_key_a_row_with_a_body_leaves_out_is_found(self) -> None:
+        left_out = left_out_body_keys(API_DOC.read_text(encoding="utf-8").splitlines())
+
+        self.assertEqual(left_out, [], "name the key inside the braces: " + "\n".join(left_out))
+
+    def test_a_required_key_left_out_of_an_example_is_found(self) -> None:
+        doctored = [
+            '| POST | `/api/v1/library/tags/merge` | Fold `{"sources": [...]}` into `into` |',
+            '| POST | `/api/v1/library/tags/merge` | Fold `{"sources": [...], "into": "x"}` |',
+        ]
+
+        self.assertEqual([one.rsplit(": ", 1)[1] for one in left_out_body_keys(doctored)], ["into"])
 
     def test_every_body_key_a_row_names_is_one_its_route_reads(self) -> None:
         unread = unread_body_keys(API_DOC.read_text(encoding="utf-8").splitlines())

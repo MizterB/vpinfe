@@ -55,6 +55,15 @@ def _icon_for(name: str, path: str) -> str:
     return verbs.DRIVE if _DRIVE_PATH.match(path) else "folder"
 
 
+def suffixes_named(suffixes: tuple[str, ...]) -> str:
+    """`.a`, `.a or .b`, `.a, .b or .c` - in the language's own list words."""
+    if len(suffixes) == 1:
+        return suffixes[0]
+    return t("console.collection_rules.or_last",
+             rest=t("console.collection_rules.list_join").join(suffixes[:-1]),
+             last=suffixes[-1])
+
+
 def _last_name(path: str) -> str:
     return re.split(r"[\\/]", path.rstrip("\\/"))[-1] or path
 
@@ -346,7 +355,7 @@ def draw_browser(first: Start, list_entries: Callable[..., dict], *, kind: str =
                 return None, "", found.reason
             if kind == "file" and suffixes and not where.lower().endswith(
                     tuple(one.lower() for one in suffixes)):
-                return None, "", t("error.path.wrong_suffix", suffix=" or ".join(suffixes))
+                return None, "", t("error.path.wrong_suffix", suffix=suffixes_named(suffixes))
             probe = enclosing(where)
         try:
             fresh = await offload.io(list_entries, probe, kind, suffixes, shown.value)

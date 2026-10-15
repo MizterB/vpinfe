@@ -164,7 +164,8 @@ class FailureTests(unittest.TestCase):
             return commands.Outcome(ran=True)
 
         with mock.patch.object(table_commands.commands, "run", side_effect=run):
-            with self.assertRaises(commands.CommandRefusedError):
+            with self.assertRaises(commands.CommandRefusedError), \
+                    self.assertLogs(table_commands.logger, "WARNING"):
                 table_commands.before(
                     _game(), _playing(), _launcher(),
                     _config(on_start="mount", start_required="true"))

@@ -15,7 +15,7 @@ import string
 import unittest
 from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 from common import apps, i18n, tokens
 from common.apps import OWN_FIELDS
@@ -232,8 +232,7 @@ SAID_TO_THE_LOG = {
     "common/online/theme_refs.py": frozenset({"bare_ref"}),
     "common/device_client.py": frozenset({"perform_action"}),
     "common/games/info_maintenance.py": frozenset({"_upgrade_summary", "_restore_summary",
-                                                   "_games", "_files", "upgrade_library",
-                                                   "restore_library"}),
+                                                   "_games", "_files"}),
     "httpapi/actions.py": frozenset({"perform_action"}),
     "httpapi/events.py": frozenset({"_frame"}),
 }
@@ -403,11 +402,14 @@ def _built_not_said(glued: str) -> bool:
 
 def _one_token(said: str) -> bool:
     """`pinmame/altsound`, `7z`, `MP4`: a path or key, or one case throughout. A word said
-    alone, `Unknown`, is neither, and nor is one in capitals, `OK` or `N/A`."""
+    alone, `Unknown`, is neither, and nor is one in capitals, `OK` or `N/A`, or a pair of
+    capitalised words, `Yes/No`."""
     body = said.strip()
     if not body or any(c.isspace() for c in body):
         return False
     if body.isupper() and not any(c.isdigit() for c in body):
+        return False
+    if re.fullmatch(r"[A-Z][a-z]+(/[A-Z][a-z]+)+", body):
         return False
     return bool(re.search(r"\w[/.:=?&#]\w", body)) or body in (body.upper(), body.lower())
 
@@ -540,12 +542,13 @@ class TestWhatAModuleHandsBackIsLookedUp(unittest.TestCase):
         source = ("def built(prefix, name, count, n):\n"
                   '    return [f"{prefix}/media", f"{name} {count}", f"E{n}", f"Key{name}",\n'
                   '            "pinmame/altsound", "7z", "MP4",\n'
-                  '            f"{name} was copied", "Copied", "OK", "N/A"]\n')
+                  '            f"{name} was copied", "Copied", "OK", "N/A", "Yes/No"]\n')
 
         said = [ast.unparse(one) for kind, one in _handed_back(trees.parse_snippet(source))
                 if _not_looked_up(kind, one)]
 
-        self.assertEqual(said, ["f'{name} was copied'", "'Copied'", "'OK'", "'N/A'"])
+        self.assertEqual(said, ["f'{name} was copied'", "'Copied'", "'OK'", "'N/A'",
+                                "'Yes/No'"])
 
     def test_every_module_is_read_or_named(self) -> None:
         for name in _modules_under(READ_WHOLE):
@@ -601,6 +604,68 @@ class TestNoExceptionCaughtWholeIsHandedOnBare(unittest.TestCase):
                for one in _caught_whole_said_bare(trees.parse_snippet(source))]
 
         self.assertEqual(said, ["7 str(exc)", "10 str(exc)"])
+
+
+def _narrow_text_handed_on(tree: ast.Module) -> list[ast.Call]:
+    """Each `str()` of an exception caught by a named type that is neither logged nor
+    compared: the text goes on to a reader, so it has to be worded where it was raised."""
+    found = []
+    for handler in ast.walk(tree):
+        if not isinstance(handler, ast.ExceptHandler) or not handler.name \
+                or handler.type is None:
+            continue
+        caught = (handler.type.elts if isinstance(handler.type, ast.Tuple)
+                  else [handler.type])
+        if any(_named(one) in CAUGHT_WHOLE for one in caught):
+            continue
+        aside = {id(inner) for line in handler.body for node in ast.walk(line)
+                 if (isinstance(node, ast.Call) and _named(node.func) in
+                     {"debug", "info", "warning", "error", "exception"})
+                 or isinstance(node, ast.Compare)
+                 for inner in ast.walk(node)}
+        found += [node for line in handler.body for node in ast.walk(line)
+                  if isinstance(node, ast.Call) and _named(node.func) == "str"
+                  and id(node) not in aside
+                  and [getattr(one, "id", None) for one in node.args] == [handler.name]]
+    return found
+
+
+# Modules that hand a narrowly caught exception's text on, and who reads it there.
+TEXT_HANDED_ON = {
+    "common/extensions/context.py": "a ContractError, said to the extension's author",
+    "common/extensions/serving.py": "a FieldError in a dialog an extension declared, said "
+                                    "to its author",
+    "common/host/commands.py": "a command's own text, put back with the token it names",
+}
+
+
+class TestANarrowCatchHandedOnIsReviewed(unittest.TestCase):
+
+    def test_only_these_modules_do_it(self) -> None:
+        handed = {name for name in SPEAKS_TO_A_SURFACE
+                  if _narrow_text_handed_on(_tree_of(name))}
+        self.assertEqual(sorted(handed - TEXT_HANDED_ON.keys()), [],
+                         "word the text where it is raised, or name who reads it")
+        self.assertEqual(sorted(TEXT_HANDED_ON.keys() - handed), [],
+                         "no longer hands text on: drop it from TEXT_HANDED_ON")
+
+    def test_each_way_is_read(self) -> None:
+        source = ("def match(report):\n"
+                  "    try:\n"
+                  "        associate()\n"
+                  "    except UnknownSessionError as exc:\n"
+                  "        raise NotFoundError(str(exc))\n"
+                  "    except (OSError, ValueError) as exc:\n"
+                  "        logger.warning('no picture: %s', str(exc))\n"
+                  "        if 'changed' in str(exc):\n"
+                  "            raise\n"
+                  "    except Exception as exc:\n"
+                  "        return str(exc)\n")
+
+        said = [f"{one.lineno} {ast.unparse(one)}"
+                for one in _narrow_text_handed_on(trees.parse_snippet(source))]
+
+        self.assertEqual(said, ["5 str(exc)"])
 
 
 # Pages where a caught exception reaches the screen only through the function named,
@@ -1376,6 +1441,16 @@ def _defined_in(path: Path) -> set[str]:
            for target in node.targets if isinstance(target, ast.Name)}
 
 
+def _word_joins(tree: ast.AST) -> list[int]:
+    """Lines calling `.join` on a literal with a space and a letter in it."""
+    return [node.lineno for node in ast.walk(tree)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "join" and isinstance(node.func.value, ast.Constant)
+            and isinstance(node.func.value.value, str)
+            and re.search(r"[A-Za-z]", node.func.value.value)
+            and " " in node.func.value.value]
+
+
 class TestNoWordGluedToAValue(unittest.TestCase):
     """An f-string whose typed half is a word rather than a token or a class, or that
     joins two values with only spaces and marks."""
@@ -1407,6 +1482,21 @@ class TestNoWordGluedToAValue(unittest.TestCase):
             seen.visit(trees.tree_for(path))
             offenders += [f"{name}:{line} f{said[:38]!r}" for line, said in seen.found]
         self.assertEqual(offenders, [], "call t() with a named slot instead")
+
+    def test_a_list_is_not_joined_by_a_word(self) -> None:
+        """`" or ".join(...)` hard-codes English grammar; a mark such as ` · ` does not."""
+        tree = trees.parse_snippet('a = " or ".join(x)\nb = " \\u00b7 ".join(x)\n'
+                                   'c = "".join(x)\nd = "_".join(x)\ne = "\\n".join(x)\n')
+        self.assertEqual([1], _word_joins(tree))
+
+    def test_no_list_in_the_console_is_joined_by_a_word(self) -> None:
+        offenders = []
+        for path in sorted((ROOT / "console").rglob("*.py")):
+            if "__pycache__" in path.parts:
+                continue
+            name = path.relative_to(ROOT).as_posix()
+            offenders += [f"{name}:{line}" for line in _word_joins(trees.tree_for(path))]
+        self.assertEqual(offenders, [], "join with t('...list_join') or a plural entry instead")
 
     def test_each_join_excused_is_there_with_its_reason(self) -> None:
         for name, excused in JOINED_NOT_SAID.items():
@@ -1443,7 +1533,20 @@ class _PluralSuffixes(ast.NodeVisitor):
            and not set(self.within) & NOT_ON_SCREEN \
            and set(self.within) & {"t", "t_source", "f-string"}:
             self.found.append(node.lineno)
+        elif self._is_a_count_choosing_keys(node):
+            self.found.append(node.lineno)
         self.generic_visit(node)
+
+    def _is_a_count_choosing_keys(self, node: ast.IfExp) -> bool:
+        """`t("k_one" if n == 1 else "k_many")`: two keys where one entry has two forms."""
+        keys = [b.value for b in (node.body, node.orelse)
+                if isinstance(b, ast.Constant) and isinstance(b.value, str)
+                and "." in b.value and " " not in b.value]
+        return len(keys) == 2 and bool(self.within) and self.within[-1] in {"t", "t_source"} \
+            and isinstance(node.test, ast.Compare) \
+            and any(isinstance(c, ast.Constant) and c.value == 1 and not isinstance(c.value, bool)
+                    for c in node.test.comparators) \
+            and any(isinstance(op, (ast.Eq, ast.NotEq, ast.Gt, ast.LtE)) for op in node.test.ops)
 
 
 class TestPluralsComeFromTheCatalog(unittest.TestCase):
@@ -1459,6 +1562,14 @@ class TestPluralsComeFromTheCatalog(unittest.TestCase):
         seen = _PluralSuffixes()
         seen.visit(trees.parse_snippet('f"{n} device{\'s\' if n != 1 else \'\'}"'))
         self.assertEqual([1], seen.found)
+
+    def test_two_keys_chosen_by_a_count_are_found(self) -> None:
+        seen = _PluralSuffixes()
+        seen.visit(trees.parse_snippet(
+            'ui.label(t("a.one" if n == 1 else "a.many", count=n))\n'
+            'ui.label(t("a.hold" if hold else "a.add"))\n'
+            'ui.label(t("a.few" if len(x) > 1 else "a.single", count=n))\n'))
+        self.assertEqual([1, 3], seen.found)
 
     def test_a_log_line_may_keep_one(self) -> None:
         seen = _PluralSuffixes()
@@ -1892,6 +2003,18 @@ class TestEachAppKeepsItsOwnWords(unittest.TestCase):
 EXTENSIONS = ROOT / "extensions"
 
 
+def _repeated_keys(path: Path) -> list[str]:
+    repeated: list[str] = []
+
+    def hook(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        names = [name for name, _ in pairs]
+        repeated.extend(sorted({name for name in names if names.count(name) > 1}))
+        return dict(pairs)
+
+    json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=hook)
+    return repeated
+
+
 class TestEachOwnersFileIsInStep(unittest.TestCase):
     def setUp(self) -> None:
         self.owners = sorted([*APPS.glob("*/i18n"), *EXTENSIONS.glob("*/i18n")])
@@ -1916,6 +2039,18 @@ class TestEachOwnersFileIsInStep(unittest.TestCase):
             with self.subTest(owner=owner.relative_to(ROOT).as_posix()):
                 self.assertEqual(sorted(_file(owner, "qps")), sorted(_file(owner)),
                                  "run scripts/i18n.py --pseudo")
+
+    def test_the_pseudo_locale_keeps_the_order_of_english(self) -> None:
+        for owner in self.owners:
+            with self.subTest(owner=owner.relative_to(ROOT).as_posix()):
+                self.assertEqual(list(_file(owner, "qps")), list(_file(owner)),
+                                 "run scripts/i18n.py --pseudo")
+
+    def test_no_file_names_a_key_twice(self) -> None:
+        for owner in self.owners:
+            for path in sorted(owner.glob("*.json")):
+                with self.subTest(path=path.relative_to(ROOT).as_posix()):
+                    self.assertEqual(_repeated_keys(path), [])
 
     def test_no_translation_holds_a_key_english_does_not(self) -> None:
         for owner in self.owners:
@@ -2154,6 +2289,19 @@ class TestCatalogs(unittest.TestCase):
         held = json.loads(pseudo.read_text(encoding="utf-8"))
         self.assertEqual(sorted(held), sorted(SOURCE),
                          "run scripts/i18n.py --pseudo")
+
+    def test_the_pseudo_locale_keeps_the_order_of_english(self) -> None:
+        pseudo = CATALOGS / "qps.json"
+        if not pseudo.is_file():
+            self.skipTest("no pseudo-locale generated")
+        self.assertEqual(list(json.loads(pseudo.read_text(encoding="utf-8"))), list(SOURCE),
+                         "run scripts/i18n.py --pseudo")
+
+    def test_no_catalog_names_a_key_twice(self) -> None:
+        """JSON keeps the last of a repeated key and drops the first without a word."""
+        for path in sorted(CATALOGS.glob("*.json")):
+            with self.subTest(path.name):
+                self.assertEqual(_repeated_keys(path), [])
 
     def test_no_translation_holds_a_key_english_does_not(self) -> None:
         for path in sorted(CATALOGS.glob("*.json")):

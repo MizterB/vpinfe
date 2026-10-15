@@ -1736,7 +1736,6 @@ def view_control(library: Any, scope: str,
             table.run_grid_method("setFilterModel", baseline.filters or None)
             held["drawing"] = dict(view.drawn)
             draw(wanted)
-            # After visibility, because `applyOrder` only orders what is showing.
             await grid.apply_layout(table, scope, columns, lambda: held["active"])
             await _refresh()
 

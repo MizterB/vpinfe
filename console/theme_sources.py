@@ -295,8 +295,7 @@ def _moves(block: Block, group: str, address: str, at: int, of: int) -> None:
 
 
 def _count(count: int) -> str:
-    return t("console.theme_sources.count_one" if count == 1
-             else "console.theme_sources.count_many", count=count)
+    return t("console.theme_sources.count", count=count)
 
 
 def _detail(group: str, source: dict[str, Any]) -> str:
@@ -498,8 +497,7 @@ def _verdict(said: dict[str, Any], failure: str) -> None:
         ui.label(t("console.theme_sources.replaces", names=", ".join(names))) \
             .classes("console-help")
     if took := said.get("took") or []:
-        ui.label(t("console.theme_sources.took_note_one" if len(took) == 1
-                   else "console.theme_sources.took_note_many", count=len(took))) \
+        ui.label(t("console.theme_sources.took_note", count=len(took))) \
             .classes("console-help")
     if installs := said.get("installs") or []:
         ui.label(t("console.theme_sources.installs", names=", ".join(installs))) \
@@ -511,8 +509,7 @@ def _verdict(said: dict[str, Any], failure: str) -> None:
 def _what_it_is(said: dict[str, Any]) -> None:
     if said.get("kind") == checks.LIST:
         count = int(said.get("count") or 0)
-        lead = t("console.theme_sources.is_list_one" if count == 1
-                 else "console.theme_sources.is_list", count=count)
+        lead = t("console.theme_sources.is_list", count=count)
         name = ""
     else:
         lead = t("console.theme_sources.is_theme")

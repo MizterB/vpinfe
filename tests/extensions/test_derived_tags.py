@@ -12,6 +12,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import requests
 from starlette.testclient import TestClient
 
 import httpapi
@@ -23,6 +24,7 @@ from common.games.collection_store import CollectionStore
 from common.games.game import Game
 from common.games.game_identity import game_id
 from common.games.tables import table_entries
+from common.i18n import t
 from tests.support.accepted import owner_accepts
 
 ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "community"
@@ -43,7 +45,8 @@ def _game(gid: str, title: str, entry: str, releases: dict[str, str],
 
 
 def _unanswered(_path: str) -> dict:
-    raise RuntimeError("Nothing answers at vpinplay.example")
+    sent = requests.Request("GET", "https://vpinplay.example/api").prepare()
+    raise requests.ConnectionError(ConnectionRefusedError(), request=sent)
 
 
 class DerivedTagCase(unittest.TestCase):
@@ -188,7 +191,7 @@ class WhatKeepsThem(DerivedTagCase):
         listed = self.client.get("/library/tags").json()["tags"]
 
         (source,) = next(one["sources"] for one in listed if one["name"] == CHALLENGE)
-        self.assertEqual((True, "Nothing answers at vpinplay.example"),
+        self.assertEqual((True, t("said.why.no_answer_at", host="vpinplay.example")),
                          (source["stale"], source["error"]))
 
     def test_the_last_good_read_outlives_a_restart(self) -> None:

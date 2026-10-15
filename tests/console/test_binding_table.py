@@ -920,7 +920,7 @@ class ASharingTable(unittest.IsolatedAsyncioTestCase):
             await press(control._mapped, control.by_name["select"], "key:Escape")
 
         self.assertEqual(ask.await_args.kwargs["confirm"],
-                         t("console.binding_table.share_both"))
+                         t("console.binding_table.share", count=1))
         self.assertNotIn("second", ask.await_args.kwargs)
         self.assertEqual(self.written, [{"select": ["key:Enter", "key:Escape"]}])
         self.assertEqual(control.bound["back"], ["key:Escape"])
@@ -932,7 +932,7 @@ class ASharingTable(unittest.IsolatedAsyncioTestCase):
             await press(control._mapped, control.by_name["select"], "key:Escape")
 
         self.assertEqual(ask.await_args.kwargs["confirm"],
-                         t("console.binding_table.share_all"))
+                         t("console.binding_table.share", count=2))
 
     async def test_the_question_is_about_sharing_and_there_is_no_move(self) -> None:
         control = self.drawn()

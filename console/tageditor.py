@@ -130,9 +130,8 @@ def build(rows: list[dict[str, Any]], library: Any,
         if not await confirm.ask(
                 t("console.tageditor.merge", into=(into)),
                 detail=t("console.tageditor.merge_detail"),
-                lines=[t("console.tageditor.tag_game" if r["games"] == 1
-                         else "console.tageditor.tag_games",
-                         tag=r["tag"], count=r["games"]) for r in group[1:]],
+                lines=[t("console.tageditor.tag_games", tag=r["tag"], count=r["games"])
+                       for r in group[1:]],
                 confirm=t("word.merge"), icon=verbs.MERGE):
             return
         await sweep(library.merge_tags, others + [into], into,
@@ -328,8 +327,7 @@ def acts(library: Any, rows_on: list[dict[str, Any]],
                     key=str.casefold)
 
     def counted(tag: str) -> str:
-        return t("console.tageditor.tag_game" if games[tag] == 1
-                 else "console.tageditor.tag_games", tag=tag, count=games[tag])
+        return t("console.tageditor.tag_games", tag=tag, count=games[tag])
 
     @on_page
     async def rename_them() -> None:

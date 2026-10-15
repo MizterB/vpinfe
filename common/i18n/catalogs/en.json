@@ -1050,8 +1050,10 @@
   "console.binding_table.slowed": "{row} will move one at a time on {binding} instead of scrolling.",
   "console.binding_table.slowed_by": "{hold} is mapped to {holder}, so {row} will move one at a time on {binding}.",
   "console.binding_table.cabinet_note": "A cabinet's buttons are tried on the cabinet",
-  "console.binding_table.share_all": "Use for all",
-  "console.binding_table.share_both": "Use for both",
+  "console.binding_table.share": {
+    "one": "Use for both",
+    "other": "Use for all"
+  },
   "console.binding_table.vpinfe_defaults": "VPinFE's defaults",
   "console.binding_table.when_held": "{row} when held",
   "console.binding_table.unmapped": "{rows} will have nothing mapped.",
@@ -2302,11 +2304,15 @@
   "console.theme_sources.add_title": "Add Theme Source",
   "console.theme_sources.address": "Address",
   "console.theme_sources.checking": "Checking...",
-  "console.theme_sources.count_many": "{count:n} themes",
-  "console.theme_sources.count_one": "{count:n} theme",
+  "console.theme_sources.count": {
+    "one": "{count:n} theme",
+    "other": "{count:n} themes"
+  },
   "console.theme_sources.installs": "Installed when VPinFE starts: {names}",
-  "console.theme_sources.is_list": "A list of {count:n} themes",
-  "console.theme_sources.is_list_one": "A list of 1 theme",
+  "console.theme_sources.is_list": {
+    "one": "A list of {count:n} theme",
+    "other": "A list of {count:n} themes"
+  },
   "console.theme_sources.is_theme": "One theme",
   "console.theme_sources.label": "Sources",
   "console.theme_sources.move": "Move",
@@ -2331,8 +2337,10 @@
   "console.theme_sources.state.not_used": "Not used",
   "console.theme_sources.state.some_unreadable": "Some unreadable",
   "console.theme_sources.took": "{count:n}, {taken:n} offered above: {names}",
-  "console.theme_sources.took_note_many": "{count:n} of these themes are offered by a source above, so those stay as they are",
-  "console.theme_sources.took_note_one": "1 of these themes is offered by a source above, so it stays as it is",
+  "console.theme_sources.took_note": {
+    "one": "{count:n} of these themes is offered by a source above, so it stays as it is",
+    "other": "{count:n} of these themes are offered by a source above, so those stay as they are"
+  },
   "console.theme_sources.trust": "A source you add can run programs on this computer. Add only ones you trust.",
   "console.view.backups_games": "Games",
   "console.view.backups_assets": "Assets",
@@ -3300,8 +3308,10 @@
   "console.tageditor.tables.help": "Tables carrying this tag of their own",
   "console.tageditor.tag": "Tag",
   "console.tageditor.tag.help": "Renaming this renames it everywhere",
-  "console.tageditor.tag_game": "{tag} - {count:n} game",
-  "console.tageditor.tag_games": "{tag} - {count:n} games",
+  "console.tageditor.tag_games": {
+    "one": "{tag} - {count:n} game",
+    "other": "{tag} - {count:n} games"
+  },
   "console.tageditor.tag_used": "{tag} ({games:n})",
   "console.tageditor.tags": "Tags",
   "console.tageditor.tags_counted": {
@@ -3395,8 +3405,10 @@
   "console.themes.no_sources": "No theme sources",
   "console.themes.none_listed": "No themes to list",
   "console.themes.add_theme": "Add Theme",
-  "console.themes.sources_bad_one": "1 theme source could not be read",
-  "console.themes.sources_bad_many": "{count:n} theme sources could not be read",
+  "console.themes.sources_bad": {
+    "one": "{count:n} theme source could not be read",
+    "other": "{count:n} theme sources could not be read"
+  },
   "console.themes.sources_review": "Review in Settings",
   "console.themes.not_installed": "Not installed",
   "console.themes.not_json": "{name} is not JSON",

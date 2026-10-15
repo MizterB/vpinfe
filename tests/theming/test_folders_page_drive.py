@@ -72,6 +72,10 @@ class FoldersPageDrive(unittest.TestCase):
                            until=f"document.querySelectorAll({json.dumps(MENU_ITEMS)}).length > 0")
             seen["menu_first"] = await browser.evaluate(MENU_TEXTS)
             await browser.press("Escape", "Escape")
+            seen["after_escape"] = await browser.evaluate(
+                "Promise.race([new Promise(done => requestAnimationFrame(() => done("
+                "document.visibilityState))),"
+                " new Promise(done => setTimeout(done, 2000, 'stalled'))])")
 
             await walk.visit(ADDRESS)
             await browser.wait_for(f"document.querySelectorAll({json.dumps(ROWS)}).length === 2")
@@ -126,6 +130,9 @@ class FoldersPageDrive(unittest.TestCase):
         self.assertIn(t("console.theme_sources.move_down"), menu)
         self.assertNotIn(t("console.theme_sources.move_up"), menu)
         self.assertEqual(menu[-1], t("word.remove"))
+
+    def test_animation_frames_keep_running_after_an_escape(self) -> None:
+        self.assertEqual(self.seen["after_escape"], "visible")
 
     def test_undo_puts_the_removed_folder_back_in_its_place(self) -> None:
         self.assertEqual(self.seen["after_undo"], self.seen["rows"])

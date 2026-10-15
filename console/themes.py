@@ -318,8 +318,7 @@ def _finding(sources: dict[str, Any] | None) -> None:
     if not unread:
         return
     with ui.row().classes("w-full items-center gap-2 px-3 py-2 mb-2 shrink-0 console-panel"):
-        ui.label(t("console.themes.sources_bad_one" if unread == 1
-                   else "console.themes.sources_bad_many", count=unread)) \
+        ui.label(t("console.themes.sources_bad", count=unread)) \
             .classes("console-help text-warning")
         panel.link(t("console.themes.sources_review"), to=settings.address_for("themes"))()
 

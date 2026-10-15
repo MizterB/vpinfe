@@ -535,8 +535,7 @@ class Table:
                     t("console.binding_table.share_question",
                       binding=input_registry.describe(binding), row=row.label),
                     detail=[mapped],
-                    confirm=t("console.binding_table.share_all" if len(holders) > 1
-                              else "console.binding_table.share_both"),
+                    confirm=t("console.binding_table.share", count=len(holders)),
                     icon=verbs.ADD, danger=False):
                 self._idle()
                 return
