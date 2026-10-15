@@ -252,6 +252,14 @@ class ReadTests(unittest.TestCase):
         self.assertEqual([(one["name"], one["busy"]) for one in cards],
                          [("RTX B", 20.0), ("RTX A", 10.0)])
 
+    def test_cards_that_share_a_name_are_numbered_and_a_lone_one_is_not(self) -> None:
+        self._lister([{"id": "1", "name": "RTX", "vendor": "other", "source": "nvtop"},
+                      {"id": "2", "name": "RTX", "vendor": "other", "source": "nvtop"},
+                      {"id": "3", "name": "Arc", "vendor": "other", "source": "nvtop"}])
+        self.assertEqual(["RTX 1", "RTX 2", "Arc"],
+                         [card["name"] for card in graphics.read()["cards"]])
+        self.assertEqual((["RTX 1", "RTX 2", "Arc"], ""), graphics.names())
+
     def test_an_nvidia_smi_that_breaks_leaves_the_lister_readings(self) -> None:
         self._lister([{"id": "1", "name": "RTX", "vendor": "nvidia", "source": "nvtop",
                        "busy": 5.0}])

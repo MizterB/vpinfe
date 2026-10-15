@@ -2073,6 +2073,22 @@ def _table_address(context: dict[str, Any], table_id: str) -> str:
                                          "table": table_id})
 
 
+def _provenance(context: dict[str, Any], via: str | None, borrowed: bool) -> None:
+    """Whose file the slot shows, in a line. A borrowed one names where it comes from,
+    and the game's file links to the game's view."""
+    key = media_ownership.key_of(via)
+    if not borrowed or key != media_ownership.GAME:
+        ui.label(media_ownership.sentence(via, viewing_a_table=bool(context["lens"]))) \
+            .classes("console-help")
+    elif str(via) == "default":
+        ui.label(t("console.media_ownership.from_default")).classes("console-help")
+    else:
+        game_id = str(context["game_id"])
+        panel.link(t("console.media_ownership.from_game"),
+                   to="/console?" + deeplink.query({"view": "games", "game": game_id}),
+                   hint=t("console.media_ownership.via_game"))()
+
+
 def _go_to_table(context: dict[str, Any], table_id: str) -> None:
     """Follow a differing table into its own lens.
 
@@ -2469,6 +2485,11 @@ def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
     # every other table in the folder, and in the shared lens there is no table in view
     # to say which one would get it. That one needs a decision, not a default.
     can_share = present and table_id and str(entry.get("via") or "") == "table"
+    # A file the view does not own is not its to remove: it says where it comes from and
+    # the slot offers Add, which makes one of its own.
+    borrowed = present and file_acts.removal(
+        context["tables"], context["game"], table_id, detail.get("tiers"), entry,
+        detail.get("after_remove")) is None
 
     @on_page
     async def share() -> None:
@@ -2488,7 +2509,7 @@ def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
 
         if draw_art:
             if in_strip:
-                mediapages.strip(context, kind, entry, draw)
+                mediapages.strip(context, kind, entry, draw, borrowed=borrowed)
             else:
                 _slot_art(context, kind, entry)
 
@@ -2510,9 +2531,7 @@ def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
                 spec = _spec(detail)
                 if spec:
                     ui.label(spec).classes("console-help")
-                ui.label(media_ownership.sentence(detail.get("via") or entry.get("via"),
-                                        viewing_a_table=bool(table_id))) \
-                    .classes("console-help")
+                _provenance(context, detail.get("via") or entry.get("via"), borrowed)
                 origin = str(detail.get("origin") or entry.get("origin") or "")
                 # "unknown" is the ledger's honest answer and a useless line to read:
                 # most files predate the ledger, so it would be on nearly every slot.
@@ -2567,14 +2586,14 @@ def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
         with ui.row().classes("items-center gap-2 w-full console-slot-actions") \
                 .style("flex-wrap:wrap"):
             if not in_strip:
-                ui.button(t("word.replace") if present else t("word.add"),
+                ui.button(t("word.replace") if present and not borrowed else t("word.add"),
                           icon=verbs.ADD_ART,
                           on_click=lambda: mediasource.open_sources(
                               context, kind, slot_label, draw,
                               str(detail.get("path") or entry.get("path") or ""),
                               backglass_file=detail.get("backglass_file"), page=page)) \
                     .props("flat dense no-caps size=sm").classes("console-action")
-            if present and in_place and kind in PAGED_KINDS and not many:
+            if present and in_place and kind in PAGED_KINDS and not many and not borrowed:
                 mediapages.add_button(context, kind, entry, draw)
             able = mediasource.records(library, kind) if page == 1 else None
             if able is not None:
@@ -2592,23 +2611,15 @@ def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
                 if page == 1:
                     _match_button(context, kind, label,
                                   detail if detail.get("path") else entry, draw)
-                ui.button(t("console.mediapages.clear") if in_strip
-                          else t("word.remove"), icon=verbs.REMOVE, on_click=remove) \
-                    .props("flat dense no-caps size=sm") \
-                    .classes("console-action console-action--danger")
+                if not borrowed:
+                    ui.button(t("console.mediapages.clear") if in_strip
+                              else t("word.remove"), icon=verbs.REMOVE, on_click=remove) \
+                        .props("flat dense no-caps size=sm") \
+                        .classes("console-action console-action--danger")
             if can_share and page == 1:
                 ui.button(t("console.workbench.give_all"),
                     icon=verbs.SHARE, on_click=share) \
                     .props("flat dense no-caps size=sm").classes("console-action")
-
-
-def _game_label(context: dict[str, Any]) -> str:
-    """Game, or Game - not matched where there is no match and none was declared."""
-    game = context["game"]
-    declared = (game.get("overrides") or {}).get("alt_vps_id", "") is None
-    if game.get("vps_id") or declared:
-        return t("console.workbench.game_section")
-    return t("console.workbench.game_unmatched")
 
 
 async def _game_block(context: dict[str, Any]) -> None:
@@ -4937,7 +4948,14 @@ def _release_shown(release: dict[str, Any]) -> None:
     name, meta = _release_words(release)
     candidates.choice(str(release.get("img_url") or ""), name, meta,
                       glyph=icons.TABLES, trailing=end, entry=True,
-                      missing=vps_match.NO_PICTURE)
+                      more=_mod_note(release), missing=vps_match.NO_PICTURE)
+
+
+def _mod_note(release: dict[str, Any]) -> tuple[str, ...]:
+    """The lines VPS's note adds under a mod's build row; none for any other release."""
+    comment = str(release.get("comment") or "").strip()
+    is_mod = release.get("mod_of") or "MOD" in (release.get("features") or [])
+    return (comment,) if comment and is_mod else ()
 
 
 async def _read_releases(context: dict[str, Any],
@@ -7741,7 +7759,7 @@ SUBJECT_VERBS: dict[str, Callable[[dict[str, Any]], list[panel.Verb]]] = {
 SECTIONS: tuple[Section, ...] = (
     # The game first, then the file: a table belongs to a game, and reading down is
     # reading from the thing that contains to the thing contained.
-    Section("game_details", _game_label, _game_block),
+    Section("game_details", lambda _: t("console.workbench.game_section"), _game_block),
     Section("table_details", lambda _: t("console.workbench.table_section"), _table_block,
             subjects=frozenset({"table"})),
     Section("table_settings", lambda _: t("console.workbench.table_settings"),

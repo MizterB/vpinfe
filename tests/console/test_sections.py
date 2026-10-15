@@ -269,13 +269,10 @@ class MatchTests(unittest.TestCase):
                 self.assertIn("game_details", keys)
                 self.assertNotIn("vps", keys)
 
-    def test_an_unmatched_game_says_so_in_the_rail(self) -> None:
-        self.assertEqual(workbench._game_label({"game": {}}),
-                         t("console.workbench.game_unmatched"))
-        self.assertEqual(workbench._game_label({"game": {"vps_id": "abc"}}),
-                         t("console.workbench.game_section"))
-
-    def test_a_game_declared_in_no_catalog_is_not_flagged(self) -> None:
-        declared = {"game": {"overrides": {"alt_vps_id": None}}}
-        self.assertEqual(workbench._game_label(declared),
-                         t("console.workbench.game_section"))
+    def test_the_rail_says_game_whether_or_not_it_is_matched(self) -> None:
+        """The Match row says Not matched; the rail names the section, not its state."""
+        section = next(one for one in workbench.SECTIONS if one.key == "game_details")
+        for game in ({}, {"vps_id": "abc"}, {"overrides": {"alt_vps_id": None}}):
+            with self.subTest(game=game):
+                self.assertEqual(section.label({"game": game}),
+                                 t("console.workbench.game_section"))

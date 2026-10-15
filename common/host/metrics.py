@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Any
 
 from common import events, path_state
+from common.failures import why
 from common.host import graphics
 from common.i18n import t
 
@@ -246,7 +247,7 @@ def _disk(path: str, answer: path_state.PathState) -> dict[str, Any]:
     entry: dict[str, Any] = {"path": str(path), "total": None, "used": None,
                              "free": None, "percent": None, "error": "", "device": None}
     if not answer.reachable:
-        entry["error"] = t("error.metrics.path_unreadable")
+        entry["error"] = answer.reason or t("error.metrics.path_unreadable")
         return entry
     try:
         found = Path(path).expanduser()
@@ -254,7 +255,7 @@ def _disk(path: str, answer: path_state.PathState) -> dict[str, Any]:
         entry["device"] = found.stat().st_dev
     except Exception as exc:  # noqa: BLE001 - a share that has gone is the case this reports
         logger.debug("Cannot read %s: %s", path, exc)
-        entry["error"] = t("error.metrics.path_unreadable")
+        entry["error"] = why(exc, path)
         return entry
     entry.update({"total": total, "used": used, "free": free,
                   "percent": (used / total * 100) if total else 0.0})

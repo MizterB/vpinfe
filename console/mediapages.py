@@ -74,8 +74,10 @@ def add_button(context: dict[str, Any], kind: str, entry: dict[str, Any], draw: 
                  icon=verbs.ADD_ART, hint=t("console.mediapages.add_hint"))()
 
 
-def strip(context: dict[str, Any], kind: str, entry: dict[str, Any], draw: Any) -> None:
-    """The slot's pages, numbered, each with its own acts, and Add page after the last."""
+def strip(context: dict[str, Any], kind: str, entry: dict[str, Any], draw: Any, *,
+          borrowed: bool = False) -> None:
+    """The slot's pages, numbered, each with its own acts, and Add page after the last.
+    Pages the view does not own can be enlarged and nothing else."""
     library, game_id = context["library"], context["game_id"]
     table_id = context["lens"] or ""
     pages = count(kind, entry)
@@ -131,6 +133,8 @@ def strip(context: dict[str, Any], kind: str, entry: dict[str, Any], draw: Any) 
                         partial(mediaview.open_pages, full,
                                 media_label_map().get(kind, kind), number),
                         icon=verbs.ENLARGE, hint=t("word.enlarge"))()
+                    if borrowed:
+                        continue
                     panel.icon_action(
                         t("word.replace"), partial(replace, number),
                         icon=verbs.REPLACE, hint=t("word.replace"))()
@@ -145,6 +149,8 @@ def strip(context: dict[str, Any], kind: str, entry: dict[str, Any], draw: Any) 
                         t("console.mediapages.later"), partial(move, number, number + 1),
                         icon=verbs.LATER, hint=t("console.mediapages.later"),
                         enabled=number < pages)()
-        with ui.element("div").classes("console-pagecard-add"):
-            panel.action(t("console.mediapages.add"), partial(add, context, kind, entry, draw),
-                         icon=verbs.ADD_ART, hint=t("console.mediapages.add_hint"))()
+        if not borrowed:
+            with ui.element("div").classes("console-pagecard-add"):
+                panel.action(t("console.mediapages.add"),
+                             partial(add, context, kind, entry, draw),
+                             icon=verbs.ADD_ART, hint=t("console.mediapages.add_hint"))()

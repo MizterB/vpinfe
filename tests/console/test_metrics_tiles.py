@@ -256,9 +256,11 @@ class VolumeTileTests(unittest.TestCase):
     def test_a_volume_that_cannot_be_read_says_so(self) -> None:
         target = _empty()
 
-        metrics._draw_disks(target, [_disk(error="gone", percent=None, free=None)], {})
+        metrics._draw_disks(target, [_disk(error="Its share is not connected", percent=None,
+                                           free=None)], {})
 
         self.assertIn(t("console.metrics.cannot_read"), _sayings(target))
+        self.assertIn("Its share is not connected", _sayings(target))
 
     def test_a_volume_with_no_free_figure_shows_a_dash_for_it(self) -> None:
         target = _empty()

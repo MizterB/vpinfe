@@ -83,6 +83,8 @@ def _glyph(entry: dict) -> str:
     """
     if not entry.get("present"):
         return ""
+    if media_ownership.key_of(entry.get("via")) == media_ownership.MISSING:
+        return media_ownership.tier_for(media_ownership.STAND_IN).noun
     return media_ownership.noun(entry.get("via"))
 
 

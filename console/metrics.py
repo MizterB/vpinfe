@@ -309,8 +309,10 @@ def _disk_reading(target: ui.element, disk: dict[str, Any]) -> None:
         if disk.get("error"):
             # A share that has gone away is exactly what this reports, and saying
             # nothing would show it as a path with no numbers.
-            ui.label(t("console.metrics.cannot_read")).classes("text-xs") \
-                .style(f"color: {_tone(100)}")
+            said = t("console.metrics.cannot_read")
+            ui.label(said).classes("text-xs").style(f"color: {_tone(100)}")
+            if str(disk["error"]).casefold() != said.casefold():
+                ui.label(str(disk["error"])).classes("console-help")
             return
         with ui.element("div").classes("w-full mt-2"):
             _bar((disk.get("percent") or 0) / 100, _tone(disk.get("percent")))

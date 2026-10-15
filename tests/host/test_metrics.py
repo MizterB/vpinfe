@@ -7,6 +7,7 @@ from unittest import mock
 
 from common import events, jobs, path_state
 from common.host import metrics
+from common.i18n import t
 from tests.support.hung_folder import never_answering
 
 
@@ -69,7 +70,7 @@ class OneSampleTests(unittest.TestCase):
             found = metrics.sample([here, gone])
         rows = {one["path"]: one for one in found["disks"]}
         self.assertEqual(rows[here]["free"], 6)
-        self.assertTrue(rows[gone]["error"])
+        self.assertEqual(t("error.path.not_answering"), rows[gone]["error"])
         self.assertIsNone(rows[gone]["free"])
         self.assertEqual([call.args[0] for call in asked.call_args_list], [Path(here)])
 
@@ -297,6 +298,17 @@ class BusiestTests(unittest.TestCase):
     def test_a_listing_that_fails_is_no_list(self) -> None:
         self.fake.process_iter.side_effect = OSError
         self.assertIsNone(metrics.busiest())
+
+
+class AVolumeThatFailsWhenRead(unittest.TestCase):
+    def test_it_says_why_in_words(self) -> None:
+        here = str(Path(__file__).parent)
+        with mock.patch.object(metrics.shutil, "disk_usage",
+                               side_effect=PermissionError(13, "Permission denied")):
+            rows = metrics._disks([here])
+        self.assertEqual(1, len(rows))
+        self.assertTrue(rows[0]["error"])
+        self.assertNotIn("Errno", rows[0]["error"])
 
 
 if __name__ == "__main__":

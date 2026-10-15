@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import Mock
 
 from common.media_specs import media_label_map
-from console import games, views
+from console import data, games, media_ownership, views
 
 
 def _library(hidden: frozenset[str] = frozenset()) -> Mock:
@@ -53,6 +53,22 @@ class TheGamesGridMediaColumns(unittest.TestCase):
 
         self.assertGreater(columns["media_instruction_card"]["width"],
                            columns["media_backglass"]["width"])
+
+
+class TheWordForACell(unittest.TestCase):
+    def test_a_present_file_of_a_tier_nobody_named_reads_as_a_stand_in(self) -> None:
+        stand_in = media_ownership.tier_for(media_ownership.STAND_IN).noun
+        missing = media_ownership.tier_for(media_ownership.MISSING).noun
+        for via in ("", None, "somewhere_new"):
+            with self.subTest(via=via):
+                word = data._glyph({"present": True, "via": via})
+                self.assertEqual(stand_in, word)
+                self.assertNotEqual(missing, word)
+
+    def test_an_absent_file_is_blank_and_a_named_tier_keeps_its_word(self) -> None:
+        self.assertEqual("", data._glyph({"present": False, "via": "table"}))
+        self.assertEqual(media_ownership.tier_for(media_ownership.TABLE).noun,
+                         data._glyph({"present": True, "via": "table"}))
 
 
 if __name__ == "__main__":

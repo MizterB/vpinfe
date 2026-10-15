@@ -26,6 +26,7 @@ import logging
 import platform
 import re
 import subprocess
+from collections import Counter
 from typing import Any
 
 from common.failures import why
@@ -150,7 +151,19 @@ def needs_nvtop() -> bool:
 def names() -> tuple[list[str], str]:
     """What About reports: the cards by name, and the reason where there are none."""
     cards, reason, _detail = _listed()
-    return [str(card.get("name") or t("word.unknown")) for card in cards], reason
+    return [str(card.get("name") or t("word.unknown")) for card in _told_apart(cards)], reason
+
+
+def _told_apart(cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Cards that share a name are numbered in listed order, so two of one model read apart."""
+    counts = Counter(str(card.get("name") or "") for card in cards)
+    seen: Counter[str] = Counter()
+    for card in cards:
+        name = str(card.get("name") or "")
+        if name and counts[name] > 1:
+            seen[name] += 1
+            card["name"] = t("metrics.gpu.same_name", name=name, number=seen[name])
+    return cards
 
 
 def read() -> dict[str, Any]:
@@ -167,7 +180,7 @@ def read() -> dict[str, Any]:
                 or UnreadableError(t("error.graphics.not_read"))
             card.update(only_present({"reason": said.reason, "detail": said.detail or None,
                                       "tool": said.tool or None}))
-    return {"cards": cards, "reason": "", "detail": ""}
+    return {"cards": _told_apart(cards), "reason": "", "detail": ""}
 
 
 def _overlay_nvidia_smi(cards: list[dict[str, Any]]) -> dict[str, UnreadableError]:
