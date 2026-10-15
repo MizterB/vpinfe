@@ -30,7 +30,7 @@ COLUMNS = [
                            **backups.TAKEN_FILTER),
     grid_module.column("reason_text", t("console.backups.reason"), 150,
                        help=t("console.backups.reason.help")),
-    grid_module.column("note", t("console.backups.note"), 200,
+    grid_module.column("note", t("console.backups.note"), 200, flex=1,
                        help=t("console.backups.note.help")),
     grid_module.column("size", t("word.size"), 100, type="numericColumn",
                        help=t("console.backups.size.help"),

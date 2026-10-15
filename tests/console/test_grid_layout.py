@@ -114,6 +114,32 @@ class AppliedStateTests(unittest.TestCase):
         self.assertEqual("left", state["name"]["pinned"])
         self.assertIsNone(state["plays"]["pinned"])
 
+    def test_a_filling_column_takes_the_leftover_width_until_a_width_is_saved(self) -> None:
+        declared = [dict(definition) for definition in COLUMNS]
+        declared[2]["flex"] = 1
+
+        state = _by_column(grid.applied_state(declared, _kept()))
+
+        self.assertEqual(1, state["rating"]["flex"])
+        self.assertNotIn("width", state["rating"])
+        self.assertEqual(90, state["year"]["width"])
+        self.assertNotIn("flex", state["year"])
+
+    def test_a_width_saved_for_a_filling_column_ends_the_fill(self) -> None:
+        declared = [dict(definition) for definition in COLUMNS]
+        declared[2]["flex"] = 1
+
+        state = _by_column(grid.applied_state(declared, _kept(widths={"rating": 170})))
+
+        self.assertIsNone(state["rating"]["flex"])
+        self.assertEqual(170, state["rating"]["width"])
+
+    def test_a_filling_column_declares_its_width_as_its_floor(self) -> None:
+        filled = grid.column("note", "Note", 200, flex=1, help="x")
+
+        self.assertEqual(200, filled["minWidth"])
+        self.assertNotIn("minWidth", grid.column("note", "Note", 200, help="x"))
+
     def test_a_layout_saved_as_a_column_list_is_not_read(self) -> None:
         kept = grid.Layout.read("test.grid", {"columns": [{"colId": "plays", "width": 99}]})
 
@@ -226,6 +252,27 @@ class SaveTests(unittest.IsolatedAsyncioTestCase):
         await self.table.fire("columnResized")
 
         self.assertEqual([{"widths": {"name": 170}}], self.written)
+
+    async def test_a_filling_column_shrinking_is_not_saved_with_another_column_s(self) -> None:
+        grid._save_on_change(self.table, "test.grid", None,  # type: ignore[arg-type]
+                             frozenset({"rating"}))
+        await self._drawn()
+        self.table.width("rating", 100)
+        self.table.width("year", 150)
+
+        await self.table.fire("columnResized", colId="year")
+
+        self.assertEqual([{"widths": {"year": 150}}], self.written)
+
+    async def test_a_filling_column_a_person_drags_is_theirs(self) -> None:
+        grid._save_on_change(self.table, "test.grid", None,  # type: ignore[arg-type]
+                             frozenset({"rating"}))
+        await self._drawn()
+        self.table.width("rating", 100)
+
+        await self.table.fire("columnResized", colId="rating")
+
+        self.assertEqual([{"widths": {"rating": 100}}], self.written)
 
     async def test_an_unchanged_layout_is_not_written_again(self) -> None:
         self.read = {"widths": {"name": 200}}

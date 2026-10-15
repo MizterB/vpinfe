@@ -620,6 +620,10 @@ def column(field: str, header: str, width: int = 0, help: str = "",
     wide as it needs to be. Dragging narrower still works, and what the user drags to is
     what persists.
 
+    `flex=1` makes it the column that takes whatever width the others leave, so a grid in
+    a card of its own has no gap to the right; `width` is then its floor, and it is saved
+    only once a person drags it.
+
     Every multi-word header wraps, here rather than at each call site: applied per call
     site it reaches only the generated columns, and `Table Count` sits on one line beside
     media headers that do not.
@@ -631,8 +635,9 @@ def column(field: str, header: str, width: int = 0, help: str = "",
     tip = {"headerTooltip": help} if help else {}
     shown = extra.get(":valueFormatter")
     search = {":getQuickFilterText": shown} if shown else {}
-    return {"field": field, "headerName": header,
-            "width": max(width, header_width(header))} | tip | search | extra
+    size = max(width, header_width(header))
+    floor = {"minWidth": size} if extra.get("flex") else {}
+    return {"field": field, "headerName": header, "width": size} | floor | tip | search | extra
 
 
 # A number column's comparator: a blank is last whichever way it sorts. The grid turns a
@@ -1158,7 +1163,8 @@ def build(columns: list[dict[str, Any]], rows: list[dict[str, Any]], scope: str,
         ui.run_javascript(_LAND % grid.id)
     renderers.install()
     _restore(grid, scope, columns, view_of)
-    _save_on_change(grid, scope, view_of)
+    _save_on_change(grid, scope, view_of,
+                    frozenset(str(one["field"]) for one in columns if one.get("flex")))
     if on_select_rows is not None:
         chosen = _SELECTIONS[grid] = Selection(rows)
 
@@ -1385,7 +1391,13 @@ def applied_state(columns: list[dict[str, Any]], kept: Layout) -> list[dict[str,
     for field_id in order:
         want = {"colId": field_id,
                 "pinned": kept.pins.get(field_id, declared[field_id].get("pinned"))}
-        width = kept.widths.get(field_id, declared[field_id].get("width"))
+        chosen = kept.widths.get(field_id)
+        if declared[field_id].get("flex"):
+            # A width the person chose ends the fill, and a view without one restores it.
+            want["flex"] = None if chosen is not None else declared[field_id]["flex"]
+            width = chosen
+        else:
+            width = chosen if chosen is not None else declared[field_id].get("width")
         if width is not None:
             want["width"] = width
         state.append(want)
@@ -1411,8 +1423,10 @@ def _restore(grid: ui.aggrid, scope: str, columns: list[dict[str, Any]],
     grid.on("gridReady", lambda: apply_layout(grid, scope, columns, view_of))
 
 
-def _save_on_change(grid: ui.aggrid, scope: str,
-                    view_of: Callable[[], str] | None) -> None:
+def _save_on_change(grid: ui.aggrid, scope: str, view_of: Callable[[], str] | None,
+                    filling: frozenset[str] = frozenset()) -> None:
+    """Keep the layout a person leaves. `filling` names the `flex` columns, whose width
+    moves with every other column's and is saved only when dragged itself."""
     from console.api import ApiClient
 
     async def save(done: dict[str, Any], change: str) -> None:
@@ -1428,6 +1442,7 @@ def _save_on_change(grid: ui.aggrid, scope: str,
             now = _widths(state)
             resized = {col_id for col_id, width in now.items()
                        if kept.seen and kept.seen.get(col_id) != width}
+            resized -= filling
             named = done.get("colId") if change == "widths" else None
             if resized - {named}:
                 resized -= _fitted(await grid.run_grid_method("getGridOption", "context"))

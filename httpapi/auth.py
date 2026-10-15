@@ -112,7 +112,7 @@ def caller_address(request: HTTPConnection) -> str:
 
 def caller_is_encrypted(request: HTTPConnection) -> bool:
     """Whether the request arrived over HTTPS, through a listed proxy that says it did, or
-    from inside an Encrypted Network. A Console call made for a browser on another device
+    from inside a Trusted Network. A Console call made for a browser on another device
     says whether that browser's page came in over one."""
     claim = _acting_claim(request)
     if claim is not None:
@@ -123,7 +123,7 @@ def caller_is_encrypted(request: HTTPConnection) -> bool:
 
 def request_is_https(request: HTTPConnection) -> bool:
     """Whether the browser spoke HTTPS to this server or to a proxy listed for it, for a
-    cookie that should only travel that way. An Encrypted Network says nothing about the
+    cookie that should only travel that way. A Trusted Network says nothing about the
     scheme."""
     scheme = getattr(getattr(request, "url", None), "scheme", "http")
     return scheme == "https" or encrypted_connections.said_https(_peer(request), request.headers)

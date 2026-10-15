@@ -65,7 +65,7 @@ def remove_proxy(address: str, request: Request) -> EncryptedConnections:
     return _held(request)
 
 
-@router.post("/networks", summary="Add an encrypted network", response_model=EncryptedConnections,
+@router.post("/networks", summary="Add a trusted network", response_model=EncryptedConnections,
              dependencies=[requires(scopes.PROTECTED)])
 def add_network(body: ConnectionEntry, request: Request) -> EncryptedConnections:
     """Connections from inside this range are encrypted, judged by the address they connect
@@ -84,7 +84,7 @@ def add_tailscale(request: Request) -> EncryptedConnections:
     return _held(request)
 
 
-@router.delete("/networks", summary="Remove an encrypted network",
+@router.delete("/networks", summary="Remove a trusted network",
                response_model=EncryptedConnections, dependencies=[requires(scopes.PROTECTED)])
 def remove_network(range: str, request: Request) -> EncryptedConnections:  # noqa: A002
     store.instance().remove_network(range)

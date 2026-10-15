@@ -4060,7 +4060,7 @@ class TokensEnded(ApiModel):
 
 
 class ConnectionEntry(ApiModel):
-    """One address for Trusted Proxies, or one range for Encrypted Networks."""
+    """One address for Trusted Proxies, or one range for Trusted Networks."""
 
     value: str
 

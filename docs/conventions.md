@@ -737,6 +737,12 @@ turning it off costs. It sits in the value column under the control it explains 
 both columns it starts at the label's edge and reads as a caption for the label. What a
 whole page cannot say row by row is said once, above the rows, at the panel's width.
 
+**What a section is for is a lede, under its heading.** `panel.lede` sits tight under the
+heading it explains and belongs to that group. `panel.intro` is a loose line across the panel
+for what no one group owns. A line that explains a heading is a lede, whichever it was
+drawn as first. A rule that holds for a value over time ("unused for 90 days signs out")
+goes in the lede of the section that owns the value, not in an aside under the control.
+
 ### One shape per kind of value
 
 A panel that shows facts uses the same control for the same kind of value, everywhere:
@@ -1182,7 +1188,20 @@ the answer to the question the person came with on the first line, a `console-su
 detail under it, and `verbs.DRILL` at the end. The whole row is the target (`panel.Pick`),
 so it takes Enter and Space and a hover band, and the verbs live in the dialog it opens.
 A time on a summary is `when.ago`, and the exact one is in the dialog. `console/backup_rows.py`
-is the first user.
+is the first user, and `console/signed_in_rows.py` the second.
+
+**The control lights as a whole on hover, and the label does not change.** The band is the
+summary itself, reaching 8px past its text, so it clears the label beside it. A row whose
+value is a summary keeps its label at rest; lighting both says two things are being
+pointed at.
+
+### A grid in a dialog fills its card
+
+A dialog grid declares one column to take the leftover width (`flex=1` on `grid.column` or
+`grid.identifier`), so the last column does not stop short and leave a gap down the right
+of the card. Its declared width is its floor. A width a person sets on that column ends
+the fill, and only a person's resize is saved: a width the grid worked out to fit is
+not. The copies in Backups and the browsers in Settings > Security are drawn this way.
 
 ### A press that is somebody else's asks first, and has no Undo
 

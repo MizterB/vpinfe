@@ -21,7 +21,7 @@ def _shown(state: dict) -> list[tuple]:
 def _labels(entries: list[tuple]) -> list[str]:
     return [str(entry[1]) for entry in entries if entry[0] is panel.HEADING] + \
         [str(entry[0]) for entry in entries
-         if entry[0] is not panel.HEADING and entry[0] is not panel.FULL]
+         if entry[0] not in (panel.HEADING, panel.FULL, panel.LEDE)]
 
 
 class WhatTheSectionShows(unittest.TestCase):

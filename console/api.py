@@ -281,7 +281,7 @@ class ApiClient:
         self._delete(f"/auth/tokens/{quote(token_id, safe='')}")
 
     def encrypted(self) -> dict:
-        """The Trusted Proxies, the Encrypted Networks and the certificate chosen, and
+        """The Trusted Proxies, the Trusted Networks and the certificate chosen, and
         whether this run answers HTTPS."""
         return self._get("/auth/encrypted")
 

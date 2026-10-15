@@ -1,16 +1,18 @@
-"""Settings > Security: which browsers are signed in to this install, and ending them.
+"""Settings > Security: how another device signs in to this install, and who is signed in.
 
-A browser on another device gets in by a code this machine shows. This page is where the
-Owner sees what that let in, and takes it back.
+A browser on another device gets in by a code the VPinFE device shows. This page is where the
+Owner sees who is waiting and what that let in, and takes it back.
 """
 
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+import time
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 from typing import Any
 
-from nicegui import run, ui
+from nicegui import ui
 
 from common import paths, sign_in
 from common import serving as serving_state
@@ -18,11 +20,11 @@ from common.failures import why
 from common.i18n import t
 from console import (
     authenticator_panel,
-    confirm,
-    deeplink,
     encrypted_panel,
     offload,
     panel,
+    sign_in_notice,
+    signed_in_rows,
     token_panel,
     verbs,
     when,
@@ -32,8 +34,6 @@ from console.on_page import on_page
 from httpapi import auth
 
 logger = logging.getLogger("vpinfe.console.security")
-
-NETWORK_PAGE = "vpinfe.network"
 
 
 def this_session_id() -> str:
@@ -45,60 +45,46 @@ def this_session_id() -> str:
     return session.id if session is not None else ""
 
 
-def name_of(row: dict[str, Any]) -> str:
-    """"Safari on iPhone, 192.168.1.31", or the address alone where the browser never said."""
-    agent, address = str(row.get("agent") or ""), str(row.get("address") or "")
-    return t("console.security.browser_at", agent=agent, address=address) \
-        if agent and address else agent or address
+def waiting_key(request: sign_in.Request | None) -> tuple[Any, ...] | None:
+    """What the Waiting row says, as a value, so the poll can tell when it needs drawing."""
+    if request is None:
+        return None
+    return (request.id, request.state, int((time.time() - request.asked) // 60))
 
 
-def kind_label(kind: str) -> str:
-    return t("console.security.kind_remote" if kind == sign_in.REMOTE
-             else "console.security.kind_owner")
+def _waiting(request: sign_in.Request) -> tuple[Any, ...]:
+    """Status only: Show and Ignore are answered on the popup every Console open on this
+    device carries."""
+    asked = datetime.fromtimestamp(request.asked, UTC).isoformat()
 
-
-def last_used(row: dict[str, Any]) -> str:
-    stamp = when.from_epoch(float(row.get("last_used") or 0)).isoformat()
-    return t("console.security.last_used", when=when.ago(stamp, inline=True))
-
-
-def _session_value(row: dict[str, Any], mine: str,
-                   sign_out: Callable[[str], Any]) -> Callable[[], None]:
     def draw() -> None:
-        with ui.row().classes("items-center no-wrap gap-3 w-full"):
-            ui.label(kind_label(str(row.get("kind") or ""))).classes("console-help")
-            ui.label(last_used(row)).classes("console-help grow")
-            if row.get("id") == mine:
-                ui.label(t("console.security.this_browser")).classes("console-help")
-            panel.action(t("console.security.sign_out"), lambda: sign_out(str(row["id"])),
-                         icon=verbs.SIGN_OUT, inline=True,
-                         hint=t("console.security.sign_out_hint"))()
+        with ui.element("div").classes("console-summary-text"):
+            ui.label(request.address).classes("console-fact-value truncate min-w-0")
+            ui.label(t("console.security.asked", when=when.ago(asked, inline=True))) \
+                .classes("console-summary-sub truncate min-w-0")
 
-    return draw
+    return (t("console.security.waiting"), draw)
 
 
-def entries(rows: list[dict[str, Any]], mine: str, sign_out: Callable[[str], Any],
-            sign_out_all: Callable[[], Any], bind: str,
-            https: bool = False) -> list[tuple[Any, ...]]:
-    """What the page shows, in order. Pure of the page, so a test reads it."""
-    out: list[tuple[Any, ...]] = [(panel.HEADING, t("console.security.signed_in"))]
-    if rows:
-        out += [(name_of(row), _session_value(row, mine, sign_out)) for row in rows]
-        out.append((panel.FULL, panel.action(t("console.security.sign_out_all"), sign_out_all,
-                                             icon=verbs.SIGN_OUT,
-                                             hint=t("console.security.everyone_hint"))))
-    else:
-        out.append(panel.intro(t("console.security.none")))
-    out.append(panel.note(t("console.security.idle")))
+def lede_for(sessions: list[dict[str, Any]], bind: str) -> str:
+    """What the section's help line says. Where no other device can reach the Console there
+    is no code to explain, and no help line while nobody is signed in either."""
+    days = sign_in.SESSION_SECONDS // 86400
     if serving_state.reachable_from_elsewhere(bind):
-        out.append((panel.HEADING, t("console.security.other_devices")))
-        out.append(panel.intro(t("console.security.sign_in_steps")))
-        if not https:
-            out.append(panel.intro(t("console.security.unencrypted")))
-        out.append((panel.FULL, panel.link(
-            t("console.settings.page_network"),
-            to="/console?" + deeplink.query({"view": "settings",
-                                             "settings_page": NETWORK_PAGE}))))
+        return t("console.security.sign_in_help", days=days)
+    return t("console.security.sign_in_idle", days=days) if sessions else ""
+
+
+def entries(sessions: list[dict[str, Any]], request: sign_in.Request | None,
+            open_list: Callable[[], Awaitable[None]], bind: str) -> list[tuple[Any, ...]]:
+    """What the section shows, in order. Pure of the page, so a test reads it."""
+    out: list[tuple[Any, ...]] = [(panel.HEADING, t("console.security.sign_in"))]
+    help_line = lede_for(sessions, bind)
+    if help_line:
+        out.append(panel.lede(help_line))
+    if request is not None:
+        out.append(_waiting(request))
+    out.append(signed_in_rows.entry(t("console.security.signed_in"), sessions, open_list))
     return out
 
 
@@ -118,30 +104,28 @@ async def page(library: Library, redraw: Callable[[], None],
     bind = serving_state.network(paths.get_ini_config()).http_bind
 
     @on_page
-    async def sign_out(session_id: str) -> None:
-        await run.io_bound(library.sign_out_session, session_id)
+    async def open_list() -> None:
+        await signed_in_rows.open_list(library, rows, mine, after=_redrawn)
+
+    async def _redrawn() -> None:
         redraw()
 
-    @on_page
-    async def sign_out_all() -> None:
-        if not await confirm.ask(
-                t("console.security.everyone_question"),
-                detail=t("console.security.everyone_detail"),
-                confirm=t("console.security.sign_out_all"), icon=verbs.SIGN_OUT,
-                danger=False):
-            return
-        await run.io_bound(library.sign_out_everyone)
-        redraw()
+    def draw() -> None:
+        asked = sign_in.instance().pending()
+        shown = waiting_key(asked)
 
-    return lambda: panel.facts(
-        ui, entries(rows, mine, sign_out, sign_out_all, bind, bool(held.get("https")))
-        + authenticator_panel.page_parts(library, redraw, app)
-        + token_panel.page_parts(library, redraw, made)
-        + encrypted_panel.page_parts(library, redraw, held))
+        def poll() -> None:
+            if waiting_key(sign_in.instance().pending()) != shown:
+                redraw()
 
+        ui.timer(sign_in_notice.POLL_SECONDS, poll)
+        panel.facts(
+            ui, entries(rows, asked, open_list, bind)
+            + authenticator_panel.page_parts(library, redraw, app)
+            + token_panel.page_parts(library, redraw, made)
+            + encrypted_panel.page_parts(library, redraw, held))
 
-_SIGN_OUT_HERE = ("async () => { await fetch('/api/v1/auth/sign_out', "
-                  "{method: 'POST', credentials: 'same-origin'}); location.replace('/signin'); }")
+    return draw
 
 
 def sign_out_here(labels: list) -> None:
@@ -150,6 +134,6 @@ def sign_out_here(labels: list) -> None:
     if not this_session_id():
         return
     with ui.row().classes("items-center justify-center gap-2 w-full no-wrap "
-                          "console-invite").on("click", js_handler=_SIGN_OUT_HERE):
+                          "console-invite").on("click", js_handler=signed_in_rows.SIGN_OUT_HERE):
         ui.icon(verbs.SIGN_OUT).classes("shrink-0")
         labels.append(ui.label(t("console.security.sign_out")).classes("text-xs"))

@@ -27,7 +27,7 @@ from .models import AskInfo, AskList, AskMake
 
 router = APIRouter(prefix="/auth/asks", tags=["auth"])
 
-# Out of an ask's reach: making a token, Encrypted Networks, Trusted Proxies and the
+# Out of an ask's reach: making a token, Trusted Networks, Trusted Proxies and the
 # authenticator all live under it, and so do these routes.
 NEVER_ASKED = "/auth"
 

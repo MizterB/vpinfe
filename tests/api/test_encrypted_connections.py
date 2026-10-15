@@ -1,4 +1,4 @@
-"""Trusted Proxies, Encrypted Networks and the certificate VPinFE serves HTTPS with.
+"""Trusted Proxies, Trusted Networks and the certificate VPinFE serves HTTPS with.
 
 A listed range or a proxy's HTTPS claim spares an Owner the Confirm and nothing else: a
 token, a Remote pass and a stranger hold what they held, and no token edits either list.

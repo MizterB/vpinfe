@@ -31,12 +31,12 @@ def entries(state: dict[str, Any], device: str, set_up: Callable[[], Any],
     """What the Authenticator section shows, in order. Pure of the page, so a test reads it."""
     out: list[tuple[Any, ...]] = [(panel.HEADING, t("console.authenticator.heading"))]
     if not state.get("enabled"):
-        out.append(panel.intro(t("console.authenticator.none")))
+        out.append(panel.lede(t("console.authenticator.none")))
         out.append((panel.FULL, panel.action(t("console.authenticator.set_up"), set_up,
                                              icon=verbs.ADD,
                                              hint=t("console.authenticator.set_up_hint"))))
         return out
-    out.append(panel.intro(t("console.authenticator.on")))
+    out.append(panel.lede(t("console.authenticator.on")))
     out.append((t("console.authenticator.screen_codes", device=device),
                 panel.switch(bool(state.get("screen_codes")),
                              lambda event: screen_codes(bool(event.value)),

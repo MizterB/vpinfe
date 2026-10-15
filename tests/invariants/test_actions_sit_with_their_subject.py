@@ -54,7 +54,7 @@ ROW_MENU_WITHOUT_HEADER: set[str] = set()
 HEADER_MENU_WITHOUT_ROW: set[str] = set()
 # A chooser in a dialog reads its ticks in the footer button, which is its selection menu;
 # Community's rows come from an extension and have no subject to act on.
-NO_SELECTION_MENU = {"backup_rows.py"}
+NO_SELECTION_MENU = {"backup_rows.py", "signed_in_rows.py"}
 HEADER_ONLY = {"community.py"}
 # `grid.build`'s positional order after `columns, rows, scope`.
 BUILD_PARAMS = ("on_select_rows", "on_context", "on_header_context")

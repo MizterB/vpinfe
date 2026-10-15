@@ -8,35 +8,64 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 import unittest
 import urllib.request
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from common import sign_in
 from common.i18n import t
 from tests.support.browser_session import BrowserSession, chromium_path
-from tests.support.console_walk import ConsoleWalk
+from tests.support.console_walk import ConsoleWalk, clicked
 from tests.support.live_instance import LiveInstance
 
 DIALOG = ".console-confirm"
-SIGN_OUT_ROW = ".console-action--inline"
+SECURITY = "/console?view=settings&page=vpinfe.security"
+SUMMARY = ".console-summary"
+LIST = ".console-signed-in-card"
 NOTHING_SIGNED_IN = json.dumps(t("console.security.none"))
 TEXT_OF = "(() => { const el = document.querySelector(%s); return el ? el.innerText : null; })()"
 SIGN_OUT_WORD = json.dumps(t("console.security.sign_out"))
+# A button's text starts with its icon's name.
+NAMED = "el.innerText.trim().split('\\n').pop() === %s"
+WAITING = ("[...document.querySelectorAll('.console-fact-label')]"
+           f".some(el => el.innerText.trim() === {json.dumps(t('console.security.waiting'))})")
+SIGN_OUT_BUTTON = ("[...document.querySelectorAll('.console-signed-in-card "
+                   ".console-dialog-footer button')]"
+                   f".find(el => {NAMED % SIGN_OUT_WORD})")
+SIGN_OUT_ENABLED = (f"(() => {{ const b = {SIGN_OUT_BUTTON}; return !!b && "
+                    "b.getAttribute('aria-disabled') !== 'true' && !b.disabled; })()")
+SIGN_OUT_ALL_WORD = json.dumps(t("console.security.sign_out_all"))
+SIGN_OUT_ALL_ASIDE = ("[...document.querySelectorAll('.console-signed-in-card button')]"
+                      f".find(el => {NAMED % SIGN_OUT_ALL_WORD})")
+SIGN_OUT_ALL_CONFIRM = ("[...document.querySelectorAll('.console-confirm button')]"
+                        f".find(el => {NAMED % SIGN_OUT_ALL_WORD})")
+# The pinned checkbox column draws every row a second time, in its own container.
+ROWS = f"{LIST} .ag-center-cols-container .ag-row"
+ROW_BOX = f"{LIST} .ag-row .ag-selection-checkbox input"
+CELL_OF = ("(() => { const el = document.querySelector("
+           f"'{LIST} .ag-row .ag-cell[col-id=%s]'); return el ? el.innerText : null; }})()")
 SIGN_OUT_HERE = ("[...document.querySelectorAll('.console-invite')]"
                  f".some(el => el.innerText.includes({SIGN_OUT_WORD}))")
 
 
-_opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor())
+def _browser() -> urllib.request.OpenerDirector:
+    return urllib.request.build_opener(urllib.request.HTTPCookieProcessor())
 
 
-def _post(instance: LiveInstance, path: str, body: dict) -> dict:
+def _post(instance: LiveInstance, path: str, body: dict,
+          opener: urllib.request.OpenerDirector) -> dict:
     """The asking browser's cookie comes back with the code, as a real browser sends it."""
     request = urllib.request.Request(instance.console_url(path), data=json.dumps(body).encode(),
                                      method="POST",
                                      headers={"Content-Type": "application/json"})
-    with _opener.open(request, timeout=10) as answer:
+    with opener.open(request, timeout=10) as answer:
         return json.load(answer)
+
+
+def _digits(words: object) -> str:
+    return next(part for part in str(words).split() if part.isdigit() and len(part) == 6)
 
 
 @unittest.skipIf(chromium_path() is None, "no Chromium on this machine")
@@ -53,6 +82,7 @@ class ConsoleSignInNoticeDrive(unittest.TestCase):
     @classmethod
     async def _drive(cls, instance: LiveInstance, binary: str) -> dict:
         seen: dict = {}
+        first, second = _browser(), _browser()
         instance.wait_for_api()
         async with BrowserSession(binary) as browser:
             walk = ConsoleWalk(browser, instance)
@@ -60,23 +90,56 @@ class ConsoleSignInNoticeDrive(unittest.TestCase):
             seen["quiet_before"] = await browser.evaluate(
                 TEXT_OF % json.dumps(DIALOG))
             seen["sign_out_here"] = await browser.evaluate(SIGN_OUT_HERE)
-            asked = _post(instance, "/api/v1/auth/code", {})
+            asked = _post(instance, "/api/v1/auth/code", {}, first)
+            first_asked = time.monotonic()
             await browser.wait_for(f"!!document.querySelector({json.dumps(DIALOG)})", timeout=30)
             seen["asked"] = await browser.evaluate(TEXT_OF % json.dumps(DIALOG))
-            digits = [part for part in str(seen["asked"]).split()
-                      if part.isdigit() and len(part) == 6]
             _post(instance, "/api/v1/auth/session",
-                  {"request_id": asked["request_id"], "code": digits[0]})
+                  {"request_id": asked["request_id"], "code": _digits(seen["asked"])}, first)
             await browser.click(f"{DIALOG} .console-dialog-footer button")
             await browser.wait_for(f"!document.querySelector({json.dumps(DIALOG)})", timeout=30)
             seen["closed"] = True
-            await walk.visit("/console?view=settings&page=vpinfe.security")
-            seen["signed_in"] = await browser.evaluate(
-                f"document.querySelectorAll({json.dumps(SIGN_OUT_ROW)}).length")
-            await walk.act(lambda: browser.click(SIGN_OUT_ROW),
+
+            await walk.visit(SECURITY)
+            seen["waiting_before"] = await browser.evaluate(WAITING)
+            seen["summary"] = await browser.evaluate(TEXT_OF % json.dumps(SUMMARY))
+            await asyncio.sleep(max(0.0, sign_in.ASK_SPACING_SECONDS + 1
+                                    - (time.monotonic() - first_asked)))
+            asked = _post(instance, "/api/v1/auth/code", {}, second)
+            await browser.wait_for(WAITING, timeout=30)
+            seen["waiting_while_asked"] = True
+            popup = await browser.evaluate(TEXT_OF % json.dumps(DIALOG))
+            _post(instance, "/api/v1/auth/session",
+                  {"request_id": asked["request_id"], "code": _digits(popup)}, second)
+            await browser.click(f"{DIALOG} .console-dialog-footer button")
+            await browser.wait_for(f"!({WAITING})", timeout=30)
+            seen["waiting_after_sign_in"] = await browser.evaluate(WAITING)
+            await browser.wait_for(
+                f"document.querySelector({json.dumps(SUMMARY)}).innerText.includes('2 ')",
+                timeout=30)
+            seen["summary_after"] = await browser.evaluate(TEXT_OF % json.dumps(SUMMARY))
+
+            await walk.act(clicked(browser, f"document.querySelector({json.dumps(SUMMARY)})"
+                                            ".click() || true"),
+                           until=f"document.querySelectorAll({json.dumps(ROWS)})"
+                                 ".length === 2")
+            seen["list_rows"] = await browser.evaluate(
+                f"document.querySelectorAll({json.dumps(ROWS)}).length")
+            seen["first_seen"] = await browser.evaluate(CELL_OF % "created")
+            seen["last_used"] = await browser.evaluate(CELL_OF % "last_used")
+            seen["sign_out_before_pick"] = await browser.evaluate(SIGN_OUT_ENABLED)
+            await walk.act(lambda: browser.click(ROW_BOX), until=SIGN_OUT_ENABLED)
+            await walk.act(clicked(browser, f"({SIGN_OUT_BUTTON}).click() || true"),
+                           until=f"document.querySelectorAll({json.dumps(ROWS)})"
+                                 ".length === 1")
+            seen["left"] = await browser.evaluate(
+                f"document.querySelectorAll({json.dumps(ROWS)}).length")
+            await walk.act(clicked(browser, f"({SIGN_OUT_ALL_ASIDE}).click() || true"),
+                           until=f"!!document.querySelector({json.dumps(DIALOG)})")
+            await walk.act(clicked(browser, f"({SIGN_OUT_ALL_CONFIRM}).click() || true"),
                            until=f"document.body.innerText.includes({NOTHING_SIGNED_IN})")
-            seen["after_sign_out"] = await browser.evaluate(
-                f"document.querySelectorAll({json.dumps(SIGN_OUT_ROW)}).length")
+            seen["list_closed"] = not await browser.evaluate(
+                f"!!document.querySelector({json.dumps(LIST)})")
         return seen
 
     def test_nothing_shows_until_a_device_asks(self) -> None:
@@ -94,9 +157,28 @@ class ConsoleSignInNoticeDrive(unittest.TestCase):
     def test_close_dismisses_it(self) -> None:
         self.assertTrue(self.seen["closed"])
 
-    def test_signing_a_browser_out_takes_its_row_off_the_page(self) -> None:
-        self.assertEqual(self.seen["signed_in"], 1)
-        self.assertEqual(self.seen["after_sign_out"], 0)
+    def test_a_device_waiting_to_sign_in_has_a_row_only_while_it_waits(self) -> None:
+        self.assertFalse(self.seen["waiting_before"])
+        self.assertTrue(self.seen["waiting_while_asked"])
+        self.assertFalse(self.seen["waiting_after_sign_in"])
+
+    def test_the_browsers_signed_in_are_one_summary_row_that_counts_them(self) -> None:
+        self.assertIn(t("console.security.count", count=1), self.seen["summary"])
+        self.assertIn(t("console.security.count", count=2), self.seen["summary_after"])
+
+    def test_the_list_has_a_row_to_a_browser_with_first_seen_and_last_used(self) -> None:
+        self.assertEqual(self.seen["list_rows"], 2)
+        self.assertTrue(str(self.seen["first_seen"]).strip())
+        self.assertTrue(str(self.seen["last_used"]).strip())
+
+    def test_signing_out_waits_for_a_pick(self) -> None:
+        self.assertFalse(self.seen["sign_out_before_pick"])
+
+    def test_signing_one_browser_out_leaves_the_other(self) -> None:
+        self.assertEqual(self.seen["left"], 1)
+
+    def test_signing_everyone_out_closes_the_list_and_empties_the_page(self) -> None:
+        self.assertTrue(self.seen["list_closed"])
 
 
 if __name__ == "__main__":

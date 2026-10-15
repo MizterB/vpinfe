@@ -908,6 +908,9 @@ body::before {
 .console-dialog.console-backups-card.q-card {
   width: min(900px, 94vw); height: min(70vh, 380px); display: flex; flex-direction: column;
 }
+.console-dialog.console-signed-in-card.q-card {
+  width: min(900px, 94vw); height: min(70vh, 420px); display: flex; flex-direction: column;
+}
 /* With no copies the message sits in the middle of the height the dialog opened at. */
 .console-backups-none:not(.hidden) { flex: 1 1 auto; width: 100%; text-align: center; display: flex; align-items: center; justify-content: center; }
 /* A picker is one height whatever its list holds or its filter leaves; the list scrolls. */
@@ -3401,20 +3404,30 @@ a.console-tag:hover { background: var(--wash-hover); }
 .console-slot-blank-icon { font-size: var(--icon-slot); opacity: 0.55; }
 
 /* A pickable fact row keeps its two cells in the list's grid, and the picked one is lit
-   the way a lit binding is - the label in the accent. */
+   the way a lit binding is - the label in the accent. A row whose value is a summary
+   lights the summary as a whole on hover instead, and the label stays as it is. */
 .console-fact-pick { display: contents; cursor: pointer; }
-.console-fact-pick:not(.console-fact-pick--on):hover > .console-fact-label { color: var(--ink); }
+.console-fact-pick:not(.console-fact-pick--on):not(:has(.console-summary)):hover > .console-fact-label { color: var(--ink); }
 .console-fact-pick--on > .console-fact-label { color: var(--accent); }
-.console-fact-pick:focus-visible > .console-fact-label { color: var(--accent); text-decoration: underline; }
+.console-fact-pick:not(:has(.console-summary)):focus-visible > .console-fact-label { color: var(--accent); text-decoration: underline; }
+.console-fact-pick:has(.console-summary) > .console-fact-label { margin-right: 8px; }
 
-/* A summary fact: the count over what is newest, and the arrow saying it opens more. */
-.console-summary { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: var(--measure); }
+/* A summary fact: the count over what is newest, and the arrow saying it opens more. The
+   band reaches 8px past the text on each side, so the lit control clears its label. */
+.console-summary {
+  display: flex; align-items: center; gap: 8px; min-width: 0; max-width: var(--measure);
+  padding: 6px 8px; margin: -6px 0 -6px -8px; border-radius: 6px;
+  transition: background-color 0.12s;
+}
 .console-summary-text { display: flex; flex-direction: column; min-width: 0; flex: 0 1 auto; line-height: 1.25; }
 .console-summary-sub { font-size: var(--fs-caption); color: var(--ink-3); }
 .console-summary-warn { color: var(--tier-table); }
 .console-summary-go { flex: none; color: var(--ink-2); font-size: var(--icon-mark); }
+.console-fact-pick:hover .console-summary { background: var(--surface-hover); }
 .console-fact-pick:hover .console-summary-go,
 .console-fact-pick:focus-visible .console-summary-go { color: var(--ink); }
+.console-fact-pick:focus-visible { outline: none; }
+.console-fact-pick:focus-visible .console-summary { outline: 2px solid var(--accent); outline-offset: 0; }
 
 .console-slot-facts { min-width: 0; }
 /* The filename is the one identifier a user recognizes, so it reads first and whole -
