@@ -33,14 +33,20 @@ next section first.
 - **Other computers sign in once, with a code.** A browser on another computer asks for a
   code and VPinFE shows it on this machine, where whoever is there chooses Show or Ignore.
   Settings > Security lists the browsers signed in and ends any of them. This computer never
-  asks. Traffic on your network is not encrypted, so away from home connect through a VPN.
+  asks. A change that can run programs or cannot be undone, such as installing an update or
+  restoring a backup, asks another computer for a second Confirm code, and skips it over a
+  VPN, behind a proxy or on HTTPS. An authenticator app set up on the same page can give
+  both codes. Themes and extensions that did not come with VPinFE stay off until you accept
+  them. Traffic on your network is not encrypted, so away from home connect through a VPN.
   Set HTTP Address in Settings to `127.0.0.1` to keep other computers out altogether, at the
   cost of the Console, the Remote and the mobile pages working from other devices.
 
 ### What's New
-- **Console** - Other computers sign in to VPinFE once, with a code shown on this machine.
-  This computer never asks. Settings > Security lists who is signed in and signs any of them
-  out.
+- **Console** - Other computers sign in to VPinFE once, with a code shown on this machine
+  or with an authenticator app. This computer never asks. Settings > Security lists who is
+  signed in and signs any of them out, makes tokens for scripts and other programs, and
+  names the networks and proxies whose traffic is encrypted. VPinFE can serve HTTPS from a
+  certificate you choose.
 - **Console** - A new interface, and the page you land on. One place for the library,
   media, devices and settings, in grids you can sort, filter and search, with a picture
   beside each name. Column layouts are kept as views of your own. Select a row and its panel

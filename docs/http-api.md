@@ -582,9 +582,14 @@ route declares the scope it needs:
 **Who gets which scopes is `SignInPolicy`.** A request from this machine holds every core
 scope. A request from another computer holds `instance:read` alone, which is enough to ask
 what this instance is and to ask for a sign-in code, until it has signed in or presents a
-token. Signing in is a six-digit code shown on the machine and typed on the other computer;
-the `/auth` routes above are the whole of it. A cookie that is not signed in, expired or
-signed out holds none.
+token. Signing in is a six-digit code shown on the machine and typed on the other computer,
+or, once the Owner has set one up, the six digits an authenticator app shows (RFC 6238,
+SHA-1, 30 seconds, one step either side, a step used once). The `/auth` routes above are the
+whole of it. A cookie that is not signed in, expired or signed out holds none.
+
+Wrong codes are counted per address, per sign-in for a Confirm or a new setup, and across
+all addresses together (20), so a second address does not buy more tries. A locked address
+answers `429` `too_many_requests` with the seconds to wait in `details.wait`.
 
 **Three tiers.** A route's scope puts it in one of them.
 
@@ -644,19 +649,28 @@ is signed out or goes unused for 90 days; a Protected change asks for a Confirm 
 
 Over plain HTTP the cookie and everything after it cross the network unencrypted, so sign in
 from a network you trust. A home LAN behind a router is the assumption. A shared or public
-network is not, and neither is port-forwarding it to the internet.
+network is not, and neither is port-forwarding it to the internet. Away from home, connect
+through a VPN and reach the machine by its VPN name.
+
+**An encrypted connection stands in for the Confirm.** A request counts as encrypted when
+VPinFE itself serves HTTPS, when it comes through a Trusted Proxy that says `https` in
+`X-Forwarded-Proto`, or when its socket address is inside an Encrypted Network (Tailscale's
+range is one click). A Protected change from an encrypted connection needs no Confirm. A
+proxy is believed only by its own single address, never a range, and a proxy on the same
+machine counts only once HTTPS is on, because otherwise every visitor would look like this
+computer. Encrypted Networks are judged by the socket address and never by a header.
 
 Two settings decide reachability, and they are separate on purpose:
 
 | setting | default | what it serves |
 |---|---|---|
-| `network.hub_bind` | `0.0.0.0` | the API and the Manager UI |
+| `network.http_bind` | `0.0.0.0` | the API and the Console |
 | `network.theme_assets_bind` | `127.0.0.1` | theme packages and the table library's media |
 
-`hub_bind` answers everywhere because the Remote Control page and the mobile QR flow are
-the point — a phone administering a cabinet is a supported workflow, not an accident. Set
-it to `127.0.0.1` if you want the API reachable only from the machine itself; the Remote
-and mobile pages stop working from other devices, which is the trade.
+`http_bind` answers everywhere because the Remote and the sign-in page are the point - a
+phone administering a cabinet is a supported workflow, not an accident. Set it to `127.0.0.1`
+if you want the API reachable only from the machine itself; the Remote and the Console on
+other devices stop working, which is the trade.
 
 `theme_assets_bind` is loopback because opening it shares read access to the table library
 itself. Opening it is what a device on another machine needs to fetch artwork, and VPinFE

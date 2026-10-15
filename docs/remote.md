@@ -4,6 +4,14 @@ A phone-shaped surface for driving an install from across the room: what is play
 
 The Console at `/console` is desk-first and organized as a workbench, a grid beside an inspector. That shape does not fit one hand, so `/remote` is its own page with its own layout and the same palette, tokens and API client.
 
+## Getting in
+
+A phone gets in by scanning the Remote Code, which is the QR on the sheet that **On your phone** opens at the foot of the Console rail, and on the frontend's main menu under **Remote**. The code carries a pass that holds Play and nothing else, so a phone can browse, launch, stop, press buttons and rate, and cannot change the library or anything Protected (`docs/http-api.md`, Authorization).
+
+- Anyone who can see the main menu can scan it, which is how a visitor joins (see Join below).
+- **New Remote Code**, on the same sheet, makes the old pass stop working. Phones that used it are signed out.
+- The Console opened on a phone is a browser like any other. It signs in with a code from the VPinFE computer's screen or from the authenticator app, and a Protected change asks for a Confirm.
+
 ## Who is holding this
 
 Players are per install, not per phone, so the Remote asks who is holding it before it writes anything on anybody's behalf.
@@ -14,9 +22,9 @@ A phone can say who it is, remembered per browser and per target in `console/rem
 - **A kept player**, chosen with **This Is Me** on the identity sheet (the person icon in the header): a rating goes to their own record instead of the library's, Favorite is not offered - it is the owner's alone - and adding to a collection still is, since collections are the household's. **Not Me** clears it.
 - **A guest**, set by Join: the same as a kept player, and adding to a collection is not offered either, since a guest is gone at shutdown. **Sign Out** removes them.
 
-The header names the target on every screen; a kept player's initials sit beside it. A guest's does not - "not shown" here is not security, since anyone can say they are anybody on an unauthenticated LAN surface, but it keeps a visitor's screen about them without dressing up a claim nobody can back with a key.
+The header names the target on every screen; a kept player's initials sit beside it. A guest's does not - "not shown" here is not security, since a pass that holds Play lets anyone say they are anybody, but it keeps a visitor's screen about them without dressing up a claim nobody can back with a key.
 
-A player's circle leads their name on This Is Me's list and on Now's Up rows, and the header shows the picture in place of the person icon. It is their picture where they have one and their initials where they do not, or where the image does not load. The phone fetches `GET /players/{id}/picture` itself, as an `<img>`: from the page's own origin for the install serving the Remote, and from the target's own address for another device, so a target the phone cannot reach shows initials. The route takes no credentials the Remote lacks - the API is local trust, with no tokens.
+A player's circle leads their name on This Is Me's list and on Now's Up rows, and the header shows the picture in place of the person icon. It is their picture where they have one and their initials where they do not, or where the image does not load. The phone fetches `GET /players/{id}/picture` itself, as an `<img>`: from the page's own origin for the install serving the Remote, and from the target's own address for another device, so a target the phone cannot reach shows initials. The route is Play, which is all the Remote's pass holds, so the picture loads with no more access than the page itself has.
 
 ### Join
 
