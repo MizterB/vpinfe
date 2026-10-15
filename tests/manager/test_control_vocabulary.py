@@ -52,7 +52,7 @@ BUDGET = {
                     "picker whose options explain themselves lives"),
     "mediasource.py": (1, "a search, toolbar"),
     "launchers.py": (2, "checkboxes in the copy-to-device dialog"),
-    "about.py": (1, "the textarea a browser that will not copy falls back to"),
+    "clipboard.py": (1, "the textarea a browser that will not copy falls back to"),
     "token_panel.py": (1, "the read-only box a new token is shown in, once, so it can "
                          "be selected and copied"),
     "authenticator_panel.py": (1, "the read-only box the setup key is shown in, so it can be "

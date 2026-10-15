@@ -32,6 +32,7 @@ from manager import (
     mediaview,
     offload,
     panel,
+    play_facts,
     thumbnails,
     undo,
     verbs,
@@ -1218,18 +1219,15 @@ def has_plays(player: dict[str, Any]) -> bool:
 def played_line(game: dict[str, Any]) -> str:
     """Count, time and when, where they played it; their best score, where they have
     one. Either can stand alone: a score reaches its player whether they were up or not."""
-    # Imported here: `workbench` imports this module for its sections.
-    from manager import workbench
-
     parts = []
     count = int(game.get("play_count") or 0)
     if count:
         parts.append(t("manager.players.played", count=count,
-                       time=workbench._played_for(int(game.get("play_time_seconds") or 0)),
-                       when=workbench._played_when(game.get("last_played"))))
+                       time=play_facts.played_for(int(game.get("play_time_seconds") or 0)),
+                       when=play_facts.played_when(game.get("last_played"))))
     best = game.get("best_score") or {}
     if best:
-        parts.append(t("manager.players.best", score=workbench._score_lines(best)[0]))
+        parts.append(t("manager.players.best", score=play_facts.score_lines(best)[0]))
     return game_tables.JOIN.join(parts)
 
 

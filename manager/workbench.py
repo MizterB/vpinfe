@@ -30,7 +30,7 @@ from urllib.parse import urlencode, urlparse
 
 from nicegui import run, ui
 
-from common import apps, config_schema, i18n, icons, install_identity, path_state, tokens
+from common import apps, config_schema, icons, install_identity, path_state, tokens
 from common.apps import OWN_FIELDS
 from common.failures import why
 from common.games import asset_registry, tag_registry
@@ -80,6 +80,7 @@ from manager import (
     offload,
     panel,
     pictures,
+    play_facts,
     plays_on,
     release_match,
     row_drag,
@@ -288,10 +289,6 @@ DEFAULT_SECTION = {"game": "game_details", "table": "table_details",
                    # what is in it far more often than to rename it.
                    "collection": "collection_games",
                    "theme": "theme_details", "player": "player_details"}
-# Every section closed. No rail click reaches it, so it comes only from an address that
-# says `section=none`. Named, because it travels in the state and the address, and
-# "" appearing in either wants to be findable as a decision rather than as a blank.
-COLLAPSED = ""
 
 # Below this the outline costs more than it gives: 132px of it against a 320px
 # workbench leaves the map too narrow to read, and the section headers are already
@@ -387,10 +384,10 @@ def chosen_section(state: dict[str, Any], subject: str = "game",
     """
     rail = sections_for(subject) if rail is None else rail
     known = {item.key for item in rail}
-    if state.get("section") == COLLAPSED:
+    if state.get("section") == deeplink.COLLAPSED:
         # Asked for by the address, so it is kept - including across a change of subject.
         # Seeding a default here would reopen a panel the address said to leave closed.
-        return COLLAPSED
+        return deeplink.COLLAPSED
     if subject == "all_games":
         return rail[0].key
     if state.get("section") not in known:
@@ -1906,8 +1903,8 @@ async def _rail(context: dict[str, Any], subject: str,
     section = chosen_section(state, subject, rows)
     # A section this subject has no answer for is not a place to land, so an address or a
     # remembered choice that names one opens the rail's own default instead.
-    if bare or (section != COLLAPSED and section not in {item.key for item in rows}):
-        section = rows[0].key if rows else COLLAPSED
+    if bare or (section != deeplink.COLLAPSED and section not in {item.key for item in rows}):
+        section = rows[0].key if rows else deeplink.COLLAPSED
     body = None
     open_item = next((item for item in rows if item.key == section), None)
     docked = open_item is not None and _docked(open_item, context)
@@ -3139,20 +3136,11 @@ def _high_score_entries(scores: dict[str, Any]) -> list[tuple[Any, Any]]:
     rows: list[tuple[Any, Any]] = []
     for section in sections:
         for place, entry in enumerate(section.get("entries") or []):
-            first, *rest = _score_lines(entry)
+            first, *rest = play_facts.score_lines(entry)
             rows.append((str(section.get("name") or "") if place == 0 else "",
                          _score_row(entry, first, day, **columns)))
             rows.extend((panel.ASIDE, partial(_score_caption, line)) for line in rest)
     return rows
-
-
-def _score_lines(entry: dict[str, Any]) -> list[str]:
-    """A number the machine writes its own way - hex - is left as `text` has it."""
-    score, text = entry.get("score"), str(entry.get("text") or "")
-    prefix, suffix = str(entry.get("prefix") or ""), str(entry.get("suffix") or "")
-    if isinstance(score, int) and text == f"{prefix}{score:,}{suffix}":
-        return [f"{prefix}{i18n.number(score)}{suffix}"]
-    return text.split("\n") or [""]
 
 
 def _score_row(entry: dict[str, Any], value: str, day: str, *, ranked: bool,
@@ -3818,33 +3806,14 @@ def _launch_state(launchable: bool | None) -> Any:
                   "on" if launchable else "bad")
 
 
-def _played_when(stamp: str | None) -> str:
-    """A date, not a timestamp. Nobody reads a play record to the second."""
-    return when.ago(stamp) if when.parsed(stamp) else t("word.never")
-
-
-def _played_for(seconds: int) -> str:
-    """Play time in the largest unit that is still true, because the number is read at
-    a glance and 41,400 seconds is not a length anybody pictures."""
-    if seconds < 60:
-        return t("word.none") if not seconds \
-            else t("manager.workbench.sec", count=seconds)
-    minutes = seconds // 60
-    if minutes < 90:
-        return t("manager.workbench.min", count=minutes)
-    hours, rest = divmod(minutes, 60)
-    return (t("manager.workbench.hr_min", hours=(hours), rest=(rest)) if rest
-            else t("manager.workbench.hr", count=hours))
-
-
 def _play_rows(record: dict[str, Any]) -> list[tuple[Any, Any]]:
     """What has been done with this."""
     return [
-        (t("word.last_played"), _played_when(record.get("last_played"))),
+        (t("word.last_played"), play_facts.played_when(record.get("last_played"))),
         (t("manager.workbench.times_played"),
                 str(int(record.get("play_count") or 0) or t("word.never"))),
         (t("manager.workbench.play_time"),
-                _played_for(int(record.get("play_time_seconds") or 0))),
+                play_facts.played_for(int(record.get("play_time_seconds") or 0))),
     ]
 
 

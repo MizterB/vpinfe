@@ -15,6 +15,7 @@ from typing import Any
 from common import approvals, feature_checks
 from common.i18n import t
 from manager import jobs_list, verbs
+from manager.need_keys import AWAY, AWAY_ALL
 
 # The tone a row is drawn in, which says how much it costs to leave alone.
 DANGER, WARM, ACCENT, MUTED = "danger", "warm", "accent", "muted"
@@ -25,15 +26,13 @@ REVIEW, RETRY = "review", "retry"
 # The Settings page saying whether the library's metadata files read and are current.
 METADATA_PAGE = "library.metadata"
 
-# The rows an extension raises are keyed `ext:<extension>:<kind>`; `away:<extension>` in the
-# reads that failed says that extension's needs could not be read, `away:*` that none could.
-EXTENSION, AWAY = "ext:", "away:"
+# The rows an extension raises are keyed `ext:<extension>:<kind>`.
+EXTENSION = "ext:"
 
 # The rows for a theme or an extension waiting to be accepted, keyed `unaccepted:theme:<key>`
 # and `unaccepted:ext:<name>`. They are about this install and cannot be set aside:
 # whatever is stopped stays so until the Owner accepts it or removes it.
 UNACCEPTED = "unaccepted:"
-AWAY_ALL = AWAY + "*"
 
 # A program's ask to make one change, keyed `asked:<id>`. It lapses on its own and is
 # answered, never set aside.

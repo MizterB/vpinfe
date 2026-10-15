@@ -51,8 +51,13 @@ FIELD_TYPES = {
     "choice": "panel.choice",
     "number": "panel.number",
     "checklist": "wizard_lists.checklist",
-    "settle": "wizard_lists.settle",
+    "settle": "wizard_settle.settle",
 }
+
+# The field and the job report that draw the library's content register here when their
+# module is imported. A `settle` field with no drawer raises in `_controls`.
+FIELD_DRAWERS: dict[str, Callable[..., Callable[[], None]]] = {}
+REPORT_DRAWERS: list[tuple[Callable[[dict], bool], Callable[[dict], None]]] = []
 
 # The forward-verb button's own marker, so a keypress can find whichever step's button is
 # current without rebinding a listener every time the step redraws.
@@ -376,7 +381,9 @@ def _controls(fields: list[dict], values: dict[str, Any], *,
                 values[key] = picks
                 wrote(key)
 
-            entries.append((panel.FULL, refusing(wizard_lists.settle(
+            if "settle" not in FIELD_DRAWERS:
+                raise RuntimeError("manager.wizard_settle is not imported")
+            entries.append((panel.FULL, refusing(FIELD_DRAWERS["settle"](
                 field, dict(values.get(key) or {}), settled, client=client,
                 question=label if asked > 1 else "", on_control=caught), key)))
         elif kind == "path":
@@ -1251,11 +1258,10 @@ def report(body: Any, job: dict, under: str, *, limit: int | None = 20) -> None:
             return
         result = job.get("result") or {}
         compared = list(result.get("against") or [])
-        from manager import import_report
-
-        if import_report.has_report(job):
-            import_report.draw(job)
-            return
+        for has_report, draw_report in REPORT_DRAWERS:
+            if has_report(job):
+                draw_report(job)
+                return
         if compared:
             _compare(compared)
         elif result:

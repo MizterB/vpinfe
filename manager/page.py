@@ -59,6 +59,7 @@ from manager import (
     views,
     waiting,
     wizard,
+    wizard_settle,  # noqa: F401 - registers the settle field with the wizard
     workbench,
 )
 from manager import assets as assets_page

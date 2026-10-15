@@ -20,10 +20,10 @@ from common.backups import copies as kept_copies
 from common.failures import why
 from common.i18n import t
 from manager import (
-    about,
     backup_cleanup,
     backup_go_back,
     busy,
+    clipboard,
     confirm,
     deeplink,
     offload,
@@ -432,8 +432,8 @@ def _copy_path(path: str) -> Callable[[Callable[[], Any]], None]:
     def draw(_close: Callable[[], Any]) -> None:
         # In the browser at the click, which is the only moment it will copy.
         ui.menu_item(t("word.copy_path")).classes("manager-menu-item") \
-            .on("click", lambda event: about.copied(bool(event.args), path),
-                js_handler=about.COPY_JS % json.dumps(path))
+            .on("click", lambda event: clipboard.copied(bool(event.args), path),
+                js_handler=clipboard.COPY_JS % json.dumps(path))
     return draw
 
 

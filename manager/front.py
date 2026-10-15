@@ -27,6 +27,7 @@ from manager import (
     needs,
     offload,
     panel,
+    play_facts,
     verbs,
     when,
 )
@@ -46,18 +47,12 @@ def _address(game_id: str) -> str:
     return "/manager?" + deeplink.query({"view": "games", "game": game_id})
 
 
-def _workbench() -> Any:
-    from manager import workbench
-
-    return workbench
-
-
 def _elapsed(started_at: str | None) -> str:
     began = when.parsed(started_at)
     if began is None:
         return ""
     seconds = max(1, int((datetime.now(UTC) - began).total_seconds()))
-    return t("manager.front.so_far", time=_workbench()._played_for(seconds))
+    return t("manager.front.so_far", time=play_facts.played_for(seconds))
 
 
 def _plays(record: dict[str, Any]) -> list[str]:
@@ -65,7 +60,7 @@ def _plays(record: dict[str, Any]) -> list[str]:
     seconds = int(record.get("play_time_seconds") or 0)
     parts = [t("manager.front.plays", count=count)] if count else []
     if seconds:
-        parts.append(_workbench()._played_for(seconds))
+        parts.append(play_facts.played_for(seconds))
     return parts
 
 
@@ -84,7 +79,7 @@ def _top_score(front: dict[str, Any]) -> tuple[str, str]:
     entry = front.get("top")
     if not entry:
         return "", ""
-    return str(entry.get("initials") or ""), _workbench()._score_lines(entry)[0]
+    return str(entry.get("initials") or ""), play_facts.score_lines(entry)[0]
 
 
 def _subject(library: Library, front: dict[str, Any]) -> dict[str, Any]:
@@ -113,7 +108,7 @@ def hero(library: Library, front: dict[str, Any], quit_table: Callable[[], Any])
     game, record, game_id = subject["game"], subject["record"], subject["id"]
     line = [game_tables.made(game)] if game else []
     line.append(_elapsed((front.get("play") or {}).get("started_at")) if playing
-                else (_workbench()._played_when(record.get("last_played"))))
+                else (play_facts.played_when(record.get("last_played"))))
     line += _plays(record)
     initials, score = _top_score(front)
     backdrop = _backdrop(library, game_id) if game_id else ""
@@ -255,6 +250,6 @@ def strip(library: Library, go: Callable[[str], None]) -> None:
                             ui.icon(icons.GAMES).classes("manager-front-glyph")
                     name = str(game.get("name") or "")
                     ui.label(name).classes("manager-front-name").tooltip(name)
-                    ui.label(_workbench()._played_when(
+                    ui.label(play_facts.played_when(
                         (front.get("records") or {}).get(game_id, {}).get("last_played"))) \
                         .classes("manager-help")

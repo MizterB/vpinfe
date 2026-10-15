@@ -560,7 +560,7 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
         if row and column.startswith("media_"):
             state["section"] = "media"
             state.setdefault("slot", {"kind": None})["kind"] = column[len("media_"):]
-        elif row and state.get("section") != workbench.COLLAPSED:
+        elif row and state.get("section") != deeplink.COLLAPSED:
             section = (COLUMN_SECTIONS.get(column)
                        or VIEW_SECTIONS.get(str(view_picker.value or "")))
             if section:
@@ -1392,7 +1392,7 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
             return None
         row = by_id.get(grid.focused_row(event))
         section = TABLE_COLUMN_SECTIONS.get(grid.focused_column(event))
-        if row and section and state.get("section") != workbench.COLLAPSED:
+        if row and section and state.get("section") != deeplink.COLLAPSED:
             state["section"] = section
         viewing["on"] = False
         linked()

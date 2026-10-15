@@ -40,6 +40,7 @@ from manager import (
     game_tables,
     offload,
     panel,
+    play_facts,
     qr,
     remembered,
     remote_record,
@@ -1214,8 +1215,7 @@ async def _play_recorded(state: dict[str, Any], payload: dict[str, Any],
         got = player_id in credited
         line = ""
         if got and entries_of.get(player_id):
-            from manager import workbench
-            line = workbench._score_lines(entries_of[player_id][0])[0]
+            line = play_facts.score_lines(entries_of[player_id][0])[0]
         statuses: list[str] = []
         if not private:
             try:

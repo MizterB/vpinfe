@@ -8,7 +8,8 @@ from common.games import high_scores
 from common.i18n import t
 from common.labels import field_label
 from manager import panel
-from manager.workbench import _high_score_rows, _score_lines
+from manager.play_facts import score_lines
+from manager.workbench import _high_score_rows
 from tests.games.test_high_scores import CHAMPION_AND_RANKED, MULTILINE, ONE_NUMBER
 
 
@@ -107,19 +108,19 @@ class ScoreLinesTests(unittest.TestCase):
     def test_a_number_is_grouped_as_the_language_groups_digits(self) -> None:
         first = self._entries(CHAMPION_AND_RANKED)[0]
 
-        self.assertEqual(_score_lines(first), ["200,000,000"])
+        self.assertEqual(score_lines(first), ["200,000,000"])
 
     def test_the_machines_words_stay_around_the_number(self) -> None:
         ruler, loops, combos, dollars = self._entries(MULTILINE)
 
-        self.assertEqual([_score_lines(one) for one in (loops, combos, dollars)],
+        self.assertEqual([score_lines(one) for one in (loops, combos, dollars)],
                          [["12 LOOPS"], ["4-WAY"], ["$ 5,000"]])
-        self.assertEqual(_score_lines(ruler), ["INAUGURATED", "5 JAN, 2024 9:15 PM"])
+        self.assertEqual(score_lines(ruler), ["INAUGURATED", "5 JAN, 2024 9:15 PM"])
 
     def test_a_number_the_machine_writes_its_own_way_is_left_as_written(self) -> None:
         entry = {"score": 255, "prefix": "", "suffix": "", "text": "FF"}
 
-        self.assertEqual(_score_lines(entry), ["FF"])
+        self.assertEqual(score_lines(entry), ["FF"])
 
 
 if __name__ == "__main__":

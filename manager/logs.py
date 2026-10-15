@@ -33,8 +33,8 @@ from nicegui import ui
 from common.failures import why
 from common.i18n import t
 from manager import (
-    about,
     busy,
+    clipboard,
     deeplink,
     dropdown,
     offload,
@@ -220,8 +220,8 @@ def _file_menu(library: Library, held: dict[str, Any],
             # In the browser at the click, which is the only moment it will copy.
             ui.menu_item(t("word.copy_path")) \
                 .classes("manager-menu-item") \
-                .on("click", lambda event: about.copied(bool(event.args), held["path"]),
-                    js_handler=about.COPY_JS % json.dumps(held["path"]))
+                .on("click", lambda event: clipboard.copied(bool(event.args), held["path"]),
+                    js_handler=clipboard.COPY_JS % json.dumps(held["path"]))
             ui.menu_item(t("manager.logs.download"),
                          lambda: _download(library, held)).classes("manager-menu-item")
     more.tooltip(t("manager.logs.file_menu"))

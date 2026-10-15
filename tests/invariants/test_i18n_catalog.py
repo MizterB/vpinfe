@@ -1626,7 +1626,7 @@ GROUPED_NOT_SAID = {
     "common/i18n/__init__.py": "the formatter that every other number goes through",
     "common/games/high_scores.py": "a score as the table's own text writes it",
     "common/games/score_parser.py": "a score as the table's own text writes it",
-    "manager/workbench.py": "compared with a score's stored text, which is written in English",
+    "manager/play_facts.py": "compared with a score's stored text, which is written in English",
 }
 
 

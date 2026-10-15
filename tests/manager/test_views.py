@@ -13,6 +13,7 @@ from manager import (
     game_tables,
     games,
     media_ownership,
+    play_facts,
     stars,
     table_features,
     tageditor,
@@ -210,13 +211,13 @@ class PlayGroupTests(unittest.TestCase):
                  (5400, "1 hr 30 min"), (7200, "2 hr")]
         for seconds, said in cases:
             with self.subTest(seconds=seconds):
-                self.assertEqual(workbench._played_for(seconds), said)
+                self.assertEqual(play_facts.played_for(seconds), said)
 
     def test_never_played_says_so_rather_than_showing_nothing(self) -> None:
         """An empty cell is not a state: a value is a name or a state."""
-        self.assertEqual(workbench._played_when(None), "Never")
-        self.assertEqual(workbench._played_when(""), "Never")
-        self.assertEqual(workbench._played_when("not a date"), "Never")
+        self.assertEqual(play_facts.played_when(None), "Never")
+        self.assertEqual(play_facts.played_when(""), "Never")
+        self.assertEqual(play_facts.played_when("not a date"), "Never")
 
 
 class LabelCasingTests(unittest.TestCase):

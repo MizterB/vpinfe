@@ -13,7 +13,7 @@ from common import feature_checks
 from common.extensions import host
 from common.i18n import t
 from common.jobs import DONE, FAILED
-from manager import games, needs
+from manager import games, need_keys, needs
 from manager.data import Library
 
 
@@ -532,8 +532,8 @@ class WhatExtensionsAskFor(unittest.TestCase):
     def test_a_dismissal_outlasts_an_extension_that_could_not_answer(self):
         record = {"ext:site:share_down": ["a"], "ext:other:old": ["b"]}
 
-        away = needs.arrange([], record, set(), [needs.AWAY + "site"])
-        every = needs.arrange([], record, set(), [needs.AWAY_ALL])
+        away = needs.arrange([], record, set(), [need_keys.AWAY + "site"])
+        every = needs.arrange([], record, set(), [need_keys.AWAY_ALL])
         read = needs.arrange([], record, set(), [])
 
         self.assertEqual({"ext:site:share_down": ["a"]}, away.record)
@@ -578,7 +578,7 @@ class WhatExtensionsAskFor(unittest.TestCase):
         self.assertEqual([], needs.arrange([by_kind], {by_kind.key: ["share_down"]}, set()).rows)
 
     def test_a_read_that_failed_is_said_and_stays_in_the_row_that_says_so(self):
-        lib = FakeLibrary(watched={"unread": ["extensions", needs.AWAY + "site"]})
+        lib = FakeLibrary(watched={"unread": ["extensions", need_keys.AWAY + "site"]})
 
         rows = needs.collect(lib, {})
 

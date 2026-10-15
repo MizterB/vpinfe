@@ -24,7 +24,7 @@ from common.host import display_service, placement
 from common.i18n import t
 from common.paths import get_ini_config
 from frontend import theme_windows
-from manager import about, offload, panel
+from manager import clipboard, offload, panel
 from manager import dialog as frame
 from manager.displays import Write, stored
 from manager.on_page import on_page
@@ -216,9 +216,10 @@ def _show_line(found: placement.Offer, compositor: str) -> None:
                 .classes("w-full manager-log")
         with frame.footer():
             frame.cancel(box.close, t("word.close"))
-            panel.action(t("word.copy"), lambda event: about.copied(bool(event.args), found.line),
+            panel.action(t("word.copy"),
+                         lambda event: clipboard.copied(bool(event.args), found.line),
                          icon="content_copy", hint=t("manager.placement.copy.help"),
-                         js=about.COPY_JS % json.dumps(found.line))()
+                         js=clipboard.COPY_JS % json.dumps(found.line))()
     box.open()
 
 

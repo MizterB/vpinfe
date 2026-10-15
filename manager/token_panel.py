@@ -16,7 +16,7 @@ from nicegui import run, ui
 from common import api_tokens
 from common.failures import why
 from common.i18n import t
-from manager import about, confirm, offload, panel, verbs, when
+from manager import clipboard, confirm, offload, panel, verbs, when
 from manager import dialog as frame
 from manager.api import ApiError
 from manager.data import Library
@@ -77,9 +77,9 @@ async def _shown_once(name: str, secret: str) -> None:
                 .classes("w-full manager-log")
             shown.props["aria-label"] = t("manager.tokens.secret")
         with frame.footer():
-            panel.action(t("word.copy"), lambda event: about.copied(bool(event.args), secret),
+            panel.action(t("word.copy"), lambda event: clipboard.copied(bool(event.args), secret),
                          icon=verbs.COPY, hint=t("manager.about.copy_hint"),
-                         js=about.COPY_JS % json.dumps(secret))()
+                         js=clipboard.COPY_JS % json.dumps(secret))()
             frame.answer(t("word.done"), box.close, icon=verbs.DONE)
     frame.focus(box, shown, select=True)
     box.open()

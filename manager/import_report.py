@@ -17,7 +17,16 @@ from typing import Any
 from nicegui import ui
 
 from common.i18n import number, t
-from manager import deeplink, jobs_list, library_folders, offload, panel, report_groups, when
+from manager import (
+    deeplink,
+    jobs_list,
+    library_folders,
+    offload,
+    panel,
+    report_groups,
+    when,
+    wizard,
+)
 from manager.api import ApiClient
 from manager.on_page import on_page
 
@@ -437,3 +446,6 @@ def latest_line(line: tuple[str, str]) -> Callable[[], None]:
     """The line from `latest`, opening the report in a tab of its own."""
     words, address = line
     return panel.link_out(words, to=address, hint=t("manager.report.own_tab.hint"), opener=True)
+
+
+wizard.REPORT_DRAWERS.append((has_report, draw))

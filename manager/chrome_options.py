@@ -18,7 +18,7 @@ from nicegui import ui
 from common import device_client
 from common.i18n import t
 from common.values import is_truthy
-from manager import about, panel, remembered
+from manager import clipboard, panel, remembered
 
 logger = logging.getLogger("vpinfe.manager.chrome_options")
 
@@ -204,10 +204,10 @@ class Preview:
         self.copy_box.clear()
         with self.copy_box:
             panel.action(t("word.copy"),
-                         lambda event: about.copied(bool(event.args), text),
+                         lambda event: clipboard.copied(bool(event.args), text),
                          icon="content_copy",
                          hint=t("manager.settings.chrome_copy.help"),
-                         js=about.COPY_JS % json.dumps(text))()
+                         js=clipboard.COPY_JS % json.dumps(text))()
         self.say_warnings(shown)
 
     def draw_line(self, line: Any) -> None:

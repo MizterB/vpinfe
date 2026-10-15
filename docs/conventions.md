@@ -160,6 +160,11 @@ feature-detect them. That is what keeps bumps rare enough to be worth doing prop
 - `common/` is a layer, not a bucket. Domain code goes in `common/games/`, `common/online/`
   or `common/host/`; `common/` itself holds only what knows nothing about any of them, and may
   never import from those packages. See `docs/common.md`.
+- `manager/` is a stack, not a pile: every module belongs to one area, the areas are ranked
+  (the shared kit, then the area screens, then the workbench and the remote, then the shell),
+  and an import goes to the same rank or below. A screen that needs something from above
+  registers with it or takes it as an argument. The exceptions are named in
+  `tests/invariants/test_manager_layering.py`, and a new module is listed there first.
 - Route handlers stay thin: a path, a scope, one service call, a model. Logic belongs in a
   service under `common/` where the other callers can reach it, and nothing calls a handler.
   A service refuses with `common/service_errors.py`; the API turns that into its envelope.

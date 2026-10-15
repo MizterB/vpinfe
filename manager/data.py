@@ -15,7 +15,7 @@ from common.i18n import t
 from common.jobs import KIND_MEDIA_FILL
 from common.labels import field_label
 from common.media_specs import MEDIA_SPECS, media_family, media_label_map
-from manager import art, game_tables, media_ownership, needs, thumbnails, when
+from manager import art, game_tables, media_ownership, need_keys, thumbnails, when
 from manager.api import ApiClient
 from manager.thumbnails import Look
 
@@ -1257,12 +1257,12 @@ class Library:
         try:
             raised = self._client.extension_needs()
             out["extension_needs"] = list(raised.get("needs") or [])
-            out["unread"] += [needs.AWAY + name for name in raised.get("away") or []]
+            out["unread"] += [need_keys.AWAY + name for name in raised.get("away") or []]
             if raised.get("failed"):
                 out["unread"].append("extensions")
         except Exception:  # noqa: BLE001 - what extensions ask for is not Overview's to fail on
             logger.debug("manager: could not read what extensions ask for", exc_info=True)
-            out["unread"] += ["extensions", needs.AWAY_ALL]
+            out["unread"] += ["extensions", need_keys.AWAY_ALL]
         try:
             out["unaccepted"] = {
                 "themes": list(self._client.unaccepted_themes().get("themes") or []),

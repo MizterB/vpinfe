@@ -27,16 +27,16 @@ class ChosenSectionTests(unittest.TestCase):
                          workbench.DEFAULT_SECTION["game"])
 
     def test_closed_stays_closed(self) -> None:
-        state = {"section": workbench.COLLAPSED}
+        state = {"section": deeplink.COLLAPSED}
 
-        self.assertEqual(workbench.chosen_section(state, "game"), workbench.COLLAPSED)
+        self.assertEqual(workbench.chosen_section(state, "game"), deeplink.COLLAPSED)
 
     def test_closed_survives_a_change_of_subject(self) -> None:
         """Otherwise the fallback reopens a section the user just shut."""
-        state = {"section": workbench.COLLAPSED}
+        state = {"section": deeplink.COLLAPSED}
         workbench.chosen_section(state, "game")
 
-        self.assertEqual(workbench.chosen_section(state, "table"), workbench.COLLAPSED)
+        self.assertEqual(workbench.chosen_section(state, "table"), deeplink.COLLAPSED)
 
 
 class PickTests(unittest.TestCase):
@@ -56,7 +56,7 @@ class PickTests(unittest.TestCase):
         self._click("assets", "media").assert_called_once()
 
     def test_a_row_opens_from_every_section_closed(self) -> None:
-        self._click(workbench.COLLAPSED, "assets").assert_called_once()
+        self._click(deeplink.COLLAPSED, "assets").assert_called_once()
 
 
 class AddressTests(unittest.TestCase):
@@ -70,7 +70,7 @@ class AddressTests(unittest.TestCase):
 
     def test_a_closed_panel_is_named_rather_than_left_out(self) -> None:
         address = _address({"view": "games", "game": "abc",
-                            "section": workbench.COLLAPSED})
+                            "section": deeplink.COLLAPSED})
 
         self.assertEqual(address.get("section"), deeplink.NO_SECTION)
 
@@ -79,7 +79,7 @@ class AddressTests(unittest.TestCase):
         state = self._seed({"view": "games", "game": "abc",
                             "section": deeplink.NO_SECTION})
 
-        self.assertEqual(workbench.chosen_section(state, "game"), workbench.COLLAPSED)
+        self.assertEqual(workbench.chosen_section(state, "game"), deeplink.COLLAPSED)
 
     def test_an_open_section_survives_the_round_trip(self) -> None:
         state = self._seed({"view": "games", "game": "abc", "section": "assets"})

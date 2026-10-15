@@ -1092,12 +1092,12 @@ def path_ends(control: ui.input) -> None:
 def _copy_button(browser_text: str, text: Callable[[], str]) -> ui.button:
     """A Copy path button. `browser_text` is the JavaScript expression for the text, read
     in the browser at the click, which is the only moment the browser will copy."""
-    from manager import about
+    from manager import clipboard
 
     button = ui.button(icon=verbs.COPY).props("flat round dense").tooltip(t("word.copy_path"))
     button.props["aria-label"] = t("word.copy_path")
-    button.on("click", lambda event: about.copied(bool(event.args), text()),
-              js_handler=about.COPY_JS % browser_text)
+    button.on("click", lambda event: clipboard.copied(bool(event.args), text()),
+              js_handler=clipboard.COPY_JS % browser_text)
     return button
 
 

@@ -72,11 +72,15 @@ COMMUNITY_PREFIX = "community:"
 
 # What the address calls a panel with nothing open.
 NO_SECTION = "none"
+# Every section closed. No rail click reaches it, so it comes only from an address that
+# says `section=none`. Named, because it travels in the state and the address, and
+# "" appearing in either wants to be findable as a decision rather than as a blank.
+COLLAPSED = ""
 
 
 def _section(state: dict[str, Any]) -> str:
     chosen = state.get("section")
-    return NO_SECTION if chosen == "" else str(chosen or "")
+    return NO_SECTION if chosen == COLLAPSED else str(chosen or "")
 
 
 def _slot_kind(state: dict[str, Any]) -> str:
@@ -131,7 +135,7 @@ def apply(state: dict[str, Any], params: dict[str, str], *,
     # place it belongs to is still being read, and dropping it here would land on the
     # default and quietly ignore half the link.
     if clean("section") == NO_SECTION:
-        state["section"] = ""
+        state["section"] = COLLAPSED
     elif clean("section") in set(sections):
         state["section"] = clean("section")
     if clean("slot"):

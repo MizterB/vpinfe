@@ -37,7 +37,7 @@ NOT_A_REGION: dict[tuple[str, str], str] = {
     ("sections.py", "_prune"):
         "Writes the dismissals back without the ids nothing counts, once Overview is "
         "drawn. Fills no region.",
-    ("about.py", "_show_to_copy"):
+    ("clipboard.py", "_show_to_copy"):
         "Selects the text in a dialog once the dialog has focused itself. Draws nothing.",
 }
 

@@ -11,7 +11,7 @@ from unittest import mock
 from nicegui import ui
 
 from common.i18n import t
-from manager import vps_match, wizard, wizard_lists
+from manager import vps_match, wizard, wizard_settle
 from tests.manager.test_wizard_dialog import (
     _calls,
     _finished,
@@ -102,6 +102,13 @@ class SecretTests(unittest.TestCase):
 
         _ran(typed)
         self.assertEqual(seen, [{"token": "abc", "name": ""}])
+
+
+class DrawersTests(unittest.TestCase):
+    def test_a_type_that_registers_its_drawer_has_one(self) -> None:
+        """`FIELD_TYPES` names the type and `FIELD_DRAWERS` is what draws it."""
+        self.assertIn("settle", wizard.FIELD_TYPES)
+        self.assertIn("settle", wizard.FIELD_DRAWERS)
 
 
 class ChecklistTests(unittest.TestCase):
@@ -259,8 +266,8 @@ class SettleTests(unittest.TestCase):
 
         async def run() -> list[str]:
             with mock.patch.object(vps_match, "ask", ask), \
-                    mock.patch.object(wizard_lists, "Library", lambda _client: _Held()), \
-                    mock.patch.object(wizard_lists.offload, "io", _io):
+                    mock.patch.object(wizard_settle, "Library", lambda _client: _Held()), \
+                    mock.patch.object(wizard_settle.offload, "io", _io):
                 task, dialog = await _opened(_walked(_MATCHES, seen))
                 said(_buttons(dialog, "Change...")[0], "click")
                 await _settled()
@@ -281,8 +288,8 @@ class SettleTests(unittest.TestCase):
 
         async def run() -> None:
             with mock.patch.object(vps_match, "ask", _asked(vps_match.CLEARED)), \
-                    mock.patch.object(wizard_lists, "Library", lambda _client: _Held()), \
-                    mock.patch.object(wizard_lists.offload, "io", _io):
+                    mock.patch.object(wizard_settle, "Library", lambda _client: _Held()), \
+                    mock.patch.object(wizard_settle.offload, "io", _io):
                 task, dialog = await _opened(_walked(_MATCHES, seen))
                 said(_buttons(dialog, "Change...")[0], "click")
                 await _settled()
@@ -298,7 +305,7 @@ class SettleTests(unittest.TestCase):
 
         async def run() -> None:
             with mock.patch.object(vps_match, "ask", _asked(vps_match.CANCELLED)), \
-                    mock.patch.object(wizard_lists, "Library", lambda _client: _Held()):
+                    mock.patch.object(wizard_settle, "Library", lambda _client: _Held()):
                 task, dialog = await _opened(_walked(_MATCHES, seen))
                 said(_buttons(dialog, "Change...")[0], "click")
                 await _settled()
@@ -318,8 +325,8 @@ class SettleTests(unittest.TestCase):
 
         async def run() -> list[str]:
             with mock.patch.object(vps_match, "ask", _asked("vps-9")), \
-                    mock.patch.object(wizard_lists, "Library", lambda _client: Down()), \
-                    mock.patch.object(wizard_lists.offload, "io", _io):
+                    mock.patch.object(wizard_settle, "Library", lambda _client: Down()), \
+                    mock.patch.object(wizard_settle.offload, "io", _io):
                 task, dialog = await _opened(_walked(_MATCHES, seen))
                 said(_buttons(dialog, "Change...")[0], "click")
                 await _settled()
@@ -339,8 +346,8 @@ class SettleTests(unittest.TestCase):
             "rows": [{"key": "x", "name": "Xenon", "entry": {}}]}]}
 
         async def run() -> list[str]:
-            with mock.patch.object(wizard_lists, "Library", lambda _client: _Held()), \
-                    mock.patch.object(wizard_lists.offload, "io", _io):
+            with mock.patch.object(wizard_settle, "Library", lambda _client: _Held()), \
+                    mock.patch.object(wizard_settle.offload, "io", _io):
                 task, dialog = await _opened(_calls(first=first))
                 await _settled()
                 lines = [one.text for one in dialog.descendants()
@@ -358,7 +365,7 @@ class SettleTests(unittest.TestCase):
 
         async def run() -> None:
             with mock.patch.object(vps_match, "ask", ask), \
-                    mock.patch.object(wizard_lists, "Library", lambda _client: _Held()):
+                    mock.patch.object(wizard_settle, "Library", lambda _client: _Held()):
                 task, dialog = await _opened(_calls(first=first))
                 said(_buttons(dialog, "Change...")[0], "click")
                 await _settled()
