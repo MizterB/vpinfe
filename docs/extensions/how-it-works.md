@@ -91,7 +91,7 @@ What accepting is kept in:
   edit of the settings cannot accept anything.
 - **Per extension, by what it said it used.**  An update from the same folder that declares the
   same access runs without asking again.  One that declares more stops, and the prompt, "Accept
-  {Extension}'s New Access?", names only what is new.
+  New Access for “{Extension}”?", names only what is new.
 - **A replacement waits.**  An extension in the folder named like one VPinFE ships does not take
   its place until it is accepted.  The built-in keeps running meanwhile, and after the owner
   accepts, the replacement starts at the next restart.
