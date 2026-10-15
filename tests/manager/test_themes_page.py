@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
 
-from manager import theme_card, theme_sources, themes
+from manager.frontend import theme_card, theme_sources, themes
 from tests.support.clicks import press
 
 

@@ -18,9 +18,9 @@ from common.games import game_identity, game_repository, library_ops, unwritten
 from common.games.game_parser import GameParser
 from common.games.info_maintenance import upgrade_library
 from common.i18n import t
-from manager import needs
 from manager.kit.data import Library
 from manager.library import games
+from manager.overview import needs
 from manager.settings import sections
 from tests.support.library import game_info, write_game
 from tests.support.skips import needs_posix_permissions

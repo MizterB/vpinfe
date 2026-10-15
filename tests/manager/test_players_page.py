@@ -14,7 +14,8 @@ from nicegui import ui
 
 from common.devices import install_identity
 from common.i18n import t
-from manager import page, players
+from manager import page
+from manager.frontend import players
 from manager.kit import deeplink, grid, panel, thumbnails
 from manager.kit.api import ApiClient
 from manager.workbench import rail

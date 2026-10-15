@@ -6,7 +6,7 @@ import unittest
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
-from manager import launchers
+from manager.frontend import launchers
 
 
 class LauncherAdded(unittest.IsolatedAsyncioTestCase):

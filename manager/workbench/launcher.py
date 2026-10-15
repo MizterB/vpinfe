@@ -12,8 +12,8 @@ from nicegui import run, ui
 from common import tokens
 from common.failures import why
 from common.i18n import t
-from manager import backup_rows
-from manager import launchers as launchers_page
+from manager.backups import backup_rows
+from manager.frontend import launchers as launchers_page
 from manager.kit import deeplink, game_tables, offload, panel, table_features
 from manager.kit.data import Library
 from manager.kit.on_page import on_page

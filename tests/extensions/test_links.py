@@ -23,7 +23,7 @@ from starlette.testclient import TestClient
 from common import i18n
 from common.extensions import check, contract, host, store
 from httpapi import extensions as httpapi_extensions
-from manager import community, ext_links
+from manager.extensions import ext_links, ext_lists
 from tests.support.accepted import owner_accepts
 from tests.support.browser_session import BrowserSession, chromium_path, free_port
 from tests.support.identity import IDENTITY
@@ -287,33 +287,33 @@ class WhereTheRailPutsALink(unittest.TestCase):
         return {"name": "linked", "state": "loaded", "lists": [], "links": [], **declared}
 
     def test_a_link_with_an_area_is_an_entry_of_that_area(self) -> None:
-        items = community.nav_items([self.extension(
+        items = ext_lists.nav_items([self.extension(
             links=[{"key": "panel", "area": "library", "label": "Open the panel"}])])
 
         (entry,) = items["library"]
         self.assertEqual((ext_links.view_key("linked", "panel"), "Open the panel"), entry[:2])
 
     def test_a_link_is_drawn_with_its_icon_or_the_extension_icon(self) -> None:
-        items = community.nav_items([self.extension(links=[
+        items = ext_lists.nav_items([self.extension(links=[
             {"key": "a", "area": "library", "label": "A", "icon": "wifi"},
             {"key": "b", "area": "library", "label": "B", "icon": ""}])])
 
-        self.assertEqual(["wifi", community.ICON], [one[2] for one in items["library"]])
+        self.assertEqual(["wifi", ext_lists.ICON], [one[2] for one in items["library"]])
 
     def test_a_link_with_no_area_is_not_in_the_rail(self) -> None:
-        items = community.nav_items([self.extension(
+        items = ext_lists.nav_items([self.extension(
             links=[{"key": "panel", "area": "", "label": "Open the panel"}])])
 
         self.assertEqual({}, items)
 
     def test_a_stopped_extension_adds_nothing(self) -> None:
-        items = community.nav_items([self.extension(
+        items = ext_lists.nav_items([self.extension(
             state="stopped", links=[{"key": "panel", "area": "library", "label": "L"}])])
 
         self.assertEqual({}, items)
 
     def test_an_extensions_lists_come_before_its_links(self) -> None:
-        items = community.nav_items([self.extension(
+        items = ext_lists.nav_items([self.extension(
             lists=[{"key": "things", "title": "Things", "area": "library"}],
             links=[{"key": "panel", "area": "library", "label": "Open the panel"}])])
 

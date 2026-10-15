@@ -7,7 +7,8 @@ import pathlib
 import unittest
 
 from common import i18n
-from manager import devices, launchers, themes
+from manager.devices import devices
+from manager.frontend import launchers, themes
 from manager.kit import views as views_module
 from manager.library import assets, collections, games, media, tageditor
 from tests.support import trees

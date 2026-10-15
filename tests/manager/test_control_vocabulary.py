@@ -21,7 +21,7 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import patch
 
-from manager import themes
+from manager.frontend import themes
 from manager.kit import panel
 from manager.settings import binding_table, settings
 

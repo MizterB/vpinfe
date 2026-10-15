@@ -7,7 +7,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 from common.i18n import t
-from manager import devices
+from manager.devices import devices
 from manager.kit import panel
 from manager.settings import settings
 

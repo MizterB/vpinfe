@@ -11,7 +11,7 @@ from nicegui import ui
 
 from common.release import migration_ledger, release_notes, upgrade_needs, whats_new
 from manager import page
-from manager import whats_new as page_whats_new
+from manager.system import whats_new as page_whats_new
 
 _PAGE = ui.element()
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 from typing import Any
 
-from manager import logs
+from manager.system import logs
 
 
 def _held(**more: Any) -> dict[str, Any]:

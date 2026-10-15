@@ -29,7 +29,7 @@ from common.media import sized_media
 from common.runtime import jobs
 from common.service_errors import NotFoundError, RefusedError
 from httpapi import extension_ops
-from manager import ext_links
+from manager.extensions import ext_links
 from tests.support.accepted import owner_accepts
 from tests.support.identity import IDENTITY
 

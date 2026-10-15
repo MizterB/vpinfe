@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from nicegui import ui
 
-from manager import community, ext_row
+from manager.extensions import ext_lists, ext_row
 from manager.kit import deeplink
 
 EXTENSION = {"name": "weekly"}
@@ -18,7 +18,7 @@ VIEW = "community:weekly:board"
 
 class TheAddress(unittest.TestCase):
     def test_the_view_prefix_is_the_one_the_list_is_named_with(self) -> None:
-        self.assertEqual(deeplink.COMMUNITY_PREFIX, community.PREFIX)
+        self.assertEqual(deeplink.COMMUNITY_PREFIX, ext_lists.PREFIX)
 
     def test_an_open_row_is_in_the_address_of_an_extension_list(self) -> None:
         state = {"view": VIEW, "ext_row": "mm"}
@@ -43,18 +43,18 @@ class TheAddress(unittest.TestCase):
 
     def test_the_grid_is_named_for_its_extension_and_list(self) -> None:
         self.assertEqual("manager.community.weekly.board",
-                         community.scope_of(EXTENSION, DECLARED))
+                         ext_lists.scope_of(EXTENSION, DECLARED))
 
 
 class TheRow(unittest.TestCase):
     def test_a_row_the_last_read_holds_is_the_one_found_by_its_id(self) -> None:
         held = {"rows": [{"id": "afm", "name": "Attack"}, {"id": "mm", "name": "Medieval"}]}
-        with patch.object(community, "kept", return_value=held):
+        with patch.object(ext_lists, "kept", return_value=held):
             self.assertEqual({"id": "mm", "name": "Medieval"},
                              ext_row.row_of(EXTENSION, DECLARED, "mm"))
 
     def test_a_row_that_read_left_out_is_just_its_id(self) -> None:
-        with patch.object(community, "kept", return_value={"rows": None}):
+        with patch.object(ext_lists, "kept", return_value={"rows": None}):
             self.assertEqual({"id": "gone"}, ext_row.row_of(EXTENSION, DECLARED, "gone"))
 
 

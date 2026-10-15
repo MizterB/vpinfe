@@ -9,7 +9,7 @@ from unittest.mock import Mock
 
 from nicegui import ui
 
-from manager import community, ext_cells, ext_row
+from manager.extensions import ext_cells, ext_lists, ext_row
 from manager.kit import grid
 
 TABLES = [{"id": "t1", "game_id": "afm", "game": "Attack from Mars",
@@ -101,8 +101,8 @@ class WhatIsDrawn(unittest.IsolatedAsyncioTestCase):
 
 class InTheValueSlot(unittest.TestCase):
     def test_a_game_fact_draws_its_name_and_its_line(self) -> None:
-        context = {"looks": {("vps", "game"): community.Lookup(HELD, {}, {})},
-                   "lens": community.Lens(TABLES, False), "look": None}
+        context = {"looks": {("vps", "game"): ext_lists.Lookup(HELD, {}, {})},
+                   "lens": ext_lists.Lens(TABLES, False), "look": None}
         with ui.column() as body:
             ext_row._fact_value(GAME, context)()
         link = next(one for one in body.descendants() if isinstance(one, ui.link))

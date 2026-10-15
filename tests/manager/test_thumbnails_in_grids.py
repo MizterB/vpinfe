@@ -25,7 +25,8 @@ from common.config.paths import get_ini_config
 from common.games import collection_ops, collections_service, game_repository
 from common.games.collection_store import CollectionStore
 from common.games.library_folders import KIND_ROOT, Location
-from manager import page, themes
+from manager import page
+from manager.frontend import themes
 from manager.kit import grid
 from manager.kit.api import ApiClient
 from manager.kit.data import Library

@@ -22,7 +22,7 @@ from common.games.collection_store import (
     SORT_LABELS,
 )
 from common.i18n import t
-from manager import community
+from manager.extensions import ext_lists
 from manager.kit import arrange as arranging
 from manager.kit import (
     art,
@@ -748,7 +748,7 @@ def _orders(context: dict[str, Any], row: dict[str, Any], by: str) -> dict[str, 
     orders |= context["state"].get("ranked_orders") or {}
     ranking = _ranking(context, by)
     if ranking and by not in orders:
-        orders[by] = community.ranked_label(ranking)
+        orders[by] = ext_lists.ranked_label(ranking)
     return orders
 
 

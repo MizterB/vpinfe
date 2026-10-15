@@ -14,7 +14,8 @@ from nicegui import ui
 
 from common.extensions import host
 from common.i18n import t
-from manager import community, page
+from manager import page
+from manager.extensions import ext_lists
 from manager.kit import busy, grid, renderers, verbs, views
 from manager.kit.api import ApiError
 from manager.kit.data import read_state
@@ -41,17 +42,17 @@ def _released() -> dict:
 
 class TheNav(unittest.TestCase):
     def test_a_running_extension_s_list_sits_under_community(self) -> None:
-        items = community.nav_items([LOADED, {**LOADED, "name": "off", "state": "failed"}])
+        items = ext_lists.nav_items([LOADED, {**LOADED, "name": "off", "state": "failed"}])
         groups = dict(page.nav_for(None, items))
 
         self.assertEqual(["community:site:tables"],
                          [one[0] for one in groups[page.NAV_COMMUNITY]])
 
     def test_a_list_is_drawn_with_its_icon_or_the_extension_icon(self) -> None:
-        items = community.nav_items([{**LOADED, "lists": [
+        items = ext_lists.nav_items([{**LOADED, "lists": [
             {**DECLARED, "icon": "leaderboard"}, {**DECLARED, "key": "plain"}]}])
 
-        self.assertEqual(["leaderboard", community.ICON],
+        self.assertEqual(["leaderboard", ext_lists.ICON],
                          [one[2] for one in items["community"]])
 
     def test_community_sits_between_frontend_and_system(self) -> None:
@@ -65,14 +66,14 @@ class TheNav(unittest.TestCase):
 
     def test_a_list_in_system_sits_before_about(self) -> None:
         system = {**DECLARED, "area": "system"}
-        items = community.nav_items([{**LOADED, "lists": [system]}])
+        items = ext_lists.nav_items([{**LOADED, "lists": [system]}])
         keys = [one[0] for one in dict(page.nav_for(None, items))[page.NAV_SYSTEM]]
 
         self.assertEqual(["community:site:tables", "about"], keys[-2:])
 
     def test_a_list_in_library_follows_core_s_own_and_is_held_to_its_feature(self) -> None:
         library = {**DECLARED, "area": "library"}
-        items = community.nav_items([{**LOADED, "lists": [library]}])
+        items = ext_lists.nav_items([{**LOADED, "lists": [library]}])
 
         shown = [one[0] for one in dict(page.nav_for(None, items))[page.NAV_PARENT]]
         bare = [one[0] for one in dict(page.nav_for(["frontend"], items)).get(
@@ -89,7 +90,7 @@ class TheNav(unittest.TestCase):
 
     def test_a_view_finds_its_list(self) -> None:
         self.assertEqual((LOADED, DECLARED),
-                         community.find("community:site:tables", [LOADED]))
+                         ext_lists.find("community:site:tables", [LOADED]))
 
 
 class RankedOrders(unittest.TestCase):
@@ -98,7 +99,7 @@ class RankedOrders(unittest.TestCase):
                                      "sort": [], "help": ""}]}
 
     def test_each_ranked_view_is_named_for_its_page_and_itself(self) -> None:
-        offered = community.ranked_orders([{**LOADED, "lists": [self.RANKED]},
+        offered = ext_lists.ranked_orders([{**LOADED, "lists": [self.RANKED]},
                                            {**LOADED, "name": "off", "state": "failed",
                                             "lists": [self.RANKED]}])
 
@@ -107,7 +108,7 @@ class RankedOrders(unittest.TestCase):
     def test_a_list_that_relates_to_nothing_offers_no_order(self) -> None:
         loose = {**self.RANKED, "relation": None}
 
-        self.assertEqual({}, community.ranked_orders([{**LOADED, "lists": [loose]}]))
+        self.assertEqual({}, ext_lists.ranked_orders([{**LOADED, "lists": [loose]}]))
 
     def test_the_smart_collection_in_a_view_s_order_is_the_one_it_opens(self) -> None:
         collections = [{"name": "Mine", "type": "manual", "order_by": "site/tables/plays"},
@@ -116,72 +117,72 @@ class RankedOrders(unittest.TestCase):
                         "order_by": "site/tables/plays"}]
 
         self.assertEqual("Site: Most played",
-                         community.collection_ordered_by(collections, "site/tables/plays"))
-        self.assertEqual("", community.collection_ordered_by(collections[:2],
+                         ext_lists.collection_ordered_by(collections, "site/tables/plays"))
+        self.assertEqual("", ext_lists.collection_ordered_by(collections[:2],
                                                               "site/tables/plays"))
 
     def test_a_stored_order_no_running_extension_offers_names_the_extension(self) -> None:
         self.assertEqual("Site, not running",
-                         community.ranked_label({"extension": "site", "display_name": "Site",
+                         ext_lists.ranked_label({"extension": "site", "display_name": "Site",
                                                  "offered": False}))
 
 
 class TheGrid(unittest.TestCase):
     def test_the_first_column_is_scanned_by_and_in_library_is_the_second(self) -> None:
-        shown = community.columns(DECLARED)
+        shown = ext_lists.columns(DECLARED)
 
-        self.assertEqual(["vps_id", community.HELD, "plays", "last"],
+        self.assertEqual(["vps_id", ext_lists.HELD, "plays", "last"],
                          [one["field"] for one in shown])
         self.assertIn("manager-cell-identifier", shown[0]["cellClass"])
         self.assertEqual("numericColumn", shown[2]["type"])
 
     def test_a_view_keeps_its_sort_and_yours_keeps_only_what_is_held(self) -> None:
-        presets = community.presets(DECLARED)
+        presets = ext_lists.presets(DECLARED)
 
         self.assertEqual(({"colId": "plays", "sort": "desc", "sortIndex": 0},),
                          presets["plays"].sort)
-        self.assertEqual({community.HELD: {"values": [True]}},
+        self.assertEqual({ext_lists.HELD: {"values": [True]}},
                          presets["manager.community.yours"].filters)
 
     def test_yours_is_the_first_view_and_sorts_as_the_next_one_does(self) -> None:
-        presets = community.presets(DECLARED)
+        presets = ext_lists.presets(DECLARED)
 
         self.assertEqual("manager.community.yours", next(iter(presets)))
         self.assertEqual(presets["plays"].sort, presets["manager.community.yours"].sort)
         self.assertEqual(presets["plays"].columns, presets["manager.community.yours"].columns)
 
     def test_a_view_is_kept_by_its_key_and_shown_by_the_name_it_was_sent(self) -> None:
-        (_yours, plays) = views.builtins(community.presets(DECLARED))
+        (_yours, plays) = views.builtins(ext_lists.presets(DECLARED))
 
         self.assertEqual((views.builtin_id("plays"), "Most played"), (plays.id, plays.name))
 
     def test_a_held_row_links_its_name_to_the_game(self) -> None:
-        rows = community.rows([{"name": "AFM", "vps_id": "vps-afm", "last": ""},
+        rows = ext_lists.rows([{"name": "AFM", "vps_id": "vps-afm", "last": ""},
                                {"name": "TAF", "vps_id": "vps-taf", "last": ""}], DECLARED,
                               {"vps-afm": {"game_id": "afm", "table_id": "",
                                            "name": "Attack from Mars"}})
 
         self.assertEqual([(True, "/manager?view=games&game=afm"), (False, "")],
-                         [(one[community.HELD], one["held_href"]) for one in rows])
+                         [(one[ext_lists.HELD], one["held_href"]) for one in rows])
         self.assertIn("last_ago", rows[0])
 
     def test_a_held_release_links_to_its_table(self) -> None:
         released = _released()
-        (row,) = community.rows([{"name": "AFM", "vps_id": "rel-1", "last": ""}], released,
+        (row,) = ext_lists.rows([{"name": "AFM", "vps_id": "rel-1", "last": ""}], released,
                                 {"rel-1": {"game_id": "afm", "table_id": "t1", "name": "AFM"}})
 
         self.assertEqual("/manager?view=tables&game=afm&table=t1", row["held_href"])
 
     def test_another_version_says_which_and_links_to_the_release(self) -> None:
         released = _released()
-        (row,) = community.rows(
+        (row,) = ext_lists.rows(
             [{"name": "AFM", "maker": "Bally", "vps_id": "rel-2", "last": ""}], released, {},
             {"rel-2": {"game_id": "afm", "table_id": "t1", "name": "AFM", "version": "1.2",
                        "url": "https://example.test/afm"}})
 
         self.assertEqual((False, "https://example.test/afm"),
-                         (row[community.HELD], row["held_href"]))
-        self.assertEqual("Bally · Different version - you have 1.2", row[community.UNDER])
+                         (row[ext_lists.HELD], row["held_href"]))
+        self.assertEqual("Bally · Different version - you have 1.2", row[ext_lists.UNDER])
 
     TABLES = [{"id": "t1", "game_id": "afm", "game": "Attack from Mars",
                "manufacturer": "Bally", "year": 1995, "version": "1.2", "authors": ["Ann"],
@@ -189,27 +190,27 @@ class TheGrid(unittest.TestCase):
     HELD_AFM = {"vps-afm": {"game_id": "afm", "table_id": "t1", "name": "AFM"}}
 
     def test_a_held_game_is_drawn_as_the_games_grid_draws_it(self) -> None:
-        (row,) = community.rows([{"name": "AFM", "vps_id": "vps-afm", "last": ""}],
+        (row,) = ext_lists.rows([{"name": "AFM", "vps_id": "vps-afm", "last": ""}],
                                 DECLARED, self.HELD_AFM, tables=self.TABLES, art=True)
 
         self.assertEqual(("Attack from Mars", "Bally 1995", True),
-                         (row["vps_id"], row[community.UNDER], bool(row["art"])))
+                         (row["vps_id"], row[ext_lists.UNDER], bool(row["art"])))
 
     def test_a_game_the_library_lacks_takes_vpsdb_s_words_and_then_the_row_s(self) -> None:
-        rows = community.rows(
+        rows = ext_lists.rows(
             [{"name": "Own", "vps_id": "a", "last": ""}, {"name": "Own", "vps_id": "b",
                                                           "last": ""}],
             DECLARED, {}, known={"a": {"name": "VPS name", "manufacturer": "Williams",
                                   "year": "1993"}})
 
         self.assertEqual([("VPS name", "Williams 1993", ""), ("Own", "", "")],
-                         [(one["vps_id"], one[community.UNDER], one["held_href"])
+                         [(one["vps_id"], one[ext_lists.UNDER], one["held_href"])
                           for one in rows])
 
     def test_the_frame_shows_the_row_s_picture_where_the_library_has_none(self) -> None:
         declared = {**DECLARED, "columns": [{**DECLARED["columns"][0], "picture": "image"},
                                             *DECLARED["columns"][1:]]}
-        rows = community.rows(
+        rows = ext_lists.rows(
             [{"vps_id": "a", "image": "/api/x.png"}, {"vps_id": "vps-afm", "image": "/y.png"}],
             declared, self.HELD_AFM, tables=self.TABLES, art=True)
 
@@ -217,7 +218,7 @@ class TheGrid(unittest.TestCase):
         self.assertIn("afm", rows[1]["art"])
 
     def test_no_art_field_is_written_where_the_lists_draw_none(self) -> None:
-        (row,) = community.rows([{"vps_id": "vps-afm"}], DECLARED, self.HELD_AFM,
+        (row,) = ext_lists.rows([{"vps_id": "vps-afm"}], DECLARED, self.HELD_AFM,
                                 tables=self.TABLES)
 
         self.assertNotIn("art", row)
@@ -227,13 +228,13 @@ class TheGrid(unittest.TestCase):
                                             {"field": "other", "header": "Other",
                                              "kind": "game", "keys": "vps", "name_from": "",
                                              "under": [], "picture": "", "icon": ""}]}
-        (row,) = community.rows(
+        (row,) = ext_lists.rows(
             [{"vps_id": "a", "other": "vps-afm"}], declared, {}, art=True,
-            later={"other": community.Lookup(self.HELD_AFM, {}, {})}, tables=self.TABLES)
+            later={"other": ext_lists.Lookup(self.HELD_AFM, {}, {})}, tables=self.TABLES)
 
         self.assertEqual(("Attack from Mars", "Bally 1995", "/manager?view=games&game=afm"),
                          (row["other"], row["other_line"], row["other_href"]))
-        later = community.columns(declared)[-1]
+        later = ext_lists.columns(declared)[-1]
         self.assertIn("d['other_line']", later[":cellRenderer"])
         self.assertNotIn("d['art']", later[":cellRenderer"])
 
@@ -248,7 +249,7 @@ class TheGrid(unittest.TestCase):
         {"field": "art", "header": "Art", "kind": "picture"}]}
 
     def _cells(self) -> dict[str, dict]:
-        return {one["field"]: one for one in community.columns(self.CELLS)}
+        return {one["field"]: one for one in ext_lists.columns(self.CELLS)}
 
     def test_a_state_is_drawn_by_name_with_the_looks_the_extension_gave_it(self) -> None:
         shown = self._cells()["status"]
@@ -286,7 +287,7 @@ class TheGrid(unittest.TestCase):
         bare = {**self.CELLS, "columns": [
             self.CELLS["columns"][0],
             {"field": "page", "header": "Page", "kind": "link"}]}
-        plain = community.columns(bare)[-1]
+        plain = ext_lists.columns(bare)[-1]
 
         self.assertEqual(("link", "title", "Page"),
                          (shown["cellRendererParams"]["drawn"],
@@ -303,15 +304,15 @@ class TheGrid(unittest.TestCase):
         self.assertFalse(shown["filter"])
 
     def test_the_fields_under_the_name_make_its_second_line(self) -> None:
-        (row,) = community.rows([{"name": "AFM", "maker": "Bally", "year": 1995,
+        (row,) = ext_lists.rows([{"name": "AFM", "maker": "Bally", "year": 1995,
                                   "vps_id": "", "last": ""}], DECLARED, {})
 
-        self.assertEqual("Bally 1995", row[community.UNDER])
+        self.assertEqual("Bally 1995", row[ext_lists.UNDER])
 
     def test_in_library_is_not_a_column_of_any_view(self) -> None:
-        for name, preset in community.presets(DECLARED).items():
+        for name, preset in ext_lists.presets(DECLARED).items():
             with self.subTest(view=name):
-                self.assertNotIn(community.HELD, preset.columns)
+                self.assertNotIn(ext_lists.HELD, preset.columns)
 
 
 VERBED = {**DECLARED, "verbs": [
@@ -325,21 +326,21 @@ VERBED = {**DECLARED, "verbs": [
 class TheVerbs(unittest.TestCase):
     def entries(self, chosen: list[dict]) -> dict[str, Any]:
         pressed: list = []
-        found = community.verb_entries(VERBED, chosen, lambda verb, fit: pressed.append(fit))
+        found = ext_lists.verb_entries(VERBED, chosen, lambda verb, fit: pressed.append(fit))
         self.pressed = pressed
         return {one.label: one for one in found}
 
     def test_a_row_with_no_id_is_drawn_under_a_name_of_its_own_and_one_with_an_id_keeps_it(
             self) -> None:
-        shown = community.rows([{"name": "A"}, {"id": 7, "name": "B"}, {"id": "", "name": "C"}],
+        shown = ext_lists.rows([{"name": "A"}, {"id": 7, "name": "B"}, {"id": "", "name": "C"}],
                                VERBED, {})
 
         self.assertEqual(["7"], [one["id"] for one in shown if "id" in one
-                                 and not one["id"].startswith(community.UNNAMED)])
-        self.assertEqual(2, sum(one["id"].startswith(community.UNNAMED) for one in shown))
+                                 and not one["id"].startswith(ext_lists.UNNAMED)])
+        self.assertEqual(2, sum(one["id"].startswith(ext_lists.UNNAMED) for one in shown))
 
     def test_a_row_with_no_id_has_no_menu_and_cannot_be_ticked(self) -> None:
-        shown = community.rows([{"name": "A"}, {"id": "b", "name": "B"}], VERBED, {})
+        shown = ext_lists.rows([{"name": "A"}, {"id": "b", "name": "B"}], VERBED, {})
 
         self.assertEqual([(True, True), (None, None)],
                          [(one.get(grid.NO_MENU), one.get(grid.NOT_SELECTABLE))
@@ -402,12 +403,12 @@ class PressingAVerb(unittest.IsolatedAsyncioTestCase):
         async def renewed() -> None:
             again()
 
-        with patch.object(community.confirm, "ask", ask), \
-                patch.object(community.offload, "io", io), \
-                patch.object(community, "ApiClient", return_value=Mock(ext_post=post)), \
-                patch.object(community.ui, "notify", notify), \
-                patch.object(community.ui.navigate, "to", navigate):
-            await cast(Any, community.run_verb).__wrapped__(
+        with patch.object(ext_lists.confirm, "ask", ask), \
+                patch.object(ext_lists.offload, "io", io), \
+                patch.object(ext_lists, "ApiClient", return_value=Mock(ext_post=post)), \
+                patch.object(ext_lists.ui, "notify", notify), \
+                patch.object(ext_lists.ui.navigate, "to", navigate):
+            await cast(Any, ext_lists.run_verb).__wrapped__(
                 {"name": "site"}, VERBED, verb, [{"id": "a"}, {"id": 2}], renewed)
         return ask, post, notify, navigate, again
 
@@ -475,8 +476,8 @@ class OpeningADialogOverRows(unittest.IsolatedAsyncioTestCase):
     async def open(self, answers: list[Any], ids: list[str], *, each: bool = False,
                    action: str = "note") -> tuple[bool, Mock]:
         opened = Mock(side_effect=[_done(one) for one in answers])
-        with patch.object(community.ext_action, "open_action", opened):
-            ran = await cast(Any, community.open_over).__wrapped__(NOTED, action, ids, each=each)
+        with patch.object(ext_lists.ext_action, "open_action", opened):
+            ran = await cast(Any, ext_lists.open_over).__wrapped__(NOTED, action, ids, each=each)
         return ran, opened
 
     async def test_one_dialog_covers_every_row_it_was_opened_over(self) -> None:
@@ -491,7 +492,7 @@ class OpeningADialogOverRows(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(ran)
 
     async def test_each_walks_the_rows_one_dialog_at_a_time_saying_where_it_is(self) -> None:
-        ran, opened = await self.open([True, community.walks.SKIPPED, True], ["a", "b", "c"],
+        ran, opened = await self.open([True, ext_lists.walks.SKIPPED, True], ["a", "b", "c"],
                                       each=True)
 
         self.assertTrue(ran)
@@ -502,14 +503,14 @@ class OpeningADialogOverRows(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(all(call.kwargs["walking"] for call in opened.call_args_list))
 
     async def test_stop_ends_the_walk_where_it_is(self) -> None:
-        ran, opened = await self.open([True, community.walks.STOPPED], ["a", "b", "c"],
+        ran, opened = await self.open([True, ext_lists.walks.STOPPED], ["a", "b", "c"],
                                       each=True)
 
         self.assertTrue(ran)
         self.assertEqual(2, opened.call_count)
 
     async def test_a_walk_that_skipped_every_row_ran_nothing(self) -> None:
-        ran, _ = await self.open([community.walks.SKIPPED, community.walks.SKIPPED],
+        ran, _ = await self.open([ext_lists.walks.SKIPPED, ext_lists.walks.SKIPPED],
                                  ["a", "b"], each=True)
 
         self.assertFalse(ran)
@@ -523,9 +524,9 @@ class OpeningADialogOverRows(unittest.IsolatedAsyncioTestCase):
             self) -> None:
         notify = Mock()
         opened = Mock(side_effect=[_done(True), ApiError("it went"), _done(True)])
-        with patch.object(community.ext_action, "open_action", opened), \
-                patch.object(community.ui, "notify", notify):
-            ran = await cast(Any, community.open_over).__wrapped__(NOTED, "note", ["a", "b", "c"],
+        with patch.object(ext_lists.ext_action, "open_action", opened), \
+                patch.object(ext_lists.ui, "notify", notify):
+            ran = await cast(Any, ext_lists.open_over).__wrapped__(NOTED, "note", ["a", "b", "c"],
                                                         each=True)
 
         self.assertTrue(ran)
@@ -534,7 +535,7 @@ class OpeningADialogOverRows(unittest.IsolatedAsyncioTestCase):
 
     async def test_a_dialog_the_extension_does_not_have_says_so_and_opens_nothing(self) -> None:
         notify = Mock()
-        with patch.object(community.ui, "notify", notify):
+        with patch.object(ext_lists.ui, "notify", notify):
             ran, opened = await self.open([], ["a"], action="missing")
 
         self.assertFalse(ran)
@@ -549,10 +550,10 @@ class OpeningADialogOverRows(unittest.IsolatedAsyncioTestCase):
 
         verb = {"key": "note", "action": "note", "each": True}
         opened = Mock(side_effect=[_done(True), _done(False)])
-        with patch.object(community, "open_over", opened):
-            await cast(Any, community.run_verb).__wrapped__(
+        with patch.object(ext_lists, "open_over", opened):
+            await cast(Any, ext_lists.run_verb).__wrapped__(
                 NOTED, VERBED, verb, [{"id": "a"}, {"id": 2}], renewed)
-            await cast(Any, community.run_verb).__wrapped__(
+            await cast(Any, ext_lists.run_verb).__wrapped__(
                 NOTED, VERBED, verb, [{"id": "a"}], renewed)
 
         again.assert_called_once()
@@ -566,9 +567,9 @@ class OpeningADialogOverRows(unittest.IsolatedAsyncioTestCase):
             again()
 
         opened = Mock(side_effect=[_done(True)])
-        with patch.object(community, "open_over", opened), \
-                patch.object(community, "ApiClient", return_value=Mock(ext_post=post)):
-            await cast(Any, community.run_act).__wrapped__(
+        with patch.object(ext_lists, "open_over", opened), \
+                patch.object(ext_lists, "ApiClient", return_value=Mock(ext_post=post)):
+            await cast(Any, ext_lists.run_act).__wrapped__(
                 NOTED, "/community/tables/about", {"key": "open", "action": "note"}, renewed)
 
         opened.assert_called_once_with(NOTED, "note", [])
@@ -586,18 +587,18 @@ class TheLastGoodRead(unittest.TestCase):
         self.addCleanup(kept.stop)
 
     def test_a_fresh_read_is_kept_and_said_to_be_now(self) -> None:
-        said = community.read("site", "tables", _answering({"name": "AFM"}))
+        said = ext_lists.read("site", "tables", _answering({"name": "AFM"}))
 
         self.assertEqual(([{"name": "AFM"}], False, ""),
                          (said["rows"], said["stale"], said["error"]))
         self.assertEqual(["AFM"], [one["name"] for one in
-                                   community.kept("site", "tables")["rows"]])
+                                   ext_lists.kept("site", "tables")["rows"]])
         self.assertTrue(said["read_at"])
 
     def test_an_outage_answers_with_the_last_good_list_said_to_be_stale(self) -> None:
-        good = community.read("site", "tables", _answering({"name": "AFM"}))
+        good = ext_lists.read("site", "tables", _answering({"name": "AFM"}))
 
-        said = community.read("site", "tables", _down)
+        said = ext_lists.read("site", "tables", _down)
 
         self.assertEqual(([{"name": "AFM"}], True, good["read_at"]),
                          (said["rows"], said["stale"], said["read_at"]))
@@ -605,29 +606,29 @@ class TheLastGoodRead(unittest.TestCase):
         self.assertIn("Last good read", read_state(said))
 
     def test_an_outage_with_nothing_kept_has_no_list_to_show(self) -> None:
-        said = community.read("site", "tables", _down)
+        said = ext_lists.read("site", "tables", _down)
 
         self.assertEqual((None, True), (said["rows"], said["stale"]))
-        self.assertIsNone(community.kept("site", "tables")["rows"])
+        self.assertIsNone(ext_lists.kept("site", "tables")["rows"])
 
     def test_with_nothing_kept_the_answer_is_still_an_answer(self) -> None:
         """The page reads it through `offload.io`, which takes None for a shutdown."""
         self.assertEqual({"rows": None, "read_at": "", "stale": False, "error": ""},
-                         community.kept("site", "tables"))
+                         ext_lists.kept("site", "tables"))
 
     def test_a_later_good_read_replaces_the_kept_one(self) -> None:
-        community.read("site", "tables", _answering({"name": "AFM"}))
-        community.read("site", "tables", _answering({"name": "TAF"}, {"name": "MM"}))
+        ext_lists.read("site", "tables", _answering({"name": "AFM"}))
+        ext_lists.read("site", "tables", _answering({"name": "TAF"}, {"name": "MM"}))
 
         self.assertEqual(["TAF", "MM"], [one["name"] for one in
-                                         community.kept("site", "tables")["rows"]])
+                                         ext_lists.kept("site", "tables")["rows"]])
 
     def test_each_list_is_kept_apart_whatever_its_key_holds(self) -> None:
-        community.read("site", "tables", _answering({"name": "AFM"}))
-        community.read("site", "../tables", _answering({"name": "TAF"}))
+        ext_lists.read("site", "tables", _answering({"name": "AFM"}))
+        ext_lists.read("site", "../tables", _answering({"name": "TAF"}))
 
         self.assertEqual((["AFM"], ["TAF"]),
-                         tuple([one["name"] for one in community.kept("site", key)["rows"]]
+                         tuple([one["name"] for one in ext_lists.kept("site", key)["rows"]]
                                for key in ("tables", "../tables")))
         self.assertEqual(["site"], [one.name for one in self.kept.iterdir()])
 
@@ -665,24 +666,24 @@ class ItsExtensionNotRunning(unittest.IsolatedAsyncioTestCase):
                                            for one in self.body.descendants()))
             return kept
 
-        read = self.enterContext(patch.object(community, "read", side_effect=reading))
-        self.enterContext(patch.object(community.offload, "io", new=_here))
-        self.enterContext(patch.object(community, "as_it_stands", return_value=now))
-        self.enterContext(patch.object(community, "kept", return_value=kept))
+        read = self.enterContext(patch.object(ext_lists, "read", side_effect=reading))
+        self.enterContext(patch.object(ext_lists.offload, "io", new=_here))
+        self.enterContext(patch.object(ext_lists, "as_it_stands", return_value=now))
+        self.enterContext(patch.object(ext_lists, "kept", return_value=kept))
         self.enterContext(patch("manager.library.games.view_control",
                                 return_value=(Mock(), Mock(), Mock(), Mock())))
         # The grid talks to a browser, which a unit test does not have.
-        self.enterContext(patch.object(community.grid, "build",
+        self.enterContext(patch.object(ext_lists.grid, "build",
                                        return_value=Mock(is_deleted=False)))
-        self.enterContext(patch.object(community.grid, "replace_rows"))
+        self.enterContext(patch.object(ext_lists.grid, "replace_rows"))
         if opened:
             with self.body:
                 with patch.object(busy.ui, "timer") as timer:
-                    community.build(LOADED, PLAIN, _library())
+                    ext_lists.build(LOADED, PLAIN, _library())
                 await timer.call_args.args[1]()
         else:
             with self.body:
-                await community._fill(LOADED, PLAIN, _library(), self.body)
+                await ext_lists._fill(LOADED, PLAIN, _library(), self.body)
         # A kept list is read again after it is drawn, in a task of its own.
         await asyncio.gather(*(asyncio.all_tasks() - {asyncio.current_task()}))
         drawn = list(self.body.descendants())
@@ -741,27 +742,27 @@ STANDING: dict[str, Any] = {"status": {"text": "Not sharing - Share is off", "to
 class WhatTheListSays(unittest.TestCase):
     def test_a_line_is_words_or_words_with_a_place(self) -> None:
         self.assertEqual({"text": "Ends Sunday", "detail": "", "to": ""},
-                         community.status_of({"status": "Ends Sunday"}))
+                         ext_lists.status_of({"status": "Ends Sunday"}))
         self.assertEqual({"text": "Not sharing", "detail": "Why", "to": "players"},
-                         community.status_of({"status": {"text": "Not sharing",
+                         ext_lists.status_of({"status": {"text": "Not sharing",
                                                          "detail": "Why",
                                                          "to": "players"}}))
 
     def test_a_place_core_does_not_know_draws_no_link(self) -> None:
-        self.assertEqual("", community.status_of(
+        self.assertEqual("", ext_lists.status_of(
             {"status": {"text": "Go", "to": "https://site.example"}})["to"])
 
     def test_no_line_is_nothing_to_draw(self) -> None:
-        self.assertEqual("", community.status_of({})["text"])
+        self.assertEqual("", ext_lists.status_of({})["text"])
 
     def test_the_places_are_the_manager_s_own_addresses(self) -> None:
         self.assertEqual(("/manager?view=players", "/manager?view=settings&page=extensions.site"),
-                         (community.PLACES["players"]("site"),
-                          community.PLACES["settings"]("site")))
+                         (ext_lists.PLACES["players"]("site"),
+                          ext_lists.PLACES["settings"]("site")))
 
     def test_the_menu_is_its_acts_in_order_then_settings(self) -> None:
         pressed: list[dict] = []
-        found = community.acts({**LOADED, "surfaces": {"settings": "/settings"}},
+        found = ext_lists.acts({**LOADED, "surfaces": {"settings": "/settings"}},
                                STANDING, pressed.append)
 
         self.assertEqual([("Send Now", ""), ("Open Site", "https://site.example"),
@@ -775,13 +776,13 @@ class WhatTheListSays(unittest.TestCase):
 
     def test_settings_only_where_the_extension_has_some(self) -> None:
         self.assertEqual(["Send Now", "Open Site"],
-                         [one.label for one in community.acts(LOADED, STANDING, print)])
+                         [one.label for one in ext_lists.acts(LOADED, STANDING, print)])
 
     def test_an_address_that_is_not_the_web_is_not_drawn(self) -> None:
         said = {"acts": [{"key": "x", "label": "X", "url": "javascript:alert(1)"}]}
 
-        self.assertEqual([], community.acts(LOADED, said, print))
-        self.assertEqual("", community.web("javascript:alert(1)"))
+        self.assertEqual([], ext_lists.acts(LOADED, said, print))
+        self.assertEqual("", ext_lists.web("javascript:alert(1)"))
 
 
 class TheLineAndItsMenu(unittest.IsolatedAsyncioTestCase):
@@ -791,18 +792,18 @@ class TheLineAndItsMenu(unittest.IsolatedAsyncioTestCase):
 
     async def fill(self, now: dict, kept: dict, standing: dict) -> tuple[list[str], Mock]:
         asked = self.enterContext(patch.object(
-            community, "standing", side_effect=lambda _name, about: standing if about else {}))
-        self.enterContext(patch.object(community, "read", return_value=kept))
-        self.enterContext(patch.object(community.offload, "io", new=_here))
-        self.enterContext(patch.object(community, "as_it_stands", return_value=now))
-        self.enterContext(patch.object(community, "kept", return_value=kept))
+            ext_lists, "standing", side_effect=lambda _name, about: standing if about else {}))
+        self.enterContext(patch.object(ext_lists, "read", return_value=kept))
+        self.enterContext(patch.object(ext_lists.offload, "io", new=_here))
+        self.enterContext(patch.object(ext_lists, "as_it_stands", return_value=now))
+        self.enterContext(patch.object(ext_lists, "kept", return_value=kept))
         self.enterContext(patch("manager.library.games.view_control",
                                 return_value=(Mock(), Mock(), Mock(), Mock())))
-        self.enterContext(patch.object(community.grid, "build",
+        self.enterContext(patch.object(ext_lists.grid, "build",
                                        return_value=Mock(is_deleted=False)))
-        self.enterContext(patch.object(community.grid, "replace_rows"))
+        self.enterContext(patch.object(ext_lists.grid, "replace_rows"))
         with self.body:
-            await community._fill(LOADED, ABOUT, _library(), self.body, self.subject)
+            await ext_lists._fill(LOADED, ABOUT, _library(), self.body, self.subject)
         await asyncio.gather(*(asyncio.all_tasks() - {asyncio.current_task()}))
         return [str(getattr(one, "text", "")) for one in self.body.descendants()], asked
 
@@ -836,16 +837,16 @@ class TheLineAndItsMenu(unittest.IsolatedAsyncioTestCase):
 
 class AsItStands(unittest.TestCase):
     def test_the_api_s_answer_wins_over_what_the_rail_read(self) -> None:
-        with patch.object(community, "ApiClient") as client:
+        with patch.object(ext_lists, "ApiClient") as client:
             client.return_value.extensions.return_value = [SWITCHED_OFF]
 
-            self.assertEqual(SWITCHED_OFF, community.as_it_stands(LOADED))
+            self.assertEqual(SWITCHED_OFF, ext_lists.as_it_stands(LOADED))
 
     def test_when_the_api_cannot_say_it_is_taken_as_given(self) -> None:
-        with patch.object(community, "ApiClient") as client:
+        with patch.object(ext_lists, "ApiClient") as client:
             client.return_value.extensions.side_effect = ApiError("down")
 
-            self.assertEqual(LOADED, community.as_it_stands(LOADED))
+            self.assertEqual(LOADED, ext_lists.as_it_stands(LOADED))
 
 
 if __name__ == "__main__":

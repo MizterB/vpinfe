@@ -8,8 +8,9 @@ from types import SimpleNamespace
 
 from common.i18n import t
 from common.runtime import jobs
-from manager import jobs_list, rail_marks
+from manager import rail_marks
 from manager.rail_marks import Mark
+from manager.system import jobs_list
 
 SINCE = 1000.0
 

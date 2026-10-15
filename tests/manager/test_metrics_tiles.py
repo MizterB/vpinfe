@@ -11,7 +11,7 @@ from nicegui import ui
 from common import i18n
 from common.host import tools
 from httpapi import metrics as wire
-from manager import metrics
+from manager.system import metrics
 
 _GB = 1024 ** 3
 

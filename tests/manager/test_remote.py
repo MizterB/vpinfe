@@ -10,8 +10,8 @@ from typing import Any
 from unittest import mock
 
 from httpapi import events
-from manager import remote
 from manager.kit.api import _lines, read_frames
+from manager.remote import remote
 from tests.support import trees
 
 
@@ -278,8 +278,8 @@ class WritesGoToTheTargetTests(unittest.TestCase):
     what this install knows about the network and to renew the Remote Code that lets
     phones into this install's own Remote; everything else goes to the target."""
 
-    ALLOWED = {("manager/remote.py", "_read_here"), ("manager/remote.py", "renew"),
-               ("manager/remote.py", "invite")}
+    ALLOWED = {("manager/remote/remote.py", "_read_here"), ("manager/remote/remote.py", "renew"),
+               ("manager/remote/remote.py", "invite")}
 
     def _unaimed_clients(self, relative: str) -> list[tuple[str, int]]:
         tree = trees.tree_for(Path(__file__).resolve().parents[2] / relative)
@@ -296,7 +296,7 @@ class WritesGoToTheTargetTests(unittest.TestCase):
         return sorted(found)
 
     def test_the_remote_writes_through_the_target(self) -> None:
-        for relative in ("manager/remote.py", "manager/remote_record.py"):
+        for relative in ("manager/remote/remote.py", "manager/remote/remote_record.py"):
             with self.subTest(relative):
                 self.assertEqual(self._unaimed_clients(relative), [])
 

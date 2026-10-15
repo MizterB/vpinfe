@@ -10,7 +10,7 @@ from nicegui import ui
 
 from common.devices import device_client
 from common.i18n import t
-from manager import devices
+from manager.devices import devices
 from manager.kit import game_tables, panel
 
 _PAGE = ui.element()

@@ -14,7 +14,7 @@ from starlette.routing import Route, WebSocketRoute
 from starlette.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from manager.origin_guard import SocketOriginGuard
+from manager.security.origin_guard import SocketOriginGuard
 
 
 async def _page(request):

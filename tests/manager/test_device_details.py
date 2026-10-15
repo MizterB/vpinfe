@@ -8,7 +8,7 @@ import unittest
 from unittest import mock
 
 from common.devices import device_client
-from manager import devices
+from manager.devices import devices
 from manager.kit import panel, renderers
 
 LOCAL = "Aaaa111111"
@@ -100,8 +100,8 @@ class OwnAddressTests(unittest.TestCase):
 class DetailGroupsTests(unittest.TestCase):
     def test_the_tab_is_identity_then_connection_then_settings(self) -> None:
         context = {**_context(LOCAL, address="10.0.0.4"), "library": None}
-        with mock.patch("manager.devices.own_address", return_value="10.0.0.4"), \
-                mock.patch("manager.devices.settings_door", return_value=[]):
+        with mock.patch("manager.devices.devices.own_address", return_value="10.0.0.4"), \
+                mock.patch("manager.devices.devices.settings_door", return_value=[]):
             rows = asyncio.run(devices.detail_groups(context))
 
         headings = [value for label, value in rows if label is panel.HEADING]
@@ -110,22 +110,22 @@ class DetailGroupsTests(unittest.TestCase):
 
     def test_this_device_shows_its_own_address(self) -> None:
         context = _context(LOCAL, address="")
-        with mock.patch("manager.devices.own_address", return_value="10.0.0.4"), \
-                mock.patch("manager.devices.settings_door", return_value=[]):
+        with mock.patch("manager.devices.devices.own_address", return_value="10.0.0.4"), \
+                mock.patch("manager.devices.devices.settings_door", return_value=[]):
             rows = dict(asyncio.run(devices.detail_groups(context)))
 
         self.assertEqual(rows["Address"], "10.0.0.4")
 
     def test_another_device_shows_the_address_the_registry_holds(self) -> None:
         context = _context(OTHER, address="10.0.0.7")
-        with mock.patch("manager.devices.settings_door", return_value=[]):
+        with mock.patch("manager.devices.devices.settings_door", return_value=[]):
             rows = dict(asyncio.run(devices.detail_groups(context)))
 
         self.assertEqual(rows["Address"], "10.0.0.7")
 
     def test_another_devices_name_is_text_not_a_field(self) -> None:
         context = _context(OTHER, display_name="basement cab")
-        with mock.patch("manager.devices.settings_door", return_value=[]):
+        with mock.patch("manager.devices.devices.settings_door", return_value=[]):
             rows = dict(asyncio.run(devices.detail_groups(context)))
 
         self.assertEqual(rows["Name"], "basement cab")

@@ -8,7 +8,7 @@ import unittest
 from nicegui import ui
 
 from common.security import approvals, sign_in
-from manager import sign_in_notice
+from manager.security import sign_in_notice
 from tests.support.clicks import said
 
 # Made at import, outside any task, where NiceGUI still hands out the script's own page.

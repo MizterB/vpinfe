@@ -35,16 +35,10 @@ from common.i18n import size, t
 from common.media.media_specs import media_label_map
 from common.online import theme_source_checks as online_checks
 from common.settings import feature_checks
-from manager import (
-    backups_move,
-    browser_state,
-    ext_page,
-    needs,
-    security,
-    theme_card,
-    theme_sources,
-)
-from manager import setup as setup_page
+from manager.backups import backups_move
+from manager.devices import browser_state
+from manager.extensions import ext_page
+from manager.frontend import theme_card, theme_sources
 from manager.kit import (
     appearance_picker,
     busy,
@@ -59,6 +53,8 @@ from manager.kit import (
 )
 from manager.kit.data import Library
 from manager.kit.on_page import on_page
+from manager.overview import needs
+from manager.security import security
 from manager.settings import (
     attract,
     binding_table,
@@ -73,6 +69,7 @@ from manager.settings import (
     vpx_displays,
 )
 from manager.settings import commands as commands_help
+from manager.setup import setup as setup_page
 
 logger = logging.getLogger("vpinfe.manager.settings.settings")
 

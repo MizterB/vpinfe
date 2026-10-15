@@ -12,7 +12,7 @@ import requests
 
 from common.i18n import t
 from common.online import app_updater
-from manager import devices
+from manager.devices import devices
 from manager.kit import verbs
 from tests.support.clicks import press
 

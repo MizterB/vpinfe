@@ -5,7 +5,7 @@ shows it. `request` makes one and says nothing about its digits; `reveal` is wha
 A session is a secret the browser keeps in a cookie. Only its hash is stored here, in a file
 beside the secrets, so a copy of the file signs nobody in.
 
-Nothing here knows about HTTP. `httpapi/sign_in.py` and `manager/sign_in_gate.py` carry it.
+Nothing here knows about HTTP. `httpapi/sign_in.py` and `manager/security/sign_in_gate.py` carry it.
 """
 
 from __future__ import annotations

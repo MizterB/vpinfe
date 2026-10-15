@@ -11,9 +11,9 @@ from unittest import mock
 from nicegui import ui
 
 from common.i18n import t
-from manager import encrypted_panel
 from manager.kit import panel
 from manager.kit.api import ApiError
+from manager.security import encrypted_panel
 from tests.support.clicks import press
 
 # Made at import, outside any task, where NiceGUI still hands out the script's own page.

@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 
 from nicegui import ui
 
-from manager import pairing
+from manager.devices import pairing
 from manager.kit import dialog as frame
 from tests.support.clicks import press, said
 

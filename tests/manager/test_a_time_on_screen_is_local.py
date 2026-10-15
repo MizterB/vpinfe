@@ -76,7 +76,7 @@ class HowLongAgo(unittest.TestCase):
 
 class TheCellKeepsTheValue(unittest.TestCase):
     def test_devices_puts_a_sortable_stamp_in_the_row(self) -> None:
-        tree = trees.tree_for(MANAGER / "devices.py")
+        tree = trees.tree_for(MANAGER / "devices" / "devices.py")
         for node in ast.walk(tree):
             if not (isinstance(node, ast.Dict) and any(
                     isinstance(k, ast.Constant) and k.value == "last_seen"
@@ -92,7 +92,7 @@ class TheCellKeepsTheValue(unittest.TestCase):
                 "last_seen is drawn into the row rather than the column")
 
     def test_the_column_draws_it(self) -> None:
-        source = (MANAGER / "devices.py").read_text(encoding="utf-8")
+        source = (MANAGER / "devices" / "devices.py").read_text(encoding="utf-8")
         self.assertIn('when.cell("last_seen")', source,
                       "the Last Seen column has no formatter")
 

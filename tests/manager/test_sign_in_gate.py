@@ -19,7 +19,7 @@ from starlette.websockets import WebSocketDisconnect
 from common.config import paths
 from common.security import accepted, authenticator, sign_in
 from httpapi import auth
-from manager import sign_in_gate
+from manager.security import sign_in_gate
 from tests.support.accepted import isolated
 
 OTHER = "192.168.1.31"

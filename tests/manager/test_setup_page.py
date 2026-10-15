@@ -16,7 +16,7 @@ from common.config.config_store import ConfigStore
 from common.devices import device_registry, install_setup
 from common.games.launchers import Launcher
 from common.i18n import t
-from manager import setup, setup_appearance, setup_tables, setup_vpx
+from manager.setup import setup, setup_appearance, setup_tables, setup_vpx
 from tests.support.library import TempTree
 
 # Made at import, outside any task, where NiceGUI still hands out the script's own page.

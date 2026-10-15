@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 from common.devices import device_client
 from common.i18n import t
-from manager import mobile_add, send_to_device
+from manager.devices import mobile_add, send_to_device
 from manager.kit.api import ApiClient
 
 ANSWERING = {"state": device_client.ANSWERING, "version": "", "reason": ""}

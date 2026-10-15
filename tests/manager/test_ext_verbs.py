@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 
 from nicegui import ui
 
-from manager import ext_verbs
+from manager.extensions import ext_verbs
 from manager.kit import panel
 from manager.library import game_acts
 

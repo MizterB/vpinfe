@@ -7,8 +7,8 @@ from typing import Any
 
 from nicegui import ui
 
-from manager import metrics
 from manager.kit import panel
+from manager.system import metrics
 from tests.support import lines
 
 

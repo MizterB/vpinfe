@@ -8,7 +8,8 @@ from typing import Any
 
 from nicegui import ui
 
-from manager import ext_links, page
+from manager import page
+from manager.extensions import ext_links
 from manager.kit import panel, verbs
 
 KEY = ext_links.view_key("linked", "panel")

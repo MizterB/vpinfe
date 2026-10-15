@@ -9,12 +9,12 @@ from nicegui import ui
 
 from common.failures import why
 from common.i18n import t
-from manager import job_report, jobs_list
 from manager.kit import appearance, offload, report_groups
 from manager.kit import panel as panel_parts
 from manager.kit.api import ApiClient
 from manager.kit.grid import install_filters
 from manager.library import import_report
+from manager.system import job_report, jobs_list
 
 # Raised by the tab coming back into view, which is when the games worked on in the other
 # tab have changed what the report would say.

@@ -12,11 +12,11 @@ from nicegui import run, ui
 from common.failures import why
 from common.games.collection_store import BUILTIN_ALL
 from common.i18n import t
-from manager import backups as backups_page
-from manager import devices as devices_page
-from manager import ext_row
-from manager import players as players_page
-from manager import themes as themes_page
+from manager.backups import backups as backups_page
+from manager.devices import devices as devices_page
+from manager.extensions import ext_row
+from manager.frontend import players as players_page
+from manager.frontend import themes as themes_page
 from manager.kit import game_tables, offload, panel, verbs
 from manager.kit.data import Library
 from manager.library import collection_adds, collection_rules

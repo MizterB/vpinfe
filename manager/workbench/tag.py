@@ -11,7 +11,7 @@ from common import icons
 from common.failures import why
 from common.games import tag_registry
 from common.i18n import t
-from manager import community
+from manager.extensions import ext_lists
 from manager.kit import confirm, deeplink, game_tables, offload, panel, tag_chips, thumbnails, verbs
 from manager.kit.data import read_state, tag_source
 from manager.kit.on_page import on_page
@@ -71,7 +71,7 @@ async def _tag_details(context: dict[str, Any]) -> None:
 
 def _tag_source(said: dict[str, Any]) -> None:
     with ui.column().classes("gap-0 min-w-0"):
-        panel.link(tag_source(said), to=community.address(str(said.get("extension") or ""),
+        panel.link(tag_source(said), to=ext_lists.address(str(said.get("extension") or ""),
                                                           str(said.get("list") or "")))()
         panel.line(read_state(said), hint=str(said.get("error") or ""))
 

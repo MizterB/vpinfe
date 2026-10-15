@@ -7,8 +7,8 @@ import unittest
 from typing import Any
 from unittest import mock
 
-from manager import remote_record
 from manager.kit.api import ApiError
+from manager.remote import remote_record
 
 
 def _waiting(proposal_id: str, game_id: str, kind: str, *, replaces: bool = True
@@ -278,7 +278,7 @@ class RecordingsTableTests(unittest.TestCase):
     """A recording's table up is the run's card, wherever the Remote draws what is up."""
 
     def _drawn(self, play: dict[str, Any]) -> tuple[Any, Any]:
-        from manager import remote
+        from manager.remote import remote
 
         with mock.patch.object(remote, "ui") as ui, \
                 mock.patch.object(remote.remote_record, "run_card") as card:

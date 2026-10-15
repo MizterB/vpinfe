@@ -8,8 +8,8 @@ from unittest import mock
 
 from common.devices import serving
 from common.security import sign_in
-from manager import security, signed_in_rows
 from manager.kit import panel
+from manager.security import security, signed_in_rows
 from manager.settings import settings
 
 NOW = 2_000_000_000.0

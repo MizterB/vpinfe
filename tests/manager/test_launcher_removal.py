@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from manager import launchers
+from manager.frontend import launchers
 
 KEPT = "The program and any file it points at stay where they are."
 

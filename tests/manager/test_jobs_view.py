@@ -9,8 +9,8 @@ from urllib.parse import parse_qs
 
 from common.i18n import t
 from common.runtime import jobs
-from manager import jobs_list
 from manager.kit import deeplink, when
+from manager.system import jobs_list
 
 NOW = 1_800_000_000.0
 

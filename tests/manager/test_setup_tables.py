@@ -13,8 +13,8 @@ from unittest import mock
 
 from common.config.path_state import OK as PATH_OK
 from common.games import library_folders as model
-from manager import setup, setup_tables
-from manager.setup_tables import Tables
+from manager.setup import setup, setup_tables
+from manager.setup.setup_tables import Tables
 
 IMPORT = {"key": "import", "label": "Import a Library", "base": "/wizard"}
 FOLDERS = {"game_folders": ["a", "b"], "loose": []}

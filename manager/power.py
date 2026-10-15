@@ -12,7 +12,7 @@ from typing import Any
 from nicegui import ui
 
 from common.i18n import t
-from manager import devices
+from manager.devices import devices
 from manager.kit import panel, verbs
 from manager.kit.data import Library
 from manager.settings import waiting

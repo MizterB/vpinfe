@@ -47,7 +47,7 @@ AREAS: dict[str, tuple[str, ...]] = {
                  "screens_picture", "vpx_displays", "vpx_find", "vpx_input", "waiting"),
     "frontend": ("themes", "theme_card", "theme_sources", "launchers", "players"),
     "extensions": ("ext_action", "ext_cells", "ext_groups", "ext_links", "ext_mark",
-                   "ext_page", "ext_pages", "ext_row", "ext_verbs", "community"),
+                   "ext_page", "ext_pages", "ext_row", "ext_verbs", "ext_lists"),
     "devices": ("devices", "browser_state", "mobile_add", "pairing", "plays_on",
                 "send_to_device"),
     "setup": ("setup", "setup_appearance", "setup_controls", "setup_screens", "setup_tables",
@@ -106,9 +106,15 @@ def _imported(path: pathlib.Path, modules: set[str]) -> set[str]:
 def _named(parts: list[str], names: tuple[str, ...], modules: set[str]) -> set[str]:
     if not parts or parts[0] != "manager":
         return set()
-    if parts[-1] in modules:
+    # `manager.devices` is the package when `devices` is also a module, unless it is
+    # spelled `manager.devices.devices`.
+    is_package = parts[-1] in AREAS and parts[-2:-1] != [parts[-1]]
+    if parts[-1] in modules and not is_package:
         return {parts[-1]}
-    return {name for name in names if name in modules}
+    imported = {name for name in names if name in modules}
+    if imported:
+        return imported
+    return {parts[-1]} if parts[-1] in modules else set()
 
 
 def _edges() -> dict[tuple[str, str], str]:

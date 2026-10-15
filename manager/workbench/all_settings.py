@@ -18,7 +18,7 @@ from common.apps import OWN_FIELDS
 from common.config import path_state
 from common.failures import why
 from common.i18n import t
-from manager import launchers as launchers_page
+from manager.frontend import launchers as launchers_page
 from manager.kit import confirm, deeplink, dropdown, offload, panel, verbs
 from manager.kit.data import Library
 from manager.kit.on_page import on_page

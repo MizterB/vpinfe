@@ -11,10 +11,10 @@ from nicegui import ui
 
 from apps.vpx import screens as vpx
 from common.settings import config_service
-from manager import setup, setup_screens, setup_vpx
 from manager.settings import displays, vpx_displays, vpx_find
 from manager.settings.screens import Screen
 from manager.settings.vpx_find import Find
+from manager.setup import setup, setup_screens, setup_vpx
 from tests.manager.test_setup_vpx import LAUNCHER, NEW, OLD
 
 SCHEMA = config_service.schema()["sections"]

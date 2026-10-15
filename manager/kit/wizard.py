@@ -5,7 +5,8 @@ A flow answers every call with a step, and how many there are is read off that, 
 declared: no fields means press it and it happens, fields mean fill them in first, and a
 `summary` or a `confirm` means the last step before Run. A flow reaches this through
 `Calls`, its own four calls already bound to wherever it answers from - HTTP for an
-extension (`manager/ext_action.py`), or nothing at all for a flow with no boundary to cross.
+extension (`manager/extensions/ext_action.py`), or nothing at all for a flow with no
+boundary to cross.
 """
 
 from __future__ import annotations

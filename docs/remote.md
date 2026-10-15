@@ -41,7 +41,7 @@ The idle card - *Last played*, with a rating - is superseded the moment a play i
 
 ## The three screens
 
-`manager/remote.py` defines them in `SCREENS`, and `?screen=` links to one directly.
+`manager/remote/remote.py` defines them in `SCREENS`, and `?screen=` links to one directly.
 
 - **Now** - what is playing, on which target, how long, plus any running job and anything wanting attention. Quit table. When nothing is playing it shows the last game played with its rating control.
   While a table is played, and not recorded, it carries **Take Picture**, and **Back** while the table is paused. Each is a tap of the input action of that name, which the frontend hands to core during play, so a player holding a phone takes a picture with no button bound. The card reads Paused while the table is.
@@ -128,8 +128,8 @@ Every one of these already existed for the Manager and the API; Remote adds none
 
 ```
 manager/page.py      Manager shell, /manager
-manager/remote.py    Remote shell, /remote
-manager/remote_record.py  its part in recording media
+manager/remote/remote.py    Remote shell, /remote
+manager/remote/remote_record.py  its part in recording media
 manager/kit/api.py       shared client
 manager/kit/data.py      shared reads
 manager/kit/appearance.py     shared tokens

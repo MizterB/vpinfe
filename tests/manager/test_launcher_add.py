@@ -7,7 +7,7 @@ import unittest
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
-from manager import launchers
+from manager.frontend import launchers
 
 ASKED: list[dict[str, Any]] = [
     {"key": "bin_path", "label": "Program", "path": "exe", "blank": ""},
@@ -144,7 +144,7 @@ class Standing(unittest.IsolatedAsyncioTestCase):
 
     async def test_a_lookup_that_fails_leaves_the_fields_as_the_app_declares_them(self) -> None:
         drawn = _Drawn()
-        with self.assertLogs("vpinfe.manager.launchers"):
+        with self.assertLogs("vpinfe.manager.frontend.launchers"):
             await drawn.ask(looking=Mock(), standing=AsyncMock(side_effect=RuntimeError("down")))
 
         self.assertEqual([one["placeholder"] for one in drawn.calls], ["VPX", "", "Its own"])

@@ -6,12 +6,12 @@ from collections.abc import Awaitable, Callable
 from functools import partial
 from typing import Any
 
-from manager import backups as backups_page
-from manager import devices as devices_page
-from manager import ext_row
-from manager import launchers as launchers_page
-from manager import players as players_page
-from manager import themes as themes_page
+from manager.backups import backups as backups_page
+from manager.devices import devices as devices_page
+from manager.extensions import ext_row
+from manager.frontend import launchers as launchers_page
+from manager.frontend import players as players_page
+from manager.frontend import themes as themes_page
 from manager.kit import deeplink, game_tables, panel
 from manager.kit.on_page import on_page
 from manager.library import collection_adds, file_acts, game_acts, tageditor

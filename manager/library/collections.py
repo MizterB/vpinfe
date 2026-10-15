@@ -25,7 +25,7 @@ from common.games.collection_store import (
     SORT_LABELS,
 )
 from common.i18n import t
-from manager import community
+from manager.extensions import ext_lists
 from manager.kit import confirm, grid, offload, panel, rename, thumbnails, verbs, views, walks
 from manager.kit.on_page import on_page
 from manager.library import collection_adds
@@ -251,7 +251,7 @@ def _order_line(row: dict[str, Any]) -> str:
     if not by:
         return ""
     if row.get("ranking"):
-        return community.ranked_label(row["ranking"])
+        return ext_lists.ranked_label(row["ranking"])
     field = t(SORT_LABELS[by]) if by in SORT_LABELS else by
     way = DIRECTION_WORDS.get(by, {}).get(row.get("direction") or "")
     return t("manager.collections.ordered", by=field, direction=t(way)) if way else field

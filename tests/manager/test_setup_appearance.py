@@ -7,8 +7,8 @@ import unittest
 from typing import Any
 from unittest import mock
 
-from manager import setup, setup_appearance
 from manager.kit import appearance, appearance_picker, offload
+from manager.setup import setup, setup_appearance
 
 
 def _ran(coro: Any) -> Any:

@@ -1096,7 +1096,7 @@ remote's sheets are the exceptions, because neither asks anything.
 - **The title is the step's question at the title size, and `help` is the one sentence of
   why under it** (`manager-wizard-lead`). The frame has no title bar, so nothing else says
   what is being asked.
-- **Every flow through `manager/ext_action.py` is drawn this way**: the Library Importer
+- **Every flow through `manager/extensions/ext_action.py` is drawn this way**: the Library Importer
   and any extension action. A flow does not ask for it and cannot opt out.
 
 ### A wizard says where the person is in a row of segments
@@ -1189,7 +1189,7 @@ no copies opens it too, because that is where Back Up Now is. A new kind of copy
 the same way and no list of its own.
 
 Back Up Now asks only for a name and a note, and no copy is taken on its own before an edit:
-Back Up Now and the Undo on a restore cover it. The row is drawn by `manager/backup_rows.py`.
+Back Up Now and the Undo on a restore cover it. The row is drawn by `manager/backups/backup_rows.py`.
 
 ### A summary row opens its detail in a dialog
 
@@ -1197,8 +1197,8 @@ A panel field that would hold a count, a date and a verb or two holds a summary 
 the answer to the question the person came with on the first line, a `manager-summary-sub`
 detail under it, and `verbs.DRILL` at the end. The whole row is the target (`panel.Pick`),
 so it takes Enter and Space and a hover band, and the verbs live in the dialog it opens.
-A time on a summary is `when.ago`, and the exact one is in the dialog. `manager/backup_rows.py`
-is the first user, and `manager/signed_in_rows.py` the second.
+A time on a summary is `when.ago`, and the exact one is in the dialog. `manager/backups/backup_rows.py`
+is the first user, and `manager/security/signed_in_rows.py` the second.
 
 **The control lights as a whole on hover, and the label does not change.** The band is the
 summary itself, reaching 8px past its text, so it clears the label beside it. A row whose

@@ -16,7 +16,7 @@ from tempfile import TemporaryDirectory
 
 from common.i18n import t
 from common.security import sign_in
-from manager import signed_in_rows
+from manager.security import signed_in_rows
 from tests.support.browser_session import BrowserSession, chromium_path
 from tests.support.live_instance import LiveInstance
 from tests.support.manager_walk import ManagerWalk, clicked

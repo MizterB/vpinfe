@@ -10,7 +10,8 @@ from unittest.mock import Mock, patch
 
 from nicegui import ui
 
-from manager import community, ext_pages, page
+from manager import page
+from manager.extensions import ext_lists, ext_pages
 from manager.kit import deeplink
 
 DECLARED = {"key": "week", "title": "This week", "area": "community", "base": "/pages/week",
@@ -21,14 +22,14 @@ VIEW = "page:site:week"
 
 class TheNav(unittest.TestCase):
     def test_a_running_extensions_page_sits_under_community(self) -> None:
-        items = community.nav_items([LOADED, {**LOADED, "name": "off", "state": "failed"}])
+        items = ext_lists.nav_items([LOADED, {**LOADED, "name": "off", "state": "failed"}])
         groups = dict(page.nav_for(None, items))
 
         self.assertEqual([VIEW], [one[0] for one in groups[page.NAV_COMMUNITY]])
 
     def test_a_page_in_system_sits_before_about(self) -> None:
         system = {**DECLARED, "area": "system"}
-        items = community.nav_items([{**LOADED, "pages": [system]}])
+        items = ext_lists.nav_items([{**LOADED, "pages": [system]}])
         keys = [one[0] for one in dict(page.nav_for(None, items))[page.NAV_SYSTEM]]
 
         self.assertEqual([VIEW, "about"], keys[-2:])
@@ -36,7 +37,7 @@ class TheNav(unittest.TestCase):
     def test_a_page_follows_the_extensions_lists_in_its_area(self) -> None:
         listed = {"key": "plays", "title": "Plays", "area": "community", "columns": [],
                   "views": [], "verbs": [], "add": [], "detail": False}
-        items = community.nav_items([{**LOADED, "lists": [listed]}])
+        items = ext_lists.nav_items([{**LOADED, "lists": [listed]}])
         keys = [one[0] for one in dict(page.nav_for(None, items))[page.NAV_COMMUNITY]]
 
         self.assertEqual(["community:site:plays", VIEW], keys)
@@ -102,8 +103,8 @@ class Drawn(unittest.IsolatedAsyncioTestCase):
         client.ext_get = self.get
         self.enterContext(patch.object(ext_pages.offload, "io", new=_here))
         self.enterContext(patch.object(ext_pages, "ApiClient", return_value=client))
-        self.enterContext(patch.object(community, "as_it_stands", return_value=LOADED))
-        self.enterContext(patch.object(community, "standing", return_value={}))
+        self.enterContext(patch.object(ext_lists, "as_it_stands", return_value=LOADED))
+        self.enterContext(patch.object(ext_lists, "standing", return_value={}))
         self.menu = self.enterContext(patch.object(ext_pages.panel, "subject_menu"))
 
     async def show(self, answer: dict | None = None, host: str = "cab.lan") -> list[Any]:

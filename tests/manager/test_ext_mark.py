@@ -9,9 +9,10 @@ from typing import Any
 from nicegui import ui
 
 from common.security import accepted
-from manager import community, ext_groups, ext_mark, ext_page, ext_verbs, needs
 from manager import page as app_page
+from manager.extensions import ext_groups, ext_lists, ext_mark, ext_page, ext_verbs
 from manager.kit import panel
+from manager.overview import needs
 from manager.settings import sections
 from manager.workbench import core, rail
 
@@ -117,7 +118,7 @@ class InTheRailAndSettings(unittest.TestCase):
         page = {"key": "board", "base": "/board"}
         found = _found(state="loaded", pages=[page])
         shipped = _found(accepted.SHIPPED, name="pins", state="loaded", pages=[page])
-        view = community.page_view_key("tally", "board")
+        view = ext_lists.page_view_key("tally", "board")
         self.assertIs(app_page._owner_of(view, [shipped, found]), found)
         self.assertIsNone(app_page._owner_of("games", [found]))
 

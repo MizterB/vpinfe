@@ -72,7 +72,7 @@ async def open_importer(action: dict, rerender: Callable[[], None] | None, *,
     """The import dialog, then the page's library read again and the page redrawn: an import
     adds games, tables and media, and can add a library folder. `values` are answers it
     starts with, and `until` the step it is walked to before it is shown."""
-    from manager import ext_action
+    from manager.extensions import ext_action
 
     page = ui.context.client
     if not await ext_action.open_action(IMPORTER, action, values=values, until=until):

@@ -12,8 +12,9 @@ from urllib.parse import parse_qs
 from common.config import path_state
 from common.devices import install_identity
 from common.settings import feature_checks
-from manager import needs, page
+from manager import page
 from manager.kit import appearance, deeplink, panel
+from manager.overview import needs
 from manager.settings import settings as settings_page
 
 
@@ -361,7 +362,7 @@ class TheInstallYouAreSittingAtReportsItsOwnUpdate(unittest.TestCase):
     """
 
     def test_the_local_device_is_asked_through_this_install_s_own_api(self) -> None:
-        from manager import devices as devices_page
+        from manager.devices import devices as devices_page
 
         ask = devices_page.update_checker(True, object())
 
@@ -369,7 +370,7 @@ class TheInstallYouAreSittingAtReportsItsOwnUpdate(unittest.TestCase):
         self.assertEqual(getattr(ask, "__name__", ""), "update_check")
 
     def test_another_machine_is_still_asked_directly(self) -> None:
-        from manager import devices as devices_page
+        from manager.devices import devices as devices_page
 
         class Remote:
             def update_check(self):
@@ -382,6 +383,6 @@ class TheInstallYouAreSittingAtReportsItsOwnUpdate(unittest.TestCase):
 
     def test_a_device_that_cannot_be_asked_answers_with_nothing(self) -> None:
         """A phone speaks a different protocol entirely and has no such call."""
-        from manager import devices as devices_page
+        from manager.devices import devices as devices_page
 
         self.assertIsNone(devices_page.update_checker(False, object()))

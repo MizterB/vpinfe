@@ -10,7 +10,7 @@ from common.devices import device_client
 from common.host import action_ops
 from common.i18n import t
 from common.runtime import lifecycle
-from manager import devices
+from manager.devices import devices
 from tests.support.clicks import press
 
 DEVICE = {"device_id": "Bbbb222222", "display_name": "Basement", "kind": "vpinfe",

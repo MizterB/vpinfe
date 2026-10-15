@@ -8,11 +8,11 @@ from typing import Any
 from nicegui import ui
 
 from common.i18n import t
-from manager import backups as backups_page
-from manager import devices as devices_page
-from manager import ext_groups, ext_mark
-from manager import players as players_page
-from manager import themes as themes_page
+from manager.backups import backups as backups_page
+from manager.devices import devices as devices_page
+from manager.extensions import ext_groups, ext_mark
+from manager.frontend import players as players_page
+from manager.frontend import themes as themes_page
 from manager.kit import busy, deeplink, game_tables, panel
 from manager.library import discovery as discovery_page
 from manager.library import mediasource, row_drag

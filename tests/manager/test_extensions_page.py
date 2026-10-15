@@ -23,7 +23,7 @@ from common import i18n
 from common.devices import install_identity
 from common.extensions import host
 from common.settings import feature_checks
-from manager import ext_page
+from manager.extensions import ext_page
 from manager.kit import wizard
 from manager.settings import settings
 from tests.support import lines

@@ -11,7 +11,7 @@ import requests
 
 from common.devices import device_client
 from common.i18n import t
-from manager import devices
+from manager.devices import devices
 from manager.kit.api import ApiError
 from manager.workbench import rail
 

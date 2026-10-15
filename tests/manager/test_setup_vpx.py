@@ -13,9 +13,9 @@ from unittest import mock
 from nicegui import ui
 
 from common.games.launchers import Launcher
-from manager import setup, setup_vpx
 from manager.settings import vpx_find
 from manager.settings.vpx_find import Find
+from manager.setup import setup, setup_vpx
 
 # Made at import, outside any task, where NiceGUI still hands out the script's own page.
 _PAGE = ui.element()
@@ -239,7 +239,7 @@ class AnswerProgramTests(unittest.TestCase):
         client.write_launcher_config.side_effect = RuntimeError("no")
 
         with mock.patch.object(setup_vpx, "ApiClient", return_value=client), \
-             self.assertLogs("vpinfe.manager.setup_vpx", level="WARNING"):
+             self.assertLogs("vpinfe.manager.setup.setup_vpx", level="WARNING"):
             _ran(setup_vpx.answer_program(vpx, {setup_vpx.PROGRAM: "0"}, cabinet=True))
 
 
@@ -350,7 +350,7 @@ class UnreadablePagesTests(unittest.TestCase):
     def test_the_glass_says_so_when_the_settings_cannot_be_read(self) -> None:
         vpx = setup_vpx.Vpx(launcher=LAUNCHER, chosen=OLD, answered=True)
         with mock.patch.object(setup_vpx, "ApiClient", return_value=self._client()), \
-             self.assertLogs("vpinfe.manager.setup_vpx", level="WARNING"):
+             self.assertLogs("vpinfe.manager.setup.setup_vpx", level="WARNING"):
             step = _ran(setup_vpx.ask_glass(vpx, mock.Mock()))
 
         self.assertEqual(1, len(step["notes"]))
@@ -359,7 +359,7 @@ class UnreadablePagesTests(unittest.TestCase):
     def test_the_buttons_say_so_when_the_settings_cannot_be_read(self) -> None:
         vpx = setup_vpx.Vpx(launcher=LAUNCHER, chosen=OLD, answered=True)
         with mock.patch.object(setup_vpx, "ApiClient", return_value=self._client()), \
-             self.assertLogs("vpinfe.manager.setup_vpx", level="WARNING"):
+             self.assertLogs("vpinfe.manager.setup.setup_vpx", level="WARNING"):
             step = _ran(setup_vpx.ask_keys(vpx))
 
         self.assertEqual(1, len(step["notes"]))
@@ -411,7 +411,7 @@ class AnswerGlassTests(unittest.TestCase):
 
         with mock.patch.object(setup_vpx, "ApiClient", return_value=client), \
              mock.patch.object(setup_vpx.ui, "notify") as notify, \
-             self.assertLogs("vpinfe.manager.setup_vpx", level="WARNING"):
+             self.assertLogs("vpinfe.manager.setup.setup_vpx", level="WARNING"):
             _ran(setup_vpx.answer_glass(
                 vpx, {setup_vpx.GLASS: {"size": [34.4, 21.6], "angle": 6.0}}))
 

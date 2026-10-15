@@ -165,7 +165,7 @@ class ExtensionAddressTests(unittest.TestCase):
         self.assertEqual("view=settings&page=extensions.vpinplay", deeplink.query(state))
 
     def test_the_address_is_the_one_its_page_links_to(self) -> None:
-        from manager import ext_page
+        from manager.extensions import ext_page
 
         self.assertEqual("/manager?view=settings&page=extensions.vpinplay",
                          ext_page.address("vpinplay"))

@@ -20,7 +20,8 @@ from nicegui import run
 from common import i18n
 from common.config import path_state
 from common.i18n import t
-from manager import launchers, page
+from manager import page
+from manager.frontend import launchers
 from manager.kit import data, deeplink, offload, panel, renderers, verbs
 from manager.library import games
 from manager.settings import settings

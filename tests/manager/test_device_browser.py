@@ -9,7 +9,7 @@ import requests
 
 from common.host import frontend_browser as fb
 from common.i18n import t
-from manager import browser_state, devices
+from manager.devices import browser_state, devices
 
 CAB = {"device_id": "Bbbb222222", "address": "192.168.1.50", "port": 8001,
        "browser": {"state": "no_h264", "name": "Chromium 145.0.7632.0",

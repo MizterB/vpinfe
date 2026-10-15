@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 from typing import Any
 
-from manager import ext_groups
+from manager.extensions import ext_groups
 
 GAME_GROUP = {"subject": "game", "title": "Notes", "base": "/groups/game", "save": True}
 TABLE_GROUP = {"subject": "table", "title": "Here", "base": "/groups/table", "save": False}

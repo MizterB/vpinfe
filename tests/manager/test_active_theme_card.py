@@ -7,7 +7,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 from common.config import config_schema
-from manager import theme_card, themes
+from manager.frontend import theme_card, themes
 from manager.kit import offload, thumbnails
 from manager.settings import settings
 

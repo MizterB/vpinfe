@@ -103,9 +103,9 @@ BASELINE: dict[str, int] = {
     "manager/settings/settings.py": 2,
     # Setup's Visual Pinball step: the walk's three pages and the session that holds them,
     # and the Screens answer handed to the launcher it makes.
-    "manager/setup.py": 14,
+    "manager/setup/setup.py": 14,
     # The three pages of that step: the program, the playfield glass, the buttons.
-    "manager/setup_vpx.py": 23,
+    "manager/setup/setup_vpx.py": 23,
     "manager/kit/table_features.py": 1,
     "manager/kit/appearance.py": 2,
     # The Displays page of a Visual Pinball launcher: the file's keys are its subject.

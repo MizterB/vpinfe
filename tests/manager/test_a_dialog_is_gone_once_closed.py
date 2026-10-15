@@ -11,10 +11,10 @@ from unittest import mock
 
 from nicegui import ui
 
-from manager import remote
 from manager.kit import dialog as frame
 from manager.kit import walks
 from manager.library import mediaview, text_editor
+from manager.remote import remote
 from tests.support.clicks import said
 
 # Made at import, outside any task, where NiceGUI still hands out the script's own page.

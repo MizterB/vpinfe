@@ -6,12 +6,12 @@ from typing import Any
 
 from nicegui import ui
 
-from manager import devices as devices_page
+from manager.devices import devices as devices_page
 from manager.workbench.core import _rows
 
 # --- Device sections --------------------------------------------------------
 #
-# Each is a thin adapter: the rows themselves are `manager/devices.py`'s, because what a
+# Each is a thin adapter: the rows themselves are `manager/devices/devices.py`'s, because what a
 # device is and what may be asked of it belongs with the device, not with the panel that
 # draws it. The panel's job here is the rail and the frame.
 

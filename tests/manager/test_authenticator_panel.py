@@ -13,8 +13,8 @@ from unittest import mock
 from common.config import paths
 from common.release import upgrade_needs
 from common.security import authenticator
-from manager import authenticator_panel
 from manager.kit import appearance, panel
+from manager.security import authenticator_panel
 
 
 def _shown(state: dict) -> list[tuple]:

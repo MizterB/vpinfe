@@ -9,7 +9,7 @@ from unittest import mock
 from common import i18n
 from common.backups import copies
 from common.i18n import t
-from manager import backups
+from manager.backups import backups
 from manager.kit import deeplink, panel, views, when
 from manager.kit.data import Library
 

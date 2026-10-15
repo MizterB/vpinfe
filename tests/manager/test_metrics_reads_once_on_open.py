@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 from nicegui import ui
 
-from manager import metrics
+from manager.system import metrics
 
 _PAGE = ui.element()
 

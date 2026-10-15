@@ -14,7 +14,7 @@ from nicegui import run, ui
 from common.failures import why
 from common.i18n import t
 from common.media.media_specs import PAGED_KINDS, media_family, media_label_map
-from manager import plays_on
+from manager.devices import plays_on
 from manager.kit import art, confirm, deeplink, media_ownership, offload, panel, verbs, when
 from manager.kit.on_page import on_page
 from manager.library import file_acts, media_fill, mediamap, mediapages, mediasource, mediaview

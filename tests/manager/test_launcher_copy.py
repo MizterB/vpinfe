@@ -4,7 +4,7 @@ import unittest
 
 from common.devices import install_identity
 from common.devices.device_registry import KIND_VPX_MOBILE
-from manager import launchers
+from manager.frontend import launchers
 
 
 def _device(device_id: str, *, kind: str = "vpinfe",

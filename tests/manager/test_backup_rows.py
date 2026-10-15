@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 from common.backups import copies
 from common.i18n import t
-from manager import backup_rows
+from manager.backups import backup_rows
 from manager.kit import deeplink, when
 
 

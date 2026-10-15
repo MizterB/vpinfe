@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 import httpapi
 from common.config import paths
 from common.online import theme_source_checks as checks
-from manager import theme_sources
+from manager.frontend import theme_sources
 from manager.kit import offload, panel
 
 LISTS, THEMES = theme_sources.LISTS, theme_sources.THEMES

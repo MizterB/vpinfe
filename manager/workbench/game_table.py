@@ -14,7 +14,8 @@ from nicegui import run, ui
 from common.devices import install_identity
 from common.failures import why
 from common.i18n import t
-from manager import backup_rows, community, ext_groups
+from manager.backups import backup_rows
+from manager.extensions import ext_groups, ext_lists
 from manager.kit import (
     confirm,
     deeplink,
@@ -757,8 +758,8 @@ def _derived_chips(tags: Sequence[str], looks: dict[str, dict[str, Any]]) -> Non
         for tag in tags:
             sources = (looks.get(tag) or {}).get("sources") or [{}]
             panel.tag_link(
-                tag, tag_chips.color_of(tag, looks), mark=community.ICON,
-                to=community.address(str(sources[0].get("extension") or ""),
+                tag, tag_chips.color_of(tag, looks), mark=ext_lists.ICON,
+                to=ext_lists.address(str(sources[0].get("extension") or ""),
                                      str(sources[0].get("list") or "")),
                 hint=t("manager.tags.from_source",
                        source=", ".join(tag_source(one) for one in sources if one)))()

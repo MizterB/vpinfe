@@ -5,7 +5,8 @@ from __future__ import annotations
 
 import unittest
 
-from manager import devices, themes
+from manager.devices import devices
+from manager.frontend import themes
 from manager.library import games, tageditor
 
 

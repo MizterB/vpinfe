@@ -164,7 +164,7 @@ READ_FOR = {
     "common/uploads/asset_import_service.py": frozenset({"reason", "raise", "refusal"}),
     "common/uploads/upload_session_service.py": frozenset({"raise", "refusal"}),
     "common/games/library_folders.py": frozenset({"reason"}),
-    "manager/metrics.py": frozenset({"reason"}),
+    "manager/system/metrics.py": frozenset({"reason"}),
     "common/games/asset_resolver.py": frozenset({"reason"}),
     "common/games/table_lens.py": frozenset({"reason"}),
     "common/extensions/contract.py": frozenset({"raise"}),
@@ -671,7 +671,7 @@ class TestANarrowCatchHandedOnIsReviewed(unittest.TestCase):
 
 # Pages where a caught exception reaches the screen only through the function named,
 # which is what turns another machine's connection error into a reason a person can use.
-SAYS_WHAT_WENT_WRONG = {"manager/devices.py": "_why"}
+SAYS_WHAT_WENT_WRONG = {"manager/devices/devices.py": "_why"}
 
 
 def _exception_made_text(tree: ast.Module) -> list[ast.expr]:
@@ -944,15 +944,16 @@ class TestNoBareDisplayLiterals(unittest.TestCase):
 
     def test_two_values_joined_by_a_space_are_read(self) -> None:
         joined = trees.parse_snippet('f"{label} {value}"', mode="eval").body
-        self.assertEqual(len(_fault(ROOT / "manager" / "metrics.py", "label", "", joined)), 1)
+        metrics = ROOT / "manager" / "system" / "metrics.py"
+        self.assertEqual(len(_fault(metrics, "label", "", joined)), 1)
 
     def test_a_fallback_is_read_through_str(self) -> None:
         shown = trees.parse_snippet('str(card.get("name") or "GPU")', mode="eval").body
         returned = trees.parse_snippet(
             'str(found and "Only this table uses it")', mode="eval").body
 
-        self.assertEqual(_fault(ROOT / "manager" / "metrics.py", "label", "", shown),
-                         ["manager/metrics.py:1 label('GPU')"])
+        self.assertEqual(_fault(ROOT / "manager" / "system" / "metrics.py", "label", "", shown),
+                         ["manager/system/metrics.py:1 label('GPU')"])
         self.assertEqual(_literals_in(returned), ["Only this table uses it"])
 
     def test_a_constant_is_not_a_hiding_place(self) -> None:

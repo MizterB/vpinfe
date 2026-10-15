@@ -149,8 +149,8 @@ from cli import parse_args
 from frontend import lifecycle_host, runtime
 from manager import app_control
 from manager.host import _shutdown_event, start_server, stop_server
-from manager.origin_guard import SocketOriginGuard
-from manager.sign_in_gate import SignInGate
+from manager.security.origin_guard import SocketOriginGuard
+from manager.security.sign_in_gate import SignInGate
 
 nicegui_app.add_static_files('/static', os.path.join(base_path, 'manager/static'))
 

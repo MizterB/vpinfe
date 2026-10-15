@@ -13,8 +13,8 @@ from unittest.mock import patch
 from common.capture import placing, preflight, run, session, unshown
 from common.capture.adapters import Window
 from common.capture.run import Request
-from manager import remote_record
 from manager.library import record
+from manager.remote import remote_record
 from tests.capture.test_run import FOLDER, GAME_ID, MOD, _Library, _Started
 from tests.capture.test_session import FROM_VPX, UP, VIDEOS, Cabinet, _Sessions
 from tests.theming.test_frontend_recording import _Frontend

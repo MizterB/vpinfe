@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 
 from common.i18n import t
-from manager import launchers
+from manager.frontend import launchers
 from manager.kit import panel
 from manager.library import games
 from manager.workbench import launcher

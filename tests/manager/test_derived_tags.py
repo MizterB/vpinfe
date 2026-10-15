@@ -11,7 +11,7 @@ from typing import Any
 from nicegui import ui
 
 from common.timestamps import utc_now_iso
-from manager import community
+from manager.extensions import ext_lists
 from manager.kit.data import Library, read_state, sources_of
 from manager.library import collection_rules, games, tageditor
 from manager.workbench import tag
@@ -134,15 +134,15 @@ class FromItsList(unittest.TestCase):
                        _smart("Wider", [DERIVED, "Wide Body"]),
                        _smart("Challenge", [DERIVED])]
 
-        self.assertEqual("Challenge", community.collection_for(collections, DERIVED))
-        self.assertEqual("", community.collection_for(collections[:2], DERIVED))
+        self.assertEqual("Challenge", ext_lists.collection_for(collections, DERIVED))
+        self.assertEqual("", ext_lists.collection_for(collections[:2], DERIVED))
 
     def test_a_new_one_takes_the_lists_title_numbered_if_taken(self) -> None:
         collections = [{"name": "weekly challenge"}, {"name": "Weekly Challenge 2"}]
 
         self.assertEqual("Weekly Challenge 3",
-                         community.free_name("Weekly Challenge", collections))
-        self.assertEqual("Other", community.free_name("Other", collections))
+                         ext_lists.free_name("Weekly Challenge", collections))
+        self.assertEqual("Other", ext_lists.free_name("Other", collections))
 
     def test_an_empty_collection_can_start_from_it(self) -> None:
         known = [collection_rules.Field("tags", "Tags", "", "choice")]

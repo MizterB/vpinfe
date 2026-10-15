@@ -9,7 +9,7 @@ from unittest.mock import Mock
 import requests
 
 from common.i18n import t
-from manager import plays_on
+from manager.devices import plays_on
 from manager.kit.data import Library
 
 HERE = "Aaaa111111"

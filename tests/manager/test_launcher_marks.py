@@ -10,7 +10,7 @@ from __future__ import annotations
 import unittest
 
 from common.config import path_state
-from manager import launchers
+from manager.frontend import launchers
 
 
 def _launcher(*, enabled: bool = True, **checks) -> dict:

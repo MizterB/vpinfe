@@ -6,7 +6,8 @@ import unittest
 from unittest.mock import AsyncMock, patch
 
 from common.security import accepted
-from manager import accept, themes
+from manager.frontend import themes
+from manager.security import accept
 
 
 def _theme(**more) -> dict:

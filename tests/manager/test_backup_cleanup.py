@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from common import i18n
 from common.backups import copies
 from common.i18n import t
-from manager import backup_cleanup, backups
+from manager.backups import backup_cleanup, backups
 
 NOW = datetime(2026, 10, 6, 12, 0, tzinfo=UTC)
 AGES = {backup_cleanup.YOURS: 3, backup_cleanup.AUTOMATIC: 3}

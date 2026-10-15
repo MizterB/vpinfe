@@ -7,7 +7,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock, create_autospec, patch
 
 from common.devices import device_client
-from manager import send_to_device
+from manager.devices import send_to_device
 from manager.kit import confirm
 from manager.kit.api import ApiClient
 

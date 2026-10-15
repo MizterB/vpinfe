@@ -9,7 +9,7 @@ from unittest import mock
 
 from common.config import setting_groups
 from common.settings import config_service
-from manager import setup, setup_controls
+from manager.setup import setup, setup_controls
 
 
 def _ran(coro: Any) -> Any:

@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 
 from common.backups import copies
-from manager import backup_go_back, backups
+from manager.backups import backup_go_back, backups
 
 
 def _row(**over) -> dict:

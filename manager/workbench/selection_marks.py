@@ -14,7 +14,7 @@ from nicegui import run, ui
 
 from common.failures import why
 from common.i18n import t
-from manager import launchers
+from manager.frontend import launchers
 from manager.kit import dropdown, game_tables, offload, panel, stars, tag_chips, undo
 from manager.kit.on_page import on_page
 from manager.kit.panel import HEADING

@@ -20,11 +20,13 @@ from common.failures import why
 from common.i18n import number, t
 from common.media.media_specs import media_label_map
 from common.security import approvals
-from manager import ext_mark, front, jobs_list, needs, set_aside
+from manager.extensions import ext_mark
 from manager.kit import game_tables, offload, panel, verbs, when
 from manager.kit.data import Library
 from manager.kit.on_page import on_page
 from manager.library import media_fill
+from manager.overview import front, needs, set_aside
+from manager.system import jobs_list
 
 # name, one-line description, predicate over (game, media entries).
 #
@@ -138,7 +140,7 @@ def kind_holdings(library: Library) -> list[tuple[str, int]]:
 
 
 def _local_name(registry: list[dict], discovery: dict) -> str:
-    from manager import devices
+    from manager.devices import devices
 
     local = discovery.get("install_id")
     entry = next((one for one in registry if one.get("device_id") == local), {})
@@ -489,7 +491,7 @@ def overview(library: Library, registry: list[dict], discovery: dict,
                                            lambda: placed(ids))
         if need.fix.key == needs.FETCH_FIXES:
             return fetch_script_fixes(library, drawn_again)
-        from manager import devices
+        from manager.devices import devices
 
         return devices.confirm_update(library, _local_name(registry, discovery),
                                       library.watched().get("update") or {})

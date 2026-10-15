@@ -13,7 +13,7 @@ from unittest import mock
 
 from nicegui import core, ui
 
-from manager import ext_action
+from manager.extensions import ext_action
 from manager.kit import appearance, offload, wizard
 from tests.support.clicks import said
 from tests.support.stylesheet import declarations

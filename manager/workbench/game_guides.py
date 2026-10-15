@@ -11,7 +11,7 @@ from common.config.labels import humanize
 from common.failures import why
 from common.i18n import t
 from common.media.media_specs import media_label_map
-from manager import ext_groups
+from manager.extensions import ext_groups
 from manager.kit import arrange as arranging
 from manager.kit import art, panel, verbs
 from manager.kit import dialog as frame

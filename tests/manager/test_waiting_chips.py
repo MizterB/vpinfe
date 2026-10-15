@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 from common.i18n import t
 from common.settings import config_service
-from manager import themes
+from manager.frontend import themes
 from manager.kit.api import ApiError
 from manager.settings import settings
 from tests.support.clicks import press
