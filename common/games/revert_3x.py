@@ -11,12 +11,9 @@ import json
 import logging
 import os
 import shutil
-import ssl
-import urllib.request
-from http.client import HTTPException
 from pathlib import Path
 
-from common import serving
+from common import http_client, pinned_certificates, serving
 from common.atomic_write import STAGED_PREFIX, STAGED_SUFFIX
 from common.device_registry import DeviceRegistry
 from common.games.collection_store import COLLECTIONS_NAME, COLLECTIONS_NAME_INI
@@ -82,14 +79,11 @@ def running_instance(http_port: int, timeout: float = 10.0) -> bool:
     The timeout stays long: a busy machine answers late, and a late answer judged as
     none lets the reset through under a live instance.
     """
-    unverified = ssl.create_default_context()
-    unverified.check_hostname, unverified.verify_mode = False, ssl.CERT_NONE
     for scheme in ("http", "https"):
         try:
-            with urllib.request.urlopen(f"{scheme}://127.0.0.1:{int(http_port)}/api/v1/",
-                                        timeout=timeout, context=unverified) as handle:
-                document = json.load(handle)
-        except (OSError, ValueError, HTTPException):
+            document = http_client.get_json(f"{scheme}://127.0.0.1:{int(http_port)}/api/v1/",
+                                            timeout=timeout, trust=pinned_certificates.UNVERIFIED)
+        except (OSError, ValueError):
             continue
         if isinstance(document, dict) and document.get("name") == "VPinFE":
             return True

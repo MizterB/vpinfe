@@ -16,6 +16,7 @@ import requests
 from common import (
     device_client,
     device_registry,
+    http_client,
     launcher_wire,
     pinned_certificates,
     serving,
@@ -97,6 +98,7 @@ class _WordedSession(requests.Session):
         if who is not None:
             signed = auth.sign_acting(who.session_id, who.encrypted)
             kwargs["headers"] = {**(kwargs.get("headers") or {}), auth.ACTING_HEADER: signed}
+        http_client.require_reachable(url)
         return pinned_certificates.sending(super().request, url)(method, url, **kwargs)
 
     @staticmethod

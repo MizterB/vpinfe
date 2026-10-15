@@ -3,14 +3,12 @@ shares with VPinPlay."""
 
 from __future__ import annotations
 
-import json
 import urllib.parse
-import urllib.request
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any
 
-from common.extensions.contract import Unavailable, why, words
+from common.extensions.contract import Unavailable, get_json, why, words
 
 from .accounts import SEND_NOW, USER_ID, page_for
 from .sync import api_root
@@ -84,8 +82,7 @@ def _page(endpoint: str, offset: int) -> dict[str, Any]:
     query = urllib.parse.urlencode({"limit": PAGE, "offset": offset, "sort_by": "name",
                                     "sort_order": 1})
     url = f"{api_root(endpoint)}/tables-plus/search?{query}"
-    with urllib.request.urlopen(url, timeout=TIMEOUT_SECONDS) as answer:
-        return json.loads(answer.read().decode("utf-8"))
+    return get_json(url, timeout=TIMEOUT_SECONDS)
 
 
 def _rows(said: dict[str, Any]) -> list[dict[str, Any]]:

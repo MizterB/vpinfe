@@ -135,10 +135,13 @@ def split(url: str) -> tuple[str, int] | None:
 def trust_now(url: str) -> str:
     """What to trust of the install at `url` as it stands: "" for http, `VERIFIED` where an
     authority vouches for its certificate, else the fingerprint it shows. Raises OSError
-    where nothing answers TLS there."""
+    where nothing answers TLS there, or where the machine is offline."""
     found = split(url)
     if found is None:
         return ""
+    # http_client imports this module, so the gate can only be reached from inside a call.
+    from common import http_client
+    http_client.require_reachable(url)
     return VERIFIED if vouched_for(*found) else shown_by(*found)
 
 

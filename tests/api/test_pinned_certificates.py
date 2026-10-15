@@ -191,6 +191,13 @@ class PinnedCertificateTests(unittest.TestCase):
         pinned_certificates.adopt(server.url, trust)
         self.assertEqual(pinned_certificates.pinned(HOST, server.port), "")
 
+    def test_an_install_outside_this_machine_is_not_met_while_offline(self) -> None:
+        with mock.patch.object(pinned_certificates.socket, "create_connection") as opened, \
+                self.assertRaises(http_client.OfflineError):
+            pinned_certificates.trust_now("https://192.168.1.40:8001")
+
+        opened.assert_not_called()
+
     def test_a_proxy_or_ca_bundle_in_the_environment_does_not_reach_a_pinned_session(
             self) -> None:
         session = pinned_certificates._session("ab" * 32)

@@ -24,11 +24,10 @@ import httpapi
 from common import extensions, players, tokens
 from common.extensions import accounts, catalogs, contributions, host, store
 from common.i18n import t
-from extensions.vpinplay import client as vpinplay_client
 from extensions.vpinplay import sending as vpinplay_sending
-from extensions.vpinplay import sync
 from httpapi import events as event_stream
 from tests.extensions.test_cards import KEY, _2x_card
+from tests.support import network
 
 NAME = "vpinplay"
 MINTED = re.compile(r"^[A-Za-z0-9]{64}$")
@@ -67,7 +66,8 @@ class VPinPlayCase(unittest.TestCase):
             self.addCleanup(cleared)
         self.addCleanup(tokens.forget, NAME)
         self.addCleanup(event_stream.reset)
-        for owner, method in ((vpinplay_client.requests, "get"), (sync.requests, "post")):
+        network.stubbed(self)
+        for owner, method in ((requests, "get"), (requests, "post")):
             outward = patch.object(owner, method,
                                    side_effect=AssertionError("VPinPlay was contacted"))
             outward.start()
@@ -115,16 +115,16 @@ class VPinPlayCase(unittest.TestCase):
     def available(self, candidate: str, **get_kwargs: object):
         """The Console's own route to it: straight through to the extension, the way its
         settings and community pages are asked."""
-        with patch.object(vpinplay_client.requests, "get", **get_kwargs):
+        with patch.object(requests, "get", **get_kwargs):
             return self.client.get(f"/ext/{NAME}/available", params={"candidate": candidate})
 
     def claim(self, player_id: str, *, get_kwargs: object = None, post_kwargs: object = None):
-        patches = [patch.object(vpinplay_client.requests, "get", **(get_kwargs or {
+        patches = [patch.object(requests, "get", **(get_kwargs or {
             "return_value": _answer(200, {"available": True})}))]
         if post_kwargs is not None:
-            patches.append(patch.object(sync.requests, "post", **post_kwargs))
+            patches.append(patch.object(requests, "post", **post_kwargs))
         else:
-            patches.append(patch.object(sync.requests, "post",
+            patches.append(patch.object(requests, "post",
                                         return_value=_answer(200, {"status": "ok"})))
         for one in patches:
             one.start()
@@ -248,7 +248,7 @@ class TheAvailabilityCheck(VPinPlayCase):
         self.assertEqual(found, {"available": False})
 
     def test_the_candidate_is_asked_for_lower_cased(self) -> None:
-        with patch.object(vpinplay_client.requests, "get",
+        with patch.object(requests, "get",
                           return_value=_answer(200, {"available": True})) as get:
             self.client.get(f"/ext/{NAME}/available", params={"candidate": "Jordan"})
 
@@ -273,9 +273,9 @@ class TheClaim(VPinPlayCase):
     def test_claiming_checks_again_mints_a_key_and_registers_with_an_empty_send(self) -> None:
         self.fill(self.owner, user_id="jordan")
 
-        with patch.object(vpinplay_client.requests, "get",
+        with patch.object(requests, "get",
                           return_value=_answer(200, {"available": True})), \
-             patch.object(sync.requests, "post",
+             patch.object(requests, "post",
                          return_value=_answer(200, {"status": "ok"})) as post:
             found = self.ok(self.act(self.owner, "claim"))
 
@@ -360,7 +360,7 @@ class TheResolvedClaim(VPinPlayCase):
         self.load()
 
     def resolve_as(self, **get_kwargs: object) -> None:
-        with patch.object(vpinplay_client.requests, "get", **get_kwargs):
+        with patch.object(requests, "get", **get_kwargs):
             self.run_resolves()
 
     def test_undecided_draws_claimed_the_safe_state(self) -> None:
@@ -395,7 +395,7 @@ class TheResolvedClaim(VPinPlayCase):
         self.account(self.owner)
         self.account(self.owner)
 
-        with patch.object(vpinplay_client.requests, "get",
+        with patch.object(requests, "get",
                           return_value=_answer(200, {"available": True})) as get:
             self.run_resolves()
 
@@ -464,10 +464,10 @@ class TheConsent(VPinPlayCase):
 
     def test_consenting_a_key_resolved_as_claimed_needs_no_claim_send(self) -> None:
         """Exactly the Remote's own bug: `claim` on an id already registered elsewhere
-        is refused, so consent alone has to be enough to turn Share on. `sync.requests`
+        is refused, so consent alone has to be enough to turn Share on. `requests`
         stays the default that fails the test if anything tries to send."""
         self.fill(self.owner, user_id="jordan", key=KEY)
-        with patch.object(vpinplay_client.requests, "get",
+        with patch.object(requests, "get",
                           return_value=_answer(200, {"available": False})):
             self.run_resolves()
         self.assertTrue(self.account(self.owner)["claimed"])

@@ -107,13 +107,22 @@ def _wait_until(response: requests.Response, now: float) -> float | None:
     return said if said is not None and said > now else now + QUIET_SECONDS
 
 
+def require_reachable(url: str) -> None:
+    """Raise OfflineError where `url` is outside this machine and OFFLINE is set.
+
+    The gate itself asks this. A transport that cannot go through it - a connection kept
+    open for a whole transfer, a session that signs its own requests - asks it first.
+    """
+    if os.environ.get(OFFLINE, "").strip() and not _loopback(url):
+        raise OfflineError(f"{_host(url)} is outside this machine and {OFFLINE} is set")
+
+
 def _asked(verb: Callable[..., requests.Response], url: str, *, trust: str | None = None,
            **kwargs: Any) -> requests.Response:
     """`trust` is a certificate fingerprint to meet in place of the one kept for an https
     address, or `pinned_certificates.UNVERIFIED` for a call that carries no secret."""
     host = _host(url)
-    if os.environ.get(OFFLINE, "").strip() and not _loopback(url):
-        raise OfflineError(f"{host} is outside this machine and {OFFLINE} is set")
+    require_reachable(url)
     now = time.time()
     with _quiet_lock:
         until = _quiet.get(host, 0.0)
@@ -130,8 +139,21 @@ def _asked(verb: Callable[..., requests.Response], url: str, *, trust: str | Non
     return response
 
 
+def get_response(url: str, *, timeout: float = DEFAULT_TIMEOUT,
+                 headers: dict[str, str] | None = None) -> requests.Response:
+    """The answer whatever its status, for a caller that reads the status itself: a 404
+    that means nothing held. A host that said wait still raises HostQuietError."""
+    return _asked(requests.get, url, timeout=timeout, headers=headers)
+
+
+def post_response(url: str, payload: Any = None, *, timeout: float = DEFAULT_TIMEOUT,
+                  headers: dict[str, str] | None = None) -> requests.Response:
+    """POST a JSON body and return the answer whatever its status."""
+    return _asked(requests.post, url, json=payload, timeout=timeout, headers=headers)
+
+
 def get_json(
-        url: str, *, timeout: int = DEFAULT_TIMEOUT, headers: dict[str, str] | None = None,
+        url: str, *, timeout: float = DEFAULT_TIMEOUT, headers: dict[str, str] | None = None,
         trust: str | None = None) -> Any:
     response = _asked(requests.get, url, timeout=timeout, headers=headers, trust=trust)
     response.raise_for_status()
@@ -141,7 +163,7 @@ def get_json(
         raise ValueError(t("said.why.unreadable_at", host=_host(url))) from exc
 
 
-def put_json(url: str, payload: Any, *, timeout: int = DEFAULT_TIMEOUT,
+def put_json(url: str, payload: Any, *, timeout: float = DEFAULT_TIMEOUT,
              headers: dict[str, str] | None = None, trust: str | None = None) -> Any:
     """PUT a JSON body and read the answer back. Same rule as the readers: a timeout
     every time, so no call site can hang the app on a server that never answers."""
@@ -154,7 +176,7 @@ def put_json(url: str, payload: Any, *, timeout: int = DEFAULT_TIMEOUT,
         return None
 
 
-def post_json(url: str, payload: Any = None, *, timeout: int = DEFAULT_TIMEOUT,
+def post_json(url: str, payload: Any = None, *, timeout: float = DEFAULT_TIMEOUT,
               headers: dict[str, str] | None = None, trust: str | None = None) -> Any:
     """POST a JSON body and read the answer back.
 
@@ -170,8 +192,8 @@ def post_json(url: str, payload: Any = None, *, timeout: int = DEFAULT_TIMEOUT,
         return None
 
 
-def get_text(
-        url: str, *, timeout: int = DEFAULT_TIMEOUT, headers: dict[str, str] | None = None) -> str:
+def get_text(url: str, *, timeout: float = DEFAULT_TIMEOUT,
+             headers: dict[str, str] | None = None) -> str:
     response = _asked(requests.get, url, timeout=timeout, headers=headers)
     response.raise_for_status()
     return response.text

@@ -4599,7 +4599,6 @@
   "error.themes.default_stays": "{key} is a default theme and stays installed",
   "error.themes.empty_download": "The download for {key} holds no theme",
   "error.themes.folder_name_unusable": "{folder} cannot be used as a theme folder name",
-  "error.themes.rate_limited": "The host is limiting downloads - try again later",
   "error.themes.none_named": "Name the theme to make active",
   "error.themes.needs_newer_vpinfe": "{key} needs VPinFE {needs}, and this is {running}",
   "error.themes.no_settings": "{key} has no settings",

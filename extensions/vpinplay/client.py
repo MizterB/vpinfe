@@ -13,7 +13,7 @@ from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import quote
 
-import requests
+from common.extensions.contract import get_json
 
 from . import sync
 
@@ -125,9 +125,7 @@ def check_available(sync_endpoint: str, user_id: str) -> bool:
     VPinPlay could not be asked, which a caller must not read as taken."""
     root = sync_endpoint.removesuffix("/sync")
     url = f"{root}/users/{quote(user_id, safe='')}/available"
-    response = requests.get(url, timeout=AVAILABLE_TIMEOUT)
-    response.raise_for_status()
-    body = response.json()
+    body = get_json(url, timeout=AVAILABLE_TIMEOUT)
     return bool(body.get("available")) if isinstance(body, dict) else False
 
 

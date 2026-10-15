@@ -188,6 +188,15 @@ class MobileTransferTests(unittest.TestCase):
         self.assertEqual(str(raised.exception), t("device.reason.refused"))
         slept.assert_not_called()
 
+    def test_a_device_on_the_network_is_not_asked_while_offline(self) -> None:
+        with mock.patch("common.games.mobile_transfer.time.sleep") as slept, \
+                mock.patch("common.games.mobile_transfer.http.client.HTTPConnection") as opened, \
+                self.assertRaises(mobile_transfer.DeviceUnreachableError):
+            mobile_transfer.remove("Alpha", "192.168.1.40", 2112)
+
+        opened.assert_not_called()
+        slept.assert_not_called()
+
     def test_everything_but_the_listing_retries_a_dropped_connection(self) -> None:
         with mock.patch("common.games.mobile_transfer.time.sleep") as slept, \
                 self.assertRaises(mobile_transfer.DeviceUnreachableError):

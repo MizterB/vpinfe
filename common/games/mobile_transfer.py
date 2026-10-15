@@ -31,6 +31,7 @@ from collections.abc import Callable, Iterable
 from pathlib import Path
 from urllib.parse import quote, urlparse
 
+from common import http_client
 from common.device_client import PROBE_SECONDS, why_not
 from common.games.export_bundle import bundle_paths, prune_info
 from common.i18n import t
@@ -175,6 +176,10 @@ def _ask(host: str, port: int, method: str, path: str, *, body: bytes = b"",
     """
     where = urlparse(f"http://{host}:{int(port)}{path}")
     target = where.path + (f"?{where.query}" if where.query else "")
+    try:
+        http_client.require_reachable(f"http://{host}")
+    except http_client.OfflineError as exc:
+        raise DeviceUnreachableError(t(why_not(exc))) from exc
     last: Exception | None = None
     for attempt in range(tries):
         connection = http.client.HTTPConnection(host, int(port), timeout=timeout)

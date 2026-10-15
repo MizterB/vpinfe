@@ -145,6 +145,23 @@ class OfflineTest(unittest.TestCase):
         for url in (URL, "http://192.168.1.20:8001/api/v1/update", "http://cab.lan/"):
             self.assertFalse(self._asked(url), url)
 
+    def test_a_call_that_reads_the_status_is_refused_too(self) -> None:
+        with mock.patch.dict(os.environ, {http_client.OFFLINE: "1"}), \
+                mock.patch.object(http_client.requests, "get") as get, \
+                mock.patch.object(http_client.requests, "post") as post:
+            with self.assertRaises(http_client.OfflineError):
+                http_client.get_response(URL)
+            with self.assertRaises(http_client.OfflineError):
+                http_client.post_response(URL, {})
+
+        self.assertFalse(get.called or post.called)
+
+    def test_a_transport_that_cannot_be_wrapped_asks_first(self) -> None:
+        with mock.patch.dict(os.environ, {http_client.OFFLINE: "1"}):
+            http_client.require_reachable("http://127.0.0.1:2112/files")
+            with self.assertRaises(http_client.OfflineError):
+                http_client.require_reachable("http://192.168.1.40:2112/files")
+
     def test_this_machine_is_asked(self) -> None:
         for url in ("http://127.0.0.1:8001/api/v1", "http://localhost:8001/",
                     "http://[::1]:8001/", "http://127.0.0.2/"):

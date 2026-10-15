@@ -75,8 +75,8 @@ class ThemeRegistry:
             return True
         return True
 
-    def _download_zip(self, url: str, max_retries: int = 3) -> BytesIO:
-        return self.client.download_zip(url, max_retries=max_retries)
+    def _download_zip(self, url: str) -> BytesIO:
+        return self.client.download_zip(url)
 
     # =========================================================
     # REGISTRY

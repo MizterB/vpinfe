@@ -2,18 +2,14 @@
 
 from __future__ import annotations
 
-import logging
-import time
 from io import BytesIO
 from urllib.parse import urlsplit
 
 import requests
 
 from common.failures import why
-from common.http_client import get_json
+from common.http_client import get_bytes, get_json
 from common.i18n import t
-
-logger = logging.getLogger("vpinfe.common.online.theme_registry_client")
 
 
 class ThemeRegistryError(Exception):
@@ -39,20 +35,8 @@ class ThemeRegistryClient:
                                        host=urlsplit(url).hostname or url))
         return payload
 
-    def download_zip(self, url: str, max_retries: int = 3) -> BytesIO:
-        for attempt in range(max_retries):
-            response = requests.get(url, timeout=60)
-            if response.status_code == 429:
-                wait = int(response.headers.get("Retry-After", 5 * (attempt + 1)))
-                logger.warning(
-                    "429 on zip download, waiting %ss (attempt %s/%s)",
-                    wait,
-                    attempt + 1,
-                    max_retries,
-                )
-                time.sleep(wait)
-                continue
-            response.raise_for_status()
-            return BytesIO(response.content)
-        logger.warning("%s still rate limited after %s tries", url, max_retries)
-        raise ThemeRegistryError(t("error.themes.rate_limited"))
+    def download_zip(self, url: str) -> BytesIO:
+        try:
+            return BytesIO(get_bytes(url))
+        except requests.RequestException as exc:
+            raise ThemeRegistryError(why(exc, url)) from exc

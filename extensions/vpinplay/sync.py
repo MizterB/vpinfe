@@ -17,7 +17,7 @@ from urllib.parse import quote
 
 import requests
 
-from common.extensions.contract import words
+from common.extensions.contract import get_response, post_response, words
 
 logger = logging.getLogger("vpinfe.ext.vpinplay.sync")
 t = words("vpinplay")
@@ -199,7 +199,7 @@ def their_record(sync_endpoint: str, user_id: str, vps_id: str,
     root = sync_endpoint.removesuffix("/sync")
     url = f"{root}/users/{quote(user_id, safe='')}/tables/{quote(vps_id, safe='')}"
     try:
-        response = requests.get(url, timeout=timeout_seconds)
+        response = get_response(url, timeout=timeout_seconds)
     except requests.RequestException:
         return None
     if response.status_code == 404:
@@ -285,7 +285,7 @@ def send(endpoint: str, payload: dict, timeout_seconds: int) -> dict:
     their models did not produce, and dropping it leaves somebody with a status code.
     Not ok when the body says `"status": "error"`, which the service answers with a 200.
     """
-    response = requests.post(endpoint, json=payload, timeout=timeout_seconds)
+    response = post_response(endpoint, payload, timeout=timeout_seconds)
     body = response.text
     try:
         parsed = response.json()

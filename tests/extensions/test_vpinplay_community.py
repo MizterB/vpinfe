@@ -5,10 +5,12 @@ from __future__ import annotations
 import importlib
 import unittest
 import urllib.error
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+
+import requests
 
 from common.extensions import host
-from tests.support import served
+from tests.support import network, served
 
 
 def _module():
@@ -100,10 +102,12 @@ class Rows(unittest.TestCase):
              self._refused(TimeoutError("timed out"))])
 
     def _asked(self, endpoint: str) -> str:
-        with patch.object(self.community.urllib.request, "urlopen") as opened:
-            opened.return_value.__enter__.return_value.read.return_value = b"{}"
+        network.stubbed(self)
+        answer = MagicMock(status_code=200, headers={})
+        answer.json.return_value = {}
+        with patch.object(requests, "get", return_value=answer) as get:
             self.community._page(endpoint, 0)
-        return opened.call_args.args[0].split("?")[0]
+        return get.call_args.args[0].split("?")[0]
 
     def test_an_address_typed_without_a_scheme_is_asked_as_sync_asks_it(self) -> None:
         self.assertEqual(

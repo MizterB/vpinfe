@@ -14,7 +14,15 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from common import discovery, install_setup, player_pictures, serving, settings_waiting, shutdown
+from common import (
+    discovery,
+    http_client,
+    install_setup,
+    player_pictures,
+    serving,
+    settings_waiting,
+    shutdown,
+)
 from common.capture import freeze
 from common.config_access import DisplayConfig, NetworkConfig, SettingsConfig
 from common.config_store import ConfigStore
@@ -243,12 +251,11 @@ def start_asset_server(mount_points: dict[str, str],
 
 
 def wait_for_manager_ui_ready(port: int, timeout_seconds: float = 15.0) -> None:
-    import urllib.request as _ur
-
     deadline = time.time() + timeout_seconds
     while time.time() < deadline:
         try:
-            _ur.urlopen(f"http://localhost:{serving.loopback_or(port)}/api/v1/health", timeout=1)
+            http_client.get_text(
+                f"http://localhost:{serving.loopback_or(port)}/api/v1/health", timeout=1)
             return
         except Exception:
             time.sleep(0.5)

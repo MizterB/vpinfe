@@ -11,6 +11,7 @@ from pathlib import Path
 
 from nicegui import run, ui
 
+from common import http_client
 from common.config_access import cfg_get, cfg_set
 from common.config_schema import ConfigListError
 from common.config_store import ConfigStore
@@ -64,6 +65,8 @@ def _http_request(url, data=b'', method='POST', timeout=300, retries=3, conn=Non
     import http.client
     import time
     from urllib.parse import urlparse
+
+    http_client.require_reachable(url)
     parsed = urlparse(url)
     own_conn = conn is None
     for attempt in range(retries):
@@ -129,6 +132,7 @@ def _send_game_to_device(
     games_path = _get_games_path()
     game_dir = os.path.join(games_path, game_dir_name)
     base_url = f'http://{host}:{port}'
+    http_client.require_reachable(base_url)
 
     if not os.path.isdir(game_dir):
         raise FileNotFoundError(f"Table directory not found: {game_dir}")
@@ -469,6 +473,7 @@ def _build_vpxz_download_panel():
 def _fetch_device_folders(host, port):
     """Fetch the list of top-level folder names from the mobile device via GET /files."""
     url = f'http://{host}:{port}/files'
+    http_client.require_reachable(url)
     req = urllib.request.Request(url, method='GET')
     req.add_header('Connection', 'close')
     resp = urllib.request.urlopen(req, timeout=10)

@@ -36,13 +36,13 @@ class ProfilesCase(VPinPlayCase):
         self.api = API.__new__(API)
         self.api.ws_bridge = MagicMock()
 
-    def _here(self, url: str, json: dict, timeout: int) -> SimpleNamespace:
+    def _here(self, url: str, json: dict, timeout: int, headers: None) -> SimpleNamespace:
         """This install's own API, answered in-process."""
         root = "http://127.0.0.1:"
         self.assertTrue(url.startswith(root), url)
         answered = self.client.post(url.split("/api/v1", 1)[1], json=json)
         return SimpleNamespace(ok=answered.is_success, status_code=answered.status_code,
-                               json=answered.json)
+                               headers=answered.headers, json=answered.json)
 
     def card(self, user_id: str = "visitor", initials: str = "vis") -> dict:
         return json.loads(_2x_card(user_id, initials, KEY)[0])

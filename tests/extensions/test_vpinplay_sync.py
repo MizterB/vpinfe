@@ -9,7 +9,10 @@ from __future__ import annotations
 import unittest
 from unittest.mock import MagicMock, patch
 
+import requests
+
 from common.extensions import host
+from tests.support import network
 
 # Loaded to import it, then cleared: a loaded VPinPlay listens for games ending.
 _loaded = host.Registry()
@@ -180,6 +183,9 @@ class WireTests(unittest.TestCase):
 
 
 class SendTests(unittest.TestCase):
+    def setUp(self) -> None:
+        network.stubbed(self)
+
     def answer(self, status_code: int, body: dict) -> MagicMock:
         response = MagicMock(status_code=status_code, ok=200 <= status_code < 400,
                              text=str(body))
@@ -189,7 +195,7 @@ class SendTests(unittest.TestCase):
     def test_a_refusal_with_a_200_is_not_ok(self) -> None:
         refused = self.answer(200, {"status": "error", "summary": {"errors": 1}})
 
-        with patch.object(sync.requests, "post", return_value=refused):
+        with patch.object(requests, "post", return_value=refused):
             found = sync.send("http://vpinplay.test/api/v1/sync", {}, 1)
 
         self.assertFalse(found["ok"])
@@ -197,7 +203,7 @@ class SendTests(unittest.TestCase):
     def test_an_accepted_sync_is_ok(self) -> None:
         accepted = self.answer(200, {"status": "ok", "summary": {"errors": 0}})
 
-        with patch.object(sync.requests, "post", return_value=accepted):
+        with patch.object(requests, "post", return_value=accepted):
             found = sync.send("http://vpinplay.test/api/v1/sync", {}, 1)
 
         self.assertTrue(found["ok"])
@@ -270,10 +276,13 @@ class PlayerPayloadTests(unittest.TestCase):
 
 
 class TheirRecordTests(unittest.TestCase):
+    def setUp(self) -> None:
+        network.stubbed(self)
+
     WHERE = "https://vpinplay.test/api/v1/sync"
 
     def ask(self, **answer: object) -> tuple[object, MagicMock]:
-        with patch.object(sync.requests, "get", **answer) as get:
+        with patch.object(requests, "get", **answer) as get:
             found = sync.their_record(self.WHERE, "some one", "abcd1234", 1)
         return found, get
 
@@ -291,7 +300,7 @@ class TheirRecordTests(unittest.TestCase):
         self.assertEqual(found, {})
 
     def test_a_server_that_cannot_answer_is_not_read_as_empty(self) -> None:
-        down, _get = self.ask(side_effect=sync.requests.ConnectionError("down"))
+        down, _get = self.ask(side_effect=requests.ConnectionError("down"))
         failing, _get = self.ask(return_value=MagicMock(status_code=500, ok=False))
 
         self.assertIsNone(down)

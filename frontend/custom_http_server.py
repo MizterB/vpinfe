@@ -26,6 +26,7 @@ from urllib.parse import parse_qs, unquote, urlsplit
 import requests
 
 from common import accepted
+from common.http_client import get_text
 from frontend.theme_windows import window_title
 
 logger = logging.getLogger("vpinfe.frontend.custom_http_server")
@@ -265,12 +266,8 @@ class CustomHTTPServer:
                 return
 
             try:
-                response = requests.get(
-                    requested_url,
-                    timeout=15,
-                    headers={"User-Agent": "VPinFE PinballPrimer Proxy"},
-                )
-                response.raise_for_status()
+                page = get_text(requested_url,
+                                headers={"User-Agent": "VPinFE PinballPrimer Proxy"})
             except requests.RequestException as exc:
                 logger.warning("Pinball Primer proxy fetch failed for %s: %s", requested_url, exc)
                 self._send_pinball_primer_html(
@@ -282,7 +279,7 @@ class CustomHTTPServer:
                 )
                 return
 
-            html_text = self._inject_base_tag(response.text, requested_url)
+            html_text = self._inject_base_tag(page, requested_url)
             self._send_pinball_primer_html(200, html_text)
 
         def _serve_file(self, path: str,
