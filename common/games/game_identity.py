@@ -7,6 +7,7 @@ and keeps its own. Reading never writes; minting is explicit. See docs/http-api.
 from __future__ import annotations
 
 import logging
+import os
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -21,7 +22,7 @@ from common.games.game_metadata import (
 )
 from common.games.ids import ALPHABET as ID_ALPHABET
 from common.games.ids import LENGTH as ID_LENGTH
-from common.games.ids import new_id
+from common.games.ids import derive_id, new_id
 from common.games.info_file import GAME_ID_KEY, VPINFE_SECTION
 
 logger = logging.getLogger("vpinfe.common.games.game_identity")
@@ -31,7 +32,7 @@ ID_SECTION = VPINFE_SECTION
 ID_KEY = GAME_ID_KEY
 
 __all__ = ["ID_ALPHABET", "ID_LENGTH", "ID_KEY", "ID_SECTION", "new_id",
-           "game_id", "ensure_id", "ensure_unique_ids", "resolve_ids", "Resolution",
+           "game_id", "ensure_id", "minted_id", "ensure_unique_ids", "resolve_ids", "Resolution",
            "Shadowed", "find_by_id"]
 
 
@@ -49,6 +50,40 @@ def _vpinfe_section(config: dict[str, Any]) -> dict[str, Any]:
     return existing
 
 
+def minted_id(folder: str, *rest: str, location_id: str = "",
+              locations: Sequence[Any] | None = None) -> str:
+    """The id a game folder with none is given: the same on every call for the same
+    location and path inside it, then `rest`. Random for a folder no location holds.
+
+    `location_id` picks among nested locations that all hold the folder; none given, or none
+    matching, the first one listed wins. `locations` spares a batch the lookup per folder.
+    """
+    from common.games.library_folders import configured, inside
+
+    if not folder:
+        return new_id()
+    where = os.path.normpath(os.path.abspath(folder))
+    holding = []
+    for location in configured() if locations is None else locations:
+        root = os.path.normpath(os.path.abspath(location.path))
+        if inside(root, where):
+            holding.append((location, root))
+    if not holding:
+        return new_id()
+    location, root = next((one for one in holding if one[0].location_id == location_id),
+                          holding[0])
+    within = "" if where == root else os.path.relpath(where, root).replace(os.sep, "/")
+    return derive_id(location.location_id, within, *rest)
+
+
+def _unclaimed(wanted: str, taken: set[str] | None) -> str:
+    """`wanted`, or a random id when something in the library already holds it: a renamed
+    folder keeps its old id, which a new folder at the old path would derive."""
+    while taken is not None and wanted in taken:
+        wanted = new_id()
+    return wanted
+
+
 def ensure_id(game: Game, *, force_new: bool = False) -> str:
     """The table's id, minting and persisting one if it has none.
 
@@ -59,7 +94,8 @@ def ensure_id(game: Game, *, force_new: bool = False) -> str:
 
 
 def _ensure(game: Game, force_new: bool,
-            write: Callable[[Game, dict[str, Any]], None]) -> str:
+            write: Callable[[Game, dict[str, Any]], None], *,
+            locations: Sequence[Any] | None = None, taken: set[str] | None = None) -> str:
     if not force_new:
         existing = game_id(game)
         if existing:
@@ -73,7 +109,10 @@ def _ensure(game: Game, force_new: bool,
         game.meta_config = config
         return existing
 
-    minted = new_id()
+    # A re-issued id is random: the folder's own path would give the same id back.
+    minted = new_id() if force_new else _unclaimed(minted_id(
+        str(game.full_path_game or ""), location_id=str(getattr(game, "location_id", "") or ""),
+        locations=locations), taken)
     vpinfe[ID_KEY] = minted
     write(game, config)
     logger.debug("Assigned game id %s to %s", minted, game.game_dir_name)
@@ -148,15 +187,24 @@ def resolve_ids(games: Iterable[Any],
     waits for a person. Ids are still minted for folders that have none - that is not a
     clash, and a game with no id cannot be addressed at all.
     """
+    from common.games.library_folders import configured
+
     by_id: dict[str, Any] = {}
     holder: dict[str, Any] = {}
     shadowed: list[Shadowed] = []
     minted = 0
+    locations = configured()
+    games = list(games)
+    taken = {one for one in (game_id(game) for game in games) if one}
+
+    if order is None:
+        order = [one.location_id for one in locations]
 
     for game in in_priority(games, order):
         current = game_id(game)
         if not current:
-            current = _ensure(game, False, keep_game_meta)
+            current = _ensure(game, False, keep_game_meta, locations=locations, taken=taken)
+            taken.add(current)
             minted += 1
         if current in by_id:
             first = holder[current]

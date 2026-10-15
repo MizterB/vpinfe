@@ -12,7 +12,7 @@ from unittest import mock
 from starlette.testclient import TestClient
 
 import httpapi
-from common.games import game_repository, unwritten
+from common.games import game_repository, ids, table_identity, unwritten
 from common.games.library_folders import KIND_ROOT, Location
 from tests.support.library import TempTree, write_game
 from tests.support.skips import needs_posix_permissions
@@ -100,6 +100,49 @@ class LockedFolderTests(TempTree):
 
         self.assertEqual(self._listed()[LOCKED], first)
         self.assertEqual(self._on_disk(LOCKED), first)
+
+    def _restart(self) -> None:
+        unwritten._HELD.clear()
+        game_repository._PARSERS.clear()
+        game_repository.all_games(reload=True)
+
+    def _tables(self, name: str) -> dict[str, str]:
+        games = game_repository.all_games()
+        table_identity.ensure_unique_table_ids(games)
+        game = next(one for one in games if one.game_dir_name == name)
+        return table_identity.table_ids(game)
+
+    def test_the_id_is_made_from_its_location_and_its_path_inside_it(self) -> None:
+        self.assertEqual(self._listed()[LOCKED], ids.derive_id("test", LOCKED))
+
+    def test_it_has_the_same_id_after_a_restart(self) -> None:
+        first = self._listed()[LOCKED]
+
+        self._restart()
+
+        self.assertEqual(self._listed()[LOCKED], first)
+
+    def test_its_tables_have_the_same_ids_after_a_restart(self) -> None:
+        self._listed()
+        first = self._tables(LOCKED)
+
+        self._restart()
+
+        self.assertTrue(first)
+        self.assertNotEqual(list(first), list(first.values()), "ids, not the names they replace")
+        self.assertEqual(self._tables(LOCKED), first)
+
+    def test_the_id_it_had_before_a_restart_is_written_once_it_can_be(self) -> None:
+        first = self._listed()[LOCKED]
+        tables = self._tables(LOCKED)
+        self._restart()
+        self.locked.chmod(0o755)
+
+        game_repository.refresh_games()
+
+        self.assertEqual(self._listed()[LOCKED], first)
+        self.assertEqual(self._on_disk(LOCKED), first)
+        self.assertEqual(self._tables(LOCKED), tables)
 
     def test_it_counts_as_not_written_and_not_as_one_to_upgrade(self) -> None:
         self._listed()

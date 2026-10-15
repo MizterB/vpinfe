@@ -11,6 +11,7 @@ from collections.abc import Iterable
 from typing import Any
 
 from common.games.game import GameRecord
+from common.games.game_identity import minted_id
 from common.games.game_metadata import keep_game_meta, load_game_meta
 from common.games.ids import new_id
 from common.games.info_file import VPINFE_SECTION
@@ -53,8 +54,18 @@ def ensure_unique_table_ids(games: Iterable[Any]) -> dict[str, tuple[Any, str]]:
 
     A collision is not chance at this length - it means a game folder was copied.
     """
+    from common.games.library_folders import configured
+
     by_id: dict[str, tuple[Any, str]] = {}
     minted = remixed = rekeyed = defaults = stamped = 0
+    locations = configured()
+    games = list(games)
+    # Held by tables not yet reached too, so a derived id never lands on one of them.
+    stored_ids = {
+        table_id(entry)
+        for game in games
+        for entry in ((getattr(game, "meta_config", None) or {}).get(TABLES_KEY) or {}).values()
+        if table_id(entry)}
 
     for game in games:
         stored = (getattr(game, "meta_config", None) or {}).get(TABLES_KEY)
@@ -89,8 +100,10 @@ def ensure_unique_table_ids(games: Iterable[Any]) -> dict[str, tuple[Any, str]]:
             else:
                 minted += 1
 
-            fresh = new_id()
-            while fresh in by_id:
+            fresh = minted_id(game_dir, filename,
+                              location_id=str(getattr(game, "location_id", "") or ""),
+                              locations=locations)
+            while fresh in by_id or fresh in stored_ids:
                 fresh = new_id()
             resolved[fresh] = {**entry, TABLE_ID_KEY: fresh}
             by_id[fresh] = (game, filename)

@@ -1,10 +1,12 @@
 import json
 import unittest
 from pathlib import Path
+from unittest import mock
 
-from common.games import game_identity
+from common.games import game_identity, ids, library_folders
 from common.games.game_repository import game_to_row
 from common.games.info_file import MetaConfig
+from common.games.library_folders import KIND_GAME, KIND_ROOT, Location
 from tests.support.library import TempTree, fake_game, write_game
 
 
@@ -37,6 +39,143 @@ class MintedIdTests(TempTree):
         self.assertEqual(len(minted), game_identity.ID_LENGTH)
         self.assertTrue(set(minted) <= set(game_identity.ID_ALPHABET))
 
+
+
+class DerivedIdTests(TempTree):
+    """A folder with no id is given the one its place in a location makes."""
+
+    def _locations(self, *held: tuple[str, Path]):
+        rows = [Location(location_id=one, path=str(path), kind=KIND_ROOT) for one, path in held]
+        patched = mock.patch.object(library_folders, "configured", return_value=rows)
+        patched.start()
+        self.addCleanup(patched.stop)
+
+    def test_the_same_parts_make_the_same_id_in_the_same_shape(self) -> None:
+        made = ids.derive_id("loc", "Game (2024)")
+
+        self.assertEqual(made, ids.derive_id("loc", "Game (2024)"))
+        self.assertEqual(len(made), ids.LENGTH)
+        self.assertTrue(set(made) <= set(ids.ALPHABET))
+
+    def test_different_parts_make_different_ids(self) -> None:
+        self.assertNotEqual(ids.derive_id("loc", "a"), ids.derive_id("loc", "b"))
+        self.assertNotEqual(ids.derive_id("loc", "a"), ids.derive_id("other", "a"))
+        self.assertNotEqual(ids.derive_id("a", "bc"), ids.derive_id("ab", "c"))
+
+    def test_a_name_read_composed_or_decomposed_is_one_id(self) -> None:
+        self.assertEqual(ids.derive_id("loc", "Café"), ids.derive_id("loc", "Café"))
+
+    def test_a_folder_is_named_by_its_location_and_its_path_inside_it(self) -> None:
+        self._locations(("here", self.root))
+        folder = self.root / "Shelf" / "Game"
+
+        self.assertEqual(game_identity.minted_id(str(folder)),
+                         ids.derive_id("here", "Shelf/Game"))
+
+    def test_repointing_a_location_at_the_same_games_keeps_their_ids(self) -> None:
+        self._locations(("here", self.root))
+        before = game_identity.minted_id(str(self.root / "Game"))
+        elsewhere = self.root / "moved"
+        self._locations(("here", elsewhere))
+
+        self.assertEqual(game_identity.minted_id(str(elsewhere / "Game")), before)
+
+    def test_the_same_folder_in_another_location_is_another_game(self) -> None:
+        self._locations(("one", self.root / "a"), ("two", self.root / "b"))
+
+        self.assertNotEqual(game_identity.minted_id(str(self.root / "a" / "Game")),
+                            game_identity.minted_id(str(self.root / "b" / "Game")))
+
+    def test_a_game_location_is_named_by_the_location_alone(self) -> None:
+        folder = self.root / "Game"
+        rows = [Location(location_id="one", path=str(folder), kind=KIND_GAME)]
+        with mock.patch.object(library_folders, "configured", return_value=rows):
+            self.assertEqual(game_identity.minted_id(str(folder)), ids.derive_id("one", ""))
+
+    def test_a_table_is_named_by_its_game_and_its_file(self) -> None:
+        self._locations(("here", self.root))
+        game = str(self.root / "Game")
+
+        self.assertEqual(game_identity.minted_id(game, "Game.vpx"),
+                         ids.derive_id("here", "Game", "Game.vpx"))
+        self.assertNotEqual(game_identity.minted_id(game, "Game.vpx"),
+                            game_identity.minted_id(game))
+
+    def test_a_name_that_is_not_valid_text_still_makes_an_id(self) -> None:
+        made = ids.derive_id("loc", "Game\udcff")
+
+        self.assertEqual(len(made), ids.LENGTH)
+        self.assertNotEqual(made, ids.derive_id("loc", "Game\udcfe"))
+
+    def test_a_folder_no_location_holds_gets_a_random_id(self) -> None:
+        self._locations(("here", self.root / "a"))
+        folder = str(self.root / "b" / "Game")
+
+        made = {game_identity.minted_id(folder) for _ in range(5)}
+
+        self.assertEqual(len(made), 5)
+        self.assertNotIn(ids.derive_id("here", "Game"), made)
+
+    def test_nested_locations_name_the_folder_by_the_one_it_was_found_through(self) -> None:
+        self._locations(("outer", self.root), ("inner", self.root / "Shelf"))
+        folder = str(self.root / "Shelf" / "Game")
+
+        self.assertEqual(game_identity.minted_id(folder, location_id="inner"),
+                         ids.derive_id("inner", "Game"))
+        self.assertEqual(game_identity.minted_id(folder, location_id="outer"),
+                         ids.derive_id("outer", "Shelf/Game"))
+        self.assertEqual(game_identity.minted_id(folder), ids.derive_id("outer", "Shelf/Game"))
+
+    def test_a_location_that_no_longer_holds_the_folder_falls_to_one_that_does(self) -> None:
+        self._locations(("here", self.root))
+
+        self.assertEqual(
+            game_identity.minted_id(str(self.root / "Game"), location_id="gone"),
+            ids.derive_id("here", "Game"))
+
+    def test_a_folder_that_took_an_old_ones_id_gets_another(self) -> None:
+        """A renamed folder keeps the id it was written with, and a new folder at the old
+        path would derive that same id."""
+        self._locations(("here", self.root))
+        held = ids.derive_id("here", "Game")
+        renamed = _game(self.root, "Renamed", meta={"vpinfe": {"game_id": held}})
+        renamed.location_id = "here"
+        fresh = _game(self.root, "Game")
+        fresh.location_id = "here"
+
+        resolved = game_identity.resolve_ids([fresh, renamed])
+
+        self.assertEqual(resolved.shadowed, ())
+        self.assertEqual(len(resolved.by_id), 2)
+        self.assertIs(resolved.by_id[held], renamed)
+
+    def test_a_batch_looks_up_the_locations_once(self) -> None:
+        self._locations(("here", self.root))
+        games = [_game(self.root, f"Game {n}") for n in range(3)]
+        for one in games:
+            one.location_id = "here"
+
+        game_identity.resolve_ids(games)
+
+        self.assertEqual(library_folders.configured.call_count, 1)
+
+    def test_ensure_id_makes_it_and_writes_it_as_it_is(self) -> None:
+        self._locations(("here", self.root))
+        game = _game(self.root, meta={"Info": {"VPSId": "vps-1"}})
+        game.location_id = "here"
+
+        self.assertEqual(game_identity.ensure_id(game), ids.derive_id("here", "Example"))
+
+    def test_a_reissued_id_is_not_the_one_the_path_makes(self) -> None:
+        self._locations(("here", self.root))
+        game = _game(self.root, meta={"Info": {"VPSId": "vps-1"}})
+        game.location_id = "here"
+        first = game_identity.ensure_id(game)
+
+        reissued = game_identity.ensure_id(game, force_new=True)
+
+        self.assertNotEqual(reissued, first)
+        self.assertNotEqual(reissued, ids.derive_id("here", "Example"))
 
 
 class GameIdTests(TempTree):

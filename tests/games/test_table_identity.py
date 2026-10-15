@@ -11,9 +11,10 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from common.games import ids, table_identity, unwritten
+from common.games import ids, library_folders, table_identity, unwritten
 from common.games.game_metadata import write_held_meta
 from common.games.info_file import MetaConfig
+from common.games.library_folders import KIND_ROOT, Location
 from common.games.tables import (
     ADDED_KEY,
     TABLE_FILENAME_KEY,
@@ -252,6 +253,47 @@ class BackfillTests(TempTree):
         remixed = json.loads((self.root / "Second" / "Second.info").read_text(encoding="utf-8"))
         self.assertEqual(table_id(_by_name(kept[TABLES_KEY], "a.vpx")), "dupdupdup1")
         self.assertNotEqual(table_id(_by_name(remixed[TABLES_KEY], "a.vpx")), "dupdupdup1")
+
+    def _held_by(self, location_id: str) -> None:
+        rows = [Location(location_id=location_id, path=str(self.root), kind=KIND_ROOT)]
+        patched = mock.patch.object(library_folders, "configured", return_value=rows)
+        patched.start()
+        self.addCleanup(patched.stop)
+
+    def test_an_entry_with_no_id_gets_the_one_its_game_and_file_make(self) -> None:
+        self._held_by("here")
+        game = _game(self.root, "Old", _legacy_meta(("a.vpx", {"file_hash": "aaa"})))
+        game.location_id = "here"
+
+        by_id = table_identity.ensure_unique_table_ids([game])
+
+        self.assertEqual(list(by_id), [ids.derive_id("here", "Old", "a.vpx")])
+
+    def test_a_collision_is_given_the_id_its_own_game_and_file_make(self) -> None:
+        self._held_by("here")
+        shared = {"file_hash": "aaa", TABLE_ID_KEY: "dupdupdup1"}
+        first = _game(self.root, "First", _meta(("a.vpx", dict(shared))))
+        second = _game(self.root, "Second", _meta(("a.vpx", dict(shared))))
+        for one in (first, second):
+            one.location_id = "here"
+
+        by_id = table_identity.ensure_unique_table_ids([first, second])
+
+        self.assertEqual(sorted(by_id), sorted(["dupdupdup1",
+                                                ids.derive_id("here", "Second", "a.vpx")]))
+
+    def test_a_derived_id_a_later_game_already_holds_is_not_taken(self) -> None:
+        self._held_by("here")
+        wanted = ids.derive_id("here", "New", "a.vpx")
+        new = _game(self.root, "New", _legacy_meta(("a.vpx", {"file_hash": "aaa"})))
+        renamed = _game(self.root, "Renamed", _meta(("a.vpx", {TABLE_ID_KEY: wanted})))
+        for one in (new, renamed):
+            one.location_id = "here"
+
+        by_id = table_identity.ensure_unique_table_ids([new, renamed])
+
+        self.assertEqual(len(by_id), 2)
+        self.assertEqual(by_id[wanted][0], renamed)
 
     @needs_posix_permissions
     def test_a_folder_it_cannot_write_leaves_the_others_their_ids(self) -> None:

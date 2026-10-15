@@ -1815,6 +1815,13 @@ GET /api/v1/games/tuF3WogthK
 The id is minted once and then stays put. It survives renames, VPSdb re-matches, and table
 updates, which is what an id in a URL, an event, or a job has to do.
 
+A folder with no id is given one made from its location's id and its path inside that
+location, not drawn at random. A folder VPinFE cannot write, such as a 2.x folder on a
+read-only share, has the same id on every start, and that id is the one written when the
+folder can be written. Tables with no id are given theirs the same way, from the game's
+place and the table's file name. An id that something in the library already holds, as a
+renamed folder does, is never reused: the new folder is given a random one.
+
 `VPSId` is not that id, and can't be. It's empty for any game VPSdb hasn't matched, it isn't
 guaranteed unique, and the effective id used elsewhere (`vpinfe.alt_vpsid or Info.VPSId`) is
 deliberately cleared when the .vpx file changes — so updating a game would silently change
@@ -1826,8 +1833,10 @@ Two consequences worth knowing:
 
 - Copying a game folder copies its id. The duplicate is spotted and re-minted the next time
   ids are checked across the library, so an id always addresses one game.
-- Deleting a game's `.info` loses its id, the same way it loses that game's rating and play
-  counts. A new one is minted; anything holding the old id won't resolve.
+- Deleting a game's `.info` loses that game's rating and play counts. The game is given the
+  id its place in the location makes, so a game given its id that way comes back under it. A
+  folder deleted and made again at the same path is that game again, with the collections
+  that named it. A re-issued id is random, and does not come back.
 
 Existing games get an id on their next metadata rebuild, or on demand. Reading a game never
 mints one — a scan is a read path and stays one.
