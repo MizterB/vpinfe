@@ -37,7 +37,7 @@ GUARDED = {
 }
 # Reached only through the gate, through a caller that asks first, or on this machine.
 BEHIND = {
-    "common/port_checks.py": {
+    "common/settings/port_checks.py": {
         "listening": "connects to 127.0.0.1 and no other address"},
     "common/security/pinned_certificates.py": {
         "_session": "`sending()` builds it for a verb the gate or a guarded session passes",

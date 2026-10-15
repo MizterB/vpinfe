@@ -13,10 +13,10 @@ from collections import Counter
 
 from fastapi import APIRouter
 
+from common.config.paths import VPSDB_PATH
 from common.games import game_repository
 from common.games.game_repository import game_to_row
 from common.media.manufacturer_logos import manufacturer_report, vps_manufacturer_names
-from common.paths import VPSDB_PATH
 
 from . import models, scopes
 from .auth import requires

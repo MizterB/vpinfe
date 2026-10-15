@@ -15,8 +15,8 @@ TOP_LEVEL = ("cli.py", "main.py")
 NAMES = frozenset({"game_root_dir", "gamerootdir", "tablerootdir", "get_games_path"})
 
 # Where the setting is declared, renamed and defined.
-ALLOWED_FILES = frozenset({"common/paths.py", "common/config_schema.py",
-                           "common/config_store.py", "common/deprecations.py"})
+ALLOWED_FILES = frozenset({"common/config/paths.py", "common/config/config_schema.py",
+                           "common/config/config_store.py", "common/deprecations.py"})
 # And the two reads that remain: the seed, and the fallback before it has run.
 ALLOWED_FUNCTIONS = frozenset({("common/games/library_folders.py", "seed")})
 
@@ -64,7 +64,7 @@ class LibraryIsReadFromItsFoldersTests(unittest.TestCase):
     def test_it_would_see_a_reader(self) -> None:
         """A check that finds nothing looks the same as one that cannot find anything."""
         planted = trees.parse_snippet(
-            "from common.paths import get_games_path\n"
+            "from common.config.paths import get_games_path\n"
             "root = settings.game_root_dir\n"
             "cfg_get(config, 'Settings', 'tablerootdir')\n")
         self.assertEqual(len(_offenders("common/elsewhere.py", planted)), 3)

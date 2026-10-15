@@ -10,7 +10,7 @@ from unittest import mock
 from nicegui import ui
 
 from apps.vpx import screens as vpx
-from common import config_service
+from common.settings import config_service
 from manager import displays, setup, setup_screens, setup_vpx, vpx_displays, vpx_find
 from manager.screens import Screen
 from manager.vpx_find import Find

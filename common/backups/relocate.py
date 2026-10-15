@@ -17,9 +17,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from common import atomic_write, path_state, service_errors
+from common import atomic_write, kept_copies, service_errors
+from common.config import path_state
 from common.failures import why
-from common.games import info_migration
 from common.i18n import t
 from common.runtime import jobs, shutdown
 
@@ -60,7 +60,7 @@ def _files(folder: Path) -> Iterator[Path]:
     for area in AREAS:
         if (kept := folder / area).is_dir():
             for found in sorted(kept.rglob("*")):
-                if info_migration.is_copy(found) and found.is_file():
+                if kept_copies.is_copy(found) and found.is_file():
                     yield found.relative_to(folder)
 
 

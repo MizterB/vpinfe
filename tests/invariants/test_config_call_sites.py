@@ -15,7 +15,7 @@ import ast
 import unittest
 from pathlib import Path
 
-from common import config_schema
+from common.config import config_schema
 from tests.support import trees
 from tests.support.project import project_files
 from tests.support.startup_reads import READERS, STORE_ACCESSORS, STORES
@@ -52,7 +52,7 @@ def _call_sites():
 
 # `config_store` owns the 2.x migration, so it is the one place that reads a former
 # section name off the parser on purpose.
-OWNS_THE_OLD_NAMES = {"common/config_store.py"}
+OWNS_THE_OLD_NAMES = {"common/config/config_store.py"}
 
 # Methods only a parser has, plus the ones it shares with a dict and so are counted only
 # when called with a section and a key.

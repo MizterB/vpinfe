@@ -15,12 +15,12 @@ from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any
 
-from common.config_access import MediaConfig, cfg_bool
-from common.config_store import ConfigStore
+from common.config.config_access import MediaConfig, cfg_bool
+from common.config.config_store import ConfigStore
+from common.config.paths import get_ini_config
 from common.games.game_metadata import effective_vps_id, normalize_meta
 from common.i18n import t
 from common.media.media_specs import MEDIA_SPECS
-from common.paths import get_ini_config
 from common.runtime import jobs, shutdown
 from common.runtime.jobs import JobReporter
 

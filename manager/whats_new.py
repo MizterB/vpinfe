@@ -42,7 +42,7 @@ class Part:
 
 
 def _config() -> Any:
-    from common.paths import get_ini_config
+    from common.config.paths import get_ini_config
 
     return get_ini_config()
 

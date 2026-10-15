@@ -19,7 +19,8 @@ from typing import Any
 
 from common import apps
 from common.atomic_write import staged_for
-from common.config_store import ConfigStore
+from common.config.config_store import ConfigStore
+from common.config.paths import COLLECTIONS_PATH, CONFIG_DIR, VPINFE_INI_PATH, VPSDB_PATH
 from common.games import (
     game_index_service,
     game_repository,
@@ -54,7 +55,6 @@ from common.games.tables import (
 from common.games.unreadable import UnreadableGame
 from common.i18n import t
 from common.online import vps_formats
-from common.paths import COLLECTIONS_PATH, CONFIG_DIR, VPINFE_INI_PATH, VPSDB_PATH
 from common.release import migration_ledger
 from common.runtime import job_details, jobs
 from common.runtime.jobs import LogCallback, ProgressCallback

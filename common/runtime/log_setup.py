@@ -182,7 +182,7 @@ def configure_logging(log_dir: Path, ini_config: Any = None,
     log_path = log_dir / DEFAULT_LOG_FILE_NAME
 
     if ini_config is not None:
-        from common.config_access import cfg_get
+        from common.config.config_access import cfg_get
 
         log_level = cfg_get(ini_config, "logger", "level", DEFAULT_LOG_LEVEL)
         # Through cfg_get rather than off the section directly: the key was `console`

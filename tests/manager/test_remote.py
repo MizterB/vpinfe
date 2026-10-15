@@ -233,7 +233,7 @@ class TakePictureTests(unittest.TestCase):
         self.assertFalse(remote.takes_pictures(self.PLAYING, self.UP | {"running": False}))
 
     def test_its_press_is_the_input_action_of_that_name(self) -> None:
-        from common import input_registry
+        from common.config import input_registry
 
         self.assertIn("take_picture", input_registry.IN_PLAY)
         self.assertIn("back", input_registry.IN_PLAY)

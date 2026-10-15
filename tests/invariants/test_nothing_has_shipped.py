@@ -10,7 +10,7 @@ import json
 import unittest
 from pathlib import Path
 
-from common import config_schema
+from common.config import config_schema
 
 ROOT = Path(__file__).resolve().parents[2]
 LEGACY = ROOT / "tests" / "fixtures" / "config_legacy_names.json"

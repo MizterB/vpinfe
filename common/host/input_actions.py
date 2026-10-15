@@ -2,7 +2,7 @@
 
 The keyboard and the gamepad both reach the frontend from inside the page. This is the
 third producer: a caller says a player pressed something, and the install puts it on the
-bus for the windows to answer. What an action *means* is `common/input_registry.py`; this
+bus for the windows to answer. What an action *means* is `common/config/input_registry.py`; this
 is only how one arrives.
 
 A hold is a press and a release, never a discrete action repeated on a timer. Put the
@@ -22,7 +22,8 @@ from __future__ import annotations
 import logging
 import threading
 
-from common import events, input_registry
+from common import events
+from common.config import input_registry
 
 logger = logging.getLogger("vpinfe.common.host.input_actions")
 
@@ -106,7 +107,8 @@ def act(action: str, phase: str, *, source: str,
     down. That is the same press as far as the frontend is concerned; only the first one
     is announced.
     """
-    from common import input_registry, service_errors
+    from common import service_errors
+    from common.config import input_registry
     from common.i18n import t
 
     action = (action or "").strip()

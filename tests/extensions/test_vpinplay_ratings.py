@@ -15,7 +15,8 @@ from unittest.mock import patch
 
 from starlette.testclient import TestClient
 
-from common import paths, tokens
+from common import tokens
+from common.config import paths
 from common.extensions import catalogs, contributions, host, store
 from common.games import community_lists
 from tests.support import served

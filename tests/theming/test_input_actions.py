@@ -15,7 +15,7 @@ import re
 import unittest
 from pathlib import Path
 
-from common import config_schema, input_registry
+from common.config import config_schema, input_registry
 from frontend import input_api
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent

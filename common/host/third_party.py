@@ -1,7 +1,7 @@
 """Finding and loading the third_party libraries the app ships with.
 
 DOF and libdmdutil are not packaged as Python dependencies - they are dropped into
-`third_party/` by the build and imported from a path at runtime. `common.paths.bundled`
+`third_party/` by the build and imported from a path at runtime. `common.config.paths.bundled`
 knows where that is; an environment variable overrides it for a developer working
 against a local checkout of one. Nothing here is specific to DOF or libdmdutil; the
 extension host will want the same primitives.
@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 from types import ModuleType
 
-from common.paths import bundled
+from common.config.paths import bundled
 
 
 def find_named_path(base: Path, names: tuple[str, ...]) -> Path | None:

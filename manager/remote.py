@@ -27,11 +27,11 @@ from typing import Any
 from nicegui import background_tasks, run, ui
 
 from common import events
+from common.config.labels import humanize
 from common.devices import device_registry, install_identity, serving
 from common.failures import why
 from common.host.launch_state import SOURCE_CAPTURE
 from common.i18n import t
-from common.labels import humanize
 from manager import remote_record
 from manager.kit import (
     acting,
@@ -1875,8 +1875,8 @@ def where_to_find_it() -> str:
     not to work from anywhere else. Carries the Remote pass, so a scan signs the phone in.
     Empty while this install answers only itself, since no phone can reach it.
     """
+    from common.config.paths import get_ini_config
     from common.host.addresses import best
-    from common.paths import get_ini_config
     from common.security import access_keys
 
     network = serving.network(get_ini_config())

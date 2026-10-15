@@ -14,9 +14,9 @@ from unittest import mock
 from starlette.testclient import TestClient
 
 import httpapi
+from common.config.paths import get_ini_config
 from common.games import asset_resolver, game_repository, media_service
 from common.games.library_folders import KIND_ROOT, Location
-from common.paths import get_ini_config
 from httpapi.responses import FOREVER
 from tests.support.library import TempTree, game_info, write_game
 

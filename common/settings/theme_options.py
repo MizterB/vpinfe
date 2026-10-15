@@ -17,10 +17,10 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from common import config_service
 from common.i18n import t
+from common.settings import config_service
 
-logger = logging.getLogger("vpinfe.common.theme_options")
+logger = logging.getLogger("vpinfe.common.settings.theme_options")
 
 
 def load(folder: str) -> dict[str, Any]:

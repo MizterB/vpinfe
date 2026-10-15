@@ -14,9 +14,9 @@ from typing import Any
 from nicegui import run, ui
 
 from common import icons
+from common.config.labels import humanize
 from common.games import asset_registry
 from common.i18n import t
-from common.labels import humanize
 from common.media.media_specs import media_label_map
 from manager import collection_adds, game_acts, mediaview, row_drag, sections
 from manager import settings as settings_page

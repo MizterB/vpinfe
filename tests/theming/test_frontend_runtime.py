@@ -142,7 +142,7 @@ class SetupPendingTests(unittest.TestCase):
         with mock.patch.object(runtime, "get_display_monitors",
                                return_value=[mock.Mock()]), \
              mock.patch.object(runtime, "install_setup") as fake_pending, \
-             mock.patch("common.paths.get_ini_config", return_value=mock.Mock()):
+             mock.patch("common.config.paths.get_ini_config", return_value=mock.Mock()):
             fake_pending.pending.return_value = True
             runtime.run_frontend_loop(False, mock.Mock(), browser, threading.Event(),
                                       mock.Mock())
@@ -158,7 +158,7 @@ class SetupPendingTests(unittest.TestCase):
         with mock.patch.object(runtime, "get_display_monitors",
                                return_value=[mock.Mock()]), \
              mock.patch.object(runtime, "install_setup") as fake_pending, \
-             mock.patch("common.paths.get_ini_config", return_value=mock.Mock()):
+             mock.patch("common.config.paths.get_ini_config", return_value=mock.Mock()):
             fake_pending.pending.return_value = True
             runtime.run_frontend_loop(False, mock.Mock(), browser, threading.Event(),
                                       mock.Mock())
@@ -179,7 +179,7 @@ class SetupPendingTests(unittest.TestCase):
                                return_value=[mock.Mock()]), \
              mock.patch.object(runtime, "SETUP_POLL_S", 0.01), \
              mock.patch.object(runtime, "install_setup") as fake_pending, \
-             mock.patch("common.paths.get_ini_config", return_value=mock.Mock()):
+             mock.patch("common.config.paths.get_ini_config", return_value=mock.Mock()):
             fake_pending.pending.side_effect = _still_pending
             runtime.run_frontend_loop(False, mock.Mock(), browser, shutdown_event,
                                       mock.Mock())
@@ -195,7 +195,7 @@ class SetupPendingTests(unittest.TestCase):
         with mock.patch.object(runtime, "get_display_monitors",
                                return_value=[mock.Mock()]), \
              mock.patch.object(runtime, "install_setup") as fake_setup, \
-             mock.patch("common.paths.get_ini_config", return_value=mock.Mock()):
+             mock.patch("common.config.paths.get_ini_config", return_value=mock.Mock()):
             fake_setup.pending.side_effect = [True, False, False]
             runtime.run_frontend_loop(False, mock.Mock(), browser, threading.Event(),
                                       mock.Mock())
@@ -231,7 +231,7 @@ class SetupPendingTests(unittest.TestCase):
                                    return_value=[mock.Mock()]), \
                  mock.patch.object(runtime, "SETUP_POLL_S", 0.01), \
                  mock.patch.object(runtime, "install_setup") as fake_setup, \
-                 mock.patch("common.paths.get_ini_config", return_value=mock.Mock()):
+                 mock.patch("common.config.paths.get_ini_config", return_value=mock.Mock()):
                 fake_setup.pending.side_effect = lambda _config: not setup_finished.is_set()
                 runtime.run_frontend_loop(False, mock.Mock(), browser, shutdown_event,
                                           mock.Mock())
@@ -356,7 +356,7 @@ class ReopenWindowsTests(unittest.TestCase):
                                side_effect=self._served), \
              mock.patch.object(runtime, "_apply_theme_media_sets",
                                side_effect=lambda *_a: self.order.append("sets")), \
-             mock.patch("common.paths.get_ini_config", return_value=mock.Mock()), \
+             mock.patch("common.config.paths.get_ini_config", return_value=mock.Mock()), \
              mock.patch("common.games.game_repository.reread_media_settings",
                         return_value=media_changed):
             setup.pending.return_value = pending
@@ -413,7 +413,7 @@ class ReopenWindowsTests(unittest.TestCase):
 
     def test_closing_leaves_the_run_going(self) -> None:
         with mock.patch.object(runtime, "install_setup") as setup, \
-             mock.patch("common.paths.get_ini_config", return_value=mock.Mock()):
+             mock.patch("common.config.paths.get_ini_config", return_value=mock.Mock()):
             setup.pending.return_value = False
             runtime.close_windows(self.browser, mock.Mock())
 
@@ -422,7 +422,7 @@ class ReopenWindowsTests(unittest.TestCase):
 
     def test_closing_while_setup_is_pending_closes_nothing(self) -> None:
         with mock.patch.object(runtime, "install_setup") as setup, \
-             mock.patch("common.paths.get_ini_config", return_value=mock.Mock()):
+             mock.patch("common.config.paths.get_ini_config", return_value=mock.Mock()):
             setup.pending.return_value = True
             runtime.close_windows(self.browser, mock.Mock())
 
@@ -445,7 +445,7 @@ class ReopenWindowsTests(unittest.TestCase):
         def _run() -> None:
             with mock.patch.object(runtime, "get_display_monitors", return_value=[]), \
                  mock.patch.object(runtime, "install_setup") as setup, \
-                 mock.patch("common.paths.get_ini_config", return_value=mock.Mock()):
+                 mock.patch("common.config.paths.get_ini_config", return_value=mock.Mock()):
                 setup.pending.return_value = False
                 runtime.run_frontend_loop(False, mock.Mock(), self.browser, self.event,
                                           mock.Mock())

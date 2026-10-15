@@ -13,8 +13,8 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
+from common.config.paths import APP_ROOT
 from common.devices import device_registry
-from common.paths import APP_ROOT
 
 RESTART_KEY = "restart_requested"
 

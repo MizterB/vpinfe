@@ -14,7 +14,7 @@ from typing import Any
 
 from nicegui import ui
 
-from common import paths
+from common.config import paths
 from common.devices import serving as serving_state
 from common.failures import why
 from common.i18n import t

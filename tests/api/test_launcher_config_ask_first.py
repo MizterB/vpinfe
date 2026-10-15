@@ -11,7 +11,8 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 import httpapi
-from common import path_state, service_errors
+from common import service_errors
+from common.config import path_state
 from common.games import launcher_ops, launchers
 from common.i18n import t
 from tests.support.hung_folder import never_answering

@@ -28,8 +28,9 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from common import events, paths, service_errors
+from common import events, service_errors
 from common.atomic_write import write_atomic
+from common.config import paths
 from common.failures import why
 from common.i18n import t
 

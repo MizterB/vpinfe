@@ -11,9 +11,10 @@ import sys
 import unittest
 from unittest import mock
 
-from common import config_schema, mounts, path_state, service_errors
+from common import mounts, service_errors
 from common.apps.contract import Field
-from common.config_schema import ConfigList, ListVariant
+from common.config import config_schema, path_state
+from common.config.config_schema import ConfigList, ListVariant
 from tests.config.test_config_lists import declared
 from tests.support.hung_folder import never_answering
 from tests.support.library import TempTree

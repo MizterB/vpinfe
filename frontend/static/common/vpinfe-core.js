@@ -177,7 +177,7 @@ const REPEATING_ACTIONS = new Set(
   ["previous", "next", "page_previous", "page_next"]);
 
 // What the page still answers while a table runs, and only by handing it to core, which
-// knows whether the table is frozen. `IN_PLAY` in common/input_registry.py.
+// knows whether the table is frozen. `IN_PLAY` in common/config/input_registry.py.
 const PLAY_ACTIONS = new Set(["take_picture", "back"]);
 
 const MISSING_MEDIA_URL = "/core/images/file_missing.png";

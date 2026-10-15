@@ -13,7 +13,7 @@ import requests
 from fastapi.testclient import TestClient
 
 import httpapi
-from common import paths
+from common.config import paths
 from common.host import frontend_browser
 from common.i18n import t
 from manager import settings

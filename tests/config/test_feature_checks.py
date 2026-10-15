@@ -7,10 +7,11 @@ import os
 import unittest
 from tempfile import TemporaryDirectory
 
-from common import feature_checks, path_state
+from common.config import path_state
 from common.devices import install_identity
 from common.games.launchers import Launcher
 from common.games.library_folders import Location, state_of
+from common.settings import feature_checks
 
 
 class RequirementTests(unittest.TestCase):

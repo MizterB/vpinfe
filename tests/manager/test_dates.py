@@ -11,7 +11,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
-from common import config_schema, i18n
+from common import i18n
+from common.config import config_schema
 from manager.kit import when
 
 DAY = datetime(2026, 4, 29, 11, 26, 53, tzinfo=UTC)
@@ -91,8 +92,8 @@ class TheSettingsFile(unittest.TestCase):
         self.file.write_text("{}", encoding="utf-8")
         self.reads = 0
         self.dates = "iso"
-        for one in (patch("common.paths.VPINFE_INI_PATH", self.file.with_suffix(".ini")),
-                    patch("common.paths.get_ini_config", self._read),
+        for one in (patch("common.config.paths.VPINFE_INI_PATH", self.file.with_suffix(".ini")),
+                    patch("common.config.paths.get_ini_config", self._read),
                     patch.object(when, "_settings", None)):
             one.start()
             self.addCleanup(one.stop)

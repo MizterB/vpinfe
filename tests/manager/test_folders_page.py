@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 from nicegui import ui
 
-from common import path_state
+from common.config import path_state
 from common.devices import install_identity
 from common.games import library_folders as model
 from manager import folders

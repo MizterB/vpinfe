@@ -27,9 +27,9 @@ ALLOWED = {
     ("common/devices/device_client.py", "frontend"),
 }
 
-# A unit of `common/` is a package, or a flat module standing for the package it will move
-# to. A unit may import its own rank or any below it; the tiers say what is allowed to know
-# about what. Every domain is rank 5 and may import another domain.
+# A unit of `common/` is a package, and the flat modules beside them are core. A unit may
+# import its own rank or any below it; the tiers say what is allowed to know about what.
+# Every domain is rank 5 and may import another domain.
 RANK = {
     "core": 0, "i18n": 0, "apps": 0,
     "config": 1,
@@ -40,24 +40,13 @@ RANK = {
     "extensions": 5,
 }
 
-# The packages that do not exist yet: a flat module is filed under the one it moves to.
-# A module that is in none of these is core, and a move deletes its line.
-FUTURE_HOME = {
-    **dict.fromkeys(("config_access", "config_schema", "config_store", "setting_groups",
-                     "labels", "input_registry", "paths", "path_state",
-                     "ui_preferences"), "config"),
-    **dict.fromkeys(("config_service", "settings_waiting", "feature_checks", "port_checks",
-                     "theme_options"), "settings"),
-}
-
 # The imports that run against the ranks, each with the file that makes it. This list only
 # shrinks: a new entry means a module reaching for something above it, and the fix is to
 # hand the thing down, not to add a line here.
 UPWARD: dict[tuple[str, str], str] = {
     ("common/apps/__init__.py", "config"): "reads a label from the config tier",
-    ("common/config_store.py", "games"): "the .info backups helper",
-    ("common/config_service.py", "backups"): "the settings service names the backups folder",
-    ("common/settings_waiting.py", "extensions"): "asks the extension host what is waiting",
+    ("common/settings/settings_waiting.py", "extensions"):
+        "asks the extension host what is waiting",
 }
 
 
@@ -111,12 +100,13 @@ def _unit_of(module: str) -> str | None:
         return None
     if len(parts) == 1:
         return "core"
-    return parts[1] if parts[1] in RANK else FUTURE_HOME.get(parts[1], "core")
+    return parts[1] if parts[1] in RANK else "core"
 
 
 def _common_units(tree: ast.Module) -> set[str]:
     """Every unit of `common/` this module imports, whether it names the module
-    (`from common.paths import X`) or imports it from the package (`from common import paths`)."""
+    (`from common.config.paths import X`) or imports it from the package
+    (`from common.config import paths`)."""
     found = set()
     for node in ast.walk(tree):
         names: list[str] = []
@@ -172,24 +162,20 @@ class LayeringTests(unittest.TestCase):
         self.assertEqual(sorted(set(UPWARD) - set(_upward_imports())), [])
 
     def test_every_module_of_common_has_a_rank(self) -> None:
-        """A new package is ranked, and a placement for a module that moved is dropped.
-        A flat module in neither table is core, so it fails only by importing upward."""
-        flat = {path.stem for path in (REPO / "common").glob("*.py")
-                if path.stem != "__init__"}
+        """A new package is ranked. A flat module is core, so it fails only by importing
+        upward."""
         packages = {path.name for path in (REPO / "common").iterdir()
                     if path.is_dir() and path.name != "__pycache__"}
         self.assertEqual(sorted(packages - set(RANK)), [])
-        self.assertEqual(sorted(set(FUTURE_HOME) - flat), [])
-        self.assertEqual(sorted(set(FUTURE_HOME.values()) - set(RANK)), [])
 
     def test_the_rank_check_sees_an_import_however_it_is_spelled(self) -> None:
         tree = trees.parse_snippet(
-            "from common import paths, games\n"
+            "from common import players, games\n"
             "from common.online import themes\n"
             "import common.host.dof_service\n"
             "from . import sibling\n")
 
-        self.assertEqual(sorted(_common_units(tree)), ["config", "games", "host", "online"])
+        self.assertEqual(sorted(_common_units(tree)), ["games", "host", "online", "players"])
 
     def test_common_names_no_extension_to_the_extension_store(self) -> None:
         """An extension's settings are its own. Core reading one by name makes a core

@@ -17,7 +17,8 @@ import unittest.mock
 from fastapi.testclient import TestClient
 
 import httpapi
-from common import config_schema, config_service
+from common.config import config_schema
+from common.settings import config_service
 
 
 class Store:

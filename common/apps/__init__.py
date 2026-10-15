@@ -15,7 +15,7 @@ import re
 from pathlib import Path
 
 from common import i18n
-from common.labels import ACRONYMS, field_label
+from common.config.labels import ACRONYMS, field_label
 
 from .contract import (
     App,

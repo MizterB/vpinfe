@@ -23,16 +23,18 @@ from typing import Any
 
 from nicegui import run, ui
 
-from common import config_schema, extensions, feature_checks, input_registry, path_state, tokens
+from common import extensions, tokens
+from common.config import config_schema, input_registry, path_state
+from common.config.labels import field_label, humanize
 from common.devices import install_identity
 from common.extensions import host as extension_host
 from common.failures import why
 from common.games.asset_registry import ALWAYS_KEPT, ASSET_SPECS
 from common.host import display_service, frontend_browser, key_reader, key_simulator, tools
 from common.i18n import size, t
-from common.labels import field_label, humanize
 from common.media.media_specs import media_label_map
 from common.online import theme_source_checks as online_checks
+from common.settings import feature_checks
 from manager import (
     attract,
     backups_move,
@@ -1446,8 +1448,8 @@ def local_trouble() -> list[Any]:
     answerable by the machine holding it, and this is that machine. Its launchers go with
     it, because whether a table can be played is now a question about one of them.
     """
+    from common.config.paths import get_ini_config
     from common.games import launchers, library_folders
-    from common.paths import get_ini_config
 
     store = launchers.get_launcher_store()
     held = library_folders.configured()

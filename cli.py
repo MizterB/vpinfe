@@ -6,11 +6,11 @@ import sys
 
 from screeninfo import get_monitors
 
-from common.config_store import ConfigStore
+from common.config.config_store import ConfigStore
+from common.config.paths import VPINFE_INI_PATH, ensure_config_dir
 from common.deprecations import announce
 from common.devices import serving
 from common.games import game_report_service, info_maintenance, metadata_service, revert_3x
-from common.paths import VPINFE_INI_PATH, ensure_config_dir
 from common.runtime.log_setup import get_logger
 from frontend.custom_http_server import CustomHTTPServer
 
@@ -45,7 +45,7 @@ def upgrade_info_files(game_name: str | None = None, progress_cb=None, log_cb=No
 
 
 def restore_info_files(game_name: str | None = None, progress_cb=None, log_cb=None):
-    from common.paths import CONFIG_DIR
+    from common.config.paths import CONFIG_DIR
 
     return info_maintenance.restore_library(
         game_name=game_name, config_dir=CONFIG_DIR,
@@ -54,8 +54,8 @@ def restore_info_files(game_name: str | None = None, progress_cb=None, log_cb=No
 
 def reset_3x_state(config_only: bool = False, dry_run: bool = False,
                    progress_cb=None, log_cb=None):
-    from common.config_access import NetworkConfig
-    from common.paths import CONFIG_DIR, STATE_DIR
+    from common.config.config_access import NetworkConfig
+    from common.config.paths import CONFIG_DIR, STATE_DIR
 
     return revert_3x.reset(
         None, CONFIG_DIR, state_dir=STATE_DIR,
@@ -78,7 +78,7 @@ def vpx_patches(progress_cb=None):
 
 def gamepadtest():
     """Run the gamepad test window using Chromium and the HTTP server."""
-    from common.config_access import cfg_get, cfg_int
+    from common.config.config_access import cfg_get, cfg_int
     from frontend.api import API
     from frontend.chromium_manager import ChromiumManager
     from frontend.device_channel import DeviceChannel

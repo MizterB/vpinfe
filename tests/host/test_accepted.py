@@ -11,7 +11,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from common import paths
+from common.config import paths
 from common.online import theme_sources
 from common.security import accepted
 

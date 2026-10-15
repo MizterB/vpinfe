@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import logging
 
+from common.config.paths import get_ini_config
 from common.devices import device_registry, discovery, install_identity, serving
 from common.devices.device_registry import get_device_registry
 from common.devices.discovery import Peer
-from common.paths import get_ini_config
 
 logger = logging.getLogger("vpinfe.common.devices.install_presence")
 

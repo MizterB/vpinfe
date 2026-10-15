@@ -16,12 +16,12 @@ from unittest.mock import Mock, patch
 import requests
 
 import httpapi
-from common import config_service
 from common.devices import device_client
 from common.devices import device_registry as registry_module
 from common.games import mobile_ops
 from common.i18n import t
 from common.runtime import jobs
+from common.settings import config_service
 from tests.support.library import TempTree
 
 try:

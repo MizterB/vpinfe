@@ -16,9 +16,10 @@ from unittest import mock
 from fastapi.testclient import TestClient
 
 import httpapi
-from common import config_service, events
-from common.config_store import ConfigStore
+from common import events
+from common.config.config_store import ConfigStore
 from common.online import theme_service
+from common.settings import config_service
 
 SCHEMA = {"title": "Reference", "options": [
     {"key": "showFlags", "name": "Show flags", "type": "boolean", "default": False},

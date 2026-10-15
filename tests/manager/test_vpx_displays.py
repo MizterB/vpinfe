@@ -12,8 +12,8 @@ from unittest.mock import AsyncMock, Mock, patch
 from screeninfo import Monitor
 
 from apps.vpx import screens as vpx
-from common import config_service
 from common.i18n import t
+from common.settings import config_service
 from manager import displays, vpx_displays
 from manager import screens_picture as picture
 from manager.kit import panel

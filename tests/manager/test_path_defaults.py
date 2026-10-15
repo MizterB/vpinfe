@@ -6,8 +6,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from common import config_service, path_state
-from common.backups import folder as backup_folder
+from common.config import path_state, paths
+from common.settings import config_service
 from manager import settings
 
 CHECKS = [{"section": "backups", "key": "folder", "state": "unset", "default": "/cfg/backups"},
@@ -32,7 +32,7 @@ class DefaultPathsCase(unittest.TestCase):
         self.assertEqual(settings.with_default_paths(SCHEMA, older), SCHEMA)
 
     def test_the_install_names_where_each_blank_one_points(self) -> None:
-        with patch.object(backup_folder, "DEFAULT_DIR", Path("/cfg/backups")), \
+        with patch.object(paths, "DEFAULT_BACKUPS_DIR", Path("/cfg/backups")), \
              patch.object(config_service, "CONFIG_DIR", Path("/cfg")):
             stands_for = config_service.blank_stands_for()
         self.assertEqual(stands_for[("backups", "folder")], str(Path("/cfg/backups")))

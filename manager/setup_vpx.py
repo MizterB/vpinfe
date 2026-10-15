@@ -18,13 +18,13 @@ from typing import Any
 
 from nicegui import ui
 
-from common.config_access import DisplayConfig
+from common.config.config_access import DisplayConfig
+from common.config.path_state import OK as PATH_OK
 from common.failures import why
 from common.games import launchers as launcher_model
 from common.games.launchers import Launcher
 from common.host import screen_size
 from common.i18n import t
-from common.path_state import OK as PATH_OK
 from manager import vpx_find, vpx_input
 from manager.binding_table import Table
 from manager.kit import offload, panel, units, verbs, when

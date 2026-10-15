@@ -17,8 +17,8 @@ from collections.abc import Callable
 from datetime import timedelta
 
 from common import timestamps
-from common.config_access import cfg_bool, cfg_get
-from common.config_store import ConfigStore
+from common.config.config_access import cfg_bool, cfg_get
+from common.config.config_store import ConfigStore
 from common.devices import device_registry
 from common.i18n import t
 from common.online import cache_stamps

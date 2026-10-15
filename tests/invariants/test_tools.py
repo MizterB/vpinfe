@@ -6,7 +6,7 @@ import re
 import unittest
 from typing import Any
 
-from common import config_schema
+from common.config import config_schema
 from common.host import tools
 from tests.support.catalogs import served
 

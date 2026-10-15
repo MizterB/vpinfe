@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Response
 
+from common.config.paths import get_ini_config
 from common.host import dof_service
 from common.online import dof_sync
-from common.paths import get_ini_config
 
 from . import jobs as jobs_api
 from . import models, scopes

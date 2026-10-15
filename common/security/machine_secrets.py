@@ -17,7 +17,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from common import atomic_write, paths
+from common import atomic_write
+from common.config import paths
 
 logger = logging.getLogger("vpinfe.common.security.machine_secrets")
 

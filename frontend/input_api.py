@@ -14,8 +14,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from common import apps, config_schema, input_registry
-from common.config_access import ConfigSource, cfg_get
+from common import apps
+from common.config import config_schema, input_registry
+from common.config.config_access import ConfigSource, cfg_get
 from common.games import launchers
 from common.i18n import t
 

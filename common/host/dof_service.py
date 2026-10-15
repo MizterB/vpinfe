@@ -21,8 +21,9 @@ from pathlib import Path
 from typing import Any
 
 from common import service_errors
-from common.config_access import cfg_bool
-from common.config_store import ConfigStore
+from common.config.config_access import cfg_bool
+from common.config.config_store import ConfigStore
+from common.config.paths import APP_ROOT
 from common.host import dof_config, launch_state
 from common.host.third_party import (
     find_named_path,
@@ -30,7 +31,6 @@ from common.host.third_party import (
     third_party_base_candidates,
 )
 from common.i18n import t
-from common.paths import APP_ROOT
 
 _LOCK = threading.Lock()
 _HELPER = None

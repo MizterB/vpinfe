@@ -21,10 +21,10 @@ from starlette.testclient import TestClient
 
 import httpapi
 from common import icons
+from common.config.paths import get_ini_config
 from common.games import collection_ops, collections_service, game_repository
 from common.games.collection_store import CollectionStore
 from common.games.library_folders import KIND_ROOT, Location
-from common.paths import get_ini_config
 from manager import assets, collections, games, media, page, themes
 from manager.kit import grid
 from manager.kit.api import ApiClient

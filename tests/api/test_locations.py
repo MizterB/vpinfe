@@ -14,7 +14,8 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 import httpapi
-from common import mounts, path_state
+from common import mounts
+from common.config import path_state
 from common.games import library_folders
 from tests.support.hung_folder import never_answering
 from tests.support.library import own_locations

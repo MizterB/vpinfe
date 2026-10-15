@@ -12,18 +12,14 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from time import perf_counter
 
-from common.config_access import MediaConfig
-from common.config_store import ConfigStore
+from common.config.config_access import MediaConfig
+from common.config.config_store import ConfigStore
 from common.failures import why
 from common.games import unreadable as unread_files
 from common.games.game import Game
 from common.games.game_metadata import vpinfe_section
 from common.games.info_file import InvalidMetaConfigError, MetaConfig
-from common.games.info_migration import (
-    backup_names,
-    backup_stamp,
-    restorable_backup,
-)
+from common.games.info_migration import restorable_backup
 from common.games.tables import (
     default_entry,
     entry_file,
@@ -32,6 +28,7 @@ from common.games.tables import (
     table_names,
 )
 from common.games.unreadable import UnreadableGame
+from common.kept_copies import backup_names, backup_stamp
 from common.media.media_specs import (
     active_set_for,
     apply_media_specs,

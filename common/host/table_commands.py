@@ -18,8 +18,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from common import apps, tokens
-from common.config_access import cfg_bool, cfg_get, cfg_int
-from common.config_store import ConfigStore
+from common.config.config_access import cfg_bool, cfg_get, cfg_int
+from common.config.config_store import ConfigStore
 from common.devices import device_registry
 from common.games import tables
 from common.games.game import Game

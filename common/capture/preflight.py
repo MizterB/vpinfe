@@ -160,7 +160,7 @@ def report(*, adapter: adapters.Adapter | adapters.Unsupported | None = None,
     env = os.environ if env is None else env
     adapter = adapters.resolve(env) if adapter is None else adapter
     if config is None:
-        from common.paths import get_ini_config
+        from common.config.paths import get_ini_config
         config = get_ini_config()
     codec = settings.video_codec(settings.read(config).video_codec, browser_state)
     head = {"observed_at": utc_now_iso(), "adapter": adapter.id, "video_codec": codec}

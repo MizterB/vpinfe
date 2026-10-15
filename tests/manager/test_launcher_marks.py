@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import unittest
 
-from common import path_state
+from common.config import path_state
 from manager import launchers
 
 

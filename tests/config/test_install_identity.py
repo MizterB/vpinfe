@@ -13,8 +13,8 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from common.config_access import cfg_get, cfg_set
-from common.config_store import ConfigStore
+from common.config.config_access import cfg_get, cfg_set
+from common.config.config_store import ConfigStore
 from common.devices import device_registry, install_identity
 
 

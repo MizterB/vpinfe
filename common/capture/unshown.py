@@ -10,8 +10,8 @@ from collections.abc import Iterable
 from typing import Any
 
 from common.atomic_write import write_atomic
+from common.config.paths import CAPTURE_DIR
 from common.host import launch, tools
-from common.paths import CAPTURE_DIR
 from common.timestamps import utc_now_iso
 
 from . import placing

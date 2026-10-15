@@ -12,6 +12,7 @@ from typing import Any
 
 import requests
 
+from common.config.paths import ASIDE_SUFFIX, CONFIG_DIR, THEMES_FOLDER, get_ini_config
 from common.i18n import t
 from common.online import (
     theme_dates,
@@ -23,7 +24,6 @@ from common.online import (
 from common.online.theme_installer import ThemeInstallStore
 from common.online.theme_level import MIN_VERSION_KEY
 from common.online.theme_registry_client import ThemeRegistryClient, ThemeRegistryError
-from common.paths import ASIDE_SUFFIX, CONFIG_DIR, THEMES_FOLDER, get_ini_config
 from common.security import accepted
 from common.security.http_client import get_json, get_text
 from common.values import newer_version, parse_version

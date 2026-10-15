@@ -7,14 +7,14 @@ import re
 from difflib import SequenceMatcher
 from typing import Any
 
-from common.config_access import MediaConfig, cfg_bool
-from common.config_store import ConfigStore
+from common.config.config_access import MediaConfig, cfg_bool
+from common.config.config_store import ConfigStore
+from common.config.paths import CACHE_DIR
 from common.games.game import Game
 from common.games.info_file import MetaConfig
 from common.online import vpsdb_media
 from common.online.vpsdb_cache import VPinMediaDatabase, VPSDatabaseCache
 from common.online.vpsdb_media import VPSMediaDownloader
-from common.paths import CACHE_DIR
 
 logger = logging.getLogger("vpinfe.common.online.vpsdb")
 

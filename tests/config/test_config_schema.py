@@ -14,8 +14,8 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from common import config_access, config_schema
-from common.config_store import ConfigStore
+from common.config import config_access, config_schema
+from common.config.config_store import ConfigStore
 
 # What a new install wrote before the schema existed, captured once. The store reads its
 # defaults from the schema now, so comparing the two would compare the schema to itself -

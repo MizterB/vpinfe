@@ -12,7 +12,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from common import config_schema
+from common.config import config_schema
 
 from .store import ExtensionStore
 

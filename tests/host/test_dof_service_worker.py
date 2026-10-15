@@ -14,8 +14,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
+from common.config.paths import APP_ROOT
 from common.host import dof_service_worker
-from common.paths import APP_ROOT
 
 STUB_RUNNER = '''
 import os

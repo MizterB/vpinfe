@@ -12,7 +12,7 @@ from __future__ import annotations
 import shlex
 from pathlib import Path
 
-from common.paths import UPDATES_DIR
+from common.config.paths import UPDATES_DIR
 
 
 def _build_posix_update_script(prepared: dict, current_pid: int, log_path: Path) -> str:

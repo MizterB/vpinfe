@@ -11,12 +11,12 @@ from pathlib import Path
 from typing import Any
 
 from common import service_errors
+from common.config.paths import CONFIG_DIR
 from common.games import info_maintenance
 from common.games.collection_store import restorable_collections_backup
 from common.games.info_migration import restorable_backup
 from common.host import system_actions
 from common.i18n import t
-from common.paths import CONFIG_DIR
 
 logger = logging.getLogger("vpinfe.common.backups.going_back")
 

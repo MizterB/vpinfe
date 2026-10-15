@@ -32,9 +32,9 @@ from common.games.game_service import (
 )
 from common.games.identity_claims import DeclaredIdentity
 from common.games.info_file import VPINFE_SECTION, MetaConfig
-from common.games.info_migration import IMPORT, copy_aside
 from common.i18n import t
 from common.ids import new_id
+from common.kept_copies import IMPORT, copy_aside
 from common.media.media_specs import media_filename_map
 from common.uploads.asset_analyzer_service import (
     AnalysisResult,
@@ -538,7 +538,7 @@ def _resolves_locally(key: str, value: object) -> bool:
     if key == "alt_launcher":
         return Path(text).expanduser().exists()
     if key == "plugin_profile":
-        from common.paths import PLUGIN_PROFILES_DIR
+        from common.config.paths import PLUGIN_PROFILES_DIR
 
         try:
             return any(p.stem == text or p.name == text

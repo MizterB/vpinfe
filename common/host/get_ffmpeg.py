@@ -15,8 +15,8 @@ from typing import Any
 
 from common import service_errors
 from common.atomic_write import staged_for
+from common.config.paths import CONFIG_DIR
 from common.i18n import size, t
-from common.paths import CONFIG_DIR
 from common.runtime import jobs
 from common.security import http_client
 

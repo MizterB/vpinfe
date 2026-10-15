@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from common import config_schema
+from common.config import config_schema
 from common.i18n import t
 from manager import settings
 from manager.kit import offload

@@ -16,8 +16,9 @@ from unittest.mock import patch
 from common import service_errors
 from common.backups import archive, media, places, relocate
 from common.backups import folder as backup_folder
-from common.config_access import cfg_set
-from common.config_store import ConfigStore
+from common.config import paths
+from common.config.config_access import cfg_set
+from common.config.config_store import ConfigStore
 from common.runtime import jobs
 from tests.support.library import TempTree
 
@@ -30,7 +31,7 @@ class BackupFolderCase(TempTree):
         (self.config / "tags.json").write_text("{}", encoding="utf-8")
         self.default = self.config / "backups"
         self.store = ConfigStore(str(self.root / "vpinfe.ini"))
-        for patcher in (patch.object(backup_folder, "DEFAULT_DIR", self.default),
+        for patcher in (patch.object(paths, "DEFAULT_BACKUPS_DIR", self.default),
                         patch.object(backup_folder, "get_ini_config",
                                      side_effect=lambda: ConfigStore(self.store.ini_path)),
                         patch.object(archive, "CONFIG_DIR", self.config)):

@@ -8,8 +8,9 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
-from common import config_schema, config_service
+from common.config import config_schema
 from common.i18n import t
+from common.settings import config_service
 from manager import settings
 from manager.kit import panel
 

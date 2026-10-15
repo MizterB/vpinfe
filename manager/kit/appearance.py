@@ -9,7 +9,7 @@ from typing import Any
 
 from nicegui import ui
 
-from common.paths import bundled
+from common.config.paths import bundled
 
 LOGO = "/static/img/vpinfe-logo.png"
 
@@ -602,8 +602,8 @@ def mode_or_default(name: str) -> str:
 
 def configured_mode() -> str:
     """The mode this install is set to. Every Manager surface asks this."""
-    from common.config_access import cfg_get
-    from common.paths import get_ini_config
+    from common.config.config_access import cfg_get
+    from common.config.paths import get_ini_config
 
     return mode_or_default(cfg_get(get_ini_config(), MODE_SECTION, MODE_KEY))
 

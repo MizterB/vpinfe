@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import unittest
 
-from common.config_store import ConfigStore
+from common.config.config_store import ConfigStore
 from common.devices import device_registry, install_setup
 from common.release import migration_ledger, whats_new
 from common.release.upgrade_needs import Need

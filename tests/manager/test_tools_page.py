@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 from fastapi.testclient import TestClient
 
 import httpapi
-from common import paths
+from common.config import paths
 from common.host import tools, vpinos
 from common.i18n import t
 from manager import settings

@@ -16,7 +16,7 @@ from typing import Any
 
 from nicegui import ui
 
-from common import input_registry
+from common.config import input_registry
 from common.i18n import t
 from manager import binding_editor
 from manager.kit import confirm, panel, verbs

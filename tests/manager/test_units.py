@@ -6,7 +6,8 @@ import subprocess
 import unittest
 from unittest import mock
 
-from common import config_schema, i18n
+from common import i18n
+from common.config import config_schema
 from manager.kit import units
 
 

@@ -7,7 +7,8 @@ import unittest
 from typing import Any
 from unittest import mock
 
-from common import config_service, setting_groups
+from common.config import setting_groups
+from common.settings import config_service
 from manager import setup, setup_controls
 
 

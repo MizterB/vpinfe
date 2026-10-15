@@ -7,9 +7,9 @@ from typing import Any
 
 from nicegui import run, ui
 
+from common.config.labels import humanize
 from common.failures import why
 from common.i18n import t
-from common.labels import humanize
 from common.media.media_specs import media_label_map
 from manager import ext_groups
 from manager.kit import arrange as arranging

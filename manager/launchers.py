@@ -22,8 +22,8 @@ from typing import Any
 
 from nicegui import run, ui
 
-from common import path_state
 from common.backups import copies as kept_copies
+from common.config import path_state
 from common.devices import install_identity
 from common.failures import why
 from common.i18n import t

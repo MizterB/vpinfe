@@ -10,8 +10,8 @@ from typing import NamedTuple
 
 from common import service_errors
 from common.atomic_write import staged_for
+from common.config.paths import CACHE_DIR
 from common.i18n import t
-from common.paths import CACHE_DIR
 
 logger = logging.getLogger("vpinfe.common.media.sized_media")
 

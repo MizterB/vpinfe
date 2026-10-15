@@ -9,19 +9,19 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from common.paths import APP_ROOT
+from common.config.paths import APP_ROOT
 
 # Imports the one module that decides where the config folder is, and has a test so that
 # a run which gets that far exits 0 on every Python.
 PROBE = """\
 import unittest
 
-import common.paths
+import common.config.paths
 
 
 class Probe(unittest.TestCase):
     def test_resolved(self) -> None:
-        self.assertTrue(common.paths.CONFIG_DIR)
+        self.assertTrue(common.config.paths.CONFIG_DIR)
 """
 
 

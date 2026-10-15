@@ -7,7 +7,7 @@ import sys
 import time
 import unittest
 
-from common.paths import bundled
+from common.config.paths import bundled
 from tests.support.browser_session import BrowserSession, chromium_path
 from tests.support.library import TempTree, write_game
 from tests.support.live_instance import LiveInstance

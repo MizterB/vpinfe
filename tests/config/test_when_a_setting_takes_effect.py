@@ -8,9 +8,11 @@ from pathlib import Path
 from typing import Any
 from unittest import mock
 
-from common import config_schema, config_service, events
+from common import events
+from common.config import config_schema
 from common.host import launch_state, peripherals, real_dmd
 from common.i18n import t
+from common.settings import config_service
 from manager import settings as settings_page
 from manager.kit import panel
 

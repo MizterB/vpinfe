@@ -15,9 +15,9 @@ import logging
 from fastapi import APIRouter, BackgroundTasks, Body
 from fastapi.responses import JSONResponse
 
+from common.config.paths import get_ini_config
 from common.devices import install_identity, install_presence, install_setup
 from common.online import app_updater
-from common.paths import get_ini_config
 from common.vpinfe_version import get_version
 
 from . import capabilities, models, scopes

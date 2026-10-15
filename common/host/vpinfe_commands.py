@@ -15,8 +15,8 @@ from __future__ import annotations
 import logging
 
 from common import tokens
-from common.config_access import cfg_get, cfg_int
-from common.config_store import ConfigStore
+from common.config.config_access import cfg_get, cfg_int
+from common.config.config_store import ConfigStore
 from common.host import bundled_libraries, commands, table_commands
 
 logger = logging.getLogger("vpinfe.common.host.vpinfe_commands")

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from common import config_schema
+from common.config import config_schema
 
 DOC = Path(__file__).resolve().parent.parent.parent / "docs" / "technical-details.md"
 
@@ -37,7 +37,7 @@ heading below is a key in it - `windows.playfield` is a `playfield` object insid
 Every name a setting has ever had keeps resolving, so an older file and a hand-edit that
 uses an old spelling both still load.
 
-<!-- generated from common/config_schema.py by tests/support/config_reference.py -->
+<!-- generated from common/config/config_schema.py by tests/support/config_reference.py -->
 """
 
 

@@ -31,7 +31,7 @@ from typing import Any
 
 from zeroconf import ServiceBrowser, ServiceInfo, ServiceStateChange, Zeroconf
 
-from common.config_store import ConfigStore
+from common.config.config_store import ConfigStore
 from common.devices import install_identity, serving
 from common.security import encrypted_connections
 from common.vpinfe_version import get_version

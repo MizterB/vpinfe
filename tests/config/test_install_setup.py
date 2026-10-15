@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 import unittest
 
-from common.config_store import ConfigStore
+from common.config.config_store import ConfigStore
 from common.devices import device_registry, install_setup
 from tests.support.library import TempTree
 

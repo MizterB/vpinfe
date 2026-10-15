@@ -17,8 +17,8 @@ import re
 import unittest
 from pathlib import Path
 
-from common import config_schema
-from common.config_access import cfg_get
+from common.config import config_schema
+from common.config.config_access import cfg_get
 
 SNAKE = re.compile(r"^[a-z][a-z0-9_]*$")
 
@@ -74,7 +74,7 @@ class CompatibilityTests(unittest.TestCase):
         file that uses an old one. Nothing else catches that - `locate` still says the
         names map, and every test that builds config by hand uses the current spelling.
         """
-        from common.config_access import NetworkConfig
+        from common.config.config_access import NetworkConfig
 
         for section, key, expected in (
             ("Network", "manageruiport", 9999),      # pre-PAR-44 section and key

@@ -24,11 +24,11 @@ from typing import Any
 
 from common import service_errors
 from common.atomic_write import staged_for
+from common.config.paths import CONFIG_DIR, STATE_DIR
 from common.games import game_repository, info_maintenance, launcher_ops, launchers
 from common.games.collection_store import COLLECTIONS_NAME, COLLECTIONS_NAME_INI
 from common.games.info_migration import needs_migration
 from common.i18n import t
-from common.paths import CONFIG_DIR, STATE_DIR
 from common.vpinfe_version import get_version
 
 from . import folder as backup_folder

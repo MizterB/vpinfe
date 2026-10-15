@@ -30,7 +30,7 @@ def own_registry(case: unittest.TestCase, path: Path | str) -> device_registry.D
     """
     from unittest.mock import patch
 
-    from common import config_service
+    from common.settings import config_service
 
     device_registry.reset_for_tests(Path(path))
     case.addCleanup(device_registry.reset_for_tests)
@@ -49,9 +49,9 @@ def own_locations(case: unittest.TestCase, folder: Path | str):
     """
     from unittest.mock import patch
 
-    from common import config_service
-    from common.config_store import ConfigStore
+    from common.config.config_store import ConfigStore
     from common.games import library_folders
+    from common.settings import config_service
 
     kept = Path(folder)
     kept.mkdir(parents=True, exist_ok=True)
@@ -73,9 +73,9 @@ def own_launchers(case: unittest.TestCase, folder: Path | str):
     """
     from unittest.mock import patch
 
-    from common import config_service
-    from common.config_store import ConfigStore
+    from common.config.config_store import ConfigStore
     from common.games import launchers
+    from common.settings import config_service
 
     kept = Path(folder)
     kept.mkdir(parents=True, exist_ok=True)

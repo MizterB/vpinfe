@@ -20,10 +20,10 @@ from typing import Any, cast
 from common import apps, i18n, tokens
 from common.apps import OWN_FIELDS
 from common.apps.contract import Availability, ConfigGroup, Field
-from common.config_schema import ConfigOption
+from common.config.config_schema import ConfigOption
+from common.config.input_registry import InputAction, actions
 from common.games.asset_registry import ASSET_SPECS, AssetSpec
 from common.games.collection_filters import AXES, FilterAxis
-from common.input_registry import InputAction, actions
 from common.media.media_specs import MEDIA_SPECS, MediaSpec
 from common.tokens import Token
 from frontend.custom_http_server import CORE_WORDS
@@ -69,12 +69,12 @@ class TestEveryRegistryResolves(unittest.TestCase):
         self._check([(f"input.{a.name}.label", a.label) for a in actions()])
 
     def test_setting_groups(self) -> None:
-        from common import config_schema
+        from common.config import config_schema
         self._check(sorted({(f"config.group.{o.group}", o.group_label)
                             for o in config_schema.options() if o.group}))
 
     def test_settings_that_are_shown(self) -> None:
-        from common import config_schema
+        from common.config import config_schema
         shown = [o for o in config_schema.options() if not o.internal]
         missing = [f"{o.section}.{o.key}" for o in shown if not o.label]
         self.assertEqual(missing, [], "a setting with no name of its own")
@@ -181,7 +181,7 @@ READ_FOR = {
     "common/games/mobile_transfer.py": frozenset({"raise", "refusal"}),
     "common/runtime/jobs.py": frozenset({"raise"}),
     "common/online/theme_service.py": frozenset({"refusal"}),
-    "common/theme_options.py": frozenset({"refusal"}),
+    "common/settings/theme_options.py": frozenset({"refusal"}),
     "common/online/themes.py": frozenset({"raise"}),
     "common/online/theme_installer.py": frozenset({"raise", "refusal"}),
     "common/online/theme_registry_client.py": frozenset({"raise"}),

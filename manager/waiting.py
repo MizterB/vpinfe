@@ -15,11 +15,11 @@ from typing import Any
 
 from nicegui import ui
 
-from common import settings_waiting
 from common.devices import serving
 from common.failures import why
 from common.i18n import t
 from common.runtime import lifecycle
+from common.settings import settings_waiting
 from manager.kit import confirm, offload, panel, remembered, verbs
 from manager.kit.api import ApiClient
 from manager.kit.data import Library

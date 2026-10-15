@@ -10,7 +10,7 @@ from typing import Any
 from unittest import mock
 from urllib.parse import parse_qs, urlsplit
 
-from common.config_store import ConfigStore
+from common.config.config_store import ConfigStore
 from frontend import chromium_manager, theme_windows
 from frontend.chromium_manager import ChromiumManager
 

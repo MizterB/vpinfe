@@ -17,9 +17,9 @@ from typing import Any
 
 from nicegui import ui
 
-from common import config_schema
-from common.config_access import cfg_bool, cfg_get
-from common.paths import get_ini_config
+from common.config import config_schema
+from common.config.config_access import cfg_bool, cfg_get
+from common.config.paths import get_ini_config
 from manager.kit import art, dropdown
 
 # The row field holding the address, "" where the row has none. A row without the field

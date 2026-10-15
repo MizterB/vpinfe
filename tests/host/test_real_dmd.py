@@ -7,7 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
 
-from common.config_store import ConfigStore
+from common.config.config_store import ConfigStore
 from common.games.game import Game
 from common.host import real_dmd
 

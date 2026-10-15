@@ -7,7 +7,8 @@ import unittest
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from common import config_service, path_state
+from common.config import path_state
+from common.settings import config_service
 from manager import folders
 from manager import settings as settings_page
 from manager.kit import offload, panel

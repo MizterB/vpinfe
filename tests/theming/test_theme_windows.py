@@ -14,8 +14,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from common.config_access import DisplayConfig
-from common.config_store import ConfigStore
+from common.config.config_access import DisplayConfig
+from common.config.config_store import ConfigStore
 from frontend import theme_api, theme_windows
 from tests.support.accepted import owner_accepts_theme
 from tests.support.library import TempTree

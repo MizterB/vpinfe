@@ -5,8 +5,8 @@ from __future__ import annotations
 
 from unittest import mock
 
-from common import path_state
 from common.backups import places
+from common.config import path_state
 from common.games import library_folders
 from tests.support.hung_folder import never_answering
 from tests.support.library import TempTree, write_game

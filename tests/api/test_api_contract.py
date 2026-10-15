@@ -5,7 +5,7 @@ page's download link all speak to these routes, so a change here is a change a
 user can see. Endpoints keep their entry once they move under /api/v1, which is
 what makes a move provably behavior-preserving.
 
-Runs the app in a subprocess with a throwaway config dir: common.paths resolves
+Runs the app in a subprocess with a throwaway config dir: common.config.paths resolves
 CONFIG_DIR at import time, so isolation is only reliable in a fresh interpreter.
 """
 

@@ -5,12 +5,7 @@ from __future__ import annotations
 import configparser
 import unittest
 
-from common.config_access import (
-    DisplayConfig,
-    MediaConfig,
-    NetworkConfig,
-    SettingsConfig,
-)
+from common.config.config_access import DisplayConfig, MediaConfig, NetworkConfig, SettingsConfig
 
 
 class RealDmdPriorityTests(unittest.TestCase):
@@ -23,7 +18,7 @@ class RealDmdPriorityTests(unittest.TestCase):
         return MediaConfig.from_config(parser).realdmd_media_priority
 
     def test_it_offers_color_and_standard(self) -> None:
-        from common import config_schema
+        from common.config import config_schema
 
         option = config_schema.option("presentation", "real_dmd_media_priority")
 
@@ -31,7 +26,7 @@ class RealDmdPriorityTests(unittest.TestCase):
         self.assertEqual(option.choices, ("color", "standard"))
 
     def test_each_choice_reads_back_as_itself(self) -> None:
-        from common import config_schema
+        from common.config import config_schema
 
         option = config_schema.option("presentation", "real_dmd_media_priority")
         assert option is not None

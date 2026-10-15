@@ -10,7 +10,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Request, Response
 
-from common import paths
+from common.config import paths
 from common.devices.install_identity import display_name
 from common.host import this_machine
 from common.i18n import t

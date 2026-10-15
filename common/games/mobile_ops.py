@@ -11,11 +11,11 @@ from pathlib import Path
 from typing import Any
 
 from common import service_errors
-from common.config_access import cfg_bool, cfg_get
+from common.config.config_access import cfg_bool, cfg_get
+from common.config.paths import get_ini_config
 from common.devices import device_client, device_ops
 from common.games import export_bundle, game_identity, game_repository, mobile_transfer
 from common.i18n import t
-from common.paths import get_ini_config
 from common.runtime import jobs as job_registry
 
 

@@ -21,15 +21,16 @@ from fastapi.testclient import TestClient
 import httpapi
 from common.backups import archive, copies, pending, places
 from common.backups import folder as backup_folder
-from common.config_access import cfg_set
-from common.config_store import ConfigStore
+from common.config import paths
+from common.config.config_access import cfg_set
+from common.config.config_store import ConfigStore
 from common.devices.device_registry import DeviceRegistry
 from common.games import (
     game_repository,
     launchers,
     library_folders,
 )
-from common.games.info_migration import RESET, RESTORE, backup_path
+from common.kept_copies import RESET, RESTORE, backup_path
 from common.runtime import jobs
 from httpapi import config as config_api
 from tests.support.launchers_api import put_launcher
@@ -63,7 +64,7 @@ class BackupsCase(unittest.TestCase):
                 patch.object(archive, "STATE_DIR", self.state),
                 patch.object(pending, "CONFIG_DIR", self.config),
                 patch.object(archive, "CONFIG_DIR", self.config),
-                patch.object(backup_folder, "DEFAULT_DIR", self.config / "backups"),
+                patch.object(paths, "DEFAULT_BACKUPS_DIR", self.config / "backups"),
                 patch.object(backup_folder, "get_ini_config",
                              return_value=ConfigStore(str(root / "vpinfe.ini"))),
                 patch.object(game_repository, "all_games", side_effect=self.library_games),

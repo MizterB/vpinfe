@@ -22,7 +22,7 @@ def _game(game_id: str, tags: list[str]):
 class Registry(TempTree):
     def setUp(self) -> None:
         super().setUp()
-        patcher = patch("common.paths.TAGS_PATH", self.root / "tags.json")
+        patcher = patch("common.config.paths.TAGS_PATH", self.root / "tags.json")
         patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -74,7 +74,7 @@ class TheSweepComesFirst(TempTree):
     def setUp(self) -> None:
         super().setUp()
         replacements: tuple[tuple[str, Any], ...] = (
-            ("common.paths.TAGS_PATH", self.root / "tags.json"),
+            ("common.config.paths.TAGS_PATH", self.root / "tags.json"),
             ("common.games.library_folders.blocked_games", lambda games: []),
             ("common.games.game_repository.all_games",
              lambda: [_game("g1", ["widebody"])]))
@@ -102,7 +102,7 @@ class OverHttp(TempTree):
     def setUp(self) -> None:
         super().setUp()
         self.path = self.root / "tags.json"
-        for target, value in (("common.paths.TAGS_PATH", self.path),
+        for target, value in (("common.config.paths.TAGS_PATH", self.path),
                               ("common.games.game_repository.all_games",
                                lambda: [_game("g1", ["Wide Body"]),
                                         _game("g2", ["Wide Body", "EM"])])):

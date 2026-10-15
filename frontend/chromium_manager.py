@@ -26,12 +26,12 @@ from typing import Any, NamedTuple
 from urllib.parse import quote, urlparse
 
 from common import i18n
-from common.config_access import DisplayConfig, NetworkConfig, SettingsConfig, cfg_get
-from common.config_store import ConfigStore
+from common.config.config_access import DisplayConfig, NetworkConfig, SettingsConfig, cfg_get
+from common.config.config_store import ConfigStore
+from common.config.paths import bundled
 from common.devices import serving
 from common.games import remote_library
 from common.host import bundled_libraries
-from common.paths import bundled
 from common.runtime.log_setup import include_thirdparty_logs
 from frontend import theme_api, theme_windows
 
@@ -286,7 +286,7 @@ def _build_window_url(
 
 
 def resource_path(relative_path: str) -> str:
-    """Kept as the name three call sites below use; `common.paths.bundled` is the answer."""
+    """Kept as the name three call sites below use; `common.config.paths.bundled` is the answer."""
     return str(bundled(*relative_path.split("/")))
 
 
@@ -296,7 +296,7 @@ ChromiumPath = namedtuple("ChromiumPath", ["path", "using_local_install"])
 def configured_browser_path() -> str:
     """The Browser Program setting, or "" when the browser is to be found."""
     try:
-        from common.paths import get_ini_config
+        from common.config.paths import get_ini_config
 
         return cfg_get(get_ini_config(), "chromium", "path", "").strip()
     except Exception:  # noqa: BLE001 - no config readable means nothing was chosen

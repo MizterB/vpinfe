@@ -12,8 +12,8 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 from starlette.testclient import TestClient
 
 import httpapi
-from common import config_schema, paths
 from common.capture import adapters, commands, preflight
+from common.config import config_schema, paths
 from common.host import tools
 from common.i18n import t
 from manager import recording, settings

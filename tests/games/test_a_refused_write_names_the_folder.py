@@ -19,14 +19,9 @@ from common.atomic_write import naming_folder, staged_for
 from common.failures import why
 from common.games import asset_ops
 from common.games.game_service import replace_table
-from common.games.info_migration import (
-    RESTORE,
-    copy_aside,
-    replace_atomic,
-    write_backup,
-    write_json_atomic,
-)
+from common.games.info_migration import replace_atomic, write_json_atomic
 from common.i18n import t
+from common.kept_copies import RESTORE, copy_aside, write_backup
 from common.online import vpsdb_media
 from common.uploads.asset_analyzer_service import analyze_path
 from common.uploads.asset_import_service import (

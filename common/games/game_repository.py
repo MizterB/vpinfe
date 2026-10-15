@@ -13,7 +13,9 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any
 
-from common import events, path_state
+from common import events
+from common.config import path_state
+from common.config.paths import COLLECTIONS_PATH, get_ini_config
 from common.games import derived_tags, library_folders, unwritten
 from common.games.collection_store import CollectionStore
 from common.games.game import Game
@@ -45,7 +47,6 @@ from common.games.game_parser import GameParser
 from common.games.info_migration import INFO_SCHEMA, schema_of
 from common.games.tables import all_hidden, table_entries
 from common.games.unreadable import UnreadableGame
-from common.paths import COLLECTIONS_PATH, get_ini_config
 
 _LOCK = threading.Lock()
 # One parser per location, keyed by its path and kind. A parser reads one path and knows

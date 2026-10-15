@@ -8,8 +8,8 @@ import zipfile
 from datetime import UTC, datetime
 from unittest.mock import patch
 
-from common import path_state
 from common.backups import archive, copies, ops, pending
+from common.config import path_state
 from common.devices.device_registry import DeviceRegistry
 from tests.api.test_backups import OLD, BackupsCase
 from tests.support.hung_folder import never_answering

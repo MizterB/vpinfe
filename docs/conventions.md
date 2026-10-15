@@ -176,7 +176,7 @@ feature-detect them. That is what keeps bumps rare enough to be worth doing prop
   anything that has no other one.
 - `scripts/` is what the build *runs*; `packaging/` is what it *ships*. The fetch scripts are
   the first, the icon and the PyInstaller spec are the second.
-- Reach a shipped file through `common.paths.bundled()`. It answers for a source checkout and
+- Reach a shipped file through `common.config.paths.bundled()`. It answers for a source checkout and
   for both kinds of frozen build, so nothing needs its own chain of guesses.
 - A file the app reads that is not Python sits under a root `packaging/vpinfe.spec` lists, or
   it is absent from the build. `tests/invariants/test_build_ships_its_data.py` fails on one
@@ -296,7 +296,7 @@ shows it: the words stay as they were when the default moves. So a default named
 is rendered from the setting's own `default`, through a catalog string with a slot, and is
 never typed into a description.
 
-- A setting declares whose its default is with `default_is` in `common/config_schema.py`:
+- A setting declares whose its default is with `default_is` in `common/config/config_schema.py`:
   `community` for the community's standard, `vpinfe` where no standard exists. `unit` says
   what a number counts.
 - Left at the default, the line under the field says only whose it is - *Community
@@ -312,7 +312,7 @@ description holds its default number or text.
 
 A person who changes a setting is owed an answer to *when*, and a setting that quietly waits
 for a restart reads as broken. Each setting declares `applies` in
-`common/config_schema.py`, from where it is read:
+`common/config/config_schema.py`, from where it is read:
 
 - `now` is the default: read each time it is used, or acted on as it is saved. DOF and the
   real DMD are the second kind - `common/host/peripherals.py` hears `settings.changed` and
@@ -1498,7 +1498,7 @@ What's busy, puts them in a `.manager-tile-rows`: a name, a share and a size to 
 - **Every label takes title case, with acronyms as acronyms** — a panel's fact, a column
   header, a picker entry. Small words stay down unless they lead or close it, because the
   registries already write "Point of View" by hand and a rule producing "Point Of View" would
-  disagree with the thing it is the fallback for. `common/labels.py` is that rule and there is
+  disagree with the thing it is the fallback for. `common/config/labels.py` is that rule and there is
   one of it: `humanize` and `field_label` are the same function under two names, so a column
   picker and a panel cannot case a word two ways. **Apply it where labels pass, not at each
   call site** — three spellings arrived in one file by each caller typing its own.
@@ -1622,7 +1622,7 @@ What's busy, puts them in a `.manager-tile-rows`: a name, a share and a size to 
   place that knows how the word expands. Deriving a label with `key.replace("_", " ")` is
   what put `real dmd color` in a column picker beside `Manufacturer`. Where a key must be
   shown because nothing has named it, derive it as an explicit *fallback* after asking the
-  registry, the way `config_schema.label_for` does. `humanize()` in `common/labels.py` is that
+  registry, the way `config_schema.label_for` does. `humanize()` in `common/config/labels.py` is that
   fallback: it knows this project's acronyms, so `rom_audit` reads **ROM Audit**.
 - **A grid column is as wide as its header unless its values are longer.** Width is
   derived, not chosen: pass one only for a title, an author or a path, and treat it as a

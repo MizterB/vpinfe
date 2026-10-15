@@ -581,7 +581,7 @@ class TheLastGoodRead(unittest.TestCase):
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         self.kept = Path(folder.name)
-        kept = patch("common.paths.COMMUNITY_KEPT_DIR", self.kept)
+        kept = patch("common.config.paths.COMMUNITY_KEPT_DIR", self.kept)
         kept.start()
         self.addCleanup(kept.stop)
 

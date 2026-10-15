@@ -7,7 +7,7 @@ import unittest
 from unittest import mock
 
 from common import service_errors
-from common.config_store import ConfigStore
+from common.config.config_store import ConfigStore
 from common.online import theme_ops, theme_sources
 from tests.support.library import TempTree
 

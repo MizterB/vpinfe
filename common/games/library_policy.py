@@ -12,8 +12,8 @@ from __future__ import annotations
 import threading
 from typing import Any
 
-from common.config_store import ConfigStore
-from common.paths import get_ini_config
+from common.config.config_store import ConfigStore
+from common.config.paths import get_ini_config
 
 SECTION = "library"
 

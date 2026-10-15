@@ -12,7 +12,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from common import path_state
+from common.config import path_state
 from common.games.collection_store import CollectionStore, restorable_collections_backup
 from common.games.game_parser import GameParser
 from common.games.info_maintenance import (

@@ -20,7 +20,8 @@ from unittest import mock
 
 from starlette.requests import Request
 
-from common import events, paths
+from common import events
+from common.config import paths
 from common.extensions import reach
 from common.extensions.context import ExtensionJobs
 from common.runtime import jobs as job_registry

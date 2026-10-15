@@ -21,7 +21,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from common import config_schema, mounts, service_errors
+from common import mounts, service_errors
+from common.config import config_schema
 from common.failures import why
 from common.i18n import t
 from common.launcher_path import resolve_launcher_path

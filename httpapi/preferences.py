@@ -7,7 +7,7 @@ from typing import Any
 
 from fastapi import APIRouter, Body
 
-from common import ui_preferences
+from common.config import ui_preferences
 
 from . import scopes
 from .auth import requires

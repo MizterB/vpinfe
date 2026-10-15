@@ -12,9 +12,9 @@ from fastapi.testclient import TestClient
 from screeninfo import Monitor
 
 import httpapi
-from common import config_schema, paths
-from common.config_access import DisplayConfig
-from common.config_store import ConfigStore
+from common.config import config_schema, paths
+from common.config.config_access import DisplayConfig
+from common.config.config_store import ConfigStore
 from common.host import display_service
 from common.i18n import t
 from frontend import theme_windows

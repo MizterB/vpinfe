@@ -17,7 +17,8 @@ from urllib.parse import parse_qs
 
 from nicegui import run
 
-from common import i18n, path_state
+from common import i18n
+from common.config import path_state
 from common.i18n import t
 from manager import games, launchers, page, settings
 from manager import settings as settings_page

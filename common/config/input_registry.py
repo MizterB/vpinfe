@@ -22,7 +22,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import NamedTuple
 
-from common import setting_groups
+from common.config import setting_groups
 from common.i18n import t
 
 SECTION = "input"

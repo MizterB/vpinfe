@@ -15,11 +15,12 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
 from typing import Any
 
-from common import i18n, input_registry, setting_groups
+from common import i18n
 from common.apps.contract import Field
+from common.config import input_registry, setting_groups
+from common.config.labels import humanize
 from common.i18n import t
 from common.ids import new_id
-from common.labels import humanize
 from common.values import is_truthy
 
 # What a page press groups by. `sort` takes the groups from whatever the list is ordered
@@ -1033,7 +1034,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             type="bool",
             default="false",
             # Written true only by a fresh install's own first save
-            # (common/config_store.py). Absent or false reads the same: setup is done.
+            # (common/config/config_store.py). Absent or false reads the same: setup is done.
             internal=True,
         ),
         ConfigOption(

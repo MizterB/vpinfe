@@ -11,7 +11,7 @@ from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 from common import i18n, service_errors, timestamps
-from common.config_store import ConfigStore
+from common.config.config_store import ConfigStore
 from common.devices import device_registry
 from common.games import (
     asset_origin,

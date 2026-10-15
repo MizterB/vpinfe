@@ -11,7 +11,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TypedDict
 
-from common import path_state, service_errors
+from common import service_errors
+from common.config import path_state
 from common.failures import why
 from common.games import library_folders
 from common.games.collection_store import restorable_collections_backup
@@ -23,14 +24,13 @@ from common.games.info_file import (
 )
 from common.games.info_migration import (
     INFO_SCHEMA,
-    RESTORE,
     copied_from,
-    copy_aside,
     replace_atomic,
     restorable_backup,
     write_json_atomic,
 )
 from common.i18n import t
+from common.kept_copies import RESTORE, copy_aside
 from common.runtime.jobs import JobReporter, LogCallback, ProgressCallback
 
 logger = logging.getLogger("vpinfe.common.games.info_maintenance")

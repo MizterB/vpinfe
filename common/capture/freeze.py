@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from common import events
-from common.config_access import cfg_get
+from common.config.config_access import cfg_get
 from common.host import launch_state, tools
 
 from . import adapters, compose, geometry, placing, preflight
@@ -62,7 +62,7 @@ class Shot:
 
 
 def _work() -> Path:
-    from common.paths import CAPTURE_DIR
+    from common.config.paths import CAPTURE_DIR
 
     return CAPTURE_DIR / "picture"
 
@@ -89,7 +89,7 @@ def aim(playing: Playing | None = None, config: Any = None) -> Aim | None:
             adapter.reason, adapter.params)))
         return None
     if config is None:
-        from common.paths import get_ini_config
+        from common.config.paths import get_ini_config
         config = get_ini_config()
     from common.host import display_service
 

@@ -16,8 +16,8 @@ from collections.abc import Sequence
 from typing import Any
 from urllib.parse import quote
 
-from common import paths
-from common.config_access import SettingsConfig, cfg_get
+from common.config import paths
+from common.config.config_access import SettingsConfig, cfg_get
 from common.i18n import t
 from frontend.chromium_manager import ChromiumManager
 

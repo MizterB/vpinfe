@@ -12,8 +12,8 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from common import config_schema
-from common.paths import ASIDE_SUFFIX, THEMES_FOLDER
+from common.config import config_schema
+from common.config.paths import ASIDE_SUFFIX, THEMES_FOLDER
 
 logger = logging.getLogger("vpinfe.common.online.theme_seed")
 

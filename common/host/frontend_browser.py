@@ -15,8 +15,8 @@ import threading
 from dataclasses import dataclass
 from typing import Any
 
-from common import paths
 from common.atomic_write import write_atomic
+from common.config import paths
 from common.devices import device_registry, install_identity
 from common.i18n import t, t_source
 from common.timestamps import utc_now_iso

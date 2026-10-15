@@ -15,7 +15,8 @@ from collections.abc import Callable
 from pathlib import Path
 from unittest import mock
 
-from common import path_state, service_errors
+from common import service_errors
+from common.config import path_state
 from common.games import (
     asset_ops,
     game_ops,

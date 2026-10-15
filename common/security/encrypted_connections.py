@@ -19,7 +19,7 @@ import threading
 from pathlib import Path
 from typing import Any
 
-from common import paths
+from common.config import paths
 from common.security import machine_secrets
 
 logger = logging.getLogger("vpinfe.common.security.encrypted_connections")

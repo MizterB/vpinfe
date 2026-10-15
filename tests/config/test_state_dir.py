@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import common.paths
+import common.config.paths
 
 ENV_VAR = "VPINFE_CONFIG_DIR"
 
@@ -16,7 +16,7 @@ def _as(cls, attr: str):
 
 
 class TestStateDir(unittest.TestCase):
-    """common.paths.STATE_DIR on each platform, with platformdirs' answers stubbed."""
+    """common.config.paths.STATE_DIR on each platform, with platformdirs' answers stubbed."""
 
     def setUp(self) -> None:
         self._saved = os.environ.get(ENV_VAR)
@@ -26,7 +26,7 @@ class TestStateDir(unittest.TestCase):
             os.environ.pop(ENV_VAR, None)
         else:
             os.environ[ENV_VAR] = self._saved
-        importlib.reload(common.paths)
+        importlib.reload(common.config.paths)
 
     def _resolve(self, config: str, state: str, platform: str, logs: str = "/srv/logs"):
         os.environ.pop(ENV_VAR, None)
@@ -34,7 +34,7 @@ class TestStateDir(unittest.TestCase):
               patch("platformdirs.user_state_dir", lambda *a, **k: state),
               patch("platformdirs.user_log_dir", lambda *a, **k: logs),
               patch.object(sys, "platform", platform)):
-            return importlib.reload(common.paths)
+            return importlib.reload(common.config.paths)
 
     def test_linux_keeps_state_in_the_xdg_state_folder(self) -> None:
         paths = self._resolve("/srv/vpinfe/config", "/srv/vpinfe/state",
@@ -59,7 +59,7 @@ class TestStateDir(unittest.TestCase):
     def test_an_override_keeps_state_beside_it(self) -> None:
         override = Path(tempfile.gettempdir()) / "vpinfe-override"
         os.environ[ENV_VAR] = str(override)
-        paths = importlib.reload(common.paths)
+        paths = importlib.reload(common.config.paths)
 
         self.assertEqual(paths.STATE_DIR, override.absolute() / "state")
 
@@ -93,21 +93,21 @@ class TestLogAndStateFiles(unittest.TestCase):
                       patch("platformdirs.user_log_dir",
                             _as(cls, "user_log_dir")),
                       patch.object(sys, "platform", platform)):
-                    paths = importlib.reload(common.paths)
+                    paths = importlib.reload(common.config.paths)
 
                 self.assertEqual(paths.LOG_DIR, expected or paths.CONFIG_DIR / "Logs")
 
     def test_an_override_keeps_the_logs_beside_it(self) -> None:
         override = Path(tempfile.gettempdir()) / "vpinfe-override"
         os.environ[ENV_VAR] = str(override)
-        paths = importlib.reload(common.paths)
+        paths = importlib.reload(common.config.paths)
 
         self.assertEqual(paths.LOG_DIR, override.absolute() / "logs")
 
     def test_each_file_is_in_the_folder_for_its_kind(self) -> None:
         with tempfile.TemporaryDirectory() as override:
             os.environ[ENV_VAR] = override
-            paths = importlib.reload(common.paths)
+            paths = importlib.reload(common.config.paths)
 
             self.assertEqual(paths.CAPTURE_DIR, paths.STATE_DIR / "capture")
             self.assertEqual(paths.UPDATES_DIR, paths.STATE_DIR / "updates")
@@ -123,12 +123,12 @@ class TestLogAndStateFiles(unittest.TestCase):
         from common.host import launch
         from common.online import app_updater
 
-        self.assertEqual(watching.WATCHING_PATH.parent, common.paths.STATE_DIR)
-        self.assertEqual(app_updater.LAST_UPDATE_LOG.parent, common.paths.LOG_DIR)
+        self.assertEqual(watching.WATCHING_PATH.parent, common.config.paths.STATE_DIR)
+        self.assertEqual(app_updater.LAST_UPDATE_LOG.parent, common.config.paths.LOG_DIR)
         for held in (proposals.ROOT, run.WORK, run.RUN_FILE, trial.WORK, unshown.FILE,
                      portal.KEPT, launch.CAPTURE_LAUNCH_DIR):
             with self.subTest(held=held):
-                self.assertTrue(held.is_relative_to(common.paths.CAPTURE_DIR), held)
+                self.assertTrue(held.is_relative_to(common.config.paths.CAPTURE_DIR), held)
 
 
 if __name__ == "__main__":

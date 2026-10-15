@@ -13,10 +13,10 @@ import shutil
 import zipfile
 from io import BytesIO
 
+from common.config.paths import ASIDE_SUFFIX
 from common.i18n import t
 from common.online import theme_refs
 from common.online.theme_registry_client import ThemeRegistryError
-from common.paths import ASIDE_SUFFIX
 from common.values import newer_version, parse_version
 
 

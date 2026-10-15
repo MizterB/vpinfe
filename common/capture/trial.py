@@ -13,9 +13,9 @@ from pathlib import Path
 from typing import Any
 
 from common import service_errors
+from common.config.paths import CAPTURE_DIR
 from common.host import launch_state, tools
 from common.i18n import t
-from common.paths import CAPTURE_DIR
 from common.runtime import jobs
 
 from . import adapters, commands, geometry, pipeline, preflight, run, session, settings

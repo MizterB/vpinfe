@@ -11,10 +11,10 @@ from urllib.parse import urlparse
 
 from nicegui import run, ui
 
+from common.config.labels import field_label, humanize
 from common.failures import why
 from common.games import asset_registry
 from common.i18n import t
-from common.labels import field_label, humanize
 from manager.kit import busy, deeplink, game_tables, grid, media_ownership, panel
 from manager.kit.on_page import on_page
 

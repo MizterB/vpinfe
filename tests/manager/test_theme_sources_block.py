@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi.testclient import TestClient
 
 import httpapi
-from common import paths
+from common.config import paths
 from common.online import theme_source_checks as checks
 from manager import theme_sources
 from manager.kit import offload, panel

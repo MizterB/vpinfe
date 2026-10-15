@@ -19,10 +19,10 @@ from typing import Any
 
 from nicegui import background_tasks, ui
 
+from common.config.path_state import OK as PATH_OK
 from common.games import library_folders as model
 from common.games import tables
 from common.i18n import t
-from common.path_state import OK as PATH_OK
 from manager import ext_action
 from manager.kit import offload, panel, wizard
 from manager.kit.api import ApiClient

@@ -99,7 +99,7 @@ class ShimAnnouncementTests(unittest.TestCase):
     def test_an_old_ini_key_announces_itself(self) -> None:
         from tempfile import TemporaryDirectory
 
-        from common.config_store import ConfigStore
+        from common.config.config_store import ConfigStore
 
         with TemporaryDirectory() as tmp:
             ini = Path(tmp) / "vpinfe.ini"

@@ -17,8 +17,8 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
 from common import events
-from common.config_access import cfg_bool
-from common.config_store import ConfigStore
+from common.config.config_access import cfg_bool
+from common.config.config_store import ConfigStore
 from common.games.game import GameRecord
 from common.host import launch_state
 from common.players import player_pictures

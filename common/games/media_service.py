@@ -9,7 +9,8 @@ from pathlib import Path
 from typing import NamedTuple
 from urllib.parse import quote
 
-from common.config_access import MediaConfig, cfg_get
+from common.config.config_access import MediaConfig, cfg_get
+from common.config.paths import CACHE_DIR, get_ini_config
 from common.games import asset_origin, media_probe
 from common.games.game import GameRecord
 from common.games.game_metadata import reorder_leading_article, vpinfe_section
@@ -28,7 +29,6 @@ from common.media.media_specs import (
     resolve_media_files,
     resolve_media_pages,
 )
-from common.paths import CACHE_DIR, get_ini_config
 
 logger = logging.getLogger("vpinfe.common.games.media_service")
 

@@ -16,7 +16,7 @@ from typing import Any
 
 from nicegui import ui
 
-from common import config_schema
+from common.config import config_schema
 from common.failures import why
 from common.i18n import t
 from common.online import theme_source_checks as checks

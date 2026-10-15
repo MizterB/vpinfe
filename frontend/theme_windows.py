@@ -12,7 +12,7 @@ import re
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 
-from common.config_access import ConfigSource, DisplayConfig
+from common.config.config_access import ConfigSource, DisplayConfig
 from frontend import theme_api, theme_contract
 
 logger = logging.getLogger("vpinfe.frontend.theme_windows")

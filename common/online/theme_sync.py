@@ -6,11 +6,11 @@ import logging
 import threading
 
 from common import timestamps
-from common.config_access import cfg_get
-from common.config_store import ConfigStore
+from common.config.config_access import cfg_get
+from common.config.config_store import ConfigStore
+from common.config.paths import THEME_CACHE_PATH
 from common.online import cache_stamps
 from common.online.vpsdb_sync import EVERY
-from common.paths import THEME_CACHE_PATH
 
 logger = logging.getLogger("vpinfe.common.online.theme_sync")
 

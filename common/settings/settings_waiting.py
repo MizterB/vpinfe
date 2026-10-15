@@ -16,11 +16,13 @@ import threading
 from collections.abc import Callable
 from typing import Any
 
-from common import config_schema, config_service, events, extensions
-from common.config_store import ConfigStore
+from common import events, extensions
+from common.config import config_schema
+from common.config.config_store import ConfigStore
+from common.config.paths import get_ini_config
 from common.extensions import host as extension_host
-from common.paths import get_ini_config
 from common.runtime import lifecycle
+from common.settings import config_service
 
 WAITS_RESTART = "restart"
 WAITS_REOPEN = "reopen"

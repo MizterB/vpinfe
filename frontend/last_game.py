@@ -5,8 +5,8 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 
-from common.config_access import SettingsConfig, cfg_get
-from common.config_store import ConfigStore
+from common.config.config_access import SettingsConfig, cfg_get
+from common.config.config_store import ConfigStore
 from common.devices import device_registry
 from common.games.collection_resolver import Entry
 from common.games.collection_store import LAST_COLLECTION, public_name

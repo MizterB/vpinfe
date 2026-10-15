@@ -12,8 +12,8 @@ import json
 import os
 import unittest
 
-from common import config_schema, input_registry
-from common.config_store import (
+from common.config import config_schema, input_registry
+from common.config.config_store import (
     CONFIG_SCHEMA,
     SCHEMA_KEY,
     SETTINGS_KEY,

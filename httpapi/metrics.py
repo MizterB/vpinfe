@@ -31,8 +31,8 @@ def _watched() -> list[tuple[str, dict[str, str]]]:
     lives (`library`, named by its folder), where VPinFE keeps its own files (`config`)
     and where it keeps its caches (`cache`). Those rather than every mount, because they
     are what fills up and stops something working."""
+    from common.config.paths import CACHE_DIR, CONFIG_DIR
     from common.games import library_folders
-    from common.paths import CACHE_DIR, CONFIG_DIR
 
     found: list[tuple[str, dict[str, str]]] = []
     try:

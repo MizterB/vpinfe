@@ -6,10 +6,10 @@ import re
 from pathlib import Path
 from urllib.parse import quote
 
+from common.config.paths import COLLECTIONS_PATH, get_ini_config
 from common.devices.device_registry import get_device_registry
 from common.games.collection_store import CollectionStore
 from common.i18n import t
-from common.paths import COLLECTIONS_PATH, get_ini_config
 from common.values import is_truthy
 
 COLLECTION_ICONS_DIR = COLLECTIONS_PATH.parent / "collection_icons"

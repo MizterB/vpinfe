@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import unittest
 
+from common.config.labels import field_label
 from common.games import high_scores
 from common.i18n import t
-from common.labels import field_label
 from manager.kit import panel
 from manager.kit.play_facts import score_lines
 from manager.workbench.game_play import _high_score_rows

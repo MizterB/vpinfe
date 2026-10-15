@@ -10,13 +10,14 @@ from typing import Any, cast
 from starlette.testclient import TestClient
 
 import httpapi
-from common import config_service, service_errors, tokens
+from common import service_errors, tokens
 from common.capture import commands, pipeline, settings
 from common.capture.adapters import Output
 from common.capture.geometry import Turn
 from common.capture.settings import Settings
 from common.host import tools
 from common.i18n import t
+from common.settings import config_service
 from tests.api.test_config import Store
 from tests.capture.test_preflight import found
 

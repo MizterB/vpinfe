@@ -269,7 +269,7 @@ class KeyTableTests(unittest.TestCase):
         letter, a digit, a function key or one of the named keys."""
         import re
 
-        from common import input_registry
+        from common.config import input_registry
         from common.host import keys
 
         named = set(input_registry.key_names())

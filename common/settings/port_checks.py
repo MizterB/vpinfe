@@ -11,10 +11,10 @@ from __future__ import annotations
 import socket
 from typing import Any
 
-from common import config_schema
+from common.config import config_schema
+from common.config.paths import get_ini_config
 from common.devices import serving
 from common.i18n import t
-from common.paths import get_ini_config
 
 LOWEST = 1
 HIGHEST = 65535

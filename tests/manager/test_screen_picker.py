@@ -8,9 +8,10 @@ from unittest.mock import AsyncMock, Mock, patch
 from nicegui import run
 from screeninfo import Monitor
 
-from common import config_schema, config_service
+from common.config import config_schema
 from common.host import display_service
 from common.i18n import t
+from common.settings import config_service
 from frontend.chromium_manager import MonitorInfo
 from manager import screens, settings
 from manager import settings as settings_page

@@ -13,8 +13,9 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlsplit
 
-from common import config_schema, i18n
-from common.config_access import cfg_get, cfg_list
+from common import i18n
+from common.config import config_schema
+from common.config.config_access import cfg_get, cfg_list
 
 logger = logging.getLogger("vpinfe.common.online.theme_sources")
 

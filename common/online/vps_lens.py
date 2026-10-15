@@ -11,10 +11,10 @@ from __future__ import annotations
 from typing import Any
 
 from common import service_errors, timestamps
+from common.config.paths import get_ini_config
 from common.games import mods
 from common.i18n import t
 from common.online import vps_kinds, vpsdb_sync
-from common.paths import get_ini_config
 from common.uploads.asset_import_service import vps_folder_name
 
 

@@ -1,6 +1,6 @@
 """Whether this install has finished Setup: `device.setup_pending`.
 
-Written true only by a fresh install's own first save (`common/config_store.py`); every
+Written true only by a fresh install's own first save (`common/config/config_store.py`); every
 other install reads absent the same as false, so a 2.x conversion, a hand-written
 `vpinfe.json`, or an install that already ran Setup never sees it again.
 
@@ -15,8 +15,8 @@ import os
 import threading
 from collections.abc import Callable
 
-from common.config_access import ConfigSource, cfg_bool
-from common.config_store import ConfigStore
+from common.config.config_access import ConfigSource, cfg_bool
+from common.config.config_store import ConfigStore
 from common.devices import device_registry
 
 logger = logging.getLogger("vpinfe.common.devices.install_setup")

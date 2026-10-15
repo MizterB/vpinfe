@@ -5,7 +5,7 @@ from __future__ import annotations
 import configparser
 import unittest
 
-from common.config_store import ConfigStore
+from common.config.config_store import ConfigStore
 from common.devices import device_registry
 from common.online import cache_stamps, vpsdb_sync
 from tests.support.library import own_registry
@@ -45,7 +45,7 @@ class WhenASweepIsOwed(_OwnRow):
         """Read off the schema, which is where the default actually lives. A config
         object that has never had the key set falls back to whatever the caller passed,
         so asking one of those proves nothing."""
-        from common.config_schema import options
+        from common.config.config_schema import options
 
         declared = next(one for one in options()
                         if one.section == "updates" and one.key == "update_game_details")

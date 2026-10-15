@@ -13,8 +13,9 @@ from typing import Any
 
 from nicegui import run, ui
 
-from common import apps, path_state
+from common import apps
 from common.apps import OWN_FIELDS
+from common.config import path_state
 from common.failures import why
 from common.i18n import t
 from manager import launchers as launchers_page

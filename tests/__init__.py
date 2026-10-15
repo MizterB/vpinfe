@@ -25,7 +25,7 @@ from pathlib import Path
 from platformdirs import user_cache_dir
 
 # Every test runs against an empty config directory rather than the developer's own.
-# common/paths.py resolves CONFIG_DIR at import time, so this has to happen before
+# common/config/paths.py resolves CONFIG_DIR at import time, so this has to happen before
 # anything imports common/ - a setUp is already too late.
 #
 # Without it the in-process API tests read whatever vpinfe.json the machine happens to

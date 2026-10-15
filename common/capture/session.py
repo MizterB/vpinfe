@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from common import events, service_errors
-from common.config_access import cfg_get
+from common.config.config_access import cfg_get
 from common.failures import why
 from common.games import asset_origin
 from common.host import launch, launch_state, tools

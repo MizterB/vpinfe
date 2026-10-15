@@ -12,7 +12,7 @@ from unittest import mock
 
 from nicegui import ui
 
-from common.config_store import ConfigStore
+from common.config.config_store import ConfigStore
 from common.devices import device_registry, install_setup
 from common.games.launchers import Launcher
 from common.i18n import t

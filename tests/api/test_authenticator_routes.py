@@ -15,7 +15,7 @@ from unittest import mock
 from fastapi.testclient import TestClient
 
 import httpapi
-from common import paths
+from common.config import paths
 from common.security import authenticator, sign_in
 from httpapi import auth
 

@@ -184,7 +184,7 @@ def served_paths(tree: ast.AST) -> set[str]:
 
 def _names() -> set[str]:
     import httpapi
-    from common import config_schema
+    from common.config import config_schema
 
     found = set()
     for option in config_schema.CONFIG_OPTIONS:

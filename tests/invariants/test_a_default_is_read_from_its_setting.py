@@ -10,7 +10,7 @@ import re
 import unittest
 from collections.abc import Callable, Iterable
 
-from common import config_schema
+from common.config import config_schema
 
 
 def typed_defaults(options: Iterable[config_schema.ConfigOption],

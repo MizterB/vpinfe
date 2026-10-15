@@ -14,18 +14,18 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from common import settings_waiting
 from common.capture import freeze
-from common.config_access import DisplayConfig, NetworkConfig, SettingsConfig
-from common.config_store import ConfigStore
+from common.config.config_access import DisplayConfig, NetworkConfig, SettingsConfig
+from common.config.config_store import ConfigStore
+from common.config.paths import THEMES_FOLDER
 from common.devices import discovery, install_setup, serving
 from common.games import remote_library
 from common.host import key_reader, metrics, system_actions
 from common.host.display_service import get_display_monitors
-from common.paths import THEMES_FOLDER
 from common.players import player_pictures
 from common.runtime import shutdown
 from common.security import http_client
+from common.settings import settings_waiting
 from frontend import (
     ext_data,
     input_events,
@@ -224,11 +224,11 @@ def build_mount_points(base_path: str, config_dir: Path,
     # path - it exists for people reading it between runs, so boot is the one
     # guaranteed refresh even when no sync happens this session.
     def _refresh_reference() -> None:
+        from common.config.paths import VPSDB_PATH
         from common.media.manufacturer_logos import (
             vps_manufacturer_names,
             write_manufacturer_reference,
         )
-        from common.paths import VPSDB_PATH
 
         names = vps_manufacturer_names(VPSDB_PATH)
         if names:
@@ -271,7 +271,7 @@ def _wait_out_setup(iniconfig: ConfigStore, frontend_browser: ChromiumManager,
     restart. False when a person closed the window themselves - the caller quits, same
     as any other first start.
     """
-    from common.paths import get_ini_config
+    from common.config.paths import get_ini_config
 
     displays = DisplayConfig.from_config(iniconfig)
     screen_id = displays.playfield_screen_id
@@ -330,7 +330,7 @@ _reopening = threading.Lock()
 def close_windows(frontend_browser: ChromiumManager, logger: logging.Logger) -> None:
     """Close the windows and leave the run going. While Setup is pending the one window
     is Setup itself, and closing it is the person quitting, so nothing is closed."""
-    from common.paths import get_ini_config
+    from common.config.paths import get_ini_config
 
     with _reopening:
         if install_setup.pending(get_ini_config()):
@@ -351,8 +351,8 @@ def reopen_windows(iniconfig: ConfigStore, frontend_browser: ChromiumManager,
     it, and the windows' own API answers from it too. The theme's wheel set is applied
     again, and a library resolved under another set or variant is read once more.
     """
+    from common.config.paths import get_ini_config
     from common.games import game_repository
-    from common.paths import get_ini_config
 
     with _reopening:
         if shutdown_event.is_set() or shutdown.requested():
@@ -425,7 +425,7 @@ def run_frontend_loop(headless: bool, iniconfig: ConfigStore,
             return
         # Setup wrote through the Manager's own store, a different instance of this
         # same file - re-read rather than trust what booted this process.
-        from common.paths import get_ini_config
+        from common.config.paths import get_ini_config
         iniconfig = get_ini_config()
 
     # No window up at all ends the run. Once there is one, the run belongs to the event,

@@ -13,9 +13,9 @@ from urllib.parse import quote, urlencode, urlsplit
 
 import requests
 
+from common.config.paths import get_ini_config
 from common.devices import device_client, device_registry, launcher_wire, serving
 from common.i18n import t
-from common.paths import get_ini_config
 from common.security import http_client, pinned_certificates, sign_in
 from httpapi import auth, scopes
 from manager.kit import acting

@@ -1,4 +1,4 @@
-"""A label takes title case, the way `common/labels.py` writes one. A heading and a button
+"""A label takes title case, the way `common/config/labels.py` writes one. A heading and a button
 are the same thing; a sentence or a phrase stays in sentence case.
 
 Every owner's labels are held to it - core, the extensions and the apps. A button is held
@@ -10,7 +10,7 @@ import ast
 import unittest
 from pathlib import Path
 
-from common.labels import field_label
+from common.config.labels import field_label
 from tests.support import trees
 from tests.support.catalogs import served
 

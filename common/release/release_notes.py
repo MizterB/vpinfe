@@ -10,7 +10,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from common.paths import bundled
+from common.config.paths import bundled
 
 CURRENT_FILE = "RELEASE_NOTES.md"
 ARCHIVE_FOLDER = "releases"

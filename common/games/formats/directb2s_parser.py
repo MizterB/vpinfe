@@ -24,8 +24,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal, NamedTuple
 
 from common.atomic_write import staged_for
+from common.config.paths import CACHE_DIR
 from common.media import sized_media
-from common.paths import CACHE_DIR
 
 if TYPE_CHECKING:
     from PIL.Image import Image as PILImage

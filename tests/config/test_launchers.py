@@ -11,7 +11,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from common import apps
-from common.config_store import ConfigStore
+from common.config.config_store import ConfigStore
 from common.games import launchers
 
 

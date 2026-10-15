@@ -2,7 +2,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from common.config_store import ConfigStore
+from common.config.config_store import ConfigStore
 
 
 class TestConfigStore(unittest.TestCase):

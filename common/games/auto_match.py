@@ -9,7 +9,8 @@ import logging
 from collections.abc import Callable, Iterable
 from typing import Any
 
-from common.config_access import cfg_bool
+from common.config.config_access import cfg_bool
+from common.config.paths import get_ini_config
 from common.games import game_service
 from common.games.game_metadata import (
     declared_no_match,
@@ -25,7 +26,6 @@ from common.games.game_metadata import (
 )
 from common.games.info_file import GUIDES_KEY, guides_from_vps, info_from_vps, ipdb_of
 from common.online.vpsdb import guess, lookup, parse_folder_name
-from common.paths import get_ini_config
 from common.uploads.asset_import_service import vps_folder_name
 
 logger = logging.getLogger("vpinfe.common.games.auto_match")

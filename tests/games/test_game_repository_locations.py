@@ -8,7 +8,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from common import mounts, path_state
+from common import mounts
+from common.config import path_state
 from common.games import game_repository
 from common.games.library_folders import KIND_GAME, KIND_ROOT, Location
 from tests.support.hung_folder import never_answering

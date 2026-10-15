@@ -12,7 +12,7 @@ import functools
 import unittest
 from collections.abc import Callable, Iterable
 
-from common import config_schema
+from common.config import config_schema
 from tests.support import trees
 from tests.support.startup_reads import Read, run_once, source_trees
 

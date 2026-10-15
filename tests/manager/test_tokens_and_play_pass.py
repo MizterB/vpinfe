@@ -12,7 +12,7 @@ from unittest import mock
 
 from nicegui import ui
 
-from common import paths
+from common.config import paths
 from common.security import access_keys, api_tokens, sign_in
 from httpapi import auth
 from manager import token_panel

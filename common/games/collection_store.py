@@ -14,7 +14,7 @@ from collections.abc import Container, Iterable, Iterator
 from pathlib import Path
 
 from common import events
-from common.config_schema import PAGING_GROUP_ALIASES, PAGING_GROUPS
+from common.config.config_schema import PAGING_GROUP_ALIASES, PAGING_GROUPS
 from common.games import collection_filters
 from common.games.game import GameRecord
 from common.games.game_identity import game_id
@@ -23,14 +23,9 @@ from common.games.game_metadata import (
     vpinfe_section,
 )
 from common.games.info_file import VPINFE_SECTION
-from common.games.info_migration import (
-    REASON_2X,
-    backup_names,
-    backup_stamp,
-    copy_aside,
-    write_atomic,
-)
+from common.games.info_migration import write_atomic
 from common.i18n import t
+from common.kept_copies import REASON_2X, backup_names, backup_stamp, copy_aside
 
 logger = logging.getLogger("vpinfe.common.games.collection_store")
 

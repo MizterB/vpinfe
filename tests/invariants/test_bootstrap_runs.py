@@ -33,7 +33,7 @@ class BootstrapTests(unittest.TestCase):
                          f"poweroff or reboot would run it. {self.USE}")
 
     def test_the_config_directory_is_not_the_developers_own(self) -> None:
-        from common import paths
+        from common.config import paths
         self.assertNotEqual(paths.CONFIG_DIR, _resolve_config_dir_without_override(),
                             "tests are reading the real vpinfe.json, so what they "
                             f"assert depends on whose machine they run on. {self.USE}")

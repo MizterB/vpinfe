@@ -20,7 +20,8 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from common import events, input_registry
+from common import events
+from common.config import input_registry
 from common.host import input_actions
 
 from . import keys, launch_state, tools
@@ -261,7 +262,7 @@ _said: set[str] = set()
 
 
 def _bound() -> dict[str, list[str]]:
-    from common.paths import get_ini_config
+    from common.config.paths import get_ini_config
 
     return input_registry.bound(get_ini_config())
 

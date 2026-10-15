@@ -55,9 +55,9 @@ class DerivedTagCase(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         self.root = Path(self._tmp.name)
-        for target, value in (("common.paths.DERIVED_TAGS_PATH", self.root / "derived.json"),
-                              ("common.paths.TAGS_PATH", self.root / "tags.json"),
-                              ("common.paths.COMMUNITY_KEPT_DIR", self.root / "kept")):
+        for target, value in (("common.config.paths.DERIVED_TAGS_PATH", self.root / "derived.json"),
+                              ("common.config.paths.TAGS_PATH", self.root / "tags.json"),
+                              ("common.config.paths.COMMUNITY_KEPT_DIR", self.root / "kept")):
             patcher = patch(target, value)
             patcher.start()
             self.addCleanup(patcher.stop)

@@ -16,12 +16,13 @@ import os
 from collections import Counter
 from typing import Any
 
-from common import path_state, service_errors
-from common.config_access import cfg_bool
+from common import service_errors
+from common.config import path_state
+from common.config.config_access import cfg_bool
+from common.config.paths import get_ini_config
 from common.games import game_identity, game_repository
 from common.games import library_folders as locations
 from common.i18n import t
-from common.paths import get_ini_config
 
 logger = logging.getLogger("vpinfe.common.games.library_folder_ops")
 

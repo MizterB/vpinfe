@@ -13,7 +13,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from common import input_registry
+from common.config import input_registry
 from common.games.launchers import Launcher
 from frontend import input_api
 

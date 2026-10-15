@@ -14,9 +14,9 @@ import logging
 from typing import Any
 
 from common.atomic_write import write_atomic
-from common.paths import CONFIG_DIR
+from common.config.paths import CONFIG_DIR
 
-logger = logging.getLogger("vpinfe.common.ui_preferences")
+logger = logging.getLogger("vpinfe.common.config.ui_preferences")
 
 PREFERENCES_PATH = CONFIG_DIR / "ui-preferences.json"
 SCHEMA = 1

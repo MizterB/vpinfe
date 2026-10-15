@@ -13,7 +13,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from common import events
-from common.config_store import ConfigStore
+from common.config.config_store import ConfigStore
 from common.games.game import Game
 from common.games.game_metadata import game_frontend_dof_event
 from common.host import launch_state, real_dmd

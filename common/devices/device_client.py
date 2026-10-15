@@ -23,7 +23,7 @@ from common.security import pinned_certificates
 from common.service_errors import CertificateChangedError
 
 if TYPE_CHECKING:
-    from common.config_store import ConfigStore
+    from common.config.config_store import ConfigStore
 
 logger = logging.getLogger("vpinfe.common.devices.device_client")
 

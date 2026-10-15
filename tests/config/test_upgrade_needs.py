@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from common.config_store import ConfigStore
+from common.config.config_store import ConfigStore
 from common.release import upgrade_needs
 from common.release.upgrade_needs import Need
 from tests.support.library import TempTree

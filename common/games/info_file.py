@@ -20,7 +20,6 @@ from common.games.info_migration import (
     GUIDES_KEY,
     migrate,
     needs_migration,
-    write_backup,
     write_json_atomic,
 )
 from common.games.tables import (
@@ -47,6 +46,7 @@ from common.games.tables import (
 )
 from common.i18n import t
 from common.ids import new_id
+from common.kept_copies import write_backup
 from common.timestamps import utc_now_iso
 
 logger = logging.getLogger("vpinfe.common.games.info_file")

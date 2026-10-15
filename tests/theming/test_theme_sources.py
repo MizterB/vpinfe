@@ -17,7 +17,7 @@ import unittest
 from configparser import ConfigParser
 from unittest import mock
 
-from common.config_store import ConfigStore
+from common.config.config_store import ConfigStore
 from common.i18n import t
 from common.online import theme_ops, theme_refs, theme_source_checks, theme_sources
 from common.online.theme_registry_client import ThemeRegistryError

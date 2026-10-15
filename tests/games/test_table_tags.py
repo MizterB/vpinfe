@@ -29,7 +29,7 @@ class TableTags(TempTree):
                                lambda: {GAME_ID: self.game}),
                               ("common.games.game_repository.all_games",
                                lambda reload=False: [self.game]),
-                              ("common.paths.TAGS_PATH", self.root / "tags.json")):
+                              ("common.config.paths.TAGS_PATH", self.root / "tags.json")):
             patcher = patch(target, value)
             patcher.start()
             self.addCleanup(patcher.stop)

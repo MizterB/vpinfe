@@ -59,7 +59,7 @@ _settings: tuple[int, Any] | None = None
 
 def _config() -> Any:
     global _settings
-    from common.paths import VPINFE_INI_PATH, get_ini_config
+    from common.config.paths import VPINFE_INI_PATH, get_ini_config
 
     try:
         changed = VPINFE_INI_PATH.with_suffix(".json").stat().st_mtime_ns
@@ -71,7 +71,7 @@ def _config() -> Any:
 
 
 def _setting(key: str, default: str) -> str:
-    from common.config_access import cfg_get
+    from common.config.config_access import cfg_get
 
     return str(cfg_get(_config(), "manager", key, default) or default).strip().lower()
 

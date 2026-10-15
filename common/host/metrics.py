@@ -28,7 +28,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from common import events, path_state
+from common import events
+from common.config import path_state
 from common.failures import why
 from common.host import graphics
 from common.i18n import t

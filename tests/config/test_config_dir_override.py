@@ -3,7 +3,7 @@ import os
 import unittest
 from pathlib import Path
 
-import common.paths
+import common.config.paths
 from common.config_bootstrap import apply_configdir_override
 
 ENV_VAR = "VPINFE_CONFIG_DIR"
@@ -13,7 +13,7 @@ OVERRIDE = Path("/tmp/vpinfe-override").absolute()
 
 
 class TestConfigDirEnvOverride(unittest.TestCase):
-    """common.paths.CONFIG_DIR honors VPINFE_CONFIG_DIR at import time."""
+    """common.config.paths.CONFIG_DIR honors VPINFE_CONFIG_DIR at import time."""
 
     def setUp(self) -> None:
         self._saved = os.environ.get(ENV_VAR)
@@ -24,10 +24,10 @@ class TestConfigDirEnvOverride(unittest.TestCase):
         else:
             os.environ[ENV_VAR] = self._saved
         # Leave the module resolved against the real environment for other tests.
-        importlib.reload(common.paths)
+        importlib.reload(common.config.paths)
 
     def _reload(self):
-        return importlib.reload(common.paths)
+        return importlib.reload(common.config.paths)
 
     def test_override_relocates_config_dir_and_derived_paths(self) -> None:
         os.environ[ENV_VAR] = str(OVERRIDE)
@@ -85,7 +85,7 @@ class TestConfigDirEnvOverride(unittest.TestCase):
 
 
 class TestApplyConfigdirOverride(unittest.TestCase):
-    """The CLI flag maps onto the env var before common.paths is imported."""
+    """The CLI flag maps onto the env var before common.config.paths is imported."""
 
     def test_sets_env_from_space_separated_flag(self) -> None:
         env: dict[str, str] = {}

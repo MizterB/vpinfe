@@ -16,9 +16,9 @@ from typing import Any
 from nicegui import run, ui
 
 from common import icons
+from common.config.labels import humanize
 from common.failures import why
 from common.i18n import t
-from common.labels import humanize
 from manager import needs
 from manager.kit import (
     art,

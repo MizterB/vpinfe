@@ -212,7 +212,7 @@ class TesterTests(unittest.IsolatedAsyncioTestCase):
 
 class ReadBelowTests(unittest.TestCase):
     def test_every_setting_the_foot_reads_is_one_the_page_has(self) -> None:
-        from common import config_schema
+        from common.config import config_schema
 
         keys = {one.key for one in config_schema.options() if one.section == dof.SECTION}
 

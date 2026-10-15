@@ -74,7 +74,7 @@ def _enabled_features() -> frozenset[str]:
     """What this install is meant to do. Read per request, not at import, so switching a
     feature off does not need a restart to be believed."""
     try:
-        from common.paths import get_ini_config
+        from common.config.paths import get_ini_config
 
         return frozenset(install_identity.features(get_ini_config()))
     except Exception:  # a config that cannot be read must not empty discovery

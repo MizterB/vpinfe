@@ -9,7 +9,8 @@ from typing import Any
 
 from nicegui import run, ui
 
-from common import config_schema, icons
+from common import icons
+from common.config import config_schema
 from common.failures import why
 from common.games.collection_filters import group_kind
 from common.games.collection_store import (

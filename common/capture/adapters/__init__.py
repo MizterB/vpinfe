@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
 
-from common.config_access import cfg_get
+from common.config.config_access import cfg_get
 from common.host import tools
 
 from ..geometry import Turn

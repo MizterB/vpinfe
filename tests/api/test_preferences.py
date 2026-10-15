@@ -13,7 +13,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from common import ui_preferences
+from common.config import ui_preferences
 from common.failures import why
 from common.i18n import t
 from tests.support.skips import needs_posix_permissions

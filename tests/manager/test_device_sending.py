@@ -53,7 +53,7 @@ class TheRows(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(shown["value"], "mobile")
 
     async def test_the_word_a_new_install_starts_with_is_mobile(self) -> None:
-        from common import config_schema
+        from common.config import config_schema
         option = config_schema.option("vpxmobile", "config_mask")
         assert option is not None
 

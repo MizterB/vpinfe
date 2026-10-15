@@ -139,8 +139,8 @@ class LiveInstance:
     # -- setup -------------------------------------------------------------
 
     def _write_config(self) -> None:
-        from common.config_access import cfg_set
-        from common.config_store import ConfigStore
+        from common.config.config_access import cfg_set
+        from common.config.config_store import ConfigStore
 
         # Ports of its own, so a running instance is not a reason this fails.
         from tests.support.browser_session import free_port

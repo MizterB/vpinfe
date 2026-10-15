@@ -1,8 +1,8 @@
-"""The name of a kept copy is built by `common/games/info_migration.py`, and read there.
+"""The name of a kept copy is built by `common/kept_copies.py`, and read there.
 
-`backup_path` makes one, `is_copy`, `copied_from`, `backup_stamp` and `backup_reason` take one
-apart. A second place that spells the marker writes names the first cannot read back, and
-the listing in `common/backups/` would not show them.
+`backup_path` makes one, `is_copy`, `backup_stamp` and `backup_reason` take one apart. A
+second place that spells the marker writes names the first cannot read back, and the
+listing in `common/backups/` would not show them.
 
 `apps/vpx/config.py` is the one other spelling, because an app may not import `common/games`.
 Its marker has to stay equal to the real one.
@@ -15,12 +15,12 @@ import pathlib
 import unittest
 
 from apps.vpx import config as vpx_config
-from common.games.info_migration import BACKUP_MARKER
+from common.kept_copies import BACKUP_MARKER
 from tests.support import trees
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 SCANNED = ("common", "apps", "httpapi", "manager", "frontend", "extensions")
-SPELLS_IT = frozenset({"common/games/info_migration.py", "apps/vpx/config.py"})
+SPELLS_IT = frozenset({"common/kept_copies.py", "apps/vpx/config.py"})
 
 
 def _docstrings(tree: ast.Module) -> set[int]:
@@ -53,7 +53,7 @@ class AKeptCopyIsNamedInOnePlace(unittest.TestCase):
                 found += [f"{relative}:{line}" for line in _spellings(path)]
 
         self.assertEqual(found, [], "build and read a copy's name with "
-                                    "common/games/info_migration.py")
+                                    "common/kept_copies.py")
 
     def test_the_one_other_spelling_matches(self) -> None:
         self.assertEqual(vpx_config.ASIDE_MARKER, BACKUP_MARKER)

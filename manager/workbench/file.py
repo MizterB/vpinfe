@@ -12,7 +12,7 @@ from urllib.parse import urlencode
 
 from nicegui import run, ui
 
-from common import path_state
+from common.config import path_state
 from common.failures import why
 from common.games import asset_registry
 from common.games.asset_resolver import VPX_ASSET_KINDS

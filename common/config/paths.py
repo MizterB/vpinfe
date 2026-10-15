@@ -12,7 +12,7 @@ from pathlib import Path
 
 from platformdirs import user_cache_dir, user_config_dir, user_log_dir, user_state_dir
 
-from common.config_store import ConfigStore
+from common.config.config_store import ConfigStore
 
 
 def _resolve_config_dir() -> Path:
@@ -76,7 +76,7 @@ def _unbootstrapped_test_run() -> bool:
 # under it: frontend/static/, third_party/, main.py. Resolved here so no module has to count
 # its own directory levels - doing that is what broke when common/ gained
 # subpackages, and it broke silently everywhere a test did not happen to look.
-APP_ROOT = Path(__file__).resolve().parent.parent
+APP_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 def bundled(*parts: str) -> Path:
@@ -108,6 +108,8 @@ LOG_DIR = _resolve_log_dir()
 CAPTURE_DIR = STATE_DIR / "capture"
 # What a job that asks to be kept answered, one file per run, for the Jobs view to open.
 JOBS_DIR = STATE_DIR / "jobs"
+# Where backups go until a folder is chosen.
+DEFAULT_BACKUPS_DIR = CONFIG_DIR / "backups"
 DERIVED_TAGS_PATH = CACHE_DIR / "derived_tags.json"
 THEME_CACHE_PATH = CACHE_DIR / "themes.json"
 UPDATE_CHECK_PATH = CACHE_DIR / "update.json"
@@ -153,7 +155,7 @@ def get_ini_config() -> ConfigStore:
 
 def get_games_path(default: str = "~/tables") -> str:
     try:
-        from common.config_access import cfg_get
+        from common.config.config_access import cfg_get
         game_root = cfg_get(get_ini_config(), "Settings", "game_root_dir").strip()
         if game_root:
             return os.path.expanduser(game_root)

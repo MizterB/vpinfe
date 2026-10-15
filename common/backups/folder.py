@@ -9,16 +9,13 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from common import path_state
-from common.config_access import cfg_get
+from common.config import path_state, paths
+from common.config.config_access import cfg_get
+from common.config.paths import get_ini_config
 from common.i18n import t
-from common.paths import CONFIG_DIR, get_ini_config
 
 SECTION = "backups"
 FOLDER = "folder"
-
-# Where backups go until a folder is chosen.
-DEFAULT_DIR = CONFIG_DIR / "backups"
 
 
 def chosen() -> str:
@@ -34,7 +31,7 @@ def current() -> Path:
 def named(setting: str) -> Path:
     """The folder a value of the setting names: the default when it is blank."""
     setting = setting.strip()
-    return spelled(setting) if setting else DEFAULT_DIR
+    return spelled(setting) if setting else paths.DEFAULT_BACKUPS_DIR
 
 
 def spelled(typed: str) -> Path:
@@ -67,7 +64,7 @@ def holds(folder: Path) -> bool:
 def problem(folder: Path) -> str:
     """What is wrong with writing a backup to `folder`, if anything. The default counts as
     fine before it exists: the first backup makes it."""
-    if folder == DEFAULT_DIR and not folder.exists():
+    if folder == paths.DEFAULT_BACKUPS_DIR and not folder.exists():
         return ""
     found = path_state.look(str(folder), path_state.DIR, writable=True)
     return path_state.refusal(t("backups.folder_name"), found)
@@ -83,7 +80,7 @@ def for_writing() -> Path:
     """The folder a backup is about to be written to, made if it is the default. Raises
     `BlockedError` for a chosen folder that cannot be written to."""
     folder = current()
-    if folder == DEFAULT_DIR:
+    if folder == paths.DEFAULT_BACKUPS_DIR:
         folder.mkdir(parents=True, exist_ok=True)
     path_state.require(str(folder), writable=True, name=t("backups.folder_name"))
     return folder

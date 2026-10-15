@@ -9,8 +9,9 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from common.config_access import cfg_bool, cfg_get
-from common.config_store import ConfigStore
+from common.config.config_access import cfg_bool, cfg_get
+from common.config.config_store import ConfigStore
+from common.config.paths import bundled
 from common.failures import why
 from common.host import bundled_libraries, tools
 from common.host.third_party import (
@@ -19,7 +20,6 @@ from common.host.third_party import (
     third_party_base_candidates,
 )
 from common.i18n import t
-from common.paths import bundled
 
 _LOCK = threading.Lock()
 _CONTROLLER = None

@@ -9,8 +9,8 @@ from pathlib import Path
 
 from common import timestamps
 from common.atomic_write import staged_for
+from common.config.paths import USER_ROMS_PATH
 from common.online import cache_stamps
-from common.paths import USER_ROMS_PATH
 from common.security import http_client
 
 logger = logging.getLogger("vpinfe.common.online.pinmame_score_parser_updater")

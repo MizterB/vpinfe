@@ -6,8 +6,9 @@ import logging
 import os
 from collections.abc import Collection
 
-from common.config_access import cfg_bool
-from common.config_store import ConfigStore
+from common.config.config_access import cfg_bool
+from common.config.config_store import ConfigStore
+from common.config.paths import get_ini_config
 from common.games import game_identity, game_repository, library_folders, media_fill
 from common.games.formats.vpx_parser import VPXParser
 from common.games.game_metadata import effective_vps_id, record_vps_match, vps_matched_by
@@ -15,7 +16,6 @@ from common.games.info_file import MetaConfig
 from common.games.standalone_scripts import StandaloneScripts
 from common.i18n import t
 from common.online.vpsdb import VPSdb
-from common.paths import get_ini_config
 from common.runtime.jobs import JobReporter, LogCallback, ProgressCallback
 
 logger = logging.getLogger("vpinfe.common.games.metadata_service")

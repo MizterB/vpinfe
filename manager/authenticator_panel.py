@@ -12,7 +12,7 @@ from typing import Any
 
 from nicegui import run, ui
 
-from common import paths
+from common.config import paths
 from common.devices.install_identity import display_name
 from common.failures import why
 from common.i18n import t

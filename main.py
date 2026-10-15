@@ -13,7 +13,7 @@ import os
 import platform
 import sys
 
-from common.config_access import cfg_get
+from common.config.config_access import cfg_get
 
 multiprocessing.freeze_support()
 
@@ -52,7 +52,7 @@ if "--pinmame-helper" in sys.argv[1:]:
     raise SystemExit(_pinmame_helper_main())
 
 
-# common.paths resolves CONFIG_DIR at import time, so --configdir has to reach
+# common.config.paths resolves CONFIG_DIR at import time, so --configdir has to reach
 # the environment before anything under common/ is imported. Do it first.
 from common.config_bootstrap import apply_configdir_override
 
@@ -62,8 +62,15 @@ import requests
 
 # device_migration and the games modules below register the seeds the 2.x conversion runs,
 # so they have to be in before the ConfigStore is made.
-from common import events, extensions, i18n, theme_options
-from common.config_store import ConfigStore
+from common import events, extensions, i18n
+from common.config.config_store import ConfigStore
+from common.config.paths import (
+    LOG_DIR,
+    THEMES_DIR,
+    VPINFE_INI_PATH,
+    configure_nicegui_storage,
+    ensure_config_dir,
+)
 from common.devices import (
     device_migration,  # noqa: F401
     install_setup,
@@ -79,18 +86,12 @@ from common.online import theme_seed, theme_upgrade  # noqa: F401
 from common.online.pinmame_score_parser_updater import ensure_latest_roms_json
 from common.online.theme_registry_client import ThemeRegistryError
 from common.online.themes import ThemeRegistry
-from common.paths import (
-    LOG_DIR,
-    THEMES_DIR,
-    VPINFE_INI_PATH,
-    configure_nicegui_storage,
-    ensure_config_dir,
-)
 from common.release import migration_ledger, whats_new
 from common.runtime import shutdown
 from common.runtime.log_setup import configure_logging, get_logger
 from common.security import sign_in
 from common.security.http_client import unreachable
+from common.settings import theme_options
 from common.vpinfe_version import get_version
 
 # Get the base path
@@ -341,7 +342,7 @@ except Exception:
 # And keep looking, if the user asked us to. Off by default: a check re-reads every
 # game folder, which is nothing locally and real traffic on a share.
 try:
-    from common.config_access import cfg_int
+    from common.config.config_access import cfg_int
     from common.games.library_refresh import start_periodic
     start_periodic(cfg_int(config_store, "updates", "refresh_minutes", 0))
 except Exception:
@@ -352,12 +353,12 @@ shutdown.exit_if_requested(logger)
 # Collection membership moves onto game ids once the ids exist. Resolvable entries
 # are rewritten; anything that does not resolve is left alone rather than dropped.
 try:
+    from common.config.paths import COLLECTIONS_PATH
     from common.games.collection_migration import (
         ensure_last_played,
         ensure_order_direction,
     )
     from common.games.collection_store import CollectionStore
-    from common.paths import COLLECTIONS_PATH
     _collections = CollectionStore(str(COLLECTIONS_PATH))
     _collections.migrate_membership_to_game_ids(all_games())
     # After the rekey, so a file arriving as a 2.x ini is in its current shape first.
@@ -372,7 +373,7 @@ shutdown.exit_if_requested(logger)
 
 # The owner is the one player every install has, and the one up until somebody else is.
 try:
-    from common.paths import get_ini_config
+    from common.config.paths import get_ini_config
     from common.players.players import get_roster
     get_roster().ensure_owner(get_ini_config())
 except Exception:

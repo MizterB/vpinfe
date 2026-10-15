@@ -12,7 +12,7 @@ from typing import Any
 
 from nicegui import ui
 
-from common import input_registry, setting_groups
+from common.config import input_registry, setting_groups
 from common.i18n import t
 from manager import input_page
 from manager.kit import offload, panel

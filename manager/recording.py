@@ -13,8 +13,9 @@ from typing import Any
 
 from nicegui import run, ui
 
-from common import config_schema, tokens
+from common import tokens
 from common.capture import adapters, commands, preflight, trial
+from common.config import config_schema
 from common.failures import why
 from common.i18n import size, t
 from common.media.media_specs import media_label_map

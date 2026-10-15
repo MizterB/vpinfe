@@ -8,8 +8,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass, fields
 from typing import Any
 
-from common import config_schema, service_errors
-from common.config_access import cfg_get
+from common import service_errors
+from common.config import config_schema
+from common.config.config_access import cfg_get
 from common.host import frontend_browser
 from common.i18n import t
 
@@ -99,7 +100,7 @@ def read(config: Any = None, overrides: Mapping[str, Any] | None = None) -> Sett
     """A value the device's file holds that the setting does not take reads as its
     default; one in `overrides` is refused."""
     if config is None:
-        from common.paths import get_ini_config
+        from common.config.paths import get_ini_config
         config = get_ini_config()
     options = _options()
     values: dict[str, Any] = {}

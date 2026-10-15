@@ -14,7 +14,7 @@ from typing import Any, cast
 from unittest import mock
 
 from common import apps, tokens
-from common.config_store import ConfigStore
+from common.config.config_store import ConfigStore
 from common.host import commands, table_commands
 from common.i18n import t
 from common.players import players

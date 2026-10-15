@@ -10,13 +10,13 @@ import json
 from pathlib import Path
 from typing import Any
 
-from common import config_service, theme_options
-from common.config_access import cfg_get
-from common.config_store import ConfigStore
+from common.config.config_access import cfg_get
+from common.config.config_store import ConfigStore
+from common.config.paths import THEMES_DIR, VPINFE_INI_PATH
 from common.i18n import t
 from common.online.theme_level import OLDEST_CONTRACT, declared_contract
 from common.online.themes import ThemeRegistry
-from common.paths import THEMES_DIR, VPINFE_INI_PATH
+from common.settings import config_service, theme_options
 
 
 def get_active_theme() -> str:

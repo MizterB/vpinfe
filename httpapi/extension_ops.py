@@ -21,6 +21,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from typing import Any
 
+from common.config.paths import get_ini_config
 from common.extensions.games import offer
 from common.extensions.hardware import offer_hardware
 from common.extensions.library_collections import offer_collection
@@ -39,7 +40,6 @@ from common.games import (
 from common.host import hardware, play_service
 from common.i18n import t
 from common.online import vpsdb_sync
-from common.paths import get_ini_config
 
 from . import scopes
 

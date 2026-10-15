@@ -9,8 +9,9 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
-from common import paths, service_errors
+from common import service_errors
 from common.atomic_write import write_atomic
+from common.config import paths
 from common.games.game import GameRecord
 from common.games.game_identity import game_id
 from common.games.game_metadata import game_tags as own_game_tags

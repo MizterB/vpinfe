@@ -11,10 +11,10 @@ from typing import Any
 
 from nicegui import run, ui
 
+from common.config.paths import get_ini_config
 from common.devices.install_identity import display_name
 from common.failures import why
 from common.i18n import t
-from common.paths import get_ini_config
 from common.security import sign_in
 from manager.kit import dialog as frame
 from manager.kit import offload, panel, verbs

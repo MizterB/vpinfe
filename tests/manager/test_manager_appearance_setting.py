@@ -18,7 +18,7 @@ import re
 import unittest
 from unittest import mock
 
-from common import config_schema
+from common.config import config_schema
 from manager.kit import appearance, appearance_picker
 
 
@@ -84,7 +84,7 @@ class StoredValueTests(unittest.TestCase):
         parser = configparser.ConfigParser()
         parser.add_section(appearance.MODE_SECTION)
         parser.set(appearance.MODE_SECTION, appearance.MODE_KEY, stored)
-        with mock.patch("common.paths.get_ini_config", return_value=parser):
+        with mock.patch("common.config.paths.get_ini_config", return_value=parser):
             return appearance.configured_mode()
 
     def test_a_stored_mode_is_used(self) -> None:

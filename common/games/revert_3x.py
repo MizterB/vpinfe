@@ -19,15 +19,9 @@ from common.devices.device_registry import DeviceRegistry
 from common.games.collection_store import COLLECTIONS_NAME, COLLECTIONS_NAME_INI
 from common.games.info_file import ASSETS_KEY, VPINFE_SECTION
 from common.games.info_maintenance import game_dirs, restore_library
-from common.games.info_migration import (
-    RESET,
-    backup_names,
-    backup_reason,
-    copy_aside,
-    needs_migration,
-    restorable_backup,
-)
+from common.games.info_migration import needs_migration, restorable_backup
 from common.games.tables import TABLES_KEY
+from common.kept_copies import RESET, backup_names, backup_reason, copy_aside
 from common.runtime.jobs import JobReporter, LogCallback, ProgressCallback
 from common.security import http_client, pinned_certificates
 

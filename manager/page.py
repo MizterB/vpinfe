@@ -360,7 +360,7 @@ def _read_hub() -> dict[str, Any]:
     the alternative is importing the services, which is what the boundary exists to
     prevent.
     """
-    from common.paths import get_ini_config
+    from common.config.paths import get_ini_config
 
     client = ApiClient()
     library = Library(client)

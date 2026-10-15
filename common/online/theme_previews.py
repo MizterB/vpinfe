@@ -20,8 +20,8 @@ from urllib.parse import urlsplit
 import requests
 
 from common.atomic_write import staged_for, write_atomic
+from common.config.paths import CACHE_DIR
 from common.media import sized_media
-from common.paths import CACHE_DIR
 from common.security import http_client
 
 logger = logging.getLogger("vpinfe.common.online.theme_previews")

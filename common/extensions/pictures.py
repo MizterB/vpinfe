@@ -19,9 +19,9 @@ from urllib.parse import urlsplit
 import requests
 
 from common.atomic_write import staged_for
+from common.config.paths import CACHE_DIR
 from common.i18n import t
 from common.media import sized_media
-from common.paths import CACHE_DIR
 from common.security import http_client
 from common.service_errors import NotFoundError
 

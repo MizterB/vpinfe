@@ -11,7 +11,8 @@ from unittest import mock
 from fastapi.testclient import TestClient
 
 import httpapi
-from common import extensions, paths
+from common import extensions
+from common.config import paths
 from common.extensions import contract, host, store
 from common.online import theme_ops
 from common.security import accepted

@@ -13,10 +13,11 @@ import shutil
 from pathlib import Path
 
 from common.atomic_write import write_atomic
+from common.config.paths import CONFIG_DIR, STATE_DIR
 from common.devices import device_registry
 from common.games import info_maintenance
-from common.games.info_migration import copied_from, is_copy
-from common.paths import CONFIG_DIR, STATE_DIR
+from common.games.info_migration import copied_from
+from common.kept_copies import is_copy
 
 from . import archive
 

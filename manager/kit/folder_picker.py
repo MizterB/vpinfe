@@ -22,7 +22,7 @@ from typing import Any
 
 from nicegui import ui
 
-from common import path_state
+from common.config import path_state
 from common.failures import why
 from common.i18n import t
 from manager.kit import dialog as frame

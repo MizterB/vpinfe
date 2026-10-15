@@ -2,7 +2,7 @@
 
 import unittest
 
-from common import config_schema
+from common.config import config_schema
 from common.i18n import t
 from manager.import_dialog import STOP_ASKING, _where
 

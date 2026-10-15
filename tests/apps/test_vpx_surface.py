@@ -37,7 +37,7 @@ EXEMPT = frozenset({
 # contract. Lower these as the extraction lands; never raise one.
 BASELINE: dict[str, int] = {
     "common/apps/__init__.py": 1,
-    "common/config_schema.py": 2,
+    "common/config/config_schema.py": 2,
     "common/games/archive_service.py": 4,
     "common/games/asset_lens.py": 6,
     "common/games/asset_registry.py": 4,
@@ -81,7 +81,7 @@ BASELINE: dict[str, int] = {
     "common/host/pinmame_catalog.py": 14,
     "common/host/pinmame_worker.py": 14,
     "common/host/vpx_log.py": 1,
-    "common/labels.py": 1,
+    "common/config/labels.py": 1,
     "common/launcher_path.py": 1,
     "common/online/pinmame_score_parser_updater.py": 7,
     "common/online/vps_kinds.py": 1,

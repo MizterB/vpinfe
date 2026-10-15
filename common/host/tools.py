@@ -158,7 +158,7 @@ def resolve(tool: Tool, configured: str | None = None) -> Found:
 
 
 def _configured(tool: Tool) -> str:
-    from common.paths import get_ini_config
+    from common.config.paths import get_ini_config
 
     return str(get_ini_config().value(tool.section, tool.key) or "")
 

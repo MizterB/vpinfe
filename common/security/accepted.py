@@ -15,7 +15,7 @@ import threading
 from collections.abc import Collection
 from typing import Any
 
-from common import paths
+from common.config import paths
 from common.security import machine_secrets
 
 logger = logging.getLogger("vpinfe.common.security.accepted")
@@ -130,7 +130,7 @@ def theme_runs(key: str) -> bool:
 
 def default_theme() -> str:
     """The theme a theme that is not accepted gives way to."""
-    from common import config_schema
+    from common.config import config_schema
 
     declared = config_schema.option("themes", "active")
     return str(declared.default) if declared else ""

@@ -144,8 +144,8 @@ def _release_target() -> str:
 
 
 def _features() -> str:
+    from common.config.paths import get_ini_config
     from common.devices import install_identity
-    from common.paths import get_ini_config
 
     try:
         found = install_identity.features(get_ini_config())
@@ -245,7 +245,7 @@ def _windows_file_version(path: str) -> str:
 def _locations() -> list[tuple[str, str]]:
     """Where this install keeps its things. In a report because half of what looks like
     a bug is VPinFE reading a different directory than somebody edited."""
-    from common.paths import CONFIG_DIR, VPINFE_INI_PATH
+    from common.config.paths import CONFIG_DIR, VPINFE_INI_PATH
     from common.runtime.log_setup import log_file
 
     found: list[tuple[str, str]] = [

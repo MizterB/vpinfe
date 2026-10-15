@@ -21,7 +21,7 @@ from __future__ import annotations
 import unittest
 from unittest import mock
 
-from common import config_schema
+from common.config import config_schema
 from common.devices import device_registry
 from common.games import collections_service
 from tests.support.library import TempTree

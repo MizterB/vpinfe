@@ -20,15 +20,15 @@ import threading
 from pathlib import Path
 from typing import Any
 
-from common import config_schema, input_registry
 from common.atomic_write import write_atomic
+from common.config import config_schema, input_registry
 from common.deprecations import announce
-from common.games.info_migration import REASON_2X, copy_aside
 from common.i18n import t
 from common.ids import new_id
+from common.kept_copies import REASON_2X, copy_aside
 from common.values import is_truthy
 
-logger = logging.getLogger("vpinfe.common.config_store")
+logger = logging.getLogger("vpinfe.common.config.config_store")
 
 SCHEMA_KEY = "schema"
 SETTINGS_KEY = "settings"
@@ -570,7 +570,7 @@ class ConfigStore:
         fallback is the schema's default rather than blank: a setting the file omits is
         still what the install is running on, and answering "" would say the opposite.
         """
-        from common.config_access import cfg_get
+        from common.config.config_access import cfg_get
         entry = config_schema.option(section, key)
         raw = cfg_get(self, section, key, fallback=entry.default if entry else "")
         return self._typed(section, key, raw)

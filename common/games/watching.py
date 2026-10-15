@@ -19,7 +19,7 @@ from typing import Any
 
 from common import timestamps
 from common.atomic_write import write_atomic
-from common.paths import STATE_DIR
+from common.config.paths import STATE_DIR
 
 logger = logging.getLogger("vpinfe.common.games.watching")
 

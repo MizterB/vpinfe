@@ -8,8 +8,8 @@ import unittest
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
-from common import config_service
 from common.i18n import t
+from common.settings import config_service
 from manager import settings, themes
 from manager.kit.api import ApiError
 from tests.support.clicks import press

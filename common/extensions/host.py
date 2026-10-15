@@ -20,8 +20,8 @@ from typing import Any
 
 from common import events as core_events
 from common import i18n, tokens
+from common.config.paths import CONFIG_DIR, bundled, get_ini_config
 from common.devices import install_identity
-from common.paths import CONFIG_DIR, bundled, get_ini_config
 from common.security import accepted
 
 from . import catalogs, contributions, reach

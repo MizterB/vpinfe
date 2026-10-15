@@ -5,9 +5,9 @@ from typing import Any
 from unittest.mock import Mock
 
 from common import apps
+from common.config.labels import field_label
 from common.games import asset_origin, asset_registry
 from common.i18n import t
-from common.labels import field_label
 from manager import games, tageditor
 from manager.kit import data, game_tables, media_ownership, play_facts, stars, table_features, views
 from manager.workbench import game_assets, rail

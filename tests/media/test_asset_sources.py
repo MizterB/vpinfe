@@ -12,7 +12,7 @@ import unittest
 from dataclasses import dataclass, field
 from unittest.mock import patch
 
-from common.config_store import ConfigStore
+from common.config.config_store import ConfigStore
 from common.games import library_policy
 from common.online import asset_sources
 from common.online.asset_sources import Offer, Source

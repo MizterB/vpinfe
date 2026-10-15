@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 from unittest import mock
 
-from common import paths
+from common.config import paths
 from common.extensions import host
 from common.security import accepted
 

@@ -21,8 +21,8 @@ from pathlib import Path
 from typing import Any
 
 from common.atomic_write import write_atomic
-from common.config_store import ConfigStore
-from common.paths import CONFIG_DIR, get_ini_config
+from common.config.config_store import ConfigStore
+from common.config.paths import CONFIG_DIR, get_ini_config
 
 logger = logging.getLogger("vpinfe.common.extensions.store")
 

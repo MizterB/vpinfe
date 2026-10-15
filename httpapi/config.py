@@ -1,6 +1,6 @@
 """Every setting this install has, and what it is currently set to.
 
-`common/config_service.py` describes, reads and writes settings for every surface. This
+`common/settings/config_service.py` describes, reads and writes settings for every surface. This
 is the HTTP half: a client renders a settings page from what the install says about
 itself instead of from a list it carries.
 """
@@ -13,13 +13,15 @@ from typing import Any
 
 from fastapi import APIRouter, Body, Request, Response
 
-from common import config_schema, config_service, events, settings_waiting
+from common import events
 from common.capture import settings as capture_settings
+from common.config import config_schema
+from common.config.paths import get_ini_config
 from common.failures import why
 from common.host import get_ffmpeg, tools
 from common.i18n import t
 from common.online import theme_service
-from common.paths import get_ini_config
+from common.settings import config_service, settings_waiting
 from frontend import theme_windows
 
 from . import jobs as jobs_api

@@ -9,9 +9,9 @@ from unittest.mock import AsyncMock, Mock, patch
 
 from nicegui import ui
 
-from common import config_service
 from common.host import tools
 from common.i18n import t
+from common.settings import config_service
 from manager import dmd_panel
 
 SCHEMA = config_service.schema()["sections"]

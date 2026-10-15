@@ -19,7 +19,8 @@ from typing import Any
 
 from nicegui import ui
 
-from common import icons, path_state
+from common import icons
+from common.config import path_state
 from common.games.collection_store import LAST_COLLECTION
 from common.i18n import t
 from manager.kit import dropdown, game_tables, offload, tag_chips, thumbnails, verbs

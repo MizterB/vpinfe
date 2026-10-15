@@ -213,7 +213,7 @@ class ArchiveByIdTests(unittest.TestCase):
         legacy = ConfigParser()
         legacy["general"] = {"game_root_dir": str(legacy_root)}
         with patch("common.games.game_repository.all_games", return_value=games), \
-                patch("common.paths.get_ini_config", return_value=legacy):
+                patch("common.config.paths.get_ini_config", return_value=legacy):
             return archive_for(game_id)
 
     def test_a_game_in_the_second_location_ships_its_own_table(self) -> None:

@@ -11,7 +11,7 @@ import re
 from collections.abc import Iterable, Mapping
 from typing import Any
 
-from common import config_schema
+from common.config import config_schema
 from common.online import theme_sources
 
 SECTIONS = frozenset({"commands", "table_commands", "tools"})

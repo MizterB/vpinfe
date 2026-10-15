@@ -885,7 +885,7 @@ POST /api/v1/input/actions
 {"action": "next", "phase": "press", "ttl_ms": 1500, "source": "remote"}
 ```
 
-`action` is one of the eleven in `common/input_registry.py` — `previous`, `next`,
+`action` is one of the eleven in `common/config/input_registry.py` — `previous`, `next`,
 `page_previous`, `page_next`, `select`, `back`, `menu`, `collection_menu`, `tutorial`,
 `exit`, `take_picture`. Anything else is a 400 that lists them. `take_picture` does
 something only while a table runs, and `back` answers it there; the frontend hears the

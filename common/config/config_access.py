@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from common import config_schema
+from common.config import config_schema
 from common.values import is_truthy
 
 # A ConfigStore, the ConfigParser inside one, or nothing at all - a caller with no

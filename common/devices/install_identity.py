@@ -9,8 +9,8 @@ from __future__ import annotations
 import logging
 import socket
 
-from common.config_access import cfg_get, cfg_has, cfg_list
-from common.config_store import ConfigStore
+from common.config.config_access import cfg_get, cfg_has, cfg_list
+from common.config.config_store import ConfigStore
 from common.ids import new_id
 
 logger = logging.getLogger("vpinfe.common.devices.install_identity")

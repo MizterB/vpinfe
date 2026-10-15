@@ -22,7 +22,7 @@ from typing import Any
 
 from nicegui import run, ui
 
-from common import config_schema, path_state
+from common.config import config_schema, path_state
 from common.failures import why
 from common.games import library_folders as model
 from common.games import tables

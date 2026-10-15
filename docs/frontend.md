@@ -13,7 +13,7 @@ The windows come and go under the run. `run_frontend_loop` waits on the shutdown
 
 ## Core Modules
 
-- `common/paths.py`: shared config paths, `vpinfe.ini`, `collections.ini`, themes directory, and game root lookup.
+- `common/config/paths.py`: shared config paths, `vpinfe.ini`, `collections.ini`, themes directory, and game root lookup.
 - `common/games/game.py`: dataclass representation of a parsed game folder.
 - `common/games/game_metadata.py`: shared metadata normalization, section lookup, rating/truthy helpers, and metadata persistence.
 - `common/games/game_repository.py`: game parser/cache ownership and game row shaping.
@@ -42,7 +42,7 @@ The windows come and go under the run. `run_frontend_loop` waits on the shutdown
 
 - Keep `main.py` focused on executable wiring.
 - Keep `API` as a compatibility facade for JavaScript themes, not a home for business logic.
-- Use `common/paths.py` instead of calling `user_config_dir("vpinfe", "vpinfe")` directly in new code.
+- Use `common/config/paths.py` instead of calling `user_config_dir("vpinfe", "vpinfe")` directly in new code.
 - Use `common/games/game_metadata.py` for metadata reads/writes instead of repeating `Info`/`VPinFE`/`User` normalization.
 - Use service modules for behavior shared by the Manager and the frontend.
 - Keep `cli.py` as CLI dispatch and compatibility wrappers; put reusable app behavior in `common/`.

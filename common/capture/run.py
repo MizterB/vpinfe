@@ -15,12 +15,12 @@ from typing import Any
 
 from common import events, service_errors
 from common.atomic_write import write_atomic
+from common.config.paths import CAPTURE_DIR, get_ini_config
 from common.devices import install_identity
 from common.failures import why
 from common.games import game_lens, game_repository, tables
 from common.host import launch, launch_state, tools
 from common.i18n import t
-from common.paths import CAPTURE_DIR, get_ini_config
 from common.runtime import jobs
 from common.timestamps import utc_now_iso
 

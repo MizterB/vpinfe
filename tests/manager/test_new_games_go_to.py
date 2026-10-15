@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import unittest
 
-from common import config_service
+from common.settings import config_service
 from manager.settings import settings_here
 
 

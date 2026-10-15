@@ -16,9 +16,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
+from common.config.paths import ASIDE_SUFFIX
 from common.online import themes
 from common.online.theme_installer import ThemeInstallStore
-from common.paths import ASIDE_SUFFIX
 from common.security import accepted
 from tests.support.accepted import isolated
 

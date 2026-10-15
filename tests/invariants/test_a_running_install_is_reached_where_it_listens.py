@@ -38,7 +38,7 @@ class RunningInstallIsReachedWhereItListens(unittest.TestCase):
         offenders, readers = [], set()
         for path in project_files("*.py"):
             name = path.relative_to(REPO).as_posix()
-            if name.startswith("tests/") or name == "common/config_access.py":
+            if name.startswith("tests/") or name == "common/config/config_access.py":
                 continue
             lines = _settings_reads(trees.tree_for(path))
             if lines:

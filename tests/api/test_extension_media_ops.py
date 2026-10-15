@@ -12,7 +12,7 @@ from httpapi import extension_ops
 
 class WheelSetTests(unittest.TestCase):
     def test_logos_are_set_as_the_wheel_through_the_settings_store(self) -> None:
-        with patch("common.config_service.apply") as applied:
+        with patch("common.settings.config_service.apply") as applied:
             made = media_ops.use_logos_for_wheels()
 
         applied.assert_called_once_with({"settings": {"media": {"wheelset": "logo"}}})

@@ -14,7 +14,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from common import atomic_write, path_state, service_errors
+from common import atomic_write, service_errors
+from common.config import path_state
 from common.failures import why
 from common.games import (
     config_backups,

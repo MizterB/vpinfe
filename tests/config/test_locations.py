@@ -10,8 +10,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from common import mounts, path_state
-from common.config_store import ConfigStore
+from common import mounts
+from common.config import path_state
+from common.config.config_store import ConfigStore
 from common.devices.device_registry import DeviceRegistry
 from common.games import library_folders as locations
 from common.games.library_folders import (
@@ -458,7 +459,7 @@ class WritesAreCheckedTests(_WithStore, unittest.TestCase):
     """A write to the list names a folder, an absolute one, that no other row holds."""
 
     def _refused(self, *items: dict) -> str:
-        from common.config_schema import ConfigListError
+        from common.config.config_schema import ConfigListError
 
         with self.assertRaises(ConfigListError) as refused:
             ConfigStore(str(self.folder / "vpinfe.json")).set_list("locations", list(items))

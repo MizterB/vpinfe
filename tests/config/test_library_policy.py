@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import unittest
 
-from common.config_store import SETTINGS_KEY, ConfigStore
+from common.config.config_store import SETTINGS_KEY, ConfigStore
 from common.games.library_policy import LibraryPolicy
 from tests.config.test_config_store import ConfigStoreTests
 

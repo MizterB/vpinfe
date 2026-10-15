@@ -209,7 +209,7 @@ class ADeclaredEditorIsRouted(unittest.TestCase):
     the renderer."""
 
     def test_the_input_actions_ask_for_the_binding_editor(self) -> None:
-        from common import config_schema
+        from common.config import config_schema
 
         asked = {one.editor for one in config_schema.options()
                  if one.section == "input"}
@@ -217,7 +217,7 @@ class ADeclaredEditorIsRouted(unittest.TestCase):
         self.assertEqual(asked, {config_schema.EDITOR_BINDING})
 
     def test_every_declared_editor_is_one_the_manager_serves(self) -> None:
-        from common import config_schema
+        from common.config import config_schema
 
         declared = {one.editor for one in config_schema.options() if one.editor}
         # Drawn as one table over the whole section by its page, which the API's
@@ -264,13 +264,13 @@ class AHoldCanBeSetRatherThanPerformed(unittest.TestCase):
     exactly 1,500ms, and you may want one on a binding you already captured without."""
 
     def test_a_hold_is_added_to_a_binding_that_has_none(self) -> None:
-        from common import input_registry
+        from common.config import input_registry
 
         self.assertEqual(input_registry.with_hold("chord(key:a+key:b)", 1500),
                          "chord(key:a+key:b)@hold:1500")
 
     def test_a_duration_is_changed_rather_than_stacked(self) -> None:
-        from common import input_registry
+        from common.config import input_registry
 
         once = input_registry.with_hold("key:Escape", 1000)
 
@@ -278,14 +278,14 @@ class AHoldCanBeSetRatherThanPerformed(unittest.TestCase):
         self.assertEqual(input_registry.hold_ms(once), 1000)
 
     def test_zero_takes_the_hold_off_again(self) -> None:
-        from common import input_registry
+        from common.config import input_registry
 
         self.assertEqual(
             input_registry.with_hold("chord(key:a+key:b)@hold:1500", 0),
             "chord(key:a+key:b)")
 
     def test_a_binding_with_no_hold_says_nothing_rather_than_zero(self) -> None:
-        from common import input_registry
+        from common.config import input_registry
 
         self.assertEqual(input_registry.hold_ms("key:a"), 0)
 

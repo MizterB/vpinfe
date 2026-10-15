@@ -5,8 +5,9 @@ from __future__ import annotations
 import configparser
 import unittest
 
-from common import config_schema, service_errors
+from common import service_errors
 from common.capture import settings
+from common.config import config_schema
 
 
 def _config(**values: str) -> configparser.ConfigParser:

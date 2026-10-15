@@ -16,7 +16,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from common import path_state
+from common.config import path_state
+from common.config.paths import ASIDE_SUFFIX, CONFIG_DIR, STATE_DIR, get_themes_dir
 from common.games import (
     game_repository,
     info_maintenance,
@@ -26,7 +27,9 @@ from common.games import (
 )
 from common.games.collection_store import COLLECTIONS_NAME, COLLECTIONS_NAME_INI
 from common.games.game_identity import game_id as game_id_of
-from common.games.info_migration import (
+from common.games.info_migration import copied_from, is_importer_bak, needs_migration
+from common.i18n import t
+from common.kept_copies import (
     EDIT,
     IMPORT,
     REASON_2X,
@@ -36,13 +39,8 @@ from common.games.info_migration import (
     backup_names,
     backup_reason,
     backup_stamp,
-    copied_from,
     is_copy,
-    is_importer_bak,
-    needs_migration,
 )
-from common.i18n import t
-from common.paths import ASIDE_SUFFIX, CONFIG_DIR, STATE_DIR, get_themes_dir
 
 from . import archive
 from . import folder as backup_folder

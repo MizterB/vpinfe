@@ -19,12 +19,12 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
-from common import config_schema
-from common.config_access import cfg_bool, cfg_get
-from common.config_store import ConfigStore
+from common.config import config_schema
+from common.config.config_access import cfg_bool, cfg_get
+from common.config.config_store import ConfigStore
+from common.config.paths import PLUGIN_PROFILES_DIR
 from common.games import game_metadata, launchers, tables
 from common.games.game import Game
-from common.paths import PLUGIN_PROFILES_DIR
 
 logger = logging.getLogger("vpinfe.common.games.launcher_migration")
 

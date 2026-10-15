@@ -21,9 +21,9 @@ logger = logging.getLogger("vpinfe.httpapi.core_capabilities")
 def _peripherals_available() -> bool | tuple[bool, str]:
     """Available if any peripheral is switched on, not only DOF."""
     try:
+        from common.config.paths import get_ini_config
         from common.host.dof_service import _is_enabled as dof_enabled
         from common.host.libdmdutil_service import _is_enabled as dmd_enabled
-        from common.paths import get_ini_config
 
         config = get_ini_config()
         enabled = [name for name, check in (("DOF", dof_enabled), ("real-DMD", dmd_enabled))

@@ -30,20 +30,36 @@ Inside the shared layer the units are ranked, and a unit imports its own rank or
 | 4 | players, release, settings | the roster; release notes and upgrade needs; the settings service |
 | 5 | `games/`, `online/`, `host/`, `uploads/`, `capture/`, `backups/`, `extensions/` | the domains, which may import each other |
 
-`tests/invariants/test_layering.py` holds the table, lists every flat module under the
-package it moves to, and names each import that runs against the ranks. That list only
-shrinks. A module that needs something above it is handed the thing instead of importing it:
-`accepted` is told by `online` whether an address is the VPinFE Theme List, and reads the
-themes folder from `paths`.
+`tests/invariants/test_layering.py` holds the table and names each import that runs
+against the ranks. That list only shrinks. A module that needs something above it is handed
+the thing instead of importing it: `accepted` is told by `online` whether an address is the
+VPinFE Theme List, and reads the themes folder from `paths`.
+
+- `values.py`: value coercion (`is_truthy`) shared by config, metadata and filters.
+- `ids.py`: how VPinFE mints an opaque local id, for games and tables alike.
+- `events.py`: the in-process event bus. Hooks are part of an operation; subscribers are told about it.
+- `vpinfe_version.py`: the build's version string.
+- `config_bootstrap.py`: reads `--configdir` into the environment before anything under `common/` is imported.
+- `kept_copies.py`: how a copy VPinFE keeps of a file is named, found and capped; the one place the name of a kept copy is built.
+
+**`common/config/`** - where the install's settings and files are, and how they are read.
 
 - `paths.py`: canonical user config, themes, collections, and game-root paths. `CONFIG_DIR` is resolved once at import time; set `VPINFE_CONFIG_DIR` before import (main.py maps the `--configdir` flag onto it) to relocate the whole config directory. Beside it, each kind of file that is not config has a folder of its own: `CACHE_DIR` (what a fetch can rebuild), `STATE_DIR` (what belongs to this machine and is kept: `devices.json`, `watching.json`, `updates/`, `capture/` as `CAPTURE_DIR`, `jobs/` as `JOBS_DIR` for the results of jobs started with `keep_result`, NiceGUI's `.nicegui/`) and `LOG_DIR` (`vpinfe.log`, `last_update.log`); under an override they are `cache/`, `state/` and `logs/` of it. `APP_ROOT` is where the app itself lives; reach a file the build ships through `bundled()`, which answers for a source checkout and for both kinds of frozen build.
 - `config_access.py`: typed, UI-independent accessors for common INI sections.
-- `values.py`: value coercion (`is_truthy`) shared by config, metadata and filters.
-- `ids.py`: how VPinFE mints an opaque local id, for games and tables alike.
-- `config_store.py`, `config_bootstrap.py`: ini reading and first-run config creation. A list of objects in `vpinfe.json` is declared as a `ConfigList` in `config_schema.py` and read and written with `get_list` and `set_list`: an item without an `id` is given one, a field the list does not declare is refused, and the module that owns the list registers its `normalize` rule and the `seed` that fills it from a 2.x ini (`register_normalizer`, `register_seed`) before the store is made.
-- `events.py`: the in-process event bus. Hooks are part of an operation; subscribers are told about it.
-- `vpinfe_version.py`: the build's version string.
+- `config_store.py`: ini reading and writing. A list of objects in `vpinfe.json` is declared as a `ConfigList` in `config_schema.py` and read and written with `get_list` and `set_list`: an item without an `id` is given one, a field the list does not declare is refused, and the module that owns the list registers its `normalize` rule and the `seed` that fills it from a 2.x ini (`register_normalizer`, `register_seed`) before the store is made.
+- `config_schema.py`: every setting declared once: its name, what it accepts, its default and what it means.
+- `setting_groups.py`, `labels.py`: the headings a section's settings gather under, and a key as a person reads it.
 - `input_registry.py`: every input action, its default bindings and the names it used to have. `[input]` in the config is generated from it, so the two cannot disagree.
+- `path_state.py`: what the disk says about a path, asked one way for everything that names one.
+- `ui_preferences.py`: how a person has arranged a page, kept with the library.
+
+**`common/settings/`** - describing the settings, changing them, and saying what a change leaves waiting.
+
+- `config_service.py`: every setting this install has, what it is set to and what may be changed; the one answer the config file, the Manager and HTTP all give.
+- `settings_waiting.py`: what has been changed and is not yet in effect.
+- `feature_checks.py`: whether the configuration is enough for the features switched on.
+- `port_checks.py`: whether a port setting can be bound, asked when it is saved.
+- `theme_options.py`: what a person set on a theme, kept where a theme update cannot reach it.
 
 **`common/runtime/`** - how the running process behaves.
 
@@ -328,7 +344,7 @@ libdmdutil should not each carry their own copy of that reasoning.
 1. Put UI-free business logic in `common/`.
 2. If callers already depend on an older class or function, keep that public API
    as a facade and delegate into the new module.
-3. Use `common.paths` for user paths and config locations.
+3. Use `common.config.paths` for user paths and config locations.
 4. Add focused tests for the helper or service boundary.
 5. Update frontend or Manager docs only when their caller contract changes.
 
@@ -353,6 +369,6 @@ libdmdutil should not each carry their own copy of that reasoning.
 
 1. Keep the network client small and injectable where practical.
 2. Avoid network work in constructors.
-3. Store downloaded cache files under `common.paths.CONFIG_DIR`.
+3. Store downloaded cache files under `common.config.paths.CONFIG_DIR`.
 4. Catch request failures at the service boundary and return a clear empty or
    error result for UI callers.

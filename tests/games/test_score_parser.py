@@ -22,7 +22,7 @@ atexit.register(shutil.rmtree, _test_config_dir, ignore_errors=True)
     encoding="utf-8",
 )
 
-from common import paths
+from common.config import paths
 
 paths.USER_ROMS_PATH = _test_config_dir / "roms.json"
 paths.USER_CONFIG_PATH = _test_config_dir / "vpinfe.ini"

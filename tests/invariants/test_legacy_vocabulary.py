@@ -29,11 +29,11 @@ TRANSLATORS = {
     "frontend/static/common/vpinfe-core.js",      # MEDIA_KIND_ALIASES, LEGACY_ACTION_NAMES, readers
     "frontend/theme_windows.py",      # CANONICAL, TITLES
     "frontend/input_api.py",          # projects the old per-input bridge methods
-    "common/input_registry.py",        # each action's legacy spellings
+    "common/config/input_registry.py",        # each action's legacy spellings
     "common/media/media_specs.py",     # MEDIA_KIND_ALIASES, the spec filenames
-    "common/config_schema.py",        # every option's aliases and former locations
-    "common/config_store.py",         # the migration that rewrites them
-    "common/config_access.py",        # reads either spelling
+    "common/config/config_schema.py",        # every option's aliases and former locations
+    "common/config/config_store.py",         # the migration that rewrites them
+    "common/config/config_access.py",        # reads either spelling
     "common/deprecations.py",         # the ledger of what was renamed
     "common/games/media_lookup.py",   # canonical_kind on the way in
     # MANIFEST_KINDS. These are not our old names being spoken - they are
@@ -77,7 +77,7 @@ NOT_THE_ACTION = {
     "common/host/keys.py": {"page_up", "page_down"},
     # Three letters said as letters, so that `real_dmd_color` reads "Real DMD Color".
     # The media kind is scoreview and this file never names a kind.
-    "common/labels.py": {"dmd"},
+    "common/config/labels.py": {"dmd"},
 }
 
 SKIP_PARTS = {"build", "third_party", "chromium", "tests"}

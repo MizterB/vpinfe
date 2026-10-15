@@ -19,7 +19,7 @@ from unittest import mock
 
 import httpapi
 from common import service_errors, timestamps
-from common.config_store import ConfigStore
+from common.config.config_store import ConfigStore
 from common.host import dof_service
 from common.i18n import t
 from common.online import cache_stamps, dof_sync

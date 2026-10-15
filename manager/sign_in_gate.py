@@ -24,7 +24,7 @@ from starlette.requests import HTTPConnection, Request
 from starlette.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from common import paths
+from common.config import paths
 from common.devices.install_identity import display_name
 from common.i18n import t
 from common.players import players

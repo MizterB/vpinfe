@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 
-from common.config_store import ConfigStore
+from common.config.config_store import ConfigStore
 from tests.config.test_config_store import ConfigStoreTests
 
 

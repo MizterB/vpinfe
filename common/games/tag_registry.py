@@ -9,8 +9,9 @@ import threading
 from pathlib import Path
 from typing import Any
 
-from common import paths, service_errors
+from common import service_errors
 from common.atomic_write import write_atomic
+from common.config import paths
 from common.games.game_metadata import normalize_tag
 from common.i18n import t
 

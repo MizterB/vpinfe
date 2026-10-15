@@ -1,6 +1,6 @@
 """Every setting this install has, what it is set to, and what may be changed.
 
-`common/config_schema.py` declares what a setting is called, what it accepts and what it
+`common/config/config_schema.py` declares what a setting is called, what it accepts and what it
 means. This answers the three questions a settings page asks of that: describe it, read
 it, write it - once, so the config file, the Manager and anything reading over HTTP
 describe the same install the same way.
@@ -17,17 +17,18 @@ import threading
 from collections.abc import Sequence
 from typing import Any
 
-from common import config_schema, events, path_state, port_checks
+from common import events
 from common.apps.contract import Field
-from common.backups import folder as backups_folder
+from common.config import config_schema, path_state, paths
+from common.config.labels import humanize
+from common.config.paths import CONFIG_DIR, get_ini_config
 from common.devices import install_presence
 from common.failures import why
 from common.i18n import t
-from common.labels import humanize
 from common.media.manufacturer_logos import resolve_logos_dir
-from common.paths import CONFIG_DIR, get_ini_config
+from common.settings import port_checks
 
-logger = logging.getLogger("vpinfe.common.config_service")
+logger = logging.getLogger("vpinfe.common.settings.config_service")
 
 _WRITING = threading.RLock()
 
@@ -191,7 +192,7 @@ def blank_stands_for() -> dict[tuple[str, str], str]:
     the browser left blank is discovered instead, and those answer through their own
     reports.
     """
-    return {(backups_folder.SECTION, backups_folder.FOLDER): str(backups_folder.DEFAULT_DIR),
+    return {("backups", "folder"): str(paths.DEFAULT_BACKUPS_DIR),
             ("media", "manufacturer_logos_dir"): str(resolve_logos_dir("", CONFIG_DIR))}
 
 

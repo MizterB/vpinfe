@@ -11,7 +11,7 @@ import logging
 import threading
 
 from common.atomic_write import write_atomic
-from common.paths import STAMPS_PATH
+from common.config.paths import STAMPS_PATH
 
 logger = logging.getLogger("vpinfe.common.online.cache_stamps")
 

@@ -7,7 +7,8 @@ from __future__ import annotations
 from pathlib import Path
 from unittest import mock
 
-from common import path_state, service_errors
+from common import service_errors
+from common.config import path_state
 from common.games import library_folders, media_browse
 from tests.support.hung_folder import never_answering
 from tests.support.library import TempTree

@@ -6,7 +6,7 @@ import unittest
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
-from common import config_schema
+from common.config import config_schema
 from manager import settings, theme_card, themes
 from manager.kit import offload, thumbnails
 

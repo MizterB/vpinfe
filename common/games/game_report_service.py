@@ -5,10 +5,10 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 
-from common.config_store import ConfigStore
+from common.config.config_store import ConfigStore
+from common.config.paths import get_ini_config
 from common.games import game_repository
 from common.online.vpsdb import VPSdb
-from common.paths import get_ini_config
 
 logger = logging.getLogger("vpinfe.common.games.game_report_service")
 

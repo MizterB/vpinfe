@@ -13,7 +13,7 @@ from collections.abc import Callable
 from typing import Any
 from urllib.parse import quote
 
-from common.config_access import ConfigSource, NetworkConfig
+from common.config.config_access import ConfigSource, NetworkConfig
 from common.games import (
     collection_filters,
     collection_resolver,

@@ -57,7 +57,7 @@ from frontend import library_resolver as frontend_library
 from frontend.theme_contract import CURRENT_CONTRACT, declared_contract
 
 if TYPE_CHECKING:
-    from common.config_store import ConfigStore
+    from common.config.config_store import ConfigStore
     from common.games.collection_resolver import Entry
     from common.games.game import Game
     from frontend.chromium_manager import ChromiumManager

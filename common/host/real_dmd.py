@@ -13,8 +13,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from common.config_access import MediaConfig
-from common.config_store import ConfigStore
+from common.config.config_access import MediaConfig
+from common.config.config_store import ConfigStore
 from common.games.game import Game
 
 logger = logging.getLogger("vpinfe.common.host.real_dmd")

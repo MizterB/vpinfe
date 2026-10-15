@@ -17,8 +17,8 @@ from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO
 
+from common.config.paths import USER_ROMS_PATH
 from common.games import high_scores
-from common.paths import USER_ROMS_PATH
 from common.players.players import get_roster
 
 if TYPE_CHECKING:

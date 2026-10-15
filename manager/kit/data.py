@@ -8,10 +8,10 @@ import time
 from collections.abc import Iterable
 from typing import Any
 
+from common.config.labels import field_label
 from common.extensions import host
 from common.games.asset_registry import ASSET_SPECS, lens_kind
 from common.i18n import t
-from common.labels import field_label
 from common.media import folder_browse
 from common.media.media_specs import MEDIA_SPECS, media_family, media_label_map
 from common.runtime.jobs import KIND_MEDIA_FILL

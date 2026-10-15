@@ -118,9 +118,9 @@ def _seen_unmatched(games: list, unseen: list) -> list:
 def _catalog_for(to_match: list, reporter: JobReporter | None, step: int,
                  steps: int) -> None:
     """Get the catalog before games are matched, when there is none on disk."""
+    from common.config.paths import get_ini_config
     from common.games import auto_match
     from common.online import vpsdb_sync
-    from common.paths import get_ini_config
 
     if not to_match or not auto_match.enabled():
         return

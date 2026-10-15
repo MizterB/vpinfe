@@ -11,8 +11,9 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
-from common import events, paths
+from common import events
 from common.atomic_write import write_atomic
+from common.config import paths
 from common.failures import why
 from common.games import derived_tags, rankings
 from common.i18n import t

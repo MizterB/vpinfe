@@ -13,7 +13,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from common import path_state, service_errors
+from common import service_errors
+from common.config import path_state
 from common.failures import why
 from common.games import (
     auto_match,

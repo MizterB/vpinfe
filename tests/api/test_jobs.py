@@ -19,7 +19,8 @@ import requests
 from fastapi.testclient import TestClient
 
 import httpapi
-from common import events, paths
+from common import events
+from common.config import paths
 from common.i18n import t
 from common.runtime import jobs
 from common.runtime import jobs as job_registry

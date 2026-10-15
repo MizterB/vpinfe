@@ -11,8 +11,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from common.config_access import ConfigSource
-from common.config_store import ConfigStore
+from common.config.config_access import ConfigSource
+from common.config.config_store import ConfigStore
 from common.devices import device_registry, install_setup
 from common.release import migration_ledger, release_notes, upgrade_needs
 

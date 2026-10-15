@@ -18,7 +18,8 @@ from unittest import mock
 
 import requests
 
-from common import paths, service_errors
+from common import service_errors
+from common.config import paths
 from common.security import http_client, machine_secrets, pinned_certificates
 from tests.api.test_encrypted_connections import make_certificate
 

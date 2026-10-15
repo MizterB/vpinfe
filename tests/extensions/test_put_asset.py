@@ -13,7 +13,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from common import path_state, service_errors
+from common import service_errors
+from common.config import path_state
 from common.extensions.context import ExtensionFiles
 from common.extensions.contract import ContractError
 from common.extensions.games import ExtensionGames

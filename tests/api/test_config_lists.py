@@ -14,10 +14,12 @@ from unittest import mock
 from fastapi.testclient import TestClient
 
 import httpapi
-from common import config_schema, config_service, events
+from common import events
 from common.apps.contract import Field
-from common.config_schema import ConfigList
-from common.config_store import ConfigStore
+from common.config import config_schema
+from common.config.config_schema import ConfigList
+from common.config.config_store import ConfigStore
+from common.settings import config_service
 from tests.config.test_config_lists import WIDGET_FIELDS, declared
 
 WIDGETS = ConfigList("widgets", WIDGET_FIELDS, home="widgets")

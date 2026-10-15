@@ -484,7 +484,7 @@ def remove(game_id: str, kind: str, table_id: str = "", page: int | None = None)
 
 def use_logos_for_wheels() -> dict:
     """Set `[Media] wheelset` to the reserved `logo`, so every game's wheel is its logo."""
-    from common import config_service
+    from common.settings import config_service
 
     config_service.apply({"settings": {"media": {"wheelset": _LOGO_SET}}})
     return {"wheelset": _LOGO_SET}

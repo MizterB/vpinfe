@@ -12,7 +12,8 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from common import apps, path_state, service_errors
+from common import apps, service_errors
+from common.config import path_state
 from common.failures import why
 from common.games import derived_tags, game_lens, library_folders, mods, table_lens, tables
 from common.games.collection_resolver import visible_entries

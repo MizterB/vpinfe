@@ -17,7 +17,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import cast
 
-from common.config_store import ConfigStore
+from common.config.config_store import ConfigStore
 from common.devices import install_setup
 from common.devices.device_registry import DeviceRegistry
 from common.games import revert_3x

@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Any
 
-from common import input_registry, setting_groups
+from common.config import input_registry, setting_groups
 from common.i18n import t
 from manager.binding_table import Row, Table, selectors
 from manager.kit import panel

@@ -14,7 +14,7 @@ from typing import Any
 from nicegui import run, ui
 
 from apps.vpx import bindings
-from common import input_registry
+from common.config import input_registry
 from common.failures import why
 from common.i18n import t
 from manager.binding_table import Kept, Row, Table

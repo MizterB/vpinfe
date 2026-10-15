@@ -15,11 +15,12 @@ import zipfile
 from pathlib import Path
 from unittest import mock
 
-from common import config_service, service_errors, theme_options
-from common.config_store import ConfigStore
+from common import service_errors
+from common.config.config_store import ConfigStore
 from common.i18n import t
 from common.online import theme_ops, theme_service
 from common.online.theme_installer import ThemeInstallStore
+from common.settings import config_service, theme_options
 from tests.support.library import TempTree
 
 SCHEMA = {"title": "Reference", "options": [
@@ -231,7 +232,7 @@ class SchemaFileTests(_Base):
         self.assertEqual(theme_options.schema_path(self.theme, 3).name, "options.json")
 
     def test_a_contract_2_theme_with_options_only_in_theme_json_is_told_once(self) -> None:
-        with self.assertLogs("vpinfe.common.theme_options", level="WARNING") as logged:
+        with self.assertLogs("vpinfe.common.settings.theme_options", level="WARNING") as logged:
             theme_options.schema_path(self.theme, 2)
             theme_options.schema_path(self.theme, 2)
 
@@ -241,7 +242,7 @@ class SchemaFileTests(_Base):
     def test_a_theme_with_an_options_file_is_not_told_anything(self) -> None:
         (self.theme / "options.json").write_text(json.dumps(SCHEMA), encoding="utf-8")
 
-        with self.assertNoLogs("vpinfe.common.theme_options", level="WARNING"):
+        with self.assertNoLogs("vpinfe.common.settings.theme_options", level="WARNING"):
             theme_options.schema_path(self.theme, 2)
 
 

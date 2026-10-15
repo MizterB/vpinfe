@@ -12,8 +12,8 @@ from fastapi.testclient import TestClient
 from nicegui import ui
 
 import httpapi
-from common import config_schema, paths, setting_groups
-from common.config_store import ConfigStore
+from common.config import config_schema, paths, setting_groups
+from common.config.config_store import ConfigStore
 from common.i18n import t
 from manager import input_page, settings
 from manager.kit import panel

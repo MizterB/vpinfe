@@ -20,7 +20,7 @@ from typing import Any
 
 from nicegui import run, ui
 
-from common.config_access import DisplayConfig
+from common.config.config_access import DisplayConfig
 from common.devices import install_setup, serving
 from common.games import launchers as launcher_model
 from common.host import addresses
@@ -90,7 +90,7 @@ class Step:
 
 
 def _config() -> Any:
-    from common.paths import get_ini_config
+    from common.config.paths import get_ini_config
 
     return get_ini_config()
 

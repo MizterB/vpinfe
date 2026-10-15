@@ -16,7 +16,7 @@ heading below is a key in it - `windows.playfield` is a `playfield` object insid
 Every name a setting has ever had keeps resolving, so an older file and a hand-edit that
 uses an old spelling both still load.
 
-<!-- generated from common/config_schema.py by tests/support/config_reference.py -->
+<!-- generated from common/config/config_schema.py by tests/support/config_reference.py -->
 
 ### `windows.playfield`
 

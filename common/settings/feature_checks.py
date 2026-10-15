@@ -18,14 +18,14 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from common import path_state
-from common.config_access import cfg_get
-from common.config_store import ConfigStore
+from common.config import path_state
+from common.config.config_access import cfg_get
+from common.config.config_store import ConfigStore
 from common.devices import install_identity
 from common.i18n import t
 
 if TYPE_CHECKING:
-    from common.config_schema import ConfigOption
+    from common.config.config_schema import ConfigOption
 
 # Where the thing that fixes a requirement lives. A settings requirement ends at a field
 # on a settings page; a launcher one ends at the Launchers list, which is not a setting
@@ -81,7 +81,7 @@ class Unmet:
 
 
 def _option(section: str, key: str) -> ConfigOption | None:
-    from common import config_schema
+    from common.config import config_schema
 
     return next((o for o in config_schema.CONFIG_OPTIONS
                  if o.section == section and o.key == key), None)

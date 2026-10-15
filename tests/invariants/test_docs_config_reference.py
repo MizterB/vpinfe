@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import unittest
 
-from common import config_schema
+from common.config import config_schema
 from tests.support import config_reference
 
 
@@ -21,7 +21,7 @@ class ReferenceTests(unittest.TestCase):
     def test_the_doc_matches_the_schema(self) -> None:
         self.assertEqual(
             config_reference.current(), config_reference.render(),
-            "docs/technical-details.md is behind common/config_schema.py - regenerate it "
+            "docs/technical-details.md is behind common/config/config_schema.py - regenerate it "
             'with: python3 -c "from tests.support import config_reference as r; r.write()"')
 
     def test_every_setting_appears(self) -> None:

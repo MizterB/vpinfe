@@ -12,7 +12,7 @@ import unittest
 from pathlib import Path
 
 from common import tokens
-from common.config_store import ConfigStore
+from common.config.config_store import ConfigStore
 from common.extensions import catalogs, contributions, host, store
 
 REPO = Path(__file__).resolve().parents[2]
@@ -146,7 +146,7 @@ class HandoverTests(unittest.TestCase):
         self.assertEqual(held["user_id"], "player-one")
 
     def test_what_it_read_is_no_longer_in_the_file(self) -> None:
-        from common.config_access import cfg_get
+        from common.config.config_access import cfg_get
 
         config = self.convert("user_id = player-one\nmachine_id = THEIR-CAB\n")
 

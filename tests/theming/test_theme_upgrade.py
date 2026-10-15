@@ -12,8 +12,8 @@ import zipfile
 from pathlib import Path
 from unittest import mock
 
-from common import config_service
-from common.config_store import ConfigStore
+from common.config.config_store import ConfigStore
+from common.config.paths import ASIDE_SUFFIX, THEMES_FOLDER
 from common.online import (
     theme_seed,  # noqa: F401 - registers the seed
     theme_service,
@@ -21,8 +21,8 @@ from common.online import (
     theme_upgrade,
     themes,
 )
-from common.paths import ASIDE_SUFFIX, THEMES_FOLDER
 from common.release import migration_ledger
+from common.settings import config_service
 from tests.support.library import TempTree
 
 STOCK = theme_sources.stock_list()

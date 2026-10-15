@@ -14,9 +14,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from common.atomic_write import write_atomic
+from common.config.paths import CONFIG_DIR
 from common.host import tools
 from common.i18n import t
-from common.paths import CONFIG_DIR
 
 SWAY = "sway"
 HYPRLAND = "hyprland"

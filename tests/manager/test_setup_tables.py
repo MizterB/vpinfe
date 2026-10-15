@@ -11,8 +11,8 @@ import unittest
 from typing import Any
 from unittest import mock
 
+from common.config.path_state import OK as PATH_OK
 from common.games import library_folders as model
-from common.path_state import OK as PATH_OK
 from manager import setup, setup_tables
 from manager.setup_tables import Tables
 

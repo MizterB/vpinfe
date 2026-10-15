@@ -13,10 +13,10 @@ from typing import Any
 
 from nicegui import ui
 
+from common.config.paths import get_ini_config
 from common.devices.install_identity import display_name
 from common.failures import why
 from common.i18n import t
-from common.paths import get_ini_config
 from manager.kit import dialog as frame
 from manager.kit import offload, verbs
 from manager.kit.on_page import on_page

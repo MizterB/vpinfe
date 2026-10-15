@@ -13,7 +13,7 @@ from weakref import WeakKeyDictionary
 
 from nicegui import run, ui
 
-from common import path_state
+from common.config import path_state
 from common.i18n import t
 from manager.kit import offload
 from manager.kit.data import Library

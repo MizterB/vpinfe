@@ -9,8 +9,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from common import config_schema
-from common.config_access import cfg_get
+from common.config import config_schema
+from common.config.config_access import cfg_get
 from common.devices.device_registry import (
     DEFAULT_MOBILE_PORT,
     MOBILE_DEVICES_KEY,

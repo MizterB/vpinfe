@@ -22,7 +22,7 @@ from tempfile import TemporaryDirectory
 from urllib.parse import quote
 
 from apps.vpx.setting_types import TYPES
-from common.labels import field_label
+from common.config.labels import field_label
 from tests.support.browser_session import BrowserSession, chromium_path
 from tests.support.library import game_info, write_game
 from tests.support.live_instance import LiveInstance

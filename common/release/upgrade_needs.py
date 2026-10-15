@@ -10,7 +10,7 @@ import logging
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
-from common.config_access import ConfigSource
+from common.config.config_access import ConfigSource
 from common.release.release_notes import newer
 from common.security import authenticator
 

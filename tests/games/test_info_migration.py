@@ -13,22 +13,24 @@ from pathlib import Path
 
 from common.games.info_file import MetaConfig
 from common.games.info_migration import (
-    IMPORT,
     MATCHED_BY_USER,
+    VPS_MATCHED_BY_KEY,
+    copied_from,
+    is_importer_bak,
+    is_versioned,
+    migrate,
+    needs_migration,
+)
+from common.kept_copies import (
+    IMPORT,
     REASON_2X,
     RESET,
     RESTORE,
-    VPS_MATCHED_BY_KEY,
     backup_path,
     backup_reason,
     backup_stamp,
-    copied_from,
     copy_aside,
-    is_importer_bak,
-    is_versioned,
     keep_newest,
-    migrate,
-    needs_migration,
     write_backup,
 )
 from tests.support.library import TempTree

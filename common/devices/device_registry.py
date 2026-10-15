@@ -39,12 +39,12 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-from common import config_schema
 from common.atomic_write import write_atomic
-from common.config_store import ConfigStore
+from common.config import config_schema
+from common.config.config_store import ConfigStore
+from common.config.paths import STATE_DIR, get_ini_config
 from common.devices.install_identity import mint_id
 from common.i18n import t
-from common.paths import STATE_DIR, get_ini_config
 from common.security import access_keys, pinned_certificates
 from common.timestamps import utc_now_iso
 

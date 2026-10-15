@@ -12,10 +12,11 @@ from contextlib import contextmanager
 from typing import Any
 from unittest import mock
 
-from common import config_schema, config_service
 from common.apps.contract import Field
-from common.config_schema import ConfigList, ConfigListError, ListVariant
-from common.config_store import ConfigStore
+from common.config import config_schema
+from common.config.config_schema import ConfigList, ConfigListError, ListVariant
+from common.config.config_store import ConfigStore
+from common.settings import config_service
 from tests.config.test_config_store import ConfigStoreTests
 
 WIDGET_FIELDS = (
@@ -368,7 +369,7 @@ class SeedTests(ListStoreTests):
         self.ini.write_text("[Settings]\ntablerootdir = /library\n", encoding="utf-8")
 
         with declared(WIDGETS, seeds={"widgets": broken}), self.assertLogs(
-                "vpinfe.common.config_store", "ERROR"):
+                "vpinfe.common.config.config_store", "ERROR"):
             store = self._store()
 
         self.assertEqual(store.value("general", "game_root_dir"), "/library")
@@ -382,7 +383,7 @@ class SeedTests(ListStoreTests):
         self.ini.write_text("[Settings]\ntablerootdir = /library\n", encoding="utf-8")
 
         with declared(WIDGETS, seeds={"widgets": half}), self.assertLogs(
-                "vpinfe.common.config_store", "ERROR"):
+                "vpinfe.common.config.config_store", "ERROR"):
             self._store()
 
         self.assertEqual([i["name"] for i in self._payload()["widgets"]], ["Shipped"])

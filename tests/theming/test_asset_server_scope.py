@@ -101,7 +101,7 @@ class NetworkConfigTests(unittest.TestCase):
     def _network(self, **settings):
         from configparser import ConfigParser
 
-        from common.config_access import NetworkConfig, cfg_set
+        from common.config.config_access import NetworkConfig, cfg_set
 
         parser = ConfigParser()
         for key, value in settings.items():

@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from common import atomic_write, service_errors
+from common import atomic_write, kept_copies, service_errors
 from common.games import info_migration
 from common.i18n import t
 
@@ -36,7 +36,7 @@ class Where:
 
 
 def _stamped(base: Path, reason: str, when: datetime) -> Path:
-    return Path(info_migration.backup_path(base, when, reason))
+    return Path(kept_copies.backup_path(base, when, reason))
 
 
 def keep(folder: Path, game_id: str, source: Path, relative: str,
@@ -62,7 +62,7 @@ def keep(folder: Path, game_id: str, source: Path, relative: str,
 def where(path: Path) -> Where | None:
     """Where a path is kept, or None when it is not a copy in a known folder. `path` is
     believed only under a folder backups are kept in."""
-    if not info_migration.is_copy(path):
+    if not kept_copies.is_copy(path):
         return None
     for folder in backup_folder.known():
         for area in AREAS:

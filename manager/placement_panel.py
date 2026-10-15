@@ -19,10 +19,10 @@ from nicegui import run, ui
 from common import apps
 from common.capture.adapters import NOT_FOUND, SCREEN_SECTIONS, screen_of
 from common.capture.adapters.wlr import WlrAdapter, reload_config
+from common.config.paths import get_ini_config
 from common.failures import why
 from common.host import display_service, placement
 from common.i18n import t
-from common.paths import get_ini_config
 from frontend import theme_windows
 from manager.displays import Write, stored
 from manager.kit import clipboard, offload, panel

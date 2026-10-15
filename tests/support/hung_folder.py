@@ -8,7 +8,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from unittest import mock
 
-from common import path_state
+from common.config import path_state
 
 
 @contextmanager
