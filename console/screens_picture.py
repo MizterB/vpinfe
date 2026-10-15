@@ -1,4 +1,4 @@
-"""The cabinet drawn as its parts, and this computer's screens dragged onto them.
+"""The cabinet drawn as its parts, and this device's screens dragged onto them.
 
 One control wherever a screen is chosen for a part: the caller passes the screens, what is
 on each part now and the acts it reports to, and the control writes nothing itself. A part
@@ -172,7 +172,7 @@ class Picture:
     answers whether the change was kept; the picture follows it only if it was. `point` is
     told the arrow picked and the playfield's screen, and `show` runs Show numbers with what
     is where; the picture offers each only when it is given. `arrows` is False for a
-    computer on a desk, which has no cabinet to point anywhere in.
+    device on a desk, which has no cabinet to point anywhere in.
 
     `differs` names the parts held otherwise than the thing this picture is compared with
     (`arrow_differs` the playfield's arrow), and `match` puts them right; both are drawn

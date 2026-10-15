@@ -404,9 +404,9 @@ class InputTableDrive(unittest.TestCase):
         self.assertFalse([chip for chips in self.seen["shipped"].values() for chip in chips
                           if "standard" in chip.lower()])
 
-    def test_the_line_waits_until_something_is_pressed_on_this_computer(self) -> None:
+    def test_the_line_waits_until_something_is_pressed(self) -> None:
         self.assertEqual(self.seen["idle"],
-                         "Press anything on this computer to see what it does")
+                         "Press anything to see what it does")
 
     def test_a_key_pressed_names_itself_and_what_it_does(self) -> None:
         self.assertEqual(self.seen["heard_key"], "Left Arrow · Previous")
@@ -436,7 +436,7 @@ class InputTableDrive(unittest.TestCase):
             "Click away to stop")
 
     def test_a_click_on_a_heading_a_gap_or_the_line_stops_the_listening(self) -> None:
-        idle = "Press anything on this computer to see what it does"
+        idle = "Press anything to see what it does"
         self.assertEqual(self.seen["away_heading"]["line"], idle)
         self.assertEqual(self.seen["away_live_line"], idle)
         self.assertEqual(self.seen["away_gap"], idle)

@@ -30,20 +30,20 @@ next section first.
   list first, because a mobile device you added by hand is the one thing nothing
   re-announces. It refuses while VPinFE is running; `--dry-run` lists what would go, and
   `--config-only` leaves the library alone.
-- **Other computers sign in once, with a code.** A browser on another computer asks for a
+- **Other devices sign in once, with a code.** A browser on another device asks for a
   code and VPinFE shows it on this machine, where whoever is there chooses Show or Ignore.
-  Settings > Security lists the browsers signed in and ends any of them. This computer never
+  Settings > Security lists the browsers signed in and ends any of them. This device never
   asks. A change that can run programs or cannot be undone, such as installing an update or
-  restoring a backup, asks another computer for a second Confirm code, and skips it over a
+  restoring a backup, asks another device for a second Confirm code, and skips it over a
   VPN, behind a proxy or on HTTPS. An authenticator app set up on the same page can give
   both codes. Themes and extensions that did not come with VPinFE stay off until you accept
   them. Traffic on your network is not encrypted, so away from home connect through a VPN.
-  Set HTTP Address in Settings to `127.0.0.1` to keep other computers out altogether, at the
+  Set HTTP Address in Settings to `127.0.0.1` to keep other devices out altogether, at the
   cost of the Console, the Remote and the mobile pages working from other devices.
 
 ### What's New
-- **Console** - Other computers sign in to VPinFE once, with a code shown on this machine
-  or with an authenticator app. This computer never asks. Settings > Security lists who is
+- **Console** - Other devices sign in to VPinFE once, with a code shown on this machine
+  or with an authenticator app. This device never asks. Settings > Security lists who is
   signed in and signs any of them out, makes tokens for scripts and other programs, and
   names the networks and proxies whose traffic is encrypted. VPinFE can serve HTTPS from a
   certificate you choose.
@@ -103,13 +103,13 @@ next section first.
   to one table, and the Console shows which layer a value comes from.
 - **Console, Core** - Devices: installs find each other on your network and show their
   version, what they can do and what their log says. A machine can be updated, restarted,
-  powered off, or told to close the table it is playing from another computer. Several
+  powered off, or told to close the table it is playing from another device. Several
   mobile devices running VPX Mobile can be added by hand and sent tables. A cabinet can play
   a library held on another machine. Windows may ask to let VPinFE through the firewall the
   first time, and a network that filters multicast still takes an address by hand.
 - **Console, Core** - Backups: VPinFE keeps a copy before it changes something it cannot
   easily undo, and System > Backups lists, restores or clears them. A backup of your whole
-  setup can be taken at any time and carried to another computer.
+  setup can be taken at any time and carried to another device.
 - **Console** - Settings save as you change them, with a tag on the ones that wait for a
   restart or a reopen. Metrics shows the processor, memory, graphics card and disks of a machine, and Logs shows
   what VPinFE has been doing as a stream or as a digest that collapses repeats.

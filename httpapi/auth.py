@@ -347,7 +347,7 @@ class ScopeMiddleware(BaseHTTPMiddleware):
         # What an extension may change reads the tier off the request, so it is set around
         # everything the request runs, and ends with it.
         client = getattr(request, "client", None)
-        origin = "this computer" if identity.is_local else str(getattr(client, "host", ""))
+        origin = "this device" if identity.is_local else str(getattr(client, "host", ""))
         with reach.marking(identity.tier, origin):
             return await call_next(request)
 

@@ -1,4 +1,5 @@
-"""The devices on this computer, as an extension is allowed to see them: `ctx.hardware`.
+"""The USB, serial and display devices attached to this device, as an extension is allowed
+to see them: `ctx.hardware`.
 
 Reading only, under `hardware:read`. Opening a device is the extension's own business.
 """

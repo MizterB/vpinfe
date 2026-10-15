@@ -210,7 +210,7 @@ class OfferedHardwareTests(unittest.TestCase):
             with patch.object(hardware.sys, "platform", platform):
                 self.assertIn(word, self.reader.access_help())
 
-    def test_the_inventory_answers_on_this_computer(self) -> None:
+    def test_the_inventory_answers_on_this_device(self) -> None:
         found = hardware.list_devices()
 
         self.assertTrue(all(one["kind"] in hardware.KINDS for one in found))
@@ -270,14 +270,14 @@ class PluggedInRecipeTests(unittest.TestCase):
         assert self.record.context is not None
         self.assertEqual(told, self.record.context.hardware.access_help())
 
-    def test_a_computer_with_nothing_plugged_in_has_no_rows_and_no_line(self) -> None:
+    def test_a_device_with_nothing_plugged_in_has_no_rows_and_no_line(self) -> None:
         with self.inventory([]):
             rows = serving.list_rows(self.record, "devices")["rows"]
             status = serving.list_about(self.record, "devices")["status"]
 
         self.assertEqual((rows, status), ([], ""))
 
-    def test_a_computer_that_cannot_list_a_kind_leaves_it_out(self) -> None:
+    def test_a_device_that_cannot_list_a_kind_leaves_it_out(self) -> None:
         def broken() -> list:
             raise OSError("no sysfs")
 

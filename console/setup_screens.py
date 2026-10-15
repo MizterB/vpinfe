@@ -45,7 +45,7 @@ class Screens:
 
 @dataclass(frozen=True)
 class Seen:
-    """What the step draws from: VPinFE's settings and this computer's screens."""
+    """What the step draws from: VPinFE's settings and this device's screens."""
     values: dict[str, Any]
     schema: list[dict]
     monitors: list[Any]

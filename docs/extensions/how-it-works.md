@@ -75,7 +75,7 @@ including one in the extensions folder that has the name of one VPinFE ships:
   Overview while it waits.  Until an owner accepts it, it does not start.
 - **In Settings, under Extensions.**  A chip beside its name, Not Accepted until accepted and
   Unofficial after, and the page's list of what it reaches reads "What It Says It Uses".  The
-  chip's tooltip says "Not included with VPinFE.  Extensions can run programs on this computer."
+  chip's tooltip says "Not included with VPinFE.  Extensions can run programs on this device."
 - **On its own pages.**  A page's header says "From {Extension}".  It carries no
   status of its own, because the rail entry that led there already did.
 - **Wherever its name stands for what it added.**  A small grey shield, with the tooltip
@@ -126,7 +126,7 @@ they become a boundary only when extensions run out of process.
 
 **Who may reach what the extension serves.**  Everything an extension serves sits at a
 *tier*: Play for what a Remote pass may reach, Library by default, Protected for an act that
-changes the computer.  Core puts the gate on every route.  You never attach one, so you cannot
+changes the device.  Core puts the gate on every route.  You never attach one, so you cannot
 ship a route without it.
 
 Play is the one the Owner is asked about.  The manifest's `play` names each surface a Remote can
@@ -136,11 +136,11 @@ not named fails to load.  An update that adds one asks the Owner again.
 A picture in an extension that has a page a Remote can open can be fetched by a Remote, so show
 nothing private there.  Pictures are served at their own address and carry no tier of their own.
 
-A request has a tier too: how far it got.  A request that changes the computer, such as
+A request has a tier too: how far it got.  A request that changes the device, such as
 installing updates through `ctx.os`, is refused unless it reached Protected, which an Owner
 reaches with a Confirm and a token never does.  Core marks each request with its tier, lowered to the tier the act is declared at, and the
 mark follows the request into the function it calls.  A Library act pressed by an Owner who has
-confirmed is still a Library act, so only an act declared Protected can change the computer.  An event
+confirmed is still a Library act, so only an act declared Protected can change the device.  An event
 handler, a timer or a thread the extension started has none, so a change from any of them is
 refused.  It is how VPinFE keeps an act deliberate: a person pressed something.  It is not a lock
 on the machine.  See [`ctx.os`](reference/context.md#ctxos).

@@ -206,7 +206,7 @@ def origin_is_ours(origin: str, host: str, *, test_peer: bool = False) -> bool:
 def came_through_listed_proxy(peer: str | None, port: int | None) -> bool:
     """Whether the request came from a proxy the Owner listed, and not on the port this
     machine's own windows use. That port exists only while HTTPS is on; with none, a proxy
-    on this computer cannot be told from a window, and the list changes nothing here."""
+    on this device cannot be told from a window, and the list changes nothing here."""
     own = serving.bound_port("loopback_port")
     return (own is not None and port != own
             and encrypted_connections.instance().is_proxy(peer))

@@ -98,7 +98,7 @@ def _config() -> Any:
 
 
 def _address() -> str:
-    """Where another computer reaches this one, without the trailing slash."""
+    """Where another device reaches this one, without the trailing slash."""
     return addresses.best(serving.network(_config()).http_port, "")
 
 

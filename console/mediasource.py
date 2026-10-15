@@ -1,6 +1,6 @@
 """Where a file comes from, in one place.
 
-Three ways in, because there are three: the computer you are looking at this from, the
+Three ways in, because there are three: the device you are looking at this from, the
 machine VPinFE runs on, and the online sources. A collection's picture has a fourth, the art its
 games already have, and a table has one with no file at all. Anything already on a disk
 is one browser rather than a tab apiece - this game's folder, another game's, and a folder
@@ -234,7 +234,7 @@ class _Sources:
             self.before()
             above = ui.column().classes("w-full gap-0 px-3")
 
-            # Ordered by how far the file has to travel: your own computer, this library,
+            # Ordered by how far the file has to travel: your own device, this library,
             # the machine VPinFE runs on, then the internet.
             host = _host_name(self.library)
             with ui.tabs().props("dense no-caps align=left").classes("w-full px-3") as tabs:
@@ -1506,7 +1506,7 @@ class _Image(_OneFile):
 
 
 class _PlayerPicture(_Image):
-    """A player's picture: a file from this computer or from the host. A player has no
+    """A player's picture: a file from your device or from the host. A player has no
     games to borrow a wheel from."""
 
     games = False

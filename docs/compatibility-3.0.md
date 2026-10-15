@@ -1534,7 +1534,7 @@ and `tests/theming/test_attract_drive.py`.
 `signin_pending`, `signin_show`, `signin_ignore` and `signin_dismiss`, refused to themes
 like `get_paging_state`. The cabinet's window draws "{address} wants to sign in" and, once
 Show is chosen, the six digits; a theme that could call them could read the digits.
-*Why:* a browser on another computer signs in with a code that is shown on this one, and
+*Why:* a browser on another device signs in with a code that is shown on this one, and
 the cabinet's screen is where a person standing at it sees the request.
 Covered by `tests/js/internal-methods.test.js`, `tests/invariants/test_theme_api_surface.py`
 and `tests/theming/test_sign_in_drive.py`.
@@ -1630,7 +1630,7 @@ sole member of `READ_ONLY_SECTIONS` and is now writable, so the active theme, th
 registries and the repositories can be set from the Console. It was read-only because a
 theme source is a URL VPinFE fetches installable themes from, which are code the frontend
 runs, and a network caller reached it with the same scopes as a local one when
-`network.http_bind` defaulted to `0.0.0.0`. Opened deliberately, and another computer now
+`network.http_bind` defaulted to `0.0.0.0`. Opened deliberately, and another device now
 holds those scopes only once it has signed in.
 *Why:* a section named `general` records that nobody decided where a setting goes, and it
 had collected six unrelated subjects on one page. A settings page draws a whole config

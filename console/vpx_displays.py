@@ -345,7 +345,7 @@ async def entries(context: dict[str, Any], group: Any, shown: Sequence[tuple[Any
 
 
 async def _beside(library: Any) -> tuple[dict[str, Any], list[dict], list[Any], list[str]]:
-    """What the page compares with: VPinFE's settings, and this computer's screens."""
+    """What the page compares with: VPinFE's settings, and this device's screens."""
     schema = await offload.io(library.config_schema)
     vpinfe = await offload.io(library.config_values)
     monitors = await offload.io(screens.connected)

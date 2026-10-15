@@ -7,7 +7,7 @@ sections after this one describe each declaration in full.
 
 A list, page, group, verb or action takes `tier=`, from `common.extensions.contract`: `PLAY`
 for what a Remote pass may reach, `LIBRARY` when it says nothing, `PROTECTED` for what changes
-the computer and so needs a Confirm.  A single act or a `save` that differs from its surface
+the device and so needs a Confirm.  A single act or a `save` that differs from its surface
 takes `@tier(...)` over the function.  The manifest's `tiers` must list `protected` where it is
 used, and its `play` must name each surface put at `PLAY` (`list:scores`, `action:reset`).  See [Scopes and the gate](scopes.md#scopes-and-the-gate).
 

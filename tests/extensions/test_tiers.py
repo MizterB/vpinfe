@@ -240,7 +240,7 @@ def _confirmed_owner() -> auth.Identity:
         *(scopes.extension_scope(NAME, one) for one in reach.TIERS)}), kind=sign_in.OWNER)
 
 
-class ChangingTheComputer(TierCase):
+class ChangingTheDevice(TierCase):
     def setUp(self) -> None:
         super().setUp()
         self.asked: list[tuple] = []

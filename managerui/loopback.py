@@ -1,8 +1,8 @@
-"""The plain-HTTP listener on this computer alone, beside the HTTPS one.
+"""The plain-HTTP listener on this device alone, beside the HTTPS one.
 
 One uvicorn server applies one TLS setting, so while the network port answers HTTPS the
 windows VPinFE opens itself and the Console's calls to the API need a second listener.
-It is bound to 127.0.0.1 only, so what reaches it is this computer by construction.
+It is bound to 127.0.0.1 only, so what reaches it is this device by construction.
 """
 
 from __future__ import annotations

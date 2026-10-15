@@ -8,7 +8,7 @@ attach one.
 |---|---|---|
 | `play` (`ext:<name>:play`) | A Remote pass or a Play token, and everyone above | What a person at the cabinet or on a phone may see or press |
 | `library` (`ext:<name>:library`) | An Owner or a Full token | The default: managing the library, the extension's settings and accounts |
-| `protected` (`ext:<name>:protected`) | An Owner who has just confirmed.  Never a token | An act that changes the computer or hands out access |
+| `protected` (`ext:<name>:protected`) | An Owner who has just confirmed.  Never a token | An act that changes the device or hands out access |
 
 An extension says it with `tier=` on a list, page, panel group, action or verb, with
 `@tier(...)` over a single act, and with `tier=` on `ctx.add_router`, all from
@@ -56,12 +56,12 @@ lists them in plain words for whoever installs it, and they decide which `ctx.ga
 | `filesystem:read` | Browse folders |
 | `capture:run` | Record media |
 | `config:read`, `config:write` | Read, change VPinFE's configuration |
-| `system:read`, `system:admin` | Read system state, administer it.  `system:admin` is what lets `ctx.system` restart VPinFE, reboot or power off this computer |
+| `system:read`, `system:admin` | Read system state, administer it.  `system:admin` is what lets `ctx.system` restart VPinFE, reboot or power off this device |
 | `events:subscribe` | Subscribe to the event stream over the API |
 | `jobs:read` | Read jobs |
 | `input:act` | Send input |
 | `devices:read`, `devices:write` | Read, change devices |
-| `hardware:read` | List the USB, serial and display devices this computer has, through `ctx.hardware`.  Not `devices:*`, which are other VPinFE installs |
+| `hardware:read` | List the USB, serial and display devices attached to this device, through `ctx.hardware`.  Not `devices:*`, which are other VPinFE installs |
 | `preferences:read`, `preferences:write` | Read, change preferences |
 | `instance:read` | Read the install's identity and the list of extensions |
 | `players:read`, `players:write` | Read, change players.  `ctx.players.roster` and the calls beside it need `players:read` |

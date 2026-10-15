@@ -52,7 +52,7 @@ class FirstRunTests(ConfigStoreTests):
             {s: {k.lower() for k in v} for s, v in settings.items()},
             {s: {k.lower() for k in v} for s, v in config_schema.defaults().items()})
 
-    def test_a_fresh_install_starts_the_console_on_the_computers_own_look(self) -> None:
+    def test_a_fresh_install_starts_the_console_on_the_devices_own_look(self) -> None:
         ConfigStore(str(self.ini))
         self.assertEqual(_flatten(self._payload()[SETTINGS_KEY])["console"]["appearance"], "system")
 

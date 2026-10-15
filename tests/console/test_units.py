@@ -11,7 +11,7 @@ from console import units
 
 
 class ResolvedTests(unittest.TestCase):
-    def test_a_choice_is_kept_wherever_the_computer_is(self) -> None:
+    def test_a_choice_is_kept_wherever_the_device_is(self) -> None:
         self.assertEqual(units.resolved("cm", "US"), "cm")
         self.assertEqual(units.resolved("in", "DE"), "in")
 
@@ -28,7 +28,7 @@ class ResolvedTests(unittest.TestCase):
     def test_a_value_nobody_offers_is_by_region(self) -> None:
         self.assertEqual(units.resolved("furlongs", "US"), "in")
 
-    def test_the_computers_own_region_is_asked_when_none_is_given(self) -> None:
+    def test_the_devices_own_region_is_asked_when_none_is_given(self) -> None:
         with mock.patch("common.i18n.region", return_value="US"):
             self.assertEqual(units.resolved("region"), "in")
         with mock.patch("common.i18n.region", return_value="NL"):

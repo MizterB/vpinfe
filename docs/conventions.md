@@ -603,7 +603,7 @@ until then the chain reports `required: null`.
 - **Install** — one VPinFE installation: its files, its config, its `install_id`. It
   survives restarts, and it is what an install is addressed as. The word is internal:
   code, config sections and the wire keep it, and a screen never shows it. On screen the
-  computer VPinFE runs on is *this device* and another one is a *device*. The verb stays
+  machine VPinFE runs on is *this device* and another one is a *device*. The verb stays
   (*Install* a theme, *Could not install*), and VPX's own folder is *VPX's folder*.
 - **VPinFE** — VPinFE running. What a lifecycle request starts, stops or restarts, as
   against the `frontend` it opens and the `system` it runs on. The install is still there
@@ -620,10 +620,10 @@ until then the chain reports `required: null`.
 - **Device** - a thing on the network: a VPinFE install, whatever it is switched on for, or
   a phone running VPX Mobile, which never runs our code. Not "something that can play": an
   install with only `library` on is a device and plays nothing, so a picker that targets
-  play filters on the `frontend` feature and keeps the word. On screen the computer VPinFE
-  runs on is *this device*.
-- **Computer** - a computer that is not a device: the one the browser is on, or the one an
-  import came from.
+  play filters on the `frontend` feature and keeps the word. On screen the machine VPinFE
+  runs on is *this device*, and the one the reader is on is *your device*.
+- **Your device** - the one the browser is on, or the one an import came from (*the old
+  device*). "Computer" is not a word a screen shows.
 - **Player** — a human who plays. Reserved for that and used for nothing else:
   it meant the machine until 2026-08-19, and every pinball machine ever built
   prints PLAYER 1 on its display. The game's own player is a slot, Player 1 to 4, that
@@ -1206,7 +1206,7 @@ browser never opens the address it carries.
 ### A screen is put on a part of the cabinet, not picked from a list
 
 Wherever a screen is chosen for a window, `console/screens_picture.py` draws the parts and
-the computer's screens, and a screen is dragged onto the part it serves. The caller hands it
+this device's screens, and a screen is dragged onto the part it serves. The caller hands it
 the screens, what is on each part and the acts to report to, and the control writes nothing
 itself, so the Displays page, Setup and a VPX page can each mount it over their own storage.
 
@@ -1234,7 +1234,7 @@ VPinFE**. A change to VPinFE's screens moves the launcher's only where it still 
 topper is compared only where VPinFE has a screen for one; with none, the launcher's is as
 the person set it.
 
-A length that is a setting of the computer, such as a screen's size, is shown in centimeters
+A length that is a setting of the device, such as a screen's size, is shown in centimeters
 or inches by Settings > Console > Units, which follows the region until it is set. The page
 that shows one puts the choice beside it as a toggle.
 

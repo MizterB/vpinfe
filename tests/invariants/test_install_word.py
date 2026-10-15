@@ -1,4 +1,4 @@
-"""On screen, install is only ever the verb: the computer VPinFE runs on is this device."""
+"""On screen, install is only ever the verb: the machine VPinFE runs on is this device."""
 
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ class EveryCatalog(unittest.TestCase):
     def test_install_on_screen_is_the_verb(self) -> None:
         self.assertEqual(
             unexplained(CATALOG, ALLOWED), [],
-            "say this device for the computer VPinFE runs on, and a device for another; "
+            "say this device for the machine VPinFE runs on, and a device for another; "
             "if the word is the verb, write it as one (Install unar from your package "
             "manager, Could not install), or list the key in ALLOWED with why")
 

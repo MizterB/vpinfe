@@ -668,7 +668,7 @@ body::before {
   border-color: var(--accent); color: var(--accent); background: var(--accent-wash);
 }
 
-/* The last thing pressed on this computer, and what it does. */
+/* The last thing pressed on this device, and what it does. */
 .console-binding-live {
   display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-height: 40px;
   padding: 6px 12px; margin: 10px 0 8px; border-radius: 6px; border: 1px solid var(--line-soft);
@@ -3728,7 +3728,7 @@ a.console-slot-file, a.console-slot-file:visited { color: var(--accent); }
   border: 1px solid var(--line-soft); border-radius: 6px; padding: 6px 8px;
 }
 
-/* --- the screens picture: the cabinet's parts, and this computer's screens to drag onto them --- */
+/* --- the screens picture: the cabinet's parts, and this device's screens to drag onto them --- */
 .console-screens-head { display: flex; align-items: center; gap: 12px; margin: 2px 0 12px; }
 .console-screens-head > .console-help { flex: 1; max-width: none; }
 .console-screens { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 24px; }

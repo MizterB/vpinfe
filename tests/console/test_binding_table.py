@@ -146,17 +146,17 @@ class PureHelperTests(unittest.TestCase):
 
 
 class ElsewhereTests(unittest.TestCase):
-    def test_this_computer_is_not_another_one(self) -> None:
+    def test_this_device_is_not_another_one(self) -> None:
         for peer in ("127.0.0.1", "::1", "::ffff:127.0.0.1"):
             with self.subTest(peer=peer):
                 self.assertFalse(table.elsewhere(peer))
 
-    def test_another_address_is_another_computer(self) -> None:
+    def test_another_address_is_another_device(self) -> None:
         for peer in ("192.168.1.20", "10.0.0.4", "fe80::1", "::ffff:192.168.1.20"):
             with self.subTest(peer=peer):
                 self.assertTrue(table.elsewhere(peer))
 
-    def test_no_address_is_no_other_computer(self) -> None:
+    def test_no_address_is_no_other_device(self) -> None:
         for peer in ("", "testclient"):
             with self.subTest(peer=peer):
                 self.assertFalse(table.elsewhere(peer))
@@ -273,19 +273,19 @@ class DrawnTests(unittest.TestCase):
     def test_the_live_line_waits_for_a_press_until_one_is_heard(self) -> None:
         _, body = _drawn()
 
-        self.assertIn("Press anything on this computer to see what it does", _labels(body))
+        self.assertIn("Press anything to see what it does", _labels(body))
 
-    def test_a_page_opened_on_the_computer_serving_it_says_nothing_of_a_cabinet(self) -> None:
+    def test_a_page_opened_on_the_device_serving_it_says_nothing_of_a_cabinet(self) -> None:
         with patch.object(table, "opened_elsewhere", return_value=False):
             _, body = _drawn()
 
         self.assertNotIn(t("console.binding_table.cabinet_note"), _labels(body))
 
-    def test_a_page_opened_from_another_computer_says_where_a_cabinet_is_tried(self) -> None:
+    def test_a_page_opened_from_another_device_says_where_a_cabinet_is_tried(self) -> None:
         with patch.object(table, "opened_elsewhere", return_value=True):
             _, body = _drawn()
 
-        self.assertIn("Press anything on this computer to see what it does", _labels(body))
+        self.assertIn("Press anything to see what it does", _labels(body))
         self.assertIn("A cabinet's buttons are tried on the cabinet", _labels(body))
 
     def test_a_string_default_is_not_read_letter_by_letter(self) -> None:
@@ -724,7 +724,7 @@ class AnActedOnTable(unittest.IsolatedAsyncioTestCase):
         self.assertFalse([name for name, cells in control._rows.items()
                           if "console-binding-row--listening" in cells.classes])
         self.assertEqual(self._line(control),
-                         ["Press anything on this computer to see what it does"])
+                         ["Press anything to see what it does"])
 
     async def test_listening_puts_out_what_the_last_press_lit(self) -> None:
         control = self.drawn()

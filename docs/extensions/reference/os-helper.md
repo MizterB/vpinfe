@@ -26,7 +26,7 @@ One request and one answer, each a single line of JSON ending in a newline, then
 connection closes.  A line is at most 65536 bytes.
 
 ```json
-{"method": "updates.apply", "args": {}, "by": "os_update", "origin": "this computer"}
+{"method": "updates.apply", "args": {}, "by": "os_update", "origin": "this device"}
 {"ok": true, "result": {"installed": 12, "reboot_required": true, "vpinfe_upgraded": false}}
 ```
 
@@ -35,7 +35,7 @@ connection closes.  A line is at most 65536 bytes.
 | `method` | One of the methods below |
 | `args` | An object holding only the arguments that method takes, none today |
 | `by` | The extension that asked, for the journal |
-| `origin` | `this computer` or the address the request came from, for the journal |
+| `origin` | `this device` or the address the request came from, for the journal |
 
 An answer of no has the same shape:
 
@@ -54,7 +54,7 @@ long as it takes, and VPinFE waits up to the time in the table below before it g
 | `updates.check` | No | nothing | `{"count": n}`, the packages an update would install | 2 minutes |
 | `updates.apply` | Yes | nothing | `{"installed": n, "reboot_required": bool, "vpinfe_upgraded": bool}` | 1 hour |
 
-`updates.apply` answers how many packages it installed, whether the computer needs a reboot
+`updates.apply` answers how many packages it installed, whether the device needs a reboot
 for them (`/run/reboot-required` exists) and whether VPinFE itself was upgraded, which needs a
 restart of VPinFE and no more.  VPinFE hands the answer on as the helper sent it, and an
 extension reads each flag as true only when it is `true`.

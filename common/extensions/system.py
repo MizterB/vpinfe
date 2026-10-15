@@ -44,15 +44,15 @@ class ExtensionSystem:
         self._scopes = frozenset(scopes)
 
     def restart_vpinfe(self, reason: str = "") -> dict[str, Any]:
-        """Restart VPinFE on this computer."""
+        """Restart VPinFE on this device."""
         return self._ask(lifecycle.VPINFE, lifecycle.RESTART, reason)
 
     def reboot(self, reason: str = "") -> dict[str, Any]:
-        """Reboot this computer."""
+        """Reboot this device."""
         return self._ask(lifecycle.SYSTEM, lifecycle.RESTART, reason)
 
     def shut_down(self, reason: str = "") -> dict[str, Any]:
-        """Power this computer off."""
+        """Power this device off."""
         return self._ask(lifecycle.SYSTEM, lifecycle.STOP, reason)
 
     def _ask(self, scope: str, action: str, reason: str) -> dict[str, Any]:

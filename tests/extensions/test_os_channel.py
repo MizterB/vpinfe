@@ -122,11 +122,11 @@ class ClientTests(HelperCase):
         fake = self.helper()
 
         found = os_helper.call(os_helper.METHODS["updates.check"], {}, by="os_update",
-                               origin="this computer")
+                               origin="this device")
 
         self.assertEqual(found, {"done": "updates.check"})
         self.assertEqual(fake.requests, [{"method": "updates.check", "args": {},
-                                          "by": "os_update", "origin": "this computer"}])
+                                          "by": "os_update", "origin": "this device"}])
 
     def test_an_answer_of_no_is_a_refusal_with_the_helpers_reason(self) -> None:
         self.helper(lambda _r: {"ok": False, "error": "busy", "message": "Already running"})
@@ -303,7 +303,7 @@ class CallTests(ExtensionCase):
             except PermissionError as exc:
                 outcome.append(exc)
 
-        with reach.marking(reach.PROTECTED, "this computer"):
+        with reach.marking(reach.PROTECTED, "this device"):
             thread = threading.Thread(target=work)
             thread.start()
             thread.join()
@@ -326,7 +326,7 @@ class CallTests(ExtensionCase):
         ctx.events.subscribe("os.test.event", handler)
         self.addCleanup(lambda: [core_events.unsubscribe(name, one)  # type: ignore[func-returns-value]
                                  for name, one in ctx.events.registered])
-        with reach.marking(reach.PROTECTED, "this computer"):
+        with reach.marking(reach.PROTECTED, "this device"):
             core_events.emit("os.test.event")
 
         self.assertEqual(len(outcome), 1)
@@ -342,7 +342,7 @@ class CallTests(ExtensionCase):
             ctx.os.call("updates.apply")
 
         async def run() -> None:
-            with reach.marking(reach.PROTECTED, "this computer"):
+            with reach.marking(reach.PROTECTED, "this device"):
                 task = asyncio.get_running_loop().create_task(later())
             with self.assertRaises(PermissionError):
                 await task
@@ -364,22 +364,22 @@ class CallTests(ExtensionCase):
         fake = self.helper()
         ctx = self.make("updater", ["os:updates"])
 
-        with reach.marking(reach.PROTECTED, "this computer"):
+        with reach.marking(reach.PROTECTED, "this device"):
             found = ctx.os.call("updates.apply")
 
         self.assertEqual(found, {"done": "updates.apply"})
         self.assertEqual(fake.requests, [{"method": "updates.apply", "args": {},
-                                          "by": "updater", "origin": "this computer"}])
+                                          "by": "updater", "origin": "this device"}])
 
     def test_the_log_names_who_asked_and_from_where(self) -> None:
         self.helper()
         ctx = self.make("noted", ["os:updates"])
 
         with self.assertLogs("vpinfe.ext.noted", logging.INFO) as lines, \
-                reach.marking(reach.PROTECTED, "this computer"):
+                reach.marking(reach.PROTECTED, "this device"):
             ctx.os.call("updates.apply")
 
-        self.assertIn("asked the system for updates.apply from this computer", lines.output[0])
+        self.assertIn("asked the system for updates.apply from this device", lines.output[0])
 
     def test_no_helper_is_the_services_failure_and_not_the_requests(self) -> None:
         ctx = self.make("lonely", ["os:updates"])
@@ -425,7 +425,7 @@ class JobTests(ExtensionCase):
         fake = self.helper()
         ctx = self.make("jobbed", ["os:updates"])
 
-        with reach.marking(reach.PROTECTED, "this computer"):
+        with reach.marking(reach.PROTECTED, "this device"):
             job = ctx.jobs.submit("apply", lambda _job: ctx.os.call("updates.apply"))
         self.wait(job)
 
@@ -480,14 +480,14 @@ class RequestTests(ExtensionCase):
             found.cookies.set(auth.COOKIE, token)
         return found
 
-    def test_a_change_from_this_computer_is_made(self) -> None:
+    def test_a_change_from_this_device_is_made(self) -> None:
         fake = self.helper()
 
         found = self.client("127.0.0.1").post("/ext/os_update/apply")
 
         self.assertEqual(found.status_code, 200, found.text)
         self.assertEqual(found.json(), {"done": "updates.apply"})
-        self.assertEqual(fake.requests[0]["origin"], "this computer")
+        self.assertEqual(fake.requests[0]["origin"], "this device")
 
     def test_a_change_from_another_device_is_refused_and_nothing_is_sent(self) -> None:
         fake = self.helper()
@@ -547,7 +547,7 @@ class RecipeTests(ExtensionCase):
         fake = self.helper(lambda r: {"ok": True, "result": {
             "installed": 1, "reboot_required": False, "vpinfe_upgraded": False, **said}})
         dialog = self.load()
-        with reach.marking(reach.PROTECTED, "this computer"):
+        with reach.marking(reach.PROTECTED, "this device"):
             started = dialog.run({})
         deadline = time.time() + 5
         while time.time() < deadline:
@@ -563,7 +563,7 @@ class RecipeTests(ExtensionCase):
         asked = self.load().ask(None)
 
         self.assertIn(["Updates Waiting", "7"], asked["summary"])
-        self.assertIn(["This Will", "Install system updates on this computer"],
+        self.assertIn(["This Will", "Install system updates on this device"],
                       asked["summary"])
 
     def test_the_dialog_holds_install_where_no_helper_stands(self) -> None:
@@ -577,7 +577,7 @@ class RecipeTests(ExtensionCase):
         fake = self.helper()
         dialog = self.load()
 
-        with reach.marking(reach.PROTECTED, "this computer"):
+        with reach.marking(reach.PROTECTED, "this device"):
             started = dialog.run({})
         deadline = time.time() + 5
         while not fake.requests and time.time() < deadline:
@@ -605,7 +605,7 @@ class RecipeTests(ExtensionCase):
 
         self.assertEqual(self.ui.needs_function(), [])
 
-    def test_a_computer_waiting_on_a_reboot_offers_one(self) -> None:
+    def test_a_device_waiting_on_a_reboot_offers_one(self) -> None:
         self.reboot_file(True)
         self.load()
 

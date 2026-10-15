@@ -95,7 +95,7 @@ class ManagerUiHttpsTests(unittest.TestCase):
         self.assertFalse(encrypted_connections.listening().https)
         self.assertEqual(encrypted_connections.listening().problem, encrypted_connections.NO_FILE)
 
-    def test_https_gives_this_computers_own_windows_a_port_of_their_own(self) -> None:
+    def test_https_gives_this_devices_own_windows_a_port_of_their_own(self) -> None:
         self.connections.set_certificate(self.cert, self.key)
         with mock.patch.object(managerui, "_ui_thread", None), \
              mock.patch.object(managerui.threading, "Thread"), \

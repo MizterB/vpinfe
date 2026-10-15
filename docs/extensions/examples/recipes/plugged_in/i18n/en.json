@@ -1,6 +1,6 @@
 {
   "name": "Plugged In",
-  "description": "Lists the USB devices, serial ports and displays this computer has, and whether VPinFE may open each.",
+  "description": "Lists the USB devices, serial ports and displays attached to this device, and whether VPinFE may open each.",
   "list.devices.title": "Plugged In",
   "list.devices.column.name.header": "Device",
   "list.devices.column.kind.header": "Kind",

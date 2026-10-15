@@ -1726,7 +1726,7 @@ def register(ctx):
 
 - Name several, `["vpinos", "ubuntu"]`, for an extension that runs on either.
 - Name the family, `["linux"]`, to run on every distribution and keep Windows and macOS out.  A distribution built on another is its own `ID`: `ubuntu` does not match Linux Mint, so name both.
-- Run `--check-extension` on your own computer.  It loads the extension whatever its `platforms` say, so you can try the code anywhere, and a `platforms` line tells you whether this machine would run it: `platforms  vpinos - not this machine: It does not run on macOS`.
+- Run `--check-extension` on your own device.  It loads the extension whatever its `platforms` say, so you can try the code anywhere, and a `platforms` line tells you whether this machine would run it: `platforms  vpinos - not this machine: It does not run on macOS`.
 
 **Watch out:** the `ID` is lowercase in `/etc/os-release` and here: `VPinOS` is refused, `vpinos` is not.  The name in the reason, "Ubuntu", is the distribution's `NAME`, which is for people to read, and it is not what `platforms` matches.
 
@@ -1738,7 +1738,7 @@ VPinFE never runs as root.  Where the system ships a helper, `ctx.os` is the one
 
 A method that only reads, such as `updates.check`, can be called from anywhere.  A method that changes the machine is refused unless the request it is called from reached Protected, and a job started from that request carries the mark.  A change from an event handler, a timer or a thread the extension started has no request behind it and is refused, so it fails closed even if the declaration is wrong.
 
-A request reaches Protected when an Owner makes it under a live Confirm, and only an act declared Protected keeps that mark.  So the extension declares its acts `tier=PROTECTED` and lists `protected` under `tiers`: the Console then asks the Owner to confirm before it runs the install, and a token or a Remote pass is refused.  The restart that finishes the updates is declared the same way.  `system:admin` in `scopes` is what lets `ctx.system` restart VPinFE or the computer.
+A request reaches Protected when an Owner makes it under a live Confirm, and only an act declared Protected keeps that mark.  So the extension declares its acts `tier=PROTECTED` and lists `protected` under `tiers`: the Console then asks the Owner to confirm before it runs the install, and a token or a Remote pass is refused.  The restart that finishes the updates is declared the same way.  `system:admin` in `scopes` is what lets `ctx.system` restart VPinFE or the device.
 
 `recipes/os_update/extension.json`
 
@@ -1837,8 +1837,8 @@ def register(ctx):
   "dialog.waiting": "Updates Waiting",
   "dialog.will": "This Will",
   "dialog.install": "Install",
-  "dialog.no_helper": "This computer has no system helper",
-  "dialog.reboot": "Restart this computer",
+  "dialog.no_helper": "This device has no system helper",
+  "dialog.reboot": "Restart this device",
   "dialog.restart": "Restart VPinFE",
   "dialog.restart_now": "Restart",
   "dialog.restarting": "Restarting now",
@@ -1849,7 +1849,7 @@ def register(ctx):
 
 **Where it appears:** on a VPinOS cabinet, as two actions on the extension's page, System Updates and Restart.  Restart is also a Needs You row, which shows while the system says it needs a restart (`/run/reboot-required` exists) or after an install that upgraded VPinFE itself.  **What triggers it:** pressing System Updates.  `ask` runs when the dialog opens and reads `updates.check`, which changes nothing.  `run` runs when Install is pressed, in that request, and starts a job that calls `updates.apply`.  The helper answers `installed`, `reboot_required` and `vpinfe_upgraded`; the job keeps the last in memory, and reads each as true only when it is `true`.
 
-**What you'll see:** the dialog lists how many updates are waiting and, under This Will, core's own sentence for the change: "Install system updates on this computer".  The extension chose the label and the layout, and core chose the sentence, so the extension cannot word a careful act as a harmless one.  Pressing Install asks the Owner to confirm, then closes the dialog and the job runs in Jobs.  When it is done the Needs You row reads "Restart to finish the updates", and pressing it opens a dialog that says whether it will restart this computer or restart VPinFE.  Where no helper answers, the System Updates dialog says "This computer has no system helper" and holds Install.  A token or a Remote pass that tries the install is refused before `run` starts, with "Only this computer, or an Owner with a Confirm, can do this".
+**What you'll see:** the dialog lists how many updates are waiting and, under This Will, core's own sentence for the change: "Install system updates on this device".  The extension chose the label and the layout, and core chose the sentence, so the extension cannot word a change that needs a Confirm as a harmless one.  Pressing Install asks the Owner to confirm, then closes the dialog and the job runs in Jobs.  When it is done the Needs You row reads "Restart to finish the updates", and pressing it opens a dialog that says whether it will restart this device or restart VPinFE.  Where no helper answers, the System Updates dialog says "This device has no system helper" and holds Install.  A token or a Remote pass that tries the install is refused before `run` starts, with "Only this device, or an Owner with a Confirm, can do this".
 
 **Variations:**
 
@@ -1954,7 +1954,7 @@ def register(ctx):
 
 **Use it when:** your extension works with a device, such as a controller board or a display, and a person needs to see whether VPinFE can find it, and may open it, before anything else goes wrong.
 
-`ctx.hardware` lists the USB devices, serial ports and displays this computer has.  The manifest needs `hardware:read` in `scopes`.  The answer is the same on Windows, macOS and Linux, and it never holds a serial number.
+`ctx.hardware` lists the USB devices, serial ports and displays attached to this device.  The manifest needs `hardware:read` in `scopes`.  The answer is the same on Windows, macOS and Linux, and it never holds a serial number.
 
 This extension draws the answer as a list.  Each row is a device, with the vendor and product ids and whether VPinFE may open it.  A line under the list says what lets a device open on this operating system, and shows only when some device cannot be opened.
 
@@ -2004,7 +2004,7 @@ def register(ctx):
 ```json
 {
   "name": "Plugged In",
-  "description": "Lists the USB devices, serial ports and displays this computer has, and whether VPinFE may open each.",
+  "description": "Lists the USB devices, serial ports and displays attached to this device, and whether VPinFE may open each.",
   "list.devices.title": "Plugged In",
   "list.devices.column.name.header": "Device",
   "list.devices.column.kind.header": "Kind",
@@ -2032,7 +2032,7 @@ A device is a dict of `kind`, `vendor_id`, `product_id`, `vendor`, `product`, `n
 - A display also has `x`, `y`, `width` and `height`, so a row can say where it sits.
 - Declare the `hardware:usb` capability when the extension opens a device itself.  Core lists devices and opens none, and sets no permission on one, so reaching it is the extension's own work.
 
-**Watch out:** a kind this computer cannot list is left out of the answer, and nothing is raised.  A computer with no serial support shows no serial rows, and the list does not say so.  And `hardware:read` is not `devices:read`: that scope is about the other VPinFE installs a player has.
+**Watch out:** a kind this device cannot list is left out of the answer, and nothing is raised.  Where this device has no serial support, the list shows no serial rows and does not say so.  And `hardware:read` is not `devices:read`: that scope is about the other VPinFE installs a player has.
 
 ### 23. A page a Remote can open
 

@@ -10,7 +10,7 @@ A phone gets in by scanning the Remote Code, which is the QR on the sheet that *
 
 - Anyone who can see the main menu can scan it, which is how a visitor joins (see Join below).
 - **New Remote Code**, on the same sheet, makes the old pass stop working. Phones that used it are signed out.
-- The Console opened on a phone is a browser like any other. It signs in with a code from the VPinFE computer's screen or from the authenticator app, and a Protected change asks for a Confirm.
+- The Console opened on a phone is a browser like any other. It signs in with a code from the screen of the device running VPinFE or from the authenticator app, and a Protected change asks for a Confirm.
 
 ## Who is holding this
 

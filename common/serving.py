@@ -34,7 +34,7 @@ def bound_ports() -> set[int]:
 
 
 def reachable_from_elsewhere(bind: str) -> bool:
-    """Whether the address this install serves on answers other computers."""
+    """Whether the address this install serves on answers other devices."""
     try:
         return not ipaddress.ip_address(bind.strip()).is_loopback
     except ValueError:
@@ -53,7 +53,7 @@ def network(config: Any) -> NetworkConfig:
 
 
 def loopback_or(port: int) -> int:
-    """The port this computer's own windows call this install on: the loopback listener
+    """The port this device's own windows call this install on: the loopback listener
     while HTTPS is on, else `port`."""
     return _bound.get("loopback_port") or port
 

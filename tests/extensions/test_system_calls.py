@@ -48,7 +48,7 @@ class SystemCallTests(unittest.TestCase):
         self.assertTrue(answer["scheduled"])
 
     def test_a_protected_request_asks_with_the_extension_as_origin(self) -> None:
-        with reach.marking(reach.PROTECTED, "this computer"):
+        with reach.marking(reach.PROTECTED, "this device"):
             answer = self.ext.reboot("kernel update")
         self._wait()
 

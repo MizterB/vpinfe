@@ -39,8 +39,8 @@ the documented entry point is a plain 200. Both spellings work.
 |--------|------|---------|
 | GET | `/api/v1` | Discovery — what this instance is and what it can do |
 | GET | `/api/v1/health` | Liveness |
-| GET | `/api/v1/openapi.json` | Generated OpenAPI spec; another computer needs to be signed in |
-| GET | `/api/v1/docs` | Swagger UI; another computer needs to be signed in |
+| GET | `/api/v1/openapi.json` | Generated OpenAPI spec; another device needs to be signed in |
+| GET | `/api/v1/docs` | Swagger UI; another device needs to be signed in |
 | POST | `/api/v1/auth/code` | Ask for a sign-in code. The machine shows "{address} wants to sign in" with Show and Ignore; the answer holds a `request_id` and no digits, and sets a `vpinfe_asking` cookie (HttpOnly, SameSite Strict, ten minutes) that the browser has to send back with the code. 429 `too_many_requests` while another address's ask is too recent, 403 once the machine has ignored this address, and 403 `codes_off` while sign-in codes are switched off |
 | POST | `/api/v1/auth/session` | `{"request_id", "code"}` signs this browser in, from the browser that asked, and sets the `vpinfe_session` cookie: HttpOnly, SameSite Lax, 90 days unused, Secure under HTTPS. 403 `forbidden` with `details.reason` of `wrong`, `used_up`, `no_code` or `ignored` |
 | GET | `/api/v1/auth/me` | Whether this browser is signed in, whether it reached the API from the machine itself, and which kind of sign-in it holds |
@@ -48,21 +48,21 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/auth/sessions` | The browsers signed in: what each is, where from, when last used, and which one is asking (`access:read`) |
 | DELETE | `/api/v1/auth/sessions/{session_id}` | Sign one browser out (`access:write`) |
 | DELETE | `/api/v1/auth/sessions` | Sign every browser out (`access:write`) |
-| POST | `/api/v1/auth/confirm/code` | Ask for a Confirm Code. Six digits appear on this computer's screen and in no answer. Only a signed-in Owner can ask; this computer and a token hold no Confirm to ask for |
+| POST | `/api/v1/auth/confirm/code` | Ask for a Confirm Code. Six digits appear on this device's screen and in no answer. Only a signed-in Owner can ask; this device and a token hold no Confirm to ask for |
 | POST | `/api/v1/auth/confirm` | `{"code"}` gives the Owner a Confirm for 30 minutes, extended each time a Protected route is used. 403 `forbidden` with `details.reason` of `wrong`, `used_up` or `no_code` |
 | GET | `/api/v1/auth/confirm` | Whether the caller holds a Confirm, and for how long |
-| POST | `/api/v1/auth/pair/code` | Ask this install for a pairing code. The digits appear on this computer's screen. The answer holds a `request_id` |
+| POST | `/api/v1/auth/pair/code` | Ask this install for a pairing code. The digits appear on this device's screen. The answer holds a `request_id` |
 | POST | `/api/v1/auth/pair` | `{"request_id", "code", "name"}` answers with a Full Control token, shown once, in `secret`. The asking install keeps it and sends it as `Authorization: Bearer` on every call to this one |
 | POST | `/api/v1/auth/remote_code/renew` | Make a new Remote Code. Every phone that came in with the old one is signed out; answers with how many (`access:write`) |
 | GET | `/api/v1/auth/tokens` | The tokens made: name, `access`, `can_power`, when made and when last used. Never the secret (`access:read`) |
 | POST | `/api/v1/auth/tokens` | `{"name", "access", "can_power"}` makes a token. `access` is `full` or `play`. The secret is in this answer and cannot be read again. `protected:write` |
 | PUT | `/api/v1/auth/tokens/{token_id}` | `{"can_power"}` changes the Can Shut Down and Restart switch (`access:write`, and `protected:write` to turn it on). `404` for a token that is gone |
 | DELETE | `/api/v1/auth/tokens/{token_id}` | Revoke one (`access:write`) |
-| GET | `/api/v1/auth/authenticator` | Whether an authenticator app is set up, and whether this computer shows sign-in codes (`access:read`) |
+| GET | `/api/v1/auth/authenticator` | Whether an authenticator app is set up, and whether this device shows sign-in codes (`access:read`) |
 | POST | `/api/v1/auth/authenticator/setup` | A new `secret` and the `uri` a QR carries. Nothing changes until the app's first code is sent (`protected:write`) |
 | PUT | `/api/v1/auth/authenticator` | `{"code"}` finishes setting up with the first code from the app, replacing any earlier one (`protected:write`) |
 | DELETE | `/api/v1/auth/authenticator` | Remove the authenticator app. Browsers already signed in stay signed in (`protected:write`) |
-| PUT | `/api/v1/auth/authenticator/screen_codes` | `{"on"}` shows or stops showing sign-in codes on this computer's screen. 403 `forbidden` with `details.reason` of `not_set` while no authenticator is set up (`protected:write`) |
+| PUT | `/api/v1/auth/authenticator/screen_codes` | `{"on"}` shows or stops showing sign-in codes on this device's screen. 403 `forbidden` with `details.reason` of `not_set` while no authenticator is set up (`protected:write`) |
 | POST | `/api/v1/auth/authenticator/session` | `{"code"}` signs this browser in from any address, as `/auth/session` does. 403 `forbidden` with `details.reason` of `wrong`, `spent` or `not_set`; 429 `too_many_requests` with `details.wait` seconds after five wrong codes in a row from one address, or twenty from all addresses together |
 | POST | `/api/v1/auth/authenticator/confirm` | `{"code"}` gives the signed-in Owner a Confirm, as `/auth/confirm` does. Same refusals as the sign-in, counted against the sign-in rather than its address |
 | GET | `/api/v1/auth/encrypted` | The encrypted connections set up: `proxies`, `networks`, the `certfile` and `keyfile` chosen, whether VPinFE is answering `https` now and the `problem` when it is not, and whether this caller came `encrypted` (`access:read`) |
@@ -586,9 +586,9 @@ route declares the scope it needs:
 ```
 
 **Who gets which scopes is `SignInPolicy`.** A request from this machine holds every core
-scope. A request from another computer holds `instance:read` alone, which is enough to ask
+scope. A request from another device holds `instance:read` alone, which is enough to ask
 what this instance is and to ask for a sign-in code, until it has signed in or presents a
-token. Signing in is a six-digit code shown on the machine and typed on the other computer,
+token. Signing in is a six-digit code shown on the machine and typed on the other device,
 or, once the Owner has set one up, the six digits an authenticator app shows (RFC 6238,
 SHA-1, 30 seconds, one step either side, a step used once). The `/auth` routes above are the
 whole of it. A cookie that is not signed in, expired or signed out holds none.
@@ -601,9 +601,9 @@ answers `429` `too_many_requests` with the seconds to wait in `details.wait`.
 
 | Tier | What it covers | Who holds it |
 |---|---|---|
-| Play | Reading the library, collections, players and what is playing; launching, stopping, pressing buttons, capturing with the configured command, rating and favoriting, joining as a guest, signing a guest out and saying who is up | The Remote's pass, a Play token, any Owner, this computer |
-| Library | Everything that changes what VPinFE knows or shows | A signed-in Owner, a Full Control token, this computer |
-| Protected | What runs (commands, launcher programs, tools, theme and extension sources and acceptance, updating), what destroys the way back (restoring a backup, the backup folder, going back to 2.x, deleting a game's folder from the disk), what hands out access (making a token, pairing, the Trusted Proxies and Encrypted Networks lists) and what takes the machine down (`protected:write`, `system:admin`) | This computer, or an Owner holding a Confirm. Never a token, except `system:admin` on a token whose Can Shut Down and Restart switch is on |
+| Play | Reading the library, collections, players and what is playing; launching, stopping, pressing buttons, capturing with the configured command, rating and favoriting, joining as a guest, signing a guest out and saying who is up | The Remote's pass, a Play token, any Owner, this device |
+| Library | Everything that changes what VPinFE knows or shows | A signed-in Owner, a Full Control token, this device |
+| Protected | What runs (commands, launcher programs, tools, theme and extension sources and acceptance, updating), what destroys the way back (restoring a backup, the backup folder, going back to 2.x, deleting a game's folder from the disk), what hands out access (making a token, pairing, the Trusted Proxies and Encrypted Networks lists) and what takes the machine down (`protected:write`, `system:admin`) | This device, or an Owner holding a Confirm. Never a token, except `system:admin` on a token whose Can Shut Down and Restart switch is on |
 
 An Owner that reaches a Protected route without a Confirm is answered `403` with
 `details.reason` of `confirm_needed` and the `scope`; a token or a Remote pass is answered
@@ -615,11 +615,11 @@ Console does exactly this.
 `Authorization: Bearer <secret>`. Full Control is Play and Library; Play is Play. Neither
 holds `access:*` or `protected:write`. A token made by pairing is Full Control.
 
-**The Console acts for a browser.** The Console draws pages for browsers on other computers
+**The Console acts for a browser.** The Console draws pages for browsers on other devices
 but calls this API from the same machine over loopback. Each such call carries
 `x-vpinfe-acting`, a 60-second HMAC naming the browser's sign-in (or `-` for a browser that
 is no longer signed in), and is held to that sign-in's tier. A loopback call with no such
-header is this computer. The header is honored only from loopback and only with the
+header is this device. The header is honored only from loopback and only with the
 install's own signature.
 
 An identity carries `origin` (`local` or `network`), decided by the request's own socket,
@@ -647,7 +647,7 @@ one after callers depend on it is not.
 
 ## What this API assumes about your network
 
-**It answers on every interface by default, and another computer gets in with a code.**
+**It answers on every interface by default, and another device gets in with a code.**
 Anything that can reach the port may ask what this instance is and ask for a code. The code
 is shown on the machine, never sent back to the asker, so someone who can reach the port and
 cannot see the screen gets nothing else. Once typed, the browser holds Play and Library until it
@@ -664,7 +664,7 @@ VPinFE itself serves HTTPS, when it comes through a Trusted Proxy that says `htt
 range is one click). A Protected change from an encrypted connection needs no Confirm. A
 proxy is believed only by its own single address, never a range, and a proxy on the same
 machine counts only once HTTPS is on, because otherwise every visitor would look like this
-computer. Encrypted Networks are judged by the socket address and never by a header.
+device. Encrypted Networks are judged by the socket address and never by a header.
 
 Two settings decide reachability, and they are separate on purpose:
 

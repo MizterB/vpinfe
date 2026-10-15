@@ -29,7 +29,7 @@ Write = Callable[[dict[str, list[str]]], Awaitable[bool]]
 # joins the choices where it falls.
 HOLD_STOPS = (0, 500, 1000, 1500, 2000, 3000)
 
-# Reports what was pressed on this computer to the table, which names it and says what it
+# Reports what was pressed to the table, which names it and says what it
 # does. Installed once per document: a table drawn later only repoints it. A press while a
 # question over the table, a menu, a listening row or a text field has the keyboard is not a
 # press to report. A dialog the table is drawn in is not a question over it.
@@ -176,10 +176,10 @@ def listed(names: Iterable[str]) -> str:
 
 
 def elsewhere(peer: str) -> bool:
-    """Whether the socket address a page was asked from is another computer.
+    """Whether the socket address a page was asked from is another device.
 
     The socket's own address, never a header, which the caller writes. No address, or one
-    that is not an address, is no other computer.
+    that is not an address, is no other device.
     """
     try:
         address = ipaddress.ip_address(peer)
@@ -189,7 +189,7 @@ def elsewhere(peer: str) -> bool:
 
 
 def opened_elsewhere() -> bool:
-    """Whether the page being drawn was opened from another computer than the one serving it."""
+    """Whether the page being drawn was opened from another device than the one serving it."""
     try:
         request = ui.context.client.request
     except RuntimeError:
@@ -228,7 +228,7 @@ class Table:
     the controller buttons are left undrawn until a controller is pressed.
 
     Clicking a row's label or field has that row listen for the next press. Above the rows
-    a line names whatever is pressed on this computer and what it does, and says what is
+    a line names whatever is pressed and what it does, and says what is
     being listened for while a row is.
     """
 

@@ -1,4 +1,4 @@
-"""The USB, serial and display devices this computer has, one inventory for every OS.
+"""The USB, serial and display devices attached to this device, one inventory for every OS.
 
 Read from what each OS already keeps, without a driver library: sysfs and `/dev` on Linux,
 `system_profiler` on macOS and PowerShell's PnP list on Windows. A serial number is never read.

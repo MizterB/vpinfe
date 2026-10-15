@@ -156,7 +156,7 @@ VPinFE starts three listeners:
 | Web server | `0.0.0.0:8001` | The Console at `/`, the remote at `/remote`, and the HTTP API at `/api/v1` |
 | WebSocket bridge | `127.0.0.1:8002` | How the frontend windows talk to VPinFE.  It stays on this machine |
 
-The web server answers on every interface so you can run a cabinet from another computer or a phone.  It has no sign-in, so keep it on a network you trust.  To reach it only from the machine itself, set **HTTP Address** to `127.0.0.1` under **Settings > VPinFE > Network**.
+The web server answers on every interface so you can run a cabinet from another device, such as a phone.  It has no sign-in, so keep it on a network you trust.  To reach it only from the machine itself, set **HTTP Address** to `127.0.0.1` under **Settings > VPinFE > Network**.
 
 **Theme Server Address** is on the same page.  It is `127.0.0.1` so that your table library is served to this machine only; set it to `0.0.0.0` to work on a theme from another machine, knowing that shares read access to the library.  The WebSocket bridge can start a game and power the machine off, so there is no setting to open it.  The ports have settings of their own on that page too.
 

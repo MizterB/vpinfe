@@ -72,7 +72,7 @@ def marking(tier: str, origin: str = "") -> Iterator[Reach]:
 def answer_at(tier: str) -> None:
     """Hold the mark now in force to `tier`, where the act answering is declared there: a
     Library act answering a caller who holds a Confirm still runs as Library, so it cannot
-    change the computer. The mark is never above what the caller reached."""
+    change the device. The mark is never above what the caller reached."""
     mark = current()
     if mark is not None:
         mark.tier = min(tier, mark.reached, key=TIERS.index)

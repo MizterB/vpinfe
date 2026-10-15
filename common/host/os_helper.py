@@ -7,7 +7,7 @@ over a Unix socket the helper listens on.
 The wire is one request and one answer, each a single line of JSON, then the connection
 closes:
 
-    {"method": "updates.apply", "args": {}, "by": "os_update", "origin": "this computer"}
+    {"method": "updates.apply", "args": {}, "by": "os_update", "origin": "this device"}
     {"ok": true, "result": {...}}
     {"ok": false, "error": "busy", "message": "An update is already running"}
 
@@ -38,7 +38,7 @@ MAX_REASON = 200
 
 
 class HelperAbsentError(OSError):
-    """No helper answered on this computer."""
+    """No helper answered on this device."""
 
 
 class HelperBrokenError(OSError):

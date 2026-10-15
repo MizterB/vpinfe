@@ -12,8 +12,8 @@ and the rest of the model rests on that.
 | `ctx.files` | The folders it works from |
 | `ctx.jobs` | Slow work, run the way core runs it |
 | `ctx.os` | What an operating system's helper does for it, one fixed method at a time |
-| `ctx.system` | Restart VPinFE, reboot or power off this computer |
-| `ctx.hardware` | The USB, serial and display devices this computer has |
+| `ctx.system` | Restart VPinFE, reboot or power off this device |
+| `ctx.hardware` | The USB, serial and display devices attached to this device |
 | `ctx.ui` | What it offers a person: settings, lists, actions, an account, what it holds |
 | `ctx.players` | Who plays here, and the accounts it holds for them |
 | `ctx.entries` | Something added to every entry a theme is handed |
@@ -408,7 +408,7 @@ system ships, and today only VPinOS ships one; where none stands, `ctx.os.availa
 and everything an extension needs on every system is in core.  VPinFE never runs as root.  Where the
 system ships a helper, with fixed methods that take no command, no path, no package name and no
 address, this is the one way to ask it.  `ctx.os.available` says whether one stands on this
-computer, and `ctx.os.methods` lists the methods this extension may call.  Each entry has:
+device, and `ctx.os.methods` lists the methods this extension may call.  Each entry has:
 
 | key | what it holds |
 |---|---|
@@ -418,7 +418,7 @@ computer, and `ctx.os.methods` lists the methods this extension may call.  Each 
 
 A method belongs to an area, and an area is a capability: `os:updates` today.  An extension
 declares the areas it uses, and the install screen tells the person in words, such as "install
-system updates on this computer".  `ctx.os.methods` is empty without one.
+system updates on this device".  `ctx.os.methods` is empty without one.
 
 ### `ctx.os.call`
 
@@ -443,8 +443,8 @@ def apply(request):
 ```
 
 The person sees the sentence in `ctx.os.methods` as the last step before a change: build the
-act's `summary` from it, and do not word a careful act in the extension's own terms.  VPinFE's
-log names the extension, the method and where the request came from.
+act's `summary` from it, and do not word an act that needs a Confirm in the extension's own
+terms.  VPinFE's log names the extension, the method and where the request came from.
 
 A change can take as long as an hour, and `call` waits for it on the thread that called.  Start
 one from a job, as above, and never call it from `async` code, where it would stop the whole
@@ -456,7 +456,7 @@ with the helper's own reason where it said no.
 
 ## `ctx.system`
 
-Restarting VPinFE, rebooting and powering off this computer, the same on Windows, macOS and
+Restarting VPinFE, rebooting and powering off this device, the same on Windows, macOS and
 Linux.  Core runs the system's own command, so an extension never sees the differences.  It
 needs `system:admin` in the manifest's `scopes`, and it is refused unless the request it is
 called from reached Protected, as `ctx.os.call` is for a change.
@@ -473,7 +473,7 @@ for a call outside a Protected request, or for an action this install cannot per
 
 `ctx.system.restart_vpinfe(reason="") -> dict`.
 
-Restarts VPinFE on this computer.  Answers `{scope, action, what, scheduled}`, where `what` is
+Restarts VPinFE on this device.  Answers `{scope, action, what, scheduled}`, where `what` is
 the action's name in the language now set.
 
 ```python
@@ -484,18 +484,18 @@ ctx.system.restart_vpinfe(reason="settings changed")
 
 `ctx.system.reboot(reason="") -> dict`.
 
-Reboots this computer, with the same answer.  On macOS the first call may ask the person for
+Reboots this device, with the same answer.  On macOS the first call may ask the person for
 Automation permission.
 
 ### `ctx.system.shut_down`
 
 `ctx.system.shut_down(reason="") -> dict`.
 
-Powers this computer off, with the same answer.  It has to be switched on again by hand.
+Powers this device off, with the same answer.  It has to be switched on again by hand.
 
 ## `ctx.hardware`
 
-The devices on this computer, read the same way on Windows, macOS and Linux.  It needs
+The USB, serial and display devices attached to this device, read the same way on Windows, macOS and Linux.  It needs
 `hardware:read` in the manifest's `scopes`.  That is the scope for asking core what is plugged
 in; the `hardware:usb` capability is the declaration for an extension that opens a USB device
 itself.  Core only lists devices.  It opens none, installs no udev rule and sets no device
@@ -512,7 +512,7 @@ on each call.
 | name | answers |
 |---|---|
 | `devices(kind=None)` | Every device of `kind`, which is `"usb"`, `"serial"` or `"display"`, or all three when it is left out |
-| `access_help()` | One line, in the language now set, on what lets a device open on this computer's OS.  Show it where a device is listed as not accessible |
+| `access_help()` | One line, in the language now set, on what lets a device open on this operating system.  Show it where a device is listed as not accessible |
 
 Each device is a dict of `kind`, `vendor_id` and `product_id` (four lowercase hex digits, `""`
 where there are none), `vendor`, `product`, `name`, `port` and `accessible`.  `port` is the
@@ -520,7 +520,7 @@ serial port: a path such as `/dev/ttyACM0`, or `COM3`.  `accessible` is whether 
 open the device, `None` where the OS cannot say without opening it.  A display also has `x`,
 `y`, `width` and `height`.
 
-A kind this computer cannot list is left out of the answer, never raised.  An unknown `kind`
+A kind this device cannot list is left out of the answer, never raised.  An unknown `kind`
 raises `ValueError`.
 
 ```python

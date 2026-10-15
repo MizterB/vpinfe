@@ -237,7 +237,7 @@
   "group.plugins.heading.PinMAME.label": "PinMAME",
   "group.plugins.heading.PinMAME.note": "Runs the original game's ROM",
   "group.plugins.heading.RemoteControl.label": "Remote Control",
-  "group.plugins.heading.RemoteControl.note": "Play on another computer on the same network",
+  "group.plugins.heading.RemoteControl.note": "Play on another device on the same network",
   "group.plugins.heading.ScoreView.label": "Score View",
   "group.plugins.heading.ScoreView.note": "Shows the score in a window of its own",
   "group.plugins.heading.Serum.label": "Serum",

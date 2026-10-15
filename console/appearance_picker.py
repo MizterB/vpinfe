@@ -71,7 +71,7 @@ def swatch(mode: str) -> None:
     with ui.element("div").classes("console-swatch"):
         if mode == appearance.SYSTEM:
             # Both of them, because that is what it is: the picture cannot show one
-            # answer when the answer is the computer's to give.
+            # answer when the answer is the device's to give.
             for side, palette in zip(("console-swatch-part--left",
                                       "console-swatch-part--right"),
                                      appearance.SYSTEM_PALETTES.values(), strict=True):

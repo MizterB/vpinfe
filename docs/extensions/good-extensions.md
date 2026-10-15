@@ -96,7 +96,7 @@ a port of its own, and the Console links to it.  See
 
 - **Anything that changes something goes behind its own sign-in.**  A page core serves under
   `/api/v1/ext/` is answered sandboxed, as no origin of its own, so it cannot carry a sign-in.  A
-  page that can change what is on the computer needs one.
+  page that can change what is on the device needs one.
 - **Never ask to run as root.**  VPinFE does not run as root and an extension that wants it is wrong.
   A change that needs it is a fixed act of the operating system's own helper: `ctx.os.call`, from a
   function core calls on a person's press.  It is refused from an event handler, a timer or a thread,
@@ -121,6 +121,6 @@ a port of its own, and the Console links to it.  See
 - [ ] A Private game is never sent anywhere.  See [Private games never
   leave](how-it-works.md#private-games-never-leave).
 - [ ] The manifest asks for what is used and nothing more, and the README says why for each.
-- [ ] Nothing asks to run as root, and a change to the computer goes through `ctx.os`.
+- [ ] Nothing asks to run as root, and a change to the device goes through `ctx.os`.
 - [ ] `display_name`, `version` and `requires_platform` are set, and `platforms` is there if it
   runs on one system.

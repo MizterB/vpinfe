@@ -169,7 +169,7 @@ def _country(locale_name: str) -> str:
 
 
 def region() -> str:
-    """The country this computer's locale names (`US` for `en-US`), or "" where it names
+    """The country this device's locale names (`US` for `en-US`), or "" where it names
     none - `en` alone is a language, not a place."""
     for ask in (_from_the_system, _platform_locale, language):
         found = _country(ask())

@@ -48,7 +48,7 @@ you want, and carry on.
 
 ## Lesson 0: Before you start
 
-**What you'll have:** a practice site answering on your computer, and the Console's Settings open
+**What you'll have:** a practice site answering on your device, and the Console's Settings open
 at the Extensions pages.
 
 ![Settings in the Console, with the Extensions group at the bottom of its list and VPinPlay open](images/00-extensions.png)
@@ -1175,7 +1175,7 @@ catalog.  Put it back.
 - **It listed what the extension asks for.**  The page's What It Says It Uses is the manifest's
   scopes and capabilities in words.  Both are declarations, so the person who installs it can see
   them before it does anything.  See [scopes and tiers](how-it-works.md#scopes-and-tiers).
-- **It ran the extension in VPinFE's own process.**  An extension is Python code on the computer
+- **It ran the extension in VPinFE's own process.**  An extension is Python code on the device
   it is installed on, which is why putting a folder in `extensions/` is a decision a person makes.
   See [one process, so accepting is trusting](how-it-works.md#one-process-so-accepting-is-trusting).
 - **It marked the extension Unofficial.**  An extension VPinFE did not ship is marked Unofficial and

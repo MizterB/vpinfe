@@ -1235,7 +1235,7 @@ class ExtensionOS:
 
     @property
     def available(self) -> bool:
-        """Whether a helper stands on this computer."""
+        """Whether a helper stands on this device."""
         return os_helper.available()
 
     @property
