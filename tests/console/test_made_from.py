@@ -44,6 +44,8 @@ class MadeFromRow(unittest.TestCase):
         self.assertEqual(game_tables.name_among(tables[1], tables),
                          self.link.call_args.args[0])
         self.assertIn(f"table={BASE_ID}", self.link.call_args.kwargs["to"])
+        self.assertNotIn("on_click", self.link.call_args.kwargs,
+                         "a click handler redraws the panel but leaves the Games grid on screen")
 
     def test_a_base_gone_from_disk_is_missing_while_its_record_stays(self) -> None:
         tables = _tables(_base(available=False), on_disk=False)

@@ -2063,10 +2063,10 @@ def _media_scope(context: dict[str, Any]) -> str:
 
 
 def _table_address(context: dict[str, Any], table_id: str) -> str:
-    """Where `_go_to_table` would land, as an address a browser can follow.
+    """The Tables grid at one file, as an address the browser follows.
 
-    Built through `deeplink.query` rather than by formatting a string here, so the link
-    and the state the click produces cannot drift a field apart.
+    A link rather than a click handler: the shell's view is switched by loading the
+    address, which no panel-level redraw does.
     """
     return "/console?" + deeplink.query({"view": "tables",
                                          "game": context.get("game_id") or "",
@@ -2087,22 +2087,6 @@ def _provenance(context: dict[str, Any], via: str | None, borrowed: bool) -> Non
         panel.link(t("console.media_ownership.from_game"),
                    to="/console?" + deeplink.query({"view": "games", "game": game_id}),
                    hint=t("console.media_ownership.via_game"))()
-
-
-def _go_to_table(context: dict[str, Any], table_id: str) -> None:
-    """Follow a differing table into its own lens.
-
-    The way out of the game's view and into the file's, rather than a second editor
-    for one table's art embedded in a panel that is about the game.
-    """
-    if not table_id:
-        return
-    state = context["state"]
-    # The Tables grid is a place now, so going to one file is going there.
-    state["view"] = "tables"
-    state["table"] = table_id
-    deeplink.sync(state)
-    asyncio.create_task(context["rebuild"]())
 
 
 def _said_line(made: str, table: dict[str, Any] | None = None) -> None:
@@ -2571,13 +2555,7 @@ def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
             with ui.row().classes("items-center gap-2 w-full no-wrap console-slot-differs"):
                 media_ownership.badge("table")
                 said = _table_line(other) or other.get("filename") or ""
-                # Bound here rather than as a lambda default: the default is how a loop
-                # variable is usually captured, and it makes the callable take an
-                # argument that `panel.link` does not pass.
-                other_id = str(other.get("table") or "")
-                panel.link(said, to=_table_address(context, other_id),
-                           on_click=partial(_go_to_table, context, other_id)
-                           if in_place else None,
+                panel.link(said, to=_table_address(context, str(other.get("table") or "")),
                            hint=other.get("file") or "")()
 
         if waiting:
@@ -3617,10 +3595,9 @@ def _made_from(table: dict[str, Any],
     held = next((one for one in tables if base.get("available")
                  and str(one.get("id") or "") == str(base.get("table_id") or "")), None)
     if context is not None and held is not None:
-        table_id = str(held["id"])
         return [(t("console.workbench.made_from"), panel.link(
-            game_tables.name_among(held, tables), to=_table_address(context, table_id),
-            on_click=partial(_go_to_table, context, table_id)))]
+            game_tables.name_among(held, tables),
+            to=_table_address(context, str(held["id"]))))]
     if base.get("available"):
         return [(t("console.workbench.made_from"), str(base["file"]))]
     named = any(one.get("available") and one.get("filename") == base["file"]
