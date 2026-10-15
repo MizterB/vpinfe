@@ -53,8 +53,7 @@ Every theme must include a `manifest.json`:
   "version": "1.0",
   "author": "Your Name",
   "description": "A brief description of the theme.",
-  "preview_image": "preview.png",
-  "type": "desktop",
+  "layouts": {"cab": "preview-cabinet.png", "desktop": "preview-desktop.png"},
   "change_log": "Initial release.",
   "min_vpinfe": "3.0",
   "windows": ["playfield", "backglass", "scoreview"]
@@ -67,11 +66,11 @@ Every theme must include a `manifest.json`:
 | `version` | Version string for tracking updates. |
 | `author` | Theme author name. |
 | `description` | Brief description shown in the manager UI. |
-| `preview_image` | Filename of the preview image (`.png` or `.gif`). |
-| `type` | Theme type: `"desktop"` for desktop/flat-screen setups, `"cab"` for cabinet setups, or `"both"` for themes that adapt to either. |
+| `layouts` | The layouts your theme is made for, each with its preview picture: `"cab"` for a cabinet, `"desktop"` for a flat screen. Name one or both. The Console shows a picture for each layout side by side, and the layout you name first stands for the theme where there is room for one. A picture is a filename (`.png` or `.gif`) or an absolute `http...` address. |
+| `preview_image`, `type` | Legacy, from 2.x: one picture, and `"desktop"`, `"cab"` or `"both"`. Still read when `layouts` is absent. A theme that should also appear on a 2.x install keeps both alongside `layouts`: 2.x skips a manifest without them, and 3.x ignores them when `layouts` is there. |
 | `change_log` | What changed in this version. Optional. Shown as "What's new" in the Manager UI, and only to someone who has not installed your theme or has an update waiting — so it is worth writing for them, not as a running history. |
 | `min_vpinfe` | The oldest VPinFE your theme runs on. Optional; absent means it runs on 2.x, which serves contract 1. Declaring `"3.0"` is what gets you the contract 2 surface. See [Theme contract](#theme-contract). |
-| `windows` | The windows your theme wants, **controller first**. Optional; absent means the three VPinFE has always opened. See [Declaring windows](#declaring-windows). |
+| `windows` | The windows your theme wants, **controller first**. Required unless the manifest has the legacy `supported_screens` instead. See [Declaring windows](#declaring-windows). |
 | `supported_screens` | Legacy. A count of screens, shown in the Manager UI and nothing more - it never decided which windows opened. `windows` replaces it and names them. Still accepted. |
 
 `version` is your theme's own release number. `min_vpinfe` is the oldest VPinFE it runs
@@ -380,11 +379,11 @@ These are served by VPinFE's HTTP server on port 8000. `vpinfe-core.js` provides
 
 Your theme's own `style.css` and `theme.js` can be named whatever you want.
 
-#### Required HTML Elements
+#### HTML Elements
 
 | Element | Purpose |
 |---------|---------|
-| `<div id="overlay-root">` | **Required on the controller window.** VPinFECore injects the overlay iframes here; without it, no overlay appears. Harmless on the other windows, and nothing is ever injected into them. |
+| `<div id="overlay-root">` | Optional. VPinFECore injects the overlay iframes here, and creates the element when the page has none. Add it to choose where the overlays sit. Harmless on the other windows, and nothing is ever injected into them. |
 
 ### Overlays
 
@@ -540,7 +539,7 @@ rules matter:
 
 Good questions to answer up front when starting a new theme:
 
-- Should the theme declare `type: "cab"` or `type: "both"`?
+- Should the theme declare `cab`, `desktop` or both under `layouts`?
 - Should portrait mode use a different layout, or just rotate the landscape one?
 - Should only the main playfield UI rotate, or should playfield-only overlays rotate too?
 

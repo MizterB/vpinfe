@@ -47,11 +47,13 @@ class NothingReadError(ThemeRegistryError):
 
 class ManifestError(ThemeRegistryError):
     """A `manifest.json` that is there and is not a theme's. `fields` names what it lacks;
-    empty when the fault is the value of one."""
+    empty when the fault is the value of one, and `bad_layouts` says it is `layouts`."""
 
-    def __init__(self, message: str, fields: list[str] | None = None) -> None:
+    def __init__(self, message: str, fields: list[str] | None = None,
+                 bad_layouts: bool = False) -> None:
         super().__init__(message)
         self.fields = list(fields or [])
+        self.bad_layouts = bad_layouts
 
 
 def result(address: str, kind: str, **fields: Any) -> dict[str, Any]:
@@ -109,6 +111,8 @@ def classify(exc: BaseException, url: str = "") -> tuple[str, str]:
 def _manifest_reason(exc: ManifestError) -> str:
     if exc.fields:
         return t("themes.source.bad_manifest", fields=", ".join(exc.fields))
+    if exc.bad_layouts:
+        return t("themes.source.bad_layouts")
     return t("themes.source.bad_type")
 
 

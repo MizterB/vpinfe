@@ -15,7 +15,13 @@ import requests
 from common import accepted
 from common.http_client import get_json, get_text
 from common.i18n import t
-from common.online import theme_dates, theme_refs, theme_source_checks, theme_sources
+from common.online import (
+    theme_dates,
+    theme_layouts,
+    theme_refs,
+    theme_source_checks,
+    theme_sources,
+)
 from common.online.theme_installer import ASIDE_SUFFIX, ThemeInstallStore
 from common.online.theme_registry_client import ThemeRegistryClient, ThemeRegistryError
 from common.paths import CONFIG_DIR, THEMES_FOLDER, get_ini_config
@@ -330,14 +336,10 @@ class ThemeRegistry:
     # =========================================================
 
     def _validate_manifest(self, theme_key: str, manifest: dict) -> None:
-        required_fields = [
-            "name",
-            "version",
-            "author",
-            "description",
-            "preview_image",
-            "type",
-        ]
+        required_fields = ["name", "version", "author", "description"]
+        # `layouts` carries what `type` and `preview_image` said in 2.x.
+        if "layouts" not in manifest:
+            required_fields += ["preview_image", "type"]
         # `windows` names the screens; `supported_screens` only ever counted them. A
         # theme has to say one or the other, and a 2.x theme said the count.
         if "windows" not in manifest:
@@ -348,7 +350,10 @@ class ThemeRegistry:
             raise theme_source_checks.ManifestError(
                 f"{theme_key} missing required field '{missing[0]}'", missing)
 
-        if manifest["type"] not in ("desktop", "cab", "both"):
+        why = theme_layouts.problem(manifest)
+        if why:
+            raise theme_source_checks.ManifestError(f"{theme_key} {why}", bad_layouts=True)
+        if "layouts" not in manifest and manifest["type"] not in ("desktop", "cab", "both"):
             raise theme_source_checks.ManifestError(
                 f"{theme_key} invalid type '{manifest['type']}'")
 

@@ -4,7 +4,7 @@ import json
 
 from nicegui import run, ui
 
-from common.online import theme_service, theme_sources
+from common.online import theme_layouts, theme_service, theme_sources
 from common.online.themes import ThemeRegistry, ThemeRegistryError
 from managerui.paths import VPINFE_INI_PATH
 from managerui.services import app_control
@@ -115,7 +115,7 @@ def render_panel(tab=None):
                     with ui.row().classes('w-full gap-8 p-4'):
                         # Left: Preview image
                         # preview_image is a filename (e.g. "preview.png") relative to the theme root
-                        preview_filename = manifest.get('preview_image', '')
+                        preview_filename = theme_layouts.lead(manifest)
                         preview_url = ''
                         if preview_filename:
                             if preview_filename.startswith('http'):
@@ -168,7 +168,8 @@ def render_panel(tab=None):
                                         ui.html('<span class="theme-badge badge-available">Not Installed</span>')
 
                                     # Type badge
-                                    theme_type = manifest.get('type', '')
+                                    layouts = theme_layouts.supported(manifest)
+                                    theme_type = 'both' if len(layouts) > 1 else ''.join(layouts)
                                     if theme_type:
                                         theme_type_label = {
                                             'both': 'Desktop & Cab',

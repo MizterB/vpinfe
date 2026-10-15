@@ -27,12 +27,20 @@ def version_said(theme: dict[str, Any]) -> str:
     return str(theme.get("installed_version") or theme.get("version") or "")
 
 
-def preview(theme: dict[str, Any], size: int) -> str:
-    """The address of a theme's preview at `size`, or nothing for a theme without one."""
+def preview(theme: dict[str, Any], size: int | None, layout: str = "") -> str:
+    """The address of a theme's preview at `size` (as it is kept when None), or nothing for
+    a theme without one. `layout` asks for the picture of that layout, where it has one."""
     if not theme.get("preview"):
         return ""
-    return art.theme_preview(str(theme["key"]), version=str(theme.get("preview_version") or ""),
-                             size=size)
+    own = (theme.get("previews") or {}).get(layout) or {}
+    version = own.get("version") if own else theme.get("preview_version")
+    return art.theme_preview(str(theme["key"]), version=str(version or ""), size=size,
+                             layout=layout if own else "")
+
+
+def pictures(theme: dict[str, Any]) -> list[str]:
+    """The layouts that have a picture of their own, in the order a theme lists them."""
+    return list(theme.get("previews") or {})
 
 
 def said(theme: dict[str, Any]) -> str:

@@ -61,13 +61,15 @@ def unaccepted() -> dict[str, Any]:
 @router.get("/{key}/preview", summary="A theme's preview picture",
             dependencies=[requires(scopes.CONFIG_READ)])
 def get_preview(key: str, request: Request, size: int | None = MEDIA_SIZE,
-                v: str = MEDIA_VERSION) -> Response:
-    """The picture the theme's manifest names, at `size` (256 or 1024) when given. A theme
-    not installed has it fetched from its host once per release and kept; `v` is the
-    `preview_version` the listing gives, and a request that carries the current one may be
-    kept for good. 404 for a theme with no picture, or one that cannot be fetched."""
+                v: str = MEDIA_VERSION, layout: str = "") -> Response:
+    """The picture the theme's manifest names, at `size` (256 or 1024) when given. `layout`
+    (`desktop` or `cab`) asks for that layout's picture, and gets the theme's main one when
+    it has none of its own. A theme not installed has it fetched from its host once per
+    release and kept; `v` is the `preview_version` the listing gives for that picture, and
+    a request that carries the current one may be kept for good. 404 for a theme with no
+    picture, or one that cannot be fetched."""
     size_or = sized_media.size_or_refuse(size, "image")
-    served = theme_ops.preview(key, size_or)
+    served = theme_ops.preview(key, size_or, layout)
     if served is None:
         raise NotFoundError(t("error.themes.no_preview", key=key))
     return media_file(served, request, v)

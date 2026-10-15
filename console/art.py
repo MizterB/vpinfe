@@ -60,8 +60,11 @@ def player(player_id: str, *, version: str | None = None, size: int | None = Non
     return _with(f"/api/v1/players/{quote(player_id, safe='')}/picture", version, size)
 
 
-def theme_preview(key: str, *, version: str | None = None, size: int | None = None) -> str:
-    return _with(f"/api/v1/themes/{quote(key, safe='')}/preview", version, size)
+def theme_preview(key: str, *, version: str | None = None, size: int | None = None,
+                  layout: str = "") -> str:
+    """A theme's preview, or the one it has for `layout`."""
+    return _with(f"/api/v1/themes/{quote(key, safe='')}/preview", version, size,
+                 layout=layout)
 
 
 def sized(url: str, size: int) -> str:
@@ -70,9 +73,9 @@ def sized(url: str, size: int) -> str:
 
 
 def _with(url: str, version: str | None, size: int | None,
-          page: int | None = None) -> str:
+          page: int | None = None, layout: str = "") -> str:
     query = {key: value for key, value in
-             (("size", size), ("v", version), ("page", page)) if value}
+             (("size", size), ("v", version), ("page", page), ("layout", layout)) if value}
     if not query:
         return url
     return f"{url}{'&' if '?' in url else '?'}{urlencode(query)}"

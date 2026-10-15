@@ -4028,6 +4028,14 @@ svg.console-cell-noart {
   border-radius: 8px;
   background: var(--surface-2); border: 1px solid var(--line);
 }
+/* A theme's picture for each of two layouts: equal frames side by side, so the panel
+   spends one picture's height on both. */
+.console-theme-pair {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 12px 8px;
+  align-self: stretch; min-width: 0;
+}
+.console-theme-layout { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.console-theme-layout .console-theme-hero { margin: 0; }
 .console-theme-hero-empty {
   display: flex; align-items: center; justify-content: center; width: 100%;
   aspect-ratio: 16 / 9; font-size: var(--icon-slot); color: var(--ink-3);

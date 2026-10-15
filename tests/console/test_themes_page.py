@@ -12,7 +12,7 @@ from tests.support.clicks import press
 def _theme(**more) -> dict:
     return {"key": "k", "name": "Name", "author": "someone", "version": "1.0",
             "installed_version": "", "installed": False, "active": False,
-            "update_available": False, "type": "", "preview": "", **more}
+            "update_available": False, "layouts": [], "preview": "", **more}
 
 
 class ARow(unittest.TestCase):
@@ -25,14 +25,63 @@ class ARow(unittest.TestCase):
              themes.status(_theme())])
 
     def test_made_for_says_only_what_the_manifest_declared(self) -> None:
-        self.assertEqual(["cab", ""], [row["made_for"] for row in themes.rows(
-            [_theme(key="a", type="cab"), _theme(key="b", type="")])])
+        self.assertEqual(["cab", "both", ""], [row["made_for"] for row in themes.rows(
+            [_theme(key="a", layouts=["cab"]),
+             _theme(key="b", layouts=["cab", "desktop"]),
+             _theme(key="c", layouts=[])])])
+
+    def test_a_layout_with_a_picture_of_its_own_is_asked_for_by_name(self) -> None:
+        theme = _theme(preview="/p", preview_version="main",
+                       previews={"cab": {"url": "/c", "version": "cv"},
+                                 "desktop": {"url": "/d", "version": "dv"}})
+
+        self.assertEqual("/api/v1/themes/k/preview?size=256&v=main",
+                         theme_card.preview(theme, 256))
+        self.assertEqual("/api/v1/themes/k/preview?size=256&v=dv&layout=desktop",
+                         theme_card.preview(theme, 256, "desktop"))
+        self.assertEqual("/api/v1/themes/k/preview?v=cv&layout=cab",
+                         theme_card.preview(theme, None, "cab"))
+
+    def test_a_layout_without_one_gets_the_main_picture(self) -> None:
+        theme = _theme(preview="/p", preview_version="main")
+
+        self.assertEqual(theme_card.preview(theme, 256),
+                         theme_card.preview(theme, 256, "desktop"))
+        self.assertEqual([], theme_card.pictures(theme))
 
     def test_an_update_reads_as_the_version_you_have_and_the_one_on_offer(self) -> None:
         said = theme_card.version_said(_theme(installed=True, update_available=True,
                                               installed_version="1.7", version="1.9"))
         self.assertIn("1.7", said)
         self.assertIn("1.9", said)
+
+
+class ThePictures(unittest.TestCase):
+    def _framed(self, theme: dict) -> tuple[list[str], list[str]]:
+        frames: list[str] = []
+        captions: list[str] = []
+
+        def label(text: str) -> Mock:
+            captions.append(text)
+            return Mock()
+
+        with patch.object(themes, "_frame",
+                          side_effect=lambda _theme, layout="": frames.append(layout)), \
+                patch.object(themes, "ui"), patch.object(themes.ui, "label", new=label):
+            themes._pictures(theme)
+        return frames, captions
+
+    def test_two_pictures_are_a_pair_in_the_order_listed_with_a_caption_each(self) -> None:
+        theme = _theme(previews={"cab": {"url": "/c", "version": "c"},
+                                 "desktop": {"url": "/d", "version": "d"}})
+
+        self.assertEqual((["cab", "desktop"], ["Cabinet", "Desktop"]), self._framed(theme))
+
+    def test_one_picture_or_none_of_its_own_is_one_frame_without_a_caption(self) -> None:
+        one = _theme(previews={"cab": {"url": "/c", "version": "c"}})
+
+        self.assertEqual(([""], []), self._framed(one))
+        self.assertEqual(([""], []), self._framed(_theme()))
 
 
 class ARowMenu(unittest.TestCase):

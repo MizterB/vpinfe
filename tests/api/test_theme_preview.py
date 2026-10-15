@@ -35,12 +35,15 @@ class _Registry(ThemeRegistry):
         self.themes_dir = str(themes_dir)
         self.version = "1.0.0"
         self.preview_image = "preview.png"
+        self.layouts: dict | None = None
         self.folder: str | None = None
         self.local = False
 
     def _manifest(self) -> dict:
-        manifest = {"name": "Any", "version": self.version}
-        if self.preview_image:
+        manifest: dict = {"name": "Any", "version": self.version}
+        if self.layouts:
+            manifest["layouts"] = self.layouts
+        elif self.preview_image:
             manifest["preview_image"] = self.preview_image
         return manifest
 
@@ -239,3 +242,59 @@ class ThemePreviewTests(TempTree):
             gone = self.client.get("/themes/Any/preview")
 
         self.assertEqual(gone.status_code, 404)
+
+    def test_each_layout_has_its_own_picture_kept_and_versioned_apart(self) -> None:
+        other = "https://raw.example.net/someone/theme/main/desktop.png"
+        self.registry.layouts = {"cab": "cab.png", "desktop": "desktop.png"}
+        pictures = {"cab": URL, "desktop": other}
+        answers = {URL: (_png(color="navy"), '"a"'), other: (_png(color="red"), '"b"')}
+        self.fetches.clear()
+        with patch.object(theme_ops, "_preview",
+                          side_effect=lambda key, manifest, info, installed, layout="": (
+                              pictures.get(layout, URL))), \
+                patch.object(http_client, "get_if_changed",
+                             side_effect=lambda url, etag="", **_: answers[url]):
+            cab = self.client.get("/themes/Any/preview", params={"size": 256, "layout": "cab"})
+            desktop = self.client.get("/themes/Any/preview",
+                                      params={"size": 256, "layout": "desktop"})
+            again = self.client.get("/themes/Any/preview",
+                                    params={"size": 256, "layout": "cab"})
+
+        self.assertEqual([one.status_code for one in (cab, desktop, again)], [200] * 3)
+        self.assertNotEqual(cab.content, desktop.content)
+        self.assertEqual(cab.content, again.content)
+        self.assertNotEqual(theme_ops.preview_version(self.registry, "Any", "cab"),
+                            theme_ops.preview_version(self.registry, "Any", "desktop"))
+        self.assertEqual(len(list((self.root / "kept").glob("*/source-*.png"))), 2)
+
+    def test_the_picture_that_leads_is_kept_once_for_the_theme_and_its_layout(self) -> None:
+        self.registry.layouts = {"cab": "cab.png", "desktop": "desktop.png"}
+
+        self.client.get("/themes/Any/preview", params={"size": 256})
+        self.client.get("/themes/Any/preview", params={"size": 256, "layout": "cab"})
+
+        self.assertEqual(len(self.fetches), 1)
+        self.assertEqual(theme_ops.preview_version(self.registry, "Any", "cab"),
+                         theme_ops.preview_version(self.registry, "Any"))
+
+    def test_an_installed_theme_serves_each_layout_from_its_own_file(self) -> None:
+        folder = self.root / "themes" / "Any"
+        folder.mkdir(parents=True)
+        (folder / "cab.png").write_bytes(_png(color="green"))
+        (folder / "desktop.png").write_bytes(_png(900, color="red"))
+        self.registry.folder = "Any"
+        self.registry.layouts = {"cab": "cab.png", "desktop": "desktop.png"}
+
+        cab = self.client.get("/themes/Any/preview", params={"layout": "cab"})
+        desktop = self.client.get("/themes/Any/preview", params={"layout": "desktop"})
+
+        self.assertEqual(([cab.status_code, desktop.status_code], self.fetches), ([200, 200], []))
+        self.assertNotEqual(cab.content, desktop.content)
+
+    def test_a_layout_with_no_picture_of_its_own_gets_the_main_one(self) -> None:
+        served = self.client.get("/themes/Any/preview",
+                                 params={"size": 256, "layout": "desktop"})
+
+        self.assertEqual(served.status_code, 200)
+        self.assertEqual(theme_ops.preview_version(self.registry, "Any", "desktop"),
+                         theme_ops.preview_version(self.registry, "Any"))

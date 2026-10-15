@@ -73,6 +73,9 @@ TRUST = {
 MADE_FOR = {"cab": t("console.themes.cabinet"), "desktop": t("console.themes.desktop"),
             "both": t("console.themes.both")}
 
+# Width over height of each frame in a pair; a picture of another shape is fitted inside.
+PAIR_RATIO = 4 / 3
+
 COLUMNS: list[dict[str, Any]] = [
     grid.identifier("name", t("console.themes.theme"), 320, subtitle="said",
                     help=t("console.themes.theme.help"),
@@ -115,6 +118,13 @@ VIEWS: dict[str, list[str] | views.Preset] = {
         columns=_QUIET, filters={"status": {"values": [AVAILABLE]}},
         help=t("console.view.themes_available.help")),
 }
+
+
+def made_for(theme: dict[str, Any]) -> str:
+    """A key of `MADE_FOR`: the one layout a theme supports, `both` when it supports two,
+    nothing when it says none."""
+    layouts = [one for one in theme.get("layouts") or [] if one in MADE_FOR]
+    return "both" if len(layouts) > 1 else layouts[0] if layouts else ""
 
 
 def status(theme: dict[str, Any]) -> str:
@@ -169,7 +179,7 @@ def _row(theme: dict[str, Any]) -> dict[str, Any]:
     return {"id": theme["key"], "name": theme.get("name") or theme["key"],
             "preview": theme_card.preview(theme, art.CELL), "status": status(theme),
             "trust": trust_state(theme),
-            "made_for": theme.get("type") if theme.get("type") in MADE_FOR else "",
+            "made_for": made_for(theme),
             "author": str(theme.get("author") or ""),
             "registry": repo_name(str(theme["registry"])) if theme.get("registry") else "",
             "repository": repo_name(str(theme["url"])) if theme.get("url") else "",
@@ -359,21 +369,45 @@ async def changed(context: dict[str, Any]) -> None:
     await context["rebuild"]()
 
 
+def _frame(theme: dict[str, Any], layout: str = "") -> None:
+    """A theme's picture for `layout`, or its main one, with the viewer behind a button. A
+    layout's frame is one shape whatever its picture's, so a pair sits level."""
+    with ui.element("div").classes("console-theme-hero"):
+        if not theme.get("preview"):
+            ui.icon(theme_card.GLYPH).classes("console-theme-hero-empty")
+            return
+        image = ui.image(theme_card.preview(theme, art.PANEL, layout)).classes("w-full")
+        if layout:
+            image.props(f"ratio={PAIR_RATIO} fit=contain")
+        name = str(theme.get("name") or "")
+        said = t("console.themes.layout_of", name=name, layout=MADE_FOR[layout]) \
+            if layout else name
+        ui.button(icon=verbs.ENLARGE,
+                  on_click=lambda: mediaview.open_image(
+                      theme_card.preview(theme, None, layout), said)) \
+            .props("flat dense round size=sm") \
+            .classes("console-slot-zoom").tooltip(t("word.enlarge"))
+
+
+def _pictures(theme: dict[str, Any]) -> None:
+    """One picture, or each layout's side by side when the theme has one of its own for
+    two."""
+    pictured = theme_card.pictures(theme)
+    if len(pictured) < 2:
+        _frame(theme)
+        return
+    with ui.element("div").classes("console-theme-pair"):
+        for layout in pictured:
+            with ui.element("div").classes("console-theme-layout"):
+                _frame(theme, layout)
+                ui.label(MADE_FOR[layout]).classes("console-cell-said")
+
+
 async def details(context: dict[str, Any]) -> None:
     theme = _found(context)
     library = context["library"]
     with ui.column().classes("gap-0 console-form w-full min-w-0"):
-        with ui.element("div").classes("console-theme-hero"):
-            if theme.get("preview"):
-                picture = theme_card.preview(theme, art.PANEL)
-                ui.image(picture).classes("w-full")
-                ui.button(icon=verbs.ENLARGE,
-                          on_click=lambda: mediaview.open_image(
-                              picture, str(theme.get("name") or ""))) \
-                    .props("flat dense round size=sm") \
-                    .classes("console-slot-zoom").tooltip(t("word.enlarge"))
-            else:
-                ui.icon(theme_card.GLYPH).classes("console-theme-hero-empty")
+        _pictures(theme)
         entries: list[tuple[Any, ...]] = []
         if theme.get("description"):
             entries.append(panel.intro(str(theme["description"])))
@@ -386,8 +420,8 @@ async def details(context: dict[str, Any]) -> None:
             entries.append((t("word.author"), str(theme["author"])))
         if theme.get("updated"):
             entries.append((t("console.themes.updated"), when.ago(theme["updated"])))
-        if theme.get("type") in MADE_FOR:
-            entries.append((t("console.themes.made_for"), MADE_FOR[str(theme["type"])]))
+        if made_for(theme):
+            entries.append((t("console.themes.made_for"), MADE_FOR[made_for(theme)]))
         if theme.get("registry"):
             registry = str(theme["registry"])
             entries.append((t("console.themes.list"),

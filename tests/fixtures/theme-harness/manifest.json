@@ -3,8 +3,7 @@
   "version": "1.0.0",
   "author": "VPinFE",
   "description": "The theme the render smoke test drives. Not published, so it never moves.",
-  "preview_image": "preview.png",
-  "type": "both",
+  "layouts": {"cab": "preview.png", "desktop": "preview.png"},
   "min_vpinfe": "3.0",
   "windows": ["playfield", "backglass", "scoreview"]
 }
