@@ -41,9 +41,9 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/health` | Liveness |
 | GET | `/api/v1/openapi.json` | Generated OpenAPI spec; another device needs to be signed in |
 | GET | `/api/v1/docs` | Swagger UI; another device needs to be signed in |
-| POST | `/api/v1/auth/code` | Ask for a sign-in code. The machine shows "{address} wants to sign in" with Show and Ignore; the answer holds a `request_id` and no digits, and sets a `vpinfe_asking` cookie (HttpOnly, SameSite Strict, ten minutes) that the browser has to send back with the code. 429 `too_many_requests` while another address's ask is too recent, 403 once the machine has ignored this address, and 403 `codes_off` while sign-in codes are switched off |
+| POST | `/api/v1/auth/code` | Ask for a sign-in code. The device shows "{address} wants to sign in" with Show and Ignore; the answer holds a `request_id` and no digits, and sets a `vpinfe_asking` cookie (HttpOnly, SameSite Strict, ten minutes) that the browser has to send back with the code. 429 `too_many_requests` while another address's ask is too recent, 403 once the device has ignored this address, and 403 `codes_off` while sign-in codes are switched off |
 | POST | `/api/v1/auth/session` | `{"request_id", "code"}` signs this browser in, from the browser that asked, and sets the `vpinfe_session` cookie: HttpOnly, SameSite Lax, 90 days unused, Secure under HTTPS. 403 `forbidden` with `details.reason` of `wrong`, `used_up`, `no_code` or `ignored` |
-| GET | `/api/v1/auth/me` | Whether this browser is signed in, whether it reached the API from the machine itself, and which kind of sign-in it holds |
+| GET | `/api/v1/auth/me` | Whether this browser is signed in, whether it reached the API from the device itself, and which kind of sign-in it holds |
 | POST | `/api/v1/auth/sign_out` | Sign this browser out |
 | GET | `/api/v1/auth/sessions` | The browsers signed in: what each is, where from, when last used, and which one is asking (`access:read`) |
 | DELETE | `/api/v1/auth/sessions/{session_id}` | Sign one browser out (`access:write`) |
@@ -312,7 +312,7 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/players/{id}/accounts/{extension}/card` | The player's card, an SVG file. `404` while the extension cannot make one |
 | POST | `/api/v1/players/{id}/accounts/{extension}/card` | Use a card for this account, `{"card": "..."}`, taken as `POST /players/guests/card` takes one. Its values replace the account's; the player's name, initials and Share stay. Answers the account. `400` for a card this extension does not read |
 | POST | `/api/v1/players/{id}/accounts/{extension}/picture` | Use the picture the account's service has as this player's. Copied once, kept as `PUT /players/{id}/picture` keeps an upload, and never followed. Answers the player. `404` while the service has none, `400` for a guest. The account says whether there is one: `picture` on `GET .../accounts` |
-| GET | `/api/v1/metrics` | What this device is doing now: `now` holds the processor, memory, `disks` and `graphics`, with `cpu_temperature` in degrees C where the platform reports one (Linux) and `busiest`, the five programs using most of the processor as `{name, cpu_percent, memory}`, a program being an app bundle's every process (`Claude Helper (Renderer)` is Claude) or, with no bundle, every process of one name, `cpu_percent` per core as Activity Monitor and `top` read it (100 is one core, so a program on several cores passes 100) except on Windows, where it is the share of the whole machine as Task Manager reads it, and a process the OS will not let this one read, such as root's on macOS, left out; `busiest` is null until a second reading, since a process's first reads 0. Each of `disks` is a volume, carrying `holds`: what is watched on it, as `role` (`library`, `config` or `cache`) and, for a library, the folder's `name`; a volume that cannot be read carries `error`, the reason in words. `graphics` is `{cards, reason, detail}`: one entry per card with `id`, `name` (a number follows the name of cards that share one, `RTX 1` and `RTX 2`), `vendor`, `source` (the reader that answered) and the readings that source has - `busy`, `memory_used`, `memory_total`, `memory_percent`, `temperature`, `power`, `clock`, `fan_percent`, `fan_rpm` - where a reading the source lacks is absent, never 0. A card nothing reads carries a `reason` and no `source`, plus `detail` where the program said more and `tool`, the id of the Tool whose Settings row would fix it; no cards at all is an empty list with the `reason`. `history_seconds` adds as much of this session as you ask for, each point carrying `gpus`, each card's `busy` by `id`, and `marks`, what happened in that time, oldest first, as `{at, kind, name}`: each job started (`kind` `job`, `name` its kind, and `title` too where it has a name of its own) and each table launched (`kind` `table`, `name` the game's title, empty when the game is private); 0 means no history and no marks. Two callers within a second get the same reading |
+| GET | `/api/v1/metrics` | What this device is doing now: `now` holds the processor, memory, `disks` and `graphics`, with `cpu_temperature` in degrees C where the platform reports one (Linux) and `busiest`, the five programs using most of the processor as `{name, cpu_percent, memory}`, a program being an app bundle's every process (`Claude Helper (Renderer)` is Claude) or, with no bundle, every process of one name, `cpu_percent` per core as Activity Monitor and `top` read it (100 is one core, so a program on several cores passes 100) except on Windows, where it is the share of the whole device as Task Manager reads it, and a process the OS will not let this one read, such as root's on macOS, left out; `busiest` is null until a second reading, since a process's first reads 0. Each of `disks` is a volume, carrying `holds`: what is watched on it, as `role` (`library`, `config` or `cache`) and, for a library, the folder's `name`; a volume that cannot be read carries `error`, the reason in words. `graphics` is `{cards, reason, detail}`: one entry per card with `id`, `name` (a number follows the name of cards that share one, `RTX 1` and `RTX 2`), `vendor`, `source` (the reader that answered) and the readings that source has - `busy`, `memory_used`, `memory_total`, `memory_percent`, `temperature`, `power`, `clock`, `fan_percent`, `fan_rpm` - where a reading the source lacks is absent, never 0. A card nothing reads carries a `reason` and no `source`, plus `detail` where the program said more and `tool`, the id of the Tool whose Settings row would fix it; no cards at all is an empty list with the `reason`. `history_seconds` adds as much of this session as you ask for, each point carrying `gpus`, each card's `busy` by `id`, and `marks`, what happened in that time, oldest first, as `{at, kind, name}`: each job started (`kind` `job`, `name` its kind, and `title` too where it has a name of its own) and each table launched (`kind` `table`, `name` the game's title, empty when the game is private); 0 means no history and no marks. Two callers within a second get the same reading |
 | GET | `/api/v1/about` | What this install and this device *are* - version, build, OS, browser, and where files live. Each fact carries `path`, true where the value is a path on disk, which a client draws as a path. `text` is the same answer as something to paste into a report |
 | GET | `/api/v1/config/schema` | Every setting this install has. An option's `group` is a token (`navigation`, `local_services`...) and `group_label` beside it is the heading in this install's language. `path` says what a string names on disk (`file`, `dir` or `exe`). `default_is` says whose the default is, `community` or `vpinfe`, for a client that reminds a person of it from `default`, `unit` what a number counts (`seconds`, `port`), `min` and `max` the bounds of a number, which a write outside them is refused with `400`, `as_buttons` that a choice reads as a row of buttons with `choice_help` saying what each one does, `group_note` a line for the whole group and `cuts_off_console` that a change can put this Console out of reach of the device making it and `moves_with` (`backups`) that the folder it names holds files a client should offer to carry across before saving a new one. `applies` says when a saved change takes effect: `now`, `table` (the next table to start), `windows` (the next time the frontend's windows open) or `restart`. A window the active theme declares beyond the three every theme has is a `windows.<name>` section of its own, with the `screen_id` it opens on, after `windows.scoreview`. `lists` describes each top-level list of objects the file holds, each with its `fields` and, where its items differ by kind, a `variant` naming the field that holds the kind and the fields each kind has now; it is empty until a list is declared |
 | GET | `/api/v1/config/waiting` | What is saved and not yet in effect. `waiting` lists each change as `{kind, section, key, label, label_key, waits_for, in_effect, set}`: `kind` is `setting` or `extension`, `waits_for` is `restart` or `reopen`, `in_effect` is the value this run is using and `set` the value saved. A setting declared `restart` is compared with the value VPinFE started on, a `windows` one with the value the windows last opened on, and changing a value back clears it. A `windows` setting waits for a restart instead of a reopen while the set of windows has changed - a window added or removed, or a theme declaring others - and never waits on an install with no windows open. An extension switched on since the run began is listed as `extension` with `waits_for: restart`. `reopen` says whether this install can reopen its windows, false when headless; `http_port` is the port the next start listens on |
@@ -387,7 +387,7 @@ rather than matching a version number against a document.
 `services` says where this install's other servers are — the ones that are not the API.
 Only the port: the host is wherever you reached this document, which is the address
 already known to route here. `assets` is where artwork is served from, and a client that
-is not on this machine has no other way to learn it — it is a different port from the one
+is not on this device has no other way to learn it — it is a different port from the one
 it just asked on, and guessing is right only until someone moves it.
 
 Links are relative so they stay correct behind a reverse proxy. A link that is present but
@@ -397,11 +397,11 @@ branch on that rather than on its absence.
 `name` is the product and reads the same on every install, so it can't tell two apart.
 `install_id` can: it's minted once on first start, opaque, and stable for the life of the
 install. Address an install by it and nothing else — `display_name` is for showing a
-person, defaults to the machine's hostname, and is meant to be renamed, so anything
+person, defaults to the device's hostname, and is meant to be renamed, so anything
 resolving through it breaks the first time somebody does.
 
 `features` says what this install is for: `library` curates the game library, `frontend`
-launches games on that machine, `devices` manages the other installs on the network, and
+launches games on that device, `devices` manages the other installs on the network, and
 `overview` is a front page for what needs attention. It defaults to all four. An install
 that wrote its own list keeps exactly what it wrote.
 
@@ -517,7 +517,7 @@ satisfies, which is a different mechanism from an asset found by naming rule:
   is the case worth surfacing; `required: false` means the declared name is a DOF key;
   `null` means the game's metadata predates the detector and a rebuild will fill it in.
 
-  When the machine's own VPX install ships `libpinmame` (discovery declares this as the
+  When the device's own VPX install ships `libpinmame` (discovery declares this as the
   `rom_audit` capability), the chain also carries PinMAME's own answer: `catalog` (the
   engine knows this set), `clone_of` (the parent set an unmerged clone needs),
   `description` (the version label), and `audit` — `ok` upgrades `installed` to true with
@@ -525,7 +525,7 @@ satisfies, which is a different mechanism from an asset found by naming rule:
   `unknown_set` means the name isn't in this PinMAME's catalog (an alias may be needed,
   or the set is newer than the shipped library), and `unavailable` leaves the name-match
   conclusion standing. The library is borrowed from the configured launcher's install,
-  never bundled — a machine that can't launch has no use for the audit.
+  never bundled — a device that can't launch has no use for the audit.
   `installed` is true or null, never false: the name may be a DOF key on a ROM-less EM
   game, an unmerged set may need a parent zip, and global ROM locations aren't searched —
   so "not found here" is not "missing". `nvram` rides the chain (`present`, `file`,
@@ -565,8 +565,8 @@ raise FeatureUnavailableError("DOF is not configured on this instance")
 
 For anything else, `ApiError(code, message, status_code=..., details=...)`. An `OSError`
 that reaches the top comes back with the reason in words as the message. One from this
-machine, such as a read-only folder or a full disk, is `409` `conflict`: *VPinFE does not
-have permission for /path/to/the/folder*. One from another machine, a host that did not
+device, such as a read-only folder or a full disk, is `409` `conflict`: *VPinFE does not
+have permission for /path/to/the/folder*. One from another device, a host that did not
 answer, could not be reached or answered with an error, is `502` `upstream_unavailable`:
 *Nothing answers at 192.168.1.20*, and is worth retrying. Any other uncaught exception
 becomes a logged `internal_error` with no detail in the response — put anything the user
@@ -585,10 +585,10 @@ route declares the scope it needs:
 @router.get("/games", dependencies=[requires(scopes.TABLES_READ)])
 ```
 
-**Who gets which scopes is `SignInPolicy`.** A request from this machine holds every core
+**Who gets which scopes is `SignInPolicy`.** A request from this device holds every core
 scope. A request from another device holds `instance:read` alone, which is enough to ask
 what this instance is and to ask for a sign-in code, until it has signed in or presents a
-token. Signing in is a six-digit code shown on the machine and typed on the other device,
+token. Signing in is a six-digit code shown on the device and typed on the other device,
 or, once the Owner has set one up, the six digits an authenticator app shows (RFC 6238,
 SHA-1, 30 seconds, one step either side, a step used once). The `/auth` routes above are the
 whole of it. A cookie that is not signed in, expired or signed out holds none.
@@ -616,7 +616,7 @@ Console does exactly this.
 holds `access:*` or `protected:write`. A token made by pairing is Full Control.
 
 **The Console acts for a browser.** The Console draws pages for browsers on other devices
-but calls this API from the same machine over loopback. Each such call carries
+but calls this API from the same device over loopback. Each such call carries
 `x-vpinfe-acting`, a 60-second HMAC naming the browser's sign-in (or `-` for a browser that
 is no longer signed in), and is held to that sign-in's tier. A loopback call with no such
 header is this device. The header is honored only from loopback and only with the
@@ -649,14 +649,14 @@ one after callers depend on it is not.
 
 **It answers on every interface by default, and another device gets in with a code.**
 Anything that can reach the port may ask what this instance is and ask for a code. The code
-is shown on the machine, never sent back to the asker, so someone who can reach the port and
+is shown on the device, never sent back to the asker, so someone who can reach the port and
 cannot see the screen gets nothing else. Once typed, the browser holds Play and Library until it
 is signed out or goes unused for 90 days; a Protected change asks for a Confirm on top.
 
 Over plain HTTP the cookie and everything after it cross the network unencrypted, so sign in
 from a network you trust. A home LAN behind a router is the assumption. A shared or public
 network is not, and neither is port-forwarding it to the internet. Away from home, connect
-through a VPN and reach the machine by its VPN name.
+through a VPN and reach the device by its VPN name.
 
 **An encrypted connection stands in for the Confirm.** A request counts as encrypted when
 VPinFE itself serves HTTPS, when it comes through a Trusted Proxy that says `https` in
@@ -674,15 +674,15 @@ Two settings decide reachability, and they are separate on purpose:
 | `network.theme_assets_bind` | `127.0.0.1` | theme packages and the table library's media |
 
 `http_bind` answers everywhere because the Remote and the sign-in page are the point - a
-phone administering a cabinet is a supported workflow, not an accident. Set it to `127.0.0.1`
-if you want the API reachable only from the machine itself; the Remote and the Console on
+phone administering a VPinFE device is a supported workflow, not an accident. Set it to `127.0.0.1`
+if you want the API reachable only from the device itself; the Remote and the Console on
 other devices stop working, which is the trade.
 
 `theme_assets_bind` is loopback because opening it shares read access to the table library
-itself. Opening it is what a device on another machine needs to fetch artwork, and VPinFE
+itself. Opening it is what another device needs to fetch artwork, and VPinFE
 logs a warning when it is not loopback.
 
-Set it to `127.0.0.1` and the machine is the only one that can sign in at all.
+Set it to `127.0.0.1` and the device is the only one that can sign in at all.
 
 ## Capabilities
 
@@ -742,10 +742,10 @@ Every refusal happens before anything starts, and comes back synchronously:
 | 501 | `feature_unavailable` | this game can't be launched here: no launcher for its app, a launcher with no program or one that isn't there, a table on a share that isn't reachable, or no table at all |
 
 The endpoint carries `launch:invoke`, which is deliberately not `games:write`: reading the
-library, changing it, and making the machine do something are three different permissions.
+library, changing it, and making the device do something are three different permissions.
 
 Discovery declares a `launch` capability separately from `play`, because reading what's
-playing works on a machine that can't start anything. Check it before offering a Play button
+playing works on a device that can't start anything. Check it before offering a Play button
 rather than finding out from a 501.
 
 This is the same launch the wheel and the Remote Control page use. That matters more than it
@@ -902,8 +902,8 @@ is how long a press stands without one (200–10000, default 1500); renew at rou
 of it. The response's `holding` lists every action the install currently believes is down,
 which is what a client that reconnected mid-gesture needs to see.
 
-It reaches this install's windows and no others. A client aimed at another machine calls
-that machine's copy of this route — the target picker in a client is a base URL, not a new
+It reaches this install's windows and no others. A client aimed at another device calls
+that device's copy of this route — the target picker in a client is a base URL, not a new
 transport.
 
 The endpoint carries `input:act`, deliberately its own scope: this is the first capability
@@ -1320,12 +1320,12 @@ What's on it, each alongside the `install_id` described below:
 | `config.waiting_changed` | `{"waiting": [...], "reopen", "http_port"}` - what is saved and not yet in effect changed. The whole answer, the same as `GET /config/waiting`, so a client that missed one is right after the next |
 
 `game.changed` and `collections.changed` carry no path. The bus does, for handlers in
-this process, but a subscriber on another machine has a different path for the same thing
+this process, but a subscriber on another device has a different path for the same thing
 and would be told one true only where it happened. They say a re-read is due, not where
 from.
 
 Every payload also carries `install_id` — which install the event happened on. On a
-single-machine install it is always the same value and can be ignored; a client watching
+single-device install it is always the same value and can be ignored; a client watching
 more than one is how it tells them apart. It is absent, not empty, when the install has no
 id yet, so "didn't say" is distinguishable from an id that is the empty string.
 
@@ -1352,7 +1352,7 @@ of, and nothing on the far end of a socket may do that.
 
 `play.state_changed` carries a `source` of `frontend`, `remote`, `api` or `capture` — who asked
 for the launch, `capture` being a launch to record the table's media. The frontend uses it to
-ignore its own; everything else can treat the state as a fact about the machine regardless of
+ignore its own; everything else can treat the state as a fact about the device regardless of
 who caused it. A recording is not a play, and no `table.play_recorded` follows one.
 
 On connect the stream sends a `stream.hello` frame, then the current value of any
@@ -1611,9 +1611,9 @@ time, at launch, as a file-not-found.
 
 Set `network.verify_shared_library` and an install compares its own tables against the library's
 at startup, by `table.file_hash` rather than by path — the same share is mounted at
-different places on different machines, so paths would report every install as broken. It
+different places on different devices, so paths would report every install as broken. It
 logs what it found and changes nothing else: what to do about a mismatch is a decision
-nobody has made, and an unmounted share should not become fatal on a machine that was
+nobody has made, and an unmounted share should not become fatal on a device that was
 working a moment ago.
 
 Three outcomes, because they are three different problems: `missing` (the library has a table
