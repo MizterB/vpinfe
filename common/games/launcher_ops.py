@@ -253,7 +253,8 @@ def app_config(launcher_id: str, table: str = "",
     config = _app_settings_surface(found)
     if config is None:
         return {"groups": [], "values": {}, "scopes": [], "shared_with_game": False,
-                "from_game": {}, "app_name": apps.app_name(found.app), "files": {}}
+                "from_game": {}, "follows_game": {}, "app_name": apps.app_name(found.app),
+                "files": {}}
 
     settings = _launcher_settings(found)
     if scope not in config.scopes():
@@ -265,6 +266,7 @@ def app_config(launcher_id: str, table: str = "",
     scopes_for = _scopes_for(config)
     shares = getattr(config, "shared_with_game", None)
     reach = getattr(config, "from_game", None)
+    follows = getattr(config, "follows_game", None)
 
     def shown(field: apps.Field) -> bool:
         held = values.get(field.key)
@@ -292,6 +294,8 @@ def app_config(launcher_id: str, table: str = "",
         "shared_with_game": bool(target and shares is not None and shares(target)),
         "from_game": (dict(reach(target, settings))
                       if scope == SCOPE_ENTRY and target and reach is not None else {}),
+        "follows_game": (dict(follows(target, settings))
+                         if scope == SCOPE_ENTRY and target and follows is not None else {}),
         "groups": [{"key": g.key, **apps.group_words(found.app, g),
                     "summarized": g.summarized, "rows": drawn(g, fields),
                     "read_only": g.read_only,

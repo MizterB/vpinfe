@@ -884,7 +884,7 @@ _ROM_CHOICES = [
 ]
 
 TABLE_COLUMNS = [
-    grid.identifier("game", t(_TABLE), 300, pinned="left", group=t(_GAME),
+    grid.identifier("game", t(_TABLE), 270, pinned="left", group=t(_GAME),
                 subtitle=("said", "", "said_built"),
                 picture=thumbnails.FIELD, glyph=icons.TABLES,
                 help=t("console.games.table_game.help"),

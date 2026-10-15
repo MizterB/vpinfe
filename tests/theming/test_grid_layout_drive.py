@@ -55,6 +55,8 @@ NAME_DRAWN = ("(() => { const handle = document.querySelector("
               " return {width: " + API + ".getColumn('name').getActualWidth(),"
               " handle: handle && handle.getBoundingClientRect().right,"
               " body: " + BODY_RIGHT + "}; })()")
+TABLE_NAME_DRAWN = NAME_DRAWN.replace('col-id="name"', 'col-id="game"').replace(
+    "getColumn('name')", "getColumn('game')")
 PICK = ("(() => { const i = [...document.querySelectorAll(%s)]"
         ".findIndex(el => el.innerText.trim() === %s); return i >= 0 ? i + 1 : 0; })()")
 PICKER = "document.querySelector('.console-view-picker').innerText"
@@ -242,6 +244,10 @@ class GridLayoutDrive(unittest.TestCase):
             seen["reloaded"] = await unchanged_by(lambda: load(BY_LINK))
             seen["resized_reloaded"] = await browser.evaluate(NAME_DRAWN)
             seen["unpinned"] = await browser.evaluate(UNPINNED)
+
+            await window(NARROW)
+            await load("/console?view=tables")
+            seen["tables_narrow"] = await browser.evaluate(TABLE_NAME_DRAWN)
         return seen
 
     def _layout(self, held: dict, scope: str = "console.collections::") -> dict:
@@ -274,6 +280,10 @@ class GridLayoutDrive(unittest.TestCase):
         drawn = self.seen["narrow_drawn"]
         self.assertLessEqual(drawn["handle"], drawn["body"])
         self.assertGreater(drawn["width"], _declared(collections, False))
+
+    def test_the_tables_name_shows_its_edge_and_its_handle_at_a_laptop_width(self) -> None:
+        drawn = self.seen["tables_narrow"]
+        self.assertLessEqual(drawn["handle"], drawn["body"])
 
     def test_the_name_never_gives_up_more_than_the_art_s_room(self) -> None:
         self.assertEqual(self.seen["games_narrowed"]["width"], _declared(games, False))

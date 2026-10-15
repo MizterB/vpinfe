@@ -1918,6 +1918,63 @@ class CopyFromGameTests(unittest.IsolatedAsyncioTestCase):
         inner["rebuild"].assert_awaited_once()
 
 
+class FollowsGameTests(unittest.IsolatedAsyncioTestCase):
+    """A table with no file of its own reads its game's."""
+
+    REACH = {"Player.X": "1", "Player.Y": "2"}
+
+    def test_it_says_the_table_follows_its_game(self) -> None:
+        entries = app_settings._follows_game_entries({"playing": False}, self.REACH)
+
+        self.assertEqual(_said(entries[0]),
+                         "No file of its own, so it follows its game's settings")
+
+    async def test_copying_gives_the_table_a_file_with_those_values(self) -> None:
+        inner = {"library": Mock(), "launcher": {"launcher_id": "l1"},
+                 "config_table": "t1", "rebuild": AsyncMock()}
+        io = self.enterContext(patch.object(app_settings.offload, "io",
+                                            new=AsyncMock(return_value={})))
+        self.enterContext(patch.object(app_settings, "ui"))
+
+        await press(app_settings._copy_from_game, inner, self.REACH)
+
+        io.assert_awaited_once_with(inner["library"].write_launcher_config, "l1",
+                                    self.REACH, table="t1", scope="entry")
+
+
+class GoingBackTests(unittest.TestCase):
+    """What clearing the last value in a table's own file hands back to the game's."""
+
+    GROUPS = [_group("player", _setting("Player.X", "X"), _setting("Player.Y", "Y"),
+                     _setting("Player.Z", "Z"))]
+    REACH = {"Player.Y": "2", "Player.Z": "3"}
+
+    def _back(self, held: dict[str, bool], cleared: list[str], reach=None) -> str:
+        inner = {"config_values": {key: {"set_here": here} for key, here in held.items()}}
+        return app_settings.going_back(
+            self.GROUPS, self.REACH if reach is None else reach, inner, cleared)
+
+    def test_it_names_the_rows_the_game_s_file_changes(self) -> None:
+        said = self._back({"Player.X": True, "Player.Y": False}, ["Player.X"])
+
+        self.assertEqual(said, "Then it follows the game's settings, which also changes:\nY\nZ")
+
+    def test_nothing_while_the_file_keeps_another_value(self) -> None:
+        said = self._back({"Player.X": True, "Player.Y": True}, ["Player.X"])
+
+        self.assertEqual(said, "")
+
+    def test_nothing_where_the_game_s_file_changes_nothing_else(self) -> None:
+        said = self._back({"Player.X": True}, ["Player.X"], reach={})
+
+        self.assertEqual(said, "")
+
+    def test_a_row_cleared_with_it_is_not_named(self) -> None:
+        said = self._back({"Player.X": True, "Player.Y": True}, ["Player.X", "Player.Y"])
+
+        self.assertEqual(said, "Then it follows the game's settings, which also changes:\nZ")
+
+
 class RedrawTests(unittest.TestCase):
     """Whether a write can be marked in place or the panel has to be drawn again."""
 

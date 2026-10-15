@@ -5233,7 +5233,8 @@ def _marked(parts: Sequence[Part], app_name: str,
             clear: Callable[[], Awaitable[None]] | None = None,
             playing: bool = False,
             again: Callable[[], Sequence[Part]] | None = None,
-            regrow: dict[str, Callable[[], None]] | None = None) -> Callable[[], None]:
+            regrow: dict[str, Callable[[], None]] | None = None,
+            back: Callable[[Sequence[str]], str] | None = None) -> Callable[[], None]:
     """One value, or a pair with `joiner` between them, as `(control, held, field)`. A
     value at the default is drawn quiet and unmarked. Where this scope sets any of them
     to something else, a dot comes before it, whose each is on hover, and `clear` after
@@ -5290,12 +5291,15 @@ def _marked(parts: Sequence[Part], app_name: str,
                 whose.text = said
             end.clear()
             if clear is not None and changed:
+                hint = _each_said([(field, _clear_hint(held, field, app_name))
+                                   for held, field in changed], len(parts))
+                if back is not None and (note := back(
+                        [one.key for _, held, one in parts if held.get("set_here")])):
+                    hint = "\n".join((hint, note))
                 with end:
                     panel.icon_action(t("word.reset"), clear, icon=verbs.RESET,
                                       enabled=not playing,
-                                      hint=t(PLAYING_NOTE) if playing else _each_said(
-                                          [(field, _clear_hint(held, field, app_name))
-                                           for held, field in changed], len(parts)))()
+                                      hint=t(PLAYING_NOTE) if playing else hint)()
 
         def again_here() -> None:
             nonlocal parts
@@ -5831,7 +5835,8 @@ async def _setting_entries(context: dict[str, Any],
                 parts, app_name, redraws, joiner=pair.joiner if pair else "",
                 on_leave=settle if any(_as_option(one)["type"] in TYPED for one in members)
                 else None, clear=clear(keys), playing=playing,
-                again=partial(_again, part, members), regrow=regrow)))
+                again=partial(_again, part, members), regrow=regrow,
+                back=partial(note, context) if (note := context.get("clear_note")) else None)))
             entries.append((panel.ASIDE, _beside(
                 partial(marks, parts, pair.joiner if pair else ""), parts[0][1], field,
                 redraws, more,

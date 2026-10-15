@@ -941,6 +941,41 @@ class FromGameTests(_Case):
         self.assertEqual(self._from_game(), {"Backglass.GrillHeight": "200"})
 
 
+class FollowsGameTests(_Case):
+    """What a game's own file gives a table that has no file of its own."""
+
+    def _follows(self, table=None) -> dict[str, str]:
+        return self.config.follows_game(str(table or self.table), self.settings)
+
+    def test_what_the_game_s_file_sets_for_a_table_with_no_file(self) -> None:
+        self.folder_file("[Backglass]\nGrillHeight = 200\n")
+
+        self.assertEqual(self._follows(), {"Backglass.GrillHeight": "200"})
+
+    def test_nothing_once_the_table_has_a_file_of_its_own(self) -> None:
+        self.folder_file("[Backglass]\nGrillHeight = 200\n")
+        self.table_file("[DMD]\nProfile1Legacy = 1\n")
+
+        self.assertEqual(self._follows(), {})
+
+    def test_nothing_where_the_table_s_file_is_the_game_s(self) -> None:
+        named = self.game / "Medieval Madness.vpx"
+        named.write_text("")
+        self.folder_file("[Backglass]\nGrillHeight = 200\n")
+
+        self.assertEqual(self._follows(named), {})
+
+    def test_a_value_that_is_the_application_s_already_is_left_out(self) -> None:
+        self.folder_file("[Backglass]\nGrillHeight = 180\n")
+
+        self.assertEqual(self._follows(), {})
+
+    def test_so_is_one_only_all_tables_can_hold(self) -> None:
+        self.folder_file("[Player]\nPlayfieldWidth = 800\n")
+
+        self.assertEqual(self._follows(), {})
+
+
 SIZES_INI = """\
 [Player]
 ; Width: Width of the window [Default: 16384]

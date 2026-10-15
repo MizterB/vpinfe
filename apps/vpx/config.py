@@ -702,6 +702,18 @@ class VPXConfig:
         own = path_for(SCOPE_ENTRY, target, settings)
         if own is None or not own.is_file():
             return {}
+        return self._game_sets(own, settings)
+
+    def follows_game(self, target: str, settings: Mapping[str, Any]) -> dict[str, str]:
+        """By key, what the game's own file sets for a table that has no file of its own,
+        so the program reads the game's: each value that can be set for one table and
+        would change what it uses. Empty once the table has a file."""
+        own = path_for(SCOPE_ENTRY, target, settings)
+        if own is None or own.is_file():
+            return {}
+        return self._game_sets(own, settings)
+
+    def _game_sets(self, own: Path, settings: Mapping[str, Any]) -> dict[str, str]:
         game = _game_layer(own)
         if game is None or _same(own, game):
             return {}

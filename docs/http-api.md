@@ -857,7 +857,9 @@ creates its file with that value alone, and the folder's file stops reaching it.
 `entry` scope, `from_game` is by key what the folder's file sets that the table's own does
 not, where the table has one and the value would change what the table uses. Written to
 the `entry` scope, they give the table the folder's values in its own file. It is empty at
-any other scope.
+any other scope. `follows_game` is the same list for a table with no file of its own, which
+the program reads the folder's for: by key what the folder's file sets that would change what
+the table uses. It is empty once the table has a file.
 
 A table whose `.vpx` is named after its folder has one file for both scopes, so what it
 sets reaches the game's other tables that have no file of their own. `shared_with_game` is

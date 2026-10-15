@@ -278,6 +278,11 @@ async def _program_entries(context: dict[str, Any],
         entries.append(shared)
     if reach := dict(found.get("from_game") or {}):
         entries += _from_game_entries(inner, reach)
+    elif follows := dict(found.get("follows_game") or {}):
+        entries += _follows_game_entries(inner, follows)
+    going = partial(going_back, groups, dict(found.get("from_game") or {}))
+    back = partial(going, inner)
+    inner["clear_note"] = going
     if others := _others(context, table, launcher):
         inner["config_more"] = ForAll(inner, others, bool(found.get("shared_with_game")),
                                       list(context.get("tables") or []),
@@ -295,9 +300,9 @@ async def _program_entries(context: dict[str, Any],
         pairs=named_pairs(groups))
     remove = partial(_remove, inner)
     if view is not None:
-        entries += _camera_entries(view, remove, inner["playing"])
+        entries += _camera_entries(view, remove, inner["playing"], back)
     if options is not None:
-        entries += _option_entries(options, values, remove, inner["playing"])
+        entries += _option_entries(options, values, remove, inner["playing"], back)
     if offered := addable(groups, values, added):
         entries.append((panel.FULL, partial(_add_picker, context, added, offered)))
     entries.append((panel.FULL, panel.action(
@@ -484,14 +489,16 @@ def point_of_view(groups: Sequence[Any], values: dict[str, Any],
 
 
 def _camera_entries(view: SimpleNamespace, remove: Callable[[list[str]], Any],
-                    playing: bool) -> list[tuple[Any, Any]]:
+                    playing: bool, back: Callable[[Sequence[str]], str] = lambda keys: ""
+                    ) -> list[tuple[Any, Any]]:
     """The rest of the summarized group as one row, with Reset where the table holds it."""
     entries: list[tuple[Any, Any]] = [
         (t("console.app_settings.camera"), _dotted(camera_said(view), bool(view.own)))]
     if view.own:
-        entries.append((panel.ASIDE, _reset(t("word.reset"), partial(remove, view.own),
-                                            t("console.app_settings.camera_reset.help"),
-                                            playing)))
+        entries.append((panel.ASIDE, _reset(
+            t("word.reset"), partial(remove, view.own),
+            _hint_with(t("console.app_settings.camera_reset.help"), back(view.own)),
+            playing)))
     entries.append(panel.note(t("console.app_settings.camera.help")))
     return entries
 
@@ -517,8 +524,9 @@ def table_options(groups: Sequence[Any], values: dict[str, Any]) -> tuple[str, l
 
 
 def _option_entries(options: tuple[str, list[Any]], values: dict[str, Any],
-                    remove: Callable[[list[str]], Any],
-                    playing: bool) -> list[tuple[Any, Any]]:
+                    remove: Callable[[list[str]], Any], playing: bool,
+                    back: Callable[[Sequence[str]], str] = lambda keys: ""
+                    ) -> list[tuple[Any, Any]]:
     """Each as the file holds it, with Reset where the table holds it, and Reset All."""
     label, fields = options
     entries: list[tuple[Any, Any]] = [(panel.FULL, partial(workbench._subheading, label))]
@@ -531,14 +539,37 @@ def _option_entries(options: tuple[str, list[Any]], values: dict[str, Any],
             own.append(field.key)
             entries.append((panel.ASIDE, _reset(
                 t("word.reset"), partial(remove, [field.key]),
-                t("console.app_settings.option_reset.help"), playing)))
+                _hint_with(t("console.app_settings.option_reset.help"), back([field.key])),
+                playing)))
         elif mark := workbench._config_mark(held, SCOPE_ENTRY, field):
             entries.append((panel.ASIDE, mark))
     if len(own) > 1:
         entries.append((panel.FULL, _reset(
             t("console.app_settings.reset_all"), partial(remove, own),
-            t("console.app_settings.option_reset.help"), playing, inline=False)))
+            _hint_with(t("console.app_settings.option_reset.help"), back(own)),
+            playing, inline=False)))
     return entries
+
+
+def going_back(groups: Sequence[Any], reach: dict[str, str], inner: dict[str, Any],
+               cleared: Sequence[str]) -> str:
+    """Where clearing `cleared` takes the last key of the table's own file, so the
+    program reads the game's file instead: that, and the other rows the game's file
+    changes. Empty where the file keeps a key, or the game's file changes nothing else.
+    Reads the values as they stand now, since a clear redraws a row, not the panel."""
+    own = {key for key, held in (inner.get("config_values") or {}).items()
+           if held.get("set_here")}
+    if not own or not own <= set(cleared):
+        return ""
+    labels = {field.key: field.label for group in groups for field in group.settings}
+    rows = [labels.get(key, key) for key in reach if key not in cleared]
+    if not rows:
+        return ""
+    return t("console.app_settings.back_to_game", rows="\n".join(rows))
+
+
+def _hint_with(hint: str, note: str) -> str:
+    return "\n".join((hint, note)) if note else hint
 
 
 def _dotted(text: str, own: bool) -> Callable[[], None]:
@@ -623,6 +654,20 @@ def _from_game_entries(inner: dict[str, Any], reach: dict[str, str]) -> list[tup
                 enabled=not playing,
                 hint=t(workbench.PLAYING_NOTE) if playing
                 else t("console.app_settings.copy_from_game.help")))]
+
+
+def _follows_game_entries(inner: dict[str, Any],
+                          reach: dict[str, str]) -> list[tuple[Any, Any]]:
+    """Says that a table with no file of its own reads its game's, and offers it a copy
+    of what the game's file sets."""
+    playing = bool(inner["playing"])
+    return [panel.intro(t("console.app_settings.follows_game")),
+            (panel.FULL, panel.action(
+                t("console.app_settings.copy_from_game"),
+                partial(_copy_from_game, inner, reach), icon=verbs.COPY,
+                enabled=not playing,
+                hint=t(workbench.PLAYING_NOTE) if playing
+                else t("console.app_settings.copy_from_game.follows_help")))]
 
 
 @on_page

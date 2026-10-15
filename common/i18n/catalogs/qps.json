@@ -561,6 +561,9 @@
   },
   "console.app_settings.copy_from_game": "Çöþý ţĥè Ĝàɱè'š Šèţţîñĝš Ĥèřè",
   "console.app_settings.copy_from_game.help": "Ŵĥàţ ţĥîš ţàƀŀè àŀřèàđý šèţš šţàýš àš îţ îš",
+  "console.app_settings.copy_from_game.follows_help": "Ĝîṽèš ţĥîš ţàƀŀè à ƒîŀè öƒ îţš öŵñ ŵîţĥ ţĥè šàɱè ṽàŀûèš",
+  "console.app_settings.back_to_game": "Ţĥèñ îţ ƒöŀŀöŵš ţĥè ĝàɱè'š šèţţîñĝš, ŵĥîçĥ àŀšö çĥàñĝèš:\n{rows}",
+  "console.app_settings.follows_game": "Ñö ƒîŀè öƒ îţš öŵñ, šö îţ ƒöŀŀöŵš îţš ĝàɱè'š šèţţîñĝš",
   "console.app_settings.everything_else": "Èṽèřýţĥîñĝ Èŀšè",
   "console.app_settings.table_title": "{app} ƒöř Ţĥîš Ţàƀŀè",
   "console.app_settings.from_game": {

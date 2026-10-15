@@ -485,6 +485,24 @@ class GameFileTests(_TableCase):
         self.assertEqual(at_table["from_game"], {"Player.BallTrail": "1"})
         self.assertEqual(at_launcher["from_game"], {})
 
+    def test_what_it_sets_for_a_table_with_no_file_of_its_own(self) -> None:
+        app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
+        app_ini.write_text("[Player]\nFXAA = 1\n", encoding="utf-8")
+        put_launcher(self.client, "l1", json={"app": "vpx", "settings": {
+            "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
+
+        got = self.client.get("/launchers/l1/config?table=t1&scope=entry").json()
+
+        self.assertEqual(got["follows_game"], {"Player.BallTrail": "1", "Player.FXAA": "3"})
+        self.assertEqual(got["from_game"], {})
+
+    def test_and_nothing_to_follow_once_the_table_has_a_file(self) -> None:
+        pathlib.Path(self.beside).write_text("[Player]\nFXAA = 2\n", encoding="utf-8")
+
+        got = self.client.get("/launchers/l1/config?table=t1&scope=entry").json()
+
+        self.assertEqual(got["follows_game"], {})
+
 
 class ClearingTests(_TableCase):
     def test_a_table_s_own_value_says_what_clearing_it_leaves(self) -> None:
