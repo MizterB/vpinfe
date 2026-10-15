@@ -73,7 +73,7 @@ The first time VPinFE starts it opens the Console on Setup.  It asks how you pla
 Anytime you want to get back to the Console, look in the terminal for the web address.  It is a line that looks like this:
 
 ```
-NiceGUI ready to go on http://localhost:8001, and http://192.168.1.228:8001
+VPinFE ready to go on http://localhost:8001, and http://192.168.1.228:8001
 ```
 
 Put that address in a browser, on this machine or any other on your network.

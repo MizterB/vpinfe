@@ -421,11 +421,25 @@ _FAVICON = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                         "static", "img", "vpinfe-favicon.svg")
 
 
+def _say_ready() -> None:
+    """Print the addresses NiceGUI settled on, localhost first, as VPinFE's own line.
+
+    Runs as a startup handler, after NiceGUI has filled `app.urls`, so a narrowed
+    `HTTP Address` still lists only what answers. `ui.run` is given
+    `show_welcome_message=False`; without it NiceGUI prints a second line of its own.
+    """
+    urls = sorted(app.urls, key=lambda url: ("//localhost:" not in url, url))
+    if len(urls) >= 2:
+        urls[-1] = f"and {urls[-1]}"
+    print(f"VPinFE ready to go on {', '.join(urls)}", flush=True)
+
+
 def _run_ui():
     storage_secret = machine_secrets.session_secret()
     logger.info("Using NiceGUI storage path: %s", _NICEGUI_STORAGE_PATH)
     logger.info("Starting Manager UI on host=%s port=%s", _ui_bind, _ui_port)
     logger.info("Manager UI expected URLs: %s", ", ".join(_manager_ui_urls(_ui_port)))
+    app.on_startup(_say_ready)
     # One process serves the Console and the Manager UI, so this is where NiceGUI's own
     # language is settled for both: Quasar's pack and the reconnect overlay. Not on the
     # @ui.page decorators - `resolve_language()` reads app.config per request, so this
@@ -447,6 +461,7 @@ def _run_ui():
            storage_secret=storage_secret,
            log_config=None,
            proxy_headers=False,
+           show_welcome_message=False,
            **_tls)
 
 

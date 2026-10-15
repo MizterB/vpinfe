@@ -28,6 +28,7 @@ class ManagerUiBindTests(unittest.TestCase):
         managerui._ui_bind = kwargs.get("bind", "0.0.0.0")
         managerui._ui_port = kwargs.get("port", 8001)
         with mock.patch.object(managerui, "ui") as nicegui, \
+             mock.patch.object(managerui, "app"), \
              mock.patch.object(managerui, "_manager_ui_urls", return_value=[]):
             managerui._run_ui()
         return nicegui.run.call_args.kwargs
