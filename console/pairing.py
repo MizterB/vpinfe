@@ -77,7 +77,7 @@ async def paste(client: Any, device_name: str) -> bool:
     """Pair with a token made on that install's Security page, for a device with no
     screen to show a code on."""
     with frame.opened(t("console.pairing.paste_title", device=device_name),
-                      classes="console-confirm") as box:
+                      classes="console-confirm", ignore_outside_click=True) as box:
         ui.label(t("console.pairing.paste_line", device=device_name)).classes("console-help px-3")
         secret = frame.field(placeholder=t("console.pairing.token"))
         with frame.footer():

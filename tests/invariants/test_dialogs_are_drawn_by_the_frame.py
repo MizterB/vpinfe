@@ -50,6 +50,35 @@ def _called(path: pathlib.Path) -> set[str]:
             and isinstance(one.func.value, ast.Name) and one.func.value.id in names}
 
 
+TYPED_SECRET = ("token", "code")
+
+
+def _can_be_clicked_away(call: ast.expr) -> bool:
+    """Whether `call` is `dialog.opened(...)` with neither way to keep a click outside out."""
+    return (isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)
+            and call.func.attr == "opened"
+            and not {"ignore_outside_click", "persistent"} & {key.arg for key in call.keywords})
+
+
+def _takes_a_typed_secret(body: list[ast.stmt]) -> bool:
+    """Whether a field in `body` is labelled by a catalog key that names a token or a code."""
+    return any(isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)
+               and call.func.attr == "field"
+               and any(isinstance(one, ast.Constant) and isinstance(one.value, str)
+                       and one.value.startswith("console.")
+                       and any(word in one.value.rsplit(".", 1)[-1] for word in TYPED_SECRET)
+                       for one in ast.walk(call))
+               for statement in body for call in ast.walk(statement))
+
+
+def _secret_dialogs_that_close_on_a_click(path: pathlib.Path) -> list[int]:
+    """Lines where `path` opens a dialog with a typed token or code and no way to ignore the
+    click outside."""
+    return [one.lineno for one in ast.walk(trees.tree_for(path)) if isinstance(one, ast.With)
+            for item in one.items if _can_be_clicked_away(item.context_expr)
+            and _takes_a_typed_secret(one.body)]
+
+
 class DialogsAreDrawnByTheFrame(unittest.TestCase):
     def test_no_dialog_is_drawn_by_hand(self) -> None:
         by_hand = sorted(path.name for path in CONSOLE.glob("*.py")
@@ -70,6 +99,11 @@ class DialogsAreDrawnByTheFrame(unittest.TestCase):
         blocking = {path.name: len(_persistent(path)) for path in sorted(CONSOLE.glob("*.py"))
                     if path.name != FRAME and _persistent(path)}
         self.assertEqual(PERSISTENT, blocking)
+
+    def test_a_typed_token_or_code_is_not_lost_to_a_click_outside(self) -> None:
+        loses = {path.name: lines for path in sorted(CONSOLE.glob("*.py"))
+                 if (lines := _secret_dialogs_that_close_on_a_click(path))}
+        self.assertEqual({}, loses)
 
     def test_no_dialog_is_persistent_whatever_happens(self) -> None:
         always = sorted(path.name for path in CONSOLE.glob("*.py")
