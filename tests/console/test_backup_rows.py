@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import unittest
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -12,28 +13,66 @@ from common.i18n import t
 from console import backup_rows, deeplink, when
 
 
+def _ago(**delta: int) -> str:
+    return (datetime.now(UTC) - timedelta(**delta)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def _copy(taken: str, copy_id: str = "c") -> dict:
     return {"id": copy_id, "taken": taken}
 
 
 class Said(unittest.TestCase):
-    def test_no_copies_says_none(self) -> None:
-        self.assertEqual(backup_rows.said([]), t("word.none"))
+    def test_no_copies_says_none_and_nothing_under_it(self) -> None:
+        self.assertEqual(backup_rows.count_said([]), t("word.none"))
+        self.assertEqual(backup_rows.latest_said([]), "")
 
-    def test_the_count_and_the_newest_are_said_together(self) -> None:
-        found = [_copy("2026-10-02T01:02:03Z", "a"), _copy("2026-10-04T09:08:07Z", "b")]
+    def test_an_empty_dialog_says_why_where_the_listing_failed(self) -> None:
+        self.assertEqual(backup_rows._none_said([]), t("console.backups.nothing_to_restore"))
+        self.assertEqual(backup_rows._none_said(backup_rows.Unreadable("disk gone")), "disk gone")
 
-        self.assertEqual(backup_rows.said(found),
-                         t("console.backups.row", count=2,
-                           newest=when.local_seconds("2026-10-04T09:08:07Z")))
+    def test_the_count_is_a_plural_in_the_catalog(self) -> None:
+        self.assertEqual(backup_rows.count_said([_copy("2026-10-02T01:02:03Z")]), "1 copy")
+        self.assertEqual(backup_rows.count_said([_copy("a"), _copy("b", "d")]), "2 copies")
+
+    def test_one_copy_says_when_and_many_say_which_is_the_newest(self) -> None:
+        one = backup_rows.latest_said([_copy(_ago(hours=3))])
+        many = backup_rows.latest_said([_copy(_ago(hours=3)), _copy(_ago(days=2), "b")])
+
+        self.assertEqual(one, t("date.hours_ago", count=3))
+        self.assertEqual(many, t("console.backups.latest", count=2,
+                                 when=t("date.hours_ago", count=3)))
+
+    def test_a_copy_past_thirty_days_says_the_date(self) -> None:
+        old = _ago(days=60)
+
+        shown = when.day(datetime.fromisoformat(old).astimezone())
+
+        self.assertEqual(backup_rows.latest_said([_copy(old)]), shown)
+
+    def test_a_reason_is_said_after_the_time_and_your_own_copy_says_its_note(self) -> None:
+        by_vpinfe = {**_copy(_ago(hours=1)), "reason": copies.REASON_RESTORE}
+        by_you = {**_copy(_ago(hours=1)), "reason": copies.REASON_YOURS, "note": "Before the patch"}
+
+        self.assertTrue(backup_rows.latest_said([by_vpinfe]).endswith(
+            t("console.backups.reason.restore")))
+        self.assertTrue(backup_rows.latest_said([by_you]).endswith("Before the patch"))
+
+    def test_a_listing_that_could_not_be_read_says_so_and_why(self) -> None:
+        unread = backup_rows.Unreadable("disk is gone")
+
+        self.assertEqual(backup_rows.count_said(unread), t("console.backups.unreadable"))
+        self.assertEqual(backup_rows.latest_said(unread), "disk is gone")
 
 
 class Listed(unittest.TestCase):
-    def test_a_listing_that_cannot_be_read_is_no_copies(self) -> None:
+    def test_a_listing_that_cannot_be_read_is_no_copies_with_the_reason(self) -> None:
         library = Mock()
         library.backups.side_effect = OSError("down")
 
-        self.assertEqual(asyncio.run(backup_rows.listed(library, "game", "g1")), [])
+        found = asyncio.run(backup_rows.listed(library, "game", "g1"))
+
+        self.assertEqual(found, [])
+        self.assertIsInstance(found, backup_rows.Unreadable)
 
     def test_the_copies_of_one_thing_are_asked_for_by_kind_and_id(self) -> None:
         library = Mock()
@@ -43,6 +82,7 @@ class Listed(unittest.TestCase):
 
         library.backups.assert_called_once_with("theme", "Classic")
         self.assertEqual(len(found), 1)
+        self.assertNotIsInstance(found, backup_rows.Unreadable)
 
 
 def _confirmed(name: str = "", note: str = ""):

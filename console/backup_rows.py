@@ -1,8 +1,8 @@
 """The Backups row on the panel of a game, a launcher or a theme.
 
-The row says how many copies there are and when the newest was taken. Back up now takes
-one without asking anything, and Restore... opens the copies of this one thing in the
-grid System > Backups draws, so the verbs and the Undo on a restore are the same there.
+The row says how many copies there are and when the newest was taken, and opens the copies of
+this one thing in the grid System > Backups draws, so the verbs and the Undo on a restore are
+the same there. Back Up Now and Restore are in that dialog.
 """
 
 from __future__ import annotations
@@ -28,8 +28,6 @@ COLUMNS = [
     grid_module.identifier("taken", t("console.backups.taken"), 190, pinned="left",
                            tooltipField="taken_utc", help=t("console.backups.taken.help"),
                            **backups.TAKEN_FILTER),
-    grid_module.column("file", t("word.file"), 260, tooltipField="path",
-                       help=t("console.backups.file.help")),
     grid_module.column("reason_text", t("console.backups.reason"), 150,
                        help=t("console.backups.reason.help")),
     grid_module.column("note", t("console.backups.note"), 200,
@@ -40,21 +38,45 @@ COLUMNS = [
 ]
 
 
-def said(found: list[dict[str, Any]]) -> str:
-    """How many copies, and when the newest was taken: `2, newest 4 Oct 02:06:30`."""
+class Unreadable(list):
+    """No copies, because the listing failed: `why` says what."""
+
+    def __init__(self, why_not: str) -> None:
+        super().__init__()
+        self.why = why_not
+
+
+def count_said(found: list[dict[str, Any]]) -> str:
+    """How many copies there are: `3 copies`."""
+    if isinstance(found, Unreadable):
+        return t("console.backups.unreadable")
+    return t("console.backups.count", count=len(found)) if found else t("word.none")
+
+
+def latest_said(found: list[dict[str, Any]]) -> str:
+    """When the newest was taken and why, under the count: `Newest 2 hours ago · Before a restore`.
+    Empty where there are no copies. A copy you took yourself says its note, if it has one."""
+    if isinstance(found, Unreadable):
+        return found.why
     if not found:
-        return t("word.none")
-    newest = max(str(one.get("taken") or "") for one in found)
-    return t("console.backups.row", count=len(found), newest=when.local_seconds(newest))
+        return ""
+    newest = max(found, key=lambda one: str(one.get("taken") or ""))
+    latest = t("console.backups.latest", count=len(found),
+               when=when.ago(newest.get("taken"), inline=True))
+    reason = str(newest.get("reason") or "")
+    detail = (t(backups.REASON_WORDS[reason]) if reason in backups.REASON_WORDS
+              and reason != kept_copies.REASON_YOURS else str(newest.get("note") or "").strip())
+    return t("console.backups.latest_why", latest=latest, why=detail) if detail else latest
 
 
 async def listed(library: Library, subject_kind: str, subject_id: str) -> list[dict[str, Any]]:
-    """The copies of one thing, or none where they cannot be read: the row still draws."""
+    """The copies of one thing. Where they cannot be read the row still draws: an `Unreadable`
+    that says why, which is empty like any other list."""
     try:
         said = await offload.io(library.backups, subject_kind, subject_id)
         return list(said.get("copies") or [])
-    except Exception:  # noqa: BLE001 - a row that cannot count says None, never breaks the panel
-        return []
+    except Exception as exc:  # noqa: BLE001 - a row that cannot count says so, never breaks the panel
+        return Unreadable(why(exc))
 
 
 @on_page
@@ -104,26 +126,31 @@ async def back_up_games(library: Library, games: list[dict[str, Any]],
         kept_copies.games_named(str(one.get("name") or "") for one in games), take)
 
 
-def row(library: Library, subject_kind: str, subject_id: str, name: str,
-        found: list[dict[str, Any]], after: Callable[[], Awaitable[None]], *,
-        back_up_now: bool = True, hint: str = "") -> Callable[[], None]:
-    """The value of the Backups row. A non-empty `hint` says why both verbs are off."""
-    async def take() -> None:
-        await back_up(library, subject_kind, subject_id, name, after)
-
+def entry(library: Library, subject_kind: str, subject_id: str, name: str,
+          found: list[dict[str, Any]], after: Callable[[], Awaitable[None]], *,
+          back_up_now: bool = True, hint: str = "") -> tuple[Any, Any, panel.Pick]:
+    """The Backups fact: a summary that opens the copies. A non-empty `hint` says why Back Up Now
+    and Restore are off inside."""
     async def choose() -> None:
-        await open_for(library, subject_kind, subject_id, name, after)
+        await open_for(library, subject_kind, subject_id, name, after,
+                       back_up_now=back_up_now, hint=hint)
 
     def draw() -> None:
-        with ui.row().classes("items-center gap-2 no-wrap"):
-            ui.label(said(found)).classes("console-fact-value truncate min-w-0")
-            if back_up_now:
-                panel.action(t("console.backups.back_up_title"), take, icon=verbs.ADD,
-                             inline=True, enabled=not hint, hint=hint)()
-            panel.action(t("console.backups.restore_dialog"), choose, icon=verbs.RESTORE,
-                         inline=True, enabled=bool(found) and not hint,
-                         hint=hint or ("" if found else t("console.backups.nothing_to_restore")))()
-    return draw
+        sub = latest_said(found)
+        with ui.element("div").classes("console-summary").tooltip(t("console.backups.show")):
+            with ui.element("div").classes("console-summary-text"):
+                ui.label(count_said(found)).classes(
+                    "console-fact-value truncate min-w-0"
+                    + (" console-summary-warn" if isinstance(found, Unreadable) else ""))
+                if sub:
+                    ui.label(sub).classes("console-summary-sub truncate min-w-0")
+            ui.icon(verbs.DRILL).classes("console-summary-go")
+    return (t("console.section.backups"), draw, panel.Pick(choose))
+
+
+def _none_said(found: list[dict[str, Any]]) -> str:
+    """What the dialog says where it lists nothing: there are none, or why it could not tell."""
+    return found.why if isinstance(found, Unreadable) else t("console.backups.nothing_to_restore")
 
 
 def _open_in_backups(name: str) -> None:
@@ -132,27 +159,37 @@ def _open_in_backups(name: str) -> None:
 
 async def open_for(library: Library, subject_kind: str, subject_id: str, name: str,
                    after: Callable[[], Awaitable[None]], *, place: str = "",
-                   walking: bool = False) -> Any:
-    """The copies of one thing, to restore from. Answers when the dialog closes: `walks.STOPPED`
-    if a walk was ended from it, else `walks.SKIPPED`."""
-    built = backups.rows(await listed(library, subject_kind, subject_id), parts=True)
-    if not built:
-        ui.notify(t("console.backups.nothing_to_restore"), type="warning")
-        return
+                   walking: bool = False, back_up_now: bool = True, hint: str = "") -> Any:
+    """The copies of one thing, to restore from or add to. Opens with none too. A non-empty
+    `hint` says why Back Up Now and Restore are off. Answers when the dialog closes:
+    `walks.STOPPED` if a walk was ended from it, else `walks.SKIPPED`. The panel behind redraws
+    once, on close, when a copy was taken or put back."""
+    found = await listed(library, subject_kind, subject_id)
+    built = backups.rows(found, parts=True)
     by_id = {one["id"]: one for one in built}
+    changed: list[bool] = []
     seek = next((str(one["subject_name"]) for one in built if one.get("subject_name")), name)
 
     with frame.opened(t("console.backups.title", name=name),
                       classes="console-backups-card") as box:
-        if place:
-            ui.label(place).classes("console-help px-3")
-        with ui.element("div").classes("w-full grow min-h-0 flex flex-col px-3"):
+        with ui.row().classes("w-full items-center justify-between no-wrap px-3"):
+            ui.label(place).classes("console-help")
+            frame.quiet(t("console.backups.open_in"), lambda: _open_in_backups(seek),
+                        icon=verbs.GO)
+        with ui.element("div").classes("w-full grow min-h-0 flex flex-col px-3") as body:
             table: ui.aggrid = grid_module.build(
                 COLUMNS, built, SCOPE,
-                on_select_rows=lambda picked: go.set_enabled(bool(picked)),
+                on_select_rows=lambda picked: go.set_enabled(bool(picked) and not hint),
                 on_context=lambda row_in: fill(row_in),
                 on_header_context=lambda col_id: header(col_id))
             menu: ui.context_menu = ui.context_menu()
+        empty = ui.label(_none_said(found)).classes(
+            "console-help console-backups-none px-3 py-3")
+
+        def show(now: list[dict[str, Any]]) -> None:
+            empty.set_text(_none_said(now))
+            body.set_visibility(bool(by_id))
+            empty.set_visibility(not by_id)
 
         def picked_rows() -> list[dict[str, Any]]:
             return [by_id[str(one["id"])] for one in grid_module.selection(table)
@@ -164,27 +201,29 @@ async def open_for(library: Library, subject_kind: str, subject_id: str, name: s
                 menu.clear()
                 return
             on = grid_module.menu_rows(table, one)
+            offered = backups.acts(library, on, refresh,
+                                   check=len(on) > 1 and bool(grid_module.hidden_count(table)))
+            if hint:
+                offered[0] = panel.Verb(t("word.restore"), None, hint=hint)
             panel.verb_menu(menu, backups.name_of(one) if len(on) == 1
                             else t("console.backups.selected_n", count=len(on)),
-                            panel.for_selection(
-                                backups.acts(library, on, refresh,
-                                             check=len(on) > 1
-                                             and bool(grid_module.hidden_count(table))),
-                                len(on)))
+                            panel.for_selection(offered, len(on)))
 
         async def header(col_id: str | None) -> None:
             await grid_module.header_menu(menu, table, COLUMNS, col_id)
 
         @on_page
         async def refresh() -> None:
-            fresh = backups.rows(await listed(library, subject_kind, subject_id), parts=True)
-            if not fresh:
-                box.close()
-            else:
-                by_id.clear()
-                by_id.update({one["id"]: one for one in fresh})
-                table.run_grid_method("setGridOption", "rowData", fresh)
-            await after()
+            now = await listed(library, subject_kind, subject_id)
+            fresh = backups.rows(now, parts=True)
+            by_id.clear()
+            by_id.update({one["id"]: one for one in fresh})
+            table.run_grid_method("setGridOption", "rowData", fresh)
+            show(now)
+            changed.append(True)
+
+        async def take() -> None:
+            await back_up(library, subject_kind, subject_id, name, refresh)
 
         @on_page
         async def put_back() -> None:
@@ -201,12 +240,21 @@ async def open_for(library: Library, subject_kind: str, subject_id: str, name: s
                 box.close()
 
         with frame.footer():
-            frame.aside(t("console.backups.open_in"), lambda: _open_in_backups(seek),
-                        icon=verbs.GO)
+            if back_up_now:
+                aside = frame.aside(t("console.backups.back_up_title"), take, icon=verbs.ADD)
+                aside.set_enabled(not hint)
+                if hint:
+                    aside.tooltip(hint)
             if walking:
                 frame.leave(box, True)
             else:
                 frame.cancel(box.close, t("word.close"))
             go = frame.answer(t("word.restore"), put_back, icon=verbs.RESTORE)
         go.set_enabled(False)
-    return await box or walks.SKIPPED
+        show(found)
+        if hint:
+            go.tooltip(hint)
+    answer = await box or walks.SKIPPED
+    if changed:
+        await after()
+    return answer

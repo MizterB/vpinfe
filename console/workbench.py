@@ -2903,7 +2903,7 @@ def _game_entries(context: dict[str, Any], entry: dict[str, Any],
 
     vps_id = str(game.get("vps_id") or "")
     declared = (game.get("overrides") or {}).get("alt_vps_id", "") is None
-    entries: list[tuple[Any, Any]] = [(HEADING, t("console.workbench.matched_to"))]
+    entries: list[tuple[Any, ...]] = [(HEADING, t("console.workbench.matched_to"))]
     entries += _match(entry, vps_id, declared, held, game_tables.how_matched(game))
     entries.append((FULL, _change_match(lambda: _pick_a_match(context),
                                         matched=bool(vps_id) or declared)))
@@ -2927,9 +2927,9 @@ def _game_entries(context: dict[str, Any], entry: dict[str, Any],
         (t("word.folder"), panel.path_value(folder) if folder else "-"),
     ]
     if copies is not None:
-        entries.append((t("console.section.backups"), backup_rows.row(
+        entries.append(backup_rows.entry(
             context["library"], "game", context["game_id"], str(game.get("name") or folder),
-            copies, context["rebuild"])))
+            copies, context["rebuild"]))
     return entries + _game_marks(context) + _game_frontend(context, dof_state)
 
 
@@ -6350,12 +6350,12 @@ async def _config_backups(context: dict[str, Any]) -> None:
     named = list((found.get("files") or {}).values())
     held = await backup_rows.listed(library, "launcher", launcher_id)
     playing = bool(context.get("playing"))
-    entries: list[tuple[Any, Any]] = []
+    entries: list[tuple[Any, ...]] = []
     if named:
         entries.append((t("word.file"), panel.path_value(named[0])))
-    entries.append((t("console.section.backups"), backup_rows.row(
+    entries.append(backup_rows.entry(
         library, "launcher", launcher_id, str(launcher.get("display_name") or launcher_id),
-        held, context["rebuild"], hint=t(PLAYING_NOTE) if playing else "")))
+        held, context["rebuild"], hint=t(PLAYING_NOTE) if playing else ""))
     _rows(ui, entries)
 
 

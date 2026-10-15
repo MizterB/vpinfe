@@ -877,7 +877,17 @@
   "console.backups.restore_skipped": "Some could not go back",
   "console.backups.restored_many": "Restored {count:n} copies",
   "console.backups.restored_one": "Restored {name}",
-  "console.backups.row": "{count:n}, newest {newest}",
+  "console.backups.count": {
+    "one": "1 copy",
+    "other": "{count:n} copies"
+  },
+  "console.backups.latest": {
+    "one": "{when}",
+    "other": "Newest {when}"
+  },
+  "console.backups.latest_why": "{latest} · {why}",
+  "console.backups.show": "Show the copies",
+  "console.backups.unreadable": "Could not read the copies",
   "console.backups.scope.all_games": "All games",
   "console.backups.scope.everything": "Everything",
   "console.backups.scope.launcher": "A launcher's settings file",

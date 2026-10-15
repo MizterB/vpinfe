@@ -1164,14 +1164,25 @@ exactly what it changed. What cannot be undone still asks first, through
 ### A copy is kept in one list, and every panel opens onto it
 
 Every copy VPinFE keeps is listed once, on System > Backups, and a game, a launcher or a
-theme answers for its own on its panel. The panel's **Backups** row says how many there are
-and when the newest was taken, with **Back up now** and **Restore...**. Restore... opens
-that list in a dialog narrowed to the one thing, with **Open in Backups** for the whole
-page, so the verbs, the columns and the Undo on a restore are the ones System > Backups
-has. A new kind of copy gets a row the same way and no list of its own.
+theme answers for its own on its panel. The panel's **Backups** row is a summary: what is
+kept ("3 copies") over when the newest was taken and why ("Newest 2 hours ago · Before a
+restore"), and a click anywhere on it opens that list in a dialog narrowed to the one thing.
+The dialog has **Back Up Now**, **Restore** and **Open in Backups** for the whole page, so
+the verbs, the columns and the Undo on a restore are the ones System > Backups has. A row with
+no copies opens it too, because that is where Back Up Now is. A new kind of copy gets a row
+the same way and no list of its own.
 
-Back up now takes one copy without asking, and no copy is taken on its own before an edit:
-Back up now and the Undo on a restore cover it. The row is drawn by `console/backup_rows.py`.
+Back Up Now asks only for a name and a note, and no copy is taken on its own before an edit:
+Back Up Now and the Undo on a restore cover it. The row is drawn by `console/backup_rows.py`.
+
+### A summary row opens its detail in a dialog
+
+A panel field that would hold a count, a date and a verb or two holds a summary instead:
+the answer to the question the person came with on the first line, a `console-summary-sub`
+detail under it, and `verbs.DRILL` at the end. The whole row is the target (`panel.Pick`),
+so it takes Enter and Space and a hover band, and the verbs live in the dialog it opens.
+A time on a summary is `when.ago`, and the exact one is in the dialog. `console/backup_rows.py`
+is the first user.
 
 ### A press that is somebody else's asks first, and has no Undo
 

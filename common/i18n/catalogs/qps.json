@@ -877,7 +877,17 @@
   "console.backups.restore_skipped": "Šöɱè çöûŀđ ñöţ ĝö ƀàçķ",
   "console.backups.restored_many": "Řèšţöřèđ {count:n} çöþîèš",
   "console.backups.restored_one": "Řèšţöřèđ {name}",
-  "console.backups.row": "{count:n}, ñèŵèšţ {newest}",
+  "console.backups.count": {
+    "one": "1 çöþý",
+    "other": "{count:n} çöþîèš"
+  },
+  "console.backups.latest": {
+    "one": "{when}",
+    "other": "Ñèŵèšţ {when}"
+  },
+  "console.backups.latest_why": "{latest} · {why}",
+  "console.backups.show": "Šĥöŵ ţĥè çöþîèš",
+  "console.backups.unreadable": "Çöûŀđ ñöţ řèàđ ţĥè çöþîèš",
   "console.backups.scope.all_games": "Àŀŀ ĝàɱèš",
   "console.backups.scope.everything": "Èṽèřýţĥîñĝ",
   "console.backups.scope.launcher": "À ŀàûñçĥèř'š šèţţîñĝš ƒîŀè",

@@ -374,7 +374,7 @@ async def details(context: dict[str, Any]) -> None:
                     .classes("console-slot-zoom").tooltip(t("word.enlarge"))
             else:
                 ui.icon(theme_card.GLYPH).classes("console-theme-hero-empty")
-        entries: list[tuple[Any, Any]] = []
+        entries: list[tuple[Any, ...]] = []
         if theme.get("description"):
             entries.append(panel.intro(str(theme["description"])))
         entries.append((t("word.status"), _status_value(context, library, theme)))
@@ -400,9 +400,9 @@ async def details(context: dict[str, Any]) -> None:
                         panel.note(t("console.themes.no_source"))]
         copies = await backup_rows.listed(library, "theme", str(theme["key"]))
         if copies:
-            entries.append((t("console.section.backups"), backup_rows.row(
+            entries.append(backup_rows.entry(
                 library, "theme", str(theme["key"]), str(theme.get("name") or theme["key"]),
-                copies, lambda: changed(context), back_up_now=False)))
+                copies, lambda: changed(context), back_up_now=False))
         changes = changes_worth_showing(theme)
         if changes:
             entries += [(panel.HEADING, t("console.themes.whats_new")),
