@@ -127,7 +127,7 @@ class ReviewTests(TempTree):
         (self.folder / f"{first}.md").write_text("### Summary\nFirst.\n", encoding="utf-8")
         self.current = self.root / "RELEASE_NOTES.md"
         self.current.write_text("### Summary\nSecond.\n", encoding="utf-8")
-        self.needs = (Need("pick_thing", "v3.1.0", "needs.pick_thing", lambda config: False),)
+        self.needs = (Need("pick_thing", "v3.1.0", lambda config: False),)
 
     def review(self) -> whats_new.Review:
         return whats_new.review(self.config, "v3.1.0", folder=self.folder,

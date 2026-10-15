@@ -234,6 +234,26 @@ class ApiClient:
     def confirm(self, code: str) -> dict:
         return self._post("/auth/confirm", {"code": code})
 
+    def authenticator(self) -> dict:
+        """`enabled`, and `screen_codes`: whether this computer shows a sign-in code."""
+        return self._get("/auth/authenticator")
+
+    def authenticator_setup(self) -> dict:
+        """A new `secret` and the `uri` a QR carries. `authenticator_finish` makes it count."""
+        return self._post("/auth/authenticator/setup", {})
+
+    def authenticator_finish(self, code: str) -> dict:
+        return self._put("/auth/authenticator", {"code": code})
+
+    def authenticator_remove(self) -> None:
+        self._delete("/auth/authenticator")
+
+    def set_screen_codes(self, on: bool) -> dict:
+        return self._put("/auth/authenticator/screen_codes", {"on": bool(on)})
+
+    def confirm_authenticator(self, code: str) -> dict:
+        return self._post("/auth/authenticator/confirm", {"code": code})
+
     def tokens(self) -> list[dict]:
         return list(self._get("/auth/tokens").get("tokens") or [])
 

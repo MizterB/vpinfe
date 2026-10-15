@@ -17,6 +17,7 @@ from common import serving as serving_state
 from common.failures import why
 from common.i18n import t
 from console import (
+    authenticator_panel,
     confirm,
     deeplink,
     encrypted_panel,
@@ -109,6 +110,7 @@ async def page(library: Library, redraw: Callable[[], None],
         rows = await offload.io(library.sessions)
         made = await offload.io(library.tokens)
         held = await offload.io(library.encrypted)
+        app = await offload.io(library.authenticator)
     except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
         reason = why(exc)
         return lambda: panel.facts(ui, [panel.intro(t("console.security.read_failed"),
@@ -133,6 +135,7 @@ async def page(library: Library, redraw: Callable[[], None],
 
     return lambda: panel.facts(
         ui, entries(rows, mine, sign_out, sign_out_all, bind, bool(held.get("https")))
+        + authenticator_panel.page_parts(library, redraw, app)
         + token_panel.page_parts(library, redraw, made)
         + encrypted_panel.page_parts(library, redraw, held))
 

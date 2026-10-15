@@ -10,6 +10,7 @@ import logging
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
+from common import authenticator
 from common.config_access import ConfigSource
 from common.release_notes import newer
 
@@ -18,16 +19,18 @@ logger = logging.getLogger("vpinfe.common.upgrade_needs")
 
 @dataclass(frozen=True)
 class Need:
+    # Names `needs.<key>.label` and `needs.<key>.help` in the catalog.
     key: str
     # The release that first asked for this.
     version: str
-    # `<label>.label` and `<label>.help` in the catalog.
-    label: str
     done: Callable[[ConfigSource], bool]
     blocks_play: bool = False
 
 
-NEEDS: tuple[Need, ...] = ()
+NEEDS: tuple[Need, ...] = (
+    Need("authenticator", "v3.0.0",
+         lambda config: authenticator.instance().enabled()),
+)
 
 
 def _open(config: ConfigSource, need: Need) -> bool:

@@ -24,7 +24,7 @@ from starlette.requests import HTTPConnection, Request
 from starlette.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from common import accepted, access_keys, paths, players, sign_in
+from common import accepted, access_keys, authenticator, paths, players, sign_in
 from common.i18n import t
 from common.install_identity import display_name
 from console import appearance
@@ -215,7 +215,10 @@ def sign_in_page(request: Request) -> Response:
     name, picture = _owner_card()
     nonce = secrets.token_urlsafe(16)
     words = {key: t(f"signin.page.{key}", device=device) for key in (
-        "get_code", "look", "code", "submit", "cant_see", "cant_see_body", "failed")}
+        "get_code", "look", "code", "submit", "cant_see", "cant_see_body", "failed",
+        "use_app", "use_screen", "app_line")}
+    held = authenticator.instance()
+    has_app, screen = held.enabled(), held.screen_codes()
     heading = t("signin.page.title", device=device)
     owner = ""
     if picture:
@@ -228,7 +231,10 @@ def sign_in_page(request: Request) -> Response:
         get_code=html.escape(words["get_code"]), code=html.escape(words["code"]),
         submit=html.escape(words["submit"]), cant_see=html.escape(words["cant_see"]),
         cant_see_body=html.escape(words["cant_see_body"]), nonce=nonce,
-        words=_script_value({"look": words["look"], "failed": words["failed"]}),
+        app_line=html.escape(words["app_line"]),
+        has_app="true" if has_app else "false", screen="true" if screen else "false",
+        words=_script_value({key: words[key] for key in (
+            "look", "failed", "use_app", "use_screen")}),
         next=_script_value(next_page(request.query_params.get("next", "/"))),
         api=_script_value(API_PREFIX))
     return HTMLResponse(body, headers=_page_headers(nonce))
@@ -290,7 +296,7 @@ _PAGE = """<!doctype html>
 </style></head><body><main>
 <h1>{heading}</h1>
 {owner}
-<p>{line}</p>
+<p id="line">{line}</p>
 <button id="ask" type="button">{get_code}</button>
 <form id="enter" hidden>
 <p id="look"></p>
@@ -298,11 +304,19 @@ _PAGE = """<!doctype html>
  pattern="[0-9]*" aria-label="{code}" placeholder="{code}">
 <button id="send" type="submit">{submit}</button>
 </form>
+<form id="app" hidden>
+<p>{app_line}</p>
+<input id="appcode" inputmode="numeric" autocomplete="one-time-code" maxlength="7"
+ pattern="[0-9 ]*" aria-label="{code}" placeholder="{code}">
+<button type="submit">{submit}</button>
+</form>
 <p class="error" id="error" role="alert"></p>
-<details><summary>{cant_see}</summary><p>{cant_see_body}</p></details>
+<p><a href="#" id="switch" hidden></a></p>
+<details id="cant"><summary>{cant_see}</summary><p>{cant_see_body}</p></details>
 </main>
 <script nonce="{nonce}">
 const words = {words}, after = {next}, api = {api};
+const hasApp = {has_app}, screen = {screen};
 const $ = id => document.getElementById(id);
 let request = "";
 async function call(path, body) {{
@@ -324,6 +338,35 @@ $("ask").addEventListener("click", async () => {{
     $("code").focus();
   }} catch (e) {{ $("error").textContent = e.message; }}
 }});
+function show(app) {{
+  $("error").textContent = "";
+  $("app").hidden = !app;
+  $("line").hidden = app;
+  $("cant").hidden = app || !screen;
+  $("ask").hidden = app || !!request;
+  $("enter").hidden = app || !request;
+  if (hasApp && screen) {{
+    $("switch").hidden = false;
+    $("switch").textContent = app ? words.use_screen : words.use_app;
+  }}
+  (app ? $("appcode") : request ? $("code") : $("ask")).focus();
+}}
+$("switch").addEventListener("click", event => {{
+  event.preventDefault();
+  show($("app").hidden);
+}});
+$("app").addEventListener("submit", async event => {{
+  event.preventDefault();
+  $("error").textContent = "";
+  try {{
+    await call("/auth/authenticator/session", {{code: $("appcode").value}});
+    location.replace(after);
+  }} catch (e) {{
+    $("error").textContent = e.message; $("appcode").value = ""; $("appcode").focus();
+  }}
+}});
+if (hasApp && !screen) show(true);
+else if (hasApp) {{ $("switch").hidden = false; $("switch").textContent = words.use_app; }}
 $("enter").addEventListener("submit", async event => {{
   event.preventDefault();
   $("error").textContent = "";
@@ -333,7 +376,7 @@ $("enter").addEventListener("submit", async event => {{
   }} catch (e) {{
     $("error").textContent = e.message; $("code").value = ""; $("code").focus();
     if (e.reason === "no_code" || e.reason === "used_up") {{
-      $("enter").hidden = true; $("ask").hidden = false;
+      request = ""; $("enter").hidden = true; $("ask").hidden = false;
     }}
   }}
 }});

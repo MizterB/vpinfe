@@ -10,7 +10,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Request, Response
 
-from common import access_keys, paths, sign_in
+from common import access_keys, authenticator, paths, sign_in
 from common import api_tokens as tokens
 from common.host import this_machine
 from common.i18n import t
@@ -29,6 +29,9 @@ from .auth import (
 )
 from .errors import CODE_FORBIDDEN, CODE_TOO_MANY_REQUESTS, ApiError
 from .models import (
+    AuthenticatorCode,
+    AuthenticatorEnrolment,
+    AuthenticatorState,
     ConfirmAsk,
     ConfirmAttempt,
     ConfirmState,
@@ -36,6 +39,7 @@ from .models import (
     PairAttempt,
     Paired,
     RemoteCodeRenewed,
+    ScreenCodes,
     SessionInfo,
     SessionList,
     SessionsEnded,
@@ -57,6 +61,9 @@ _REFUSALS = {
     sign_in.WRONG: "error.signin.wrong",
     sign_in.USED_UP: "error.signin.used_up",
     sign_in.EXPIRED: "error.signin.no_code",
+    sign_in.NOT_SET: "error.signin.not_set",
+    sign_in.SPENT: "error.signin.spent",
+    sign_in.CODES_OFF: "error.signin.codes_off",
 }
 
 
@@ -64,10 +71,11 @@ def _device() -> str:
     return display_name(paths.get_ini_config())
 
 
-def _refusal(error: sign_in.SignInError) -> ApiError:
+def _refusal(error: sign_in.SignInError, *, app: bool = False) -> ApiError:
     if error.reason == sign_in.TOO_SOON:
-        return ApiError(CODE_TOO_MANY_REQUESTS,
-                        t("error.signin.too_soon", seconds=error.wait),
+        said = (t("error.signin.app_locked", count=max(1, -(-error.wait // 60))) if app
+                else t("error.signin.too_soon", seconds=error.wait))
+        return ApiError(CODE_TOO_MANY_REQUESTS, said,
                         status_code=429, details={"reason": error.reason, "wait": error.wait})
     return ApiError(CODE_FORBIDDEN, t(_REFUSALS[error.reason], device=_device()),
                     status_code=403, details={"reason": error.reason})
@@ -75,6 +83,13 @@ def _refusal(error: sign_in.SignInError) -> ApiError:
 
 def _address(request: Request) -> str:
     return caller_address(request)
+
+
+def _guessing_as(request: Request) -> str:
+    """Who wrong codes are counted against. A Console call reaches here over this computer's
+    own address on behalf of a browser, so the sign-in it acts for is the one to count."""
+    session = caller_session(request)
+    return f"session:{session.id}" if session else _address(request)
 
 
 def _same_site(request: Request) -> None:
@@ -107,7 +122,10 @@ def _verified(attempt: SignInAttempt, request: Request) -> str:
              dependencies=[requires(scopes.INSTANCE_READ), Depends(_same_site)])
 def ask(request: Request, response: Response) -> SignInAsk:
     """Makes a request this computer shows as "{address} wants to sign in". The digits appear
-    only after someone here chooses Show, so this answer holds none."""
+    only after someone here chooses Show, so this answer holds none. Refused while an
+    authenticator is set up and Game Room is not showing sign-in codes."""
+    if not authenticator.instance().screen_codes():
+        raise _refusal(sign_in.SignInError(sign_in.CODES_OFF))
     browser = request.cookies.get(ASKING) or secrets.token_urlsafe(24)
     asked = _asked(_address(request), browser)
     response.set_cookie(ASKING, browser, max_age=sign_in.CODE_SECONDS, httponly=True,
@@ -115,14 +133,17 @@ def ask(request: Request, response: Response) -> SignInAsk:
     return asked
 
 
+def _signed_in(token: str, request: Request, response: Response) -> SignedIn:
+    response.set_cookie(COOKIE, token, max_age=sign_in.SESSION_SECONDS, httponly=True,
+                        samesite="lax", secure=request_is_https(request), path="/")
+    return SignedIn()
+
+
 @router.post("/session", summary="Sign in with the code this computer showed",
              response_model=SignedIn,
              dependencies=[requires(scopes.INSTANCE_READ), Depends(_same_site)])
 def sign_in_with_code(attempt: SignInAttempt, request: Request, response: Response) -> SignedIn:
-    token = _verified(attempt, request)
-    response.set_cookie(COOKIE, token, max_age=sign_in.SESSION_SECONDS, httponly=True,
-                        samesite="lax", secure=request_is_https(request), path="/")
-    return SignedIn()
+    return _signed_in(_verified(attempt, request), request, response)
 
 
 @router.get("/me", summary="Whether this browser is signed in", response_model=WhoAmI,
@@ -233,6 +254,87 @@ def pair(attempt: PairAttempt) -> Paired:
     name = attempt.name.strip() or t("auth.tokens.paired_name")
     secret, _ = tokens.instance().make(name, tokens.FULL)
     return Paired(secret=secret)
+
+
+@router.get("/authenticator", summary="Whether an authenticator app is set up",
+            response_model=AuthenticatorState, dependencies=[requires(scopes.ACCESS_READ)])
+def authenticator_state() -> AuthenticatorState:
+    held = authenticator.instance()
+    return AuthenticatorState(enabled=held.enabled(), screen_codes=held.screen_codes())
+
+
+@router.post("/authenticator/setup", summary="Start setting up an authenticator app",
+             response_model=AuthenticatorEnrolment, dependencies=[requires(scopes.PROTECTED)])
+def begin_authenticator() -> AuthenticatorEnrolment:
+    """A new secret for the app to learn. The one in force keeps working until a code from
+    the new one is accepted, so setting up again after a lost phone loses nothing."""
+    made = authenticator.instance().begin(_device())
+    return AuthenticatorEnrolment(secret=made.secret, uri=made.uri)
+
+
+@router.put("/authenticator", summary="Finish setting up with the app's first code",
+            response_model=AuthenticatorState, dependencies=[requires(scopes.PROTECTED)])
+def finish_authenticator(attempt: AuthenticatorCode, request: Request) -> AuthenticatorState:
+    try:
+        authenticator.instance().activate(attempt.code, _guessing_as(request))
+    except sign_in.SignInError as error:
+        raise _refusal(error, app=True) from error
+    return authenticator_state()
+
+
+@router.delete("/authenticator", summary="Remove the authenticator app",
+               response_model=AuthenticatorState, dependencies=[requires(scopes.PROTECTED)])
+def remove_authenticator() -> AuthenticatorState:
+    authenticator.instance().remove()
+    return authenticator_state()
+
+
+@router.put("/authenticator/screen_codes",
+            summary="Show or stop showing sign-in codes on this computer's screen",
+            response_model=AuthenticatorState, dependencies=[requires(scopes.PROTECTED)])
+def set_screen_codes(body: ScreenCodes) -> AuthenticatorState:
+    try:
+        authenticator.instance().set_screen_codes(body.on)
+    except sign_in.SignInError as error:
+        raise _refusal(error) from error
+    return authenticator_state()
+
+
+@router.post("/authenticator/session", summary="Sign in with the authenticator app",
+             response_model=SignedIn,
+             dependencies=[requires(scopes.INSTANCE_READ), Depends(_same_site)])
+def sign_in_with_authenticator(attempt: AuthenticatorCode, request: Request,
+                               response: Response) -> SignedIn:
+    """Six digits from the app sign in from any address that has not been ignored. A step is
+    spent once used."""
+    address = _address(request)
+    if sign_in.instance().is_ignored(address):
+        raise _refusal(sign_in.SignInError(sign_in.IGNORED))
+    _spend(attempt, address)
+    token, _ = sign_in.instance().open(
+        kind=sign_in.OWNER, address=address,
+        agent=sign_in.describe_agent(request.headers.get("user-agent", "")))
+    return _signed_in(token, request, response)
+
+
+def _spend(attempt: AuthenticatorCode, address: str) -> None:
+    try:
+        authenticator.instance().verify(attempt.code, address)
+    except sign_in.SignInError as error:
+        raise _refusal(error, app=True) from error
+
+
+@router.post("/authenticator/confirm", summary="Confirm with the authenticator app",
+             response_model=ConfirmState,
+             dependencies=[requires(scopes.INSTANCE_READ), Depends(_same_site)])
+def confirm_with_authenticator(attempt: AuthenticatorCode, request: Request) -> ConfirmState:
+    session = caller_session(request)
+    if session is None or session.kind != sign_in.OWNER:
+        raise ApiError(CODE_FORBIDDEN, t("error.signin.required"), status_code=403)
+    _spend(attempt, _guessing_as(request))
+    signer = sign_in.instance()
+    signer.confirm_grant(session.id)
+    return ConfirmState(confirmed=True, expires_in=signer.confirm_left(session.id))
 
 
 @router.post("/remote_code/renew", summary="Make a new Remote Code",

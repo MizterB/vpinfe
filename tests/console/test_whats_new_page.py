@@ -31,7 +31,7 @@ def _review(*, releases: bool = True, files: bool = False,
         since="v3.0.0",
         releases=[release_notes.Release("v3.1.0", [section])] if releases else [],
         files=[migration_ledger.Entry("info_upgrade", "v3.1.0", 2)] if files else [],
-        needs=[upgrade_needs.Need("pick", "v3.1.0", "needs.pick", lambda config: False)]
+        needs=[upgrade_needs.Need("pick", "v3.1.0", lambda config: False)]
         if needs else [])
 
 

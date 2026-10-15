@@ -41,7 +41,7 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/health` | Liveness |
 | GET | `/api/v1/openapi.json` | Generated OpenAPI spec; another computer needs to be signed in |
 | GET | `/api/v1/docs` | Swagger UI; another computer needs to be signed in |
-| POST | `/api/v1/auth/code` | Ask for a sign-in code. The machine shows "{address} wants to sign in" with Show and Ignore; the answer holds a `request_id` and no digits, and sets a `vpinfe_asking` cookie (HttpOnly, SameSite Strict, ten minutes) that the browser has to send back with the code. 429 `too_many_requests` while another address's ask is too recent, 403 once the machine has ignored this address |
+| POST | `/api/v1/auth/code` | Ask for a sign-in code. The machine shows "{address} wants to sign in" with Show and Ignore; the answer holds a `request_id` and no digits, and sets a `vpinfe_asking` cookie (HttpOnly, SameSite Strict, ten minutes) that the browser has to send back with the code. 429 `too_many_requests` while another address's ask is too recent, 403 once the machine has ignored this address, and 403 `codes_off` while sign-in codes are switched off |
 | POST | `/api/v1/auth/session` | `{"request_id", "code"}` signs this browser in, from the browser that asked, and sets the `vpinfe_session` cookie: HttpOnly, SameSite Lax, 90 days unused, Secure under HTTPS. 403 `forbidden` with `details.reason` of `wrong`, `used_up`, `no_code` or `ignored` |
 | GET | `/api/v1/auth/me` | Whether this browser is signed in, whether it reached the API from the machine itself, and which kind of sign-in it holds |
 | POST | `/api/v1/auth/sign_out` | Sign this browser out |
@@ -58,6 +58,13 @@ the documented entry point is a plain 200. Both spellings work.
 | POST | `/api/v1/auth/tokens` | `{"name", "access", "can_power"}` makes a token. `access` is `full` or `play`. The secret is in this answer and cannot be read again. `protected:write` |
 | PUT | `/api/v1/auth/tokens/{token_id}` | `{"can_power"}` changes the Can Shut Down and Restart switch (`access:write`, and `protected:write` to turn it on). `404` for a token that is gone |
 | DELETE | `/api/v1/auth/tokens/{token_id}` | Revoke one (`access:write`) |
+| GET | `/api/v1/auth/authenticator` | Whether an authenticator app is set up, and whether this computer shows sign-in codes (`access:read`) |
+| POST | `/api/v1/auth/authenticator/setup` | A new `secret` and the `uri` a QR carries. Nothing changes until the app's first code is sent (`protected:write`) |
+| PUT | `/api/v1/auth/authenticator` | `{"code"}` finishes setting up with the first code from the app, replacing any earlier one (`protected:write`) |
+| DELETE | `/api/v1/auth/authenticator` | Remove the authenticator app. Browsers already signed in stay signed in (`protected:write`) |
+| PUT | `/api/v1/auth/authenticator/screen_codes` | `{"on"}` shows or stops showing sign-in codes on this computer's screen. 403 `forbidden` with `details.reason` of `not_set` while no authenticator is set up (`protected:write`) |
+| POST | `/api/v1/auth/authenticator/session` | `{"code"}` signs this browser in from any address, as `/auth/session` does. 403 `forbidden` with `details.reason` of `wrong`, `spent` or `not_set`; 429 `too_many_requests` with `details.wait` seconds after five wrong codes in a row from one address, or twenty from all addresses together |
+| POST | `/api/v1/auth/authenticator/confirm` | `{"code"}` gives the signed-in Owner a Confirm, as `/auth/confirm` does. Same refusals as the sign-in, counted against the sign-in rather than its address |
 | GET | `/api/v1/auth/encrypted` | The encrypted connections set up: `proxies`, `networks`, the `certfile` and `keyfile` chosen, whether VPinFE is answering `https` now and the `problem` when it is not, and whether this caller came `encrypted` (`access:read`) |
 | POST | `/api/v1/auth/encrypted/proxies` | `{"value"}` trusts a reverse proxy by its address. Its `X-Forwarded-For` and `X-Forwarded-Proto` are believed, and a request it says came over HTTPS counts as encrypted. `protected:write` |
 | DELETE | `/api/v1/auth/encrypted/proxies?address=` | Stop trusting that proxy. `protected:write` |

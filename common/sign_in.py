@@ -66,6 +66,10 @@ NO_CODE = "no_code"
 WRONG = "wrong"
 USED_UP = "used_up"
 EXPIRED = "expired"
+# The authenticator's: none set up, a step already spent, and no code shown on screen.
+NOT_SET = "not_set"
+SPENT = "spent"
+CODES_OFF = "codes_off"
 
 
 @dataclass
@@ -330,6 +334,10 @@ class SignIn:
                                    extra={log_setup.TERMINAL_ONLY: True})
         self._tell()
         return request
+
+    def is_ignored(self, address: str) -> bool:
+        with self._lock:
+            return address in self._ignored
 
     def ignore(self, request_id: str) -> None:
         """Ignore: refuse this address's requests until restart."""

@@ -3074,6 +3074,7 @@ input.console-path-input { padding-right: 0.6ch; }
    the label instead. Tight to what it explains and loose to the next row, which is what
    groups the two without a rule between them. */
 .console-fact-aside { grid-column: 2; padding: 0; margin-top: -8px; min-width: 0; }
+.console-fact-full + .console-fact-aside { grid-column: 1 / -1; }
 .console-fact-label:has(+ :is(.console-field-line, .console-field-row)
                         + .console-fact-aside:not(.hidden)),
 .console-fact-label:has(+ :is(.console-field-line, .console-field-row)

@@ -89,7 +89,7 @@ def _files(found: whats_new.Review) -> Callable[[], None]:
 
 def _needs(found: whats_new.Review) -> Callable[[], None]:
     def draw() -> None:
-        panel.facts(ui, [(t(f"{one.label}.label"), _wrapped(t(f"{one.label}.help")))
+        panel.facts(ui, [(t(f"needs.{one.key}.label"), _wrapped(t(f"needs.{one.key}.help")))
                          for one in found.needs])
     return draw
 

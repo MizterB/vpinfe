@@ -16,9 +16,9 @@ class NeedsTests(TempTree):
         self.config = ConfigStore(str(self.root / "vpinfe.ini"))
         self.answered = False
         self.needs = (
-            Need("pick_thing", "v3.1.0", "needs.pick_thing", lambda config: self.answered),
-            Need("old_thing", "v3.0.0", "needs.old_thing", lambda config: False),
-            Need("must_thing", "v3.1.0", "needs.must_thing", lambda config: False,
+            Need("pick_thing", "v3.1.0", lambda config: self.answered),
+            Need("old_thing", "v3.0.0", lambda config: False),
+            Need("must_thing", "v3.1.0", lambda config: False,
                  blocks_play=True),
         )
 
@@ -44,7 +44,7 @@ class NeedsTests(TempTree):
                          ["must_thing"])
 
     def test_a_blocking_need_that_is_done_blocks_nothing(self) -> None:
-        needs = (Need("must_thing", "v3.1.0", "needs.must_thing", lambda config: True,
+        needs = (Need("must_thing", "v3.1.0", lambda config: True,
                       blocks_play=True),)
 
         self.assertEqual(upgrade_needs.blocking(self.config, needs), [])
@@ -53,7 +53,7 @@ class NeedsTests(TempTree):
         def broken(config) -> bool:
             raise RuntimeError("no")
 
-        needs = (Need("pick_thing", "v3.1.0", "needs.pick_thing", broken),)
+        needs = (Need("pick_thing", "v3.1.0", broken),)
 
         self.assertEqual([n.key for n in upgrade_needs.open_for(self.config, "v3.0.0", needs)],
                          ["pick_thing"])

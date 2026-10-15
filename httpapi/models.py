@@ -3977,6 +3977,28 @@ class ConfirmState(ApiModel):
     expires_in: int = 0
 
 
+class AuthenticatorState(ApiModel):
+    """`screen_codes` is whether this computer shows a sign-in code to a browser that asks."""
+
+    enabled: bool
+    screen_codes: bool
+
+
+class AuthenticatorEnrolment(ApiModel):
+    """What an authenticator app needs: `secret` to type, `uri` for a QR."""
+
+    secret: str
+    uri: str
+
+
+class AuthenticatorCode(ApiModel):
+    code: str = Field(max_length=16)
+
+
+class ScreenCodes(ApiModel):
+    on: bool
+
+
 class TokenMake(ApiModel):
     name: str
     access: str

@@ -565,6 +565,21 @@ class Library:
     def sign_out_everyone(self) -> None:
         self._client.sign_out_everyone()
 
+    def authenticator(self) -> dict:
+        return self._client.authenticator()
+
+    def authenticator_setup(self) -> dict:
+        return self._client.authenticator_setup()
+
+    def authenticator_finish(self, code: str) -> dict:
+        return self._client.authenticator_finish(code)
+
+    def authenticator_remove(self) -> None:
+        self._client.authenticator_remove()
+
+    def set_screen_codes(self, on: bool) -> dict:
+        return self._client.set_screen_codes(on)
+
     def tokens(self) -> list[dict]:
         return self._client.tokens()
 

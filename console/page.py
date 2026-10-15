@@ -27,6 +27,7 @@ from common.jobs import DONE, KIND_LIBRARY_SCAN, KIND_MEDIA_CAPTURE
 from console import about as about_page
 from console import (
     appearance,
+    authenticator_panel,
     busy,
     confirm,
     deeplink,
@@ -1895,6 +1896,9 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             setup_page.open_setup(window=in_the_frontends_window), name="console-setup")
     elif arrives_in_whats_new(whats_new_due, view, window=in_the_frontends_window):
         background_tasks.create(whats_new_page.open_whats_new(), name="console-whats-new")
+    elif not view.strip() and authenticator_panel.offer_due(
+            signed_in_owner=bool(security.this_session_id())):
+        background_tasks.create(authenticator_panel.offer(), name="console-authenticator")
 
 
 def read_then_render(state: dict[str, Any], library: Library, content: ui.element,

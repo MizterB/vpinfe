@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import base64
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -14,7 +16,7 @@ from starlette.routing import Route, WebSocketRoute
 from starlette.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from common import accepted, sign_in
+from common import accepted, authenticator, paths, sign_in
 from console import sign_in_gate
 from httpapi import auth
 from tests.support.accepted import isolated
@@ -215,3 +217,43 @@ class ThePage(Gate):
         roster = SimpleNamespace(owner=lambda: owner, picture=mock.Mock(side_effect=OSError))
         with mock.patch.object(sign_in_gate.players, "get_roster", return_value=roster):
             self.assertEqual(_OWNER_CARD(), ("Pat", ""))
+
+
+class TheAuthenticatorWay(Gate):
+    def setUp(self) -> None:
+        super().setUp()
+        holder = tempfile.TemporaryDirectory()
+        self.addCleanup(holder.cleanup)
+        root = Path(holder.name)
+        for name, value in (("CONFIG_DIR", root), ("SECRETS_PATH", root / "secrets.json")):
+            patched = mock.patch.object(paths, name, value)
+            patched.start()
+            self.addCleanup(patched.stop)
+        self.addCleanup(authenticator.use, authenticator.instance())
+        self.held = authenticator.Authenticator()
+        authenticator.use(self.held)
+
+    def page(self) -> str:
+        return self.computer.get(sign_in_gate.PAGE).text
+
+    def test_with_none_set_up_the_page_offers_the_screen_code_alone(self) -> None:
+        self.assertIn("const hasApp = false, screen = true;", self.page())
+
+    def test_with_one_set_up_the_page_offers_both_ways(self) -> None:
+        self.held.activate(self._first_code())
+
+        text = self.page()
+
+        self.assertIn("const hasApp = true, screen = true;", text)
+        self.assertIn('id="appcode"', text)
+        self.assertIn("Use Authenticator App", text)
+
+    def test_with_the_screen_code_off_the_page_opens_on_the_app_alone(self) -> None:
+        self.held.activate(self._first_code())
+        self.held.set_screen_codes(False)
+
+        self.assertIn("const hasApp = true, screen = false;", self.page())
+
+    def _first_code(self) -> str:
+        made = self.held.begin("Game Room")
+        return authenticator._code(base64.b32decode(made.secret), int(time.time() // 30))

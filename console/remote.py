@@ -22,7 +22,6 @@ import logging
 import threading
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from io import BytesIO
 from typing import Any
 
 from nicegui import background_tasks, run, ui
@@ -41,6 +40,7 @@ from console import (
     game_tables,
     offload,
     panel,
+    qr,
     remembered,
     remote_record,
     stars,
@@ -1887,27 +1887,6 @@ def where_to_find_it() -> str:
     return f"{address}?{access_keys.PASS_PARAM}={access_keys.remote_pass()[1]}"
 
 
-def _qr_svg(url: str) -> str:
-    """The same address as something a camera can read. Empty where it cannot be drawn,
-    which the caller shows the plain address for instead."""
-    try:
-        import qrcode
-        from qrcode.image.svg import SvgPathImage
-    except Exception:
-        return ""
-    try:
-        code = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M,
-                             box_size=8, border=2)
-        code.add_data(url)
-        code.make(fit=True)
-        held = BytesIO()
-        code.make_image(image_factory=SvgPathImage).save(held)
-        return held.getvalue().decode("utf-8")
-    except Exception:
-        logger.warning("console: could not draw the remote's address", exc_info=True)
-        return ""
-
-
 def invite(labels: list) -> None:
     """The way somebody finds this surface at all.
 
@@ -1939,7 +1918,7 @@ def invite(labels: list) -> None:
         said = where_to_find_it()
         with frame.made() as sheet, ui.card().classes("console-confirm items-center"):
             ui.label(t("console.remote.vpinfe_phone")).classes("console-confirm-title")
-            art = _qr_svg(said)
+            art = qr.svg(said)
             if art:
                 ui.html(art).classes("console-qr")
             # Always, not only when the drawing failed: a camera is not the only way
