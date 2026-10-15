@@ -31,6 +31,7 @@ NEED_ROM = report_groups.NEED_ROM
 NOT_MATCHED = report_groups.NOT_MATCHED
 NO_WHEEL = report_groups.NO_WHEEL
 DMD_ALONE = report_groups.DMD_ALONE
+NOT_BROUGHT = report_groups.NOT_BROUGHT
 
 # What a fixed row says it is, by group.
 TICKS = {NEED_ROM: "console.report.tick.added", NOT_MATCHED: "console.report.tick.matched",
@@ -232,7 +233,10 @@ def _unsettled(job: dict[str, Any], result: dict[str, Any]) -> None:
                                _to(str(one["game_id"]), section="game_details"))),
             (NO_WHEEL, "console.report.no_wheel", lambda _one: "",
              lambda one: _link(t("console.report.add_wheel"),
-                               _to(str(one["game_id"]), view="media", slot="wheel")))):
+                               _to(str(one["game_id"]), view="media", slot="wheel"))),
+            (NOT_BROUGHT, "console.report.not_brought",
+             lambda one: str(one.get("reason") or ""),
+             lambda one: _link(t("console.report.open"), _to(str(one["game_id"]))))):
         _group(job, group, title, _items(result, group),
                lambda one, fixed, group=group, note=note, link=link: _row(  # type: ignore[misc]
                    str(one.get("name") or one.get("key")), note(one),
@@ -271,7 +275,7 @@ def _left(result: dict[str, Any]) -> None:
                   t("console.report.left_behind.help")):
         with _card(), ui.element("div").classes("console-report-group"):
             for one in behind:
-                _row(str(one.get("what") or ""), links=(
+                _row(str(one.get("what") or ""), str(one.get("detail") or ""), links=(
                     (_link(t("console.report.displays"), _displays()),)
                     if one.get("displays") else ()))
 
@@ -380,7 +384,7 @@ def draw(job: dict[str, Any]) -> None:
 # What the import is called in the Jobs list, and so what its jobs are found by.
 IMPORT_KIND = "library_importer.import"
 # The groups whose rows are for the person to settle, counted by the line on Locations.
-LOOK = (NEED_ROM, NOT_MATCHED, NO_WHEEL)
+LOOK = (NEED_ROM, NOT_MATCHED, NO_WHEEL, NOT_BROUGHT)
 LOOKBACK = jobs_list.LIMIT
 # `check` reads the library, and Locations draws again on every folder action.
 FRESH_FOR = 15.0

@@ -16,20 +16,31 @@ NEED_ROM = "need_rom"
 NOT_MATCHED = "not_matched"
 NO_WHEEL = "no_wheel"
 DMD_ALONE = "dmd_alone"
+NOT_BROUGHT = "not_brought"
+# How many of a game's refused files are named before the rest are counted.
+NAMED = 3
 
 
 def items_for(ctx: Any, row: Mapping[str, Any], match: Any, cabinet: Cabinet) -> list[dict]:
     """The groups a made game belongs to, as `{group, key, game_id, name, reason}` with the
     game file's `table_id` where the group links to its settings.
 
-    A game that failed and a further build of a machine belong to none. A game filled in
-    rather than made is asked about its ROM and virtual DMD only, since its match and
-    wheel are the person's own.
+    A game that failed belongs to none. A further build of a machine belongs only to the
+    files that did not come across, which are its own. A game filled in rather than made
+    is asked about its ROM, virtual DMD and refused files only, since its match and wheel
+    are the person's own.
     """
-    if not row["game_id"] or row["error"] or row.get("joined"):
+    if not row["game_id"] or row["error"]:
         return []
     one = {"key": row["key"], "game_id": row["game_id"], "name": row["name"], "reason": ""}
     found = []
+    refused = list(row.get("refused") or [])
+    if refused:
+        shown = ", ".join(refused[:NAMED])
+        found.append({**one, "group": NOT_BROUGHT, "reason": shown if len(refused) <= NAMED
+                      else ctx.t("report.refused_more", names=shown, count=len(refused) - NAMED)})
+    if row.get("joined"):
+        return found
     rom = str(row.get("rom") or "")
     if row["table"] and rom and not row.get("rom_there"):
         found.append({**one, "group": NEED_ROM, "reason": rom})

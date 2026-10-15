@@ -49,7 +49,7 @@ class ScoresCase(unittest.TestCase):
 
 class RidesWithTheRomTests(ScoresCase):
     def bring(self, rom: str = "taxi_l4") -> dict:
-        row = {"music": 0, "pups": 0, "roms": 0, "altdata": 0, "scores": 0}
+        row = {"music": 0, "pups": 0, "roms": 0, "altdata": 0, "scores": 0, "refused": []}
         game = SourceGame(key="Taxi", display_name="Taxi (Williams 1988)")
         adopt._bring_keyed(self.ctx, "g1", game, "Taxi (Williams 1988)", rom,
                            {"roms": str(self.vp / "roms")}, row)
@@ -71,7 +71,7 @@ class RidesWithTheRomTests(ScoresCase):
         self.made("roms", "taxi_l4.zip")
         self.made("nvram", "taxi_l4.nv")
         self.made("cfg", "taxi_l4.cfg")
-        row = {"music": 0, "pups": 0, "roms": 0, "altdata": 0, "scores": 0}
+        row = {"music": 0, "pups": 0, "roms": 0, "altdata": 0, "scores": 0, "refused": []}
         game = SourceGame(key="Taxi", display_name="Taxi (Williams 1988)")
 
         adopt._bring_keyed(self.ctx, "g1", game, "Taxi (Williams 1988)", "taxi_l4",
@@ -192,7 +192,12 @@ class SavedByTheScriptTests(ScoresCase):
 
     def test_a_folder_that_cannot_be_listed_holds_nothing(self) -> None:
         with mock.patch.object(saved.finding, "files", side_effect=PermissionError("no")):
-            self.assertEqual(saved.read(self.ctx, str(self.user)).files, {})
+            found = saved.read(self.ctx, str(self.user))
+
+        self.assertEqual(found.files, {})
+        self.ctx.t.assert_called_once_with("lost.saved_files", folder=self.user.name)
+        self.assertEqual(found.lost, ({"what": self.ctx.t.return_value,
+                                       "detail": self.ctx.why.return_value},))
 
     def test_nothing_named_places_nothing(self) -> None:
         self.assertEqual(adopt._bring_scores(self.ctx, "g1", "", {}, self.kept, ()), 0)

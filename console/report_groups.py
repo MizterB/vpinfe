@@ -25,6 +25,8 @@ NEED_ROM = "need_rom"
 NOT_MATCHED = "not_matched"
 NO_WHEEL = "no_wheel"
 DMD_ALONE = "dmd_alone"
+# Listed in the report only: it is files, so Tables has no group of games to narrow to.
+NOT_BROUGHT = "not_brought"
 FROM_ITEMS = {NEED_ROM: "console.report.need_rom", NOT_MATCHED: "console.report.not_matched",
               NO_WHEEL: "console.report.no_wheel", DMD_ALONE: "console.report.dmd"}
 

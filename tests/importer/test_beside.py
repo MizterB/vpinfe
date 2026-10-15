@@ -86,6 +86,18 @@ class ReadTests(BesideCase):
 
     def test_no_name_map_is_no_aliases(self) -> None:
         self.assertEqual(self.read().aliases, {})
+        self.assertEqual(self.read().lost, [])
+
+    def test_a_name_map_that_cannot_be_read_is_named_as_lost(self) -> None:
+        (self.install / "VPinMAME" / "VPMAlias.txt").write_text("a,b\n")
+
+        with mock.patch.object(Path, "read_text", side_effect=PermissionError("no")):
+            here = self.read()
+
+        self.assertEqual(here.aliases, {})
+        self.ctx.t.assert_any_call("lost.rom_map", file="VPMAlias.txt")
+        self.assertEqual(here.lost, [{"what": self.ctx.t.return_value,
+                                      "detail": self.ctx.why.return_value}])
 
     def test_only_a_script_the_program_does_not_ship_is_carried(self) -> None:
         (self.scripts / "Granny.vbs").write_text("x")
@@ -247,7 +259,7 @@ class AliasedRomTests(BesideCase):
         (nvram / "taxi_l4.nv").write_bytes(b"x")
         here = self.read()
         game = SourceGame(key="Taxi", display_name="Taxi")
-        row = {"music": 0, "pups": 0, "roms": 0, "altdata": 0, "scores": 0}
+        row = {"music": 0, "pups": 0, "roms": 0, "altdata": 0, "scores": 0, "refused": []}
 
         adopt._bring_keyed(self.ctx, "g1", game, "Taxi", here.real_rom("taxi_l1") or "taxi_l1",
                            {"roms": str(self.roms)}, row, asked="taxi_l1")

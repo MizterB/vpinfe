@@ -1433,7 +1433,8 @@ def build(ctx: Any) -> None:
             job.stopped = bool(report.get("stopped"))
             # Counted from the rows the report lists, not from `failed`: a game whose
             # folder was made and whose file did not come across is in the report too.
-            job.problems = sum(1 for row in report["rows"] if row.get("error"))
+            job.problems = sum(1 for row in report["rows"]
+                               if row.get("error") or row.get("refused"))
             created = report["games"] - report["filled"]
             left, filled, failed = report.get("left", 0), report["filled"], report["failed"]
             if job.stopped:

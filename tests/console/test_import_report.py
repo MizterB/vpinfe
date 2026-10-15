@@ -126,6 +126,13 @@ class WhatTheReportDraws(unittest.TestCase):
 
         self.assertEqual(["Displays"], links)
 
+    def test_what_could_not_be_read_beside_the_library_names_why_under_left_behind(self) -> None:
+        drawn = _below_the_strip(_job(left_behind=[
+            {"what": "VPReg.stg could not be read", "detail": "Permission denied"}]))
+
+        self.assertIn("VPReg.stg could not be read", drawn)
+        self.assertIn("Permission denied", drawn)
+
     def test_each_link_opens_the_game_where_the_fix_is(self) -> None:
         job = _job(items=[_item(import_report.NEED_ROM, 1), _item(import_report.NOT_MATCHED, 1),
                           _item(import_report.NO_WHEEL, 1)])
@@ -138,6 +145,19 @@ class WhatTheReportDraws(unittest.TestCase):
         self.assertEqual("/console?view=tables&game=not_matched-1&section=game_details",
                          hrefs["Match"])
         self.assertEqual("/console?view=media&game=no_wheel-1&slot=wheel", hrefs["Add a Wheel"])
+
+    def test_files_that_did_not_come_across_are_named_under_needs_a_look(self) -> None:
+        job = _job(items=[_item(import_report.NOT_BROUGHT, 1, reason="taxi_l4.zip, Wheel Images")])
+        with ui.column() as body:
+            wizard.report(body, job, "")
+        words = [one.text for one in body.descendants() if isinstance(one, ui.label)]
+        hrefs = {one.text: one.props["href"] for one in body.descendants()
+                 if isinstance(one, ui.link)}
+
+        self.assertIn("Not Brought Across", words)
+        self.assertIn("taxi_l4.zip, Wheel Images", words)
+        self.assertEqual("/console?view=tables&game=not_brought-1", hrefs["Open"])
+        self.assertEqual(1, import_report.waiting(job))
 
     def test_the_figures_above_the_groups_count_what_is_still_to_do(self) -> None:
         job = _job(items=[_item(import_report.NEED_ROM, 1), _item(import_report.NEED_ROM, 2)],

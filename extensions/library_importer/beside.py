@@ -57,6 +57,8 @@ class Beside:
     scripts: dict[str, Path] = field(default_factory=dict)
     settings: dict[str, dict[str, str]] = field(default_factory=dict)
     _dmd: dict[str, dict[str, Path]] = field(default_factory=dict)
+    # What was beside the tables and could not be read, said for the report.
+    lost: list[dict[str, str]] = field(default_factory=list, compare=False)
 
     @property
     def names(self) -> tuple[str, ...]:
@@ -122,17 +124,24 @@ class Beside:
 
 def name_map(ctx: Any, roms: str) -> Beside:
     """Only the ROM name map, for a step that needs no more of what sits beside."""
+    lost: list[dict[str, str]] = []
     return Beside(
-        aliases=_aliases(ctx, finding.child(Path(roms).parent, ALIAS_FILE) if roms else None))
+        aliases=_aliases(ctx, finding.child(Path(roms).parent, ALIAS_FILE) if roms else None,
+                         lost),
+        lost=lost)
 
 
 def read(ctx: Any, places: dict[str, str]) -> Beside:
     """What sits beside the folders the run reads from. Nothing for a folder not given."""
     roms, user, tables = (places.get(one, "") for one in ("roms", "user", "tables"))
+    named = name_map(ctx, roms)
+    lost = list(named.lost)
     return Beside(
-        aliases=name_map(ctx, roms).aliases,
-        scripts=_scripts(ctx, _scripts_folder(user, tables)),
-        settings=_settings(ctx, finding.child(tables, SETTINGS_FILE) if tables else None))
+        aliases=named.aliases,
+        scripts=_scripts(ctx, _scripts_folder(user, tables), lost),
+        settings=_settings(ctx, finding.child(tables, SETTINGS_FILE) if tables else None,
+                           lost),
+        lost=lost)
 
 
 def roots(places: dict[str, str]) -> list[str]:
@@ -149,13 +158,14 @@ def _scripts_folder(user: str, tables: str) -> Path | None:
     return None
 
 
-def _aliases(ctx: Any, path: Path | None) -> dict[str, str]:
+def _aliases(ctx: Any, path: Path | None, lost: list[dict[str, str]]) -> dict[str, str]:
     if path is None or not path.is_file():
         return {}
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
     except OSError as exc:
         ctx.logger.warning("The ROM name map %s could not be read: %s", path, exc)
+        lost.append({"what": ctx.t("lost.rom_map", file=path.name), "detail": ctx.why(exc)})
         return {}
     found: dict[str, str] = {}
     for line in text.splitlines():
@@ -165,7 +175,7 @@ def _aliases(ctx: Any, path: Path | None) -> dict[str, str]:
     return found
 
 
-def _scripts(ctx: Any, folder: Path | None) -> dict[str, Path]:
+def _scripts(ctx: Any, folder: Path | None, lost: list[dict[str, str]]) -> dict[str, Path]:
     """The scripts in `folder` that the program does not ship, by name in any case."""
     if folder is None:
         return {}
@@ -173,12 +183,14 @@ def _scripts(ctx: Any, folder: Path | None) -> dict[str, Path]:
         listed = finding.files(folder)
     except OSError as exc:
         ctx.logger.warning("The scripts in %s could not be listed: %s", folder, exc)
+        lost.append({"what": ctx.t("lost.scripts", folder=folder.name), "detail": ctx.why(exc)})
         return {}
     return {one.name.casefold(): one for one in listed
             if one.suffix.casefold() == ".vbs" and one.name.casefold() not in SHIPPED}
 
 
-def _settings(ctx: Any, path: Path | None) -> dict[str, dict[str, str]]:
+def _settings(ctx: Any, path: Path | None,
+              lost: list[dict[str, str]]) -> dict[str, dict[str, str]]:
     """Each entry of the backglass server's file, as VPX settings, by the key the server
     filed it under."""
     if path is None or not path.is_file():
@@ -187,6 +199,7 @@ def _settings(ctx: Any, path: Path | None) -> dict[str, dict[str, str]]:
         root = ElementTree.parse(path).getroot()
     except (OSError, ElementTree.ParseError) as exc:
         ctx.logger.warning("The backglass settings %s could not be read: %s", path, exc)
+        lost.append({"what": ctx.t("lost.backglass", file=path.name), "detail": ctx.why(exc)})
         return {}
     found: dict[str, dict[str, str]] = {}
     for entry in root:

@@ -112,6 +112,19 @@ class BringTests(LogosCase):
         self.assertEqual(logos.bring(ctx, str(self.media)), {"placed": 0, "held": 0})
         ctx.logger.warning.assert_called_once()
 
+    def test_a_refused_logo_is_named_for_the_report(self) -> None:
+        from common.extensions.contract import ContractError
+
+        self.make("Williams.png")
+        ctx = self.ctx("Williams")
+        ctx.games.put_manufacturer_logos.side_effect = ContractError("outside")
+        lost: list[dict[str, str]] = []
+
+        logos.bring(ctx, str(self.media), lost)
+
+        ctx.t.assert_called_once_with("lost.logos")
+        self.assertEqual(lost, [{"what": ctx.t.return_value, "detail": ctx.why.return_value}])
+
     def test_a_library_with_no_logo_folder_is_a_warning_not_a_failure(self) -> None:
         self.make("Williams.png")
         ctx = self.ctx("Williams")

@@ -47,6 +47,7 @@ class AdoptedRow(TypedDict):
     scores: int
     history: int
     skipped_media: list[str]
+    refused: list[str]
     error: Note
     matched: NotRequired[bool]
     joined: NotRequired[bool]
@@ -68,7 +69,15 @@ class Standing:
     name: str
 
 
-def _rom_state(ctx: Any, game_id: str, rom: str, roms_dir: str) -> str:
+def _refuse(ctx: Any, refused: list[str] | None, what: str, exc: Exception) -> None:
+    """Log what core would not take and name it in `refused`, which the report lists."""
+    ctx.logger.warning("%s did not come across: %s", what, exc)
+    if refused is not None and what not in refused:
+        refused.append(what)
+
+
+def _rom_state(ctx: Any, game_id: str, rom: str, roms_dir: str,
+               refused: list[str] | None = None) -> str:
     """The ROM set itself, if that folder has one by this name in any case: `placed`,
     `there` where the game already held it, `failed`, or `absent` where the folder has
     none."""
@@ -81,7 +90,7 @@ def _rom_state(ctx: Any, game_id: str, rom: str, roms_dir: str) -> str:
     except FileExistsError:
         return "there"
     except Exception as exc:
-        ctx.logger.warning("%s did not come across: %s", found.name, exc)
+        _refuse(ctx, refused, found.name, exc)
         return "failed"
 
 
@@ -90,7 +99,8 @@ def _bring_rom(ctx: Any, game_id: str, rom: str, roms_dir: str) -> int:
 
 
 def _bring_scores(ctx: Any, game_id: str, rom: str, sources: dict[str, str],
-                  kept: saved.Saved, named: tuple[str, ...], rom_there: bool = False) -> int:
+                  kept: saved.Saved, named: tuple[str, ...], rom_there: bool = False,
+                  refused: list[str] | None = None) -> int:
     """High scores, game settings and what the table's script saved.
 
     A ROM's `nvram` and `cfg` come only where the ROM does (`rom_there`: it was placed or
@@ -106,19 +116,20 @@ def _bring_scores(ctx: Any, game_id: str, rom: str, sources: dict[str, str],
         for kind, here in score_folders(roms_dir).items():
             found = finding.rom_file(here, rom)
             if found is not None:
-                brought += _put(ctx, game_id, kind, found, "")
+                brought += _put(ctx, game_id, kind, found, "", refused)
     for one in kept.files_for(named):
-        brought += _put(ctx, game_id, "user", one, "")
+        brought += _put(ctx, game_id, "user", one, "", refused)
     wanted = kept.sets_for(named)
     if wanted:
         try:
             brought += 1 if ctx.games.put_saved_sets(game_id, kept.stg, wanted) else 0
         except Exception as exc:
-            ctx.logger.warning("The saved values did not come across: %s", exc)
+            _refuse(ctx, refused, ctx.t("refused.saved_values"), exc)
     return brought
 
 
-def _bring_alt_data(ctx: Any, game_id: str, rom: str, alt_dir: str) -> int:
+def _bring_alt_data(ctx: Any, game_id: str, rom: str, alt_dir: str,
+                    refused: list[str] | None = None) -> int:
     """Sound banks and color sets, which sit in folders named for the ROM.
 
     The layout is the one PIN2DMD and altsound document: `altcolor/<rom>/` and
@@ -131,23 +142,24 @@ def _bring_alt_data(ctx: Any, game_id: str, rom: str, alt_dir: str) -> int:
         if here is None or not here.is_dir():
             continue
         if kind:
-            brought += _put(ctx, game_id, kind, here, rom)
+            brought += _put(ctx, game_id, kind, here, rom, refused)
             continue
         # A color set's format is the file's to declare, not the folder's.
         for one in sorted(here.iterdir()):
             said = ALT_KINDS.get(one.suffix.lower())
             if said:
-                brought += _put(ctx, game_id, said, one, rom)
+                brought += _put(ctx, game_id, said, one, rom, refused)
     return brought
 
 
-def _bring_named(ctx: Any, game_id: str, kind: str, folder: str, names: list[str]) -> int:
+def _bring_named(ctx: Any, game_id: str, kind: str, folder: str, names: list[str],
+                 refused: list[str] | None = None) -> int:
     """The set in `folder` that is named for the game, as a ROM, a folder, a game file or
     a title. A set named for none of them belongs to no game this can tell, and stays."""
     for name in names:
         found = finding.child(folder, name)
         if found is not None and found.is_dir():
-            return _put(ctx, game_id, kind, found, "")
+            return _put(ctx, game_id, kind, found, "", refused)
     return 0
 
 
@@ -171,24 +183,27 @@ def _bring_keyed(ctx: Any, game_id: str, game: SourceGame, folder: str, rom: str
     """
     rom_there = False
     if rom and sources.get("roms"):
-        state = _rom_state(ctx, game_id, rom, sources["roms"])
+        state = _rom_state(ctx, game_id, rom, sources["roms"], row["refused"])
         row["roms"] = int(state == "placed")
         rom_there = state in ("placed", "there")
     row["rom_there"] = rom_there
     if rom and sources.get("altdata"):
-        row["altdata"] = _bring_alt_data(ctx, game_id, rom, sources["altdata"])
+        row["altdata"] = _bring_alt_data(ctx, game_id, rom, sources["altdata"], row["refused"])
     names = names_of(game, folder, rom, asked)
     if sources.get("music"):
-        row["music"] = _bring_named(ctx, game_id, "music", sources["music"], names)
+        row["music"] = _bring_named(ctx, game_id, "music", sources["music"], names,
+                                    row["refused"])
     if sources.get("pups"):
-        row["pups"] = _bring_named(ctx, game_id, "pup_pack", sources["pups"], names)
+        row["pups"] = _bring_named(ctx, game_id, "pup_pack", sources["pups"], names,
+                                   row["refused"])
     if scores and (sources.get("roms") or sources.get("user")):
         row["scores"] = _bring_scores(ctx, game_id, rom, sources, kept or saved.Saved(),
-                                      named, rom_there)
+                                      named, rom_there, row["refused"])
 
 
 def _bring_beside(ctx: Any, game_id: str, game: SourceGame, table_id: str, rom: str,
-                  named: tuple[str, ...], here: beside.Beside) -> None:
+                  named: tuple[str, ...], here: beside.Beside,
+                  refused: list[str] | None = None) -> None:
     """What the table needs to start that the source kept beside its tables.
 
     The name map's line for the ROM the table asks for, the scripts and DMD folders its
@@ -204,22 +219,22 @@ def _bring_beside(ctx: Any, game_id: str, game: SourceGame, table_id: str, rom: 
         except FileExistsError:
             pass
         except Exception as exc:
-            ctx.logger.warning("%s: the ROM name map did not come across: %s", game.key, exc)
+            _refuse(ctx, refused, ctx.t("refused.rom_map"), exc)
     for one in here.scripts_for(named):
-        _put(ctx, game_id, "scripts", one, "")
+        _put(ctx, game_id, "scripts", one, "", refused)
     for one in here.dmd_for(game.table_file, named):
-        _put(ctx, game_id, "dmd_content", one, "")
+        _put(ctx, game_id, "dmd_content", one, "", refused)
     keys = (rom,) if rom else (Path(game.table_file).stem,) if game.table_file else ()
     wanted = here.settings_for(*keys) if table_id else {}
     if wanted:
         try:
             ctx.games.write_table_settings(table_id, wanted)
         except Exception as exc:
-            ctx.logger.warning("%s: its backglass settings did not come across: %s",
-                               game.key, exc)
+            _refuse(ctx, refused, ctx.t("refused.backglass"), exc)
 
 
-def _remember(ctx: Any, game_id: str, played: Any, held: Held | None = None) -> int:
+def _remember(ctx: Any, game_id: str, played: Any, held: Held | None = None,
+              refused: list[str] | None = None) -> int:
     """What the old frontend remembered about playing this game.
 
     The counters go through the one call that sets them; rating, favorite and tags are
@@ -233,7 +248,7 @@ def _remember(ctx: Any, game_id: str, played: Any, held: Held | None = None) -> 
     turned on and never off.
     """
     if held is not None:
-        return _add_missing(ctx, game_id, missing_history(played, held.user), held)
+        return _add_missing(ctx, game_id, missing_history(played, held.user), held, refused)
     try:
         if played.has_play_record:
             ctx.games.set_play_record(
@@ -247,12 +262,13 @@ def _remember(ctx: Any, game_id: str, played: Any, held: Held | None = None) -> 
         if played.favorite:
             ctx.games.set_favorite(game_id, True)
     except Exception as exc:
-        ctx.logger.warning("Could not carry the play history for %s: %s", game_id, exc)
+        _refuse(ctx, refused, ctx.t("refused.history"), exc)
         return 0
     return 1 if played.counts_as_history else 0
 
 
-def _add_missing(ctx: Any, game_id: str, adds: Missing, held: Held) -> int:
+def _add_missing(ctx: Any, game_id: str, adds: Missing, held: Held,
+                 refused: list[str] | None = None) -> int:
     """Each kind of history is written on its own, so one the library refuses (a tag it
     derives itself) does not keep the others from arriving. Answers 1 where counters or
     tags were written, the two the report counts."""
@@ -271,7 +287,7 @@ def _add_missing(ctx: Any, game_id: str, adds: Missing, held: Held) -> int:
         try:
             write()
         except Exception as exc:
-            ctx.logger.warning("Could not carry the play history for %s: %s", game_id, exc)
+            _refuse(ctx, refused, ctx.t("refused.history"), exc)
             continue
         counted = counted or int(reported)
     return counted
@@ -288,14 +304,15 @@ def _held(ctx: Any, game_id: str) -> Held | None:
     return Held(rom=str(one.get("rom") or ""), user=dict(one.get("user") or {}))
 
 
-def _put(ctx: Any, game_id: str, kind: str, path: Path, rom: str) -> int:
+def _put(ctx: Any, game_id: str, kind: str, path: Path, rom: str,
+         refused: list[str] | None = None) -> int:
     try:
         ctx.games.put_asset(game_id, kind, path, rom)
         return 1
     except FileExistsError:
         return 0
     except Exception as exc:
-        ctx.logger.warning("%s did not come across: %s", path.name, exc)
+        _refuse(ctx, refused, path.name, exc)
         return 0
 
 
@@ -328,6 +345,7 @@ def _place_media(ctx: Any, game_id: str, source_id: str, game: SourceGame,
             refused.add(mapping.folder_of(game, path))
     row["skipped_media"] = sorted(
         {*mapping.unmapped_kinds(source_id, game, kinds, wheels_as), *refused} - {""})
+    row["refused"].extend(sorted(refused - {""} - set(row["refused"])))
 
 
 def _kept(details: dict, mode: str, chosen: tuple[str, ...],
@@ -398,7 +416,7 @@ def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
     row: AdoptedRow = {"key": game.key, "name": name, "game_id": "", "table": False,
                        "media": 0, "companions": 0, "roms": 0, "altdata": 0,
                        "music": 0, "pups": 0, "scores": 0, "history": 0,
-                       "skipped_media": [], "error": ""}
+                       "skipped_media": [], "refused": [], "error": ""}
     if existing:
         game_id = existing
         row["existing"] = True
@@ -469,11 +487,12 @@ def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
         _bring_keyed(ctx, game_id, game, name, rom, sources, row, saved_here, named, asked,
                      scores)
     if (row["table"] or existing) and beside_here:
-        _bring_beside(ctx, game_id, game, table_id, asked, named, beside_here)
+        _bring_beside(ctx, game_id, game, table_id, asked, named, beside_here,
+                      row["refused"])
 
     played = history_for(history or {}, game)
     if played is not None and (held or not existing):
-        row["history"] = _remember(ctx, game_id, played, held)
+        row["history"] = _remember(ctx, game_id, played, held, row["refused"])
     return row
 
 
@@ -498,7 +517,8 @@ def _another_build(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str,
     row: AdoptedRow = {"key": game.key, "name": name, "game_id": game_id,
                        "table": False, "media": 0, "companions": 0, "roms": 0,
                        "altdata": 0, "music": 0, "pups": 0, "scores": 0, "history": 0,
-                       "skipped_media": [], "error": "", "joined": True}
+                       "skipped_media": [], "refused": [], "error": "",
+                       "joined": True}
     if existing:
         row["existing"] = True
     rom, table_id = "", ""
@@ -524,7 +544,8 @@ def _another_build(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str,
         _bring_keyed(ctx, game_id, game, name, rom, sources, row, saved_here, named, asked,
                      scores)
     if row["table"] and beside_here:
-        _bring_beside(ctx, game_id, game, table_id, asked, named, beside_here)
+        _bring_beside(ctx, game_id, game, table_id, asked, named, beside_here,
+                      row["refused"])
     return row
 
 
@@ -660,7 +681,8 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
         items.extend(asks.items_for(ctx, row, found, cabinet_here))
     made = [row for row in rows if row["game_id"]]
     # After the games, so the makers it looks for include the ones this run made.
-    brought = (logos.bring(ctx, sources.get("media", ""))
+    lost = [*kept_here.lost, *beside_here.lost]
+    brought = (logos.bring(ctx, sources.get("media", ""), lost)
                if made and (plan.logos if plan else True) else {"placed": 0, "held": 0})
     after = ({"wheel_logos": False, "media_started": False} if stopped else _media_after(
         ctx, plan, made, wheels_as == mapping.LOGOS and _turns_wheels_to_logos(
@@ -691,5 +713,5 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
         "already_here": skipped,
         "rows": rows,
         "items": items,
-        "left_behind": cabinet_here.left_behind,
+        "left_behind": [*cabinet_here.left_behind, *lost],
     }

@@ -24,6 +24,8 @@ class Saved:
     files: dict[str, tuple[Path, ...]] = field(default_factory=dict)
     stg: str = ""
     sets: frozenset[str] = frozenset()
+    # What was in the folder and could not be read, said for the report.
+    lost: tuple[dict[str, str], ...] = field(default=(), compare=False)
 
     @property
     def names(self) -> tuple[str, ...]:
@@ -45,10 +47,13 @@ def read(ctx: Any, folder: str) -> Saved:
     if not folder:
         return Saved()
     files: dict[str, list[Path]] = {}
+    lost: list[dict[str, str]] = []
     try:
         listed = finding.files(folder)
     except OSError as exc:
         ctx.logger.warning("The saved files in %s could not be listed: %s", folder, exc)
+        lost.append({"what": ctx.t("lost.saved_files", folder=Path(folder).name),
+                     "detail": ctx.why(exc)})
         listed = []
     for one in listed:
         if one.name.startswith(".") or one.stem.casefold() == "vpreg":
@@ -61,5 +66,7 @@ def read(ctx: Any, folder: str) -> Saved:
             sets = frozenset(ctx.games.saved_sets(stg))
         except Exception as exc:
             ctx.logger.warning("The saved values in %s could not be read: %s", stg, exc)
+            lost.append({"what": ctx.t("lost.saved_values", file=stg.name),
+                         "detail": ctx.why(exc)})
     return Saved({key: tuple(found) for key, found in files.items()},
-                 str(stg) if sets else "", sets)
+                 str(stg) if sets else "", sets, tuple(lost))

@@ -166,6 +166,15 @@ class EncodingTests(unittest.TestCase):
                 self.assertEqual((len(found), found[-1]),
                                  (5000, ("Café 4999 (Williams 1988)", 4999)))
 
+    def test_a_cell_past_the_csv_limit_keeps_the_rows_before_it_and_says_so(self) -> None:
+        text = f"{self.TEXT}Taxi,{'x' * 200_000}\n"
+
+        found, notes = self._read(self._sized("utf-8", True, text))
+
+        self.assertEqual(found, self.ROWS)
+        self.assertEqual([one["text"] for one in notes],
+                         [gamestats.t("note.read_stopped", file=gamestats.STATS_FILE)])
+
     def test_a_file_cut_short_after_its_mark_keeps_the_rows_before_the_cut(self) -> None:
         self.assertEqual(self._read(self.TEXT.encode("utf-16") + b"\x00"),
                          (self.ROWS, [gamestats.t("note.bytes_lost",

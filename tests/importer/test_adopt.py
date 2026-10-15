@@ -95,6 +95,16 @@ class ImportTests(AdoptCase):
         self.assertIn(("not_matched", "Attack from Mars (Bally 1995)"), found)
         self.assertEqual([], result["left_behind"])
 
+    def test_what_beside_the_tables_could_not_be_read_is_left_behind_in_the_report(self) -> None:
+        from vpinfe_ext_library_importer import adopt, saved
+
+        with unittest.mock.patch.object(adopt.saved, "read", return_value=saved.Saved(
+                lost=({"what": "VPReg.stg could not be read", "detail": "bad"},))):
+            result = self.imported()
+
+        self.assertEqual(result["left_behind"], [
+            {"what": "VPReg.stg could not be read", "detail": "bad"}])
+
     def test_a_folder_is_named_the_way_our_own_are(self) -> None:
         """The source's description is already Title (Manufacturer Year), which is the
         convention we arrived at separately."""
@@ -444,6 +454,7 @@ class ImportTests(AdoptCase):
 
         self.assertEqual(row["media"], 0)
         self.assertEqual(row["skipped_media"], ["Instruction Cards"])
+        self.assertEqual(row["refused"], ["Instruction Cards"])
 
     def test_a_cleared_media_source_brings_no_artwork_and_the_report_agrees(self) -> None:
         from vpinfe_ext_library_importer import plan
@@ -670,13 +681,34 @@ class ImportTests(AdoptCase):
         game_id = report["rows"][0]["game_id"]
         adds = plan.Missing(counters={"play_count": 7}, tags=("Odd",), rating=3)
 
+        refused: list[str] = []
         with unittest.mock.patch.object(self._ctx.games, "set_tags",
                                         side_effect=ValueError("derived")), \
                 self.assertLogs(self._ctx.logger, "WARNING"):
-            counted = adopt._add_missing(self._ctx, game_id, adds, plan.Held())
+            counted = adopt._add_missing(self._ctx, game_id, adds, plan.Held(), refused)
 
         user = self.client.get(f"/games/{game_id}").json()["user"]
         self.assertEqual((1, 7, 3), (counted, user["play_count"], user["rating"]))
+        self.assertEqual(refused, [self._ctx.t("refused.history")])
+
+    def test_two_refused_history_writes_are_each_logged_and_named_once(self) -> None:
+        from vpinfe_ext_library_importer import adopt, plan
+
+        library, made = self._planned("")
+        report = adopt.run(self._ctx, library, [VPX], "", made)
+        game_id = report["rows"][0]["game_id"]
+        adds = plan.Missing(tags=("Odd",), rating=3)
+        refused: list[str] = []
+
+        with unittest.mock.patch.object(self._ctx.games, "set_tags",
+                                        side_effect=ValueError("derived")), \
+                unittest.mock.patch.object(self._ctx.games, "rate_game",
+                                           side_effect=ValueError("range")), \
+                self.assertLogs(self._ctx.logger, "WARNING") as logged:
+            adopt._add_missing(self._ctx, game_id, adds, plan.Held(), refused)
+
+        self.assertEqual(len(logged.records), 2)
+        self.assertEqual(refused, [self._ctx.t("refused.history")])
 
     def test_filling_takes_the_rom_from_the_game_it_fills(self) -> None:
         """The game file is held and does not arrive again, so the ROM comes from the
@@ -1047,7 +1079,7 @@ class KeyedSetTests(unittest.TestCase):
         music = self.made("Music", "Taxi")
         pack = self.made("PUPVideos", "TAXI_L4")
         self.made("Music", "Somebody Else")
-        row = {"music": 0, "pups": 0, "roms": 0, "altdata": 0}
+        row = {"music": 0, "pups": 0, "roms": 0, "altdata": 0, "refused": []}
 
         adopt._bring_keyed(self.ctx, "g1", self.game(), "Taxi (Williams 1988)", "taxi_l4",
                            {"music": str(self.root / "Music"),
@@ -1062,7 +1094,7 @@ class KeyedSetTests(unittest.TestCase):
         from vpinfe_ext_library_importer import adopt
 
         self.made("Music", "Somebody Else")
-        row = {"music": 0, "pups": 0, "roms": 0, "altdata": 0}
+        row = {"music": 0, "pups": 0, "roms": 0, "altdata": 0, "refused": []}
 
         adopt._bring_keyed(self.ctx, "g1", self.game(), "Taxi (Williams 1988)", "taxi_l4",
                            {"music": str(self.root / "Music")}, row)
@@ -1074,7 +1106,7 @@ class KeyedSetTests(unittest.TestCase):
         from vpinfe_ext_library_importer import adopt
 
         self.made("roms", "taxi_l4.zip", as_file=True)
-        row = {"music": 0, "pups": 0, "roms": 0, "altdata": 0}
+        row = {"music": 0, "pups": 0, "roms": 0, "altdata": 0, "refused": []}
 
         adopt._bring_keyed(self.ctx, "g1", self.game(), "Taxi (Williams 1988)", "",
                            {"roms": str(self.root / "roms")}, row)
@@ -1103,7 +1135,19 @@ class KeyedSetTests(unittest.TestCase):
         row = adopt._another_build(self.ctx, "pinballx", self.game(), (), "Taxi", "g1",
                                    sources={"roms": str(self.root / "roms")})
 
-        self.assertEqual((row["roms"], row["error"]), (0, ""))
+        self.assertEqual((row["roms"], row["error"], row["refused"]), (0, "", []))
+
+    def test_a_file_core_refuses_is_named_on_the_row_and_the_game_still_counts(self) -> None:
+        from vpinfe_ext_library_importer import adopt
+
+        self.made("roms", "taxi_l4.zip", as_file=True)
+        self.ctx.games.put_asset.side_effect = ValueError("not a ROM set")
+
+        row = adopt._another_build(self.ctx, "pinballx", self.game(), (), "Taxi", "g1",
+                                   sources={"roms": str(self.root / "roms")})
+
+        self.assertEqual((row["roms"], row["error"], row["refused"]),
+                         (0, "", ["taxi_l4.zip"]))
 
 
 class BesideTheTablesTests(AdoptCase):

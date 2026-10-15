@@ -93,12 +93,16 @@ def read(path: Path | str) -> tuple[list[Played], list[Note]]:
         return [], [failed(t("note.unreadable", file=path.name), exc)]
 
     text, note = _text(raw, path.name)
+    notes = [note] if note else []
     found = []
-    for row in csv.DictReader(io.StringIO(text)):
-        one = _played(row)
-        if one is not None and one.remembers_anything:
-            found.append(one)
-    return found, ([note] if note else [])
+    try:
+        for row in csv.DictReader(io.StringIO(text)):
+            one = _played(row)
+            if one is not None and one.remembers_anything:
+                found.append(one)
+    except csv.Error as exc:
+        notes.append(failed(t("note.read_stopped", file=path.name), exc))
+    return found, notes
 
 
 def _text(raw: bytes, name: str) -> tuple[str, Note]:

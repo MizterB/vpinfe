@@ -58,13 +58,13 @@ def candidates(media: str) -> list[tuple[str, Path]]:
     return [(maker, path) for _rank, path, maker in ranked]
 
 
-def bring(ctx: Any, media: str) -> dict[str, int]:
+def bring(ctx: Any, media: str, lost: list[dict[str, str]] | None = None) -> dict[str, int]:
     """Add to the logos folder the images that serve a maker among the games here.
 
     Every game in the library counts, not only those this run made: a second import of
     logos for the makers a first one brought in is a way to fill a gap, and what is
     already served is never replaced. Nothing is asked of core when the source keeps no
-    logos, or when core has no folder to put them in.
+    logos, or when core has no folder to put them in. A refusal is named in `lost`.
     """
     found = candidates(media)
     if not found:
@@ -76,5 +76,7 @@ def bring(ctx: Any, media: str) -> dict[str, int]:
         done = ctx.games.put_manufacturer_logos(sorted(makers), found)
     except (OSError, ContractError) as exc:
         ctx.logger.warning("The manufacturer logos could not be added: %s", exc)
+        if lost is not None:
+            lost.append({"what": ctx.t("lost.logos"), "detail": ctx.why(exc)})
         return {"placed": 0, "held": 0}
     return {"placed": len(done["placed"]), "held": len(done["held"])}

@@ -131,6 +131,25 @@ class ItemsTests(unittest.TestCase):
         self.assertEqual(self.groups(made(joined=True, rom_there=False)), [])
         self.assertEqual(self.groups(made(game_id="", rom_there=False)), [])
 
+    def test_files_that_did_not_come_across_are_named_and_the_rest_counted(self) -> None:
+        few = report.items_for(says(), made(refused=["a.zip", "b.zip"]), None, cabinet.Cabinet())
+        many = report.items_for(says(), made(refused=["a", "b", "c", "d", "e"]), None,
+                                cabinet.Cabinet())
+
+        self.assertEqual([(one["group"], one["reason"]) for one in few],
+                         [("not_brought", "a.zip, b.zip")])
+        self.assertEqual(many[0]["reason"], "report.refused_more:{'names': 'a, b, c', 'count': 2}")
+
+    def test_another_build_is_asked_about_its_refused_files_alone(self) -> None:
+        found = report.items_for(says(), made(joined=True, refused=["a.zip"], matched=False,
+                                              wheel=False), None, cabinet.Cabinet())
+
+        self.assertEqual([one["group"] for one in found], ["not_brought"])
+
+    def test_a_game_that_failed_names_no_refused_file(self) -> None:
+        self.assertEqual(report.items_for(says(), made(error="x", refused=["a.zip"]), None,
+                                          cabinet.Cabinet()), [])
+
     def test_a_dmd_with_a_place_of_its_own_names_the_table_that_has_it(self) -> None:
         here = cabinet.Cabinet(dmd={"taxi_l4": ("100", "200")})
 
