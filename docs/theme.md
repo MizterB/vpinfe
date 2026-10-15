@@ -92,7 +92,7 @@ main page gets one window rather than two that 404. That only applies to the def
 window you declare is opened whether or not its page is there, because a declaration is
 intent and hiding a missing page would hide your bug.
 
-At contract 2 that is rarely a loss. A cabinet with a backglass or score view screen gets a
+At contract 2 that is rarely a loss. A device with a backglass or score view screen gets a
 window on it whichever theme is active, and core draws the page when the theme ships none
 (see [What core does for you](#what-core-does-for-you)).
 
@@ -113,7 +113,7 @@ Everything about a window follows from its name:
 `vpin.isController()` is how a window knows. A window with no monitor set is not opened,
 so declaring four on a two-monitor machine is fine.
 
-**The topper is the cabinet's, not the theme's.** Someone with a topper screen sets it once
+**The topper is the device's, not the theme's.** Someone with a topper screen sets it once
 under Hardware › Displays, and VPinFE opens a `topper` window on it whichever theme is
 active. If your theme ships `index_topper.html` that page is used, so declaring `"topper"`
 and supplying the page keeps full control, as in the example above. If it does not, core
@@ -121,7 +121,7 @@ draws a page of its own that shows the selected game's topper video, else its to
 on black. A theme has nothing to declare for that, and `get_theme_windows()` still lists
 only what the theme declared. A theme that declares `"topper"` but ships no page gets
 core's page as well. Core's page is drawn by `core_media_window`, so a theme that sets
-`media_window.enabled` to `false` leaves the cabinet's topper screen black; a contract 1
+`media_window.enabled` to `false` leaves the topper screen black; a contract 1
 theme shows the topper image only, as contract 1 has no topper video field.
 
 Name a window after a media kind and `vpin.getImageURL(index, windowName)` gives you that
@@ -168,7 +168,7 @@ it itself.
 | `core_navigation` | `navigation.enabled` | off | on | Moves the selection by a step or a page, wraps it and announces where it went. | Previous, next and the page actions reach your `handleInput`, and you move the wheel. |
 | `core_paging` | `paging.enabled` | on | - | Contract 1 only: handles the page actions. At contract 2 `core_navigation` covers it. | Page actions reach your handler. |
 | `core_audio` | `audio.enabled` | off | on | Plays, fades and mutes each game's audio. | You play your own with `vpin.getAudioURL()`. |
-| `core_layout` | `layout.enabled` | off | on | Turns the UI and the playfield art to suit the cabinet. | You read `vpin.layout` and lay yourself out. |
+| `core_layout` | `layout.enabled` | off | on | Turns the UI and the playfield art to suit the device. | You read `vpin.layout` and lay yourself out. |
 | `core_preload` | `preload.enabled` | off | on | Fetches the media around the selection once the wheel stops. | Your own preloading is the only one. |
 | `core_launch_indicator` | `launch_indicator.enabled` | off | on | Draws a spinner in every window while a game launches. | You draw your own, see [Loading Overlay During Game Launch](#loading-overlay-during-game-launch). |
 | `core_attract` | `attract.enabled` | off | on | Moves the selection on its own once nobody has pressed anything. | You run your own idle timer, see [Attract Mode](#attract-mode). |
@@ -365,7 +365,7 @@ commented.
 
 The page links `/core/common/vpinfe-style.css` and `/core/common/vpinfe-core.js`, then its
 own `style.css` and `theme.js`. Put `vpinfe-upright` on the outermost element so the page
-turns to face the player when the cabinet mounts the screen sideways, and style that element
+turns to face the player when the screen is mounted sideways, and style that element
 by class, since an id outranks the rules that turn it. Mark an element
 `data-vpin-media="playfield"` and core fills it with the selected table's art.
 
@@ -458,7 +458,7 @@ one means and how they combine.
 | **C** | landscape | n/a | landscape | nothing |
 
 A is `portrait` + `0`. B is `portrait` + `90` or `270` — which one depends on which way the
-panel was turned in the cabinet. C is `landscape` + `0`.
+panel was turned in the device. C is `landscape` + `0`.
 
 **B is the case people miss.** If the desktop appears sideways on the playfield screen, or
 the taskbar runs up the side of it, the OS is not rotating and VPinFE has to.
@@ -473,7 +473,7 @@ vpin.layout = {
 }
 ```
 
-**`surface` is the one you want.** It is identical in setups A and B — a portrait cabinet
+**`surface` is the one you want.** It is identical in setups A and B — a portrait device
 reads `"portrait"` whether the OS turned the screen or VPinFE turns the UI — so one layout
 serves both. Design for `surface` and the difference stops being yours to handle.
 
@@ -522,7 +522,7 @@ for a picture that is still loading.
 **The art is measured, not assumed.** There is no reliable convention for how playfield
 captures are authored: a library may be landscape desktop shots, portrait FSS renders, or a
 mix. Core compares each image's own aspect against `surface` and turns it only when they
-disagree, so FSS art on a portrait cabinet is correctly left alone. `[Media]
+disagree, so FSS art on a portrait device is correctly left alone. `[Media]
 playfieldmediarotation` is `auto` for that reason; set it to `0`, `90`, `180` or `270` only
 for what measuring cannot see — art that is upside down, or art you would rather letterbox
 than turn.
@@ -544,7 +544,7 @@ Good questions to answer up front when starting a new theme:
 - Should portrait mode use a different layout, or just rotate the landscape one?
 - Should only the main playfield UI rotate, or should playfield-only overlays rotate too?
 
-#### A portrait cabinet, end to end
+#### A portrait device, end to end
 
 With `layout.enabled` on, a theme written for a landscape screen serves all three setups
 with one page. Nothing in it reads the rotation setting.
@@ -570,7 +570,7 @@ html, body { margin: 0; background: black; }
   viewport on its side.
 - **`data-vpin-media="playfield"`** is core drawing the art. It marks the picture or video it
   creates with `vpinfe-playfield-media`, measures it, and turns it to fill the surface, so
-  landscape captures lie on their side on a portrait cabinet and FSS renders are left as
+  landscape captures lie on their side on a portrait device and FSS renders are left as
   they are. The element it draws into needs `position: relative` and has to fill the surface, because
   turned art is sized from the screen.
 - **Design for `vpin.layout.surface`** for anything that depends on shape, as above.
@@ -1110,7 +1110,7 @@ Quit.
 
 Controller defaults are written against the standard layout, as `pad:standard/button:<n>`,
 and apply only to a controller the browser reports as `mapping: "standard"`. A binding
-written `pad:<index>/button:<n>` applies to any pad, which is what a cabinet's encoder is.
+written `pad:<index>/button:<n>` applies to any pad, which is what a pinball encoder is.
 
 #### The hold ring
 
@@ -1349,7 +1349,7 @@ The following methods are available via `vpin.call()`:
 | `lifecycle_request` | `scope`, `action`, `reason`, `confirmed` | `bool` | Starts, stops or restarts something. Returns whether it is going ahead. |
 | `lifecycle_needs_confirmation` | `scope`, `action` | `object` | `{confirm, description}` — whether to ask the user first, and the wording to ask with. |
 | `get_monitors` | — | `array` | Returns list of monitor objects with `name`, `x`, `y`, `width`, `height`. |
-| `console_out` | `output` | `string` | Sends a message to VPinFE's log, where it appears as `[<window>] your message`. Useful for debugging on a cabinet, where nothing reads the browser console. Returns the same string. Your uncaught errors and unhandled rejections are forwarded automatically — you do not need to call this for those. |
+| `console_out` | `output` | `string` | Sends a message to VPinFE's log, where it appears as `[<window>] your message`. Useful for debugging on the VPinFE device, where nothing reads the browser console. Returns the same string. Your uncaught errors and unhandled rejections are forwarded automatically — you do not need to call this for those. |
 
 ###### Starting, stopping and restarting
 
