@@ -35,19 +35,20 @@ NOT_WIRED = "error.actions.unsupported"
 
 
 def _describe(scope: str, action: str) -> dict:
-    # `available` and `reason` stay on the wire for an action that can run but not now.
-    # Nothing is in that state today, so every entry is available.
+    # `available` false is an action that is wired up but cannot run now, with the reason.
+    why = lifecycle.unavailable(scope, action)
     return {"scope": scope, "action": action,
             "label": lifecycle.label(scope, action),
             "label_key": f"action.{scope}.{action}",
-            "available": True, "reason": "", "reason_key": ""}
+            "available": not why, "reason": t(why) if why else "", "reason_key": why}
 
 
 def listing() -> dict:
     """Only the pairs this install performs. One it can never perform is not offered; one
-    that can run but not now would stay, with `available` false and its reason."""
-    found = [_describe(scope, action) for scope, action in lifecycle.offered()
-             if lifecycle.performable(scope, action)]
+    that can run but not now stays, with `available` false and its reason."""
+    with lifecycle.snapshot():
+        found = [_describe(scope, action) for scope, action in lifecycle.offered()
+                 if lifecycle.performable(scope, action)]
     return {"count": len(found), "actions": found}
 
 

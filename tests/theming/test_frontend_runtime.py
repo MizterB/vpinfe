@@ -13,7 +13,7 @@ import time
 import unittest
 from unittest import mock
 
-from common.runtime import shutdown
+from common.runtime import lifecycle, shutdown
 from frontend import runtime
 from frontend.chromium_manager import ChromiumManager
 
@@ -297,6 +297,30 @@ class WindowsComeAndGoTests(unittest.TestCase):
 
         self.assertFalse(lost.wait(2), "a close nobody did by hand read as one")
         self.assertFalse(self.manager._exit_event.is_set())
+
+    def _state(self, *, pending: bool) -> str:
+        with mock.patch.object(runtime, "install_setup") as setup, \
+             mock.patch("common.config.paths.get_ini_config", return_value=mock.Mock()):
+            setup.pending.return_value = pending
+            return runtime.windows_state(self.manager)
+
+    def test_the_windows_are_closed_until_one_is_launched_and_open_after(self) -> None:
+        self.assertEqual(self._state(pending=False), lifecycle.WINDOWS_CLOSED)
+
+        _launch(self.manager, "table")
+
+        self.assertEqual(self._state(pending=False), lifecycle.WINDOWS_OPEN)
+
+        self.manager.close_windows()
+
+        self.assertEqual(self._state(pending=False), lifecycle.WINDOWS_CLOSED)
+
+    def test_a_reopen_in_between_closing_and_opening_still_reads_as_open(self) -> None:
+        with runtime._reopening:
+            self.assertEqual(self._state(pending=False), lifecycle.WINDOWS_OPEN)
+
+    def test_setup_open_is_its_own_state_whatever_the_windows_do(self) -> None:
+        self.assertEqual(self._state(pending=True), lifecycle.WINDOWS_SETUP)
 
     def test_a_launcher_that_has_exited_still_counts_as_a_window(self) -> None:
         process = _launch(self.manager, "table")

@@ -92,10 +92,14 @@ def level_class(level: str) -> str:
 # machine down are last, which is where `panel.verb_entries` puts a danger verb anyway.
 MENU_ACTIONS = (
     (lifecycle.VPINFE, lifecycle.RESTART), (lifecycle.FRONTEND, lifecycle.RESTART),
+    (lifecycle.FRONTEND, lifecycle.STOP), (lifecycle.FRONTEND, lifecycle.START),
     (lifecycle.VPINFE, lifecycle.STOP),
     (lifecycle.SYSTEM, lifecycle.RESTART), (lifecycle.SYSTEM, lifecycle.STOP),
 )
 QUIT = (lifecycle.VPINFE, lifecycle.STOP)
+OPEN_FRONTEND = (lifecycle.FRONTEND, lifecycle.START)
+CLOSE_FRONTEND = (lifecycle.FRONTEND, lifecycle.STOP)
+FRONTEND_ACTIONS = (OPEN_FRONTEND, CLOSE_FRONTEND, (lifecycle.FRONTEND, lifecycle.RESTART))
 # What a lifecycle action costs, which is what decides whether it is asked about first.
 _ASKED = {lifecycle.VPINFE, lifecycle.SYSTEM}
 
@@ -382,12 +386,25 @@ def usable(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def _menu_entries(offered: list[dict[str, Any]]) -> list[dict[str, Any]]:
     by_pair = {(str(entry.get("scope") or ""), str(entry.get("action") or "")): entry
                for entry in usable(offered)}
+    # The windows' actions are drawn for the state they are in: one that cannot run now is
+    # left out, and opening stands in for reopening when there is nothing to reopen.
+    for pair in FRONTEND_ACTIONS:
+        if pair in by_pair and not by_pair[pair].get("available", True):
+            del by_pair[pair]
+    if OPEN_FRONTEND in by_pair and CLOSE_FRONTEND not in by_pair:
+        by_pair.pop((lifecycle.FRONTEND, lifecycle.RESTART), None)
     return [by_pair[pair] for pair in MENU_ACTIONS if pair in by_pair]
 
 
 def offers(offered: list[dict[str, Any]] | None, pair: tuple[str, str]) -> bool:
     """Whether the device's menu carries this pair."""
     return any(_pair(entry) == pair for entry in _menu_entries(offered or []))
+
+
+def windows_closed(offered: list[dict[str, Any]] | None) -> bool:
+    """Whether the menu offers to open the windows and not to close them, which is
+    an install that owns windows with none up."""
+    return offers(offered, OPEN_FRONTEND) and not offers(offered, CLOSE_FRONTEND)
 
 
 def _device_verb(hits: list[tuple[Target, dict[str, Any]]],

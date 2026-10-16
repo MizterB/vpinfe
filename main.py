@@ -236,6 +236,7 @@ def create_api_instances():
         ws_bridge=ws_bridge,
         open_windows=None if headless else open_windows,
         close_windows=None if headless else close_windows,
+        windows_state=lambda: runtime.windows_state(frontend_browser),
     )
     app_control.install_notices()
 

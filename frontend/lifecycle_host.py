@@ -83,12 +83,28 @@ def _notice(*, scope: str, action: str, surface: str, address: str,
         _bridge.send_event_all(message)
 
 
+def _why_not(windows_state: Callable[[], str], runs_when: str | None) -> Callable[[], str]:
+    """The reason key for a frontend action that cannot run now, or "" when it can."""
+    def why() -> str:
+        now = lifecycle.once("windows", windows_state)
+        if now == lifecycle.WINDOWS_SETUP:
+            return "error.actions.setup_open"
+        if runs_when is None or now == runs_when:
+            return ""
+        return ("error.actions.windows_open" if now == lifecycle.WINDOWS_OPEN
+                else "error.actions.windows_closed")
+
+    return why
+
+
 def install(*, config_store: ConfigStore,
             frontend_browser: ChromiumManager, shutdown_event: threading.Event,
             ws_bridge: DeviceChannel | None = None,
             open_windows: Callable[[], None] | None = None,
-            close_windows: Callable[[], None] | None = None) -> None:
-    """Wire this process's performers. Called once, from startup."""
+            close_windows: Callable[[], None] | None = None,
+            windows_state: Callable[[], str] | None = None) -> None:
+    """Wire this process's performers. Called once, from startup. `windows_state` answers
+    one of `lifecycle.WINDOWS_*`, which decides which frontend actions can run."""
     global _config_store, _bridge
     _config_store = config_store
     _bridge = ws_bridge
@@ -139,6 +155,13 @@ def install(*, config_store: ConfigStore,
                                      lambda _request: open_windows())
         lifecycle.register_performer(lifecycle.FRONTEND, lifecycle.RESTART,
                                      lambda _request: open_windows())
+        if windows_state is not None:
+            for action, runs_when in ((lifecycle.STOP, lifecycle.WINDOWS_OPEN),
+                                      (lifecycle.START, lifecycle.WINDOWS_CLOSED),
+                                      # Opening is what reopening does, so it waits only on Setup.
+                                      (lifecycle.RESTART, None)):
+                lifecycle.register_availability(
+                    lifecycle.FRONTEND, action, _why_not(windows_state, runs_when))
 
     lifecycle.register_notifier(_announce)
 

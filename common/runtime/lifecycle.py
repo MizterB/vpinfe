@@ -16,7 +16,9 @@ notifying are separate, and only the first can block.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 
 from common.i18n import t, t_source
@@ -33,6 +35,11 @@ TABLE = "table"             # the table being played; VPinFE and the frontend ke
 START = "start"
 STOP = "stop"
 RESTART = "restart"
+
+# Where the frontend windows stand, which decides which frontend actions can run.
+WINDOWS_OPEN = "open"
+WINDOWS_CLOSED = "closed"
+WINDOWS_SETUP = "setup"      # Setup's window is up, and is not closed or reopened from here
 
 # Naming it avoids "stop the system" reading as "stop VPinFE on the system".
 POWEROFF = (SYSTEM, STOP)
@@ -118,6 +125,7 @@ class _Registry:
     confirmers: dict = field(default_factory=dict)
     performers: dict = field(default_factory=dict)
     notifiers: list = field(default_factory=list)
+    availability: dict = field(default_factory=dict)
 
 
 _registry = _Registry()
@@ -145,10 +153,48 @@ def register_notifier(notifier: Callable[[Request], object]) -> None:
         _registry.notifiers.append(notifier)
 
 
+def register_availability(scope: str, action: str, probe: Callable[[], str]) -> None:
+    """Why a pair that is wired up cannot run right now: `probe` answers the catalog key of
+    the reason, or "" when it can. Listed with the pair, which is not hidden for it."""
+    if (scope, action) not in _ALLOWED:
+        raise ValueError(f"not a lifecycle action: {action} the {scope}")
+    _registry.availability[(scope, action)] = probe
+
+
+_snapshot: ContextVar[dict[str, object] | None] = ContextVar("lifecycle_snapshot", default=None)
+
+
+@contextmanager
+def snapshot() -> Iterator[None]:
+    """Probes asked inside it that read a shared state through `once` see it one time."""
+    token = _snapshot.set({})
+    try:
+        yield
+    finally:
+        _snapshot.reset(token)
+
+
+def once[T](key: str, read: Callable[[], T]) -> T:
+    """`read()`, remembered under `key` for the length of the enclosing `snapshot`."""
+    held = _snapshot.get()
+    if held is None:
+        return read()
+    if key not in held:
+        held[key] = read()
+    return held[key]  # type: ignore[return-value]
+
+
+def unavailable(scope: str, action: str) -> str:
+    """The reason key this pair cannot run now, or "" when it can."""
+    probe = _registry.availability.get((scope, action))
+    return probe() if probe is not None else ""
+
+
 def reset_for_tests() -> None:
     _registry.confirmers.clear()
     _registry.performers.clear()
     _registry.notifiers.clear()
+    _registry.availability.clear()
 
 
 def offered() -> tuple[tuple[str, str], ...]:

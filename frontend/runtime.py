@@ -23,7 +23,7 @@ from common.games import remote_library
 from common.host import key_reader, metrics, system_actions
 from common.host.display_service import get_display_monitors
 from common.players import player_pictures
-from common.runtime import shutdown
+from common.runtime import lifecycle, shutdown
 from common.security import http_client
 from common.settings import settings_waiting
 from frontend import (
@@ -338,6 +338,18 @@ def close_windows(frontend_browser: ChromiumManager, logger: logging.Logger) -> 
             return
         frontend_browser.close_windows()
         settings_waiting.windows_closed()
+
+
+def windows_state(frontend_browser: ChromiumManager) -> str:
+    """One of `lifecycle.WINDOWS_*`."""
+    from common.config.paths import get_ini_config
+
+    if install_setup.pending(get_ini_config()):
+        return lifecycle.WINDOWS_SETUP
+    # A reopen closes the windows before it opens them, and is not a time to offer Open.
+    if _reopening.locked() or frontend_browser.has_windows:
+        return lifecycle.WINDOWS_OPEN
+    return lifecycle.WINDOWS_CLOSED
 
 
 def reopen_windows(iniconfig: ConfigStore, frontend_browser: ChromiumManager,

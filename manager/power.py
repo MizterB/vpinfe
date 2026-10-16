@@ -2,7 +2,9 @@
 
 The verbs are the ones the Devices page draws for this device. Restart and the window
 reopen go through the waiting line, so they follow the Manager to a new port, and lead the
-menu with how much is waiting once the line has been dismissed.
+menu with how much is waiting once the line has been dismissed. On an install that owns
+windows the menu also follows them: Close and Reopen while they are up, Open while they
+are not, with the dot up for the second since nothing is showing.
 """
 
 from __future__ import annotations
@@ -12,6 +14,7 @@ from typing import Any
 from nicegui import ui
 
 from common.i18n import t
+from common.runtime import lifecycle
 from manager.devices import devices
 from manager.kit import panel, verbs
 from manager.kit.data import Library
@@ -32,6 +35,8 @@ class Power:
         self._button: ui.element | None = None
         self._dot: ui.element | None = None
         self._drawn: object = None
+        self._open = False
+        self._asking = False
         bar.watchers.append(self.refill)
 
     def place(self) -> None:
@@ -42,6 +47,8 @@ class Power:
         self._button = button
         button.set_visibility(False)
         self._dot.set_visibility(False)
+        self._menu.on("before-show", self._opened)
+        self._menu.on("hide", self._closed)
 
     async def load(self) -> None:
         """What this install performs, unless the page has already read it."""
@@ -51,24 +58,51 @@ class Power:
                 self.library, self.device, self.local_id, None)
         self.refill()
 
+    def _opened(self) -> None:
+        self._open = True
+
+    def _closed(self) -> None:
+        self._open = False
+        self.refill()
+
+    async def reload(self) -> None:
+        """Ask again what this install performs, which changes as its windows open and close.
+        An answer of nothing is a failed ask, so the menu keeps what it had."""
+        if self._asking:
+            return
+        self._asking = True
+        try:
+            asked = await devices.load_actions(self.library, self.device, self.local_id, None)
+        finally:
+            self._asking = False
+        cache = self.state.setdefault("device_actions", {})
+        if asked or not cache.get(self.local_id):
+            cache[self.local_id] = asked
+        self.refill()
+
     def refill(self) -> None:
         """Draw the menu from what is cached and what the line says. Nothing is drawn
-        again when it would be the same."""
+        again when it would be the same, and nothing while the menu is open under a pointer."""
         menu, button, dot = self._menu, self._button, self._dot
-        if menu is None or button is None or dot is None or menu.is_deleted:
+        if menu is None or button is None or dot is None or menu.is_deleted or self._open:
             return
         offered = (self.state.get("device_actions") or {}).get(self.local_id)
         lead = self.bar.lead()
+        closed = devices.windows_closed(offered)
+        routed = self.bar.routes()
+        if lead is not None and closed and lead[0] == (lifecycle.FRONTEND, lifecycle.RESTART):
+            lead = (devices.OPEN_FRONTEND, lead[1])
+            routed[devices.OPEN_FRONTEND] = self.bar.reopen
         if lead is not None and not devices.offers(offered, lead[0]):
             lead = None
         acts = devices.acts(
             self.library, [devices.Target(self.device, self.library, offered, False)], None,
-            routed=self.bar.routes(), led=lead)
+            routed=routed, led=lead)
         shape = (tuple((one.label, one.run is None, one.hint) for one in acts),
-                 lead is not None)
+                 lead is not None, closed)
         if shape == self._drawn:
             return
         self._drawn = shape
         panel.verb_menu(menu, devices.device_label(self.device), acts)
         button.set_visibility(bool(acts))
-        dot.set_visibility(lead is not None)
+        dot.set_visibility(lead is not None or closed)

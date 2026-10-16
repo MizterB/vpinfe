@@ -8,6 +8,7 @@ from typing import Any, cast
 from unittest import mock
 
 from common import events
+from common.host import action_ops
 from common.runtime import lifecycle
 from frontend import lifecycle_host
 
@@ -209,11 +210,13 @@ class FrontendPerformerTests(unittest.TestCase):
         self.browser = mock.Mock()
         self.shutdown = mock.Mock()
 
-    def _install(self, *, windows: bool = False) -> None:
+    def _install(self, *, windows: bool = False, state: str | None = None) -> None:
         self.closed: list[int] = []
         self.opened: list[int] = []
         extra: dict[str, Any] = ({"open_windows": lambda: self.opened.append(1),
                   "close_windows": lambda: self.closed.append(1)} if windows else {})
+        if state is not None:
+            extra["windows_state"] = lambda: state
         lifecycle_host.install(config_store=cast(Any, None),
                                frontend_browser=self.browser,
                                shutdown_event=self.shutdown, **extra)
@@ -248,6 +251,77 @@ class FrontendPerformerTests(unittest.TestCase):
         self._ask(lifecycle.RESTART)
 
         self.assertEqual(len(self.opened), 2)
+
+    def _listed(self) -> dict[tuple[str, str], dict[str, Any]]:
+        return {(one["scope"], one["action"]): one
+                for one in action_ops.listing()["actions"]
+                if one["scope"] == lifecycle.FRONTEND}
+
+    def test_with_the_windows_up_closing_and_reopening_can_run_and_opening_cannot(self) -> None:
+        self._install(windows=True, state=lifecycle.WINDOWS_OPEN)
+
+        listed = self._listed()
+
+        self.assertTrue(listed[(lifecycle.FRONTEND, lifecycle.STOP)]["available"])
+        self.assertTrue(listed[(lifecycle.FRONTEND, lifecycle.RESTART)]["available"])
+        opening = listed[(lifecycle.FRONTEND, lifecycle.START)]
+        self.assertFalse(opening["available"])
+        self.assertEqual(opening["reason_key"], "error.actions.windows_open")
+
+    def test_with_the_windows_closed_only_opening_and_reopening_can_run(self) -> None:
+        self._install(windows=True, state=lifecycle.WINDOWS_CLOSED)
+
+        listed = self._listed()
+
+        self.assertTrue(listed[(lifecycle.FRONTEND, lifecycle.START)]["available"])
+        self.assertTrue(listed[(lifecycle.FRONTEND, lifecycle.RESTART)]["available"])
+        closing = listed[(lifecycle.FRONTEND, lifecycle.STOP)]
+        self.assertFalse(closing["available"])
+        self.assertEqual(closing["reason_key"], "error.actions.windows_closed")
+
+    def test_while_setup_is_open_none_of_it_can_run(self) -> None:
+        self._install(windows=True, state=lifecycle.WINDOWS_SETUP)
+
+        for one in self._listed().values():
+            self.assertFalse(one["available"])
+            self.assertEqual(one["reason_key"], "error.actions.setup_open")
+
+    def test_the_state_is_asked_each_time_it_is_listed(self) -> None:
+        state = [lifecycle.WINDOWS_OPEN]
+        lifecycle_host.install(config_store=cast(Any, None), frontend_browser=self.browser,
+                               shutdown_event=self.shutdown, open_windows=lambda: None,
+                               close_windows=lambda: None, windows_state=lambda: state[0])
+
+        self.assertFalse(self._listed()[(lifecycle.FRONTEND, lifecycle.START)]["available"])
+        state[0] = lifecycle.WINDOWS_CLOSED
+        self.assertTrue(self._listed()[(lifecycle.FRONTEND, lifecycle.START)]["available"])
+
+    def test_one_listing_reads_the_state_once(self) -> None:
+        reads = [lifecycle.WINDOWS_OPEN, lifecycle.WINDOWS_CLOSED, lifecycle.WINDOWS_CLOSED]
+        lifecycle_host.install(config_store=cast(Any, None), frontend_browser=self.browser,
+                               shutdown_event=self.shutdown, open_windows=lambda: None,
+                               close_windows=lambda: None,
+                               windows_state=lambda: reads.pop(0) if reads else "")
+
+        listed = self._listed()
+
+        self.assertFalse(listed[(lifecycle.FRONTEND, lifecycle.START)]["available"])
+        self.assertTrue(listed[(lifecycle.FRONTEND, lifecycle.STOP)]["available"])
+        self.assertEqual(len(reads), 2)
+
+    def test_a_headless_install_lists_no_frontend_action_at_all(self) -> None:
+        self._install(state=lifecycle.WINDOWS_CLOSED)
+
+        self.assertEqual(self._listed(), {})
+
+    def test_an_install_that_says_nothing_about_its_windows_lists_them_all_available(self) -> None:
+        self._install(windows=True)
+
+        self.assertTrue(all(one["available"] for one in self._listed().values()))
+
+    def test_a_pair_that_is_not_a_lifecycle_action_cannot_be_given_a_reason(self) -> None:
+        with self.assertRaises(ValueError):
+            lifecycle.register_availability("table", "start", lambda: "x")
 
     def test_quitting_vpinfe_still_ends_the_run(self) -> None:
         self._install(windows=True)

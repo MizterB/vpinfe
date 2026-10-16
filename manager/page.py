@@ -1072,6 +1072,7 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
     ui.timer(waiting.POLL_S, waiting_bar.refresh)
     ui.timer(0.1, waiting_bar.refresh, once=True)
     ui.timer(0.1, power_menu.load, once=True)
+    ui.timer(waiting.POLL_S, power_menu.reload)
 
     def watch_jobs() -> None:
         """For a job this page has just started."""

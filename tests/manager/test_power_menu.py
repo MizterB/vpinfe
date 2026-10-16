@@ -32,7 +32,17 @@ def _entry(scope: str, action: str) -> dict[str, Any]:
             "available": True, "reason": "", "reason_key": ""}
 
 
-EVERY = [_entry(scope, action) for scope, action in lifecycle.offered()]
+def _windows(up: bool) -> list[dict[str, Any]]:
+    """What an install that owns windows lists: Open only when they are closed, Close only
+    when they are up."""
+    refused = {(lifecycle.FRONTEND, lifecycle.START): up,
+               (lifecycle.FRONTEND, lifecycle.STOP): not up}
+    return [{**_entry(scope, action), "available": not refused.get((scope, action), False)}
+            for scope, action in lifecycle.offered()]
+
+
+EVERY = _windows(up=True)
+CLOSED = _windows(up=False)
 
 
 def _answer(*entries: dict[str, Any], reopen: bool = False) -> dict[str, Any]:
@@ -153,6 +163,98 @@ class ThePowerIcon(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(_menu_labels(icon._menu)[0],
                          f"{t('action.frontend.restart')} - 1 change waiting")
+
+    async def test_windows_up_closes_and_reopens_them_with_no_dot(self) -> None:
+        icon, _bar = await self._placed()
+        assert icon._menu is not None and icon._dot is not None
+
+        shown = _menu_labels(icon._menu)
+
+        self.assertIn(t("action.frontend.stop"), shown)
+        self.assertIn(t("action.frontend.restart"), shown)
+        self.assertNotIn(t("action.frontend.start"), shown)
+        self.assertFalse(icon._dot.visible)
+
+    async def test_windows_closed_offers_only_opening_them_and_raises_the_dot(self) -> None:
+        self.library.actions.return_value = CLOSED
+        icon, _bar = await self._placed()
+        assert icon._menu is not None and icon._dot is not None
+
+        shown = _menu_labels(icon._menu)
+
+        self.assertIn(t("action.frontend.start"), shown)
+        self.assertNotIn(t("action.frontend.stop"), shown)
+        self.assertNotIn(t("action.frontend.restart"), shown)
+        self.assertTrue(icon._dot.visible)
+
+    async def test_the_menu_follows_the_windows_when_asked_again(self) -> None:
+        icon, _bar = await self._placed()
+        assert icon._menu is not None and icon._dot is not None
+        self.library.actions.return_value = CLOSED
+
+        await press(icon.reload)
+
+        self.assertIn(t("action.frontend.start"), _menu_labels(icon._menu))
+        self.assertTrue(icon._dot.visible)
+
+    async def test_an_ask_that_fails_leaves_the_menu_as_it_was(self) -> None:
+        icon, _bar = await self._placed()
+        assert icon._menu is not None and icon._button is not None
+        before = _menu_labels(icon._menu)
+        self.library.actions.return_value = []
+
+        await press(icon.reload)
+
+        self.assertEqual(_menu_labels(icon._menu), before)
+        self.assertTrue(icon._button.visible)
+
+    async def test_the_menu_is_not_redrawn_under_the_pointer_while_it_is_open(self) -> None:
+        icon, _bar = await self._placed()
+        assert icon._menu is not None
+        self.library.actions.return_value = CLOSED
+        icon._opened()
+
+        await press(icon.reload)
+
+        self.assertIn(t("action.frontend.stop"), _menu_labels(icon._menu))
+        icon._closed()
+        self.assertIn(t("action.frontend.start"), _menu_labels(icon._menu))
+
+    async def test_opening_from_the_lead_goes_through_the_line(self) -> None:
+        self.library.actions.return_value = CLOSED
+        self.library.config_waiting.return_value = _answer(ROTATION, reopen=True)
+        icon, bar = await self._placed()
+        assert icon._menu is not None
+        reopen = AsyncMock()
+
+        with patch.object(bar, "reopen", reopen):
+            bar._dismiss()
+            await _click(icon._menu, t("action.frontend.start"))
+
+        reopen.assert_awaited_once()
+
+    async def test_waiting_window_changes_lead_with_opening_when_they_are_closed(self) -> None:
+        self.library.actions.return_value = CLOSED
+        self.library.config_waiting.return_value = _answer(ROTATION, reopen=True)
+        icon, bar = await self._placed()
+        assert icon._menu is not None
+
+        bar._dismiss()
+
+        self.assertEqual(_menu_labels(icon._menu)[0],
+                         f"{t('action.frontend.start')} - 1 change waiting")
+
+    async def test_an_install_without_windows_has_no_frontend_items_and_no_dot(self) -> None:
+        self.library.actions.return_value = [one for one in EVERY
+                                             if one["scope"] != lifecycle.FRONTEND]
+        icon, _bar = await self._placed()
+        assert icon._menu is not None and icon._dot is not None
+
+        shown = _menu_labels(icon._menu)
+
+        for action in ("start", "stop", "restart"):
+            self.assertNotIn(t(f"action.frontend.{action}"), shown)
+        self.assertFalse(icon._dot.visible)
 
     async def test_restart_from_the_menu_goes_through_the_line_and_follows_the_port(
             self) -> None:

@@ -22,7 +22,19 @@ def entry(scope: str, action: str, **more: Any) -> dict[str, Any]:
             "available": True, "reason": "", "reason_key": "", **more}
 
 
-EVERY = [entry(scope, action) for scope, action in lifecycle.offered()]
+def _with_windows(up: bool) -> list[dict[str, Any]]:
+    """What an install that owns windows lists: Open only when they are closed, Close only
+    when they are up."""
+    refused = {(lifecycle.FRONTEND, lifecycle.START): up,
+               (lifecycle.FRONTEND, lifecycle.STOP): not up}
+    return [entry(scope, action, available=not refused.get((scope, action), False),
+                  reason_key="error.actions.windows_open" if refused.get((scope, action))
+                  else "")
+            for scope, action in lifecycle.offered()]
+
+
+EVERY = _with_windows(up=True)
+CLOSED = _with_windows(up=False)
 
 
 def acts(client: Any = None, offered: Any = None, forgettable: bool = True,
@@ -41,14 +53,14 @@ class MenuOrderTests(unittest.TestCase):
 
         self.assertEqual(labels(verbs), [
             t("action.vpinfe.restart"), t("action.frontend.restart"),
-            t("action.vpinfe.stop"), t("action.system.restart"),
-            t("action.system.stop"), t("word.forget")])
+            t("action.frontend.stop"), t("action.vpinfe.stop"),
+            t("action.system.restart"), t("action.system.stop"), t("word.forget")])
 
     def test_only_the_ones_that_take_the_machine_or_the_entry_are_dangerous(self) -> None:
         verbs = acts(client=Mock(), offered=EVERY)
 
         self.assertEqual([one.danger for one in verbs],
-                         [False, False, False, True, True, True])
+                         [False, False, False, False, True, True, True])
 
     def test_this_installs_own_entry_has_no_forget(self) -> None:
         verbs = acts(client=Mock(), offered=EVERY,
@@ -71,9 +83,38 @@ class MenuOrderTests(unittest.TestCase):
 
     def test_a_pair_the_menu_does_not_carry_is_not_added(self) -> None:
         verbs = acts(client=Mock(),
-                     offered=[entry("table", "stop"), entry("frontend", "start")])
+                     offered=[entry("table", "stop"), entry("table", "start")])
 
         self.assertEqual(labels(verbs), [t("word.forget")])
+
+    def test_with_the_windows_up_the_menu_closes_and_reopens_them(self) -> None:
+        shown = labels(acts(client=Mock(), offered=EVERY, forgettable=False))
+
+        self.assertIn(t("action.frontend.stop"), shown)
+        self.assertIn(t("action.frontend.restart"), shown)
+        self.assertNotIn(t("action.frontend.start"), shown)
+
+    def test_with_the_windows_closed_the_menu_only_opens_them(self) -> None:
+        shown = labels(acts(client=Mock(), offered=CLOSED, forgettable=False))
+
+        self.assertIn(t("action.frontend.start"), shown)
+        self.assertNotIn(t("action.frontend.stop"), shown)
+        self.assertNotIn(t("action.frontend.restart"), shown)
+
+    def test_an_install_that_says_nothing_about_its_windows_keeps_all_three(self) -> None:
+        offered = [entry(scope, action) for scope, action in devices.FRONTEND_ACTIONS]
+
+        shown = labels(acts(client=Mock(), offered=offered, forgettable=False))
+
+        for action in ("start", "stop", "restart"):
+            self.assertIn(t(f"action.frontend.{action}"), shown)
+        self.assertFalse(devices.windows_closed(offered))
+
+    def test_opening_and_closing_the_windows_asks_nothing(self) -> None:
+        for offered, pair in ((CLOSED, "start"), (EVERY, "stop")):
+            verb = next(one for one in acts(client=Mock(), offered=offered, forgettable=False)
+                        if one.label == t(f"action.frontend.{pair}"))
+            self.assertFalse(verb.danger)
 
 
 class RoutedAndLedTests(unittest.TestCase):
@@ -94,7 +135,7 @@ class RoutedAndLedTests(unittest.TestCase):
 
         self.assertEqual(labels(verbs)[:3], [
             f"{t('action.frontend.restart')} - 2 changes waiting",
-            t("action.vpinfe.restart"), t("action.vpinfe.stop")])
+            t("action.vpinfe.restart"), t("action.frontend.stop")])
 
     def test_a_led_pair_this_device_does_not_offer_leaves_the_menu_as_it_was(self) -> None:
         headless = [one for one in EVERY if one["scope"] != lifecycle.FRONTEND]

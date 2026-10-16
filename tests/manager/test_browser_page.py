@@ -285,8 +285,12 @@ class BrowserPageTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_the_not_checked_note_sits_under_the_video_row_only(self) -> None:
         notes: list[str] = []
-        with patch.object(panel, "states",
-                          side_effect=lambda chips, note="": notes.append(note) or list(chips)):
+
+        def record(chips: Any, note: str = "") -> list[Any]:
+            notes.append(note)
+            return list(chips)
+
+        with patch.object(panel, "states", side_effect=record):
             await self._drawn()
 
         self.assertEqual(notes, [t("manager.settings.browser_not_checked"), ""])
