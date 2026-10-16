@@ -9,12 +9,15 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shutil
 import unittest
 import urllib.request
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from tests.support.browser_session import BrowserSession, chromium_path
 from tests.support.library import TempTree, write_game
-from tests.support.live_instance import LiveInstance
+from tests.support.live_instance import HARNESS_THEME, LiveInstance
 
 PNG = bytes.fromhex(
     "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4"
@@ -26,6 +29,10 @@ GAMES = ("Alpha Table", "Beta Table", "Gamma Table", "Delta Table")
 # and not a minute.
 FAST = {("behavior", "attract_idle"): 1, ("behavior", "attract_step_time"): 1,
         ("behavior", "attract_order"): "in_order"}
+
+# The settings a test can change over the Manager's API, which refuses the timings above.
+CHANGEABLE = {"attract_enabled": True, "attract_order": "in_order",
+              "attract_on_return": "restore"}
 
 # A check that the wheel stayed still waits as long as attract could have started and
 # stepped twice: FAST's idle time plus two steps, with a second to spare.
@@ -53,34 +60,64 @@ def _info(name: str) -> dict:
     return {"Info": {"Name": name}, "VPinFE": {}, "User": {}}
 
 
+def _write_library(root: Path) -> None:
+    for name in GAMES:
+        write_game(root, name, info=_info(name), medias={"wheel.png": PNG, "table.png": PNG})
+
+
+def _save(instance: LiveInstance, **changes) -> None:
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{instance.ports['manager']}/api/v1/config",
+        data=json.dumps({"settings": {"behavior": changes}}).encode(), method="PUT",
+        headers={"Content-Type": "application/json"})
+    urllib.request.urlopen(request, timeout=10).close()
+
+
+async def _open(instance: LiveInstance, browser: BrowserSession) -> None:
+    await browser.navigate(instance.theme_url("playfield"))
+    await browser.wait_for("document.body.dataset.ready === 'true'", timeout=90.0)
+    await browser.evaluate(RECORD)
+
+
+def _theme_dir(instance: LiveInstance) -> Path:
+    return instance.config_dir / "frontend_themes" / instance.theme
+
+
 @unittest.skipIf(chromium_path() is None, "no Chromium on this machine")
-class AttractDriveTests(TempTree):
-    BOOTS_PER_TEST = "Each test sets different attract settings, and they are read at boot."
+class AttractDriveTests(unittest.TestCase):
+    """Settings and the theme's two files are read when a page loads, and each test loads
+    its own, so putting them back before each test is all the isolation it needs."""
+
+    shared: LiveInstance
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        super().setUpClass()
+        tmp = TemporaryDirectory()
+        cls.addClassCleanup(tmp.cleanup)
+        _write_library(Path(tmp.name))
+        cls.shared = cls.enterClassContext(LiveInstance(Path(tmp.name), extra_settings=FAST))
+        cls.shared.wait_for_api()
 
     def setUp(self) -> None:
         super().setUp()
-        for name in GAMES:
-            write_game(self.root, name, info=_info(name),
-                       medias={"wheel.png": PNG, "table.png": PNG})
-
-    async def _open(self, instance: LiveInstance, browser: BrowserSession) -> None:
-        await browser.navigate(instance.theme_url("playfield"))
-        await browser.wait_for("document.body.dataset.ready === 'true'", timeout=90.0)
-        await browser.evaluate(RECORD)
-
-    def _theme_dir(self, instance: LiveInstance):
-        return instance.config_dir / "frontend_themes" / instance.theme
+        theme = _theme_dir(self.shared)
+        shutil.copyfile(HARNESS_THEME / "manifest.json", theme / "manifest.json")
+        (theme / "config.json").unlink(missing_ok=True)
+        _save(self.shared, **CHANGEABLE)
 
     def _drive(self, scenario, settings=None, *, prepare=None):
         async def run(instance: LiveInstance):
-            if prepare:
-                prepare(self._theme_dir(instance))
             async with BrowserSession(chromium_path() or "") as browser:
-                await self._open(instance, browser)
+                await _open(instance, browser)
                 return await scenario(browser)
 
-        with LiveInstance(self.root, extra_settings={**FAST, **(settings or {})}) as instance:
-            return asyncio.run(run(instance))
+        if settings:
+            assert set(settings) <= set(CHANGEABLE), "setUp would not put this back"
+            _save(self.shared, **settings)
+        if prepare:
+            prepare(_theme_dir(self.shared))
+        return asyncio.run(run(self.shared))
 
     # -- on -----------------------------------------------------------------
 
@@ -106,7 +143,7 @@ class AttractDriveTests(TempTree):
             await browser.wait_for("window.__moves.length >= 3", timeout=40.0)
             return await browser.evaluate("window.__moves.slice(0, 3).map(m => m.index)")
 
-        indexes = self._drive(scenario, {("behavior", "attract_order"): "random"})
+        indexes = self._drive(scenario, {"attract_order": "random"})
         self.assertEqual(sorted(indexes), [1, 2, 3], indexes)
 
     def test_a_press_puts_the_wheel_back_and_does_nothing_else(self) -> None:
@@ -145,7 +182,7 @@ class AttractDriveTests(TempTree):
             return await browser.evaluate(
                 "window.__moves.filter(m => m.source === 'user')")
 
-        by_user = self._drive(scenario, {("behavior", "attract_on_return"): "stay"})
+        by_user = self._drive(scenario, {"attract_on_return": "stay"})
         self.assertEqual(by_user, [])
 
     def test_it_starts_again_after_the_press(self) -> None:
@@ -200,7 +237,7 @@ class AttractDriveTests(TempTree):
         return self._drive(scenario, settings, prepare=prepare)
 
     def test_the_person_s_switch_turns_it_off(self) -> None:
-        self.assertEqual(self._stays_still({("behavior", "attract_enabled"): False}), 0)
+        self.assertEqual(self._stays_still({"attract_enabled": False}), 0)
 
     def test_a_theme_can_turn_it_off_for_itself(self) -> None:
         def opt_out(theme):
@@ -225,33 +262,33 @@ class AttractDriveTests(TempTree):
 
         self.assertGreater(self._stays_still(prepare=contract_1_asking), 0)
 
-    # -- changed while the page is open ----------------------------------------
+
+@unittest.skipIf(chromium_path() is None, "no Chromium on this machine")
+class AttractChangedWhileOpenTests(TempTree):
+    BOOTS_PER_TEST = ("It raises the step time through the Manager's API, which has no way "
+                      "to lower it again for the next test.")
 
     def test_a_change_saved_while_the_page_is_open_applies_without_reopening_it(self) -> None:
-        def save(instance: LiveInstance, **changes) -> None:
-            request = urllib.request.Request(
-                f"http://127.0.0.1:{instance.ports['manager']}/api/v1/config",
-                data=json.dumps({"settings": {"behavior": changes}}).encode(), method="PUT",
-                headers={"Content-Type": "application/json"})
-            urllib.request.urlopen(request, timeout=10).close()
+        _write_library(self.root)
 
         async def run(instance: LiveInstance):
             async with BrowserSession(chromium_path() or "") as browser:
-                await self._open(instance, browser)
+                await _open(instance, browser)
                 await asyncio.sleep(QUIET_WINDOW_S)
                 still = await browser.evaluate("window.__moves.length")
-                save(instance, attract_enabled=True)
+                _save(instance, attract_enabled=True)
                 await browser.wait_for(ATTRACTING, timeout=30.0)
-                save(instance, attract_step_time=2)
+                _save(instance, attract_step_time=2)
                 await asyncio.sleep(PRESS_ACTS_WITHIN_S)
                 kept = await browser.evaluate(ATTRACTING)
-                save(instance, attract_enabled=False)
+                _save(instance, attract_enabled=False)
                 await browser.wait_for(f"!{ATTRACTING}", timeout=30.0)
                 await browser.wait_for(f"{SELECTED} === 0", timeout=10.0)
                 return still, kept
 
         with LiveInstance(self.root, extra_settings={
                 **FAST, ("behavior", "attract_enabled"): False}) as instance:
+            instance.wait_for_api()
             still, kept = asyncio.run(run(instance))
         self.assertEqual(still, 0)
         self.assertTrue(kept, "a new step time does not end the run in progress")
