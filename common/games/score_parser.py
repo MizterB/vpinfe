@@ -1634,6 +1634,8 @@ def detect_score_kind(rom_name: str, filename: str | None = None) -> str:
         return "txt"
     if filename and Path(filename).suffix.lower() == ".ini":
         return "ini"
+    if filename and Path(filename).suffix.lower() == ".txt":
+        return "txt"
 
     resolved_rom_name = resolve_rom_name(rom_name)
     return roms[resolved_rom_name]["scoretype"]
@@ -1654,8 +1656,9 @@ def result_to_jsonable(
 ) -> dict | None:
     """The reading as plain data. `initials` goes on a blank score, as
     `apply_default_initials` takes it."""
-    resolved_rom_name = resolve_rom_name(rom_name)
     score_kind = detect_score_kind(rom_name, filename)
+    # A text file is not a ROM, so there is no map entry to look up.
+    resolved_rom_name = rom_name if score_kind == "txt" else resolve_rom_name(rom_name)
     result = apply_default_initials(result, initials)
 
     if isinstance(result, int):

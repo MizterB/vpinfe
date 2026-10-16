@@ -108,18 +108,21 @@ def apply_runtime_update(config: dict, elapsed_seconds: float, table: str = "") 
     return user
 
 
-def parse_score_from_nvram(game: Game, rom: str,
-                           initials: str | None = None) -> tuple[dict | None, str | None]:
+def parse_score_from_nvram(game: Game, rom: str, initials: str | None = None,
+                           entry: dict | None = None) -> tuple[dict | None, str | None]:
     """`rom`'s high score table and where it was read from. `initials` goes on a blank
-    score, the one player up's when it is None; "" leaves them blank."""
+    score, the one player up's when it is None; "" leaves them blank. `entry`, the table,
+    lets a score file its script names stand in where the ROM has no source; `rom` is
+    then what the table's scores are kept under."""
     if not rom:
         logger.debug("No ROM name found for %s, skipping score update", game.game_dir_name)
         return None, None
 
     try:
-        from common.games.score_parser import read_rom_with_source, result_to_jsonable
+        from common.games.em_scores import read_with_source
+        from common.games.score_parser import result_to_jsonable
 
-        parsed_result, score_path = read_rom_with_source(rom, str(game.full_path_game))
+        parsed_result, score_path = read_with_source(game, entry or {"rom": rom}, prefer=(rom,))
         score_data = result_to_jsonable(rom, parsed_result, score_path, initials)
     except FileNotFoundError:
         logger.debug("No score source found for %s and ROM %s", game.game_dir_name, rom)

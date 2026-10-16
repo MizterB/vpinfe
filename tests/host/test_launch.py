@@ -282,6 +282,20 @@ class PlayDataTests(LaunchTests):
                                                       "/nv/example.nv")
         play.delete_nvram_if_configured.assert_called_once()
 
+    def test_a_table_with_no_rom_is_kept_under_its_score_files_name(self) -> None:
+        """A first game on an EM table makes its score file, so the name is not known
+        until the game is over."""
+        game = _game()
+        after = _reading(("OWN", 400))
+
+        with mock.patch.object(launch.em_scores, "key_of", side_effect=["", "Scores.txt"]):
+            play = self._run(game=game, readings=[(None, None), (after, "/u/Scores.txt")])
+
+        self.assertEqual([call.args[1] for call in play.parse_score_from_nvram.call_args_list],
+                         ["", "Scores.txt"])
+        play.keep_high_scores.assert_called_once_with(game, "Scores.txt", after, None,
+                                                     "/u/Scores.txt")
+
     def test_the_played_tables_rom_is_read_and_cleared(self) -> None:
         """A game whose tables declare different ROMs: the default's is not the one a
         mod on its own ROM plays."""

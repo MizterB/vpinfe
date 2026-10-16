@@ -124,6 +124,8 @@ BASELINE: dict[str, int] = {
     "manager/workbench/launcher.py": 7,
     "manager/workbench/selection_marks.py": 5,
     "common/games/marks_ops.py": 4,
+    # The score file a table's own script names: the table's script is the subject.
+    "common/games/em_scores.py": 2,
     "httpapi/core_capabilities.py": 5,
     "httpapi/filesystem.py": 1,
     "httpapi/games.py": 4,

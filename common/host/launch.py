@@ -28,10 +28,10 @@ from common.config.config_store import ConfigStore
 from common.config.paths import CAPTURE_DIR, PLUGIN_PROFILES_DIR
 from common.failures import why
 from common.games import (
+    em_scores,
     game_identity,
     game_play_service,
     game_repository,
-    high_scores,
     info_file,
     launchers,
     library_folders,
@@ -321,10 +321,13 @@ def _in_their_records(game: Game, whose: list[players.Player],
 
 
 def _record_play(game: Game, elapsed_seconds: float, table: str, rom: str,
-                 up: list[players.Player], before: dict | None) -> dict[str, Any]:
+                 up: list[players.Player], before: dict | None, entry: dict) -> dict[str, Any]:
     """Play data for a finished session, and what `table.play_recorded` says about it.
     Runs on every path, and reads the hardware once."""
-    after, score_path = game_play_service.parse_score_from_nvram(game, rom, initials="")
+    # A table with no ROM has no score file to name until its first game saves one.
+    rom = rom or em_scores.key_of(game, entry)
+    after, score_path = game_play_service.parse_score_from_nvram(game, rom, initials="",
+                                                                  entry=entry)
     if after:
         game_play_service.keep_high_scores(game, rom, after, before, score_path)
     one = up[0] if len(up) == 1 else None
@@ -442,7 +445,7 @@ def launch_game(game: Game, ini_config: ConfigStore, *, source: str,
     table_id, entry = _resolve_entry(game, table)
     _location_is_reachable(game)
     vpx_path = _path_of(game, entry)
-    rom = high_scores.rom_of(entry)
+    rom = em_scores.key_of(game, entry)
     launcher, asked_for = _launcher_for(table_id, entry)
     binary = _binary_of(launcher)
     # _binary_of refuses a launcher that is missing or cannot run, so there is one here.
@@ -493,7 +496,8 @@ def launch_game(game: Game, ini_config: ConfigStore, *, source: str,
             cmd, marker = _plan(playing, binary, launcher, capture=folder,
                                 record_sound=record_sound)
             if not capturing:
-                before, _ = game_play_service.parse_score_from_nvram(game, rom, initials="")
+                before, _ = game_play_service.parse_score_from_nvram(
+                    game, rom, initials="", entry=entry)
             launched = {"game": game, "ini_config": ini_config, "table_id": table_id,
                         "game_id": game_identity.game_id(game), "source": source,
                         "up": [player.as_payload() for player in up],
@@ -556,7 +560,7 @@ def launch_game(game: Game, ini_config: ConfigStore, *, source: str,
 
     if started_at is not None and not capturing:
         recorded = _record_play(game, max(0.0, time.time() - started_at),
-                                tables.entry_native_key(entry), rom, up, before)
+                                tables.entry_native_key(entry), rom, up, before, entry)
         events.emit(events.TABLE_PLAY_RECORDED, game=game, ini_config=ini_config,
                     table_id=table_id, game_id=game_identity.game_id(game),
                     source=source, private=_is_private(game), **recorded)

@@ -12,7 +12,7 @@ from typing import Any
 
 from common import service_errors
 from common.failures import why
-from common.games import game_lens, high_scores, score_parser
+from common.games import em_scores, game_lens, high_scores, score_parser
 from common.games.game import Game
 from common.games.game_metadata import default_table, load_game_meta, persist_game_meta
 from common.games.game_repository import reread_game
@@ -40,37 +40,42 @@ def for_table(game_id: str, table_id: str) -> dict[str, Any] | None:
 
 
 def look(game: Game, entry: dict[str, Any]) -> dict[str, Any] | None:
-    """What can be shown for `entry`'s ROM, as `high_scores.shown` gives it, or None
+    """What can be shown for `entry`'s machine, as `high_scores.shown` gives it, or None
     where there is nothing to show and nothing a game would change."""
     rom = high_scores.rom_of(entry)
-    if not rom:
+    game_dir = str(game.full_path_game or "")
+    source = _score_file(rom, game_dir) if rom else None
+    found = None
+    if source is None and not (rom and em_scores.in_the_map(rom)):
+        found = em_scores.find(game, entry)
+        source = str(found.path) if found else None
+    key = rom or (found.path.name if found else "")
+    if not key:
         return None
     table_id = str(entry.get(TABLE_ID_KEY, "") or "")
-    game_dir = str(game.full_path_game or "")
-    held = high_scores.kept(load_game_meta(game), rom)
-    source = _score_file(rom, game_dir)
+    held = high_scores.kept(load_game_meta(game), key)
 
     if source and _newer(source, held):
         try:
-            parsed, path = score_parser.read_rom_with_source(rom, game_dir)
-            reading = score_parser.result_to_jsonable(rom, parsed, path, "")
+            parsed, path = em_scores.read_with_source(game, entry)
+            reading = score_parser.result_to_jsonable(key, parsed, path, "")
         except KeyError:
-            return high_scores.shown(rom, table_id, None, state=high_scores.UNSUPPORTED)
+            return high_scores.shown(key, table_id, None, state=high_scores.UNSUPPORTED)
         except Exception as exc:  # noqa: BLE001 - the reason is the answer
-            logger.warning("Could not read the high scores of %s for %s: %s", rom,
+            logger.warning("Could not read the high scores of %s for %s: %s", key,
                            game.game_dir_name, exc)
-            return high_scores.shown(rom, table_id, held, state=high_scores.UNREADABLE,
+            return high_scores.shown(key, table_id, held, state=high_scores.UNREADABLE,
                                      reason=why(exc))
         if not reading:
-            return high_scores.shown(rom, table_id, None, state=high_scores.NONE_YET)
+            return high_scores.shown(key, table_id, None, state=high_scores.NONE_YET)
         held = high_scores.record(reading, high_scores.as_reading(held), utc_now_iso())
-        _keep(game, rom, held)
+        _keep(game, key, held)
 
     if held is not None:
-        return high_scores.shown(rom, table_id, held)
-    if source is None and not _in_the_map(rom):
+        return high_scores.shown(key, table_id, held)
+    if source is None and not em_scores.in_the_map(key):
         return None
-    return high_scores.shown(rom, table_id, None, state=high_scores.NONE_YET)
+    return high_scores.shown(key, table_id, None, state=high_scores.NONE_YET)
 
 
 def _score_file(rom: str, game_dir: str) -> str | None:
@@ -87,14 +92,6 @@ def _newer(path: str, held: dict[str, Any] | None) -> bool:
     try:
         return os.path.getmtime(path) > read_at
     except OSError:
-        return False
-
-
-def _in_the_map(rom: str) -> bool:
-    try:
-        return (score_parser.uses_special_text_score_file(rom)
-                or score_parser.resolve_rom_name(rom) in score_parser.roms)
-    except (OSError, ValueError):
         return False
 
 

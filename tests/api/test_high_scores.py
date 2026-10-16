@@ -36,7 +36,7 @@ def _kept(entries: list[ParsedEntry], read_at: str | None) -> dict:
             "entries": [asdict(entry) for entry in entries]}
 
 
-class HighScoreReadTests(TempTree):
+class _HighScoreLibrary(TempTree):
     def _library(self, *, roms: dict[str, str], held: dict | None = None,
                  score_files: tuple[str, ...] = ()) -> None:
         """One game whose tables declare `roms` (table id -> ROM), the first its default."""
@@ -73,6 +73,8 @@ class HighScoreReadTests(TempTree):
         return patch("common.games.score_parser.read_rom_with_source",
                      return_value=(entries, str(Path("/nv/abc_l1.nv"))))
 
+
+class HighScoreReadTests(_HighScoreLibrary):
     def test_a_newer_score_file_is_read_again_and_kept(self) -> None:
         self._library(roms={"t1": "abc_l1"}, score_files=("abc_l1",),
                       held={"abc_l1": _kept(BEFORE, "2026-01-01T00:00:00Z")})
@@ -184,3 +186,71 @@ class HighScoreReadTests(TempTree):
         self.assertEqual(response.status_code, 200, response.text)
         shown = response.json()["user"]["high_scores"]
         self.assertEqual(len(shown["sections"][0]["entries"]), 2)
+
+
+class ScoreFileTheScriptNamesTests(_HighScoreLibrary):
+    """An EM table has no ROM to read: its script names a text file in `user/`."""
+
+    SCORES = "7500\n7000\n6000\n5500\n5000\nAAA\nZZZ\nXXX\nABC\nBBB\n"
+
+    def _saved(self, **files: str) -> None:
+        for name, text in files.items():
+            target = self.folder / "user" / name
+            target.parent.mkdir(exist_ok=True)
+            target.write_text(text, encoding="utf-8")
+
+    def _script_names(self, *names: str):
+        return patch("common.games.em_scores._strings_of", return_value="\n".join(names))
+
+    def test_a_rom_outside_the_map_is_read_from_the_file_its_script_names(self) -> None:
+        self._library(roms={"t1": "gtb_2001"})
+        self._saved(**{"Scores.txt": self.SCORES, "LMEMTables.txt": "1\n"})
+
+        with self._script_names("scores.txt", "lmemtables.txt"):
+            shown = self._get()
+
+        self.assertEqual((shown["state"], shown["rom"]), ("read", "gtb_2001"))
+        (section,) = shown["sections"]
+        self.assertEqual([(one["initials"], one["score"]) for one in section["entries"]][:2],
+                         [("AAA", 7500), ("ZZZ", 7000)])
+        self.assertEqual(self._stored()["gtb_2001"]["score_kind"], "txt")
+
+    def test_a_table_with_no_rom_is_kept_under_the_files_name(self) -> None:
+        self._library(roms={"t1": ""})
+        self._saved(**{"Scores.txt": self.SCORES})
+
+        with self._script_names("scores.txt"):
+            shown = self._get()
+
+        self.assertEqual((shown["state"], shown["rom"]), ("read", "Scores.txt"))
+        self.assertIn("Scores.txt", self._stored())
+
+    def test_a_file_the_script_does_not_name_is_not_the_tables(self) -> None:
+        self._library(roms={"t1": "gtb_2001"})
+        self._saved(**{"Notes.txt": self.SCORES})
+
+        with self._script_names("scores.txt"):
+            self.assertIsNone(self._get())
+
+    def test_a_saved_file_with_nothing_that_reads_as_scores_shows_nothing(self) -> None:
+        self._library(roms={"t1": ""})
+        self._saved(**{"LMEMTables.txt": "1\n"})
+
+        with self._script_names("lmemtables.txt"):
+            self.assertIsNone(self._get())
+
+    def test_a_newer_file_is_read_again(self) -> None:
+        self._library(roms={"t1": "gtb_2001"})
+        self._saved(**{"Scores.txt": self.SCORES})
+        with self._script_names("scores.txt"):
+            self._get()
+        later = time.time() + 60
+        self._saved(**{"Scores.txt": self.SCORES.replace("7500", "9900")})
+        os.utime(self.folder / "user" / "Scores.txt", (later, later))
+
+        with self._script_names("scores.txt"):
+            shown = self._get()
+
+        entries = shown["sections"][0]["entries"]
+        self.assertEqual([(one["score"], one["new"]) for one in entries][:2],
+                         [(9900, True), (7000, False)])

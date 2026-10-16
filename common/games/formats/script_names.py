@@ -27,7 +27,12 @@ def named_in(script: str, names: Iterable[str]) -> set[str]:
     A name is a file's name with or without its extension, or a VPReg set. Whole words,
     so `scores` is not found in `highscores`.
     """
-    held = strings_in(script)
+    return named_in_strings(strings_in(script), names)
+
+
+def named_in_strings(held: str, names: Iterable[str]) -> set[str]:
+    """`named_in` for a script already reduced by `strings_in`, so the script is read
+    once for any number of questions."""
     if not held:
         return set()
     found = set()
