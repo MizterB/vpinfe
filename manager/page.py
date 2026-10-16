@@ -1342,9 +1342,8 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
         splitter._props["limits"] = [RAIL_PX if not shown else WORKBENCH_MIN_PX,
                                      WORKBENCH_MAX_PX]
         splitter.update()
-        # The width you chose, not the width it opens at: show_workbench runs on every
-        # selection, so restoring the constant here snapped the pane back to 320 every
-        # time you clicked a game.
+        # The width you chose, not the width it opens at: the constant would snap the
+        # pane back to 320 every time it reopened.
         splitter.set_value(state.get("workbench_px", WORKBENCH_WIDE_PX) if shown
                            else RAIL_PX)
         panel.set_visibility(shown)
@@ -1458,10 +1457,6 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
         control to keep in step - the place you are in is the answer, which is what
         making a subject a rail entry rather than a dropdown bought.
         """
-        # A selection is the only thing that opens the pane. Arriving at a section does
-        # not, because there is nothing selected yet to be about.
-        if row and not state["workbench"]:
-            show_workbench(True)
         by_table = state["view"] == "tables"
         state["game"] = (row or {}).get("game_id" if by_table else "id")
         state["table"] = (row or {}).get("id") if by_table else ""
@@ -1483,8 +1478,6 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
     async def show_slot(row: dict | None) -> None:
         """The address keeps the game, the table and the kind, which is all a link to a
         file carries; the panel finds the row again from those."""
-        if row and not state["workbench"]:
-            show_workbench(True)
         state["game"] = (row or {}).get("game_id") or ""
         state["table"] = (row or {}).get("table") or ""
         if row:
@@ -1503,8 +1496,6 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
         the panel a moment after the page opened one. There is no way to select no
         device, so the last one stands.
         """
-        if row and not state["workbench"]:
-            show_workbench(True)
         wanted = (row or {}).get("id") or state.get("device_id")
         state["device_id"] = wanted
         chosen = next((d for d in devices
@@ -1517,8 +1508,6 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
     async def show_theme(row: dict | None) -> None:
         """The panel follows the focused row, as it does for every subject. A row of
         nothing is the grid settling, and the last theme stands."""
-        if row and not state["workbench"]:
-            show_workbench(True)
         state["theme_key"] = (row or {}).get("id") or state.get("theme_key")
         await builds.build_theme(panel, workbench_title, library, state["theme_key"],
                                  state)
@@ -1547,8 +1536,6 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
     async def show_collection(row: dict | None) -> None:
         """What the grid has selected is what the workbench is about - the same rule
         Games follows, so the panel never needs a control of its own."""
-        if row and not state["workbench"]:
-            show_workbench(True)
         chosen = (row or {}).get("id")
         # The whole library is no collection: the Games page and the address must not
         # be told to filter by it.
@@ -1561,8 +1548,6 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
         deeplink.sync(state)
 
     async def show_tag(row: dict | None) -> None:
-        if row and not state["workbench"]:
-            show_workbench(True)
         state["tag"] = (row or {}).get("id") or None
         await builds.build_tag(panel, workbench_title, library, state["tag"], state)
 
@@ -1570,8 +1555,6 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
     async def show_launcher(row: dict | None) -> None:
         """What the grid has selected is what the workbench is about, the same rule
         every other subject follows."""
-        if row and not state["workbench"]:
-            show_workbench(True)
         state["launcher"] = (row or {}).get("id")
         await builds.build_launcher(panel, workbench_title, library,
                                     state["launcher"], state)
@@ -1581,8 +1564,6 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
     async def show_player(row: dict | None) -> None:
         """What the grid has selected is what the workbench is about, the same rule
         every other subject follows."""
-        if row and not state["workbench"]:
-            show_workbench(True)
         state["player"] = (row or {}).get("id")
         await builds.build_player(panel, workbench_title, library, state["player"],
                                   state)
@@ -1592,8 +1573,6 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
     async def show_discovery(row: dict | None) -> None:
         """What the grid has selected is what the workbench is about, the same rule
         every other subject follows."""
-        if row and not state["workbench"]:
-            show_workbench(True)
         state["entry"] = (row or {}).get("id")
         await builds.build_discovery(panel, workbench_title, library, state["entry"], state)
         deeplink.sync(state)
@@ -1602,8 +1581,6 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
     async def show_backup(row: dict | None) -> None:
         """What the grid has selected is what the workbench is about, the same rule
         every other subject follows."""
-        if row and not state["workbench"]:
-            show_workbench(True)
         state["backup"] = (row or {}).get("id")
         await builds.build_backup(panel, workbench_title, library, state["backup"], state)
         deeplink.sync(state)
@@ -1613,8 +1590,6 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
                                  again: Any) -> None:
         """What an extension's list has open is what the workbench is about, the same rule
         every other subject follows."""
-        if rows and not state["workbench"]:
-            show_workbench(True)
         state["ext_row"] = str(rows[0]["id"]) if len(rows) == 1 else ""
         await builds.build_extension_row(panel, workbench_title, library, extension,
                                          declared, [str(one["id"]) for one in rows],

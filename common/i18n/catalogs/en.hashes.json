@@ -2375,6 +2375,8 @@
   "manager.games.delete_script": "9f82a2cabd2c",
   "manager.games.delete_view": "9175f58b86ef",
   "manager.games.deleted": "7dde1166fef9",
+  "manager.games.edit_games": "d6f0bb6e5d0d",
+  "manager.games.edit_tables": "ed75454ba1ba",
   "manager.games.empty": "c5b0245794c9",
   "manager.games.empty_tables": "7c1ba397c3a6",
   "manager.games.extract_script": "4826c928ec27",

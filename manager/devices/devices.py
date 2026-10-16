@@ -502,7 +502,8 @@ async def _confirm_forget(library: Any, device: dict[str, Any],
 
 
 @on_page
-async def _add_mobile(rerender: Callable[[], None] | None) -> None:
+async def _add_mobile(rerender: Callable[[], None] | None,
+                      open_pane: Callable[[], None] | None = None) -> None:
     """The add dialog, and the new device's panel once it is added."""
     added = await mobile_add.add_mobile()
     if not added:
@@ -510,6 +511,8 @@ async def _add_mobile(rerender: Callable[[], None] | None) -> None:
     grid.land_on(SCOPE, {"id": str(added.get("device_id") or "")})
     if rerender is not None:
         rerender()
+    if open_pane is not None:
+        open_pane()
 
 
 @on_page
@@ -846,7 +849,8 @@ def build(found: list[dict[str, Any]], library: Any, state: dict[str, Any],
         with bar.bottom, panel.bar_end():
             count = ui.label(said()).classes("text-xs manager-label")
             panel.add_action(
-                [(t("manager.devices.add_mobile"), lambda: _add_mobile(rerender))],
+                [(t("manager.devices.add_mobile"),
+                  lambda: _add_mobile(rerender, state.get("open_pane")))],
                 empty=all(row.get("self") for row in built))
             show_selection = panel.selection_menu(
                 t("manager.devices.bulk_menu"), lambda: grid.selection(table),

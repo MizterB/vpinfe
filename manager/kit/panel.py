@@ -693,6 +693,25 @@ def selection_actions(hint: str) -> tuple[Any, Any]:
     return control, menu
 
 
+def edit_selected(label: str, on_click: Callable[[], Any]) -> Callable[[int], None]:
+    """The way into the panel for the rows ticked, where the page shows the list or the
+    panel but not both. Hidden by the stylesheet wherever they sit side by side.
+
+    `label` is the catalog key of its plural text. Answers the function that sets it,
+    given how many are ticked: it shows for two or more and hides otherwise.
+    """
+    button = ui.button(t(label, count=2), icon=verbs.EDIT, on_click=on_click) \
+        .props("flat dense no-caps size=sm") \
+        .classes("manager-action manager-edit-selected")
+    button.set_visibility(False)
+
+    def update(ticked: int) -> None:
+        button.text = t(label, count=ticked)
+        button.set_visibility(ticked >= 2)
+
+    return update
+
+
 def selection_menu(hint: str, rows: Callable[[], list[Any]],
                    acts: Callable[[list[Any]], Sequence[Verb]],
                    clear: Callable[[], Any],

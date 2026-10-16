@@ -302,7 +302,7 @@ def build(collections: list[dict[str, Any]], library: Any,
                                     moves=moves(chosen[0]["name"]) if chosen else ()),
                 lambda: table.run_grid_method("deselectAll"))
             panel.add_action([(t("manager.collections.new_collection"),
-                               lambda: collection_adds.ask_new(library, reread))],
+                               lambda: collection_adds.ask_new(library, created))],
                               empty=not collections_only())
 
     by_id = {row["id"]: row for row in built}
@@ -449,6 +449,11 @@ def build(collections: list[dict[str, Any]], library: Any,
             opened = on_select(by_id.get(focus))
             if inspect.isawaitable(opened):
                 await opened
+
+    async def created(name: str) -> None:
+        await reread(name)
+        if callable(open_pane := state.get("open_pane")):
+            open_pane()
 
     state["refresh_collections"] = reread
 

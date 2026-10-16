@@ -1603,6 +1603,14 @@
   "manager.games.games_of": "{shown:n} öƒ {count:n} ĝàɱèš",
   "manager.games.filter_own": "Ĥàš Šèţţîñĝš öƒ Îţš Öŵñ",
   "manager.games.selection_back": "Šĥöŵ ţĥè šèŀèçţîöñ îñ ţĥè þàñèŀ",
+  "manager.games.edit_games": {
+    "one": "Èđîţ {count:n} ĝàɱè",
+    "other": "Èđîţ {count:n} ĝàɱèš"
+  },
+  "manager.games.edit_tables": {
+    "one": "Èđîţ {count:n} ţàƀŀè",
+    "other": "Èđîţ {count:n} ţàƀŀèš"
+  },
   "manager.selection.changed_tables": {
     "one": "{count:n} ţàƀŀè çĥàñĝèđ",
     "other": "{count:n} ţàƀŀèš çĥàñĝèđ"

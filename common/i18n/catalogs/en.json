@@ -1603,6 +1603,14 @@
   "manager.games.games_of": "{shown:n} of {count:n} games",
   "manager.games.filter_own": "Has Settings of Its Own",
   "manager.games.selection_back": "Show the selection in the panel",
+  "manager.games.edit_games": {
+    "one": "Edit {count:n} game",
+    "other": "Edit {count:n} games"
+  },
+  "manager.games.edit_tables": {
+    "one": "Edit {count:n} table",
+    "other": "Edit {count:n} tables"
+  },
   "manager.selection.changed_tables": {
     "one": "{count:n} table changed",
     "other": "{count:n} tables changed"

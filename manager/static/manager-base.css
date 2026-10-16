@@ -4218,6 +4218,7 @@ svg.manager-cell-noart {
    button goes and the rules below hold whether or not it was on. */
 .manager-pane-box { container: manager-pane / inline-size; }
 .manager-pane-back { display: none; }
+.manager-edit-selected { display: none; }
 @container manager-pane (max-width: 703px) {
   .manager-pane-box:not(.manager-no-pane) > .q-splitter__separator { display: none !important; }
   .manager-pane-box:not(.manager-no-pane, .manager-opened) > .q-splitter__after {
@@ -4239,6 +4240,7 @@ svg.manager-cell-noart {
     width: auto !important;
     flex: 10000 1 0% !important;
   }
+  .manager-edit-selected:not(.hidden) { display: inline-flex; }
   .manager-opened .manager-pane-back { display: inline-flex; }
   .manager-opened .manager-pane-full, .manager-opened .manager-panel-toggle { display: none; }
 }

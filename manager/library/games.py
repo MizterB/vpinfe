@@ -475,6 +475,8 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
             # looking at - and it costs no vertical space of its own.
             count = ui.label(t("manager.games.games", count=len(rows))) \
                 .classes("text-xs manager-label")
+            show_edit = panel.edit_selected("manager.games.edit_games",
+                                            lambda: edit_these())
             show_selection = panel.selection_menu(
                 t("manager.games.games_menu"), lambda: grid.selection(table),
                 lambda chosen: game_verbs(chosen, adding["known"]),
@@ -534,10 +536,16 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
 
     count.on("click", show_again)
 
+    async def edit_these() -> None:
+        await show_again()
+        if callable(opened := state.get("open_pane")):
+            opened()
+
     async def on_select_rows(rows_selected: list[dict[str, Any]]) -> None:
         selected[:] = rows_selected
         state["ticked"] = len(rows_selected)
         show_selection(bool(rows_selected))
+        show_edit(len(rows_selected) if on_selection is not None else 0)
         count.text = said()
         await follow_selection()
 
@@ -546,9 +554,8 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
     def focused(event: Any) -> Any:
         """The row the keyboard or a click landed on, and the part of it in question.
 
-        A media cell is a question about one slot, so the panel opens there - out of a
-        collapsed panel too, because clicking a picture is asking to see it. A view only
-        names its section: reopening a panel somebody shut would fight them every row.
+        A media cell is a question about one slot, so the panel opens there. A view only
+        names its section. Focus never reopens a panel somebody shut; a press does.
         """
         if viewing["on"] and grid.ticked(event):
             return None
@@ -1368,6 +1375,8 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
         with bar.bottom, panel.bar_end():
             count = ui.label(_tables_said(built, len(built))) \
                 .classes("text-xs manager-label")
+            show_edit = panel.edit_selected("manager.games.edit_tables",
+                                            lambda: edit_these())
             panel.action(t("manager.games.check_scripts"), check_scripts, icon=verbs.REVIEW,
                          hint=t("manager.games.check_scripts.help"))()
             show_selection = panel.selection_menu(
@@ -1450,10 +1459,16 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
 
     count.on("click", show_again)
 
+    async def edit_these() -> None:
+        await show_again()
+        if callable(opened := state.get("open_pane")):
+            opened()
+
     async def on_select_rows(rows_selected: list[dict[str, Any]]) -> None:
         selected[:] = rows_selected
         state["ticked"] = len(rows_selected)
         show_selection(bool(rows_selected))
+        show_edit(len(rows_selected) if on_selection is not None else 0)
         count.text = said()
         await follow_selection()
 
