@@ -93,7 +93,8 @@ class BrowserPageTests(unittest.IsolatedAsyncioTestCase):
         self.ui = self.enterContext(patch.object(settings, "ui"))
         self.enterContext(patch.object(settings, "page_head"))
         self.facts = self.enterContext(patch.object(panel, "facts"))
-        self.enterContext(patch.object(panel, "states", side_effect=lambda chips: list(chips)))
+        self.enterContext(patch.object(
+            panel, "states", side_effect=lambda chips, note="": list(chips)))
         self.action = self.enterContext(patch.object(panel, "action"))
         self.link = self.enterContext(patch.object(panel, "link"))
         self.offer = self.enterContext(patch.object(undo, "offer"))
@@ -272,14 +273,23 @@ class BrowserPageTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertNotIn("From", self._labels(await self._drawn()))
 
-    async def test_a_browser_that_has_not_reported_is_one_not_checked_chip_and_no_audio_row(
+    async def test_a_browser_that_has_not_reported_shows_every_format_as_unknown_in_both_rows(
             self) -> None:
         entries = await self._drawn()
 
-        [(text, level, _hint)] = self._value(entries, t("manager.settings.browser_video"))
-        self.assertEqual((text, level), (t("manager.devices.browser_not_checked"), "unknown"))
-        self.assertNotIn(t("manager.settings.browser_audio"), self._labels(entries))
+        for label, names in ((t("manager.settings.browser_video"), ["H.264", "HEVC", "VP9", "AV1"]),
+                             (t("manager.settings.browser_audio"),
+                              ["AAC", "MP3", "Vorbis", "Opus"])):
+            self.assertEqual(self._levels(entries, label), dict.fromkeys(names, "unknown"))
         self.assertIsNot(entries[0][0], panel.FULL)
+
+    async def test_the_not_checked_note_sits_under_the_video_row_only(self) -> None:
+        notes: list[str] = []
+        with patch.object(panel, "states",
+                          side_effect=lambda chips, note="": notes.append(note) or list(chips)):
+            await self._drawn()
+
+        self.assertEqual(notes, [t("manager.settings.browser_not_checked"), ""])
 
     async def test_no_browser_at_all_is_one_chip_saying_so(self) -> None:
         self.in_use.unlink()
@@ -294,7 +304,8 @@ class BrowserPageTests(unittest.IsolatedAsyncioTestCase):
 
         entries = await self._drawn()
 
-        self.assertNotIn(t("manager.settings.browser_audio"), self._labels(entries))
+        self.assertEqual(set(self._levels(entries, t("manager.settings.browser_audio")).values()),
+                         {"unknown"})
 
     async def test_an_install_too_old_to_say_draws_its_settings_alone(self) -> None:
         with patch.object(self.served, "frontend_browser", return_value={}):

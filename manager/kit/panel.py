@@ -408,14 +408,23 @@ def state(text: str, level: str, *, beside: str = "", hint: str = "",
     return draw
 
 
-def states(chips: Sequence[tuple[str, str, str]]) -> Callable[[], None]:
-    """A run of `state` chips as (text, level, hint), wrapping where the panel is narrow."""
-    def draw() -> None:
+def states(chips: Sequence[tuple[str, str, str]], note: str = "") -> Callable[[], None]:
+    """A run of `state` chips as (text, level, hint), wrapping where the panel is narrow,
+    with `note` as a help line under them."""
+    def row() -> None:
         with ui.element("div").classes("manager-fact-edit flex-wrap"):
             for text, level, hint in chips:
                 chip = ui.label(text).classes(f"manager-tier manager-tier--{level}")
                 if hint:
                     chip.tooltip(hint)
+
+    def draw() -> None:
+        if not note:
+            row()
+            return
+        with ui.element("div").classes("flex flex-col gap-1"):
+            row()
+            ui.label(note).classes("manager-help")
 
     return draw
 

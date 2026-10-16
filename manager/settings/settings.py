@@ -762,21 +762,29 @@ def _format_level(found: dict[str, Any], one: frontend_browser.Format) -> str:
 
 def _browser_rows(found: dict[str, Any]) -> list[tuple[Any, Any]]:
     """What the browser plays, as a row of chips for the video formats and one for the
-    audio formats. A browser with no program, or no report on file, is one chip saying so."""
-    if found.get("state") == frontend_browser.NO_BROWSER or not found.get("reported_at"):
-        said = browser_state.STATES[
-            "no_browser" if found.get("state") == frontend_browser.NO_BROWSER else "unknown"]
-        return [(t("manager.settings.browser_video"),
-                 panel.states([(said["label"], said["tier"], said["why"])]))]
-    stamp = str(found["reported_at"])
-    ago = when.ago(stamp, inline=True)
+    audio formats. Before a report is on file the chips are all unknown; a browser with no
+    program is one chip saying so."""
+    video, audio = t("manager.settings.browser_video"), t("manager.settings.browser_audio")
+    if found.get("state") == frontend_browser.NO_BROWSER:
+        said = browser_state.STATES["no_browser"]
+        return [(video, panel.states([(said["label"], said["tier"], said["why"])]))]
+    if not found.get("reported_at"):
+        why_grey = browser_state.STATES["unknown"]["why"]
+        return [(label, panel.states(
+                    [(one.name, "unknown", why_grey)
+                     for one in frontend_browser.FORMATS if one.kind == kind],
+                    note=t("manager.settings.browser_not_checked") if kind == frontend_browser.VIDEO
+                    else ""))
+                for kind, label in ((frontend_browser.VIDEO, video),
+                                    (frontend_browser.AUDIO, audio))]
+    ago = when.ago(str(found["reported_at"]), inline=True)
     hint = (t("manager.settings.browser_hover", browser=found["browser"], when=ago)
             if found.get("browser")
             else t("manager.settings.browser_hover_nameless", when=ago))
     return [(label, panel.states([(one.name, _format_level(found, one), hint)
                                   for one in frontend_browser.FORMATS if one.kind == kind]))
-            for kind, label in ((frontend_browser.VIDEO, t("manager.settings.browser_video")),
-                                (frontend_browser.AUDIO, t("manager.settings.browser_audio")))]
+            for kind, label in ((frontend_browser.VIDEO, video),
+                                (frontend_browser.AUDIO, audio))]
 
 
 def _browser_finding(library: Library, rerender: Callable[[], None],

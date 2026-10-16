@@ -3037,6 +3037,7 @@
   "manager.settings.browser_audio": "Audio",
   "manager.settings.browser_bundled": "Bundled with VPinFE",
   "manager.settings.browser_found_here": "Found on this device",
+  "manager.settings.browser_not_checked": "Not checked yet, filled in when the frontend next opens",
   "manager.settings.browser_hover": "{browser}, checked {when}",
   "manager.settings.browser_hover_nameless": "Checked {when}",
   "manager.settings.browser_video": "Video",
