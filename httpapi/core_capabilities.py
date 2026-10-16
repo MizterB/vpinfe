@@ -77,9 +77,9 @@ def _rom_audit_available() -> bool | tuple[bool, str]:
 
 
 def _actions_available() -> bool | tuple[bool, str]:
-    """Whether anything on this build performs any of them. A headless install owns no
-    frontend windows and nothing has registered a performer, so it can be asked for
-    nothing - which a fleet surface is better off being told than discovering."""
+    """Whether anything on this build performs any of them. A build with no performer
+    registered can be asked for nothing - which a fleet surface is better off being told
+    than discovering."""
     from common.runtime import lifecycle
 
     if any(lifecycle.performable(*pair) for pair in lifecycle.offered()):

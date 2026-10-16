@@ -414,8 +414,8 @@ capabilities, `logs` and `actions`. Purely additive; every existing route is unt
 an SSH session, and the one lifecycle verb reachable over HTTP was closing a table -
 which meant the Devices surface could offer exactly that and nothing else. Served from
 `common/runtime/lifecycle.py` rather than restated, so a pair added there appears without either
-side being touched, and only what this install performs is listed: a headless one owns no
-frontend windows, and a button that reports success while nothing happened is worse than
+side being touched, and only what this install performs is listed: one with no window owner
+performs no frontend action, and a button that reports success while nothing happened is worse than
 one that is not offered. An action that takes the
 process or the machine down answers before it goes, the same order `POST /update` uses.
 Closing a table goes through the play route's own handler, which checks first, so asking

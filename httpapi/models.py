@@ -145,8 +145,9 @@ class Action(ApiModel):
     """One thing an install can be told to do to itself.
 
     Listed only where this install performs it, which is not the same as whether this
-    build's vocabulary has it: a headless install owns no frontend windows. `available`
-    false, with `reason`, is for one that can run but not now.
+    build's vocabulary has it: an install without a window owner performs no frontend
+    action. `available` false, with `reason`, is for one that can run but not now, which
+    includes a frontend action on an install that is not set up as a frontend.
     """
 
     scope: str

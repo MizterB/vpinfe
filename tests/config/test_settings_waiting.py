@@ -128,6 +128,12 @@ class WaitingTests(_Base):
                     mock.patch.object(lifecycle, "performable", return_value=performable):
                 self.assertIs(settings_waiting.answer()["reopen"], performable)
 
+    def test_a_reopen_is_not_offered_where_it_cannot_run(self) -> None:
+        with mock.patch.object(lifecycle, "performable", return_value=True), \
+                mock.patch.object(lifecycle, "unavailable",
+                                  return_value="error.actions.frontend_off"):
+            self.assertIs(settings_waiting.answer()["reopen"], False)
+
 
 class ActiveThemeTests(_Base):
     def test_making_a_theme_active_joins_what_is_waiting(self) -> None:

@@ -227,15 +227,15 @@ def create_api_instances():
     def close_windows() -> None:
         runtime.close_windows(frontend_browser, logger)
 
-    # Now that there is a browser to stop, this process can say what it can do. A headless
-    # instance owns no windows, so it is told of none and offers no action on them.
+    # Now that there is a browser to stop, this process can say what it can do. Headless is
+    # how this run started, and its windows can still be opened.
     lifecycle_host.install(
         config_store=config_store,
         frontend_browser=frontend_browser,
         shutdown_event=_shutdown_event,
         ws_bridge=ws_bridge,
-        open_windows=None if headless else open_windows,
-        close_windows=None if headless else close_windows,
+        open_windows=open_windows,
+        close_windows=close_windows,
         windows_state=lambda: runtime.windows_state(frontend_browser),
     )
     app_control.install_notices()

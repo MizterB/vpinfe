@@ -4228,6 +4228,7 @@
   "device.reason.certificate_changed": "Îţ šĥöŵš à đîƒƒèřèñţ çèřţîƒîçàţè ţĥàñ ŵĥèñ îţ ŵàš þàîřèđ.",
   "error.actions.unknown_action": "Ñöţ šöɱèţĥîñĝ ṼÞîñƑÈ đöèš: {action} ţĥè {scope}. ĜÈŢ /àçţîöñš ŀîšţš ţĥèɱ.",
   "error.actions.unsupported": "Ţĥîš đèṽîçè çàññöţ đö ţĥàţ",
+  "error.actions.frontend_off": "Ţĥîš đèṽîçè îš ñöţ šèţ ûþ àš à ƒřöñţèñđ",
   "error.actions.setup_open": "Šèţûþ îš šţîŀŀ öþèñ",
   "error.actions.windows_closed": "Ţĥè ƒřöñţèñđ ŵîñđöŵš àřè ñöţ öþèñ",
   "error.actions.windows_open": "Ţĥè ƒřöñţèñđ ŵîñđöŵš àřè àŀřèàđý öþèñ",

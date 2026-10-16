@@ -40,6 +40,7 @@ RESTART = "restart"
 WINDOWS_OPEN = "open"
 WINDOWS_CLOSED = "closed"
 WINDOWS_SETUP = "setup"      # Setup's window is up, and is not closed or reopened from here
+WINDOWS_OFF = "off"          # this install is not set up to be a frontend
 
 # Naming it avoids "stop the system" reading as "stop VPinFE on the system".
 POWEROFF = (SYSTEM, STOP)
@@ -206,8 +207,9 @@ def performable(scope: str, action: str) -> bool:
     """Whether anything on this build actually does it.
 
     The allowed set says what the vocabulary has; this says what is wired up. They come
-    apart on a headless install, where nothing owns the frontend windows - and a button
-    that reports success while nothing happened is worse than one that is not offered.
+    apart on a build with no window owner, where nothing performs the frontend actions -
+    and a button that reports success while nothing happened is worse than one that is not
+    offered.
     """
     return (scope, action) in _registry.performers
 

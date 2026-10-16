@@ -100,6 +100,28 @@ class ActionsApiTests(TempTree):
         self.assertEqual(answer.status_code, 501)
         self.assertEqual(answer.json()["error"]["code"], "feature_unavailable")
 
+    def test_asking_for_a_listed_one_that_cannot_run_now_performs_nothing(self) -> None:
+        done = self._offer("frontend", "restart")
+        lifecycle.register_availability(
+            "frontend", "restart", lambda: "error.actions.windows_open")
+
+        answer = self.client.post("/actions",
+                                  json={"scope": "frontend", "action": "restart"})
+
+        self.assertEqual(answer.status_code, 409)
+        self.assertEqual(done, [])
+
+    def test_a_frontend_action_on_an_install_that_is_not_a_frontend_performs_nothing(self) -> None:
+        done = self._offer("frontend", "start")
+        lifecycle.register_availability(
+            "frontend", "start", lambda: "error.actions.frontend_off")
+
+        answer = self.client.post("/actions",
+                                  json={"scope": "frontend", "action": "start"})
+
+        self.assertEqual(answer.status_code, 501)
+        self.assertEqual(done, [])
+
     def test_asking_for_something_that_is_not_an_action_is_refused(self) -> None:
         answer = self.client.post("/actions",
                                   json={"scope": "toaster", "action": "toast"})

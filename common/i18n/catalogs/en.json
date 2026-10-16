@@ -4228,6 +4228,7 @@
   "device.reason.certificate_changed": "It shows a different certificate than when it was paired.",
   "error.actions.unknown_action": "Not something VPinFE does: {action} the {scope}. GET /actions lists them.",
   "error.actions.unsupported": "This device cannot do that",
+  "error.actions.frontend_off": "This device is not set up as a frontend",
   "error.actions.setup_open": "Setup is still open",
   "error.actions.windows_closed": "The frontend windows are not open",
   "error.actions.windows_open": "The frontend windows are already open",

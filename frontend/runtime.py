@@ -343,7 +343,10 @@ def close_windows(frontend_browser: ChromiumManager, logger: logging.Logger) -> 
 def windows_state(frontend_browser: ChromiumManager) -> str:
     """One of `lifecycle.WINDOWS_*`."""
     from common.config.paths import get_ini_config
+    from common.devices import install_identity
 
+    if not install_identity.has_feature(get_ini_config(), install_identity.FRONTEND):
+        return lifecycle.WINDOWS_OFF
     if install_setup.pending(get_ini_config()):
         return lifecycle.WINDOWS_SETUP
     # A reopen closes the windows before it opens them, and is not a time to offer Open.
@@ -424,6 +427,9 @@ def run_frontend_loop(headless: bool, iniconfig: ConfigStore,
         except KeyboardInterrupt:
             shutdown_event.set()
         logger.info("Shutting down...")
+        # Windows opened since the start would otherwise outlive the run.
+        with _reopening:
+            frontend_browser.terminate_all()
         return
 
     if install_setup.pending(iniconfig):

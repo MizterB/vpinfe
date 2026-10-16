@@ -5,9 +5,9 @@ so this serves that rather than restating it - a pair added there appears here w
 this file being touched.
 
 What the vocabulary allows is fixed by the build; what is wired up depends on the install,
-and a headless one owns no frontend windows. A button that reports success while nothing
-happened is worse than one that is not offered, so only what this install performs is
-listed.
+and one built without a window owner performs no frontend action. A button that reports
+success while nothing happened is worse than one that is not offered, so only what this
+install performs is listed.
 """
 
 from __future__ import annotations
@@ -32,6 +32,7 @@ GOES_AWAY = frozenset({
 # Why a request for an action nothing performs is refused. Older installs also sent it
 # as the reason on a listed entry, which is why a client drops entries carrying it.
 NOT_WIRED = "error.actions.unsupported"
+NOT_A_FRONTEND = "error.actions.frontend_off"
 
 
 def _describe(scope: str, action: str) -> dict:
@@ -61,6 +62,12 @@ def check(scope: str, action: str) -> tuple[str, str]:
     if not lifecycle.performable(scope, action):
         raise service_errors.UnavailableError(
             t(NOT_WIRED), details={"scope": scope, "action": action})
+    why = lifecycle.unavailable(scope, action)
+    if why:
+        # Not being a frontend is the install's answer; the rest is a state that passes.
+        refusal = (service_errors.UnavailableError if why == NOT_A_FRONTEND
+                   else service_errors.BlockedError)
+        raise refusal(t(why), details={"scope": scope, "action": action, "reason_key": why})
     return scope, action
 
 

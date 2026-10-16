@@ -73,10 +73,10 @@ class MenuOrderTests(unittest.TestCase):
 
         self.assertEqual(labels(verbs), [t("word.forget")])
 
-    def test_a_headless_install_offers_no_window_item(self) -> None:
-        headless = [one for one in EVERY if one["scope"] != lifecycle.FRONTEND]
+    def test_an_install_that_lists_no_window_action_offers_no_window_item(self) -> None:
+        no_windows = [one for one in EVERY if one["scope"] != lifecycle.FRONTEND]
 
-        verbs = acts(client=Mock(), offered=headless)
+        verbs = acts(client=Mock(), offered=no_windows)
 
         self.assertNotIn(t("action.frontend.restart"), labels(verbs))
         self.assertIn(t("action.vpinfe.restart"), labels(verbs))
@@ -138,9 +138,9 @@ class RoutedAndLedTests(unittest.TestCase):
             t("action.vpinfe.restart"), t("action.frontend.stop")])
 
     def test_a_led_pair_this_device_does_not_offer_leaves_the_menu_as_it_was(self) -> None:
-        headless = [one for one in EVERY if one["scope"] != lifecycle.FRONTEND]
+        no_windows = [one for one in EVERY if one["scope"] != lifecycle.FRONTEND]
 
-        verbs = acts(client=Mock(), offered=headless,
+        verbs = acts(client=Mock(), offered=no_windows,
                      forgettable=False,
                      led=((lifecycle.FRONTEND, lifecycle.RESTART), "1 change waiting"))
 

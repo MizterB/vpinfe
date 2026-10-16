@@ -129,7 +129,8 @@ def answer() -> dict[str, Any]:
                     "waits_for": waits, "in_effect": was[key], "set": now})
         waiting += _extensions()
     return {"waiting": waiting,
-            "reopen": lifecycle.performable(lifecycle.FRONTEND, lifecycle.RESTART),
+            "reopen": (lifecycle.performable(lifecycle.FRONTEND, lifecycle.RESTART)
+                       and not lifecycle.unavailable(lifecycle.FRONTEND, lifecycle.RESTART)),
             "http_port": store.value("network", "http_port")}
 
 

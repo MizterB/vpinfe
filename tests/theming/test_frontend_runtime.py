@@ -89,6 +89,15 @@ class TerminationSignalTests(unittest.TestCase):
 
         self.assertLess(time.monotonic() - started, 5.0, "the signal never ended the loop")
 
+    def test_a_headless_run_closes_windows_opened_since_it_started_when_it_ends(self):
+        shutdown_event = threading.Event()
+        shutdown_event.set()
+        browser = mock.Mock()
+
+        runtime.run_frontend_loop(True, mock.Mock(), browser, shutdown_event, mock.Mock())
+
+        browser.terminate_all.assert_called_once_with()
+
     def test_a_closed_window_still_ends_the_loop_without_a_signal(self):
         browser = mock.Mock()
         browser.watch.side_effect = lambda *, on_lost, **_kwargs: on_lost()
@@ -298,8 +307,9 @@ class WindowsComeAndGoTests(unittest.TestCase):
         self.assertFalse(lost.wait(2), "a close nobody did by hand read as one")
         self.assertFalse(self.manager._exit_event.is_set())
 
-    def _state(self, *, pending: bool) -> str:
+    def _state(self, *, pending: bool, frontend: bool = True) -> str:
         with mock.patch.object(runtime, "install_setup") as setup, \
+             mock.patch("common.devices.install_identity.has_feature", return_value=frontend), \
              mock.patch("common.config.paths.get_ini_config", return_value=mock.Mock()):
             setup.pending.return_value = pending
             return runtime.windows_state(self.manager)
@@ -318,6 +328,12 @@ class WindowsComeAndGoTests(unittest.TestCase):
     def test_a_reopen_in_between_closing_and_opening_still_reads_as_open(self) -> None:
         with runtime._reopening:
             self.assertEqual(self._state(pending=False), lifecycle.WINDOWS_OPEN)
+
+    def test_an_install_without_the_frontend_feature_is_off_whatever_the_windows_do(self) -> None:
+        _launch(self.manager, "table")
+
+        self.assertEqual(self._state(pending=False, frontend=False), lifecycle.WINDOWS_OFF)
+        self.assertEqual(self._state(pending=True, frontend=False), lifecycle.WINDOWS_OFF)
 
     def test_setup_open_is_its_own_state_whatever_the_windows_do(self) -> None:
         self.assertEqual(self._state(pending=True), lifecycle.WINDOWS_SETUP)

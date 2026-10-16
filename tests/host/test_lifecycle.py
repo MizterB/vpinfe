@@ -225,7 +225,7 @@ class FrontendPerformerTests(unittest.TestCase):
         return lifecycle.request(lifecycle.FRONTEND, action,
                                  origin=lifecycle.Origin(lifecycle.SURFACE_API))
 
-    def test_a_headless_install_performs_none_of_it(self) -> None:
+    def test_an_install_given_no_windows_to_open_performs_none_of_it(self) -> None:
         self._install()
         for action in (lifecycle.START, lifecycle.STOP, lifecycle.RESTART):
             self.assertFalse(lifecycle.performable(lifecycle.FRONTEND, action))
@@ -296,6 +296,13 @@ class FrontendPerformerTests(unittest.TestCase):
         state[0] = lifecycle.WINDOWS_CLOSED
         self.assertTrue(self._listed()[(lifecycle.FRONTEND, lifecycle.START)]["available"])
 
+    def test_an_install_that_is_not_a_frontend_cannot_run_any_of_it(self) -> None:
+        self._install(windows=True, state=lifecycle.WINDOWS_OFF)
+
+        for one in self._listed().values():
+            self.assertFalse(one["available"])
+            self.assertEqual(one["reason_key"], "error.actions.frontend_off")
+
     def test_one_listing_reads_the_state_once(self) -> None:
         reads = [lifecycle.WINDOWS_OPEN, lifecycle.WINDOWS_CLOSED, lifecycle.WINDOWS_CLOSED]
         lifecycle_host.install(config_store=cast(Any, None), frontend_browser=self.browser,
@@ -309,7 +316,7 @@ class FrontendPerformerTests(unittest.TestCase):
         self.assertTrue(listed[(lifecycle.FRONTEND, lifecycle.STOP)]["available"])
         self.assertEqual(len(reads), 2)
 
-    def test_a_headless_install_lists_no_frontend_action_at_all(self) -> None:
+    def test_an_install_given_no_windows_to_open_lists_no_frontend_action(self) -> None:
         self._install(state=lifecycle.WINDOWS_CLOSED)
 
         self.assertEqual(self._listed(), {})

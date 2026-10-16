@@ -122,7 +122,7 @@ Run `./vpinfe --help` for the list.  Options that change how it starts:
 | Option | What it does |
 |---|---|
 | `--version` | Show the version |
-| `--headless` | Run the servers and services only, with no frontend windows |
+| `--headless` | Run the servers and services only, with no frontend windows at start. They can still be opened from the Manager's power menu |
 | `--configdir DIR` | Keep the config in `DIR` instead of the OS default, with the cache in `DIR/cache`, the state in `DIR/state` and the logs in `DIR/logs`.  Same as the `VPINFE_CONFIG_DIR` environment variable |
 | `--listres` | List your screens and their IDs |
 | `--gamepadtest` | Open the gamepad button tester |

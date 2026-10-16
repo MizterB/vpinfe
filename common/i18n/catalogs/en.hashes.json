@@ -522,6 +522,7 @@
   "dof.event.off": "3cd556c4d667",
   "dof.event.playing": "ca1839ee0647",
   "dof.event.unloadable": "ea10d2da4fe8",
+  "error.actions.frontend_off": "6f5d950ed83d",
   "error.actions.setup_open": "4079279bb0b2",
   "error.actions.unknown_action": "3e8dcb79ab64",
   "error.actions.unsupported": "b3d93d923b6a",

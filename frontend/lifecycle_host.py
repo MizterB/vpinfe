@@ -87,6 +87,8 @@ def _why_not(windows_state: Callable[[], str], runs_when: str | None) -> Callabl
     """The reason key for a frontend action that cannot run now, or "" when it can."""
     def why() -> str:
         now = lifecycle.once("windows", windows_state)
+        if now == lifecycle.WINDOWS_OFF:
+            return "error.actions.frontend_off"
         if now == lifecycle.WINDOWS_SETUP:
             return "error.actions.setup_open"
         if runs_when is None or now == runs_when:
@@ -143,11 +145,9 @@ def install(*, config_store: ConfigStore,
     lifecycle.register_performer(lifecycle.SYSTEM, lifecycle.RESTART, restart_system)
     lifecycle.register_performer(lifecycle.TABLE, lifecycle.STOP, stop_table)
 
-    # Only registered when the caller owns windows to open and close: a headless instance
-    # has none, and reports "nothing performs this" rather than offering buttons that do
-    # nothing. Opening is also what restarting is - it closes whatever is up first - so
-    # one performer serves both. Closing is the caller's, never terminate_all, which
-    # would end the run.
+    # Only registered when the caller can open and close windows. Opening is also what
+    # restarting is - it closes whatever is up first - so one performer serves both.
+    # Closing is the caller's, never terminate_all, which would end the run.
     if open_windows is not None and close_windows is not None:
         lifecycle.register_performer(lifecycle.FRONTEND, lifecycle.STOP,
                                      lambda _request: close_windows())

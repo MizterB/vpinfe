@@ -21,7 +21,8 @@ router = APIRouter(prefix="/actions", tags=["actions"])
 @router.get("", summary="What this install can be asked to do",
             dependencies=[requires(scopes.SYSTEM_READ)])
 def list_actions() -> models.ActionList:
-    """Only the pairs this install performs, so a headless one lists no window action."""
+    """Only the pairs this install performs. The window ones are listed on every install and
+    are unavailable on one that is not set up as a frontend."""
     return models.ActionList.model_validate(action_ops.listing())
 
 
