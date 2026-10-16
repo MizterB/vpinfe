@@ -115,7 +115,7 @@ class BrowserSession:
         self._profile: str | None = None
         self._ws: ClientConnection | None = None
         self._next_id = 0
-        self._responses: dict[int, dict] = {}
+        self._pending: dict[int, asyncio.Future[dict]] = {}
         self.page_log: list[str] = []
         self.failed_requests: list[str] = []
         self._status: dict[str, int] = {}
@@ -225,7 +225,9 @@ class BrowserSession:
             async for raw in self._ws:
                 message = json.loads(raw)
                 if "id" in message:
-                    self._responses[message["id"]] = message
+                    waiting = self._pending.pop(message["id"], None)
+                    if waiting is not None and not waiting.done():
+                        waiting.set_result(message)
                     continue
                 self._on_event(message.get("method", ""), message.get("params") or {})
 
@@ -257,21 +259,24 @@ class BrowserSession:
         self._next_id += 1
         message_id = self._next_id
         assert self._ws is not None
+        answer: asyncio.Future[dict] = asyncio.get_running_loop().create_future()
+        self._pending[message_id] = answer
         try:
-            await asyncio.wait_for(self._ws.send(json.dumps(
-                {"id": message_id, "method": method, "params": params or {}})),
-                self.timeout)
-        except TimeoutError:
-            raise TimeoutError(f"{method} was never taken") from None
-        deadline = asyncio.get_event_loop().time() + self.timeout
-        while asyncio.get_event_loop().time() < deadline:
-            if message_id in self._responses:
-                reply = self._responses.pop(message_id)
-                if "error" in reply:
-                    raise RuntimeError(f"{method}: {reply['error']}")
-                return reply.get("result") or {}
-            await asyncio.sleep(0.02)
-        raise TimeoutError(f"{method} did not answer")
+            try:
+                await asyncio.wait_for(self._ws.send(json.dumps(
+                    {"id": message_id, "method": method, "params": params or {}})),
+                    self.timeout)
+            except TimeoutError:
+                raise TimeoutError(f"{method} was never taken") from None
+            try:
+                reply = await asyncio.wait_for(answer, self.timeout)
+            except TimeoutError:
+                raise TimeoutError(f"{method} did not answer") from None
+        finally:
+            self._pending.pop(message_id, None)
+        if "error" in reply:
+            raise RuntimeError(f"{method}: {reply['error']}")
+        return reply.get("result") or {}
 
     async def navigate(self, url: str) -> None:
         await self.send("Page.navigate", {"url": url})
