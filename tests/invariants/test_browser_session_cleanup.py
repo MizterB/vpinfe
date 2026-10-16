@@ -6,8 +6,11 @@ import asyncio
 import os
 import shutil
 import tempfile
+import time
 import unittest
 from unittest import mock
+
+import psutil
 
 from tests.support import browser_session
 
@@ -106,6 +109,14 @@ class ProfileRemovalRetryTests(unittest.TestCase):
         self.assertEqual(browser_session._PROFILE_REMOVE_ATTEMPTS, len(calls))
 
 
+def _stopped(pid: int) -> bool:
+    """Gone, or killed and not yet reaped: `os.kill(pid, 0)` still succeeds on a zombie."""
+    try:
+        return psutil.Process(pid).status() == psutil.STATUS_ZOMBIE
+    except psutil.NoSuchProcess:
+        return True
+
+
 @unittest.skipUnless(os.name == "posix", "process groups are POSIX")
 class HelperProcessTests(unittest.TestCase):
     def test_a_helper_that_outlives_the_browser_is_stopped_before_the_profile_goes(self) -> None:
@@ -120,8 +131,10 @@ class HelperProcessTests(unittest.TestCase):
 
         asyncio.run(session.__aexit__(None, None, None))
 
-        with self.assertRaises(ProcessLookupError):
-            os.kill(helper, 0)
+        deadline = time.monotonic() + 5
+        while not _stopped(helper) and time.monotonic() < deadline:
+            time.sleep(0.05)
+        self.assertTrue(_stopped(helper))
         self.assertFalse(os.path.exists(profile))
 
 

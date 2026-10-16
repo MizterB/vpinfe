@@ -182,8 +182,14 @@ class TheWarmingTests(unittest.TestCase):
             return frozenset({"cab"})
 
         with mock.patch.object(this_machine, "_collect", collect):
-            this_machine.warm()
-            self.assertTrue(taken.wait(5))
+            # A names lookup another test left in flight lands after `forget()` and makes
+            # the warm thread find names already held; forgetting again clears it.
+            for _ in range(5):
+                this_machine.warm()
+                if taken.wait(1):
+                    break
+                this_machine.forget()
+            self.assertTrue(taken.is_set())
             self.assertIsNot(callers[0], threading.current_thread())
             for _ in range(100):
                 if this_machine._names:
