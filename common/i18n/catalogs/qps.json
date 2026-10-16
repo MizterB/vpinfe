@@ -968,6 +968,11 @@
     "other": "{count:n} öƒ ýöûř ĝàɱèš àřèñ'ţ ɱàţçĥèđ ţö ṼÞŠ"
   },
   "manager.discovery.unnamed_file": "Ûññàɱèđ ƒîŀè",
+  "manager.discovery.also_on": "Àŀšö öñ",
+  "manager.discovery.link_broken": "ṼÞŠ ɱàřķš ţĥîš ŀîñķ àš ñö ŀöñĝèř ŵöřķîñĝ",
+  "manager.discovery.vps_entry": "Öþèñ öñ ṼÞŠ",
+  "manager.discovery.open_page": "Öþèñ Þàĝè",
+  "manager.discovery.page_hint": "Öþèñ ţĥîš ƒîŀè'š þàĝè öñ {site}",
   "manager.view.with_gaps.help": "Ĝàɱèš îñ ýöûř ŀîƀřàřý ţĥàţ ṼÞŠ ŀîšţš ɱöřè ƒîŀèš ƒöř ţĥàñ ýöû ĥàṽè",
   "manager.backups.take_now": "Ɓàçķ Ûþ Ñöŵ...",
   "manager.backups.taken": "Ţàķèñ",

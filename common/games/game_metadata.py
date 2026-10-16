@@ -10,7 +10,6 @@ import ast
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
 
 from common import events
 from common.games import high_scores, unwritten
@@ -32,6 +31,7 @@ from common.games.tables import (
 )
 from common.i18n import t
 from common.ids import new_id
+from common.online import sites
 from common.players import players
 from common.values import is_truthy
 
@@ -886,10 +886,6 @@ def contract_1_tutorial(config: Any) -> str:
 
 GUIDE_SOURCES = {
     "pinballprimer.github.io": "Pinball Primer",
-    "www.youtube.com": "YouTube",
-    "youtube.com": "YouTube",
-    "youtu.be": "YouTube",
-    "vpuniverse.com": "VPUniverse",
     "tiltforums.com": "Tilt Forums",
 }
 
@@ -906,8 +902,8 @@ def guide_address(guide: dict[str, Any]) -> str:
 
 def guide_source(guide: dict[str, Any]) -> str:
     """A display name for `guide`'s host, or the host itself."""
-    host = urlparse(guide_address(guide)).netloc.lower()
-    return GUIDE_SOURCES.get(host, host)
+    address = guide_address(guide)
+    return GUIDE_SOURCES.get(sites.host(address)) or sites.site_name(address)
 
 
 def is_catalog_guide(guide: dict[str, Any]) -> bool:

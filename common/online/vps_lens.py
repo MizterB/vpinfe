@@ -14,7 +14,7 @@ from common import service_errors, timestamps
 from common.config.paths import get_ini_config
 from common.games import mods
 from common.i18n import t
-from common.online import vps_kinds, vpsdb_sync
+from common.online import sites, vps_kinds, vpsdb_sync
 from common.uploads.asset_import_service import vps_folder_name
 
 
@@ -72,7 +72,9 @@ def _release(release: dict, entry: dict) -> dict:
     compare against. Not a filename: VPS records one on almost no releases, so a surface
     built around matching names would be empty almost always.
     """
-    urls = [str(item.get("url") or "") for item in (release.get("urls") or [])]
+    links = [{"url": url, "broken": bool(item.get("broken"))}
+             for item in (release.get("urls") or [])
+             if sites.is_web(url := str(item.get("url") or "").strip())]
     return {
         "vps_file_id": str(release.get("id") or ""),
         "version": str(release.get("version") or ""),
@@ -82,7 +84,9 @@ def _release(release: dict, entry: dict) -> dict:
         "comment": str(release.get("comment") or ""),
         "img_url": str(release.get("imgUrl") or ""),
         "updated_at": _as_iso(release.get("updatedAt")),
-        "url": next((link for link in urls if link), ""),
+        "url": next((one["url"] for one in links if not one["broken"]),
+                    links[0]["url"] if links else ""),
+        "urls": links,
         "mod_of": mods.based_on(release, entry),
     }
 

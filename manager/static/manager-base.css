@@ -3667,6 +3667,21 @@ a.manager-slot-file, a.manager-slot-file:visited { color: var(--accent); }
 /* A file you hold that VPS does not list: present, and not a record. */
 .manager-record--held { opacity: 0.62; font-style: italic; }
 .manager-record-more { padding: 2px 8px 2px 12px; }
+.manager-record-thumb { cursor: zoom-in; }
+.manager-record-head { cursor: pointer; }
+/* `.manager-help` wraps at line breaks, which outranks `truncate`, and a column shrink-wraps
+   its children, so a line is held to the head's width for the ellipsis to apply. */
+.manager-record-head > * { max-width: 100%; }
+.manager-record-head > .manager-help { white-space: nowrap; }
+.manager-record-head:focus-visible, .manager-record-thumb:focus-visible,
+.manager-vps-picture--open:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px;
+}
+.manager-record-comment { white-space: pre-wrap; }
+.manager-record-detail { padding: 4px 0 2px; }
+.manager-vps-picture--open { cursor: zoom-in; }
+/* After the link rules, which set an underline on hover that would take the strike off. */
+.manager-link-broken .manager-link-out > :first-child { text-decoration: line-through; }
 
 /* One or more tables here use something else. A bar rather than a badge: the tile is
    about a hundred pixels wide and already carries a tier badge and an enlarge, and a

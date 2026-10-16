@@ -240,6 +240,56 @@ class Records(unittest.TestCase):
         self.assertNotIn("r0", [one["vps_file_id"] for one in rest])
 
 
+class ChoosingBy(unittest.TestCase):
+    def test_the_comment_leads_with_its_first_line_that_says_anything(self) -> None:
+        self.assertEqual("Retheme of Count-Down",
+                         discovery.first_line("\n  \nRetheme of Count-Down\nplus a long tail"))
+
+    def test_no_comment_has_no_first_line(self) -> None:
+        self.assertEqual("", discovery.first_line(None))
+        self.assertEqual("", discovery.first_line("  \n "))
+
+    def test_a_mod_and_its_features_share_a_line_without_saying_mod_twice(self) -> None:
+        record = {"features": ["MOD", "VR"], "mod_of": {"vps_file_id": "b", "version": "1.0",
+                                                          "authors": ["Larouillas"]}}
+
+        self.assertEqual("Mod of 1.0 · Larouillas · VR",
+                         discovery.what_it_is(record, features=True))
+
+    def test_a_list_that_hides_features_still_says_a_file_is_a_mod(self) -> None:
+        record = {"features": ["MOD", "VR"]}
+
+        self.assertEqual("Mod", discovery.what_it_is(record, features=False))
+
+    def test_a_vpx_file_does_not_name_its_format_and_another_does(self) -> None:
+        self.assertEqual("", discovery.what_it_is({"format": "VPX"}, features=True))
+        self.assertEqual("Future Pinball",
+                         discovery.what_it_is({"format": "FP"}, features=True))
+
+    def test_a_file_is_linked_by_the_site_it_is_on(self) -> None:
+        record = {"url": "https://www.vpforums.org/file"}
+
+        self.assertEqual(("VPForums", "https://www.vpforums.org/file"), discovery.site_of(record))
+
+    def test_a_page_is_broken_only_where_vps_marks_that_address(self) -> None:
+        links = [{"url": "https://a.example/1", "broken": True}, {"url": "https://b.example/2"}]
+
+        self.assertFalse(discovery.page_is_broken({"url": "https://b.example/2", "urls": links}))
+        self.assertTrue(discovery.page_is_broken({"url": "https://a.example/1", "urls": links}))
+        self.assertFalse(discovery.page_is_broken({"url": "", "urls": []}))
+
+    def test_a_file_with_no_link_names_no_site(self) -> None:
+        self.assertEqual(("", ""), discovery.site_of({"url": ""}))
+
+    def test_the_other_links_are_every_one_but_the_one_it_leads_with(self) -> None:
+        record = {"url": "https://vpuniverse.com/a",
+                  "urls": [{"url": "https://vpuniverse.com/a", "broken": False},
+                           {"url": "https://mega.nz/file/b", "broken": True}]}
+
+        self.assertEqual([("Mega", "https://mega.nz/file/b", True)],
+                         discovery.other_links(record))
+
+
 class TypeWords(unittest.TestCase):
     def test_the_letters_are_spelled_out(self) -> None:
         self.assertEqual(["Solid State", "Electro-Mechanical", "Pure Mechanical"],

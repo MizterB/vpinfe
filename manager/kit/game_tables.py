@@ -144,6 +144,23 @@ def mod_line(mod: dict[str, Any] | None) -> str:
     return t("manager.game_tables.mod_of", told=mod_of_said(mod))
 
 
+def release_facts(release: dict[str, Any], *, features: bool = True) -> list[str]:
+    """That a release is a mod and of what, then the rest of its features.
+
+    `features` false stops at the mod, for a list where the features would only crowd it.
+    """
+    listed = [str(one) for one in (release.get("features") or [])]
+    facts: list[str] = []
+    mod = release.get("mod_of")
+    if mod:
+        facts.append(mod_line(mod))
+    elif "MOD" in listed:
+        facts.append(t("manager.games.mod"))
+    if features:
+        facts.extend(one for one in listed if one != "MOD")
+    return facts
+
+
 def made_from_it(table: dict[str, Any], tables: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The tables in `tables` a patch made from `table`."""
     own = str(table.get("id") or "")

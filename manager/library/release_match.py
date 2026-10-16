@@ -243,14 +243,7 @@ def _people(authors: Collection[str]) -> set[str]:
 def _facts(release: dict[str, Any]) -> str:
     """What the release carries: that it is a mod and of what, its features, when it
     was last updated."""
-    features = [str(one) for one in (release.get("features") or [])]
-    facts: list[str] = []
-    mod = release.get("mod_of")
-    if mod:
-        facts.append(game_tables.mod_line(mod))
-    elif "MOD" in features:
-        facts.append(t("manager.games.mod"))
-    facts.extend(one for one in features if one != "MOD")
+    facts = game_tables.release_facts(release)
     if release.get("updated_at"):
         facts.append(t("manager.release_match.updated", when=when.ago(release["updated_at"])))
     return game_tables.JOIN.join(facts)

@@ -269,7 +269,7 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/filesystem/file?path=` | Serve one media file under a browsable root |
 | GET | `/api/v1/vps/search?q=&limit=` | VPSdb lookup |
 | GET | `/api/v1/vps/entry/{id}` | One VPSdb entry, in the shape a search result has |
-| GET | `/api/v1/vps/entry/{id}/releases?listed_as=` | The releases VPSdb lists for one entry, in the order it holds them. `listed_as` picks the list: `tableFiles` by default, or another such as `b2sFiles`. Each release carries `mod_of`, what it is a mod of, or `null` where it is not one - see [Which release a table is](#which-release-a-table-is) |
+| GET | `/api/v1/vps/entry/{id}/releases?listed_as=` | The releases VPSdb lists for one entry, in the order it holds them. `listed_as` picks the list: `tableFiles` by default, or another such as `b2sFiles`. Each release carries `mod_of`, what it is a mod of, or `null` where it is not one - see [Which release a table is](#which-release-a-table-is) - and `urls`, every address VPSdb gives for it with a `broken` flag where VPSdb marks one dead. `url` is the first of those not marked broken, or the first where all are. A value that is not an http or https address with a host is left out |
 | GET | `/api/v1/vps/sync` | When the catalog was last checked, and whether a check is due |
 | POST | `/api/v1/vps/sync` | Check VPSdb for a newer catalog now, whatever the schedule |
 | GET | `/api/v1/media-sources` | The online media sources this install knows, a switched-off one included |

@@ -968,6 +968,11 @@
     "other": "{count:n} of your games aren't matched to VPS"
   },
   "manager.discovery.unnamed_file": "Unnamed file",
+  "manager.discovery.also_on": "Also on",
+  "manager.discovery.link_broken": "VPS marks this link as no longer working",
+  "manager.discovery.vps_entry": "Open on VPS",
+  "manager.discovery.open_page": "Open Page",
+  "manager.discovery.page_hint": "Open this file's page on {site}",
   "manager.view.with_gaps.help": "Games in your library that VPS lists more files for than you have",
   "manager.backups.take_now": "Back Up Now...",
   "manager.backups.taken": "Taken",

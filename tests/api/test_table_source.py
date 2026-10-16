@@ -39,8 +39,12 @@ CATALOG = [{
     "id": "aT_GONvw", "name": "The Addams Family", "manufacturer": "Bally", "year": 1992,
     "tableFiles": [
         {"id": RELEASE, "version": "2.4.41", "tableFormat": "VPX",
-         "authors": ["G5k", "3rdAxis"], "updatedAt": 1719187200000},
-        {"id": "Other111", "version": "3.0", "authors": ["Bigus1"]},
+         "authors": ["G5k", "3rdAxis"], "updatedAt": 1719187200000,
+         "urls": [{"url": "https://vpuniverse.com/gone", "broken": True},
+                  {"url": "https://www.vpforums.org/file"}]},
+        {"id": "Other111", "version": "3.0", "authors": ["Bigus1"],
+         "urls": [{"url": "26493-mata-hari"}, {"url": "https://mega.nz/dead", "broken": True},
+                  {"url": "https://drive.google.com/dead", "broken": True}]},
     ],
 }, {
     "id": "futureEntry", "name": "Future Pinball Table", "manufacturer": "Bally", "year": 1980,
@@ -191,6 +195,30 @@ class TableSourceTests(TempTree):
         self.assertEqual([item["vps_file_id"] for item in listed],
                          [RELEASE, "Other111"])
         self.assertEqual(listed[0]["updated_at"], "2024-06-24T00:00:00Z")
+
+    def test_a_release_lists_every_link_and_leads_with_one_that_works(self) -> None:
+        listed = self.client.get("/vps/entry/aT_GONvw/releases").json()["releases"]
+
+        self.assertEqual(listed[0]["urls"],
+                         [{"url": "https://vpuniverse.com/gone", "broken": True},
+                          {"url": "https://www.vpforums.org/file", "broken": False}])
+        self.assertEqual(listed[0]["url"], "https://www.vpforums.org/file")
+
+    def test_a_value_that_is_not_a_web_address_is_not_a_link(self) -> None:
+        links = self.client.get("/vps/entry/aT_GONvw/releases").json()["releases"][1]["urls"]
+
+        self.assertEqual([one["url"] for one in links],
+                         ["https://mega.nz/dead", "https://drive.google.com/dead"])
+
+    def test_where_every_link_is_broken_the_release_still_leads_with_the_first(self) -> None:
+        listed = self.client.get("/vps/entry/aT_GONvw/releases").json()["releases"]
+
+        self.assertEqual(listed[1]["url"], "https://mega.nz/dead")
+
+    def test_a_release_with_no_link_has_none_to_lead_with(self) -> None:
+        listed = self.client.get("/vps/entry/futureEntry/releases").json()["releases"]
+
+        self.assertEqual((listed[0]["url"], listed[0]["urls"]), ("", []))
 
     def test_releases_for_an_unknown_entry_are_a_404(self) -> None:
         self.assertEqual(self.client.get("/vps/entry/nope/releases").status_code, 404)

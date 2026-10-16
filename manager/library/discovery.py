@@ -22,9 +22,10 @@ from nicegui import ui
 from common import icons
 from common.failures import why
 from common.i18n import t
-from common.online import vps_kinds
+from common.online import sites, vps_formats, vps_kinds
 from manager.kit import (
     busy,
+    candidates,
     confirm,
     deeplink,
     game_tables,
@@ -38,7 +39,7 @@ from manager.kit import (
 from manager.kit import grid as grid_module
 from manager.kit.data import Library
 from manager.kit.on_page import on_page
-from manager.library import import_dialog
+from manager.library import import_dialog, mediaview
 
 logger = logging.getLogger("vpinfe.manager.library.discovery")
 
@@ -545,15 +546,26 @@ def split_records(records: list[dict[str, Any]],
     return first, [one for one in records if one not in first]
 
 
-def _picture(src: str, address: str) -> None:
-    with ui.element("div").classes("manager-vps-picture"):
+def _picture(src: str, address: str, name: str) -> None:
+    with ui.element("div").classes("manager-vps-picture") as plate:
         if src:
             ui.html(f'<img src="{src}" alt="" loading="lazy">')
         else:
             ui.label(t("manager.discovery.no_picture")).classes("manager-help")
         if address:
-            with ui.element("div").classes("manager-vps-picture-open"):
+            # click.stop, or following the link would also enlarge the picture.
+            with ui.element("div").classes("manager-vps-picture-open") \
+                    .on("click.stop", js_handler="() => {}"):
                 panel.link_out(t("manager.discovery.picture_open"), to=address)()
+    if src:
+        def enlarge() -> None:
+            mediaview.open_image(src, name)
+
+        plate.classes("manager-vps-picture--open").tooltip(t("word.enlarge"))
+        plate.props("tabindex=0 role=button")
+        plate.props["aria-label"] = t("word.enlarge")
+        plate.on("click", enlarge).on("keydown.enter.self", enlarge) \
+            .on("keydown.space.self.prevent", enlarge)
 
 
 async def _count_again(state: dict[str, Any]) -> None:
@@ -581,7 +593,7 @@ async def game(context: dict[str, Any]) -> None:
             await again()
 
     with ui.column().classes("gap-0 w-full min-w-0"):
-        _picture(str(row[thumbnails.FIELD]), row["url"])
+        _picture(str(row[thumbnails.FIELD]), row["url"], row["name"])
         if not counted:
             _never_counted(state)
         else:
@@ -617,31 +629,159 @@ def _mark(held: bool = False) -> None:
             ui.icon("check").tooltip(t("manager.discovery.held"))
 
 
-def _record(record: dict[str, Any], *, mine: bool, features: bool) -> None:
-    told = " · ".join(part for part in (
+def first_line(comment: Any) -> str:
+    """The first line of VPS's comment that says anything."""
+    for line in str(comment or "").splitlines():
+        if line.strip():
+            return line.strip()
+    return ""
+
+
+def what_it_is(record: dict[str, Any], *, features: bool) -> str:
+    """That the file is a mod and of what, its features, and a format other than VPX."""
+    facts = game_tables.release_facts(record, features=features)
+    kept = str(record.get("format") or "").strip().upper()
+    if kept and kept != "VPX":
+        facts.append(vps_formats.name(kept))
+    return game_tables.JOIN.join(facts)
+
+
+def site_of(record: dict[str, Any]) -> tuple[str, str]:
+    """The site the file's page is on, and the page: the first link VPS has not marked
+    broken, or the first it has where all are. `("", "")` for a file with no link."""
+    page = str(record.get("url") or "")
+    return (sites.site_name(page), page) if page else ("", "")
+
+
+def page_is_broken(record: dict[str, Any]) -> bool:
+    """Whether VPS marks the page `site_of` gives as no longer working."""
+    page = str(record.get("url") or "")
+    return any(one.get("broken") for one in (record.get("urls") or []) if one.get("url") == page)
+
+
+def other_links(record: dict[str, Any]) -> list[tuple[str, str, bool]]:
+    """Each link besides the one the row leads with, as its site, address and whether VPS
+    marks it broken. Two links on one site both stay: they are different pages."""
+    page = str(record.get("url") or "")
+    return [(sites.site_name(str(one.get("url") or "")), str(one["url"]), bool(one.get("broken")))
+            for one in (record.get("urls") or []) if one.get("url") and one["url"] != page]
+
+
+def _told(record: dict[str, Any]) -> str:
+    return " · ".join(part for part in (
         str(record.get("version") or ""),
         ", ".join(str(name) for name in (record.get("authors") or [])[:2])) if part)
+
+
+def _glyph(listed_as: str) -> str:
+    return icons.TABLES if listed_as == "tableFiles" else ""
+
+
+def _out(site: str, address: str, *, broken: bool = False, hint: str = "") -> None:
+    """A link to `address` named for its site, struck through where VPS marks it dead."""
+    draw = panel.link_out(site, to=address,
+                          hint=t("manager.discovery.link_broken") if broken else hint)
+    if not broken:
+        draw()
+        return
+    with ui.element("span").classes("manager-link-broken"):
+        draw()
+
+
+def _thumb(src: str, label: str, pictures: list[str], glyph: str) -> None:
+    """The file's picture, which opens in the viewer with the band's other pictures a
+    press from it. A frame with nothing to open stays a frame, so the words line up."""
+    with ui.element("div").classes("shrink-0") as box:
+        candidates.thumb(src, glyph, t("manager.discovery.no_picture"))
+    if not src or src not in pictures:
+        return
+
+    def enlarge() -> None:
+        mediaview.open_pages(pictures, label, pictures.index(src) + 1)
+
+    box.classes("manager-record-thumb").props("tabindex=0 role=button")
+    box.props["aria-label"] = t("word.enlarge")
+    box.on("click", enlarge).on("keydown.enter", enlarge).on("keydown.space.prevent", enlarge)
+
+
+def _detail(record: dict[str, Any], *, entry_url: str, features: bool) -> None:
+    """What the row's lines cut short, and the ways out."""
+    authors = [str(name) for name in (record.get("authors") or [])]
+    if len(authors) > 2:
+        ui.label(", ".join(authors)).classes("manager-help")
+    unshown = [str(one) for one in (record.get("features") or []) if one != "MOD"]
+    if not features and unshown:
+        ui.label(", ".join(unshown)).classes("manager-help")
+    comment = str(record.get("comment") or "").strip()
+    if comment:
+        ui.label(comment).classes("manager-help manager-record-comment")
+    others = other_links(record)
+    if others:
+        with ui.row().classes("items-center gap-2"):
+            ui.label(t("manager.discovery.also_on")).classes("manager-help")
+            for site, address, broken in others:
+                _out(site, address, broken=broken)
+    _site, page = site_of(record)
+    with ui.row().classes("items-center gap-4"):
+        if page:
+            _out(t("manager.discovery.open_page"), page, broken=page_is_broken(record))
+        if entry_url:
+            panel.link_out(t("manager.discovery.vps_entry"), to=entry_url)()
+
+
+def _record(record: dict[str, Any], *, mine: bool, features: bool, kind: tuple[str, str, str],
+            pictures: list[str], entry_url: str) -> None:
+    listed_as, _field, word = kind
+    told = _told(record)
     stamp = when.parsed(record.get("updated_at"))
+    said = what_it_is(record, features=features)
+    comment = first_line(record.get("comment"))
+    site, page = site_of(record)
     with ui.row().classes("items-start gap-2 w-full no-wrap manager-member-row manager-record"):
         _mark(mine)
+        if pictures:
+            _thumb(str(record.get("img_url") or ""), t(word), pictures, _glyph(listed_as))
         with ui.column().classes("gap-0 grow min-w-0"):
-            ui.label(told or t("manager.discovery.unnamed_file")).classes("truncate")
-            if features and record.get("features"):
-                ui.label(" · ".join(str(one) for one in record["features"])).classes(
-                    "manager-help truncate")
-        ui.label(when.day(stamp.astimezone()) if stamp else "").classes(
-            "manager-help manager-record-when")
-        if record.get("url"):
-            panel.out(to=str(record["url"]), hint=t("manager.vps_match.open_in_vps"))()
-        else:
-            ui.element("span").classes("manager-record-out")
+            with ui.column().classes("gap-0 w-full min-w-0 manager-record-head") as head:
+                ui.label(told or t("manager.discovery.unnamed_file")).classes("truncate")
+                if said:
+                    ui.label(said).classes("manager-help truncate")
+                lead = ui.label(comment).classes("manager-help truncate") if comment else None
+            detail = ui.column().classes("gap-1 w-full manager-record-detail")
+            detail.set_visibility(False)
+            drawn = False
+
+            def toggle() -> None:
+                nonlocal drawn
+                if not drawn:
+                    drawn = True
+                    with detail:
+                        _detail(record, entry_url=entry_url, features=features)
+                opening = not detail.visible
+                detail.set_visibility(opening)
+                if lead is not None:
+                    lead.set_visibility(not opening)
+                head.props["aria-expanded"] = "true" if opening else "false"
+                head.update()
+
+            head.props("tabindex=0 role=button aria-expanded=false")
+            head.on("click", toggle).on("keydown.enter", toggle) \
+                .on("keydown.space.prevent", toggle)
+        with ui.column().classes("gap-0 items-end shrink-0 manager-record-aside"):
+            ui.label(when.day(stamp.astimezone()) if stamp else "").classes(
+                "manager-help manager-record-when")
+            if page:
+                _out(site, page, broken=page_is_broken(record),
+                     hint=t("manager.discovery.page_hint", site=site))
 
 
-def _held_row(name: str) -> None:
+def _held_row(name: str, *, framed: bool, glyph: str) -> None:
     """A file you hold that VPS does not list: its own name, and nowhere to go."""
     with ui.row().classes("items-center gap-2 w-full no-wrap manager-member-row "
                           "manager-record manager-record--held"):
         _mark(True)
+        if framed:
+            candidates.thumb("", glyph)
         ui.label(name).classes("grow min-w-0 truncate")
         ui.element("span").classes("manager-record-out")
 
@@ -663,16 +803,18 @@ async def _kind(library: Library, row: dict[str, Any], kind: tuple[str, str, str
     loose = [one["name"] for one in mine if one.get("vps_file_id") not in tied]
     shown, rest = split_records(records, tied)
     features = features and listed_as == "tableFiles"
+    pictures = list(dict.fromkeys(str(one["img_url"]) for one in records if one.get("img_url")))
+    entry_url = str(row.get("url") or "")
 
     with ui.row().classes("items-baseline gap-2 w-full no-wrap manager-band"):
         ui.label(t(word)).classes("grow min-w-0")
         ui.label(str(len(records))).classes("manager-band-count")
     with ui.column().classes("gap-0 w-full manager-plain-rows") as body:
         for name in loose:
-            _held_row(name)
+            _held_row(name, framed=bool(pictures), glyph=_glyph(listed_as))
         for record in shown:
             _record(record, mine=str(record.get("vps_file_id") or "") in tied,
-                    features=features)
+                    features=features, kind=kind, pictures=pictures, entry_url=entry_url)
         if rest:
             more = ui.row().classes("w-full manager-record manager-record-more")
 
@@ -680,7 +822,8 @@ async def _kind(library: Library, row: dict[str, Any], kind: tuple[str, str, str
                 more.delete()
                 with body:
                     for record in rest:
-                        _record(record, mine=False, features=features)
+                        _record(record, mine=False, features=features, kind=kind,
+                                pictures=pictures, entry_url=entry_url)
 
             with more:
                 _mark()

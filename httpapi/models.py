@@ -3886,6 +3886,14 @@ class VpsSyncResult(ApiModel):
     reason: str = ""
 
 
+class VpsLink(ApiModel):
+    """One address VPSdb gives for a release. `broken` is VPSdb's own mark that it no
+    longer works."""
+
+    url: str
+    broken: bool = False
+
+
 class VpsRelease(ApiModel):
     """One release for a game, as VPSdb lists it.
 
@@ -3902,7 +3910,10 @@ class VpsRelease(ApiModel):
     comment: str = ""
     img_url: str = ""
     updated_at: str = ""
+    # The first link not marked broken, or the first there is where all are. Blank where VPS
+    # gives none.
     url: str = ""
+    urls: list[VpsLink] = []
     mod_of: ModOf | None = None
 
 
