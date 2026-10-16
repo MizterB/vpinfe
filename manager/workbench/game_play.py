@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import re
+from collections.abc import Callable, Iterable
 from datetime import UTC, datetime
 from functools import partial
 from typing import Any
 
 from nicegui import ui
 
+from common.config.labels import field_label
 from common.failures import why
 from common.i18n import t
 from manager.extensions import ext_groups
@@ -90,7 +92,8 @@ def _high_score_rows(context: dict[str, Any],
                       else str(scores.get("reason") or "")))
     else:
         clears = bool((table.get("overrides") or {}).get("delete_nvram_on_close"))
-        lines.append(_high_scores_read(str(scores.get("read_at") or ""), clears))
+        lines.append(_high_scores_read(str(scores.get("read_at") or ""), clears,
+                                       str(scores.get("file") or "")))
     rows: list[tuple[Any, Any]] = [(HEADING, t("manager.workbench.high_scores")),
                                    (panel.LEDE, partial(_high_scores_aside, lines))]
     return rows if said is not None else [*rows, *_high_score_entries(scores)]
@@ -112,57 +115,117 @@ HIGH_SCORE_STATES: dict[str, tuple[str, str | None]] = {
 }
 
 
-def _high_scores_read(read_at: str, clears: bool) -> tuple[str, str]:
-    """(line, detail)."""
+def _high_scores_read(read_at: str, clears: bool, file: str = "") -> tuple[str, str]:
+    """(line, detail). `file` is named where the reading came from a text file."""
     at = when.parsed(read_at)
     if clears:
         text, hint = t("manager.workbench.high_scores_cleared"), ""
     elif at is None:
-        text, hint = t("manager.workbench.scores_undated"), ""
+        text = (t("manager.workbench.scores_undated_from", file=file) if file
+                else t("manager.workbench.scores_undated"))
+        hint = ""
     elif (datetime.now(UTC) - at).total_seconds() < 60:
-        text, hint = t("manager.workbench.scores_fresh"), when.local(read_at)
+        text = (t("manager.workbench.scores_fresh_from", file=file) if file
+                else t("manager.workbench.scores_fresh"))
+        hint = when.local(read_at)
     else:
-        text = t("manager.workbench.high_scores_read", when=when.ago(read_at, inline=True))
+        ago = when.ago(read_at, inline=True)
+        text = (t("manager.workbench.scores_read_from", file=file, when=ago) if file
+                else t("manager.workbench.high_scores_read", when=ago))
         hint = when.local(read_at)
     return text, hint
 
 
 def _high_score_entries(scores: dict[str, Any]) -> list[tuple[Any, Any]]:
-    """Rank and New are a column on every row or on none: a row without one would end its
-    score somewhere else."""
-    sections = scores.get("sections") or []
-    entries = [entry for section in sections for entry in section.get("entries") or []]
-    columns = {"ranked": any(entry.get("rank") is not None for entry in entries),
-               "marked": any(entry.get("new") for entry in entries)}
+    """One row per entry, each column as wide as its longest entry across the whole group
+    so every rank, name and score lines up from the first section to the last. A column no
+    entry needs is not drawn."""
+    sections = [section for section in scores.get("sections") or []
+                if section.get("entries")]
+    cells = [[play_facts.score_cells(entry) for entry in section["entries"]]
+             for section in sections]
+    ranking = [_ranks_entries(section) for section in sections]
+    columns = _score_columns(sections, cells, ranking)
     at = when.parsed(scores.get("read_at"))
     day = when.day(at.astimezone()) if at else ""
     rows: list[tuple[Any, Any]] = []
-    for section in sections:
-        for place, entry in enumerate(section.get("entries") or []):
-            first, *rest = play_facts.score_lines(entry)
-            rows.append((str(section.get("name") or "") if place == 0 else "",
-                         _score_row(entry, first, day, **columns)))
+    for section, held, ranks in zip(sections, cells, ranking, strict=True):
+        for place, (entry, (value, unit, rest)) in enumerate(
+                zip(section["entries"], held, strict=True)):
+            rank = str(entry["rank"]) if ranks and entry.get("rank") is not None else ""
+            rows.append((_section_label(sections, section) if place == 0 else "",
+                         _score_row(entry, day, columns, rank=rank, value=value, unit=unit)))
             rows.extend((panel.ASIDE, partial(_score_caption, line)) for line in rest)
     return rows
 
 
-def _score_row(entry: dict[str, Any], value: str, day: str, *, ranked: bool,
-               marked: bool) -> Callable[[], None]:
+def _ranks_entries(section: dict[str, Any]) -> bool:
+    """Whether the section's places are ranked: a rank on a list of one says nothing."""
+    return sum(1 for entry in section["entries"] if entry.get("rank") is not None) > 1
+
+
+def _section_label(sections: list[dict[str, Any]], section: dict[str, Any]) -> str:
+    """The machine's name for the section. A lone one named like the group repeats its
+    heading, so it carries none."""
+    name = str(section.get("name") or "")
+    if len(sections) == 1 and field_label(name).casefold() == t(
+            "manager.workbench.high_scores").casefold():
+        return ""
+    return name
+
+
+def _score_columns(sections: list[dict[str, Any]], cells: list[list[tuple[str, str, list[str]]]],
+                   ranking: list[bool]) -> dict[str, Any]:
+    """Which columns the group draws, and the width of each as a count of `ch` that the
+    stylesheet multiplies out."""
+    entries = [entry for section in sections for entry in section["entries"]]
+    values = [value for held in cells for value, _unit, _rest in held]
+    units = [unit for held in cells for _value, unit, _rest in held]
+    ranks = [str(entry["rank"]) for section, ranked in zip(sections, ranking, strict=True)
+             if ranked for entry in section["entries"] if entry.get("rank") is not None]
+    initials = [str(entry.get("initials") or "") for entry in entries]
+    names = [str(entry.get("player") or "") for entry in entries]
+
+    def widths(**columns: Iterable[float]) -> str:
+        return "; ".join("--hs-" + name + ": " + format(max(longest, default=0), ".1f")
+                         for name, longest in columns.items())
+
+    return {"rank": bool(ranks), "initials": any(one.strip() for one in initials),
+            "player": any(names), "unit": any(units),
+            "style": widths(rank=map(len, ranks),
+                            init=(1.2 * len(one) for one in initials),
+                            player=(1.3 * len(one) for one in names),
+                            score=map(_figures, values),
+                            unit=(0.9 * len(one) for one in units))}
+
+
+def _figures(text: str) -> float:
+    """How many digits wide `text` draws: a separator is about a third, a letter a bit more."""
+    return sum(0.35 if _SEPARATORS.match(one) else 1.2 if one.isalpha() else 1
+               for one in text)
+
+
+_SEPARATORS = re.compile(r"[,.\s\u00a0\u202f'\u2019]")
+
+
+def _score_row(entry: dict[str, Any], day: str, columns: dict[str, Any], *, rank: str,
+               value: str, unit: str) -> Callable[[], None]:
     def draw() -> None:
-        with ui.element("div").classes("manager-score-row"):
-            if ranked:
-                rank = entry.get("rank")
-                ui.label("" if rank is None else str(rank)).classes("manager-score-rank")
-            ui.label(str(entry.get("initials") or "")) \
-                .classes("manager-score-initials manager-cell-identifier")
+        with ui.element("div").classes("manager-score-row").style(columns["style"]):
+            if columns["rank"]:
+                ui.label(rank).classes("manager-score-rank")
+            if columns["initials"]:
+                ui.label(str(entry.get("initials") or "")) \
+                    .classes("manager-score-initials manager-cell-identifier")
+            if columns["player"]:
+                ui.label(str(entry.get("player") or "")).classes("manager-score-player")
             ui.label(value).classes("manager-score-value")
-            if marked:
-                chip = ui.label(t("manager.workbench.high_scores_new")) \
-                    .classes("manager-tier manager-tier--off manager-score-new")
-                if entry.get("new"):
-                    chip.tooltip(t("manager.workbench.scores_dated", day=day))
-                else:
-                    chip.classes(add="manager-score-new--held")
+            if columns["unit"]:
+                ui.label(unit).classes("manager-score-unit")
+            if entry.get("new"):
+                ui.label(t("manager.workbench.high_scores_new")) \
+                    .classes("manager-tier manager-tier--off manager-score-new") \
+                    .tooltip(t("manager.workbench.scores_dated", day=day))
 
     return draw
 

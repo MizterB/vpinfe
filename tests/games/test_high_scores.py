@@ -43,6 +43,17 @@ class RecordTests(unittest.TestCase):
         self.assertEqual(held["new"], [])
         self.assertNotIn("rom", held, "the key names the ROM")
 
+    def test_a_text_files_name_is_kept_and_shown_a_roms_is_not(self) -> None:
+        text = {**ONE_NUMBER, "rom": "Scores.txt", "file": "Scores.txt"}
+
+        held = high_scores.record(text, None, "t")
+
+        self.assertEqual(held["file"], "Scores.txt")
+        self.assertEqual(high_scores.shown("Scores.txt", "t1", held)["file"], "Scores.txt")
+        self.assertNotIn("file", high_scores.record(ONE_NUMBER, None, "t"))
+        self.assertEqual(high_scores.shown("abc_l1", "t1", high_scores.record(
+            ONE_NUMBER, None, "t"))["file"], "")
+
     def test_new_is_where_the_entries_the_game_added_sit(self) -> None:
         before = {"entries": [_entry("HIGH SCORES", 1, "OWN", 300),
                               _entry("HIGH SCORES", 2, "ABC", 200)]}

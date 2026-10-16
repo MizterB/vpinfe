@@ -1667,6 +1667,7 @@ def result_to_jsonable(
             "resolved_rom": resolved_rom_name,
             "score_kind": score_kind,
             "value": result,
+            **_file_of(score_kind, filename),
         }
 
     filtered_entries = [entry for entry in result if _has_meaningful_entry(entry)]
@@ -1678,7 +1679,13 @@ def result_to_jsonable(
         "resolved_rom": resolved_rom_name,
         "score_kind": score_kind,
         "entries": [asdict(entry) for entry in filtered_entries],
+        **_file_of(score_kind, filename),
     }
+
+
+def _file_of(score_kind: str, filename: str | None) -> dict[str, str]:
+    """The name of a text file a reading came from. A ROM's own file is named by the ROM."""
+    return {"file": Path(filename).name} if score_kind == "txt" and filename else {}
 
 def read_rom(
     rom_name: str,

@@ -1920,6 +1920,7 @@ machine's table, not the score of the last game: that game is on it only if it g
 | `read_at` | When it was read, or `null` for one kept from VPinFE 2, which did not record that |
 | `state` | `read` where there are rows. See below for the others |
 | `reason` | Why a read failed, where `state` is `unreadable`; empty otherwise |
+| `file` | The score file's name where the table was read from a text file its script names, and empty for a ROM's own file, which the ROM names |
 | `sections` | The machine's own groups, in its order, each a `name` and its `entries` |
 
 `name` is the machine's words - `GRAND CHAMPION`, `HIGH SCORES` - as data, not a label. A
@@ -1933,6 +1934,7 @@ machine that keeps one number is one section named by the score map, `HIGHEST SC
 | `prefix`, `suffix` | The machine's words either side of `score`, spacing included: `$ `, ` LOOPS` |
 | `text` | The value as the machine shows it: `prefix`, `score` and `suffix`, or the entry's lines joined with a newline where it holds no number |
 | `new` | Not on the table before the last game |
+| `player` | The name of the player the entry is for, on the two routes below and blank elsewhere. Whoever has its `initials`; for an entry with no initials, the player whose record holds that score for this ROM. Blank where no one can be named |
 
 `GET /games/{id}/high_scores` and `GET /games/{id}/tables/{table_id}/high_scores` answer
 in the same shape. Each reads the score file again first where it is newer than the read

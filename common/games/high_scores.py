@@ -5,7 +5,8 @@ tables on one ROM share its table, and a mod on a ROM of its own keeps its own.
 
 A record is `{read_at, score_kind, entries | value, new}`: the reading as
 `score_parser.result_to_jsonable` gives it, without its ROM (the key says it), when it was
-read, and `new` - the positions of the entries the last game put there.
+read, and `new` - the positions of the entries the last game put there. A reading from a
+text file also has `file`, its name.
 
 Imports nothing beyond the standard library: the score parser, the metadata module and the
 migration all read it.
@@ -84,6 +85,8 @@ def record(reading: dict[str, Any], before: dict | None, read_at: str | None) ->
     against."""
     held: dict[str, Any] = {"read_at": read_at,
                             "score_kind": str(reading.get("score_kind") or "")}
+    if reading.get("file"):
+        held["file"] = str(reading["file"])
     if "value" in reading:
         held["value"] = reading["value"]
         after: dict[str, Any] = {"value": reading["value"]}
@@ -149,7 +152,8 @@ def shown(rom: str, table_id: str, held: dict[str, Any] | None, *, state: str = 
     """The wire's shape. `held` is None for a state with nothing read to show."""
     return {"rom": rom, "table_id": table_id,
             "read_at": (held or {}).get("read_at") or None, "state": state,
-            "reason": reason, "sections": sections(held) if held else []}
+            "reason": reason, "file": str((held or {}).get("file") or ""),
+            "sections": sections(held) if held else []}
 
 
 def sections(held: dict[str, Any]) -> list[dict[str, Any]]:

@@ -12,12 +12,20 @@ from typing import Any
 
 from common import service_errors
 from common.failures import why
-from common.games import em_scores, game_lens, high_scores, score_parser
+from common.games import (
+    em_scores,
+    game_identity,
+    game_lens,
+    high_scores,
+    player_records,
+    score_parser,
+)
 from common.games.game import Game
 from common.games.game_metadata import default_table, load_game_meta, persist_game_meta
 from common.games.game_repository import reread_game
 from common.games.tables import TABLE_ID_KEY, table_entries
 from common.i18n import t
+from common.players import players
 from common.timestamps import iso_to_epoch, utc_now_iso
 
 logger = logging.getLogger("vpinfe.common.games.high_score_reads")
@@ -40,8 +48,16 @@ def for_table(game_id: str, table_id: str) -> dict[str, Any] | None:
 
 
 def look(game: Game, entry: dict[str, Any]) -> dict[str, Any] | None:
-    """What can be shown for `entry`'s machine, as `high_scores.shown` gives it, or None
-    where there is nothing to show and nothing a game would change."""
+    """What can be shown for `entry`'s machine, as `high_scores.shown` gives it with each
+    entry's `player` named, or None where there is nothing to show and nothing a game would
+    change."""
+    shown = _look(game, entry)
+    if shown is not None:
+        _name_players(game, shown)
+    return shown
+
+
+def _look(game: Game, entry: dict[str, Any]) -> dict[str, Any] | None:
     rom = high_scores.rom_of(entry)
     game_dir = str(game.full_path_game or "")
     source = _score_file(rom, game_dir) if rom else None
@@ -102,3 +118,36 @@ def _keep(game: Game, rom: str, held: dict[str, Any]) -> None:
     reread_game(game)
     logger.info("Read the high scores of %s for %s again: the score file was newer",
                 rom, game.game_dir_name)
+
+
+def _name_players(game: Game, shown: dict[str, Any]) -> None:
+    """Put on each entry the name of the player it is for: whoever has its initials, or for
+    a blank entry the player whose record holds that score. An entry no one is named for
+    keeps `player` blank."""
+    roster = players.get_roster()
+    credited = _blank_entries_credited(game, roster, str(shown.get("rom") or ""))
+    for section in shown.get("sections") or []:
+        for entry in section.get("entries") or []:
+            if players.names_nobody(entry.get("initials")):
+                owner = credited.get((str(section.get("name") or ""), entry.get("score")))
+            else:
+                owner = roster.whose(entry["initials"])
+            entry["player"] = owner.name if owner else ""
+
+
+def _blank_entries_credited(game: Game, roster: players.Roster,
+                            rom: str) -> dict[tuple[str, Any], players.Player]:
+    """Who a score with no initials was credited to, by section and score. Only a
+    player's best score on a ROM is kept in their record, and the owner keeps none."""
+    game_id = game_identity.game_id(game)
+    credited: dict[tuple[str, Any], players.Player] = {}
+    if not game_id or not rom:
+        return credited
+    records = player_records.get_records()
+    for player in roster.players():
+        if player.owner:
+            continue
+        best = records.game(player, game_id).get(player_records.BEST_SCORE)
+        if isinstance(best, dict) and best.get("rom") == rom:
+            credited[(str(best.get("section") or ""), best.get("score"))] = player
+    return credited

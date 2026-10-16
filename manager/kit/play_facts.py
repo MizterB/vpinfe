@@ -35,3 +35,13 @@ def score_lines(entry: dict[str, Any]) -> list[str]:
     if isinstance(score, int) and text == f"{prefix}{score:,}{suffix}":
         return [f"{prefix}{i18n.number(score)}{suffix}"]
     return text.split("\n") or [""]
+
+
+def score_cells(entry: dict[str, Any]) -> tuple[str, str, list[str]]:
+    """An entry's score as (the number with its prefix, its unit in lower case, the lines
+    after the first). The unit is the machine's suffix, which it writes in its own case."""
+    first, *rest = score_lines(entry)
+    suffix = str(entry.get("suffix") or "")
+    if suffix and first.endswith(suffix):
+        return first[:-len(suffix)], suffix.strip().lower(), rest
+    return first, "", rest

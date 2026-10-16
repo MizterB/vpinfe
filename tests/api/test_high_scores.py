@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 import time
+from configparser import ConfigParser
 from dataclasses import asdict
 from pathlib import Path
 from unittest.mock import patch
@@ -17,7 +19,9 @@ from unittest.mock import patch
 from starlette.testclient import TestClient
 
 import httpapi
+from common.games import player_records
 from common.games.score_parser import ParsedEntry
+from common.players import players
 from tests.support.library import TempTree, fake_game, write_game
 
 GAME_ID = "Scores000001"
@@ -42,7 +46,8 @@ class _HighScoreLibrary(TempTree):
         """One game whose tables declare `roms` (table id -> ROM), the first its default."""
         info = {"Info": {"Title": "Example"},
                 "User": {"Rating": 3, **({"HighScores": held} if held else {})},
-                "vpinfe": {"schema": 2, "id": GAME_ID, "default_table": next(iter(roms))},
+                "vpinfe": {"schema": 2, "id": GAME_ID, "game_id": GAME_ID,
+                           "default_table": next(iter(roms))},
                 "tables": {table_id: {"id": table_id, "filename": f"{table_id}.vpx", "rom": rom}
                            for table_id, rom in roms.items()}}
         files = {f"{table_id}.vpx": b"vpx" for table_id in roms}
@@ -86,6 +91,7 @@ class HighScoreReadTests(_HighScoreLibrary):
         self.assertEqual([(one["initials"], one["score"], one["new"])
                           for one in section["entries"]],
                          [("OWN", 300, False), ("", 250, True), ("ABC", 200, False)])
+        self.assertEqual(shown["file"], "", "a ROM's own file is named by the ROM")
         self.assertEqual((shown["state"], shown["rom"], shown["table_id"]),
                          ("read", "abc_l1", "t1"))
         kept = self._stored()["abc_l1"]
@@ -188,6 +194,61 @@ class HighScoreReadTests(_HighScoreLibrary):
         self.assertEqual(len(shown["sections"][0]["entries"]), 2)
 
 
+class WhoTests(_HighScoreLibrary):
+    """Each entry names the player it is for, where that can be told."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        players.reset_for_tests(Path(folder.name) / "players.json")
+        self.addCleanup(players.reset_for_tests)
+        player_records.reset_for_tests(Path(folder.name) / "player_records")
+        self.addCleanup(player_records.reset_for_tests)
+        self.roster = players.get_roster()
+        self.alex = self.roster.add_player("Alex", "ABC")
+        self.bea = self.roster.add_player("Bea", "BEA")
+        self._library(roms={"t1": "abc_l1"}, score_files=("abc_l1",),
+                      held={"abc_l1": _kept(AFTER, "2099-01-01T00:00:00Z")})
+
+    def _players_of(self) -> list[str]:
+        return [one["player"] for one in self._get()["sections"][0]["entries"]]
+
+    def test_initials_name_the_player_who_has_them(self) -> None:
+        self.roster.add_player("Owen", "OWN")
+
+        self.assertEqual(self._players_of(), ["Owen", "", "Alex"])
+
+    def test_a_blank_entry_names_nobody_when_no_record_holds_it(self) -> None:
+        self.assertEqual(self._players_of(), ["", "", "Alex"])
+
+    def test_a_blank_entry_names_the_player_whose_record_holds_that_score(self) -> None:
+        entry = {"section": "HIGH SCORES", "rank": 2, "initials": "BEA", "score": 250}
+        player_records.get_records().offer_scores(self.bea, GAME_ID, "abc_l1", [entry],
+                                                  "2026-01-01T00:00:00Z")
+
+        self.assertEqual(self._players_of(), ["", "Bea", "Alex"])
+
+    def test_a_score_held_in_another_section_is_not_this_ones(self) -> None:
+        entry = {"section": "GRAND CHAMPION", "rank": 1, "initials": "BEA", "score": 250}
+        player_records.get_records().offer_scores(self.bea, GAME_ID, "abc_l1", [entry],
+                                                  "2026-01-01T00:00:00Z")
+
+        self.assertEqual(self._players_of(), ["", "", "Alex"])
+
+    def test_an_owner_in_the_roster_is_left_out_of_the_credit(self) -> None:
+        self.roster.ensure_owner(ConfigParser())
+
+        self.assertEqual(self._players_of()[1], "")
+
+    def test_a_score_held_for_another_rom_is_not_this_ones(self) -> None:
+        entry = {"section": "HIGH SCORES", "rank": 2, "initials": "BEA", "score": 250}
+        player_records.get_records().offer_scores(self.bea, GAME_ID, "other_rom", [entry],
+                                                  "2026-01-01T00:00:00Z")
+
+        self.assertEqual(self._players_of(), ["", "", "Alex"])
+
+
 class ScoreFileTheScriptNamesTests(_HighScoreLibrary):
     """An EM table has no ROM to read: its script names a text file in `user/`."""
 
@@ -214,6 +275,7 @@ class ScoreFileTheScriptNamesTests(_HighScoreLibrary):
         self.assertEqual([(one["initials"], one["score"]) for one in section["entries"]][:2],
                          [("AAA", 7500), ("ZZZ", 7000)])
         self.assertEqual(self._stored()["gtb_2001"]["score_kind"], "txt")
+        self.assertEqual(shown["file"], "Scores.txt")
 
     def test_a_table_with_no_rom_is_kept_under_the_files_name(self) -> None:
         self._library(roms={"t1": ""})

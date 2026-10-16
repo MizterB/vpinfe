@@ -3498,26 +3498,32 @@ a.manager-slot-file, a.manager-slot-file:visited { color: var(--accent); }
 
 /* --- a machine's high score table, in a game's Play section -------------- */
 
-/* Each entry is its own fact row, so the columns are held by width rather than by a
-   shared grid: the rank a fixed two digits, the initials after it, and the score taking
-   the rest of the line, right-aligned, so every row's score ends at one edge. */
+/* Each entry is its own fact row, so the columns are held by widths the page works out
+   once for the whole group from its longest entry, in ch: every row carries the same
+   numbers, so every rank, name and score starts or ends on one line without a shared grid.
+   A column no entry needs is not drawn. */
 .manager-score-row {
-  display: flex; align-items: center; gap: 10px; min-width: 0;
-  min-height: var(--fact-row);
-  font-size: var(--fs-body); color: var(--ink-2);
+  display: flex; align-items: center; gap: 12px; min-width: 0;
+  min-height: var(--fact-row); font-size: var(--fs-body); color: var(--ink);
 }
+.manager-score-row > * { flex: none; white-space: nowrap; }
+/* The row is a grid item of the facts, whose value column is what the label column leaves.
+   A row that may shrink below its columns runs off the pane, so the label wraps instead. */
+.manager-facts > .manager-score-row { min-width: max-content; }
 .manager-score-rank {
-  flex: 0 0 2ch; text-align: right; font-variant-numeric: tabular-nums;
+  width: calc(var(--hs-rank) * 1ch); text-align: right; color: var(--ink-3);
+  font-variant-numeric: tabular-nums; margin-right: -4px;
 }
 /* `pre`: a machine's initials can hold a space, `J K`, and it is theirs to keep. */
-.manager-score-initials { flex: 0 0 auto; white-space: pre; }
-.manager-score-value {
-  flex: 1 1 auto; min-width: 0; text-align: right; font-variant-numeric: tabular-nums;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+.manager-score-initials { width: calc(var(--hs-init) * 1ch); white-space: pre; }
+.manager-score-player {
+  flex: 0 1 calc(var(--hs-player) * 1ch); min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  color: var(--ink-2);
 }
-/* Held on a row without New once another row has it, or that row's score ends a chip
-   further right than the rest. */
-.manager-score-new--held { visibility: hidden; }
+.manager-score-value {
+  width: calc(var(--hs-score) * 1ch); text-align: right; font-variant-numeric: tabular-nums;
+}
+.manager-score-unit { width: calc(var(--hs-unit) * 1ch); color: var(--ink-2); margin-left: -6px; }
 
 /* --- who owns a file, wherever a file is shown -------------------------- */
 

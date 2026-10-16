@@ -1398,6 +1398,9 @@ class HighScoreEntry(ApiModel):
     text: str = ""
     # Not on the table before the last game.
     new: bool = False
+    # The name of the player this entry is for, where it can be told: whoever has its
+    # initials, or whose record holds a blank one. Blank where nobody is.
+    player: str = ""
 
 
 class HighScoreSection(ApiModel):
@@ -1418,6 +1421,8 @@ class HighScores(ApiModel):
     # machine the score map cannot read), `unreadable` (the read failed, `reason` says why).
     state: str = "read"
     reason: str = ""
+    # The score file's name where the table was read from a text file, not a ROM's own file.
+    file: str = ""
     sections: list[HighScoreSection] = Field(default_factory=list)
 
 
