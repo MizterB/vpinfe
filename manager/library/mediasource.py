@@ -1264,10 +1264,7 @@ class _Table(_Folder):
 
     def takes_drops(self, element: Any) -> None:
         """Make `element` a place a table is dropped on to join this game."""
-        element._props[uploads.OWN_DROP] = ""
-        element.on("dragover", js_handler=_LIGHT)
-        element.on("dragleave", js_handler=_DIM)
-        element.on("drop", uploads.listener(self.arrived), js_handler=_MANY)
+        take_drops(element, self.arrived)
 
     async def host_tab(self, body: ui.column) -> None:
         body.clear()
@@ -1652,6 +1649,17 @@ def open_notes_sources(context: dict[str, Any], label: str, done: Callable) -> N
 def open_table_sources(context: dict[str, Any], done: Callable) -> None:
     """The ways a table joins this game. `done` runs after any of them adds one."""
     _Table(context, done).open()
+
+
+def take_drops(element: Any, arrived: Callable[[uploads.Drop], Any]) -> None:
+    """Make `element` a place files are dropped on, hearing each finished drop in `arrived`.
+
+    Marked as taking its own drops, so the page-wide handler leaves it alone.
+    """
+    element._props[uploads.OWN_DROP] = ""
+    element.on("dragover", js_handler=_LIGHT)
+    element.on("dragleave", js_handler=_DIM)
+    element.on("drop", uploads.listener(arrived), js_handler=_MANY)
 
 
 def take_table_drops(element: Any, context: dict[str, Any], done: Callable) -> None:

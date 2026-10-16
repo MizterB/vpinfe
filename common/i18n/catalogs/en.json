@@ -932,7 +932,6 @@
   "manager.discovery.name.help": "The game's name in VPS\nWith its manufacturer and year under it",
   "manager.discovery.not_compared": "Not compared yet",
   "manager.view.not_held.help": "The games VPS lists that your library does not have",
-  "manager.discovery.on_vps": "On VPS",
   "manager.discovery.to_games": "Open in Games",
   "manager.discovery.absent": "Not in your library",
   "manager.discovery.have_of": {
@@ -942,6 +941,45 @@
   "manager.discovery.held": "You have this",
   "manager.discovery.more": "{count:n} More",
   "manager.discovery.more_hint": "Show the rest of the records VPS lists for this kind",
+  "manager.discovery.media": "Media",
+  "manager.discovery.media_failed": "Could not read what the media sources have",
+  "manager.discovery.state.queued": "Queued",
+  "manager.discovery.state.downloading": "Downloading",
+  "manager.discovery.state.in": "In",
+  "manager.discovery.state.failed": "Failed",
+  "manager.discovery.part.in": "{count:n} in",
+  "manager.discovery.part.downloading": "{count:n} downloading",
+  "manager.discovery.part.queued": "{count:n} queued",
+  "manager.discovery.part.needs_you": {
+    "one": "{count:n} needs you",
+    "other": "{count:n} need you"
+  },
+  "manager.discovery.getting": {
+    "one": "Getting 1 file: {parts}",
+    "other": "Getting {count:n} files: {parts}"
+  },
+  "manager.discovery.ticked": {
+    "one": "1 file ticked",
+    "other": "{count:n} files ticked"
+  },
+  "manager.discovery.add_with": {
+    "one": "Add with 1 File",
+    "other": "Add with {count:n} Files"
+  },
+  "manager.discovery.get_n": {
+    "one": "Get 1 File",
+    "other": "Get {count:n} Files"
+  },
+  "manager.discovery.add_with.help": "Add this game to the library and get the ticked files",
+  "manager.discovery.get_n.help": "Get the ticked files into this game",
+  "manager.discovery.stop.help": "Stop after the file now coming in",
+  "manager.discovery.try_again.help": "Get this file again",
+  "manager.discovery.use_file": "Use a File…",
+  "manager.discovery.use_file.help": "Import a file you already have as this one",
+  "manager.discovery.or_drop": "or drop a file on this row",
+  "manager.discovery.folder_hint": "Open this game's folder on {site}",
+  "manager.discovery.tie_failed": "The file is in, but could not be linked to its VPS file",
+  "manager.discovery.game_unread": "Could not read the game this entry is in",
   "manager.discovery.no_picture": "No picture on VPS",
   "manager.discovery.picture_open": "View on VPS",
   "manager.discovery.type.ss": "Solid State",

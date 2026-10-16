@@ -370,11 +370,14 @@ async def confirmed_import(library: Any, upload_id: str, analysis: dict[str, Any
                            game_id: str = "",
                            game_dir: str = "", allow_new_game: bool = False,
                            media_kind: str = "", location_id: str = "",
-                           asset_kind: str = "", add_table: bool = False) -> None:
+                           asset_kind: str = "", add_table: bool = False,
+                           on_imported: Callable[[dict, dict], Any] | None = None) -> None:
     """From staged files to the import confirmation, and what follows a yes.
 
-    `on_done` runs only after an import, once the library has been read again. Declined,
-    blocked or empty, the staged files are let go and nothing else happens.
+    `on_done` runs only after an import, once the library has been read again.
+    `on_imported` runs just before it, with the import's report and the plan it ran, for a
+    caller that has to act on what landed where. Declined, blocked or empty, the staged
+    files are let go and nothing else happens.
     """
     rom_name = _rom_of(library, game_id)
     try:
@@ -395,10 +398,14 @@ async def confirmed_import(library: Any, upload_id: str, analysis: dict[str, Any
         await run.io_bound(library.abort_upload, upload_id)
         return
 
-    async def done(_report: Any) -> None:
+    async def done(report: Any) -> None:
         if game_id:
             library.forget_media(game_id)
         await run.io_bound(library.refresh_after_import)
+        if on_imported is not None:
+            followed = on_imported(report, plan)
+            if asyncio.iscoroutine(followed):
+                await followed
         answer = on_done()
         if asyncio.iscoroutine(answer):
             await answer

@@ -932,7 +932,6 @@
   "manager.discovery.name.help": "Ţĥè ĝàɱè'š ñàɱè îñ ṼÞŠ\nŴîţĥ îţš ɱàñûƒàçţûřèř àñđ ýèàř ûñđèř îţ",
   "manager.discovery.not_compared": "Ñöţ çöɱþàřèđ ýèţ",
   "manager.view.not_held.help": "Ţĥè ĝàɱèš ṼÞŠ ŀîšţš ţĥàţ ýöûř ŀîƀřàřý đöèš ñöţ ĥàṽè",
-  "manager.discovery.on_vps": "Öñ ṼÞŠ",
   "manager.discovery.to_games": "Öþèñ îñ Ĝàɱèš",
   "manager.discovery.absent": "Ñöţ îñ ýöûř ŀîƀřàřý",
   "manager.discovery.have_of": {
@@ -942,6 +941,45 @@
   "manager.discovery.held": "Ýöû ĥàṽè ţĥîš",
   "manager.discovery.more": "{count:n} Ḿöřè",
   "manager.discovery.more_hint": "Šĥöŵ ţĥè řèšţ öƒ ţĥè řèçöřđš ṼÞŠ ŀîšţš ƒöř ţĥîš ķîñđ",
+  "manager.discovery.media": "Ḿèđîà",
+  "manager.discovery.media_failed": "Çöûŀđ ñöţ řèàđ ŵĥàţ ţĥè ɱèđîà šöûřçèš ĥàṽè",
+  "manager.discovery.state.queued": "Ǫûèûèđ",
+  "manager.discovery.state.downloading": "Đöŵñŀöàđîñĝ",
+  "manager.discovery.state.in": "Îñ",
+  "manager.discovery.state.failed": "Ƒàîŀèđ",
+  "manager.discovery.part.in": "{count:n} îñ",
+  "manager.discovery.part.downloading": "{count:n} đöŵñŀöàđîñĝ",
+  "manager.discovery.part.queued": "{count:n} ǫûèûèđ",
+  "manager.discovery.part.needs_you": {
+    "one": "{count:n} ñèèđš ýöû",
+    "other": "{count:n} ñèèđ ýöû"
+  },
+  "manager.discovery.getting": {
+    "one": "Ĝèţţîñĝ 1 ƒîŀè: {parts}",
+    "other": "Ĝèţţîñĝ {count:n} ƒîŀèš: {parts}"
+  },
+  "manager.discovery.ticked": {
+    "one": "1 ƒîŀè ţîçķèđ",
+    "other": "{count:n} ƒîŀèš ţîçķèđ"
+  },
+  "manager.discovery.add_with": {
+    "one": "Àđđ ŵîţĥ 1 Ƒîŀè",
+    "other": "Àđđ ŵîţĥ {count:n} Ƒîŀèš"
+  },
+  "manager.discovery.get_n": {
+    "one": "Ĝèţ 1 Ƒîŀè",
+    "other": "Ĝèţ {count:n} Ƒîŀèš"
+  },
+  "manager.discovery.add_with.help": "Àđđ ţĥîš ĝàɱè ţö ţĥè ŀîƀřàřý àñđ ĝèţ ţĥè ţîçķèđ ƒîŀèš",
+  "manager.discovery.get_n.help": "Ĝèţ ţĥè ţîçķèđ ƒîŀèš îñţö ţĥîš ĝàɱè",
+  "manager.discovery.stop.help": "Šţöþ àƒţèř ţĥè ƒîŀè ñöŵ çöɱîñĝ îñ",
+  "manager.discovery.try_again.help": "Ĝèţ ţĥîš ƒîŀè àĝàîñ",
+  "manager.discovery.use_file": "Ûšè à Ƒîŀè…",
+  "manager.discovery.use_file.help": "Îɱþöřţ à ƒîŀè ýöû àŀřèàđý ĥàṽè àš ţĥîš öñè",
+  "manager.discovery.or_drop": "öř đřöþ à ƒîŀè öñ ţĥîš řöŵ",
+  "manager.discovery.folder_hint": "Öþèñ ţĥîš ĝàɱè'š ƒöŀđèř öñ {site}",
+  "manager.discovery.tie_failed": "Ţĥè ƒîŀè îš îñ, ƀûţ çöûŀđ ñöţ ƀè ŀîñķèđ ţö îţš ṼÞŠ ƒîŀè",
+  "manager.discovery.game_unread": "Çöûŀđ ñöţ řèàđ ţĥè ĝàɱè ţĥîš èñţřý îš îñ",
   "manager.discovery.no_picture": "Ñö þîçţûřè öñ ṼÞŠ",
   "manager.discovery.picture_open": "Ṽîèŵ öñ ṼÞŠ",
   "manager.discovery.type.ss": "Šöŀîđ Šţàţè",

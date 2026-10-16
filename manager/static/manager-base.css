@@ -3667,6 +3667,12 @@ a.manager-slot-file, a.manager-slot-file:visited { color: var(--accent); }
 .manager-record { padding: 5px 8px 5px 12px; font-weight: 400; }
 .manager-record-mark { flex: 0 0 18px; color: var(--positive); line-height: 1.3; }
 .manager-record-mark .q-icon { font-size: var(--icon-mark); }
+/* The box that ticks a row's file takes the mark's column, so the words stay where they
+   are whether a row can be ticked or not. */
+.manager-record-tick { flex: 0 0 18px; display: flex; align-items: flex-start; }
+.manager-record-tick .q-checkbox { margin: -1px 0 0 -3px; }
+/* The state a band is in when the game lacks what it holds. */
+.manager-band-tag { font-size: var(--fs-caption); font-weight: 400; color: var(--warm); }
 .manager-record-when { flex: 0 0 auto; white-space: nowrap; padding-top: 2px; }
 /* The place the way out sits, held on a row without one. */
 .manager-record-out { flex: 0 0 25px; }

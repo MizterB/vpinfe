@@ -5,10 +5,16 @@ from __future__ import annotations
 import unittest
 from unittest import mock
 
+from nicegui import ui
+
+from common.online import vps_kinds
 from manager import page
 from manager.kit import deeplink
 from manager.kit.data import Library
-from manager.library import discovery
+from manager.library import discovery, discovery_get
+
+# Made at import, outside any task, where NiceGUI still hands out the script's own page.
+_PAGE = ui.element()
 
 
 def _entry(vps_id: str = "v1", **over) -> dict:
@@ -306,6 +312,328 @@ class Address(unittest.TestCase):
 
         self.assertIn("entry=v1", on_page)
         self.assertNotIn("entry", elsewhere)
+
+
+class MediaBands(unittest.TestCase):
+    def test_the_wheel_and_the_topper_come_first_whatever_order_they_are_given_in(self) -> None:
+        bands = discovery.media_bands(list(discovery.KINDS), ["playfield", "topper", "wheel"])
+
+        self.assertEqual(["wheel", "topper", "playfield"], [kind for kind, _one in bands])
+
+    def test_a_kind_vps_lists_keeps_its_vps_row_and_one_only_a_source_has_gets_a_word(
+            self) -> None:
+        bands = dict(discovery.media_bands(list(discovery.KINDS), ["playfield"]))
+
+        self.assertEqual("wheelArtFiles", bands["wheel"][0])
+        self.assertEqual("", bands["playfield"][0])
+        self.assertEqual("media.kind.playfield.label", bands["playfield"][2])
+
+    def test_a_kind_neither_vps_nor_a_source_has_is_not_a_band(self) -> None:
+        bands = discovery.media_bands([("tableFiles", "kind_table", "word.table")], [])
+
+        self.assertEqual([], bands)
+
+
+class Picks(unittest.TestCase):
+    def _offer(self, **over) -> dict:
+        return {"source": "vpinmediadb", "kind": "wheel", "size": "4K", "name": "wheel.png",
+                "url": "https://example.test/wheel.png", **over}
+
+    def test_a_pick_is_named_by_where_it_is_from_what_it_is_and_which_size(self) -> None:
+        pick = discovery_get.pick_of(self._offer())
+
+        self.assertEqual(("vpinmediadb", "wheel", "4K"), (pick.source, pick.kind, pick.size))
+        self.assertEqual(discovery_get.key_of("vpinmediadb", "wheel", "4K"), pick.key)
+
+    def test_an_offer_with_no_size_is_a_pick_with_none(self) -> None:
+        self.assertEqual("", discovery_get.pick_of(self._offer(size=None)).size)
+
+    def test_a_tray_belongs_to_the_entry_and_outlives_a_redraw(self) -> None:
+        state: dict = {}
+
+        mine = discovery_get.tray_of(state, "v1")
+
+        self.assertIs(mine, discovery_get.tray_of(state, "v1"))
+        self.assertIsNot(mine, discovery_get.tray_of(state, "v2"))
+
+    def test_the_wheel_and_the_topper_are_drawn_before_the_rest(self) -> None:
+        order = sorted(["playfield", "topper", "wheel", "backglass", "nothing_we_know"],
+                       key=discovery_get.media_order)
+
+        self.assertEqual(["wheel", "topper", "backglass", "playfield", "nothing_we_know"], order)
+
+
+class Ticking(unittest.TestCase):
+    def _pick(self, size: str, kind: str = "wheel") -> discovery_get.Pick:
+        return discovery_get.pick_of({"source": "vpinmediadb", "kind": kind, "size": size})
+
+    def test_ticking_a_second_file_of_a_kind_unticks_the_first(self) -> None:
+        tray, small, big = discovery_get.Tray(), self._pick("1K"), self._pick("4K")
+
+        tray.set(small, True)
+        tray.set(big, True)
+
+        self.assertEqual([big], tray.waiting())
+
+    def test_two_kinds_are_both_kept(self) -> None:
+        tray = discovery_get.Tray()
+
+        tray.set(self._pick("4K"), True)
+        tray.set(self._pick("4K", "topper"), True)
+
+        self.assertEqual({"wheel", "topper"}, {one.kind for one in tray.waiting()})
+
+    def test_unticking_takes_it_off(self) -> None:
+        tray, pick = discovery_get.Tray(), self._pick("4K")
+        tray.set(pick, True)
+
+        tray.set(pick, False)
+
+        self.assertEqual([], tray.waiting())
+
+    def test_a_file_already_in_is_not_waiting_and_one_that_failed_is(self) -> None:
+        tray, done, failed = discovery_get.Tray(), self._pick("4K"), self._pick("4K", "topper")
+        tray.set(done, True)
+        tray.set(failed, True)
+
+        tray.move(done.key, discovery_get.IN)
+        tray.move(failed.key, discovery_get.FAILED, "no connection")
+
+        self.assertEqual([failed], tray.waiting())
+
+    def test_a_file_in_is_not_unticked_by_a_rival(self) -> None:
+        tray, done, rival = discovery_get.Tray(), self._pick("1K"), self._pick("4K")
+        tray.set(done, True)
+        tray.move(done.key, discovery_get.IN)
+
+        tray.set(rival, True)
+
+        self.assertEqual([rival], tray.waiting())
+        self.assertIn(done.key, tray.picks)
+
+    def test_a_rival_that_failed_is_replaced_and_its_failure_goes_with_it(self) -> None:
+        tray, failed, rival = discovery_get.Tray(), self._pick("1K"), self._pick("4K")
+        tray.set(failed, True)
+        tray.move(failed.key, discovery_get.FAILED, "no connection")
+
+        tray.set(rival, True)
+
+        self.assertEqual([rival], tray.waiting())
+        self.assertNotIn(failed.key, tray.moves)
+
+    def test_releasing_a_kind_lets_go_of_what_is_in_and_nothing_else(self) -> None:
+        tray = discovery_get.Tray()
+        gone, kept, waiting = self._pick("4K"), self._pick("4K", "topper"), self._pick(
+            "4K", "playfield")
+        for pick in (gone, kept, waiting):
+            tray.set(pick, True)
+        tray.move(gone.key, discovery_get.IN)
+        tray.move(kept.key, discovery_get.IN)
+
+        tray.release({"wheel", "playfield"})
+
+        self.assertEqual({kept.key, waiting.key}, set(tray.picks))
+        self.assertEqual({kept.key}, set(tray.moves))
+
+    def test_repainting_all_redraws_every_key_and_forgets_a_holder_that_was_deleted(self) -> None:
+        tray, drawn = discovery_get.Tray(), []
+        live, dead = mock.MagicMock(is_deleted=False), mock.MagicMock(is_deleted=True)
+        tray._painters = {"a": [(live, lambda: drawn.append("a"))],
+                          "b": [(dead, lambda: drawn.append("b"))]}
+
+        tray.repaint_all()
+
+        self.assertEqual(["a"], drawn)
+        self.assertEqual([], tray._painters["b"])
+
+    def test_forgetting_a_move_puts_the_tick_back_in_the_waiting(self) -> None:
+        tray, pick = discovery_get.Tray(), self._pick("4K")
+        tray.set(pick, True)
+        tray.move(pick.key, discovery_get.QUEUED)
+
+        tray.forget(pick.key)
+
+        self.assertEqual([pick], tray.waiting())
+
+
+class Saying(unittest.TestCase):
+    def test_a_batch_says_how_many_and_where_each_has_got_to(self) -> None:
+        tray = discovery_get.Tray(batch=4)
+        for number, state in enumerate((discovery_get.IN, discovery_get.IN,
+                                        discovery_get.DOWNLOADING, discovery_get.FAILED)):
+            tray.move(f"k{number}", state)
+
+        self.assertEqual("Getting 4 files: 2 in, 1 downloading, 1 needs you",
+                         discovery_get._said(tray))
+
+    def test_one_file_is_not_files(self) -> None:
+        tray = discovery_get.Tray(batch=1)
+        tray.move("k", discovery_get.DOWNLOADING)
+
+        self.assertEqual("Getting 1 file: 1 downloading", discovery_get._said(tray))
+
+
+class Listings(unittest.TestCase):
+    def test_a_vps_kind_is_ours_by_the_kinds_behind_it(self) -> None:
+        ours, held_in = discovery_get.of_listing("b2sFiles")
+
+        self.assertEqual(("backglass",), ours)
+        self.assertEqual(vps_kinds.ASSET, held_in)
+
+    def test_a_kind_that_is_two_of_ours_names_both(self) -> None:
+        ours, held_in = discovery_get.of_listing("topperFiles")
+
+        self.assertEqual(("topper", "topper_video"), ours)
+        self.assertEqual(vps_kinds.MEDIA, held_in)
+
+    def test_the_table_is_an_asset_kind_of_its_own(self) -> None:
+        self.assertEqual((("table",), vps_kinds.ASSET), discovery_get.of_listing("tableFiles"))
+
+
+class Getting(unittest.IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
+        self.asked: list[str] = []
+        self.refused: set[str] = set()
+        self.on_asked = lambda kind: None
+
+        async def inline(callback, *args):
+            return callback(*args)
+
+        self.enterContext(mock.patch.object(discovery_get.offload, "io", inline))
+        library = mock.Mock()
+        library.fetch_media = self._fetch
+        self.context = {"library": library, "state": {},
+                        "discovery": {"id": "v1", "name": "Attack from Mars",
+                                      "is_in_library": True}}
+        self.tray = discovery_get.Tray()
+
+    def _fetch(self, _game, _table, kind, _source, _vps, _size):
+        self.asked.append(kind)
+        self.on_asked(kind)
+        if kind in self.refused:
+            raise RuntimeError("the source has no file")
+        return {"kind": kind}
+
+    def _tick(self, *kinds: str) -> list[discovery_get.Pick]:
+        picks = [discovery_get.pick_of({"source": "vpinmediadb", "kind": kind, "size": "4K"})
+                 for kind in kinds]
+        for pick in picks:
+            self.tray.set(pick, True)
+        return picks
+
+    async def _get(self, game_id: str = "g1", **more) -> None:
+        with _PAGE:
+            await discovery_get.get(self.context, self.tray, game_id, **more)
+
+    async def test_a_file_the_source_refuses_fails_alone_and_the_rest_arrive(self) -> None:
+        wheel, topper, playfield = self._tick("wheel", "topper", "playfield")
+        self.refused = {"topper"}
+
+        await self._get()
+
+        self.assertEqual({wheel.key: discovery_get.IN, topper.key: discovery_get.FAILED,
+                          playfield.key: discovery_get.IN},
+                         {key: move.state for key, move in self.tray.moves.items()})
+        self.assertEqual("the source has no file", self.tray.moves[topper.key].reason)
+        self.assertEqual([topper], self.tray.waiting())
+        self.assertFalse(self.tray.running)
+
+    async def test_trying_again_asks_for_that_file_alone(self) -> None:
+        wheel, topper = self._tick("wheel", "topper")
+        self.refused = {"topper"}
+        await self._get()
+        self.asked.clear()
+        self.refused = set()
+
+        with _PAGE:
+            await discovery_get.try_again(self.context, self.tray, "g1", topper)()
+
+        self.assertEqual(["topper"], self.asked)
+        self.assertEqual(discovery_get.IN, self.tray.moves[topper.key].state)
+        self.assertEqual(discovery_get.IN, self.tray.moves[wheel.key].state)
+        self.assertEqual([], self.tray.waiting())
+
+    async def test_stop_ends_the_batch_after_the_file_in_hand(self) -> None:
+        wheel, topper, playfield = self._tick("wheel", "topper", "playfield")
+
+        def pressed(kind: str) -> None:
+            self.tray.stopping = kind == "wheel"
+
+        self.on_asked = pressed
+
+        await self._get()
+
+        self.assertEqual(["wheel"], self.asked)
+        self.assertEqual({wheel.key: discovery_get.IN},
+                         {key: move.state for key, move in self.tray.moves.items()})
+        self.assertEqual([topper, playfield], self.tray.waiting())
+        self.assertFalse(self.tray.running)
+
+    async def test_a_second_press_while_one_batch_runs_starts_nothing(self) -> None:
+        self._tick("wheel")
+        self.tray.running = True
+
+        await self._get()
+
+        self.assertEqual([], self.asked)
+
+    async def test_trying_again_while_a_batch_runs_starts_nothing(self) -> None:
+        (topper,) = self._tick("topper")
+        self.tray.move(topper.key, discovery_get.FAILED, "no connection")
+        self.tray.running = True
+
+        with _PAGE:
+            await discovery_get.try_again(self.context, self.tray, "g1", topper)()
+
+        self.assertEqual([], self.asked)
+        self.assertEqual(discovery_get.FAILED, self.tray.moves[topper.key].state)
+
+    async def test_a_game_in_the_library_that_cannot_be_read_gets_nothing_and_says_so(
+            self) -> None:
+        self._tick("wheel")
+
+        with _PAGE, mock.patch.object(discovery_get.ui, "notify") as said:
+            await discovery_get.get(self.context, self.tray, "")
+
+        self.assertEqual([], self.asked)
+        self.assertFalse(self.tray.running)
+        self.assertEqual("negative", said.call_args.kwargs["type"])
+
+    async def test_a_game_not_in_the_library_is_made_first_and_declining_the_place_ends_it(
+            self) -> None:
+        self.context["discovery"]["is_in_library"] = False
+        self._tick("wheel")
+
+        with mock.patch.object(discovery_get.import_dialog, "ask_where",
+                               mock.AsyncMock(return_value=None)):
+            await self._get("")
+
+        self.assertEqual([], self.asked)
+        self.assertEqual({}, self.tray.moves)
+        self.assertFalse(self.tray.running)
+
+    async def test_a_game_not_in_the_library_is_made_and_then_gets_what_was_ticked(self) -> None:
+        self.context["discovery"]["is_in_library"] = False
+        self.context["library"].add_game_from_vps = lambda _vps, _where: {"id": "g9"}
+        (wheel,) = self._tick("wheel")
+
+        with mock.patch.object(discovery_get.import_dialog, "ask_where",
+                               mock.AsyncMock(return_value="place")):
+            await self._get("")
+
+        self.assertEqual(["wheel"], self.asked)
+        self.assertEqual(discovery_get.IN, self.tray.moves[wheel.key].state)
+
+    async def test_what_the_batch_leaves_ticked_is_drawn_again_when_it_ends(self) -> None:
+        wheel, topper = self._tick("wheel", "topper")
+        self.refused = {"wheel"}
+        redrawn: list[str] = []
+        holder = mock.MagicMock(is_deleted=False)
+        self.tray._painters = {topper.key: [(holder, lambda: redrawn.append(topper.key))]}
+
+        await self._get(only=wheel)
+
+        self.assertIn(topper.key, redrawn)
 
 
 class Leaving(unittest.TestCase):

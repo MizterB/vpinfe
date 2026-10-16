@@ -57,9 +57,9 @@ def _body(src: str, name: str, meta: str, tag: str, family: str, glyph: str,
             ui.label(tag).classes("manager-source-tag")
 
 
-def thumb(src: str, glyph: str, missing: str = "") -> None:
+def thumb(src: str, glyph: str, missing: str = "", family: str = "image") -> None:
     """The small picture a row leads with, for a row that draws its own words."""
-    _frame("manager-source-thumb manager-source-thumb--small", src, "image", glyph,
+    _frame("manager-source-thumb manager-source-thumb--small", src, family, glyph,
            missing=missing)
 
 
