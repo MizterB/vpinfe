@@ -146,7 +146,7 @@ class ThePowerIcon(unittest.IsolatedAsyncioTestCase):
     async def test_the_hover_says_how_many_changes_wait_while_the_dot_is_up(self) -> None:
         self.library.config_waiting.return_value = _answer(PORTS, SOCKET)
         icon, bar = await self._placed()
-        assert icon._tip is not None
+        assert isinstance(icon._tip, ui.tooltip)
         self.assertEqual(icon._tip.text, t("manager.page.power"))
 
         bar._dismiss()
@@ -156,7 +156,7 @@ class ThePowerIcon(unittest.IsolatedAsyncioTestCase):
     async def test_the_hover_is_plain_again_when_nothing_waits(self) -> None:
         self.library.config_waiting.return_value = _answer(PORTS)
         icon, bar = await self._placed()
-        assert icon._tip is not None
+        assert isinstance(icon._tip, ui.tooltip)
         bar._dismiss()
         self.library.config_waiting.return_value = _answer()
 
