@@ -11,7 +11,7 @@ runs somewhere else.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from manager.kit import offload, wizard
@@ -21,28 +21,33 @@ from manager.kit.on_page import on_page
 GIVE_UP_AFTER = 3
 
 
-def calls(extension: str, action: dict, rows: Sequence[str] = ()) -> wizard.Calls:
+def calls(extension: str, action: dict, rows: Sequence[str] = (),
+          who: Mapping[str, str] | None = None) -> wizard.Calls:
     """The action's four calls over HTTP, for the dialog host or for a flow that nests it
-    inside steps of its own. `rows` are the ids of the list rows it was opened over; the
-    first call carries them in its body and the dialog's values carry them after."""
+    inside steps of its own. `rows` are the ids of the list rows it was opened over and
+    `who` the game it was opened for. The first call carries the rows in its body and the
+    dialog's values carry them after; every call carries `who` beside its values."""
     client = ApiClient()
     base = f"/ext/{extension}{action.get('base') or ''}"
+    game = {"who": dict(who)} if who else {}
 
     async def first(step: str | None = None) -> dict:
         return await offload.io(client.ext_post, f"{base}/ask",
-                                {"step": step or "", "rows": list(rows)}, STEP_TIMEOUT)
+                                {"step": step or "", "rows": list(rows), **game},
+                                STEP_TIMEOUT)
 
     async def check(values: dict[str, Any], step: str) -> dict:
         return await offload.io(client.ext_post, f"{base}/check",
-                                 {"values": values, "step": step}, STEP_TIMEOUT)
+                                 {"values": values, "step": step, **game}, STEP_TIMEOUT)
 
     async def act(key: str, values: dict[str, Any], step: str) -> dict:
         return await offload.io(client.ext_post, f"{base}/act",
-                                 {"act": key, "values": values, "step": step}, STEP_TIMEOUT)
+                                 {"act": key, "values": values, "step": step, **game},
+                                 STEP_TIMEOUT)
 
     async def run(values: dict[str, Any], step: str) -> dict:
         return await offload.io(client.ext_post, f"{base}/run",
-                                 {"values": values, "step": step}, STEP_TIMEOUT)
+                                 {"values": values, "step": step, **game}, STEP_TIMEOUT)
 
     async def job(job_id: str) -> dict:
         return await offload.io(client.job, job_id)
@@ -69,18 +74,19 @@ def calls(extension: str, action: dict, rows: Sequence[str] = ()) -> wizard.Call
 @on_page
 async def open_action(extension: str, action: dict, *,
                       values: dict[str, Any] | None = None, until: str = "",
-                      rows: Sequence[str] = (), place: str = "",
-                      walking: bool = False) -> Any:
+                      rows: Sequence[str] = (), who: Mapping[str, str] | None = None,
+                      place: str = "", walking: bool = False) -> Any:
     """Run one action: ask what it asks, in as many steps as it asks it, then do it.
 
     True once it ran and the dialog was closed, so a page that shows what the action
     changes can redraw; False when it was cancelled first. `values` are answers it starts
     with, and `until` the step it is walked to, unasked, before it is shown. `rows` are
-    the ids of the rows it is opened over. In a walk (`walking`, at `place` in it) the way
-    out is Skip or Stop, and the answer is `walks.SKIPPED` or `walks.STOPPED` as well."""
+    the ids of the rows it is opened over and `who` the game it is opened for. In a walk
+    (`walking`, at `place` in it) the way out is Skip or Stop, and the answer is
+    `walks.SKIPPED` or `walks.STOPPED` as well."""
     return await wizard.open_dialog(
         label=str(action.get("label") or ""),
-        calls=calls(extension, action, rows),
+        calls=calls(extension, action, rows, who),
         under=f"ext.{extension}.action.{action.get('key')}",
         values={**(values or {}), **({"rows": list(rows)} if rows else {})},
         until=until, place=place, walking=walking, close_when_done=walking)

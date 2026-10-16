@@ -36,6 +36,11 @@ class IsWeb(unittest.TestCase):
             with self.subTest(said=said):
                 self.assertFalse(sites.is_web(said))
 
+    def test_an_address_that_does_not_parse_is_not_rather_than_an_error(self) -> None:
+        for said in ("http://[x", "http://[::1", "http://exa]mple.com", "https://a\uff03b.com"):
+            with self.subTest(said=said):
+                self.assertFalse(sites.is_web(said))
+
 
 if __name__ == "__main__":
     unittest.main()

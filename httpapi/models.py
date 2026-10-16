@@ -2267,17 +2267,29 @@ class ExtensionLibraryVerb(ApiModel):
     targets: list[ExtensionTarget] = Field(default_factory=list)
 
 
+class ExtensionWho(ApiModel):
+    """The game a dialog was opened for, which the library may not hold yet."""
+
+    game_id: str = ""
+    vps_id: str = ""
+    name: str = ""
+
+
 class ExtensionAsk(ApiModel):
-    """The step to ask for, and the rows of a list the dialog was opened over, by `id`."""
+    """The step to ask for, the rows of a list the dialog was opened over, by `id`, and
+    the game it was opened for."""
 
     step: str = ""
     rows: list[str] = Field(default_factory=list)
+    who: ExtensionWho = Field(default_factory=ExtensionWho)
 
 
 class ExtensionStep(ExtensionValues):
-    """A dialog's values, and the step they were entered on where it has steps."""
+    """A dialog's values, the step they were entered on where it has steps, and the game
+    it was opened for."""
 
     step: str = ""
+    who: ExtensionWho = Field(default_factory=ExtensionWho)
 
 
 class ExtensionAct(ExtensionStep):

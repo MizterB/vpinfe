@@ -46,6 +46,7 @@ WORDS = {
     "list.verbed.verb.remove.needs": "Only a row you can remove",
     "action.greet.label": "Say hello",
     "action.rowed.label": "Add a note",
+    "action.gamed.label": "Get a file",
     "action.bare.label": "Add bare",
     "list.opening.title": "Opening",
     "list.opening.verb.each.label": "Each",
@@ -61,7 +62,8 @@ def fresh_state() -> None:
     STATE.clear()
     STATE.update(
         checked=[], steps=[], plain_values=None, seen=None, rows=[], status="", acts=None,
-        pressed=[], asked_rows=[], ran_rows=[], pane=None, saved=[], pane_asked=[],
+        pressed=[], asked_rows=[], ran_rows=[], asked_who=[], checked_who=[], acted_who=[],
+        ran_who=[], pane=None, saved=[], pane_asked=[],
         save_raises=None,
         progress=None, running=threading.Event(), release=threading.Event())
 
@@ -157,6 +159,28 @@ def served(ctx: Any) -> None:
         def run(self, values: dict) -> None:
             STATE["ran_rows"].append(list(values.get("rows") or []))
 
+    class Gamed:
+        def ask(self, step: str, rows: list[str], who: dict) -> dict:
+            STATE["asked_who"].append((list(rows), dict(who)))
+            if step == "field":
+                return {"fields": [{"key": "who", "type": "string"}]}
+            return {"fields": [{"key": "note", "type": "string"}]}
+
+        def check(self, values: dict, who: dict) -> dict | None:
+            STATE["checked_who"].append((dict(values), dict(who)))
+            if values.get("again"):
+                return None
+            return {"fields": [{"key": "note", "type": "string"}]}
+
+        def act(self, act: str, values: dict, who: dict) -> dict | None:
+            STATE["acted_who"].append(dict(who))
+            if values.get("again"):
+                return None
+            return {"fields": [{"key": "note", "type": "string"}]}
+
+        def run(self, values: dict, who: dict) -> None:
+            STATE["ran_who"].append(dict(who))
+
     class Bare:
         def ask(self, step: str) -> dict:
             return {"fields": []}
@@ -250,10 +274,26 @@ def served(ctx: Any) -> None:
                 return {"fields": [], "notes": object()}
             if step == "rows":
                 return {"fields": [{"key": "rows", "type": "string"}]}
+            if step == "linked":
+                return {"notes": ["Plain", {"text": "The notice", "detail": "Read it",
+                                            "to": "https://example.com/notice"}]}
+            if step == "ftp":
+                return {"notes": [{"text": "The notice", "to": "ftp://example.com/notice"}]}
+            if step == "unlabeled":
+                return {"notes": [{"to": "https://example.com/notice"}]}
+            if step == "unparsed":
+                return {"notes": [{"text": "The notice", "to": "http://[x"}]}
+            if step == "countable":
+                return {"notes": 5}
+            if step == "numbered":
+                return {"notes": [{"text": 5, "to": "https://example.com/notice"}]}
+            if step == "linked_error":
+                return {"errors": {"a": {"text": "No", "to": "https://example.com/notice"}}}
             raise ValueError("The service said no")
 
     ctx.ui.action("greet", Greet())
     ctx.ui.action("rowed", Rowed())
+    ctx.ui.action("gamed", Gamed())
     ctx.ui.action("bare", Bare())
     ctx.ui.action("plain", Plain())
     ctx.ui.action("worker", Worker())
@@ -917,6 +957,79 @@ class Verbs(ServedCase):
         self.assertEqual(STATE["pressed"], [])
 
 
+class DialogsOpenedForAGame(ServedCase):
+    WHO = {"game_id": "g1", "vps_id": "abcdefghij", "name": "Taxi"}
+
+    def asked(self, who: dict) -> Any:
+        return self.post("/actions/gamed/ask", {"rows": ["pick-1"], "who": who})
+
+    def test_the_game_a_dialog_was_opened_for_is_handed_to_its_ask_with_the_rows(self) -> None:
+        self.ok(self.asked(self.WHO))
+
+        self.assertEqual([(["pick-1"], self.WHO)], STATE["asked_who"])
+
+    def test_a_game_the_library_does_not_hold_has_no_game_id_and_still_has_the_rest(self) -> None:
+        self.ok(self.asked({"vps_id": "abcdefghij", "name": "Taxi"}))
+
+        self.assertEqual([(["pick-1"], {"game_id": "", "vps_id": "abcdefghij", "name": "Taxi"})],
+                         STATE["asked_who"])
+
+    def test_only_the_three_ids_an_extension_can_use_are_passed_on(self) -> None:
+        self.ok(self.asked({**self.WHO, "table_id": "t1", "path": "/Users/someone"}))
+
+        self.assertEqual([(["pick-1"], self.WHO)], STATE["asked_who"])
+
+    def test_a_dialog_opened_for_no_game_is_asked_with_an_empty_who(self) -> None:
+        self.ok(self.post("/actions/gamed/ask", {}))
+        self.ok(self.get("/actions/gamed"))
+
+        self.assertEqual([([], {}), ([], {})], STATE["asked_who"])
+
+    def test_a_dialog_that_does_not_name_who_is_not_handed_one(self) -> None:
+        self.ok(self.post("/actions/rowed/ask", {"rows": ["1"], "who": self.WHO}))
+
+        self.assertEqual([["1"]], STATE["asked_rows"])
+
+    def test_a_later_call_is_handed_the_game_beside_its_values(self) -> None:
+        self.ok(self.post("/actions/gamed/check", {"values": {"note": "a"}, "who": self.WHO}))
+        self.ok(self.post("/actions/gamed/act",
+                          {"act": "more", "values": {"note": "a"}, "who": self.WHO}))
+        self.ok(self.post("/actions/gamed/run", {"values": {"note": "a"}, "who": self.WHO}))
+
+        self.assertEqual([({"note": "a"}, self.WHO)], STATE["checked_who"])
+        self.assertEqual([self.WHO], STATE["acted_who"])
+        self.assertEqual([self.WHO], STATE["ran_who"])
+
+    def test_a_check_and_an_act_that_ask_again_do_so_for_the_game_and_rows_they_were_sent(
+            self) -> None:
+        self.ok(self.post("/actions/gamed/check", {"values": {"again": "1", "rows": ["pick-1"]},
+                                                   "who": self.WHO}))
+        self.ok(self.post("/actions/gamed/act", {"act": "more", "who": self.WHO,
+                                                 "values": {"again": "1", "rows": ["pick-2"]}}))
+
+        self.assertEqual([(["pick-1"], self.WHO), (["pick-2"], self.WHO)], STATE["asked_who"])
+
+    def test_the_game_is_not_put_into_the_values(self) -> None:
+        self.ok(self.post("/actions/gamed/check", {"values": {"note": "a"}, "who": self.WHO}))
+
+        self.assertNotIn("who", STATE["checked_who"][0][0])
+
+    def test_a_check_that_is_not_there_asks_again_for_the_game_and_rows_it_was_sent(self) -> None:
+        self.ok(self.post("/actions/rowed/check", {"values": {"rows": ["1"]}, "who": self.WHO}))
+
+        self.assertEqual([["1"]], STATE["asked_rows"])
+
+    def test_a_call_that_names_no_game_is_handed_an_empty_one(self) -> None:
+        self.ok(self.post("/actions/gamed/run", {"values": {"note": "a"}}))
+
+        self.assertEqual([{}], STATE["ran_who"])
+
+    def test_a_field_named_who_is_an_ordinary_field(self) -> None:
+        asked = self.ok(self.get("/actions/gamed", step="field"))
+
+        self.assertEqual(["who"], [one["key"] for one in asked["fields"]])
+
+
 class DialogsOpenedFromAList(ServedCase):
     def asked(self, key: str, rows: list[str]) -> Any:
         return self.post(f"/actions/{key}/ask", {"rows": rows})
@@ -1094,6 +1207,37 @@ class Dialogs(ServedCase):
         loaded = self.registry.get(NAME)
         assert loaded is not None
         self.assertEqual(loaded.state, host.LOADED)
+
+    def test_a_note_may_link_to_a_web_address(self) -> None:
+        notes = self.ok(self.get("/actions/wrong", step="linked"))["notes"]
+
+        self.assertEqual(["Plain", {"text": "The notice", "detail": "Read it",
+                                    "to": "https://example.com/notice"}], notes)
+
+    def test_a_note_that_links_to_anything_but_the_web_is_refused_by_name(self) -> None:
+        message = self.refused(self.get("/actions/wrong", step="ftp"), 400)["message"]
+
+        self.assertIn("ftp://example.com/notice", message)
+        self.assertIn("'to'", message)
+
+    def test_a_note_that_links_with_no_words_to_show_it_as_is_refused(self) -> None:
+        self.refused(self.get("/actions/wrong", step="unlabeled"), 400)
+
+    def test_a_note_address_that_does_not_parse_is_the_extensions_failure_not_a_crash(self) -> None:
+        message = self.refused(self.get("/actions/wrong", step="unparsed"), 400)["message"]
+
+        self.assertIn("http://[x", message)
+
+    def test_notes_that_are_not_a_list_are_refused(self) -> None:
+        self.refused(self.get("/actions/wrong", step="countable"), 400)
+
+    def test_a_linked_note_whose_text_is_not_words_is_refused(self) -> None:
+        self.refused(self.get("/actions/wrong", step="numbered"), 400)
+
+    def test_an_error_that_names_a_to_is_refused_by_field(self) -> None:
+        message = self.refused(self.get("/actions/wrong", step="linked_error"), 400)["message"]
+
+        self.assertIn("'a'", message)
 
     def test_an_answer_that_is_not_a_step_is_refused(self) -> None:
         self.refused(self.get("/actions/wrong", step="list"), 400,

@@ -474,17 +474,25 @@ class OpeningADialogOverRows(unittest.IsolatedAsyncioTestCase):
     """A verb or an act that names a dialog opens it through `ext_action.open_action`."""
 
     async def open(self, answers: list[Any], ids: list[str], *, each: bool = False,
-                   action: str = "note") -> tuple[bool, Mock]:
+                   action: str = "note", who: dict[str, str] | None = None) -> tuple[bool, Mock]:
         opened = Mock(side_effect=[_done(one) for one in answers])
         with patch.object(ext_lists.ext_action, "open_action", opened):
-            ran = await cast(Any, ext_lists.open_over).__wrapped__(NOTED, action, ids, each=each)
+            ran = await cast(Any, ext_lists.open_over).__wrapped__(
+                NOTED, action, ids, each=each, who=who)
         return ran, opened
 
     async def test_one_dialog_covers_every_row_it_was_opened_over(self) -> None:
         ran, opened = await self.open([True], ["a", "b"])
 
         self.assertTrue(ran)
-        opened.assert_called_once_with("site", NOTED["actions"][0], rows=["a", "b"])
+        opened.assert_called_once_with("site", NOTED["actions"][0], rows=["a", "b"], who=None)
+
+    async def test_the_game_it_is_opened_for_goes_to_every_dialog_of_a_walk(self) -> None:
+        who = {"game_id": "", "vps_id": "abcdefghij", "name": "Taxi"}
+
+        _, opened = await self.open([True, True], ["a", "b"], each=True, who=who)
+
+        self.assertEqual([who, who], [call.kwargs["who"] for call in opened.call_args_list])
 
     async def test_a_cancelled_dialog_ran_nothing(self) -> None:
         ran, _ = await self.open([False], ["a"])

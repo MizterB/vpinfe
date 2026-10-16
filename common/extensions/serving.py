@@ -17,7 +17,7 @@ import inspect
 import json
 import logging
 import threading
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 from common import failures, i18n
@@ -734,6 +734,9 @@ def _dialog(record: Record, key: str) -> Any:
     return found
 
 
+WHO_KEYS = ("game_id", "vps_id", "name")
+
+
 def _titled(record: Record, key: str, answer: Any) -> dict:
     """A step answer with its fields checked, and the action's own label as the title it
     did not give."""
@@ -762,48 +765,59 @@ def _chosen(values: dict | None) -> list[str]:
     return [str(one) for one in rows] if isinstance(rows, list) else []
 
 
-def dialog_ask(record: Record, key: str, step: str = "",
-               rows: Sequence[str] = ()) -> dict:
+def _subject(sent: Any) -> dict[str, str]:
+    """Who a dialog was opened for, with only the ids an extension can use; `{}` where
+    it was opened for no game."""
+    if not isinstance(sent, dict):
+        return {}
+    who = {key: found if isinstance(found := sent.get(key), str) else "" for key in WHO_KEYS}
+    return who if any(who.values()) else {}
+
+
+def dialog_ask(record: Record, key: str, step: str = "", rows: Sequence[str] = (),
+               who: Mapping[str, Any] | None = None) -> dict:
     """The step to draw. A dialog with no `check` has no step after this one, so the step is
     the last and its button is the title. `rows` are the ids of the rows it was opened
-    over, handed to an `ask` that names them."""
+    over and `who` the game it was opened for, each handed to an `ask` that names it. A
+    later call is handed `who` the same way, beside its values."""
     dialog = _dialog(record, key)
     answer = _titled(record, key, plain(record, f"action {key}", called(
-        record, f"action {key}", dialog.ask, step, **_extras(dialog.ask, rows=list(rows)))))
+        record, f"action {key}", dialog.ask, step,
+        **_extras(dialog.ask, rows=list(rows), who=_subject(who)))))
     if not hasattr(dialog, "check") and not (answer.get("summary") or answer.get("confirm")):
         answer = {**answer, "confirm": answer["title"]}
     return answer
 
 
 def dialog_check(record: Record, key: str, values: dict, step: str = "",
-                 need: Need | None = None) -> dict:
+                 need: Need | None = None, who: Mapping[str, Any] | None = None) -> dict:
     check = getattr(_dialog(record, key), "check", None)
     if check is None:
-        return dialog_ask(record, key, step, _chosen(values))
+        return dialog_ask(record, key, step, _chosen(values), who)
     _need(record, need, check, surface_tier(record, "action", key), f"action:{key}")
     answer = called(record, f"action {key} check", check, values or {},
-                    **_extras(check, step=step))
+                    **_extras(check, step=step, who=_subject(who)))
     if answer is None:
-        return dialog_ask(record, key, step, _chosen(values))
+        return dialog_ask(record, key, step, _chosen(values), who)
     return _titled(record, key, plain(record, f"action {key} check", answer))
 
 
 def dialog_act(record: Record, key: str, act: str, values: dict, step: str = "",
-               need: Need | None = None) -> dict:
+               need: Need | None = None, who: Mapping[str, Any] | None = None) -> dict:
     do = getattr(_dialog(record, key), "act", None)
     if do is None:
         raise NotFoundError(i18n.t("error.extensions.no_act", display=record.display_name,
                                    key=act))
     _need(record, need, do, surface_tier(record, "action", key), f"action:{key}")
     answer = called(record, f"action {key} act {act}", do, act, values or {},
-                    **_extras(do, step=step))
+                    **_extras(do, step=step, who=_subject(who)))
     if answer is None:
-        return dialog_ask(record, key, step, _chosen(values))
+        return dialog_ask(record, key, step, _chosen(values), who)
     return _titled(record, key, plain(record, f"action {key} act {act}", answer))
 
 
 def dialog_run(record: Record, key: str, values: dict, step: str = "",
-               need: Need | None = None) -> dict:
+               need: Need | None = None, who: Mapping[str, Any] | None = None) -> dict:
     run = getattr(_dialog(record, key), "run", None)
     if run is None:
         raise NotFoundError(i18n.t("error.extensions.no_run", display=record.display_name,
@@ -812,7 +826,7 @@ def dialog_run(record: Record, key: str, values: dict, step: str = "",
     tracker = _tracker(record, key)
     try:
         answer = called(record, f"action {key} run", run, values or {},
-                        **_extras(run, step=step, progress=tracker))
+                        **_extras(run, step=step, progress=tracker, who=_subject(who)))
     finally:
         tracker.clear()
     return _message(record, f"action {key} run", answer)

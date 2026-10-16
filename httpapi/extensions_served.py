@@ -247,25 +247,27 @@ def router(name: str, running: Any) -> APIRouter:
         reading(request, "action", key)
         return ask(serving.dialog_ask, key, step)
 
-    @post("/actions/{key}/ask", "The step of a dialog opened over some rows")
+    @post("/actions/{key}/ask", "The step of a dialog opened over some rows or for a game")
     def post_action_ask(request: Request, key: str, body: models.ExtensionAsk) -> dict:
         reading(request, "action", key)
-        return ask(serving.dialog_ask, key, body.step, body.rows)
+        return ask(serving.dialog_ask, key, body.step, body.rows, body.who.model_dump())
 
     @post("/actions/{key}/check", "Check a dialog's values")
     def post_action_check(request: Request, key: str, body: models.ExtensionStep) -> dict:
         reading(request, "action", key)
-        return ask(serving.dialog_check, key, body.values, body.step, changing(request))
+        return ask(serving.dialog_check, key, body.values, body.step, changing(request),
+                   body.who.model_dump())
 
     @post("/actions/{key}/act", "Press one of a dialog's own buttons")
     def post_action_act(request: Request, key: str, body: models.ExtensionAct) -> dict:
         return ask(serving.dialog_act, key, body.act, body.values, body.step,
-                   changing(request))
+                   changing(request), body.who.model_dump())
 
     @post("/actions/{key}/run", "Run what a dialog asked for")
     def post_action_run(request: Request, key: str, body: models.ExtensionStep,
                         response: Response) -> dict:
-        answer = ask(serving.dialog_run, key, body.values, body.step, changing(request))
+        answer = ask(serving.dialog_run, key, body.values, body.step, changing(request),
+                     body.who.model_dump())
         if answer.get("job_id"):
             response.status_code = 202
         return answer

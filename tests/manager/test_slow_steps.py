@@ -59,6 +59,32 @@ class StepCallsTests(unittest.TestCase):
         self.assertEqual(self.sent[-1][:2], ("/ext/demo/wizard/ask",
                                              {"step": "source", "rows": ["a b", "c&d"]}))
 
+    def test_the_first_call_carries_the_game_the_dialog_was_opened_for(self) -> None:
+        who = {"game_id": "", "vps_id": "abcdefghij", "name": "Taxi"}
+        calls = ext_action.calls("demo", {"base": "/wizard"}, ["pick-1"], who)
+
+        _ran(calls.first(""))
+
+        self.assertEqual(self.sent[-1][:2], ("/ext/demo/wizard/ask",
+                                             {"step": "", "rows": ["pick-1"], "who": who}))
+
+    def test_a_later_call_carries_the_game_beside_its_values(self) -> None:
+        who = {"game_id": "", "vps_id": "abcdefghij", "name": "Taxi"}
+        calls = ext_action.calls("demo", {"base": "/wizard"}, ["pick-1"], who)
+
+        _ran(calls.check({"a": "1"}, "source"))
+        _ran(calls.act("browse", {"a": "1"}, "source"))
+        _ran(calls.run({"a": "1"}, "summary"))
+
+        self.assertEqual([one[1]["who"] for one in self.sent[-3:]], [who] * 3)
+        self.assertEqual({"a": "1"}, self.sent[-1][1]["values"])
+
+    def test_a_later_call_for_no_game_names_none(self) -> None:
+        _ran(self.calls.check({"a": "1"}, "source"))
+        _ran(self.calls.run({"a": "1"}, "summary"))
+
+        self.assertEqual([("who" in one[1]) for one in self.sent[-2:]], [False, False])
+
     def test_progress_is_asked_of_the_action(self) -> None:
         assert self.calls.progress is not None
 

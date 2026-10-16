@@ -8,13 +8,13 @@ The dialog is any object.  It must have `ask`; core uses the rest if they are th
 
 | method | called when | returns |
 |---|---|---|
-| `ask(step[, rows])` | The dialog opens (`step` is `""`), or a done step is reopened | The step: what to ask, if anything |
-| `check(values[, step])` | Next is pressed, or a value changes | The step again, with `ready`, `summary`, `notes`, `errors`.  None means ask again |
-| `act(key, values[, step])` | A step's own quiet button is pressed | The step redrawn.  None means ask again |
-| `run(values[, step][, progress])` | The last step's button is pressed | A message string, a dict, or `{"job_id": ...}` |
+| `ask(step[, rows][, who])` | The dialog opens (`step` is `""`), or a done step is reopened | The step: what to ask, if anything |
+| `check(values[, step][, who])` | Next is pressed, or a value changes | The step again, with `ready`, `summary`, `notes`, `errors`.  None means ask again |
+| `act(key, values[, step][, who])` | A step's own quiet button is pressed | The step redrawn.  None means ask again |
+| `run(values[, step][, who][, progress])` | The last step's button is pressed | A message string, a dict, or `{"job_id": ...}` |
 | `progress()` | Core polls it while a step is slow | `{stage, message, done, total}` |
 
-Core hands `step`, `rows` and `progress` only to a method that names them.  The default tracker
+Core hands `step`, `rows`, `who` and `progress` only to a method that names them.  The default tracker
 given as `progress` has `stage(name, message="", total=0)`, `advance(done=None, message=None)`
 and `clear()`, and answers the same shape for `GET .../progress` when the dialog defines no
 `progress` of its own.  An action that is one call and a sentence does not need it.
@@ -64,8 +64,8 @@ up to 15 minutes to answer, so a step that reads a slow source is waited for.
 | `welcome` | True centers the step, for a flow's first: the `title` at display size, the `help` as the lead, and the label of its `choice` as the question over it.  Every `check` and `act` answer replaces the step, so a step that stays a welcome repeats `welcome: true` |
 | `ready`, `reason` | `ready: false` holds Next or the last step's `confirm` until it is true again, with `reason` shown beside the held button.  Any step may send it |
 | `summary` | `[[label, value], ...]`: what the steps add up to.  A row of one is a heading, not a fact |
-| `notes` | Lines that travel with the summary, so a count never stays quiet about what the job cannot do.  A string, or `{text, detail}` where `detail` shows on hover |
-| `errors` | `{field_key: text}`: turn down one field by name, shown under it.  Each value takes the same two forms a note does |
+| `notes` | Lines that travel with the summary, so a count never stays quiet about what the job cannot do.  A string, or `{text, detail, to}` where `detail` shows on hover and `to` is a web address the line links to, drawn as `text` with the mark that says it leaves the Manager.  A `to` that is not an `http` or `https` address, or has no `text`, fails the answer |
+| `errors` | `{field_key: text}`: turn down one field by name, shown under it.  Each value is a string, or `{text, detail}` as a note is.  An error does not link, and a `to` on one fails the answer |
 | `acts` | `[{key, label}]`: quiet buttons inside the step's body.  Pressing one calls `act` and gets the same step back, redrawn.  An act never moves the step on |
 
 Core checks the fields in an answer against the table in [Fields](#fields) when the answer is
@@ -116,6 +116,22 @@ The person gets **Skip**, which leaves that row as it was, and **Stop**, which e
 Both stand where Cancel would be, and the rows already done stay done.
 
 The ids ride in the address of the dialog's first read, so one dialog covers about 1,500 rows.
+
+## For a game
+
+A dialog may be opened for a game rather than over rows, one the library may not hold yet.
+The game reaches it as `who`, a dict of three strings: `game_id` (empty for a game not in the
+library), `vps_id` and `name`.
+
+- `ask(step, rows, who)` gets it.  Name `who` in the signature to receive it.  The Manager
+  sends it with every read of a step.
+- `check(values, who)`, `act(key, values, who)` and `run(values, who)` get it the same way,
+  beside `values` and not in it, so a field of your own may be named `who`.
+- `who` is `{}` where the dialog was opened for no game.
+
+`rows` and `who` are independent: a dialog may get either, both or neither.  Treat `who` as what
+the client sent, as you treat the ids in `rows`: look the game up in your own data or with
+`ctx.games` before you act on it.
 
 ## Fields
 

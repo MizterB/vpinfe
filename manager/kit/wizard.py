@@ -23,6 +23,7 @@ from nicegui import run, ui
 
 from common.failures import why
 from common.i18n import literal_or, t
+from common.online import sites
 from manager.kit import (
     appearance,
     appearance_picker,
@@ -1125,8 +1126,12 @@ def _worded(said: Any) -> tuple[str, str]:
     return str(said), ""
 
 
-def _line(text: str, detail: str) -> None:
-    panel.line(text, hint=detail, classes="manager-help px-3")
+def _line(text: str, detail: str, to: str = "") -> None:
+    if not to:
+        panel.line(text, hint=detail, classes="manager-help px-3")
+        return
+    with ui.element("div").classes("manager-help px-3"):
+        panel.link_out(text, to=to, hint=detail, rel="noopener noreferrer")()
 
 
 def _lines(lines: list[Any], title: str) -> None:
@@ -1135,7 +1140,8 @@ def _lines(lines: list[Any], title: str) -> None:
     if title:
         panel.facts(ui, [(panel.HEADING, title)])
     for line in lines:
-        _line(*_worded(line))
+        to = str(line.get("to") or "") if isinstance(line, dict) else ""
+        _line(*_worded(line), to=to if sites.is_web(to) else "")
 
 
 # The runs each page drew the report of itself, which that page's toast for a finished run

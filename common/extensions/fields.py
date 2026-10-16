@@ -11,6 +11,8 @@ import json
 from collections.abc import Iterable
 from typing import Any
 
+from common.online import sites
+
 from .accounts import scrubbed
 from .store import RESERVED
 
@@ -183,8 +185,23 @@ def dialog_fields(name: str, fields: Iterable[Any]) -> list[dict]:
 
 def dialog_step(name: str, step: dict) -> None:
     """Refuse a step that carries a key the wizard does not read, which it would drop
-    without a word."""
+    without a word, a note whose `to` is not a web address with words to link, and an
+    error that names a `to`, which a field's error does not draw."""
     unknown = sorted(set(step) - STEP_KEYS)
     if unknown:
         raise FieldError(f"{name} answers a step with {', '.join(repr(one) for one in unknown)},"
                          f" which a dialog does not draw. Drawn: {', '.join(sorted(STEP_KEYS))}")
+    notes = step.get("notes") or []
+    if not isinstance(notes, list):
+        raise FieldError(f"{name} answers a step with notes that are not a list")
+    for note in notes:
+        if isinstance(note, dict) and "to" in note and not (
+                sites.is_web(note["to"]) and isinstance(note.get("text"), str)
+                and note["text"].strip()):
+            raise FieldError(f"{name} gives a note a 'to' of {note['to']!r}, which needs an "
+                             "http or https address and a 'text' to show it as")
+    errors = step.get("errors")
+    for field, error in (errors.items() if isinstance(errors, dict) else ()):
+        if isinstance(error, dict) and "to" in error:
+            raise FieldError(f"{name} gives the error for {field!r} a 'to', which an error "
+                             "does not draw")

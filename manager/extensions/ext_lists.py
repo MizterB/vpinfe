@@ -439,9 +439,10 @@ def declared_action(extension: dict[str, Any], key: str) -> dict[str, Any]:
 
 @on_page
 async def open_over(extension: dict[str, Any], key: str, ids: Sequence[str], *,
-                    each: bool = False) -> bool:
+                    each: bool = False, who: Mapping[str, str] | None = None) -> bool:
     """Open the dialog `key` over the rows `ids`: one dialog for all of them, or with
-    `each` one per row in turn, with Skip and Stop. True once any of them ran."""
+    `each` one per row in turn, with Skip and Stop. `who` is the game it is opened for,
+    for a dialog that is not opened over a row of a list. True once any of them ran."""
     name, action = str(extension.get("name") or ""), declared_action(extension, key)
     if not action:
         ui.notify(t("said.action_failed"), type="negative")
@@ -453,8 +454,9 @@ async def open_over(extension: dict[str, Any], key: str, ids: Sequence[str], *,
             if each and len(batches) > 1 else ""
         try:
             answer = await (
-                ext_action.open_action(name, action, rows=batch, place=place, walking=True)
-                if each else ext_action.open_action(name, action, rows=batch))
+                ext_action.open_action(name, action, rows=batch, who=who, place=place,
+                                       walking=True)
+                if each else ext_action.open_action(name, action, rows=batch, who=who))
         except Exception as exc:  # noqa: BLE001 - the reason belongs on screen
             ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
             answer = False

@@ -21,8 +21,12 @@ FILE_SITES = {
 
 
 def is_web(url: str) -> bool:
-    """Whether `url` is an address a browser opens as written: http or https, with a host."""
-    parts = urlsplit(str(url or "").strip())
+    """Whether `url` is an address a browser opens as written: http or https, with a host.
+    An address that does not parse is not."""
+    try:
+        parts = urlsplit(str(url or "").strip())
+    except ValueError:
+        return False
     return parts.scheme in ("http", "https") and bool(parts.netloc)
 
 
