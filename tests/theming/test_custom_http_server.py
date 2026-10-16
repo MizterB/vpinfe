@@ -149,7 +149,7 @@ class ThemeWordsTests(unittest.TestCase):
         for shape in ('[]', '"x"', 'null', '{"a": ""}', '{"a": {"one": 5, "other": "x"}}',
                       '{"a": {"one": "x"}}', '{"a": {"one": "", "other": "x"}}',
                       '{"a": null, "b": ["x"]}'):
-            Path(self.themes, "broken", "locales", "en.json").write_text(shape)
+            Path(self.themes, "broken", "locales", "en.json").write_text(shape, encoding="utf-8")
             self.assertEqual(self.words("?theme=broken"), self.words(), shape)
 
     def test_a_folder_name_with_a_space_is_found(self) -> None:

@@ -684,7 +684,7 @@ RANGE = re.compile(r"^`([\w./-]+\.\w+)` \(lines (\d+)-(\d+)\)\n\n```\w*\n(.*?)^`
 
 class CodeBlocksAreFiles(unittest.TestCase):
     def blocks(self, page: Path) -> list[tuple[str, str]]:
-        return [(m.group(1), m.group(2)) for m in BLOCK.finditer(page.read_text())]
+        return [(m.group(1), m.group(2)) for m in BLOCK.finditer(page.read_text(encoding="utf-8"))]
 
     def test_a_block_headed_with_a_path_is_that_file(self) -> None:
         found = 0
@@ -752,9 +752,9 @@ class TutorialQuotesTheCheck(unittest.TestCase):
         return folder
 
     def edit_json(self, path: Path, remove: str) -> None:
-        said = json.loads(path.read_text())
+        said = json.loads(path.read_text(encoding="utf-8"))
         del said[remove]
-        path.write_text(json.dumps(said))
+        path.write_text(json.dumps(said), encoding="utf-8")
 
     def test_each_listing_is_what_the_check_prints_for_the_lesson_it_follows(self) -> None:
         shown = {one.splitlines()[0].split()[-1]: one.splitlines()
@@ -811,11 +811,11 @@ def slug(heading: str) -> str:
 
 
 def anchors(page: Path) -> set[str]:
-    return {slug(one) for one in HEADING.findall(FENCE.sub("", page.read_text()))}
+    return {slug(one) for one in HEADING.findall(FENCE.sub("", page.read_text(encoding="utf-8")))}
 
 
 def links(page: Path) -> Iterator[str]:
-    yield from LINK.findall(FENCE.sub("", page.read_text()))
+    yield from LINK.findall(FENCE.sub("", page.read_text(encoding="utf-8")))
 
 
 class LinksResolve(unittest.TestCase):

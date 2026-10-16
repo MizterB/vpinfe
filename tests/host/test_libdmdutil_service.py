@@ -173,7 +173,7 @@ class VideoTests(unittest.TestCase):
 
     def _serve(self, controller: _Controller, *processes: _Process) -> None:
         """The panel is connected, and each ffmpeg started is the next of `processes`. Once
-        they run out, each one is a copy of the last, or two frames when none was given."""
+        they run out, each one plays two frames."""
         with libdmdutil_service._LOCK:
             libdmdutil_service._CONTROLLER = controller
         queue = list(processes)
@@ -181,7 +181,7 @@ class VideoTests(unittest.TestCase):
         def spawn(argv, **kwargs):
             self.spawned.append(list(argv))
             self.options.append(kwargs)
-            return queue.pop(0) if len(queue) > 1 else _Process([ONE, TWO])
+            return queue.pop(0) if queue else _Process([ONE, TWO])
 
         patched = mock.patch.object(libdmdutil_service.subprocess, "Popen", side_effect=spawn)
         patched.start()

@@ -330,7 +330,7 @@ class TheTokenStoreTests(TierCase):
     def test_a_secret_is_kept_only_as_a_hash(self) -> None:
         secret, _ = self.tokens.make("home", api_tokens.FULL)
 
-        stored = (Path(self.tokens._file())).read_text()
+        stored = (Path(self.tokens._file())).read_text(encoding="utf-8")
 
         self.assertNotIn(secret, stored)
 

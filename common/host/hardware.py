@@ -150,7 +150,7 @@ def macos_serial(dev: Path) -> list[Device]:
 
 def _text(path: Path) -> str:
     try:
-        return path.read_text(errors="replace").strip()
+        return path.read_text(encoding="utf-8", errors="replace").strip()
     except OSError:
         return ""
 
