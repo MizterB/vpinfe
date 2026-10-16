@@ -32,6 +32,7 @@ from common.games import (
     game_identity,
     game_play_service,
     game_repository,
+    high_scores,
     info_file,
     launchers,
     library_folders,
@@ -43,6 +44,7 @@ from common.games.game import Game
 from common.games.game_metadata import game_private, load_game_meta
 from common.games.info_file import InvalidMetaConfigError
 from common.games.tables import (
+    TABLE_ID_KEY,
     entry_for_filename,
     table_entries,
     table_names,
@@ -329,7 +331,9 @@ def _record_play(game: Game, elapsed_seconds: float, table: str, rom: str,
     after, score_path = game_play_service.parse_score_from_nvram(game, rom, initials="",
                                                                   entry=entry)
     if after:
-        game_play_service.keep_high_scores(game, rom, after, before, score_path)
+        game_play_service.keep_high_scores(
+            game, rom, after, before, score_path,
+            table_id="" if high_scores.rom_of(entry) else str(entry.get(TABLE_ID_KEY) or ""))
     one = up[0] if len(up) == 1 else None
     reading = _with_initials(after, one.initials if one else "")
     credited = _whose_new_entries(before, after, up)

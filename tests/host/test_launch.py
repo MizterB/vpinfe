@@ -279,7 +279,7 @@ class PlayDataTests(LaunchTests):
 
         play.add_play_time.assert_called_once()
         play.keep_high_scores.assert_called_once_with(game, "", after, before,
-                                                      "/nv/example.nv")
+                                                      "/nv/example.nv", table_id="")
         play.delete_nvram_if_configured.assert_called_once()
 
     def test_a_table_with_no_rom_is_kept_under_its_score_files_name(self) -> None:
@@ -294,7 +294,7 @@ class PlayDataTests(LaunchTests):
         self.assertEqual([call.args[1] for call in play.parse_score_from_nvram.call_args_list],
                          ["", "Scores.txt"])
         play.keep_high_scores.assert_called_once_with(game, "Scores.txt", after, None,
-                                                     "/u/Scores.txt")
+                                                     "/u/Scores.txt", table_id="")
 
     def test_the_played_tables_rom_is_read_and_cleared(self) -> None:
         """A game whose tables declare different ROMs: the default's is not the one a

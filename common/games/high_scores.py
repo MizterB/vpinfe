@@ -6,7 +6,8 @@ tables on one ROM share its table, and a mod on a ROM of its own keeps its own.
 A record is `{read_at, score_kind, entries | value, new}`: the reading as
 `score_parser.result_to_jsonable` gives it, without its ROM (the key says it), when it was
 read, and `new` - the positions of the entries the last game put there. A reading from a
-text file also has `file`, its name.
+text file also has `file`, its name, and `tables`, the ids of the tables with no ROM of
+their own that it was read for, since nothing on such a table says which file is theirs.
 
 Imports nothing beyond the standard library: the score parser, the metadata module and the
 migration all read it.
@@ -98,14 +99,27 @@ def record(reading: dict[str, Any], before: dict | None, read_at: str | None) ->
     return held
 
 
-def keep(config: dict[str, Any], rom: str, held: dict[str, Any]) -> None:
+def keep(config: dict[str, Any], rom: str, held: dict[str, Any], *, table_id: str = "") -> None:
+    """Keep `held` under `rom`. A table with no ROM names itself in `table_id`, and joins
+    the tables the record was already kept for."""
     user = config.get("User")
     if not isinstance(user, dict):
         user = config["User"] = {}
     records = user.get(KEY)
     if not isinstance(records, dict):
         records = user[KEY] = {}
+    tables = tables_of(records.get(rom))
+    if table_id and table_id not in tables:
+        tables.append(table_id)
+    if tables:
+        held = {**held, "tables": tables}
     records[rom] = held
+
+
+def tables_of(record: Any) -> list[str]:
+    """The ids of the ROM-less tables `record` was kept for."""
+    named = record.get("tables") if isinstance(record, dict) else None
+    return [str(one) for one in named] if isinstance(named, list) else []
 
 
 def from_2x(user: dict[str, Any]) -> None:
@@ -143,8 +157,19 @@ def view(meta: Any, entry: Any, *, table_id: str) -> dict[str, Any] | None:
     """The high scores of the table `entry`, as the wire carries them, or None where
     nothing has been read for its ROM."""
     rom = rom_of(entry)
+    if not rom:
+        rom = kept_for_table(meta, table_id)
     held = kept(meta, rom)
     return shown(rom, table_id, held) if held is not None else None
+
+
+def kept_for_table(meta: Any, table_id: str) -> str:
+    """The name of the score file kept for a table with no ROM, or ""."""
+    user = meta.get("User") if isinstance(meta, dict) else None
+    held = user.get(KEY) if isinstance(user, dict) else None
+    if not table_id or not isinstance(held, dict):
+        return ""
+    return next((name for name, record in held.items() if table_id in tables_of(record)), "")
 
 
 def shown(rom: str, table_id: str, held: dict[str, Any] | None, *, state: str = READ,

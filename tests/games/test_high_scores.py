@@ -132,6 +132,40 @@ class WireTests(unittest.TestCase):
         self.assertIsNone(high_scores.view({}, {"id": "t1"}, table_id="t1"))
 
 
+class TablesWithNoRomTests(unittest.TestCase):
+    def _kept(self, *table_ids: str) -> dict:
+        config: dict = {}
+        for table_id in table_ids:
+            held = high_scores.record({"score_kind": "txt", "file": "Scores.txt",
+                                       "entries": [_entry("", 1, "AAA", 7500)]}, None, "t")
+            high_scores.keep(config, "Scores.txt", held, table_id=table_id)
+        return config
+
+    def test_a_table_is_added_to_the_ones_a_record_was_kept_for(self) -> None:
+        config = self._kept("t1", "t2", "t1")
+
+        self.assertEqual(config["User"]["HighScores"]["Scores.txt"]["tables"], ["t1", "t2"])
+
+    def test_the_record_of_a_table_is_found_by_its_id_and_not_by_anothers(self) -> None:
+        meta = self._kept("t1")
+
+        self.assertEqual(high_scores.kept_for_table(meta, "t1"), "Scores.txt")
+        self.assertEqual(high_scores.kept_for_table(meta, "t2"), "")
+        self.assertEqual(high_scores.kept_for_table(meta, ""), "")
+
+    def test_a_rom_keeps_no_table_ids(self) -> None:
+        config: dict = {}
+        high_scores.keep(config, "abc_l1", high_scores.record(ONE_NUMBER, None, "t"))
+
+        self.assertNotIn("tables", config["User"]["HighScores"]["abc_l1"])
+
+    def test_the_view_of_a_table_with_no_rom_is_its_kept_file(self) -> None:
+        shown = high_scores.view(self._kept("t1"), {}, table_id="t1")
+
+        self.assertEqual((shown or {}).get("rom"), "Scores.txt")
+        self.assertIsNone(high_scores.view(self._kept("t1"), {}, table_id="t2"))
+
+
 class TwoPointXTests(unittest.TestCase):
     TWO_X = {"rom": "abc_l1", "resolved_rom": "abc_l1", "score_type": "Leaderboard",
              "entries": CHAMPION_AND_RANKED["entries"]}

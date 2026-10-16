@@ -287,6 +287,34 @@ class ScoreFileTheScriptNamesTests(_HighScoreLibrary):
         self.assertEqual((shown["state"], shown["rom"]), ("read", "Scores.txt"))
         self.assertIn("Scores.txt", self._stored())
 
+    def test_the_game_carries_a_no_rom_tables_scores_once_they_are_kept(self) -> None:
+        self._library(roms={"t1": ""})
+        self._saved(**{"Scores.txt": self.SCORES})
+        with self._script_names("scores.txt"):
+            self._get()
+
+        with self._script_names():
+            payload = self.client.get(f"/games/{GAME_ID}").json()["user"]["high_scores"]
+
+        self.assertEqual((payload["rom"], payload["file"], payload["table_id"]),
+                         ("Scores.txt", "Scores.txt", "t1"))
+        self.assertEqual(payload["sections"][0]["entries"][0]["score"], 7500)
+
+    def test_the_game_carries_nothing_for_a_no_rom_table_nothing_was_kept_for(self) -> None:
+        self._library(roms={"t1": ""})
+        self._saved(**{"Scores.txt": self.SCORES})
+
+        self.assertIsNone(self.client.get(f"/games/{GAME_ID}").json()["user"]["high_scores"])
+
+    def test_a_reading_kept_before_the_table_was_named_is_named_on_the_next_look(self) -> None:
+        self._library(roms={"t1": ""}, held={"Scores.txt": _kept(AFTER, "2099-01-01T00:00:00Z")})
+        self._saved(**{"Scores.txt": self.SCORES})
+
+        with self._script_names("scores.txt"):
+            self._get()
+
+        self.assertEqual(self._stored()["Scores.txt"]["tables"], ["t1"])
+
     def test_a_file_the_script_does_not_name_is_not_the_tables(self) -> None:
         self._library(roms={"t1": "gtb_2001"})
         self._saved(**{"Notes.txt": self.SCORES})

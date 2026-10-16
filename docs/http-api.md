@@ -1909,7 +1909,8 @@ A release is a mod where VPS links it to the release it is based on (`parentId`)
 ## High scores
 
 A game's `user.high_scores` is its machine's high score table as VPinFE last read it off
-the machine, for the ROM of the table the game launches by default. It is read before and
+the machine, for the table the game launches by default: its ROM's, or for a table with no ROM
+its score file's, once one has been read for it. It is read before and
 after every game, whoever was playing, and `null` until anything has been read. It is the
 machine's table, not the score of the last game: that game is on it only if it got there.
 

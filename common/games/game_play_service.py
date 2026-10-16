@@ -143,16 +143,18 @@ def parse_score_from_nvram(game: Game, rom: str, initials: str | None = None,
 
 
 def keep_high_scores(game: Game, rom: str, reading: dict, before: dict | None,
-                     score_path: str | None) -> None:
+                     score_path: str | None, *, table_id: str = "") -> None:
     """Keep `reading`, read with blanks left blank, as `rom`'s high scores. `before` is
-    the table as it stood before the game."""
+    the table as it stood before the game. `table_id` is the table's where it has no ROM
+    of its own and `rom` is the name of its score file."""
     config = clone_game_meta(game)
     if not config:
         logger.warning("Could not keep high scores: invalid game metadata for %s",
                        game.game_dir_name)
         return
 
-    high_scores.keep(config, rom, high_scores.record(reading, before, utc_now_iso()))
+    high_scores.keep(config, rom, high_scores.record(reading, before, utc_now_iso()),
+                     table_id=table_id)
     persist_game_meta(game, config)
     logger.info("Kept the high scores of %s for %s from %s", rom, game.game_dir_name,
                 score_path)

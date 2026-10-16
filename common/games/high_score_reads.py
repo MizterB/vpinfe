@@ -70,6 +70,9 @@ def _look(game: Game, entry: dict[str, Any]) -> dict[str, Any] | None:
         return None
     table_id = str(entry.get(TABLE_ID_KEY, "") or "")
     held = high_scores.kept(load_game_meta(game), key)
+    # A table with no ROM is found through the file its script names, so the theme payload,
+    # which reads no file, is told which kept file is this table's.
+    named_for = "" if rom else table_id
 
     if source and _newer(source, held):
         try:
@@ -85,9 +88,12 @@ def _look(game: Game, entry: dict[str, Any]) -> dict[str, Any] | None:
         if not reading:
             return high_scores.shown(key, table_id, None, state=high_scores.NONE_YET)
         held = high_scores.record(reading, high_scores.as_reading(held), utc_now_iso())
-        _keep(game, key, held)
+        _keep(game, key, held, named_for)
+        named_for = ""
 
     if held is not None:
+        if named_for and named_for not in high_scores.tables_of(held):
+            _keep(game, key, held, named_for)
         return high_scores.shown(key, table_id, held)
     if source is None and not em_scores.in_the_map(key):
         return None
@@ -111,13 +117,12 @@ def _newer(path: str, held: dict[str, Any] | None) -> bool:
         return False
 
 
-def _keep(game: Game, rom: str, held: dict[str, Any]) -> None:
+def _keep(game: Game, key: str, held: dict[str, Any], table_id: str = "") -> None:
     config = load_game_meta(game)
-    high_scores.keep(config, rom, held)
+    high_scores.keep(config, key, held, table_id=table_id)
     persist_game_meta(game, config)
     reread_game(game)
-    logger.info("Read the high scores of %s for %s again: the score file was newer",
-                rom, game.game_dir_name)
+    logger.info("Kept the high scores of %s for %s", key, game.game_dir_name)
 
 
 def _name_players(game: Game, shown: dict[str, Any]) -> None:
