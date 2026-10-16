@@ -4,7 +4,7 @@
 second place that spells the marker writes names the first cannot read back, and the
 listing in `common/backups/` would not show them.
 
-`apps/vpx/config.py` is the one other spelling, because an app may not import `common/games`.
+`apps/vpx/config.py` is the one other spelling, because an app may import only the contract.
 Its marker has to stay equal to the real one.
 """
 
