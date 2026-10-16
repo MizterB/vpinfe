@@ -248,6 +248,7 @@ class FolderPickerDrive(unittest.TestCase):
             seen["mark_file"] = await browser.evaluate(MARK_ICON)
             await browser.press("Enter", "Enter")
             await browser.wait_for(MARK_ICON + " === ''")
+            await walk.drawn()
             seen["file_chosen"] = await browser.evaluate(PATH_SHOWN)
             await walk.act(lambda: browser.press("Enter", "Enter"),
                            until=GONE % json.dumps(DIALOG))

@@ -86,6 +86,10 @@ def chromium_path() -> str | None:
 
 _PROFILE_REMOVE_ATTEMPTS = 15
 _PROFILE_REMOVE_DELAY = 0.3
+# Between one input event and the next, and after the last. Drives take a click's return as
+# the page having begun to respond, and a page reads a press and its release as separate
+# events.
+_INPUT_GAP_S = 0.02
 
 
 async def _rmtree_persistently(path: str) -> None:
@@ -301,27 +305,28 @@ class BrowserSession:
         raise TimeoutError(f"never became truthy: {expression} (last={last!r})")
 
     async def _centre(self, selector: str, nth: int) -> dict:
-        """Where the element is once it has stopped moving, scrolled into view."""
+        """Where the element is once it exists, has a size and has stopped moving."""
         where = await self.evaluate(
             "(async () => {"
             f" const pick = () => document.querySelectorAll({json.dumps(selector)})[{int(nth)}];"
-            " const first = pick(); if (!first) return null;"
-            " first.scrollIntoView({block: 'center'});"
-            " const measure = () => pick()?.getBoundingClientRect();"
             " const frame = () => new Promise(done => requestAnimationFrame(done));"
-            " const until = performance.now() + 5000;"
+            " let until = performance.now() + 5000;"
+            " while (!pick()) { if (performance.now() > until) return null; await frame(); }"
+            " pick().scrollIntoView({block: 'center'});"
+            " const measure = () => pick()?.getBoundingClientRect();"
             " let box = measure(), was;"
+            " until = performance.now() + 5000;"
             " do {"
-            "  if (performance.now() > until) return {moving: true};"
+            "  if (performance.now() > until) return {unsettled: true};"
             "  was = box; await frame(); box = measure();"
-            " } while (!box || !was || ['x', 'y', 'width', 'height'].some(k => box[k] !== was[k]));"
-            " if (!box.width || !box.height) return null;"
+            " } while (!box || !was || !box.width || !box.height"
+            "          || ['x', 'y', 'width', 'height'].some(k => box[k] !== was[k]));"
             " return {x: box.left + box.width / 2, y: box.top + box.height / 2};"
             " })()")
         if not where:
             raise AssertionError(f"nothing to click at {selector!r}[{nth}]")
-        if where.get("moving"):
-            raise AssertionError(f"{selector!r}[{nth}] was still moving after 5s")
+        if where.get("unsettled"):
+            raise AssertionError(f"{selector!r}[{nth}] had no steady size after 5s")
         return where
 
     async def click(self, selector: str, *, nth: int = 0) -> None:
@@ -337,6 +342,7 @@ class BrowserSession:
             await self.send("Input.dispatchMouseEvent",
                             {"type": event, "x": where["x"], "y": where["y"],
                              "button": "left", "clickCount": 1})
+            await asyncio.sleep(_INPUT_GAP_S)
 
     async def hover(self, selector: str, *, nth: int = 0) -> None:
         """Rest the pointer on something, as a mouse does, so `:hover` applies to it."""
@@ -355,6 +361,7 @@ class BrowserSession:
             await self.send("Input.dispatchKeyEvent",
                             {"type": event, "key": key, "code": code,
                              "windowsVirtualKeyCode": key_code})
+            await asyncio.sleep(_INPUT_GAP_S)
 
     async def escape(self) -> None:
         """Escape as Quasar reads it, by the legacy `keyCode` that `press` leaves at 0."""

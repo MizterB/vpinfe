@@ -183,7 +183,8 @@ class ManagerSignInNoticeDrive(unittest.TestCase):
             await walk.act(clicked(browser, f"({SIGN_OUT_ALL_ASIDE}).click() || true"),
                            until=f"!!document.querySelector({json.dumps(DIALOG)})")
             await walk.act(clicked(browser, f"({SIGN_OUT_ALL_CONFIRM}).click() || true"),
-                           until=f"document.body.innerText.includes({NOTHING_SIGNED_IN})")
+                           until=f"document.body.innerText.includes({NOTHING_SIGNED_IN})"
+                                 f" && !document.querySelector({json.dumps(LIST)})")
             seen["list_closed"] = not await browser.evaluate(
                 f"!!document.querySelector({json.dumps(LIST)})")
         return seen
