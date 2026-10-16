@@ -34,6 +34,7 @@ from unittest.loader import VALID_MODULE_NAME
 from platformdirs import user_cache_dir
 
 import tests
+from tests import affected, wholesuite
 
 PACKAGE = Path(tests.__file__).resolve().parent
 REPO = PACKAGE.parent
@@ -478,10 +479,30 @@ def main(argv: list[str] | None = None) -> int:
                              "cores)")
     parser.add_argument("paths", nargs="*", type=Path, default=[PACKAGE],
                         help="a directory or a test file under tests/ (default: all of it)")
+    parser.add_argument("--affected", nargs="?", const="HEAD", metavar="REV",
+                        help="only what the changes since REV reach (default: HEAD, so the "
+                             "working tree), plus the invariants; see tests/affected.py")
+    parser.add_argument("--overlap", action="store_true",
+                        help="start a whole-suite run even though another is going")
     parser.add_argument("--shard", type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     if args.shard:
         return run_shard(args.shard)
+
+    if args.affected:
+        if args.paths != [PACKAGE]:
+            parser.error("--affected picks the paths itself; drop the paths, or drop --affected")
+        try:
+            chosen = affected.select(REPO, affected.changed_files(REPO, args.affected))
+        except ValueError as error:
+            parser.error(str(error))
+        for note in chosen.notes:
+            _say(note)
+        if chosen.whole_suite:
+            _say("Running the whole suite.")
+        else:
+            args.paths = [REPO / path for path in chosen.paths]
+            _say(f"Affected: {' '.join(chosen.paths)}")
 
     names: list[str] = []
     for path in args.paths:
@@ -494,6 +515,13 @@ def main(argv: list[str] | None = None) -> int:
     if refused:
         _say(refused)
         return 2
+
+    whole = [path.resolve() for path in args.paths] == [PACKAGE]
+    if whole and not args.overlap:
+        busy = wholesuite.take()
+        if busy:
+            _say(busy)
+            return 2
 
     recorded = read_durations()
     started = time.perf_counter()
@@ -512,13 +540,21 @@ def main(argv: list[str] | None = None) -> int:
     except KeyboardInterrupt:
         _say("\nInterrupted.")
         return 130
+    finally:
+        if whole:
+            wholesuite.release()
     seconds = time.perf_counter() - started
 
     records = [record for shard in shards for record in shard.records]
     if records:
         write_durations(recorded_after(recorded, {r["module"]: r["seconds"] for r in records}))
     closing, code = summary(records, seconds, sum(bool(shard.stopped) for shard in shards))
-    for line in [*failures(shards), "-" * 70, *slowest(records, recorded), "-" * 70,
+    count: list[str] = []
+    if whole:
+        wholesuite.record(seconds, sum(r["tests"] for r in records), code == 0)
+        runs, spent = wholesuite.today()
+        count = [f"Whole-suite runs today: {runs}, {spent / 60:.0f} minutes."]
+    for line in [*failures(shards), "-" * 70, *slowest(records, recorded), *count, "-" * 70,
                  *closing]:
         _say(line)
     return code
