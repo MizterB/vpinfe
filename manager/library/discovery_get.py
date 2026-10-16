@@ -454,7 +454,7 @@ def use_a_file(context: dict[str, Any], game_id: str, holder: Any, *, ours: tupl
 @on_page
 async def _tie(library: Any, game_id: str, folder: str, vps_file_id: str,
                ours: tuple[str, ...], report: dict[str, Any], plan: dict[str, Any]) -> None:
-    """Record that what an import brought in is this record. A tree of files is not one
+    """Record that what an import imported is this record. A tree of files is not one
     file, so a kind that arrives as one has nothing to tie."""
     if not vps_file_id or not game_id:
         return

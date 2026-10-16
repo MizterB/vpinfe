@@ -668,7 +668,7 @@ def _replace_vpx_from_file(source: AssetSource, asset: DetectedAsset,
 
 def _add_table_from_file(source: AssetSource, asset: DetectedAsset, base: Path,
                          dest: Path) -> str:
-    """Bring a table in beside the game's others. Answers with its new id."""
+    """Import a table beside the game's others. Answers with its new id."""
     if dest.exists():
         raise ValueError(t("error.games.file_exists"))
     _extract_replace(source, asset.entries[0], dest)

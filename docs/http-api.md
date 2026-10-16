@@ -129,7 +129,7 @@ the documented entry point is a plain 200. Both spellings work.
 | POST | `/api/v1/collections/{name}/members/from_filters` | Keep what the criteria match, and drop the criteria and the exclusions. Each game is written once, naming no table, so it follows its default; a member that already named a table keeps it |
 | PUT | `/api/v1/collections/{name}/order` | Arrange a collection. The whole ordered list, atomically - one entry per row, so a game holding two named tables is named twice |
 | PUT/GET/DELETE | `/api/v1/collections/{name}/image` | Its icon |
-| GET | `/api/v1/games/{id}/collections` | The collections holding a game, each `added` (written into it) or `matched` (its rule brought the game in), and under `taken_out` every other collection an exclusion keeps it out of. A game the limit cuts is held by none |
+| GET | `/api/v1/games/{id}/collections` | The collections holding a game, each `added` (written into it) or `matched` (its rule matched the game), and under `taken_out` every other collection an exclusion keeps it out of. A game the limit cuts is held by none |
 | GET | `/api/v1/library/game_collections` | The same answer for every game a collection holds, in one read. A game no collection holds is not listed |
 | POST | `/api/v1/library/preview` | What a rule would match, storing nothing |
 | GET | `/api/v1/jobs` | Slow work, running first. `?kind=` filters; `?limit=` is how many finished jobs, 20 by default and 500 at most |
@@ -1420,7 +1420,7 @@ every game missing, and cleaning up on that signal would empty every collection.
 
 A limit cuts the play lens, not `/members`: a row the criteria find past the limit is still
 listed there, with `past_limit: true`, so an editor can show what the limit keeps off the
-frontend. `playable` counts only the rows a frontend shows. A row a rule brought in by one
+frontend. `playable` counts only the rows a frontend shows. A row a rule matched by one
 table's own values names that table in `ref_table`, with the table's `origin` `matched`.
 
 `game_count` counts the stored members, which is not the size of the collection - criteria
@@ -1439,7 +1439,7 @@ within its limit, skipping a game with no wheel - each one this API's own
 
 `image_version` is the `v` for `/collections/{name}/image`, and null when it has none.
 
-`added`, `matched` and `excluded` count games before the limit: written into it, brought in
+`added`, `matched` and `excluded` count games before the limit: written into it, matched
 by its rule, and taken out whole by name. `count` is what it hands out, which is tables.
 
 Membership is the game's own id, not its VPS id — a game with no VPSdb match still
@@ -1521,7 +1521,7 @@ client offers a manufacturer somebody owns rather than every manufacturer that e
 existed. The axes are projected from the registry the resolver matches on, so the two
 cannot disagree, and an axis added there appears here without a second edit. Beside
 `values`, `counts` says how many games hold each one, a game counted once for each value it
-holds, so a picker can say what a choice brings in before it is made.
+holds, so a picker can say what a choice matches before it is made.
 
 A range of years is its own axis, `year_range`: `{"from": 1990, "to": 1999}` asks for 1990
 to 1999, both ends included, and either end may be left out - `{"to": 1979}` is anything
@@ -1531,7 +1531,7 @@ and `rating_or_higher` names `rating`.
 
 `tags` takes a list, like the other many-valued axes, and `favorite` is true, false or
 absent, like `played`. The `tags` axis is table-scoped: a rule on it matches a game carrying
-the tag, which brings in its default table, and a table carrying it, which brings in that
+the tag, which matches its default table, and a table carrying it, which matches that
 table.
 
 *Is none of* is an axis for each choice field, named for it and naming it as its `field`:
@@ -1540,7 +1540,7 @@ table.
 value in it; a game with no value on the field holds none of them, so it stays. Their
 `kind` is `none_of`, and they carry no values of their own, since the field's are the ones
 to offer. `tags_none_of` is table-scoped like `tags`: a game where neither it nor any of its
-tables carries one brings in its default table, and otherwise each table where neither it
+tables carries one matches its default table, and otherwise each table where neither it
 nor its game carries one comes in by itself.
 
 The `rating` axis carries its scale, `["1", "2", "3", "4", "5"]`, on every install rather

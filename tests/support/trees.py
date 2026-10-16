@@ -63,7 +63,7 @@ _MANAGER = Path(__file__).resolve().parents[2] / "manager"
 def manager_imports(node: ast.ImportFrom) -> list[tuple[str, str, str | None]]:
     """What a `from manager... import` binds, as (bound name, module stem, imported name).
 
-    The imported name is None where the import brings in the module itself. A package on
+    The imported name is None where the import binds the module itself. A package on
     the way is not a module, so `from manager.kit import grid` and `from manager import
     grid` both name the module `grid`, and module stems are unique across the tree.
     """

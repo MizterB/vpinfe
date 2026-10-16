@@ -1,4 +1,4 @@
-"""A folder of tables, brought in as it is laid out, copied or moved.
+"""A folder of tables, imported as it is laid out, copied or moved.
 
 Nothing here is a frontend: the layout is the source. Looking comes first - a game folder
 is used where it is, a loose table gets a folder - and only then is anything asked, which
@@ -1051,7 +1051,7 @@ class SystemsRunTests(FolderCase):
 
 
 class OrderTests(FolderCase):
-    """Bringing a folder in that is already held must not change where new games go: the
+    """Importing a folder that is already held must not change where new games go: the
     order is the priority, and a run asks for its folders on every import."""
 
     def setUp(self) -> None:

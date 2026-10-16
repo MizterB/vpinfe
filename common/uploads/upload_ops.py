@@ -85,7 +85,7 @@ def _analysis_to_dict(analysis: AnalysisResult) -> dict:
 
 
 def _item_name(item: PlannedItem) -> str:
-    """What the file being brought in is called, for a surface that lists what will land.
+    """What the file being imported is called, for a surface that lists what will land.
     Several files under one asset - a pup pack, a tree - are a count instead."""
     entries = [one for one in item.asset.entries if not one.is_dir]
     if len(entries) == 1:

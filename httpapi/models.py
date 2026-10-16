@@ -2816,7 +2816,7 @@ class CollectionLinks(ApiModel):
 
 class GameCollection(ApiModel):
     """A collection holding a game. `how` is `added` where the game was written into it
-    and `matched` where its rule brought the game in."""
+    and `matched` where its rule matched the game."""
 
     name: str
     type: str
@@ -2896,7 +2896,7 @@ class CollectionResource(ApiModel):
     # collection with no image of its own.
     game_wheels: list[str] = []
     game_count: int | None
-    # Games, counted before the limit: written into it, brought in by its rule, and taken
+    # Games, counted before the limit: written into it, matched by its rule, and taken
     # out whole by name.
     added: int = 0
     matched: int = 0

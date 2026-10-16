@@ -28,7 +28,7 @@ TEXT_OF = "(() => { const el = document.querySelector(%s); return el ? el.innerT
 CHOICES = (f"[...document.querySelectorAll({json.dumps(RADIO)})]"
            ".map(el => [el.innerText.trim(), el.getAttribute('aria-checked') === 'true'])")
 TABLES = ("Alpha", "Bravo")
-# The pages between the folder and the question of how to bring the tables in; each is
+# The pages between the folder and the question of how to import the tables; each is
 # passed with what it offers ticked.
 STEPS_BEFORE_HOW = ("games", "matches", "names", "media", "things")
 ADDRESS = "/manager?view=settings&page=library.folders"

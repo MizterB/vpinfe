@@ -252,9 +252,9 @@ def set_overrides(game_id: str, table_id: str, changes: dict) -> dict:
 
 
 def import_file(game_id: str, path: str) -> dict:
-    """Bring a game file in from a path this install may read.
+    """Import a game file from a path this install may read.
 
-    One call rather than pointing at it and then bringing it in: an import interrupted
+    One call rather than pointing at it and then importing it: an import interrupted
     between those two leaves a library of entries referencing a folder that was only ever
     meant to be read from. A copy, not a move.
     """

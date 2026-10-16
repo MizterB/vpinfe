@@ -245,7 +245,7 @@ class ReadTests(unittest.TestCase):
     def test_a_system_this_build_cannot_play_is_left_behind(self) -> None:
         """Only Visual Pinball, for now.
 
-        A source declares whatever its owner ever set up. Bringing in Future Pinball
+        A source declares whatever its owner ever set up. Importing Future Pinball
         would make entries for games nothing here can launch, which is worse than not
         having them - they cannot be played and they cannot be told apart from the ones
         that can.
@@ -259,7 +259,7 @@ class ReadTests(unittest.TestCase):
 
         This is what that buys. A Future Pinball library is read and dropped because
         nothing here plays `.fpt`; an extension providing an app for it changes the
-        answer, and the same source now brings it in. The rule that decides is what the
+        answer, and the same source now imports it. The rule that decides is what the
         build can play, never a format written down in the importer.
         """
         from common import apps

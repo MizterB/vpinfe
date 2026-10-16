@@ -174,7 +174,7 @@ def read_config(root: Path | str) -> tuple[list[dict], list[Note]]:
 
 
 # What this build can actually play. A source declares whatever its owner ever set up -
-# Future Pinball, the Steam FX titles, Visual Pinball 9 - and bringing those in would
+# Future Pinball, the Steam FX titles, Visual Pinball 9 - and importing those would
 # make entries for games nothing here can launch. Decided on the table extension because
 # it is the one signal both frontends carry: PinballY writes `DefExt` and `Class`,
 # PinballX writes neither, but the name and the executable both say it.

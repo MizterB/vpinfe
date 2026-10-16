@@ -118,7 +118,7 @@ class SourceLibrary:
     # bad row would leave them with nothing.
     notes: tuple[Note, ...] = ()
     # Game folders already in `root`, by name. Only a folder read as folders has any: they
-    # are games as they stand, so nothing is brought in for them and they are not in
+    # are games as they stand, so nothing is imported for them and they are not in
     # `systems`.
     in_place: tuple[str, ...] = ()
 

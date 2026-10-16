@@ -266,7 +266,7 @@ def _on_this_device(path: str) -> Path:
 
 
 def source_here(path: str) -> Path:
-    """A file or a folder on this device to bring in, or a refusal.
+    """A file or a folder on this device to import, or a refusal.
 
     The listing is the whole disk, so this is the same bound the previews and the slot
     pickers have: nothing under a private folder, links followed first. What may be done

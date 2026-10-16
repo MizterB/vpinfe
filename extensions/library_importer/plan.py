@@ -393,7 +393,7 @@ def pairs(library: SourceLibrary, plan: Plan, systems: list[str] | None = None,
 
 def systems_going(library: SourceLibrary, games: list[SourceGame]) -> list[SourceSystem]:
     """The systems at least one of these games belongs to, in the order the source holds
-    them. A system somebody deselected, or one with nothing left to bring in, is not
+    them. A system somebody deselected, or one with nothing left to import, is not
     among them, and nothing about it is to be touched."""
     going_ids = {id(one) for one in games}
     return [system for system in library.systems
@@ -403,7 +403,7 @@ def systems_going(library: SourceLibrary, games: list[SourceGame]) -> list[Sourc
 def _beside(companions_of: Callable[..., Any], table_file: str) -> tuple[str, ...]:
     """What travels with a game file, or nothing where the source lists one that is not
     there. A frontend's list outlives the files it names; that game fails when it is
-    brought in, and the rest of the check does not stop for it."""
+    imported, and the rest of the check does not stop for it."""
     try:
         return tuple(companions_of(table_file))
     except FileNotFoundError:

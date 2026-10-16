@@ -250,7 +250,7 @@ class StoppedSettingsLineTests(unittest.TestCase):
 
 
 class ActionsGroupTests(unittest.TestCase):
-    ACTIONS = [{"key": "run", "label": "Import a Library", "description": "Brings one in"}]
+    ACTIONS = [{"key": "run", "label": "Import a Library", "description": "Imports one"}]
 
     def test_a_running_extension_offers_its_actions_under_a_heading(self) -> None:
         page = Page({**RUNNING, "actions": self.ACTIONS})

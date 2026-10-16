@@ -1,5 +1,5 @@
 """Importing the Manager page is what registers the wizard's field drawers: a wizard field
-of a kind nothing registered raises when it is drawn, so the page has to bring them in."""
+of a kind nothing registered raises when it is drawn, so the page has to register them."""
 
 from __future__ import annotations
 

@@ -62,7 +62,7 @@ def bring(ctx: Any, media: str, lost: list[dict[str, str]] | None = None) -> dic
     """Add to the logos folder the images that serve a maker among the games here.
 
     Every game in the library counts, not only those this run made: a second import of
-    logos for the makers a first one brought in is a way to fill a gap, and what is
+    logos for the makers a first one imported is a way to fill a gap, and what is
     already served is never replaced. Nothing is asked of core when the source keeps no
     logos, or when core has no folder to put them in. A refusal is named in `lost`.
     """

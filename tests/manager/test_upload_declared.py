@@ -1,4 +1,4 @@
-"""What files brought in for a game are declared to be."""
+"""What files imported for a game are declared to be."""
 
 from __future__ import annotations
 

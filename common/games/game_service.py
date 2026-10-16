@@ -879,7 +879,7 @@ def record_arrived_table(game_dir: Path, landing: Path, table_id: str,
             return Arrived(str(parsed.get("rom") or "").strip(),
                            tuple(sorted(named_in(parsed.get("game_data") or "", names))))
     except Exception:
-        logger.warning("Brought in %s but could not read what it says about itself",
+        logger.warning("Imported %s but could not read what it says about itself",
                        landing.name, exc_info=True)
     return Arrived()
 

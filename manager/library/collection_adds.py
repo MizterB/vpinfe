@@ -175,7 +175,7 @@ def said(name: str, wrote: Wrote, what: str) -> str:
 
 
 def is_exception(wrote: Wrote) -> bool:
-    """A smart collection's rules did not bring these in, so they stay on their own."""
+    """A smart collection's rules did not match these, so they stay on their own."""
     return wrote.smart and bool(wrote.written)
 
 

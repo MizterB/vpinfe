@@ -203,7 +203,7 @@ MEDIA_SPECS = (
         family=AUDIO_FAMILY,
     ),
     # The 3.0 additions - spec tokens except rule_sheet, which the spec keeps
-    # outside its media scheme and we bring in so it gets the chain.
+    # outside its media scheme and we include so it gets the chain.
     MediaSpec(
         "instruction_card",
         attr="instruction_card_image_path",
