@@ -28,7 +28,10 @@ def _sent(response: Any, *headers: tuple[str, str]) -> tuple[int, dict[str, str]
     sent: list[dict] = []
 
     async def receive() -> dict:
-        return {"type": "http.request"}
+        # A server's receive waits for the client to go; one that answers at once keeps a
+        # FileResponse listening for the disconnect forever, because it never yields.
+        await asyncio.Event().wait()
+        return {"type": "http.disconnect"}
 
     async def send(message: dict) -> None:
         sent.append(message)
