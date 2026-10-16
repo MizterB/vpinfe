@@ -20,9 +20,10 @@ from . import bundled_libraries, keys, tools
 
 logger = logging.getLogger("vpinfe.common.host.key_simulator")
 
-if sys.platform == "darwin":
-    # Inside the branch: pynput imports fine on a Mac, and a headless Linux runner never
-    # reaches this. The `else` below defers its own import for the same reason.
+
+def _quartz_controller() -> Any:
+    """The macOS typer, built on first use so that importing this module loads neither
+    pynput nor Quartz."""
     from pynput.keyboard import Key
     from Quartz import (
         CGEventCreateKeyboardEvent,
@@ -30,7 +31,7 @@ if sys.platform == "darwin":
         kCGHIDEventTap,
     )
 
-    PYNPUT_TO_MACOS_KEYCODE = {
+    keycodes = {
         Key.enter: 36, Key.esc: 53, Key.backspace: 51, Key.tab: 48, Key.space: 49,
         Key.f1: 122, Key.f2: 120, Key.f3: 99, Key.f4: 118, Key.f5: 96, Key.f6: 97,
         Key.f7: 98, Key.f8: 100, Key.f9: 101, Key.f10: 109, Key.f11: 103, Key.f12: 111,
@@ -50,23 +51,25 @@ if sys.platform == "darwin":
 
     class QuartzKeyboardController:
         def press(self, key: Any) -> None:
-            keycode = PYNPUT_TO_MACOS_KEYCODE.get(key)
+            keycode = keycodes.get(key)
             if keycode is not None:
                 event = CGEventCreateKeyboardEvent(None, keycode, True)
                 CGEventPost(kCGHIDEventTap, event)
 
         def release(self, key: Any) -> None:
-            keycode = PYNPUT_TO_MACOS_KEYCODE.get(key)
+            keycode = keycodes.get(key)
             if keycode is not None:
                 event = CGEventCreateKeyboardEvent(None, keycode, False)
                 CGEventPost(kCGHIDEventTap, event)
+
+    return QuartzKeyboardController()
 
 
 def _controller() -> Any:
     """What types, built when something first types: pynput is imported here rather than
     at module scope, so a machine with no input backend can still import this module."""
     if sys.platform == "darwin":
-        return QuartzKeyboardController()
+        return _quartz_controller()
     from pynput.keyboard import Controller
 
     return Controller()

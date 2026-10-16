@@ -294,5 +294,34 @@ class KeptLogTests(unittest.TestCase):
             self.assertIn("no_such_package", log.read_text(encoding="utf-8"))
 
 
+class LeftoverTests(unittest.TestCase):
+    def test_an_old_root_goes_and_a_recent_one_stays(self) -> None:
+        root = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        old, recent = root / "vpinfe-run0old", root / "vpinfe-tmp0recent"
+        for folder in (old, recent):
+            (folder / "tmp0").mkdir(parents=True)
+            (folder / "tmp0" / "left").write_text("x", encoding="utf-8")
+        week_ago = old.stat().st_mtime - 7 * 24 * 3600
+        os.utime(old, (week_ago, week_ago))
+
+        self.assertEqual(tests.sweep_leftovers(root), 1)
+        self.assertEqual([path.name for path in root.iterdir()], ["vpinfe-tmp0recent"])
+
+    def test_an_old_file_goes_too_and_is_counted_once(self) -> None:
+        root = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        stray = root / "stray.log"
+        stray.write_text("x", encoding="utf-8")
+        week_ago = stray.stat().st_mtime - 7 * 24 * 3600
+        os.utime(stray, (week_ago, week_ago))
+
+        self.assertEqual(tests.sweep_leftovers(root), 1)
+        self.assertEqual(tests.sweep_leftovers(root), 0)
+        self.assertFalse(stray.exists())
+
+    def test_a_folder_that_is_not_there_has_nothing_to_sweep(self) -> None:
+        root = Path(self.enterContext(tempfile.TemporaryDirectory())) / "missing"
+        self.assertEqual(tests.sweep_leftovers(root), 0)
+
+
 if __name__ == "__main__":
     unittest.main()

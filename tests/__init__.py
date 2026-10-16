@@ -20,6 +20,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 from platformdirs import user_cache_dir
@@ -38,12 +39,43 @@ from platformdirs import user_cache_dir
 # None when this file made it: `python -m tests` cannot split a caller's between processes.
 CALLER_CONFIG_DIR = os.environ.get("VPINFE_CONFIG_DIR", "").strip() or None
 TEMP_ROOTS = Path(user_cache_dir("vpinfe")) / "tests-tmp"
+# A killed process leaves its temp root, and a failing shard's log is kept on purpose, so
+# a kept log is gone after this long. A root with nothing created in it for this long
+# counts as dead, even to a process that is still using it.
+LEFTOVER_AGE_S = 24 * 3600
+
+
+def sweep_leftovers(root: Path = TEMP_ROOTS, older_than: float = LEFTOVER_AGE_S) -> int:
+    """Remove the entries of `root` last changed more than `older_than` seconds ago, and
+    return how many went."""
+    cutoff = time.time() - older_than
+    removed = 0
+    try:
+        entries = list(root.iterdir())
+    except OSError:
+        return 0
+    for entry in entries:
+        try:
+            if entry.stat().st_mtime >= cutoff:
+                continue
+            if entry.is_dir():
+                shutil.rmtree(entry, ignore_errors=True)
+            else:
+                entry.unlink()
+        except OSError:
+            continue
+        if not entry.exists():
+            removed += 1
+    return removed
+
+
 if CALLER_CONFIG_DIR is None:
     _TEST_CONFIG_DIR = tempfile.mkdtemp(prefix="vpinfe-tests-")
     os.environ["VPINFE_CONFIG_DIR"] = _TEST_CONFIG_DIR
     atexit.register(shutil.rmtree, _TEST_CONFIG_DIR, ignore_errors=True)
 
     TEMP_ROOTS.mkdir(parents=True, exist_ok=True)
+    sweep_leftovers()
     _TEST_TMP_DIR = tempfile.mkdtemp(prefix="vpinfe-tmp0", dir=str(TEMP_ROOTS))
     os.environ["TMPDIR"] = _TEST_TMP_DIR
     os.environ["TEMP"] = _TEST_TMP_DIR
