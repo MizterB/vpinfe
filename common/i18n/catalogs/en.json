@@ -3971,7 +3971,7 @@
   "manager.workbench.other_programs": "Other Programs",
   "manager.workbench.own_done": "It is its own game now",
   "manager.workbench.page_by": "Page By",
-  "manager.workbench.page_by.help": "Overrides Page By in Settings for this collection only. Sort Order jumps to the next letter, year or rating. Fixed Count moves by Games per Page.",
+  "manager.workbench.page_by.help": "Overrides Page By in Settings for this collection. Letter, Year or Rating jumps to the next letter, year or rating. Number of Games moves by Games per Page.",
   "manager.workbench.page_by.no_groups": "{order} has no groups",
   "manager.workbench.part_said": "{label}: {said}",
   "manager.workbench.past_limit": "Not shown in the frontend - limit {limit}",
