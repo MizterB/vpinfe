@@ -198,7 +198,11 @@ class PseudoLocaleTests(unittest.TestCase):
             # `httpapi/assets.py:_label` builds a label from the identifier. That is the
             # documented fallback for a kind from outside; the fix is to register the
             # kind, which is a data change rather than a localization one.
-            | {"color", "sound"})
+            | {"color", "sound"}
+            # The formats' own names, which Browser Program draws as chips
+            # (`frontend_browser.FORMATS`). H.264, VP9, AV1, AAC and MP3 are under four
+            # letters or carry a digit, so only these three reach the pattern.
+            | {"hevc", "vorbis", "opus"})
         allowed = set(content)
 
         from manager import page as manager_page
