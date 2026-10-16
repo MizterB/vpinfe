@@ -233,25 +233,25 @@ _PAGE_BY_GROUP = frozenset({"letter", "year", "rating"})
 
 
 def _page_by(context: dict[str, Any], row: dict[str, Any]) -> Callable[[], None]:
-    """Where the order has no groups the frontend moves by the count, so a stored group
-    is shown as that."""
+    """Every choice is listed; the group one is greyed, with the order's name, where that
+    order has no groups, and a stored group still reads as stored."""
     stored = row.get("paging_group") or ""
-    group = group_kind(row.get("order_by") or DEFAULT_ORDER_BY)
+    by, _, orders = _shown_order(context, row)
     choices = config_schema.option("behavior", "paging_group")
     said = ((context.get("settings") or {}).get("behavior") or {}).get("paging_group")
     current = str(said or (choices.default if choices else "") or "count")
     word = {key: t(f"config.behavior.paging_group.choice.{key}") for key in ("sort", "count")}
-    options = {"": t("manager.workbench.page_by.same", choice=word.get(current, ""))}
-    if group in _PAGE_BY_GROUP:
-        options["sort"] = word["sort"]
-    options["count"] = word["count"]
-    shown = stored if stored in options else "count"
+    options = {"": t("manager.workbench.page_by.same", choice=word.get(current, "")),
+               "sort": word["sort"], "count": word["count"]}
+    unavailable = {} if group_kind(by) in _PAGE_BY_GROUP else {
+        "sort": t("manager.workbench.page_by.no_groups", order=orders[by])}
+    shown = stored if stored in options else ""
 
     async def changed(event: Any) -> None:
         if event.value != shown:
             await _patch(context, {"paging_group": event.value})
 
-    return panel.select(options, shown, changed)
+    return panel.select(options, shown, changed, unavailable=unavailable)
 
 
 def _image_slot(context: dict[str, Any], row: dict[str, Any]) -> None:
@@ -702,12 +702,20 @@ def _draft_bar(context: dict[str, Any]) -> None:
 # --- the order ------------------------------------------------------------------
 
 
-def _order_bar(context: dict[str, Any], row: dict[str, Any]) -> None:
+def _shown_order(context: dict[str, Any], row: dict[str, Any]) -> tuple[str, Any, dict[str, str]]:
+    """The order and direction the order bar shows, with the menu it picks from. A stored
+    order the menu has dropped reads as the default."""
     row = _ordered(context, row)
     by, direction = row.get("order_by") or DEFAULT_ORDER_BY, row.get("direction")
     orders = _orders(context, row, by)
     if by not in orders:
         by, direction = DEFAULT_ORDER_BY, DEFAULT_DIRECTION
+    return by, direction, orders
+
+
+def _order_bar(context: dict[str, Any], row: dict[str, Any]) -> None:
+    row = _ordered(context, row)
+    by, direction, orders = _shown_order(context, row)
     ranking = _ranking(context, by)
 
     async def ordered(event: Any) -> None:

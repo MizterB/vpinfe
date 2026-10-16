@@ -919,6 +919,35 @@ class MarkedSelect(dropdown.Select):
             option["heading"] = self.heading if chosen == self.heading_at else ""
 
 
+class ReasonedSelect(dropdown.Select):
+    """One from a list, where `reasons` maps an option's value to why it cannot be picked
+    now: it stays in the list, greyed, with that line under its label."""
+
+    SLOT = """
+        <q-item v-bind="props.itemProps">
+          <q-item-section>
+            <q-item-label>{{ props.opt.label }}</q-item-label>
+            <q-item-label caption v-if="props.opt.reason" class="manager-cell-made">
+              {{ props.opt.reason }}</q-item-label>
+          </q-item-section>
+        </q-item>
+    """
+
+    def __init__(self, options: dict[str, str], *, value: str | None,
+                 reasons: dict[str, str], on_change: Callable[[Any], Any] | None = None,
+                 look: str = dropdown.FIELD) -> None:
+        # Before `super().__init__`, which builds the payload for the first time.
+        self.reasons = dict(reasons)
+        super().__init__(options, value=value, on_change=on_change, look=look)
+        self.add_slot("option", self.SLOT)
+
+    def _update_options(self) -> None:
+        super()._update_options()
+        for option in self._props["options"]:
+            reason = self.reasons.get(str(self._values[option["value"]]), "")
+            option.update(reason=reason, disable=bool(reason))
+
+
 class GamePicker(dropdown.Select):
     """One game from the library, typed into, each option with its maker and year. A
     game in `held` is ticked and cannot be picked. `art` is each game's thumbnail, or None
@@ -1207,10 +1236,14 @@ def path_field(placeholder: str = "", *, wants: str, value: str = "",
 def select(options: Any, value: str, on_change: Callable[[Any], Any], *,
            disabled: bool = False,
            describes: dict[str, str] | None = None,
+           unavailable: dict[str, str] | None = None,
            status: Callable[[Any], Any] | None = None,
            on_control: Callable[[Any], Any] | None = None) -> Callable[[], None]:
     """A list to pick from, where the reader already knows what the names mean, or
     `describes` says, by label, on each option.
+
+    `unavailable` maps an option's value to why it cannot be picked now; it stays in the
+    list, greyed, with the reason under it. It cannot be combined with `describes`.
 
     Where the label of each option is itself the thing being decided, the set goes on
     screen whole as radios instead - a closed control makes the reader open it to
@@ -1219,14 +1252,20 @@ def select(options: Any, value: str, on_change: Callable[[Any], Any], *,
     `on_control` is handed the control once it exists, for a caller that needs it back -
     the wizard's own first-field focus and per-field refusals among them.
     """
+    if describes and unavailable:
+        raise ValueError("select() takes `describes` or `unavailable`, not both")
     tip = PathTip() if drawn(status) else None
 
     def draw() -> None:
         with ui.element("div").classes("manager-fact-edit"):
-            control = (DescribedSelect(options, value=value, describes=describes,
-                                       on_change=on_change)
-                       if describes else
-                       dropdown.Select(options, value=value, on_change=on_change))
+            if describes:
+                control: dropdown.Select = DescribedSelect(
+                    options, value=value, describes=describes, on_change=on_change)
+            elif unavailable:
+                control = ReasonedSelect(options, value=value, reasons=unavailable,
+                                         on_change=on_change)
+            else:
+                control = dropdown.Select(options, value=value, on_change=on_change)
             if status is not None:
                 with control.add_slot("append"):
                     status(control)
