@@ -174,18 +174,36 @@ _FOLDERS: dict[str, tuple[str, ...]] = {
 _FOLDERS["rom_alias"] = _FOLDERS["cfg"][:-1]
 
 
+def require_plain_rom(rom: str) -> str:
+    """The ROM name, trimmed, or a ValueError where it is more than one folder's name.
+
+    A ROM name becomes a folder inside the game, so a separator or ".." in it would put
+    the files somewhere else. An empty name passes: whether one is needed is the
+    caller's question.
+    """
+    name = str(rom or "").strip()
+    if name and (name in {".", ".."} or Path(name).name != name
+                 or "\\" in name or "\0" in name):
+        raise ValueError(t("error.uploads.rom_not_plain", name=name))
+    return name
+
+
 def folder_for(kind: str, game_dir: str | Path, rom: str = "") -> Path | None:
     """The folder inside a game that holds this kind, or None where it has no folder.
 
     None is an answer: a backglass and a table sit beside the game file and are named
     after it, so "which folder" is the wrong question for them and a made-up one would
     be worse than saying so.
+
+    Raises ValueError for a ROM name that is not a plain name, where the kind uses it.
     """
     parts = _FOLDERS.get(str(kind or ""))
     if parts is None:
         return None
-    wanted = str(rom or "").strip()
-    if any("{rom}" in one for one in parts) and not wanted:
+    if not any("{rom}" in one for one in parts):
+        return Path(game_dir).joinpath(*parts)
+    wanted = require_plain_rom(rom)
+    if not wanted:
         return None
     return Path(game_dir).joinpath(*(tokens.fill(one, {"rom": wanted}) for one in parts))
 
@@ -343,6 +361,7 @@ def build_import_plan(analysis: AnalysisResult, *, game_dir: Path | None = None,
     For an existing game, a table in the drop replaces the game's table, or with
     `add_table` joins it as one more.
     """
+    rom_name = require_plain_rom(rom_name)
     items: list[PlannedItem] = []
     blocked: list[BlockedItem] = []
     new_bundle = analysis.has_game and allow_new_game

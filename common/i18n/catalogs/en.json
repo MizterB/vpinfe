@@ -4750,6 +4750,7 @@
   "error.uploads.folder_exists": "A folder called {name} is already there",
   "error.uploads.folder_unnamed": "The new game's folder needs a name",
   "error.uploads.no_rom": "This game has no ROM yet. Import it first.",
+  "error.uploads.rom_not_plain": "{name} is not a ROM name. It must be a single name with no slashes",
   "error.uploads.pac_not_loaded": "VPX does not load .pac files",
   "error.uploads.color_same_name": "Another file in this drop is already going to be {name}",
   "error.uploads.info_unreadable": "Its .info file cannot be read",

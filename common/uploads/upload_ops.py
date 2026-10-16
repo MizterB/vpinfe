@@ -36,6 +36,7 @@ from common.uploads.asset_import_service import (
     find_vps_entry,
     only_kind,
     replaced_table,
+    require_plain_rom,
     select_plan_items,
     vps_folder_name,
 )
@@ -304,10 +305,14 @@ def _named_plan(upload_id: str, request: dict[str, Any]) -> ImportPlan | None:
 
 def _built_plan(analysis: AnalysisResult, request: dict[str, Any]) -> ImportPlan:
     try:
+        rom_name = require_plain_rom(request.get("rom_name") or "")
+    except ValueError as exc:
+        raise service_errors.RefusedError(why(exc)) from exc
+    try:
         plan = build_import_plan(
             analysis,
             game_dir=Path(request["game_dir"]) if request.get("game_dir") else None,
-            rom_name=request.get("rom_name") or "",
+            rom_name=rom_name,
             allow_new_game=request.get("allow_new_game", False),
             location_id=request.get("location_id") or "",
             add_table=bool(request.get("add_table")),

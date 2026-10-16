@@ -4750,6 +4750,7 @@
   "error.uploads.folder_exists": "À ƒöŀđèř çàŀŀèđ {name} îš àŀřèàđý ţĥèřè",
   "error.uploads.folder_unnamed": "Ţĥè ñèŵ ĝàɱè'š ƒöŀđèř ñèèđš à ñàɱè",
   "error.uploads.no_rom": "Ţĥîš ĝàɱè ĥàš ñö ŘÖḾ ýèţ. Îɱþöřţ îţ ƒîřšţ.",
+  "error.uploads.rom_not_plain": "{name} îš ñöţ à ŘÖḾ ñàɱè. Îţ ɱûšţ ƀè à šîñĝŀè ñàɱè ŵîţĥ ñö šŀàšĥèš",
   "error.uploads.pac_not_loaded": "ṼÞẊ đöèš ñöţ ŀöàđ .þàç ƒîŀèš",
   "error.uploads.color_same_name": "Àñöţĥèř ƒîŀè îñ ţĥîš đřöþ îš àŀřèàđý ĝöîñĝ ţö ƀè {name}",
   "error.uploads.info_unreadable": "Îţš .îñƒö ƒîŀè çàññöţ ƀè řèàđ",

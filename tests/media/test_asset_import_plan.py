@@ -417,14 +417,13 @@ class ColorFileNameTests(unittest.TestCase):
 
         self.assertEqual((len(plan.items), len(plan.blocked)), (1, 1))
 
-    def test_a_rom_with_a_separator_keeps_folder_and_file_together(self):
+    def test_a_rom_with_a_separator_is_refused(self):
         zip_path = self.tmp / "drop.zip"
         make_zip(zip_path, ["x.crz"])
 
-        plan = build_import_plan(analyze_path(zip_path), game_dir=self.game_dir,
-                                 rom_name="../up")
-
-        self.assertEqual(self._lands(plan), ["serum/up/up.cRZ"])
+        with self.assertRaises(ValueError):
+            build_import_plan(analyze_path(zip_path), game_dir=self.game_dir,
+                              rom_name="../up")
 
     def test_the_report_says_what_was_renamed(self):
         zip_path = self.tmp / "drop.zip"
