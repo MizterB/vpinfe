@@ -209,6 +209,42 @@ class AskingTests(unittest.IsolatedAsyncioTestCase):
         client.perform_action.assert_not_called()
 
 
+class ResultToastTests(unittest.IsolatedAsyncioTestCase):
+    async def _toasts(self, scope: str, action: str, *, local: bool) -> list[tuple[str, str]]:
+        client = Mock()
+        client.perform_action = Mock(return_value={"performed": True})
+        library = client if local else Mock()
+        verb = devices.acts(library, [devices.Target(DEVICE, client, [entry(scope, action)],
+                                                     False)], None)[0]
+        notify = Mock()
+        with patch.object(devices.confirm, "ask", new=AsyncMock(return_value=True)), \
+                patch.object(devices.offload, "io",
+                             new=AsyncMock(side_effect=lambda call, *a: call(*a))), \
+                patch.object(devices.ui, "notify", new=notify):
+            assert verb.run is not None
+            await press(verb.run)
+        return [(call.args[0], call.kwargs["type"]) for call in notify.call_args_list]
+
+    async def test_the_windows_actions_say_what_happened_once(self) -> None:
+        said = {"start": "manager.devices.windows_opened",
+                "stop": "manager.devices.windows_closed",
+                "restart": "manager.devices.windows_reopened"}
+        for action, key in said.items():
+            with self.subTest(action=action):
+                self.assertEqual(await self._toasts("frontend", action, local=True),
+                                 [(t(key), "positive")])
+
+    async def test_the_ones_that_take_the_page_away_add_nothing_on_this_device(self) -> None:
+        for scope, action in (("vpinfe", "restart"), ("vpinfe", "stop"),
+                              ("system", "restart"), ("system", "stop")):
+            with self.subTest(pair=(scope, action)):
+                self.assertEqual(await self._toasts(scope, action, local=True), [])
+
+    async def test_one_done_on_another_device_is_still_confirmed(self) -> None:
+        self.assertEqual(await self._toasts("vpinfe", "restart", local=False),
+                         [(lifecycle.label("vpinfe", "restart"), "positive")])
+
+
 class LoadActionsTests(unittest.IsolatedAsyncioTestCase):
     async def _load(self, device: dict, reach: dict | None, client: Any,
                     local: str | None = "Aaaa111111") -> list:

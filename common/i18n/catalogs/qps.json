@@ -636,6 +636,21 @@
   "manager.app_settings.the_tables_own": "Ţĥè ţàƀŀè'š öŵñ",
   "manager.app_settings.ignored": "Îĝñöřèđ",
   "manager.app_settings.window_row": "{window} {label}",
+  "manager.devices.windows_closed": "Ƒřöñţèñđ ŵîñđöŵš çŀöšèđ",
+  "manager.devices.windows_closed_many": {
+    "one": "Ƒřöñţèñđ ŵîñđöŵš çŀöšèđ öñ {count:n} đèṽîçè",
+    "other": "Ƒřöñţèñđ ŵîñđöŵš çŀöšèđ öñ {count:n} đèṽîçèš"
+  },
+  "manager.devices.windows_opened": "Ƒřöñţèñđ ŵîñđöŵš öþèñèđ",
+  "manager.devices.windows_opened_many": {
+    "one": "Ƒřöñţèñđ ŵîñđöŵš öþèñèđ öñ {count:n} đèṽîçè",
+    "other": "Ƒřöñţèñđ ŵîñđöŵš öþèñèđ öñ {count:n} đèṽîçèš"
+  },
+  "manager.devices.windows_reopened": "Ƒřöñţèñđ ŵîñđöŵš řèöþèñèđ",
+  "manager.devices.windows_reopened_many": {
+    "one": "Ƒřöñţèñđ ŵîñđöŵš řèöþèñèđ öñ {count:n} đèṽîçè",
+    "other": "Ƒřöñţèñđ ŵîñđöŵš řèöþèñèđ öñ {count:n} đèṽîçèš"
+  },
   "manager.edit.not_text": "Ţĥîš ķîñđ öƒ ƒîŀè îš ñöţ èđîţèđ ĥèřè",
   "manager.edit.page_title": "Èđîţ Ƒîŀè",
   "manager.edit.title": "{game} - {what}",
@@ -919,6 +934,10 @@
   "manager.discovery.compare_failed": "Çöûŀđ ñöţ çöɱþàřè ţĥè ŀîƀřàřý ŵîţĥ ṼÞŠ",
   "manager.discovery.compare_now": "Çöɱþàřè ŵîţĥ ṼÞŠ",
   "manager.discovery.compared": "Çöɱþàřèđ {when}",
+  "manager.notice.powering_off": "Ţĥîš đèṽîçè îš þöŵèřîñĝ öƒƒ",
+  "manager.notice.quitting": "ṼÞîñƑÈ îš ǫûîţţîñĝ",
+  "manager.notice.rebooting": "Ţĥîš đèṽîçè îš řèƀööţîñĝ",
+  "manager.notice.restarting": "ṼÞîñƑÈ îš řèšţàřţîñĝ",
   "manager.view.discovery_everything.help": "Èṽèřý ĝàɱè ṼÞŠ ŀîšţš, àñđ ŵĥàţ ýöûř ŀîƀřàřý ĥöŀđš öƒ èàçĥ",
   "manager.discovery.files": "Ƒîŀèš",
   "manager.discovery.files_failed": "Çöûŀđ ñöţ řèàđ ţĥè ƒîŀèš ṼÞŠ ŀîšţš",
@@ -2237,6 +2256,7 @@
   "manager.page.load_failed": "Çöûŀđ ñöţ ŀöàđ ţĥè Ḿàñàĝèř",
   "manager.page.new_tab": "{label}, öþèñš îñ à ñèŵ ţàƀ",
   "manager.page.could_not_resume": "Çöûŀđñ'ţ řèšûɱè řèçöřđîñĝ",
+  "manager.page.power_waiting": "Þöŵèř - {note}",
   "manager.page.start_failed": "Çöûŀđ ñöţ šţàřţ",
   "manager.page.could_not_stop": "Çöûŀđñ'ţ šţöþ îţ",
   "manager.page.row_unknown": "Çöûŀđ ñöţ ŵöřķ öûţ ŵĥîçĥ ĝàɱè ţĥàţ řöŵ îš",

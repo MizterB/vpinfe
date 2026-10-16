@@ -4,7 +4,7 @@ The verbs are the ones the Devices page draws for this device. Restart and the w
 reopen go through the waiting line, so they follow the Manager to a new port, and lead the
 menu with how much is waiting once the line has been dismissed. On an install that owns
 windows the menu also follows them: Close and Reopen while they are up, Open while they
-are not, with the dot up for the second since nothing is showing.
+are not. The dot is up only while changes wait, and the hover then says how many.
 """
 
 from __future__ import annotations
@@ -34,17 +34,19 @@ class Power:
         self._menu: ui.menu | None = None
         self._button: ui.element | None = None
         self._dot: ui.element | None = None
+        self._tip: ui.element | None = None
         self._drawn: object = None
         self._open = False
         self._asking = False
         bar.watchers.append(self.refill)
 
     def place(self) -> None:
-        with ui.element("div").classes("manager-nav-mark"):
+        with ui.element("div").classes("manager-nav-mark") as mark:
             button, self._menu = panel.menu_button(verbs.POWER, t("manager.page.power"))
             self._menu.props('anchor="bottom right" self="bottom left"')
             self._dot = ui.label("").classes("manager-nav-badge manager-nav-badge--dot")
         self._button = button
+        self._tip = next(one for one in mark if isinstance(one, ui.tooltip))
         button.set_visibility(False)
         self._dot.set_visibility(False)
         self._menu.on("before-show", self._opened)
@@ -105,4 +107,7 @@ class Power:
         self._drawn = shape
         panel.verb_menu(menu, devices.device_label(self.device), acts)
         button.set_visibility(bool(acts))
-        dot.set_visibility(lead is not None or closed)
+        dot.set_visibility(lead is not None)
+        if isinstance(self._tip, ui.tooltip):
+            self._tip.set_text(t("manager.page.power_waiting", note=lead[1])
+                               if lead is not None else t("manager.page.power"))

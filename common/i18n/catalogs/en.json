@@ -636,6 +636,21 @@
   "manager.app_settings.the_tables_own": "The table's own",
   "manager.app_settings.ignored": "Ignored",
   "manager.app_settings.window_row": "{window} {label}",
+  "manager.devices.windows_closed": "Frontend windows closed",
+  "manager.devices.windows_closed_many": {
+    "one": "Frontend windows closed on {count:n} device",
+    "other": "Frontend windows closed on {count:n} devices"
+  },
+  "manager.devices.windows_opened": "Frontend windows opened",
+  "manager.devices.windows_opened_many": {
+    "one": "Frontend windows opened on {count:n} device",
+    "other": "Frontend windows opened on {count:n} devices"
+  },
+  "manager.devices.windows_reopened": "Frontend windows reopened",
+  "manager.devices.windows_reopened_many": {
+    "one": "Frontend windows reopened on {count:n} device",
+    "other": "Frontend windows reopened on {count:n} devices"
+  },
   "manager.edit.not_text": "This kind of file is not edited here",
   "manager.edit.page_title": "Edit File",
   "manager.edit.title": "{game} - {what}",
@@ -919,6 +934,10 @@
   "manager.discovery.compare_failed": "Could not compare the library with VPS",
   "manager.discovery.compare_now": "Compare with VPS",
   "manager.discovery.compared": "Compared {when}",
+  "manager.notice.powering_off": "This device is powering off",
+  "manager.notice.quitting": "VPinFE is quitting",
+  "manager.notice.rebooting": "This device is rebooting",
+  "manager.notice.restarting": "VPinFE is restarting",
   "manager.view.discovery_everything.help": "Every game VPS lists, and what your library holds of each",
   "manager.discovery.files": "Files",
   "manager.discovery.files_failed": "Could not read the files VPS lists",
@@ -2237,6 +2256,7 @@
   "manager.page.load_failed": "Could not load the Manager",
   "manager.page.new_tab": "{label}, opens in a new tab",
   "manager.page.could_not_resume": "Couldn't resume recording",
+  "manager.page.power_waiting": "Power - {note}",
   "manager.page.start_failed": "Could not start",
   "manager.page.could_not_stop": "Couldn't stop it",
   "manager.page.row_unknown": "Could not work out which game that row is",

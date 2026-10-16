@@ -447,16 +447,39 @@ def _device_verb(hits: list[tuple[Target, dict[str, Any]]],
         # A machine on its way down answers before it goes, so "performed" here means
         # the work was handed over rather than finished.
         # This machine last: the others are asked while the page is still here.
-        results = [await perform(one) for one, _ in
-                   sorted(ready, key=lambda hit: hit[0].client is library)]
+        order = sorted(ready, key=lambda hit: hit[0].client is library)
+        results = [await perform(one) for one, _ in order]
         done = results.count(True)
-        if done:
+        said = _result_said(scope, action, done, several)
+        remote = any(ok and one.client is not library
+                     for (one, _), ok in zip(order, results, strict=True))
+        if done and said:
+            ui.notify(said, type="positive")
+        elif done and remote:
             ui.notify(t("manager.devices.did_to_many", label=label, count=done)
                       if several else label, type="positive")
         if results.count(False):
             ui.notify(t("manager.devices.not_happen", label=label), type="warning")
 
     return panel.Verb(label, go, danger=scope == lifecycle.SYSTEM)
+
+
+def _result_said(scope: str, action: str, done: int, several: bool) -> str:
+    """What happened, worded as a result. The actions that take the page away are said to
+    every tab as they start, so this adds nothing for them."""
+    if scope != lifecycle.FRONTEND:
+        return ""
+    if several:
+        if action == lifecycle.START:
+            return t("manager.devices.windows_opened_many", count=done)
+        if action == lifecycle.STOP:
+            return t("manager.devices.windows_closed_many", count=done)
+        return t("manager.devices.windows_reopened_many", count=done)
+    if action == lifecycle.START:
+        return t("manager.devices.windows_opened")
+    if action == lifecycle.STOP:
+        return t("manager.devices.windows_closed")
+    return t("manager.devices.windows_reopened")
 
 
 def _asked_detail(pair: tuple[str, str], devices: list[dict[str, Any]]) -> str:

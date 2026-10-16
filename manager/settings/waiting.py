@@ -237,9 +237,6 @@ class Bar:
             return
         if self.count():
             self._hold(t("manager.waiting.restarting"), RESTART_HOLD_S)
-        else:
-            # The line has nothing to say about it, and the menu is the only other voice.
-            ui.notify(label, type="positive")
         if port:
             ui.run_javascript(follow_script(port))
 
@@ -257,7 +254,7 @@ class Bar:
         if self.count():
             self._hold(t("manager.waiting.reopening"), REOPEN_HOLD_S)
         else:
-            ui.notify(t("manager.waiting.reopen_windows"), type="positive")
+            ui.notify(t("manager.devices.windows_reopened"), type="positive")
         await self.refresh()
 
     @on_page

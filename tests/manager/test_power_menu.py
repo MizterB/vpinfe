@@ -143,6 +143,27 @@ class ThePowerIcon(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(_menu_labels(icon._menu)[0],
                          f"{t('action.vpinfe.restart')} - 2 changes waiting")
 
+    async def test_the_hover_says_how_many_changes_wait_while_the_dot_is_up(self) -> None:
+        self.library.config_waiting.return_value = _answer(PORTS, SOCKET)
+        icon, bar = await self._placed()
+        assert icon._tip is not None
+        self.assertEqual(icon._tip.text, t("manager.page.power"))
+
+        bar._dismiss()
+
+        self.assertEqual(icon._tip.text, "Power - 2 changes waiting")
+
+    async def test_the_hover_is_plain_again_when_nothing_waits(self) -> None:
+        self.library.config_waiting.return_value = _answer(PORTS)
+        icon, bar = await self._placed()
+        assert icon._tip is not None
+        bar._dismiss()
+        self.library.config_waiting.return_value = _answer()
+
+        await press(bar.refresh)
+
+        self.assertEqual(icon._tip.text, t("manager.page.power"))
+
     async def test_the_dot_goes_when_the_waiting_change_is_undone(self) -> None:
         self.library.config_waiting.return_value = _answer(PORTS)
         icon, bar = await self._placed()
@@ -176,7 +197,7 @@ class ThePowerIcon(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn(t("action.frontend.start"), shown)
         self.assertFalse(icon._dot.visible)
 
-    async def test_windows_closed_offers_only_opening_them_and_raises_the_dot(self) -> None:
+    async def test_windows_closed_offers_only_opening_them_and_no_dot(self) -> None:
         self.library.actions.return_value = CLOSED
         icon, _bar = await self._placed()
         assert icon._menu is not None and icon._dot is not None
@@ -186,7 +207,7 @@ class ThePowerIcon(unittest.IsolatedAsyncioTestCase):
         self.assertIn(t("action.frontend.start"), shown)
         self.assertNotIn(t("action.frontend.stop"), shown)
         self.assertNotIn(t("action.frontend.restart"), shown)
-        self.assertTrue(icon._dot.visible)
+        self.assertFalse(icon._dot.visible)
 
     async def test_the_menu_follows_the_windows_when_asked_again(self) -> None:
         icon, _bar = await self._placed()
@@ -196,7 +217,7 @@ class ThePowerIcon(unittest.IsolatedAsyncioTestCase):
         await press(icon.reload)
 
         self.assertIn(t("action.frontend.start"), _menu_labels(icon._menu))
-        self.assertTrue(icon._dot.visible)
+        self.assertFalse(icon._dot.visible)
 
     async def test_an_ask_that_fails_leaves_the_menu_as_it_was(self) -> None:
         icon, _bar = await self._placed()
@@ -271,7 +292,7 @@ class ThePowerIcon(unittest.IsolatedAsyncioTestCase):
         self.library.perform_action.assert_called_once_with("vpinfe", "restart")
         self.assertIn("String(8011)", script.call_args.args[0])
 
-    async def test_restart_with_nothing_waiting_still_says_it_was_done(self) -> None:
+    async def test_restart_with_nothing_waiting_adds_no_toast_to_the_heads_up(self) -> None:
         icon, _bar = await self._placed()
         assert icon._menu is not None
 
@@ -280,7 +301,16 @@ class ThePowerIcon(unittest.IsolatedAsyncioTestCase):
                 patch.object(ui, "notify") as toast:
             await _click(icon._menu, t("action.vpinfe.restart"))
 
-        toast.assert_called_once_with(t("action.vpinfe.restart"), type="positive")
+        toast.assert_not_called()
+
+    async def test_reopening_the_windows_says_it_as_a_result(self) -> None:
+        icon, _bar = await self._placed()
+        assert icon._menu is not None
+
+        with patch.object(ui, "notify") as toast:
+            await _click(icon._menu, t("action.frontend.restart"))
+
+        toast.assert_called_once_with(t("manager.devices.windows_reopened"), type="positive")
 
     async def test_a_restart_that_was_not_performed_is_warned_about(self) -> None:
         self.library.perform_action.return_value = {"performed": False}
