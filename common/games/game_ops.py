@@ -32,6 +32,7 @@ from common.games.game_metadata import (
     adopt_vps_details,
     game_private,
     guide_address,
+    guide_source,
     guides_on_wire,
     is_catalog_guide,
     load_game_meta,
@@ -393,8 +394,7 @@ def vps_details(game_id: str) -> dict:
     if not entry:
         return {"differs": []}
     found = vps_details_differ(load_game_meta(game), entry)
-    return {"differs": [{"field": field, "ours": _said(ours, field),
-                         "theirs": _said(theirs, field), "new": new}
+    return {"differs": [{"field": field, **_both_said(field, ours, theirs), "new": new}
                         for field, (ours, theirs, new) in found.items()]}
 
 
@@ -414,12 +414,28 @@ def adopt_details(game_id: str, fields: Iterable[str] | None = None) -> dict:
     return vps_details(game_id)
 
 
+def _both_said(field: str, ours: Any, theirs: Any) -> dict[str, str]:
+    """The two sides as lines a person reads. Guides are named by the site they live on,
+    then by address, then by everything that is compared, until the two sides differ."""
+    mine, yours = _said(ours, field), _said(theirs, field)
+    if field == GUIDES_FIELD:
+        for name in (guide_address, _guide_in_full):
+            if mine != yours:
+                break
+            mine, yours = (", ".join(name(one) for one in side) for side in (ours, theirs))
+    return {"ours": mine, "theirs": yours}
+
+
+def _guide_in_full(guide: dict[str, Any]) -> str:
+    return " ".join(part for part in (guide_address(guide), str(guide.get("youtube_id") or ""),
+                                      str(guide.get("kind") or "")) if part)
+
+
 def _said(value: Any, field: str = "") -> str:
     """One line a person reads, whatever the field holds - a year is a number and themes
-    are a list, and a caller rendering a comparison wants neither shape. Guides are
-    records with no one-line reading, so they are counted."""
+    are a list, and a caller rendering a comparison wants neither shape."""
     if field == GUIDES_FIELD:
-        return t("said.guides", count=len(value)) if value else ""
+        return ", ".join(name for name in map(guide_source, value) if name)
     if isinstance(value, list):
         return ", ".join(str(item) for item in value)
     return str(value if value is not None else "")

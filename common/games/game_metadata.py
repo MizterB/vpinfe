@@ -981,9 +981,10 @@ def vps_details_differ(config: dict[str, Any],
 
 
 def _guides_said(guides: list[dict[str, Any]]) -> list[tuple[str, ...]]:
-    """Compared by what each one points at and says, in no order."""
+    """Compared by what each one points at, in no order. A title is not part of it: the
+    migration stores a 2.x link untitled, and the catalog titles the same link."""
     return sorted((str(one.get("url") or ""), str(one.get("youtube_id") or ""),
-                   str(one.get("title") or ""), str(one.get("kind") or ""))
+                   str(one.get("kind") or ""))
                   for one in guides)
 
 

@@ -5218,10 +5218,6 @@
   "said.game_sent": "Sent {game}",
   "said.media_fetch": "Getting media for {game}",
   "said.needs_name": "Give it a name",
-  "said.guides": {
-    "one": "{count:n} guide",
-    "other": "{count:n} guides"
-  },
   "said.job_media_filled": {
     "one": "{count:n} game, {filled:n} filled, {unmatched:n} unmatched, {failed:n} failed",
     "other": "{count:n} games, {filled:n} filled, {unmatched:n} unmatched, {failed:n} failed"

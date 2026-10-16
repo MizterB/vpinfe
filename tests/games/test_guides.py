@@ -166,6 +166,17 @@ class WhatCountsAsADifference(unittest.TestCase):
                   GUIDES_KEY: list(reversed(guides_from_vps(entry)))}
         self.assertNotIn("guides", vps_details_differ(config, entry))
 
+    def test_a_title_is_not_one(self) -> None:
+        entry = _entry({"title": "Catalog title", "url": "https://a/"})
+        config = {"Info": {"Title": "Example"},
+                  GUIDES_KEY: [_vps("https://a/", title="")]}
+        self.assertNotIn("guides", vps_details_differ(config, entry))
+
+    def test_another_link_is_one(self) -> None:
+        entry = _entry({"title": "T", "url": "https://b/"})
+        config = {"Info": {"Title": "Example"}, GUIDES_KEY: [_vps("https://a/")]}
+        self.assertIn("guides", vps_details_differ(config, entry))
+
     def test_hiding_one_is_not_one(self) -> None:
         entry = _entry({"title": "T", "url": "https://a/"})
         config = {"Info": {"Title": "Example"},
@@ -236,20 +247,35 @@ class SettingTheList(unittest.TestCase):
 
 
 class WhatTheDifferSays(unittest.TestCase):
-    def test_guides_read_as_a_count_not_a_record(self) -> None:
-        from common.games.game_ops import _said
-        from common.i18n import t
+    def test_guides_are_named_by_the_site_they_live_on(self) -> None:
+        from common.games.game_ops import _both_said
 
-        guides = [{"kind": "tutorial", "title": "A", "url": "https://a/"},
-                  {"kind": "tutorial", "title": "B", "url": "https://b/"}]
-        said = _said(guides, "guides")
-        self.assertEqual(t("said.guides", count=2), said)
-        self.assertNotIn("{", said)
+        said = _both_said("guides", [_vps("https://pinballprimer.github.io/a.html")],
+                          [_vps("https://pinballprimer.github.io/a.html"),
+                           _vps("https://tiltforums.com/t/1")])
+        self.assertEqual({"ours": "Pinball Primer",
+                          "theirs": "Pinball Primer, Tilt Forums"}, said)
+
+    def test_two_sides_reading_the_same_are_told_apart_by_address(self) -> None:
+        from common.games.game_ops import _both_said
+
+        said = _both_said("guides", [_vps("https://pinballprimer.github.io/a.html")],
+                          [_vps("https://pinballprimer.github.io/b.html")])
+        self.assertEqual({"ours": "https://pinballprimer.github.io/a.html",
+                          "theirs": "https://pinballprimer.github.io/b.html"}, said)
+
+    def test_two_sides_differing_only_in_kind_are_told_apart(self) -> None:
+        from common.games.game_ops import _both_said
+
+        said = _both_said("guides", [_vps("https://a/")],
+                          [{**_vps("https://a/"), "kind": "manual"}])
+        self.assertNotEqual(said["ours"], said["theirs"])
 
     def test_no_guides_reads_as_nothing(self) -> None:
         from common.games.game_ops import _said
 
         self.assertEqual("", _said([], "guides"))
+
 
 class OnTheWire(unittest.TestCase):
     def test_each_guide_says_where_it_lives(self) -> None:

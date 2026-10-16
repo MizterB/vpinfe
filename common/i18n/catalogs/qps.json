@@ -5218,10 +5218,6 @@
   "said.game_sent": "Šèñţ {game}",
   "said.media_fetch": "Ĝèţţîñĝ ɱèđîà ƒöř {game}",
   "said.needs_name": "Ĝîṽè îţ à ñàɱè",
-  "said.guides": {
-    "one": "{count:n} ĝûîđè",
-    "other": "{count:n} ĝûîđèš"
-  },
   "said.job_media_filled": {
     "one": "{count:n} ĝàɱè, {filled:n} ƒîŀŀèđ, {unmatched:n} ûñɱàţçĥèđ, {failed:n} ƒàîŀèđ",
     "other": "{count:n} ĝàɱèš, {filled:n} ƒîŀŀèđ, {unmatched:n} ûñɱàţçĥèđ, {failed:n} ƒàîŀèđ"
