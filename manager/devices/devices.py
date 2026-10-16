@@ -88,12 +88,13 @@ def level_class(level: str) -> str:
                                      else "manager-log-plain")
 
 
-# What a device's menu can offer, in the order it is drawn. The two that take the whole
-# machine down are last, which is where `panel.verb_entries` puts a danger verb anyway.
+# What a device's menu can offer, in the order it is drawn. The windows' actions lead,
+# being the ones met most often. The two that take the whole machine down are last, which
+# is where `panel.verb_entries` puts a danger verb anyway.
 MENU_ACTIONS = (
-    (lifecycle.VPINFE, lifecycle.RESTART), (lifecycle.FRONTEND, lifecycle.RESTART),
-    (lifecycle.FRONTEND, lifecycle.STOP), (lifecycle.FRONTEND, lifecycle.START),
-    (lifecycle.VPINFE, lifecycle.STOP),
+    (lifecycle.FRONTEND, lifecycle.START), (lifecycle.FRONTEND, lifecycle.STOP),
+    (lifecycle.FRONTEND, lifecycle.RESTART),
+    (lifecycle.VPINFE, lifecycle.RESTART), (lifecycle.VPINFE, lifecycle.STOP),
     (lifecycle.SYSTEM, lifecycle.RESTART), (lifecycle.SYSTEM, lifecycle.STOP),
 )
 QUIT = (lifecycle.VPINFE, lifecycle.STOP)

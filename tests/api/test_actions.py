@@ -80,7 +80,7 @@ class ActionsApiTests(TempTree):
                                 json={"scope": "frontend", "action": "restart"}).json()
 
         self.assertTrue(body["performed"])
-        self.assertEqual(body["what"], "Reopen the frontend windows")
+        self.assertEqual(body["what"], "Reopen the Frontend Windows")
         self.assertEqual([r.pair for r in done], [("frontend", "restart")])
 
     def test_the_reason_travels_with_it(self) -> None:

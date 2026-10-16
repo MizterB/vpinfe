@@ -122,7 +122,8 @@ class ThePowerIcon(unittest.IsolatedAsyncioTestCase):
         assert icon._menu is not None and icon._dot is not None
 
         self.assertFalse(icon._dot.visible)
-        self.assertEqual(_menu_labels(icon._menu)[0], t("action.vpinfe.restart"))
+        self.assertEqual(_menu_labels(icon._menu)[0], t("action.frontend.stop"))
+        self.assertIn(t("action.vpinfe.restart"), _menu_labels(icon._menu))
 
     async def test_no_dot_while_the_line_is_showing(self) -> None:
         self.library.config_waiting.return_value = _answer(PORTS, SOCKET)
@@ -152,7 +153,7 @@ class ThePowerIcon(unittest.IsolatedAsyncioTestCase):
         await press(bar.refresh)
 
         self.assertFalse(icon._dot.visible)
-        self.assertEqual(_menu_labels(icon._menu)[0], t("action.vpinfe.restart"))
+        self.assertEqual(_menu_labels(icon._menu)[0], t("action.frontend.stop"))
 
     async def test_window_changes_alone_lead_with_the_reopen(self) -> None:
         self.library.config_waiting.return_value = _answer(ROTATION, reopen=True)

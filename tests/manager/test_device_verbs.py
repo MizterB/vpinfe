@@ -52,8 +52,8 @@ class MenuOrderTests(unittest.TestCase):
         verbs = acts(client=Mock(), offered=EVERY)
 
         self.assertEqual(labels(verbs), [
-            t("action.vpinfe.restart"), t("action.frontend.restart"),
-            t("action.frontend.stop"), t("action.vpinfe.stop"),
+            t("action.frontend.stop"), t("action.frontend.restart"),
+            t("action.vpinfe.restart"), t("action.vpinfe.stop"),
             t("action.system.restart"), t("action.system.stop"), t("word.forget")])
 
     def test_only_the_ones_that_take_the_machine_or_the_entry_are_dangerous(self) -> None:
@@ -125,8 +125,9 @@ class RoutedAndLedTests(unittest.TestCase):
                      forgettable=False,
                      routed={(lifecycle.VPINFE, lifecycle.RESTART): handler})
 
-        self.assertIs(verbs[0].run, handler)
-        self.assertIsNot(verbs[1].run, handler)
+        runs = {one.label: one.run for one in verbs}
+        self.assertIs(runs[t("action.vpinfe.restart")], handler)
+        self.assertIsNot(runs[t("action.frontend.stop")], handler)
 
     def test_a_led_pair_goes_first_with_its_note_after_the_label(self) -> None:
         verbs = acts(client=Mock(), offered=EVERY,
@@ -135,7 +136,7 @@ class RoutedAndLedTests(unittest.TestCase):
 
         self.assertEqual(labels(verbs)[:3], [
             f"{t('action.frontend.restart')} - 2 changes waiting",
-            t("action.vpinfe.restart"), t("action.frontend.stop")])
+            t("action.frontend.stop"), t("action.vpinfe.restart")])
 
     def test_a_led_pair_this_device_does_not_offer_leaves_the_menu_as_it_was(self) -> None:
         no_windows = [one for one in EVERY if one["scope"] != lifecycle.FRONTEND]
