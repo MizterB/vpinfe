@@ -1894,7 +1894,7 @@
   "manager.report.more": "{count:n} more",
   "manager.report.need_rom": "Need a ROM",
   "manager.report.no_wheel": "Nothing for the Wheel",
-  "manager.report.not_brought": "Not Brought Across",
+  "manager.report.not_imported": "Not Imported",
   "manager.report.not_matched": "Not Matched to VPS",
   "manager.report.open": "Open",
   "manager.report.see_log": "See the Log",
@@ -2889,7 +2889,7 @@
   "manager.section.tags": "Tags",
   "manager.section.themes": "Themes",
   "manager.sections.already_run": ", and {already} already run one",
-  "manager.sections.upgrade_confirm": "Bring every game onto the current format?",
+  "manager.sections.upgrade_confirm": "Upgrade every game to the current format?",
   "manager.sections.fixable": "{count:n} of {checked:n} can take a published fix: {shown:n}",
   "manager.sections.fetch_failed": "Could not fetch the fixes",
   "manager.sections.unreadable_one": "1 could not be read, so that game is not in your library",
@@ -3069,8 +3069,8 @@
   "manager.sections.way": "{word} under way",
   "manager.sections.written_later": "{newer} were written by a later version of VPinFE. This build reads what it understands and leaves the rest alone.",
   "manager.sections.written_older": {
-    "one": "1 was written by an older build and can be brought forward",
-    "other": "{count:n} were written by an older build and can be brought forward"
+    "one": "1 was written by an older build and can be upgraded",
+    "other": "{count:n} were written by an older build and can be upgraded"
   },
   "manager.send_to_device.devices_failed": "Could not read the devices",
   "manager.send_to_device.device": "A device",
@@ -3714,8 +3714,8 @@
   },
   "manager.whats_new.file.collection_order.label": "Collection Order",
   "manager.whats_new.file.info_upgrade.done": {
-    "one": "1 game's metadata brought onto the current format",
-    "other": "{count:n} games' metadata brought onto the current format"
+    "one": "1 game's metadata upgraded to the current format",
+    "other": "{count:n} games' metadata upgraded to the current format"
   },
   "manager.whats_new.file.info_upgrade.label": "Game Metadata",
   "manager.whats_new.file.last_played.done": "Now worked out from what you have played",
@@ -3725,8 +3725,8 @@
   "manager.whats_new.file.theme_texal_flyer.done": "Now part of Texal, where the flyer is an option",
   "manager.whats_new.file.theme_texal_flyer.label": "Texal-Flyer",
   "manager.whats_new.file.theme_update.done": {
-    "one": "1 theme brought onto its 3.0 version",
-    "other": "{count:n} themes brought onto their 3.0 versions"
+    "one": "1 theme upgraded to its 3.0 version",
+    "other": "{count:n} themes upgraded to their 3.0 versions"
   },
   "manager.whats_new.file.theme_update.label": "Themes",
   "manager.whats_new.files_undo": "A game whose metadata was changed has the copy it had before beside it",

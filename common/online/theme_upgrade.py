@@ -1,4 +1,4 @@
-"""Bringing the themes of a 2.x install onto 3.0's versions.
+"""Upgrading the themes of a 2.x install to 3.0's versions.
 
 `run` runs at every start, after the lists are read and before the default themes install,
 and moves an official theme to its 3.0 version and folds a merged twin into its target.
@@ -91,9 +91,9 @@ def _update_official(registry: ThemeRegistry) -> list[str]:
         try:
             registry.install_theme(key, force=True)
         except Exception as exc:  # noqa: BLE001 - offline or a bad download: retried next start
-            logger.warning("Could not bring %s onto its 3.0 version: %s", key, exc)
+            logger.warning("Could not upgrade %s to its 3.0 version: %s", key, exc)
             continue
-        logger.info("Brought %s onto its 3.0 version", key)
+        logger.info("Upgraded %s to its 3.0 version", key)
         updated.append(key)
     return updated
 

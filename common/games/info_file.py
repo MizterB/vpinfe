@@ -80,7 +80,7 @@ _warned_newer_schema: set[int] = set()
 
 
 def migrate_vpinfe_section(vpinfe: object) -> dict[str, Any]:
-    """Bring the VPinFE section up to the current schema, in memory.
+    """Upgrade the VPinFE section to the current schema, in memory.
 
     Idempotent; the stamp reaches disk on the next write. A section written by a newer
     build is left as-is rather than downgraded.

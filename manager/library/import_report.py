@@ -236,7 +236,7 @@ def _unsettled(job: dict[str, Any], result: dict[str, Any]) -> None:
             (NO_WHEEL, "manager.report.no_wheel", lambda _one: "",
              lambda one: _link(t("manager.report.add_wheel"),
                                _to(str(one["game_id"]), view="media", slot="wheel"))),
-            (NOT_BROUGHT, "manager.report.not_brought",
+            (NOT_BROUGHT, "manager.report.not_imported",
              lambda one: str(one.get("reason") or ""),
              lambda one: _link(t("manager.report.open"), _to(str(one["game_id"]))))):
         _group(job, group, title, _items(result, group),

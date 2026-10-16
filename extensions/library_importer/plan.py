@@ -852,7 +852,7 @@ def _folded(name: Any) -> str:
 
 def _games(library: SourceLibrary,
            systems: list[str] | None) -> list[SourceGame]:
-    """The games in the systems being brought across, which is not always all of them.
+    """The games in the systems being imported, which is not always all of them.
 
     A system somebody deselected has to drop out here rather than at the run, or what
     the summary counts and what the import does are two different libraries.

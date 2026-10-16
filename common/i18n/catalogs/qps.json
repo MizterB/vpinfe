@@ -1894,7 +1894,7 @@
   "manager.report.more": "{count:n} ɱöřè",
   "manager.report.need_rom": "Ñèèđ à ŘÖḾ",
   "manager.report.no_wheel": "Ñöţĥîñĝ ƒöř ţĥè Ŵĥèèŀ",
-  "manager.report.not_brought": "Ñöţ Ɓřöûĝĥţ Àçřöšš",
+  "manager.report.not_imported": "Ñöţ Îɱþöřţèđ",
   "manager.report.not_matched": "Ñöţ Ḿàţçĥèđ ţö ṼÞŠ",
   "manager.report.open": "Öþèñ",
   "manager.report.see_log": "Šèè ţĥè Ŀöĝ",
@@ -2889,7 +2889,7 @@
   "manager.section.tags": "Ţàĝš",
   "manager.section.themes": "Ţĥèɱèš",
   "manager.sections.already_run": ", àñđ {already} àŀřèàđý řûñ öñè",
-  "manager.sections.upgrade_confirm": "Ɓřîñĝ èṽèřý ĝàɱè öñţö ţĥè çûřřèñţ ƒöřɱàţ?",
+  "manager.sections.upgrade_confirm": "Ûþĝřàđè èṽèřý ĝàɱè ţö ţĥè çûřřèñţ ƒöřɱàţ?",
   "manager.sections.fixable": "{count:n} öƒ {checked:n} çàñ ţàķè à þûƀŀîšĥèđ ƒîẋ: {shown:n}",
   "manager.sections.fetch_failed": "Çöûŀđ ñöţ ƒèţçĥ ţĥè ƒîẋèš",
   "manager.sections.unreadable_one": "1 çöûŀđ ñöţ ƀè řèàđ, šö ţĥàţ ĝàɱè îš ñöţ îñ ýöûř ŀîƀřàřý",
@@ -3069,8 +3069,8 @@
   "manager.sections.way": "{word} ûñđèř ŵàý",
   "manager.sections.written_later": "{newer} ŵèřè ŵřîţţèñ ƀý à ŀàţèř ṽèřšîöñ öƒ ṼÞîñƑÈ. Ţĥîš ƀûîŀđ řèàđš ŵĥàţ îţ ûñđèřšţàñđš àñđ ŀèàṽèš ţĥè řèšţ àŀöñè.",
   "manager.sections.written_older": {
-    "one": "1 ŵàš ŵřîţţèñ ƀý àñ öŀđèř ƀûîŀđ àñđ çàñ ƀè ƀřöûĝĥţ ƒöřŵàřđ",
-    "other": "{count:n} ŵèřè ŵřîţţèñ ƀý àñ öŀđèř ƀûîŀđ àñđ çàñ ƀè ƀřöûĝĥţ ƒöřŵàřđ"
+    "one": "1 ŵàš ŵřîţţèñ ƀý àñ öŀđèř ƀûîŀđ àñđ çàñ ƀè ûþĝřàđèđ",
+    "other": "{count:n} ŵèřè ŵřîţţèñ ƀý àñ öŀđèř ƀûîŀđ àñđ çàñ ƀè ûþĝřàđèđ"
   },
   "manager.send_to_device.devices_failed": "Çöûŀđ ñöţ řèàđ ţĥè đèṽîçèš",
   "manager.send_to_device.device": "À đèṽîçè",
@@ -3714,8 +3714,8 @@
   },
   "manager.whats_new.file.collection_order.label": "Çöŀŀèçţîöñ Öřđèř",
   "manager.whats_new.file.info_upgrade.done": {
-    "one": "1 ĝàɱè'š ɱèţàđàţà ƀřöûĝĥţ öñţö ţĥè çûřřèñţ ƒöřɱàţ",
-    "other": "{count:n} ĝàɱèš' ɱèţàđàţà ƀřöûĝĥţ öñţö ţĥè çûřřèñţ ƒöřɱàţ"
+    "one": "1 ĝàɱè'š ɱèţàđàţà ûþĝřàđèđ ţö ţĥè çûřřèñţ ƒöřɱàţ",
+    "other": "{count:n} ĝàɱèš' ɱèţàđàţà ûþĝřàđèđ ţö ţĥè çûřřèñţ ƒöřɱàţ"
   },
   "manager.whats_new.file.info_upgrade.label": "Ĝàɱè Ḿèţàđàţà",
   "manager.whats_new.file.last_played.done": "Ñöŵ ŵöřķèđ öûţ ƒřöɱ ŵĥàţ ýöû ĥàṽè þŀàýèđ",
@@ -3725,8 +3725,8 @@
   "manager.whats_new.file.theme_texal_flyer.done": "Ñöŵ þàřţ öƒ Ţèẋàŀ, ŵĥèřè ţĥè ƒŀýèř îš àñ öþţîöñ",
   "manager.whats_new.file.theme_texal_flyer.label": "Ţèẋàŀ-Ƒŀýèř",
   "manager.whats_new.file.theme_update.done": {
-    "one": "1 ţĥèɱè ƀřöûĝĥţ öñţö îţš 3.0 ṽèřšîöñ",
-    "other": "{count:n} ţĥèɱèš ƀřöûĝĥţ öñţö ţĥèîř 3.0 ṽèřšîöñš"
+    "one": "1 ţĥèɱè ûþĝřàđèđ ţö îţš 3.0 ṽèřšîöñ",
+    "other": "{count:n} ţĥèɱèš ûþĝřàđèđ ţö ţĥèîř 3.0 ṽèřšîöñš"
   },
   "manager.whats_new.file.theme_update.label": "Ţĥèɱèš",
   "manager.whats_new.files_undo": "À ĝàɱè ŵĥöšè ɱèţàđàţà ŵàš çĥàñĝèđ ĥàš ţĥè çöþý îţ ĥàđ ƀèƒöřè ƀèšîđè îţ",

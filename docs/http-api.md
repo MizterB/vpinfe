@@ -144,7 +144,7 @@ the documented entry point is a plain 200. Both spellings work.
 | POST | `/api/v1/library/refresh` | Find tables added or removed on disk, and read what nothing has read yet. Never reaches the network. Returns `202` and a job |
 | POST | `/api/v1/library/scan` | Rebuild game metadata from VPSdb. Returns `202` and a job; optional `{"download_media": bool, "update_all": bool}` |
 | GET | `/api/v1/library/info` | What the library's `.info` files need - see [Schema version](#schema-version) |
-| POST | `/api/v1/library/info/upgrade` | Bring every `.info` onto the current schema. Returns `202` and a job |
+| POST | `/api/v1/library/info/upgrade` | Upgrade every `.info` to the current schema. Returns `202` and a job |
 | POST | `/api/v1/library/auto_match` | Match `{"game_ids": [...]}` again from their folder names, off the catalog on disk. A match a person made or cleared stays. A game in a folder that cannot be written to is left alone. Answers `games`, `changed`, `unmatched`, `yours` and `skipped`, those left alone for that; `409` while a scan runs |
 | PUT | `/api/v1/library/private` | Mark a selection Private, or not, `{"game_ids": [...], "private": bool}`. Answers `games`, how many were named, and `changed`, how many were not already so. An id the library does not hold is a `404`, and nothing is written |
 | PUT | `/api/v1/library/marks` | Set marks on a selection, `{"edits": [{"game_id", "table_id"?, ...}]}`. Accepted, not done: a `202` with a `Location` for a job of kind `marks`. An edit with a `table_id` takes `rating`, `tags`, `hidden`, `delete_nvram_on_close` and `launcher` (empty clears it, and needs `config:write` as well); one without takes its game's `rating`, `tags`, `favorite` and `private`. A field left out is not touched; a field a row cannot take is an `invalid_request` and nothing is written. The result is `{rows, written, failed}`, each entry `{game, table}` with a `reason` on a failure |
@@ -1647,7 +1647,7 @@ nobody would be left. Who is up is held in memory and starts as the owner.
 **Initials are how a score finds its player.** They are three characters, or none on a
 kept player, held upper case and compared ignoring case and the spaces around them. Two
 kept players with the same initials are refused, naming who has them. Initials a player
-already holds stay as they are when left unchanged, even shorter ones brought from 2.x. A
+already holds stay as they are when left unchanged, even shorter ones carried over from 2.x. A
 guest whose initials a kept player has joins anyway, and each lists the other under
 `shares_initials_with`: while they share them, a score carrying those initials goes to
 neither.
@@ -1864,7 +1864,7 @@ don't recognize is never a reason to refuse to read a file.
 | Field | What it holds |
 |---|---|
 | `pending_upgrade`, `pending_games` | How many games are on an older schema that Upgrade can bring forward, and their folders. A game under `unwritten` is not among them: Upgrade cannot write it either |
-| `restorable`, `restorable_games` | How many games have a copy saved before they were brought forward that this build can put back, and their folders |
+| `restorable`, `restorable_games` | How many games have a copy saved before they were upgraded that this build can put back, and their folders |
 | `newest_backup` | The newest of those copies' stamps, as `20260909T110917Z`, or `""` for none |
 | `newer_than_us` | How many `.info` files a newer VPinFE wrote. This build does not upgrade them |
 | `unreadable` | Each folder whose `.info` could not be read, as `folder`, `path` and `error`. Those games are left out of the library |

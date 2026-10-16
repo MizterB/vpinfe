@@ -111,7 +111,7 @@ class DrawingTests(unittest.TestCase):
         words = _labels(part.draw)
 
         self.assertIn("Game Metadata", words)
-        self.assertIn("2 games' metadata brought onto the current format", words)
+        self.assertIn("2 games' metadata upgraded to the current format", words)
 
     def test_a_migration_with_no_words_still_names_itself(self) -> None:
         found = whats_new.Review(since="", files=[migration_ledger.Entry("unnamed", "v3.1.0", 1)])

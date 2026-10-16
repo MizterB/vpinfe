@@ -1667,7 +1667,7 @@ class ApiClient:
         return self._get("/library/info", _LIBRARY_TIMEOUT)
 
     def upgrade_info(self) -> dict:
-        """Bring every `.info` onto the current format. Returns the job to watch."""
+        """Upgrade every `.info` to the current format. Returns the job to watch."""
         return self._post("/library/info/upgrade", {})
 
     def script_patches(self) -> dict:

@@ -1002,7 +1002,7 @@ class RunRefusesTests(FolderCase):
 
 
 class SystemsRunTests(FolderCase):
-    """A source with several systems, of which only some are brought across."""
+    """A source with several systems, of which only some are imported."""
 
     def setUp(self) -> None:
         super().setUp()

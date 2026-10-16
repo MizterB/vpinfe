@@ -254,7 +254,7 @@ def info_maintenance() -> models.InfoMaintenance:
     return models.InfoMaintenance.model_validate(library_ops.info_maintenance())
 
 
-@router.post("/info/upgrade", summary="Bring every .info onto the current format",
+@router.post("/info/upgrade", summary="Upgrade every .info to the current format",
              status_code=202, dependencies=[requires(scopes.GAMES_WRITE)])
 def upgrade_info(response: Response) -> models.JobResource:
     """Accepted, not done. Each file is copied to `<name>.info.vpinfe-<stamp>` before it

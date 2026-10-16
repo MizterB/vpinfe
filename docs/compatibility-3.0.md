@@ -1020,7 +1020,7 @@ convert without losing a value. A new `cfg_set` writes through the same resoluti
 have used since PAR-37, so a caller naming a section by an old name no longer writes a
 second copy of the setting under it.
 *Why:* `docs/conventions.md` mandates snake_case for JSON and the settings file is JSON,
-but only the keys were ever brought over - leaving a file that disagreed with itself line
+but only the keys were ever carried over - leaving a file that disagreed with itself line
 by line, `settings.Settings` reading as a mistake in the envelope, and every new section
 a guess about which convention applied. The names are now asserted rather than
 remembered: `tests/invariants/test_config_conventions.py` fails on a section or key that

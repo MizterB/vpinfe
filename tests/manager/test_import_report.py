@@ -156,7 +156,7 @@ class WhatTheReportDraws(unittest.TestCase):
         hrefs = {one.text: one.props["href"] for one in body.descendants()
                  if isinstance(one, ui.link)}
 
-        self.assertIn("Not Brought Across", words)
+        self.assertIn("Not Imported", words)
         self.assertIn("taxi_l4.zip, Wheel Images", words)
         self.assertEqual("/manager?view=tables&game=not_brought-1", hrefs["Open"])
         self.assertEqual(1, import_report.waiting(job))
