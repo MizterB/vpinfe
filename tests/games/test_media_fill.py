@@ -31,6 +31,7 @@ from common.online.vpsdb_media import VPSMediaDownloader
 from common.runtime import job_details, jobs
 from tests.api.test_backglass_picture import _directb2s
 from tests.support.library import TempTree, fake_game, game_info, write_game
+from tests.support.skips import needs_posix_permissions
 
 FOLDER = "Fathom (Bally 1981)"
 OTHER = "Eight Ball (Bally 1977)"
@@ -209,6 +210,7 @@ class FillTests(_Library):
         self.assertIn(f"(Backglass) {FOLDER}.png", placed)
         self.assertEqual(result["failed"], 1)
 
+    @needs_posix_permissions
     def test_a_folder_that_cannot_be_written_is_skipped_and_said_once(self) -> None:
         other = self.game(OTHER, "eightball")
         self.locked(self.folder)
@@ -557,6 +559,7 @@ class UpdateTests(_Replaced):
         self.assertEqual(self.recorded(WHEEL), "wheel-new-md5")
         self.assertEqual(result["updated"], 2)
 
+    @needs_posix_permissions
     def test_a_folder_that_cannot_be_written_is_left_and_said_once(self) -> None:
         self.ours(WHEEL, OLD_WHEEL)
         self.locked(self.folder)

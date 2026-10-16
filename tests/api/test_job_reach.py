@@ -143,7 +143,16 @@ class JobEventReachTests(unittest.IsolatedAsyncioTestCase):
         release = threading.Event()
         job = job_registry.submit(f"{extension or 'core'}.{tier}", lambda _job: release.wait(5),
                                   extension=extension, tier=tier)
-        self.addCleanup(release.set)
+
+        def settle() -> None:
+            # A job that finishes after the next test's setUp has cleared the registry puts
+            # itself back, and its done event is then a frame that stream was never meant to see.
+            release.set()
+            for worker in threading.enumerate():
+                if worker.name == f"job-{job.kind}":
+                    worker.join(2.0)
+
+        self.addCleanup(settle)
         return job
 
     async def _names_seen(self, stream) -> list[str]:

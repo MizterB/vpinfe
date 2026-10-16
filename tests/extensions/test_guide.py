@@ -699,7 +699,7 @@ class CodeBlocksAreFiles(unittest.TestCase):
     def test_a_block_with_lines_is_exactly_those_lines_of_the_file_it_names(self) -> None:
         found = 0
         for page in PAGES:
-            for path, first, last, shown in RANGE.findall(page.read_text()):
+            for path, first, last, shown in RANGE.findall(page.read_text(encoding="utf-8")):
                 found += 1
                 with self.subTest(f"{page.name}: {path} {first}-{last}"):
                     self.assertTrue((EXAMPLES / path).is_file(), f"{path} is not a file")

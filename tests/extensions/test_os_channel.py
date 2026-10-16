@@ -90,6 +90,8 @@ class HelperCase(unittest.TestCase):
         self.root = Path(self._tmp.name)
 
     def helper(self, reply: Callable[[dict], Any] | None = None) -> FakeHelper:
+        if not hasattr(socket, "AF_UNIX"):
+            self.skipTest("Python on Windows has no Unix socket to stand a helper on")
         try:
             fake = FakeHelper(self.root, reply)
         except PermissionError:

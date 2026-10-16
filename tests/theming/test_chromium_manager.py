@@ -418,6 +418,7 @@ class WindowRoleTests(unittest.TestCase):
             mock.patch.object(chromium_manager, "get_mac_screens", return_value=screens),
             mock.patch.object(ChromiumManager, "launch_window", launch),
             mock.patch.object(ChromiumManager, "_focus_game_window_mac"),
+            mock.patch.object(chromium_manager, "sweep_stale_profiles", return_value=0),
             mock.patch.object(chromium_manager.time, "sleep", side_effect=sleep),
         ):
             manager = ChromiumManager()

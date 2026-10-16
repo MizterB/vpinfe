@@ -6,6 +6,7 @@ import errno
 import socket
 import sqlite3
 import unittest
+from contextlib import closing
 from email.message import Message
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
@@ -162,8 +163,12 @@ class WhyTests(TempTree):
         notes = self.root / "notes.db"
         notes.write_bytes(b"not a database at all, just some text" * 4)
         said: list[str] = []
-        for attempt in (lambda: sqlite3.connect(elsewhere),
-                        lambda: sqlite3.connect(notes).execute("select 1 from Games")):
+
+        def ask() -> None:
+            with closing(sqlite3.connect(notes)) as database:
+                database.execute("select 1 from Games")
+
+        for attempt in (lambda: sqlite3.connect(elsewhere), ask):
             with self.assertRaises(sqlite3.Error) as raised:
                 attempt()
             said.append(why(raised.exception))

@@ -13,6 +13,7 @@ from unittest import mock
 
 from common.config import paths
 from common.security import machine_secrets
+from tests.support.skips import needs_posix_permissions
 
 
 class Secrets(unittest.TestCase):
@@ -72,6 +73,7 @@ class Secrets(unittest.TestCase):
 
         self.assertEqual(self.file.with_name("secrets.json.unreadable").read_text(), "not json")
 
+    @needs_posix_permissions
     def test_a_file_made_readable_by_others_is_tightened_on_the_next_read(self) -> None:
         machine_secrets.put("thing", "one")
         os.chmod(self.file, 0o644)

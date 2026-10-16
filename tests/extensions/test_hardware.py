@@ -22,6 +22,7 @@ from common.extensions.hardware import ExtensionHardware
 from common.host import hardware
 from httpapi import extension_ops
 from tests.support.accepted import owner_accepts
+from tests.support.skips import needs_colons_in_names
 
 RECIPE = (Path(__file__).resolve().parents[2]
           / "docs" / "extensions" / "examples" / "recipes" / "plugged_in")
@@ -138,6 +139,7 @@ class LinuxInventoryTests(unittest.TestCase):
         node.write_text("")
         return node
 
+    @needs_colons_in_names
     def test_a_device_is_read_and_hubs_and_interfaces_are_left_out(self) -> None:
         self._usb("1-2", idVendor="1209", idProduct="eaea", manufacturer="Pinscape",
                   product="Pinscape Controller", bDeviceClass="00", busnum="1", devnum="7",
@@ -163,6 +165,7 @@ class LinuxInventoryTests(unittest.TestCase):
 
         self.assertIs(found[0]["accessible"], False)
 
+    @needs_colons_in_names
     def test_a_usb_serial_port_is_named_by_the_device_behind_it(self) -> None:
         parent = self._usb("1-2", idVendor="2341", idProduct="0043", product="Arduino Uno",
                            manufacturer="Arduino")

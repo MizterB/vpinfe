@@ -11,6 +11,7 @@ from unittest import mock
 
 from common.config import paths
 from common.security import authenticator, machine_secrets, sign_in
+from tests.support.skips import needs_posix_permissions
 
 # RFC 6238 appendix B: the SHA-1 key, and the six digits it gives at each time.
 RFC_KEY = b"12345678901234567890"
@@ -111,6 +112,7 @@ class SettingUp(WithSecrets):
 
         self.assertFalse(self.held.screen_codes())
 
+    @needs_posix_permissions
     def test_the_secret_is_kept_where_only_this_user_reads_it(self) -> None:
         made = self.held.begin("Game Room")
         self.held.activate(self.code_at(self.clock.now, made.secret))

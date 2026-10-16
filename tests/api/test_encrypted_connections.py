@@ -22,6 +22,7 @@ from common.host import addresses, this_machine
 from common.security import api_tokens, encrypted_connections, sign_in
 from httpapi import auth, scopes
 from httpapi.encrypted import _held
+from tests.support.skips import needs_posix_permissions
 
 Refused = encrypted_connections.EntryError
 
@@ -203,6 +204,7 @@ class TheListsTests(ConnectionsCase):
         self.assertFalse(self.connections.remove_proxy("10.0.0.5"))
         self.assertEqual((self.connections.proxies(), self.connections.networks()), ([], []))
 
+    @needs_posix_permissions
     def test_the_file_is_private_to_the_owner_of_this_device(self) -> None:
         self.connections.add_proxy("10.0.0.5")
 

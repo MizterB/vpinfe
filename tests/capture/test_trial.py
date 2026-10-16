@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import configparser
+import shlex
 import tempfile
 import unittest
 from pathlib import Path
@@ -111,7 +112,7 @@ class TrialTests(_Device):
         self.assertEqual((said["size"], said["fps"], said["frames"]), ([1920, 1080], 30.0, 90))
         self.assertTrue(said["picture"].startswith("data:image/jpeg;base64,"))
         self.assertTrue(said["record"].startswith(
-            f"{Path('/usr/bin/wf_recorder')} -o DP-1 -c libx264"))
+            shlex.join([str(Path("/usr/bin/wf_recorder")), "-o", "DP-1", "-c", "libx264"])))
         self.assertIn("fps=30,", said["encode"])
 
     def test_a_record_command_that_records_nothing_says_what_it_said(self) -> None:
