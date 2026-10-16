@@ -42,7 +42,7 @@ jobs:
       # covered by tests/invariants, and they run on a developer machine and before a
       # release. VPINFE_BROWSER_TESTS=1 turns them on if a runner ever provides one.
       - name: Run tests
-        run: python -m unittest discover -t . -s tests
+        run: python -m tests -j 4
 
       # vpinfe-core.js is the largest single piece of theme-facing code and had no
       # tests at all until these. Node's built-in runner, so there is nothing to

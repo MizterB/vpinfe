@@ -1819,8 +1819,9 @@ file under `tests/`. Each process gets its own config directory and temp directo
 process that leaves anything in its temp directory fails the run, naming what it left. A
 process that does not pass keeps everything it printed, at the path the report names, after
 the run exits; a run that passes leaves nothing behind.
-`python -m unittest discover -t . -s tests` runs the same tests in one process and is what CI
-runs; `tests/invariants/test_parallel_runner.py` holds the runner to it.
+`python -m unittest discover -t . -s tests` runs the same tests in one process; CI runs
+`python -m tests -j 4`, because one process takes more than the job's 20 minutes on a runner.
+`tests/invariants/test_parallel_runner.py` holds the runner to the single-process run.
 
 ### A test holds on Windows too
 
