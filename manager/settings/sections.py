@@ -1,10 +1,4 @@
-"""Strawman sections, built to be argued with.
-
-Overview exists here to show how the shell holds together, not as a finished page. Where
-a page could use real library data it does - a mock number proves nothing, and the checks
-below are the validator registry in embryo: each one is a name, a sentence a person can
-read, and a predicate.
-"""
+"""Overview, the Library metadata page, and the checks that decide what needs a person."""
 
 from __future__ import annotations
 
@@ -28,12 +22,9 @@ from manager.library import media_fill
 from manager.overview import front, needs, set_aside
 from manager.system import jobs_list
 
-# name, one-line description, predicate over (game, media entries).
-#
-# Deliberately shaped the way a real registry would be, so that promoting this is a
-# matter of moving it and adding config rather than a rewrite. The description is not
-# decoration: it is what the row's finding says, and writing it forces the check to be
-# about something a person can act on.
+# key, label, why it matters, predicate over (game, its media entries, facts). The label and
+# the sentence are what a row on Overview says, so a check is about something a person can
+# act on. `facts` carries the collected media kinds and whether a rom is missing.
 CHECKS: tuple[tuple[str, str, str, Callable[[dict, dict, dict], bool]], ...] = (
     ("rom_missing", t("manager.sections.rom_missing"),
      t("manager.sections.rom_missing_why"),

@@ -10,8 +10,8 @@ one, and by the end nobody could answer three questions about them:
   - can it ever be removed?  only one announced itself, so there was no evidence about
                             who still relied on any of the others
 
-This module answers the first, and `tests/test_deprecations.py` turns the second into a
-failing test rather than an intention. The third needs the shims to say something when
+This module answers the first, and `tests/invariants/test_deprecations.py` turns the second
+into a failing test rather than an intention. The third needs the shims to say something when
 they are used, which is `announce()`.
 
 Nothing here changes behavior. Each entry points at the code that already does the

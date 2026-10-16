@@ -10,8 +10,8 @@ silently resolving to a different membership. That is what makes adding an axis 
 an older build degrades loudly rather than quietly answering the wrong question.
 
 The rule that keeps it free: **axes are append-only and their meaning never changes.**
-Different semantics get a new axis. `tests/test_collection_filters.py` holds a snapshot
-that fails if an existing definition moves.
+Different semantics get a new axis. `tests/curation/test_collection_filters.py` holds a
+snapshot that fails if an existing definition moves.
 """
 
 from __future__ import annotations

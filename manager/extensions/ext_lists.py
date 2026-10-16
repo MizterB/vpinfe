@@ -1,3 +1,9 @@
+"""The lists an extension declares, drawn as Manager grids with their rail entries.
+
+The area value `community`, the `community:` view key and the `manager.community.*` catalog
+keys keep that spelling from when this module was community.py.
+"""
+
 from __future__ import annotations
 
 import asyncio

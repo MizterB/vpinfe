@@ -1,3 +1,5 @@
+"""The Manager's dialogs: the card to draw in, an Escape that can answer, and the footer buttons."""
+
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Generator, Iterator
