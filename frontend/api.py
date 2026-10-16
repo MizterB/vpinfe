@@ -441,6 +441,8 @@ class API:
         goes one way, so the confirmation happens in the browser and calls back with the
         answer. The wording comes from here so every surface asks the same thing.
         """
+        scope, action = lifecycle_host.effective(
+            str(scope), str(action), lifecycle.SURFACE_FRONTEND)
         return {
             "confirm": lifecycle_host.wants_confirmation(str(scope)),
             # Already sentence-cased - capitalize() here would lowercase "VPinFE".

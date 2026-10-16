@@ -31,6 +31,7 @@ logger = logging.getLogger("vpinfe.frontend.lifecycle_host")
 
 _config_store = None
 _bridge = None
+_exit_closes_windows = False
 
 
 def confirm_scopes() -> tuple[str, ...]:
@@ -104,12 +105,15 @@ def install(*, config_store: ConfigStore,
             ws_bridge: DeviceChannel | None = None,
             open_windows: Callable[[], None] | None = None,
             close_windows: Callable[[], None] | None = None,
-            windows_state: Callable[[], str] | None = None) -> None:
+            windows_state: Callable[[], str] | None = None,
+            exit_closes_windows: bool = False) -> None:
     """Wire this process's performers. Called once, from startup. `windows_state` answers
-    one of `lifecycle.WINDOWS_*`, which decides which frontend actions can run."""
-    global _config_store, _bridge
+    one of `lifecycle.WINDOWS_*`, which decides which frontend actions can run.
+    `exit_closes_windows` is a run that keeps going when the frontend exits."""
+    global _config_store, _bridge, _exit_closes_windows
     _config_store = config_store
     _bridge = ws_bridge
+    _exit_closes_windows = exit_closes_windows
     # Unsubscribe first: install is called once at startup, but subscribing twice would
     # send every window two copies of the same notice.
     events.unsubscribe(events.LIFECYCLE_ACTING, _notice)
@@ -166,6 +170,19 @@ def install(*, config_store: ConfigStore,
     lifecycle.register_notifier(_announce)
 
 
+def effective(scope: str, action: str, surface: str) -> tuple[str, str]:
+    """What a surface's request means on this install. The frontend's Exit quits VPinFE,
+    except on a run that keeps going, where it closes the windows and nothing else."""
+    if (_exit_closes_windows and surface == lifecycle.SURFACE_FRONTEND
+            and (scope, action) == (lifecycle.VPINFE, lifecycle.STOP)
+            and lifecycle.performable(lifecycle.FRONTEND, lifecycle.STOP)
+            # Setup's window is the person quitting, which close_windows leaves alone.
+            and lifecycle.unavailable(lifecycle.FRONTEND, lifecycle.STOP)
+            != "error.actions.setup_open"):
+        return lifecycle.FRONTEND, lifecycle.STOP
+    return scope, action
+
+
 def request(scope: str, action: str, *, origin: lifecycle.Origin, reason: str = "",
             already_confirmed: bool = False) -> bool:
     """Make a request under this process's configured confirm policy.
@@ -173,6 +190,7 @@ def request(scope: str, action: str, *, origin: lifecycle.Origin, reason: str = 
     `already_confirmed` satisfies the policy rather than bypassing it: a surface that
     does not ask still gets asked.
     """
+    scope, action = effective(scope, action, origin.surface)
     scopes = () if already_confirmed else confirm_scopes()
     return lifecycle.request(scope, action, origin=origin,
                              confirm_scopes=scopes, reason=reason)

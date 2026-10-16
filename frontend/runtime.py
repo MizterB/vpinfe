@@ -303,10 +303,12 @@ def _wait_out_setup(iniconfig: ConfigStore, frontend_browser: ChromiumManager,
 def open_windows(iniconfig: ConfigStore, frontend_browser: ChromiumManager,
                  shutdown_event: threading.Event,
                  is_window_connected: Callable[[str], bool] | None = None,
-                 serve: Callable[[ConfigStore], None] | None = None) -> bool:
+                 serve: Callable[[ConfigStore], None] | None = None,
+                 keep_running: bool = False) -> bool:
     """Open the windows the settings describe and watch them. A window closed by hand
-    ends the run, which is `shutdown_event`. True when one is up. `serve` is told the
-    settings first, to give any window they newly describe an API to answer from."""
+    ends the run, which is `shutdown_event`, unless `keep_running`: then the rest are
+    closed and the run goes on. True when one is up. `serve` is told the settings first,
+    to give any window they newly describe an API to answer from."""
     # Prime the monitor cache before any windows spawn. Each
     # window's JS calls api.get_monitors() on its own pywebview worker thread;
     # opening X11 display connections concurrently races in libXau and aborts the
@@ -315,16 +317,30 @@ def open_windows(iniconfig: ConfigStore, frontend_browser: ChromiumManager,
 
     if serve:
         serve(iniconfig)
+    if keep_running:
+        # A window closed by hand earlier set it, and its reset can come after this open.
+        frontend_browser.reset_exit()
     settings_waiting.windows_opened(iniconfig)
     frontend_browser.launch_all_windows(iniconfig)
-    frontend_browser.watch(is_window_connected=is_window_connected,
-                           on_lost=shutdown_event.set)
+    frontend_browser.watch(
+        is_window_connected=is_window_connected,
+        on_lost=(lambda: _windows_lost(frontend_browser)) if keep_running
+        else shutdown_event.set)
     return frontend_browser.has_windows
 
 
 # Serializes everything that changes which windows are up, shutdown included: a reopen
 # that is still launching when the run ends would otherwise leave its windows behind.
 _reopening = threading.Lock()
+
+
+def _windows_lost(frontend_browser: ChromiumManager) -> None:
+    """A window was closed by hand and the watcher took the others down: that is Close.
+    The watcher ends the wait for exit, which a later open has to find cleared."""
+    with _reopening:
+        frontend_browser.reset_exit()
+        if not frontend_browser.has_windows:
+            settings_waiting.windows_closed()
 
 
 def close_windows(frontend_browser: ChromiumManager, logger: logging.Logger) -> None:
@@ -357,7 +373,7 @@ def windows_state(frontend_browser: ChromiumManager) -> str:
 
 def reopen_windows(iniconfig: ConfigStore, frontend_browser: ChromiumManager,
                    ws_bridge: DeviceChannel, shutdown_event: threading.Event,
-                   logger: logging.Logger) -> None:
+                   logger: logging.Logger, keep_running: bool = False) -> None:
     """Close the windows, if any are up, and open them again on the settings as they are
     now. The same call opens windows that were closed.
 
@@ -388,7 +404,8 @@ def reopen_windows(iniconfig: ConfigStore, frontend_browser: ChromiumManager,
             return
         if not open_windows(
                 iniconfig, frontend_browser, shutdown_event, ws_bridge.is_window_connected,
-                serve=lambda ini: register_window_apis(ini, ws_bridge, frontend_browser, logger)):
+                serve=lambda ini: register_window_apis(ini, ws_bridge, frontend_browser, logger),
+                keep_running=keep_running):
             logger.warning("No window opened; VPinFE keeps running without them.")
 
 

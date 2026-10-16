@@ -389,7 +389,8 @@ class ReopenWindowsTests(unittest.TestCase):
         self.order.append("serve")
         self.served_with = args
 
-    def _reopen(self, *, pending: bool = False, media_changed: bool = False) -> None:
+    def _reopen(self, *, pending: bool = False, media_changed: bool = False,
+                keep_running: bool = False) -> None:
         with mock.patch.object(runtime, "get_display_monitors", return_value=[]), \
              mock.patch.object(runtime, "install_setup") as setup, \
              mock.patch.object(runtime, "register_window_apis",
@@ -401,7 +402,7 @@ class ReopenWindowsTests(unittest.TestCase):
                         return_value=media_changed):
             setup.pending.return_value = pending
             runtime.reopen_windows(self.config, self.browser, self.bridge, self.event,
-                                   mock.Mock())
+                                   mock.Mock(), keep_running=keep_running)
 
     def test_the_settings_are_read_again_before_the_windows_open(self) -> None:
         self._reopen()
@@ -421,6 +422,25 @@ class ReopenWindowsTests(unittest.TestCase):
         self.browser.watch.call_args.kwargs["on_lost"]()
 
         self.assertTrue(self.event.is_set())
+
+    def test_a_run_that_keeps_going_clears_a_stale_exit_before_it_opens(self) -> None:
+        self.browser.reset_exit.side_effect = lambda: self.order.append("reset")
+
+        self._reopen(keep_running=True)
+
+        self.assertEqual(self.order[-2:], ["reset", "open"])
+
+    def test_a_lost_window_on_a_run_that_keeps_going_closes_the_windows_only(self) -> None:
+        self._reopen(keep_running=True)
+        self.browser.has_windows = False
+        self.browser.reset_exit.reset_mock()
+
+        with mock.patch.object(runtime.settings_waiting, "windows_closed") as closed:
+            self.browser.watch.call_args.kwargs["on_lost"]()
+
+        self.assertFalse(self.event.is_set())
+        self.browser.reset_exit.assert_called_once_with()
+        closed.assert_called_once_with()
 
     def test_a_library_resolved_under_other_media_is_marked_stale(self) -> None:
         self._reopen(media_changed=True)

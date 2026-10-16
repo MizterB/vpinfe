@@ -210,7 +210,8 @@ class FrontendPerformerTests(unittest.TestCase):
         self.browser = mock.Mock()
         self.shutdown = mock.Mock()
 
-    def _install(self, *, windows: bool = False, state: str | None = None) -> None:
+    def _install(self, *, windows: bool = False, state: str | None = None,
+                 keeps_going: bool = False) -> None:
         self.closed: list[int] = []
         self.opened: list[int] = []
         extra: dict[str, Any] = ({"open_windows": lambda: self.opened.append(1),
@@ -219,7 +220,8 @@ class FrontendPerformerTests(unittest.TestCase):
             extra["windows_state"] = lambda: state
         lifecycle_host.install(config_store=cast(Any, None),
                                frontend_browser=self.browser,
-                               shutdown_event=self.shutdown, **extra)
+                               shutdown_event=self.shutdown,
+                               exit_closes_windows=keeps_going, **extra)
 
     def _ask(self, action: str) -> bool:
         return lifecycle.request(lifecycle.FRONTEND, action,
@@ -295,6 +297,61 @@ class FrontendPerformerTests(unittest.TestCase):
         self.assertFalse(self._listed()[(lifecycle.FRONTEND, lifecycle.START)]["available"])
         state[0] = lifecycle.WINDOWS_CLOSED
         self.assertTrue(self._listed()[(lifecycle.FRONTEND, lifecycle.START)]["available"])
+
+    def _exit_from(self, surface: str) -> bool:
+        return lifecycle_host.request(lifecycle.VPINFE, lifecycle.STOP,
+                                      origin=lifecycle.Origin(surface, "window-1"))
+
+    def test_the_frontends_exit_closes_the_windows_on_a_run_that_keeps_going(self) -> None:
+        self._install(windows=True, keeps_going=True)
+
+        self.assertTrue(self._exit_from(lifecycle.SURFACE_FRONTEND))
+
+        self.assertEqual(self.closed, [1])
+        self.shutdown.set.assert_not_called()
+
+    def test_the_frontends_exit_still_quits_while_setup_is_open(self) -> None:
+        self._install(windows=True, keeps_going=True, state=lifecycle.WINDOWS_SETUP)
+
+        self._exit_from(lifecycle.SURFACE_FRONTEND)
+
+        self.assertEqual(self.closed, [])
+        self.shutdown.set.assert_called_once_with()
+
+    def test_the_frontends_exit_quits_a_run_that_did_not_start_headless(self) -> None:
+        self._install(windows=True)
+
+        self._exit_from(lifecycle.SURFACE_FRONTEND)
+
+        self.assertEqual(self.closed, [])
+        self.shutdown.set.assert_called_once_with()
+
+    def test_a_quit_from_anywhere_but_the_frontend_still_quits_a_run_that_keeps_going(self) -> None:
+        self._install(windows=True, keeps_going=True)
+
+        self._exit_from(lifecycle.SURFACE_MANAGER)
+
+        self.assertEqual(self.closed, [])
+        self.shutdown.set.assert_called_once_with()
+
+    def test_the_frontends_exit_is_a_window_close_on_a_run_that_keeps_going(self) -> None:
+        self._install(windows=True, keeps_going=True)
+
+        self.assertEqual(lifecycle_host.effective(
+            lifecycle.VPINFE, lifecycle.STOP, lifecycle.SURFACE_FRONTEND),
+            (lifecycle.FRONTEND, lifecycle.STOP))
+
+    def test_the_frontends_exit_asks_nothing_when_it_only_closes_the_windows(self) -> None:
+        self._install(windows=True, keeps_going=True)
+
+        scope, action = lifecycle_host.effective(
+            lifecycle.VPINFE, lifecycle.STOP, lifecycle.SURFACE_FRONTEND)
+
+        with mock.patch.object(lifecycle_host, "confirm_scopes",
+                               return_value=(lifecycle.VPINFE,)):
+            self.assertTrue(lifecycle_host.wants_confirmation(lifecycle.VPINFE))
+            self.assertFalse(lifecycle_host.wants_confirmation(scope))
+        self.assertEqual(lifecycle.label(scope, action), "Close the frontend windows")
 
     def test_an_install_that_is_not_a_frontend_cannot_run_any_of_it(self) -> None:
         self._install(windows=True, state=lifecycle.WINDOWS_OFF)
