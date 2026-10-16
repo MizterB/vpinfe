@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unittest
+from typing import Any
 from unittest import mock
 
 from nicegui import ui
@@ -500,11 +501,11 @@ class Getting(unittest.IsolatedAsyncioTestCase):
             return callback(*args)
 
         self.enterContext(mock.patch.object(discovery_get.offload, "io", inline))
-        library = mock.Mock()
-        library.fetch_media = self._fetch
-        self.context = {"library": library, "state": {},
-                        "discovery": {"id": "v1", "name": "Attack from Mars",
-                                      "is_in_library": True}}
+        self.library = mock.Mock()
+        self.library.fetch_media = self._fetch
+        self.discovery: dict[str, Any] = {"id": "v1", "name": "Attack from Mars",
+                                          "is_in_library": True}
+        self.context = {"library": self.library, "state": {}, "discovery": self.discovery}
         self.tray = discovery_get.Tray()
 
     def _fetch(self, _game, _table, kind, _source, _vps, _size):
@@ -601,7 +602,7 @@ class Getting(unittest.IsolatedAsyncioTestCase):
 
     async def test_a_game_not_in_the_library_is_made_first_and_declining_the_place_ends_it(
             self) -> None:
-        self.context["discovery"]["is_in_library"] = False
+        self.discovery["is_in_library"] = False
         self._tick("wheel")
 
         with mock.patch.object(discovery_get.import_dialog, "ask_where",
@@ -613,8 +614,8 @@ class Getting(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.tray.running)
 
     async def test_a_game_not_in_the_library_is_made_and_then_gets_what_was_ticked(self) -> None:
-        self.context["discovery"]["is_in_library"] = False
-        self.context["library"].add_game_from_vps = lambda _vps, _where: {"id": "g9"}
+        self.discovery["is_in_library"] = False
+        self.library.add_game_from_vps = lambda _vps, _where: {"id": "g9"}
         (wheel,) = self._tick("wheel")
 
         with mock.patch.object(discovery_get.import_dialog, "ask_where",
