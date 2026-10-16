@@ -89,7 +89,7 @@ class ATestThatBootsItsOwnInstanceSaysWhy(unittest.TestCase):
     def test_the_classes_that_boot_per_test_are_found(self) -> None:
         found = {cls for tree in _tests().values() for cls in boots(tree)[0]}
 
-        self.assertLessEqual({"RenderSmokeTests", "SeparationTests"}, found)
+        self.assertLessEqual({"PlayerListSmokeTests", "SeparationTests"}, found)
 
     def test_a_boot_anywhere_but_setupclass_is_per_test(self) -> None:
         tree = trees.parse_snippet(

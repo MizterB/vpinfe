@@ -18,6 +18,9 @@ from __future__ import annotations
 import asyncio
 import sys
 import unittest
+from contextlib import nullcontext
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import requests
 
@@ -48,17 +51,23 @@ def _info(name: str) -> dict:
 _UNSUPPORTED = sys.platform.startswith("win")
 
 
-@unittest.skipIf(_UNSUPPORTED, "the render smoke test is scoped to Linux and macOS")
-@unittest.skipIf(chromium_path() is None, "no Chromium on this machine")
-class RenderSmokeTests(TempTree):
-    BOOTS_PER_TEST = ("They assert on different windows, and a shared instance would let "
-                      "the first test's state decide the second's result.")
+def _needs_a_browser(cls):
+    cls = unittest.skipIf(_UNSUPPORTED, "the render smoke test is scoped to Linux and macOS")(cls)
+    return unittest.skipIf(chromium_path() is None, "no Chromium on this machine")(cls)
 
-    def setUp(self) -> None:
-        super().setUp()
-        for name in GAMES:
-            write_game(self.root, name, info=_info(name),
-                       medias={"wheel.png": PNG, "table.png": PNG})
+
+def _write_library(root: Path) -> None:
+    for name in GAMES:
+        write_game(root, name, info=_info(name),
+                   medias={"wheel.png": PNG, "table.png": PNG})
+
+
+class _Smoke(unittest.TestCase):
+    """What the smoke tests drive a page with. `_instance` says which VPinFE they drive,
+    and holds no test of its own."""
+
+    def _instance(self):
+        raise NotImplementedError
 
     # CI runs several times slower than a laptop, and this waits on a real app booting
     # and a real browser rendering. Generous rather than tuned: a flaky timeout would
@@ -93,8 +102,90 @@ class RenderSmokeTests(TempTree):
                 data = await browser.body_data()
                 return data, browser, list(browser.failed_requests)
 
-        with LiveInstance(self.root) as instance:
+        with self._instance() as instance:
             return asyncio.run(run(instance))
+
+    # -- the main menu, driven the way a player drives it --------------------
+    #
+    #
+    # Nothing loaded `mainmenu.js` before this. The JS suite covers core's overlay
+    # plumbing - opening, closing, which one owns the actions - and stops at the
+    # iframe boundary, so the menu's own cursor had no coverage at all.
+
+    # Same-origin, so the menu's own document is readable from the host page.
+    SELECTED = ("(document.getElementById('menu-frame')?.contentDocument"
+                "?.querySelector('.menu-item.selected')?.id) || ''")
+
+    # What the page looked like when no item was selected. Splits "the menu never
+    # opened" from "it opened empty" - a bare timeout names neither, and the answer
+    # costs a push per guess.
+    MENU_STATE = """JSON.stringify((() => {
+      const frame = document.getElementById('menu-frame');
+      const doc = frame && frame.contentDocument;
+      const win = frame && frame.contentWindow;
+      const items = doc ? Array.from(doc.querySelectorAll('.menu-item')) : [];
+      // The menu's own variables. Same-origin, so its realm is readable, and its
+      // state says which of the three ways this fails actually happened: no
+      // navigable at all, one built while the frame was still hidden and so empty,
+      // or a full one whose selection was never applied.
+      const peek = (expr) => {
+        try { return win.eval(expr); } catch (err) { return String(err); }
+      };
+      return {frame: !!frame,
+              display: frame ? frame.style.display : null,
+              src: frame ? frame.getAttribute('src') : null,
+              readyState: doc ? doc.readyState : null,
+              items: items.length,
+              visible: items.filter(el => win.getComputedStyle(el).display !== 'none').length,
+              menuLength: peek('typeof menu !== "undefined" && menu ? menu.length : null'),
+              cursor: peek('typeof menu !== "undefined" && menu ? menu.cursor : null'),
+              configLoaded: peek(
+                  'typeof menuConfigLoaded !== "undefined" ? menuConfigLoaded : null')};
+    })())"""
+
+    # The throws two tests make on purpose. The instance is shared, so a later failure's
+    # overlay excerpt would otherwise report one of them as its cause.
+    THROWN_ON_PURPOSE = ("menu exploded", "theme exploded")
+
+    def _overlay_errors(self, instance) -> list[str]:
+        """What the overlay reported, from the whole log rather than the tail. A throw
+        while the menu loads is thousands of lines back by the time this runs."""
+        lines = [line for line in instance.output().splitlines()
+                 if "playfield/" in line and not any(
+                     thrown in line for thrown in self.THROWN_ON_PURPOSE)]
+        return [line[:160] for line in lines[-6:]]
+
+    async def _open_menu(self, browser, instance):
+        await self._open(browser, instance, "playfield")
+        await browser.press("m", "KeyM")
+        try:
+            return await browser.wait_for(self.SELECTED, timeout=self.READY_TIMEOUT)
+        except TimeoutError as exc:
+            state = await browser.evaluate(self.MENU_STATE)
+            report = self._diagnose(exc, browser, instance, "the menu")
+            overlay = self._overlay_errors(instance) or ["(none)"]
+            raise AssertionError(
+                f"{report}\n  menu: {state}\n  overlay log: " + "\n    ".join(overlay)) from exc
+
+
+@_needs_a_browser
+class RenderSmokeTests(_Smoke):
+    """One instance for the class, and a browser of its own for each test. A test here
+    sends the instance input and reads what comes back; the ones that change what it
+    holds, the roster, boot their own in `PlayerListSmokeTests`."""
+
+    shared: LiveInstance
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        super().setUpClass()
+        tmp = TemporaryDirectory()
+        cls.addClassCleanup(tmp.cleanup)
+        _write_library(Path(tmp.name))
+        cls.shared = cls.enterClassContext(LiveInstance(Path(tmp.name)))
+
+    def _instance(self):
+        return nullcontext(self.shared)
 
     # -- the assertions a screenshot would have made ------------------------
 
@@ -140,7 +231,7 @@ class RenderSmokeTests(TempTree):
                     f"&& document.body.dataset.selected")
                 return before, after
 
-        with LiveInstance(self.root) as instance:
+        with self._instance() as instance:
             before, after = asyncio.run(run(instance))
         self.assertNotEqual(before, after)
 
@@ -162,7 +253,7 @@ class RenderSmokeTests(TempTree):
                     f"&& document.body.dataset.selected")
                 return before, after
 
-        with LiveInstance(self.root) as instance:
+        with self._instance() as instance:
             before, after = asyncio.run(run(instance))
         self.assertNotEqual(before, after)
 
@@ -194,7 +285,7 @@ class RenderSmokeTests(TempTree):
                               {"action": "next", "phase": "release", "source": "smoke"})
                 return await _settles(browser)
 
-        with LiveInstance(self.root) as instance:
+        with self._instance() as instance:
             settled, later = asyncio.run(run(instance))
         self.assertEqual(later, settled, "the wheel kept travelling after the release")
 
@@ -211,7 +302,7 @@ class RenderSmokeTests(TempTree):
                 await browser.wait_for("window.__moves > 1", timeout=10.0)
                 return await _settles(browser)
 
-        with LiveInstance(self.root) as instance:
+        with self._instance() as instance:
             stopped, later = asyncio.run(run(instance))
         self.assertEqual(later, stopped, "nothing let go of a hold that was never released")
 
@@ -223,7 +314,7 @@ class RenderSmokeTests(TempTree):
         for - a phone in a hand and a machine across the room. Every piece of the chain
         had its own passing test while the chain itself had never been exercised once.
         """
-        with LiveInstance(self.root) as instance:
+        with self._instance() as instance:
             asyncio.run(self._drive_the_pad(instance))
 
     async def _drive_the_pad(self, instance: LiveInstance) -> None:
@@ -248,68 +339,12 @@ class RenderSmokeTests(TempTree):
         self.assertEqual(later, settled,
                          "the wheel kept travelling after the thumb came off")
 
-    # -- the main menu, driven the way a player drives it --------------------
-    #
-    #
-    # Nothing loaded `mainmenu.js` before this. The JS suite covers core's overlay
-    # plumbing - opening, closing, which one owns the actions - and stops at the
-    # iframe boundary, so the menu's own cursor had no coverage at all.
-
-    # Same-origin, so the menu's own document is readable from the host page.
-    SELECTED = ("(document.getElementById('menu-frame')?.contentDocument"
-                "?.querySelector('.menu-item.selected')?.id) || ''")
-
-    # What the page looked like when no item was selected. Splits "the menu never
-    # opened" from "it opened empty" - a bare timeout names neither, and the answer
-    # costs a push per guess.
-    MENU_STATE = """JSON.stringify((() => {
-      const frame = document.getElementById('menu-frame');
-      const doc = frame && frame.contentDocument;
-      const win = frame && frame.contentWindow;
-      const items = doc ? Array.from(doc.querySelectorAll('.menu-item')) : [];
-      // The menu's own variables. Same-origin, so its realm is readable, and its
-      // state says which of the three ways this fails actually happened: no
-      // navigable at all, one built while the frame was still hidden and so empty,
-      // or a full one whose selection was never applied.
-      const peek = (expr) => {
-        try { return win.eval(expr); } catch (err) { return String(err); }
-      };
-      return {frame: !!frame,
-              display: frame ? frame.style.display : null,
-              src: frame ? frame.getAttribute('src') : null,
-              readyState: doc ? doc.readyState : null,
-              items: items.length,
-              visible: items.filter(el => win.getComputedStyle(el).display !== 'none').length,
-              menuLength: peek('typeof menu !== "undefined" && menu ? menu.length : null'),
-              cursor: peek('typeof menu !== "undefined" && menu ? menu.cursor : null'),
-              configLoaded: peek(
-                  'typeof menuConfigLoaded !== "undefined" ? menuConfigLoaded : null')};
-    })())"""
-
-    def _overlay_errors(self, instance) -> list[str]:
-        """What the overlay reported, from the whole log rather than the tail. A throw
-        while the menu loads is thousands of lines back by the time this runs."""
-        lines = [line for line in instance.output().splitlines() if "playfield/" in line]
-        return [line[:160] for line in lines[-6:]]
-
-    async def _open_menu(self, browser, instance):
-        await self._open(browser, instance, "playfield")
-        await browser.press("m", "KeyM")
-        try:
-            return await browser.wait_for(self.SELECTED, timeout=self.READY_TIMEOUT)
-        except TimeoutError as exc:
-            state = await browser.evaluate(self.MENU_STATE)
-            report = self._diagnose(exc, browser, instance, "the menu")
-            overlay = self._overlay_errors(instance) or ["(none)"]
-            raise AssertionError(
-                f"{report}\n  menu: {state}\n  overlay log: " + "\n    ".join(overlay)) from exc
-
     def test_the_menu_opens_with_something_selected(self) -> None:
         async def run(instance):
             async with BrowserSession(chromium_path()) as browser:
                 return await self._open_menu(browser, instance), list(browser.page_log)
 
-        with LiveInstance(self.root) as instance:
+        with self._instance() as instance:
             selected, page_log = asyncio.run(run(instance))
         self.assertTrue(selected, "the menu opened with no item selected")
         self.assertEqual([line for line in page_log if "Uncaught" in line], [])
@@ -323,7 +358,7 @@ class RenderSmokeTests(TempTree):
                     f"({self.SELECTED}) && ({self.SELECTED}) !== '{first}'")
                 return first, moved
 
-        with LiveInstance(self.root) as instance:
+        with self._instance() as instance:
             first, moved = asyncio.run(run(instance))
         self.assertNotEqual(first, moved)
 
@@ -337,7 +372,7 @@ class RenderSmokeTests(TempTree):
                     f"({self.SELECTED}) && ({self.SELECTED}) !== '{first}'")
                 return first, wrapped
 
-        with LiveInstance(self.root) as instance:
+        with self._instance() as instance:
             first, wrapped = asyncio.run(run(instance))
         self.assertNotEqual(first, wrapped)
 
@@ -349,8 +384,150 @@ class RenderSmokeTests(TempTree):
                 return await browser.wait_for(
                     "document.getElementById('menu-frame')?.style.display === 'none'")
 
-        with LiveInstance(self.root) as instance:
+        with self._instance() as instance:
             self.assertTrue(asyncio.run(run(instance)))
+
+    # -- the collection menu, which carries a second cursor inside the first ---
+    #
+    # Its dropdown is a list inside a list: the rows navigate, and selecting one opens
+    # a popup that navigates on the same keys. Nothing covered either.
+
+    POPUP = ("(() => { const d = document.getElementById('collection-menu-frame')"
+             "?.contentDocument; if (!d) return ''; "
+             "const p = d.getElementById('dropdown-popup'); "
+             "return (p && p.style.display === 'block') "
+             "? (p.querySelector('.popup-option.selected')?.textContent || 'open') : ''; })()")
+
+    COLLECTION_ROW = ("(document.getElementById('collection-menu-frame')?.contentDocument"
+                      "?.querySelector('li.menu-item.selected')?.id) || ''")
+
+    async def _open_collection_menu(self, browser, instance):
+        await self._open(browser, instance, "playfield")
+        await browser.press("c", "KeyC")
+        return await browser.wait_for(self.COLLECTION_ROW)
+
+    def test_the_collection_menu_opens_with_a_row_selected(self) -> None:
+        async def run(instance):
+            async with BrowserSession(chromium_path()) as browser:
+                return await self._open_collection_menu(browser, instance)
+
+        with self._instance() as instance:
+            self.assertTrue(asyncio.run(run(instance)))
+
+    def test_the_collection_menu_cursor_moves(self) -> None:
+        async def run(instance):
+            async with BrowserSession(chromium_path()) as browser:
+                first = await self._open_collection_menu(browser, instance)
+                await browser.press("ArrowDown", "ArrowDown")
+                moved = await browser.wait_for(
+                    f"({self.COLLECTION_ROW}) && ({self.COLLECTION_ROW}) !== '{first}'")
+                return first, moved
+
+        with self._instance() as instance:
+            first, moved = asyncio.run(run(instance))
+        self.assertNotEqual(first, moved)
+
+    def test_the_dropdown_opens_and_its_own_cursor_moves(self) -> None:
+        """The inner list. Selecting a row opens a popup that navigates on the same
+        keys, and it kept a second hand-rolled cursor to do it."""
+        async def run(instance):
+            async with BrowserSession(chromium_path()) as browser:
+                await self._open_collection_menu(browser, instance)
+                await browser.press("Enter", "Enter")
+                first = await browser.wait_for(self.POPUP)
+                await browser.press("ArrowDown", "ArrowDown")
+                moved = await browser.wait_for(
+                    f"({self.POPUP}) && ({self.POPUP}) !== '{first}'")
+                return first, moved
+
+        with self._instance() as instance:
+            first, moved = asyncio.run(run(instance))
+        self.assertNotEqual(first, moved)
+
+    def test_the_menu_says_what_a_page_press_will_do(self) -> None:
+        """The only place this is visible. A page press moves by the sort's groups or by
+        a count, and which one depends on the collection - so it is told, not guessed."""
+        async def run(instance):
+            async with BrowserSession(chromium_path()) as browser:
+                await self._open_collection_menu(browser, instance)
+                return await browser.wait_for(
+                    "(document.getElementById('collection-menu-frame')?.contentDocument"
+                    "?.getElementById('paging-state')?.textContent) || ''")
+
+        with self._instance() as instance:
+            said = asyncio.run(run(instance))
+        self.assertTrue(said.startswith("Pages "), f"the menu said {said!r}")
+
+    def test_back_closes_the_dropdown_before_the_menu(self) -> None:
+        """Two nested lists, so back has to unwind one at a time."""
+        async def run(instance):
+            async with BrowserSession(chromium_path()) as browser:
+                await self._open_collection_menu(browser, instance)
+                await browser.press("Enter", "Enter")
+                await browser.wait_for(self.POPUP)
+                await browser.press("b", "KeyB")
+                closed = await browser.wait_for(f"!({self.POPUP})")
+                still_open = await browser.evaluate(
+                    "document.getElementById('collection-menu-frame')?.style.display")
+                return closed, still_open
+
+        with self._instance() as instance:
+            closed, still_open = asyncio.run(run(instance))
+        self.assertTrue(closed)
+        self.assertEqual(still_open, "block", "back closed the whole menu, not the popup")
+
+    # -- what a frame throws reaches the log -------------------------------
+    #
+    # An overlay is an iframe with its own browser log, and nothing reads it on a cabinet.
+    # A ReferenceError in the menu left it not responding to any key with a clean log;
+    # the only clue was pressing a button and watching nothing happen.
+
+    def test_an_overlay_that_throws_says_so_in_the_log(self) -> None:
+        async def run(instance):
+            async with BrowserSession(chromium_path()) as browser:
+                await self._open_menu(browser, instance)
+                # eval inside the frame, so the closure belongs to the frame's realm.
+                # Passing a parent-defined callback to contentWindow.setTimeout reports
+                # the error on the *parent* - which passes this test while proving
+                # nothing about the overlay path it is named for.
+                await browser.evaluate(
+                    'document.getElementById("menu-frame").contentWindow.eval('
+                    '"setTimeout(function () { throw new Error(\'menu exploded\'); }, 0)")')
+                await _logged(instance, "menu exploded")
+
+        with self._instance() as instance:
+            asyncio.run(run(instance))
+            log = instance.output(tail=None)
+        self.assertTrue(
+            any("[playfield/menu] threw" in line and "menu exploded" in line
+                for line in log.splitlines()),
+            "the fault has to name the overlay, or it reads as the theme's")
+
+    def test_the_theme_page_reports_its_own_throws(self) -> None:
+        async def run(instance):
+            async with BrowserSession(chromium_path()) as browser:
+                await self._open(browser, instance, "playfield")
+                await browser.evaluate(
+                    "setTimeout(() => { throw new Error('theme exploded'); }, 0)")
+                await _logged(instance, "theme exploded")
+
+        with self._instance() as instance:
+            asyncio.run(run(instance))
+            log = instance.output(tail=None)
+        self.assertIn("theme exploded", log)
+
+
+@_needs_a_browser
+class PlayerListSmokeTests(TempTree, _Smoke):
+    BOOTS_PER_TEST = ("They add players, and one needs the owner alone, so the roster "
+                      "cannot be shared.")
+
+    def setUp(self) -> None:
+        super().setUp()
+        _write_library(self.root)
+
+    def _instance(self):
+        return LiveInstance(self.root)
 
     # -- the Player list: shown only when the roster holds more than one ---------
 
@@ -407,7 +584,7 @@ class RenderSmokeTests(TempTree):
                     " img.src = 'data:image/png;base64,AAAA'; })")
                 return circles, kept, fell_back
 
-        with LiveInstance(self.root) as instance:
+        with self._instance() as instance:
             instance.wait_for_api()
             kid = instance.post("/api/v1/players", {"name": "Kid", "initials": "KID"})["id"]
             requests.put(
@@ -430,7 +607,7 @@ class RenderSmokeTests(TempTree):
                 await self._open_menu(browser, instance)
                 return await browser.evaluate(self.PLAYER_ITEM_TEXT)
 
-        with LiveInstance(self.root) as instance:
+        with self._instance() as instance:
             self.assertEqual(asyncio.run(run(instance)), "")
 
     def test_the_player_list_shows_and_toggles_who_is_up(self) -> None:
@@ -458,7 +635,7 @@ class RenderSmokeTests(TempTree):
                     f"!({self.PLAYER_ROWS}).length")
                 return label, moved, closed
 
-        with LiveInstance(self.root) as instance:
+        with self._instance() as instance:
             instance.wait_for_api()
             instance.post("/api/v1/players", {"name": "Kid", "initials": "KID"})
             label, toggled_id, closed = asyncio.run(run(instance))
@@ -467,134 +644,6 @@ class RenderSmokeTests(TempTree):
         self.assertIn("Player", label)
         self.assertTrue(closed)
         self.assertTrue(roster[toggled_id], "the row Start toggled did not end up up")
-
-    # -- the collection menu, which carries a second cursor inside the first ---
-    #
-    # Its dropdown is a list inside a list: the rows navigate, and selecting one opens
-    # a popup that navigates on the same keys. Nothing covered either.
-
-    POPUP = ("(() => { const d = document.getElementById('collection-menu-frame')"
-             "?.contentDocument; if (!d) return ''; "
-             "const p = d.getElementById('dropdown-popup'); "
-             "return (p && p.style.display === 'block') "
-             "? (p.querySelector('.popup-option.selected')?.textContent || 'open') : ''; })()")
-
-    COLLECTION_ROW = ("(document.getElementById('collection-menu-frame')?.contentDocument"
-                      "?.querySelector('li.menu-item.selected')?.id) || ''")
-
-    async def _open_collection_menu(self, browser, instance):
-        await self._open(browser, instance, "playfield")
-        await browser.press("c", "KeyC")
-        return await browser.wait_for(self.COLLECTION_ROW)
-
-    def test_the_collection_menu_opens_with_a_row_selected(self) -> None:
-        async def run(instance):
-            async with BrowserSession(chromium_path()) as browser:
-                return await self._open_collection_menu(browser, instance)
-
-        with LiveInstance(self.root) as instance:
-            self.assertTrue(asyncio.run(run(instance)))
-
-    def test_the_collection_menu_cursor_moves(self) -> None:
-        async def run(instance):
-            async with BrowserSession(chromium_path()) as browser:
-                first = await self._open_collection_menu(browser, instance)
-                await browser.press("ArrowDown", "ArrowDown")
-                moved = await browser.wait_for(
-                    f"({self.COLLECTION_ROW}) && ({self.COLLECTION_ROW}) !== '{first}'")
-                return first, moved
-
-        with LiveInstance(self.root) as instance:
-            first, moved = asyncio.run(run(instance))
-        self.assertNotEqual(first, moved)
-
-    def test_the_dropdown_opens_and_its_own_cursor_moves(self) -> None:
-        """The inner list. Selecting a row opens a popup that navigates on the same
-        keys, and it kept a second hand-rolled cursor to do it."""
-        async def run(instance):
-            async with BrowserSession(chromium_path()) as browser:
-                await self._open_collection_menu(browser, instance)
-                await browser.press("Enter", "Enter")
-                first = await browser.wait_for(self.POPUP)
-                await browser.press("ArrowDown", "ArrowDown")
-                moved = await browser.wait_for(
-                    f"({self.POPUP}) && ({self.POPUP}) !== '{first}'")
-                return first, moved
-
-        with LiveInstance(self.root) as instance:
-            first, moved = asyncio.run(run(instance))
-        self.assertNotEqual(first, moved)
-
-    def test_the_menu_says_what_a_page_press_will_do(self) -> None:
-        """The only place this is visible. A page press moves by the sort's groups or by
-        a count, and which one depends on the collection - so it is told, not guessed."""
-        async def run(instance):
-            async with BrowserSession(chromium_path()) as browser:
-                await self._open_collection_menu(browser, instance)
-                return await browser.wait_for(
-                    "(document.getElementById('collection-menu-frame')?.contentDocument"
-                    "?.getElementById('paging-state')?.textContent) || ''")
-
-        with LiveInstance(self.root) as instance:
-            said = asyncio.run(run(instance))
-        self.assertTrue(said.startswith("Pages "), f"the menu said {said!r}")
-
-    def test_back_closes_the_dropdown_before_the_menu(self) -> None:
-        """Two nested lists, so back has to unwind one at a time."""
-        async def run(instance):
-            async with BrowserSession(chromium_path()) as browser:
-                await self._open_collection_menu(browser, instance)
-                await browser.press("Enter", "Enter")
-                await browser.wait_for(self.POPUP)
-                await browser.press("b", "KeyB")
-                closed = await browser.wait_for(f"!({self.POPUP})")
-                still_open = await browser.evaluate(
-                    "document.getElementById('collection-menu-frame')?.style.display")
-                return closed, still_open
-
-        with LiveInstance(self.root) as instance:
-            closed, still_open = asyncio.run(run(instance))
-        self.assertTrue(closed)
-        self.assertEqual(still_open, "block", "back closed the whole menu, not the popup")
-
-    # -- what a frame throws reaches the log -------------------------------
-    #
-    # An overlay is an iframe with its own browser log, and nothing reads it on a cabinet.
-    # A ReferenceError in the menu left it not responding to any key with a clean log;
-    # the only clue was pressing a button and watching nothing happen.
-
-    def test_an_overlay_that_throws_says_so_in_the_log(self) -> None:
-        async def run(instance):
-            async with BrowserSession(chromium_path()) as browser:
-                await self._open_menu(browser, instance)
-                # eval inside the frame, so the closure belongs to the frame's realm.
-                # Passing a parent-defined callback to contentWindow.setTimeout reports
-                # the error on the *parent* - which passes this test while proving
-                # nothing about the overlay path it is named for.
-                await browser.evaluate(
-                    'document.getElementById("menu-frame").contentWindow.eval('
-                    '"setTimeout(function () { throw new Error(\'menu exploded\'); }, 0)")')
-                await _logged(instance, "menu exploded")
-
-        with LiveInstance(self.root) as instance:
-            asyncio.run(run(instance))
-            log = instance.output(tail=None)
-        self.assertIn("[playfield/menu] threw", log,
-                      "the fault has to name the overlay, or it reads as the theme's")
-        self.assertIn("menu exploded", log)
-
-    def test_the_theme_page_reports_its_own_throws(self) -> None:
-        async def run(instance):
-            async with BrowserSession(chromium_path()) as browser:
-                await self._open(browser, instance, "playfield")
-                await browser.evaluate(
-                    "setTimeout(() => { throw new Error('theme exploded'); }, 0)")
-                await _logged(instance, "theme exploded")
-
-        with LiveInstance(self.root) as instance:
-            asyncio.run(run(instance))
-            log = instance.output(tail=None)
-        self.assertIn("theme exploded", log)
 
 
 _LATE_STEP_S = 0.2
