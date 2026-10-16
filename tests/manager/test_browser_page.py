@@ -93,6 +93,7 @@ class BrowserPageTests(unittest.IsolatedAsyncioTestCase):
         self.ui = self.enterContext(patch.object(settings, "ui"))
         self.enterContext(patch.object(settings, "page_head"))
         self.facts = self.enterContext(patch.object(panel, "facts"))
+        self.enterContext(patch.object(panel, "states", side_effect=lambda chips: list(chips)))
         self.action = self.enterContext(patch.object(panel, "action"))
         self.link = self.enterContext(patch.object(panel, "link"))
         self.offer = self.enterContext(patch.object(undo, "offer"))
@@ -131,13 +132,30 @@ class BrowserPageTests(unittest.IsolatedAsyncioTestCase):
                    if call.args[0] == t("manager.settings.use_chrome")]
         return offered[0] if offered else None
 
-    async def test_the_report_and_the_settings_are_one_list(self) -> None:
+    def _levels(self, entries: list[tuple[Any, Any]], label: str) -> dict[str, str]:
+        return {text: level for text, level, _hint in self._value(entries, label)}
+
+    async def test_what_it_plays_sits_under_the_program_and_before_the_next_group(self) -> None:
         self._reported(NO_H264)
 
         labels = self._labels(await self._drawn())
 
-        self.assertLess(labels.index(t("manager.settings.browser")),
-                        labels.index(t("config.chromium.path.label")))
+        order = [labels.index(t(key)) for key in (
+            "config.chromium.path.label", "manager.settings.browser_video",
+            "manager.settings.browser_audio")]
+        self.assertEqual(order, sorted(order))
+        self.assertEqual(order[2] - order[1], 1)
+        self.assertIs(labels[order[2] + 1], panel.HEADING)
+
+    def test_rows_go_after_the_first_group_even_when_a_note_opens_the_page(self) -> None:
+        first, second = object(), object()
+        own = ["note", (panel.HEADING, "A"), ("Program", 1), (panel.HEADING, "B"), ("Other", 2)]
+
+        placed = settings._after_first_group(own, [(first, 1), (second, 2)])
+
+        self.assertEqual([one[0] if isinstance(one, tuple) else one for one in placed],
+                         ["note", panel.HEADING, "Program", first, second, panel.HEADING,
+                          "Other"])
 
     async def test_the_page_opens_with_a_heading_and_the_report_sits_under_it(self) -> None:
         self._reported(NO_H264)
@@ -145,8 +163,8 @@ class BrowserPageTests(unittest.IsolatedAsyncioTestCase):
         entries = await self._heads()
 
         self.assertIs(entries[0][0], panel.HEADING)
-        self.assertLess(self._labels(entries).index(t("manager.settings.browser")),
-                        self._labels(entries).index(t("config.chromium.path.label")))
+        self.assertLess(self._labels(entries).index(t("config.chromium.path.label")),
+                        self._labels(entries).index(t("manager.settings.browser_video")))
 
     async def test_a_finding_leads_the_page_across_both_columns(self) -> None:
         self._reported(NO_H264)
@@ -154,18 +172,49 @@ class BrowserPageTests(unittest.IsolatedAsyncioTestCase):
         entries = await self._drawn()
 
         self.assertIs(entries[0][0], panel.FULL)
-        self.assertEqual(self._value(entries, t("manager.settings.browser_plays")),
-                         "VP9, AV1, MP3, Vorbis, Opus")
-        self.assertEqual(self._value(entries, t("manager.settings.browser_unsupported")),
-                         "H.264, HEVC, AAC")
 
-    async def test_a_browser_that_plays_everything_says_so_and_nothing_more(self) -> None:
+    async def test_formats_that_play_are_green_and_the_rest_are_not(self) -> None:
+        self._reported(NO_H264)
+
+        entries = await self._drawn()
+
+        self.assertEqual(self._levels(entries, t("manager.settings.browser_video")),
+                         {"H.264": "warn", "HEVC": "warn", "VP9": "on", "AV1": "on"})
+        self.assertEqual(self._levels(entries, t("manager.settings.browser_audio")),
+                         {"AAC": "warn", "MP3": "on", "Vorbis": "on", "Opus": "on"})
+
+    async def test_nothing_that_plays_is_red_on_the_formats_it_cannot_do_without(self) -> None:
+        self._reported(dict.fromkeys(NO_H264, False))
+
+        entries = await self._drawn()
+
+        self.assertEqual(self._levels(entries, t("manager.settings.browser_video")),
+                         {"H.264": "bad", "HEVC": "warn", "VP9": "bad", "AV1": "warn"})
+
+    async def test_a_browser_that_plays_everything_is_green_throughout(self) -> None:
         self._reported(PLAYS_ALL)
 
         entries = await self._drawn()
 
         self.assertIsNot(entries[0][0], panel.FULL)
-        self.assertNotIn(t("manager.settings.browser_unsupported"), self._labels(entries))
+        for label in ("browser_video", "browser_audio"):
+            self.assertEqual(
+                set(self._levels(entries, t(f"manager.settings.{label}")).values()), {"on"})
+
+    async def test_a_format_the_page_did_not_answer_is_unknown_not_a_no(self) -> None:
+        self._reported({**PLAYS_ALL, "av1": None})  # type: ignore[dict-item]
+
+        entries = await self._drawn()
+
+        self.assertEqual(self._levels(entries, t("manager.settings.browser_video"))["AV1"],
+                         "unknown")
+
+    async def test_the_browser_and_when_it_was_checked_are_on_each_chip_s_hover(self) -> None:
+        self._reported(PLAYS_ALL)
+
+        chips = self._value(await self._drawn(), t("manager.settings.browser_video"))
+
+        self.assertTrue(all("Chromium 145.0.7632.0" in hint for _t, _l, hint in chips))
 
     def _program_field(self) -> dict:
         found = frontend_browser.current()
@@ -223,37 +272,29 @@ class BrowserPageTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertNotIn("From", self._labels(await self._drawn()))
 
-    async def test_a_browser_that_plays_is_its_name_and_no_chip(self) -> None:
-        self._reported(PLAYS_ALL)
+    async def test_a_browser_that_has_not_reported_is_one_not_checked_chip_and_no_audio_row(
+            self) -> None:
+        entries = await self._drawn()
 
-        value = self._value(await self._drawn(), t("manager.settings.browser"))
-
-        self.assertEqual(value, "Chromium 145.0.7632.0")
-
-    async def test_a_browser_missing_h264_is_a_chip_beside_its_name(self) -> None:
-        self._reported(NO_H264)
-        with patch.object(panel, "state") as chip:
-            await self._drawn()
-
-        chip.assert_called_once_with(
-            t("manager.devices.browser_no_h264"), "warn", beside="Chromium 145.0.7632.0",
-            hint=t("frontend_browser.finding.no_h264"))
-
-    async def test_a_browser_that_has_not_reported_reads_not_checked_never_a_no(self) -> None:
-        with patch.object(panel, "state") as chip:
-            entries = await self._drawn()
-
-        self.assertEqual(chip.call_args.args[:2], (t("manager.devices.browser_not_checked"),
-                                                   "unknown"))
-        self.assertNotIn(t("manager.settings.browser_unsupported"), self._labels(entries))
+        [(text, level, _hint)] = self._value(entries, t("manager.settings.browser_video"))
+        self.assertEqual((text, level), (t("manager.devices.browser_not_checked"), "unknown"))
+        self.assertNotIn(t("manager.settings.browser_audio"), self._labels(entries))
         self.assertIsNot(entries[0][0], panel.FULL)
+
+    async def test_no_browser_at_all_is_one_chip_saying_so(self) -> None:
+        self.in_use.unlink()
+
+        entries = await self._drawn()
+
+        [(text, level, _hint)] = self._value(entries, t("manager.settings.browser_video"))
+        self.assertEqual((text, level), (t("manager.devices.browser_no_browser"), "bad"))
 
     async def test_a_report_on_another_browser_is_not_this_one_s(self) -> None:
         self._reported(NO_H264, path=self.in_use.with_name("elsewhere"))
 
         entries = await self._drawn()
 
-        self.assertNotIn(t("manager.settings.browser_plays"), self._labels(entries))
+        self.assertNotIn(t("manager.settings.browser_audio"), self._labels(entries))
 
     async def test_an_install_too_old_to_say_draws_its_settings_alone(self) -> None:
         with patch.object(self.served, "frontend_browser", return_value={}):

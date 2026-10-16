@@ -746,26 +746,37 @@ FOOTERS: dict[str, Callable] = {"updates": _vps_foot, "themes": _themes_foot,
                                  recording.SECTION: recording.foot, dof.SECTION: dof.foot}
 
 
+# The two video formats whose absence makes the browser unfit (`frontend_browser.state_of`).
+_NEEDED = ("h264", "vp9")
+
+
+def _format_level(found: dict[str, Any], one: frontend_browser.Format) -> str:
+    answer = (found.get("formats") or {}).get(one.id)
+    if answer is None:
+        return "unknown"
+    if answer:
+        return "on"
+    nothing_plays = found.get("state") == frontend_browser.NO_VIDEO
+    return "bad" if nothing_plays and one.id in _NEEDED else "warn"
+
+
 def _browser_rows(found: dict[str, Any]) -> list[tuple[Any, Any]]:
-    """Which browser runs and what it plays, as the frontend last found."""
-    rows: list[tuple[Any, Any]] = [(
-        t("manager.settings.browser"),
-        browser_state.value(str(found.get("browser") or ""), str(found.get("state") or ""),
-                            t("word.unknown")))]
-    if not found.get("reported_at"):
-        return rows
-
-    def checked() -> None:
-        stamp = str(found.get("reported_at") or "")
-        ui.label(when.ago(stamp)).classes("manager-fact-value").tooltip(when.local(stamp))
-
-    rows.append((t("manager.settings.browser_plays"), ", ".join(found.get("plays") or [])
-                 or t("word.none")))
-    if found.get("does_not_play"):
-        rows.append((t("manager.settings.browser_unsupported"),
-                     ", ".join(found["does_not_play"])))
-    rows.append((t("manager.settings.browser_checked"), checked))
-    return rows
+    """What the browser plays, as a row of chips for the video formats and one for the
+    audio formats. A browser with no program, or no report on file, is one chip saying so."""
+    if found.get("state") == frontend_browser.NO_BROWSER or not found.get("reported_at"):
+        said = browser_state.STATES[
+            "no_browser" if found.get("state") == frontend_browser.NO_BROWSER else "unknown"]
+        return [(t("manager.settings.browser_video"),
+                 panel.states([(said["label"], said["tier"], said["why"])]))]
+    stamp = str(found["reported_at"])
+    ago = when.ago(stamp, inline=True)
+    hint = (t("manager.settings.browser_hover", browser=found["browser"], when=ago)
+            if found.get("browser")
+            else t("manager.settings.browser_hover_nameless", when=ago))
+    return [(label, panel.states([(one.name, _format_level(found, one), hint)
+                                  for one in frontend_browser.FORMATS if one.kind == kind]))
+            for kind, label in ((frontend_browser.VIDEO, t("manager.settings.browser_video")),
+                                (frontend_browser.AUDIO, t("manager.settings.browser_audio")))]
 
 
 def _browser_finding(library: Library, rerender: Callable[[], None],
@@ -808,18 +819,21 @@ def _browser_finding(library: Library, rerender: Callable[[], None],
 
 
 async def _browser_head(library: Library, rerender: Callable[[], None],
-                        values: dict, **_: Any) -> list[tuple[Any, Any]]:
-    """What the browser plays, and what is wrong with it, before its settings."""
+                        values: dict, read: dict[str, Any] | None = None,
+                        **_: Any) -> list[tuple[Any, Any]]:
+    """What is wrong with the browser, before its settings. The report it read goes in
+    `read` for the rows drawn under the program."""
+    read = {} if read is None else read
     try:
-        found = await offload.io(library.frontend_browser)
+        found = read["found"] = await offload.io(library.frontend_browser)
     except Exception as exc:  # noqa: BLE001 - a settings page says why, never 500s
+        read["found"] = {}
         return [panel.intro(t("manager.settings.browser_failed"), hint=why(exc))]
     if not found:
         return []
-    rows = _browser_rows(found)
     if found.get("finding"):
-        rows.insert(0, (panel.FULL, lambda: _browser_finding(library, rerender, found)))
-    return rows
+        return [(panel.FULL, lambda: _browser_finding(library, rerender, found))]
+    return []
 
 
 TOOLS = "tools"
@@ -875,6 +889,16 @@ async def _tools_head(library: Library, rerender: Callable[[], None],
 
 # section -> what to draw above its settings, the counterpart of FOOTERS.
 HEADS: dict[str, Callable] = {"chromium": _browser_head, TOOLS: _tools_head}
+
+
+async def _browser_playback(library: Library, read: dict[str, Any]) -> list[tuple[Any, Any]]:
+    """What the browser plays, drawn after the program that is the browser."""
+    found = read.get("found")
+    return _browser_rows(found) if found else []
+
+
+# section -> what to draw at the end of its first group of settings.
+UNDER_FIRST_GROUP: dict[str, Callable] = {"chromium": _browser_playback}
 
 # section -> what is wrong with a whole page, drawn with its name, from what the page was
 # offered, with any act that puts it right; None where nothing is.
@@ -1708,8 +1732,9 @@ async def build_device_page(source: Any, context: dict[str, Any], schema: list[d
         offered = suggestions or {}
         head = HEADS.get(name)
         lead: list[tuple[Any, Any]] = []
+        read: dict[str, Any] = {}
         if head is not None and source is context.get("library"):
-            lead = await head(source, rerender, values, offered=offered)
+            lead = await head(source, rerender, values, offered=offered, read=read)
         resolves = RESOLVES.get(name)
         # Where this install's own client serves the page, for the same reason as the head.
         preview = chrome_options.Preview(values) \
@@ -1725,13 +1750,24 @@ async def build_device_page(source: Any, context: dict[str, Any], schema: list[d
         # A section that opens with a heading keeps its head under it: nothing sits
         # above the first heading.
         under = 1 if rows and rows[0][0] is panel.HEADING else 0
-        entries += [*rows[:under], *lead, *rows[under:]]
+        own = [*rows[:under], *lead, *rows[under:]]
+        follow = UNDER_FIRST_GROUP.get(name)
+        if follow is not None and source is context.get("library"):
+            own = _after_first_group(own, await follow(source, read))
+        entries += own
         if preview is not None:
             entries.append(preview.row())
         foot = FOOTERS.get(name)
         if foot is not None and source is context.get("library"):
             entries += await foot(source, rerender, offered=offered)
     panel.facts(ui, _spliced(entries, blocks or []))
+
+
+def _after_first_group(own: list, rows: list) -> list:
+    """`rows` put at the end of a section's first group, before its second heading."""
+    headings = [i for i, one in enumerate(own) if one[0] is panel.HEADING]
+    at = headings[1] if len(headings) > 1 else len(own)
+    return own[:at] + rows + own[at:]
 
 
 def _spliced(entries: list, blocks: list[tuple[str, list]]) -> list:
