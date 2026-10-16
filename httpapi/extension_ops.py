@@ -39,7 +39,7 @@ from common.games import (
 )
 from common.host import hardware, play_service
 from common.i18n import t
-from common.online import vpsdb_sync
+from common.online import vps_lens, vpsdb_sync
 
 from . import scopes
 
@@ -108,6 +108,8 @@ READS: dict[str, Callable[..., Any]] = {
     "vps_details": game_ops.vps_details,
     "vps_catalog": _vps_catalog,
     "vps_settle": _vps_settle,
+    "vps_entry": vps_lens.entry,
+    "vps_releases": vps_lens.releases,
 }
 
 # Where games live is a setting, and these keep the scopes the routes under /locations

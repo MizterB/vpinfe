@@ -298,7 +298,7 @@ raises `ContractError` when it is looked up.
 
 | scope | names |
 |---|---|
-| `games:read` | `list_games(q="", limit=0, offset=0)`, `get_game(game_id)`, `game_tables`, `game_media(game_id, codecs=False)`, `table_media(game_id, table_id, codecs=False)`, `media_detail(game_id, kind, table_id="", page=1)`, `vps_state`, `vps_details`, `vps_catalog(downloading=None)`, `vps_settle(rows)` |
+| `games:read` | `list_games(q="", limit=0, offset=0)`, `get_game(game_id)`, `game_tables`, `game_media(game_id, codecs=False)`, `table_media(game_id, table_id, codecs=False)`, `media_detail(game_id, kind, table_id="", page=1)`, `vps_state`, `vps_details`, `vps_catalog(downloading=None)`, `vps_settle(rows)`, `vps_entry(vps_id)`, `vps_releases(vps_id, listed_as="tableFiles")` |
 | `games:write` | `set_details(game_id, **fields)`, `rate_game(game_id, rating)`, `rate_table(game_id, table_id, rating)`, `set_tags(game_id, tags)`, `set_favorite(game_id, favorite)`, `set_default_table(game_id, table_id)`, `set_play_record(game_id, play_count=None, play_time_seconds=None, last_played=None)`, `reset_play_record(game_id)`, `take_vps_details(game_id, fields=None)`, `match_game(game_id, vps_id, guess=False)`, `remove_media(game_id, kind, table_id="", page=None)`, `get_missing_media(game_ids)`, `forget_table(game_id, table_id)`, `add_keyed_table(game_id, app_id, key)` |
 | `config:read` | `new_game_destination()` |
 | `config:write` | `use_library_folder(path)`, `write_table_settings(table_id, values)`, `use_logos_for_wheels()` |
@@ -315,6 +315,30 @@ A few of them need a word more:
   `ipdb_id` and `folder_name`, the folder VPinFE would name the game).  Where nothing fits, it
   answers `vps_id` empty with a `reason` (`not_found`, `two_entries` or `ipdb_differs`) and up
   to five `candidates`.  It reads the catalog on disk and writes nothing.
+- `vps_entry(vps_id)` answers what the catalog says about one entry: `vps_id`, `name`,
+  `manufacturer`, `year`, `type`, `folder_name` (the folder VPinFE would name the game),
+  `releases` (how many table files it lists), `img_url` (the picture its page on VPS leads with,
+  or empty) and `url` (that page).
+- `vps_releases(vps_id, listed_as="tableFiles")` answers `{"releases": [...]}`, every file of
+  one kind the entry lists, in the order the catalog holds them.  `listed_as` is the catalog's own
+  key: `tableFiles`, `b2sFiles`, `romFiles`, `altColorFiles`, `altSoundFiles`, `pupPackFiles`,
+  `povFiles`, `ruleFiles`, `wheelArtFiles` or `topperFiles`.  A file has `vps_file_id`,
+  `version`, `authors`, `format`, `features`, `comment`, `img_url`, `updated_at` (ISO 8601, UTC),
+  `url`, `urls` and `mod_of`.  `urls` is every link the catalog gives for the file, each as
+  `{url, broken}`, in the catalog's order, with the ones it marks broken kept and marked; an
+  address that is not a web address is left out.  `url` is the first of them not marked broken,
+  or the first where all are, and empty where there are none.  `mod_of` is `None` where the file
+  is no mod.  Where it is one, `mod_of` says what of: `vps_file_id` (the file it is based on;
+  empty where VPS does not say which, or names one the catalog cannot find), `version`,
+  `authors`, `game` (only where it is another game), `url`, `note` (VPS's own comment, on a mod
+  tagged without a link), and `game_id` and `table_id` for the table in this library matched to
+  that file, empty where there is none.
+- Both read the catalog on disk and write nothing.  `vps_releases` also reads the library, to
+  fill `mod_of`'s `game_id` and `table_id`.  They need `games:read`, as `vps_settle` does, and
+  not `vps:read`, which is the scope the same two calls take over HTTP.  An id the catalog does
+  not have raises an error whose text says so, for `ctx.why`, and so does a `listed_as` that is
+  not one of the keys above.  With no catalog on disk every id is unknown; `vps_catalog()`
+  fetches one where *Match new games* is on, as above.
 - `match_game` matches a game to an entry as *Matched on import*, or as a plain guess a rematch
   may replace where `guess` is true.
 - `write_table_settings` writes values as one table's own settings, never the launcher's, and
