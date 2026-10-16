@@ -24,6 +24,7 @@ from tests.support.hung_folder import never_answering
 
 class _Files(ExtensionFiles):
     def __init__(self, *roots: Path) -> None:
+        super().__init__("probe", allowed=True)
         self._roots = tuple(str(one) for one in roots)
 
     def roots(self) -> tuple[str, ...]:

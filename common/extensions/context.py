@@ -30,6 +30,7 @@ from .library_collections import ExtensionCollections
 from .pictures import is_openable
 from .store import ExtensionStore
 from .system import ExtensionSystem
+from .uploads import ExtensionUploads
 
 if TYPE_CHECKING:
     from common.runtime import jobs
@@ -139,6 +140,21 @@ class ExtensionFiles:
         wanted = [str(one or "").strip() for one in paths]
         self._roots = tuple(str(Path(one).expanduser().resolve())
                             for one in wanted if one)
+
+    def _require_inside(self, wanted: Path, roots: Sequence[Path] | None = None) -> None:
+        """Refuse a path that is not one of these folders or under one.
+
+        Both sides are compared resolved, so a link cannot take a path out of its folder or
+        make a declared one look undeclared. `roots`, already resolved, spares a caller
+        asking about many paths from resolving the set once for each.
+        """
+        wanted = wanted.expanduser().resolve()
+        if roots is None:
+            roots = [Path(one).expanduser().resolve() for one in self.roots()]
+        if not any(wanted == root or root in wanted.parents for root in roots):
+            raise ContractError(
+                f"{self._name} offered {wanted}, which is not inside any folder it says "
+                "it works from")
 
 
 class ExtensionApps:
@@ -1341,6 +1357,7 @@ class ExtensionContext:
         self.catalogs = ExtensionCatalogs(manifest.name)
         self.tokens = ExtensionTokens(manifest.name)
         self.games = ExtensionGames(manifest.name, manifest.scopes, self.files)
+        self.uploads = ExtensionUploads(manifest.name, manifest.scopes, self.files, self.games)
         self.collections = ExtensionCollections(manifest.name, manifest.scopes)
         self.system = ExtensionSystem(manifest.name, manifest.scopes)
         self.hardware = ExtensionHardware(manifest.name, manifest.scopes)

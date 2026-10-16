@@ -1,7 +1,8 @@
 # The library and ways to play
 
-`ctx.games` is the library and everything core offers by name.  `ctx.collections` is the
-collections.  `ctx.apps` is how another format of table becomes first class.
+`ctx.games` is the library and everything core offers by name.  `ctx.uploads` imports files into
+it, the way a drop onto the Manager does.  `ctx.collections` is the collections.  `ctx.apps` is
+how another format of table becomes first class.
 
 ## `ctx.games`
 
@@ -332,6 +333,124 @@ A few of them need a word more:
 found = ctx.games.list_games(q="taxi", limit=10, offset=0)
 ctx.games.rate_table(game_id, table_id, 8)
 ```
+
+## `ctx.uploads`
+
+Importing files, the way a drop onto the Manager does.  It is the same analysis, plan and
+import the upload routes run, so an extension is told what an HTTP client is told and refused
+for the same reasons.  The routes are not reachable from inside the process, for the reason
+given under [`ctx.games`](#ctxgames).
+
+The source is a file, a folder or an archive already on this device.  It is read where it is
+and left there.  Each call opens an upload session over it, answers and ends the session,
+whether it worked or not, so nothing is held between calls: `plan` and then `execute` read the
+source twice, and `execute` imports what the source holds when it runs.
+
+It is bounded three ways:
+
+- The `uploads:write` scope decides whether an extension may import anything.
+- The source has to be inside a folder the extension declared through `ctx.files.set_roots`,
+  which needs `fs:read`.  The routes bound their sources by the folders the person has
+  allowed, which an extension's folders are not part of.
+- A game that already exists is named by `game_id`, which needs `games:read` as well, and core
+  finds the folder.  The routes take a folder, which would let an extension aim an import
+  anywhere core can write, so `game_dir` is refused here.
+
+| call | scope it needs |
+|---|---|
+| `analyze`, `plan`, `execute` | `uploads:write` |
+| any of them with a `game_id` | `games:read` as well |
+
+`plan` and `execute` take the same keyword arguments, and `execute` takes `selected` and
+`declared` besides.  A key core does not read raises `ContractError` and lists the ones it does,
+so a misspelled key is refused rather than importing with the default.  So is a value of the
+wrong type: the text keys take a string, `allow_new_game` and `add_table` a bool, `selected` a
+list of ints.
+
+| key | what it says |
+|---|---|
+| `vps_id` | The catalog entry the files are for.  A new game takes it; `execute` refuses it for a game that already exists, since that game's entry is its own |
+| `game_id` | The game they belong to.  Left out, the files make a new game, if `allow_new_game` is true |
+| `allow_new_game` | Make a new game of a source that holds a table.  Not with a `game_id`, which is refused: the new game would be made and the named one left alone |
+| `add_table` | With `game_id`: the table is one more for that game rather than its replacement.  A file name the game already has comes back blocked |
+| `media_kind` | With `game_id`: the source is for one picture or video slot, such as `wheel`, and any image will do.  A slot holds one thing, so a source with more is refused |
+| `asset_kind` | Import one kind of asset only.  Everything else the source holds is listed as blocked |
+| `rom_name` | The ROM name the files go under, for the kinds that live under one.  A plain name: one with a path separator or `..` in it is refused |
+| `location_id` | The library folder to make a new game in, in place of the one marked for new games.  One that names no library folder, or cannot be written to, refuses the import |
+| `new_game_dir_name` | The new game's folder name.  Left out, it is the catalog's name for the entry, then the table's file name |
+| `selected` | `execute` only: the `index` of each plan item to import.  Left out, every item the plan lists is imported |
+
+### `ctx.uploads.analyze`
+
+`ctx.uploads.analyze(path) -> dict`.  Required: `path`.
+
+What the source holds, as the import would read it.  It answers `source_kind` and `source_name`,
+`has_game` (a table is among it), `assets` (what was recognized, each with its `kind`, `label`,
+`size` and `detail`), `notes`, `unrecognized` (the paths no rule claimed), `bundle_info` (the
+`.info` the source carried, if it did) and `error`, which is empty unless the source could not be
+read.
+
+```python
+found = ctx.uploads.analyze("/data/incoming/Taxi")
+if not found["has_game"]:
+    return ctx.t("message.no_table")
+```
+
+Raises `ContractError` for a path outside the declared folders or without `uploads:write`, and
+an error whose text says why, for `ctx.why`, where nothing is at the path.
+
+### `ctx.uploads.plan`
+
+`ctx.uploads.plan(path, **request) -> dict`.  Required: `path`.
+
+What `execute` with the same arguments would do, before it does any of it.  It answers
+`game_dir` (the folder the files go in, which for a new game is the one about to be made), `new_game_dir_name`, `rom_name`,
+`items` and `blocked`.  Each item has an `index`, a `kind`, a `label`, its `destination`, an
+`action`, `default_enabled` (the Manager's dialog ticks the item when it is true; `execute` without `selected` imports every item either way), a `size`, a
+`detail`, `replaces` (what it would overwrite, if anything) and `made_from_it` (the tables in the
+folder a patch was made from this file).  Each blocked entry has a `kind` and a `reason`.  It
+writes nothing, so it can be called as often as a step is shown.
+
+```python
+plan = ctx.uploads.plan("/data/incoming/Taxi", game_id=game_id, add_table=True)
+rows = [[item["label"], item["destination"]] for item in plan["items"]]
+```
+
+Raises `ContractError` as `analyze` does, and for a key the import does not read.  The refusals
+the upload routes give raise an error whose text says why, for `ctx.why`: a catalog entry that
+is not there, a source nothing can be made of, nowhere to put a new game.
+
+### `ctx.uploads.execute`
+
+`ctx.uploads.execute(path, *, declared=None, **request) -> dict`.  Required: `path`.
+
+Imports the source into the library.  It answers `imported` (the kind of each thing that was
+imported), `skipped` (the kinds left out), `game_dir`, `new_game`, `media_kinds`, `added_tables`,
+`renamed`, `blocked`, `declared` and, where they apply, `vps_associated`, `vps_matched` and
+`vps_error`.  The last three are the catalog step that follows an import, which may fail without
+failing it: the files are already in the library by then.  This is the call that changes
+anything, and it can take as long as copying the files does, so it belongs in a
+[job](context.md#ctxjobssubmit) rather than in a dialog's `check`.
+
+`declared` says what each file is, keyed by the name it has in the source.  Each value is a
+dict of strings, `vps_file_id`, `host_item_id`, `host`, `game_id`, `table_id` and `confirmed_by`,
+every one optional.  `game_id` and `table_id` are the library's own ids for the game and the table
+the file is, which an extension that fetched it for a game already in the library knows.  `confirmed_by` is how the extension knows: `declared` when it fetched the file from
+that record, `user` when a person picked it.  A claim that names a record has to say how it is
+known, or `execute` raises before it imports anything.  There is no value for a guess.  A name
+the plan does not import is ignored, and the report's `declared` lists the destinations that
+were recorded.
+
+```python
+report = ctx.uploads.execute(
+    "/data/incoming/Taxi", game_id=game_id, add_table=True,
+    declared={"Taxi 1.2.vpx": {"host": "example", "host_item_id": "t-9",
+                               "confirmed_by": "declared"}})
+```
+
+Raises `ContractError` as `plan` does, and for a `declared` field it does not take.  The
+refusals the routes give raise an error whose text says why, for `ctx.why`, and so does a
+source with nothing in it to import.
 
 ## `ctx.collections`
 

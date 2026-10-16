@@ -40,9 +40,9 @@ A scope belonging to an extension is granted only while that extension is runnin
 ## What `scopes` in the manifest asks for
 
 The manifest's `scopes` are the core scopes the extension asks to use.  The extension's page
-lists them in plain words for whoever installs it, and they decide which `ctx.games` and
-`ctx.players` calls work.  Asking for a scope that does not exist fails the extension with
-"Asks for scopes that do not exist".
+lists them in plain words for whoever installs it, and they decide which `ctx.games`,
+`ctx.players` and `ctx.uploads` calls work.  Asking for a scope that does not exist fails the
+extension with "Asks for scopes that do not exist".
 
 | scope | lets the extension |
 |---|---|
@@ -51,7 +51,7 @@ lists them in plain words for whoever installs it, and they decide which `ctx.ga
 | `games:export_full` | Export the library in full |
 | `collections:read`, `collections:write` | Read, change collections through `ctx.collections` |
 | `play:read`, `launch:invoke`, `play:stop` | See what is playing, start a game, stop one.  Three separate permissions |
-| `uploads:write` | Upload files |
+| `uploads:write` | Import files into the library through `ctx.uploads` |
 | `vps:read` | Read the VPS catalog |
 | `filesystem:read` | Browse folders |
 | `capture:run` | Record media |

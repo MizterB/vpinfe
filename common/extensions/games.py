@@ -81,28 +81,10 @@ class ExtensionGames(Offered):
         which extension is asking, where a route only knows a path.
         """
         wanted = Path(str(path or "")).expanduser().resolve()
-        self._inside_declared(wanted)
+        self._files._require_inside(wanted)
         if not wanted.is_file():
             raise FileNotFoundError(t("error.games.missing_file", path=wanted))
         return wanted
-
-    def _inside_declared(self, wanted: Path, roots: list[Path] | None = None) -> None:
-        """The bound itself, for something that may be a file or a folder.
-
-        An asset arrives as a directory as often as a file - a ROM set is one, a sound
-        bank is one - so the check cannot insist on a file.
-
-        Both sides are resolved before comparing. A root is not always handed over
-        already resolved, and on a machine where `/var` is a link to `/private/var` an
-        unresolved root never contains a resolved path - which reads as an extension
-        reaching somewhere it did not declare, for a folder it did.
-        """
-        if roots is None:
-            roots = [Path(one).expanduser().resolve() for one in self._files.roots()]
-        if not any(wanted == root or root in wanted.parents for root in roots):
-            raise ContractError(
-                f"{self._name} offered {wanted}, which is not inside any folder it says "
-                "it works from")
 
     def _game(self, game_id: str) -> Any:
         from common.games import game_identity
@@ -189,7 +171,7 @@ class ExtensionGames(Offered):
         from common.games import tables
 
         wanted = Path(str(path or "")).expanduser().resolve()
-        self._inside_declared(wanted)
+        self._files._require_inside(wanted)
         return tables.survey(wanted)
 
     # -- writing --------------------------------------------------------------
@@ -277,7 +259,7 @@ class ExtensionGames(Offered):
             if wanted.parent not in folders:
                 folders[wanted.parent] = wanted.parent.resolve()
             source = folders[wanted.parent] / wanted.name
-            self._inside_declared(source, roots)
+            self._files._require_inside(source, roots)
             beside = game_service.files_in(source.parent)
             if source in beside:
                 found[str(given)] = tuple(
@@ -391,7 +373,7 @@ class ExtensionGames(Offered):
         source = Path(str(path or "")).expanduser().resolve()
         if not source.exists():
             raise FileNotFoundError(t("error.games.nothing_at", path=source))
-        self._inside_declared(source)
+        self._files._require_inside(source)
 
         game_dir = library_folders.writable_game_folder(self.folder(game_id))
         into = folder_for(kind, game_dir, rom)

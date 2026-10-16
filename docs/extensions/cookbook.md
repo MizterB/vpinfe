@@ -46,6 +46,7 @@ it, what you will see, a few variations and the mistake people make with it.
 - [21. Putting games in a collection](#21-putting-games-in-a-collection)
 - [22. Listing what is plugged in](#22-listing-what-is-plugged-in)
 - [23. A page a Remote can open](#23-a-page-a-remote-can-open)
+- [24. Importing a folder](#24-importing-a-folder)
 
 ## Basics
 
@@ -2155,3 +2156,97 @@ The page is read, saved and cleared at `/api/v1/ext/next_player_note/pages/note`
 - Keep a surface at the default tier when only the Owner should reach it.  Most surfaces are, so name only what a Remote has a reason to open.
 
 **Watch out:** a picture is served at its own address and carries no tier, so one in an extension with a page a Remote can open can be fetched by a Remote.  Show nothing private in a picture there.
+
+## Importing files
+
+### 24. Importing a folder
+
+**Use it when:** files are waiting in a folder, such as a table with its backglass and its ROM, and core should file them in the library the way a drop onto the Manager does.
+
+`ctx.uploads` is core's own import, asked for by an extension.  `plan` says what the import would do and writes nothing, so a dialog can show it first.  `execute` does it.  The manifest names `uploads:write`, and `fs:read` as well, because the folder has to be one the extension declared with `ctx.files.set_roots`.
+
+This extension has one setting, the folder, and one action.  The action is a single step: `ask` plans the import and shows what would be imported and where, and its button runs the import as a job, because copying a table takes as long as it takes.
+
+`recipes/import_folder/extension.json`
+
+```json
+{
+  "name": "import_folder",
+  "version": "1.0.0",
+  "author": "Example Author",
+  "source": "https://github.com/example/import_folder",
+  "requires_platform": 1,
+  "scopes": ["uploads:write"],
+  "capabilities": ["config:own", "fs:read", "ui:mount"]
+}
+```
+
+`recipes/import_folder/__init__.py`
+
+```python
+class ImportFolder:
+    def __init__(self, ctx):
+        self.ctx = ctx
+
+    def folder(self):
+        folder = self.ctx.config.get("folder")
+        self.ctx.files.set_roots([folder])
+        return folder
+
+    def ask(self, step):
+        folder = self.folder()
+        coming, notes = [], []
+        if folder:
+            plan = self.ctx.uploads.plan(folder, allow_new_game=True)
+            coming = [[item["label"], item["destination"]] for item in plan["items"]]
+            notes = [one["reason"] for one in plan["blocked"]]
+        return {"summary": coming, "notes": notes, "ready": bool(coming),
+                "reason": self.ctx.t("dialog.nothing" if folder else "dialog.no_folder"),
+                "confirm": self.ctx.t("dialog.confirm")}
+
+    def run(self, values):
+        folder = self.folder()
+
+        def work(job):
+            report = self.ctx.uploads.execute(folder, allow_new_game=True)
+            job.problems = len(report["skipped"])
+            return {"game_dir": report["game_dir"], "imported": report["imported"]}
+
+        job = self.ctx.jobs.submit("import_folder", work, keep_result=True)
+        return {"job_id": job.id}
+
+
+def register(ctx):
+    ctx.ui.settings([{"key": "folder", "type": "path", "wants": "dir"}])
+    ctx.ui.action("import_folder", ImportFolder(ctx))
+```
+
+`recipes/import_folder/i18n/en.json`
+
+```json
+{
+  "name": "Import Folder",
+  "description": "Imports a folder of downloaded files into the library as a new game.",
+  "settings.folder.label": "Folder",
+  "settings.folder.help": "The folder whose files are imported",
+  "action.import_folder.label": "Import the Folder",
+  "dialog.no_folder": "Choose a folder in the extension's settings first",
+  "dialog.nothing": "Nothing in that folder can be imported",
+  "dialog.confirm": "Import"
+}
+```
+
+The plan lists each thing it found with where it will go, and `blocked` is what it will not do and why, which goes in as notes.  `execute` imports every item the plan lists unless `selected=` names which.  `set_roots` runs each time rather than once in `register`, so a changed setting is followed.  `execute` with the same arguments does what the summary showed, and it reads the folder again when it runs, so it imports what is there then.
+
+**Where it appears:** as a button on the extension's page in Settings, with the setting beside it.  **What triggers it:** the person pressing Import the Folder.
+
+**What you'll see:** with no folder chosen, the step says "Choose a folder in the extension's settings first" and its Import button is held.  With a folder holding a table and its backglass, the step lists each with where it will go.  Pressing Import closes the dialog, the job appears in Jobs, and the new game appears in the library.
+
+**Variations:**
+
+- Name a game with `game_id=` and `add_table=True` to add the table to a game already in the library instead of making a new one.  The manifest then needs `games:read` as well.
+- Call `analyze(folder)` first to say what a folder holds before planning.
+- Pass `selected=[...]` to `execute`, the `index` of each plan item to import, to import some of what the plan lists.
+- Pass `declared={"Taxi 1.2.vpx": {"host": "example", "host_item_id": "t-9", "confirmed_by": "declared"}}` to `execute` to record where each file came from.  A claim that names a record has to say how it is known.
+
+**Watch out:** the source is read where it is and is left there.  Move or delete it yourself once the job is done.  See [`ctx.uploads`](reference/games.md#ctxuploads) for every key a request takes.

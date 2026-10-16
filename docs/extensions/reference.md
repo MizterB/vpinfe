@@ -28,7 +28,7 @@ has a small, complete extension for each task.
 | What a dialog takes: steps, checks, acts, a long job | [Actions and dialogs](reference/actions.md), with the Fields table every surface shares |
 | A player's account with a service, its fields, its card | [Accounts](reference/accounts.md) and [`ctx.players`](reference/players.md) |
 | Something to add to every entry, a game's link elsewhere, a name for a command | [Entries, catalogs and tokens](reference/entries.md) |
-| The library, and a way to play a format of table | [The library and ways to play](reference/games.md) |
+| The library, importing files into it, and a way to play a format of table | [The library and ways to play](reference/games.md) |
 | A way to play, an outside link, what a game tells you | [More to offer](reference/offers.md) |
 | The words an extension shows, and their keys | [Words](reference/words.md) |
 | What an extension may reach, and what it must ask for | [Scopes and the gate](reference/scopes.md) |

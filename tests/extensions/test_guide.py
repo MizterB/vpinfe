@@ -82,6 +82,7 @@ DECLARES: dict[str, list[str]] = {
     "plugged_in": ["list       devices in system: 4 columns, 0 views, 0 verbs"],
     "next_player_note": ["page       note in community, with fields",
                          "reads      page note: 1 sections, acts: clear"],
+    "import_folder": ["settings   folder (path", "dialog     import_folder: ask run"],
 }
 
 # What `--check-extension` says each lesson's extension declares, as the lesson claims it.
