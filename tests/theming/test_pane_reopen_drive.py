@@ -11,6 +11,7 @@ import asyncio
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any
 
 from tests.support.browser_session import BrowserSession, chromium_path
 from tests.support.library import game_info, write_game
@@ -31,7 +32,7 @@ FOCUSED = ("(() => { const el = document.querySelector('.nicegui-aggrid');"
 EDIT = ("(() => { const el = document.querySelector('.manager-edit-selected');"
         " if (!el) return null; const at = el.getBoundingClientRect();"
         " const shown = at.width > 0 && getComputedStyle(el).display !== 'none';"
-        " return shown ? el.textContent.trim() : ''; })()")
+        " return shown ? el.querySelector('.block').textContent.trim() : ''; })()")
 FOCUS_ROW_2 = ("(() => { const el = document.querySelector('.nicegui-aggrid');"
                " const api = getElement(Number(el.id.slice(1))).api;"
                " api.setFocusedCell(2, api.getGridOption('context').focusCol); })()")
@@ -46,7 +47,7 @@ PANEL_MIN = 250
 
 
 class PaneReopenDrive(unittest.TestCase):
-    seen: dict[str, object] = {}
+    seen: dict[str, Any] = {}
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -61,8 +62,8 @@ class PaneReopenDrive(unittest.TestCase):
                 cls.seen = asyncio.run(cls._drive(instance))
 
     @classmethod
-    async def _drive(cls, instance: LiveInstance) -> dict[str, object]:
-        seen: dict[str, object] = {}
+    async def _drive(cls, instance: LiveInstance) -> dict[str, Any]:
+        seen: dict[str, Any] = {}
         instance.wait_for_api()
         async with BrowserSession(chromium_path() or "") as browser:
             walk = ManagerWalk(browser, instance)
