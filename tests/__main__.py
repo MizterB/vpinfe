@@ -34,7 +34,7 @@ from unittest.loader import VALID_MODULE_NAME
 from platformdirs import user_cache_dir
 
 import tests
-from tests import affected, wholesuite
+from tests import affected, stamp, wholesuite
 
 PACKAGE = Path(tests.__file__).resolve().parent
 REPO = PACKAGE.parent
@@ -469,6 +469,13 @@ def _processes(text: str) -> int:
     return count
 
 
+def _tree_hash() -> str | None:
+    try:
+        return stamp.tree_hash(REPO)
+    except (subprocess.CalledProcessError, OSError):
+        return None
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m tests",
@@ -523,6 +530,8 @@ def main(argv: list[str] | None = None) -> int:
             _say(busy)
             return 2
 
+    covers_invariants = set(modules(PACKAGE / "invariants")) <= set(names)
+    tree_before = _tree_hash() if covers_invariants else None
     recorded = read_durations()
     started = time.perf_counter()
     try:
@@ -554,6 +563,8 @@ def main(argv: list[str] | None = None) -> int:
         wholesuite.record(seconds, sum(r["tests"] for r in records), code == 0)
         runs, spent = wholesuite.today()
         count = [f"Whole-suite runs today: {runs}, {spent / 60:.0f} minutes."]
+    if tree_before and code == 0 and _tree_hash() == tree_before:
+        stamp.record(REPO, tree_before)
     for line in [*failures(shards), "-" * 70, *slowest(records, recorded), *count, "-" * 70,
                  *closing]:
         _say(line)
