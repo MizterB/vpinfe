@@ -1505,7 +1505,7 @@ What's busy, puts them in a `.manager-tile-rows`: a name, a share and a size to 
   uppercase, alone** — a second uppercase column would rank a page's sections with the
   product.
 - **A button takes title case too.** "Import a
-  Library", "Needs a Look". One rule covers a label, a button and a heading, so the person
+  Library", "Needs Review". One rule covers a label, a button and a heading, so the person
   reading never has to tell which of the three they are looking at.
   `tests/invariants/test_labels_are_title_case.py` holds it.
 - **A value is a name or a state, not a sentence.** Names keep their own casing

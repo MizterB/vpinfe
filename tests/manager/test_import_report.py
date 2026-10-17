@@ -71,8 +71,8 @@ class WhatTheReportDraws(unittest.TestCase):
             already_here=[{"key": "old", "name": "Old", "game_id": "o1"}],
             left_behind=[{"what": "ScreenRes.txt", "displays": True}]))
 
-        order = ["Needs a Look", "Not Imported", "Need a ROM", "Good to Know",
-                 "Already in VPinFE, Left Alone", "DMD Positioned on Its Own", "Left Behind",
+        order = ["Needs Review", "Not Imported", "Need a ROM", "Good to Know",
+                 "Already in VPinFE, Left Alone", "DMD Positioned on Its Own", "Files Not Imported",
                  "ScreenRes.txt", "Imported"]
         self.assertEqual(order, [one for one in drawn if one in order])
 
@@ -172,7 +172,7 @@ class WhatTheReportDraws(unittest.TestCase):
                  [each.text for each in one.descendants() if isinstance(each, ui.label)][0]
                  for one in cells}
 
-        self.assertEqual({"Need a Look": "1", "Games Imported": "2"}, shown)
+        self.assertEqual({"Need Review": "1", "Games Imported": "2"}, shown)
 
     def test_a_figure_for_a_group_that_is_not_drawn_is_not_there(self) -> None:
         with ui.column() as body:
@@ -194,7 +194,7 @@ class WhatTheReportDraws(unittest.TestCase):
         job = _job(rows=[{"game_id": "g1", "table": True}, {"game_id": "art", "table": False}],
                    against=[{"key": "games", "label": "Games", "expected": 2, "actual": 2}])
 
-        self.assertIn("1 came as media alone", _drawn(job))
+        self.assertIn("1 imported as media only", _drawn(job))
 
     def test_a_tile_that_came_up_short_says_by_how_much(self) -> None:
         job = _job(against=[{"key": "media", "label": "Media", "expected": 10, "actual": 7}])
@@ -333,7 +333,7 @@ class TheLineOnLocations(unittest.TestCase):
             [{"id": JOB, "kind": import_report.IMPORT_KIND, "report": True, "started_at": 5}],
             kept)
 
-        self.assertEqual(("PinballY, 12 to look at", report_groups.report_address(JOB)), line)
+        self.assertEqual(("PinballY, 12 to review", report_groups.report_address(JOB)), line)
         library.job.assert_called_once_with(JOB)
 
     def test_an_import_with_nothing_left_says_when_it_was(self) -> None:
@@ -360,7 +360,7 @@ class TheLineOnLocations(unittest.TestCase):
             [{"id": JOB, "kind": import_report.IMPORT_KIND, "report": True, "started_at": 5}],
             self._kept(items=[_item(import_report.NOT_MATCHED, 1)], program="PinballY"))
 
-        self.assertEqual("PinballY, 1 to look at", line[0])
+        self.assertEqual("PinballY, 1 to review", line[0])
 
     def test_a_result_that_cannot_be_read_is_no_line(self) -> None:
         line, _ = self._latest(

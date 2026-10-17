@@ -145,13 +145,13 @@ Runtime state written by VPinFE, not shown as a setting.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `match_new_games` | bool | `true` | When VPinFE finds a new game, match it to the spreadsheet from its folder name |
-| `get_media_for_new_games` | bool | `true` | Gets the media a new game is missing, online once matched or from its backglass file, and never replaces any. For games already here, use Get missing media. |
+| `get_media_for_new_games` | bool | `true` | Downloads media a new game lacks, online once matched or from its backglass file, and never replaces any. For games already here, use Download Missing Media. |
 | `update_downloaded_media` | bool | `true` | When VPinMediaDB replaces media VPinFE downloaded for you. Media you added or changed is never touched. |
 | `update_game_details` | choice (never, daily, weekly, monthly) | `never` | How often to copy name, year, type, themes and guides from the spreadsheet onto matched games |
-| `refresh_minutes` | int | `0` | How often to re-read the library from disk. It picks up media and assets, not just tables. A read walks every game folder, so it is slow over a network share. |
+| `refresh_minutes` | int | `0` | How often to re-read the library from disk. It also reads media and assets, not just tables. A read walks every game folder, so it is slow over a network share. |
 | `ask_where_new_games_go` | bool | `true` | On, adding a game asks which folder it goes to. Off, it goes to the folder marked for them. |
 | `new_games_location` | string |  | The folder a new game is created in. Set from the library's folders. |
-| `download_spreadsheet` | choice (never, daily, weekly, monthly) | `daily` | How often to fetch the spreadsheet. Matching and release lists read this copy. |
+| `download_spreadsheet` | choice (never, daily, weekly, monthly) | `daily` | How often to download the spreadsheet. Matching and release lists use this copy. |
 
 ### `presentation`
 
@@ -203,7 +203,7 @@ Runtime state written by VPinFE, not shown as a setting.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `folder` | string |  | Where Back up now keeps its backups. Changing it asks whether to move the backups already taken. |
+| `folder` | string |  | Where Back up now keeps its backups. Changing it asks whether to move the backups already made. |
 
 ### `media`
 
@@ -235,7 +235,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | `http_port` | int | `8001` | Port this device answers on: the HTTP API, the Manager and the Remote |
 | `library_url` | string |  | Which device this one reads its library from. Empty means it holds its own. Devices on your network are offered; type an address for one that is not. |
 | `verify_shared_library` | bool | `false` | On startup, check that the library this device reads is the one on disk here, by comparing file hashes. Reports what does not match, and changes nothing. |
-| `http_bind` | string | `0.0.0.0` | Which address to serve on. The default answers every interface - set 127.0.0.1 to reach it only from this device. |
+| `http_bind` | string | `0.0.0.0` | Which address to serve on. The default answers every interface - set 127.0.0.1 to allow access only from this device. |
 
 ### `dof`
 
@@ -260,7 +260,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `chunk_size` | int | `1048576` | Files go across in pieces this size; lower it if sends fail on a weak connection |
-| `send_masked_config` | bool | `false` | Where a game has a settings file made for mobile devices, named with the word below, that file goes to the device in place of its own settings |
+| `send_masked_config` | bool | `false` | Where a game has a settings file made for mobile devices, named with the word below, that file is sent to the device instead of its own settings |
 | `config_mask` | string | `mobile` | The word that marks a settings file made for the device. Copy a table's settings file, add the word before .ini, and the device gets that copy |
 
 ### `vpinplay`

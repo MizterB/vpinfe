@@ -479,7 +479,7 @@ class DrawTests(unittest.TestCase):
         return said
 
     def test_the_newest_import_is_a_line_beside_import_a_library(self) -> None:
-        newest = ("PinballY, 12 to look at", "/report/job-1")
+        newest = ("PinballY, 12 to review", "/report/job-1")
 
         said = self.drawn(row("a"), importing={}, newest_import=newest)
 
@@ -495,7 +495,7 @@ class DrawTests(unittest.TestCase):
     def test_no_import_kept_draws_no_line(self) -> None:
         said = self.drawn(row("a"), importing={})
 
-        self.assertFalse([one for one in said if "to look at" in one or "imported" in one])
+        self.assertFalse([one for one in said if "to review" in one or "imported" in one])
 
     def test_one_folder_draws_no_chip_and_no_switch(self) -> None:
         said = self.drawn(row("a", write_to=True))

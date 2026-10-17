@@ -290,7 +290,7 @@ class TablesAndMatchesTests(WizardCase):
 
         rows = dict(one for one in found["summary"] if len(one) == 2)
         self.assertEqual(rows["Games"], "2")
-        self.assertEqual(rows["Left Out"], "2 not ticked")
+        self.assertEqual(rows["Left Out"], "2 not selected")
 
     def test_nothing_is_left_out_when_every_game_is_ticked(self) -> None:
         found = self._check(FIXTURE)
@@ -397,7 +397,7 @@ class SummaryShapeTests(WizardCase):
         after = [one[0] for one in found["summary"][at + 1:]]
         self.assertEqual(after, ["Games", "Tables", "Media Files",
                                  "Backglasses and Settings", "Games with Play History",
-                                 "Matched to VPS", "Left Behind"])
+                                 "Matched to VPS", "Files Not Imported"])
 
     def test_with_no_catalog_the_summary_says_no_game_is_matched(self) -> None:
         found = self._check(FIXTURE)
@@ -433,7 +433,7 @@ class SummaryShapeTests(WizardCase):
         of theirs was not carried."""
         found = self._check(FIXTURE)
 
-        left = dict(one for one in found["summary"] if len(one) == 2)["Left Behind"]
+        left = dict(one for one in found["summary"] if len(one) == 2)["Files Not Imported"]
         self.assertEqual(left, "Wheel Images, later pages (1)")
 
     def test_a_clip_in_the_cards_folder_is_named_as_videos(self) -> None:
@@ -443,7 +443,7 @@ class SummaryShapeTests(WizardCase):
 
         found = self._check(source)
 
-        left = dict(one for one in found["summary"] if len(one) == 2)["Left Behind"]
+        left = dict(one for one in found["summary"] if len(one) == 2)["Files Not Imported"]
         self.assertIn("Instruction Cards videos (1)", left)
 
     def test_the_summary_counts_the_games_whose_play_history_comes_across(self) -> None:
@@ -738,10 +738,10 @@ class NamesArtAndThingsTests(WizardCase):
 
         self.assertEqual(wheels["Wheel Images"], "Wheels")
         self.assertEqual(logos["Wheel Images"], "Logos, shown in place of wheels")
-        self.assertEqual(logos["Get Missing Media"], "Yes")
+        self.assertEqual(logos["Download Missing Media"], "Yes")
 
     def test_missing_media_is_not_fetched_when_the_switch_is_off(self) -> None:
-        self.assertEqual(self.rows(fetch_media=False)["Get Missing Media"], "No")
+        self.assertEqual(self.rows(fetch_media=False)["Download Missing Media"], "No")
 
     def test_an_answer_kept_from_an_earlier_import_starts_the_page(self) -> None:
         self.store.set_setting("library_importer", "answers",

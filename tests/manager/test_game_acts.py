@@ -63,7 +63,7 @@ class ForAGame(unittest.TestCase):
                                     collections=lambda _: None)
 
         self.assertEqual(["Launch", "Mark Private", "Match to VPS...", "Auto-Match",
-                          "Get Missing Media...", "Send to Device...", "Back Up Now",
+                          "Download Missing Media...", "Send to Device...", "Back Up Now",
                           "Add to Collection", "Delete from Disk"], _labels(verbs))
 
     def test_it_is_filed_only_once_the_collections_are_read(self) -> None:
