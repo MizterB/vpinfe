@@ -111,7 +111,7 @@ Everything about a window follows from its name:
 
 **The first window is the controller.** It owns input, audio and the selection, and
 `vpin.isController()` is how a window knows. A window with no monitor set is not opened,
-so declaring four on a two-monitor machine is fine.
+so declaring four on a two-monitor device is fine.
 
 **The topper is the device's, not the theme's.** Someone with a topper screen sets it once
 under Hardware › Displays, and VPinFE opens a `topper` window on it whichever theme is
@@ -279,7 +279,7 @@ server your theme is loaded from. Contract 1 carried a filesystem path per kind 
 every theme to turn it into a URL; contract 2 does not put the filesystem in a web page,
 and on a large library it keeps several hundred kilobytes off the wire each time the list
 is rebuilt. Responses carry an `ETag` and ask to be revalidated, so replacing art in the
-Manager shows up without a hard refresh.
+Manager appears without a hard refresh.
 
 **Pages.** The flyer and the instruction card can be several pictures. `entries[].pages` maps
 a kind to its page count, for the kinds that have two or more; a kind with one page is not
@@ -506,7 +506,7 @@ Core draws the selected game's playfield into that element, marks the picture or
 `position: relative` and has to fill the surface, because turned art is sized from the
 screen. That is the whole integration — no rotation arithmetic anywhere in your theme.
 
-Art your theme draws itself is marked the same way and handed over once it is in the page:
+Art your theme draws itself is marked the same way and passed to `vpin.applyPlayfieldMediaRotation` once it is in the page:
 
 ```html
 <img class="vpinfe-playfield-media" id="playfield">
@@ -824,7 +824,7 @@ a page and a startup restore all announce themselves the same way:
 | `reason` | how far and why — `"step"` for one item, `"page"` for a page press, `"restore"` at startup and when a window opens after the wheel has moved, `"enter"` and `"leave"` when core descends into a list or comes back out. A page press moves to the next group when group paging is on and a fixed number of rows otherwise; both report `"page"`, because both want the same treatment |
 | `source` | who moved it — `"user"`, or `"attract"` when core's [attract mode](#attract-mode) moved it on its own. A theme that animates differently for a move nobody pressed reads this |
 | `moving` | true while the wheel is still settling, so you can defer full-resolution art. Time-based, so a single distant move reports `false` — use `reason` to tell a page from a step |
-| `group` | the group the selection landed in — `"T"`, `"1985"`, `"#"`. Empty when the list's order has no groups |
+| `group` | the group the selection is in - `"T"`, `"1985"`, `"#"`. Empty when the list's order has no groups |
 | `groupKind` | what kind of group that is — `"letter"`, `"year"`, `"rating"`. Empty alongside `group`, so you can tell "no grouping here" from "the group happens to be empty" |
 | `list` | which list this index is in — the collection name for the wheel, `"collections"` for the picker |
 | `kind` | what that list holds — `"table"` or `"collection"`. Read this instead of keeping a mode flag: an index message can no longer be mistaken for "a game was picked" |
@@ -1100,7 +1100,7 @@ The following actions are handled internally by VPinFECore and do **not** reach 
 
 A key or a button can carry a hold, written `key:Escape@hold:1500`: kept down for that many
 milliseconds it does the hold's action, and let go sooner it does its ordinary one. An input
-has one of each, so one that has a hold says nothing until it comes back up or the hold is
+has one of each, so one that has a hold says nothing until it is released or the hold is
 reached. Out of the box `Escape` is `joyback` when tapped and `joyexit` when held for 1.5
 seconds, and a controller's East button does the same.
 
@@ -1345,7 +1345,7 @@ The following methods are available via `vpin.call()`:
 |--------|------|---------|-------------|
 | `get_my_window_name` | — | `string` | Returns the window name for this instance (`"playfield"`, `"backglass"`, or `"scoreview"` by default). |
 | `close_app` | — | — | Shuts down all browser windows and exits the application. |
-| `shutdown_system` | — | — | Powers off the machine. |
+| `shutdown_system` | — | — | Powers off the device. |
 | `lifecycle_request` | `scope`, `action`, `reason`, `confirmed` | `bool` | Starts, stops or restarts something. Returns whether it is going ahead. |
 | `lifecycle_needs_confirmation` | `scope`, `action` | `object` | `{confirm, description}` — whether to ask the user first, and the wording to ask with. |
 | `get_monitors` | — | `array` | Returns list of monitor objects with `name`, `x`, `y`, `width`, `height`. |

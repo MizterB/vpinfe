@@ -39,7 +39,7 @@ An action sits with what it acts on, and the declarations are how you say which 
 | A value | A field in a pane, edited in place |
 | The extension's own page | A setting |
 
-A verb has one word.  **Remove** takes it out and **Delete** means gone for good, so name the one you
+A verb has one word.  **Remove** takes it out and **Delete** means removed permanently, so name the one you
 do.  A link that leaves the Manager is an address, and core marks it as leaving and opens it in a
 new tab.  See [A link says whether it leaves](../conventions.md#a-link-says-whether-it-leaves).
 
@@ -76,7 +76,7 @@ new tab.  See [A link says whether it leaves](../conventions.md#a-link-says-whet
 ## A picture, an address and a game
 
 - **Give a picture's address and core serves the picture.**  A `picture` cell holds an address or a
-  file in your folder, and core fetches it once, checks it, makes a copy at the size of a list and
+  file in your folder, and core downloads it once, checks it, makes a copy at the size of a list and
   serves only that copy from VPinFE's own address.  The page never reaches a server of yours, so do not
   put a third-party address in anything you hand to a page.  A web address needs `net:outbound`.
   A picture has no tier of its own, so one in an extension with a page a Remote can open can be

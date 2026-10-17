@@ -23,7 +23,7 @@ HEADER = """## vpinfe.json Definition
 
 VPinFE stores its settings as JSON in a platform-specific configuration directory. On
 first run it writes a complete `vpinfe.json` there, so a new install never needs the file
-opened by hand:
+opened manually:
 
 - **Linux**: `~/.config/vpinfe/vpinfe.json`
 - **macOS**: `~/Library/Application Support/vpinfe/vpinfe.json`

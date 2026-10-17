@@ -37,7 +37,7 @@ Extensions, or with `PUT /api/v1/extensions/{name}/enabled` (needs `config:write
 - **Off is at once.**  The extension goes the way a broken one does, below, and says it was
   switched off rather than that it broke.
 - **On is at once for an extension that only declares through `ctx.ui`.**  Its lists,
-  settings, actions and account come back with no restart, because core serves them.
+  settings, actions and account are available with no restart, because core serves them.
 - **On waits for a restart for an extension with routers of its own** (`ctx.add_router`).
   Routes mount once at startup, and one that was off never registered any.  It says "Starts at
   the next restart" until then.
@@ -60,7 +60,7 @@ has the traceback.
 | The manifest is missing, unreadable, names a bad name, an unknown capability or feature or a platform that is not a name, or says no platform | Not loaded. State *failed* | The extension's page, with the reason in words (for instance "Its folder has no extension.json") |
 | The manifest's `name` is not the folder's | Not loaded | "Its manifest calls it X, so its folder has to be called that too" |
 | `requires_platform` is not offered | Not loaded | "Built for extension platform 2, and this build offers 1" |
-| The manifest names a platform this machine is not, or a feature this install lacks | Not started, listed as *off* | "It does not run on Windows", or the missing features, with a button to open this device's settings |
+| The manifest names a platform this device is not, or a feature this install lacks | Not started, listed as *off* | "It does not run on Windows", or the missing features, with a button to open this device's settings |
 | `scopes` names a scope that does not exist | Taken out at startup | "Asks for scopes that do not exist: ..." |
 | The package will not import, `register` is missing, or `register` raises | *failed*. What it had offered by then is taken back | "The log says why it did not start". The exception is in the log |
 | A `ctx` call raises `ContractError` during `register` (a setting without `ui:mount`, a list title that clashes) | The same: *failed* | The log has the `ContractError` line, which says what to change |
@@ -110,7 +110,7 @@ cause chain.  The extension is not disabled, and the next visit or Refresh asks 
 scratch store, and reports.  Exit status 0 means it passed and 1 means it did not.  Only read
 functions are called (a list's `rows`, a status, a dialog's first step, the settings), and
 nothing is sent or saved.  The manifest's `platforms` do not stop it: an extension for one
-distribution is checked on any machine, and a `platforms` line says whether this one would run
+distribution is checked on any device, and a `platforms` line says whether this one would run
 it.
 
 ```

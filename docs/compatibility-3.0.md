@@ -87,7 +87,7 @@ outranks token, so a game-file-specific `(GameHelp)` file beats a folder-level
 *Why:* hand-placed media was invisible unless it matched one exact name, and a media
 refresh could clobber a user's own file; the tiers make "mine" and "downloaded"
 structurally distinct. The published tokens for those two say the role rather than the
-thing, which reads as a different asset to anyone naming files by hand — and since VPinFE
+thing, which reads as a different asset to anyone naming files manually — and since VPinFE
 only ever *writes* its own tokens, accepting both costs nothing on disk.
 Covered by `tests/media/test_media_resolution.py`.
 
@@ -182,7 +182,7 @@ the MD5 VPinMediaDB publishes: a match means it is demonstrably our file and sta
 managed, anything else is left alone. That covers every file, claimed or not, including
 the case marking could never handle — our art that you later replaced.
 So `--claim-user-media` is a no-op stub kept for scripts, the Manager UI's "Use my own
-media" toggle is gone, and `--user-media` now only means "fetch nothing". Existing
+media" toggle is removed, and `--user-media` now only means "download nothing". Existing
 `"Source": "user"` marks stop being consulted; nobody's artwork changes state.
 *Why:* protection that depends on the user having run a command only protects the people
 who already knew about it. One loss worth naming: a file byte-identical to VPinMediaDB's
@@ -298,7 +298,7 @@ method is for. Covered by `tests/extensions/test_contributions.py` and
 collection the launcher wrote to on every launch — push the game onto the front of a member
 array, trim it to 30. It is an ordinary filter collection now: every game with a play date,
 most recent first, capped at 30. An existing one is converted in place on first start,
-keeping its name, icon and position in the list; the member array goes. That conversion runs
+keeping its name, icon and position in the list; the member array is removed. That conversion runs
 once and the file records that it ran, so deleting the collection, or turning it back into a
 list you picked yourself, sticks. A fresh install is seeded with it, empty until something is
 played. The `played` criterion behind it is a filter axis like any other, so "never played"
@@ -385,7 +385,7 @@ scoped to - data, no screen. Routing a launch to a chosen device, aggregating st
 conflict resolution are all deliberately absent: each needs a decision across devices that
 has not been made. The registry fills itself from what is announced on the network
 (PAR-89) rather than from installs pushing to a configured address, so `PUT` is what a
-person uses to add a phone or a machine mDNS cannot reach. Its address is read off the
+person uses to add a phone or a device mDNS cannot reach. Its address is read off the
 socket for anything announcing itself and taken from the body for a phone, because a phone
 is registered by a person rather than by itself. Covered by `tests/api/test_devices.py` and
 `tests/theming/test_separation.py`, which runs two live installs against a live library.
@@ -402,7 +402,7 @@ thing it is, and neither word survived the second job. What it does is a feature
 of thing it is is a device's `kind`. The migration matches on the value rather than the old
 key, because `roles` is an alias and the generic pass has already moved it under `features`
 by the time it runs - matching the old key would have silently never fired. An install that
-said only `device` lands on `frontend` alone: falling through to the default would hand a
+said only `device` gets `frontend` alone: falling through to the default would hand a
 cab a library it never had. Covered by `tests/config/test_config_store.py` and
 `tests/config/test_install_identity.py`.
 
@@ -417,7 +417,7 @@ which meant the Devices surface could offer exactly that and nothing else. Serve
 side being touched, and only what this install performs is listed: one with no window owner
 performs no frontend action, and a button that reports success while nothing happened is worse than
 one that is not offered. An action that takes the
-process or the machine down answers before it goes, the same order `POST /update` uses.
+process or the device down answers before it goes, the same order `POST /update` uses.
 Closing a table goes through the play route's own handler, which checks first, so asking
 to close one when none is running says so. Covered by `tests/api/test_actions.py` and
 `tests/api/test_logs.py`.
@@ -612,7 +612,7 @@ a `devices.json` beside the other config files, keyed by `install_id`. Nothing w
 it yet and no screen shows it, so an existing install never grows the file and behaves
 identically.
 *Why:* two installs answering one library were indistinguishable at every layer until install
-identity (PAR-52) and event provenance (PAR-55) landed; this is the place their answers
+identity (PAR-52) and event provenance (PAR-55) were added; this is the place their answers
 go. Keyed on `install_id` because it is the only thing about a device that does not
 change - a display name is meant to be renamed and an address moves with DHCP, so a
 device registry keyed on either loses the device the first time somebody uses the feature.
@@ -626,7 +626,7 @@ not silently strip it, and an unreadable device registry reads as empty rather t
 start - losing track of who was known is recoverable, not starting is not. Covered by
 `tests/api/test_device_registry.py`.
 
-**PAR-65 — The API records whether a caller reached it from this machine.** Every identity
+**PAR-65 — The API records whether a caller reached it from this device.** Every identity
 now carries an `origin` of `local` or `network`, decided by the request's own peer
 address. **Nothing a caller may do changes**: a network caller keeps exactly the scopes it
 had, so no install behaves differently and no request that worked stops working.
@@ -836,8 +836,8 @@ which kept every old spelling working). Both default to what that
 server already did - `127.0.0.1` for theme assets and table media, `0.0.0.0` for the
 Manager UI - so nothing about an existing install changes until somebody sets one. The
 window channel gets no such setting.
-*Why:* the theme assets port answers this machine only, so pointing a browser on another
-machine at a VPinFE install got nothing, and correcting the URLs it builds (PAR-53) only
+*Why:* the theme assets port answers this device only, so pointing a browser on another
+device at a VPinFE install got nothing, and correcting the URLs it builds (PAR-53) only
 gets a remote viewer as far as being refused. Making it configurable is what turns
 "develop a theme from another machine" from broken into supported. An address rather than
 a boolean, because binding one interface is a real case and `0.0.0.0` should not be the
@@ -877,12 +877,12 @@ runs against ports chosen at random precisely so an assumed one fails.
 
 **PAR-52 — An install has an identity of its own.** A new `[device]` section holds `id`,
 `name` and `features`. `id` is minted once on first start and written to the
-config; `name` defaults to this machine's hostname and is not written down by
+config; `name` defaults to this device's hostname and is not written down by
 reading it; `features` defaults to `library,frontend,devices,overview`: what every
 existing install already does, plus a front page. All three are additive to
 `GET /api/v1`, so no client breaks. An install that already wrote its own `features`
 keeps exactly what it wrote. The key was `roles` when this
-landed and is migrated in place - see PAR-91.
+was added and is migrated in place - see PAR-91.
 *Why:* `GET /api/v1` returned `"name": "VPinFE"` and nothing else, byte-identical on every
 install, so two installs answering one library were indistinguishable at every layer - no
 field to address one, none to attribute anything to one. That is correct for the
@@ -1071,7 +1071,7 @@ manifest's `min_vpinfe` as a registry entry is. Covered by
 author who serves two contracts.** An earlier build read a `vpinfe-theme.json` from the
 default branch of a theme repository, listing a contract and the ref serving it, and
 installed the highest contract it could run. That file is no longer read, and
-the module that read it is gone. A list entry is a key, a `url`, optionally a
+the module that read it has been removed. A list entry is a key, a `url`, optionally a
 `name` and a `ref`; an author who wants a contract 2 branch beside a contract 1 master
 lists the branch as its own entry. Whether a build runs a theme is the manifest's
 `min_vpinfe`, which a 3.0 or newer build checks before it downloads anything. A 2.x
@@ -1109,7 +1109,7 @@ likely to be using. Covered by `tests/invariants/test_deprecations.py`.
 `--game` takes the folder name for `--buildmeta`, `--upgrade-info` and `--restore-info`.
 `--table` is accepted as an alias and kept out of `--help`, so a script written against
 2.x keeps running while the documented flag is the current one.
-*Why:* the CLI sits with the API rather than with the Manager UI, which kept saying
+*Why:* the CLI belongs with the API rather than with the Manager UI, which kept saying
 Tables for 3.0. A flag in somebody's
 script is exactly the kind of thing that should not need editing to survive an upgrade.
 
@@ -1147,7 +1147,7 @@ they always had (`pupPackExists`, `altColorExists`, `vniExists`, `altSoundExists
 
 **PAR-20 — The 2.x restore module is removed; 3.0 restores through its own.**
 `common/info_restore.py`, its Manager UI dialog and its tests shipped in the 2.x line so a
-release older than 3.0 could put back the backups 3.0 writes. They are deleted here.
+release older than 3.0 could restore the backups 3.0 writes. They are deleted here.
 `common/games/info_maintenance.py` does the same job and generalizes it: `restorable_backup`
 takes the highest schema this build can read, so one walk serves every future schema bump.
 *Why:* that module exists to serve the release *before* 3.0. Once 3.0 is master there is no
@@ -1221,7 +1221,7 @@ name still reads.
 vocabulary and rename with that work, not this.
 *Why:* the ini forced a second spelling of nearly every setting - the file said
 `gamerootdir` while the code said `game_root_dir` - and a mapping between them that had to
-be maintained by hand. One name now, and it is the one `docs/conventions.md` asks for.
+be maintained manually. One name now, and it is the one `docs/conventions.md` asks for.
 Canonical-plus-alias is the pattern Visual Pinball uses upstream for the same problem.
 Covered by `tests/config/test_config_schema.py` and `tests/config/test_config_store.py`.
 
@@ -1517,7 +1517,7 @@ and `tests/theming/test_render_smoke.py`.
 **PAR-105 - Two real DMD video kinds: real_dmd_video and real_dmd_color_video.**
 *(machine-checked)* Themes gain two payload fields, `realDMDVideoPath` (`realdmd.mp4`,
 token `(RealDMD)`) and `realDMDColorVideoPath` (`realdmd-color.mp4`, token
-`(RealColorDMD)`); every existing field is unchanged. Each video sits beside its picture,
+`(RealColorDMD)`); every existing field is unchanged. Each video is beside its picture,
 the way `bg` and `dmd` do: the token names the picture and the video, the extension family
 tells them apart. `getMedia(index, "real_dmd")` still answers with a picture; a theme that
 wants the video asks for the video kind.
@@ -1546,7 +1546,7 @@ and `tests/theming/test_sign_in_drive.py`.
 methods, `get_remote_link` and `get_vpinplay_multi_link`. Master's
 `get_managerui_remote_link` and `get_managerui_vpinplay_multi_link` stay callable and
 forward to them, so a theme written against master gets its answer.
-*Why:* the page the old names pointed at is gone; the codes open the Remote and the
+*Why:* the page the old names pointed at has been removed; the codes open the Remote and the
 VPinPlay multi-player page.
 Covered by `tests/host/test_addresses.py` and `tests/invariants/test_parity.py`.
 
@@ -1594,7 +1594,7 @@ built from the game exactly as 2.x built it. The parity gate holds it against ma
 
 Contract 2 is an object — `{collection, expanded, count, entries}` — where an entry is a
 table with its game attached. A game offering several tables can appear more than once,
-which a row array cannot express. `meta` is gone at contract 2: it was the `.info` passed
+which a row array cannot express. `meta` is removed at contract 2: it was the `.info` passed
 through, so a storage change reached themes whether or not it meant anything to them.
 
 `meta` going away means contract 2 has to serve what themes actually read out of it, so

@@ -52,7 +52,7 @@ Medieval Madness (Williams 1997)/
     └── (Wheel) Medieval Madness Remake VR 1.2.png   a wheel for the VR table alone
 ```
 
-- **Files named for a table** go with that table: the backglass, settings, script and point of view above each follow the `.vpx` they sit beside.  A backglass, settings file or script named for the game folder serves any table in it that has none of its own.
+- **Files named for a table** stay with that table: the backglass, settings, script and point of view above each follow the `.vpx` they sit beside.  A backglass, settings file or script named for the game folder serves any table in it that has none of its own.
 - **Media** is looked for in `medias/` first and then in the game folder itself.  A file named for a table, such as `(Wheel) Medieval Madness Remake VR 1.2.png`, is used for that table and beats one named for the game, which beats the plain `wheel.png`.  The full list of names is in [Media Flow](media-flow.md).
 - **ROMs, sounds and packs** live inside the game.  `altsound/`, `pupvideos/`, `music/` and a `serum/` or `vni/` folder are recognized by their names.  A Serum or VNI color file is saved under the game's ROM name (`serum/<rom>/<rom>.cRZ`, `vni/<rom>/<rom>.pal`), because that is the only name VPX's plugins load; `pin2dmd.pal` and `pin2dmd.vni` keep theirs, and a `.pac` is refused.  Import them with the drag and drop importer, or let the importer convert them from another frontend's layout.
 - **Hidden tables.**  A table you hide stays on disk and is left out of the frontend, which suits a patch base that a patched variant needs.
@@ -64,14 +64,14 @@ VPinFE matches each game to its [VPS](https://virtualpinballspreadsheet.github.i
 
 ### Media
 
-VPinFE gets media for your games from [VPinMediaDB](https://github.com/superhac/vpinmediadb), and never replaces media you chose.
+VPinFE downloads media for your games from [VPinMediaDB](https://github.com/superhac/vpinmediadb), and never replaces media you chose.
 
-- **New games** get the media they are missing as soon as they are matched.  The switch is **Get Media for New Games**, under **Settings > Library > Automatic**.
+- **New games** have their missing media downloaded as soon as they are matched.  The switch is **Download Media for New Games**, under **Settings > Library > Automatic**.
 - **Media VPinFE downloaded** stays current.  When VPinMediaDB replaces a file, the copy VPinFE downloaded for you is replaced too.  Media you added or changed is never touched.  The switch is **Update Downloaded Media**, on the same page.
-- **Get Missing Media...** fills the gaps whenever you ask, in the kinds you pick.  It is in a game's **Media** section and in the **Games** and **Media** bulk menus.  On the **Overview**, **Get media** sits beside a missing playfield or backglass.
-- **Record Media...** plays the table and records its own screens into its media: the playfield, backglass and DMD as videos and pictures, and its sound if you tick Audio.  It is in a game's or a table's **Media** section, and **Record** beside a slot's **Add** or **Replace** records just that one, for you to look at before it is used.  It fills empty slots unless you choose to replace files, asks before deleting any, and can keep each recording for you to look at before it is used.  Its settings are under **Settings > Hardware > Recording**.
+- **Download Missing Media...** fills the gaps whenever you ask, in the kinds you pick.  It is in a game's **Media** section and in the **Games** and **Media** bulk menus.  On the **Overview**, **Download Media** is beside a missing playfield or backglass.
+- **Record Media...** plays the table and records its own screens into its media: the playfield, backglass and DMD as videos and pictures, and its sound if you select Audio.  It is in a game's or a table's **Media** section, and **Record** beside a slot's **Add** or **Replace** records just that one, for you to review before it is used.  It fills empty slots unless you choose to replace files, asks before deleting any, and can keep each recording for you to review before it is used.  Its settings are under **Settings > Hardware > Recording**.
 
-Only the kinds your library collects are fetched, and the playfield comes in the variant and resolution you set.  Both are under **Settings > Library > Media**.
+Only the kinds your library collects are downloaded, and the playfield is downloaded in the variant and resolution you set.  Both are under **Settings > Library > Media**.
 
 The picture beside a game, table or collection's name in the Manager's lists is **Art in Lists**, under **Settings > VPinFE > Manager**.  It is the wheel unless you pick the backglass, the playfield, the logo or none, and it offers only the kinds your library collects.  A game or table shows the art the frontend shows for it, and its icon where it has none.  A collection shows its own picture whichever kind you pick.
 
@@ -105,7 +105,7 @@ Release builds include two integrations, packaged under `third_party/dof` and `t
 - **DOF** drives cabinet outputs such as feedback devices and toys.
 - **libdmdutil** sends the table's DMD image to a real DMD.
 
-Both are off until you switch them on.  Running from source, fetch them with `./scripts/fetch_dof_bundle.sh` and `./scripts/fetch_libdmdutil_bundle.sh`.  To use a copy kept somewhere else, set `VPINFE_DOF_DIR` or `VPINFE_LIBDMDUTIL_DIR` to its folder.
+Both are off until you switch them on.  Running from source, download them with `./scripts/fetch_dof_bundle.sh` and `./scripts/fetch_libdmdutil_bundle.sh`.  To use a copy kept somewhere else, set `VPINFE_DOF_DIR` or `VPINFE_LIBDMDUTIL_DIR` to its folder.
 
 ### DOF
 
@@ -138,7 +138,7 @@ Options that work on the library without starting VPinFE:
 | `--no-media` | With `--buildmeta`: do not download images |
 | `--user-media` | With `--buildmeta`: download nothing from VPinMediaDB, and use only the media you supply |
 | `--upgrade-info` | Upgrade every `.info` file to the current format, saving each one first.  This happens at startup; use it to finish an upgrade that was interrupted |
-| `--restore-info` | Put back the `.info` files saved before they were upgraded.  Your current ones are kept first |
+| `--restore-info` | Restore the `.info` files saved before they were upgraded.  Your current ones are kept first |
 | `--listmissing` | List the games from VPS |
 | `--listunknown` | List the games VPinFE cannot match to VPS |
 | `--vpxpatch` | Apply the VPX patches |

@@ -25,16 +25,16 @@ next section first.
   settings and collections files 3.0 wrote, the `.info` files it made and every backup it
   kept, so the next start migrates from scratch. Settings you changed under 3.0 are lost,
   and so is any rating or play count on a game 3.0 added. It keeps a copy of your device
-  list first, because a mobile device you added by hand is the one thing nothing
+  list first, because a mobile device you added manually is the one thing nothing
   re-announces. It refuses while VPinFE is running; `--dry-run` lists what would go, and
   `--config-only` leaves the library alone.
 - **Other devices sign in once, with a code.** A browser on another device asks for a
-  code and VPinFE shows it on this machine, where whoever is there chooses Show or Ignore.
+  code and VPinFE shows it on this device, where whoever is there chooses Show or Ignore.
   Settings > Security lists the browsers signed in and ends any of them. This device never
   asks. A change that can run programs or cannot be undone, such as installing an update or
   restoring a backup, asks another device for a second Confirm code, and skips it over a
   VPN, behind a proxy or on HTTPS. An authenticator app set up on the same page can give
-  both codes. Themes and extensions that did not come with VPinFE stay off until you accept
+  both codes. Themes and extensions that are not included with VPinFE stay off until you accept
   them. Traffic on your network is not encrypted, so away from home connect through a VPN.
   Set Reachable From in Settings to This Device Only to keep other devices out altogether, at
   the cost of the Manager and the Remote working from other devices.
@@ -45,7 +45,7 @@ next section first.
   signed in and signs any of them out, makes tokens for scripts and other programs, and
   names the networks and proxies whose traffic is encrypted. VPinFE can serve HTTPS from a
   certificate you choose.
-- **Manager** - A new interface, and the page you land on. One place for the library,
+- **Manager** - A new interface, and the page that opens first. One place for the library,
   media, devices and settings, in grids you can sort, filter and search, with a picture
   beside each name. Column layouts are kept as views of your own. Select a row and its panel
   answers for it; select several and change them together, with one Undo for the lot.
@@ -69,7 +69,7 @@ next section first.
 - **Core, Manager** - Import a library from PinballX, PinballY, PinUP Popper or a plain
   folder of tables. The import shows each page of what it found, asks only what it cannot
   settle, and ends with a summary of exactly what it will do. It runs as a job and keeps a
-  report of what needs a look afterward. Games are matched to the Virtual Pinball
+  report of what needs review afterward. Games are matched to the Virtual Pinball
   Spreadsheet, and several library folders can be kept at once.
 - **Manager** - Match a game to the Virtual Pinball Spreadsheet from a picker, see how the
   match was made and go back to the earlier one. Take a game's details from the spreadsheet,
@@ -88,7 +88,7 @@ next section first.
   point of view, score view layout) and what is missing or left over. A table's INI, script,
   point of view or score view layout can be edited there, with a copy kept in Backups each
   time you save. A table's script can be extracted to a `.vbs` to patch, and the community's
-  script fixes can be fetched.
+  script fixes can be downloaded.
 - **Core** - `.dif` patches apply directly, with no external tool. The base file stays on
   disk because the patched table cannot be rebuilt without it, and VPinFE records which base
   and which patch produced the result.
@@ -100,11 +100,11 @@ next section first.
   can be chosen for a table. Launcher settings can be given to all tables, to one game or
   to one table, and the Manager shows which layer a value comes from.
 - **Manager, Core** - Devices: installs find each other on your network and show their
-  version, what they can do and what their log says. A machine can be updated, restarted,
+  version, what they can do and what their log says. A device can be updated, restarted,
   powered off, or told to close the table it is playing from another device. Several
-  mobile devices running VPX Mobile can be added by hand and sent tables. A cabinet can play
-  a library held on another machine. Windows may ask to let VPinFE through the firewall the
-  first time, and a network that filters multicast still takes an address by hand.
+  mobile devices running VPX Mobile can be added manually and sent tables. A cabinet can play
+  a library held on another device. Windows may ask to let VPinFE through the firewall the
+  first time, and a network that filters multicast still takes an address manually.
 - **Manager, Core** - Backups: VPinFE keeps a copy before it changes something it cannot
   easily undo, and System > Backups lists, restores or clears them. A backup of your whole
   setup can be taken at any time and carried to another device.
@@ -121,7 +121,7 @@ next section first.
   smart collection. A library on a drive or share that is not connected yet is waited for,
   and the wheel fills when it is.
 - **Frontend** - VPinFE can ask before it quits or powers off the machine. It is off by
-  default, which is how it has always behaved; tick Confirm Before Exit to turn it on. The
+  default, which is how it has always behaved; turn on Confirm Before Exit. The
   question appears on whatever you used to ask, and every other screen is told what is about
   to happen.
 - **Core** - VPinFE is localization ready. Every word it puts on screen comes from a
@@ -135,7 +135,7 @@ next section first.
   anything downloads, and the message names the version it wants. Themes install, update
   and take their options from Themes, from sources you can add and order.
 - **Core** - What a theme or an overlay throws now reaches `vpinfe.log`, tagged with the
-  window it came from. A browser log goes nowhere anyone reads on a cabinet, so a theme
+  window it came from. A browser log is not shown anywhere anyone reads on a cabinet, so a theme
   that broke looked like a frontend that had stopped answering the buttons.
 - **Core** - An HTTP API at `/api/v1` with a written contract: games and tables, launch,
   media, assets, collections, uploads, VPS search and export, one error format and a
@@ -143,7 +143,7 @@ next section first.
   asking once a second, and the frontend listens to it for launch state. Documented in
   `docs/`.
 - **Core** - Extensions add a feature without changing VPinFE, with a page of their own under
-  Extensions in Settings. The Library Importer and VPinPlay, which brings community ratings
+  Extensions in Settings. The Library Importer and VPinPlay, which adds community ratings
   and top lists, are extensions.
 
 ### Changes you may notice
@@ -162,8 +162,8 @@ These are deliberate. `docs/compatibility-3.0.md` has the full list with the rea
   Devices and Overview, all on by default.
 - **Core** - Media resolves through a precedence chain: `(Wheel) <game file>.png` over
   `(Wheel) <folder>.png` over `wheel.png`, and a `.jpg` counts where the old code only ever
-  looked for one exact `.png`. Media you placed by hand that was silently ignored now shows
-  up. Imported media keeps its real extension.
+  looked for one exact `.png`. Media you placed manually that was silently ignored now appears.
+  Imported media keeps its real extension.
 - **Core** - Your own media is protected by hash rather than by claiming it. A file already
   on disk is compared against the MD5 VPinMediaDB publishes; a match is ours, and anything
   else is left alone. `--claim-user-media` does nothing now.

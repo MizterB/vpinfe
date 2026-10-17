@@ -220,6 +220,6 @@ if (game.TableVideoPath) {
 ## Moving to contract 2
 
 Declaring `"min_vpinfe": "3.0"` changes three things: the payload becomes an entry list, `meta`
-goes away in favor of named fields, and the main window is called `playfield`. The
+is removed in favor of named fields, and the main window is called `playfield`. The
 renamed `vpin.*` members work at both contracts, so a theme can be renamed first and
 switched afterwards. [theme.md](theme.md) is the reference.

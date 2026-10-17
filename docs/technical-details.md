@@ -2,7 +2,7 @@
 
 VPinFE stores its settings as JSON in a platform-specific configuration directory. On
 first run it writes a complete `vpinfe.json` there, so a new install never needs the file
-opened by hand:
+opened manually:
 
 - **Linux**: `~/.config/vpinfe/vpinfe.json`
 - **macOS**: `~/Library/Application Support/vpinfe/vpinfe.json`
@@ -290,7 +290,7 @@ Owned by the VPinPlay extension. Declared here so a 2.x file converts, read once
 | `take_picture` | list |  | Pauses the game. Press again to take a picture of the screens; Back resumes. |
 
 ## Game Metadata File (based on the Zero install table format)
-When you run VPinFE with the `--buildmeta` option it recursively goes through your game directory attempts to match your games to their VPSDB id.  When matched, it will then parse the VPX for the game for more meta information and produce a `GAME FOLDER NAME(manufactuer year).info` in that game's directory.  Heres an example for the game 1-2-3:
+When you run VPinFE with the `--buildmeta` option it recursively scans your game directory and attempts to match your games to their VPSDB id.  When matched, it will then parse the VPX for the game for more meta information and produce a `GAME FOLDER NAME(manufactuer year).info` in that game's directory.  Heres an example for the game 1-2-3:
 
 ```
 {
@@ -439,7 +439,7 @@ When you run VPinFE with the `--buildmeta` option it recursively goes through yo
     first read — see below.
   - id: the game's stable local identity, used in the API, in events and in collections
   - default_table: which table a consumer that can only take one should get. With none
-    recorded, or when the recorded one is hidden or gone, it is the most recently added
+    recorded, or when the recorded one is hidden or missing, it is the most recently added
     visible table, and a tie goes to the first by name.
   - delete_nvram_on_close: (true/false) Some games, like Taito machines, retain the game
     state when you quit. Enabling this deletes the NVRAM file on close. Default is false.
@@ -579,7 +579,7 @@ These are shared by every mobile device, under the **Sending** heading on a mobi
 - **Mobile INI Word** is the word in `<table>.<word>.ini`. It defaults to `mobile`.
 - **Chunk Size** is how many bytes go across at a time. Lower it if sends fail on a weak connection.
 
-### Packing a game for another machine
+### Packing a game for another device
 
 A game can be packed into a `.vpxz` archive (a zip) through the API, `GET /api/v1/games/{id}/archive`, which carries the same files a send does. The Manager has no button for it.
 

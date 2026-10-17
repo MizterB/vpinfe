@@ -22,8 +22,8 @@ blocking.
 
 Python does not use camelCase. PEP 8 permits it "only in contexts where that's already the
 prevailing style, to retain backwards compatibility", which was the argument for the names
-2.x left behind. They are gone as of 3.0, and `tests/invariants/test_python_is_snake_case.py`
-is what keeps them gone.
+2.x left behind. They no longer exist as of 3.0, and `tests/invariants/test_python_is_snake_case.py`
+keeps it that way.
 
 The distinction that decides these: a camelCase name **a theme reads** is a contract and
 stays, because renaming it costs every theme a change. A camelCase name that never leaves
@@ -178,7 +178,7 @@ feature-detect them. That is what keeps bumps rare enough to be worth doing prop
   the first, the icon and the PyInstaller spec are the second.
 - Reach a shipped file through `common.config.paths.bundled()`. It answers for a source checkout and
   for both kinds of frozen build, so nothing needs its own chain of guesses.
-- A file the app reads that is not Python sits under a root `packaging/vpinfe.spec` lists, or
+- A file the app reads that is not Python is under a root `packaging/vpinfe.spec` lists, or
   it is absent from the build. `tests/invariants/test_build_ships_its_data.py` fails on one
   that does not. What a bundled extension imports, the spec finds and names itself.
 
@@ -488,7 +488,7 @@ half cannot help - the code that would have called it is what threw.
 ### Exceptions
 
 Use `logger.exception` inside an `except` block. It keeps the traceback;
-`logger.error(str(exc))` throws away the only part that locates the fault.
+`logger.error(str(exc))` discards the only part that locates the fault.
 
 ```python
 except OSError:
@@ -599,7 +599,7 @@ dead VPM code, and a commented-out `LoadVPM` is not a dependency. Measured again
 validation set covering both cases: every ROM-installed table hits, every DOF-key EM
 table misses. One known ambiguity: some EM/PM recreations *conditionally* drive PinMAME for
 chime sounds (the `cOptRom` pattern), and read as required when the player may run
-happily without the ROM. The flag lands on the table on the next metadata rebuild;
+happily without the ROM. The flag is set on the table on the next metadata rebuild;
 until then the chain reports `required: null`.
 - **App** — a program that runs a table file: Visual Pinball X today, `generic` for one
   we only know how to start. Code, not configuration - `apps/` holds them, and
@@ -713,7 +713,7 @@ Manager already shows this kind of fact anywhere, the answer exists and the job 
 ### The panel is a shape, not a place
 
 A rail of named destinations, one of them open and addressable, and a list of facts about
-one subject. That is the panel, and it is the same whether it sits in the details pane or
+one subject. That is the panel, and it is the same whether it is in the details pane or
 fills the content column. Settings is this shape with the install as its subject; it had
 been built as a language of its own, and the two were eight treatments apart before anyone
 put them side by side — a save bar against per-fact writes, a label over its control
@@ -788,7 +788,7 @@ fills a panel. A call site names the look it wants and never writes `dense`, `bo
 `outlined` itself; `panel.select`, `multi_select` and `combo` are the field look for a fact
 row, and every other picker class in `panel.py` and `tag_chips.py` derives from `Select`.
 Quasar sizes the text of a select for its own 40px box, so every other height has to
-correct it, and a copy styled by hand at the call site drifts. A select that carries a label
+correct it, and a copy styled manually at the call site drifts. A select that carries a label
 shows it over the value by design, so its text is not centered alone.
 `tests/manager/test_every_dropdown_is_one.py` fails on a raw `ui.select` in `manager/`, and
 the pages drive measures the text of every one-line, unlabeled dropdown on the pages it
@@ -877,7 +877,7 @@ call a new game's folder, where finding something already there is the failure, 
 success.
 
 **A failed write shows what the API said, never what HTTP said.** `raise_for_status`
-discards the body, so "No Visual Pinball on this machine…" reached a user as
+discards the body, so "No Visual Pinball on this device…" reached a user as
 `501 Server Error: Not Implemented for url: /api/v1/games/…/script` — a status line and
 our own route. `HubClient` raises `HubError` carrying the API's message, and a surface
 shows that.
@@ -935,8 +935,8 @@ answers.
   its description, how it draws, and saving or deleting it. `more_vert` is what you can do
   to the rows you have selected, and it appears only when some are. The same glyph for
   both is how a reader learns that neither is worth reading.
-- **The count is what the selection's actions act on.** A tick that a search, a filter or
-  a view hides stays ticked, because ticking across several searches is how a selection
+- **The count is what the selection's actions act on.** A row that a search, a filter or
+  a view hides stays selected, because selecting across several searches is how a selection
   gets built, and the count says so: *5 selected, 2 hidden*. With none hidden it counts
   against the rows on screen: *3 of 9 selected*.
 - **A setting that changes how the view draws lives in the view menu**, not on the bar.
@@ -965,7 +965,7 @@ called Actions, which names the mechanism and says nothing about the subject.
 | one value | inline, beside the value |
 | a dialog | the footer |
 
-- **A Needs You row is the exception to "one row".** Its fix (Get Media, Update, Fetch) is
+- **A Needs You row is the exception to "one row".** Its fix (Download Media, Update, Download) is
   the first entry of the row's menu and the row's end carries only `more_vert`.
 - **One list per subject.** Each subject's module has an `acts()` returning `panel.Verb`s;
   `panel.verb_menu` draws it on the grid row and `panel.subject_menu` in the header. A
@@ -973,9 +973,9 @@ called Actions, which names the mechanism and says nothing about the subject.
   where the panel already edits the name in place.
 - **The selection's `more_vert` draws that list too.** `panel.selection_menu` builds it
   from the subject's `acts()` given the rows chosen, then adds *Clear selection* under a
-  rule of its own; no page fills one by hand. A right-click on a ticked row, while several
-  are ticked, acts on the selection under a header that counts it (*3 copies*); on an
-  unticked row it acts on that row alone and leaves the ticks. A verb with no meaning over
+  rule of its own; no page fills one manually. A right-click on a selected row, while several
+  are selected, acts on the selection under a header that counts it (*3 copies*); on an
+  unselected row it acts on that row alone and leaves the selection. A verb with no meaning over
   several (`Verb.one`) stays in place, dimmed and reading *One at a time*; one that asks
   something about each row walks the selection, a dialog per row (`walks.each`). A grid
   draws checkboxes only when it is given a selection handler, and has a header menu
@@ -983,7 +983,7 @@ called Actions, which names the mechanism and says nothing about the subject.
 - **Danger goes last, under a rule, in red.** A verb that cannot run right now stays in
   the list, dimmed, with the reason under it, so nobody wonders where it went. One this
   install can never perform is not in the list at all.
-- **One word per act.** **Delete** means gone from disk, or gone for good where there is
+- **One word per act.** **Delete** means removed from disk, or removed permanently where there is
   no disk. **Remove** takes it out of the library and keeps the files. **Forget** stops
   tracking something VPinFE does not own. **Uninstall** is for a theme.
 
@@ -1061,7 +1061,7 @@ no icon, and on an icon name `verbs.py` does not declare.
   one answering verb, filled. A second act the dialog offers, like Clear on a picker, is
   `dialog.aside` and sits on the far left. An act on one row of the body belongs to the
   row and is a `panel.action`.
-- **Enter presses the answer and focus lands on the first field** - `dialog.enter_presses`
+- **Enter presses the answer and focus moves to the first field** - `dialog.enter_presses`
   and `dialog.focus`, because Quasar's own autofocus does not reach into a dialog.
 - **Typed input takes `ignore_outside_click`**, so a stray click on the backdrop cannot
   throw it away and Escape still cancels. `persistent` blocks Escape as well and is for a
@@ -1249,7 +1249,7 @@ this device's screens, and a screen is dragged onto the part it serves. The call
 the screens, what is on each part and the acts to report to, and the control writes nothing
 itself, so the Displays page, Setup and a VPX page can each mount it over their own storage.
 
-A part takes one screen and a screen sits on one part, so putting a screen where another is
+A part takes one screen and a screen is on one part, so putting a screen where another is
 sends that one to where this one came from. Clicking a part opens a menu that does the same,
 and an empty part reads **No screen**.
 
@@ -1324,7 +1324,7 @@ means the exception worth spotting in a map of twenty.
 What is wrong with a subject comes before anything merely true about it: one
 `.manager-attention` block per finding, at the top of the section it belongs to, ending in
 the act that fixes it. *Add* for a ROM that is not installed, *Forget* for a file that is
-gone, a link to the newer release for a table with an update.
+missing, a link to the newer release for a table with an update.
 
 - **Only faults.** Hidden, not the default, a slot left empty: those are choices or
   coverage, and a block that fires on them teaches everyone to skip it.
@@ -1477,7 +1477,7 @@ element.
 
 ### A reading is a tile
 
-A live number sits in a `.manager-card` in a `.manager-tiles` grid, which fills the width
+A live number is in a `.manager-card` in a `.manager-tiles` grid, which fills the width
 with columns no narrower than 260px. A tile is a title, the number, its history and at most
 two detail lines; the tooltip carries what the tile cuts, such as a full name. A thing that
 happened within the history, such as a job started or a table launched, is a `.manager-spark-mark`
@@ -1496,7 +1496,7 @@ What's busy, puts them in a `.manager-tile-rows`: a name, a share and a size to 
   above; the separation carries the break, not extra weight.
 - **Every label takes title case, with acronyms as acronyms** — a panel's fact, a column
   header, a picker entry. Small words stay down unless they lead or close it, because the
-  registries already write "Point of View" by hand and a rule producing "Point Of View" would
+  registries already write "Point of View" manually and a rule producing "Point Of View" would
   disagree with the thing it is the fallback for. `common/config/labels.py` is that rule and there is
   one of it: `humanize` and `field_label` are the same function under two names, so a column
   picker and a panel cannot case a word two ways. **Apply it where labels pass, not at each
@@ -1603,7 +1603,7 @@ What's busy, puts them in a `.manager-tile-rows`: a name, a share and a size to 
     reads as an error that has already happened.
   - **A separator divides groups**, never decorates.
   - **An open menu suppresses tooltips.** The control that opened it usually has one, and
-    it lands on top of the menu.
+    it appears on top of the menu.
   - **Group a long picker by what the columns are about**, groups named in the user's
     words. The grouping answers *which columns exist*; where a column sits is the grid's
     own order and the user drags that - so a group is a bucket, not a run of neighbours.
@@ -1829,7 +1829,7 @@ it. What fails there, and what to write instead:
 
 - **An expected path is built the way the code builds it** - `Path("/usr/bin/x")`,
   `os.path.join(...)` - never a bare `"/usr/bin/x"` compared with what a `Path` returned,
-  which comes back `\usr\bin\x`. A root-relative `Path("/tmp/x")` gains the current
+  which is `\usr\bin\x`. A root-relative `Path("/tmp/x")` gains the current
   drive on Windows, so compare it with another `Path`, not a string.
 - **A repo-relative path in a message, a key or a comparison is `.as_posix()`.**
   `tests/invariants/test_wire_paths.py` fails on `str(x.relative_to(...))` or an f-string

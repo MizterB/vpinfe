@@ -56,7 +56,7 @@ cd vpinfe
 ```
 
 ### Mac
-This is an unsigned app bundle, so you need to do a few things to get VPinFE running.  @MajorFrenchy has put together an excellent [video](https://www.youtube.com/watch?v=YD4eZIqHypw) on setting this up for the Mac, and a written tutorial: [Major Frenchy's VPinFE on MacOS](https://www.majorfrenchy.com/blog/2026/03/05/vpinfe-macos/).  If you are a Mac user this is the best route.
+This is an unsigned app bundle, so a few steps are needed before VPinFE will run.  @MajorFrenchy has put together an excellent [video](https://www.youtube.com/watch?v=YD4eZIqHypw) on setting this up for the Mac, and a written tutorial: [Major Frenchy's VPinFE on MacOS](https://www.majorfrenchy.com/blog/2026/03/05/vpinfe-macos/).  If you are a Mac user this is the best route.
 
 ### Windows
 The Windows package has a `vpinfe.bat` file for launching it.  Unless you are in a terminal, always use the batch file or you will end up with window focus issues.  Double click it to launch, or from a terminal:
@@ -76,7 +76,7 @@ Anytime you want to get back to the Manager, look in the terminal for the web ad
 VPinFE ready to go on http://localhost:8001, and http://192.168.1.228:8001
 ```
 
-Put that address in a browser, on this machine or any other on your network.
+Put that address in a browser, on this device or any other on your network.
 Your game folders should follow the [VPinball table organization standard](https://github.com/vpinball/vpinball/blob/master/docs/FileLayout.md).  [Running VPinFE](docs/running.md) shows what a game folder holds and how media and matching work.
 
 ## Where VPinFE keeps what you set

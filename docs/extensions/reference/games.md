@@ -13,7 +13,7 @@ extension in this process cannot use the API over HTTP, because a synchronous ca
 server it is running inside deadlocks, and it may not import the library.  This is the door.
 
 It is bounded twice.  The manifest's `scopes` decide which calls an extension may make, and a
-path it hands over has to be inside a folder it declared through `ctx.files.set_roots`.  A call
+path it passes has to be inside a folder it declared through `ctx.files.set_roots`.  A call
 that needs a scope the manifest lacks raises `ContractError`, and so does a path outside the
 declared folders.
 
@@ -131,7 +131,7 @@ beforehand, so a plan and the run that follows it agree.
 beside = ctx.games.companions_of("/data/old/Taxi.vpx")
 ```
 
-Raises `FileNotFoundError` for a table that is gone, and `ContractError` outside the declared
+Raises `FileNotFoundError` for a table that no longer exists, and `ContractError` outside the declared
 folders.
 
 ### `ctx.games.companions_for`
@@ -140,8 +140,8 @@ folders.
 
 `companions_of` for many tables, each folder listed once.  On a network share the listing is
 the cost, so ask for a library together.  The answer is keyed by the path as given.  Where
-`companions_of` raises for a table that is gone, this leaves it out, so a table with nothing
-beside it can be told from one that is gone.
+`companions_of` raises for a table that no longer exists, this leaves it out, so a table with nothing
+beside it can be told from one that no longer exists.
 
 ```python
 beside = ctx.games.companions_for(["/data/old/Taxi.vpx", "/data/old/Eight Ball.vpx"])
@@ -154,7 +154,7 @@ Raises `ContractError` outside the declared folders.
 `ctx.games.roms_of(paths) -> dict[str, str]`.  Required: `paths`.
 
 `{path: rom}` for the tables whose script names a ROM.  Each table's script is read, and a
-table that is gone, cannot be read or names none is left out.
+table that no longer exists, cannot be read or names none is left out.
 
 ```python
 roms = ctx.games.roms_of(["/data/old/Taxi.vpx"])
@@ -265,7 +265,7 @@ Raises `ContractError` outside the declared folders.
 `ctx.games.put_media(game_id, kind, path, table_stem="", replace=True, page=1) -> str`.
 Required: `game_id`, `kind`, `path`.
 
-Puts a file in one of an entry's media slots and answers what it landed as.  `replace=False`
+Puts a file in one of an entry's media slots and answers what it was saved as.  `replace=False`
 fills an empty slot and raises `FileExistsError` where one is held.  `page=n` adds page n of a
 flyer or instruction card beside the page 1 the slot shows, up to one past the last.
 
@@ -308,7 +308,7 @@ raises `ContractError` when it is looked up.
 A few of them need a word more:
 
 - `vps_catalog(downloading=None)` answers `{enabled, ready}`.  `enabled` is the *Match new
-  games* switch.  Where it is on and there is no catalog on disk, one is fetched first, calling
+  games* switch.  Where it is on and there is no catalog on disk, one is downloaded first, calling
   `downloading` just before it starts.
 - `vps_settle(rows)` takes rows of what a source knows (`vps_id`, `ipdb_id`, `title`,
   `manufacturer`, `year`, `folder`) and answers each in order with the entry it is: `vps_id`,
@@ -339,7 +339,7 @@ A few of them need a word more:
   not `vps:read`, which is the scope the same two calls take over HTTP.  An id the catalog does
   not have raises an error whose text says so, for `ctx.why`, and so does a `listed_as` that is
   not one of the keys above.  With no catalog on disk every id is unknown; `vps_catalog()`
-  fetches one where *Match new games* is on, as above.
+  downloads one where *Match new games* is on, as above.
 - `match_game` matches a game to an entry as *Matched on import*, or as a plain guess a rematch
   may replace where `guess` is true.
 - `write_table_settings` writes values as one table's own settings, never the launcher's, and
@@ -431,7 +431,7 @@ an error whose text says why, for `ctx.why`, where nothing is at the path.
 What `execute` with the same arguments would do, before it does any of it.  It answers
 `game_dir` (the folder the files go in, which for a new game is the one about to be made), `new_game_dir_name`, `rom_name`,
 `items` and `blocked`.  Each item has an `index`, a `kind`, a `label`, its `destination`, an
-`action`, `default_enabled` (the Manager's dialog ticks the item when it is true; `execute` without `selected` imports every item either way), a `size`, a
+`action`, `default_enabled` (the Manager's dialog selects the item when it is true; `execute` without `selected` imports every item either way), a `size`, a
 `detail`, `replaces` (what it would overwrite, if anything) and `made_from_it` (the tables in the
 folder a patch was made from this file).  Each blocked entry has a `kind` and a `reason`.  It
 writes nothing, so it can be called as often as a step is shown.
@@ -460,7 +460,7 @@ anything, and it can take as long as copying the files does, so it belongs in a
 `declared` says what each file is, keyed by the name it has in the source.  Each value is a
 dict of strings, `vps_file_id`, `host_item_id`, `host`, `game_id`, `table_id` and `confirmed_by`,
 every one optional.  `game_id` and `table_id` are the library's own ids for the game and the table
-the file is, which an extension that fetched it for a game already in the library knows.  `confirmed_by` is how the extension knows: `declared` when it fetched the file from
+the file is, which an extension that downloaded it for a game already in the library knows.  `confirmed_by` is how the extension knows: `declared` when it fetched the file from
 that record, `user` when a person picked it.  A claim that names a record has to say how it is
 known, or `execute` raises before it imports anything.  There is no value for a guess.  A name
 the plan does not import is ignored, and the report's `declared` lists the destinations that
@@ -514,7 +514,7 @@ ctx.sources.contribute("files", "Example Files", ["wheel", "pup_pack"],
 
 Needs `games:read` in the manifest's `scopes` and Library in its `tiers`; without them the call
 raises `ContractError`, and so does a `key` used twice, a `name` or `key` that is empty, and an
-`offers` or `take` that is not callable.  A source goes when its extension is switched off.
+`offers` or `take` that is not callable.  A source is removed when its extension is switched off.
 
 ### `ctx.sources.changed`
 

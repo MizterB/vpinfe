@@ -38,7 +38,7 @@ same for a module that is not handed `ctx`.  A key the file does not have answer
 `ext.<name>.<key>`, so a gap shows.
 
 Give every column a `help`.  Without one the tooltip is the header, which says nothing new to
-the person hovering it.  A word you hand over in code, like `title="VPinPlay"`, is shown as
+the person hovering it.  A word you pass in code, like `title="VPinPlay"`, is shown as
 written in every language, which suits a product name.
 
 **Slots.**  `{name}` in a value is filled from the call's keyword arguments with `format_map`.

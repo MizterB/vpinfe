@@ -146,13 +146,13 @@ default, choices}` and nothing to say.
 |---|---|---|---|---|
 | `string` | a line of text | yes | yes | yes |
 | `secret` | a masked line.  Shown empty, with *Set* or *Not set* in it; what is typed is kept across a dialog's steps and never filled back from an answer.  An extension answers `set` (true or false) and never the value; leaving it empty keeps the one held.  A settings page and an account also show *Clear* beside a held one, which asks first | yes | yes | yes |
-| `path` | a file or folder on the machine core runs on, with `wants`: `dir`, `file` or `exe`.  A dialog's may add `opens_at`, the folder its picker starts in while the field is empty | yes | yes | yes |
+| `path` | a file or folder on the device core runs on, with `wants`: `dir`, `file` or `exe`.  A dialog's may add `opens_at`, the folder its picker starts in while the field is empty | yes | yes | yes |
 | `select` | one of `choices`, each `[key, label]` and optionally `[key, label, help]`, the help shown beside the option in the list, and under the field once it is chosen.  Labels within one field are different, since the help is found by label | yes | yes | yes |
-| `multi` | several of `choices`.  A setting is stored as a JSON list of the keys ticked, and `ctx.config.get_list(key)` reads it | yes | yes | yes |
+| `multi` | several of `choices`.  A setting is stored as a JSON list of the keys selected, and `ctx.config.get_list(key)` reads it | yes | yes | yes |
 | `switch` | on or off | yes | yes | yes |
 | `number` | a number, with `unit`, `min` and `max`.  A setting is stored as its digits and, left empty, falls back to its default | yes | yes | yes |
 | `choice` | one of `choices`, two to four, each `[key, label, help]` with its own line of help, and optionally a fourth element: the name of a picture, or a list of paths to a few of the person's own images, inside the folders the extension declared in `ctx.files.set_roots` | yes | no | no |
-| `checklist` | any of `rows` ticked, for a list too long for `multi`: each row `{key, name, note, groups}`, with `chips` as `[group, label]` pairs, a chip shown only when a row is in its group; the answer is the keys ticked | yes | no | no |
+| `checklist` | any of `rows` selected, for a list too long for `multi`: each row `{key, name, note, groups}`, with `chips` as `[group, label]` pairs, a chip shown only when a row is in its group; the answer is the keys selected | yes | no | no |
 | `settle` | a VPS entry for each of `rows`, `{key, name, entry, vps_id, reason, settled}`, `entry` being the `{name, manufacturer, year}` it would offer: the row says it or Not found, with the reason, and Change... opens the VPS picker; settled rows are behind Show all.  The answer maps a row's key to the id picked, with `""` for a row said to be in no catalog; a key left out is a row untouched | yes | no | no |
 
 A `choice` option's picture is a name, and `null` is none.  Core knows `desktop` and `cabinet`
@@ -160,7 +160,7 @@ itself and reads any other name as a Material icon, so a flow never supplies a d
 with pictures are tiles on a `welcome` step and rows on any other.  Beside other fields the
 `choice`'s label heads its rows; alone on a step, its `title` is the question.
 
-**A secret.**  On every surface, the value goes to the extension and never comes back: core
+**A secret.**  On every surface, the value goes to the extension and is never returned: core
 takes it out of every answer and puts `set` in its place.  Declare a setting as
 `{"key": "api_key", "type": "secret"}`; a secret has no default.  A dialog's `check` and `run`
 get the typed value under the key, and get no key at all where the person left it empty, so

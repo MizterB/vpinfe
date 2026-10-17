@@ -16,7 +16,7 @@ When VPinFE starts, and when the Themes page refreshes, it:
 
 1. Downloads each theme list the user has configured, starting with the VPinFE Theme List
 2. Reads the `themes` object in each
-3. Fetches each listed theme's `manifest.json`
+3. Downloads each listed theme's `manifest.json`
 4. Builds the available theme list shown in the Themes page
 5. Installs the themes the VPinFE Theme List marks `default_install: true`
 
@@ -233,7 +233,7 @@ numeric values like `1.0`, `1.4`, or `2.0.3`. Avoid `v1.0`, `1.0-beta`, and
 ## Install And Update Flow
 
 1. VPinFE reads the entry for a theme.
-2. It fetches the remote `manifest.json`.
+2. It downloads the remote `manifest.json`.
 3. It refuses a theme whose `min_vpinfe` is newer than the running build.
 4. It compares the remote `manifest.version` to the locally installed version.
 5. It downloads the repository archive at the entry's `ref`.
@@ -268,7 +268,7 @@ when there are two. It resolves each one in the same ways:
 
 For the simplest publishing flow, keep each picture as a filename in the repository root, for example `"layouts": {"cab": "preview-cabinet.png", "desktop": "preview-desktop.png"}`. A theme made for one layout names one.
 
-The Manager fetches a picture it has not kept once per release and shows it at the size it is drawn, so a new release is the way to have a changed picture picked up everywhere at once. Keep it under about 300 KB: the Manager downloads it in full, once per release.
+The Manager downloads a picture it has not kept once per release and shows it at the size it is drawn, so a new release is the way to have a changed picture used everywhere at once. Keep it under about 300 KB: the Manager downloads it in full, once per release.
 
 ## Publishing Checklist
 

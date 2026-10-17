@@ -67,7 +67,7 @@ Raises `ContractError` without `players:read`.
 Whether this player's account with this extension is sharing.  Share is core's switch, the same
 on every account.  It is off until somebody turns it on, except for a guest who joined with a
 card, whose account shares.  While it is off, an extension sends nothing on its own.  Something
-the person asks for by hand, an act, is theirs to have asked.  Needs nothing declared.
+the person asks for manually, an act, is theirs to have asked.  Needs nothing declared.
 
 ```python
 if ctx.players.sharing(player_id):

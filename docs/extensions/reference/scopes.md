@@ -1,6 +1,6 @@
 # Scopes and the gate
 
-Core attaches the gate.  Everything an extension serves sits at one of three tiers, and core
+Core attaches the gate.  Everything an extension serves is at one of three tiers, and core
 puts the tier's scope on every route.  You cannot ship a route without a gate, because you never
 attach one.
 
@@ -70,7 +70,7 @@ extension with "Asks for scopes that do not exist".
 
 ## Capabilities
 
-A capability is what an extension asks of the machine, as opposed to of the domain.  The list
+A capability is what an extension asks of the device, as opposed to of the domain.  The list
 is what a person consents to, so a capability nobody has heard of cannot be consented to.
 
 | capability | reaches |
@@ -88,5 +88,5 @@ is what a person consents to, so a capability nobody has heard of cannot be cons
 process can always open a file, open a socket or start a program.  What the declaration does is
 make the extension say what it intends, show that to whoever installs it, and hold the calls
 that go through `ctx` to it.  Core enforces `ui:mount`, `fs:read`, `fs:write`, `os:` areas and the scopes
-where it is the one acting, and `net:outbound` where core fetches a web picture for a list
+where it is the one acting, and `net:outbound` where core downloads a web picture for a list
 column.  It does not enforce `proc:spawn` or `hardware:usb` at all.  Once extensions run out of process, the same declarations become the boundary.

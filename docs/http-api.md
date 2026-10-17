@@ -89,11 +89,11 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/capture/proposals` | Recordings waiting for a decision: how many, their size, and each with the file it would replace |
 | GET | `/api/v1/capture/proposals/{id}/file` | Play a recording waiting for a decision |
 | POST | `/api/v1/capture/proposals/{id}` | `{"use": true}` places the recording and deletes the file it replaces; `false` throws it away |
-| DELETE | `/api/v1/capture/proposals` | Throw away every recording waiting |
+| DELETE | `/api/v1/capture/proposals` | Discard every recording waiting |
 | POST | `/api/v1/capture/test` | Record 3 s of the playfield with the Record and Encode Commands, launching nothing, and say what came out: size, rate, frames and a small picture, or which command failed and what it said |
 | POST | `/api/v1/capture/screens/choose` | On KDE Plasma and GNOME, ask on the device's own screen which screens VPinFE may record, and keep the answer. 202 with the job; 409 while a table runs or a recording is under way; 501 where the desktop never asks |
 | POST | `/api/v1/capture/runs` | Record games or tables, one after another. 202 with the job; 409 while a table runs, a recording or media fill is under way, a run waits to be resumed, or the disk has no room for it; 501 where this device records nothing |
-| GET | `/api/v1/capture/runs/current` | The run in hand, running or paused, or `{"run": null}`. `capture.run_changed` on the stream carries the same |
+| GET | `/api/v1/capture/runs/current` | The current run, running or paused, or `{"run": null}`. `capture.run_changed` on the stream carries the same |
 | POST | `/api/v1/capture/runs/current/pause` | Close the table being recorded, keep nothing of it, and hold the run there. 404 with no run |
 | POST | `/api/v1/capture/runs/current/resume` | Carry on with a paused run from the game it was on. 202 with the job |
 | POST | `/api/v1/capture/runs/current/stop` | Close the table being recorded, keep nothing of it, and end the run. What earlier games placed or kept stays |
@@ -148,11 +148,11 @@ the documented entry point is a plain 200. Both spellings work.
 | POST | `/api/v1/library/auto_match` | Match `{"game_ids": [...]}` again from their folder names, off the catalog on disk. A match a person made or cleared stays. A game in a folder that cannot be written to is left alone. Answers `games`, `changed`, `unmatched`, `yours` and `skipped`, those left alone for that; `409` while a scan runs |
 | PUT | `/api/v1/library/private` | Mark a selection Private, or not, `{"game_ids": [...], "private": bool}`. Answers `games`, how many were named, and `changed`, how many were not already so. An id the library does not hold is a `404`, and nothing is written |
 | PUT | `/api/v1/library/marks` | Set marks on a selection, `{"edits": [{"game_id", "table_id"?, ...}]}`. Accepted, not done: a `202` with a `Location` for a job of kind `marks`. An edit with a `table_id` takes `rating`, `tags`, `hidden`, `delete_nvram_on_close` and `launcher` (empty clears it, and needs `config:write` as well); one without takes its game's `rating`, `tags`, `favorite` and `private`. A field left out is not touched; a field a row cannot take is an `invalid_request` and nothing is written. The result is `{rows, written, failed}`, each entry `{game, table}` with a `reason` on a failure |
-| POST | `/api/v1/library/media/missing` | What getting missing media for `{"game_ids": [...]}` would fetch, fetching nothing; leaving `game_ids` out asks about the whole library. Per kind the library keeps and an enabled source publishes, and per kind a game's own files can supply (`backglass`, from its backglass file, with no source on and no match): `missing` games with no file for it, `available` those of them a source or the game's own file has one for, and `local` how many of those are the game's own file. `unmatched` counts the games with no VPS match. `sources` names the enabled sources, and `unreachable` those of them that could not be reached, which count nothing available |
-| POST | `/api/v1/library/media/fill` | Get missing media. Returns `202` and a job. `{"game_ids": [...], "kinds": [...]}`, either left out meaning all of them, or `{"slots": [{"game_id", "kind"}]}` for exact slots. Fills gaps only, never replaces a file, and never fetches a kind the library does not keep. A backglass picture is drawn from the game's backglass file before anything is downloaded, so it fills with no source on and for a game with no VPS match. The job's result counts `games`, `filled`, `unmatched` and `failed`; `409` while another fill or the downloaded-media update runs |
+| POST | `/api/v1/library/media/missing` | What downloading missing media for `{"game_ids": [...]}` would download, downloading nothing; leaving `game_ids` out asks about the whole library. Per kind the library keeps and an enabled source publishes, and per kind a game's own files can supply (`backglass`, from its backglass file, with no source on and no match): `missing` games with no file for it, `available` those of them a source or the game's own file has one for, and `local` how many of those are the game's own file. `unmatched` counts the games with no VPS match. `sources` names the enabled sources, and `unreachable` those of them that could not be reached, which count nothing available |
+| POST | `/api/v1/library/media/fill` | Download missing media. Returns `202` and a job. `{"game_ids": [...], "kinds": [...]}`, either left out meaning all of them, or `{"slots": [{"game_id", "kind"}]}` for exact slots. Fills gaps only, never replaces a file, and never fetches a kind the library does not keep. A backglass picture is drawn from the game's backglass file before anything is downloaded, so it fills with no source on and for a game with no VPS match. The job's result counts `games`, `filled`, `unmatched` and `failed`; `409` while another fill or the downloaded-media update runs |
 | POST | `/api/v1/library/media/rotate` | Turn pictures and videos where they sit. Returns `202` and a job. `{"files": [{"game_id", "path"}], "turn": "left" \| "right" \| "around", "keep": true}`, `path` being the file's place in the game's folder: directly in it or anywhere under `medias/`, never through a link, and a file named twice is turned once. Each file is turned whole or left as it was; `keep` (default on) takes a copy first, listed in `/backups` as `media`, and is refused with `409` when there is no backups folder to write to. A file that cannot be turned is skipped with its reason and left as it was: animated pictures, files that are not pictures or videos, files that are missing, outside the game's media or changed while being turned, and videos when FFmpeg is missing or fails. A picture's orientation tag is applied before it is turned. Pictures and videos are encoded again. The job's result counts `turned`, `games` and `kept`, and lists `skipped` as `{game_id, path, reason}`; `409` while another turn runs |
 | GET | `/api/v1/library/patches` | Which script fixes are published for this library's tables. Changes nothing |
-| POST | `/api/v1/library/patches` | Fetch them. Returns `202` and a job. `{"games": [...]}` names the folders a check offered and limits the fetch to those; leaving it out looks at every game. A table with a `.vbs` beside it already is left alone |
+| POST | `/api/v1/library/patches` | Download them. Returns `202` and a job. `{"games": [...]}` names the folders a check offered and limits the download to those; leaving it out looks at every game. A table with a `.vbs` beside it already is left alone |
 | GET | `/api/v1/library/vps_state` | What the catalog lists across the library, as last compared. `computed` empty means it has never been compared |
 | POST | `/api/v1/library/vps_state` | Compare with VPS again. Returns `202` and a job, which can run beside a scan |
 | GET | `/api/v1/library/discovery` | Every catalog entry against what the library holds, as last compared: `listed` and `held` kinds, `in_library` and the entry's `img_url`. `counted` empty means never compared, and `in_library` is then null |
@@ -288,7 +288,7 @@ the documented entry point is a plain 200. Both spellings work.
 | PATCH | `/api/v1/backups/{id}` | Change a backup's `note`; an empty one clears it. Rewrites the zip's manifest and keeps its name, so the id and `taken` stay. Returns the backup as listed. Only a backup from `POST /backups` has a note: the id of a file in one, or of a copy VPinFE took, is refused with `400` |
 | POST | `/api/v1/backups/{id}/restore` | Put a copy back. What it replaces is kept as copies and returned as `kept`, so an undo is this call on that id. A game's, a launcher's, a theme's, a media copy's and an asset copy's go in at once; the config folder's wait for VPinFE to close, and say so with `pending`. A launcher's is refused with `409` while a table plays. A whole backup puts back each file in it and lists as `skipped` the ones with nowhere to go, such as a game no longer in the library; a game is found by its id, then by the name of its folder. Put back the id of one file in a backup and only that file goes |
 | DELETE | `/api/v1/backups/{id}` | Delete one copy, or a whole backup. A file in a backup is not deleted on its own and is refused |
-| GET | `/api/v1/backups/going-back` | What going back to 2.x would put back: `games`, how many hold a 2.x copy, and `collections`, whether yours do |
+| GET | `/api/v1/backups/going-back` | What going back to 2.x would restore: `games`, how many hold a 2.x copy, and `collections`, whether yours do |
 | POST | `/api/v1/backups/going-back` | Go back to 2.x. Answers with the same counts and then quits VPinFE, which puts each game's newest 2.x copy and the 2.x collections back as it exits, with what they replace kept as copies. Nothing else is touched, so 3.0's settings are as they were for a return. Refused with `400` where there is no 2.x copy, and with `501` where this install cannot quit itself |
 | PUT | `/api/v1/launchers/mappings/{table_id}` | Point one table at a launcher, `{"launcher_id": "..."}`. An empty `launcher_id` puts it back on the default |
 | GET | `/api/v1/players` | Every player on this install and who is up - see [Players](#players). The same as `players.changed` carries |
@@ -331,7 +331,7 @@ the documented entry point is a plain 200. Both spellings work.
 | DELETE | `/api/v1/config/{list}/{id}` | Remove it, `204`; `404` where there is none. Every write here is announced as `settings.changed`, naming the list |
 | GET | `/api/v1/config/paths` | Whether each path setting, and each path in a list's items, finds anything on this device. A setting's check carries `section` and `key`; an item's carries `list`, `id` and `field`. A setting whose blank means a folder VPinFE chooses, the backups folder and the manufacturer logos folder, carries `default`: the path a blank one points to here |
 | GET | `/api/v1/config/tools` | Each Tool - a program VPinFE runs and does not ship, such as unar or ffmpeg - as this device finds it when asked: `state` (`found`, `missing`, `unusable`, `not_here`), the `path` and `version` found, `set_here` where its `setting` is what found it, and `default_path` and `default_version` for the program found with no setting - the same as `path` and `version` unless `set_here`. A missing or unusable one carries `fix: "user"` and a `remedy` of `key`, `params` and `setting`, rendered with the setting's label and the Settings section as its `setting` and `section` slots; an unusable one also a `reason` of `key` and `params`. Where VPinFE can get the Tool itself - FFmpeg, on Windows and macOS - `fix` is `"auto"` and the remedy's `get` says what it would download: `version`, `source` and `size` in bytes |
-| POST | `/api/v1/config/tools/{id}/get` | Get a Tool VPinFE can get itself, as a `202` job; the request is the consent. The build pinned for this device is downloaded into this install's own folder, kept only where its size and SHA-256 are the pin's, and run once, after which discovery finds it. `404` for a Tool VPinFE cannot get, `501` on a device it has no build for, `409` while one is being got. `config:write` |
+| POST | `/api/v1/config/tools/{id}/get` | Download a Tool VPinFE can download itself, as a `202` job; the request is the consent. The build pinned for this device is downloaded into this install's own folder, kept only where its size and SHA-256 are the pin's, and run once, after which discovery finds it. `404` for a Tool VPinFE cannot get, `501` on a device it has no build for, `409` while one is being got. `config:write` |
 | GET | `/api/v1/preferences/{scope}` | A stored UI arrangement |
 | PUT | `/api/v1/preferences/{scope}` | Store one. The body is the whole value |
 | GET | `/api/v1/locations` | Every location this install looks in, in order, each with what the disk says about it now and how many game folders it holds (`games`). `write_to` is the one a new game goes to, even while it is away |
@@ -469,7 +469,7 @@ A present kind links to `/media/{kind}`, which streams the file with its real co
 Each entry carries `pages`: 0 for nothing, 1 for a single file, and for a flyer or an
 instruction card the number of pictures it has. `?page=n` on the file, `detail`, `displaced`,
 `PUT` and `DELETE` routes, on a game's and on a table's, addresses one of them. Pages
-follow page 1: they are named at its tier and show up for the tables it shows up for.
+follow page 1: they are named at its tier and appear for the tables it appears for.
 Resolution is the same three-tier chain the scan uses, applied to the folder as it is at
 request time: a spec-named file for the launching table (`(Wheel) <table>.png`) beats a
 folder-named one (`(Wheel) <folder>.png`) beats the fixed default (`wheel.png`), each kind
@@ -493,7 +493,7 @@ year's `max-age`, so a browser never asks again; anything else, including no `v`
 is sent `no-cache` and answered `304` while the file is unchanged. A stale `v` is never
 kept, so an address from an old listing still gets the new file.
 
-Assets come in two lenses, both computed from the folder at request time:
+Assets have two lenses, both computed from the folder at request time:
 
 - **The launch lens** — each entry in `GET .../tables` reports what *that* table
   would use on launch, mirroring VPX's own lookup order per kind: `dedicated` (a file named
@@ -541,7 +541,7 @@ metadata; the full chain (alias, effective, installed, nvram) lives on the table
 
 ## Errors
 
-Every failure under `/api/v1` comes back in one shape, with a real HTTP status:
+Every failure under `/api/v1` is returned in one shape, with a real HTTP status:
 
 ```json
 {"error": {"code": "not_found", "message": "No such game", "details": null}}
@@ -551,7 +551,7 @@ Every failure under `/api/v1` comes back in one shape, with a real HTTP status:
 may be reworded. `details` is optional structured context — for a validation failure it
 carries the offending fields.
 
-Raise, don't build responses by hand:
+Raise, don't build responses manually:
 
 ```python
 from httpapi.errors import NotFoundError, InvalidRequestError, FeatureUnavailableError
@@ -562,7 +562,7 @@ raise FeatureUnavailableError("DOF is not configured on this instance")
 ```
 
 For anything else, `ApiError(code, message, status_code=..., details=...)`. An `OSError`
-that reaches the top comes back with the reason in words as the message. One from this
+that reaches the top is returned with the reason in words as the message. One from this
 device, such as a read-only folder or a full disk, is `409` `conflict`: *VPinFE does not
 have permission for /path/to/the/folder*. One from another device, a host that did not
 answer, could not be reached or answered with an error, is `502` `upstream_unavailable`:
@@ -714,7 +714,7 @@ launcher configured declares `launch` and reports it unavailable, with a reason.
 ## Launching
 
 `POST /api/v1/games/{id}/launch` starts a game on this play host. It returns `202` as soon
-as the launch is under way — not when the game exits, which can be hours later. Watch
+as the launch has started - not when the game exits, which can be hours later. Watch
 `/api/v1/events` to find out what happens next.
 
 ```
@@ -726,7 +726,7 @@ POST /api/v1/games/6f1c9a4e.../launch
 leave it out for the game's default. A name that isn't in the game's own folder is refused,
 so this can't be talked into running something else.
 
-Every refusal happens before anything starts, and comes back synchronously:
+Every refusal happens before anything starts, and is returned synchronously:
 
 | Status | Code | Means |
 |--------|------|-------|
@@ -845,7 +845,7 @@ see which one is in force:
 
 **The two table files do not stack.** VPX reads a table's own file where there is one and
 the folder's where there is not, never both. The folder's file is read and never written:
-VPinFE makes no file in a game's folder, and one made by hand or by another program shows
+VPinFE makes no file in a game's folder, and one made manually or by another program shows
 as the `folder` scope where it reaches a table. So a table's first value of its own
 creates its file with that value alone, and the folder's file stops reaching it. At the
 `entry` scope, `from_game` is by key what the folder's file sets that the table's own does
@@ -861,7 +861,7 @@ true for that table.
 
 At a table's scope an empty value removes the setting from that file. So does a value
 equal to what the launcher already gives, which VPX would drop itself the next time it
-saved, and those come back under `cleared` rather than `written`. The ones VPX keeps at a
+saved, and those are returned under `cleared` rather than `written`. The ones VPX keeps at a
 table whatever their value, the windows among them, are written as sent.
 
 The copies `/backups` keeps of a launcher are of the `launcher` scope's file only. A table's
@@ -870,8 +870,8 @@ files sit beside its `.vpx` and travel with it.
 ## Input
 
 `POST /api/v1/input/actions` presses what a cabinet button presses. It's the third way an
-action reaches the frontend — the keyboard and the gamepad are the other two, and all
-three land on the same dispatch, so a remote isn't a second implementation of navigation.
+action reaches the frontend - the keyboard and the gamepad are the other two, and all
+three reach the same dispatch, so a remote isn't a second implementation of navigation.
 
 ```
 POST /api/v1/input/actions
@@ -969,7 +969,7 @@ window, which takes the buttons, says which kind it is and which side. `showing`
 
 At the cabinet left and right show `before` and `after`, select uses the recording and back
 throws it away, as `POST /capture/proposals/{id}` does. `preview` then goes back to null, and
-the proposal is gone from `GET /capture/proposals`. So does a decision made through that
+the proposal is no longer listed by `GET /capture/proposals`. So does a decision made through that
 route anywhere while the proposal is on show. A recording the frontend's own main menu
 started, which leaves proposals, shows each of them in turn once it ends.
 
@@ -1070,7 +1070,7 @@ is asked of that device.
 - Every `reason` is a catalog key and its values, rendered where it is read. `fix` is
   `user` where a person must act, and then `remedy` says how, in the shape of the Tools'
   remedy; `auto` where VPinFE can do it once a person agrees - a missing FFmpeg on Windows
-  and macOS, which `POST /api/v1/config/tools/ffmpeg/get` fetches - with the remedy's
+  and macOS, which `POST /api/v1/config/tools/ffmpeg/get` downloads - with the remedy's
   `get` saying what, and a desktop not yet told which screens VPinFE may record, which
   `POST /api/v1/capture/screens/choose` asks; `none` where nobody can. A remedy that is no
   Tool's has no `setting`. A `window` value is a window's id, said with its media
@@ -1170,9 +1170,9 @@ order named, and answers `202` with the job (`Location` is where to watch it).
 - `settings` are Recording settings for this run only: `length`, `wait`, `picture_at`,
   `fps`, `size`, `video_codec`, `playfield_orientation`, `quality`, `sound_source`,
   `record_command`, `encode_command`.
-- A game's slot is the file its tables share, and the recording lands there; a table's
-  slot is whatever serves it - its own file, else the shared one - and the recording lands
-  as the table's own.
+- A game's slot is the file its tables share, and the recording is saved there; a table's
+  slot is whatever serves it - its own file, else the shared one - and the recording is
+  saved as the table's own.
 - A game or table named twice is recorded once.
 
 The plan has an entry in `targets` for each game or table: per kind what it `does`
@@ -1223,12 +1223,12 @@ The run is written to the device's data directory as it goes, and
 - A run of more than one pauses rather than carrying on where a table is closed at the
   cabinet (`capture.outcome.closed`), where a table was launched by anyone else
   (`capture.run.launched`), and where a disk would be left with under 1 GB
-  (`capture.run.space`). The game in hand is recorded again on Resume. A run of one ends
+  (`capture.run.space`). The current game is recorded again on Resume. A run of one ends
   there instead, as its `closed` outcome.
 - A person's Pause has no `reason`. A run VPinFE was closed during reads `paused` with
   `capture.run.interrupted`, and never resumes on its own.
 - Stop and Pause close the table being recorded and keep nothing of it, and a recording
-  being encoded is thrown away. What earlier games placed, and the proposals they kept,
+  being encoded is discarded. What earlier games placed, and the proposals they kept,
   stay.
 
 ### Proposals
@@ -1404,10 +1404,10 @@ Three lenses, and they answer different questions:
 lifted, so the rows that are shown read in the same order as `/entries`, and a row past the
 limit keeps its place among them. A row that produces no entry at all - a game this library
 no longer has, a hidden table - follows them in the order it is stored, and what was taken
-out comes last. A collection arranged by hand is listed exactly as stored, which is the
+out comes last. A collection arranged manually is listed exactly as stored, which is the
 order it is handed out in.
 
-A member naming something that is gone is reported by the first and absent from the other
+A member naming something that no longer exists is reported by the first and absent from the other
 two. Nothing prunes it: a library on a share that was not mounted at scan time reports
 every game missing, and cleaning up on that signal would empty every collection.
 
@@ -1464,7 +1464,7 @@ names: a block with neither leaves the order, its paging and the cap as they wer
 saving a rule changes the rule and nothing else. The one exception is a collection ordered
 `manual`, which no collection with criteria can follow: the block moves it to `title`, in
 the direction the block names or else `asc`. Its members keep their stored order, so
-clearing the criteria and asking for `manual` again brings the arrangement back. The cap
+clearing the criteria and asking for `manual` again restores the arrangement. The cap
 changes only through `limit` and `clear_limit`.
 
 A ranked view of a Community list is an order too, `order_by` being
@@ -1486,7 +1486,7 @@ A cap is `limit`, and lifting one needs `clear_limit: true` rather than a null: 
 null are the same thing over JSON, so there would otherwise be no way to say it.
 
 Taking the criteria away is `clear_filters: true`, for the same reason a cap needs
-`clear_limit`. It keeps the games named by hand and drops the exclusions with the criteria,
+`clear_limit`. It keeps the games named manually and drops the exclusions with the criteria,
 since they only said what to leave out of what the criteria found. Sending it beside
 `filters` is refused.
 
@@ -1534,7 +1534,7 @@ value in it; a game with no value on the field holds none of them, so it stays. 
 `kind` is `none_of`, and they carry no values of their own, since the field's are the ones
 to offer. `tags_none_of` is table-scoped like `tags`: a game where neither it nor any of its
 tables carries one matches its default table, and otherwise each table where neither it
-nor its game carries one comes in by itself.
+nor its game carries one matches on its own.
 
 The `rating` axis carries its scale, `["1", "2", "3", "4", "5"]`, on every install rather
 than the ratings a library happens to hold: enumerating the ratings in use would offer a
@@ -1590,7 +1590,7 @@ too old to serve the route, or that fails to answer it, keeps what was held. The
 answer carries the same field. An install's own entry is written by its frontend as it
 reports, rather than by probing itself.
 
-An install upgrading from 2.x brings its `[vpxmobile]` address and port across once, as
+An install upgrading from 2.x has its `[vpxmobile]` address and port copied once, as
 an item of `mobile_devices` named `VPX Mobile`. The keys are removed in the conversion and
 nothing reads them afterwards.
 
@@ -1620,7 +1620,7 @@ verifiable is not a pass.
 Who plays on this install, and who the next game counts for. Each install has its own,
 and one player on it is the **owner**, made on the first start and never removable. Kept
 players are written to `players.json` in the config directory. A **guest** is held in
-memory and is gone when VPinFE closes.
+memory and is discarded when VPinFE closes.
 
 ```json
 {"players": [
@@ -1675,7 +1675,7 @@ is `invalid_request` with the reason as its message. An id nobody has is `not_fo
 Every player but the owner has a record of their own: per game, how often they played it,
 for how long, when they last did, their best entry on its high score table, and their
 rating. A kept player's is written to `player_records/<id>.json` in the config directory;
-a guest's is held in memory and is gone when they sign out or VPinFE closes. Removing a
+a guest's is held in memory and is discarded when they sign out or VPinFE closes. Removing a
 player removes their record.
 
 ```json
@@ -1703,7 +1703,7 @@ read from a game's `user`, and their rating is written by `PUT /games/{id}/ratin
 A player can hold an account with an extension that offers one - a user id at a scores
 site, say, chosen free and claimed deliberately. The account is the extension's: what can
 be done with it comes from the extension, asked with the player's id, and it keeps the
-values. A guest's are held in memory and gone when they are.
+values. A guest's are held in memory and discarded when they are.
 
 ```json
 {"accounts": [
@@ -1757,8 +1757,8 @@ Removing a player, or signing a guest out, forgets their accounts with every ext
 ## Jobs
 
 Work that takes minutes is a job: you ask for the work, get `202` and a job resource back,
-and follow it on the event stream. `POST /library/scan` is the first one — a metadata
-rebuild across every game folder, which is why it sits under `/library` rather than
+and follow it on the event stream. `POST /library/scan` is the first one - a metadata
+rebuild across every game folder, which is why it is under `/library` rather than
 `/games/{id}`; it isn't an operation on a game.
 
 The job resource exists because the stream isn't the only way in. A client that connected
@@ -1766,7 +1766,7 @@ late, missed `job.done`, or simply wants to know what is running asks `GET /jobs
 `GET /jobs/{id}` — `pct` and `message` hold the last progress reported, so a late reader is
 correct without having seen a single event. Finished jobs are kept in memory since startup,
 up to 500, and a restart empties them, apart from a job that asked to keep its result: that
-one is written to disk when it finishes, the latest 20 stay, and they come back after a
+one is written to disk when it finishes, the latest 20 stay, and they are available again after a
 restart with `report` true on them. The listing returns the last 20 unless `?limit=` asks
 for more. `title` names the run where its kind is shared by several operations - a scan, a reload
 from disk and an auto-match are all `library.scan`, which is the lock on rewriting `.info`
@@ -1775,7 +1775,7 @@ files - and is empty where the kind's own name is enough. A finished job says ho
 language, for the kinds that have something to count, and `stopped` is true on a `done` job
 whose work was stopped part way - `state` stays `done`, `failed`, or `running`. `problems`
 counts the parts of a `done` job that failed, an import's games that could not
-be made among them; a `done` job with `problems` above zero is the one to look at.
+be made among them; a `done` job with `problems` above zero is the one to review.
 
 A job an extension started is shown only to a caller who reaches the tier of the request that
 started it: `GET /jobs` leaves it out and `GET /jobs/{id}` answers `404` for anyone below, and
@@ -1790,7 +1790,7 @@ covers only asking; the right to watch is not the right to cause.
 **One job of a kind at a time**, and the rule is shared with the rest of the app rather than
 being an API-only guard: the Manager's own Scan button goes through the same registry, so
 two library scans can't rewrite the same `.info` files at once, and a scan started from the
-UI shows up on the stream exactly like one started here. A second request gets `409 conflict`
+UI appears on the stream exactly like one started here. A second request gets `409 conflict`
 rather than being queued — queueing would mean a double-click costs two full scans.
 
 A job that can be stopped part way says so: `stoppable` is true, and while it runs
@@ -1828,9 +1828,9 @@ Two consequences worth knowing:
 - Copying a game folder copies its id. The duplicate is spotted and re-minted the next time
   ids are checked across the library, so an id always addresses one game.
 - Deleting a game's `.info` loses that game's rating and play counts. The game is given the
-  id its place in the location makes, so a game given its id that way comes back under it. A
+  id its place in the location makes, so a game given its id that way has the same id again. A
   folder deleted and made again at the same path is that game again, with the collections
-  that named it. A re-issued id is random, and does not come back.
+  that named it. A re-issued id is random, so the game does not get the same id again.
 
 Existing games get an id on their next metadata rebuild, or on demand. Reading a game never
 mints one — a scan is a read path and stays one.
@@ -1948,8 +1948,8 @@ nothing is there, and no game will change that.
 ## Pictures
 
 A player's **Take Picture** during play keeps every screen as one PNG in the game's
-`pictures/` folder (see [Input](#input)). The folder is the list: a PNG put there by hand is
-listed too, and one deleted from it is gone.
+`pictures/` folder (see [Input](#input)). The folder is the list: a PNG put there manually is
+listed too, and one deleted from it is no longer listed.
 
 | Field | What it holds |
 |---|---|
@@ -1983,8 +1983,8 @@ reach the same service, so there is one implementation of every answer and no ro
 double duty. A service module named `*_ops` writes, a `*_lens` reads; both return dicts,
 because `common/` may not import `httpapi` and so cannot hand back a response model.
 
-Refusals come back as one of the four in `common/service_errors.py` — not found, refused,
-blocked, unavailable — and a handler registered in `httpapi/errors.py` turns each into its
+Refusals are raised as one of the four in `common/service_errors.py` - not found, refused,
+blocked, unavailable - and a handler registered in `httpapi/errors.py` turns each into its
 envelope. A route only needs a `try`/`except` when it gives a status those four do not
 cover: an upload too large is 413, an unreadable session 422, a theme source that will not
 load 503.

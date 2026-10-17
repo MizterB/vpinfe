@@ -374,7 +374,7 @@ Then `call`, which every later lesson reuses.
             raise Unavailable(ctx.why(exc, at=request.full_url)) from exc
 ```
 
-It sends the key the person typed in, reads the JSON that comes back, and turns each way it can
+It sends the key the person typed in, reads the JSON in the response, and turns each way it can
 fail into `Unavailable`, with words.  A wrong key is the one failure with a sentence of its own,
 and any other is `ctx.why`, which words the cause the way core's own pages do.
 
@@ -621,7 +621,7 @@ accept the key", in the words `call` raised.  Put `practice-key` back.
 
 ### What core did
 
-- **It ran the act for you.**  It called `test`, said what came back and said what went wrong
+- **It ran the act for you.**  It called `test`, reported what the call returned and said what went wrong
   if it did.  You wrote no route and no gate for the press.  See [what core draws and what you
   supply](how-it-works.md#what-core-draws-and-what-you-supply).
 - **It kept an address from leaving silently.**  An entry that goes elsewhere is marked as
@@ -722,7 +722,7 @@ follows a flag.
 
 ### See it
 
-Tick a row's checkbox.  The bar above the grid says how many are selected and a menu appears
+Select a row with its checkbox.  The bar above the grid says how many are selected and a menu appears
 beside it.  It lists Open on the Site, Flag, Remove and Clear Selection.  The same menu opens on
 a right click of a row.
 
@@ -751,7 +751,7 @@ kept on the site, not in the Manager, so the grey comes from the list being read
   are the two words a danger and a `needs` each require.
 - **Open on the Site is grey, with No address.**  A link verb needs a row field that starts with
   `http://` or `https://`.  The reason shows when one row is picked.
-- **There is no checkbox.**  A row with no `id` shows, but cannot be ticked.
+- **There is no checkbox.**  A row with no `id` shows, but cannot be selected.
 
 ## Lesson 7: Adding a score
 
@@ -1208,8 +1208,8 @@ catalog.  Put it back.
 - **The check says `missing` and names a key.**  A word the extension shows has no entry in
   `i18n/en.json`.  Add it, and restart VPinFE for it to show.
 - **The page shows the folder's name, not the product's.**  `display_name` is not in the manifest.
-- **The extension does not start on a machine that is not yours.**  Its `platforms` names a system
-  that machine is not.  It has no page in Settings, and the log says which platforms it asked for.
+- **The extension does not start on a device that is not yours.**  Its `platforms` names a system
+  that device is not.  It has no page in Settings, and the log says which platforms it asked for.
 
 ## The whole extension
 
@@ -1514,4 +1514,4 @@ Each of these is a small complete extension in the [Cookbook](cookbook.md).
   system to change something](cookbook.md#20-asking-the-operating-system-to-change-something).
 
 Before you give it to anyone, read [Good extensions](good-extensions.md): the habits that make an
-extension feel like part of VPinFE, ending in a list to tick.
+extension feel like part of VPinFE, ending in a checklist.

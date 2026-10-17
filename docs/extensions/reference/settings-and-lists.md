@@ -81,7 +81,7 @@ raise `Unavailable`; see [Unavailable](running.md#unavailable).
 **Row ids.**  A row's `id` is a string, unique in the list.  A number is read as its text.  Two
 rows with one id mean the extension could not answer
 (`error.extensions.duplicate_row_id`), for any list, verbs or not.  A verb finds a row by its
-`id`.  A row with no `id` shows, but it cannot be ticked and has no menu.
+`id`.  A row with no `id` shows, but it cannot be selected and has no menu.
 
 **Area.**  Which group of the rail the list is in.  Required: an entry with no area has no home in the navigation, so the extension is refused.
 
@@ -159,7 +159,7 @@ nothing.  The link has the look of an act that leaves the Manager.  Say what it 
 as the column's header.
 
 **Picture.**  The value is a web address, or a path in the extension's folder (`art/cover.png`).
-Core fetches the picture, checks that it is an image, makes a copy at the size of a list and
+Core downloads the picture, checks that it is an image, makes a copy at the size of a list and
 serves only that copy, from VPinFE's own address, so the page never reaches another server.  The row you
 get back from the list route holds that address in place of what you gave; the rows a verb
 runs on still hold your own value.  Core only serves a
@@ -169,7 +169,7 @@ picture that appeared in a row of that extension.
   (`error.extensions.picture_outbound`).
 - A file must be an image inside the extension's folder.  A path that leaves the folder, or a
   file that is not an image, shows nothing.
-- A picture that cannot be had shows nothing, never a broken image.  A web picture that failed is not asked for again for ten minutes, and one that came is kept.  A picture fetched from the web is limited to 8 MB.
+- A picture that cannot be had shows nothing, never a broken image.  A web picture that failed is not asked for again for ten minutes, and one that came is kept.  A picture downloaded from the web is limited to 8 MB.
 - A picture column is not sorted or filtered.
 
 Words for a `state` column:
@@ -246,8 +246,8 @@ offer an act only while it can work (a Send Now with nothing waiting is left out
 
 An act's label is `list.<key>.act.<act>.label`, falling back to the act's key.
 
-**Verbs.**  What a person can do to rows: one, or several ticked.  Each verb is in the row's
-right-click menu and in the menu the bar shows while any row is ticked.  `{"key", "run",
+**Verbs.**  What a person can do to rows: one, or several selected.  Each verb is in the row's
+right-click menu and in the menu the bar shows while any row is selected.  `{"key", "run",
 "link" or "action", "each", "danger", "needs", "one", "label"}`:
 
 | key | meaning |
@@ -257,9 +257,9 @@ right-click menu and in the menu the bar shows while any row is ticked.  `{"key"
 | `link` | In place of `run`: the row field that holds an address.  The verb opens it in a new tab, marked as leaving, and the extension is not called.  The field has to start with `http://` or `https://`, or the verb is dimmed and says **No address**.  A link is always `one`, and takes no `danger` or `needs` |
 | `action` | In place of `run`: the key of a dialog declared with [`ctx.ui.action`](actions.md).  It opens over the rows chosen, and its `ask` is handed their ids (see [Over rows](actions.md#over-rows)).  It takes no `danger`, since the dialog asks for itself.  The list is read again after the dialog runs |
 | `each` | With `action`: one dialog for each row chosen, in order, with **Skip** and **Stop** where Cancel would be.  Skip leaves that row as it was and moves on; Stop ends the run.  Without it, one dialog covers every row |
-| `danger` | Puts the verb last, under a rule, in red, and asks first.  The question is `list.<key>.verb.<verb>.confirm`, and `{count}` is the number of rows ticked, which can be more than the rows the verb acts on when it also has `needs`.  The Manager does the asking; the route runs the verb whenever it is called |
-| `needs` | A row field that is true or false.  The verb is dimmed on a row where it is not, with the words `list.<key>.verb.<verb>.needs`.  With several rows ticked, it acts on the rows where the field is true.  Core checks this again when the verb is pressed |
-| `one` | The verb makes no sense over several rows.  With several ticked it stays in the menu, dimmed, and says **One at a time**.  Core turns it down for any other number of rows |
+| `danger` | Puts the verb last, under a rule, in red, and asks first.  The question is `list.<key>.verb.<verb>.confirm`, and `{count}` is the number of rows selected, which can be more than the rows the verb acts on when it also has `needs`.  The Manager does the asking; the route runs the verb whenever it is called |
+| `needs` | A row field that is true or false.  The verb is dimmed on a row where it is not, with the words `list.<key>.verb.<verb>.needs`.  With several rows selected, it acts on the rows where the field is true.  Core checks this again when the verb is pressed |
+| `one` | The verb makes no sense over several rows.  With several selected it stays in the menu, dimmed, and says **One at a time**.  Core turns it down for any other number of rows |
 | `label` | Shown as written; left out, `list.<key>.verb.<verb>.label`, then the verb's key |
 
 The question a danger verb asks has a singular and a plural, `{"one": "Remove this row?",
@@ -339,8 +339,8 @@ field, and the field keeps what they typed.  Core hands `save` only keys the pan
 (`error.extensions.no_field`), and a select value that is not a choice is turned down
 (`error.extensions.bad_choice`).
 
-**Several rows.**  When the list has verbs, the person can tick several rows, and the pane
-becomes core's own: how many are ticked, and the verbs over them.  `detail` is not called for
+**Several rows.**  When the list has verbs, the person can select several rows, and the pane
+becomes core's own: how many are selected, and the verbs over them.  `detail` is not called for
 that.
 
 **Pane errors.**  An answer core cannot draw makes the pane say what is wrong, and the

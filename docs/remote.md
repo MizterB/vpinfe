@@ -57,7 +57,7 @@ While the target's frontend is up, the phone and the screen show the same collec
 
 - The Remote opens on the collection the frontend is showing, and a collection picked on the phone switches the frontend.
 - A switch or a wheel move at the screen reaches the phone over the target's event stream. Each open page follows `frontend.state_changed`, `play.state_changed`, `capture.run_changed`, `players.changed` and `table.play_recorded` on a thread of its own, because a read that waits for the next event would otherwise hold the Manager's event loop. The thread stops when the page goes. Who is up and the result card live on this same thread, tied to the frontend the way everything else here is - a target too old to report its frontend follows none of these either.
-- The game on the wheel sits under the header on every screen, with Launch. It is not drawn while a table is up.
+- The game on the wheel is under the header on every screen, with Launch. It is not drawn while a table is up.
 - With the frontend closed, Now says so and draws no Take Picture, and Control draws no pad. A press goes to the frontend's windows and nowhere else, so with none up every button would report success and nothing would hear it.
 - A target too old to report its frontend answers `GET /frontend/state` with 404. The Remote then follows nothing and behaves as it did before.
 
@@ -74,13 +74,13 @@ A recording kept for a decision is best judged where it will play, so Review pla
 
 ## Targets
 
-The target picker sits in the header on every screen, because every action's meaning depends on which install it is aimed at. It is not drawn when only one device is registered.
+The target picker is in the header on every screen, because every action's meaning depends on which install it is aimed at. It is not drawn when only one device is registered.
 
 Changing the target re-reads everything below the header. The library has to come from the target as well as the commands, since a list read from this install offers ids the target has never heard of. Writes go there too: a rating, a favorite or an add to a collection lands on the install the phone is aimed at.
 
 A target is shown as reachable by asking it, not by reading `last_reachable`. A device recorded a moment ago carries a fresh timestamp whether or not it is switched on.
 
-The row for the machine serving the page is decided by the data rather than by comparing install ids: an install records itself with no address, and every other row is written from an address it was heard at.
+The row for the device serving the page is decided by the data rather than by comparing install ids: an install records itself with no address, and every other row is written from an address it was heard at.
 
 ## What it can write
 

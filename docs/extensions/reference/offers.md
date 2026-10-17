@@ -79,7 +79,7 @@ Core does three more things that no theme author sees:
 - The games either side are fetched on the same signal.  What somebody sees is the answer
   fetched a step ago, and the gap only shows on the first game of a cold start.
 - The message that carries an answer names the game it is about, so one that arrives after the
-  wheel has moved lands on the entry it belongs to.
+  wheel has moved is applied to the entry it belongs to.
 
 The slot is always present and empty at library load, since a list of four hundred games
 cannot wait on four hundred calls to somebody else's server.  A theme written as
@@ -195,8 +195,8 @@ should answer from `vps_id`.
 A row may also say how it stands, and what can be done to it:
 
 - `state` is `{"text", "level", "hint"}`.  `level` is `on`, `off`, `unknown`, `warn` or `bad`,
-  and one with none is `unknown`.  The row shows `text` in place of the tick once the file is
-  handed over, and `hint` is its tooltip.  `unknown` reads as under way; `warn` and `bad` need
+  and one with none is `unknown`.  The row shows `text` in place of the tick once the extension
+  has supplied the file, and `hint` is its tooltip.  `unknown` reads as in progress; `warn` and `bad` need
   the person.
 - `acts` is `[{"key", "label"}]`, one button for each, with no two sharing a key.
 
@@ -209,9 +209,9 @@ ctx.sources.contribute(
     take_many=take_ticked, act=press, look=page_of)
 ```
 
-- `take_many(who, picks)` is called once with `[{"kind", "key"}]` for every file ticked for that
+- `take_many(who, picks)` is called once with `[{"kind", "key"}]` for every file selected for that
   source, after the game is made if it was not in the library.  It answers `{"message": text}`
-  or nothing.  A source without it can be ticked in Discovery, and the tick fails with the
+  or nothing.  A source without it can be selected in Discovery, and the download fails with the
   reason, so a source that sets `vps_file_id` gives this too.
 - `act(who, kind, key, act)` is called when a button is pressed, and answers what `take` does,
   or nothing.  Discovery shows a `message` and opens an `action` dialog, and does not follow a
@@ -259,7 +259,7 @@ offered.
 stands for nothing and is logged, and the table still launches.  Pass `after_only=True` for
 something only the half that runs afterwards can know.
 
-**A name goes when its extension does.**  A command still holding one is refused by that name,
+**A name is removed when its extension is.**  A command still holding one is refused by that name,
 the same as any name nothing declares.  The alternative is a `--flag` left with nothing after
 it, reading whatever came next as its value.
 

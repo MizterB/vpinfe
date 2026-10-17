@@ -49,7 +49,7 @@ long as it takes, and VPinFE waits up to the time in the table below before it g
 
 ## The methods
 
-| method | changes the machine | takes | answers | waits up to |
+| method | changes the device | takes | answers | waits up to |
 |---|---|---|---|---|
 | `updates.check` | No | nothing | `{"count": n}`, the packages an update would install | 2 minutes |
 | `updates.apply` | Yes | nothing | `{"installed": n, "reboot_required": bool, "vpinfe_upgraded": bool}` | 1 hour |
@@ -77,6 +77,6 @@ harm runs as the same user that can open the socket.  The helper's list is what 
 the list stays short.
 
 Adding a method means adding it to `METHODS` in `common/host/os_helper.py` with its area, whether
-it changes the machine and how long it may take, and giving it a sentence in the catalog under
+it changes the device and how long it may take, and giving it a sentence in the catalog under
 `os.method.<name>.says`.  A new area also means a capability in `common/extensions/contract.py`
 and its words on the install screen.

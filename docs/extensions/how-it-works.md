@@ -119,7 +119,7 @@ changes, such as `games:read` for the library.  They decide which `ctx.games`, `
 similar calls work, and the extension's page lists them in words.  Something that needs a scope
 the manifest does not declare is refused, and the message names the scope.
 
-**What the extension asks of the machine.**  The manifest's `capabilities`: `ui:mount` for any
+**What the extension asks of the device.**  The manifest's `capabilities`: `ui:mount` for any
 page it adds, `config:own` for its settings, `net:outbound` for the network and so on.  Core
 enforces the ones that go through `ctx`.  The rest are advisory, because Python in the same
 process can always do them: they say what the extension intends, so a person can see it, and
@@ -144,7 +144,7 @@ mark follows the request into the function it calls.  A Library act pressed by a
 confirmed is still a Library act, so only an act declared Protected can change the device.  An event
 handler, a timer or a thread the extension started has none, so a change from any of them is
 refused.  It is how VPinFE keeps an act deliberate: a person pressed something.  It is not a lock
-on the machine.  See [`ctx.os`](reference/context.md#ctxos).
+on the device.  See [`ctx.os`](reference/context.md#ctxos).
 
 The full list of scopes and capabilities is on [Scopes and the gate](reference/scopes.md).
 
@@ -199,7 +199,7 @@ change to your code without restarting everything.
 | A new extension folder | Restart VPinFE |
 
 **What survives.**  An extension's settings are in a file of their own, so they survive all of
-these.  Anything the extension holds in memory is gone each time it is loaded: after off and on,
+these.  Anything the extension holds in memory is lost each time it is loaded: after off and on,
 and after a restart.  If it matters, keep it in `ctx.config`.
 
 A failure that happened once is not written down.  An extension that failed or was taken out

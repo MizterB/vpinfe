@@ -199,7 +199,7 @@ The user sees the value they typed in the extension's settings.  Does not raise.
 
 `ctx.config.get_list(key) -> list[str]`.  Required: `key`.
 
-The keys ticked in a `multi` setting, in the order they were ticked.  Where none has been saved
+The keys selected in a `multi` setting, in the order they were selected.  Where none has been saved
 you get the setting's declared default, and `[]` where that is empty.
 
 ```python
@@ -352,7 +352,7 @@ Runs `work(job)` on its own thread.  The job appears in the Jobs view and on `/a
 With `stoppable=True` the job offers a **Stop** link, which calls
 `POST /api/v1/ext/<name>/jobs/<kind>/stop` at the Library tier.  With `keep_result=True` what
 `work` returns is written to disk, the latest 20 with the oldest going first, so the Jobs view
-can open it after the page that started the job has gone, and after a restart too.  A result
+can open it after the page that started the job has closed, and after a restart too.  A result
 may list `rows`.  Every row with an `error` is shown under what failed, by its
 `name`, and `error` takes a string or `{text, detail}`.
 
@@ -415,7 +415,7 @@ device, and `ctx.os.methods` lists the methods this extension may call.  Each en
 | key | what it holds |
 |---|---|
 | `name` | What to pass to `call`, such as `updates.check` |
-| `changes` | True where the method changes the machine, False where it only reads |
+| `changes` | True where the method changes the device, False where it only reads |
 | `says` | Core's sentence for it, in the language now set |
 
 A method belongs to an area, and an area is a capability: `os:updates` today.  An extension
@@ -428,7 +428,7 @@ system updates on this device".  `ctx.os.methods` is empty without one.
 
 Asks the helper for `method` and returns what it answers, as JSON would carry it.  A method
 that only reads, such as `updates.check`, can be called from anywhere.  A method that changes
-the machine, such as `updates.apply`, is refused unless the request it is called from reached
+the device, such as `updates.apply`, is refused unless the request it is called from reached
 Protected.  Core marks each request with the tier it reached, lowered to the tier the act is
 declared at, and the mark follows the request into the function core calls and into a job started from it, and it ends when the request does.
 An event handler, a timer or a thread the extension started has no mark, and neither has a task

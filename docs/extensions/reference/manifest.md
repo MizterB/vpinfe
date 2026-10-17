@@ -129,7 +129,7 @@ table is ignored.
 | `picture` | no | none | A path inside its own folder to a `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif` or `.bmp` file of at most 8 MB, written with `/` between folders. Drawn in the page header once the person has accepted the extension, never before, and never in the accept prompt |
 | `description` | no | empty | One line, shown beside it. Left out, it is `description` in its own `i18n/` |
 | `scopes` | no | none | Core scopes it asks to use, such as `games:read`. See [Scopes and the gate](scopes.md#scopes-and-the-gate) |
-| `capabilities` | no | none | What it asks of the machine. See [Scopes and the gate](scopes.md#scopes-and-the-gate) |
+| `capabilities` | no | none | What it asks of the device. See [Scopes and the gate](scopes.md#scopes-and-the-gate) |
 | `tiers` | no | none | `protected`, when something it serves asks for the Confirm. Something at a tier it does not list is refused. `play` is not listed here: see `play` below. See [Scopes and the gate](scopes.md#scopes-and-the-gate) |
 | `play` | no | none | The surfaces a Remote can open, each by name: `router`, `action:<key>`, `list:<key>`, `page:<key>`, `group:<subject>` or `verb:<subject>:<key>`. Whoever installs it is shown the list before accepting, and a surface put at Play that is not listed fails when it is declared, and a name listed that it never puts at Play fails the load. See [Scopes and the gate](scopes.md#scopes-and-the-gate) |
 | `requires_features` | no | none | Install features it needs: `library`, `frontend`, `devices`, `overview` |
@@ -150,7 +150,7 @@ it asked for.  An extension that lacks only a feature stays listed, with the rea
 Ubuntu is both `linux` and `ubuntu`.  `ID` is read from `/etc/os-release`, and is lowercase
 there already; a name with a capital letter is refused, so write `vpinos`, not `VPinOS`.
 
-If the manifest names a platform this machine is not, or a feature this install does not
+If the manifest names a platform this device is not, or a feature this install does not
 have, the extension is not started.  It is still listed, with the reason, and on Linux the
 reason names the distribution: "It does not run on Ubuntu".
 

@@ -61,7 +61,7 @@ this shape never offers either.
 it, and `account.share_changed` says when it moves; see
 [What a game tells you](offers.md#what-a-game-tells-you).  **Turning Share off drops whatever
 the account holds back to send**, games that failed to go or a queue of scores, so nothing
-played while it was on goes later by hand or when it is turned on again.  Core's words under
+played while it was on is sent later manually or when it is turned on again.  Core's words under
 the switch are `account.share.help` in the catalog when the extension has them, else the
 Manager's own naming of a played game, a rating and a high score.
 

@@ -269,9 +269,9 @@ row stays away until the token is another.  Without a token the row is set aside
 kind, and a row for a kind that answers a count of nothing is not drawn.
 
 A person sees the row among core's own, with the extension's name where the count of an item
-would be, and Dismiss, Undo and Show Again (under Set Aside) like any other row.  Stop Checking is there
+would be, and Dismiss, Undo and Show Again (under Dismissed) like any other row.  Stop Checking is there
 too, worded for the row alone ("Only this row from" the extension): it stops this kind from this
-extension, moves the row to Set Aside with Check Again, and survives a restart.  The extension is
+extension, moves the row to Dismissed with Check Again, and survives a restart.  The extension is
 still running, and switching it off in Settings stops all of it.  What a dismissal recorded is kept while the extension
 is stopped or its `read` fails, and is dropped once it answers without it.  A click on an
 `action` opens the dialog over no rows, and Overview is drawn again once it closes.

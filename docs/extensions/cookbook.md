@@ -754,7 +754,7 @@ reason.
 flag a score, open its page or remove it.
 
 `verbs` on a list are the things that can be done to a row. Core draws them in the row's
-menu and, when the person ticks several rows, in the menu under the list. You say what each
+menu and, when the person selects several rows, in the menu under the list. You say what each
 one does, and core asks first when it is dangerous, dims it where it does not fit, and reads
 the list again afterwards.
 
@@ -855,12 +855,12 @@ def register(ctx):
 ```
 
 **Where it appears:** on the list's page under Community in the rail, in the menu on each row
-and in the menu above the list when rows are ticked. **What triggers it:** the person picking rows and pressing a verb. Your
+and in the menu above the list when rows are selected. **What triggers it:** the person picking rows and pressing a verb. Your
 function is handed the rows they picked, and core reads the list again afterwards.
 
 **What you'll see:** Score Rows under Community in the rail, with the three sample scores
 once the key is set. Right-click a row for Open on the Site, Flag and, below a rule, Remove.
-Tick two rows and the same menu is under the list, with Open on the Site dimmed as One at a
+Select two rows and the same menu is under the list, with Open on the Site dimmed as One at a
 time. Flag a score and its Flag is dimmed with Already flagged. Remove asks "Remove this score
 from the site?" first, or "Remove these 2 scores from the site?" for two.
 
@@ -877,7 +877,7 @@ but not picked.
 
 ### 10. States, chips, links and pictures in a column
 
-**Use it when:** a column holds something the person should take in at a glance: whether a
+**Use it when:** a column holds something the person should see at a glance: whether a
 challenge is open, which tags a table carries, where its rules are, what it looks like.
 
 A column is text unless you give it a `kind`. Four kinds draw a value as more than text:
@@ -1215,7 +1215,7 @@ address names it.
   as a table's last three plays.
 
 **Watch out:** `detail` is asked for any id, including one you never listed, so look it up and
-return None when it is not there; the person is told the row is gone.  And a field key is
+return None when it is not there; the person is told the row is missing.  And a field key is
 unique in the whole pane, not only in its section: two sections that both have a `note` leave
 `save` unable to tell them apart, and core refuses the pane.
 
@@ -1462,7 +1462,7 @@ same way.  The entries sit under a Game Verbs heading, after core's.  **What tri
 choosing the entry.
 
 **What you'll see:** open a game's menu and, under the Game Verbs heading, Flag, then Unflag
-under a rule.  Choose Flag and a message says how many games were flagged.  Tick three games
+under a rule.  Choose Flag and a message says how many games were flagged.  Select three games
 and the selection menu has the same entries, and Flag is handed all three.  Unflag asks first.
 Show Version is dimmed on a selection of several tables, and says so.
 
@@ -1708,7 +1708,7 @@ def register(ctx):
 
 **Where it appears:** under Needs You on Overview, among core's own rows, with the extension's name where a count of items would be.  **What triggers it:** Overview being drawn, which asks `waiting` once.  Nothing is asked while the extension is switched off.
 
-**What you'll see:** flag a score on the practice site and Overview gains a red row, 1 flagged score to review.  Clicking it opens the Flagged Scores list.  Dismiss sets the row aside until another score is flagged, Undo takes the Dismiss back, and Set Aside under the rows offers Show Again.
+**What you'll see:** flag a score on the practice site and Overview gains a red row, 1 flagged score to review.  Clicking it opens the Flagged Scores list.  Dismiss hides the row until another score is flagged, Undo reverses the Dismiss, and Dismissed under the rows offers Show Again.
 
 **Variations:**
 

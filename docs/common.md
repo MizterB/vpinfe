@@ -8,7 +8,7 @@ small facade classes for older call sites.
 ## Layout
 
 Domain packages over a ranked shared layer, grouped by what a module knows about. The
-boundaries were drawn from the import graph rather than by hand: 92% of the
+boundaries were drawn from the import graph rather than manually: 92% of the
 domain-to-domain edges stay inside one package.
 
 **`common/` itself is the shared layer.** Nothing here knows about games, hardware or any
@@ -44,7 +44,7 @@ VPinFE Theme List, and reads the themes folder from `paths`.
 
 **`common/config/`** - where the install's settings and files are, and how they are read.
 
-- `paths.py`: canonical user config, themes, collections, and game-root paths. `CONFIG_DIR` is resolved once at import time; set `VPINFE_CONFIG_DIR` before import (main.py maps the `--configdir` flag onto it) to relocate the whole config directory. Beside it, each kind of file that is not config has a folder of its own: `CACHE_DIR` (what a fetch can rebuild), `STATE_DIR` (what belongs to this machine and is kept: `devices.json`, `watching.json`, `updates/`, `capture/` as `CAPTURE_DIR`, `jobs/` as `JOBS_DIR` for the results of jobs started with `keep_result`, NiceGUI's `.nicegui/`) and `LOG_DIR` (`vpinfe.log`, `last_update.log`); under an override they are `cache/`, `state/` and `logs/` of it. `APP_ROOT` is where the app itself lives; reach a file the build ships through `bundled()`, which answers for a source checkout and for both kinds of frozen build.
+- `paths.py`: canonical user config, themes, collections, and game-root paths. `CONFIG_DIR` is resolved once at import time; set `VPINFE_CONFIG_DIR` before import (main.py maps the `--configdir` flag onto it) to relocate the whole config directory. Beside it, each kind of file that is not config has a folder of its own: `CACHE_DIR` (what a download can rebuild), `STATE_DIR` (what belongs to this device and is kept: `devices.json`, `watching.json`, `updates/`, `capture/` as `CAPTURE_DIR`, `jobs/` as `JOBS_DIR` for the results of jobs started with `keep_result`, NiceGUI's `.nicegui/`) and `LOG_DIR` (`vpinfe.log`, `last_update.log`); under an override they are `cache/`, `state/` and `logs/` of it. `APP_ROOT` is where the app itself lives; reach a file the build ships through `bundled()`, which answers for a source checkout and for both kinds of frozen build.
 - `config_access.py`: typed, UI-independent accessors for common INI sections.
 - `config_store.py`: ini reading and writing. A list of objects in `vpinfe.json` is declared as a `ConfigList` in `config_schema.py` and read and written with `get_list` and `set_list`: an item without an `id` is given one, a field the list does not declare is refused, and the module that owns the list registers its `normalize` rule and the `seed` that fills it from a 2.x ini (`register_normalizer`, `register_seed`) before the store is made.
 - `config_schema.py`: every setting declared once: its name, what it accepts, its default and what it means.
@@ -85,7 +85,7 @@ VPinFE Theme List, and reads the themes folder from `paths`.
 - `media_specs.py`: canonical media keys, filenames, playfield attributes, and path resolution.
 - `sized_media.py`: art at the size it is drawn, and the version a browser can keep it under.
 - `manufacturer_logos.py`: logos keyed by a game's manufacturer, in a folder of their own.
-- `folder_browse.py`: listing this machine's folders and files for a path field's Browse button.
+- `folder_browse.py`: listing this device's folders and files for a path field's Browse button.
 
 **`common/release/`** - what an update tells a person and asks of them.
 
@@ -173,7 +173,7 @@ handed those records instead of reaching for them. What core keeps is the `[vpin
 config section, so an install that already had one hands its settings over and a revert
 to 2.x still finds them.
 
-**`common/host/`** - this machine: attached hardware, the launcher, the running session.
+**`common/host/`** - this device: attached hardware, the launcher, the running session.
 
 - `dof_service.py`, `dof_service_worker.py`, `libdmdutil_service.py`: hardware service facades. A real-DMD video is decoded by FFmpeg to the panel's size and sent frame by frame by `libdmdutil_service.py` itself, looping until the next selection or a launch stops it.
 - `dof_config.py`: where DOF's config lives, `directoutputconfig` in Visual Pinball's preferences folder. The frontend's DOF helper is given the folder above it as its base path, so it and Visual Pinball's own DOF plugin read the same files.
@@ -190,7 +190,7 @@ to 2.x still finds them.
 - `input_actions.py`: input produced by something that is not the browser.
 - `display_service.py`, `system_actions.py`, `vpx_log.py`.
 
-**`common/capture/`** - recording this machine's own screens into its tables' media.
+**`common/capture/`** - recording this device's own screens into its tables' media.
 
 - `adapters/`: how this session's screens are reached, chosen from the session's variables, and which output each window is on. `wlr.py` is sway and Hyprland.
 - `geometry.py`: the turns a recorded frame takes to its stored orientation, as one set of FFmpeg filters.
@@ -296,7 +296,7 @@ one is stale with no way to notice - which is why the announcement has to exist 
 
 Start, stop and restart things through `common/runtime/lifecycle.py`. A request names a scope
 (`frontend`, `vpinfe`, `system`) and an action (`start`, `stop`, `restart`), so rebooting
-the machine is `restart` at system scope rather than a verb of its own, and the
+the device is `restart` at system scope rather than a verb of its own, and the
 frontend, the Manager, an extension and a signal all arrive at one place. Reaching
 for the browser directly is what used to skip `shutdown_services` and lose a session's
 play data on the way out.
