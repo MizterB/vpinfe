@@ -60,7 +60,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | --- | --- | --- | --- |
 | `hidden_media_kinds` | list |  | Kinds of media this library does not collect. VPinFE stops showing and counting them; the files stay where they are. |
 | `hidden_asset_kinds` | list |  | Kinds of supporting file this library does not collect - an all-EM library has no ROMs. A table that will not launch still says so. |
-| `hidden_sources` | list |  | Online sources VPinFE does not search for media |
+| `hidden_sources` | list |  | Online sources VPinFE does not search for files |
 | `hidden_checks` | list |  | Library checks that stay quiet. A check left on reports every table it finds a gap in. |
 
 ### `extensions`

@@ -21,6 +21,7 @@ and the rest of the model rests on that.
 | `ctx.tokens` | A name a user may write into a command |
 | `ctx.games` | The library, and everything core offers by name |
 | `ctx.uploads` | Importing files, the way a drop does |
+| `ctx.sources` | Somewhere online Add and Replace can get a file from |
 | `ctx.collections` | Collections: read them, make them, fill them, put them in order |
 | `ctx.apps` | A way to play a table |
 

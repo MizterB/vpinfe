@@ -160,7 +160,8 @@ async def offers_for(library: Any, vps_id: str) -> tuple[dict[str, list[dict[str
     except Exception as exc:  # noqa: BLE001 - the Files group still draws
         logger.warning("manager: could not read the media sources", exc_info=True)
         return {}, {}, exc
-    asked = {str(one["id"]): one for one in sources if one.get("enabled")}
+    asked = {str(one["id"]): one for one in sources
+             if one.get("enabled") and not one.get("extension")}
     holds = {kind for one in asked.values() for kind in one.get("kinds") or ()}
     kinds = sorted(holds & library.kept_kinds()["media"], key=media_order)
     found = await asyncio.gather(

@@ -10,6 +10,7 @@ from typing import Any
 
 from common.config.labels import field_label
 from common.extensions import host
+from common.extensions import sources as extension_sources
 from common.games.asset_registry import ASSET_SPECS, lens_kind
 from common.i18n import t
 from common.media import folder_browse
@@ -206,6 +207,7 @@ class Library:
     # drawn. The Games grid's rows read it for their art.
     _table_rows: list[dict[str, Any]] | None = None
     _kept: dict[str, set[str]] | None = None
+    _online: frozenset[str] | None = None
     _opens_on = ""
 
     def __init__(self, client: ApiClient) -> None:
@@ -257,6 +259,7 @@ class Library:
         self.games = self._client.games()
         self.media = self._shared_media()
         self.load_kept_kinds()
+        self.load_online_kinds()
         self._discovery = self._client.discovery()
         self.read_metadata_state()
         self.read_tags()
@@ -382,6 +385,32 @@ class Library:
 
     def media_offers(self, vps_id: str, kind: str) -> list[dict]:
         return self._client.media_offers(vps_id, kind)
+
+    def offers_online(self, kind: str) -> bool:
+        """Whether some switched-on online source from an extension offers `kind`. Asks
+        nothing, so a dialog on the event loop may decide its tabs with it."""
+        return bool(self._online and extension_sources.names_for(kind) & self._online)
+
+    def load_online_kinds(self) -> frozenset[str]:
+        """Read which kinds an extension's online source offers. Off the loop. A failed read
+        leaves none, so a page that never needed an extension's source still opens."""
+        try:
+            self._online = frozenset(
+                str(kind) for one in self.media_sources()
+                if one.get("extension") and one.get("enabled")
+                for kind in one.get("kinds") or ())
+        except Exception:
+            logger.debug("Could not read the online sources", exc_info=True)
+            self._online = frozenset()
+        return self._online
+
+    def source_offers(self, extension: str, key: str, kind: str, game_id: str,
+                      vps_id: str, name: str) -> dict:
+        return self._client.source_offers(extension, key, kind, game_id, vps_id, name)
+
+    def source_take(self, extension: str, key: str, kind: str, row: str, game_id: str,
+                    vps_id: str, name: str) -> dict:
+        return self._client.source_take(extension, key, kind, row, game_id, vps_id, name)
 
     def search_vps(self, query: str, limit: int = 12) -> list[dict]:
         return self._client.search_vps(query, limit)
@@ -1840,6 +1869,8 @@ class Library:
         self._hidden_checks = None
         answer = self._client.put_library_policy(changes)
         self._kept = _kept_of(answer)
+        if "hidden_sources" in changes:
+            self.load_online_kinds()
         return answer
 
     def hide_media_kinds(self, kinds: Iterable[str]) -> None:

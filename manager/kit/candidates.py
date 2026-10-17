@@ -38,8 +38,26 @@ def _peek(src: str, family: str) -> None:
             ui.html(f'<img src="{src}">')
 
 
-def _body(src: str, name: str, meta: str, tag: str, family: str, glyph: str,
-          small: bool = False, line: bool = False, peek: str = "",
+def credits(*pieces: str | tuple[str, ...]) -> Callable[[], None]:
+    """A meta line of `pieces` set apart by a dot. A piece given as (words, address) or
+    (words, address, hint) is a link out, so a row can name where it came from and let the
+    person go and look."""
+    def draw() -> None:
+        with ui.row().classes("manager-help items-center gap-1 no-wrap"):
+            for index, piece in enumerate(pieces):
+                if index:
+                    ui.label("\u00b7")
+                if isinstance(piece, tuple):
+                    panel.link_out(piece[0], to=piece[1],
+                                   hint=piece[2] if len(piece) > 2 else "")()
+                else:
+                    ui.label(piece)
+
+    return draw
+
+
+def _body(src: str, name: str, meta: str | Callable[[], None], tag: str, family: str,
+          glyph: str, small: bool = False, line: bool = False, peek: str = "",
           more: tuple[str, ...] = (), missing: str = "") -> None:
     """The picture and the words, which both shapes draw the same way."""
     frame = "manager-source-thumb" + (" manager-source-thumb--small" if small else "")
@@ -49,7 +67,9 @@ def _body(src: str, name: str, meta: str, tag: str, family: str, glyph: str,
         _frame(frame, src, family, glyph, peek, missing)
     with ui.column().classes("gap-0 min-w-0 grow"):
         ui.label(name).classes("manager-source-name")
-        if meta:
+        if callable(meta):
+            meta()
+        elif meta:
             ui.label(meta).classes("manager-help")
         for said in more:
             ui.label(said).classes("manager-help")
@@ -80,11 +100,12 @@ def _frame(frame: str, src: str, family: str, glyph: str, peek: str = "",
         box.tooltip(missing)
 
 
-def row(src: str, name: str, meta: str, tag: str, take: Callable, *,
+def row(src: str, name: str, meta: str | Callable[[], None], tag: str, take: Callable, *,
         family: str = "image", glyph: str = "", action: str = t("manager.candidates.use"),
         line: bool = False, current: bool = False, peek: str = "") -> None:
     """What it looks like, what it is, and the one thing you can do with it.
 
+    `meta` is a line of words, or a function that draws one (see `credits`).
     `line` draws it the way a folder is drawn, for a list where nothing has a picture.
     `current` marks the one already in place, which has nothing left to do. `peek` is a
     larger copy for the bigger look, where `src` is sized for the row.

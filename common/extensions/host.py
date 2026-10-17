@@ -24,7 +24,7 @@ from common.config.paths import CONFIG_DIR, bundled, get_ini_config
 from common.devices import install_identity
 from common.security import accepted
 
-from . import catalogs, contributions, reach
+from . import catalogs, contributions, reach, sources
 from .context import ExtensionApps, ExtensionContext, check_play, check_references
 from .contract import (
     MANIFEST_NAME,
@@ -709,6 +709,7 @@ def _withdraw(name: str, subscriptions: list[tuple[str, Any]],
         core_events.unsubscribe(event, handler)
     contributions.forget(name)
     catalogs.forget(name)
+    sources.forget(name)
     tokens.forget(name)
     if apps is not None:
         apps.withdraw()

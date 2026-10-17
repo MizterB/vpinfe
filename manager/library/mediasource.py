@@ -21,12 +21,14 @@ from dataclasses import dataclass
 from functools import partial
 from pathlib import PurePath, PurePosixPath
 from typing import Any
+from urllib.parse import quote
 
 from nicegui import run, ui
 
 from common import apps, i18n, icons
 from common.capture.run import FILL
 from common.capture.session import RECORDABLE
+from common.extensions import sources as extension_sources
 from common.failures import why
 from common.games.asset_registry import ARCHIVE_EXTENSIONS, spec_for, specs_named
 from common.i18n import t
@@ -38,6 +40,7 @@ from common.media.media_specs import (
     media_family,
     media_label_map,
 )
+from manager.extensions import ext_lists, ext_page
 from manager.kit import (
     art,
     busy,
@@ -114,6 +117,7 @@ class _Target:
     family: str
     online: bool
     accept: tuple[str, ...] = ()
+    file: bool = False
 
 
 def _media(library: Any, kind: str) -> _Target:
@@ -126,7 +130,7 @@ def _media(library: Any, kind: str) -> _Target:
 def _asset(library: Any, kind: str) -> _Target:
     return _Target(library.asset_placements, library.asset_displaced_by,
                    library.place_asset, "", online=False,
-                   accept=spec_for(kind).extensions)
+                   accept=spec_for(kind).extensions, file=True)
 
 
 def _host_name(library: Any) -> str:
@@ -477,7 +481,305 @@ class _OneFile(_Sources):
         await self.took(event.file.name, data)
 
 
-class _Slot(_OneFile):
+class _OnlineTab(_Sources):
+    """The Online tab: what each online source has of this kind of file for a game.
+
+    A media slot asks the built-in catalogs as well as every extension source that offers
+    the kind; any other slot, and a folder, asks the extension sources alone.
+    """
+
+    built_in = False
+    glyph = ""
+    context: dict[str, Any]
+    kind: str
+    # What an extension source calls this slot, which differs from `kind` where a media
+    # kind and an asset kind share a name.
+    source_kind: str
+    game_id: str
+    # Where the picked entry's offers are drawn. Set when the online tab builds,
+    # and read by a search result, which redraws them for a different game.
+    online_body: Any = None
+    # The sources this install knows, so an offer can be labeled with a name rather
+    # than an id. Read once when the tab opens.
+    _known_sources: list[dict[str, Any]] | None = None
+    _own_id = ""
+    _own_name = ""
+    # Which `_show_offers` call is the latest, so a slower earlier one draws nothing.
+    _asked = 0
+
+    async def agreed_to_replace(self) -> bool:
+        """Whether a file may go where the pick will put one; asked before an extension's
+        row is taken."""
+        return True
+
+    async def online_tab(self, body: ui.column) -> None:
+        """What every enabled source has, for this game or for any other entry.
+
+        Any other entry because the match is not always right and not always there: a
+        mod, a table the identifier missed, or a game whose art someone simply prefers.
+        Locking this to the game's own id would make the common repair impossible.
+
+        The files and the search take the tab one at a time. The search opens holding
+        this game's name, to edit.
+        """
+        body.clear()
+        game = self.context["game"]
+        self._own_id = str(game.get("vps_id") or "")
+        self._own_name = str(game.get("name") or t("manager.mediasource.game_2").title())
+        with body:
+            self.offers_view = ui.column().classes("w-full gap-1 manager-source-fill")
+            self.search_view = ui.column().classes("w-full gap-2 manager-source-fill")
+        self.search_view.set_visibility(False)
+        with self.offers_view:
+            self.online_head = ui.label("").classes("manager-card-title")
+            self.online_body = ui.column().classes("w-full gap-1 manager-source-offers")
+            self.switch_row = ui.row().classes("w-full items-center gap-2")
+        with self.search_view:
+            with ui.row().classes("w-full items-center gap-2 no-wrap"):
+                panel.action(t("word.back"), self._show_files, icon=verbs.BACK,
+                             hint=t("manager.mediasource.search_back.help"))()
+                ui.label(t("manager.mediasource.other_game")).classes("manager-card-title")
+            self.search_box = ui.input(value=str(game.get("name") or "")) \
+                .props("outlined dense clearable").classes("w-full")
+            results = ui.column().classes("w-full gap-1 manager-source-found")
+        self.search_box.on("keydown.enter",
+                           lambda: self._search_games(results, self.search_box.value or ""))
+        # Read for the names, which label the rows. Not announced up front - every row
+        # says where it came from, so a list of the same names above it is furniture.
+        try:
+            self._known_sources = await offload.io(self.library.media_sources)
+        except Exception:
+            self._known_sources = []
+        if not self.shown():
+            return
+        await self._show_offers(self.online_body, self._own_id,
+                                game.get("name") or t("manager.mediasource.game_2"))
+
+    def _show_files(self) -> None:
+        self.search_view.set_visibility(False)
+        self.offers_view.set_visibility(True)
+
+    def _show_search(self) -> None:
+        self.offers_view.set_visibility(False)
+        self.search_view.set_visibility(True)
+        self.search_box.run_method("focus")
+
+    async def _back_to_own(self) -> None:
+        await self._show_offers(self.online_body, self._own_id, self._own_name)
+
+    def _draw_switch(self, vps_id: str) -> None:
+        """Under the files: the way to another game's, and the way back from one."""
+        self.switch_row.clear()
+        with self.switch_row:
+            panel.action(t("manager.mediasource.other_game"), self._show_search,
+                         icon=verbs.SEARCH,
+                         hint=t("manager.mediasource.other_game.help"))()
+            if vps_id != self._own_id:
+                panel.action(t("manager.mediasource.back_to_own", name=self._own_name),
+                             self._back_to_own, icon=verbs.BACK,
+                             hint=t("manager.mediasource.back_to_own.help",
+                                    name=self._own_name))()
+
+    def _from_extensions(self) -> list[dict[str, Any]]:
+        """The switched-on sources from extensions that offer this kind."""
+        names = extension_sources.names_for(self.source_kind)
+        return [item for item in self._known_sources or []
+                if item.get("extension") and item.get("enabled")
+                and names & set(item.get("kinds") or ())]
+
+    def _searched(self) -> str:
+        """Where we looked, for the one case that needs it: nothing came back.
+
+        An empty result with no "where" reads as the feature being broken rather than
+        as the online sources not having it.
+        """
+        names = extension_sources.names_for(self.source_kind)
+        asked = [item["name"] for item in (self._known_sources or [])
+                 if item.get("enabled")
+                 and (names & set(item.get("kinds") or ()) if item.get("extension")
+                      else self.built_in)]
+        return ", ".join(asked)
+
+    async def _search_games(self, results: ui.column, query: str) -> None:
+        results.clear()
+        if not query.strip():
+            return
+        try:
+            found = await offload.io(self.library.search_vps, query.strip())
+        except Exception as exc:
+            with results:
+                panel.line(t("manager.mediasource.search_failed"), hint=why(exc))
+            return
+        with results:
+            if not found:
+                ui.label(t("manager.mediasource.vpsdb_empty")).classes("manager-help")
+                return
+            for item in found:
+                self._game_choice(item)
+
+    def _game_choice(self, item: dict[str, Any]) -> None:
+        """One machine the search found, with its photograph where VPS has one.
+
+        Art rather than a line of text because this list is answering "which machine do
+        I mean", and the photograph settles that faster than a name that differs from
+        the one you know it by.
+        """
+        made = game_tables.made(item)
+        candidates.choice(item.get("img_url") or "",
+                          str(item.get("name") or ""), made,
+                          lambda i=item: self._show_offers(
+                              self.online_body, i.get("vps_id") or "",
+                              i.get("name") or t("manager.mediasource.game")),
+                          glyph=icons.GAMES, missing=vps_match.NO_PICTURE)
+
+    async def _show_offers(self, body: ui.column, vps_id: str, name: str) -> None:
+        """The files one game is offered, under a heading that names that game.
+
+        Named when it is another game's, so the files never pass for this game's own.
+        """
+        self._asked += 1
+        asked = self._asked
+        body.clear()
+        self._show_files()
+        self._draw_switch(vps_id)
+        # Named only when it is not this game's own: a heading that says the obvious on
+        # every visit stops being read by the time it matters.
+        self.online_head.text = (t("manager.mediasource.found_online")
+                                 if vps_id == self._own_id
+                                 else t("manager.mediasource.online_title", name=name))
+        if not vps_id:
+            with body:
+                ui.label(t("manager.mediasource.needs_id")) \
+                    .classes("manager-help")
+            return
+        who = {"game_id": self.game_id, "vps_id": vps_id, "name": name}
+        reads = [self._read_catalogs(vps_id)] if self.built_in else []
+        reads += [self._read_source(one, who) for one in self._from_extensions()]
+        sections = await asyncio.gather(*reads)
+        if asked != self._asked or not self.shown():
+            return
+        with body:
+            drawn = [section() for section in sections]
+            if not any(drawn):
+                where = self._searched()
+                ui.label(t("manager.mediasource.nothing", where=(where)) if where else
+                         t("manager.mediasource.sources_off")).classes("manager-help")
+
+    async def _read_catalogs(self, vps_id: str) -> Callable[[], bool]:
+        """What the built-in catalogs hold, as the function that draws it."""
+        try:
+            found = await offload.io(self.library.media_offers, vps_id, self.kind)
+        except Exception as exc:
+            return partial(self._failed_line, t("manager.mediasource.sources_failed"), exc)
+        named = {item["id"]: item for item in (self._known_sources or [])}
+
+        def draw() -> bool:
+            for offer in found:
+                self._offer_row(offer, named.get(offer["source"], {}), vps_id)
+            return bool(found)
+
+        return draw
+
+    async def _read_source(self, source: dict[str, Any],
+                           who: dict[str, str]) -> Callable[[], bool]:
+        """What an extension's source holds, as the function that draws it."""
+        try:
+            answer = await offload.io(
+                self.library.source_offers, source["extension"], source["key"],
+                self._kind_for(source), who["game_id"], who["vps_id"], who["name"])
+        except Exception as exc:
+            return partial(self._failed_line,
+                           t("manager.mediasource.source_failed",
+                             source_name=source["name"]), exc)
+        return partial(self._source_section, source, answer, who)
+
+    @staticmethod
+    def _failed_line(said: str, exc: Exception) -> bool:
+        panel.line(said, hint=why(exc))
+        return True
+
+    def _kind_for(self, source: dict[str, Any]) -> str:
+        """The name this source gave the kind, which is what it is asked in."""
+        offered = set(source.get("kinds") or ())
+        if self.source_kind in offered:
+            return self.source_kind
+        return sorted(extension_sources.names_for(self.source_kind) & offered)[0]
+
+    def _offer_row(self, offer: dict[str, Any], source: dict[str, Any],
+                   vps_id: str) -> None:
+        """One file a built-in catalog has. Only a slot has somewhere to put one."""
+        raise NotImplementedError
+
+    def _source_section(self, source: dict[str, Any], answer: dict[str, Any],
+                        who: dict[str, str]) -> bool:
+        """An extension source's rows, then what it says under them."""
+        rows = answer.get("rows") or []
+        for row in rows:
+            self._source_row(source, row, who)
+        if answer.get("note"):
+            ui.label(str(answer["note"])).classes("manager-help")
+        link = answer.get("link")
+        if link:
+            self._source_link(source, link)
+        return bool(rows or answer.get("note") or link)
+
+    def _source_link(self, source: dict[str, Any], link: dict[str, Any]) -> None:
+        if link.get("to"):
+            panel.link_out(link["text"], to=link["to"])()
+        elif link.get("page"):
+            panel.link(link["text"], to="/manager?" + deeplink.query(
+                {"view": ext_lists.page_view_key(source["extension"], link["page"])}))()
+        else:
+            panel.link(link["text"], to=ext_page.address(source["extension"]))()
+
+    def _source_row(self, source: dict[str, Any], row: dict[str, Any],
+                    who: dict[str, str]) -> None:
+        @on_page
+        async def take() -> None:
+            if not await self.agreed_to_replace():
+                return
+            try:
+                answer = await run.io_bound(
+                    self.library.source_take, source["extension"], source["key"],
+                    self._kind_for(source), row["key"], who["game_id"], who["vps_id"],
+                    who["name"])
+            except Exception as exc:
+                ui.notify(t("manager.mediasource.fetch_failed"), caption=why(exc),
+                          type="negative")
+                return
+            await self._taken(source, row["key"], answer or {}, who)
+
+        pieces: list[str | tuple[str, ...]] = [str(source["name"])]
+        if row.get("site"):
+            pieces.append((row["site"], row["page"], t("manager.discovery.page_hint",
+                                                       site=row["site"]))
+                          if row.get("page") else row["site"])
+        if row.get("note"):
+            pieces.append(row["note"])
+        candidates.row(row.get("picture") or "", row["name"], candidates.credits(*pieces),
+                       row.get("tag") or "", take, family="image", glyph=self.glyph,
+                       current=bool(row.get("current")))
+
+    @on_page
+    async def _taken(self, source: dict[str, Any], row_key: str, answer: dict[str, Any],
+                     who: dict[str, str]) -> None:
+        """What the source made of a pick: a dialog of its own to open over this one, a job
+        it started, or just a word."""
+        if answer.get("action"):
+            record = next((one for one in await offload.io(self.library.extensions)
+                           if one.get("name") == source["extension"]), None)
+            if record is None:
+                ui.notify(t("said.action_failed"), type="negative")
+                return
+            await ext_lists.open_over(record, str(answer["action"]), [row_key], who=who)
+        elif answer.get("job"):
+            await _Sources.finish(self, str(answer.get("message") or t(
+                "manager.mediasource.ext_started", source_name=source["name"])))
+        elif answer.get("message"):
+            ui.notify(str(answer["message"]))
+
+
+class _Slot(_OnlineTab, _OneFile):
     """A media or asset slot: one file, under the slot's own name."""
 
     def __init__(self, context: dict[str, Any], kind: str, label: str,
@@ -490,7 +792,10 @@ class _Slot(_OneFile):
         # A page past 1 follows page 1 to whichever tier holds it, so there is no name
         # to choose and the dialog has no destination row.
         self.page = page
-        self.online = target.online and page == 1
+        self.built_in = bool(target.online)
+        self.source_kind = extension_sources.file_kind(kind) if target.file else kind
+        self.online = (self.built_in
+                       or context["library"].offers_online(self.source_kind)) and page == 1
         self.records = records
         self.backglass_file = backglass_file
         self.backglass = bool(backglass_file)
@@ -499,12 +804,6 @@ class _Slot(_OneFile):
         self.kind = kind
         self.game_id = context["game_id"]
         self.table_id = context["lens"]
-        # Where the picked entry's offers are drawn. Set when the online tab builds,
-        # and read by a search result, which redraws them for a different game.
-        self.online_body: Any = None
-        # The sources this install knows, so an offer can be labeled with a name rather
-        # than an id. Read once when the tab opens.
-        self._known_sources: list[dict[str, Any]] | None = None
         # Where a file could land, which of those is chosen, and the extension the
         # chosen file will bring - the three things that decide what it gets called.
         self.placements: list[dict[str, Any]] = []
@@ -513,10 +812,6 @@ class _Slot(_OneFile):
         self.chosen_extension = ""
         self.filename_note: Any = None
         self._marks: dict[str, Any] = {}
-        self._own_id = ""
-        self._own_name = ""
-        # Which `_show_offers` call is the latest, so a slower earlier one draws nothing.
-        self._asked = 0
 
     def title(self) -> str:
         return t("manager.mediasource.title_table" if self.table_id
@@ -667,6 +962,16 @@ class _Slot(_OneFile):
         moment of the write.
         """
         self.note_extension(filename)
+        return await self._agreed(filename)
+
+    @on_page
+    async def agreed_to_replace(self) -> bool:
+        """Ask before an extension's row takes the place of files, naming those the
+        chosen name would replace. What arrives is not known yet, so its extension is not
+        either: the family of the kind answers for any of them."""
+        return await self._agreed("file" + (self.target.accept or ("",))[0])
+
+    async def _agreed(self, filename: str) -> bool:
         try:
             going = await offload.io(partial(
                 self.target.displaced, self.game_id, self.destination, self.kind,
@@ -677,7 +982,45 @@ class _Slot(_OneFile):
             return False
         return not going or await confirm.replace(self.label, going)
 
-    def candidate(self, src: str, name: str, meta: str, tag: str,
+    def _offer_row(self, offer: dict[str, Any], source: dict[str, Any],
+                   vps_id: str) -> None:
+        size = str(offer.get("size") or "")
+        source_name = str(source.get("name") or offer["source"])
+        root = str(source.get("url") or "").rstrip("/")
+
+        @on_page
+        async def take() -> None:
+            if not await self.confirmed(str(offer.get("name") or "")):
+                return
+            # Held: an ongoing notification never times out, so one nothing dismisses
+            # outlives the answer it was waiting for.
+            fetching = ui.notification(
+                t("manager.mediasource.fetching", source_name=source_name),
+                spinner=True, timeout=None)
+            try:
+                await run.io_bound(self.library.fetch_media, self.game_id,
+                                   self.destination, self.kind, offer["source"],
+                                   vps_id, size)
+            except Exception as exc:
+                ui.notify(t("manager.mediasource.fetch_failed"), caption=why(exc),
+                          type="negative")
+                return
+            finally:
+                fetching.dismiss()
+            await self.finish(t("manager.mediasource.saved_2", label=self.label,
+                                source_name=source_name))
+
+        # The source is the first thing on the row, because with several of them the
+        # question "where is this from" comes before "is it any good".
+        pieces: list[str | tuple[str, ...]] = [
+            (source_name, f"{root}/tree/main/{quote(vps_id, safe='')}",
+             t("manager.discovery.folder_hint", site=source_name)) if root else source_name]
+        if size:
+            pieces.append(t(SIZE_NAMES[size]) if size in SIZE_NAMES else size)
+        self.candidate(offer.get("url") or "", str(offer.get("name") or ""),
+                       candidates.credits(*pieces), "", take)
+
+    def candidate(self, src: str, name: str, meta: str | Callable[[], None], tag: str,
                   take: Callable, current: bool = False) -> None:
         """A candidate row carrying what this dialog knows: how to draw a file of the
         kind being replaced."""
@@ -898,201 +1241,17 @@ class _Slot(_OneFile):
         draw_tuning()
         await replan()
 
-    # --- from the online catalogs --------------------------------------------
 
-    async def online_tab(self, body: ui.column) -> None:
-        """What every enabled catalog has, for this game or for any other entry.
-
-        Any other entry because the match is not always right and not always there: a
-        mod, a table the identifier missed, or a game whose art someone simply prefers.
-        Locking this to the game's own id would make the common repair impossible.
-
-        The files and the search take the tab one at a time. The search opens holding
-        this game's name, to edit.
-        """
-        body.clear()
-        game = self.context["game"]
-        self._own_id = str(game.get("vps_id") or "")
-        self._own_name = str(game.get("name") or t("manager.mediasource.game_2").title())
-        with body:
-            self.offers_view = ui.column().classes("w-full gap-1 manager-source-fill")
-            self.search_view = ui.column().classes("w-full gap-2 manager-source-fill")
-        self.search_view.set_visibility(False)
-        with self.offers_view:
-            self.online_head = ui.label("").classes("manager-card-title")
-            self.online_body = ui.column().classes("w-full gap-1 manager-source-offers")
-            self.switch_row = ui.row().classes("w-full items-center gap-2")
-        with self.search_view:
-            with ui.row().classes("w-full items-center gap-2 no-wrap"):
-                panel.action(t("word.back"), self._show_files, icon=verbs.BACK,
-                             hint=t("manager.mediasource.search_back.help"))()
-                ui.label(t("manager.mediasource.other_game")).classes("manager-card-title")
-            self.search_box = ui.input(value=str(game.get("name") or "")) \
-                .props("outlined dense clearable").classes("w-full")
-            results = ui.column().classes("w-full gap-1 manager-source-found")
-        self.search_box.on("keydown.enter",
-                           lambda: self._search_games(results, self.search_box.value or ""))
-        # Read for the names, which label the rows. Not announced up front - every row
-        # says where it came from, so a list of the same names above it is furniture.
-        try:
-            self._known_sources = await offload.io(self.library.media_sources)
-        except Exception:
-            self._known_sources = []
-        if not self.shown():
-            return
-        await self._show_offers(self.online_body, self._own_id,
-                                game.get("name") or t("manager.mediasource.game_2"))
-
-    def _show_files(self) -> None:
-        self.search_view.set_visibility(False)
-        self.offers_view.set_visibility(True)
-
-    def _show_search(self) -> None:
-        self.offers_view.set_visibility(False)
-        self.search_view.set_visibility(True)
-        self.search_box.run_method("focus")
-
-    async def _back_to_own(self) -> None:
-        await self._show_offers(self.online_body, self._own_id, self._own_name)
-
-    def _draw_switch(self, vps_id: str) -> None:
-        """Under the files: the way to another game's, and the way back from one."""
-        self.switch_row.clear()
-        with self.switch_row:
-            panel.action(t("manager.mediasource.other_game"), self._show_search,
-                         icon=verbs.SEARCH,
-                         hint=t("manager.mediasource.other_game.help"))()
-            if vps_id != self._own_id:
-                panel.action(t("manager.mediasource.back_to_own", name=self._own_name),
-                             self._back_to_own, icon=verbs.BACK,
-                             hint=t("manager.mediasource.back_to_own.help",
-                                    name=self._own_name))()
-
-    def _searched(self) -> str:
-        """Where we looked, for the one case that needs it: nothing came back.
-
-        An empty result with no "where" reads as the feature being broken rather than
-        as the online sources not having it.
-        """
-        asked = [item["name"] for item in (self._known_sources or [])
-                 if item.get("enabled")]
-        return ", ".join(asked)
-
-    async def _search_games(self, results: ui.column, query: str) -> None:
-        results.clear()
-        if not query.strip():
-            return
-        try:
-            found = await offload.io(self.library.search_vps, query.strip())
-        except Exception as exc:
-            with results:
-                panel.line(t("manager.mediasource.search_failed"), hint=why(exc))
-            return
-        with results:
-            if not found:
-                ui.label(t("manager.mediasource.vpsdb_empty")).classes("manager-help")
-                return
-            for item in found:
-                self._game_choice(item)
-
-    def _game_choice(self, item: dict[str, Any]) -> None:
-        """One machine the search found, with its photograph where VPS has one.
-
-        Art rather than a line of text because this list is answering "which machine do
-        I mean", and the photograph settles that faster than a name that differs from
-        the one you know it by.
-        """
-        made = game_tables.made(item)
-        candidates.choice(item.get("img_url") or "",
-                          str(item.get("name") or ""), made,
-                          lambda i=item: self._show_offers(
-                              self.online_body, i.get("vps_id") or "",
-                              i.get("name") or t("manager.mediasource.game")),
-                          glyph=icons.GAMES, missing=vps_match.NO_PICTURE)
-
-    async def _show_offers(self, body: ui.column, vps_id: str, name: str) -> None:
-        """The files one game is offered, under a heading that names that game.
-
-        Named when it is another game's, so the files never pass for this game's own.
-        """
-        self._asked += 1
-        asked = self._asked
-        body.clear()
-        self._show_files()
-        self._draw_switch(vps_id)
-        # Named only when it is not this game's own: a heading that says the obvious on
-        # every visit stops being read by the time it matters.
-        self.online_head.text = (t("manager.mediasource.found_online")
-                                 if vps_id == self._own_id
-                                 else t("manager.mediasource.online_title", name=name))
-        if not vps_id:
-            with body:
-                ui.label(t("manager.mediasource.needs_id")) \
-                    .classes("manager-help")
-            return
-        try:
-            found = await offload.io(self.library.media_offers, vps_id, self.kind)
-        except Exception as exc:
-            if asked == self._asked and self.shown():
-                with body:
-                    panel.line(t("manager.mediasource.sources_failed"), hint=why(exc))
-            return
-        if asked != self._asked or not self.shown():
-            return
-        with body:
-            if not found:
-                where = self._searched()
-                ui.label(t("manager.mediasource.nothing", where=(where)) if where else
-                         t("manager.mediasource.sources_off")).classes("manager-help")
-                return
-            named = {item["id"]: item["name"]
-                     for item in (self._known_sources or [])}
-            for offer in found:
-                self._offer_row(offer, named.get(offer["source"], offer["source"]),
-                                vps_id)
-
-    def _offer_row(self, offer: dict[str, Any], source_name: str,
-                   vps_id: str) -> None:
-        size = str(offer.get("size") or "")
-
-        @on_page
-        async def take() -> None:
-            if not await self.confirmed(str(offer.get("name") or "")):
-                return
-            # Held: an ongoing notification never times out, so one nothing dismisses
-            # outlives the answer it was waiting for.
-            fetching = ui.notification(t("manager.mediasource.fetching",
-                    source_name=(source_name)),
-                                       spinner=True, timeout=None)
-            try:
-                await run.io_bound(self.library.fetch_media, self.game_id,
-                                   self.destination, self.kind, offer["source"],
-                                   vps_id, size)
-            except Exception as exc:
-                ui.notify(t("manager.mediasource.fetch_failed"), caption=why(exc),
-                          type="negative")
-                return
-            finally:
-                fetching.dismiss()
-            await self.finish(t("manager.mediasource.saved_2", label=(self.label),
-                    source_name=(source_name)))
-
-        # The source is the first thing on the row, because with several of them the
-        # question "where is this from" comes before "is it any good".
-        meta = (t("manager.mediasource.source_and_size", source_name=source_name,
-                  size=t(SIZE_NAMES[size]) if size in SIZE_NAMES else size)
-                if size else source_name)
-        self.candidate(offer.get("url") or "", str(offer.get("name") or ""),
-                       meta, "", take)
-
-
-class _Folder(_Sources):
+class _Folder(_OnlineTab):
     """A kind that arrives as many files - a PUP pack, a color set, a sound bank, music."""
 
     def __init__(self, context: dict[str, Any], kind: str, label: str,
                  done: Callable, current: str = "") -> None:
         super().__init__(context["library"], label, done, _on_host(context, current))
+        self.context = context
         self.kind = kind
+        self.source_kind = kind
+        self.online = context["library"].offers_online(kind)
         self.game_id = context["game_id"]
         self.game_dir = str(context["game"].get("folder") or "")
         specs = specs_named(kind)

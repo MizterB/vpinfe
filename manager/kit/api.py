@@ -904,6 +904,21 @@ class ApiClient:
         """The online catalogs this install knows, and which are being asked."""
         return list(self._get("/media-sources").get("sources") or [])
 
+    def source_offers(self, extension: str, key: str, kind: str, game_id: str,
+                      vps_id: str, name: str) -> dict:
+        """What an extension's online source has of `kind` for a game: its rows, and the
+        note and link it draws under them."""
+        return self.ext_get(
+            f"/ext/{quote(extension, safe='')}/sources/{quote(key, safe='')}/offers?"
+            + urlencode({"kind": kind, "game_id": game_id, "vps_id": vps_id, "name": name}))
+
+    def source_take(self, extension: str, key: str, kind: str, row: str, game_id: str,
+                    vps_id: str, name: str) -> dict:
+        return self.ext_post(
+            f"/ext/{quote(extension, safe='')}/sources/{quote(key, safe='')}/take",
+            {"kind": kind, "row": row,
+             "who": {"game_id": game_id, "vps_id": vps_id, "name": name}})
+
     def wheel_sets(self) -> list[str]:
         """The wheel sets the library has media in, and the reserved `logo`."""
         return [str(name) for name in self._get("/media/wheel-sets").get("sets") or []]

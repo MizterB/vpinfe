@@ -2275,6 +2275,15 @@ class ExtensionWho(ApiModel):
     name: str = ""
 
 
+class ExtensionSourceTake(ApiModel):
+    """The row of an extension's online source a person picked, for the slot of `kind` that
+    `who.game_id` holds."""
+
+    kind: str
+    row: str
+    who: ExtensionWho = Field(default_factory=ExtensionWho)
+
+
 class ExtensionAsk(ApiModel):
     """The step to ask for, the rows of a list the dialog was opened over, by `id`, and
     the game it was opened for."""
@@ -2632,6 +2641,8 @@ class MediaSource(ApiModel):
     url: str
     enabled: bool
     kinds: list[str]
+    extension: str = ""
+    key: str = ""
 
 
 class MediaSourceList(ApiModel):

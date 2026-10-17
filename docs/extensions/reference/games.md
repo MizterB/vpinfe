@@ -1,8 +1,9 @@
 # The library and ways to play
 
 `ctx.games` is the library and everything core offers by name.  `ctx.uploads` imports files into
-it, the way a drop onto the Manager does.  `ctx.collections` is the collections.  `ctx.apps` is
-how another format of table becomes first class.
+it, the way a drop onto the Manager does.  `ctx.sources` is where Add and Replace can get a
+file from online.  `ctx.collections` is the collections.  `ctx.apps` is how another format of
+table becomes first class.
 
 ## `ctx.games`
 
@@ -475,6 +476,40 @@ report = ctx.uploads.execute(
 Raises `ContractError` as `plan` does, and for a `declared` field it does not take.  The
 refusals the routes give raise an error whose text says why, for `ctx.why`, and so does a
 source with nothing in it to import.
+
+## `ctx.sources`
+
+An Online source in Add and Replace.  See [An Online source](offers.md#an-online-source).
+
+### `ctx.sources.contribute`
+
+`ctx.sources.contribute(key, name, kinds, offers, take)`.  Required: all five.
+
+`key` is lower-case words joined by underscores, and the source is stored under
+`<extension>.<key>`.  `name` is what the person reads.  `kinds` is a list of the names a slot is
+opened under: a media kind (`ctx.games.kinds()`), an asset kind that has a dialog (`ini`, `pov`,
+`script`, `scv`, `rom`, `readme`, `music`, `pup_pack`, `altsound`, `altcolor_serum`,
+`altcolor_vni`), the name the asset lens gives a kind that is a folder of files (`alt_sound`,
+`alt_color`), or `table`.  `backglass` is the picture and `backglass_file` is the `.directb2s`,
+so an extension that reads a VPS kind of `backglass` for a `.directb2s` offers `backglass_file`.
+A source that has both colour formats offers `alt_color`, which is asked once for the two.  A
+name core has no slot for raises `ContractError`, and the message lists the names it has, and so
+does a list that is not a list.
+
+`offers(who, kind)` is called with `who`, `{game_id, vps_id, name}`, and the kind of the slot,
+as spelled in `kinds`.  It answers `{"rows": [...], "note": text, "link": {...}}`, each of the
+three optional.  `take(who, kind, key)` is called with the key of the row picked and answers
+`{"job": id}` with an optional `message`, `{"action": dialog_key}` or `{"message": text}`, and
+nothing else.
+
+```python
+ctx.sources.contribute("files", "Example Files", ["wheel", "pup_pack"],
+                       offers=files_for, take=take_file)
+```
+
+Needs `games:read` in the manifest's `scopes` and Library in its `tiers`; without them the call
+raises `ContractError`, and so does a `key` used twice, a `name` or `key` that is empty, and an
+`offers` or `take` that is not callable.  A source goes when its extension is switched off.
 
 ## `ctx.collections`
 

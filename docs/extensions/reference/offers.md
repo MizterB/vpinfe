@@ -1,8 +1,8 @@
 # More to offer
 
-Five things an extension can offer beyond a page of its own: a way to play a table, something
-added to every entry, an outside link, a name for a command, and a word on what a game tells
-you.
+Six things an extension can offer beyond a page of its own: a way to play a table, something
+added to every entry, an outside link, an Online source, a name for a command, and a word on
+what a game tells you.
 
 ## A way to play a table
 
@@ -107,6 +107,74 @@ ctx.catalogs.contribute(
 is handed a plain description of the subject and answers its address there, or `""`.  Core
 draws it as a row named for the place, with an open-in-new icon.  A link that raises, or
 answers anything but an http or https address, is left out.
+
+## An Online source
+
+Add and Replace have an Online tab, and VPinMediaDB fills it for a media slot.  An extension can
+fill it for any slot that takes a file: a media kind, an asset, a whole folder, or a table.
+
+```python
+ctx.sources.contribute(
+    "files", "Example Files", ["playfield_video", "pup_pack", "table"],
+    offers=files_for, take=take_file)
+```
+
+`offers(who, kind)` answers what the source has of that kind for one game, and `take(who, kind,
+key)` is called with the key of the row a person picked.  `who` is `{game_id, vps_id, name}`:
+the game the slot belongs to, and the entry whose files are asked for.  They differ after
+Search Another Game, which asks for the files of a different entry and still fills this game's
+slot.
+
+```python
+def files_for(who, kind):
+    found = look_up(who["vps_id"], kind)
+    return {
+        "rows": [{"key": one.id, "name": one.title, "site": "example.com",
+                  "page": one.page, "picture": one.preview, "tag": one.variant}
+                 for one in found],
+        "note": "" if found else "Nothing here yet",
+    }
+
+
+def take_file(who, kind, key):
+    return {"job": start_download(who, kind, key)}
+```
+
+Core draws what the source answers and keeps the rest to itself:
+
+- The tab is there on every slot whose kind some enabled source offers.  A slot nothing offers
+  has no Online tab, so an install without such an extension looks as it did.
+- The source is named first in each row's line, then `site`, which is a link to `page`, the
+  file's page on that site.
+- A row with `current` set is drawn as Current.
+- Settings lists the source among the online sources, with a switch.  A source switched off is
+  not asked, and with every source off the tab says so.
+- A Private game is never asked about.
+- A pick that fills a slot already holding a file is confirmed first, naming what is there
+  now.  A folder or a table is taken as picked.
+- The words for an empty or failing tab name only the sources that offer this kind.
+
+A row is `key` and `name`, both required, and `site`, `page`, `note`, `picture`, `tag` and
+`current`, which is true or false.  `page` is an http or https address, and `picture` is a file
+path or a web address, which needs `net:outbound` in the manifest's `capabilities`.  `note` under
+the rows is a line of words, and `link` is `{"text", "to"}` for an address, `{"text", "page"}` for
+one of the extension's pages, or `{"text", "settings": True}` for its Settings page.
+
+A pick answers one of three things.  `{"job": id}` is a job the extension started, so the
+dialog closes and says so, in the `message` beside it if there is one.  `{"action": dialog_key}`
+opens one of the extension's own dialogs over Add or Replace, with the row picked as `rows` and
+the game as `who`, for a pick that needs steps of its own.  `{"message": text}` is said and
+nothing else happens.  A `message` of nothing but spaces counts as none.  An answer that is none
+of them, an `action` beside a `job` or a `message`, a `job` that is not an id, or an `action` the
+extension did not declare is refused.
+
+An `offers` that raises, or answers a shape that is not this, costs that source's rows and
+nothing else: the tab says it could not reach the source, with the reason, and the others are
+still drawn.  A `take` that raises or answers wrongly is said as a failed fetch, with the
+reason, and the dialog stays open.
+
+A backglass has two kinds.  `backglass` is the picture, and `backglass_file` is the `.directb2s`
+file a table loads.
 
 ## A name a command can use
 

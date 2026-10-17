@@ -14,6 +14,7 @@ import logging
 
 from fastapi import APIRouter, Query
 
+from common.extensions import sources as extension_sources
 from common.online import asset_sources
 
 from . import models, scopes
@@ -24,7 +25,14 @@ logger = logging.getLogger("vpinfe.httpapi.mediasources")
 router = APIRouter(prefix="/media-sources", tags=["media-sources"])
 
 
-@router.get("", summary="The online media sources this install knows",
+def _contributed() -> list[dict]:
+    return [{"id": source.id, "name": source.name, "url": "",
+             "enabled": extension_sources.enabled(source), "kinds": sorted(source.kinds),
+             "extension": source.extension, "key": source.key}
+            for source in extension_sources.all_sources()]
+
+
+@router.get("", summary="The online sources this install knows",
             dependencies=[requires(scopes.VPS_READ)])
 def list_sources() -> models.MediaSourceList:
     """Every source that ships, and whether it is one of the ones being asked.
@@ -32,13 +40,12 @@ def list_sources() -> models.MediaSourceList:
     Disabled ones are listed rather than hidden, because "why is that catalog not
     coming up" is answered by seeing it sitting there switched off.
     """
-    wanted = asset_sources.enabled_ids()
-    asked = {source.id for source in asset_sources.sources(wanted)}
+    asked = {source.id for source in asset_sources.sources(asset_sources.enabled_ids())}
+    built_in = [{"id": source.id, "name": source.name, "url": source.url,
+                 "enabled": source.id in asked, "kinds": sorted(source.kinds)}
+                for source in asset_sources.BUILT_IN]
     return models.MediaSourceList.model_validate(
-        {"sources": [{"id": source.id, "name": source.name, "url": source.url,
-                      "enabled": source.id in asked,
-                      "kinds": sorted(source.kinds)}
-                     for source in asset_sources.BUILT_IN]})
+        {"sources": built_in + _contributed()})
 
 
 @router.get("/offers", summary="What the catalogs have for one game and kind",

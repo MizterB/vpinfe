@@ -24,7 +24,7 @@ from common import failures, i18n
 from common.media import sized_media
 from common.service_errors import NotFoundError, RefusedError, ServiceError
 
-from . import contract, pane, pictures, reach
+from . import contract, pane, pictures, reach, sources
 from .fields import FieldError, dialog_fields, dialog_step, listed, number_text, ticked
 
 if TYPE_CHECKING:
@@ -845,6 +845,145 @@ def job_stop(record: Record, kind: str) -> dict:
     return {"stopped": _context(record).jobs.stop(kind)}
 
 
+# -- online sources --------------------------------------------------------------------
+
+SOURCE_ANSWER_KEYS = frozenset({"rows", "note", "link"})
+SOURCE_ROW_KEYS = frozenset({"key", "name", "site", "page", "note", "picture", "tag", "current"})
+SOURCE_LINK_KEYS = frozenset({"text", "to", "page", "settings"})
+SOURCE_TAKE_KEYS = frozenset({"job", "action", "message"})
+
+
+def _source(record: Record, key: str, kind: str) -> sources.Source:
+    found = sources.named(record.name, key)
+    if found is None:
+        raise NotFoundError(i18n.t("error.extensions.no_source", display=record.display_name,
+                                   key=key))
+    if kind not in found.kinds:
+        raise NotFoundError(i18n.t("error.extensions.source_kind", display=record.display_name,
+                                   key=key, kind=kind))
+    if not sources.enabled(found):
+        raise RefusedError(i18n.t("error.extensions.source_off", display=record.display_name,
+                                  key=key))
+    return found
+
+
+def _shape(record: Record, at: str, what: str, need: str) -> ExtensionError:
+    return ExtensionError(i18n.t("error.extensions.source_shape", display=record.display_name,
+                                 at=at, what=what, need=need))
+
+
+def _source_text(record: Record, at: str, one: dict, field: str, *,
+                 required: bool = False) -> str:
+    value = one.get(field)
+    if value is not None and not isinstance(value, str):
+        raise _shape(record, at, f"a row's {field}", "text")
+    shown = (value or "").strip()
+    if required and not shown:
+        raise _shape(record, at, f"a row with no {field}", f"one with a {field}")
+    return shown
+
+
+def _source_row(record: Record, at: str, one: Any, seen: set[str]) -> dict:
+    if not isinstance(one, dict):
+        raise _shape(record, at, "a row", "an object")
+    unknown = sorted(set(one) - SOURCE_ROW_KEYS)
+    if unknown:
+        raise _shape(record, at, f"a row with {', '.join(repr(each) for each in unknown)}",
+                     f"only {', '.join(sorted(SOURCE_ROW_KEYS))}")
+    row: dict[str, Any] = {
+        field: _source_text(record, at, one, field, required=field in ("key", "name"))
+        for field in ("key", "name", "site", "note", "tag")}
+    if row["key"] in seen:
+        raise _shape(record, at, f"two rows with the key {row['key']}", "each once")
+    seen.add(row["key"])
+    row["page"] = _source_text(record, at, one, "page")
+    if row["page"] and not pictures.is_openable(row["page"]):
+        raise _shape(record, at, "a row's page", "an http or https address")
+    try:
+        row["picture"] = pictures.address(record, _source_text(record, at, one, "picture"))
+    except pictures.OutboundNotDeclaredError as exc:
+        raise ExtensionError(i18n.t("error.extensions.picture_outbound",
+                                    display=record.display_name, key=at)) from exc
+    current = one.get("current")
+    if current is not None and not isinstance(current, bool):
+        raise _shape(record, at, "a row's current", "true or false")
+    row["current"] = bool(current)
+    return row
+
+
+def _source_link(record: Record, at: str, link: Any) -> dict | None:
+    if link in (None, "", {}):
+        return None
+    if not isinstance(link, dict) or set(link) - SOURCE_LINK_KEYS:
+        raise _shape(record, at, "a link",
+                     f"an object with {', '.join(sorted(SOURCE_LINK_KEYS))}")
+    text = _source_text(record, at, link, "text", required=True)
+    chosen = [key for key in ("to", "page", "settings") if link.get(key)]
+    if len(chosen) != 1:
+        raise _shape(record, at, "a link", "one of to, page or settings")
+    if "to" in chosen:
+        if not isinstance(link["to"], str) or not pictures.is_openable(link["to"]):
+            raise _shape(record, at, "a link's to", "an http or https address")
+        return {"text": text, "to": link["to"]}
+    if "page" in chosen:
+        if not isinstance(link["page"], str) or link["page"] not in {
+                one["key"] for one in record.declared_pages}:
+            raise _shape(record, at, "a link's page", "a page the extension declared")
+        return {"text": text, "page": link["page"]}
+    return {"text": text, "settings": True}
+
+
+def _asked_who(who: Mapping[str, Any] | None) -> dict[str, str]:
+    sent = who or {}
+    return {key: found if isinstance(found := sent.get(key), str) else "" for key in WHO_KEYS}
+
+
+def source_offers(record: Record, key: str, kind: str, who: Mapping[str, Any] | None) -> dict:
+    """What the extension's source `key` has of `kind` for the entry `who` names: the rows
+    checked and the pictures addressed, with the note and link it draws under them."""
+    found = _source(record, key, kind)
+    at = f"source {key} offers"
+    answer = plain(record, at, called(record, at, found.offers, _asked_who(who), kind))
+    if answer is None:
+        answer = {}
+    if not isinstance(answer, dict) or set(answer) - SOURCE_ANSWER_KEYS:
+        raise _shape(record, at, "its answer",
+                     f"an object with {', '.join(sorted(SOURCE_ANSWER_KEYS))}")
+    rows = answer.get("rows") or []
+    if not isinstance(rows, list):
+        raise _shape(record, at, "its rows", "a list")
+    seen: set[str] = set()
+    return {"rows": [_source_row(record, at, one, seen) for one in rows],
+            "note": _source_text(record, at, answer, "note"),
+            "link": _source_link(record, at, answer.get("link"))}
+
+
+def source_take(record: Record, key: str, kind: str, who: Mapping[str, Any] | None,
+                row: str, need: Need | None = None) -> dict:
+    """Take the row `row` of the extension's source `key`: a job it started, a dialog to
+    open next, or a message, and nothing else."""
+    found = _source(record, key, kind)
+    at = f"source {key} take"
+    _need(record, need, found.take, reach.LIBRARY, f"source:{key}")
+    done = _message(record, at, called(record, at, found.take, _asked_who(who), kind, row))
+    worded = isinstance(done, dict) and isinstance(done.get("message"), str)
+    if worded and not done["message"].strip():
+        done = {field: value for field, value in done.items() if field != "message"}
+    if (not isinstance(done, dict) or set(done) - SOURCE_TAKE_KEYS
+            or not any(done.get(key) for key in SOURCE_TAKE_KEYS)
+            or ("job" in done and "action" in done)
+            or ("action" in done and done.get("message"))):
+        raise _shape(record, at, "its answer", "a job, an action or a message")
+    if "job" in done and not (isinstance(done["job"], str) and done["job"].strip()):
+        raise _shape(record, at, "its job", "an id")
+    if "action" in done and not (isinstance(done["action"], str)
+                                 and done["action"] in _context(record).ui.action_objects):
+        raise _shape(record, at, "its action", "a dialog the extension declared")
+    if "message" in done and not isinstance(done["message"], str):
+        raise _shape(record, at, "its message", "text")
+    return done
+
+
 # -- accounts --------------------------------------------------------------------------
 
 
@@ -909,5 +1048,5 @@ __all__ = [
     "account_card", "account_read", "account_read_card", "account_write", "called",
     "dialog_act", "dialog_ask", "dialog_check", "dialog_progress", "dialog_run",
     "list_about", "list_act", "list_rows", "plain", "said", "settings_read",
-    "settings_write",
+    "settings_write", "source_offers", "source_take",
 ]

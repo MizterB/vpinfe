@@ -282,6 +282,24 @@ def router(name: str, running: Any) -> APIRouter:
         library(request)
         return ask(serving.job_stop, kind)
 
+    # -- online sources ------------------------------------------------------------
+
+    @get("/sources/{key}/offers", "What an online source has of one kind of file for a game")
+    def get_source_offers(request: Request, key: str, kind: str, game_id: str,
+                          vps_id: str = "", name: str = "") -> dict:
+        library(request)
+        if not subject(game_id):
+            return {"rows": [], "note": "", "link": None}
+        return ask(serving.source_offers, key, kind,
+                   {"game_id": game_id, "vps_id": vps_id, "name": name})
+
+    @post("/sources/{key}/take", "Take one of an online source's rows into a game")
+    def post_source_take(request: Request, key: str, body: models.ExtensionSourceTake) -> dict:
+        if not subject(body.who.game_id):
+            raise NotFoundError(t("error.extensions.verb_none", display=name, key=key))
+        return ask(serving.source_take, key, body.kind, body.who.model_dump(), body.row,
+                   changing(request))
+
     # -- accounts ------------------------------------------------------------------
 
     @get("/accounts/{player_id}", "A player's account with the extension's service")

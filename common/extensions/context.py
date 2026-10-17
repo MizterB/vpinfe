@@ -1206,6 +1206,65 @@ class ExtensionCatalogs:
             raise ContractError(str(exc)) from exc
 
 
+class ExtensionSources:
+    """Online places a game's files can be had from, which core offers in Add and Replace."""
+
+    def __init__(self, name: str, scopes: Iterable[str], reaches: Iterable[str]) -> None:
+        self._name = name
+        self._reads_games = GAMES_READ in frozenset(scopes)
+        self._reaches = frozenset(reaches)
+        self._keys: set[str] = set()
+
+    def contribute(self, key: str, name: str, kinds: Iterable[str],
+                   offers: Callable[[dict, str], Any],
+                   take: Callable[[dict, str, str], Any]) -> None:
+        """An Online source for the kinds of file in `kinds`, as core names them: a media
+        kind, an asset kind, a whole-folder kind or `table`.
+
+        `offers(who, kind)` answers `{"rows": [{key, name, site, page, note, picture, tag,
+        current}], "note", "link"}`: `site` names the place and `page` is the file's page
+        there, `current` says the slot already holds it, and `link` is `{"text", "to"}`,
+        `{"text", "page"}` for an extension page or `{"text", "settings": True}` for its
+        Settings page, drawn under the rows beside `note`.
+        `who` is `{"game_id", "vps_id", "name"}`: the game the slot belongs to, and the
+        entry whose files are asked for, which is another one's after Search Another Game.
+
+        `take(who, kind, key)` is called with the key of the row picked and answers
+        `{"job": id, "message"}`, `{"action": dialog_key}` to open that dialog over Add or
+        Replace with the row picked as its `rows`, or `{"message"}`. A game marked Private is
+        never asked about.
+
+        Needs `games:read` in the manifest, and Library in its `tiers`.
+        """
+        from . import sources
+
+        if not self._reads_games:
+            raise ContractError(f"{self._name} offers an Online source, which needs "
+                                f"{GAMES_READ}, and its manifest does not declare it")
+        if reach.LIBRARY not in self._reaches:
+            raise ContractError(f"{self._name} offers an Online source, which is at "
+                                f"{reach.LIBRARY}, and its manifest's tiers does not list it")
+        wanted = str(key or "").strip()
+        shown = str(name or "").strip()
+        if not wanted or not shown:
+            raise ContractError(f"{self._name} contributes an Online source with no key "
+                                "or name")
+        if wanted in self._keys:
+            raise ContractError(f"{self._name} contributes an Online source {wanted!r} twice")
+        if isinstance(kinds, str) or not isinstance(kinds, Iterable):
+            raise ContractError(f"{self._name} gives its Online source {wanted!r} kinds "
+                                "that are not a list of names")
+        if not callable(offers) or not callable(take):
+            raise ContractError(f"{self._name} gives its Online source {wanted!r} an offers "
+                                "or a take that is not a function")
+        try:
+            sources.register(self._name, wanted, shown,
+                             frozenset(str(one).strip() for one in kinds), offers, take)
+        except ValueError as exc:
+            raise ContractError(f"{self._name}: {exc}") from exc
+        self._keys.add(wanted)
+
+
 class ExtensionTokens:
     """Names a user may write into a command, brought by this extension.
 
@@ -1355,6 +1414,8 @@ class ExtensionContext:
         self.players = ExtensionPlayers(manifest.name, manifest.scopes, store, self.ui)
         self.entries = ExtensionEntries(manifest.name)
         self.catalogs = ExtensionCatalogs(manifest.name)
+        self.sources = ExtensionSources(manifest.name, manifest.scopes,
+                                        manifest.reaches)
         self.tokens = ExtensionTokens(manifest.name)
         self.games = ExtensionGames(manifest.name, manifest.scopes, self.files)
         self.uploads = ExtensionUploads(manifest.name, manifest.scopes, self.files, self.games)

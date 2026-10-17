@@ -24,7 +24,7 @@ from tests.support import clicks
 
 LIBRARY = SimpleNamespace(placements=None, displaced_by=None, place_media=None,
                           asset_placements=None, asset_displaced_by=None,
-                          place_asset=None)
+                          place_asset=None, offers_online=lambda kind: False)
 
 
 async def _nothing() -> None:
@@ -172,6 +172,7 @@ class TheHostTab(unittest.TestCase):
         client.games.return_value = []
         client.all_media.return_value = []
         client.library_policy.return_value = {}
+        client.media_sources.return_value = []
         client.discovery.return_value = {"display_name": "Garage"}
         library = Library(client)
         library.load()
