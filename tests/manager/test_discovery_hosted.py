@@ -39,6 +39,11 @@ class Matching(unittest.TestCase):
     def test_a_file_vps_lists_is_the_kind_the_source_knows_it_by(self) -> None:
         self.assertEqual("table", discovery_ext.kind_for(_source(), "tableFiles"))
 
+    def test_a_backglass_file_is_asked_for_by_its_own_name_not_the_picture_s(self) -> None:
+        self.assertEqual("backglass_file", discovery_ext.kind_for(
+            _source(kinds=("backglass", "backglass_file")), "b2sFiles"))
+        self.assertEqual("", discovery_ext.kind_for(_source(kinds=("backglass",)), "b2sFiles"))
+
     def test_a_source_that_holds_no_such_kind_has_no_name_for_it(self) -> None:
         self.assertEqual("", discovery_ext.kind_for(_source(kinds=("wheel",)), "tableFiles"))
 

@@ -42,7 +42,7 @@ def kind_for(source: dict[str, Any], listed_as: str) -> str:
     holds none."""
     held = set(source.get("kinds") or ())
     for ours in discovery_get.of_listing(listed_as)[0]:
-        found = sorted(extension_sources.names_for(ours) & held)
+        found = sorted(extension_sources.names_for(extension_sources.file_kind(ours)) & held)
         if found:
             return found[0]
     return ""
