@@ -1217,24 +1217,42 @@ class ExtensionSources:
 
     def contribute(self, key: str, name: str, kinds: Iterable[str],
                    offers: Callable[[dict, str], Any],
-                   take: Callable[[dict, str, str], Any]) -> None:
+                   take: Callable[[dict, str, str], Any],
+                   take_many: Callable[[dict, list[dict]], Any] | None = None,
+                   act: Callable[[dict, str, str, str], Any] | None = None,
+                   look: Callable[[dict, str, str], Any] | None = None) -> None:
         """An Online source for the kinds of file in `kinds`, as core names them: a media
         kind, an asset kind, a whole-folder kind or `table`.
 
         `offers(who, kind)` answers `{"rows": [{key, name, site, page, note, picture, tag,
-        current}], "note", "link"}`: `site` names the place and `page` is the file's page
-        there, `current` says the slot already holds it, and `link` is `{"text", "to"}`,
-        `{"text", "page"}` for an extension page or `{"text", "settings": True}` for its
-        Settings page, drawn under the rows beside `note`.
+        current, vps_file_id, state, acts}], "note", "link"}`: `site` names the place and
+        `page` is the file's page there, `current` says the slot already holds it, and
+        `link` is `{"text", "to"}`, `{"text", "page"}` for an extension page or
+        `{"text", "settings": True}` for its Settings page, drawn under the rows beside
+        `note`.  `vps_file_id` ties a row to the file Discovery lists under the same id, so
+        the row is drawn there instead of among the other sources.  `state` is `{"text",
+        "level", "hint"}`, drawn on the row, `level` one of `on`, `off`, `unknown`, `warn`,
+        `bad`, and `acts` is `[{"key", "label"}]`, one button each.
         `who` is `{"game_id", "vps_id", "name", "table_id"}`: the game the slot belongs to,
         and the entry whose files are asked for, which is another one's after Search Another
         Game.  `take` gets `table_id` as the table the person chose in Save It As, empty
-        for every table in the game; `offers` always gets it empty.
+        for every table in the game; `offers` always gets it empty.  In Discovery `game_id`
+        is empty for a game that is not in the library yet.
 
         `take(who, kind, key)` is called with the key of the row picked and answers
         `{"job": id, "message"}`, `{"action": dialog_key}` to open that dialog over Add or
         Replace with the row picked as its `rows`, or `{"message"}`. A game marked Private is
-        never asked about.
+        never asked about in Add and Replace; Discovery asks by VPS id alone.
+
+        `take_many(who, picks)` is called with `[{"kind", "key"}]` for every file ticked in
+        Discovery at once, and answers `{"message"}`.  `act(who, kind, key, act)` is called
+        when a row's button is pressed and answers what `take` does, or `{"message"}`; an
+        empty `kind` and `key` is the pane's own button, with `act` `stop`.
+        `look(who, kind, key)` answers `{"pictures": [address], "description", "files":
+        [{"name", "size"}], "note"}`, what the file's page says, drawn when its row is opened.
+
+        `changed(vps_id)` says what a source offers for that entry has moved, so an open
+        Discovery pane asks again.
 
         Needs `games:read` in the manifest, and Library in its `tiers`.
         """
@@ -1259,12 +1277,24 @@ class ExtensionSources:
         if not callable(offers) or not callable(take):
             raise ContractError(f"{self._name} gives its Online source {wanted!r} an offers "
                                 "or a take that is not a function")
+        for given in (take_many, act, look):
+            if given is not None and not callable(given):
+                raise ContractError(f"{self._name} gives its Online source {wanted!r} a "
+                                    "take_many, act or look that is not a function")
         try:
             sources.register(self._name, wanted, shown,
-                             frozenset(str(one).strip() for one in kinds), offers, take)
+                             frozenset(str(one).strip() for one in kinds), offers, take,
+                             take_many, act, look)
         except ValueError as exc:
             raise ContractError(f"{self._name}: {exc}") from exc
         self._keys.add(wanted)
+
+    def changed(self, vps_id: str) -> None:
+        """What this extension's sources offer for the VPS entry has moved: a download
+        began, finished or needs the person."""
+        from . import sources
+
+        sources.changed(vps_id)
 
 
 class ExtensionTokens:

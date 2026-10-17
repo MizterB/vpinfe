@@ -2286,6 +2286,30 @@ class ExtensionSourceTake(ApiModel):
     who: ExtensionWho = Field(default_factory=ExtensionWho)
 
 
+class ExtensionSourcePick(ApiModel):
+    """One file ticked in Discovery: the slot `kind` it fills and the source's `key` for it."""
+
+    kind: str
+    key: str
+
+
+class ExtensionSourceTakeMany(ApiModel):
+    """Every file ticked in Discovery for one game, handed to the source at once."""
+
+    picks: list[ExtensionSourcePick]
+    who: ExtensionWho = Field(default_factory=ExtensionWho)
+
+
+class ExtensionSourceAct(ApiModel):
+    """A button an online source drew on the row `row` of `kind`, or on the pane itself where
+    both are empty."""
+
+    act: str
+    kind: str = ""
+    row: str = ""
+    who: ExtensionWho = Field(default_factory=ExtensionWho)
+
+
 class ExtensionAsk(ApiModel):
     """The step to ask for, the rows of a list the dialog was opened over, by `id`, and
     the game it was opened for."""
@@ -2649,6 +2673,14 @@ class MediaSource(ApiModel):
 
 class MediaSourceList(ApiModel):
     sources: list[MediaSource]
+
+
+class MediaSourceChanges(ApiModel):
+    """The newest `version`, and the VPS ids whose online offers moved after the version
+    asked about; a single empty id means any of them may have."""
+
+    version: int
+    vps_ids: list[str]
 
 
 class WheelSetList(ApiModel):

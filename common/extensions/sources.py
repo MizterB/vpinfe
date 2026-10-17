@@ -19,7 +19,7 @@ logger = logging.getLogger("vpinfe.common.extensions.sources")
 KEY_PATTERN = re.compile(r"[a-z][a-z0-9_]*")
 # The slot a pick fills when a kind of file has no slot of its own: a table is added.
 TABLE = "table"
-# `backglass` is also the picture, so the .directb2s a game keeps is asked for under its own name.
+# `backglass` is also the picture, so the file a game keeps is asked for under its own name.
 BACKGLASS_FILE = "backglass_file"
 # Asset kinds no Add or Replace dialog is opened for, so no source is ever asked for one.
 NO_DIALOG = frozenset({"game_info", "patch", "media"})
@@ -33,6 +33,9 @@ class Source:
     kinds: frozenset[str]
     offers: Callable[[dict, str], Any]
     take: Callable[[dict, str, str], Any]
+    take_many: Callable[[dict, list[dict]], Any] | None = None
+    act: Callable[[dict, str, str, str], Any] | None = None
+    look: Callable[[dict, str, str], Any] | None = None
 
     @property
     def id(self) -> str:
@@ -82,7 +85,10 @@ def names_for(kind: str) -> frozenset[str]:
 
 
 def register(extension: str, key: str, name: str, kinds: frozenset[str],
-             offers: Callable[[dict, str], Any], take: Callable[[dict, str, str], Any]) -> None:
+             offers: Callable[[dict, str], Any], take: Callable[[dict, str, str], Any],
+             take_many: Callable[[dict, list[dict]], Any] | None = None,
+             act: Callable[[dict, str, str, str], Any] | None = None,
+             look: Callable[[dict, str, str], Any] | None = None) -> None:
     if not KEY_PATTERN.fullmatch(key):
         raise ValueError(f"{key!r} is not a key: it is lower-case words joined by underscores")
     if not kinds:
@@ -91,7 +97,7 @@ def register(extension: str, key: str, name: str, kinds: frozenset[str],
     if unknown:
         raise ValueError(f"{key!r} offers {', '.join(unknown)}, which core has no slot for: "
                          f"{', '.join(sorted(slot_kinds()))}")
-    held = Source(extension, key, name, frozenset(kinds), offers, take)
+    held = Source(extension, key, name, frozenset(kinds), offers, take, take_many, act, look)
     with _lock:
         _sources[held.id] = held
     logger.info("%s offers %s from %r", extension, ", ".join(sorted(kinds)), name)
@@ -122,7 +128,32 @@ def enabled(source: Source) -> bool:
     return source.id.lower() not in off
 
 
+_changes: list[tuple[int, str]] = []
+# Enough for a pane that was closed a while to learn what moved; past it, it redraws whole.
+CHANGES_KEPT = 200
+
+
+def changed(vps_id: str) -> None:
+    """Note that what a source would offer for this VPS entry has moved, so an open
+    Discovery pane draws it again. Safe from any thread."""
+    vps_id = str(vps_id or "").strip()
+    with _lock:
+        _changes.append((_changes[-1][0] + 1 if _changes else 1, vps_id))
+        del _changes[:-CHANGES_KEPT]
+
+
+def changes_since(version: int) -> tuple[int, list[str]]:
+    """The newest version, and the VPS ids that moved after `version`. An empty id means
+    "any of them": the caller was too far behind to be told which."""
+    with _lock:
+        newest = _changes[-1][0] if _changes else 0
+        if version > newest or (_changes and version < _changes[0][0] - 1):
+            return newest, [""]
+        return newest, sorted({vps_id for number, vps_id in _changes if number > version})
+
+
 def clear() -> None:
     """For tests."""
     with _lock:
         _sources.clear()
+        _changes.clear()

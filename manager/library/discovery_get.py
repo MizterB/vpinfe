@@ -31,6 +31,10 @@ IN = "in"
 FAILED = "failed"
 
 _LEVELS = {QUEUED: "unknown", DOWNLOADING: "unknown", IN: "on", FAILED: "bad"}
+# The slot kind of a table, which a game holds any number of.
+TABLE = "table"
+# What an extension's row says of itself, by the level it gave its state.
+_ICONS = {"on": "check", "off": "block", "warn": "pause_circle", "bad": "error"}
 _WORDS = {QUEUED: "manager.discovery.state.queued",
           DOWNLOADING: "manager.discovery.state.downloading",
           IN: "manager.discovery.state.in", FAILED: "manager.discovery.state.failed"}
@@ -51,6 +55,29 @@ class Pick:
     kind: str
     source: str
     size: str = ""
+    row: str = ""
+
+
+@dataclass(frozen=True)
+class Offered:
+    """A row an extension's source answered for a file VPS lists. `pick` is what ticking it
+    adds; `row` is the answer, with the state and buttons the source drew on it."""
+
+    extension: str
+    key: str
+    source_id: str
+    name: str
+    kind: str
+    row: dict[str, Any]
+    pick: Pick
+
+    @property
+    def state(self) -> dict[str, Any]:
+        return self.row.get("state") or {}
+
+    @property
+    def level(self) -> str:
+        return str(self.state.get("level") or "")
 
 
 @dataclass
@@ -68,12 +95,22 @@ class Tray:
     batch: int = 0
     running: bool = False
     stopping: bool = False
+    offered: dict[str, Offered] = field(default_factory=dict)
+    handed: set[str] = field(default_factory=set)
     _painters: dict[str, list[tuple[Any, Callable[[], None]]]] = field(default_factory=dict)
 
     def waiting(self) -> list[Pick]:
         """The ticks nothing has taken yet, and the ones that failed and may be taken again."""
         return [one for key, one in self.picks.items()
                 if key not in self.moves or self.moves[key].state == FAILED]
+
+    def under_way(self) -> list[Offered]:
+        """The rows an extension is still getting or needs the person for."""
+        return [one for one in self.offered.values() if one.level in ("unknown", "warn", "bad")]
+
+    def summarize(self) -> None:
+        """Redraw the status line and the bar, which count what is ticked and under way."""
+        self.repaint(_STATUS, _BAR)
 
     def paint(self, key: str, holder: Any, draw: Callable[[], None]) -> None:
         """Draw `draw` in `holder` now, and again each time `repaint` is told `key` changed."""
@@ -100,7 +137,7 @@ class Tray:
         the rival is already in: that one stays."""
         if ticked:
             rivals = [key for key, one in self.picks.items()
-                      if one.kind == pick.kind and key != pick.key
+                      if pick.kind != TABLE and one.kind == pick.kind and key != pick.key
                       and (key not in self.moves or self.moves[key].state == FAILED)]
             for key in rivals:
                 del self.picks[key]
@@ -195,6 +232,15 @@ def _mark_of(move: Move) -> None:
             ui.icon("schedule").classes("manager-help")
 
 
+def _state_mark(level: str) -> None:
+    with ui.element("span").classes("manager-record-mark"):
+        if level == "unknown":
+            ui.spinner(size="xs")
+        else:
+            ui.icon(_ICONS.get(level, "schedule")).classes(
+                "text-negative" if level == "bad" else "")
+
+
 def tick_cell(tray: Tray, pick: Pick) -> None:
     """The cell at the head of a row: a box to tick the row's file, and its state once it
     has moved. The box is withheld while a batch runs, so what is under way does not change."""
@@ -202,8 +248,11 @@ def tick_cell(tray: Tray, pick: Pick) -> None:
 
     def draw() -> None:
         move = tray.moves.get(pick.key)
+        offered = tray.offered.get(pick.key)
         if move is not None:
             _mark_of(move)
+        elif offered is not None and offered.level:
+            _state_mark(offered.level)
         elif tray.running:
             mark()
         else:
@@ -215,13 +264,24 @@ def tick_cell(tray: Tray, pick: Pick) -> None:
 
 
 def aside(tray: Tray, pick: Pick, rest: Callable[[], None],
-          retry: Callable[[], Awaitable[Any]]) -> None:
+          retry: Callable[[], Awaitable[Any]],
+          act: Callable[[str], Callable[[], Awaitable[Any]]] | None = None) -> None:
     """The end of a row: what the row says of its file, until it has moved, and then the
-    state it is in and the one thing to do about a failure."""
+    state it is in and the one thing to do about a failure. A row an extension is getting
+    says the state the extension gave it, with the buttons it drew."""
     holder = ui.column().classes("gap-0 items-end shrink-0 manager-record-aside")
 
     def draw() -> None:
         move = tray.moves.get(pick.key)
+        offered = tray.offered.get(pick.key)
+        if move is None and offered is not None and offered.state:
+            panel.state(str(offered.state.get("text") or ""), offered.level or "unknown",
+                        hint=str(offered.state.get("hint") or ""))()
+            for each in offered.row.get("acts") or ():
+                if act is not None:
+                    panel.action(str(each["label"]), act(str(each["key"])), icon=verbs.GO,
+                                 inline=True, hint=t("manager.discovery.source_act.help"))()
+            return
         if move is None:
             rest()
             return
@@ -237,32 +297,43 @@ def _said(tray: Tray) -> str:
     """One line for a batch on its way: how many, and where they have got to."""
     counts = [(state, sum(1 for one in tray.moves.values() if one.state == state))
               for state in (IN, DOWNLOADING, QUEUED, FAILED)]
+    hosted = [one for one in tray.offered.values()
+              if one.level in ("unknown", "warn", "bad") or one.pick.key in tray.handed]
+    for one in hosted:
+        state = {"on": IN, "unknown": DOWNLOADING, "": QUEUED}.get(one.level, FAILED)
+        counts = [(each, number + (each == state)) for each, number in counts]
     words = {IN: "manager.discovery.part.in", DOWNLOADING: "manager.discovery.part.downloading",
              QUEUED: "manager.discovery.part.queued", FAILED: "manager.discovery.part.needs_you"}
     parts = ", ".join(t(words[state], count=count) for state, count in counts if count)
-    return t("manager.discovery.getting", count=tray.batch, parts=parts)
+    return t("manager.discovery.getting", count=sum(number for _state, number in counts),
+             parts=parts)
 
 
-def status_row(tray: Tray, normal: Callable[[], None]) -> None:
+def status_row(tray: Tray, normal: Callable[[], None],
+               end_hosted: Callable[[], Awaitable[Any]] | None = None) -> None:
     """The game's status row, which says how a batch is getting on while one is, with the
-    way to end it, and `normal` otherwise."""
+    way to end it, and `normal` otherwise. `end_hosted` ends what an extension is getting."""
     holder = ui.row().classes("items-center gap-3 w-full no-wrap manager-vps-status")
 
     def draw() -> None:
-        if not tray.running:
+        if not (tray.running or tray.under_way()):
             normal()
             return
         ui.label(_said(tray)).classes("grow")
-        panel.action(t("word.stop"), _stop(tray), icon=verbs.STOP, enabled=not tray.stopping,
-                     hint=t("manager.discovery.stop.help"))()
+        going = tray.running or any(one.level == "unknown" for one in tray.offered.values())
+        if going:
+            panel.action(t("word.stop"), _stop(tray, end_hosted), icon=verbs.STOP,
+                         enabled=not tray.stopping, hint=t("manager.discovery.stop.help"))()
 
     tray.paint(_STATUS, holder, draw)
 
 
-def _stop(tray: Tray) -> Callable[[], None]:
-    def stop() -> None:
+def _stop(tray: Tray, end_hosted: Callable[[], Awaitable[Any]] | None) -> Callable[[], Any]:
+    async def stop() -> None:
         tray.stopping = True
         tray.repaint(_STATUS)
+        if end_hosted is not None:
+            await end_hosted()
 
     return stop
 
@@ -342,13 +413,15 @@ async def get(context: dict[str, Any], tray: Tray, game_id: str,
     picks = [only] if only else tray.waiting()
     if not picks:
         return
+    hosted = [one for one in picks if one.row]
+    picks = [one for one in picks if not one.row]
     in_library = bool(row["is_in_library"])
     if in_library and not game_id:
         ui.notify(t("manager.discovery.game_unread"), type="negative")
         return
     tray.running, tray.stopping, tray.batch = True, False, len(picks)
-    tray.repaint(_BAR, _STATUS, *(one.key for one in picks))
-    for one in picks:
+    tray.repaint(_BAR, _STATUS, *(one.key for one in (*picks, *hosted)))
+    for one in (*picks, *hosted):
         tray.move(one.key, QUEUED)
     try:
         if not in_library:
@@ -357,6 +430,7 @@ async def get(context: dict[str, Any], tray: Tray, game_id: str,
                 return
             game_id = str(made.get("id") or "")
             await redraw(state)
+        await hand_over(context, tray, game_id, hosted)
         for one in picks:
             if tray.stopping:
                 break
@@ -377,6 +451,42 @@ async def get(context: dict[str, Any], tray: Tray, game_id: str,
         tray.repaint_all()
     if any(tray.moves[one.key].state == IN for one in picks if one.key in tray.moves):
         await redraw(state)
+
+
+@on_page
+async def hand_over(context: dict[str, Any], tray: Tray, game_id: str,
+                    picks: list[Pick]) -> None:
+    """Give each extension the files ticked from its source as one batch. What it answers
+    to each row from here on is drawn from the offers, not from the tick."""
+    library, row = context["library"], context["discovery"]
+    by_source: dict[tuple[str, str], list[Pick]] = {}
+    for one in picks:
+        offered = tray.offered.get(one.key)
+        if offered is None:
+            tray.move(one.key, FAILED, t("manager.discovery.offer_gone"))
+            continue
+        by_source.setdefault((offered.extension, offered.key), []).append(one)
+    for (extension, key), batch in by_source.items():
+        try:
+            answer = await offload.io(
+                library.source_take_many, extension, key,
+                [{"kind": one.kind, "key": one.row} for one in batch], game_id, row["id"],
+                row["name"])
+        except Exception as exc:  # noqa: BLE001 - one source's refusal does not end the rest
+            logger.warning("manager: %s.%s would not take %d files", extension, key, len(batch),
+                           exc_info=True)
+            for one in batch:
+                tray.move(one.key, FAILED, why(exc))
+            continue
+        for one in batch:
+            tray.picks.pop(one.key, None)
+            tray.moves.pop(one.key, None)
+            tray.handed.add(one.key)
+        if answer.get("message"):
+            ui.notify(str(answer["message"]), type="info")
+    refresh = context.get("refresh_hosted")
+    if picks and callable(refresh):
+        await refresh()
 
 
 def try_again(context: dict[str, Any], tray: Tray, game_id: str,

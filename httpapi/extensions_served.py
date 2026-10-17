@@ -284,21 +284,54 @@ def router(name: str, running: Any) -> APIRouter:
 
     # -- online sources ------------------------------------------------------------
 
+    def source_who(sent: models.ExtensionWho) -> dict:
+        """Who a source is asked about. A game Discovery lists that the library does not hold
+        has no `game_id`, and is asked about by its VPS id alone; a Private game is `{}`."""
+        if not sent.game_id:
+            return {"game_id": "", "vps_id": sent.vps_id, "name": sent.name} if sent.vps_id else {}
+        return subject(sent.game_id) and sent.model_dump()
+
     @get("/sources/{key}/offers", "What an online source has of one kind of file for a game")
-    def get_source_offers(request: Request, key: str, kind: str, game_id: str,
+    def get_source_offers(request: Request, key: str, kind: str, game_id: str = "",
                           vps_id: str = "", name: str = "") -> dict:
         library(request)
-        if not subject(game_id):
+        if not source_who(models.ExtensionWho(game_id=game_id, vps_id=vps_id, name=name)):
             return {"rows": [], "note": "", "link": None}
         return ask(serving.source_offers, key, kind,
                    {"game_id": game_id, "vps_id": vps_id, "name": name})
 
     @post("/sources/{key}/take", "Take one of an online source's rows into a game")
     def post_source_take(request: Request, key: str, body: models.ExtensionSourceTake) -> dict:
-        if not subject(body.who.game_id):
+        who = source_who(body.who)
+        if not who:
             raise NotFoundError(t("error.extensions.verb_none", display=name, key=key))
-        return ask(serving.source_take, key, body.kind, body.who.model_dump(), body.row,
+        return ask(serving.source_take, key, body.kind, who, body.row, changing(request))
+
+    @post("/sources/{key}/take-many", "Take every file ticked in Discovery from an online source")
+    def post_source_take_many(request: Request, key: str,
+                              body: models.ExtensionSourceTakeMany) -> dict:
+        who = source_who(body.who)
+        if not who:
+            raise NotFoundError(t("error.extensions.verb_none", display=name, key=key))
+        return ask(serving.source_take_many, key, who,
+                   [one.model_dump() for one in body.picks], changing(request))
+
+    @post("/sources/{key}/act", "Press a button an online source drew on a row or on the pane")
+    def post_source_act(request: Request, key: str, body: models.ExtensionSourceAct) -> dict:
+        who = source_who(body.who)
+        if not who:
+            raise NotFoundError(t("error.extensions.verb_none", display=name, key=key))
+        return ask(serving.source_act, key, body.kind, who, body.row, body.act,
                    changing(request))
+
+    @get("/sources/{key}/look", "What the page of an online source's file says")
+    def get_source_look(request: Request, key: str, kind: str, row: str, game_id: str = "",
+                        vps_id: str = "", name: str = "") -> dict:
+        library(request)
+        who = source_who(models.ExtensionWho(game_id=game_id, vps_id=vps_id, name=name))
+        if not who:
+            return {"pictures": [], "description": "", "files": [], "note": ""}
+        return ask(serving.source_look, key, kind, who, row)
 
     # -- accounts ------------------------------------------------------------------
 

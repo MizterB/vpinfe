@@ -483,7 +483,8 @@ An Online source in Add and Replace.  See [An Online source](offers.md#an-online
 
 ### `ctx.sources.contribute`
 
-`ctx.sources.contribute(key, name, kinds, offers, take)`.  Required: all five.
+`ctx.sources.contribute(key, name, kinds, offers, take, take_many=None, act=None, look=None)`.
+Required: the first five.
 
 `key` is lower-case words joined by underscores, and the source is stored under
 `<extension>.<key>`.  `name` is what the person reads.  `kinds` is a list of the names a slot is
@@ -502,6 +503,10 @@ three optional.  `take(who, kind, key)` is called with the key of the row picked
 `{"job": id}` with an optional `message`, `{"action": dialog_key}` or `{"message": text}`, and
 nothing else.
 
+A row may add `vps_file_id`, `state` and `acts`, and the source may give `take_many`, `act`
+and `look`, so Discovery can draw it: see [In Discovery](offers.md#in-discovery).  Each is
+called with `who` first, and a value that is not a function raises `ContractError`.
+
 ```python
 ctx.sources.contribute("files", "Example Files", ["wheel", "pup_pack"],
                        offers=files_for, take=take_file)
@@ -510,6 +515,14 @@ ctx.sources.contribute("files", "Example Files", ["wheel", "pup_pack"],
 Needs `games:read` in the manifest's `scopes` and Library in its `tiers`; without them the call
 raises `ContractError`, and so does a `key` used twice, a `name` or `key` that is empty, and an
 `offers` or `take` that is not callable.  A source goes when its extension is switched off.
+
+### `ctx.sources.changed`
+
+`ctx.sources.changed(vps_id)`.  Required: `vps_id`.
+
+Says what this extension's sources offer for the VPS entry has moved, so a Discovery pane open
+on it asks again.  A pane open on another entry does not.  The registry keeps the last 200; a
+pane that fell behind further asks again whatever the id.
 
 ## `ctx.collections`
 

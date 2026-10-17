@@ -40,7 +40,7 @@ from manager.kit import (
 from manager.kit import grid as grid_module
 from manager.kit.data import Library
 from manager.kit.on_page import on_page
-from manager.library import discovery_get, import_dialog, mediasource, mediaview
+from manager.library import discovery_ext, discovery_get, import_dialog, mediasource, mediaview
 
 logger = logging.getLogger("vpinfe.manager.library.discovery")
 
@@ -588,6 +588,11 @@ async def game(context: dict[str, Any]) -> None:
     counted = bool(library.catalog().get("counted"))
     game_id, held = await owner_state(context)
     tray = discovery_get.tray_of(state, row["id"])
+    listed = listed_kinds(context)
+    follows = counted and bool(tray.offered) and bool(library.online_sources())
+    if follows:
+        version = await discovery_ext.version_of(library)
+        await discovery_ext.refresh(context, tray, game_id, listed, draws_rows=False)
 
     def standing_line() -> None:
         if row["is_in_library"]:
@@ -603,7 +608,11 @@ async def game(context: dict[str, Any]) -> None:
         if not counted:
             _never_counted(state)
         else:
-            discovery_get.status_row(tray, standing_line)
+            discovery_get.status_row(
+                tray, standing_line,
+                discovery_ext.stopper(context, tray, lambda: game_id, listed))
+            if follows:
+                discovery_ext.watch(context, tray, game_id, listed, version, draws_rows=False)
             said = standing(library, row, held)
             if said:
                 panel.line(t("manager.discovery.have_of",
@@ -617,6 +626,12 @@ async def game(context: dict[str, Any]) -> None:
             (t("manager.games.game_themes"), ", ".join(row["themes"]) or "-")])
         if counted:
             discovery_get.bar(context, tray, game_id, lambda: _add_this(context))
+
+
+def listed_kinds(context: dict[str, Any]) -> list[str]:
+    """VPS's keys for the kinds the entry lists and the library keeps."""
+    row, library = context["discovery"], context["library"]
+    return [kind[0] for kind in KINDS if kind[0] in row["listed"] and kept(library, kind[0])]
 
 
 async def _add_this(context: dict[str, Any]) -> None:
@@ -738,8 +753,9 @@ def _ways_out(page: str, broken: bool, entry_url: str, use_file: Callable[[], No
 
 
 def _detail(record: dict[str, Any], *, entry_url: str, features: bool,
-            use_file: Callable[[], None]) -> None:
-    """What the row's lines cut short, and the ways out."""
+            use_file: Callable[[], None], looked: Callable[[], None] | None = None) -> None:
+    """What the row's lines cut short, and the ways out. `looked` draws what the page of
+    the file a source offers says."""
     authors = [str(name) for name in (record.get("authors") or [])]
     if len(authors) > 2:
         ui.label(", ".join(authors)).classes("manager-help")
@@ -749,6 +765,8 @@ def _detail(record: dict[str, Any], *, entry_url: str, features: bool,
     comment = str(record.get("comment") or "").strip()
     if comment:
         ui.label(comment).classes("manager-help manager-record-comment")
+    if looked is not None:
+        looked()
     others = other_links(record)
     if others:
         with ui.row().classes("items-center gap-2"):
@@ -760,8 +778,10 @@ def _detail(record: dict[str, Any], *, entry_url: str, features: bool,
 
 def _record(context: dict[str, Any], record: dict[str, Any], *, mine: bool, features: bool,
             kind: tuple[str, str, str], pictures: list[str], entry_url: str,
-            game_id: str) -> None:
+            game_id: str, tray: discovery_get.Tray) -> None:
     listed_as, _field, word = kind
+    offered = None if mine else context.get("hosted", {}).get(
+        str(record.get("vps_file_id") or ""))
     told = _told(record)
     stamp = when.parsed(record.get("updated_at"))
     said = what_it_is(record, features=features)
@@ -770,7 +790,10 @@ def _record(context: dict[str, Any], record: dict[str, Any], *, mine: bool, feat
     ours, held_in = discovery_get.of_listing(listed_as)
     with ui.row().classes("items-start gap-2 w-full no-wrap manager-member-row "
                           "manager-record") as shell:
-        discovery_get.mark(mine)
+        if offered is not None:
+            discovery_get.tick_cell(tray, offered.pick)
+        else:
+            discovery_get.mark(mine)
         if pictures:
             _thumb(str(record.get("img_url") or ""), t(word), pictures, _glyph(listed_as))
         with ui.column().classes("gap-0 grow min-w-0"):
@@ -786,14 +809,27 @@ def _record(context: dict[str, Any], record: dict[str, Any], *, mine: bool, feat
                 vps_file_id=str(record.get("vps_file_id") or ""),
                 add_table=listed_as == "tableFiles")
             _opens(head, detail,
-                   lambda: _detail(record, entry_url=entry_url, features=features,
-                                   use_file=use_file), lead)
-        with ui.column().classes("gap-0 items-end shrink-0 manager-record-aside"):
+                   lambda: _detail(
+                       record, entry_url=entry_url, features=features, use_file=use_file,
+                       looked=None if offered is None else
+                       lambda: discovery_ext.look(context, offered, game_id)), lead)
+
+        def whose() -> None:
             ui.label(when.day(stamp.astimezone()) if stamp else "").classes(
                 "manager-help manager-record-when")
             if page:
                 _out(site, page, broken=page_is_broken(record),
                      hint=t("manager.discovery.page_hint", site=site))
+
+        if offered is None:
+            with ui.column().classes("gap-0 items-end shrink-0 manager-record-aside"):
+                whose()
+        else:
+            discovery_get.aside(
+                tray, offered.pick, whose,
+                discovery_get.try_again(context, tray, game_id, offered.pick),
+                act=discovery_ext.acts_for(context, tray, lambda: game_id,
+                                           listed_kinds(context), offered.pick.key))
 
 
 def _offer(context: dict[str, Any], offer: dict[str, Any], *, label: str,
@@ -871,6 +907,13 @@ async def _kind(context: dict[str, Any], kind: tuple[str, str, str],
     tied = {one["vps_file_id"] for one in mine if one.get("vps_file_id") in listed_ids}
     loose = [one["name"] for one in mine if one.get("vps_file_id") not in tied]
     shown, rest = split_records(records, tied)
+    hosted = context.get("hosted", {})
+    newest = next((hosted[str(one.get("vps_file_id") or "")].pick for one in records
+                   if str(one.get("vps_file_id") or "") in hosted
+                   and str(one.get("vps_file_id")) not in tied
+                   and not hosted[str(one.get("vps_file_id"))].level), None)
+    if newest is not None:
+        context.setdefault("newest", {})[listed_as] = newest
     features = features and listed_as == "tableFiles"
     pictures = list(dict.fromkeys(str(one["img_url"]) for one in records if one.get("img_url")))
     entry_url = str(row.get("url") or "")
@@ -889,7 +932,7 @@ async def _kind(context: dict[str, Any], kind: tuple[str, str, str],
         for record in shown:
             _record(context, record, mine=str(record.get("vps_file_id") or "") in tied,
                     features=features, kind=kind, pictures=pictures, entry_url=entry_url,
-                    game_id=game_id)
+                    game_id=game_id, tray=tray)
         if rest:
             more = ui.row().classes("w-full manager-record manager-record-more")
 
@@ -898,7 +941,8 @@ async def _kind(context: dict[str, Any], kind: tuple[str, str, str],
                 with body:
                     for record in rest:
                         _record(context, record, mine=False, features=features, kind=kind,
-                                pictures=pictures, entry_url=entry_url, game_id=game_id)
+                                pictures=pictures, entry_url=entry_url, game_id=game_id,
+                                tray=tray)
 
             with more:
                 discovery_get.mark()
@@ -945,6 +989,12 @@ async def files(context: dict[str, Any]) -> None:
     listed = [kind for kind in KINDS if kind[0] in row["listed"] and kept(library, kind[0])]
     game_id, held = await owner_state(context)
     tray = discovery_get.tray_of(state, row["id"])
+    listed_as = [kind[0] for kind in listed]
+    version = await discovery_ext.version_of(library)
+    discovery_ext.adopt(context, tray, await discovery_ext.ask(library, row, game_id, listed_as,
+                                                               keep=tray.offered))
+    context["newest"] = {}
+    context["refresh_hosted"] = lambda: discovery_ext.refresh(context, tray, game_id, listed_as)
     offers, sources, failed = await discovery_get.offers_for(library, row["id"])
     present = await _media_present(library, game_id)
     if present is not None:
@@ -963,11 +1013,19 @@ async def files(context: dict[str, Any]) -> None:
             return
         if not counted:
             _never_counted(state)
+        newest_link = None
         if file_kinds:
-            ui.label(t("manager.discovery.files")).classes("manager-fact-heading")
+            with ui.row().classes("items-baseline gap-3 w-full no-wrap"):
+                ui.label(t("manager.discovery.files")).classes("manager-fact-heading grow")
+                newest_link = ui.row().classes("items-center")
         for kind in file_kinds:
             await _kind(context, kind, held, features=not said,
                         missing=said.get(kind[0]) == MISSING, tray=tray, game_id=game_id)
+        if newest_link is not None and context["newest"]:
+            with newest_link:
+                panel.link(t("manager.discovery.tick_newest"), to=OWN_ADDRESS,
+                           on_click=lambda: _tick_newest(context, tray),
+                           hint=t("manager.discovery.tick_newest.help"))()
         if bands or failed is not None:
             ui.label(t("manager.discovery.media")).classes("manager-fact-heading")
         if failed is not None:
@@ -978,3 +1036,16 @@ async def files(context: dict[str, Any]) -> None:
                         sources=sources)
         if counted:
             discovery_get.bar(context, tray, game_id, lambda: _add_this(context))
+        if library.online_sources():
+            discovery_ext.watch(context, tray, game_id, listed_as, version)
+
+
+def _tick_newest(context: dict[str, Any], tray: discovery_get.Tray) -> None:
+    """Tick the newest file of each kind that an extension's source can get and the library
+    does not hold."""
+    if tray.running:
+        return
+    for pick in context["newest"].values():
+        if pick.key not in tray.picks and pick.key not in tray.moves:
+            tray.set(pick, True)
+            tray.repaint(pick.key)

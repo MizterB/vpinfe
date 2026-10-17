@@ -208,6 +208,7 @@ class Library:
     _table_rows: list[dict[str, Any]] | None = None
     _kept: dict[str, set[str]] | None = None
     _online: frozenset[str] | None = None
+    _online_sources: list[dict] = []
     _opens_on = ""
 
     def __init__(self, client: ApiClient) -> None:
@@ -395,14 +396,34 @@ class Library:
         """Read which kinds an extension's online source offers. Off the loop. A failed read
         leaves none, so a page that never needed an extension's source still opens."""
         try:
-            self._online = frozenset(
-                str(kind) for one in self.media_sources()
-                if one.get("extension") and one.get("enabled")
-                for kind in one.get("kinds") or ())
+            asked = [one for one in self.media_sources()
+                     if one.get("extension") and one.get("enabled")]
         except Exception:
             logger.debug("Could not read the online sources", exc_info=True)
-            self._online = frozenset()
+            asked = []
+        self._online_sources = asked
+        self._online = frozenset(str(kind) for one in asked for kind in one.get("kinds") or ())
         return self._online
+
+    def online_sources(self) -> list[dict]:
+        """The switched-on sources extensions contribute, as the last read left them. Asks
+        nothing."""
+        return list(self._online_sources)
+
+    def source_take_many(self, extension: str, key: str, picks: list[dict], game_id: str,
+                         vps_id: str, name: str) -> dict:
+        return self._client.source_take_many(extension, key, picks, game_id, vps_id, name)
+
+    def source_act(self, extension: str, key: str, kind: str, row: str, act: str,
+                   game_id: str, vps_id: str, name: str) -> dict:
+        return self._client.source_act(extension, key, kind, row, act, game_id, vps_id, name)
+
+    def source_look(self, extension: str, key: str, kind: str, row: str, game_id: str,
+                    vps_id: str, name: str) -> dict:
+        return self._client.source_look(extension, key, kind, row, game_id, vps_id, name)
+
+    def source_changes(self, since: int) -> dict:
+        return self._client.source_changes(since)
 
     def source_offers(self, extension: str, key: str, kind: str, game_id: str,
                       vps_id: str, name: str) -> dict:

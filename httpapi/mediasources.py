@@ -48,6 +48,15 @@ def list_sources() -> models.MediaSourceList:
         {"sources": built_in + _contributed()})
 
 
+@router.get("/changes", summary="Which games' online offers have moved since a version",
+            dependencies=[requires(scopes.VPS_READ)])
+def get_changes(since: int = Query(0, ge=0)) -> models.MediaSourceChanges:
+    """What an open Discovery pane asks about on a timer: an extension's download began,
+    finished or needs the person, so the rows it drew for that game are stale."""
+    version, moved = extension_sources.changes_since(since)
+    return models.MediaSourceChanges(version=version, vps_ids=moved)
+
+
 @router.get("/offers", summary="What the catalogs have for one game and kind",
             dependencies=[requires(scopes.VPS_READ)])
 def get_offers(vps_id: str = Query(...),

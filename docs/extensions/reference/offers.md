@@ -155,7 +155,8 @@ Core draws what the source answers and keeps the rest to itself:
 - A row with `current` set is drawn as Current.
 - Settings lists the source among the online sources, with a switch.  A source switched off is
   not asked, and with every source off the tab says so.
-- A Private game is never asked about.
+- A Private game is never asked about in Add and Replace.  Discovery asks by VPS id alone, as
+  it does for any game the library does not hold, and says nothing of the library.
 - A pick that fills a slot already holding a file is confirmed first, naming what is there
   now.  A folder or a table is taken as picked.
 - The words for an empty or failing tab name only the sources that offer this kind.
@@ -181,6 +182,49 @@ reason, and the dialog stays open.
 
 A backglass has two kinds.  `backglass` is the picture, and `backglass_file` is the `.directb2s`
 file a table loads.
+
+### In Discovery
+
+Discovery lists the files VPS has for a game, and an Online source can offer to get them.  A
+row is drawn there, beside the VPS file it stands for, when it carries `vps_file_id`: the id VPS
+gives that file.  Add and Replace ignore the id, and Discovery ignores a row without one.  Where
+two sources offer the same file the first one registered owns the row.  Discovery asks by VPS
+id alone, so `who["game_id"]` is empty for a game that is not in the library, and `offers`
+should answer from `vps_id`.
+
+A row may also say how it stands, and what can be done to it:
+
+- `state` is `{"text", "level", "hint"}`.  `level` is `on`, `off`, `unknown`, `warn` or `bad`,
+  and one with none is `unknown`.  The row shows `text` in place of the tick once the file is
+  handed over, and `hint` is its tooltip.  `unknown` reads as under way; `warn` and `bad` need
+  the person.
+- `acts` is `[{"key", "label"}]`, one button for each, with no two sharing a key.
+
+Three more functions, each optional, go beside `offers` and `take`:
+
+```python
+ctx.sources.contribute(
+    "files", "Example Files", ["table", "pup_pack"],
+    offers=files_for, take=take_file,
+    take_many=take_ticked, act=press, look=page_of)
+```
+
+- `take_many(who, picks)` is called once with `[{"kind", "key"}]` for every file ticked for that
+  source, after the game is made if it was not in the library.  It answers `{"message": text}`
+  or nothing.  A source without it can be ticked in Discovery, and the tick fails with the
+  reason, so a source that sets `vps_file_id` gives this too.
+- `act(who, kind, key, act)` is called when a button is pressed, and answers what `take` does,
+  or nothing.  Discovery shows a `message` and opens an `action` dialog, and does not follow a
+  `job`.  A press with an empty `kind` and `key` is the pane's own button; today that is `stop`, pressed once for each source with a row under
+  way.  Core knows nothing of what a source is getting, so the source ends it.
+- `look(who, kind, key)` is called when the row is opened, and answers `{"pictures": [address],
+  "description": text, "files": [{"name", "size"}], "note": text}`, all optional.  At most 8
+  pictures, 100 files and 4000 characters of description are drawn.  `size` is bytes, less
+  than 2^63.
+
+The pane asks `offers` again each time the registry says an offer for the entry moved.  Say so
+with `ctx.sources.changed(vps_id)` when a download starts, ends or needs the person.  A pane that
+is open redraws the rows whose state changed and leaves the rest alone.
 
 ## A name a command can use
 

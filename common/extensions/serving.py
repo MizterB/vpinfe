@@ -849,9 +849,20 @@ def job_stop(record: Record, kind: str) -> dict:
 # -- online sources --------------------------------------------------------------------
 
 SOURCE_ANSWER_KEYS = frozenset({"rows", "note", "link"})
-SOURCE_ROW_KEYS = frozenset({"key", "name", "site", "page", "note", "picture", "tag", "current"})
+SOURCE_ROW_KEYS = frozenset({"key", "name", "site", "page", "note", "picture", "tag", "current",
+                             "vps_file_id", "state", "acts"})
 SOURCE_LINK_KEYS = frozenset({"text", "to", "page", "settings"})
 SOURCE_TAKE_KEYS = frozenset({"job", "action", "message"})
+SOURCE_STATE_KEYS = frozenset({"text", "level", "hint"})
+SOURCE_STATE_LEVELS = ("on", "off", "unknown", "warn", "bad")
+SOURCE_ACT_KEYS = frozenset({"key", "label"})
+SOURCE_LOOK_KEYS = frozenset({"pictures", "description", "files", "note"})
+SOURCE_FILE_KEYS = frozenset({"name", "size"})
+# What a row's page may show in an opened row, so a page with hundreds of entries stays a glance.
+LOOK_PICTURES = 8
+LOOK_FILES = 100
+LOOK_DESCRIPTION = 4000
+LOOK_SIZE = 1 << 63
 
 
 def _source(record: Record, key: str, kind: str) -> sources.Source:
@@ -909,7 +920,43 @@ def _source_row(record: Record, at: str, one: Any, seen: set[str]) -> dict:
     if current is not None and not isinstance(current, bool):
         raise _shape(record, at, "a row's current", "true or false")
     row["current"] = bool(current)
+    row["vps_file_id"] = _source_text(record, at, one, "vps_file_id")
+    row["state"] = _source_state(record, at, one.get("state"))
+    row["acts"] = _source_acts(record, at, one.get("acts"))
     return row
+
+
+def _source_state(record: Record, at: str, state: Any) -> dict | None:
+    if state in (None, "", {}):
+        return None
+    if not isinstance(state, dict) or set(state) - SOURCE_STATE_KEYS:
+        raise _shape(record, at, "a row's state",
+                     f"an object with {', '.join(sorted(SOURCE_STATE_KEYS))}")
+    level = _source_text(record, at, state, "level") or "unknown"
+    if level not in SOURCE_STATE_LEVELS:
+        raise _shape(record, at, f"a state level of {level}",
+                     f"one of {', '.join(SOURCE_STATE_LEVELS)}")
+    return {"text": _source_text(record, at, state, "text", required=True), "level": level,
+            "hint": _source_text(record, at, state, "hint")}
+
+
+def _source_acts(record: Record, at: str, acts: Any) -> list[dict]:
+    if acts in (None, ""):
+        return []
+    if not isinstance(acts, list):
+        raise _shape(record, at, "a row's acts", "a list")
+    seen: set[str] = set()
+    made = []
+    for one in acts:
+        if not isinstance(one, dict) or set(one) - SOURCE_ACT_KEYS:
+            raise _shape(record, at, "an act",
+                         f"an object with {', '.join(sorted(SOURCE_ACT_KEYS))}")
+        key = _source_text(record, at, one, "key", required=True)
+        if key in seen:
+            raise _shape(record, at, f"two acts with the key {key}", "each once")
+        seen.add(key)
+        made.append({"key": key, "label": _source_text(record, at, one, "label", required=True)})
+    return made
 
 
 def _source_link(record: Record, at: str, link: Any) -> dict | None:
@@ -959,17 +1006,19 @@ def source_offers(record: Record, key: str, kind: str, who: Mapping[str, Any] | 
             "link": _source_link(record, at, answer.get("link"))}
 
 
-def source_take(record: Record, key: str, kind: str, who: Mapping[str, Any] | None,
-                row: str, need: Need | None = None) -> dict:
-    """Take the row `row` of the extension's source `key`: a job it started, a dialog to
-    open next, or a message, and nothing else."""
-    found = _source(record, key, kind)
-    at = f"source {key} take"
-    _need(record, need, found.take, reach.LIBRARY, f"source:{key}")
-    done = _message(record, at, called(record, at, found.take, _asked_who(who), kind, row))
+def _no_verb(record: Record, key: str, verb: str) -> NotFoundError:
+    return NotFoundError(i18n.t("error.extensions.source_verb", display=record.display_name,
+                                key=key, verb=verb))
+
+
+def _taken(record: Record, at: str, done: Any, *, empty: bool = False) -> dict:
+    """An answer to a take or an act: a job it started, a dialog to open next, or a message,
+    and nothing else."""
     worded = isinstance(done, dict) and isinstance(done.get("message"), str)
     if worded and not done["message"].strip():
         done = {field: value for field, value in done.items() if field != "message"}
+    if empty and done == {}:
+        return {}
     if (not isinstance(done, dict) or set(done) - SOURCE_TAKE_KEYS
             or not any(done.get(key) for key in SOURCE_TAKE_KEYS)
             or ("job" in done and "action" in done)
@@ -983,6 +1032,109 @@ def source_take(record: Record, key: str, kind: str, who: Mapping[str, Any] | No
     if "message" in done and not isinstance(done["message"], str):
         raise _shape(record, at, "its message", "text")
     return done
+
+
+def _named(record: Record, key: str) -> sources.Source:
+    found = sources.named(record.name, key)
+    if found is None:
+        raise NotFoundError(i18n.t("error.extensions.no_source", display=record.display_name,
+                                   key=key))
+    if not sources.enabled(found):
+        raise RefusedError(i18n.t("error.extensions.source_off", display=record.display_name,
+                                  key=key))
+    return found
+
+
+def source_take(record: Record, key: str, kind: str, who: Mapping[str, Any] | None,
+                row: str, need: Need | None = None) -> dict:
+    """Take the row `row` of the extension's source `key`: a job it started, a dialog to
+    open next, or a message, and nothing else."""
+    found = _source(record, key, kind)
+    at = f"source {key} take"
+    _need(record, need, found.take, reach.LIBRARY, f"source:{key}")
+    return _taken(record, at, _message(record, at, called(record, at, found.take,
+                                                          _asked_who(who), kind, row)))
+
+
+def source_take_many(record: Record, key: str, who: Mapping[str, Any] | None,
+                     picks: Sequence[Mapping[str, Any]], need: Need | None = None) -> dict:
+    """Take every file ticked in Discovery at once, as `[{"kind", "key"}]`; the answer is a
+    message or nothing."""
+    found = _named(record, key)
+    if found.take_many is None:
+        raise _no_verb(record, key, "take_many")
+    at = f"source {key} take_many"
+    asked = []
+    for one in picks:
+        kind, row = str(one.get("kind") or "").strip(), str(one.get("key") or "").strip()
+        if kind not in found.kinds:
+            raise NotFoundError(i18n.t("error.extensions.source_kind",
+                                       display=record.display_name, key=key, kind=kind))
+        if not row:
+            raise _shape(record, at, "a pick with no key", "one with a key")
+        asked.append({"kind": kind, "key": row})
+    if not asked:
+        return {}
+    _need(record, need, found.take_many, reach.LIBRARY, f"source:{key}")
+    done = _message(record, at, called(record, at, found.take_many, _asked_who(who), asked))
+    said_so = done.get("message", "") if isinstance(done, dict) else None
+    if not isinstance(done, dict) or set(done) - {"message"} or not isinstance(said_so, str):
+        raise _shape(record, at, "its answer", "a message")
+    return {"message": said_so.strip()} if said_so.strip() else {}
+
+
+def source_act(record: Record, key: str, kind: str, who: Mapping[str, Any] | None,
+               row: str, act: str, need: Need | None = None) -> dict:
+    """Press a button the source drew on a row, or on the pane (no `kind` and no `row`): what
+    a take answers, or nothing."""
+    found = _source(record, key, kind) if kind else _named(record, key)
+    if found.act is None:
+        raise _no_verb(record, key, "act")
+    at = f"source {key} act"
+    _need(record, need, found.act, reach.LIBRARY, f"source:{key}")
+    return _taken(record, at, _message(record, at, called(record, at, found.act,
+                                                          _asked_who(who), kind, row, act)),
+                  empty=True)
+
+
+def source_look(record: Record, key: str, kind: str, who: Mapping[str, Any] | None,
+                row: str) -> dict:
+    """What the file's page says, for an opened row: its pictures, its description and the
+    files in it with their sizes."""
+    found = _source(record, key, kind)
+    if found.look is None:
+        raise _no_verb(record, key, "look")
+    at = f"source {key} look"
+    answer = plain(record, at, called(record, at, found.look, _asked_who(who), kind, row))
+    if answer is None:
+        answer = {}
+    if not isinstance(answer, dict) or set(answer) - SOURCE_LOOK_KEYS:
+        raise _shape(record, at, "its answer",
+                     f"an object with {', '.join(sorted(SOURCE_LOOK_KEYS))}")
+    shots = answer.get("pictures") or []
+    listed = answer.get("files") or []
+    if not isinstance(shots, list) or not isinstance(listed, list):
+        raise _shape(record, at, "its pictures or files", "lists")
+    try:
+        addressed = [pictures.address(record, one.strip()) for one in shots[:LOOK_PICTURES]
+                     if isinstance(one, str) and one.strip()]
+    except pictures.OutboundNotDeclaredError as exc:
+        raise ExtensionError(i18n.t("error.extensions.picture_outbound",
+                                    display=record.display_name, key=at)) from exc
+    files = []
+    for one in listed[:LOOK_FILES]:
+        if not isinstance(one, dict) or set(one) - SOURCE_FILE_KEYS:
+            raise _shape(record, at, "a file", "an object with name and size")
+        size = one.get("size")
+        if size is not None and (isinstance(size, bool) or not isinstance(size, int)
+                                 or not 0 <= size < LOOK_SIZE):
+            raise _shape(record, at, "a file's size", "a number of bytes")
+        files.append({"name": _source_text(record, at, one, "name", required=True),
+                      "size": size})
+    description = _source_text(record, at, answer, "description")
+    return {"pictures": [one for one in addressed if one],
+            "description": description[:LOOK_DESCRIPTION], "files": files,
+            "note": _source_text(record, at, answer, "note")}
 
 
 # -- accounts --------------------------------------------------------------------------
@@ -1049,5 +1201,6 @@ __all__ = [
     "account_card", "account_read", "account_read_card", "account_write", "called",
     "dialog_act", "dialog_ask", "dialog_check", "dialog_progress", "dialog_run",
     "list_about", "list_act", "list_rows", "plain", "said", "settings_read",
-    "settings_write", "source_offers", "source_take",
+    "settings_write", "source_act", "source_look", "source_offers", "source_take",
+    "source_take_many",
 ]

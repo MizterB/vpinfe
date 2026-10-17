@@ -920,6 +920,35 @@ class ApiClient:
              "who": {"game_id": game_id, "vps_id": vps_id, "name": name,
                      "table_id": table_id}})
 
+    def source_take_many(self, extension: str, key: str, picks: list[dict], game_id: str,
+                         vps_id: str, name: str) -> dict:
+        """Hand an extension's source every file ticked in Discovery as one batch."""
+        return self.ext_post(
+            f"/ext/{quote(extension, safe='')}/sources/{quote(key, safe='')}/take-many",
+            {"picks": [{"kind": one["kind"], "key": one["key"]} for one in picks],
+             "who": {"game_id": game_id, "vps_id": vps_id, "name": name}})
+
+    def source_act(self, extension: str, key: str, kind: str, row: str, act: str,
+                   game_id: str, vps_id: str, name: str) -> dict:
+        """Press a button a source drew on a row, or on the pane where `kind` is empty."""
+        return self.ext_post(
+            f"/ext/{quote(extension, safe='')}/sources/{quote(key, safe='')}/act",
+            {"act": act, "kind": kind, "row": row,
+             "who": {"game_id": game_id, "vps_id": vps_id, "name": name}})
+
+    def source_look(self, extension: str, key: str, kind: str, row: str, game_id: str,
+                    vps_id: str, name: str) -> dict:
+        """What the page of a source's file says: pictures, description, files."""
+        return self.ext_get(
+            f"/ext/{quote(extension, safe='')}/sources/{quote(key, safe='')}/look?"
+            + urlencode({"kind": kind, "row": row, "game_id": game_id, "vps_id": vps_id,
+                         "name": name}))
+
+    def source_changes(self, since: int) -> dict:
+        """The newest version of the offers extensions' sources report, and the VPS ids that
+        moved after `since`."""
+        return self._get("/media-sources/changes?" + urlencode({"since": since}))
+
     def wheel_sets(self) -> list[str]:
         """The wheel sets the library has media in, and the reserved `logo`."""
         return [str(name) for name in self._get("/media/wheel-sets").get("sets") or []]
