@@ -123,8 +123,9 @@ class ChangedFileTests(unittest.TestCase):
 
         def git(*args: str) -> None:
             subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c",
-                            "user.email=t@t", *args], check=True, capture_output=True,
-                           env=affected.git_env())
+                            "user.email=t@t", "-c", "commit.gpgsign=false", "-c",
+                            "core.hooksPath=/dev/null", *args], check=True,
+                           capture_output=True, env=affected.git_env())
         git("init", "-q")
         (repo / "kept.py").write_text("a = 1\n", encoding="utf-8")
         (repo / "edited.py").write_text("a = 1\n", encoding="utf-8")
