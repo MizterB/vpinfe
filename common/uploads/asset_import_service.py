@@ -244,7 +244,7 @@ def _plan_asset(asset: DetectedAsset, base: Path, vpx_stem: str, rom_name: str,
         # Always written as <folder>.info — the parser matches it by folder name.
         return PlannedItem(asset, str(_info_path(base)), "write_info")
     own = PurePosixPath(_basename(asset.entries[0].arcname))
-    stem = sidecar_stem or vpx_stem or own.stem
+    stem = sidecar_stem or vpx_stem or base.name
     if kind == "backglass":
         return PlannedItem(asset, str(base / f"{stem}.directb2s"), "replace_b2s")
     if kind == "ini":

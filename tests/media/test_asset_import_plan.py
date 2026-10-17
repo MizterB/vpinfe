@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import unittest
 from pathlib import Path
@@ -114,6 +115,25 @@ class AddTablePlanTests(unittest.TestCase):
         self.assertEqual(self._names(plan)["backglass"], "Foo 1.2.directb2s")
 
     def test_without_a_table_they_are_named_for_the_game_s(self):
+        plan = self._plan(["Other.directb2s"])
+
+        self.assertEqual(self._names(plan), {"backglass": "Foo.directb2s"})
+
+    def test_a_game_with_no_table_yet_names_them_for_its_folder(self):
+        (self.game_dir / "Foo.vpx").unlink()
+
+        plan = self._plan(["Other.directb2s", "Other.ini"])
+
+        self.assertEqual(self._names(plan), {
+            "backglass": "Foo (Bar 1999).directb2s", "ini": "Foo (Bar 1999).ini"})
+
+    def test_the_default_table_s_name_wins_over_the_first_one(self):
+        (self.game_dir / "Aardvark.vpx").write_bytes(b"x")
+        (self.game_dir / "Foo (Bar 1999).info").write_text(
+            json.dumps({"tables": {"t1": {"id": "t1", "filename": "Foo.vpx"},
+                                   "t2": {"id": "t2", "filename": "Aardvark.vpx"}},
+                        "vpinfe": {"default_table": "t1"}}), encoding="utf-8")
+
         plan = self._plan(["Other.directb2s"])
 
         self.assertEqual(self._names(plan), {"backglass": "Foo.directb2s"})
