@@ -130,10 +130,16 @@ def _stage(context: dict[str, Any]) -> ui.element:
         return ui.element("div").classes("manager-stage")
 
 
+def _file_heading() -> None:
+    with ui.column().classes("w-full gap-0 manager-form"):
+        panel.facts(ui, [(panel.HEADING, t("word.file"))])
+
+
 async def _media_file_block(context: dict[str, Any]) -> None:
     library, game_id, table_id = context["library"], context["game_id"], context["lens"]
     row, kind = context["row"], context["kind"]
     if file_acts.is_loose(row):
+        _file_heading()
         _loose_media(context)
         return
     page = int(row.get("page") or 1)
@@ -155,6 +161,7 @@ async def _media_file_block(context: dict[str, Any]) -> None:
     if context["dock"] is not None:
         with _stage(context):
             _slot_art(context, kind, entry, page)
+    _file_heading()
     _slot(context, kind, entry, detail, context["rebuild"],
           (overrides or {}).get(kind) or [], titled=False, in_place=False, scope_chip=False,
           links=links, matched=matched, draw_art=False, page=page,

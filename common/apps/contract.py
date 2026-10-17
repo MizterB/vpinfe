@@ -198,7 +198,8 @@ class Switched:
 
 @dataclass(frozen=True)
 class Heading:
-    """Curated rows under one sub-heading of a group. An empty key draws no heading."""
+    """Curated rows under one sub-heading of a group. Without a label they are headed by
+    the group's own."""
 
     key: str = ""
     keys: tuple[str, ...] = ()

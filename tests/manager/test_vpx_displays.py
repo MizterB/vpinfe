@@ -820,7 +820,7 @@ class EntriesTests(unittest.IsolatedAsyncioTestCase):
     def _group(self) -> Any:
         keys = ("Player.PlayfieldDisplay", "Backglass.BackglassOutput",
                 "Backglass.BackglassDisplay", "Player.ScreenWidth", "Player.ScreenHeight")
-        return SimpleNamespace(key="displays", settings=[
+        return SimpleNamespace(key="displays", label="Displays", settings=[
             SimpleNamespace(key=key, label=key, reported=[], default="95.89"
                             if key == "Player.ScreenWidth" else "53.94" if "Height" in key
                             else "") for key in keys])
@@ -889,8 +889,9 @@ class EntriesTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(vpx_displays, "_beside", new=AsyncMock(side_effect=RuntimeError("x"))):
             out = await vpx_displays.entries(context, self._group(), [], self._values(), rows)
 
-        self.assertEqual(len(out), 1)
-        self.assertIs(out[0][0], panel.FULL)
+        self.assertEqual(len(out), 2)
+        self.assertEqual(out[0], (panel.HEADING, "Displays"))
+        self.assertIs(out[1][0], panel.FULL)
         rows.assert_not_awaited()
 
     async def test_a_change_to_the_page_reads_the_ini_again(self) -> None:

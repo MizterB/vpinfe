@@ -225,8 +225,7 @@ FULL = panel.FULL
 class Section:
     """One block in the panel: what it is called and how to draw it.
 
-    One name, on the row that opens it. There is no second heading over the content,
-    because the row is the heading.
+    One name, on the row that opens it. The content is headed by its own groups.
 
     `label` takes the context, since a name that counts something has to count this
     game's. `build` is async because a section may need a fetch.
@@ -254,6 +253,9 @@ class Section:
     # A heading over the run of sections it starts. Empty for a rail short enough to
     # read without one, which every rail now is.
     group: str = ""
+    # Whether the section opens with its own name as a heading. Only one whose content
+    # draws no heading of its own sets it.
+    titled: bool = False
     # A Material icon drawn before the name; only an extension's section sets one.
     icon: str = ""
     # Drawn after the name, for a section an extension VPinFE did not ship added.

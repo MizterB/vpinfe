@@ -347,6 +347,8 @@ async def _collection_games(context: dict[str, Any]) -> None:
 
 
 def _empty_fork(context: dict[str, Any]) -> None:
+    with ui.column().classes("gap-0 manager-form"):
+        panel.facts(ui, [(HEADING, _games_label(context))])
     with ui.column().classes("gap-2 w-full min-w-0 py-2"):
         ui.label(t("manager.workbench.empty")).classes("manager-empty-title")
         _add_control(context, [])

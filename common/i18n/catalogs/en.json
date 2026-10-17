@@ -4115,7 +4115,7 @@
   "manager.workbench.media_hint": "Select any media item to manage it",
   "manager.workbench.file_hint": "Select any file to manage it",
   "manager.workbench.program_hint": "Set its program to see {app}'s settings",
-  "manager.workbench.settings_file": "Settings file",
+  "manager.workbench.settings_file": "Settings File",
   "manager.workbench.show_limit": "Show at most",
   "manager.workbench.in_menu": "Show in Menu",
   "manager.workbench.in_menu.help": "Off keeps it out of the frontend's collection menu",

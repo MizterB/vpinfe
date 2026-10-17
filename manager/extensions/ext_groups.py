@@ -86,10 +86,10 @@ async def _show(region: ui.element, extension: dict[str, Any], group: dict[str, 
             if not region.is_deleted:
                 region.clear()
                 with region:
-                    panel.facts(ui, [panel.intro(
+                    panel.facts(ui, panel.headed([panel.intro(
                         t("manager.community.read_failed",
                           name=str(extension.get("display_name") or extension.get("name") or "")),
-                        hint=why(exc))])
+                        hint=why(exc))], title(extension, group)))
             return
     if region.is_deleted:
         return
@@ -108,8 +108,7 @@ async def _show(region: ui.element, extension: dict[str, Any], group: dict[str, 
         return
     region.clear()
     with region:
-        panel.facts(ui, [*(_heading(extension, str(answer.get("title") or ""))
-                           if group.get("section") else []),
+        panel.facts(ui, [*_heading(extension, str(answer.get("title") or title(extension, group))),
                          *ext_row.section_entries(section, held),
                          *_strip(answer.get("acts") or [], where, redraw,
                                  str(extension.get("display_name") or extension.get("name")

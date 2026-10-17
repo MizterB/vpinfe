@@ -836,8 +836,9 @@ async def _account(context: dict[str, Any], account: dict[str, Any]) -> None:
     every extension offering one gets the same panel, in its own words."""
     library, player = context["library"], _of(context)
     if account.get("error"):
-        panel.facts(ui, [panel.intro(t("manager.players.account_failed"),
-                                     hint=str(account["error"]))])
+        panel.facts(ui, panel.headed(
+            [panel.intro(t("manager.players.account_failed"), hint=str(account["error"]))],
+            t("manager.players.account_heading")))
         return
     service = str(account.get("label") or account["extension"])
     user_id = str(account.get("user_id") or "")
@@ -888,7 +889,7 @@ async def _account(context: dict[str, Any], account: dict[str, Any]) -> None:
         entries.append((panel.FULL, lambda: _card_section(library, player, account, service)))
         entries.append((panel.FULL, lambda: _card_actions(context, account)))
     with ui.column().classes("gap-0 manager-form"):
-        panel.facts(ui, entries)
+        panel.facts(ui, panel.headed(entries, t("manager.players.account_heading")))
 
 
 def _field_rows(context: dict[str, Any], account: dict[str, Any],

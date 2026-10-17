@@ -720,14 +720,16 @@ put them side by side — a save bar against per-fact writes, a label over its c
 against a label beside it, and two classes used on screen that the stylesheet never
 defined.
 
-**The rail row is the heading.** No title over the content: the lit row already says where
-you are, and a second copy of the words under it is furniture. A rail long enough to need
-grouping takes group headings; a short one does not.
+**The rail row names the section.** The lit row says where you are, and the headings
+under it name what is in it. A rail long enough to need grouping takes group headings.
 
-**Every group in a section is headed, or none is.** Once any group under a rail row takes a
-heading, the first takes one too: content left unnamed above the first rule reads as a stray
-rather than as the start of the section. A section that is one group needs no heading,
-since the lit row names it, and never one that only says the row again. A search or filter
+**A section always shows its header, even when it is the only one.** A panel with one section
+draws its rail row like any other; there is no bare panel with the row left out.
+
+**Every group in a section is headed.** The first takes a heading as the others do: content
+left unnamed above the first rule reads as a stray rather than as the start of the section.
+A section that is one group is headed too, a group the app gave no name is headed by its
+section's, and a heading that says what the row says is still drawn. A search or filter
 that acts on the whole section is not a group: it goes above the first heading, in a
 `manager-section-bar`.
 

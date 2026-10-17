@@ -60,9 +60,9 @@ AFTER_WORK_ORDER = 2
 
 
 def headed(entries: Sequence[tuple[Any, ...]], first: str) -> list[tuple[Any, ...]]:
-    """`entries`, with `first` heading the opening group when a later one is headed."""
+    """`entries`, with `first` heading the opening group unless it already has a heading."""
     rows = list(entries)
-    if any(row[0] is HEADING for row in rows) and rows[0][0] is not HEADING:
+    if rows and rows[0][0] is not HEADING:
         rows.insert(0, (HEADING, first))
     return rows
 

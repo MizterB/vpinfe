@@ -4273,8 +4273,6 @@ svg.manager-cell-noart {
   .manager-opened .manager-pane-full, .manager-opened .manager-panel-toggle { display: none; }
 }
 
-/* The row is the section's only name - there is no heading under it repeating the
-   same words. */
 /* Sized as navigation, because that is what it is. Title case and smaller than the
    app nav: these are headings, so they take heading case - but not the nav's uppercase,
    which would rank a game's sections with the app itself. */
@@ -4424,22 +4422,6 @@ svg.manager-cell-noart {
     padding-block: 4px 0; margin-bottom: -4px;
   }
   .manager-fact-aside, .manager-binding-aside { grid-column: 1; }
-}
-
-/* One declared section has no row to open it, so the work takes the width and the rail
-   column is not painted. Below the narrow block on purpose: the same specificity, and the
-   column there must not give the section a floor of its own. */
-.manager-sections--bare {
-  display: grid; background: none;
-  grid-template-columns: minmax(0, 1fr);
-  --rail-w: 0px;
-}
-.manager-sections--bare > .manager-section-work { grid-column: 1; }
-@container (max-width: 519px) {
-  .manager-sections--bare { display: grid; overflow: hidden; }
-  .manager-sections--bare > .manager-section-work {
-    flex: none; min-height: 0; border-bottom: none;
-  }
 }
 
 .manager-bar { height: 6px; border-radius: 3px; background: var(--bar-track); }

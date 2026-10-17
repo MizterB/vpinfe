@@ -431,7 +431,8 @@ async def _config_rows(context: dict[str, Any], group: Any) -> None:
                     redraw_on=switches(group.curated)))
     else:
         entries = await _setting_entries(
-            context, [(heading.label, heading.note, fields) for heading, fields in shown],
+            context, [(heading.label or group.label, heading.note, fields)
+                      for heading, fields in shown],
             curated=True, redraw_on=switches(group.curated),
             pairs=[pair for heading, _ in shown for pair in heading.pairs])
     if rest := len(group.settings) - len(curated_keys(group)):
@@ -449,8 +450,7 @@ async def _every_row(context: dict[str, Any], group: Any) -> None:
     # plugins each call their switch `Enable`, and two of the five say nothing else
     # about themselves. The section is the only thing that tells them apart, and it is
     # what the program groups them by too.
-    titled = len({_section_of(f.key) for f in group.settings}) > 1
-    blocks = [(_section_label(section, group.label) if titled else "", "", list(fields))
+    blocks = [(_section_label(section, group.label), "", list(fields))
               for section, fields in groupby(group.settings, lambda f: _section_of(f.key))]
     with ui.column().classes("gap-0 manager-form"):
         panel.facts(ui, await _setting_entries(context, blocks))
@@ -932,7 +932,7 @@ def _section_label(section: str, group_label: str) -> str:
     # humanizer this file uses is built for snake_case fields - it lowercases the
     # capitals inside a name and gives back something worse than it was handed.
     said = said.replace("\\", " - ")
-    return group_label if said.lower() == group_label.lower() else said
+    return group_label if not said or said.lower() == group_label.lower() else said
 
 
 def setting_names(groups: Sequence[Any]) -> dict[str, str]:

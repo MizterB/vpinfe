@@ -313,7 +313,8 @@ async def entries(context: dict[str, Any], group: Any, shown: Sequence[tuple[Any
     try:
         vpinfe, schema, monitors, names = await _beside(library)
     except Exception as exc:  # noqa: BLE001 - a page says why, never 500s
-        return [panel.intro(t("said.settings_unreadable"), hint=why(exc))]
+        return [(panel.HEADING, group.label),
+                panel.intro(t("said.settings_unreadable"), hint=why(exc))]
     by_key = {one.key: one for one in group.settings}
     flat = {key: str((held or {}).get("value") or "") for key, held in values.items()}
 

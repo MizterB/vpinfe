@@ -1,4 +1,4 @@
-"""A section whose later groups are headed names its first one too."""
+"""A section names its first group, whether or not other groups follow it."""
 
 from __future__ import annotations
 
@@ -27,9 +27,9 @@ class HeadedTests(unittest.TestCase):
                 (panel.HEADING, "Table")]
         self.assertEqual(panel.headed(rows, "Other"), rows)
 
-    def test_a_section_of_one_group_takes_no_heading(self) -> None:
+    def test_a_section_of_one_group_is_headed(self) -> None:
         rows = [("Last Played", "Never"), ("Times Played", "0")]
-        self.assertEqual(panel.headed(rows, "Game"), rows)
+        self.assertEqual(panel.headed(rows, "Game"), [(panel.HEADING, "Game"), *rows])
 
 
 class ThePlaySectionTests(unittest.TestCase):
@@ -46,9 +46,9 @@ class ThePlaySectionTests(unittest.TestCase):
         self.assertEqual(_headings(rows),
                          [GAME, TABLE, t("manager.workbench.high_scores")])
 
-    def test_a_game_without_scores_is_one_group_and_takes_none(self) -> None:
+    def test_a_game_without_scores_is_one_group_and_is_headed(self) -> None:
         context = {"game": {"user": {}}, "tables": [], "lens": ""}
-        self.assertEqual(_headings(_play_section(context, {}, {})), [])
+        self.assertEqual(_headings(_play_section(context, {}, {})), [GAME])
 
 
 if __name__ == "__main__":

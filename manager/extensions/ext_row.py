@@ -61,11 +61,13 @@ def sections(context: dict[str, Any], found: dict[str, Any]) -> tuple[Any, ...]:
 
 
 def _label(label: str, _context: dict[str, Any]) -> str:
-    return label
+    """The section's own name; Details where the extension gave none."""
+    return label or t("manager.workbench.details")
 
 
 async def _draw_section(one: dict[str, Any], context: dict[str, Any]) -> None:
-    panel.facts(ui, section_entries(one, await ext_cells.prepared(context, [one])))
+    entries = section_entries(one, await ext_cells.prepared(context, [one]))
+    panel.facts(ui, panel.headed(entries, _label(str(one.get("label") or ""), context)))
 
 
 def section_entries(one: dict[str, Any], context: dict[str, Any]) -> list[tuple[Any, ...]]:

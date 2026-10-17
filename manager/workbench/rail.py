@@ -125,20 +125,17 @@ async def _rail(context: dict[str, Any], subject: str,
         (*sections_for(subject), *_group_sections(context)) if subject in ("game", "table")
         else sections_for(subject))
     rows = tuple(item for item in declared if item.shown is None or item.shown(context))
-    # One entry is a section that is always open, so it takes the width and has no row.
-    # Counted before `shown`, so a subject's rail does not come and go between two rows.
-    bare = len(declared) == 1
     section = chosen_section(state, subject, rows)
     # A section this subject has no answer for is not a place to land, so an address or a
     # remembered choice that names one opens the rail's own default instead.
-    if bare or (section != deeplink.COLLAPSED and section not in {item.key for item in rows}):
+    if section != deeplink.COLLAPSED and section not in {item.key for item in rows}:
         section = rows[0].key if rows else deeplink.COLLAPSED
+    if section == deeplink.COLLAPSED and len(rows) == 1:
+        section = rows[0].key
     body = None
     open_item = next((item for item in rows if item.key == section), None)
     docked = open_item is not None and _docked(open_item, context)
     with ui.element("div").classes("w-full grow min-h-0 manager-sections") as sections:
-        if bare:
-            sections.classes(add="manager-sections--bare")
         if subject == "collection":
             sections._props[row_drag.TARGET] = context["collection"]["name"]
         if subject in ("game", "table"):
@@ -146,18 +143,17 @@ async def _rail(context: dict[str, Any], subject: str,
         # The rows are their own region so they can scroll without taking the work with
         # them. A rail longer than the panel is the ordinary case for a device, and one
         # that moves what you are reading is the wrong half to move.
-        if not bare:
-            with ui.element("div").classes("min-h-0 manager-section-rail"):
-                heading = ""
-                after = 0
-                for item in rows:
-                    if item.group and item.group != heading:
-                        ui.label(item.group).classes("manager-group manager-rail-group") \
-                            .style(f"order: {after}")
-                    heading = item.group
-                    _section_row(context, item, item.key == section, order=after)
-                    if item.key == section:
-                        after = panel.AFTER_WORK_ORDER
+        with ui.element("div").classes("min-h-0 manager-section-rail"):
+            heading = ""
+            after = 0
+            for item in rows:
+                if item.group and item.group != heading:
+                    ui.label(item.group).classes("manager-group manager-rail-group") \
+                        .style(f"order: {after}")
+                heading = item.group
+                _section_row(context, item, item.key == section, order=after)
+                if item.key == section:
+                    after = panel.AFTER_WORK_ORDER
         if open_item is not None:
             work = ui.element("div").classes("min-w-0 manager-section-work") \
                 .style(f"order: {panel.WORK_ORDER}")
@@ -201,9 +197,12 @@ async def _group_section(extension: dict[str, Any], group: dict[str, Any],
 
 async def _one_section(context: dict[str, Any], key: str,
                        rows: tuple[Section, ...] = ()) -> None:
-    """The chosen section's content. No heading - the row that opened it is the
-    heading, and a second copy of the same words under it is furniture."""
-    await next(item for item in rows or SECTIONS if item.key == key).build(context)
+    """The chosen section's content, under its own name where it draws no heading."""
+    item = next(item for item in rows or SECTIONS if item.key == key)
+    if item.titled:
+        with ui.column().classes("w-full gap-0 manager-form"):
+            panel.facts(ui, [(panel.HEADING, item.label(context))])
+    await item.build(context)
 
 
 SECTIONS: tuple[Section, ...] = (
@@ -221,12 +220,12 @@ SECTIONS: tuple[Section, ...] = (
     Section("selection_settings", lambda _: t("manager.workbench.table_settings"),
             _selection_settings, subjects=frozenset({"selection"})),
     Section("play", lambda _: game_tables.PLAY, _play_block),
-    Section("collections", _collections_label, _collections_block),
-    Section("media", _media_label, _media_block, dock=True),
+    Section("collections", _collections_label, _collections_block, titled=True),
+    Section("media", _media_label, _media_block, dock=True, titled=True),
     # Beside Media, not under Details: both answer "what does this game hold", one
     # for what a screen shows and one for what a launch needs.
     Section("assets", _assets_label, _assets_block, dock=True),
-    Section("guides", _guides_label, _guides_block),
+    Section("guides", _guides_label, _guides_block, titled=True),
     # A launcher, in reading order: what it is and what it runs, then the program's own
     # settings grouped as the app declares them, then the copies kept of its file.
     Section("launcher_details", lambda _: t("manager.workbench.details"), _launcher_details,
@@ -235,7 +234,8 @@ SECTIONS: tuple[Section, ...] = (
     Section("launcher_all", lambda _: t("manager.workbench.all_settings"), _all_settings,
             subjects=frozenset({"launcher"}), shown=_all_settings_shown),
     Section("launcher_backups", lambda _: t("manager.workbench.settings_file"),
-            _config_backups, subjects=frozenset({"launcher"}), shown=_app_keeps_settings),
+            _config_backups, subjects=frozenset({"launcher"}), shown=_app_keeps_settings,
+            titled=True),
     Section("collection_details", lambda _: t("manager.workbench.details"),
             _collection_details,
             subjects=frozenset({"collection"})),
@@ -246,10 +246,10 @@ SECTIONS: tuple[Section, ...] = (
     Section("media_file", lambda _: t("word.file"), _media_file_block,
             subjects=frozenset({"media_file"}), dock=_media_has_stage),
     Section("tag_details", lambda _: t("manager.workbench.details"), _tag_details,
-            subjects=frozenset({"tag"})),
+            subjects=frozenset({"tag"}), titled=True),
     Section("tag_games", lambda context: t("manager.tags.games_counted",
                                            count=int(context["tag"].get("games") or 0)),
-            _tag_games, subjects=frozenset({"tag"})),
+            _tag_games, subjects=frozenset({"tag"}), titled=True),
     Section("asset_file", lambda _: t("word.file"), _asset_file_block,
             subjects=frozenset({"asset_file"}), dock=_asset_has_stage),
     # A device, in reading order: what it is, what it is running, what it can be asked
@@ -261,33 +261,33 @@ SECTIONS: tuple[Section, ...] = (
             subjects=frozenset({"device"})),
     Section("device_software", lambda _: t("word.software"), _device_software,
             subjects=frozenset({"device"}),
-            shown=lambda context: not devices_page.is_phone(context)),
+            shown=lambda context: not devices_page.is_phone(context), titled=True),
     Section("device_capabilities", lambda _: t("manager.workbench.capabilities"),
             _device_capabilities,
-            subjects=frozenset({"device"})),
+            subjects=frozenset({"device"}), titled=True),
     Section("device_logs", lambda _: t("manager.workbench.logs"), _device_logs,
             subjects=frozenset({"device"}),
-            shown=lambda context: devices_page.serves(context, "logs")),
+            shown=lambda context: devices_page.serves(context, "logs"), titled=True),
     Section("theme_details", lambda _: t("manager.themes.theme"), themes_page.details,
-            subjects=frozenset({"theme"})),
+            subjects=frozenset({"theme"}), titled=True),
     Section("theme_settings", lambda _: t("manager.themes.settings"),
             themes_page.settings_section, subjects=frozenset({"theme"}),
-            shown=lambda context: bool(context["theme"].get("configurable"))),
+            shown=lambda context: bool(context["theme"].get("configurable")), titled=True),
     # A player: who they are, then an account per running extension offering one, which
     # the panel puts between these two, then what they have played.
     Section("player_details", lambda _: t("manager.workbench.details"),
-            players_page.details, subjects=frozenset({"player"})),
+            players_page.details, subjects=frozenset({"player"}), titled=True),
     Section("player_plays", lambda _: t("manager.players.plays"), players_page.plays,
             subjects=frozenset({"player"}),
-            shown=lambda context: players_page.has_plays(context["player"])),
+            shown=lambda context: players_page.has_plays(context["player"]), titled=True),
     # A copy, then what a backup holds.
     Section("backup_details", lambda _: t("manager.workbench.details"), backups_page.details,
-            subjects=frozenset({"backup"})),
+            subjects=frozenset({"backup"}), titled=True),
     Section("backup_contents", lambda _: t("manager.backups.contents"), backups_page.contents,
-            subjects=frozenset({"backup"}), shown=backups_page.has_contents),
+            subjects=frozenset({"backup"}), shown=backups_page.has_contents, titled=True),
     # An entry the catalog lists: what it is, then the files VPS has for it.
     Section("discovery_game", lambda _: t("word.game"),
-            discovery_page.game, subjects=frozenset({"discovery"})),
+            discovery_page.game, subjects=frozenset({"discovery"}), titled=True),
     Section("discovery_files", lambda _: t("manager.discovery.files"),
-            discovery_page.files, subjects=frozenset({"discovery"})),
+            discovery_page.files, subjects=frozenset({"discovery"}), titled=True),
 )

@@ -352,12 +352,12 @@ def draw(block: Folders, importing: dict[str, Any] | None,
         if ask is not None:
             entries += [(ask.label, panel.switch(block.asking, block.ask_changed)),
                         panel.note(ask.description)]
-    panel.facts(ui, [*_heading(below), *entries, *(below or [])])
+    panel.facts(ui, [*_heading(), *entries, *(below or [])])
 
 
-def _heading(below: list[tuple[Any, ...]] | None) -> list[tuple[Any, ...]]:
-    """The library's own group is named once other groups follow it."""
-    return [(panel.HEADING, t("manager.folders.heading_library"))] if below else []
+def _heading() -> list[tuple[Any, ...]]:
+    """The library's own group is named, whether or not other groups follow it."""
+    return [(panel.HEADING, t("manager.folders.heading_library"))]
 
 
 def _list(block: Folders) -> None:
@@ -445,7 +445,7 @@ def _empty(block: Folders, importing: dict[str, Any] | None,
                 if newest_import is not None:
                     import_report.latest_line(newest_import)()
 
-    panel.facts(ui, [*_heading(below), (panel.FULL, finding),
+    panel.facts(ui, [*_heading(), (panel.FULL, finding),
                      panel.intro(t("manager.folders.none_yet_help")), *(below or [])])
 
 
@@ -461,7 +461,7 @@ async def page(library: Library, redraw: Callable[[], None], state: dict[str, An
         found = await offload.io(library.locations)
     except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
         reason = why(exc)
-        return lambda: panel.facts(ui, [*_heading(rows),
+        return lambda: panel.facts(ui, [*_heading(),
                                         panel.intro(t("manager.folders.read_failed"),
                                                     hint=reason), *rows])
     importing = await library_folders.import_action(library)

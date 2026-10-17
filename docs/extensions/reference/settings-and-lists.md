@@ -303,7 +303,7 @@ top, written as a [picture column](#cell-kinds) is.  A section is `{"key", "labe
 | key | meaning |
 |---|---|
 | `key` | Unique in the pane.  Left out, `section1`, `section2` and so on |
-| `label` | The section's name in the pane's rail, and required when there is more than one section.  A pane with one section has no rail, and the section fills it |
+| `label` | The section's name in the pane's rail.  Every section is shown with its header, a lone one included.  Required when there is more than one section; a lone section left without one is headed Details |
 | `facts` | Read-only lines, `{"label", "value", "kind", "to", "help", "tier", "says", "keys", "picture"}` |
 | `fields` | Lines the person can change, in the shape of a [settings field](#settings) |
 | `rows` | Plain lines, `{"label", "under"}`, for a short list of things the row holds |

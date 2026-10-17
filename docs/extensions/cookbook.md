@@ -1205,8 +1205,8 @@ address names it.
 
 **Variations:**
 
-- Return one section and the rail goes: the section fills the pane.  Several sections each need
-  a `label`.
+- A section always has its header: give each a `label`.  A lone section with none is headed
+  Details.
 - A `secret` field never shows its value.  The person sees that one is set, can type a new one,
   and leaves it empty to keep what is there.  `None` in a `save` means they pressed Clear.
 - `save` can refuse.  Raise with the reason and the person sees it under the field, which keeps

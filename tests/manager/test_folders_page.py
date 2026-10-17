@@ -553,14 +553,14 @@ class DrawTests(unittest.TestCase):
 
         self.assertIn("2 duplicates", said)
 
-    def test_the_library_group_is_named_once_other_groups_follow_it(self) -> None:
+    def test_the_library_group_is_named_whether_or_not_other_groups_follow_it(self) -> None:
         later = [(panel.HEADING, "Later"), panel.lede("A line")]
         heading = folders.t("manager.folders.heading_library")
 
         for found in ((row("a"),), ()):
             with self.subTest(folders=len(found)):
                 self.assertIn(heading, self.drawn(*found, below=later))
-                self.assertNotIn(heading, self.drawn(*found))
+                self.assertIn(heading, self.drawn(*found))
 
 
 class DialogTests(unittest.TestCase):

@@ -170,8 +170,8 @@ async def _draw_selection(container: ui.column, title: ui.column, library: Libra
             context, "selection",
             lambda: build_selection(container, title, library, table_ids, state),
             refresh_with="refresh_tables", refresh_of="game_ids", grid_first=True)
-        # The rail's one section is not a place to come back to: the table that is shown
-        # next lands where the last one did.
+        # The open section is not a place to come back to: the table that is shown next
+        # lands where the last one did.
         kept = state.get("section")
         await _rail(context, "selection", state)
         if kept is None:

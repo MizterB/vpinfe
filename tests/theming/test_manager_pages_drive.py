@@ -1,10 +1,10 @@
 """Every Manager page and the remote, walked in a real browser.
 
 Each is drawn once: no listener reaches a layout the browser already has, which NiceGUI
-answers by drawing all of it again. And every section a rail opens is headed properly:
-when any group in it is headed, the first one is too, and a lone heading never says the
-rail row again. Every dropdown on screen is a `manager.kit.dropdown.Select`, and the text in
-each one stands at the middle of its box. No row, card or control in an open section is
+answers by drawing all of it again. And every section a rail opens is headed: when any
+group in it is headed, the first one is too, and a section with content has a heading.
+Every dropdown on screen is a `manager.kit.dropdown.Select`, and the text in each one
+stands at the middle of its box. No row, card or control in an open section is
 wider than the row measure.
 
 Slow: boots a real instance and a real browser.
@@ -39,7 +39,6 @@ STATES = frozenset({"No name"})
 # A hyphenated id in the shape it was saved in is data, not a label. A device's own name
 # is data too, whatever its shape, and is read from the instance (`device_names`).
 _IDENTIFIER = re.compile(r"[a-z0-9]+(-[a-z0-9]+)+")
-WHOLE_PANEL = "(whole panel)"
 EMPTY_FOLDERS = "/manager?view=settings&page=library.folders"
 
 # Where each rail lives, and the address that puts a subject under it. None selects the
@@ -84,7 +83,6 @@ HEADINGS = """(name => {
   const ownText = el => [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim());
   const content = el => shown(el) && (ownText(el)
     || el.matches('input,textarea,img,video,canvas,.q-field,.q-btn,.q-toggle,.q-checkbox'));
-  const bare = text => text.trim().split('\\n')[0].replace(/\\s*\\(.*\\)$/, '').toLowerCase();
   const area = [...document.querySelectorAll('.manager-section-work')].find(shown);
   const problems = [];
   const aside = [...area.querySelectorAll(
@@ -95,8 +93,9 @@ HEADINGS = """(name => {
   if (heads.length && first && !heads.some(h => h === first || h.contains(first)))
     problems.push([name, 'above its first heading: '
       + (first.innerText || first.value || first.tagName).trim().slice(0, 60)]);
-  if (heads.length === 1 && bare(heads[0].innerText) === bare(name))
-    problems.push([name, 'its one heading says the row again']);
+  if (!heads.length && first && !area.querySelector('.manager-panel-heading'))
+    problems.push([name, 'has no heading: '
+      + (first.innerText || first.value || first.tagName).trim().slice(0, 60)]);
   return {count: heads.length, problems};
 })(%s)"""
 # Every dropdown on screen. A one-line value is measured from the middle of its text to
@@ -342,12 +341,6 @@ class ManagerPagesDrive(unittest.TestCase):
                     found["headings"][name] = said["count"]
                     found["problems"] += said["problems"]
                     await look(f"{query} / {name}")
-                if not found["opened"]:
-                    # A rail of one section is not drawn, so its section is the panel.
-                    said = await browser.evaluate(HEADINGS % json.dumps(""))
-                    found["opened"].append(WHOLE_PANEL)
-                    found["headings"][WHOLE_PANEL] = said["count"]
-                    found["problems"] += said["problems"]
                 headings[query] = found
             for path in rail:
                 if path not in drawn:
@@ -375,7 +368,7 @@ class ManagerPagesDrive(unittest.TestCase):
     def test_a_vpx_install_opens_each_area_of_its_settings(self) -> None:
         self.assertEqual(self.seen["headings"][f"view=launchers&launcher={VPX}"]["opened"],
                          ["Details", "Displays", "Input", "Sound", "Graphics", "Plugins",
-                          "All Settings", "Settings file"])
+                          "All Settings", "Settings File"])
 
     def test_a_section_that_reads_before_it_draws_is_read_once_drawn(self) -> None:
         opened = self.seen["headings"][f"view=launchers&launcher={VPX}"]["headings"]
