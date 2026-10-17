@@ -30,6 +30,7 @@ from tests.support.manager_walk import ManagerWalk, clicked
 
 PICKED = "Hand Picked"
 SMART = "Smart Bally"
+EMPTY = "Nothing Yet"
 VPX = "vpx-drive"
 # A unit toggle is written as the unit is, and a count ("2 games", "16 more") is a quantity,
 # not a name.
@@ -48,6 +49,7 @@ VIEWS = (
     ("tables", None),
     ("collections", f"collection={quote(PICKED)}"),
     ("collections", f"collection={quote(SMART)}"),
+    ("collections", f"collection={quote(EMPTY)}"),
     ("tags", None),
     ("launchers", None),
     ("launchers", f"launcher={VPX}"),
@@ -281,6 +283,7 @@ class ManagerPagesDrive(unittest.TestCase):
         instance.post("/api/v1/collections", {"name": PICKED, "games": ["alpha", "bravo"]})
         instance.post("/api/v1/collections",
                       {"name": SMART, "filters": {"manufacturer": ["Bally"]}})
+        instance.post("/api/v1/collections", {"name": EMPTY, "games": []})
         for path, body in (("config/locations/second",{"path": second, "kind": "root"}),
                            (f"config/launchers/{VPX}", {"id": VPX, "app": "vpx", "enabled": True,
                                         "name": "Drive", "settings": vpx})):

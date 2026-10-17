@@ -90,6 +90,8 @@ _PROFILE_REMOVE_DELAY = 0.3
 # the page having begun to respond, and a page reads a press and its release as separate
 # events.
 _INPUT_GAP_S = 0.02
+# How long a target must hold its position before a click presses it.
+_STEADY_MS = 150
 
 
 async def _rmtree_persistently(path: str) -> None:
@@ -305,7 +307,11 @@ class BrowserSession:
         raise TimeoutError(f"never became truthy: {expression} (last={last!r})")
 
     async def _centre(self, selector: str, nth: int) -> dict:
-        """Where the element is once it exists, has a size and has stopped moving."""
+        """Where the element is once it exists, has a size and has not moved for a while.
+
+        Two identical frames are not enough: a menu Quasar fills and repositions after it
+        opens can hold still for a frame and then jump, so the press misses it.
+        """
         where = await self.evaluate(
             "(async () => {"
             f" const pick = () => document.querySelectorAll({json.dumps(selector)})[{int(nth)}];"
@@ -314,13 +320,15 @@ class BrowserSession:
             " while (!pick()) { if (performance.now() > until) return null; await frame(); }"
             " pick().scrollIntoView({block: 'center'});"
             " const measure = () => pick()?.getBoundingClientRect();"
-            " let box = measure(), was;"
-            " until = performance.now() + 5000;"
+            " let box = measure(), was, since = performance.now();"
+            " until = since + 5000;"
             " do {"
             "  if (performance.now() > until) return {unsettled: true};"
             "  was = box; await frame(); box = measure();"
-            " } while (!box || !was || !box.width || !box.height"
-            "          || ['x', 'y', 'width', 'height'].some(k => box[k] !== was[k]));"
+            "  if (!box || !was || ['x', 'y', 'width', 'height'].some(k => box[k] !== was[k]))"
+            "   since = performance.now();"
+            " } while (!box || !box.width || !box.height"
+            f"          || performance.now() - since < {_STEADY_MS});"
             " return {x: box.left + box.width / 2, y: box.top + box.height / 2};"
             " })()")
         if not where:

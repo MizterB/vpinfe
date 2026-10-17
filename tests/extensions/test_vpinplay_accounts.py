@@ -525,7 +525,7 @@ class TheActs(VPinPlayCase):
         response = self.act(self.owner, "dance")
 
         self.assertEqual(response.status_code, 404)
-        self.assertEqual(response.json()["error"]["message"], "VPinPlay has no act called dance")
+        self.assertEqual(response.json()["error"]["message"], "VPinPlay has no action called dance")
 
 
 class TheCard(VPinPlayCase):

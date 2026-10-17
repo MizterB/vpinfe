@@ -37,14 +37,14 @@ class TickTests(unittest.TestCase):
 
 class OutcomeTests(unittest.TestCase):
     def test_it_says_how_many_files_it_got(self) -> None:
-        self.assertEqual(outcome({"filled": 1}), ("Got 1 file", "positive"))
+        self.assertEqual(outcome({"filled": 1}), ("Downloaded 1 file", "positive"))
         self.assertEqual(outcome({"filled": 18, "unmatched": 3}),
-                         ("Got 18 files", "positive"))
+                         ("Downloaded 18 files", "positive"))
 
     def test_failures_are_counted_beside_what_it_got(self) -> None:
         self.assertEqual(outcome({"filled": 5, "failed": 2}),
-                         ("Got 5 files, 2 failed", "warning"))
-        self.assertEqual(outcome({"failed": 2}), ("Could not get 2 files", "warning"))
+                         ("Downloaded 5 files, 2 failed", "warning"))
+        self.assertEqual(outcome({"failed": 2}), ("Could not download 2 files", "warning"))
 
     def test_nothing_found_is_not_a_failure(self) -> None:
         self.assertEqual(outcome({"games": 3, "filled": 0}), ("No media found", "info"))
@@ -55,9 +55,10 @@ class OutcomeTests(unittest.TestCase):
 
     def test_a_source_that_did_not_answer_is_named_after_what_it_got(self) -> None:
         self.assertEqual(outcome({"filled": 5, "failed": 2, "unreachable": ["Elsewhere"]}),
-                         ("Got 5 files, 2 failed, Elsewhere could not be reached", "warning"))
+                         ("Downloaded 5 files, 2 failed, Elsewhere could not be reached",
+                          "warning"))
         self.assertEqual(outcome({"filled": 1, "unreachable": ["Elsewhere"]}),
-                         ("Got 1 file, Elsewhere could not be reached", "warning"))
+                         ("Downloaded 1 file, Elsewhere could not be reached", "warning"))
 
 
 def _row(game: str, kind: str, *, present: bool = False, table: str = "",
@@ -87,7 +88,7 @@ class SlotTests(unittest.TestCase):
 
         ask, _get, client, _notify = self._confirm(rows)
 
-        self.assertEqual(ask.await_args.args[0], "Get media for 2 missing files?")
+        self.assertEqual(ask.await_args.args[0], "Download media for 2 missing files?")
         client.return_value.fill_media.assert_called_once_with(
             slots=(("g1", "wheel"), ("g2", "wheel")))
 
@@ -138,13 +139,13 @@ class KindTests(unittest.TestCase):
     def test_it_gets_that_kind_for_those_games(self) -> None:
         ask, _get, client, _notify = self._confirm(_plan(2, 2))
 
-        self.assertEqual(ask.await_args.args[0], "Get Playfield media for 2 games?")
+        self.assertEqual(ask.await_args.args[0], "Download Playfield media for 2 games?")
         client.return_value.fill_media.assert_called_once_with(["g1", "g2"], ["playfield"])
 
     def test_the_question_counts_what_a_source_has(self) -> None:
         ask, *_ = self._confirm(_plan(2, 1, unmatched=1))
 
-        self.assertEqual(ask.await_args.args[0], "Get Playfield media for 1 of 2 games?")
+        self.assertEqual(ask.await_args.args[0], "Download Playfield media for 1 of 2 games?")
         self.assertEqual(ask.await_args.kwargs["lines"],
                          ["1 is not matched to VPS, so nothing can be looked up for it"])
 
