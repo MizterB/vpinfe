@@ -258,10 +258,11 @@ class Served(unittest.TestCase):
                                params={"kind": kind, "game_id": game_id, **who})
 
     def take(self, row: str = "a", kind: str = "playfield_video", game_id: str = "g1",
-             key: str = "files") -> Any:
+             key: str = "files", table_id: str = "") -> Any:
         return self.client.post(f"/ext/{NAME}/sources/{key}/take", json={
             "kind": kind, "row": row,
-            "who": {"game_id": game_id, "vps_id": "vps-9", "name": "Other"}})
+            "who": {"game_id": game_id, "vps_id": "vps-9", "name": "Other",
+                    "table_id": table_id}})
 
     def refused(self, response: Any, status: int, message: str = "") -> dict:
         self.assertEqual(status, response.status_code, response.text)
@@ -292,7 +293,7 @@ class Offering(Served):
             self) -> None:
         self.assertEqual(200, self.offers().status_code)
 
-        self.assertEqual([({"game_id": "g1", "vps_id": "vps-9", "name": "Other"},
+        self.assertEqual([({"game_id": "g1", "vps_id": "vps-9", "name": "Other", "table_id": ""},
                            "playfield_video")], STATE["asked"])
 
     def test_what_it_has_comes_back_checked(self) -> None:
@@ -417,8 +418,13 @@ class Taking(Served):
     def test_a_pick_is_called_with_the_row_the_kind_and_the_game(self) -> None:
         self.assertEqual(200, self.take(row="a").status_code)
 
-        self.assertEqual([({"game_id": "g1", "vps_id": "vps-9", "name": "Other"},
+        self.assertEqual([({"game_id": "g1", "vps_id": "vps-9", "name": "Other", "table_id": ""},
                            "playfield_video", "a")], STATE["taken"])
+
+    def test_a_pick_is_told_the_table_the_file_is_saved_for(self) -> None:
+        self.assertEqual(200, self.take(table_id="t1").status_code)
+
+        self.assertEqual("t1", STATE["taken"][0][0]["table_id"])
 
     def test_it_answers_a_job_a_dialog_or_a_message(self) -> None:
         for answer in ({"job": "j1", "message": "Started"}, {"job": "j1"}, {"action": "get"},

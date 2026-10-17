@@ -120,10 +120,16 @@ ctx.sources.contribute(
 ```
 
 `offers(who, kind)` answers what the source has of that kind for one game, and `take(who, kind,
-key)` is called with the key of the row a person picked.  `who` is `{game_id, vps_id, name}`:
-the game the slot belongs to, and the entry whose files are asked for.  They differ after
-Search Another Game, which asks for the files of a different entry and still fills this game's
-slot.
+key)` is called with the key of the row a person picked.  `who` is `{game_id, vps_id, name,
+table_id}`: the game the slot belongs to, and the entry whose files are asked for.  They differ
+after Search Another Game, which asks for the files of a different entry and still fills this
+game's slot.
+
+`table_id` is the table the person chose in Save It As, and is empty for every table in the game
+and for a slot with no such choice.  `take` gets the choice that stands when the row is picked.
+`offers` is asked once for the slot whatever the choice, so it always gets an empty one.  When it
+is not empty, save the file for that table.  Like the rest of `who` it is what the client sent, so
+check that the table belongs to the game before you write anything for it.
 
 ```python
 def files_for(who, kind):

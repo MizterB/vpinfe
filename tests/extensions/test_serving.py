@@ -958,7 +958,7 @@ class Verbs(ServedCase):
 
 
 class DialogsOpenedForAGame(ServedCase):
-    WHO = {"game_id": "g1", "vps_id": "abcdefghij", "name": "Taxi"}
+    WHO = {"game_id": "g1", "vps_id": "abcdefghij", "name": "Taxi", "table_id": ""}
 
     def asked(self, who: dict) -> Any:
         return self.post("/actions/gamed/ask", {"rows": ["pick-1"], "who": who})
@@ -971,11 +971,22 @@ class DialogsOpenedForAGame(ServedCase):
     def test_a_game_the_library_does_not_hold_has_no_game_id_and_still_has_the_rest(self) -> None:
         self.ok(self.asked({"vps_id": "abcdefghij", "name": "Taxi"}))
 
-        self.assertEqual([(["pick-1"], {"game_id": "", "vps_id": "abcdefghij", "name": "Taxi"})],
+        self.assertEqual([(["pick-1"], {"game_id": "", "vps_id": "abcdefghij", "name": "Taxi",
+                                        "table_id": ""})],
                          STATE["asked_who"])
 
-    def test_only_the_three_ids_an_extension_can_use_are_passed_on(self) -> None:
-        self.ok(self.asked({**self.WHO, "table_id": "t1", "path": "/Users/someone"}))
+    def test_the_table_a_file_is_saved_for_is_passed_on(self) -> None:
+        self.ok(self.asked({**self.WHO, "table_id": "t1"}))
+
+        self.assertEqual([(["pick-1"], {**self.WHO, "table_id": "t1"})], STATE["asked_who"])
+
+    def test_a_table_alone_does_not_make_a_game(self) -> None:
+        self.ok(self.asked({"table_id": "t1"}))
+
+        self.assertEqual([(["pick-1"], {})], STATE["asked_who"])
+
+    def test_only_the_ids_an_extension_can_use_are_passed_on(self) -> None:
+        self.ok(self.asked({**self.WHO, "path": "/Users/someone"}))
 
         self.assertEqual([(["pick-1"], self.WHO)], STATE["asked_who"])
 

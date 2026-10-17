@@ -26,7 +26,7 @@ and says why.
 | `GET /groups/table/{game_id}/{table_id}` | As the game's, for one table |
 | `PUT /groups/game/{game_id}` | Body `{"values": {...}}`.  Saves, answers as `GET` does.  A `404` for a game marked Private.  Likewise `PUT /groups/table/{game_id}/{table_id}` |
 | `GET /actions/{key}?step=` | A step answer |
-| `POST /actions/{key}/ask` | Body `{step, rows, who}`.  A step answer.  `rows` holds the id of each row a verb opened the dialog over, and `who` the `{game_id, vps_id, name}` of the game it was opened for |
+| `POST /actions/{key}/ask` | Body `{step, rows, who}`.  A step answer.  `rows` holds the id of each row a verb opened the dialog over, and `who` the `{game_id, vps_id, name, table_id}` of the game it was opened for |
 | `POST /actions/{key}/check` | Body `{values, step, who}`.  A step answer |
 | `POST /actions/{key}/act` | Body `{act, values, step, who}`.  A step answer |
 | `POST /actions/{key}/run` | Body `{values, step, who}`.  The outcome, or `202` with `{"job_id": ...}` |

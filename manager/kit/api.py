@@ -913,11 +913,12 @@ class ApiClient:
             + urlencode({"kind": kind, "game_id": game_id, "vps_id": vps_id, "name": name}))
 
     def source_take(self, extension: str, key: str, kind: str, row: str, game_id: str,
-                    vps_id: str, name: str) -> dict:
+                    vps_id: str, name: str, table_id: str = "") -> dict:
         return self.ext_post(
             f"/ext/{quote(extension, safe='')}/sources/{quote(key, safe='')}/take",
             {"kind": kind, "row": row,
-             "who": {"game_id": game_id, "vps_id": vps_id, "name": name}})
+             "who": {"game_id": game_id, "vps_id": vps_id, "name": name,
+                     "table_id": table_id}})
 
     def wheel_sets(self) -> list[str]:
         """The wheel sets the library has media in, and the reserved `logo`."""

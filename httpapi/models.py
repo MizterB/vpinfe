@@ -2268,11 +2268,13 @@ class ExtensionLibraryVerb(ApiModel):
 
 
 class ExtensionWho(ApiModel):
-    """The game a dialog was opened for, which the library may not hold yet."""
+    """The game a dialog was opened for, which the library may not hold yet, and the table
+    a file is saved for where the person chose one."""
 
     game_id: str = ""
     vps_id: str = ""
     name: str = ""
+    table_id: str = ""
 
 
 class ExtensionSourceTake(ApiModel):

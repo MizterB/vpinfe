@@ -120,8 +120,9 @@ The ids ride in the address of the dialog's first read, so one dialog covers abo
 ## For a game
 
 A dialog may be opened for a game rather than over rows, one the library may not hold yet.
-The game reaches it as `who`, a dict of three strings: `game_id` (empty for a game not in the
-library), `vps_id` and `name`.
+The game reaches it as `who`, a dict of four strings: `game_id` (empty for a game not in the
+library), `vps_id`, `name` and `table_id`.  `table_id` is the table a file is being saved for
+where the person chose one, and is empty otherwise.
 
 - `ask(step, rows, who)` gets it.  Name `who` in the signature to receive it.  The Manager
   sends it with every read of a step.

@@ -1226,8 +1226,10 @@ class ExtensionSources:
         there, `current` says the slot already holds it, and `link` is `{"text", "to"}`,
         `{"text", "page"}` for an extension page or `{"text", "settings": True}` for its
         Settings page, drawn under the rows beside `note`.
-        `who` is `{"game_id", "vps_id", "name"}`: the game the slot belongs to, and the
-        entry whose files are asked for, which is another one's after Search Another Game.
+        `who` is `{"game_id", "vps_id", "name", "table_id"}`: the game the slot belongs to,
+        and the entry whose files are asked for, which is another one's after Search Another
+        Game.  `take` gets `table_id` as the table the person chose in Save It As, empty
+        for every table in the game; `offers` always gets it empty.
 
         `take(who, kind, key)` is called with the key of the row picked and answers
         `{"job": id, "message"}`, `{"action": dialog_key}` to open that dialog over Add or

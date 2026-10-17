@@ -52,9 +52,9 @@ def _context(library: Mock) -> dict[str, Any]:
 
 
 def _slot(library: Mock, built_in: bool = True, kind: str = "wheel",
-          asset: bool = False) -> mediasource._Slot:
+          asset: bool = False, target: Mock | None = None) -> mediasource._Slot:
     return mediasource._Slot(_context(library), kind, "Wheel", Mock(),
-                             Mock(online=built_in, file=asset))
+                             target or Mock(online=built_in, file=asset))
 
 
 def _seen(element: ui.element) -> list[str]:
@@ -279,9 +279,9 @@ class Taking(_Drawn):
     async def asyncSetUp(self) -> None:
         await super().asyncSetUp()
         self.library = _library(BUILT_IN, FILES)
-        self.probe = _slot(self.library)
-        self.probe.target.accept = (".png", ".jpg")
-        self.probe.target.displaced = Mock(return_value=[])
+        self.target = Mock(online=True, file=False, accept=(".png", ".jpg"),
+                           displaced=Mock(return_value=[]))
+        self.probe = _slot(self.library, target=self.target)
         self.shown = await self.drawn(self.probe)
 
     async def pick(self, answer: Any) -> None:
@@ -292,7 +292,28 @@ class Taking(_Drawn):
         await self.pick({"message": "Nothing to do"})
 
         self.library.source_take.assert_called_once_with(
-            "ext", "files", "wheel", "a", "g-1", "own", "Own Game")
+            "ext", "files", "wheel", "a", "g-1", "own", "Own Game", "")
+
+    async def test_the_table_chosen_to_save_it_for_goes_with_the_pick(self) -> None:
+        self.probe.placed_at = {"table": "t-2"}
+
+        await self.pick({"message": "Nothing to do"})
+
+        self.assertEqual(("g-1", "own", "Own Game", "t-2"),
+                         self.library.source_take.call_args.args[4:])
+
+    async def test_the_table_it_was_chosen_for_goes_on_to_a_dialog_it_opens(self) -> None:
+        self.probe.placed_at = {"table": "t-2"}
+
+        with patch.object(mediasource.ext_lists, "open_over", new=AsyncMock()) as opened:
+            await self.pick({"action": "get"})
+
+        self.assertEqual("t-2", opened.await_args_list[0].kwargs["who"]["table_id"])
+
+    async def test_a_folder_has_no_table_to_save_it_for(self) -> None:
+        folder = mediasource._Folder(_context(self.library), "pup_pack", "PUP pack", Mock())
+
+        self.assertEqual("", folder.destination)
 
     async def test_a_message_is_said(self) -> None:
         with patch.object(mediasource.ui, "notify") as notify:
@@ -315,7 +336,7 @@ class Taking(_Drawn):
             await self.pick({"action": "get"})
 
         opened.assert_awaited_once_with({"name": "ext"}, "get", ["a"], who={
-            "game_id": "g-1", "vps_id": "own", "name": "Own Game"})
+            "game_id": "g-1", "vps_id": "own", "name": "Own Game", "table_id": ""})
 
     async def test_a_pick_the_person_declines_to_replace_takes_nothing(self) -> None:
         self.probe.agreed_to_replace = AsyncMock(return_value=False)  # type: ignore[method-assign]
@@ -333,7 +354,7 @@ class Taking(_Drawn):
         self.assertEqual(t("manager.mediasource.fetch_failed"), notify.call_args.args[0])
 
     async def agreed(self, going: list[str]) -> tuple[bool, AsyncMock]:
-        self.probe.target.displaced = Mock(return_value=going)
+        self.target.displaced = Mock(return_value=going)
         with patch.object(mediasource.confirm, "replace",
                           new=AsyncMock(return_value=True)) as ask:
             with _PAGE:
@@ -354,7 +375,7 @@ class Taking(_Drawn):
         self.assertTrue(agreed)
         ask.assert_awaited_once_with("Wheel", ["wheel.jpg"])
         self.assertEqual(("g-1", "", "wheel", "file.png"),
-                         self.probe.target.displaced.call_args.args)
+                         self.target.displaced.call_args.args)
 
     async def test_a_slot_with_nothing_there_does_not_ask(self) -> None:
         agreed, ask = await self.agreed([])
@@ -363,7 +384,7 @@ class Taking(_Drawn):
         ask.assert_not_awaited()
 
     async def test_a_slot_that_cannot_say_what_would_go_takes_nothing(self) -> None:
-        self.probe.target.displaced = Mock(side_effect=RuntimeError("no"))
+        self.target.displaced = Mock(side_effect=RuntimeError("no"))
 
         with patch.object(mediasource.ui, "notify") as notify:
             with _PAGE:

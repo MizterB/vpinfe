@@ -512,6 +512,12 @@ class _OnlineTab(_Sources):
         row is taken."""
         return True
 
+    @property
+    def destination(self) -> str:
+        """The table a picked file is saved for; "" is the game's own, which is also all a
+        dialog with no such choice can mean."""
+        return ""
+
     async def online_tab(self, body: ui.column) -> None:
         """What every enabled source has, for this game or for any other entry.
 
@@ -738,16 +744,17 @@ class _OnlineTab(_Sources):
         async def take() -> None:
             if not await self.agreed_to_replace():
                 return
+            taking = {**who, "table_id": self.destination}
             try:
                 answer = await run.io_bound(
                     self.library.source_take, source["extension"], source["key"],
-                    self._kind_for(source), row["key"], who["game_id"], who["vps_id"],
-                    who["name"])
+                    self._kind_for(source), row["key"], taking["game_id"], taking["vps_id"],
+                    taking["name"], taking["table_id"])
             except Exception as exc:
                 ui.notify(t("manager.mediasource.fetch_failed"), caption=why(exc),
                           type="negative")
                 return
-            await self._taken(source, row["key"], answer or {}, who)
+            await self._taken(source, row["key"], answer or {}, taking)
 
         pieces: list[str | tuple[str, ...]] = [str(source["name"])]
         if row.get("site"):

@@ -496,7 +496,7 @@ A source that has both colour formats offers `alt_color`, which is asked once fo
 name core has no slot for raises `ContractError`, and the message lists the names it has, and so
 does a list that is not a list.
 
-`offers(who, kind)` is called with `who`, `{game_id, vps_id, name}`, and the kind of the slot,
+`offers(who, kind)` is called with `who`, `{game_id, vps_id, name, table_id}`, and the kind of the slot,
 as spelled in `kinds`.  It answers `{"rows": [...], "note": text, "link": {...}}`, each of the
 three optional.  `take(who, kind, key)` is called with the key of the row picked and answers
 `{"job": id}` with an optional `message`, `{"action": dialog_key}` or `{"message": text}`, and

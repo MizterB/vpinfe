@@ -409,8 +409,9 @@ class Library:
         return self._client.source_offers(extension, key, kind, game_id, vps_id, name)
 
     def source_take(self, extension: str, key: str, kind: str, row: str, game_id: str,
-                    vps_id: str, name: str) -> dict:
-        return self._client.source_take(extension, key, kind, row, game_id, vps_id, name)
+                    vps_id: str, name: str, table_id: str = "") -> dict:
+        return self._client.source_take(extension, key, kind, row, game_id, vps_id, name,
+                                        table_id)
 
     def search_vps(self, query: str, limit: int = 12) -> list[dict]:
         return self._client.search_vps(query, limit)

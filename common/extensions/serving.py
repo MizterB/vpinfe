@@ -734,7 +734,8 @@ def _dialog(record: Record, key: str) -> Any:
     return found
 
 
-WHO_KEYS = ("game_id", "vps_id", "name")
+GAME_KEYS = ("game_id", "vps_id", "name")
+WHO_KEYS = (*GAME_KEYS, "table_id")
 
 
 def _titled(record: Record, key: str, answer: Any) -> dict:
@@ -771,7 +772,7 @@ def _subject(sent: Any) -> dict[str, str]:
     if not isinstance(sent, dict):
         return {}
     who = {key: found if isinstance(found := sent.get(key), str) else "" for key in WHO_KEYS}
-    return who if any(who.values()) else {}
+    return who if any(who[key] for key in GAME_KEYS) else {}
 
 
 def dialog_ask(record: Record, key: str, step: str = "", rows: Sequence[str] = (),
