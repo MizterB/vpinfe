@@ -200,15 +200,15 @@ class ChecklistTests(unittest.TestCase):
         async def run() -> tuple[str, str]:
             task, dialog = await _opened(_calls(first=_TABLES))
             was = next(one.text for one in dialog.descendants()
-                       if isinstance(one, ui.label) and "ticked" in one.text)
+                       if isinstance(one, ui.label) and "selected" in one.text)
             next(one for one in dialog.descendants()
                  if isinstance(one, ui.checkbox)).set_value(False)
             now = next(one.text for one in dialog.descendants()
-                       if isinstance(one, ui.label) and "ticked" in one.text)
+                       if isinstance(one, ui.label) and "selected" in one.text)
             await _finished(task)
             return was, now
 
-        self.assertEqual(("1 of 3 ticked", "0 of 3 ticked"), _ran(run))
+        self.assertEqual(("1 of 3 selected", "0 of 3 selected"), _ran(run))
 
 
 _MATCHES = {
@@ -384,7 +384,7 @@ class SettleTests(unittest.TestCase):
             task, dialog = await _opened(_calls(first=first))
             found = [one.text for one in dialog.descendants()
                      if isinstance(one, ui.label)
-                     and ("settled" in one.text or "ticked" in one.text)]
+                     and ("settled" in one.text or "selected" in one.text)]
             await _finished(task)
             return found
 

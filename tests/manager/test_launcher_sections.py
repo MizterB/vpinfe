@@ -1912,8 +1912,8 @@ class CopyFromGameTests(unittest.IsolatedAsyncioTestCase):
     def test_it_says_how_many_do_not_reach_the_table(self) -> None:
         entries = app_settings._from_game_entries({"playing": False}, self.REACH)
 
-        self.assertEqual(_said(entries[0]), "2 of this game's settings do not reach "
-                                            "this table, which has its own file")
+        self.assertEqual(_said(entries[0]), "2 of this game's settings do not apply to "
+                                            "this table with its own file")
 
     async def test_copying_writes_them_at_the_table_s_own_scope(self) -> None:
         inner: dict[str, Any] = {"library": Mock(), "launcher": {"launcher_id": "l1"},

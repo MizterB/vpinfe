@@ -210,7 +210,7 @@ _CLIPPED_JS = """
 if (!window.__hubClipWatch) {
   window.__hubClipWatch = true;
   const mark = () => {
-    for (const el of document.querySelectorAll('.manager-fact-value')) {
+    for (const el of document.querySelectorAll('.manager-fact-value, .manager-workbench-title')) {
       el.classList.toggle('manager-clipped', el.scrollWidth > el.clientWidth + 1);
     }
   };
@@ -224,7 +224,8 @@ if (!window.__hubClipWatch) {
 
 
 def install_fact_tooltips() -> None:
-    """Watch which fact values are clipped. Once per page, before any panel."""
+    """Watch which fact values and pane titles are clipped. Once per page, before any
+    panel."""
     ui.run_javascript(_CLIPPED_JS)
 
 

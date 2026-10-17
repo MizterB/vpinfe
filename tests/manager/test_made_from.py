@@ -81,7 +81,7 @@ class Finding(unittest.TestCase):
     def test_a_patched_table_whose_base_is_gone_says_so(self) -> None:
         table = _tables(_base(available=False))[0]
 
-        self.assertEqual(["The file it was made from is gone"], self._lines(table))
+        self.assertEqual(["The file it was made from is missing"], self._lines(table))
 
     def test_a_base_on_disk_is_no_finding(self) -> None:
         self.assertEqual([], self._lines(_tables(_base())[0]))

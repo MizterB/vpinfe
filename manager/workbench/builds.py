@@ -429,13 +429,13 @@ async def _draw_discovery(container: ui.column, title: ui.column, library: Libra
     container.clear()
     title.clear()
     with container:
-        _title(title, row["name"], " · ".join(
-            part for part in (row["manufacturer"], str(row["year"] or "")) if part))
+        _title(title, row["name"], game_tables.made(row))
         context: dict[str, Any] = {
             "library": library, "discovery": row, "state": state, "redraws": [], "dock": None}
         context["rebuild"] = _rebuilds(context, f"discovery:{vps_id}",
                                        lambda: build_discovery(container, title, library,
                                                                vps_id, state))
+        context["game_id"], _held = await discovery_page.owner_state(context)
         await _rail(context, "discovery", state)
 
 
@@ -685,7 +685,8 @@ async def _draw_collection(container: ui.column, title: ui.column, library: Libr
         smart = (row.get("type") or "") == "filter"
         with title:
             ui.label(row.get("name") or "") \
-                .classes("text-base manager-workbench-title leading-tight truncate")
+                .classes("text-base manager-workbench-title leading-tight truncate") \
+                .tooltip(row.get("name") or "")
             with ui.row().classes("items-center gap-1 no-wrap"):
                 if smart:
                     ui.icon(verbs.SMART).classes("manager-heading-mark") \

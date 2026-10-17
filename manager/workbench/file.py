@@ -66,8 +66,9 @@ def _same_file(rows: list[dict[str, Any]], wanted: dict[str, Any]) -> dict[str, 
 def _file_title(target: ui.column, row: dict[str, Any], game: dict[str, Any],
                 table: dict[str, Any] | None) -> None:
     with target:
-        ui.label(str(row.get("named") or row.get("label") or row.get("kind") or "")) \
-            .classes("text-base manager-workbench-title leading-tight truncate")
+        name = str(row.get("named") or row.get("label") or row.get("kind") or "")
+        ui.label(name).classes("text-base manager-workbench-title leading-tight truncate") \
+            .tooltip(name)
         with ui.element("div").classes("text-xs manager-workbench-label "
                                        "manager-workbench-links"):
             panel.link(str(game.get("name") or ""), to="/manager?" + deeplink.query(

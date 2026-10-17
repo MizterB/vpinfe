@@ -365,7 +365,8 @@ def _choose(context: dict[str, Any], key: str) -> None:
 
 def _title(target: ui.column, name: str, subtitle: str) -> None:
     with target:
-        ui.label(name).classes("text-base manager-workbench-title leading-tight truncate")
+        ui.label(name).classes("text-base manager-workbench-title leading-tight truncate") \
+            .tooltip(name)
         ui.label(subtitle).classes("text-xs manager-workbench-label leading-none truncate")
 
 

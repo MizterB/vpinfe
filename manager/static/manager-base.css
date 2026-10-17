@@ -2791,7 +2791,8 @@ body.manager-dragging-rows .q-drawer--mini .manager-rail-drops {
   max-width: 100%;
 }
 /* No hover, no tooltip. `manager-clipped` is set in the browser. */
-.manager-fact-value:not(.manager-clipped) { pointer-events: none; }
+.manager-fact-value:not(.manager-clipped),
+.manager-workbench-title:not(.manager-clipped) { pointer-events: none; }
 /* One line of chips sits on the same pitch as every other row, and a wrapped one grows
    symmetrically around its label. The row carries the height rather than the label
    carrying a nudge: two hand-tuned paddings here put this row 28px into a 26px rhythm

@@ -156,6 +156,50 @@ class Acts(unittest.TestCase):
         self.assertEqual("Compare with VPS first", add.hint)
 
 
+class PaneActs(unittest.TestCase):
+    def _verbs(self, row: dict, game_id: str = "") -> dict:
+        return {one.label: one for one in discovery.pane_acts(
+            mock.Mock(spec=Library), row, game_id, mock.AsyncMock())}
+
+    def test_a_game_in_the_library_opens_in_games_and_cannot_be_added(self) -> None:
+        row = discovery.rows(_found(_entry()))[0]
+
+        verbs = self._verbs(row, "g1")
+
+        self.assertEqual("/manager?" + deeplink.query({"view": "games", "game": "g1"}),
+                         verbs["Open in Games"].to)
+        self.assertIsNone(verbs["Add to Library"].run)
+        self.assertEqual("https://vps/v1", verbs["View on VPS"].to)
+
+    def test_a_game_not_in_the_library_says_why_it_cannot_be_opened(self) -> None:
+        row = discovery.rows(_found(_entry(in_library=False, held=[])))[0]
+
+        verbs = self._verbs(row)
+
+        self.assertIsNone(verbs["Open in Games"].run)
+        self.assertFalse(verbs["Open in Games"].to)
+        self.assertEqual("Not in your library", verbs["Open in Games"].hint)
+        self.assertIsNotNone(verbs["Add to Library"].run)
+
+    def test_a_game_in_the_library_with_no_game_found_does_not_say_it_is_absent(self) -> None:
+        row = discovery.rows(_found(_entry()))[0]
+
+        verbs = self._verbs(row)
+
+        self.assertIsNone(verbs["Open in Games"].run)
+        self.assertNotEqual("Not in your library", verbs["Open in Games"].hint)
+
+    def test_before_a_comparison_opening_asks_for_one(self) -> None:
+        row = discovery.rows(_found(_entry(in_library=None, held=[]), counted=""))[0]
+
+        self.assertEqual("Compare with VPS first", self._verbs(row)["Open in Games"].hint)
+
+    def test_an_entry_with_no_page_has_no_view_on_vps(self) -> None:
+        row = discovery.rows(_found(_entry(url="")))[0]
+
+        self.assertNotIn("View on VPS", self._verbs(row, "g1"))
+
+
 def _library(*, hidden_assets: tuple[str, ...] = (), hidden_media: tuple[str, ...] = ()) -> Library:
     client = mock.Mock()
     client.library_policy.return_value = {"hidden_asset_kinds": list(hidden_assets),
@@ -464,14 +508,14 @@ class Saying(unittest.TestCase):
                                         discovery_get.DOWNLOADING, discovery_get.FAILED)):
             tray.move(f"k{number}", state)
 
-        self.assertEqual("Getting 4 files: 2 in, 1 downloading, 1 needs you",
+        self.assertEqual("Downloading 4 files: 2 in, 1 downloading, 1 needs you",
                          discovery_get._said(tray))
 
     def test_one_file_is_not_files(self) -> None:
         tray = discovery_get.Tray(batch=1)
         tray.move("k", discovery_get.DOWNLOADING)
 
-        self.assertEqual("Getting 1 file: 1 downloading", discovery_get._said(tray))
+        self.assertEqual("Downloading 1 file: 1 downloading", discovery_get._said(tray))
 
 
 class Listings(unittest.TestCase):

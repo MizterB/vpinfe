@@ -83,7 +83,8 @@ def _discovery_verbs(context: dict[str, Any]) -> list[panel.Verb]:
         if callable(again):
             await again()
 
-    return discovery_page.acts(context["library"], [context["discovery"]], after)
+    return discovery_page.pane_acts(context["library"], context["discovery"],
+                                    context.get("game_id") or "", after)
 
 
 def _player_verbs(context: dict[str, Any]) -> list[panel.Verb]:

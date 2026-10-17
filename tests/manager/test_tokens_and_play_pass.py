@@ -139,7 +139,7 @@ class RevokingAToken(unittest.TestCase):
         ask, taken, redraw = self._revoke(said_yes=True)
 
         self.assertEqual(ask.call_args.args[0], "Revoke “name b”?")
-        self.assertIn("cannot be brought back", ask.call_args.kwargs["detail"])
+        self.assertIn("cannot be restored", ask.call_args.kwargs["detail"])
         taken.assert_awaited_once_with(self.library.revoke_token, "b")
         redraw.assert_called_once()
 

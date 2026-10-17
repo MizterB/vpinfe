@@ -415,6 +415,26 @@ def acts(library: Library, rows_on: list[dict[str, Any]],
         hint=hint, icon=verbs.ADD)]
 
 
+def pane_acts(library: Library, row: dict[str, Any], game_id: str,
+              after: Callable[[], Awaitable[None]]) -> list[panel.Verb]:
+    """The pane's own menu: `acts` for the entry, then the two places it can be opened.
+
+    Open in Games is dimmed with its reason while no game holds the entry, which is also
+    every entry before the first comparison."""
+    out = acts(library, [row], after)
+    opened = t("manager.discovery.to_games")
+    if game_id:
+        out.append(panel.Verb(
+            opened, to="/manager?" + deeplink.query({"view": "games", "game": game_id})))
+    else:
+        hint = {"": t("manager.discovery.compare_first"),
+                NO: t("manager.discovery.absent")}.get(row["in_library"], "")
+        out.append(panel.Verb(opened, hint=hint))
+    if row["url"]:
+        out.append(panel.Verb(t("manager.discovery.picture_open"), to=row["url"]))
+    return out
+
+
 @on_page
 async def add(library: Library, entries: list[dict[str, Any]],
               after: Callable[[], Awaitable[None]], *, check: bool = False) -> None:
