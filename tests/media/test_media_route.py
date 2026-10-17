@@ -19,8 +19,8 @@ from unittest import mock
 from common.games import media_lookup
 from common.games.game import Game
 from common.games.game_parser import GameParser
-from frontend.custom_http_server import CustomHTTPServer
 from tests.support.library import TempTree, write_game
+from tests.support.theme_server import ThemeServer
 
 
 def _library(root: Path) -> None:
@@ -117,7 +117,7 @@ class RouteTests(unittest.TestCase):
     root: Path
     games: list[Game]
     _patch: Any
-    server: CustomHTTPServer
+    server: ThemeServer
     port: int
 
     @classmethod
@@ -134,16 +134,12 @@ class RouteTests(unittest.TestCase):
                                 return_value=cls.games)
         cls._patch.start()
 
-        cls.server = CustomHTTPServer({"/tables/": str(cls.root)})
-        cls.server.start_file_server(port=0)   # 0 = any free port; it serves on its own thread
-        assert cls.server.file_server is not None
-        cls.port = cls.server.file_server.server_address[1]
+        cls.server = ThemeServer().start()
+        cls.port = cls.server.port
 
     @classmethod
     def tearDownClass(cls) -> None:
-        assert cls.server.file_server is not None
-        cls.server.file_server.shutdown()
-        cls.server.file_server.server_close()
+        cls.server.stop()
         cls._patch.stop()
         cls._tmp.cleanup()
 
@@ -152,10 +148,10 @@ class RouteTests(unittest.TestCase):
                                          headers=headers or {})
         try:
             with urllib.request.urlopen(request, timeout=5) as response:
-                return response.status, dict(response.headers), response.read()
+                return response.status, response.headers, response.read()
         except urllib.error.HTTPError as exc:
             with exc:                      # closing it keeps the warnings quiet
-                return exc.code, dict(exc.headers), exc.read()
+                return exc.code, exc.headers, exc.read()
 
     def test_it_serves_the_file(self) -> None:
         status, headers, body = self._get("/media/tbl0000001/wheel")

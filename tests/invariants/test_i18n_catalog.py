@@ -26,7 +26,7 @@ from common.games.asset_registry import ASSET_SPECS, AssetSpec
 from common.games.collection_filters import AXES, FilterAxis
 from common.media.media_specs import MEDIA_SPECS, MediaSpec
 from common.tokens import Token
-from frontend.custom_http_server import CORE_WORDS
+from frontend.theme_routes import CORE_WORDS
 from tests.support import trees
 from tests.support.catalogs import served
 

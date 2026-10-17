@@ -13,7 +13,6 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import TYPE_CHECKING
 
 from common.media.manufacturer_logos import (
     add_logos,
@@ -24,9 +23,7 @@ from common.media.manufacturer_logos import (
     resolve_logos_dir,
 )
 from tests.support.library import fake_game
-
-if TYPE_CHECKING:
-    from frontend.custom_http_server import CustomHTTPServer
+from tests.support.theme_server import ThemeServer
 
 
 def _logos(test: unittest.TestCase, tmp: str) -> Path:
@@ -462,27 +459,23 @@ class RouteTests(unittest.TestCase):
 
     _tmp: TemporaryDirectory[str]
     root: Path
-    server: CustomHTTPServer
+    server: ThemeServer
     port: int
 
     @classmethod
     def setUpClass(cls) -> None:
-        from frontend.custom_http_server import CustomHTTPServer
-
         cls._tmp = TemporaryDirectory()
         cls.root = Path(cls._tmp.name) / "manufacturer_logos"
         cls.root.mkdir(parents=True)
         (cls.root / "Bally.JPG").write_bytes(b"bally")
         (cls.root / "stern.png").write_bytes(b"stern")
         configure_manufacturer_logos(cls.root)
-        cls.server = CustomHTTPServer({})
-        cls.server.start_file_server(port=0)
-        assert cls.server.file_server is not None
-        cls.port = cls.server.file_server.server_address[1]
+        cls.server = ThemeServer().start()
+        cls.port = cls.server.port
 
     @classmethod
     def tearDownClass(cls) -> None:
-        cls.server.stop_file_server()
+        cls.server.stop()
         configure_manufacturer_logos(None)
         cls._tmp.cleanup()
 

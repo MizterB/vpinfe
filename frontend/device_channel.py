@@ -25,7 +25,9 @@ from urllib.parse import parse_qs, urlparse
 import websockets
 from websockets.asyncio.server import ServerConnection
 
+from common.config.config_access import NetworkConfig
 from common.devices import serving
+from common.devices.port_check import WINDOW_CHANNEL_BIND
 from common.failures import why
 from common.i18n import t
 from common.service_errors import ServiceError
@@ -44,7 +46,7 @@ class DeviceChannel:
     # Public API methods that JS is allowed to call
     ALLOWED_METHODS = API_ALLOWED_METHODS
 
-    def __init__(self, port: int = 8002) -> None:
+    def __init__(self, port: int = NetworkConfig.ws_port) -> None:
         self.port = port
         self._api_instances: dict[str, API] = {}
         self._connections: dict[str, ServerConnection] = {}
@@ -108,7 +110,7 @@ class DeviceChannel:
         # Allow immediate rebind after restart (avoids TIME_WAIT blocking)
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind(("127.0.0.1", self.port))
+        sock.bind((WINDOW_CHANNEL_BIND, self.port))
         sock.listen()
         sock.setblocking(False)
 
@@ -141,8 +143,7 @@ class DeviceChannel:
             port = parts.port
         except ValueError:
             return False
-        ours = {serving.bound_port("theme_assets_port"), serving.bound_port("http_port"),
-                serving.bound_port("loopback_port")}
+        ours = {serving.bound_port("http_port"), serving.bound_port("loopback_port")}
         return parts.hostname in LOOPBACK_HOSTS and port is not None and port in ours
 
     async def _handle_connection(self, websocket: ServerConnection) -> None:

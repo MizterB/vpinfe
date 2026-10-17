@@ -872,7 +872,7 @@ class VPinFECore {
     // fall back to what the frontend has always assumed.
     const params = new URLSearchParams(window.location.search);
     const port = (name, fallback) => Number(params.get(name)) || fallback;
-    this.themeAssetsPort = port('themeAssetsPort', 8000);
+    this.themeAssetsPort = port('themeAssetsPort', 8001);
     this.libraryPort = port('libraryPort', 8001);
     this.wsPort = port('wsPort', 8002);
     // Set only when the library is on another machine. This install's own services stay
@@ -881,9 +881,6 @@ class VPinFECore {
     // What this install serves on, which is not what a remote library answers on -
     // `libraryPort` carries that one's, so the two cannot be the same number.
     this.devicePort = port('devicePort', this.libraryPort);
-    // The library's file server, when the library is elsewhere. Its own port, not this
-    // machine's: pairing a remote host with the local port addresses neither.
-    this.libraryFilesPort = port('libraryFilesPort', this.themeAssetsPort);
 
     // Display config, as the ini states it. Raw values - `layout` below is what a theme
     // should read.
@@ -1230,7 +1227,7 @@ class VPinFECore {
     return {
       library: `http://${libraryHost}:${this.libraryPort}`,
       device: `http://${host}:${this.devicePort}`,
-      files: `http://${libraryHost}:${this.libraryHost ? this.libraryFilesPort : this.themeAssetsPort}`,
+      files: `http://${libraryHost}:${this.libraryHost ? this.libraryPort : this.themeAssetsPort}`,
       frontend_channel: `ws://${host}:${this.wsPort}`,
     };
   }
@@ -2458,9 +2455,6 @@ class VPinFECore {
     // page opened without them - `endpoints` derives from the ports, so correcting one
     // corrects every url built from it.
     this.themeAssetsPort = await this.call("get_theme_assets_port");
-    // Only this machine's. With the library elsewhere its file server's port came in the url
-    // and this answer is about the wrong machine.
-    if (!this.libraryHost) this.libraryFilesPort = this.themeAssetsPort;
     try {
       const ownPort = await this.call("get_http_port");
       // What this install serves on. It is the library's port too, unless one

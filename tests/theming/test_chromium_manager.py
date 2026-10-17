@@ -197,7 +197,7 @@ class ChromiumManagerTests(unittest.TestCase):
         ):
             manager.launch_window(
                 "table",
-                "http://127.0.0.1:8000/app/table",
+                "http://127.0.0.1:8001/app/table",
                 monitor,
                 0,
                 additional_options="--disable-accelerated-video-decode\n--ozone-platform=x11",
@@ -221,7 +221,7 @@ class ChromiumManagerTests(unittest.TestCase):
             mock.patch("platform.system", return_value="Linux"),
             mock.patch.dict("os.environ", {"LD_LIBRARY_PATH": "/opt/vpinfe/_internal"}),
         ):
-            ChromiumManager().launch_window("table", "http://127.0.0.1:8000/app/table",
+            ChromiumManager().launch_window("table", "http://127.0.0.1:8001/app/table",
                                             monitor, 0)
         return popen.call_args.kwargs["env"].get("LD_LIBRARY_PATH")
 
@@ -246,7 +246,7 @@ class ChromiumManagerTests(unittest.TestCase):
                        return_value=types.SimpleNamespace()) as popen,
         ):
             manager.launch_window(
-                "table", "http://127.0.0.1:8000/app/table", monitor, 0,
+                "table", "http://127.0.0.1:8001/app/table", monitor, 0,
                 additional_options="--disable-features=HardwareMediaKeyHandling",
             )
 
@@ -275,7 +275,7 @@ class ChromiumManagerTests(unittest.TestCase):
         ):
             manager.launch_window(
                 "table",
-                "http://127.0.0.1:8000/app/table",
+                "http://127.0.0.1:8001/app/table",
                 monitor,
                 0,
                 mute_audio=True,
@@ -303,7 +303,7 @@ class ChromiumManagerTests(unittest.TestCase):
         ):
             manager.launch_window(
                 "table",
-                "http://127.0.0.1:8000/app/table",
+                "http://127.0.0.1:8001/app/table",
                 monitor,
                 0,
                 additional_options='--ozone-platform=x11 "',
@@ -326,14 +326,14 @@ class ChromiumManagerTests(unittest.TestCase):
         ):
             manager.launch_window(
                 "table",
-                "http://127.0.0.1:8000/app/table",
+                "http://127.0.0.1:8001/app/table",
                 monitor,
                 0,
                 include_default_options=False,
             )
 
         args = popen.call_args.args[0]
-        self.assertIn("--app=http://127.0.0.1:8000/app/table", args)
+        self.assertIn("--app=http://127.0.0.1:8001/app/table", args)
         self.assertIn("--window-size=800,600", args)
         self.assertNotIn("--kiosk", args)
         self.assertNotIn("--disable-background-networking", args)
@@ -551,52 +551,27 @@ class LibraryEndpointTests(unittest.TestCase):
     """Reading `network.library_url` into the three values a window url carries."""
 
     @staticmethod
-    def _network(library_url: str = "", http_port: int = 8001, assets_port: int = 8000):
-        return types.SimpleNamespace(library_url=library_url, http_port=http_port,
-                                     theme_assets_port=assets_port)
+    def _network(library_url: str = "", http_port: int = 8001):
+        return types.SimpleNamespace(library_url=library_url, http_port=http_port)
 
-    def _resolve(self, *args, services=None, **kwargs):
-        """That install's own ports come from its discovery document, so a test says
-        what it published rather than reaching a real one."""
-        with mock.patch.object(chromium_manager.remote_library, "remote_services",
-                               return_value=services or {}):
-            return chromium_manager._library_endpoint(self._network(*args, **kwargs))
+    def _resolve(self, *args, **kwargs):
+        return chromium_manager._library_endpoint(self._network(*args, **kwargs))
 
     def test_no_library_set_and_both_ports_are_this_install(self) -> None:
         for value in ("", "   "):
             with self.subTest(value=value):
-                self.assertEqual(self._resolve(value), ("", 8001, 8001, 8000))
+                self.assertEqual(self._resolve(value), ("", 8001, 8001))
 
     def test_a_library_url_yields_its_host_and_port(self) -> None:
-        self.assertEqual(self._resolve("http://cab.local:8001"),
-                         ("cab.local", 8001, 8001, 8000))
+        self.assertEqual(self._resolve("http://cab.local:8001"), ("cab.local", 8001, 8001))
 
     def test_the_library_port_and_this_machine_s_port_are_answered_separately(self) -> None:
         """The one that would misdial in both directions if a single number were sent."""
         self.assertEqual(self._resolve("https://library.example:9000"),
-                         ("library.example", 9000, 8001, 8000))
+                         ("library.example", 9000, 8001))
 
     def test_a_url_with_no_port_falls_back_to_this_install_s(self) -> None:
-        self.assertEqual(self._resolve("http://cab.local", 8005),
-                         ("cab.local", 8005, 8005, 8000))
-
-
-    def test_the_library_s_file_server_port_comes_from_the_library(self) -> None:
-        """It is in no url and cannot be guessed: artwork is served on a different port
-        from the api, and this install's own number describes the wrong machine."""
-        resolved = self._resolve("https://library.example:9000",
-                                 services={"files": {"port": 9500}})
-
-        self.assertEqual(resolved, ("library.example", 9000, 8001, 9500))
-
-    def test_a_library_that_says_nothing_leaves_this_install_s_answer(self) -> None:
-        """An older install, or one that could not be reached for its discovery document."""
-        cases: tuple[dict[str, Any], ...] = ({}, {"files": {}}, {"files": {"port": "nonsense"}})
-        for services in cases:
-            with self.subTest(services=services):
-                self.assertEqual(
-                    self._resolve("https://library.example:9000", services=services).files_port,
-                    8000)
+        self.assertEqual(self._resolve("http://cab.local", 8005), ("cab.local", 8005, 8005))
 
 
 class WindowUrlTests(unittest.TestCase):
@@ -661,16 +636,6 @@ class WindowUrlTests(unittest.TestCase):
 
         self.assertIn("libraryPort=9000", url)
         self.assertIn("devicePort=8001", url)
-
-    def test_a_remote_library_s_file_server_port_travels_under_the_name_the_page_reads(
-            self) -> None:
-        with mock.patch("frontend.chromium_manager.platform.system", return_value="Darwin"):
-            url = chromium_manager._build_window_url(
-                base_url="http://127.0.0.1", theme_assets_port=9000,
-                theme_name="Some Theme", window_name="playfield", splash_enabled=False,
-                library_host="library.example", library_files_port=9500)
-
-        self.assertIn("libraryFilesPort=9500", url)
 
     def test_a_host_that_needs_encoding_is_encoded(self) -> None:
         url = self._url("Darwin", library_host="library name")

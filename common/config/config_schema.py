@@ -1062,43 +1062,37 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
     *in_section(
         "network",
         ConfigOption(
-            "theme_assets_port",
-            applies=APPLIES_RESTART,
-            unit=UNIT_PORT,
-            group=setting_groups.LOCAL_SERVICES,
-            type="int",
-            default="8000",
-            aliases=("themeassetsport",),
-        ),
-        ConfigOption(
-            "theme_assets_bind",
-            applies=APPLIES_RESTART,
-            group=setting_groups.LOCAL_SERVICES,
-            type="string",
-            default="127.0.0.1",
-        ),
-        ConfigOption(
-            "ws_port",
-            applies=APPLIES_RESTART,
-            unit=UNIT_PORT,
-            group=setting_groups.LOCAL_SERVICES,
-            type="int",
-            default="8002",
-            aliases=("wsport",),
-        ),
-        ConfigOption(
             "http_port",
             applies=APPLIES_RESTART,
             unit=UNIT_PORT,
-            group=setting_groups.LOCAL_SERVICES,
+            group=setting_groups.CONNECTIONS,
             type="int",
             default="8001",
             aliases=("hub_port", "manager_ui_port", "manageruiport"),
         ),
         ConfigOption(
+            "http_bind",
+            applies=APPLIES_RESTART,
+            cuts_off_manager=True,
+            group=setting_groups.CONNECTIONS,
+            type="choice",
+            default="0.0.0.0",
+            choices=("0.0.0.0", "127.0.0.1"),
+            aliases=("hub_bind", "manager_ui_bind"),
+        ),
+        ConfigOption(
+            "ws_port",
+            applies=APPLIES_RESTART,
+            unit=UNIT_PORT,
+            group=setting_groups.CONNECTIONS,
+            type="int",
+            default="8002",
+            aliases=("wsport",),
+        ),
+        ConfigOption(
             "library_url",
             applies=APPLIES_RESTART,
-            group=setting_groups.REMOTE_SERVICES,
+            group=setting_groups.SHARED_LIBRARY,
             type="string",
             default="",
             suggest=SUGGEST_LIBRARIES,
@@ -1106,18 +1100,9 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ConfigOption(
             "verify_shared_library",
             applies=APPLIES_RESTART,
-            group=setting_groups.REMOTE_SERVICES,
+            group=setting_groups.SHARED_LIBRARY,
             type="bool",
             default="false",
-        ),
-        ConfigOption(
-            "http_bind",
-            applies=APPLIES_RESTART,
-            cuts_off_manager=True,
-            group=setting_groups.LOCAL_SERVICES,
-            type="string",
-            default="0.0.0.0",
-            aliases=("hub_bind", "manager_ui_bind"),
         ),
     ),
     *in_section(
@@ -1503,6 +1488,12 @@ def window_screen(name: str) -> ConfigOption:
     return ConfigOption("screen_id", type="int", default="", section=f"windows.{name}",
                         label_key="config.windows.screen_id", suggest=SUGGEST_SCREENS,
                         applies=APPLIES_RESTART)
+
+
+def default_of(section: str, key: str) -> str:
+    """The default the schema gives a setting, for a caller that needs it before any
+    config is read."""
+    return defaults()[section][key]
 
 
 def option(section: str, key: str) -> ConfigOption | None:

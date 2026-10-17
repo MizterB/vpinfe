@@ -182,6 +182,8 @@ class PseudoLocaleTests(unittest.TestCase):
             # VPinPlay's Server setting, which Settings > Extensions draws as the web
             # address it holds
             | {"https"}
+            # the web address Network > Port prints for another device to open
+            | {"http"}
             # the Home address on a bundled extension's page, a web address the manifest
             # holds and the page draws as written
             | {"github"}

@@ -11,6 +11,7 @@ from typing import Any, cast
 from nicegui import app, ui
 
 from common import i18n
+from common.config.config_access import NetworkConfig
 from common.devices import install_presence, serving
 from common.i18n import t
 from common.security import encrypted_connections, machine_secrets
@@ -24,10 +25,10 @@ _shutdown_event = threading.Event()
 
 _ui_thread = None
 
-_ui_port = 8001
+_ui_port = NetworkConfig.http_port
 # Every interface, which is what VPinFE has always answered on. Configurable so an install
 # can pull it back to this machine, not because the default changes.
-_ui_bind = "0.0.0.0"
+_ui_bind = NetworkConfig.http_bind
 _tls: dict[str, Any] = {}
 
 
@@ -132,7 +133,8 @@ def _certificate_to_serve() -> dict[str, Any]:
     return {"ssl_certfile": certfile, "ssl_keyfile": keyfile}
 
 
-def start_server(port: int = 8001, bind: str = "0.0.0.0") -> threading.Thread:
+def start_server(port: int = NetworkConfig.http_port,
+                 bind: str = NetworkConfig.http_bind) -> threading.Thread:
     global _ui_thread, _ui_port, _ui_bind, _tls
     serving.bound("http_port", port)
     _ui_port = port

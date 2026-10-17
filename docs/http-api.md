@@ -315,7 +315,7 @@ the documented entry point is a plain 200. Both spellings work.
 | POST | `/api/v1/players/{id}/accounts/{extension}/picture` | Use the picture the account's service has as this player's. Copied once, kept as `PUT /players/{id}/picture` keeps an upload, and never followed. Answers the player. `404` while the service has none, `400` for a guest. The account says whether there is one: `picture` on `GET .../accounts` |
 | GET | `/api/v1/metrics` | What this device is doing now: `now` holds the processor, memory, `disks` and `graphics`, with `cpu_temperature` in degrees C where the platform reports one (Linux) and `busiest`, the five programs using most of the processor as `{name, cpu_percent, memory}`, a program being an app bundle's every process (`Claude Helper (Renderer)` is Claude) or, with no bundle, every process of one name, `cpu_percent` per core as Activity Monitor and `top` read it (100 is one core, so a program on several cores passes 100) except on Windows, where it is the share of the whole device as Task Manager reads it, and a process the OS will not let this one read, such as root's on macOS, left out; `busiest` is null until a second reading, since a process's first reads 0. Each of `disks` is a volume, carrying `holds`: what is watched on it, as `role` (`library`, `config` or `cache`) and, for a library, the folder's `name`; a volume that cannot be read carries `error`, the reason in words. `graphics` is `{cards, reason, detail}`: one entry per card with `id`, `name` (a number follows the name of cards that share one, `RTX 1` and `RTX 2`), `vendor`, `source` (the reader that answered) and the readings that source has - `busy`, `memory_used`, `memory_total`, `memory_percent`, `temperature`, `power`, `clock`, `fan_percent`, `fan_rpm` - where a reading the source lacks is absent, never 0. A card nothing reads carries a `reason` and no `source`, plus `detail` where the program said more and `tool`, the id of the Tool whose Settings row would fix it; no cards at all is an empty list with the `reason`. `history_seconds` adds as much of this session as you ask for, each point carrying `gpus`, each card's `busy` by `id`, and `marks`, what happened in that time, oldest first, as `{at, kind, name}`: each job started (`kind` `job`, `name` its kind, and `title` too where it has a name of its own) and each table launched (`kind` `table`, `name` the game's title, empty when the game is private); 0 means no history and no marks. Two callers within a second get the same reading |
 | GET | `/api/v1/about` | What this install and this device *are* - version, build, OS, browser, and where files live. Each fact carries `path`, true where the value is a path on disk, which a client draws as a path. `text` is the same answer as something to paste into a report |
-| GET | `/api/v1/config/schema` | Every setting this install has. An option's `group` is a token (`navigation`, `local_services`...) and `group_label` beside it is the heading in this install's language. `path` says what a string names on disk (`file`, `dir` or `exe`). `default_is` says whose the default is, `community` or `vpinfe`, for a client that reminds a person of it from `default`, `unit` what a number counts (`seconds`, `port`), `min` and `max` the bounds of a number, which a write outside them is refused with `400`, `as_buttons` that a choice reads as a row of buttons with `choice_help` saying what each one does, `group_note` a line for the whole group and `cuts_off_manager` that a change can put this Manager out of reach of the device making it and `moves_with` (`backups`) that the folder it names holds files a client should offer to carry across before saving a new one. `applies` says when a saved change takes effect: `now`, `table` (the next table to start), `windows` (the next time the frontend's windows open) or `restart`. A window the active theme declares beyond the three every theme has is a `windows.<name>` section of its own, with the `screen_id` it opens on, after `windows.scoreview`. `lists` describes each top-level list of objects the file holds, each with its `fields` and, where its items differ by kind, a `variant` naming the field that holds the kind and the fields each kind has now; it is empty until a list is declared |
+| GET | `/api/v1/config/schema` | Every setting this install has. An option's `group` is a token (`navigation`, `connections`...) and `group_label` beside it is the heading in this install's language. `path` says what a string names on disk (`file`, `dir` or `exe`). `default_is` says whose the default is, `community` or `vpinfe`, for a client that reminds a person of it from `default`, `unit` what a number counts (`seconds`, `port`), `min` and `max` the bounds of a number, which a write outside them is refused with `400`, `as_buttons` that a choice reads as a row of buttons with `choice_help` saying what each one does, `group_note` a line for the whole group and `cuts_off_manager` that a change can put this Manager out of reach of the device making it and `moves_with` (`backups`) that the folder it names holds files a client should offer to carry across before saving a new one. `applies` says when a saved change takes effect: `now`, `table` (the next table to start), `windows` (the next time the frontend's windows open) or `restart`. A window the active theme declares beyond the three every theme has is a `windows.<name>` section of its own, with the `screen_id` it opens on, after `windows.scoreview`. `lists` describes each top-level list of objects the file holds, each with its `fields` and, where its items differ by kind, a `variant` naming the field that holds the kind and the fields each kind has now; it is empty until a list is declared |
 | GET | `/api/v1/config/waiting` | What is saved and not yet in effect. `waiting` lists each change as `{kind, section, key, label, label_key, waits_for, in_effect, set}`: `kind` is `setting` or `extension`, `waits_for` is `restart` or `reopen`, `in_effect` is the value this run is using and `set` the value saved. A setting declared `restart` is compared with the value VPinFE started on, a `windows` one with the value the windows last opened on, and changing a value back clears it. A `windows` setting waits for a restart instead of a reopen while the set of windows has changed - a window added or removed, or a theme declaring others - and never waits on an install with no windows open. An extension switched on since the run began is listed as `extension` with `waits_for: restart`. `reopen` says whether this install can reopen its windows; `http_port` is the port the next start listens on |
 | GET | `/api/v1/config` | What this install is set to: `{settings, theme_options, <list>...}`, `settings` by section and key, `theme_options` by theme folder and one array for each list the schema declares |
 | GET | `/api/v1/config/theme_options` | What was chosen on each theme, `{<theme folder>: {<option>: value}}`. A theme nobody has changed is absent |
@@ -374,7 +374,6 @@ rather than matching a version number against a document.
   "api_version": "v1",
   "vpinfe_version": "2.5.0",
   "capabilities": [],
-  "services": {"files": {"port": 8000}},
   "extensions": [],
   "links": {
     "self": "/api/v1",
@@ -386,11 +385,8 @@ rather than matching a version number against a document.
 }
 ```
 
-`services` says where this install's other servers are — the ones that are not the API.
-Only the port: the host is wherever you reached this document, which is the address
-already known to route here. `assets` is where artwork is served from, and a client that
-is not on this device has no other way to learn it — it is a different port from the one
-it just asked on, and guessing is right only until someone moves it.
+Artwork and themes are served on the same port as the API, under `/media`, `/tables` and
+`/themes`, so the document names no other server.
 
 Links are relative so they stay correct behind a reverse proxy. A link that is present but
 `null` is a known part of the contract that this instance doesn't offer — clients should
@@ -668,21 +664,17 @@ proxy is believed only by its own single address, never a range, and a proxy on 
 device counts only once HTTPS is on, because otherwise every visitor would look like this
 device. Trusted Networks are judged by the socket address and never by a header.
 
-Two settings decide reachability, and they are separate on purpose:
+`network.http_bind` (Reachable From in Settings) decides reachability. It defaults to
+`0.0.0.0` and serves the API, the Manager, themes and the table library's media.
 
-| setting | default | what it serves |
-|---|---|---|
-| `network.http_bind` | `0.0.0.0` | the API and the Manager |
-| `network.theme_assets_bind` | `127.0.0.1` | theme packages and the table library's media |
-
-`http_bind` answers everywhere because the Remote and the sign-in page are the point - a
+It answers everywhere because the Remote and the sign-in page are the point - a
 phone administering a VPinFE device is a supported workflow, not an accident. Set it to `127.0.0.1`
 if you want the API reachable only from the device itself; the Remote and the Manager on
 other devices stop working, which is the trade.
 
-`theme_assets_bind` is loopback because opening it shares read access to the table library
-itself. Opening it is what another device needs to fetch artwork, and VPinFE
-logs a warning when it is not loopback.
+Table media is the one thing on that port that is not the API's own. A caller that is not
+this device needs `games:read` for `/media` and `/tables`, and a file outside the default
+export bundle needs `games:export_full`.
 
 Set it to `127.0.0.1` and the device is the only one that can sign in at all.
 

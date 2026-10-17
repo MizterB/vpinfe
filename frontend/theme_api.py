@@ -154,5 +154,5 @@ def window_page_path(config: ConfigSource, window_name: str) -> str:
 
 
 def get_theme_index_page(config: ConfigSource, window_name: str) -> str:
-    port = serving.network(config).theme_assets_port
+    port = serving.own_port(config)
     return f"http://127.0.0.1:{port}/{window_page_path(config, window_name)}?window={window_name}"

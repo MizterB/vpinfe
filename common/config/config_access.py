@@ -255,15 +255,11 @@ def _media_priority(source: Any, key: str, allowed: tuple[str, ...], fallback: s
 
 @dataclass(frozen=True)
 class NetworkConfig:
-    ws_port: int = 8002
-    http_port: int = 8001
-    theme_assets_port: int = 8000
-    # Per port, never one switch: 8000 serves the table library and 8002 reaches
-    # shutdown_system, so one setting would mean previewing a theme remotely also
-    # exposed machine control. The window channel has no bind setting at all until it
-    # has authentication.
-    theme_assets_bind: str = "127.0.0.1"
-    http_bind: str = "0.0.0.0"
+    ws_port: int = int(config_schema.default_of("network", "ws_port"))
+    http_port: int = int(config_schema.default_of("network", "http_port"))
+    # The window channel has no bind setting at all until it has authentication: it
+    # reaches shutdown_system.
+    http_bind: str = config_schema.default_of("network", "http_bind")
     # Empty means this install holds its own library. Set, it names the install this one
     # reads its catalog from - the one setting that makes this process read somebody
     # else's.
@@ -275,16 +271,13 @@ class NetworkConfig:
     @classmethod
     def from_config(cls, source: Any) -> NetworkConfig:
         return cls(
-            ws_port=cfg_int(source, "Network", "wsport", 8002),
+            ws_port=cfg_int(source, "Network", "wsport", cls.ws_port),
             # Asked for by the oldest spelling, as the sibling ports are: resolution
             # walks forward to `network.http_port`, and a parser built by hand with the
             # pre-PAR-44 section still answers.
-            http_port=cfg_int(source, "Network", "manageruiport", 8001),
-            theme_assets_port=cfg_int(source, "Network", "themeassetsport", 8000),
-            theme_assets_bind=cfg_get(source, "network", "theme_assets_bind",
-                                      "127.0.0.1").strip() or "127.0.0.1",
-            http_bind=cfg_get(source, "network", "http_bind",
-                             "0.0.0.0").strip() or "0.0.0.0",
+            http_port=cfg_int(source, "Network", "manageruiport", cls.http_port),
+            http_bind=(cfg_get(source, "network", "http_bind", cls.http_bind).strip()
+                       or cls.http_bind),
             library_url=cfg_get(source, "network", "library_url", "").strip(),
             verify_shared_library=cfg_bool(source, "network", "verify_shared_library",
                                            False),

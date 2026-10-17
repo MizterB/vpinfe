@@ -44,25 +44,6 @@ def entries_url(library_url: str, collection: str = "") -> str:
     return urljoin(library_url.rstrip("/") + "/", path)
 
 
-def remote_services(library_url: str, *,
-                    timeout: int = http_client.DEFAULT_TIMEOUT) -> dict[str, Any]:
-    """What that install says about its own servers, from its discovery document.
-
-    The asset server is the one a reader has to be told about: artwork is on a different
-    port from the API, and assuming 8000 is right only until someone moves it. Empty when
-    it cannot be reached or says nothing - the caller keeps its own answer, which is what
-    a single-machine install has always used.
-    """
-    url = urljoin(library_url.rstrip("/") + "/", "api/v1/")
-    try:
-        payload = http_client.get_json(url, timeout=timeout, headers=_paired(url))
-    except Exception:
-        logger.debug("Could not read that install's discovery document", exc_info=True)
-        return {}
-    services = payload.get("services") if isinstance(payload, dict) else None
-    return services if isinstance(services, dict) else {}
-
-
 def verify_shared_library(entries: Iterable[Entry] | None,
                           local_games: Iterable[Any] | None) -> dict[str, Any]:
     """Whether this install's own copy of the library is the one it reads, by content.

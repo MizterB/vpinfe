@@ -37,10 +37,6 @@ CAPWORDS = re.compile(r"^_?[A-Z][A-Za-z0-9]*$")
 # Names somebody else chose, each with whose name it is. Adding to this list is a
 # decision that the name is not ours, not a way to quiet the check.
 BORROWED = {
-    # http.server dispatches on the method name. Rename it and the handler stops being
-    # called, silently.
-    "do_GET",
-    "do_OPTIONS",
     # Python's own throwaway.
     "_",
 }
@@ -165,8 +161,7 @@ class PythonIsSnakeCaseTests(unittest.TestCase):
                        "class GameParser: pass",
                        "VPX_PATHS = {}",
                        "NavItem = tuple[str, str]",
-                       "def f():\n    _ = 1",
-                       "def do_GET(self): pass"):
+                       "def f():\n    _ = 1"):
             with self.subTest(source=source):
                 self.assertEqual(_defined(trees.parse_snippet(source)), [])
 

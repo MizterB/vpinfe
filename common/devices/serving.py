@@ -14,7 +14,7 @@ from typing import Any, Literal
 from common.config.config_access import NetworkConfig
 from common.devices import device_registry
 
-Port = Literal["http_port", "ws_port", "theme_assets_port", "loopback_port"]
+Port = Literal["http_port", "ws_port", "loopback_port"]
 _bound: dict[str, int] = {}
 
 
@@ -48,8 +48,7 @@ def network(config: Any) -> NetworkConfig:
     return dataclasses.replace(
         configured,
         http_port=_bound.get("http_port", configured.http_port),
-        ws_port=_bound.get("ws_port", configured.ws_port),
-        theme_assets_port=_bound.get("theme_assets_port", configured.theme_assets_port))
+        ws_port=_bound.get("ws_port", configured.ws_port))
 
 
 def loopback_or(port: int) -> int:

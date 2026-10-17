@@ -113,11 +113,11 @@ Relevant code:
 Examples:
 
 - `/games/Addams Family/medias/dmd.mp4`
-- `http://127.0.0.1:<themeassetsport>/tables/Addams%20Family/medias/dmd.mp4`
+- `http://127.0.0.1:<httpport>/tables/Addams%20Family/medias/dmd.mp4`
 
 If the file lives directly in the game folder instead of `medias/`, the URL becomes:
 
-- `http://127.0.0.1:<themeassetsport>/tables/<gameDir>/<file>`
+- `http://127.0.0.1:<httpport>/tables/<gameDir>/<file>`
 
 Relevant code:
 

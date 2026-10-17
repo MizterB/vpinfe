@@ -9,10 +9,9 @@ from screeninfo import get_monitors
 from common.config.config_store import ConfigStore
 from common.config.paths import VPINFE_INI_PATH, ensure_config_dir
 from common.deprecations import announce
-from common.devices import serving
+from common.devices import port_check, serving
 from common.games import game_report_service, info_maintenance, metadata_service, revert_3x
 from common.runtime.log_setup import get_logger
-from frontend.custom_http_server import CustomHTTPServer
 
 logger = get_logger("vpinfe.cli")
 
@@ -77,21 +76,38 @@ def vpx_patches(progress_cb=None):
 
 
 def gamepadtest():
-    """Run the gamepad test window using Chromium and the HTTP server."""
-    from common.config.config_access import cfg_get, cfg_int
+    """Run the gamepad test window using Chromium and a server of its own: the page needs
+    core's files, not the library, and the real one may be running."""
+    import socket
+    import threading
+    import time
+
+    import uvicorn
+    from fastapi import FastAPI
+
+    from common.config.config_access import NetworkConfig
     from frontend.api import API
     from frontend.chromium_manager import ChromiumManager
     from frontend.device_channel import DeviceChannel
+    from frontend.theme_routes import register
 
     mount_points = {
         '/core/': os.path.join(os.path.dirname(os.path.abspath(__file__)), 'frontend', 'static'),
     }
-    http_server = CustomHTTPServer(mount_points)
-    theme_assets_port = int(cfg_get(config_store, 'Network', 'theme_assets_port', '8000'))
-    theme_assets_bind = cfg_get(config_store, 'network', 'theme_assets_bind', '127.0.0.1')
-    ws_port = cfg_int(config_store, 'network', 'wsport', 8002)
-    http_server.start_file_server(port=theme_assets_port, bind=theme_assets_bind)
-    serving.bound("theme_assets_port", theme_assets_port)
+    network = NetworkConfig.from_config(config_store)
+    port_check.require(network, ('ws_port',))
+    ws_port = network.ws_port
+    page_app = FastAPI()
+    register(page_app, mount_points)
+    with socket.socket() as probe:
+        probe.bind(('127.0.0.1', 0))
+        http_port = probe.getsockname()[1]
+    server = uvicorn.Server(uvicorn.Config(page_app, host='127.0.0.1', port=http_port,
+                                           log_level='warning'))
+    threading.Thread(target=server.run, daemon=True).start()
+    while not server.started:
+        time.sleep(0.05)
+    serving.bound("http_port", http_port)
 
     monitors = get_monitors()
     ws_bridge = DeviceChannel(port=ws_port)
@@ -107,12 +123,12 @@ def gamepadtest():
 
     ws_bridge.start()
     try:
-        url = f"http://127.0.0.1:{theme_assets_port}/core/diag/gamepad.html?window=gamepad"
+        url = f"http://127.0.0.1:{http_port}/core/diag/gamepad.html?window=gamepad"
         chromium.launch_window("gamepad", url, monitors[0], 0)
         chromium.wait_for_exit()
     finally:
         ws_bridge.stop()
-        http_server.on_closed()
+        server.should_exit = True
 
 
 def check_extension(folder: str) -> int:

@@ -229,13 +229,11 @@ Runtime state written by VPinFE, not shown as a setting.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `theme_assets_port` | int | `8000` | Theme Server Port |
-| `theme_assets_bind` | string | `127.0.0.1` | Which address to serve theme packages and table media on. The default answers this device only. Opening it wider shares read access to your table library. |
+| `http_port` | int | `8001` | Where the Manager, the Remote, the API and the frontend's windows connect |
+| `http_bind` | choice (0.0.0.0, 127.0.0.1) | `0.0.0.0` | Which devices can open VPinFE. This Device Only shuts out the Remote too. |
 | `ws_port` | int | `8002` | Port the frontend windows and the theme use to talk to VPinFE. Reachable from this device only. |
-| `http_port` | int | `8001` | Port this device answers on: the HTTP API, the Manager and the Remote |
 | `library_url` | string |  | Which device this one reads its library from. Empty means it holds its own. Devices on your network are offered; type an address for one that is not. |
 | `verify_shared_library` | bool | `false` | On startup, check that the library this device reads is the one on disk here, by comparing file hashes. Reports what does not match, and changes nothing. |
-| `http_bind` | string | `0.0.0.0` | Which address to serve on. The default answers every interface - set 127.0.0.1 to allow access only from this device. |
 
 ### `dof`
 

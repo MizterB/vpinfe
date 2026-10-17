@@ -186,9 +186,8 @@ def is_forwarded(headers: Mapping[str, str]) -> bool:
     return any(name in keys for name in FORWARDING_HEADERS)
 
 
-def origin_is_ours(origin: str, host: str, *, test_peer: bool = False) -> bool:
-    """Whether a browser's Origin is VPinFE's own page: the address that was asked for, or
-    the theme server's port on a name this machine answers to."""
+def origin_is_ours(origin: str, host: str) -> bool:
+    """Whether a browser's Origin is VPinFE's own page: the address that was asked for."""
     said = (origin or "").strip()
     if not said or said.lower() == "null":
         return False
@@ -197,11 +196,7 @@ def origin_is_ours(origin: str, host: str, *, test_peer: bool = False) -> bool:
         return False
     origin_host, origin_port = split_authority(parts.netloc)
     asked_host, asked_port = split_authority(host)
-    if origin_host == asked_host and origin_port == asked_port:
-        return True
-    themes = serving.bound_port("theme_assets_port")
-    return (themes is not None and origin_port == themes
-            and names_this_machine(origin_host, test_peer=test_peer))
+    return origin_host == asked_host and origin_port == asked_port
 
 
 def came_through_listed_proxy(peer: str | None, port: int | None) -> bool:
@@ -233,4 +228,4 @@ def request_is_this_machine(peer: str | None, headers: Mapping[str, str],
     if host and not names_this_machine(split_authority(host)[0], test_peer=test_peer):
         return False
     origin = lowered.get("origin")
-    return origin is None or origin_is_ours(origin, host, test_peer=test_peer)
+    return origin is None or origin_is_ours(origin, host)

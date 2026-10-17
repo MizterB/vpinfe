@@ -57,7 +57,6 @@ def discovery_payload(prefix: str, api_version: str) -> dict:
         "api_version": api_version,
         "vpinfe_version": get_version(),
         "capabilities": capabilities.declared(),
-        "services": install_presence.service_ports(),
         "extensions": [],
         "links": {
             "self": prefix,

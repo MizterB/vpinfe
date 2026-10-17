@@ -42,7 +42,7 @@ class LateWindowDriveTests(TempTree):
     def _backglass_url(instance: LiveInstance) -> str:
         return instance.url(f"/core/index_backglass.html?window=backglass"
                             f"&wsPort={instance.ports['ws']}"
-                            f"&themeAssetsPort={instance.ports['assets']}")
+                            f"&themeAssetsPort={instance.ports['manager']}")
 
     def test_a_backglass_opened_after_the_wheel_moved_shows_that_game(self) -> None:
         async def run(instance: LiveInstance):

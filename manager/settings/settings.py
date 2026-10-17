@@ -26,11 +26,18 @@ from nicegui import run, ui
 from common import extensions, tokens
 from common.config import config_schema, input_registry, path_state
 from common.config.labels import field_label, humanize
-from common.devices import install_identity
+from common.devices import install_identity, serving
 from common.extensions import host as extension_host
 from common.failures import why
 from common.games.asset_registry import ALWAYS_KEPT, ASSET_SPECS
-from common.host import display_service, frontend_browser, key_reader, key_simulator, tools
+from common.host import (
+    addresses,
+    display_service,
+    frontend_browser,
+    key_reader,
+    key_simulator,
+    tools,
+)
 from common.i18n import size, t
 from common.media.media_specs import media_label_map
 from common.online import theme_source_checks as online_checks
@@ -337,6 +344,13 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
         if named and not isinstance(choices, dict):
             choices = {value: named.get(value, value) for value in choices}
         shown = "" if varies else str(value_for(option, value))
+        held = "" if varies else str(value if value is not None else "").strip()
+        if held and held not in choices:
+            # A value the file holds that the list does not offer is what is in effect, so
+            # it is drawn as itself rather than as the default.
+            choices = {**(choices if isinstance(choices, dict)
+                          else {one: one for one in choices}), held: held}
+            shown = held
         if option.get("as_buttons") and isinstance(choices, dict):
             return panel.choice_buttons(choices, shown, lambda e: save(e.value), disabled=off)
         helped = option.get("choice_help") or {}
@@ -907,6 +921,28 @@ async def _browser_playback(library: Library, read: dict[str, Any]) -> list[tupl
 
 # section -> what to draw at the end of its first group of settings.
 UNDER_FIRST_GROUP: dict[str, Callable] = {"chromium": _browser_playback}
+
+async def _network_address(values: dict[str, Any]) -> dict[str, list[tuple[Any, Any]]]:
+    """Where another device opens this one, under the Port setting. Nothing where this
+    device answers only itself, and nothing where it has no address to give."""
+    bind = str((values.get("network") or {}).get("http_bind")
+               or config_schema.default_of("network", "http_bind"))
+    if not serving.reachable_from_elsewhere(bind):
+        return {}
+    from common.config.paths import get_ini_config
+
+    def find() -> str:
+        return addresses.best(serving.network(get_ini_config()).http_port, "")
+
+    address = await offload.io(find)
+    return {"http_port": [panel.note(t("manager.settings.network_address",
+                                       address=address))]} if address else {}
+
+
+# section -> the rows to draw under a setting of it, from the values the page was given.
+# Only where this install's own client serves the page: the address is this device's.
+UNDER_SETTINGS: dict[str, Callable[[dict[str, Any]], Awaitable[dict[str, list]]]] = {
+    "network": _network_address}
 
 # section -> what is wrong with a whole page, drawn with its name, from what the page was
 # offered, with any act that puts it right; None where nothing is.
@@ -1593,6 +1629,7 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
                  previewed: chrome_options.Preview | None = None,
                  stands_in: dict[str, list[tuple[Any, Any]]] | None = None,
                  linked: attract.Attract | None = None,
+                 under: dict[str, list[tuple[Any, Any]]] | None = None,
                 ) -> list[tuple[Any, Any]]:
     """One section's settings as fact rows, from whatever is serving them.
 
@@ -1666,6 +1703,7 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
                         else control))
         if note is not None:
             entries.append(note)
+        entries += (under or {}).get(option["key"], [])
         if linked is not None:
             entries += linked.under(option["key"])
         if previewed is not None and option["key"] == chrome_options.ADD:
@@ -1747,9 +1785,12 @@ async def build_device_page(source: Any, context: dict[str, Any], schema: list[d
         # Where this install's own client serves the page, for the same reason as the head.
         preview = chrome_options.Preview(values) \
             if name == chrome_options.SECTION and source is context.get("library") else None
+        beneath = UNDER_SETTINGS.get(name)
         rows = section_rows(source, name, block["options"], values,
                             bool(block.get("writable")), rerender, checks,
                             suggestions,
+                            under=await beneath(values) if beneath is not None
+                            and source is context.get("library") else None,
                             resolved=resolves(offered) if resolves else None,
                             browse=browse, waiting=waiting,
                             from_elsewhere=from_elsewhere, previewed=preview,

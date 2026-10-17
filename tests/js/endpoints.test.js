@@ -31,7 +31,7 @@ describe("the endpoint block", () => {
     // A page opened by hand, or an older launcher that sends no ports.
     const vpin = withPorts("?window=table");
 
-    assert.equal(vpin.endpoints.files, "http://127.0.0.1:8000");
+    assert.equal(vpin.endpoints.files, "http://127.0.0.1:8001");
     assert.equal(vpin.endpoints.device, "http://127.0.0.1:8001");
     assert.equal(vpin.endpoints.frontend_channel, "ws://127.0.0.1:8002");
   });
@@ -58,28 +58,20 @@ describe("the endpoint block", () => {
     // `libraryPort` is the other install's, so `device` cannot read it: this machine's
     // own api is on devicePort, at loopback, whoever holds the library.
     const vpin = withPorts(
-      "?window=table&wsPort=8002&themeAssetsPort=8000&libraryPort=9000" +
+      "?window=table&wsPort=8002&themeAssetsPort=8001&libraryPort=9000" +
       "&libraryHost=library.example&devicePort=8001");
 
     assert.equal(vpin.endpoints.library, "http://library.example:9000");
-    assert.equal(vpin.endpoints.files, "http://library.example:8000", "art follows the library");
+    assert.equal(vpin.endpoints.files, "http://library.example:9000", "art follows the library");
     assert.equal(vpin.endpoints.device, "http://127.0.0.1:8001", "this machine, always");
     assert.equal(vpin.endpoints.frontend_channel, "ws://127.0.0.1:8002", "this machine, always");
   });
 
-  test("a library on another machine serves its files on the port it published", () => {
-    const vpin = withPorts(
-      "?window=table&wsPort=8002&themeAssetsPort=8000&libraryPort=9000" +
-      "&libraryHost=library.example&devicePort=8001&libraryFilesPort=9500");
-
-    assert.equal(vpin.endpoints.files, "http://library.example:9500");
-  });
-
   test("no libraryHost is every single-machine install, unchanged", () => {
-    const vpin = withPorts("?window=table&wsPort=8002&themeAssetsPort=8000&libraryPort=8001");
+    const vpin = withPorts("?window=table&wsPort=8002&themeAssetsPort=8001&libraryPort=8001");
 
     assert.equal(vpin.endpoints.library, "http://127.0.0.1:8001");
-    assert.equal(vpin.endpoints.files, "http://127.0.0.1:8000");
+    assert.equal(vpin.endpoints.files, "http://127.0.0.1:8001");
     assert.equal(vpin.endpoints.device, "http://127.0.0.1:8001");
   });
 

@@ -31,7 +31,6 @@ class Machine(unittest.TestCase):
         self.addCleanup(interfaces.stop)
         this_machine.forget()
         self.addCleanup(this_machine.forget)
-        serving.bound("theme_assets_port", 8000)
         serving.bound("http_port", 8001)
         self.addCleanup(serving.forget)
 
@@ -94,9 +93,11 @@ class TheOriginTests(Machine):
     def test_the_page_the_manager_served_is_accepted(self) -> None:
         self.assertTrue(self.asked("http://localhost:8001"))
 
-    def test_a_theme_page_on_the_theme_server_is_accepted(self) -> None:
-        self.assertTrue(self.asked("http://127.0.0.1:8000"))
-        self.assertTrue(self.asked("http://localhost:8000"))
+    def test_a_theme_page_is_the_same_origin_as_the_manager(self) -> None:
+        self.assertTrue(self.asked("http://127.0.0.1:8001", host="127.0.0.1:8001"))
+
+    def test_the_retired_theme_server_port_is_refused(self) -> None:
+        self.assertFalse(self.asked("http://127.0.0.1:8000"))
 
     def test_a_page_of_another_site_is_refused(self) -> None:
         for origin in ("https://evil.example.com", "http://evil.example.com:8001", "null",

@@ -13,7 +13,7 @@ import os
 import platform
 import sys
 
-from common.config.config_access import cfg_get
+from common.config.config_access import NetworkConfig
 
 multiprocessing.freeze_support()
 
@@ -74,6 +74,7 @@ from common.config.paths import (
 from common.devices import (
     device_migration,  # noqa: F401
     install_setup,
+    port_check,
     serving,
 )
 from common.games import launcher_migration, launchers, library_folders  # noqa: F401
@@ -146,7 +147,7 @@ from starlette.responses import Response
 import httpapi
 import manager
 from cli import parse_args
-from frontend import lifecycle_host, runtime
+from frontend import lifecycle_host, runtime, theme_routes
 from manager import app_control
 from manager.host import _shutdown_event, start_server, stop_server
 from manager.security.origin_guard import SocketOriginGuard
@@ -249,19 +250,20 @@ sign_in.instance().headless = bool(headless)
 this_machine.warm()
 
 # Register frontend theme assets before NiceGUI can start on the first-run path.
-MOUNT_POINTS, themes_dir = runtime.build_mount_points(base_path, config_dir, config_store)
-nicegui_app.add_static_files('/themes', themes_dir)
+mount_points = runtime.build_mount_points(base_path, config_dir, config_store)
+theme_routes.register(nicegui_app, mount_points)
+
+network = NetworkConfig.from_config(config_store)
+port_check.require(network)
 
 # While Setup is pending, start the web server early so chromium can load it.
 if install_setup.pending(config_store):
-    http_port = int(cfg_get(config_store, 'network', 'http_port', '8001'))
-    http_bind = cfg_get(config_store, 'network', 'http_bind', '0.0.0.0')
-    start_server(port=http_port, bind=http_bind)
+    start_server(port=network.http_port, bind=network.http_bind)
     serving.publish()
     reconfigure_app_logging()
     # Wait for the NiceGUI server to be ready before chromium tries to load it
-    runtime.wait_for_server_ready(http_port)
-    logger.info("Setup pending: web server ready on port %s", http_port)
+    runtime.wait_for_server_ready(network.http_port)
+    logger.info("Setup pending: web server ready on port %s", network.http_port)
 
 # Before anything installs or updates a theme. An update deletes the theme's folder, and
 # until now that folder is where the user's option values were kept - so this has to run
@@ -429,13 +431,8 @@ start_dof_service_if_enabled(config_store)
 # Create API instances and register with WebSocket bridge
 create_api_instances()
 
-# Start the HTTP server to serve images from the "games" directory
-http_server = runtime.start_asset_server(MOUNT_POINTS, config_store)
-
 # Start the NiceGUI HTTP server
-http_port = int(cfg_get(config_store, 'network', 'http_port', '8001'))
-http_bind = cfg_get(config_store, 'network', 'http_bind', '0.0.0.0')
-start_server(port=http_port, bind=http_bind)
+start_server(port=network.http_port, bind=network.http_bind)
 serving.publish()
 reconfigure_app_logging()
 
@@ -473,7 +470,6 @@ runtime.shutdown_services(
     ws_bridge=ws_bridge,
     stop_dof=stop_dof_service,
     stop_dmd=stop_libdmdutil_service,
-    http_server=http_server,
     nicegui_app=nicegui_app,
     stop_server=stop_server,
 )

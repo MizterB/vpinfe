@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 
 from common.config.paths import get_ini_config
-from common.devices import device_registry, discovery, install_identity, serving
+from common.devices import device_registry, discovery, install_identity
 from common.devices.device_registry import get_device_registry
 from common.devices.discovery import Peer
 
@@ -97,19 +97,3 @@ def identity() -> dict:
     except Exception as exc:
         logger.warning("Could not read this install's identity: %s", exc)
         return {"install_id": "", "display_name": ""}
-
-
-def service_ports() -> dict:
-    """Where this install's other servers are, for a caller that is not on this machine.
-
-    Only the file server so far, and only its port: the host is wherever the caller
-    reached this install, which is the one address known to be routable to here. A device
-    needs this because artwork is served off a different port from the API, and nothing
-    else tells it which - guessing 8000 is right until someone moves it.
-    """
-    try:
-        return {"files": {
-            "port": serving.network(get_ini_config()).theme_assets_port}}
-    except Exception as exc:
-        logger.warning("Could not read this install's service ports: %s", exc)
-        return {}

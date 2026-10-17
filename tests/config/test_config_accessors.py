@@ -84,7 +84,6 @@ class TypedConfigTests(unittest.TestCase):
              "real_dmd": "standard", "bg": "video", "dmd": "video"},
         )
         self.assertEqual(NetworkConfig.from_config(parser).ws_port, 9002)
-        self.assertEqual(NetworkConfig.from_config(parser).theme_assets_port, 8000)
         self.assertEqual(DisplayConfig.from_config(parser).playfield_screen_id, 2)
         self.assertEqual(
             DisplayConfig.from_config(parser).window_screen_id("playfieldscreenid"), "2")

@@ -319,18 +319,6 @@
   ],
   [
     "Network",
-    "theme_assets_port",
-    "network",
-    "theme_assets_port"
-  ],
-  [
-    "Network",
-    "themeassetsport",
-    "network",
-    "theme_assets_port"
-  ],
-  [
-    "Network",
     "ws_port",
     "network",
     "ws_port"
@@ -610,12 +598,6 @@
     "manageruiport",
     "network",
     "http_port"
-  ],
-  [
-    "network",
-    "themeassetsport",
-    "network",
-    "theme_assets_port"
   ],
   [
     "network",

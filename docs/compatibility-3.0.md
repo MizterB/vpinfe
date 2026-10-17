@@ -248,7 +248,7 @@ migration path, which is why neither is removed.
 
 **PAR-31 — Contract 2 names its media kinds; a route serves them by game id.**
 `entries[].media` is the list of kinds a game has a file for, and the bytes come from
-`GET /media/<table id>/<kind>` on the theme assets port. Addressed by table because tier 1
+`GET /media/<table id>/<kind>` on the HTTP port. Addressed by table because tier 1
 of the media chain keys off the table that launches, even though the scan resolves once
 per game today - so the URL survives that being fixed. The manufacturer logo moves onto
 `game.manufacturer_logo`, since it is art about the manufacturer rather than about the
@@ -466,8 +466,9 @@ fields need a matcher that does not exist yet, and building the slot ahead of th
 is the mistake that document's own audit section exists to prevent. Covered by
 `tests/curation/test_wire_entry.py` and `tests/curation/test_entry_lens_parity.py`.
 
-**PAR-76 — An install publishes where its file server is.** *(machine-checked)* Discovery
-(`GET /api/v1/`) gains `services`, currently `{"files": {"port": N}}`. Purely additive.
+**PAR-76 — An install publishes where its file server is.** *(machine-checked)* *Superseded:
+the files are on the HTTP port, so discovery names no other server and `services` is gone.*
+Discovery (`GET /api/v1/`) gained `services`, `{"files": {"port": N}}`. Purely additive.
 *Why:* artwork is served on a different port from the API, and nothing said which
 - so `endpoints.files` paired the library's host with the *reader's* file port and every
 image 404'd. The port only: the host is wherever the caller reached the document, which is
@@ -688,7 +689,7 @@ server, which is where the library actually answers; `bridge` is `frontend_chann
 Introduced in PAR-53 and corrected here before any theme reads it, so there is nothing to
 alias.
 *Why:* two of the keys were wrong and the third did not read. The library key pointed at the asset
-server on port 8000, but the library, collections and uploads are on `/api/v1` - so a
+server on its own port, but the library, collections and uploads are on `/api/v1` - so a
 theme following the documented meaning would have asked the wrong service. The files are
 a distinct thing worth naming, hence `assets`. `library` and `device` are the same address
 today because one `/api/v1` answers for both, and they stay separate keys because they
@@ -847,8 +848,10 @@ remotely also exposed machine control. That is also why the window channel has n
 setting at all - it stays loopback until it can authenticate a caller, and adding the
 setting before the auth would be offering the exposure. A blank value falls back to the
 default rather than through to the socket layer, where an empty host means every
-interface - the opposite of what clearing the setting looks like it means. Covered by
-`tests/theming/test_asset_server_scope.py`.
+interface - the opposite of what clearing the setting looks like it means.
+*Superseded:* the theme assets server is gone and its routes are on the HTTP port, so
+`network.theme_assets_bind` went with it. Who may read what there is covered by
+`tests/theming/test_theme_routes.py`.
 
 **PAR-53 — The page is told where the services are, instead of asserting one machine.**
 *(machine-checked)* `vpin.endpoints` gives a theme complete base URLs instead of a host to

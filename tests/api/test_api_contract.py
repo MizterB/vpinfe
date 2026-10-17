@@ -111,8 +111,8 @@ class ApiContractTests(unittest.TestCase):
         cls.probe = _run_probe()
 
     def test_play_state_shape_and_cors(self) -> None:
-        """Themes read this cross-origin from the asset server, so losing the CORS
-        header would silently break every theme's launch overlay."""
+        """A browser page that sends an Origin gets the CORS header, so a page on another
+        install's address can read it with a token."""
         entry = self.probe["play_state"]
 
         self.assertEqual(entry["status"], 200)

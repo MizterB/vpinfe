@@ -19,12 +19,9 @@ def probe() -> dict:
     from starlette.testclient import TestClient
 
     import httpapi
-    from common.devices import serving
     if not any(getattr(r, "path", "") == httpapi.API_PREFIX for r in nicegui_app.routes):
         httpapi.register(nicegui_app)
 
-    # The theme server's port, which is what makes an Origin on it VPinFE's own page.
-    serving.bound("theme_assets_port", 8000)
     client = TestClient(nicegui_app, raise_server_exceptions=False)
     result: dict = {}
 
@@ -41,9 +38,8 @@ def probe() -> dict:
                 entry["json"] = None
         result[name] = entry
 
-    # With an Origin header, as a theme's fetch from the asset server sends it.
     record("play_state", client.get("/api/v1/play/state",
-                                    headers={"Origin": "http://127.0.0.1:8000"}))
+                                    headers={"Origin": "http://testserver"}))
     record("play_state_same_origin", client.get("/api/v1/play/state"))
 
     # The Remote Control page writes through the service; the endpoint must report it.

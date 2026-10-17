@@ -17,7 +17,7 @@ from common.media import sized_media
 
 FOLDER = "player_pictures"
 SUFFIX = ".webp"
-# Where the cabinet's asset server shows the folder.
+# Where the HTTP app shows the folder.
 ROUTE = f"/{FOLDER}/"
 LARGEST = 1024
 _QUALITY = 90

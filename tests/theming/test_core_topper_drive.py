@@ -35,7 +35,7 @@ class CoreTopperDriveTests(TempTree):
     def _url(instance: LiveInstance) -> str:
         return instance.url(f"/core/index_topper.html?window=topper"
                             f"&wsPort={instance.ports['ws']}"
-                            f"&themeAssetsPort={instance.ports['assets']}")
+                            f"&themeAssetsPort={instance.ports['manager']}")
 
     def test_the_selected_game_s_topper_is_drawn(self) -> None:
         async def run(instance: LiveInstance):

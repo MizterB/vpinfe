@@ -274,7 +274,7 @@ describes them. The view they came from travels alongside as `vpin.collection` a
 `getTableMeta(index)` — counts and addresses entries.
 
 **Media is named, not located.** `entries[].media` lists the kinds this game has a file
-for. To show one, request `/media/<table id>/<kind>` from the theme assets port — the same
+for. To show one, request `/media/<table id>/<kind>` from `vpin.endpoints.files` — the same
 server your theme is loaded from. Contract 1 carried a filesystem path per kind and left
 every theme to turn it into a URL; contract 2 does not put the filesystem in a web page,
 and on a large library it keeps several hundred kilobytes off the wire each time the list
@@ -376,7 +376,7 @@ by class, since an id outranks the rules that turn it. Mark an element
 <script src="/core/common/vpinfe-core.js"></script>
 ```
 
-These are served by VPinFE's HTTP server on port 8000. `vpinfe-core.js` provides all API calls, media URL helpers, gamepad/keyboard input, and event handling. `vpinfe-style.css` is required for the in-theme menu system styling.
+These are served by VPinFE's HTTP server, the same port the Manager is on (8001 by default). `vpinfe-core.js` provides all API calls, media URL helpers, gamepad/keyboard input, and event handling. `vpinfe-style.css` is required for the in-theme menu system styling.
 
 Your theme's own `style.css` and `theme.js` can be named whatever you want.
 
@@ -1186,7 +1186,7 @@ These properties are available on the `vpin` instance after `vpin.ready` resolve
 | `vpin.playfieldOrientation` | `string` | Playfield orientation from config: `"landscape"` or `"portrait"`. |
 | `vpin.playfieldRotation` | `number` | Playfield rotation in degrees from config (default `0`). |
 | `vpin.layout` | `object` | The resolved layout answers — `{ cabinet, uprightRotation, surface }`. This is what a theme should read; the two properties above it are the raw ini values. See [Playfield geometry](#playfield-geometry-mounting-rotation-and-cab-mode). |
-| `vpin.themeAssetsPort` | `number` | File server port (default `8000`). Prefer `vpin.endpoints.files`, which is the whole base URL. |
+| `vpin.themeAssetsPort` | `number` | The port the files are served on, the HTTP server (default `8001`). Prefer `vpin.endpoints.files`, which is the whole base URL. |
 | `vpin.endpoints` | `object` | Where the things this page talks to are — `{ library, device, files, frontend_channel }`. The first three are addresses you add a path to: `library` is the catalog and what's known about it, `device` is this machine (launching, play state, hardware), `files` is the files themselves (theme packages, table media, manufacturer logos). `frontend_channel` is not an address but a line held open — how this page and VPinFE talk to each other, both ways — so nothing is appended to it. Build URLs from these rather than assuming a host or a port: the halves can be separate machines, and only this knows where they are. |
 | `vpin.menuUP` | `boolean` | Whether the main menu overlay is currently visible. |
 | `vpin.libraryWaiting` | `string[]` | While the library is empty because every folder it reads from is away - a NAS asleep or down - the servers or folders it is waiting on; empty otherwise. Core covers every window with them (`core_waiting`, on by default) and loads the list the moment one answers, raising `TableDataChange`. A theme that draws its own waiting state sets `waiting.enabled` false and reads this after an empty `getTableData()`. |
@@ -1440,7 +1440,7 @@ change it — `set_tables_by_collection` and the lists above are what a theme ne
 |--------|------|---------|-------------|
 | `get_theme_name` | — | `string` | Returns the active theme name from `vpinfe.ini`. |
 | `get_theme_config` | — | `object\|null` | Loads and returns the theme's current configuration values. The theme's `config.json`, the defaults in `options.json` and what the person chose, merged into one object. See [Values Returned To Theme Code](#values-returned-to-theme-code). |
-| `get_theme_assets_port` | — | `number` | Returns the HTTP server port (default `8000`). |
+| `get_theme_assets_port` | — | `number` | Returns the HTTP server port (default `8001`). |
 | `get_theme_index_page` | — | `string` | Returns the full URL for this window's theme index page. |
 | `get_playfield_orientation` | — | `string` | Returns the playfield orientation from config (`"landscape"` or `"portrait"`). |
 | `get_playfield_rotation` | — | `number` | Returns the playfield rotation angle in degrees from config (default `0`). |
@@ -1638,7 +1638,7 @@ lights.forEach(([label, on]) => {
 ### Media
 
 `entry.media` names the kinds this game has a file for. It does not carry paths — request
-one from the asset server, the same one your theme was loaded from:
+one from `vpin.endpoints.files`, the same server your theme was loaded from:
 
 ```javascript
 const entry = vpin.getTableMeta(currentGameIndex);

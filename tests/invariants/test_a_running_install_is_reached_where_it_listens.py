@@ -17,8 +17,9 @@ from tests.support.project import REPO, project_files
 READS_THE_SETTING = {
     # The fallback for a port nothing in this process has started.
     "common/devices/serving.py",
-    # Starts the window channel and the file server, so the setting is what it binds.
+    # Starts the window channel and the HTTP port, so the setting is what it binds.
     "frontend/runtime.py",
+    "main.py",
     # Another process, asking whether an install is running.
     "cli.py",
     # Reads the library address, which is not a port.

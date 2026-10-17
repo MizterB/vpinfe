@@ -21,12 +21,12 @@ from frontend.device_channel import DeviceChannel
 from tests.support.browser_session import free_port
 from tests.support.channel_answer import refused, registered, released, serving
 
-LOCAL = {"Origin": "http://127.0.0.1:8000"}
+LOCAL = {"Origin": "http://127.0.0.1:8001"}
 
 
 class WindowIdentityTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
-        bound_servers.bound("theme_assets_port", 8000)
+        bound_servers.bound("http_port", 8001)
         self.addCleanup(bound_servers.forget)
         self.channel = DeviceChannel(port=free_port())
         self.channel.register_api("playfield", object())  # type: ignore[arg-type]

@@ -89,9 +89,6 @@ MEANT = {"cabinet": "the frontend", "machine": "a game, this device or another d
 NAMED_ASSET = {
     "general.hidden_asset_kinds": LOADS,
     "library.hidden_asset_kinds": LOADS,
-    "network.theme_assets_port": "the theme server, named as vpin.themeAssetsPort, which shipped",
-    "themeassetsport": "the theme server's port in 2.x, which shipped",
-    "network.theme_assets_bind": "the theme server, named with its port",
     "/assets": LOADS,
     "/games/{game_id}/asset_source": LOADS,
     "/games/{game_id}/assets": LOADS,
@@ -108,7 +105,7 @@ NAMED_ASSET = {
     "/games/{game_id}/tables/{table_id}/assets/{kind}": LOADS,
 }
 PATH = re.compile(r"^/[A-Za-z_{][\w/{}.-]*$")
-FRONTEND_SERVERS = ("frontend/custom_http_server.py", "frontend/runtime.py")
+FRONTEND_SERVERS = ("frontend/theme_routes.py", "frontend/runtime.py")
 
 
 # What /api/v1/docs and discovery show, keyed by where the string sits: in the OpenAPI
@@ -211,7 +208,8 @@ class SettingNamesAndServedPaths(unittest.TestCase):
         found = set()
         for path in FRONTEND_SERVERS:
             found |= served_paths(trees.tree_for(REPO / path))
-        self.assertLessEqual({"/media/", "/manufacturers/", "/themes/"}, found)
+        self.assertLessEqual({"/media/{table_id}/{kind}", "/manufacturers/{slug}/logo", "/themes/"},
+                             found)
 
     def test_it_would_see_a_served_path(self) -> None:
         planted = served_paths(trees.parse_snippet(

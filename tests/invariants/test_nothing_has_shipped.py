@@ -56,9 +56,8 @@ class APublishedValueIsOneItsReaderAccepts(unittest.TestCase):
     def test_the_contract_1_tutorial_is_always_proxyable(self) -> None:
         from common.games.game_metadata import contract_1_tutorial
         from common.games.info_file import GUIDES_KEY, PINBALL_PRIMER_PREFIX
-        from frontend.custom_http_server import CustomHTTPServer
+        from frontend import theme_routes
 
-        handler = CustomHTTPServer.MultiDirHTTPRequestHandler
         guides = [
             {"kind": "tutorial", "url": "https://www.youtube.com/watch?v=a"},
             {"kind": "tutorial", "url": "https://vpuniverse.com/files/file/1"},
@@ -72,7 +71,7 @@ class APublishedValueIsOneItsReaderAccepts(unittest.TestCase):
                 continue
             with self.subTest(guides=take):
                 self.assertTrue(
-                    handler._is_allowed_pinball_primer_url(answered),
+                    theme_routes._is_allowed_pinball_primer_url(answered),
                     f"contract 1 published {answered!r}, which the proxy answers 403 to")
 
 

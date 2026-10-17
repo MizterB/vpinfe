@@ -8,7 +8,7 @@ from common.i18n import t
 from manager.kit import dialog as frame
 
 # Both halves run in the browser at the moment of the click, which is the whole point.
-# The clipboard API is a secure-context feature and http://cab.local:8000 - the ordinary
+# The clipboard API is a secure-context feature and http://cab.local:8001 - the ordinary
 # way this install is reached from another machine - is not one, so the old command is
 # what is left there. It needs the click's own permission, and a Manager click that goes
 # to the server and back has spent it by the time anything runs.

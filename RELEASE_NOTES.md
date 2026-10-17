@@ -36,8 +36,8 @@ next section first.
   VPN, behind a proxy or on HTTPS. An authenticator app set up on the same page can give
   both codes. Themes and extensions that did not come with VPinFE stay off until you accept
   them. Traffic on your network is not encrypted, so away from home connect through a VPN.
-  Set HTTP Address in Settings to `127.0.0.1` to keep other devices out altogether, at the
-  cost of the Manager and the Remote working from other devices.
+  Set Reachable From in Settings to This Device Only to keep other devices out altogether, at
+  the cost of the Manager and the Remote working from other devices.
 
 ### What's New
 - **Manager** - Other devices sign in to VPinFE once, with a code shown on this machine

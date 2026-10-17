@@ -30,7 +30,6 @@ from common.config.config_access import DisplayConfig, NetworkConfig, SettingsCo
 from common.config.config_store import ConfigStore
 from common.config.paths import bundled
 from common.devices import serving
-from common.games import remote_library
 from common.host import bundled_libraries
 from common.runtime.log_setup import include_thirdparty_logs
 from frontend import theme_api, theme_windows
@@ -203,40 +202,30 @@ def option_lines(builtin: Iterable[str], added: Iterable[str]) -> list[OptionLin
 
 
 class LibraryEndpoint(NamedTuple):
-    """Where a page dials for the library, and where it dials for this machine."""
+    """Where a page dials for the library, and where it dials for this device."""
 
     host: str
     port: int
     device_port: int
-    files_port: int
 
 
 def _library_endpoint(network: NetworkConfig) -> LibraryEndpoint:
     """Resolve `network.library_url` into the addresses a window is launched with.
 
-    With no library set the host is "" and every port is this install's, which is every
-    single-machine setup. With one, three of the four belong to that install and have to
-    be asked for separately: `network.http_port` and `network.theme_assets_port` describe
-    what *this* install serves, so reading a library on other ports would dial our own
-    numbers at the other machine. The api port is in the url; the file server's is not
-    in it at all, so the other install is asked - it publishes its own in discovery.
-
+    With no library set the host is "" and both ports are this install's, which is every
+    single-device setup. With one, the library's port is the one in its url and this
+    device's own stays `network.http_port`: reading a library on another port would
+    otherwise dial our own number at the other device. The library serves its art on that
+    same port.
     """
     trimmed = str(getattr(network, "library_url", "") or "").strip()
     own_api = network.http_port
-    own_files = network.theme_assets_port
     if not trimmed:
         here = serving.loopback_or(own_api)
-        return LibraryEndpoint("", here, here, own_files)
+        return LibraryEndpoint("", here, here)
 
     parsed = urlparse(trimmed)
-    files = remote_library.remote_services(trimmed).get("files") or {}
-    try:
-        remote_files = int(files.get("port") or own_files)
-    except (TypeError, ValueError):
-        remote_files = own_files
-    return LibraryEndpoint(parsed.hostname or "", parsed.port or own_api, own_api,
-                           remote_files)
+    return LibraryEndpoint(parsed.hostname or "", parsed.port or own_api, own_api)
 
 
 def _build_window_url(
@@ -245,11 +234,10 @@ def _build_window_url(
     theme_name: str,
     window_name: str,
     splash_enabled: bool,
-    ws_port: int = 8002,
-    http_port: int = 8001,
+    ws_port: int = NetworkConfig.ws_port,
+    http_port: int = NetworkConfig.http_port,
     library_host: str = "",
-    device_port: int = 8001,
-    library_files_port: int = 0,
+    device_port: int = NetworkConfig.http_port,
     page: str = "",
 ) -> str:
     """Where a window opens, and how it finds the services.
@@ -271,8 +259,7 @@ def _build_window_url(
     # one port for both, which is right for every install that serves its own library.
     if library_host:
         endpoints += (f"&libraryHost={quote(library_host, safe='')}"
-                      f"&devicePort={device_port}"
-                      f"&libraryFilesPort={library_files_port or theme_assets_port}")
+                      f"&devicePort={device_port}")
 
     if platform.system() == "Linux":
         return f"{base_url}:{theme_assets_port}/app/{window_name}?{endpoints}"
@@ -549,7 +536,7 @@ class ChromiumManager:
         Args:
             window_name: whatever the theme declared - 'playfield', 'backglass' and
                 'scoreview' by default, and anything else a theme asks for
-            url: The URL to load (e.g. http://127.0.0.1:8000/app/backglass)
+            url: The URL to load (e.g. http://127.0.0.1:8001/app/backglass)
             monitor: screeninfo Monitor object with x, y, width, height
             index: Unique index for temp profile directory
         """
@@ -625,7 +612,7 @@ class ChromiumManager:
         network = serving.network(iniconfig)
         displays = DisplayConfig.from_config(iniconfig)
         settings = SettingsConfig.from_config(iniconfig)
-        theme_assets_port = network.theme_assets_port
+        theme_assets_port = serving.own_port(iniconfig)
         theme_name = theme_api.get_theme_name(iniconfig)
         splash_enabled = settings.splashscreen
         library = _library_endpoint(network)
@@ -665,7 +652,6 @@ class ChromiumManager:
                 http_port=library.port,
                 library_host=library.host,
                 device_port=library.device_port,
-                library_files_port=library.files_port,
                 page=theme_api.window_page_path(iniconfig, window_name),
             )
 

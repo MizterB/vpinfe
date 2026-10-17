@@ -49,9 +49,6 @@ class LiveInstance:
         self.theme = theme
         self.windows = windows
         self.extra_settings = extra_settings or {}
-        # The library's asset port, which the real launcher reads out of its discovery
-        # document. A test that stands up a library sets it from that instance.
-        self.library_files_port = 0
         # No trailing hyphen on purpose. The Metrics page renders this path, and the
         # pseudo-locale check reads the screen for bare English words - a hyphen is a
         # word boundary, so "vpinfe-live-<random>" offered the suffix as a word and it
@@ -144,7 +141,7 @@ class LiveInstance:
 
         # Ports of its own, so a running instance is not a reason this fails.
         from tests.support.browser_session import free_port
-        self.ports = {"assets": free_port(), "manager": free_port(), "ws": free_port()}
+        self.ports = {"manager": free_port(), "ws": free_port()}
 
         store = ConfigStore(str(self.config_dir / "vpinfe.ini"))
         from common.games.library_folders import Location, mint_location_id
@@ -155,7 +152,6 @@ class LiveInstance:
         for index, window in enumerate(self.windows):
             section = _WINDOW_SECTIONS.get(window, f"windows.{window}")
             cfg_set(store, section, "screen_id", index)
-        cfg_set(store, "network", "theme_assets_port", self.ports["assets"])
         cfg_set(store, "network", "http_port", self.ports["manager"])
         cfg_set(store, "network", "ws_port", self.ports["ws"])
         cfg_set(store, "themes", "refresh", "never")
@@ -192,17 +188,16 @@ class LiveInstance:
     # -- reading -----------------------------------------------------------
 
     def url(self, path: str = "/") -> str:
-        return f"http://127.0.0.1:{self.ports['assets']}{path}"
+        return f"http://127.0.0.1:{self.ports['manager']}{path}"
 
     def manager_url(self, path: str = "/") -> str:
-        """The Manager and the remote, which are served beside the API rather than by
-        the asset server a theme is loaded from."""
+        """The Manager and the remote. The same server as `url`, which is a theme's."""
         return f"http://127.0.0.1:{self.ports['manager']}{path}"
 
     def theme_url(self, window: str = "playfield") -> str:
         query = (f"/themes/{self.theme}/index_{window}.html?window={window}"
                  f"&wsPort={self.ports['ws']}"
-                 f"&themeAssetsPort={self.ports['assets']}")
+                 f"&themeAssetsPort={self.ports['manager']}")
         # What the launcher appends for a device, and the reason it has to be here too:
         # without it the page dials this machine for the library's art, which a device
         # does not have. See `_build_window_url`, which is what does this for real.
@@ -211,8 +206,7 @@ class LiveInstance:
             parsed = urllib.parse.urlparse(library_url)
             query += (f"&libraryHost={urllib.parse.quote(parsed.hostname or '', safe='')}"
                       f"&libraryPort={parsed.port or self.ports['manager']}"
-                      f"&devicePort={self.ports['manager']}"
-                      f"&libraryFilesPort={self.library_files_port or self.ports['assets']}")
+                      f"&devicePort={self.ports['manager']}")
         return self.url(query)
 
     def api(self, path: str):
@@ -232,7 +226,8 @@ class LiveInstance:
 
     def wait_for_api(self, timeout: float = 120.0) -> None:
         """Block until the API answers. Separate from `_wait_until_serving`, which waits
-        on the asset server: the two come up independently, and the api is the slower."""
+        on the theme routes: they answer before the library has loaded, so the api is the
+        slower."""
         deadline = time.time() + timeout
         while time.time() < deadline:
             assert self.proc is not None

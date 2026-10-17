@@ -37,7 +37,6 @@ from frontend import (
 )
 from frontend.api import API
 from frontend.chromium_manager import ChromiumManager
-from frontend.custom_http_server import CustomHTTPServer
 from frontend.device_channel import DeviceChannel
 
 
@@ -193,7 +192,7 @@ def _apply_theme_media_sets(iniconfig: ConfigStore, logger: logging.Logger) -> N
 
 
 def build_mount_points(base_path: str, config_dir: Path,
-                       iniconfig: ConfigStore) -> tuple[dict[str, str], str]:
+                       iniconfig: ConfigStore) -> dict[str, str]:
     themes_dir = str(config_dir / THEMES_FOLDER)
     collection_icons_dir = str(config_dir / "collection_icons")
     os.makedirs(themes_dir, exist_ok=True)
@@ -236,17 +235,7 @@ def build_mount_points(base_path: str, config_dir: Path,
 
     threading.Thread(target=_refresh_reference, daemon=True,
                      name="manufacturer-reference").start()
-    return mount_points, themes_dir
-
-
-def start_asset_server(mount_points: dict[str, str],
-                       iniconfig: ConfigStore) -> CustomHTTPServer:
-    http_server = CustomHTTPServer(mount_points)
-    network = NetworkConfig.from_config(iniconfig)
-    http_server.start_file_server(port=network.theme_assets_port,
-                                  bind=network.theme_assets_bind)
-    serving.bound("theme_assets_port", network.theme_assets_port)
-    return http_server
+    return mount_points
 
 
 def wait_for_server_ready(port: int, timeout_seconds: float = 15.0) -> None:
@@ -476,7 +465,7 @@ def run_frontend_loop(headless: bool, iniconfig: ConfigStore,
 
 def shutdown_services(logger: logging.Logger, *, iniconfig: ConfigStore,
                       ws_bridge: DeviceChannel, stop_dof: Callable[[], Any],
-                      stop_dmd: Callable[..., Any], http_server: CustomHTTPServer,
+                      stop_dmd: Callable[..., Any],
                       nicegui_app: Any, stop_server: Callable[[], Any]) -> None:
     logger.info("Shutting down services...")
     for label, action in (
@@ -486,7 +475,6 @@ def shutdown_services(logger: logging.Logger, *, iniconfig: ConfigStore,
         # Before the sockets go: this is what sends the goodbye packet, and a peer that
         # never gets one has to wait out a timeout to notice the machine is gone.
         ("stop_discovery", discovery.stop),
-        ("http_server.on_closed", http_server.on_closed),
         ("nicegui_app.shutdown", nicegui_app.shutdown),
         ("stop_server", stop_server),
     ):

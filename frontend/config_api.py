@@ -140,7 +140,7 @@ def get_cab_mode(config: ConfigSource) -> bool:
 
 
 def get_theme_assets_port(config: ConfigSource) -> int:
-    return serving.network(config).theme_assets_port
+    return serving.own_port(config)
 
 
 def get_http_port(config: ConfigSource) -> int:

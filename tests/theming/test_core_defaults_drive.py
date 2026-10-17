@@ -86,7 +86,7 @@ class CoreDefaultsDriveTests(TempTree):
                 await browser.navigate(
                     instance.url(f"/core/index_{window}.html?window={window}"
                                  f"&wsPort={instance.ports['ws']}"
-                                 f"&themeAssetsPort={instance.ports['assets']}"))
+                                 f"&themeAssetsPort={instance.ports['manager']}"))
                 src = await browser.wait_for(SHOWN, timeout=90.0)
                 return src, list(browser.failed_requests)
 
