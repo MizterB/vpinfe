@@ -71,7 +71,7 @@ class Standing:
 
 def _refuse(ctx: Any, refused: list[str] | None, what: str, exc: Exception) -> None:
     """Log what core would not take and name it in `refused`, which the report lists."""
-    ctx.logger.warning("%s did not come across: %s", what, exc)
+    ctx.logger.warning("%s was not imported: %s", what, exc)
     if refused is not None and what not in refused:
         refused.append(what)
 
@@ -341,7 +341,7 @@ def _place_media(ctx: Any, game_id: str, source_id: str, game: SourceGame,
             stopped.add(kind)
             row["wheel"] = row.get("wheel", False) or kind in mapping.WHEELS_AS
         except Exception as exc:
-            ctx.logger.warning("%s: %s did not come across: %s", row["name"], kind, exc)
+            ctx.logger.warning("%s: %s was not imported: %s", row["name"], kind, exc)
             refused.add(mapping.folder_of(game, path))
     row["skipped_media"] = sorted(
         {*mapping.unmapped_kinds(source_id, game, kinds, wheels_as), *refused} - {""})
@@ -454,7 +454,7 @@ def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
             # The copy already holding this file is the copy staying as it is, and its
             # ROM was read when it arrived. Not a failure, and nothing to count.
             if not (existing and isinstance(exc, FileExistsError)):
-                ctx.logger.warning("%s: the game file did not come across: %s", name, exc)
+                ctx.logger.warning("%s: the game file was not imported: %s", name, exc)
                 row["error"] = {"text": ctx.t("error.game_file"), "detail": ctx.why(exc)}
 
     if vps_id and not existing:
@@ -535,7 +535,7 @@ def _another_build(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str,
             named = tuple(landed.get("named", ()))
         except Exception as exc:
             if not (existing and isinstance(exc, FileExistsError)):
-                ctx.logger.warning("%s: the game file did not come across: %s", name, exc)
+                ctx.logger.warning("%s: the game file was not imported: %s", name, exc)
                 row["error"] = {"text": ctx.t("error.game_file"), "detail": ctx.why(exc)}
     if "media" not in cleared:
         _place_media(ctx, game_id, source_id, game, kinds, "", False, row, wheels_as)

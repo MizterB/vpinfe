@@ -778,17 +778,17 @@ class ReportTests(unittest.TestCase):
 
     def test_a_row_error_with_a_detail_hovers_it(self) -> None:
         drawn = _reported({"state": "done", "result": {"rows": [
-            {"name": "Kiss", "error": {"text": "the game file did not come across",
+            {"name": "Kiss", "error": {"text": "the game file was not imported",
                                        "detail": "Something is already at Kiss.vpx"}}]}})
 
         self.assertEqual("Something is already at Kiss.vpx",
-                         drawn["Kiss - the game file did not come across"])
+                         drawn["Kiss - the game file was not imported"])
 
     def test_a_row_error_as_a_string_hovers_nothing(self) -> None:
         drawn = _reported({"state": "done", "result": {"rows": [
-            {"name": "Kiss", "error": "the game file did not come across"}]}})
+            {"name": "Kiss", "error": "the game file was not imported"}]}})
 
-        self.assertEqual("", drawn["Kiss - the game file did not come across"])
+        self.assertEqual("", drawn["Kiss - the game file was not imported"])
 
 
 if __name__ == "__main__":

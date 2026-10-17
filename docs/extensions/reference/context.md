@@ -346,14 +346,14 @@ Runs `work(job)` on its own thread.  The job appears in the Jobs view and on `/a
 | `job.detail` | A line beside the progress |
 | `job.halt` | A `threading.Event`, set when somebody asks the job to stop.  Look at it between units |
 | `job.stopped` | Set it to True when the work ended early because `halt` was set |
-| `job.problems` | How many parts did not come across |
+| `job.problems` | How many parts failed |
 | `job.id` | The id a run answers with as `job_id` |
 
 With `stoppable=True` the job offers a **Stop** link, which calls
 `POST /api/v1/ext/<name>/jobs/<kind>/stop` at the Library tier.  With `keep_result=True` what
 `work` returns is written to disk, the latest 20 with the oldest going first, so the Jobs view
 can open it after the page that started the job has gone, and after a restart too.  A result
-may list `rows`.  Every row with an `error` is shown under what did not come across, by its
+may list `rows`.  Every row with an `error` is shown under what failed, by its
 `name`, and `error` takes a string or `{text, detail}`.
 
 A job is shown only to callers who reach the tier of the request that started it, so one a

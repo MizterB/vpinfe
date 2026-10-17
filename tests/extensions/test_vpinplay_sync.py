@@ -94,7 +94,7 @@ class PayloadTests(unittest.TestCase):
         self.assertIs(found["detectFlex"], False)
 
     def test_a_game_with_no_table_still_describes_itself(self) -> None:
-        """A keyed entry, or one whose file never came across."""
+        """A keyed entry, or one whose file was never imported."""
         found = sync.payload_for(GAME, None)
 
         self.assertEqual(found["info"]["vpsId"], "abcd1234")

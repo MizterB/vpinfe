@@ -388,7 +388,7 @@ class SummaryShapeTests(WizardCase):
         found = self._check(FIXTURE)
 
         headings = [one[0] for one in found["summary"] if len(one) == 1]
-        self.assertEqual(headings, ["What Comes Across"])
+        self.assertEqual(headings, ["What Is Imported"])
 
     def test_the_counts_come_after_the_heading(self) -> None:
         found = self._check(FIXTURE)

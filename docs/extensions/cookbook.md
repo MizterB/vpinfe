@@ -468,7 +468,7 @@ a Start button, and the job appears in Jobs with its step count and a Stop butto
   `progress.advance()`.
 - Start the job with `keep_result=True` to keep what the function returned, so Jobs can open
   it after a restart.
-- Set `job.problems = n` for the parts that did not come across. The job still finishes
+- Set `job.problems = n` for the parts that failed. The job still finishes
   done.
 
 **Watch out:** a job that never looks at `job.halt` cannot be stopped, whatever Stop says.

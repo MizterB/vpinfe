@@ -102,7 +102,7 @@ class ReadTests(PopperCase):
 
 
 class PlayableTests(PopperCase):
-    """Which emulators come across.
+    """Which emulators are imported.
 
     Popper records the extension per emulator and always fills it in, which neither of
     the other sources does - so this filter is one column here rather than three guesses.

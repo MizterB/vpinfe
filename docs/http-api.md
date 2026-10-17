@@ -1782,7 +1782,7 @@ files - and is empty where the kind's own name is enough. A finished job says ho
 `detail` is one line of counts, in the install's
 language, for the kinds that have something to count, and `stopped` is true on a `done` job
 whose work was stopped part way - `state` stays `done`, `failed`, or `running`. `problems`
-counts the parts of a `done` job that did not come across, an import's games that could not
+counts the parts of a `done` job that failed, an import's games that could not
 be made among them; a `done` job with `problems` above zero is the one to look at.
 
 A job an extension started is shown only to a caller who reaches the tier of the request that

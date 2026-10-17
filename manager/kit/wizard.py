@@ -1251,7 +1251,7 @@ def _show_all(job: dict, group: str) -> None:
 
 
 def report(body: Any, job: dict, under: str, *, limit: int | None = 20) -> None:
-    """What happened, once it has. The counts, and every game that did not come across -
+    """What happened, once it has. The counts, and every game that was not imported -
     a run that says only "done" leaves somebody to find the gaps themselves.
 
     `under` is the flow's own place in its catalog. `limit` is how many of a list to

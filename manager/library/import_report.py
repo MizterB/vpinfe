@@ -299,7 +299,7 @@ def _imported(job: dict[str, Any], result: dict[str, Any]) -> None:
 
 
 def _games(job: dict[str, Any], result: dict[str, Any]) -> int:
-    """The games that came across: what the import counted, else what Tables can list."""
+    """The games imported: what the import counted, else what Tables can list."""
     for one in result.get("against") or []:
         if one.get("key") == "games":
             return int(one.get("actual") or 0)

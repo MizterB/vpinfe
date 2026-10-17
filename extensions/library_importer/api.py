@@ -1282,7 +1282,7 @@ def build(ctx: Any) -> None:
                          ctx.t("wizard.summary.space_free", size=plan_for.size_of(need),
                                free=plan_for.size_of(free), where=where)
                          if free >= 0 else plan_for.size_of(need)])
-        rows.append([ctx.t("wizard.summary.comes_across")])
+        rows.append([ctx.t("wizard.summary.imported")])
         rows += [[ctx.t(f"count.{key}"), str(counts[key])] for key in plan_for.COUNTS]
         if any(source.key == "media" and source.active for source in made.sources):
             left = mapping.left_behind(library.source_id, games, ctx.games.kinds())
@@ -1432,7 +1432,7 @@ def build(ctx: Any) -> None:
                                  and key not in ("games", "picks", "only", "location")}
             job.stopped = bool(report.get("stopped"))
             # Counted from the rows the report lists, not from `failed`: a game whose
-            # folder was made and whose file did not come across is in the report too.
+            # folder was made and whose file was not imported is in the report too.
             job.problems = sum(1 for row in report["rows"]
                                if row.get("error") or row.get("refused"))
             created = report["games"] - report["filled"]

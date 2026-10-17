@@ -2,7 +2,7 @@
 
 It is the service the `/vps/entry` routes call, handed over by name, so the two cannot
 answer differently. Compared against the routes here for that reason, and the one thing a
-caller of releases depends on is held down: every link of a file comes across.
+caller of releases depends on is held down: every link of a file is kept.
 """
 
 from __future__ import annotations

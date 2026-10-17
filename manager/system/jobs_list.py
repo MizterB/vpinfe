@@ -44,7 +44,7 @@ _DETAIL_RENDERER = (
 LIMIT = jobs.HISTORY_LIMIT
 
 STOPPED = "stopped"
-# Finished, with parts that did not come across. A `done` job to the registry, which has
+# Finished, with parts that failed. A `done` job to the registry, which has
 # three states; to the person reading the list it is a run to open.
 WITH_ERRORS = "with_errors"
 OUTCOMES = (jobs.RUNNING, jobs.DONE, WITH_ERRORS, jobs.FAILED, STOPPED)

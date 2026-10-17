@@ -276,7 +276,7 @@ def _upgrade_summary(result: UpgradeResult) -> str:
     said = []
     if result["upgraded"]:
         said.append(f"Upgraded {_files(result['upgraded'])}. Ratings, favorites, tags and "
-                    "play counts came across unchanged, and a backup of each was saved.")
+                    "play counts are unchanged, and a backup of each was saved.")
     if result["failed"]:
         said.append(f"Could not upgrade {_files(result['failed'])}, and left each as it was.")
     return " ".join(said)

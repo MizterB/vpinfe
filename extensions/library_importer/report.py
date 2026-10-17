@@ -26,7 +26,7 @@ def items_for(ctx: Any, row: Mapping[str, Any], match: Any, cabinet: Cabinet) ->
     game file's `table_id` where the group links to its settings.
 
     A game that failed belongs to none. A further build of a machine belongs only to the
-    files that did not come across, which are its own. A game filled in rather than made
+    files that were not imported, which are its own. A game filled in rather than made
     is asked about its ROM, virtual DMD and refused files only, since its match and wheel
     are the person's own.
     """

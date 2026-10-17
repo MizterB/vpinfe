@@ -387,7 +387,7 @@ class ResultTests(unittest.TestCase):
     """A job that produces an answer has somewhere to put it.
 
     Some jobs are their own outcome - a library scan leaves a scanned library. An
-    import's outcome is which games came across and which did not, and without this
+    import's outcome is which games were imported and which were not, and without this
     every such job has to invent a back channel of its own.
     """
 

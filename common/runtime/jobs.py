@@ -169,7 +169,7 @@ class Job:
     started_at: float = field(default_factory=time.time)
     finished_at: float | None = None
     # What the work answered. Some jobs are their own outcome - a library scan leaves a
-    # scanned library - and some are not: an import's answer is which games came across
+    # scanned library - and some are not: an import's answer is which games were imported
     # and which did not, and without somewhere to put it every such job has to invent a
     # back channel of its own.
     result: object | None = None
@@ -181,7 +181,7 @@ class Job:
     # Set by the work when it ended early without failing. The job still finishes `done`:
     # `state` has three values and a consumer branches on `failed`.
     stopped: bool = False
-    # How many of its parts did not come across. The job still finishes `done` with the
+    # How many of its parts failed. The job still finishes `done` with the
     # rest; a consumer that says how it went reads this beside `state`.
     problems: int = 0
     # Whether the result is written to disk when it finishes, so it can be opened after a

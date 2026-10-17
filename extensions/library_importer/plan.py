@@ -5,7 +5,7 @@ kind of thing come from, and what is already here.
 
 **Every source is an option with a derived default.** A reader works out where the tables
 and the artwork are; the user can say otherwise, and can leave one empty. Empty means that
-kind is not imported - stated rather than implied, because "no ROMs came across" should be
+kind is not imported - stated rather than implied, because "no ROMs imported" should be
 something somebody chose and can see they chose.
 
 **And an import can be run more than once.** A first pass fails partway, or somebody

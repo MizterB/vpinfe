@@ -460,7 +460,7 @@ class ExtensionGames(Offered):
             if held:
                 raise FileExistsError(errno.EEXIST, os.strerror(errno.EEXIST), str(held[0]))
         written = media_placement.place(game_dir, kind, stem, source, page)
-        # Recorded as the user's, because it is: somebody's own library came across, and
+        # Recorded as the user's, because it is: somebody's own library was imported, and
         # a later media refresh must leave it alone rather than treat it as ours to
         # replace.
         media_placement.record_origin(game_dir, written, "user", "")
