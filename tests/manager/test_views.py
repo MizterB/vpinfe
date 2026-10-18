@@ -499,3 +499,23 @@ class ArrivalTests(unittest.TestCase):
     def test_a_stale_view_arrives_as_itself(self) -> None:
         stale = views.View(id="s", name="Old", columns=("gone",))
         self.assertIs(views.arrived(stale, games.UNMATCHED, self.FIELDS), stale)
+
+
+class AskedQuestionTests(unittest.TestCase):
+    ASKED = {"by": ["VPW"], "kind": "tableFiles"}
+
+    def test_the_question_survives_being_saved_and_read_back(self) -> None:
+        view = views.View(id="v", name="Mine", columns=("name",), asked=self.ASKED)
+        self.assertEqual(views.from_record(views.to_record(view)).asked, self.ASKED)
+
+    def test_a_record_saved_without_one_asks_nothing(self) -> None:
+        record = views.to_record(views.View(id="v", name="Mine", columns=("name",)))
+        del record["asked"]
+        self.assertEqual(views.from_record(record).asked, {})
+
+    def test_a_different_question_reads_as_a_modified_view(self) -> None:
+        view = views.View(id="v", name="Mine", columns=("name",), asked=self.ASKED)
+        same = views.differs(view, ("name",), (), {}, asked=dict(self.ASKED))
+        other = views.differs(view, ("name",), (), {}, asked={"by": ["Wildman"]})
+        dropped = views.differs(view, ("name",), (), {})
+        self.assertEqual((same, other, dropped), (False, True, True))

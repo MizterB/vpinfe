@@ -550,7 +550,8 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
                    collection: str = "", launcher: str = "", sets: str = "",
                    player: str = "", setup: str = "", log: str = "", find: str = "",
                    backup: str = "", report: str = "", group: str = "",
-                   entry: str = "", row: str = "") -> None:
+                   entry: str = "", row: str = "", author: str = "", maker: str = "",
+                   theme: str = "") -> None:
     """The Manager. Query parameters say where in it, so a place can be linked to."""
     # 2.x's own page keys, still sitting in bookmarks and manager-ui-state.json.
     if page.strip().lower() in ("vpinplay_account", "vpinplay_player"):
@@ -659,7 +660,7 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
                            "collection": collection, "launcher": launcher, "sets": sets,
                            "player": player, "log": log, "find": find, "backup": backup,
                            "report": report, "group": group, "entry": entry,
-                           "row": row},
+                           "row": row, "author": author, "maker": maker, "theme": theme},
                    views=[key for key, _label, _icon, _feature in nav_items],
                    sections=[item.key for item in rail.SECTIONS])
 

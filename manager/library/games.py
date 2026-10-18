@@ -1628,7 +1628,8 @@ def view_control(library: Any, scope: str,
                  columns: list[dict[str, Any]], *, bar: Any,
                  annotate: Callable[[], None] | None = None,
                  arriving: dict[str, Any] | None = None,
-                 art_in_lists: bool = False) -> Any:
+                 art_in_lists: bool = False,
+                 asking: views.Asking | None = None) -> Any:
     """One control for how the rows are presented: which view, and what is in it.
 
     Built here in the toolbar and wired once the grid exists, because the widgets have
@@ -1645,6 +1646,9 @@ def view_control(library: Any, scope: str,
     the first view put on the grid, and each column it filters is shown.
 
     `art_in_lists` is for a grid that lists games, tables or collections by name.
+
+    `asking` is a question the views carry: applying a view puts its question on the grid,
+    saving one keeps the question being asked.
     """
     custom, active = views.stored(library, scope)
     # Before the grid is built from `columns`, which is the same list.
@@ -1725,6 +1729,10 @@ def view_control(library: Any, scope: str,
             _show_purpose()
             baseline = views.arrived(view, over, all_fields)
             held["baseline"], held["over"] = baseline, over
+            if asking is not None:
+                asking.value = dict(view.asked if asking.arriving is None else asking.arriving)
+                asking.arriving = None
+                await asking.apply(asking.value)
             wanted = views.visible_columns(baseline, all_fields)
             # Leaving the grid as it is keeps it usable, and the notify says why. The
             # old fallback showed every column instead, which reads as the view
@@ -1777,7 +1785,7 @@ def view_control(library: Any, scope: str,
                              "leaving the view mark as it is")
                 return
             changed = views.differs(held["baseline"] or current(), shown, sort, model,
-                                    held["drawing"])
+                                    held["drawing"], asking.value if asking else None)
             # On the picker rather than beside it: the drift is a fact about the view
             # that is selected, so it belongs to the control that names it.
             picker.props(add="suffix=modified") if changed \
@@ -1812,7 +1820,8 @@ def view_control(library: Any, scope: str,
                               builtin=False, columns=shown,
                               sort=tuple(e for e in sort if e.get("sort")),
                               filters=model, help=said.strip(),
-                              drawn=dict(held["drawing"]))
+                              drawn=dict(held["drawing"]),
+                              asked=dict(asking.value) if asking else {})
             held["custom"] = [v for v in held["custom"] if v.id != view.id] + [view]
             held["views"] = views.builtins(presets) + held["custom"]
             held["active"] = view.id
@@ -1934,6 +1943,8 @@ def view_control(library: Any, scope: str,
             await _refresh()
 
         menu_button.on_click(fill_menu)
+        if asking is not None:
+            asking.changed = _refresh
         picker.on_value_change(lambda event: pick(event.value))
         # The grid reports its own changes; the marker follows them rather than being
         # recomputed on a timer that would outlive the grid.

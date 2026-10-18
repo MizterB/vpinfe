@@ -39,6 +39,10 @@ _FIELDS = (
     ("player", lambda state: state.get("player") or ""),
     ("backup", lambda state: state.get("backup") or ""),
     ("entry", lambda state: state.get("entry") or ""),
+    # Whose work Discovery's page shows: an author, a maker or a theme, one at a time.
+    ("author", lambda state: _subject(state, "author")),
+    ("maker", lambda state: _subject(state, "maker")),
+    ("theme", lambda state: _subject(state, "theme")),
     # The row an extension's list has open in its pane, by the id the list gave it.
     ("row", lambda state: state.get("ext_row") or ""),
     # A setting by its key: the Tables grid arrives on the launcher's tables that set it.
@@ -61,7 +65,10 @@ _ONLY_ON = {"game": _PANEL, "table": _PANEL, "section": _PANEL, "slot": _PANEL,
             "page": ("settings",), "log": ("logs",), "collection": ("collections", "games"),
             "launcher": ("launchers", "tables"), "sets": ("tables",),
             "report": ("tables",), "group": ("tables",),
-            "player": ("players",), "backup": ("backups",), "entry": ("discovery",)}
+            "player": ("players",), "backup": ("backups",), "entry": ("discovery",),
+            "author": ("discovery",), "maker": ("discovery",), "theme": ("discovery",)}
+
+SUBJECTS = ("author", "maker", "theme")
 
 
 # The Logs page's views that have an address; the stream is the one with none.
@@ -81,6 +88,14 @@ COLLAPSED = ""
 def _section(state: dict[str, Any]) -> str:
     chosen = state.get("section")
     return NO_SECTION if chosen == COLLAPSED else str(chosen or "")
+
+
+def _subject(state: dict[str, Any], kind: str) -> str:
+    """The name Discovery's page is about, where it is about a `kind`."""
+    subject = state.get("subject")
+    if isinstance(subject, dict) and subject.get("type") == kind:
+        return str(subject.get("name") or "")
+    return ""
 
 
 def _slot_kind(state: dict[str, Any]) -> str:
@@ -160,6 +175,9 @@ def apply(state: dict[str, Any], params: dict[str, str], *,
         state["backup"] = str(params["backup"]).strip()
     if str(params.get("entry") or "").strip():
         state["entry"] = str(params["entry"]).strip()
+    for kind in SUBJECTS:
+        if str(params.get(kind) or "").strip():
+            state["subject"] = {"type": kind, "name": str(params[kind]).strip()}
     if str(params.get("row") or "").strip() and str(state.get("view") or "").startswith(
             COMMUNITY_PREFIX):
         state["ext_row"] = str(params["row"]).strip()

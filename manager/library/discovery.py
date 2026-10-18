@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable, Collection
+from functools import partial
 from typing import Any
 
 from nicegui import ui
@@ -23,7 +24,7 @@ from common import icons
 from common.failures import why
 from common.i18n import t
 from common.media.media_specs import media_family
-from common.online import sites, vps_formats, vps_kinds
+from common.online import sites, vps_find, vps_formats, vps_kinds, vps_question
 from manager.kit import (
     busy,
     candidates,
@@ -40,7 +41,14 @@ from manager.kit import (
 from manager.kit import grid as grid_module
 from manager.kit.data import Library
 from manager.kit.on_page import on_page
-from manager.library import discovery_ext, discovery_get, import_dialog, mediasource, mediaview
+from manager.library import (
+    discovery_ask,
+    discovery_ext,
+    discovery_get,
+    import_dialog,
+    mediasource,
+    mediaview,
+)
 
 logger = logging.getLogger("vpinfe.manager.library.discovery")
 
@@ -182,6 +190,16 @@ def rows(found: dict[str, Any], kept: Collection[str] | None = None) -> list[dic
     return out
 
 
+def releases_of(found: dict[str, Any], kept: list[str]) -> dict[str, Any]:
+    """Each game's releases by VPS id, of the kinds the library collects."""
+    out = {}
+    for entry in found.get("rows") or []:
+        mine = {kind: one for kind, one in (entry.get("releases") or {}).items() if kind in kept}
+        if mine:
+            out[str(entry["vps_id"])] = mine
+    return out
+
+
 def row_of(library: Library, vps_id: str) -> dict[str, Any] | None:
     found = rows(library.catalog(), kept_listings(library))
     return next((one for one in found if one["id"] == vps_id), None)
@@ -247,11 +265,76 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
         return
     counted = bool(found.get("counted"))
     built = rows(found, kept_listings(library))
+    people = list(found.get("people") or [])
+    kept_now = kept_listings(library)
+    releases = releases_of(found, kept_now)
+    kind_words = {listed_as: word for listed_as, _field, word in KINDS if listed_as in kept_now}
+
+    async def go_to(subject: dict[str, str] | None, question: dict[str, Any] | None = None) -> None:
+        """Open a subject's page, or leave it - for the grid, with `question` asked."""
+        if subject and subject["type"] == vps_find.AUTHOR:
+            known = vps_question.person_named(subject["name"], people)
+            subject = {**subject, "name": str(known["name"]) if known else subject["name"]}
+        state["subject"] = subject
+        state["arriving"] = question
+        deeplink.sync(state)
+        rerender()
+
+    state["open_author"] = lambda name: go_to({"type": vps_find.AUTHOR, "name": name})
+    if state.get("subject"):
+        subject = state["subject"]
+        known = vps_question.person_named(subject["name"], people) \
+            if subject["type"] == vps_find.AUTHOR else None
+        renamed = known is not None and known["name"] != subject["name"]
+        if known is not None and renamed:
+            state["subject"] = subject = {**subject, "name": str(known["name"])}
+
+        @on_page
+        async def redraw_subject() -> None:
+            rerender()
+
+        state["redraw_discovery"] = redraw_subject
+        state.pop("count_discovery", None)
+        with body:
+            if renamed:
+                deeplink.sync(state)
+            discovery_ask.page(
+                subject=subject, state=state, people=people, rows=built,
+                releases=releases, kinds=kind_words, address=OWN_ADDRESS, open_game=on_select,
+                leave=lambda: go_to(None), see_all=lambda question: go_to(None, question))
+        return
     columns = grid_columns(library, built)
     by_id = {row["id"]: row for row in built}
     on_screen: dict[str, Any] = {"ids": [row["id"] for row in built], "selected": 0}
     unmatched = await offload.io(unmatched_games, library)
     show_unmatched = state.get("show_unmatched")
+    fits: dict[str, Any] = {"games": None}
+    vocabulary = vps_question.vocabulary(releases)
+
+    def narrowed() -> list[dict[str, Any]]:
+        return built if fits["games"] is None else [
+            row for row in built if row["id"] in fits["games"]]
+
+    async def narrow(question: dict[str, Any]) -> None:
+        fits["games"] = (vps_question.games_fitting(question, people, built, releases)
+                         if question else None)
+        draw_chips()
+        table.run_grid_method("setGridOption", "rowData", narrowed())
+
+    async def change(question: dict[str, Any]) -> None:
+        asking.value = question
+        await narrow(question)
+        if asking.changed is not None:
+            await asking.changed()
+
+    asking = views.Asking(narrow, state.pop("arriving", None))
+
+    @on_page
+    async def choose(group: str, one: dict[str, Any]) -> None:
+        if group == vps_find.GAME:
+            await on_select(by_id.get(str(one["id"])))
+        else:
+            await go_to({"type": group, "name": str(one["name"])})
 
     with body:
         with ui.row().classes(
@@ -259,10 +342,13 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
             bar = panel.grid_bar()
             wire_views, _picker, showing, describe = view_control(
                 library, SCOPE, VIEWS, [one["field"] for one in columns], columns, bar=bar,
-                art_in_lists=True)
+                art_in_lists=True, asking=asking)
             describe()
             with bar.top, panel.bar_end():
-                search = panel.search(t("manager.discovery.search"))
+                with ui.element("div").classes("manager-suggest-anchor"):
+                    search = panel.search(t("manager.discovery.search"))
+                    discovery_ask.Suggest(
+                        search, lambda text: vps_find.find(text, people, built), choose)
             with bar.bottom, panel.bar_end():
                 count = ui.label(summary(built, counted)).classes("text-xs manager-label")
                 show_selection = panel.selection_menu(
@@ -273,6 +359,19 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
                 ui.label(_counted_text(found)).classes("text-xs manager-label")
                 panel.refresh(lambda: count_again(), t("manager.discovery.compare_again"))
 
+        chips_row = ui.row().classes("w-full items-center gap-2 px-3 pb-2 shrink-0")
+
+        def draw_chips() -> None:
+            chips_row.clear()
+            with chips_row:
+                discovery_ask.chips(asking.value, kind_words, change)
+                add, more = panel.menu_label_button(t("manager.discovery.ask.add"), verbs.FILTER)
+                add.classes("manager-ask-add")
+                more.on("before-show", lambda: discovery_ask.add_menu(
+                    more, asking.value, kind_words, list(kind_words), people, vocabulary,
+                    change, counted=counted))
+
+        draw_chips()
         if not built:
             panel.facts(ui, [panel.intro(t("manager.discovery.empty"))])
         if unmatched:
@@ -338,11 +437,16 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
         """The rows read again from the library, the grid and the pane put right."""
         if not library.has_catalog():
             await offload.io(library.load_catalog)
-        fresh = rows(library.catalog(), kept_listings(library))
+        again = library.catalog()
+        fresh = rows(again, kept_listings(library))
         built[:] = fresh
         by_id.clear()
         by_id.update({row["id"]: row for row in fresh})
-        table.run_grid_method("setGridOption", "rowData", fresh)
+        people[:] = again.get("people") or []
+        releases.clear()
+        releases.update(releases_of(again, kept_listings(library)))
+        vocabulary.update(vps_question.vocabulary(releases))
+        await narrow(asking.value)
         chosen = state.get("entry")
         if chosen and state.get("workbench"):
             await on_select(by_id.get(chosen))
@@ -773,11 +877,19 @@ def _ways_out(page: str, broken: bool, entry_url: str, use_file: Callable[[], No
 
 
 def _detail(record: dict[str, Any], *, entry_url: str, features: bool,
-            use_file: Callable[[], None], looked: Callable[[], None] | None = None) -> None:
+            use_file: Callable[[], None], looked: Callable[[], None] | None = None,
+            open_author: Callable[[str], Any] | None = None) -> None:
     """What the row's lines cut short, and the ways out. `looked` draws what the page of
-    the file a source offers says."""
+    the file a source offers says. `open_author` makes each name a link to that author's
+    page."""
     authors = [str(name) for name in (record.get("authors") or [])]
-    if len(authors) > 2:
+    if open_author is not None and authors:
+        with ui.row().classes("items-center gap-x-3 gap-y-0"):
+            for name in authors:
+                panel.link(name, to="/manager?" + deeplink.query(
+                    {"view": "discovery", "subject": {"type": "author", "name": name}}),
+                    on_click=partial(open_author, name))()
+    elif len(authors) > 2:
         ui.label(", ".join(authors)).classes("manager-help")
     unshown = [str(one) for one in (record.get("features") or []) if one != "MOD"]
     if not features and unshown:
@@ -832,7 +944,8 @@ def _record(context: dict[str, Any], record: dict[str, Any], *, mine: bool, feat
                    lambda: _detail(
                        record, entry_url=entry_url, features=features, use_file=use_file,
                        looked=None if offered is None else
-                       lambda: discovery_ext.look(context, offered, game_id)), lead)
+                       lambda: discovery_ext.look(context, offered, game_id),
+                       open_author=context["state"].get("open_author")), lead)
 
         def whose() -> None:
             ui.label(when.day(stamp.astimezone()) if stamp else "").classes(

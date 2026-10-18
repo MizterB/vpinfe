@@ -16,7 +16,7 @@ Physical layout - width, order, pinning - is the grid's, not a view's. See
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -44,6 +44,24 @@ class View:
     help: str = ""
     # field -> the drawing it uses, where that is not the column's own.
     drawn: dict[str, str] = field(default_factory=dict)
+    # What a grid asks of its rows beyond filtering columns. The grid's owner reads it.
+    asked: dict[str, Any] = field(default_factory=dict)
+
+
+class Asking:
+    """The question a grid's views carry, held by the grid's owner and read by the views.
+
+    `value` is what is being asked now. `apply` puts a question on the grid. `changed` is
+    for the owner to call after it changes `value`, so the view reads as modified;
+    `view_control` fills it in. `arriving` is a question the page arrived with, which the
+    first view applied takes in place of its own."""
+
+    def __init__(self, apply: Callable[[dict[str, Any]], Awaitable[None]],
+                 arriving: dict[str, Any] | None = None) -> None:
+        self.value: dict[str, Any] = {}
+        self.apply = apply
+        self.arriving = arriving
+        self.changed: Callable[[], Awaitable[None]] | None = None
 
 
 def mint_id() -> str:
@@ -95,7 +113,8 @@ def builtins(presets: Mapping[str, list[str] | Preset]) -> list[View]:
 def to_record(view: View) -> dict[str, Any]:
     return {"id": view.id, "name": view.name, "builtin": view.builtin,
             "columns": list(view.columns), "sort": list(view.sort),
-            "filters": view.filters, "help": view.help, "drawn": view.drawn}
+            "filters": view.filters, "help": view.help, "drawn": view.drawn,
+            "asked": view.asked}
 
 
 def from_record(record: dict[str, Any]) -> View:
@@ -108,7 +127,8 @@ def from_record(record: dict[str, Any]) -> View:
                 sort=tuple(record.get("sort") or []),
                 filters=dict(record.get("filters") or {}),
                 help=str(record.get("help") or ""),
-                drawn={str(k): str(v) for k, v in (record.get("drawn") or {}).items()})
+                drawn={str(k): str(v) for k, v in (record.get("drawn") or {}).items()},
+                asked=dict(record.get("asked") or {}))
 
 
 def stored(library: Any, scope: str) -> tuple[list[View], str]:
@@ -160,13 +180,15 @@ def arrived(view: View, over: Mapping[str, Any] | None, all_fields: list[str]) -
 
 
 def differs(view: View, columns: tuple[str, ...], sort: tuple[dict, ...],
-            filters: dict[str, Any], drawn: dict[str, str] | None = None) -> bool:
+            filters: dict[str, Any], drawn: dict[str, str] | None = None,
+            asked: dict[str, Any] | None = None) -> bool:
     """Whether the screen has drifted from the selected view. Column *order* is not
     compared: dragging one is layout, which the grid keeps for itself."""
     return (set(view.columns) != set(columns)
             or _sort_key(view.sort) != _sort_key(sort)
             or (view.filters or {}) != (filters or {})
-            or (view.drawn or {}) != (drawn or {}))
+            or (view.drawn or {}) != (drawn or {})
+            or (view.asked or {}) != (asked or {}))
 
 
 def _sort_key(sort: Any) -> list[tuple[str, str]]:

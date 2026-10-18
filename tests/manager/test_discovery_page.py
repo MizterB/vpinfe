@@ -12,7 +12,7 @@ from common.online import vps_kinds
 from manager import page
 from manager.kit import deeplink
 from manager.kit.data import Library
-from manager.library import discovery, discovery_get
+from manager.library import discovery, discovery_ask, discovery_get
 
 # Made at import, outside any task, where NiceGUI still hands out the script's own page.
 _PAGE = ui.element()
@@ -357,6 +357,59 @@ class Address(unittest.TestCase):
 
         self.assertIn("entry=v1", on_page)
         self.assertNotIn("entry", elsewhere)
+
+    def test_a_subject_is_named_in_the_address_by_its_kind(self) -> None:
+        for kind in deeplink.SUBJECTS:
+            with self.subTest(kind=kind):
+                state = {"view": "discovery", "subject": {"type": kind, "name": "Bally"}}
+                self.assertEqual(f"view=discovery&{kind}=Bally", deeplink.query(state))
+
+    def test_a_subject_is_named_on_this_page_only(self) -> None:
+        state = {"view": "games", "subject": {"type": "author", "name": "VPW"}}
+        self.assertNotIn("author", deeplink.query(state))
+
+    def test_an_address_opens_the_page_for_the_subject_it_names(self) -> None:
+        state: dict = {"view": "discovery"}
+        deeplink.apply(state, {"view": "discovery", "maker": " Bally "},
+                       views=["discovery"], sections=[])
+        self.assertEqual(state["subject"], {"type": "maker", "name": "Bally"})
+
+
+class AskWords(unittest.TestCase):
+    def test_taking_a_value_out_of_a_list_leaves_the_rest(self) -> None:
+        asked = {"by": ["A", "B"], "mod": "mods"}
+        self.assertEqual(discovery_ask.without(asked, "by", "A"), {"by": ["B"], "mod": "mods"})
+        self.assertEqual(discovery_ask.without(asked, "mod", "mods"), {"by": ["A", "B"]})
+
+    def test_a_list_key_gains_the_value_and_any_other_key_takes_it_in_place(self) -> None:
+        self.assertEqual(discovery_ask.with_value({"by": ["A"]}, "by", "B"), {"by": ["A", "B"]})
+        self.assertEqual(discovery_ask.with_value({"mod": "mods"}, "mod", "originals"),
+                         {"mod": "originals"})
+
+    def test_asking_for_tables_brings_the_default_format_unless_one_is_named(self) -> None:
+        self.assertEqual(discovery_ask.with_value({}, "kind", "tableFiles"),
+                         {"kind": "tableFiles", "format": [discovery_ask.FORMAT_DEFAULT]})
+        self.assertEqual(
+            discovery_ask.with_value({"format": ["FP"]}, "kind", "tableFiles")["format"], ["FP"])
+        self.assertNotIn("format", discovery_ask.with_value({}, "kind", "b2sFiles"))
+
+    def test_moving_off_tables_takes_the_default_format_with_it(self) -> None:
+        tables = discovery_ask.with_value({}, "kind", "tableFiles")
+        self.assertEqual(discovery_ask.with_value(tables, "kind", "b2sFiles"),
+                         {"kind": "b2sFiles"})
+        chosen = {"kind": "tableFiles", "format": ["FP"]}
+        self.assertEqual(discovery_ask.with_value(chosen, "kind", "b2sFiles")["format"], ["FP"])
+
+    def test_the_releases_a_library_does_not_collect_are_left_out(self) -> None:
+        found = {"rows": [{"vps_id": "a", "releases": {"tableFiles": [1], "romFiles": [2]}},
+                          {"vps_id": "b", "releases": {"romFiles": [3]}}]}
+        self.assertEqual(discovery.releases_of(found, ["tableFiles"]), {"a": {"tableFiles": [1]}})
+
+    def test_every_thing_asked_is_one_chip(self) -> None:
+        asked = {"kind": "b2sFiles", "by": ["A", "B"], "mod": "mods", "held": "missing"}
+        said = discovery_ask.parts(asked, {"b2sFiles": "word.kind"})
+        self.assertEqual([key for key, _value, _words in said],
+                         ["kind", "by", "by", "mod", "held"])
 
 
 class MediaBands(unittest.TestCase):

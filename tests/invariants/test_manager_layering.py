@@ -36,7 +36,7 @@ AREAS: dict[str, tuple[str, ...]] = {
             "appearance_picker", "report_groups", "deeplink", "wizard", "need_keys",
             "play_facts", "clipboard", "wizard_lists"),
     "library": ("games", "collections", "collection_adds", "collection_rules", "discovery",
-                "discovery_get", "discovery_ext",
+                "discovery_get", "discovery_ext", "discovery_ask",
                 "assets", "media", "media_fill", "media_rotate", "mediamap", "mediapages",
                 "mediasource", "mediaview", "pictures", "backglass_view", "record",
                 "release_match", "vps_match", "import_dialog", "import_report", "uploads",
