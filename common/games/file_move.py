@@ -152,7 +152,8 @@ def plan_to_tables(family: str, kind: str, folder: str, tables: list[str],
     The file stays on the game when every table without a file of its own is chosen, since
     nothing then reads it from there but the table named like the folder, which reads it
     under its own name and would lose it otherwise. A kind no table reads from the game
-    never stays: moving it is giving it away.
+    never stays: moving it is giving it away. A game with one table has nobody to share
+    the file with, so choosing that table gives it the file under its own name.
     """
     others = [stem for stem in tables if not _same(stem, folder)]
     chosen: list[str] = []
@@ -164,7 +165,8 @@ def plan_to_tables(family: str, kind: str, folder: str, tables: list[str],
             chosen.append(match)
     fallback = has_fallback(family, kind)
     readers = [stem for stem in others if not own(stem)] if fallback else []
-    stays = fallback and all(any(_same(r, c) for c in chosen) for r in readers)
+    stays = fallback and len(tables) > 1 \
+        and all(any(_same(r, c) for c in chosen) for r in readers)
     if stays and not any(own(stem) for stem in chosen):
         raise service_errors.RefusedError(t("error.file_move.nothing"))
     if not stays and not chosen:

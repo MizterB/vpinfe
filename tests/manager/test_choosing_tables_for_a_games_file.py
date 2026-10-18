@@ -83,6 +83,15 @@ class WhatTheGameFileDoesTests(unittest.TestCase):
         self.assertEqual([found.ends[key] for key in ("t1", "t2", "t3", "t4")],
                          [move_plan.USES, move_plan.REPLACES, move_plan.USES, move_plan.USES])
 
+    def test_the_only_table_of_a_game_is_given_the_file_not_left_on_the_game(self) -> None:
+        slot = backglass(row("t2", "Cactus B"))
+
+        found = move_plan.outcome(slot, ["t2"])
+
+        self.assertFalse(found.stays)
+        self.assertEqual(found.problem, "")
+        self.assertEqual(found.ends["t2"], move_plan.GETS_OWN)
+
     def test_one_table_ticked_takes_the_file_and_the_others_lose_it(self) -> None:
         slot = three()
 

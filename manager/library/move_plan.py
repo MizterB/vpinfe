@@ -105,7 +105,7 @@ def outcome(slot: Slot, chosen: Iterable[str]) -> Outcome:
         # The rows still say what they are: unchanged when the file would stay as it is,
         # losing it when no table is left to have it.
         waiting = [one for one in rows if not one["folder_named"] and not one["own"]]
-        stays = file_move.has_fallback(slot.family, slot.kind) \
+        stays = file_move.has_fallback(slot.family, slot.kind) and len(stems) > 1 \
             and all(one["id"] in picked for one in waiting)
         return Outcome(changes, problem=NOTHING if stays else NO_TABLE, stays=stays,
                        ends={one["id"]: _end(slot, one, one["id"] in picked, stays, False)

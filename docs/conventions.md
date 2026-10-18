@@ -1193,7 +1193,12 @@ Both move the file in its folder, and both say what moved with Undo.
   what it ends up with in words under its name. Saving makes the ticks true. The file stays on
   the game when every table without its own is ticked, replacing the own file of any table
   ticked with one. Otherwise it leaves the game: renamed for the one table ticked, copied for
-  each when several are. A replaced file goes to Backups with no confirm, and Undo puts both back.
+  each when several are. A game with a single table has nobody to share with, so it is given
+  the file under its own name. A replaced file goes to Backups with no confirm, and Undo puts
+  both back.
+- **A backglass at the game level** is found by folder name by VPX's B2S plugin (from
+  10.8.1-5436) and its B2S Legacy plugin (in the source since 2026-09-04, after that tag).
+  The classic B2S Server 2.1.6 on Windows does not look for it.
 - **Off, with the reason as the hint:** a game with no tables, files from two games, two
   tables' files of one kind (*Keep one*).
 - **A table named like the folder is not a choice.** Its file and the game's are one file,

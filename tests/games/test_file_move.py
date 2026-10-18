@@ -468,6 +468,17 @@ class PlanTests(TempTree):
         with self.assertRaises(service_errors.RefusedError):
             self.plan(["B", "C", "D"], own=set())
 
+    def test_the_only_table_of_a_game_takes_the_file_under_its_own_name(self) -> None:
+        plan = self.plan(["B"], own=set(), names=("B",))
+
+        self.assertFalse(plan.stays)
+        self.assertEqual(plan.selected, ["B"])
+        self.assertEqual(plan.lost, [])
+
+    def test_the_only_table_cannot_be_left_without_the_file_it_uses(self) -> None:
+        with self.assertRaises(service_errors.RefusedError):
+            self.plan([], own=set(), names=("B",))
+
     def test_the_stem_is_the_one_spelled_on_disk(self) -> None:
         plan = self.plan(["b"], own=set())
 
