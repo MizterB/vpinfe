@@ -3178,8 +3178,11 @@
   "manager.security.everyone_hint": "Èñđ èṽèřý ƀřöŵšèř'š šîĝñ-îñ",
   "manager.security.show_hint": "Šĥöŵ ţĥè çöđè ţö ţýþè îñ ţĥè öţĥèř ƀřöŵšèř",
   "manager.security.show": "Šĥöŵ",
-  "manager.security.type_it": "Ţýþè îţ öñ {address}",
-  "manager.security.wants": "À ƀřöŵšèř àţ “{address}” ŵàñţš ţö šîĝñ îñ",
+  "manager.security.who_agent": "{agent} àţ {place}",
+  "manager.security.who_browser": "Ţĥè ƀřöŵšèř àţ {place}",
+  "manager.security.for_browser": "{who} ŵàñţš ţö šîĝñ îñ. Ţýþè ţĥîš çöđè ţĥèřè ţö ŀèţ îţ îñ.",
+  "manager.security.signin_title": "Šîĝñ-Îñ Çöđè",
+  "manager.security.wants": "{who} ŵàñţš ţö šîĝñ îñ",
   "manager.security.asks": "“{program}” ŵàñţš ţö ɱàķè à çĥàñĝè",
   "manager.security.asks_lapse": {
     "one": "Ŀàþšèš îñ {count:n} ɱîñûţè",
@@ -3222,10 +3225,23 @@
   "manager.security.col_last_used.help": "Ĥöŵ ŀöñĝ àĝö îţ ŵàš ŀàšţ ûšèđ - ĥöṽèř à çèŀŀ ƒöř ţĥè đàţè àñđ ţîɱè",
   "manager.security.this_browser": "Ţĥîš ƀřöŵšèř",
   "manager.security.confirm_code": "Çöñƒîřɱ Çöđè",
-  "manager.security.confirm_asked": "À ƀřöŵšèř àţ “{address}” îš çöñƒîřɱîñĝ à çĥàñĝè",
+  "manager.security.confirm_for": "{who} ŵàñţš ţö ɱàķè à çĥàñĝè ţĥàţ ñèèđš à Çöñƒîřɱ. Ţýþè ţĥîš çöđè ţĥèřè ţö àŀŀöŵ îţ.",
   "manager.security.pair_code": "Þàîřîñĝ Çöđè",
-  "manager.security.pair_asked": "“{address}” îš þàîřîñĝ ŵîţĥ ţĥîš đèṽîçè",
-  "manager.security.code_good": "Ĝööđ ƒöř {minutes} ɱîñûţèš",
+  "manager.security.pair_for": "Àñöţĥèř ṼÞîñƑÈ đèṽîçè ñàɱèđ {name} àţ {place} ŵàñţš ţö þàîř ŵîţĥ ţĥîš đèṽîçè. Ţýþè ţĥîš çöđè ţĥèřè ţö ĝîṽè îţ ƒûŀŀ çöñţřöŀ öƒ ţĥîš đèṽîçè.",
+  "manager.security.pair_for_unnamed": "Àñöţĥèř ṼÞîñƑÈ đèṽîçè àţ {place} ŵàñţš ţö þàîř ŵîţĥ ţĥîš đèṽîçè. Ţýþè ţĥîš çöđè ţĥèřè ţö ĝîṽè îţ ƒûŀŀ çöñţřöŀ öƒ ţĥîš đèṽîçè.",
+  "manager.security.code_good": {
+    "one": "Ţĥè çöđè ŵöřķš ƒöř {count:n} ɱîñûţè",
+    "other": "Ţĥè çöđè ŵöřķš ƒöř {count:n} ɱîñûţèš"
+  },
+  "manager.security.lasts_sign_in": {
+    "one": "Öñçè šîĝñèđ îñ, ţĥàţ ƀřöŵšèř šţàýš šîĝñèđ îñ ûñţîŀ îţ ĝöèš ûñûšèđ ƒöř {count:n} đàý.",
+    "other": "Öñçè šîĝñèđ îñ, ţĥàţ ƀřöŵšèř šţàýš šîĝñèđ îñ ûñţîŀ îţ ĝöèš ûñûšèđ ƒöř {count:n} đàýš."
+  },
+  "manager.security.lasts_confirm": {
+    "one": "Öñçè çöñƒîřɱèđ, ţĥàţ ƀřöŵšèř çàñ ķèèþ ɱàķîñĝ çĥàñĝèš ûñţîŀ îţ ĥàš ĝöñè {count:n} ɱîñûţè ŵîţĥöûţ öñè.",
+    "other": "Öñçè çöñƒîřɱèđ, ţĥàţ ƀřöŵšèř çàñ ķèèþ ɱàķîñĝ çĥàñĝèš ûñţîŀ îţ ĥàš ĝöñè {count:n} ɱîñûţèš ŵîţĥöûţ öñè."
+  },
+  "manager.security.lasts_pair": "Öñçè þàîřèđ, îţ šţàýš þàîřèđ ûñţîŀ ýöû řèɱöṽè îţ ûñđèř Šèçûřîţý > Ţöķèñš.",
   "manager.settings.page_assets": "Àššèţš",
   "manager.settings.page_audit": "Àûđîţ",
   "manager.settings.page_backups": "Ɓàçķûþš",
@@ -5056,11 +5072,31 @@
     "one": "Èẋþîřèš îñ {count:n} ɱîñûţè",
     "other": "Èẋþîřèš îñ {count:n} ɱîñûţèš"
   },
-  "frontend.signin.from": "Řèǫûèšţèđ ƒřöɱ {address}",
+  "frontend.signin.good_for": {
+    "one": "Ţĥè çöđè ŵöřķš ƒöř {count:n} ɱîñûţè",
+    "other": "Ţĥè çöđè ŵöřķš ƒöř {count:n} ɱîñûţèš"
+  },
+  "frontend.signin.confirm_title": "Çöñƒîřɱ Çöđè",
+  "frontend.signin.who_agent": "{agent} àţ {place}",
+  "frontend.signin.who_browser": "Ţĥè ƀřöŵšèř àţ {place}",
+  "frontend.signin.for_browser": "{who} ŵàñţš ţö šîĝñ îñ. Ţýþè ţĥîš çöđè ţĥèřè ţö ŀèţ îţ îñ.",
+  "frontend.signin.for_change": "{who} ŵàñţš ţö ɱàķè à çĥàñĝè ţĥàţ ñèèđš à Çöñƒîřɱ. Ţýþè ţĥîš çöđè ţĥèřè ţö àŀŀöŵ îţ.",
+  "frontend.signin.for_pair": "Àñöţĥèř ṼÞîñƑÈ đèṽîçè ñàɱèđ {name} àţ {place} ŵàñţš ţö þàîř ŵîţĥ ţĥîš đèṽîçè. Ţýþè ţĥîš çöđè ţĥèřè ţö ĝîṽè îţ ƒûŀŀ çöñţřöŀ öƒ ţĥîš đèṽîçè.",
+  "frontend.signin.for_pair_unnamed": "Àñöţĥèř ṼÞîñƑÈ đèṽîçè àţ {place} ŵàñţš ţö þàîř ŵîţĥ ţĥîš đèṽîçè. Ţýþè ţĥîš çöđè ţĥèřè ţö ĝîṽè îţ ƒûŀŀ çöñţřöŀ öƒ ţĥîš đèṽîçè.",
+  "frontend.signin.lasts_sign_in": {
+    "one": "Öñçè šîĝñèđ îñ, ţĥàţ ƀřöŵšèř šţàýš šîĝñèđ îñ ûñţîŀ îţ ĝöèš ûñûšèđ ƒöř {count:n} đàý.",
+    "other": "Öñçè šîĝñèđ îñ, ţĥàţ ƀřöŵšèř šţàýš šîĝñèđ îñ ûñţîŀ îţ ĝöèš ûñûšèđ ƒöř {count:n} đàýš."
+  },
+  "frontend.signin.lasts_confirm": {
+    "one": "Öñçè çöñƒîřɱèđ, ţĥàţ ƀřöŵšèř çàñ ķèèþ ɱàķîñĝ çĥàñĝèš ûñţîŀ îţ ĥàš ĝöñè {count:n} ɱîñûţè ŵîţĥöûţ öñè.",
+    "other": "Öñçè çöñƒîřɱèđ, ţĥàţ ƀřöŵšèř çàñ ķèèþ ɱàķîñĝ çĥàñĝèš ûñţîŀ îţ ĥàš ĝöñè {count:n} ɱîñûţèš ŵîţĥöûţ öñè."
+  },
+  "frontend.signin.lasts_pair": "Öñçè þàîřèđ, îţ šţàýš þàîřèđ ûñţîŀ ýöû řèɱöṽè îţ ûñđèř Šèçûřîţý > Ţöķèñš.",
+  "frontend.signin.pair_title": "Þàîřîñĝ Çöđè",
   "frontend.signin.ignore": "Îĝñöřè",
   "frontend.signin.show": "Šĥöŵ",
   "frontend.signin.title": "Šîĝñ-Îñ Çöđè",
-  "frontend.signin.wants": "{address} ŵàñţš ţö šîĝñ îñ",
+  "frontend.signin.wants": "{who} ŵàñţš ţö šîĝñ îñ",
   "frontend.theme.detected_features": "Đèţèçţèđ Ƒèàţûřèš",
   "frontend.theme.launching": "Ŀàûñçĥîñĝ...",
   "frontend.theme.loading_table": "Ŀöàđîñĝ Ţàƀŀè...",

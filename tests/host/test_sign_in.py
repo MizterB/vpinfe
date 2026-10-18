@@ -308,23 +308,43 @@ class TheMachinesSideTests(SignInCase):
 
         self.assertIsNone(self.sign_in.reveal(request.id))
 
-    def test_the_digits_stay_out_of_the_log_while_a_screen_can_show_them(self) -> None:
-        with self.assertLogs("vpinfe.common.security.sign_in", "WARNING") as logged:
-            self.shown()
+    def test_a_request_waits_for_show_while_a_screen_can_draw_it(self) -> None:
+        self.assertEqual(self.sign_in.ask("192.168.1.20").state, sign_in.WAITING)
 
-        self.assertFalse(any("Sign-in code" in line for line in logged.output))
+    def test_with_no_screen_a_request_is_revealed_at_once(self) -> None:
+        self.sign_in.screen = lambda: False
 
-    def test_with_no_screen_the_code_is_in_the_log_and_needs_no_show(self) -> None:
-        self.sign_in.headless = True
+        self.assertEqual(self.sign_in.ask("192.168.1.20").state, sign_in.SHOWN)
 
-        with self.assertLogs("vpinfe.common.security.sign_in", "WARNING") as logged:
-            request = self.sign_in.ask("192.168.1.20")
+    def test_a_request_left_waiting_is_revealed_when_the_screen_goes(self) -> None:
+        asked = self.sign_in.ask("192.168.1.20")
+        self.sign_in.screen = lambda: False
 
-        self.assertEqual(request.state, sign_in.SHOWN)
-        self.assertTrue(any(request.code in line for line in logged.output))
+        self.sign_in.reveal_if_unseen()
 
-    def test_with_no_screen_the_digits_reach_the_terminal_and_never_the_log_file(self) -> None:
-        self.sign_in.headless = True
+        pending = self.sign_in.pending()
+        assert pending is not None
+        self.assertEqual((pending.id, pending.state), (asked.id, sign_in.SHOWN))
+
+    def test_asking_again_after_the_screen_went_reveals_the_waiting_request(self) -> None:
+        browser = "one browser"
+        asked = self.sign_in.ask("192.168.1.20", browser)
+        self.sign_in.screen = lambda: False
+
+        again = self.sign_in.ask("192.168.1.20", browser)
+
+        self.assertEqual((again.id, again.state), (asked.id, sign_in.SHOWN))
+
+    def test_a_screen_still_up_leaves_a_waiting_request_waiting(self) -> None:
+        self.sign_in.ask("192.168.1.20")
+
+        self.sign_in.reveal_if_unseen()
+
+        pending = self.sign_in.pending()
+        assert pending is not None
+        self.assertEqual(pending.state, sign_in.WAITING)
+
+    def test_every_code_reaches_the_terminal_and_never_the_log_file(self) -> None:
         root = logging.getLogger()
         held, level = list(root.handlers), root.level
 
@@ -339,13 +359,21 @@ class TheMachinesSideTests(SignInCase):
         out = io.StringIO()
         with mock.patch.object(sys, "stdout", out):
             written = log_setup.configure_logging(Path(folder.name))
-            request = self.sign_in.ask("192.168.1.20")
+            asked = self.sign_in.ask("192.168.1.20")
+            sign_in_code = self.sign_in.reveal(asked.id)
+            token, session = self.sign_in.verify(asked.id, asked.code, address="192.168.1.20",
+                                                 agent="Safari on iPhone")
+            confirm = self.sign_in.confirm_ask(session.id, "192.168.1.20")
+            pairing = self.sign_in.pair_ask("192.168.1.21")
             for handler in root.handlers:
                 handler.flush()
 
-        self.assertIn(request.code, out.getvalue())
-        self.assertNotIn(request.code, written.read_text(encoding="utf-8"))
-        self.assertIn("192.168.1.20 wants to sign in", written.read_text(encoding="utf-8"))
+        assert sign_in_code is not None
+        logged = written.read_text(encoding="utf-8")
+        for code in (sign_in_code.code, confirm.code, pairing.code):
+            self.assertIn(code, out.getvalue())
+            self.assertNotIn(code, logged)
+        self.assertIn("192.168.1.20 wants to sign in", logged)
         for handler in list(root.handlers):
             if handler not in held:
                 root.removeHandler(handler)
@@ -492,6 +520,35 @@ class TheSessionTests(SignInCase):
         again = SignIn(self.file, self.clock)
 
         self.assertIsNotNone(again.lookup(token))
+
+
+class TheAskerTests(SignInCase):
+    def test_a_sign_in_keeps_who_asked_and_from_where(self) -> None:
+        request = self.sign_in.ask("192.168.1.20", agent="Safari on iPad", place="ipad.lan")
+
+        self.assertEqual((request.agent, request.place), ("Safari on iPad", "ipad.lan"))
+
+    def test_a_confirm_names_the_browser_that_holds_the_session(self) -> None:
+        asked = self.sign_in.ask("192.168.1.20", agent="Safari on iPad")
+        self.sign_in.reveal(asked.id)
+        _, session = self.sign_in.verify(asked.id, asked.code, address="192.168.1.20",
+                                         agent="Safari on iPad")
+
+        confirm = self.sign_in.confirm_ask(session.id, "192.168.1.20", place="ipad.lan")
+
+        self.assertEqual((confirm.agent, confirm.place), ("Safari on iPad", "ipad.lan"))
+
+    def test_a_pairing_keeps_the_name_the_other_install_gave(self) -> None:
+        pairing = self.sign_in.pair_ask("192.168.1.30", "Game Room", "gameroom.lan")
+
+        self.assertEqual((pairing.name, pairing.place), ("Game Room", "gameroom.lan"))
+
+    def test_a_pairing_name_is_fit_to_draw(self) -> None:
+        pairing = self.sign_in.pair_ask("192.168.1.30", "  Game\x1b[31m Room\n" + "x" * 100)
+
+        self.assertNotIn("\x1b", pairing.name)
+        self.assertNotIn("\n", pairing.name)
+        self.assertEqual(len(pairing.name), sign_in.NAME_LENGTH)
 
 
 class TheAgentLine(unittest.TestCase):

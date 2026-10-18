@@ -88,7 +88,7 @@ from common.online.pinmame_score_parser_updater import ensure_latest_roms_json
 from common.online.theme_registry_client import ThemeRegistryError
 from common.online.themes import ThemeRegistry
 from common.release import migration_ledger, whats_new
-from common.runtime import shutdown
+from common.runtime import lifecycle, shutdown
 from common.runtime.log_setup import configure_logging, get_logger
 from common.security import sign_in
 from common.security.http_client import unreachable
@@ -150,6 +150,7 @@ from cli import parse_args
 from frontend import library_art, library_resolver, lifecycle_host, runtime, theme_routes
 from manager import app_control
 from manager.host import _shutdown_event, start_server, stop_server
+from manager.security import sign_in_notice
 from manager.security.origin_guard import SocketOriginGuard
 from manager.security.sign_in_gate import SignInGate
 
@@ -246,7 +247,21 @@ def create_api_instances():
 
 cli_args = parse_args() if len(sys.argv) > 0 else None
 headless = cli_args and cli_args.headless
-sign_in.instance().headless = bool(headless)
+
+
+def _a_screen_can_show_a_code() -> bool:
+    """False on any failure: a code printed with nobody to press Show is better than a
+    request stranded waiting."""
+    try:
+        opened = frontend_browser is not None \
+            and runtime.windows_state(frontend_browser) == lifecycle.WINDOWS_OPEN
+        return opened or sign_in_notice.watching()
+    except Exception:  # noqa: BLE001
+        logger.exception("Could not tell whether a screen can show a sign-in code")
+        return False
+
+
+sign_in.instance().screen = _a_screen_can_show_a_code
 this_machine.warm()
 
 # Register frontend theme assets before NiceGUI can start on the first-run path.

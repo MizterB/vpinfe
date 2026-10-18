@@ -72,5 +72,36 @@ class EscapeOnTheNotice(unittest.TestCase):
         self.assertEqual([ask.id], [one.id for one in self.asks.waiting()])
 
 
+
+class WatchingTheManager(unittest.TestCase):
+    def setUp(self) -> None:
+        self.signer = sign_in.SignIn(path=None)
+        sign_in.use(self.signer)
+        self.addCleanup(sign_in.use, sign_in.SignIn())
+        self.addCleanup(sign_in_notice._watching.clear)
+
+    def test_the_last_page_closing_reveals_a_request_left_waiting(self) -> None:
+        sign_in_notice._watching.add("page")
+        self.signer.screen = sign_in_notice.watching
+        self.signer.ask(ADDRESS)
+
+        sign_in_notice._gone("page")
+
+        pending = self.signer.pending()
+        assert pending is not None
+        self.assertEqual(pending.state, sign_in.SHOWN)
+
+    def test_another_page_still_open_keeps_the_request_waiting(self) -> None:
+        sign_in_notice._watching.update({"one", "two"})
+        self.signer.screen = sign_in_notice.watching
+        self.signer.ask(ADDRESS)
+
+        sign_in_notice._gone("one")
+
+        pending = self.signer.pending()
+        assert pending is not None
+        self.assertEqual(pending.state, sign_in.WAITING)
+
+
 if __name__ == "__main__":
     unittest.main()

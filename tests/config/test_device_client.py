@@ -153,9 +153,11 @@ class _HttpsInstall(unittest.TestCase):
         self.addCleanup(patched.stop)
         self.device = device_client.RemoteDevice(SECURE, "Bbbb222222")
         self.sent: list[tuple[str, object]] = []
+        self.payloads: list[object] = []
 
     def post_json(self, url: str, payload=None, **kwargs) -> dict:
         self.sent.append((url, kwargs.get("trust")))
+        self.payloads.append(payload)
         return {"request_id": "r1"} if url.endswith("/code") else {"secret": "tok"}
 
 
@@ -170,6 +172,14 @@ class PairingAnHttpsInstallTests(_HttpsInstall):
 
         self.assertEqual(self.sent, [(f"{SECURE}/api/v1/auth/pair/code", SHOWN)])
         self.assertEqual(pinned_certificates.pinned("192.168.1.50", 8001), "")
+
+    def test_the_code_is_asked_for_under_this_installs_name(self) -> None:
+        with (patch.object(pinned_certificates, "trust_now", lambda _url: SHOWN),
+              patch.object(http_client, "post_json", self.post_json),
+              patch.object(device_client, "_own_name", lambda: "Game Room")):
+            self.device.pair_ask()
+
+        self.assertEqual(self.payloads, [{"name": "Game Room"}])
 
     def test_the_code_is_traded_over_the_same_certificate_and_the_pin_is_kept(self) -> None:
         with (patch.object(pinned_certificates, "trust_now", lambda _url: SHOWN),

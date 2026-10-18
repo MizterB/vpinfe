@@ -108,11 +108,12 @@
   <div id="stage" hidden>
     <div id="card">
       <p class="heading" id="heading"></p>
-      <p id="digits" hidden></p>
       <p class="note" id="from" hidden></p>
+      <p id="digits" hidden></p>
       <pre id="change" hidden></pre>
       <p class="note" id="toolong" hidden></p>
       <p class="note" id="expires" hidden></p>
+      <p class="note" id="lasts" hidden></p>
       <div id="buttons">
         <button type="button" id="decline" data-i18n="frontend.approval.decline" hidden>Decline</button>
         <button type="button" id="approve" data-i18n="frontend.approval.approve" hidden>Approve</button>
@@ -144,6 +145,7 @@
     const digits = document.getElementById('digits');
     const from = document.getElementById('from');
     const expires = document.getElementById('expires');
+    const lasts = document.getElementById('lasts');
     const change = document.getElementById('change');
     const toolong = document.getElementById('toolong');
     const buttons = {
@@ -179,8 +181,9 @@
 
     function drawExpiry() {
       const minutes = Math.max(1, Math.ceil((deadline - Date.now()) / 60000));
-      expires.textContent = t('frontend.signin.expires', 'Expires in {count} minutes',
-                              { count: minutes });
+      expires.textContent = request && request.kind === 'approval'
+        ? t('frontend.signin.expires', 'Expires in {count} minutes', { count: minutes })
+        : t('frontend.signin.good_for', 'The code works for {count} minutes', { count: minutes });
     }
 
     function focusRow() {
@@ -189,7 +192,7 @@
     }
 
     // What each kind of request looks like.
-    const DRAWN = { sign_in: drawSignIn, approval: drawApproval };
+    const DRAWN = { sign_in: drawSignIn, approval: drawApproval, confirm: drawCode, pair: drawCode };
 
     function showOnly(visible) {
       Object.entries(buttons).forEach(([name, button]) => { button.hidden = !visible.includes(name); });
@@ -208,6 +211,7 @@
       change.textContent = shown.body
         ? `${shown.method} ${shown.path}\n${shown.body}`
         : `${shown.method} ${shown.path}`;
+      lasts.hidden = true;
       toolong.hidden = !shown.long;
       toolong.textContent = shown.long
         ? t('frontend.approval.too_long', 'Too long to read here - approve it in the Manager') : '';
@@ -216,21 +220,75 @@
       showOnly(shown.long ? ['decline', 'close'] : ['decline', 'approve', 'close']);
     }
 
+    // Who is asking, as the person reading the screen would say it.
+    function whoIs(shown) {
+      return shown.agent
+        ? t('frontend.signin.who_agent', '{agent} at {place}',
+            { agent: shown.agent, place: shown.place })
+        : t('frontend.signin.who_browser', 'The browser at {place}', { place: shown.place });
+    }
+
+    function drawLasts(shown) {
+      const grant = Number(shown.grant) || 0;
+      const text = {
+        sign_in: () => t('frontend.signin.lasts_sign_in',
+                         'Once signed in, that browser stays signed in until it goes unused for {count} days.',
+                         { count: grant }),
+        confirm: () => t('frontend.signin.lasts_confirm',
+                         'Once confirmed, that browser can keep making changes until it has gone {count} minutes without one.',
+                         { count: grant }),
+        pair: () => t('frontend.signin.lasts_pair',
+                      'Once paired, it stays paired until you remove it under Security > Tokens.'),
+      }[shown.kind];
+      lasts.hidden = !text;
+      lasts.textContent = text ? text() : '';
+    }
+
+    function drawCode(shown) {
+      change.hidden = true;
+      toolong.hidden = true;
+      const pairing = shown.kind === 'pair';
+      heading.textContent = pairing
+        ? t('frontend.signin.pair_title', 'Pairing Code')
+        : t('frontend.signin.confirm_title', 'Confirm Code');
+      digits.hidden = false;
+      digits.textContent = shown.code;
+      from.hidden = false;
+      from.textContent = pairing
+        ? (shown.name
+          ? t('frontend.signin.for_pair',
+              'Another VPinFE device named {name} at {place} wants to pair with this device. Type this code there to give it full control of this device.',
+              { name: shown.name, place: shown.place })
+          : t('frontend.signin.for_pair_unnamed',
+              'Another VPinFE device at {place} wants to pair with this device. Type this code there to give it full control of this device.',
+              { place: shown.place }))
+        : t('frontend.signin.for_change',
+            '{who} wants to make a change that needs a Confirm. Type this code there to allow it.',
+            { who: whoIs(shown) });
+      expires.hidden = false;
+      drawExpiry();
+      drawLasts(shown);
+      showOnly(['close']);
+    }
+
     function drawSignIn(shown) {
       change.hidden = true;
       toolong.hidden = true;
       const revealed = shown.state === 'shown' && !!shown.code;
       heading.textContent = revealed
         ? t('frontend.signin.title', 'Sign-In Code')
-        : t('frontend.signin.wants', '{address} wants to sign in', { address: shown.address });
+        : t('frontend.signin.wants', '{who} wants to sign in', { who: whoIs(shown) });
       digits.hidden = !revealed;
       digits.textContent = revealed ? shown.code : '';
       from.hidden = !revealed;
       expires.hidden = !revealed;
+      lasts.hidden = true;
       if (revealed) {
-        from.textContent = t('frontend.signin.from', 'Requested from {address}',
-                             { address: shown.address });
+        from.textContent = t('frontend.signin.for_browser',
+                             '{who} wants to sign in. Type this code there to let it in.',
+                             { who: whoIs(shown) });
         drawExpiry();
+        drawLasts(shown);
       }
       showOnly(revealed ? ['close'] : ['show', 'ignore']);
     }

@@ -172,6 +172,14 @@ class TooOldError(RuntimeError):
     """
 
 
+def _own_name() -> str:
+    """What this install is called, for the pairing code the other device shows."""
+    from common.config.paths import get_ini_config
+    from common.devices.install_identity import display_name
+
+    return display_name(get_ini_config())
+
+
 def _absent(exc: Exception) -> bool:
     """Whether a request failed because the route is not there."""
     response = getattr(exc, "response", None)
@@ -461,7 +469,7 @@ class RemoteDevice:
         self._candidate = pinned_certificates.trust_now(self.base_url)
         # Sent bare: whatever token is held belongs to the certificate that was paired, and
         # this one has not been trusted yet.
-        said = http_client.post_json(self._url("/auth/pair/code"), {},
+        said = http_client.post_json(self._url("/auth/pair/code"), {"name": _own_name()},
                                      trust=self._candidate or None) or {}
         return str(said.get("request_id") or "")
 

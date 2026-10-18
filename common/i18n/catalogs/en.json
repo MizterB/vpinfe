@@ -3178,8 +3178,11 @@
   "manager.security.everyone_hint": "End every browser's sign-in",
   "manager.security.show_hint": "Show the code to type in the other browser",
   "manager.security.show": "Show",
-  "manager.security.type_it": "Type it on {address}",
-  "manager.security.wants": "A browser at “{address}” wants to sign in",
+  "manager.security.who_agent": "{agent} at {place}",
+  "manager.security.who_browser": "The browser at {place}",
+  "manager.security.for_browser": "{who} wants to sign in. Type this code there to let it in.",
+  "manager.security.signin_title": "Sign-In Code",
+  "manager.security.wants": "{who} wants to sign in",
   "manager.security.asks": "“{program}” wants to make a change",
   "manager.security.asks_lapse": {
     "one": "Lapses in {count:n} minute",
@@ -3222,10 +3225,23 @@
   "manager.security.col_last_used.help": "How long ago it was last used - hover a cell for the date and time",
   "manager.security.this_browser": "This browser",
   "manager.security.confirm_code": "Confirm Code",
-  "manager.security.confirm_asked": "A browser at “{address}” is confirming a change",
+  "manager.security.confirm_for": "{who} wants to make a change that needs a Confirm. Type this code there to allow it.",
   "manager.security.pair_code": "Pairing Code",
-  "manager.security.pair_asked": "“{address}” is pairing with this device",
-  "manager.security.code_good": "Good for {minutes} minutes",
+  "manager.security.pair_for": "Another VPinFE device named {name} at {place} wants to pair with this device. Type this code there to give it full control of this device.",
+  "manager.security.pair_for_unnamed": "Another VPinFE device at {place} wants to pair with this device. Type this code there to give it full control of this device.",
+  "manager.security.code_good": {
+    "one": "The code works for {count:n} minute",
+    "other": "The code works for {count:n} minutes"
+  },
+  "manager.security.lasts_sign_in": {
+    "one": "Once signed in, that browser stays signed in until it goes unused for {count:n} day.",
+    "other": "Once signed in, that browser stays signed in until it goes unused for {count:n} days."
+  },
+  "manager.security.lasts_confirm": {
+    "one": "Once confirmed, that browser can keep making changes until it has gone {count:n} minute without one.",
+    "other": "Once confirmed, that browser can keep making changes until it has gone {count:n} minutes without one."
+  },
+  "manager.security.lasts_pair": "Once paired, it stays paired until you remove it under Security > Tokens.",
   "manager.settings.page_assets": "Assets",
   "manager.settings.page_audit": "Audit",
   "manager.settings.page_backups": "Backups",
@@ -5056,11 +5072,31 @@
     "one": "Expires in {count:n} minute",
     "other": "Expires in {count:n} minutes"
   },
-  "frontend.signin.from": "Requested from {address}",
+  "frontend.signin.good_for": {
+    "one": "The code works for {count:n} minute",
+    "other": "The code works for {count:n} minutes"
+  },
+  "frontend.signin.confirm_title": "Confirm Code",
+  "frontend.signin.who_agent": "{agent} at {place}",
+  "frontend.signin.who_browser": "The browser at {place}",
+  "frontend.signin.for_browser": "{who} wants to sign in. Type this code there to let it in.",
+  "frontend.signin.for_change": "{who} wants to make a change that needs a Confirm. Type this code there to allow it.",
+  "frontend.signin.for_pair": "Another VPinFE device named {name} at {place} wants to pair with this device. Type this code there to give it full control of this device.",
+  "frontend.signin.for_pair_unnamed": "Another VPinFE device at {place} wants to pair with this device. Type this code there to give it full control of this device.",
+  "frontend.signin.lasts_sign_in": {
+    "one": "Once signed in, that browser stays signed in until it goes unused for {count:n} day.",
+    "other": "Once signed in, that browser stays signed in until it goes unused for {count:n} days."
+  },
+  "frontend.signin.lasts_confirm": {
+    "one": "Once confirmed, that browser can keep making changes until it has gone {count:n} minute without one.",
+    "other": "Once confirmed, that browser can keep making changes until it has gone {count:n} minutes without one."
+  },
+  "frontend.signin.lasts_pair": "Once paired, it stays paired until you remove it under Security > Tokens.",
+  "frontend.signin.pair_title": "Pairing Code",
   "frontend.signin.ignore": "Ignore",
   "frontend.signin.show": "Show",
   "frontend.signin.title": "Sign-In Code",
-  "frontend.signin.wants": "{address} wants to sign in",
+  "frontend.signin.wants": "{who} wants to sign in",
   "frontend.theme.detected_features": "Detected Features",
   "frontend.theme.launching": "Launching...",
   "frontend.theme.loading_table": "Loading Table...",

@@ -87,6 +87,10 @@ class Request:
     code: str = ""
     tries: int = 0
     revealed: float = 0.0
+    # What the asking browser calls itself ("Safari on iPad") and the name its address
+    # answers to; both only help the person reading the screen tell who is asking.
+    agent: str = ""
+    place: str = ""
 
 
 @dataclass(frozen=True)
@@ -112,6 +116,10 @@ class Confirm:
     code: str
     tries: int = 0
     purpose: str = CONFIRM
+    agent: str = ""
+    place: str = ""
+    # The asking install's own name, for a pairing code.
+    name: str = ""
 
 
 @dataclass
@@ -135,6 +143,14 @@ def describe_agent(user_agent: str) -> str:
     device = next((name for mark, name in _DEVICES if mark in user_agent), "")
     return t("signin.agent", browser=browser, device=device) if browser and device \
         else browser or device
+
+
+NAME_LENGTH = 60
+
+
+def _plain(name: str) -> str:
+    """A name another install sent, fit to draw: no control characters, bounded."""
+    return "".join(ch for ch in name if ch.isprintable()).strip()[:NAME_LENGTH]
 
 
 def _same(held: str, offered: str) -> bool:
@@ -169,8 +185,9 @@ class SignIn:
         self._version = 0
         self._written = 0
         self._listeners: list[Callable[[Request | None], None]] = []
-        # With no screen the log is the machine's display, so the digits go there at once.
-        self.headless = False
+        # Whether anything on this device can draw a code. Until the process says what it has
+        # open, a screen is assumed, so a request waits for Show.
+        self.screen: Callable[[], bool] = lambda: True
 
     # --- the file ---------------------------------------------------------------------
 
@@ -274,7 +291,8 @@ class SignIn:
                 return 0.0
             return max(0.0, self._last_ask + self._spacing() - self._clock())
 
-    def ask(self, address: str, browser: str = "") -> Request:
+    def ask(self, address: str, browser: str = "", *, agent: str = "",
+            place: str = "") -> Request:
         """A browser at `address` wants a code. Raises `SignInError` when it may not have one.
 
         `browser` is that browser's own secret. Another browser at the same address is
@@ -286,20 +304,30 @@ class SignIn:
             live = self._live()
             wait = int(self._last_ask + self._spacing() - now)
             same = live is not None and live.address == address and _same(live.browser, browser)
+            fresh = True
             if live is not None and same and wait > 0:
-                return live
-            if live is not None and not same and live.state == SHOWN:
-                raise SignInError(TOO_SOON, wait=self.seconds_left(live))
-            if wait > 0 and self._last_ask:
-                raise SignInError(TOO_SOON, wait=wait)
-            self._last_ask = now
-            made = self._request = Request(id=uuid.uuid4().hex, address=address, asked=now,
-                                           browser=browser)
-            logger.warning("%s wants to sign in", address)
-        self._tell()
-        if self.headless:
+                made, fresh = live, False
+            else:
+                if live is not None and not same and live.state == SHOWN:
+                    raise SignInError(TOO_SOON, wait=self.seconds_left(live))
+                if wait > 0 and self._last_ask:
+                    raise SignInError(TOO_SOON, wait=wait)
+                self._last_ask = now
+                made = self._request = Request(id=uuid.uuid4().hex, address=address, asked=now,
+                                               browser=browser, agent=agent,
+                                               place=place or address)
+                logger.warning("%s wants to sign in", address)
+        if fresh:
+            self._tell()
+        if made.state == WAITING and not self.screen():
             return self.reveal(made.id) or made
         return made
+
+    def reveal_if_unseen(self) -> None:
+        """Show a request left waiting once nothing is left that could press Show."""
+        request = self.pending()
+        if request is not None and request.state == WAITING and not self.screen():
+            self.reveal(request.id)
 
     def _live(self) -> Request | None:
         request = self._request
@@ -310,7 +338,7 @@ class SignIn:
             return None
         return request
 
-    def seconds_left(self, request: Request) -> int:
+    def seconds_left(self, request: Request | Confirm) -> int:
         """How long `request`'s code stays good, by the clock the code is judged by."""
         return max(0, int(request.asked + CODE_SECONDS - self._clock()))
 
@@ -331,9 +359,8 @@ class SignIn:
                 request.code = "".join(secrets.choice("0123456789") for _ in range(CODE_LENGTH))
                 request.state = SHOWN
                 request.revealed = self._clock()
-                if self.headless:
-                    logger.warning("Sign-in code for %s: %s", request.address, request.code,
-                                   extra={log_setup.TERMINAL_ONLY: True})
+                logger.warning("Sign-in code for %s: %s", request.address, request.code,
+                               extra={log_setup.TERMINAL_ONLY: True})
         self._tell()
         return request
 
@@ -359,8 +386,8 @@ class SignIn:
         self._tell()
 
     def reveal_now(self, address: str) -> Request:
-        """A code for a browser that is on the machine itself, or asked for in the log: no
-        Show step, since whoever can see this is already in front of it."""
+        """A code for a browser that is on the machine itself: no Show step, since whoever
+        can see this is already in front of it."""
         request = self.ask(address)
         revealed = self.reveal(request.id)
         assert revealed is not None
@@ -476,7 +503,7 @@ class SignIn:
 
     # --- the Confirm ------------------------------------------------------------------
 
-    def confirm_ask(self, session_id: str, address: str) -> Confirm:
+    def confirm_ask(self, session_id: str, address: str, place: str = "") -> Confirm:
         """A signed-in Owner wants a Confirm. The six digits are drawn on this device's screen
         at once, because whoever can see them is already in front of it. Asking again replaces
         the code, but not faster than every few seconds."""
@@ -490,11 +517,11 @@ class SignIn:
                 raise SignInError(TOO_SOON, wait=int(CONFIRM_ASK_SECONDS - (now - held.asked)) + 1)
             code = "".join(secrets.choice("0123456789") for _ in range(CODE_LENGTH))
             made = Confirm(id=uuid.uuid4().hex, session_id=session_id, address=address,
-                           asked=now, code=code)
+                           asked=now, code=code, agent=session.agent, place=place or address)
             self._confirms[session_id] = made
             logger.warning("%s asked for a Confirm Code", address)
-            if self.headless:
-                logger.warning("Confirm code for %s: %s", address, code)
+            logger.warning("Confirm code for %s: %s", address, code,
+                           extra={log_setup.TERMINAL_ONLY: True})
         self._tell()
         return made
 
@@ -560,7 +587,7 @@ class SignIn:
 
     # --- pairing ----------------------------------------------------------------------
 
-    def pair_ask(self, address: str) -> Confirm:
+    def pair_ask(self, address: str, name: str = "", place: str = "") -> Confirm:
         """Another install wants to pair. The digits are drawn here at once, for whoever is
         pairing it to read off this device's screen."""
         with self._lock:
@@ -572,11 +599,12 @@ class SignIn:
             self._pair_last = now
             code = "".join(secrets.choice("0123456789") for _ in range(CODE_LENGTH))
             self._pair = Confirm(id=uuid.uuid4().hex, session_id="", address=address,
-                                 asked=now, code=code, purpose=PAIR)
+                                 asked=now, code=code, purpose=PAIR, place=place or address,
+                                 name=_plain(name))
             made = self._pair
             logger.warning("%s wants to pair", address)
-            if self.headless:
-                logger.warning("Pairing code for %s: %s", address, code)
+            logger.warning("Pairing code for %s: %s", address, code,
+                           extra={log_setup.TERMINAL_ONLY: True})
         self._tell()
         return made
 

@@ -125,6 +125,94 @@ class WhatThePageCanAsk(_Prompt):
         self.assertGreater(view["expires_in"], sign_in.CODE_SECONDS - 130)
 
 
+class ACodeToType(_Prompt):
+    """A Confirm Code and a pairing code are drawn at once, with no Show, since a person is
+    already waiting to type them."""
+
+    def confirm(self) -> sign_in.Confirm:
+        request = self.model.ask(ADDRESS)
+        self.model.reveal(request.id)
+        _, session = self.model.verify(request.id, request.code, address=ADDRESS,
+                                       agent="Safari on iPhone")
+        return self.model.confirm_ask(session.id, ADDRESS)
+
+    def test_a_confirm_code_is_sent_with_its_digits_and_no_show(self) -> None:
+        made = self.confirm()
+
+        sent = self.channel.requests()[-1]
+        self.assertEqual({k: sent[k] for k in ("id", "kind", "address", "state", "code")},
+                         {"id": made.id, "kind": "confirm", "address": ADDRESS,
+                          "state": "shown", "code": made.code})
+        self.assertGreater(sent["expires_in"], sign_in.CODE_SECONDS - 5)
+
+    def test_a_pairing_code_is_sent_the_same_way_as_its_own_kind(self) -> None:
+        made = self.model.pair_ask(ADDRESS)
+
+        sent = self.channel.requests()[-1]
+        self.assertEqual((sent["id"], sent["kind"], sent["code"]), (made.id, "pair", made.code))
+
+    def test_a_confirm_says_who_asked_and_how_long_approving_lasts(self) -> None:
+        request = self.model.ask(ADDRESS, agent="Safari on iPad", place="ipad.lan")
+        self.model.reveal(request.id)
+        _, session = self.model.verify(request.id, request.code, address=ADDRESS,
+                                       agent="Safari on iPad")
+        self.model.confirm_ask(session.id, ADDRESS, place="ipad.lan")
+
+        sent = self.channel.requests()[-1]
+        self.assertEqual({k: sent[k] for k in ("agent", "place", "name", "grant")},
+                         {"agent": "Safari on iPad", "place": "ipad.lan", "name": "",
+                          "grant": sign_in.CONFIRM_SECONDS // 60})
+
+    def test_a_pairing_says_which_device_asked_and_has_no_time_limit(self) -> None:
+        self.model.pair_ask(ADDRESS, "Game Room", "gameroom.lan")
+
+        sent = self.channel.requests()[-1]
+        self.assertEqual({k: sent[k] for k in ("agent", "place", "name", "grant")},
+                         {"agent": "", "place": "gameroom.lan", "name": "Game Room",
+                          "grant": 0})
+
+    def test_a_sign_in_says_who_asked_and_falls_back_to_the_address_for_where(self) -> None:
+        self.model.ask(ADDRESS, agent="Safari on iPad")
+
+        sent = self.channel.requests()[-1]
+        self.assertEqual((sent["agent"], sent["place"], sent["grant"]),
+                         ("Safari on iPad", ADDRESS, sign_in.SESSION_DAYS))
+
+    def test_a_code_comes_before_a_sign_in_waiting_behind_it(self) -> None:
+        self.model.ask(ADDRESS)
+        made = self.model.pair_ask(ADDRESS)
+
+        shown = self.api.signin_pending()
+
+        assert shown is not None
+        self.assertEqual(shown["id"], made.id)
+
+    def test_close_leaves_the_screen_and_the_code_still_works(self) -> None:
+        made = self.model.pair_ask(ADDRESS)
+        self.api.signin_dismiss(made.id)
+
+        self.assertIsNone(self.channel.requests()[-1])
+        self.assertIsNone(self.api.signin_pending())
+        self.assertEqual([one.id for one in self.model.confirms()], [made.id])
+        self.model.pair_verify(made.id, made.code)
+
+    def test_typing_the_code_clears_it_from_the_screen(self) -> None:
+        made = self.model.pair_ask(ADDRESS)
+        self.model.pair_verify(made.id, made.code)
+
+        self.assertIsNone(self.channel.requests()[-1])
+
+    def test_a_closed_code_does_not_hide_the_next_one(self) -> None:
+        first = self.confirm()
+        self.api.signin_dismiss(first.id)
+        second = self.model.pair_ask(ADDRESS)
+
+        shown = self.api.signin_pending()
+
+        assert shown is not None
+        self.assertEqual(shown["id"], second.id)
+
+
 class AProgramAsking(_Prompt):
     def ask(self, **body: Any) -> approvals.Ask:
         return self.asks.ask("t1", "Home", "DELETE", "/games/a/folder", body or None)

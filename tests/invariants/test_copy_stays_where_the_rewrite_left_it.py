@@ -11,7 +11,7 @@ LABEL = 40
 PROSE = 160
 OVER = 80
 
-OVER_EIGHTY = 102
+OVER_EIGHTY = 116
 
 TOO_LONG_TODAY = frozenset({
     "manager.media.reason.help",

@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, Request, Response
 
 from common.config import paths
 from common.devices.install_identity import display_name
-from common.host import this_machine
+from common.host import peer_name, this_machine
 from common.i18n import t
 from common.security import access_keys, authenticator, sign_in
 from common.security import api_tokens as tokens
@@ -37,6 +37,7 @@ from .models import (
     ConfirmAttempt,
     ConfirmState,
     PairAsk,
+    PairAskBody,
     PairAttempt,
     Paired,
     RemoteCodeRenewed,
@@ -86,6 +87,10 @@ def _address(request: Request) -> str:
     return caller_address(request)
 
 
+def _place(request: Request) -> str:
+    return peer_name.place_of(_address(request))
+
+
 def _guessing_as(request: Request) -> str:
     """Who wrong codes are counted against. A Manager call reaches here over this device's
     own address on behalf of a browser, so the sign-in it acts for is the one to count."""
@@ -98,10 +103,13 @@ def _same_site(request: Request) -> None:
         raise ApiError(CODE_FORBIDDEN, t("error.signin.cross_site"), status_code=403)
 
 
-def _asked(address: str, browser: str) -> SignInAsk:
+def _asked(request: Request, browser: str) -> SignInAsk:
     signer = sign_in.instance()
+    address = _address(request)
     try:
-        made = signer.ask(address, browser)
+        made = signer.ask(address, browser,
+                          agent=sign_in.describe_agent(request.headers.get("user-agent", "")),
+                          place=peer_name.place_of(address))
     except sign_in.SignInError as error:
         raise _refusal(error) from error
     return SignInAsk(request_id=made.id, expires_in=signer.seconds_left(made),
@@ -122,13 +130,13 @@ def _verified(attempt: SignInAttempt, request: Request) -> str:
 @router.post("/code", summary="Ask for a sign-in code", response_model=SignInAsk,
              dependencies=[requires(scopes.INSTANCE_READ), Depends(_same_site)])
 def ask(request: Request, response: Response) -> SignInAsk:
-    """Makes a request this device shows as "{address} wants to sign in". The digits appear
-    only after someone here chooses Show, so this answer holds none. Refused while an
-    authenticator is set up and Game Room is not showing sign-in codes."""
+    """Makes a request. The digits appear only after someone here chooses Show, unless
+    nothing here can show it, and this answer holds none. Refused while an authenticator is
+    set up and Game Room is not showing sign-in codes."""
     if not authenticator.instance().screen_codes():
         raise _refusal(sign_in.SignInError(sign_in.CODES_OFF))
     browser = request.cookies.get(ASKING) or secrets.token_urlsafe(24)
-    asked = _asked(_address(request), browser)
+    asked = _asked(request, browser)
     response.set_cookie(ASKING, browser, max_age=sign_in.CODE_SECONDS, httponly=True,
                         samesite="strict", secure=request_is_https(request), path="/")
     return asked
@@ -199,7 +207,7 @@ def ask_confirm(request: Request) -> ConfirmAsk:
     if session is None:
         raise ApiError(CODE_FORBIDDEN, t("error.signin.required"), status_code=403)
     try:
-        sign_in.instance().confirm_ask(session.id, _address(request))
+        sign_in.instance().confirm_ask(session.id, _address(request), _place(request))
     except sign_in.SignInError as error:
         raise _refusal(error) from error
     return ConfirmAsk(expires_in=sign_in.CODE_SECONDS)
@@ -234,11 +242,12 @@ def confirmed(request: Request) -> ConfirmState:
 @router.post("/pair/code", summary="Ask this install for a pairing code",
              response_model=PairAsk,
              dependencies=[requires(scopes.INSTANCE_READ), Depends(_same_site)])
-def ask_pair(request: Request) -> PairAsk:
+def ask_pair(request: Request, body: PairAskBody | None = None) -> PairAsk:
     """Another install wants to be paired.  The six digits appear on this device's screen
     and in no answer."""
     try:
-        made = sign_in.instance().pair_ask(_address(request))
+        made = sign_in.instance().pair_ask(_address(request), body.name if body else "",
+                                           _place(request))
     except sign_in.SignInError as error:
         raise _refusal(error) from error
     return PairAsk(request_id=made.id, expires_in=sign_in.CODE_SECONDS)

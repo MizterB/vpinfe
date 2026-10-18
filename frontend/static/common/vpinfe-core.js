@@ -3942,9 +3942,13 @@ class VPinFECore {
     clearTimeout(this.#signInExpiry);
     this.#signIn = request && request.id ? request : null;
     if (this.#signIn) {
-      // The machine sends nothing when a request runs out, so this is what closes it.
+      // The machine sends nothing when a request runs out, so this is what closes it - and
+      // asks what is waiting behind it, which the machine has not pushed either.
       const left = Math.max(0, Number(request.expires_in) || 0) * 1000;
-      this.#signInExpiry = setTimeout(() => this.#showSignIn(null), left);
+      this.#signInExpiry = setTimeout(() => {
+        this.#showSignIn(null);
+        setTimeout(() => this.#pullSignIn(), 500);
+      }, left);
     }
     this.#syncSignIn();
   }

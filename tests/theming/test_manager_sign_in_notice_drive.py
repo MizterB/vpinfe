@@ -1,7 +1,7 @@
 """A sign-in request on a Manager open on this device, driven in a real browser.
 
-Slow: boots a real instance and a real browser. A headless instance shows the digits at
-once, which is the state the dialog draws after Show.
+Slow: boots a real instance and a real browser. A Manager open on the device is a screen
+that can show the digits, so the request waits for Show before the dialog draws them.
 """
 
 from __future__ import annotations
@@ -22,6 +22,7 @@ from tests.support.live_instance import LiveInstance
 from tests.support.manager_walk import ManagerWalk, clicked
 
 DIALOG = ".manager-confirm"
+SHOW_BUTTON = f"{DIALOG} .manager-dialog-footer button:not(.manager-dialog-aside)"
 SECURITY = "/manager?view=settings&page=vpinfe.security"
 SUMMARY = ".manager-summary"
 LIST = ".manager-signed-in-card"
@@ -83,8 +84,15 @@ CUT_OFF_AT_THE_LONGEST = (
     " return {cut, cells: cells.length}; })()")
 
 
-def _browser() -> urllib.request.OpenerDirector:
-    return urllib.request.build_opener(urllib.request.HTTPCookieProcessor())
+IPAD = ("Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 "
+        "(KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1")
+
+
+def _browser(user_agent: str = "") -> urllib.request.OpenerDirector:
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor())
+    if user_agent:
+        opener.addheaders = [("User-Agent", user_agent)]
+    return opener
 
 
 def _post(instance: LiveInstance, path: str, body: dict,
@@ -115,7 +123,7 @@ class ManagerSignInNoticeDrive(unittest.TestCase):
     @classmethod
     async def _drive(cls, instance: LiveInstance, binary: str) -> dict:
         seen: dict = {}
-        first, second = _browser(), _browser()
+        first, second = _browser(IPAD), _browser()
         instance.wait_for_api()
         async with BrowserSession(binary) as browser:
             walk = ManagerWalk(browser, instance)
@@ -126,6 +134,10 @@ class ManagerSignInNoticeDrive(unittest.TestCase):
             asked = _post(instance, "/api/v1/auth/code", {}, first)
             first_asked = time.monotonic()
             await browser.wait_for(f"!!document.querySelector({json.dumps(DIALOG)})", timeout=30)
+            seen["waiting_dialog"] = await browser.evaluate(TEXT_OF % json.dumps(DIALOG))
+            await browser.click(SHOW_BUTTON)
+            await browser.wait_for(f"/\\b\\d{{6}}\\b/.test({TEXT_OF % json.dumps(DIALOG)} || '')",
+                                   timeout=30)
             seen["asked"] = await browser.evaluate(TEXT_OF % json.dumps(DIALOG))
             _post(instance, "/api/v1/auth/session",
                   {"request_id": asked["request_id"], "code": _digits(seen["asked"])}, first)
@@ -141,6 +153,9 @@ class ManagerSignInNoticeDrive(unittest.TestCase):
             asked = _post(instance, "/api/v1/auth/code", {}, second)
             await browser.wait_for(WAITING, timeout=30)
             seen["waiting_while_asked"] = True
+            await browser.wait_for(f"!!document.querySelector({json.dumps(SHOW_BUTTON)})",
+                                   timeout=30)
+            await browser.click(SHOW_BUTTON)
             await browser.wait_for(
                 f"/\\b\\d{{6}}\\b/.test({TEXT_OF % json.dumps(DIALOG)} || '')", timeout=30)
             popup = await browser.evaluate(TEXT_OF % json.dumps(DIALOG))
@@ -195,9 +210,19 @@ class ManagerSignInNoticeDrive(unittest.TestCase):
     def test_this_device_is_not_offered_a_sign_out(self) -> None:
         self.assertFalse(self.seen["sign_out_here"])
 
-    def test_the_dialog_names_the_asker_and_shows_six_digits(self) -> None:
+    def test_a_request_waits_for_show_and_names_who_asked(self) -> None:
+        waiting = str(self.seen["waiting_dialog"])
+
+        self.assertIn(t("signin.agent", browser="Safari", device="iPad") + " at ", waiting)
+        self.assertIn("wants to sign in", waiting)
+        self.assertFalse([part for part in waiting.split() if part.isdigit() and len(part) == 6])
+
+    def test_the_dialog_after_show_says_who_it_is_for_and_shows_six_digits(self) -> None:
         words = str(self.seen["asked"])
-        self.assertIn(t("manager.security.wants", address="\0").split("\0")[0].strip(), words)
+        self.assertIn(t("manager.security.signin_title"), words)
+        self.assertIn("wants to sign in. Type this code there to let it in.", words)
+        self.assertIn(t("manager.security.code_good", count=10), words)
+        self.assertIn(t("manager.security.lasts_sign_in", count=sign_in.SESSION_DAYS), words)
         digits = [part for part in words.split() if part.isdigit() and len(part) == 6]
         self.assertEqual(len(digits), 1, words)
 

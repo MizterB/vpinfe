@@ -4228,6 +4228,12 @@ class PairAsk(ApiModel):
     expires_in: int
 
 
+class PairAskBody(ApiModel):
+    """What the asking install says about itself: the name it is configured with."""
+
+    name: str = ""
+
+
 class PairAttempt(ApiModel):
     request_id: str
     code: str
