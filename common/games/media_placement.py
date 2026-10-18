@@ -206,6 +206,30 @@ def displaced(game_dir: str | Path, kind: str, stem: str, extension: str,
     return sorted(_family_at_tier(game_dir, kind, stem, number))
 
 
+def _keep_displaced(game_dir: Path, going: list[Path]) -> None:
+    """Copy the files a write is about to replace or remove into Backups.
+
+    A copy that was taken stays if the write then fails: by then a sibling may already be
+    gone, and the copy is what holds it.
+    """
+    held = [path for path in going if path.is_file()]
+    if not held:
+        return
+    from common.games.info_maintenance import game_id_in
+
+    game_id = game_id_in(game_dir / f"{game_dir.name}.info")
+    if not game_id:
+        return
+    from common.backups import folder as backup_folder
+    from common.backups import media as backup_media
+    from common.backups.copies import REASON_REPLACE
+
+    folder = backup_folder.for_writing()
+    for path in held:
+        backup_media.keep(folder, game_id, path, path.relative_to(game_dir).as_posix(),
+                          REASON_REPLACE)
+
+
 def place(game_dir: str | Path, kind: str, stem: str, source: str | Path,
           page: int = 1) -> Path:
     """Install `source` as this kind's file for `stem`, and return where it landed.
@@ -216,12 +240,18 @@ def place(game_dir: str | Path, kind: str, stem: str, source: str | Path,
 
     Only the page being placed is replaced; the others stay. A page one past the last is
     added, and with no page 1 the file becomes page 1 whatever page was asked for.
+
+    Every file this takes away is copied to Backups first, so a drop, an import, a picture
+    chosen from a source and a download all leave something to put back. The write is
+    refused before anything changes when the backups folder cannot be written to. A folder
+    whose `.info` holds no game id has nothing to file a copy under and is written as it is.
     """
     game_dir = Path(game_dir)
     source = Path(source)
     number = _number_for(game_dir, kind, stem, page)
     name = target_name(kind, stem, source.suffix, number)
     medias = game_dir / "medias"
+    _keep_displaced(game_dir, list(_family_at_tier(game_dir, kind, stem, number)))
     medias.mkdir(parents=True, exist_ok=True)
     target = medias / name
 
