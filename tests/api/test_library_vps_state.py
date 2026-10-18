@@ -104,12 +104,13 @@ class RollupEntriesTests(unittest.TestCase):
             [_state(b2sFiles=(True, False, 1, 1), romFiles=(False, False, 1, 1)),
              _state(romFiles=(True, False, 1, 1))])
 
-        self.assertEqual(entries, {"E1": {"tables": 1, "held": ["b2sFiles", "romFiles"]}})
+        self.assertEqual(entries, {"E1": {"tables": 1, "held": ["b2sFiles", "romFiles"],
+                                          "bound": []}})
 
     def test_a_game_with_no_table_is_still_in_the_library(self) -> None:
         entries = self._entries({"g1": _Game(0)}, [_state()])
 
-        self.assertEqual(entries, {"E1": {"tables": 0, "held": []}})
+        self.assertEqual(entries, {"E1": {"tables": 0, "held": [], "bound": []}})
 
     def test_a_table_whose_file_is_gone_is_not_a_table_held(self) -> None:
         """The record stays after the file goes, so counting records would tell a client
@@ -179,7 +180,7 @@ class DiscoveryTests(unittest.TestCase):
         self.assertEqual(rows["E2"]["held"], [])
 
     def test_a_game_with_no_table_holds_no_table(self) -> None:
-        counted = {"computed": "x", "entries": {"E1": {"tables": 0, "held": []}}}
+        counted = {"computed": "x", "entries": {"E1": {"tables": 0, "held": [], "bound": []}}}
         row = self._discovery(counted)["rows"][0]
 
         self.assertTrue(row["in_library"])

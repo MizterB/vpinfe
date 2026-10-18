@@ -3914,10 +3914,34 @@ class LibraryVpsState(ApiModel):
     kinds: list[LibraryVpsKindTally] = []
 
 
+class DiscoveryPerson(ApiModel):
+    """One author, once. `aliases` are the other spellings and credits VPS files the same
+    work under, kept so a search for any of them finds the person."""
+
+    name: str
+    aliases: list[str] = []
+    releases: int = 0
+
+
+class DiscoveryRelease(ApiModel):
+    """One release VPS lists. `by` is positions in the response's `people`, `added` is when
+    VPS added it (empty where it does not say), `format` is a table's program and empty on
+    other kinds, and `held` says a file the library holds is bound to it."""
+
+    id: str
+    by: list[int] = []
+    mod: bool = False
+    features: list[str] = []
+    format: str = ""
+    added: str = ""
+    held: bool = False
+
+
 class DiscoveryRow(ApiModel):
     """One catalog entry. `listed` and `held` use the catalog's own keys (`b2sFiles`,
     `tableFiles`), so a kind VPS lists and the library lacks is `listed` and not `held`.
-    `in_library` null means the library has not been compared yet."""
+    `in_library` null means the library has not been compared yet. `releases` is every
+    release the entry lists, under the same keys."""
 
     vps_id: str
     name: str | None = None
@@ -3930,10 +3954,12 @@ class DiscoveryRow(ApiModel):
     listed: list[str] = []
     in_library: bool | None = None
     held: list[str] = []
+    releases: dict[str, list[DiscoveryRelease]] = {}
 
 
 class LibraryDiscovery(ApiModel):
     counted: str = ""
+    people: list[DiscoveryPerson] = []
     rows: list[DiscoveryRow] = []
 
 

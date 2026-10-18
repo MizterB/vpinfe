@@ -17,6 +17,16 @@ def mod_of(vps_file_id: str) -> dict[str, Any] | None:
     return based_on(release, entry) if release else None
 
 
+def _link_of(release: dict) -> str:
+    """The base `release` is linked to, or "" for none; a link to itself is no link."""
+    link = str(release.get("parentId") or "").strip()
+    return link if link != str(release.get("id") or "") else ""
+
+
+def is_mod(release: dict) -> bool:
+    return bool(_link_of(release)) or MOD_TAG in (release.get("features") or [])
+
+
 def based_on(release: dict, entry: dict) -> dict[str, Any] | None:
     """What `release`, listed under `entry`, is a mod of, or None where it is not one.
 
@@ -25,11 +35,10 @@ def based_on(release: dict, entry: dict) -> dict[str, Any] | None:
     `vps_file_id` is empty and `note` is VPS's own comment on a tagged mod, if it has one.
     `game_id` and `table_id` stay empty until `hold` fills them.
     """
-    own = str(release.get("id") or "")
-    link = str(release.get("parentId") or "").strip()
-    linked = bool(link) and link != own
+    link = _link_of(release)
+    linked = bool(link)
     tagged = MOD_TAG in (release.get("features") or [])
-    if not linked and not tagged:
+    if not is_mod(release):
         return None
     parent, machine = find_vps_release_and_entry(link) if linked else ({}, {})
     said: dict[str, Any] = {"vps_file_id": "", "version": "", "authors": [], "game": "",

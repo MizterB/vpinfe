@@ -36,7 +36,7 @@ from common.games.game_service import load_vpsdb
 from common.games.media_service import CACHE_DIR
 from common.games.tables import ABSENT_SINCE_KEY, entry_filename, table_entries
 from common.i18n import t
-from common.online import obtainability, vps_kinds, vps_lens
+from common.online import obtainability, vps_kinds, vps_lens, vps_releases
 from common.runtime.jobs import JobReporter
 
 logger = logging.getLogger("vpinfe.common.games.library_vps_state")
@@ -236,7 +236,13 @@ def _entry_of(entries: dict[str, dict[str, Any]], state: dict) -> dict[str, Any]
     vps_id = str(state.get("vps_id") or "")
     if not (state.get("matched") and vps_id):
         return None
-    return entries.setdefault(vps_id, {"tables": 0, "held": set()})
+    return entries.setdefault(vps_id, {"tables": 0, "held": set(), "bound": set()})
+
+
+def _bound_ids(state: dict) -> set[str]:
+    held = [*(state.get("tables") or []),
+            *(one for item in state.get("kinds") or [] for one in item.get("files") or [])]
+    return {str(one.get("vps_file_id") or "") for one in held} - {""}
 
 
 def compute(games: dict, per_game: Callable[[Game, str], dict],
@@ -266,6 +272,7 @@ def compute(games: dict, per_game: Callable[[Game, str], dict],
             held["tables"] += sum(
                 1 for one in table_entries(getattr(game, "meta_config", None)).values()
                 if not one.get(ABSENT_SINCE_KEY))
+            held["bound"].update(_bound_ids(state))
         for item in state.get("kinds") or []:
             tally = counts.get(str(item.get("kind") or ""))
             if tally is None:
@@ -282,7 +289,8 @@ def compute(games: dict, per_game: Callable[[Game, str], dict],
         "computed": timestamps.utc_now_iso(),
         "games": total,
         "matched": matched,
-        "entries": {vps_id: {"tables": found["tables"], "held": sorted(found["held"])}
+        "entries": {vps_id: {"tables": found["tables"], "held": sorted(found["held"]),
+                             "bound": sorted(found["bound"])}
                     for vps_id, found in entries.items()},
         "kinds": [{"kind": kind.listed_as, "ours": list(kind.ours),
                    "held_in": kind.held_in, **counts[kind.listed_as]}
@@ -297,9 +305,12 @@ def discovery() -> dict[str, Any]:
     every row, because an entry nobody has checked is not an entry you do not own. `held`
     names the kinds a game of the library holds for the entry, in the catalog's own keys,
     with `tableFiles` standing for a playable table. Every row has `listed`, so a consumer
-    can say "missing" only for what VPS lists.
+    can say "missing" only for what VPS lists. `releases` is the entry's releases by listing
+    (see `vps_releases`), each saying whether a file or table of the library is bound to
+    it, and `people` is the one list their `by` positions point into.
     """
     counted = stored()
+    built = vps_releases.index()
     held_by = counted.get("entries") or {}
     known = bool(counted)
     rows = []
@@ -323,8 +334,10 @@ def discovery() -> dict[str, Any]:
             "listed": [kind for kind in (TABLES, *vps_kinds.BY_LISTING) if entry.get(kind)],
             "in_library": (found is not None) if known else None,
             "held": held,
+            "releases": vps_releases.of_entry(built, vps_id, (found or {}).get("bound") or ()),
         })
-    return {"counted": str(counted.get("computed") or ""), "rows": rows}
+    return {"counted": str(counted.get("computed") or ""),
+            "people": built["people"], "rows": rows}
 
 
 def note_in_library(vps_id: str) -> None:
@@ -334,7 +347,7 @@ def note_in_library(vps_id: str) -> None:
     if not counted or not vps_id:
         return
     entries = dict(counted.get("entries") or {})
-    entries.setdefault(vps_id, {"tables": 0, "held": []})
+    entries.setdefault(vps_id, {"tables": 0, "held": [], "bound": []})
     counted.pop("schema", None)
     store({**counted, "entries": entries})
 
