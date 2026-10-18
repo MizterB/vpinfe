@@ -312,12 +312,12 @@ class LibraryPickerTests(unittest.TestCase):
 
         self.assertEqual(favorites["table_count"], 2)
         self.assertEqual(favorites["image_url"],
-                         f"{LIBRARY}/api/v1/collections/Favorites/image?v=7")
-        self.assertEqual(favorites["game_wheel_urls"], [f"{LIBRARY}{self.WHEEL}"])
+                         "/library/api/v1/collections/Favorites/image?v=7")
+        self.assertEqual(favorites["game_wheel_urls"], [f"/library{self.WHEEL}"])
         self.assertEqual(self._row("Hub Picks")["image_url"], "")
 
     def test_all_games_is_counted_and_drawn_from_the_whole_library(self) -> None:
-        wheels = [f"{LIBRARY}/api/v1/games/{title[:4]}/tables/t-{title[:4]}/media/wheel"
+        wheels = [f"/library/api/v1/games/{title[:4]}/tables/t-{title[:4]}/media/wheel"
                   for title in TITLES]
         game_state.apply_collection(self.api, "Hub Picks")
         self.assertEqual(len(self.api.library.entries), 1)
@@ -328,7 +328,7 @@ class LibraryPickerTests(unittest.TestCase):
 
     def test_a_collections_image_is_the_librarys(self) -> None:
         self.assertEqual(self.api.get_collection_image_url("Favorites"),
-                         f"{LIBRARY}/api/v1/collections/Favorites/image?v=7")
+                         "/library/api/v1/collections/Favorites/image?v=7")
         self.assertEqual(self.api.get_collection_image_url("Only Here"), "")
 
     def test_a_library_that_cannot_be_reached_offers_none(self) -> None:

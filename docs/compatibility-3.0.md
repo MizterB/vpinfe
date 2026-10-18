@@ -505,8 +505,9 @@ disk again.
 
 **PAR-73 — A window is told which machine its library is on.** *(machine-checked)* Two
 query parameters are added to the window url, `libraryHost` and `devicePort`, and only
-when `network.library_url` is set. `vpin.endpoints` reads them: `library` and `assets`
-follow the library, `device` and `frontend_channel` stay on this machine. Purely additive -
+when `network.library_url` is set. `vpin.endpoints` reads them: `library` follows the
+library, `files` is this device's `/library` that fetches for it, and `device` and
+`frontend_channel` stay on this device. Purely additive -
 with none set the url is byte-identical to what it was and every endpoint stays loopback.
 *Why:* `endpoints` hardcoded `127.0.0.1` for all four, so an install reading elsewhere
 resolved the library and its art to its own machine. Its own comment said hosts were "loopback until
@@ -514,8 +515,13 @@ bind configuration says otherwise", but nothing gave bind configuration a way to
 The host travels in the url for the same reason the ports do (PAR-45): the page cannot ask
 before it has a connection. `libraryPort` and `devicePort` are separate because they are
 different machines' ports - a library on 9000 would otherwise have a reader dialling its
-own api at 9000, and the library's at 8001. `assets` follows the library because art is a
-file in it; `frontend_channel` never does, because it addresses this page's own windows.
+own api at 9000, and the library's at 8001. `frontend_channel` never follows the library,
+because it addresses this page's own windows.
+`files` is this device's `/library` rather than the library's own address: the library
+refuses a page that is not signed in, and only this device holds the token it was paired
+with. `/library/<path>` forwards the library's picture routes (collection images, game and
+table media, table files, manufacturer logos) to the library and nothing else, and answers
+only this device's own windows.
 Covered by `tests/theming/test_chromium_manager.py` and `tests/js/endpoints.test.js`; the
 post-connect port refresh is covered by `tests/theming/test_render_smoke.py`, which caught
 it overwriting a remote library's port with this install's.

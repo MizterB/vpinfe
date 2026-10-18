@@ -197,7 +197,7 @@ class LibraryResolver:
         except Exception:
             logger.warning("Could not list the library's collections", exc_info=True)
             return []
-        return offered([remote_library.metadata_row(self._library_url, resource)
+        return offered([remote_library.metadata_row(resource)
                         for resource in resources], showing)
 
     def image_url(self, collection: str) -> str:
@@ -208,7 +208,7 @@ class LibraryResolver:
         except Exception:
             logger.debug("No image for %r from the library", collection, exc_info=True)
             return ""
-        return str(remote_library.metadata_row(self._library_url, resource)["image_url"])
+        return str(remote_library.metadata_row(resource)["image_url"])
 
     def stored(self, name: str) -> tuple[dict | None, dict[str, Any]] | None:
         """A collection's criteria and its order block, or None when there is no
@@ -324,7 +324,7 @@ class LibraryResolver:
         if self._remote:
             found = {name: dict(unknown) for name in names}
             if BUILTIN_ALL in found and self._whole is not None:
-                found[BUILTIN_ALL] = remote_library.glance(self._library_url, self._whole)
+                found[BUILTIN_ALL] = remote_library.glance(self._whole)
             return found
         store = self.collections()
         for name in names:

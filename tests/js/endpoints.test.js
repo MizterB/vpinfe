@@ -62,7 +62,8 @@ describe("the endpoint block", () => {
       "&libraryHost=library.example&devicePort=8001");
 
     assert.equal(vpin.endpoints.library, "http://library.example:9000");
-    assert.equal(vpin.endpoints.files, "http://library.example:9000", "art follows the library");
+    assert.equal(vpin.endpoints.files, "http://127.0.0.1:8001/library",
+      "art comes through this device, which is signed in to the library and a page is not");
     assert.equal(vpin.endpoints.device, "http://127.0.0.1:8001", "this machine, always");
     assert.equal(vpin.endpoints.frontend_channel, "ws://127.0.0.1:8002", "this machine, always");
   });
@@ -112,6 +113,17 @@ describe("every url the page builds comes from the block", () => {
 
     assert.equal(vpin.getManufacturerLogoURL(0),
                  "http://127.0.0.1:9000/manufacturers/bally/logo");
+  });
+
+  test("game media of a shared library resolves against this device", () => {
+    const vpin = withPorts(
+      "?window=table&themeAssetsPort=8001&libraryPort=9000" +
+      "&libraryHost=library.example&devicePort=8001");
+    vpin.tableData = [{}];
+    vpin._reader = { logo: () => "/manufacturers/bally/logo" };
+
+    assert.equal(vpin.getManufacturerLogoURL(0),
+                 "http://127.0.0.1:8001/library/manufacturers/bally/logo");
   });
 
   test("the frontend channel is dialled at its own endpoint", () => {

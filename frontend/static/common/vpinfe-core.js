@@ -1227,7 +1227,9 @@ class VPinFECore {
     return {
       library: `http://${libraryHost}:${this.libraryPort}`,
       device: `http://${host}:${this.devicePort}`,
-      files: `http://${libraryHost}:${this.libraryHost ? this.libraryPort : this.themeAssetsPort}`,
+      files: this.libraryHost
+        ? `http://${host}:${this.devicePort}/library`
+        : `http://${host}:${this.themeAssetsPort}`,
       frontend_channel: `ws://${host}:${this.wsPort}`,
     };
   }
@@ -3990,7 +3992,7 @@ class VPinFECore {
 
   #previewMedia(preview, showing, screen) {
     const kind = String(preview.kind);
-    const game = `${this.endpoints.library}/api/v1/games/${encodeURIComponent(preview.game_id)}`;
+    const game = `${this.endpoints.files}/api/v1/games/${encodeURIComponent(preview.game_id)}`;
     const table = preview.table_id ? `/tables/${encodeURIComponent(preview.table_id)}` : "";
     const url = showing === "after"
       ? `${this.endpoints.device}/api/v1/capture/proposals/`

@@ -126,6 +126,11 @@ def _on(library_url: str, path: str) -> str:
     return urljoin(library_url.rstrip("/") + "/", path.lstrip("/"))
 
 
+def art_url(path: str) -> str:
+    """Where a window on this device asks for a picture the library holds."""
+    return "/library/" + path.lstrip("/")
+
+
 def fetch_collections(library_url: str, *,
                       timeout: int = http_client.DEFAULT_TIMEOUT) -> list[dict[str, Any]]:
     """Another install's collections as its API lists them, in its order. Raises when it
@@ -174,9 +179,9 @@ def create_collection(library_url: str, body: dict[str, Any], *,
         raise _REFUSALS.get(answer.status_code, RefusedError)(said) from exc
 
 
-def metadata_row(library_url: str, resource: dict[str, Any]) -> dict[str, Any]:
+def metadata_row(resource: dict[str, Any]) -> dict[str, Any]:
     """One of another install's collections, shaped as `get_collections_metadata` shapes
-    a local one, with that install's count and whole URLs to its art."""
+    a local one, with that install's count and `art_url` addresses for its art."""
     name = str(resource["name"])
     is_filter = resource.get("type") == "filter"
     image = str(resource.get("image") or "")
@@ -184,8 +189,7 @@ def metadata_row(library_url: str, resource: dict[str, Any]) -> dict[str, Any]:
     if image:
         version = resource.get("image_version")
         query = f"?{urlencode({'v': version})}" if version else ""
-        image_url = _on(library_url,
-                        f"api/v1/collections/{quote(name, safe='')}/image{query}")
+        image_url = art_url(f"api/v1/collections/{quote(name, safe='')}/image{query}")
     return {
         "name": name,
         "type": "filter" if is_filter else "vpsid",
@@ -195,12 +199,11 @@ def metadata_row(library_url: str, resource: dict[str, Any]) -> dict[str, Any]:
         "in_frontend": bool(resource.get("in_frontend", True)),
         "game_count": resource.get("game_count"),
         "table_count": resource.get("count"),
-        "game_wheel_urls": [_on(library_url, str(url))
-                            for url in resource.get("game_wheels") or []],
+        "game_wheel_urls": [art_url(str(url)) for url in resource.get("game_wheels") or []],
     }
 
 
-def glance(library_url: str, entries: list[Entry]) -> dict[str, Any]:
-    """How many `entries` that install sent, and whole URLs to the first few wheels."""
+def glance(entries: list[Entry]) -> dict[str, Any]:
+    """How many `entries` that install sent, and addresses of the first few wheels."""
     return {"table_count": len(entries),
-            "game_wheel_urls": [_on(library_url, path) for path in wheel_paths(entries)]}
+            "game_wheel_urls": [art_url(path) for path in wheel_paths(entries)]}

@@ -364,9 +364,10 @@ class SeparationTests(_Separation):
         picks = next(item for item in items if item["name"] == "Hub Picks")
         self.assertEqual(picks["table_count"], 2)
         self.assertEqual(items[0]["table_count"], len(TITLES))
+        self.assertTrue(picks["image_url"].startswith("/library/"), picks["image_url"])
         self.assertEqual(drawn, [1] * (3 + len(TITLES)),
                          "the collection's image, its two wheels and every one of All "
-                         "Games' load from the hub")
+                         "Games' load, the device fetching them from the hub")
         self.assertEqual(failures, [])
 
     def test_a_device_shows_the_hub_s_collection_in_the_hub_s_order(self) -> None:

@@ -140,10 +140,12 @@ def _asked(verb: Callable[..., requests.Response], url: str, *, trust: str | Non
 
 
 def get_response(url: str, *, timeout: float = DEFAULT_TIMEOUT,
-                 headers: dict[str, str] | None = None) -> requests.Response:
+                 headers: dict[str, str] | None = None,
+                 stream: bool = False) -> requests.Response:
     """The answer whatever its status, for a caller that reads the status itself: a 404
-    that means nothing held. A host that said wait still raises HostQuietError."""
-    return _asked(requests.get, url, timeout=timeout, headers=headers)
+    that means nothing held. A host that said wait still raises HostQuietError. With
+    `stream` the body is left unread, and the caller closes the response."""
+    return _asked(requests.get, url, timeout=timeout, headers=headers, stream=stream)
 
 
 def post_response(url: str, payload: Any = None, *, timeout: float = DEFAULT_TIMEOUT,

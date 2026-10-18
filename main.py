@@ -147,7 +147,7 @@ from starlette.responses import Response
 import httpapi
 import manager
 from cli import parse_args
-from frontend import lifecycle_host, runtime, theme_routes
+from frontend import library_art, library_resolver, lifecycle_host, runtime, theme_routes
 from manager import app_control
 from manager.host import _shutdown_event, start_server, stop_server
 from manager.security.origin_guard import SocketOriginGuard
@@ -252,6 +252,7 @@ this_machine.warm()
 # Register frontend theme assets before NiceGUI can start on the first-run path.
 mount_points = runtime.build_mount_points(base_path, config_dir, config_store)
 theme_routes.register(nicegui_app, mount_points)
+library_art.register(nicegui_app, lambda: library_resolver.library_url(config_store))
 
 network = NetworkConfig.from_config(config_store)
 port_check.require(network)
