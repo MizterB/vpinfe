@@ -918,6 +918,15 @@ body::before {
   height: min(86vh, 780px); display: flex; flex-direction: column;
 }
 .manager-dialog--series .manager-series-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+/* Choosing tables for a game's file: one height whatever the game's tables, the list scrolls. */
+.manager-dialog.manager-dialog--moves.q-card {
+  width: min(520px, 94vw); height: min(86vh, 540px); display: flex; flex-direction: column;
+}
+.manager-dialog--moves .manager-moves-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.manager-moves-row { padding: 4px 0; align-items: flex-start; }
+.manager-moves-row .q-checkbox { flex: none; width: 100%; }
+.manager-moves-lines { margin-top: -4px; padding-bottom: 4px; }
+.manager-move-warn { color: var(--warm); }
 .manager-dialog.manager-dialog--full.q-card {
   width: 100%; height: 100%; max-height: none; border-radius: 0;
   display: flex; flex-direction: column;

@@ -406,6 +406,78 @@ class AddTableExecuteTests(unittest.TestCase):
                          ["Foo 1.2.directb2s", "Foo 1.2.vpx"])
 
 
+class FirstTableGetsThePovTests(unittest.TestCase):
+    """A POV downloaded before any table sits on the folder's name, which no other table
+    reads. The first table to arrive takes it."""
+
+    GAME_ID = "Pov0000001"
+
+    def setUp(self) -> None:
+        import json
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        from common.backups import folder as backup_folder
+        from common.games import game_repository, media_ops
+        from tests.support.library import fake_game, game_info
+        held = TemporaryDirectory()
+        self.addCleanup(held.cleanup)
+        self.tmp = Path(held.name)
+        self.game_dir = self.tmp / "Foo"
+        self.game_dir.mkdir()
+        self.info = self.game_dir / "Foo.info"
+        self.info.write_text(json.dumps(game_info("Foo", game_id=self.GAME_ID)))
+        (self.game_dir / "Foo.pov").write_bytes(b"pov")
+
+        def current():
+            return {self.GAME_ID: fake_game(self.game_dir, "Foo",
+                                            meta=json.loads(self.info.read_text()))}
+
+        for patched in (mock.patch.object(game_repository, "catalog", side_effect=current),
+                        mock.patch.object(asset_import_service, "refresh_game"),
+                        mock.patch.object(media_ops, "reread"),
+                        mock.patch.object(asset_import_service.VPXParser,
+                                          "single_file_extract", return_value={"rom": "foo"}),
+                        mock.patch.object(backup_folder, "current",
+                                          return_value=self.tmp / "backups")):
+            patched.start()
+            self.addCleanup(patched.stop)
+
+    def _import(self, name: str) -> None:
+        zip_path = self.tmp / "drop.zip"
+        make_zip(zip_path, [name])
+        plan = build_import_plan(analyze_path(zip_path), game_dir=self.game_dir)
+        execute_import_plan(plan, zip_path)
+
+    def _povs(self) -> list[str]:
+        return sorted(path.name for path in self.game_dir.glob("*.pov"))
+
+    def test_the_first_table_takes_the_pov_the_folder_held(self) -> None:
+        self._import("Foo Remix.vpx")
+
+        self.assertEqual(self._povs(), ["Foo Remix.pov"])
+
+    def test_a_table_named_like_the_folder_already_reads_it(self) -> None:
+        self._import("Foo.vpx")
+
+        self.assertEqual(self._povs(), ["Foo.pov"])
+
+    def test_a_game_that_had_a_table_keeps_the_pov_where_it_is(self) -> None:
+        (self.game_dir / "Foo Old.vpx").write_bytes(b"old")
+
+        self._import("Foo Remix.vpx")
+
+        self.assertEqual(self._povs(), ["Foo.pov"])
+
+    def test_a_failed_move_does_not_fail_the_import(self) -> None:
+        with mock.patch.object(asset_import_service.file_move, "to_tables",
+                               side_effect=OSError("share gone")):
+            self._import("Foo Remix.vpx")
+
+        self.assertTrue((self.game_dir / "Foo Remix.vpx").exists())
+        self.assertEqual(self._povs(), ["Foo.pov"])
+
+
 class TraversalGuardTests(unittest.TestCase):
     def test_safe_dest_rejects_traversal(self):
         from pathlib import Path

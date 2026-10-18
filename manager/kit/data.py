@@ -40,7 +40,7 @@ WATCHED_JOBS = 100
 # The cell holds the *word*, never the mark. What a cell is worth filtering and sorting
 # on is the state; how it is drawn is the column's business. Holding the drawn mark makes
 # the text filter match `<span class="manager-mark manager-mark--full">`, so typing "full"
-# finds rows and typing "All tables" finds none.
+# finds rows and typing "This game" finds none.
 #
 # The words are `media_ownership`'s, which is the module that owns them. A set of its own
 # here would split the folder-named file from the fixed-name slot, which is about our
@@ -449,13 +449,32 @@ class Library:
         self.forget_media(game_id)
         return result
 
-    def retier_media(self, game_id: str, kind: str, from_table: str,
-                     to_table: str) -> dict:
-        """The file moves tier, so every tier's read is stale - the one it left and the
-        one it arrived at both resolve differently now."""
-        result = self._client.retier_media(game_id, kind, from_table, to_table)
-        self.forget_media(game_id)
+    def file_move_state(self, game_id: str, family: str, kind: str) -> dict:
+        """Never cached: it is asked to decide a move, and a stale answer would offer a
+        table a file it no longer has."""
+        return self._client.file_move_state(game_id, family, kind)
+
+    def move_file_to_tables(self, game_id: str, family: str, kind: str,
+                            table_ids: list[str]) -> dict:
+        result = self._client.move_file_to_tables(game_id, family, kind, table_ids)
+        self._forget_move(game_id)
         return result
+
+    def move_file_to_game(self, game_id: str, family: str, kind: str,
+                          table_id: str) -> dict:
+        result = self._client.move_file_to_game(game_id, family, kind, table_id)
+        self._forget_move(game_id)
+        return result
+
+    def undo_file_move(self, game_id: str, token: str) -> dict:
+        result = self._client.undo_file_move(game_id, token)
+        self._forget_move(game_id)
+        return result
+
+    def _forget_move(self, game_id: str) -> None:
+        """A move changes which files every tier resolves, media and assets alike."""
+        self.forget_media(game_id)
+        self._forget_tables(game_id)
 
     def displaced_by(self, game_id: str, table_id: str, kind: str, filename: str,
                      page: int = 1) -> list[str]:

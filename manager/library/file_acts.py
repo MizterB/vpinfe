@@ -21,6 +21,7 @@ from typing import Any
 from nicegui import run, ui
 
 from common.failures import why
+from common.games import file_move as core
 from common.games import media_fill as gaps_in
 from common.games.asset_resolver import VPX_ASSET_KINDS
 from common.i18n import t
@@ -28,7 +29,7 @@ from common.media.media_specs import PAGED_KINDS
 from common.online import vps_kinds
 from manager.kit import confirm, game_tables, media_ownership, offload, panel, verbs, walks
 from manager.kit.on_page import on_page
-from manager.library import media_fill, media_rotate, mediasource
+from manager.library import file_move, media_fill, media_rotate, mediasource
 from manager.library import record as recorder
 
 logger = logging.getLogger("vpinfe.manager.library.file_acts")
@@ -227,8 +228,6 @@ def media_acts(library: Any, files: list[File], state: dict[str, Any],
     recordable = [one for one in files if mediasource.records(library, one.kind) is not None]
     matchable = [one for one in files if one.present and one.path
                  and listed_as(one.kind, vps_kinds.MEDIA) is not None]
-    sharable = [one for one in files if one.present and one.table
-                and str(one.row.get("via") or "") == "table"]
     removable = [one for one in everyone if one.present]
 
     async def open_slot(one: File, done: Callable[[], Awaitable[Any]], place: str) -> Any:
@@ -296,19 +295,6 @@ def media_acts(library: Any, files: list[File], state: dict[str, Any],
         await media_rotate.ask(rows, way, state, partial(after, _games_of(files)))
 
     @on_page
-    async def give() -> None:
-        given: list[File] = []
-        try:
-            for one in sharable:
-                await run.io_bound(library.retier_media, one.game_id, one.kind, one.table, "")
-                given.append(one)
-        except Exception as exc:  # noqa: BLE001
-            ui.notify(t("manager.workbench.move_failed"), caption=why(exc), type="negative")
-        else:
-            ui.notify(t("manager.workbench.give_done"), type="positive")
-        await after(_games_of(given))
-
-    @on_page
     async def remove() -> None:
         if len(removable) == 1:
             only = removable[0]
@@ -358,8 +344,7 @@ def media_acts(library: Any, files: list[File], state: dict[str, Any],
     if media_rotate.turnable(rows):
         offered.append(panel.Verb(t("manager.media_rotate.turn"), choices=tuple(
             (t(word), partial(turn, way)) for way, word in media_rotate.MENU)))
-    if sharable:
-        offered.append(panel.Verb(t("manager.workbench.give_all"), give))
+    offered.extend(file_move.verbs_for(library, files, core.MEDIA, after))
     if removable:
         offered.append(panel.Verb(t("word.remove"), remove, danger=True))
     return offered
@@ -455,6 +440,7 @@ def asset_acts(library: Any, files: list[File], state: dict[str, Any],
     offered: list[panel.Verb] = []
     if placeable:
         offered.append(panel.Verb(_slot_label(placeable), add_or_replace))
+    offered.extend(file_move.verbs_for(library, files, core.ASSET, after))
     if removable:
         offered.append(panel.Verb(t("word.remove"), remove, danger=True))
     if scripts:

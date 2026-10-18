@@ -12,12 +12,21 @@ from typing import Any
 from nicegui import run, ui
 
 from common.failures import why
+from common.games import file_move as moved_files
 from common.i18n import t
 from common.media.media_specs import PAGED_KINDS, media_family, media_label_map
 from manager.devices import plays_on
 from manager.kit import art, confirm, deeplink, media_ownership, offload, panel, verbs, when
 from manager.kit.on_page import on_page
-from manager.library import file_acts, media_fill, mediamap, mediapages, mediasource, mediaview
+from manager.library import (
+    file_acts,
+    file_move,
+    media_fill,
+    mediamap,
+    mediapages,
+    mediasource,
+    mediaview,
+)
 from manager.library import record as recorder
 from manager.workbench.core import _outside_lines, _provenance, _table_address, _table_line
 from manager.workbench.game_match import _match_button, _match_line
@@ -376,26 +385,13 @@ def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
                   type="positive" if gone else "info")
         await draw()
 
-    # Widening only, and only from the table you are looking at. The other direction -
-    # a shared file becoming one table's - reads as a move but takes the file away from
-    # every other table in the folder, and in the shared lens there is no table in view
-    # to say which one would get it. That one needs a decision, not a default.
-    can_share = present and table_id and str(entry.get("via") or "") == "table"
     # A file the view does not own is not its to remove: it says where it comes from and
     # the slot offers Add, which makes one of its own.
     borrowed = present and file_acts.removal(
         context["tables"], context["game"], table_id, detail.get("tiers"), entry,
         detail.get("after_remove")) is None
 
-    @on_page
-    async def share() -> None:
-        """The table's own file takes the folder's name, so every table resolves it."""
-        try:
-            await run.io_bound(library.retier_media, game_id, kind, table_id, "")
-        except Exception as exc:
-            ui.notify(t("manager.workbench.move_failed"), caption=why(exc), type="negative")
-            return
-        ui.notify(t("manager.workbench.give_done"), type="positive")
+    async def redrawn(_games: list[str]) -> None:
         for redraw in context["redraws"]:
             await redraw()
 
@@ -506,7 +502,9 @@ def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
                               else t("word.remove"), icon=verbs.REMOVE, on_click=remove) \
                         .props("flat dense no-caps size=sm") \
                         .classes("manager-action manager-action--danger")
-            if can_share and page == 1:
-                ui.button(t("manager.workbench.give_all"),
-                    icon=verbs.SHARE, on_click=share) \
-                    .props("flat dense no-caps size=sm").classes("manager-action")
+            if present and page == 1:
+                file_move.card_buttons(
+                    library, {"kind": kind, "game_id": game_id, "table": table_id,
+                              "present": present, "via": entry.get("via"),
+                              "path": entry.get("path")},
+                    context["game"], moved_files.MEDIA, redrawn)

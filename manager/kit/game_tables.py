@@ -1,6 +1,6 @@
 """How a game and a table are named and shown, in one vocabulary.
 
-Do not reuse `media_ownership.py`'s nouns here: "This table" and "All tables" are about
+Do not reuse `media_ownership.py`'s nouns here: "This table" and "This game" are about
 which media file wins, and borrowing them would overload a vocabulary that is correct.
 """
 

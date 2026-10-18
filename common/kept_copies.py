@@ -29,6 +29,7 @@ IMPORT = "import"
 RESET = "reset"
 TURN = "turn"
 EDIT = "edit"
+MOVE = "move"
 _COPY_TAIL = re.compile(
     re.escape(BACKUP_MARKER) + r"(?P<stamp>\d{8}T\d{6}Z)(?:-(?P<reason>[a-z]+))?$")
 

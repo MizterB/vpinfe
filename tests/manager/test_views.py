@@ -136,7 +136,7 @@ class AssetSectionTests(unittest.TestCase):
         self.assertNotEqual(internal, media_ownership.for_resolution("none").noun)
 
     def test_a_resolution_maps_onto_the_tier_that_means_it(self) -> None:
-        for resolution, noun in (("dedicated", "This table"), ("shared", "All tables"),
+        for resolution, noun in (("dedicated", "This table"), ("shared", "This game"),
                                  ("none", "Missing"), (None, "Missing")):
             with self.subTest(resolution=resolution):
                 self.assertEqual(t(media_ownership.for_resolution(resolution).noun),

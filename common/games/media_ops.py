@@ -424,24 +424,6 @@ def fetch_file(game_id: str, kind: str, table_id: str, source: str, vps_id: str,
         return place_file(game_id, kind, table_id, staged, offer.source, offer.md5)
 
 
-def retier(game_id: str, kind: str, from_table: str, to_table: str) -> dict:
-    """Change who a file serves without sending it again.
-
-    The tier is the filename, so this is a rename. Either table may be empty, which means
-    the folder's shared name.
-    """
-    game = game_lens.game_for_writing(game_id)
-    game_dir = _folder(game)
-    from_stem = stem_or_refuse(game, from_table) if from_table else game_dir.name
-    to_stem = stem_or_refuse(game, to_table) if to_table else game_dir.name
-    try:
-        written = media_placement.retier(game_dir, kind, from_stem, to_stem)
-    except media_placement.UnplaceableError as exc:
-        raise service_errors.RefusedError(why(exc)) from exc
-    return _wrote(game_dir, kind, written, game_id, to_table,
-                  to_stem if to_table else None)
-
-
 def move_page(game_id: str, kind: str, table_id: str, page: int, to: int) -> dict:
     """Swap page `page` of a slot with page `to`, so each takes the other's number.
 
@@ -508,5 +490,5 @@ def get_missing_media(game_ids: list[str]) -> dict:
 
 __all__ = ["detail", "displaced", "fetch_file", "game_media", "get_missing_media",
            "kind_or_refuse", "media_file", "move_page", "overrides", "place_file", "place_upload",
-           "placements", "remove", "retier", "stem_or_refuse", "table_media",
+           "placements", "remove", "stem_or_refuse", "table_media",
            "use_logos_for_wheels"]

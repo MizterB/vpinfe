@@ -97,7 +97,7 @@ _TIERS = {
     TABLE: Tier(TABLE, "manager.media_ownership.table",
              "manager.media_ownership.table_2", "manager-tier--table",
                 "manager-mark--full", "manager.media_ownership.table_tip"),
-    GAME: Tier(GAME, "manager.media_ownership.all_tables",
+    GAME: Tier(GAME, "manager.media_ownership.game",
              "manager.media_ownership.game_short", "manager-tier--game",
                "manager-mark--outline", "manager.media_ownership.game_tip"),
     STAND_IN: Tier(STAND_IN, "manager.media_ownership.stand",

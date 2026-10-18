@@ -12,9 +12,6 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from common.games import media_placement
-from common.games.media_placement import UnplaceableError
-from common.i18n import t
-from common.media.media_specs import MEDIA_SPECS
 
 KIND = "backglass"
 GAME = "MyGame"
@@ -90,95 +87,6 @@ class PlacementTests(unittest.TestCase):
 
         self.assertEqual([p.name for p in going], ["(backglass) mygame.png"])
         self.assertEqual(self._medias(), ["(Backglass) MyGame.png"])
-
-
-class RetierTests(PlacementTests):
-    def test_a_builds_file_takes_the_folder_name(self) -> None:
-        media_placement.place(self.root, KIND, BUILD, self._source())
-
-        media_placement.retier(self.root, KIND, BUILD, GAME)
-
-        self.assertEqual(self._medias(), ["(Backglass) MyGame.png"])
-
-    def test_the_extension_survives_the_move(self) -> None:
-        media_placement.place(self.root, KIND, BUILD, self._source("art.jpg"))
-
-        media_placement.retier(self.root, KIND, BUILD, GAME)
-
-        self.assertEqual(self._medias(), ["(Backglass) MyGame.jpg"])
-
-    def test_moving_onto_an_occupied_tier_replaces_what_is_there(self) -> None:
-        """Same rule as a drop - the arriving file wins and the other one goes, rather
-        than sitting behind it forever."""
-        media_placement.place(self.root, KIND, GAME, self._source("old.png"))
-        media_placement.place(self.root, KIND, BUILD, self._source("new.jpg"))
-
-        media_placement.retier(self.root, KIND, BUILD, GAME)
-
-        self.assertEqual(self._medias(), ["(Backglass) MyGame.jpg"])
-
-    def test_a_file_under_another_token_moves(self) -> None:
-        (self.root / "medias" / f"(GameInfo) {BUILD}.png").write_bytes(b"flyer")
-
-        media_placement.retier(self.root, "flyer", BUILD, GAME)
-
-        self.assertEqual(self._medias(), ["(Flyer) MyGame.png"])
-
-    def test_the_file_that_shows_is_the_one_that_moves(self) -> None:
-        cases = (("instruction_card", self.root / "medias" / f"(GameHelp) {BUILD}.png",
-                  self.root / "medias" / f"(InstructionCard) {BUILD}.png",
-                  "(InstructionCard) MyGame.png"),
-                 (KIND, self.root / f"(Backglass) {BUILD}.png",
-                  self.root / "medias" / f"(Backglass) {BUILD}.png",
-                  "(Backglass) MyGame.png"))
-        for kind, behind, shows, moved in cases:
-            with self.subTest(shows=shows.name, behind=behind.name):
-                behind.write_bytes(b"behind")
-                shows.write_bytes(b"shows")
-
-                media_placement.retier(self.root, kind, BUILD, GAME)
-
-                self.assertEqual(b"shows", (self.root / "medias" / moved).read_bytes())
-                for path in media_placement.displaced(self.root, kind, GAME, ".png"):
-                    path.unlink()
-
-    def test_the_rest_of_the_family_moves_behind_it(self) -> None:
-        """Left at the table's tier, a file behind the one that moved goes on serving
-        that table as its own."""
-        shows = self.root / "medias" / f"(Flyer) {BUILD}.png"
-        family = (shows, self.root / "medias" / f"(Flyer) {BUILD}.jpg",
-                  self.root / f"(Flyer) {BUILD}.png",
-                  self.root / "medias" / f"(GameInfo) {BUILD}.png")
-        for path in family:
-            path.write_bytes(path.name.encode())
-
-        media_placement.retier(self.root, "flyer", BUILD, GAME)
-
-        self.assertEqual([], media_placement.displaced(self.root, "flyer", BUILD, ".png"))
-        self.assertEqual(["(Flyer) MyGame.jpg", "(Flyer) MyGame.png", "(GameInfo) MyGame.png"],
-                         self._medias())
-        self.assertEqual(shows.name.encode(),
-                         (self.root / "medias" / "(Flyer) MyGame.png").read_bytes())
-        self.assertEqual(family[2].name.encode(),
-                         (self.root / "(Flyer) MyGame.png").read_bytes())
-
-    def test_moving_a_file_that_is_not_there_is_refused(self) -> None:
-        with self.assertRaises(UnplaceableError) as caught:
-            media_placement.retier(self.root, KIND, BUILD, GAME)
-
-        self.assertEqual(str(caught.exception),
-                         t("error.games.slot_empty",
-                           slot=t("media.kind.backglass.label"), name=BUILD))
-
-    def test_a_file_the_slot_does_not_take_names_what_it_does(self) -> None:
-        spec = next(one for one in MEDIA_SPECS if one.kind == KIND)
-        with self.assertRaises(UnplaceableError) as caught:
-            media_placement.place(self.root, KIND, GAME, self._source("theme.mp3"))
-
-        self.assertEqual(str(caught.exception),
-                         t("error.games.wrong_extension", slot=spec.label,
-                           extension=".mp3", extensions=", ".join(spec.family)))
-        self.assertEqual(self._medias(), [])
 
 
 class RemoveTests(unittest.TestCase):

@@ -51,6 +51,9 @@ BUDGET = {
                     "row. The view picker is `panel.DescribedSelect`, which is where a "
                     "picker whose options explain themselves lives"),
     "mediasource.py": (1, "a search, toolbar"),
+    "move_picker.py": (1, "the tick per table in Choose Tables, which can be neither on "
+                          "nor off while a table is to have only some of the files: a "
+                          "choice over a list, not a fact row"),
     "launchers.py": (2, "checkboxes in the copy-to-device dialog"),
     "clipboard.py": (1, "the textarea a browser that will not copy falls back to"),
     "token_panel.py": (1, "the read-only box a new token is shown in, once, so it can "

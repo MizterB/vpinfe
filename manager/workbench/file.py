@@ -15,12 +15,20 @@ from nicegui import run, ui
 from common.config import path_state
 from common.failures import why
 from common.games import asset_registry
+from common.games import file_move as moved_files
 from common.games.asset_resolver import VPX_ASSET_KINDS
 from common.i18n import t
 from manager.kit import art, confirm, deeplink, media_ownership, offload, panel, verbs, when
 from manager.kit.data import Library, config_groups
 from manager.kit.on_page import on_page
-from manager.library import backglass_view, file_acts, mediasource, mediaview, text_editor
+from manager.library import (
+    backglass_view,
+    file_acts,
+    file_move,
+    mediasource,
+    mediaview,
+    text_editor,
+)
 from manager.library import record as recorder
 from manager.workbench.all_settings import (
     PLAYING_NOTE,
@@ -567,6 +575,7 @@ def _asset_actions(context: dict[str, Any], kind: str, label: str, present: bool
                 .props("flat dense no-caps size=sm").classes("manager-action")
         if not (present and path):
             return
+        _move_actions(context)
         if kind == "script" and table is not None and tier == media_ownership.TABLE:
             ui.button(t("word.delete"), icon=verbs.DELETE,
                       on_click=lambda: _drop_script(context, table)) \
@@ -577,6 +586,19 @@ def _asset_actions(context: dict[str, Any], kind: str, label: str, present: bool
                       on_click=lambda: _remove_asset(context, kind, path, tier)) \
                 .props("flat dense no-caps size=sm") \
                 .classes("manager-action manager-action--danger")
+
+
+def _move_actions(context: dict[str, Any]) -> None:
+    """Choose Tables for the game's file, or Move to Game for a table's, beside Replace."""
+    game_id, library = context["game_id"], context["library"]
+    game = next((one for one in library.games if str(one.get("id")) == game_id),
+                context["game"])
+
+    async def after(_games: list[str]) -> None:
+        await context["rebuild"]()
+
+    file_move.card_buttons(library, {**context["row"], "game_id": game_id}, game,
+                           moved_files.ASSET, after)
 
 
 def _folder_actions(context: dict[str, Any], kind: str, label: str, present: bool,

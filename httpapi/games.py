@@ -29,6 +29,7 @@ from common.games import (
     asset_ops,
     backglass_ops,
     collection_ops,
+    file_move,
     game_lens,
     game_ops,
     high_score_reads,
@@ -360,16 +361,37 @@ def get_table_media_detail(game_id: str, table_id: str, kind: str,
     return models.MediaDetail(**media_ops.detail(game_id, kind, table_id, page))
 
 
-@router.post("/{game_id}/media/{kind}/retier",
-             summary="Rename a placed file so it serves a different tier",
+@router.get("/{game_id}/moves/{family}/{kind}",
+            summary="What a move of the game's file to its tables would start from",
+            dependencies=[requires(scopes.GAMES_READ)])
+def get_file_move(game_id: str, family: str, kind: str) -> models.FileMoveState:
+    """`family` is `media` or `asset`: the two kinds named backglass are the picture and
+    the .directb2s file."""
+    return models.FileMoveState.model_validate(file_move.state(game_id, family, kind))
+
+
+@router.post("/{game_id}/moves/{family}/{kind}/to-tables",
+             summary="Give the game's file to these tables",
              dependencies=[requires(scopes.GAMES_WRITE)])
-def retier_media(game_id: str, kind: str, body: models.MediaRetier,
-                 table: str = Query("", description="the table the file serves now")
-                 ) -> models.MediaWritten:
-    """`table` says where the file is now and the body says where it should go; either may
-    be empty, which means the folder's shared name."""
-    return models.MediaWritten.model_validate(
-        media_ops.retier(game_id, kind, table, body.table))
+def move_file_to_tables(game_id: str, family: str, kind: str,
+                        body: models.FileMoveTables) -> models.FileMoved:
+    return models.FileMoved.model_validate(
+        file_move.to_tables(game_id, family, kind, body.tables))
+
+
+@router.post("/{game_id}/moves/{family}/{kind}/to-game",
+             summary="Make a table's own file the game's",
+             dependencies=[requires(scopes.GAMES_WRITE)])
+def move_file_to_game(game_id: str, family: str, kind: str,
+                      body: models.FileMoveGame) -> models.FileMoved:
+    return models.FileMoved.model_validate(
+        file_move.to_game(game_id, family, kind, body.table))
+
+
+@router.post("/{game_id}/moves/undo", summary="Put a move back",
+             dependencies=[requires(scopes.GAMES_WRITE)])
+def undo_file_move(game_id: str, body: models.FileMoveUndo) -> models.FileMoveUndone:
+    return models.FileMoveUndone.model_validate(file_move.undo(game_id, body.undo))
 
 
 @router.post("/{game_id}/media/{kind}/move",

@@ -160,7 +160,7 @@ def _tile(game_id: str, table_id: str, kind: str, entry: dict[str, Any],
             else:
                 ui.html(f'<img src="{src}" loading="lazy">').classes("manager-mediatile-media")
             # Only where a file is genuinely a table's own. Marking the other twenty
-            # tiles "All tables" would put a badge on every one of them and make the
+            # tiles "This game" would put a badge on every one of them and make the
             # map harder to read than it is without any.
             shared = media_ownership.key_of(entry.get("via")) == media_ownership.GAME
             if state != "missing" and not shared:

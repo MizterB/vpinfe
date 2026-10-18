@@ -1178,6 +1178,28 @@ becomes an exception to its rules - and each act hands it the reversal that puts
 exactly what it changed. What cannot be undone still asks first, through
 `manager/kit/confirm.py`.
 
+### A file moves between a game and its tables, one way each
+
+A game's file can be handed to its tables, and a table's own can be handed to the game.
+Both move the file in its folder, and both say what moved with Undo.
+
+- **A game's file** has **Choose Tables...**; with one table to choose it reads **Move to a
+  Table** and moves at once. **A table's file** has **Move to Game**, with no dialog.
+- **Offered for** media on every page, the backglass, the ScoreView file and the settings
+  file. A script goes to a table only, since at the game level every table without its own
+  would run it; a POV, since only the table named like the folder reads one there.
+  PuP packs, alt color, alt sound, music, ROMs and patches have no item.
+- **Choose Tables...** is one checkbox per table under **Used by**, each table once, with
+  what it ends up with in words under its name. Saving makes the ticks true. The file stays on
+  the game when every table without its own is ticked, replacing the own file of any table
+  ticked with one. Otherwise it leaves the game: renamed for the one table ticked, copied for
+  each when several are. A replaced file goes to Backups with no confirm, and Undo puts both back.
+- **Off, with the reason as the hint:** a game with no tables, files from two games, two
+  tables' files of one kind (*Keep one*).
+- **A table named like the folder is not a choice.** Its file and the game's are one file,
+  so its row follows the others and is never ticked by hand.
+- **A failure puts both files back.** The move is refused while a table of the game plays.
+
 ### A copy is kept in one list, and every panel opens onto it
 
 Every copy VPinFE keeps is listed once, on System > Backups, and a game, a launcher or a

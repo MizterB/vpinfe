@@ -7,6 +7,7 @@ rather than overwritten.
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import os
@@ -669,6 +670,23 @@ class MetaConfig:
             if md5:
                 source["hash"] = md5
         self.data.setdefault(ASSETS_KEY, {})[key] = {"source": source}
+        self.write_config()
+
+    def asset_entries(self, keys: list[str]) -> dict[str, dict | None]:
+        """The ledger entry at each key, or None where there is none. Copies, so a caller
+        can hold them while the file changes."""
+        held = self.data.get(ASSETS_KEY, {})
+        return {key: copy.deepcopy(held[key]) if isinstance(held.get(key), dict) else None
+                for key in keys}
+
+    def rewrite_assets(self, entries: dict[str, dict | None]) -> None:
+        """Set each key's entry, or drop it where the value is None, in one write."""
+        held = self.data.setdefault(ASSETS_KEY, {})
+        for key, entry in entries.items():
+            if entry is None:
+                held.pop(key, None)
+            else:
+                held[key] = copy.deepcopy(entry)
         self.write_config()
 
     def _asset_key(self, path: str) -> str:

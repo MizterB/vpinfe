@@ -22,7 +22,9 @@ from __future__ import annotations
 
 import logging
 import shutil
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 
 from common.i18n import t
@@ -282,50 +284,37 @@ def move_page(game_dir: str | Path, kind: str, stem: str, page: int, to: int) ->
     return landed[0]
 
 
-def retier(game_dir: str | Path, kind: str, from_stem: str, to_stem: str) -> Path:
-    """Move a tier's files for this kind to the other tier by renaming them, and return
-    where the one that shows landed.
+@dataclass(frozen=True)
+class Piece:
+    """One file of a slot: where it is, which page it is, and `at(stem)`, the path it
+    would have named for another table."""
 
-    The tier is the filename, so changing who a file serves is a rename rather than a
-    re-upload. The one that shows is routed through `place`, so it displaces what is
-    there by exactly the rule a drop would. A kind with pages takes them all: the flyer
-    is its pages, so the pages already at the destination go with the page 1 it replaces.
+    path: Path
+    page: int
+    at: Callable[[str], Path]
+
+
+def pieces(game_dir: str | Path, kind: str, stem: str) -> list[Piece]:
+    """Every file this kind has at this stem's tier: all its pages, and every spelling of
+    each, in the folder it sits in. Empty where page 1 is missing, as the pages are not
+    shown then.
+
+    `at` keeps the folder, the token, the page number and the extension, so a move is a
+    rename in place.
     """
     game_dir = Path(game_dir)
-    spec = _SPEC_BY_KIND.get(kind)
-    if spec is None or not any(True for _ in _members(game_dir, kind, from_stem)):
-        raise UnplaceableError(t("error.games.slot_empty",
-                                 slot=spec.label if spec else kind, name=from_stem))
+    spec = _spec_of(kind)
+    found = []
+    for number in _pages(game_dir, kind, stem):
+        for path, token, extension in _members(game_dir, kind, stem, number):
+            found.append(Piece(path, number,
+                               partial(_renamed, spec, path, token, number, extension)))
+    return found
 
-    numbers = _pages(game_dir, kind, from_stem)
-    sources = [(position, list(_members(game_dir, kind, from_stem, number)))
-               for position, number in enumerate(numbers, 1)]
-    if from_stem == to_stem:
-        return sources[0][1][0][0]
-    if spec.pages:
-        for number in _present(game_dir, kind, to_stem):
-            if number != 1:
-                for stale in list(_family_at_tier(game_dir, kind, to_stem, number)):
-                    stale.unlink()
 
-    target = Path()
-    for position, members in sources:
-        (source, _token, _extension), *behind = members
-        landed = place(game_dir, kind, to_stem, source, position)
-        if position == 1:
-            target = landed
-        if source != landed:
-            try:
-                source.unlink()
-            except OSError:
-                logger.warning("Placed %s but could not remove %s", landed, source)
-        for path, token, extension in behind:
-            moved = path.with_name(_name(spec, token, to_stem, position, extension))
-            try:
-                path.rename(moved)
-            except OSError:
-                logger.warning("Could not move %s to %s", path, moved)
-    return target
+def _renamed(spec: MediaSpec, path: Path, token: str | None, number: int, extension: str,
+             to_stem: str) -> Path:
+    return path.with_name(_name(spec, token, to_stem, number, extension))
 
 
 def record_origin(game_dir: str | Path, path: Path, host: str = "user",

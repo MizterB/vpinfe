@@ -14,6 +14,7 @@ from manager.library import file_acts
 def _library() -> Mock:
     library = Mock()
     library.games = [{"id": "g1", "name": "One", "vps_id": "v1"}, {"id": "g2", "name": "Two"}]
+    library.tables = {}
     library.discovery.return_value = {"capabilities": []}
     return library
 
@@ -92,12 +93,13 @@ class MediaFiles(unittest.TestCase):
         self.assertIsNone(match.run)
         self.assertTrue(match.hint)
 
-    def test_give_to_all_tables_needs_a_file_a_table_has_of_its_own(self) -> None:
-        give = t("manager.workbench.give_all")
+    def test_move_to_game_needs_a_file_a_table_has_of_its_own(self) -> None:
+        move = t("manager.file_move.to_game")
 
-        self.assertNotIn(give, [one.label for one in _media_acts(_media("a"))])
-        self.assertIn(give, [one.label for one in
-                             _media_acts(_media("a", via="table", table="t1"))])
+        self.assertNotIn(move, [one.label for one in _media_acts(_media("a"))])
+        self.assertIn(move, [one.label for one in
+                             _media_acts(_media("a", via="table", table="t1",
+                                       kind="backglass"))])
 
 
 class AssetFiles(unittest.TestCase):
@@ -105,7 +107,8 @@ class AssetFiles(unittest.TestCase):
         made = _asset_acts(_asset("a"))
 
         self.assertEqual([one.label for one in made],
-                         [t("manager.files.replace"), t("word.remove")])
+                         [t("manager.files.replace"), t("manager.file_move.choose"),
+                          t("word.remove")])
         self.assertTrue(made[-1].danger)
 
     def test_a_kind_without_acts_has_no_menu(self) -> None:

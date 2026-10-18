@@ -976,15 +976,23 @@ class ApiClient:
         return self._post(f"/games/{game_id}/media/backglass/from-file",
                           {"table": table_id or ""})
 
-    def retier_media(self, game_id: str, kind: str, from_table: str,
-                     to_table: str) -> dict:
-        """Rename a placed file so it serves the other tier. No bytes move."""
-        path = f"/games/{game_id}/media/{kind}/retier"
-        _refuse_the_event_loop(path)
-        response = self._session.post(f"{self._base}{path}", json={"table": to_table},
-                                      params={"table": from_table}, timeout=_TIMEOUT)
-        self._answered(response)
-        return response.json()
+    def file_move_state(self, game_id: str, family: str, kind: str) -> dict:
+        """What a move of the game's file would start from: the game's file, each table's
+        own, and whether it can go to the game or a table is playing."""
+        return self._get(f"/games/{game_id}/moves/{family}/{kind}")
+
+    def move_file_to_tables(self, game_id: str, family: str, kind: str,
+                            table_ids: list[str]) -> dict:
+        return self._post(f"/games/{game_id}/moves/{family}/{kind}/to-tables",
+                          {"tables": table_ids})
+
+    def move_file_to_game(self, game_id: str, family: str, kind: str,
+                          table_id: str) -> dict:
+        return self._post(f"/games/{game_id}/moves/{family}/{kind}/to-game",
+                          {"table": table_id})
+
+    def undo_file_move(self, game_id: str, token: str) -> dict:
+        return self._post(f"/games/{game_id}/moves/undo", {"undo": token})
 
     def move_media_page(self, game_id: str, table_id: str, kind: str, page: int,
                         to: int) -> dict:

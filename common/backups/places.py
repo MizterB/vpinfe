@@ -32,6 +32,7 @@ from common.i18n import t
 from common.kept_copies import (
     EDIT,
     IMPORT,
+    MOVE,
     REASON_2X,
     RESET,
     RESTORE,
@@ -70,6 +71,7 @@ from .copies import (
     REASON_EDIT,
     REASON_FIRST_CHANGE,
     REASON_IMPORT,
+    REASON_MOVE,
     REASON_RESET,
     REASON_RESTORE,
     REASON_TURN,
@@ -108,7 +110,8 @@ _RECORD_KINDS = {
 }
 
 _REASON_BY_WORD = {RESTORE: REASON_RESTORE, IMPORT: REASON_IMPORT, RESET: REASON_RESET,
-                   TURN: REASON_TURN, EDIT: REASON_EDIT}
+                   TURN: REASON_TURN, EDIT: REASON_EDIT,
+                   MOVE: REASON_MOVE}
 
 
 def _reason_of_name(name: str) -> str:

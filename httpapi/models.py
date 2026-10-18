@@ -2782,11 +2782,74 @@ class MediaWritten(ApiModel):
     media: dict[str, MediaEntry]
 
 
-class MediaRetier(ApiModel):
-    """Which table a file should serve after the move. An empty `table` means the
-    folder's shared name, which every table in it resolves."""
+class FileMoveTables(ApiModel):
+    """The tables that are to have the game's file. A table not listed keeps what it has."""
 
-    table: str = ""
+    tables: list[str]
+
+
+class FileMoveGame(ApiModel):
+    """The table whose own file becomes the game's."""
+
+    table: str
+
+
+class FileMoveUndo(ApiModel):
+    """The token a move returned."""
+
+    undo: str
+
+
+class FileMoveKept(ApiModel):
+    """A table's own file that the move replaced, and the copy Backups keeps of it."""
+
+    table: str
+    file: str
+    kept: str
+
+
+class FileMoved(ApiModel):
+    """What a move did. `lost` names the tables left with no such file, `uses` the tables
+    that use the game's file or their new one now, and `undo` the token that puts it back."""
+
+    moved: list[dict[str, str]]
+    replaced: list[FileMoveKept]
+    lost: list[str]
+    uses: list[str]
+    changed_for: list[str]
+    stays: bool
+    undo: str
+
+
+class FileMoveFacts(ApiModel):
+    files: list[str]
+    size: int
+    modified: float
+
+
+class FileMoveTable(ApiModel):
+    id: str
+    stem: str
+    filename: str
+    folder_named: bool
+    own: FileMoveFacts | None
+    ini: bool
+
+
+class FileMoveState(ApiModel):
+    """What a file move needs to ask: the game's file, each table's own, whether the file
+    can go to the game, and whether a table of the game is playing."""
+
+    folder: str
+    game: FileMoveFacts | None
+    tables: list[FileMoveTable]
+    fallback: bool
+    to_game: bool
+    playing: bool
+
+
+class FileMoveUndone(ApiModel):
+    undone: bool
 
 
 class MediaMove(ApiModel):

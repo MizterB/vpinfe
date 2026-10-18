@@ -387,36 +387,6 @@ class MovingTests(OnDiskTests):
             media_placement.move_page(self.root, "flyer", FOLDER, 2, 3)
 
 
-class RetierTests(OnDiskTests):
-    def test_the_pages_move_with_page_one(self) -> None:
-        self._flyer(1, 2, 3, stem=TABLE)
-
-        landed = media_placement.retier(self.root, "flyer", TABLE, FOLDER)
-
-        self.assertEqual(landed.name, f"(Flyer) {FOLDER}.png")
-        self.assertEqual(self._medias(), [f"(Flyer 2) {FOLDER}.png", f"(Flyer 3) {FOLDER}.png",
-                                          f"(Flyer) {FOLDER}.png"])
-
-    def test_the_pages_already_at_the_destination_go_with_the_page_one_it_replaces(
-            self) -> None:
-        self._flyer(1, 2, 3, 4, stem=FOLDER)
-        self._flyer(1, 2, stem=TABLE)
-
-        media_placement.retier(self.root, "flyer", TABLE, FOLDER)
-
-        self.assertEqual(media_placement.page_count(self.root, "flyer", FOLDER), 2)
-        self.assertEqual(self._medias(), [f"(Flyer 2) {FOLDER}.png", f"(Flyer) {FOLDER}.png"])
-
-    def test_moving_to_the_tier_it_is_already_at_keeps_every_page(self) -> None:
-        self._flyer(1, 2, 3, stem=FOLDER)
-
-        landed = media_placement.retier(self.root, "flyer", FOLDER, FOLDER)
-
-        self.assertEqual(landed.name, f"(Flyer) {FOLDER}.png")
-        self.assertEqual(self._medias(), [f"(Flyer 2) {FOLDER}.png", f"(Flyer 3) {FOLDER}.png",
-                                          f"(Flyer) {FOLDER}.png"])
-
-
 class ScanTests(unittest.TestCase):
     def test_a_scanned_game_records_its_pages_for_the_game_and_for_each_table(self) -> None:
         import configparser

@@ -17,7 +17,7 @@ from pathlib import Path, PurePosixPath
 from common import tokens
 from common.atomic_write import staged_for, write_atomic
 from common.failures import why
-from common.games import library_folders, media_placement
+from common.games import file_move, game_repository, library_folders, media_placement
 from common.games.asset_registry import ARCHIVE_EXTENSIONS, lens_kind, spec_for
 from common.games.formats.vpx_parser import VPXParser
 from common.games.game_repository import refresh_game
@@ -827,6 +827,7 @@ def execute_import_plan(plan: ImportPlan, source_path: Path,
     else:
         library_folders.writable_game_folder(base)
 
+    first_table = bool(plan.new_game_dir_name) or replaced_table(base) is None
     source = open_source(Path(source_path))
     imported: list[str] = []
     media_kinds: list[str] = []
@@ -871,6 +872,8 @@ def execute_import_plan(plan: ImportPlan, source_path: Path,
 
     declared_written = record_declared_identities(plan, base, declared)
     refresh_game(base)
+    if first_table and any(item.action in ("replace_vpx", "add_table") for item in plan.items):
+        _hand_pov_to_table(base)
 
     return {
         "imported": imported,
@@ -882,6 +885,24 @@ def execute_import_plan(plan: ImportPlan, source_path: Path,
         "added_tables": added,
         "renamed": renamed,
     }
+
+
+def _hand_pov_to_table(game_dir: Path) -> None:
+    """A POV that arrived before any table is the folder's, which no table reads. Once the
+    game has its one table it goes there. Never fails the import."""
+    if not (game_dir / f"{game_dir.name}.pov").is_file():
+        return
+    try:
+        game_id = next((found for found, game in game_repository.catalog().items()
+                        if Path(str(game.full_path_game)).resolve() == game_dir.resolve()), "")
+        if not game_id:
+            return
+        tables = file_move.state(game_id, file_move.ASSET, "pov")["tables"]
+        if len(tables) == 1 and not tables[0]["folder_named"] and not tables[0]["own"]:
+            file_move.to_tables(game_id, file_move.ASSET, "pov", [tables[0]["id"]])
+    except Exception:  # noqa: BLE001 - the POV stays on the folder and Move to a Table takes it
+        logger.warning("import: could not hand the POV to the new table in %s", game_dir,
+                       exc_info=True)
 
 
 def record_declared_identities(
