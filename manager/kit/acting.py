@@ -23,6 +23,7 @@ from typing import Any
 
 from nicegui import run, ui
 from nicegui.client import Client
+from nicegui.slot import Slot, get_task_id
 
 from common.security import sign_in
 from httpapi import auth
@@ -52,11 +53,22 @@ def current() -> Acting | None:
     return _current.get()
 
 
+def _page_client() -> Client | None:
+    """The client of the page being served, None with no page. Asking NiceGUI for one before
+    the app starts makes a client with no request, which its storage pruning then fails on
+    every ten seconds."""
+    if not Slot.stacks.get(get_task_id()):
+        return None
+    return ui.context.client
+
+
 def _page_acting() -> Acting | None:
     """The browser the page being served is open in, None for this device's own or for
     work with no page."""
     try:
-        client = ui.context.client
+        client = _page_client()
+        if client is None:
+            return None
         request = client.request
         loop = asyncio.get_running_loop()
     except Exception:  # noqa: BLE001 - no page, no browser to act for
@@ -72,7 +84,8 @@ def play_only() -> bool:
     """Whether the page being served is open in a browser that came in with a Remote pass,
     which holds Play and nothing more."""
     try:
-        request = ui.context.client.request
+        client = _page_client()
+        request = client.request if client is not None else None
     except Exception:  # noqa: BLE001 - no page, nothing to hold to Play
         return False
     if request is None or auth.caller_is_local(request):

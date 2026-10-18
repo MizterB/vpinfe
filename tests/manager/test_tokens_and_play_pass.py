@@ -10,7 +10,9 @@ from types import SimpleNamespace
 from typing import Any
 from unittest import mock
 
-from nicegui import ui
+from nicegui import core, ui
+from nicegui.client import Client
+from nicegui.slot import Slot
 
 from common.config import paths
 from common.security import access_keys, api_tokens, sign_in
@@ -181,7 +183,7 @@ class APlayPassTests(unittest.TestCase):
         request = SimpleNamespace(client=SimpleNamespace(host=peer), headers={},
                                   cookies=cookies, method="GET")
         client = SimpleNamespace(request=request)
-        return mock.patch.object(acting.ui, "context", SimpleNamespace(client=client))
+        return mock.patch.object(acting, "_page_client", return_value=client)
 
     def test_a_remote_pass_on_another_device_is_play_only(self) -> None:
         token, _ = self.signer.open(kind=sign_in.REMOTE, address="192.168.1.21")
@@ -200,8 +202,37 @@ class APlayPassTests(unittest.TestCase):
             self.assertFalse(acting.play_only())
 
     def test_a_page_with_no_request_is_not(self) -> None:
-        with mock.patch.object(acting.ui, "context", SimpleNamespace(client=None)):
+        with mock.patch.object(acting, "_page_client",
+                               return_value=SimpleNamespace(request=None)):
             self.assertFalse(acting.play_only())
+
+    def test_no_page_is_not(self) -> None:
+        with mock.patch.object(acting, "_page_client", return_value=None):
+            self.assertFalse(acting.play_only())
+
+
+class WorkWithNoPageTests(unittest.TestCase):
+    def test_inside_a_page_it_is_that_pages_client(self) -> None:
+        async def inside() -> Any:
+            with _PAGE:
+                return acting._page_client()
+
+        self.assertIs(asyncio.run(inside()), _PAGE.client)
+
+    def test_it_carries_nothing_and_makes_no_client_without_a_request(self) -> None:
+        """NiceGUI's start-up, before any page exists, hands work to the pool."""
+        async def hand_over() -> Any:
+            return acting._page_acting()
+
+        with mock.patch.object(Client, "instances", {}), \
+                mock.patch.object(core, "script_mode", False), \
+                mock.patch.object(core, "script_client", None), \
+                mock.patch.dict(Slot.stacks, clear=True):
+            carried = asyncio.run(hand_over())
+            made = dict(Client.instances)
+
+        self.assertIsNone(carried)
+        self.assertEqual(made, {})
 
 
 if __name__ == "__main__":
