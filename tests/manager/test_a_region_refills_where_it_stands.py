@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import unittest
+from unittest import mock
 
 from nicegui import ui
 
@@ -44,6 +45,14 @@ class Drawn:
 
 
 class ARegionRefillsWhereItStandsTests(unittest.TestCase):
+    def setUp(self) -> None:
+        patch = mock.patch.object(_PAGE.client, "run_javascript")
+        self.run_js = patch.start()
+        self.addCleanup(patch.stop)
+        attached = mock.patch.object(_PAGE.client, "tab_id", "tab")
+        attached.start()
+        self.addCleanup(attached.stop)
+
     def test_it_draws_its_part_once_when_it_is_drawn(self) -> None:
         drawn = Drawn()
 
@@ -69,6 +78,27 @@ class ARegionRefillsWhereItStandsTests(unittest.TestCase):
 
         self.assertEqual([drawn.before, box, drawn.after],
                          list(drawn.column.default_slot.children))
+
+    def test_a_refill_asks_the_page_to_give_focus_back_to_its_part(self) -> None:
+        drawn = Drawn()
+
+        drawn.region.refill()
+
+        self.run_js.assert_called_once()
+        self.assertIn(f"giveBack('{drawn.box.html_id}')", self.run_js.call_args.args[0])
+
+    def test_a_page_with_no_browser_on_it_is_asked_for_nothing(self) -> None:
+        drawn = Drawn()
+
+        with mock.patch.object(_PAGE.client, "tab_id", None):
+            drawn.region.refill()
+
+        self.run_js.assert_not_called()
+
+    def test_the_first_draw_asks_the_page_for_nothing(self) -> None:
+        Drawn()
+
+        self.run_js.assert_not_called()
 
     def test_a_refill_marks_nothing_busy(self) -> None:
         drawn = Drawn()
@@ -129,6 +159,14 @@ def _ups(one: ui.element, stop: ui.element) -> list[ui.element]:
 
 
 class AWaitingRegionSwapsInOneStepTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self) -> None:
+        patch = mock.patch.object(_PAGE.client, "run_javascript")
+        self.run_js = patch.start()
+        self.addCleanup(patch.stop)
+        attached = mock.patch.object(_PAGE.client, "tab_id", "tab")
+        attached.start()
+        self.addCleanup(attached.stop)
+
     async def test_the_old_part_stays_until_the_new_one_is_drawn(self) -> None:
         drawn = Waiting()
         await drawn.region.refilled()
@@ -143,6 +181,26 @@ class AWaitingRegionSwapsInOneStepTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(["before", "one", "after"], during)
         self.assertEqual(["before", "two", "after"], drawn.shown())
+
+    async def test_a_swap_asks_the_page_for_focus_back_once_the_new_part_shows(self) -> None:
+        drawn = Waiting()
+
+        await drawn.region.refilled()
+
+        self.run_js.assert_called_once()
+        self.assertIn(f"giveBack('{drawn.region._box.html_id}')", self.run_js.call_args.args[0])
+
+    async def test_a_swap_that_is_dropped_asks_for_nothing(self) -> None:
+        drawn = Waiting()
+        drawn.gate = asyncio.Event()
+        first = asyncio.ensure_future(drawn.region.refilled())
+        await asyncio.sleep(0)
+        second = asyncio.ensure_future(drawn.region.refilled())
+        await asyncio.sleep(0)
+        drawn.gate.set()
+        await asyncio.gather(first, second)
+
+        self.run_js.assert_called_once()
 
     async def test_what_is_around_it_is_untouched(self) -> None:
         drawn = Waiting()

@@ -32,6 +32,7 @@ SETTINGS_SECTIONS = 5
 
 @unittest.skipIf(chromium_path() is None, "no Chromium on this machine")
 class ValueChangeKeepsThePanelDrive(unittest.TestCase):
+    maxDiff = None
     seen: list[dict[str, Any]] = []
 
     @classmethod
@@ -93,11 +94,15 @@ class ValueChangeKeepsThePanelDrive(unittest.TestCase):
                 skipped.add(control)
                 continue
             tried.add(control.kind)
+            had = await value_controls.place(browser)
             await asyncio.sleep(KEEP_ALIVE_S)
             await walk.listen()
             await walk.drawn()
             seen.append({"view": view, "where": where, "control": control.name,
+                         "kind": control.kind, "had": had,
+                         "has": await value_controls.place(browser),
                          **await value_controls.read(browser)})
+            await value_controls.release(browser)
             if control.kind in KINDS_FLIPPED_BACK:
                 await value_controls.change(browser, control)
                 await walk.drawn()
@@ -130,6 +135,29 @@ class ValueChangeKeepsThePanelDrive(unittest.TestCase):
 
     def test_a_change_keeps_the_landmarks_standing(self) -> None:
         self.assertEqual(self._each("landmarks"), [])
+
+    def test_focus_and_typed_text_were_there_to_lose(self) -> None:
+        held = {s["kind"] for s in self.seen if s["had"] is not None}
+        self.assertLessEqual({"toggle", "input"}, held, f"kinds that held focus: {held}")
+
+    @staticmethod
+    def _focus_lost(had: dict[str, Any] | None, has: dict[str, Any] | None) -> bool:
+        """Focus left the control, or a control that took its place dropped what was typed
+        after the swap was built. A field that was not replaced shows what the save sent
+        back, and a new value that the typed text does not carry on from is the save's."""
+        if had is None:
+            return False
+        if has is None:
+            return True
+        if any(had[k] != has[k] for k in ("tag", "role", "nth")):
+            return True
+        return (has["replaced"] and has["text"] != had["text"]
+                and had["text"].startswith(has["text"]))
+
+    def test_a_change_keeps_focus_where_the_person_left_it(self) -> None:
+        lost = [f"{s['view']} > {s['where']} > {s['control']}: {s['had']} -> {s['has']}"
+                for s in self.seen if self._focus_lost(s["had"], s["has"])]
+        self.assertEqual(lost, [])
 
 
 if __name__ == "__main__":

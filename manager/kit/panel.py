@@ -24,7 +24,7 @@ from common import icons
 from common.config import path_state
 from common.games.collection_store import LAST_COLLECTION
 from common.i18n import t
-from manager.kit import dropdown, game_tables, offload, tag_chips, thumbnails, verbs
+from manager.kit import dropdown, game_tables, offload, place, tag_chips, thumbnails, verbs
 from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.kit.panel")
@@ -245,8 +245,9 @@ class Region:
 
     The control's handler saves and calls `refill`, which draws this part again where it
     stands: nothing dims, nothing around it is cleared, and scroll stays. A control inside
-    the region is replaced by the refill it triggers: its handler returns before the swap
-    or puts focus back after it, and anything it reads afterwards comes from the new part.
+    the region is replaced by the refill it triggers: the page gives focus, and what was
+    typed, to the control that takes its place, and anything a handler reads afterwards comes
+    from the new part.
 
     `build` may read before it draws, so it may be async. The new part is then drawn out of
     sight beside the old one, and the two trade places in one step: the page is never empty
@@ -270,7 +271,8 @@ class Region:
     def __call__(self) -> None:
         self._box = ui.element("div").classes("manager-region")
         if not inspect.iscoroutinefunction(self._build):
-            self.refill()
+            with self._box:
+                self._build()
 
     def refill(self) -> None:
         """Draw the part again in the same container. A page that has been left is let be."""
@@ -283,6 +285,7 @@ class Region:
         box.clear()
         with box:
             self._build()
+        place.give_back(box)
 
     async def refilled(self) -> None:
         """`refill`, for a build that waits, ended when the new part is in place."""
@@ -313,6 +316,7 @@ class Region:
             if one is not fresh and not one.is_deleted:
                 one.delete()
         fresh.set_visibility(True)
+        place.give_back(box)
         if self._swapped is not None:
             self._swapped()
 

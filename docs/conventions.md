@@ -1746,14 +1746,16 @@ page that reads the value is a `panel.region(build)`, and the handler calls its 
 draws that part again inside the same container. A row that only the grid shows is put right
 through the grid. A rebuild (`redraw`, `rerender`, the workbench's `rebuild`) is for structure: a
 row added or removed, a different subject or tab. Keep the control that triggers a refill outside
-the region it refills.
+the region it refills. A refill that replaces the control just touched hands focus, and any text
+typed into it, to the control that takes its place.
 
 `tests/invariants/test_a_value_handler_does_not_rebuild_the_page.py` fails on a new value control
 whose handler reaches one of those verbs by name, in its file or a manager module it imports from.
 It does not follow a method on an object or a handler passed through another function, so it is a
 floor. `tests/theming/test_a_value_change_keeps_the_panel_drive.py` is the check for those: it
 changes one control of each kind on each page and in each section of a panel, in a real browser,
-and fails on a page that was taken again, dimmed or lost its landmarks. A handler that rebuilds
+and fails on a page that was taken again, dimmed, lost its landmarks, or lost focus or typed text.
+A handler that rebuilds
 today is listed with what converts it in the invariant, and that list only comes down.
 
 ## Typing

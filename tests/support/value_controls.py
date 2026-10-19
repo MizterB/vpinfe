@@ -16,7 +16,8 @@ from typing import Any
 
 from tests.support.browser_session import BrowserSession
 
-# A control that does something other than hold a value.
+# A control that does something other than hold a value. A Launchers area search is left out
+# of the list by `handsOver` in `_LIST`: typing in it opens All Settings, which is navigation.
 NOT_A_VALUE = re.compile(
     r"delete|remove|reset|erase|wipe|restart|shut ?down|reboot|launch|clear|uninstall|forget",
     re.I)
@@ -66,6 +67,11 @@ _LIST = f"""(() => {{
     && getComputedStyle(el).visibility !== 'hidden';
   const inGrid = el => el.closest('.ag-root-wrapper');
   const pane = el => el.closest('.manager-sections') !== null;
+  const handsOver = el => {{
+    const bar = el.closest('.manager-section-bar');
+    return bar !== null && bar.querySelector('.q-btn') !== null
+      && bar.querySelector('.q-select') === null;
+  }};
   const label = el => {{
     let e = el, text = '';
     for (let k = 0; k < 5 && e; k++) {{
@@ -92,7 +98,7 @@ _LIST = f"""(() => {{
   document.querySelectorAll('.q-select').forEach((el, i) =>
     shown(el) && !inGrid(el) && out.push({{kind: 'select', i, label: label(el), pane: pane(el)}}));
   document.querySelectorAll({json.dumps(_FIELD)}).forEach((el, i) =>
-    shown(el) && !el.readOnly && !el.disabled && !el.closest('.q-select')
+    shown(el) && !el.readOnly && !el.disabled && !el.closest('.q-select') && !handsOver(el)
       && out.push({{kind: 'input', i, label: label(el), pane: pane(el)}}));
   return out;
 }})()"""
@@ -198,7 +204,38 @@ async def _act(browser: BrowserSession, control: Control) -> None:
         await browser.press("End", "End", 35)
         await browser.send("Input.insertText", {"text": "x"})
         await browser.press("Enter", "Enter", 13)
-        await browser.evaluate("document.activeElement && document.activeElement.blur()")
+        await browser.send("Input.insertText", {"text": "y"})
+
+
+_PLACE = """(() => {
+  const focused = document.activeElement;
+  if (!focused || focused === document.body) return null;
+  const el = focused.closest('input, textarea, select, button,'
+    + ' [tabindex]:not([tabindex="-1"])') || focused;
+  const same = (a, b) => [a.tagName, a.type || '', a.getAttribute('role') || '',
+    a.getAttribute('aria-label') || '', a.getAttribute('placeholder') || ''].join('|')
+    === [b.tagName, b.type || '', b.getAttribute('role') || '',
+    b.getAttribute('aria-label') || '', b.getAttribute('placeholder') || ''].join('|');
+  const alike = [...document.querySelectorAll('input, textarea, select, button,'
+    + ' [tabindex]:not([tabindex="-1"])')].filter(e => e.getClientRects().length && same(e, el));
+  return {tag: el.tagName, role: el.getAttribute('role'), nth: alike.indexOf(el),
+          replaced: !el.hasAttribute('data-value-target'),
+          text: el.matches('input, textarea') ? el.value : null};
+})()"""
+
+
+async def place(browser: BrowserSession) -> dict[str, Any] | None:
+    """Which control has focus, and the text in it: None when focus is on nothing.
+
+    `replaced` is False for the field `change` typed into while it is still the one in the
+    page.
+    """
+    return await browser.evaluate(_PLACE)
+
+
+async def release(browser: BrowserSession) -> None:
+    """Take focus off whatever has it, so the next control starts from none."""
+    await browser.evaluate("document.activeElement && document.activeElement.blur()")
 
 
 async def unmark(browser: BrowserSession) -> None:
