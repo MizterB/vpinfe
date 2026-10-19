@@ -1883,8 +1883,7 @@ def build_system(library: Library, state: dict[str, Any], redraw: Callable[[], N
     the install you are reading the Manager from and needs nothing selected to be about
     one.
     """
-    installed = state.get("extensions") or []
-    pages = system_pages(discovery.get("features"), installed)
+    pages = system_pages(discovery.get("features"), state.get("extensions") or [])
     known = {page[0]: page for _group, page in pages}
     chosen = str(state.get("settings_page") or "")
     # A page this install has no answer for is not a place to land: an address written
@@ -1893,11 +1892,32 @@ def build_system(library: Library, state: dict[str, Any], redraw: Callable[[], N
         chosen = pages[0][1][0]
     state["settings_page"] = chosen
 
-    # What is misconfigured, marked at every level on the way to the setting that fixes
-    # it: the group, then the page, then the field's own cross.
+    work, draw_index = panel.sections(_index_entries(state, pages), chosen,
+                                      lambda key: open_page(state, redraw, key),
+                                      rail_px=RAIL_PX)
+
+    def reindex() -> None:
+        draw_index(_index_entries(state, system_pages(discovery.get("features"),
+                                                      state.get("extensions") or [])),
+                   str(state.get("settings_page") or ""))
+
+    state["reindex_settings"] = reindex
+    with work:
+        body = ui.column().classes("min-w-0 overflow-auto gap-0 manager-workbench-body "
+                                   "manager-settings-body")
+    # Later, because a page reads the schema and the values over HTTP and the draw it is
+    # part of runs on the event loop, where the client refuses a call.
+    busy.fill(body, lambda: _draw_system_page(library, redraw, body, known[chosen],
+                                              discovery, state.get("trouble") or [], state))
+
+
+def _index_entries(state: dict[str, Any],
+                   pages: list[tuple[str, DevicePage]]) -> list[tuple[Any, ...]]:
+    """The index's rows, with what is misconfigured marked at every level on the way to the
+    setting that fixes it: the group, then the page, then the field's own cross."""
     hurt = pages_in_trouble(state.get("trouble") or [])
     groups_hurt = {group for group, page in pages if page[0] in hurt}
-    off = {ext_page.key(str(one.get("name"))) for one in installed
+    off = {ext_page.key(str(one.get("name"))) for one in state.get("extensions") or []
            if one.get("state") == extension_host.OFF}
 
     entries: list[tuple[Any, ...]] = []
@@ -1911,16 +1931,7 @@ def build_system(library: Library, state: dict[str, Any], redraw: Callable[[], N
         entries.append((page[0], page[1], "",
                         panel.trouble_mark(_said(found)) if found
                         else panel.quiet_mark(t("word.off")) if page[0] in off else None))
-
-    work = panel.sections(entries, chosen, lambda key: open_page(state, redraw, key),
-                          rail_px=RAIL_PX)
-    with work:
-        body = ui.column().classes("min-w-0 overflow-auto gap-0 manager-workbench-body "
-                                   "manager-settings-body")
-    # Later, because a page reads the schema and the values over HTTP and the draw it is
-    # part of runs on the event loop, where the client refuses a call.
-    busy.fill(body, lambda: _draw_system_page(library, redraw, body, known[chosen],
-                                              discovery, state.get("trouble") or [], state))
+    return entries
 
 
 def open_page(state: dict[str, Any], redraw: Callable[[], None], key: str) -> None:
@@ -1951,7 +1962,7 @@ async def _draw_system_page(library: Library, redraw: Callable[[], None], body: 
         with body:
             page_head(key)
             await _identity_page(library, str(discovery.get("display_name") or ""),
-                                 redraw)
+                                 redraw, state or {})
         return
     if key.startswith(ext_page.PREFIX):
         draw_extension = await _extension_draw(redraw, key, state or {})
@@ -2263,7 +2274,8 @@ def _install_label(install: dict) -> str:
 
 
 async def _identity_page(library: Library, reported: str,
-                         redraw: Callable[[], None]) -> None:
+                         redraw: Callable[[], None],
+                         state: dict[str, Any] | None = None) -> None:
     """What this install is called, and what it is for."""
     try:
         values = await offload.io(library.config_values)
@@ -2286,7 +2298,9 @@ async def _identity_page(library: Library, reported: str,
         # switches were thrown.
         if await _write(library, "device", "features",
                         [name for name in install_identity.FEATURES if name in after]):
-            _take_the_page_again()
+            on.clear()
+            on.update(after)
+            await _shell_follows(state)
 
     # Bound by a call rather than captured off the loop variable, which a lambda
     # would read only when it fires.
@@ -2294,11 +2308,14 @@ async def _identity_page(library: Library, reported: str,
         return lambda event: flip(name, bool(event.value))
 
     language = config_schema.option("device", "language")
+    waiting = Waiting(library, await _waiting(library))
 
     @on_page
     async def relanguage(event: Any) -> None:
+        # The language is read when the install starts, so a saved change waits for a
+        # restart, and the chip beside the select says so.
         if await _write(library, "device", "language", event.value):
-            _take_the_page_again()
+            await waiting.refresh()
 
     entries: list[tuple[Any, Any]] = [
         (panel.HEADING, t("word.identity")),
@@ -2310,7 +2327,6 @@ async def _identity_page(library: Library, reported: str,
         panel.note(t("manager.settings.name_note")),
     ]
     if language is not None:
-        waiting = Waiting(library, await _waiting(library))
         entries.append((language.label or humanize(language.key),
                         waiting.beside(
                             panel.select({value: language.choice_labels.get(value, value)
@@ -2343,11 +2359,11 @@ def _setup_entries() -> list[tuple[Any, Any]]:
     ]
 
 
-def _take_the_page_again() -> None:
-    """Reload, because what just changed decides how the page is built.
-
-    Features pick the nav sections, this index, and the capabilities the shell read on
-    the way in. Redrawing under them would leave all three describing the install as it
-    was, and the address already carries where you are standing.
-    """
-    ui.navigate.reload()
+async def _shell_follows(state: dict[str, Any] | None) -> None:
+    """After a write that decides what the Manager shows: the shell reads the install
+    again and draws its rail from it, and this index follows. The open page stays."""
+    held = state or {}
+    if (refresh := held.get("refresh_shell")) is not None:
+        await refresh()
+    if (reindex := held.get("reindex_settings")) is not None:
+        reindex()

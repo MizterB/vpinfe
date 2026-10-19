@@ -359,10 +359,8 @@ def _read_hub() -> dict[str, Any]:
     client = ApiClient()
     library = Library(client)
     library.load()
-    capabilities = client.capabilities()
     return {
         "library": library,
-        "discovery": client.discovery(),
         "devices": client.devices(),
         "extensions": client.extensions(),
         "pending": install_setup.pending(get_ini_config()),
@@ -370,6 +368,18 @@ def _read_hub() -> dict[str, Any]:
         # This machine's own configuration, asked of this machine: a path is only
         # answerable by the install holding it, and the Manager is served by that one.
         "trouble": settings_page.local_trouble(),
+        **_read_shell(client),
+    }
+
+
+def _read_shell(client: ApiClient | None = None) -> dict[str, Any]:
+    """What the shell draws its rail and its device rows from: this install's own answer,
+    which a feature switch changes. Blocking, like `_read_hub`; a client of its own, so the
+    answer is read rather than remembered."""
+    client = client or ApiClient()
+    capabilities = client.capabilities()
+    return {
+        "discovery": client.discovery(),
         # What a device can be asked about, which is what the frontend feature turns on.
         # Infrastructure carries no feature and is not a fact about a particular machine,
         # so it is not offered as a per-device row.
@@ -875,8 +885,10 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
         _warm_jobs([])
 
     offered: dict[str, Any] = {"stop": "", "run": None}
-    records = any(one.get("name") == "capture"
-                  for one in discovery.get("capabilities") or [])
+
+    def records() -> bool:
+        return any(one.get("name") == "capture"
+                   for one in discovery.get("capabilities") or [])
 
     def _offer_stop(job: dict[str, Any]) -> None:
         """Stop beside the job that is running, where it says it can be stopped."""
@@ -912,7 +924,7 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
     async def _watch_run() -> None:
         """A recording run left waiting, with Resume and Discard."""
         found: dict[str, Any] = {}
-        if records:
+        if records():
             try:
                 found = await offload.io(ApiClient().capture_run)
             except Exception:  # noqa: BLE001 - the line says nothing it cannot read
@@ -1807,6 +1819,29 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
             nav_groups, nav_links = groups, links
             light_nav()
             mark_findings()
+
+    async def refresh_shell() -> None:
+        """For a write that decides what this install is: the rail, the marks and the device
+        rows follow it where they stand. The objects are updated, not replaced, because the
+        pages built from them hold these ones."""
+        turn = state["shell_turn"] = state.get("shell_turn", 0) + 1
+        try:
+            found = await offload.io(_read_shell)
+        except Exception as exc:  # noqa: BLE001 - the write was saved; the shell reads again on the next load
+            logger.warning("Could not read the install again after a change: %s", why(exc))
+            return
+        if turn != state["shell_turn"]:
+            # A later switch has asked again, and its answer includes this one.
+            return
+        discovery.clear()
+        discovery.update(found["discovery"])
+        device_capabilities[:] = found["device_capabilities"]
+        local_capabilities.clear()
+        local_capabilities.update(found["local_capabilities"])
+        refresh_rail()
+        await recheck_trouble()
+
+    state["refresh_shell"] = refresh_shell
 
     def redraw() -> None:
         read_then_render(state, library, content, render, mark_findings, light_nav,

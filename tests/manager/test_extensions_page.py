@@ -536,7 +536,7 @@ class IndexMarkTests(unittest.TestCase):
 
         def sections(given: list, *_args: Any, **_kwargs: Any) -> Any:
             entries.extend(given)
-            return ui.column()
+            return ui.column(), lambda *_rows: None
 
         state = {"extensions": installed, "trouble": trouble,
                  "settings_page": "extensions.sample"}

@@ -30,7 +30,6 @@ MANAGER = ROOT / "manager"
 # A name that draws the whole view or panel again, or takes the page again.
 REBUILD_VERBS = frozenset({
     "redraw", "rerender", "rebuild", "read_then_render", "clear_workbench",
-    "_take_the_page_again",
 })
 
 # The constructors of a value control: the user changes a value and the handler saves it.
@@ -53,7 +52,6 @@ WORKBENCH = "Workbench panels: save, then refill the mark or block that reads th
 LAUNCHERS = "Launcher panels: save, then refill what reads the value."
 EXTENSIONS = "Extension, Remote and Players pages: save, then refill what reads the value."
 UNREAD = "Not classified yet: convert it, or say here why it stays."
-SHELL = "Changes which sections and capabilities exist: the shell is rebuilt in place."
 
 # (file under manager/, function enclosing the control) -> what converts it. Each is a
 # handler that draws its page again today. The scan follows names inside one file and the
@@ -78,7 +76,6 @@ PENDING: dict[tuple[str, str], str] = {
     ("frontend/players.py", "details"): EXTENSIONS,
     ("remote/remote.py", "_up_section"): EXTENSIONS,
     ("remote/remote_record.py", "controller"): EXTENSIONS,
-    ("settings/settings.py", "_identity_page"): SHELL,
     ("workbench/launcher.py", "_launcher_details"): LAUNCHERS,
     ("workbench/launcher.py", "launcher_rows.nvram"): LAUNCHERS,
     ("devices/devices.py", "_send_picker.draw"): UNREAD,
@@ -123,8 +120,8 @@ NAVIGATION: dict[tuple[str, str], str] = {
 
 # Neither number goes up. Raising one takes a line in a commit saying why. The sites are
 # counted as well as the functions, since a function already listed can gain a control.
-CEILING = 52
-SITES_CEILING = 68
+CEILING = 51
+SITES_CEILING = 66
 
 
 def _is_rebuild(node: ast.AST) -> bool:

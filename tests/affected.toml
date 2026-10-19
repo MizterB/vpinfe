@@ -93,6 +93,7 @@ tests = [
 [[area]]
 paths = ["manager/settings/*", "common/settings/*", "common/config/*", "common/backups/*"]
 tests = [
+  "tests/theming/test_feature_switch_applies_live_drive.py",
   "tests/theming/test_folders_page_drive.py",
   "tests/theming/test_import_a_library_drive.py",
   "tests/theming/test_input_table_drive.py",

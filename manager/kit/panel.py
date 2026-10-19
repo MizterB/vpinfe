@@ -329,8 +329,10 @@ if (column && getComputedStyle(column).flexDirection === 'column') {
 
 
 def sections(entries: Sequence[tuple[Any, ...]], current: str,
-             on_pick: Callable[[str], Any], *, rail_px: int = RAIL_PX) -> Any:
-    """The rail and the region it opens into, returning the region.
+             on_pick: Callable[[str], Any], *, rail_px: int = RAIL_PX
+             ) -> tuple[Any, Callable[[Sequence[tuple[Any, ...]], str], None]]:
+    """The rail and the region it opens into: that region, and a call that draws the rail
+    again from other `entries` where it stands.
 
     `entries` are `(key, catalog key)` with an optional third element for a hint's key
     and a fourth for a mark drawn before the name, or `(GROUP, name)` for a heading over the rows
@@ -344,25 +346,33 @@ def sections(entries: Sequence[tuple[Any, ...]], current: str,
         frame = ui.element("div").classes("w-full grow min-h-0 manager-sections") \
             .style(f"--rail-w: {rail_px}px")
         with frame:
-            # Where the rows stack, the work sits under the open row: rows after it are
-            # ordered past the work, which is ordered just after the rows before it.
-            with ui.element("div").classes("min-h-0 manager-section-rail"):
-                after = 0
-                for entry in entries:
-                    key, label = entry[0], entry[1]
-                    hint = entry[2] if len(entry) > 2 else ""
-                    mark = entry[3] if len(entry) > 3 else None
-                    if key is GROUP:
-                        _rail_group(t(label), mark, order=after)
-                        continue
-                    _rail_row(str(key), t(label), str(key) == current, on_pick, t(hint), mark,
-                              order=after)
-                    if str(key) == current:
-                        after = AFTER_WORK_ORDER
+            rail = ui.element("div").classes("min-h-0 manager-section-rail")
             work = ui.element("div").classes("min-w-0 manager-section-work") \
                 .style(f"order: {WORK_ORDER}")
+
+    def draw(rows: Sequence[tuple[Any, ...]], open_key: str) -> None:
+        if rail.is_deleted:
+            return
+        rail.clear()
+        with rail:
+            # Where the rows stack, the work sits under the open row: rows after it are
+            # ordered past the work, which is ordered just after the rows before it.
+            after = 0
+            for entry in rows:
+                key, label = entry[0], entry[1]
+                hint = entry[2] if len(entry) > 2 else ""
+                mark = entry[3] if len(entry) > 3 else None
+                if key is GROUP:
+                    _rail_group(t(label), mark, order=after)
+                    continue
+                _rail_row(str(key), t(label), str(key) == open_key, on_pick, t(hint), mark,
+                          order=after)
+                if str(key) == open_key:
+                    after = AFTER_WORK_ORDER
+
+    draw(entries, current)
     ui.run_javascript(_OPEN_ROW_IN_VIEW_JS)
-    return work
+    return work, draw
 
 
 def _rail_group(label: str, mark: Callable[[], None] | None = None, *,
