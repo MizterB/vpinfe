@@ -377,7 +377,7 @@ def control(client: Any, field: dict, save: Callable[..., Awaitable[str]]) -> An
     if kind == "path":
         return _path_control(client, field, str(value or ""), lambda text: save(text, under=True))
     if kind == "secret":
-        return _secret_control(label, bool(field.get("set")),
+        return secret_control(label, bool(field.get("set")),
                                lambda typed: save(typed, under=True) if typed.strip() else None,
                                lambda: save(None))
     return panel.field(str(value or ""), lambda typed: save(typed, under=True),
@@ -391,15 +391,17 @@ def _figure(stored: Any) -> float | None:
         return None
 
 
-def _secret_control(label: str, is_set: bool, save_typed: Callable[[str], Any],
-                    clear: Callable[[], Awaitable[Any]]) -> Callable[[], None]:
+def secret_control(label: str, is_set: bool, save_typed: Callable[[str], Any],
+                   clear: Callable[[], Awaitable[Any]],
+                   detail: str = "", disabled: bool = False) -> Callable[[], None]:
     """A secret is never handed back, so the box starts empty and says whether one is
     held. Saving an empty box would clear it, so only a typed value is saved; Clear is the
-    way to empty it, and asks first."""
+    way to empty it, and asks first, saying `detail` of what follows. With `disabled`, neither
+    the box nor Clear can be used."""
     @on_page
     async def forget() -> None:
         if await confirm.ask(t("manager.ext_page.clear_question", label=label),
-                             detail=t("manager.ext_page.clear_detail"),
+                             detail=detail or t("manager.ext_page.clear_detail"),
                              confirm=t("manager.ext_page.clear"), icon=verbs.CLEAR):
             await clear()
 
@@ -407,10 +409,12 @@ def _secret_control(label: str, is_set: bool, save_typed: Callable[[str], Any],
         with ui.row().classes("items-center gap-2 no-wrap"):
             panel.field("", save_typed, refuses=True, secret=True,
                         placeholder=t("manager.ext_page.secret_set" if is_set
-                                      else "manager.ext_page.secret_not_set"))()
+                                      else "manager.ext_page.secret_not_set"),
+                        disabled=disabled)()
             if is_set:
                 panel.action(t("manager.ext_page.clear"), forget, icon=verbs.CLEAR,
-                             inline=True, hint=t("manager.ext_page.clear_hint"))()
+                             inline=True, hint=t("manager.ext_page.clear_hint"),
+                             enabled=not disabled)()
 
     return draw
 

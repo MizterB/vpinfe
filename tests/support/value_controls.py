@@ -18,6 +18,7 @@ from tests.support.browser_session import BrowserSession
 
 # A control that does something other than hold a value. A Launchers area search is left out
 # of the list by `handsOver` in `_LIST`: typing in it opens All Settings, which is navigation.
+# A password box is left out too: a save empties a secret, so no typed text carries across.
 NOT_A_VALUE = re.compile(
     r"delete|remove|reset|erase|wipe|restart|shut ?down|reboot|launch|clear|uninstall|forget",
     re.I)
@@ -99,6 +100,7 @@ _LIST = f"""(() => {{
     shown(el) && !inGrid(el) && out.push({{kind: 'select', i, label: label(el), pane: pane(el)}}));
   document.querySelectorAll({json.dumps(_FIELD)}).forEach((el, i) =>
     shown(el) && !el.readOnly && !el.disabled && !el.closest('.q-select') && !handsOver(el)
+      && el.type !== 'password'
       && out.push({{kind: 'input', i, label: label(el), pane: pane(el)}}));
   return out;
 }})()"""

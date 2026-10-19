@@ -229,6 +229,11 @@ class ConfigOption:
 
 PATH_KINDS = ("file", "dir", "exe")
 
+# Settings a read answers as set or not set, so a caller that may read the config cannot read
+# the key. A write still takes the real value. A surface that draws one holds a true or
+# false and not the text, so it draws a box that is never filled in.
+SECRET_SETTINGS = frozenset({("dof", "config_tool_api_key")})
+
 # What an `editor` may name. Closed for the same reason `suggest` is: a typo should be a
 # setting drawn with its ordinary control, not a surface silently asking for a tool
 # nobody registered.

@@ -32,9 +32,7 @@ from .events import declare_snapshot
 
 router = APIRouter(prefix="/config", tags=["config"])
 
-# Settings a read answers as set or not set, so a caller that may read the config cannot read
-# the key. A write still takes the real value.
-SECRET_SETTINGS = frozenset({("dof", "config_tool_api_key")})
+SECRET_SETTINGS = config_schema.SECRET_SETTINGS
 
 
 def _hide_secrets(settings: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:

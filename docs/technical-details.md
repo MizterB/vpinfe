@@ -204,7 +204,7 @@ Runtime state written by VPinFE, not shown as a setting.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `folder` | string |  | Where Back up now keeps its backups. Changing it asks whether to move the backups already made. |
+| `folder` | string |  | Where VPinFE keeps its backups, including the ones Back Up Now makes. Changing it asks whether to move the backups already made. |
 
 ### `media`
 

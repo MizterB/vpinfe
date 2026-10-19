@@ -7,7 +7,8 @@ called and how many like it come before it in the region. After a swap `give_bac
 the one that stands in its place and types back what the old one held when that carries on
 from what the new one shows, which is what the person typed after the part was built; a
 value the save changed is left as the save made it. Focus that was left on purpose, or is
-already on a control of the new part, is left alone.
+already on a control of the new part, is left alone. A password box is never noted: what it
+held is a secret that the save took, and typing it back would put it where it was emptied.
 
 The note is made when focus arrives, not when the swap starts: the server's messages that
 replace elements are sent before any script it asks the page to run, so a script cannot
@@ -37,6 +38,7 @@ PLACE_JS = """
   let last = null;
   document.addEventListener('focusin', (event) => {
     const el = event.target.closest(FOCUSABLE) || event.target;
+    if (el.type === 'password') { last = null; return; }
     const boxes = [];
     for (let box = el.closest('.manager-region'); box;
          box = box.parentElement && box.parentElement.closest('.manager-region')) {

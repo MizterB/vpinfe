@@ -195,6 +195,28 @@ EDITORS: dict[str, Callable[..., Callable[[], None]]] = {
 }
 
 
+def secret_setting(option: dict, held: Any, save: Callable[[Any], Any], *,
+                   writable: bool = True) -> Callable[[], None]:
+    """A setting the API answers as set or not, drawn as an account's secret is: an empty
+    box that says Set or Not set, and Clear once one is saved.
+
+    `held` is that answer. Drawing it as text would put "True" in the box.
+    """
+    async def typed(text: str) -> str:
+        text = text.strip()
+        if not text:
+            return ""
+        return "" if await save(text) else t("manager.settings.save_failed")
+
+    async def clear() -> None:
+        await save("")
+
+    is_set = held if isinstance(held, bool) else bool(str(held or "").strip())
+    return ext_page.secret_control(
+        str(option.get("label") or humanize(option["key"])), is_set, typed, clear,
+        detail=t("manager.settings.secret_clear_detail"), disabled=not writable)
+
+
 def value_for(option: dict, raw: Any) -> Any:
     """A stored value as its declared type, or the default where it will not fit.
 
@@ -1801,6 +1823,8 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
         if previewed is not None and option.get("editor") == config_schema.EDITOR_CHROME_LEAVE_OUT:
             control = previewed.leave_out(option, value, save, section=effective,
                                           writable=writable)
+        elif (section, option["key"]) in config_schema.SECRET_SETTINGS:
+            control = secret_setting(option, value, save, writable=writable)
         else:
             control = control_for(
                 option, value, save,
