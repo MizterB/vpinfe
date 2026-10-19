@@ -1180,11 +1180,7 @@ class Library:
         """What the Overview draws from. Off the event loop."""
         self.load_tables()
         self._read_missing_media()
-        try:
-            policy = self.library_policy()
-        except Exception:  # noqa: BLE001 - a report that cannot read a preference still runs
-            policy = {}
-        self._hidden_checks = {str(one) for one in (policy.get("hidden_checks") or [])}
+        self._read_hidden_checks()
         try:
             manager = self.manager_policy()
         except Exception:  # noqa: BLE001 - as above
@@ -1371,6 +1367,14 @@ class Library:
             self.forget_media(game_id)
         self._read_missing_media()
 
+    def _read_hidden_checks(self) -> None:
+        """Off the loop. A policy that cannot be read leaves every check on."""
+        try:
+            policy = self.library_policy()
+        except Exception:  # noqa: BLE001 - a report that cannot read a preference still runs
+            policy = {}
+        self._hidden_checks = {str(one) for one in (policy.get("hidden_checks") or [])}
+
     def hidden_checks(self) -> set[str]:
         return self._hidden_checks or set()
 
@@ -1520,10 +1524,12 @@ class Library:
         self.load_game_collections(again)
         self._read_missing_media()
         self.load_thumbnails()
+        if self._hidden_checks is None:
+            self._read_hidden_checks()
 
     def has_games_grid(self) -> bool:
         return (self.has_game_collections() and not self._media_missing()
-                and self._holds_thumbnails())
+                and self._holds_thumbnails() and self._hidden_checks is not None)
 
     def smart_collections(self) -> set[str]:
         """The smart ones among the collections holding a game. Read with the Games grid,
@@ -1664,6 +1670,15 @@ class Library:
                                              self._client.all_tables(media=kind, game=game_id))
             self._art_stale.clear()
         return self._table_rows
+
+    def load_tables_view(self) -> None:
+        """What the Tables grid draws from. Off the event loop."""
+        self.load_tables()
+        if self._hidden_checks is None:
+            self._read_hidden_checks()
+
+    def has_tables_view(self) -> bool:
+        return self.has_table_rows() and self._hidden_checks is not None
 
     def _load_setting_groups(self, rows: list[dict[str, Any]]) -> None:
         for launcher in dict.fromkeys(str(row.get("launcher") or "") for row in rows

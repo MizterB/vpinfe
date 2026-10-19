@@ -43,9 +43,8 @@ EVERY = {
 }
 
 
-def schedule(config: ConfigStore, key: str = "download_spreadsheet",
-             default: str = "daily") -> str:
-    return (cfg_get(config, SCHEDULES, key, default) or default).strip().lower()
+def schedule(config: ConfigStore) -> str:
+    return (cfg_get(config, SCHEDULES, "download_spreadsheet", "daily") or "daily").strip().lower()
 
 
 def checked_at() -> str:
@@ -71,8 +70,7 @@ def due(config: ConfigStore, now: float | None = None) -> bool:
 
 def adopt_due(config: ConfigStore) -> bool:
     """Whether the library is owed a sweep against the catalog it now holds."""
-    wanted = schedule(config, "update_game_details", NEVER)
-    if wanted == NEVER or wanted not in EVERY:
+    if not cfg_bool(config, SCHEDULES, "update_game_details", False):
         return False
     held = cache_stamps.get(SECTION, "version")
     taken = str(device_registry.get_device_registry().self_get(GAMES_KEY, "") or "").strip()

@@ -22,6 +22,7 @@ from manager.kit.data import Library
 from manager.library import games
 from manager.overview import needs
 from manager.settings import sections
+from tests.support import lines
 from tests.support.library import game_info, write_game
 from tests.support.skips import needs_posix_permissions
 
@@ -66,6 +67,7 @@ class TheLineAboveTheGrid(unittest.TestCase):
         self.library.load_game_collections()
         self.library.load_kept_kinds()
         self.opened: list[needs.Opens] = []
+        self.redrawn = 0
         self.state: dict[str, Any] = {"view": "games", "open_on": self._open_on}
         for patcher in (mock.patch.object(ui, "run_javascript"),
                         mock.patch.object(ui, "notify"),
@@ -126,25 +128,25 @@ class TheLineAboveTheGrid(unittest.TestCase):
         return [one.text for one in holder.descendants()
                 if isinstance(one, ui.label) and "manager-attention-line" in one.classes]
 
-    def _page(self, holder: ui.element) -> ui.element:
-        """Library > Metadata as Settings draws it, redrawn in place by its own Upgrade."""
+    async def _list(self, holder: ui.element, which: str) -> ui.dialog | None:
+        """The folder list a Needs You row opens, over the page, after the library is read.
+        None where the list has emptied and the page was redrawn instead."""
+        self.library.read_metadata_state()
+        layout = holder.client.layout
+        before = {one for one in layout.descendants() if isinstance(one, ui.dialog)}
         with holder:
-            body = ui.column()
+            await sections.metadata_folders(self.library, self.state, which, self._redraw)
+        [*opened] = [one for one in layout.descendants()
+                     if isinstance(one, ui.dialog) and one not in before]
+        for box in opened:
+            self.addCleanup(box.delete)
+        return opened[0] if opened else None
 
-        def fill() -> None:
-            self.library.read_metadata_state()
-            body.clear()
-            with body:
-                sections.metadata_page(self.library, self.state, fill)
+    def _redraw(self) -> None:
+        self.redrawn += 1
 
-        fill()
-        return body
-
-    def _rows(self, box: ui.element) -> dict[str, str]:
-        """Each of the card's rows, by name, and what it says."""
-        labels = [one for one in box.descendants() if isinstance(one, ui.label)]
-        return {one.text: after.text for one, after in zip(labels, labels[1:], strict=False)
-                if "manager-setting" in one.classes}
+    def _folders(self, box: ui.dialog | None) -> dict[str, str]:
+        return lines.folders(box) if box is not None else {}
 
     def test_a_folder_it_could_not_read_is_said_above_the_grid(self) -> None:
         self._plant_broken()
@@ -164,23 +166,58 @@ class TheLineAboveTheGrid(unittest.TestCase):
         self.assertEqual([], [one for one in holder.descendants()
                               if "manager-attention" in one.classes])
 
+    def _stop(self, *checks: str) -> None:
+        patcher = mock.patch.object(self.library, "stopped", return_value=set(checks))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_a_check_that_is_stopped_leaves_its_count_out_of_the_line(self) -> None:
+        self._plant_broken()
+        write_game(self.root, OLDER, info=LEGACY)
+        self._stop("older_format")
+
+        self.assertEqual([t("manager.sections.unlisted", count=1)],
+                         self._line(self._drawn()))
+
+    def test_unreadable_folders_stopped_leave_them_out_of_the_line(self) -> None:
+        self._plant_broken()
+        write_game(self.root, OLDER, info=LEGACY)
+        self._stop("unreadable")
+
+        self.assertEqual([t("manager.sections.older_format", count=1)],
+                         self._line(self._drawn()))
+
+    @needs_posix_permissions
+    def test_both_checks_stopped_still_name_the_folders_it_could_not_write(self) -> None:
+        self._plant_broken()
+        write_game(self.root, OLDER, info=LEGACY)
+        self._lock(LOCKED, game_info(LOCKED))
+        self._stop("unreadable", "older_format")
+
+        self.assertEqual([t("manager.sections.not_written", count=1)],
+                         self._line(self._drawn()))
+
+    def test_every_check_stopped_with_nothing_unwritten_draws_no_line(self) -> None:
+        self._plant_broken()
+        write_game(self.root, OLDER, info=LEGACY)
+        self._stop("unreadable", "older_format")
+        holder = self._drawn()
+
+        self.assertEqual([], [one for one in holder.descendants()
+                              if "manager-attention" in one.classes])
+
     def test_show_names_the_folder_and_why(self) -> None:
         self._plant_broken()
-        opened: dict[str, str] = {}
+        named: dict[str, str] = {}
 
         async def show(holder: ui.element) -> None:
-            box = self._page(holder)
-            tips = {one.props["target"]: one.text
-                    for one in box.descendants() if isinstance(one, ui.tooltip)}
-            opened.update({one.text: tips.get(f"#{one.html_id}", "")
-                           for one in box.descendants() if isinstance(one, ui.label)})
+            named.update(self._folders(await self._list(holder, "unreadable")))
 
         self._drawn(show)
 
-        self.assertEqual(t("error.games.info_bad_line", line=1), opened.get(BROKEN),
-                         list(opened))
+        self.assertEqual({BROKEN: t("error.games.info_bad_line", line=1)}, named)
 
-    def test_show_opens_the_metadata_page_in_settings(self) -> None:
+    def test_show_opens_overview(self) -> None:
         self._plant_broken()
 
         async def show(holder: ui.element) -> None:
@@ -188,8 +225,7 @@ class TheLineAboveTheGrid(unittest.TestCase):
 
         self._drawn(show)
 
-        self.assertEqual([needs.Opens("settings", keys={"settings_page": needs.METADATA_PAGE})],
-                         self.opened)
+        self.assertEqual([needs.Opens("overview")], self.opened)
 
     def test_an_upgrade_that_leaves_nothing_takes_the_line_away(self) -> None:
         write_game(self.root, OLDER, info=LEGACY)
@@ -202,11 +238,13 @@ class TheLineAboveTheGrid(unittest.TestCase):
 
         async def upgrade(holder: ui.element) -> None:
             seen["before"] = self._line(holder)
-            page = self._page(holder)
-            _press(page, t("word.upgrade"))
+            body = await self._list(holder, "older_format")
+            assert body is not None
+            seen["named"] = list(self._folders(body))
+            _press(body, t("word.upgrade"))
             for _ in range(50):
                 await asyncio.sleep(0)
-            seen["format"] = self._rows(page)[t("manager.sections.format")]
+            seen["redrawn"] = self.redrawn
             with holder:
                 again = ui.card()
             with again:
@@ -220,7 +258,7 @@ class TheLineAboveTheGrid(unittest.TestCase):
             self._drawn(upgrade)
 
         self.assertEqual({"before": [t("manager.sections.older_format", count=1)],
-                          "format": t("manager.sections.format_current"), "after": []}, seen)
+                          "named": [OLDER], "redrawn": 1, "after": []}, seen)
 
     @needs_posix_permissions
     def test_a_game_whose_folder_could_not_be_written_is_said_above_the_grid(self) -> None:
@@ -232,19 +270,14 @@ class TheLineAboveTheGrid(unittest.TestCase):
     @needs_posix_permissions
     def test_show_names_the_folder_it_could_not_write_and_why(self) -> None:
         folder = self._lock(LOCKED, game_info(LOCKED))
-        opened: dict[str, str] = {}
+        named: dict[str, str] = {}
 
         async def show(holder: ui.element) -> None:
-            box = self._page(holder)
-            tips = {one.props["target"]: one.text
-                    for one in box.descendants() if isinstance(one, ui.tooltip)}
-            opened.update({one.text: tips.get(f"#{one.html_id}", "")
-                           for one in box.descendants() if isinstance(one, ui.label)})
+            named.update(self._folders(await self._list(holder, "unwritten")))
 
         self._drawn(show)
 
-        self.assertEqual(t("said.why.no_permission_at", path=str(folder)),
-                         opened.get(LOCKED), list(opened))
+        self.assertEqual({LOCKED: t("said.why.no_permission_at", path=str(folder))}, named)
 
     @needs_posix_permissions
     def test_a_locked_game_on_an_older_format_is_counted_once_as_not_written(self) -> None:
@@ -253,16 +286,14 @@ class TheLineAboveTheGrid(unittest.TestCase):
 
         async def show(holder: ui.element) -> None:
             seen["line"] = self._line(holder)
-            box = self._page(holder)
-            seen["format"] = self._rows(box)[t("manager.sections.format")]
-            seen["upgrade"] = any(isinstance(one, ui.button) and one.text == t("word.upgrade")
-                                  for one in box.descendants())
+            seen["unwritten"] = list(self._folders(await self._list(holder, "unwritten")))
+            seen["opened_older"] = await self._list(holder, "older_format") is not None
+            seen["redrawn"] = self.redrawn
 
         self._drawn(show)
 
         self.assertEqual({"line": [t("manager.sections.not_written", count=1)],
-                          "format": t("manager.sections.could_not_write", count=1),
-                          "upgrade": False}, seen)
+                          "unwritten": [OLDER], "opened_older": False, "redrawn": 1}, seen)
 
     @needs_posix_permissions
     def test_a_folder_upgrade_could_not_write_is_named_once(self) -> None:
@@ -270,22 +301,24 @@ class TheLineAboveTheGrid(unittest.TestCase):
         self._lock(LOCKED, LEGACY)
         api = Mock()
         api.upgrade_info.return_value = {"id": "u-1"}
-        seen: list[int] = []
-
-        def named(box: ui.element) -> int:
-            return sum(1 for one in box.descendants()
-                       if isinstance(one, ui.label) and one.text == LOCKED)
+        seen: list[tuple[list[str], list[str]]] = []
 
         async def ended(_client: Any, _job_id: str) -> dict[str, Any]:
             return {"state": "done", "result": upgrade_library(self.root)}
 
+        async def named(holder: ui.element) -> tuple[list[str], list[str]]:
+            older = await self._list(holder, "older_format")
+            return (list(self._folders(older)),
+                    list(self._folders(await self._list(holder, "unwritten"))))
+
         async def upgrade(holder: ui.element) -> None:
-            box = self._page(holder)
-            seen.append(named(box))
-            _press(box, t("word.upgrade"))
+            seen.append(await named(holder))
+            older = await self._list(holder, "older_format")
+            assert older is not None
+            _press(older, t("word.upgrade"))
             for _ in range(50):
                 await asyncio.sleep(0)
-            seen.append(named(box))
+            seen.append(await named(holder))
 
         with mock.patch("manager.kit.confirm.ask", mock.AsyncMock(return_value=True)), \
                 mock.patch("manager.kit.api.ApiClient", return_value=api), \
@@ -293,7 +326,7 @@ class TheLineAboveTheGrid(unittest.TestCase):
                 mock.patch.object(sections, "_ended", ended):
             self._drawn(upgrade)
 
-        self.assertEqual([1, 1], seen)
+        self.assertEqual([([OLDER], [LOCKED]), ([], [LOCKED])], seen)
 
 
 class TheLineAboveTheTablesGrid(TheLineAboveTheGrid):

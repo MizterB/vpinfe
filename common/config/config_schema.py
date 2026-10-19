@@ -542,6 +542,13 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             group=setting_groups.THUMBNAILS,
         ),
         ConfigOption(
+            "thumb_cache_max_mb",
+            type="int",
+            default="500",
+            group=setting_groups.THUMBNAILS,
+            legacy=(("Media", "thumbcachemaxmb"), ("media", "thumb_cache_max_mb")),
+        ),
+        ConfigOption(
             "dates",
             type="choice",
             default="language",
@@ -673,15 +680,30 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
                      group=setting_groups.COMMANDS, editor=EDITOR_CAPTURE_COMMAND, legacy=()),
     ),
     # What this install does to the library on its own, as against `media`, which is what
-    # it collects. Drawn in this order, with the spreadsheet's Last checked / Check now
-    # under the whole section: `download_spreadsheet` stays last so the two sit together.
+    # it collects. Drawn in this order; the options with a `home` are drawn on that page.
     *in_section(
         "updates",
+        # The choices are minutes between reloads, and the reader takes the value as a number.
+        ConfigOption(
+            "refresh_minutes",
+            applies=APPLIES_RESTART,
+            type="choice",
+            default="0",
+            choices=("0", "60", "360", "1440"),
+            legacy=(),
+        ),
         ConfigOption(
             "match_new_games",
             type="bool",
             default="true",
             legacy=(),
+        ),
+        # Separate from `download_spreadsheet`: a machine can want current data for
+        # matching without wanting its games rewritten.
+        ConfigOption(
+            "update_game_details",
+            type="bool",
+            default="false",
         ),
         ConfigOption(
             "get_media_for_new_games",
@@ -693,21 +715,6 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             "update_downloaded_media",
             type="bool",
             default="true",
-            legacy=(),
-        ),
-        # Separate from `download_spreadsheet`: a machine can want current data for
-        # matching without wanting its games rewritten.
-        ConfigOption(
-            "update_game_details",
-            type="choice",
-            default="never",
-            choices=("never", "daily", "weekly", "monthly"),
-        ),
-        ConfigOption(
-            "refresh_minutes",
-            applies=APPLIES_RESTART,
-            type="int",
-            default="0",
             legacy=(),
         ),
         ConfigOption(
@@ -729,6 +736,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             type="choice",
             default="daily",
             choices=("never", "daily", "weekly", "monthly"),
+            home="library.discovery",
         ),
     ),
     # What the frontend shows, as against what it does. Every one is served to themes
@@ -1019,12 +1027,6 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             type="string",
             default="",
             suggest=SUGGEST_WHEEL_SETS,
-        ),
-        ConfigOption(
-            "thumb_cache_max_mb",
-            type="int",
-            default="500",
-            aliases=("thumbcachemaxmb",),
         ),
     ),
     *in_section(

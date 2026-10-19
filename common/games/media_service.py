@@ -330,7 +330,7 @@ def ensure_thumb(game_dir_name: str, kind: str, source_path: str) -> str | None:
 
 def thumb_cache_limit_bytes() -> int:
     """`thumb_cache_max_mb` in bytes; 0 or an unreadable value means no limit."""
-    raw = cfg_get(get_ini_config(), "Media", "thumb_cache_max_mb", "500")
+    raw = cfg_get(get_ini_config(), "manager", "thumb_cache_max_mb", "500")
     try:
         return max(0, int(raw.strip())) * 1024 * 1024
     except ValueError:

@@ -30,6 +30,7 @@ def _library() -> tuple[Library, Mock]:
         {"id": "g-1:wheel:", "game_id": "g-1", "kind": "wheel", "present": True,
          "file": "wheel.png", "via": "game"}]
     client.all_tables.return_value = [{"game_id": "g-1", **TABLE}]
+    client.library_policy.return_value = {}
     library = Library(client)
     library.games = [GAME]
     library.media = library._shared_media()
@@ -61,7 +62,7 @@ class TheGamesGridAfterAnImport(unittest.TestCase):
 
     def test_it_reads_nothing_when_it_holds_what_it_draws(self) -> None:
         library, _client = _library()
-        library.load_tables()
+        library.load_games_grid()
 
         self.assertIsNone(page.reads_before_drawing("games", library))
 
@@ -72,7 +73,6 @@ class ARowPutBackAfterAnImport(unittest.TestCase):
     def setUp(self) -> None:
         self.library, self.client = _library()
         self.client.preferences.return_value = {}
-        self.client.library_policy.return_value = {}
         self.client.tables.return_value = [TABLE]
         self.client.upload_plan.return_value = {"items": [{"kind": "table"}]}
         self.library.load_kept_kinds()

@@ -49,6 +49,7 @@
     "thumbnail_frame": "true",
     "thumbnail_height": "small",
     "thumbnail_shape": "auto",
+    "thumb_cache_max_mb": "500",
     "dates": "language",
     "relative_dates": "true",
     "times": "24h",
@@ -100,7 +101,6 @@
     "playfield_resolution": "4k",
     "playfield_variant": "table",
     "playfield_video_resolution": "1k",
-    "thumb_cache_max_mb": "500",
     "wheelset": ""
   },
   "network": {
@@ -155,7 +155,7 @@
     "new_games_location": "",
     "refresh_minutes": "0",
     "update_downloaded_media": "true",
-    "update_game_details": "never"
+    "update_game_details": "false"
   },
   "vpinplay": {
     "api_endpoint": "https://api.vpinplay.com:8888",

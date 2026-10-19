@@ -21,7 +21,7 @@ from manager.overview import needs
 
 class FakeLibrary:
     def __init__(self, games_=(), tables=(), watched=None, hidden=(), unreadable=(),
-                 collected=("playfield", "backglass"), patches=None, fixed=()):
+                 collected=("playfield", "backglass"), patches=None, fixed=(), metadata=None):
         self.games = list(games_)
         self.media = {g["id"]: g.get("media", {}) for g in self.games}
         self._tables = list(tables)
@@ -31,6 +31,7 @@ class FakeLibrary:
         self._collected = set(collected)
         self._patches = {"reachable": True, "offered": []} if patches is None else patches
         self._fixed = tuple(fixed)
+        self._metadata = dict(metadata or {})
 
     def script_patches(self):
         return self._patches
@@ -54,7 +55,7 @@ class FakeLibrary:
         return self._watched
 
     def metadata_state(self):
-        return {"unreadable": self._unreadable}
+        return {"unreadable": self._unreadable, **self._metadata}
 
 
 def game(game_id, **rest):
@@ -161,8 +162,9 @@ class WhereAClickLands(unittest.TestCase):
     def test_the_rows_that_are_not_a_grid_say_what_they_do_instead(self):
         lib = FakeLibrary(watched={"recordings": ["r1"]}, unreadable=[{"folder": "x"}])
         rows = {one.key: one.opens for one in needs.collect(lib, {})}
-        self.assertEqual(("settings", {"settings_page": needs.METADATA_PAGE}),
-                         (rows["unreadable"].view, dict(rows["unreadable"].keys)))
+        self.assertEqual((needs.FOLDERS, {"folders": "unreadable"}),
+                         (rows["unreadable"].then, dict(rows["unreadable"].keys)))
+        self.assertEqual("", rows["unreadable"].view)
         self.assertEqual(needs.REVIEW, rows["recordings"].then)
 
 
@@ -179,7 +181,7 @@ class WhatVPinFECanDoItself(unittest.TestCase):
             lib = FakeLibrary(watched={"update": update})
             return needs.collect(lib, {})[0]
 
-        self.assertEqual("VPinFE 3.0.2 Is Out", row(True).label)
+        self.assertEqual("VPinFE 3.0.2 Is Available", row(True).label)
         self.assertIsNotNone(row(True).fix)
         self.assertIsNone(row(False).fix)
 
@@ -341,6 +343,11 @@ class WhereAStopIsKept(unittest.TestCase):
         library = FakeLibrary(tables=[table("a", rom_installed=True, update_available=False)])
         self.assertEqual(set(), needs.blind(library))
 
+    def test_a_metadata_state_that_could_not_be_read_leaves_its_rows_blind(self):
+        library = FakeLibrary(tables=[table("a", rom_installed=True, update_available=False)])
+        library.metadata_state = lambda: {}
+        self.assertEqual({"unreadable", "older_format"}, needs.blind(library))
+
     def test_a_kind_the_library_does_not_collect_leaves_its_row_blind(self):
         library = FakeLibrary(tables=[table("a", rom_installed=True, update_available=False)],
                               collected=("backglass",))
@@ -434,6 +441,112 @@ class RowsAreGroupedByWhoRaisedThem(unittest.TestCase):
 
     def test_nothing_to_say_is_no_group(self):
         self.assertEqual([], needs.grouped([]))
+
+
+METADATA = {"unreadable": [{"folder": "Broken B", "error": "empty"},
+                            {"folder": "Broken A", "error": "empty"}],
+            "unwritten": [{"folder": "Locked B", "error": "read only"},
+                          {"folder": "Locked A", "error": "read only"}],
+            "pending_games": ["Old B", "Old A"],
+            "newer_than_us": 2}
+
+
+class WhatTheLibrarysMetadataRaises(unittest.TestCase):
+    def rows(self, **given):
+        lib = FakeLibrary(**given)
+        return {one.key: one for one in needs.collect(lib, {})}
+
+    def test_each_row_counts_the_folders_the_state_lists_and_opens_them(self):
+        rows = self.rows(metadata=METADATA)
+
+        self.assertEqual(("Broken A", "Broken B"), rows["unreadable"].ids)
+        self.assertEqual(("Locked A", "Locked B"), rows["unwritten"].ids)
+        self.assertEqual(("Old A", "Old B"), rows["older_format"].ids)
+        for key, which in (("unreadable", "unreadable"), ("unwritten", "unwritten"),
+                           ("older_format", "older_format")):
+            self.assertEqual((needs.FOLDERS, {"folders": which}),
+                             (rows[key].opens.then, dict(rows[key].opens.keys)), key)
+
+    def test_the_labels_tones_and_units(self):
+        rows = self.rows(metadata=METADATA)
+
+        self.assertEqual(("Could Not Save", needs.WARM, "2 games"),
+                         (rows["unwritten"].label, rows["unwritten"].tone,
+                          rows["unwritten"].counted()))
+        self.assertEqual(("Older Format", needs.MUTED, "2 games"),
+                         (rows["older_format"].label, rows["older_format"].tone,
+                          rows["older_format"].counted()))
+        self.assertEqual(("Written by a Newer VPinFE", needs.MUTED),
+                         (rows["newer_build"].label, rows["newer_build"].tone))
+
+    def test_only_the_older_format_has_a_fix_and_it_is_the_upgrade(self):
+        rows = self.rows(metadata=METADATA)
+
+        self.assertEqual(needs.UPGRADE, rows["older_format"].fix.key)
+        self.assertEqual("Upgrade", rows["older_format"].fix.label)
+        self.assertIsNone(rows["unwritten"].fix)
+        self.assertIsNone(rows["newer_build"].fix)
+
+    def test_a_newer_build_counts_games_it_has_no_ids_for_and_opens_about(self):
+        row = self.rows(metadata=METADATA)["newer_build"]
+
+        self.assertEqual((), row.ids)
+        self.assertEqual(2, row.count)
+        self.assertEqual("2 games", row.counted())
+        self.assertEqual("about", row.opens.view)
+
+    def test_an_extension_s_row_has_a_count_and_no_unit_so_it_draws_none(self):
+        raised_row = needs.extension_rows([{**RAISED, "covered": []}])[0]
+
+        self.assertEqual(3, raised_row.count)
+        self.assertEqual("", raised_row.counted())
+
+    def test_a_row_with_a_unit_and_no_count_draws_none(self):
+        row = needs.Need("x", "x", "", needs.MUTED, "x", needs.Opens(),
+                         unit="manager.games.games")
+
+        self.assertEqual("", row.counted())
+
+    def test_a_state_with_nothing_in_it_raises_none_of_them(self):
+        rows = self.rows(metadata={"unwritten": [], "pending_games": [], "newer_than_us": 0})
+
+        self.assertEqual(set(), {"unreadable", "unwritten", "older_format", "newer_build"}
+                         & set(rows))
+
+    def test_older_format_is_hidden_with_the_checks_the_library_turned_off(self):
+        shown = self.rows(metadata=METADATA, hidden=["older_format"])
+
+        self.assertNotIn("older_format", shown)
+        self.assertIn("unwritten", shown)
+        self.assertIn("newer_build", shown)
+
+    def test_unwritten_and_newer_build_are_not_checks_and_cannot_be_set_aside(self):
+        self.assertFalse(needs.can_set_aside("unwritten"))
+        self.assertFalse(needs.can_set_aside("newer_build"))
+        self.assertNotIn("unwritten", needs.ORDER)
+        self.assertNotIn("newer_build", needs.ORDER)
+        self.assertTrue(needs.can_set_aside("older_format"))
+
+    def test_older_format_is_named_and_says_when_it_returns(self):
+        self.assertEqual("Older Format", needs.name_of("older_format"))
+        self.assertEqual("Returns when another game is on an older format",
+                         needs.comes_back("older_format"))
+        self.assertEqual(needs.ORDER.index("no_year"), needs.ORDER.index("older_format") + 1)
+
+    def test_the_library_group_reads_in_this_order_when_every_row_is_there(self):
+        lib = FakeLibrary(
+            [game("g1", year="", vps_id="", table_count=0)],
+            [table("g1", rom_installed=False, update_available=True)],
+            fixed=("t-g1",), metadata=METADATA)
+
+        [group] = [one for one in needs.grouped(needs.collect(lib, {}))
+                   if one.owner == needs.LIBRARY]
+
+        self.assertEqual(
+            ["Missing ROM", "Unreadable Folder", "Could Not Save", "Unmatched", "No Tables",
+             "No Playfield", "No Backglass", "No Media", "Newer on VPS", "Table Script Fixes",
+             "Older Format", "Written by a Newer VPinFE", "No Year"],
+            [one.label for one in group.rows])
 
 
 class TableScriptFixes(unittest.TestCase):

@@ -153,8 +153,8 @@ Core draws what the source answers and keeps the rest to itself:
 - The source is named first in each row's line, then `site`, which is a link to `page`, the
   file's page on that site.
 - A row with `current` set is drawn as Current.
-- Settings lists the source among the online sources, with a switch.  A source switched off is
-  not asked, and with every source off the tab says so.
+- Settings lists the source under Sources on the Library, Discovery page, with a switch.  A
+  source switched off is not asked, and with every source off the tab says so.
 - A Private game is never asked about in Add and Replace.  Discovery asks by VPS id alone, as
   it does for any game the library does not hold, and says nothing of the library.
 - A pick that fills a slot already holding a file is confirmed first, naming what is there

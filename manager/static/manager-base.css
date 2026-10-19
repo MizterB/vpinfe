@@ -3083,8 +3083,7 @@ input.manager-path-input { padding-right: 0.6ch; }
    pane's width the action sits a screen away from the name it belongs to. Scoped to the
    panel because a dialog sets its own width. */
 .manager-section-work .manager-facts :is(.manager-member-row, .manager-source-row),
-.manager-section-work .manager-attention,
-.manager-section-work .manager-metadata {
+.manager-section-work .manager-attention {
   max-width: var(--row-measure);
 }
 /* Anything holding words that is drawn in the value column and is not a control the
@@ -3127,6 +3126,15 @@ input.manager-path-input { padding-right: 0.6ch; }
                         + .manager-fact-aside.hidden + .manager-fact-aside:not(.hidden)) {
   grid-row: span 2; align-self: start;
 }
+/* A fact about the row above it: the label steps in behind an elbow, so it reads as part of
+   that row and not as a row of its own. */
+.manager-fact-sub { padding-left: 16px; color: var(--ink-2); }
+.manager-fact-sub::before {
+  content: ""; display: inline-block; width: 8px; height: 10px;
+  border-left: 1px solid var(--ink-3); border-bottom: 1px solid var(--ink-3);
+  margin: 0 8px 3px -14px; vertical-align: middle;
+}
+.manager-fact-rule { grid-column: 1 / -1; border-top: 1px solid var(--line-soft); margin: 4px 0; }
 .manager-facts > :is(.manager-field-line, .manager-field-row) { min-height: var(--fact-row); }
 
 /* What is wrong with this thing, before anything merely true about it: one block per

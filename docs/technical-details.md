@@ -103,6 +103,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | `thumbnail_shape` | choice (auto, square, wide) | `auto` | Automatic draws wheels square and the rest wide |
 | `thumbnail_height` | choice (small, medium, large) | `small` | Taller grid rows show bigger pictures and fit fewer on a screen |
 | `thumbnail_frame` | bool | `true` | A dark tile behind each picture keeps light pictures readable in the light theme |
+| `thumb_cache_max_mb` | int | `500` | Disk space the Manager may use for the small pictures in its lists |
 | `dates` | choice (language, iso, mm/dd/yyyy, dd/mm/yyyy, dd.mm.yyyy, yyyy/mm/dd) | `language` | How a day is written, wherever the Manager shows one |
 | `times` | choice (24h, 12h) | `24h` | How a time of day is written, where the Manager shows one |
 | `relative_dates` | bool | `true` | Anything from the last month says how long ago it was, whatever the format |
@@ -144,14 +145,14 @@ Runtime state written by VPinFE, not shown as a setting.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `match_new_games` | bool | `true` | When VPinFE finds a new game, match it to the spreadsheet from its folder name |
-| `get_media_for_new_games` | bool | `true` | Downloads media a new game lacks, online once matched or from its backglass file, and never replaces any. For games already here, use Download Missing Media. |
-| `update_downloaded_media` | bool | `true` | When VPinMediaDB replaces media VPinFE downloaded for you. Media you added or changed is never touched. |
-| `update_game_details` | choice (never, daily, weekly, monthly) | `never` | How often to copy name, year, type, themes and guides from the spreadsheet onto matched games |
-| `refresh_minutes` | int | `0` | How often to re-read the library from disk. It also reads media and assets, not just tables. A read walks every game folder, so it is slow over a network share. |
+| `refresh_minutes` | choice (0, 60, 360, 1440) | `0` | Reloads every game folder on this schedule, so games added or removed outside VPinFE show up on their own. Slow over a network share. |
+| `match_new_games` | bool | `true` | When you add a game, finds it on the Virtual Pinball Spreadsheet by its folder name and fills in its title, maker, year, type and themes |
+| `update_game_details` | bool | `false` | When a newer spreadsheet downloads, copies its changes to the title, maker, year, type, themes and guides of your matched games. Your own edits stay. |
+| `get_media_for_new_games` | bool | `true` | When you add a game, downloads the media it is missing once it is matched, and takes its backglass picture from its backglass file. Never replaces your media. |
+| `update_downloaded_media` | bool | `true` | Once a day, replaces media VPinFE downloaded when VPinMediaDB has a newer version. Never touches media you added or changed. |
 | `ask_where_new_games_go` | bool | `true` | On, adding a game asks which folder it goes to. Off, it goes to the folder marked for them. |
 | `new_games_location` | string |  | The folder a new game is created in. Set from the library's folders. |
-| `download_spreadsheet` | choice (never, daily, weekly, monthly) | `daily` | How often to download the spreadsheet. Matching and release lists use this copy. |
+| `download_spreadsheet` | choice (never, daily, weekly, monthly) | `daily` | Downloads the latest copy on this schedule. Matching, game details and new releases all read it. |
 
 ### `presentation`
 
@@ -209,12 +210,11 @@ Runtime state written by VPinFE, not shown as a setting.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `playfield_variant` | choice (table, fss) | `table` | Which playfield media this library holds: table.png, or fss.png for captures made in Visual Pinball's Full Single Screen mode |
-| `playfield_resolution` | choice (4k, 1k) | `4k` | Playfield Resolution |
-| `playfield_video_resolution` | choice (4k, 1k) | `1k` | Playfield Video Resolution |
+| `playfield_variant` | choice (table, fss) | `table` | Which playfield picture your library uses: the standard one, or the one captured in Full Single Screen mode |
+| `playfield_resolution` | choice (4k, 1k) | `4k` | The size of playfield pictures VPinFE downloads |
+| `playfield_video_resolution` | choice (4k, 1k) | `1k` | The size of playfield videos VPinFE downloads |
 | `manufacturer_logos_dir` | string |  | Put one image per manufacturer here, named for the manufacturer |
-| `wheelset` | string |  | An alternate wheel style, kept in a folder under medias/wheels/ in the game's folder. A game without it keeps its own wheel. A theme can override this. |
-| `thumb_cache_max_mb` | int | `500` | Thumbnail Cache Max (MB) |
+| `wheelset` | string |  | Shows an alternate wheel style, from a folder under medias/wheels/ in each game. A game without it keeps its own wheel. A theme can override this. |
 
 ### `device`
 

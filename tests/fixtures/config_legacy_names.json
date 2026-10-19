@@ -296,13 +296,13 @@
   [
     "Media",
     "thumb_cache_max_mb",
-    "media",
+    "manager",
     "thumb_cache_max_mb"
   ],
   [
     "Media",
     "thumbcachemaxmb",
-    "media",
+    "manager",
     "thumb_cache_max_mb"
   ],
   [
@@ -565,8 +565,14 @@
   ],
   [
     "media",
-    "thumbcachemaxmb",
+    "thumb_cache_max_mb",
+    "manager",
+    "thumb_cache_max_mb"
+  ],
+  [
     "media",
+    "thumbcachemaxmb",
+    "manager",
     "thumb_cache_max_mb"
   ],
   [

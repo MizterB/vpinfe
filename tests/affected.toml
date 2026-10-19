@@ -122,6 +122,11 @@ tests = [
   "tests/theming/test_vpx_settings_in_place_drive.py",
 ]
 
+# Overview's Needs You rows, and the folder lists they open.
+[[area]]
+paths = ["manager/overview/*", "manager/settings/sections.py"]
+tests = ["tests/theming/test_needs_folder_list_drive.py"]
+
 # Logs and the other system pages.
 [[area]]
 paths = ["manager/system/*"]

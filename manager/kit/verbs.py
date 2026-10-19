@@ -104,6 +104,9 @@ NO_YEAR = "event_busy"
 NO_TABLE = "layers_clear"
 HAD_ERRORS = "warning"
 NEWER_RELEASE = "upgrade"
+NOT_SAVED = "sync_problem"
+OLDER_FORMAT = "history"
+NEWER_BUILD = "new_releases"
 
 # How a job went, where the list shows a glyph and no word.
 JOB_RUNNING = "autorenew"

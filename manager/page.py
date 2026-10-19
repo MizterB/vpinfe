@@ -545,7 +545,7 @@ def reads_before_drawing(view: str, library: Library) -> Callable[[], Any] | Non
     render() runs on the loop, and the client refuses an HTTP call there."""
     reads = {"games": (library.has_games_grid, library.load_games_grid),
              "overview": (library.has_overview, library.load_overview),
-             "tables": (library.has_table_rows, library.load_tables),
+             "tables": (library.has_tables_view, library.load_tables_view),
              "collections": (library.has_collections, library.load_collections),
              "media": (library.has_media_rows, library.load_media_rows),
              "assets": (library.has_asset_rows, library.load_asset_rows)}
@@ -1274,6 +1274,11 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
             await recorder.review(library, used)
             library.forget_watched()
             go("overview")
+            return
+        if opens.then == needs.FOLDERS:
+            await sections.metadata_folders(
+                library, state, str(opens.keys.get("folders") or ""),
+                lambda: go("overview") if state.get("view") == "overview" else None)
             return
         if opens.action:
             standing = await offload.io(community_page.as_it_stands,

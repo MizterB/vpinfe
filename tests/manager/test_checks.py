@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import unittest
 
+from manager import page
 from manager.kit import data
 from manager.settings import sections
 
@@ -139,6 +140,13 @@ class _Client:
             raise OSError("unreachable")
         return self.policy
 
+    def put_library_policy(self, changes):
+        self.policy = {**(self.policy or {}), **changes}
+        return self.policy
+
+    def library_game_collections(self):
+        return {}
+
 
 class OverviewReadTests(unittest.TestCase):
     """Everything the Overview counts is read before it draws."""
@@ -194,6 +202,79 @@ class OverviewReadTests(unittest.TestCase):
         library = self._library(_Client(None))
         library.load_overview()
         self.assertEqual(set(), library.hidden_checks())
+
+    def test_it_reads_the_quiet_checks_every_time_it_loads(self):
+        client = _Client({"hidden_checks": []})
+        library = self._library(client)
+        library.load_overview()
+        client.policy = {"hidden_checks": ["no_year"]}
+
+        library.load_overview()
+
+        self.assertEqual({"no_year"}, library.hidden_checks())
+
+
+class GridReadTests(unittest.TestCase):
+    """The line above the Games and Tables grids counts what Overview counts, so each
+    grid reads the stopped checks itself instead of waiting for Overview to."""
+
+    VIEWS = ("games", "tables")
+
+    def _library(self, client):
+        library = data.Library(client)
+        library.games = [game("g1"), game("g2")]
+        return library
+
+    @staticmethod
+    def _held(view, library):
+        return page.reads_before_drawing(view, library) is None
+
+    @staticmethod
+    def _read(view, library):
+        reads = page.reads_before_drawing(view, library)
+        assert reads is not None
+        reads()
+
+    def test_a_grid_read_alone_holds_the_stopped_checks(self):
+        for view in self.VIEWS:
+            with self.subTest(view=view):
+                library = self._library(_Client({"hidden_checks": ["older_format"]}))
+                self.assertFalse(self._held(view, library))
+
+                self._read(view, library)
+
+                self.assertIn("older_format", library.stopped())
+                self.assertTrue(self._held(view, library))
+
+    def test_a_policy_write_has_the_grid_read_it_again(self):
+        for view in self.VIEWS:
+            with self.subTest(view=view):
+                client = _Client({"hidden_checks": ["older_format"]})
+                library = self._library(client)
+                self._read(view, library)
+
+                library.put_library_policy({"hidden_checks": []})
+
+                self.assertFalse(self._held(view, library))
+                before = client.reads["policy"]
+                self._read(view, library)
+                self.assertEqual(before + 1, client.reads["policy"])
+                self.assertNotIn("older_format", library.stopped())
+                self.assertTrue(self._held(view, library))
+
+    def test_an_unreadable_policy_leaves_the_line_counting_every_check(self):
+        for view in self.VIEWS:
+            with self.subTest(view=view):
+                library = self._library(_Client(None))
+
+                self._read(view, library)
+
+                self.assertEqual(set(), library.stopped())
+                self.assertTrue(self._held(view, library))
+                if view == "games":
+                    self.assertEqual(["g1", "g2"], [one["id"] for one in library.game_rows()])
+                else:
+                    self.assertEqual(1, len(library.table_rows()))
 
 
 if __name__ == "__main__":

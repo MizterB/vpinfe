@@ -22,11 +22,9 @@ from manager.system import jobs_list
 # The tone a row is drawn in, which says how much it costs to leave alone.
 DANGER, WARM, ACCENT, MUTED = "danger", "warm", "accent", "muted"
 
-# What a click does that is not opening a grid on a filter.
-REVIEW, RETRY = "review", "retry"
-
-# The Settings page saying whether the library's metadata files read and are current.
-METADATA_PAGE = "library.metadata"
+# What a click does that is not opening a grid on a filter. `FOLDERS` opens the list of
+# folders `Opens.keys["folders"]` names: "unreadable", "unwritten" or "older_format".
+REVIEW, RETRY, FOLDERS = "review", "retry", "folders"
 
 # The rows an extension raises are keyed `ext:<extension>:<kind>`.
 EXTENSION = "ext:"
@@ -41,7 +39,7 @@ UNACCEPTED = "unaccepted:"
 ASKED = "asked:"
 
 # A fix VPinFE can do itself, the first entry of the row's menu.
-GET_MEDIA, UPDATE, FETCH_FIXES = "get_media", "update", "fetch_fixes"
+GET_MEDIA, UPDATE, FETCH_FIXES, UPGRADE = "get_media", "update", "fetch_fixes", "upgrade"
 
 _UNIT_GAMES = "manager.games.games"
 _UNIT_TABLES = "manager.games.tables"
@@ -89,9 +87,10 @@ class Need:
     token: tuple[str, ...] = ()
     # The ids that joined since the row was dismissed. Only set by `arrange`.
     new: tuple[str, ...] = ()
-    # An extension's row: its name, drawn where a count would be, and the count it gave,
-    # which is in its label and has no ids of its own to open a grid on.
+    # An extension's row: its name, drawn where a count would be.
     source: str = ""
+    # The count of a row with no ids to open a grid on: an extension's, which is in its
+    # label, or the games a newer build wrote, which `unit` names.
     total: int = 0
     # An ask's id, and the exact request it would let through, in one line.
     answer: str = ""
@@ -114,7 +113,7 @@ class Need:
 
     def counted(self) -> str:
         """The count in its own unit, or "" for a row that has none."""
-        return t(self.unit, count=self.count) if self.unit and self.ids else ""
+        return t(self.unit, count=self.count) if self.unit and self.count else ""
 
 
 def _games_without(key: str, found: Mapping[str, list[dict[str, Any]]],
@@ -209,6 +208,11 @@ def asked_rows(waiting: Any) -> list[Need]:
     return out
 
 
+def _folders_of(metadata: Mapping[str, Any], which: str) -> tuple[str, ...]:
+    """The folder of each row the library's metadata state lists under `which`, sorted."""
+    return tuple(sorted(str(row.get("folder") or "") for row in metadata.get(which) or ()))
+
+
 def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
     """Every row that has something to say, in cost order: cannot be played, then
     missing, then ready for you, then tidy-up. A check the library has turned off does
@@ -237,13 +241,18 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
                          t("manager.needs.launchers.tip"), DANGER, verbs.CANNOT_PLAY,
                          Opens("launchers"), token=("launchers",)))
 
-    unreadable = tuple(sorted(str(row.get("folder") or "")
-                              for row in library.metadata_state().get("unreadable") or ()))
-    if unreadable:
+    metadata = library.metadata_state()
+    if unreadable := _folders_of(metadata, "unreadable"):
         rows.append(Need("unreadable", t("manager.needs.unreadable"),
                          t("manager.needs.unreadable.tip"), DANGER, verbs.CANNOT_PLAY,
-                         Opens("settings", keys={"settings_page": METADATA_PAGE}),
+                         Opens(then=FOLDERS, keys={"folders": "unreadable"}),
                          unreadable, _UNIT_FOLDERS))
+
+    if unwritten := _folders_of(metadata, "unwritten"):
+        rows.append(Need("unwritten", t("manager.needs.unwritten"),
+                         t("manager.needs.unwritten.tip"), WARM, verbs.NOT_SAVED,
+                         Opens(then=FOLDERS, keys={"folders": "unwritten"}),
+                         unwritten, _UNIT_GAMES))
 
     rows.append(_games_without("unmatched", found, label=names["unmatched"][0],
                                tip=names["unmatched"][1], tone=WARM, icon=verbs.NO_MATCH,
@@ -303,6 +312,18 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
                          Fix(FETCH_FIXES, t("word.fetch"),
                              t("manager.needs.script_fixes.fetch.help"))))
 
+    if older := tuple(sorted(str(one) for one in metadata.get("pending_games") or ())):
+        rows.append(Need("older_format", t("manager.needs.older_format"),
+                         t("manager.needs.older_format.tip"), MUTED, verbs.OLDER_FORMAT,
+                         Opens(then=FOLDERS, keys={"folders": "older_format"}),
+                         older, _UNIT_GAMES,
+                         Fix(UPGRADE, t("word.upgrade"), t("manager.sections.backup_note"))))
+
+    if written_later := int(metadata.get("newer_than_us") or 0):
+        rows.append(Need("newer_build", t("manager.needs.newer_build"),
+                         t("manager.needs.newer_build.tip"), MUTED, verbs.NEWER_BUILD,
+                         Opens("about"), unit=_UNIT_GAMES, total=written_later))
+
     waiting = tuple(sorted(one for one in watched.get("recordings") or () if one))
     if waiting:
         rows.append(Need("recordings", t("manager.needs.recordings"),
@@ -328,10 +349,10 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
 # it could not look, and setting that aside would hide the one thing it must say.
 ORDER = ("rom_missing", "launchers", "unreadable", "unmatched", "no_tables", "no_playfield",
          "no_backglass", "no_media", "fill_errors", "update", "newer", "script_fixes", "recordings",
-         "no_year")
+         "older_format", "no_year")
 
 # The rows about this install rather than the library. Their stop is this install's alone;
-# a library row's is the library's, as the Audit page already keeps it.
+# a library row's is the library's, as the Checks page already keeps it.
 DEVICE_ROWS = ("launchers", "fill_errors", "update", "recordings")
 
 # What a row's read cannot say while that read failed, by row.
@@ -344,7 +365,7 @@ _ICONS = {"rom_missing": verbs.CANNOT_PLAY, "launchers": verbs.CANNOT_PLAY,
           "no_media": verbs.NO_MEDIA, "fill_errors": verbs.HAD_ERRORS,
           "update": verbs.UPDATE, "newer": verbs.NEWER_RELEASE,
           "script_fixes": verbs.FETCH, "recordings": verbs.REVIEW,
-          "no_year": verbs.NO_YEAR}
+          "older_format": verbs.OLDER_FORMAT, "no_year": verbs.NO_YEAR}
 
 
 def is_device(key: str) -> bool:
@@ -375,6 +396,8 @@ def blind(library: Any) -> set[str]:
     patches = library.script_patches()
     if not patches or patches.get("reachable") is False:
         out.add("script_fixes")
+    if not library.metadata_state():
+        out |= {"unreadable", "older_format"}
     collected = library.kept_kinds()["media"]
     out |= {key for key, kind in sections.FILLS.items() if kind not in collected}
     if not collected:
@@ -383,7 +406,7 @@ def blind(library: Any) -> set[str]:
 
 
 def name_of(key: str) -> str:
-    """What a row is called while it is not drawn as one: in Set Aside, on the Audit page
+    """What a row is called while it is not drawn as one: in Set Aside, on the Checks page
     and beside its switch. The row itself may carry more, like the version."""
     from manager.settings import sections
 
@@ -396,6 +419,7 @@ def name_of(key: str) -> str:
             "update": t("manager.needs.update_unnamed"),
             "newer": t("manager.games.filter_newer"),
             "script_fixes": t("manager.sections.script_fixes"),
+            "older_format": t("manager.needs.older_format"),
             "recordings": t("manager.needs.recordings")}[key]
 
 
@@ -420,6 +444,7 @@ def comes_back(key: str, need: Need | None = None) -> str:
             "newer": t("manager.needs.back.newer"),
             "script_fixes": t("manager.needs.back.script_fixes"),
             "recordings": t("manager.needs.back.recordings"),
+            "older_format": t("manager.needs.back.older_format"),
             "no_year": t("manager.needs.back.no_year")}[key]
 
 

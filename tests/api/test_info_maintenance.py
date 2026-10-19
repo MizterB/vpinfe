@@ -16,7 +16,7 @@ from tempfile import TemporaryDirectory
 from typing import Any
 from unittest import mock
 
-from nicegui import ui
+from nicegui import core, ui
 
 import httpapi
 from common.games.game_parser import GameParser
@@ -101,8 +101,8 @@ class InfoRouteTests(unittest.TestCase):
         self.assertEqual(answer.status_code, 409)
 
 
-class MetadataCardTests(unittest.TestCase):
-    """What the Overview says about it."""
+class FolderListTests(unittest.TestCase):
+    """What the folder list a Needs You row opens says."""
 
     def _unreadable(self, *names: str) -> list[UnreadableGame]:
         """The rows the scan writes for folders whose `.info` is not valid metadata."""
@@ -112,30 +112,100 @@ class MetadataCardTests(unittest.TestCase):
                     '{"Info": {"Title": "broken",,,}', encoding="utf-8")
             return GameParser(tmp).get_unreadable_games()
 
-    def _drawn(self, unreadable: list[UnreadableGame]) -> dict[str, str]:
-        return _card({"unreadable": unreadable})
+    def test_a_folder_it_could_not_read_is_named_with_why_on_screen(self) -> None:
+        metadata = {"unreadable": self._unreadable("Malformed Info (Original 2024)")}
 
-    def test_a_folder_it_could_not_read_is_named_with_why_on_hover(self) -> None:
-        drawn = self._drawn(self._unreadable("Malformed Info (Original 2024)"))
+        drawn = _folders(metadata, "unreadable")
 
-        self.assertEqual(t("error.games.info_bad_line", line=1),
-                         drawn.get("Malformed Info (Original 2024)"), list(drawn))
-        self.assertIn(t("manager.sections.unreadable_one"), drawn)
+        self.assertEqual({"Malformed Info (Original 2024)":
+                          t("error.games.info_bad_line", line=1)}, drawn)
+        self.assertIn(t("manager.sections.unreadable_one"), _said(metadata, "unreadable"))
 
-    def test_four_are_named_and_the_rest_counted(self) -> None:
-        names = [f"Broken {i} (Original 2024)" for i in range(6)]
+    def test_two_hundred_are_named_and_the_rest_counted(self) -> None:
+        names = [f"Broken {i:03d} (Original 2024)" for i in range(203)]
+        metadata = {"unreadable": [{"folder": name, "error": "unreadable"} for name in names]}
 
-        drawn = self._drawn(self._unreadable(*names))
+        drawn = _folders(metadata, "unreadable")
 
-        self.assertEqual([True] * 4 + [False] * 2, [name in drawn for name in names])
-        self.assertIn(t("said.and_more", count=2), drawn)
+        self.assertEqual([True] * 200 + [False] * 3, [name in drawn for name in names])
+        self.assertIn(t("said.and_more", count=3), drawn)
 
     def test_one_game_written_by_an_older_build_reads_as_one(self) -> None:
         one, two = (t("manager.sections.written_older", count=n) for n in (1, 2))
 
-        self.assertIn(one, _card({"pending_upgrade": 1}))
-        self.assertIn(two, _card({"pending_upgrade": 2}))
+        self.assertIn(one, _said({"pending_games": ["A (Original 2024)"]}, "older_format"))
+        self.assertIn(two, _said({"pending_games": ["A (Original 2024)", "B (Original 2024)"]},
+                                 "older_format"))
         self.assertNotEqual(one, two.replace("2", "1"))
+
+    def test_only_the_older_format_list_offers_the_upgrade(self) -> None:
+        metadata = {"unreadable": [{"folder": "A", "error": "x"}],
+                    "unwritten": [{"folder": "B", "error": "x"}],
+                    "pending_games": ["C"]}
+
+        self.assertEqual(
+            {"unreadable": ["Close"], "unwritten": ["Close"],
+             "older_format": ["Close", "Upgrade"]},
+            {which: _buttons(metadata, which)
+             for which in ("unreadable", "unwritten", "older_format")})
+
+    def test_the_upgrade_button_closes_the_list_and_runs_the_upgrade(self) -> None:
+        library = mock.Mock()
+        library.metadata_state.return_value = {"pending_games": ["Older (Original 2024)"]}
+        api = mock.Mock()
+        api.upgrade_info.return_value = {"id": "u-1"}
+        api.job.return_value = {"state": "done", "result": {"upgraded": 1}}
+        ask = mock.AsyncMock(return_value=True)
+        with ui.column() as page:
+            pass
+        layout = page.client.layout
+        before = {one for one in layout.descendants() if isinstance(one, ui.dialog)}
+
+        async def press() -> tuple[bool, bool]:
+            was = core.loop
+            core.loop = asyncio.get_running_loop()
+            try:
+                with page:
+                    await sections.metadata_folders(library, {}, "older_format", mock.Mock())
+                [box] = [one for one in layout.descendants()
+                         if isinstance(one, ui.dialog) and one not in before]
+                self.addCleanup(box.delete)
+                [upgrade] = [one for one in box.descendants()
+                             if isinstance(one, ui.button) and one.text == t("word.upgrade")]
+                opened = box.value
+                for listener in upgrade._event_listeners.values():
+                    assert listener.handler is not None
+                    listener.handler(None)
+                for _ in range(50):
+                    await asyncio.sleep(0)
+                return opened, box.value
+            finally:
+                core.loop = was
+
+        with mock.patch("manager.kit.confirm.ask", ask), \
+                mock.patch("manager.kit.api.ApiClient", return_value=api), \
+                mock.patch("nicegui.run.io_bound", new=_now), \
+                mock.patch.object(sections, "_POLL_S", 0), \
+                mock.patch.object(ui, "notify"):
+            opened, still_open = asyncio.run(press())
+
+        self.assertEqual((True, False), (opened, still_open))
+        [asked] = ask.await_args_list
+        self.assertEqual(t("manager.sections.upgrade_confirm"), asked.args[0])
+        api.upgrade_info.assert_called_once_with()
+        api.job.assert_called_once_with("u-1")
+        for which in ("unreadable", "unwritten"):
+            self.assertNotIn(t("word.upgrade"), _buttons(
+                {"unreadable": [{"folder": "A", "error": "x"}],
+                 "unwritten": [{"folder": "B", "error": "x"}]}, which))
+
+    def test_a_list_that_has_emptied_opens_nothing_and_redraws_the_page(self) -> None:
+        redraw = mock.Mock()
+
+        drawn = _read({"pending_games": []}, "older_format", redraw=redraw)
+
+        self.assertEqual(({}, [], []), drawn)
+        redraw.assert_called_once_with()
 
     def test_a_folder_fixed_and_rescanned_is_no_longer_named(self) -> None:
         name = "Malformed Info (Original 2024)"
@@ -147,12 +217,13 @@ class MetadataCardTests(unittest.TestCase):
                 "unreadable": GameParser(tmp).get_unreadable_games()}
             library = Library(client)
             library.read_metadata_state()
-            named = name in _card(library.metadata_state())
+            named = name in _folders(library.metadata_state(), "unreadable")
             info.write_text(json.dumps(game_info(name)), encoding="utf-8")
 
             library.refresh_after_import()
 
-        self.assertEqual((True, False), (named, name in _card(library.metadata_state())))
+        self.assertEqual((True, False), (
+            named, name in _folders(library.metadata_state(), "unreadable")))
 
 
 LEGACY = {"Info": {"Title": "Sample Game", "Rom": "sample"},
@@ -161,11 +232,44 @@ KEPT = "Sample Game (Original 2024)"
 LOCKED = "Locked Game (Original 2024)"
 
 
-def _card(metadata: dict, left: dict | None = None) -> dict[str, str]:
-    """Each line the metadata card draws, with what hovering it shows."""
-    with ui.column() as body:
-        sections.metadata(metadata, lambda _which: None, left)
-    return lines.details(body)
+def _read(metadata: dict, which: str, left: dict | None = None, redraw: Any = None
+          ) -> tuple[dict[str, str], list[str], list[str]]:
+    """The folder list Needs You opens for `which` over `metadata`: each folder it names
+    with the line under it, every label it draws and every button. All are empty where it
+    opens nothing, and `redraw` is called instead."""
+    library = mock.Mock()
+    library.metadata_state.return_value = metadata
+    state: dict[str, Any] = {} if left is None else {sections._LEFT: left}
+    with ui.column() as page:
+        pass
+    layout = page.client.layout
+    before = {one for one in layout.descendants() if isinstance(one, ui.dialog)}
+
+    async def open_it() -> None:
+        with page:
+            await sections.metadata_folders(library, state, which, redraw or mock.Mock())
+
+    asyncio.run(open_it())
+    drawn: tuple[dict[str, str], list[str], list[str]] = ({}, [], [])
+    for box in [one for one in layout.descendants()
+                if isinstance(one, ui.dialog) and one not in before]:
+        drawn = (lines.folders(box),
+                 [one.text for one in box.descendants() if isinstance(one, ui.label)],
+                 [one.text for one in box.descendants() if isinstance(one, ui.button)])
+        box.delete()
+    return drawn
+
+
+def _folders(metadata: dict, which: str, left: dict | None = None) -> dict[str, str]:
+    return _read(metadata, which, left)[0]
+
+
+def _said(metadata: dict, which: str) -> list[str]:
+    return _read(metadata, which)[1]
+
+
+def _buttons(metadata: dict, which: str) -> list[str]:
+    return _read(metadata, which)[2]
 
 
 async def _now(callback, *args, **kwargs):
@@ -211,9 +315,10 @@ class MetadataOutcomeTests(unittest.TestCase):
 
     def _press(self, which: str, work, *, leave: bool = False
                ) -> tuple[list[tuple[str, str, str]], dict[str, str]]:
-        """Press Upgrade over what `work` did, from inside a row of the card;
+        """Press Upgrade over what `work` did, from inside a row of the page;
         `leave` deletes that row while the job runs. Hand back each thing the Manager
-        said, as lead, caption and type, and the card as it is drawn afterwards."""
+        said, as lead, caption and type, and the older-format list as it is drawn
+        afterwards."""
         job = self._job(work)
         with ui.column() as card:
             row = ui.row().default_slot
@@ -242,7 +347,7 @@ class MetadataOutcomeTests(unittest.TestCase):
             asyncio.run(pressed())
         said = [(one.args[0], one.kwargs.get("caption", ""), one.kwargs.get("type", ""))
                 for one in notify.call_args_list]
-        return said, _card(library.metadata_state(), page.get(sections._LEFT))
+        return said, _folders(library.metadata_state(), "older_format", page.get(sections._LEFT))
 
     def _upgrade(self):
         self._lock(self.root / LOCKED)
@@ -254,7 +359,7 @@ class MetadataOutcomeTests(unittest.TestCase):
         self.assertIn((t("manager.sections.upgraded_some", done=1, total=2), "", "warning"),
                       said)
 
-    def test_the_folder_it_could_not_write_is_named_with_why_on_hover(self) -> None:
+    def test_the_folder_it_could_not_write_is_named_with_why_on_screen(self) -> None:
         _, drawn = self._upgrade()
 
         self.assertEqual(drawn.get(LOCKED), t("error.path.read_only", name=LOCKED))

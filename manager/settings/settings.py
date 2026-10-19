@@ -85,17 +85,14 @@ logger = logging.getLogger("vpinfe.manager.settings.settings")
 # "Virtual Pinball Spreadsheet" ellipses at the pane's width.
 RAIL_PX = 230
 
-# What switching one off does, and the two things it deliberately does not do. Said
-# where it applies to every switch on the page rather than repeated under each.
-KEPT_NOTE = t("manager.settings.kinds_note")
+KINDS_NOTE = t("manager.settings.kinds_note")
+ASSETS_NOTE = t("manager.settings.assets_note")
 
 # Every source that ships is listed, switched off included: "why is that catalog not
 # coming up" is answered by seeing it sitting there off.
-SOURCES_NOTE = (t("manager.settings.sources_note"))
+SOURCES_NOTE = t("manager.settings.sources_note")
 
-# The library's answer, not this install's, so two machines reading one library report
-# the same gaps. Turning one off stops it being counted, never fixes what it found.
-CHECKS_NOTE = t("manager.settings.checks_note")
+DISCOVERY_PAGE = "library.discovery"
 
 # This install's, unlike the checks: a device row is about the machine it is read on.
 OVERVIEW_NOTE = t("manager.settings.overview_note")
@@ -600,10 +597,15 @@ def _listed(value: Any) -> set[str]:
     return {str(item).strip() for item in (value or []) if str(item).strip()}
 
 
+KindSwitch = tuple[str, str, Callable[[], None]]
+
+
 async def _fill_kinds(library: Library, refill: Callable[[], None] | None, body: Any,
                       note: str, section: str, key: str,
                       items: Callable[[Any], dict[str, str]],
-                      columns: bool = False) -> list:
+                      columns: bool = False,
+                      arrange: Callable[[list[KindSwitch]], list[tuple[Any, Any]]] | None = None,
+                      ) -> list:
     """The switches, drawn into `body` - or returned when `body` is None, for a page that
     orders them among its own settings rather than beside them.
 
@@ -612,6 +614,10 @@ async def _fill_kinds(library: Library, refill: Callable[[], None] | None, body:
 
     `columns` is for the long lists, the media and asset kinds: two columns, in name order
     down the first and on into the second, so the list is a screen and not a scroll.
+
+    `arrange` is handed each switch as (name, label, draw), in the order `items` gave
+    them, and answers the entries to draw in place of the name-ordered rows. An empty
+    `note` draws no line over them.
 
     The `manager` section holds this install's own list; every other is the library's."""
     device = section == "manager"
@@ -655,9 +661,12 @@ async def _fill_kinds(library: Library, refill: Callable[[], None] | None, body:
     def flipper(name: str) -> Callable[[Any], Any]:
         return lambda event: flip(name, bool(event.value))
 
-    entries: list[tuple[Any, Any]] = [panel.lede(note)]
+    entries: list[tuple[Any, Any]] = [panel.lede(note)] if note else []
     ordered = sorted(known.items(), key=lambda pair: pair[1])
-    if columns:
+    if arrange is not None:
+        entries += arrange([(name, label, panel.switch(name in on, flipper(name)))
+                            for name, label in known.items()])
+    elif columns:
         entries.append((panel.FULL, lambda: _kind_columns(
             [(label, panel.switch(name in on, flipper(name))) for name, label in ordered])))
     else:
@@ -689,16 +698,15 @@ async def _kind_rows(library: Library, refill: Callable[[], None] | None,
         return []
     note, section, name, items = found
     return await _fill_kinds(library, refill, None, note, section, name, items,
-                             page in TWO_COLUMNS)
+                             page in TWO_COLUMNS, ARRANGED.get(page))
 
 
-async def _vps_foot(library: Library, refill: Callable[[], None],
-                    **_: Any) -> list[tuple[Any, Any]]:
+async def _spreadsheet_check(library: Library, refill: Callable[[], None],
+                             ) -> list[tuple[Any, Any]]:
     """When the catalog was last asked, and the way to ask now.
 
     A schedule is a setting and the schema renders it; "do it now" is not a setting and
-    has nowhere in a schema page to live, so a page may carry a foot for the one thing
-    that is an act rather than a value.
+    has nowhere in a schema page to live.
 
     Rows rather than a drawing, because they join the page's one list. A second grid
     sizes a label column of its own and its values start somewhere else entirely.
@@ -726,9 +734,7 @@ async def _vps_foot(library: Library, refill: Callable[[], None],
                   type="positive" if done.get("changed") else "info")
         refill()
 
-    # No heading of its own: Download Spreadsheet, the row above, already names the
-    # catalog, and a heading here reads as a separate subject.
-    return [last_checked(str(state.get("checked") or ""), now)]
+    return [(panel.SUB, last_checked(str(state.get("checked") or ""), now))]
 
 
 def last_checked(checked_at: str, now: Callable[[], Any], *,
@@ -773,8 +779,8 @@ async def _themes_foot(library: Library, refill: Callable[[], None],
 
 # section -> what to draw under its settings. Only where a page has an act in it, or a
 # reading that answers a question its settings raise.
-FOOTERS: dict[str, Callable] = {"updates": _vps_foot, "themes": _themes_foot,
-                                 recording.SECTION: recording.foot, dof.SECTION: dof.foot}
+FOOTERS: dict[str, Callable] = {"themes": _themes_foot, recording.SECTION: recording.foot,
+                                dof.SECTION: dof.foot}
 
 
 # The two video formats whose absence makes the browser unfit (`frontend_browser.state_of`).
@@ -987,7 +993,8 @@ PAGE_NOTES: dict[str, str] = {
     "vpinfe.tools": "manager.settings.note_tools",
     "library.updates": "manager.settings.note_updates",
     folders.KEY: "manager.settings.note_folders",
-    needs.METADATA_PAGE: "manager.settings.note_metadata",
+    DISCOVERY_PAGE: "manager.settings.note_discovery",
+    "library.checks": "manager.settings.checks_note",
 }
 
 
@@ -1005,15 +1012,15 @@ def page_head(key: str, findings: Sequence[Callable[[], None]] = ()) -> None:
 # key -> (note, config section, config key, what to switch). Each list stores what is
 # off, so a kind or a source added in a later version arrives switched on.
 KIND_PAGES: dict[str, tuple[str, str, str, Callable[[Any], dict[str, str]]]] = {
-    "media_kinds": (KEPT_NOTE, "", "hidden_media_kinds",
+    "media_kinds": (KINDS_NOTE, "", "hidden_media_kinds",
                     lambda _: dict(media_label_map())),
-    "asset_kinds": (KEPT_NOTE, "", "hidden_asset_kinds",
+    "asset_kinds": (ASSETS_NOTE, "", "hidden_asset_kinds",
                     lambda _: {spec.kind: spec.label for spec in ASSET_SPECS
                                if spec.kind not in ALWAYS_KEPT}),
-    "media_sources": (SOURCES_NOTE, "", "hidden_sources",
+    "media_sources": ("", "", "hidden_sources",
                       lambda library: {s["id"]: s["name"]
                                        for s in library.media_sources()}),
-    "library_checks": (CHECKS_NOTE, "", "hidden_checks",
+    "library_checks": ("", "", "hidden_checks",
                        lambda _: _check_labels()),
     "overview_rows": (OVERVIEW_NOTE, "manager", "hidden_overview",
                       lambda _: {key: needs.name_of(key) for key in needs.DEVICE_ROWS}),
@@ -1024,12 +1031,64 @@ KIND_PAGES: dict[str, tuple[str, str, str, Callable[[Any], dict[str, str]]]] = {
 # are a handful, and one column reads better.
 TWO_COLUMNS = frozenset({"media_kinds", "asset_kinds"})
 
+# The checks under the headings the Checks page draws them in, in the order it draws them:
+# (heading, ((check key, label), ...)).
+CHECK_GROUPS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
+    ("manager.settings.checks_folders", (
+        ("unreadable", "manager.settings.check_unreadable"),
+        ("no_tables", "manager.settings.check_no_tables"),
+        ("older_format", "manager.settings.check_older_format"),
+    )),
+    ("manager.settings.checks_matching", (
+        ("unmatched", "manager.settings.check_unmatched"),
+        ("no_year", "manager.settings.check_no_year"),
+    )),
+    ("manager.settings.checks_media", (
+        ("no_playfield", "manager.settings.check_no_playfield"),
+        ("no_backglass", "manager.settings.check_no_backglass"),
+        ("no_media", "manager.settings.check_no_media"),
+    )),
+    ("manager.settings.checks_tables", (
+        ("rom_missing", "manager.settings.check_rom_missing"),
+        ("newer", "manager.settings.check_newer"),
+        ("script_fixes", "manager.settings.check_script_fixes"),
+    )),
+)
+
 
 def _check_labels() -> dict[str, str]:
-    from manager.settings.sections import CHECKS
-    return {**{key: name for key, name, _description, _predicate in CHECKS},
-            "unreadable": needs.name_of("unreadable"), "newer": needs.name_of("newer"),
-            "script_fixes": needs.name_of("script_fixes")}
+    return {key: t(label) for _heading, checks in CHECK_GROUPS for key, label in checks}
+
+
+def _checks_arranged(switches: list[KindSwitch]) -> list[tuple[Any, Any]]:
+    """The checks' switches under their headings, in the order `CHECK_GROUPS` declares."""
+    drawn = {name: (label, draw) for name, label, draw in switches}
+    entries: list[tuple[Any, Any]] = []
+    for heading, checks in CHECK_GROUPS:
+        entries.append((panel.HEADING, t(heading)))
+        entries += [drawn[key] for key, _label in checks if key in drawn]
+    return entries
+
+
+def _sources_arranged(switches: list[KindSwitch]) -> list[tuple[Any, Any]]:
+    """The sources with a rule between each, the catalog VPinFE ships first."""
+    from common.online import asset_sources
+
+    catalog = asset_sources.VPinMediaDB.id
+    entries: list[tuple[Any, Any]] = []
+    for at, (name, label, draw) in enumerate(sorted(switches, key=lambda one: one[0] != catalog)):
+        if at:
+            entries.append((panel.RULE, None))
+        entries.append((label, draw))
+        if name == catalog:
+            entries.append(panel.note(t("manager.settings.vpinmediadb.help")))
+    return entries
+
+
+# registry -> how its switches are laid out, where that is not one name-ordered list.
+ARRANGED: dict[str, Callable[[list[KindSwitch]], list[tuple[Any, Any]]]] = {
+    "library_checks": _checks_arranged, "media_sources": _sources_arranged}
+
 
 async def _folders_page(library: Library, redraw: Callable[[], None],
                         state: dict[str, Any]) -> Callable[[], None]:
@@ -1054,22 +1113,47 @@ async def _folders_page(library: Library, redraw: Callable[[], None],
     return await folders.page(library, redraw, state, below)
 
 
-async def _metadata_page(library: Library, redraw: Callable[[], None],
-                         state: dict[str, Any]) -> Callable[[], None]:
-    """Whether the library's metadata files read and are current."""
-    from manager.settings import sections
-    await offload.io(library.read_metadata_state)
-    return lambda: sections.metadata_page(library, state, redraw)
+async def _discovery_page(library: Library, redraw: Callable[[], None],
+                          state: dict[str, Any]) -> panel.Region:
+    """Where VPinFE looks online: the spreadsheet, whose schedule is a setting that has
+    this page as its home, then the sources media comes from. One list, so the labels share
+    a column.
+
+    A region: Check Now and a schedule write read the page again where it stands, and the
+    caller awaits `refilled()` for the first draw.
+    """
+    async def draw() -> None:
+        entries: list[tuple[Any, Any]] = [(panel.HEADING, t("manager.settings.heading_sources")),
+                                          panel.lede(SOURCES_NOTE)]
+        try:
+            schema = await offload.io(library.config_schema)
+            values = await offload.io(library.config_values)
+        except Exception as exc:  # noqa: BLE001 - the sources stay on the page
+            entries.append(panel.intro(t("said.settings_unreadable"), hint=why(exc)))
+        else:
+            updates = next((one for one in schema if one.get("name") == "updates"), {})
+            options = [one for one in updates.get("options") or []
+                       if one.get("home") == DISCOVERY_PAGE]
+            entries += section_rows(library, "updates", options, values,
+                                    bool(updates.get("writable")), region.refill)
+            entries += await _spreadsheet_check(library, region.refill)
+        entries.append((panel.RULE, None))
+        entries += await _kind_rows(library, None, "media_sources")
+        panel.facts(ui, entries)
+
+    region = panel.region(draw)
+    return region
 
 
 SECURITY_PAGE = "vpinfe.security"
 
 # A built page's draw: read what it shows, then hand back what draws it. The read is
-# awaited by the caller, so the draw itself never waits.
+# awaited by the caller, so the draw itself never waits. A page that hands back a region
+# reads inside it instead: the caller awaits its `refilled()` for the first draw.
 PAGES: dict[str, Callable[[Library, Callable[[], None], dict[str, Any]],
                           Awaitable[Callable[[], None]]]] = {
     folders.KEY: _folders_page,
-    needs.METADATA_PAGE: _metadata_page,
+    DISCOVERY_PAGE: _discovery_page,
     SECURITY_PAGE: security.page,
 }
 
@@ -1171,10 +1255,10 @@ DEVICE_INDEX: tuple[tuple[str, tuple[DevicePage, ...]], ...] = (
          (install_identity.LIBRARY, install_identity.FRONTEND)),
         ("library.media", "manager.settings.page_media", SCHEMA_PAGE, ("media",), "library"),
         ("library.assets", "manager.settings.page_assets", SCHEMA_PAGE, (), "library"),
-        ("library.audit", "manager.settings.page_audit", SCHEMA_PAGE, (), "library"),
+        ("library.checks", "manager.settings.page_checks", SCHEMA_PAGE, (), "library"),
         ("library.updates", "manager.settings.page_updates", SCHEMA_PAGE, ("updates",),
                 "library"),
-        (needs.METADATA_PAGE, "manager.settings.page_metadata", BUILT_PAGE, (), "library"),
+        (DISCOVERY_PAGE, "manager.settings.page_discovery", BUILT_PAGE, (), "library"),
     )),
     ("manager.settings.group_frontend", (
         ("frontend.presentation", "manager.settings.page_presentation", SCHEMA_PAGE,
@@ -1195,9 +1279,8 @@ DEVICE_INDEX: tuple[tuple[str, tuple[DevicePage, ...]], ...] = (
 # third entry puts the block at the foot; an empty heading is for a block that is the
 # whole page, which the page's own name already heads.
 PAGE_KINDS: dict[str, tuple[tuple[str, str, str], ...]] = {
-    "library.audit": (("library_checks", "", ""),),
-    "library.media": (("media_kinds", "manager.settings.heading_kinds", "Wheels"),
-              ("media_sources", "manager.settings.heading_online_sources", "Wheels")),
+    "library.checks": (("library_checks", "", ""),),
+    "library.media": (("media_kinds", "manager.settings.heading_kinds", "Wheels"),),
     "library.assets": (("asset_kinds", "", ""),),
     "vpinfe.manager": (("overview_rows", "manager.settings.heading_overview", ""),),
 }
@@ -1975,6 +2058,8 @@ async def _draw_system_page(library: Library, redraw: Callable[[], None], body: 
         with body:
             page_head(key)
             draw()
+        if isinstance(draw, panel.Region):
+            await draw.refilled()
         return
     if kind != SCHEMA_PAGE:
         with body:

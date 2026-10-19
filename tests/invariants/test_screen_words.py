@@ -42,8 +42,8 @@ BUILD = {
     "manager.devices.newer_build": "a VPinFE build",
     "manager.devices.published_build": "a VPinFE build",
     "manager.settings.browser_slim_build": "this VPinFE build",
-    "manager.sections.newer_build": "this VPinFE build",
-    "manager.sections.written_later": "this VPinFE build",
+    "manager.needs.newer_build.tip": "this VPinFE build",
+    "manager.needs.older_format.tip": "an older VPinFE build",
     "manager.sections.written_older": "an older VPinFE build",
     "ext.library_importer.reason.nothing_readable": "this VPinFE build",
     "extension.reason.platform_mismatch": "this VPinFE build",
@@ -59,7 +59,6 @@ ASSETS_PAGE = "the Assets page, of the files a table loads"
 
 ASSET = {
     "config.library.hidden_asset_kinds.label": LOADS,
-    "config.updates.refresh_minutes.description": LOADS,
     "manager.assets.assets": LOADS,
     "manager.assets.assets_missing": LOADS,
     "manager.assets.search_assets": LOADS,

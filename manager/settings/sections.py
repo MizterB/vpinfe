@@ -1,10 +1,10 @@
-"""Overview, the Library metadata page, and the checks that decide what needs a person."""
+"""Overview, the folder lists behind its rows, and the checks that decide what needs a person."""
 
 from __future__ import annotations
 
 import asyncio
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Collection, Mapping
 from datetime import UTC, datetime
 from typing import Any
 
@@ -15,6 +15,7 @@ from common.i18n import number, t
 from common.media.media_specs import media_label_map
 from common.security import approvals
 from manager.extensions import ext_mark
+from manager.kit import dialog as frame
 from manager.kit import game_tables, offload, panel, verbs, when
 from manager.kit.data import Library
 from manager.kit.on_page import on_page
@@ -245,7 +246,7 @@ def _needs_you(arranged: needs.Arranged, state: dict[str, Any], fix: Callable[..
                 ui.label(t("manager.needs.nothing")).classes("manager-setting grow")
                 panel.action(t("manager.needs.choose_checks"),
                              lambda: state["open_on"](needs.Opens(
-                                 "settings", keys={"settings_page": "library.audit"})),
+                                 "settings", keys={"settings_page": "library.checks"})),
                              icon=verbs.GO, hint=t("manager.needs.choose_checks.help"))()
         for group in needs.grouped(arranged.rows):
             with ui.element("div").classes(
@@ -482,6 +483,8 @@ def overview(library: Library, registry: list[dict], discovery: dict,
                                            lambda: placed(ids))
         if need.fix.key == needs.FETCH_FIXES:
             return fetch_script_fixes(library, drawn_again)
+        if need.fix.key == needs.UPGRADE:
+            return _metadata_action(library, state, drawn_again)("upgrade")
         from manager.devices import devices
 
         return devices.confirm_update(library, _local_name(registry, discovery),
@@ -562,7 +565,7 @@ def _metadata_action(library: Library, state: dict[str, Any],
         found = await _ended(client, str(job.get("id") or ""))
         if found is None:
             return
-        # The counts this card is drawn from are now stale. Asked again off the loop,
+        # The counts the rows are drawn from are now stale. Asked again off the loop,
         # for the same reason they were read there in the first place.
         await run.io_bound(library.read_metadata_state)
         left: list[tuple[str, str]] = []
@@ -609,20 +612,6 @@ def upgrade_outcome(result: dict[str, Any],
     return t("manager.sections.upgraded", count=done), left
 
 
-# --- The library's own metadata, drawn ---------------------------------------------
-#
-# Every game folder carries a `.info`: its id, its catalog match, your rating and how
-# often you have played it. It is where the library actually lives, and the grid is a
-# view of it. Three things can be true of one that are worth acting on, and they are not
-# the same thing as a game being short of a rom or a wheel image - which is why this is
-# its own card rather than another row in the one above.
-
-
-def _first_of(names: list[str], most: int) -> str:
-    listed = ", ".join(names[:most])
-    return t("manager.sections.more", names=listed) if len(names) > most else listed
-
-
 def _folder_lines(rows: list[tuple[str, str]], most: int = 4) -> list[tuple[str, str]]:
     lines = rows[:most]
     if len(rows) > most:
@@ -630,83 +619,69 @@ def _folder_lines(rows: list[tuple[str, str]], most: int = 4) -> list[tuple[str,
     return lines
 
 
-def _metadata_row(good: bool, name: str, said: str,
-                  action: tuple[str, Callable[[], Any]] | None = None,
-                  lines: list[tuple[str, str]] | None = None) -> None:
-    with ui.row().classes("items-center gap-3 w-full no-wrap py-1"):
-        ui.icon("check_circle" if good else "error", size="18px") \
-            .classes("text-positive" if good else "text-warning")
-        with ui.column().classes("gap-0 grow min-w-0"):
-            ui.label(name).classes("manager-setting")
-            ui.label(said).classes("manager-help")
-            for text, hover in lines or []:
-                panel.line(text, hint=hover)
-        if action is not None:
-            label, run = action
-            ui.button(label, icon=verbs.GO, on_click=run) \
-                .props("flat dense no-caps size=sm").classes("shrink-0")
+_FOLDERS_MOST = 200
 
 
-def metadata(state: dict[str, Any], on_start: Callable[[str], Any],
-             left: Mapping[str, list[tuple[str, str]]] | None = None) -> None:
-    """What the library's metadata files need, drawn whole so an all-clear can be read.
-
-    `left` is each folder the last Upgrade could not write, with why.
-    """
-    with ui.element("div").classes("manager-card manager-metadata w-full"):
-        _metadata_rows(state, on_start, left)
-
-
-def metadata_page(library: Library, state: dict[str, Any],
-                  redraw: Callable[[], None]) -> None:
-    """Library > Metadata: the card, with Upgrade redrawing the page once it has run."""
-    metadata(library.metadata_state(), _metadata_action(library, state, redraw),
-             state.get(_LEFT))
-
-
-def _metadata_rows(state: dict[str, Any], on_start: Callable[[str], Any],
-                   left: Mapping[str, list[tuple[str, str]]] | None = None) -> None:
-    pending = int(state.get("pending_upgrade") or 0)
-    unreadable = list(state.get("unreadable") or [])
-    unwritten = [(str(row["folder"]), str(row.get("error") or ""))
-                 for row in state.get("unwritten") or []]
-    newer = int(state.get("newer_than_us") or 0)
-    left = left or {}
-    named = dict([*unwritten, *(left.get("upgrade") or [])])
-
-    _metadata_row(
-        not pending and not unwritten, t("manager.sections.format"),
-        " · ".join(said for said in (
-            t("manager.sections.written_older", count=pending) if pending else "",
-            t("manager.sections.could_not_write", count=len(unwritten))
-            if unwritten else "") if said)
-        or t("manager.sections.format_current"),
-        None if not pending else (t("word.upgrade"),
-                lambda: on_start("upgrade")),
-        lines=_folder_lines(sorted(named.items(), key=lambda row: row[0].lower())))
-
-    # No action: the fix is on disk, in a file this cannot repair without guessing
-    # what it was meant to say. Naming the folders, and why, is the whole of the help.
-    _metadata_row(
-        not unreadable, t("manager.sections.readable"),
-        t("manager.sections.metadata_readable") if not unreadable
-        else t("manager.sections.unreadable_one") if len(unreadable) == 1
-        else t("manager.sections.unreadable_many", count=len(unreadable)),
-        lines=_folder_lines([(str(row["folder"]), str(row.get("error") or ""))
-                             for row in unreadable]))
-
-    # Only when it is true. A row saying "nothing here was written by a newer build"
-    # is a sentence about a thing that has never happened to most installs.
-    if newer:
-        _metadata_row(
-            False, t("manager.sections.newer_build"),
-            t("manager.sections.written_later", newer=(newer)))
+def _folder_rows(metadata: Mapping[str, Any], left: Mapping[str, Any] | None,
+                 which: str) -> list[tuple[str, str]]:
+    """The folders behind one Needs You row, each with why where it is known, by name.
+    `left` is each folder the last Upgrade could not write, with why."""
+    if which == "older_format":
+        said = dict((left or {}).get("upgrade") or ())
+        found = [(str(name), str(said.get(str(name)) or ""))
+                 for name in metadata.get("pending_games") or ()]
+    elif which in ("unreadable", "unwritten"):
+        found = [(str(row.get("folder") or ""), str(row.get("error") or ""))
+                 for row in metadata.get(which) or ()]
+    else:
+        found = []
+    return sorted(found, key=lambda row: row[0].lower())
 
 
-def _line_said(state: Mapping[str, Any]) -> str:
-    """What the Games page says about the library's metadata, or "" for nothing."""
-    missing = len(state.get("unreadable") or ())
-    pending = int(state.get("pending_upgrade") or 0)
+async def metadata_folders(library: Library, state: dict[str, Any], which: str,
+                           redraw: Callable[[], None]) -> None:
+    """The folders one Needs You row counts, over the page, each with why on screen where
+    it is known. A list that has emptied since its row was drawn opens nothing and calls
+    `redraw`."""
+    rows = _folder_rows(library.metadata_state(), state.get(_LEFT), which)
+    if not rows:
+        redraw()
+        return
+    count = len(rows)
+    title, intro = {
+        "unreadable": (t("manager.needs.unreadable_title"),
+                       t("manager.sections.unreadable_one") if count == 1
+                       else t("manager.sections.unreadable_many", count=count)),
+        "unwritten": (t("manager.needs.unwritten"),
+                      t("manager.sections.could_not_write", count=count)),
+        "older_format": (t("manager.needs.older_format"),
+                         t("manager.sections.written_older", count=count)),
+    }[which]
+
+    async def upgrade() -> None:
+        box.close()
+        await _metadata_action(library, state, redraw)("upgrade")
+
+    with frame.opened(title) as box:
+        ui.label(intro).classes("manager-help px-3")
+        for name, why in _folder_lines(rows, _FOLDERS_MOST):
+            with ui.column().classes("gap-0 w-full px-3 py-1"):
+                ui.label(name).classes("manager-setting")
+                if why:
+                    ui.label(why).classes("manager-help")
+        with frame.footer():
+            frame.cancel(box.close, t("word.close"))
+            if which == "older_format":
+                frame.answer(t("word.upgrade"), upgrade, icon=verbs.ACCEPT)
+    box.open()
+
+
+def _line_said(state: Mapping[str, Any], stopped: Collection[str]) -> str:
+    """What the Games page says about the library's metadata, or "" for nothing. Counts
+    only what Overview lists: a check in `stopped` is left out, and the folders that could
+    not be written are not a check."""
+    missing = 0 if "unreadable" in stopped else len(state.get("unreadable") or ())
+    pending = 0 if "older_format" in stopped else int(state.get("pending_upgrade") or 0)
     unwritten = len(state.get("unwritten") or ())
     return " · ".join(said for said in (
         t("manager.sections.unlisted", count=missing) if missing else "",
@@ -716,19 +691,19 @@ def _line_said(state: Mapping[str, Any]) -> str:
 
 def metadata_line(library: Library, state: dict[str, Any]) -> None:
     """The line above the Games grid, drawn only while `_line_said` has something to
-    say, with Library > Metadata behind its button."""
+    say, with Overview behind its button."""
     async def show() -> None:
-        await state["open_on"](needs.Opens("settings", keys={"settings_page": needs.METADATA_PAGE}))
+        await state["open_on"](needs.Opens("overview"))
 
     with ui.element("div").classes("w-full shrink-0"):
-        said = _line_said(library.metadata_state())
+        said = _line_said(library.metadata_state(), library.stopped())
         if not said:
             return
         with ui.element("div").classes("manager-attention mb-2"):
             ui.icon("error_outline").classes("manager-attention-icon")
             ui.label(said).classes("manager-attention-line grow")
             panel.action(t("manager.sections.show"), show, icon=verbs.GO,
-                         hint=t("manager.sections.show_metadata.help"))()
+                         hint=t("manager.sections.show_needs.help"))()
 
 
 # --- The scripts the tables run ---------------------------------------------------
@@ -739,6 +714,11 @@ def metadata_line(library: Library, state: dict[str, Any]) -> None:
 # script appears under a dozen filenames, and a fix is only correct for the bytes it was
 # built against. A fix arrives as a `.vbs` sidecar, which the program runs in place of
 # the script the table ships with.
+
+
+def _first_of(names: list[str], most: int) -> str:
+    listed = ", ".join(names[:most])
+    return t("manager.sections.more", names=listed) if len(names) > most else listed
 
 
 def _script_fixes_said(found: dict[str, Any]) -> str:

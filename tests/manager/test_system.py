@@ -12,10 +12,10 @@ from urllib.parse import parse_qs
 
 from common.config import path_state
 from common.devices import install_identity
+from common.i18n import t
 from common.settings import feature_checks
 from manager import page
 from manager.kit import appearance, deeplink, panel
-from manager.overview import needs
 from manager.settings import settings as settings_page
 
 
@@ -236,15 +236,33 @@ class SystemIndexTests(unittest.TestCase):
 
         self.assertEqual(library[0][0], "library.folders")
 
-    def test_the_metadata_page_is_in_the_library_group_and_drawn(self) -> None:
+    def test_the_library_rail_reads_folders_media_assets_checks_automatic_discovery(self) -> None:
+        library = [one for group, one in settings_page.system_pages(
+            [install_identity.LIBRARY]) if group == "manager.settings.group_library"]
+
+        self.assertEqual(["Folders", "Media", "Assets", "Checks", "Automatic", "Discovery"],
+                         [t(one[1]) for one in library])
+        self.assertEqual(["library.folders", "library.media", "library.assets",
+                          "library.checks", "library.updates", "library.discovery"],
+                         [one[0] for one in library])
+
+    def test_the_metadata_page_is_not_on_the_rail(self) -> None:
+        offered = [one[0] for _group, one in settings_page.system_pages(
+            install_identity.FEATURES)]
+
+        self.assertNotIn("library.metadata", offered)
+        self.assertNotIn("library.metadata", settings_page.PAGES)
+        self.assertNotIn("library.metadata", settings_page.PAGE_NOTES)
+
+    def test_the_discovery_page_is_in_the_library_group_and_drawn(self) -> None:
         """Opening Settings at a page that is not in the index falls back to the first
         page, so a mistyped key would open the wrong screen without failing."""
         library = [one[0] for group, one in settings_page.system_pages(
             [install_identity.LIBRARY]) if group == "manager.settings.group_library"]
 
-        self.assertIn(needs.METADATA_PAGE, library)
-        self.assertIn(needs.METADATA_PAGE, settings_page.PAGES)
-        self.assertIn(needs.METADATA_PAGE, settings_page.PAGE_NOTES)
+        self.assertIn(settings_page.DISCOVERY_PAGE, library)
+        self.assertIn(settings_page.DISCOVERY_PAGE, settings_page.PAGES)
+        self.assertIn(settings_page.DISCOVERY_PAGE, settings_page.PAGE_NOTES)
 
     def test_identity_survives_an_install_that_is_for_nothing(self) -> None:
         """The whole point of `core`: the screen that switches a feature back on is the

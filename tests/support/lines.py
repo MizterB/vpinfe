@@ -25,3 +25,19 @@ def details(body: ui.element) -> dict[str, str]:
         assert marked == ([hover] if hover else []), f"{line.text!r}: its mark opens {marked}"
         found[line.text] = hover
     return found
+
+
+def folders(body: ui.element) -> dict[str, str]:
+    """Each folder a Needs You folder list names, with the line drawn under it on screen,
+    or "" for none. The list's intro and title are not folders and are left out."""
+    found: dict[str, str] = {}
+    last = ""
+    for line in body.descendants():
+        if not isinstance(line, ui.label):
+            continue
+        if "manager-setting" in line.classes:
+            last = line.text
+            found[last] = ""
+        elif "manager-help" in line.classes and last:
+            found[last] = line.text
+    return found

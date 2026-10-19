@@ -47,6 +47,12 @@ LEDE = object()
 # A fact that is only read, as (READ, (label, value)): no control to centre, so its row is
 # as tall as the words and a run of them sits close together.
 READ = object()
+# A fact about the row above it, as (SUB, (label, value)): its label is indented behind an
+# elbow so it reads as part of that row.
+SUB = object()
+# A line across both columns between two groups of rows that have no heading of their own,
+# as (RULE, None).
+RULE = object()
 
 # A rail row that names the rows under it rather than opening anything.
 GROUP = object()
@@ -196,6 +202,14 @@ def _fact_row(target: Any, label: Any, value: Any) -> None:
         name, shown = value
         target.label(str(name)).classes("manager-fact-label manager-fact-read")
         _draw_value(target, shown)
+        return
+    if label is SUB:
+        name, shown = value
+        target.label(str(name)).classes("manager-fact-label manager-fact-sub")
+        _draw_value(target, shown)
+        return
+    if label is RULE:
+        target.element("div").classes("manager-fact-rule")
         return
     if label is ASIDE:
         with target.element("div").classes("manager-fact-aside"):
