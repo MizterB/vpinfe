@@ -257,9 +257,12 @@ def read_alias_map(game_dir: str) -> dict[str, str]:
         return {}
 
 
+ROMS_FOLDER = "pinmame/roms"
+
+
 def list_rom_files(game_dir: str) -> list[str]:
     try:
-        return os.listdir(os.path.join(game_dir, "pinmame", "roms"))
+        return os.listdir(os.path.join(game_dir, *ROMS_FOLDER.split("/")))
     except OSError:
         return []
 

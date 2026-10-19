@@ -81,17 +81,15 @@ def _we_hold(kind: vps_kinds.VpsKind, inventory: dict, media: dict) -> bool:
     return False
 
 
-ROMS_FOLDER = "pinmame/roms"
-
-
 def _roms(game_dir: Path) -> dict[str, Any]:
     """The game's ROM zips, as an inventory slot. `inventory_assets` has none: a ROM lives
     in a folder of its own, not beside the table, and its origin is recorded under the
     folder-relative path, which is what `origin` carries."""
     zips = sorted(name for name in asset_resolver.list_rom_files(str(game_dir))
                   if name.lower().endswith(".zip"))
+    folder = asset_resolver.ROMS_FOLDER
     return {"present": bool(zips),
-            "files": [{"file": name, "origin": f"{ROMS_FOLDER}/{name}"} for name in zips]}
+            "files": [{"file": name, "origin": f"{folder}/{name}"} for name in zips]}
 
 
 # What a kind held as a folder is called on disk; the inventory says only that it is there.
