@@ -310,8 +310,8 @@ class TheInitialsClash(unittest.IsolatedAsyncioTestCase):
         library = Mock()
         library.change_player.return_value = {"initials": "BBB",
                                               "shares_initials_with": ["p-vis"]}
-        context = {"library": library, "player": guest, "roster": roster, "state": {},
-                   "retitle": Mock(), "rebuild": AsyncMock()}
+        context: dict[str, Any] = {"library": library, "player": guest, "roster": roster,
+                                   "state": {}, "retitle": Mock(), "rebuild": AsyncMock()}
         with _PAGE:
             box = ui.column()
             with box:

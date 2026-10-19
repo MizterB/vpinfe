@@ -187,8 +187,10 @@ class AWaitingRegionSwapsInOneStepTests(unittest.IsolatedAsyncioTestCase):
 
         await drawn.region.refilled()
 
+        box = drawn.region._box
+        assert box is not None
         self.run_js.assert_called_once()
-        self.assertIn(f"giveBack('{drawn.region._box.html_id}')", self.run_js.call_args.args[0])
+        self.assertIn(f"giveBack('{box.html_id}')", self.run_js.call_args.args[0])
 
     async def test_a_swap_that_is_dropped_asks_for_nothing(self) -> None:
         drawn = Waiting()
@@ -273,7 +275,9 @@ class AWaitingRegionSwapsInOneStepTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(OSError):
             await drawn.region.refilled()
 
-        self.assertEqual([], list(drawn.region._box.default_slot.children))
+        box = drawn.region._box
+        assert box is not None
+        self.assertEqual([], list(box.default_slot.children))
 
 
 if __name__ == "__main__":

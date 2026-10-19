@@ -4,6 +4,7 @@ and what it does to what is there."""
 from __future__ import annotations
 
 import unittest
+from typing import Any
 from unittest.mock import patch
 
 from manager.kit import candidates
@@ -17,7 +18,7 @@ def _media(name: str = "(RuleSheet) 300.png", **more: object) -> dict:
             **more}
 
 
-def _drawn(item: dict, upload_id: str = "") -> tuple[list[str], list[tuple]]:
+def _drawn(item: dict, upload_id: str = "") -> tuple[list[str], list[Any]]:
     with patch.object(import_dialog, "ui") as ui, \
             patch.object(candidates, "thumb") as thumb:
         import_dialog._draw_row(item, {"game_dir": "/games/300"}, {0: True}, True,

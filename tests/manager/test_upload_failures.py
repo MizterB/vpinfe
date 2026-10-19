@@ -55,8 +55,8 @@ class WhatAFailedImportLeavesInTheLog(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.enterContext(mock.patch("manager.kit.on_page.ui"))
         self.ui = self.enterContext(mock.patch.object(uploads, "ui"))
-        self.run = self.enterContext(mock.patch.object(uploads, "run"))
-        self.run.io_bound = mock.AsyncMock()
+        runner = self.enterContext(mock.patch.object(uploads, "run"))
+        runner.io_bound = mock.AsyncMock()
         self.io = self.enterContext(mock.patch.object(uploads.offload, "io",
                                                       mock.AsyncMock()))
         self.library = mock.Mock(games=[])

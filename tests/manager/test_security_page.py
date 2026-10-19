@@ -248,6 +248,7 @@ class ThePageChangesWhereItStands(unittest.IsolatedAsyncioTestCase):
         redraw = mock.Mock()
         with _PAGE:
             region = await security.page(self.library, redraw, {})
+            assert isinstance(region, panel.Region)
             box = ui.column()
             with box:
                 region()
