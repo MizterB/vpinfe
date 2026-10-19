@@ -168,6 +168,30 @@ class AWaitingRegionSwapsInOneStepTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(["before", "latest", "after"], drawn.shown())
 
+    async def test_a_refill_that_finishes_before_an_earlier_one_leaves_the_part_whole(
+            self) -> None:
+        drawn = Waiting()
+        await drawn.region.refilled()
+        slow, quick = asyncio.Event(), asyncio.Event()
+        calls = [("slow", slow), ("quick", quick)]
+
+        async def build() -> None:
+            word, gate = calls.pop(0)
+            await gate.wait()
+            ui.label(word)
+
+        drawn.region._build = build
+        first = asyncio.ensure_future(drawn.region.refilled())
+        await asyncio.sleep(0)
+        second = asyncio.ensure_future(drawn.region.refilled())
+        await asyncio.sleep(0)
+        quick.set()
+        await second
+        slow.set()
+        await first
+
+        self.assertEqual(["before", "quick", "after"], drawn.shown())
+
     async def test_a_build_that_fails_leaves_what_was_drawn(self) -> None:
         drawn = Waiting()
         await drawn.region.refilled()

@@ -2419,6 +2419,19 @@ class SettingNamesTests(unittest.TestCase):
                                    label="Enable")})
 
 
+class _Inline:
+    """A `panel.region` that draws where it is asked, for a test with no page to draw on."""
+
+    def __init__(self, build: Any) -> None:
+        self.build = build
+
+    def __call__(self) -> None:
+        return None
+
+    async def refilled(self) -> None:
+        await self.build()
+
+
 class CatalogLabelTests(unittest.IsolatedAsyncioTestCase):
     PIN2DMD = SimpleNamespace(key="Plugin.DMDUtil.PIN2DMD", type="bool", label="PIN2DMD",
                               default="", description="", choices=(), scopes=("launcher",),
@@ -2440,6 +2453,7 @@ class CatalogLabelTests(unittest.IsolatedAsyncioTestCase):
                         patch.object(settings_page, "control_for"), \
                         patch.object(panel, "search"), \
                         patch.object(panel, "action"), \
+                        patch.object(panel, "region", new=_Inline), \
                         patch.object(panel, "facts") as facts:
                     await all_settings._config_rows(context, group)
 

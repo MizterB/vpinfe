@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Coroutine, Mapping, Sequence
 from functools import partial
 from types import SimpleNamespace
 from typing import Any
@@ -99,7 +99,7 @@ def arrow_of(screen: Screen | None, rotation: str) -> str | None:
 class Page:
     """One launcher's Displays, with VPinFE's screens beside it.
 
-    `flat` is the launcher's ini as keys to text. `rebuild` redraws the page from a fresh
+    `flat` is the launcher's ini as keys to text. `rebuild` draws the rows from a fresh
     read, which is what a move needs: the rows under the picture follow the parts placed.
     """
 
@@ -306,9 +306,11 @@ class Page:
 
 async def entries(context: dict[str, Any], group: Any, shown: Sequence[tuple[Any, list[Any]]],
                   values: Mapping[str, Any],
-                  rows: Callable[..., Awaitable[Entries]]) -> Entries:
+                  rows: Callable[..., Awaitable[Entries]],
+                  redraw: Callable[[], Coroutine[Any, Any, Any]] | None = None) -> Entries:
     """The page's rows. `rows` draws the settings of some headings as the launcher's
-    other areas do, given `pairs` and `ahead`."""
+    other areas do, given `pairs` and `ahead`. `redraw` is awaited after a move or a point
+    in place of the page's rebuild."""
     library = context["library"]
     try:
         vpinfe, schema, monitors, names = await _beside(library)
@@ -320,7 +322,7 @@ async def entries(context: dict[str, Any], group: Any, shown: Sequence[tuple[Any
 
     def rebuild() -> None:
         context.pop("config_values", None)
-        asyncio.create_task(context["rebuild"]())
+        asyncio.create_task((redraw or context["rebuild"])())
 
     here = screens.numbered(monitors, names)
     page = Page(

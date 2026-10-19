@@ -6,7 +6,15 @@ import asyncio
 import inspect
 import json
 from collections import Counter
-from collections.abc import Awaitable, Callable, Collection, Iterable, Mapping, Sequence
+from collections.abc import (
+    Awaitable,
+    Callable,
+    Collection,
+    Coroutine,
+    Iterable,
+    Mapping,
+    Sequence,
+)
 from functools import partial
 from itertools import groupby
 from typing import Any
@@ -421,27 +429,42 @@ async def _config_rows(context: dict[str, Any], group: Any) -> None:
         with ui.column().classes("gap-0 manager-form"):
             panel.facts(ui, vpx_input.entries(context, group, await _config_values(context)))
         return
-    values = await _config_values(context)
-    _area_search(context, group, values)
-    shown = curated_blocks(group, values)
-    if vpx_displays.applies(group):
-        entries = await vpx_displays.entries(
-            context, group, shown, values,
-            partial(_setting_entries, context, curated=True,
-                    redraw_on=switches(group.curated)))
-    else:
-        entries = await _setting_entries(
-            context, [(heading.label or group.label, heading.note, fields)
-                      for heading, fields in shown],
-            curated=True, redraw_on=switches(group.curated),
-            pairs=[pair for heading, _ in shown for pair in heading.pairs])
-    if rest := len(group.settings) - len(curated_keys(group)):
-        entries.append((FULL, panel.action(
-            t("manager.workbench.more_settings", count=rest),
-            lambda: _open_all_settings(context, area=group.key), icon=verbs.DRILL,
-            hint=t("manager.workbench.more_settings.help"))))
-    with ui.column().classes("gap-0 manager-form"):
-        panel.facts(ui, entries)
+    _area_search(context, group, await _config_values(context))
+
+    async def draw_rows() -> None:
+        values = await _config_values(context)
+        shown = curated_blocks(group, values)
+        if vpx_displays.applies(group):
+            entries = await vpx_displays.entries(
+                context, group, shown, values,
+                partial(_setting_entries, context, curated=True,
+                        redraw_on=switches(group.curated), refill=again),
+                again)
+        else:
+            entries = await _setting_entries(
+                context, [(heading.label or group.label, heading.note, fields)
+                          for heading, fields in shown],
+                curated=True, redraw_on=switches(group.curated), refill=again,
+                pairs=[pair for heading, _ in shown for pair in heading.pairs])
+        if rest := len(group.settings) - len(curated_keys(group)):
+            entries.append((FULL, panel.action(
+                t("manager.workbench.more_settings", count=rest),
+                lambda: _open_all_settings(context, area=group.key), icon=verbs.DRILL,
+                hint=t("manager.workbench.more_settings.help"))))
+        with ui.column().classes("gap-0 manager-form"):
+            panel.facts(ui, entries)
+
+    async def again() -> None:
+        written = context.get("config_writes", 0)
+        await area.refilled()
+        if context.get("config_writes", 0) != written:
+            await area.refilled()
+        if (recount := context.get("recount_changed")) is not None:
+            await recount()
+
+    area = panel.region(draw_rows)
+    area()
+    await area.refilled()
 
 
 async def _every_row(context: dict[str, Any], group: Any) -> None:
@@ -588,6 +611,7 @@ async def _setting_entries(context: dict[str, Any],
                            redraw_on: Collection[str] = (),
                            pairs: Sequence[Any] = (),
                            ahead: Mapping[str, Sequence[tuple[Any, Any]]] | None = None,
+                           refill: Callable[[], Coroutine[Any, Any, Any]] | None = None,
                            ) -> list[tuple[Any, Any]]:
     """Settings as fact rows, block by block: its heading where it has one - a
     sub-heading with `sub` - the line under that, then its rows. A curated row's line is
@@ -597,9 +621,10 @@ async def _setting_entries(context: dict[str, Any],
 
     A write marks every row again in place, so a control keeps its focus. A named
     setting's row, and a rival switch's Conflict note, are drawn again in place too. The
-    panel is redrawn instead where a setting in `redraw_on` was written, or where the write
-    changed another setting's value or whose it is - drawn or not, since a table's first
-    file of its own changes what it lists. For a number, that waits until it loses focus.
+    panel is drawn again instead - by `refill`, else the page's rebuild - where a setting
+    in `redraw_on` was written, or where the write changed another setting's value or whose
+    it is - drawn or not, since a table's first file of its own changes what it lists. For a
+    number, that waits until it loses focus.
 
     The value shown is always the one the program will use, never what this scope
     happens to hold: you should not be looking at a number that is not in force.
@@ -617,6 +642,10 @@ async def _setting_entries(context: dict[str, Any],
     rival = rival_switches(groups)
     named = {f.key for _, _, fields in blocks for f in fields if getattr(f, "reported", ())}
     redraw_on = set(redraw_on)
+
+    def rebuild() -> Callable[[], Awaitable[Any]]:
+        return refill or context["rebuild"]
+
     seen = await offload.io(screens.connected) if named else []
     rows: dict[str, dict] = {}
     redraws: list[Callable[[], None]] = []
@@ -630,7 +659,7 @@ async def _setting_entries(context: dict[str, Any],
     async def settle() -> None:
         if written := pending["written"]:
             pending["written"] = ""
-            await _keeping_place(ui.context.client, context["rebuild"], written)
+            await _keeping_place(ui.context.client, rebuild(), written)
 
     def written(values: dict[str, str]) -> Awaitable[Any]:
         if (write := context.get("config_write")) is not None:
@@ -678,6 +707,7 @@ async def _setting_entries(context: dict[str, Any],
             if (done := context.get("config_done")) is not None:
                 done(wrote or {})
             context.pop("config_values", None)
+            context["config_writes"] = context.get("config_writes", 0) + 1
             reads["begun"] += 1
             mine = reads["begun"]
             try:
@@ -689,7 +719,7 @@ async def _setting_entries(context: dict[str, Any],
                 await show_fresh(keys[0], fresh, mine, regrow.get(keys[0]))
 
             moved = not fresh or redraw_on.intersection(keys) or _moved(shown, fresh, keys)
-            await _keeping_place(ui.context.client, context["rebuild"] if moved else in_place,
+            await _keeping_place(ui.context.client, rebuild() if moved else in_place,
                                  keys[0], in_place=not moved)
         return wipe
 
@@ -707,6 +737,7 @@ async def _setting_entries(context: dict[str, Any],
             if (done := context.get("config_done")) is not None:
                 done(wrote or {})
             context.pop("config_values", None)
+            context["config_writes"] = context.get("config_writes", 0) + 1
             reads["begun"] += 1
             mine = reads["begun"]
             try:
@@ -720,7 +751,7 @@ async def _setting_entries(context: dict[str, Any],
             if fresh and typed and (stuck or key in redraw_on or _moved(shown, fresh, key)):
                 pending["written"] = key
             elif not fresh or stuck or key in redraw_on or _moved(shown, fresh, key):
-                asyncio.create_task(_keeping_place(ui.context.client, context["rebuild"], key))
+                asyncio.create_task(_keeping_place(ui.context.client, rebuild(), key))
                 return True
             if key in named:
                 # Its mark is drawn with its control, so the row's control is drawn again.

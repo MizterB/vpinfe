@@ -244,8 +244,9 @@ class Region:
     """The part of a page that reads a value another control sets.
 
     The control's handler saves and calls `refill`, which draws this part again where it
-    stands: nothing dims, nothing around it is cleared, and scroll stays. The control that
-    triggers a refill belongs outside the region, because a refill replaces what is inside.
+    stands: nothing dims, nothing around it is cleared, and scroll stays. A control inside
+    the region is replaced by the refill it triggers: its handler returns before the swap
+    or puts focus back after it, and anything it reads afterwards comes from the new part.
 
     `build` may read before it draws, so it may be async. The new part is then drawn out of
     sight beside the old one, and the two trade places in one step: the page is never empty
@@ -292,13 +293,15 @@ class Region:
                 await self._build()
         except Exception:  # noqa: BLE001 - what is drawn stays; the part is read again at the next change
             logger.exception("A region could not be drawn again")
-            fresh.delete()
+            if not fresh.is_deleted:
+                fresh.delete()
             return
         if turn != self._turn or box.is_deleted:
-            fresh.delete()
+            if not fresh.is_deleted:
+                fresh.delete()
             return
         for one in list(box.default_slot.children):
-            if one is not fresh:
+            if one is not fresh and not one.is_deleted:
                 one.delete()
         fresh.set_visibility(True)
 
