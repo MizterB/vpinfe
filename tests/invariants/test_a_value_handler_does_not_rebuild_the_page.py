@@ -148,9 +148,18 @@ def _is_rebuild(node: ast.AST) -> bool:
 _SCOPES = (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
 
 
+def _is_region(node: ast.AST) -> bool:
+    """`region(build)` or `panel.region(build)`: the part of a page a handler refills."""
+    return isinstance(node, ast.Call) and (
+        (isinstance(node.func, ast.Name) and node.func.id == "region")
+        or (isinstance(node.func, ast.Attribute) and node.func.attr == "region"))
+
+
 def _bound_in(scope: ast.AST) -> dict[str, list[ast.AST]]:
     """What each name directly in `scope` stands for: a function it defines, or the
-    function-valued expression it was assigned. Nested scopes are their own."""
+    function-valued expression it was assigned. Nested scopes are their own. A name
+    assigned a region stands for nothing: a handler that refills it runs `refill`, and the
+    region's build is drawn by the region, as a part of the page."""
     bound: dict[str, list[ast.AST]] = {}
 
     def visit(node: ast.AST) -> None:
@@ -160,7 +169,7 @@ def _bound_in(scope: ast.AST) -> dict[str, list[ast.AST]]:
             elif isinstance(child, ast.ClassDef):
                 continue
             else:
-                if isinstance(child, ast.Assign) and isinstance(
+                if isinstance(child, ast.Assign) and not _is_region(child.value) and isinstance(
                         child.value, (ast.Lambda, ast.Call, ast.Name)):
                     for target in child.targets:
                         if isinstance(target, ast.Name):
@@ -356,6 +365,16 @@ class AValueHandlerDoesNotRebuildThePage(unittest.TestCase):
             "    ui.tabs().on_value_change(lambda e: redraw())\n")
 
         self.assertEqual([(2, "page", "on_value_change")], offenders(tree))
+
+    def test_refilling_a_region_does_not_read_what_the_region_draws(self) -> None:
+        tree = trees.parse_snippet(
+            "def page():\n"
+            "    def build():\n"
+            "        redraw()\n"
+            "    part = panel.region(build)\n"
+            "    panel.field('x', lambda e: part.refill())\n")
+
+        self.assertEqual([], offenders(tree))
 
     def test_a_local_function_named_for_a_rebuild_is_read_by_its_body(self) -> None:
         tree = trees.parse_snippet(

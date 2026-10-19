@@ -168,8 +168,6 @@ def _releases(context: dict[str, Any], scene: Scene, kind: Kind) -> None:
         box = panel.search(t("manager.folder_picker.filter")).classes("w-full")
         box.value = view.text
         box.on_value_change(lambda event: filter_by(str(event.value or "")))
-    bar = ui.row().classes("items-center justify-end w-full")
-    shelf = ui.column().classes("gap-0 w-full min-w-0 manager-rels")
 
     def shown() -> list[dict[str, Any]]:
         text = view.text.strip().lower()
@@ -197,7 +195,7 @@ def _releases(context: dict[str, Any], scene: Scene, kind: Kind) -> None:
                                           for one in offered))
         finally:
             view.reading = False
-        if shelf.is_deleted:
+        if card.is_deleted:
             return
         for one, found in zip(offered, said, strict=True):
             if found.get("pictures"):
@@ -214,11 +212,9 @@ def _releases(context: dict[str, Any], scene: Scene, kind: Kind) -> None:
         with card:
             _card(context, scene, kind, rows, view, features, press)
 
-    def draw() -> None:
-        bar.clear()
-        shelf.clear()
+    def build() -> None:
         view.shells.clear()
-        with bar:
+        with ui.row().classes("items-center justify-end w-full"):
             if view.reading:
                 ui.spinner(size="xs")
             elif any(hosted_of(one) for one in shown()) and not any(picture_of(one)
@@ -226,7 +222,7 @@ def _releases(context: dict[str, Any], scene: Scene, kind: Kind) -> None:
                 panel.action(t("manager.discovery.show_pictures"), show_pictures,
                              icon=verbs.SHOW_PICTURES, inline=True,
                              hint=t("manager.discovery.show_pictures.help"))()
-        with shelf:
+        with ui.column().classes("gap-0 w-full min-w-0 manager-rels"):
             for held in kind.mine:
                 _have(context, scene, kind, held)
             for record in shown():
@@ -234,11 +230,16 @@ def _releases(context: dict[str, Any], scene: Scene, kind: Kind) -> None:
                          press)
         shade(view)
 
+    part = panel.region(build)
+
+    def draw() -> None:
+        part.refill()
+
     def filter_by(value: str) -> None:
         view.text = value
-        draw()
+        part.refill()
 
-    draw()
+    part()
     draw_card()
 
 
