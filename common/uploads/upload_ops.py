@@ -19,6 +19,8 @@ from common.games.asset_registry import spec_for
 from common.games.game_metadata import made_from
 from common.games.table_lens import table_settings
 from common.i18n import t
+from common.media import sized_media
+from common.media.media_specs import IMAGE_FAMILY
 from common.uploads import upload_session_service
 from common.uploads.asset_analyzer_service import (
     AnalysisResult,
@@ -47,8 +49,8 @@ from common.uploads.upload_session_service import (
 )
 
 __all__ = ["NothingImportableError", "UnprocessableUploadError", "UploadTooLargeError",
-           "abort", "add_file", "analysis_of", "begin", "begin_from", "execute", "plan_for",
-           "summary"]
+           "abort", "add_file", "analysis_of", "begin", "begin_from", "execute", "picture",
+           "plan_for", "summary"]
 
 
 class UnprocessableUploadError(service_errors.ServiceError):
@@ -266,6 +268,24 @@ def _single_file(upload_id: str) -> Path:
     if len(files) != 1:
         raise service_errors.RefusedError(t("error.uploads.slot_file"))
     return files[0]
+
+
+def picture(upload_id: str, name: str, size: int | None) -> sized_media.Served:
+    """A picture in the session, at `size`, by the name it was dropped under.
+
+    Only a loose image: what is inside an archive is not on disk until the import, so it
+    has no picture to draw and is a 404 rather than an extraction.
+    """
+    wanted = PurePosixPath(name).name
+    if wanted != name or Path(wanted).suffix.lower() not in IMAGE_FAMILY:
+        raise service_errors.NotFoundError(t("error.uploads.no_picture", name=name))
+    size = sized_media.size_or_refuse(size, "image")
+    source = _source_of(upload_id) or _session_dir(upload_id)
+    found = [source] if source.is_file() else sorted(source.rglob(wanted))
+    chosen = next((one for one in found if one.name == wanted and one.is_file()), None)
+    if chosen is None:
+        raise service_errors.NotFoundError(t("error.uploads.no_picture", name=name))
+    return sized_media.served(chosen, size)
 
 
 def analysis_of(upload_id: str) -> dict[str, Any]:

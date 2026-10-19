@@ -14,7 +14,7 @@ from manager.frontend import players as players_page
 from manager.frontend import themes as themes_page
 from manager.kit import deeplink, game_tables, panel
 from manager.kit.on_page import on_page
-from manager.library import collection_adds, file_acts, game_acts, tageditor
+from manager.library import collection_adds, discovery_pane, file_acts, game_acts, tageditor
 from manager.library import discovery as discovery_page
 from manager.workbench.collection import _collection, _written
 from manager.workbench.game_table import _game_redrawn, _pick_a_match, _table_gone
@@ -83,8 +83,9 @@ def _discovery_verbs(context: dict[str, Any]) -> list[panel.Verb]:
         if callable(again):
             await again()
 
-    return discovery_page.pane_acts(context["library"], context["discovery"],
-                                    context.get("game_id") or "", after)
+    return [*discovery_page.pane_acts(context["library"], context["discovery"],
+                                      context.get("game_id") or "", after),
+            discovery_pane.download_missing(context)]
 
 
 def _player_verbs(context: dict[str, Any]) -> list[panel.Verb]:

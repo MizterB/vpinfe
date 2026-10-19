@@ -1,5 +1,5 @@
-"""Discovery with files an extension's source can get: matched by VPS file id, ticked like any
-other, handed over as one batch, and drawn from the source's own state from then on."""
+"""Discovery with files an extension's source can get: matched by VPS file id, handed over as
+one batch, and drawn from the source's own state from then on."""
 
 from __future__ import annotations
 
@@ -137,36 +137,13 @@ class Adopting(unittest.TestCase):
         self.assertIs(one, context["hosted"]["f1"])
         self.assertIs(one, tray.offered[one.pick.key])
 
-    def test_a_tick_whose_file_is_gone_or_now_in_is_let_go_and_a_media_tick_stays(self) -> None:
+    def test_a_media_move_is_left_alone_by_a_new_set_of_offers(self) -> None:
         tray = Tray()
-        gone, now_in, kept = _offered("a", "f1"), _offered("b", "f2"), _offered("c", "f3")
-        media = Pick("vpinmediadb:wheel:4K", "wheel", "vpinmediadb", "4K")
-        for each in (gone.pick, now_in.pick, kept.pick, media):
-            tray.set(each, True)
-        tray.moves[gone.pick.key] = discovery_get.Move(discovery_get.FAILED)
-
-        discovery_ext.adopt({}, tray, [_offered("b", "f2", current=True), kept])
-
-        self.assertEqual({kept.pick.key, media.key}, set(tray.picks))
-        self.assertNotIn(gone.pick.key, tray.moves)
-
-    def test_a_tick_on_a_row_that_has_a_state_of_its_own_is_let_go(self) -> None:
-        tray = Tray()
-        moving = _offered("a", "f1")
-        tray.set(moving.pick, True)
-
-        discovery_ext.adopt({}, tray, [_offered("a", "f1", state={"text": "Queued",
-                                                                  "level": "unknown"})])
-
-        self.assertEqual({}, tray.picks)
-
-    def test_a_handed_row_that_is_no_longer_offered_is_forgotten(self) -> None:
-        tray = Tray()
-        tray.handed = {"ext.files:table:a", "ext.files:table:gone"}
+        tray.moves["vpinmediadb:wheel:4K"] = discovery_get.Move(discovery_get.FAILED, "down")
 
         discovery_ext.adopt({}, tray, [_offered("a", "f1")])
 
-        self.assertEqual({"ext.files:table:a"}, tray.handed)
+        self.assertIn("vpinmediadb:wheel:4K", tray.moves)
 
 
 class Handing(unittest.IsolatedAsyncioTestCase):
@@ -182,11 +159,11 @@ class Handing(unittest.IsolatedAsyncioTestCase):
         self.one, self.two = _offered("a", "f1"), _offered("b", "f2", kind="wheel")
         self.tray.offered = {each.pick.key: each for each in (self.one, self.two)}
 
-    async def test_what_a_source_was_ticked_for_goes_in_one_call(self) -> None:
+    async def test_what_a_source_was_asked_for_goes_in_one_call(self) -> None:
         other = _offered("c", "f3")
         self.tray.offered[other.pick.key] = other
         for each in (self.one, self.two, other):
-            self.tray.set(each.pick, True)
+            self.tray.move(each.pick.key, discovery_get.QUEUED)
 
         with _PAGE:
             await discovery_get.hand_over(self.context, self.tray, "g1",
@@ -197,23 +174,20 @@ class Handing(unittest.IsolatedAsyncioTestCase):
             [{"kind": "table", "key": "a"}, {"kind": "wheel", "key": "b"},
              {"kind": "table", "key": "c"}], "g1", "v1", "Attack from Mars")
         self.assertEqual({each.pick.key for each in (self.one, self.two, other)},
-                         self.tray.handed)
-        self.assertEqual({}, self.tray.picks)
+                         set(self.tray.moves))
 
-    async def test_a_source_that_refuses_fails_its_files_and_keeps_them_ticked(self) -> None:
+    async def test_a_source_that_refuses_fails_its_files(self) -> None:
         self.library.source_take_many.side_effect = RuntimeError("no room")
-        self.tray.set(self.one.pick, True)
+        self.tray.move(self.one.pick.key, discovery_get.QUEUED)
 
         with _PAGE:
             await discovery_get.hand_over(self.context, self.tray, "g1", [self.one.pick])
 
         self.assertEqual(discovery_get.FAILED, self.tray.moves[self.one.pick.key].state)
-        self.assertIn(self.one.pick.key, self.tray.picks)
-        self.assertEqual(set(), self.tray.handed)
+        self.assertEqual("no room", self.tray.moves[self.one.pick.key].reason)
 
     async def test_a_file_the_source_no_longer_offers_fails_without_a_call(self) -> None:
         del self.tray.offered[self.one.pick.key]
-        self.tray.set(self.one.pick, True)
 
         with _PAGE:
             await discovery_get.hand_over(self.context, self.tray, "g1", [self.one.pick])
@@ -224,7 +198,6 @@ class Handing(unittest.IsolatedAsyncioTestCase):
     async def test_the_pane_asks_again_once_the_files_are_handed_over(self) -> None:
         refreshed = mock.AsyncMock()
         self.context["refresh_hosted"] = refreshed
-        self.tray.set(self.one.pick, True)
 
         with _PAGE:
             await discovery_get.hand_over(self.context, self.tray, "g1", [self.one.pick])
@@ -287,10 +260,9 @@ class Refreshing(unittest.IsolatedAsyncioTestCase):
 
         self.redraw.assert_awaited_once()
 
-    async def test_a_source_that_fails_a_poll_keeps_its_rows_and_the_ticks_on_them(self) -> None:
+    async def test_a_source_that_fails_a_poll_keeps_its_rows(self) -> None:
         await self._begin(_row("a", "f1"))
         key = next(iter(self.tray.offered))
-        self.tray.set(self.tray.offered[key].pick, True)
         self.library.source_offers.side_effect = RuntimeError("slow")
 
         with _PAGE:
@@ -298,7 +270,6 @@ class Refreshing(unittest.IsolatedAsyncioTestCase):
 
         self.redraw.assert_not_awaited()
         self.assertIn(key, self.tray.offered)
-        self.assertIn(key, self.tray.picks)
 
     async def test_a_pane_that_draws_no_rows_is_not_redrawn_for_one_that_appeared(self) -> None:
         await self._begin(_row("a", "f1"))
@@ -318,6 +289,60 @@ class Refreshing(unittest.IsolatedAsyncioTestCase):
             await discovery_ext.refresh(self.context, self.tray, "g1", ["tableFiles"])
 
         self.redraw.assert_not_awaited()
+
+
+class Settling(unittest.IsolatedAsyncioTestCase):
+    """A file that landed repaints the row and the open section where they stand."""
+
+    def setUp(self) -> None:
+        self.redraw = mock.AsyncMock()
+        self.enterContext(mock.patch.object(discovery_get, "redraw", self.redraw))
+
+    async def test_a_page_that_settles_in_place_is_not_redrawn(self) -> None:
+        inplace = mock.AsyncMock(return_value=True)
+
+        await discovery_get.settle({"settle_discovery": inplace}, "e1")
+
+        inplace.assert_awaited_once_with("e1")
+        self.redraw.assert_not_awaited()
+
+    async def test_a_page_that_cannot_settle_in_place_is_redrawn(self) -> None:
+        inplace = mock.AsyncMock(return_value=False)
+        state = {"settle_discovery": inplace}
+
+        await discovery_get.settle(state, "e1")
+
+        self.redraw.assert_awaited_once_with(state)
+
+    async def test_a_page_with_no_settler_is_redrawn(self) -> None:
+        state: dict[str, Any] = {}
+
+        await discovery_get.settle(state, "e1")
+
+        self.redraw.assert_awaited_once_with(state)
+
+    async def test_a_page_that_was_left_is_not_redrawn(self) -> None:
+        inplace = mock.AsyncMock(side_effect=RuntimeError("deleted"))
+
+        await discovery_get.settle({"settle_discovery": inplace}, "e1")
+
+        self.redraw.assert_not_awaited()
+
+
+class Painting(unittest.TestCase):
+    def test_a_key_is_painted_while_a_holder_under_it_is_alive(self) -> None:
+        tray = Tray()
+        self.assertFalse(tray.painted(discovery_get.BODY))
+        with _PAGE:
+            holder = ui.element()
+            tray.paint(discovery_get.BODY, holder, lambda: None)
+
+            self.assertTrue(tray.painted(discovery_get.BODY))
+            self.assertFalse(tray.painted(discovery_get.RAIL))
+
+            holder.delete()
+
+            self.assertFalse(tray.painted(discovery_get.BODY))
 
 
 class Stopping(unittest.IsolatedAsyncioTestCase):
@@ -347,8 +372,8 @@ class Stopping(unittest.IsolatedAsyncioTestCase):
 
     async def test_a_batch_still_running_is_ended_by_the_flag_the_stop_set(self) -> None:
         tray = Tray()
-        tray.offered = {}
-        tray.running, tray.stopping = True, True
+        tray.move("k", discovery_get.DOWNLOADING)
+        tray.stopping = True
 
         with _PAGE:
             await discovery_ext.stopper(self.context, tray, lambda: "g1", ["tableFiles"])()
@@ -372,26 +397,15 @@ class Stopping(unittest.IsolatedAsyncioTestCase):
 
 
 class Counting(unittest.TestCase):
-    def test_under_way_is_what_is_getting_or_needs_the_person(self) -> None:
+    def test_downloading_counts_our_files_and_the_rows_a_source_is_getting(self) -> None:
         tray = Tray()
-        rows = [_offered("a", "f1", state={"text": "x", "level": "unknown"}),
-                _offered("b", "f2", state={"text": "x", "level": "warn"}),
-                _offered("c", "f3", state={"text": "x", "level": "bad"}),
-                _offered("d", "f4", state={"text": "x", "level": "on"}),
-                _offered("e", "f5")]
-        tray.offered = {each.pick.key: each for each in rows}
-
-        self.assertEqual(rows[:3], tray.under_way())
-
-    def test_the_line_counts_every_file_it_says_a_word_about(self) -> None:
-        tray = Tray()
-        tray.batch = 0
         tray.moves = {"a": discovery_get.Move(discovery_get.QUEUED),
-                      "b": discovery_get.Move(discovery_get.QUEUED)}
+                      "b": discovery_get.Move(discovery_get.FAILED, "down")}
+        going = _offered("c", "f3", state={"text": "x", "level": "unknown"})
+        needs = _offered("d", "f4", state={"text": "x", "level": "warn"})
+        tray.offered = {each.pick.key: each for each in (going, needs)}
 
-        self.assertEqual(t("manager.discovery.getting", count=2,
-                           parts=t("manager.discovery.part.queued", count=2)),
-                         discovery_get._said(tray))
+        self.assertEqual(2, tray.downloading())
 
 
 if __name__ == "__main__":

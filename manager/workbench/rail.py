@@ -14,7 +14,6 @@ from manager.extensions import ext_groups, ext_mark
 from manager.frontend import players as players_page
 from manager.frontend import themes as themes_page
 from manager.kit import busy, deeplink, game_tables, panel
-from manager.library import discovery as discovery_page
 from manager.library import mediasource, row_drag
 from manager.workbench.all_settings import (
     _all_settings,
@@ -285,9 +284,4 @@ SECTIONS: tuple[Section, ...] = (
             subjects=frozenset({"backup"}), titled=True),
     Section("backup_contents", lambda _: t("manager.backups.contents"), backups_page.contents,
             subjects=frozenset({"backup"}), shown=backups_page.has_contents, titled=True),
-    # An entry the catalog lists: what it is, then the files VPS has for it.
-    Section("discovery_game", lambda _: t("word.game"),
-            discovery_page.game, subjects=frozenset({"discovery"}), titled=True),
-    Section("discovery_files", lambda _: t("manager.discovery.files"),
-            discovery_page.files, subjects=frozenset({"discovery"}), titled=True),
 )

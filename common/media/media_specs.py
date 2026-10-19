@@ -29,6 +29,8 @@ IMAGE_FAMILY = (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif")
 VIDEO_FAMILY = (".mp4",)
 AUDIO_FAMILY = (".mp3", ".ogg")
 DOC_FAMILY = (".pdf", ".md", ".txt", ".html")
+# A rule sheet is read as a document and is often published as a picture of one.
+RULE_SHEET_FAMILY = (*DOC_FAMILY, *IMAGE_FAMILY)
 
 
 @dataclass(frozen=True)
@@ -250,7 +252,7 @@ MEDIA_SPECS = (
         payload_key="RuleSheetPath",
         filename_template="rulesheet.pdf",
         token="(RuleSheet)",
-        family=DOC_FAMILY,
+        family=RULE_SHEET_FAMILY,
     ),
     # The game's title art - usually the source a wheel is derived from, which
     # is why the wheel falls back to it.
@@ -289,7 +291,7 @@ def canonical_kind(kind: str) -> str:
 
 
 _FAMILY_NAMES = {IMAGE_FAMILY: "image", VIDEO_FAMILY: "video",
-                 AUDIO_FAMILY: "audio", DOC_FAMILY: "doc"}
+                 AUDIO_FAMILY: "audio", DOC_FAMILY: "doc", RULE_SHEET_FAMILY: "doc"}
 
 
 def media_family(kind: str) -> str:

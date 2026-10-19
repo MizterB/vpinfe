@@ -90,9 +90,6 @@ BUDGET = {
     "vpx_displays.py": (1, "the cm / in toggle beside the Screen Size numbers, which sets "
                            "the unit those two are written in - the unit of a row, not a "
                            "fact row of its own"),
-    "discovery_get.py": (1, "a tick per file in a game's Files pane, a choice over a list "
-                            "like Get missing media's per-kind tick, with the file's own "
-                            "words beside it"),
 }
 
 

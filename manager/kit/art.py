@@ -67,6 +67,13 @@ def theme_preview(key: str, *, version: str | None = None, size: int | None = No
                  layout=layout)
 
 
+def upload_picture(upload_id: str, name: str, *, size: int | None = None) -> str:
+    """A loose image in an upload that has not been imported yet, by the name it was dropped
+    under."""
+    query = urlencode({"name": name})
+    return _with(f"/api/v1/uploads/{quote(upload_id, safe='')}/picture?{query}", None, size)
+
+
 def sized(url: str, size: int) -> str:
     """An art address the API handed over, at `size`."""
     return _with(url, None, size)

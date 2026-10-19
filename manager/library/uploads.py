@@ -284,6 +284,9 @@ def listener(on_arrival: Callable[[Drop], Any]) -> Callable[[Any], None]:
             if payload.get("empty"):
                 ui.notify(t("manager.uploads.empty"), type="warning")
             else:
+                logger.warning("manager: an upload stopped before it arrived: %s (%s)",
+                               _stopped(payload) or "no reason given",
+                               payload.get("message") or "no browser message")
                 ui.notify(t("manager.uploads.read_failed"), caption=_stopped(payload),
                           type="negative")
         elif status == "done":
@@ -355,8 +358,10 @@ async def analyzed(library: Any, upload_id: str) -> dict[str, Any] | None:
     try:
         analysis = await offload.io(library.upload_analysis, upload_id)
     except Exception as exc:  # noqa: BLE001
+        logger.warning("manager: upload %s could not be analyzed", upload_id, exc_info=True)
         analysis = {"error": why(exc)}
     if analysis.get("error"):
+        logger.warning("manager: upload %s was not read: %s", upload_id, analysis["error"])
         ui.notify(t("manager.uploads.read_failed"), caption=str(analysis["error"]),
                   type="negative")
         await run.io_bound(library.abort_upload, upload_id)
@@ -371,8 +376,11 @@ async def confirmed_import(library: Any, upload_id: str, analysis: dict[str, Any
                            game_dir: str = "", allow_new_game: bool = False,
                            media_kind: str = "", location_id: str = "",
                            asset_kind: str = "", add_table: bool = False,
-                           on_imported: Callable[[dict, dict], Any] | None = None) -> None:
+                           on_imported: Callable[[dict, dict], Any] | None = None,
+                           release: import_dialog.ReleaseMatch | None = None) -> None:
     """From staged files to the import confirmation, and what follows a yes.
+
+    A `release` adds the VPS Match line to the confirmation.
 
     `on_done` runs only after an import, once the library has been read again.
     `on_imported` runs just before it, with the import's report and the plan it ran, for a
@@ -386,6 +394,7 @@ async def confirmed_import(library: Any, upload_id: str, analysis: dict[str, Any
                                 media_kind=media_kind, location_id=location_id,
                                 asset_kind=asset_kind, add_table=add_table)
     except Exception as exc:  # noqa: BLE001
+        logger.warning("manager: upload %s has no destination", upload_id, exc_info=True)
         ui.notify(t("manager.uploads.no_destination"), caption=why(exc),
                   type="negative")
         await run.io_bound(library.abort_upload, upload_id)
@@ -394,6 +403,7 @@ async def confirmed_import(library: Any, upload_id: str, analysis: dict[str, Any
         reasons = dict.fromkeys(import_dialog.not_imported(one)
                                 for one in plan.get("blocked") or ())
         for said in reasons or [t("manager.uploads.nothing_import")]:
+            logger.warning("manager: upload %s had nothing to import: %s", upload_id, said)
             ui.notify(said, type="warning")
         await run.io_bound(library.abort_upload, upload_id)
         return
@@ -415,7 +425,7 @@ async def confirmed_import(library: Any, upload_id: str, analysis: dict[str, Any
         rom_name=rom_name,
         allow_new_game=allow_new_game, media_kind=media_kind, location_id=location_id,
         asset_kind=asset_kind, add_table=add_table, declared=_declared(analysis, game_id),
-        on_done=done)
+        release=release, on_done=done)
 
 
 def _rom_of(library: Any, game_id: str) -> str:

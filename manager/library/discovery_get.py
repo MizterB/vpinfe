@@ -1,21 +1,22 @@
-"""Getting files from Discovery: what is ticked on an entry, and what it takes to get it.
+"""Getting files from Discovery: what is under way on an entry, and how a press gets a file.
 
-What is ticked lives with the page rather than the pane. Every step of a batch redraws the
-pane, and the rows it draws find the ticks, and how far each has got, where they were left.
+What is under way lives with the page rather than the pane. Every finished download redraws
+the pane, and the rows it draws find how far each had got where it was left.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable, Collection
-from dataclasses import dataclass, field
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePosixPath
 from typing import Any
 
 from nicegui import run, ui
 
 from common.failures import why
+from common.games import opened_pages
 from common.i18n import t
 from common.media.media_specs import MEDIA_SPECS
 from common.online import vps_kinds
@@ -27,29 +28,25 @@ logger = logging.getLogger("vpinfe.manager.library.discovery_get")
 
 QUEUED = "queued"
 DOWNLOADING = "downloading"
-IN = "in"
 FAILED = "failed"
 
-_LEVELS = {QUEUED: "unknown", DOWNLOADING: "unknown", IN: "on", FAILED: "bad"}
 # The slot kind of a table, which a game holds any number of.
 TABLE = "table"
-# What an extension's row says of itself, by the level it gave its state.
-_ICONS = {"on": "check", "off": "block", "warn": "pause_circle", "bad": "error"}
-_WORDS = {QUEUED: "manager.discovery.state.queued",
-          DOWNLOADING: "manager.discovery.state.downloading",
-          IN: "manager.discovery.state.in", FAILED: "manager.discovery.state.failed"}
 
 FIRST_MEDIA = ("wheel", "topper")
-_STATUS = "status"
-_BAR = "bar"
+# What the foot bar and the rail's corner glyphs are painted under.
+FOOT = "foot"
+RAIL = "rail"
+BODY = "body"
 
 # What an import leaves as a single file, which a record can be tied to by its path.
-_FILE_ACTIONS = ("copy", "replace_b2s", "zip_rom")
+_FILE_ACTIONS = ("copy", "replace_b2s", "zip_rom", "replace_media")
 
 
 @dataclass(frozen=True)
 class Pick:
-    """One thing that can be ticked: a file an online source will hand over."""
+    """One file a source will hand over: a picture a media source offers, or a row an
+    extension's source answered."""
 
     key: str
     kind: str
@@ -60,8 +57,8 @@ class Pick:
 
 @dataclass(frozen=True)
 class Offered:
-    """A row an extension's source answered for a file VPS lists. `pick` is what ticking it
-    adds; `row` is the answer, with the state and buttons the source drew on it."""
+    """A row an extension's source answered for a file VPS lists. `row` is the answer, with
+    the state and buttons the source drew on it."""
 
     extension: str
     key: str
@@ -79,6 +76,14 @@ class Offered:
     def level(self) -> str:
         return str(self.state.get("level") or "")
 
+    @property
+    def progress(self) -> int | None:
+        """How far a download has got, in whole percent, where the source said."""
+        value = self.state.get("progress")
+        if isinstance(value, bool) or not isinstance(value, int | float):
+            return None
+        return round(min(max(float(value), 0.0), 1.0) * 100)
+
 
 @dataclass
 class Move:
@@ -88,29 +93,29 @@ class Move:
 
 @dataclass
 class Tray:
-    """What is ticked on one entry, and how far each tick has got."""
+    """What is being downloaded on one entry, and how far each file has got."""
 
-    picks: dict[str, Pick] = field(default_factory=dict)
     moves: dict[str, Move] = field(default_factory=dict)
-    batch: int = 0
-    running: bool = False
     stopping: bool = False
     offered: dict[str, Offered] = field(default_factory=dict)
-    handed: set[str] = field(default_factory=set)
+    made: str = ""
+    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     _painters: dict[str, list[tuple[Any, Callable[[], None]]]] = field(default_factory=dict)
 
-    def waiting(self) -> list[Pick]:
-        """The ticks nothing has taken yet, and the ones that failed and may be taken again."""
-        return [one for key, one in self.picks.items()
-                if key not in self.moves or self.moves[key].state == FAILED]
+    @property
+    def running(self) -> bool:
+        return any(one.state in (QUEUED, DOWNLOADING) for one in self.moves.values())
 
-    def under_way(self) -> list[Offered]:
-        """The rows an extension is still getting or needs the person for."""
-        return [one for one in self.offered.values() if one.level in ("unknown", "warn", "bad")]
+    def downloading(self) -> int:
+        """How many files are on their way, from either kind of source."""
+        ours = sum(1 for one in self.moves.values() if one.state in (QUEUED, DOWNLOADING))
+        theirs = sum(1 for key, one in self.offered.items()
+                     if one.level == "unknown" and key not in self.moves)
+        return ours + theirs
 
     def summarize(self) -> None:
-        """Redraw the status line and the bar, which count what is ticked and under way."""
-        self.repaint(_STATUS, _BAR)
+        """Redraw what counts the files on their way."""
+        self.repaint(FOOT, RAIL)
 
     def paint(self, key: str, holder: Any, draw: Callable[[], None]) -> None:
         """Draw `draw` in `holder` now, and again each time `repaint` is told `key` changed."""
@@ -118,6 +123,10 @@ class Tray:
         self._painters[key] = [*live, (holder, draw)]
         with holder:
             draw()
+
+    def painted(self, key: str) -> bool:
+        """Whether anything alive is drawn under `key`."""
+        return any(not holder.is_deleted for holder, _draw in self._painters.get(key, []))
 
     def repaint(self, *keys: str) -> None:
         for key in keys:
@@ -132,37 +141,46 @@ class Tray:
     def repaint_all(self) -> None:
         self.repaint(*self._painters)
 
-    def set(self, pick: Pick, ticked: bool) -> None:
-        """Tick or untick. A slot holds one file, so ticking one unticks its rival, unless
-        the rival is already in: that one stays."""
-        if ticked:
-            rivals = [key for key, one in self.picks.items()
-                      if pick.kind != TABLE and one.kind == pick.kind and key != pick.key
-                      and (key not in self.moves or self.moves[key].state == FAILED)]
-            for key in rivals:
-                del self.picks[key]
-                self.moves.pop(key, None)
-            self.picks[pick.key] = pick
-            self.repaint(*rivals)
-        else:
-            self.picks.pop(pick.key, None)
-        self.repaint(_BAR)
-
-    def release(self, kinds: Collection[str]) -> None:
-        """Let go of what is in for a kind the game no longer holds, so the row can be
-        ticked again."""
-        for key in [key for key, move in self.moves.items()
-                    if move.state == IN and key in self.picks and self.picks[key].kind in kinds]:
-            del self.moves[key]
-            del self.picks[key]
-
     def move(self, key: str, state: str, reason: str = "") -> None:
         self.moves[key] = Move(state, reason)
-        self.repaint(key, _STATUS, _BAR)
+        self.repaint(key, FOOT, RAIL)
 
     def forget(self, key: str) -> None:
         self.moves.pop(key, None)
-        self.repaint(key, _STATUS, _BAR)
+        self.repaint(key, FOOT, RAIL)
+
+
+@dataclass(frozen=True)
+class Standing:
+    """What a row says in place of its end glyph while its file is on the way, wants the
+    person, or failed."""
+
+    word: str
+    level: str
+    hint: str = ""
+    percent: int | None = None
+    acts: tuple[dict[str, Any], ...] = ()
+    retry: bool = False
+
+
+def standing_of(tray: Tray, key: str) -> Standing | None:
+    """None where the file is not on its way, in which case the row draws its glyph."""
+    move = tray.moves.get(key)
+    if move is not None:
+        if move.state == FAILED:
+            return Standing(t("manager.discovery.state.failed"), "bad", move.reason, retry=True)
+        return Standing(t(f"manager.discovery.state.{move.state}"), "unknown")
+    offered = tray.offered.get(key)
+    if offered is None or not offered.state or offered.level in ("", "on"):
+        return None
+    text = str(offered.state.get("text") or "")
+    hint = str(offered.state.get("hint") or "")
+    acts = tuple(offered.row.get("acts") or ())
+    if offered.level == "unknown":
+        return Standing(text or t("manager.discovery.state.downloading"), "unknown", hint,
+                        percent=offered.progress)
+    return Standing(text, offered.level, hint, acts=acts,
+                    retry=offered.level == "bad" and not acts)
 
 
 def tray_of(state: dict[str, Any], vps_id: str) -> Tray:
@@ -194,7 +212,7 @@ async def offers_for(library: Any, vps_id: str) -> tuple[dict[str, list[dict[str
     """
     try:
         sources = await offload.io(library.media_sources)
-    except Exception as exc:  # noqa: BLE001 - the Files group still draws
+    except Exception as exc:  # noqa: BLE001 - the files still draw
         logger.warning("manager: could not read the media sources", exc_info=True)
         return {}, {}, exc
     asked = {str(one["id"]): one for one in sources
@@ -213,162 +231,74 @@ async def offers_for(library: Any, vps_id: str) -> tuple[dict[str, list[dict[str
     return by_kind, asked, failed
 
 
-def mark(held: bool = False) -> None:
-    """The column a check sits in, drawn on every row so the words line up."""
-    with ui.element("span").classes("manager-record-mark"):
-        if held:
-            ui.icon("check").tooltip(t("manager.discovery.held"))
-
-
-def _mark_of(move: Move) -> None:
-    with ui.element("span").classes("manager-record-mark"):
-        if move.state == IN:
-            ui.icon("check")
-        elif move.state == FAILED:
-            ui.icon("error").classes("text-negative")
-        elif move.state == DOWNLOADING:
-            ui.spinner(size="xs")
-        else:
-            ui.icon("schedule").classes("manager-help")
-
-
-def _state_mark(level: str) -> None:
-    with ui.element("span").classes("manager-record-mark"):
-        if level == "unknown":
-            ui.spinner(size="xs")
-        else:
-            ui.icon(_ICONS.get(level, "schedule")).classes(
-                "text-negative" if level == "bad" else "")
-
-
-def tick_cell(tray: Tray, pick: Pick) -> None:
-    """The cell at the head of a row: a box to tick the row's file, and its state once it
-    has moved. The box is withheld while a batch runs, so what is under way does not change."""
-    holder = ui.element("span").classes("manager-record-tick")
+def end(tray: Tray, pick: Pick, rest: Callable[[], None],
+        retry: Callable[[], Awaitable[Any]],
+        act: Callable[[str], Callable[[], Awaitable[Any]]] | None = None) -> None:
+    """The end of a row: `rest` until its file is on the way, then what the file is doing,
+    with the one thing to do about a failure or a wait."""
+    holder = ui.row().classes("items-center gap-1 no-wrap shrink-0 manager-row-end")
 
     def draw() -> None:
-        move = tray.moves.get(pick.key)
-        offered = tray.offered.get(pick.key)
-        if move is not None:
-            _mark_of(move)
-        elif offered is not None and offered.level:
-            _state_mark(offered.level)
-        elif tray.running:
-            mark()
-        else:
-            ui.checkbox(value=pick.key in tray.picks,
-                        on_change=lambda event: tray.set(pick, bool(event.value))) \
-                .props("dense")
-
-    tray.paint(pick.key, holder, draw)
-
-
-def aside(tray: Tray, pick: Pick, rest: Callable[[], None],
-          retry: Callable[[], Awaitable[Any]],
-          act: Callable[[str], Callable[[], Awaitable[Any]]] | None = None) -> None:
-    """The end of a row: what the row says of its file, until it has moved, and then the
-    state it is in and the one thing to do about a failure. A row an extension is getting
-    says the state the extension gave it, with the buttons it drew."""
-    holder = ui.column().classes("gap-0 items-end shrink-0 manager-record-aside")
-
-    def draw() -> None:
-        move = tray.moves.get(pick.key)
-        offered = tray.offered.get(pick.key)
-        if move is None and offered is not None and offered.state:
-            panel.state(str(offered.state.get("text") or ""), offered.level or "unknown",
-                        hint=str(offered.state.get("hint") or ""))()
-            for each in offered.row.get("acts") or ():
-                if act is not None:
-                    panel.action(str(each["label"]), act(str(each["key"])), icon=verbs.GO,
-                                 inline=True, hint=t("manager.discovery.source_act.help"))()
-            return
-        if move is None:
+        said = standing_of(tray, pick.key)
+        if said is None:
             rest()
             return
-        panel.state(t(_WORDS[move.state]), _LEVELS[move.state], hint=move.reason)()
-        if move.state == FAILED:
-            panel.action(t("manager.page.try_again"), retry, icon=verbs.RESET, inline=True,
-                         hint=t("manager.discovery.try_again.help"))()
+        with ui.column().classes("gap-0 items-end"):
+            if said.percent is not None:
+                ui.label(f"{said.percent}%").classes("manager-help")
+                with ui.element("div").classes("manager-bar manager-bar--row"):
+                    ui.element("div").style(f"width: {said.percent}%")
+            elif said.level == "unknown":
+                with ui.row().classes("items-center gap-1 no-wrap"):
+                    ui.spinner(size="xs")
+                    ui.label(said.word).classes("manager-help")
+            else:
+                panel.state(said.word, said.level, hint=said.hint)()
+        for each in said.acts:
+            if act is not None:
+                panel.action(str(each["label"]), act(str(each["key"])), icon=verbs.GO,
+                             inline=True, hint=t("manager.discovery.source_act.help"))()
+        if said.retry:
+            panel.icon_action(t("manager.page.try_again"), retry, icon=verbs.RESET,
+                              hint=t("manager.discovery.try_again.help"))()
 
     tray.paint(pick.key, holder, draw)
 
 
-def _said(tray: Tray) -> str:
-    """One line for a batch on its way: how many, and where they have got to."""
-    counts = [(state, sum(1 for one in tray.moves.values() if one.state == state))
-              for state in (IN, DOWNLOADING, QUEUED, FAILED)]
-    hosted = [one for one in tray.offered.values()
-              if one.level in ("unknown", "warn", "bad") or one.pick.key in tray.handed]
-    for one in hosted:
-        state = {"on": IN, "unknown": DOWNLOADING, "": QUEUED}.get(one.level, FAILED)
-        counts = [(each, number + (each == state)) for each, number in counts]
-    words = {IN: "manager.discovery.part.in", DOWNLOADING: "manager.discovery.part.downloading",
-             QUEUED: "manager.discovery.part.queued", FAILED: "manager.discovery.part.needs_you"}
-    parts = ", ".join(t(words[state], count=count) for state, count in counts if count)
-    return t("manager.discovery.getting", count=sum(number for _state, number in counts),
-             parts=parts)
-
-
-def status_row(tray: Tray, normal: Callable[[], None],
-               end_hosted: Callable[[], Awaitable[Any]] | None = None) -> None:
-    """The game's status row, which says how a batch is getting on while one is, with the
-    way to end it, and `normal` otherwise. `end_hosted` ends what an extension is getting."""
-    holder = ui.row().classes("items-center gap-3 w-full no-wrap manager-vps-status")
+def foot(context: dict[str, Any], tray: Tray, add: Callable[[], Awaitable[Any]],
+         end_hosted: Callable[[], Awaitable[Any]] | None = None, *,
+         offer_add: bool = True) -> None:
+    """The foot of the page. It says how many files are on their way, with Stop, while any
+    are; for a game that is not in the library it offers to add it, unless `offer_add` is
+    False. Otherwise it is empty."""
+    in_library = bool(context["discovery"]["is_in_library"])
+    offers = offer_add and not in_library
+    holder = ui.row().classes(
+        "items-center gap-x-3 gap-y-1 w-full manager-draft-bar manager-draft-bar--foot")
 
     def draw() -> None:
-        if not (tray.running or tray.under_way()):
-            normal()
-            return
-        ui.label(_said(tray)).classes("grow")
-        going = tray.running or any(one.level == "unknown" for one in tray.offered.values())
-        if going:
+        count = tray.downloading()
+        holder.set_visibility(bool(count) or offers)
+        if count:
+            ui.label(t("manager.discovery.downloading_n", count=count)).classes(
+                "manager-draft-said grow")
             panel.action(t("word.stop"), _stop(tray, end_hosted), icon=verbs.STOP,
                          enabled=not tray.stopping, hint=t("manager.discovery.stop.help"))()
+        elif offers:
+            ui.label(t("manager.discovery.absent")).classes("manager-draft-said grow")
+            panel.draft_button(t("manager.discovery.add"), add, icon=verbs.ADD, primary=True)
 
-    tray.paint(_STATUS, holder, draw)
+    tray.paint(FOOT, holder, draw)
 
 
 def _stop(tray: Tray, end_hosted: Callable[[], Awaitable[Any]] | None) -> Callable[[], Any]:
     async def stop() -> None:
         tray.stopping = True
-        tray.repaint(_STATUS)
+        tray.repaint(FOOT)
         if end_hosted is not None:
             await end_hosted()
 
     return stop
-
-
-def bar(context: dict[str, Any], tray: Tray, game_id: str,
-        add: Callable[[], Awaitable[Any]]) -> None:
-    """The foot of the pane, which is where the ticks are acted on. A game that is not in
-    the library is added here, with whatever is ticked; one that is has nothing to ask
-    until something is ticked."""
-    in_library = bool(context["discovery"]["is_in_library"])
-    holder = ui.row().classes("items-center gap-x-3 gap-y-1 w-full manager-draft-bar")
-
-    def draw() -> None:
-        waiting = tray.waiting()
-        holder.set_visibility(not tray.running and (bool(waiting) or not in_library))
-        if tray.running or not (waiting or not in_library):
-            return
-        with ui.row().classes("items-center gap-2 no-wrap min-w-0"):
-            if waiting:
-                ui.label(t("manager.discovery.ticked", count=len(waiting))) \
-                    .classes("manager-draft-said")
-        with ui.row().classes("items-center gap-2 no-wrap ml-auto"):
-            if not waiting:
-                panel.draft_button(t("manager.discovery.add"), add, icon=verbs.ADD,
-                                   primary=True)
-            else:
-                panel.draft_button(
-                    t("manager.discovery.add_with" if not in_library
-                      else "manager.discovery.get_n", count=len(waiting)),
-                    lambda: get(context, tray, game_id),
-                    icon=verbs.ADD if not in_library else verbs.FETCH, primary=True,
-                    hint=t("manager.discovery.add_with.help" if not in_library
-                           else "manager.discovery.get_n.help"))
-
-    tray.paint(_BAR, holder, draw)
 
 
 async def redraw(state: dict[str, Any]) -> None:
@@ -379,6 +309,20 @@ async def redraw(state: dict[str, Any]) -> None:
         await again()
     except RuntimeError:
         logger.info("manager: the page was left before it could be redrawn")
+
+
+async def settle(state: dict[str, Any], entry_id: str) -> None:
+    """After something changed what the entry holds, without the game or the rail changing:
+    its grid row and the open section are drawn again where they stand. The whole pane is
+    redrawn where that cannot be done in place."""
+    inplace = state.get("settle_discovery")
+    try:
+        if callable(inplace) and await inplace(entry_id):
+            return
+    except RuntimeError:
+        logger.info("manager: the page was left before it could be settled")
+        return
+    await redraw(state)
 
 
 @on_page
@@ -400,64 +344,85 @@ async def make_game(context: dict[str, Any]) -> dict[str, Any] | None:
 
 
 @on_page
-async def get(context: dict[str, Any], tray: Tray, game_id: str,
-              only: Pick | None = None) -> None:
-    """Get what is ticked, one file after another, in the game that holds this entry.
+async def ensure_game(context: dict[str, Any], tray: Tray,
+                      game_id: str) -> tuple[str, str]:
+    """The game this entry goes into and its folder, empty where the library has not listed
+    it. The library is asked rather than the row, which knows nothing of the library until it
+    is compared. Empty too where the game could not be read or the place was declined, which
+    is said on screen. Held under `tray.lock`, so two arrivals make one game."""
+    library, row, state = context["library"], context["discovery"], context["state"]
+    if game_id or tray.made:
+        return game_id or tray.made, ""
+    try:
+        owned, _other = await offload.io(library.owned, [row["id"]])
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("manager: could not tell whether %s is in the library", row["id"],
+                       exc_info=True)
+        ui.notify(t("manager.discovery.game_unread"), caption=why(exc), type="negative")
+        return "", ""
+    made, folder = str((owned.get(row["id"]) or {}).get("game_id") or ""), ""
+    if not made:
+        added = await make_game(context)
+        if added is None:
+            return "", ""
+        made, folder = str(added.get("id") or ""), str(added.get("folder") or "")
+    tray.made = made
+    await redraw(state)
+    return made, folder
 
-    A game not in the library is made first. Ending it with Stop leaves the files not yet
-    started ticked, so the bar offers them again.
+
+@on_page
+async def get(context: dict[str, Any], tray: Tray, game_id: str, picks: list[Pick]) -> None:
+    """Get these files, one after another, into the game that holds this entry.
+
+    A press while another download runs waits its turn behind it. A game not in the library
+    is made first, once. Stop ends the files not yet started.
     """
     library, row, state = context["library"], context["discovery"], context["state"]
-    if tray.running:
+    wanted = [one for one in picks
+              if one.key not in tray.moves or tray.moves[one.key].state == FAILED]
+    if not wanted:
         return
-    picks = [only] if only else tray.waiting()
-    if not picks:
-        return
-    hosted = [one for one in picks if one.row]
-    picks = [one for one in picks if not one.row]
-    in_library = bool(row["is_in_library"])
-    if in_library and not game_id:
-        ui.notify(t("manager.discovery.game_unread"), type="negative")
-        return
-    tray.running, tray.stopping, tray.batch = True, False, len(picks)
-    tray.repaint(_BAR, _STATUS, *(one.key for one in (*picks, *hosted)))
-    for one in (*picks, *hosted):
+    for one in wanted:
         tray.move(one.key, QUEUED)
+    mine = {one.key for one in wanted}
+    landed = False
     try:
-        if not in_library:
-            made = await make_game(context)
-            if made is None:
+        async with tray.lock:
+            game_id, _folder = await ensure_game(context, tray, game_id)
+            if not game_id:
                 return
-            game_id = str(made.get("id") or "")
-            await redraw(state)
-        await hand_over(context, tray, game_id, hosted)
-        for one in picks:
-            if tray.stopping:
-                break
-            tray.move(one.key, DOWNLOADING)
-            try:
-                await offload.io(library.fetch_media, game_id, None, one.kind, one.source,
-                                 row["id"], one.size)
-            except Exception as exc:  # noqa: BLE001 - one refusal does not end the rest
-                logger.warning("manager: could not get %s for %s", one.key, row["id"],
-                               exc_info=True)
-                tray.move(one.key, FAILED, why(exc))
-                continue
-            tray.move(one.key, IN)
+            await hand_over(context, tray, game_id, [one for one in wanted if one.row])
+            for one in (one for one in wanted if not one.row):
+                if tray.stopping:
+                    break
+                tray.move(one.key, DOWNLOADING)
+                try:
+                    await offload.io(library.fetch_media, game_id, None, one.kind, one.source,
+                                     row["id"], one.size)
+                except Exception as exc:  # noqa: BLE001 - one refusal does not end the rest
+                    logger.warning("manager: could not get %s for %s", one.key, row["id"],
+                                   exc_info=True)
+                    tray.move(one.key, FAILED, why(exc))
+                    continue
+                tray.forget(one.key)
+                landed = True
     finally:
-        tray.running = False
-        for key in [key for key, one in tray.moves.items() if one.state in (QUEUED, DOWNLOADING)]:
+        for key in [key for key in mine if key in tray.moves
+                    and tray.moves[key].state in (QUEUED, DOWNLOADING)]:
             del tray.moves[key]
+        if not tray.running:
+            tray.stopping = False
         tray.repaint_all()
-    if any(tray.moves[one.key].state == IN for one in picks if one.key in tray.moves):
-        await redraw(state)
+    if landed:
+        await settle(state, row["id"])
 
 
 @on_page
 async def hand_over(context: dict[str, Any], tray: Tray, game_id: str,
                     picks: list[Pick]) -> None:
-    """Give each extension the files ticked from its source as one batch. What it answers
-    to each row from here on is drawn from the offers, not from the tick."""
+    """Give each extension the files wanted from its source as one batch. What it answers
+    to each row from here on is drawn from the offers, not from the move."""
     library, row = context["library"], context["discovery"]
     by_source: dict[tuple[str, str], list[Pick]] = {}
     for one in picks:
@@ -478,10 +443,6 @@ async def hand_over(context: dict[str, Any], tray: Tray, game_id: str,
             for one in batch:
                 tray.move(one.key, FAILED, why(exc))
             continue
-        for one in batch:
-            tray.picks.pop(one.key, None)
-            tray.moves.pop(one.key, None)
-            tray.handed.add(one.key)
         if answer.get("message"):
             ui.notify(str(answer["message"]), type="info")
     refresh = context.get("refresh_hosted")
@@ -492,10 +453,8 @@ async def hand_over(context: dict[str, Any], tray: Tray, game_id: str,
 def try_again(context: dict[str, Any], tray: Tray, game_id: str,
               pick: Pick) -> Callable[[], Awaitable[Any]]:
     async def again() -> None:
-        if tray.running:
-            return
         tray.forget(pick.key)
-        await get(context, tray, game_id, only=pick)
+        await get(context, tray, game_id, [pick])
 
     return again
 
@@ -507,49 +466,66 @@ def of_listing(listed_as: str) -> tuple[tuple[str, ...], str]:
     return (kind.ours, kind.held_in) if kind else (("table",), vps_kinds.ASSET)
 
 
-def use_a_file(context: dict[str, Any], game_id: str, holder: Any, *, ours: tuple[str, ...],
-               held_in: str, vps_file_id: str = "", add_table: bool = False) -> Callable[[], None]:
-    """Make `holder` take a file dropped on it as this kind, and return the control that
-    asks for one. The file is tied to `vps_file_id` when it has one, and goes into the game
-    whether or not it is in the library yet.
-    """
-    single = ours[0] if len(ours) == 1 else ""
+def media_ours(listed_as: str, media_kind: str) -> tuple[str, ...]:
+    """The media kinds a release listed under `listed_as` can be: a topper is a picture or a
+    video, so a file dropped on Topper may be either. A kind VPS lists nothing for is its own."""
+    return of_listing(listed_as)[0] if listed_as in vps_kinds.BY_LISTING else (media_kind,)
 
+
+def use_a_file(context: dict[str, Any], game_id: str, holder: Any, *, ours: tuple[str, ...],
+               held_in: str, add_table: bool = False,
+               match: import_dialog.ReleaseMatch | None = None,
+               opened: Callable[[], tuple[str, str]] | None = None) -> Callable[[], None]:
+    """Make `holder` take a file dropped on it as this kind, and return the control that
+    asks for one. The import dialog offers `match` as the release the file is, and the file
+    is tied to whatever it holds when the import is done. Where `match` names no release,
+    `opened` is asked for the one whose page was opened for this game, as its id and words.
+    It goes into the game whether or not the game is in the library yet.
+    """
     @on_page
     async def arrived(drop: uploads.Drop) -> None:
         library, state = context["library"], context["state"]
-        analysis = await uploads.analyzed(library, drop.upload_id)
-        if analysis is None:
-            return
-        made, folder = game_id, ""
-        if not context["discovery"]["is_in_library"]:
-            added = await make_game(context)
-            if added is None:
-                await run.io_bound(library.abort_upload, drop.upload_id)
+        analysis: dict[str, Any] = {}
+        single = slot_of(ours, held_in, drop.name)
+        if not (held_in == vps_kinds.MEDIA and single):
+            # A kind that names its own slot is not read off the file's name: the analyzer
+            # rejects exactly the file a slot is for, one whose name says nothing.
+            read = await uploads.analyzed(library, drop.upload_id)
+            if read is None:
                 return
-            made, folder = str(added.get("id") or ""), str(added.get("folder") or "")
-            await redraw(state)
-        elif not made:
+            analysis = read
+        tray = tray_of(state, context["discovery"]["id"])
+        async with tray.lock:
+            made, folder = await ensure_game(context, tray, game_id)
+        if not made:
             await run.io_bound(library.abort_upload, drop.upload_id)
-            ui.notify(t("manager.discovery.game_unread"), type="negative")
             return
-        else:
+        if not folder:
             found: dict[str, Any] = next(
                 (one for one in library.games if str(one.get("id")) == made), {})
             folder = str(found.get("folder") or "")
 
+        release = replace(match) if match else None
+        if release is not None and release.vps_file_id:
+            release.reason = t("manager.import_dialog.reason_from_release")
+        elif release is not None and opened is not None:
+            release.vps_file_id, release.label = opened()
+            if release.vps_file_id:
+                release.reason = t("manager.import_dialog.reason_opened")
+
         async def tie(report: dict[str, Any], plan: dict[str, Any]) -> None:
-            await _tie(library, made, folder, vps_file_id, ours, report, plan)
+            await _tie(library, made, context["discovery"]["id"], folder,
+                       release.vps_file_id if release else "", ours, report, plan)
 
         async def done() -> None:
-            await redraw(state)
+            await settle(state, context["discovery"]["id"])
 
         await uploads.confirmed_import(
             library, drop.upload_id, analysis, source=drop.name, file_count=drop.count,
             on_done=done, game_id=made, game_dir=folder,
             asset_kind=single if held_in == vps_kinds.ASSET else "",
             media_kind=single if held_in == vps_kinds.MEDIA else "",
-            add_table=add_table, on_imported=tie)
+            add_table=add_table, on_imported=tie, release=release)
 
     mediasource.take_drops(holder, arrived)
 
@@ -562,8 +538,21 @@ def use_a_file(context: dict[str, Any], game_id: str, holder: Any, *, ours: tupl
     return draw
 
 
+def slot_of(ours: tuple[str, ...], held_in: str, name: str) -> str:
+    """The one kind a dropped file is for: the only one `ours` holds, or for a media kind
+    that comes as a picture or a video, the one whose family has the file's extension.
+    A file no family takes goes to the first, so the slot's own message says what it takes."""
+    if len(ours) == 1:
+        return ours[0]
+    if held_in != vps_kinds.MEDIA:
+        return ""
+    suffix = Path(name).suffix.lower()
+    return next((spec.kind for spec in MEDIA_SPECS
+                 if spec.kind in ours and suffix in spec.family), ours[0])
+
+
 @on_page
-async def _tie(library: Any, game_id: str, folder: str, vps_file_id: str,
+async def _tie(library: Any, game_id: str, entry_id: str, folder: str, vps_file_id: str,
                ours: tuple[str, ...], report: dict[str, Any], plan: dict[str, Any]) -> None:
     """Record that what an import imported is this record. A tree of files is not one
     file, so a kind that arrives as one has nothing to tie."""
@@ -573,14 +562,17 @@ async def _tie(library: Any, game_id: str, folder: str, vps_file_id: str,
     try:
         if "table" in ours:
             await _tie_tables(library, game_id, vps_file_id, report, plan)
-            return
-        for item in plan.get("items") or ():
-            if item.get("kind") not in brought or item.get("kind") not in ours:
-                continue
-            if item.get("action") not in _FILE_ACTIONS:
-                continue
-            path = PurePosixPath(Path(str(item["destination"])).relative_to(folder)).as_posix()
-            await run.io_bound(library.set_asset_source, game_id, path, vps_file_id)
+        else:
+            for item in plan.get("items") or ():
+                kind = item.get("media_kind") or item.get("kind")
+                if item.get("kind") not in brought or kind not in ours:
+                    continue
+                if item.get("action") not in _FILE_ACTIONS:
+                    continue
+                path = PurePosixPath(
+                    Path(str(item["destination"])).relative_to(folder)).as_posix()
+                await run.io_bound(library.set_asset_source, game_id, path, vps_file_id)
+        await run.io_bound(opened_pages.forget, entry_id, vps_file_id)
     except Exception as exc:  # noqa: BLE001 - the file is in; only the tracking failed
         logger.warning("manager: could not tie %s to %s", vps_file_id, game_id, exc_info=True)
         ui.notify(t("manager.discovery.tie_failed"), caption=why(exc), type="warning")

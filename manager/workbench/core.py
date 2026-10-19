@@ -260,6 +260,9 @@ class Section:
     icon: str = ""
     # Drawn after the name, for a section an extension VPinFE did not ship added.
     mark: Callable[[], None] | None = None
+    # Draws into the holder at the row's right edge, called again whenever the thing
+    # it reports changes. Only an exception has a glyph there.
+    corner: Callable[[dict[str, Any], Any], None] | None = None
 
 
 def _docked(item: Section, context: dict[str, Any]) -> bool:
@@ -335,6 +338,9 @@ def _section_row(context: dict[str, Any], section: Section, open_now: bool,
                 # Inside the label, so it wraps with the words and stays on the last one.
                 with text:
                     section.mark()
+        if section.corner is not None:
+            holder = ui.element("span").classes("manager-section-corner")
+            section.corner(context, holder)
         # Shown only where the rows stack, because only there does one open under
         # another. Beside its content it would be pointing at nothing.
         with ui.row().classes("items-center manager-section-caret"):

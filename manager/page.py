@@ -50,8 +50,8 @@ from manager.kit.on_page import on_page
 from manager.library import assets as assets_page
 from manager.library import collections as collections_page
 from manager.library import discovery as discovery_page
-from manager.library import discovery_releases as discovery_releases_page
 from manager.library import (
+    discovery_kinds,
     games,
     row_drag,
     tageditor,
@@ -59,6 +59,7 @@ from manager.library import (
     uploads,
     wizard_settle,  # noqa: F401 - registers the settle field with the wizard
 )
+from manager.library import discovery_releases as discovery_releases_page
 from manager.library import media as media_page
 from manager.library import record as recorder
 from manager.overview import needs
@@ -663,7 +664,7 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
                            "report": report, "group": group, "entry": entry,
                            "row": row, "author": author, "maker": maker, "theme": theme},
                    views=[key for key, _label, _icon, _feature in nav_items],
-                   sections=[item.key for item in rail.SECTIONS])
+                   sections=[*(item.key for item in rail.SECTIONS), *discovery_kinds.vocabulary()])
 
     # The saved views, read before anything draws: a grid asks for them while it is
     # being built, which is on the loop, and the client refuses an HTTP call there.
@@ -1395,6 +1396,8 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
         elif state.pop("nav_collapsed_by_full", None):
             set_mini(False)
 
+    state["leave_full"] = lambda: toggle_full() if state.get("full") else None
+
     def open_pane() -> None:
         """Show the panel for the row picked. Where the list and the panel do not fit side
         by side the stylesheet makes it the page; wide, it only opens a collapsed panel."""
@@ -2042,7 +2045,7 @@ def _show_group(open_now: bool, caret: Any, held: list) -> None:
 
 
 # Sections of another subject's panel: they name a file or catalog entry of the page just left.
-OWN_SUBJECT_SECTIONS = ("media_file", "asset_file", "discovery_game", "discovery_files")
+OWN_SUBJECT_SECTIONS = ("media_file", "asset_file", *discovery_kinds.vocabulary())
 
 
 def leave_for(state: dict[str, Any], view: str) -> None:

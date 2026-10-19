@@ -36,6 +36,7 @@ class Yours:
 
     `name` is what the title quotes. `file` heads the row, `authors` and `facts` are the
     two lines under it and `version` goes in the column the releases' versions share.
+    `picture` is its own picture where it is one.
     """
 
     name: str
@@ -44,6 +45,7 @@ class Yours:
     facts: str = ""
     version: str = ""
     glyph: str = icons.TABLES
+    picture: str = ""
 
 
 async def ask(yours: Yours, listed: list[dict[str, Any]], *, bound: str,
@@ -151,7 +153,7 @@ def _scroll_to_chosen(box: ui.dialog, rows: dict[str, tuple[ui.element, ui.eleme
 def _yours_row(yours: Yours) -> None:
     with ui.row().classes("items-center gap-3 w-full no-wrap manager-source-row "
                           "manager-source-row--yours"):
-        candidates.thumb("", yours.glyph)
+        candidates.thumb(yours.picture, yours.glyph)
         with ui.column().classes("gap-0 min-w-0 grow"):
             ui.label(yours.file).classes("manager-slot-file")
             if yours.authors:

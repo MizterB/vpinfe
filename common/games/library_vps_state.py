@@ -81,6 +81,19 @@ def _we_hold(kind: vps_kinds.VpsKind, inventory: dict, media: dict) -> bool:
     return False
 
 
+ROMS_FOLDER = "pinmame/roms"
+
+
+def _roms(game_dir: Path) -> dict[str, Any]:
+    """The game's ROM zips, as an inventory slot. `inventory_assets` has none: a ROM lives
+    in a folder of its own, not beside the table, and its origin is recorded under the
+    folder-relative path, which is what `origin` carries."""
+    zips = sorted(name for name in asset_resolver.list_rom_files(str(game_dir))
+                  if name.lower().endswith(".zip"))
+    return {"present": bool(zips),
+            "files": [{"file": name, "origin": f"{ROMS_FOLDER}/{name}"} for name in zips]}
+
+
 # What a kind held as a folder is called on disk; the inventory says only that it is there.
 _FOLDER_NAMES = {"pup_pack": "pupvideos", "altcolor_serum": "serum", "altcolor_vni": "vni"}
 
@@ -107,7 +120,8 @@ def _held_files(kind: vps_kinds.VpsKind, game_dir: Path, inventory: dict, media:
             continue
         slot = inventory.get(asset_registry.lens_kind(name)) or {}
         if slot.get("files"):
-            found.extend(_held_file(str(one["file"]), _bound(recorded, str(one["file"])))
+            found.extend(_held_file(str(one["file"]),
+                                    _bound(recorded, str(one.get("origin") or one["file"])))
                          for one in slot["files"])
         elif name == "altsound" and slot.get("present"):
             folder = asset_registry.altsound_folder(
@@ -161,7 +175,7 @@ def state_of(game: Game, game_id: str = "") -> dict:
     """
     entry = game_service.matched_vps_entry(game)
     game_dir = Path(str(game.full_path_game))
-    inventory = game_lens.inventory_assets(game_dir)
+    inventory = {**game_lens.inventory_assets(game_dir), "rom": _roms(game_dir)}
     prefix = f"/api/v1/games/{game_id}/media"
     media = media_service.media_entries(
         media_service.resolved_media(game_dir, None), game_dir, prefix)

@@ -2,8 +2,7 @@
 
 A source is asked per kind and by VPS id alone, so a game that is not in the library has
 offers too. Its rows are matched to the files VPS lists by `vps_file_id`; a row with none is
-not Discovery's to draw. Where two sources offer the same file the first source owns the
-tick.
+not Discovery's to draw. Where two sources offer the same file the first source owns it.
 
 Nothing here keeps a connection to the source. The pane asks again when the registry says an
 offer for this entry moved, and redraws only the rows whose state did.
@@ -14,7 +13,6 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
-from functools import partial
 from typing import Any
 
 from nicegui import ui
@@ -23,9 +21,9 @@ from common.extensions import sources as extension_sources
 from common.failures import why
 from common.i18n import t
 from manager.extensions import ext_lists
-from manager.kit import busy, candidates, offload, panel
+from manager.kit import offload
 from manager.kit.on_page import on_page
-from manager.library import discovery_get, mediaview
+from manager.library import discovery_get
 from manager.library.discovery_get import Offered, Pick, Tray
 
 logger = logging.getLogger("vpinfe.manager.library.discovery_ext")
@@ -63,7 +61,7 @@ async def ask(library: Any, row: dict[str, Any], game_id: str, listed: list[str]
               keep: dict[str, Offered] | None = None) -> list[Offered]:
     """What the switched-on sources offer for the files VPS lists, one per file. A source
     that cannot answer keeps what `keep` held of it, so one slow answer does not clear its
-    rows or the ticks on them; the rest draw."""
+    rows; the rest draw."""
     questions = [(source, kind, listed_as)
                  for source in library.online_sources() for listed_as in listed
                  if (kind := kind_for(source, listed_as))]
@@ -92,17 +90,9 @@ async def ask(library: Any, row: dict[str, Any], game_id: str, listed: list[str]
 
 
 def adopt(context: dict[str, Any], tray: Tray, found: list[Offered]) -> None:
-    """Make `found` what the pane draws from, and let go of ticks whose row is gone, is now
-    in or has a state of its own."""
+    """Make `found` what the pane draws from."""
     context["hosted"] = {str(one.row["vps_file_id"]): one for one in found}
     tray.offered = {one.pick.key: one for one in found}
-    for key in [key for key, one in tray.picks.items()
-                if one.row and (key not in tray.offered
-                                or tray.offered[key].row.get("current")
-                                or tray.offered[key].level)]:
-        del tray.picks[key]
-        tray.moves.pop(key, None)
-    tray.handed &= set(tray.offered)
 
 
 def _shape(found: list[Offered]) -> list[tuple[str, bool]]:
@@ -230,52 +220,15 @@ async def answered(library: Any, offered: Offered, answer: dict[str, Any], game_
         ui.notify(str(answer["message"]))
 
 
-def look(context: dict[str, Any], offered: Offered, game_id: str) -> None:
-    """What the file's page says, under an opened row: its description, pictures and files.
-    Drawn empty where the source has no look or cannot answer."""
-    holder = ui.column().classes("gap-1 w-full")
-
-    @on_page
-    async def load() -> None:
-        row = context["discovery"]
-        try:
-            said = await offload.io(context["library"].source_look, offered.extension,
-                                    offered.key, offered.kind, offered.pick.row, game_id,
-                                    row["id"], row["name"])
-        except Exception:  # noqa: BLE001 - the row still opens on what VPS says
-            logger.debug("manager: %s has no look at %s", offered.source_id, offered.pick.row,
-                         exc_info=True)
-            return
-        if holder.is_deleted:
-            return
-        with holder:
-            _draw_look(said or {}, offered.name)
-
-    busy.fill(holder, load)
-
-
-def _enlarge(shots: list[str], name: str, number: int, _event: Any = None) -> None:
-    mediaview.open_pages(shots, name, number)
-
-
-def _draw_look(said: dict[str, Any], name: str) -> None:
-    if said.get("description"):
-        ui.label(str(said["description"])).classes("manager-help manager-record-comment")
-    shots = [str(one) for one in said.get("pictures") or ()]
-    if shots:
-        with ui.row().classes("items-center gap-2 w-full"):
-            for number, shot in enumerate(shots, 1):
-                with ui.element("div").classes("shrink-0 manager-record-thumb") as box:
-                    candidates.thumb(shot, "image", t("manager.discovery.no_picture"))
-                box.props("tabindex=0 role=button")
-                box.props["aria-label"] = t("word.enlarge")
-                show = partial(_enlarge, shots, name, number)
-                box.on("click", show).on("keydown.enter", show).on("keydown.space.prevent", show)
-    for each in said.get("files") or ():
-        size = size_text(each.get("size"))
-        with ui.row().classes("items-baseline gap-2 w-full no-wrap"):
-            ui.label(str(each["name"])).classes("manager-help truncate grow min-w-0")
-            if size:
-                ui.label(size).classes("manager-help")
-    if said.get("note"):
-        panel.line(str(said["note"]))
+async def read_look(context: dict[str, Any], offered: Offered, game_id: str) -> dict[str, Any]:
+    """What the file's page says: its description, pictures and files. Empty where the source
+    has no look or cannot answer."""
+    row = context["discovery"]
+    try:
+        return await offload.io(context["library"].source_look, offered.extension, offered.key,
+                                offered.kind, offered.pick.row, game_id, row["id"],
+                                row["name"]) or {}
+    except Exception:  # noqa: BLE001 - the row stands on what VPS says
+        logger.debug("manager: %s has no look at %s", offered.source_id, offered.pick.row,
+                     exc_info=True)
+        return {}

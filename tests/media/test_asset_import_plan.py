@@ -235,7 +235,8 @@ class MediaSlotPlanTests(unittest.TestCase):
                 ("art.png", "scoreview_video", False),   # image into a video slot
                 ("clip.mp4", "wheel", False),      # video into an image slot
                 ("song.mp3", "backglass", False),
-                ("art.png", "rule_sheet", False),
+                ("art.png", "rule_sheet", True),    # a rule sheet is often a picture
+                ("clip.mp4", "rule_sheet", False),
                 ("rules.pdf", "wheel", False),
             ]:
                 with self.subTest(filename=filename, media_kind=media_kind):
@@ -257,7 +258,7 @@ class MediaSlotPlanTests(unittest.TestCase):
         from common.media.media_specs import MEDIA_SPECS
         spec_for_kind = {spec.kind: spec for spec in MEDIA_SPECS}.__getitem__
         with TemporaryDirectory() as tmp:
-            for filename, media_kind in (("art.png", "rule_sheet"), ("song.mp3", "wheel"),
+            for filename, media_kind in (("clip.mp4", "rule_sheet"), ("song.mp3", "wheel"),
                                          ("clip.webp", "audio")):
                 with self.subTest(media_kind=media_kind):
                     src = Path(tmp) / filename
@@ -346,7 +347,7 @@ class MediaSlotReplacesTests(unittest.TestCase):
         self.assertEqual(self._said("(Wheel) Foo (Bar 1999).jpg"), "replaces current")
 
     def test_a_file_at_a_lower_tier_is_named_as_the_one_it_goes_in_front_of(self):
-        self.assertEqual(self._said("wheel.png"), "in front of wheel.png")
+        self.assertEqual(self._said("wheel.png"), "used instead of wheel.png, which stays")
 
 
 class VpsHelperTests(unittest.TestCase):

@@ -56,6 +56,10 @@ class ArtAddressTests(unittest.TestCase):
                          "/api/v1/games/G1/media/wheel?size=256")
         self.assertEqual(art.sized("/x?v=1", art.CELL), "/x?v=1&size=256")
 
+    def test_a_file_in_an_upload_is_asked_for_by_the_name_it_was_dropped_under(self) -> None:
+        self.assertEqual(art.upload_picture("u 1", "(Rule Sheet) A&B.png", size=art.CELL),
+                         "/api/v1/uploads/u%201/picture?name=%28Rule+Sheet%29+A%26B.png&size=256")
+
 
 class DrawnArtTests(unittest.TestCase):
     def test_a_grid_cell_draws_the_small_copy(self) -> None:

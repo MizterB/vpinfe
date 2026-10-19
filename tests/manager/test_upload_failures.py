@@ -41,6 +41,62 @@ class WhatAStoppedUploadSays(unittest.TestCase):
     def test_the_script_sends_no_exception_text(self) -> None:
         self.assertNotIn("err.message", uploads._DND_SCRIPT)
 
+    def test_a_stopped_upload_is_logged_with_its_reason(self) -> None:
+        with self.assertLogs(uploads.logger, "WARNING") as logged:
+            self._notified({"status": "error", "said": "Too big", "message": "Failed to fetch"})
+
+        self.assertIn("Too big", logged.output[0])
+        self.assertIn("Failed to fetch", logged.output[0])
+
+
+class WhatAFailedImportLeavesInTheLog(unittest.IsolatedAsyncioTestCase):
+    """The toast is gone in seconds; the log is what says afterwards what went wrong."""
+
+    def setUp(self) -> None:
+        self.enterContext(mock.patch("manager.kit.on_page.ui"))
+        self.ui = self.enterContext(mock.patch.object(uploads, "ui"))
+        self.run = self.enterContext(mock.patch.object(uploads, "run"))
+        self.run.io_bound = mock.AsyncMock()
+        self.io = self.enterContext(mock.patch.object(uploads.offload, "io",
+                                                      mock.AsyncMock()))
+        self.library = mock.Mock(games=[])
+
+    async def test_an_upload_that_could_not_be_read_is_logged(self) -> None:
+        self.io.return_value = {"error": "Nothing in it was recognized"}
+
+        with self.assertLogs(uploads.logger, "WARNING") as logged:
+            self.assertIsNone(await uploads.analyzed(self.library, "u-1"))
+
+        self.assertIn("u-1", logged.output[0])
+        self.assertIn("Nothing in it was recognized", logged.output[0])
+
+    async def test_an_analysis_that_raised_is_logged_with_its_traceback(self) -> None:
+        self.io.side_effect = RuntimeError("bad archive")
+
+        with self.assertLogs(uploads.logger, "WARNING") as logged:
+            await uploads.analyzed(self.library, "u-1")
+
+        self.assertIn("bad archive", "\n".join(logged.output))
+
+    async def test_an_upload_with_no_destination_is_logged(self) -> None:
+        self.io.side_effect = RuntimeError("no room")
+
+        with self.assertLogs(uploads.logger, "WARNING") as logged:
+            await uploads.confirmed_import(self.library, "u-1", {}, source="a.zip",
+                                           on_done=mock.Mock())
+
+        self.assertIn("u-1", logged.output[0])
+        self.assertIn("no room", "\n".join(logged.output))
+
+    async def test_an_upload_with_nothing_to_import_is_logged(self) -> None:
+        self.io.return_value = {"items": [], "blocked": []}
+
+        with self.assertLogs(uploads.logger, "WARNING") as logged:
+            await uploads.confirmed_import(self.library, "u-1", {}, source="a.zip",
+                                           on_done=mock.Mock())
+
+        self.assertIn(t("manager.uploads.nothing_import"), logged.output[0])
+
 
 if __name__ == "__main__":
     unittest.main()

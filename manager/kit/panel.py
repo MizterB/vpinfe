@@ -2034,14 +2034,18 @@ def link_out(label: str, *, to: str, hint: str = "", opener: bool = False,
     return draw
 
 
-def out(*, to: str, hint: str) -> Callable[[], None]:
-    """The way out to somewhere else, as its marker alone. `hint` is required."""
+def out(*, to: str, hint: str,
+        on_click: Callable[[], Any] | None = None) -> Callable[[], None]:
+    """The way out to somewhere else, as its marker alone. `hint` is required; `on_click`
+    runs when the link is followed, without stopping the browser's own navigation."""
     def draw() -> None:
         row = ui.link(target=to, new_tab=True) \
             .classes("manager-link manager-link-out manager-link-out--mark")
         with row:
             ui.icon(verbs.OPEN_OUT)
         row.tooltip(hint)
+        if on_click is not None:
+            row.on("click.stop", on_click)
 
     return draw
 

@@ -149,6 +149,34 @@ class VpsStateTests(TempTree):
                          [f"{FOLDER}.directb2s"])
         self.assertEqual(state["romFiles"]["files"], [])
 
+    def _with_rom(self, name: str = "afm_113b.zip") -> str:
+        roms = self.folder / "pinmame" / "roms"
+        roms.mkdir(parents=True, exist_ok=True)
+        (roms / name).write_bytes(b"PK")
+        return name
+
+    def test_a_rom_zip_in_the_roms_folder_is_held(self) -> None:
+        name = self._with_rom()
+
+        rom = self._state()["romFiles"]
+
+        self.assertTrue(rom["held"])
+        self.assertEqual(rom["files"], [{"name": name, "vps_file_id": ""}])
+
+    def test_a_file_that_is_not_a_zip_in_the_roms_folder_is_not_a_rom(self) -> None:
+        self._with_rom("notes.txt")
+
+        self.assertFalse(self._state()["romFiles"]["held"])
+
+    def test_a_rom_bound_to_a_record_names_it_and_identifies_the_kind(self) -> None:
+        name = self._with_rom()
+        self._bind(f"pinmame/roms/{name}", "r1")
+
+        rom = self._state()["romFiles"]
+
+        self.assertEqual(rom["files"], [{"name": name, "vps_file_id": "r1"}])
+        self.assertTrue(rom["identified"])
+
     def test_a_held_file_names_the_record_it_is_tied_to(self) -> None:
         self._bind(f"{FOLDER}.directb2s", "b1")
 

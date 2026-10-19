@@ -90,6 +90,7 @@ BROWSE = "folder_open"
 MERGE = "merge"
 OPEN_OUT = "open_in_new"
 SHOW_MORE = "expand_more"
+SHOW_PICTURES = "photo_library"
 
 # Giving what one thing holds to another, so the first no longer has it.
 MOVE = "arrow_forward"

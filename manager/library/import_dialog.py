@@ -13,7 +13,8 @@ one that was already made.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -22,13 +23,30 @@ from nicegui import run, ui
 from common import i18n
 from common.failures import why
 from common.i18n import t
+from common.media.media_specs import IMAGE_FAMILY, media_label_map
+from manager.kit import art, candidates, game_tables, offload, panel, verbs
 from manager.kit import dialog as frame
-from manager.kit import game_tables, offload, panel, verbs
 from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.library.import_dialog")
 
 STOP_ASKING = {"updates": {"ask_where_new_games_go": False}}
+
+
+@dataclass
+class ReleaseMatch:
+    """The VPS release an import is offered as, read by whoever ties the file when it is done.
+
+    `choose` opens the picker and answers the id and the words for it, `("", "")` to clear
+    the match, or None where the person left. `picture_of` answers the address of a
+    release's picture, and `reason` is why the release was matched without being asked.
+    """
+
+    choose: Callable[[str], Awaitable[tuple[str, str] | None]]
+    vps_file_id: str = ""
+    label: str = ""
+    picture_of: Callable[[str], str] | None = None
+    reason: str = ""
 
 
 def not_imported(one: dict[str, Any]) -> str:
@@ -155,7 +173,7 @@ async def open_for(library: Any, upload_id: str, plan: dict[str, Any], *,
                    rom_name: str = "",
                    allow_new_game: bool = False, media_kind: str = "",
                    location_id: str = "", asset_kind: str = "", add_table: bool = False,
-                   declared: dict | None = None,
+                   declared: dict | None = None, release: ReleaseMatch | None = None,
                    on_done: Callable[[dict], Any] | None = None) -> None:
     """Show the plan and, if it is confirmed, run it.
 
@@ -188,7 +206,6 @@ async def open_for(library: Any, upload_id: str, plan: dict[str, Any], *,
         elif not single and source:
             ui.label(t("manager.import_dialog.from", source=(source))) \
                 .classes("manager-help px-3")
-
         rows = ui.column().classes("gap-0 w-full manager-import-rows px-3")
 
         if blocked:
@@ -198,6 +215,8 @@ async def open_for(library: Any, upload_id: str, plan: dict[str, Any], *,
                     ui.label(not_imported(one)).classes("manager-help")
 
         count = ui.label("").classes("manager-help px-3")
+        if release is not None:
+            _release_row(release)
 
         def recount() -> None:
             wanted = sum(1 for value in chosen.values() if value)
@@ -209,7 +228,8 @@ async def open_for(library: Any, upload_id: str, plan: dict[str, Any], *,
             rows.clear()
             with rows:
                 for one in shown.get("items") or []:
-                    _draw_row(one, shown, chosen, single, recount)
+                    _draw_row(one, shown, chosen, single, recount,
+                              upload_id if _pictured(one, source) else "")
 
         draw(plan)
         recount()
@@ -266,12 +286,34 @@ async def open_for(library: Any, upload_id: str, plan: dict[str, Any], *,
             await answer
 
 
+# Past this many rows a bundle is a list to read, not pictures to look at.
+PICTURES_UP_TO = 12
+
+
+def _pictured(item: dict[str, Any], source: str) -> bool:
+    """Whether the row leads with the picture of its file: a loose image, which is the only
+    thing the upload serves. A file inside an archive is not extracted until it is imported,
+    so where the drop was an archive there is no picture to ask for."""
+    name = str(item.get("name") or "")
+    return (int(item["index"]) < PICTURES_UP_TO and Path(name).suffix.lower() in IMAGE_FAMILY
+            and (not source or source == name))
+
+
+def _slot(item: dict[str, Any]) -> str:
+    """What the file is for: the slot a media file fills, by the name it has everywhere
+    else, since "Media" is the same word for every picture and video."""
+    kind = str(item.get("media_kind") or "")
+    return media_label_map().get(kind) or str(item.get("label") or item.get("kind") or "")
+
+
 def _draw_row(item: dict[str, Any], plan: dict[str, Any], chosen: dict[int, bool],
-              single: bool, changed: Callable[[], None]) -> None:
-    """One thing that will land: what it is, what it is called, where it goes, and what
-    it replaces."""
+              single: bool, changed: Callable[[], None], upload_id: str = "") -> None:
+    """One thing that will land: its picture, what it is called, what it is for and what it
+    does to what is there. Where it goes is the tooltip, since the slot says what the path
+    would."""
     index = int(item["index"])
-    with ui.row().classes("items-center gap-2 w-full no-wrap manager-import-row"):
+    name = str(item.get("name") or "")
+    with ui.row().classes("items-center gap-3 w-full no-wrap manager-import-row"):
         if not single:
             box = ui.checkbox(value=chosen[index]).props("dense")
 
@@ -280,16 +322,18 @@ def _draw_row(item: dict[str, Any], plan: dict[str, Any], chosen: dict[int, bool
                 changed()
 
             box.on_value_change(picked)
-        # Fixed width, so the names beside them line up and the column reads down.
-        ui.label(str(item.get("label") or item.get("kind") or "")) \
-            .classes("manager-import-kind")
+        if upload_id or item.get("media_kind"):
+            candidates.thumb(art.upload_picture(upload_id, name, size=art.CELL)
+                             if upload_id else "", "")
         with ui.column().classes("gap-0 grow min-w-0"):
-            ui.label(str(item.get("name") or "")) \
-                .classes("manager-member-name truncate")
-            said = f"→ {_where(plan, item)}"
+            ui.label(name).classes("manager-member-name truncate")
+            line = [_slot(item)]
+            if not item.get("media_kind"):
+                line.append(_where(plan, item))
             if item.get("replaces"):
-                said += f" · {item['replaces']}"
-            ui.label(said).classes("manager-member-table truncate")
+                line.append(str(item["replaces"]))
+            ui.label(game_tables.JOIN.join(line)).classes("manager-member-table truncate") \
+                .tooltip(f"→ {_where(plan, item)}")
             made = game_tables.made_from_it_line(list(item.get("made_from_it") or []))
             if made:
                 with ui.row().classes("items-center gap-1 no-wrap min-w-0"):
@@ -316,6 +360,40 @@ def _folder_row(library: Any, named: dict[str, Any], plan: dict[str, Any]) -> No
 
     panel.facts(ui, [(t("word.folder"), draw)])
     del plan
+
+
+def _release_row(release: ReleaseMatch) -> None:
+    """The release this file is, under its own heading with the match on a row below it, and
+    why it was matched where nobody chose it."""
+    @ui.refreshable
+    def draw() -> None:
+        with ui.row().classes("items-center gap-3 w-full no-wrap manager-source-row "
+                              "manager-import-match"):
+            if not release.vps_file_id:
+                ui.label(t("manager.import_dialog.not_matched")).classes("manager-help grow")
+                panel.action(t("manager.import_dialog.match"), choose, icon=verbs.MATCH,
+                             inline=True, hint=t("manager.import_dialog.vps_match_hint"))()
+                return
+            candidates.thumb(release.picture_of(release.vps_file_id) if release.picture_of
+                             else "", "")
+            with ui.column().classes("gap-0 grow min-w-0"):
+                ui.label(release.label).classes("manager-member-name truncate")
+                if release.reason:
+                    ui.label(release.reason).classes("manager-help")
+            panel.action(t("word.change"), choose, icon=verbs.MATCH, inline=True,
+                         hint=t("manager.import_dialog.vps_match_hint"))()
+
+    @on_page
+    async def choose() -> None:
+        picked = await release.choose(release.vps_file_id)
+        if picked is None:
+            return
+        release.vps_file_id, release.label = picked
+        release.reason = ""
+        draw.refresh()
+
+    panel.facts(ui, [(panel.HEADING, t("manager.import_dialog.vps_match")),
+                     (panel.FULL, draw)])
 
 
 def _following(library: Any, upload_id: str, asked: dict[str, Any], named: dict[str, Any],

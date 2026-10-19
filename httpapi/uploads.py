@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Body, File, Form, Query, UploadFile
 from starlette.concurrency import run_in_threadpool
+from starlette.requests import Request
+from starlette.responses import Response
 
 from common.failures import why
 from common.online import vps_lens
@@ -17,6 +19,7 @@ from common.uploads import upload_ops
 from . import models, scopes
 from .auth import requires
 from .errors import ApiError
+from .responses import MEDIA_SIZE, revalidating_file
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 vps_router = APIRouter(prefix="/vps", tags=["vps"])
@@ -64,6 +67,15 @@ async def add_upload_file(upload_id: str, relpath: str = Form(...),
             dependencies=[requires(scopes.UPLOADS_WRITE)])
 def analyze_upload(upload_id: str) -> models.Analysis:
     return models.Analysis(**upload_ops.analysis_of(upload_id))
+
+
+@router.get("/{upload_id}/picture", summary="A picture the session holds",
+            dependencies=[requires(scopes.UPLOADS_WRITE)])
+def upload_picture(upload_id: str, request: Request, name: str = Query(...),
+                   size: int | None = MEDIA_SIZE) -> Response:
+    """The loose image dropped under `name`, at `size` (256 or 1024) when given. 404 for a
+    file that is not an image, or is inside an archive."""
+    return revalidating_file(upload_ops.picture(upload_id, name, size).path, request)
 
 
 @router.post("/{upload_id}/plan", summary="Build an import plan",

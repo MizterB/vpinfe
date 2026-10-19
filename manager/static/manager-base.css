@@ -544,6 +544,8 @@ body::before {
   padding: 6px 0;
   border-top: 1px solid var(--line-soft);
 }
+/* In a column shorter than its pane the bar sits on the pane's bottom edge, not under the text. */
+.manager-draft-bar--foot { margin-top: auto; }
 .manager-draft-said { font-size: var(--fs-body); color: var(--ink-2); white-space: nowrap; }
 .manager-draft-state { font-size: var(--fs-body); color: var(--warm); white-space: nowrap; }
 /* Where the limit cuts. What follows is held and not shown on the frontend. */
@@ -2545,15 +2547,6 @@ body.manager-dragging-rows .q-drawer--mini .manager-rail-drops {
 }
 .manager-import-rows { max-height: 46vh; overflow-y: auto; }
 .manager-import-row { padding: 4px 0; }
-/* Fixed, so the names beside them line up and the column reads down rather than
-   zig-zagging with the length of each kind's label. */
-.manager-import-kind {
-  width: 116px; flex: none;
-  font-size: var(--fs-caption); color: var(--ink-3);
-  text-align: center;
-  border: 1px solid var(--line); border-radius: 10px; padding: 1px 6px;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
 .manager-import-blocked .q-item { min-height: 0; padding: 2px 0; }
 
 /* The list of names a command can use, folded away because eleven rows between two
@@ -2604,8 +2597,9 @@ body.manager-dragging-rows .q-drawer--mini .manager-rail-drops {
    for the same reason the rows reserve theirs. The mark sits on the caption's own line
    and in the rows' column: the heading has no row margin, so matching the rows below
    costs it that 8px, and a mark floating in the gap above the words reads as belonging
-   to the row before it. */
-.manager-rail-group { position: relative; padding-right: 34px; }
+   to the row before it. The words start where the rows' names do: the row's 8px margin
+   plus `.manager-section-hit`'s 16px padding, so the two change together. */
+.manager-rail-group { position: relative; padding-right: 34px; padding-left: 24px; }
 /* A heading's padding is 10px over 4px, so its box centre sits 3px above its text.
    Nudged back down onto the caption, and 8px further left because a heading has none of
    the row margin below it - which is what puts the two marks in one column. */
@@ -3651,61 +3645,120 @@ a.manager-slot-file, a.manager-slot-file:visited { color: var(--accent); }
    on its corner. */
 .manager-vps-picture {
   position: relative; display: flex; align-items: center; justify-content: center;
-  width: 100%; height: 188px; overflow: hidden; text-align: center; padding: 0 20px;
+  width: 100%; height: 170px; overflow: hidden; text-align: center; padding: 0 20px;
   box-sizing: border-box;
   background: var(--surface-3); border: 1px solid var(--line-soft); border-radius: 6px;
 }
-.manager-vps-picture > div:not(.manager-vps-picture-open) {
+.manager-vps-picture > div {
   display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;
 }
 .manager-vps-picture img { max-width: 100%; max-height: 100%; object-fit: contain; }
-.manager-vps-picture-open {
-  position: absolute; right: 6px; bottom: 6px;
-  padding: 2px 8px; border-radius: 4px; font-size: var(--fs-caption);
-  background: var(--surface-viewer);
+.manager-vps-picture-mark {
+  position: absolute; right: 8px; bottom: 8px; color: var(--ink-2);
 }
-.manager-vps-status { padding: 12px 0 4px; }
+.manager-bar--row { width: 72px; }
 
-/* A kind of file in the list of what VPS offers: a band on a plate, so it reads as the head
-   of the records under it rather than as one of them. */
-.manager-band {
-  margin-top: 10px; padding: 7px 10px; border-radius: 4px; font-weight: 600;
-  background: var(--accent-wash); border-left: 3px solid var(--accent);
-}
-.manager-band-count { font-size: var(--fs-caption); font-weight: 400; color: var(--ink-3); }
-.manager-vps-files > .manager-fact-heading:first-child {
-  border-top: none; margin-top: 0; padding-top: 0;
-}
-/* The records under a band: regular weight and indented, the check in the indent. One
-   mark column on every row, so a record you hold does not move its words. */
-.manager-record { padding: 5px 8px 5px 12px; font-weight: 400; }
-.manager-record-mark { flex: 0 0 18px; color: var(--positive); line-height: 1.3; }
-.manager-record-mark .q-icon { font-size: var(--icon-mark); }
-/* The box that ticks a row's file takes the mark's column, so the words stay where they
-   are whether a row can be ticked or not. */
-.manager-record-tick { flex: 0 0 18px; display: flex; align-items: flex-start; }
-.manager-record-tick .q-checkbox { margin: -1px 0 0 -3px; }
-/* The state a band is in when the game lacks what it holds. */
-.manager-band-tag { font-size: var(--fs-caption); font-weight: 400; color: var(--warm); }
-.manager-record-when { flex: 0 0 auto; white-space: nowrap; padding-top: 2px; }
-/* The place the way out sits, held on a row without one. */
-.manager-record-out { flex: 0 0 25px; }
-/* A file you hold that VPS does not list: present, and not a record. */
-.manager-record--held { opacity: 0.62; font-style: italic; }
-.manager-record-more { padding: 2px 8px 2px 12px; }
 .manager-record-thumb { cursor: zoom-in; }
-.manager-record-head { cursor: pointer; }
-/* `.manager-help` wraps at line breaks, which outranks `truncate`, and a column shrink-wraps
-   its children, so a line is held to the head's width for the ellipsis to apply. */
-.manager-record-head > * { max-width: 100%; }
-.manager-record-head > .manager-help { white-space: nowrap; }
-.manager-record-head:focus-visible, .manager-record-thumb:focus-visible,
-.manager-vps-picture--open:focus-visible {
+.manager-record-thumb:focus-visible, .manager-vps-picture--open:focus-visible {
   outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px;
 }
-.manager-record-comment { white-space: pre-wrap; }
-.manager-record-detail { padding: 4px 0 2px; }
 .manager-vps-picture--open { cursor: zoom-in; }
+
+/* A rail section's mark: only an exception wears one. Beside the rail the glyph sits in
+   the row's reserved right gutter; stacked, the word comes with it and the caret follows. */
+.manager-section-row { position: relative; }
+.manager-section-corner {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  display: flex; align-items: center;
+}
+.manager-corner { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-3); }
+.manager-corner-word { display: none; font-size: var(--fs-caption); }
+.manager-corner--warn { color: var(--warm); }
+.manager-corner--bad { color: var(--danger); }
+.manager-corner--going { color: var(--accent); }
+.manager-corner--have { color: var(--positive); }
+.manager-corner--blank { opacity: 0.5; }
+.manager-corner-bar { width: 10px; height: 2px; margin: 0 2px; border-radius: 1px; background: currentColor; }
+/* Drawn rather than bordered, for the reason `.manager-mark--dashed` gives: a dashed border
+   on a circle this small gets four chunky dashes. This one is an exact eight. */
+.manager-corner-dash {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: repeating-conic-gradient(currentColor 0 22.5deg, transparent 22.5deg 45deg);
+  -webkit-mask: radial-gradient(circle, transparent 5px, #000 5px);
+  mask: radial-gradient(circle, transparent 5px, #000 5px);
+}
+.manager-corner-ring {
+  width: 16px; height: 16px; border-radius: 50%;
+  background: conic-gradient(currentColor calc(var(--p, 0) * 1%), var(--bar-track) 0);
+  -webkit-mask: radial-gradient(circle, transparent 4px, #000 5px);
+  mask: radial-gradient(circle, transparent 4px, #000 5px);
+}
+@container (max-width: 519px) {
+  .manager-section-corner { position: static; transform: none; padding-right: 4px; }
+  .manager-corner-word { display: inline; }
+}
+
+/* A release or a file you hold: a picture, two lines, and what the row does at its end. */
+.manager-rels { padding-top: 4px; }
+.manager-rel {
+  display: flex; align-items: center; gap: 10px; width: 100%; box-sizing: border-box;
+  padding: 6px 8px; border-radius: 6px;
+}
+.manager-rel--press { cursor: pointer; }
+.manager-rel--press:hover { background: var(--accent-wash); }
+.manager-rel--pressed > .manager-rel { background: var(--accent-wash-on); }
+.manager-rel-pic { flex: 0 0 auto; }
+.manager-rel .truncate { max-width: 100%; }
+.manager-rel-opened { padding: 0 8px 4px 94px; }
+/* The section's content starts where its heading's words do: the heading sits in the facts'
+   12px inset, so boxes edged at the panel's gutter would stand left of it. */
+.manager-kind-body { padding: 2px 12px 0; }
+.manager-dropbox {
+  padding: 10px; border: 1px dashed var(--line); border-radius: 6px;
+}
+
+/* Yours beside the release pressed. Only Full has the room, and a press there changes the
+   card in place rather than redrawing the list. */
+.manager-card-compare { display: none; }
+.manager-full .manager-card-compare { display: flex; padding-bottom: 8px; }
+.manager-card-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; }
+.manager-card {
+  min-width: 0; padding: 10px; border: 1px solid var(--line-soft); border-radius: 6px;
+  background: var(--surface-1);
+}
+
+/* Pictures a kind has and pictures it is offered: one tile each. */
+.manager-media-tiles {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px;
+  width: 100%;
+}
+.manager-tile { min-width: 0; }
+.manager-tile-art {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  width: 100%; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 6px; cursor: zoom-in;
+  border: 1px solid var(--line-soft); background: var(--surface-3);
+}
+.manager-tile-art img, .manager-tile-art video {
+  max-width: 100%; max-height: 100%; object-fit: contain;
+}
+.manager-tile--yours .manager-tile-art { border-color: var(--positive); }
+
+/* Where an entry stands with the library: one box under the picture, as wide as the plate. */
+.manager-library-card {
+  width: 100%; box-sizing: border-box; gap: 4px; margin: 10px 0 14px; padding: 8px 12px;
+  border: 1px solid var(--line-soft); border-radius: 6px; background: var(--surface-1);
+}
+.manager-library-said { font-size: var(--fs-body); color: var(--ink-2); }
+.manager-library-card .manager-library-row { margin: 0 -8px; }
+
+/* The games of the library an entry is. */
+.manager-library-row {
+  display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 6px;
+  color: inherit; text-decoration: none;
+}
+.manager-library-row:hover { background: var(--accent-wash); }
+.manager-library-wheel { width: 40px; height: 40px; flex: 0 0 auto; }
+.manager-library-wheel img { width: 100%; height: 100%; object-fit: contain; }
 /* After the link rules, which set an underline on hover that would take the strike off. */
 .manager-link-broken .manager-link-out > :first-child { text-decoration: line-through; }
 
@@ -4380,7 +4433,7 @@ svg.manager-cell-noart {
     margin: 0; border-radius: 0;
     border-bottom: 1px solid var(--line-band);
   }
-  .manager-section-hit { padding-left: var(--panel-gutter); }
+  .manager-section-hit, .manager-rail-group { padding-left: var(--panel-gutter); }
   .manager-section-caret { display: flex; }
   /* Turned to point at what it opened, and the rule under the open row goes: the row
      and its content are one block, so a line between them would cut it in half. */
@@ -4414,10 +4467,12 @@ svg.manager-cell-noart {
     margin: 0; border-radius: 0;
     border-bottom: 1px solid var(--line-band);
   }
-  .manager-section-hit { padding-left: var(--panel-gutter); }
+  .manager-section-hit, .manager-rail-group { padding-left: var(--panel-gutter); }
   .manager-section-caret { display: flex; }
   .manager-section-on .manager-section-caret { transform: rotate(180deg); }
   .manager-section-on { border-bottom-color: transparent; }
+  .manager-section-corner { position: static; transform: none; padding-right: 4px; }
+  .manager-corner-word { display: inline; }
 }
 /* Under 660px the work beside the 230px rail, or the whole width once it is an accordion,
    is too narrow for a label and a value side by side: a value that cannot shrink below its

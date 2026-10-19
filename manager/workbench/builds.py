@@ -19,8 +19,9 @@ from manager.frontend import players as players_page
 from manager.frontend import themes as themes_page
 from manager.kit import game_tables, offload, panel, verbs
 from manager.kit.data import Library
-from manager.library import collection_adds, collection_rules
+from manager.library import collection_adds, collection_rules, discovery_get, discovery_kinds
 from manager.library import discovery as discovery_page
+from manager.workbench import discovery_rail
 from manager.workbench.all_settings import _playing
 from manager.workbench.collection import _note_unsaved, unsaved
 from manager.workbench.core import Section, _blank, _pane_build, _rebuilds, _table_line, _title
@@ -435,7 +436,27 @@ async def _draw_discovery(container: ui.column, title: ui.column, library: Libra
         context["rebuild"] = _rebuilds(context, f"discovery:{vps_id}",
                                        lambda: build_discovery(container, title, library,
                                                                vps_id, state))
-        context["game_id"], _held = await discovery_page.owner_state(context)
+        scene = await discovery_kinds.read(context)
+        context["game_id"] = scene.game_id
+        context["rail"] = discovery_rail.sections(scene)
+
+        async def settle(row: dict[str, Any]) -> bool:
+            """The entry read again and its marks and open section drawn again where they
+            stand. False where the game or the rail changed, or no kind section is open,
+            which only a full draw puts right."""
+            before = context["scene"]
+            context["discovery"] = row
+            now = await discovery_kinds.read(context)
+            kinds = [one.key for one in (*now.files, *now.media)]
+            if (kinds != [one.key for one in (*before.files, *before.media)]
+                    or (now.game_id, now.in_library, now.counted)
+                    != (before.game_id, before.in_library, before.counted)
+                    or not now.tray.painted(discovery_get.BODY)):
+                return False
+            now.tray.repaint(discovery_get.RAIL, discovery_get.BODY)
+            return True
+
+        state["settle_pane_discovery"] = settle
         await _rail(context, "discovery", state)
 
 
