@@ -1751,8 +1751,10 @@ the region it refills.
 `tests/invariants/test_a_value_handler_does_not_rebuild_the_page.py` fails on a new value control
 whose handler reaches one of those verbs by name, in its file or a manager module it imports from.
 It does not follow a method on an object or a handler passed through another function, so it is a
-floor and a drive of the page is the check for those. A handler that rebuilds today is listed
-there with what converts it, and the list only comes down.
+floor. `tests/theming/test_a_value_change_keeps_the_panel_drive.py` is the check for those: it
+changes one control of each kind on each page and in each section of a panel, in a real browser,
+and fails on a page that was taken again, dimmed or lost its landmarks. A handler that rebuilds
+today is listed with what converts it in the invariant, and that list only comes down.
 
 ## Typing
 

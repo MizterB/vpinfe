@@ -50,6 +50,7 @@ tests = [
 paths = ["manager/kit/*", "manager/page.py", "manager/edit_page.py", "manager/static/*"]
 tests = [
   "tests/manager/test_a_select_leaves_room_for_reset.py",
+  "tests/theming/test_a_value_change_keeps_the_panel_drive.py",
   "tests/theming/test_escape_in_dialogs_drive.py",
   "tests/theming/test_folder_picker_drive.py",
   "tests/theming/test_identifier_ink.py",
@@ -63,6 +64,7 @@ tests = [
 [[area]]
 paths = ["manager/library/*", "manager/workbench/*", "common/games/*", "common/media/*"]
 tests = [
+  "tests/theming/test_a_value_change_keeps_the_panel_drive.py",
   "tests/theming/test_collection_adds_drive.py",
   "tests/theming/test_collection_panel_drive.py",
   "tests/theming/test_grid_layout_drive.py",
@@ -93,6 +95,7 @@ tests = [
 [[area]]
 paths = ["manager/settings/*", "common/settings/*", "common/config/*", "common/backups/*"]
 tests = [
+  "tests/theming/test_a_value_change_keeps_the_panel_drive.py",
   "tests/theming/test_feature_switch_applies_live_drive.py",
   "tests/theming/test_folders_page_drive.py",
   "tests/theming/test_import_a_library_drive.py",
@@ -101,6 +104,11 @@ tests = [
   "tests/theming/test_setup_controls_drive.py",
   "tests/theming/test_vpx_settings_in_place_drive.py",
 ]
+
+# Logs and the other system pages.
+[[area]]
+paths = ["manager/system/*"]
+tests = ["tests/theming/test_a_value_change_keeps_the_panel_drive.py"]
 
 # Sign-in and the asks a program makes of a signed-in person.
 [[area]]
@@ -116,6 +124,7 @@ tests = [
 [[area]]
 paths = ["manager/devices/*", "common/devices/*", "common/host/*", "common/runtime/*"]
 tests = [
+  "tests/theming/test_a_value_change_keeps_the_panel_drive.py",
   "tests/theming/test_browser_probe_drive.py",
   "tests/theming/test_device_channel_identity.py",
   "tests/theming/test_device_channel_origin.py",
@@ -148,6 +157,7 @@ tests = [
 paths = ["common/extensions/*", "manager/extensions/*", "extensions/vpinplay/*"]
 tests = [
   "tests/extensions/test_links.py",
+  "tests/theming/test_a_value_change_keeps_the_panel_drive.py",
   "tests/theming/test_community_menu_drive.py",
   "tests/theming/test_players_drive.py",
   "tests/theming/test_separation.py",
