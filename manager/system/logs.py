@@ -124,7 +124,7 @@ def _bar_key(held: dict[str, Any]) -> tuple[Any, ...]:
     """What the bar is drawn from. A tick that finds the same key leaves the bar alone:
     clearing it closes a menu somebody has open."""
     files = (tuple(held["sources"]), held["visual_pinball"])
-    return (held["view"], held["source"], held["path"], *files)
+    return (held["source"], held["path"], held["follow"], held["wrap"], *files)
 
 
 def _known(held: dict[str, Any]) -> bool:
@@ -150,12 +150,17 @@ def _draw_bar(bar: Any, library: Library, held: dict[str, Any],
               reload: Callable[[], Any], state: dict[str, Any]) -> None:
     bar.clear()
     with bar:
+        find: list[ui.input] = []
+
         def remember(key: str, value: Any) -> Any:
             """Hold the choice, persist it, and redraw. Returns the redraw, which NiceGUI
             runs only when a handler hands it back."""
             held[key] = value
             state[f"log_{key}"] = value
-            held["bar_for"] = None
+            # The bar is not drawn again for a choice, so text typed and not entered is
+            # put back to the search that is in force.
+            if key != "contains" and find:
+                find[0].value = held["contains"]
             if key == "view":
                 deeplink.sync(state)
             return reload()
@@ -178,9 +183,9 @@ def _draw_bar(bar: Any, library: Library, held: dict[str, Any],
                         value=held["level"], look=dropdown.OUTLINED).classes("w-36") \
             .on_value_change(lambda e: remember("level", e.value or ""))
 
-        ui.input(placeholder=t("manager.logs.find"), value=held["contains"]) \
-            .props("dense outlined clearable").classes("grow min-w-0") \
-            .on("keydown.enter", lambda e: remember("contains", e.sender.value or ""))
+        find.append(ui.input(placeholder=t("manager.logs.find"), value=held["contains"])
+                    .props("dense outlined clearable").classes("grow min-w-0")
+                    .on("keydown.enter", lambda e: remember("contains", e.sender.value or "")))
 
         if _live(held):
             follow = ui.button(icon="play_arrow" if held["follow"] else "pause",

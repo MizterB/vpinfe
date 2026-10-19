@@ -14,17 +14,23 @@ from manager.system import logs
 
 def _held(**more: Any) -> dict[str, Any]:
     return {"view": logs.STREAM, "sources": ["a.log"], "path": "/logs/a.log", "source": "",
-            "visual_pinball": "", **more}
+            "visual_pinball": "", "follow": True, "wrap": True, "level": "", "contains": "",
+            **more}
 
 
 class WhatTheBarIsDrawnFrom(unittest.TestCase):
     def test_a_tick_that_read_the_same_log_leaves_the_bar_as_it_is(self) -> None:
         self.assertEqual(logs._bar_key(_held()), logs._bar_key(_held()))
 
-    def test_every_view_has_a_key_of_its_own(self) -> None:
-        keys = {logs._bar_key(_held(view=view)) for view in logs.VIEWS}
+    def test_a_choice_the_selects_hold_themselves_leaves_the_bar_as_it_is(self) -> None:
+        for more in ({"view": logs.DIGEST}, {"level": "ERROR"}, {"contains": "serum"}):
+            with self.subTest(more):
+                self.assertEqual(logs._bar_key(_held()), logs._bar_key(_held(**more)))
 
-        self.assertEqual(len(logs.VIEWS), len(keys))
+    def test_following_or_wrapping_draws_the_bar_again(self) -> None:
+        """The follow button's icon and the menu's wording are read from them."""
+        self.assertNotEqual(logs._bar_key(_held()), logs._bar_key(_held(follow=False)))
+        self.assertNotEqual(logs._bar_key(_held()), logs._bar_key(_held(wrap=False)))
 
     def test_a_log_that_rotated_draws_its_bar_again(self) -> None:
         self.assertNotEqual(logs._bar_key(_held()),

@@ -1657,7 +1657,8 @@ def view_control(library: Any, scope: str,
     if active not in {view.id for view in known}:
         active = known[0].id
     held: dict[str, Any] = {"views": known, "active": active, "custom": custom,
-                            "modified": False, "drawing": {}, "baseline": None, "over": None}
+                            "modified": False, "drawing": {}, "baseline": None, "over": None,
+                            "on_screen": None}
 
     top = bar.top
     with top:
@@ -1719,7 +1720,11 @@ def view_control(library: Any, scope: str,
             ui.run_javascript(
                 f"getElement({table.id}).$el.style.setProperty("
                 f"'--ag-row-height', '{height}px')")
-            table.run_grid_method("redrawRows")
+            # Rows already drawn this way are left standing: a switch between views that
+            # present rows alike would otherwise blink every visible row.
+            if held["on_screen"] != (dict(held["drawing"]), height):
+                held["on_screen"] = (dict(held["drawing"]), height)
+                table.run_grid_method("redrawRows")
 
         @on_page
         async def apply(view: Any, over: dict[str, Any] | None = None) -> None:
