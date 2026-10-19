@@ -1026,7 +1026,7 @@
   "manager.discovery.ask.week": "Past Week",
   "manager.discovery.ask.fortnight": "Past 2 Weeks",
   "manager.discovery.ask.month": "Past Month",
-  "manager.discovery.ask.since": "Since {date}",
+  "manager.discovery.ask.days": "Past {days} Days",
   "manager.discovery.ask.releases": "Releases",
   "manager.discovery.ask.have": "Have",
   "manager.discovery.ask.missing": "Missing",

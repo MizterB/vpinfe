@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import datetime
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from common.online import vps_find, vps_question
 
@@ -36,6 +39,20 @@ ROWS = [
 RELEASES = {row["id"]: row["releases"] for row in ROWS}
 
 
+def _today(year: int, month: int, day: int):
+    class Day(datetime.date):
+        @classmethod
+        def today(cls) -> Day:
+            return cls(year, month, day)
+
+    return patch.object(vps_question, "datetime",
+                        SimpleNamespace(date=Day, timedelta=datetime.timedelta))
+
+
+def ids_raw(question: dict) -> dict[str, int]:
+    return vps_question.games_fitting(question, PEOPLE, ROWS, RELEASES)
+
+
 def ids(question: dict) -> dict[str, int]:
     return vps_question.games_fitting(vps_question.clean(question), PEOPLE, ROWS, RELEASES)
 
@@ -46,8 +63,12 @@ class QuestionTests(unittest.TestCase):
 
     def test_clean_drops_what_asks_nothing(self) -> None:
         self.assertEqual(vps_question.clean({"by": [" ", ""], "kind": "", "mod": None,
-                                             "since": "2026-10-01", "x": 1}),
-                         {"since": "2026-10-01"})
+                                             "since": "7", "x": 1}),
+                         {"since": "7"})
+
+    def test_a_window_that_is_not_a_count_of_days_asks_nothing(self) -> None:
+        for window in ("", "0", "-3", "2026-10-01", "week", "7.5", "1000000", "9" * 5000):
+            self.assertEqual({}, vps_question.clean({"since": window}), window)
 
     def test_one_release_has_to_meet_every_release_level_key(self) -> None:
         self.assertEqual(ids({"by": ["Wildman"], "mod": "mods"}), {})
@@ -69,9 +90,28 @@ class QuestionTests(unittest.TestCase):
     def test_format_feature_since_and_held_are_asked_of_the_release(self) -> None:
         self.assertEqual(ids({"kind": "tableFiles", "format": ["FP"]}), {"B": 1})
         self.assertEqual(ids({"feature": ["2Screens"]}), {"A": 1})
-        self.assertEqual(ids({"since": "2026-10-10"}), {"A": 1})
+        with _today(2026, 10, 14):
+            self.assertEqual(ids({"since": "7"}), {"A": 1})
         self.assertEqual(ids({"kind": "tableFiles", "held": "missing"}), {"A": 1, "B": 1})
         self.assertEqual(ids({"kind": "tableFiles", "held": "have"}), {"A": 1})
+
+    def test_a_window_is_kept_as_a_plain_count_of_days(self) -> None:
+        self.assertEqual({"since": "7"}, vps_question.clean({"since": "0007"}))
+        self.assertEqual({"since": "7"}, vps_question.clean({"since": 7}))
+
+    def test_a_window_a_saved_view_holds_unclean_is_ignored_and_not_a_crash(self) -> None:
+        for window in ("2026-10-01", "1000000", "9" * 20):
+            self.assertEqual({"A": 3, "B": 1, "C": 0}, ids_raw({"since": window}), window)
+
+    def test_a_window_rolls_forward_with_the_date(self) -> None:
+        question = {"since": "7"}
+
+        with _today(2026, 10, 14):
+            self.assertEqual({"A": 1}, ids(question))
+        with _today(2026, 10, 20):
+            self.assertEqual({}, ids(question))
+        with _today(2026, 10, 19):
+            self.assertEqual({"A": 1}, ids(question))
 
     def test_the_game_level_keys_do_not_need_a_release(self) -> None:
         self.assertEqual(ids({"maker": "Bally"}), {"A": 3, "C": 0})

@@ -7,7 +7,8 @@ absent or empty one asks nothing:
 - `by`: person names, as `people` shows them; a release fits when any of them made it.
 - `mod`: `originals` (not a mod) or `mods`.
 - `feature`, `format`: a release fits when it has any of the words.
-- `since`: an ISO date; a release fits when VPS added it on or after.
+- `since`: a window in days, such as `7`; a release fits when VPS added it within that many
+  days of today.
 - `held`: `have` or `missing`, of the release itself.
 - `maker`, `theme`: about the game, not a release.
 - `owned`: `yes` or `no`, whether the library has the game.
@@ -19,6 +20,7 @@ release, so a game that has a Wildman backglass and someone else's mod does not 
 
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -30,6 +32,14 @@ KEYS = ("kind", *RELEASE_KEYS, *GAME_KEYS)
 LIST_KEYS = ("by", "feature", "format")
 
 
+def _days(window: Any) -> int:
+    """A window as a count of days, 0 for anything that is not one a date can be reckoned from."""
+    text = str(window or "").strip()
+    if not (text.isascii() and text.isdigit() and len(text) <= 5):
+        return 0
+    return int(text)
+
+
 def clean(question: Mapping[str, Any] | None) -> dict[str, Any]:
     """The question with every empty key dropped and the lists as lists of strings."""
     out: dict[str, Any] = {}
@@ -39,17 +49,29 @@ def clean(question: Mapping[str, Any] | None) -> dict[str, Any]:
             value = [str(one) for one in (value or []) if str(one).strip()]
         else:
             value = str(value or "").strip()
+            if key == "since":
+                value = str(_days(value) or "")
         if value:
             out[key] = value
     return out
 
 
 def narrows_releases(question: Mapping[str, Any]) -> bool:
-    return any(question.get(key) for key in RELEASE_KEYS)
+    return any(_days(question[key]) if key == "since" else question.get(key)
+               for key in RELEASE_KEYS if key in question)
+
+
+def _cutoff(question: Mapping[str, Any]) -> str:
+    """The earliest date a release can have been added and still be inside the question's
+    window, as today's reading of it; empty when the question has no window."""
+    days = _days(question.get("since"))
+    if not days:
+        return ""
+    return (datetime.date.today() - datetime.timedelta(days=days)).isoformat()
 
 
 def _fits_release(question: Mapping[str, Any], release: Mapping[str, Any],
-                  wanted: set[int]) -> bool:
+                  wanted: set[int], cutoff: str) -> bool:
     if wanted and not wanted.intersection(release.get("by") or ()):
         return False
     mod = question.get("mod")
@@ -61,8 +83,7 @@ def _fits_release(question: Mapping[str, Any], release: Mapping[str, Any],
     formats = question.get("format")
     if formats and release.get("format") not in formats:
         return False
-    since = question.get("since")
-    if since and not (release.get("added") or "") >= since:
+    if cutoff and not (release.get("added") or "") >= cutoff:
         return False
     held = question.get("held")
     return not held or bool(release.get("held")) == (held == "have")
@@ -114,9 +135,10 @@ def fitting(question: Mapping[str, Any], people: Sequence[Mapping[str, Any]],
         return []
     kind = question.get("kind")
     ask = narrows_releases(question)
+    cutoff = _cutoff(question)
     return [(listing, one) for listing, found in releases.items()
             if not kind or listing == kind
-            for one in found if not ask or _fits_release(question, one, wanted)]
+            for one in found if not ask or _fits_release(question, one, wanted, cutoff)]
 
 
 def games_found(question: Mapping[str, Any], people: Sequence[Mapping[str, Any]],

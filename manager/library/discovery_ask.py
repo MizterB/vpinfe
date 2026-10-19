@@ -7,7 +7,6 @@ user's changes to it; the grid and the saved views are Discovery's.
 
 from __future__ import annotations
 
-import datetime
 import html
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from functools import partial
@@ -22,6 +21,7 @@ from manager.kit import dropdown, panel, thumbnails, verbs
 
 SINCE_DAYS = (("manager.discovery.ask.week", 7), ("manager.discovery.ask.fortnight", 14),
               ("manager.discovery.ask.month", 30))
+SINCE_WORD = {str(days): word for word, days in SINCE_DAYS}
 WALL_AT_FIRST = 60
 FORMAT_DEFAULT = "VPX"
 
@@ -30,10 +30,6 @@ SUBJECT_WORD = {"author": "word.author", "maker": "word.manufacturer",
                 "theme": "manager.discovery.ask.theme"}
 
 Change = Callable[[dict[str, Any]], Awaitable[None]]
-
-
-def since(days: int) -> str:
-    return (datetime.date.today() - datetime.timedelta(days=days)).isoformat()
 
 
 def parts(question: Mapping[str, Any],
@@ -55,8 +51,9 @@ def parts(question: Mapping[str, Any],
     said += [("feature", word, word) for word in question.get("feature") or ()]
     said += [("format", word, word) for word in question.get("format") or ()]
     if question.get("since"):
-        said.append(("since", question["since"],
-                     t("manager.discovery.ask.since", date=question["since"])))
+        days = question["since"]
+        said.append(("since", days, t(SINCE_WORD[days]) if days in SINCE_WORD
+                     else t("manager.discovery.ask.days", days=days)))
     if question.get("held"):
         said.append(("held", question["held"], t(
             "manager.discovery.ask.have" if question["held"] == "have"
@@ -161,7 +158,7 @@ def add_menu(menu: ui.menu, question: Mapping[str, Any], kinds: Mapping[str, str
         ui.item_label(t("manager.discovery.ask.added")).props("header") \
             .classes("manager-menu-header")
         for word, days in SINCE_DAYS:
-            ui.menu_item(t(word), lambda d=days: set_to("since", since(d))) \
+            ui.menu_item(t(word), lambda d=days: set_to("since", str(d))) \
                 .classes("manager-menu-item")
         for heading, key, choices in (
                 ("manager.discovery.ask.releases", "held",

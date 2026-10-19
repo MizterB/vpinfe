@@ -411,6 +411,17 @@ class AskWords(unittest.TestCase):
         self.assertEqual([key for key, _value, _words in said],
                          ["kind", "by", "by", "mod", "held"])
 
+    def test_an_added_window_is_said_as_the_window_and_not_as_a_date(self) -> None:
+        for days, words in (("7", "Past Week"), ("14", "Past 2 Weeks"), ("30", "Past Month"),
+                            ("10", "Past 10 Days")):
+            self.assertEqual([("since", days, words)],
+                             discovery_ask.parts({"since": days}, {}))
+
+    def test_choosing_a_window_replaces_the_one_before(self) -> None:
+        week = discovery_ask.with_value({}, "since", "7")
+
+        self.assertEqual({"since": "30"}, discovery_ask.with_value(week, "since", "30"))
+
 
 class MediaBands(unittest.TestCase):
     def test_the_wheel_and_the_topper_come_first_whatever_order_they_are_given_in(self) -> None:

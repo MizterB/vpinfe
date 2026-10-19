@@ -1026,7 +1026,7 @@
   "manager.discovery.ask.week": "Þàšţ Ŵèèķ",
   "manager.discovery.ask.fortnight": "Þàšţ 2 Ŵèèķš",
   "manager.discovery.ask.month": "Þàšţ Ḿöñţĥ",
-  "manager.discovery.ask.since": "Šîñçè {date}",
+  "manager.discovery.ask.days": "Þàšţ {days} Đàýš",
   "manager.discovery.ask.releases": "Řèŀèàšèš",
   "manager.discovery.ask.have": "Ĥàṽè",
   "manager.discovery.ask.missing": "Ḿîššîñĝ",
