@@ -37,7 +37,7 @@ from common.apps.contract import (
     Standing,
 )
 
-from . import areas, bindings, displays, plugins, screens
+from . import areas, bindings, build, displays, plugins, screens
 from . import ini as vini
 from .setting_types import CONTEXTUAL, LABELS, REGISTERED, TYPES
 
@@ -50,6 +50,7 @@ REST = areas.REST
 # settings editor is noise somebody has to read past. The mappings of the actions the
 # Input page names are the exception, and are offered there only.
 HIDDEN_SECTIONS = frozenset({"Version", "RecentDir"})
+BUILD_KEY = "Version.VPinball"
 # `Plugin.vpx` is the program itself, and turning it off stops the program.
 HIDDEN_PREFIXES = ("Input.Mapping", "Input.Device", "Plugin.vpx.")
 # A trailing part rather than a whole section: `[Backglass.Priority.PUP]` is one of
@@ -173,6 +174,11 @@ def read_at_table(qualified: str) -> bool:
 def _table_only(qualified: str) -> bool:
     return qualified not in ALSO_AT_THE_LAUNCHER and (
         qualified in TABLE_ONLY or qualified.split(".", 1)[0] in TABLE_ONLY_SECTIONS)
+
+
+def _present(qualified: str, installed: Mapping[str, plugins.Plugin] | None) -> bool:
+    """Whether the program has the plugin this setting belongs to."""
+    return installed is not None and areas.plugin_of(qualified) in installed
 
 
 def _offered(qualified: str) -> bool:
@@ -486,10 +492,12 @@ class VPXConfig:
         """
         schema = read_file(settings_file(settings))
         installed = plugins.installed(str(settings.get("bin_path") or ""))
+        rev = build.rev_of(schema.value(BUILD_KEY))
         by_area: dict[str, list[Field]] = {}
         for one in (*map(_registered, schema.settings.values()),
                     *_unwritten(schema, installed)):
-            if _offered(one.qualified):
+            if _offered(one.qualified) and build.declares(
+                    one.qualified, rev, _present(one.qualified, installed)):
                 area = areas.area_of(one.qualified)
                 if (area == areas.PLUGINS and installed is not None
                         and areas.plugin_of(one.qualified) not in installed):
@@ -721,9 +729,12 @@ class VPXConfig:
             return {}
         mine, theirs = read_file(own), read_file(game)
         app = read_file(settings_file(settings))
+        installed = plugins.installed(str(settings.get("bin_path") or ""))
+        rev = build.rev_of(app.value(BUILD_KEY))
         return {key: value for key in sorted(theirs.settings)
                 if (value := theirs.value(key)) is not None and mine.value(key) is None
-                and _offered(key) and SCOPE_ENTRY in self.scopes_for(key)
+                and _offered(key) and build.declares(key, rev, _present(key, installed))
+                and SCOPE_ENTRY in self.scopes_for(key)
                 and not _alike(key, _given(app, key), value)}
 
     def held_for_table(self, target: str) -> dict[str, Any]:

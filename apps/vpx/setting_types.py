@@ -29,6 +29,14 @@ class Registered(NamedTuple):
     choices: tuple[tuple[str, str], ...] = ()
 
 
+class Span(NamedTuple):
+    """The builds of one line that declare a setting: from the Rev `since`, and
+    before the Rev `until` if it was taken out again."""
+
+    since: int = 0
+    until: int | None = None
+
+
 # 1268 declarations.
 TYPES: dict[str, str] = {
     'Alpha.Profile1Brightness': "number",
@@ -1103,8 +1111,6 @@ TYPES: dict[str, str] = {
     'Plugin.B2S.BackglassDMDY': "int",
     'Plugin.B2S.DualMode': "choice",
     'Plugin.B2S.Enable': "bool",
-    'Plugin.B2S.HideB2SDMD': "bool",
-    'Plugin.B2S.HideDMD': "bool",
     'Plugin.B2S.ScoreViewDMDAutoPos': "bool",
     'Plugin.B2S.ScoreViewDMDH': "int",
     'Plugin.B2S.ScoreViewDMDOverlay': "bool",
@@ -1124,18 +1130,18 @@ TYPES: dict[str, str] = {
     'Plugin.B2SLegacy.B2SHideDMD': "bool",
     'Plugin.B2SLegacy.B2SHideGrill': "bool",
     'Plugin.B2SLegacy.BackglassDMDAutoPos': "bool",
-    'Plugin.B2SLegacy.BackglassDMDH': "number",
+    'Plugin.B2SLegacy.BackglassDMDH': "int",
     'Plugin.B2SLegacy.BackglassDMDOverlay': "bool",
-    'Plugin.B2SLegacy.BackglassDMDW': "number",
-    'Plugin.B2SLegacy.BackglassDMDX': "number",
-    'Plugin.B2SLegacy.BackglassDMDY': "number",
+    'Plugin.B2SLegacy.BackglassDMDW': "int",
+    'Plugin.B2SLegacy.BackglassDMDX': "int",
+    'Plugin.B2SLegacy.BackglassDMDY': "int",
     'Plugin.B2SLegacy.Enable': "bool",
     'Plugin.B2SLegacy.ScoreViewDMDAutoPos': "bool",
-    'Plugin.B2SLegacy.ScoreViewDMDH': "number",
+    'Plugin.B2SLegacy.ScoreViewDMDH': "int",
     'Plugin.B2SLegacy.ScoreViewDMDOverlay': "bool",
-    'Plugin.B2SLegacy.ScoreViewDMDW': "number",
-    'Plugin.B2SLegacy.ScoreViewDMDX': "number",
-    'Plugin.B2SLegacy.ScoreViewDMDY': "number",
+    'Plugin.B2SLegacy.ScoreViewDMDW': "int",
+    'Plugin.B2SLegacy.ScoreViewDMDX': "int",
+    'Plugin.B2SLegacy.ScoreViewDMDY': "int",
     'Plugin.DMDUtil.DMDServer': "bool",
     'Plugin.DMDUtil.DMDServerAddr': "string",
     'Plugin.DMDUtil.DMDServerPort': "int",
@@ -1166,6 +1172,8 @@ TYPES: dict[str, str] = {
     'Plugin.HelloWorld.Enable': "bool",
     'Plugin.Inspector.Enable': "bool",
     'Plugin.Inspector.port': "int",
+    'Plugin.Nixie.Enable': "bool",
+    'Plugin.Nixie.LayoutFolder': "string",
     'Plugin.PUP.BGFrameOverlay': "string",
     'Plugin.PUP.BGPadBottom': "int",
     'Plugin.PUP.BGPadLeft': "int",
@@ -1306,7 +1314,7 @@ TYPES: dict[str, str] = {
 # Saving a table's settings drops any value equal to the application's, so a
 # table cannot be pinned to what it already inherits - except for these, which
 # are kept. Declared by the `...Dyn` half of each macro pair.
-# 133 of them.
+# 135 of them.
 CONTEXTUAL: frozenset[str] = frozenset({
     'Backglass.BackglassColorDepth',
     'Backglass.BackglassDisplay',
@@ -1352,9 +1360,11 @@ CONTEXTUAL: frozenset[str] = frozenset({
     'PlayerVR.TableY',
     'PlayerVR.TableZ',
     'Plugin.AltSound.Enable',
+    'Plugin.B2S.Enable',
     'Plugin.B2SLegacy.Enable',
     'Plugin.DMDUtil.Enable',
     'Plugin.FlexDMD.Enable',
+    'Plugin.Nixie.Enable',
     'Plugin.PUP.Enable',
     'Plugin.PinMAME.Enable',
     'Plugin.ScoreView.Enable',
@@ -1445,7 +1455,7 @@ CONTEXTUAL: frozenset[str] = frozenset({
 
 # A plugin setting's label, where it is not the key. The ini writes every plugin
 # setting but `Enable` bare, so it has none to give.
-# 68 of them.
+# 62 of them.
 LABELS: dict[str, str] = {
     'Plugin.AltSound.Folder': 'AltSound Folder',
     'Plugin.B2S.AllAnimationSlowDown': 'Global animation slowdown',
@@ -1457,8 +1467,6 @@ LABELS: dict[str, str] = {
     'Plugin.B2S.BackglassDMDX': 'Backglass DMD X position',
     'Plugin.B2S.BackglassDMDY': 'Backglass DMD Y position',
     'Plugin.B2S.DualMode': 'Dual Mode',
-    'Plugin.B2S.HideB2SDMD': 'Hide B2S DMD',
-    'Plugin.B2S.HideDMD': 'Hide DMD',
     'Plugin.B2S.ScoreViewDMDAutoPos': 'Score View DMD Automatic position',
     'Plugin.B2S.ScoreViewDMDH': 'Score View DMD height',
     'Plugin.B2S.ScoreViewDMDOverlay': 'Score View DMD Overlay',
@@ -1467,11 +1475,6 @@ LABELS: dict[str, str] = {
     'Plugin.B2S.ScoreViewDMDY': 'Score View DMD Y position',
     'Plugin.B2S.ShowGrill': 'Show Grill',
     'Plugin.B2S.UsedLEDType': 'Used LED type',
-    'Plugin.B2SLegacy.B2SDMDFlipY': 'Flip B2S DMD',
-    'Plugin.B2SLegacy.B2SDualMode': 'Dual mode',
-    'Plugin.B2SLegacy.B2SHideB2SBackglass': 'Hide B2S backglass',
-    'Plugin.B2SLegacy.B2SHideB2SDMD': 'Hide B2S DMD',
-    'Plugin.B2SLegacy.B2SHideGrill': 'Hide grill',
     'Plugin.B2SLegacy.BackglassDMDAutoPos': 'Backglass DMD Automatic position',
     'Plugin.B2SLegacy.BackglassDMDH': 'Backglass DMD height',
     'Plugin.B2SLegacy.BackglassDMDOverlay': 'Backglass DMD Overlay',
@@ -1485,6 +1488,7 @@ LABELS: dict[str, str] = {
     'Plugin.B2SLegacy.ScoreViewDMDX': 'Score View DMD X position',
     'Plugin.B2SLegacy.ScoreViewDMDY': 'Score View DMD Y position',
     'Plugin.Inspector.port': 'Web Server Port',
+    'Plugin.Nixie.LayoutFolder': 'Layout Folder',
     'Plugin.PUP.BGFrameOverlay': 'Backglass Frame Overlay',
     'Plugin.PUP.BGPadBottom': 'Backglass Bottom Pad',
     'Plugin.PUP.BGPadLeft': 'Backglass Left Pad',
@@ -1519,7 +1523,7 @@ LABELS: dict[str, str] = {
 
 # What each plugin setting is registered with. The ini has none of it: VPX writes
 # a plugin's settings bare, and only once it has run that plugin.
-# 107 of them.
+# 106 of them.
 REGISTERED: dict[str, Registered] = {
     'Plugin.AlphaDMD.Enable': Registered('0'),
     'Plugin.AltSound.Folder': Registered(''),
@@ -1536,8 +1540,6 @@ REGISTERED: dict[str, Registered] = {
         ('2', 'Fantasy'),
     )),
     'Plugin.B2S.Enable': Registered('0'),
-    'Plugin.B2S.HideB2SDMD': Registered('0'),
-    'Plugin.B2S.HideDMD': Registered('0'),
     'Plugin.B2S.ScoreViewDMDAutoPos': Registered('0'),
     'Plugin.B2S.ScoreViewDMDH': Registered('0', minimum=0, maximum=65535),
     'Plugin.B2S.ScoreViewDMDOverlay': Registered('0'),
@@ -1561,17 +1563,17 @@ REGISTERED: dict[str, Registered] = {
     'Plugin.B2SLegacy.B2SHideDMD': Registered('1'),
     'Plugin.B2SLegacy.B2SHideGrill': Registered('0'),
     'Plugin.B2SLegacy.BackglassDMDAutoPos': Registered('0'),
-    'Plugin.B2SLegacy.BackglassDMDH': Registered('0.0', minimum=0.0, maximum=100.0),
+    'Plugin.B2SLegacy.BackglassDMDH': Registered('0', minimum=0, maximum=65535),
     'Plugin.B2SLegacy.BackglassDMDOverlay': Registered('0'),
-    'Plugin.B2SLegacy.BackglassDMDW': Registered('0.0', minimum=0.0, maximum=100.0),
-    'Plugin.B2SLegacy.BackglassDMDX': Registered('0.0', minimum=0.0, maximum=100.0),
-    'Plugin.B2SLegacy.BackglassDMDY': Registered('0.0', minimum=0.0, maximum=100.0),
+    'Plugin.B2SLegacy.BackglassDMDW': Registered('0', minimum=0, maximum=65535),
+    'Plugin.B2SLegacy.BackglassDMDX': Registered('0', minimum=0, maximum=65535),
+    'Plugin.B2SLegacy.BackglassDMDY': Registered('0', minimum=0, maximum=65535),
     'Plugin.B2SLegacy.ScoreViewDMDAutoPos': Registered('0'),
-    'Plugin.B2SLegacy.ScoreViewDMDH': Registered('0.0', minimum=0.0, maximum=100.0),
+    'Plugin.B2SLegacy.ScoreViewDMDH': Registered('0', minimum=0, maximum=65535),
     'Plugin.B2SLegacy.ScoreViewDMDOverlay': Registered('0'),
-    'Plugin.B2SLegacy.ScoreViewDMDW': Registered('0.0', minimum=0.0, maximum=100.0),
-    'Plugin.B2SLegacy.ScoreViewDMDX': Registered('0.0', minimum=0.0, maximum=100.0),
-    'Plugin.B2SLegacy.ScoreViewDMDY': Registered('0.0', minimum=0.0, maximum=100.0),
+    'Plugin.B2SLegacy.ScoreViewDMDW': Registered('0', minimum=0, maximum=65535),
+    'Plugin.B2SLegacy.ScoreViewDMDX': Registered('0', minimum=0, maximum=65535),
+    'Plugin.B2SLegacy.ScoreViewDMDY': Registered('0', minimum=0, maximum=65535),
     'Plugin.DMDUtil.DMDServer': Registered('0'),
     'Plugin.DMDUtil.DMDServerAddr': Registered('localhost'),
     'Plugin.DMDUtil.DMDServerPort': Registered('6789', minimum=0, maximum=65535),
@@ -1600,6 +1602,7 @@ REGISTERED: dict[str, Registered] = {
     'Plugin.HelloWorld.Enable': Registered('0'),
     'Plugin.Inspector.Enable': Registered('0'),
     'Plugin.Inspector.port': Registered('2113', minimum=1024, maximum=65535),
+    'Plugin.Nixie.LayoutFolder': Registered(''),
     'Plugin.PUP.BGFrameOverlay': Registered(''),
     'Plugin.PUP.BGPadBottom': Registered('0', minimum=0, maximum=4096),
     'Plugin.PUP.BGPadLeft': Registered('0', minimum=0, maximum=4096),
@@ -1653,4 +1656,102 @@ REGISTERED: dict[str, Registered] = {
         ('9', 'Super-XBR 2x'),
     )),
     'Plugin.VNI.VniPath': Registered(''),
+}
+
+# The digits a build's `[Version] VPinball` starts with, before its Rev: major,
+# minor and patch side by side. A Rev only compares with one from the same line.
+LINE = '1081'
+
+# Where in that line a setting exists, for the ones not every build we read
+# declares. A setting not here is declared by all of them.
+# 88 of them.
+SPANS: dict[str, Span] = {
+    'Backglass.BackglassRotation': Span(5462, None),
+    'Editor.EnableLog': Span(0, 5640),
+    'Editor.ExternalScriptEditor': Span(6012, None),
+    'Editor.LogScriptOutput': Span(0, 5640),
+    'Editor.PartLibraryFolders': Span(6001, None),
+    'Global.EnableLog': Span(5640, None),
+    'Global.LogScriptOutput': Span(5640, None),
+    'Global.ResetLogOnPlay': Span(5640, None),
+    'Player.PlayMusic': Span(0, 5384),
+    'Player.PlaySound': Span(0, 5384),
+    'Player.RumbleBallBall': Span(5648, None),
+    'Player.RumbleBumper': Span(5643, None),
+    'Player.RumbleFlipperButton': Span(5643, None),
+    'Player.RumbleFlipperContact': Span(5559, None),
+    'Player.RumbleNudge': Span(5647, None),
+    'Player.RumblePlunger': Span(5643, None),
+    'Player.RumbleSlingshot': Span(5643, None),
+    'Player.VRPreview': Span(0, 6120),
+    'PlayerVR.DesktopDisplay': Span(6120, None),
+    'PlayerVR.DisplayRefreshRate': Span(5593, None),
+    'PlayerVR.PreviewColorDepth': Span(0, 6120),
+    'PlayerVR.PreviewDisplay': Span(0, 6120),
+    'PlayerVR.PreviewFSHeight': Span(0, 6120),
+    'PlayerVR.PreviewFSWidth': Span(0, 6120),
+    'PlayerVR.PreviewFullScreen': Span(0, 6120),
+    'PlayerVR.PreviewHeight': Span(0, 6120),
+    'PlayerVR.PreviewRefreshRate': Span(0, 6120),
+    'PlayerVR.PreviewWidth': Span(0, 6120),
+    'PlayerVR.PreviewWndX': Span(0, 6120),
+    'PlayerVR.PreviewWndY': Span(0, 6120),
+    'PlayerVR.ShrinkDesktopDisplay': Span(6120, None),
+    'PlayerVR.ShrinkPreview': Span(0, 6120),
+    'PlayerVR.SpatialAudioBackglass': Span(6075, None),
+    'PlayerVR.SpatialAudioPlayfield': Span(6075, None),
+    'Plugin.B2S.AllAnimationSlowDown': Span(6091, None),
+    'Plugin.B2S.AnimationSlowDowns': Span(6091, None),
+    'Plugin.B2S.BackglassDMDAutoPos': Span(0, 6267),
+    'Plugin.B2S.BackglassDMDH': Span(0, 6267),
+    'Plugin.B2S.BackglassDMDOverlay': Span(0, 6267),
+    'Plugin.B2S.BackglassDMDW': Span(0, 6267),
+    'Plugin.B2S.BackglassDMDX': Span(0, 6267),
+    'Plugin.B2S.BackglassDMDY': Span(0, 6267),
+    'Plugin.B2S.DualMode': Span(6089, None),
+    'Plugin.B2S.ScoreViewDMDAutoPos': Span(0, 6267),
+    'Plugin.B2S.ScoreViewDMDH': Span(0, 6267),
+    'Plugin.B2S.ScoreViewDMDOverlay': Span(0, 6267),
+    'Plugin.B2S.ScoreViewDMDW': Span(0, 6267),
+    'Plugin.B2S.ScoreViewDMDX': Span(0, 6267),
+    'Plugin.B2S.ScoreViewDMDY': Span(0, 6267),
+    'Plugin.B2S.UsedLEDType': Span(6093, None),
+    'Plugin.B2SLegacy.B2SBackglassHeight': Span(0, 6293),
+    'Plugin.B2SLegacy.B2SBackglassWidth': Span(0, 6293),
+    'Plugin.B2SLegacy.B2SDMDFlipY': Span(0, 6293),
+    'Plugin.B2SLegacy.B2SDMDHeight': Span(0, 6293),
+    'Plugin.B2SLegacy.B2SDMDWidth': Span(0, 6293),
+    'Plugin.B2SLegacy.B2SDualMode': Span(0, 6293),
+    'Plugin.B2SLegacy.B2SHideB2SBackglass': Span(0, 6293),
+    'Plugin.B2SLegacy.B2SHideB2SDMD': Span(0, 6287),
+    'Plugin.B2SLegacy.B2SHideDMD': Span(0, 6278),
+    'Plugin.B2SLegacy.B2SHideGrill': Span(0, 6293),
+    'Plugin.B2SLegacy.BackglassDMDAutoPos': Span(0, 6268),
+    'Plugin.B2SLegacy.BackglassDMDH': Span(0, 6268),
+    'Plugin.B2SLegacy.BackglassDMDOverlay': Span(0, 6268),
+    'Plugin.B2SLegacy.BackglassDMDW': Span(0, 6268),
+    'Plugin.B2SLegacy.BackglassDMDX': Span(0, 6268),
+    'Plugin.B2SLegacy.BackglassDMDY': Span(0, 6268),
+    'Plugin.B2SLegacy.Enable': Span(0, 6293),
+    'Plugin.B2SLegacy.ScoreViewDMDAutoPos': Span(0, 6268),
+    'Plugin.B2SLegacy.ScoreViewDMDH': Span(0, 6268),
+    'Plugin.B2SLegacy.ScoreViewDMDOverlay': Span(0, 6268),
+    'Plugin.B2SLegacy.ScoreViewDMDW': Span(0, 6268),
+    'Plugin.B2SLegacy.ScoreViewDMDX': Span(0, 6268),
+    'Plugin.B2SLegacy.ScoreViewDMDY': Span(0, 6268),
+    'Plugin.Nixie.Enable': Span(6254, None),
+    'Plugin.Nixie.LayoutFolder': Span(6254, None),
+    'Plugin.PinMAME.Sound': Span(0, 5543),
+    'Plugin.PinUpEvents.Enable': Span(0, 5365),
+    'Plugin.ScoreView.Enable': Span(0, 6254),
+    'Plugin.ScoreView.LayoutFolder': Span(0, 6254),
+    'Plugin.Serum.DisabledSize': Span(5663, None),
+    'Plugin.Serum.IdentifyPollInterval': Span(6145, None),
+    'Plugin.Serum.IgnoreUnknownFramesTimeout': Span(5663, None),
+    'Plugin.Serum.MaximumUnknownFramesToSkip': Span(5663, None),
+    'Plugin.Serum.PupTriggers': Span(5663, None),
+    'ScoreView.ScoreViewRotation': Span(5462, None),
+    'Standalone.Haptics': Span(0, 5579),
+    'Standalone.ResetLogOnPlay': Span(0, 5640),
+    'Topper.TopperRotation': Span(5462, None),
 }

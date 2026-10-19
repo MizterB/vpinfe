@@ -107,6 +107,25 @@ class PluginTests(unittest.TestCase):
         })
 
 
+    def test_a_folder_and_a_file_are_strings(self) -> None:
+        (self.root / "pinmame" / "plugin.cpp").write_text(
+            'MSGPI_FOLDER_VAL_SETTING(a, "LayoutFolder", "Layouts", "", true, "", 1024);\n'
+            'MSGPI_FILE_VAL_SETTING(b, "Rom", "Rom", "", true, "", "zip", 1024);\n')
+
+        types, _labels, registered = script.from_plugins(self.root)
+
+        self.assertEqual(types["Plugin.PinMAME.LayoutFolder"], "string")
+        self.assertEqual(types["Plugin.PinMAME.Rom"], "string")
+        self.assertEqual(registered["Plugin.PinMAME.Rom"], {"default": ""})
+
+    def test_a_kind_it_has_no_type_for_stops_the_run(self) -> None:
+        (self.root / "pinmame" / "plugin.cpp").write_text(
+            'MSGPI_COLOR_VAL_SETTING(a, "Tint", "Tint", "", true, 0);\n')
+
+        with self.assertRaisesRegex(ValueError, "MSGPI_COLOR_VAL_SETTING in Plugin.PinMAME"):
+            script.from_plugins(self.root)
+
+
 NAMED = """\
 #define MSGPI_BOOL_VAL_SETTING(var, id, name, desc, editable, def) \\
    static MsgPluginSettingDef var = { id, name, desc, editable, def }
@@ -220,6 +239,132 @@ class CombinedTests(unittest.TestCase):
         said = namespace["REGISTERED"]["Plugin.X.Mode"]
         self.assertEqual((said.default, said.minimum, said.choices),
                          ("1", None, (("1", "On"), ("2", "Off"))))
+
+    def test_a_registration_survives_a_later_build_declaring_the_switch_itself(self) -> None:
+        _types, _contextual, _labels, registered = script.combined([
+            ({"Plugin.B2S.Enable": "bool"}, set(), {},
+             {"Plugin.B2S.Enable": {"default": "0"}}),
+            ({"Plugin.B2S.Enable": "bool"}, set(), {}, {}),
+        ])
+
+        self.assertEqual(registered, {"Plugin.B2S.Enable": {"default": "0"}})
+
+
+def _sample(rev: int, *keys: str) -> tuple[int, frozenset[str]]:
+    return rev, frozenset(keys)
+
+
+class SpanTests(unittest.TestCase):
+    def test_a_setting_every_build_declares_has_no_span(self) -> None:
+        self.assertEqual(script.spans([_sample(10, "A.x"), _sample(20, "A.x")]), {})
+
+    def test_a_setting_added_between_two_builds_may_be_in_the_later_one(self) -> None:
+        found = script.spans([_sample(10, "A.x"), _sample(20, "A.x", "A.y")])
+
+        self.assertEqual(found, {"A.y": (11, None)})
+
+    def test_a_setting_taken_out_between_two_builds_is_still_in_the_earlier_one(self) -> None:
+        found = script.spans([_sample(10, "A.x", "A.y"), _sample(20, "A.x")])
+
+        self.assertEqual(found, {"A.y": (0, 20)})
+
+    def test_a_setting_that_comes_and_goes_is_one_interval(self) -> None:
+        found = script.spans([_sample(10, "A.x"), _sample(20, "A.x", "A.y"),
+                              _sample(30, "A.x")])
+
+        self.assertEqual(found, {"A.y": (11, 30)})
+
+    def test_a_setting_that_comes_back_stops_the_run(self) -> None:
+        with self.assertRaisesRegex(ValueError, "A.y comes and goes more than once"):
+            script.spans([_sample(10, "A.y"), _sample(20), _sample(30, "A.y")])
+
+    def test_an_exact_answer_replaces_the_bounds_of_the_gap(self) -> None:
+        found = script.spans(
+            [_sample(10, "A.x"), _sample(20, "A.x", "A.y")],
+            exact=lambda n, keys: dict.fromkeys(keys, 14))
+
+        self.assertEqual(found, {"A.y": (14, None)})
+
+    def test_the_exact_answer_is_asked_only_where_something_differs(self) -> None:
+        asked: list[int] = []
+
+        def exact(n: int, keys: frozenset[str]) -> dict[str, int]:
+            asked.append(n)
+            return dict.fromkeys(keys, 12)
+
+        script.spans([_sample(10, "A.x"), _sample(20, "A.x"), _sample(30)], exact=exact)
+
+        self.assertEqual(asked, [1])
+
+
+class LocatedTests(unittest.TestCase):
+    """`located` over a run of positions where each setting appears once."""
+
+    @staticmethod
+    def _run(appears: dict[str, int]):
+        probes: list[int] = []
+
+        def at(position: int) -> frozenset[str]:
+            probes.append(position)
+            return frozenset(key for key, first in appears.items() if position >= first)
+        return at, probes
+
+    def test_each_setting_is_found_at_the_position_it_appears(self) -> None:
+        at, _probes = self._run({"A.x": 3, "A.y": 12})
+
+        found = script.located(frozenset({"A.x", "A.y"}), 0, 16, at)
+
+        self.assertEqual(found, {"A.x": 3, "A.y": 12})
+
+    def test_a_setting_that_goes_is_found_where_it_is_first_missing(self) -> None:
+        def at(position: int) -> frozenset[str]:
+            return frozenset({"A.x"}) if position < 5 else frozenset()
+
+        self.assertEqual(script.located(frozenset({"A.x"}), 0, 9, at), {"A.x": 5})
+
+    def test_the_run_is_searched_by_halving_not_read_through(self) -> None:
+        at, probes = self._run({"A.x": 700})
+
+        script.located(frozenset({"A.x"}), 0, 1000, at)
+
+        self.assertLess(len(probes), 25)
+
+    def test_nothing_differing_reads_nothing(self) -> None:
+        at, probes = self._run({})
+
+        self.assertEqual(script.located(frozenset(), 0, 100, at), {})
+        self.assertEqual(probes, [])
+
+
+class BuildIdentityTests(unittest.TestCase):
+    def test_the_line_is_major_minor_and_patch_side_by_side(self) -> None:
+        header = ("#define VP_VERSION_MAJOR 10\n#define VP_VERSION_MINOR 8\n"
+                  "#define VP_VERSION_REV 1\n")
+
+        self.assertEqual(script.line_of(header), "1081")
+
+    def test_a_header_that_does_not_say_stops_the_run(self) -> None:
+        with self.assertRaisesRegex(ValueError, "does not say the version"):
+            script.line_of("#define VP_VERSION_MAJOR 10\n")
+
+    def test_the_rev_counts_from_the_commit_the_workflow_names(self) -> None:
+        self.assertEqual(script.start_of("env:\n  VERSION_START_SHA: 6f9b0ae1c\n"), "6f9b0ae1c")
+
+    def test_a_workflow_that_does_not_say_stops_the_run(self) -> None:
+        with self.assertRaisesRegex(ValueError, "Rev starts counting"):
+            script.start_of("env:\n  OTHER: 1\n")
+
+
+class SpansRenderTests(unittest.TestCase):
+    def test_the_line_and_the_spans_render_as_they_read(self) -> None:
+        text = script.rendered({"A.x": "bool"}, line="1081",
+                               where={"A.x": (5, None), "A.y": (0, 9)})
+        namespace: dict = {}
+        exec(compile(text, "setting_types.py", "exec"), namespace)
+
+        self.assertEqual(namespace["LINE"], "1081")
+        self.assertEqual(tuple(namespace["SPANS"]["A.x"]), (5, None))
+        self.assertEqual(tuple(namespace["SPANS"]["A.y"]), (0, 9))
 
 
 class MapTests(unittest.TestCase):

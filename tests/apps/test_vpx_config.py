@@ -17,9 +17,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from apps.vpx import areas, bindings, displays
+from apps.vpx import areas, bindings, build, displays
 from apps.vpx.config import VPXConfig, own_file, own_log, settings_file
-from apps.vpx.setting_types import LABELS, TYPES
+from apps.vpx.setting_types import LABELS, TYPES, Span
 from common import apps
 from common.apps.contract import SCOPE_ENTRY, SCOPE_FOLDER, SCOPE_LAUNCHER, Standing
 
@@ -1348,6 +1348,72 @@ class SchemaTests(_Case):
         self.assertNotIn("Version.VPinball", offered)
         self.assertNotIn("Version.VPinball", self.config.read(
             SCOPE_LAUNCHER, "", self.settings))
+
+
+class BuildTests(_Case):
+    """A setting the saving build does not have is left off the page."""
+
+    STALE = "Editor.EnableLog"
+    NEW = "Plugin.Nixie.LayoutFolder"
+
+    def setUp(self) -> None:
+        super().setUp()
+        for patch in (mock.patch.object(build, "LINE", "1081"),
+                      mock.patch.dict(build.SPANS, {self.STALE: Span(0, 5640),
+                                                    self.NEW: Span(6254, None)}, clear=True)):
+            patch.start()
+            self.addCleanup(patch.stop)
+
+    def offered(self, version: str | None = None) -> set[str]:
+        ini = (APP_INI.replace("VPinball = 10815353", f"VPinball = {version}")
+               if version else APP_INI.replace("VPinball = 10815353\n", ""))
+        self.app_ini.write_text(
+            ini + "\n[Editor]\n; Enable Log: Write a log [Default: 1]\nEnableLog = 1\n"
+            "\n[Plugin.Nixie]\nLayoutFolder = \n")
+        return {f.key for g in self.config.groups(self.settings) for f in g.settings}
+
+    def install_nixie(self) -> None:
+        bundle = self.root / "VPinballX_BGFX.app" / "Contents"
+        (bundle / "PlugIns" / "nixie").mkdir(parents=True)
+        (bundle / "PlugIns" / "nixie" / "plugin.cfg").write_text(
+            '[configuration]\nid = "Nixie"\nname = "Nixie"\ndescription = "Nixie tubes"\n')
+        self.settings["bin_path"] = str(bundle / "MacOS" / "VPinballX_BGFX")
+
+    def test_a_build_that_has_replaced_a_setting_is_not_offered_the_old_one(self) -> None:
+        self.assertNotIn(self.STALE, self.offered("10815985"))
+
+    def test_a_build_that_predates_a_setting_is_not_offered_it(self) -> None:
+        self.assertNotIn(self.NEW, self.offered("10815985"))
+
+    def test_the_builds_that_do_have_a_setting_are_offered_it(self) -> None:
+        self.assertIn(self.STALE, self.offered("10815353"))
+        self.assertIn(self.NEW, self.offered("10816300"))
+
+    def test_a_build_of_another_line_is_offered_everything(self) -> None:
+        self.assertLessEqual({self.STALE, self.NEW}, self.offered("1080"))
+
+    def test_an_ini_that_does_not_name_its_build_is_offered_everything(self) -> None:
+        self.assertIn(self.STALE, self.offered())
+
+    def test_a_plugin_the_program_has_is_offered_to_an_ini_an_older_build_saved(self) -> None:
+        self.install_nixie()
+
+        self.assertIn(self.NEW, self.offered("10815985"))
+
+    def test_a_setting_a_build_dropped_stays_off_the_page_when_its_plugin_is_there(self) -> None:
+        self.install_nixie()
+
+        self.assertNotIn(self.STALE, self.offered("10815985"))
+
+    def test_a_dropped_setting_a_game_sets_is_not_followed(self) -> None:
+        self.folder_file("[Backglass]\nGrillHeight = 200\n")
+        grill = {"Backglass.GrillHeight": Span(0, 5640)}
+        with mock.patch.dict(build.SPANS, grill):
+            held = self.config.follows_game(str(self.table), self.settings)
+            self.app_ini.write_text(APP_INI.replace("VPinball = 10815353", "VPinball = 10815985"))
+            gone = self.config.follows_game(str(self.table), self.settings)
+
+        self.assertEqual((held, gone), ({"Backglass.GrillHeight": "200"}, {}))
 
 
 SETS = ("DMD.Profile", "Alpha.Profile", "Player.Anaglyph", "DefaultCamera.")

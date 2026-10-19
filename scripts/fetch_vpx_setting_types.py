@@ -16,16 +16,24 @@ either - and none of them at all until VPX has run that plugin once.
 
 Run it when Visual Pinball ships settings we do not know the type of. A key the map does
 not carry falls back to what the ini implies, so a stale map degrades rather than breaks.
+
+Given several builds it also records, for each setting not all of them declare, the
+Rev it came in and the Rev it went at, so a build's own settings can be told from a
+neighbour's. `--bisect` finds those Revs from the commits between two builds.
 """
 
 from __future__ import annotations
 
 import argparse
+import io
 import pathlib
 import re
+import subprocess
 import sys
+import tarfile
+import tempfile
 import urllib.request
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable, Sequence
 
 SOURCE = ("https://raw.githubusercontent.com/vpinball/vpinball/master/"
           "src/core/Settings_properties.inl")
@@ -57,13 +65,17 @@ BASE_CONTEXTUAL = re.compile(rf"\s*{_LITERALS},\s*{_LITERALS},\s*(true|false)\b"
 # that is not a literal still leaves the rest.
 PLUGIN_CALL = re.compile(r"\bMSGPI_([A-Z]+)_(?:VAL_)?SETTING\s*\(")
 PLUGIN_KINDS = {"BOOL": "bool", "INT": "int", "FLOAT": "number",
-                "STRING": "string", "ENUM": "choice"}
-# Past those five, by macro. `MSGPI_ENUM_...` numbers its answers from `minimum`.
+                "STRING": "string", "FOLDER": "string", "FILE": "string",
+                "ENUM": "choice"}
+# Past those five, by macro. `MSGPI_ENUM_...` numbers its answers from `minimum`. A folder
+# is a string with a different picker; a file also names the files it offers.
 PLUGIN_ARGS = {"FLOAT": ("minimum", "maximum", "step", "default"),
                "INT": ("minimum", "maximum", "default"),
                "ENUM": ("minimum", "count", "values", "default"),
                "BOOL": ("default",),
-               "STRING": ("default", "size")}
+               "STRING": ("default", "size"),
+               "FOLDER": ("default", "size"),
+               "FILE": ("default", "filter", "size")}
 _STRING = re.compile(r'"((?:[^"\\]|\\.)*)"s?')
 _CHAR = re.compile(r"'(?:[^'\\]|\\.)'")
 _NUMBER = re.compile(r"[-+]?(?:0[xX][0-9A-Fa-f]+|(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?[fF]?)")
@@ -139,7 +151,9 @@ Build = tuple[dict[str, str], set[str], dict[str, str], Registered]
 
 def combined(builds: Iterable[Build]) -> Build:
     """Several builds as one map, oldest first. A setting more than one declares takes
-    the last one's type, whether it is contextual, its label and what it registers."""
+    the last one's type, whether it is contextual and its label. What a plugin registers
+    it with is kept from the last build that registers it, because an earlier build may
+    still register a setting a later one declares in the core."""
     types: dict[str, str] = {}
     contextual: set[str] = set()
     labels: dict[str, str] = {}
@@ -148,8 +162,143 @@ def combined(builds: Iterable[Build]) -> Build:
         types.update(found)
         contextual = (contextual - found.keys()) | held
         labels = {key: label for key, label in labels.items() if key not in found} | said
-        registered = {key: one for key, one in registered.items() if key not in found} | given
+        registered = registered | given
     return types, contextual, labels, registered
+
+
+# Where a setting exists, in the builds of one version line. `since` is the first Rev that
+# declares it (0: every build we read does) and `until` the first that no longer does.
+Span = tuple[int, int | None]
+Sample = tuple[int, frozenset[str]]
+# Declared at one position in a run of commits, for finding where a setting came or went.
+Probe = Callable[[int], frozenset[str]]
+
+
+def spans(samples: Sequence[Sample],
+          exact: Callable[[int, frozenset[str]], dict[str, int]] | None = None,
+          ) -> dict[str, Span]:
+    """Where in the line each setting that not every sample declares exists.
+
+    `samples` are builds of one line, oldest first, as their Rev and the keys they
+    declare. Between two samples a setting that differs came or went somewhere, so
+    without `exact` it is taken to have come at the earliest Rev and gone at the latest -
+    a build in the gap is shown the setting rather than denied it. `exact(n, keys)` gives
+    the Rev where each of `keys` changed between samples `n` and `n + 1`.
+
+    Raises ValueError for a setting that comes and goes more than one way: a span is one
+    interval.
+    """
+    events: dict[str, list[tuple[str, int]]] = {}
+    for n in range(len(samples) - 1):
+        (low, before), (high, after) = samples[n], samples[n + 1]
+        differing = before ^ after
+        found = exact(n, differing) if exact and differing else {}
+        for key in sorted(differing):
+            if key in after:
+                events.setdefault(key, []).append(("added", found.get(key, low + 1)))
+            else:
+                events.setdefault(key, []).append(("removed", found.get(key, high)))
+    first = samples[0][1]
+    found_spans: dict[str, Span] = {}
+    for key, seen in events.items():
+        order = [what for what, _ in seen]
+        if order not in (["added"], ["removed"], ["added", "removed"]) or (
+                order[0] == "removed") != (key in first):
+            raise ValueError(f"{key} comes and goes more than once ({', '.join(order)}); "
+                             "a span holds one interval.")
+        since = next((rev for what, rev in seen if what == "added"), 0)
+        until = next((rev for what, rev in seen if what == "removed"), None)
+        found_spans[key] = (since, until)
+    return found_spans
+
+
+def located(differing: frozenset[str], low: int, high: int, at: Probe) -> dict[str, int]:
+    """The first position in `(low, high]` where each of `differing` has the state it has
+    at `high`, for settings that each changed once between the two positions. A key that
+    changed twice and ended where it began is not in `differing` and is not found."""
+    if not differing:
+        return {}
+    if high - low == 1:
+        return dict.fromkeys(differing, high)
+    middle = (low + high) // 2
+    before, here = at(low), at(middle)
+    unchanged = frozenset(key for key in differing if (key in here) == (key in before))
+    return (located(differing - unchanged, low, middle, at)
+            | located(unchanged, middle, high, at))
+
+
+VERSION_HEADER = pathlib.PurePosixPath("src/core/vpversion.h")
+WORKFLOW = pathlib.PurePosixPath(".github/workflows/vpinball.yml")
+_VERSION_PART = re.compile(r"#define\s+VP_VERSION_(MAJOR|MINOR|REV)\s+(\d+)")
+_START = re.compile(r"VERSION_START_SHA:\s*(\w+)")
+
+
+def line_of(header: str) -> str:
+    """The digits a build's `[Version] VPinball` starts with, before its Rev: major,
+    minor and patch written side by side, as `VP_VERSION_STRING_DIGITS` does."""
+    parts = dict(_VERSION_PART.findall(header))
+    if {"MAJOR", "MINOR", "REV"} - parts.keys():
+        raise ValueError("vpversion.h does not say the version.")
+    return f"{parts['MAJOR']}{parts['MINOR']}{parts['REV']}"
+
+
+def start_of(workflow: str) -> str:
+    """The commit a build counts its Rev from."""
+    said = _START.search(workflow)
+    if said is None:
+        raise ValueError("The build workflow does not name where the Rev starts counting.")
+    return said.group(1)
+
+
+def _git(repo: pathlib.Path, *args: str) -> str:
+    done = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True,
+                          check=False)
+    if done.returncode:
+        raise ValueError(f"git {' '.join(args)}: {done.stderr.strip()}")
+    return done.stdout.strip()
+
+
+def rev_of(repo: pathlib.Path, commit: str, start: str) -> int:
+    return int(_git(repo, "rev-list", "--count", f"{start}..{commit}"))
+
+
+def declared_at(repo: pathlib.Path, commit: str) -> frozenset[str]:
+    """The settings one commit declares, read without checking it out."""
+    done = subprocess.run(
+        ["git", "-C", str(repo), "archive", "--format=tar", commit,
+         "src/core/Settings_properties.inl", "plugins"],
+        capture_output=True, check=False)
+    if done.returncode:
+        raise ValueError(f"git archive {commit}: {done.stderr.decode(errors='replace')}")
+    with tempfile.TemporaryDirectory() as scratch:
+        with tarfile.open(fileobj=io.BytesIO(done.stdout)) as packed:
+            packed.extractall(scratch, filter="data")
+        return frozenset(from_checkout(pathlib.Path(scratch))[0])
+
+
+def exact_between(repo: pathlib.Path, builds: Sequence[tuple[str, frozenset[str]]],
+                  start: str) -> Callable[[int, frozenset[str]], dict[str, int]]:
+    """For `spans`: the Rev where each setting changed between two builds, found by
+    reading the commits between them. `builds` are commit ids with what each declares."""
+    def exact(n: int, differing: frozenset[str]) -> dict[str, int]:
+        low, high = builds[n], builds[n + 1]
+        commits = [low[0], *_git(repo, "rev-list", "--reverse", "--first-parent",
+                                 f"{low[0]}..{high[0]}").split()]
+        known = {0: low[1], len(commits) - 1: high[1]}
+
+        def at(position: int) -> frozenset[str]:
+            if position not in known:
+                known[position] = declared_at(repo, commits[position])
+            return known[position]
+
+        found = located(differing, 0, len(commits) - 1, at)
+        for key, position in found.items():
+            if (key in at(position)) != (key in high[1]) or (key in at(position - 1)) == (
+                    key in high[1]):
+                raise ValueError(f"{key} does not change once between {low[0]} and "
+                                 f"{high[0]}; read the commits between by hand.")
+        return {key: rev_of(repo, commits[position], start) for key, position in found.items()}
+    return exact
 
 
 def _registered_row(key: str, one: dict[str, object]) -> str:
@@ -165,7 +314,8 @@ def _registered_row(key: str, one: dict[str, object]) -> str:
 
 def rendered(types: dict[str, str], contextual: set[str] | None = None,
              labels: dict[str, str] | None = None,
-             registered: Registered | None = None) -> str:
+             registered: Registered | None = None,
+             line: str = "", where: dict[str, Span] | None = None) -> str:
     # Escaped: a `DefaultProps\\Ball` section carries a backslash, and written raw it
     # is an invalid escape in the file this generates.
     rows = "".join(f'    {key!r}: "{kind}",\n' for key, kind in sorted(types.items()))
@@ -174,6 +324,8 @@ def rendered(types: dict[str, str], contextual: set[str] | None = None,
                     for key, label in sorted((labels or {}).items()))
     given = "".join(_registered_row(key, one)
                     for key, one in sorted((registered or {}).items()))
+    held = "".join(f"    {key!r}: Span({since}, {until}),\n"
+                   for key, (since, until) in sorted((where or {}).items()))
     return (
         '"""What type each Visual Pinball setting is, and what a plugin registers its own\n'
         "with.\n"
@@ -206,6 +358,14 @@ def rendered(types: dict[str, str], contextual: set[str] | None = None,
         "    choices: tuple[tuple[str, str], ...] = ()\n"
         "\n"
         "\n"
+        "class Span(NamedTuple):\n"
+        '    """The builds of one line that declare a setting: from the Rev `since`, and\n'
+        '    before the Rev `until` if it was taken out again."""\n'
+        "\n"
+        "    since: int = 0\n"
+        "    until: int | None = None\n"
+        "\n"
+        "\n"
         f"# {len(types)} declarations.\n"
         "TYPES: dict[str, str] = {\n"
         f"{rows}"
@@ -233,6 +393,17 @@ def rendered(types: dict[str, str], contextual: set[str] | None = None,
         f"# {len(registered or {})} of them.\n"
         "REGISTERED: dict[str, Registered] = {\n"
         f"{given}"
+        "}\n"
+        "\n"
+        "# The digits a build's `[Version] VPinball` starts with, before its Rev: major,\n"
+        "# minor and patch side by side. A Rev only compares with one from the same line.\n"
+        f"LINE = {line!r}\n"
+        "\n"
+        "# Where in that line a setting exists, for the ones not every build we read\n"
+        "# declares. A setting not here is declared by all of them.\n"
+        f"# {len(where or {})} of them.\n"
+        "SPANS: dict[str, Span] = {\n"
+        f"{held}"
         "}\n"
     )
 
@@ -265,8 +436,11 @@ def from_plugins(root: pathlib.Path) -> tuple[dict[str, str], dict[str, str], Re
         for text in sources:
             for macro, args in _declarations(text):
                 kind = PLUGIN_KINDS.get(macro)
+                if kind is None:
+                    raise ValueError(f"No type for MSGPI_{macro}_VAL_SETTING in {section}; "
+                                     "add it to PLUGIN_KINDS and PLUGIN_ARGS.")
                 key = _literal(args[1]) if len(args) > 1 else None
-                if kind is None or key is None:
+                if key is None:
                     continue
                 qualified = f"{section}.{key}"
                 found[qualified] = kind
@@ -416,7 +590,7 @@ class _Names:
     def _given(self, macro: str, said: dict[str, str]) -> dict[str, object]:
         if macro == "BOOL":
             return {"default": "1" if self.value(said["default"]) else "0"}
-        if macro == "STRING":
+        if PLUGIN_KINDS[macro] == "string":
             return {"default": str(self.value(said["default"]))}
         if macro == "FLOAT":
             return {"default": repr(float(self.value(said["default"]))),
@@ -449,20 +623,51 @@ def from_checkout(root: pathlib.Path) -> Build:
     return types, contextual, labels, registered
 
 
+def measured(roots: Sequence[pathlib.Path], builds: Sequence[Build],
+             bisect: bool) -> tuple[str, dict[str, Span]]:
+    """The version line the checkouts are builds of, and where in it each setting not all
+    of them declare exists. With `bisect`, found by reading the commits between builds
+    rather than taken from the builds alone."""
+    for root in roots:
+        if _git(root, "status", "--porcelain", "--untracked-files=no"):
+            raise ValueError(f"{root} has changes that are not committed; the Rev it is "
+                             "given would not be that of the files read.")
+    lines = {line_of(_git(root, "show", f"HEAD:{VERSION_HEADER}")) for root in roots}
+    if len(lines) != 1:
+        raise ValueError(f"The builds are of more than one line: {', '.join(sorted(lines))}.")
+    start = start_of(_git(roots[-1], "show", f"HEAD:{WORKFLOW}"))
+    commits = [_git(root, "rev-parse", "HEAD") for root in roots]
+    revs = [rev_of(roots[0], commit, start) for commit in commits]
+    if revs != sorted(revs):
+        raise ValueError(f"The builds must be oldest first; their Revs are {revs}.")
+    declared = [frozenset(build[0]) for build in builds]
+    exact = (exact_between(roots[0], list(zip(commits, declared, strict=True)), start)
+             if bisect else None)
+    return lines.pop(), spans(list(zip(revs, declared, strict=True)), exact)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--from", dest="sources", action="append", default=[],
                     metavar="PATH",
                     help="a checkout of vpinball, instead of fetching the sources; once "
                          "per build, oldest first")
+    ap.add_argument("--bisect", action="store_true",
+                    help="find the commit each setting came or went in between the "
+                         "builds; without it a build between two of ours is shown a "
+                         "setting rather than denied it")
     args = ap.parse_args()
 
     try:
         labels: dict[str, str] = {}
         registered: Registered = {}
+        line = ""
+        where: dict[str, Span] = {}
         if args.sources:
-            types, contextual, labels, registered = combined(
-                from_checkout(pathlib.Path(source)) for source in args.sources)
+            roots = [pathlib.Path(source) for source in args.sources]
+            builds = [from_checkout(root) for root in roots]
+            types, contextual, labels, registered = combined(builds)
+            line, where = measured(roots, builds, args.bisect)
         else:
             with urllib.request.urlopen(SOURCE, timeout=30) as answer:
                 types, contextual = parsed(answer.read().decode("utf-8"))
@@ -474,7 +679,8 @@ def main() -> int:
     if not types:
         print("No declarations found; the source's shape has changed.", file=sys.stderr)
         return 1
-    OUT.write_text(rendered(types, contextual, labels, registered), encoding="utf-8")
+    OUT.write_text(rendered(types, contextual, labels, registered, line, where),
+                   encoding="utf-8")
     counts: dict[str, int] = {}
     for kind in types.values():
         counts[kind] = counts.get(kind, 0) + 1
@@ -484,6 +690,7 @@ def main() -> int:
     print(f"    {'contextual':8} {len(contextual)}")
     print(f"    {'labels':8} {len(labels)}")
     print(f"    {'registered':8} {len(registered)}")
+    print(f"    {'spans':8} {len(where)} (line {line or 'none'})")
     return 0
 
 

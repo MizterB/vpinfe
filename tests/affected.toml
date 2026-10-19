@@ -79,6 +79,23 @@ tests = [
   "tests/theming/test_vpx_settings_in_place_drive.py",
 ]
 
+# The Visual Pinball settings catalog and the scripts that generate and check it.
+[[area]]
+paths = [
+  "apps/vpx/i18n/*",
+  "scripts/fetch_vpx_setting_types.py",
+  "scripts/vpx_ini_drift.py",
+]
+tests = [
+  "tests/apps/test_vpx_build.py",
+  "tests/apps/test_vpx_config.py",
+  "tests/apps/test_vpx_ini_drift.py",
+  "tests/apps/test_vpx_setting_types.py",
+  "tests/config/test_i18n_script.py",
+  "tests/theming/test_pseudo_locale.py",
+  "tests/theming/test_vpx_settings_in_place_drive.py",
+]
+
 # Setup and its wizard.
 [[area]]
 paths = ["manager/setup/*", "common/uploads/*", "extensions/library_importer/*"]
