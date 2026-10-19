@@ -253,6 +253,59 @@ if (!window.HubChoiceFilter) {
     }
   };
 }
+if (!window.HubWindowFilter) {
+  // One of a few windows back from today, or none. The model is the window in days, so a
+  // saved view reads it against the day it is applied on.
+  window.HubWindowFilter = class {
+    init(params) {
+      this.params = params;
+      this.days = 0;
+      this.cutoff = '';
+      this.gui = document.createElement('div');
+      this.gui.className = 'manager-filter';
+      window.HubWindowFilter.made = (window.HubWindowFilter.made || 0) + 1;
+      this.group = 'manager-filter-window-' + window.HubWindowFilter.made;
+      const words = params.words || {};
+      const windows = (params.windows || []).map(one => [one.value, one.label]);
+      this.radios = [[0, words.any || ''], ...windows]
+        .map(([days, said]) => {
+          const row = document.createElement('label');
+          row.className = 'manager-filter-row';
+          const radio = document.createElement('input');
+          radio.type = 'radio';
+          radio.name = this.group;
+          radio.checked = days === 0;
+          radio.addEventListener('change', () => {
+            this.take(days);
+            this.params.filterChangedCallback();
+          });
+          const word = document.createElement('span');
+          word.textContent = said;
+          row.append(radio, word);
+          this.gui.appendChild(row);
+          return [days, radio];
+        });
+    }
+    take(days) {
+      this.days = days;
+      const day = new Date();
+      day.setDate(day.getDate() - days);
+      const pad = n => String(n).padStart(2, '0');
+      this.cutoff = days
+        ? day.getFullYear() + '-' + pad(day.getMonth() + 1) + '-' + pad(day.getDate()) : '';
+    }
+    getGui() { return this.gui; }
+    isFilterActive() { return this.days > 0; }
+    doesFilterPass(params) {
+      return String(this.params.getValue(params.node) || '').slice(0, 10) >= this.cutoff;
+    }
+    getModel() { return this.days ? {days: this.days} : null; }
+    setModel(model) {
+      this.take(Number((model && model.days) || 0));
+      for (const [days, radio] of this.radios) radio.checked = this.days === days;
+    }
+  };
+}
 if (!window.HubListFilter) {
   // For a cell holding a list; "" is the row that holds nothing.
   window.HubListFilter = class extends window.HubChoiceFilter {
@@ -363,6 +416,20 @@ def choice_filter(choices: list[dict[str, Any]], *,
     return out
 
 
+WINDOW_FILTER = "window.HubWindowFilter"
+
+
+def window_filter(windows: list[tuple[str, int]]) -> dict[str, Any]:
+    """Column options that filter a date column to the last few days, one window at a time.
+
+    `windows` is (label, days). The model is `{"days": n}`, read against today whenever it
+    is applied, so a saved view keeps its window moving forward."""
+    return {":filter": WINDOW_FILTER,
+            "filterParams": {"windows": [{"value": days, "label": label}
+                                         for label, days in windows],
+                             "words": {"any": t("manager.grid.any_time")}}}
+
+
 DERIVED_FACETS = ("manufacturer", "game_type")
 FACET_CEILING = 300
 
@@ -418,17 +485,18 @@ _LIST_WORDS = {"none": t("word.none"), "any": t("manager.grid.any_of"),
 
 
 def list_column(field: str, header: str, width: int = 0, help: str = "", *,
-                looks: str = "", **extra: Any) -> dict[str, Any]:
+                looks: str = "", plain: bool = False, **extra: Any) -> dict[str, Any]:
     """A column whose row holds a list under `field`: drawn as chips, filtered by the
     values the rows hold, sorted by the first chip as drawn.
 
     `looks` names where a chip takes its looks from, one of `renderers.LOOKS`; empty
     draws the word alone. A look's `label` is what the chip, the filter, the sort and a
-    search read in place of the value, which is what the filter keeps.
+    search read in place of the value, which is what the filter keeps. `plain` draws the
+    values as one line of text instead of chips.
     """
     said = renderers.named(looks)
     return column(field, header, width, help,
-                  **renderers.drawable("chips", looks=looks),
+                  **({} if plain else renderers.drawable("chips", looks=looks)),
                   **{":filter": LIST_FILTER,
                      "filterParams": {"looks": looks, "words": _LIST_WORDS},
                      ":comparator": list_comparator(looks),

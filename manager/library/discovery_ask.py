@@ -1,8 +1,8 @@
-"""Asking Discovery about releases: the chips over the grid, the search that finds a name,
-and the page of one author's, maker's or theme's work.
+"""Asking Discovery about releases: the search that finds a name, and the page of one
+author's, maker's or theme's work.
 
-The question itself is `common.online.vps_question`'s. This draws it and takes the
-user's changes to it; the grid and the saved views are Discovery's.
+The question a page asks is `common.online.vps_question`'s. The grids filter on their
+columns, and the saved views are Discovery's.
 """
 
 from __future__ import annotations
@@ -16,164 +16,16 @@ from nicegui import ui
 
 from common.i18n import t
 from common.online import vps_find, vps_question
-from manager.kit import dialog as frame
-from manager.kit import dropdown, panel, thumbnails, verbs
+from manager.kit import panel, thumbnails, verbs
 
 SINCE_DAYS = (("manager.discovery.ask.week", 7), ("manager.discovery.ask.fortnight", 14),
               ("manager.discovery.ask.month", 30))
-SINCE_WORD = {str(days): word for word, days in SINCE_DAYS}
 WALL_AT_FIRST = 60
 FORMAT_DEFAULT = "VPX"
 
 SUBJECT_KEY = {"author": "by", "maker": "maker", "theme": "theme"}
 SUBJECT_WORD = {"author": "word.author", "maker": "word.manufacturer",
                 "theme": "manager.discovery.ask.theme"}
-
-Change = Callable[[dict[str, Any]], Awaitable[None]]
-
-
-def parts(question: Mapping[str, Any],
-          kinds: Mapping[str, str]) -> list[tuple[str, str, str]]:
-    """What the question asks, as (key, value, words) - one for each chip."""
-    said = []
-    if question.get("kind"):
-        said.append(("kind", question["kind"], t(kinds.get(question["kind"], "word.kind"))))
-    said += [("by", name, t("manager.discovery.ask.by", name=name))
-             for name in question.get("by") or ()]
-    if question.get("maker"):
-        said.append(("maker", question["maker"], question["maker"]))
-    if question.get("theme"):
-        said.append(("theme", question["theme"], question["theme"]))
-    if question.get("mod"):
-        said.append(("mod", question["mod"], t(
-            "manager.discovery.ask.originals" if question["mod"] == "originals"
-            else "manager.discovery.ask.mods")))
-    said += [("feature", word, word) for word in question.get("feature") or ()]
-    said += [("format", word, word) for word in question.get("format") or ()]
-    if question.get("since"):
-        days = question["since"]
-        said.append(("since", days, t(SINCE_WORD[days]) if days in SINCE_WORD
-                     else t("manager.discovery.ask.days", days=days)))
-    if question.get("held"):
-        said.append(("held", question["held"], t(
-            "manager.discovery.ask.have" if question["held"] == "have"
-            else "manager.discovery.ask.missing")))
-    if question.get("owned"):
-        said.append(("owned", question["owned"], t(
-            "manager.discovery.ask.owned_yes" if question["owned"] == "yes"
-            else "manager.discovery.ask.owned_no")))
-    return said
-
-
-def without(question: Mapping[str, Any], key: str, value: str) -> dict[str, Any]:
-    """The question with one thing taken out of it."""
-    out = dict(question)
-    if key in vps_question.LIST_KEYS:
-        out[key] = [one for one in out.get(key) or () if one != value]
-    else:
-        out.pop(key, None)
-    return vps_question.clean(out)
-
-
-def with_value(question: Mapping[str, Any], key: str, value: str) -> dict[str, Any]:
-    """The question with one more thing in it: a list gains the value, any other key
-    takes it in place of what it had. Asking for tables brings Format with it, so the
-    default is on the chips where it can be taken off."""
-    out = dict(question)
-    if key in vps_question.LIST_KEYS:
-        out[key] = [*[one for one in out.get(key) or () if one != value], value]
-    else:
-        out[key] = value
-    if key == "kind" and value == "tableFiles" and not out.get("format"):
-        out["format"] = [FORMAT_DEFAULT]
-    elif key == "kind" and value != "tableFiles" and out.get("format") == [FORMAT_DEFAULT]:
-        del out["format"]
-    return vps_question.clean(out)
-
-
-def chips(question: Mapping[str, Any], kinds: Mapping[str, str], change: Change) -> None:
-    """The question as chips, each with its way out. Drawn into the current container."""
-    for key, value, said in parts(question, kinds):
-        with ui.element("span").classes("manager-ask-chip"):
-            ui.label(said)
-            panel.chip_end(partial(take_out, question, key, value, change), t("word.remove"))
-
-
-async def take_out(question: Mapping[str, Any], key: str, value: str, change: Change) -> None:
-    await change(without(question, key, value))
-
-
-async def pick_from(title: str, options: Mapping[str, str]) -> str | None:
-    """Choose one of `options` (value to words) by typing to narrow them."""
-    with frame.opened(title, ignore_outside_click=True) as box:
-        chooser = dropdown.Select(dict(options), with_input=True, value=None,
-                                  look=dropdown.OUTLINED).classes("w-full")
-        chooser.on_value_change(lambda event: box.submit(event.value) if event.value else None)
-        with frame.footer():
-            frame.cancel(lambda: box.submit(None))
-    frame.focus(box, chooser)
-    answered = await box
-    return str(answered) if answered else None
-
-
-def add_menu(menu: ui.menu, question: Mapping[str, Any], kinds: Mapping[str, str],
-             listed: Sequence[str], people: Sequence[Mapping[str, Any]],
-             vocabulary: Mapping[str, Sequence[str]], change: Change, *,
-             counted: bool = True) -> None:
-    """Everything that can be added to the question, rebuilt each time the menu opens.
-    Have, Missing and In Library mean nothing until the library has been counted."""
-    async def set_to(key: str, value: str) -> None:
-        await change(with_value(question, key, value))
-
-    async def ask_for(key: str, title: str, options: Mapping[str, str]) -> None:
-        chosen = await pick_from(title, options)
-        if chosen:
-            await set_to(key, chosen)
-
-    menu.clear()
-    with menu:
-        ui.item_label(t("word.kind")).props("header").classes("manager-menu-header")
-        for listing in listed:
-            ui.menu_item(t(kinds[listing]), lambda one=listing: set_to("kind", one)) \
-                .classes("manager-menu-item")
-        ui.separator()
-        ui.menu_item(t("manager.discovery.ask.by_pick"), lambda: ask_for(
-            "by", t("manager.discovery.ask.by_pick"),
-            {one["name"]: t("manager.discovery.ask.person", name=one["name"],
-                            count=one["releases"]) for one in people})) \
-            .classes("manager-menu-item")
-        ui.menu_item(t("manager.discovery.ask.originals"),
-                     lambda: set_to("mod", "originals")).classes("manager-menu-item")
-        ui.menu_item(t("manager.discovery.ask.mods"),
-                     lambda: set_to("mod", "mods")).classes("manager-menu-item")
-        if vocabulary.get("feature"):
-            ui.menu_item(t("manager.discovery.ask.feature_pick"), lambda: ask_for(
-                "feature", t("manager.discovery.ask.feature_pick"),
-                {word: word for word in vocabulary["feature"]})).classes("manager-menu-item")
-        if vocabulary.get("format"):
-            ui.menu_item(t("manager.discovery.ask.format_pick"), lambda: ask_for(
-                "format", t("manager.discovery.ask.format_pick"),
-                {word: word for word in vocabulary["format"]})).classes("manager-menu-item")
-        ui.separator()
-        ui.item_label(t("manager.discovery.ask.added")).props("header") \
-            .classes("manager-menu-header")
-        for word, days in SINCE_DAYS:
-            ui.menu_item(t(word), lambda d=days: set_to("since", str(d))) \
-                .classes("manager-menu-item")
-        for heading, key, choices in (
-                ("manager.discovery.ask.releases", "held",
-                 (("have", "manager.discovery.ask.have"),
-                  ("missing", "manager.discovery.ask.missing"))),
-                ("manager.discovery.ask.group.game", "owned",
-                 (("yes", "manager.discovery.ask.owned_yes"),
-                  ("no", "manager.discovery.ask.owned_no")))):
-            if not counted:
-                break
-            ui.separator()
-            ui.item_label(t(heading)).props("header").classes("manager-menu-header")
-            for value, word in choices:
-                ui.menu_item(t(word), lambda k=key, v=value: set_to(k, v)) \
-                    .classes("manager-menu-item")
 
 
 class Suggest:
@@ -257,6 +109,18 @@ def _tile(row: Mapping[str, Any], fits: int, held: int, on_open: Callable[[], An
             ui.label(t("manager.discovery.ask.held_of", held=held, count=fits)).classes(
                 "manager-wall-note manager-have" if held == fits else "manager-wall-note")
     tile.on("click", on_open).on("keydown.enter", on_open)
+
+
+def opening_on(state: Mapping[str, Any], tab: str) -> dict[str, Any] | None:
+    """The view a page sent this tab to, if it did. It stays through a redraw of the tab,
+    and the tab calls `drop_opening` once the user picks another view."""
+    one = state.get("opening")
+    return one if one and one.get("tab") == tab else None
+
+
+def drop_opening(state: dict[str, Any], tab: str) -> None:
+    if opening_on(state, tab):
+        state.pop("opening", None)
 
 
 def subject_question(subject: Mapping[str, str]) -> dict[str, Any]:

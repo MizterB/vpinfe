@@ -501,21 +501,44 @@ class ArrivalTests(unittest.TestCase):
         self.assertIs(views.arrived(stale, games.UNMATCHED, self.FIELDS), stale)
 
 
-class AskedQuestionTests(unittest.TestCase):
-    ASKED = {"by": ["VPW"], "kind": "tableFiles"}
+class OpenedViewTests(unittest.TestCase):
+    FIELDS = ["name", "authors", "kind", "held"]
+    START = views.View(id="builtin:everything", name="Everything", builtin=True,
+                       columns=("name", "kind"), sort=({"colId": "name", "sort": "asc"},),
+                       help="Everything")
 
-    def test_the_question_survives_being_saved_and_read_back(self) -> None:
-        view = views.View(id="v", name="Mine", columns=("name",), asked=self.ASKED)
-        self.assertEqual(views.from_record(views.to_record(view)).asked, self.ASKED)
+    def test_it_is_the_starting_view_named_and_filtered_with_each_filtered_column_shown(
+            self) -> None:
+        over = {"authors": {"values": ["Wildman"]}, "kind": {"values": ["b2sFiles"]}}
 
-    def test_a_record_saved_without_one_asks_nothing(self) -> None:
+        opened = views.opened(self.START, "Wildman Backglass", over, self.FIELDS)
+
+        self.assertEqual((views.OPENED, "Wildman Backglass", over),
+                         (opened.id, opened.name, opened.filters))
+        self.assertEqual(("name", "kind", "authors"), opened.columns)
+        self.assertEqual(self.START.sort, opened.sort)
+
+    def test_it_is_read_only_so_it_is_never_among_the_views_that_are_kept(self) -> None:
+        opened = views.opened(self.START, "Wildman", {}, self.FIELDS)
+
+        self.assertTrue(opened.builtin)
+
+    def test_a_filter_on_a_column_the_grid_does_not_have_is_left_off(self) -> None:
+        opened = views.opened(self.START, "Wildman", {"gone": {"values": ["x"]}}, self.FIELDS)
+
+        self.assertEqual({}, opened.filters)
+        self.assertEqual(("name", "kind"), opened.columns)
+
+    def test_it_reads_as_unmodified_until_the_screen_moves_off_it(self) -> None:
+        over = {"authors": {"values": ["Wildman"]}}
+        opened = views.opened(self.START, "Wildman", over, self.FIELDS)
+        shown = ("name", "kind", "authors")
+
+        self.assertFalse(views.differs(opened, shown, opened.sort, over))
+        self.assertTrue(views.differs(opened, shown, opened.sort, {}))
+
+    def test_a_record_saved_by_an_older_build_with_a_question_still_reads(self) -> None:
         record = views.to_record(views.View(id="v", name="Mine", columns=("name",)))
-        del record["asked"]
-        self.assertEqual(views.from_record(record).asked, {})
+        record["asked"] = {"by": ["VPW"]}
 
-    def test_a_different_question_reads_as_a_modified_view(self) -> None:
-        view = views.View(id="v", name="Mine", columns=("name",), asked=self.ASKED)
-        same = views.differs(view, ("name",), (), {}, asked=dict(self.ASKED))
-        other = views.differs(view, ("name",), (), {}, asked={"by": ["Wildman"]})
-        dropped = views.differs(view, ("name",), (), {})
-        self.assertEqual((same, other, dropped), (False, True, True))
+        self.assertEqual("Mine", views.from_record(record).name)

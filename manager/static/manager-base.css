@@ -4505,15 +4505,7 @@ svg.manager-cell-noart {
 .manager-bar { height: 6px; border-radius: 3px; background: var(--bar-track); }
 .manager-bar > div { height: 100%; border-radius: 3px; background: var(--accent); }
 
-/* Discovery's question as chips over the grid, and the search that finds a name. */
-.manager-ask-chip {
-  display: inline-flex; align-items: center; gap: 2px;
-  border: 1px solid var(--accent); background: var(--accent-wash); color: var(--ink);
-  border-radius: 999px; padding: 0 2px 0 11px; font-size: var(--fs-caption);
-  white-space: nowrap;
-}
-.manager-chip-end { color: var(--ink-2); }
-.manager-ask-add { color: var(--ink-2); }
+/* Discovery's search, which also finds a name. */
 .manager-suggest-anchor { position: relative; }
 .manager-suggest {
   position: absolute; top: 100%; right: 0; z-index: 3000; width: 360px; max-width: 90vw;

@@ -1629,7 +1629,8 @@ def view_control(library: Any, scope: str,
                  annotate: Callable[[], None] | None = None,
                  arriving: dict[str, Any] | None = None,
                  art_in_lists: bool = False,
-                 asking: views.Asking | None = None) -> Any:
+                 opened: views.View | None = None,
+                 left_opened: Callable[[], None] | None = None) -> Any:
     """One control for how the rows are presented: which view, and what is in it.
 
     Built here in the toolbar and wired once the grid exists, because the widgets have
@@ -1647,18 +1648,27 @@ def view_control(library: Any, scope: str,
 
     `art_in_lists` is for a grid that lists games, tables or collections by name.
 
-    `asking` is a question the views carry: applying a view puts its question on the grid,
-    saving one keeps the question being asked.
+    `opened` is a view the page was sent to (`views.opened`): listed after the built-ins,
+    showing first, and kept out of the user's own views until they save it. `left_opened`
+    is called once another view is picked or the opened one is saved, so a redraw of the
+    page does not bring it back.
     """
     custom, active = views.stored(library, scope)
     # Before the grid is built from `columns`, which is the same list.
-    grid.room_for_sort_order(columns, [view.sort for view in views.builtins(presets)])
-    known = views.builtins(presets) + custom
-    if active not in {view.id for view in known}:
+    starts = [opened] if opened is not None else []
+    grid.room_for_sort_order(columns, [view.sort for view in views.builtins(presets) + starts])
+
+    def listing() -> list[Any]:
+        return views.builtins(presets) + starts + held["custom"]
+
+    held: dict[str, Any] = {"custom": custom}
+    known = listing()
+    if opened is not None:
+        active = opened.id
+    elif active not in {view.id for view in known}:
         active = known[0].id
-    held: dict[str, Any] = {"views": known, "active": active, "custom": custom,
-                            "modified": False, "drawing": {}, "baseline": None, "over": None,
-                            "on_screen": None}
+    held.update({"views": known, "active": active, "modified": False, "drawing": {},
+                 "baseline": None, "over": None, "on_screen": None})
 
     top = bar.top
     with top:
@@ -1734,10 +1744,6 @@ def view_control(library: Any, scope: str,
             _show_purpose()
             baseline = views.arrived(view, over, all_fields)
             held["baseline"], held["over"] = baseline, over
-            if asking is not None:
-                asking.value = dict(view.asked if asking.arriving is None else asking.arriving)
-                asking.arriving = None
-                await asking.apply(asking.value)
             wanted = views.visible_columns(baseline, all_fields)
             # Leaving the grid as it is keeps it usable, and the notify says why. The
             # old fallback showed every column instead, which reads as the view
@@ -1790,7 +1796,7 @@ def view_control(library: Any, scope: str,
                              "leaving the view mark as it is")
                 return
             changed = views.differs(held["baseline"] or current(), shown, sort, model,
-                                    held["drawing"], asking.value if asking else None)
+                                    held["drawing"])
             # On the picker rather than beside it: the drift is a fact about the view
             # that is selected, so it belongs to the control that names it.
             picker.props(add="suffix=modified") if changed \
@@ -1808,6 +1814,8 @@ def view_control(library: Any, scope: str,
         @on_page
         async def pick(view_id: str) -> None:
             held["active"] = view_id
+            if view_id != views.OPENED and left_opened:
+                left_opened()
             await keep_views(view_id)
             await apply(current())
 
@@ -1825,10 +1833,13 @@ def view_control(library: Any, scope: str,
                               builtin=False, columns=shown,
                               sort=tuple(e for e in sort if e.get("sort")),
                               filters=model, help=said.strip(),
-                              drawn=dict(held["drawing"]),
-                              asked=dict(asking.value) if asking else {})
+                              drawn=dict(held["drawing"]))
             held["custom"] = [v for v in held["custom"] if v.id != view.id] + [view]
-            held["views"] = views.builtins(presets) + held["custom"]
+            if held["active"] == views.OPENED:
+                starts.clear()
+                if left_opened:
+                    left_opened()
+            held["views"] = listing()
             held["active"] = view.id
             held["baseline"], held["over"] = view, None
             await keep_views(view.id)
@@ -1843,7 +1854,7 @@ def view_control(library: Any, scope: str,
                     else replace(v, name=name.strip(), help=said.strip())
                     for v in held["custom"]]
             held["custom"] = kept
-            held["views"] = views.builtins(presets) + kept
+            held["views"] = listing()
             await keep_views(held["active"])
             _reoption(held["active"])
             _show_purpose()
@@ -1854,7 +1865,7 @@ def view_control(library: Any, scope: str,
             if view.builtin:
                 return
             held["custom"] = [v for v in held["custom"] if v.id != view.id]
-            held["views"] = views.builtins(presets) + held["custom"]
+            held["views"] = listing()
             held["active"] = held["views"][0].id
             await keep_views(held["active"])
             _reoption(held["active"])
@@ -1871,7 +1882,8 @@ def view_control(library: Any, scope: str,
             view = current()
             menu.clear()
             with menu:
-                ui.menu_item(t("manager.games.save"), lambda: _ask_name(save)) \
+                ui.menu_item(t("manager.games.save"), lambda: _ask_name(
+                    save, named=view.name if view.id == views.OPENED else "")) \
                     .classes("manager-menu-item")
                 # Only where they mean something: there is nothing to revert to until
                 # the screen has drifted, and nothing to delete unless it is the
@@ -1948,8 +1960,6 @@ def view_control(library: Any, scope: str,
             await _refresh()
 
         menu_button.on_click(fill_menu)
-        if asking is not None:
-            asking.changed = _refresh
         picker.on_value_change(lambda event: pick(event.value))
         # The grid reports its own changes; the marker follows them rather than being
         # recomputed on a timer that would outlive the grid.

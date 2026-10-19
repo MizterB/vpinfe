@@ -2114,6 +2114,7 @@ def leave_for(state: dict[str, Any], view: str) -> None:
         state["ext_row"] = ""
         state["sets"] = None
         state.pop("discovery_tab", None)
+        state.pop("opening", None)
         state.pop("slot", None)
         if state.get("section") in OWN_SUBJECT_SECTIONS:
             state.pop("section", None)

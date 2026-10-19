@@ -51,7 +51,7 @@ GAMES_ADDRESS = "/manager?" + deeplink.query({"view": "games"})
 OWN_ADDRESS = "/manager?" + deeplink.query({"view": "discovery"})
 
 BROWSE = "browse"
-RELEASES = "releases"
+RELEASES = discovery_releases.TAB
 
 HAVE = "have"
 MISSING = "missing"
@@ -72,6 +72,20 @@ KINDS: tuple[tuple[str, str, str], ...] = (
     ("wheelArtFiles", "kind_wheel", "media.kind.wheel.label"),
     ("topperFiles", "kind_topper", "media.kind.topper.label"),
 )
+
+# What a kind's releases are called together, for the name of a view of them.
+KIND_MANY = {
+    "tableFiles": "manager.discovery.ask.kinds.table",
+    "b2sFiles": "manager.discovery.ask.kinds.backglass",
+    "romFiles": "manager.discovery.ask.kinds.rom",
+    "pupPackFiles": "manager.discovery.ask.kinds.pup_pack",
+    "altColorFiles": "manager.discovery.ask.kinds.color",
+    "altSoundFiles": "manager.discovery.ask.kinds.altsound",
+    "povFiles": "manager.discovery.ask.kinds.pov",
+    "ruleFiles": "manager.discovery.ask.kinds.rules",
+    "wheelArtFiles": "manager.discovery.ask.kinds.wheel",
+    "topperFiles": "manager.discovery.ask.kinds.topper",
+}
 
 _POLLS = 600
 _POLL_S = 1.0
@@ -268,20 +282,86 @@ async def _fill_releases(library: Library, body: Any, state: dict[str, Any],
         library.forget_catalog()
         rerender()
 
-    async def open_author(name: str) -> None:
-        known = vps_question.person_named(name, people)
-        state["subject"] = {"type": vps_find.AUTHOR, "name": str(known["name"]) if known else name}
-        state["arriving"] = None
-        deeplink.sync(state)
-        rerender()
+    async def go_to(subject: dict[str, str]) -> None:
+        open_page(state, people, rerender, subject)
 
-    state["open_author"] = open_author
+    state["open_author"] = lambda name: go_to({"type": vps_find.AUTHOR, "name": name})
     await discovery_releases.fill(
         body, library=library, state=state, games=built, people=people, releases=releases,
         kind_words={listed_as: word for listed_as, _field, word in KINDS if listed_as in kept_now},
         counted=bool(found.get("counted")), compared=_counted_text(found), address=OWN_ADDRESS,
-        on_select=on_select, reread=reread, count_again=count_again,
+        on_select=on_select, reread=reread, count_again=count_again, open_page=go_to,
         acts=lambda chosen, after, check: acts(library, chosen, after, check=check))
+
+
+def open_page(state: dict[str, Any], people: list[dict[str, Any]],
+              rerender: Callable[[], None], subject: dict[str, str] | None, *,
+              opening: dict[str, Any] | None = None, tab: str = "") -> None:
+    """Go to an author's, maker's or theme's page, or leave it (`subject` None) - for a
+    grid on `tab`, opened on the view `opening` names."""
+    if subject and subject["type"] == vps_find.AUTHOR:
+        known = vps_question.person_named(subject["name"], people)
+        subject = {**subject, "name": str(known["name"]) if known else subject["name"]}
+    state["subject"] = subject
+    if opening:
+        state["opening"] = {**opening, "tab": tab}
+    if tab:
+        state["discovery_tab"] = tab
+    deeplink.sync(state)
+    rerender()
+
+
+def _filter_on(definition: dict[str, Any] | None, value: str) -> dict[str, Any]:
+    """The model that picks `value` on a column, whichever kind of filter it has."""
+    if definition is not None and definition.get(":filter") in (
+            grid_module.CHOICE_FILTER, grid_module.LIST_FILTER):
+        return {"values": [value]}
+    return {"filterType": "text", "type": "equals", "filter": value}
+
+
+def browse_filters(subject: dict[str, str], question: dict[str, Any],
+                   columns: list[dict[str, Any]], *, counted: bool) -> dict[str, Any]:
+    """What a maker's or a theme's page asks, as filters on Browse's columns. In Library,
+    Have and Missing are left out before the library has been counted: the columns hold
+    nothing then, and a filter on them would empty the grid."""
+    by_field = {one["field"]: one for one in columns}
+    out: dict[str, Any] = {}
+    if subject["type"] == "maker":
+        out["manufacturer"] = _filter_on(by_field.get("manufacturer"), subject["name"])
+    else:
+        out["themes"] = {"values": [subject["name"]]}
+    if not counted:
+        return out
+    if question.get("owned"):
+        out["in_library"] = {"values": [question["owned"]]}
+    field = next((field for listed_as, field, _word in KINDS
+                  if listed_as == question.get("kind")), "")
+    if field:
+        out[field] = {"values": [HAVE, MISSING]}
+    if question.get("held") == "missing":
+        out[field or "gap"] = {"values": [MISSING]}
+    elif question.get("held") == "have" and field:
+        out[field] = {"values": [HAVE]}
+    return out
+
+
+def opening_for(subject: dict[str, str], question: dict[str, Any],
+                columns: list[dict[str, Any]], *, counted: bool) -> tuple[str, dict[str, Any]]:
+    """The tab a page's Open in Grid goes to and the view it opens: an author's releases on
+    Releases, a maker's or theme's games on Browse. The view is named for the page, and for
+    the kind only where the grid has a filter on that kind."""
+    if subject["type"] == vps_find.AUTHOR:
+        tab, filters, kind_filter = RELEASES, discovery_releases.arrival_filters(
+            question, counted=counted), "kind"
+    else:
+        tab, filters = BROWSE, browse_filters(subject, question, columns, counted=counted)
+        kind_filter = next((field for listed_as, field, _word in KINDS
+                            if listed_as == question.get("kind")), "")
+    name = subject["name"]
+    if question.get("kind") in KIND_MANY and kind_filter in filters:
+        name = t("manager.discovery.ask.view_name", name=name,
+                 kind=t(KIND_MANY[question["kind"]]))
+    return tab, {"name": name, "filters": filters}
 
 
 async def _read(library: Library) -> dict[str, Any]:
@@ -332,15 +412,15 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
     releases = releases_of(found, kept_now)
     kind_words = {listed_as: word for listed_as, _field, word in KINDS if listed_as in kept_now}
 
-    async def go_to(subject: dict[str, str] | None, question: dict[str, Any] | None = None) -> None:
-        """Open a subject's page, or leave it - for the grid, with `question` asked."""
-        if subject and subject["type"] == vps_find.AUTHOR:
-            known = vps_question.person_named(subject["name"], people)
-            subject = {**subject, "name": str(known["name"]) if known else subject["name"]}
-        state["subject"] = subject
-        state["arriving"] = question
-        deeplink.sync(state)
-        rerender()
+    async def go_to(subject: dict[str, str] | None) -> None:
+        """Open a subject's page, or leave it."""
+        open_page(state, people, rerender, subject)
+
+    async def open_grid(subject: dict[str, str], question: dict[str, Any]) -> None:
+        """Open the grid that answers the page's question, as a view named for the page."""
+        tab, opening = opening_for(subject, question, grid_columns(library, built),
+                                   counted=counted)
+        open_page(state, people, rerender, None, opening=opening, tab=tab)
 
     state["open_author"] = lambda name: go_to({"type": vps_find.AUTHOR, "name": name})
     if state.get("subject"):
@@ -363,33 +443,18 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
             discovery_ask.page(
                 subject=subject, state=state, people=people, rows=built,
                 releases=releases, kinds=kind_words, address=OWN_ADDRESS, open_game=on_select,
-                leave=lambda: go_to(None), see_all=lambda question: go_to(None, question))
+                leave=lambda: go_to(None),
+                see_all=lambda question: open_grid(subject, question))
         return
     columns = grid_columns(library, built)
     by_id = {row["id"]: row for row in built}
     on_screen: dict[str, Any] = {"ids": [row["id"] for row in built], "selected": 0}
     unmatched = await offload.io(unmatched_games, library)
     show_unmatched = state.get("show_unmatched")
-    fits: dict[str, Any] = {"games": None}
-    vocabulary = vps_question.vocabulary(releases)
-
-    def narrowed() -> list[dict[str, Any]]:
-        return built if fits["games"] is None else [
-            row for row in built if row["id"] in fits["games"]]
-
-    async def narrow(question: dict[str, Any]) -> None:
-        fits["games"] = (vps_question.games_fitting(question, people, built, releases)
-                         if question else None)
-        draw_chips()
-        table.run_grid_method("setGridOption", "rowData", narrowed())
-
-    async def change(question: dict[str, Any]) -> None:
-        asking.value = question
-        await narrow(question)
-        if asking.changed is not None:
-            await asking.changed()
-
-    asking = views.Asking(narrow, state.pop("arriving", None))
+    fields = [one["field"] for one in columns]
+    arrival = discovery_ask.opening_on(state, BROWSE)
+    opened = views.opened(views.builtins(VIEWS)[0], arrival["name"], arrival["filters"],
+                          fields) if arrival else None
 
     @on_page
     async def choose(group: str, one: dict[str, Any]) -> None:
@@ -403,8 +468,9 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
                 "w-full items-center gap-2 px-3 py-2 mb-2 shrink-0 manager-panel manager-grid-bar"):
             bar = panel.grid_bar()
             wire_views, _picker, showing, describe = view_control(
-                library, SCOPE, VIEWS, [one["field"] for one in columns], columns, bar=bar,
-                art_in_lists=True, asking=asking)
+                library, SCOPE, VIEWS, fields, columns, bar=bar,
+                art_in_lists=True, opened=opened,
+                left_opened=lambda: discovery_ask.drop_opening(state, BROWSE))
             describe()
             with bar.top, panel.bar_end():
                 with ui.element("div").classes("manager-suggest-anchor"):
@@ -421,19 +487,6 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
                 ui.label(_counted_text(found)).classes("text-xs manager-label")
                 panel.refresh(lambda: count_again(), t("manager.discovery.compare_again"))
 
-        chips_row = ui.row().classes("w-full items-center gap-2 px-3 pb-2 shrink-0")
-
-        def draw_chips() -> None:
-            chips_row.clear()
-            with chips_row:
-                discovery_ask.chips(asking.value, kind_words, change)
-                add, more = panel.menu_label_button(t("manager.discovery.ask.add"), verbs.FILTER)
-                add.classes("manager-ask-add")
-                more.on("before-show", lambda: discovery_ask.add_menu(
-                    more, asking.value, kind_words, list(kind_words), people, vocabulary,
-                    change, counted=counted))
-
-        draw_chips()
         if not built:
             panel.facts(ui, [panel.intro(t("manager.discovery.empty"))])
         if unmatched:
@@ -507,8 +560,7 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
         people[:] = again.get("people") or []
         releases.clear()
         releases.update(releases_of(again, kept_listings(library)))
-        vocabulary.update(vps_question.vocabulary(releases))
-        await narrow(asking.value)
+        table.run_grid_method("setGridOption", "rowData", built)
         chosen = state.get("entry")
         if chosen and state.get("workbench"):
             await on_select(by_id.get(chosen))

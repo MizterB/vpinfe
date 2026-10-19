@@ -1,8 +1,9 @@
-"""Discovery's Releases tab: one row for each release VPS lists that fits the question.
+"""Discovery's Releases tab: one row for each release VPS lists.
 
-The question, its chips, the search and the saved views are the Games tab's; this tab asks
-the same thing and lists the releases that answer it where the Games tab lists their games.
-A row stands for a release and a press on it opens its game's pane.
+Who made a release, when it was added, its format, features and whether it is a mod are
+columns with their filters, like every other grid; the search, the saved views and the
+pane are the Games tab's. A row stands for a release and a press on it opens its game's
+pane.
 """
 
 from __future__ import annotations
@@ -17,15 +18,19 @@ from common import icons
 from common.i18n import t
 from common.online import vps_find, vps_question
 from manager.kit import grid as grid_module
-from manager.kit import panel, thumbnails, verbs, views, when
+from manager.kit import panel, thumbnails, views, when
 from manager.kit.data import Library
 from manager.kit.on_page import on_page
 from manager.library import discovery_ask
 
 SCOPE = "discovery_releases"
+# The name of this tab in the address and in the view a page sends it to.
+TAB = "releases"
 
 HAVE = "have"
 MOD = "mod"
+YES = "yes"
+NO = "no"
 
 _ADDED_SAID: dict[str, Any] = {
     ":valueFormatter": "params => (params.data || {}).added_said || ''"}
@@ -33,9 +38,33 @@ _NEWEST =({"colId": "added", "sort": "desc", "sortIndex": 0},)
 _SHOWN = "getElement(%d).api.getDisplayedRowCount()"
 
 
-def columns(kind_words: Mapping[str, str]) -> list[dict[str, Any]]:
+def _formats(release_rows: Sequence[Mapping[str, Any]]) -> list[dict[str, str]]:
+    """The table formats the rows carry, most used first, and a choice for the releases
+    that name none."""
+    seen: dict[str, int] = {}
+    for one in release_rows:
+        seen[str(one["format"])] = seen.get(str(one["format"]), 0) + 1
+    named = sorted((word for word in seen if word), key=lambda word: (-seen[word], word))
+    choices = [{"value": word, "label": word} for word in named]
+    if "" in seen:
+        choices.append({"value": "", "label": t("manager.games.not_recorded")})
+    return choices
+
+
+def columns(kind_words: Mapping[str, str], release_rows: Sequence[Mapping[str, Any]] = (),
+            *, counted: bool = True) -> list[dict[str, Any]]:
     """The grid's columns; `kind_words` is the VPS kinds the library collects, to the word
-    each is called."""
+    each is called, and `release_rows` the rows the format filter is made from. Have and
+    In Library mean nothing until the library has been counted."""
+    held_options: dict[str, Any] = {
+        ":cellClass": "params => params.value ? 'manager-have' : ''"}
+    library_options: dict[str, Any] = {}
+    if counted:
+        library_options.update(grid_module.choice_filter(
+            [{"value": YES, "label": t("word.yes")}, {"value": NO, "label": t("word.no")}]))
+        held_options.update(grid_module.choice_filter(
+            [{"value": HAVE, "label": t("manager.view.have")},
+             {"value": "", "label": t("manager.view.missing")}]))
     return [
         grid_module.identifier(
             "name", t("word.game"), 260, pinned="left", subtitle="said",
@@ -50,34 +79,64 @@ def columns(kind_words: Mapping[str, str]) -> list[dict[str, Any]]:
                                          for listing, word in kind_words.items()])),
         grid_module.column("version", t("word.version"),
                            help=t("manager.discovery.releases.version.help")),
-        grid_module.column("authors", t("manager.discovery.ask.group.author"), 200,
-                           help=t("manager.discovery.releases.authors.help")),
+        grid_module.list_column(
+            "authors", t("manager.discovery.ask.group.author"), 200,
+            help=t("manager.discovery.releases.authors.help"), plain=True),
         grid_module.column(
             "added", t("manager.discovery.ask.added"),
             help=t("manager.discovery.releases.added.help"),
+            **grid_module.window_filter([(t(word), days)
+                                         for word, days in discovery_ask.SINCE_DAYS]),
             **_ADDED_SAID),
         grid_module.column(
             "held", t("manager.view.have"), help=t("manager.discovery.releases.held.help"),
-            **{":cellClass": "params => params.value ? 'manager-have' : ''",
-               **grid_module.choice_filter([{"value": HAVE, "label": t("manager.view.have")}])}),
+            **held_options),
         grid_module.column("format", t("manager.discovery.ask.format_pick"),
-                           help=t("manager.discovery.releases.format.help")),
-        grid_module.column("features", t("manager.games.features"), 200,
-                           help=t("manager.discovery.releases.features.help")),
+                           help=t("manager.discovery.releases.format.help"),
+                           **grid_module.choice_filter(_formats(release_rows))),
+        grid_module.list_column(
+            "features", t("manager.games.features"), 200,
+            help=t("manager.discovery.releases.features.help"), plain=True),
         grid_module.column(
             "mod", t("manager.games.mod"), help=t("manager.discovery.releases.mod.help"),
-            **grid_module.choice_filter([{"value": MOD, "label": t("manager.games.mod")}])),
+            **grid_module.choice_filter([{"value": MOD, "label": t("manager.games.mod")},
+                                         {"value": "",
+                                          "label": t("manager.discovery.ask.original")}])),
+        grid_module.column(
+            "in_library", t("manager.discovery.in_library"),
+            help=t("manager.discovery.in_library.help"), **library_options),
     ]
 
 
-_FIELDS = ("name", "kind", "version", "authors", "added", "held", "format", "features", "mod")
-_SHOWN_FIELDS = ("name", "kind", "version", "authors", "added", "held")
+_FIELDS = ("name", "kind", "version", "authors", "added", "held", "format", "features",
+           "mod", "in_library")
 
 VIEWS: dict[str, list[str] | views.Preset] = {
     "manager.view.everything": views.Preset(
-        columns=_SHOWN_FIELDS, sort=_NEWEST,
+        columns=_FIELDS, sort=_NEWEST,
         help=t("manager.view.releases_everything.help")),
 }
+
+
+def arrival_filters(question: Mapping[str, Any], *, counted: bool) -> dict[str, Any]:
+    """A question about releases (`vps_question`'s keys) as filters on the columns.
+
+    Have and In Library are left out before the library has been counted: the columns hold
+    nothing then, and a filter on them would empty the grid."""
+    out: dict[str, Any] = {}
+    if question.get("by"):
+        out["authors"] = {"values": list(question["by"])}
+    if question.get("kind"):
+        out["kind"] = {"values": [question["kind"]]}
+    if question.get("format"):
+        out["format"] = {"values": list(question["format"])}
+    if question.get("mod"):
+        out["mod"] = {"values": [MOD if question["mod"] == "mods" else ""]}
+    if counted and question.get("held"):
+        out["held"] = {"values": [HAVE if question["held"] == "have" else ""]}
+    if counted and question.get("owned"):
+        out["in_library"] = {"values": [question["owned"]]}
+    return out
 
 
 def rows(found: Mapping[str, Sequence[tuple[str, Mapping[str, Any]]]],
@@ -108,13 +167,14 @@ def rows(found: Mapping[str, Sequence[tuple[str, Mapping[str, Any]]]],
                 thumbnails.FIELD: game.get(thumbnails.FIELD) or "",
                 "kind": listing,
                 "version": release.get("version") or "",
-                "authors": ", ".join(names[at] for at in release.get("by") or ()),
+                "authors": [names[at] for at in release.get("by") or ()],
                 "added": added,
                 "added_said": said,
                 "held": HAVE if counted and release.get("held") else "",
                 "format": release.get("format") or "",
-                "features": ", ".join(release.get("features") or ()),
+                "features": list(release.get("features") or ()),
                 "mod": MOD if release.get("mod") else "",
+                "in_library": game.get("in_library") or "",
             })
     return out
 
@@ -140,53 +200,50 @@ async def fill(
         counted: bool, compared: str, address: str,
         on_select: Callable[[Any], Any], reread: Callable[[], Awaitable[None]],
         count_again: Callable[[], Awaitable[None]],
+        open_page: Callable[[dict[str, str]], Awaitable[None]],
         acts: Callable[[list[dict[str, Any]], Callable[[], Awaitable[None]], bool],
                        list[panel.Verb]]) -> None:
     """Draw the tab into `body`. `games`, `people` and `releases` are the Games tab's, and
-    `reread` puts fresh ones in them where they stand."""
+    `reread` puts fresh ones in them where they stand. `open_page` opens the page of an
+    author, maker or theme the search picked."""
     # Imported here: `games` imports modules that import this one.
     from manager.library.games import view_control
 
     by_id = {row["id"]: row for row in games}
-    vocabulary = vps_question.vocabulary(releases)
-    grid_columns = grid_module.with_art(columns(kind_words), library.thumbnail_look())
     shown: dict[str, Any] = {"rows": {}, "count": 0, "selected": 0}
     # The grid resolves a ticked id against this list, so it is kept as the rows drawn.
     held: list[dict[str, Any]] = []
 
-    async def narrow(question: dict[str, Any]) -> None:
-        found = vps_question.games_found(question, people, games, releases)
+    def load() -> None:
+        found = vps_question.games_found({}, people, games, releases)
         built = rows(found, by_id, people, counted=counted)
         held[:] = built
         shown["rows"] = {row["id"]: row for row in built}
         shown["count"] = len(built)
-        draw_chips()
-        table.run_grid_method("setGridOption", "rowData", built)
-        count.text = counted_text()
 
-    async def change(question: dict[str, Any]) -> None:
-        asking.value = question
-        await narrow(question)
-        if asking.changed is not None:
-            await asking.changed()
-
-    asking = views.Asking(narrow, state.pop("arriving", None))
+    load()
+    grid_columns = grid_module.with_art(columns(kind_words, held, counted=counted),
+                                        library.thumbnail_look())
+    fields = list(_FIELDS)
+    arrival = discovery_ask.opening_on(state, TAB)
+    opened = views.opened(views.builtins(VIEWS)[0], arrival["name"], arrival["filters"],
+                          fields) if arrival else None
 
     @on_page
     async def choose(group: str, one: dict[str, Any]) -> None:
         if group == vps_find.GAME:
             await on_select(by_id.get(str(one["id"])))
         else:
-            await change(discovery_ask.with_value(
-                asking.value, discovery_ask.SUBJECT_KEY[group], str(one["name"])))
+            await open_page({"type": group, "name": str(one["name"])})
 
     with body:
         with ui.row().classes(
                 "w-full items-center gap-2 px-3 py-2 mb-2 shrink-0 manager-panel manager-grid-bar"):
             bar = panel.grid_bar()
             wire_views, _picker, showing, describe = view_control(
-                library, SCOPE, VIEWS, list(_FIELDS), grid_columns, bar=bar,
-                art_in_lists=True, asking=asking)
+                library, SCOPE, VIEWS, fields, grid_columns, bar=bar,
+                art_in_lists=True, opened=opened,
+                left_opened=lambda: discovery_ask.drop_opening(state, TAB))
             describe()
             with bar.top, panel.bar_end():
                 with ui.element("div").classes("manager-suggest-anchor"):
@@ -194,7 +251,7 @@ async def fill(
                     discovery_ask.Suggest(
                         search, lambda text: vps_find.find(text, people, games), choose)
             with bar.bottom, panel.bar_end():
-                count = ui.label(summary(0)).classes("text-xs manager-label")
+                count = ui.label(summary(shown["count"])).classes("text-xs manager-label")
                 show_selection = panel.selection_menu(
                     t("manager.discovery.actions_selected"), lambda: picked(),
                     lambda chosen: acts(chosen, after,
@@ -204,19 +261,6 @@ async def fill(
                     ui.label(compared).classes("text-xs manager-label")
                 panel.refresh(lambda: count_again(), t("manager.discovery.compare_again"))
 
-        chips_row = ui.row().classes("w-full items-center gap-2 px-3 pb-2 shrink-0")
-
-        def draw_chips() -> None:
-            chips_row.clear()
-            with chips_row:
-                discovery_ask.chips(asking.value, kind_words, change)
-                add, more = panel.menu_label_button(t("manager.discovery.ask.add"), verbs.FILTER)
-                add.classes("manager-ask-add")
-                more.on("before-show", lambda: discovery_ask.add_menu(
-                    more, asking.value, kind_words, list(kind_words), people, vocabulary,
-                    change, counted=counted))
-
-        draw_chips()
         if not games:
             panel.facts(ui, [panel.intro(t("manager.discovery.empty"))])
         if not counted:
@@ -291,8 +335,9 @@ async def fill(
         await reread()
         by_id.clear()
         by_id.update({row["id"]: row for row in games})
-        vocabulary.update(vps_question.vocabulary(releases))
-        await narrow(asking.value)
+        load()
+        table.run_grid_method("setGridOption", "rowData", held)
+        count.text = counted_text()
         chosen = state.get("entry")
         if chosen and state.get("workbench"):
             await on_select(by_id.get(chosen))

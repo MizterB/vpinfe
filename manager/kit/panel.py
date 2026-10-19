@@ -1954,20 +1954,6 @@ def menu_button(icon: str, hint: str) -> tuple[Any, Any]:
     return button, menu
 
 
-def menu_label_button(label: str, icon: str) -> tuple[Any, Any]:
-    """A labeled button and the menu it opens, for the caller to fill."""
-    button = ui.button(label, icon=icon).props("flat dense no-caps size=sm")
-    with button:
-        menu = ui.menu()
-    return button, menu
-
-
-def chip_end(on_click: Callable[[], Any], hint: str) -> Any:
-    """The small close at the end of a chip."""
-    return ui.button(icon=verbs.CANCEL, on_click=on_click) \
-        .props("flat round dense size=xs").classes("manager-chip-end").tooltip(hint)
-
-
 def subject_menu(slot: Any, entries: Sequence[Verb]) -> None:
     """The panel header's menu, for the subject the panel is about."""
     slot.clear()

@@ -1,4 +1,4 @@
-"""Discovery's Releases tab: the rows a question becomes, and which tab a page is on."""
+"""Discovery's Releases tab: its rows, its columns and their filters, and which tab a page is on."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from typing import Any
 from unittest.mock import patch
 
 from common.online import vps_question
-from manager.kit import views, when
+from manager.kit import grid, views, when
 from manager.library import discovery, discovery_releases
 
 PEOPLE = [{"name": "Guet35", "aliases": [], "releases": 2},
@@ -22,9 +22,9 @@ def _release(release_id: str, **over: Any) -> dict[str, Any]:
 GAMES = {
     "g1": {"id": "g1", "name": "Alpha", "said": "Bally 1990", "manufacturer": "Bally",
            "themes": [], "listed": ["tableFiles", "b2sFiles"], "is_in_library": True,
-           "img": "http://x/a.png"},
+           "in_library": "yes", "img": "http://x/a.png"},
     "g2": {"id": "g2", "name": "Beta", "said": "Williams 1992", "manufacturer": "Williams",
-           "themes": [], "listed": ["tableFiles"], "is_in_library": False},
+           "themes": [], "listed": ["tableFiles"], "is_in_library": False, "in_library": "no"},
     "g3": {"id": "g3", "name": "Gamma", "said": "", "manufacturer": "", "themes": [],
            "listed": [], "is_in_library": False},
 }
@@ -54,11 +54,24 @@ class Rows(unittest.TestCase):
     def test_the_row_carries_the_games_name_and_line_and_the_releases_own_facts(self) -> None:
         row = _rows({"kind": "tableFiles"})[0]
 
-        self.assertEqual(("Alpha", "Bally 1990", "tableFiles", "2.0", "Guet35, VPW"),
+        self.assertEqual(("Alpha", "Bally 1990", "tableFiles", "2.0", ["Guet35", "VPW"]),
                          (row["name"], row["said"], row["kind"], row["version"],
                           row["authors"]))
-        self.assertEqual(("2025-10-13T00:00:00Z", "VPX", "VR, MOD", "mod"),
+        self.assertEqual(("2025-10-13T00:00:00Z", "VPX", ["VR", "MOD"], "mod"),
                          (row["added"], row["format"], row["features"], row["mod"]))
+
+    def test_a_release_carries_whether_its_game_is_in_the_library(self) -> None:
+        rows = {one["id"]: one["in_library"] for one in _rows({})}
+
+        self.assertEqual({"g1:t1": "yes", "g1:t2": "yes", "g1:b1": "yes", "g2:t3": "no"}, rows)
+
+    def test_a_release_of_a_game_never_compared_has_no_library_state(self) -> None:
+        games = {"g1": {k: v for k, v in GAMES["g1"].items() if k != "in_library"}}
+        found = {"g1": [("tableFiles", _release("t1"))]}
+
+        row = discovery_releases.rows(found, games, PEOPLE, counted=False)[0]
+
+        self.assertEqual("", row["in_library"])
 
     def test_a_release_with_no_version_or_format_reads_blank(self) -> None:
         rows = {one["id"]: one for one in _rows({})}
@@ -66,11 +79,6 @@ class Rows(unittest.TestCase):
         self.assertEqual("", rows["g1:t2"]["version"])
         self.assertEqual("", rows["g1:b1"]["format"])
         self.assertEqual("", rows["g1:t2"]["mod"])
-
-    def test_the_question_leaves_out_the_releases_that_do_not_fit(self) -> None:
-        rows = _rows({"kind": "tableFiles", "by": ["VPW"]})
-
-        self.assertEqual(["g1:t1", "g2:t3"], [one["id"] for one in rows])
 
     def test_a_held_release_reads_have_once_the_library_has_been_counted(self) -> None:
         held = {one["id"]: one["held"] for one in _rows({"kind": "tableFiles"})}
@@ -111,9 +119,23 @@ def _everything() -> views.Preset:
     return view
 
 
+KINDS = {"tableFiles": "word.table", "b2sFiles": "asset.kind.backglass.label"}
+
+
+def _column(field: str, *, counted: bool = True, release_rows: list[dict[str, Any]] | None = None
+            ) -> dict[str, Any]:
+    return next(one for one in discovery_releases.columns(
+        KINDS, release_rows or [], counted=counted) if one["field"] == field)
+
+
+def _choices(field: str, **how: Any) -> list[tuple[str, str]]:
+    return [(one["value"], one["label"])
+            for one in _column(field, **how)["filterParams"]["choices"]]
+
+
 class Columns(unittest.TestCase):
     def test_every_column_a_view_shows_is_one_the_grid_has(self) -> None:
-        fields = {one["field"] for one in discovery_releases.columns({"tableFiles": "word.table"})}
+        fields = {one["field"] for one in discovery_releases.columns(KINDS)}
 
         self.assertTrue(set(_everything().columns) <= fields)
 
@@ -123,12 +145,82 @@ class Columns(unittest.TestCase):
         self.assertEqual(("added", "desc"), (sort["colId"], sort["sort"]))
 
     def test_the_kind_column_filters_by_the_kinds_the_library_collects(self) -> None:
-        kind = next(one for one in discovery_releases.columns(
-            {"tableFiles": "word.table", "b2sFiles": "asset.kind.backglass.label"})
-            if one["field"] == "kind")
+        self.assertEqual(["tableFiles", "b2sFiles"], [value for value, _label in _choices("kind")])
 
-        self.assertEqual(["tableFiles", "b2sFiles"],
-                         [one["value"] for one in kind["filterParams"]["choices"]])
+    def test_authors_and_features_are_typed_into_and_hold_a_list(self) -> None:
+        for field in ("authors", "features"):
+            with self.subTest(field=field):
+                column = _column(field)
+
+                self.assertEqual(grid.LIST_FILTER, column[":filter"])
+                self.assertNotIn(":cellRenderer", column)
+                self.assertIn("join(', ')", column[":valueFormatter"])
+
+    def test_added_filters_on_a_window_of_days_and_the_cell_keeps_the_date(self) -> None:
+        column = _column("added")
+
+        self.assertEqual(grid.WINDOW_FILTER, column[":filter"])
+        self.assertEqual([("Past Week", 7), ("Past 2 Weeks", 14), ("Past Month", 30)],
+                         [(one["label"], one["value"])
+                          for one in column["filterParams"]["windows"]])
+        self.assertEqual("Any time", column["filterParams"]["words"]["any"])
+
+    def test_mod_filters_on_mod_or_original(self) -> None:
+        self.assertEqual([("mod", "Mod"), ("", "Original")], _choices("mod"))
+
+    def test_in_library_filters_on_yes_or_no(self) -> None:
+        self.assertEqual([("yes", "Yes"), ("no", "No")], _choices("in_library"))
+
+    def test_in_library_waits_for_a_count_like_have(self) -> None:
+        self.assertNotIn(":filter", _column("in_library", counted=False))
+
+    def test_have_filters_on_have_or_missing_once_the_library_has_been_counted(self) -> None:
+        self.assertEqual([("have", "Have"), ("", "Missing")], _choices("held"))
+        self.assertNotIn(":filter", _column("held", counted=False))
+
+    def test_format_offers_what_the_releases_carry_most_used_first_and_none_named(self) -> None:
+        release_rows = [{"format": "VPX"}, {"format": "FP"}, {"format": "VPX"}, {"format": ""}]
+
+        self.assertEqual([("VPX", "VPX"), ("FP", "FP"), ("", "Not recorded")],
+                         _choices("format", release_rows=release_rows))
+        self.assertEqual([], _choices("format", release_rows=[]))
+
+    def test_every_filtered_column_is_one_a_view_can_show(self) -> None:
+        filtered = {one["field"] for one in discovery_releases.columns(KINDS, counted=True)
+                    if ":filter" in one or "filterParams" in one}
+
+        self.assertEqual({"kind", "authors", "added", "held", "format", "features", "mod",
+                          "in_library"}, filtered)
+        self.assertTrue(filtered <= set(_everything().columns))
+
+
+class ArrivalFilters(unittest.TestCase):
+    def test_an_authors_page_becomes_filters_on_the_columns(self) -> None:
+        question = {"by": ["Wildman"], "kind": "b2sFiles", "owned": "yes", "held": "missing",
+                    "mod": "originals", "format": ["VPX"]}
+
+        self.assertEqual(
+            {"authors": {"values": ["Wildman"]}, "kind": {"values": ["b2sFiles"]},
+             "in_library": {"values": ["yes"]}, "held": {"values": [""]},
+             "mod": {"values": [""]}, "format": {"values": ["VPX"]}},
+            discovery_releases.arrival_filters(question, counted=True))
+
+    def test_have_and_in_library_wait_for_a_count(self) -> None:
+        question = {"by": ["Wildman"], "owned": "yes", "held": "missing"}
+
+        self.assertEqual({"authors": {"values": ["Wildman"]}},
+                         discovery_releases.arrival_filters(question, counted=False))
+
+    def test_a_question_that_asks_nothing_filters_nothing(self) -> None:
+        self.assertEqual({}, discovery_releases.arrival_filters({}, counted=True))
+
+    def test_every_filter_it_sets_is_on_a_column_the_everything_view_shows(self) -> None:
+        question = {"by": ["A"], "kind": "k", "owned": "yes", "held": "have", "mod": "mods",
+                    "format": ["VPX"]}
+
+        filters = discovery_releases.arrival_filters(question, counted=True)
+
+        self.assertTrue(set(filters) <= set(_everything().columns))
 
 
 class Tab(unittest.TestCase):

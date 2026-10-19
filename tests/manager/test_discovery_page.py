@@ -10,7 +10,7 @@ from nicegui import ui
 
 from common.online import vps_kinds
 from manager import page
-from manager.kit import deeplink
+from manager.kit import deeplink, grid
 from manager.kit.data import Library
 from manager.library import discovery, discovery_ask, discovery_get, discovery_list, import_dialog
 
@@ -348,52 +348,137 @@ class Address(unittest.TestCase):
         self.assertEqual(state["subject"], {"type": "maker", "name": "Bally"})
 
 
-class AskWords(unittest.TestCase):
-    def test_taking_a_value_out_of_a_list_leaves_the_rest(self) -> None:
-        asked = {"by": ["A", "B"], "mod": "mods"}
-        self.assertEqual(discovery_ask.without(asked, "by", "A"), {"by": ["B"], "mod": "mods"})
-        self.assertEqual(discovery_ask.without(asked, "mod", "mods"), {"by": ["A", "B"]})
-
-    def test_a_list_key_gains_the_value_and_any_other_key_takes_it_in_place(self) -> None:
-        self.assertEqual(discovery_ask.with_value({"by": ["A"]}, "by", "B"), {"by": ["A", "B"]})
-        self.assertEqual(discovery_ask.with_value({"mod": "mods"}, "mod", "originals"),
-                         {"mod": "originals"})
-
-    def test_asking_for_tables_brings_the_default_format_unless_one_is_named(self) -> None:
-        self.assertEqual(discovery_ask.with_value({}, "kind", "tableFiles"),
-                         {"kind": "tableFiles", "format": [discovery_ask.FORMAT_DEFAULT]})
-        self.assertEqual(
-            discovery_ask.with_value({"format": ["FP"]}, "kind", "tableFiles")["format"], ["FP"])
-        self.assertNotIn("format", discovery_ask.with_value({}, "kind", "b2sFiles"))
-
-    def test_moving_off_tables_takes_the_default_format_with_it(self) -> None:
-        tables = discovery_ask.with_value({}, "kind", "tableFiles")
-        self.assertEqual(discovery_ask.with_value(tables, "kind", "b2sFiles"),
-                         {"kind": "b2sFiles"})
-        chosen = {"kind": "tableFiles", "format": ["FP"]}
-        self.assertEqual(discovery_ask.with_value(chosen, "kind", "b2sFiles")["format"], ["FP"])
-
+class ReleasesKept(unittest.TestCase):
     def test_the_releases_a_library_does_not_collect_are_left_out(self) -> None:
         found = {"rows": [{"vps_id": "a", "releases": {"tableFiles": [1], "romFiles": [2]}},
                           {"vps_id": "b", "releases": {"romFiles": [3]}}]}
         self.assertEqual(discovery.releases_of(found, ["tableFiles"]), {"a": {"tableFiles": [1]}})
 
-    def test_every_thing_asked_is_one_chip(self) -> None:
-        asked = {"kind": "b2sFiles", "by": ["A", "B"], "mod": "mods", "held": "missing"}
-        said = discovery_ask.parts(asked, {"b2sFiles": "word.kind"})
-        self.assertEqual([key for key, _value, _words in said],
-                         ["kind", "by", "by", "mod", "held"])
 
-    def test_an_added_window_is_said_as_the_window_and_not_as_a_date(self) -> None:
-        for days, words in (("7", "Past Week"), ("14", "Past 2 Weeks"), ("30", "Past Month"),
-                            ("10", "Past 10 Days")):
-            self.assertEqual([("since", days, words)],
-                             discovery_ask.parts({"since": days}, {}))
+BALLY = {"type": "maker", "name": "Bally"}
+SPACE = {"type": "theme", "name": "Space"}
+WILDMAN = {"type": "author", "name": "Wildman"}
 
-    def test_choosing_a_window_replaces_the_one_before(self) -> None:
-        week = discovery_ask.with_value({}, "since", "7")
 
-        self.assertEqual({"since": "30"}, discovery_ask.with_value(week, "since", "30"))
+def _browse_columns(*, many_makers: bool = False) -> list[dict]:
+    makers = 301 if many_makers else 2
+    built = [{"manufacturer": f"Maker {n}", "game_type": "SS"} for n in range(makers)]
+    return grid.with_derived_facets(discovery.COLUMNS, built, discovery.CATALOG_FACET_CEILING)
+
+
+class OpenInGrid(unittest.TestCase):
+    def test_a_makers_page_opens_browse_on_its_manufacturer(self) -> None:
+        tab, opening = discovery.opening_for(
+            BALLY, {"maker": "Bally"}, _browse_columns(), counted=True)
+
+        self.assertEqual((discovery.BROWSE, "Bally"), (tab, opening["name"]))
+        self.assertEqual({"manufacturer": {"values": ["Bally"]}}, opening["filters"])
+
+    def test_a_manufacturer_filtered_by_typing_is_matched_on_the_whole_name(self) -> None:
+        _tab, opening = discovery.opening_for(
+            BALLY, {"maker": "Bally"}, _browse_columns(many_makers=True), counted=True)
+
+        self.assertEqual({"manufacturer": {"filterType": "text", "type": "equals",
+                                           "filter": "Bally"}}, opening["filters"])
+
+    def test_a_themes_page_opens_browse_on_its_theme(self) -> None:
+        tab, opening = discovery.opening_for(
+            SPACE, {"theme": "Space"}, _browse_columns(), counted=True)
+
+        self.assertEqual(discovery.BROWSE, tab)
+        self.assertEqual({"themes": {"values": ["Space"]}}, opening["filters"])
+
+    def test_a_makers_kind_in_library_and_missing_set_the_columns_that_say_them(self) -> None:
+        question = {"maker": "Bally", "kind": "b2sFiles", "owned": "yes", "held": "missing"}
+
+        _tab, opening = discovery.opening_for(BALLY, question, _browse_columns(),
+                                              counted=True)
+
+        self.assertEqual({"manufacturer": {"values": ["Bally"]},
+                          "in_library": {"values": ["yes"]},
+                          "kind_backglass": {"values": ["missing"]}}, opening["filters"])
+        self.assertEqual("Bally Backglasses", opening["name"])
+
+    def test_missing_without_a_kind_is_the_anything_missing_column(self) -> None:
+        _tab, opening = discovery.opening_for(
+            BALLY, {"maker": "Bally", "held": "missing"}, _browse_columns(),
+            counted=True)
+
+        self.assertEqual({"values": ["missing"]}, opening["filters"]["gap"])
+
+    def test_a_kind_alone_filters_to_the_games_that_list_it(self) -> None:
+        _tab, opening = discovery.opening_for(
+            BALLY, {"maker": "Bally", "kind": "tableFiles"}, _browse_columns(),
+            counted=True)
+
+        self.assertEqual({"values": ["have", "missing"]}, opening["filters"]["kind_table"])
+        self.assertEqual("Bally Tables", opening["name"])
+
+    def test_before_a_count_only_the_maker_filters(self) -> None:
+        question = {"maker": "Bally", "kind": "b2sFiles", "owned": "yes", "held": "missing"}
+
+        _tab, opening = discovery.opening_for(BALLY, question, _browse_columns(),
+                                              counted=False)
+
+        self.assertEqual({"manufacturer": {"values": ["Bally"]}}, opening["filters"])
+        self.assertEqual("Bally", opening["name"])
+
+    def test_an_authors_page_opens_releases_with_the_filters_on_its_columns(self) -> None:
+        question = {"by": ["Wildman"], "kind": "b2sFiles", "owned": "yes"}
+
+        tab, opening = discovery.opening_for(WILDMAN, question, [], counted=True)
+
+        self.assertEqual((discovery.RELEASES, "Wildman Backglasses"), (tab, opening["name"]))
+        self.assertEqual({"authors": {"values": ["Wildman"]}, "kind": {"values": ["b2sFiles"]},
+                          "in_library": {"values": ["yes"]}}, opening["filters"])
+
+    def test_the_view_is_named_for_the_page_alone_where_no_kind_was_chosen(self) -> None:
+        _tab, opening = discovery.opening_for(WILDMAN, {"by": ["Wildman"]}, [],
+                                              counted=True)
+
+        self.assertEqual("Wildman", opening["name"])
+
+    def test_a_page_opens_on_the_tab_it_names_and_the_chosen_tab_is_remembered(self) -> None:
+        state: dict[str, Any] = {"view": "discovery", "subject": WILDMAN}
+        opening = {"name": "Wildman", "filters": {}}
+
+        with mock.patch.object(discovery.ui, "run_javascript"):
+            discovery.open_page(state, [], lambda: None, None, opening=opening,
+                                tab=discovery.RELEASES)
+
+        self.assertEqual((None, {**opening, "tab": discovery.RELEASES}, discovery.RELEASES),
+                         (state["subject"], state["opening"], state["discovery_tab"]))
+        self.assertEqual(discovery.RELEASES, discovery.tab_of(state))
+
+    def test_a_pick_in_the_search_opens_a_page_under_the_name_vps_credits(self) -> None:
+        people = [{"name": "Wildman", "aliases": ["Wild Man"], "releases": 3}]
+        state: dict[str, Any] = {"view": "discovery"}
+
+        with mock.patch.object(discovery.ui, "run_javascript"):
+            discovery.open_page(state, people, lambda: None,
+                                {"type": "author", "name": "Wild Man"})
+
+        self.assertEqual({"type": "author", "name": "Wildman"}, state["subject"])
+        self.assertNotIn("opening", state)
+
+    def test_a_page_that_opens_no_view_leaves_the_one_a_tab_was_sent_to(self) -> None:
+        state: dict[str, Any] = {"view": "discovery",
+                                 "opening": {"name": "Wildman", "filters": {}, "tab": "releases"}}
+
+        with mock.patch.object(discovery.ui, "run_javascript"):
+            discovery.open_page(state, [], lambda: None, None)
+
+        self.assertEqual("Wildman", state["opening"]["name"])
+
+    def test_a_view_a_tab_was_sent_to_is_kept_for_that_tab_until_another_is_picked(self) -> None:
+        state: dict[str, Any] = {"opening": {"name": "Wildman", "filters": {}, "tab": "releases"}}
+
+        self.assertIsNone(discovery_ask.opening_on(state, discovery.BROWSE))
+        self.assertIsNotNone(discovery_ask.opening_on(state, discovery.RELEASES))
+        discovery_ask.drop_opening(state, discovery.BROWSE)
+        self.assertIn("opening", state)
+        discovery_ask.drop_opening(state, discovery.RELEASES)
+        self.assertNotIn("opening", state)
 
 
 class MediaBands(unittest.TestCase):
