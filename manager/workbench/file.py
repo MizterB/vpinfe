@@ -384,19 +384,37 @@ async def _write_overlay(inner: dict[str, Any], values: dict[str, str], *,
     if cut := (wrote or {}).get("cut"):
         no_longer_reads_game(cut, inner.get("tables"))
     inner.pop("config_values", None)
-    if in_place and (redraw := inner.get("redraw_form")) is not None:
-        try:
-            fresh = await _config_values(inner)
-        except Exception:  # noqa: BLE001 - what cannot be read is drawn from the top
-            logger.exception("Could not read the settings after a box was written")
-        else:
-            for follow in list(inner.get("followers", ())):
-                follow(fresh)
-            await redraw()
-            if (behind := inner.get("refresh_grid")) is not None:
-                await behind()
-            return
+    if in_place and await _form_again(inner):
+        if (behind := inner.get("refresh_grid")) is not None:
+            await behind()
+        return
     await _keeping_place(ui.context.client, inner["rebuild"], next(iter(values)))
+
+
+async def _form_again(inner: dict[str, Any]) -> bool:
+    """Draw the file's form again from what is now held, and tell the preview. False where
+    the settings cannot be read, which the caller draws from the top."""
+    if (redraw := inner.get("redraw_form")) is None:
+        return False
+    try:
+        fresh = await _config_values(inner)
+    except Exception:  # noqa: BLE001 - what cannot be read is drawn from the top
+        logger.exception("Could not read the settings to draw the file's form again")
+        return False
+    for follow in list(inner.get("followers", ())):
+        follow(fresh)
+    await redraw()
+    return True
+
+
+async def _refill_form(inner: dict[str, Any]) -> None:
+    """The form drawn again after a setting that changes what it lists, with the grid's row
+    put right, as the rebuild this stands in for did."""
+    if not await _form_again(inner):
+        await inner["rebuild"]()
+        return
+    if (behind := inner.get("refresh_grid")) is not None:
+        await behind()
 
 
 def _backglass_chips(glass: dict[str, Any]) -> None:
@@ -522,6 +540,7 @@ async def _file_settings_entries(context: dict[str, Any]) -> list[tuple[Any, Any
     entries = await _setting_entries(
         inner, [(heading.label, heading.note, fields) for heading, fields in shown],
         curated=True, redraw_on=switches(heading for heading, _ in shown),
+        refill=partial(_refill_form, inner),
         pairs=[pair for heading, _ in shown for pair in heading.pairs],
         ahead={field.key: [_fit_row(inner, part)] for _, fields in shown for field in fields
                if (part := _dmd_part(field.key))})

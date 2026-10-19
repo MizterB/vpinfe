@@ -238,12 +238,15 @@ def _where_rows(context: dict[str, Any], address: str) -> list[tuple[Any, Any]]:
     async def save(which: str, text: str) -> str:
         text = text.strip()
         if which == "address":
-            return (mobile_add.address_problem(text)
-                    or await _write_mobile(context, address=text))
-        port = mobile_add.port_of(text)
-        if port is None:
-            return t("manager.devices.port_invalid")
-        return await _write_mobile(context, port=port)
+            problem = (mobile_add.address_problem(text)
+                       or await _write_mobile(context, address=text))
+        else:
+            port = mobile_add.port_of(text)
+            problem = (t("manager.devices.port_invalid") if port is None
+                       else await _write_mobile(context, port=port))
+        if not problem:
+            await context["rebuild"]()
+        return problem
 
     return [(t("manager.devices.address"), panel.field(
                 address, lambda text: save("address", text), refuses=True)),
@@ -254,13 +257,13 @@ def _where_rows(context: dict[str, Any], address: str) -> list[tuple[Any, Any]]:
 
 async def _write_mobile(context: dict[str, Any], *, address: str | None = None,
                         port: int | None = None, name: str | None = None) -> str:
-    """Rewrite a mobile device's entry with one part changed, then redraw. Answers why it
-    could not, or "" once it is written.
+    """Rewrite a mobile device's entry with one part changed. Answers why it could not,
+    or "" once it is written.
 
     `device` is the page's own entry, so it is updated in place: a later edit starts from
-    what was just written, and what was probed at the old address is forgotten.
-
-    The rebuild is last: it clears the panel this runs from, and nothing after it runs.
+    what was just written, and what was probed at the old address is forgotten. A new
+    address or port is another endpoint, and the caller draws the panel again; a new
+    name is put on the header and the grid's row here.
     """
     device = _of(context)
     device_id = str(device.get("device_id") or "")
@@ -277,14 +280,14 @@ async def _write_mobile(context: dict[str, Any], *, address: str | None = None,
         for cached in ("device_reach", "device_actions"):
             state.get(cached, {}).pop(device_id, None)
         context["reach"] = context["actions"] = None
-    landed, rebuild = state.get("device_landed"), context.get("rebuild")
+    landed, retitle = state.get("device_landed"), context.get("retitle")
     ask = state.get("ask_device")
     if ask is not None and (address is not None or port is not None):
         background_tasks.create(ask(device_id), name="manager-device-asked")
     if landed is not None:
         landed(device_id)
-    if rebuild is not None:
-        await rebuild()
+    if retitle is not None:
+        retitle()
     return ""
 
 
@@ -1346,10 +1349,6 @@ async def _identity_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
                                {"device": {"name": value.strip()}})
         except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
             ui.notify(t("manager.devices.save_failed"), caption=_why(exc), type="negative")
-            return
-        rebuild = context.get("rebuild")
-        if rebuild is not None:
-            await rebuild()
 
     mobile = is_phone(context) and context.get("library") is not None
 

@@ -15,6 +15,9 @@ from manager.workbench import collection, rail
 from tests.support.clicks import press
 from tests.support.workbench_patch import patch_workbench
 
+# Made at import, outside any task, where NiceGUI still hands out the script's own page.
+_PAGE = ui.element()
+
 
 async def _now(callback: Any, *args: Any, **kwargs: Any) -> Any:
     return callback(*args, **kwargs)
@@ -52,7 +55,7 @@ class OpenOn(unittest.IsolatedAsyncioTestCase):
 
         with patch.object(panel, "action", new=action), \
                 patch.object(ui, "row", new=lambda: Row()), \
-                patch.object(ui, "label", new=Label):
+                patch.object(ui, "label", new=Label), _PAGE:
             collection._open_on(context, {"name": name}, all_games=all_games)()
         label, act = acts[0] if acts else (None, None)
         return shown[0], label, act, context
@@ -60,9 +63,9 @@ class OpenOn(unittest.IsolatedAsyncioTestCase):
     async def _used(self, name: str, opens_on: str) -> dict[str, Any]:
         _, _, use, context = self._drawn(name, opens_on)
         with patch.object(run, "io_bound", new=_now), \
-                patch_workbench("_written", new=AsyncMock()) as written:
+                patch_workbench("_settled", new=AsyncMock()) as settled:
             await press(use)
-        context["written"] = written
+        context["settled"] = settled
         return context
 
     def test_it_names_the_collection_the_frontend_opens_on_and_offers_all_games(self) -> None:
@@ -88,7 +91,7 @@ class OpenOn(unittest.IsolatedAsyncioTestCase):
 
         context["library"].put_config.assert_called_once_with(
             {"behavior": {"startup_collection": "90s Bally"}})
-        context["written"].assert_awaited_once()
+        context["settled"].assert_awaited_once()
 
     async def test_using_all_games_empties_it(self) -> None:
         context = await self._used("Friday Night", "Friday Night")

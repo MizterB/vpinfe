@@ -3076,6 +3076,8 @@ input.manager-path-input { padding-right: 0.6ch; }
 }
 /* Actions: the width of the panel, not of a value. A finding in it is capped below. */
 .manager-fact-full { grid-column: 1 / -1; padding: 4px 0; min-width: 0; }
+/* A line that is a region holding nothing takes no row, so the gap above it goes too. */
+.manager-fact-full:not(:has(:not(.manager-region))) { display: none; }
 /* A row, or a finding, with its action pinned to the right edge stops where the controls
    above it end at most: the label column's ceiling, its gap and the measure. Left at the
    pane's width the action sits a screen away from the name it belongs to. Scoped to the

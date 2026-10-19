@@ -205,6 +205,18 @@ class AWaitingRegionSwapsInOneStepTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(["before", "one", "after"], drawn.shown())
 
+    async def test_a_first_draw_that_fails_raises_and_leaves_no_empty_part(self) -> None:
+        drawn = Waiting()
+
+        async def broken() -> None:
+            raise OSError("gone")
+
+        drawn.region._build = broken
+        with self.assertRaises(OSError):
+            await drawn.region.refilled()
+
+        self.assertEqual([], list(drawn.region._box.default_slot.children))
+
 
 if __name__ == "__main__":
     unittest.main()

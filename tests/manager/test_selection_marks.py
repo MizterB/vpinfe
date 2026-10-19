@@ -68,7 +68,7 @@ class ChangeTests(unittest.IsolatedAsyncioTestCase):
     async def _change(self, kind: marks.Kind, rows: list[dict], name: str, new, old) -> tuple:
         sent = AsyncMock()
         with patch.object(marks, "apply", sent):
-            await marks.change({}, kind, rows, name, new, old)
+            await marks.change({kind.rows: rows}, kind, name, new, old)
         return sent.await_args.args[2:] if sent.await_args else ((), ())
 
     async def test_each_row_is_put_back_to_what_it_held_itself(self) -> None:
@@ -92,7 +92,7 @@ class ChangeTests(unittest.IsolatedAsyncioTestCase):
     async def test_nothing_to_change_writes_nothing(self) -> None:
         sent = AsyncMock()
         with patch.object(marks, "apply", sent):
-            await marks.change({}, marks.GAMES, [_game("g", private=True)], "private",
+            await marks.change({"games": [_game("g", private=True)]}, marks.GAMES, "private",
                                lambda _row: True, marks.private_of)
 
         sent.assert_not_awaited()
@@ -172,10 +172,13 @@ class ApplyTests(unittest.IsolatedAsyncioTestCase):
         self.notified: list[dict] = []
         self.written: list[list[dict]] = []
 
-        async def rebuild() -> None:
+        async def drawn_again(_context, _kind) -> None:
             self.rebuilt += 1
 
-        self.context = {"rebuild": rebuild}
+        self.context: dict[str, Any] = {}
+        redraw = patch.object(marks, "_drawn_again", drawn_again)
+        redraw.start()
+        self.addCleanup(redraw.stop)
 
         def offer(said, reverse, **kwargs):
             self.offered.append((said, reverse, kwargs))
@@ -247,6 +250,75 @@ class ApplyTests(unittest.IsolatedAsyncioTestCase):
                 self.assertRaisesRegex(RuntimeError, marks.t("manager.selection.not_written",
                                                               count=1)):
             await reverse.__wrapped__()
+
+
+class _Mark:
+    def __init__(self) -> None:
+        self.refilled = 0
+
+    def refill(self) -> None:
+        self.refilled += 1
+
+
+class _Rows:
+    games = [{"id": "g", "rating": 4}]
+
+    def load_tables(self) -> list[dict]:
+        return [{"id": "a", "rating": 4}, {"id": "other", "rating": 1}]
+
+    def launchers(self) -> dict:
+        return {"launchers": [{"launcher_id": "vpx"}]}
+
+
+class DrawnAgainTests(unittest.IsolatedAsyncioTestCase):
+    """After a write the rows are read again in place and every mark is drawn from them."""
+
+    async def asyncSetUp(self) -> None:
+        async def inline(callback, *args, **kwargs):
+            return callback(*args, **kwargs)
+
+        self.saved = 0
+
+        async def saved() -> None:
+            self.saved += 1
+
+        self.tags = 0
+        self.mark = _Mark()
+        self.context: dict[str, Any] = {
+            "saved": saved, "library": _Rows(), "tables": [{"id": "a", "rating": 1}],
+            "games": [{"id": "g", "rating": 0}], "marks": {"rating": self.mark},
+            "settle_tags": self._settled}
+        patched = patch.object(marks.offload, "io", inline)
+        patched.start()
+        self.addCleanup(patched.stop)
+
+    def _settled(self) -> None:
+        self.tags += 1
+
+    async def test_the_selection_s_rows_are_read_again_and_its_marks_drawn_from_them(self) -> None:
+        rows = self.context["tables"]
+
+        await marks._drawn_again(self.context, marks.TABLES)
+
+        self.assertIs(rows, self.context["tables"])
+        self.assertEqual([{"id": "a", "rating": 4}], rows)
+        self.assertEqual((1, 1, 1), (self.saved, self.mark.refilled, self.tags))
+        self.assertEqual([{"launcher_id": "vpx", "is_default": False}],
+                         self.context["launchers"]["launchers"])
+
+    async def test_games_are_read_from_the_library_s_games(self) -> None:
+        await marks._drawn_again(self.context, marks.GAMES)
+
+        self.assertEqual([{"id": "g", "rating": 4}], self.context["games"])
+        self.assertEqual(1, self.mark.refilled)
+
+    async def test_a_selection_gone_from_the_library_is_let_be(self) -> None:
+        self.context["tables"] = [{"id": "gone", "rating": 2}]
+
+        await marks._drawn_again(self.context, marks.TABLES)
+
+        self.assertEqual([{"id": "gone", "rating": 2}], self.context["tables"])
+        self.assertEqual((1, 0, 0), (self.saved, self.mark.refilled, self.tags))
 
 
 if __name__ == "__main__":

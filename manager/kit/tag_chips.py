@@ -48,9 +48,11 @@ def draw(tags: Sequence[str], looks: Mapping[str, Mapping[str, Any]]) -> None:
                 chip.tooltip(str(look["description"]))
 
 
-def swatches(chosen: str, derived: str, on_pick: Callable[[str], Any]) -> None:
+def swatches(chosen: str, derived: str, on_pick: Callable[[str], Any]
+             ) -> Callable[[str], None]:
     """Automatic, wearing `derived`, then every color; `chosen` is ringed, "" for
-    Automatic."""
+    Automatic. The answer moves the ring to another color without drawing again."""
+    buttons: dict[str, ui.button] = {}
     with ui.element("div").classes("manager-fact-edit manager-swatches"):
         for color, said in (("", t("manager.tags.automatic")),
                             *((one, t(f"manager.tags.color.{one}")) for one in COLORS)):
@@ -59,8 +61,18 @@ def swatches(chosen: str, derived: str, on_pick: Callable[[str], Any]) -> None:
                     .classes("manager-swatch"
                              + (" manager-swatch--auto" if not color else "")
                              + (" manager-swatch--on" if color == chosen else "")) \
-                    .tooltip(said):
+                    .tooltip(said) as button:
                 ui.element("span").classes(dot_class(color or derived))
+            buttons[color] = button
+
+    def ring(color: str) -> None:
+        for one, button in buttons.items():
+            if one == color:
+                button.classes("manager-swatch--on")
+            else:
+                button.classes(remove="manager-swatch--on")
+
+    return ring
 
 
 class Picker(dropdown.Select):

@@ -19,6 +19,7 @@ from manager.frontend import players as players_page
 from manager.frontend import themes as themes_page
 from manager.kit import game_tables, offload, panel, verbs
 from manager.kit.data import Library
+from manager.kit.on_page import on_page
 from manager.library import collection_adds, collection_rules, discovery_get, discovery_kinds
 from manager.library import discovery as discovery_page
 from manager.workbench import discovery_rail
@@ -83,15 +84,20 @@ async def _draw(container: ui.column, title: ui.column, library: Library,
     container.clear()
     title.clear()
     with container:
-        made = game_tables.made(game)
-        _title(title, game.get("name") or "", made)
         # Named under the game once a file is the subject, so the header says which of
         # the four you are looking at without a control to read.
         chosen = next((t for t in tables if t.get("id") == table_id), None)
-        if chosen is not None:
-            with title:
-                ui.label(_table_line(chosen, tables)).classes("manager-workbench-table") \
-                    .tooltip(str(chosen.get("filename") or ""))
+
+        def retitle() -> None:
+            """The header again, from the game as it is now: a name override changes it."""
+            title.clear()
+            current = context["game"]
+            _title(title, current.get("name") or "", game_tables.made(current))
+            if chosen is not None:
+                with title:
+                    ui.label(_table_line(chosen, tables)).classes("manager-workbench-table") \
+                        .tooltip(str(chosen.get("filename") or ""))
+
         # `lens` is a table id or "" for the folder's shared files, and it resets per
         # game because a table id means nothing to the next one. `redraws` is how the
         # lens reaches the sections that follow it without rebuilding the panel.
@@ -109,6 +115,8 @@ async def _draw(container: ui.column, title: ui.column, library: Library,
 
         # The subject has to survive a rebuild. Left off, every rail click fell
         # back to the game and the table's own sections vanished under the cursor.
+        context["retitle"] = retitle
+        retitle()
         context["rebuild"] = _rebuilds(
             context, f"{game_id}:{table_id}",
             lambda: build(container, title, library, game_id, state, table_id))
@@ -590,18 +598,23 @@ async def _draw_device(container: ui.column, title: ui.column, library: Library,
         return
 
     container.clear()
-    title.clear()
-    with container:
+
+    def retitle() -> None:
+        """The header again, from the device as it is now: a rename changes it."""
+        title.clear()
         _title(title, devices_page.device_label(device),
                devices_page.KIND_LABELS.get(str(device.get("kind") or "vpinfe"),
                                             "VPinFE"))
+
+    retitle()
+    with container:
         reach = (state.get("device_reach") or {}).get(str(device.get("device_id") or ""))
         context: dict[str, Any] = {
             "library": library, "device": device, "state": state,
             "local_device_id": local_device_id,
             "device_capabilities": device_capabilities,
             "local_capabilities": local_capabilities,
-            "reach": reach, "redraws": [], "dock": None,
+            "reach": reach, "redraws": [], "dock": None, "retitle": retitle,
             "actions": (state.get("device_actions") or {}).get(
                 str(device.get("device_id") or "")),
         }
@@ -650,28 +663,17 @@ async def _draw_theme(container: ui.column, title: ui.column, library: Library,
         await _rail(context, "theme", state)
 
 
-async def _draw_collection(container: ui.column, title: ui.column, library: Library,
-                           name: str | None, state: dict[str, Any]) -> None:
-    if not name:
-        _blank(container, title, t("manager.page.collection"),
-               t("manager.page.select_collection"))
-        with container:
-            _note_unsaved(state, set(state.get("unsaved_rules") or ())
-                          & set(state.get("collection_drafts") or {}))
-        return
-    # Read fresh rather than from the grid's copy: every control in here writes,
-    # and a rebuild that redrew the values it just changed from a stale row would
-    # show the edit undoing itself.
-    #
-    # All of it before the container is cleared. Clearing first holds the panel empty
-    # across three round trips, which is a black flash after changing a member's table:
-    # the old panel stays up until the new one is ready to replace it.
+async def _read_collection(library: Library, name: str,
+                           state: dict[str, Any]) -> dict[str, Any] | None:
+    """What the panel of the collection `name` is drawn from, or None where it is gone.
+
+    Read fresh rather than from the grid's copy: every control in the panel writes, and a
+    panel redrawn from a stale row would show the edit undoing itself.
+    """
     rows = await offload.io(library.load_collections)
     row = next((entry for entry in rows if entry.get("name") == name), None)
     if row is None:
-        _blank(container, title, t("manager.page.collection"),
-               t("manager.page.gone"))
-        return
+        return None
     # Independent of each other, so one wait rather than four.
     membership, axes, settings, _ = await asyncio.gather(
         run.io_bound(library.collection_members, name),
@@ -698,31 +700,75 @@ async def _draw_collection(container: ui.column, title: ui.column, library: Libr
                 collection_rules.filters_from(draft["rules"], known)))
         except Exception as exc:  # noqa: BLE001 - the list says why in its place
             preview = {"error": why(exc)}
+    return {"collection": row, "membership": membership, "fields": known,
+            "settings": settings or {}, "preview": preview, "unsaved": name in waiting,
+            "draft": draft, "waiting": waiting}
+
+
+async def _draw_collection(container: ui.column, title: ui.column, library: Library,
+                           name: str | None, state: dict[str, Any]) -> None:
+    if not name:
+        _blank(container, title, t("manager.page.collection"),
+               t("manager.page.select_collection"))
+        with container:
+            _note_unsaved(state, set(state.get("unsaved_rules") or ())
+                          & set(state.get("collection_drafts") or {}))
+        return
+    # All of it before the container is cleared. Clearing first holds the panel empty
+    # across three round trips, which is a black flash after changing a member's table:
+    # the old panel stays up until the new one is ready to replace it.
+    read = await _read_collection(library, name, state)
+    if read is None:
+        _blank(container, title, t("manager.page.collection"),
+               t("manager.page.gone"))
+        return
+    waiting = read.pop("waiting")
 
     container.clear()
     title.clear()
     with container:
-        size = int(row.get("count") or 0)
-        smart = (row.get("type") or "") == "filter"
-        with title:
-            ui.label(row.get("name") or "") \
-                .classes("text-base manager-workbench-title leading-tight truncate") \
-                .tooltip(row.get("name") or "")
-            with ui.row().classes("items-center gap-1 no-wrap"):
-                if smart:
-                    ui.icon(verbs.SMART).classes("manager-heading-mark") \
-                        .tooltip(t("manager.collections.smart.help"))
-                ui.label(t("manager.workbench.smart_games", count=size) if smart
-                         else t("manager.workbench.hand_picked", count=size)) \
-                    .classes("text-xs manager-workbench-label leading-none truncate")
-        _note_unsaved(state, waiting)
-        context: dict[str, Any] = {"library": library, "collection": row,
-                                   "membership": membership, "fields": known,
-                                   "settings": settings or {}, "preview": preview,
-                                   "unsaved": name in waiting, "state": state,
-                                   "draft": draft, "redraws": [], "dock": None,
+        context: dict[str, Any] = {**read, "library": library, "state": state,
+                                   "redraws": [], "dock": None,
                                    "games_by_id": {str(one.get("id") or ""): one
                                                    for one in library.games}}
+
+        def retitle() -> None:
+            """The header again, from the collection as it is now."""
+            row = context["collection"]
+            size = int(row.get("count") or 0)
+            smart = (row.get("type") or "") == "filter"
+            title.clear()
+            with title:
+                ui.label(row.get("name") or "") \
+                    .classes("text-base manager-workbench-title leading-tight truncate") \
+                    .tooltip(row.get("name") or "")
+                with ui.row().classes("items-center gap-1 no-wrap"):
+                    if smart:
+                        ui.icon(verbs.SMART).classes("manager-heading-mark") \
+                            .tooltip(t("manager.collections.smart.help"))
+                    ui.label(t("manager.workbench.smart_games", count=size) if smart
+                             else t("manager.workbench.hand_picked", count=size)) \
+                        .classes("text-xs manager-workbench-label leading-none truncate")
+
+        @on_page
+        async def reload() -> None:
+            """The panel's copy of the collection read again where it stands. The row is
+            updated in place: what was drawn from it holds the same dict."""
+            fresh = await _read_collection(library, name, state)
+            if fresh is None:
+                return
+            waiting_now = fresh.pop("waiting")
+            row = dict(fresh.pop("collection"))
+            context["collection"].clear()
+            context["collection"].update(row)
+            context.update(fresh)
+            _note_unsaved(state, waiting_now)
+            retitle()
+
+        retitle()
+        context["reload"] = reload
+        state["collection_panel"] = context
+        _note_unsaved(state, waiting)
 
         context["rebuild"] = _rebuilds(
             context, f"collection:{name}",

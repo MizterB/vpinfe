@@ -6,6 +6,8 @@ import unittest
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
+from nicegui import ui
+
 from common.i18n import t
 from manager.kit import game_tables, panel
 from manager.workbench import core, game_table
@@ -131,6 +133,10 @@ class Findings(unittest.IsolatedAsyncioTestCase):
                          [game_tables.name_among(tables[0], list(tables))])
 
 
+# Made at import, outside any task, where NiceGUI still hands out the script's own page.
+_PAGE = ui.element()
+
+
 class OncePerPanel(unittest.IsolatedAsyncioTestCase):
     """The game's section carries its tables' findings only while the game is the
     subject. Under Tables the table's own section leads with them."""
@@ -150,7 +156,7 @@ class OncePerPanel(unittest.IsolatedAsyncioTestCase):
                              return_value=[("fact", "value")]) as entries, \
                 patch_workbench("_rows", new=rows), \
                 patch_workbench("_tables_block"), \
-                patch_workbench("ui"):
+                patch_workbench("ui"), _PAGE:
             await game_table._game_block(context)
         self.dof_state = entries.call_args.args[-1]
         return list(rows.call_args.args[1])

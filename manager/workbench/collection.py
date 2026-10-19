@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Callable
 from functools import partial
-from typing import Any
+from typing import Any, NamedTuple
 
 from nicegui import run, ui
 
@@ -126,7 +125,7 @@ def _text_control(context: dict[str, Any], row: dict[str, Any], field: str,
         if field == "name":
             await _rename(context, value)
             return
-        await _patch(context, {field: value})
+        await _save(context, {field: value})
 
     def draw() -> None:
         control: ui.textarea | ui.input
@@ -166,13 +165,19 @@ async def _rename(context: dict[str, Any], wanted: str) -> None:
 
 
 def _in_frontend_switch(context: dict[str, Any], row: dict[str, Any]) -> Callable[[], None]:
-    shown = row.get("in_frontend") is not False
+    def shown() -> bool:
+        return row.get("in_frontend") is not False
 
     async def changed(event: Any) -> None:
-        if bool(event.value) != shown:
-            await _patch(context, {"in_frontend": bool(event.value)})
+        if bool(event.value) != shown():
+            await _save(context, {"in_frontend": bool(event.value)})
 
-    return panel.switch(shown, changed, hint=t("manager.workbench.in_menu.help"))
+    return panel.switch(shown(), changed, hint=t("manager.workbench.in_menu.help"))
+
+
+def _open_now(context: dict[str, Any]) -> str:
+    behavior = (context.get("settings") or {}).get("behavior") or {}
+    return str(behavior.get("startup_collection") or "").strip()
 
 
 @on_page
@@ -183,7 +188,12 @@ async def _write_open_on(context: dict[str, Any], value: str) -> None:
     except Exception as exc:
         ui.notify(t("manager.workbench.save_failed"), caption=why(exc), type="negative")
         return
-    await _written(context)
+    settings = context.get("settings")
+    if not isinstance(settings, dict):
+        settings = context["settings"] = {}
+    settings.setdefault("behavior", {})["startup_collection"] = value
+    await _settled(context)
+    _refill(context, "open_on")
 
 
 def _open_on(context: dict[str, Any], row: dict[str, Any], *,
@@ -193,29 +203,28 @@ def _open_on(context: dict[str, Any], row: dict[str, Any], *,
     same way. `all_games` is the row for the whole library, which is where the choices
     that are not a collection are made."""
     name = str(row.get("name") or "")
-    behavior = (context.get("settings") or {}).get("behavior") or {}
-    now = str(behavior.get("startup_collection") or "").strip()
     choices = panel.open_on_choices()
 
     if all_games:
+        now = _open_now(context)
         # What is set stays on the list while it is a collection, so the control never
         # shows a value it cannot name.
         options = choices if not now or now in choices else {**choices, now: now}
 
         @on_page
         async def chosen(event: Any) -> None:
-            if str(event.value or "") != now:
+            if str(event.value or "") != _open_now(context):
                 await _write_open_on(context, str(event.value or ""))
 
         return panel.select(options, now, chosen)
 
-    here = bool(name) and now == name
-
     @on_page
     async def use() -> None:
-        await _write_open_on(context, "" if here else name)
+        await _write_open_on(context, "" if _open_now(context) == name else name)
 
     def draw() -> None:
+        now = _open_now(context)
+        here = bool(name) and now == name
         with ui.row().classes("items-center gap-2 no-wrap min-w-0"):
             ui.label(choices.get(now) or now) \
                 .classes("manager-fact-value truncate min-w-0")
@@ -226,7 +235,7 @@ def _open_on(context: dict[str, Any], row: dict[str, Any], *,
                 hint=t("manager.workbench.open_on.use_all.help" if here
                        else "manager.collections.opens_on.help"))()
 
-    return draw
+    return _region(context, "open_on", draw)
 
 
 _PAGE_BY_GROUP = frozenset({"letter", "year", "rating"})
@@ -235,7 +244,6 @@ _PAGE_BY_GROUP = frozenset({"letter", "year", "rating"})
 def _page_by(context: dict[str, Any], row: dict[str, Any]) -> Callable[[], None]:
     """Every choice is listed; the group one is greyed, with the order's name, where that
     order has no groups, and a stored group still reads as stored."""
-    stored = row.get("paging_group") or ""
     by, _, orders = _shown_order(context, row)
     choices = config_schema.option("behavior", "paging_group")
     said = ((context.get("settings") or {}).get("behavior") or {}).get("paging_group")
@@ -245,13 +253,16 @@ def _page_by(context: dict[str, Any], row: dict[str, Any]) -> Callable[[], None]
                "sort": word["sort"], "count": word["count"]}
     unavailable = {} if group_kind(by) in _PAGE_BY_GROUP else {
         "sort": t("manager.workbench.page_by.no_groups", order=orders[by])}
-    shown = stored if stored in options else ""
+
+    def shown() -> str:
+        stored = row.get("paging_group") or ""
+        return stored if stored in options else ""
 
     async def changed(event: Any) -> None:
-        if event.value != shown:
-            await _patch(context, {"paging_group": event.value})
+        if event.value != shown():
+            await _save(context, {"paging_group": event.value})
 
-    return panel.select(options, shown, changed, unavailable=unavailable)
+    return panel.select(options, shown(), changed, unavailable=unavailable)
 
 
 def _image_slot(context: dict[str, Any], row: dict[str, Any]) -> None:
@@ -301,6 +312,49 @@ def _image_slot(context: dict[str, Any], row: dict[str, Any]) -> None:
                     .classes("manager-action manager-action--danger")
 
 
+def _region(context: dict[str, Any], key: str, build: Callable[[], Any]) -> panel.Region:
+    """A part of the panel that reads the collection, found again by `key`. Drawn again,
+    it takes its key back from the one it replaces."""
+    made = panel.region(build)
+    context.setdefault("regions", {})[key] = made
+    return made
+
+
+def _refill(context: dict[str, Any], *keys: str) -> None:
+    """The parts of the panel named `keys` that are on screen, drawn again where they stand."""
+    for key in keys:
+        found = context.get("regions", {}).get(key)
+        if found is not None:
+            found.refill()
+
+
+async def _settled(context: dict[str, Any]) -> None:
+    """After a write that leaves the panel as it is: the panel's copy of the collection
+    read again, and the grid's row put right."""
+    reload = context.get("reload")
+    if callable(reload):
+        await reload()
+    settle = context["state"].get("settle_collections")
+    if callable(settle):
+        await settle()
+
+
+@on_page
+async def _save(context: dict[str, Any], changes: dict[str, Any],
+                *refills: str) -> bool:
+    """Write `changes` to this collection and settle the panel, refilling the parts that
+    read them. False where the write failed."""
+    try:
+        await run.io_bound(context["library"].patch_collection,
+                           _collection(context)["name"], changes)
+    except Exception as exc:
+        ui.notify(t("manager.workbench.save_failed"), caption=why(exc), type="negative")
+        return False
+    await _settled(context)
+    _refill(context, *refills)
+    return True
+
+
 async def _written(context: dict[str, Any], name: str = "") -> None:
     """The grid read again and the panel redrawn. Refocusing the row is what redraws the
     panel, so nothing here rebuilds it as well."""
@@ -311,12 +365,15 @@ async def _written(context: dict[str, Any], name: str = "") -> None:
     await context["rebuild"]()
 
 
-async def _collection_redrawn(context: dict[str, Any], name: str) -> None:
-    """The panel redrawn if it still shows `name`, and the grid's counts either way. Run
-    again by an Undo, when the panel may have moved on."""
+async def _membership_changed(context: dict[str, Any], name: str) -> None:
+    """The members read again where the panel still shows `name`, and the grid's counts
+    either way. Run again by an Undo, when the panel it was started from may have been
+    drawn again: it is the panel on screen that is read."""
     state = context["state"]
     if state.get("collection") == name and state.get("view") == "collections":
-        await _written(context)
+        shown = state.get("collection_panel") or context
+        await _settled(shown)
+        _read_drawn(shown)
         return
     reread = state.get("refresh_collections")
     if callable(reread) and state.get("view") == "collections":
@@ -329,21 +386,44 @@ def _games_label(context: dict[str, Any]) -> str:
         else t("manager.workbench.games_counted", count=got)
 
 
-async def _collection_games(context: dict[str, Any]) -> None:
-    row = _collection(context)
+def _forked(context: dict[str, Any]) -> bool:
+    """Whether the section offers the choice between rules and a hand-picked list, which
+    is all an empty list with no rules has to show."""
     held = (context.get("membership") or {}).get("members") or []
-    if not held and not _is_dynamic(row) and not _drafting(context):
+    return not held and not _is_dynamic(_collection(context)) and not _drafting(context)
+
+
+async def _collection_games(context: dict[str, Any]) -> None:
+    _region(context, "games", partial(_games_section, context))()
+
+
+def _shape(context: dict[str, Any]) -> tuple[bool, bool, bool]:
+    """What the section lays out: the fork or the list, the stored rules or a draft, and
+    whether the list is long enough to be searched."""
+    return _forked(context), bool(context.get("unsaved")), _searchable(context)
+
+
+def _searchable(context: dict[str, Any]) -> bool:
+    lens = context.get("membership") or {}
+    return not lens.get("error") and len(lens.get("members") or []) > 8
+
+
+def _games_section(context: dict[str, Any]) -> None:
+    context["shape"] = _shape(context)
+    row = _collection(context)
+    if _forked(context):
         _empty_fork(context)
         return
+    held = (context.get("membership") or {}).get("members") or []
+
     def controls() -> None:
         _order_bar(context, row)
         _add_control(context, held)
 
     with ui.column().classes("gap-0 w-full min-w-0"):
-        _rules_block(context, row)
+        _region(context, "rules", partial(_rules_block, context, row))()
         _games_list(context, row, controls)
-    if context.get("unsaved"):
-        _draft_bar(context)
+    _region(context, "draft_bar", partial(_draft_bar, context))()
 
 
 def _empty_fork(context: dict[str, Any]) -> None:
@@ -372,10 +452,10 @@ def _empty_fork(context: dict[str, Any]) -> None:
                                      hint=t("manager.workbench.start_from.help"))()
 
 
-def _start_from(context: dict[str, Any], template: collection_rules.Template) -> None:
+async def _start_from(context: dict[str, Any], template: collection_rules.Template) -> None:
     context["draft"]["rules"] = [dict(row) for row in template.rows]
     context["draft"]["order"] = dict(template.order)
-    asyncio.create_task(context["rebuild"]())
+    await _drafted(context, structural=True)
 
 
 # --- the rules ------------------------------------------------------------------
@@ -412,13 +492,40 @@ def unsaved(drafts: dict[str, Any], collections: list[dict[str, Any]],
     return found
 
 
-def _edit_rules(context: dict[str, Any], change: Callable[[list[dict[str, Any]]], None],
-                *, redraw: bool = True) -> None:
+@on_page
+async def _edit_rules(context: dict[str, Any], change: Callable[[list[dict[str, Any]]], None],
+                      *, structural: bool = False, refresh: bool = True) -> None:
+    """Change the drafted rules. `structural` where the rows themselves change - one
+    added, removed or asked another way - and the controls are drawn again; otherwise
+    they stay and only what reads the rules is. `refresh` false holds the preview back,
+    for a list that is still open."""
     rows = [dict(one) for one in _rules_now(context)]
     change(rows)
     context["draft"]["rules"] = rows
-    if redraw:
-        asyncio.create_task(context["rebuild"]())
+    if refresh:
+        await _drafted(context, structural=structural)
+
+
+async def _drafted(context: dict[str, Any], *, structural: bool = False) -> None:
+    """The preview and the marks read again after the draft changed, and the parts of the
+    section that read them drawn again. The whole section where it changed what it
+    offers: the fork, a stored list and a draft each lay it out differently."""
+    await context["reload"]()
+    _read_drawn(context, structural=structural)
+
+
+def _read_drawn(context: dict[str, Any], *, structural: bool = False) -> None:
+    """The parts of the section that read the collection, drawn again after it was."""
+    if _shape(context) != context.get("shape"):
+        _refill(context, "games")
+        return
+    _refill(context, "sentence", "draft_bar", "heading", "list")
+    if structural:
+        _refill(context, "rules")
+    adder = context.get("adder")
+    if adder is not None and not adder.is_deleted:
+        adder.hold(collection_adds.holds(
+            (context.get("membership") or {}).get("members") or [])[0])
 
 
 def _add_rule_button(context: dict[str, Any]) -> None:
@@ -434,7 +541,7 @@ def _add_rule_button(context: dict[str, Any]) -> None:
             ui.menu_item(one.label,
                          on_click=lambda _e=None, one=one: _edit_rules(
                              context, lambda rows: rows.append(
-                                 collection_rules.row_on(one)))) \
+                                 collection_rules.row_on(one)), structural=True)) \
                 .classes("manager-menu-item")
 
 
@@ -457,8 +564,12 @@ def _rules_block(context: dict[str, Any], row: dict[str, Any]) -> None:
             _condition(context, index, one)
     with ui.row().classes("items-center gap-2 manager-slot-actions"):
         _add_rule_button(context)
+    _region(context, "sentence", partial(_rule_sentence, context))()
+
+
+def _rule_sentence(context: dict[str, Any]) -> None:
     added, taken = _by_hand(context)
-    ui.label(collection_rules.sentence(rows, context["fields"], added, taken)) \
+    ui.label(collection_rules.sentence(_rules_now(context), context["fields"], added, taken)) \
         .classes("manager-help manager-rule-sentence mt-1 mb-2")
 
 
@@ -478,12 +589,21 @@ def _condition(context: dict[str, Any], index: int, row: dict[str, Any]) -> None
             if at != index}
 
     def put(**changes: Any) -> Callable[[list[dict[str, Any]]], None]:
+        """The row with `changes` on it. A change given as a function is handed the value
+        the row holds now: the controls stay drawn across edits, so what they were drawn
+        with is not."""
         def change(rows: list[dict[str, Any]]) -> None:
-            rows[index] = {**rows[index], **changes}
+            rows[index] = {**rows[index], **{
+                key: new(rows[index].get(key)) if callable(new) else new
+                for key, new in changes.items()}}
         return change
 
     def moved_to(rows: list[dict[str, Any]]) -> None:
         rows[index] = collection_rules.row_on(collection_rules.by_name(known)[which.value])
+
+    def asked_another_way(rows: list[dict[str, Any]]) -> None:
+        rows[index] = {**rows[index], "op": how.value,
+                       "value": _kept_value(rows[index], how.value)}
 
     def gone(rows: list[dict[str, Any]]) -> None:
         del rows[index]
@@ -493,21 +613,22 @@ def _condition(context: dict[str, Any], index: int, row: dict[str, Any]) -> None
                                  if (one.name not in used and one.askable)
                                  or one.name == field.name},
                                 value=field.name)
-        which.on_value_change(lambda: _edit_rules(context, moved_to))
+        which.on_value_change(lambda: _edit_rules(context, moved_to, structural=True))
         if field.summary:
             which.tooltip(field.summary)
         asks = field.operators
         if len(asks) > 1:
             how = dropdown.Select({op: collection_rules.operator_word(op)
                                    for op in asks}, value=row.get("op"))
-            how.on_value_change(lambda: _edit_rules(context, put(
-                op=how.value, value=_kept_value(row, how.value))))
+            how.on_value_change(lambda: _edit_rules(context, asked_another_way,
+                                                    structural=True))
         else:
             ui.label(collection_rules.operator_word(asks[0])) \
                 .classes("manager-condition-op")
         with ui.element("div").classes("manager-condition-value"):
             _condition_value(context, field, row, put)
-        ui.button(icon=verbs.CANCEL, on_click=lambda: _edit_rules(context, gone)) \
+        ui.button(icon=verbs.CANCEL,
+                  on_click=lambda: _edit_rules(context, gone, structural=True)) \
             .props("flat dense round size=sm").classes("manager-condition-remove") \
             .tooltip(t("manager.workbench.remove_rule"))
 
@@ -539,12 +660,15 @@ def _condition_value(context: dict[str, Any], field: collection_rules.Field,
         return
     if op == collection_rules.BETWEEN:
         ends = value if isinstance(value, dict) else {}
+
+        def end(which: str) -> Callable[[int | None], Callable[[list[dict[str, Any]]], None]]:
+            return lambda year: put(value=lambda held: {
+                **(held if isinstance(held, dict) else {}), which: year})
+
         with ui.row().classes("items-center gap-2 no-wrap"):
-            _year_box(context, ends.get("from"),
-                      lambda year: put(value={**ends, "from": year}))
+            _year_box(context, ends.get("from"), end("from"))
             ui.label(t("manager.workbench.and")).classes("manager-condition-op")
-            _year_box(context, ends.get("to"),
-                      lambda year: put(value={**ends, "to": year}))
+            _year_box(context, ends.get("to"), end("to"))
         return
     _year_box(context, value, lambda year: put(value=year))
 
@@ -556,12 +680,14 @@ def _year_box(context: dict[str, Any], value: Any,
     box = ui.number(value=value, format="%d", placeholder=t("word.year")) \
         .props("dense borderless debounce=0") \
         .classes("manager-edit-field manager-edit-narrow")
+    held = {"year": value}
 
-    def done() -> None:
+    async def done() -> None:
         typed = box.value
         year = int(typed) if isinstance(typed, (int, float)) else None
-        if year != value:
-            _edit_rules(context, change(year))
+        if year != held["year"]:
+            held["year"] = year
+            await _edit_rules(context, change(year))
 
     box.on("blur", done)
     box.on("keydown.enter", lambda: box.run_method("blur"))
@@ -569,8 +695,8 @@ def _year_box(context: dict[str, Any], value: Any,
 
 def _many_values(context: dict[str, Any], field: collection_rules.Field, value: Any,
                  put: Callable[..., Callable[[list[dict[str, Any]]], None]]) -> None:
-    """Written to the draft on every pick and redrawn once the list closes: a redraw
-    closes a list that is open."""
+    """Written to the draft on every pick and read once the list closes: what reads the
+    draft is drawn again behind the open list otherwise, once per pick."""
     chosen = [str(one) for one in value or []]
     offered = [*field.values, *(one for one in chosen if one not in field.values)]
     control: dropdown.Select
@@ -583,18 +709,21 @@ def _many_values(context: dict[str, Any], field: collection_rules.Field, value: 
                                       typed=len(offered) > 8)
     control.props('popup-content-class="manager-picker-popup"') \
         .classes("w-full min-w-0")
-    held = {"open": False}
+    held = {"open": False, "waiting": False}
 
-    def picked() -> None:
-        _edit_rules(context, put(value=list(control.value or [])),
-                    redraw=not held["open"])
+    async def picked() -> None:
+        held["waiting"] = held["open"]
+        await _edit_rules(context, put(value=list(control.value or [])),
+                          refresh=not held["open"])
 
     def shown() -> None:
         held["open"] = True
 
-    def hidden() -> None:
+    async def hidden() -> None:
         held["open"] = False
-        asyncio.create_task(context["rebuild"]())
+        if held["waiting"]:
+            held["waiting"] = False
+            await _drafted(context)
 
     control.on_value_change(picked)
     control.on("popup-show", shown)
@@ -675,6 +804,8 @@ def _shown_games(lens: dict[str, Any] | None) -> set[str]:
 
 
 def _draft_bar(context: dict[str, Any]) -> None:
+    if not context.get("unsaved"):
+        return
     preview = context.get("preview") or {}
     now, then = _shown_games(context.get("membership")), _shown_games(preview)
     asks = collection_rules.filters_from(context["draft"].get("rules") or [],
@@ -716,12 +847,10 @@ def _shown_order(context: dict[str, Any], row: dict[str, Any]) -> tuple[str, Any
 
 
 def _order_bar(context: dict[str, Any], row: dict[str, Any]) -> None:
-    row = _ordered(context, row)
-    by, direction, orders = _shown_order(context, row)
-    ranking = _ranking(context, by)
+    by, _, orders = _shown_order(context, row)
 
     async def ordered(event: Any) -> None:
-        if event.value == by:
+        if event.value == _shown_order(context, row)[0]:
             return
         changes: dict[str, Any] = {"order_by": event.value}
         if event.value in NATURAL_DIRECTION:
@@ -729,22 +858,28 @@ def _order_bar(context: dict[str, Any], row: dict[str, Any]) -> None:
         await _set_order(context, changes)
 
     async def turned(event: Any) -> None:
+        now, direction, _ = _shown_order(context, row)
         if event.value != direction:
-            await _set_order(context, {"order_by": by, "direction": event.value})
+            await _set_order(context, {"order_by": now, "direction": event.value})
+
+    def tail() -> None:
+        """What follows the order: its direction, and the ranked list's state."""
+        now, direction, _ = _shown_order(context, row)
+        if now in DIRECTION_WORDS:
+            words = DIRECTION_WORDS[now]
+            dropdown.Select({way: t(words[way]) for way in ("asc", "desc")},
+                            value=direction or NATURAL_DIRECTION[now], on_change=turned)
+        ranking = _ranking(context, now)
+        if ranking:
+            ui.label(read_state(ranking) if ranking.get("offered")
+                     else t("manager.workbench.ranked_off")) \
+                .classes("manager-order-label")
 
     with ui.row().classes("items-center gap-x-4 gap-y-1 w-full manager-order-bar"):
         with ui.row().classes("items-center gap-2 no-wrap grow"):
             ui.label(t("manager.workbench.order")).classes("manager-order-label")
             dropdown.Select(orders, value=by, on_change=ordered)
-            if by in DIRECTION_WORDS:
-                words = DIRECTION_WORDS[by]
-                dropdown.Select({way: t(words[way]) for way in ("asc", "desc")},
-                                value=direction or NATURAL_DIRECTION[by],
-                                on_change=turned)
-            if ranking:
-                ui.label(read_state(ranking) if ranking.get("offered")
-                         else t("manager.workbench.ranked_off")) \
-                    .classes("manager-order-label")
+            _region(context, "order_tail", tail)()
         with ui.row().classes("items-center gap-2 no-wrap ml-auto"):
             ui.label(t("manager.workbench.show_limit")).classes("manager-order-label")
             _limit_box(context, row)
@@ -769,15 +904,15 @@ def _ranking(context: dict[str, Any], by: str) -> dict[str, Any] | None:
 
 
 def _limit_box(context: dict[str, Any], row: dict[str, Any]) -> None:
-    limit = row.get("limit")
-    box = ui.number(value=limit, min=1, format="%d", placeholder=t("word.any")) \
+    box = ui.number(value=_ordered(context, row).get("limit"), min=1, format="%d",
+                    placeholder=t("word.any")) \
         .props("dense borderless debounce=0") \
         .classes("manager-edit-field manager-edit-narrow")
 
     async def done() -> None:
         typed = box.value
         wanted = max(1, int(typed)) if isinstance(typed, (int, float)) else None
-        if wanted == limit:
+        if wanted == _ordered(context, row).get("limit"):
             return
         await _set_order(context, {"limit": wanted} if wanted else {"clear_limit": True})
 
@@ -797,72 +932,100 @@ def _ordered(context: dict[str, Any], row: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _set_order(context: dict[str, Any], changes: dict[str, Any]) -> None:
+    """A stored order is written and the list drawn from it again; a template's drafted
+    order is held with the rules until they are saved."""
+    row = _collection(context)
+    before = _shown_order(context, row)[0]
+    tail = ("order_tail",) if changes.get("order_by", before) != before else ()
     order = context["draft"].get("order")
     if order is None:
-        await _patch(context, changes)
+        await _save(context, changes, *tail, "heading", "list")
         return
     if "limit" in changes:
         order.pop("clear_limit", None)
     if "clear_limit" in changes:
         order.pop("limit", None)
     order.update(changes)
-    await context["rebuild"]()
-
-
-@on_page
-async def _patch(context: dict[str, Any], changes: dict[str, Any]) -> None:
-    library = context["library"]
-    try:
-        await run.io_bound(library.patch_collection, _collection(context)["name"],
-                           changes)
-    except Exception as exc:
-        ui.notify(t("manager.workbench.save_failed"), caption=why(exc), type="negative")
-        return
-    await _written(context)
+    _refill(context, *tail)
 
 
 # --- what the collection holds ----------------------------------------------------
 
 
-def _games_list(context: dict[str, Any], row: dict[str, Any],
-                controls: Callable[[], None]) -> None:
+class _Listing(NamedTuple):
+    """The members the list shows: the stored collection's, or a draft's preview."""
+    live: bool
+    lens: dict[str, Any]
+    find: str
+    kept: list[dict[str, Any]]
+    excluded: list[dict[str, Any]]
+
+
+def _listing(context: dict[str, Any]) -> _Listing:
     live = not context.get("unsaved")
-    lens = context.get("membership") if live else context.get("preview")
-    lens = lens or {}
+    lens = (context.get("membership") if live else context.get("preview")) or {}
     members = lens.get("members") or []
     name = _collection(context)["name"]
     find = (context["state"].setdefault("member_find", {}).get(name, "")
             .strip().lower()) if live else ""
     if find:
         members = [one for one in members if find in str(one.get("name") or "").lower()]
-    kept = [one for one in members if (one.get("origin") or "") != "excluded"]
-    excluded = [one for one in members if (one.get("origin") or "") == "excluded"]
-    playable = sum(1 for one in kept if one.get("included") and not one.get("past_limit"))
+    return _Listing(live, lens, find,
+                    [one for one in members if (one.get("origin") or "") != "excluded"],
+                    [one for one in members if (one.get("origin") or "") == "excluded"])
+
+
+def _games_list(context: dict[str, Any], row: dict[str, Any],
+                controls: Callable[[], None]) -> None:
+    _region(context, "heading", partial(_list_heading, context, row))()
+    controls()
+    _find_box(context)
+    _region(context, "list", partial(_member_list, context, row))()
+
+
+def _list_heading(context: dict[str, Any], row: dict[str, Any]) -> None:
+    found = _listing(context)
+    playable = sum(1 for one in found.kept
+                   if one.get("included") and not one.get("past_limit"))
     with ui.row().classes("items-center gap-2 w-full mt-2"):
-        ui.label(t("manager.workbench.games") if lens.get("error")
-                 else _games_heading(playable, sum(1 for one in kept if _is_hidden(one)),
-                                     len(excluded))) \
+        ui.label(t("manager.workbench.games") if found.lens.get("error")
+                 else _games_heading(playable,
+                                     sum(1 for one in found.kept if _is_hidden(one)),
+                                     len(found.excluded))) \
             .classes("manager-card-title whitespace-nowrap")
-        if live and int(row.get("count") or 0):
+        if found.live and int(row.get("count") or 0):
             with ui.element("span").classes("whitespace-nowrap"):
                 panel.link(t("manager.workbench.games_visible"), to="/manager?"
-                           + deeplink.query({"view": "games", "collection": name}))()
-    controls()
+                           + deeplink.query({"view": "games",
+                                             "collection": _collection(context)["name"]}))()
+
+
+def _find_box(context: dict[str, Any]) -> None:
+    """Outside the regions it filters: drawing it again would take the typing out from
+    under the person typing."""
+    found = _listing(context)
+    name = _collection(context)["name"]
+    if not found.live or not _searchable(context):
+        return
+    box = ui.input(placeholder=t("manager.workbench.find_collection")) \
+        .props("dense outlined clearable debounce=250") \
+        .classes("w-full mb-2 mt-1")
+    box.value = context["state"]["member_find"].get(name, "")
+
+    def look() -> None:
+        context["state"]["member_find"][name] = box.value or ""
+        _refill(context, "heading", "list")
+
+    box.on_value_change(look)
+
+
+def _member_list(context: dict[str, Any], row: dict[str, Any]) -> None:
+    live, lens, find, kept, excluded = _listing(context)
+    name = _collection(context)["name"]
     if lens.get("error"):
         panel.line(t("manager.workbench.lookup_failed"), hint=str(lens["error"]),
                    classes="manager-help text-warning")
         return
-    if live and len((context.get("membership") or {}).get("members") or []) > 8:
-        box = ui.input(placeholder=t("manager.workbench.find_collection")) \
-            .props("dense outlined clearable debounce=250") \
-            .classes("w-full mb-2 mt-1")
-        box.value = find
-
-        async def look() -> None:
-            context["state"]["member_find"][name] = box.value or ""
-            await context["rebuild"]()
-
-        box.on_value_change(look)
     # Only a list with no rules is arranged by hand, and only whole: a find draws a part
     # of it, and an order has to be the whole membership.
     arrange = live and not _is_dynamic(row) and not find and len(kept) > 1
@@ -1249,8 +1412,16 @@ def _member_action(context: dict[str, Any], member: dict[str, Any],
             .props("flat dense round size=sm").tooltip(t("manager.workbench.put_back_2"))
     else:
         ui.button(icon=verbs.REMOVE, on_click=lambda: collection_adds.remove_row(
-            library, name, member, then=partial(_collection_redrawn, context, name))) \
+            library, name, member, then=partial(_membership_changed, context, name))) \
             .props("flat dense round size=sm").tooltip(t("manager.workbench.remove_collection"))
+
+
+_OPEN_ADD_BOX = """
+(() => {
+  const box = getElement(%d)?.$refs.qRef;
+  if (box) { box.focus(); box.showPopup(); }
+})()
+"""
 
 
 def _add_control(context: dict[str, Any], members: list[dict]) -> None:
@@ -1276,6 +1447,7 @@ def _add_control(context: dict[str, Any], members: list[dict]) -> None:
     (context["library"].thumbnail_look() or thumbnails.Look()).in_panel() \
         .apply_to_options(picker, "manager-picker-popup")
 
+    @on_page
     async def add() -> None:
         if not picker.value:
             return
@@ -1283,9 +1455,12 @@ def _add_control(context: dict[str, Any], members: list[dict]) -> None:
         state["add_again"] = name
         done = await collection_adds.add(context["library"], name,
                                          [collection_adds.Row(str(picker.value))],
-                                         then=partial(_collection_redrawn, context, name))
-        if done is None:
-            state.pop("add_again", None)
+                                         then=partial(_membership_changed, context, name))
+        stays = state.pop("add_again", None) == name and done is not None
+        if stays and not picker.is_deleted:
+            picker.value = None
+            ui.run_javascript(_OPEN_ADD_BOX % picker.id)
 
+    context["adder"] = picker
     picker.on_value_change(add)
     ui.run_javascript(_ADD_BOX % (picker.id, "true" if again else "false"))

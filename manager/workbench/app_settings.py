@@ -31,7 +31,6 @@ from manager.workbench import launcher as wb_launcher
 SCOPE_ENTRY = "entry"
 SCOPE_LAUNCHER = "launcher"
 ADDED = "added_settings"
-ADDED_NOW = "added_setting_now"
 # How long a read of a selection runs before the section says it is reading.
 READING_NOTICE_S = 1.0
 # How often a write into several tables is asked how far it has got.
@@ -73,19 +72,21 @@ def shared_note(found: dict, folder_tables: int) -> tuple[Any, Any] | None:
 async def section(context: dict[str, Any]) -> None:
     table = next((one for one in context["tables"] if one.get("id") == context["lens"]),
                  None)
-    entries = ([(panel.HEADING, t("manager.workbench.launcher")),
-                *wb_launcher.launcher_rows(context, table),
-                *await _program_entries(context, table)]
-               if table is not None else [])
     with ui.column().classes("gap-0 manager-form"):
         if table is None:
             ui.label(t("manager.workbench.none_selected")).classes("manager-help")
             return
-        panel.facts(ui, entries)
+
+        async def drawn() -> None:
+            panel.facts(ui, [(panel.HEADING, t("manager.workbench.launcher")),
+                             *wb_launcher.launcher_rows(context, table),
+                             *await _program_entries(context, table)])
+
+        context["settings_region"] = panel.region(drawn)
+        context["settings_region"]()
+    await context["settings_region"].refilled()
     ui.run_javascript(core._KEEP_SCROLL
                       % f"settings:{table.get('id') or ''}".replace("'", "\\'"))
-    if said := context["state"].pop(ADDED_NOW, None):
-        ui.run_javascript(_SHOW_ADDED % json.dumps(said))
 
 
 def _runs(context: dict[str, Any], table: dict[str, Any]) -> dict[str, Any] | None:
@@ -96,20 +97,22 @@ def _runs(context: dict[str, Any], table: dict[str, Any]) -> dict[str, Any] | No
 async def selection_section(context: dict[str, Any]) -> None:
     """The settings of every selected table, as one table's would read."""
     tables = list(context["tables"])
-    with ui.column().classes("gap-0 manager-form") as body:
+    with ui.column().classes("gap-0 manager-form"):
         reading = ui.label(t("manager.app_settings.reading")).classes("manager-help")
         reading.set_visibility(False)
         late = ui.timer(READING_NOTICE_S, lambda: reading.set_visibility(True), once=True)
+
+        async def drawn() -> None:
+            panel.facts(ui, await _selection_entries(context, tables))
+
+        context["settings_region"] = panel.region(drawn)
+        context["settings_region"]()
     try:
-        entries = await _selection_entries(context, tables)
+        await context["settings_region"].refilled()
     finally:
         late.cancel()
-    body.clear()
-    with body:
-        panel.facts(ui, entries)
+    reading.delete()
     ui.run_javascript(core._KEEP_SCROLL % "settings:selection")
-    if said := context["state"].pop(ADDED_NOW, None):
-        ui.run_javascript(_SHOW_ADDED % json.dumps(said))
 
 
 def _programs(context: dict[str, Any],
@@ -433,13 +436,14 @@ def _add_picker(context: dict[str, Any], added: list[str],
                'popup-content-class="manager-picker-popup"') \
         .classes("w-full mt-2")
 
+    @on_page
     async def pick() -> None:
         key = str(picker.value or "")
         if key not in labels:
             return
         context["state"][ADDED]["keys"] = [*added, key]
-        context["state"][ADDED_NOW] = labels[key]
-        await context["rebuild"]()
+        await context["settings_region"].refilled()
+        ui.run_javascript(_SHOW_ADDED % json.dumps(labels[key]))
 
     picker.on_value_change(pick)
     ui.run_javascript(core._ADD_BOX % (picker.id, "false"))

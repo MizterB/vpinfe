@@ -47,6 +47,8 @@ CONTROL_MODULES = frozenset({"panel", "ui", "dropdown"})
 # Keyword arguments of a control that open something else and never handle the value:
 # `browse` opens a folder picker, which has its own dialog to draw.
 NOT_HANDLERS = frozenset({"browse"})
+# The modules whose calls draw an element and return it.
+ELEMENT_MODULES = CONTROL_MODULES | {"grid", "frame"}
 
 WORKBENCH = "Workbench panels: save, then refill the mark or block that reads the value."
 LAUNCHERS = "Launcher panels: save, then refill what reads the value."
@@ -58,19 +60,6 @@ UNREAD = "Not classified yet: convert it, or say here why it stays."
 # modules it imports from, so a handler handed through another function's argument is
 # the drive test's to catch.
 PENDING: dict[tuple[str, str], str] = {
-    ("devices/devices.py", "_identity_rows"): WORKBENCH,
-    ("devices/devices.py", "_where_rows"): WORKBENCH,
-    ("library/record.py", "_dialog.draw"): UNREAD,
-    ("workbench/collection.py", "_in_frontend_switch"): WORKBENCH,
-    ("workbench/collection.py", "_open_on"): WORKBENCH,
-    ("workbench/collection.py", "_page_by"): WORKBENCH,
-    ("workbench/game_table.py", "_game_entries"): WORKBENCH,
-    ("workbench/game_table.py", "_game_entries.field"): WORKBENCH,
-    ("workbench/game_table.py", "_game_frontend"): WORKBENCH,
-    ("workbench/game_table.py", "_game_marks"): WORKBENCH,
-    ("workbench/game_table.py", "_hidden_row"): WORKBENCH,
-    ("workbench/selection_marks.py", "_switch.draw"): WORKBENCH,
-    ("workbench/tag.py", "_tag_details"): WORKBENCH,
     ("extensions/ext_page.py", "build"): EXTENSIONS,
     ("frontend/players.py", "_account"): EXTENSIONS,
     ("frontend/players.py", "details"): EXTENSIONS,
@@ -78,50 +67,41 @@ PENDING: dict[tuple[str, str], str] = {
     ("remote/remote_record.py", "controller"): EXTENSIONS,
     ("workbench/launcher.py", "_launcher_details"): LAUNCHERS,
     ("workbench/launcher.py", "launcher_rows.nvram"): LAUNCHERS,
-    ("devices/devices.py", "_send_picker.draw"): UNREAD,
-    ("devices/devices.py", "build"): UNREAD,
-    ("extensions/ext_lists.py", "_fill"): UNREAD,
     ("extensions/ext_page.py", "_path_control.draw"): UNREAD,
-    ("frontend/launchers.py", "_fill"): UNREAD,
     ("frontend/launchers.py", "ask_name.asked_field.drawn"): UNREAD,
-    ("frontend/players.py", "_fill"): UNREAD,
-    ("frontend/theme_sources.py", "add_source.draw_address"): UNREAD,
-    ("frontend/theme_sources.py", "add_source.draw_name"): UNREAD,
-    ("frontend/themes.py", "_fill"): UNREAD,
     ("kit/folder_picker.py", "draw_browser"): UNREAD,
-    ("library/collection_adds.py", "_pick_one"): UNREAD,
-    ("library/games.py", "build_tables"): UNREAD,
-    ("library/import_dialog.py", "_folder_row.draw"): UNREAD,
-    ("library/mediasource.py", "_Image.games_tab"): UNREAD,
-    ("library/release_match.py", "ask"): UNREAD,
-    ("library/tageditor.py", "build"): UNREAD,
     ("remote/remote.py", "_play"): UNREAD,
     ("remote/remote.py", "_play.picked"): UNREAD,
-    ("workbench/all_settings.py", "_all_settings"): UNREAD,
-    ("workbench/all_settings.py", "_area_search"): UNREAD,
-    ("workbench/app_settings.py", "_add_picker"): UNREAD,
-    ("workbench/collection.py", "_add_control"): UNREAD,
-    ("workbench/collection.py", "_condition"): UNREAD,
-    ("workbench/collection.py", "_condition_value"): UNREAD,
-    ("workbench/collection.py", "_games_list"): UNREAD,
-    ("workbench/collection.py", "_many_values"): UNREAD,
-    ("workbench/collection.py", "_order_bar"): UNREAD,
-    ("workbench/collection.py", "_text_control.draw"): UNREAD,
-    ("workbench/selection_marks.py", "_launcher.draw"): UNREAD,
-    ("workbench/selection_marks.py", "_tags.draw"): UNREAD,
 }
 
-# Handlers that draw the page again because the user went somewhere, not because a
-# value changed. Each stays, with the reason.
+# Handlers that draw the page again because the user went somewhere, or because the write
+# changed what the page lists, so rows come and go. Each stays, with the reason.
 NAVIGATION: dict[tuple[str, str], str] = {
     ("library/discovery.py", "build"):
         "The Games and Releases tabs are two views of Discovery: switching is navigation.",
+    ("workbench/tag.py", "_tag_details"):
+        "A renamed tag is another tag: its games, color and address all follow the name, "
+        "so the panel follows it. Description and color are saved in place.",
+    ("workbench/collection.py", "_text_control.draw"):
+        "A renamed collection is another address and another row, and the panel follows "
+        "it. Description and the other fields are saved in place.",
+    ("devices/devices.py", "_where_rows"):
+        "A mobile device's address and port change the endpoint the page reads its "
+        "status from, and the probe that follows redraws the page anyway.",
+    ("devices/devices.py", "_send_picker.draw"):
+        "Sending changes the games the device carries, and that list is read from the "
+        "device.",
+    ("workbench/all_settings.py", "_all_settings"):
+        "A write that changes which settings are listed, or whose value is in force, "
+        "draws the panel again. Every other write marks the rows in place.",
+    ("workbench/all_settings.py", "_area_search"):
+        "What is typed carries on in All Settings, which opens.",
 }
 
 # Neither number goes up. Raising one takes a line in a commit saying why. The sites are
 # counted as well as the functions, since a function already listed can gain a control.
-CEILING = 51
-SITES_CEILING = 66
+CEILING = 13
+SITES_CEILING = 31
 
 
 def _is_rebuild(node: ast.AST) -> bool:
@@ -150,6 +130,15 @@ def _is_region(node: ast.AST) -> bool:
         or (isinstance(node.func, ast.Attribute) and node.func.attr == "region"))
 
 
+def _makes_an_element(node: ast.AST) -> bool:
+    """`ui.row()`, `panel.search(...)`, `grid.build(...)`: a call that returns what was
+    drawn, so the name it is assigned to is an element, not a handler. The handlers handed
+    to it are found where the call is."""
+    return (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id in ELEMENT_MODULES)
+
+
 def _bound_in(scope: ast.AST) -> dict[str, list[ast.AST]]:
     """What each name directly in `scope` stands for: a function it defines, or the
     function-valued expression it was assigned. Nested scopes are their own. A name
@@ -164,8 +153,9 @@ def _bound_in(scope: ast.AST) -> dict[str, list[ast.AST]]:
             elif isinstance(child, ast.ClassDef):
                 continue
             else:
-                if isinstance(child, ast.Assign) and not _is_region(child.value) and isinstance(
-                        child.value, (ast.Lambda, ast.Call, ast.Name)):
+                if isinstance(child, ast.Assign) and not _is_region(child.value) \
+                        and not _makes_an_element(child.value) \
+                        and isinstance(child.value, (ast.Lambda, ast.Call, ast.Name)):
                     for target in child.targets:
                         if isinstance(target, ast.Name):
                             bound.setdefault(target.id, []).append(child.value)
@@ -345,6 +335,18 @@ class AValueHandlerDoesNotRebuildThePage(unittest.TestCase):
             "        region.refill()\n"
             "    panel.field('x', save)\n"
             "    panel.switch(True, lambda e: write(e.value))\n")
+
+        self.assertEqual([], offenders(tree))
+
+    def test_a_region_is_read_by_its_refill_not_by_what_it_draws(self) -> None:
+        tree = trees.parse_snippet(
+            "def page(context):\n"
+            "    def draws():\n"
+            "        ui.button('x', on_click=lambda: rebuild())\n"
+            "    part = panel.region(draws)\n"
+            "    def save(value):\n"
+            "        part.refill()\n"
+            "    panel.field('x', save)\n")
 
         self.assertEqual([], offenders(tree))
 

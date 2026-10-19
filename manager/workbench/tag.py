@@ -18,6 +18,13 @@ from manager.kit.on_page import on_page
 from manager.workbench.core import _rows, _said_line
 
 
+async def _tags_refreshed(context: dict[str, Any]) -> None:
+    """The tags grid, put right after a write that left the panel as it is."""
+    refresh = context["state"].get("refresh_tags")
+    if callable(refresh):
+        await refresh()
+
+
 async def _tag_changed(context: dict[str, Any], name: str | None) -> None:
     """The grid and the panel, after a write - the panel following the tag to `name`."""
     context["state"]["tag"] = name
@@ -30,6 +37,8 @@ async def _tag_changed(context: dict[str, Any], name: str | None) -> None:
 async def _tag_details(context: dict[str, Any]) -> None:
     library, name, look = context["library"], context["name"], context["tag"]
 
+    typed: list[Any] = []
+
     @on_page
     async def rename(value: str) -> None:
         said = " ".join(str(value or "").split())
@@ -39,7 +48,8 @@ async def _tag_details(context: dict[str, Any]) -> None:
                 t("manager.tageditor.merge", into=said),
                 detail=t("manager.tageditor.merge_detail"),
                 confirm=t("word.merge"), icon=verbs.MERGE):
-            await context["rebuild"]()
+            for one in typed:
+                one.value = name
             return
         try:
             await run.io_bound(library.merge_tags, [name], said)
@@ -55,13 +65,13 @@ async def _tag_details(context: dict[str, Any]) -> None:
         except Exception as exc:  # noqa: BLE001
             ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
             return
-        refresh = context["state"].get("refresh_tags")
-        if callable(refresh):
-            await refresh()
+        look["description"] = value
+        await _tags_refreshed(context)
 
     sources = list(look.get("sources") or [])
     _rows(ui, [
-        (t("manager.tageditor.tag"), name if sources else panel.field(name, rename)),
+        (t("manager.tageditor.tag"),
+         name if sources else panel.field(name, rename, on_control=typed.append)),
         *[(t("manager.tags.from"), partial(_tag_source, one)) for one in sources],
         (t("manager.workbench.description"), panel.field(str(look.get("description") or ""),
                                             describe, lines=2)),
@@ -87,9 +97,13 @@ def _swatches(context: dict[str, Any]) -> None:
         except Exception as exc:  # noqa: BLE001
             ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
             return
-        await _tag_changed(context, name)
+        look["chosen"] = bool(color)
+        if color:
+            look["color"] = color
+        ring(color)
+        await _tags_refreshed(context)
 
-    tag_chips.swatches(chosen, tag_registry.derived_color(name), pick)
+    ring = tag_chips.swatches(chosen, tag_registry.derived_color(name), pick)
 
 
 def _carried(row: dict[str, Any]) -> list[str]:

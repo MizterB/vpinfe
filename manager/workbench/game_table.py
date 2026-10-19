@@ -43,7 +43,8 @@ from manager.workbench.core import (
     _outside,
     _rows,
     _said_name,
-    _save_overrides,
+    _save,
+    _save_game_overrides,
     _switch,
     _table_address,
     _write,
@@ -107,7 +108,9 @@ async def _game_block(context: dict[str, Any]) -> None:
         # The facts above sit inside `.manager-facts`' side padding; this block is drawn
         # outside that grid and needs the same edge.
         with ui.column().classes("gap-0 w-full px-3"):
-            _tables_block(context, held)
+            # A region: hiding a table changes which one plays, and the list says so.
+            context["tables_list"] = panel.region(partial(_tables_block, context, held))
+            context["tables_list"]()
         ext_groups.fill(context, "details", "game")
 
 
@@ -192,7 +195,8 @@ async def _release_match(context: dict[str, Any],
 
 def _override(effective: str, found: str | None, source: str,
               save: Callable[[str], Any], *, shown: str | None = None,
-              hint: str = "", beside: str = "", placeholder: str = "",
+              hint: str = "", beside: Callable[[str], str] | None = None,
+              placeholder: str = "",
               after: Callable[[ui.input], Any] | None = None) -> Callable[[], None]:
     """One field the user may override, drawn into a fact row.
 
@@ -204,19 +208,31 @@ def _override(effective: str, found: str | None, source: str,
     when the value differs from it, and typing that value back clears the override -
     so the mark's presence always means "this differs from the default".
 
-    `placeholder` is what an empty field stands for. `after` is handed the field once it
-    is drawn and draws what sits inline after it.
+    `save` answers False where the write was refused. `beside` maps the value to the
+    address of a link drawn after the field, or "" for none; it follows the value as it
+    is saved. `placeholder` is what an empty field stands for. `after` is handed the
+    field once it is drawn and draws what sits inline after it.
     """
     current = effective if shown is None else shown
 
     def draw() -> None:
+        held = {"value": current}
+
+        def address() -> str:
+            return beside(held["value"]) if beside is not None else ""
+
+        def link() -> None:
+            if address():
+                panel.link_out("", to=address())()
+
         with ui.element("div").classes("manager-fact-edit"):
             field = ui.input(value=current, placeholder=placeholder) \
                 .props("dense borderless").classes("manager-edit-field")
             if hint:
                 field.tooltip(hint)
-            if beside:
-                panel.link_out("", to=beside)()
+            beside_link = panel.region(link)
+            if beside is not None:
+                beside_link()
             if after is not None:
                 after(field)
             icon = ui.icon(verbs.REVERT).classes("manager-revert")
@@ -224,11 +240,27 @@ def _override(effective: str, found: str | None, source: str,
                 target = f'"{found}"' if found else "empty"
                 icon.tooltip(t("manager.workbench.revert", target=(target),
                         source=(source)))
-            differs = found is not None and current != found
-            icon.visible = differs
-            if differs:
-                field.classes("manager-edit-field--differs")
-            held = {"value": current}
+
+            def mark() -> None:
+                """The amber revert, present exactly when the value differs from the
+                default."""
+                differs = found is not None and held["value"] != found
+                icon.visible = differs
+                if differs:
+                    field.classes("manager-edit-field--differs")
+                else:
+                    field.classes(remove="manager-edit-field--differs")
+
+            def settle(sent: str) -> None:
+                """What the field says once `sent` is saved: clearing an override brings
+                the discovered value back."""
+                held["value"] = found if found is not None and not sent else sent
+                if str(field.value or "") != held["value"]:
+                    field.value = held["value"]
+                mark()
+                beside_link.refill()
+
+            mark()
 
             async def commit() -> None:
                 value = str(field.value or "").strip()
@@ -237,16 +269,19 @@ def _override(effective: str, found: str | None, source: str,
                 saved, held["value"] = held["value"], value
                 # Sending the discovered value is how an override is cleared, so the
                 # two cases are one request rather than a delete and a write.
-                if await save("" if found is not None and value == found else value) is False:
+                sent = "" if found is not None and value == found else value
+                if await save(sent) is False:
                     held["value"] = saved
+                    return
+                settle(sent)
 
             def cancel() -> None:
                 field.value = held["value"]
                 field.run_method("blur")
 
             async def revert() -> None:
-                held["value"] = found or ""
-                await save("")
+                if await save("") is not False:
+                    settle("")
 
             field.on("blur", commit)
             field.on("keydown.enter", lambda: field.run_method("blur"))
@@ -317,9 +352,32 @@ def _game_entries(context: dict[str, Any], entry: dict[str, Any],
     folder = str(game.get("folder") or "")
     found = game.get("discovered") or {}
 
-    def save(key: str) -> Callable[[str], Awaitable[None]]:
-        async def write(value: str) -> None:
-            await _save_overrides(context, {key: value}, table=False)
+    # The block that says where the details have come apart from the entry's. It reads
+    # the overrides, so a save reads it again.
+    reading = {"differs": differs}
+
+    def draw_differs() -> None:
+        if reading["differs"]:
+            _details_differ(context, reading["differs"])()
+
+    differing = panel.region(draw_differs)
+
+    async def reread_differs() -> None:
+        if entry.get("name"):
+            try:
+                reading["differs"] = await offload.io(context["library"].vps_details,
+                                                       context["game_id"])
+            except Exception:  # noqa: BLE001 - the block keeps what it said; the save stands
+                logger.warning("manager: could not read VPS for %s", context["game_id"],
+                               exc_info=True)
+        differing.refill()
+
+    def save(key: str) -> Callable[[str], Awaitable[bool]]:
+        async def write(value: str) -> bool:
+            if not await _save_game_overrides(context, {key: value}):
+                return False
+            await reread_differs()
+            return True
         return write
 
     def field(label: str, key: str, alt: str) -> tuple[Any, Any]:
@@ -332,8 +390,7 @@ def _game_entries(context: dict[str, Any], entry: dict[str, Any],
     entries += _match(entry, vps_id, declared, held, game_tables.how_matched(game))
     entries.append((FULL, _change_match(lambda: _pick_a_match(context),
                                         matched=bool(vps_id) or declared)))
-    if differs:
-        entries.append((FULL, _details_differ(context, differs)))
+    entries.append((FULL, differing))
 
     ipdb = str(game.get("ipdb_id") or "")
     entries += [
@@ -347,7 +404,7 @@ def _game_entries(context: dict[str, Any], entry: dict[str, Any],
         (t("manager.workbench.themes"), ", ".join(game.get("themes") or []) or "-"),
         (t("manager.workbench.ipdb"),
          _override(ipdb, str(found.get("ipdb_id") or ""), "VPS", save("alt_ipdb_id"),
-                   beside=IPDB_URL.format(id=ipdb) if ipdb else "")),
+                   beside=lambda value: IPDB_URL.format(id=value) if value else "")),
         *_outside(links),
         (t("word.folder"), panel.path_value(folder) if folder else "-"),
     ]
@@ -365,7 +422,7 @@ def _game_frontend(context: dict[str, Any],
     overrides = context["game"].get("overrides") or {}
 
     async def save_dof(value: str) -> bool:
-        return await _save_overrides(context, {"frontend_dof_event": value}, table=False)
+        return await _save_game_overrides(context, {"frontend_dof_event": value})
 
     def test(field: ui.input) -> None:
         tester = dof.Tester(context["library"], dof_state or {},
@@ -399,14 +456,14 @@ def _game_marks(context: dict[str, Any]) -> list[tuple[Any, Any]]:
                      context["game_id"], value)
 
     async def favorite(event: Any) -> None:
-        await _write(context, context["library"].set_game_favorite,
-                     context["game_id"], bool(event.value), shape=False)
-        await _recounted(context)
+        if await _save(context, context["library"].set_game_favorite,
+                       context["game_id"], bool(event.value)):
+            await _recounted(context)
 
     async def private(event: Any) -> None:
-        await _write(context, context["library"].set_game_private,
-                     context["game_id"], bool(event.value), shape=False)
-        await _recounted(context)
+        if await _save(context, context["library"].set_game_private,
+                       context["game_id"], bool(event.value)):
+            await _recounted(context)
 
     async def retag(chosen: list[str]) -> None:
         await _write(context, context["library"].set_game_tags,
@@ -1056,6 +1113,12 @@ def _hidden_row(context: dict[str, Any], table: dict[str, Any]) -> tuple[Any, An
     """Whether the frontend offers this table."""
     table_id = str(table.get("id") or "")
 
+    tip: list[ui.tooltip] = []
+
+    def hold(control: ui.switch) -> None:
+        with control:
+            tip.append(ui.tooltip(game_tables.hidden_hint(table, context["tables"])))
+
     @on_page
     async def hide(event: Any) -> None:
         hidden = bool(event.value)
@@ -1067,12 +1130,28 @@ def _hidden_row(context: dict[str, Any], table: dict[str, Any]) -> tuple[Any, An
             return
         ui.notify(game_tables.hidden_said(str(context["game"].get("name") or ""), table,
                                           answer, hidden=hidden), type="positive")
-        await context["rebuild"]()
+        await _reread_tables(context)
+        await context["saved"]()
+        for one in tip:
+            one.set_text(game_tables.hidden_hint(table, context["tables"]))
+        if "tables_list" in context:
+            context["tables_list"].refill()
 
     # On is hidden, the direction the grid column and its filter read the same flag.
     return (t("word.hidden"),
-            lambda: _switch(bool(table.get("hidden")), hide,
-                            hint=game_tables.hidden_hint(table, context["tables"])))
+            panel.switch(bool(table.get("hidden")), hide, on_control=hold))
+
+
+async def _reread_tables(context: dict[str, Any]) -> None:
+    """The game's tables as they are now, written into the rows the panel holds, so a
+    section that reads one of them sees the change without a rebuild."""
+    fresh = {str(one.get("id") or ""): one
+             for one in await offload.io(context["library"].tables_for, context["game_id"])}
+    for held in context["tables"]:
+        new = fresh.get(str(held.get("id") or ""))
+        if new is not None and new is not held:
+            held.clear()
+            held.update(new)
 
 
 @on_page

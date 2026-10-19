@@ -250,7 +250,9 @@ class Region:
 
     `build` may read before it draws, so it may be async. The new part is then drawn out of
     sight beside the old one, and the two trade places in one step: the page is never empty
-    and never dimmed while it is read. A second `refill` while one is under way wins.
+    and never dimmed while it is read. A second `refill` while one is under way wins. A build
+    that fails keeps the part on screen; with none on screen the error is raised, since an
+    empty region would pass for a part with nothing to say.
 
     Calling it draws it, so it is a `facts` value as it is. Its container takes no part in
     the grid, so as a facts value its build draws one element.
@@ -296,9 +298,12 @@ class Region:
             with fresh:
                 await self._build()
         except Exception:  # noqa: BLE001 - what is drawn stays; the part is read again at the next change
-            logger.exception("A region could not be drawn again")
+            kept = any(one is not fresh for one in box.default_slot.children)
             if not fresh.is_deleted:
                 fresh.delete()
+            if not kept:
+                raise
+            logger.exception("A region could not be drawn again")
             return
         if turn != self._turn or box.is_deleted:
             if not fresh.is_deleted:
@@ -1090,6 +1095,12 @@ class GamePicker(dropdown.Select):
                           for game in games}, with_input=True, label=label,
                          look=dropdown.OUTLINED)
         self.add_slot("option", self.SLOT)
+
+    def hold(self, held: set[str]) -> None:
+        """Another set of games ticked and out of reach, with the picker left where it is."""
+        self.held = set(held)
+        self._update_options()
+        self.update()
 
     def _update_options(self) -> None:
         super()._update_options()

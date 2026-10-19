@@ -457,22 +457,40 @@ def _tail(name: str, limit: int) -> str:
 
 
 @on_page
-async def _write(context: dict[str, Any], call: Callable[..., Any],
-                 *args: Any, shape: bool = True) -> None:
-    """One write, off the loop, then put right whatever it changed.
+async def _put(call: Callable[..., Any], *args: Any) -> bool:
+    """One write, off the loop. False where it was refused, and the user has been told.
 
     Off the loop because this is an HTTP call to our own process: made on the event
     loop it blocks the server from answering it, and the browser reports the socket as
     lost rather than slow.
-
-    `shape=False` where the panel is unchanged but for the value just saved.
     """
     try:
         await run.io_bound(call, *args)
     except Exception as exc:
         ui.notify(t("manager.workbench.save_failed"), caption=why(exc), type="negative")
-        return
-    await (context["rebuild"]() if shape else context["saved"]())
+        return False
+    return True
+
+
+@on_page
+async def _save(context: dict[str, Any], call: Callable[..., Any], *args: Any) -> bool:
+    """A value written and the grid row put right. The panel is left as it is: what reads
+    the value is the caller's to refill."""
+    if not await _put(call, *args):
+        return False
+    await context["saved"]()
+    return True
+
+
+@on_page
+async def _write(context: dict[str, Any], call: Callable[..., Any],
+                 *args: Any, shape: bool = True) -> None:
+    """One write, then put right whatever it changed.
+
+    `shape=False` where the panel is unchanged but for the value just saved.
+    """
+    if await _put(call, *args):
+        await (context["rebuild"]() if shape else context["saved"]())
 
 
 @on_page
@@ -492,6 +510,26 @@ async def _save_overrides(context: dict[str, Any], changes: dict[str, Any], *,
         ui.notify(t("manager.workbench.save_failed"), caption=why(exc), type="negative")
         return False
     await context["rebuild"]()
+    return True
+
+
+@on_page
+async def _save_game_overrides(context: dict[str, Any], changes: dict[str, Any]) -> bool:
+    """Write the game's own fields and put right what reads them, in place: the grid row
+    and the header. The caller refills the sections that read the field it wrote. False
+    where the write was refused."""
+    library = context["library"]
+    try:
+        await run.io_bound(library.set_game_overrides, context["game_id"], changes)
+    except Exception as exc:
+        ui.notify(t("manager.workbench.save_failed"), caption=why(exc), type="negative")
+        return False
+    fresh = next((one for one in library.games if one["id"] == context["game_id"]), None)
+    if fresh is not None and fresh is not context["game"]:
+        context["game"].clear()
+        context["game"].update(fresh)
+    await context["saved"]()
+    context["retitle"]()
     return True
 
 

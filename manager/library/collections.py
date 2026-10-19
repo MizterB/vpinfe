@@ -450,12 +450,29 @@ def build(collections: list[dict[str, Any]], library: Any,
             if inspect.isawaitable(opened):
                 await opened
 
+    @on_page
+    async def settled() -> None:
+        """The grid put right after a write that left the panel as it is. A changed row is
+        updated where it stands, so the selection, the scroll and the open panel stay; a
+        collection added or gone is the whole grid's to read again."""
+        fresh = with_all_games(rows(
+            await offload.io(library.load_collections), library.opens_on(),
+            state.get("unsaved_rules") or set(), look is not None))
+        if {row["id"] for row in fresh} != set(by_id):
+            await reread()
+            return
+        changed = [row for row in fresh if by_id.get(row["id"]) != row]
+        if changed:
+            grid.transact(table, built, {"update": changed}, by_id)
+        count.text = said()
+
     async def created(name: str) -> None:
         await reread(name)
         if callable(open_pane := state.get("open_pane")):
             open_pane()
 
     state["refresh_collections"] = reread
+    state["settle_collections"] = settled
 
     def mark_unsaved(names: set[str]) -> None:
         changed = [{**row, "unsaved": row["id"] in names} for row in built

@@ -19,6 +19,7 @@ from manager.kit import dropdown, game_tables, offload, panel, stars, tag_chips,
 from manager.kit.on_page import on_page
 from manager.kit.panel import HEADING
 from manager.workbench.app_settings import JOB_POLL_S
+from manager.workbench.launcher import _launchers_for_panel
 
 logger = logging.getLogger("vpinfe.manager.workbench.selection_marks")
 
@@ -83,29 +84,39 @@ def shared(rows: Sequence[dict[str, Any]], read: Callable[[dict[str, Any]], Any]
     return Counter(read(row) for row in rows)
 
 
+def _marked(context: dict[str, Any], key: str, draw: Callable[[], None]) -> panel.Region:
+    """One mark's control, drawn again from the rows as they are after a write."""
+    made = panel.region(draw)
+    context.setdefault("marks", {})[key] = made
+    return made
+
+
 async def section(context: dict[str, Any], kind: Kind) -> None:
-    rows = list(context[kind.rows])
+    context["marks"] = {}
     entries: list[tuple[Any, Any]] = [
         (HEADING, t("manager.workbench.yours")),
         (t("manager.workbench.table_rating" if kind.table else "manager.workbench.game_rating"),
-         _stars(context, kind, rows)),
+         _marked(context, "rating", _stars(context, kind))),
     ]
     if not kind.table:
         entries += [
-            (t("word.favorite"), _switch(context, kind, rows, "favorite", favorite_of)),
+            (t("word.favorite"),
+             _marked(context, "favorite", _switch(context, kind, "favorite", favorite_of))),
             (game_tables.PRIVATE_WORDS[0],
-             _switch(context, kind, rows, "private", private_of)),
+             _marked(context, "private", _switch(context, kind, "private", private_of))),
             panel.note(game_tables.PRIVATE_HELP),
         ]
-    entries.append((t("manager.workbench.tags"), _tags(context, kind, rows)))
+    entries.append((t("manager.workbench.tags"), _tags(context, kind)))
     if kind.table:
         entries += [
             (HEADING, game_tables.LAUNCH),
-            (t("word.hidden"), _switch(context, kind, rows, "hidden", hidden_of)),
-            (t("manager.workbench.launcher"), _launcher(context, kind, rows)),
+            (t("word.hidden"),
+             _marked(context, "hidden", _switch(context, kind, "hidden", hidden_of))),
+            (t("manager.workbench.launcher"),
+             _marked(context, "launcher", _launcher(context, kind))),
             (t("manager.workbench.nvram_clear"),
-             _switch(context, kind, rows, "delete_nvram_on_close", nvram_of,
-                     hint=t("manager.workbench.nvram_note"))),
+             _marked(context, "nvram", _switch(context, kind, "delete_nvram_on_close", nvram_of,
+                                                hint=t("manager.workbench.nvram_note")))),
         ]
     panel.facts(ui, entries)
 
@@ -117,13 +128,12 @@ def varies_chip(kind: Kind, counts: Counter, said: Callable[[Any], str]) -> Call
     return panel.state(t("manager.workbench.varies"), "off", hint="\n".join(lines))
 
 
-def _stars(context: dict[str, Any], kind: Kind, rows: list[dict[str, Any]]) -> Callable[[], None]:
-    counts = shared(rows, rating_of)
-
+def _stars(context: dict[str, Any], kind: Kind) -> Callable[[], None]:
     async def rate(value: int) -> None:
-        await change(context, kind, rows, "rating", lambda _row: value, rating_of)
+        await change(context, kind, "rating", lambda _row: value, rating_of)
 
     def draw() -> None:
+        counts = shared(context[kind.rows], rating_of)
         with ui.row().classes("items-center gap-2 no-wrap"):
             stars.draw(next(iter(counts)) if len(counts) == 1 else 0, rate)()
             if len(counts) > 1:
@@ -132,15 +142,14 @@ def _stars(context: dict[str, Any], kind: Kind, rows: list[dict[str, Any]]) -> C
     return draw
 
 
-def _switch(context: dict[str, Any], kind: Kind, rows: list[dict[str, Any]], name: str,
+def _switch(context: dict[str, Any], kind: Kind, name: str,
             read: Callable[[dict[str, Any]], bool], *, hint: str = "") -> Callable[[], None]:
-    counts = shared(rows, read)
-
     async def flip(event: Any) -> None:
         wanted = bool(event.value)
-        await change(context, kind, rows, name, lambda _row: wanted, read)
+        await change(context, kind, name, lambda _row: wanted, read)
 
     def draw() -> None:
+        counts = shared(context[kind.rows], read)
         with ui.row().classes("items-center gap-2 no-wrap"):
             panel.switch(len(counts) == 1 and next(iter(counts)), flip, hint=hint)()
             if len(counts) > 1:
@@ -149,70 +158,101 @@ def _switch(context: dict[str, Any], kind: Kind, rows: list[dict[str, Any]], nam
     return draw
 
 
-def _tags(context: dict[str, Any], kind: Kind, rows: list[dict[str, Any]]) -> Callable[[], None]:
+def _carried(rows: Sequence[dict[str, Any]]) -> tuple[list[str], list[tuple[str, int]]]:
+    """The tags every row carries, and each tag only some carry with how many do."""
+    counts = Counter(tag for row in rows for tag in set(tags_of(row)))
+    return (sorted(tag for tag, count in counts.items() if count == len(rows)),
+            sorted((tag, count) for tag, count in counts.items() if count < len(rows)))
+
+
+def _tags(context: dict[str, Any], kind: Kind) -> Callable[[], None]:
     """Every tag all carry is a chip to take away; one some carry is drawn quiet with its
-    count, and picking it gives it to all."""
+    count, and picking it gives it to all.
+
+    The picker stays where it is while the quiet chips are drawn again, so a person adding
+    one tag after another keeps the field. After a write it is set to what all carry
+    without writing that back."""
     library = context["library"]
-    carried = Counter(tag for row in rows for tag in set(tags_of(row)))
-    everyone = sorted(tag for tag, count in carried.items() if count == len(rows))
-    some = sorted((tag, count) for tag, count in carried.items() if count < len(rows))
+    setting = {"picker": False}
 
     async def retag(chosen: list[str]) -> None:
+        everyone, _ = _carried(context[kind.rows])
         added = [tag for tag in chosen if tag not in everyone]
         removed = {tag for tag in everyone if tag not in chosen}
-        await change(context, kind, rows, "tags", lambda row: [
+        await change(context, kind, "tags", lambda row: [
             *(tag for tag in tags_of(row) if tag not in removed),
             *(tag for tag in added if tag not in tags_of(row))], tags_of)
 
     async def drop(tag: str) -> None:
-        await change(context, kind, rows, "tags",
+        await change(context, kind, "tags",
                      lambda row: [one for one in tags_of(row) if one != tag], tags_of)
 
+    def quiet() -> None:
+        rows = context[kind.rows]
+        everyone, some = _carried(rows)
+        if not some:
+            return
+        looks = library.tag_looks()
+        with ui.element("span").classes(tag_chips.BOX):
+            for tag, count in some:
+                color = tag_chips.color_of(tag, looks)
+                with ui.element("span").classes(
+                        f"{tag_chips.chip_class(color)} manager-tag--some") as chip:
+                    ui.element("span").classes(tag_chips.dot_class(color))
+                    ui.label(tag)
+                    ui.label(t("manager.selection.of_all", count=count,
+                               total=len(rows))).classes("manager-help")
+                    ui.icon("close").props("size=14px") \
+                        .on("click.stop", lambda _e=None, tag=tag: drop(tag)) \
+                        .tooltip(t("manager.selection.take_away"))
+                chip.classes("cursor-pointer")
+                chip.on("click", lambda _e=None, tag=tag: retag([*everyone, tag]))
+                chip.tooltip(t("manager.selection.give_all"))
+
+    def settle() -> None:
+        picker = context.get("tag_picker")
+        everyone, _ = _carried(context[kind.rows])
+        if picker is None or picker.is_deleted or set(picker.value or ()) == set(everyone):
+            return
+        setting["picker"] = True
+        try:
+            picker.value = everyone
+        finally:
+            setting["picker"] = False
+
+    context["settle_tags"] = settle
+
     def draw() -> None:
+        everyone, _ = _carried(context[kind.rows])
         with ui.column().classes("gap-1 w-full min-w-0"):
             control = tag_chips.Picker(library.tags(), value=everyone,
                                        looks=library.tag_looks(), adds=True,
                                        look=dropdown.OUTLINED) \
                 .props('hide-dropdown-icon popup-content-class="manager-picker-popup"') \
                 .classes("w-full min-w-0")
-            if some:
-                looks = library.tag_looks()
-                with ui.element("span").classes(tag_chips.BOX):
-                    for tag, count in some:
-                        color = tag_chips.color_of(tag, looks)
-                        with ui.element("span").classes(
-                                f"{tag_chips.chip_class(color)} manager-tag--some") as chip:
-                            ui.element("span").classes(tag_chips.dot_class(color))
-                            ui.label(tag)
-                            ui.label(t("manager.selection.of_all", count=count,
-                                       total=len(rows))).classes("manager-help")
-                            ui.icon("close").props("size=14px") \
-                                .on("click.stop", lambda _e=None, tag=tag: drop(tag)) \
-                                .tooltip(t("manager.selection.take_away"))
-                        chip.classes("cursor-pointer")
-                        chip.on("click", lambda _e=None, tag=tag: retag([*everyone, tag]))
-                        chip.tooltip(t("manager.selection.give_all"))
-        control.on_value_change(lambda: retag(list(control.value or [])))
+            context["tag_picker"] = control
+            _marked(context, "tags", quiet)()
+        control.on_value_change(
+            lambda: None if setting["picker"] else retag(list(control.value or [])))
 
     return draw
 
 
-def _launcher(context: dict[str, Any], kind: Kind,
-              rows: list[dict[str, Any]]) -> Callable[[], None]:
-    listing = context.get("launchers") or {}
-    held = listing.get("launchers") or []
-    playing = shared(rows, lambda row: str(row.get("launcher") or ""))
-    names = {str(row.get("launcher") or ""): str(row.get("launcher_name") or "")
-             for row in rows}
-    apps = {str(row.get("app") or "") for row in rows}
-    offer = launchers.launcher_offer(held, next(iter(apps)) if len(apps) == 1 else "")
-    anyone_named = any(named_launcher(context, row) for row in rows)
-
+def _launcher(context: dict[str, Any], kind: Kind) -> Callable[[], None]:
     async def pick(chosen: str) -> None:
-        await change(context, kind, rows, "launcher", lambda _row: chosen,
+        await change(context, kind, "launcher", lambda _row: chosen,
                      lambda row: named_launcher(context, row))
 
     def draw() -> None:
+        rows = context[kind.rows]
+        listing = context.get("launchers") or {}
+        held = listing.get("launchers") or []
+        playing = shared(rows, lambda row: str(row.get("launcher") or ""))
+        names = {str(row.get("launcher") or ""): str(row.get("launcher_name") or "")
+                 for row in rows}
+        apps = {str(row.get("app") or "") for row in rows}
+        offer = launchers.launcher_offer(held, next(iter(apps)) if len(apps) == 1 else "")
+        anyone_named = any(named_launcher(context, row) for row in rows)
         with ui.row().classes("items-center gap-2 no-wrap"):
             only = next(iter(playing)) if len(playing) == 1 else None
             field = panel.MarkedSelect(
@@ -233,14 +273,15 @@ def _launcher(context: dict[str, Any], kind: Kind,
     return draw
 
 
-async def change(context: dict[str, Any], kind: Kind, rows: Sequence[dict[str, Any]], name: str,
+async def change(context: dict[str, Any], kind: Kind, name: str,
                  new_of: Callable[[dict[str, Any]], Any],
                  old_of: Callable[[dict[str, Any]], Any]) -> None:
     """`name` to what `new_of` says for each row that does not hold it yet, remembering
-    what each held for Undo."""
+    what each held for Undo. The rows are the selection as it is now, not as it was when
+    the control was drawn."""
     forward: list[dict[str, Any]] = []
     back: list[dict[str, Any]] = []
-    for row in rows:
+    for row in context[kind.rows]:
         new, old = new_of(row), old_of(row)
         if new == old:
             continue
@@ -259,16 +300,16 @@ async def apply(context: dict[str, Any], kind: Kind, forward: list[dict[str, Any
         written, failed = await write(context, forward)
     except Exception as exc:  # noqa: BLE001 - said, never raised into the page
         ui.notify(t("manager.workbench.save_failed"), caption=why(exc), type="negative")
-        await context["rebuild"]()
+        await _drawn_again(context, kind)
         return
-    await context["rebuild"]()
+    await _drawn_again(context, kind)
     wrote = set(written)
     mine = [edit for edit in back if _key(edit) in wrote]
 
     @on_page
     async def reverse() -> None:
         _, unwritten = await write(context, mine)
-        await context["rebuild"]()
+        await _drawn_again(context, kind)
         if unwritten:
             raise RuntimeError(t("manager.selection.not_written", count=len(unwritten)))
 
@@ -279,6 +320,29 @@ async def apply(context: dict[str, Any], kind: Kind, forward: list[dict[str, Any
         return
     undo.offer(t(kind.changed, count=len(written)), reverse, warn=bool(failed),
                caption=t("manager.selection.not_written", count=len(failed)) if failed else "")
+
+
+async def _drawn_again(context: dict[str, Any], kind: Kind) -> None:
+    """After a write, or a refused one: the grid put right, the selection's rows read
+    again in place, and every mark drawn from them. A selection that has gone from the
+    library is let be."""
+    await context["saved"]()
+    library = context["library"]
+    wanted = {str(row["id"]) for row in context[kind.rows]}
+    if kind.table:
+        found = await offload.io(library.load_tables)
+        context["launchers"] = await offload.io(_launchers_for_panel, library)
+    else:
+        found = await offload.io(getattr, library, "games")
+    fresh = [row for row in found if str(row.get("id")) in wanted]
+    if not fresh:
+        return
+    context[kind.rows][:] = fresh
+    for one in context.get("marks", {}).values():
+        one.refill()
+    settle = context.get("settle_tags")
+    if callable(settle):
+        settle()
 
 
 def _key(edit: dict[str, Any]) -> tuple[str, str]:

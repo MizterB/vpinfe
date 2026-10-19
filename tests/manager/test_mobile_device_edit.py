@@ -76,6 +76,7 @@ class OnAMobileDevicePanel(unittest.IsolatedAsyncioTestCase):
 
     async def test_a_cleared_name_is_stored_as_the_product_name(self) -> None:
         context = _context(MOBILE)
+        context["retitle"] = Mock()
         await devices._identity_rows(context)
 
         said = await self.fields.saving("field:0")("  ")
@@ -83,7 +84,8 @@ class OnAMobileDevicePanel(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(said, "")
         self.client.edit_device.assert_called_once_with(
             "m1", "192.0.2.7", 2112, t("manager.devices.mobile_name"))
-        context["rebuild"].assert_awaited_once()
+        context["retitle"].assert_called_once_with()
+        context["rebuild"].assert_not_awaited()
 
     async def test_address_and_port_are_fields(self) -> None:
         rows = devices._connection_rows(_context(MOBILE), "192.0.2.7")
