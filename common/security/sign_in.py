@@ -408,6 +408,9 @@ class SignIn:
             request.tries += 1
             right = hmac.compare_digest(request.code.encode(), code.strip().encode())
             if right:
+                # Opened before the request is cleared: a page that finds no request waiting
+                # reads who is signed in, and has to find the new browser there.
+                opened = self.open(kind=kind, address=address, agent=agent)
                 self._request = None
                 self._spent_in_a_row = 0
             elif request.tries >= TRIES:
@@ -416,7 +419,7 @@ class SignIn:
                 spent = True
         if right:
             self._tell()
-            return self.open(kind=kind, address=address, agent=agent)
+            return opened
         if spent:
             self._tell()
             raise SignInError(USED_UP)

@@ -72,6 +72,22 @@ class TheCodeTests(SignInCase):
         self.assertEqual(self.sign_in.lookup(token), session)
         self.assertEqual(session.kind, sign_in.OWNER)
 
+    def test_nobody_sees_the_request_gone_before_the_session_is_there(self) -> None:
+        request = self.shown()
+        waiting_while_opening: list[bool] = []
+        real_open = self.sign_in.open
+
+        def open_noting(**kwargs):
+            waiting_while_opening.append(self.sign_in.pending() is not None)
+            return real_open(**kwargs)
+
+        with mock.patch.object(self.sign_in, "open", open_noting):
+            self.sign_in.verify(request.id, request.code, address="192.168.1.20")
+
+        self.assertEqual([True], waiting_while_opening)
+        self.assertIsNone(self.sign_in.pending())
+        self.assertEqual(1, len(self.sign_in.sessions()))
+
     def test_a_code_cannot_be_used_before_it_is_shown(self) -> None:
         request = self.sign_in.ask("192.168.1.20")
 
