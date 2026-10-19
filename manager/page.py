@@ -1315,7 +1315,8 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
                     ui.button(icon=verbs.COLLAPSE, on_click=lambda: _step(-1)) \
                         .props("flat dense round size=sm").tooltip(t("manager.page.previous_game"))
                     ui.button(icon=verbs.EXPAND, on_click=lambda: _step(1)) \
-                        .props("flat dense round size=sm").tooltip(t("manager.page.next_game"))
+                        .props("flat dense round size=sm").classes("manager-pane-next") \
+                        .tooltip(t("manager.page.next_game"))
                     full_icon = ui.button(icon=verbs.ENLARGE,
                                           on_click=lambda: toggle_full()) \
                         .props("flat dense round size=sm").classes("manager-pane-full") \

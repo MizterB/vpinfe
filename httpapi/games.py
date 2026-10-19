@@ -366,7 +366,7 @@ def get_table_media_detail(game_id: str, table_id: str, kind: str,
             dependencies=[requires(scopes.GAMES_READ)])
 def get_file_move(game_id: str, family: str, kind: str) -> models.FileMoveState:
     """`family` is `media` or `asset`: the two kinds named backglass are the picture and
-    the .directb2s file."""
+    the file the backglass server reads."""
     return models.FileMoveState.model_validate(file_move.state(game_id, family, kind))
 
 

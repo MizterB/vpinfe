@@ -19,7 +19,7 @@ from tests.support.manager_walk import ManagerWalk
 WIDE, NARROW = 1400, 700
 ROW = (".ag-center-cols-container .ag-row[row-index=\"%d\"] "
        ".ag-cell:not([col-id=\"ag-Grid-SelectionColumn\"])")
-NEXT = ".manager-panel-header .q-btn"
+NEXT = ".manager-pane-next"
 FOCUSED = ("(() => { const el = document.querySelector('.nicegui-aggrid');"
            " const api = getElement(Number(el.id.slice(1))).api;"
            " const node = api.getRowNode(api.getGridOption('context').focusId);"
@@ -70,7 +70,7 @@ class PanelPagesStackDrive(unittest.TestCase):
                 "!!document.querySelector('.manager-pane-box.manager-opened')")
             seen["narrow panel"] = await browser.evaluate(SHOWN)
             seen["stepped from"] = {"row": await browser.evaluate(FOCUSED)}
-            await browser.click(NEXT, nth=2)
+            await browser.click(NEXT)
             await browser.wait_for(f"{FOCUSED} !== {seen['stepped from']['row']}")
             seen["stepped to"] = {"row": await browser.evaluate(FOCUSED)}
             await browser.click(".manager-pane-back")

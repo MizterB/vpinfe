@@ -35,6 +35,7 @@ class MoveCase(TempTree):
     def setUp(self) -> None:
         super().setUp()
         self.backups = self.root / "backups"
+        self.running = launch_state.LaunchState()
         self.info = game_info("Cactus", game_id=GAME_ID, tables=tables(*self.ids))
         self.info["assets"] = {"Cactus.directb2s": {"source": {"host": "vpinmediadb",
                                                                "hash": "abc"}}}
@@ -49,7 +50,6 @@ class MoveCase(TempTree):
                              side_effect=lambda: self.running)):
             patcher.start()
             self.addCleanup(patcher.stop)
-        self.running = launch_state.LaunchState()
 
     def put(self, name: str, data: bytes = b"x") -> Path:
         path = self.folder / name

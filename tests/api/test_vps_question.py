@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime
 import unittest
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import patch
 
 from common.online import vps_find, vps_question
@@ -22,7 +23,7 @@ def release(id_: str, by: list[int], *, mod: bool = False, features: tuple = (),
             "format": format_, "added": added, "held": held}
 
 
-ROWS = [
+ROWS: list[dict[str, Any]] = [
     {"id": "A", "name": "Alpha", "manufacturer": "Bally", "themes": ["Space"],
      "is_in_library": True, "listed": ["tableFiles", "b2sFiles"],
      "releases": {"tableFiles": [release("t1", [0, 1], mod=True, added="2026-10-12T00:00:00Z"),
@@ -36,7 +37,7 @@ ROWS = [
 ]
 
 
-RELEASES = {row["id"]: row["releases"] for row in ROWS}
+RELEASES: dict[str, dict[str, list[dict[str, Any]]]] = {row["id"]: row["releases"] for row in ROWS}
 
 
 def _today(year: int, month: int, day: int):
@@ -80,7 +81,7 @@ class QuestionTests(unittest.TestCase):
 
     def test_a_name_credited_under_another_spelling_asks_for_the_same_person(self) -> None:
         self.assertEqual(ids({"by": ["vpinworkshop"]}), ids({"by": ["VPW"]}))
-        self.assertEqual(vps_question.person_named("VPW Team", PEOPLE)["name"], "VPW")
+        self.assertEqual((vps_question.person_named("VPW Team", PEOPLE) or {})["name"], "VPW")
         self.assertIsNone(vps_question.person_named("Nobody", PEOPLE))
 
     def test_kind_narrows_to_that_listing_and_to_games_that_list_it(self) -> None:
