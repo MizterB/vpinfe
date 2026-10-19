@@ -12,6 +12,7 @@ from typing import Any
 from urllib.parse import quote, urlencode, urlsplit
 
 import requests
+from requests.adapters import HTTPAdapter
 
 from common.config.paths import get_ini_config
 from common.devices import device_client, device_registry, launcher_wire, serving
@@ -85,6 +86,13 @@ class _WordedSession(requests.Session):
     tier. When that tier asks for a Confirm, the browser is asked and the call is made once
     more.
     """
+
+    def __init__(self) -> None:
+        super().__init__()
+        # One pooled connection per worker thread that can be calling at once.
+        adapter = HTTPAdapter(pool_maxsize=acting.WORKERS)
+        self.mount("http://", adapter)
+        self.mount("https://", adapter)
 
     def _send(self, who: acting.Acting | None, method: str, url: str,
               **kwargs: Any) -> requests.Response:

@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import socket
+import threading
+import time
 import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from unittest.mock import patch
 
 import requests
 
 from common.i18n import t
+from manager.kit import acting
 from manager.kit.api import ApiClient, ApiError
 
 
@@ -72,6 +76,45 @@ class HowLongEachReadWaitsTests(unittest.TestCase):
         for send in (lambda c: c.place_media("g1", "", "wheel", "a.png", b"x"),
                      lambda c: c.place_asset("g1", "", "pov", "a.pov", b"x")):
             self.assertGreater(self._waited(send), 60)
+
+
+class _Slow(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
+    def do_GET(self) -> None:
+        time.sleep(0.1)
+        self.send_response(200)
+        self.send_header("Content-Length", "2")
+        self.end_headers()
+        self.wfile.write(b"{}")
+
+    def log_message(self, *args) -> None:
+        pass
+
+
+class _Listening(ThreadingHTTPServer):
+    request_queue_size = 128
+
+
+class EveryWorkerAtOnceTests(unittest.TestCase):
+    def test_every_worker_calling_at_once_keeps_its_connection(self) -> None:
+        server = _Listening(("127.0.0.1", 0), _Slow)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        base = f"http://127.0.0.1:{server.server_address[1]}"
+        client = ApiClient(base)
+        pool = acting.ActingPool()
+        self.addCleanup(pool.shutdown)
+
+        with self.assertNoLogs("urllib3.connectionpool", "WARNING"):
+            calls = [pool.submit(client._session.get, f"{base}/x")
+                     for _ in range(acting.WORKERS * 3)]
+            for call in calls:
+                call.result()
+
+    def test_the_workers_are_the_number_the_client_has_connections_for(self) -> None:
+        self.assertEqual(acting.ActingPool()._max_workers, acting.WORKERS)
 
 
 if __name__ == "__main__":

@@ -16,6 +16,7 @@ import asyncio
 import concurrent.futures
 import contextvars
 import logging
+import os
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -32,6 +33,10 @@ logger = logging.getLogger("vpinfe.manager.kit.acting")
 
 # Long enough to read six digits off another screen and type them.
 CONFIRM_WAIT_SECONDS = 600
+
+# The API client keeps a pooled connection for each worker. A worker without one opens a
+# connection and discards it.
+WORKERS = min(32, (os.cpu_count() or 1) + 4)
 
 
 @dataclass(frozen=True)
@@ -97,6 +102,9 @@ def play_only() -> bool:
 class ActingPool(ThreadPoolExecutor):
     """NiceGUI's worker threads, each started with the sign-in of the page that handed it
     work."""
+
+    def __init__(self) -> None:
+        super().__init__(max_workers=WORKERS)
 
     def submit(self, fn: Callable[..., Any], /, *args: Any, **kwargs: Any) -> Any:
         context = contextvars.copy_context()
