@@ -261,7 +261,7 @@ def _open_on_everything(library: Library) -> None:
 
 def _folder_line(folder: dict[str, Any]) -> None:
     """Where a backup taken now goes, and what is wrong with it. Read-only: the setting is
-    where it changes."""
+    where it changes, so the way there is offered only when there is something to fix."""
     if not folder.get("path"):
         return
     with ui.row().classes("w-full items-center gap-2 px-3 pb-2 shrink-0"):
@@ -269,7 +269,7 @@ def _folder_line(folder: dict[str, Any]) -> None:
             "text-xs manager-label")
         if folder.get("problem"):
             ui.label(folder["problem"]).classes("text-xs text-negative")
-        panel.link(t("word.change"), to=SETTING_ADDRESS)()
+            panel.link(t("word.change"), to=SETTING_ADDRESS)()
 
 
 async def _fill(library: Library, body: Any, state: dict[str, Any],

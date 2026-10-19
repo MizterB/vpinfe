@@ -177,6 +177,24 @@ class Deleting(unittest.IsolatedAsyncioTestCase):
         refresh.assert_awaited_once_with()
 
 
+class FolderLine(unittest.TestCase):
+    def _drawn(self, folder: dict) -> mock.MagicMock:
+        with mock.patch.object(backups, "ui"), \
+                mock.patch.object(backups, "panel") as drawn:
+            backups._folder_line(folder)
+        return drawn
+
+    def test_a_folder_with_nothing_wrong_offers_no_way_to_the_setting(self) -> None:
+        drawn = self._drawn({"path": "/backups", "problem": ""})
+
+        drawn.link.assert_not_called()
+
+    def test_a_folder_with_a_problem_offers_the_way_to_the_setting(self) -> None:
+        drawn = self._drawn({"path": "/backups", "problem": "Not mounted."})
+
+        drawn.link.assert_called_once_with(t("word.change"), to=backups.SETTING_ADDRESS)
+
+
 class Columns(unittest.TestCase):
     def test_every_column_header_has_a_tooltip(self) -> None:
         bare = [one["field"] for one in backups.COLUMNS if not one.get("headerTooltip")]

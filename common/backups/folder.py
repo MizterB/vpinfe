@@ -61,13 +61,18 @@ def holds(folder: Path) -> bool:
     return folder in known()
 
 
-def problem(folder: Path) -> str:
-    """What is wrong with writing a backup to `folder`, if anything. The default counts as
-    fine before it exists: the first backup makes it."""
+def refused(folder: Path) -> tuple[str, str]:
+    """What is wrong with writing a backup to `folder`, as the reason and the state the disk
+    reported. The default counts as fine before it exists: the first backup makes it."""
     if folder == paths.DEFAULT_BACKUPS_DIR and not folder.exists():
-        return ""
+        return "", path_state.OK
     found = path_state.look(str(folder), path_state.DIR, writable=True)
-    return path_state.refusal(t("backups.folder_name"), found)
+    return path_state.refusal(t("backups.folder_name"), found), found.state
+
+
+def problem(folder: Path) -> str:
+    """What is wrong with writing a backup to `folder`, if anything."""
+    return refused(folder)[0]
 
 
 def status() -> dict[str, str]:

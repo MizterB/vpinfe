@@ -24,6 +24,7 @@ from typing import Any
 from nicegui import run, ui
 
 from common import extensions, tokens
+from common.backups import folder as backups_folder
 from common.config import config_schema, input_registry, path_state
 from common.config.labels import field_label, humanize
 from common.devices import install_identity, serving
@@ -1525,7 +1526,18 @@ def local_trouble() -> list[Any]:
         get_ini_config(),
         launcher=launchers.default_for("vpx", store.launchers()),
         locations=[(one, states[one.location_id]) for one in held]),
-            *_extension_trouble()]
+            *_extension_trouble(), *_backups_folder_trouble()]
+
+
+def _backups_folder_trouble() -> list[Any]:
+    """The folder backups are written to, when it cannot be written to. The default is fine
+    until it exists."""
+    said, state = backups_folder.refused(backups_folder.current())
+    if not said:
+        return []
+    return [feature_checks.Unmet(feature=install_identity.CORE,
+                                 section=backups_folder.SECTION, key=backups_folder.FOLDER,
+                                 state=state, reason=said)]
 
 
 def _extension_trouble() -> list[Any]:

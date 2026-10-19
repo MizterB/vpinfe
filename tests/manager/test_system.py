@@ -7,6 +7,7 @@ then.
 
 import re
 import unittest
+from unittest import mock
 from urllib.parse import parse_qs
 
 from common.config import path_state
@@ -293,6 +294,41 @@ class TroubleTests(unittest.TestCase):
         held = settings_page.pages_in_trouble([found])
 
         self.assertEqual(list(held), ["library.folders"])
+
+    def test_a_backups_folder_that_cannot_be_written_to_marks_the_backups_page(self) -> None:
+        with mock.patch.object(settings_page.backups_folder, "refused",
+                               return_value=("Not mounted.", path_state.NOT_CONNECTED)):
+            found = settings_page._backups_folder_trouble()
+
+        self.assertEqual([one.reason for one in found], ["Not mounted."])
+        self.assertEqual(list(settings_page.pages_in_trouble(found)), ["vpinfe.backups"])
+
+    def test_a_missing_backups_folder_keeps_the_state_the_disk_reported(self) -> None:
+        """The field beside the page's mark draws from this state, and `unusable` is the
+        amber of a program that does not run, not the red of a place that is not there."""
+        with mock.patch.object(settings_page.backups_folder, "refused",
+                               return_value=("Gone.", path_state.MISSING)):
+            found = settings_page._backups_folder_trouble()
+
+        self.assertEqual([one.state for one in found], [path_state.MISSING])
+
+    def test_a_backups_folder_with_nothing_wrong_marks_nothing(self) -> None:
+        with mock.patch.object(settings_page.backups_folder, "refused",
+                               return_value=("", path_state.OK)):
+            self.assertEqual(settings_page._backups_folder_trouble(), [])
+
+    def test_local_trouble_carries_the_backups_folder(self) -> None:
+        from common.games import launchers, library_folders
+        mine = mock.sentinel.backups_folder_finding
+        with mock.patch.object(launchers, "get_launcher_store"), \
+                mock.patch.object(launchers, "default_for"), \
+                mock.patch.object(library_folders, "configured", return_value=[]), \
+                mock.patch.object(library_folders, "states_of", return_value={}), \
+                mock.patch.object(settings_page.feature_checks, "unmet", return_value=[]), \
+                mock.patch.object(settings_page, "_extension_trouble", return_value=[]), \
+                mock.patch.object(settings_page, "_backups_folder_trouble",
+                                  return_value=[mine]):
+            self.assertEqual(settings_page.local_trouble(), [mine])
 
     def test_a_section_is_drawn_by_no_more_than_one_page(self) -> None:
         """`_page_holding` answers with the first page that draws a section, so a
