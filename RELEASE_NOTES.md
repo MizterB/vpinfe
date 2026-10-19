@@ -50,9 +50,10 @@ next section first.
   beside each name. Column layouts are kept as views of your own. Select a row and its panel
   answers for it; select several and change them together, with one Undo for the lot.
 - **Manager** - Overview is the first page: the game last played, what needs you ordered by
-  what leaving it costs, the size of the library and the latest jobs. Setup asks the
-  first-run questions as a desktop or as a cabinet. What's New opens once after an update
-  and again from About.
+  what leaving it costs, the size of the library and the latest jobs. Each check behind a
+  row has a switch in Settings > Library > Checks, and Stop Checking on a row turns it off.
+  Setup asks the first-run questions as a desktop or as a cabinet. What's New opens once
+  after an update and again from About.
 - **Manager** - Drop a file, a zip or a folder on the Manager to make a game, or on a game
   to add to it, and read what will happen before anything is written. Long work runs as a
   job, so you can leave the page and read how it went in Jobs.
@@ -75,6 +76,10 @@ next section first.
   match was made and go back to the earlier one. Take a game's details from the spreadsheet,
   type your own over any of them, and revert a field with a click. See which tables have a
   newer version on the spreadsheet.
+- **Manager** - Discovery lists every game and release on the Virtual Pinball Spreadsheet
+  and sets your library against them. Compare with VPS shows which games you hold and which
+  files you are missing, and Releases lists each file newest first. Search by author, maker
+  or theme, and filter by kind, format or when it was added.
 - **Manager** - Collections are smart (filled by rules on letter, theme, type, manufacturer,
   year, rating, tags, favorite and played) or hand-picked, ordered and capped as you choose.
   Tags are your own words on games and tables, with rename, merge, color and a clear-out for
@@ -88,7 +93,8 @@ next section first.
   point of view, score view layout) and what is missing or left over. A table's INI, script,
   point of view or score view layout can be edited there, with a copy kept in Backups each
   time you save. A table's script can be extracted to a `.vbs` to patch, and the community's
-  script fixes can be downloaded.
+  script fixes can be downloaded. A backglass, table INI or score view layout can be moved
+  between a game and its tables, with Undo.
 - **Core** - `.dif` patches apply directly, with no external tool. The base file stays on
   disk because the patched table cannot be rebuilt without it, and VPinFE records which base
   and which patch produced the result.
