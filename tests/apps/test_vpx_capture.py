@@ -264,7 +264,7 @@ class PlacedByTests(unittest.TestCase):
 
     def test_a_file_beside_the_table_that_decides_a_window(self) -> None:
         for name in ("Mod.directb2s", "example.DIRECTB2S", "Mod.scv", "Example.scv",
-                     "Mod.ini", "example.ini"):
+                     "Mod.nix", "Example.nix", "Mod.ini", "example.ini"):
             with self.subTest(name):
                 beside = self.game / name
                 self.assertTrue(self._changes(partial(beside.write_bytes, b"x")))

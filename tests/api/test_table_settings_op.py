@@ -52,6 +52,30 @@ class TableSettingsTests(unittest.TestCase):
         self.assertEqual(launcher_ops.effective_values("l1")[GRILL], "0")
         self.assertTrue((self.folder / "Taxi.ini").is_file())
 
+    def test_the_program_is_reported_by_launcher_and_by_table(self) -> None:
+        with patch("apps.vpx.config.plugins.present", return_value=frozenset({"Nixie", "B2S"})):
+            by_launcher = launcher_ops.program_of("l1")
+            by_table = launcher_ops.table_program("t1")
+            in_config = launcher_ops.app_config("l1")["program"]
+
+        self.assertEqual(by_launcher, by_table)
+        self.assertEqual(by_launcher, in_config)
+        assert by_launcher is not None
+        self.assertEqual(by_launcher["plugins"], ["B2S", "Nixie"])
+        self.assertEqual(by_launcher["defaults"],
+                         {"Plugin.B2S.Enable": "1", "Plugin.B2SLegacy.Enable": "0"})
+        self.assertGreaterEqual(by_launcher["build"], 6293)
+
+    def test_a_program_whose_plugins_cannot_be_read_says_so(self) -> None:
+        found = launcher_ops.program_of("l1")
+
+        assert found is not None
+        self.assertIsNone(found["plugins"])
+
+    def test_the_program_of_a_table_nobody_made_is_refused(self) -> None:
+        with self.assertRaises(service_errors.NotFoundError):
+            launcher_ops.table_program("nope")
+
     def test_a_table_nobody_made_is_refused(self) -> None:
         with self.assertRaises(service_errors.NotFoundError):
             launcher_ops.write_table_settings("nope", {GRILL: "1"})

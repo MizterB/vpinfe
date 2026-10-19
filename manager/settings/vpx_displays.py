@@ -106,7 +106,8 @@ class Page:
     def __init__(self, library: Any, launcher_id: str, rebuild: Callable[[], Any], *,
                  flat: dict[str, str], vpinfe: displays.Standing, here: Sequence[Screen],
                  logged: Sequence[str], arrows: bool, units_now: str,
-                 defaults: Mapping[str, str]) -> None:
+                 defaults: Mapping[str, str],
+                 program: Mapping[str, Any] | None = None) -> None:
         self.library = library
         self.launcher_id = launcher_id
         self.rebuild = rebuild
@@ -117,6 +118,7 @@ class Page:
         self.arrows = arrows
         self.units = units_now
         self.defaults = dict(defaults)
+        self.program = program
         self.on = vpx.placed(flat, self.here)
         self.size = {key: self._cm(key) for key in vpx.SCREEN_SIZE}
         self.refill: Callable[[], None] = lambda: None
@@ -187,7 +189,8 @@ class Page:
     async def move(self, moved: dict[str, Placement]) -> bool:
         after = {**self.on, **moved}
         turn = self._turn_to(moved[vpx.PLAYFIELD]) if vpx.PLAYFIELD in moved else None
-        written = vpx.answer(moved, after, self.here, self.logged, self.flat, turn=turn)
+        written = vpx.answer(moved, after, self.here, self.logged, self.flat, turn=turn,
+                             program=self.program)
         if self._refused(written):
             return False
         if written.keys and not await self.write(written.keys):
@@ -221,7 +224,8 @@ class Page:
             moved[vpx.TOPPER] = None
         after = {**self.on, **moved}
         turn = self.vpinfe.turn if self.arrows else None
-        written = vpx.answer(moved, after, self.here, self.logged, self.flat, turn=turn)
+        written = vpx.answer(moved, after, self.here, self.logged, self.flat, turn=turn,
+                             program=self.program)
         if self._refused(written):
             return
         if written.keys and not await self.write(written.keys):
@@ -325,6 +329,11 @@ async def entries(context: dict[str, Any], group: Any, shown: Sequence[tuple[Any
         asyncio.create_task((redraw or context["rebuild"])())
 
     here = screens.numbered(monitors, names)
+    try:
+        program = await offload.io(library.launcher_program, context["launcher"]["launcher_id"])
+    except Exception:  # noqa: BLE001 - the answer is worked out without the program
+        logger.debug("No program for the displays answer", exc_info=True)
+        program = None
     page = Page(
         library, context["launcher"]["launcher_id"], rebuild, flat=flat,
         vpinfe=displays.standing(vpinfe, schema), here=here,
@@ -333,7 +342,7 @@ async def entries(context: dict[str, Any], group: Any, shown: Sequence[tuple[Any
         arrows=displays.cabinet(vpinfe, schema),
         units_now=units.resolved(displays.stored(vpinfe, schema, "manager", "units")),
         defaults={key: str(by_key[key].default or "") for key in vpx.SCREEN_SIZE
-                  if key in by_key})
+                  if key in by_key}, program=program)
     kept = trimmed(shown, page.on)
     after = size_row_goes_before(shown)
     joiner = next((pair.joiner for heading, _ in shown for pair in heading.pairs
@@ -401,16 +410,18 @@ async def fill(client: Any, launcher_id: str, standing: displays.Standing,
     logged = sorted({name for group in config_groups(found) if applies(group)
                      for one in group.settings if one.key in vpx.DISPLAY.values()
                      for name in one.reported})
-    keys = filling(standing, here, logged, held, kind)
+    keys = filling(standing, here, logged, held, kind, found.get("program"))
     if keys:
         await offload.io(client.write_launcher_config, launcher_id, keys, create=True)
     return keys
 
 
 def filling(standing: displays.Standing, here: Sequence[Screen], logged: Sequence[str],
-            held: Mapping[str, Any], kind: str) -> dict[str, str]:
+            held: Mapping[str, Any], kind: str,
+            program: Mapping[str, Any] | None = None) -> dict[str, str]:
     """The ini keys `fill` writes. `held` is the launcher's settings as read, each with
-    whether the file sets it; `kind` is the DMD panel's, or "" with no panel."""
+    whether the file sets it; `kind` is the DMD panel's, or "" with no panel; `program` is
+    what the launcher reports of the installed program."""
     flat = {key: str((one or {}).get("value") or "") for key, one in held.items()}
 
     def open_to_answer(part: str) -> bool:
@@ -420,7 +431,8 @@ def filling(standing: displays.Standing, here: Sequence[Screen], logged: Sequenc
     moved = {part: where for part, where in standing.on.items()
              if where is not None and open_to_answer(part)}
     keys = vpx.answer(moved, {**vpx.placed(flat, here), **moved}, here, logged, flat,
-                      turn=standing.turn if vpx.PLAYFIELD in moved else None).keys \
+                      turn=standing.turn if vpx.PLAYFIELD in moved else None,
+                      program=program).keys \
         if moved else {}
     if not vpx.dmd_kind(flat):
         keys.update(vpx.dmd_util(kind))
@@ -441,16 +453,18 @@ async def _follow_panel(library: Any, kind: str, launcher_id: str) -> None:
 async def _follow_one(library: Any, launcher_id: str, *, before: displays.Standing,
                       after: displays.Standing, here: Sequence[Screen]) -> None:
     flat = await _flat_values(library, launcher_id)
+    program = await offload.io(library.launcher_program, launcher_id)
     groups = await offload.io(library.launcher_config_groups, launcher_id)
     logged = sorted({name for group in groups if applies(group) for one in group.settings
                      if one.key in vpx.DISPLAY.values() for name in one.reported})
-    keys = following(before, after, here, logged, flat)
+    keys = following(before, after, here, logged, flat, program)
     if keys:
         await run.io_bound(library.write_launcher_config, launcher_id, keys, create=True)
 
 
 def following(before: displays.Standing, after: displays.Standing, here: Sequence[Screen],
-              logged: Sequence[str], flat: Mapping[str, str]) -> dict[str, str]:
+              logged: Sequence[str], flat: Mapping[str, str],
+              program: Mapping[str, Any] | None = None) -> dict[str, str]:
     """The ini keys that move a launcher with VPinFE's screens: the parts it had where
     VPinFE had them, and the turn too if it still held what VPinFE's gave it."""
     mine = vpx.placed(flat, here)
@@ -466,4 +480,4 @@ def following(before: displays.Standing, after: displays.Standing, here: Sequenc
         and now.get(vpx.PLAYFIELD) == after.on.get(vpx.PLAYFIELD) else None
     if not moved and turn is None:
         return {}
-    return vpx.answer(moved, now, here, logged, flat, turn=turn).keys
+    return vpx.answer(moved, now, here, logged, flat, turn=turn, program=program).keys

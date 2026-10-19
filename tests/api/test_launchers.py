@@ -1185,6 +1185,25 @@ class CuratedTests(_TableCase):
                                 "B2SLegacy": ["Plugin.B2S.Enable"]})
         self.assertEqual(alone, {"B2S": []})
 
+    def test_a_rival_the_program_does_not_have_is_not_named(self) -> None:
+        bundle = pathlib.Path(self.tmp.name, "VPinballX_BGFX.app", "Contents")
+        for one in ("B2S", "Nixie"):
+            (bundle / "PlugIns" / one.lower()).mkdir(parents=True)
+            (bundle / "PlugIns" / one.lower() / "plugin.cfg").write_text(
+                f'[configuration]\nid = "{one}"\nname = "{one}"\n')
+        pathlib.Path(self.tmp.name, "VPinballX.ini").write_text(
+            "[Plugin.B2S]\nEnable = 1\n\n[Plugin.B2SLegacy]\nEnable = 0\n\n"
+            "[Plugin.Nixie]\nEnable = 1\n", encoding="utf-8")
+        put_launcher(self.client, "l1", json={"app": "vpx", "settings": {
+            "bin_path": str(bundle / "MacOS" / "VPinballX_BGFX"),
+            "ini_path": str(pathlib.Path(self.tmp.name, "VPinballX.ini"))}})
+
+        rivals = {h["key"]: h["rivals"]
+                  for h in self._groups("launcher")["plugins"]["curated"]}
+
+        self.assertEqual(rivals["B2S"], [])
+        self.assertNotIn("B2SLegacy", rivals)
+
     def test_a_plugin_heading_is_switched_by_its_enable(self) -> None:
         plugins = self._groups("launcher")["plugins"]
 

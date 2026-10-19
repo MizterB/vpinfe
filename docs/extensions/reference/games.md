@@ -301,7 +301,7 @@ raises `ContractError` when it is looked up.
 |---|---|
 | `games:read` | `list_games(q="", limit=0, offset=0)`, `get_game(game_id)`, `game_tables`, `game_media(game_id, codecs=False)`, `table_media(game_id, table_id, codecs=False)`, `media_detail(game_id, kind, table_id="", page=1)`, `vps_state`, `vps_details`, `vps_catalog(downloading=None)`, `vps_settle(rows)`, `vps_entry(vps_id)`, `vps_releases(vps_id, listed_as="tableFiles")` |
 | `games:write` | `set_details(game_id, **fields)`, `rate_game(game_id, rating)`, `rate_table(game_id, table_id, rating)`, `set_tags(game_id, tags)`, `set_favorite(game_id, favorite)`, `set_default_table(game_id, table_id)`, `set_play_record(game_id, play_count=None, play_time_seconds=None, last_played=None)`, `reset_play_record(game_id)`, `take_vps_details(game_id, fields=None)`, `match_game(game_id, vps_id, guess=False)`, `remove_media(game_id, kind, table_id="", page=None)`, `get_missing_media(game_ids)`, `forget_table(game_id, table_id)`, `add_keyed_table(game_id, app_id, key)` |
-| `config:read` | `new_game_destination()` |
+| `config:read` | `new_game_destination()`, `table_program(table_id)` |
 | `config:write` | `use_library_folder(path)`, `write_table_settings(table_id, values)`, `use_logos_for_wheels()` |
 | `launch:invoke` | `launch_game(game_id, table="")` |
 
@@ -342,6 +342,14 @@ A few of them need a word more:
   downloads one where *Match new games* is on, as above.
 - `match_game` matches a game to an entry as *Matched on import*, or as a plain guess a rematch
   may replace where `guess` is true.
+- `table_program(table_id)` answers what the program that plays the table is, as the settings it
+  reads depend on it: `{"plugins": [...], "defaults": {...}, "build": 6293, "dmd_in_file": true}`,
+  or `None` where its app does not say.  `plugins` lists the plugins the program loads, empty for
+  a program known to have none and `None` where they cannot be read.  `defaults` is by key what a
+  setting holds while the program's file leaves it blank, for the settings whose default is the
+  build's.  `build` is the number the app counts builds by, `None` where unknown.  `dmd_in_file`
+  is true where the build keeps the DMD's place in each backglass file and not in the settings.
+  A table with no launcher raises, as `write_table_settings` does.
 - `write_table_settings` writes values as one table's own settings, never the launcher's, and
   leaves out a value the launcher already has, so a table whose values all match gets no file.
   `use_logos_for_wheels()` sets `[Media] wheelset` to the reserved `logo` set so every game's
@@ -489,7 +497,7 @@ Required: the first five.
 `key` is lower-case words joined by underscores, and the source is stored under
 `<extension>.<key>`.  `name` is what the person reads.  `kinds` is a list of the names a slot is
 opened under: a media kind (`ctx.games.kinds()`), an asset kind that has a dialog (`ini`, `pov`,
-`script`, `scv`, `rom`, `readme`, `music`, `pup_pack`, `altsound`, `altcolor_serum`,
+`script`, `scv`, `nix`, `rom`, `readme`, `music`, `pup_pack`, `altsound`, `altcolor_serum`,
 `altcolor_vni`), the name the asset lens gives a kind that is a folder of files (`alt_sound`,
 `alt_color`), or `table`.  `backglass` is the picture and `backglass_file` is the `.directb2s`,
 so an extension that reads a VPS kind of `backglass` for a `.directb2s` offers `backglass_file`.

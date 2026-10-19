@@ -101,7 +101,7 @@ class AssetRegistryTests(unittest.TestCase):
         """They were declared only in `asset_resolver`, so an uploaded .vbs was a file
         the registry had never heard of. None is required to launch: a table whose
         script lives inside the .vpx runs, and a sidecar is an override."""
-        for kind in ("script", "pov", "scv"):
+        for kind in ("script", "pov", "scv", "nix"):
             with self.subTest(kind=kind):
                 self.assertTrue(spec_for(kind).requires_game)
                 self.assertFalse(spec_for(kind).required_to_launch)

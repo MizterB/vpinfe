@@ -35,8 +35,9 @@ LF = "lf"
 MAX_BYTES = 4 * 1024 * 1024
 
 # The files of a game that are text: what the Assets page lists as a script, a settings
-# file, a point of view, a score view layout, a patch or the author's notes.
-SUFFIXES = frozenset({".vbs", ".ini", ".pov", ".scv", ".dif", ".txt", ".md", ".nfo", ".cfg"})
+# file, a point of view, a score view or Nixie layout, a patch or the author's notes.
+SUFFIXES = frozenset({".vbs", ".ini", ".pov", ".scv", ".nix", ".dif", ".txt", ".md", ".nfo",
+                      ".cfg"})
 
 _BOM = b"\xef\xbb\xbf"
 

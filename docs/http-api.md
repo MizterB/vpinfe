@@ -227,7 +227,7 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/games/{id}/tables/{table_id}/assets/backglass/picture?look=&version=&grill=` | The same, for the file that table reads |
 | GET | `/api/v1/games/{id}/assets/backglass/scoreview?path=` | The art a `.directb2s` draws on the score view window, with `path`, `size=` and `v=` as for the picture. A file with none is not found |
 | GET | `/api/v1/games/{id}/tables/{table_id}/assets/backglass/scoreview` | The same, for the file that table reads |
-| GET | `/api/v1/games/{id}/assets/text?path=` | A text file of the game to edit (`.vbs .ini .pov .scv .dif .txt .md .nfo .cfg`): `text` with "\n" line ends, the `version` (SHA-256 of the bytes) a save sends back, its `encoding` (`utf-8`, `utf-8-sig`, `cp1252`), `newline` (`crlf` or `lf`), `final_newline`, and `editable` with `why` in words where it is not. A file with a NUL byte is refused; over 4 MB comes back cut and read-only |
+| GET | `/api/v1/games/{id}/assets/text?path=` | A text file of the game to edit (`.vbs .ini .pov .scv .nix .dif .txt .md .nfo .cfg`): `text` with "\n" line ends, the `version` (SHA-256 of the bytes) a save sends back, its `encoding` (`utf-8`, `utf-8-sig`, `cp1252`), `newline` (`crlf` or `lf`), `final_newline`, and `editable` with `why` in words where it is not. A file with a NUL byte is refused; over 4 MB comes back cut and read-only |
 | PUT | `/api/v1/games/{id}/assets/text?path=` | Write that file from `{"text", "version", "replace_changed", "keep_copy"}`, in the encoding and line ending it had, after keeping the file as it was in Backups (kind `asset`, reason `edit`). Answers the new `version` and `kept`, where the copy went (null for none). 409 with `details.refused` `changed` where the file is no longer `version` (`replace_changed` writes over it), or `no_copy` where the copy cannot be kept (`keep_copy: false` writes without). 400 where a line holds a character the file's encoding cannot, naming the line |
 | GET | `/api/v1/games/{id}/assets/{kind}/placements` | Where a backglass, ini, script, point of view or score view could go - the folder's own name, or one table's - and what each would replace. A point of view has no folder name |
 | GET | `/api/v1/games/{id}/assets/{kind}/displaced?filename=&table=` | What placing that file would replace, asked before the bytes are sent |
@@ -856,6 +856,13 @@ any other scope. `follows_game` is the same list for a table with no file of its
 the program reads the folder's for: by key what the folder's file sets that would change what
 the table uses. It is empty once the table has a file.
 
+`program` is what the installed program is, as far as its settings depend on it, or `null`
+where the app does not say: `plugins`, the ids of the plugins it loads (empty for a program
+that is known to have none, `null` where they cannot be read), and `defaults`, by key what a setting holds
+while the file leaves it blank, for the settings whose default is the build's, and `build`,
+the number the app counts builds by (`null` where unknown), and `dmd_in_file`, true where the
+build keeps the DMD's place in each backglass file rather than in the settings.
+
 A table whose `.vpx` is named after its folder has one file for both scopes, so what it
 sets reaches the game's other tables that have no file of their own. `shared_with_game` is
 true for that table.
@@ -1268,7 +1275,7 @@ fail with `capture.outcome.one_color`: the net where the desktop cannot say.
 A window the desktop shows on none of them is remembered for that table, in the device's
 data directory, against what the app's capture hook says decides its windows there - for
 Visual Pinball, its Settings File's contents, the program, the table file, and the `.ini`,
-`.directb2s` and `.scv` beside it by the table's name or its folder's. Until any of that
+`.directb2s`, `.scv` and `.nix` beside it by the table's name or its folder's. Until any of that
 changes, or a later recording of the table sees the window, a plan leaves the window's
 kinds for that table with `capture.screen.not_shown_last`, *Visual Pinball X showed no DMD
 window when last recorded*. It is per table because Visual Pinball shows a Backglass, Score

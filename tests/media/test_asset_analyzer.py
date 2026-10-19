@@ -282,9 +282,9 @@ class TableCompanionTests(unittest.TestCase):
             return analyze_path(zip_path)
 
     def test_the_table_s_own_are_claimed_whatever_their_case(self):
-        result = self._analyzed(["Foo.vpx", "Foo.vbs", "foo.POV", "Foo.scv"])
+        result = self._analyzed(["Foo.vpx", "Foo.vbs", "foo.POV", "Foo.scv", "Foo.nix"])
 
-        self.assertEqual(kinds(result), ["pov", "script", "scv", "table"])
+        self.assertEqual(kinds(result), ["nix", "pov", "script", "scv", "table"])
 
     def test_one_named_for_something_else_is_not_the_table_s(self):
         result = self._analyzed(["Foo.vpx", "core.vbs"])

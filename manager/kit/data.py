@@ -821,6 +821,10 @@ class Library:
                                scope: str = "launcher") -> list:
         return config_groups(self._client.launcher_config(launcher_id, table, scope))
 
+    def launcher_program(self, launcher_id: str) -> dict | None:
+        """What the launcher's installed program is, as its settings depend on it."""
+        return self._client.launcher_config(launcher_id).get("program")
+
     def launcher_config_values(self, launcher_id: str, table: str = "",
                                scope: str = "launcher") -> dict:
         return dict(self._client.launcher_config(

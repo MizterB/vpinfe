@@ -30,7 +30,7 @@ logger = logging.getLogger("vpinfe.manager.library.text_editor")
 
 # The asset kinds whose files this edits, and the language each is highlighted as.
 LANGUAGES: dict[str, SUPPORTED_LANGUAGES | None] = {"script": "VBScript", "ini": "Properties files",
-                                    "pov": "XML", "scv": None, "patch": "diff",
+                                    "pov": "XML", "scv": None, "nix": None, "patch": "diff",
                                     "readme": "Markdown"}
 WRAPPED = frozenset({"readme"})
 CHANGED, NO_COPY = "changed", "no_copy"

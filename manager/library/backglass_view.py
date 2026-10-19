@@ -73,27 +73,38 @@ def flat(values: Mapping[str, Any]) -> dict[str, str]:
             else str(held or "") for key, held in values.items()}
 
 
-def edition_in_effect(held: Mapping[str, str]) -> str:
-    """The half of a two-version file the renderer shows: Dual Mode's value, which only
-    B2S Legacy has."""
-    if backglass_ops.renderer(held) == backglass_ops.LEGACY \
-            and _number(held, backglass_ops.LEGACY + "B2SDualMode") == 2:
-        return "fantasy"
-    return "authentic"
+DUAL_MODE = {backglass_ops.LEGACY: backglass_ops.LEGACY + "B2SDualMode",
+             backglass_ops.B2S: backglass_ops.B2S + "DualMode"}
 
 
-def screens(held: Mapping[str, str], glass: Mapping[str, Any]) -> tuple[Screen, Screen | None]:
+def edition_in_effect(held: Mapping[str, str],
+                      program: Mapping[str, Any] | None = None) -> str:
+    """The half of a two-version file the renderer shows: the Dual Mode of the renderer
+    in effect, whose key each plugin spells its own way."""
+    key = DUAL_MODE.get(backglass_ops.renderer(held, program), "")
+    return "fantasy" if key and _number(held, key) == 2 else "authentic"
+
+
+def _placed_in_file(plugin: str, program: Mapping[str, Any] | None) -> bool:
+    """Whether the DMD's place is in each backglass file and not in the settings, which
+    leaves any box left in the settings dead."""
+    return plugin == backglass_ops.B2S and bool((program or {}).get("dmd_in_file"))
+
+
+def screens(held: Mapping[str, str], glass: Mapping[str, Any],
+            program: Mapping[str, Any] | None = None) -> tuple[Screen, Screen | None]:
     """The backglass window, and beside it the score view where the file has art for it
     and its window is on."""
-    plugin = backglass_ops.renderer(held)
+    plugin = backglass_ops.renderer(held, program)
+    boxed = not _placed_in_file(plugin, program)
     wide, high = glass["size"]
-    cut = backglass_ops.cuts_grill(held) and 0 < glass["grill"] < high
+    cut = backglass_ops.cuts_grill(held, program) and 0 < glass["grill"] < high
     kept = high - glass["grill"] if cut else high
     scale = 100.0 * high / kept if cut else 100.0
     window, turns = _window(held, BACKGLASS_WINDOW)
     glass_screen = Screen(
         _ratio(window, (wide, kept), turns), turns, scale,
-        _box(held, plugin, GLASS_PART, (wide, kept)),
+        _box(held, plugin, GLASS_PART, (wide, kept)) if boxed else None,
         off=held.get(BACKGLASS_WINDOW + "Output", "0") in ("", "0"),
         space=(wide, kept))
     art_size = glass.get("scoreview_art")
@@ -101,7 +112,8 @@ def screens(held: Mapping[str, str], glass: Mapping[str, Any]) -> tuple[Screen, 
         return glass_screen, None
     window, turns = _window(held, SCOREVIEW_WINDOW)
     return glass_screen, Screen(_ratio(window, tuple(art_size), turns), turns, 100.0,
-                                _box(held, plugin, SCORE_PART, tuple(art_size)),
+                                _box(held, plugin, SCORE_PART, tuple(art_size))
+                                if boxed else None,
                                 part=SCORE_PART, space=tuple(art_size))
 
 
@@ -131,7 +143,9 @@ def _ratio(window: tuple[int, int] | None, art_size: tuple[int, int], turns: int
 
 def _box(held: Mapping[str, str], plugin: str, part: str, space: tuple[int, int]) -> Box | None:
     """Y counts up from the window's bottom edge. B2S counts in the pixels of `space`;
-    Legacy counts in 1024x768 whatever the picture's size."""
+    Legacy counts in 1024x768 whatever the picture's size. No renderer, no box."""
+    if plugin == backglass_ops.NONE:
+        return None
     prefix = plugin + part + "DMD"
 
     def on(name: str) -> bool:
@@ -186,12 +200,14 @@ def found(game_id: str, path: str, *, look: str, edition: str, cut: bool,
     return frame_box(frame, size) if frame else None
 
 
-def fit_target(held: Mapping[str, str], glass: Mapping[str, Any],
-               part: str) -> tuple[Screen, bool] | None:
+def fit_target(held: Mapping[str, str], glass: Mapping[str, Any], part: str,
+               program: Mapping[str, Any] | None = None) -> tuple[Screen, bool] | None:
     """The window `part` names, and whether its picture is drawn with the grill cut. The
     score view's own window may be off while its settings are open, so it is built from
     the art; None where the file has no art for it."""
-    glass_screen, score_screen = screens(held, glass)
+    if _placed_in_file(backglass_ops.renderer(held, program), program):
+        return None
+    glass_screen, score_screen = screens(held, glass, program)
     if part == GLASS_PART:
         return glass_screen, glass_screen.scale != 100.0
     if score_screen is not None:
@@ -207,7 +223,8 @@ def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
             enlarge: Callable[[Callable[[], Any]], None],
             write: Callable[..., Awaitable[Any]] | None,
             memory: dict[str, Any],
-            fits: MutableMapping[str, Callable[[], Awaitable[None]]]) -> None:
+            fits: MutableMapping[str, Callable[[], Awaitable[None]]],
+            program: Mapping[str, Any] | None = None) -> None:
     """The picture, drawn from `held` and drawn again whenever a write calls the function
     added to `followers` with the settings as they now stand. A box moved or fitted is
     written by `write`, which draws the settings beside it again and calls the followers;
@@ -215,9 +232,18 @@ def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
     `memory` carries the Look and Version picked across a redraw of the whole panel.
     `fits` is given, under "Backglass" and "ScoreView", what puts a window's box on the
     DMD window in the picture; the settings beside it hold the button. Without `write`
-    the box cannot be moved or fitted and `fits` stays empty."""
-    state = memory.setdefault("preview", {"look": "on", "edition": edition_in_effect(held)})
+    the box cannot be moved or fitted and `fits` stays empty. `program` is what the launcher
+    reports of the installed program, which decides the renderer."""
+    state = memory.setdefault("preview", {"look": "on",
+                                          "edition": edition_in_effect(held, program)})
     state["held"] = dict(held)
+    state["program"] = program
+
+    def drawn_by() -> str:
+        """The plugin whose keys a box is written to: the renderer in effect, B2S where
+        none is."""
+        return backglass_ops.renderer(state["held"], state["program"]) or backglass_ops.B2S
+
     holder = ui.element("div").classes("manager-bgview")
     notes = ui.column().classes("manager-bgview-notes gap-1")
 
@@ -228,7 +254,7 @@ def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
         async def set_box(box: Box) -> None:
             state["dragged"] = True
             try:
-                await write(box_values(backglass_ops.renderer(state["held"]), screen, box),
+                await write(box_values(drawn_by(), screen, box),
                             in_place=True)
             finally:
                 state.pop("dragged", None)
@@ -241,7 +267,7 @@ def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
         async def fit() -> None:
             if part in searching:
                 return
-            target = fit_target(state["held"], glass, part)
+            target = fit_target(state["held"], glass, part, state["program"])
             if target is None:
                 ui.notify(t("manager.backglass.dmd_fit.none"), type="warning")
                 return
@@ -265,7 +291,7 @@ def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
                 if box is None:
                     ui.notify(t("manager.backglass.dmd_fit.none"), type="warning")
                     return
-                await put(box_values(backglass_ops.renderer(state["held"]), screen, box),
+                await put(box_values(drawn_by(), screen, box),
                           in_place=True)
             finally:
                 searching.discard(part)
@@ -277,11 +303,11 @@ def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
     def draw() -> None:
         holder.clear()
         now = state["held"]
-        glass_screen, score_screen = screens(now, glass)
+        glass_screen, score_screen = screens(now, glass, state["program"])
         src = art.backglass(game_id, path, version=glass["version"], size=art.PANEL,
                             grill=False, look=state["look"], edition=state["edition"])
         with holder:
-            plugin = backglass_ops.renderer(now)
+            plugin = backglass_ops.renderer(now, state["program"])
             shown = [one for one in (glass_screen, score_screen) if one is not None]
             both = len(shown) == 2
             tall = sum(1 / one.ratio for one in shown)
@@ -330,9 +356,9 @@ def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
         if holder.is_deleted:
             followers.remove(follow)
             return
-        before = edition_in_effect(state["held"])
+        before = edition_in_effect(state["held"], state["program"])
         state["held"] = flat(values)
-        if (now := edition_in_effect(state["held"])) != before:
+        if (now := edition_in_effect(state["held"], state["program"])) != before:
             state["edition"] = now
         if not state.get("dragged"):
             draw()

@@ -34,6 +34,7 @@ from common.apps.contract import (
     ConfigValue,
     Field,
     Heading,
+    Program,
     Standing,
 )
 
@@ -128,7 +129,7 @@ ALL_TABLES_ONLY = frozenset({
     "Player.ShowFPS", "Player.TouchOverlay", "Player.SecurityLevel",
     "Player.NumberOfTimesToShowTouchMessage",
     "Controller.ForceDisableB2S",
-    "Plugin.ScoreView.LayoutFolder", "Plugin.PinMAME.PinMAMEPath",
+    "Plugin.ScoreView.LayoutFolder", "Plugin.Nixie.LayoutFolder", "Plugin.PinMAME.PinMAMEPath",
     "Plugin.AltSound.Folder", "Plugin.Serum.SerumPath", "Plugin.VNI.VniPath",
     "Plugin.PUP.PUPFolder", "Plugin.UpscaleDMD.UpscaleMode",
     "Standalone.Haptics",
@@ -418,14 +419,41 @@ def _registered(one: vini.Setting) -> vini.Setting:
                    kind=vini.KIND_CHOICE if said.choices else one.kind)
 
 
-def _unwritten(app: vini.Ini,
-               installed: Mapping[str, plugins.Plugin] | None) -> list[vini.Setting]:
+def _rev(app: vini.Ini, installed: Mapping[str, plugins.Plugin] | None) -> int | None:
+    """The Rev of the build the settings are for: the one the ini records, as far as the
+    plugins the program has agree with it."""
+    return build.settled_rev(build.rev_of(app.value(BUILD_KEY)),
+                             None if installed is None else frozenset(installed))
+
+
+def _defaults(rev: int | None, present: frozenset[str] | None,
+              bin_path: str) -> dict[str, str]:
+    """What each Enable the build decides holds while the ini leaves it out, by key. A
+    Windows build is the program's `.exe`, whatever host runs it."""
+    rev = build.settled_rev(rev, present)
+    windows = bin_path.strip().lower().endswith(".exe")
+    return {f"Plugin.{plugin}.Enable": said for plugin in build.DEFAULTED
+            if (said := build.enable_default(plugin, rev, windows)) is not None}
+
+
+def _by_build(one: vini.Setting, defaults: Mapping[str, str]) -> vini.Setting:
+    """A setting with the default its build gives it, unless the file states another."""
+    said = defaults.get(one.qualified)
+    registered = REGISTERED.get(one.qualified)
+    if said is None or one.default not in ("", registered.default if registered else ""):
+        return one
+    return replace(one, default=said)
+
+
+def _unwritten(app: vini.Ini, installed: Mapping[str, plugins.Plugin] | None,
+               defaults: Mapping[str, str]) -> list[vini.Setting]:
     """What each plugin the program has registers that the file does not hold yet, and
     each key action the file has no mapping for. Where what is installed cannot be read, a
     plugin the file has a section for."""
     held = {areas.plugin_of(key) for key in app.settings}
-    found = [_registered(vini.Setting(section, key, "", label=key))
-             for qualified in REGISTERED if qualified not in app.settings
+    found = [_by_build(_registered(vini.Setting(section, key, "", label=key)), defaults)
+             for qualified in dict.fromkeys([*REGISTERED, *defaults])
+             if qualified not in app.settings
              for section, key in (vini.section_and_key(qualified),)
              if areas.plugin_of(qualified) in (held if installed is None else installed)]
     return [*found, *(vini.Setting(bindings.SECTION, f"{bindings.PREFIX}{one.name}", "",
@@ -492,10 +520,13 @@ class VPXConfig:
         """
         schema = read_file(settings_file(settings))
         installed = plugins.installed(str(settings.get("bin_path") or ""))
-        rev = build.rev_of(schema.value(BUILD_KEY))
+        rev = _rev(schema, installed)
+        defaults = _defaults(rev, None if installed is None else frozenset(installed),
+                             str(settings.get("bin_path") or ""))
         by_area: dict[str, list[Field]] = {}
-        for one in (*map(_registered, schema.settings.values()),
-                    *_unwritten(schema, installed)):
+        for one in (*(_by_build(_registered(one), defaults)
+                      for one in schema.settings.values()),
+                    *_unwritten(schema, installed, defaults)):
             if _offered(one.qualified) and build.declares(
                     one.qualified, rev, _present(one.qualified, installed)):
                 area = areas.area_of(one.qualified)
@@ -508,9 +539,20 @@ class VPXConfig:
             key=lambda f: areas.plugin_order(areas.plugin_of(f.key), installed))
         return tuple(
             ConfigGroup(key=key, settings=tuple(by_area[key]),
-                        curated=_curated(key, offered, installed),
+                        curated=_curated(key, offered, installed, rev),
                         summarized=key == areas.POINT_OF_VIEW)
             for key in (*areas.AREAS, areas.POINT_OF_VIEW, REST) if by_area.get(key))
+
+    def program(self, settings: Mapping[str, Any]) -> Program:
+        """The plugins the installed program loads, the Enable each of the two renderers
+        holds while the ini leaves it out, and the Rev of its build."""
+        bin_path = str(settings.get("bin_path") or "")
+        said = read_file(settings_file(settings)).value(BUILD_KEY)
+        present = plugins.present(bin_path, predates_plugins=build.predates_plugins(said))
+        rev = build.settled_rev(build.rev_of(said), present)
+        return Program(present, _defaults(rev, present, bin_path), rev,
+                       dmd_in_file=rev is not None
+                       and not build.declares("Plugin.B2S.BackglassDMDX", rev))
 
     def read(self, scope: str, target: str,
              settings: Mapping[str, Any]) -> dict[str, ConfigValue]:
@@ -535,7 +577,7 @@ class VPXConfig:
 
         found: dict[str, ConfigValue] = {}
         for qualified in sorted(set(app.settings) | set(table.settings) | set(mine.settings)):
-            if not _offered(qualified) and qualified not in screens.PRIORITIES:
+            if not _offered(qualified) and qualified not in screens.ALL_PRIORITIES:
                 continue
             read_by_vpx = table if read_at_table(qualified) else vini.Ini()
             from_table = read_by_vpx.value(qualified)
@@ -730,12 +772,14 @@ class VPXConfig:
         mine, theirs = read_file(own), read_file(game)
         app = read_file(settings_file(settings))
         installed = plugins.installed(str(settings.get("bin_path") or ""))
-        rev = build.rev_of(app.value(BUILD_KEY))
+        rev = _rev(app, installed)
+        defaults = _defaults(rev, None if installed is None else frozenset(installed),
+                             str(settings.get("bin_path") or ""))
         return {key: value for key in sorted(theirs.settings)
                 if (value := theirs.value(key)) is not None and mine.value(key) is None
                 and _offered(key) and build.declares(key, rev, _present(key, installed))
                 and SCOPE_ENTRY in self.scopes_for(key)
-                and not _alike(key, _given(app, key), value)}
+                and not _alike(key, _given(app, key, defaults), value)}
 
     def held_for_table(self, target: str) -> dict[str, Any]:
         """What the one file VPX reads for this table sets: which scope that file is,
@@ -753,11 +797,11 @@ class VPXConfig:
         }
 
 
-def _curated(area: str, offered: set[str],
-             installed: Mapping[str, plugins.Plugin] | None) -> tuple[Heading, ...]:
+def _curated(area: str, offered: set[str], installed: Mapping[str, plugins.Plugin] | None,
+             rev: int | None) -> tuple[Heading, ...]:
     """An area's curated rows that this file has, under their headings."""
     if area == areas.PLUGINS:
-        return areas.plugin_headings(offered, installed)
+        return areas.plugin_headings(offered, installed, rev)
     if area == areas.POINT_OF_VIEW:
         return areas.view_headings(offered)
     kept = (Heading(one.key, tuple(key for key in one.keys if key in offered),
@@ -777,23 +821,22 @@ def _inherited(scope: str, values: Mapping[str, str],
     app = read_file(settings_file(settings))
     return frozenset(key for key, value in values.items()
                      if str(value) != "" and not _contextual(key)
-                     and _alike(key, _given(app, key), str(value)))
+                     and _alike(key, _given(app, key, {}), str(value)))
 
 
 def _contextual(key: str) -> bool:
     return key in CONTEXTUAL or areas.is_plugin_switch(key)
 
 
-def _given(app: vini.Ini, key: str) -> str | None:
-    """What the application gives a key: its own value, or the default its file states
-    or its plugin registers where it leaves the key blank. None where neither is
-    known."""
+def _given(app: vini.Ini, key: str, defaults: Mapping[str, str]) -> str | None:
+    """What the application gives a key: its own value, or the default its file states,
+    its plugin registers or its build gives where it leaves the key blank. None where
+    none is known."""
     held = app.value(key)
     if held is not None:
         return held
-    one = app.settings.get(key)
-    said = _registered(one) if one is not None else REGISTERED.get(key)
-    return said.default if said is not None and said.default != "" else None
+    one = app.settings.get(key) or vini.Setting(*vini.section_and_key(key), "")
+    return _by_build(_registered(one), defaults).default or None
 
 
 def _alike(key: str, one: str | None, two: str | None) -> bool:

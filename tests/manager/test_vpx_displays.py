@@ -54,6 +54,7 @@ class _Library:
         self.flat = flat if flat is not None else _flat()
         self.write_launcher_config = Mock()
         self.put_config = Mock()
+        self.launcher_program = Mock(return_value=None)
         self.launchers = Mock(return_value={"launchers": [
             {"launcher_id": "vpx-1", "app": "vpx", "enabled": True, "has_config": True}]})
         self.launcher_config_values = Mock(side_effect=self._values)
@@ -375,6 +376,20 @@ class MovingTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("ScoreView.Priority.PUP", self._written())
 
 
+    async def test_a_program_with_nixie_ranks_it_and_names_no_legacy_key(self) -> None:
+        program = {"plugins": ["B2S", "Nixie", "PUP"], "build": 6300,
+                   "defaults": {"Plugin.B2S.Enable": "1", "Plugin.B2SLegacy.Enable": "0"}}
+        page = _page(self.library)
+        page.program = program
+
+        await press(page.move, {"scoreview": 3})
+
+        written = self._written()
+        self.assertEqual(written["ScoreView.Priority.Nixie"], "2")
+        self.assertNotIn("Plugin.B2SLegacy.B2SHideGrill", written)
+        self.assertNotIn("ScoreView.Priority.B2SLegacyDMD", written)
+
+
 class PointingTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.library = _Library()
@@ -621,6 +636,16 @@ class FollowingTests(unittest.TestCase):
 
         self.assertEqual(keys["Backglass.BackglassDisplay"], CVT)
 
+    def test_the_keys_that_follow_are_those_of_the_program_it_is_given(self) -> None:
+        program = {"plugins": ["B2S", "Nixie"], "build": 6300, "defaults": {}}
+        before, after = _standing(), _standing({"scoreview": 3})
+
+        plain = vpx_displays.following(before, after, HERE, (), _flat())
+        nixie = vpx_displays.following(before, after, HERE, (), _flat(), program)
+
+        self.assertIn("Plugin.B2SLegacy.B2SHideGrill", plain)
+        self.assertNotIn("Plugin.B2SLegacy.B2SHideGrill", nixie)
+
     def test_a_part_the_launcher_holds_elsewhere_stays_where_it_was_put(self) -> None:
         keys = self._keys(_standing(), _standing({"backglass": 3}),
                           _flat(Backglass__BackglassDisplay=LG))
@@ -832,9 +857,38 @@ class EntriesTests(unittest.IsolatedAsyncioTestCase):
         context: dict[str, Any] = {"library": _Library(), "launcher": {"launcher_id": "vpx-1"},
                                    "rebuild": AsyncMock(), "config_values": {"stale": True}}
         beside: tuple[Any, ...] = ({}, SCHEMA, self.MONITORS, ["", ""])
-        with patch.object(vpx_displays, "_beside", new=AsyncMock(return_value=beside)):
+        with patch.object(vpx_displays, "_beside", new=AsyncMock(return_value=beside)), \
+                patch.object(vpx_displays.offload, "io", new=AsyncMock(side_effect=_inline)):
             return await vpx_displays.entries(context, self._group(), shown, self._values(),
                                               rows), context
+
+    async def test_the_page_answers_for_the_program_the_launcher_reports(self) -> None:
+        program = {"plugins": ["B2S", "Nixie"], "build": 6300, "defaults": {}}
+        context: dict[str, Any] = {"library": _Library(), "launcher": {"launcher_id": "vpx-1"},
+                                   "rebuild": AsyncMock()}
+        context["library"].launcher_program = Mock(return_value=program)
+        beside: tuple[Any, ...] = ({}, SCHEMA, self.MONITORS, ["", ""])
+        with patch.object(vpx_displays, "_beside", new=AsyncMock(return_value=beside)), \
+                patch.object(vpx_displays.offload, "io", new=AsyncMock(side_effect=_inline)), \
+                patch.object(vpx_displays, "Page", wraps=vpx_displays.Page) as made:
+            await vpx_displays.entries(context, self._group(), [], self._values(),
+                                       AsyncMock(return_value=[]))
+
+        self.assertEqual(made.call_args.kwargs["program"], program)
+        context["library"].launcher_program.assert_called_once_with("vpx-1")
+
+    async def test_a_program_that_cannot_be_read_leaves_the_page_without_one(self) -> None:
+        context: dict[str, Any] = {"library": _Library(), "launcher": {"launcher_id": "vpx-1"},
+                                   "rebuild": AsyncMock()}
+        context["library"].launcher_program = Mock(side_effect=OSError("gone"))
+        beside: tuple[Any, ...] = ({}, SCHEMA, self.MONITORS, ["", ""])
+        with patch.object(vpx_displays, "_beside", new=AsyncMock(return_value=beside)), \
+                patch.object(vpx_displays.offload, "io", new=AsyncMock(side_effect=_inline)), \
+                patch.object(vpx_displays, "Page", wraps=vpx_displays.Page) as made:
+            await vpx_displays.entries(context, self._group(), [], self._values(),
+                                       AsyncMock(return_value=[]))
+
+        self.assertIsNone(made.call_args.kwargs["program"])
 
     async def test_the_heading_comes_first_then_the_intro_the_picture_and_the_rows(
             self) -> None:

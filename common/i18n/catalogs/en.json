@@ -55,6 +55,7 @@
   "asset.kind.ini.label": "Table INI",
   "asset.kind.media.label": "Media",
   "asset.kind.music.label": "Music",
+  "asset.kind.nix.label": "Nixie Layout",
   "asset.kind.patch.label": "Table Patch",
   "asset.kind.pov.label": "Point of View",
   "asset.kind.pup_pack.label": "PUP Pack",

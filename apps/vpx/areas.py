@@ -11,7 +11,7 @@ from collections.abc import Mapping
 
 from common.apps.contract import Heading, Pair, Switched
 
-from . import bindings
+from . import bindings, build
 from .plugins import Plugin
 
 DISPLAYS = "displays"
@@ -109,6 +109,7 @@ PLUGIN_ROWS: dict[str, tuple[str, ...]] = {
     "B2SLegacy": ("Plugin.B2SLegacy.B2SHideGrill", "Plugin.B2SLegacy.B2SHideB2SDMD",
                   "Plugin.B2SLegacy.B2SHideDMD", *_dmd("B2SLegacy")),
     "ScoreView": ("Plugin.ScoreView.LayoutFolder",),
+    "Nixie": ("Plugin.Nixie.LayoutFolder",),
     "PinMAME": ("Plugin.PinMAME.Sound", "Plugin.PinMAME.PinMAMEPath"),
     "AltSound": ("Plugin.AltSound.Folder",),
     "Serum": ("Plugin.Serum.SerumPath",),
@@ -121,7 +122,8 @@ PLUGIN_ROWS: dict[str, tuple[str, ...]] = {
 
 # Settings that name a folder, so the manager offers Browse beside the typed path.
 FOLDERS = frozenset({
-    "Plugin.ScoreView.LayoutFolder", "Plugin.PinMAME.PinMAMEPath", "Plugin.AltSound.Folder",
+    "Plugin.ScoreView.LayoutFolder", "Plugin.Nixie.LayoutFolder",
+    "Plugin.PinMAME.PinMAMEPath", "Plugin.AltSound.Folder",
     "Plugin.Serum.SerumPath", "Plugin.VNI.VniPath", "Plugin.PUP.PUPFolder",
 })
 
@@ -146,11 +148,13 @@ PLUGIN_SWITCHED: dict[str, tuple[Switched, ...]] = {plugin: _overlays(plugin)
 
 # Rows a file of the plugin's kinds draws only when the file holds two versions.
 PLUGIN_VERSION_ROWS: dict[str, tuple[str, ...]] = {
-    "B2SLegacy": ("Plugin.B2SLegacy.B2SDualMode",)}
+    "B2SLegacy": ("Plugin.B2SLegacy.B2SDualMode",),
+    "B2S": ("Plugin.B2S.DualMode",)}
 
 # Settings VPX declares as a number that are a choice between a few: the stored values,
 # with the words for them in the catalog as `field.<key>.choice.<value>.label`.
-CHOICES: dict[str, tuple[str, ...]] = {"Plugin.B2SLegacy.B2SDualMode": ("1", "2")}
+CHOICES: dict[str, tuple[str, ...]] = {"Plugin.B2SLegacy.B2SDualMode": ("1", "2"),
+                                       "Plugin.B2S.DualMode": ("1", "2")}
 
 # The asset kinds a plugin's settings are about.
 PLUGIN_KINDS: dict[str, tuple[str, ...]] = {"B2S": ("backglass",),
@@ -243,8 +247,12 @@ def is_plugin_switch(qualified: str) -> bool:
     return bool(plugin) and qualified == f"Plugin.{plugin}.Enable"
 
 
-def plugin_headings(offered: set[str],
-                    installed: Mapping[str, Plugin] | None = None) -> tuple[Heading, ...]:
+# A B2S heading's note once its DMD rows are gone, because the backglass file holds them.
+DMD_IN_FILE = "dmd_in_file"
+
+
+def plugin_headings(offered: set[str], installed: Mapping[str, Plugin] | None = None,
+                    rev: int | None = None) -> tuple[Heading, ...]:
     """One heading per plugin the file has, its Enable first and the switch for the
     rest, in the program's words for it where the program has them."""
     found: list[Heading] = []
@@ -272,7 +280,9 @@ def plugin_headings(offered: set[str],
                 switched=kept_switched(PLUGIN_SWITCHED.get(plugin, ()), set(keys)),
                 kinds=PLUGIN_KINDS.get(plugin, ()),
                 versions=tuple(key for key in PLUGIN_VERSION_ROWS.get(plugin, ())
-                               if key in offered)))
+                               if key in offered),
+                variant=DMD_IN_FILE if plugin == "B2S" and rev is not None
+                and not build.declares("Plugin.B2S.BackglassDMDX", rev) else ""))
     return tuple(sorted(found, key=lambda one: plugin_order(one.key, installed)))
 
 

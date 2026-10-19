@@ -74,6 +74,7 @@ ASSET_SPECS = (
     AssetSpec("script", "code", (".vbs",), True, False, False),
     AssetSpec("pov", "3d_rotation", (".pov",), True, False, False),
     AssetSpec("scv", "scoreboard", (".scv",), True, False, False),
+    AssetSpec("nix", "scoreboard", (".nix",), True, False, False),
     # Required only where the table declares one - an EM table needs none, and
     # calling it missing there would call every EM table broken. The flag says
     # the kind can block a launch; whether it does is per table.

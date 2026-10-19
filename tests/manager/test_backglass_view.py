@@ -254,10 +254,73 @@ class WhichEdition(unittest.TestCase):
                          (view.edition_in_effect({f"{LEGACY}B2SDualMode": "1"}),
                           view.edition_in_effect({})))
 
-    def test_b2s_has_no_dual_mode(self) -> None:
+    def test_the_legacy_renderer_s_dual_mode_does_not_reach_b2s(self) -> None:
         held = {f"{LEGACY}Enable": "0", f"{LEGACY}B2SDualMode": "2"}
 
         self.assertEqual("authentic", view.edition_in_effect(held))
+
+    def test_b2s_has_a_dual_mode_of_its_own(self) -> None:
+        held = {f"{LEGACY}Enable": "0", f"{B2S}DualMode": "2"}
+
+        self.assertEqual("fantasy", view.edition_in_effect(held))
+
+    def test_the_program_decides_which_dual_mode_is_read(self) -> None:
+        held = {f"{LEGACY}B2SDualMode": "2", f"{B2S}DualMode": "1"}
+        legacy = {"plugins": ["B2S", "B2SLegacy"], "defaults": {}, "build": 6200}
+        nixie = {"plugins": ["B2S", "Nixie"], "defaults": {}, "build": 6300}
+
+        self.assertEqual(("fantasy", "authentic"),
+                         (view.edition_in_effect(held, legacy),
+                          view.edition_in_effect(held, nixie)))
+
+
+class ByProgram(unittest.TestCase):
+    NIXIE = {"plugins": ["B2S", "Nixie"], "build": 6300,
+             "defaults": {"Plugin.B2S.Enable": "1", "Plugin.B2SLegacy.Enable": "0"}}
+    NONE = {"plugins": ["PUP"], "build": 6300, "defaults": {}}
+
+    def test_without_the_legacy_renderer_installed_b2s_draws_with_its_own_grill(self) -> None:
+        held = {f"{LEGACY}B2SHideGrill": "0"}
+
+        plain = view.screens(held, _glass())[0]
+        nixie = view.screens(held, _glass(), self.NIXIE)[0]
+
+        self.assertEqual(100.0, plain.scale)
+        self.assertAlmostEqual(800 / 600 * 100, nixie.scale)
+
+    def test_a_box_left_in_the_settings_is_dead_once_the_file_places_the_dmd(self) -> None:
+        held = {f"{B2S}BackglassDMDOverlay": "1", f"{B2S}BackglassDMDX": "100",
+                f"{B2S}BackglassDMDY": "50", f"{B2S}BackglassDMDW": "500",
+                f"{B2S}BackglassDMDH": "150", "ScoreView.ScoreViewOutput": "1"}
+        before = {**self.NIXIE, "build": 6266, "dmd_in_file": False}
+        after = {**self.NIXIE, "build": 6267, "dmd_in_file": True}
+        glass = _glass(scoreview=(400, 100))
+
+        self.assertIsNotNone(view.screens(held, glass, before)[0].dmd)
+        for program in (after, {**after, "build": 6400}):
+            with self.subTest(build=program["build"]):
+                glass_screen, score_screen = view.screens(held, glass, program)
+                self.assertIsNone(glass_screen.dmd)
+                assert score_screen is not None
+                self.assertIsNone(score_screen.dmd)
+                self.assertIsNone(view.fit_target(held, glass, view.GLASS_PART, program))
+                self.assertIsNone(view.fit_target(held, glass, view.SCORE_PART, program))
+
+    def test_the_legacy_renderer_keeps_its_box_whatever_the_build(self) -> None:
+        held = {f"{LEGACY}BackglassDMDOverlay": "1", f"{LEGACY}BackglassDMDX": "100",
+                f"{LEGACY}BackglassDMDY": "50", f"{LEGACY}BackglassDMDW": "500",
+                f"{LEGACY}BackglassDMDH": "150"}
+        program = {"plugins": ["B2S", "B2SLegacy"], "build": 6267, "dmd_in_file": True,
+                   "defaults": {"Plugin.B2SLegacy.Enable": "1"}}
+
+        self.assertIsNotNone(view.screens(held, _glass(), program)[0].dmd)
+
+    def test_with_no_renderer_installed_no_box_is_drawn(self) -> None:
+        held = {f"{B2S}BackglassDMDOverlay": "1", f"{B2S}BackglassDMDX": "1",
+                f"{B2S}BackglassDMDY": "1", f"{B2S}BackglassDMDW": "9",
+                f"{B2S}BackglassDMDH": "9"}
+
+        self.assertIsNone(view.screens(held, _glass(), self.NONE)[0].dmd)
 
 
 class TheLauncherConfigShape(unittest.TestCase):

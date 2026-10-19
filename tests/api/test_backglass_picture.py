@@ -248,8 +248,35 @@ class BackglassFileAsPicture(BackglassRoutes):
             with self.subTest(held=held), \
                     patch.object(backglass_ops, "_table_rows", return_value=[
                         {"id": "t1", "launcher": "vpx", "launcher_app_configurable": True}]), \
-                    patch("common.games.launcher_ops.effective_values", return_value=held):
+                    patch("common.games.launcher_ops.effective_values", return_value=held), \
+                    patch("common.games.launcher_ops.program_of", return_value=None):
                 self.assertEqual(cut, backglass_ops.grill_cut(GAME_ID, "t1"))
+
+    def test_the_grill_is_cut_as_the_renderer_the_plugins_leave_cuts_it(self) -> None:
+        nixie = {"plugins": ["B2S", "Nixie"], "build": 6300,
+                 "defaults": {"Plugin.B2S.Enable": "1", "Plugin.B2SLegacy.Enable": "0"}}
+        legacy = {"plugins": ["B2S", "B2SLegacy"], "build": 6200,
+                  "defaults": {"Plugin.B2S.Enable": "0", "Plugin.B2SLegacy.Enable": "1"}}
+        for held, program, cut in (({}, nixie, True),
+                                   ({"Plugin.B2S.ShowGrill": "1"}, nixie, False),
+                                   ({"Plugin.B2SLegacy.B2SHideGrill": "1"}, nixie, True),
+                                   ({}, legacy, False),
+                                   ({"Plugin.B2SLegacy.B2SHideGrill": "1"}, legacy, True),
+                                   ({"Plugin.B2S.ShowGrill": "1"}, legacy, False),
+                                   ({}, {"plugins": [], "build": 6000, "defaults": {}}, False)):
+            with self.subTest(held=held, program=program["plugins"]), \
+                    patch.object(backglass_ops, "_table_rows", return_value=[
+                        {"id": "t1", "launcher": "vpx", "launcher_app_configurable": True}]), \
+                    patch("common.games.launcher_ops.effective_values", return_value=held), \
+                    patch("common.games.launcher_ops.program_of", return_value=program):
+                self.assertEqual(cut, backglass_ops.grill_cut(GAME_ID, "t1"))
+
+    def test_with_no_plugin_drawing_the_renderer_is_none(self) -> None:
+        program = {"plugins": ["PUP"], "build": 6300, "defaults": {}}
+
+        self.assertEqual(backglass_ops.renderer({}, program), backglass_ops.NONE)
+        self.assertEqual(backglass_ops.renderer({"Plugin.B2S.Enable": "1"}, {
+            **program, "plugins": ["B2S"]}), backglass_ops.B2S)
 
     def test_a_table_whose_settings_cannot_be_read_is_cut(self) -> None:
         with patch.object(backglass_ops, "_table_rows", return_value=[

@@ -20,6 +20,14 @@ def rev_of(version: str | None) -> int | None:
     return int(rest)
 
 
+def predates_plugins(version: str | None) -> bool:
+    """Whether a `[Version] VPinball` is of a line before `LINE`, the first with plugins."""
+    said = (version or "").strip()
+    head = said[:len(LINE)]
+    return bool(LINE) and len(head) == len(LINE) and head.isascii() and head.isdigit() \
+        and int(head) < int(LINE)
+
+
 def declares(qualified: str, rev: int | None, plugin_present: bool = False) -> bool:
     """Whether the build at `rev` has this setting. True for every setting we hold no span
     for, and for a build whose Rev we do not know.
@@ -34,3 +42,37 @@ def declares(qualified: str, rev: int | None, plugin_present: bool = False) -> b
     if span.until is not None and rev >= span.until:
         return False
     return rev >= span.since or plugin_present
+
+
+# The Rev from which a plugin's Enable, left out of the ini, is on rather than off.
+_ENABLED_BY_DEFAULT_FROM = 6274
+# Plugins whose Enable the build, rather than the plugin, decides when the ini is silent.
+DEFAULTED = ("B2S", "B2SLegacy")
+
+
+def enable_default(plugin: str, rev: int | None, windows: bool = False) -> str | None:
+    """What a plugin's Enable holds while the ini leaves it out, at `rev`: "1", "0", or
+    None for a plugin whose default is its own or a build we do not know.
+
+    Before the build that made B2S the renderer, B2S was off and B2SLegacy was on, except
+    on Windows where B2SLegacy was off too. From it, B2S is on and B2SLegacy is off.
+    """
+    if rev is None or plugin not in DEFAULTED:
+        return None
+    if rev >= _ENABLED_BY_DEFAULT_FROM:
+        return "1" if plugin == "B2S" else "0"
+    return "0" if plugin == "B2S" or windows else "1"
+
+
+# The Rev of the build that dropped B2SLegacy from the plugins folder.
+_LEGACY_DROPPED_AT = 6293
+
+
+def settled_rev(rev: int | None, present: frozenset[str] | None) -> int | None:
+    """`rev` as the plugins folder proves it. An ini keeps the Rev of the build that last
+    wrote it, which an upgrade leaves behind until the program next runs; a folder with
+    Nixie and no B2SLegacy is a build from `_LEGACY_DROPPED_AT` on whatever the ini says.
+    """
+    if present is not None and "Nixie" in present and "B2SLegacy" not in present:
+        return max(rev or 0, _LEGACY_DROPPED_AT)
+    return rev

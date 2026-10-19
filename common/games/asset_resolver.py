@@ -32,8 +32,10 @@ class AssetKind:
 # A script named for the folder stands in for one named for the table, the same way an
 # ini does. `pintable.cpp` falls back to `<folder>.vbs` when `<table>.vbs` is not there;
 # saying otherwise here reads a folder-named script as absent while VPX is running it.
+# `nix` is not folder-named on the assumption that Nixie matches `.pov`; its lookup has not been
+# read, so this is the line to change if it falls back as `.scv` does.
 _PER_TABLE = (("backglass", True), ("ini", True), ("script", True),
-              ("pov", False), ("scv", True))
+              ("pov", False), ("scv", True), ("nix", False))
 
 VPX_ASSET_KINDS = tuple(
     AssetKind(kind, spec_for(kind).extensions[0], folder_fallback)

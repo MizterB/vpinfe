@@ -249,7 +249,7 @@ def _plan_asset(asset: DetectedAsset, base: Path, vpx_stem: str, rom_name: str,
         return PlannedItem(asset, str(base / f"{stem}.directb2s"), "replace_b2s")
     if kind == "ini":
         return PlannedItem(asset, str(base / f"{stem}.ini"), "copy")
-    if kind in ("script", "pov", "scv"):
+    if kind in ("script", "pov", "scv", "nix"):
         return PlannedItem(asset, str(base / f"{stem}{own.suffix.lower()}"), "copy")
     # Which folder each of these lands in is asked of the registry, not repeated here:
     # an import from another frontend puts the same things in the same places, and two

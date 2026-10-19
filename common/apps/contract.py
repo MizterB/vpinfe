@@ -222,6 +222,9 @@ class Heading:
     # Rows of these settings a file draws only when it holds two versions of its content.
     # Not among `keys`, so a table's settings page never draws them.
     versions: tuple[str, ...] = ()
+    # Names a second note in the app's catalog, `heading.<key>.note.<variant>`, drawn in
+    # place of the heading's own where the program is of a build that needs it.
+    variant: str = ""
 
 
 @dataclass(frozen=True)
@@ -276,6 +279,23 @@ class Standing:
 
     path: str = ""
     exists: bool = False
+
+
+@dataclass(frozen=True)
+class Program:
+    """What an app's installed program is, as far as the settings it reads depend on it.
+
+    `plugins` are the ids of the plugins the program loads, empty for a program that has
+    none and None where that cannot be read. `defaults` is by key what a setting holds
+    while the file leaves it blank, for the settings whose default is the build's. `build`
+    is the number its app counts builds by, None where unknown. `dmd_in_file` says the
+    build keeps the DMD's place in each backglass file rather than in the settings.
+    """
+
+    plugins: frozenset[str] | None = None
+    defaults: Mapping[str, str] = field(default_factory=dict)
+    build: int | None = None
+    dmd_in_file: bool = False
 
 
 @runtime_checkable

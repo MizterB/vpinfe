@@ -225,12 +225,22 @@ def _bring_beside(ctx: Any, game_id: str, game: SourceGame, table_id: str, rom: 
     for one in here.dmd_for(game.table_file, named):
         _put(ctx, game_id, "dmd_content", one, "", refused)
     keys = (rom,) if rom else (Path(game.table_file).stem,) if game.table_file else ()
-    wanted = here.settings_for(*keys) if table_id else {}
+    wanted = here.settings_for(*keys, program=_program_of(ctx, table_id)) if table_id else {}
     if wanted:
         try:
             ctx.games.write_table_settings(table_id, wanted)
         except Exception as exc:
             _refuse(ctx, refused, ctx.t("refused.backglass"), exc)
+
+
+def _program_of(ctx: Any, table_id: str) -> dict[str, Any] | None:
+    """What the program that plays the table is, or None where it cannot be asked."""
+    try:
+        found = ctx.games.table_program(table_id)
+    except Exception:  # noqa: BLE001 - the settings are written as the server spelled them
+        ctx.logger.debug("No program for %s", table_id, exc_info=True)
+        return None
+    return found if isinstance(found, dict) else None
 
 
 def _remember(ctx: Any, game_id: str, played: Any, held: Held | None = None,

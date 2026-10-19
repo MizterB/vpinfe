@@ -216,6 +216,51 @@ class BringTests(BesideCase):
         self.ctx.games.write_table_settings.assert_called_once_with(
             "t1", {GRILL: "1", DUAL: "2"})
 
+    def _written_for(self, program: object) -> dict:
+        self.ctx.games.table_program.return_value = program
+        adopt._bring_beside(self.ctx, "g1", self.game(), "t1", "taxi_l4", (), self.here)
+        return self.ctx.games.write_table_settings.call_args.args[1]
+
+    def test_a_program_with_the_legacy_renderer_takes_every_setting(self) -> None:
+        program = {"plugins": ["B2S", "B2SLegacy"], "build": 6200, "defaults": {}}
+
+        self.assertEqual(self._written_for(program),
+                         {GRILL: "1", DUAL: "2", "Plugin.B2S.DualMode": "2",
+                          "Plugin.B2S.ShowGrill": "0"})
+
+    def test_a_program_with_b2s_alone_takes_its_dual_mode_and_the_grill_inverted(self) -> None:
+        program = {"plugins": ["B2S", "Nixie"], "build": 6300, "defaults": {}}
+
+        self.assertEqual(self._written_for(program),
+                         {"Plugin.B2S.DualMode": "2", "Plugin.B2S.ShowGrill": "0"})
+
+    def test_a_grill_the_old_server_showed_is_shown_by_b2s(self) -> None:
+        wanted = beside.for_program({GRILL: "0"}, {"plugins": ["B2S"]})
+
+        self.assertEqual(wanted, {"Plugin.B2S.ShowGrill": "1"})
+
+    def test_a_program_with_no_plugins_takes_nothing(self) -> None:
+        self.ctx.games.table_program.return_value = {"plugins": [], "build": 6000,
+                                                     "defaults": {}}
+        adopt._bring_beside(self.ctx, "g1", self.game(), "t1", "taxi_l4", (), self.here)
+
+        self.ctx.games.write_table_settings.assert_not_called()
+
+    def test_a_program_that_cannot_be_asked_leaves_the_settings_as_they_were(self) -> None:
+        unknown: list[dict | None] = [None, {"plugins": None, "build": None, "defaults": {}}]
+        for program in unknown:
+            with self.subTest(program=program):
+                self.ctx.games.write_table_settings.reset_mock()
+
+                self.assertEqual(self._written_for(program), {GRILL: "1", DUAL: "2"})
+
+    def test_a_program_that_raises_leaves_the_settings_as_they_were(self) -> None:
+        self.ctx.games.table_program.side_effect = RuntimeError("no launcher")
+        adopt._bring_beside(self.ctx, "g1", self.game(), "t1", "taxi_l4", (), self.here)
+
+        self.ctx.games.write_table_settings.assert_called_once_with(
+            "t1", {GRILL: "1", DUAL: "2"})
+
     def test_the_files_name_is_tried_only_for_a_table_that_asks_for_no_rom(self) -> None:
         (self.tables / "B2STableSettings.xml").write_text(
             SETTINGS.replace("<Other>", "<Taxi>").replace("</Other>", "</Taxi>"),

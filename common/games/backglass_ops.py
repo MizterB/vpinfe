@@ -95,6 +95,8 @@ def scoreview_file(game_id: str, table_id: str = "", path: str = "",
 
 _ON = ("1", "true")
 LEGACY, B2S = "Plugin.B2SLegacy.", "Plugin.B2S."
+# The answer of `renderer` where no plugin draws the backglass.
+NONE = ""
 
 
 def _table_rows(game: Any, table_id: str) -> list[dict]:
@@ -104,20 +106,38 @@ def _table_rows(game: Any, table_id: str) -> list[dict]:
     return [row for row in rows if row["id"] == table_id] if table_id else rows
 
 
-def renderer(held: Mapping[str, str]) -> str:
-    """The plugin that draws the backglass given the settings in effect: `Plugin.B2SLegacy.`
-    unless its Enable is off, which wins over `Plugin.B2S.`. Answers the key prefix."""
-    return LEGACY if (held.get(f"{LEGACY}Enable") or "1").lower() in _ON else B2S
+def renderer(held: Mapping[str, str], program: Mapping[str, Any] | None = None) -> str:
+    """The plugin that draws the backglass given the settings in effect, as its key prefix,
+    or `NONE`. `program` is `launcher_ops.program_of`: the plugins installed and the Enable
+    each renderer holds while the settings leave it out. `Plugin.B2SLegacy.` wins over
+    `Plugin.B2S.` where both are installed and on.
+
+    Without the installed plugins, `Plugin.B2SLegacy.` draws unless its Enable is off, and
+    `Plugin.B2S.` draws otherwise.
+    """
+    present = (program or {}).get("plugins")
+    defaults = (program or {}).get("defaults") or {}
+
+    def on(prefix: str, fallback: str) -> bool:
+        key = f"{prefix}Enable"
+        return (held.get(key) or defaults.get(key) or fallback).lower() in _ON
+
+    if present is None:
+        return LEGACY if on(LEGACY, "1") else B2S
+    if "B2SLegacy" in present and on(LEGACY, "1"):
+        return LEGACY
+    return B2S if "B2S" in present and on(B2S, "0") else NONE
 
 
-def cuts_grill(held: Mapping[str, str]) -> bool:
-    """Whether the renderer in effect cuts the grill off the picture."""
+def cuts_grill(held: Mapping[str, str], program: Mapping[str, Any] | None = None) -> bool:
+    """Whether the renderer in effect cuts the grill off the picture. No renderer shows it."""
     def on(key: str) -> bool:
         return held.get(key, "").lower() in _ON
 
-    if renderer(held) == LEGACY:
+    drawn = renderer(held, program)
+    if drawn == LEGACY:
         return on(f"{LEGACY}B2SHideGrill")
-    return not on(f"{B2S}ShowGrill")
+    return drawn == B2S and not on(f"{B2S}ShowGrill")
 
 
 def grill_cut(game_id: str, table_id: str = "") -> bool:
@@ -132,10 +152,11 @@ def grill_cut(game_id: str, table_id: str = "") -> bool:
         return True
     try:
         held = launcher_ops.effective_values(row["launcher"], row["id"])
+        program = launcher_ops.program_of(row["launcher"])
     except Exception:  # noqa: BLE001 - the picture is drawn without its settings
         return True
 
-    return cuts_grill(held)
+    return cuts_grill(held, program)
 
 
 def _drawn(game_id: str, table_id: str) -> tuple[Path, str]:
@@ -227,5 +248,5 @@ def redraw_all(proceed: Callable[[], bool] = lambda: True) -> int:
     return total
 
 
-__all__ = ["B2S", "KIND", "LEGACY", "cuts_grill", "grill_cut", "offer", "picture_file",
+__all__ = ["B2S", "KIND", "LEGACY", "NONE", "cuts_grill", "grill_cut", "offer", "picture_file",
            "place_picture", "redraw", "redraw_all", "renderer", "scoreview_file"]

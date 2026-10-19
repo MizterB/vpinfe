@@ -354,7 +354,7 @@ async def _backglass_picture(context: dict[str, Any], path: str, glass: dict[str
             backglass_view.preview(game_id, path, glass, label, held,
                                    inner.setdefault("followers", []), _enlarge,
                                    None if inner.get("playing") else partial(_write_overlay, inner),
-                                   memory, inner["fits"])
+                                   memory, inner["fits"], inner.get("program"))
             return
     with ui.element("div").classes("manager-slot-art"):
         mediaview.preview(art.backglass(game_id, path, version=glass["version"],
@@ -520,7 +520,8 @@ async def _file_settings(library: Library, row: dict[str, Any],
         return None
     settings = {"library": library, "launcher": launcher, "config_groups": groups,
                 "config_values": dict(found.get("values") or {}), "config_scope": "entry",
-                "config_table": table_id, "tied": tied, "tables": list(tables),
+                "config_table": table_id, "program": found.get("program"), "tied": tied,
+                "tables": list(tables),
                 "playing": await offload.io(_playing, library)}
     if len(served) > 1:
         from manager.workbench import app_settings

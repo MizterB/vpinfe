@@ -344,6 +344,86 @@ class WhatTheArrangementImpliesTests(unittest.TestCase):
         self.assertEqual(vs.full_dmd({}), {})
 
 
+class ByProgramTests(unittest.TestCase):
+    """The same arrangement answered for the plugins a program has."""
+
+    ON = {"playfield": 1, "backglass": 2, "scoreview": 3}
+    NIXIE_ERA = {"plugins": ["B2S", "Nixie", "PUP"], "build": 6300,
+                 "defaults": {"Plugin.B2S.Enable": "1", "Plugin.B2SLegacy.Enable": "0"}}
+    LEGACY_ERA = {"plugins": ["B2S", "B2SLegacy", "ScoreView", "PUP"], "build": 6200,
+                  "defaults": {"Plugin.B2S.Enable": "0", "Plugin.B2SLegacy.Enable": "1"}}
+    SCOREVIEW_ERA = {"plugins": ["B2S", "ScoreView", "PUP"], "build": 6100,
+                     "defaults": {"Plugin.B2S.Enable": "0", "Plugin.B2SLegacy.Enable": "1"}}
+
+    def test_a_program_not_known_is_answered_as_before(self) -> None:
+        self.assertEqual(vs.derived(self.ON, {}, None), {**vs.PRIORITIES, **vs.FULL_DMD})
+        self.assertEqual(vs.derived(self.ON, {}, {"plugins": None}),
+                         {**vs.PRIORITIES, **vs.FULL_DMD})
+
+    def test_a_program_with_no_plugins_gets_nothing(self) -> None:
+        self.assertEqual(vs.derived(self.ON, {}, {"plugins": [], "build": 6000}), {})
+
+    def test_where_the_legacy_renderer_draws_the_answer_is_the_legacy_one(self) -> None:
+        self.assertEqual(vs.derived(self.ON, {}, self.LEGACY_ERA),
+                         {**vs.PRIORITIES, **vs.FULL_DMD})
+
+    def test_the_legacy_renderer_off_leaves_b2s_to_draw(self) -> None:
+        held = {"Plugin.B2SLegacy.Enable": "0", "Plugin.B2S.Enable": "1"}
+
+        got = vs.derived(self.ON, held, self.LEGACY_ERA)
+
+        self.assertEqual(got["Plugin.B2S.ScoreViewDMDOverlay"], "1")
+        self.assertNotIn("Plugin.B2SLegacy.ScoreViewDMDOverlay", got)
+        self.assertNotIn("ScoreView.Priority.B2SLegacyDMD", got)
+
+    def test_nixie_ranks_between_pup_and_b2s_and_scoreview_is_not_named(self) -> None:
+        got = vs.render_priorities(self.ON, self.NIXIE_ERA, {})
+
+        self.assertEqual(got, {"ScoreView.Priority.PUP": "3", "ScoreView.Priority.Nixie": "2",
+                               "ScoreView.Priority.B2S": "1"})
+
+    def test_before_nixie_b2s_ranks_over_the_score_view(self) -> None:
+        got = vs.render_priorities(self.ON, self.SCOREVIEW_ERA, {})
+
+        self.assertEqual(got, {"ScoreView.Priority.PUP": "3", "ScoreView.Priority.B2S": "2",
+                               "ScoreView.Priority.ScoreView": "1"})
+
+    def test_only_the_plugins_installed_are_ranked(self) -> None:
+        program = {**self.NIXIE_ERA, "plugins": ["B2S", "Nixie"]}
+
+        self.assertEqual(vs.render_priorities(self.ON, program, {}),
+                         {"ScoreView.Priority.Nixie": "2", "ScoreView.Priority.B2S": "1"})
+
+    def test_two_screens_without_a_dmd_screen_get_nothing_whatever_the_program(self) -> None:
+        for program in (None, self.NIXIE_ERA, self.LEGACY_ERA):
+            with self.subTest(program=program):
+                self.assertEqual(
+                    vs.render_priorities({"playfield": 1, "backglass": 2}, program, {}), {})
+
+    def test_full_dmd_is_b2s_s_own_keys_while_it_keeps_the_dmd_in_the_ini(self) -> None:
+        got = vs.full_dmd(self.ON, {**self.SCOREVIEW_ERA, "build": 6200},
+                          {"Plugin.B2S.Enable": "1"})
+
+        self.assertEqual(got, vs.FULL_DMD_B2S)
+
+    def test_b2s_left_off_by_its_build_draws_nothing_so_full_dmd_is_nothing(self) -> None:
+        self.assertEqual(vs.full_dmd(self.ON, {**self.SCOREVIEW_ERA, "build": 6200}, {}), {})
+
+    def test_full_dmd_is_nothing_once_the_backglass_file_keeps_the_dmd(self) -> None:
+        self.assertEqual(vs.full_dmd(self.ON, self.NIXIE_ERA, {}), {})
+
+    def test_full_dmd_is_nothing_with_no_plugin_drawing(self) -> None:
+        program = {"plugins": ["PUP"], "build": 6200, "defaults": {}}
+
+        self.assertEqual(vs.full_dmd(self.ON, program, {}), {})
+
+    def test_a_value_the_ini_holds_is_still_left_alone(self) -> None:
+        got = vs.derived(self.ON, {"ScoreView.Priority.Nixie": "9"}, self.NIXIE_ERA)
+
+        self.assertNotIn("ScoreView.Priority.Nixie", got)
+        self.assertEqual(got["ScoreView.Priority.PUP"], "3")
+
+
 class TheWholeAnswerTests(unittest.TestCase):
     NOW = {"playfield": 1, "backglass": 2, "scoreview": 3}
 

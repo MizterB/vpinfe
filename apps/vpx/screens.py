@@ -12,7 +12,9 @@ import re
 import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
-from typing import Protocol
+from typing import Any, Protocol
+
+from . import build
 
 PLAYFIELD = "playfield"
 BACKGLASS = "backglass"
@@ -53,6 +55,14 @@ PRIORITIES = {"ScoreView.Priority.ScoreView": "1", "ScoreView.Priority.PUP": "3"
 # Full DMD: the DMD drawn over the whole Score View, with the backglass's DMD strip hidden.
 FULL_DMD = {"Plugin.B2SLegacy.ScoreViewDMDOverlay": "1",
             "Plugin.B2SLegacy.ScoreViewDMDAutoPos": "1", "Plugin.B2SLegacy.B2SHideGrill": "1"}
+# The same, for B2S as the renderer where it keeps the DMD's place in the ini.
+FULL_DMD_B2S = {"Plugin.B2S.ScoreViewDMDOverlay": "1", "Plugin.B2S.ScoreViewDMDAutoPos": "1",
+                "Plugin.B2S.ShowGrill": "0"}
+PRIORITY = "ScoreView.Priority."
+# Every key a render priority is written to, whichever plugins draw: what is read back
+# before a derived value may be written.
+ALL_PRIORITIES = frozenset({*PRIORITIES, *(f"{PRIORITY}{one}" for one in ("B2S", "Nixie"))})
+LEGACY, B2S_ID, NIXIE, SCOREVIEW_ID, PUP = "B2SLegacy", "B2S", "Nixie", "ScoreView", "PUP"
 
 ZEDMD, PIN2DMD, PIXELCADE = "ZeDMD", "PIN2DMD", "Pixelcade"
 DMD_KINDS = (ZEDMD, PIN2DMD, PIXELCADE)
@@ -279,28 +289,80 @@ def two_screens_without_dmd(on: Mapping[str, Placement]) -> bool:
     return len(used) == 2 and not isinstance(on.get(SCOREVIEW), int)
 
 
-def render_priorities(on: Mapping[str, Placement]) -> dict[str, str]:
+def _installed(program: Mapping[str, Any] | None) -> set[str] | None:
+    """The plugin ids of a program, or None where they are not known."""
+    found = (program or {}).get("plugins")
+    return None if found is None else set(found)
+
+
+def _draws(plugin: str, fallback: str, present: set[str], program: Mapping[str, Any] | None,
+           current: Mapping[str, str]) -> bool:
+    """Whether the plugin is installed and its Enable is on, as `backglass_ops.renderer`
+    reads it: the ini's own, else the build's default, else `fallback`."""
+    key = f"Plugin.{plugin}.Enable"
+    said = (str(current.get(key) or "").strip()
+            or str(((program or {}).get("defaults") or {}).get(key) or "") or fallback)
+    return plugin in present and said.lower() in ("1", "true")
+
+
+def render_priorities(on: Mapping[str, Placement], program: Mapping[str, Any] | None = None,
+                      current: Mapping[str, str] | None = None) -> dict[str, str]:
     """Blank priorities draw two screens with no DMD screen: B2S draws the backglass and the
-    Score View plugin an embedded DMD."""
-    return {} if two_screens_without_dmd(on) else dict(PRIORITIES)
+    Score View plugin an embedded DMD.
+
+    Given the installed `program`, what each plugin installed is told: none for a program
+    with no plugins, today's order where B2SLegacy draws, and otherwise PUP over the
+    score display's plugin over B2S, which is Nixie from the build that renamed Score View,
+    and B2S over Score View before it.
+    """
+    if two_screens_without_dmd(on):
+        return {}
+    present = _installed(program)
+    if present is None:
+        return dict(PRIORITIES)
+    if not present:
+        return {}
+    if _draws(LEGACY, "1", present, program, current or {}):
+        return dict(PRIORITIES)
+    order = (PUP, NIXIE, B2S_ID) if NIXIE in present else (PUP, B2S_ID, SCOREVIEW_ID)
+    return {f"{PRIORITY}{one}": str(len(order) - at)
+            for at, one in enumerate(order) if one in present}
 
 
-def full_dmd(on: Mapping[str, Placement]) -> dict[str, str]:
+def full_dmd(on: Mapping[str, Placement], program: Mapping[str, Any] | None = None,
+             current: Mapping[str, str] | None = None) -> dict[str, str]:
     """Full DMD wherever a screen is the DMD. Never turned off: with the Score View gone
-    the overlay has no window to draw on."""
-    return dict(FULL_DMD) if isinstance(on.get(SCOREVIEW), int) else {}
+    the overlay has no window to draw on.
+
+    Given the installed `program`, the keys of the renderer that draws: B2SLegacy's, B2S's
+    where it keeps the DMD's place in the ini, and nothing where the backglass file keeps
+    it or no plugin draws.
+    """
+    if not isinstance(on.get(SCOREVIEW), int):
+        return {}
+    present = _installed(program)
+    if present is None:
+        return dict(FULL_DMD)
+    if _draws(LEGACY, "1", present, program, current or {}):
+        return dict(FULL_DMD)
+    if _draws(B2S_ID, "0", present, program, current or {}) and build.declares(
+            f"Plugin.{B2S_ID}.ScoreViewDMDOverlay", (program or {}).get("build")):
+        return dict(FULL_DMD_B2S)
+    return {}
 
 
-def derived(on: Mapping[str, Placement], current: Mapping[str, str]) -> dict[str, str]:
+def derived(on: Mapping[str, Placement], current: Mapping[str, str],
+            program: Mapping[str, Any] | None = None) -> dict[str, str]:
     """Render priorities and Full DMD for an arrangement, of those VPX holds no value for."""
-    wanted = {**render_priorities(on), **full_dmd(on)}
+    wanted = {**render_priorities(on, program, current), **full_dmd(on, program, current)}
     return {key: value for key, value in wanted.items()
             if not str(current.get(key) or "").strip()}
 
 
 def answer(moved: Mapping[str, Placement], now: Mapping[str, Placement],
            screens: Sequence[Seen], logged: Sequence[str], current: Mapping[str, str],
-           turn: tuple[str, str] | None = None) -> Written:
+           turn: tuple[str, str] | None = None,
+           program: Mapping[str, Any] | None = None) -> Written:
     """Every key the answer sets for the parts that `moved`, `now` being the whole
     arrangement after. `turn` is the playfield's (orientation, rotation) where the answer
     gives VPX one.
@@ -320,7 +382,7 @@ def answer(moved: Mapping[str, Placement], now: Mapping[str, Placement],
             keys.update(dict.fromkeys(REGION[part], ""))
     if turn is not None and (value := view_cab_rotation(playfield, turn[1])) is not None:
         keys[VIEW_CAB_ROTATION] = value
-    keys.update(derived(now, current))
+    keys.update(derived(now, current, program))
     return replace(written, keys=keys)
 
 

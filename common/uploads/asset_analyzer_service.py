@@ -437,7 +437,7 @@ def _analyze_entries(
     # replace the script inside the table.
     tables = {(_parent(a.entries[0].arcname), _stem(a.entries[0].arcname))
               for a in assets if a.kind == "table"}
-    by_suffix = {extension: kind for kind in ("script", "pov", "scv")
+    by_suffix = {extension: kind for kind in ("script", "pov", "scv", "nix")
                  for extension in spec_for(kind).extensions}
     for e in list(unclaimed()):
         kind = by_suffix.get(_suffix(e.arcname), "")

@@ -244,6 +244,29 @@ def effective_values(launcher_id: str, table: str = "") -> dict[str, str]:
     return {key: str(one.value or "") for key, one in held.items()}
 
 
+def _program(launcher: launchers.Launcher) -> dict[str, Any] | None:
+    """What the launcher's installed program is, as far as its settings depend on it, or
+    None where its app does not say. `plugins` is a list, or None where the program's
+    plugins cannot be read."""
+    asking = getattr(_app_settings_surface(launcher), "program", None)
+    if asking is None:
+        return None
+    one = asking(_launcher_settings(launcher))
+    return {"plugins": None if one.plugins is None else sorted(one.plugins),
+            "defaults": dict(one.defaults), "build": one.build,
+            "dmd_in_file": one.dmd_in_file}
+
+
+def program_of(launcher_id: str) -> dict[str, Any] | None:
+    """`_program`, for the launcher with this id."""
+    return _program(launcher_or_refuse(launcher_id))
+
+
+def table_program(table_id: str) -> dict[str, Any] | None:
+    """`program_of` the launcher that plays this table."""
+    return _program(_launcher_of(table_id))
+
+
 def app_config(launcher_id: str, table: str = "",
                scope: str = "launcher") -> dict[str, Any]:
     """The declared groups, and every value as it stands at one scope.
@@ -256,7 +279,7 @@ def app_config(launcher_id: str, table: str = "",
     if config is None:
         return {"groups": [], "values": {}, "scopes": [], "shared_with_game": False,
                 "from_game": {}, "follows_game": {}, "app_name": apps.app_name(found.app),
-                "files": {}}
+                "files": {}, "program": None}
 
     settings = _launcher_settings(found)
     if scope not in config.scopes():
@@ -292,6 +315,7 @@ def app_config(launcher_id: str, table: str = "",
     return {
         "app_name": apps.app_name(found.app),
         "files": config_files(found),
+        "program": _program(found),
         "scopes": list(config.scopes()),
         "shared_with_game": bool(target and shares is not None and shares(target)),
         "from_game": (dict(reach(target, settings))
@@ -449,6 +473,12 @@ def write_table_settings(table_id: str, values: dict[str, Any]) -> dict[str, Any
     own values, so nothing cabinet-wide changes. A value equal to what the table would
     follow anyway is not written, and a table left with nothing to keep has no file.
     """
+    return write_config(_launcher_of(table_id).launcher_id,
+                        {"scope": SCOPE_ENTRY, "table": table_id, "values": dict(values)})
+
+
+def _launcher_of(table_id: str) -> launchers.Launcher:
+    """The launcher that plays this table, or the refusal that says it has none."""
     found = find_table_by_id(game_repository.all_games(), str(table_id or "").strip())
     if found is None:
         raise service_errors.NotFoundError(t("error.launchers.unknown_table", wanted=table_id))
@@ -461,8 +491,7 @@ def write_table_settings(table_id: str, values: dict[str, Any]) -> dict[str, Any
         raise service_errors.RefusedError(t(
             "error.launchers.no_own_settings",
             app_name=apps.app_name(app.id) if app is not None else filename))
-    return write_config(launcher.launcher_id,
-                        {"scope": SCOPE_ENTRY, "table": table_id, "values": dict(values)})
+    return launcher
 
 
 def _write_tables(launcher: launchers.Launcher, config: Any, settings: dict[str, Any],

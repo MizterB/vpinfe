@@ -95,7 +95,7 @@ class LaunchLensTests(unittest.TestCase):
     def test_nothing_resolves_to_none(self) -> None:
         resolved = res.resolve_for_table(BIGUS, FOLDER, [BIGUS])
 
-        for kind in ("backglass", "ini", "script", "pov", "scv"):
+        for kind in ("backglass", "ini", "script", "pov", "scv", "nix"):
             self.assertEqual(resolved[kind], {"resolution": "none"})
 
     def test_matching_is_case_insensitive_like_vpx(self) -> None:
@@ -143,6 +143,15 @@ class LaunchLensTests(unittest.TestCase):
             [res.RESOLUTION_DEDICATED, res.RESOLUTION_NONE])
 
 
+    def test_a_folder_named_nix_is_that_table_s_alone_like_a_point_of_view(self) -> None:
+        files = [f"{FOLDER}.vpx", CYBER, f"{FOLDER}.nix"]
+
+        self.assertEqual(
+            [res.resolve_for_table(table, FOLDER, files)["nix"]["resolution"]
+             for table in (f"{FOLDER}.vpx", CYBER)],
+            [res.RESOLUTION_DEDICATED, res.RESOLUTION_NONE])
+
+
 class InventoryLensTests(unittest.TestCase):
     def test_every_file_is_attributed(self) -> None:
         files = [
@@ -180,7 +189,7 @@ class InventoryLensTests(unittest.TestCase):
     def test_an_empty_folder_reports_empty_lists_for_every_kind(self) -> None:
         inv = res.inventory(FOLDER, [], [])
 
-        for kind in ("backglass", "ini", "script", "pov", "scv"):
+        for kind in ("backglass", "ini", "script", "pov", "scv", "nix"):
             self.assertEqual(inv[kind], {"files": []})
 
 

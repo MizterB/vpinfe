@@ -1933,14 +1933,14 @@ def _package_strings(app_id: str) -> set[str]:
 _FIELD_WORD = re.compile(r"field\.(.+)\.(label|description|help|blank|nowhere)")
 _CHOICE_WORD = re.compile(r"field\.(.+)\.choice\.[^.]+\.(?:help|label)")
 _GROUP_WORD = re.compile(r"group\.([^.]+)\.label")
-_HEADING_WORD = re.compile(r"group\.([^.]+)\.(?:heading\.([^.]+)\.(?:label|note)"
+_HEADING_WORD = re.compile(r"group\.([^.]+)\.(?:heading\.([^.]+)\.(?:label|note(?:\.([^.]+))?)"
                            r"|pair\.([^.]+)\.(?:label|note|joiner))")
 
 
 def _asked_for(key: str, named: set[str], blanks: tuple[str, ...] = ()) -> bool:
     """Whether the key is one the contract's lookups can form from something the app
     names: a reason itself, a field's words or a choice's, a group's label, a heading's
-    words or a pair's, or the help of a word in `blanks`."""
+    words, including a note for a variant, or a pair's, or the help of a word in `blanks`."""
     if key in named or key in {f"{word}.help" for word in blanks}:
         return True
     found = (_CHOICE_WORD.fullmatch(key) or _FIELD_WORD.fullmatch(key)
@@ -1948,7 +1948,8 @@ def _asked_for(key: str, named: set[str], blanks: tuple[str, ...] = ()) -> bool:
     if found is not None:
         return found[1] in named
     under = _HEADING_WORD.fullmatch(key)
-    return under is not None and under[1] in named and (under[2] or under[3]) in named
+    return (under is not None and under[1] in named and (under[2] or under[4]) in named
+            and (under[3] is None or under[3] in named))
 
 
 def _reasons(app_id: str) -> list[str]:

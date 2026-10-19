@@ -42,11 +42,14 @@ SHIPPED = frozenset((
 
 # The backglass server's entry, by its tag, and the VPX setting of the same meaning. A flag
 # the server holds as 2, undecided, has no VPX value and is not written; the dual mode is
-# a number in both and goes across as it is.
+# a number in both and goes across as it is. These are the settings B2SLegacy reads, which
+# `for_program` spells for the renderer a program has.
 FLAGS = {"HideGrill": "Plugin.B2SLegacy.B2SHideGrill",
          "HideB2SDMD": "Plugin.B2SLegacy.B2SHideB2SDMD",
          "HideDMD": "Plugin.B2SLegacy.B2SHideDMD"}
 MODES = {"DualMode": "Plugin.B2SLegacy.B2SDualMode"}
+B2S_DUAL_MODE = "Plugin.B2S.DualMode"
+B2S_SHOW_GRILL = "Plugin.B2S.ShowGrill"
 
 
 @dataclass
@@ -113,13 +116,34 @@ class Beside:
                     found[same[0].name.casefold()] = same[0]
         return list(found.values())
 
-    def settings_for(self, *keys: str) -> dict[str, str]:
-        """The VPX settings of the first of these keys the server has an entry for."""
+    def settings_for(self, *keys: str,
+                     program: dict[str, Any] | None = None) -> dict[str, str]:
+        """The VPX settings of the first of these keys the server has an entry for, spelled
+        for the plugins `program` says are installed."""
         for key in keys:
             found = self.settings.get(str(key or "").strip().casefold())
             if found:
-                return dict(found)
+                return for_program(found, program)
         return {}
+
+
+def for_program(wanted: dict[str, str], program: dict[str, Any] | None) -> dict[str, str]:
+    """B2SLegacy's settings as the plugins installed read them: each of them where
+    B2SLegacy is, the dual mode and the grill (inverted, as B2S asks whether to show it)
+    for B2S, and nothing for a program with no plugins. Without `program` they stay as they
+    are."""
+    present = (program or {}).get("plugins")
+    if present is None:
+        return dict(wanted)
+    found: dict[str, str] = {}
+    if "B2SLegacy" in present:
+        found.update(wanted)
+    if "B2S" in present:
+        if (mode := wanted.get(MODES["DualMode"])) is not None:
+            found[B2S_DUAL_MODE] = mode
+        if (hidden := wanted.get(FLAGS["HideGrill"])) is not None:
+            found[B2S_SHOW_GRILL] = "0" if hidden == "1" else "1"
+    return found
 
 
 def name_map(ctx: Any, roms: str) -> Beside:

@@ -71,5 +71,56 @@ class DeclaresTests(unittest.TestCase):
                 self.assertTrue(build.declares(key, None))
 
 
+class PredatesPluginsTests(unittest.TestCase):
+    def test_a_line_before_the_one_with_plugins_does(self) -> None:
+        for said in ("10800000", "10700123"):
+            with self.subTest(said=said):
+                self.assertTrue(build.predates_plugins(said))
+
+    def test_the_line_itself_and_later_ones_do_not(self) -> None:
+        for said in ("10815353", "10900000"):
+            with self.subTest(said=said):
+                self.assertFalse(build.predates_plugins(said))
+
+    def test_nothing_or_nonsense_is_not_known_to(self) -> None:
+        for said in (None, "", "  ", "10.8.0", "abc", "10"):
+            with self.subTest(said=said):
+                self.assertFalse(build.predates_plugins(said))
+
+
+class EnableDefaultTests(unittest.TestCase):
+    def test_before_the_switch_b2s_is_off_and_the_legacy_renderer_on(self) -> None:
+        self.assertEqual([build.enable_default(one, 6273) for one in ("B2S", "B2SLegacy")],
+                         list(("0", "1")))
+
+    def test_from_the_switch_b2s_is_on_and_the_legacy_renderer_off(self) -> None:
+        self.assertEqual([build.enable_default(one, 6274) for one in ("B2S", "B2SLegacy")],
+                         list(("1", "0")))
+
+    def test_on_windows_the_legacy_renderer_was_off_before_the_switch_too(self) -> None:
+        self.assertEqual(build.enable_default("B2SLegacy", 6273, windows=True), "0")
+        self.assertEqual(build.enable_default("B2S", 6273, windows=True), "0")
+
+    def test_a_plugin_with_its_own_default_and_an_unknown_build_have_none(self) -> None:
+        self.assertIsNone(build.enable_default("PinMAME", 6300))
+        self.assertIsNone(build.enable_default("B2S", None))
+
+
+class SettledRevTests(unittest.TestCase):
+    def test_nixie_without_the_legacy_renderer_is_a_build_that_dropped_it(self) -> None:
+        self.assertEqual(build.settled_rev(6100, frozenset({"B2S", "Nixie"})), 6293)
+        self.assertEqual(build.settled_rev(None, frozenset({"B2S", "Nixie"})), 6293)
+
+    def test_a_newer_rev_in_the_file_stands(self) -> None:
+        self.assertEqual(build.settled_rev(6400, frozenset({"Nixie"})), 6400)
+
+    def test_the_legacy_renderer_beside_nixie_leaves_the_rev_alone(self) -> None:
+        self.assertEqual(build.settled_rev(6270, frozenset({"B2SLegacy", "Nixie"})), 6270)
+
+    def test_no_folder_to_read_leaves_the_rev_alone(self) -> None:
+        self.assertEqual(build.settled_rev(6100, None), 6100)
+        self.assertIsNone(build.settled_rev(None, frozenset()))
+
+
 if __name__ == "__main__":
     unittest.main()

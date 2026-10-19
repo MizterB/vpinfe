@@ -42,8 +42,8 @@ TITLES = {"Visual Pinball Player": "playfield", "Visual Pinball Backglass": "bac
 _CONNECTOR = re.compile(r"\(\s*([^\s()]+)[^()]*\)\s*$")
 
 # Beside a table, by its name or its folder's: VPX's settings for it, B2S's backglass
-# (`B2SServer.cpp`) and ScoreView's layouts (`ScoreViewPlugin.cpp`).
-BESIDE = (".ini", ".directb2s", ".scv")
+# (`B2SServer.cpp`), ScoreView's layouts (`ScoreViewPlugin.cpp`) and Nixie's.
+BESIDE = (".ini", ".directb2s", ".scv", ".nix")
 
 _LAUNCH = VPXLaunch()
 

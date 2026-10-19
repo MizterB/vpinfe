@@ -662,7 +662,7 @@ class InstalledPluginTests(_Case):
 
     def test_every_folder_setting_is_one_a_plugin_has(self) -> None:
         self.assertEqual({areas.plugin_of(key) for key in areas.FOLDERS},
-                         {"ScoreView", "PinMAME", "AltSound", "Serum", "VNI", "PUP"})
+                         {"ScoreView", "Nixie", "PinMAME", "AltSound", "Serum", "VNI", "PUP"})
 
     def test_an_image_setting_is_declared_a_picture_file_so_it_can_be_browsed_for(self) -> None:
         self.app_ini.write_text(INSTALLED_INI + "\n[Player]\nBallImage = \nDecalImage = \n"
@@ -692,6 +692,183 @@ class InstalledPluginTests(_Case):
         self.assertEqual([h.key for h in groups[areas.PLUGINS].curated],
                          ["FlexDMD", "PinMAME", "Serum", "UpscaleDMD"])
         self.assertEqual({h.label for h in groups[areas.PLUGINS].curated}, {""})
+
+
+class ByProgramTests(_Case):
+    """What the plugins folder and the Rev in the ini say a program does, and what shows."""
+
+    def program(self, rev: int | None, *ids: str) -> None:
+        """A macOS bundle with a plugin.cfg for each id, and an ini written by `rev`."""
+        version = "" if rev is None else f"\n[Version]\nVPinball = 1081{rev}\n"
+        self.app_ini.write_text(
+            "".join(f"[Plugin.{one}]\nEnable =\n\n" for one in ids) + version)
+        bundle = self.root / "VPinballX_BGFX.app" / "Contents"
+        (bundle / "PlugIns").mkdir(parents=True, exist_ok=True)
+        for one in ids:
+            (bundle / "PlugIns" / one.lower()).mkdir(exist_ok=True)
+            (bundle / "PlugIns" / one.lower() / "plugin.cfg").write_text(
+                f'[configuration]\nid = "{one}"\nname = "{one}"\n')
+        self.settings["bin_path"] = str(bundle / "MacOS" / "VPinballX_BGFX")
+
+    def fields(self) -> dict:
+        return {f.key: f for g in self.config.groups(self.settings) for f in g.settings}
+
+    def headings(self) -> dict:
+        groups = {g.key: g for g in self.config.groups(self.settings)}
+        return {h.key: h for h in groups[areas.PLUGINS].curated}
+
+    def test_no_program_is_no_plugins_and_a_rev_from_the_file(self) -> None:
+        self.app_ini.write_text("[Version]\nVPinball = 10816100\n")
+        self.settings.pop("bin_path", None)
+
+        found = self.config.program(self.settings)
+
+        self.assertIsNone(found.plugins)
+        self.assertEqual(found.build, 6100)
+
+    def test_a_program_with_no_plugins_folder_is_unknown_unless_its_build_predates_them(
+            self) -> None:
+        program = self.root / "VPinballX_GL"
+        program.write_text("")
+        self.settings["bin_path"] = str(program)
+        for version, expected in (("", None), ("10815353", None), ("10800000", frozenset())):
+            with self.subTest(version=version):
+                self.app_ini.write_text(f"[Version]\nVPinball = {version}\n")
+
+                self.assertEqual(self.config.program(self.settings).plugins, expected)
+
+    def test_a_link_to_the_program_finds_the_plugins_beside_the_program(self) -> None:
+        self.program(6300, "B2S", "Nixie")
+        real = Path(self.settings["bin_path"])
+        real.parent.mkdir(parents=True, exist_ok=True)
+        real.write_text("")
+        link = self.root / "bin" / "vpx"
+        link.parent.mkdir()
+        link.symlink_to(real)
+        self.settings["bin_path"] = str(link)
+
+        self.assertEqual(self.config.program(self.settings).plugins,
+                         frozenset({"B2S", "Nixie"}))
+
+    def test_a_program_whose_plugins_are_not_beside_it_is_unknown_not_empty(self) -> None:
+        self.program(6300, "B2S", "Nixie")
+        wrapper = self.root / "bin" / "vpx"
+        wrapper.parent.mkdir()
+        wrapper.write_text("#!/bin/sh\n")
+        self.settings["bin_path"] = str(wrapper)
+
+        self.assertIsNone(self.config.program(self.settings).plugins)
+
+    def test_the_dmd_is_in_the_file_from_the_build_that_took_it_out_of_the_settings(self) -> None:
+        for rev, expected in ((6266, False), (6267, True)):
+            with self.subTest(rev=rev):
+                self.program(rev, "B2S")
+
+                self.assertIs(self.config.program(self.settings).dmd_in_file, expected)
+
+    def test_the_plugins_folder_wins_over_a_rev_the_upgrade_left_behind(self) -> None:
+        self.program(6100, "B2S", "Nixie", "PUP")
+
+        found = self.config.program(self.settings)
+
+        self.assertEqual(found.plugins, frozenset({"B2S", "Nixie", "PUP"}))
+        self.assertGreaterEqual(found.build or 0, 6293)
+        self.assertEqual(found.defaults,
+                         {"Plugin.B2S.Enable": "1", "Plugin.B2SLegacy.Enable": "0"})
+
+    def test_before_the_switch_b2s_is_off_and_the_legacy_renderer_on(self) -> None:
+        self.program(6200, "B2S", "B2SLegacy")
+
+        found = self.config.program(self.settings)
+
+        self.assertEqual(found.defaults,
+                         {"Plugin.B2S.Enable": "0", "Plugin.B2SLegacy.Enable": "1"})
+
+    def test_a_windows_build_is_the_exe_whatever_host_runs_it(self) -> None:
+        self.program(6200, "B2S", "B2SLegacy")
+        windows = self.root / "VPX" / "VPinballX64.exe"
+        for one in ("B2S", "B2SLegacy"):
+            (windows.parent / "plugins" / one.lower()).mkdir(parents=True)
+            (windows.parent / "plugins" / one.lower() / "plugin.cfg").write_text(
+                f'[configuration]\nid = "{one}"\n')
+        windows.write_text("")
+        self.settings["bin_path"] = str(windows)
+
+        with mock.patch("apps.vpx.config.sys.platform", "darwin"):
+            found = self.config.program(self.settings)
+
+        self.assertEqual(found.defaults["Plugin.B2SLegacy.Enable"], "0")
+
+    def test_an_unwritten_enable_shows_what_the_build_gives_it(self) -> None:
+        self.program(6274, "B2S", "B2SLegacy", "Nixie")
+        self.app_ini.write_text(self.app_ini.read_text().replace(
+            "[Plugin.B2S]\nEnable =\n", "").replace("[Plugin.B2SLegacy]\nEnable =\n", ""))
+
+        fields = self.fields()
+
+        self.assertEqual(fields["Plugin.B2S.Enable"].default, "1")
+        self.assertEqual(fields["Plugin.B2SLegacy.Enable"].default, "0")
+
+    def test_a_value_the_file_states_is_the_one_read(self) -> None:
+        self.program(6274, "B2S", "B2SLegacy")
+        self.app_ini.write_text(self.app_ini.read_text().replace(
+            "[Plugin.B2S]\nEnable =", "[Plugin.B2S]\nEnable = 0"))
+
+        found = self.config.read(SCOPE_LAUNCHER, "", self.settings)
+
+        self.assertEqual(found["Plugin.B2S.Enable"].value, "0")
+
+    def test_nixie_has_a_heading_and_a_layout_folder_to_browse_for(self) -> None:
+        self.program(6293, "B2S", "Nixie")
+
+        fields = self.fields()
+
+        self.assertIn("Nixie", self.headings())
+        self.assertEqual(fields["Plugin.Nixie.LayoutFolder"].path, "dir")
+        self.assertEqual(self.config.scopes_for("Plugin.Nixie.LayoutFolder"),
+                         (SCOPE_LAUNCHER,))
+
+    def test_the_layout_folders_are_each_a_plugin_s_own(self) -> None:
+        self.program(6200, "B2S", "ScoreView")
+
+        self.assertIn("Plugin.ScoreView.LayoutFolder", self.fields())
+        self.assertNotIn("Plugin.Nixie.LayoutFolder", self.fields())
+
+    def test_dual_mode_is_a_row_of_the_b2s_heading_from_the_build_that_has_it(self) -> None:
+        self.program(6300, "B2S", "Nixie")
+        self.app_ini.write_text(self.app_ini.read_text().replace(
+            "[Plugin.B2S]\n", "[Plugin.B2S]\nDualMode = 1\n"))
+
+        self.assertEqual(self.headings()["B2S"].versions, ("Plugin.B2S.DualMode",))
+
+    def test_the_dmd_rows_are_the_ini_s_until_the_file_takes_them(self) -> None:
+        for rev, expected in ((6266, True), (6267, False)):
+            with self.subTest(rev=rev):
+                self.program(rev, "B2S")
+                self.app_ini.write_text(self.app_ini.read_text().replace(
+                    "[Plugin.B2S]\n", "[Plugin.B2S]\nBackglassDMDX = 5\n"))
+
+                self.assertEqual("Plugin.B2S.BackglassDMDX" in self.fields(), expected)
+                self.assertEqual(self.headings()["B2S"].variant,
+                                 "" if expected else "dmd_in_file")
+
+    def test_a_build_with_no_rev_keeps_the_dmd_rows_and_the_plain_note(self) -> None:
+        self.program(None, "B2S")
+        self.app_ini.write_text(self.app_ini.read_text().replace(
+            "[Plugin.B2S]\n", "[Plugin.B2S]\nBackglassDMDX = 5\n"))
+
+        self.assertIn("Plugin.B2S.BackglassDMDX", self.fields())
+        self.assertEqual(self.headings()["B2S"].variant, "")
+
+    def test_priority_keys_for_every_renderer_are_read_back(self) -> None:
+        self.program(6293, "B2S", "Nixie", "PUP")
+        self.app_ini.write_text(self.app_ini.read_text() + (
+            "\n[ScoreView]\nPriority.Nixie = 2\nPriority.B2S = 1\n"))
+
+        found = self.config.read(SCOPE_LAUNCHER, "", self.settings)
+
+        self.assertEqual({key: found[key].value for key in found if ".Priority." in key},
+                         {"ScoreView.Priority.Nixie": "2", "ScoreView.Priority.B2S": "1"})
 
 
 REGISTERED_INI = """\

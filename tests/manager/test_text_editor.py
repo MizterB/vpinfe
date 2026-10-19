@@ -42,7 +42,7 @@ class Drafts(unittest.TestCase):
 
 class WhichKinds(unittest.TestCase):
     def test_every_text_kind_the_assets_view_lists_is_edited(self) -> None:
-        for kind in ("script", "ini", "pov", "scv", "patch", "readme"):
+        for kind in ("script", "ini", "pov", "scv", "nix", "patch", "readme"):
             with self.subTest(kind=kind):
                 self.assertTrue(text_editor.edits(kind))
 

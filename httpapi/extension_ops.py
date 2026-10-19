@@ -117,6 +117,8 @@ READS: dict[str, Callable[..., Any]] = {
 # library, and should ask for that by name.
 CONFIG_READS: dict[str, Callable[..., Any]] = {
     "new_game_destination": library_folder_ops.destination,
+    # What the program that plays a table is, so a setting is written in the form it reads.
+    "table_program": launcher_ops.table_program,
 }
 
 CONFIG_WRITES: dict[str, Callable[..., Any]] = {
