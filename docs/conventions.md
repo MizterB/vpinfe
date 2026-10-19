@@ -1723,8 +1723,9 @@ the work ends, however it ends. The spinner goes in with the mark, and `.manager
 hidden for its first quarter second, so a region that fills quickly never shows one.
 
 Content left up while what replaces it is read - a view after a rail click, the side pane after
-a grid row or a write - is held with `over`: `busy.start(region, work)` for an act that reads
-before it draws again, `busy.held(region, over=True)` around a pane build. From the same quarter
+a grid row or after something is added or removed - is held with `over`: `busy.start(region,
+work)` for an act that reads before it draws again, `busy.held(region, over=True)` around a
+pane build. A value change is not one of these (next section). From the same quarter
 second the content dims in place and the spinner sits over its middle (`.manager-busy--over`),
 so nothing moves, and the rail row lights at the click. A region filling empty space keeps the
 spinner after what it has drawn. Work that overlaps on one region shares one mark and one
@@ -1736,6 +1737,22 @@ anywhere else in `manager/`; a timer that fills no region is listed there with i
 A page is drawn when its handshake is done and nothing on it is marked `aria-busy`. The loading
 screen holds its region until the view is drawn (`busy.until_gone`), a linked subject's pane is
 held until it is built, and a grid's saved view is filled through `busy.fill` on its wrapper.
+
+### A value change keeps the page
+
+Changing a value - a switch, a select, a field, a number - saves it and nothing else moves: the
+page is not drawn again, nothing dims, and scroll and focus stay where they were. A part of the
+page that reads the value is a `panel.region(build)`, and the handler calls its `refill()`, which
+draws that part again inside the same container. A row that only the grid shows is put right
+through the grid. A rebuild (`redraw`, `rerender`, the workbench's `rebuild`) is for structure: a
+row added or removed, a different subject or tab. Keep the control that triggers a refill outside
+the region it refills.
+
+`tests/invariants/test_a_value_handler_does_not_rebuild_the_page.py` fails on a new value control
+whose handler reaches one of those verbs by name, in its file or a manager module it imports from.
+It does not follow a method on an object or a handler passed through another function, so it is a
+floor and a drive of the page is the check for those. A handler that rebuilds today is listed
+there with what converts it, and the list only comes down.
 
 ## Typing
 

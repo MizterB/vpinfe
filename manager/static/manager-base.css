@@ -3435,6 +3435,10 @@ a.manager-tag:hover { background: var(--wash-hover); }
 }
 .manager-slot-blank-icon { font-size: var(--icon-slot); opacity: 0.55; }
 
+/* A region drawn again in place takes no space of its own, so what it holds sits in the
+   list's grid or the column it was drawn into as if it were not there. */
+.manager-region { display: contents; }
+
 /* A pickable fact row keeps its two cells in the list's grid, and the picked one is lit
    the way a lit binding is - the label in the accent. A row whose value is a summary
    lights the summary as a whole on hover instead, and the label stays as it is. */

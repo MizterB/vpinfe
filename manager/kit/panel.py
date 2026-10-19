@@ -12,12 +12,13 @@ from __future__ import annotations
 
 import inspect
 import json
+import logging
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, replace
 from types import SimpleNamespace
 from typing import Any
 
-from nicegui import ui
+from nicegui import background_tasks, ui
 
 from common import icons
 from common.config import path_state
@@ -25,6 +26,8 @@ from common.games.collection_store import LAST_COLLECTION
 from common.i18n import t
 from manager.kit import dropdown, game_tables, offload, tag_chips, thumbnails, verbs
 from manager.kit.on_page import on_page
+
+logger = logging.getLogger("vpinfe.manager.kit.panel")
 
 # Rows that are not a fact. A group's title and an action strip span both columns, so
 # every group keeps the one shared label width.
@@ -235,6 +238,74 @@ def _draw_value(target: Any, value: Any) -> None:
         return
     target.label(str(value)).classes("manager-fact-value truncate min-w-0") \
         .tooltip(str(value))
+
+
+class Region:
+    """The part of a page that reads a value another control sets.
+
+    The control's handler saves and calls `refill`, which draws this part again where it
+    stands: nothing dims, nothing around it is cleared, and scroll stays. The control that
+    triggers a refill belongs outside the region, because a refill replaces what is inside.
+
+    `build` may read before it draws, so it may be async. The new part is then drawn out of
+    sight beside the old one, and the two trade places in one step: the page is never empty
+    and never dimmed while it is read. A second `refill` while one is under way wins.
+
+    Calling it draws it, so it is a `facts` value as it is. Its container takes no part in
+    the grid, so as a facts value its build draws one element.
+    """
+
+    def __init__(self, build: Callable[[], Any]) -> None:
+        self._build = build
+        self._box: ui.element | None = None
+        self._turn = 0
+
+    def __call__(self) -> None:
+        self._box = ui.element("div").classes("manager-region")
+        if not inspect.iscoroutinefunction(self._build):
+            self.refill()
+
+    def refill(self) -> None:
+        """Draw the part again in the same container. A page that has been left is let be."""
+        box = self._box
+        if box is None or box.is_deleted:
+            return
+        if inspect.iscoroutinefunction(self._build):
+            background_tasks.create(self.refilled(), name="region-refill")
+            return
+        box.clear()
+        with box:
+            self._build()
+
+    async def refilled(self) -> None:
+        """`refill`, for a build that waits, ended when the new part is in place."""
+        box = self._box
+        if box is None or box.is_deleted:
+            return
+        self._turn += 1
+        turn = self._turn
+        with box:
+            fresh = ui.element("div").classes("manager-region")
+            fresh.set_visibility(False)
+        try:
+            with fresh:
+                await self._build()
+        except Exception:  # noqa: BLE001 - what is drawn stays; the part is read again at the next change
+            logger.exception("A region could not be drawn again")
+            fresh.delete()
+            return
+        if turn != self._turn or box.is_deleted:
+            fresh.delete()
+            return
+        for one in list(box.default_slot.children):
+            if one is not fresh:
+                one.delete()
+        fresh.set_visibility(True)
+
+
+def region(build: Callable[[], Any]) -> Region:
+    """A part of the page drawn by `build`, which `refill()` draws again in place."""
+    return Region(build)
 
 
 # A redraw rebuilds the column at the top, and a deep link opens a row far down it: where the
