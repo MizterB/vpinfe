@@ -27,7 +27,7 @@ _POLLS = 7200
 
 
 def asked_first(library: Library, save: Callable[[Any], Any],
-                rerender: Callable[[], None]) -> Callable[[Any], Any]:
+                refill: Callable[[], None]) -> Callable[[Any], Any]:
     """`save`, once the person has said what happens to the backups in the folder being
     left. Nothing is asked when that folder holds none."""
     async def asked(value: Any) -> bool:
@@ -47,7 +47,7 @@ def asked_first(library: Library, save: Callable[[Any], Any],
                     t("manager.backups_move.blocked", count=moving),
                     detail=[str(found["problem"]), stays],
                     confirm=t("manager.backups_move.leave"), icon=verbs.KEEP, danger=False):
-                rerender()
+                refill()
                 return False
             return bool(await save(value))
         already = int(found.get("already") or 0)
@@ -58,22 +58,22 @@ def asked_first(library: Library, save: Callable[[Any], Any],
             confirm=t("word.move"), icon=verbs.MOVE, danger=False,
             second=(t("manager.backups_move.leave"), verbs.KEEP))
         if answer == confirm.Answer.CANCEL:
-            rerender()
+            refill()
             return False
         if answer == confirm.Answer.SECOND:
             return bool(await save(value))
-        return await _move(library, folder, rerender)
+        return await _move(library, folder, refill)
 
     return asked
 
 
 @on_page
-async def _move(library: Library, folder: str, rerender: Callable[[], None]) -> bool:
+async def _move(library: Library, folder: str, refill: Callable[[], None]) -> bool:
     try:
         job = await offload.io(library.move_backups_folder, folder)
     except Exception as exc:  # noqa: BLE001 - said, and nothing changed
         ui.notify(t("manager.backups_move.could_not_start"), caption=why(exc), type="warning")
-        rerender()
+        refill()
         return False
     ui.notify(t("manager.backups_move.started"), type="info")
     background_tasks.create(_report(library, str(job.get("id") or "")),

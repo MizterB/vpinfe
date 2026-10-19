@@ -266,13 +266,14 @@ _FIRST_CHOICES: dict[str, Callable[[], dict[str, str]]] = {
 
 
 def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
-                writable: bool = True, rerender: Callable[[], None] | None = None,
+                writable: bool = True, refill: Callable[[], None] | None = None,
                 check: dict | None = None,
                 suggestions: dict[str, Any] | None = None,
                 section_values: dict[str, Any] | None = None,
                 varies: bool = False,
                 browse: Callable[..., dict] | None = None,
-                refusal: Refusal | None = None) -> Callable[[], None]:
+                refusal: Refusal | None = None,
+                saved: Callable[[], Awaitable[None]] | None = None) -> Callable[[], None]:
     """The control a declared value's type asks for.
 
     Driven by the declaration, never by the key's name: something added to the schema -
@@ -291,11 +292,15 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
     still passes it - the field, not the caller, decides whether it is used.
 
     `refusal` is where a number says why its value was refused, beside the number.
+
+    `saved` is awaited after a path or a suggested value is written, so the page can read
+    what the write changed and draw again only what that touched. `refill` draws the page
+    again unasked, for the controls whose write always changes something on it.
     """
     editor = EDITORS.get(str(option.get("editor") or ""))
     if editor is not None:
         return editor(option, value, save, section=section_values or {},
-                      writable=writable, rerender=rerender, suggestions=suggestions)
+                      writable=writable, refill=refill, suggestions=suggestions)
 
     kind = option.get("type")
     if varies:
@@ -307,23 +312,22 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
 
     if option.get("suggest") == config_schema.SUGGEST_SCREENS:
         if found_screens := (suggestions or {}).get(config_schema.SUGGEST_SCREENS):
-            return screens.picker(found_screens, value, save, disabled=off, rerender=rerender,
+            return screens.picker(found_screens, value, save, disabled=off, refill=refill,
                                   blank=not str(option.get("default") or ""))
     elif option.get("suggest"):
         # Offered and not imposed: what produced the list can be wrong - a network that
         # filters multicast has nothing on it - so anything may still be typed.
         offered = (suggestions or {}).get(option["suggest"]) or {}
 
-        # Only where this setting is carrying a mark. The redraw exists to refresh one -
-        # `network.library_url` is what a feature check points at, and answering it has
-        # to clear the badge that led here. Every other suggested setting changes nothing
-        # the page is showing about anything else, and rebuilding for those costs four
-        # round trips and puts a long page back at the top under the pointer.
+        # Only where this setting is carrying a mark. The page is read again to refresh
+        # one - `network.library_url` is what a feature check points at, and answering it
+        # has to clear the badge that led here. Every other suggested setting changes
+        # nothing the page is showing about anything else.
         marks = bool(found)
 
         async def save_suggested(event: Any) -> None:
-            if await save(str(event.value or "").strip()) and marks and rerender is not None:
-                rerender()
+            if await save(str(event.value or "").strip()) and marks and saved is not None:
+                await saved()
 
         return panel.combo(str(value or ""), offered, save_suggested, disabled=off,
                            status=state, clearable=option.get("clearable", True),
@@ -399,8 +403,8 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
         # much later - at launch, as a file-not-found. Re-checked after a write rather
         # than guessed at here: the answer is about this machine's disk, not the text.
         async def save_path(text: str) -> None:
-            if await save(text) and rerender is not None:
-                rerender()
+            if await save(text) and saved is not None:
+                await saved()
 
         stands_for = str(option.get("default_path") or "")
         return panel.field(str(value or ""), save_path, disabled=off, status=state,
@@ -544,7 +548,7 @@ class _Chipped:
 
 
 def _asked_first(option: dict, save: Callable[[Any], Any],
-                 rerender: Callable[[], None]) -> Callable[[Any], Any]:
+                 refill: Callable[[], None]) -> Callable[[Any], Any]:
     """`save`, once the person has been told what it will cost them: this setting decides
     where the Manager can be reached from, and the page asking is on another device."""
     async def asked(value: Any) -> bool:
@@ -555,7 +559,7 @@ def _asked_first(option: dict, save: Callable[[Any], Any],
                   setting=option.get("label") or option["key"]),
                 detail=t("manager.settings.bind_detail"),
                 confirm=t("word.change"), icon=verbs.SAVE, danger=False):
-            rerender()
+            refill()
             return False
         return bool(await save(value))
 
@@ -563,18 +567,18 @@ def _asked_first(option: dict, save: Callable[[Any], Any],
 
 
 def _redrawn_after(save: Callable[[Any], Any],
-                   rerender: Callable[[], None]) -> Callable[[Any], Any]:
+                   refill: Callable[[], None]) -> Callable[[Any], Any]:
     """`save`, then the page drawn again: something below the field reads what was saved."""
     async def saved(value: Any) -> bool:
         done = bool(await save(value))
         if done:
-            rerender()
+            refill()
         return done
 
     return saved
 
 
-def _kind_page(library: Library, rerender: Callable[[], None], note: str,
+def _kind_page(library: Library, refill: Callable[[], None] | None, note: str,
                section: str, key: str, items: Callable[[Any], dict[str, str]],
                columns: bool = False) -> None:
     """A switch per thing, over one list in the config.
@@ -584,7 +588,7 @@ def _kind_page(library: Library, rerender: Callable[[], None], note: str,
     in it may import a domain package. The Manager may, so the rendering lives here.
     """
     body = ui.column().classes("w-full gap-0")
-    busy.fill(body, lambda: _fill_kinds(library, rerender, body, note, section, key, items,
+    busy.fill(body, lambda: _fill_kinds(library, refill, body, note, section, key, items,
                                         columns))
 
 
@@ -596,12 +600,15 @@ def _listed(value: Any) -> set[str]:
     return {str(item).strip() for item in (value or []) if str(item).strip()}
 
 
-async def _fill_kinds(library: Library, rerender: Callable[[], None], body: Any, note: str,
-                      section: str, key: str,
+async def _fill_kinds(library: Library, refill: Callable[[], None] | None, body: Any,
+                      note: str, section: str, key: str,
                       items: Callable[[Any], dict[str, str]],
                       columns: bool = False) -> list:
     """The switches, drawn into `body` - or returned when `body` is None, for a page that
     orders them among its own settings rather than beside them.
+
+    A switch is written and left where it is. `refill` is for a page where something else
+    reads the list - the thumbnail choice offers only the kinds that are kept.
 
     `columns` is for the long lists, the media and asset kinds: two columns, in name order
     down the first and on into the second, so the list is a screen and not a scroll.
@@ -625,14 +632,23 @@ async def _fill_kinds(library: Library, rerender: Callable[[], None], body: Any,
 
     @on_page
     async def flip(name: str, wanted_on: bool) -> None:
-        after = (on | {name}) if wanted_on else (on - {name})
-        store = sorted((_listed(policy.get(key)) - set(known)) | (set(known) - after))
+        before, was = set(on), policy.get(key)
+        # Taken before the write, so a second switch thrown while this one is in flight
+        # is built from this one's result rather than over it.
+        on.clear()
+        on.update((before | {name}) if wanted_on else (before - {name}))
+        store = sorted((_listed(was) - set(known)) | (set(known) - on))
+        policy[key] = store
         try:
             await run.io_bound(write, {key: store})
         except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
+            on.clear()
+            on.update(before)
+            policy[key] = was
             ui.notify(t("manager.settings.save_failed"), caption=why(exc), type="negative")
             return
-        rerender()
+        if refill is not None:
+            refill()
 
     # Bound by a call rather than captured off the loop variable, which a lambda
     # would read only when it fires.
@@ -665,18 +681,18 @@ def _kind_columns(rows: list[tuple[str, Callable[[], None]]]) -> None:
                 draw()
 
 
-async def _kind_rows(library: Library, rerender: Callable[[], None],
+async def _kind_rows(library: Library, refill: Callable[[], None] | None,
                      page: str) -> list:
     """One registry's switches as entries, for a page that orders them among its own."""
     found = KIND_PAGES.get(page)
     if found is None:
         return []
     note, section, name, items = found
-    return await _fill_kinds(library, rerender, None, note, section, name, items,
+    return await _fill_kinds(library, refill, None, note, section, name, items,
                              page in TWO_COLUMNS)
 
 
-async def _vps_foot(library: Library, rerender: Callable[[], None],
+async def _vps_foot(library: Library, refill: Callable[[], None],
                     **_: Any) -> list[tuple[Any, Any]]:
     """When the catalog was last asked, and the way to ask now.
 
@@ -708,7 +724,7 @@ async def _vps_foot(library: Library, rerender: Callable[[], None],
         ui.notify(t("manager.settings.vpsdb_updated") if done.get("changed")
                 else t("manager.settings.already_date"),
                   type="positive" if done.get("changed") else "info")
-        rerender()
+        refill()
 
     # No heading of its own: Download Spreadsheet, the row above, already names the
     # catalog, and a heading here reads as a separate subject.
@@ -732,7 +748,7 @@ def last_checked(checked_at: str, now: Callable[[], Any], *,
     return (field_label(t("manager.settings.last_checked")), checked)
 
 
-async def _themes_foot(library: Library, rerender: Callable[[], None],
+async def _themes_foot(library: Library, refill: Callable[[], None],
                        **_: Any) -> list[tuple[Any, Any]]:
     try:
         held = await offload.io(library.themes)
@@ -750,7 +766,7 @@ async def _themes_foot(library: Library, rerender: Callable[[], None],
             return
         finally:
             checking.dismiss()
-        rerender()
+        refill()
 
     return [last_checked(str(held.get("checked") or ""), now)]
 
@@ -802,7 +818,7 @@ def _browser_rows(found: dict[str, Any]) -> list[tuple[Any, Any]]:
                                 (frontend_browser.AUDIO, audio))]
 
 
-def _browser_finding(library: Library, rerender: Callable[[], None],
+def _browser_finding(library: Library, refill: Callable[[], None],
                      found: dict[str, Any]) -> None:
     """What is wrong, the fix in words, and the act where VPinFE can do it."""
     fix = found.get("fix") or {}
@@ -820,7 +836,7 @@ def _browser_finding(library: Library, rerender: Callable[[], None],
             return
         if said:
             undo.offer(said, lambda: use(before, ""))
-        rerender()
+        refill()
 
     with ui.element("div").classes("manager-attention w-full mb-2"):
         ui.icon("error_outline").classes("manager-attention-icon")
@@ -841,7 +857,7 @@ def _browser_finding(library: Library, rerender: Callable[[], None],
                          hint=t("manager.settings.use_chrome.help"))()
 
 
-async def _browser_head(library: Library, rerender: Callable[[], None],
+async def _browser_head(library: Library, refill: Callable[[], None],
                         values: dict, read: dict[str, Any] | None = None,
                         **_: Any) -> list[tuple[Any, Any]]:
     """What is wrong with the browser, before its settings. The report it read goes in
@@ -855,14 +871,14 @@ async def _browser_head(library: Library, rerender: Callable[[], None],
     if not found:
         return []
     if found.get("finding"):
-        return [(panel.FULL, lambda: _browser_finding(library, rerender, found))]
+        return [(panel.FULL, lambda: _browser_finding(library, refill, found))]
     return []
 
 
 TOOLS = "tools"
 
 
-def _get_tool(library: Library, rerender: Callable[[], None], row: dict[str, Any],
+def _get_tool(library: Library, refill: Callable[[], None], row: dict[str, Any],
               offered: dict[str, Any]) -> None:
     """A missing Tool VPinFE can get itself, and Get, asking first what and from where."""
     @on_page
@@ -890,7 +906,7 @@ def _get_tool(library: Library, rerender: Callable[[], None], row: dict[str, Any
         else:
             ui.notify(t("manager.settings.got_ffmpeg", version=str(ended.get("version"))),
                       type="positive")
-        rerender()
+        refill()
 
     with ui.element("div").classes("manager-attention w-full mb-2"):
         ui.icon("error_outline").classes("manager-attention-icon")
@@ -900,12 +916,12 @@ def _get_tool(library: Library, rerender: Callable[[], None], row: dict[str, Any
                      hint=t("manager.settings.get_ffmpeg.help"))()
 
 
-async def _tools_head(library: Library, rerender: Callable[[], None],
+async def _tools_head(library: Library, refill: Callable[[], None],
                       values: dict, **_: Any) -> list[tuple[Any, Any]]:
     """Get, for each missing Tool VPinFE can get itself, before the paths."""
     rows = await _tools_found(library, (TOOLS,))
     return [(panel.FULL, lambda row=row, offered=offered:
-             _get_tool(library, rerender, row, offered))
+             _get_tool(library, refill, row, offered))
             for row in rows
             if (offered := (row.get("remedy") or {}).get("get"))]
 
@@ -1550,7 +1566,7 @@ def _extension_trouble() -> list[Any]:
             if record.state in (extension_host.FAILED, extension_host.DISABLED)]
 
 
-def build_library_page(library: Library, rerender: Callable[[], None], key: str,
+def build_library_page(library: Library, refill: Callable[[], None] | None, key: str,
                        kind: str) -> None:
     """A library page, drawn where a device's rail asks for it.
 
@@ -1564,7 +1580,7 @@ def build_library_page(library: Library, rerender: Callable[[], None], key: str,
         panel.facts(ui, [panel.intro(t("manager.settings.unbuilt"))])
         return
     note, _section, name, items = found
-    _kind_page(library, rerender, note, "", name, items, key in TWO_COLUMNS)
+    _kind_page(library, refill, note, "", name, items, key in TWO_COLUMNS)
 
 
 def value_words(option: dict, value: Any) -> str:
@@ -1631,7 +1647,7 @@ def _noted(option: dict, value: Any, save: Callable[[Any], Any],
 
 
 def section_rows(source: Any, section: str, options: list[dict], values: dict,
-                 writable: bool, rerender: Callable[[], None],
+                 writable: bool, refill: Callable[[], None],
                  checks: dict[tuple[str, str], dict] | None = None,
                  suggestions: dict[str, Any] | None = None,
                  resolved: dict[str, str] | None = None,
@@ -1642,6 +1658,7 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
                  stands_in: dict[str, list[tuple[Any, Any]]] | None = None,
                  linked: attract.Attract | None = None,
                  under: dict[str, list[tuple[Any, Any]]] | None = None,
+                 saved: Callable[[], Awaitable[None]] | None = None,
                 ) -> list[tuple[Any, Any]]:
     """One section's settings as fact rows, from whatever is serving them.
 
@@ -1686,12 +1703,12 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
         if linked is not None:
             save = linked.saves(option["key"], save)
         if option.get("cuts_off_manager") and from_elsewhere:
-            save = _asked_first(option, save, rerender)
+            save = _asked_first(option, save, refill)
         if option.get("moves_with") == config_schema.MOVES_BACKUPS and isinstance(
                 source, Library):
-            save = backups_move.asked_first(source, save, rerender)
+            save = backups_move.asked_first(source, save, refill)
         if section == dof.SECTION and option["key"] in dof.READ_BELOW:
-            save = _redrawn_after(save, rerender)
+            save = _redrawn_after(save, refill)
         chipped = waiting if option.get("applies") in (
             config_schema.APPLIES_RESTART, config_schema.APPLIES_WINDOWS) else None
         if chipped is not None:
@@ -1704,10 +1721,10 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
         else:
             control = control_for(
                 option, value, save,
-                writable=writable, rerender=rerender,
+                writable=writable, refill=refill,
                 check=(checks or {}).get((section, option["key"])),
                 suggestions=suggestions,
-                section_values=effective, browse=browse, refusal=refusal)
+                section_values=effective, browse=browse, refusal=refusal, saved=saved)
         if linked is not None:
             control = linked.draws(option["key"], control)
         entries.append((option.get("label") or humanize(option["key"]),
@@ -1764,10 +1781,22 @@ async def build_device_page(source: Any, context: dict[str, Any], schema: list[d
     there - which is why a device's pages pass none. `browse` is the same story: browsing
     is always this machine's own disk, so a device's pages pass none of that either.
     """
-    def rerender() -> None:
+    def refill() -> None:
+        again = context.get("refill")
+        if again is not None:
+            again()
+            return
         rebuild = context.get("rebuild")
         if rebuild is not None:
             ui.timer(0.01, rebuild, once=True)
+
+    @on_page
+    async def saved() -> None:
+        settle = context.get("saved")
+        if settle is not None:
+            await settle()
+        else:
+            refill()
 
     drawn = [block for block in schema
              if str(block.get("name")) in sections and block.get("options")]
@@ -1792,14 +1821,14 @@ async def build_device_page(source: Any, context: dict[str, Any], schema: list[d
         lead: list[tuple[Any, Any]] = []
         read: dict[str, Any] = {}
         if head is not None and source is context.get("library"):
-            lead = await head(source, rerender, values, offered=offered, read=read)
+            lead = await head(source, refill, values, offered=offered, read=read)
         resolves = RESOLVES.get(name)
         # Where this install's own client serves the page, for the same reason as the head.
         preview = chrome_options.Preview(values) \
             if name == chrome_options.SECTION and source is context.get("library") else None
         beneath = UNDER_SETTINGS.get(name)
         rows = section_rows(source, name, block["options"], values,
-                            bool(block.get("writable")), rerender, checks,
+                            bool(block.get("writable")), refill, checks,
                             suggestions,
                             under=await beneath(values) if beneath is not None
                             and source is context.get("library") else None,
@@ -1807,7 +1836,8 @@ async def build_device_page(source: Any, context: dict[str, Any], schema: list[d
                             browse=browse, waiting=waiting,
                             from_elsewhere=from_elsewhere, previewed=preview,
                             stands_in=stands_in,
-                            linked=linked if name == attract.SECTION else None)
+                            linked=linked if name == attract.SECTION else None,
+                            saved=saved)
         # A section that opens with a heading keeps its head under it: nothing sits
         # above the first heading.
         under = 1 if rows and rows[0][0] is panel.HEADING else 0
@@ -1820,7 +1850,7 @@ async def build_device_page(source: Any, context: dict[str, Any], schema: list[d
             entries.append(preview.row())
         foot = FOOTERS.get(name)
         if foot is not None and source is context.get("library"):
-            entries += await foot(source, rerender, offered=offered)
+            entries += await foot(source, refill, offered=offered)
     panel.facts(ui, _spliced(entries, blocks or []))
 
 
@@ -1939,6 +1969,69 @@ async def _draw_system_page(library: Library, redraw: Callable[[], None], body: 
             page_head(key)
             build_library_page(library, redraw, key, kind)
         return
+    page_drawn = SchemaPage(library, key, sections, state, trouble)
+    with body:
+        page_drawn.region()
+    await page_drawn.region.refilled()
+
+
+class SchemaPage:
+    """A schema page, drawn into a region that stays where it is when a value changes.
+
+    A write that something else on the page reads draws the region again beside the old
+    one and swaps it in, so the page is not dimmed and the rest of the view is not touched.
+    """
+
+    def __init__(self, library: Library, key: str, sections: tuple[str, ...],
+                 state: dict[str, Any] | None, trouble: Any) -> None:
+        self.library, self.key, self.sections = library, key, sections
+        self.state, self.trouble = state, trouble
+        self.read: tuple[Any, ...] | None = None
+        self.region = panel.region(self.draw, self._shown)
+
+    def _shown(self) -> None:
+        block = (self.state or {}).get("theme_sources")
+        if block is not None:
+            block.stale = False
+
+    async def draw(self) -> None:
+        self.read = await _draw_schema_page(self.library, self.key, self.sections,
+                                            self._trouble(), self.state, self.region.refill,
+                                            self.settled)
+
+    def _trouble(self) -> Any:
+        if self.state is not None and "trouble" in self.state:
+            return self.state["trouble"] or []
+        return self.trouble
+
+    async def settled(self) -> None:
+        """After a write that can mend or break something the page marks: the rail's marks
+        are read again, and the page is drawn again only if what its marks come from has
+        changed. A write that leaves them as they were has nothing to show."""
+        recheck = (self.state or {}).get("recheck_trouble")
+        if recheck is not None:
+            await recheck()
+        read = await _marked(self.library, self.sections, self._trouble())
+        if read != self.read:
+            self.region.refill()
+
+
+async def _marked(library: Library, sections: tuple[str, ...], trouble: Any) -> tuple[Any, ...]:
+    """What the marks on a settings page are read from: the path checks, what the enabled
+    features are missing, what the Tools found and the browser the frontend found."""
+    return (await offload.io(library.config_path_checks), trouble,
+            await _tools_found(library, sections),
+            await _browser_found(library) if "chromium" in sections else None)
+
+
+async def _draw_schema_page(library: Library, key: str, sections: tuple[str, ...],
+                            trouble: Any, state: dict[str, Any] | None,
+                            refill: Callable[[], None],
+                            saved: Callable[[], Awaitable[None]]) -> tuple[Any, ...] | None:
+    """The head and the settings of one schema page, drawn where the caller stands.
+
+    Answers what its marks were read from, so a later write can tell whether they moved.
+    """
     try:
         schema = settings_here(await offload.io(library.config_schema))
         sections = _with_windows(sections, schema)
@@ -1946,16 +2039,16 @@ async def _draw_system_page(library: Library, redraw: Callable[[], None], body: 
         checks = await offload.io(library.config_path_checks)
         offered = await _suggestions(library, schema, sections)
     except Exception as exc:  # noqa: BLE001 - a settings page says why, never 500s
-        with body:
-            panel.facts(ui, [panel.intro(t("said.settings_unreadable"),
-                                         hint=why(exc))])
-        return
+        panel.facts(ui, [panel.intro(t("said.settings_unreadable"), hint=why(exc))])
+        return None
     marks = field_marks(trouble, checks)
-    if found := await _tools_found(library, sections):
+    found = await _tools_found(library, sections)
+    if found:
         schema = with_discovery(schema, found)
         marks = tool_marks(found, values, marks)
     schema = with_default_paths(schema, checks)
-    if "chromium" in sections and (browser := await _browser_found(library)):
+    browser = await _browser_found(library) if "chromium" in sections else None
+    if browser:
         schema = with_browser_found(schema, browser)
     if play := await _play_input(library, sections):
         schema = with_play_input(schema, play, values)
@@ -1965,16 +2058,15 @@ async def _draw_system_page(library: Library, redraw: Callable[[], None], body: 
         blocks.append(("", input_page.rows(
             schema, values, lambda changes: _write_many(library, changes),
             findings=_input_findings(schema))))
+    reads_kinds = config_schema.EDITOR_THUMBNAIL in offered
     for registry, heading, above in PAGE_KINDS.get(key, ()):
-        rows = await _kind_rows(library, redraw, registry)
+        rows = await _kind_rows(
+            library, refill if reads_kinds and registry == "media_kinds" else None, registry)
         head = [(panel.HEADING, t(heading))] if heading else []
         blocks.append((above, [*head, *rows]))
     findings = [drawn for name in sections if name in FINDINGS
-                if (drawn := FINDINGS[name](offered, library, redraw)) is not None]
+                if (drawn := FINDINGS[name](offered, library, refill)) is not None]
     if key == displays.KEY:
-        def rebuild() -> None:
-            ui.timer(0.01, redraw, once=True)
-
         @on_page
         async def follow(before: Any, after: Any, here: Any) -> None:
             await vpx_displays.follow(library, before, after, here)
@@ -1990,10 +2082,10 @@ async def _draw_system_page(library: Library, redraw: Callable[[], None], body: 
         blocks.append((_section_label("windows.backglass"), [
             *displays.rows(values, schema, offered.get(config_schema.SUGGEST_SCREENS, []),
                            await offload.io(display_service.get_display_names), write,
-                           rebuild, follow=follow),
+                           refill, follow=follow),
             *placement_panel.rows(await run.io_bound(placement_panel.read, os.environ),
-                                  values, schema, write, rebuild)]))
-    stands_in = await _theme_sources(library, state if state is not None else {}, redraw) \
+                                  values, schema, write, refill)]))
+    stands_in = await _theme_sources(library, state if state is not None else {}, refill) \
         if theme_sources.SECTION in sections else None
     linked = None
     if attract.SECTION in sections:
@@ -2003,14 +2095,14 @@ async def _draw_system_page(library: Library, redraw: Callable[[], None], body: 
                                  writable=_writable(schema, attract.SECTION),
                                  theme=theme, left_to_theme=left)
         stands_in = {**(stands_in or {}), **linked.stands_in()}
-    with body:
-        page_head(key, findings)
-        await build_device_page(library, {"library": library, "rebuild": redraw},
-                                schema, values, sections, checks=marks,
-                                suggestions=offered, blocks=blocks, browse=library.folders,
-                                drawn_elsewhere=key == displays.KEY,
-                                waiting=Waiting(library, await _waiting(library)),
-                                stands_in=stands_in, linked=linked)
+    page_head(key, findings)
+    await build_device_page(library, {"library": library, "refill": refill, "saved": saved},
+                            schema, values, sections, checks=marks,
+                            suggestions=offered, blocks=blocks, browse=library.folders,
+                            drawn_elsewhere=key == displays.KEY,
+                            waiting=Waiting(library, await _waiting(library)),
+                            stands_in=stands_in, linked=linked)
+    return (checks, trouble, found, browser)
 
 
 def _options_of(schema: list[dict], section: str) -> list[dict]:
@@ -2056,6 +2148,9 @@ async def _theme_sources(library: Library, state: dict[str, Any],
               for one in found.get(group) or []
               if one["state"] == online_checks.NOT_CHECKED} - asked
     block = theme_sources.Block(library, found, redraw, frozenset(unread), asked)
+    # The rows of the old block are still on screen until the page swaps, and a drop on
+    # them means nothing against these addresses. `SchemaPage` clears this at the swap.
+    block.stale = state.get("theme_sources") is not None
     state["theme_sources"] = block
     return {f"{theme_sources.SECTION}.{theme_sources.LISTS}": theme_sources.rows(block, found),
             f"{theme_sources.SECTION}.{theme_sources.THEMES}": []}

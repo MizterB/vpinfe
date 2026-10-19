@@ -31,7 +31,7 @@ class Library:
 
 class FootTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
-        self.rerender = MagicMock()
+        self.refill = MagicMock()
         self.drawn: dict[str, Any] = {}
         self.enterContext(patch.object(
             offload, "io", new=AsyncMock(side_effect=lambda call, *args: call(*args))))
@@ -46,7 +46,7 @@ class FootTests(unittest.IsolatedAsyncioTestCase):
 
     async def _foot(self, state: dict[str, Any] | Exception) -> None:
         self.library = Library(state)
-        self.rows = await dof.foot(self.library, self.rerender)
+        self.rows = await dof.foot(self.library, self.refill)
 
     async def test_with_a_key_check_now_is_open_and_shows_when_it_last_ran(self) -> None:
         await self._foot({"checked": "2026-10-09T10:00:00Z", "has_key": True})
@@ -76,7 +76,7 @@ class FootTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(self.library.pressed, 1)
         self.ui.notify.assert_called_once_with(t("said.dof_config.updated"), type="positive")
-        self.rerender.assert_called_once()
+        self.refill.assert_called_once()
 
     async def test_a_press_that_changed_nothing_says_it_is_up_to_date(self) -> None:
         await self._press({"changed": False})
@@ -122,21 +122,21 @@ class LastCheckedTests(unittest.TestCase):
 
 class KeySaveTests(unittest.IsolatedAsyncioTestCase):
     async def test_a_saved_key_redraws_the_page_so_check_now_opens(self) -> None:
-        rerender = MagicMock()
+        refill = MagicMock()
         save = AsyncMock(return_value=True)
 
-        self.assertTrue(await settings._redrawn_after(save, rerender)("abc"))
+        self.assertTrue(await settings._redrawn_after(save, refill)("abc"))
 
         save.assert_awaited_once_with("abc")
-        rerender.assert_called_once()
+        refill.assert_called_once()
 
     async def test_a_key_that_was_not_saved_leaves_the_page_alone(self) -> None:
-        rerender = MagicMock()
+        refill = MagicMock()
 
-        done = await settings._redrawn_after(AsyncMock(return_value=False), rerender)("abc")
+        done = await settings._redrawn_after(AsyncMock(return_value=False), refill)("abc")
 
         self.assertFalse(done)
-        rerender.assert_not_called()
+        refill.assert_not_called()
 
 
 if __name__ == "__main__":

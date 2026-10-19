@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+from functools import partial
 from pathlib import Path
 from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
@@ -20,6 +21,7 @@ from manager.kit import panel
 from manager.kit.data import Library
 from manager.settings import recording, settings
 from tests.capture.test_preflight import report
+from tests.support.regions import Immediate
 
 PAGE = next(page for _group, pages in settings.DEVICE_INDEX for page in pages
             if page[0] == "hardware.recording")
@@ -94,16 +96,19 @@ class RecordingPageTests(unittest.IsolatedAsyncioTestCase):
         for module in (settings, recording):
             self.enterContext(patch.object(module, "ui"))
         self.head = self.enterContext(patch.object(settings, "page_head"))
+        self.refill = Mock()
+        self.redraw = Mock()
+        region = partial(Immediate, on_refill=self.refill)
+        self.enterContext(patch.object(panel, "region", new=region))
         self.facts = self.enterContext(patch.object(panel, "facts"))
         self.line = self.enterContext(patch.object(panel, "line"))
         self.field = self.enterContext(patch.object(panel, "field"))
         self.action = self.enterContext(patch.object(panel, "action"))
         self.enterContext(patch.object(panel, "disclosure"))
-        self.rerender = Mock()
 
     async def _drawn(self) -> list[tuple[Any, Any]]:
         self.facts.reset_mock()
-        await settings._draw_system_page(self.library, self.rerender, MagicMock(), PAGE,
+        await settings._draw_system_page(self.library, self.redraw, MagicMock(), PAGE,
                                          {}, [])
         [drawn] = self.facts.call_args_list
         return list(drawn.args[1])
@@ -322,7 +327,8 @@ class RecordingPageTests(unittest.IsolatedAsyncioTestCase):
                          t("manager.recording.chose_screens", desktop="KDE Plasma",
                            shared="3", screens="3"))
         self.assertEqual(cast(Any, recording.ui).notify.call_args.kwargs["type"], "positive")
-        self.rerender.assert_called_once()
+        self.refill.assert_called_once()
+        self.redraw.assert_not_called()
 
     async def test_a_screen_left_out_of_the_choice_is_a_warning(self) -> None:
         choose = await self._choose_screens()

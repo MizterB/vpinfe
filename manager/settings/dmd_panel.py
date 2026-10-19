@@ -50,10 +50,10 @@ def writes(on: bool, kind: str) -> dict[str, dict[str, Any]]:
 
 
 def rows(values: Mapping[str, Any], schema: Sequence[dict], write: Write,
-         rerender: Callable[[], None], follow: Follow | None = None, *,
+         refill: Callable[[], None], follow: Follow | None = None, *,
          kind: str = "") -> list[tuple[Any, Any]]:
     """The switch, and under it the question of which kind once it is on. `kind` is what
-    the caller already knows when VPinFE's settings do not say. `rerender` draws the rows
+    the caller already knows when VPinFE's settings do not say. `refill` draws the rows
     again from the stored settings, which is how a refused write puts the switch back."""
     held = {"on": is_on(values, schema), "kind": kind_of(values, schema) or kind}
 
@@ -65,7 +65,7 @@ def rows(values: Mapping[str, Any], schema: Sequence[dict], write: Write,
             held["on"] = on
             if on and held["kind"] and follow is not None:
                 await follow(str(held["kind"]))
-        rerender()
+        refill()
 
     async def picked(event: Any) -> None:
         chosen = str(event.value or "")
@@ -76,7 +76,7 @@ def rows(values: Mapping[str, Any], schema: Sequence[dict], write: Write,
             if follow is not None:
                 await follow(chosen)
         else:
-            rerender()
+            refill()
 
     found: list[tuple[Any, Any]] = [
         (t("manager.dmd_panel.switch"),

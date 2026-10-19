@@ -21,6 +21,7 @@ from frontend import theme_windows
 from manager.kit import panel
 from manager.kit.data import Library
 from manager.settings import settings
+from tests.support.regions import Immediate
 
 WIDE = Monitor(x=0, y=0, width=2560, height=1440, width_mm=597, height_mm=336,
                name="DP-1", is_primary=True)
@@ -167,6 +168,7 @@ class DrawnOnDisplaysTests(ATheme, unittest.IsolatedAsyncioTestCase):
             panel, "select",
             side_effect=lambda offered, value, pick, **_: SimpleNamespace(
                 offered=offered, value=value, pick=pick)))
+        self.enterContext(patch.object(panel, "region", new=Immediate))
         self.facts = self.enterContext(patch.object(panel, "facts"))
 
     async def _drawn(self) -> list[tuple[Any, Any]]:

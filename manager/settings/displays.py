@@ -100,7 +100,7 @@ def writes(moved: Mapping[str, picture.Placement], screens_here: Sequence[Screen
 
 def rows(values: Mapping[str, Any], schema: Sequence[dict], monitors: Sequence[Any],
          names: Sequence[str], write: Write,
-         rerender: Callable[[], None], follow: Follow | None = None) -> list[tuple[Any, Any]]:
+         refill: Callable[[], None], follow: Follow | None = None) -> list[tuple[Any, Any]]:
     """The picture as a heading and a row spanning the page. `follow` is told of each
     change that was kept."""
     here = screens.numbered(monitors, names)
@@ -123,7 +123,7 @@ def rows(values: Mapping[str, Any], schema: Sequence[dict], monitors: Sequence[A
         turned["orientation"] = found.get("windows.playfield", {}).get(
             "orientation", turned["orientation"])
         if lost:
-            rerender()
+            refill()
         if follow is not None:
             await follow(before, now(), here)
         return True

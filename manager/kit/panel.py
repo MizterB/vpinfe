@@ -256,8 +256,12 @@ class Region:
     the grid, so as a facts value its build draws one element.
     """
 
-    def __init__(self, build: Callable[[], Any]) -> None:
+    def __init__(self, build: Callable[[], Any],
+                 swapped: Callable[[], Any] | None = None) -> None:
+        """`swapped` is called each time a new part replaces the old one on screen, for state
+        that has to describe what is shown rather than what was just built."""
         self._build = build
+        self._swapped = swapped
         self._box: ui.element | None = None
         self._turn = 0
 
@@ -304,11 +308,13 @@ class Region:
             if one is not fresh and not one.is_deleted:
                 one.delete()
         fresh.set_visibility(True)
+        if self._swapped is not None:
+            self._swapped()
 
 
-def region(build: Callable[[], Any]) -> Region:
+def region(build: Callable[[], Any], swapped: Callable[[], Any] | None = None) -> Region:
     """A part of the page drawn by `build`, which `refill()` draws again in place."""
-    return Region(build)
+    return Region(build, swapped)
 
 
 # A redraw rebuilds the column at the top, and a deep link opens a row far down it: where the

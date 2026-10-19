@@ -21,6 +21,7 @@ from manager.kit.api import ApiClient
 from manager.kit.data import Library
 from manager.settings import settings
 from tests.support.clicks import press
+from tests.support.regions import Immediate
 
 CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 BROWSER = next(page for _group, pages in settings.DEVICE_INDEX for page in pages
@@ -92,6 +93,7 @@ class BrowserPageTests(unittest.IsolatedAsyncioTestCase):
             new=AsyncMock(side_effect=lambda call, *args, **kwargs: call(*args, **kwargs))))
         self.ui = self.enterContext(patch.object(settings, "ui"))
         self.enterContext(patch.object(settings, "page_head"))
+        self.enterContext(patch.object(panel, "region", new=Immediate))
         self.facts = self.enterContext(patch.object(panel, "facts"))
         self.enterContext(patch.object(
             panel, "states", side_effect=lambda chips, note="": list(chips)))

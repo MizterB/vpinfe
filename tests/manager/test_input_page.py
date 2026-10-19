@@ -19,6 +19,7 @@ from manager.kit import panel
 from manager.kit.data import Library
 from manager.settings import input_page, settings
 from tests.support.catalogs import served as catalog
+from tests.support.regions import Immediate
 
 INPUT_PAGE = next(page for _group, pages in settings.DEVICE_INDEX for page in pages
                   if page[0] == input_page.KEY)
@@ -209,6 +210,7 @@ class DrawnOnTheInputPageTests(unittest.IsolatedAsyncioTestCase):
             settings.run, "io_bound",
             new=AsyncMock(side_effect=lambda call, *args, **kwargs: call(*args, **kwargs))))
         self.enterContext(patch.object(settings, "page_head"))
+        self.enterContext(patch.object(panel, "region", new=Immediate))
         self.facts = self.enterContext(patch.object(panel, "facts"))
         self.drawn_by_the_device_page: list[Any] = []
         self.enterContext(patch.object(settings, "build_device_page", new=AsyncMock(

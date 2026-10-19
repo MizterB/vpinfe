@@ -41,9 +41,9 @@ def _option(section: str) -> dict[str, Any]:
 class PickedFromTheScreensTests(unittest.IsolatedAsyncioTestCase):
     def _drawn(self, section: str, value: Any, found: list[Any]) -> tuple[Mock, Mock, Mock]:
         save = AsyncMock(return_value=True)
-        self.rerender = Mock()
+        self.refill = Mock()
         with patch.object(panel, "select") as select, patch.object(panel, "number") as number:
-            settings.control_for(_option(section), value, save, rerender=self.rerender,
+            settings.control_for(_option(section), value, save, refill=self.refill,
                                  suggestions={config_schema.SUGGEST_SCREENS: found})
         return select, number, save
 
@@ -87,14 +87,14 @@ class PickedFromTheScreensTests(unittest.IsolatedAsyncioTestCase):
 
         await select.call_args.args[2](SimpleNamespace(value="0"))
 
-        self.rerender.assert_called_once_with()
+        self.refill.assert_called_once_with()
 
     async def test_a_pick_between_connected_screens_leaves_the_page_where_it_is(self) -> None:
         select, _, _ = self._drawn("windows.backglass", 1, [WIDE, TALL])
 
         await select.call_args.args[2](SimpleNamespace(value="0"))
 
-        self.rerender.assert_not_called()
+        self.refill.assert_not_called()
 
     def test_a_stored_screen_that_is_not_connected_stays_chosen_and_is_marked(self) -> None:
         with patch.object(panel, "value_state") as value_state:

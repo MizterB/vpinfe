@@ -165,7 +165,7 @@ class ResyncTests(unittest.TestCase):
 class RowsTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.write = AsyncMock(return_value=True)
-        self.rerender = Mock()
+        self.refill = Mock()
         self.action = self.enterContext(patch.object(panel, "action"))
         self.notify = self.enterContext(patch.object(placement_panel.ui, "notify"))
         self.add = self.enterContext(patch.object(placement_panel.placement, "add"))
@@ -176,7 +176,7 @@ class RowsTests(unittest.IsolatedAsyncioTestCase):
         self.enterContext(patch.object(placement_panel.placement, "write_rules"))
 
     def _rows(self, reading: Any, values: dict | None = None) -> list:
-        return placement_panel.rows(reading, values or {}, SCHEMA, self.write, self.rerender,
+        return placement_panel.rows(reading, values or {}, SCHEMA, self.write, self.refill,
                                     SWAY)
 
     def _sway(self, config: Path | None = Path("/cfg/sway/config"),
@@ -235,7 +235,7 @@ class RowsTests(unittest.IsolatedAsyncioTestCase):
 
         self.add.assert_called_once()
         self.reload.assert_called_once_with(SWAY)
-        self.rerender.assert_called_once_with()
+        self.refill.assert_called_once_with()
         self.assertEqual(self.notify.call_args.kwargs["type"], "positive")
 
     async def test_a_line_that_could_not_be_written_is_said_and_nothing_reloads(self) -> None:
@@ -257,7 +257,7 @@ class RowsTests(unittest.IsolatedAsyncioTestCase):
 
         self.add.assert_called_once()
         self.assertEqual(self.notify.call_args.kwargs["type"], "warning")
-        self.rerender.assert_called_once_with()
+        self.refill.assert_called_once_with()
 
     async def test_the_copy_writes_the_rules_then_shows_the_line(self) -> None:
         with patch.object(placement_panel.run, "io_bound", new=AsyncMock(
@@ -274,13 +274,13 @@ class RowsTests(unittest.IsolatedAsyncioTestCase):
 class XwaylandTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.write = AsyncMock(return_value=True)
-        self.rerender = Mock()
+        self.refill = Mock()
         self.action = self.enterContext(patch.object(panel, "action"))
 
     def _rows(self, kind: str = placement.GNOME, held: str = "") -> list:
         reading = placement_panel.Reading(placement.Offer(kind))
         values = {"chromium": {"options": held}}
-        return placement_panel.rows(reading, values, SCHEMA, self.write, self.rerender, SWAY)
+        return placement_panel.rows(reading, values, SCHEMA, self.write, self.refill, SWAY)
 
     def test_it_says_it_cannot_place_windows_and_names_the_desktop(self) -> None:
         for kind, name in ((placement.GNOME, "GNOME"), (placement.KDE, "KDE Plasma")):
@@ -303,7 +303,7 @@ class XwaylandTests(unittest.IsolatedAsyncioTestCase):
 
         self.write.assert_awaited_once_with(
             {"chromium": {"options": "--disable-gpu\n--ozone-platform=x11"}})
-        self.rerender.assert_called_once_with()
+        self.refill.assert_called_once_with()
 
     async def test_use_xwayland_on_empty_options_is_the_flag_alone(self) -> None:
         self._rows()
@@ -318,7 +318,7 @@ class XwaylandTests(unittest.IsolatedAsyncioTestCase):
 
         await self.action.call_args.args[1]()
 
-        self.rerender.assert_not_called()
+        self.refill.assert_not_called()
 
     def test_with_the_flag_already_there_it_shows_on_and_offers_nothing(self) -> None:
         with patch.object(panel, "state") as state:

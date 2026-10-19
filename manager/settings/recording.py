@@ -140,7 +140,7 @@ def says(name: str, command: str) -> str:
 
 
 def finding(offered: dict[str, Any], library: Any = None,
-            rerender: Callable[[], None] | None = None) -> Callable[[], None] | None:
+            refill: Callable[[], None] | None = None) -> Callable[[], None] | None:
     """Why this device records nothing, where it does not; or that it could not say.
     With this install's library, Choose Screens beside a desktop that has not been told
     which screens VPinFE may record."""
@@ -170,7 +170,7 @@ def finding(offered: dict[str, Any], library: Any = None,
                     panel.link(t("manager.settings.page_tools"), to=address_for(TOOLS))()
             if choosable:
                 panel.action(t("manager.recording.choose_screens"),
-                             _chooser(library, rerender or (lambda: None),
+                             _chooser(library, refill or (lambda: None),
                                       str((blocked.get("params") or {}).get("desktop"))),
                              icon=verbs.CHOOSE,
                              hint=t("manager.recording.choose_screens.help"))()
@@ -178,7 +178,7 @@ def finding(offered: dict[str, Any], library: Any = None,
     return draw
 
 
-def _chooser(library: Any, rerender: Callable[[], None],
+def _chooser(library: Any, refill: Callable[[], None],
              desktop: str) -> Callable[[], Any]:
     """Choose Screens: asked first, since the desktop asks on the device's own screen."""
     @on_page
@@ -209,12 +209,12 @@ def _chooser(library: Any, rerender: Callable[[], None],
             ui.notify(t("manager.recording.chose_screens", desktop=desktop,
                         shared=str(ended.get("shared")), screens=str(ended.get("screens"))),
                       type="positive" if every else "warning")
-        rerender()
+        refill()
 
     return choose
 
 
-async def foot(library: Any, rerender: Callable[[], None], *,
+async def foot(library: Any, refill: Callable[[], None], *,
                offered: dict[str, Any] | None = None) -> list[tuple[Any, Any]]:
     """Test, under the commands; then the recordings waiting for a decision."""
     found = report_of(offered)
@@ -227,7 +227,7 @@ async def foot(library: Any, rerender: Callable[[], None], *,
         logger.warning("Could not read the recordings waiting: %s", why(exc))
         return rows
     if int(waiting.get("count") or 0):
-        rows.append(_waiting(library, rerender, waiting))
+        rows.append(_waiting(library, refill, waiting))
     return rows
 
 
@@ -280,7 +280,7 @@ def came_out(said: dict[str, Any]) -> None:
                    frames=str(int(said.get("frames") or 0)))).classes("manager-help")
 
 
-def _waiting(library: Any, rerender: Callable[[], None],
+def _waiting(library: Any, refill: Callable[[], None],
              waiting: dict[str, Any]) -> tuple[Any, Any]:
     count = int(waiting.get("count") or 0)
 
@@ -297,7 +297,7 @@ def _waiting(library: Any, rerender: Callable[[], None],
             ui.notify(t("manager.recording.could_not_discard"), caption=why(exc),
                       type="negative")
             return
-        rerender()
+        refill()
 
     games = {str(row.get("game_id") or "") for row in waiting.get("proposals") or []}
 
@@ -309,7 +309,7 @@ def _waiting(library: Any, rerender: Callable[[], None],
         from manager.library import record  # record imports this module
 
         await record.review(library, used)
-        rerender()
+        refill()
 
     rows = list(waiting.get("proposals") or [])
 

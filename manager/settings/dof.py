@@ -147,12 +147,12 @@ def event_row(library: Any, state: dict[str, Any]) -> tuple[Any, Any]:
     return (t("manager.dof.test_event"), draw)
 
 
-async def foot(library: Any, rerender: Any, **_: Any) -> list[tuple[Any, Any]]:
+async def foot(library: Any, refill: Any, **_: Any) -> list[tuple[Any, Any]]:
     """When the config was last asked for and the way to ask now, then the event test."""
-    return [await _download_row(library, rerender), event_row(library, await event_state(library))]
+    return [await _download_row(library, refill), event_row(library, await event_state(library))]
 
 
-async def _download_row(library: Any, rerender: Any) -> tuple[Any, Any]:
+async def _download_row(library: Any, refill: Any) -> tuple[Any, Any]:
     """Dimmed, with the reason, while there is no API key to ask with."""
     from manager.settings.settings import last_checked
 
@@ -185,7 +185,7 @@ async def _download_row(library: Any, rerender: Any) -> tuple[Any, Any]:
             ui.notify(t("said.dof_config.updated") if changed
                       else t("manager.settings.already_date"),
                       type="positive" if changed else "info")
-        rerender()
+        refill()
 
     return last_checked(str(state.get("checked") or ""), now,
                         blocked="" if state.get("has_key") else t("error.dof_config.no_key"))

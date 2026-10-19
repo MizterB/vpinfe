@@ -194,19 +194,19 @@ class WritesTests(unittest.TestCase):
 class RowsTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.write = AsyncMock(return_value=True)
-        self.rerender = Mock()
+        self.refill = Mock()
         self.control = self.enterContext(patch.object(displays.picture, "Picture"))
 
     def _drawn(self, values: dict | None = None, monitors: tuple = (BIG, TALL),
                names: tuple = ("", "")) -> Mapping[str, Any]:
         entries = displays.rows(values or {}, SCHEMA, list(monitors), list(names), self.write,
-                                self.rerender)
+                                self.refill)
         [(_, draw)] = [entry for entry in entries if entry[0] is panel.FULL]
         draw()
         return self.control.call_args.kwargs
 
     def test_it_is_a_heading_and_a_row_across_the_page(self) -> None:
-        entries = displays.rows({}, SCHEMA, [BIG], [""], self.write, self.rerender)
+        entries = displays.rows({}, SCHEMA, [BIG], [""], self.write, self.refill)
 
         self.assertEqual([label for label, _ in entries], [panel.HEADING, panel.FULL])
         self.assertEqual(entries[0][1], t("manager.settings.section_screens"))
@@ -254,7 +254,7 @@ class RowsTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(await drawn["move"]({"backglass": 2}))
 
         self.write.assert_awaited_once_with({"windows.backglass": {"screen_id": 1}})
-        self.rerender.assert_not_called()
+        self.refill.assert_not_called()
 
     async def test_a_write_that_fails_says_so_and_holds_nothing(self) -> None:
         self.write.return_value = False
@@ -264,7 +264,7 @@ class RowsTests(unittest.IsolatedAsyncioTestCase):
         self.write.return_value = True
         await drawn["move"]({"scoreview": 2})
 
-        self.rerender.assert_called_once_with()
+        self.refill.assert_called_once_with()
 
     async def test_a_part_stored_on_a_screen_that_is_gone_redraws_the_page_once_moved(
             self) -> None:
@@ -272,7 +272,7 @@ class RowsTests(unittest.IsolatedAsyncioTestCase):
 
         await drawn["move"]({"backglass": 1})
 
-        self.rerender.assert_called_once_with()
+        self.refill.assert_called_once_with()
 
     async def test_a_write_that_fails_does_not_redraw_the_page(self) -> None:
         self.write.return_value = False
@@ -280,7 +280,7 @@ class RowsTests(unittest.IsolatedAsyncioTestCase):
 
         await drawn["move"]({"backglass": 1})
 
-        self.rerender.assert_not_called()
+        self.refill.assert_not_called()
 
     async def test_an_arrow_is_written_as_the_playfield_s_mounting_and_turn(self) -> None:
         drawn = self._drawn({"presentation": {"cab_mode": "true"}})

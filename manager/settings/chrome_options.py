@@ -91,7 +91,7 @@ def _entries(raw: Any, names: list[str]) -> list[str]:
 
 def leave_out(option: dict, value: Any, save: Callable[[Any], Any], *,
               section: Mapping[str, Any], writable: bool = True,
-              rerender: Callable[[], None] | None = None,
+              refill: Callable[[], None] | None = None,
               suggestions: dict[str, Any] | None = None,
               on_control: Callable[[Any], Any] | None = None) -> Callable[[], None]:
     """VPinFE's own options to pick from, typed into to find one.

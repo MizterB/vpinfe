@@ -20,6 +20,7 @@ from common.i18n import t
 from manager.kit import panel
 from manager.kit.data import Library
 from manager.settings import settings
+from tests.support.regions import Immediate
 
 PAGE = next(page for _group, pages in settings.DEVICE_INDEX for page in pages
             if page[0] == "vpinfe.tools")
@@ -79,6 +80,7 @@ class ToolsPageTests(unittest.IsolatedAsyncioTestCase):
             new=AsyncMock(side_effect=lambda call, *args, **kwargs: call(*args, **kwargs))))
         self.enterContext(patch.object(settings, "ui"))
         self.enterContext(patch.object(settings, "page_head"))
+        self.enterContext(patch.object(panel, "region", new=Immediate))
         self.facts = self.enterContext(patch.object(panel, "facts"))
         self.field = self.enterContext(patch.object(panel, "field"))
         self.marked = self.enterContext(patch.object(panel, "value_state"))

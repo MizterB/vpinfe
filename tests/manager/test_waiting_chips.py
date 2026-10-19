@@ -178,7 +178,7 @@ class TheAddressQuestionTests(_OnAPage):
     def _save(self, *, elsewhere: bool) -> Any:
         """The save handed to the control for the HTTP address."""
         handed: list[Any] = []
-        self.rerender = Mock()
+        self.refill = Mock()
         self.saved = AsyncMock(return_value=True)
 
         def control_for(option: dict, value: Any, save: Any, **kwargs: Any) -> Any:
@@ -188,7 +188,7 @@ class TheAddressQuestionTests(_OnAPage):
         with patch.object(settings, "control_for", side_effect=control_for), \
                 patch.object(settings, "saver", return_value=self.saved):
             settings.section_rows(Mock(), "network", [_option("network", "http_bind")],
-                                  {}, True, self.rerender, from_elsewhere=elsewhere)
+                                  {}, True, self.refill, from_elsewhere=elsewhere)
         return handed[0]
 
     async def test_a_browser_on_another_device_is_asked_first(self) -> None:
@@ -210,7 +210,7 @@ class TheAddressQuestionTests(_OnAPage):
             self.assertFalse(await save("127.0.0.1"))
 
         self.saved.assert_not_awaited()
-        self.rerender.assert_called_once()
+        self.refill.assert_called_once()
 
     async def test_going_back_to_every_interface_is_not_asked(self) -> None:
         save = self._save(elsewhere=True)

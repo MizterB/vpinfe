@@ -45,8 +45,10 @@ CONTROL_HELPERS = frozenset({"_switch", "_override"})
 # and a `*Select` class from `panel` or `dropdown`. A control wired after it is made
 # through `.on_value_change(handler)` is found by that call.
 CONTROL_MODULES = frozenset({"panel", "ui", "dropdown"})
+# Keyword arguments of a control that open something else and never handle the value:
+# `browse` opens a folder picker, which has its own dialog to draw.
+NOT_HANDLERS = frozenset({"browse"})
 
-SETTINGS = "Settings: refill what reads the value, and save the rest."
 WORKBENCH = "Workbench panels: save, then refill the mark or block that reads the value."
 LAUNCHERS = "Launcher panels: save, then refill what reads the value."
 EXTENSIONS = "Extension, Remote and Players pages: save, then refill what reads the value."
@@ -76,11 +78,7 @@ PENDING: dict[tuple[str, str], str] = {
     ("frontend/players.py", "details"): EXTENSIONS,
     ("remote/remote.py", "_up_section"): EXTENSIONS,
     ("remote/remote_record.py", "controller"): EXTENSIONS,
-    ("settings/dmd_panel.py", "rows"): SETTINGS,
-    ("settings/screens.py", "picker"): SETTINGS,
-    ("settings/settings.py", "_fill_kinds"): SETTINGS,
     ("settings/settings.py", "_identity_page"): SHELL,
-    ("settings/settings.py", "control_for"): SETTINGS,
     ("workbench/launcher.py", "_launcher_details"): LAUNCHERS,
     ("workbench/launcher.py", "launcher_rows.nvram"): LAUNCHERS,
     ("devices/devices.py", "_send_picker.draw"): UNREAD,
@@ -125,8 +123,8 @@ NAVIGATION: dict[tuple[str, str], str] = {
 
 # Neither number goes up. Raising one takes a line in a commit saying why. The sites are
 # counted as well as the functions, since a function already listed can gain a control.
-CEILING = 56
-SITES_CEILING = 75
+CEILING = 52
+SITES_CEILING = 68
 
 
 def _is_rebuild(node: ast.AST) -> bool:
@@ -282,7 +280,8 @@ def offenders(tree: ast.Module, files: dict[str, _File] | None = None
                 continue
             control = _control_call(child)
             if control is not None and isinstance(child, ast.Call):
-                handlers = [*child.args, *(one.value for one in child.keywords)]
+                handlers = [*child.args, *(one.value for one in child.keywords
+                                           if one.arg not in NOT_HANDLERS)]
                 if any(file.reaches_rebuild(handler) for handler in handlers):
                     found.append((child.lineno, ".".join(where), control))
             visit(child, where)
@@ -373,6 +372,15 @@ class AValueHandlerDoesNotRebuildThePage(unittest.TestCase):
             "        redraw()\n"
             "    part = panel.region(build)\n"
             "    panel.field('x', lambda e: part.refill())\n")
+
+        self.assertEqual([], offenders(tree))
+
+    def test_a_picker_a_field_opens_is_not_its_handler(self) -> None:
+        tree = trees.parse_snippet(
+            "def page(save, redraw):\n"
+            "    def pick():\n"
+            "        redraw()\n"
+            "    panel.field('x', save, browse=pick)\n")
 
         self.assertEqual([], offenders(tree))
 

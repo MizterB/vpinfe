@@ -83,7 +83,7 @@ def swatch(mode: str) -> None:
 def tiles(option: dict[str, Any], value: Any, save: Callable[[Any], Any], *,
           section: dict[str, Any] | None = None,
           writable: bool = True,
-          rerender: Callable[[], None] | None = None,
+          refill: Callable[[], None] | None = None,
           **_: Any) -> Callable[[], None]:
     """The four modes, side by side, the one in use marked on its edge.
 

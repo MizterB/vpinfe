@@ -348,7 +348,7 @@ class NoticeTests(unittest.IsolatedAsyncioTestCase):
 class SettingsDoorTests(unittest.IsolatedAsyncioTestCase):
     async def test_review_rereads_the_games_it_used_and_the_count(self) -> None:
         library = mock.Mock()
-        rerender = mock.Mock()
+        refill = mock.Mock()
         waiting = Library(_waiting("a", "g1", "playfield_video"),
                           _waiting("b", "g2", "playfield_video")).waiting
         actions: dict[str, Any] = {}
@@ -363,7 +363,7 @@ class SettingsDoorTests(unittest.IsolatedAsyncioTestCase):
                 mock.patch.object(recording.run, "io_bound",
                                   mock.AsyncMock(side_effect=_io)), \
                 mock.patch.object(record, "review", mock.AsyncMock()) as review:
-            label, draw = recording._waiting(library, rerender, waiting)
+            label, draw = recording._waiting(library, refill, waiting)
             draw()
             await actions["Review"]()
             assert review.await_args is not None
@@ -374,7 +374,7 @@ class SettingsDoorTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([call.args[0] for call in ui.label.call_args_list][1:],
                          ["Game g1 - Playfield Video", "Game g2 - Playfield Video"])
         library.reread_media.assert_called_once_with({"g1", "g2"})
-        rerender.assert_called_once()
+        refill.assert_called_once()
 
 
 if __name__ == "__main__":

@@ -122,20 +122,20 @@ def _chromium_options(values: Mapping[str, Any], schema: Sequence[dict]) -> str:
 
 
 def rows(reading: Reading | None, values: Mapping[str, Any], schema: Sequence[dict],
-         write: Write, rerender: Callable[[], None],
+         write: Write, refill: Callable[[], None],
          env: Mapping[str, str] = os.environ) -> list[tuple[Any, Any]]:
     if reading is None:
         return []
     found = reading.offer
     entries: list[tuple[Any, Any]] = [(panel.HEADING, t("manager.placement.heading"))]
     if found.kind in (placement.SWAY, placement.HYPRLAND):
-        entries += _rules_rows(reading, rerender, env)
+        entries += _rules_rows(reading, refill, env)
     else:
-        entries += _xwayland_rows(found, values, schema, write, rerender)
+        entries += _xwayland_rows(found, values, schema, write, refill)
     return entries
 
 
-def _rules_rows(reading: Reading, rerender: Callable[[], None],
+def _rules_rows(reading: Reading, refill: Callable[[], None],
                 env: Mapping[str, str]) -> list[tuple[Any, Any]]:
     found = reading.offer
     compositor = _name(found.kind)
@@ -164,7 +164,7 @@ def _rules_rows(reading: Reading, rerender: Callable[[], None],
         else:
             ui.notify(t("manager.placement.added_to", config=str(found.config)),
                       type="positive")
-        rerender()
+        refill()
 
     @on_page
     async def show_line() -> None:
@@ -224,7 +224,7 @@ def _show_line(found: placement.Offer, compositor: str) -> None:
 
 
 def _xwayland_rows(found: placement.Offer, values: Mapping[str, Any], schema: Sequence[dict],
-                   write: Write, rerender: Callable[[], None]) -> list[tuple[Any, Any]]:
+                   write: Write, refill: Callable[[], None]) -> list[tuple[Any, Any]]:
     desktop = _name(found.kind)
     held = _chromium_options(values, schema)
     on = XWAYLAND_FLAG in held.split()
@@ -232,7 +232,7 @@ def _xwayland_rows(found: placement.Offer, values: Mapping[str, Any], schema: Se
     async def use() -> None:
         joined = "\n".join((held.rstrip(), XWAYLAND_FLAG)) if held.strip() else XWAYLAND_FLAG
         if await write({"chromium": {"options": joined}}):
-            rerender()
+            refill()
 
     entries: list[tuple[Any, Any]] = [
         panel.intro(t("manager.placement.cannot.help", desktop=desktop))]

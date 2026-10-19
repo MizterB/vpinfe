@@ -22,12 +22,9 @@ NOT_A_REGION: dict[tuple[str, str], str] = {
     ("page.py", "manager_page"):
         "Puts the update count on the Devices entry once the devices have answered: "
         "a badge in the nav, not a region's content.",
-    ("settings.py", "build_device_page.rerender"):
-        "Schedules a rebuild, and the rebuild draws through the section build that "
-        "holds its own region.",
-    ("settings.py", "_draw_system_page.rebuild"):
-        "Schedules a rebuild once a part's gone screen has been replaced, and the rebuild "
-        "draws through the section build that holds its own region.",
+    ("settings.py", "build_device_page.refill"):
+        "Schedules a rebuild for a device's page, which has no region of its own, and the "
+        "rebuild draws through the section build that holds its own region.",
     ("theme_sources.py", "rows.draw"):
         "Reads the sources that have no result once their rows are drawn. The rows are "
         "already there and say Checking themselves, so there is no region to hold busy.",

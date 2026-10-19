@@ -70,7 +70,7 @@ class WritesTests(unittest.TestCase):
 class RowsTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.write = AsyncMock(return_value=True)
-        self.rerender = Mock()
+        self.refill = Mock()
         self.follow = AsyncMock()
         self.switch = self.enterContext(patch.object(dmd_panel.panel, "switch"))
         self.choice = self.enterContext(patch.object(dmd_panel.panel, "choice"))
@@ -78,7 +78,7 @@ class RowsTests(unittest.IsolatedAsyncioTestCase):
             dmd_panel.tools, "resolve", return_value=tools.Found(tools.FFMPEG, tools.State.FOUND)))
 
     def _rows(self, values: dict | None = None, **kwargs: Any) -> list:
-        return dmd_panel.rows(values or {}, SCHEMA, self.write, self.rerender, self.follow,
+        return dmd_panel.rows(values or {}, SCHEMA, self.write, self.refill, self.follow,
                               **kwargs)
 
     def _on(self, event: Any) -> Any:
@@ -128,7 +128,7 @@ class RowsTests(unittest.IsolatedAsyncioTestCase):
         await self.switch.call_args.args[1](self._on(True))
 
         self.write.assert_awaited_once_with({"real_dmd": {"enabled": True}})
-        self.rerender.assert_called_once_with()
+        self.refill.assert_called_once_with()
         self.follow.assert_not_awaited()
 
     async def test_switching_on_with_a_kind_known_tells_visual_pinball(self) -> None:
@@ -155,7 +155,7 @@ class RowsTests(unittest.IsolatedAsyncioTestCase):
         await self.switch.call_args.args[1](self._on(True))
 
         self.follow.assert_not_awaited()
-        self.rerender.assert_called_once_with()
+        self.refill.assert_called_once_with()
 
     async def test_a_kind_picked_is_written_and_told(self) -> None:
         self._rows(_held(enabled="true"))
@@ -165,7 +165,7 @@ class RowsTests(unittest.IsolatedAsyncioTestCase):
         self.write.assert_awaited_once_with(
             {"real_dmd": {"enabled": True, "pin2dmd_enabled": True}})
         self.follow.assert_awaited_once_with("PIN2DMD")
-        self.rerender.assert_not_called()
+        self.refill.assert_not_called()
 
     async def test_the_kind_already_picked_is_not_written_again(self) -> None:
         self._rows(_held(enabled="true"), kind="ZeDMD")
@@ -182,10 +182,10 @@ class RowsTests(unittest.IsolatedAsyncioTestCase):
         await self.choice.call_args.args[2](self._on("Pixelcade"))
 
         self.follow.assert_not_awaited()
-        self.rerender.assert_called_once_with()
+        self.refill.assert_called_once_with()
 
     async def test_with_nobody_to_tell_the_answer_is_still_kept(self) -> None:
-        entries = dmd_panel.rows(_held(enabled="true"), SCHEMA, self.write, self.rerender)
+        entries = dmd_panel.rows(_held(enabled="true"), SCHEMA, self.write, self.refill)
         self.assertEqual(len(entries), 2)
 
         await self.choice.call_args.args[2](self._on("ZeDMD"))
