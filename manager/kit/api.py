@@ -520,10 +520,6 @@ class ApiClient:
         """Every catalog entry against what the last count found the library holding."""
         return dict(self._get("/library/discovery"))
 
-    def recount_catalog(self) -> dict:
-        """Count the library against the catalog again. Returns the job to watch."""
-        return self._post("/library/vps_state", {})
-
     def vps_details(self, game_id: str) -> list[dict]:
         """Which of the game's details disagree with its entry - empty for a game
         nobody has re-matched, which is nearly all of them."""

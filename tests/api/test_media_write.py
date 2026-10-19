@@ -19,7 +19,7 @@ from unittest.mock import patch
 from starlette.testclient import TestClient
 
 import httpapi
-from common.online import asset_sources
+from common.online import sources
 from tests.support.library import TempTree, fake_game, write_game
 from tests.support.skips import needs_posix_permissions
 
@@ -186,14 +186,14 @@ class MediaWriteTests(TempTree):
     # --- filled from a catalog, rather than from a file the caller sent ---------
 
     def _fetch(self, md5: str) -> None:
-        offer = asset_sources.Offer(source="vpinmediadb", name="wheel.png",
+        offer = sources.Offer(source="vpinmediadb", name="wheel.png",
                                     url="https://example.invalid/wheel.png",
                                     kind="wheel", size="", md5=md5)
 
         def staged(url: str, path) -> None:
             Path(path).write_bytes(b"\x89PNGfetched")
 
-        with patch("common.online.asset_sources.url_for", return_value=offer), \
+        with patch("common.online.sources.url_for", return_value=offer), \
                 patch("common.security.http_client.download_file", staged):
             response = self.client.post(
                 f"/games/{GAME_ID}/media/wheel/fetch",

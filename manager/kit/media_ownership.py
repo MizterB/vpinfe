@@ -45,15 +45,14 @@ def source_name(origin: str) -> str:
         return BACKGLASS_FILE
     if origin == UNKNOWN.lower():
         return UNKNOWN
-    from common.online import asset_sources
-    return {source.id: source.name
-            for source in asset_sources.BUILT_IN}.get(origin, origin)
+    from common.online import sources
+    return {source.id: source.name for source in sources.catalogs()}.get(origin, origin)
 
 
 def source_names() -> list[str]:
     """Every source a file could report, for a filter that offers them all."""
-    from common.online import asset_sources
-    return sorted({source.name for source in asset_sources.BUILT_IN}
+    from common.online import sources
+    return sorted({source.name for source in sources.catalogs()}
                   | {YOU, UNKNOWN, RECORDED, BACKGLASS_FILE})
 
 

@@ -197,9 +197,8 @@ def summary(count: int) -> str:
 async def fill(
         body: Any, *, library: Library, state: dict[str, Any], games: list[dict[str, Any]],
         people: list[dict[str, Any]], releases: dict[str, Any], kind_words: dict[str, str],
-        counted: bool, compared: str, address: str,
+        counted: bool, compared: str, comparing: Callable[[], object],
         on_select: Callable[[Any], Any], reread: Callable[[], Awaitable[None]],
-        count_again: Callable[[], Awaitable[None]],
         open_page: Callable[[dict[str, str]], Awaitable[None]],
         acts: Callable[[list[dict[str, Any]], Callable[[], Awaitable[None]], bool],
                        list[panel.Verb]]) -> None:
@@ -259,15 +258,12 @@ async def fill(
                     lambda: table.run_grid_method("deselectAll"))
                 if compared:
                     ui.label(compared).classes("text-xs manager-label")
-                panel.refresh(lambda: count_again(), t("manager.discovery.compare_again"))
 
         if not games:
             panel.facts(ui, [panel.intro(t("manager.discovery.empty"))])
         if not counted:
             with ui.row().classes("w-full items-center gap-2 px-3 pb-2 shrink-0"):
-                ui.label(t("manager.discovery.not_compared")).classes("text-xs manager-label")
-                panel.link(t("manager.discovery.compare_now"), to=address,
-                           on_click=lambda: count_again())()
+                comparing()
 
         def counted_text() -> str:
             if shown["selected"]:
@@ -343,4 +339,3 @@ async def fill(
             await on_select(by_id.get(chosen))
 
     state["redraw_discovery"] = after
-    state["count_discovery"] = count_again

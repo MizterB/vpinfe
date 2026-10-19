@@ -10,11 +10,11 @@ from typing import Any
 
 from common.config.labels import field_label
 from common.extensions import host
-from common.extensions import sources as extension_sources
 from common.games.asset_registry import ASSET_SPECS, lens_kind
 from common.i18n import t
 from common.media import folder_browse
 from common.media.media_specs import MEDIA_SPECS, media_family, media_label_map
+from common.online import sources as source_registry
 from common.runtime.jobs import KIND_MEDIA_FILL
 from manager.kit import art, game_tables, media_ownership, need_keys, thumbnails, when
 from manager.kit.api import ApiClient
@@ -390,7 +390,7 @@ class Library:
     def offers_online(self, kind: str) -> bool:
         """Whether some switched-on online source from an extension offers `kind`. Asks
         nothing, so a dialog on the event loop may decide its tabs with it."""
-        return bool(self._online and extension_sources.names_for(kind) & self._online)
+        return bool(self._online and source_registry.names_for(kind) & self._online)
 
     def load_online_kinds(self) -> frozenset[str]:
         """Read which kinds an extension's online source offers. Off the loop. A failed read
@@ -2079,9 +2079,6 @@ class Library:
 
     def forget_catalog(self) -> None:
         self._catalog = None
-
-    def recount_catalog(self) -> dict:
-        return self._client.recount_catalog()
 
     def new_game_destination(self) -> dict:
         return self._client.new_game_destination()

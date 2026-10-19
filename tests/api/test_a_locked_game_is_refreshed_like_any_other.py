@@ -84,7 +84,6 @@ class LockedGameRefreshTests(TempTree):
                 mock.patch.object(VPSdb, "__init__", side_effect=AssertionError("VPSdb")),
                 mock.patch("socket.socket.connect", side_effect=OSError("offline")),
                 mock.patch.object(VPXParser, "single_file_extract", self._read),
-                mock.patch("common.games.watching.note_games"),
                 mock.patch.dict(unwritten._HELD, clear=True),
                 mock.patch.dict(unreadable._FAILED, clear=True)):
             patcher.start()

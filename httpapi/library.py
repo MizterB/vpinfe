@@ -176,29 +176,6 @@ def rotate_media(response: Response, payload: models.MediaRotateRequest) -> mode
     return _accepted(response, media_rotate.start(targets, payload.turn, payload.keep))
 
 
-@router.get("/watching", summary="Since when a catalog change counts as new",
-            dependencies=[requires(scopes.GAMES_READ)])
-def get_watching() -> models.Watching:
-    """Empty means nobody has answered yet. Answering with everything the catalog has ever
-    published would make the first look useless, which is why this is asked."""
-    return models.Watching.model_validate(library_ops.watching_since())
-
-
-@router.put("/watching", summary="Start watching from here",
-            dependencies=[requires(scopes.GAMES_WRITE)])
-def put_watching(payload: models.WatchingRequest) -> models.Watching:
-    """One mechanism for both answers a first run offers: review everything is the
-    beginning of time, start clean is now. There is no separate mode."""
-    return models.Watching.model_validate(library_ops.watch_from(payload.since))
-
-
-@router.post("/watching/acknowledge", summary="Dismiss one catalog change",
-             dependencies=[requires(scopes.GAMES_WRITE)])
-def acknowledge(payload: models.AcknowledgeRequest) -> models.Acknowledged:
-    library_ops.acknowledge(payload.game_id, payload.kind, payload.vps_file_id)
-    return models.Acknowledged(ok=True)
-
-
 @router.get("/dismissed", summary="Which Overview rows are set aside, and over what",
             dependencies=[requires(scopes.GAMES_READ)])
 def get_dismissed() -> models.Dismissals:

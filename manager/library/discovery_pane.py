@@ -29,9 +29,7 @@ def game(context: dict[str, Any], scene: Scene) -> None:
     row, state = context["discovery"], context["state"]
     with ui.column().classes("gap-0 w-full min-w-0"):
         _picture(str(row[thumbnails.FIELD]), row["name"])
-        if not scene.counted:
-            _never_counted(state)
-        else:
+        if scene.counted:
             _library_card(context, state, scene.in_library)
         if scene.failed is not None:
             _media_failed(state, scene.failed)
@@ -94,19 +92,6 @@ def _picture(src: str, name: str) -> None:
         plate.props["aria-label"] = t("word.enlarge")
         plate.on("click", enlarge).on("keydown.enter.self", enlarge) \
             .on("keydown.space.self.prevent", enlarge)
-
-
-async def _count_again(state: dict[str, Any]) -> None:
-    again = state.get("count_discovery")
-    if callable(again):
-        await again()
-
-
-def _never_counted(state: dict[str, Any]) -> None:
-    with ui.row().classes("items-center gap-2 w-full"):
-        ui.label(t("manager.discovery.not_compared")).classes("manager-help")
-        panel.link(t("manager.discovery.compare_now"), to=discovery.OWN_ADDRESS,
-                   on_click=lambda: _count_again(state))()
 
 
 def _media_failed(state: dict[str, Any], failed: BaseException) -> None:

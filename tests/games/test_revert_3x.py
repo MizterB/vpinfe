@@ -273,18 +273,20 @@ class ConfigTests(RevertTestCase):
         self.assertIn("devices.json", result["config_removed"])
         self.assertIn("manager-ui-state.json", result["config_removed"])
 
-    def test_the_watching_file_goes_from_the_state_folder(self):
+    def test_what_only_3x_kept_goes_from_the_state_folder(self):
         self._migrate()
         state = self.config_dir / "state"
         state.mkdir(exist_ok=True)
-        (state / "watching.json").write_text("{}", encoding="utf-8")
-        (self.config_dir / "watching.json").write_text("{}", encoding="utf-8")
+        for name in ("dismissed.json", "arrivals.json"):
+            (state / name).write_text("{}", encoding="utf-8")
+            (self.config_dir / name).write_text("{}", encoding="utf-8")
 
         result = self._reset()
 
-        self.assertFalse((state / "watching.json").exists())
-        self.assertIn("watching.json", result["config_removed"])
-        self.assertTrue((self.config_dir / "watching.json").exists())
+        for name in ("dismissed.json", "arrivals.json"):
+            self.assertFalse((state / name).exists())
+            self.assertIn(name, result["config_removed"])
+            self.assertTrue((self.config_dir / name).exists())
 
     def _list_a_mobile_device(self) -> Path:
         path = self.config_dir / "vpinfe.json"

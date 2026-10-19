@@ -69,7 +69,6 @@ class MarksTests(TempTree):
         for patcher in (
                 mock.patch.object(VPXParser, "single_file_extract", self._read),
                 mock.patch("socket.socket.connect", _offline),
-                mock.patch("common.games.watching.note_games"),
                 mock.patch("common.games.media_fill.request"),
                 mock.patch.dict(unwritten._HELD, clear=True),
                 mock.patch.dict(unreadable._FAILED, clear=True)):

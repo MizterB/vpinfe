@@ -403,11 +403,10 @@ def fetch_file(game_id: str, kind: str, table_id: str, source: str, vps_id: str,
     """
     import tempfile
 
-    from common.online import asset_sources
+    from common.online import sources
     from common.security.http_client import download_file
 
-    offer = asset_sources.url_for(source, kind, vps_id, size,
-                                  asset_sources.enabled_ids())
+    offer = sources.url_for(source, kind, vps_id, size, sources.enabled_ids())
     if offer is None:
         raise service_errors.NotFoundError(
             t("error.games.source_lacks_media"),

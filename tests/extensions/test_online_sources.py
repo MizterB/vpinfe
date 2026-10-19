@@ -13,10 +13,11 @@ from starlette.testclient import TestClient
 
 import httpapi
 from common import i18n
-from common.extensions import contract, host, reach, serving, sources, store
+from common.extensions import contract, host, reach, serving, store
 from common.extensions.context import ContractError, ExtensionSources
 from common.extensions.contract import Unavailable
 from common.i18n import t
+from common.online import sources
 from tests.support.accepted import owner_accepts
 from tests.support.identity import IDENTITY
 from tests.support.served import client_for
@@ -112,7 +113,7 @@ class Registry(unittest.TestCase):
 
     def put(self, extension: str = "ext", key: str = "files",
             kinds: frozenset[str] = frozenset({"wheel"})) -> sources.Source:
-        sources.register(extension, key, "Files", kinds, lambda who, kind: {},
+        sources.contribute(extension, key, "Files", kinds, lambda who, kind: {},
                          lambda who, kind, row: {})
         held = sources.named(extension, key)
         assert held is not None
@@ -125,7 +126,7 @@ class Registry(unittest.TestCase):
         self.put("one")
         self.put("two")
 
-        self.assertEqual(["one.files", "two.files"], [one.id for one in sources.all_sources()])
+        self.assertEqual(["one.files", "two.files"], [one.id for one in sources.contributed()])
 
     def test_a_key_is_lower_case_words_joined_by_underscores(self) -> None:
         for key in ("Files", "a b", "a.b", "1up", ""):
@@ -151,7 +152,7 @@ class Registry(unittest.TestCase):
 
         sources.forget("one")
 
-        self.assertEqual(["two.files"], [one.id for one in sources.all_sources()])
+        self.assertEqual(["two.files"], [one.id for one in sources.contributed()])
 
     def test_switching_a_source_off_in_settings_is_read_by_its_id(self) -> None:
         held = self.put()
@@ -245,7 +246,7 @@ class TheContract(unittest.TestCase):
             with self.subTest(key=key, kinds=kinds), self.assertRaises(ContractError):
                 self.contribute(self.ctx(), key=key, kinds=kinds)
 
-        self.assertEqual([], sources.all_sources())
+        self.assertEqual([], sources.contributed())
 
 
 class Served(unittest.TestCase):
@@ -784,7 +785,8 @@ class Listed(Served):
     def test_settings_lists_it_with_the_kinds_it_offers_and_who_offers_it(self) -> None:
         self.assertEqual({"id": f"{NAME}.files", "name": "Example Files", "url": "",
                           "enabled": True, "kinds": sorted(KINDS), "extension": NAME,
-                          "key": "files"}, self.listed())
+                          "key": "files", "always_on": False, "versions": False},
+                         self.listed())
 
     def test_its_switch_follows_what_settings_has_switched_off(self) -> None:
         STATE["off"] = [f"{NAME}.files"]

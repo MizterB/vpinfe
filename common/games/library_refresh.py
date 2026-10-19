@@ -27,7 +27,7 @@ _ticker: threading.Thread | None = None
 
 def refresh(reporter: JobReporter | None = None) -> dict:
     """Reconcile the library, and read whatever that turns up."""
-    from common.games import auto_match, game_identity, watching
+    from common.games import auto_match, game_identity
     from common.games.game_repository import all_games
 
     if reporter:
@@ -54,10 +54,7 @@ def refresh(reporter: JobReporter | None = None) -> dict:
         reporter.progress(3, 4, t("said.read_new"))
     read = enrich(games, reporter)
 
-    # Stamped here because this is the pass that knows a game is new. A game added
-    # next year must not arrive holding a year of upstream activity it was not around
-    # for - and a read path that stamped would make asking the question change it.
-    watching.note_games(game_identity.ensure_unique_ids(games))
+    game_identity.ensure_unique_ids(games)
     _resolve_collections(games)
     _art_for(unseen, waiting)
 

@@ -17,6 +17,7 @@ from typing import Any
 from common import service_errors
 from common.games import (
     derived_tags,
+    dismissals,
     entry_lens,
     game_repository,
     game_service,
@@ -24,7 +25,6 @@ from common.games import (
     library_vps_state,
     standalone_scripts,
     tag_registry,
-    watching,
 )
 from common.games.collection_filters import AXES, GameListFilters
 from common.games.collection_resolver import resolve
@@ -246,30 +246,13 @@ def apply_script_patches(only: Collection[str] | None = None) -> job_registry.Jo
                  t("said.title_script_fixes"))
 
 
-def watching_since() -> dict[str, Any]:
-    """Empty means nobody has answered yet, and until they do nothing counts as new."""
-    return {"since": watching.since()}
-
-
-def watch_from(since: str) -> dict[str, Any]:
-    """One mechanism for both answers a first run offers: review everything is the
-    beginning of time, start clean is now."""
-    watching.set_since(since or watching.FROM_THE_BEGINNING)
-    return {"since": watching.since()}
-
-
-def acknowledge(game_id: str, kind: str, vps_file_id: str) -> None:
-    """Sparse by design: only what somebody dismissed is stored."""
-    watching.acknowledge(game_id, kind, vps_file_id)
-
-
 def dismissed() -> dict[str, Any]:
-    return {"rows": [{"row": row, "ids": ids} for row, ids in watching.dismissed().items()]}
+    return {"rows": [{"row": row, "ids": ids} for row, ids in dismissals.dismissed().items()]}
 
 
 def dismiss(row: str, ids: Iterable[str]) -> dict[str, Any]:
     """Replace what one Overview row was dismissed over; none at all brings it back."""
-    watching.dismiss(row, ids)
+    dismissals.dismiss(row, ids)
     return dismissed()
 
 

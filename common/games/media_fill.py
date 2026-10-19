@@ -45,11 +45,11 @@ def _hidden_kinds() -> set[str]:
 
 def kept_kinds() -> set[str]:
     """The kinds this library collects that some enabled source publishes."""
-    from common.online import asset_sources
+    from common.online import sources
 
     hidden = _hidden_kinds()
     offered: set[str] = set()
-    for source in asset_sources.sources(asset_sources.enabled_ids()):
+    for source in sources.catalogs(sources.enabled_ids()):
         offered |= source.kinds
     return {kind for kind in _SPECS if kind not in hidden and kind in offered}
 
@@ -98,10 +98,10 @@ def _from_file(kind: str, game_id: str, name: str) -> bool:
 def _reachable() -> tuple[str, ...]:
     """The enabled sources that answer now, asking each once and naming each that does
     not. Never empty for "all": an empty answer means nothing can be asked."""
-    from common.online import asset_sources
+    from common.online import sources
 
     live = []
-    for source in asset_sources.sources(asset_sources.enabled_ids()):
+    for source in sources.catalogs(sources.enabled_ids()):
         if source.reachable():
             live.append(source.id)
         else:
@@ -111,9 +111,9 @@ def _reachable() -> tuple[str, ...]:
 
 
 def _unanswered(live: tuple[str, ...]) -> list[str]:
-    from common.online import asset_sources
+    from common.online import sources
 
-    return [source.name for source in asset_sources.sources(asset_sources.enabled_ids())
+    return [source.name for source in sources.catalogs(sources.enabled_ids())
             if source.id not in live]
 
 
@@ -155,10 +155,10 @@ def _fetch(game_id: str, kind: str, asked: str, vps_id: str, size: str,
            live: tuple[str, ...]) -> bool:
     """Put the source's file in the slot. False when no source has one."""
     from common.games import media_ops
-    from common.online import asset_sources
+    from common.online import sources
     from common.security.http_client import download_file
 
-    offers = asset_sources.offers(asked, vps_id, live)
+    offers = sources.offers(asked, vps_id, live)
     if not offers:
         return False
     offer = next((one for one in offers if one.size == size), offers[0])
@@ -278,13 +278,13 @@ def plan(game_ids: Iterable[str] | None = None) -> dict[str, Any]:
     a backglass gap.
     """
     from common.games import media_lens
-    from common.online import asset_sources
+    from common.online import sources
 
     scope = _scope(game_ids)
     kept = fillable_kinds()
     kinds = [kind for kind in _SPECS if kind in kept]
     variant = MediaConfig.from_config(get_ini_config()).playfield_variant
-    enabled = asset_sources.sources(asset_sources.enabled_ids())
+    enabled = sources.catalogs(sources.enabled_ids())
     live = tuple(source.id for source in enabled if source.reachable())
     only = next(iter(scope)) if len(scope) == 1 else ""
     gaps: dict[str, list[str]] = {}
@@ -307,7 +307,7 @@ def plan(game_ids: Iterable[str] | None = None) -> dict[str, Any]:
                 local[kind] += 1
                 continue
             asked = _asked_as(kind, variant)
-            if vps_id and asked and live and asset_sources.offers(asked, vps_id, live):
+            if vps_id and asked and live and sources.offers(asked, vps_id, live):
                 available[kind] += 1
     return {"games": len(scope), "unmatched": unmatched,
             "sources": [source.name for source in enabled],
@@ -410,7 +410,7 @@ def _update_game(game_id: str, game: Any, vps_id: str, wanted: set[str],
     Files are hashed only where the recorded hash is gone from the catalog.
     """
     from common.games import asset_origin, media_lens, media_placement
-    from common.online import asset_sources
+    from common.online import sources
     from common.online.vpsdb_media import file_md5, replace_file
 
     game_dir = Path(str(game.full_path_game))
@@ -421,7 +421,7 @@ def _update_game(game_id: str, game: Any, vps_id: str, wanted: set[str],
         return 0, 0
     hosts = tuple({str(source["host"]) for source in recorded.values()})
     published = {offer.md5 for kind in _SPECS
-                 for offer in asset_sources.offers(kind, vps_id, hosts)}
+                 for offer in sources.offers(kind, vps_id, hosts)}
     gone = {path for path, source in recorded.items() if source["hash"] not in published}
     if not gone:
         return 0, 0
@@ -434,7 +434,7 @@ def _update_game(game_id: str, game: Any, vps_id: str, wanted: set[str],
             continue
         gone.discard(path)
         host, held = str(recorded[path]["host"]), str(recorded[path]["hash"])
-        mine = asset_sources.offers(asked, vps_id, (host,))
+        mine = sources.offers(asked, vps_id, (host,))
         if not mine or file_md5(game_dir / path) != held:
             continue
         size = _size(asked, media)
@@ -456,9 +456,9 @@ def art_updater(config: ConfigStore, catalog: dict | None = None,
     """`_update_game` for one game at a time, as (game_id, game, vps_id), with the catalog
     read again, or `catalog` where the caller holds a copy it has just read, and each
     source asked once. None when nothing can be asked."""
-    from common.online import asset_sources
+    from common.online import vpinmediadb
 
-    asset_sources.refresh(catalog)
+    vpinmediadb.refresh_manifest(catalog)
     live = _reachable()
     wanted = kept_kinds()
     if not live or not wanted:

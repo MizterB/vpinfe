@@ -136,5 +136,11 @@ def sync_state() -> dict[str, Any]:
 
 def sync_now() -> dict[str, Any]:
     """Asked for, so it ignores the schedule - a manual sync that answered "not due" would
-    be reporting a rule back to the person overriding it."""
-    return vpsdb_sync.sync(get_ini_config(), True)
+    be reporting a rule back to the person overriding it. A catalog that changed is stamped
+    into the arrivals and compared like one the watch found."""
+    from common.online import sources_watch, vps_source
+
+    result = vpsdb_sync.sync(get_ini_config(), True)
+    sources_watch.refreshed(vps_source.SOURCE, bool(result.get("changed")))
+    sources_watch.compare_if_owed()
+    return result

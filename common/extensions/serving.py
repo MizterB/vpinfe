@@ -22,9 +22,10 @@ from typing import TYPE_CHECKING, Any
 
 from common import failures, i18n
 from common.media import sized_media
+from common.online import sources
 from common.service_errors import NotFoundError, RefusedError, ServiceError
 
-from . import contract, pane, pictures, reach, sources
+from . import contract, pane, pictures, reach
 from .fields import FieldError, dialog_fields, dialog_step, listed, number_text, ticked
 
 if TYPE_CHECKING:
@@ -990,6 +991,8 @@ def source_offers(record: Record, key: str, kind: str, who: Mapping[str, Any] | 
     """What the extension's source `key` has of `kind` for the entry `who` names: the rows
     checked and the pictures addressed, with the note and link it draws under them."""
     found = _source(record, key, kind)
+    if found.offers is None:
+        raise _no_verb(record, key, "offers")
     at = f"source {key} offers"
     answer = plain(record, at, called(record, at, found.offers, _asked_who(who), kind))
     if answer is None:
@@ -1050,6 +1053,8 @@ def source_take(record: Record, key: str, kind: str, who: Mapping[str, Any] | No
     """Take the row `row` of the extension's source `key`: a job it started, a dialog to
     open next, or a message, and nothing else."""
     found = _source(record, key, kind)
+    if found.take is None:
+        raise _no_verb(record, key, "take")
     at = f"source {key} take"
     _need(record, need, found.take, reach.LIBRARY, f"source:{key}")
     return _taken(record, at, _message(record, at, called(record, at, found.take,

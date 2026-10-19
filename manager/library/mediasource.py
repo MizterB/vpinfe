@@ -28,7 +28,6 @@ from nicegui import run, ui
 from common import apps, i18n, icons
 from common.capture.run import FILL
 from common.capture.session import RECORDABLE
-from common.extensions import sources as extension_sources
 from common.failures import why
 from common.games.asset_registry import ARCHIVE_EXTENSIONS, spec_for, specs_named
 from common.i18n import t
@@ -40,6 +39,7 @@ from common.media.media_specs import (
     media_family,
     media_label_map,
 )
+from common.online import sources as source_registry
 from manager.extensions import ext_lists, ext_page
 from manager.kit import (
     art,
@@ -588,7 +588,7 @@ class _OnlineTab(_Sources):
 
     def _from_extensions(self) -> list[dict[str, Any]]:
         """The switched-on sources from extensions that offer this kind."""
-        names = extension_sources.names_for(self.source_kind)
+        names = source_registry.names_for(self.source_kind)
         return [item for item in self._known_sources or []
                 if item.get("extension") and item.get("enabled")
                 and names & set(item.get("kinds") or ())]
@@ -599,10 +599,10 @@ class _OnlineTab(_Sources):
         An empty result with no "where" reads as the feature being broken rather than
         as the online sources not having it.
         """
-        names = extension_sources.names_for(self.source_kind)
+        names = source_registry.names_for(self.source_kind)
         asked = [item["name"] for item in (self._known_sources or [])
-                 if item.get("enabled")
-                 and (names & set(item.get("kinds") or ()) if item.get("extension")
+                 if item.get("enabled") and item.get("kinds")
+                 and (names & set(item["kinds"]) if item.get("extension")
                       else self.built_in)]
         return ", ".join(asked)
 
@@ -709,7 +709,7 @@ class _OnlineTab(_Sources):
         offered = set(source.get("kinds") or ())
         if self.source_kind in offered:
             return self.source_kind
-        return sorted(extension_sources.names_for(self.source_kind) & offered)[0]
+        return sorted(source_registry.names_for(self.source_kind) & offered)[0]
 
     def _offer_row(self, offer: dict[str, Any], source: dict[str, Any],
                    vps_id: str) -> None:
@@ -800,7 +800,7 @@ class _Slot(_OnlineTab, _OneFile):
         # to choose and the dialog has no destination row.
         self.page = page
         self.built_in = bool(target.online)
-        self.source_kind = extension_sources.file_kind(kind) if target.file else kind
+        self.source_kind = source_registry.file_kind(kind) if target.file else kind
         self.online = (self.built_in
                        or context["library"].offers_online(self.source_kind)) and page == 1
         self.records = records

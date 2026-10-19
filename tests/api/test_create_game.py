@@ -18,7 +18,7 @@ from fastapi.testclient import TestClient
 from httpx import Response
 
 import httpapi
-from common.games import game_repository
+from common.games import game_repository, library_vps_state
 from common.games.info_file import GAME_ID_KEY
 from common.i18n import t
 from tests.support.library import own_locations, write_game
@@ -422,7 +422,8 @@ class FromCatalogTests(CreateGameCase):
         self.assertEqual(self.add().status_code, 201)
 
     def test_a_counted_library_reads_the_new_game_as_in_it_before_the_next_count(self) -> None:
-        self.rollup.write_text(json.dumps({"schema": 2, "computed": "2026-10-01T00:00:00Z",
+        self.rollup.write_text(json.dumps({"schema": library_vps_state.SCHEMA,
+                                           "computed": "2026-10-01T00:00:00Z",
                                            "entries": {}}))
 
         with patch("common.games.library_vps_state.load_vpsdb", return_value=[self.ENTRY]):

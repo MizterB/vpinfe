@@ -29,7 +29,6 @@ from common.games import (
     game_repository,
     game_service,
     media_service,
-    watching,
 )
 from common.games.game import Game
 from common.games.game_service import load_vpsdb
@@ -42,7 +41,7 @@ from common.runtime.jobs import JobReporter
 logger = logging.getLogger("vpinfe.common.games.library_vps_state")
 
 ROLLUP_PATH = CACHE_DIR / "vps-rollup.json"
-SCHEMA = 2
+SCHEMA = 3
 TABLES = "tableFiles"
 
 
@@ -141,35 +140,11 @@ def held_tables(game: Game) -> list[dict[str, str]]:
             if isinstance(one, dict) and not one.get(ABSENT_SINCE_KEY) and entry_filename(one)]
 
 
-def _moved_since(records: list, baseline: str, dismissed: set) -> list:
-    """The records that changed upstream after this game's baseline.
-
-    No baseline means nobody has said when to start watching, and everything ever
-    published is not a useful first answer. A record with no `updatedAt` is never
-    reported: guessing is worse than silence.
-    """
-    start = timestamps.iso_to_epoch(baseline) if baseline else None
-    if start is None:
-        return []
-    moved = []
-    for record in records:
-        if str(record.get("id") or "") in dismissed:
-            continue
-        stamp = record.get("updatedAt")
-        try:
-            when = int(stamp) / 1000
-        except (TypeError, ValueError):
-            continue
-        if when > start:
-            moved.append(record)
-    return moved
-
-
 def state_of(game: Game, game_id: str = "") -> dict:
     """One game's state. The same answer the endpoint serves and the rollup counts,
     so the two cannot form separate opinions.
 
-    `game_id` addresses the media links and selects this game's watching baseline.
+    `game_id` addresses the media links.
     """
     entry = game_service.matched_vps_entry(game)
     game_dir = Path(str(game.full_path_game))
@@ -182,8 +157,6 @@ def state_of(game: Game, game_id: str = "") -> dict:
     recorded = asset_origin.sources(game_dir)
     bound = {str(source.get("vps_file_id") or "") for source in recorded.values()}
     bound.discard("")
-    baseline = watching.since_for(game_id)
-    dismissed = watching.acknowledged(game_id) if game_id else {}
 
     kinds = []
     for kind in vps_kinds.KINDS:
@@ -191,8 +164,6 @@ def state_of(game: Game, game_id: str = "") -> dict:
         answers = [obtainability.best_of(
             [link.get("url") for link in (record.get("urls") or [])], shared)
             for record in records]
-        moved = _moved_since(records, baseline,
-                             dismissed.get(kind.listed_as) or set())
         kinds.append({
             "kind": kind.listed_as,
             "ours": list(kind.ours),
@@ -201,9 +172,6 @@ def state_of(game: Game, game_id: str = "") -> dict:
             "files": _held_files(kind, game_dir, inventory, media, recorded),
             "identified": any(str(record.get("id") or "") in bound
                               for record in records),
-            "updated": any(str(record.get("id") or "") in bound for record in moved),
-            "new_upstream": sum(1 for record in moved
-                                if str(record.get("id") or "") not in bound),
             "listed": len(records),
             "obtainable": sum(1 for word in answers
                               if word == obtainability.AVAILABLE),
@@ -238,7 +206,7 @@ def store(rollup: dict[str, Any]) -> None:
         logger.exception("Could not write %s", ROLLUP_PATH)
 
 
-_TALLIES = ("holding", "identified", "listed", "obtainable", "updated", "new_upstream")
+_TALLIES = ("holding", "identified", "listed", "obtainable")
 
 
 def _entry_of(entries: dict[str, dict[str, Any]], state: dict) -> dict[str, Any] | None:
@@ -261,9 +229,9 @@ def compute(games: dict, per_game: Callable[[Game, str], dict],
             reporter: JobReporter | None = None) -> dict[str, Any]:
     """Count every kind across the library, from `{game_id: game}`.
 
-    Keyed by id because each game is measured against its own watching baseline.
-    `per_game` answers one game's state, so the two cannot drift. A game that cannot be
-    read still counts in `games` - dropping it would shrink the denominator silently.
+    Keyed by id because `per_game` addresses a game's media by it. `per_game` answers one
+    game's state, so the two cannot drift. A game that cannot be read still counts in
+    `games` - dropping it would shrink the denominator silently.
     """
     counts = {kind.listed_as: dict.fromkeys(_TALLIES, 0)
               for kind in vps_kinds.KINDS}
@@ -295,8 +263,6 @@ def compute(games: dict, per_game: Callable[[Game, str], dict],
             tally["identified"] += 1 if item.get("identified") else 0
             tally["listed"] += 1 if int(item.get("listed") or 0) else 0
             tally["obtainable"] += 1 if int(item.get("obtainable") or 0) else 0
-            tally["updated"] += 1 if item.get("updated") else 0
-            tally["new_upstream"] += 1 if int(item.get("new_upstream") or 0) else 0
     return {
         "computed": timestamps.utc_now_iso(),
         "games": total,

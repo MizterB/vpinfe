@@ -195,7 +195,7 @@ READ_FOR = {
     "common/extensions/contributions.py": NOT_ITS_REFUSALS,
     "common/extensions/games.py": NOT_ITS_REFUSALS,
     "common/extensions/provided_apps.py": NOT_ITS_REFUSALS,
-    "common/extensions/sources.py": NOT_ITS_REFUSALS,
+    "common/online/sources.py": NOT_ITS_REFUSALS,
     "common/i18n/__init__.py": NOT_ITS_REFUSALS,
     "common/tokens.py": NOT_ITS_REFUSALS,
     # What these refuse is a declaration in this tree, or a name only calling code makes up.

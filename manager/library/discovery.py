@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections.abc import Awaitable, Callable, Collection
 from typing import Any
 
@@ -22,6 +23,7 @@ from common import icons
 from common.failures import why
 from common.i18n import t
 from common.online import sites, vps_find, vps_formats, vps_kinds, vps_question
+from common.runtime.jobs import KIND_VPS_ROLLUP
 from manager.kit import (
     busy,
     confirm,
@@ -87,8 +89,7 @@ KIND_MANY = {
     "topperFiles": "manager.discovery.ask.kinds.topper",
 }
 
-_POLLS = 600
-_POLL_S = 1.0
+_POLL_S = 2.0
 
 
 def _cell_class() -> str:
@@ -275,13 +276,6 @@ async def _fill_releases(library: Library, body: Any, state: dict[str, Any],
         releases.clear()
         releases.update(releases_of(again, kept_listings(library)))
 
-    @on_page
-    async def count_again() -> None:
-        if not await recount(library, state):
-            return
-        library.forget_catalog()
-        rerender()
-
     async def go_to(subject: dict[str, str]) -> None:
         open_page(state, people, rerender, subject)
 
@@ -289,8 +283,9 @@ async def _fill_releases(library: Library, body: Any, state: dict[str, Any],
     await discovery_releases.fill(
         body, library=library, state=state, games=built, people=people, releases=releases,
         kind_words={listed_as: word for listed_as, _field, word in KINDS if listed_as in kept_now},
-        counted=bool(found.get("counted")), compared=_counted_text(found), address=OWN_ADDRESS,
-        on_select=on_select, reread=reread, count_again=count_again, open_page=go_to,
+        counted=bool(found.get("counted")), compared=_counted_text(found),
+        comparing=lambda: comparing_line(library, rerender),
+        on_select=on_select, reread=reread, open_page=go_to,
         acts=lambda chosen, after, check: acts(library, chosen, after, check=check))
 
 
@@ -379,10 +374,31 @@ def _unmatched_line(count: int, show: Callable[[], Awaitable[Any]] | None) -> No
             panel.link(text, to=GAMES_ADDRESS, on_click=show)()
 
 
-def _never_counted_line(count_now: Callable[[], Awaitable[Any]]) -> None:
-    with ui.row().classes("w-full items-center gap-2 px-3 pb-2 shrink-0"):
-        ui.label(t("manager.discovery.not_compared")).classes("text-xs manager-label")
-        panel.link(t("manager.discovery.compare_now"), to=OWN_ADDRESS, on_click=count_now)()
+def comparing_line(library: Library, rerender: Callable[[], None]) -> ui.label:
+    """Says the library is being compared with VPS while that job runs, and draws the page
+    again when one ends after this line was drawn. It never starts one: the sources watch
+    owes and runs it."""
+    line = ui.label(t("manager.discovery.comparing")).classes("text-xs manager-label")
+    line.set_visibility(False)
+    drawn = time.time()
+
+    @on_page
+    async def look() -> None:
+        try:
+            listed = await offload.io(library.jobs)
+        except Exception:  # noqa: BLE001 - the page's own job line reports a failed read
+            return
+        ours = [one for one in listed if one.get("kind") == KIND_VPS_ROLLUP]
+        running = any(one.get("state") == "running" for one in ours)
+        line.set_visibility(running)
+        if not running and any(one.get("state") == "done"
+                               and float(one.get("finished_at") or 0) >= drawn
+                               for one in ours):
+            library.forget_catalog()
+            rerender()
+
+    ui.timer(_POLL_S, look)
+    return line
 
 
 def grid_columns(library: Library, built: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -436,7 +452,6 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
             rerender()
 
         state["redraw_discovery"] = redraw_subject
-        state.pop("count_discovery", None)
         with body:
             if renamed:
                 deeplink.sync(state)
@@ -485,14 +500,13 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
                                         check=bool(grid_module.hidden_count(table))),
                     lambda: table.run_grid_method("deselectAll"))
                 ui.label(_counted_text(found)).classes("text-xs manager-label")
-                panel.refresh(lambda: count_again(), t("manager.discovery.compare_again"))
 
         if not built:
             panel.facts(ui, [panel.intro(t("manager.discovery.empty"))])
         if unmatched:
             _unmatched_line(unmatched, show_unmatched if callable(show_unmatched) else None)
         if not counted:
-            _never_counted_line(lambda: count_again())
+            comparing_line(library, rerender)
 
         def counted_text() -> str:
             if on_screen["selected"]:
@@ -583,17 +597,8 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
         count.text = counted_text()
         return True
 
-    @on_page
-    async def count_again() -> None:
-        """Count the library against the catalog, and read the answer when it is in."""
-        if not await recount(library, state):
-            return
-        library.forget_catalog()
-        rerender()
-
     state["redraw_discovery"] = after
     state["settle_discovery"] = settled
-    state["count_discovery"] = count_again
 
 
 _SHOWN = """(() => {
@@ -609,43 +614,16 @@ def _counted_text(found: dict[str, Any]) -> str:
     return t("manager.discovery.compared", when=when.ago(found["counted"], inline=True))
 
 
-@on_page
-async def recount(library: Library, state: dict[str, Any]) -> bool:
-    """Start the count and wait for it. False where it failed, which is said on screen."""
-    try:
-        job = await offload.io(library.recount_catalog)
-    except Exception as exc:  # noqa: BLE001
-        ui.notify(t("manager.discovery.compare_failed"), caption=why(exc), type="negative")
-        return False
-    watch = state.get("watch_jobs")
-    if callable(watch):
-        watch()
-    for _ in range(_POLLS):
-        await asyncio.sleep(_POLL_S)
-        try:
-            found = await offload.io(library.job, str(job.get("id") or ""))
-        except Exception:  # noqa: BLE001 - the footer line still reports it
-            return False
-        if found.get("state") == "running":
-            continue
-        if found.get("state") == "failed":
-            ui.notify(t("manager.discovery.compare_failed"),
-                      caption=str(found.get("error") or ""), type="negative")
-            return False
-        return True
-    return False
-
-
 def acts(library: Library, rows_on: list[dict[str, Any]],
          after: Callable[[], Awaitable[None]], *, check: bool = False) -> list[panel.Verb]:
     """What can be done to the entries a menu is open on. `check` is where the selection
     holds rows a search, a filter or a view leaves out, which `add` asks about first.
 
-    Add waits for a count: before one, every entry reads as not in the library."""
+    Add waits for the comparison, which says nothing of why: before one, every entry reads
+    as not in the library."""
     absent = [one for one in rows_on if one["in_library"] == NO]
     uncounted = any(not one["in_library"] for one in rows_on)
-    hint = "" if absent else t(
-        "manager.discovery.compare_first" if uncounted else "manager.discovery.already_in")
+    hint = "" if absent or uncounted else t("manager.discovery.already_in")
     return [panel.Verb(
         t("manager.discovery.add"),
         (lambda: add(library, absent, after, check=check)) if absent else None,
@@ -664,8 +642,7 @@ def pane_acts(library: Library, row: dict[str, Any], game_id: str,
         out.append(panel.Verb(
             opened, to="/manager?" + deeplink.query({"view": "games", "game": game_id})))
     else:
-        hint = {"": t("manager.discovery.compare_first"),
-                NO: t("manager.discovery.absent")}.get(row["in_library"], "")
+        hint = {NO: t("manager.discovery.absent")}.get(row["in_library"], "")
         out.append(panel.Verb(opened, hint=hint))
     if row["url"]:
         out.append(panel.Verb(t("manager.discovery.picture_open"), to=row["url"]))

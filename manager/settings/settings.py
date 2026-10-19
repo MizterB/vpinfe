@@ -1040,8 +1040,8 @@ KIND_PAGES: dict[str, tuple[str, str, str, Callable[[Any], dict[str, str]]]] = {
                     lambda _: {spec.kind: spec.label for spec in ASSET_SPECS
                                if spec.kind not in ALWAYS_KEPT}),
     "media_sources": ("", "", "hidden_sources",
-                      lambda library: {s["id"]: s["name"]
-                                       for s in library.media_sources()}),
+                      lambda library: {s["id"]: s["name"] for s in library.media_sources()
+                                       if not s.get("always_on")}),
     "library_checks": ("", "", "hidden_checks",
                        lambda _: _check_labels()),
     "overview_rows": (OVERVIEW_NOTE, "manager", "hidden_overview",
@@ -1094,9 +1094,9 @@ def _checks_arranged(switches: list[KindSwitch]) -> list[tuple[Any, Any]]:
 
 def _sources_arranged(switches: list[KindSwitch]) -> list[tuple[Any, Any]]:
     """The sources with a rule between each, the catalog VPinFE ships first."""
-    from common.online import asset_sources
+    from common.online import vpinmediadb
 
-    catalog = asset_sources.VPinMediaDB.id
+    catalog = vpinmediadb.ID
     entries: list[tuple[Any, Any]] = []
     for at, (name, label, draw) in enumerate(sorted(switches, key=lambda one: one[0] != catalog)):
         if at:

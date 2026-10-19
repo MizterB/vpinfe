@@ -1256,7 +1256,7 @@ class ExtensionSources:
 
         Needs `games:read` in the manifest, and Library in its `tiers`.
         """
-        from . import sources
+        from common.online import sources
 
         if not self._reads_games:
             raise ContractError(f"{self._name} offers an Online source, which needs "
@@ -1282,7 +1282,7 @@ class ExtensionSources:
                 raise ContractError(f"{self._name} gives its Online source {wanted!r} a "
                                     "take_many, act or look that is not a function")
         try:
-            sources.register(self._name, wanted, shown,
+            sources.contribute(self._name, wanted, shown,
                              frozenset(str(one).strip() for one in kinds), offers, take,
                              take_many, act, look)
         except ValueError as exc:
@@ -1292,7 +1292,7 @@ class ExtensionSources:
     def changed(self, vps_id: str) -> None:
         """What this extension's sources offer for the VPS entry has moved: a download
         began, finished or needs the person."""
-        from . import sources
+        from common.online import sources
 
         sources.changed(vps_id)
 

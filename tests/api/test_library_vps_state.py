@@ -38,7 +38,7 @@ def _state(matched=True, vps_id="E1", **held):
         "matched": matched,
         "vps_id": vps_id if matched else "",
         "kinds": [{"kind": kind, "held": h, "identified": i, "listed": ll,
-                   "obtainable": o, "updated": False, "new_upstream": 0}
+                   "obtainable": o}
                   for kind, (h, i, ll, o) in held.items()],
     }
 

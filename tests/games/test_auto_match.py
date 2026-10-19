@@ -344,8 +344,7 @@ class FirstSightTests(TempTree):
                 vps_id="", game_id="seen2", vpinfe={"alt_vpsid": None})),
         }
         for patcher in (patch.object(library_refresh, "discover", return_value={"found": 0}),
-                        patch.object(library_refresh, "enrich", return_value={"read": 0}),
-                        patch("common.games.watching.note_games")):
+                        patch.object(library_refresh, "enrich", return_value={"read": 0})):
             patcher.start()
             self.addCleanup(patcher.stop)
         art = patch("common.games.media_fill.request")

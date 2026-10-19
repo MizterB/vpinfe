@@ -17,9 +17,9 @@ from typing import Any
 
 from nicegui import ui
 
-from common.extensions import sources as extension_sources
 from common.failures import why
 from common.i18n import t
+from common.online import sources as source_registry
 from manager.extensions import ext_lists
 from manager.kit import offload
 from manager.kit.on_page import on_page
@@ -40,7 +40,7 @@ def kind_for(source: dict[str, Any], listed_as: str) -> str:
     holds none."""
     held = set(source.get("kinds") or ())
     for ours in discovery_get.of_listing(listed_as)[0]:
-        found = sorted(extension_sources.names_for(extension_sources.file_kind(ours)) & held)
+        found = sorted(source_registry.names_for(source_registry.file_kind(ours)) & held)
         if found:
             return found[0]
     return ""

@@ -22,9 +22,10 @@ from common import events as core_events
 from common import i18n, tokens
 from common.config.paths import CONFIG_DIR, bundled, get_ini_config
 from common.devices import install_identity
+from common.online import sources
 from common.security import accepted
 
-from . import catalogs, contributions, reach, sources
+from . import catalogs, contributions, reach
 from .context import ExtensionApps, ExtensionContext, check_play, check_references
 from .contract import (
     MANIFEST_NAME,

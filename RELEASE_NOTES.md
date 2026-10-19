@@ -77,8 +77,9 @@ next section first.
   type your own over any of them, and revert a field with a click. See which tables have a
   newer version on the spreadsheet.
 - **Manager** - Discovery lists every game and release on the Virtual Pinball Spreadsheet
-  and sets your library against them. Compare with VPS shows which games you hold and which
-  files you are missing, and Releases lists each file newest first. Search by author, maker
+  and sets your library against them. The comparison runs on its own at start-up and when the
+  spreadsheet changes, and shows which games you hold and which files you are missing, and
+  Releases lists each file newest first. Search by author, maker
   or theme, and filter by kind, format or when it was added.
 - **Manager** - Collections are smart (filled by rules on letter, theme, type, manufacturer,
   year, rating, tags, favorite and played) or hand-picked, ordered and capped as you choose.

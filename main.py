@@ -406,10 +406,10 @@ shutdown.exit_if_requested(logger)
 # offered from.
 def _start_sync_watchers() -> None:
     from common.online.dof_sync import start_watch as _watch_dof_config
+    from common.online.sources_watch import start_watch as _watch_sources
     from common.online.theme_sync import start_watch as _watch_themes
-    from common.online.vpsdb_sync import start_watch as _watch_vpsdb
 
-    _watch_vpsdb(config_store, _shutdown_event)
+    _watch_sources(config_store, _shutdown_event)
     _watch_themes(config_store, _shutdown_event)
     _watch_dof_config(config_store, _shutdown_event)
 

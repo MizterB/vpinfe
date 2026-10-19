@@ -2659,8 +2659,9 @@ class FolderListing(ApiModel):
 
 
 class MediaSource(ApiModel):
-    """An online catalog. `kinds` is what it can serve, so a client can tell a source
-    with nothing for this slot from one that is switched off."""
+    """An online source. `kinds` is what it can serve, so a client can tell a source
+    with nothing for this slot from one that is switched off. `always_on` says it has no
+    switch, and `versions` that it names the version of what it lists."""
 
     id: str
     name: str
@@ -2669,6 +2670,8 @@ class MediaSource(ApiModel):
     kinds: list[str]
     extension: str = ""
     key: str = ""
+    always_on: bool = False
+    versions: bool = False
 
 
 class MediaSourceList(ApiModel):
@@ -3822,15 +3825,8 @@ class VpsKindState(ApiModel):
     held: bool = False
     # What `held` is made of: each file, or the folder for a kind kept as one.
     files: list[VpsHeldFile] = []
-    # Whether anything here is bound to one of this kind's records. Without it only
-    # the vague transition can be reported, which measures four times noisier.
+    # Whether anything here is bound to one of this kind's records.
     identified: bool = False
-    # The two transitions, and the only fields here measured against a stored
-    # baseline rather than derived. `updated` is the record you hold having moved;
-    # `new_upstream` counts ones you are not bound to, which is the honest claim when
-    # nothing knows which you have. Both silent until watching has been started.
-    updated: bool = False
-    new_upstream: int = 0
     listed: int = 0
     obtainable: int = 0
     why_not: list[str] = []
@@ -3845,28 +3841,6 @@ class VpsState(ApiModel):
     kinds: list[VpsKindState] = []
     # The game's tables, which `kinds` leaves out: a table is what VPS calls the game.
     tables: list[VpsHeldFile] = []
-
-
-class Watching(ApiModel):
-    """When this install started counting a catalog change as new. Empty is a real
-    third state - not answered - and is why nothing is reported until it is."""
-
-    since: str = ""
-
-
-class WatchingRequest(ApiModel):
-    """An empty `since` means review everything, which is the beginning of time rather
-    than the empty string: absent has to keep meaning nobody has answered."""
-
-    since: str = ""
-
-
-class AcknowledgeRequest(ApiModel):
-    """Dismissing one record, for one game and kind."""
-
-    game_id: str
-    kind: str
-    vps_file_id: str
 
 
 class DismissedRow(ApiModel):
@@ -3899,8 +3873,6 @@ class LibraryVpsKindTally(ApiModel):
     identified: int = 0
     listed: int = 0
     obtainable: int = 0
-    updated: int = 0
-    new_upstream: int = 0
 
 
 class LibraryVpsState(ApiModel):

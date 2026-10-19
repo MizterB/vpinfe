@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 import unittest
 from typing import Any
 from unittest import mock
@@ -9,6 +10,7 @@ from unittest import mock
 from nicegui import ui
 
 from common.online import vps_kinds
+from common.runtime.jobs import KIND_VPS_ROLLUP
 from manager import page
 from manager.kit import deeplink, grid
 from manager.kit.data import Library
@@ -147,13 +149,13 @@ class Acts(unittest.TestCase):
         self.assertTrue(add.hint)
 
 
-    def test_add_waits_for_a_comparison_and_says_so(self) -> None:
+    def test_add_waits_for_a_comparison(self) -> None:
         row = discovery.rows(_found(_entry(in_library=None, held=[]), counted=""))[0]
 
         (add,) = discovery.acts(mock.Mock(spec=Library), [row], mock.AsyncMock())
 
         self.assertIsNone(add.run)
-        self.assertEqual("Compare with VPS first", add.hint)
+        self.assertEqual("", add.hint)
 
 
 class PaneActs(unittest.TestCase):
@@ -189,10 +191,10 @@ class PaneActs(unittest.TestCase):
         self.assertIsNone(verbs["Open in Games"].run)
         self.assertNotEqual("Not in your library", verbs["Open in Games"].hint)
 
-    def test_before_a_comparison_opening_asks_for_one(self) -> None:
+    def test_before_a_comparison_opening_is_dimmed_with_no_reason_given(self) -> None:
         row = discovery.rows(_found(_entry(in_library=None, held=[]), counted=""))[0]
 
-        self.assertEqual("Compare with VPS first", self._verbs(row)["Open in Games"].hint)
+        self.assertEqual("", self._verbs(row)["Open in Games"].hint)
 
     def test_an_entry_with_no_page_has_no_view_on_vps(self) -> None:
         row = discovery.rows(_found(_entry(url="")))[0]
@@ -994,6 +996,89 @@ class Leaving(unittest.TestCase):
 
         self.assertNotIn("section", state)
         self.assertIsNone(state["entry"])
+
+
+class Comparing(unittest.IsolatedAsyncioTestCase):
+    """The page says a comparison is running and reads the answer when it ends. It never
+    starts one: the sources watch does."""
+
+    def setUp(self) -> None:
+        self.jobs: list[dict] = []
+        self.library = mock.Mock(spec=Library)
+        self.library.jobs.side_effect = lambda: list(self.jobs)
+        self.redraw = mock.Mock()
+        self.look: Any = None
+        timer = mock.patch.object(discovery.ui, "timer",
+                                  side_effect=lambda _every, call: setattr(self, "look", call))
+        timer.start()
+        self.addCleanup(timer.stop)
+        with _PAGE:
+            self.line = discovery.comparing_line(self.library, self.redraw)
+
+    async def _look(self) -> None:
+        with _PAGE:
+            await self.look()
+
+    def _job(self, state: str, finished: float = 0.0, kind: str = KIND_VPS_ROLLUP) -> dict:
+        return {"kind": kind, "state": state, "finished_at": finished}
+
+    async def test_a_running_comparison_is_said_and_does_not_redraw_the_page(self) -> None:
+        self.jobs = [self._job("running")]
+
+        await self._look()
+
+        self.assertTrue(self.line.visible)
+        self.redraw.assert_not_called()
+
+    async def test_nothing_is_said_while_no_comparison_is_running(self) -> None:
+        """A comparison that failed or was never started leaves the page quiet, not
+        saying one is under way."""
+        self.jobs = [self._job("failed", finished=time.time() + 5)]
+
+        await self._look()
+
+        self.assertFalse(self.line.visible)
+
+    async def test_the_line_goes_when_the_comparison_ends(self) -> None:
+        self.jobs = [self._job("running")]
+        await self._look()
+        self.jobs = [self._job("done", finished=time.time() + 5)]
+
+        await self._look()
+
+        self.assertFalse(self.line.visible)
+
+    async def test_the_page_is_drawn_again_when_the_comparison_ends(self) -> None:
+        self.jobs = [self._job("running")]
+        await self._look()
+        self.jobs = [self._job("done", finished=time.time() + 5)]
+
+        await self._look()
+
+        self.library.forget_catalog.assert_called_once_with()
+        self.redraw.assert_called_once_with()
+
+    async def test_a_comparison_that_ended_before_the_page_was_drawn_is_not_news(self) -> None:
+        """Else a page that stays uncounted would draw itself again for ever."""
+        self.jobs = [self._job("done", finished=time.time() - 3600)]
+
+        await self._look()
+
+        self.redraw.assert_not_called()
+
+    async def test_another_kind_of_job_is_not_a_comparison(self) -> None:
+        self.jobs = [self._job("done", finished=time.time() + 5, kind="library.scan")]
+
+        await self._look()
+
+        self.redraw.assert_not_called()
+
+    async def test_a_jobs_list_that_cannot_be_read_is_left_for_the_next_look(self) -> None:
+        self.library.jobs.side_effect = OSError("down")
+
+        await self._look()
+
+        self.redraw.assert_not_called()
 
 
 if __name__ == "__main__":

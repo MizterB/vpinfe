@@ -119,11 +119,11 @@ class TestLogAndStateFiles(unittest.TestCase):
     def test_the_modules_that_write_them_follow_the_folders(self) -> None:
         from common.capture import proposals, run, trial, unshown
         from common.capture.adapters import portal
-        from common.games import watching
+        from common.games import dismissals
         from common.host import launch
         from common.online import app_updater
 
-        self.assertEqual(watching.WATCHING_PATH.parent, common.config.paths.STATE_DIR)
+        self.assertEqual(dismissals.PATH.parent, common.config.paths.STATE_DIR)
         self.assertEqual(app_updater.LAST_UPDATE_LOG.parent, common.config.paths.LOG_DIR)
         for held in (proposals.ROOT, run.WORK, run.RUN_FILE, trial.WORK, unshown.FILE,
                      portal.KEPT, launch.CAPTURE_LAUNCH_DIR):

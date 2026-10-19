@@ -121,9 +121,9 @@ def _blocked(kind: str, report: Mapping[str, Any]) -> dict[str, Any] | None:
 
 
 def _catalogs() -> set[str]:
-    from common.online import asset_sources
+    from common.online import sources
 
-    return {source.id for source in asset_sources.BUILT_IN}
+    return {source.id for source in sources.catalogs()}
 
 
 def decide(existing: str, held: str | None, review: bool = False) -> str:

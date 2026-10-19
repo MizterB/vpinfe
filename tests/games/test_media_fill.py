@@ -25,7 +25,7 @@ from common.games.formats import directb2s_parser
 from common.games.game import Game
 from common.i18n import t
 from common.media import sized_media
-from common.online import asset_sources, vpsdb_sync
+from common.online import sources, vpinmediadb, vpsdb_sync
 from common.online.vpsdb import VPSdb
 from common.online.vpsdb_media import VPSMediaDownloader
 from common.runtime import job_details, jobs
@@ -77,7 +77,7 @@ class _Library(TempTree):
                 patch("common.games.game_repository.catalog", return_value=self.games),
                 patch("common.games.game_repository.refresh_game"),
                 patch("common.security.http_client.download_file", self.downloads),
-                patch.object(asset_sources, "_MANIFEST", MANIFEST),
+                patch.object(vpinmediadb, "_MANIFEST", MANIFEST),
                 patch.object(media_fill, "get_ini_config", return_value=self.config),
                 patch("common.games.media_service.media_settings",
                       side_effect=lambda: (self.variant(), self.sets)),
@@ -186,7 +186,7 @@ class FillTests(_Library):
 
     def test_a_source_that_cannot_be_reached_is_asked_once(self) -> None:
         other = self.game(OTHER, "eightball")
-        with patch.object(asset_sources, "_MANIFEST", None), \
+        with patch.object(vpinmediadb, "_MANIFEST", None), \
                 patch("common.online.vpsdb_cache.VPinMediaDatabase.load",
                       return_value=None) as load:
             result = media_fill.fill([self.folder, other])
@@ -289,7 +289,7 @@ class AskedTests(_Library):
         self.downloads.assert_not_called()
 
     def test_a_source_that_cannot_be_reached_is_named_and_offers_nothing(self) -> None:
-        with patch.object(asset_sources, "_MANIFEST", None), \
+        with patch.object(vpinmediadb, "_MANIFEST", None), \
                 patch("common.online.vpsdb_cache.VPinMediaDatabase.load",
                       return_value=None) as load:
             found = media_fill.plan()
@@ -299,7 +299,7 @@ class AskedTests(_Library):
         self.assertEqual(load.call_count, 1)
 
     def test_a_fill_names_the_source_it_could_not_reach(self) -> None:
-        with patch.object(asset_sources, "_MANIFEST", None), \
+        with patch.object(vpinmediadb, "_MANIFEST", None), \
                 patch("common.online.vpsdb_cache.VPinMediaDatabase.load", return_value=None):
             result = self.ran(media_fill.start(kinds=["wheel"]))
 
@@ -400,7 +400,7 @@ class BackglassFileTests(_Library):
         self.backglass = f"(Backglass) {FOLDER}.png"
 
     def sources_off(self) -> None:
-        patcher = patch.object(asset_sources, "enabled_ids", return_value=())
+        patcher = patch.object(sources, "enabled_ids", return_value=())
         patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -575,7 +575,7 @@ class UpdateTests(_Replaced):
         self.ours(WHEEL, OLD_WHEEL)
         held = {"fathom": {"wheel": _url("wheel.png"), "wheel_md5": _md5(OLD_WHEEL)}}
 
-        with patch.object(asset_sources, "_MANIFEST", held):
+        with patch.object(vpinmediadb, "_MANIFEST", held):
             media_fill.update_downloaded()
 
         self.assertEqual(self.placed()[WHEEL], _url("wheel-new.png"))
