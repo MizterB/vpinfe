@@ -103,8 +103,9 @@ class PaneReopenDrive(unittest.TestCase):
             await browser.click(TICK % 0)
             seen["edit one"] = await browser.evaluate(EDIT)
             await browser.click(TICK % 1)
-            await browser.wait_for("!!document.querySelector('.manager-edit-selected')"
-                                   ".textContent.trim()")
+            # The button is in the page from the start with its words already on it, so
+            # only what the user sees says that the second tick has been taken.
+            await browser.wait_for(f"{EDIT} === 'Edit 2 games'")
             seen["edit two"] = await browser.evaluate(EDIT)
             seen["opened before"] = await browser.evaluate(
                 "!!document.querySelector('.manager-pane-box.manager-opened')")
