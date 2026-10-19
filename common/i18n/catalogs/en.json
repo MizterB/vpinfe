@@ -1067,6 +1067,22 @@
     "one": "1 game, {held:n} in your library",
     "other": "{count:n} games, {held:n} in your library"
   },
+  "manager.discovery.tab.games": "Games",
+  "manager.discovery.tab.releases": "Releases",
+  "manager.discovery.releases.summary": {
+    "one": "1 release",
+    "other": "{count:n} releases"
+  },
+  "manager.discovery.releases.name.help": "The game the release is for\nWith its manufacturer and year under it",
+  "manager.discovery.releases.kind.help": "What the release is: a table, a backglass, a ROM and so on",
+  "manager.discovery.releases.version.help": "The version VPS records for the release, blank where it records none",
+  "manager.discovery.releases.authors.help": "Who made the release, as VPS credits them",
+  "manager.discovery.releases.added.help": "When VPS added the release",
+  "manager.discovery.releases.held.help": "Whether your library holds this release, blank where it does not",
+  "manager.discovery.releases.format.help": "The table format VPS records for the release, such as VPX",
+  "manager.discovery.releases.features.help": "The features VPS tags the release with",
+  "manager.discovery.releases.mod.help": "A release VPS tags as a mod or links to another release",
+  "manager.view.releases_everything.help": "Every release VPS lists, newest first",
   "manager.discovery.unmatched": {
     "one": "1 of your games isn't matched to VPS",
     "other": "{count:n} of your games aren't matched to VPS"

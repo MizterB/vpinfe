@@ -45,6 +45,7 @@ from manager.library import (
     discovery_ask,
     discovery_ext,
     discovery_get,
+    discovery_releases,
     import_dialog,
     mediasource,
     mediaview,
@@ -55,6 +56,9 @@ logger = logging.getLogger("vpinfe.manager.library.discovery")
 SCOPE = "discovery"
 GAMES_ADDRESS = "/manager?" + deeplink.query({"view": "games"})
 OWN_ADDRESS = "/manager?" + deeplink.query({"view": "discovery"})
+
+BROWSE = "browse"
+RELEASES = "releases"
 
 HAVE = "have"
 MISSING = "missing"
@@ -216,10 +220,74 @@ def unmatched_games(library: Library) -> int:
     return sum(1 for game in library.game_rows() if game.get("vps_unmatched"))
 
 
+def tab_of(state: dict[str, Any]) -> str:
+    """The tab chosen, and Browse where the address named a subject."""
+    if state.get("subject"):
+        return BROWSE
+    return RELEASES if state.get("discovery_tab") == RELEASES else BROWSE
+
+
 def build(library: Library, state: dict[str, Any], on_select: Callable[[Any], Any],
           rerender: Callable[[], None]) -> None:
+    tab = tab_of(state)
+
+    def switch(event: Any) -> None:
+        state["discovery_tab"] = event.value
+        state["subject"] = None
+        deeplink.sync(state)
+        rerender()
+
+    with ui.row().classes("w-full items-center px-3 pt-2 pb-1 shrink-0"):
+        panel.segmented({BROWSE: t("manager.discovery.tab.games"),
+                         RELEASES: t("manager.discovery.tab.releases")}, tab, switch)
     body = ui.column().classes("w-full grow min-h-0 gap-0")
-    busy.fill(body, lambda: _fill(library, body, state, on_select, rerender))
+    fill = _fill_releases if tab == RELEASES else _fill
+    busy.fill(body, lambda: fill(library, body, state, on_select, rerender))
+
+
+async def _fill_releases(library: Library, body: Any, state: dict[str, Any],
+                         on_select: Callable[[Any], Any], rerender: Callable[[], None]) -> None:
+    try:
+        found = await _read(library)
+    except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
+        with body:
+            panel.facts(ui, [panel.intro(t("manager.discovery.read_failed"), hint=why(exc))])
+        return
+    kept_now = kept_listings(library)
+    built = rows(found, kept_now)
+    people = list(found.get("people") or [])
+    releases = releases_of(found, kept_now)
+
+    async def reread() -> None:
+        if not library.has_catalog():
+            await offload.io(library.load_catalog)
+        again = library.catalog()
+        built[:] = rows(again, kept_listings(library))
+        people[:] = again.get("people") or []
+        releases.clear()
+        releases.update(releases_of(again, kept_listings(library)))
+
+    @on_page
+    async def count_again() -> None:
+        if not await recount(library, state):
+            return
+        library.forget_catalog()
+        rerender()
+
+    async def open_author(name: str) -> None:
+        known = vps_question.person_named(name, people)
+        state["subject"] = {"type": vps_find.AUTHOR, "name": str(known["name"]) if known else name}
+        state["arriving"] = None
+        deeplink.sync(state)
+        rerender()
+
+    state["open_author"] = open_author
+    await discovery_releases.fill(
+        body, library=library, state=state, games=built, people=people, releases=releases,
+        kind_words={listed_as: word for listed_as, _field, word in KINDS if listed_as in kept_now},
+        counted=bool(found.get("counted")), compared=_counted_text(found), address=OWN_ADDRESS,
+        on_select=on_select, reread=reread, count_again=count_again,
+        acts=lambda chosen, after, check: acts(library, chosen, after, check=check))
 
 
 async def _read(library: Library) -> dict[str, Any]:

@@ -1,8 +1,8 @@
 """Every release VPS lists, by game and kind, with who made it and what it is.
 
-Per release: its authors, whether it is a mod, its features, its table format and the date
-VPS added it. An author is a person, not a spelling, so people are listed once in `people`
-and a release names them by position in that list, in the order VPS credits them.
+Per release: its authors, whether it is a mod, its features, its table format, its version
+and the date VPS added it. An author is a person, not a spelling, so people are listed once
+in `people` and a release names them by position in that list, in the order VPS credits them.
 """
 
 from __future__ import annotations
@@ -93,6 +93,7 @@ def _release(release: dict, positions: dict[str, int]) -> dict[str, Any]:
         "mod": mods.is_mod(release),
         "features": [str(word) for word in (release.get("features") or [])],
         "format": str(release.get("tableFormat") or ""),
+        "version": str(release.get("version") or "").strip(),
         "added": timestamps.epoch_to_iso(int(release["createdAt"] // 1000))
         if isinstance(release.get("createdAt"), (int, float)) else "",
     }

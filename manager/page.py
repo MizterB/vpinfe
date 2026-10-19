@@ -50,6 +50,7 @@ from manager.kit.on_page import on_page
 from manager.library import assets as assets_page
 from manager.library import collections as collections_page
 from manager.library import discovery as discovery_page
+from manager.library import discovery_releases as discovery_releases_page
 from manager.library import (
     games,
     row_drag,
@@ -1986,6 +1987,7 @@ def _land(state: dict[str, Any]) -> None:
         grid.land_on(backups_page.SCOPE, {"id": str(state["backup"])})
     elif view == "discovery" and state.get("entry"):
         grid.land_on(discovery_page.SCOPE, {"id": str(state["entry"])})
+        grid.land_on(discovery_releases_page.SCOPE, {"game_id": str(state["entry"])})
     elif view == "collections" and state.get("collection"):
         grid.land_on(collections_page.SCOPE, {"id": str(state["collection"])})
     elif state.get("ext_row") and community_page.find(view, state["extensions"]):
@@ -2058,6 +2060,7 @@ def leave_for(state: dict[str, Any], view: str) -> None:
         state["entry"] = None
         state["ext_row"] = ""
         state["sets"] = None
+        state.pop("discovery_tab", None)
         state.pop("slot", None)
         if state.get("section") in OWN_SUBJECT_SECTIONS:
             state.pop("section", None)

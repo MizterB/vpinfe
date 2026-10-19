@@ -69,6 +69,14 @@ class ReleaseIndexTests(unittest.TestCase):
                          ("VPX", ["MOD", "VR"], "2025-10-13T00:00:00Z"))
         self.assertEqual((second["format"], second["added"]), ("FP", ""))
 
+    def test_the_version_is_carried_trimmed_and_blank_where_vps_has_none(self) -> None:
+        with patch.object(vps_releases, "load_vpsdb", return_value=[
+                {"id": "V1", "name": "V", "tableFiles": [
+                    {"id": "a", "version": " 1.2 "}, {"id": "b"}]}]):
+            self.assertEqual([one["version"] for one
+                              in vps_releases.index()["entries"]["V1"]["tableFiles"]],
+                             ["1.2", ""])
+
     def test_only_listings_that_have_releases_are_kept(self) -> None:
         self.assertEqual(sorted(self.built["entries"]["E1"]), ["b2sFiles", "tableFiles"])
         self.assertEqual(sorted(self.built["entries"]["E2"]), ["romFiles"])
@@ -88,7 +96,7 @@ class ReleaseIndexTests(unittest.TestCase):
 class RollupRecordsWhatIsHeldTests(unittest.TestCase):
     def test_the_count_keeps_the_release_ids_files_and_tables_are_bound_to(self) -> None:
         class Game:
-            meta_config = {"tables": {}}
+            meta_config: dict = {"tables": {}}
 
         state = {"matched": True, "vps_id": "E1",
                  "tables": [{"name": "a.vpx", "vps_file_id": "t1"},

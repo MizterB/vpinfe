@@ -1067,6 +1067,22 @@
     "one": "1 ĝàɱè, {held:n} îñ ýöûř ŀîƀřàřý",
     "other": "{count:n} ĝàɱèš, {held:n} îñ ýöûř ŀîƀřàřý"
   },
+  "manager.discovery.tab.games": "Ĝàɱèš",
+  "manager.discovery.tab.releases": "Řèŀèàšèš",
+  "manager.discovery.releases.summary": {
+    "one": "1 řèŀèàšè",
+    "other": "{count:n} řèŀèàšèš"
+  },
+  "manager.discovery.releases.name.help": "Ţĥè ĝàɱè ţĥè řèŀèàšè îš ƒöř\nŴîţĥ îţš ɱàñûƒàçţûřèř àñđ ýèàř ûñđèř îţ",
+  "manager.discovery.releases.kind.help": "Ŵĥàţ ţĥè řèŀèàšè îš: à ţàƀŀè, à ƀàçķĝŀàšš, à ŘÖḾ àñđ šö öñ",
+  "manager.discovery.releases.version.help": "Ţĥè ṽèřšîöñ ṼÞŠ řèçöřđš ƒöř ţĥè řèŀèàšè, ƀŀàñķ ŵĥèřè îţ řèçöřđš ñöñè",
+  "manager.discovery.releases.authors.help": "Ŵĥö ɱàđè ţĥè řèŀèàšè, àš ṼÞŠ çřèđîţš ţĥèɱ",
+  "manager.discovery.releases.added.help": "Ŵĥèñ ṼÞŠ àđđèđ ţĥè řèŀèàšè",
+  "manager.discovery.releases.held.help": "Ŵĥèţĥèř ýöûř ŀîƀřàřý ĥöŀđš ţĥîš řèŀèàšè, ƀŀàñķ ŵĥèřè îţ đöèš ñöţ",
+  "manager.discovery.releases.format.help": "Ţĥè ţàƀŀè ƒöřɱàţ ṼÞŠ řèçöřđš ƒöř ţĥè řèŀèàšè, šûçĥ àš ṼÞẊ",
+  "manager.discovery.releases.features.help": "Ţĥè ƒèàţûřèš ṼÞŠ ţàĝš ţĥè řèŀèàšè ŵîţĥ",
+  "manager.discovery.releases.mod.help": "À řèŀèàšè ṼÞŠ ţàĝš àš à ɱöđ öř ŀîñķš ţö àñöţĥèř řèŀèàšè",
+  "manager.view.releases_everything.help": "Èṽèřý řèŀèàšè ṼÞŠ ŀîšţš, ñèŵèšţ ƒîřšţ",
   "manager.discovery.unmatched": {
     "one": "1 öƒ ýöûř ĝàɱèš îšñ'ţ ɱàţçĥèđ ţö ṼÞŠ",
     "other": "{count:n} öƒ ýöûř ĝàɱèš àřèñ'ţ ɱàţçĥèđ ţö ṼÞŠ"
