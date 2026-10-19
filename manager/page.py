@@ -1843,6 +1843,15 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
 
     state["refresh_shell"] = refresh_shell
 
+    async def read_extensions() -> None:
+        """The installed extensions as they now stand, with the rail and the marks that
+        follow them, for a page that redraws its own part and not the whole view."""
+        state["extensions"] = await offload.io(ApiClient().extensions)
+        refresh_rail()
+        await recheck_trouble()
+
+    state["read_extensions"] = read_extensions
+
     def redraw() -> None:
         read_then_render(state, library, content, render, mark_findings, light_nav,
                          refresh_rail)

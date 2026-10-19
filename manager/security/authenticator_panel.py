@@ -98,14 +98,14 @@ async def _enrol(library: Library) -> bool:
     return bool(await box)
 
 
-def page_parts(library: Library, redraw: Callable[[], None],
+def page_parts(library: Library, refill: Callable[[], None],
                state: dict[str, Any]) -> list[tuple[Any, ...]]:
     device = display_name(paths.get_ini_config())
 
     @on_page
     async def set_up() -> None:
         if await _enrol(library):
-            redraw()
+            refill()
 
     @on_page
     async def remove() -> None:
@@ -118,7 +118,7 @@ def page_parts(library: Library, redraw: Callable[[], None],
             await run.io_bound(library.authenticator_remove)
         except ApiError as exc:
             ui.notify(t("manager.authenticator.not_changed"), caption=why(exc), type="negative")
-        redraw()
+        refill()
 
     @on_page
     async def screen_codes(on: bool) -> None:
@@ -126,7 +126,7 @@ def page_parts(library: Library, redraw: Callable[[], None],
             await offload.io(library.set_screen_codes, on)
         except ApiError as exc:
             ui.notify(t("manager.authenticator.not_changed"), caption=why(exc), type="negative")
-        redraw()
+        refill()
 
     return entries(state, device, set_up, remove, screen_codes)
 

@@ -12,6 +12,7 @@ somebody reads before they decide to leave it on.
 
 from __future__ import annotations
 
+import copy
 import re
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -60,7 +61,7 @@ async def read(extension: dict) -> dict[str, Any]:
         return {"error": why(exc)}
 
 
-def build(extension: dict, settings: dict[str, Any], redraw: Callable[[], None],
+def build(extension: dict, settings: dict[str, Any], refill: Callable[[], None],
           open_this_device: Callable[[], None]) -> None:
     """Draw the page for one extension, from what `read` found."""
     name = str(extension.get("name") or "")
@@ -70,7 +71,7 @@ def build(extension: dict, settings: dict[str, Any], redraw: Callable[[], None],
 
     panel.header(str(extension.get("display_name") or name),
                  str(extension.get("description") or ""),
-                 _findings(extension, open_this_device, redraw),
+                 _findings(extension, open_this_device, refill),
                  caption=_caption(extension),
                  menu=[panel.Verb(one["label"], to=one["url"], tip=one["tip"])
                        for one in ext_links.drawn(extension, ext_links.opened_at())],
@@ -83,7 +84,7 @@ def build(extension: dict, settings: dict[str, Any], redraw: Callable[[], None],
         except Exception as exc:  # noqa: BLE001
             ui.notify(t("said.on_failed" if event.value else "said.off_failed"),
                       caption=why(exc), type="negative")
-        redraw()
+        refill()
 
     entries: list[tuple[Any, ...]] = _about_rows(extension)
     entries += [(panel.HEADING, t("manager.ext_page.settings")),
@@ -92,14 +93,14 @@ def build(extension: dict, settings: dict[str, Any], redraw: Callable[[], None],
     if extension.get("reason_key") == host.STARTS_AT_RESTART:
         entries.append(panel.note(t(host.STARTS_AT_RESTART)))
     entries += _setting_rows(client, f"/ext/{name}{surfaces.get('settings', '')}",
-                             settings, redraw)
+                             settings, refill)
     if extension.get("has_settings") and not running and not _cannot_run(extension):
         entries.append(panel.note(t("manager.ext_page.settings_when_running")))
 
     offered = list(extension.get("actions") or []) if running else []
     if offered:
         entries += [(panel.HEADING, t("word.actions")),
-                    (panel.FULL, lambda: _actions(offered, name, redraw))]
+                    (panel.FULL, lambda: _actions(offered, name, refill))]
     panel.facts(ui, entries)
 
 
@@ -201,15 +202,15 @@ def _cannot_run(extension: dict) -> bool:
 
 
 def _findings(extension: dict, open_this_device: Callable[[], None],
-              redraw: Callable[[], None]) -> list[Callable[[], None]]:
+              refill: Callable[[], None]) -> list[Callable[[], None]]:
     """What stops it, under the header. Nothing for one that is running or only switched
     off, which the switch already says."""
     state, said = extension.get("state"), str(extension.get("reason") or "")
     if extension.get("reason_key") == host.NOT_ACCEPTED:
-        return [_unaccepted(extension, extension, redraw)]
+        return [_unaccepted(extension, extension, refill)]
     waiting = extension.get("waiting") or {}
     if waiting.get("reason_key") == host.NOT_ACCEPTED:
-        return [_unaccepted(extension, waiting, redraw)]
+        return [_unaccepted(extension, waiting, refill)]
     if waiting.get("reason_key") == host.STARTS_AT_RESTART:
         return [_finding(t("manager.ext_page.replacement_accepted"),
                          t(host.STARTS_AT_RESTART))]
@@ -223,7 +224,7 @@ def _findings(extension: dict, open_this_device: Callable[[], None],
     return []
 
 
-def _unaccepted(extension: dict, copy: dict, redraw: Callable[[], None]
+def _unaccepted(extension: dict, copy: dict, refill: Callable[[], None]
                 ) -> Callable[[], None]:
     """It is stopped until the Owner says yes. `copy` is what would run: the extension
     itself, or the installed copy that would replace this built-in."""
@@ -258,7 +259,7 @@ def _unaccepted(extension: dict, copy: dict, redraw: Callable[[], None]
         except Exception as exc:  # noqa: BLE001
             ui.notify(t("manager.ext_page.accept_failed"), caption=why(exc), type="negative")
             return
-        redraw()
+        refill()
 
     fix = panel.action(t("manager.accept.accept"), decide, icon=verbs.ACCEPT,
                        hint=t("manager.ext_page.accept_hint"))
@@ -288,7 +289,7 @@ def _finding(line: str, detail: str,
 
 
 def _setting_rows(client: Any, base: str, found: dict[str, Any],
-                  redraw: Callable[[], None]) -> list[tuple[Any, ...]]:
+                  refill: Callable[[], None]) -> list[tuple[Any, ...]]:
     """What the extension is configured with, saved as each field is left."""
     if found.get("error"):
         return [panel.intro(t("manager.ext_page.list_failed"), hint=str(found["error"]))]
@@ -300,14 +301,14 @@ def _setting_rows(client: Any, base: str, found: dict[str, Any],
         if not name:
             continue
         entries.append((str(field.get("label") or name),
-                        _control(client, base, name, field, redraw)))
+                        _control(client, base, name, field, found, refill)))
         if field.get("help"):
             entries.append(panel.note(str(field["help"])))
     return entries
 
 
-def _control(client: Any, base: str, key: str, field: dict,
-             redraw: Callable[[], None]) -> Any:
+def _control(client: Any, base: str, key: str, field: dict, held: dict[str, Any],
+             refill: Callable[[], None]) -> Any:
     """One setting, in the control its type asks for. A text field shows the extension's
     refusal under itself and keeps what was typed. A switch or a select has no place for
     one, so it says so in a notice and goes back to what is stored."""
@@ -319,12 +320,37 @@ def _control(client: Any, base: str, key: str, field: dict,
             if under:
                 return why(exc)
             ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
-            redraw()
+            refill()
             return ""
-        redraw()
+        if not await _stands(client, base, held, key, new_value):
+            refill()
         return ""
 
     return control(client, field, save)
+
+
+async def _stands(client: Any, base: str, held: dict[str, Any], key: str,
+                  new_value: Any) -> bool:
+    """Whether the page still describes the extension after `key` was set to `new_value`:
+    it does where the extension reads back what the page held except that one value. The
+    page then keeps its controls, and anything else it reads back is drawn again. A secret
+    box is emptied by a save, so a secret always draws again."""
+    if any(one.get("key") == key and one.get("type") == "secret"
+           for one in held.get("fields") or []):
+        return False
+    try:
+        fresh = await run.io_bound(client.ext_get, base)
+    except Exception:  # noqa: BLE001 - what cannot be read is drawn again
+        return False
+    expected = copy.deepcopy(held)
+    for one in expected.get("fields") or []:
+        if one.get("key") == key and "value" in one:
+            one["value"] = new_value
+    if fresh != expected:
+        return False
+    held.clear()
+    held.update(fresh)
+    return True
 
 
 def control(client: Any, field: dict, save: Callable[..., Awaitable[str]]) -> Any:
@@ -418,12 +444,12 @@ def _path_control(client: Any, field: dict, value: str,
     return draw
 
 
-def _actions(offered: list[dict], name: str, redraw: Callable[[], None]) -> None:
-    """Redraws once an action has run: it may have changed a setting shown above it."""
+def _actions(offered: list[dict], name: str, refill: Callable[[], None]) -> None:
+    """Refills once an action has run: it may have changed a setting shown above it."""
     @on_page
     async def run_one(action: dict) -> None:
         if await ext_action.open_action(name, action):
-            redraw()
+            refill()
 
     with ui.element("div").classes("manager-slot-actions"):
         for action in offered:

@@ -2,15 +2,21 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 import unittest
 from unittest import mock
 
+from nicegui import ui
+
 from common.devices import serving
 from common.security import sign_in
 from manager.kit import panel
-from manager.security import security, signed_in_rows
+from manager.security import authenticator_panel, security, signed_in_rows, token_panel
 from manager.settings import settings
+
+# Made at import, outside any task, where NiceGUI still hands out the script's own page.
+_PAGE = ui.element()
 
 NOW = 2_000_000_000.0
 IPHONE = {"id": "a1", "kind": sign_in.OWNER, "address": "192.168.1.31",
@@ -213,6 +219,81 @@ class SigningBrowsersOut(unittest.IsolatedAsyncioTestCase):
 
         self.library.sign_out_session.assert_not_called()
         self.assertTrue(left)
+
+
+class ThePageChangesWhereItStands(unittest.IsolatedAsyncioTestCase):
+    """A change on the page reads again and draws the sections inside the same region."""
+
+    def setUp(self) -> None:
+        self.library = mock.Mock()
+        self.library.sessions.return_value = []
+        self.library.tokens.return_value = []
+        self.library.encrypted.return_value = {}
+        self.library.authenticator.return_value = {}
+        self.enterContext(mock.patch.object(
+            security.offload, "io", new=mock.AsyncMock(side_effect=lambda fn, *a: fn(*a))))
+        self.enterContext(mock.patch.object(security.paths, "get_ini_config"))
+        self.enterContext(mock.patch.object(security.serving_state, "network"))
+        self.parts: dict[str, mock.Mock] = {}
+        for name, module in (("authenticator", authenticator_panel), ("token", token_panel),
+                             ("encrypted", security.encrypted_panel)):
+            self.parts[name] = self.enterContext(mock.patch.object(
+                module, "page_parts", return_value=[]))
+        self.tasks: list = []
+        self.enterContext(mock.patch.object(
+            security.background_tasks, "create",
+            side_effect=lambda coro, **_: self.tasks.append(coro)))
+
+    async def _drawn(self) -> tuple[panel.Region, mock.Mock, ui.element]:
+        redraw = mock.Mock()
+        with _PAGE:
+            region = await security.page(self.library, redraw, {})
+            box = ui.column()
+            with box:
+                region()
+        return region, redraw, box
+
+    async def test_it_hands_back_a_region(self) -> None:
+        region, _redraw, _box = await self._drawn()
+
+        self.assertIsInstance(region, panel.Region)
+
+    async def test_a_change_reads_again_and_refills_without_redrawing_the_page(self) -> None:
+        region, redraw, _box = await self._drawn()
+        refill = self.parts["token"].call_args.args[1]
+        before = region._box
+        self.library.tokens.return_value = [{"id": "a"}]
+
+        with _PAGE:
+            refill()
+        await asyncio.gather(*self.tasks)
+
+        self.assertIs(before, region._box)
+        redraw.assert_not_called()
+        self.assertEqual(2, self.library.tokens.call_count)
+        self.assertEqual([{"id": "a"}], self.parts["token"].call_args.args[2])
+
+    async def test_every_section_gets_the_same_refill(self) -> None:
+        await self._drawn()
+
+        given = {part.call_args.args[1] for part in self.parts.values()}
+
+        self.assertEqual(1, len(given))
+
+    async def test_a_read_that_fails_says_so_and_draws_what_it_holds(self) -> None:
+        region, redraw, _box = await self._drawn()
+        refill = self.parts["token"].call_args.args[1]
+        held = self.parts["token"].call_args.args[2]
+        self.library.tokens.side_effect = OSError("gone")
+
+        with _PAGE, mock.patch.object(security.ui, "notify") as notice:
+            refill()
+            await asyncio.gather(*self.tasks)
+
+        notice.assert_called_once()
+        self.assertEqual(2, self.parts["token"].call_count)
+        self.assertEqual(held, self.parts["token"].call_args.args[2])
+        redraw.assert_not_called()
 
 
 class WhereItLives(unittest.TestCase):

@@ -1965,9 +1965,10 @@ async def _draw_system_page(library: Library, redraw: Callable[[], None], body: 
                                  redraw, state or {})
         return
     if key.startswith(ext_page.PREFIX):
-        draw_extension = await _extension_draw(redraw, key, state or {})
+        drawn = _extension_region(redraw, key, state or {})
         with body:
-            draw_extension()
+            drawn()
+        await drawn.refilled()
         return
     if kind == BUILT_PAGE and key in PAGES:
         draw = await PAGES[key](library, redraw, state if state is not None else {})
@@ -2133,14 +2134,27 @@ async def _themes_listing(library: Library) -> dict[str, Any]:
         return {}
 
 
-async def _extension_draw(redraw: Callable[[], None], key: str,
-                          state: dict[str, Any]) -> Callable[[], None]:
-    """One extension's page: read what its settings say, then hand back what draws it."""
-    found: dict[str, Any] = next((one for one in state.get("extensions") or []
-                                  if ext_page.key(str(one.get("name"))) == key), {})
-    settings = await ext_page.read(found)
-    return lambda: ext_page.build(found, settings, redraw,
-                                  lambda: open_page(state, redraw, IDENTITY))
+def _extension_region(redraw: Callable[[], None], key: str,
+                      state: dict[str, Any]) -> panel.Region:
+    """One extension's page: what its settings say is read, then drawn. A change on it
+    reads the extensions again, so the rail follows what is running, and draws this part
+    again in place."""
+    first = {"read": True}
+
+    async def draw() -> None:
+        if not first.pop("read", False) and (again := state.get("read_extensions")) is not None:
+            try:
+                await again()
+            except Exception:  # noqa: BLE001 - the page is drawn from what it already holds
+                logger.exception("Could not read the installed extensions")
+        found: dict[str, Any] = next((one for one in state.get("extensions") or []
+                                      if ext_page.key(str(one.get("name"))) == key), {})
+        settings = await ext_page.read(found)
+        ext_page.build(found, settings, region.refill,
+                       lambda: open_page(state, redraw, IDENTITY))
+
+    region = panel.region(draw)
+    return region
 
 
 async def _theme_sources(library: Library, state: dict[str, Any],

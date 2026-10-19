@@ -135,7 +135,7 @@ async def _ask_new() -> tuple[str, str, bool] | None:
     return await box
 
 
-def page_parts(library: Library, redraw: Callable[[], None],
+def page_parts(library: Library, refill: Callable[[], None],
                rows: list[dict[str, Any]]) -> list[tuple[Any, ...]]:
     @on_page
     async def make() -> None:
@@ -148,7 +148,7 @@ def page_parts(library: Library, redraw: Callable[[], None],
         except ApiError as exc:
             ui.notify(t("manager.tokens.not_made"), caption=why(exc), type="negative")
             return
-        redraw()
+        refill()
         await _shown_once(name, str(made.get("secret") or ""))
 
     @on_page
@@ -159,7 +159,7 @@ def page_parts(library: Library, redraw: Callable[[], None],
                                  confirm=t("manager.tokens.revoke"), icon=verbs.DELETE):
             return
         await run.io_bound(library.revoke_token, token_id)
-        redraw()
+        refill()
 
     @on_page
     async def power(token_id: str, on: bool) -> None:
@@ -167,6 +167,6 @@ def page_parts(library: Library, redraw: Callable[[], None],
             await offload.io(library.set_token_power, token_id, on)
         except ApiError as exc:
             ui.notify(t("manager.tokens.not_changed"), caption=why(exc), type="negative")
-        redraw()
+        refill()
 
     return entries(rows, make, revoke, power)

@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import json
 import unittest
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -19,6 +20,7 @@ from manager.frontend import players
 from manager.kit import deeplink, grid, panel, thumbnails
 from manager.kit.api import ApiClient
 from manager.workbench import rail
+from tests.support.clicks import press
 
 OWNER = {"id": "p-own", "name": "", "initials": "OWN", "owner": True, "guest": False,
          "up": True, "shares_initials_with": []}
@@ -140,7 +142,7 @@ class TheDetails(unittest.TestCase):
         with patch.object(panel, "facts") as facts:
             asyncio.run(inside())
 
-        drawn = [label for label, _draw in facts.call_args.args[1]]
+        drawn = [label for label, _draw in facts.call_args.args[1] if label is not panel.FULL]
         self.assertEqual(drawn, [t("word.name"), t("manager.players.initials"),
                                  t("manager.players.up"), t("manager.players.picture")])
 
@@ -195,28 +197,166 @@ class WhatCanBeDone(unittest.TestCase):
                           t("manager.players.remove_card_detail", service="VPinPlay")])
 
 
+# Made at import, outside any task, where NiceGUI still hands out the script's own page.
+_PAGE = ui.element()
+
+
+class TheUpSwitch(unittest.IsolatedAsyncioTestCase):
+    """Putting a player up writes it, then draws the switch where it stands."""
+
+    def setUp(self) -> None:
+        self.changes: list[Any] = []
+        real = players.panel.switch
+
+        def spy(value: Any, on_change: Any, **more: Any) -> Any:
+            self.changes.append(on_change)
+            return real(value, on_change, **more)
+
+        self.enterContext(patch.object(players.panel, "switch", spy))
+
+    @staticmethod
+    def _library(roster: list[dict[str, Any]]) -> Mock:
+        library = Mock()
+        library.set_player_up.side_effect = lambda who, on: [
+            {**one, "up": on} if one["id"] == who else one for one in roster]
+        return library
+
+    async def _drawn(self, library: Mock, player: dict[str, Any],
+                     roster: list[dict[str, Any]]) -> tuple[dict[str, Any], ui.element]:
+        context = {"library": library, "player": player, "roster": roster, "state": {},
+                   "retitle": Mock(), "rebuild": AsyncMock()}
+        with _PAGE:
+            box = ui.column()
+            with box:
+                await players.details(context)
+        return context, box
+
+    @staticmethod
+    def _switch(box: ui.element) -> ui.switch:
+        return next(one for one in box.descendants() if isinstance(one, ui.switch))
+
+    async def _flip(self, on: bool) -> None:
+        await press(self.changes[-1], SimpleNamespace(value=on))
+
+    async def test_a_flip_writes_it_and_does_not_rebuild_the_panel(self) -> None:
+        guest = _player("p-jor", name="Jordan")
+        roster = [OWNER, guest]
+        library = self._library(roster)
+        context, box = await self._drawn(library, guest, roster)
+        before = self._switch(box)
+
+        await self._flip(True)
+
+        library.set_player_up.assert_called_once_with("p-jor", True)
+        context["rebuild"].assert_not_awaited()
+        self.assertTrue(guest["up"])
+        self.assertIsNot(before, self._switch(box))
+        self.assertTrue(self._switch(box).value)
+
+    async def test_the_owner_alone_up_has_nowhere_to_go(self) -> None:
+        owner = {**OWNER, "up": False}
+        guest = _player("p-jor", name="Jordan", up=True)
+        roster = [owner, guest]
+        library = Mock()
+        library.set_player_up.return_value = [{**owner, "up": True}, {**guest, "up": False}]
+        _context, box = await self._drawn(library, owner, roster)
+        self.assertTrue(self._switch(box).enabled)
+
+        await self._flip(True)
+
+        self.assertFalse(self._switch(box).enabled)
+
+    async def test_a_flip_that_fails_puts_the_switch_back(self) -> None:
+        guest = _player("p-jor", name="Jordan")
+        roster = [OWNER, guest]
+        library = self._library(roster)
+        library.set_player_up.side_effect = RuntimeError("gone")
+        _context, box = await self._drawn(library, guest, roster)
+        clicked = self._switch(box)
+        clicked.value = True
+
+        with patch.object(players.ui, "notify") as notice:
+            await self._flip(True)
+
+        notice.assert_called_once()
+        self.assertTrue(clicked.is_deleted)
+        self.assertFalse(self._switch(box).value)
+
+
+class TheInitialsClash(unittest.IsolatedAsyncioTestCase):
+    """Changing initials draws the clash line where it stands, not the whole panel."""
+
+    def setUp(self) -> None:
+        self.fields: list[Any] = []
+        real = players.panel.field
+
+        def spy(value: Any, save: Any, **more: Any) -> Any:
+            self.fields.append(save)
+            return real(value, save, **more)
+
+        self.enterContext(patch.object(players.panel, "field", spy))
+        self.enterContext(patch.object(players.offload, "io", AsyncMock(
+            side_effect=lambda call, *a, **kw: call(*a, **kw))))
+
+    @staticmethod
+    def _clashes(box: ui.element) -> list[str]:
+        return [one.text for one in box.descendants()
+                if isinstance(one, ui.label) and "manager-attention-line" in one.classes]
+
+    async def test_a_new_clash_appears_and_a_cleared_one_goes_without_a_rebuild(self) -> None:
+        guest = _player("p-jor", name="Jordan", initials="AAA")
+        other = _player("p-vis", name="Sam", initials="BBB")
+        roster = [OWNER, guest, other]
+        library = Mock()
+        library.change_player.return_value = {"initials": "BBB",
+                                              "shares_initials_with": ["p-vis"]}
+        context = {"library": library, "player": guest, "roster": roster, "state": {},
+                   "retitle": Mock(), "rebuild": AsyncMock()}
+        with _PAGE:
+            box = ui.column()
+            with box:
+                await players.details(context)
+        self.assertEqual([], self._clashes(box))
+
+        await press(self.fields[1], "BBB")
+
+        self.assertEqual([t("manager.players.initials_clash", player="Sam")],
+                         self._clashes(box))
+        context["rebuild"].assert_not_awaited()
+
+        library.change_player.return_value = {"initials": "CCC", "shares_initials_with": []}
+        await press(self.fields[1], "CCC")
+
+        self.assertEqual([], self._clashes(box))
+        context["rebuild"].assert_not_awaited()
+
+
 class AnAccountThatIsOnlyFields(unittest.TestCase):
     """An extension that keeps a few values per player and no id: each is drawn as a
     setting is, and saved to that player's account under its own key."""
 
-    def _rows(self, library: Mock, rebuild: AsyncMock, fields: list[dict[str, Any]]):
+    def _rows(self, library: Mock, form: Mock, fields: list[dict[str, Any]]):
         drawn: list[tuple[dict[str, Any], Any]] = []
 
         def control(_client: Any, field: dict[str, Any], save: Any) -> Any:
             drawn.append((field, save))
             return lambda: None
 
-        context = {"library": library, "player": _player("p-jor"), "rebuild": rebuild}
-        for target, name, replacement in ((players.ext_page, "control", control),
-                                          (players, "on_page", lambda handler: handler)):
+        self.account: dict[str, Any] = {"extension": "scores", "fields": fields}
+        context = {"library": library, "player": _player("p-jor"), "state": {},
+                   "rebuild": AsyncMock()}
+        for target, name, replacement in (
+                (players.ext_page, "control", control),
+                (players, "on_page", lambda handler: handler),
+                (players.offload, "io", AsyncMock(side_effect=lambda fn, *a: fn(*a)))):
             patcher = patch.object(target, name, replacement)
             patcher.start()
             self.addCleanup(patcher.stop)
-        rows = players._field_rows(context, {"extension": "scores"}, fields)
+        rows = players._field_rows(context, self.account, fields, form)
         return rows, drawn
 
     def test_each_field_is_a_row_under_its_label_with_its_help_after_it(self) -> None:
-        rows, drawn = self._rows(Mock(), AsyncMock(), [
+        rows, drawn = self._rows(Mock(), Mock(), [
             {"key": "handle", "label": "Handle", "help": "Shown on the board"},
             {"key": "key"}])
 
@@ -224,24 +364,79 @@ class AnAccountThatIsOnlyFields(unittest.TestCase):
                           and isinstance(one[0], str)], ["Handle", "key"])
         self.assertEqual([field["key"] for field, _ in drawn], ["handle", "key"])
 
-    def test_saving_a_field_writes_it_to_that_players_account_and_redraws(self) -> None:
-        library, rebuild = Mock(), AsyncMock()
-        library.put_account.return_value = {"fields": []}
-        _, drawn = self._rows(library, rebuild, [{"key": "handle"}, {"key": "token"}])
+    def test_saving_a_field_writes_it_to_that_players_account(self) -> None:
+        library, form = Mock(), Mock()
+        library.player_accounts.return_value = []
+        _, drawn = self._rows(library, form, [{"key": "handle"}, {"key": "token"}])
 
         asyncio.run(drawn[1][1]("abc"))
 
         library.put_account.assert_called_once_with("p-jor", "scores", {"token": "abc"})
-        rebuild.assert_awaited_once()
+
+    def test_a_field_that_reads_back_as_written_leaves_the_panel_standing(self) -> None:
+        library, form = Mock(), Mock()
+        library.player_accounts.return_value = [{"extension": "scores", "fields": [
+            {"key": "handle", "value": "old"}, {"key": "token", "value": "abc"}]}]
+        _, drawn = self._rows(library, form, [{"key": "handle", "value": "old"},
+                                              {"key": "token", "value": ""}])
+
+        asyncio.run(drawn[1][1]("abc"))
+
+        form.refill.assert_not_called()
+        self.assertEqual("abc", self.account["fields"][1]["value"])
+
+    def test_something_else_that_changed_draws_the_panel_again(self) -> None:
+        library, form = Mock(), Mock()
+        library.player_accounts.return_value = [{"extension": "scores", "waiting_count": 2,
+                                                 "fields": [{"key": "token", "value": "abc"}]}]
+        _, drawn = self._rows(library, form, [{"key": "token", "value": ""}])
+
+        asyncio.run(drawn[0][1]("abc"))
+
+        form.refill.assert_called_once()
+        self.assertEqual(2, self.account["waiting_count"])
+
+    def test_a_save_that_fails_puts_the_field_back_as_it_was(self) -> None:
+        library, form = Mock(), Mock()
+        library.put_account.side_effect = RuntimeError("gone")
+        _, drawn = self._rows(library, form, [{"key": "token", "value": "old"}])
+
+        with patch.object(players.ui, "notify") as notice:
+            asyncio.run(drawn[0][1]("abc"))
+
+        notice.assert_called_once()
+        form.refill.assert_called_once()
+
+    def test_a_secret_is_drawn_again_even_when_it_was_already_set(self) -> None:
+        library, form = Mock(), Mock()
+        library.player_accounts.return_value = [{"extension": "scores", "fields": [
+            {"key": "token", "type": "secret", "set": True}]}]
+        _, drawn = self._rows(library, form, [{"key": "token", "type": "secret",
+                                               "set": True}])
+
+        asyncio.run(drawn[0][1]("abc", under=True))
+
+        form.refill.assert_called_once()
+
+    def test_an_account_that_cannot_be_read_back_keeps_what_was_typed(self) -> None:
+        library, form = Mock(), Mock()
+        library.player_accounts.side_effect = RuntimeError("down")
+        _, drawn = self._rows(library, form, [{"key": "handle", "value": "old"}])
+
+        asyncio.run(drawn[0][1]("new", under=True))
+
+        library.put_account.assert_called_once()
+        form.refill.assert_not_called()
 
     def test_a_refusal_comes_back_for_the_box_to_show(self) -> None:
-        library, rebuild = Mock(), AsyncMock()
+        library, form = Mock(), Mock()
         library.put_account.side_effect = RuntimeError("That handle is taken")
-        _, drawn = self._rows(library, rebuild, [{"key": "handle"}])
+        _, drawn = self._rows(library, form, [{"key": "handle"}])
 
         said = asyncio.run(drawn[0][1]("x", under=True))
 
         self.assertIn("That handle is taken", said)
+        form.refill.assert_not_called()
 
 
 class ThePanel(unittest.TestCase):

@@ -7,6 +7,7 @@ player's rail are built as the panel opens, from what is running then.
 from __future__ import annotations
 
 import base64
+import copy
 import html
 import inspect
 import json
@@ -622,20 +623,15 @@ def _of(context: dict[str, Any]) -> dict[str, Any]:
     return context["player"]
 
 
-async def changed(context: dict[str, Any], *, again: bool = True) -> None:
-    """The grid's rows, and with `again` this panel, after a write."""
-    if again:
-        await context["rebuild"]()
-    else:
-        await _refresh(context["state"])
+async def changed(context: dict[str, Any]) -> None:
+    """The grid's rows, after a write."""
+    await _refresh(context["state"])
 
 
-def _alert(line: str) -> tuple[Any, Callable[[], None]]:
-    def draw() -> None:
-        with ui.element("div").classes("manager-attention"):
-            ui.icon("error_outline").classes("manager-attention-icon")
-            ui.label(line).classes("manager-attention-line")
-    return (panel.FULL, draw)
+def _alert(line: str) -> None:
+    with ui.element("div").classes("manager-attention"):
+        ui.icon("error_outline").classes("manager-attention-icon")
+        ui.label(line).classes("manager-attention-line")
 
 
 async def details(context: dict[str, Any]) -> None:
@@ -654,7 +650,7 @@ async def details(context: dict[str, Any]) -> None:
             return why(exc)
         player["name"] = wanted
         context["retitle"](shown_name(player))
-        await changed(context, again=False)
+        await changed(context)
         return ""
 
     async def initials(text: str) -> str:
@@ -665,39 +661,51 @@ async def details(context: dict[str, Any]) -> None:
             now = await offload.io(library.change_player, player_id, initials=wanted)
         except Exception as exc:  # noqa: BLE001 - said on the field
             return why(exc)
-        sharing_before = bool(player.get("shares_initials_with"))
         player.update(now)
         drawn = context.get("picture_initials")
         if drawn is not None and not drawn.is_deleted:
             drawn.set_text(str(player.get("initials") or "").strip())
-        # The finding at the top of this section comes or goes with it.
-        await changed(context, again=sharing_before != bool(now.get("shares_initials_with")))
+        alert.refill()
+        await changed(context)
         return ""
+
+    def draw_up() -> None:
+        # Nobody up means the owner is: the owner alone up has nowhere to go.
+        stays = bool(player.get("owner") and player.get("up")
+                     and sum(1 for one in roster if one.get("up")) == 1)
+        panel.switch(
+            bool(player.get("up")), lambda event: flip(bool(event.value)), disabled=stays,
+            hint=t("manager.players.owner_up_alone") if stays else "")()
+
+    up = panel.region(draw_up)
 
     @on_page
     async def flip(on: bool) -> None:
         try:
-            await run.io_bound(library.set_player_up, player_id, on)
+            now = await offload.io(library.set_player_up, player_id, on)
         except Exception as exc:  # noqa: BLE001
             ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
-        await changed(context)
+        else:
+            roster[:] = now
+            player.update(next((one for one in now if one.get("id") == player_id), {}))
+            await changed(context)
+        up.refill()
 
-    entries: list[tuple[Any, Any]] = []
-    if alert := same_initials(player, roster):
-        entries.append(_alert(alert))
-    entries += [
+    def draw_alert() -> None:
+        if line := same_initials(player, roster):
+            _alert(line)
+
+    # The finding comes or goes with the initials; an empty region hides its line.
+    alert = panel.region(draw_alert)
+    entries: list[tuple[Any, Any]] = [
+        (panel.FULL, alert),
         (t("word.name"), panel.field(str(player.get("name") or ""), rename, refuses=True)),
         (t("manager.players.initials"),
          panel.field(str(player.get("initials") or ""), initials, refuses=True,
                      placeholder=t("manager.players.initials_example"))),
     ]
     if len(roster) > 1:
-        # Nobody up means the owner is: the owner alone up has nowhere to go.
-        stays = bool(player.get("owner") and player.get("up")
-                     and sum(1 for one in roster if one.get("up")) == 1)
-        entries.append((t("manager.players.up"), panel.switch(
-            bool(player.get("up")), lambda event: flip(bool(event.value)), disabled=stays,
-            hint=t("manager.players.owner_up_alone") if stays else "")))
+        entries.append((t("manager.players.up"), up))
     entries.append((t("manager.players.picture"), partial(_picture_slot, context)))
     with ui.column().classes("gap-0 manager-form"):
         panel.facts(ui, entries)
@@ -841,59 +849,105 @@ async def _account(context: dict[str, Any], account: dict[str, Any]) -> None:
             t("manager.players.account_heading")))
         return
     service = str(account.get("label") or account["extension"])
-    user_id = str(account.get("user_id") or "")
-    claimed = bool(account.get("claimed"))
-    needs_consent = bool(account.get("needs_consent"))
-    fields = [one for one in account.get("fields") or [] if one.get("key")]
+
+    def draw() -> None:
+        user_id = str(account.get("user_id") or "")
+        fields = [one for one in account.get("fields") or [] if one.get("key")]
+        entries: list[tuple[Any, Any]] = []
+        if fields and not user_id:
+            entries += _field_rows(context, account, fields, form)
+            entries.append((t("manager.players.share"), panel.switch(
+                bool(account.get("share")), lambda e: share(bool(e.value)))))
+            entries.append(panel.note(share_help(account)))
+        elif not user_id:
+            entries.append(panel.intro(t("manager.players.no_account", service=service)))
+            entries.append((panel.FULL, lambda: _choose_or_card(context, account)))
+        elif not account.get("claimed"):
+            entries += [(t("manager.players.user_id"), user_id),
+                        panel.note(t("manager.players.not_shared_note", service=service)),
+                        (t("manager.players.share"), panel.switch(False, lambda e: share(
+                            bool(e.value))))]
+            entries.append((panel.FULL, lambda: _unclaimed_actions(context, account)))
+        else:
+            entries.append((panel.HEADING, t("manager.players.account_heading")))
+            entries += [(t("manager.players.user_id"),
+                         _user_id_value(user_id, str(account.get("page") or ""), service)),
+                        (t("manager.players.share"), panel.switch(
+                            bool(account.get("share")), lambda e: share(bool(e.value)))),
+                        panel.note(share_help(account))]
+            waiting = int(account.get("waiting_count") or 0)
+            if waiting:
+                entries.append((t("manager.players.waiting"),
+                                t("manager.players.waiting_count", count=waiting)))
+                entries.append((panel.FULL, lambda: _send_now(context, account)))
+            entries.append((panel.HEADING, t("manager.players.card_heading")))
+            entries.append((panel.FULL, lambda: _card_section(library, player, account,
+                                                              service)))
+            entries.append((panel.FULL, lambda: _card_actions(context, account)))
+        panel.facts(ui, panel.headed(entries, t("manager.players.account_heading")))
+
+    form = panel.region(draw)
 
     @on_page
     async def share(on: bool) -> None:
-        if on and needs_consent:
+        user_id = str(account.get("user_id") or "")
+        fields = [one for one in account.get("fields") or [] if one.get("key")]
+        if on and account.get("needs_consent"):
             # Nothing to claim where the account has no id: only the consent is settled.
-            await _share_on(context, account, service, claimed or bool(fields and not user_id))
-            return
-        try:
-            await run.io_bound(library.put_share, player["id"], account["extension"], on)
-        except Exception as exc:  # noqa: BLE001
-            ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
-        await context["rebuild"]()
+            await _share_on(context, account, service,
+                            bool(account.get("claimed")) or bool(fields and not user_id))
+            await changed(context)
+        else:
+            try:
+                await run.io_bound(library.put_share, player["id"], account["extension"], on)
+            except Exception as exc:  # noqa: BLE001
+                ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
+            else:
+                await changed(context)
+        await _read_account(context, account)
+        form.refill()
 
-    entries: list[tuple[Any, Any]] = []
-    if fields and not user_id:
-        entries += _field_rows(context, account, fields)
-        entries.append((t("manager.players.share"), panel.switch(
-            bool(account.get("share")), lambda e: share(bool(e.value)))))
-        entries.append(panel.note(share_help(account)))
-    elif not user_id:
-        entries.append(panel.intro(t("manager.players.no_account", service=service)))
-        entries.append((panel.FULL, lambda: _choose_or_card(context, account)))
-    elif not claimed:
-        entries += [(t("manager.players.user_id"), user_id),
-                    panel.note(t("manager.players.not_shared_note", service=service)),
-                    (t("manager.players.share"), panel.switch(False, lambda e: share(
-                        bool(e.value))))]
-        entries.append((panel.FULL, lambda: _unclaimed_actions(context, account)))
-    else:
-        entries.append((panel.HEADING, t("manager.players.account_heading")))
-        entries += [(t("manager.players.user_id"),
-                    _user_id_value(user_id, str(account.get("page") or ""), service)),
-                    (t("manager.players.share"), panel.switch(
-                        bool(account.get("share")), lambda e: share(bool(e.value)))),
-                    panel.note(share_help(account))]
-        waiting = int(account.get("waiting_count") or 0)
-        if waiting:
-            entries.append((t("manager.players.waiting"),
-                            t("manager.players.waiting_count", count=waiting)))
-            entries.append((panel.FULL, lambda: _send_now(context, account)))
-        entries.append((panel.HEADING, t("manager.players.card_heading")))
-        entries.append((panel.FULL, lambda: _card_section(library, player, account, service)))
-        entries.append((panel.FULL, lambda: _card_actions(context, account)))
     with ui.column().classes("gap-0 manager-form"):
-        panel.facts(ui, panel.headed(entries, t("manager.players.account_heading")))
+        form()
+
+
+async def _read_account(context: dict[str, Any], account: dict[str, Any]) -> bool:
+    """`account` as the player holds it now, in place, so the panel draws what was written.
+    One that cannot be read stays as it was, and this says False."""
+    try:
+        held = await offload.io(context["library"].player_accounts, _of(context)["id"])
+    except Exception:  # noqa: BLE001 - what is on screen stays
+        logger.warning("Could not read a player's accounts", exc_info=True)
+        return False
+    fresh = next((one for one in held if one.get("extension") == account["extension"]), None)
+    if fresh is None:
+        return False
+    account.clear()
+    account.update(fresh)
+    return True
+
+
+async def _field_stands(context: dict[str, Any], account: dict[str, Any], key: str,
+                        new_value: Any) -> bool:
+    """Whether the account reads as the panel holds it once `key` was set to `new_value`:
+    it does where nothing but that field's own value differs. The controls then stay as
+    they are, and anything else that changed is drawn again. A secret box is emptied by a
+    save, so a secret always draws again. An account that cannot be read stands, since
+    there is nothing newer to draw."""
+    expected = copy.deepcopy(account)
+    secret = False
+    for one in expected.get("fields") or []:
+        if one.get("key") == key:
+            secret = one.get("type") == "secret"
+            if "value" in one:
+                one["value"] = new_value
+    if not await _read_account(context, account):
+        return not secret
+    return not secret and account == expected
 
 
 def _field_rows(context: dict[str, Any], account: dict[str, Any],
-                fields: list[dict[str, Any]]) -> list[Any]:
+                fields: list[dict[str, Any]], form: panel.Region) -> list[Any]:
     """An account that is only fields: drawn as a settings page draws them, each saved as
     it is left, with the player's id on the write."""
     library, player = context["library"], _of(context)
@@ -911,7 +965,11 @@ def _field_rows(context: dict[str, Any], account: dict[str, Any],
                 if under:
                     return why(exc)
                 ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
-            await context["rebuild"]()
+            else:
+                await changed(context)
+                if await _field_stands(context, account, key, new_value):
+                    return ""
+            form.refill()
             return ""
 
         rows.append((str(field.get("label") or key), ext_page.control(library, field, save)))
@@ -1102,7 +1160,6 @@ async def _share_on(context: dict[str, Any], account: dict[str, Any], service: s
         await run.io_bound(library.put_share, player["id"], extension, True)
     except Exception as exc:  # noqa: BLE001 - "taken", "can't reach": said, Share stays off
         ui.notify(t("said.on_failed"), caption=why(exc), type="negative")
-    await context["rebuild"]()
 
 
 @on_page

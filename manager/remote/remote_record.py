@@ -180,14 +180,22 @@ async def begin(state: dict[str, Any], client_for_target: Client,
 
 
 @on_page
-async def _show(state: dict[str, Any], client_for_target: Client,
-                redraw: Callable[[], None]) -> None:
+async def _tell(state: dict[str, Any], client_for_target: Client) -> bool:
+    """The frontend shows the current recording as the review says. False where it did not."""
     review = state["reviewing"]
     try:
         await run.io_bound(client_for_target().show_proposal,
                            str(_current(review).get("id") or ""), review["showing"])
     except Exception as exc:
         ui.notify(t("manager.remote.show_failed"), caption=why(exc), type="negative")
+        return False
+    return True
+
+
+@on_page
+async def _show(state: dict[str, Any], client_for_target: Client,
+                redraw: Callable[[], None]) -> None:
+    await _tell(state, client_for_target)
     redraw()
 
 
@@ -245,10 +253,15 @@ def controller(state: dict[str, Any], client_for_target: Client,
     async def skip() -> None:
         await _onward(state, client_for_target, redraw)
 
+    @on_page
     async def turn(event: Any) -> None:
-        if event.value in (BEFORE, AFTER) and event.value != review["showing"]:
-            review["showing"] = str(event.value)
-            await _show(state, client_for_target, redraw)
+        if event.value not in (BEFORE, AFTER) or event.value == review["showing"]:
+            return
+        was = review["showing"]
+        review["showing"] = str(event.value)
+        if not await _tell(state, client_for_target):
+            review["showing"] = was
+            event.sender.set_value(was)
 
     with ui.column().classes("w-full gap-1 manager-card"):
         ui.label(t("manager.record.review")).classes("manager-card-title")

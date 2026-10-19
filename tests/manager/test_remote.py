@@ -6,13 +6,20 @@ import ast
 import json
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from unittest import mock
+
+from nicegui import ui
 
 from httpapi import events
 from manager.kit.api import _lines, read_frames
 from manager.remote import remote
 from tests.support import trees
+from tests.support.clicks import press
+
+# Made at import, outside any task, where NiceGUI still hands out the script's own page.
+_PAGE = ui.element()
 
 
 def _device(device_id: str, **rest) -> dict:
@@ -410,6 +417,88 @@ class VisibleUpTests(unittest.TestCase):
         found = remote._visible_up(_player("another_guest", guest=True), self.UP)
 
         self.assertEqual(found, [])
+
+
+class WhoIsUpTests(unittest.IsolatedAsyncioTestCase):
+    """Putting a player up draws the section that shows it where it stands."""
+
+    def setUp(self) -> None:
+        self.roster = [_player("own", owner=True, up=True), _player("kid")]
+        self.client = mock.Mock()
+        self.client.set_player_up.return_value = [
+            _player("own", owner=True, up=True), _player("kid", up=True)]
+        self.enterContext(mock.patch.object(remote.run, "io_bound", mock.AsyncMock(
+            side_effect=lambda call, *a, **kw: call(*a, **kw))))
+        self.changes: list[Any] = []
+        real = remote.panel.switch
+
+        def spy(value: Any, on_change: Any, **more: Any) -> Any:
+            self.changes.append(on_change)
+            return real(value, on_change, **more)
+
+        self.enterContext(mock.patch.object(remote.panel, "switch", spy))
+
+    def _drawn(self) -> tuple[dict[str, Any], ui.element]:
+        state: dict[str, Any] = {"players": self.roster, "identity": None, "target": {}}
+        with _PAGE:
+            box = ui.column()
+            with box:
+                remote._up_section(state, lambda: self.client)
+        return state, box
+
+    @staticmethod
+    def _switches(box: ui.element) -> list[bool]:
+        return [one.value for one in box.descendants() if isinstance(one, ui.switch)]
+
+    async def test_a_flip_writes_it_and_draws_the_new_roster_in_place(self) -> None:
+        state, box = self._drawn()
+        self.assertEqual([True, False], self._switches(box))
+
+        await press(self.changes[1], SimpleNamespace(value=True))
+
+        self.client.set_player_up.assert_called_once_with("kid", True)
+        self.assertEqual([True, True], self._switches(box))
+
+    async def test_a_flip_that_fails_puts_the_switch_back(self) -> None:
+        _state, box = self._drawn()
+        self.client.set_player_up.side_effect = RuntimeError("gone")
+        clicked = [one for one in box.descendants() if isinstance(one, ui.switch)][1]
+        clicked.value = True
+
+        with mock.patch.object(remote.ui, "notify") as notice:
+            await press(self.changes[1], SimpleNamespace(value=True))
+
+        notice.assert_called_once()
+        self.assertTrue(clicked.is_deleted)
+        self.assertEqual([True, False], self._switches(box))
+
+    async def test_a_change_elsewhere_draws_it_through_the_state(self) -> None:
+        state, box = self._drawn()
+        state["players"] = [_player("own", owner=True, up=False), _player("kid", up=True)]
+
+        state["refill_up"]()
+
+        self.assertEqual([False, True], self._switches(box))
+
+    def test_who_is_up_is_not_part_of_who_is_in_the_roster(self) -> None:
+        state: dict[str, Any] = {"players": self.roster, "identity": self.roster[1]}
+        before = remote._who(state)
+
+        state["players"] = [_player("own", owner=True, up=False), _player("kid", up=True)]
+        state["identity"] = state["players"][1]
+
+        self.assertEqual(before, remote._who(state))
+
+    def test_a_player_who_joins_or_is_renamed_is_part_of_it(self) -> None:
+        state: dict[str, Any] = {"players": self.roster, "identity": None}
+        before = remote._who(state)
+
+        state["players"] = [*self.roster, _player("vis", guest=True)]
+        joined = remote._who(state)
+        state["players"] = [self.roster[0], _player("kid", name="Jordan")]
+
+        self.assertNotEqual(before, joined)
+        self.assertNotEqual(before, remote._who(state))
 
 
 class SendStatusTests(unittest.TestCase):

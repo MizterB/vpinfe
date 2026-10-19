@@ -336,7 +336,7 @@ async def remote_page(screen: str = "") -> None:
         "target": aimable[0] if aimable else {},
         "play": {}, "games": [], "jobs": [], "collections": [],
         "find": "", "collection": "", "collection_ids": None,
-        "frontend": None, "rows": {}, "relist": None,
+        "frontend": None, "rows": {}, "relist": None, "refill_up": None,
         "capture": None, "run": {}, "waiting": [], "reviewing": None,
         "players": [], "identity": None, "record": {}, "accounts": [], "result": None,
         "local_device_id": local_device_id,
@@ -407,6 +407,7 @@ async def remote_page(screen: str = "") -> None:
         body.clear()
         tabs.clear()
         state["relist"] = None
+        state["refill_up"] = None
         draw_strip()
         with body:
             _screen(state, client_for_target, redraw)
@@ -458,9 +459,13 @@ async def remote_page(screen: str = "") -> None:
     @on_page
     async def changed(name: str, payload: dict) -> None:
         if name == events.PLAYERS_CHANGED:
+            before = _who(state)
             state["players"] = list((payload.get("state") or {}).get("players") or [])
             await reread_identity()
-            redraw()
+            if before != _who(state):
+                redraw()
+            elif callable(state.get("refill_up")):
+                state["refill_up"]()
             return
         if name == events.TABLE_PLAY_RECORDED:
             await _play_recorded(state, payload, client_for_target, redraw)
@@ -1017,7 +1022,7 @@ def _now(state: dict[str, Any],
                     state, client_for_target, redraw,
                     reviewable=mirroring(state.get("frontend")) and not play.get("launching"))
             if not play.get("launching"):
-                _up_section(state, client_for_target, redraw)
+                _up_section(state, client_for_target)
                 if state.get("result"):
                     _result_card(state, client_for_target, redraw)
                 else:
@@ -1063,6 +1068,17 @@ def _playing(play: dict[str, Any], state: dict[str, Any], client_for_target: Cal
         .props("no-caps flat").classes("remote-action remote-action--danger")
 
 
+def _who(state: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+    """The roster and this phone's player, without who is up: what a header, a sheet and
+    the rows read. A change in who is up alone is drawn by the section that shows it."""
+    def bare(one: dict[str, Any]) -> dict[str, Any]:
+        return {key: value for key, value in one.items() if key != "up"}
+
+    identity = state.get("identity")
+    return ([bare(one) for one in state.get("players") or []],
+            bare(identity) if identity is not None else None)
+
+
 def _rating_of(game_id: str, game: dict[str, Any], identity: dict[str, Any] | None,
                record: dict[str, dict[str, Any]]) -> int:
     """The stars to show."""
@@ -1080,14 +1096,10 @@ async def _rate(client: ApiClient, identity: dict[str, Any] | None,
         await run.io_bound(client.rate, game_id, value)
 
 
-def _up_section(state: dict[str, Any], client_for_target: Callable[[], Any],
-                redraw: Callable[[], None]) -> None:
-    """Who the next game counts for. Nothing to toggle with one player in the roster."""
-    players = state.get("players") or []
-    if len(players) <= 1:
-        return
-    identity = state.get("identity")
-
+def _up_section(state: dict[str, Any], client_for_target: Callable[[], Any]) -> None:
+    """Who the next game counts for. Nothing to toggle with one player in the roster.
+    Drawn as a region: who is up changes without anyone joining or leaving, and
+    `state["refill_up"]` draws it again where it stands."""
     @on_page
     async def toggle(player_id: str, up: bool) -> None:
         try:
@@ -1095,36 +1107,44 @@ def _up_section(state: dict[str, Any], client_for_target: Callable[[], Any],
                 client_for_target().set_player_up, player_id, up)
         except Exception as exc:
             ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
-            return
-        redraw()
+        drawn.refill()
 
     def flip(player_id: str) -> Callable[[Any], Any]:
         return lambda e: toggle(player_id, bool(e.value))
 
-    if identity is not None:
-        mine = next((one for one in players if one.get("id") == identity.get("id")),
-                    identity)
-        if not mine.get("up"):
-            with ui.column().classes("w-full gap-2 manager-card"):
-                panel.remote_action(t("manager.remote.im_up"),
-                                    lambda: toggle(str(mine["id"]), True),
-                                    icon=verbs.ACCEPT, primary=True,
-                                    hint=t("manager.remote.im_up.help"))
+    def draw() -> None:
+        players = state.get("players") or []
+        if len(players) <= 1:
             return
-        if identity.get("guest"):
-            with ui.row().classes("w-full items-center justify-between manager-card"):
-                ui.label(shown_name(mine)).classes("remote-headline")
-                panel.switch(True, flip(str(mine["id"])))()
-            return
+        identity = state.get("identity")
+        if identity is not None:
+            mine = next((one for one in players if one.get("id") == identity.get("id")),
+                        identity)
+            if not mine.get("up"):
+                with ui.column().classes("w-full gap-2 manager-card"):
+                    panel.remote_action(t("manager.remote.im_up"),
+                                        lambda: toggle(str(mine["id"]), True),
+                                        icon=verbs.ACCEPT, primary=True,
+                                        hint=t("manager.remote.im_up.help"))
+                return
+            if identity.get("guest"):
+                with ui.row().classes("w-full items-center justify-between manager-card"):
+                    ui.label(shown_name(mine)).classes("remote-headline")
+                    panel.switch(True, flip(str(mine["id"])))()
+                return
 
-    with ui.column().classes("w-full gap-0 manager-card"):
-        ui.label(t("manager.players.up")).classes("manager-card-title")
-        for player in players:
-            with ui.row().classes("w-full items-center justify-between remote-up-row"):
-                with ui.row().classes("items-center gap-2 no-wrap min-w-0"):
-                    _avatar(state, player)
-                    ui.label(shown_name(player)).classes("remote-row-name")
-                panel.switch(bool(player.get("up")), flip(str(player["id"])))()
+        with ui.column().classes("w-full gap-0 manager-card"):
+            ui.label(t("manager.players.up")).classes("manager-card-title")
+            for player in players:
+                with ui.row().classes("w-full items-center justify-between remote-up-row"):
+                    with ui.row().classes("items-center gap-2 no-wrap min-w-0"):
+                        _avatar(state, player)
+                        ui.label(shown_name(player)).classes("remote-row-name")
+                    panel.switch(bool(player.get("up")), flip(str(player["id"])))()
+
+    drawn = panel.region(draw)
+    state["refill_up"] = drawn.refill
+    drawn()
 
 
 def _idle(state: dict[str, Any], client_for_target: Callable[[], Any],
@@ -1376,7 +1396,7 @@ def _play(state: dict[str, Any],
     # Not redraw(): a field rebuilt under the cursor drops the focus mid-word.
     async def typed(event: Any) -> None:
         state["find"] = str(event.value or "")
-        listed()
+        listing.refill()
 
     @on_page
     async def narrow(event: Any) -> None:
@@ -1397,39 +1417,38 @@ def _play(state: dict[str, Any],
             state["collection_ids"] = None
             ui.notify(t("manager.remote.collection_failed"), caption=why(exc),
                       type="negative")
-        listed()
+        listing.refill()
 
-    def picked() -> None:
-        picker.clear()
+    def draw_picker() -> None:
         named = frontend_collections(state.get("collections") or [],
                                     state.get("collection") or "")
         if not named:
             return
-        with picker:
-            dropdown.Select({"": t("manager.remote.all_games")} | {name: name for name in named},
-                            value=state.get("collection") or "", on_change=narrow,
-                            look=dropdown.OUTLINED).classes("w-full")
+        dropdown.Select({"": t("manager.remote.all_games")} | {name: name for name in named},
+                        value=state.get("collection") or "", on_change=narrow,
+                        look=dropdown.OUTLINED).classes("w-full")
 
-    def listed() -> None:
-        listing.clear()
-        with listing:
-            _game_list(in_collection(matching(state.get("games") or [],
-                                              state.get("find") or ""),
-                                     state.get("collection_ids")),
-                       state, client_for_target, redraw)
+    def draw_listing() -> None:
+        _game_list(in_collection(matching(state.get("games") or [], state.get("find") or ""),
+                                 state.get("collection_ids")),
+                   state, client_for_target, redraw)
+
+    picker = panel.region(draw_picker)
+    listing = panel.region(draw_listing)
 
     def relist() -> None:
-        picked()
-        listed()
+        picker.refill()
+        listing.refill()
 
     with ui.column().classes("w-full gap-2 p-3"):
         ui.input(placeholder=t("manager.remote.find_game"), value=state.get("find") or "",
                  on_change=typed) \
             .props("dense outlined clearable inputmode=search").classes("w-full")
-        picker = ui.column().classes("w-full gap-0")
-    listing = ui.column().classes("w-full gap-0")
+        with ui.column().classes("w-full gap-0"):
+            picker()
+    with ui.column().classes("w-full gap-0"):
+        listing()
     state["relist"] = relist
-    relist()
 
 
 def _game_list(found: list[dict[str, Any]], state: dict[str, Any],

@@ -4,6 +4,7 @@ lacks and offers, a run's card, and the review it drives on the frontend."""
 from __future__ import annotations
 
 import unittest
+from types import SimpleNamespace
 from typing import Any
 from unittest import mock
 
@@ -183,6 +184,30 @@ class ReviewTests(unittest.IsolatedAsyncioTestCase):
         self._draw()
         self.ui.toggle.return_value.props.return_value.classes.return_value \
             .set_enabled.assert_called_with(False)
+
+    async def test_turning_to_before_shows_it_on_the_frontend_and_draws_nothing_again(
+            self) -> None:
+        await self._begin()
+        self.redraw.reset_mock()
+        turn = self.ui.toggle.call_args.kwargs["on_change"]
+
+        await turn(SimpleNamespace(value="before", sender=mock.Mock()))
+
+        self.assertEqual(self.target.shown[-1], ("a", "before"))
+        self.assertEqual(self.state["reviewing"]["showing"], "before")
+        self.redraw.assert_not_called()
+
+    async def test_a_turn_the_frontend_would_not_show_turns_back(self) -> None:
+        await self._begin()
+        turn = self.ui.toggle.call_args.kwargs["on_change"]
+        sender = mock.Mock()
+
+        with mock.patch.object(self.target, "show_proposal",
+                               side_effect=RuntimeError("gone")):
+            await turn(SimpleNamespace(value="before", sender=sender))
+
+        self.assertEqual(self.state["reviewing"]["showing"], "after")
+        sender.set_value.assert_called_once_with("after")
 
     async def test_the_frontend_turning_before_and_after_turns_the_phone(self) -> None:
         await self._begin()

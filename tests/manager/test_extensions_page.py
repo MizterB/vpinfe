@@ -791,5 +791,61 @@ class ReportTests(unittest.TestCase):
         self.assertEqual("", drawn["Kiss - the game file was not imported"])
 
 
+class SavedSettingTests(unittest.TestCase):
+    """A saved setting redraws the page only where the extension reads back more than the
+    one value that was set."""
+
+    HELD = {"fields": [{"key": "volume", "type": "number", "value": 3},
+                       {"key": "name", "type": "string", "value": "a"}]}
+
+    def stands(self, fresh: dict | None, *, error: Exception | None = None,
+               value: Any = 5) -> tuple[bool, dict]:
+        client = mock.Mock()
+        client.ext_get.side_effect = error
+        client.ext_get.return_value = fresh
+        held = json.loads(json.dumps(self.HELD))
+
+        async def at_once(call: Callable[..., Any], *args: Any) -> Any:
+            return call(*args)
+
+        with mock.patch.object(ext_page.run, "io_bound", at_once):
+            return asyncio.run(ext_page._stands(client, "/ext/x", held, "volume", value)), held
+
+    def test_a_read_back_that_differs_only_in_the_value_set_stands(self) -> None:
+        fresh = {"fields": [{"key": "volume", "type": "number", "value": 5},
+                            {"key": "name", "type": "string", "value": "a"}]}
+
+        stood, held = self.stands(fresh)
+
+        self.assertTrue(stood)
+        self.assertEqual(5, held["fields"][0]["value"])
+
+    def test_another_value_that_moved_is_drawn_again(self) -> None:
+        fresh = {"fields": [{"key": "volume", "type": "number", "value": 5},
+                            {"key": "name", "type": "string", "value": "b"}]}
+
+        self.assertFalse(self.stands(fresh)[0])
+
+    def test_a_value_the_extension_changed_is_drawn_again(self) -> None:
+        fresh = {"fields": [{"key": "volume", "type": "number", "value": 4},
+                            {"key": "name", "type": "string", "value": "a"}]}
+
+        self.assertFalse(self.stands(fresh)[0])
+
+    def test_a_secret_is_drawn_again_whatever_it_reads_back(self) -> None:
+        held = {"fields": [{"key": "token", "type": "secret", "set": True}]}
+        client = mock.Mock()
+        client.ext_get.return_value = json.loads(json.dumps(held))
+
+        with mock.patch.object(ext_page.run, "io_bound",
+                               lambda call, *args: asyncio.sleep(0, call(*args))):
+            stood = asyncio.run(ext_page._stands(client, "/ext/x", held, "token", "abc"))
+
+        self.assertFalse(stood)
+
+    def test_a_page_that_cannot_be_read_back_is_drawn_again(self) -> None:
+        self.assertFalse(self.stands(None, error=RuntimeError("down"))[0])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -167,7 +167,7 @@ async def _ask_certificate(library: Library, certfile: str,
     return await box
 
 
-def page_parts(library: Library, redraw: Callable[[], None],
+def page_parts(library: Library, refill: Callable[[], None],
                held: dict[str, Any]) -> list[tuple[Any, ...]]:
     def failed(exc: ApiError) -> None:
         ui.notify(t("manager.encrypted.not_changed"), caption=why(exc), type="negative")
@@ -179,7 +179,7 @@ def page_parts(library: Library, redraw: Callable[[], None],
         except ApiError as exc:
             failed(exc)
             return
-        redraw()
+        refill()
 
     @on_page
     async def add_proxy() -> None:
@@ -189,7 +189,7 @@ def page_parts(library: Library, redraw: Callable[[], None],
         if await _ask_entry(t("manager.encrypted.add_proxy_title"),
                             t("manager.encrypted.proxy_label"),
                             t("manager.encrypted.add_proxy_help"), add):
-            redraw()
+            refill()
 
     @on_page
     async def add_network() -> None:
@@ -199,7 +199,7 @@ def page_parts(library: Library, redraw: Callable[[], None],
         if await _ask_entry(t("manager.encrypted.add_network_title"),
                             t("manager.encrypted.network_label"),
                             t("manager.encrypted.add_network_help"), add):
-            redraw()
+            refill()
 
     @on_page
     async def add_tailscale() -> None:
@@ -208,12 +208,12 @@ def page_parts(library: Library, redraw: Callable[[], None],
     @on_page
     async def remove_proxy(address: str) -> None:
         await run.io_bound(library.remove_trusted_proxy, address)
-        redraw()
+        refill()
 
     @on_page
     async def remove_network(text: str) -> None:
         await run.io_bound(library.remove_encrypted_network, text)
-        redraw()
+        refill()
 
     @on_page
     async def choose() -> None:
@@ -225,7 +225,7 @@ def page_parts(library: Library, redraw: Callable[[], None],
     @on_page
     async def clear() -> None:
         await run.io_bound(library.clear_certificate)
-        redraw()
+        refill()
 
     return entries(held, display_name(get_ini_config()),
                    add_proxy=add_proxy, remove_proxy=remove_proxy,

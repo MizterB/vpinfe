@@ -564,7 +564,7 @@ async def _draw_player(container: ui.column, title: ui.column, library: Library,
 
         async def again() -> None:
             """The grid first, so its row menus hold the accounts as they are now."""
-            await players_page.changed(context, again=False)
+            await players_page.changed(context)
             await build_player(container, title, library, player_id, state)
 
         context["rebuild"] = _rebuilds(context, f"player:{player_id}", again)

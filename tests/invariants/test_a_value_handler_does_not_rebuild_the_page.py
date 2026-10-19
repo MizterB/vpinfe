@@ -52,7 +52,6 @@ ELEMENT_MODULES = CONTROL_MODULES | {"grid", "frame"}
 
 WORKBENCH = "Workbench panels: save, then refill the mark or block that reads the value."
 LAUNCHERS = "Launcher panels: save, then refill what reads the value."
-EXTENSIONS = "Extension, Remote and Players pages: save, then refill what reads the value."
 UNREAD = "Not classified yet: convert it, or say here why it stays."
 
 # (file under manager/, function enclosing the control) -> what converts it. Each is a
@@ -60,18 +59,10 @@ UNREAD = "Not classified yet: convert it, or say here why it stays."
 # modules it imports from, so a handler handed through another function's argument is
 # the drive test's to catch.
 PENDING: dict[tuple[str, str], str] = {
-    ("extensions/ext_page.py", "build"): EXTENSIONS,
-    ("frontend/players.py", "_account"): EXTENSIONS,
-    ("frontend/players.py", "details"): EXTENSIONS,
-    ("remote/remote.py", "_up_section"): EXTENSIONS,
-    ("remote/remote_record.py", "controller"): EXTENSIONS,
     ("workbench/launcher.py", "_launcher_details"): LAUNCHERS,
     ("workbench/launcher.py", "launcher_rows.nvram"): LAUNCHERS,
-    ("extensions/ext_page.py", "_path_control.draw"): UNREAD,
     ("frontend/launchers.py", "ask_name.asked_field.drawn"): UNREAD,
     ("kit/folder_picker.py", "draw_browser"): UNREAD,
-    ("remote/remote.py", "_play"): UNREAD,
-    ("remote/remote.py", "_play.picked"): UNREAD,
 }
 
 # Handlers that draw the page again because the user went somewhere, or because the write
@@ -100,8 +91,8 @@ NAVIGATION: dict[tuple[str, str], str] = {
 
 # Neither number goes up. Raising one takes a line in a commit saying why. The sites are
 # counted as well as the functions, since a function already listed can gain a control.
-CEILING = 13
-SITES_CEILING = 31
+CEILING = 4
+SITES_CEILING = 16
 
 
 def _is_rebuild(node: ast.AST) -> bool:
@@ -143,8 +134,15 @@ def _bound_in(scope: ast.AST) -> dict[str, list[ast.AST]]:
     """What each name directly in `scope` stands for: a function it defines, or the
     function-valued expression it was assigned. Nested scopes are their own. A name
     assigned a region stands for nothing: a handler that refills it runs `refill`, and the
-    region's build is drawn by the region, as a part of the page."""
+    region's build is drawn by the region, as a part of the page. A parameter, and a name
+    assigned an element, stand for nothing either, and hide a function of the same name
+    outside."""
     bound: dict[str, list[ast.AST]] = {}
+    if isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        args = scope.args
+        for one in (*args.posonlyargs, *args.args, *args.kwonlyargs,
+                    *filter(None, (args.vararg, args.kwarg))):
+            bound[one.arg] = []
 
     def visit(node: ast.AST) -> None:
         for child in ast.iter_child_nodes(node):
@@ -153,12 +151,15 @@ def _bound_in(scope: ast.AST) -> dict[str, list[ast.AST]]:
             elif isinstance(child, ast.ClassDef):
                 continue
             else:
-                if isinstance(child, ast.Assign) and not _is_region(child.value) \
-                        and not _makes_an_element(child.value) \
-                        and isinstance(child.value, (ast.Lambda, ast.Call, ast.Name)):
+                if isinstance(child, ast.Assign):
+                    stands_for = isinstance(child.value, (ast.Lambda, ast.Call, ast.Name)) \
+                        and not _is_region(child.value) \
+                        and not _makes_an_element(child.value)
                     for target in child.targets:
                         if isinstance(target, ast.Name):
-                            bound.setdefault(target.id, []).append(child.value)
+                            bound.setdefault(target.id, [])
+                            if stands_for:
+                                bound[target.id].append(child.value)
                 visit(child)
 
     visit(scope)
@@ -191,9 +192,9 @@ class _File:
         if isinstance(node, ast.Name):
             at: ast.AST | None = self.up.get(id(node))
             while at is not None:
-                found = self.scope.get(id(at), {}).get(node.id)
-                if found:
-                    return [(self, one) for one in found]
+                here = self.scope.get(id(at), {})
+                if node.id in here:
+                    return [(self, one) for one in here[node.id]]
                 at = self.up.get(id(at))
             if node.id in self.names:
                 return self._there(*self.names[node.id])

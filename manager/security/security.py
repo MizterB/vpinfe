@@ -12,7 +12,7 @@ from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Any
 
-from nicegui import ui
+from nicegui import background_tasks, ui
 
 from common.config import paths
 from common.devices import serving as serving_state
@@ -86,15 +86,20 @@ def entries(sessions: list[dict[str, Any]], request: sign_in.Request | None,
     return out
 
 
+async def _read(library: Library) -> dict[str, Any]:
+    return {"sessions": await offload.io(library.sessions),
+            "tokens": await offload.io(library.tokens),
+            "encrypted": await offload.io(library.encrypted),
+            "authenticator": await offload.io(library.authenticator)}
+
+
 async def page(library: Library, redraw: Callable[[], None],
                state: dict[str, Any]) -> Callable[[], None]:
-    """Read who is signed in, and hand back the draw."""
+    """Read who is signed in, and hand back the draw. A change reads again and draws the
+    sections where they stand."""
     mine = this_session_id()
     try:
-        rows = await offload.io(library.sessions)
-        made = await offload.io(library.tokens)
-        held = await offload.io(library.encrypted)
-        app = await offload.io(library.authenticator)
+        found = await _read(library)
     except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
         reason = why(exc)
         return lambda: panel.facts(ui, [panel.intro(t("manager.security.read_failed"),
@@ -102,28 +107,40 @@ async def page(library: Library, redraw: Callable[[], None],
     bind = serving_state.network(paths.get_ini_config()).http_bind
 
     @on_page
+    async def read_again() -> None:
+        try:
+            found.update(await _read(library))
+        except Exception as exc:  # noqa: BLE001 - what is on screen stays
+            ui.notify(t("manager.security.read_failed"), caption=why(exc), type="negative")
+        drawn.refill()
+
+    def refill() -> None:
+        background_tasks.create(read_again(), name="security-refill")
+
+    @on_page
     async def open_list() -> None:
-        await signed_in_rows.open_list(library, rows, mine, after=_redrawn)
+        await signed_in_rows.open_list(library, found["sessions"], mine, after=_refilled)
 
-    async def _redrawn() -> None:
-        redraw()
+    async def _refilled() -> None:
+        refill()
 
-    def draw() -> None:
+    def parts() -> None:
         asked = sign_in.instance().pending()
         shown = waiting_key(asked)
 
         def poll() -> None:
             if waiting_key(sign_in.instance().pending()) != shown:
-                redraw()
+                refill()
 
         ui.timer(sign_in_notice.POLL_SECONDS, poll)
         panel.facts(
-            ui, entries(rows, asked, open_list, bind)
-            + authenticator_panel.page_parts(library, redraw, app)
-            + token_panel.page_parts(library, redraw, made)
-            + encrypted_panel.page_parts(library, redraw, held))
+            ui, entries(found["sessions"], asked, open_list, bind)
+            + authenticator_panel.page_parts(library, refill, found["authenticator"])
+            + token_panel.page_parts(library, refill, found["tokens"])
+            + encrypted_panel.page_parts(library, refill, found["encrypted"]))
 
-    return draw
+    drawn = panel.region(parts)
+    return drawn
 
 
 def sign_out_here(labels: list) -> None:
