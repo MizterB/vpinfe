@@ -923,6 +923,10 @@ answers.
   so the bar never carries a form control.
 - **Each row has a right-aligned end.** Search ends the top row; the count, then the
   selection actions, then the page's own actions end the bottom one.
+- **Discovery's grids have no box in their bar.** Its search finds authors, makers, themes
+  and games as well as rows, so it sits at the right end of the tab row, above the line, on
+  every tab and on an author's page (`discovery_search.SearchBox`). Their bar is one row
+  while the view, its description and the count fit, and two when they do not.
 - **A key to the marks a view draws sits on the description line**, right after it, and
   the free width falls after the pair. It says how to read what is on screen, which is
   the same question the description answers; in the right-hand end it reads as one more

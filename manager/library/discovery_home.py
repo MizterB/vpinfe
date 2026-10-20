@@ -4,9 +4,8 @@ library holds that lack a kind VPS lists, the games VPS lists that it has none o
 it holds, and the views it has saved.
 
 A tile opens its game in the pane, an author's name opens the author's page, and See All
-opens a grid on a named view of the same question. The search box and the counts on Your
-Views need the whole catalog, which loads after the page is drawn; the shelves do not wait
-for it.
+opens a grid on a named view of the same question. The counts on Your Views need the whole
+catalog, which loads after the page is drawn; the shelves do not wait for it.
 """
 
 from __future__ import annotations
@@ -233,13 +232,6 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
     shown: dict[str, Any] = {"home": home, "chip": vps_home.ALL, "lack": "", "rows": None,
                              "people": [], "asked": home["days"]}
     with body:
-        with ui.row().classes("w-full items-center gap-2 px-3 pb-1 shrink-0"):
-            ui.space()
-            with panel.bar_end(), ui.element("div").classes("manager-suggest-anchor"):
-                search = panel.search(t("manager.discovery.search"))
-                discovery_ask.Suggest(search, lambda text: vps_find.find(
-                    text, shown["people"], shown["rows"] or []), lambda group, one: choose(
-                        group, one))
         updates_box = ui.column().classes("w-full gap-2")
         shelf_box = ui.column().classes("w-full gap-2")
         with shelf_box:
@@ -257,12 +249,6 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         dont_have_box = ui.column().classes("w-full gap-2")
         authors_box = ui.column().classes("w-full gap-2")
         views_box = ui.column().classes("w-full gap-2")
-
-    async def choose(group: str, one: dict[str, Any]) -> None:
-        if group == vps_find.GAME:
-            await on_select({"id": str(one["id"])})
-        else:
-            open_subject({"type": group, "name": str(one["name"])})
 
     def menu_on(card: Any, shelf: str, item: dict[str, Any], listing: str) -> None:
         """The tile's right click and long press."""

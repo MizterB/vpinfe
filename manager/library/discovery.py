@@ -15,7 +15,7 @@ import asyncio
 import logging
 import time
 from collections.abc import Awaitable, Callable, Collection, Mapping
-from typing import Any
+from typing import Any, cast
 
 from nicegui import run, ui
 
@@ -54,6 +54,7 @@ from manager.library import (
     discovery_marks,
     discovery_marks_grid,
     discovery_releases,
+    discovery_search,
     import_dialog,
 )
 
@@ -306,11 +307,14 @@ def build(library: Library, state: dict[str, Any], on_select: Callable[[Any], An
         deeplink.sync(state)
         rerender()
 
-    with ui.row().classes("w-full items-center px-3 pt-2 pb-1 shrink-0"):
-        panel.segmented({HOME: t("manager.discovery.tab.home"),
-                         BROWSE: t("manager.discovery.tab.browse"),
-                         RELEASES: t("manager.discovery.tab.releases")},
-                        None if tab == MARKS else tab, switch)
+    with ui.row().classes("w-full items-stretch no-wrap gap-3 shrink-0 manager-tabs-row"):
+        # The tab is named by a string, which NiceGUI takes and its stubs do not list.
+        with ui.tabs(value=cast(Any, None if tab == MARKS else tab), on_change=switch) \
+                .props("dense no-caps align=left shrink"):
+            ui.tab(HOME, label=t("manager.discovery.tab.home"))
+            ui.tab(BROWSE, label=t("manager.discovery.tab.browse"))
+            ui.tab(RELEASES, label=t("manager.discovery.tab.releases"))
+        state[discovery_search.KEY] = discovery_search.SearchBox()
     body = ui.column().classes("w-full grow min-h-0 gap-0")
     fill = {HOME: _fill_home, RELEASES: _fill_releases, MARKS: _fill_marks}.get(tab, _fill)
     busy.fill(body, lambda: fill(library, body, state, on_select, rerender))
@@ -332,10 +336,19 @@ async def _fill_home(library: Library, body: Any, state: dict[str, Any],
         update_count.from_home(int(home["updates"]["count"]))
     people: list[dict[str, Any]] = []
 
+    @on_page
+    async def choose(group: str, one: dict[str, Any]) -> None:
+        if group == vps_find.GAME:
+            await on_select({"id": str(one["id"])})
+        else:
+            open_page(state, people, rerender, {"type": group, "name": str(one["name"])})
+
     async def catalog() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         found = await _read(library)
         people[:] = found.get("people") or []
-        return people, rows_of(library, found)
+        built = rows_of(library, found)
+        discovery_search.feed(state, people, built, choose)
+        return people, built
 
     async def reread(days: int) -> dict[str, Any]:
         return await offload.io(library.discovery_home, days)
@@ -637,8 +650,18 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
                                    counted=counted)
         open_page(state, people, rerender, None, opening=opening, tab=tab)
 
+    by_id = {row["id"]: row for row in built}
+
+    @on_page
+    async def choose(group: str, one: dict[str, Any]) -> None:
+        if group == vps_find.GAME:
+            await on_select(by_id.get(str(one["id"])))
+        else:
+            await go_to({"type": group, "name": str(one["name"])})
+
     state["open_author"] = lambda name: go_to({"type": vps_find.AUTHOR, "name": name})
     if state.get("subject"):
+        discovery_search.feed(state, people, built, choose)
         subject = state["subject"]
         known = vps_question.person_named(subject["name"], people) \
             if subject["type"] == vps_find.AUTHOR else None
@@ -661,34 +684,22 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
                 see_all=lambda question: open_grid(subject, question))
         return
     columns = grid_columns(library, built)
-    by_id = {row["id"]: row for row in built}
     on_screen: dict[str, Any] = {"ids": [row["id"] for row in built], "selected": 0}
     fields = [one["field"] for one in columns]
     arrival = discovery_ask.opening_on(state, BROWSE)
     opened = views.opened(views.builtins(VIEWS)[0], arrival["name"], arrival["filters"],
                           fields, sort=tuple(arrival.get("sort") or ())) if arrival else None
 
-    @on_page
-    async def choose(group: str, one: dict[str, Any]) -> None:
-        if group == vps_find.GAME:
-            await on_select(by_id.get(str(one["id"])))
-        else:
-            await go_to({"type": group, "name": str(one["name"])})
-
     with body:
         with ui.row().classes(
-                "w-full items-center gap-2 px-3 py-2 mb-2 shrink-0 manager-panel manager-grid-bar"):
+                "w-full items-center gap-2 px-3 py-2 mb-2 shrink-0 "
+                "manager-panel manager-grid-bar manager-grid-bar--flow"):
             bar = panel.grid_bar()
             wire_views, _picker, showing, describe = view_control(
                 library, SCOPE, VIEWS, fields, columns, bar=bar,
                 art_in_lists=True, opened=opened,
                 left_opened=lambda: discovery_ask.drop_opening(state, BROWSE))
             describe()
-            with bar.top, panel.bar_end():
-                with ui.element("div").classes("manager-suggest-anchor"):
-                    search = panel.search(t("manager.discovery.search"))
-                    discovery_ask.Suggest(
-                        search, lambda text: vps_find.find(text, people, built), choose)
             with bar.bottom, panel.bar_end():
                 count = ui.label(summary(built, counted)).classes("text-xs manager-label")
                 show_selection = panel.selection_menu(
@@ -741,9 +752,9 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
             menu: ui.context_menu = ui.context_menu()
         grid_module.on_row_focus(
             SCOPE, lambda event: on_select(by_id.get(grid_module.focused_row(event))))
-        search.on_value_change(
-            lambda: table.run_grid_method("setGridOption", "quickFilterText",
-                                          search.value or ""))
+        discovery_search.feed(
+            state, people, built, choose,
+            narrow=lambda text: table.run_grid_method("setGridOption", "quickFilterText", text))
         table.on("modelUpdated", lambda: _counted_in_view())
         wire_views(table)
 

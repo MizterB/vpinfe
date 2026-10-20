@@ -68,8 +68,6 @@ PENDING: dict[tuple[str, str], str] = {
 # Handlers that draw the page again because the user went somewhere, or because the write
 # changed what the page lists, so rows come and go. Each stays, with the reason.
 NAVIGATION: dict[tuple[str, str], str] = {
-    ("library/discovery.py", "build"):
-        "Home, Browse and Releases are three views of Discovery: switching is navigation.",
     ("workbench/tag.py", "_tag_details"):
         "A renamed tag is another tag: its games, color and address all follow the name, "
         "so the panel follows it. Description and color are saved in place.",

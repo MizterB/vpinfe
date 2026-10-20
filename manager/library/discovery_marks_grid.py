@@ -19,7 +19,7 @@ from manager.kit import game_tables, panel, thumbnails, views, when
 from manager.kit import grid as grid_module
 from manager.kit.data import Library
 from manager.kit.on_page import on_page
-from manager.library import discovery_ask, discovery_marks
+from manager.library import discovery_ask, discovery_marks, discovery_search
 
 SCOPE = "discovery_marks"
 # The name of this grid in the page's state. It has no segment of its own: Home leads to it.
@@ -175,16 +175,12 @@ async def fill(
 
     with body:
         with ui.row().classes(
-                "w-full items-center gap-2 px-3 py-2 mb-2 shrink-0 manager-panel manager-grid-bar"):
+                "w-full items-center gap-2 px-3 py-2 mb-2 shrink-0 "
+                "manager-panel manager-grid-bar manager-grid-bar--flow"):
             bar = panel.grid_bar()
             wire_views, _picker, showing, describe = view_control(
                 library, SCOPE, VIEWS, fields, grid_columns, bar=bar, art_in_lists=True)
             describe()
-            with bar.top, panel.bar_end():
-                with ui.element("div").classes("manager-suggest-anchor"):
-                    search = panel.search(t("manager.discovery.search"))
-                    discovery_ask.Suggest(
-                        search, lambda text: vps_find.find(text, people, games), choose)
             with bar.bottom, panel.bar_end():
                 count = ui.label(summary(shown["count"])).classes("text-xs manager-label")
                 show_selection = panel.selection_menu(
@@ -236,9 +232,9 @@ async def fill(
                 {"id": str((shown["rows"].get(grid_module.focused_row(event)) or {})
                            .get("vps_id") or "")}) if grid_module.focused_row(event) in shown[
                                "rows"] else None)
-        search.on_value_change(
-            lambda: table.run_grid_method("setGridOption", "quickFilterText",
-                                          search.value or ""))
+        discovery_search.feed(
+            state, people, games, choose,
+            narrow=lambda text: table.run_grid_method("setGridOption", "quickFilterText", text))
         table.on("modelUpdated", lambda: _counted_in_view())
         wire_views(table)
 

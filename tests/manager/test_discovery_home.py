@@ -21,6 +21,7 @@ from manager.library import (
     discovery_marks,
     discovery_marks_grid,
     discovery_releases,
+    discovery_search,
     games,
 )
 from manager.library import discovery_home as home
@@ -676,6 +677,35 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([one["id"] for one in rows], ["g1", "g2"])
         self.assertEqual([one["name"] for one in people], ["Alpha"])
 
+    async def test_home_draws_no_search_box_of_its_own(self) -> None:
+        body = await self._draw()
+
+        self.assertEqual([], [one for one in body.descendants() if isinstance(one, ui.input)])
+
+    async def test_the_catalog_read_feeds_the_box_on_the_tab_row(self) -> None:
+        with _PAGE:
+            box = discovery_search.SearchBox()
+        self.state[discovery_search.KEY] = box
+        await self._draw()
+
+        found = box._find("alpha")
+
+        self.assertEqual(["Alpha"], [one["name"] for one in found["author"]])
+        self.assertEqual(["Alien"], [one["name"] for one in box._find("alien")["game"]])
+
+    async def test_a_pick_from_the_box_on_home_opens_a_game_or_an_authors_page(self) -> None:
+        with _PAGE:
+            box = discovery_search.SearchBox()
+        self.state[discovery_search.KEY] = box
+        await self._draw()
+
+        with _PAGE:
+            await box._pick("game", {"id": "g1", "name": "Alien"})
+            await box._pick("author", {"name": "Alpha", "count": 4})
+
+        self.assertEqual([{"id": "g1"}], self.selected)
+        self.assertEqual({"type": "author", "name": "Alpha"}, self.state["subject"])
+
     async def test_a_game_opened_from_home_leaves_home_where_it_is(self) -> None:
         """The pane opening sets the entry; a redraw after it, such as Add to Library or a
         comparison ending, is still Home."""
@@ -706,6 +736,33 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
         with _PAGE, mock.patch.object(ui.aggrid, "run_grid_method", create=True):
             await self.state["redraw_discovery"]()
         return counting
+
+    async def _drawn_on(self, tab: str) -> tuple[ui.element, discovery_search.SearchBox]:
+        """The body a tab draws, and the box on the tab row above it."""
+        self.state["discovery_tab"] = tab
+        with _PAGE, mock.patch.object(discovery.busy, "fill") as filled:
+            discovery.build(self.library, self.state, self._select, self.rerender)
+        with _PAGE, mock.patch.object(ui.aggrid, "run_grid_method", create=True):
+            await filled.call_args.args[1]()
+        await _settle()
+        return filled.call_args.args[0], self.state[discovery_search.KEY]
+
+    async def test_every_tab_feeds_the_box_on_its_row_and_draws_none_in_its_bar(self) -> None:
+        for tab in (discovery.BROWSE, discovery.RELEASES, discovery.MARKS):
+            with self.subTest(tab=tab):
+                body, box = await self._drawn_on(tab)
+
+                self.assertEqual([], [one for one in body.descendants()
+                                      if isinstance(one, ui.input)])
+                self.assertEqual(["Alpha"], [one["name"] for one in box._find("alpha")["author"]])
+                self.assertIsNotNone(box.choose)
+
+    async def test_an_authors_page_feeds_the_box_on_the_tab_row(self) -> None:
+        self.state["subject"] = {"type": "author", "name": "Alpha"}
+
+        _body, box = await self._drawn_on(discovery.BROWSE)
+
+        self.assertEqual(["Alien"], [one["name"] for one in box._find("alien")["game"]])
 
     async def test_a_redraw_of_browse_counts_the_updates_again(self) -> None:
         counting = await self._redrawn_on(discovery.BROWSE)

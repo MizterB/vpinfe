@@ -4507,6 +4507,28 @@ svg.manager-cell-noart {
 
 /* Discovery's search, which also finds a name. */
 .manager-suggest-anchor { position: relative; }
+/* Discovery's tab row: the tabs on the page's left edge, the search box at the right end
+   above the line, and the line under the whole width. The active tab's mark is drawn over
+   that line, so the q-tabs reaches one pixel into it. */
+.manager-tabs-row {
+  height: 48px; border-bottom: 1px solid var(--line); margin-bottom: 12px;
+}
+.manager-tabs-row .q-tabs { background: transparent; margin-bottom: -1px; flex: 0 0 auto; }
+.manager-tabs-row .q-tab { color: var(--ink-3); padding: 0 14px; min-width: 0; min-height: 48px; }
+.manager-tabs-row .q-tab:first-child { padding-left: 0; }
+.manager-tabs-row .q-tab--active { color: var(--accent); }
+.manager-tabs-row .q-tab__indicator { background: var(--accent); }
+/* 24rem while there is room; with the pane open the tabs leave about 17rem, and it gives
+   way before anything else on the row. */
+.manager-search-slot { flex: 0 1 24rem; min-width: 8rem; margin-left: auto; align-self: center; }
+.manager-search-slot .manager-search { width: 100%; }
+/* Discovery's grid bar: View and tune, then the description and the count, on one row
+   while they fit and on two when they do not (the pane open). */
+.manager-grid-bar.manager-grid-bar--flow {
+  flex-direction: row; flex-wrap: wrap; align-items: center; column-gap: 8px; row-gap: 4px;
+}
+.manager-grid-bar--flow > .manager-bar-row { width: auto; flex: 0 0 auto; }
+.manager-grid-bar--flow > .manager-bar-foot { flex: 1 1 auto; min-width: 0; }
 .manager-suggest {
   position: absolute; top: 100%; right: 0; z-index: 3000; width: 360px; max-width: 90vw;
   margin-top: 4px; padding: 4px 0; border: 1px solid var(--line); border-radius: 6px;
