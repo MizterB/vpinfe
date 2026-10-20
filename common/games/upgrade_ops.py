@@ -6,9 +6,10 @@ each backglass file that has none. Everything it writes is journaled so one call
 
 A box is carried only where the file places no DMD of its own for that window: what a file
 already says is the one in force. A box any of whose files cannot be written stays where it
-is, whole, and is named under `held_back`; none of its files is written. Everything that can
-refuse does so before anything is written, the files go first and the settings last, and a
-settings write that fails puts the files back.
+is, whole, and is named under `held_back`; none of its files is written. So is a box that
+would take the move past the files the undo journal keeps, so that Undo can always put back
+everything a move wrote. Everything that can refuse does so before anything is written, the
+files go first and the settings last, and a settings write that fails puts the files back.
 """
 
 from __future__ import annotations
@@ -143,21 +144,33 @@ def _answer(token: str, moved: list[str], held_back: list[dict[str, Any]]) -> di
 
 class _Box:
     """One box and what carrying it needs: the files that would take it, the files that
-    refused, and the bytes its changes take in the undo journal."""
+    refused, and the bytes its changes take in the undo journal. `limit` is the number of
+    files the journal keeps where this box was left out for being one too many."""
 
     def __init__(self, item: Leftover) -> None:
         self.item = item
         self.targets: list[dict[str, Any]] = []
         self.refused: list[dict[str, str]] = []
         self.size = 0
+        self.limit = 0
+
+    def held(self) -> dict[str, Any]:
+        """How `held_back` names this box: its key, the files that refused, and `limit` where
+        it was one box too many for the undo journal."""
+        return {"key": self.item.key, "files": self.refused,
+                **({"limit": self.limit} if self.limit else {})}
 
 
 def _plan(launcher_id: str, items: list[Leftover]) -> list[_Box]:
     """Every box, with each of its files asked whether it can be written now. A box with a
-    file that refuses takes none of them."""
+    file that refuses takes none of them, and neither does one that would take the move past
+    the files the undo journal keeps: the boxes go in order and the first that does not fit
+    stays in the settings, whole."""
     boxes = [one for one in items if one.action == PLACE]
     if not boxes:
         return []
+    kept, _biggest = backglass_displays.limits()
+    used = 0
     held = backglass_ops.files_of(launcher_id)
     before = launcher_ops.effective_values(launcher_id)
     after = _after_the_move(before, items)
@@ -174,18 +187,17 @@ def _plan(launcher_id: str, items: list[Leftover]) -> list[_Box]:
                 box.targets.append(target)
         if box.refused:
             box.targets, box.size = [], 0
+        elif used + len(box.targets) > kept:
+            box.targets, box.size, box.limit = [], 0, kept
+        used += len(box.targets)
         planned.append(box)
     return planned
 
 
 def _refuse_unkeepable(boxes: list[_Box]) -> None:
-    """The undo journal keeps so many changes and so many bytes. A move it could not take
-    whole would lose a file from its Undo, so it does not start."""
-    entries, biggest = backglass_displays.limits()
-    count = sum(len(one.targets) for one in boxes)
-    if count > entries:
-        raise service_errors.BlockedError(t("error.upgrade.too_many", limit=entries),
-                                          details={"files": count, "limit": entries})
+    """The undo journal keeps so many bytes. A move it could not take whole would lose a
+    file from its Undo, so it does not start."""
+    _kept, biggest = backglass_displays.limits()
     if sum(one.size for one in boxes) > biggest:
         raise service_errors.BlockedError(t("error.upgrade.too_large"),
                                           details={"limit": biggest})
@@ -219,7 +231,7 @@ def move(launcher_id: str) -> dict[str, Any]:
             values.update({item.to: item.new_value, **dict.fromkeys(dict(item.drops), "")})
             before.update({item.to: "", **dict(item.drops)})
             moved.append(item.key)
-    held_back = [{"key": one.item.key, "files": one.refused} for one in planned if one.refused]
+    held_back = [one.held() for one in planned if one.refused or one.limit]
     placed: list[tuple[str, str, str]] = []
     try:
         for box in planned:

@@ -5119,6 +5119,7 @@
     "one": "{count:n} backglass file could not be written, so its DMD stays in the settings",
     "other": "{count:n} backglass files could not be written, so their DMD stays in the settings"
   },
+  "manager.leftovers.held_over": "The DMD stays in the settings: it goes into over {limit:n} backglass files",
   "manager.leftovers.line": {
     "one": "{count:n} setting this version no longer reads",
     "other": "{count:n} settings this version no longer reads"
@@ -5142,7 +5143,6 @@
   "error.upgrade.expired": "This move can no longer be undone",
   "error.upgrade.files": "Some backglass files could not be put back, so nothing was undone",
   "error.upgrade.too_large": "A backglass file's change is too large to be put back, so nothing was moved",
-  "error.upgrade.too_many": "Over {limit:n} backglass files cannot be moved with an Undo, so none were moved",
   "error.upgrade.unnamed": "Nothing left behind is named {key}",
   "extension.account.sends_picture": "their picture",
   "extension.platform.linux": "Linux",

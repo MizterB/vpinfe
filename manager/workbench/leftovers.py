@@ -102,11 +102,13 @@ def _full(context: dict[str, Any], launcher_id: str, items: list[dict[str, Any]]
             ui.notify(t("manager.leftovers.could_not"), caption=why(exc), type="negative")
             return
         held_back = list(done.get("held_back") or [])
-        if held_back:
-            files = sorted({str(one["path"]) for each in held_back
-                            for one in each.get("files") or ()})
+        files = sorted({str(one["path"]) for each in held_back
+                        for one in each.get("files") or ()})
+        if files:
             ui.notify(t("manager.leftovers.held_back", count=len(files)),
                       caption="\n".join(files), type="warning", multi_line=True)
+        if limit := max((int(each.get("limit") or 0) for each in held_back), default=0):
+            ui.notify(t("manager.leftovers.held_over", limit=limit), type="warning")
         token = str(done.get("undo") or "")
         if token:
             undo.offer(t("manager.leftovers.moved", count=len(done.get("moved") or ())),

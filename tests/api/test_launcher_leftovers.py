@@ -338,14 +338,31 @@ class Safety(Upgrade):
         self.assertEqual(self.path.read_bytes(), self.original)
         self.assertEqual(self.writes[-1][B2S + "BackglassDMDX"], "10")
 
-    def test_a_move_the_journal_cannot_keep_whole_does_not_start(self) -> None:
-        self.items = [FRONT, SCORE, FANTASY]
+    def test_a_box_going_into_more_files_than_the_journal_keeps_is_held_back_whole(self) -> None:
+        self.items = [FRONT, FANTASY]
+        self.both()
 
-        with patch.object(backglass_displays, "_KEPT", 1), \
-                self.assertRaises(service_errors.BlockedError):
-            upgrade_ops.move("L1")
+        with patch.object(backglass_displays, "_KEPT", 1):
+            answer = upgrade_ops.move("L1")
 
-        self.assertEqual((self.path.read_bytes(), self.writes), (self.original, []))
+        self.assertEqual(answer["moved"], [FANTASY.key])
+        self.assertEqual(answer["held_back"], [{"key": FRONT.key, "files": [], "limit": 1}])
+        self.assertEqual((self.path.read_bytes(), self.second.read_bytes()),
+                         (self.original, self.original))
+        self.assertNotIn(B2S + "BackglassDMDX", self.writes[0])
+        self.assertEqual(self.writes[0][B2S + "DualMode"], "2")
+
+    def test_the_boxes_that_fit_go_and_the_first_that_does_not_stays(self) -> None:
+        self.items = [FRONT, SCORE]
+
+        with patch.object(backglass_displays, "_KEPT", 1):
+            answer = upgrade_ops.move("L1")
+
+        self.assertEqual(answer["moved"], [FRONT.key])
+        self.assertEqual([one["key"] for one in answer["held_back"]], [SCORE.key])
+        self.assertEqual([one[0] for one in self.displays()], ["Backglass"])
+        upgrade_ops.undo("L1", answer["undo"])
+        self.assertEqual(self.path.read_bytes(), self.original)
 
     def test_a_change_too_large_to_keep_stops_the_move_before_it_starts(self) -> None:
         self.items = [FRONT, FANTASY]
@@ -444,11 +461,20 @@ class Routes(Upgrade):
         self.assertEqual(done.status_code, 200, done.text)
         self.assertEqual(self.writes, [{B2S + "Enable": "1"}])
 
-    def test_a_move_the_journal_cannot_keep_is_a_conflict(self) -> None:
+    def test_a_change_too_large_for_the_journal_is_a_conflict(self) -> None:
         self.items = [FRONT, SCORE]
 
-        with patch.object(backglass_displays, "_KEPT", 1):
+        with patch.object(backglass_displays, "_MAX_BYTES", 10):
             refused = self.client.post("/launchers/L1/leftovers/move")
 
         self.assertEqual(refused.status_code, 409)
         self.assertEqual(self.path.read_bytes(), self.original)
+
+    def test_a_box_over_the_journal_is_named_with_its_limit(self) -> None:
+        self.items = [FRONT, SCORE]
+
+        with patch.object(backglass_displays, "_KEPT", 1):
+            done = self.client.post("/launchers/L1/leftovers/move")
+
+        self.assertEqual(done.status_code, 200, done.text)
+        self.assertEqual(done.json()["held_back"], [{"key": SCORE.key, "files": [], "limit": 1}])

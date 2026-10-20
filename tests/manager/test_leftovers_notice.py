@@ -65,10 +65,13 @@ class Page:
         self.stored = {row: list(ids) for row, ids in (stored or {}).items()}
         self.items = items
         self.rebuilt = 0
+        self.answer: dict[str, Any] = {}
+        self.said: list[Any] = []
         self.labels: list[str] = []
         self.buttons: dict[str, Any] = {}
         client = SimpleNamespace(
             launcher_leftovers=lambda _id: {"items": self.items},
+            move_launcher_leftovers=lambda _id: self.answer,
             dismissed=lambda: {row: list(ids) for row, ids in self.stored.items()},
             put_dismissed=self._put)
         self.library = Library.__new__(Library)
@@ -112,7 +115,10 @@ class Page:
         async def io_bound(fn, *args, **kwargs):
             return fn(*args, **kwargs)
 
-        with patch.object(leftovers, "ui", MagicMock()), \
+        ui = MagicMock()
+        ui.notify.side_effect = lambda *a, **k: self.said.append((a, k))
+        with patch.object(leftovers, "ui", ui), \
+                patch.object(leftovers.undo, "offer"), \
                 patch.object(leftovers, "on_page", lambda handler: handler), \
                 patch.object(leftovers.run, "io_bound", io_bound):
             asyncio.run(self.buttons[label]())
@@ -137,6 +143,16 @@ class WhatTheNoticeDraws(unittest.TestCase):
         self.assertEqual({t("manager.leftovers.move"), t("manager.leftovers.not_now")},
                          set(page.buttons))
         self.assertIn(t("manager.leftovers.heading"), page.labels)
+
+    def test_a_box_left_in_the_settings_for_the_undo_journal_says_so(self):
+        page = Page(MOVES)
+        page.answer = {"moved": ["a"], "undo": "",
+                       "held_back": [{"key": "k", "files": [], "limit": 32}]}
+        page.draw()
+        page.press(t("manager.leftovers.move"))
+
+        self.assertEqual([(a[0], k.get("caption")) for a, k in page.said],
+                         [(t("manager.leftovers.held_over", limit=32), None)])
 
     def test_not_now_leaves_one_line_with_review_and_the_overview_row_set_aside(self):
         page = Page(MOVES)

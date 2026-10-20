@@ -64,8 +64,9 @@ def launcher_leftovers(launcher_id: str) -> dict[str, Any]:
              dependencies=[requires(scopes.CONFIG_WRITE), requires(scopes.GAMES_WRITE)])
 def move_launcher_leftovers(launcher_id: str) -> dict[str, Any]:
     """Every `move` to its new name and every `place` into the backglass files, then the
-    old settings blanked. A box whose files cannot all be written keeps its settings and
-    is named under `held_back` with the files that refused. `undo` is the token for the
+    old settings blanked. A box whose files cannot all be written, or that is one box too many
+    for the undo journal, keeps its settings and is named under `held_back`, with the files
+    that refused or the `limit`. `undo` is the token for the
     undo route, empty where nothing was written."""
     return upgrade_ops.move(launcher_id)
 
