@@ -50,6 +50,7 @@ tests = [
 paths = ["manager/kit/*", "manager/page.py", "manager/edit_page.py", "manager/static/*"]
 tests = [
   "tests/manager/test_a_select_leaves_room_for_reset.py",
+  "tests/manager/test_external_link_keeps_browser_menu.py",
   "tests/theming/test_a_value_change_keeps_the_panel_drive.py",
   "tests/theming/test_escape_in_dialogs_drive.py",
   "tests/theming/test_folder_picker_drive.py",

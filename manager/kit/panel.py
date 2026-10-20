@@ -1970,6 +1970,10 @@ def subject_menu(slot: Any, entries: Sequence[Verb]) -> None:
 # the browser's. Captured on the document because the rows are rebuilt, and a listener per
 # row would have to be re-attached every time one is. A page that draws `link(on_click=...)`
 # runs it too, or the browser follows the address and takes the page's connection with it.
+#
+# A right click on a link that leaves the Manager is the browser's too (new tab, new window,
+# copy address). A row's `ui.context_menu` hears it on the row, above the link, so it is
+# stopped on the way down; the default is left alone, which is what opens the native menu.
 NAV_CLICK = """
 (() => {
   document.addEventListener('click', (event) => {
@@ -1979,6 +1983,11 @@ NAV_CLICK = """
     if (event.button !== 0 || event.metaKey || event.ctrlKey ||
         event.shiftKey || event.altKey) return;
     event.preventDefault();
+  }, true);
+  document.addEventListener('contextmenu', (event) => {
+    if (event.target.closest && event.target.closest('a.manager-link-out')) {
+      event.stopPropagation();
+    }
   }, true);
 })()
 """
