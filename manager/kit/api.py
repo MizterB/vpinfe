@@ -524,6 +524,25 @@ class ApiClient:
         """Discovery's front page, every shelf in one read."""
         return dict(self._get(f"/discovery/home?days={int(days)}"))
 
+    def discovery_marks(self) -> list[dict]:
+        """Everything marked Wanted or Ignored on this install, the newest first."""
+        return list(self._get("/discovery/marks").get("marks") or [])
+
+    def put_discovery_mark(self, state: str, scope: str, vps_id: str,
+                           detail: str = "") -> dict:
+        """Put a state on a thing: `marks` as they stand, and `replaced`, the state it held."""
+        return dict(self._put("/discovery/marks", {"state": state, "scope": scope,
+                                                   "id": vps_id, "detail": detail}))
+
+    def delete_discovery_mark(self, scope: str, vps_id: str, detail: str = "") -> dict:
+        """Take the mark off a thing: `marks` as they stand, and `replaced`, the state it held."""
+        _refuse_the_event_loop("/discovery/marks")
+        response = self._session.delete(
+            f"{self._base}/discovery/marks", params={"scope": scope, "id": vps_id,
+                                                      "detail": detail}, timeout=_TIMEOUT)
+        self._answered(response)
+        return dict(response.json())
+
     def vps_details(self, game_id: str) -> list[dict]:
         """Which of the game's details disagree with its entry - empty for a game
         nobody has re-matched, which is nearly all of them."""

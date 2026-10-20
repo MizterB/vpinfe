@@ -126,6 +126,7 @@ WITHOUT_FILE = "tag"
 RECORD = "fiber_manual_record"
 ADD_ART = "add_photo_alternate"
 ADD_TO_LIST = "playlist_add"
+WANTED = "bookmark"
 
 # Saying who is holding the phone.
 THIS_IS_ME = "person"

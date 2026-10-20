@@ -288,6 +288,23 @@ class ConfigTests(RevertTestCase):
             self.assertIn(name, result["config_removed"])
             self.assertTrue((self.config_dir / name).exists())
 
+    def test_the_marks_are_copied_aside_before_they_go(self):
+        """Wanted and Ignored are entered by hand and nothing can rebuild them, so the reset
+        removes marks.json from the state folder but leaves a copy beside it, which the next
+        reset does not sweep."""
+        self._migrate()
+        state = self.config_dir / "state"
+        state.mkdir(exist_ok=True)
+        (state / "marks.json").write_text('{"schema": 1, "marks": []}', encoding="utf-8")
+
+        result = self._reset()
+
+        self.assertFalse((state / "marks.json").exists())
+        self.assertIn("marks.json", result["config_removed"])
+        kept = list(state.glob("marks.json.vpinfe-*"))
+        self.assertEqual(len(kept), 1, f"expected one copy, found {kept}")
+        self.assertIn(kept[0].name, result["config_kept"])
+
     def _list_a_mobile_device(self) -> Path:
         path = self.config_dir / "vpinfe.json"
         data = json.loads(path.read_text(encoding="utf-8"))

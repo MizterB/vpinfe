@@ -190,7 +190,7 @@ class Columns(unittest.TestCase):
                     if ":filter" in one or "filterParams" in one}
 
         self.assertEqual({"kind", "authors", "added", "held", "format", "features", "mod",
-                          "in_library"}, filtered)
+                          "in_library", "mark"}, filtered)
         self.assertTrue(filtered <= set(_everything().columns))
 
 

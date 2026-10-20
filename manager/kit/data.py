@@ -233,6 +233,7 @@ class Library:
         self._hidden_checks: set[str] | None = None
         self._hidden_overview: set[str] | None = None
         self._dismissed: dict[str, list[str]] = {}
+        self._marks: list[dict[str, Any]] | None = None
         self._dismissed_read = False
         self._watched: dict[str, Any] | None = None
         self._watched_at = 0.0
@@ -2114,6 +2115,27 @@ class Library:
     def discovery_home(self, days: int) -> dict[str, Any]:
         """Discovery's front page for a window of `days`. Off the loop."""
         return self._client.discovery_home(days)
+
+    def load_marks(self) -> list[dict[str, Any]]:
+        """Read what is marked Wanted or Ignored. Off the loop."""
+        self._marks = self._client.discovery_marks()
+        return self._marks
+
+    def marks(self) -> list[dict[str, Any]]:
+        """The marks as last read; none before the first read. Asks nothing."""
+        return self._marks or []
+
+    def mark_discovery(self, state: str, scope: str, vps_id: str, detail: str = "") -> str:
+        """Put a state on a thing; the state it held, "" if none. Off the loop."""
+        done = self._client.put_discovery_mark(state, scope, vps_id, detail)
+        self._marks = list(done.get("marks") or [])
+        return str(done.get("replaced") or "")
+
+    def unmark_discovery(self, scope: str, vps_id: str, detail: str = "") -> str:
+        """Take the mark off a thing; the state it held, "" if none. Off the loop."""
+        done = self._client.delete_discovery_mark(scope, vps_id, detail)
+        self._marks = list(done.get("marks") or [])
+        return str(done.get("replaced") or "")
 
     def new_game_destination(self) -> dict:
         return self._client.new_game_destination()

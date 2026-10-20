@@ -22,8 +22,18 @@ from common.failures import why
 from common.i18n import t
 from common.media.media_specs import media_label_map
 from common.online import vps_find, vps_home
-from manager.kit import busy, candidates, deeplink, dropdown, panel, remembered, views, when
-from manager.library import discovery_ask, discovery_releases
+from manager.kit import (
+    busy,
+    candidates,
+    deeplink,
+    dropdown,
+    panel,
+    remembered,
+    verbs,
+    views,
+    when,
+)
+from manager.library import discovery_ask, discovery_marks, discovery_releases
 
 logger = logging.getLogger("vpinfe.manager.library.discovery_home")
 
@@ -127,13 +137,15 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
          see_new: Callable[[int, str], Any],
          see_missing: Callable[[list[str]], Any],
          open_view: Callable[[str], Any],
-         open_subject: Callable[[dict[str, str]], Any]) -> None:
+         open_subject: Callable[[dict[str, str]], Any],
+         marking: discovery_marks.Marking) -> None:
     """Draw Home into `body` from `home`, the answer for the remembered window.
 
     `catalog()` gives the people and the Browse rows once the catalog is in memory; `reread`
     answers for another window. `see_new(days, chip)` and `see_missing(game_ids)` open the
     grid on the shelf's question, `open_view(id)` on a saved view, and `open_subject` an
-    author's page."""
+    author's page. `marking` is the menu a tile opens on a right click or a long press, and
+    what says a release is Wanted."""
     shown: dict[str, Any] = {"home": home, "chip": vps_home.ALL, "lack": "", "rows": None,
                              "people": [], "asked": home["days"]}
     with body:
@@ -155,6 +167,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
                 ui.space()
                 see_all_slot = ui.row().classes("items-center")
             tiles_box = ui.column().classes("w-full gap-2")
+        wanted_box = ui.column().classes("w-full gap-2")
         lacking_box = ui.column().classes("w-full gap-2")
         authors_box = ui.column().classes("w-full gap-2")
         views_box = ui.column().classes("w-full gap-2")
@@ -164,6 +177,14 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
             await on_select({"id": str(one["id"])})
         else:
             open_subject({"type": group, "name": str(one["name"])})
+
+    def menu_on(card: Any, shelf: str, item: dict[str, Any], listing: str) -> None:
+        """The tile's right click and long press."""
+        word = media_label_map().get(listing) or (_kind_words(listing)[0] if listing else "")
+        with card:
+            menu = ui.context_menu()
+        panel.verb_menu(menu, marking.title(shelf, item),
+                        marking.verbs(shelf, item, listing, word))
 
     def tile(parent: Any, release: dict[str, Any]) -> None:
         with parent, ui.element("div").classes("manager-shelf-tile") as card:
@@ -183,6 +204,10 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
                     ui.label(t("manager.discovery.mod")).classes("text-xs manager-help")
                 if release["held"]:
                     ui.label(t("manager.discovery.have")).classes("text-xs manager-label")
+            if marking.wanted_release(release["id"]):
+                ui.icon(verbs.WANTED, size="18px").classes("manager-cell-mark").tooltip(
+                    t("manager.discovery.mark.wanted.help"))
+            menu_on(card, discovery_marks.NEW, release, release["listing"])
 
     def chip_words() -> dict[str, str]:
         out = {}
@@ -232,6 +257,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         remembered.put(WINDOW_KEY, days)
         shown["home"] = fresh
         draw_shelf()
+        draw_wanted()
         draw_authors()
 
     def pick_chip(chip: str) -> None:
@@ -277,10 +303,40 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
                         if game["source"]:
                             ui.label(t("manager.discovery.lacking.from_source",
                                        count=game["source"])).classes("text-xs manager-help")
+                    menu_on(card, discovery_marks.MISSING, game, listing)
 
     def pick_lack(listing: str) -> None:
         shown["lack"] = listing
         draw_lacking()
+
+    def draw_wanted() -> None:
+        wanted_box.clear()
+        wanted = shown["home"]["wanted"]
+        if not wanted["items"]:
+            return
+        with wanted_box:
+            with ui.row().classes("manager-heading-row w-full px-3"):
+                ui.label(t("manager.discovery.mark.wanted")).classes("manager-fact-heading")
+            row = ui.row().classes("manager-shelf w-full px-3")
+            for item in wanted["items"]:
+                wanted_tile(row, item)
+
+    def wanted_tile(parent: Any, item: dict[str, Any]) -> None:
+        with parent, ui.element("div").classes("manager-shelf-tile") as card:
+            card.props("tabindex=0 role=button")
+            card.on("click", lambda _e, one=item: on_select({"id": one["vps_id"]}))
+            card.on("keydown.enter", lambda _e, one=item: on_select({"id": one["vps_id"]}))
+            candidates.thumb(item["img_url"], icons.TABLES, t("manager.discovery.no_picture"))
+            with ui.column().classes("gap-0 min-w-0"):
+                if item["listing"]:
+                    ui.label(_kind_words(item["listing"])[0]).classes("text-xs manager-label")
+                ui.label(item["game"]).classes("manager-shelf-name")
+                if item["authors"]:
+                    ui.label(", ".join(item["authors"][:2])).classes(
+                        "text-xs manager-help truncate")
+                if item["version"]:
+                    ui.label(item["version"]).classes("text-xs manager-help truncate")
+            menu_on(card, discovery_marks.WANT, item, item["listing"])
 
     def draw_authors() -> None:
         authors_box.clear()
@@ -336,6 +392,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         draw_views()
 
     draw_shelf()
+    draw_wanted()
     draw_lacking()
     draw_authors()
     draw_views()

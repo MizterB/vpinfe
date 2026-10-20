@@ -20,6 +20,10 @@ GUARD = "_suppress_empty_menu"
 NOT_A_GRID = {
     "sections.py": "A row on Overview carries the same entries as its more-options menu, "
                    "and those are never empty.",
+    "discovery_home.py": "A Home tile's menu always holds a mark entry: a thing is either "
+                         "markable or has a mark to take off.",
+    "discovery_marks.py": "A release row in the pane carries the same marks as a tile, never "
+                          "an empty menu.",
 }
 
 

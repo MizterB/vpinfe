@@ -4065,6 +4065,29 @@ class HomeGaps(ApiModel):
     games: list[HomeGap] = []
 
 
+class HomeWantedItem(ApiModel):
+    """A game or a release marked Wanted. `scope` is `game` or `release`; `vps_id` is always
+    the entry and `id` the thing itself. A game carries no `listing`, `version` or
+    `authors`."""
+
+    scope: str
+    id: str
+    vps_id: str
+    game: str
+    img_url: str = ""
+    in_library: bool = False
+    listing: str = ""
+    version: str = ""
+    authors: list[str] = []
+    held: bool = False
+    since: str = ""
+
+
+class HomeWanted(ApiModel):
+    count: int = 0
+    items: list[HomeWantedItem] = []
+
+
 class DiscoveryHome(ApiModel):
     """Every shelf of Discovery's front page: the VPS shelves from the last comparison, the
     media a source can fill from the library as it is now and the index already held.
@@ -4082,6 +4105,38 @@ class DiscoveryHome(ApiModel):
     new: dict[str, HomeNew] = {}
     authors: list[HomeAuthor] = []
     missing: dict[str, HomeGaps] = {}
+    wanted: HomeWanted = HomeWanted()
+
+
+class DiscoveryMark(ApiModel):
+    """One thing marked Wanted or Ignored. `scope` is `game` or `release` (the entry's id or
+    the release's), `gap` (the entry's id and, as `detail`, the kind it is not missing),
+    `updates` (a release) or `version` (a release and, as `detail`, the version skipped).
+    `since` is when it was marked."""
+
+    state: str
+    scope: str
+    id: str
+    detail: str = ""
+    since: str = ""
+
+
+class DiscoveryMarks(ApiModel):
+    """Every mark on this install, the newest first. `replaced` is the state the thing a
+    change was made to held before it, empty if it held none."""
+
+    marks: list[DiscoveryMark] = []
+    replaced: str = ""
+
+
+class DiscoveryMarkRequest(ApiModel):
+    """The state to put on a thing. Only a game or a release can be Wanted. `detail` is the
+    kind of a `gap` or the version of a `version`, and is empty for the rest."""
+
+    state: str
+    scope: str
+    id: str
+    detail: str = ""
 
 
 class VpsFieldDiff(ApiModel):

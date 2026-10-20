@@ -13,7 +13,7 @@ from collections.abc import Collection, Iterable, Mapping
 from datetime import date, timedelta
 from typing import Any
 
-from common.online import arrivals, vps_source
+from common.online import arrivals, vps_marked, vps_marks, vps_source
 
 ALL = "all"
 YOURS = "yours"
@@ -168,7 +168,8 @@ def gaps(listed: list[dict[str, Any]], offered: list[dict[str, Any]]) -> dict[st
 def home(found: dict[str, Any], kept: Collection[str], days: int,
          today: date | None = None,
          media: Mapping[str, Iterable[Mapping[str, Any]]] | None = None,
-         holders: Mapping[str, Iterable[str]] | None = None) -> dict[str, Any]:
+         holders: Mapping[str, Iterable[str]] | None = None,
+         marks: vps_marks.Marks | None = None) -> dict[str, Any]:
     """Every shelf. `found` is `library_vps_state.discovery`'s answer, `kept` the VPS kinds
     the library collects, and `days` the window of the New shelf. `media` is the games a
     source can fill a slot of, by media kind, as `media_fill.offered_listing` answers. A kind
@@ -178,8 +179,11 @@ def home(found: dict[str, Any], kept: Collection[str], days: int,
     game matched to the entry, so a tab counts games and `game_ids` names them all.
 
     New is cut to what a tile row shows, once for each chip, with the count each chip holds
-    so a chip with nothing in it is left out by the page."""
-    shelf = arrivals_in(found, days, kept, today)
+    so a chip with nothing in it is left out by the page. Whatever `marks` ignores is on no
+    shelf, and what it holds Wanted is its own."""
+    marks = marks or vps_marks.Marks()
+    shelf = [one for one in arrivals_in(found, days, kept, today)
+             if not marks.release_ignored(one["id"], one["vps_id"])]
     new = {}
     for chip in (ALL, YOURS, *CHIP_KINDS):
         shown = on_chip(shelf, chip)
@@ -187,11 +191,21 @@ def home(found: dict[str, Any], kept: Collection[str], days: int,
     filed = {kind: listing for listing, kind in MEDIA_OF.items()}
     sourced = {}
     for kind, offered in (media or {}).items():
-        if games := lacking_media(found, offered):
-            sourced[filed.get(kind, kind)] = games
-    missing = {listing: gaps(lacking(found, listing, holders), sourced.pop(listing, []))
-               for listing in GAP_KINDS if listing in kept}
+        tab = filed.get(kind, kind)
+        games = [one for one in lacking_media(found, offered)
+                 if not marks.gap_ignored(one["vps_id"], tab)]
+        if games:
+            sourced[tab] = games
+    missing = {}
+    for listing in GAP_KINDS:
+        if listing in kept:
+            listed = [one for one in lacking(found, listing, holders)
+                      if not marks.gap_ignored(one["vps_id"], listing)]
+            missing[listing] = gaps(listed, sourced.pop(listing, []))
     for tab, games in sourced.items():
         missing[tab] = gaps([], games)
+    held = vps_marked.wanted(found, marks)
+    wanted = {"count": len(held), "items": held[:SHELF_SHOWN]}
     return {"counted": found.get("counted") or "", "days": days, "since": since(days, today),
-            "new": new, "authors": authors_collected(found, shelf), "missing": missing}
+            "new": new, "authors": authors_collected(found, shelf), "missing": missing,
+            "wanted": wanted}

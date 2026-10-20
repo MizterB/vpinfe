@@ -31,10 +31,10 @@ logger = logging.getLogger("vpinfe.common.games.revert_3x")
 # for anything backup-shaped also eats the hand-made .bak-repro files kept beside them.
 CONFIG_FILES = ("vpinfe.json", COLLECTIONS_NAME, "players.json",
                 "manager-ui-state.json")
-# The same, in the state folder. `dismissed.json` and `arrivals.json` are 3.0 data with no
-# 2.x original: a reset library that kept them would measure against an install that no
-# longer exists.
-STATE_FILES = ("devices.json", "dismissed.json", "arrivals.json")
+# The same, in the state folder. `dismissed.json`, `arrivals.json` and `marks.json` are 3.0
+# data with no 2.x original: a reset library that kept them would measure against an install
+# that no longer exists.
+STATE_FILES = ("devices.json", "dismissed.json", "arrivals.json", "marks.json")
 
 # Whose `.vpinfe-*` copies are ours to remove. The ini pair is what the conversion to
 # JSON set aside; the JSON pair is what a restore keeps before it replaces one.
@@ -42,10 +42,11 @@ BACKED_UP_NAMES = ("vpinfe.ini", "vpinfe.json", COLLECTIONS_NAME_INI, COLLECTION
 
 # Copied aside before removal, and the sweep above skips copies made for a reset so these
 # outlive the next one. Everything else here is regenerable or has a 2.x original to fall
-# back on; these two have neither. `vpinfe.json` only when it lists a mobile device, which
+# back on; these have neither. `vpinfe.json` only when it lists a mobile device, which
 # is entered by hand and which no 2.x ini can rebuild. The roster is the same: every player
 # but the owner is entered by hand, and anything held for a player is filed under their id.
-KEPT_BEFORE_REMOVAL = ("vpinfe.json", "players.json")
+# So are the marks: Wanted and Ignored are what only a person can say.
+KEPT_BEFORE_REMOVAL = ("vpinfe.json", "players.json", "marks.json")
 
 # Which of the two baselines the reset produced, reported rather than left to infer.
 RESTORED_FROM_2X = "restored_from_2x"

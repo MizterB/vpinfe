@@ -3,9 +3,11 @@ library holds - computed from one comparison and served in a single read."""
 
 from __future__ import annotations
 
+import tempfile
 import time
 import unittest
 from datetime import date
+from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
@@ -14,7 +16,7 @@ from starlette.testclient import TestClient
 import httpapi
 from common.games import library_vps_state as rollup
 from common.games import media_fill
-from common.online import vps_home, vps_kinds, vps_releases
+from common.online import vps_home, vps_kinds, vps_marks, vps_releases
 
 TODAY = date(2026, 10, 18)
 KEPT = ("tableFiles", "b2sFiles", "romFiles", "ruleFiles")
@@ -346,6 +348,11 @@ CATALOG = [
 class RouteTests(unittest.TestCase):
     def setUp(self) -> None:
         self.client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
+        marks = tempfile.TemporaryDirectory()
+        self.addCleanup(marks.cleanup)
+        patcher = patch.object(vps_marks, "PATH", Path(marks.name) / "marks.json")
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self.addCleanup(setattr, vps_releases, "_built", None)
         vps_releases._built = None
 
@@ -387,7 +394,8 @@ class RouteTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200, response.text)
         body = response.json()
-        self.assertEqual(set(body), {"counted", "days", "since", "new", "authors", "missing"})
+        self.assertEqual(set(body), {"counted", "days", "since", "new", "authors", "missing",
+                                     "wanted"})
         self.assertEqual(body["days"], 7)
         self.assertEqual(list(body["missing"]), ["romFiles"])
         self.assertEqual(body["missing"]["romFiles"]["games"][0]["name"], "Alpha")

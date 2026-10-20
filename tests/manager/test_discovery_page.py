@@ -136,14 +136,14 @@ class Acts(unittest.TestCase):
     def test_add_is_offered_for_a_game_not_in_the_library(self) -> None:
         row = discovery.rows(_found(_entry(in_library=False, held=[])))[0]
 
-        (add,) = discovery.acts(mock.Mock(spec=Library), [row], mock.AsyncMock())
+        add = discovery.acts(mock.Mock(spec=Library), [row], mock.AsyncMock())[0]
 
         self.assertIsNotNone(add.run)
 
     def test_add_is_refused_with_a_reason_where_every_game_is_already_in(self) -> None:
         row = discovery.rows(_found(_entry()))[0]
 
-        (add,) = discovery.acts(mock.Mock(spec=Library), [row], mock.AsyncMock())
+        add = discovery.acts(mock.Mock(spec=Library), [row], mock.AsyncMock())[0]
 
         self.assertIsNone(add.run)
         self.assertTrue(add.hint)
@@ -152,7 +152,7 @@ class Acts(unittest.TestCase):
     def test_add_waits_for_a_comparison(self) -> None:
         row = discovery.rows(_found(_entry(in_library=None, held=[]), counted=""))[0]
 
-        (add,) = discovery.acts(mock.Mock(spec=Library), [row], mock.AsyncMock())
+        add = discovery.acts(mock.Mock(spec=Library), [row], mock.AsyncMock())[0]
 
         self.assertIsNone(add.run)
         self.assertEqual("", add.hint)

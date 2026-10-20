@@ -12,10 +12,16 @@ from unittest.mock import patch
 
 from nicegui import core, run, ui
 
-from common.online import vps_home
+from common.online import vps_home, vps_marks
 from manager.kit import dropdown, views
 from manager.kit.data import Library
-from manager.library import discovery, discovery_ask, discovery_releases, games
+from manager.library import (
+    discovery,
+    discovery_ask,
+    discovery_marks,
+    discovery_releases,
+    games,
+)
 from manager.library import discovery_home as home
 from manager.overview import needs
 
@@ -240,6 +246,7 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
         self.client.library_policy.return_value = {"hidden_asset_kinds": [],
                                                    "hidden_media_kinds": []}
         self.client.catalog_discovery.return_value = FOUND
+        self.client.discovery_marks.return_value = []
         self.client.preferences.side_effect = lambda scope: self.prefs.get(scope, {})
         self.client.put_preferences.side_effect = \
             lambda scope, value: self.writes.append((scope, value))
@@ -275,7 +282,8 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
         if self.unreadable and days != 7:
             raise RuntimeError("no answer")
         holders = {row["vps_id"]: [f"game-{row['vps_id']}"] for row in FOUND["rows"]}
-        return vps_home.home(FOUND, KEPT, days, media=self.media, holders=holders)
+        return vps_home.home(FOUND, KEPT, days, media=self.media, holders=holders,
+                             marks=vps_marks.Marks(self.client.discovery_marks()))
 
     async def asyncSetUp(self) -> None:
         was = core.loop
@@ -313,6 +321,27 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
             self.assertIn(word, words)
         self.assertEqual([one for one in _labels(body) if one.startswith(("All", "Your"))],
                          ["All 4", "Your Games 3"])
+
+    async def test_nothing_wanted_draws_no_wanted_shelf(self) -> None:
+        self.assertNotIn("Wanted", _words(await self._draw()))
+
+    async def test_what_is_wanted_is_a_shelf_of_its_own(self) -> None:
+        self.client.discovery_marks.return_value = [
+            {"state": "wanted", "scope": "game", "id": "g2", "detail": "", "since": "x"}]
+
+        words = _words(await self._draw())
+
+        self.assertIn("Wanted", words)
+        self.assertEqual(words.count("Batman"), 2)
+
+    async def test_an_ignored_game_is_on_no_shelf(self) -> None:
+        self.client.discovery_marks.return_value = [
+            {"state": "ignored", "scope": "game", "id": "g1", "detail": "", "since": "x"}]
+
+        words = _words(await self._draw())
+
+        self.assertNotIn("Alien", words)
+        self.assertIn("Batman", words)
 
     async def test_a_re_dated_release_says_what_it_was(self) -> None:
         self.assertIn("1.2, was 1.0", _words(await self._draw()))
@@ -513,7 +542,8 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
                       scope="discovery", view_presets={}, catalog=self.spied["catalog"],
                       reread=reread, on_select=self._select, see_new=mock.Mock(),
                       see_missing=mock.Mock(), open_view=mock.Mock(),
-                      open_subject=mock.Mock())
+                      open_subject=mock.Mock(),
+                      marking=discovery_marks.Marking(self.library, mock.AsyncMock()))
         picker = self._picker(body2)
         picker.set_value(14)
         await _settle()

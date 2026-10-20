@@ -16,12 +16,12 @@ from nicegui import ui
 
 from common import icons
 from common.i18n import t
-from common.online import vps_find, vps_question
+from common.online import vps_find, vps_marks, vps_question
 from manager.kit import grid as grid_module
 from manager.kit import panel, thumbnails, views, when
 from manager.kit.data import Library
 from manager.kit.on_page import on_page
-from manager.library import discovery_ask
+from manager.library import discovery_ask, discovery_marks
 
 SCOPE = "discovery_releases"
 # The name of this tab in the address and in the view a page sends it to.
@@ -73,6 +73,7 @@ def columns(kind_words: Mapping[str, str], release_rows: Sequence[Mapping[str, A
             **{":getQuickFilterText":
                "params => [params.data.name, params.data.said, params.data.find, "
                "params.data.authors, params.data.version].filter(Boolean).join(' ')"}),
+        discovery_marks.column(),
         grid_module.column(
             "kind", t("word.kind"), help=t("manager.discovery.releases.kind.help"),
             **grid_module.choice_filter([{"value": listing, "label": t(word)}
@@ -108,8 +109,8 @@ def columns(kind_words: Mapping[str, str], release_rows: Sequence[Mapping[str, A
     ]
 
 
-_FIELDS = ("name", "kind", "version", "authors", "added", "held", "format", "features",
-           "mod", "in_library")
+_FIELDS = ("name", discovery_marks.FIELD, "kind", "version", "authors", "added", "held",
+           "format", "features", "mod", "in_library")
 
 VIEWS: dict[str, list[str] | views.Preset] = {
     "manager.view.everything": views.Preset(
@@ -143,11 +144,13 @@ def arrival_filters(question: Mapping[str, Any], *, counted: bool) -> dict[str, 
 
 def rows(found: Mapping[str, Sequence[tuple[str, Mapping[str, Any]]]],
          games: Mapping[str, Mapping[str, Any]], people: Sequence[Mapping[str, Any]],
-         *, counted: bool) -> list[dict[str, Any]]:
+         *, counted: bool, marks: vps_marks.Marks | None = None) -> list[dict[str, Any]]:
     """One grid row for each release in `found` (`vps_question.games_found`'s answer).
 
     `games` is the Games tab's rows by id. A release is Have only once the library has been
-    counted, since before that nothing is known to be held."""
+    counted, since before that nothing is known to be held. A release wears Ignored when it
+    or its game is ignored, and Wanted when it is."""
+    marks = marks or vps_marks.Marks()
     names = [str(one["name"]) for one in people]
     now = datetime.now(UTC)
     said_on: dict[Any, str] = {}
@@ -160,8 +163,10 @@ def rows(found: Mapping[str, Sequence[tuple[str, Mapping[str, Any]]]],
         for listing, release in fitting:
             added = str(release.get("added") or "")
             said = _said(added, now, said_on)
+            own = marks.state(vps_marks.RELEASE, str(release["id"]))
             out.append({
                 "id": f"{game_id}:{release['id']}",
+                "release_id": str(release["id"]),
                 "game_id": game_id,
                 "name": game["name"],
                 "said": game["said"],
@@ -177,6 +182,9 @@ def rows(found: Mapping[str, Sequence[tuple[str, Mapping[str, Any]]]],
                 "features": list(release.get("features") or ()),
                 "mod": MOD if release.get("mod") else "",
                 "in_library": game.get("in_library") or "",
+                discovery_marks.OWN: own,
+                discovery_marks.FIELD: discovery_marks.IGNORED if marks.release_ignored(
+                    str(release["id"]), game_id) else own,
             })
     return out
 
@@ -203,10 +211,13 @@ async def fill(
         on_select: Callable[[Any], Any], reread: Callable[[], Awaitable[None]],
         open_page: Callable[[dict[str, str]], Awaitable[None]],
         acts: Callable[[list[dict[str, Any]], Callable[[], Awaitable[None]], bool],
-                       list[panel.Verb]]) -> None:
+                       list[panel.Verb]],
+        release_acts: Callable[[list[dict[str, Any]], Callable[[], Awaitable[None]]],
+                               list[panel.Verb]]) -> None:
     """Draw the tab into `body`. `games`, `people` and `releases` are the Games tab's, and
     `reread` puts fresh ones in them where they stand. `open_page` opens the page of an
-    author, maker or theme the search picked."""
+    author, maker or theme the search picked. `acts` is for the games the rows are of and
+    `release_acts` for the releases themselves."""
     # Imported here: `games` imports modules that import this one.
     from manager.library.games import view_control
 
@@ -217,7 +228,8 @@ async def fill(
 
     def load() -> None:
         found = vps_question.games_found({}, people, games, releases)
-        built = rows(found, by_id, people, counted=counted)
+        built = rows(found, by_id, people, counted=counted,
+                     marks=discovery_marks.read(library))
         held[:] = built
         shown["rows"] = {row["id"]: row for row in built}
         shown["count"] = len(built)
@@ -295,8 +307,10 @@ async def fill(
             panel.verb_menu(menu, one["name"] if len(on) == 1
                             else t("manager.discovery.selected_n", count=len(chosen)),
                             panel.for_selection(
-                                acts(chosen, after,
-                                     len(on) > 1 and bool(grid_module.hidden_count(table))),
+                                discovery_marks.distinguish(
+                                    [*release_acts(on, after),
+                                     *acts(chosen, after, len(on) > 1
+                                           and bool(grid_module.hidden_count(table)))]),
                                 len(chosen)))
 
         async def on_header_context(col_id: str | None) -> None:

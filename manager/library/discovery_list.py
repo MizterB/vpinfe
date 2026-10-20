@@ -29,6 +29,7 @@ from manager.library import (
     discovery,
     discovery_ext,
     discovery_get,
+    discovery_marks,
     import_dialog,
     mediasource,
     mediaview,
@@ -368,7 +369,10 @@ def _release(context: dict[str, Any], scene: Scene, kind: Kind, record: dict[str
             with ui.column().classes("gap-0 grow min-w-0"):
                 ui.label(_head(record)).classes("truncate")
                 ui.label(_detail(record, features=features)).classes("manager-help truncate")
+            discovery_marks.release_mark_glyph(context, file_id)
             _end(context, scene, kind, record, lambda: opened())
+        discovery_marks.release_marks(context, row, str(context["discovery"]["name"]),
+                                      kind.label, record)
         row.on("click", lambda _event=None: press(file_id))
         noted = ui.column().classes("gap-0 w-full")
 

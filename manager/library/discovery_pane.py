@@ -18,6 +18,7 @@ from manager.library import (
     discovery_ext,
     discovery_get,
     discovery_list,
+    discovery_marks,
     mediaview,
 )
 from manager.library.discovery_get import BODY, RAIL, standing_of
@@ -114,12 +115,24 @@ def _library_card(context: dict[str, Any], state: dict[str, Any], in_library: bo
                 _game_row(context, game_row)
         elif in_library:
             ui.label(t("manager.discovery.present")).classes("manager-library-said")
+        elif discovery_marks.ignored_status(context["library"], row, _redraw(context)):
+            pass
         else:
             with ui.row().classes("items-center gap-x-3 no-wrap w-full"):
                 ui.label(t("manager.discovery.absent")).classes("manager-library-said grow")
                 panel.draft_button(t("manager.discovery.add"),
                                    lambda: _add_this(state, context),
                                    icon=verbs.ADD, primary=True)
+
+
+def _redraw(context: dict[str, Any]) -> Any:
+    """What puts the grid and the pane right after a change made from the pane."""
+    async def again() -> None:
+        redraw = context["state"].get("redraw_discovery")
+        if callable(redraw):
+            await redraw()
+
+    return again
 
 
 def _game_row(context: dict[str, Any], game_row: dict[str, Any]) -> None:

@@ -14,7 +14,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import Awaitable, Callable, Collection
+from collections.abc import Awaitable, Callable, Collection, Mapping
 from typing import Any
 
 from nicegui import run, ui
@@ -22,7 +22,15 @@ from nicegui import run, ui
 from common import icons
 from common.failures import why
 from common.i18n import t
-from common.online import sites, vps_find, vps_formats, vps_kinds, vps_question
+from common.online import (
+    sites,
+    vps_find,
+    vps_formats,
+    vps_home,
+    vps_kinds,
+    vps_marks,
+    vps_question,
+)
 from common.runtime.jobs import KIND_VPS_ROLLUP
 from manager.kit import (
     busy,
@@ -43,6 +51,7 @@ from manager.library import (
     discovery_ask,
     discovery_get,
     discovery_home,
+    discovery_marks,
     discovery_releases,
     import_dialog,
 )
@@ -124,6 +133,7 @@ COLUMNS = [
                               "params => [params.data.name, params.data.said, "
                               "params.data.game_type, ...(params.data.themes || [])]"
                               ".filter(Boolean).join(' ')"}),
+    discovery_marks.column(),
     grid_module.column("in_library", t("manager.discovery.in_library"),
                        help=t("manager.discovery.in_library.help"),
                        **grid_module.choice_filter(_yes_no())),
@@ -169,12 +179,15 @@ def _state(listed: bool, counted: bool, in_library: bool, held: bool) -> str:
     return HAVE if in_library and held else MISSING
 
 
-def rows(found: dict[str, Any], kept: Collection[str] | None = None) -> list[dict[str, Any]]:
+def rows(found: dict[str, Any], kept: Collection[str] | None = None,
+         marks: vps_marks.Marks | None = None) -> list[dict[str, Any]]:
     """One grid row per named catalog entry. `found` is what `GET /library/discovery` answers.
 
     `kept` is the VPS kinds the library collects; a kind outside it is blank on every row
-    and counts toward no gap. None keeps them all."""
+    and counts toward no gap. None keeps them all. `marks` says which entries are Wanted or
+    Ignored."""
     counted = bool(found.get("counted"))
+    marks = marks or vps_marks.Marks()
     out = []
     for entry in found.get("rows") or []:
         if not (entry.get("name") or "").strip():
@@ -194,6 +207,7 @@ def rows(found: dict[str, Any], kept: Collection[str] | None = None) -> list[dic
             "in_library": "" if not counted else (YES if in_library else NO),
             "is_in_library": in_library and counted,
             "listed": sorted(listed),
+            discovery_marks.FIELD: marks.state(vps_marks.GAME, str(entry["vps_id"])),
         }
         states = []
         for listed_as, field, _word in KINDS:
@@ -204,6 +218,21 @@ def rows(found: dict[str, Any], kept: Collection[str] | None = None) -> list[dic
         row["gap"] = MISSING if MISSING in states else ""
         out.append(row)
     return out
+
+
+def rows_of(library: Library, found: dict[str, Any]) -> list[dict[str, Any]]:
+    """`rows` for what the library keeps and what is marked now."""
+    return rows(found, kept_listings(library), discovery_marks.read(library))
+
+
+def lacks_kind(games: list[dict[str, Any]], release: Mapping[str, Any]) -> bool:
+    """Whether Ignore Missing {Kind} does anything for a Releases row: its game is in the
+    library, lacks the kind the release is of, and Home has a missing tab for that kind."""
+    if release["kind"] not in vps_home.GAP_KINDS:
+        return False
+    field = next((field for listed_as, field, _word in KINDS if listed_as == release["kind"]), "")
+    game = next((one for one in games if one["id"] == release["game_id"]), None)
+    return game is not None and bool(game["is_in_library"]) and game.get(field) == MISSING
 
 
 def releases_of(found: dict[str, Any], kept: list[str]) -> dict[str, Any]:
@@ -217,7 +246,7 @@ def releases_of(found: dict[str, Any], kept: list[str]) -> dict[str, Any]:
 
 
 def row_of(library: Library, vps_id: str) -> dict[str, Any] | None:
-    found = rows(library.catalog(), kept_listings(library))
+    found = rows_of(library, library.catalog())
     return next((one for one in found if one["id"] == vps_id), None)
 
 
@@ -270,6 +299,7 @@ async def _fill_home(library: Library, body: Any, state: dict[str, Any],
     """Home: every shelf from one read that asks no site, so it draws before the catalog is
     in memory. The search box and the counts on Your Views wait for the catalog."""
     await _warm_views(library)
+    await discovery_marks.refresh(library)
     try:
         home = await offload.io(library.discovery_home, discovery_home.remembered_days())
     except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
@@ -281,7 +311,7 @@ async def _fill_home(library: Library, body: Any, state: dict[str, Any],
     async def catalog() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         found = await _read(library)
         people[:] = found.get("people") or []
-        return people, rows(found, kept_listings(library))
+        return people, rows_of(library, found)
 
     async def reread(days: int) -> dict[str, Any]:
         return await offload.io(library.discovery_home, days)
@@ -320,7 +350,8 @@ async def _fill_home(library: Library, body: Any, state: dict[str, Any],
     discovery_home.fill(
         body, home, library=library, scope=SCOPE, view_presets=VIEWS, catalog=catalog,
         reread=reread, on_select=on_select, see_new=see_new, see_missing=see_missing,
-        open_view=to_view, open_subject=go_to)
+        open_view=to_view, open_subject=go_to,
+        marking=discovery_marks.Marking(library, redraw_home))
     if not home["counted"]:
         with body:
             comparing_line(library, rerender)
@@ -329,6 +360,7 @@ async def _fill_home(library: Library, body: Any, state: dict[str, Any],
 async def _fill_releases(library: Library, body: Any, state: dict[str, Any],
                          on_select: Callable[[Any], Any], rerender: Callable[[], None]) -> None:
     await _warm_views(library)
+    await discovery_marks.refresh(library)
     try:
         found = await _read(library)
     except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
@@ -336,15 +368,16 @@ async def _fill_releases(library: Library, body: Any, state: dict[str, Any],
             panel.facts(ui, [panel.intro(t("manager.discovery.read_failed"), hint=why(exc))])
         return
     kept_now = kept_listings(library)
-    built = rows(found, kept_now)
+    built = rows_of(library, found)
     people = list(found.get("people") or [])
     releases = releases_of(found, kept_now)
+    kind_words = {listed_as: word for listed_as, _field, word in KINDS if listed_as in kept_now}
 
     async def reread() -> None:
         if not library.has_catalog():
             await offload.io(library.load_catalog)
         again = library.catalog()
-        built[:] = rows(again, kept_listings(library))
+        built[:] = rows_of(library, again)
         people[:] = again.get("people") or []
         releases.clear()
         releases.update(releases_of(again, kept_listings(library)))
@@ -355,11 +388,15 @@ async def _fill_releases(library: Library, body: Any, state: dict[str, Any],
     state["open_author"] = lambda name: go_to({"type": vps_find.AUTHOR, "name": name})
     await discovery_releases.fill(
         body, library=library, state=state, games=built, people=people, releases=releases,
-        kind_words={listed_as: word for listed_as, _field, word in KINDS if listed_as in kept_now},
+        kind_words=kind_words,
         counted=bool(found.get("counted")), compared=_counted_text(found),
         comparing=lambda: comparing_line(library, rerender),
         on_select=on_select, reread=reread, open_page=go_to,
-        acts=lambda chosen, after, check: acts(library, chosen, after, check=check))
+        acts=lambda chosen, after, check: acts(library, chosen, after, check=check,
+                                               wanting=False),
+        release_acts=lambda chosen, after: discovery_marks.release_verbs(
+            library, chosen, after, kind_word=lambda listing: t(kind_words[listing]),
+            lacks=lambda one: lacks_kind(built, one)))
 
 
 def open_page(state: dict[str, Any], people: list[dict[str, Any]],
@@ -480,6 +517,7 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
     from manager.library.games import view_control
 
     await _warm_views(library)
+    await discovery_marks.refresh(library)
     try:
         found = await _read(library)
     except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
@@ -487,7 +525,7 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
             panel.facts(ui, [panel.intro(t("manager.discovery.read_failed"), hint=why(exc))])
         return
     counted = bool(found.get("counted"))
-    built = rows(found, kept_listings(library))
+    built = rows_of(library, found)
     people = list(found.get("people") or [])
     kept_now = kept_listings(library)
     releases = releases_of(found, kept_now)
@@ -628,7 +666,7 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
         if not library.has_catalog():
             await offload.io(library.load_catalog)
         again = library.catalog()
-        fresh = rows(again, kept_listings(library))
+        fresh = rows_of(library, again)
         built[:] = fresh
         by_id.clear()
         by_id.update({row["id"]: row for row in fresh})
@@ -646,7 +684,7 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
         it where that is the entry. False where the pane has to be drawn again."""
         if not library.has_catalog():
             await offload.io(library.load_catalog)
-        row = next((one for one in rows(library.catalog(), kept_listings(library))
+        row = next((one for one in rows_of(library, library.catalog())
                     if one["id"] == entry_id), None)
         if row is None or entry_id not in by_id:
             return False
@@ -676,9 +714,11 @@ def _counted_text(found: dict[str, Any]) -> str:
 
 
 def acts(library: Library, rows_on: list[dict[str, Any]],
-         after: Callable[[], Awaitable[None]], *, check: bool = False) -> list[panel.Verb]:
+         after: Callable[[], Awaitable[None]], *, check: bool = False,
+         wanting: bool = True) -> list[panel.Verb]:
     """What can be done to the entries a menu is open on. `check` is where the selection
     holds rows a search, a filter or a view leaves out, which `add` asks about first.
+    `wanting` is False where a release, not the game, is what can be Wanted.
 
     Add waits for the comparison, which says nothing of why: before one, every entry reads
     as not in the library."""
@@ -688,7 +728,8 @@ def acts(library: Library, rows_on: list[dict[str, Any]],
     return [panel.Verb(
         t("manager.discovery.add"),
         (lambda: add(library, absent, after, check=check)) if absent else None,
-        hint=hint, icon=verbs.ADD)]
+        hint=hint, icon=verbs.ADD),
+        *discovery_marks.game_verbs(library, rows_on, after, wanting=wanting)]
 
 
 def pane_acts(library: Library, row: dict[str, Any], game_id: str,

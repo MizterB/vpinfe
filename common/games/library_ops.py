@@ -40,7 +40,7 @@ from common.games.game_metadata import (
 )
 from common.games.tables import table_entries
 from common.i18n import t
-from common.online import script_fixes, vps_home
+from common.online import script_fixes, vps_home, vps_marks
 from common.runtime import job_details
 from common.runtime import jobs as job_registry
 
@@ -287,7 +287,23 @@ def discovery_home(days: int) -> dict[str, Any]:
     """Discovery's front page: the VPS shelves from the last comparison, the media a source can
     fill from the library now. Asks no site."""
     return vps_home.home(library_vps_state.discovery(), library_vps_state.kept_listings(), days,
-                         media=media_fill.offered_listing(), holders=media_fill.holders())
+                         media=media_fill.offered_listing(), holders=media_fill.holders(),
+                         marks=vps_marks.read())
+
+
+def discovery_marks() -> dict[str, Any]:
+    """Every Wanted and Ignored mark on this install, the newest first."""
+    return {"marks": vps_marks.listed()}
+
+
+def mark_discovery(state: str, scope: str, vps_id: str, detail: str) -> dict[str, Any]:
+    """Put a state on a thing; `replaced` is the state it held, "" if it held none."""
+    return {"replaced": vps_marks.mark(state, scope, vps_id, detail), **discovery_marks()}
+
+
+def unmark_discovery(scope: str, vps_id: str, detail: str) -> dict[str, Any]:
+    """Take the mark off a thing; `replaced` is the state it held, "" if it held none."""
+    return {"replaced": vps_marks.clear(scope, vps_id, detail), **discovery_marks()}
 
 
 def info_maintenance() -> dict[str, Any]:

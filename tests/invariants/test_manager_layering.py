@@ -37,7 +37,7 @@ AREAS: dict[str, tuple[str, ...]] = {
             "play_facts", "clipboard", "wizard_lists", "place"),
     "library": ("games", "collections", "collection_adds", "collection_rules", "discovery",
                 "discovery_get", "discovery_ext", "discovery_ask", "discovery_home",
-                "discovery_releases",
+                "discovery_marks", "discovery_releases",
                 "discovery_kinds", "discovery_list", "discovery_pane",
                 "assets", "media", "media_fill", "media_rotate", "mediamap", "mediapages",
                 "mediasource", "mediaview", "pictures", "backglass_view", "record",
