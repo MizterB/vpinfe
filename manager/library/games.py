@@ -1708,7 +1708,8 @@ def view_control(library: Any, scope: str,
                  arriving: dict[str, Any] | None = None,
                  art_in_lists: bool = False,
                  opened: views.View | None = None,
-                 left_opened: Callable[[], None] | None = None) -> Any:
+                 left_opened: Callable[[], None] | None = None,
+                 unfiltered: frozenset[str] = frozenset()) -> Any:
     """One control for how the rows are presented: which view, and what is in it.
 
     Built here in the toolbar and wired once the grid exists, because the widgets have
@@ -1730,6 +1731,10 @@ def view_control(library: Any, scope: str,
     showing first, and kept out of the user's own views until they save it. `left_opened`
     is called once another view is picked or the opened one is saved, so a redraw of the
     page does not bring it back.
+
+    `unfiltered` names columns no view filters on yet, whether a built-in or a saved one:
+    they hold nothing, so a filter on them would empty the grid. The views themselves, and
+    what is stored of them, keep those filters.
     """
     custom, active = views.stored(library, scope)
     # Before the grid is built from `columns`, which is the same list.
@@ -1820,7 +1825,7 @@ def view_control(library: Any, scope: str,
             and then this view's own widths, which the grid does not carry across a
             switch."""
             _show_purpose()
-            baseline = views.arrived(view, over, all_fields)
+            baseline = views.without_filters(views.arrived(view, over, all_fields), unfiltered)
             held["baseline"], held["over"] = baseline, over
             wanted = views.visible_columns(baseline, all_fields)
             # Leaving the grid as it is keeps it usable, and the notify says why. The

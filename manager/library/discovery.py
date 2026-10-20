@@ -15,7 +15,6 @@ import asyncio
 import logging
 import time
 from collections.abc import Awaitable, Callable, Collection, Mapping
-from dataclasses import replace
 from typing import Any, cast
 
 from nicegui import run, ui
@@ -160,9 +159,8 @@ _KIND_FIELDS = [field for _listed, field, _word in KINDS]
 # The game's own facts are on the Game cell's second line and in the pane. They stay in the
 # column picker for sorting and filtering, and no view turns them on.
 _PICKED = ("manufacturer", "year", "game_type", "themes")
-# Table Authors is the Games You Don't Have view's own column: it opens it and Everything
-# leaves it to the column picker. Playable and Held are the filters an Open in Grid from a
-# page sets, which an opened view shows because it shows every column it filters.
+# Table Authors is the Games You Don't Have view's own column. Playable and Held are
+# shown only by a view opened on them.
 _NOT_EVERYWHERE = (*_PICKED, TABLE_AUTHORS, PLAYABLE, HELD)
 _ALL = [definition["field"] for definition in COLUMNS]
 _BY_NAME = ({"colId": "name", "sort": "asc", "sortIndex": 0},)
@@ -178,19 +176,8 @@ VIEWS: dict[str, list[str] | views.Preset] = {
 }
 
 
-_COUNTED_FIELDS = frozenset({"in_library", "gap", HELD, *_KIND_FIELDS})
-
-
-def presets_for(*, counted: bool) -> dict[str, list[str] | views.Preset]:
-    """`VIEWS` as Browse can apply them. Before the library has been counted the columns a
-    filter on in-library, a gap or a kind reads are blank, so a view that filters on them
-    would open an empty grid: it opens with those filters left off until the count."""
-    if counted:
-        return VIEWS
-    return {key: replace(view, filters={name: model for name, model in view.filters.items()
-                                        if name not in _COUNTED_FIELDS})
-            if isinstance(view, views.Preset) else view
-            for key, view in VIEWS.items()}
+COUNTED_FIELDS = frozenset({"in_library", "gap", HELD, *_KIND_FIELDS})
+"""The columns that are blank until the library has been counted."""
 
 
 def dont_have_opening(*, counted: bool) -> dict[str, Any]:
@@ -756,9 +743,10 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
                 "manager-panel manager-grid-bar manager-grid-bar--flow"):
             bar = panel.grid_bar()
             wire_views, _picker, showing, describe = view_control(
-                library, SCOPE, presets_for(counted=counted), fields, columns, bar=bar,
+                library, SCOPE, VIEWS, fields, columns, bar=bar,
                 art_in_lists=True, opened=opened,
-                left_opened=lambda: discovery_ask.drop_opening(state, BROWSE))
+                left_opened=lambda: discovery_ask.drop_opening(state, BROWSE),
+                unfiltered=frozenset() if counted else COUNTED_FIELDS)
             describe()
             with bar.bottom, panel.bar_end():
                 count = ui.label(summary(built, counted)).classes("text-xs manager-label")

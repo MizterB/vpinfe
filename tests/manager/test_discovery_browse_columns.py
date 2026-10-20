@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import unittest
 from typing import Any
 from unittest import mock
@@ -10,7 +11,7 @@ from nicegui import ui
 
 from manager.kit import grid, views
 from manager.kit.data import Library
-from manager.library import discovery
+from manager.library import discovery, games
 
 _PAGE = ui.element()
 
@@ -220,49 +221,130 @@ class OpenInGridCarries(unittest.TestCase):
         self.assertEqual(["g1", "g3"], kept(playable))
 
 
-class PresetsWaitForACount(unittest.TestCase):
-    def test_missing_games_is_unfiltered_until_the_library_is_counted(self) -> None:
-        preset = discovery.presets_for(counted=False)["manager.view.missing_games"]
-
-        assert isinstance(preset, views.Preset)
-        self.assertEqual({}, preset.filters)
-
-    def test_it_keeps_its_columns_and_its_sort(self) -> None:
-        was = discovery.VIEWS["manager.view.missing_games"]
-        now = discovery.presets_for(counted=False)["manager.view.missing_games"]
-
-        assert isinstance(was, views.Preset) and isinstance(now, views.Preset)
-        self.assertEqual((was.columns, was.sort, was.help), (now.columns, now.sort, now.help))
-
-    def test_once_counted_it_filters_as_before(self) -> None:
-        preset = discovery.presets_for(counted=True)["manager.view.missing_games"]
-
-        assert isinstance(preset, views.Preset)
-        self.assertEqual({"in_library": {"values": ["yes"]}, "gap": {"values": ["missing"]}},
-                         preset.filters)
-
-    def test_the_built_in_itself_is_not_changed(self) -> None:
-        discovery.presets_for(counted=False)
-
-        preset = discovery.VIEWS["manager.view.missing_games"]
-        assert isinstance(preset, views.Preset)
-        self.assertTrue(preset.filters)
-
-    def test_no_preset_filters_on_a_blank_column_once_the_guard_has_run(self) -> None:
-        for name, preset in discovery.presets_for(counted=False).items():
-            with self.subTest(name):
-                assert not isinstance(preset, list)
-                self.assertFalse(set(preset.filters) & discovery._COUNTED_FIELDS)
-
-
 class _StopError(Exception):
     pass
 
 
-class BrowseOpensOnTheGuardedPresets(unittest.IsolatedAsyncioTestCase):
-    """What `_fill` hands the view control, which is where an empty first screen came from."""
+class _Answer:
+    def __init__(self, value: Any = None) -> None:
+        self.value = value
 
-    async def _handed(self, counted: bool) -> dict[str, Any]:
+    def __await__(self):
+        return self.value
+        yield
+
+
+class _Table:
+    """A grid that records what it is told and answers nothing."""
+
+    parent_slot = None
+    id = 1
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[Any, ...]] = []
+
+    def run_grid_method(self, name: str, *args: Any) -> _Answer:
+        self.calls.append((name, *args))
+        return _Answer()
+
+    def on(self, *_args: Any, **_kwargs: Any) -> None:
+        pass
+
+    def filter_model(self) -> Any:
+        return [call[1] for call in self.calls if call[0] == "setFilterModel"][-1]
+
+
+SAVED = views.View(id="mine", name="Mine", builtin=False, columns=("name", "held"),
+                   filters={"held": {"values": ["no"]}, "manufacturer": {"values": ["Bally"]}})
+
+
+class ViewsWaitForACount(unittest.IsolatedAsyncioTestCase):
+    """What the view control puts on the grid, which is where an empty first screen came
+    from. A saved view is the user's, so it is read as stored and never rewritten."""
+
+    async def _applied(self, *, counted: bool, saved: views.View = SAVED,
+                       active: str | None = None) -> tuple[Any, dict[str, Any], mock.Mock]:
+        record = {"views": [views.to_record(saved)], "active": active or saved.id}
+        stored = copy.deepcopy(record)
+        library = mock.Mock()
+        library.preferences.return_value = record
+        fields = [one["field"] for one in discovery.COLUMNS]
+        table = _Table()
+        work: list[Any] = []
+        with _PAGE, mock.patch.object(games, "ui"), mock.patch.object(games, "panel"), \
+                mock.patch.object(games.busy, "fill", lambda _region, run: work.append(run)), \
+                mock.patch.object(games.renderers, "draw_as"), \
+                mock.patch.object(games.grid, "apply_layout", mock.AsyncMock()):
+            wire, _picker, _showing, _describe = games.view_control(
+                library, discovery.SCOPE, discovery.VIEWS, fields, discovery.COLUMNS,
+                bar=mock.MagicMock(),
+                unfiltered=frozenset() if counted else discovery.COUNTED_FIELDS)
+            wire(table)
+            await work[0]()
+        self.assertEqual(stored, record, "the stored views are as they were read")
+        library.put_preferences.assert_not_called()
+        return table, record, library
+
+    async def test_a_saved_view_on_held_opens_with_its_other_filters_before_a_count(self) -> None:
+        table, _record, _library = await self._applied(counted=False)
+
+        self.assertEqual({"manufacturer": {"values": ["Bally"]}}, table.filter_model())
+
+    async def test_after_a_count_it_filters_on_held_too(self) -> None:
+        table, _record, _library = await self._applied(counted=True)
+
+        self.assertEqual(SAVED.filters, table.filter_model())
+
+    async def test_its_stored_form_keeps_the_held_filter(self) -> None:
+        _table, record, _library = await self._applied(counted=False)
+
+        self.assertEqual({"values": ["no"]}, record["views"][0]["filters"]["held"])
+
+    async def test_missing_games_opens_unfiltered_before_a_count(self) -> None:
+        table, _record, _library = await self._applied(
+            counted=False, active=views.builtin_id("manager.view.missing_games"))
+
+        self.assertIsNone(table.filter_model())
+
+    async def test_missing_games_filters_once_counted(self) -> None:
+        table, _record, _library = await self._applied(
+            counted=True, active=views.builtin_id("manager.view.missing_games"))
+
+        self.assertEqual({"in_library": {"values": ["yes"]}, "gap": {"values": ["missing"]}},
+                         table.filter_model())
+
+
+class WithoutFilters(unittest.TestCase):
+    VIEW = views.View(id="v", name="V", builtin=False,
+                      filters={"held": {"values": ["no"]}, "gap": {"values": ["missing"]},
+                               "manufacturer": {"values": ["Bally"]}})
+
+    def test_a_filter_on_another_column_stays(self) -> None:
+        shown = views.without_filters(self.VIEW, {"held", "gap"})
+
+        self.assertEqual({"manufacturer": {"values": ["Bally"]}}, shown.filters)
+
+    def test_the_view_it_was_given_is_not_changed(self) -> None:
+        views.without_filters(self.VIEW, {"held", "gap"})
+
+        self.assertEqual({"held", "gap", "manufacturer"}, set(self.VIEW.filters))
+
+    def test_a_view_with_nothing_to_drop_is_returned_as_it_is(self) -> None:
+        self.assertIs(self.VIEW, views.without_filters(self.VIEW, {"year"}))
+        self.assertIs(self.VIEW, views.without_filters(self.VIEW, ()))
+
+    def test_the_counted_columns_are_the_ones_a_count_fills(self) -> None:
+        counted = {"in_library", "gap", "held", "kind_table", "kind_backglass"}
+
+        self.assertLessEqual(counted, discovery.COUNTED_FIELDS)
+        self.assertFalse({"manufacturer", "playable", "themes", "table_authors"}
+                         & discovery.COUNTED_FIELDS)
+
+
+class BrowseHoldsBackTheCountedFilters(unittest.IsolatedAsyncioTestCase):
+    """What `_fill` hands the view control."""
+
+    async def _handed(self, counted: bool) -> Any:
         client = mock.Mock()
         client.library_policy.return_value = {"hidden_asset_kinds": [], "hidden_media_kinds": []}
         client.discovery_marks.return_value = []
@@ -271,9 +353,9 @@ class BrowseOpensOnTheGuardedPresets(unittest.IsolatedAsyncioTestCase):
         found = {"counted": "x" if counted else "", "people": [], "rows": [_entry()]}
         seen: dict[str, Any] = {}
 
-        def view_control(_library: Any, _scope: str, presets: Any, *_more: Any,
-                         **_kwargs: Any) -> Any:
-            seen["presets"] = presets
+        def view_control(_library: Any, _scope: str, _presets: Any, *_more: Any,
+                         **kwargs: Any) -> Any:
+            seen.update(kwargs)
             raise _StopError
 
         async def inline(call: Any, *args: Any, **more: Any) -> Any:
@@ -289,17 +371,13 @@ class BrowseOpensOnTheGuardedPresets(unittest.IsolatedAsyncioTestCase):
                 mock.patch.object(discovery.deeplink, "sync"):
             with self.assertRaises(_StopError):
                 await discovery._fill(library, body, {}, mock.AsyncMock(), mock.Mock())
-        return seen["presets"]
+        return seen["unfiltered"]
 
-    async def test_before_a_count_missing_games_opens_unfiltered(self) -> None:
-        preset = (await self._handed(counted=False))["manager.view.missing_games"]
+    async def test_before_a_count_the_counted_columns_are_held_back(self) -> None:
+        self.assertEqual(discovery.COUNTED_FIELDS, await self._handed(counted=False))
 
-        self.assertEqual({}, preset.filters)
-
-    async def test_after_a_count_it_opens_filtered(self) -> None:
-        preset = (await self._handed(counted=True))["manager.view.missing_games"]
-
-        self.assertEqual({"in_library", "gap"}, set(preset.filters))
+    async def test_after_a_count_nothing_is(self) -> None:
+        self.assertFalse(await self._handed(counted=True))
 
 
 if __name__ == "__main__":

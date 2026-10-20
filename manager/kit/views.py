@@ -16,7 +16,7 @@ Physical layout - width, order, pinning - is the grid's, not a view's. See
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -175,6 +175,15 @@ def opened(start: View, name: str, over: Mapping[str, Any],
     return replace(start, id=OPENED, name=name, builtin=True, help=help,
                    columns=tuple(shown + [column for column in over if column not in shown]),
                    filters=over, sort=sort or start.sort)
+
+
+def without_filters(view: View, fields: Collection[str]) -> View:
+    """`view` with no filter on `fields`; the view itself where it has none. A copy, so what
+    is stored is never the stripped form."""
+    if not any(name in fields for name in view.filters):
+        return view
+    return replace(view, filters={name: model for name, model in view.filters.items()
+                                  if name not in fields})
 
 
 def differs(view: View, columns: tuple[str, ...], sort: tuple[dict, ...],

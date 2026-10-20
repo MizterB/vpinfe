@@ -968,7 +968,7 @@
   "manager.discovery.gaps": "Anything Missing",
   "manager.discovery.gaps.help": "Missing where VPS lists a file of any kind you do not have",
   "manager.discovery.held": "Held",
-  "manager.discovery.held.help": "Whether your library holds a release of this game, blank until compared",
+  "manager.discovery.held.help": "Whether your library holds any release of this game, blank until compared",
   "manager.discovery.in_library": "In Library",
   "manager.discovery.in_library.help": "Whether your library has this game, blank until compared",
   "manager.discovery.playable": "Playable",
