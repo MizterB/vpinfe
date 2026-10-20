@@ -1152,6 +1152,34 @@
   "manager.discovery.mark.said.stopped": "Stopped ignoring {name}",
   "manager.discovery.mark.said.unwanted": "Removed {name} from Wanted",
   "manager.discovery.mark.failed": "Could not save that",
+  "manager.discovery.mark.many_items": {
+    "one": "1 item",
+    "other": "{count:n} items"
+  },
+  "manager.discovery.marks.kind.game": "Game",
+  "manager.discovery.marks.kind.release": "Release",
+  "manager.discovery.marks.kind.gap": "Missing",
+  "manager.discovery.marks.kind.version": "Skipped Version",
+  "manager.discovery.marks.kind.updates": "Updates",
+  "manager.discovery.marks.detail": "Detail",
+  "manager.discovery.marks.since": "Marked",
+  "manager.discovery.marks.name.help": "The game the mark is on\nWith its manufacturer and year under it",
+  "manager.discovery.marks.kind.help": "A game, a release, a missing kind, a skipped version or a game's updates",
+  "manager.discovery.marks.detail.help": "Which release, kind or version, where the mark is not on the whole game",
+  "manager.discovery.marks.since.help": "When you marked it",
+  "manager.discovery.marks.everything.help": "Everything you have marked Wanted or Ignored, newest first",
+  "manager.discovery.marks.ignored.help": "Everything you have left off Discovery, to take back with Stop Ignoring",
+  "manager.discovery.marks.wanted.help": "Everything on your Wanted list",
+  "manager.discovery.marks.summary": {
+    "one": "1 item",
+    "other": "{count:n} items"
+  },
+  "manager.discovery.marks.selected_n": {
+    "one": "1 item",
+    "other": "{count:n} items"
+  },
+  "manager.discovery.marks.actions_selected": "Actions for the selected items",
+  "manager.discovery.marks.empty": "Games and releases you mark Wanted or Ignored are listed here",
   "manager.discovery.version_was": "{version}, was {was}",
   "manager.discovery.authors": "Authors You Collect",
   "manager.discovery.authors.held": "{count:n} in your library",

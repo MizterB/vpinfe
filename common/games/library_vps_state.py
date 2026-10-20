@@ -36,7 +36,7 @@ from common.games.game_service import load_vpsdb
 from common.games.media_service import CACHE_DIR
 from common.games.tables import ABSENT_SINCE_KEY, entry_filename, table_entries
 from common.i18n import t
-from common.online import obtainability, vps_kinds, vps_lens, vps_releases
+from common.online import obtainability, vps_kinds, vps_lens, vps_marks, vps_releases
 from common.runtime.jobs import JobReporter
 
 logger = logging.getLogger("vpinfe.common.games.library_vps_state")
@@ -345,7 +345,22 @@ def recompute(games: dict, per_game: Callable[[Game, str], dict],
     """Count it and keep it."""
     rollup = compute(games, per_game, reporter)
     store(rollup)
+    clear_met_wants(rollup)
     return rollup
+
+
+def clear_met_wants(rollup: dict[str, Any]) -> None:
+    """Take Wanted off the releases the library now holds, since the want is met. A game
+    marked Wanted is a plain mark and stays until it is taken off. A failure leaves the marks
+    as they were: the count it follows is not worth failing for."""
+    held = {one for found in (rollup.get("entries") or {}).values()
+            for one in found.get("bound") or []}
+    if not held:
+        return
+    try:
+        vps_marks.met(held)
+    except Exception:  # noqa: BLE001 - the count has been kept; the next one tries again
+        logger.warning("Could not take the releases the library holds off Wanted", exc_info=True)
 
 
 def recount(reporter: JobReporter | None = None) -> dict[str, Any]:

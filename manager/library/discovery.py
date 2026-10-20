@@ -52,6 +52,7 @@ from manager.library import (
     discovery_get,
     discovery_home,
     discovery_marks,
+    discovery_marks_grid,
     discovery_releases,
     import_dialog,
 )
@@ -64,8 +65,10 @@ OWN_ADDRESS = "/manager?" + deeplink.query({"view": "discovery"})
 HOME = "home"
 BROWSE = "browse"
 RELEASES = discovery_releases.TAB
+# Reached from Home, so it has no segment of its own.
+MARKS = discovery_marks_grid.TAB
 # The grids whose saved views this page reads and writes.
-VIEW_SCOPES = (SCOPE, discovery_releases.SCOPE)
+VIEW_SCOPES = (SCOPE, discovery_releases.SCOPE, discovery_marks_grid.SCOPE)
 
 HAVE = "have"
 MISSING = "missing"
@@ -280,7 +283,7 @@ def tab_of(state: dict[str, Any]) -> str:
     if state.get("subject"):
         return BROWSE
     chosen = state.get("discovery_tab")
-    if chosen in (HOME, BROWSE, RELEASES):
+    if chosen in (HOME, BROWSE, RELEASES, MARKS):
         return str(chosen)
     return BROWSE if state.get("entry") else HOME
 
@@ -306,9 +309,10 @@ def build(library: Library, state: dict[str, Any], on_select: Callable[[Any], An
     with ui.row().classes("w-full items-center px-3 pt-2 pb-1 shrink-0"):
         panel.segmented({HOME: t("manager.discovery.tab.home"),
                          BROWSE: t("manager.discovery.tab.browse"),
-                         RELEASES: t("manager.discovery.tab.releases")}, tab, switch)
+                         RELEASES: t("manager.discovery.tab.releases")},
+                        None if tab == MARKS else tab, switch)
     body = ui.column().classes("w-full grow min-h-0 gap-0")
-    fill = {HOME: _fill_home, RELEASES: _fill_releases}.get(tab, _fill)
+    fill = {HOME: _fill_home, RELEASES: _fill_releases, MARKS: _fill_marks}.get(tab, _fill)
     busy.fill(body, lambda: fill(library, body, state, on_select, rerender))
 
 
@@ -344,6 +348,15 @@ async def _fill_home(library: Library, body: Any, state: dict[str, Any],
         state["discovery_tab"] = BROWSE
         deeplink.sync(state)
         rerender()
+
+    @on_page
+    async def to_releases_view(view_id: str) -> None:
+        await _open_view(library, state, rerender, discovery_releases.SCOPE, RELEASES, view_id)
+
+    @on_page
+    async def to_marks(view_key: str) -> None:
+        await _open_view(library, state, rerender, discovery_marks_grid.SCOPE, MARKS,
+                         views.builtin_id(view_key))
 
     def see_new(days: int, chip: str) -> None:
         name = t("manager.discovery.new_view", window=t(discovery_home.WINDOWS[days]))
@@ -398,11 +411,46 @@ async def _fill_home(library: Library, body: Any, state: dict[str, Any],
         reread=reread, on_select=on_select, see_new=see_new, see_missing=see_missing,
         see_updates=see_updates, see_dont_have=see_dont_have, see_picture=see_picture,
         fix_scripts=fix_scripts,
-        open_view=to_view, open_subject=go_to,
-        marking=discovery_marks.Marking(library, redraw_home))
+        open_view=to_view, open_releases_view=to_releases_view, open_marks=to_marks,
+        open_subject=go_to, marking=discovery_marks.Marking(library, redraw_home))
     if not home["counted"]:
         with body:
             comparing_line(library, rerender)
+
+
+@on_page
+async def _open_view(library: Library, state: dict[str, Any], rerender: Callable[[], None],
+                     scope: str, tab: str, view_id: str) -> None:
+    """The grid on `tab`, showing the view `view_id` of its saved views."""
+    custom, _active = views.stored(library, scope)
+    await run.io_bound(views.remember, library, scope, custom, view_id)
+    discovery_ask.drop_opening(state, tab)
+    state["discovery_tab"] = tab
+    deeplink.sync(state)
+    rerender()
+
+
+async def _fill_marks(library: Library, body: Any, state: dict[str, Any],
+                      on_select: Callable[[Any], Any], rerender: Callable[[], None]) -> None:
+    await _warm_views(library)
+    await discovery_marks.refresh(library)
+    try:
+        found = await _read(library)
+    except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
+        with body:
+            panel.facts(ui, [panel.intro(t("manager.discovery.read_failed"), hint=why(exc))])
+        return
+    people = list(found.get("people") or [])
+
+    async def go_to(subject: dict[str, str]) -> None:
+        open_page(state, people, rerender, subject)
+
+    state["open_author"] = lambda name: go_to({"type": vps_find.AUTHOR, "name": name})
+    await discovery_marks_grid.fill(
+        body, library=library, state=state, found=lambda: _read(library),
+        words=discovery_marks_grid.kind_words({listed_as: t(word) for listed_as, _field, word
+                                               in KINDS}),
+        games=rows_of(library, found), people=people, on_select=on_select, open_page=go_to)
 
 
 async def _fill_releases(library: Library, body: Any, state: dict[str, Any],

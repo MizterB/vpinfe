@@ -15,6 +15,7 @@ from starlette.testclient import TestClient
 
 import httpapi
 from common import service_errors
+from common.games import library_vps_state
 from common.online import vps_home, vps_marked, vps_marks
 
 TODAY = date(2026, 10, 18)
@@ -213,6 +214,94 @@ class StoreTests(InAFolder):
         self.assertTrue(found.release_ignored("t1", "g1"))
         self.assertTrue(found.gap_ignored("g1", "romFiles"))
         self.assertFalse(found.release_ignored("t2", "g2"))
+
+
+class MetTests(InAFolder):
+    def test_a_wanted_release_the_library_holds_leaves_wanted(self) -> None:
+        vps_marks.mark(vps_marks.WANTED, vps_marks.RELEASE, "t1")
+        vps_marks.mark(vps_marks.WANTED, vps_marks.RELEASE, "t2")
+
+        self.assertEqual(vps_marks.met({"t1"}), ["t1"])
+
+        self.assertEqual([one["id"] for one in vps_marks.listed()], ["t2"])
+
+    def test_an_ignored_release_and_a_wanted_game_stay(self) -> None:
+        vps_marks.mark(vps_marks.IGNORED, vps_marks.RELEASE, "t1")
+        vps_marks.mark(vps_marks.WANTED, vps_marks.GAME, "t1")
+
+        self.assertEqual(vps_marks.met({"t1"}), [])
+
+        self.assertEqual(len(vps_marks.listed()), 2)
+
+    def test_a_recount_takes_the_wanted_off_what_it_found_bound(self) -> None:
+        vps_marks.mark(vps_marks.WANTED, vps_marks.RELEASE, "t1")
+        vps_marks.mark(vps_marks.WANTED, vps_marks.RELEASE, "t2")
+        vps_marks.mark(vps_marks.WANTED, vps_marks.GAME, "g1")
+        counted = {"entries": {"g1": {"tables": 1, "held": ["tableFiles"], "bound": ["t1"]}}}
+
+        with patch.object(library_vps_state, "compute", return_value=counted), \
+                patch.object(library_vps_state, "store"):
+            library_vps_state.recompute({}, lambda game, gid: {})
+
+        self.assertEqual(sorted((one["scope"], one["id"]) for one in vps_marks.listed()),
+                         [("game", "g1"), ("release", "t2")])
+
+    def test_a_store_that_cannot_be_written_does_not_fail_the_recount(self) -> None:
+        counted = {"entries": {"g1": {"tables": 1, "held": [], "bound": ["t1"]}}}
+
+        with patch.object(library_vps_state, "compute", return_value=counted), \
+                patch.object(library_vps_state, "store"), \
+                patch.object(vps_marks, "met", side_effect=OSError("read-only")):
+            self.assertIs(library_vps_state.recompute({}, lambda game, gid: {}), counted)
+
+
+class ListedTests(unittest.TestCase):
+    def _listed(self, *found: tuple[str, str, str, str]) -> list[dict[str, Any]]:
+        return vps_marked.listed(FOUND, marks(*found))
+
+    def test_every_scope_names_its_game(self) -> None:
+        listed = self._listed(("wanted", "game", "g1", ""),
+                              ("ignored", "release", "b1", ""),
+                              ("ignored", "gap", "g2", "romFiles"),
+                              ("ignored", "version", "t1", "1.2"),
+                              ("ignored", "updates", "t2", ""))
+
+        self.assertEqual([(one["scope"], one["game"]) for one in listed],
+                         [("game", "Alien"), ("release", "Alien"), ("gap", "Batman"),
+                          ("version", "Alien"), ("updates", "Batman")])
+
+    def test_a_release_says_its_kind_version_and_who_made_it(self) -> None:
+        one = self._listed(("ignored", "release", "b1", ""))[0]
+
+        self.assertEqual((one["listing"], one["authors"], one["vps_id"]),
+                         ("b2sFiles", ["Beta"], "g1"))
+        self.assertEqual(self._listed(("ignored", "release", "t1", ""))[0]["version"], "1.2")
+
+    def test_a_gap_carries_the_kind_it_is_of_and_a_skipped_version_the_one_skipped(self) -> None:
+        gap = self._listed(("ignored", "gap", "g1", "romFiles"))[0]
+        skipped = self._listed(("ignored", "version", "t1", "9.9"))[0]
+
+        self.assertEqual(gap["listing"], "romFiles")
+        self.assertEqual(skipped["version"], "9.9")
+
+    def test_a_picture_a_source_replaced_is_found_by_its_entry(self) -> None:
+        one = self._listed(("ignored", "updates", "g2:backglass", ""))[0]
+
+        self.assertEqual((one["vps_id"], one["game"], one["media"]), ("g2", "Batman", "backglass"))
+
+    def test_a_mark_the_catalog_no_longer_lists_is_left_out(self) -> None:
+        self.assertEqual(self._listed(("ignored", "game", "gone", ""),
+                                      ("ignored", "release", "gone", ""),
+                                      ("ignored", "updates", "gone:backglass", "")), [])
+
+    def test_the_newest_mark_comes_first(self) -> None:
+        older = {"state": "ignored", "scope": "game", "id": "g1", "detail": "",
+                 "since": "2026-10-01T00:00:00Z"}
+        newer = {**older, "id": "g2", "since": "2026-10-05T00:00:00Z"}
+
+        listed = vps_marked.listed(FOUND, vps_marks.Marks([older, newer]))
+
+        self.assertEqual([one["id"] for one in listed], ["g2", "g1"])
 
 
 class HomeTests(unittest.TestCase):

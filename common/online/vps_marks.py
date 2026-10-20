@@ -189,6 +189,20 @@ def clear(scope: str, vps_id: str, detail: str = "") -> str:
     return (gone or {}).get("state", "")
 
 
+@_locked
+def met(release_ids: Collection[str]) -> list[str]:
+    """Take Wanted off each release named, because the library holds it and the want is met.
+    Answers the ids it cleared. A release that is Ignored, or unmarked, is left as it is."""
+    held = _load()
+    gone = [one for one in held.values()
+            if one["scope"] == RELEASE and one["state"] == WANTED and one["id"] in release_ids]
+    for one in gone:
+        del held[key(RELEASE, one["id"], one["detail"])]
+    if gone:
+        _save(held)
+    return [one["id"] for one in gone]
+
+
 class Marks:
     """The marks as they stood when read, asked one thing at a time.
 

@@ -18,7 +18,7 @@ from nicegui import ui
 from common.failures import why
 from common.i18n import t
 from common.media.media_specs import media_label_map
-from common.online import picture_changes, vps_marks
+from common.online import picture_changes, vps_marked, vps_marks
 from manager.kit import grid as grid_module
 from manager.kit import offload, panel, renderers, undo, verbs
 from manager.kit.data import Library
@@ -135,9 +135,10 @@ def _set(library: Library, state: str, one: Subject) -> str:
 def _called(subjects: Sequence[Subject]) -> str:
     if len(subjects) == 1:
         return subjects[0].name
-    scope = subjects[0].scope
-    key = "manager.discovery.mark.many_releases" if scope == vps_marks.RELEASE \
-        else "manager.discovery.mark.many_games"
+    scopes = {one.scope for one in subjects}
+    key = {vps_marks.RELEASE: "manager.discovery.mark.many_releases",
+           vps_marks.GAME: "manager.discovery.mark.many_games"}.get(
+        next(iter(scopes)) if len(scopes) == 1 else "", "manager.discovery.mark.many_items")
     return t(key, count=len(subjects))
 
 
@@ -247,6 +248,18 @@ def _ignoring(library: Library, subjects: Sequence[Subject], after: After,
                   icon=verbs.IGNORE),
            _entry(library, subjects, after, state="", among=IGNORED,
                   label=t("manager.discovery.mark.stop"), icon=verbs.UNHIDE)]
+    return [one for one in out if one is not None]
+
+
+def listed_verbs(library: Library, subjects: Sequence[Subject],
+                 after: After) -> list[panel.Verb]:
+    """What the Marks grid's rows can be given: Stop Ignoring for the ignored, Add to Wanted
+    for the games and releases that are not Wanted and Remove from Wanted for those that are.
+    A missing kind, a version or a game's updates can only be ignored, so only stop."""
+    wantable = [one for one in subjects if one.scope in vps_marks.WANTABLE]
+    out = [_entry(library, subjects, after, state="", among=IGNORED,
+                  label=t("manager.discovery.mark.stop"), icon=verbs.UNHIDE),
+           *_wanting(library, wantable, after)]
     return [one for one in out if one is not None]
 
 
@@ -366,6 +379,12 @@ class Marking:
 
     def wanted_release(self, release_id: str) -> bool:
         return read(self.library).wanted(vps_marks.RELEASE, release_id)
+
+    def ignored_count(self) -> int:
+        """How many marks the Marks grid lists as Ignored, which the catalog in memory
+        decides: a mark for an entry VPS has dropped is not among them."""
+        return sum(1 for one in vps_marked.listed(self.library.catalog(), read(self.library))
+                   if one["state"] == IGNORED)
 
     def wanted_game(self, vps_id: str) -> bool:
         return read(self.library).wanted(vps_marks.GAME, vps_id)

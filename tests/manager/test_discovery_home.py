@@ -19,6 +19,7 @@ from manager.library import (
     discovery,
     discovery_ask,
     discovery_marks,
+    discovery_marks_grid,
     discovery_releases,
     games,
 )
@@ -43,6 +44,9 @@ class TabTests(unittest.TestCase):
                          discovery.HOME)
         self.assertEqual(discovery.tab_of({"discovery_tab": discovery.RELEASES}),
                          discovery.RELEASES)
+
+    def test_the_marks_grid_is_a_tab_to_reach_but_has_no_segment(self) -> None:
+        self.assertEqual(discovery.tab_of({"discovery_tab": discovery.MARKS}), discovery.MARKS)
 
     def test_a_tab_that_is_not_one_falls_back_to_the_front_page(self) -> None:
         self.assertEqual(discovery.tab_of({"discovery_tab": "games"}), discovery.HOME)
@@ -572,6 +576,63 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("Alien", words)
         self.assertIn("Batman", words)
 
+    async def test_your_views_lists_the_saved_views_of_releases_and_says_where_each_opens(
+            self) -> None:
+        self.prefs["discovery_releases.views"] = {"views": [
+            views.to_record(views.View(id="r1", name="Mine On Releases"))], "active": ""}
+
+        words = _words(await self._draw())
+
+        self.assertIn("Mine On Releases", words)
+        self.assertEqual(words.count("Releases"), 2)
+        self.assertIn("Browse", words)
+
+    async def test_a_releases_view_chosen_opens_the_releases_tab_on_it(self) -> None:
+        self.prefs["discovery_releases.views"] = {"views": [
+            views.to_record(views.View(id="r1", name="Mine On Releases"))], "active": ""}
+        await self._draw()
+
+        with _PAGE:
+            await self.spied["open_releases_view"]("r1")
+
+        scope, value = self.writes[-1]
+        self.assertEqual((scope, value["active"]), ("discovery_releases.views", "r1"))
+        self.assertEqual(self.state["discovery_tab"], discovery.RELEASES)
+        self.rerender.assert_called()
+
+    async def test_an_ignored_thing_is_a_tile_in_your_views_with_its_count(self) -> None:
+        self.client.discovery_marks.return_value = [
+            {"state": "ignored", "scope": "game", "id": "g1", "detail": "", "since": "x"}]
+
+        words = _words(await self._draw())
+
+        self.assertIn("Ignored", words)
+        self.assertIn("1 item", words)
+
+    async def test_with_nothing_ignored_there_is_no_ignored_tile(self) -> None:
+        self.assertNotIn("Ignored", _words(await self._draw()))
+
+    async def test_the_marks_grid_is_opened_on_the_view_named(self) -> None:
+        await self._draw()
+
+        with _PAGE:
+            await self.spied["open_marks"](discovery_marks_grid.WANTED_VIEW)
+
+        scope, value = self.writes[-1]
+        self.assertEqual((scope, value["active"]),
+                         ("discovery_marks.views", "builtin:manager.discovery.mark.wanted"))
+        self.assertEqual(self.state["discovery_tab"], discovery.MARKS)
+
+    async def test_the_wanted_shelf_has_a_see_all(self) -> None:
+        self.client.discovery_marks.return_value = [
+            {"state": "wanted", "scope": "game", "id": "g1", "detail": "", "since": "x"}]
+
+        body = await self._draw()
+
+        shelf = next(one for one in body.descendants() if "manager-heading-row" in one.classes
+                     and "Wanted" in _words(one))
+        self.assertEqual(self._see_alls(shelf), 1)
+
     async def test_a_re_dated_release_says_what_it_was(self) -> None:
         self.assertIn("1.2, was 1.0", _words(await self._draw()))
 
@@ -884,6 +945,7 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
                       see_missing=mock.Mock(), see_updates=mock.Mock(),
                       see_dont_have=mock.Mock(),
                       see_picture=mock.Mock(), fix_scripts=mock.Mock(), open_view=mock.Mock(),
+                      open_releases_view=mock.Mock(), open_marks=mock.Mock(),
                       open_subject=mock.Mock(),
                       marking=discovery_marks.Marking(self.library, mock.AsyncMock()))
         picker = self._picker(body2)

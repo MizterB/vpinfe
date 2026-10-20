@@ -267,8 +267,7 @@ async def fill(
                 count = ui.label(summary(shown["count"])).classes("text-xs manager-label")
                 show_selection = panel.selection_menu(
                     t("manager.discovery.actions_selected"), lambda: picked(),
-                    lambda chosen: acts(chosen, after,
-                                        bool(grid_module.hidden_count(table))),
+                    lambda chosen: verbs_of(chosen, bool(grid_module.hidden_count(table))),
                     lambda: table.run_grid_method("deselectAll"))
                 if compared:
                     ui.label(compared).classes("text-xs manager-label")
@@ -297,6 +296,12 @@ async def fill(
             ids = dict.fromkeys(str(one.get("game_id")) for one in release_rows)
             return [by_id[game_id] for game_id in ids if game_id in by_id]
 
+        def verbs_of(on: list[dict[str, Any]], check: bool) -> list[panel.Verb]:
+            """What the releases can be given, then what their games can. `check` is where
+            the games are asked about before Add, because rows a filter hides are chosen."""
+            return discovery_marks.distinguish(
+                [*release_acts(on, after), *acts(games_of(on), after, check)])
+
         def fill_menu(row: dict | None) -> None:
             one = shown["rows"].get(str((row or {}).get("id") or ""))
             if one is None:
@@ -307,10 +312,7 @@ async def fill(
             panel.verb_menu(menu, one["name"] if len(on) == 1
                             else t("manager.discovery.selected_n", count=len(chosen)),
                             panel.for_selection(
-                                discovery_marks.distinguish(
-                                    [*release_acts(on, after),
-                                     *acts(chosen, after, len(on) > 1
-                                           and bool(grid_module.hidden_count(table)))]),
+                                verbs_of(on, len(on) > 1 and bool(grid_module.hidden_count(table))),
                                 len(chosen)))
 
         async def on_header_context(col_id: str | None) -> None:
@@ -334,8 +336,8 @@ async def fill(
         wire_views(table)
 
     def picked() -> list[dict[str, Any]]:
-        return games_of([shown["rows"][str(r["id"])] for r in grid_module.selection(table)
-                         if str(r.get("id")) in shown["rows"]])
+        return [shown["rows"][str(r["id"])] for r in grid_module.selection(table)
+                if str(r.get("id")) in shown["rows"]]
 
     async def _counted_in_view() -> None:
         shown["count"] = int(await ui.run_javascript(_SHOWN % table.id) or 0)

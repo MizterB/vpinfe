@@ -35,7 +35,13 @@ from manager.kit import (
     views,
     when,
 )
-from manager.library import discovery_ask, discovery_marks, discovery_pictures, discovery_releases
+from manager.library import (
+    discovery_ask,
+    discovery_marks,
+    discovery_marks_grid,
+    discovery_pictures,
+    discovery_releases,
+)
 
 logger = logging.getLogger("vpinfe.manager.library.discovery_home")
 
@@ -209,6 +215,8 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
          see_picture: Callable[[str, str], Any],
          fix_scripts: Callable[[list[str]], Any],
          open_view: Callable[[str], Any],
+         open_releases_view: Callable[[str], Any],
+         open_marks: Callable[[str], Any],
          open_subject: Callable[[dict[str, str]], Any],
          marking: discovery_marks.Marking) -> None:
     """Draw Home into `body` from `home`, the answer for the remembered window.
@@ -217,10 +225,11 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
     answers for another window. `see_new(days, chip)`, `see_missing(game_ids)` and
     `see_updates(game_ids)` open the grid on the shelf's question, `see_dont_have()` Browse on
     the games the shelf draws from, `see_picture(vps_id, kind)`
-    a game's pane on the section of that media kind, `open_view(id)` on a saved
-    view, `open_subject` an author's page, and `fix_scripts(folders)` fetches the script fixes
-    of those games. `marking` is the menu a tile opens on a right click or a long press, and
-    what says a release is Wanted."""
+    a game's pane on the section of that media kind, `open_view(id)` on a saved view of
+    Browse, `open_releases_view(id)` on one of Releases, `open_marks(view)` the Marks grid on
+    its Ignored or Wanted view, `open_subject` an author's page, and `fix_scripts(folders)`
+    fetches the script fixes of those games. `marking` is the menu a tile opens on a right
+    click or a long press, and what says a release is Wanted."""
     shown: dict[str, Any] = {"home": home, "chip": vps_home.ALL, "lack": "", "rows": None,
                              "people": [], "asked": home["days"]}
     with body:
@@ -516,8 +525,11 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         if not wanted["items"]:
             return
         with wanted_box:
-            with ui.row().classes("manager-heading-row w-full px-3"):
+            with ui.row().classes("manager-heading-row w-full items-center gap-2 px-3"):
                 ui.label(t("manager.discovery.mark.wanted")).classes("manager-fact-heading")
+                ui.space()
+                panel.link(t("manager.discovery.see_all"), to=ADDRESS,
+                           on_click=lambda: open_marks(discovery_marks_grid.WANTED_VIEW))()
             row = ui.row().classes("manager-shelf w-full px-3")
             for item in wanted["items"]:
                 wanted_tile(row, item)
@@ -563,25 +575,40 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
 
     def draw_views() -> None:
         views_box.clear()
-        custom, _active = views.stored(library, scope)
-        listed = views.builtins(view_presets) + custom
+        browse, _active = views.stored(library, scope)
+        saved, _active = views.stored(library, discovery_releases.SCOPE)
         compared = bool(shown["home"]["counted"])
+        ignored = None if shown["rows"] is None else marking.ignored_count()
         with views_box:
             with ui.row().classes("manager-heading-row w-full px-3"):
                 ui.label(t("manager.discovery.views")).classes("manager-fact-heading")
             with ui.row().classes("manager-shelf w-full px-3"):
-                for one in listed:
+                for one in views.builtins(view_presets) + browse:
                     count = None if shown["rows"] is None \
                         else view_count(one, shown["rows"], compared=compared)
-                    with ui.element("div").classes("manager-shelf-tile manager-shelf-tile--plain") \
-                            as card:
-                        card.props("tabindex=0 role=button")
-                        card.on("click", lambda _e, one=one: open_view(one.id))
-                        card.on("keydown.enter", lambda _e, one=one: open_view(one.id))
-                        ui.label(one.name).classes("manager-shelf-name")
-                        if count is not None:
-                            ui.label(t("manager.discovery.views.count", count=count)) \
-                                .classes("text-xs manager-help")
+                    view_tile(t("manager.discovery.tab.browse"), one.name, count,
+                              partial(open_view, one.id))
+                for one in views.builtins(discovery_releases.VIEWS) + saved:
+                    view_tile(t("manager.discovery.tab.releases"), one.name, None,
+                              partial(open_releases_view, one.id))
+                if ignored:
+                    view_tile("", t("manager.discovery.mark.ignored"), ignored,
+                              lambda: open_marks(discovery_marks_grid.IGNORED_VIEW),
+                              many="manager.discovery.marks.summary")
+
+    def view_tile(place: str, name: str, count: int | None, opens: Callable[[], Any], *,
+                  many: str = "manager.discovery.views.count") -> None:
+        """A saved view: where it opens, its name and how many rows it shows where that is
+        known."""
+        with ui.element("div").classes("manager-shelf-tile manager-shelf-tile--plain") as card:
+            card.props("tabindex=0 role=button")
+            card.on("click", lambda _e: opens())
+            card.on("keydown.enter", lambda _e: opens())
+            if place:
+                ui.label(place).classes("text-xs manager-label")
+            ui.label(name).classes("manager-shelf-name")
+            if count is not None:
+                ui.label(t(many, count=count)).classes("text-xs manager-help")
 
     async def learn() -> None:
         try:

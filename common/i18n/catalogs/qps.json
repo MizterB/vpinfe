@@ -1152,6 +1152,34 @@
   "manager.discovery.mark.said.stopped": "Šţöþþèđ îĝñöřîñĝ {name}",
   "manager.discovery.mark.said.unwanted": "Řèɱöṽèđ {name} ƒřöɱ Ŵàñţèđ",
   "manager.discovery.mark.failed": "Çöûŀđ ñöţ šàṽè ţĥàţ",
+  "manager.discovery.mark.many_items": {
+    "one": "1 îţèɱ",
+    "other": "{count:n} îţèɱš"
+  },
+  "manager.discovery.marks.kind.game": "Ĝàɱè",
+  "manager.discovery.marks.kind.release": "Řèŀèàšè",
+  "manager.discovery.marks.kind.gap": "Ḿîššîñĝ",
+  "manager.discovery.marks.kind.version": "Šķîþþèđ Ṽèřšîöñ",
+  "manager.discovery.marks.kind.updates": "Ûþđàţèš",
+  "manager.discovery.marks.detail": "Đèţàîŀ",
+  "manager.discovery.marks.since": "Ḿàřķèđ",
+  "manager.discovery.marks.name.help": "Ţĥè ĝàɱè ţĥè ɱàřķ îš öñ\nŴîţĥ îţš ɱàñûƒàçţûřèř àñđ ýèàř ûñđèř îţ",
+  "manager.discovery.marks.kind.help": "À ĝàɱè, à řèŀèàšè, à ɱîššîñĝ ķîñđ, à šķîþþèđ ṽèřšîöñ öř à ĝàɱè'š ûþđàţèš",
+  "manager.discovery.marks.detail.help": "Ŵĥîçĥ řèŀèàšè, ķîñđ öř ṽèřšîöñ, ŵĥèřè ţĥè ɱàřķ îš ñöţ öñ ţĥè ŵĥöŀè ĝàɱè",
+  "manager.discovery.marks.since.help": "Ŵĥèñ ýöû ɱàřķèđ îţ",
+  "manager.discovery.marks.everything.help": "Èṽèřýţĥîñĝ ýöû ĥàṽè ɱàřķèđ Ŵàñţèđ öř Îĝñöřèđ, ñèŵèšţ ƒîřšţ",
+  "manager.discovery.marks.ignored.help": "Èṽèřýţĥîñĝ ýöû ĥàṽè ŀèƒţ öƒƒ Đîšçöṽèřý, ţö ţàķè ƀàçķ ŵîţĥ Šţöþ Îĝñöřîñĝ",
+  "manager.discovery.marks.wanted.help": "Èṽèřýţĥîñĝ öñ ýöûř Ŵàñţèđ ŀîšţ",
+  "manager.discovery.marks.summary": {
+    "one": "1 îţèɱ",
+    "other": "{count:n} îţèɱš"
+  },
+  "manager.discovery.marks.selected_n": {
+    "one": "1 îţèɱ",
+    "other": "{count:n} îţèɱš"
+  },
+  "manager.discovery.marks.actions_selected": "Àçţîöñš ƒöř ţĥè šèŀèçţèđ îţèɱš",
+  "manager.discovery.marks.empty": "Ĝàɱèš àñđ řèŀèàšèš ýöû ɱàřķ Ŵàñţèđ öř Îĝñöřèđ àřè ŀîšţèđ ĥèřè",
   "manager.discovery.version_was": "{version}, ŵàš {was}",
   "manager.discovery.authors": "Àûţĥöřš Ýöû Çöŀŀèçţ",
   "manager.discovery.authors.held": "{count:n} îñ ýöûř ŀîƀřàřý",

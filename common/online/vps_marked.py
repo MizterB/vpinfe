@@ -1,4 +1,5 @@
-"""The marks drawn against the catalog: what the Wanted shelf lists.
+"""The marks drawn against the catalog: what the Wanted shelf lists, and every mark the
+Marks grid lists.
 
 `vps_marks` knows ids only. This reads `library_vps_state.discovery`'s answer to say what
 each marked id is, and leaves out the ones the catalog no longer lists.
@@ -9,6 +10,9 @@ from __future__ import annotations
 from typing import Any
 
 from common.online import vps_marks
+
+# The scopes whose id is a release, or a picture a source has replaced.
+_RELEASE_SCOPES = (vps_marks.RELEASE, vps_marks.UPDATES, vps_marks.VERSION)
 
 
 def _releases_by_id(found: dict[str, Any]) -> dict[str, tuple[dict[str, Any], str, dict[str, Any]]]:
@@ -52,3 +56,48 @@ def wanted(found: dict[str, Any], marks: vps_marks.Marks) -> list[dict[str, Any]
                     "authors": [names[at] for at in release.get("by") or [] if at < len(names)],
                     "held": bool(release.get("held")), "since": one["since"]})
     return [one for one in out if one["game"]]
+
+
+def listed(found: dict[str, Any], marks: vps_marks.Marks) -> list[dict[str, Any]]:
+    """Every mark that names something the catalog lists, the newest first: what the Marks
+    grid has a row for. Unlike `wanted` it holds every state and every scope.
+
+    `vps_id` is always the entry, `id` and `detail` the mark's own. `listing` is the VPS
+    kind the release or the gap is of (a gap on a tab only a source fills carries the media
+    kind), `media` the media kind of a picture's mark, and `version` the release's version -
+    or, for a skipped one, the version skipped. A mark whose entry or release the catalog no
+    longer lists is left out: nothing is drawn for it, and nothing can be done to it."""
+    entries = {str(row["vps_id"]): row for row in found.get("rows") or []}
+    names = [str(one["name"]) for one in found.get("people") or []]
+    by_release = _releases_by_id(found) if any(
+        one["scope"] in _RELEASE_SCOPES for one in marks.found) else {}
+    out = []
+    for one in sorted(marks.found, key=lambda mark: mark["since"], reverse=True):
+        scope, mark_id, detail = one["scope"], one["id"], one.get("detail") or ""
+        row: dict[str, Any] | None = None
+        listing = media = version = ""
+        authors: list[str] = []
+        held = False
+        if scope in (vps_marks.GAME, vps_marks.GAP):
+            row = entries.get(mark_id)
+            listing = detail if scope == vps_marks.GAP else ""
+        elif scope in _RELEASE_SCOPES and mark_id in by_release:
+            row, listing, release = by_release[mark_id]
+            version = str(release.get("version") or "")
+            authors = [names[at] for at in release.get("by") or [] if at < len(names)]
+            held = bool(release.get("held"))
+        elif scope != vps_marks.RELEASE:
+            # A picture a source replaced: the entry and the slot, as `picture_changes.key`.
+            entry, _colon, media = mark_id.rpartition(":")
+            row = entries.get(entry)
+        if scope == vps_marks.VERSION:
+            version = detail
+        if row is None or not (row.get("name") or "").strip():
+            continue
+        out.append({"scope": scope, "id": mark_id, "detail": detail, "state": one["state"],
+                    "since": one["since"], "vps_id": str(row["vps_id"]),
+                    "game": str(row["name"]).strip(), "img_url": row.get("img_url") or "",
+                    "manufacturer": row.get("manufacturer") or "", "year": row.get("year"),
+                    "in_library": bool(row.get("in_library")), "listing": listing,
+                    "media": media, "version": version, "authors": authors, "held": held})
+    return out

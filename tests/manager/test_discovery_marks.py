@@ -3,6 +3,7 @@ the notice that says what was set and offers it back, and the pane's status line
 
 from __future__ import annotations
 
+import json
 import unittest
 from typing import Any
 from unittest import mock
@@ -12,7 +13,7 @@ from nicegui import ui
 from common.online import vps_marks
 from manager.kit import views
 from manager.kit.data import Library
-from manager.library import discovery, discovery_marks, discovery_releases
+from manager.library import discovery, discovery_marks, discovery_marks_grid, discovery_releases
 
 # Made at import, outside any task, where NiceGUI still hands out the script's own page.
 _PAGE = ui.element()
@@ -178,6 +179,110 @@ class ReleaseVerbTests(unittest.TestCase):
         self.assertEqual(one.name, "Backglass 1.2 of Alien")
         self.assertEqual(discovery_marks.release_name("Alien", "Backglass", ""),
                          "Backglass of Alien")
+
+
+def _item(scope: str, **over: Any) -> dict[str, Any]:
+    return {"scope": scope, "id": "x", "detail": "", "state": IGNORED,
+            "since": "2026-10-18T00:00:00Z", "vps_id": "g1", "game": "Alien", "img_url": "",
+            "manufacturer": "Gottlieb",
+            "year": 1980, "in_library": True, "listing": "", "media": "",
+            "version": "", "authors": [], "held": False, **over}
+
+
+WORDS = {"b2sFiles": "Backglass", "romFiles": "ROM", "backglass": "Backglass"}
+
+
+class MarksGridRowTests(unittest.TestCase):
+    def _row(self, item: dict[str, Any]) -> dict[str, Any]:
+        return discovery_marks_grid.rows([item], WORDS)[0]
+
+    def test_a_row_is_keyed_as_the_store_keys_the_mark(self) -> None:
+        row = self._row(_item("gap", id="g1", detail="romFiles", listing="romFiles"))
+
+        self.assertEqual((row["id"], row["mark_scope"], row["mark_id"], row["mark_detail"]),
+                         ("gap|g1|romFiles", "gap", "g1", "romFiles"))
+
+    def test_the_kind_column_holds_the_scope_token_and_the_status_the_state(self) -> None:
+        row = self._row(_item("version", detail="1.2", version="1.2"))
+
+        self.assertEqual((row["kind"], row[discovery_marks.FIELD]), ("version", IGNORED))
+
+    def test_the_detail_says_which_release_kind_or_version(self) -> None:
+        self.assertEqual(self._row(_item("game"))["detail"], "")
+        self.assertEqual(self._row(_item("gap", detail="romFiles", listing="romFiles"))["detail"],
+                         "ROM")
+        self.assertEqual(self._row(_item("release", listing="b2sFiles", version="1.2",
+                                         authors=["A", "B", "C"]))["detail"],
+                         "Backglass 1.2 \u00b7 A, B")
+        self.assertEqual(self._row(_item("version", version="2.0"))["detail"], "2.0")
+        self.assertEqual(self._row(_item("updates", media="backglass"))["detail"], "Backglass")
+
+    def test_a_row_is_called_as_a_notice_names_it(self) -> None:
+        self.assertEqual(self._row(_item("game"))["called"], "Alien")
+        self.assertEqual(self._row(_item("release", listing="b2sFiles", version="1.2"))["called"],
+                         "Backglass 1.2 of Alien")
+
+    def test_a_row_says_who_made_the_game_and_when(self) -> None:
+        self.assertEqual(self._row(_item("game"))["said"], "Gottlieb 1980")
+
+    def test_subjects_carry_the_mark_keys_and_the_state(self) -> None:
+        row = self._row(_item("gap", id="g1", detail="romFiles", listing="romFiles"))
+
+        one = discovery_marks_grid.subjects([row])[0]
+
+        self.assertEqual((one.scope, one.id, one.detail, one.state),
+                         ("gap", "g1", "romFiles", IGNORED))
+
+
+class MarksGridViewTests(unittest.TestCase):
+    def test_the_ignored_and_wanted_views_filter_on_the_status_column(self) -> None:
+        for view, state in ((discovery_marks_grid.IGNORED_VIEW, IGNORED),
+                            (discovery_marks_grid.WANTED_VIEW, WANTED)):
+            with self.subTest(view):
+                preset = discovery_marks_grid.VIEWS[view]
+                assert isinstance(preset, views.Preset)
+                self.assertEqual(preset.filters, {discovery_marks.FIELD: {"values": [state]}})
+
+    def test_every_view_lists_the_newest_mark_first(self) -> None:
+        for preset in discovery_marks_grid.VIEWS.values():
+            assert isinstance(preset, views.Preset)
+            self.assertEqual(preset.sort[0]["colId"], "since")
+
+    def test_the_kind_filter_offers_every_scope(self) -> None:
+        column = next(one for one in discovery_marks_grid.columns() if one["field"] == "kind")
+
+        for word in ("Game", "Release", "Missing", "Skipped Version", "Updates"):
+            self.assertIn(word, json.dumps(column))
+
+
+class MixedSubjectsTests(unittest.TestCase):
+    def test_a_selection_of_several_kinds_is_counted_as_items(self) -> None:
+        mixed = [discovery_marks.Subject("game", "g1", "Alien"),
+                 discovery_marks.Subject("gap", "g1", "ROM of Alien", detail="romFiles")]
+
+        self.assertEqual(discovery_marks._called(mixed), "2 items")
+
+    def test_stopping_is_offered_for_anything_ignored_and_wanting_for_what_can_be(self) -> None:
+        subjects = [discovery_marks.Subject("gap", "g1", "ROM of Alien", IGNORED, "romFiles"),
+                    discovery_marks.Subject("game", "g2", "Batman", IGNORED)]
+
+        offered = _labels(discovery_marks.listed_verbs(_library(), subjects, mock.AsyncMock()))
+
+        self.assertEqual(offered, ["Stop Ignoring", "Add to Wanted"])
+
+    def test_a_wanted_release_offers_taking_it_off(self) -> None:
+        subjects = [discovery_marks.Subject("release", "t1", "Backglass of Alien", WANTED)]
+
+        offered = _labels(discovery_marks.listed_verbs(_library(), subjects, mock.AsyncMock()))
+
+        self.assertEqual(offered, ["Remove from Wanted"])
+
+    def test_a_skipped_version_offers_only_stopping(self) -> None:
+        subjects = [discovery_marks.Subject("version", "t1", "Alien 1.2", IGNORED, "1.2")]
+
+        offered = _labels(discovery_marks.listed_verbs(_library(), subjects, mock.AsyncMock()))
+
+        self.assertEqual(offered, ["Stop Ignoring"])
 
 
 class LacksKindTests(unittest.TestCase):
