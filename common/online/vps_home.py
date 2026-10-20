@@ -1,7 +1,7 @@
 """Discovery's front page, answered in one read: what VPS added lately, whose work the
 library holds, which of its games lack a kind VPS lists, and which games VPS lists that it
-has none of, which of those share a title with a game it holds, and which games of the
-library need a look.
+has none of, which of those share a title with a game it holds, which games of the
+library need a look, and which games a release page was opened for.
 
 Drawn from the answer `library_vps_state.discovery` gives, so Home and the grid never
 disagree about what is held. The VPS side is stored state; the media gaps a source can fill
@@ -17,6 +17,7 @@ from collections.abc import Collection, Iterable, Mapping
 from datetime import date, timedelta
 from typing import Any
 
+from common import timestamps
 from common.online import (
     arrivals,
     vps_formats,
@@ -290,6 +291,36 @@ def _about(row: Mapping[str, Any] | None, name: str) -> dict[str, Any]:
             "year": str(year) if year else ""}
 
 
+def opened_games(found: dict[str, Any], journal: Iterable[Mapping[str, Any]],
+                 marks: vps_marks.Marks | None = None) -> list[dict[str, Any]]:
+    """The games VPS lists that a release page was opened for and the library still has none
+    of, the most recently opened first, each once with its latest `at`. `journal` is
+    `opened_pages.all_recent`, keyed by the game's VPS id. Nothing is listed until the
+    library has been compared; an ignored game is left out."""
+    if not found.get("counted"):
+        return []
+    marks = marks or vps_marks.Marks()
+    rows = {str(row["vps_id"]): row for row in found.get("rows") or []}
+    latest: dict[str, tuple[float, str]] = {}
+    for one in journal:
+        at = str(one.get("at") or "")
+        then = timestamps.iso_to_epoch(at)
+        game_id = str(one.get("game_id") or "")
+        if then is not None and then > latest.get(game_id, (-1.0, ""))[0]:
+            latest[game_id] = (then, at)
+    out = []
+    for game_id, (_then, at) in sorted(latest.items(), key=lambda each: -each[1][0]):
+        row = rows.get(game_id)
+        name = ((row or {}).get("name") or "").strip()
+        if not row or not name or row.get("in_library") or marks.game_ignored(game_id):
+            continue
+        year = row.get("year")
+        out.append({"vps_id": game_id, "game": name, "img_url": row.get("img_url") or "",
+                    "manufacturer": (row.get("manufacturer") or "").strip(),
+                    "year": str(year) if year else "", "at": at})
+    return out
+
+
 def _same_game(listed: Mapping[str, Any], offered: Mapping[str, Any]) -> bool:
     """Whether a record from VPS and one from a source are one game: the same library id, or
     where VPS's has none, the same entry."""
@@ -327,7 +358,8 @@ def home(found: dict[str, Any], kept: Collection[str], days: int,
          marks: vps_marks.Marks | None = None,
          updates: list[dict[str, Any]] | None = None,
          formats: Collection[str] = (),
-         library: Iterable[Mapping[str, Any]] = ()) -> dict[str, Any]:
+         library: Iterable[Mapping[str, Any]] = (),
+         opened: Iterable[Mapping[str, Any]] = ()) -> dict[str, Any]:
     """Every shelf. `found` is `library_vps_state.discovery`'s answer, `kept` the VPS kinds
     the library collects, and `days` the window of the New shelf. `media` is the games a
     source can fill a slot of, by media kind, as `media_fill.offered_listing` answers. A kind
@@ -341,7 +373,9 @@ def home(found: dict[str, Any], kept: Collection[str], days: int,
     shelf, and what it holds Wanted is its own. `dont_have` is the games the library lacks, cut
     to a row of tiles with the count of all of them, counting the tables in `formats`. `family` is
     the part of those that share a title with a game the library holds. `library` is the
-    library's games as `library_ops.library_games` answers, which `health` reads.
+    library's games as `library_ops.library_games` answers, which `health` reads. `opened` is
+    the journal of release pages opened, and the shelf lists every game of it the library
+    still lacks.
     `updates` is what `library_updates.found` answers: the games with a later version of
     something they hold."""
     marks = marks or vps_marks.Marks()
@@ -371,9 +405,11 @@ def home(found: dict[str, Any], kept: Collection[str], days: int,
     wanted = {"count": len(held), "items": held[:SHELF_SHOWN]}
     lacked = dont_have(found, marks, formats)
     related = family(found, marks, formats)
+    pages = opened_games(found, opened, marks)
     return {"counted": found.get("counted") or "", "days": days, "since": since(days, today),
             "new": new, "authors": authors_collected(found, shelf), "missing": missing,
             "wanted": wanted, "dont_have": {"count": len(lacked), "games": lacked[:SHELF_SHOWN]},
             "family": {"count": len(related), "games": related[:SHELF_SHOWN]},
             "health": health(found, library, marks),
+            "opened": {"count": len(pages), "games": pages},
             "updates": vps_updates.shelf(updates or [], marks, cut=vps_updates.SHELF_SHOWN)}

@@ -2,7 +2,8 @@
 library with a later version of something they hold, what VPS added lately, the games the
 library holds that lack a kind VPS lists, the games VPS lists that it has none of, the ones
 among them that share a title with a game it holds, the games of the library that need a
-look, whose work it holds, and the views it has saved.
+look, the ones whose release page was opened and not imported, whose work it holds, and the
+views it has saved.
 
 A tile opens its game in the pane, an author's name opens the author's page, and See All
 opens a grid on a named view of the same question. The counts on Your Views need the whole
@@ -274,6 +275,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         dont_have_box = ui.column().classes("w-full gap-2")
         family_box = ui.column().classes("w-full gap-2")
         health_box = ui.column().classes("w-full gap-2")
+        opened_box = ui.column().classes("w-full gap-2")
         authors_box = ui.column().classes("w-full gap-2")
         views_box = ui.column().classes("w-full gap-2")
 
@@ -429,6 +431,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         draw_dont_have()
         draw_family()
         draw_health()
+        draw_opened()
         draw_authors()
 
     async def pick_window(days: int) -> None:
@@ -457,6 +460,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         draw_dont_have()
         draw_family()
         draw_health()
+        draw_opened()
         draw_authors()
 
     def pick_chip(chip: str) -> None:
@@ -658,6 +662,36 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
                     ui.label(t("manager.discovery.health.shared",
                                count=len(game["game_ids"]))).classes("text-xs manager-help")
 
+    def draw_opened() -> None:
+        opened_box.clear()
+        pages = shown["home"]["opened"]
+        if not pages["games"]:
+            return
+        with opened_box:
+            with _heading():
+                ui.label(t("manager.discovery.opened_games")).classes(
+                    "manager-fact-heading shrink-0").tooltip(
+                        t("manager.discovery.opened_games.help"))
+                ui.label(t("manager.discovery.opened_games.order")).classes(
+                    "text-xs manager-help")
+            row = ui.row().classes("manager-shelf w-full px-3")
+            for game in pages["games"]:
+                opened_tile(row, game)
+
+    def opened_tile(parent: Any, game: dict[str, Any]) -> None:
+        with parent, ui.element("div").classes("manager-shelf-tile") as card:
+            card.props("tabindex=0 role=button")
+            card.on("click", lambda _e, one=game: on_select({"id": one["vps_id"]}))
+            card.on("keydown.enter", lambda _e, one=game: on_select({"id": one["vps_id"]}))
+            candidates.thumb(game["img_url"], icons.TABLES, t("manager.discovery.no_picture"))
+            with ui.column().classes("gap-0 min-w-0"):
+                ui.label(t("word.game")).classes("text-xs manager-label")
+                ui.label(game["game"]).classes("manager-shelf-name")
+                if made := game_tables.made(game):
+                    ui.label(made).classes("text-xs manager-help truncate")
+                ui.label(t("manager.discovery.opened", when=when.ago(game["at"], inline=True))) \
+                    .classes("text-xs manager-help truncate")
+
     def draw_wanted() -> None:
         wanted_box.clear()
         wanted = shown["home"]["wanted"]
@@ -768,6 +802,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
     draw_dont_have()
     draw_family()
     draw_health()
+    draw_opened()
     draw_authors()
     draw_views()
     busy.start(views_box, learn)

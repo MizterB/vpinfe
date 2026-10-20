@@ -77,14 +77,20 @@ def note(game_id: str, kind: str, vps_file_id: str, page: str) -> None:
     _save([fresh, *held][:KEEP])
 
 
+def all_recent() -> list[dict[str, Any]]:
+    """What was opened for any game inside the last day, newest first. Each carries `at`
+    as an ISO time."""
+    now = time.time()
+    return [one for one in _load()
+            if (age := _age(one, now)) is not None and age < EXPIRES_AFTER]
+
+
 def recent(game_id: str, kind: str = "") -> list[dict[str, Any]]:
     """What was opened for this game inside the last day, newest first, optionally of one
     kind. Each carries `at` as an ISO time."""
-    now = time.time()
-    return [one for one in _load()
+    return [one for one in all_recent()
             if one.get("game_id") == str(game_id)
-            and (not kind or one.get("kind") == str(kind))
-            and (age := _age(one, now)) is not None and age < EXPIRES_AFTER]
+            and (not kind or one.get("kind") == str(kind))]
 
 
 @_changes

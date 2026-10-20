@@ -4277,6 +4277,25 @@ class HomeHealth(ApiModel):
     no_tables: HomeBares = HomeBares()
 
 
+class HomeOpenedGame(ApiModel):
+    """A game on the Opened but Not Imported shelf. `at` is when its release page was last
+    opened, as an ISO time."""
+
+    vps_id: str
+    game: str
+    img_url: str = ""
+    manufacturer: str = ""
+    year: str = ""
+    at: str
+
+
+class HomeOpened(ApiModel):
+    """`count` games, the one opened last first, and `games` all of them."""
+
+    count: int = 0
+    games: list[HomeOpenedGame] = []
+
+
 class HomeUpdateMove(ApiModel):
     """One thing of a game that has a later version. `source` is `vps` for a release the
     library's file is tied to, which VPS now lists at `now` where it listed `then` when the
@@ -4340,6 +4359,7 @@ class DiscoveryHome(ApiModel):
     dont_have: HomeGames = HomeGames()
     family: HomeFamily = HomeFamily()
     health: HomeHealth = HomeHealth()
+    opened: HomeOpened = HomeOpened()
     updates: HomeUpdates = HomeUpdates()
 
 

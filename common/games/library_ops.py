@@ -27,6 +27,7 @@ from common.games import (
     library_updates,
     library_vps_state,
     media_fill,
+    opened_pages,
     tag_registry,
 )
 from common.games.collection_filters import AXES, GameListFilters
@@ -296,7 +297,8 @@ def discovery_home(days: int) -> dict[str, Any]:
                          marks=vps_marks.read(), updates=_updates_found(),
                          formats=launchers.playable_formats(
                              launchers.get_launcher_store().launchers()),
-                         library=library_games())
+                         library=library_games(),
+                         opened=opened_pages.all_recent())
 
 
 def library_games() -> list[dict[str, Any]]:

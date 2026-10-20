@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from datetime import UTC, datetime, timedelta
@@ -71,6 +72,18 @@ class OpenedPages(unittest.TestCase):
         opened_pages.note("g1", "tableFiles", "f2", "p")
 
         self.assertEqual(["f2"], [one["vps_file_id"] for one in opened_pages.recent("g1")])
+
+    def test_every_page_opened_inside_the_day_is_listed_newest_first_across_games(self) -> None:
+        opened_pages.note("g1", "tableFiles", "f1", "p1")
+        opened_pages.note("g2", "b2sFiles", "f2", "p2")
+        kept = json.loads(self.path.read_text(encoding="utf-8"))
+        kept["opened"].append({"game_id": "g3", "kind": "tableFiles", "vps_file_id": "f9",
+                               "page": "p", "at": _at(hours=25)})
+        self.path.write_text(json.dumps(kept), encoding="utf-8")
+
+        self.assertEqual([("g2", "f2"), ("g1", "f1")],
+                         [(one["game_id"], one["vps_file_id"])
+                          for one in opened_pages.all_recent()])
 
     def test_forgetting_a_release_leaves_the_rest_of_the_game(self) -> None:
         opened_pages.note("g1", "tableFiles", "f1", "p1")
