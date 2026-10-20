@@ -294,6 +294,32 @@ class ListedTests(unittest.TestCase):
                                       ("ignored", "release", "gone", ""),
                                       ("ignored", "updates", "gone:backglass", "")), [])
 
+    def test_a_state_keeps_only_the_marks_in_it(self) -> None:
+        listed = vps_marked.listed(FOUND, marks(("wanted", "game", "g1", ""),
+                                                ("ignored", "game", "g2", "")),
+                                   vps_marks.IGNORED)
+
+        self.assertEqual([one["id"] for one in listed], ["g2"])
+
+    def test_a_release_in_another_state_does_not_walk_the_catalog(self) -> None:
+        held = marks(("wanted", "release", "t1", ""))
+
+        with patch.object(vps_marked, "_releases_by_id") as walked:
+            vps_marked.listed(FOUND, held, vps_marks.IGNORED)
+
+        walked.assert_not_called()
+
+    def test_the_walk_stops_once_every_release_asked_for_is_found(self) -> None:
+        class Untouchable(dict):
+            def get(self, *_args: Any) -> Any:
+                raise AssertionError("walked past the last release asked for")
+
+        found = {"rows": [FOUND["rows"][0], Untouchable(vps_id="x", name="X")]}
+
+        walked = vps_marked._releases_by_id(found, {"t1", "b1"})
+
+        self.assertEqual(sorted(walked), ["b1", "r1", "t1"])
+
     def test_the_newest_mark_comes_first(self) -> None:
         older = {"state": "ignored", "scope": "game", "id": "g1", "detail": "",
                  "since": "2026-10-01T00:00:00Z"}

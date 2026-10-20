@@ -3,12 +3,13 @@ the notice that says what was set and offers it back, and the pane's status line
 
 from __future__ import annotations
 
+import asyncio
 import json
 import unittest
-from typing import Any
+from typing import Any, cast
 from unittest import mock
 
-from nicegui import ui
+from nicegui import core, run, ui
 
 from common.online import vps_marks
 from manager.kit import views
@@ -283,6 +284,84 @@ class MixedSubjectsTests(unittest.TestCase):
         offered = _labels(discovery_marks.listed_verbs(_library(), subjects, mock.AsyncMock()))
 
         self.assertEqual(offered, ["Stop Ignoring"])
+
+
+class MarksGridIntroTests(unittest.IsolatedAsyncioTestCase):
+    """The line a grid with nothing marked says, drawn by `discovery_marks_grid.fill`."""
+
+    async def asyncSetUp(self) -> None:
+        was = core.loop
+        core.loop = asyncio.get_running_loop()
+        self.addCleanup(setattr, core, "loop", was)
+        self.marks: list[dict[str, str]] = []
+        self.client = mock.Mock()
+        self.client.library_policy.return_value = {"hidden_asset_kinds": [],
+                                                   "hidden_media_kinds": []}
+        self.client.catalog_discovery.return_value = FOUND
+        self.client.discovery_marks.side_effect = lambda: self.marks
+        self.client.preferences.return_value = {}
+        self.library = Library(self.client)
+        self.library.load_kept_kinds()
+
+        async def inline(call: Any, *args: Any, **more: Any) -> Any:
+            return call(*args, **more)
+
+        for patcher in (mock.patch.object(run, "io_bound", inline),
+                        mock.patch.object(discovery_marks.offload, "io", inline)):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    async def _draw(self) -> tuple[ui.element, dict[str, Any]]:
+        state: dict[str, Any] = {}
+        with _PAGE:
+            body = ui.column()
+
+        async def found() -> Any:
+            return FOUND
+
+        await discovery_marks.refresh(self.library)
+        await discovery_marks_grid.fill(
+            body, library=self.library, state=state, found=found, words={}, games=[],
+            people=[], on_select=mock.AsyncMock(), open_page=mock.AsyncMock())
+        return body, state
+
+    @staticmethod
+    def _intro_shown(body: ui.element) -> bool:
+        line = discovery_marks_grid.t("manager.discovery.marks.empty")
+
+        def seen(one: ui.element) -> bool:
+            chain = [one]
+            while chain[-1] is not body:
+                chain.append(cast(Any, chain[-1].parent_slot).parent)
+            return all(each.visible for each in chain)
+
+        return any(seen(one) for one in body.descendants()
+                   if isinstance(one, ui.label) and str(one.text) == line)
+
+    async def test_nothing_marked_says_so(self) -> None:
+        body, _state = await self._draw()
+
+        self.assertTrue(self._intro_shown(body))
+
+    async def test_a_mark_made_elsewhere_takes_the_line_away(self) -> None:
+        body, state = await self._draw()
+        self.marks.append(_mark(IGNORED, "game", "g1"))
+
+        with _PAGE:
+            await state["redraw_discovery"]()
+
+        self.assertFalse(self._intro_shown(body))
+
+    async def test_taking_back_the_last_mark_brings_the_line_back(self) -> None:
+        self.marks.append(_mark(IGNORED, "game", "g1"))
+        body, state = await self._draw()
+        self.assertFalse(self._intro_shown(body))
+        self.marks.clear()
+
+        with _PAGE:
+            await state["redraw_discovery"]()
+
+        self.assertTrue(self._intro_shown(body))
 
 
 class LacksKindTests(unittest.TestCase):

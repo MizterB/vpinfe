@@ -383,8 +383,7 @@ class Marking:
     def ignored_count(self) -> int:
         """How many marks the Marks grid lists as Ignored, which the catalog in memory
         decides: a mark for an entry VPS has dropped is not among them."""
-        return sum(1 for one in vps_marked.listed(self.library.catalog(), read(self.library))
-                   if one["state"] == IGNORED)
+        return len(vps_marked.listed(self.library.catalog(), read(self.library), IGNORED))
 
     def wanted_game(self, vps_id: str) -> bool:
         return read(self.library).wanted(vps_marks.GAME, vps_id)

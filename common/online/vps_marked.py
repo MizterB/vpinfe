@@ -7,6 +7,7 @@ each marked id is, and leaves out the ones the catalog no longer lists.
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from typing import Any
 
 from common.online import vps_marks
@@ -15,13 +16,20 @@ from common.online import vps_marks
 _RELEASE_SCOPES = (vps_marks.RELEASE, vps_marks.UPDATES, vps_marks.VERSION)
 
 
-def _releases_by_id(found: dict[str, Any]) -> dict[str, tuple[dict[str, Any], str, dict[str, Any]]]:
-    """Every release of the catalog by its id, with its entry and the kind it is listed under."""
-    out = {}
+def _releases_by_id(found: dict[str, Any], only: Collection[str] | None = None
+                    ) -> dict[str, tuple[dict[str, Any], str, dict[str, Any]]]:
+    """Every release of the catalog by its id, with its entry and the kind it is listed under.
+    With `only`, the walk stops once each of those is found."""
+    out: dict[str, tuple[dict[str, Any], str, dict[str, Any]]] = {}
+    left = set(only) if only is not None else None
     for row in found.get("rows") or []:
         for listing, releases in (row.get("releases") or {}).items():
             for release in releases:
                 out[str(release["id"])] = (row, listing, release)
+                if left is not None:
+                    left.discard(str(release["id"]))
+        if left is not None and not left:
+            break
     return out
 
 
@@ -58,7 +66,8 @@ def wanted(found: dict[str, Any], marks: vps_marks.Marks) -> list[dict[str, Any]
     return [one for one in out if one["game"]]
 
 
-def listed(found: dict[str, Any], marks: vps_marks.Marks) -> list[dict[str, Any]]:
+def listed(found: dict[str, Any], marks: vps_marks.Marks,
+           state: str = "") -> list[dict[str, Any]]:
     """Every mark that names something the catalog lists, the newest first: what the Marks
     grid has a row for. Unlike `wanted` it holds every state and every scope.
 
@@ -66,13 +75,15 @@ def listed(found: dict[str, Any], marks: vps_marks.Marks) -> list[dict[str, Any]
     kind the release or the gap is of (a gap on a tab only a source fills carries the media
     kind), `media` the media kind of a picture's mark, and `version` the release's version -
     or, for a skipped one, the version skipped. A mark whose entry or release the catalog no
-    longer lists is left out: nothing is drawn for it, and nothing can be done to it."""
+    longer lists is left out: nothing is drawn for it, and nothing can be done to it. `state`
+    keeps only the marks in that state."""
     entries = {str(row["vps_id"]): row for row in found.get("rows") or []}
     names = [str(one["name"]) for one in found.get("people") or []]
-    by_release = _releases_by_id(found) if any(
-        one["scope"] in _RELEASE_SCOPES for one in marks.found) else {}
+    chosen = [one for one in marks.found if not state or one["state"] == state]
+    wanted_ids = {one["id"] for one in chosen if one["scope"] in _RELEASE_SCOPES}
+    by_release = _releases_by_id(found, wanted_ids) if wanted_ids else {}
     out = []
-    for one in sorted(marks.found, key=lambda mark: mark["since"], reverse=True):
+    for one in sorted(chosen, key=lambda mark: mark["since"], reverse=True):
         scope, mark_id, detail = one["scope"], one["id"], one.get("detail") or ""
         row: dict[str, Any] | None = None
         listing = media = version = ""

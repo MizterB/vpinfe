@@ -191,8 +191,9 @@ async def fill(
                     t("manager.discovery.marks.actions_selected"), lambda: picked(),
                     lambda chosen: acts(chosen), lambda: table.run_grid_method("deselectAll"))
 
-        if not held:
+        with ui.element("div") as nothing:
             panel.facts(ui, [panel.intro(t("manager.discovery.marks.empty"))])
+        nothing.set_visibility(not held)
 
         def counted_text() -> str:
             if shown["selected"]:
@@ -255,6 +256,7 @@ async def fill(
         await discovery_marks.refresh(library)
         load(await found())
         table.run_grid_method("setGridOption", "rowData", held)
+        nothing.set_visibility(not held)
         count.text = counted_text()
         chosen = state.get("entry")
         if chosen and state.get("workbench"):
