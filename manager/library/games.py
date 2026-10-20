@@ -1320,7 +1320,7 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
     only_new = state.pop(NEW_KEY, None)
     arrived_for = state.pop(FIXES_KEY, None)
     # Stamped on every visit, not only one that came from the fix list: the column is
-    # there to be filtered on, and until a check has run nothing in it is marked.
+    # there to be filtered on, and until the daily check has run nothing in it is marked.
     mended = arrived_for if arrived_for is not None else library.script_fix_tables() or None
     built = stamp_fixes(
         stamp_new(stamp_report(table_rows(rows, look is not None), reported), only_new),
@@ -1349,7 +1349,7 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
 
     sections.metadata_line(library, state)
     sections.no_tables_line(library, state)
-    check_scripts = sections.script_fixes_line(library, state)
+    sections.script_fixes_line(library, state)
     with ui.row().classes("w-full items-center gap-2 px-3 py-2 mb-2 shrink-0 "
                                   "manager-panel manager-grid-bar"):
         bar = panel.grid_bar()
@@ -1398,8 +1398,6 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
                 .classes("text-xs manager-label")
             show_edit = panel.edit_selected("manager.games.edit_tables",
                                             lambda: edit_these())
-            panel.action(t("manager.games.check_scripts"), check_scripts, icon=verbs.REVIEW,
-                         hint=t("manager.games.check_scripts.help"))()
             show_selection = panel.selection_menu(
                 t("manager.games.tables_menu"), lambda: grid.selection(table),
                 lambda chosen: table_verbs(chosen, adding["known"]),

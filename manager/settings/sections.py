@@ -736,19 +736,15 @@ def _first_of(names: list[str], most: int) -> str:
 
 def _script_fixes_said(found: dict[str, Any]) -> str:
     offered = list(found.get("offered") or [])
-    checked = int(found.get("checked") or 0)
-    if offered:
-        return t("manager.sections.fixable", count=len(offered),
-                checked=(checked), shown=_first_of(offered, 3))
-    already = int(found.get("already") or 0)
-    running = t("manager.sections.already_run", already=(already)) if already else ""
-    return t("manager.sections.no_matches", checked=(checked), running=(running))
+    return t("manager.sections.fixable", count=len(offered),
+             checked=int(found.get("checked") or 0), shown=_first_of(offered, 3))
 
 
 @on_page
 async def fetch_script_fixes(library: Library, after: Callable[[], Any]) -> None:
-    """Ask, then start the fetch as a job. `after` redraws what showed the fixes, which are
-    forgotten once it begins: the answer no longer says what is left to fetch."""
+    """Ask, then start the fetch as a job. `after` redraws what showed the fixes: once when
+    the fetch begins, when they are no longer offered, and again when the job ends and the
+    count has been made again."""
     from manager.kit import confirm
     from manager.kit.api import ApiClient
 
@@ -758,13 +754,18 @@ async def fetch_script_fixes(library: Library, after: Callable[[], Any]) -> None
             detail=t("manager.sections.script_fixes_how"),
             confirm=t("word.fetch"), icon=verbs.FETCH, danger=False):
         return
+    client = ApiClient()
     try:
-        await run.io_bound(ApiClient().apply_script_patches, offered)
+        job = await run.io_bound(client.apply_script_patches, offered)
     except Exception as exc:
         ui.notify(t("manager.sections.fetch_failed"), caption=why(exc), type="negative")
         return
     ui.notify(t("manager.sections.fetching_way"), type="positive")
-    library.forget_script_patches()
+    library.begin_script_fetch()
+    after()
+    await _ended(client, str((job or {}).get("id") or ""))
+    library.end_script_fetch()
+    await run.io_bound(library.read_script_patches)
     after()
 
 
@@ -787,10 +788,9 @@ def no_tables_line(library: Library, state: dict[str, Any]) -> None:
                      hint=t("manager.sections.show_no_tables.help"))()
 
 
-def script_fixes_line(library: Library, state: dict[str, Any]) -> Callable[[], Any]:
-    """The notice above the Tables grid, drawn while the last check found fixes. Returns
-    Check, which the grid's bar offers: asked rather than read on every draw, because it is
-    a request to somebody else's server."""
+def script_fixes_line(library: Library, state: dict[str, Any]) -> None:
+    """The notice above the Tables grid, drawn while the last daily check found fixes. It
+    redraws itself after a fetch has begun, which forgets the answer it was drawn from."""
     outer = ui.element("div").classes("w-full shrink-0")
 
     def draw() -> None:
@@ -816,17 +816,4 @@ def script_fixes_line(library: Library, state: dict[str, Any]) -> Callable[[], A
             panel.action(t("word.fetch"), lambda: fetch_script_fixes(library, draw),
                          icon=verbs.FETCH, hint=t("manager.needs.script_fixes.fetch.help"))()
 
-    @on_page
-    async def check() -> None:
-        await run.io_bound(library.read_script_patches)
-        found = library.script_patches()
-        draw()
-        if found.get("offered"):
-            return
-        if not found or found.get("reachable") is False:
-            ui.notify(t("manager.sections.index_unreachable"), type="warning")
-        else:
-            ui.notify(_script_fixes_said(found))
-
     draw()
-    return check

@@ -3,7 +3,7 @@
 A source is something online that lists, offers or hands over files for the games VPS
 knows: the spreadsheet itself, a catalog of pictures, an extension's own site. They share
 seven answers, and only the first is required - a shelf reads what a source declares, so
-a source that names no versions simply has no upgrades:
+a source that declares no `upgrades` simply has none:
 
 - **what it is:** `id`, `name`, the `kinds` it serves, whether it names `versions`;
 - **refresh:** `refresh(config)` fetches when it is due, on its own schedule, and says
@@ -210,10 +210,12 @@ def _load_built_in() -> None:
     with _lock:
         if _built_in_loaded:
             return
-        from common.online import vpinmediadb, vps_source
+        from common.online import script_fixes, vpinmediadb, vps_source
 
         for module in (vps_source, vpinmediadb):
             register(module.SOURCE)
+        if script_fixes.available():
+            register(script_fixes.SOURCE)
         _built_in_loaded = True
 
 
@@ -308,20 +310,23 @@ def listing_sources() -> list[Source]:
 
 
 def upgrade_sources() -> list[Source]:
-    """The sources that name versions and can say what is later than what you hold."""
-    return [one for one in all_sources()
-            if one.versions and one.upgrades is not None and enabled(one)]
+    """The sources that can say what is later than what you hold. `versions` says only that
+    a listing carries them, so a source that names none (a script fix) still answers."""
+    return [one for one in all_sources() if one.upgrades is not None and enabled(one)]
 
 
 def upgrades(who: Mapping[str, Any], kind: str) -> dict[str, Any]:
-    """What each source that names versions says is later, by source id. A source that
-    raises is logged and left out, like `offers`."""
+    """What each source that can say what is later says, by source id. A source with
+    nothing later for this game is left out, and so is one that raises (logged), like
+    `offers`."""
     found: dict[str, Any] = {}
     for source in upgrade_sources():
         if source.upgrades is None or (source.kinds and kind not in source.kinds):
             continue
         try:
-            found[source.id] = source.upgrades(dict(who), kind)
+            later = source.upgrades(dict(who), kind)
+            if later:
+                found[source.id] = later
         except Exception:
             logger.warning("Source %s could not be asked what is later for %s", source.id,
                            kind, exc_info=True)

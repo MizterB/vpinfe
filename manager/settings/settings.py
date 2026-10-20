@@ -1080,7 +1080,12 @@ CHECK_GROUPS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
 
 
 def _check_labels() -> dict[str, str]:
-    return {key: t(label) for _heading, checks in CHECK_GROUPS for key, label in checks}
+    """Every check's switch label, except one for a finding this device cannot make: the
+    script fixes are not offered where the source is not registered."""
+    from common.online import script_fixes
+
+    return {key: t(label) for _heading, checks in CHECK_GROUPS for key, label in checks
+            if key != "script_fixes" or script_fixes.available()}
 
 
 def _checks_arranged(switches: list[KindSwitch]) -> list[tuple[Any, Any]]:
@@ -1094,17 +1099,21 @@ def _checks_arranged(switches: list[KindSwitch]) -> list[tuple[Any, Any]]:
 
 
 def _sources_arranged(switches: list[KindSwitch]) -> list[tuple[Any, Any]]:
-    """The sources with a rule between each, the catalog VPinFE ships first."""
-    from common.online import vpinmediadb
+    """The sources with a rule between each, the ones VPinFE ships first, each with the line
+    that says what it gives."""
+    from common.online import script_fixes, vpinmediadb
 
-    catalog = vpinmediadb.ID
+    shipped = {vpinmediadb.ID: "manager.settings.vpinmediadb.help",
+               script_fixes.ID: "manager.settings.script_fixes.help"}
+    order = list(shipped)
     entries: list[tuple[Any, Any]] = []
-    for at, (name, label, draw) in enumerate(sorted(switches, key=lambda one: one[0] != catalog)):
+    for at, (name, label, draw) in enumerate(sorted(
+            switches, key=lambda one: order.index(one[0]) if one[0] in order else len(order))):
         if at:
             entries.append((panel.RULE, None))
         entries.append((label, draw))
-        if name == catalog:
-            entries.append(panel.note(t("manager.settings.vpinmediadb.help")))
+        if name in shipped:
+            entries.append(panel.note(t(shipped[name])))
     return entries
 
 

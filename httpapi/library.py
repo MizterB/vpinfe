@@ -251,9 +251,10 @@ def upgrade_info(response: Response) -> models.JobResource:
 @router.get("/patches", summary="What script fixes are published for this library",
             dependencies=[requires(scopes.GAMES_READ)])
 def script_patches() -> models.ScriptPatches:
-    """Its own read rather than a flag on the apply, because what is being decided is
-    whether to let something write a file into every game folder that needs one. Being
-    able to ask first is the difference between a confirm and a leap."""
+    """What the daily check found, kept in the cache and never asked of the index here. Its
+    own read rather than a flag on the apply, because what is being decided is whether to
+    let something write a file into every game folder that needs one. Being able to ask
+    first is the difference between a confirm and a leap."""
     return models.ScriptPatches(**library_ops.offered_patches())
 
 

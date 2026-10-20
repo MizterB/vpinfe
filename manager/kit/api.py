@@ -1736,8 +1736,8 @@ class ApiClient:
         return self._post("/library/info/upgrade", {})
 
     def script_patches(self) -> dict:
-        """What the community index publishes for this library. Reaches the network on
-        the server's side, and changes nothing."""
+        """What the last daily check found published for this library, from the server's
+        cache with the time it was made. Reaches nothing, and changes nothing."""
         return self._get("/library/patches")
 
     def apply_script_patches(self, games: list[str] | None = None) -> dict:

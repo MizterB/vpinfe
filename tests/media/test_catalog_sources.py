@@ -74,7 +74,7 @@ class RegistryTests(unittest.TestCase):
         with patch.object(sources, "_sources", {}), \
                 patch.object(sources, "_built_in_loaded", False):
             found = [one.id for one in sources.all_sources()]
-        self.assertEqual(found, ["vps", "vpinmediadb"])
+        self.assertEqual(found, ["vps", "vpinmediadb", "script_fixes"])
 
     def test_a_kind_core_has_no_slot_for_is_refused(self) -> None:
         with only():

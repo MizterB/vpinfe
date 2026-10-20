@@ -213,10 +213,11 @@ class InfoMaintenance(ApiModel):
 
 
 class ScriptPatches(ApiModel):
-    """What the community index has for this library.
+    """What the community index had for this library when it was last read.
 
-    `reachable` is false where the index could not be fetched. An index that cannot be
-    reached is not an empty one, and reporting it as "nothing to do" would say the
+    `checked_at` is when that was, and empty until the daily check has read the index once.
+    `reachable` is false until then, and while the source is switched off. An index that
+    cannot be reached is not an empty one, and reporting it as "nothing to do" would say the
     library is fine on the strength of a failed request.
 
     `checked` counts only tables whose script has actually been read. A table nothing has
@@ -228,6 +229,7 @@ class ScriptPatches(ApiModel):
     offered: list[str]
     already: int
     checked: int
+    checked_at: str = ""
 
 
 class PatchRequest(ApiModel):

@@ -135,11 +135,3 @@ class WordingTests(unittest.TestCase):
             {"reachable": True, "offered": list("abcdef"), "checked": 9})
 
         self.assertIn("and more", said)
-
-    def test_nothing_to_do_says_how_much_was_looked_at(self) -> None:
-        """A bare "nothing to do" is indistinguishable from not having looked."""
-        said = sections._script_fixes_said(
-            {"reachable": True, "offered": [], "checked": 77, "already": 3})
-
-        self.assertIn("77 checked", said)
-        self.assertIn("3 already", said)

@@ -11,6 +11,7 @@ busy.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable, Collection, Iterable
 from typing import Any
 
@@ -24,7 +25,6 @@ from common.games import (
     library_folders,
     library_vps_state,
     media_fill,
-    standalone_scripts,
     tag_registry,
 )
 from common.games.collection_filters import AXES, GameListFilters
@@ -40,9 +40,11 @@ from common.games.game_metadata import (
 )
 from common.games.tables import table_entries
 from common.i18n import t
-from common.online import vps_home
+from common.online import script_fixes, vps_home
 from common.runtime import job_details
 from common.runtime import jobs as job_registry
+
+logger = logging.getLogger("vpinfe.common.games.library_ops")
 
 
 def start(kind: str, work: Callable[[job_registry.Job], object],
@@ -241,11 +243,22 @@ def one_info_pass(work: Callable[..., object], title: str = "") -> job_registry.
 
 def apply_script_patches(only: Collection[str] | None = None) -> job_registry.Job:
     """Each fix lands as a `.vbs` sidecar beside the table it is for. `only` names the
-    game folders the check offered; left out, every table the index has a fix for."""
-    return start(job_registry.KIND_LIBRARY_SCAN,
-                 lambda job: game_service.apply_vpx_patches(progress_cb=job.progress,
-                                                            only=only),
-                 t("said.title_script_fixes"))
+    game folders the check offered; left out, every table the index has a fix for. Refused
+    where the fixes do not apply."""
+    if not script_fixes.available():
+        raise service_errors.UnavailableError(t("said.script_fixes_unavailable"))
+
+    def fetch(job: job_registry.Job) -> None:
+        try:
+            game_service.apply_vpx_patches(progress_cb=job.progress, only=only)
+        finally:
+            # After a failed fetch too, for what it did write. Never in place of its error.
+            try:
+                script_fixes.recount()
+            except Exception:  # noqa: BLE001 - the fetch's own outcome is what is reported
+                logger.warning("Could not count the script fixes again", exc_info=True)
+
+    return start(job_registry.KIND_LIBRARY_SCAN, fetch, t("said.title_script_fixes"))
 
 
 def dismissed() -> dict[str, Any]:
@@ -292,5 +305,6 @@ def info_maintenance() -> dict[str, Any]:
 
 
 def offered_patches() -> dict[str, Any]:
-    """What script fixes are published for this library. Changes nothing."""
-    return standalone_scripts.offered_for(game_repository.all_games())
+    """What script fixes the last daily check found for this library. Changes nothing and
+    asks nobody."""
+    return script_fixes.answer()

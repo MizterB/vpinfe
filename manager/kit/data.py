@@ -210,6 +210,10 @@ class Library:
         self._held_members: dict[str, list[dict[str, Any]]] = {}
         self._metadata_state: dict[str, Any] | None = None
         self._script_patches: dict[str, Any] | None = None
+        # True from the moment a fetch of the fixes begins until its job ends. The kept
+        # answer still names the tables until the job has written their files, so while it
+        # runs the answer is read as offering none.
+        self._script_fetching = False
         self._table_art = ""
         self._art_stale: set[str] = set()
         # Each launcher's settings as its settings file declares them, by launcher id.
@@ -1185,6 +1189,7 @@ class Library:
             logger.debug("manager: could not read what was dismissed", exc_info=True)
             self._dismissed, self._dismissed_read = {}, False
         self._watched = self._read_watched()
+        self.read_script_patches()
         self._front = self._read_front()
         self._front_at = time.monotonic()
         self._watched_at = time.monotonic()
@@ -1193,6 +1198,7 @@ class Library:
         return (self._table_rows is not None and self._hidden_checks is not None
                 and self._hidden_overview is not None and self._front is not None
                 and not self._media_missing() and self._watched is not None
+                and self._script_patches is not None
                 and time.monotonic() - self._watched_at < WATCHED_FRESH_S
                 and time.monotonic() - self._front_at < FRONT_FRESH_S)
 
@@ -1440,20 +1446,22 @@ class Library:
         return self._metadata_state or {}
 
     def script_patches(self) -> dict[str, Any]:
-        """What the published index offers. Already asked - this reads nothing.
+        """What the daily check found published. Already read - this asks nothing.
 
-        Not part of `load`: it reaches the network, and a page that never opens Overview
-        should not wait on a request to GitHub to draw. Asked on demand instead, off the
-        loop, and kept.
+        Read by the pages that show it (`load_overview`, `load_tables_view`), off the
+        loop: the server answers from its cache, so it is one local call and never a
+        request to the index.
         """
         return self._script_patches or {}
 
     def read_script_patches(self) -> dict[str, Any]:
-        """Ask the index. Off the event loop - it is a network round trip."""
+        """Read the kept answer again. Off the event loop. While a fetch runs it offers
+        nothing, whatever the kept answer still says."""
         try:
-            self._script_patches = self._client.script_patches()
+            found = self._client.script_patches()
+            self._script_patches = {**found, "offered": []} if self._script_fetching else found
         except Exception:
-            logger.warning("manager: could not ask what script fixes are published",
+            logger.warning("manager: could not read what script fixes are published",
                            exc_info=True)
             self._script_patches = {}
         return self._script_patches
@@ -1477,8 +1485,16 @@ class Library:
         return tuple(sorted(str(row["id"]) for row in self.table_rows()
                             if row.get("default") and str(row.get("game_id")) in games))
 
-    def forget_script_patches(self) -> None:
-        """Back to not having asked, once a fetch has begun and the answer is stale."""
+    def begin_script_fetch(self) -> None:
+        """A fetch of the fixes has started: offer none until it ends, and read the answer
+        again on the next visit."""
+        self._script_fetching = True
+        self._script_patches = None
+
+    def end_script_fetch(self) -> None:
+        """The fetch's job has ended and the kept answer has been counted again: read it
+        again on the next visit."""
+        self._script_fetching = False
         self._script_patches = None
 
     def read_metadata_state(self) -> dict[str, Any]:
@@ -1686,9 +1702,11 @@ class Library:
         self.load_tables()
         if self._hidden_checks is None:
             self._read_hidden_checks()
+        self.read_script_patches()
 
     def has_tables_view(self) -> bool:
-        return self.has_table_rows() and self._hidden_checks is not None
+        return (self.has_table_rows() and self._hidden_checks is not None
+                and self._script_patches is not None)
 
     def _load_setting_groups(self, rows: list[dict[str, Any]]) -> None:
         for launcher in dict.fromkeys(str(row.get("launcher") or "") for row in rows
