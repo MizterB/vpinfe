@@ -3994,26 +3994,36 @@ class HomeAuthor(ApiModel):
 
 
 class HomeGap(ApiModel):
-    """A game the library holds, and how many releases VPS lists, or files a source offers,
-    of the kind it lacks."""
+    """A game the library holds, and what there is of the kind it lacks: `vps` releases VPS
+    lists, `source` files a source offers; at least one is above 0."""
 
     vps_id: str
     name: str
     img_url: str = ""
-    available: int = 0
+    vps: int = 0
+    source: int = 0
+    # The library's own id for the game, set where a source offers a file for it.
+    game_id: str = ""
 
 
 class HomeGaps(ApiModel):
+    """`count` games lack the kind, `games` the ones shown, `game_ids` every one of them by the
+    library's id (what See All opens) and `on_vps` how many VPS lists."""
+
     count: int = 0
+    on_vps: int = 0
+    game_ids: list[str] = []
     games: list[HomeGap] = []
 
 
 class DiscoveryHome(ApiModel):
-    """Every shelf of Discovery's front page, from the last comparison.
+    """Every shelf of Discovery's front page: the VPS shelves from the last comparison, the
+    media a source can fill from the library as it is now and the index already held.
 
     `new` is keyed by chip: `all`, `yours` (games in the library) and each VPS kind with a
-    release in the window. `missing` is keyed by what a game can lack: a VPS kind, or a media
-    kind (`playfield`, `backglass`) that an enabled source has a file for. `counted`
+    release in the window. `missing` is keyed by what a game can lack: a VPS kind, which also
+    holds the games an enabled source has a file for of the matching media kind, or a media kind
+    (`playfield`) with no VPS kind of its own. `counted`
     empty means the library has never been compared, so no release reads as held and no game
     as lacking."""
 

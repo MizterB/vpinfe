@@ -288,13 +288,23 @@ class AskedTests(_Library):
         self.assertEqual(found["unreachable"], [])
         self.downloads.assert_not_called()
 
-    def test_the_gaps_a_source_can_fill_are_named_by_entry(self) -> None:
-        gaps = media_fill.offered_gaps()
+    def test_the_gaps_a_source_can_fill_name_each_game_and_its_entry(self) -> None:
+        gaps = {kind: {one["vps_id"]: one["available"] for one in games}
+                for kind, games in media_fill.offered_listing().items()}
 
         self.assertEqual(gaps["wheel"], {"fathom": 1, "eightball": 1})
         self.assertEqual(gaps["backglass"], {"fathom": 1})
         self.assertNotIn("flyer", gaps)
         self.downloads.assert_not_called()
+
+    def test_each_game_is_listed_with_its_id_and_name_even_when_two_share_an_entry(self) -> None:
+        twin = self.game("Fathom Twin", "fathom")
+
+        listed = media_fill.offered_listing()["wheel"]
+
+        ids = sorted(one["game_id"] for one in listed if one["vps_id"] == "fathom")
+        self.assertEqual(ids, sorted([self.id_of(self.folder), self.id_of(twin)]))
+        self.assertTrue(all(one["name"] for one in listed))
 
     def test_the_games_a_source_can_fill_are_named_by_id(self) -> None:
         games = media_fill.offered_games()
@@ -306,13 +316,13 @@ class AskedTests(_Library):
         self.assertNotIn(self.id_of(self.loose), games["wheel"])
 
     def test_a_game_with_no_match_has_no_gap_a_source_can_fill(self) -> None:
-        self.assertNotIn("", media_fill.offered_gaps()["wheel"])
+        self.assertNotIn("", {one["vps_id"] for one in media_fill.offered_listing()["wheel"]})
 
     def test_a_slot_with_a_file_is_not_a_gap_to_fill(self) -> None:
         self.games.clear()
         self.game("Held", "fathom", **{"wheel.png": b"mine"})
 
-        gaps = media_fill.offered_gaps()
+        gaps = media_fill.offered_listing()
 
         self.assertNotIn("wheel", gaps)
         self.assertIn("backglass", gaps)
@@ -320,12 +330,69 @@ class AskedTests(_Library):
     def test_a_hidden_kind_is_not_offered(self) -> None:
         self.policy.set("hidden_media_kinds", ["wheel"])
 
-        self.assertNotIn("wheel", media_fill.offered_gaps())
+        self.assertNotIn("wheel", media_fill.offered_listing())
+
+    def test_the_holders_are_the_games_by_the_entry_each_is_matched_to(self) -> None:
+        self.game("Unmatched", "")
+
+        found = media_fill.holders()
+
+        self.assertNotIn("", found)
+        self.assertEqual(found["fathom"], [self.id_of(self.folder)])
 
     def test_no_source_reached_offers_nothing(self) -> None:
         with patch.object(vpinmediadb, "_MANIFEST", None), \
                 patch("common.online.vpsdb_cache.VPinMediaDatabase.load", return_value=None):
-            self.assertEqual(media_fill.offered_gaps(), {})
+            self.assertEqual(media_fill.offered_listing(), {})
+
+    def test_the_read_makes_no_request_while_the_index_is_not_held(self) -> None:
+        with patch.object(vpinmediadb, "_MANIFEST", None), \
+                patch("common.online.vpsdb_cache.VPinMediaDatabase.load") as load, \
+                patch("common.online.vpsdb_cache.get_json") as get:
+            self.assertEqual(media_fill.offered_listing(), {})
+            self.assertEqual(media_fill.offered_games(), {})
+            self.assertIsNone(vpinmediadb._MANIFEST)
+
+        load.assert_not_called()
+        get.assert_not_called()
+
+    def test_the_read_uses_the_index_already_held_without_a_request(self) -> None:
+        with patch("common.online.vpsdb_cache.VPinMediaDatabase.load") as load:
+            self.assertIn("wheel", media_fill.offered_listing())
+
+        load.assert_not_called()
+
+    def test_the_plan_still_loads_the_index_when_none_is_held(self) -> None:
+        with patch.object(vpinmediadb, "_MANIFEST", None), \
+                patch("common.online.vpsdb_cache.VPinMediaDatabase.load",
+                      return_value=MANIFEST) as load:
+            media_fill.plan()
+
+        load.assert_called()
+
+    def test_a_game_a_source_fills_is_on_the_shelf_and_every_other_blank_is_in_needs_you(
+            self) -> None:
+        """Whatever the last comparison says: the two halves are cut from one answer."""
+        from common.games import media_lens
+        from common.online import vps_home
+        from manager.settings import sections
+
+        blank = {row["game_id"] for row in media_lens.library_rows()
+                 if row["kind"] == "backglass" and media_fill.is_gap(row)}
+        offered = media_fill.offered_games().get("backglass", [])
+        uncompared = {"counted": "", "rows": []}
+
+        shelf = vps_home.home(uncompared, (), 7, media=media_fill.offered_listing())
+        on_shelf = {one["game_id"] for one in shelf["missing"]["b2sFiles"]["games"]}
+        in_needs_you = {game_id for game_id in blank
+                        if not sections._a_source_fills(
+                            "no_backglass", {"backglass"} if game_id in offered else set(),
+                            {"backglass"})}
+
+        self.assertTrue(on_shelf and in_needs_you)
+        self.assertEqual(on_shelf, set(offered))
+        self.assertEqual(on_shelf | in_needs_you, blank)
+        self.assertFalse(on_shelf & in_needs_you)
 
     def test_a_source_that_cannot_be_reached_is_named_and_offers_nothing(self) -> None:
         with patch.object(vpinmediadb, "_MANIFEST", None), \

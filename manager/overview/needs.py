@@ -8,7 +8,7 @@ can open the grid on exactly what the row counted.
 
 from __future__ import annotations
 
-from collections.abc import Collection, Mapping
+from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -117,12 +117,22 @@ class Need:
 
 
 def _games_without(key: str, found: Mapping[str, list[dict[str, Any]]],
-                   *, label: str, tip: str, tone: str, icon: str, opens: Opens,
+                   *, label: str, tip: str, tone: str, icon: str,
+                   opens: Opens | Callable[[tuple[str, ...]], Opens],
                    fix: Fix | None = None) -> Need | None:
     ids = tuple(sorted(str(game["id"]) for game in found.get(key) or ()))
     if not ids:
         return None
-    return Need(key, label, tip, tone, icon, opens, ids, _UNIT_GAMES, fix)
+    return Need(key, label, tip, tone, icon, opens(ids) if callable(opens) else opens,
+                ids, _UNIT_GAMES, fix)
+
+
+def unfilled_opens(ids: tuple[str, ...]) -> Opens:
+    """The Games grid on the games a row counts: those with a blank slot no source can fill,
+    the rest being on Discovery's Missing from Your Games."""
+    from manager.library import games
+
+    return Opens("games", keys={games.UNFILLED_KEY: ids})
 
 
 def script_fixes_opens(ids: tuple[str, ...]) -> Opens:
@@ -265,16 +275,13 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
             rows.append(_games_without(
                 key, found, label=names[key][0], tip=names[key][1], tone=WARM,
                 icon=verbs.NO_ART,
-                opens=Opens("games", blank(f"media_{kind}")),
+                opens=unfilled_opens,
                 fix=Fix(GET_MEDIA, t("manager.media_fill.get_media"),
                         t("manager.media_fill.get_media.help"), kind)))
     if collected:
-        everything: dict[str, Any] = {}
-        for kind in sorted(collected):
-            everything.update(blank(f"media_{kind}"))
         rows.append(_games_without("no_media", found, label=names["no_media"][0],
                                    tip=names["no_media"][1], tone=WARM,
-                                   icon=verbs.NO_MEDIA, opens=Opens("games", everything)))
+                                   icon=verbs.NO_MEDIA, opens=unfilled_opens))
 
     fill = watched.get("fill")
     if fill and jobs_list.outcome_of(fill) in jobs_list.TO_LOOK_AT:

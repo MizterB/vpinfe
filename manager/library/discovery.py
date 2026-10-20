@@ -301,11 +301,11 @@ async def _fill_home(library: Library, body: Any, state: dict[str, Any],
             "name": name, "filters": discovery_home.new_filters(
                 days, chip, kept_listings(library), counted=bool(home["counted"]))})
 
-    def see_missing(listing: str) -> None:
-        field = next(field for listed_as, field, _word in KINDS if listed_as == listing)
-        open_page(state, people, rerender, None, tab=BROWSE, opening={
-            "name": t("manager.discovery.missing_from"),
-            "filters": {"in_library": {"values": [YES]}, field: {"values": [MISSING]}}})
+    def see_missing(game_ids: list[str]) -> Any:
+        """Games, narrowed to the games the tab counts."""
+        from manager.library import games
+        from manager.overview import needs
+        return state["open_on"](needs.Opens("games", keys={games.LACKING_KEY: tuple(game_ids)}))
 
     def go_to(subject: dict[str, str]) -> None:
         open_page(state, people, rerender, subject)

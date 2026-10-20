@@ -133,7 +133,8 @@ class AuthorsTests(unittest.TestCase):
 class LackingTests(unittest.TestCase):
     def test_a_game_that_lists_a_kind_and_holds_none_of_it_is_lacking(self) -> None:
         self.assertEqual(vps_home.lacking(FOUND, "romFiles"), [
-            {"vps_id": "g1", "name": "Alien", "img_url": "a.png", "available": 1}])
+            {"vps_id": "g1", "game_id": "", "name": "Alien", "img_url": "a.png", "vps": 1,
+             "source": 0}])
 
     def test_a_kind_the_library_holds_is_not_lacking(self) -> None:
         self.assertEqual(vps_home.lacking(FOUND, "tableFiles"), [])
@@ -150,34 +151,122 @@ class LackingTests(unittest.TestCase):
         self.assertEqual(vps_home.lacking(nameless, "romFiles"), [])
 
 
+def offered(game_id: str, vps_id: str, name: str = "", available: int = 1) -> dict:
+    return {"game_id": game_id, "vps_id": vps_id, "name": name or game_id, "available": available}
+
+
 class LackingMediaTests(unittest.TestCase):
     def test_a_game_a_source_has_a_file_for_is_listed_with_how_many(self) -> None:
-        self.assertEqual(vps_home.lacking_media(FOUND, {"g1": 2}), [
-            {"vps_id": "g1", "name": "Alien", "img_url": "a.png", "available": 2}])
+        self.assertEqual(vps_home.lacking_media(FOUND, [offered("i1", "g1", "Alien", 2)]), [
+            {"vps_id": "g1", "game_id": "i1", "name": "Alien", "img_url": "a.png",
+             "vps": 0, "source": 2}])
 
-    def test_a_game_outside_the_library_is_left_out_whatever_a_source_offers(self) -> None:
-        self.assertEqual(vps_home.lacking_media(FOUND, {"g2": 3}), [])
+    def test_a_game_the_comparison_does_not_count_as_held_is_listed_all_the_same(self) -> None:
+        """The library's own record decides, not the last comparison's rollup."""
+        self.assertFalse(FOUND["rows"][1]["in_library"])
+
+        games = vps_home.lacking_media(FOUND, [offered("i2", FOUND["rows"][1]["vps_id"], "Beta")])
+
+        self.assertEqual([one["game_id"] for one in games], ["i2"])
+
+    def test_a_game_is_listed_before_any_comparison_has_run(self) -> None:
+        uncompared = {"counted": "", "rows": []}
+
+        shelf = vps_home.home(uncompared, (), 7, TODAY, media={"playfield": [
+            offered("i1", "g1", "Alien")]})["missing"]
+
+        self.assertEqual(shelf["playfield"]["games"], [
+            {"vps_id": "g1", "game_id": "i1", "name": "Alien", "img_url": "", "vps": 0,
+             "source": 1}])
 
     def test_the_games_with_most_offered_come_first(self) -> None:
-        found = {"rows": [
-            {"vps_id": "a", "name": "Zed", "in_library": True},
-            {"vps_id": "b", "name": "Abe", "in_library": True},
-            {"vps_id": "c", "name": "Mid", "in_library": True}]}
-
-        names = [one["name"] for one in vps_home.lacking_media(found, {"a": 3, "b": 1, "c": 3})]
+        names = [one["name"] for one in vps_home.lacking_media({"rows": []}, [
+            offered("a", "a", "Zed", 3), offered("b", "b", "Abe", 1), offered("c", "c", "Mid", 3)])]
 
         self.assertEqual(names, ["Mid", "Zed", "Abe"])
 
-    def test_home_puts_the_media_gaps_after_the_vps_kinds_it_keeps(self) -> None:
-        shelf = vps_home.home(FOUND, KEPT, 7, TODAY, media={"backglass": {"g1": 1}})["missing"]
+    def test_two_games_on_one_entry_are_two_tiles(self) -> None:
+        games = vps_home.lacking_media({"rows": []}, [offered("a", "e1", "Twin"),
+                                                      offered("b", "e1", "Twin")])
 
-        self.assertEqual(list(shelf), ["b2sFiles", "romFiles", "backglass"])
-        self.assertEqual(shelf["backglass"]["count"], 1)
+        self.assertEqual([one["game_id"] for one in games], ["a", "b"])
+
+    def test_home_puts_the_media_gaps_after_the_vps_kinds_it_keeps(self) -> None:
+        shelf = vps_home.home(FOUND, KEPT, 7, TODAY,
+                              media={"playfield": [offered("i1", "g1", "Alien")]})["missing"]
+
+        self.assertEqual(list(shelf), ["b2sFiles", "romFiles", "playfield"])
+        self.assertEqual(shelf["playfield"]["count"], 1)
+
+    def test_a_media_kind_and_the_vps_kind_of_the_same_thing_are_one_tab(self) -> None:
+        shelf = vps_home.home(FOUND, KEPT, 7, TODAY,
+                              media={"backglass": [offered("i1", "g1", "Alien")]})["missing"]
+
+        self.assertEqual(list(shelf), ["b2sFiles", "romFiles"])
+        self.assertNotIn("backglass", shelf)
+
+    def test_a_game_both_name_is_one_tile_with_both_counts(self) -> None:
+        [alien] = vps_home.lacking(FOUND, "b2sFiles")
+        shelf = vps_home.home(FOUND, KEPT, 7, TODAY, media={"backglass": [
+            offered("i1", alien["vps_id"], "Alien", 3)]})["missing"]["b2sFiles"]
+
+        self.assertEqual(shelf["count"], 1)
+        self.assertEqual([(one["game_id"], one["vps"], one["source"]) for one in shelf["games"]],
+                         [("i1", alien["vps"], 3)])
+
+    def test_the_tab_counts_every_game_and_shows_every_one_a_source_fills(self) -> None:
+        listed = [{"vps_id": f"v{n}", "game_id": "", "name": f"Listed {n:02d}", "img_url": "",
+                   "vps": 1, "source": 0} for n in range(vps_home.GAPS_SHOWN + 4)]
+        filled = vps_home.lacking_media({"rows": []}, [
+            offered(f"i{n}", f"s{n}", f"Filled {n:02d}") for n in range(vps_home.GAPS_SHOWN + 4)])
+
+        tab = vps_home.gaps(listed, filled)
+
+        self.assertEqual(tab["count"], len(listed) + len(filled))
+        self.assertEqual(tab["on_vps"], len(listed))
+        self.assertEqual(sum(1 for one in tab["games"] if one["source"]), len(filled))
+        self.assertEqual(sum(1 for one in tab["games"] if not one["source"]), vps_home.GAPS_SHOWN)
+
+    def test_a_tab_with_no_vps_part_says_so(self) -> None:
+        shelf = vps_home.home(FOUND, KEPT, 7, TODAY,
+                              media={"playfield": [offered("i1", "g1", "Alien")]})["missing"]
+
+        self.assertEqual((shelf["playfield"]["on_vps"], shelf["romFiles"]["on_vps"]), (0, 1))
+
+    def test_see_all_names_every_game_the_tab_counts_each_once(self) -> None:
+        holders = {"g1": ["a", "b"]}
+        shelf = vps_home.home(FOUND, KEPT, 7, TODAY, holders=holders, media={
+            "backglass": [offered("b", "g1", "Alien"), offered("c", "zz", "Zed")]})["missing"]
+
+        tab = shelf["b2sFiles"]
+        self.assertEqual(sorted(tab["game_ids"]), ["a", "b", "c"])
+        self.assertEqual(tab["count"], len(tab["game_ids"]))
+        self.assertEqual(len(set(tab["game_ids"])), tab["count"])
+
+    def test_two_games_on_one_entry_are_two_rows_of_a_vps_listed_tab(self) -> None:
+        shelf = vps_home.home(FOUND, KEPT, 7, TODAY, holders={"g1": ["a", "b"]})["missing"]
+
+        self.assertEqual((shelf["romFiles"]["count"], shelf["romFiles"]["game_ids"]),
+                         (2, ["a", "b"]))
+
+    def test_an_entry_no_game_is_matched_to_is_not_counted(self) -> None:
+        shelf = vps_home.home(FOUND, KEPT, 7, TODAY, holders={})["missing"]
+
+        self.assertEqual(shelf["romFiles"]["count"], 0)
 
     def test_a_media_kind_nothing_offers_has_no_tab(self) -> None:
-        shelf = vps_home.home(FOUND, KEPT, 7, TODAY, media={"backglass": {}})["missing"]
+        shelf = vps_home.home(FOUND, KEPT, 7, TODAY, media={"backglass": []})["missing"]
 
         self.assertNotIn("backglass", shelf)
+
+    def test_a_media_tab_lists_every_game_a_source_can_fill_not_the_first_few(self) -> None:
+        many = [offered(f"i{n}", f"v{n}", f"Game {n:02d}") for n in range(vps_home.GAPS_SHOWN * 5)]
+
+        shelf = vps_home.home({"rows": []}, (), 7, TODAY, media={"wheel": many})["missing"]
+        tab = shelf["wheelArtFiles"]
+
+        self.assertEqual(tab["count"], len(many))
+        self.assertEqual(len(tab["games"]), len(many))
 
 
 class HomeTests(unittest.TestCase):
@@ -267,7 +356,8 @@ class RouteTests(unittest.TestCase):
         stored = {"computed": "x", "entries": {"E1": {"tables": 1, "held": []}}} \
             if counted is None else counted
         with patch.object(rollup, "stored", return_value=stored), \
-                patch.object(media_fill, "offered_gaps", return_value=media or {}), \
+                patch.object(media_fill, "offered_listing", return_value=media or {}), \
+                patch.object(media_fill, "holders", return_value={"E1": ["game-e1"]}), \
                 patch.object(rollup, "load_vpsdb", return_value=CATALOG), \
                 patch.object(vps_releases, "load_vpsdb", return_value=CATALOG):
             if kept is None:
@@ -285,12 +375,12 @@ class RouteTests(unittest.TestCase):
         self.assertEqual(body["missing"]["b2sFiles"]["count"], 0)
 
     def test_the_gaps_a_source_can_fill_are_shelved_after_the_vps_kinds(self) -> None:
-        body = self._get(media={"playfield": {"E1": 2}, "backglass": {"E9": 1}}).json()
+        body = self._get(media={"playfield": [offered("i1", "E1", "Alpha", 2)]}).json()
 
         self.assertEqual(list(body["missing"])[-1], "playfield")
         self.assertEqual(body["missing"]["playfield"], {"count": 1, "games": [
-            {"vps_id": "E1", "name": "Alpha", "img_url": "", "available": 2}]})
-        self.assertNotIn("backglass", body["missing"])
+            {"vps_id": "E1", "game_id": "i1", "name": "Alpha", "img_url": "", "vps": 0,
+             "source": 2}], "on_vps": 0, "game_ids": ["i1"]})
 
     def test_it_answers_the_shelves_in_one_read(self) -> None:
         response = self._get(kept=["tableFiles", "romFiles"])

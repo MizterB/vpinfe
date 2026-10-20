@@ -174,13 +174,17 @@ class WhereAClickLands(unittest.TestCase):
                          (rows["newer"].view, rows["newer"].arriving))
         self.assertEqual(("games", games.UNMATCHED),
                          (rows["unmatched"].view, rows["unmatched"].arriving))
-        self.assertEqual({"media_playfield": {"values": [""]}}, rows["no_playfield"].arriving)
+        self.assertEqual({games.UNFILLED_KEY: ("g1",)}, dict(rows["no_playfield"].keys))
 
-    def test_no_media_needs_every_collected_kind_blank(self):
-        lib = FakeLibrary([game("g1")])
-        rows = {one.key: one.opens for one in needs.collect(lib, {})}
-        self.assertEqual({"media_backglass": {"values": [""]},
-                          "media_playfield": {"values": [""]}}, rows["no_media"].arriving)
+    def test_a_media_row_opens_exactly_the_games_it_counts(self):
+        lib = FakeLibrary([game("g1"), game("g2"), game("g3")])
+        lib.offered = {"playfield": {"g1"}}
+        rows = {one.key: one for one in needs.collect(lib, {})}
+        for key in ("no_playfield", "no_backglass", "no_media"):
+            opened = rows[key].opens.keys[games.UNFILLED_KEY]
+            self.assertEqual(rows[key].count, len(opened), key)
+            self.assertEqual(rows[key].ids, tuple(opened), key)
+        self.assertNotIn("g1", rows["no_playfield"].opens.keys[games.UNFILLED_KEY])
 
     def test_the_rows_that_are_not_a_grid_say_what_they_do_instead(self):
         lib = FakeLibrary(watched={"recordings": ["r1"]}, unreadable=[{"folder": "x"}])
@@ -679,6 +683,27 @@ class TableScriptFixes(unittest.TestCase):
     def test_nothing_is_stamped_without_a_fix_list(self):
         built = [{"id": "t-a"}]
         self.assertIs(built, games.stamp_fixes(built, None))
+
+
+class TheGamesNoSourceCanFill(unittest.TestCase):
+    def test_the_stamp_marks_only_the_games_in_the_list(self):
+        built = [{"id": "g1"}, {"id": "g2"}]
+        stamped = games.stamp_unfilled(built, {"g1"})
+        self.assertEqual([[games.unfilled_label()], []],
+                         [r[games.UNFILLED_COLUMN] for r in stamped])
+        self.assertNotIn(games.UNFILLED_COLUMN, built[0])
+
+    def test_nothing_is_stamped_without_a_list(self):
+        built = [{"id": "g1"}]
+        self.assertIs(built, games.stamp_unfilled(built, None))
+
+    def test_the_grid_a_row_opens_holds_as_many_games_as_the_row_counts(self):
+        lib = FakeLibrary([game("g1"), game("g2"), game("g3")])
+        lib.offered = {"playfield": {"g1"}}
+        row = next(one for one in needs.collect(lib, {}) if one.key == "no_playfield")
+        ids = row.opens.keys[games.UNFILLED_KEY]
+        stamped = games.stamp_unfilled([{"id": g} for g in ("g1", "g2", "g3")], ids)
+        self.assertEqual(row.count, sum(1 for r in stamped if r[games.UNFILLED_COLUMN]))
 
 
 class WhichTablesTheIndexNamed(unittest.TestCase):

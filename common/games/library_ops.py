@@ -284,9 +284,10 @@ def vps_discovery() -> dict[str, Any]:
 
 
 def discovery_home(days: int) -> dict[str, Any]:
-    """Discovery's front page from the last comparison, asking no site."""
+    """Discovery's front page: the VPS shelves from the last comparison, the media a source can
+    fill from the library now. Asks no site."""
     return vps_home.home(library_vps_state.discovery(), library_vps_state.kept_listings(), days,
-                         media=media_fill.offered_gaps())
+                         media=media_fill.offered_listing(), holders=media_fill.holders())
 
 
 def info_maintenance() -> dict[str, Any]:

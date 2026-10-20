@@ -12,12 +12,12 @@ from unittest.mock import patch
 
 from nicegui import core, run, ui
 
-from common.i18n import t
 from common.online import vps_home
 from manager.kit import dropdown, views
 from manager.kit.data import Library
-from manager.library import discovery, discovery_ask, discovery_releases
+from manager.library import discovery, discovery_ask, discovery_releases, games
 from manager.library import discovery_home as home
+from manager.overview import needs
 
 # Made at import, outside any task, where NiceGUI still hands out the script's own page.
 _PAGE = ui.element()
@@ -226,6 +226,10 @@ class SeeAllCountsTests(unittest.TestCase):
                          home.new_filters(7, vps_home.YOURS, KEPT, counted=False))
 
 
+def _offered(game_id: str, vps_id: str, name: str) -> dict:
+    return {"game_id": game_id, "vps_id": vps_id, "name": name, "available": 1}
+
+
 class DrivenHome(unittest.IsolatedAsyncioTestCase):
     """Home drawn by `_fill_home`, through the Library and a client that answers."""
 
@@ -250,7 +254,7 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
         self.pending: dict[int, asyncio.Future[dict[str, Any]]] = {}
         self.slow = False
         self.unreadable = False
-        self.media: dict[str, dict[str, int]] = {}
+        self.media: dict[str, list[dict]] = {}
 
         async def inline(call: Any, *args: Any, **more: Any) -> Any:
             self.io.append(getattr(call, "__name__", str(call)))
@@ -270,7 +274,8 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
     def _answer(self, days: int) -> dict[str, Any]:
         if self.unreadable and days != 7:
             raise RuntimeError("no answer")
-        return vps_home.home(FOUND, KEPT, days, media=self.media)
+        holders = {row["vps_id"]: [f"game-{row['vps_id']}"] for row in FOUND["rows"]}
+        return vps_home.home(FOUND, KEPT, days, media=self.media, holders=holders)
 
     async def asyncSetUp(self) -> None:
         was = core.loop
@@ -387,40 +392,78 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
             7, vps_home.YOURS, discovery.kept_listings(self.library), counted=True))
         self.assertEqual(discovery.tab_of(self.state), discovery.RELEASES)
 
-    async def test_see_all_on_missing_opens_browse_on_that_kind(self) -> None:
+    async def test_see_all_on_missing_opens_games_on_every_game_the_tab_counts(self) -> None:
+        self.media = {"backglass": [_offered("i9", "zz", "Zed")]}
         await self._draw()
+        tab = vps_home.home(FOUND, KEPT, 7, media=self.media, holders={
+            row["vps_id"]: [f"game-{row['vps_id']}"] for row in FOUND["rows"]},
+        )["missing"]["b2sFiles"]
+        opened: list[needs.Opens] = []
 
-        self.spied["see_missing"]("romFiles")
+        async def open_on(opens: needs.Opens) -> None:
+            opened.append(opens)
 
-        opening = discovery_ask.opening_on(self.state, discovery.BROWSE)
-        assert opening is not None
-        self.assertEqual(opening["filters"], {"in_library": {"values": ["yes"]},
-                                              "kind_rom": {"values": ["missing"]}})
+        self.state["open_on"] = open_on
+        await self.spied["see_missing"](tab["game_ids"])
 
-    async def test_the_view_the_shelf_opens_is_named_as_the_shelf_is(self) -> None:
-        await self._draw()
+        [opens] = opened
+        ids = opens.keys[games.LACKING_KEY]
+        self.assertEqual(("games", tab["count"]), (opens.view, len(ids)))
+        library = [{"id": one} for one in ("i9", "game-g1", "game-g2", "other")]
+        shown = [row for row in games.stamp_lacking(library, ids) if row[games.LACKING_COLUMN]]
+        self.assertEqual(tab["count"], len(shown))
 
-        self.spied["see_missing"]("romFiles")
-
-        opening = discovery_ask.opening_on(self.state, discovery.BROWSE)
-        assert opening is not None
-        self.assertEqual(opening["name"], t("manager.view.missing_games"))
-        self.assertIn("manager.view.missing_games", discovery.VIEWS)
-        self.assertEqual(t("manager.view.missing_games"), "Missing from Your Games")
-
-    async def test_a_gap_a_source_can_fill_is_a_tab_of_text_with_no_see_all(self) -> None:
-        self.media = {"backglass": {"g1": 1}}
+    async def test_a_gap_a_source_can_fill_is_a_tab_with_its_own_see_all(self) -> None:
+        self.media = {"playfield": [_offered("i1", "g1", "Alien")]}
         body = await self._draw()
-        self.assertIn("Backglass 1", _labels(body))
+        self.assertIn("Playfields 1", _labels(body))
         toggle = next(one for one in body.descendants() if isinstance(one, ui.toggle)
-                      and "Backglass 1" in _options(one))
+                      and "Playfields 1" in _options(one))
         self.assertEqual(self._see_alls(body), 2)
 
-        toggle.set_value("backglass")
+        toggle.set_value("playfield")
         await _settle()
 
-        self.assertEqual(self._see_alls(body), 1)
+        self.assertEqual(self._see_alls(body), 2)
         self.assertIn("Alien", _words(body))
+        self.assertIn("1 from a source", _words(body))
+        self.assertNotIn("1 on VPS", _words(body))
+
+    async def test_a_kind_is_one_tab_whichever_way_it_is_known(self) -> None:
+        self.media = {"backglass": [_offered("i9", "zz", "Zed")]}
+        body = await self._draw()
+        toggle = next(one for one in body.descendants() if isinstance(one, ui.toggle)
+                      and "Backglasses 2" in _options(one))
+
+        self.assertEqual(sum(1 for text in _labels(body) if text.startswith("Backglass")), 2)
+        self.assertEqual(sum(1 for opt in _options(toggle) if opt.startswith("Backglass")), 1)
+        self.assertNotIn("backglass", toggle.options)
+        self.assertEqual(self._see_alls(body), 2)
+        self.assertIn("Zed", _words(body))
+        self.assertIn("1 from a source", _words(body))
+        self.assertIn("1 on VPS", _words(body))
+
+    async def test_the_two_playfield_videos_keep_a_tab_each_under_their_own_name(self) -> None:
+        self.media = {"playfield_fss": [_offered("i1", "g1", "Alien")],
+                      "playfield_video": [_offered("i2", "g1", "Alien")]}
+        body = await self._draw()
+        toggle = next(one for one in body.descendants() if isinstance(one, ui.toggle)
+                      and "Full-Screen Playfield 1" in _options(one))
+
+        self.assertIn("Playfield Video 1", _options(toggle))
+
+    async def test_every_game_a_source_can_fill_is_drawn_on_its_tab(self) -> None:
+        self.media = {"wheel": [_offered(f"i{n}", f"v{n}", f"Game {n:02d}")
+                                for n in range(vps_home.GAPS_SHOWN * 5)]}
+        body = await self._draw()
+        toggle = next(one for one in body.descendants() if isinstance(one, ui.toggle)
+                      and f"Wheels {len(self.media['wheel'])}" in _options(one))
+
+        toggle.set_value("wheelArtFiles")
+        await _settle()
+
+        names = _words(body)
+        self.assertTrue(all(f"Game {n:02d}" in names for n in range(len(self.media["wheel"]))))
 
     @staticmethod
     def _see_alls(body: ui.element) -> int:

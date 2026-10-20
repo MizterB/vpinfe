@@ -397,7 +397,8 @@ def _nothing_yet(words: str, library: Any, state: dict[str, Any],
     """What a page shows in place of a grid with no rows: where rows come from, and a
     way to pick up ones that arrived by hand. A link's filter is spent here, not held
     for the first row that appears."""
-    for key in ("arriving", "launcher", "sets", "reported", NEW_KEY, FIXES_KEY):
+    for key in ("arriving", "launcher", "sets", "reported", NEW_KEY, FIXES_KEY, UNFILLED_KEY,
+                LACKING_KEY):
         state.pop(key, None)
     sections.metadata_line(library, state)
     panel.facts(ui, [panel.intro(t(words, page=t("manager.section.library_folders")))])
@@ -428,10 +429,16 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
     tag_chips.install(library.tag_looks())
     renderers.install_collection_looks(library.smart_collections(), ui.context.client)
     only_new = state.pop(NEW_KEY, None)
-    rows = stamp_new(rows, only_new)
+    unfilled = state.pop(UNFILLED_KEY, None)
+    lacking = state.pop(LACKING_KEY, None)
+    rows = stamp_lacking(stamp_unfilled(stamp_new(rows, only_new), unfilled), lacking)
     columns = grid_columns(rows, kinds, library)
     if only_new is not None:
         columns.append(new_column())
+    if unfilled is not None:
+        columns.append(unfilled_column())
+    if lacking is not None:
+        columns.append(lacking_column())
     all_fields = [definition["field"] for definition in columns]
     selected: list[dict[str, Any]] = []
 
@@ -462,8 +469,14 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
         # Taken once: a filter a link asked for is not put back on every redraw after.
         arriving = state.pop("arriving", None) \
             or ({"collections": {"values": [narrowed]}} if narrowed else None)
-        if only_new is not None:
-            arriving = {NEW_COLUMN: {"values": [new_label()]}}
+        if only_new is not None or unfilled is not None or lacking is not None:
+            arriving = {}
+            if only_new is not None:
+                arriving[NEW_COLUMN] = {"values": [new_label()]}
+            if unfilled is not None:
+                arriving[UNFILLED_COLUMN] = {"values": [unfilled_label()]}
+            if lacking is not None:
+                arriving[LACKING_COLUMN] = {"values": [lacking_label()]}
         wire_views, view_picker, showing, describe = view_control(
             library, SCOPE, presets, all_fields, columns, bar=bar, annotate=annotate,
             arriving=arriving, art_in_lists=True)
@@ -861,6 +874,16 @@ REPORTED_COLUMN = "reported"
 NEW_KEY = "only_new"
 NEW_COLUMN = "new_since"
 
+# The ids of the games with a blank slot that no source has a file for, as
+# `state[UNFILLED_KEY]`, and the column that lets the Games grid narrow to them.
+UNFILLED_KEY = "unfilled_games"
+UNFILLED_COLUMN = "unfilled"
+
+# The ids of the games a Home tab of missing media counts, as `state[LACKING_KEY]`, and the
+# column that lets the Games grid narrow to them.
+LACKING_KEY = "lacking_games"
+LACKING_COLUMN = "lacking"
+
 # The ids of the tables a script fix is published for, as `state[FIXES_KEY]`, and the column
 # that lets the Tables grid narrow to them.
 FIXES_KEY = "script_fixes"
@@ -1210,6 +1233,24 @@ def new_column() -> dict[str, Any]:
                             help=t("manager.games.new_column.help"))
 
 
+def unfilled_label() -> str:
+    return t("manager.games.unfilled_group")
+
+
+def unfilled_column() -> dict[str, Any]:
+    return grid.list_column(UNFILLED_COLUMN, t("manager.games.unfilled_column"), 120,
+                            help=t("manager.games.unfilled_column.help"))
+
+
+def lacking_label() -> str:
+    return t("manager.games.lacking_group")
+
+
+def lacking_column() -> dict[str, Any]:
+    return grid.list_column(LACKING_COLUMN, t("manager.games.lacking_column"), 120,
+                            help=t("manager.games.lacking_column.help"))
+
+
 def fixes_label() -> str:
     return t("manager.games.fix_group")
 
@@ -1226,6 +1267,19 @@ def stamp_new(built: list[dict[str, Any]],
               ids: Collection[str] | None) -> list[dict[str, Any]]:
     """Each row says whether it joined a dismissed row's count since, in the New column."""
     return _stamped(built, ids, NEW_COLUMN, new_label())
+
+
+def stamp_unfilled(built: list[dict[str, Any]],
+                   ids: Collection[str] | None) -> list[dict[str, Any]]:
+    """Each row says whether no source has a file for a slot it is missing, in the Get Media
+    column."""
+    return _stamped(built, ids, UNFILLED_COLUMN, unfilled_label())
+
+
+def stamp_lacking(built: list[dict[str, Any]],
+                  ids: Collection[str] | None) -> list[dict[str, Any]]:
+    """Each row says whether a Home tab of missing media counts it, in the Missing column."""
+    return _stamped(built, ids, LACKING_COLUMN, lacking_label())
 
 
 def stamp_fixes(built: list[dict[str, Any]],

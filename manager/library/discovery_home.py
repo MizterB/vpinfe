@@ -96,10 +96,27 @@ def _kind_words(listing: str) -> tuple[str, str]:
     return one, t(KIND_MANY[listing]) if listing in KIND_MANY else one
 
 
+# What a tab of games lacking a media kind with no VPS kind of its own is called, in the plural.
+_MEDIA_GAPS = {
+    "playfield": "manager.discovery.gap.playfield",
+    "playfield_fss": "manager.discovery.gap.playfield_fss",
+    "playfield_video": "manager.discovery.gap.playfield_video",
+    "scoreview": "manager.discovery.gap.scoreview",
+    "scoreview_video": "manager.discovery.gap.scoreview_video",
+    "real_dmd": "manager.discovery.gap.real_dmd",
+    "real_dmd_color": "manager.discovery.gap.real_dmd_color",
+    "cab": "manager.discovery.gap.cab",
+    "flyer": "manager.discovery.gap.flyer",
+    "audio": "manager.discovery.gap.audio",
+}
+
+
 def _gap_words(kind: str) -> str:
-    """What a game lacks, in the plural a tab names it with: a VPS kind, or the media kind
-    a source has a file for."""
-    return _kind_words(kind)[1] if kind in vps_home.GAP_KINDS else media_label_map().get(kind, kind)
+    """What a game lacks, in the plural a tab names it with: a VPS kind, which holds the
+    media kind filed with it, or a media kind with none."""
+    if kind in vps_home.GAP_KINDS:
+        return _kind_words(kind)[1]
+    return t(_MEDIA_GAPS[kind]) if kind in _MEDIA_GAPS else media_label_map().get(kind, kind)
 
 
 def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
@@ -108,13 +125,13 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
          reread: Callable[[int], Awaitable[dict[str, Any]]],
          on_select: Callable[[Any], Any],
          see_new: Callable[[int, str], Any],
-         see_missing: Callable[[str], Any],
+         see_missing: Callable[[list[str]], Any],
          open_view: Callable[[str], Any],
          open_subject: Callable[[dict[str, str]], Any]) -> None:
     """Draw Home into `body` from `home`, the answer for the remembered window.
 
     `catalog()` gives the people and the Browse rows once the catalog is in memory; `reread`
-    answers for another window. `see_new(days, chip)` and `see_missing(listing)` open the
+    answers for another window. `see_new(days, chip)` and `see_missing(game_ids)` open the
     grid on the shelf's question, `open_view(id)` on a saved view, and `open_subject` an
     author's page."""
     shown: dict[str, Any] = {"home": home, "chip": vps_home.ALL, "lack": "", "rows": None,
@@ -240,9 +257,9 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
                                  for tab, count in tabs.items()}, listing,
                                 lambda event: pick_lack(event.value))
                 ui.space()
-                if listing in vps_home.GAP_KINDS:
+                if ids := shown["home"]["missing"][listing].get("game_ids"):
                     panel.link(t("manager.discovery.see_all"), to=ADDRESS,
-                               on_click=lambda: see_missing(listing))()
+                               on_click=lambda: see_missing(ids))()
             row = ui.row().classes("manager-shelf w-full px-3")
             for game in shown["home"]["missing"][listing]["games"]:
                 with row, ui.element("div").classes("manager-shelf-tile") as card:
@@ -254,9 +271,12 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
                                      t("manager.discovery.no_picture"))
                     with ui.column().classes("gap-0 min-w-0"):
                         ui.label(game["name"]).classes("manager-shelf-name")
-                        if listing in vps_home.GAP_KINDS:
+                        if game["vps"]:
                             ui.label(t("manager.discovery.lacking.on_vps",
-                                       count=game["available"])).classes("text-xs manager-help")
+                                       count=game["vps"])).classes("text-xs manager-help")
+                        if game["source"]:
+                            ui.label(t("manager.discovery.lacking.from_source",
+                                       count=game["source"])).classes("text-xs manager-help")
 
     def pick_lack(listing: str) -> None:
         shown["lack"] = listing

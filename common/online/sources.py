@@ -27,7 +27,9 @@ from __future__ import annotations
 import logging
 import re
 import threading
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -75,6 +77,27 @@ class Listed:
 
 def _reachable() -> bool:
     return True
+
+
+_cached_only: ContextVar[bool] = ContextVar("sources_cached_only", default=False)
+
+
+@contextmanager
+def cached_only() -> Iterator[None]:
+    """Within this block a source answers from what it already holds and makes no request.
+    For a page that is read on every visit: a source with nothing held yet answers as one
+    with nothing to offer, and whatever loads it for real (a fill, an update) fills it."""
+    token = _cached_only.set(True)
+    try:
+        yield
+    finally:
+        _cached_only.reset(token)
+
+
+def may_fetch() -> bool:
+    """False inside `cached_only`. A source that fetches its index on demand checks this
+    before it does."""
+    return not _cached_only.get()
 
 
 @dataclass(frozen=True)

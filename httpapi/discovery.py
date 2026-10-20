@@ -2,7 +2,8 @@
 
 What `/library/discovery` answers is every catalog entry; this answers the shelves a front
 page draws from them, cut to what a row of tiles shows, from the last comparison. The
-gaps a source can fill are read from the index the fill uses.
+gaps a source can fill are the library's games now and the index the fill uses as the
+process already holds it; this read makes no request.
 """
 
 from __future__ import annotations

@@ -14,7 +14,15 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-from common.online import arrivals, sources, sources_watch, vps_lens, vps_source, vpsdb_sync
+from common.online import (
+    arrivals,
+    sources,
+    sources_watch,
+    vpinmediadb,
+    vps_lens,
+    vps_source,
+    vpsdb_sync,
+)
 from common.online.sources import Listed, Source
 from tests.support.sources import only
 
@@ -412,6 +420,57 @@ class AskedForByHand(_Watch):
         self.assertEqual({"changed": True}, result)
         self.assertTrue(arrivals.seeded(vps_source.ID))
         self.compared.assert_called_once_with()
+
+
+class WarmingTheMediaIndex(_Watch):
+    """Pages read the index as held; the watch is what loads it, so it is held by the time a
+    page is opened."""
+
+    INDEX: dict[str, Any] = {"entries": {}}
+
+    def test_the_first_wake_loads_the_index(self) -> None:
+        with patch.object(vpinmediadb, "_MANIFEST", None), \
+                patch("common.online.vpsdb_cache.VPinMediaDatabase.load",
+                      return_value=self.INDEX) as load, \
+                only(vpinmediadb.SOURCE):
+            sources_watch.watch_once(self.config)
+
+            self.assertEqual(self.INDEX, vpinmediadb._MANIFEST)
+        load.assert_called_once_with()
+
+    def test_offline_leaves_nothing_held_and_raises_nothing(self) -> None:
+        with patch.object(vpinmediadb, "_MANIFEST", None), \
+                patch("common.online.vpsdb_cache.VPinMediaDatabase.load",
+                      return_value=None), \
+                only(vpinmediadb.SOURCE):
+            sources_watch.watch_once(self.config)
+
+            self.assertIsNone(vpinmediadb._MANIFEST)
+
+    def test_a_read_that_raises_is_silent_too(self) -> None:
+        with patch.object(vpinmediadb, "_MANIFEST", None), \
+                patch("common.online.vpsdb_cache.VPinMediaDatabase.load",
+                      side_effect=OSError("down")), \
+                only(vpinmediadb.SOURCE):
+            self.assertFalse(vpinmediadb.warm(self.config))
+            self.assertIsNone(vpinmediadb._MANIFEST)
+
+    def test_the_next_wake_asks_again_after_a_failed_one(self) -> None:
+        with patch.object(vpinmediadb, "_MANIFEST", None), \
+                patch("common.online.vpsdb_cache.VPinMediaDatabase.load",
+                      side_effect=[None, self.INDEX]) as load, \
+                only(vpinmediadb.SOURCE):
+            sources_watch.watch_once(self.config)
+            sources_watch.watch_once(self.config)
+
+            self.assertEqual(self.INDEX, vpinmediadb._MANIFEST)
+        self.assertEqual(2, load.call_count)
+
+    def test_an_index_already_held_is_not_fetched_again(self) -> None:
+        with patch.object(vpinmediadb, "_MANIFEST", self.INDEX), \
+                patch("common.online.vpsdb_cache.VPinMediaDatabase.load") as load:
+            self.assertFalse(vpinmediadb.warm(self.config))
+        load.assert_not_called()
 
 
 if __name__ == "__main__":

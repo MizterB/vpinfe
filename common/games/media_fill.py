@@ -317,13 +317,14 @@ def plan(game_ids: Iterable[str] | None = None) -> dict[str, Any]:
                       for kind in kinds]}
 
 
-def _offered() -> dict[str, dict[str, tuple[str, int]]]:
+def _offered() -> dict[str, dict[str, tuple[str, int, str]]]:
     """Per kind the library keeps, the games with no file for it that an enabled source has
-    one for: game id to its VPS id and how many files the sources offer.
+    one for: game id to its VPS id, how many files the sources offer and its name.
 
-    Fetches nothing. A backglass the game's own file could draw is not offered by a source,
-    and a game with no VPS match has nothing a source can be asked for. The index is the one
-    the fill reads, held once per process; with no source reachable the answer is empty.
+    Makes no request: a source answers from the index it already holds, and one that holds
+    none yet offers nothing, so every gap reads as one no source fills. A backglass the
+    game's own file could draw is not offered by a source, and a game with no VPS match has
+    nothing a source can be asked for. With no source reachable the answer is empty.
     """
     from common.games import media_lens
     from common.online import sources
@@ -331,33 +332,46 @@ def _offered() -> dict[str, dict[str, tuple[str, int]]]:
     scope = _scope(None)
     kept = fillable_kinds()
     variant = MediaConfig.from_config(get_ini_config()).playfield_variant
-    live = tuple(source.id for source in sources.catalogs(sources.enabled_ids())
-                 if source.reachable())
-    if not live or not scope:
-        return {}
-    out: dict[str, dict[str, tuple[str, int]]] = {}
-    matched: dict[str, str] = {}
-    for row in media_lens.library_rows():
-        game = scope.get(row["game_id"])
-        if game is None or row["kind"] not in kept or not is_gap(row):
-            continue
-        if row["game_id"] not in matched:
-            matched[row["game_id"]] = effective_vps_id(normalize_meta(game.meta_config or {}))
-        vps_id = matched[row["game_id"]]
-        asked = _asked_as(row["kind"], variant)
-        if not vps_id or not asked:
-            continue
-        if offers := sources.offers(asked, vps_id, live):
-            out.setdefault(row["kind"], {})[row["game_id"]] = (vps_id, len(offers))
+    out: dict[str, dict[str, tuple[str, int, str]]] = {}
+    with sources.cached_only():
+        live = tuple(source.id for source in sources.catalogs(sources.enabled_ids())
+                     if source.reachable())
+        if not live or not scope:
+            return {}
+        matched: dict[str, str] = {}
+        for row in media_lens.library_rows():
+            game = scope.get(row["game_id"])
+            if game is None or row["kind"] not in kept or not is_gap(row):
+                continue
+            if row["game_id"] not in matched:
+                matched[row["game_id"]] = effective_vps_id(normalize_meta(game.meta_config or {}))
+            vps_id = matched[row["game_id"]]
+            asked = _asked_as(row["kind"], variant)
+            if not vps_id or not asked:
+                continue
+            if offers := sources.offers(asked, vps_id, live):
+                out.setdefault(row["kind"], {})[row["game_id"]] = (
+                    vps_id, len(offers), str(row.get("game") or ""))
     return out
 
 
-def offered_gaps() -> dict[str, dict[str, int]]:
-    """`_offered` by VPS entry: per kind, the entries a game of the library has an empty
-    slot for that a source has a file for, with how many files the sources offer. One entry
-    held by two games is one entry."""
-    return {kind: {vps_id: count for vps_id, count in games.values()}
+def offered_listing() -> dict[str, list[dict[str, Any]]]:
+    """`_offered` for a page that names the games: per kind, one record for each game a
+    source can fill the slot of, with its id, its VPS entry, its name and how many files
+    the sources offer. The records Needs You leaves out of its counts are exactly these."""
+    return {kind: [{"game_id": game_id, "vps_id": vps_id, "name": name, "available": count}
+                   for game_id, (vps_id, count, name) in games.items()]
             for kind, games in _offered().items()}
+
+
+def holders() -> dict[str, list[str]]:
+    """The library's games by the VPS entry each is matched to: entry id to game ids. Makes
+    no request. A game with no match is not in it."""
+    out: dict[str, list[str]] = {}
+    for game_id, game in sorted(_scope(None).items()):
+        if vps_id := effective_vps_id(normalize_meta(game.meta_config or {})):
+            out.setdefault(vps_id, []).append(game_id)
+    return out
 
 
 def offered_games() -> dict[str, list[str]]:
