@@ -412,6 +412,23 @@ class ByProgramTests(unittest.TestCase):
     def test_full_dmd_is_nothing_once_the_backglass_file_keeps_the_dmd(self) -> None:
         self.assertEqual(vs.full_dmd(self.ON, self.NIXIE_ERA, {}), {})
 
+    def test_nixie_ranks_over_b2s_on_both_sides_of_the_build_that_moves_the_dmd(self) -> None:
+        for build in (6254, 6266, 6267, 6300):
+            with self.subTest(build=build):
+                got = vs.derived(self.ON, {}, {**self.NIXIE_ERA, "build": build})
+
+                self.assertGreater(got["ScoreView.Priority.Nixie"],
+                                   got["ScoreView.Priority.B2S"])
+                self.assertGreater(got["ScoreView.Priority.PUP"],
+                                   got["ScoreView.Priority.Nixie"])
+
+    def test_full_dmd_writes_b2s_s_keys_until_6267_and_nothing_from_it(self) -> None:
+        for build, keys in ((6266, vs.FULL_DMD_B2S), (6267, {}), (6300, {})):
+            with self.subTest(build=build):
+                got = vs.full_dmd(self.ON, {**self.NIXIE_ERA, "build": build}, {})
+
+                self.assertEqual(got, keys)
+
     def test_full_dmd_is_nothing_with_no_plugin_drawing(self) -> None:
         program = {"plugins": ["PUP"], "build": 6200, "defaults": {}}
 
