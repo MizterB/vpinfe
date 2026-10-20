@@ -1816,6 +1816,14 @@ class Library:
         return self._client.put_asset_text(game_id, path, text, version,
                                            replace_changed, keep_copy)
 
+    def place_backglass_displays(self, game_id: str, path: str, target: str,
+                                 box: tuple[int, int, int, int] | None) -> dict[str, Any]:
+        """The file is shared by the game's tables, so what they resolve is unchanged."""
+        return self._client.put_backglass_displays(game_id, path, target, box)
+
+    def undo_backglass_displays(self, game_id: str, token: str) -> dict[str, Any]:
+        return self._client.undo_backglass_displays(game_id, token)
+
     def has_asset_rows(self) -> bool:
         return (self._asset_rows is not None and self._table_rows is not None
                 and self._holds_thumbnails())

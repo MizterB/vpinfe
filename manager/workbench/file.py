@@ -18,7 +18,17 @@ from common.games import asset_registry
 from common.games import file_move as moved_files
 from common.games.asset_resolver import VPX_ASSET_KINDS
 from common.i18n import t
-from manager.kit import art, confirm, deeplink, media_ownership, offload, panel, verbs, when
+from manager.kit import (
+    art,
+    confirm,
+    deeplink,
+    media_ownership,
+    offload,
+    panel,
+    undo,
+    verbs,
+    when,
+)
 from manager.kit.data import Library, config_groups
 from manager.kit.on_page import on_page
 from manager.library import (
@@ -35,6 +45,7 @@ from manager.workbench.all_settings import (
     PLAYING_WHY,
     _config_values,
     _keeping_place,
+    _pair,
     _playing,
     _program_state,
     _setting_entries,
@@ -295,6 +306,7 @@ async def _asset_file_block(context: dict[str, Any]) -> None:
                         *((panel.READ, entry) for entry in about)]
         if "file_settings" in context:
             entries += await _file_settings_entries(context)
+            entries += await _dmd_file_entries(context, glass, path)
         return entries
 
     first = await form_entries()
@@ -351,10 +363,13 @@ async def _backglass_picture(context: dict[str, Any], path: str, glass: dict[str
             logger.exception("Could not read the settings behind the backglass preview")
         else:
             memory = inner["state"].setdefault("backglass_preview", {}).setdefault(path, {})
+            locked = bool(inner.get("playing"))
             backglass_view.preview(game_id, path, glass, label, held,
                                    inner.setdefault("followers", []), _enlarge,
-                                   None if inner.get("playing") else partial(_write_overlay, inner),
-                                   memory, inner["fits"], inner.get("program"))
+                                   None if locked else partial(_write_overlay, inner),
+                                   memory, inner["fits"], inner.get("program"),
+                                   None if locked else partial(_place_displays, context,
+                                                               glass, path))
             return
     with ui.element("div").classes("manager-slot-art"):
         mediaview.preview(art.backglass(game_id, path, version=glass["version"],
@@ -394,7 +409,7 @@ async def _write_overlay(inner: dict[str, Any], values: dict[str, str], *,
 async def _form_again(inner: dict[str, Any]) -> bool:
     """Draw the file's form again from what is now held, and tell the preview. False where
     the settings cannot be read, which the caller draws from the top."""
-    if (redraw := inner.get("redraw_form")) is None:
+    if (refill := inner.get("redraw_form")) is None:
         return False
     try:
         fresh = await _config_values(inner)
@@ -403,7 +418,7 @@ async def _form_again(inner: dict[str, Any]) -> bool:
         return False
     for follow in list(inner.get("followers", ())):
         follow(fresh)
-    await redraw()
+    await refill()
     return True
 
 
@@ -550,6 +565,118 @@ async def _file_settings_entries(context: dict[str, Any]) -> list[tuple[Any, Any
             t("manager.workbench.writes_to_tables", count=len(shared)),
             hint="\n".join(_table_line(one["table"], inner["tables"]) for one in shared))]
     return entries
+
+
+async def _dmd_file_entries(context: dict[str, Any], glass: dict[str, Any] | None,
+                            path: str) -> list[tuple[Any, Any]]:
+    """The rows for the DMD a backglass file places itself, under the settings: a switch
+    that adds the DMD to the file or takes it out, and while it is there its position and
+    size. Empty where the build keeps the DMD in the settings instead."""
+    inner = context.get("file_settings")
+    if inner is None or glass is None or glass["damaged"]:
+        return []
+    held = backglass_view.flat(await _config_values(inner))
+    if not backglass_view.in_file(held, inner.get("program")):
+        return []
+    locked = bool(inner.get("playing"))
+    windows = [(backglass_view.GLASS_PART, t("manager.backglass.dmd_file.glass"))]
+    if glass.get("scoreview_art") or backglass_view.displayed(glass, backglass_view.SCORE_PART):
+        windows.append((backglass_view.SCORE_PART, t("manager.backglass.dmd_file.score")))
+    entries: list[tuple[Any, Any]] = []
+    for part, heading in windows:
+        entries += _dmd_file_rows(context, inner, glass, path, part, heading, locked)
+    entries += [panel.note(t("manager.backglass.dmd_file.saved", count=len(context["served"]))),
+                panel.note(t("manager.backglass.dmd_file.replaced"))]
+    if locked:
+        entries.append(panel.note(t(PLAYING_NOTE)))
+    return entries
+
+
+def _dmd_file_rows(context: dict[str, Any], inner: dict[str, Any], glass: dict[str, Any],
+                   path: str, part: str, heading: str, locked: bool) -> list[tuple[Any, Any]]:
+    one = backglass_view.displayed(glass, part)
+
+    async def turned(event: Any) -> None:
+        if bool(event.value) == (backglass_view.displayed(glass, part) is not None):
+            return
+        if not event.value:
+            await _place_displays(context, glass, path, part, None)
+            return
+        # The DMD is added where the art has its window; a file with none found is left as
+        # it was and the switch is drawn off again. The fit says why when it fails.
+        if (fit := inner["fits"].get(part)) is not None:
+            await fit()
+        if backglass_view.displayed(glass, part) is None:
+            await _form_again(inner)
+
+    rows: list[tuple[Any, Any]] = [
+        (panel.HEADING, heading),
+        (t("manager.backglass.dmd_file.switch"),
+         panel.switch(one is not None, turned, disabled=locked,
+                      hint=t("manager.backglass.dmd_file.switch.hint")))]
+    if one is None:
+        return rows
+
+    def number(name: str, index: int, low: int) -> tuple[Callable[[], None], Any, Any]:
+        async def changed(event: Any) -> None:
+            current = backglass_view.displayed(glass, part)
+            if event.value is None or current is None or int(event.value) == current[name]:
+                return
+            box = [current[key] for key in "xywh"]
+            box[index] = int(event.value)
+            await _place_displays(context, glass, path, part, tuple(box))
+
+        label = SimpleNamespace(label=t(f"manager.backglass.dmd_file.{name}"), key=f"{part}.{name}")
+        return (panel.number(one[name], changed, low=low, high=backglass_view.FILE_LIMIT,
+                             on_leave=True, disabled=locked),
+                None, label)
+
+    rows += [
+        (t("manager.backglass.dmd_file.position"),
+         partial(_pair, [number("x", 0, 0), number("y", 1, 0)],
+                 t("manager.backglass.dmd_file.join.position"))),
+        (t("word.size"),
+         partial(_pair, [number("w", 2, 1), number("h", 3, 1)],
+                 t("manager.backglass.dmd_file.join.size"))),
+        _fit_row(inner, part)]
+    return rows
+
+
+@on_page
+async def _place_displays(context: dict[str, Any], glass: dict[str, Any], path: str, part: str,
+                          box: tuple[int, int, int, int] | None, *,
+                          in_place: bool = True) -> None:
+    """Write the window's DMD into the backglass file, or take it out for None, then draw
+    the form and the preview from what the file now holds. Undo puts the file's DMDs back."""
+    inner = context["file_settings"]
+    try:
+        wrote = await offload.io(context["library"].place_backglass_displays,
+                                 context["game_id"], path, part, box)
+    except Exception as exc:  # noqa: BLE001
+        ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
+        await _form_again(inner)
+        return
+    await _displays_drawn(context, glass, wrote)
+    if wrote.get("undo"):
+        undo.offer(t("manager.backglass.dmd_file.toast"),
+                   partial(_put_displays_back, context, glass, str(wrote["undo"])))
+    elif wrote.get("undo_refused"):
+        ui.notify(t("manager.backglass.dmd_file.no_undo"), type="info")
+
+
+async def _put_displays_back(context: dict[str, Any], glass: dict[str, Any],
+                             token: str) -> None:
+    wrote = await offload.io(context["library"].undo_backglass_displays,
+                             context["game_id"], token)
+    await _displays_drawn(context, glass, wrote)
+
+
+async def _displays_drawn(context: dict[str, Any], glass: dict[str, Any],
+                          wrote: dict[str, Any]) -> None:
+    """The panel after the file changed. The file's version in `glass` stays: it names the
+    picture, which a DMD does not change."""
+    glass["displays"] = list(wrote["displays"])
+    await _form_again(context["file_settings"])
 
 
 def _dmd_part(key: str) -> str:

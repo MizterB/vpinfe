@@ -2117,13 +2117,54 @@ class OutsideLinks(ApiModel):
     links: list[OutsideLink]
 
 
+class AssetDisplay(ApiModel):
+    """A DMD the backglass file places, in pixels of the art counted from its top left.
+    `target` is `Backglass` or `ScoreView`."""
+
+    target: str
+    x: int
+    y: int
+    w: int
+    h: int
+
+
+class AssetDisplayPlace(ApiModel):
+    """Set one window's DMD in the backglass file. `target` is `Backglass` or `ScoreView`;
+    `x` and `y` are the top left corner, 0 to 100000, and `w` and `h` the size, 1 to 100000,
+    in pixels of the art from its top left. Leave all four out to take the DMD out of the
+    file. A key not named here is refused."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    target: str
+    x: int | None = Field(default=None, ge=0, le=100000)
+    y: int | None = Field(default=None, ge=0, le=100000)
+    w: int | None = Field(default=None, ge=1, le=100000)
+    h: int | None = Field(default=None, ge=1, le=100000)
+
+
+class AssetDisplaysWritten(ApiModel):
+    """The DMDs the file now places, its new `version`, and `undo`, the token that takes the
+    change back, empty where nothing changed or where the change was too big to keep, which
+    `undo_refused` then says as `too_large`."""
+
+    displays: list[AssetDisplay]
+    version: str
+    undo: str
+    undo_refused: str = ""
+
+
+class AssetDisplaysUndo(ApiModel):
+    undo: str
+
+
 class AssetBackglass(ApiModel):
     """What a backglass file says about itself. `size` and `scoreview_art` are
     [width, height] in pixels, `grill` the height of the bottom strip the renderer
     cuts, `lamps` how many lamps it holds, `still` that nothing in it can light,
     `problems` what could not be
-    read, `damaged` whether the picture cannot be drawn, and `version` the token that
-    changes with the file."""
+    read, `damaged` whether the picture cannot be drawn, `displays` the DMDs the file
+    places, and `version` the token that changes with the file."""
 
     author: str
     artwork: str
@@ -2137,6 +2178,7 @@ class AssetBackglass(ApiModel):
     scoreview_art: list[int] | None = None
     problems: list[str]
     damaged: bool
+    displays: list[AssetDisplay] = []
     version: str
 
 

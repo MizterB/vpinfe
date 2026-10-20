@@ -300,4 +300,7 @@ def _backglass_facts(path: Path) -> dict[str, Any] | None:
             "still": facts.still,
             "scoreview_art": list(facts.scoreview_art) if facts.scoreview_art else None,
             "problems": list(facts.problems), "damaged": directb2s_parser.damaged(facts),
+            "displays": [{"target": one.target, "x": one.placement.x, "y": one.placement.y,
+                          "w": one.placement.w, "h": one.placement.h}
+                         for one in facts.displays if not one.source],
             "version": sized_media.version(path) or ""}

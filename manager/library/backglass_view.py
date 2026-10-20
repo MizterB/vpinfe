@@ -1,5 +1,6 @@
 """A backglass file's panel picture as the cabinet draws it: shaped like the window, with
-the grill cut as the renderer in effect cuts it and the DMD where the settings put it.
+the grill cut as the renderer in effect cuts it and the DMD where the settings, or the
+backglass file itself, put it.
 
 `screens` reads the settings and answers what to draw, with nothing drawn; `preview`
 draws it. The browser is handed one uncut picture and the grill height, so a switch
@@ -28,6 +29,8 @@ logger = logging.getLogger(__name__)
 
 GLASS_PART = "Backglass"
 SCORE_PART = "ScoreView"
+# The most a DMD's position or size can be in the file, in pixels of the art.
+FILE_LIMIT = 100000
 BACKGLASS_WINDOW = "Backglass.Backglass"
 SCOREVIEW_WINDOW = "ScoreView.ScoreView"
 BAR_PX = 46
@@ -43,8 +46,8 @@ EDITIONS = ("authentic", "fantasy")
 
 @dataclass(frozen=True)
 class Box:
-    """The DMD, in percent of the art it sits on. `auto` is a position VPX works out at
-    launch, which has no box to draw."""
+    """The DMD, in percent of the art it sits on, counted from its top left. `auto` is a
+    position VPX works out at launch, which has no box to draw."""
 
     left: float = 0.0
     top: float = 0.0
@@ -65,6 +68,7 @@ class Screen:
     off: bool = False
     part: str = GLASS_PART
     space: tuple[int, int] = (1, 1)
+    in_file: bool = False
 
 
 def flat(values: Mapping[str, Any]) -> dict[str, str]:
@@ -91,12 +95,18 @@ def _placed_in_file(plugin: str, program: Mapping[str, Any] | None) -> bool:
     return plugin == backglass_ops.B2S and bool((program or {}).get("dmd_in_file"))
 
 
+def in_file(held: Mapping[str, str], program: Mapping[str, Any] | None = None) -> bool:
+    """Whether the renderer in effect keeps the DMD's place in each backglass file."""
+    return _placed_in_file(backglass_ops.renderer(held, program), program)
+
+
 def screens(held: Mapping[str, str], glass: Mapping[str, Any],
             program: Mapping[str, Any] | None = None) -> tuple[Screen, Screen | None]:
     """The backglass window, and beside it the score view where the file has art for it
     and its window is on."""
     plugin = backglass_ops.renderer(held, program)
-    boxed = not _placed_in_file(plugin, program)
+    in_file = _placed_in_file(plugin, program)
+    boxed = not in_file
     wide, high = glass["size"]
     cut = backglass_ops.cuts_grill(held, program) and 0 < glass["grill"] < high
     kept = high - glass["grill"] if cut else high
@@ -104,17 +114,35 @@ def screens(held: Mapping[str, str], glass: Mapping[str, Any],
     window, turns = _window(held, BACKGLASS_WINDOW)
     glass_screen = Screen(
         _ratio(window, (wide, kept), turns), turns, scale,
-        _box(held, plugin, GLASS_PART, (wide, kept)) if boxed else None,
+        _box(held, plugin, GLASS_PART, (wide, kept)) if boxed
+        else _in_file_box(glass, GLASS_PART, (wide, kept)),
         off=held.get(BACKGLASS_WINDOW + "Output", "0") in ("", "0"),
-        space=(wide, kept))
+        space=(wide, kept), in_file=in_file)
     art_size = glass.get("scoreview_art")
     if not art_size or held.get(SCOREVIEW_WINDOW + "Output", "0") in ("", "0"):
         return glass_screen, None
     window, turns = _window(held, SCOREVIEW_WINDOW)
     return glass_screen, Screen(_ratio(window, tuple(art_size), turns), turns, 100.0,
                                 _box(held, plugin, SCORE_PART, tuple(art_size))
-                                if boxed else None,
-                                part=SCORE_PART, space=tuple(art_size))
+                                if boxed else _in_file_box(glass, SCORE_PART,
+                                                           tuple(art_size)),
+                                part=SCORE_PART, space=tuple(art_size), in_file=in_file)
+
+
+def displayed(glass: Mapping[str, Any], part: str) -> Mapping[str, Any] | None:
+    """The DMD the file places in the window `part` names, or None where it has none."""
+    return next((one for one in glass.get("displays") or () if one["target"] == part), None)
+
+
+def _in_file_box(glass: Mapping[str, Any], part: str, space: tuple[int, int]) -> Box | None:
+    """The file's DMD as a box on art of `space`. One with no size draws nothing, so it has
+    no box."""
+    one = displayed(glass, part)
+    if one is None or one["w"] <= 0 or one["h"] <= 0:
+        return None
+    across, down = space
+    return Box(100.0 * one["x"] / across, 100.0 * one["y"] / down,
+               100.0 * one["w"] / across, 100.0 * one["h"] / down)
 
 
 def _number(held: Mapping[str, str], key: str) -> int:
@@ -179,6 +207,14 @@ def box_values(plugin: str, screen: Screen, box: Box) -> dict[str, str]:
             prefix + "W": str(wide), prefix + "H": str(high)}
 
 
+def file_values(screen: Screen, box: Box) -> tuple[int, int, int, int]:
+    """`box` as the file counts it: x, y, width and height in pixels of the art, from its
+    top left."""
+    across, down = screen.space
+    return (max(0, round(across * box.left / 100)), max(0, round(down * box.top / 100)),
+            max(1, round(across * box.width / 100)), max(1, round(down * box.height / 100)))
+
+
 def frame_box(frame: dmd_frame.Frame, size: tuple[int, int]) -> Box:
     """A frame found on a picture of `size`, counted up from the bottom as Visual Pinball
     counts it, as the box that covers it."""
@@ -187,17 +223,34 @@ def frame_box(frame: dmd_frame.Frame, size: tuple[int, int]) -> Box:
                100.0 * frame.width / wide, 100.0 * frame.height / high)
 
 
-def found(game_id: str, path: str, *, look: str, edition: str, cut: bool,
-          scoreview: bool) -> Box | None:
-    """Where Automatic would put the DMD on the picture the preview shows, or None where
-    the art has no window for it."""
+def _framed(game_id: str, path: str, *, look: str, edition: str, cut: bool,
+            scoreview: bool) -> tuple[dmd_frame.Frame, tuple[int, int]] | None:
     served = (backglass_ops.scoreview_file(game_id, path=path) if scoreview
               else backglass_ops.picture_file(game_id, look=look, version=edition, grill=cut,
                                               path=path))
     with Image.open(served.path) as picture:
         frame = dmd_frame.find(picture)
         size = picture.size
-    return frame_box(frame, size) if frame else None
+    return (frame, size) if frame else None
+
+
+def found(game_id: str, path: str, *, look: str, edition: str, cut: bool,
+          scoreview: bool) -> Box | None:
+    """Where Automatic would put the DMD on the picture the preview shows, or None where
+    the art has no window for it."""
+    framed = _framed(game_id, path, look=look, edition=edition, cut=cut, scoreview=scoreview)
+    return frame_box(*framed) if framed else None
+
+
+def found_in_file(game_id: str, path: str, *, look: str, edition: str, cut: bool,
+                  scoreview: bool) -> tuple[int, int, int, int] | None:
+    """`found`, as the file counts it: x, y, width and height in pixels from the top left
+    of the picture the preview shows."""
+    framed = _framed(game_id, path, look=look, edition=edition, cut=cut, scoreview=scoreview)
+    if framed is None:
+        return None
+    frame, (_, high) = framed
+    return frame.x, high - 1 - frame.y - frame.height, frame.width, frame.height
 
 
 def fit_target(held: Mapping[str, str], glass: Mapping[str, Any], part: str,
@@ -205,8 +258,6 @@ def fit_target(held: Mapping[str, str], glass: Mapping[str, Any], part: str,
     """The window `part` names, and whether its picture is drawn with the grill cut. The
     score view's own window may be off while its settings are open, so it is built from
     the art; None where the file has no art for it."""
-    if _placed_in_file(backglass_ops.renderer(held, program), program):
-        return None
     glass_screen, score_screen = screens(held, glass, program)
     if part == GLASS_PART:
         return glass_screen, glass_screen.scale != 100.0
@@ -215,7 +266,8 @@ def fit_target(held: Mapping[str, str], glass: Mapping[str, Any], part: str,
     art_size = glass.get("scoreview_art")
     if not art_size:
         return None
-    return Screen(1.0, 0, 100.0, None, part=SCORE_PART, space=tuple(art_size)), False
+    return Screen(1.0, 0, 100.0, None, part=SCORE_PART, space=tuple(art_size),
+                  in_file=glass_screen.in_file), False
 
 
 def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
@@ -224,7 +276,8 @@ def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
             write: Callable[..., Awaitable[Any]] | None,
             memory: dict[str, Any],
             fits: MutableMapping[str, Callable[[], Awaitable[None]]],
-            program: Mapping[str, Any] | None = None) -> None:
+            program: Mapping[str, Any] | None = None,
+            place: Callable[..., Awaitable[Any]] | None = None) -> None:
     """The picture, drawn from `held` and drawn again whenever a write calls the function
     added to `followers` with the settings as they now stand. A box moved or fitted is
     written by `write`, which draws the settings beside it again and calls the followers;
@@ -233,7 +286,11 @@ def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
     `fits` is given, under "Backglass" and "ScoreView", what puts a window's box on the
     DMD window in the picture; the settings beside it hold the button. Without `write`
     the box cannot be moved or fitted and `fits` stays empty. `program` is what the launcher
-    reports of the installed program, which decides the renderer."""
+    reports of the installed program, which decides the renderer.
+
+    Where the build keeps the DMD in the backglass file, `place` stands where `write` does:
+    it is called with the window's name and the box as x, y, width and height in pixels of
+    the art, and with `in_place`, and writes into the file."""
     state = memory.setdefault("preview", {"look": "on",
                                           "edition": edition_in_effect(held, program)})
     state["held"] = dict(held)
@@ -248,21 +305,25 @@ def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
     notes = ui.column().classes("manager-bgview-notes gap-1")
 
     def moved(screen: Screen) -> Callable[[Box], Awaitable[None]] | None:
-        if write is None:
+        if (place if screen.in_file else write) is None:
             return None
 
         async def set_box(box: Box) -> None:
             state["dragged"] = True
             try:
-                await write(box_values(drawn_by(), screen, box),
-                            in_place=True)
+                if screen.in_file:
+                    assert place is not None
+                    await place(screen.part, file_values(screen, box), in_place=True)
+                else:
+                    assert write is not None
+                    await write(box_values(drawn_by(), screen, box), in_place=True)
             finally:
                 state.pop("dragged", None)
         return set_box
 
     searching: set[str] = set()
 
-    def fitter(part: str, put: Callable[..., Awaitable[Any]]) -> Callable[[], Awaitable[None]]:
+    def fitter(part: str) -> Callable[[], Awaitable[None]]:
         @on_page
         async def fit() -> None:
             if part in searching:
@@ -277,10 +338,11 @@ def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
                 working = ui.notification(t("manager.backglass.dmd_fit.working"), spinner=True,
                                           timeout=None)
                 try:
+                    search = found_in_file if screen.in_file else found
                     box = await run.io_bound(
-                        lambda: found(game_id, path, look=state["look"],
-                                      edition=state["edition"], cut=cut,
-                                      scoreview=part == SCORE_PART))
+                        lambda: search(game_id, path, look=state["look"],
+                                       edition=state["edition"], cut=cut,
+                                       scoreview=part == SCORE_PART))
                 except Exception:  # noqa: BLE001 - a file that cannot be drawn says so
                     logger.exception("Could not search the backglass picture for the DMD")
                     ui.notify(t("manager.backglass.damaged"), type="negative")
@@ -291,14 +353,18 @@ def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
                 if box is None:
                     ui.notify(t("manager.backglass.dmd_fit.none"), type="warning")
                     return
-                await put(box_values(drawn_by(), screen, box),
-                          in_place=True)
+                if isinstance(box, tuple):
+                    assert place is not None
+                    await place(part, box, in_place=True)
+                else:
+                    assert write is not None
+                    await write(box_values(drawn_by(), screen, box), in_place=True)
             finally:
                 searching.discard(part)
         return fit
 
-    if write is not None:
-        fits.update({part: fitter(part, write) for part in (GLASS_PART, SCORE_PART)})
+    if write is not None or place is not None:
+        fits.update({part: fitter(part) for part in (GLASS_PART, SCORE_PART)})
 
     def draw() -> None:
         holder.clear()
@@ -350,7 +416,8 @@ def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
             enlarge(lambda: mediaview.open_image(
                 art.backglass(game_id, path, version=glass["version"], grill=cut,
                               look=state["look"], edition=state["edition"]), label))
-        _say(notes, glass, [glass_screen, score_screen], write is not None)
+        _say(notes, glass, [glass_screen, score_screen],
+             write is not None or place is not None)
 
     def follow(values: Any) -> None:
         if holder.is_deleted:
@@ -390,7 +457,8 @@ def _say(notes: ui.element, glass: Mapping[str, Any], shown: list[Screen | None]
             ui.label(t(f"manager.backglass.preview.{kind}")).classes("manager-help")
         if live and any(not one.auto for one in boxes):
             ui.label(t("manager.backglass.preview.dmd")).classes("manager-help")
-            ui.label(t("manager.backglass.preview.fit")).classes("manager-help")
+            if not any(one.in_file for one in shown if one is not None):
+                ui.label(t("manager.backglass.preview.fit")).classes("manager-help")
         if live and any(one.auto for one in boxes):
             ui.label(t("manager.backglass.preview.automatic")).classes("manager-help")
 
@@ -423,7 +491,7 @@ def _stage(screen: Screen, src: str, on_set: Callable[[Box], Awaitable[None]] | 
                     f"background-image:url(\"{src}\");"
                     f"background-size:100% {screen.scale:.4f}%"):
                 if screen.dmd is not None:
-                    _dmd(screen.dmd, screen.turns, on_set, units)
+                    _dmd(screen.dmd, screen.turns, on_set, units, screen.in_file)
 
 
 GRIPS = ("nw", "ne", "sw", "se", "n", "s", "w", "e")
@@ -431,7 +499,8 @@ GRIPS = ("nw", "ne", "sw", "se", "n", "s", "w", "e")
 # The box is moved by its body and sized by its corners and edges, in percent of the stage it sits
 # in. A pointer's travel is turned back through the stage's quarter turns first, so a
 # drag follows the pointer on a window that is turned. Nothing is sent until it is let go.
-# While it moves, a readout beside it counts X, Y, W and H the way the settings do.
+# While it moves, a readout beside it counts X, Y, W and H the way the settings do, or from the
+# top where the file keeps them.
 BOX_JS = """(() => {
   let tries = 0;
   const wire = () => {
@@ -444,14 +513,15 @@ BOX_JS = """(() => {
     const MIN = 2;
     const clamp = (v, lo, hi) => Math.min(Math.max(lo, hi), Math.max(lo, v));
     const SLOP = 3;
-    const across = __ACROSS__, down = __DOWN__;
+    const across = __ACROSS__, down = __DOWN__, fromTop = __FROMTOP__;
     const frame = stage.parentElement;
     let drag = null, chip = null;
     const readout = (b) => {
       const w = Math.max(1, Math.round(across * b.width / 100));
       const h = Math.max(1, Math.round(down * b.height / 100));
       const x = Math.max(0, Math.round(across * b.left / 100));
-      const y = Math.max(0, Math.round(down * (1 - (b.top + b.height) / 100)));
+      const y = Math.max(0, Math.round(fromTop ? down * b.top / 100
+                                                : down * (1 - (b.top + b.height) / 100)));
       if (!chip) {
         chip = document.createElement('div');
         chip.className = 'manager-bgview-readout';
@@ -520,7 +590,7 @@ BOX_JS = """(() => {
 
 
 def _dmd(box: Box, turns: int, on_set: Callable[[Box], Awaitable[None]] | None,
-         units: tuple[int, int]) -> None:
+         units: tuple[int, int], from_top: bool = False) -> None:
     if box.auto:
         ui.label(t("manager.backglass.dmd_automatic")).classes("manager-bgview-auto")
         return
@@ -547,4 +617,5 @@ def _dmd(box: Box, turns: int, on_set: Callable[[Box], Awaitable[None]] | None,
     shape.tooltip(t("manager.backglass.dmd_move.hint"))
     shape.on("boxset", set_box, js_handler="(e) => emit(e.detail)")
     ui.run_javascript(BOX_JS.replace("__ID__", str(shape.id)).replace("__TURNS__", str(turns))
-                      .replace("__ACROSS__", str(units[0])).replace("__DOWN__", str(units[1])))
+                      .replace("__ACROSS__", str(units[0])).replace("__DOWN__", str(units[1]))
+                      .replace("__FROMTOP__", "true" if from_top else "false"))

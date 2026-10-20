@@ -28,6 +28,7 @@ from common.games import (
     archive_service,
     asset_lens,
     asset_ops,
+    backglass_displays,
     backglass_ops,
     collection_ops,
     file_move,
@@ -223,6 +224,26 @@ def put_asset_text(game_id: str, body: models.AssetTextSave,
     return models.AssetTextSaved.model_validate(text_file.save(
         game_id, path, body.text, body.version, replace_changed=body.replace_changed,
         keep_copy=body.keep_copy))
+
+
+@router.put("/{game_id}/assets/backglass/displays",
+            summary="Set where a backglass file places the DMD, or take it out",
+            dependencies=[requires(scopes.GAMES_WRITE)])
+def put_backglass_displays(game_id: str, body: models.AssetDisplayPlace,
+                           path: str = Query(...)) -> models.AssetDisplaysWritten:
+    """Written into the file itself, which every table that reads it shares. Refused while a
+    table of the game is playing."""
+    return models.AssetDisplaysWritten.model_validate(backglass_displays.place(
+        game_id, path, body.target, (body.x, body.y, body.w, body.h)))
+
+
+@router.post("/{game_id}/assets/backglass/displays/undo",
+             summary="Put a backglass file's DMDs back as a change found them",
+             dependencies=[requires(scopes.GAMES_WRITE)])
+def undo_backglass_displays(game_id: str,
+                            body: models.AssetDisplaysUndo) -> models.AssetDisplaysWritten:
+    return models.AssetDisplaysWritten.model_validate(
+        backglass_displays.undo(game_id, body.undo))
 
 
 @router.put("/{game_id}/assets/{kind}", summary="Place a file under the folder's own name",

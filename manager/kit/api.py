@@ -373,6 +373,19 @@ class ApiClient:
                          {"text": text, "version": version,
                           "replace_changed": replace_changed, "keep_copy": keep_copy})
 
+    def put_backglass_displays(self, game_id: str, path: str, target: str,
+                               box: tuple[int, int, int, int] | None) -> dict:
+        """Place the DMD of one window in the backglass file, or take it out for None."""
+        body: dict[str, Any] = {"target": target}
+        if box is not None:
+            body.update(dict(zip("xywh", box, strict=True)))
+        return self._put(f"/games/{game_id}/assets/backglass/displays?"
+                         + urlencode({"path": path}), body)
+
+    def undo_backglass_displays(self, game_id: str, token: str) -> dict:
+        return self._post(f"/games/{game_id}/assets/backglass/displays/undo",
+                          {"undo": token})
+
     def tables(self, game_id: str) -> list[dict]:
         return self._get(f"/games/{game_id}/tables").get("tables", [])
 

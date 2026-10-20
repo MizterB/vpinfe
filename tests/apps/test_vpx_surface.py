@@ -47,7 +47,11 @@ BASELINE: dict[str, int] = {
     # one per picture it draws.
     "common/games/backglass_ops.py": 9,
     "common/games/collection_resolver.py": 3,
-    "common/games/formats/directb2s_parser.py": 4,
+    # The two that read and write the file's DMD placement: the format's own name is their
+    # module, their suffix check and their calls into it.
+    "common/games/backglass_displays.py": 14,
+    "common/games/formats/directb2s_displays.py": 3,
+    "common/games/formats/directb2s_parser.py": 7,
     "common/games/export_bundle.py": 4,
     "common/games/game.py": 2,
     "common/games/game_metadata.py": 2,

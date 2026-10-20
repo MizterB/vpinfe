@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
+import tempfile
 import unittest
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
+
+from PIL import Image, ImageDraw
 
 from common.games import backglass_ops
 from common.games.formats import dmd_frame
@@ -303,8 +309,6 @@ class ByProgram(unittest.TestCase):
                 self.assertIsNone(glass_screen.dmd)
                 assert score_screen is not None
                 self.assertIsNone(score_screen.dmd)
-                self.assertIsNone(view.fit_target(held, glass, view.GLASS_PART, program))
-                self.assertIsNone(view.fit_target(held, glass, view.SCORE_PART, program))
 
     def test_the_legacy_renderer_keeps_its_box_whatever_the_build(self) -> None:
         held = {f"{LEGACY}BackglassDMDOverlay": "1", f"{LEGACY}BackglassDMDX": "100",
@@ -321,6 +325,130 @@ class ByProgram(unittest.TestCase):
                 f"{B2S}BackglassDMDH": "9"}
 
         self.assertIsNone(view.screens(held, _glass(), self.NONE)[0].dmd)
+
+
+class TheDmdInTheFile(unittest.TestCase):
+    PROGRAM = {"plugins": ["B2S"], "build": 6267, "dmd_in_file": True,
+               "defaults": {"Plugin.B2S.Enable": "1"}}
+    HELD = {"ScoreView.ScoreViewOutput": "1"}
+
+    def glass(self, *displays: dict, **more) -> dict:
+        return {**_glass(**more), "displays": list(displays)}
+
+    def test_the_box_is_the_files_own_counted_from_the_top_left(self) -> None:
+        glass = self.glass({"target": "Backglass", "x": 100, "y": 80, "w": 500, "h": 160},
+                           grill=0)
+
+        screen = view.screens(self.HELD, glass, self.PROGRAM)[0]
+
+        assert screen.dmd is not None
+        self.assertTrue(screen.in_file)
+        self.assertEqual((10.0, 10.0, 50.0, 20.0),
+                         (screen.dmd.left, screen.dmd.top, screen.dmd.width, screen.dmd.height))
+
+    def test_a_cut_grill_counts_down_the_art_that_is_left(self) -> None:
+        glass = self.glass({"target": "Backglass", "x": 0, "y": 300, "w": 100, "h": 60})
+        held = {f"{B2S}ShowGrill": "0"}
+
+        screen = view.screens(held, glass, self.PROGRAM)[0]
+
+        assert screen.dmd is not None
+        self.assertAlmostEqual(50.0, screen.dmd.top)
+        self.assertAlmostEqual(10.0, screen.dmd.height)
+
+    def test_a_file_with_no_dmd_has_no_box(self) -> None:
+        self.assertIsNone(view.screens(self.HELD, self.glass(), self.PROGRAM)[0].dmd)
+
+    def test_a_dmd_with_no_size_draws_nothing(self) -> None:
+        glass = self.glass({"target": "Backglass", "x": 1, "y": 1, "w": 0, "h": 0})
+
+        self.assertIsNone(view.screens(self.HELD, glass, self.PROGRAM)[0].dmd)
+
+    def test_each_window_reads_its_own_dmd(self) -> None:
+        glass = self.glass({"target": "Backglass", "x": 10, "y": 10, "w": 100, "h": 40},
+                           {"target": "ScoreView", "x": 40, "y": 10, "w": 200, "h": 50},
+                           scoreview=(400, 100))
+
+        glass_screen, score_screen = view.screens(self.HELD, glass, self.PROGRAM)
+
+        assert score_screen is not None and glass_screen.dmd and score_screen.dmd
+        self.assertAlmostEqual(1.0, glass_screen.dmd.left)
+        self.assertAlmostEqual(50.0, score_screen.dmd.width)
+        self.assertTrue(score_screen.in_file)
+
+    def test_the_settings_build_is_not_in_the_file(self) -> None:
+        program = {**self.PROGRAM, "build": 6266, "dmd_in_file": False}
+
+        self.assertFalse(view.screens(self.HELD, self.glass(), program)[0].in_file)
+        self.assertFalse(view.in_file(self.HELD, program))
+        self.assertTrue(view.in_file(self.HELD, self.PROGRAM))
+
+    def test_a_dragged_box_is_written_in_pixels_from_the_top(self) -> None:
+        screen = view.screens(self.HELD, self.glass(grill=0), self.PROGRAM)[0]
+
+        self.assertEqual((100, 80, 500, 160),
+                         view.file_values(screen, view.Box(10.0, 10.0, 50.0, 20.0)))
+
+    def test_a_box_dragged_past_the_edge_stays_on_the_art(self) -> None:
+        screen = view.screens(self.HELD, self.glass(grill=0), self.PROGRAM)[0]
+
+        self.assertEqual((0, 0, 1, 1), view.file_values(screen, view.Box(-5.0, -1.0, 0.0, 0.0)))
+
+    def test_what_is_written_is_what_is_drawn(self) -> None:
+        glass = self.glass({"target": "Backglass", "x": 123, "y": 77, "w": 456, "h": 99},
+                           grill=0)
+        screen = view.screens(self.HELD, glass, self.PROGRAM)[0]
+
+        assert screen.dmd is not None
+        self.assertEqual((123, 77, 456, 99), view.file_values(screen, screen.dmd))
+
+    def test_both_windows_can_be_fitted(self) -> None:
+        glass = self.glass(scoreview=(400, 100))
+
+        for part in (view.GLASS_PART, view.SCORE_PART):
+            with self.subTest(part=part):
+                target = view.fit_target(self.HELD, glass, part, self.PROGRAM)
+                assert target is not None
+                self.assertTrue(target[0].in_file)
+
+    def test_a_score_view_with_its_window_off_is_still_fitted_in_the_file(self) -> None:
+        target = view.fit_target({}, self.glass(scoreview=(400, 100)), view.SCORE_PART,
+                                 self.PROGRAM)
+
+        assert target is not None
+        self.assertTrue(target[0].in_file)
+
+
+class TheFrameAsTheFileCountsIt(unittest.TestCase):
+    def found(self, framed):
+        with patch.object(view, "_framed", return_value=framed):
+            return view.found_in_file("g", "f", look="on", edition="authentic", cut=False,
+                                      scoreview=False)
+
+    def test_the_row_is_counted_from_the_top(self) -> None:
+        # Frame.y counts up from the bottom row, so a frame 500 up and 100 tall has its top
+        # row at 800 - 1 - 500 - 100 = 199 from the top.
+        frame = dmd_frame.Frame(30, 500, 200, 100)
+
+        self.assertEqual((30, 199, 200, 100), self.found((frame, (1000, 800))))
+
+    def test_art_with_no_window_finds_nothing(self) -> None:
+        self.assertIsNone(self.found(None))
+
+    def test_a_window_drawn_on_a_picture_is_found_where_it_was_drawn(self) -> None:
+        picture = Image.new("RGB", (960, 540), (255, 255, 255))
+        ImageDraw.Draw(picture).rectangle((240, 100, 719, 219), fill=(0, 0, 0))
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "glass.png"
+            picture.save(path)
+            with patch.object(view.backglass_ops, "picture_file",
+                              return_value=SimpleNamespace(path=path)):
+                found = view.found_in_file("g", "f", look="on", edition="authentic",
+                                           cut=False, scoreview=False)
+
+        # The search pads the window by one pixel on each side before it fits the shape.
+        assert found is not None
+        self.assertEqual((101, 118), (found[1], found[3]))
 
 
 class TheLauncherConfigShape(unittest.TestCase):

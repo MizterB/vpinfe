@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Literal, NamedTuple
 
 from common.atomic_write import staged_for
 from common.config.paths import CACHE_DIR
+from common.games.formats import directb2s_displays
 from common.media import sized_media
 
 if TYPE_CHECKING:
@@ -97,6 +98,8 @@ class Backglass:
     still: bool
     scoreview_art: tuple[int, int] | None
     problems: tuple[str, ...]
+    # The DMDs the file places, in pixels of its art; none where it places none.
+    displays: tuple[directb2s_displays.Display, ...] = ()
 
 
 class _Span(NamedTuple):
@@ -260,6 +263,7 @@ def _facts_of(document: _Document, data: bytes) -> Backglass:
                     for lamp in document.lamps),
         scoreview_art=scoreview,
         problems=tuple(problems),
+        displays=directb2s_displays.read(data),
     )
 
 

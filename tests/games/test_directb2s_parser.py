@@ -187,6 +187,26 @@ class FactsTests(DirectB2SParserCase):
         self.assertEqual(facts.problems, ())
 
 
+class DisplaysTests(DirectB2SParserCase):
+    def test_a_file_without_displays_has_none(self) -> None:
+        facts = parser.read(self.write(_file()))
+        assert facts is not None
+        self.assertEqual(facts.displays, ())
+
+    def test_the_dmds_the_file_places_are_in_its_facts(self) -> None:
+        text = _file().decode().replace(
+            "</DirectB2SData>",
+            '  <Displays>\n    <DMD Target="Backglass" X="2" Y="3" W="20" H="5" />\n'
+            '  </Displays>\n</DirectB2SData>')
+
+        facts = parser.read(self.write(text.encode()))
+
+        assert facts is not None
+        (found,) = facts.displays
+        self.assertEqual((found.target, tuple(found.placement)), ("Backglass", (2, 3, 20, 5)))
+        self.assertEqual(facts.problems, ())
+
+
 class ProblemTests(DirectB2SParserCase):
     def test_a_file_that_is_not_there_is_none(self) -> None:
         self.assertIsNone(parser.read(self.folder / "missing.directb2s"))
