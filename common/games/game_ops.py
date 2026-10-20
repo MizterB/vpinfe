@@ -265,7 +265,12 @@ def delete_from_disk(game_id: str) -> dict:
         if library_folders.inside(wanted, held):
             raise service_errors.RefusedError(t("error.games.delete_location"),
                                               details={"path": str(folder)})
-    table_ids = list(table_entries(load_game_meta(game)))
+    meta: dict[str, Any] | None
+    try:
+        meta = load_game_meta(game)
+    except (ValueError, OSError):
+        meta = getattr(game, "meta_config", None)
+    table_ids = list(table_entries(meta))
     try:
         shutil.rmtree(folder)
     except OSError as exc:

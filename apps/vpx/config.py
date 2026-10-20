@@ -352,8 +352,8 @@ def read_file(path: Path | None) -> vini.Ini:
 
 
 def _read_file(path: Path | None) -> vini.Ini | None:
-    """The file's settings, none where it is not there, and None where it is and cannot be
-    read."""
+    """The file's settings: empty where the file is not there, None where it is and cannot
+    be read."""
     if path is None or not path.is_file():
         return vini.Ini()
     try:

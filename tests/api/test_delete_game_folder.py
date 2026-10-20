@@ -59,6 +59,18 @@ class WhatDeletingDoesTests(DeleteFolderCase):
 
         self.assertEqual(order_record.held(), {"other": pair})
 
+    def test_a_game_whose_info_was_damaged_after_it_loaded_can_still_be_deleted(self) -> None:
+        for damage in (b"", b"\xff\xfe", b"{not json"):
+            with self.subTest(damage=damage):
+                (self.folder / "Taxi.info").write_bytes(damage)
+
+                found = self.delete()
+
+                self.assertEqual(found.status_code, 200, found.text)
+                self.assertFalse(self.folder.exists())
+                self.game = self.create("Taxi").json()
+                self.folder = Path(self.game["folder"])
+
     def test_a_game_that_is_running_is_left_alone(self) -> None:
         running = launch_state.LaunchState(launching=True, game_id=self.game["id"])
 

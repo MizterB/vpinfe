@@ -253,7 +253,6 @@ class ForgettingTests(_Referenced):
         self.assertTrue(self.away.is_file())
 
     def test_forgetting_takes_the_table_out_of_the_record_of_draw_orders(self) -> None:
-        """An id made later that happens to hold an equal pair is a hand-set one."""
         pair = {"ScoreView.Priority.B2S": "2", "ScoreView.Priority.Nixie": "1"}
         patcher = patch.object(order_record, "PATH", self.root / "draw_order.json")
         patcher.start()

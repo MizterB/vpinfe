@@ -32,8 +32,6 @@ from common.runtime import jobs, shutdown
 
 logger = logging.getLogger("vpinfe.common.games.backglass_order")
 
-# A game's tables are set one caller at a time, whoever it is: two reading the same settings
-# would each write over the other's. A caller waits only for the game it wants.
 _LOCKS = tuple(threading.RLock() for _ in range(64))
 _STARTING = threading.Lock()
 
@@ -148,10 +146,13 @@ def _failure(one: backglass_ops.Scored, exc: BaseException) -> dict[str, str]:
 
 def _apply(table: str, order: TableOrder, kept: dict[str, str]) -> bool:
     """Write what the order calls for and keep the record of it. A pair is recorded before
-    it is written, a cleared one after, so a pair this wrote is never left without a record.
-    Whether the table's settings were written."""
+    it is written and a cleared one after; a pair being replaced is cleared first, so the
+    settings never hold a pair the record does not name. Whether they were written."""
     ours = kept if order.ours is None else order.ours
     if order.write and ours:
+        if kept:
+            launcher_ops.write_table_settings(table, dict.fromkeys(order.write, ""),
+                                              settle=False)
         order_record.keep({table: ours})
         try:
             launcher_ops.write_table_settings(table, order.write, settle=False)

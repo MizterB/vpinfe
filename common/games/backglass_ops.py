@@ -262,11 +262,12 @@ def _places_dmd(found: Path) -> bool | None:
 def score_dmds(game: Any, launcher_id: str = "") -> list[Scored]:
     """For each table of the game whose launcher has settings of its own, whether the
     backglass file it reads places a Score View DMD: false for a table that reads none.
-    A table whose file is damaged or cannot be read is left out, and so is every table of a
-    game whose folder is not there: a folder that is away says nothing about its tables.
-    With `launcher_id`, only the tables that launcher plays."""
+    Left out: a table whose file is damaged or cannot be read, and every table of a game
+    whose folder is missing, empty or has no path. With `launcher_id`, only the tables that
+    launcher plays."""
     found: list[Scored] = []
-    if not Path(game.full_path_game or "").is_dir():
+    folder = str(game.full_path_game or "")
+    if not folder or not Path(folder).is_dir() or next(Path(folder).iterdir(), None) is None:
         return found
     for row in _table_rows(game, ""):
         if (not row.get("launcher") or not row.get("launcher_app_configurable")

@@ -89,9 +89,7 @@ def keep(changes: Mapping[str, Mapping[str, str]]) -> None:
 
 
 def drop(tables: Iterable[str]) -> None:
-    """Take these tables out of the record, for tables that no longer exist: a table made
-    later under the same id with a pair that happens to equal ours is not ours. Said in the
-    log and not raised, since what is being done is a forget or a delete."""
+    """Take these tables out of the record. Logged and not raised."""
     try:
         keep({str(table): {} for table in tables})
     except (service_errors.ServiceError, OSError):

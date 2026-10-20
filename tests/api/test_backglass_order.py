@@ -13,6 +13,7 @@ from unittest.mock import Mock, patch
 from starlette.testclient import TestClient
 
 import httpapi
+from apps.vpx import screens as vs
 from apps.vpx.config import VPXConfig
 from common import failures, service_errors
 from common.apps.contract import Program, TableOrder
@@ -28,6 +29,7 @@ from common.host import launch_state
 from common.media import sized_media
 from common.runtime import jobs
 from tests.api.test_backglass_picture import FOLDER, GAME_ID, _directb2s
+from tests.apps import test_vpx_screens as vs_tests
 from tests.support.library import TempTree, fake_game, write_game
 
 PUT = f"/games/{GAME_ID}/assets/backglass/displays"
@@ -377,6 +379,78 @@ class WhatIsKept(Settled):
 
         self.assertEqual((failed, order_record.held()), ([], {"t1": SWAPPED}))
 
+    def test_a_game_folder_with_nothing_in_it_keeps_its_record(self) -> None:
+        self.put()
+        shutil.rmtree(self.folder)
+        self.folder.mkdir()
+
+        failed = backglass_order.settle(GAME_ID)
+
+        self.assertEqual((failed, order_record.held()), ([], {"t1": SWAPPED}))
+
+    def test_a_game_with_no_folder_path_keeps_its_record(self) -> None:
+        self.put()
+        self.game.full_path_game = None
+        self.written.clear()
+
+        failed = backglass_order.settle(GAME_ID)
+
+        self.assertEqual((failed, order_record.held(), self.written), ([], {"t1": SWAPPED}, []))
+
+
+class ReplacingAPair(Settled):
+    """The table's own settings are modelled, so what a pass that dies leaves can be run."""
+
+    PROGRAM = vs_tests.ATablesOwnOrderTests.PROGRAM
+    LAUNCHER = vs_tests.ATablesOwnOrderTests.LAUNCHER
+    RANKED = {"ScoreView.Priority.Nixie": "4", "ScoreView.Priority.B2S": "7"}
+
+    def app(self) -> list[Any]:
+        self.ini: dict[str, str] = {}
+        self.launcher = dict(self.LAUNCHER)
+        self.dies = False
+        return [patch.object(launcher_ops, "backglass_order", side_effect=self._modelled),
+                patch.object(launcher_ops, "write_table_settings", side_effect=self._held)]
+
+    def _modelled(self, launcher_id: str, target: str, in_file: bool,
+                  written: dict[str, str] | None = None) -> TableOrder:
+        return vs.table_order(self.PROGRAM, self.launcher, self.ini, in_file, written)
+
+    def _held(self, table_id: str, values: dict[str, str], settle: bool = True) -> dict[str, Any]:
+        if self.dies and any(values.values()):
+            raise Boom()
+        self.ini = {key: value for key, value in {**self.ini, **values}.items() if value}
+        return {"written": sorted(values), "cleared": []}
+
+    def test_a_pair_replaced_by_a_pass_that_dies_is_put_back_by_the_next(self) -> None:
+        self.put()
+        self.launcher.update({"ScoreView.Priority.Nixie": "7", "ScoreView.Priority.B2S": "4"})
+        self.dies = True
+
+        with self.assertRaises(Boom):
+            backglass_order.settle(GAME_ID)
+        self.assertEqual(self.ini, {}, "the old pair is not left under a record of the new one")
+        self.dies = False
+        backglass_order.settle(GAME_ID)
+
+        self.assertEqual((self.ini, order_record.held()), (self.RANKED, {"t1": self.RANKED}))
+
+    def test_a_pair_replaced_is_taken_out_while_the_record_still_names_it(self) -> None:
+        self.put()
+        self.launcher.update({"ScoreView.Priority.Nixie": "7", "ScoreView.Priority.B2S": "4"})
+        seen: list[tuple[dict[str, str], dict[str, dict[str, str]]]] = []
+        inner = self._held
+
+        def watch(table_id: str, values: dict[str, str], settle: bool = True) -> dict[str, Any]:
+            seen.append((dict(values), order_record.held()))
+            return inner(table_id, values, settle)
+
+        with patch.object(launcher_ops, "write_table_settings", side_effect=watch):
+            backglass_order.settle(GAME_ID)
+
+        self.assertEqual(seen, [(CLEARED, {"t1": SWAPPED}),
+                                (self.RANKED, {"t1": self.RANKED})])
+
 
 class Waiting(Settled):
     """A caller waits for the game it wants and for nothing else."""
@@ -574,6 +648,20 @@ class FollowingTheLauncher(Settled):
                          [{"table": "t1", "name": TABLE, "reason": "read-only"}])
         self.assertEqual(job.problems, 1)
         self.assertEqual(order_record.held(), {"t1": SWAPPED}, "a failed write keeps the record")
+
+    def test_the_pass_is_started_while_the_launcher_write_still_holds_off_another(self) -> None:
+        held: list[bool] = []
+        start = backglass_order.settle_launcher
+
+        def watch(launcher_id: str) -> jobs.Job:
+            held.append(backglass_order._STARTING.locked())
+            return start(launcher_id)
+
+        with patch.object(backglass_order, "settle_launcher", side_effect=watch):
+            answer = self.write({"values": {"ScoreView.Priority.Nixie": "5"}})
+        _finished(jobs.get(answer["settling"]))
+
+        self.assertEqual(held, [True])
 
     def test_a_launcher_write_of_any_other_key_starts_no_job(self) -> None:
         answer = self.write({"values": {"Player.FXAA": "1"}})
