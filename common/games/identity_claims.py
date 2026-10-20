@@ -1,11 +1,12 @@
 """What a file claims to be, and how much that claim is worth.
 
-    construction  ==  declared   >   user
+    construction  ==  declared   >   user   >   exact
 
 The two at the top rank together because neither inferred anything, and they never collide:
-either VPinFE built the file or something handed it over. There is deliberately no value
-meaning "I guessed" - a caller that inferred sends nothing and the file joins the manual
-queue, which is what makes this safe to accept over HTTP.
+either VPinFE built the file or something handed it over. `exact` is the one basis that is
+inferred, and only VPinFE's own sweep writes it, so it is not among what a caller may send:
+a caller that inferred sends nothing and the file joins the manual queue, which is what
+makes this safe to accept over HTTP.
 """
 
 from __future__ import annotations
@@ -20,12 +21,14 @@ CONSTRUCTION = "construction"
 DECLARED = "declared"
 # A person picked the record this file matches.
 USER = "user"
+# VPinFE found exactly one release with the file's authors and version.
+EXACT = "exact"
 
-# What a caller may send. `construction` is ours to write and nobody else's to claim.
+# What a caller may send. `construction` and `exact` are ours to write and nobody else's.
 ACCEPTED_FROM_CALLERS = (DECLARED, USER)
 
 # Most trusted first. Position is the comparison; the two at the top are equal.
-_RANK = {CONSTRUCTION: 0, DECLARED: 0, USER: 1}
+_RANK = {CONSTRUCTION: 0, DECLARED: 0, USER: 1, EXACT: 2}
 
 
 def rank(confirmed_by: str) -> int:

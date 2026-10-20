@@ -27,6 +27,7 @@ from common.games import (
     info_maintenance,
     metadata_service,
     tables,
+    ties,
 )
 from common.games.collection_store import CollectionStore
 from common.games.formats.vpx_parser import VPXParser
@@ -54,7 +55,7 @@ from common.games.tables import (
 )
 from common.games.unreadable import UnreadableGame
 from common.i18n import t
-from common.online import vps_formats
+from common.online import vps_formats, vps_kinds
 from common.release import migration_ledger
 from common.runtime import job_details, jobs
 from common.runtime.jobs import LogCallback, ProgressCallback
@@ -66,6 +67,10 @@ VPSDB_JSON_PATH = VPSDB_PATH
 _vpsdb_cache: list[dict] | None = None
 _release_index: dict[str, tuple[dict, dict]] = {}
 _release_index_of: list[dict] | None = None
+_record_index: dict[str, dict] = {}
+_record_index_of: list[dict] | None = None
+_entry_ids: set[str] = set()
+_entry_ids_of: list[dict] | None = None
 
 
 def _fresh_config() -> ConfigStore:
@@ -201,6 +206,33 @@ def _releases_by_id() -> dict[str, tuple[dict, dict]]:
     return _release_index
 
 
+def find_vps_record(vps_file_id: str) -> dict:
+    """One file VPS lists, of any kind - a table build, a backglass, a PUP pack - by its own
+    id, or {}. `find_vps_release` is the table builds alone."""
+    global _record_index, _record_index_of
+    catalog = load_vpsdb()
+    if catalog is not _record_index_of:
+        index: dict[str, dict] = {}
+        for entry in catalog:
+            for listing in ("tableFiles", *vps_kinds.BY_LISTING):
+                for record in entry.get(listing) or []:
+                    if record.get("id"):
+                        index.setdefault(str(record["id"]), record)
+        _record_index, _record_index_of = index, catalog
+    return _record_index.get((vps_file_id or "").strip(), {})
+
+
+def holds_vps_entry(entry_id: str) -> bool:
+    """Whether the catalog lists a machine under this id. False for any id while the
+    catalog is empty."""
+    global _entry_ids, _entry_ids_of
+    catalog = load_vpsdb()
+    if catalog is not _entry_ids_of:
+        _entry_ids = {str(entry.get("id") or "") for entry in catalog} - {""}
+        _entry_ids_of = catalog
+    return (entry_id or "").strip() in _entry_ids
+
+
 def find_vps_release_and_entry(vps_file_id: str) -> tuple[dict, dict]:
     """One build of one machine and the machine it belongs to, or two empty dicts."""
     return _releases_by_id().get((vps_file_id or "").strip(), ({}, {}))
@@ -269,12 +301,11 @@ def route_legacy_match(data: dict) -> str:
 
     entries = table_entries(data)
     _, entry = default_entry(entries, recorded_default(vpinfe))
-    if not entry or not release_fits(find_vps_release(wanted), entry):
+    release = find_vps_release(wanted)
+    if not entry or not release_fits(release, entry):
         return "dropped"
-    source = dict(entry.get(SOURCE_KEY) or {})
-    source["vps_file_id"] = wanted
-    source["confirmed_by"] = CONFIRMED_BY_USER
-    entry[SOURCE_KEY] = source
+    entry[SOURCE_KEY] = ties.tie(dict(entry.get(SOURCE_KEY) or {}), wanted,
+                                 CONFIRMED_BY_USER, release)
     data[TABLES_KEY] = entries
     return "bound"
 

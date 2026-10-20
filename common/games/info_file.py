@@ -14,7 +14,7 @@ import os
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from common.games import identity_claims, unwritten
+from common.games import identity_claims, ties, unwritten
 from common.games.info_migration import (
     FROM_CATALOG,
     GUIDE_ORIGIN,
@@ -661,6 +661,11 @@ class MetaConfig:
         if identity is not None and not identity.is_empty:
             source = identity_claims.source_block(identity, md5=md5)
             source.setdefault("host", host)
+            if source.get("vps_file_id"):
+                from common.games.game_service import find_vps_record
+
+                if listed := ties.listed_version(find_vps_record(source["vps_file_id"])):
+                    source[ties.VERSION_KEY] = listed
             existing = (self.data.get(ASSETS_KEY, {}).get(key) or {}).get("source") or {}
             if existing and not identity_claims.outranks(
                     source.get("confirmed_by", ""), existing.get("confirmed_by", "")):

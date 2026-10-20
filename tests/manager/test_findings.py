@@ -66,12 +66,12 @@ class Findings(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(found, [(t("manager.workbench.file_absent"),
                                   ("act", t("word.forget")), "")])
 
-    async def test_an_update_gives_both_versions_and_links_to_the_release(self) -> None:
+    async def test_an_update_gives_the_version_at_the_tie_and_the_one_now(self) -> None:
         found = await self._found(_table("a", update_available=True, source={
-            "vps_file_id": "r-1", "version": "1.2"}))
+            "vps_file_id": "r-1", "version": "1.2", "vps_version": "1.1"}))
 
         self.assertEqual(found, [(
-            t("manager.workbench.newer_on_vps", theirs="1.2", ours="1.0"),
+            t("manager.workbench.newer_on_vps", theirs="1.2", ours="1.1"),
             ("link", t("manager.workbench.get_version", version="1.2"),
              "https://host.example/r-1"), "")])
 
@@ -86,7 +86,7 @@ class Findings(unittest.IsolatedAsyncioTestCase):
         for failing in ("vps_releases", "vps_entry"):
             with self.subTest(failing=failing):
                 tables = (_table("a", update_available=True, source={
-                    "vps_file_id": "r-9", "version": "3.0"}),)
+                    "vps_file_id": "r-9", "version": "3.0", "vps_version": "2.5"}),)
                 context = _context(*tables)
                 getattr(context["library"], failing).side_effect = TimeoutError("timed out")
 
@@ -96,7 +96,7 @@ class Findings(unittest.IsolatedAsyncioTestCase):
                     entries = await game_table._findings(context, tables)
 
                 self.assertEqual([alert for _, alert in entries], [(
-                    t("manager.workbench.newer_on_vps", theirs="3.0", ours="1.0"),
+                    t("manager.workbench.newer_on_vps", theirs="3.0", ours="2.5"),
                     (t("manager.workbench.vps_failed"), "unknown",
                      t("said.why.timed_out")), "")])
 

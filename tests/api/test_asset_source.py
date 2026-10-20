@@ -95,7 +95,8 @@ class AssetSourceTests(TempTree):
         self._bind("medias/wheel.png", RECORD)
 
         self.assertEqual(self._ledger()["medias/wheel.png"]["source"],
-                         {"vps_file_id": RECORD, "confirmed_by": "user"})
+                         {"vps_file_id": RECORD, "confirmed_by": "user",
+                          "vps_version": "3.0"})
 
     def test_unbinding_keeps_where_the_file_came_from(self) -> None:
         self._bind(BACKGLASS, RECORD)
@@ -131,7 +132,8 @@ class AssetSourceTests(TempTree):
     def test_the_writer_answers_with_what_it_stored(self) -> None:
         self.assertEqual(set_asset_source(self.game, BACKGLASS, RECORD),
                          {"host": "vpinmediadb", "hash": "d41d8c",
-                          "vps_file_id": RECORD, "confirmed_by": "user"})
+                          "vps_file_id": RECORD, "confirmed_by": "user",
+                          "vps_version": "3.0"})
 
 
     # --- the records the picker chooses from, in VPS's own vocabulary ----------

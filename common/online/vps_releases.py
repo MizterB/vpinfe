@@ -41,6 +41,13 @@ _FOLDED = {person_key(alias): person_key(group[0])
            for group in SAME_PERSON for alias in group}
 
 
+def credit_keys(names: Iterable[object] | None) -> frozenset[str]:
+    """The people a list of credits names, as keys: two spellings of one person, and the
+    credits VPS files separately for one team, come out as the same key."""
+    return frozenset(_FOLDED.get(person_key(str(name)), person_key(str(name)))
+                     for name in names or () if person_key(str(name)))
+
+
 def _credited(release: dict) -> list[str]:
     names = (_SPACES.sub(" ", str(one)).strip() for one in (release.get("authors") or []))
     return [one for one in names if one]

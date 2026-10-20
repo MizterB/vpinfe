@@ -161,12 +161,11 @@ def set_rating(game_id: str, table_id: str, rating: Any) -> dict:
 
 
 def set_source(game_id: str, table_id: str, vps_file_id: str) -> dict:
-    """Bind one table to the upstream release somebody says it is, or unbind it.
+    """Bind one table to the upstream release a person says it is, or record that it is none.
 
-    A person picking from a list, never a guess: the identifier this records was retired
-    at chance and is confidently wrong more often than not, so nothing here proposes an
-    answer. An empty id takes the claim back. A release filed under a format this table's
-    app does not play is refused: it would name a build the table cannot be.
+    A person's answer, which replaces a tie VPinFE made itself. An empty id takes the tie
+    back and keeps the sweep from tying the table again. A release filed under a format
+    this table's app does not play is refused: it would name a build the table cannot be.
     """
     game = game_lens.game_for_writing(game_id)
     filename = filename_or_refuse(game, table_id)

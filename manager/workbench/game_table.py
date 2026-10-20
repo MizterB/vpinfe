@@ -1089,7 +1089,7 @@ def _faults(context: dict[str, Any], table: dict[str, Any],
                if to else _state(t("manager.workbench.vps_failed"), "unknown",
                                  hint=unread) if unread else None)
         faults.append((t("manager.workbench.newer_on_vps", theirs=theirs,
-                         ours=str(table.get("version") or "")), act))
+                         ours=str(source.get("vps_version") or "")), act))
     return faults
 
 

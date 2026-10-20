@@ -1616,14 +1616,20 @@ class MadeFrom(ApiModel):
 class TableSource(ApiModel):
     """Which upstream release a table is, and what established that.
 
-    `confirmed_by` is a closed set with no value meaning "I guessed" - `user` where a
-    person picked from a list, `declared` where whatever delivered the bytes said which
-    record it fetched, `construction` where we built the file ourselves. Anything that
-    inferred an identity sends nothing and the file stays unclaimed.
+    `confirmed_by` says what established the tie - `user` where a person picked from a
+    list, `declared` where whatever delivered the bytes said which record it fetched,
+    `construction` where we built the file ourselves, `exact` where VPinFE found exactly
+    one release with the file's authors and version. A caller that inferred an identity
+    sends nothing and the file stays unclaimed.
     """
 
+    # Empty on a table with no release picked. With `confirmed_by` `user` it is a person
+    # saying the table is none of them, which keeps VPinFE from tying it again.
     vps_file_id: str = ""
     confirmed_by: str = ""
+    # The version VPS listed for the release when it was tied, which is what an update is
+    # measured from. Empty where the catalog listed none or the tie predates recording it.
+    vps_version: str = ""
     # The release named, resolved here because the catalog is already open on this side
     # and the alternative is a client fetching every build of the machine to render one
     # row. Empty where the id names nothing the catalog still holds.
@@ -1654,14 +1660,16 @@ class AssetSource(ApiModel):
     """One ledger entry's `source`, after a write.
 
     `host` and `hash` say who placed the file and what they published it as; the other
-    two say which upstream record it is. The pair come apart in both directions - a
-    hand-placed file can be matched, a downloaded one can be unidentified.
+    two say which upstream record it is, and `vps_version` what VPS listed for it when it
+    was tied. The pair come apart in both directions - a hand-placed file can be matched,
+    a downloaded one can be unidentified.
     """
 
     host: str = ""
     hash: str = ""
     vps_file_id: str = ""
     confirmed_by: str = ""
+    vps_version: str = ""
 
 
 class Table(ApiModel):
@@ -1940,6 +1948,10 @@ class TableRow(ApiModel):
     # This table's own rating, not its game's. 0 is unrated, which is most of them.
     rating: int = 0
     game_rating: int = 0
+    # The VPS entry the game is matched to, empty for a game that is not or whose entry
+    # the catalog no longer holds. A table with a value here and no `source.vps_file_id`
+    # is one whose release nobody has picked.
+    game_vps_id: str = ""
     # What the script was seen to use, three-valued per feature: true, false, and null
     # for a table nothing has parsed - which is not the same as no.
     features: dict[str, bool | None] = {}

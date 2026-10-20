@@ -17,7 +17,7 @@ from unittest.mock import patch
 from starlette.testclient import TestClient
 
 import httpapi
-from common.games import launchers, table_lens
+from common.games import launchers, table_lens, ties
 from common.host import launch
 from common.i18n import t
 from tests.support.launchers_api import put_launcher
@@ -408,8 +408,9 @@ class UpdateTests(_Lens):
     """A matched table says whether VPS lists a later version of its release."""
 
     info = {**INFO, "tables": {
-        "tbl0000001": {**INFO["tables"]["tbl0000001"],
-                       "source": {"vps_file_id": "release01", "confirmed_by": "user"}},
+        "tbl0000001": {**INFO["tables"]["tbl0000001"], "version": "3.0",
+                       "source": {"vps_file_id": "release01", "confirmed_by": "user",
+                                  "vps_version": "1.0"}},
         "tbl0000002": INFO["tables"]["tbl0000002"]}}
 
     def setUp(self) -> None:
@@ -427,6 +428,15 @@ class UpdateTests(_Lens):
 
         self.assertIs(row["update_available"], True)
         self.assertEqual("1.2", row["source"]["version"])
+
+    def test_the_file_s_own_version_does_not_decide(self) -> None:
+        """The file says 3.0 and VPS lists 1.2: it is behind because VPS moved since the
+        tie, not because 3.0 is less than anything."""
+        row = self._by_id()["tbl0000001"]
+
+        self.assertEqual("3.0", row["version"])
+        self.assertEqual("1.0", row["source"]["vps_version"])
+        self.assertIs(row["update_available"], True)
 
     def test_a_table_matched_to_nothing_cannot_say(self) -> None:
         """Null, not false: nothing was weighed, which is not the same as up to date."""
@@ -465,18 +475,40 @@ class DerivedTagTests(_Lens):
         self.assertEqual({"tbl0000001": ["Weekly Challenge"], "tbl0000002": []}, said)
 
 
+class GameOnVpsTests(_Lens):
+    """A row says which VPS entry its game is matched to, where the catalog holds it."""
+
+    info = {**INFO, "Info": {**INFO["Info"], "VPSId": "entry01"}}
+
+    def _listed(self, catalog: list[dict]) -> list[dict]:
+        patcher = patch("common.games.game_service.load_vpsdb", return_value=catalog)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return self._rows()
+
+    def test_every_row_of_a_game_the_catalog_holds_names_its_entry(self) -> None:
+        rows = self._listed([{"id": "entry01"}])
+
+        self.assertEqual(["entry01", "entry01"], [row["game_vps_id"] for row in rows])
+
+    def test_an_entry_the_catalog_no_longer_holds_is_not_named(self) -> None:
+        rows = self._listed([{"id": "another"}])
+
+        self.assertEqual(["", ""], [row["game_vps_id"] for row in rows])
+
+
 class UpdateAvailableTests(unittest.TestCase):
-    def test_the_file_s_version_is_weighed_against_the_release_s(self) -> None:
-        for held, listed, expected in (("1.0", "1.2", True), ("1.2", "1.2.0", False),
+    def test_the_version_at_the_tie_is_weighed_against_the_one_listed_now(self) -> None:
+        for tied, listed, expected in (("1.0", "1.2", True), ("1.2", "1.2.0", False),
                                        ("1.3", "1.2", False), ("VP10", "1.2", None),
-                                       ("1.0", "", None)):
-            with self.subTest(held=held, listed=listed):
-                source = {"vps_file_id": "release01", "version": listed}
-                self.assertIs(expected, table_lens.update_available(held, source))
+                                       ("1.0", "", None), ("", "1.2", None)):
+            with self.subTest(tied=tied, listed=listed):
+                source = {"vps_file_id": "release01", "version": listed, "vps_version": tied}
+                self.assertIs(expected, ties.update_available(source))
 
     def test_a_version_with_no_release_behind_it_weighs_nothing(self) -> None:
-        self.assertIsNone(table_lens.update_available("1.0", {"version": "1.2"}))
-        self.assertIsNone(table_lens.update_available("1.0", None))
+        self.assertIsNone(ties.update_available({"version": "1.2", "vps_version": "1.0"}))
+        self.assertIsNone(ties.update_available(None))
 
 
 if __name__ == "__main__":

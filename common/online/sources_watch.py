@@ -45,13 +45,23 @@ def refreshed(source: Source, changed: bool) -> None:
 
 
 def compare() -> bool:
-    """Start the comparison of the library with the catalog. False when there is no catalog
-    to compare with or one is already running."""
-    from common.games import library_ops
+    """Start the comparison of the library with the catalog, after tying the tables the
+    catalog now names exactly. False when there is no catalog to compare with, one is already
+    running, or another pass over the `.info` files is, which owes the comparison again."""
+    from common.games import exact_ties, library_ops
     from common.games.game_service import VPSDB_JSON_PATH
 
     if not VPSDB_JSON_PATH.exists():
         return False
+    try:
+        tied = exact_ties.tie_library()
+    except Exception:
+        logger.warning("Tying tables to their releases failed", exc_info=True)
+        tied = 0
+    if tied is None:
+        return False
+    if tied:
+        logger.info("Tied %s tables to the one release that fits them", tied)
     try:
         library_ops.recount_vps_state()
     except Exception:

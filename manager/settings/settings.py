@@ -1063,6 +1063,7 @@ CHECK_GROUPS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     )),
     ("manager.settings.checks_matching", (
         ("unmatched", "manager.settings.check_unmatched"),
+        ("untied", "manager.settings.check_untied"),
         ("no_year", "manager.settings.check_no_year"),
     )),
     ("manager.settings.checks_media", (

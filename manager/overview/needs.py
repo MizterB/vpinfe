@@ -330,6 +330,11 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
                          t("manager.needs.recordings.tip"), ACCENT, verbs.REVIEW,
                          Opens(then=REVIEW), waiting, _UNIT_RECORDINGS))
 
+    if untied := library.untied_tables():
+        rows.append(Need("untied", t("manager.needs.untied"), t("manager.needs.untied.tip"),
+                         MUTED, verbs.NO_MATCH, Opens("tables", games.UNTIED),
+                         untied, _UNIT_TABLES))
+
     rows.append(_games_without("no_year", found, label=names["no_year"][0],
                                tip=names["no_year"][1], tone=MUTED, icon=verbs.NO_YEAR,
                                opens=Opens("games", {"year": {"filterType": "number",
@@ -349,7 +354,7 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
 # it could not look, and setting that aside would hide the one thing it must say.
 ORDER = ("rom_missing", "launchers", "unreadable", "unmatched", "no_tables", "no_playfield",
          "no_backglass", "no_media", "fill_errors", "update", "newer", "script_fixes", "recordings",
-         "older_format", "no_year")
+         "untied", "older_format", "no_year")
 
 # The rows about this install rather than the library. Their stop is this install's alone;
 # a library row's is the library's, as the Checks page already keeps it.
@@ -365,7 +370,8 @@ _ICONS = {"rom_missing": verbs.CANNOT_PLAY, "launchers": verbs.CANNOT_PLAY,
           "no_media": verbs.NO_MEDIA, "fill_errors": verbs.HAD_ERRORS,
           "update": verbs.UPDATE, "newer": verbs.NEWER_RELEASE,
           "script_fixes": verbs.FETCH, "recordings": verbs.REVIEW,
-          "older_format": verbs.OLDER_FORMAT, "no_year": verbs.NO_YEAR}
+          "older_format": verbs.OLDER_FORMAT, "untied": verbs.NO_MATCH,
+          "no_year": verbs.NO_YEAR}
 
 
 def is_device(key: str) -> bool:
@@ -420,6 +426,7 @@ def name_of(key: str) -> str:
             "newer": t("manager.games.filter_newer"),
             "script_fixes": t("manager.sections.script_fixes"),
             "older_format": t("manager.needs.older_format"),
+            "untied": t("manager.needs.untied"),
             "recordings": t("manager.needs.recordings")}[key]
 
 
@@ -445,6 +452,7 @@ def comes_back(key: str, need: Need | None = None) -> str:
             "script_fixes": t("manager.needs.back.script_fixes"),
             "recordings": t("manager.needs.back.recordings"),
             "older_format": t("manager.needs.back.older_format"),
+            "untied": t("manager.needs.back.untied"),
             "no_year": t("manager.needs.back.no_year")}[key]
 
 

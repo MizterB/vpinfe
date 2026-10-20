@@ -104,7 +104,20 @@ class TableSourceTests(TempTree):
         self._bind(RELEASE)
 
         self.assertEqual(table_source(self._stored()),
-                         {"vps_file_id": RELEASE, "confirmed_by": "user"})
+                         {"vps_file_id": RELEASE, "confirmed_by": "user",
+                          "vps_version": "2.4.41"})
+
+    def test_the_tie_keeps_the_version_the_catalog_listed_when_it_was_made(self) -> None:
+        self._bind(RELEASE)
+
+        self.assertEqual(self._table()["source"]["vps_version"], "2.4.41")
+
+    def test_a_release_the_catalog_does_not_hold_records_no_version(self) -> None:
+        self._write_source({"vps_file_id": RELEASE, "confirmed_by": "user",
+                            "vps_version": "1.0"})
+        self._bind("GoneFromVps")
+
+        self.assertNotIn("vps_version", table_source(self._stored()))
 
     def test_no_kind_is_written(self) -> None:
         """`matched` would be the only value anything can produce, and a field that is
@@ -121,12 +134,20 @@ class TableSourceTests(TempTree):
         self.assertEqual(source["version"], "2.4.41")
         self.assertEqual(source["authors"], ["G5k", "3rdAxis"])
 
-    def test_unbinding_leaves_no_trace(self) -> None:
+    def test_unbinding_leaves_a_persons_answer_that_the_table_is_none_of_them(self) -> None:
         self._bind(RELEASE)
         self._bind("")
 
-        self.assertNotIn("source", self._stored())
-        self.assertIsNone(self._table()["source"])
+        self.assertEqual({"vps_file_id": "", "confirmed_by": "user"},
+                         table_source(self._stored()))
+        self.assertEqual("", self._table()["source"]["vps_file_id"])
+        self.assertIsNone(self._table()["update_available"])
+
+    def test_picking_again_replaces_the_answer(self) -> None:
+        self._bind("")
+        self._bind(RELEASE)
+
+        self.assertEqual(RELEASE, table_source(self._stored())["vps_file_id"])
 
     def test_unbinding_keeps_what_the_file_was_built_from(self) -> None:
         """`base` and `patch` say how the bytes were made. Taking back a claim about
@@ -138,7 +159,8 @@ class TableSourceTests(TempTree):
         set_table_source(self.game, VPX, RELEASE)
         set_table_source(self.game, VPX, "")
 
-        self.assertEqual(table_source(self._stored()), built)
+        self.assertEqual(table_source(self._stored()),
+                         {**built, "vps_file_id": "", "confirmed_by": "user"})
 
     def test_a_claim_sits_beside_what_it_was_built_from(self) -> None:
         self._write_source({"base": {"file": "old.vpx"},

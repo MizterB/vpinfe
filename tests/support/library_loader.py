@@ -16,6 +16,7 @@ from unittest.mock import patch
 # the defining module when it runs, so the first entry already covers it.
 LOADER_SITES = (
     "common.games.game_repository",
+    "common.games.exact_ties",
     "common.games.media_service",
     "frontend.api",
     "frontend.library_resolver",

@@ -68,9 +68,9 @@ class TheChecksPage(_Offloaded):
     HEADINGS = ["Game Folders", "Matching", "Media", "Tables"]
     UNDER_EACH = [
         ["Unreadable Folders", "Games With No Tables", "Games on an Older Format"],
-        ["Unmatched Games", "Games With No Year"],
+        ["Unmatched Games", "Tables With No Release Picked", "Games With No Year"],
         ["Games With No Playfield", "Games With No Backglass", "Games With No Media"],
-        ["Missing ROMs", "Newer Table Releases", "Table Script Fixes"],
+        ["Missing ROMs", "Updated Table Releases", "Table Script Fixes"],
     ]
 
     async def test_the_rows_are_drawn_under_four_headings_in_that_order(self) -> None:
@@ -98,9 +98,9 @@ class TheChecksPage(_Offloaded):
         listed = {key for key, _name, _why, _predicate in sections.CHECKS}
 
         self.assertLessEqual(listed, set(settings._check_labels()))
-        self.assertEqual({"unreadable", "no_tables", "older_format", "unmatched", "no_year",
-                          "no_playfield", "no_backglass", "no_media", "rom_missing", "newer",
-                          "script_fixes"}, set(settings._check_labels()))
+        self.assertEqual({"unreadable", "no_tables", "older_format", "unmatched", "untied",
+                          "no_year", "no_playfield", "no_backglass", "no_media", "rom_missing",
+                          "newer", "script_fixes"}, set(settings._check_labels()))
 
     async def test_the_page_is_drawn_from_the_one_table_that_names_the_checks(self) -> None:
         declared = [key for _heading, checks in settings.CHECK_GROUPS for key, _label in checks]

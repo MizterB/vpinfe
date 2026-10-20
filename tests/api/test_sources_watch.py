@@ -268,6 +268,10 @@ class Ending(_Watch):
 
 
 class Starting(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tied = patch("common.games.exact_ties.tie_library", return_value=0).start()
+        self.addCleanup(patch.stopall)
+
     def test_the_comparison_waits_for_a_catalog_to_compare_with(self) -> None:
         with tempfile.TemporaryDirectory() as held, \
                 patch("common.games.game_service.VPSDB_JSON_PATH", Path(held) / "none.json"), \
@@ -285,6 +289,46 @@ class Starting(unittest.TestCase):
                 self.assertTrue(sources_watch.compare())
 
         job.assert_called_once_with()
+
+    def test_the_tables_the_catalog_names_exactly_are_tied_before_they_are_counted(self) -> None:
+        order: list[str] = []
+
+        def tie() -> int:
+            order.append("tie")
+            return 0
+
+        self.tied.side_effect = tie
+        with tempfile.TemporaryDirectory() as held:
+            catalog = Path(held) / "vpsdb.json"
+            catalog.write_text("[]", encoding="utf-8")
+            with patch("common.games.game_service.VPSDB_JSON_PATH", catalog), \
+                    patch("common.games.library_ops.recount_vps_state",
+                          side_effect=lambda: order.append("count")):
+                sources_watch.compare()
+
+        self.assertEqual(["tie", "count"], order)
+
+    def test_tying_that_fails_does_not_hold_back_the_comparison(self) -> None:
+        self.tied.side_effect = RuntimeError("unreadable")
+        with tempfile.TemporaryDirectory() as held:
+            catalog = Path(held) / "vpsdb.json"
+            catalog.write_text("[]", encoding="utf-8")
+            with patch("common.games.game_service.VPSDB_JSON_PATH", catalog), \
+                    patch("common.games.library_ops.recount_vps_state") as job:
+                self.assertTrue(sources_watch.compare())
+
+        job.assert_called_once_with()
+
+    def test_a_pass_over_the_info_files_running_leaves_the_comparison_owed(self) -> None:
+        self.tied.return_value = None
+        with tempfile.TemporaryDirectory() as held:
+            catalog = Path(held) / "vpsdb.json"
+            catalog.write_text("[]", encoding="utf-8")
+            with patch("common.games.game_service.VPSDB_JSON_PATH", catalog), \
+                    patch("common.games.library_ops.recount_vps_state") as job:
+                self.assertFalse(sources_watch.compare())
+
+        job.assert_not_called()
 
     def test_one_already_running_leaves_it_owed(self) -> None:
         with tempfile.TemporaryDirectory() as held:

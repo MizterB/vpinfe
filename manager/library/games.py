@@ -15,7 +15,7 @@ from nicegui import run, ui
 
 from common import icons
 from common.config.labels import humanize
-from common.games import asset_registry
+from common.games import asset_registry, identity_claims, ties
 from common.i18n import t
 from common.media.media_specs import media_label_map
 from manager.kit import (
@@ -878,6 +878,7 @@ _ROM_INSTALLED, _ROM_MISSING, _ROM_UNKNOWN = "installed", "missing", "unknown"
 # `state["arriving"]`.
 ROM_MISSING = {"rom_state": {"values": [_ROM_MISSING]}}
 NEWER_ON_VPS = {"update": {"values": [_NEWER]}}
+UNTIED = {"release": {"values": [ties.UNTIED]}}
 
 # Tokens, not words: a filter and a saved view store what the cell holds, and the words
 # follow the language. A table that names no ROM holds nothing and is in no choice.
@@ -902,6 +903,20 @@ TABLE_COLUMNS = [
                 **grid.choice_filter([
                     {"value": _NEWER, "label": t("manager.games.filter_newer")},
                     {"value": "", "label": t("manager.games.no_newer_version")}])),
+    grid.column("release", t("manager.games.release"), 150, group=t(_TABLE),
+                help=t("manager.games.release.help"),
+                **grid.choice_filter([
+                    {"value": ties.UNTIED, "label": t("manager.games.release_untied")},
+                    {"value": identity_claims.USER,
+                     "label": t("manager.games.release_user")},
+                    {"value": identity_claims.EXACT,
+                     "label": t("manager.games.release_exact")},
+                    {"value": identity_claims.DECLARED,
+                     "label": t("manager.games.release_declared")},
+                    {"value": identity_claims.CONSTRUCTION,
+                     "label": t("manager.games.release_construction")},
+                    {"value": ties.TIED, "label": t("manager.games.release_tied")},
+                    {"value": "", "label": t("manager.games.release_none")}])),
     grid.list_column(FIXES_COLUMN, t("manager.games.fix_column"), 120, group=t(_TABLE),
                      help=t("manager.games.fix_column.help")),
     grid.column("mod_of", t("manager.games.mod_of"), 200, group=t(_TABLE),
@@ -1030,6 +1045,10 @@ TABLE_VIEWS: dict[str, list[str] | views.Preset] = {
         columns=("game", "version", "on_vps", "default_state", "hidden", "filename"),
         filters={"update": {"values": [_NEWER]}},
         help=t("manager.view.updates.help")),
+    "manager.view.untied": views.Preset(
+        columns=("game", "version", "release", "default_state", "hidden", "filename"),
+        filters={"release": {"values": [ties.UNTIED]}},
+        help=t("manager.view.untied.help")),
     "manager.view.ratings": views.Preset(
         columns=("game", GAME_RATING, "rating", "tags"),
         help=t("manager.view.ratings.help")),
@@ -1128,6 +1147,7 @@ def table_rows(rows: list[dict[str, Any]], art: bool = False) -> list[dict[str, 
     counted from them.
     """
     held = Counter(str(row.get("game_id") or "") for row in rows)
+    bases = ties.patch_bases(rows)
     return [{**row,
              "missing": not row.get("available", True),
              # The file where there is one, and the name its program knows it by where
@@ -1144,6 +1164,7 @@ def table_rows(rows: list[dict[str, Any]], art: bool = False) -> list[dict[str, 
              "author": ", ".join(row.get("authors") or []),
              "on_vps": str((row.get("source") or {}).get("version") or ""),
              "update": _NEWER if row.get("update_available") else "",
+             "release": ties.release_state(row, bases),
              FIXES_COLUMN: [],
              **_mod_cell((row.get("source") or {}).get("mod_of")),
              "tags": [*((row.get("user") or {}).get("tags") or []),

@@ -10,6 +10,7 @@ from typing import Any
 
 from common.config.labels import field_label
 from common.extensions import host
+from common.games import ties
 from common.games.asset_registry import ASSET_SPECS, lens_kind
 from common.i18n import t
 from common.media import folder_browse
@@ -1458,6 +1459,13 @@ class Library:
                            exc_info=True)
             self._script_patches = {}
         return self._script_patches
+
+    def untied_tables(self) -> tuple[str, ...]:
+        """The tables of games on VPS whose release nobody has picked, by id."""
+        rows = self.table_rows()
+        bases = ties.patch_bases(rows)
+        return tuple(sorted(str(row["id"]) for row in rows
+                            if ties.release_state(row, bases) == ties.UNTIED))
 
     def script_fix_tables(self) -> tuple[str, ...]:
         """The tables the last check offered a fix for, by id: the default table of each

@@ -25,10 +25,12 @@ from common.games import (
     media_service,
     mods,
     tables,
+    ties,
 )
 from common.games.game import Game
 from common.games.game_metadata import (
     game_rating,
+    game_vps_id,
     holds_base,
     table_play_record,
     table_rating,
@@ -37,7 +39,7 @@ from common.games.game_metadata import (
     vpinfe_section,
 )
 from common.games.game_repository import game_to_row
-from common.games.game_service import find_vps_release, release_fits
+from common.games.game_service import find_vps_release, holds_vps_entry, release_fits
 from common.games.info_file import VPINFE_SECTION, MetaConfig
 from common.games.tables import (
     TABLE_ID_KEY,
@@ -49,7 +51,6 @@ from common.games.tables import (
 )
 from common.host import pinmame_catalog
 from common.i18n import t
-from common.values import newer_version, parse_version
 
 logger = logging.getLogger("vpinfe.common.games.table_lens")
 
@@ -177,26 +178,13 @@ def _named_source(described_entry: dict) -> dict | None:
     release = find_vps_release(str(source["vps_file_id"]))
     if release and not release_fits(release, described_entry):
         # It names a build this table cannot be, so the row reads as unmatched.
-        source.pop("vps_file_id")
-        source.pop("confirmed_by", None)
+        ties.untie(source)
         return source or None
     if release:
         source["version"] = str(release.get("version") or "")
         source["authors"] = [str(name) for name in (release.get("authors") or [])]
         source["mod_of"] = mods.mod_of(str(source["vps_file_id"]))
     return source
-
-
-def update_available(version: str, source: dict | None) -> bool | None:
-    """Whether VPS lists a later version of the matched release than `version`.
-
-    None where there is nothing to weigh: no release, or a version on either side that
-    does not read as one.
-    """
-    listed = (parse_version((source or {}).get("version"))
-              if (source or {}).get("vps_file_id") else ())
-    held = parse_version(version)
-    return newer_version(listed, held) if listed and held else None
 
 
 THUMBNAIL_KINDS = ("wheel", "backglass", "playfield", "logo")
@@ -378,7 +366,7 @@ def table_rows(game: Game, row: dict, *, launcher_settings: bool = False,
             # Named, not just identified - a client showing the bare id would be putting
             # an id on screen, and would need a second round trip to avoid it.
             "source": source,
-            "update_available": update_available(version, source),
+            "update_available": ties.update_available(source),
             "default": native == default,
             # Empty on every table that is not the default: the kind is a fact about
             # the one that is, not a field every row carries a blank for.
@@ -533,6 +521,9 @@ def library_rows(limit: int = 0, offset: int = 0, game: str = "",
         meta = getattr(entry, "meta_config", {}) or {}
         declared = meta.get("Info")
         info = declared if isinstance(declared, dict) else {}
+        # Only an entry the catalog holds: a stale id leaves nothing to pick a release from.
+        on_vps = game_vps_id(entry)
+        on_vps = on_vps if holds_vps_entry(on_vps) else ""
         for table in table_rows(entry, row, launcher_settings=True, media=media,
                                 media_settings=media_settings, launcher_view=launcher_view):
             if not table.get("id"):
@@ -558,6 +549,7 @@ def library_rows(limit: int = 0, offset: int = 0, game: str = "",
                 "update_available": table.get("update_available"),
                 "rating": int(table.get("rating") or 0),
                 "game_rating": game_rating(entry),
+                "game_vps_id": on_vps,
                 "features": table.get("features") or {},
                 "assets": table.get("assets") or {},
                 "media_kind": shown.kind if shown else None,

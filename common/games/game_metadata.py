@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from common import events
-from common.games import high_scores, unwritten
+from common.games import high_scores, ties, unwritten
 from common.games.game import Game, GameRecord
 from common.games.info_file import GAME_ID_KEY, VPINFE_SECTION, MetaConfig
 from common.games.info_migration import MATCHED_BY_USER, MATCHED_ON_IMPORT, VPS_MATCHED_BY_KEY
@@ -739,6 +739,13 @@ CONFIRMED_BY_USER = "user"
 SOURCE_KEY = "source"
 
 
+def _listed(vps_file_id: str) -> dict[str, Any]:
+    """The file the catalog lists under this id, or {} while it holds none."""
+    from common.games.game_service import find_vps_record
+
+    return find_vps_record(vps_file_id)
+
+
 def table_source(entry: dict[str, Any] | None) -> dict[str, Any]:
     """Which upstream release a table is, as far as anything has established.
 
@@ -773,7 +780,7 @@ def made_from(entries: dict | None, filename: str) -> list[str]:
 
 
 def set_table_source(game: Game, filename: str, vps_file_id: str) -> dict[str, Any]:
-    """Record that somebody says this table is that release, or take it back.
+    """Record that somebody says this table is that release, or that it is none.
 
     Merged into whatever `source` already holds rather than replacing it: a patched
     file's `base` and `patch` say how the bytes were made, and which upstream record
@@ -795,17 +802,13 @@ def set_table_source(game: Game, filename: str, vps_file_id: str) -> dict[str, A
     source = dict(entry.get(SOURCE_KEY) or {})
     wanted = str(vps_file_id or "").strip()
     if wanted:
-        source["vps_file_id"] = wanted
-        source["confirmed_by"] = CONFIRMED_BY_USER
+        ties.tie(source, wanted, CONFIRMED_BY_USER, _listed(wanted))
     else:
         # Unbinding takes back the claim and nothing else. A file we built still has a
-        # base and a patch, and forgetting those would make it unrebuildable.
-        source.pop("vps_file_id", None)
-        source.pop("confirmed_by", None)
-    if source:
-        entry[SOURCE_KEY] = source
-    else:
-        entry.pop(SOURCE_KEY, None)
+        # base and a patch, and forgetting those would make it unrebuildable. What stays
+        # is the person's answer, so a sweep does not tie the table again.
+        ties.decline(source)
+    entry[SOURCE_KEY] = source
 
     persist_game_meta(game, config)
     game.meta_config = config
@@ -831,13 +834,11 @@ def set_asset_source(game: Game, path: str, vps_file_id: str) -> dict[str, Any]:
     source = dict(entry.get(SOURCE_KEY) or {})
     wanted = str(vps_file_id or "").strip()
     if wanted:
-        source["vps_file_id"] = wanted
-        source["confirmed_by"] = CONFIRMED_BY_USER
+        ties.tie(source, wanted, CONFIRMED_BY_USER, _listed(wanted))
     else:
         # Unbinding takes back the claim and nothing else - the host that placed the
         # file and the hash it published are facts about the file, not about the match.
-        source.pop("vps_file_id", None)
-        source.pop("confirmed_by", None)
+        ties.untie(source)
     if source:
         entry[SOURCE_KEY] = source
     else:

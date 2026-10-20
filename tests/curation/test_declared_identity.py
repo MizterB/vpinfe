@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import unittest
 from typing import Any
+from unittest.mock import patch
 
 from common.games import identity_claims as claims
 from common.games.info_file import MetaConfig
@@ -31,6 +32,11 @@ class VocabularyTests(unittest.TestCase):
 
     def test_a_person_choosing_ranks_below_a_witness(self) -> None:
         self.assertGreater(claims.rank(claims.USER), claims.rank(claims.DECLARED))
+
+    def test_a_tie_made_for_a_person_ranks_below_theirs(self) -> None:
+        self.assertGreater(claims.rank(claims.EXACT), claims.rank(claims.USER))
+        self.assertTrue(claims.outranks(claims.USER, claims.EXACT))
+        self.assertFalse(claims.outranks(claims.EXACT, claims.USER))
 
     def test_an_unknown_basis_ranks_last(self) -> None:
         self.assertGreater(claims.rank("vibes"), claims.rank(claims.USER))
@@ -75,7 +81,7 @@ class ValidationTests(unittest.TestCase):
         self.assertTrue(any("host_item_id" in p for p in problems), problems)
 
     def test_a_basis_outside_the_set_is_refused(self) -> None:
-        for basis in ("auto", "guess", "probably"):
+        for basis in ("auto", "guess", "probably", claims.EXACT):
             self.assertTrue(_identity(game_id="g", confirmed_by=basis).problems(), basis)
 
     def test_declaring_only_a_game_is_fine(self) -> None:
@@ -124,6 +130,23 @@ class RecordingTests(TempTree):
                                confirmed_by=claims.DECLARED))
         self.assertEqual(self._source().get("vps_file_id"), "f1")
         self.assertEqual(self._source().get("confirmed_by"), "declared")
+
+    def test_the_version_the_catalog_lists_is_recorded_with_the_tie(self) -> None:
+        catalog = [{"id": "e1", "b2sFiles": [{"id": "f1", "version": "2.1"}]}]
+        with patch("common.games.game_service.load_vpsdb", return_value=catalog):
+            MetaConfig(str(self.info)).add_asset(
+                str(self.asset), "vpsdb",
+                identity=_identity(host="vpsdb", host_item_id="h1", vps_file_id="f1",
+                                   confirmed_by=claims.DECLARED))
+        self.assertEqual(self._source().get("vps_version"), "2.1")
+
+    def test_a_record_the_catalog_does_not_hold_records_no_version(self) -> None:
+        with patch("common.games.game_service.load_vpsdb", return_value=[]):
+            MetaConfig(str(self.info)).add_asset(
+                str(self.asset), "vpsdb",
+                identity=_identity(host="vpsdb", host_item_id="h1", vps_file_id="f1",
+                                   confirmed_by=claims.DECLARED))
+        self.assertNotIn("vps_version", self._source())
 
     def test_no_identity_writes_what_it_always_did(self) -> None:
         MetaConfig(str(self.info)).add_asset(str(self.asset), "user", "hash1")

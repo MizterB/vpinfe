@@ -39,6 +39,8 @@ class FakeLibrary:
     def script_fix_tables(self):
         return self._fixed
 
+    untied_tables = Library.untied_tables
+
     def table_rows(self):
         return self._tables
 
@@ -544,9 +546,88 @@ class WhatTheLibrarysMetadataRaises(unittest.TestCase):
 
         self.assertEqual(
             ["Missing ROM", "Unreadable Folder", "Could Not Save", "Unmatched", "No Tables",
-             "No Playfield", "No Backglass", "No Media", "Newer on VPS", "Table Script Fixes",
+             "No Playfield", "No Backglass", "No Media", "Updated on VPS", "Table Script Fixes",
              "Older Format", "Written by a Newer VPinFE", "No Year"],
             [one.label for one in group.rows])
+
+
+class TablesWithNoReleasePicked(unittest.TestCase):
+    def _rows(self, *tables):
+        lib = FakeLibrary([game("g1"), game("g2")], list(tables))
+        return {one.key: one for one in needs.collect(lib, {})}
+
+    def test_a_table_of_a_game_on_vps_with_no_tie_is_counted_in_tables(self):
+        rows = self._rows(table("g1", game_vps_id="v"), table("g2", game_vps_id="v"))
+
+        self.assertEqual(("t-g1", "t-g2"), rows["untied"].ids)
+        self.assertEqual("2 tables", rows["untied"].counted())
+
+    def test_a_tied_table_is_not(self):
+        rows = self._rows(table("g1", game_vps_id="v",
+                                source={"vps_file_id": "r", "confirmed_by": "exact"}))
+
+        self.assertNotIn("untied", rows)
+
+    def test_a_table_of_a_game_not_on_vps_has_no_release_to_pick(self):
+        self.assertNotIn("untied", self._rows(table("g1", game_vps_id="")))
+
+    def test_a_source_that_holds_no_tie_reads_as_untied(self):
+        rows = self._rows(table("g1", game_vps_id="v", source={"hash": "h"}))
+
+        self.assertEqual(("t-g1",), rows["untied"].ids)
+
+    def test_a_table_a_patch_made_has_no_release_to_pick(self):
+        rows = self._rows(table("g1", game_vps_id="v", source={
+            "base": {"file": "a.vpx"}, "patch": {"format": "jojodiff"}}))
+
+        self.assertNotIn("untied", rows)
+
+    def test_a_hidden_table_kept_as_a_patch_base_has_none_either(self):
+        rows = self._rows(
+            table("g1", game_vps_id="v", hidden=True),
+            {**table("g2", game_vps_id="v"), "source": {"base": {"table_id": "t-g1"}}})
+
+        self.assertNotIn("untied", rows)
+
+    def test_a_hidden_table_that_is_no_patch_base_still_counts(self):
+        rows = self._rows(table("g1", game_vps_id="v", hidden=True))
+
+        self.assertEqual(("t-g1",), rows["untied"].ids)
+
+    def test_a_table_a_person_took_the_release_from_is_untied(self):
+        rows = self._rows(table("g1", game_vps_id="v",
+                                source={"vps_file_id": "", "confirmed_by": "user"}))
+
+        self.assertEqual(("t-g1",), rows["untied"].ids)
+
+    def test_the_row_opens_the_tables_grid_on_them_and_is_tidy_up(self):
+        row = self._rows(table("g1", game_vps_id="v"))["untied"]
+
+        self.assertEqual(("tables", games.UNTIED), (row.opens.view, row.opens.arriving))
+        self.assertEqual(needs.MUTED, row.tone)
+        self.assertEqual("No Release Picked", row.label)
+
+    def test_it_can_be_set_aside_and_named_while_it_is_not_checked(self):
+        self.assertTrue(needs.can_set_aside("untied"))
+        self.assertEqual("No Release Picked", needs.name_of("untied"))
+        self.assertTrue(needs.comes_back("untied"))
+        arranged = needs.arrange([], {}, {"untied"})
+        self.assertEqual(["untied"], [one.key for one in arranged.aside])
+
+    def test_the_grid_reads_the_same_state_from_the_same_rows(self):
+        built = games.table_rows([
+            {"id": "a", "game_id": "g", "game_vps_id": "v"},
+            {"id": "b", "game_id": "g", "game_vps_id": "v",
+             "source": {"vps_file_id": "r", "confirmed_by": "user"}},
+            {"id": "c", "game_id": "g"}])
+
+        self.assertEqual(["untied", "user", ""], [row["release"] for row in built])
+        self.assertIn("release", [column["field"] for column in games.TABLE_COLUMNS])
+
+    def test_the_view_filters_to_the_untied(self):
+        preset = games.TABLE_VIEWS["manager.view.untied"]
+
+        self.assertEqual(games.UNTIED, preset.filters)
 
 
 class TableScriptFixes(unittest.TestCase):

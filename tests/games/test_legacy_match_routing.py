@@ -61,6 +61,7 @@ class RouteTests(RoutingCase):
         source = data["tables"]["tbl001"]["source"]
         self.assertEqual(source["vps_file_id"], RELEASE)
         self.assertEqual(source["confirmed_by"], "user")
+        self.assertEqual(source["vps_version"], "1.1.3")
 
     def test_a_release_in_a_format_the_table_cannot_play_is_dropped(self) -> None:
         done, data = self._route(FUTURE)
