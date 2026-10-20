@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import unittest
 from dataclasses import dataclass
+from typing import Any
 
 from apps.vpx import areas
 from apps.vpx import screens as vs
@@ -444,8 +445,9 @@ class ByProgramTests(unittest.TestCase):
 class ATablesOwnOrderTests(unittest.TestCase):
     """A table whose backglass file places a Score View DMD ranks B2S over Nixie."""
 
-    PROGRAM = {"plugins": ["B2S", "Nixie", "PUP"], "build": 6300, "dmd_in_file": True,
-               "defaults": {"Plugin.B2S.Enable": "1", "Plugin.B2SLegacy.Enable": "0"}}
+    PROGRAM: dict[str, Any] = {
+        "plugins": ["B2S", "Nixie", "PUP"], "build": 6300, "dmd_in_file": True,
+        "defaults": {"Plugin.B2S.Enable": "1", "Plugin.B2SLegacy.Enable": "0"}}
     LAUNCHER = {"ScoreView.Priority.PUP": "3", "ScoreView.Priority.Nixie": "2",
                 "ScoreView.Priority.B2S": "1"}
     SWAPPED = {"ScoreView.Priority.Nixie": "1", "ScoreView.Priority.B2S": "2"}
