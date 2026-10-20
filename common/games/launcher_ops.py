@@ -454,12 +454,23 @@ def write_config(launcher_id: str, body: dict[str, Any], *,
             keys=(", ".join(refused))))
 
     orders = settle and bool(set(writing) & set(getattr(config, "order_keys", tuple)()))
-    if orders and scope == SCOPE_LAUNCHER:
-        _order().refuse_while_running()
     if len(ids) > 1:
         return _write_tables(found, config, settings, scope, ids, writing, orders)
+    if orders and scope == SCOPE_LAUNCHER:
+        with _order().launcher_write():
+            answer = _write_one(found, config, settings, scope, table, writing,
+                                bool(body.get("create")))
+            answer["settling"] = _order().settle_launcher(found.launcher_id).id
+        return answer
+    answer = _write_one(found, config, settings, scope, table, writing, bool(body.get("create")))
+    if orders:
+        _order().settle_table(ids[0] if ids else str(body.get("table") or ""))
+    return answer
 
-    if body.get("create") and scope == SCOPE_LAUNCHER and not config_files(found):
+
+def _write_one(found: launchers.Launcher, config: Any, settings: dict[str, Any], scope: str,
+               table: str, writing: dict[str, str], create: bool) -> dict[str, Any]:
+    if create and scope == SCOPE_LAUNCHER and not config_files(found):
         # Only when asked: a write on its own refuses where the program has no file yet.
         make = getattr(config, "create", None)
         if make is None:
@@ -476,15 +487,7 @@ def write_config(launcher_id: str, body: dict[str, Any], *,
         cleared = config.write(scope, table, writing, settings)
     except ValueError as exc:
         raise _cannot_write(found) from exc
-    answer: dict[str, Any] = {"written": sorted(set(writing) - cleared),
-                              "cleared": sorted(cleared)}
-    if orders and scope == SCOPE_LAUNCHER:
-        started = _order().settle_launcher(found.launcher_id)
-        if started is not None:
-            answer["settling"] = started.id
-    elif orders:
-        _order().settle_table(ids[0] if ids else str(body.get("table") or ""))
-    return answer
+    return {"written": sorted(set(writing) - cleared), "cleared": sorted(cleared)}
 
 
 def left_behind(launcher_id: str) -> tuple[Leftover, ...]:
@@ -579,8 +582,7 @@ def _write_tables(launcher: launchers.Launcher, config: Any, settings: dict[str,
             else:
                 written.append(table_id)
         if orders:
-            for table_id in written:
-                failed.extend(_order().settle_table(table_id))
+            failed.extend(_order().settle_tables(written))
         return {"tables": len(ids), "written": written, "failed": failed}
 
     return jobs.submit(jobs.KIND_TABLE_SETTINGS, work)

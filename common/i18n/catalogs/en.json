@@ -5016,6 +5016,7 @@
   "error.jobs.settings_busy": "Settings are already being written to other tables",
   "error.jobs.marks_busy": "A selection is already being written",
   "error.jobs.order_busy": "The DMD order is still being set for the other tables",
+  "error.order_record.unreadable": "The DMD order record {path} cannot be read. Remove it to start a new one",
   "error.marks.none": "Nothing was named to change",
   "error.marks.not_here": "These cannot be set here: {keys}",
   "error.jobs.library_busy": "The library is busy - try again when it finishes",
@@ -5856,12 +5857,12 @@
   "said.table_settings": {
     "one": "Changing settings, {count:n} table to go",
     "other": "Changing settings, {count:n} tables to go"
-  },  "said.table_order": "Setting the DMD order",
+  },
+  "said.table_order": "Setting the DMD order",
   "said.job_table_order": {
     "one": "{count:n} table set, {failed:n} not",
     "other": "{count:n} tables set, {failed:n} not"
   },
-
   "said.marks": {
     "one": "Saving, {count:n} to go",
     "other": "Saving, {count:n} to go"

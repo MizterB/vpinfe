@@ -381,6 +381,7 @@ def _reread(game_id: str, game_dir: Path, family: str, kind: str) -> None:
         from common.games import asset_ops
 
         asset_ops._redraw_picture(game_id)
+        asset_ops._settle_order(game_id)
 
 
 def _blocked(run: _Run, exc: Exception) -> service_errors.ServiceError:

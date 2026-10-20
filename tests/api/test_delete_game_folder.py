@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -9,6 +10,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 import httpapi
+from common.games import order_record
 from common.host import launch_state
 from common.security import api_tokens, sign_in
 from httpapi import auth
@@ -38,6 +40,24 @@ class WhatDeletingDoesTests(DeleteFolderCase):
         self.assertEqual(found.json(), {"deleted": True, "folder": str(self.folder)})
         self.assertFalse(self.folder.exists())
         self.assertEqual(self.client.get(f"/games/{self.game['id']}").status_code, 404)
+
+    def test_its_tables_go_out_of_the_record_of_draw_orders(self) -> None:
+        pair = {"ScoreView.Priority.B2S": "2", "ScoreView.Priority.Nixie": "1"}
+        patcher = patch.object(order_record, "PATH", self.folder.parent / "draw_order.json")
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        (self.folder / "Taxi.vpx").write_bytes(b"table")
+        info = self.folder / "Taxi.info"
+        held = json.loads(info.read_text(encoding="utf-8"))
+        held["tables"] = {"tx0000000001": {"id": "tx0000000001", "filename": "Taxi.vpx"}}
+        info.write_text(json.dumps(held), encoding="utf-8")
+        self.client.get(f"/games/{self.game['id']}/tables")
+        table_id = "tx0000000001"
+        order_record.keep({table_id: pair, "other": pair})
+
+        self.assertEqual(self.delete().status_code, 200)
+
+        self.assertEqual(order_record.held(), {"other": pair})
 
     def test_a_game_that_is_running_is_left_alone(self) -> None:
         running = launch_state.LaunchState(launching=True, game_id=self.game["id"])

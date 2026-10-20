@@ -70,6 +70,7 @@ class Upgrade(TempTree):
         self.original = self.path.read_bytes()
         self.rows = [{"id": "t1", "launcher": "L1", "filename": "t1.vpx"}]
         self.failing = False
+        self.settling = ""
         self.items: list[Leftover] = []
         self.values: dict[str, str] = {}
         self.writes: list[dict[str, str]] = []
@@ -99,7 +100,8 @@ class Upgrade(TempTree):
             raise OSError("disk full")
         self.writes.append(dict(body["values"]))
         self.values.update(body["values"])
-        return {"written": sorted(body["values"]), "cleared": []}
+        return {"written": sorted(body["values"]), "cleared": [],
+                **({"settling": self.settling} if self.settling else {})}
 
     def both(self) -> None:
         self.rows = [{"id": "t1", "launcher": "L1", "filename": "t1.vpx"},
@@ -365,6 +367,46 @@ class Ordering(Upgrade):
         self.items = [SCORE]
         with patch.object(backglass_order, "settle", return_value=[]):
             self.assertEqual(upgrade_ops.move("L1")["order_failed"], [])
+
+    def test_a_write_that_started_a_pass_is_answered_by_it_and_the_files_are_not_settled_twice(
+            self) -> None:
+        self.both()
+        self.items = [SCORE]
+        self.settling = "job-1"
+        with patch.object(backglass_order, "settle") as settle:
+            answer = upgrade_ops.move("L1")
+            undone = upgrade_ops.undo("L1", answer["undo"])
+
+        settle.assert_not_called()
+        self.assertEqual((answer["settling"], answer["order_failed"]), ("job-1", []))
+        self.assertEqual((undone["settling"], undone["order_failed"]), ("job-1", []))
+
+    def test_an_answer_with_no_pass_started_carries_no_settling(self) -> None:
+        self.items = [SCORE]
+        with patch.object(backglass_order, "settle", return_value=[]):
+            answer = upgrade_ops.move("L1")
+            undone = upgrade_ops.undo("L1", answer["undo"])
+
+        self.assertNotIn("settling", answer)
+        self.assertNotIn("settling", undone)
+
+    def test_turning_a_setting_on_answers_the_pass_it_started(self) -> None:
+        self.items = [OFF]
+        self.settling = "job-2"
+
+        self.assertEqual(upgrade_ops.turn_on("L1", OFF.key)["settling"], "job-2")
+
+    def test_an_undo_whose_write_fails_still_settles_the_files_it_put_back(self) -> None:
+        self.items = [SCORE]
+        with patch.object(backglass_order, "settle", return_value=[]) as settle:
+            token = upgrade_ops.move("L1")["undo"]
+            settle.reset_mock()
+            self.failing = True
+
+            with self.assertRaises(OSError):
+                upgrade_ops.undo("L1", token)
+
+        settle.assert_called_once_with(GAME_ID)
 
     def test_a_pass_over_the_library_still_running_refuses_the_move_and_the_undo_whole(
             self) -> None:

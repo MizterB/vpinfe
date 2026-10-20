@@ -946,6 +946,7 @@
   "error.media_rotate.video_timed_out": "491141074841",
   "error.metrics.path_unreadable": "80c34fb74799",
   "error.metrics.psutil_missing": "a7404835cf82",
+  "error.order_record.unreadable": "fbd836d5852d",
   "error.os.bad_args": "b114d015901c",
   "error.os.bad_reply": "eec79cfcacd2",
   "error.os.no_helper": "87cc85cc8327",

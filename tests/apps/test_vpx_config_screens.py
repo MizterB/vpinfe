@@ -357,6 +357,49 @@ class TheBackglassOrderTests(_Case):
 
         self.assertEqual(self.order(True).write, self.SWAPPED)
 
+    def test_a_blank_switch_in_the_table_does_not_answer_over_the_launcher_s(self) -> None:
+        self.table.with_suffix(".ini").write_text("[Plugin.B2S]\nEnable =\n")
+        self.app_ini.write_text(APP_INI + self.ORDER.replace("Enable = 1", "Enable = 0"))
+        self.assertEqual(self.order(True), TableOrder())
+
+        self.app_ini.write_text(APP_INI + self.ORDER)
+
+        self.assertEqual(self.order(True).write, self.SWAPPED)
+
+    def test_the_switch_in_a_folder_file_is_not_read_for_a_table_with_a_file_of_its_own(
+            self) -> None:
+        """The program reads the one file, so the folder's switch does not reach this table."""
+        self.table.with_suffix(".ini").write_text("[Player]\nFXAA = 1\n")
+        self.folder_file("[Plugin.B2S]\nEnable = 0\n")
+
+        self.assertEqual(self.order(True).write, self.SWAPPED)
+
+    def test_settings_that_cannot_be_read_say_nothing_about_the_table(self) -> None:
+        """Unknown is not wanted: the recorded pair stands (`ours` is None, not empty)."""
+        mine = self.table.with_suffix(".ini")
+        mine.write_text("[Plugin.B2S]\nEnable = 1\n")
+        first = self.order(True)
+        for unreadable in (mine, self.app_ini):
+            with self.subTest(file=unreadable.name):
+                unreadable.chmod(0)
+                self.addCleanup(unreadable.chmod, 0o644)
+                if self.readable(unreadable):
+                    self.skipTest("the file is readable regardless of its mode")
+
+                got = self.order(False, first.ours)
+
+                self.assertEqual(got, TableOrder())
+                self.assertIsNone(got.ours)
+                unreadable.chmod(0o644)
+
+    @staticmethod
+    def readable(path: Any) -> bool:
+        try:
+            path.read_text()
+        except OSError:
+            return False
+        return True
+
     def test_the_two_enable_switches_are_among_the_keys_a_table_write_settles_on(self) -> None:
         keys = self.config.order_keys()
 

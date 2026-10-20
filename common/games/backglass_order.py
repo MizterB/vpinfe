@@ -11,13 +11,15 @@ or taken out.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import threading
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Any
 
 from common import failures, service_errors
+from common.apps.contract import TableOrder
 from common.games import (
     backglass_ops,
     game_identity,
@@ -30,9 +32,14 @@ from common.runtime import jobs, shutdown
 
 logger = logging.getLogger("vpinfe.common.games.backglass_order")
 
-# One pass at a time, whoever starts it: two reading the same table's settings would each
-# write over the other's.
-_SETTLING = threading.RLock()
+# A game's tables are set one caller at a time, whoever it is: two reading the same settings
+# would each write over the other's. A caller waits only for the game it wants.
+_LOCKS = tuple(threading.RLock() for _ in range(64))
+_STARTING = threading.Lock()
+
+
+def _lock_of(game_id: str) -> threading.RLock:
+    return _LOCKS[hash(game_id) % len(_LOCKS)]
 
 
 def settle(game_id: str, launcher_id: str = "") -> list[dict[str, str]]:
@@ -45,10 +52,21 @@ def settle(game_id: str, launcher_id: str = "") -> list[dict[str, str]]:
 
 def settle_table(table_id: str) -> list[dict[str, str]]:
     """`settle` for the game that holds this table."""
+    return settle_tables([table_id])
+
+
+def settle_tables(table_ids: Iterable[str]) -> list[dict[str, str]]:
+    """`settle` for each game that holds one of these tables, once however many of its tables
+    are named."""
     from common.games.table_identity import find_table_by_id
 
-    found = find_table_by_id(game_repository.all_games(), table_id)
-    return _settle([found[0]])["failed"] if found is not None else []
+    games = game_repository.all_games()
+    held: dict[str, Any] = {}
+    for table_id in table_ids:
+        found = find_table_by_id(games, table_id)
+        if found is not None:
+            held.setdefault(game_identity.game_id(found[0]), found[0])
+    return _settle(held.values())["failed"] if held else []
 
 
 def refuse_while_running() -> None:
@@ -57,60 +75,99 @@ def refuse_while_running() -> None:
         raise jobs.JobBusyError(t("error.jobs.order_busy"))
 
 
-def settle_launcher(launcher_id: str) -> jobs.Job | None:
+@contextlib.contextmanager
+def launcher_write() -> Iterator[None]:
+    """For a write at the launcher's scope that will start a pass: refuses while one runs,
+    and holds off another such write until `settle_launcher` has started this one."""
+    with _STARTING:
+        refuse_while_running()
+        yield
+
+
+def settle_launcher(launcher_id: str) -> jobs.Job:
     """`settle` for every game that has a table this launcher plays, as a job: the library
-    is read once and each backglass file only when it has changed. None where a pass was
-    started in the moment since `refuse_while_running` said there was none."""
+    is read once and each backglass file only when it has changed. Called within
+    `launcher_write`."""
     def work(job: jobs.Job) -> dict[str, Any]:
         return _settle(list(game_repository.catalog().values()), launcher_id, job)
 
-    try:
-        return jobs.submit(jobs.KIND_BACKGLASS_ORDER, work)
-    except jobs.JobBusyError:
-        logger.warning("A pass over the library was already running for %s", launcher_id)
-        return None
+    return jobs.submit(jobs.KIND_BACKGLASS_ORDER, work)
 
 
 def _settle(games: Iterable[Any], launcher_id: str = "",
             job: jobs.Job | None = None) -> dict[str, Any]:
-    """A table is looked at only where its file places a Score View DMD or a record says
-    this wrote its order; every other table has nothing to bring or take back."""
     games = list(games)
     written: list[str] = []
     failed: list[dict[str, str]] = []
-    with _SETTLING:
-        record = order_record.held()
-        changes: dict[str, dict[str, str]] = {}
-        for index, game in enumerate(games):
-            if shutdown.requested():
-                break
-            if job is not None:
-                job.reporter().progress(index, len(games), t("said.table_order"))
-            try:
-                tables = backglass_ops.score_dmds(game, launcher_id)
-            except (service_errors.ServiceError, OSError):
-                logger.exception("Could not read the backglass files of %s",
-                                 game_identity.game_id(game))
-                continue
-            for one in tables:
-                kept = record.get(one.table, {})
-                if not (one.in_file or kept):
-                    continue
-                try:
-                    order = launcher_ops.backglass_order(one.launcher, one.file, one.in_file,
-                                                         kept)
-                    if order.write:
-                        launcher_ops.write_table_settings(one.table, order.write, settle=False)
-                        written.append(one.table)
-                except (service_errors.ServiceError, OSError) as exc:
-                    logger.warning("Could not set the draw order of table %s: %s", one.table,
-                                   failures.why(exc))
-                    failed.append({"table": one.table, "name": Path(one.file).name,
-                                   "reason": failures.why(exc)})
-                    continue
-                if order.ours != kept:
-                    changes[one.table] = order.ours
-        order_record.keep(changes)
+    for index, game in enumerate(games):
+        if shutdown.requested():
+            break
+        if job is not None:
+            job.reporter().progress(index, len(games), t("said.table_order"))
+        with _lock_of(game_identity.game_id(game)):
+            _game(game, launcher_id, written, failed)
     if job is not None:
         job.problems = len(failed)
     return {"games": len(games), "written": written, "failed": failed}
+
+
+def _game(game: Any, launcher_id: str, written: list[str], failed: list[dict[str, str]]) -> None:
+    """A table is looked at only where its file places a Score View DMD or a record says
+    this wrote its order; every other table has nothing to bring or take back."""
+    try:
+        tables = backglass_ops.score_dmds(game, launcher_id)
+    except (service_errors.ServiceError, OSError):
+        logger.exception("Could not read the backglass files of %s",
+                         game_identity.game_id(game))
+        return
+    if not tables:
+        return
+    try:
+        record = order_record.held()
+    except order_record.Unreadable as exc:
+        logger.warning("The record of draw orders cannot be read: %s", failures.why(exc))
+        failed.extend(_failure(one, exc) for one in tables if one.in_file)
+        return
+    for one in tables:
+        kept = record.get(one.table, {})
+        if not (one.in_file or kept):
+            continue
+        try:
+            order = launcher_ops.backglass_order(one.launcher, one.file, one.in_file, kept)
+            if _apply(one.table, order, kept):
+                written.append(one.table)
+        except (service_errors.ServiceError, OSError) as exc:
+            logger.warning("Could not set the draw order of table %s: %s", one.table,
+                           failures.why(exc))
+            failed.append(_failure(one, exc))
+
+
+def _failure(one: backglass_ops.Scored, exc: BaseException) -> dict[str, str]:
+    return {"table": one.table, "name": Path(one.file).name, "reason": failures.why(exc)}
+
+
+def _apply(table: str, order: TableOrder, kept: dict[str, str]) -> bool:
+    """Write what the order calls for and keep the record of it. A pair is recorded before
+    it is written, a cleared one after, so a pair this wrote is never left without a record.
+    Whether the table's settings were written."""
+    ours = kept if order.ours is None else order.ours
+    if order.write and ours:
+        order_record.keep({table: ours})
+        try:
+            launcher_ops.write_table_settings(table, order.write, settle=False)
+        except Exception:
+            _put_back(table, kept)
+            raise
+        return True
+    if order.write:
+        launcher_ops.write_table_settings(table, order.write, settle=False)
+    if ours != kept:
+        order_record.keep({table: ours})
+    return bool(order.write)
+
+
+def _put_back(table: str, kept: dict[str, str]) -> None:
+    try:
+        order_record.keep({table: kept})
+    except (service_errors.ServiceError, OSError):
+        logger.exception("Could not put back the record of table %s", table)

@@ -133,14 +133,18 @@ def _remember(done: _Done) -> str:
     return token
 
 
-def _write(launcher_id: str, values: dict[str, str]) -> None:
-    launcher_ops.write_config(launcher_id, {"scope": SCOPE_LAUNCHER, "values": values})
+def _write(launcher_id: str, values: dict[str, str]) -> str:
+    """The id of the job that brings the library's tables to the new order where the write
+    started one, else empty."""
+    done = launcher_ops.write_config(launcher_id, {"scope": SCOPE_LAUNCHER, "values": values})
+    return str(done.get("settling") or "") if isinstance(done, dict) else ""
 
 
 def _answer(token: str, moved: list[str], held_back: list[dict[str, Any]],
-            order_failed: list[dict[str, str]] | None = None) -> dict[str, Any]:
+            order_failed: list[dict[str, str]] | None = None,
+            settling: str = "") -> dict[str, Any]:
     return {"moved": moved, "held_back": held_back, "undo": token,
-            "order_failed": order_failed or []}
+            "order_failed": order_failed or [], **({"settling": settling} if settling else {})}
 
 
 def _settled(placed: list[tuple[str, str, str]]) -> list[dict[str, str]]:
@@ -246,6 +250,7 @@ def move(launcher_id: str) -> dict[str, Any]:
             moved.append(item.key)
     held_back = [one.held() for one in planned if one.refused or one.limit]
     placed: list[tuple[str, str, str]] = []
+    settling = ""
     try:
         for box in planned:
             carried = False
@@ -265,15 +270,15 @@ def move(launcher_id: str) -> dict[str, Any]:
                 before.update(dict(box.item.drops))
                 moved.append(box.item.key)
         if values:
-            _write(launcher_id, values)
+            settling = _write(launcher_id, values)
     except BaseException:
         _roll_back(placed)
         raise
-    failed = _settled(placed)
+    failed = [] if settling else _settled(placed)
     if not values and not placed:
         return _answer("", moved, held_back, failed)
     token = _remember(_Done(launcher_id, before, values, placed))
-    return _answer(token, moved, held_back, failed)
+    return _answer(token, moved, held_back, failed, settling)
 
 
 def turn_on(launcher_id: str, key: str) -> dict[str, Any]:
@@ -285,9 +290,9 @@ def turn_on(launcher_id: str, key: str) -> dict[str, Any]:
         raise service_errors.NotFoundError(t("error.upgrade.unnamed", key=key))
     launcher_ops.refuse_unwritable(launcher_id)
     backglass_order.refuse_while_running()
-    _write(launcher_id, {item.to: item.new_value})
+    settling = _write(launcher_id, {item.to: item.new_value})
     token = _remember(_Done(launcher_id, {item.to: item.value}, {item.to: item.new_value}))
-    return _answer(token, [key], [])
+    return _answer(token, [key], [], settling=settling)
 
 
 def _refuse_files(placed: list[tuple[str, str, str]]) -> None:
@@ -318,15 +323,16 @@ def undo(launcher_id: str, token: str) -> dict[str, Any]:
     if done is None:
         raise service_errors.NotFoundError(t("error.upgrade.expired"))
     try:
-        failed = _put_back(launcher_id, done)
+        failed, settling = _put_back(launcher_id, done)
     except BaseException:
         with _lock:
             _done[token] = done
         raise
-    return {"restored": sorted(done.before), "order_failed": failed}
+    return {"restored": sorted(done.before), "order_failed": failed,
+            **({"settling": settling} if settling else {})}
 
 
-def _put_back(launcher_id: str, done: _Done) -> list[dict[str, str]]:
+def _put_back(launcher_id: str, done: _Done) -> tuple[list[dict[str, str]], str]:
     if done.before:
         launcher_ops.refuse_unwritable(launcher_id)
     backglass_order.refuse_while_running()
@@ -342,10 +348,13 @@ def _put_back(launcher_id: str, done: _Done) -> list[dict[str, str]]:
         except (service_errors.ServiceError, OSError) as exc:
             stuck.append({"path": path, "reason": failures.why(exc)})
             left.append((game_id, path, one))
-    failed = _settled(done.placed)
     if stuck:
+        _settled(done.placed)
         done.placed = list(reversed(left))
         raise service_errors.BlockedError(t("error.upgrade.files"), details={"files": stuck})
-    if done.before:
-        _write(launcher_id, done.before)
-    return failed
+    try:
+        settling = _write(launcher_id, done.before) if done.before else ""
+    except BaseException:
+        _settled(done.placed)
+        raise
+    return ([] if settling else _settled(done.placed)), settling

@@ -466,14 +466,23 @@ class ATablesOwnOrderTests(unittest.TestCase):
     def test_the_swap_it_recorded_is_taken_out_when_the_file_places_none(self) -> None:
         got = vs.table_order(self.PROGRAM, self.LAUNCHER, self.SWAPPED, False, self.SWAPPED)
 
-        self.assertEqual(got, TableOrder(write=self.CLEARED))
+        self.assertEqual(got, TableOrder(write=self.CLEARED, ours={}))
 
     def test_a_pair_the_table_holds_that_was_never_recorded_is_never_taken_out(self) -> None:
-        for written in (None, {}, {"ScoreView.Priority.Nixie": "3", "ScoreView.Priority.B2S": "4"}):
+        nothing: tuple[dict[str, str] | None, ...] = (None, {})
+        for written in nothing:
             with self.subTest(written=written):
                 got = vs.table_order(self.PROGRAM, self.LAUNCHER, self.SWAPPED, False, written)
 
                 self.assertEqual(got, self.NOTHING)
+
+    def test_a_pair_that_is_not_the_recorded_one_is_never_taken_out_and_the_record_goes(
+            self) -> None:
+        written = {"ScoreView.Priority.Nixie": "3", "ScoreView.Priority.B2S": "4"}
+
+        got = vs.table_order(self.PROGRAM, self.LAUNCHER, self.SWAPPED, False, written)
+
+        self.assertEqual(got, TableOrder(ours={}))
 
     def test_a_table_that_holds_a_rank_of_its_own_is_left_alone_either_way(self) -> None:
         own = {"ScoreView.Priority.B2S": "5"}
@@ -487,7 +496,7 @@ class ATablesOwnOrderTests(unittest.TestCase):
 
         got = vs.table_order(self.PROGRAM, self.LAUNCHER, own, True, self.SWAPPED)
 
-        self.assertEqual(got, self.NOTHING)
+        self.assertEqual(got, TableOrder(ours={}))
 
     def test_a_table_already_holding_its_recorded_swap_has_nothing_to_write(self) -> None:
         got = vs.table_order(self.PROGRAM, self.LAUNCHER, self.SWAPPED, True, self.SWAPPED)
@@ -518,7 +527,7 @@ class ATablesOwnOrderTests(unittest.TestCase):
 
         got = vs.table_order(self.PROGRAM, launcher, self.SWAPPED, True, self.SWAPPED)
 
-        self.assertEqual(got, TableOrder(write=self.CLEARED))
+        self.assertEqual(got, TableOrder(write=self.CLEARED, ours={}))
 
     def test_builds_that_keep_the_dmd_in_the_ini_have_no_file_to_follow(self) -> None:
         program = {**self.PROGRAM, "build": 6266, "dmd_in_file": False}

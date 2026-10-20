@@ -119,6 +119,34 @@ class FileMoveRouteTests(TempTree):
         self.assertEqual(second.status_code, 404)
         self.assertEqual(self.directb2s(), ["Cactus.directb2s"])
 
+    def test_a_moved_backglass_file_settles_the_game_s_order_and_its_undo_does_again(self) -> None:
+        with patch("common.games.backglass_order.settle") as settle:
+            token = self.client.post(self.url("/to-tables"),
+                                     json={"tables": ["t2"]}).json()["undo"]
+            self.assertEqual(settle.call_count, 1)
+
+            self.client.post(f"/games/{GAME_ID}/moves/undo", json={"undo": token})
+            self.assertEqual(settle.call_count, 2)
+
+            (self.folder / "Cactus B.directb2s").write_bytes(b"own")
+            self.client.post(self.url("/to-game"), json={"table": "t2"})
+
+        settle.assert_called_with(GAME_ID)
+        self.assertEqual(settle.call_count, 3)
+
+    def test_a_moved_file_that_is_not_a_backglass_settles_nothing(self) -> None:
+        (self.folder / "Cactus B.pov").write_bytes(b"pov")
+        medias = self.folder / "medias"
+        medias.mkdir()
+        (medias / "(Flyer) Cactus.png").write_bytes(b"one")
+
+        with patch("common.games.backglass_order.settle") as settle:
+            self.client.post(self.url("/to-tables", family="media", kind="flyer"),
+                             json={"tables": ["t2"]})
+            self.client.post(self.url("/to-tables", kind="pov"), json={"tables": ["t3"]})
+
+        settle.assert_not_called()
+
     def test_media_moves_by_the_same_route(self) -> None:
         medias = self.folder / "medias"
         medias.mkdir()

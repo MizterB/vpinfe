@@ -20,7 +20,7 @@ from unittest.mock import patch
 from starlette.testclient import TestClient
 
 import httpapi
-from common.games import launchers, library_folders
+from common.games import launchers, library_folders, order_record
 from tests.support.library import TempTree, fake_game, own_launchers, write_game
 
 GAME_ID = "Ref000000001"
@@ -228,6 +228,14 @@ class ContainingTests(_Referenced):
 
         self.assertEqual(self._contain(table_id).status_code, 409)
 
+    def test_the_tables_of_its_game_are_settled_once_it_is_in(self) -> None:
+        table_id = self._add().json()["id"]
+
+        with patch("common.games.backglass_order.settle") as settle:
+            self._contain(table_id)
+
+        settle.assert_called_once_with(GAME_ID)
+
     def test_containing_something_that_is_not_a_reference_is_a_404(self) -> None:
         self.assertEqual(self._contain("nosuchid12").status_code, 404)
 
@@ -243,6 +251,19 @@ class ForgettingTests(_Referenced):
         self.assertEqual(gone.status_code, 200, gone.text)
         self.assertEqual(self._info()["tables"], {})
         self.assertTrue(self.away.is_file())
+
+    def test_forgetting_takes_the_table_out_of_the_record_of_draw_orders(self) -> None:
+        """An id made later that happens to hold an equal pair is a hand-set one."""
+        pair = {"ScoreView.Priority.B2S": "2", "ScoreView.Priority.Nixie": "1"}
+        patcher = patch.object(order_record, "PATH", self.root / "draw_order.json")
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        table_id = self._add().json()["id"]
+        order_record.keep({table_id: pair, "other": pair})
+
+        self.client.delete(f"/games/{GAME_ID}/tables/{table_id}")
+
+        self.assertEqual(order_record.held(), {"other": pair})
 
 
 if __name__ == "__main__":

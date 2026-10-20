@@ -340,11 +340,13 @@ class TableOrder:
 
     `write` is the values to put in the table's settings, a blank taking a key out. `ours` is
     what the table holds of them once that is done, as an app can tell a pair it set from one
-    somebody else did: the caller keeps it, and hands it back as `written` the next time.
+    somebody else did: the caller keeps it, and hands it back as `written` the next time. An
+    empty `ours` says there is none to keep; None says the app could not tell, and what was
+    kept stands.
     """
 
     write: dict[str, str] = field(default_factory=dict)
-    ours: dict[str, str] = field(default_factory=dict)
+    ours: dict[str, str] | None = None
 
 
 @runtime_checkable

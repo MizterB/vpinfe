@@ -112,6 +112,14 @@ def _settle_order(game_id: str) -> None:
     backglass_order.settle(game_id)
 
 
+def settle_if_backglass(game_id: str, path: Path) -> None:
+    """`_settle_order`, where `path` is a backglass file that has just been written or
+    removed."""
+    if any(kind.key == "backglass" and kind.extension == path.suffix.lower()
+           for kind in VPX_ASSET_KINDS):
+        _settle_order(game_id)
+
+
 def place_file(game_id: str, kind: str, table_id: str, source: Path,
                filename: str = "") -> dict:
     """Copy `source` in under this tier's name, replacing what was there.
@@ -151,13 +159,12 @@ def remove(game_id: str, path: str) -> dict:
         shutil.rmtree(found)
     elif found.suffix.lower() in _EXTENSIONS and found.is_file():
         found.unlink()
-        if any(kind.key == "backglass" and kind.extension == found.suffix.lower()
-               for kind in VPX_ASSET_KINDS):
-            _settle_order(game_id)
+        settle_if_backglass(game_id, found)
     else:
         raise service_errors.RefusedError(t("error.assets.not_removable"),
                                           details={"path": path})
     return {"removed": [path]}
 
 
-__all__ = ["displaced", "kind_or_refuse", "place_file", "placements", "remove"]
+__all__ = ["displaced", "kind_or_refuse", "place_file", "placements", "remove",
+           "settle_if_backglass"]

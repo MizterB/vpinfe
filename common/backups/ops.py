@@ -18,6 +18,7 @@ from common import atomic_write, service_errors
 from common.config import path_state
 from common.failures import why
 from common.games import (
+    asset_ops,
     config_backups,
     game_lens,
     game_repository,
@@ -148,6 +149,7 @@ def _restore_file(one: Copy, place: str, path: Path) -> Restored:
     except OSError as exc:
         raise service_errors.RefusedError(why(exc)) from exc
     media_ops.reread(game_dir)
+    asset_ops.settle_if_backglass(held.game_id, target)
     return Restored(one, _kept(_kept_copy(str(replaced) if replaced else None, place)))
 
 

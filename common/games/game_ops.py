@@ -26,6 +26,7 @@ from common.games import (
     library_folders,
     library_vps_state,
     media_fill,
+    order_record,
 )
 from common.games.game_metadata import (
     GUIDES_FIELD,
@@ -47,6 +48,7 @@ from common.games.game_metadata import (
     vps_details_differ,
 )
 from common.games.game_repository import refresh_game, reread_game
+from common.games.tables import table_entries
 from common.host import dof_service, launch_state
 from common.i18n import t
 from common.uploads.asset_import_service import vps_folder_name
@@ -263,11 +265,13 @@ def delete_from_disk(game_id: str) -> dict:
         if library_folders.inside(wanted, held):
             raise service_errors.RefusedError(t("error.games.delete_location"),
                                               details={"path": str(folder)})
+    table_ids = list(table_entries(load_game_meta(game)))
     try:
         shutil.rmtree(folder)
     except OSError as exc:
         refresh_game(folder)
         raise service_errors.BlockedError(why(exc), details={"path": str(folder)}) from exc
+    order_record.drop(table_ids)
     refresh_game(folder)
     return {"deleted": True, "folder": str(folder)}
 

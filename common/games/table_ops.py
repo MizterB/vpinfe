@@ -15,7 +15,15 @@ from typing import Any
 from common import apps, service_errors
 from common.config import path_state
 from common.failures import why
-from common.games import derived_tags, game_lens, library_folders, mods, table_lens, tables
+from common.games import (
+    derived_tags,
+    game_lens,
+    library_folders,
+    mods,
+    order_record,
+    table_lens,
+    tables,
+)
 from common.games.collection_resolver import visible_entries
 from common.games.game import Game
 from common.games.game_metadata import (
@@ -396,6 +404,7 @@ def contain(game_id: str, table_id: str) -> dict:
         raise service_errors.BlockedError(t("error.games.no_info_entry"),
                                           details={"table": table_id})
     game = reread_game(game)
+    _settled(game_id)
     return row_or_refuse(game, table_id)
 
 
@@ -424,5 +433,6 @@ def forget(game_id: str, table_id: str) -> dict:
             details={"table": table_id, "filename": entry.get("filename", "")})
     else:
         meta.forget_table(table_id)
+    order_record.drop([table_id])
     reread_game(game)
     return {"forgotten": table_id}

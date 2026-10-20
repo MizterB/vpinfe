@@ -348,13 +348,19 @@ _FILES = threading.RLock()
 
 
 def read_file(path: Path | None) -> vini.Ini:
+    return _read_file(path) or vini.Ini()
+
+
+def _read_file(path: Path | None) -> vini.Ini | None:
+    """The file's settings, none where it is not there, and None where it is and cannot be
+    read."""
     if path is None or not path.is_file():
         return vini.Ini()
     try:
         with _FILES:
             text = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
-        return vini.Ini()
+        return None
     return vini.parse(text)
 
 
@@ -576,14 +582,18 @@ class VPXConfig:
         """What one table's own settings should hold for the order its backglass and Score
         View draw in, given whether its backglass file places a Score View DMD, and the pair
         an earlier call recorded as set here. Nothing for a table that follows a folder
-        file, which a file of its own would stop following. A plugin's switch is read from
-        the table's settings, so the table's own answers over the launcher's."""
+        file, which a file of its own would stop following, and for one whose settings or the
+        launcher's cannot be read, where what is recorded stands. A plugin's switch is read
+        from the table's settings, so the table's own answers over the launcher's; the game's
+        file is not read for a table that has one of its own, as the program does not."""
         if self.follows_game(target, settings):
             return TableOrder()
         one = self.program(settings)
         keys = (screens.B2S_RANK, screens.NIXIE_RANK)
-        launcher, own = read_file(settings_file(settings)), read_file(
+        launcher, own = _read_file(settings_file(settings)), _read_file(
             path_for(SCOPE_ENTRY, target, settings))
+        if launcher is None or own is None:
+            return TableOrder()
         held = {key: launcher.value(key) or "" for key in launcher.settings}
         held.update({key: said for key in self._enables() if (said := own.value(key) or "")})
         return screens.table_order(

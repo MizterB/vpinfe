@@ -141,6 +141,24 @@ class PuttingBackTests(AssetCase):
         self.assertEqual((self.folder / SCRIPT).read_bytes(), b"Option Explicit\r\n")
         self.assertEqual(response.json()["kept"], [])
 
+    def test_a_backglass_file_put_back_settles_the_order_of_its_game(self) -> None:
+        (self.folder / "Taxi.directb2s").write_bytes(b"first")
+        kept = self.keep("Taxi.directb2s")
+        (self.folder / "Taxi.directb2s").write_bytes(b"second")
+
+        with patch("common.games.backglass_order.settle") as settle:
+            self.client.post(f"/backups/{self.id_of(kept)}/restore")
+
+        settle.assert_called_once_with(GAME)
+
+    def test_a_file_that_is_not_a_backglass_put_back_settles_nothing(self) -> None:
+        kept = self.keep()
+
+        with patch("common.games.backglass_order.settle") as settle:
+            self.client.post(f"/backups/{self.id_of(kept)}/restore")
+
+        settle.assert_not_called()
+
     def test_a_copy_in_a_folder_inside_the_game_goes_back_to_that_folder(self) -> None:
         (self.folder / "docs").mkdir()
         (self.folder / "docs" / "notes.txt").write_bytes(b"first")

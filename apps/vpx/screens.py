@@ -399,7 +399,8 @@ def table_order(program: Mapping[str, Any] | None, launcher: Mapping[str, str],
     places a Score View DMD ranks B2S over Nixie, to show that art with the live DMD on it.
     A pair is the table's to change only while it is exactly the one recorded: any other rank
     held for either key is the table's own and is left alone, and so is a pair somebody set
-    that happens to equal ours before one was recorded.
+    that happens to equal ours before one was recorded. A record that no longer matches what
+    is held is answered as none to keep.
     """
     held = {key: str(own.get(key) or "").strip() for key in (B2S_RANK, NIXIE_RANK)}
     wanted = _b2s_over_nixie(program, launcher) if in_file else {}
@@ -410,7 +411,7 @@ def table_order(program: Mapping[str, Any] | None, launcher: Mapping[str, str],
         return TableOrder(write=wanted or dict.fromkeys(held, ""), ours=wanted)
     if wanted and not any(held.values()):
         return TableOrder(write=wanted, ours=wanted)
-    return TableOrder()
+    return TableOrder(ours={}) if kept else TableOrder()
 
 
 def answer(moved: Mapping[str, Placement], now: Mapping[str, Placement],
