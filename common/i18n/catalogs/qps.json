@@ -1039,15 +1039,12 @@
   "manager.discovery.type.pm": "Þûřè Ḿèçĥàñîçàŀ",
   "manager.discovery.read_failed": "Çöûŀđ ñöţ řèàđ ŵĥàţ ṼÞŠ ŀîšţš",
   "manager.discovery.search": "Šèàřçĥ àûţĥöřš, ĝàɱèš, ɱàķèřš àñđ ţĥèɱèš",
-  "manager.discovery.ask.tab": "{kind} {count:n}",
   "manager.discovery.ask.format_pick": "Ƒöřɱàţ",
-  "manager.discovery.ask.originals": "Öřîĝîñàŀš Öñŀý",
   "manager.discovery.ask.added": "Àđđèđ",
   "manager.discovery.ask.week": "Þàšţ Ŵèèķ",
   "manager.discovery.ask.fortnight": "Þàšţ 2 Ŵèèķš",
   "manager.discovery.ask.month": "Þàšţ Ḿöñţĥ",
   "manager.discovery.ask.missing": "Ḿîššîñĝ",
-  "manager.discovery.ask.owned_yes": "Îñ Ŀîƀřàřý",
   "manager.discovery.ask.original": "Öřîĝîñàŀ",
   "manager.discovery.ask.view_name": "{name} {kind}",
   "manager.discovery.ask.kinds.table": "Ţàƀŀèš",
@@ -1066,16 +1063,72 @@
   "manager.discovery.ask.group.maker": "Ḿàķèřš",
   "manager.discovery.ask.group.theme": "Ţĥèɱèš",
   "manager.discovery.ask.as": "àš {name}",
-  "manager.discovery.ask.held_of": "Ĥàṽè {held:n} öƒ {count:n}",
   "manager.discovery.ask.also": "Àŀšö çřèđîţèđ àš {names}",
-  "manager.discovery.ask.page_count": {
+  "manager.discovery.ask.show": "Šĥöŵ",
+  "manager.discovery.ask.show.everything": "Èṽèřýţĥîñĝ",
+  "manager.discovery.ask.show.yours": "Ýöûř Ĝàɱèš",
+  "manager.discovery.ask.show.without": "Ýöûř Ĝàɱèš Ŵîţĥöûţ Ţĥèîřš",
+  "manager.discovery.ask.show.elsewhere": "Ñöţ îñ Ýöûř Ŀîƀřàřý",
+  "manager.discovery.ask.hide_mods": "Ĥîđè Ḿöđš",
+  "manager.discovery.ask.playable": "Þŀàýàƀŀè Öñŀý",
+  "manager.discovery.ask.playable.help": "Ţàƀŀèš îñ à ƒöřɱàţ ýöûř ŀàûñçĥèřš þŀàý: {formats}",
+  "manager.discovery.ask.formats": {
+    "one": "{last}",
+    "other": "{first} àñđ {last}"
+  },
+  "manager.discovery.ask.games": {
+    "one": "1 ĝàɱè",
+    "other": "{count:n} ĝàɱèš"
+  },
+  "manager.discovery.ask.have_other": "Ĥàṽè àñöţĥèř àûţĥöř'š",
+  "manager.discovery.ask.have_other.help": "Ţĥè öñè ýöû ĥàṽè îš ƀý {names}",
+  "manager.discovery.ask.have_unknown": "Ĥàṽè, àûţĥöř ûñķñöŵñ",
+  "manager.discovery.ask.have_unknown.help": "Ýöûř ţàƀŀè öƒ {game} îšñ'ţ ɱàţçĥèđ ţö à řèŀèàšè öñ ṼÞŠ, šö ṼÞîñƑÈ çàñ'ţ ţèŀŀ ŵĥöšè îţ îš. Ḿàţçĥ îţ îñ ţĥè ĝàɱè'š þàñè.",
+  "manager.discovery.ask.tile_line": "{said} · {count}",
+  "manager.discovery.ask.tile.releases": {
     "one": "1 řèŀèàšè",
     "other": "{count:n} řèŀèàšèš"
   },
-  "manager.discovery.ask.for": "Ƒöř",
-  "manager.discovery.ask.show": "Šĥöŵ",
-  "manager.discovery.ask.all_games": "Àŀŀ ĝàɱèš",
-  "manager.discovery.ask.all_formats": "Àñý ƒöřɱàţ",
+  "manager.discovery.ask.tile.table": {
+    "one": "1 ţàƀŀè",
+    "other": "{count:n} ţàƀŀèš"
+  },
+  "manager.discovery.ask.tile.backglass": {
+    "one": "1 ƀàçķĝŀàšš",
+    "other": "{count:n} ƀàçķĝŀàššèš"
+  },
+  "manager.discovery.ask.tile.rom": {
+    "one": "1 ŘÖḾ",
+    "other": "{count:n} ŘÖḾš"
+  },
+  "manager.discovery.ask.tile.pup_pack": {
+    "one": "1 ÞÛÞ þàçķ",
+    "other": "{count:n} ÞÛÞ þàçķš"
+  },
+  "manager.discovery.ask.tile.color": {
+    "one": "1 àŀţ çöŀöř",
+    "other": "{count:n} àŀţ çöŀöřš"
+  },
+  "manager.discovery.ask.tile.altsound": {
+    "one": "1 ÀŀţŠöûñđ",
+    "other": "{count:n} ÀŀţŠöûñđš"
+  },
+  "manager.discovery.ask.tile.pov": {
+    "one": "1 þöîñţ öƒ ṽîèŵ",
+    "other": "{count:n} þöîñţš öƒ ṽîèŵ"
+  },
+  "manager.discovery.ask.tile.rules": {
+    "one": "1 řûŀè šĥèèţ",
+    "other": "{count:n} řûŀè šĥèèţš"
+  },
+  "manager.discovery.ask.tile.wheel": {
+    "one": "1 ŵĥèèŀ",
+    "other": "{count:n} ŵĥèèŀš"
+  },
+  "manager.discovery.ask.tile.topper": {
+    "one": "1 ţöþþèř",
+    "other": "{count:n} ţöþþèřš"
+  },
   "manager.discovery.ask.see_all": "Öþèñ îñ Ĝřîđ",
   "manager.discovery.ask.see_all.help": "Öþèñ ţĥèšè îñ ţĥè ĝřîđ",
   "manager.discovery.ask.more.help": "Šĥöŵ ɱöřè ĝàɱèš ƒřöɱ ţĥîš þàĝè",

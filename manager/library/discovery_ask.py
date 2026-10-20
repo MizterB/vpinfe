@@ -8,24 +8,69 @@ columns, and the saved views are Discovery's.
 from __future__ import annotations
 
 import html
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Collection, Mapping, Sequence
 from functools import partial
 from typing import Any
 
 from nicegui import ui
 
+from common.games import launchers
 from common.i18n import t
 from common.online import vps_find, vps_question
-from manager.kit import panel, thumbnails, verbs
+from manager.kit import dropdown, panel, thumbnails, verbs
 
 SINCE_DAYS = (("manager.discovery.ask.week", 7), ("manager.discovery.ask.fortnight", 14),
               ("manager.discovery.ask.month", 30))
 WALL_AT_FIRST = 60
-FORMAT_DEFAULT = "VPX"
+TABLES = "tableFiles"
 
 SUBJECT_KEY = {"author": "by", "maker": "maker", "theme": "theme"}
 SUBJECT_WORD = {"author": "word.author", "maker": "word.manufacturer",
                 "theme": "manager.discovery.ask.theme"}
+
+# What a kind's releases are called together.
+KIND_MANY = {
+    "tableFiles": "manager.discovery.ask.kinds.table",
+    "b2sFiles": "manager.discovery.ask.kinds.backglass",
+    "romFiles": "manager.discovery.ask.kinds.rom",
+    "pupPackFiles": "manager.discovery.ask.kinds.pup_pack",
+    "altColorFiles": "manager.discovery.ask.kinds.color",
+    "altSoundFiles": "manager.discovery.ask.kinds.altsound",
+    "povFiles": "manager.discovery.ask.kinds.pov",
+    "ruleFiles": "manager.discovery.ask.kinds.rules",
+    "wheelArtFiles": "manager.discovery.ask.kinds.wheel",
+    "topperFiles": "manager.discovery.ask.kinds.topper",
+}
+# A tile's count of releases, with the kind's noun in the one place a translation can order it.
+TILE_COUNT = {
+    "tableFiles": "manager.discovery.ask.tile.table",
+    "b2sFiles": "manager.discovery.ask.tile.backglass",
+    "romFiles": "manager.discovery.ask.tile.rom",
+    "pupPackFiles": "manager.discovery.ask.tile.pup_pack",
+    "altColorFiles": "manager.discovery.ask.tile.color",
+    "altSoundFiles": "manager.discovery.ask.tile.altsound",
+    "povFiles": "manager.discovery.ask.tile.pov",
+    "ruleFiles": "manager.discovery.ask.tile.rules",
+    "wheelArtFiles": "manager.discovery.ask.tile.wheel",
+    "topperFiles": "manager.discovery.ask.tile.topper",
+}
+
+# Show: which of the page's games the wall lists.
+EVERYTHING, YOURS, WITHOUT, ELSEWHERE = "", "yours", "without", "elsewhere"
+SHOW_WORD = {EVERYTHING: "manager.discovery.ask.show.everything",
+             YOURS: "manager.discovery.ask.show.yours",
+             WITHOUT: "manager.discovery.ask.show.without",
+             ELSEWHERE: "manager.discovery.ask.show.elsewhere"}
+
+# Where a game the library has stands against what the page lists.
+HAVE, OTHER, UNKNOWN, MISSING = "have", "other", "unknown", "missing"
+STANDING_WORD = {HAVE: "manager.view.have", OTHER: "manager.discovery.ask.have_other",
+                 UNKNOWN: "manager.discovery.ask.have_unknown",
+                 MISSING: "manager.discovery.ask.missing"}
+_STANDING_CLASS = {HAVE: "manager-have", OTHER: "manager-wall-note--part",
+                   UNKNOWN: "manager-wall-note--part", MISSING: "manager-wall-note--warm"}
+# What a row's kind field holds when the library has something of that kind.
+HELD = "have"
 
 
 class Suggest:
@@ -97,7 +142,10 @@ class Suggest:
                 row.on("mousedown.prevent", lambda _e=None, g=group, o=one: self.pick(g, o))
 
 
-def _tile(row: Mapping[str, Any], fits: int, held: int, on_open: Callable[[], Any]) -> None:
+def _tile(row: Mapping[str, Any], line: str, where: tuple[str, str],
+          on_open: Callable[[], Any]) -> None:
+    """One game: its picture, its name, `line` under it, and where it stands in the
+    library as a third line only for a game the library has."""
     with ui.element("div").classes("manager-wall-tile").props(
             "tabindex=0 role=button") as tile:
         src = str(row.get(thumbnails.FIELD) or "")
@@ -105,10 +153,76 @@ def _tile(row: Mapping[str, Any], fits: int, held: int, on_open: Callable[[], An
             if src:
                 ui.html(f'<img src="{html.escape(src)}" alt="" loading="lazy">')
         ui.label(str(row["name"])).classes("manager-wall-name truncate")
-        if fits:
-            ui.label(t("manager.discovery.ask.held_of", held=held, count=fits)).classes(
-                "manager-wall-note manager-have" if held == fits else "manager-wall-note")
+        if line:
+            ui.label(line).classes("manager-wall-note truncate")
+        state, tip = where
+        if state:
+            note = ui.label(t(STANDING_WORD[state])).classes(
+                f"manager-wall-note {_STANDING_CLASS[state]} truncate")
+            if tip:
+                note.classes("manager-wall-note--tip").tooltip(tip)
     tile.on("click", on_open).on("keydown.enter", on_open)
+
+
+Fitting = Sequence[tuple[str, Mapping[str, Any]]]
+
+
+def standing(row: Mapping[str, Any], fitting: Fitting,
+             mine: Mapping[str, Sequence[Mapping[str, Any]]], fields: Mapping[str, str],
+             people: Sequence[Mapping[str, Any]], page_name: str, *,
+             counted: bool) -> tuple[str, list[str]]:
+    """Where a game stands against what the page lists, and whose it is where that is
+    another author's. Empty for a game the library does not have, and before the library
+    has been compared.
+
+    `fitting` is the releases the page lists for the game and `mine` all of its releases by
+    listing. A kind the library holds that is bound to none of the releases is held by
+    someone VPinFE cannot name."""
+    if not (counted and row.get("is_in_library")) or not fitting:
+        return "", []
+    if any(one.get("held") for _listing, one in fitting):
+        return HAVE, []
+    holding = {listing for listing, _one in fitting if row.get(fields.get(listing, "")) == HELD}
+    if not holding:
+        return MISSING, []
+    others = [one for listing in holding for one in mine.get(listing, ()) if one.get("held")]
+    if not others:
+        return UNKNOWN, []
+    names = sorted({str(people[at]["name"]) for one in others for at in one.get("by") or ()
+                    if 0 <= at < len(people)} - {page_name})
+    return (OTHER, names) if names else (HAVE, [])
+
+
+def in_show(show: str, row: Mapping[str, Any], fitting: Fitting) -> bool:
+    """Whether a game the page finds is listed under this Show choice. Without Theirs is a
+    game of the library none of whose listed releases it holds."""
+    if show == ELSEWHERE:
+        return not row.get("is_in_library")
+    if show == EVERYTHING:
+        return True
+    if not row.get("is_in_library"):
+        return False
+    return show == YOURS or not any(one.get("held") for _listing, one in fitting)
+
+
+def narrows(row: Mapping[str, Any], text: str) -> bool:
+    """Whether every word typed is in the game's name, maker or year."""
+    words = text.casefold().split()
+    seen = " ".join(str(row.get(key) or "") for key in ("name", "manufacturer", "year")).casefold()
+    return all(word in seen for word in words)
+
+
+def tile_line(row: Mapping[str, Any], fitting: Fitting) -> str:
+    """Maker and year, then how many releases the page lists for the game, in the kind's
+    own noun where they are all of one kind."""
+    listings = {listing for listing, _one in fitting}
+    count = len(fitting)
+    if len(listings) == 1:
+        many = t(TILE_COUNT[next(iter(listings))], count=count)
+    else:
+        many = t("manager.discovery.ask.tile.releases", count=count)
+    said = str(row.get("said") or "")
+    return t("manager.discovery.ask.tile_line", said=said, count=many) if said else many
 
 
 def opening_on(state: Mapping[str, Any], tab: str) -> dict[str, Any] | None:
@@ -129,16 +243,46 @@ def subject_question(subject: Mapping[str, str]) -> dict[str, Any]:
     return {"by": [name]} if kind == "author" else {SUBJECT_KEY[kind]: name}
 
 
+
+
+def _back(address: str, leave: Callable[[], Awaitable[None]]) -> None:
+    """The way back to where the page was opened from: an anchor, so the address means
+    something to the browser."""
+    with panel.link_tile(
+            to=address,
+            classes="manager-link manager-link--inplace manager-subject-back") as link:
+        ui.icon(verbs.BACK)
+    link.props["aria-label"] = t("word.back")
+    link.tooltip(t("word.back"))
+    link.on("click", leave)
+
+
+def _switch(label: str, value: bool, on_change: Callable[[Any], Any], hint: str = "") -> ui.row:
+    row = ui.row().classes("items-center gap-1 no-wrap")
+    with row:
+        ui.label(label).classes("manager-label")
+        panel.switch(value, on_change)()
+    if hint:
+        row.tooltip(hint)
+    return row
+
+
 def page(*, subject: Mapping[str, str], state: dict[str, Any],
          people: Sequence[Mapping[str, Any]], rows: Sequence[Mapping[str, Any]],
-         releases: Mapping[str, Any], kinds: Mapping[str, str], address: str,
-         open_game: Callable[[Mapping[str, Any]], Awaitable[None]],
+         releases: Mapping[str, Any], kinds: Collection[str], fields: Mapping[str, str],
+         address: str, open_game: Callable[[Mapping[str, Any]], Awaitable[None]],
          leave: Callable[[], Awaitable[None]],
-         see_all: Callable[[dict[str, Any]], Awaitable[None]]) -> None:
+         see_all: Callable[[dict[str, Any]], Awaitable[None]]) -> Callable[[str], None]:
     """The page of one author's, maker's or theme's work, drawn into the current container.
 
     What it shows is a question like any other, built from the subject and the page's own
-    choices, so See All hands the grid the same one."""
+    choices, so Open in Grid hands the grid the same one. `kinds` is the VPS kinds the
+    library collects and `fields` the row field each one's state is in. It answers the
+    function that narrows the wall to the games whose name, maker or year hold the words
+    typed, for the search box on the tab row.
+
+    A choice changes the counts, the wall and the page's question in place, so the control
+    under the pointer is not redrawn."""
     kind, name = subject["type"], subject["name"]
     base = subject_question(subject)
     own = state.setdefault("page", {})
@@ -146,108 +290,163 @@ def page(*, subject: Mapping[str, str], state: dict[str, Any],
         own.clear()
         own["for"] = (kind, name)
     by_id = {str(row["id"]): row for row in rows}
-    holder = ui.column().classes("w-full grow min-h-0 gap-0")
-    tallies: dict[str, Any] = {}
+    counted = any(row.get("in_library") for row in rows)
+    playable = launchers.playable_formats(launchers.get_launcher_store().launchers())
+    found_for: dict[tuple[str, bool, bool], dict[str, Fitting]] = {}
+    typed = {"text": ""}
 
-    def asked() -> dict[str, Any]:
-        return vps_question.clean({
-            **base, "kind": own.get("kind", ""), "owned": own.get("owned", ""),
-            "held": own.get("held", ""), "mod": "originals" if own.get("originals") else "",
-            "format": own.get("format", [])})
+    def hiding() -> bool:
+        return kind == "author" and bool(own.get("hide_mods"))
 
-    def rebuild(**changes: Any) -> None:
-        own.update(changes)
-        draw()
+    def question(listing: str) -> dict[str, Any]:
+        formats = list(playable) if listing == TABLES and own.get("playable", True) else []
+        return vps_question.clean({**base, "kind": listing,
+                                   "mod": "originals" if hiding() else "", "format": formats})
 
-    def to_kind(listing: str) -> None:
-        rebuild(kind=listing, limit=WALL_AT_FIRST,
-                format=[FORMAT_DEFAULT] if listing == "tableFiles" else [])
+    def found(listing: str) -> dict[str, Fitting]:
+        key = (listing, hiding(), bool(own.get("playable", True)))
+        if key not in found_for:
+            found_for[key] = dict(vps_question.games_found(
+                question(listing), people, rows, releases))
+        return found_for[key]
 
-    def counted() -> dict[str, int]:
-        """The releases each kind has under the page's other choices. Only Tables takes the
-        Format choice; another kind asked for Format would count nothing."""
-        formats = own.get("format", []) if own.get("kind") == "tableFiles" else [FORMAT_DEFAULT]
-        key = (own.get("owned", ""), own.get("held", ""), bool(own.get("originals")),
-               tuple(formats))
-        if tallies.get("key") != key:
-            others = {**asked(), "format": []}
-            tallies["key"] = key
-            tallies["counts"] = {
-                listing: sum(vps_question.games_fitting(
-                    {**others, "kind": listing, **({"format": formats}
-                                                   if listing == "tableFiles" else {})},
-                    people, rows, releases).values()) for listing in kinds}
-        return tallies["counts"]
+    def listed(listing: str, show: str) -> dict[str, Fitting]:
+        return {game: one for game, one in found(listing).items()
+                if in_show(show, by_id[game], one)}
 
-    def draw() -> None:
-        per_kind = counted()
-        tabs = {"": t("word.all"),
-                **{listing: t("manager.discovery.ask.tab", kind=t(kinds[listing]), count=count)
-                   for listing, count in per_kind.items() if count}}
-        if own.get("kind") not in tabs and own.get("kind"):
-            own["kind"], own["format"] = "", []
-        picked = asked()
-        found = vps_question.games_found(picked, people, rows, releases)
-        fitting = {game: len(one) for game, one in found.items()}
-        holder.clear()
-        with holder:
-            with ui.row().classes("w-full items-center gap-2 px-3 py-2 shrink-0"):
-                panel.link(t("word.back"), to=address, on_click=leave)()
-            with ui.element("div").classes("manager-card manager-subject mx-3 mb-2 shrink-0"):
-                ui.label(name).classes("manager-subject-name")
-                ui.label(t(SUBJECT_WORD[kind])).classes("manager-help")
-                person = next((one for one in people if one["name"] == name), None)
-                if kind == "author" and person and person["aliases"]:
-                    ui.label(t("manager.discovery.ask.also",
-                               names=", ".join(person["aliases"]))).classes("manager-help")
-            with ui.row().classes("w-full items-center gap-3 px-3 pb-2 shrink-0"):
-                panel.segmented(tabs, own.get("kind", "") if own.get("kind", "") in tabs
-                                else "", lambda event: to_kind(event.value))
-                ui.label(t("manager.discovery.ask.page_count",
-                           count=sum(fitting.values()))) \
-                    .classes("text-xs manager-label")
-            with ui.row().classes("w-full items-center gap-4 px-3 pb-2 shrink-0"):
-                ui.label(t("manager.discovery.ask.for")).classes("manager-label")
-                panel.segmented({"": t("manager.discovery.ask.all_games"),
-                                 "yes": t("manager.discovery.ask.owned_yes")},
-                                own.get("owned", ""), lambda event: rebuild(owned=event.value))
-                ui.label(t("manager.discovery.ask.show")).classes("manager-label")
-                panel.segmented({"": t("word.all"),
-                                 "missing": t("manager.discovery.ask.missing")},
-                                own.get("held", ""), lambda event: rebuild(held=event.value))
+    listed_kinds = [listing for listing in kinds if found(listing)]
+    if own.get("kind") not in listed_kinds:
+        own["kind"] = ""
+    if not counted or own.get("show") not in SHOW_WORD:
+        own["show"] = EVERYTHING
+
+    def kind_options() -> dict[str, str]:
+        show = own["show"]
+        return {"": t("manager.discovery.counted", name=t("word.all"),
+                      count=len(listed("", show))),
+                **{listing: t("manager.discovery.counted", name=t(KIND_MANY[listing]),
+                              count=len(listed(listing, show))) for listing in listed_kinds}}
+
+    def show_options() -> dict[str, str]:
+        every = found(own["kind"])
+        return {show: t("manager.discovery.counted", name=t(word),
+                        count=sum(1 for game, one in every.items()
+                                  if in_show(show, by_id[game], one)))
+                for show, word in SHOW_WORD.items()}
+
+    def grid_question() -> dict[str, Any]:
+        show = own["show"]
+        owned = {YOURS: "yes", WITHOUT: "yes", ELSEWHERE: "no"}.get(show, "")
+        return vps_question.clean({**question(own["kind"]), "owned": owned,
+                                   "held": "missing" if show == WITHOUT else ""})
+
+    def settle() -> None:
+        kind_pick.set_options(kind_options(), value=own["kind"])
+        if counted:
+            show_pick.set_options(show_options(), value=own["show"])
+        count.text = t("manager.discovery.ask.games",
+                       count=len(listed(own["kind"], own["show"])))
+        playable_row.set_visibility(own["kind"] == TABLES and bool(playable))
+        wall()
+
+    def pick_kind(event: Any) -> None:
+        if event.value == own["kind"]:
+            return
+        own.update(kind=event.value, limit=WALL_AT_FIRST, playable=True)
+        playable_switch.set_value(True)
+        settle()
+
+    def pick_show(event: Any) -> None:
+        if event.value != own["show"]:
+            own.update(show=event.value, limit=WALL_AT_FIRST)
+            settle()
+
+    def pick_hiding(event: Any) -> None:
+        own.update(hide_mods=bool(event.value), limit=WALL_AT_FIRST)
+        settle()
+
+    def pick_playable(event: Any) -> None:
+        if bool(event.value) != own.get("playable", True):
+            own.update(playable=bool(event.value), limit=WALL_AT_FIRST)
+            settle()
+
+    def type_in(text: str) -> None:
+        typed["text"] = text
+        own["limit"] = WALL_AT_FIRST
+        wall()
+
+    root = ui.column().classes("w-full grow min-h-0 gap-0 manager-subject-root")
+    with root:
+        with ui.row().classes(
+                "w-full items-center gap-x-4 gap-y-2 px-3 py-2 mb-2 shrink-0 "
+                "manager-panel manager-subject-bar"):
+            with ui.row().classes("items-center gap-3 no-wrap manager-subject-who"):
+                _back(address, leave)
+                with ui.column().classes("gap-0 min-w-0"):
+                    person = vps_question.person_named(name, people) if kind == "author" else None
+                    title = ui.label(name).classes("manager-subject-name truncate")
+                    if person and person["aliases"]:
+                        title.tooltip(t("manager.discovery.ask.also",
+                                        names=", ".join(person["aliases"])))
+                    ui.label(t(SUBJECT_WORD[kind])).classes("text-xs manager-cell-made")
+            kind_pick = dropdown.Select(
+                kind_options(), value=own["kind"], label=t("word.kind"), look=dropdown.OUTLINED,
+                on_change=pick_kind).classes("manager-subject-kind")
+            with ui.row().classes("items-center gap-4 manager-subject-filters"):
+                if counted:
+                    show_pick = dropdown.Select(
+                        show_options(), value=own["show"], label=t("manager.discovery.ask.show"),
+                        look=dropdown.OUTLINED, on_change=pick_show).classes(
+                            "manager-subject-show")
                 if kind == "author":
-                    ui.label(t("manager.discovery.ask.originals")).classes("manager-label")
-                    panel.switch(bool(own.get("originals")),
-                                 lambda event: rebuild(originals=event.value))()
-                if own.get("kind") == "tableFiles":
-                    panel.segmented({FORMAT_DEFAULT: FORMAT_DEFAULT,
-                                     "": t("manager.discovery.ask.all_formats")},
-                                    FORMAT_DEFAULT if own.get("format") else "",
-                                    lambda event: rebuild(
-                                        format=[event.value] if event.value else []))
-                with ui.element("div").classes("ml-auto"):
-                    panel.action(t("manager.discovery.ask.see_all"),
-                                 partial(see_all, picked), icon=verbs.OPEN_OUT,
-                                 hint=t("manager.discovery.ask.see_all.help"))()
-            wall(found)
+                    _switch(t("manager.discovery.ask.hide_mods"), hiding(), pick_hiding)
+                playable_row = _switch(
+                    t("manager.discovery.ask.playable"), bool(own.get("playable", True)),
+                    pick_playable,
+                    t("manager.discovery.ask.playable.help",
+                      formats=t("manager.discovery.ask.formats", count=len(playable),
+                                first=", ".join(playable[:-1]), last=playable[-1])
+                      if playable else ""))
+                playable_switch = next(one for one in playable_row.descendants()
+                                       if isinstance(one, ui.switch))
+                playable_row.set_visibility(own["kind"] == TABLES and bool(playable))
+            with ui.row().classes("items-center gap-2 no-wrap manager-subject-end"):
+                count = ui.label("").classes("text-xs manager-label")
+                panel.icon_action(
+                    t("manager.discovery.ask.see_all"), lambda: see_all(grid_question()),
+                    icon=verbs.OPEN_OUT, hint=t("manager.discovery.ask.see_all.help"))()
+        wall_box = ui.column().classes("w-full grow min-h-0 gap-0")
 
-    def wall(found: Mapping[str, Any]) -> None:
-        mine = {game: one for game, one in found.items() if game in by_id}
-        shown = sorted(mine, key=lambda game: max(
-            (str(one.get("added") or "") for _listing, one in mine[game]), default=""),
+    def wall() -> None:
+        shown = {game: one for game, one in listed(own["kind"], own["show"]).items()
+                 if narrows(by_id[game], typed["text"])}
+        ordered = sorted(shown, key=lambda game: max(
+            (str(one.get("added") or "") for _listing, one in shown[game]), default=""),
             reverse=True)
         limit = int(own.get("limit", WALL_AT_FIRST))
-        with ui.scroll_area().classes("w-full grow min-h-0 px-3"):
-            if not shown:
+        wall_box.clear()
+        with wall_box, ui.scroll_area().classes("w-full grow min-h-0 px-3"):
+            if not ordered:
                 ui.label(t("manager.discovery.ask.nothing")).classes("manager-help")
             with ui.element("div").classes("manager-wall"):
-                for game in shown[:limit]:
-                    _tile(by_id[game], len(mine[game]),
-                          sum(1 for _listing, one in mine[game] if one.get("held")),
-                          partial(open_game, by_id[game]))
-            if len(shown) > limit:
-                panel.action(t("manager.discovery.ask.more", count=len(shown) - limit),
-                             lambda: rebuild(limit=limit + WALL_AT_FIRST * 2),
+                for game in ordered[:limit]:
+                    row, fitting = by_id[game], shown[game]
+                    state_of, names = standing(row, fitting, releases.get(game) or {}, fields,
+                                               people, name if kind == "author" else "",
+                                               counted=counted)
+                    tip = (t("manager.discovery.ask.have_other.help", names=", ".join(names))
+                           if state_of == OTHER else
+                           t("manager.discovery.ask.have_unknown.help", game=row["name"])
+                           if state_of == UNKNOWN else "")
+                    _tile(row, tile_line(row, fitting), (state_of, tip), partial(open_game, row))
+            if len(ordered) > limit:
+                panel.action(t("manager.discovery.ask.more", count=len(ordered) - limit),
+                             lambda: more(limit),
                              icon=verbs.ADD, hint=t("manager.discovery.ask.more.help"))()
 
-    draw()
+    def more(limit: int) -> None:
+        own["limit"] = limit + WALL_AT_FIRST * 2
+        wall()
+
+    settle()
+    return type_in

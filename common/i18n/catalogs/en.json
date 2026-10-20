@@ -1039,15 +1039,12 @@
   "manager.discovery.type.pm": "Pure Mechanical",
   "manager.discovery.read_failed": "Could not read what VPS lists",
   "manager.discovery.search": "Search authors, games, makers and themes",
-  "manager.discovery.ask.tab": "{kind} {count:n}",
   "manager.discovery.ask.format_pick": "Format",
-  "manager.discovery.ask.originals": "Originals Only",
   "manager.discovery.ask.added": "Added",
   "manager.discovery.ask.week": "Past Week",
   "manager.discovery.ask.fortnight": "Past 2 Weeks",
   "manager.discovery.ask.month": "Past Month",
   "manager.discovery.ask.missing": "Missing",
-  "manager.discovery.ask.owned_yes": "In Library",
   "manager.discovery.ask.original": "Original",
   "manager.discovery.ask.view_name": "{name} {kind}",
   "manager.discovery.ask.kinds.table": "Tables",
@@ -1066,16 +1063,72 @@
   "manager.discovery.ask.group.maker": "Makers",
   "manager.discovery.ask.group.theme": "Themes",
   "manager.discovery.ask.as": "as {name}",
-  "manager.discovery.ask.held_of": "Have {held:n} of {count:n}",
   "manager.discovery.ask.also": "Also credited as {names}",
-  "manager.discovery.ask.page_count": {
+  "manager.discovery.ask.show": "Show",
+  "manager.discovery.ask.show.everything": "Everything",
+  "manager.discovery.ask.show.yours": "Your Games",
+  "manager.discovery.ask.show.without": "Your Games Without Theirs",
+  "manager.discovery.ask.show.elsewhere": "Not in Your Library",
+  "manager.discovery.ask.hide_mods": "Hide Mods",
+  "manager.discovery.ask.playable": "Playable Only",
+  "manager.discovery.ask.playable.help": "Tables in a format your launchers play: {formats}",
+  "manager.discovery.ask.formats": {
+    "one": "{last}",
+    "other": "{first} and {last}"
+  },
+  "manager.discovery.ask.games": {
+    "one": "1 game",
+    "other": "{count:n} games"
+  },
+  "manager.discovery.ask.have_other": "Have another author's",
+  "manager.discovery.ask.have_other.help": "The one you have is by {names}",
+  "manager.discovery.ask.have_unknown": "Have, author unknown",
+  "manager.discovery.ask.have_unknown.help": "Your table of {game} isn't matched to a release on VPS, so VPinFE can't tell whose it is. Match it in the game's pane.",
+  "manager.discovery.ask.tile_line": "{said} · {count}",
+  "manager.discovery.ask.tile.releases": {
     "one": "1 release",
     "other": "{count:n} releases"
   },
-  "manager.discovery.ask.for": "For",
-  "manager.discovery.ask.show": "Show",
-  "manager.discovery.ask.all_games": "All games",
-  "manager.discovery.ask.all_formats": "Any format",
+  "manager.discovery.ask.tile.table": {
+    "one": "1 table",
+    "other": "{count:n} tables"
+  },
+  "manager.discovery.ask.tile.backglass": {
+    "one": "1 backglass",
+    "other": "{count:n} backglasses"
+  },
+  "manager.discovery.ask.tile.rom": {
+    "one": "1 ROM",
+    "other": "{count:n} ROMs"
+  },
+  "manager.discovery.ask.tile.pup_pack": {
+    "one": "1 PUP pack",
+    "other": "{count:n} PUP packs"
+  },
+  "manager.discovery.ask.tile.color": {
+    "one": "1 alt color",
+    "other": "{count:n} alt colors"
+  },
+  "manager.discovery.ask.tile.altsound": {
+    "one": "1 AltSound",
+    "other": "{count:n} AltSounds"
+  },
+  "manager.discovery.ask.tile.pov": {
+    "one": "1 point of view",
+    "other": "{count:n} points of view"
+  },
+  "manager.discovery.ask.tile.rules": {
+    "one": "1 rule sheet",
+    "other": "{count:n} rule sheets"
+  },
+  "manager.discovery.ask.tile.wheel": {
+    "one": "1 wheel",
+    "other": "{count:n} wheels"
+  },
+  "manager.discovery.ask.tile.topper": {
+    "one": "1 topper",
+    "other": "{count:n} toppers"
+  },
   "manager.discovery.ask.see_all": "Open in Grid",
   "manager.discovery.ask.see_all.help": "Open these in the grid",
   "manager.discovery.ask.more.help": "Show more games from this page",

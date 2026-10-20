@@ -352,6 +352,23 @@ def default_for(app_id: str, launchers: Iterable[Launcher]) -> Launcher | None:
                  if one.app == app_id and one.enabled), None)
 
 
+def playable_formats(launchers: Iterable[Launcher]) -> tuple[str, ...]:
+    """The VPS formats the enabled launchers play, each once, in the order they are found.
+
+    Empty where no launcher is enabled and where an enabled one's app declares none, which
+    plays every release: either way there is no format to narrow to.
+    """
+    found: list[str] = []
+    for one in launchers:
+        if not one.enabled:
+            continue
+        declared = apps.vps_formats(one.app)
+        if not declared:
+            return ()
+        found.extend(token for token in declared if token not in found)
+    return tuple(found)
+
+
 def launcher_for_table(filename: str, table_id: str, launchers: Iterable[Launcher],
                        mappings: dict[str, str]) -> Launcher | None:
     """Which launcher plays this file. For callers that hold a name off a directory

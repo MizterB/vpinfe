@@ -91,19 +91,7 @@ KINDS: tuple[tuple[str, str, str], ...] = (
     ("topperFiles", "kind_topper", "media.kind.topper.label"),
 )
 
-# What a kind's releases are called together, for the name of a view of them.
-KIND_MANY = {
-    "tableFiles": "manager.discovery.ask.kinds.table",
-    "b2sFiles": "manager.discovery.ask.kinds.backglass",
-    "romFiles": "manager.discovery.ask.kinds.rom",
-    "pupPackFiles": "manager.discovery.ask.kinds.pup_pack",
-    "altColorFiles": "manager.discovery.ask.kinds.color",
-    "altSoundFiles": "manager.discovery.ask.kinds.altsound",
-    "povFiles": "manager.discovery.ask.kinds.pov",
-    "ruleFiles": "manager.discovery.ask.kinds.rules",
-    "wheelArtFiles": "manager.discovery.ask.kinds.wheel",
-    "topperFiles": "manager.discovery.ask.kinds.topper",
-}
+KIND_MANY = discovery_ask.KIND_MANY
 
 _POLL_S = 2.0
 
@@ -665,7 +653,6 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
 
     state["open_author"] = lambda name: go_to({"type": vps_find.AUTHOR, "name": name})
     if state.get("subject"):
-        feed(people, built, choose)
         subject = state["subject"]
         known = vps_question.person_named(subject["name"], people) \
             if subject["type"] == vps_find.AUTHOR else None
@@ -681,11 +668,14 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
         with body:
             if renamed:
                 deeplink.sync(state)
-            discovery_ask.page(
+            narrow = discovery_ask.page(
                 subject=subject, state=state, people=people, rows=built,
-                releases=releases, kinds=kind_words, address=OWN_ADDRESS, open_game=on_select,
+                releases=releases, kinds=kind_words,
+                fields={listed_as: field for listed_as, field, _word in KINDS},
+                address=OWN_ADDRESS, open_game=on_select,
                 leave=lambda: go_to(None),
                 see_all=lambda question: open_grid(subject, question))
+        feed(people, built, choose, narrow=narrow)
         return
     columns = grid_columns(library, built)
     on_screen: dict[str, Any] = {"ids": [row["id"] for row in built], "selected": 0}
