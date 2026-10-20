@@ -205,6 +205,18 @@ class ArrivalFilters(unittest.TestCase):
              "mod": {"values": [""]}, "format": {"values": ["VPX"]}},
             discovery_releases.arrival_filters(question, counted=True))
 
+    def test_a_release_filed_under_no_format_stays_where_a_format_is_asked_for(self) -> None:
+        filters = discovery_releases.arrival_filters(
+            {"by": ["Wildman"], "format": ["VPX"]}, counted=True, filed={"VPX", "FP", ""})
+
+        self.assertEqual(["VPX", ""], filters["format"]["values"])
+
+    def test_the_spelling_a_release_is_filed_under_is_the_one_asked_for(self) -> None:
+        filters = discovery_releases.arrival_filters(
+            {"format": ["VPX"]}, counted=True, filed={"vpx", "VPX", "FPX"})
+
+        self.assertEqual(["VPX", "vpx"], filters["format"]["values"])
+
     def test_have_and_in_library_wait_for_a_count(self) -> None:
         question = {"by": ["Wildman"], "owned": "yes", "held": "missing"}
 

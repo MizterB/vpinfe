@@ -300,7 +300,9 @@ def build(library: Library, state: dict[str, Any], on_select: Callable[[Any], An
             ui.tab(HOME, label=t("manager.discovery.tab.home"))
             ui.tab(BROWSE, label=t("manager.discovery.tab.browse"))
             ui.tab(RELEASES, label=t("manager.discovery.tab.releases"))
-        state[discovery_search.KEY] = discovery_search.SearchBox()
+        opening = None if state.get("subject") else discovery_ask.opening_on(state, tab)
+        state[discovery_search.KEY] = discovery_search.SearchBox(
+            str((opening or {}).get("search") or ""))
     body = ui.column().classes("w-full grow min-h-0 gap-0")
     fill = {HOME: _fill_home, RELEASES: _fill_releases, MARKS: _fill_marks}.get(tab, _fill)
     busy.fill(body, lambda: fill(library, body, state, on_select, rerender))
@@ -549,13 +551,17 @@ def browse_filters(subject: dict[str, str], question: dict[str, Any],
 
 
 def opening_for(subject: dict[str, str], question: dict[str, Any],
-                columns: list[dict[str, Any]], *, counted: bool) -> tuple[str, dict[str, Any]]:
+                columns: list[dict[str, Any]], *, counted: bool, search: str = "",
+                releases: Mapping[str, Any] | None = None) -> tuple[str, dict[str, Any]]:
     """The tab a page's Open in Grid goes to and the view it opens: an author's releases on
     Releases, a maker's or theme's games on Browse. The view is named for the page, and for
-    the kind only where the grid has a filter on that kind."""
+    the kind only where the grid has a filter on that kind. `search` is what was typed in the
+    tab row's box, which the grid is opened with; `releases` is `releases_of`'s, which says
+    the formats a release is filed under."""
     if subject["type"] == vps_find.AUTHOR:
         tab, filters, kind_filter = RELEASES, discovery_releases.arrival_filters(
-            question, counted=counted), "kind"
+            question, counted=counted,
+            filed=None if releases is None else formats_filed(releases)), "kind"
     else:
         tab, filters = BROWSE, browse_filters(subject, question, columns, counted=counted)
         kind_filter = next((field for listed_as, field, _word in KINDS
@@ -564,7 +570,17 @@ def opening_for(subject: dict[str, str], question: dict[str, Any],
     if question.get("kind") in discovery_ask.KIND_MANY and kind_filter in filters:
         name = t("manager.discovery.ask.view_name", name=name,
                  kind=t(discovery_ask.KIND_MANY[question["kind"]]))
-    return tab, {"name": name, "filters": filters}
+    opening: dict[str, Any] = {"name": name, "filters": filters}
+    if search.strip():
+        opening["search"] = search
+    return tab, opening
+
+
+def formats_filed(releases: Mapping[str, Any]) -> set[str]:
+    """Every format a release is filed under, the empty one for a release filed under none.
+    `releases` is `releases_of`'s, by game."""
+    return {str(one.get("format") or "") for mine in releases.values()
+            for found in mine.values() for one in found}
 
 
 async def _read(library: Library) -> dict[str, Any]:
@@ -634,10 +650,10 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
         """Open a subject's page, or leave it."""
         open_page(state, people, rerender, subject)
 
-    async def open_grid(subject: dict[str, str], question: dict[str, Any]) -> None:
+    async def open_grid(subject: dict[str, str], question: dict[str, Any], search: str) -> None:
         """Open the grid that answers the page's question, as a view named for the page."""
         tab, opening = opening_for(subject, question, grid_columns(library, built),
-                                   counted=counted)
+                                   counted=counted, search=search, releases=releases)
         open_page(state, people, rerender, None, opening=opening, tab=tab)
 
     by_id = {row["id"]: row for row in built}
@@ -672,7 +688,7 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
                 fields={listed_as: field for listed_as, field, _word in KINDS},
                 address=OWN_ADDRESS, open_game=on_select,
                 leave=lambda: go_to(None),
-                see_all=lambda question: open_grid(subject, question))
+                see_all=lambda question, search: open_grid(subject, question, search))
         feed(people, built, choose, narrow=narrow)
         return
     columns = grid_columns(library, built)

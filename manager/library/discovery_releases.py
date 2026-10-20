@@ -8,7 +8,7 @@ pane.
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Collection, Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Any
 
@@ -16,7 +16,7 @@ from nicegui import ui
 
 from common import icons
 from common.i18n import t
-from common.online import vps_find, vps_marks, vps_question
+from common.online import vps_find, vps_formats, vps_marks, vps_question
 from manager.kit import grid as grid_module
 from manager.kit import panel, thumbnails, views, when
 from manager.kit.data import Library
@@ -119,11 +119,24 @@ VIEWS: dict[str, list[str] | views.Preset] = {
 }
 
 
-def arrival_filters(question: Mapping[str, Any], *, counted: bool) -> dict[str, Any]:
+def _formats_fitting(wanted: Collection[str], filed: Collection[str] | None) -> list[str]:
+    """The formats asked for, and where the releases' own are known the spellings and the
+    empty one that fit them."""
+    out = list(wanted)
+    if filed is not None:
+        out += [one for one in sorted(set(filed)) if one not in out
+                and vps_formats.fits(one, wanted)]
+    return out
+
+
+def arrival_filters(question: Mapping[str, Any], *, counted: bool,
+                    filed: Collection[str] | None = None) -> dict[str, Any]:
     """A question about releases (`vps_question`'s keys) as filters on the columns.
 
     Have and In Library are left out before the library has been counted: the columns hold
-    nothing then, and a filter on them would empty the grid."""
+    nothing then, and a filter on them would empty the grid. `filed`, where it is known, is
+    every format the releases are filed under: a format question then keeps the releases
+    that fit it as `vps_formats.fits` reads it, so one filed under no format stays."""
     out: dict[str, Any] = {}
     if question.get("since"):
         out["added"] = {"days": int(question["since"])}
@@ -132,7 +145,7 @@ def arrival_filters(question: Mapping[str, Any], *, counted: bool) -> dict[str, 
     if question.get("kind"):
         out["kind"] = {"values": [question["kind"]]}
     if question.get("format"):
-        out["format"] = {"values": list(question["format"])}
+        out["format"] = {"values": _formats_fitting(question["format"], filed)}
     if question.get("mod"):
         out["mod"] = {"values": [MOD if question["mod"] == "mods" else ""]}
     if counted and question.get("held"):

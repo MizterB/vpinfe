@@ -434,6 +434,37 @@ class OpenInGrid(unittest.TestCase):
         self.assertEqual({"authors": {"values": ["Wildman"]}, "kind": {"values": ["b2sFiles"]},
                           "in_library": {"values": ["yes"]}}, opening["filters"])
 
+    def test_the_words_typed_open_the_grid_holding_them(self) -> None:
+        for subject, question in ((WILDMAN, {"by": ["Wildman"]}), (BALLY, {"maker": "Bally"})):
+            with self.subTest(subject=subject["type"]):
+                _tab, opening = discovery.opening_for(
+                    subject, question, _browse_columns(), counted=True, search="alien storm")
+
+                self.assertEqual("alien storm", opening["search"])
+
+    def test_nothing_typed_opens_the_grid_with_no_search(self) -> None:
+        for search in ("", "  "):
+            _tab, opening = discovery.opening_for(
+                BALLY, {"maker": "Bally"}, _browse_columns(), counted=True, search=search)
+
+            self.assertNotIn("search", opening)
+
+    def test_an_authors_playable_formats_go_with_the_formats_the_releases_are_filed_under(
+            self) -> None:
+        question = {"by": ["Wildman"], "kind": "tableFiles", "format": ["VPX"]}
+        releases = {"a": {"tableFiles": [{"format": "VPX"}, {"format": "FP"}, {}]}}
+
+        _tab, opening = discovery.opening_for(WILDMAN, question, [], counted=True,
+                                              releases=releases)
+
+        self.assertEqual({"values": ["VPX", ""]}, opening["filters"]["format"])
+
+    def test_the_formats_the_releases_are_filed_under_are_read_from_every_listing(self) -> None:
+        releases = {"a": {"tableFiles": [{"format": "VPX"}, {"format": ""}, {}],
+                          "b2sFiles": [{"format": "FP"}]}, "b": {}}
+
+        self.assertEqual({"VPX", "", "FP"}, discovery.formats_filed(releases))
+
     def test_the_view_is_named_for_the_page_alone_where_no_kind_was_chosen(self) -> None:
         _tab, opening = discovery.opening_for(WILDMAN, {"by": ["Wildman"]}, [],
                                               counted=True)

@@ -80,6 +80,37 @@ class TabRowTests(unittest.TestCase):
                 self.assertIn("manager-search", box.input.classes)
                 self.assertNotIn("w-64", box.input.classes)
 
+    def test_the_search_a_page_opened_the_tab_with_is_in_the_box(self) -> None:
+        for tab in (discovery.BROWSE, discovery.RELEASES):
+            with self.subTest(tab=tab):
+                state: dict[str, Any] = {
+                    "discovery_tab": tab,
+                    "opening": {"name": "Bally", "filters": {}, "search": "alien", "tab": tab}}
+
+                _drawn(state)
+
+                self.assertEqual("alien", state[discovery_search.KEY].input.value)
+
+    def test_a_search_belongs_to_the_tab_the_opening_is_for(self) -> None:
+        state: dict[str, Any] = {
+            "discovery_tab": discovery.HOME,
+            "opening": {"name": "Bally", "filters": {}, "search": "alien",
+                        "tab": discovery.BROWSE}}
+
+        _drawn(state)
+
+        self.assertFalse(state[discovery_search.KEY].input.value)
+
+    def test_a_subject_page_opens_with_an_empty_box_whatever_opening_is_kept(self) -> None:
+        state: dict[str, Any] = {
+            "subject": {"type": "maker", "name": "Bally"},
+            "opening": {"name": "Bally", "filters": {}, "search": "alien",
+                        "tab": discovery.BROWSE}}
+
+        _drawn(state)
+
+        self.assertFalse(state[discovery_search.KEY].input.value)
+
     def test_a_tab_drawn_again_replaces_the_box_it_kept(self) -> None:
         state: dict[str, Any] = {"discovery_tab": discovery.HOME}
         _drawn(state)
@@ -151,6 +182,28 @@ class SearchBoxTests(unittest.IsolatedAsyncioTestCase):
         box.feed(PEOPLE, GAMES, mock.AsyncMock(), narrow=narrowed.append)
 
         self.assertEqual(["alien"], narrowed)
+        self.assertEqual([("game", "Alien")],
+                         [(group, one["name"]) for group, one in box.suggest.items])
+
+    async def test_text_the_box_opens_with_narrows_the_tab_and_suggests_nothing(self) -> None:
+        with _PAGE:
+            box = discovery_search.SearchBox("alien")
+        narrowed: list[str] = []
+
+        box.feed(PEOPLE, GAMES, mock.AsyncMock(), narrow=narrowed.append)
+
+        self.assertEqual(["alien"], narrowed)
+        self.assertEqual([], box.suggest.items)
+        self.assertFalse(box.suggest.list.visible)
+
+    async def test_typing_after_the_box_opened_with_text_suggests_again(self) -> None:
+        with _PAGE:
+            box = discovery_search.SearchBox("alien")
+        box.feed(PEOPLE, GAMES, mock.AsyncMock(), narrow=lambda _text: None)
+
+        box.input.set_value("alien x")
+        box.input.set_value("alien")
+
         self.assertEqual([("game", "Alien")],
                          [(group, one["name"]) for group, one in box.suggest.items])
 

@@ -301,14 +301,14 @@ def page(*, subject: Mapping[str, str], state: dict[str, Any],
          releases: Mapping[str, Any], kinds: Collection[str], fields: Mapping[str, str],
          address: str, open_game: Callable[[Mapping[str, Any]], Awaitable[None]],
          leave: Callable[[], Awaitable[None]],
-         see_all: Callable[[dict[str, Any]], Awaitable[None]]) -> Callable[[str], None]:
+         see_all: Callable[[dict[str, Any], str], Awaitable[None]]) -> Callable[[str], None]:
     """The page of one author's, maker's or theme's work, drawn into the current container.
 
     What it shows is a question like any other, built from the subject and the page's own
-    choices, so Open in Grid hands the grid the same one. `kinds` is the VPS kinds the
-    library collects and `fields` the row field each one's state is in. It answers the
-    function that narrows the wall to the games whose name, maker or year hold the words
-    typed, for the search box on the tab row.
+    choices, so Open in Grid hands the grid the same one and the words typed in the box.
+    `kinds` is the VPS kinds the library collects and `fields` the row field each one's
+    state is in. It answers the function that narrows the wall to the games whose name,
+    maker or year hold the words typed, for the search box on the tab row.
 
     A choice changes the counts, the wall and the page's question in place, so the control
     under the pointer is not redrawn."""
@@ -441,8 +441,9 @@ def page(*, subject: Mapping[str, str], state: dict[str, Any],
             with ui.row().classes("items-center gap-2 no-wrap manager-subject-end"):
                 count = ui.label("").classes("text-xs manager-label")
                 panel.icon_action(
-                    t("manager.discovery.ask.see_all"), lambda: see_all(grid_question()),
-                    icon=verbs.OPEN_OUT, hint=t("manager.discovery.ask.see_all.help"))()
+                    t("manager.discovery.ask.see_all"),
+                    lambda: see_all(grid_question(), typed["text"]), icon=verbs.OPEN_OUT,
+                    hint=t("manager.discovery.ask.see_all.help"))()
         wall_box = ui.column().classes("w-full grow min-h-0 gap-0")
 
     def wall() -> None:

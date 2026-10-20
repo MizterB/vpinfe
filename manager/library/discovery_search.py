@@ -26,7 +26,9 @@ Choose = Callable[[str, dict[str, Any]], Awaitable[None]]
 class SearchBox:
     """The box, drawn into the current container. Until it is fed it lists nothing."""
 
-    def __init__(self) -> None:
+    def __init__(self, text: str = "") -> None:
+        """`text` is words the box opens holding, which narrow the tab and list no
+        suggestions."""
         self.people: list[dict[str, Any]] = []
         self.games: list[dict[str, Any]] = []
         self.choose: Choose | None = None
@@ -34,6 +36,7 @@ class SearchBox:
         with ui.element("div").classes("manager-suggest-anchor manager-search-slot") as self.root:
             self.input = panel.search(t("manager.discovery.search")) \
                 .classes(add="manager-search", remove="w-64")
+            self.input.value = self._carried = text
             self.suggest = discovery_ask.Suggest(self.input, self._find, self._pick)
         self.input.on_value_change(self._typed)
 
@@ -65,7 +68,8 @@ class SearchBox:
         if text := self.input.value or "":
             if narrow is not None:
                 narrow(text)
-            self.suggest.typed(text)
+            if text != self._carried:
+                self.suggest.typed(text)
 
 
 def feeder(state: dict[str, Any]) -> Callable[..., None]:

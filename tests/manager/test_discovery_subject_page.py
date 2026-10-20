@@ -216,7 +216,7 @@ class Drawn(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.formats = (_launcher(),)
         self.state: dict[str, Any] = {}
-        self.opened: list[dict[str, Any]] = []
+        self.opened: list[tuple[dict[str, Any], str]] = []
         self.picked: list[dict[str, Any]] = []
 
     def _draw(self, subject: dict[str, str] | None = None, *,
@@ -230,8 +230,8 @@ class Drawn(unittest.IsolatedAsyncioTestCase):
         async def leave() -> None:
             return None
 
-        async def see_all(question: dict[str, Any]) -> None:
-            self.opened.append(question)
+        async def see_all(question: dict[str, Any], search: str) -> None:
+            self.opened.append((question, search))
 
         self.state = {}
         with mock.patch.object(launchers, "get_launcher_store", return_value=store), _PAGE:
@@ -308,7 +308,27 @@ class Drawn(unittest.IsolatedAsyncioTestCase):
 
         await _press(button)
 
-        self.assertEqual({"by": ["Wildman"], "owned": "yes", "held": "missing"}, self.opened[0])
+        self.assertEqual(({"by": ["Wildman"], "owned": "yes", "held": "missing"}, ""),
+                         self.opened[0])
+
+    async def test_open_in_grid_hands_over_the_words_typed(self) -> None:
+        body, narrow = self._draw()
+        narrow("epsi")
+        await _settle()
+
+        await self._asked(body)
+
+        self.assertEqual("epsi", self.opened[-1][1])
+
+    async def test_a_search_cleared_is_not_handed_over(self) -> None:
+        body, narrow = self._draw()
+        narrow("epsi")
+        narrow("")
+        await _settle()
+
+        await self._asked(body)
+
+        self.assertEqual("", self.opened[-1][1])
 
     async def test_typing_narrows_the_wall_to_the_games_it_names(self) -> None:
         body, narrow = self._draw()
@@ -376,7 +396,7 @@ class Drawn(unittest.IsolatedAsyncioTestCase):
         button = next(one for one in body.descendants()
                       if isinstance(one, ui.button) and one.props.get("icon") == "open_in_new")
         await _press(button)
-        return self.opened[-1]
+        return self.opened[-1][0]
 
     @staticmethod
     def _playable_switch(body: ui.element) -> ui.switch:
