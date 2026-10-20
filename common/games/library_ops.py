@@ -35,7 +35,10 @@ from common.games.collection_store import BUILTIN_ALL
 from common.games.collections_service import get_collections_manager
 from common.games.game_metadata import (
     carrying,
+    effective_vps_id,
     game_tags,
+    game_title,
+    normalize_meta,
     normalize_tag,
     retag_library,
     table_tags,
@@ -292,7 +295,22 @@ def discovery_home(days: int) -> dict[str, Any]:
                          media=media_fill.offered_listing(), holders=media_fill.holders(),
                          marks=vps_marks.read(), updates=_updates_found(),
                          formats=launchers.playable_formats(
-                             launchers.get_launcher_store().launchers()))
+                             launchers.get_launcher_store().launchers()),
+                         library=library_games())
+
+
+def library_games() -> list[dict[str, Any]]:
+    """Each game of the library as `{game_id, name, vps_id, tables}`, in the catalog's order:
+    the entry in force and the count of tables the Games grid reads. Empty where they cannot
+    be read, so Home goes without the shelf that needs them."""
+    try:
+        return [{"game_id": game_id, "name": game_title(game),
+                 "vps_id": effective_vps_id(normalize_meta(game.meta_config or {})),
+                 "tables": len(table_entries(game.meta_config))}
+                for game_id, game in game_repository.catalog().items()]
+    except Exception:  # noqa: BLE001 - one shelf of Home
+        logger.warning("Could not read the library's games for Home", exc_info=True)
+        return []
 
 
 def _updates_found() -> list[dict[str, Any]]:

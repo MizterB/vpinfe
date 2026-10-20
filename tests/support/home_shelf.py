@@ -62,6 +62,11 @@ def grid_order(rows: list[dict[str, Any]], sort: tuple[dict[str, Any], ...]) -> 
     return [row["id"] for row in ordered]
 
 
+def held_game(game_id: str, name: str, vps_id: str = "", tables: int = 1) -> dict[str, Any]:
+    """One game of the library as `library_ops.library_games` answers it."""
+    return {"game_id": game_id, "name": name, "vps_id": vps_id, "tables": tables}
+
+
 def mark(state: str, scope: str, one: str) -> dict[str, str]:
     return {"state": state, "scope": scope, "id": one, "detail": "", "since": "x"}
 
@@ -93,6 +98,7 @@ class ShelfHarness(unittest.IsolatedAsyncioTestCase):
         self.library = Library(self.client)
         self.library.load_kept_kinds()
         self.found = self.FOUND
+        self.games: list[dict[str, Any]] = []
         self.state: dict[str, Any] = {}
         self.selected: list[Any] = []
         self.spied: dict[str, Any] = {}
@@ -112,7 +118,7 @@ class ShelfHarness(unittest.IsolatedAsyncioTestCase):
     def _answer(self, days: int) -> dict[str, Any]:
         return vps_home.home(self.found, KEPT, days,
                              marks=vps_marks.Marks(self.client.discovery_marks()),
-                             formats=("VPX",))
+                             formats=("VPX",), library=self.games)
 
     async def asyncSetUp(self) -> None:
         was = core.loop

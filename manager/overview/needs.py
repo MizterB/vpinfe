@@ -143,6 +143,13 @@ def no_tables_opens() -> Opens:
     return Opens("games", keys={games.ARRIVE_VIEW: games.NO_TABLES_VIEW})
 
 
+def duplicates_opens() -> Opens:
+    """Games on the Duplicates view."""
+    from manager.library import games
+
+    return Opens("games", keys={games.ARRIVE_VIEW: games.DUPLICATES_VIEW})
+
+
 def blank(name: str) -> dict[str, Any]:
     return {name: {"values": [""]}}
 

@@ -462,6 +462,12 @@ async def _fill_home(library: Library, body: Any, state: dict[str, Any],
         open_page(state, people, rerender, None, tab=BROWSE,
                   opening=family_opening(counted=bool(home["counted"])))
 
+    def see_health(finding: str) -> Any:
+        """Games, on the view that lists the finding's games."""
+        from manager.overview import needs
+        return state["open_on"](needs.duplicates_opens() if finding == vps_home.DUPLICATES
+                                else needs.no_tables_opens())
+
     def see_updates(game_ids: list[str]) -> Any:
         """Games, narrowed to the games with an update."""
         from manager.library import games
@@ -497,7 +503,7 @@ async def _fill_home(library: Library, body: Any, state: dict[str, Any],
         body, home, library=library, scope=SCOPE, view_presets=VIEWS, catalog=catalog,
         reread=reread, on_select=on_select, see_new=see_new, see_missing=see_missing,
         see_updates=see_updates, see_dont_have=see_dont_have, see_family=see_family,
-        see_picture=see_picture,
+        see_health=see_health, see_picture=see_picture,
         fix_scripts=fix_scripts,
         open_view=to_view, open_releases_view=to_releases_view, open_marks=to_marks,
         open_subject=go_to, marking=discovery_marks.Marking(library, redraw_home))

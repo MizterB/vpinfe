@@ -1,8 +1,8 @@
 """Discovery's front page, drawn from what `GET /discovery/home` answers: the games of the
 library with a later version of something they hold, what VPS added lately, the games the
 library holds that lack a kind VPS lists, the games VPS lists that it has none of, the ones
-among them that share a title with a game it holds, whose work it holds, and the views it has
-saved.
+among them that share a title with a game it holds, the games of the library that need a
+look, whose work it holds, and the views it has saved.
 
 A tile opens its game in the pane, an author's name opens the author's page, and See All
 opens a grid on a named view of the same question. The counts on Your Views need the whole
@@ -230,6 +230,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
          see_updates: Callable[[list[str]], Any],
          see_dont_have: Callable[[], Any],
          see_family: Callable[[], Any],
+         see_health: Callable[[str], Any],
          see_picture: Callable[[str, str], Any],
          fix_scripts: Callable[[list[str]], Any],
          open_view: Callable[[str], Any],
@@ -242,15 +243,16 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
     `catalog()` gives the people and the Browse rows once the catalog is in memory; `reread`
     answers for another window. `see_new(days, chip)`, `see_missing(game_ids)` and
     `see_updates(game_ids)` open the grid on the shelf's question, `see_dont_have()` and
-    `see_family()` Browse on the games the shelf draws from, `see_picture(vps_id, kind)`
+    `see_family()` Browse on the games the shelf draws from, `see_health(finding)` Games on the
+    view that lists a Library Health finding's games, `see_picture(vps_id, kind)`
     a game's pane on the section of that media kind, `open_view(id)` on a saved view of
     Browse, `open_releases_view(id)` on one of Releases, `open_marks(view)` the Marks grid on
     its Ignored or Wanted view, `open_subject` an author's page, and `fix_scripts(folders)`
     fetches the script fixes of those games. `marking` is the menu a tile opens on a right
     click or a long press, and what says a release is Wanted. Returns the coroutine that reads
     the shelves again and draws them where they stand."""
-    shown: dict[str, Any] = {"home": home, "chip": vps_home.ALL, "lack": "", "rows": None,
-                             "people": [], "asked": home["days"]}
+    shown: dict[str, Any] = {"home": home, "chip": vps_home.ALL, "lack": "", "finding": "",
+                             "rows": None, "people": [], "asked": home["days"]}
     with body:
         updates_box = ui.column().classes("w-full gap-2")
         shelf_box = ui.column().classes("w-full gap-2")
@@ -271,6 +273,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         lacking_box = ui.column().classes("w-full gap-2")
         dont_have_box = ui.column().classes("w-full gap-2")
         family_box = ui.column().classes("w-full gap-2")
+        health_box = ui.column().classes("w-full gap-2")
         authors_box = ui.column().classes("w-full gap-2")
         views_box = ui.column().classes("w-full gap-2")
 
@@ -425,6 +428,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         draw_lacking()
         draw_dont_have()
         draw_family()
+        draw_health()
         draw_authors()
 
     async def pick_window(days: int) -> None:
@@ -452,6 +456,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         draw_wanted()
         draw_dont_have()
         draw_family()
+        draw_health()
         draw_authors()
 
     def pick_chip(chip: str) -> None:
@@ -591,6 +596,68 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
                          else t("manager.discovery.family.held_many", count=len(held))) \
                     .classes("text-xs manager-help truncate")
 
+    def health_findings() -> dict[str, int]:
+        return {finding: found["count"] for finding, found in shown["home"]["health"].items()
+                if found["count"]}
+
+    def draw_health() -> None:
+        health_box.clear()
+        findings = health_findings()
+        if not findings:
+            return
+        finding = shown["finding"] if shown["finding"] in findings else next(iter(findings))
+        with health_box:
+            with _heading():
+                ui.label(t("manager.discovery.health")).classes(
+                    "manager-fact-heading shrink-0").tooltip(t("manager.discovery.health.help"))
+                ui.space()
+                with _end():
+                    dropdown.Select(
+                        {each: t("manager.discovery.counted", count=count,
+                                 name=t(f"manager.discovery.health.{each}"))
+                         for each, count in findings.items()}, value=finding,
+                        look=dropdown.OUTLINED, on_change=lambda event: pick_finding(event.value)
+                    ).classes(GAPS_WIDTH)
+                    health_see_all = ui.element("div").classes("contents")
+            health_tiles = ui.row().classes("manager-shelf w-full px-3")
+        shown["health_slots"] = (health_see_all, health_tiles)
+        draw_findings(finding)
+
+    def draw_findings(finding: str) -> None:
+        """The See All and the tiles of one finding, drawn again without the dropdown that
+        picked it."""
+        see_all, row = shown["health_slots"]
+        see_all.clear()
+        row.clear()
+        with see_all:
+            panel.link(t("manager.discovery.see_all"), to=ADDRESS,
+                       on_click=lambda: see_health(finding))()
+        for game in shown["home"]["health"][finding]["games"]:
+            health_tile(row, finding, game)
+
+    def pick_finding(finding: str) -> None:
+        shown["finding"] = finding
+        draw_findings(finding)
+
+    def health_tile(parent: Any, finding: str, game: dict[str, Any]) -> None:
+        """The entry's pane where there is one, else Games on the finding's view."""
+        def opens() -> Any:
+            return on_select({"id": game["vps_id"]}) if game["vps_id"] else see_health(finding)
+
+        with parent, ui.element("div").classes("manager-shelf-tile") as card:
+            card.props("tabindex=0 role=button")
+            card.on("click", lambda _e: opens())
+            card.on("keydown.enter", lambda _e: opens())
+            candidates.thumb(game["img_url"], icons.TABLES, t("manager.discovery.no_picture"))
+            with ui.column().classes("gap-0 min-w-0"):
+                ui.label(t("word.game")).classes("text-xs manager-label")
+                ui.label(game["game"]).classes("manager-shelf-name")
+                if made := game_tables.made(game):
+                    ui.label(made).classes("text-xs manager-help truncate")
+                if finding == vps_home.DUPLICATES:
+                    ui.label(t("manager.discovery.health.shared",
+                               count=len(game["game_ids"]))).classes("text-xs manager-help")
+
     def draw_wanted() -> None:
         wanted_box.clear()
         wanted = shown["home"]["wanted"]
@@ -700,6 +767,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
     draw_lacking()
     draw_dont_have()
     draw_family()
+    draw_health()
     draw_authors()
     draw_views()
     busy.start(views_box, learn)

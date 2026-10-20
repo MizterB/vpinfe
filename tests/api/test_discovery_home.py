@@ -424,7 +424,7 @@ class RouteTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         body = response.json()
         self.assertEqual(set(body), {"counted", "days", "since", "new", "authors", "missing",
-                                     "wanted", "dont_have", "family", "updates"})
+                                     "wanted", "dont_have", "family", "health", "updates"})
         self.assertEqual(body["days"], 7)
         self.assertEqual(list(body["missing"]), ["romFiles"])
         self.assertEqual(body["missing"]["romFiles"]["games"][0]["name"], "Alpha")

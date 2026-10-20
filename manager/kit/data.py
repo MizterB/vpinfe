@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import re
 import time
+from collections import Counter
 from collections.abc import Callable, Iterable
 from typing import Any
 
@@ -2343,6 +2344,7 @@ class Library:
     def game_rows(self) -> list[dict[str, Any]]:
         rows = []
         shown = self.game_art()
+        on_entry = Counter(one["vps_id"] for one in self.games if one.get("vps_id"))
         for game in self.games:
             game_id = game["id"]
             entries = self.media.get(game_id, {})
@@ -2363,6 +2365,7 @@ class Library:
                 # nobody reads a VPS id down a column. The id itself is one click away
                 # in the panel, which is where it can be checked against the catalog.
                 "vps_unmatched": not game.get("vps_id"),
+                "vps_shared": on_entry[game.get("vps_id") or ""] > 1,
                 "vps_matched_by": game_tables.how_matched(game),
                 "hidden": bool(game.get("hidden")),
                 "private": bool(game.get("private")),

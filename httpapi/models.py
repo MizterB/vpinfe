@@ -4231,6 +4231,52 @@ class HomeFamily(ApiModel):
     games: list[HomeFamilyGame] = []
 
 
+class HomeDuplicate(ApiModel):
+    """An entry on the Library Health shelf that two or more games of the library are matched
+    to. `game_ids` are those games, in the library's order."""
+
+    vps_id: str
+    game: str
+    img_url: str = ""
+    manufacturer: str = ""
+    year: str = ""
+    game_ids: list[str] = []
+
+
+class HomeDuplicates(ApiModel):
+    """`count` entries, the ones with the most games first, and `games` the first twelve."""
+
+    count: int = 0
+    games: list[HomeDuplicate] = []
+
+
+class HomeBare(ApiModel):
+    """A game of the library with no table. `vps_id` is empty for a game matched to no entry,
+    and the picture, maker and year are then too."""
+
+    game_id: str
+    vps_id: str = ""
+    game: str
+    img_url: str = ""
+    manufacturer: str = ""
+    year: str = ""
+
+
+class HomeBares(ApiModel):
+    """`count` games, by name, and `games` the first twelve."""
+
+    count: int = 0
+    games: list[HomeBare] = []
+
+
+class HomeHealth(ApiModel):
+    """The games of the library that need a look: entries two or more games are matched to,
+    and games with no table at all."""
+
+    duplicates: HomeDuplicates = HomeDuplicates()
+    no_tables: HomeBares = HomeBares()
+
+
 class HomeUpdateMove(ApiModel):
     """One thing of a game that has a later version. `source` is `vps` for a release the
     library's file is tied to, which VPS now lists at `now` where it listed `then` when the
@@ -4293,6 +4339,7 @@ class DiscoveryHome(ApiModel):
     wanted: HomeWanted = HomeWanted()
     dont_have: HomeGames = HomeGames()
     family: HomeFamily = HomeFamily()
+    health: HomeHealth = HomeHealth()
     updates: HomeUpdates = HomeUpdates()
 
 

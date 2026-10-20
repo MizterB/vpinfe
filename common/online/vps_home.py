@@ -1,6 +1,7 @@
 """Discovery's front page, answered in one read: what VPS added lately, whose work the
 library holds, which of its games lack a kind VPS lists, and which games VPS lists that it
-has none of, and which of those share a title with a game it holds.
+has none of, which of those share a title with a game it holds, and which games of the
+library need a look.
 
 Drawn from the answer `library_vps_state.discovery` gives, so Home and the grid never
 disagree about what is held. The VPS side is stored state; the media gaps a source can fill
@@ -34,6 +35,9 @@ NOT_SHOWN = ("ruleFiles",)
 CHIP_KINDS = ("tableFiles", "b2sFiles", "wheelArtFiles", "topperFiles", "pupPackFiles")
 # The kinds a game can lack, in the order the shelf's tabs run.
 GAP_KINDS = ("b2sFiles", "romFiles", "povFiles", "wheelArtFiles", "topperFiles")
+
+# The two findings of the Library Health shelf, as `health` keys them.
+DUPLICATES, NO_TABLES = "duplicates", "no_tables"
 
 SHELF_SHOWN = 12
 AUTHORS_SHOWN = 8
@@ -239,6 +243,53 @@ def family(found: dict[str, Any], marks: vps_marks.Marks | None = None,
     return out
 
 
+def health(found: dict[str, Any], games: Iterable[Mapping[str, Any]],
+           marks: vps_marks.Marks | None = None) -> dict[str, Any]:
+    """The games of the library that need a look, `games` being `library_ops.library_games`'
+    records. `duplicates` is the entries two or more of them are matched to, the ones with the
+    most games first, then by name; `no_tables` the games with no table at all, by name.
+    Entries that tie on both keep the catalog's order, and ones the catalog does not list come
+    after those it does. A game matched to an ignored entry is left out; neither finding
+    needs the library to be compared. `vps_id` is empty where the catalog lists no such
+    entry."""
+    marks = marks or vps_marks.Marks()
+    games = list(games)
+    entries = {str(row["vps_id"]): row for row in found.get("rows") or []}
+    by_entry: dict[str, list[Mapping[str, Any]]] = {}
+    for one in games:
+        if one["vps_id"] and not marks.game_ignored(str(one["vps_id"])):
+            by_entry.setdefault(str(one["vps_id"]), []).append(one)
+    known = [vps_id for vps_id in entries if vps_id in by_entry]
+    duplicates = []
+    for vps_id in [*known, *(vps_id for vps_id in by_entry if vps_id not in entries)]:
+        if len(held := by_entry[vps_id]) < 2:
+            continue
+        duplicates.append({**_about(entries.get(vps_id), held[0]["name"]),
+                           "vps_id": vps_id if vps_id in entries else "",
+                           "game_ids": [str(one["game_id"]) for one in held]})
+    duplicates.sort(key=lambda one: (-len(one["game_ids"]), one["game"].casefold()))
+    bare = [{**_about(entries.get(str(one["vps_id"])), one["name"]), "game": one["name"],
+             "vps_id": str(one["vps_id"]) if str(one["vps_id"]) in entries else "",
+             "game_id": str(one["game_id"])}
+            for one in games
+            if not one["tables"] and not (one["vps_id"] and marks.game_ignored(
+                str(one["vps_id"])))]
+    bare.sort(key=lambda one: one["game"].casefold())
+    return {DUPLICATES: {"count": len(duplicates), "games": duplicates[:SHELF_SHOWN]},
+            NO_TABLES: {"count": len(bare), "games": bare[:SHELF_SHOWN]}}
+
+
+def _about(row: Mapping[str, Any] | None, name: str) -> dict[str, Any]:
+    """What a health tile says of its game: the entry's name, picture, maker and year where
+    VPS lists it, else the library's own name."""
+    row = row or {}
+    year = row.get("year")
+    return {"game": (row.get("name") or "").strip() or name,
+            "img_url": row.get("img_url") or "",
+            "manufacturer": (row.get("manufacturer") or "").strip(),
+            "year": str(year) if year else ""}
+
+
 def _same_game(listed: Mapping[str, Any], offered: Mapping[str, Any]) -> bool:
     """Whether a record from VPS and one from a source are one game: the same library id, or
     where VPS's has none, the same entry."""
@@ -275,7 +326,8 @@ def home(found: dict[str, Any], kept: Collection[str], days: int,
          holders: Mapping[str, Iterable[str]] | None = None,
          marks: vps_marks.Marks | None = None,
          updates: list[dict[str, Any]] | None = None,
-         formats: Collection[str] = ()) -> dict[str, Any]:
+         formats: Collection[str] = (),
+         library: Iterable[Mapping[str, Any]] = ()) -> dict[str, Any]:
     """Every shelf. `found` is `library_vps_state.discovery`'s answer, `kept` the VPS kinds
     the library collects, and `days` the window of the New shelf. `media` is the games a
     source can fill a slot of, by media kind, as `media_fill.offered_listing` answers. A kind
@@ -288,7 +340,8 @@ def home(found: dict[str, Any], kept: Collection[str], days: int,
     so a chip with nothing in it is left out by the page. Whatever `marks` ignores is on no
     shelf, and what it holds Wanted is its own. `dont_have` is the games the library lacks, cut
     to a row of tiles with the count of all of them, counting the tables in `formats`. `family` is
-    the part of those that share a title with a game the library holds.
+    the part of those that share a title with a game the library holds. `library` is the
+    library's games as `library_ops.library_games` answers, which `health` reads.
     `updates` is what `library_updates.found` answers: the games with a later version of
     something they hold."""
     marks = marks or vps_marks.Marks()
@@ -322,4 +375,5 @@ def home(found: dict[str, Any], kept: Collection[str], days: int,
             "new": new, "authors": authors_collected(found, shelf), "missing": missing,
             "wanted": wanted, "dont_have": {"count": len(lacked), "games": lacked[:SHELF_SHOWN]},
             "family": {"count": len(related), "games": related[:SHELF_SHOWN]},
+            "health": health(found, library, marks),
             "updates": vps_updates.shelf(updates or [], marks, cut=vps_updates.SHELF_SHOWN)}

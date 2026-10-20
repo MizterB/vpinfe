@@ -143,6 +143,15 @@ COLUMNS = [
                    + json.dumps(game_tables.VPS_WORDS[0]) + " : ''",
                    **grid.choice_filter(_two(game_tables.VPS_WORDS),
                                         formatted=True)}),
+    grid.column("vps_shared", t("manager.games.vps_entry"), group=t(_GAME),
+                help=t("manager.games.vps_entry.help"),
+                **_NO_CHECKBOX,
+                **{":valueFormatter":
+                   "params => params.value ? " + json.dumps(t("manager.games.vps_shared"))
+                   + " : ''",
+                   **grid.choice_filter(_two((t("manager.games.vps_shared"),
+                                              t("manager.games.vps_alone"))),
+                                        formatted=True)}),
     grid.column("vps_matched_by", t("manager.games.how_matched"), 160, group=t(_GAME),
                 help=t("manager.games.how_matched.help"),
                 **grid.choice_filter([{"value": token, "label": word} for token, word
@@ -208,8 +217,8 @@ VIEW_SECTIONS = {views.builtin_id(_MEDIA): "media"}
 # A column that reports a state, and the panel section that changes it. Clicking the
 # word is the only thing to do with it, so the click lands where it is changed rather
 # than on Details and one more click.
-COLUMN_SECTIONS = {"vps_unmatched": "game_details", "hidden": "game_details",
-                   "private": "game_details"}
+COLUMN_SECTIONS = {"vps_unmatched": "game_details", "vps_shared": "game_details",
+                   "hidden": "game_details", "private": "game_details"}
 
 # The grid on its Unmatched filter, as `state["arriving"]`.
 UNMATCHED = {"vps_unmatched": {"values": [True]}}
@@ -218,6 +227,9 @@ UNMATCHED_VIEW = "manager.view.unmatched"
 # Games with no table, such as ones added from Discovery or whose last table was removed.
 NO_TABLES_VIEW = "manager.view.no_tables"
 NO_TABLES = {"table_count": {"filterType": "number", "type": "equals", "filter": 0}}
+
+DUPLICATES_VIEW = "manager.view.duplicates"
+DUPLICATES = {"vps_shared": {"values": [True]}}
 
 # The key in `Opens.keys` naming the built-in view Games should open on.
 ARRIVE_VIEW = "arrive_view"
@@ -242,6 +254,9 @@ GAME_VIEWS: dict[str, list[str] | views.Preset] = {
     NO_TABLES_VIEW: views.Preset(
         columns=("name", "table_count", "vps_unmatched", "game_type", "manufacturer", "year"),
         filters=NO_TABLES, help=t("manager.view.no_tables.help")),
+    DUPLICATES_VIEW: views.Preset(
+        columns=("name", "table_count", "vps_shared", "manufacturer", "year"),
+        filters=DUPLICATES, help=t("manager.view.duplicates.help")),
     UNMATCHED_VIEW: views.Preset(
         columns=("name", "vps_unmatched", "manufacturer", "year"),
         filters=UNMATCHED, help=t("manager.view.unmatched.help")),
