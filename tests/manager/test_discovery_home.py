@@ -173,7 +173,8 @@ FOUND: dict[str, Any] = {"counted": "2026-10-01T10:00:00Z", "people": PEOPLE, "r
          "ruleFiles": [_release("x1", 0)]}},
     {"vps_id": "g2", "name": "Batman", "in_library": False, "img_url": "", "manufacturer": "",
      "year": None, "type": "", "themes": [], "url": "", "listed": ["tableFiles"], "held": [],
-     "releases": {"tableFiles": [_release("t2", 2, mod=True), _release("t9", 20)]}},
+     "releases": {"tableFiles": [{**_release("t2", 2, mod=True), "format": "FP"},
+                                    {**_release("t9", 20), "format": "FP"}]}},
 ]}
 KEPT = ["tableFiles", "b2sFiles", "romFiles", "ruleFiles"]
 
@@ -368,7 +369,7 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
         holders = {row["vps_id"]: [f"game-{row['vps_id']}"] for row in FOUND["rows"]}
         return vps_home.home(FOUND, KEPT, days, media=self.media, holders=holders,
                              marks=vps_marks.Marks(self.client.discovery_marks()),
-                             updates=self.updates)
+                             updates=self.updates, formats=("VPX",))
 
     async def asyncSetUp(self) -> None:
         was = core.loop
@@ -1030,7 +1031,7 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
 
         async def reread(days: int) -> dict[str, Any]:
             await gates[days]
-            return vps_home.home(FOUND, KEPT, days)
+            return vps_home.home(FOUND, KEPT, days, formats=("VPX",))
 
         # Drive the shelf's own picker with answers released out of order.
         with _PAGE:
@@ -1090,8 +1091,8 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
     def _a_game_the_library_lacks(self) -> None:
         """Batman has a table in the format the shelf counts, so Games You Don't Have draws."""
         release = FOUND["rows"][1]["releases"]["tableFiles"][0]
-        release["format"] = vps_home.TABLE_FORMAT
-        self.addCleanup(release.pop, "format")
+        release["format"] = "VPX"
+        self.addCleanup(release.update, format="FP")
 
     async def test_a_heading_sits_on_the_edge_and_the_tiles_on_the_indent(self) -> None:
         self._a_game_the_library_lacks()

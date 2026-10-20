@@ -21,6 +21,7 @@ from nicegui import run, ui
 
 from common import icons
 from common.failures import why
+from common.games import launchers
 from common.i18n import t
 from common.online import (
     sites,
@@ -187,12 +188,14 @@ def _state(listed: bool, counted: bool, in_library: bool, held: bool) -> str:
 
 
 def rows(found: dict[str, Any], kept: Collection[str] | None = None,
-         marks: vps_marks.Marks | None = None) -> list[dict[str, Any]]:
+         marks: vps_marks.Marks | None = None,
+         formats: Collection[str] = ()) -> list[dict[str, Any]]:
     """One grid row per named catalog entry. `found` is what `GET /library/discovery` answers.
 
     `kept` is the VPS kinds the library collects; a kind outside it is blank on every row
     and counts toward no gap. None keeps them all. `marks` says which entries are Wanted or
-    Ignored."""
+    Ignored. `formats` is the table formats the library plays, which Table Authors counts;
+    empty counts every one."""
     counted = bool(found.get("counted"))
     marks = marks or vps_marks.Marks()
     out = []
@@ -214,7 +217,7 @@ def rows(found: dict[str, Any], kept: Collection[str] | None = None,
             "in_library": "" if not counted else (YES if in_library else NO),
             "is_in_library": in_library and counted,
             "listed": sorted(listed),
-            TABLE_AUTHORS: vps_home.table_authors(entry),
+            TABLE_AUTHORS: vps_home.table_authors(entry, formats),
             discovery_marks.FIELD: marks.state(vps_marks.GAME, str(entry["vps_id"])),
         }
         states = []
@@ -230,7 +233,8 @@ def rows(found: dict[str, Any], kept: Collection[str] | None = None,
 
 def rows_of(library: Library, found: dict[str, Any]) -> list[dict[str, Any]]:
     """`rows` for what the library keeps and what is marked now."""
-    return rows(found, kept_listings(library), discovery_marks.read(library))
+    return rows(found, kept_listings(library), discovery_marks.read(library),
+                launchers.playable_formats(launchers.get_launcher_store().launchers()))
 
 
 def lacks_kind(games: list[dict[str, Any]], release: Mapping[str, Any]) -> bool:

@@ -1264,7 +1264,7 @@
     "other": "Tables by {count:n} authors"
   },
   "manager.discovery.table_authors": "Table Authors",
-  "manager.discovery.table_authors.help": "People named first on its VPX tables. Blank without one",
+  "manager.discovery.table_authors.help": "People named first on its tables you can play. Blank without one",
   "manager.discovery.gap.playfield": "Playfields",
   "manager.discovery.gap.playfield_fss": "Full-Screen Playfield",
   "manager.discovery.gap.playfield_video": "Playfield Video",

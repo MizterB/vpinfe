@@ -12,8 +12,8 @@ from unittest.mock import patch
 from starlette.testclient import TestClient
 
 import httpapi
+from common.games import library_ops, media_fill
 from common.games import library_vps_state as rollup
-from common.games import media_fill
 from common.online import vps_home, vps_marks, vps_releases
 
 PEOPLE: list[dict[str, Any]] = [{"name": name, "aliases": []}
@@ -93,9 +93,48 @@ class ShelfTests(unittest.TestCase):
         shelf = vps_home.dont_have(found(
             game("a", "Alien", table("1", (0,), "VPX"), table("2", (1,), "FP"),
                  table("3", (2,), "VP9")),
-            game("b", "Batman", table("4", (0,), "FP"))))
+            game("b", "Batman", table("4", (0,), "FP"))), formats=("VPX",))
 
         self.assertEqual([(one["game"], one["authors"]) for one in shelf], [("Alien", 1)])
+
+    def test_a_format_other_than_vpx_counts_where_a_launcher_plays_it(self) -> None:
+        shelf = vps_home.dont_have(found(
+            game("a", "Alien", table("1", (0,), "VPX"), table("2", (1,), "FP"),
+                 table("3", (2,), "VP9")),
+            game("b", "Batman", table("4", (0,), "FP"))), formats=("VPX", "FP"))
+
+        self.assertEqual([(one["game"], one["authors"]) for one in shelf],
+                         [("Alien", 2), ("Batman", 1)])
+
+    def test_no_format_to_narrow_to_counts_every_format(self) -> None:
+        shelf = vps_home.dont_have(found(
+            game("a", "Alien", table("1", (0,), "VPX"), table("2", (1,), "FP"),
+                 table("3", (2,), "VP9")),
+            game("b", "Batman", table("4", (0,), "FP"))))
+
+        self.assertEqual([(one["game"], one["authors"]) for one in shelf],
+                         [("Alien", 3), ("Batman", 1)])
+
+    def test_a_game_with_tables_only_in_formats_no_launcher_plays_is_left_out(self) -> None:
+        shelf = vps_home.dont_have(found(
+            game("b", "Batman", table("4", (0,), "FP"), table("5", (1,), "VP9"))),
+            formats=("VPX",))
+
+        self.assertEqual(shelf, [])
+
+    def test_the_format_is_matched_without_regard_to_case(self) -> None:
+        shelf = vps_home.dont_have(found(game("a", "Alien", table("1", (0,), "fp"))),
+                                   formats=("FP",))
+
+        self.assertEqual(_names(shelf), ["Alien"])
+
+    def test_the_home_answer_counts_the_formats_it_was_given(self) -> None:
+        row = game("b", "Batman", table("4", (0,), "FP"))
+
+        played = vps_home.home(found(row), [], 7, formats=("FP",))["dont_have"]
+        other = vps_home.home(found(row), [], 7, formats=("VPX",))["dont_have"]
+
+        self.assertEqual((played["count"], other["count"]), (1, 0))
 
     def test_a_game_with_no_table_is_not_a_game_to_have(self) -> None:
         shelf = vps_home.dont_have(found(
@@ -195,6 +234,21 @@ class RouteTests(unittest.TestCase):
         self.assertEqual([(one["game"], one["authors"], one["manufacturer"], one["year"])
                           for one in shelf["games"]],
                          [("Beta", 2, "Williams", "1997"), ("Gamma", 1, "Bally", "1993")])
+
+    def test_the_route_counts_the_formats_the_enabled_launchers_play(self) -> None:
+        for plays, beta in ((("VPX",), 2), (("VPX", "FP"), 3), ((), 3)):
+            with self.subTest(plays=plays), patch.object(
+                    library_ops.launchers, "playable_formats", return_value=plays):
+                shelf = self._get().json()["dont_have"]
+
+                self.assertEqual([(one["game"], one["authors"]) for one in shelf["games"]],
+                                 [("Beta", beta), ("Gamma", 1)])
+
+    def test_a_table_filed_under_no_format_counts_where_playable_only_would_keep_it(self) -> None:
+        shelf = vps_home.dont_have(found(game("a", "Alien", table("1", (0,), ""))),
+                                   formats=("VPX",))
+
+        self.assertEqual(_names(shelf), ["Alien"])
 
     def test_marking_a_game_ignored_takes_it_off_the_shelf(self) -> None:
         vps_marks.mark(vps_marks.IGNORED, vps_marks.GAME, "E2")

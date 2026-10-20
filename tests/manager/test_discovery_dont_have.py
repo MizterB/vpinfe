@@ -86,7 +86,8 @@ class DrivenShelf(unittest.IsolatedAsyncioTestCase):
 
     def _answer(self, days: int) -> dict[str, Any]:
         return vps_home.home(self.found, KEPT, days,
-                             marks=vps_marks.Marks(self.client.discovery_marks()))
+                             marks=vps_marks.Marks(self.client.discovery_marks()),
+                             formats=("VPX",))
 
     async def asyncSetUp(self) -> None:
         was = core.loop
@@ -256,11 +257,15 @@ class BrowseViewTests(unittest.TestCase):
         self.MARKS = vps_marks.Marks([_mark("ignored", "game", "g6"),
                                       _mark("wanted", "game", "g8")])
 
-    def _rows(self, found: dict[str, Any] | None = None) -> list[dict[str, Any]]:
-        return discovery.rows(found or self.FOUND, KEPT, self.MARKS)
+    PLAYS = ("VPX",)
+
+    def _rows(self, found: dict[str, Any] | None = None,
+              formats: tuple[str, ...] | None = None) -> list[dict[str, Any]]:
+        return discovery.rows(found or self.FOUND, KEPT, self.MARKS,
+                              self.PLAYS if formats is None else formats)
 
     def test_the_view_keeps_the_games_the_shelf_counts(self) -> None:
-        shelf = vps_home.dont_have(self.FOUND, self.MARKS)
+        shelf = vps_home.dont_have(self.FOUND, self.MARKS, self.PLAYS)
         view = discovery.dont_have_opening(counted=True)
 
         kept = [row for row in self._rows() if _passes(row, view["filters"])]
@@ -270,11 +275,46 @@ class BrowseViewTests(unittest.TestCase):
         self.assertEqual({"g2", "g3", "g5", "g7", "g8"}, {row["id"] for row in kept})
 
     def test_the_view_orders_the_games_as_the_shelf_does(self) -> None:
-        shelf = [one["vps_id"] for one in vps_home.dont_have(self.FOUND, self.MARKS)]
+        shelf = [one["vps_id"] for one in vps_home.dont_have(self.FOUND, self.MARKS, self.PLAYS)]
         view = discovery.dont_have_opening(counted=True)
         kept = [row for row in self._rows() if _passes(row, view["filters"])]
 
         self.assertEqual(_grid_order(kept, view["sort"]), shelf)
+
+    def test_a_format_a_launcher_plays_counts_in_the_column_the_view_and_the_shelf(self) -> None:
+        for plays in (("VPX", "FP"), ()):
+            with self.subTest(plays=plays):
+                shelf = vps_home.dont_have(self.FOUND, self.MARKS, plays)
+                view = discovery.dont_have_opening(counted=True)
+                rows = self._rows(formats=plays)
+                kept = [row for row in rows if _passes(row, view["filters"])]
+
+                self.assertEqual(
+                    {row["id"] for row in rows if row["id"] == "g4"
+                     and row[discovery.TABLE_AUTHORS] == 1}, {"g4"})
+                self.assertEqual({row["id"] for row in kept}, {one["vps_id"] for one in shelf})
+                self.assertIn("g4", {row["id"] for row in kept})
+                self.assertEqual(_grid_order(kept, view["sort"]),
+                                 [one["vps_id"] for one in shelf])
+
+    def test_a_format_no_launcher_plays_is_not_counted_in_the_column(self) -> None:
+        by_id = {row["id"]: row for row in self._rows(formats=("VPX",))}
+
+        self.assertIsNone(by_id["g4"][discovery.TABLE_AUTHORS])
+        self.assertEqual(by_id["g2"][discovery.TABLE_AUTHORS], 3)
+
+    def test_the_rows_read_the_formats_the_enabled_launchers_play(self) -> None:
+        library = mock.Mock()
+        with (mock.patch.object(discovery, "kept_listings", return_value=KEPT),
+              mock.patch.object(discovery.discovery_marks, "read", return_value=self.MARKS),
+              mock.patch.object(discovery.launchers, "get_launcher_store"),
+              mock.patch.object(discovery.launchers, "playable_formats",
+                                return_value=("FP",)) as plays):
+            by_id = {row["id"]: row for row in discovery.rows_of(library, self.FOUND)}
+
+        plays.assert_called_once()
+        self.assertEqual(by_id["g4"][discovery.TABLE_AUTHORS], 1)
+        self.assertIsNone(by_id["g2"][discovery.TABLE_AUTHORS])
 
     def test_a_game_with_a_table_that_names_no_one_is_in_the_view_with_a_zero(self) -> None:
         by_id = {row["id"]: row for row in self._rows()}

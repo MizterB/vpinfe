@@ -16,6 +16,7 @@ from typing import Any
 
 from common.online import (
     arrivals,
+    vps_formats,
     vps_marked,
     vps_marks,
     vps_releases,
@@ -31,8 +32,6 @@ NOT_SHOWN = ("ruleFiles",)
 CHIP_KINDS = ("tableFiles", "b2sFiles", "wheelArtFiles", "topperFiles", "pupPackFiles")
 # The kinds a game can lack, in the order the shelf's tabs run.
 GAP_KINDS = ("b2sFiles", "romFiles", "povFiles", "wheelArtFiles", "topperFiles")
-# The table format the library plays, which is the one Games You Don't Have counts.
-TABLE_FORMAT = "VPX"
 
 SHELF_SHOWN = 12
 AUTHORS_SHOWN = 8
@@ -150,20 +149,24 @@ def lacking_media(found: dict[str, Any],
     return out
 
 
-def table_authors(row: Mapping[str, Any]) -> int | None:
-    """How many people made a `TABLE_FORMAT` table of this game, each counted once by the
-    author a release names first however many tables or versions they made. None for a game
-    with no such table, which is a different fact from a table that names no one."""
+def table_authors(row: Mapping[str, Any], formats: Collection[str] = ()) -> int | None:
+    """How many people made a table of this game in one of `formats`, each counted once by
+    the author a release names first however many tables or versions they made. None for a
+    game with no such table, which is a different fact from a table that names no one.
+
+    `formats` is `launchers.playable_formats`; empty counts every format, and a table filed
+    under none counts as it does for Playable Only."""
     tables = [one for one in (row.get("releases") or {}).get(vps_releases.TABLES) or []
-              if one.get("format") == TABLE_FORMAT]
+              if vps_formats.fits(one.get("format"), formats)]
     if not tables:
         return None
     return len({one["by"][0] for one in tables if one.get("by")})
 
 
-def dont_have(found: dict[str, Any], marks: vps_marks.Marks | None = None) -> list[dict[str, Any]]:
-    """The games VPS lists that the library has none of and that have a table in
-    `TABLE_FORMAT`, the ones the most people made a table for first. A game counts a person
+def dont_have(found: dict[str, Any], marks: vps_marks.Marks | None = None,
+              formats: Collection[str] = ()) -> list[dict[str, Any]]:
+    """The games VPS lists that the library has none of and that have a table in one of
+    `formats`, the ones the most people made a table for first. A game counts a person
     once, by the author a release names first, however many tables or versions they made.
 
     Nothing is listed until the library has been compared, since a game that has not been
@@ -176,7 +179,7 @@ def dont_have(found: dict[str, Any], marks: vps_marks.Marks | None = None) -> li
         name = (row.get("name") or "").strip()
         if not name or row.get("in_library") or marks.game_ignored(str(row["vps_id"])):
             continue
-        authors = table_authors(row)
+        authors = table_authors(row, formats)
         if authors is None:
             continue
         year = row.get("year")
@@ -223,7 +226,8 @@ def home(found: dict[str, Any], kept: Collection[str], days: int,
          media: Mapping[str, Iterable[Mapping[str, Any]]] | None = None,
          holders: Mapping[str, Iterable[str]] | None = None,
          marks: vps_marks.Marks | None = None,
-         updates: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+         updates: list[dict[str, Any]] | None = None,
+         formats: Collection[str] = ()) -> dict[str, Any]:
     """Every shelf. `found` is `library_vps_state.discovery`'s answer, `kept` the VPS kinds
     the library collects, and `days` the window of the New shelf. `media` is the games a
     source can fill a slot of, by media kind, as `media_fill.offered_listing` answers. A kind
@@ -235,8 +239,9 @@ def home(found: dict[str, Any], kept: Collection[str], days: int,
     New is cut to what a tile row shows, once for each chip, with the count each chip holds
     so a chip with nothing in it is left out by the page. Whatever `marks` ignores is on no
     shelf, and what it holds Wanted is its own. `dont_have` is the games the library lacks, cut
-    to a row of tiles with the count of all of them. `updates` is what `library_updates.found`
-    answers: the games with a later version of something they hold."""
+    to a row of tiles with the count of all of them, counting the tables in `formats`.
+    `updates` is what `library_updates.found` answers: the games with a later version of
+    something they hold."""
     marks = marks or vps_marks.Marks()
     shelf = [one for one in arrivals_in(found, days, kept, today)
              if not marks.release_ignored(one["id"], one["vps_id"])]
@@ -262,7 +267,7 @@ def home(found: dict[str, Any], kept: Collection[str], days: int,
         missing[tab] = gaps([], games)
     held = vps_marked.wanted(found, marks)
     wanted = {"count": len(held), "items": held[:SHELF_SHOWN]}
-    lacked = dont_have(found, marks)
+    lacked = dont_have(found, marks, formats)
     return {"counted": found.get("counted") or "", "days": days, "since": since(days, today),
             "new": new, "authors": authors_collected(found, shelf), "missing": missing,
             "wanted": wanted, "dont_have": {"count": len(lacked), "games": lacked[:SHELF_SHOWN]},

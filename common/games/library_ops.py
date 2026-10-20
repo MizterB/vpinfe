@@ -22,6 +22,7 @@ from common.games import (
     entry_lens,
     game_repository,
     game_service,
+    launchers,
     library_folders,
     library_updates,
     library_vps_state,
@@ -289,7 +290,9 @@ def discovery_home(days: int) -> dict[str, Any]:
     fill from the library now. Asks no site."""
     return vps_home.home(library_vps_state.discovery(), library_vps_state.kept_listings(), days,
                          media=media_fill.offered_listing(), holders=media_fill.holders(),
-                         marks=vps_marks.read(), updates=_updates_found())
+                         marks=vps_marks.read(), updates=_updates_found(),
+                         formats=launchers.playable_formats(
+                             launchers.get_launcher_store().launchers()))
 
 
 def _updates_found() -> list[dict[str, Any]]:
