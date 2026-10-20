@@ -1075,6 +1075,7 @@ def build(columns: list[dict[str, Any]], rows: list[dict[str, Any]], scope: str,
                     "landing": _LANDING.get(ui.context.client, {}).pop(scope, None),
                     "fit": fit},
         "defaultColDef": DEFAULT_COL_DEF,
+        "accentedSort": True,
         **({"rowSelection": {**ROW_SELECTION, **({
             ":isRowSelectable":
                 f"node => !{json.dumps(rows_not_selectable)}.includes(node.data.id)"
