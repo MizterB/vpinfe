@@ -366,9 +366,6 @@ ORDER = ("rom_missing", "launchers", "unreadable", "unmatched", "no_tables", "no
 # a library row's is the library's, as the Checks page already keeps it.
 DEVICE_ROWS = ("launchers", "fill_errors", "leftovers", "update", "recordings")
 
-# The rows a source can fill: a game a source has a file for is not counted by them.
-SOURCE_FILLED = ("no_playfield", "no_backglass", "no_media")
-
 # What a row's read cannot say while that read failed, by row.
 _READ_BY = {"update": "update", "recordings": "recordings", "fill_errors": "fill",
             "leftovers": "leftovers"}
@@ -501,18 +498,19 @@ def _extension_unread(key: str, unread: Any) -> bool:
     return AWAY + name in unread or AWAY_ALL in unread
 
 
-def _held_for_games(key: str, ids: Iterable[str], games: Collection[str] | None, *,
-                    exclude: Collection[str] = ()) -> list[str]:
-    """The recorded ids of a source-filled row that stay with their game: the games the
-    library still has, apart from `exclude`. Nothing for any other row."""
-    if key not in SOURCE_FILLED or games is None:
+def _held_for_games(key: str, ids: Iterable[str], filled: Mapping[str, Collection[str]] | None,
+                    *, exclude: Collection[str] = ()) -> list[str]:
+    """The recorded ids of a row that stay while a source fills their game: those in
+    `filled` for the row, apart from `exclude`."""
+    if not filled:
         return []
-    return [one for one in ids if one in games and one not in exclude]
+    now = filled.get(key, ())
+    return [one for one in ids if one in now and one not in exclude]
 
 
 def arrange(rows: list[Need], record: Mapping[str, list[str]], stopped: set[str],
             unread: Any = (), blind: Collection[str] = (),
-            games: Collection[str] | None = None) -> Arranged:
+            filled: Mapping[str, Collection[str]] | None = None) -> Arranged:
     """Which rows draw, which are set aside, and what is left of the dismissals.
 
     A row stays away while every id it counts is in its record. When one joins, the row
@@ -521,10 +519,11 @@ def arrange(rows: list[Need], record: Mapping[str, list[str]], stopped: set[str]
     longer counts leaves the record, except where the row is absent because its check is
     off, its read failed or it was `blind`: there nothing says the id is gone.
 
-    A row a source can fill (`SOURCE_FILLED`) stops counting a game while a source has a
-    file for it, and counts it again when that source is away. So for these an id stays
-    recorded while its game is one of `games`, the games the library has: it leaves only
-    with the game. `games` None keeps no such id.
+    A row a source can fill stops counting a game while a source has a file for it, and
+    counts it again when that source is away. `filled` is those games by row, and an id stays
+    recorded while its game is in it, so the dismissal is there when the source goes. A game
+    that has the file itself is not in it: its id leaves, and the row counts the game as new
+    if the file goes.
     """
     shown: list[Need] = []
     aside: list[Aside] = []
@@ -540,7 +539,7 @@ def arrange(rows: list[Need], record: Mapping[str, list[str]], stopped: set[str]
                                t("manager.needs.chip_stopped.tip"), stopped=True))
             continue
         still = [one for one in covered if one in held]
-        away = _held_for_games(need.key, record.get(need.key, ()), games, exclude=covered)
+        away = _held_for_games(need.key, record.get(need.key, ()), filled, exclude=covered)
         if still or away:
             kept[need.key] = [*still, *away]
         new = tuple(one for one in covered if one not in held)
@@ -556,7 +555,7 @@ def arrange(rows: list[Need], record: Mapping[str, list[str]], stopped: set[str]
                                      or _READ_BY.get(key) in unread
                                      or _extension_unread(key, unread)):
             kept[key] = list(ids)
-        elif key not in present and (away := _held_for_games(key, ids, games)):
+        elif key not in present and (away := _held_for_games(key, ids, filled)):
             kept[key] = away
     aside += [_stopped_aside(key) for key in ORDER if key in stopped]
     return Arranged(shown, aside, kept)

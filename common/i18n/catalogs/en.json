@@ -3154,6 +3154,7 @@
   "manager.sections.library": "Library",
   "manager.sections.games_with": "Games That Have",
   "manager.sections.kind_tip": "{held:n} of {total:n} games have {kind}. Click to see the {without:n} Discovery lists.",
+  "manager.sections.kind_without": "{held:n} of {total:n} games have {kind}. Click to see the {without:n} without.",
   "manager.sections.kind_held": "{held:n} of {total:n} games have {kind}",
   "manager.sections.kind_all": "All {total:n} games have {kind}",
   "manager.sections.none_have": {

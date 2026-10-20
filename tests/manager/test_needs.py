@@ -306,36 +306,52 @@ class SettingAsideOverWhatItCounted(unittest.TestCase):
         self.assertEqual((), arranged.rows[0].new)
         self.assertEqual({}, arranged.record)
 
-    def test_a_row_a_source_fills_keeps_what_it_was_dismissed_over_while_the_game_is_here(self):
+    def test_a_row_a_source_fills_keeps_what_it_was_dismissed_over_while_the_source_fills_it(self):
         # A source had a file for "b", so the row stopped counting it; the source is
         # away again and the row counts it, dismissed as it was.
         record = {"no_backglass": ["a", "b"]}
         gone_away = needs.arrange([bare("no_backglass", ["a", "b"])], record, set(), (), (),
-                                  {"a", "b"})
+                                  {"no_backglass": set()})
         filled_by_it = needs.arrange([bare("no_backglass", ["a"])], record, set(), (), (),
-                                     {"a", "b"})
+                                     {"no_backglass": {"b"}})
 
         self.assertEqual([], gone_away.rows)
         self.assertEqual({"no_backglass": ["a", "b"]}, filled_by_it.record)
         self.assertEqual({"no_backglass": ["a", "b"]},
                          needs.arrange([bare("no_backglass", ["a", "b"])],
-                                       filled_by_it.record, set(), (), (), {"a", "b"}).record)
+                                       filled_by_it.record, set(), (), (),
+                                       {"no_backglass": set()}).record)
 
     def test_a_source_filled_row_is_kept_whole_when_a_source_fills_every_game_in_it(self):
-        arranged = needs.arrange([], {"no_backglass": ["a", "b"]}, set(), (), (), {"a", "b"})
+        arranged = needs.arrange([], {"no_backglass": ["a", "b"]}, set(), (), (),
+                                 {"no_backglass": {"a", "b"}})
 
         self.assertEqual({"no_backglass": ["a", "b"]}, arranged.record)
 
-    def test_what_a_source_filled_row_held_leaves_the_record_with_its_game(self):
+    def test_what_a_source_fills_no_longer_leaves_the_record(self):
         arranged = needs.arrange([bare("no_media", ["a"])], {"no_media": ["a", "b"]}, set(),
-                                 (), (), {"a"})
+                                 (), (), {"no_media": set()})
 
         self.assertEqual({"no_media": ["a"]}, arranged.record)
-        self.assertEqual({}, needs.arrange([], {"no_media": ["b"]}, set(), (), (), {"a"}).record)
+        self.assertEqual({}, needs.arrange([], {"no_media": ["b"]}, set(), (), (),
+                                           {"no_media": set()}).record)
+
+    def test_a_game_that_has_the_file_itself_is_forgotten_and_counts_as_new_when_it_goes(self):
+        # Dismissed for "a" and "b"; "a" gets a playfield, no source involved, so the row
+        # stops counting it and its id leaves. Its playfield is deleted later: the row
+        # counts "a" again, and it is a new one.
+        record = {"no_playfield": ["a", "b"]}
+        got_it = needs.arrange([bare("no_playfield", ["b"])], record, set(), (), (),
+                               {"no_playfield": set()})
+        lost_it = needs.arrange([bare("no_playfield", ["a", "b"])], got_it.record, set(), (), (),
+                                {"no_playfield": set()})
+
+        self.assertEqual({"no_playfield": ["b"]}, got_it.record)
+        self.assertEqual(("a",), lost_it.rows[0].new)
 
     def test_a_row_no_source_fills_still_forgets_an_id_it_no_longer_counts(self):
         arranged = needs.arrange([bare("unmatched", ["a"])], {"unmatched": ["a", "b"]}, set(),
-                                 (), (), {"a", "b"})
+                                 (), (), {"no_backglass": {"a", "b"}})
 
         self.assertEqual({"unmatched": ["a"]}, arranged.record)
 

@@ -3154,6 +3154,7 @@
   "manager.sections.library": "Ŀîƀřàřý",
   "manager.sections.games_with": "Ĝàɱèš Ţĥàţ Ĥàṽè",
   "manager.sections.kind_tip": "{held:n} öƒ {total:n} ĝàɱèš ĥàṽè {kind}. Çŀîçķ ţö šèè ţĥè {without:n} Đîšçöṽèřý ŀîšţš.",
+  "manager.sections.kind_without": "{held:n} öƒ {total:n} ĝàɱèš ĥàṽè {kind}. Çŀîçķ ţö šèè ţĥè {without:n} ŵîţĥöûţ.",
   "manager.sections.kind_held": "{held:n} öƒ {total:n} ĝàɱèš ĥàṽè {kind}",
   "manager.sections.kind_all": "Àŀŀ {total:n} ĝàɱèš ĥàṽè {kind}",
   "manager.sections.none_have": {

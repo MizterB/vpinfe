@@ -1329,10 +1329,15 @@ class Library:
     def home_missing(self) -> dict[str, Any] | None:
         """Discovery Home's tabs of missing media, by tab, as `vps_home.home` counts them:
         `count`, `game_ids` and `games`. Overview's rows read their figure here so that a
-        row and the tab it links to name the same games. Already read - this asks nothing;
-        None where Home could not be read."""
+        row and the tab it links to name the same games. Already read - this asks nothing.
+
+        None where the tabs say nothing about the library: Home could not be read, or the
+        library has never been compared with VPS, when its tabs count no one lacking a
+        file. An empty tab of a compared library is a count of none, and is returned."""
         home = (self._watched or {}).get("home")
-        return None if home is None else dict(home.get("missing") or {})
+        if home is None or not home.get("counted"):
+            return None
+        return dict(home.get("missing") or {})
 
     def _read_watched(self) -> dict[str, Any]:
         """Each read stands alone: an install with no network has no update to report,

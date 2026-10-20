@@ -65,6 +65,20 @@ def _a_source_fills(key: str, fillable: Collection[str], collected: Collection[s
     return key == "no_media" and any(kind in collected for kind in fillable)
 
 
+def source_filled(library: Library) -> dict[str, set[str]]:
+    """Per check a source can fill, the games it leaves out because a source has a file for
+    the slot: the ones `findings` skips."""
+    collected = library.kept_kinds()["media"]
+    offered = library.fillable_media()
+    out: dict[str, set[str]] = {key: set() for key in (*FILLS, "no_media")}
+    for game in library.games:
+        fillable = {kind for kind, ids in offered.items() if game["id"] in ids}
+        for key, ids in out.items():
+            if _a_source_fills(key, fillable, collected):
+                ids.add(str(game["id"]))
+    return out
+
+
 def rollups(library: Library) -> dict[str, dict[str, Any]]:
     """Per-game facts a check needs that the game payload does not carry.
 
@@ -335,8 +349,9 @@ def _kind_row(kind: str, held: int, total: int, state: dict[str, Any],
         ui.label(t("manager.sections.held_of_games", held=held, total=total)) \
             .classes("manager-need-count shrink-0")
     if without:
-        row.tooltip(t("manager.sections.kind_tip", held=held, total=total, kind=name,
-                      without=without))
+        row.tooltip(t("manager.sections.kind_tip" if lacking is not None
+                      else "manager.sections.kind_without",
+                      held=held, total=total, kind=name, without=without))
     elif held < total:
         row.tooltip(t("manager.sections.kind_held", held=held, total=total, kind=name))
     else:
@@ -500,7 +515,7 @@ def overview(library: Library, registry: list[dict], discovery: dict,
              go: Callable[[str], None], state: dict[str, Any]) -> None:
     arranged = needs.arrange(needs.collect(library, state), library.dismissed(),
                              library.stopped(), library.watched().get("unread") or (),
-                             needs.blind(library), {str(one["id"]) for one in library.games})
+                             needs.blind(library), source_filled(library))
     _prune(library, arranged.record)
 
     def placed(game_ids: tuple[str, ...]) -> None:

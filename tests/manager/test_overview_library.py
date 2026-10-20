@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import unittest
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 from manager.kit.data import Library
@@ -109,7 +110,8 @@ class TheRowAndTheTabItLinksTo(unittest.TestCase):
     def test_a_home_that_could_not_be_read_leaves_the_row_counting_every_game_without(self):
         row, opens = drawn_row("backglass", 7, 10, None)
 
-        self.assertIn("3 Discovery", row.tooltip.call_args.args[0])
+        self.assertEqual("7 of 10 games have Backglass. Click to see the 3 without.",
+                         row.tooltip.call_args.args[0])
         self.assertEqual(needs.blank("media_backglass"), opens.call_args.args[2].arriving)
 
 
@@ -138,22 +140,73 @@ class EachRowIsGivenItsTabsGames(unittest.TestCase):
     def test_a_home_not_read_gives_none(self):
         self.assertIsNone(self.rows(None)["backglass"])
 
+    def test_a_library_never_compared_leaves_the_rows_counting_the_games_without(self):
+        lib = library({"a": {"backglass": True}, "b": {"backglass": False}})
+        client: Any = lib._client
+        client.discovery_home.return_value = {
+            "counted": "", "missing": {"b2sFiles": {"count": 0, "game_ids": []}}}
+        lib._watched = lib._read_watched()
+        kept: dict[str, tuple | None] = {}
+        with patch.object(sections, "ui"), patch.object(sections, "_figure"), \
+                patch.object(sections, "_kind_row",
+                             lambda kind, held, total, state, lacking=None:
+                             kept.__setitem__(kind, lacking)):
+            sections._library(lib, {})
+
+        self.assertIsNone(kept["backglass"])
+
+
+class WhatASourceFills(unittest.TestCase):
+    """The games each row leaves out because a source has a file for them: the ones a
+    dismissal is kept for."""
+
+    def test_a_row_names_the_games_a_source_has_a_file_for_its_slot(self):
+        lib = library({"a": {"backglass": False}, "b": {"backglass": False}, "c": {"wheel": False}})
+        lib.fillable_media = Mock(return_value={"backglass": {"a"}, "wheel": {"c"}})  # type: ignore[method-assign]
+
+        filled = sections.source_filled(lib)
+
+        self.assertEqual({"a"}, filled["no_backglass"])
+        self.assertEqual(set(), filled["no_playfield"])
+        self.assertEqual({"a", "c"}, filled["no_media"])
+
+    def test_with_no_source_offering_anything_no_game_is_left_out(self):
+        lib = library({"a": {"backglass": False}})
+        lib.fillable_media = Mock(return_value={})  # type: ignore[method-assign]
+
+        self.assertEqual({"no_playfield": set(), "no_backglass": set(), "no_media": set()},
+                         sections.source_filled(lib))
+
 
 class WhatTheLibraryReadsOfHome(unittest.TestCase):
+    def read(self, home) -> Library:
+        lib = library({})
+        client: Any = lib._client
+        if isinstance(home, Exception):
+            client.discovery_home.side_effect = home
+        else:
+            client.discovery_home.return_value = home
+        lib._watched = lib._read_watched()
+        return lib
+
     def test_the_tabs_are_those_of_the_one_read_home_made(self):
-        lib = library({})
-        lib._client.discovery_home.return_value = {"missing": {"b2sFiles": {"count": 1,
-                                                                            "game_ids": ["g1"]}}}
-        lib._watched = lib._read_watched()
+        tabs = {"b2sFiles": {"count": 1, "game_ids": ["g1"]}}
 
-        self.assertEqual({"b2sFiles": {"count": 1, "game_ids": ["g1"]}}, lib.home_missing())
+        self.assertEqual(tabs, self.read({"counted": "2026-10-01T10:00:00Z",
+                                          "missing": tabs}).home_missing())
 
-    def test_a_home_that_could_not_be_read_is_none_not_nothing_missing(self):
-        lib = library({})
-        lib._client.discovery_home.side_effect = OSError("down")
-        lib._watched = lib._read_watched()
+    def test_a_tab_with_nothing_in_it_of_a_compared_library_is_a_count_of_none(self):
+        lib = self.read({"counted": "2026-10-01T10:00:00Z", "missing": {}})
+
+        self.assertEqual({}, lib.home_missing())
+
+    def test_a_library_never_compared_is_none_since_its_tabs_say_nothing(self):
+        lib = self.read({"counted": "", "missing": {"b2sFiles": {"count": 0, "game_ids": []}}})
 
         self.assertIsNone(lib.home_missing())
+
+    def test_a_home_that_could_not_be_read_is_none_not_nothing_missing(self):
+        self.assertIsNone(self.read(OSError("down")).home_missing())
 
     def test_before_anything_is_read_it_is_none(self):
         self.assertIsNone(library({}).home_missing())
