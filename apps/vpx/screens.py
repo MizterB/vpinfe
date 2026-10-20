@@ -14,6 +14,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import Any, Protocol
 
+from common.apps.contract import TableOrder
+
 from . import build
 
 PLAYFIELD = "playfield"
@@ -387,20 +389,28 @@ def _b2s_over_nixie(program: Mapping[str, Any] | None,
 
 
 def table_order(program: Mapping[str, Any] | None, launcher: Mapping[str, str],
-                own: Mapping[str, str], in_file: bool) -> dict[str, str]:
+                own: Mapping[str, str], in_file: bool,
+                written: Mapping[str, str] | None = None) -> TableOrder:
     """What one table's own settings should hold for the order B2S and Nixie draw in, given
-    whether its backglass file places a Score View DMD.
+    whether its backglass file places a Score View DMD, and what an earlier call recorded as
+    `written`.
 
     The launcher ranks Nixie over B2S, so every table has a live DMD; a table whose file
     places a Score View DMD ranks B2S over Nixie, to show that art with the live DMD on it.
-    A table that holds a rank of its own for either is left alone. A blank value takes
-    the key out, and is given only for the order this wrote.
+    A pair is the table's to change only while it is exactly the one recorded: any other rank
+    held for either key is the table's own and is left alone, and so is a pair somebody set
+    that happens to equal ours before one was recorded.
     """
-    swapped = _b2s_over_nixie(program, launcher)
     held = {key: str(own.get(key) or "").strip() for key in (B2S_RANK, NIXIE_RANK)}
-    if in_file:
-        return swapped if swapped and not any(held.values()) else {}
-    return dict.fromkeys(swapped, "") if swapped and held == swapped else {}
+    wanted = _b2s_over_nixie(program, launcher) if in_file else {}
+    kept = {key: value for key, value in (written or {}).items() if value}
+    if kept and held == {key: kept.get(key, "") for key in held}:
+        if wanted == held:
+            return TableOrder(ours=held)
+        return TableOrder(write=wanted or dict.fromkeys(held, ""), ours=wanted)
+    if wanted and not any(held.values()):
+        return TableOrder(write=wanted, ours=wanted)
+    return TableOrder()
 
 
 def answer(moved: Mapping[str, Placement], now: Mapping[str, Placement],

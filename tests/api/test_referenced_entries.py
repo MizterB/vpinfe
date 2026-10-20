@@ -83,6 +83,13 @@ class AddingTests(_Referenced):
         self.assertEqual(made.json()["reference"]["resolved"], str(self.away))
         self.assertTrue(made.json()["reference"]["reachable"])
 
+    def test_a_table_pointed_at_settles_the_order_of_its_game(self) -> None:
+        with patch("common.games.backglass_order.settle") as settle:
+            made = self._add()
+
+        self.assertEqual(made.status_code, 201, made.text)
+        settle.assert_called_once_with(GAME_ID)
+
     def test_the_file_it_points_at_says_which_app_plays_it(self) -> None:
         """The same question a filename in the folder answers, asked somewhere else."""
         self.assertEqual(self._add().json()["app"], "vpx")

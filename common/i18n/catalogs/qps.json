@@ -809,6 +809,11 @@
   "manager.backglass.dmd_file.switch.hint": "Öñ þûţš ţĥè ĐḾĐ îñ ţĥè ƀàçķĝŀàšš ƒîŀè, öƒƒ ţàķèš îţ öûţ",
   "manager.backglass.dmd_file.toast": "Šàṽèđ îñ ţĥè ƀàçķĝŀàšš ƒîŀè",
   "manager.backglass.dmd_file.no_undo": "Šàṽèđ îñ ţĥè ƀàçķĝŀàšš ƒîŀè, ŵîţĥ ñö Ûñđö",
+  "manager.order.failed": {
+    "one": "Ţĥè ĐḾĐ öřđèř çöûŀđ ñöţ ƀè šèţ ƒöř {count:n} ţàƀŀè",
+    "other": "Ţĥè ĐḾĐ öřđèř çöûŀđ ñöţ ƀè šèţ ƒöř {count:n} ţàƀŀèš"
+  },
+  "manager.order.failed.line": "{name}: {reason}",
   "manager.backglass.dmd_file.w": "Ŵîđţĥ",
   "manager.backglass.dmd_file.x": "Ẋ",
   "manager.backglass.dmd_file.y": "Ý",
@@ -2136,6 +2141,7 @@
   "manager.jobs.kind.media_rotate": "Ţûřñ ɱèđîà",
   "manager.jobs.kind.table_settings": "Ţàƀŀè šèţţîñĝš",
   "manager.jobs.kind.marks": "Ḿàřķš",
+  "manager.jobs.kind.backglass_order": "ĐḾĐ öřđèř",
   "manager.jobs.kind.backups_move": "Ḿöṽè ƀàçķûþš",
   "manager.jobs.kind.media_capture": "Řèçöřđîñĝ",
   "manager.jobs.kind.tools_get": "Ţööŀ đöŵñŀöàđ",
@@ -4998,6 +5004,7 @@
   "error.dof_config.no_folder": "Ţĥîš đèṽîçè ĥàš ñö ƒöŀđèř ƒöř ţĥè ĐÖƑ çöñƒîĝ",
   "error.jobs.settings_busy": "Šèţţîñĝš àřè àŀřèàđý ƀèîñĝ ŵřîţţèñ ţö öţĥèř ţàƀŀèš",
   "error.jobs.marks_busy": "À šèŀèçţîöñ îš àŀřèàđý ƀèîñĝ ŵřîţţèñ",
+  "error.jobs.order_busy": "Ţĥè ĐḾĐ öřđèř îš šţîŀŀ ƀèîñĝ šèţ ƒöř ţĥè öţĥèř ţàƀŀèš",
   "error.marks.none": "Ñöţĥîñĝ ŵàš ñàɱèđ ţö çĥàñĝè",
   "error.marks.not_here": "Ţĥèšè çàññöţ ƀè šèţ ĥèřè: {keys}",
   "error.jobs.library_busy": "Ţĥè ŀîƀřàřý îš ƀûšý - ţřý àĝàîñ ŵĥèñ îţ ƒîñîšĥèš",
@@ -5838,6 +5845,11 @@
   "said.table_settings": {
     "one": "Çĥàñĝîñĝ šèţţîñĝš, {count:n} ţàƀŀè ţö ĝö",
     "other": "Çĥàñĝîñĝ šèţţîñĝš, {count:n} ţàƀŀèš ţö ĝö"
+  },
+  "said.table_order": "Šèţţîñĝ ţĥè ĐḾĐ öřđèř",
+  "said.job_table_order": {
+    "one": "{count:n} ţàƀŀè šèţ, {failed:n} ñöţ",
+    "other": "{count:n} ţàƀŀèš šèţ, {failed:n} ñöţ"
   },
   "said.marks": {
     "one": "Šàṽîñĝ, {count:n} ţö ĝö",

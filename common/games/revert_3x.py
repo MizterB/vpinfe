@@ -31,10 +31,11 @@ logger = logging.getLogger("vpinfe.common.games.revert_3x")
 # for anything backup-shaped also eats the hand-made .bak-repro files kept beside them.
 CONFIG_FILES = ("vpinfe.json", COLLECTIONS_NAME, "players.json",
                 "manager-ui-state.json")
-# The same, in the state folder. `dismissed.json`, `arrivals.json` and `marks.json` are 3.0
-# data with no 2.x original: a reset library that kept them would measure against an install
-# that no longer exists.
-STATE_FILES = ("devices.json", "dismissed.json", "arrivals.json", "marks.json")
+# The same, in the state folder. `dismissed.json`, `arrivals.json`, `marks.json` and
+# `draw_order.json` are 3.0 data with no 2.x original: a reset library that kept them would
+# measure against an install that no longer exists.
+STATE_FILES = ("devices.json", "dismissed.json", "arrivals.json", "marks.json",
+               "draw_order.json")
 
 # Whose `.vpinfe-*` copies are ours to remove. The ini pair is what the conversion to
 # JSON set aside; the JSON pair is what a restore keeps before it replaces one.

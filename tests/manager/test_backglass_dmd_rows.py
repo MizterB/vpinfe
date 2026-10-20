@@ -116,7 +116,8 @@ class TheWrite(unittest.IsolatedAsyncioTestCase):
                              lambda message, **kwargs: self.notified.append(
                                  {"message": message, **kwargs})),
                 patch.object(offload, "io", AsyncMock(side_effect=lambda call, *a: call(*a))),
-                patch.object(wb_file, "_form_again", self.again)):
+                patch.object(wb_file, "_form_again", self.again),
+                patch("manager.kit.on_page.ui")):
             target.start()
             self.addCleanup(target.stop)
         self.library = self.context["library"]
@@ -165,6 +166,20 @@ class TheWrite(unittest.IsolatedAsyncioTestCase):
         self.assertEqual("Saved in the backglass file", said)
         self.library.undo_backglass_displays.assert_called_once_with("g", "tok")
         self.assertEqual([], self.glass["displays"])
+
+    async def test_a_table_the_write_could_not_order_is_named_for_the_write_and_its_undo(
+            self) -> None:
+        gone = [{"table": "t1", "name": "t1.vpx", "reason": "read-only"}]
+        self.library.place_backglass_displays.return_value = {
+            "displays": [BOX], "version": "v2", "undo": "tok", "order_failed": gone}
+        self.library.undo_backglass_displays.return_value = {
+            "displays": [], "version": "v3", "undo": "", "order_failed": gone}
+
+        with patch.object(wb_file.order_notice, "tell") as tell:
+            await self.place()
+            await self.offered[0][1]()
+
+        self.assertEqual([((gone,),), ((gone,),)], tell.call_args_list)
 
     async def test_a_write_that_changed_nothing_offers_no_undo(self) -> None:
         self.library.place_backglass_displays.return_value = {

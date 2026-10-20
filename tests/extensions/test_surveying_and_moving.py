@@ -174,6 +174,16 @@ class MovingTests(TempTree):
 
         self.assertTrue(self.table.exists())
 
+    def test_a_table_added_settles_the_order_of_its_game(self) -> None:
+        games = self._games(writes=False)
+        folder = self._entry()
+
+        with mock.patch.object(ExtensionGames, "folder", return_value=folder), \
+                mock.patch("common.games.backglass_order.settle") as settle:
+            games.add_table("g1", self.table)
+
+        settle.assert_called_once_with("g1")
+
     def test_a_file_outside_what_it_declared_is_not_moved_either(self) -> None:
         games = self._games(writes=True)
         folder = self._entry()

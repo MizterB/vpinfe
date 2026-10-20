@@ -221,6 +221,20 @@ class AssetWrites(TempTree):
         self.assertFalse((self.folder / "AFM VR.directb2s").exists())
         self.assertTrue((self.folder / "AFM VR.vpx").exists())
 
+    def test_a_backglass_placed_or_removed_settles_the_game_s_order(self) -> None:
+        with patch("common.games.backglass_order.settle") as settle:
+            self._put("backglass", "anything.directb2s", b"new backglass", "vr")
+            self.client.delete(f"/games/{GAME_ID}/assets", params={"path": "AFM VR.directb2s"})
+
+        self.assertEqual([((GAME_ID,),), ((GAME_ID,),)], settle.call_args_list)
+
+    def test_a_file_that_is_not_a_backglass_settles_nothing(self) -> None:
+        with patch("common.games.backglass_order.settle") as settle:
+            self._put("ini", "settings.ini", b"[Player]")
+            self.client.delete(f"/games/{GAME_ID}/assets", params={"path": "extras/notes.txt"})
+
+        settle.assert_not_called()
+
     def test_removing_a_table_or_a_path_out_of_the_folder_is_refused(self) -> None:
         for path in ("AFM VR.vpx", "../outside.ini"):
             with self.subTest(path=path):

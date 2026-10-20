@@ -18,7 +18,14 @@ from pathlib import Path
 from typing import Any
 
 from common import apps, failures, i18n, service_errors
-from common.apps.contract import SCOPE_ENTRY, SCOPE_FOLDER, SCOPE_LAUNCHER, Leftover, Standing
+from common.apps.contract import (
+    SCOPE_ENTRY,
+    SCOPE_FOLDER,
+    SCOPE_LAUNCHER,
+    Leftover,
+    Standing,
+    TableOrder,
+)
 from common.config import config_schema, path_state
 from common.games import game_repository, launchers, library_folders, tables
 from common.games.table_identity import find_table_by_id
@@ -406,10 +413,14 @@ def _curated(app_id: str, group: apps.ConfigGroup, shown: set[str]) -> list[dict
     return found
 
 
-def write_config(launcher_id: str, body: dict[str, Any]) -> dict[str, Any] | jobs.Job:
+def write_config(launcher_id: str, body: dict[str, Any], *,
+                 settle: bool = True) -> dict[str, Any] | jobs.Job:
     """Values at one scope. The app writes them into its own file in place, and names
     under `cleared` the ones it cleared instead, for holding the launcher's own value.
-    Given `tables`, more than one, the same values go into each as a job."""
+    Given `tables`, more than one, the same values go into each as a job.
+
+    A value that decides the draw order of a table's backglass and score display brings the
+    tables it reaches to what their backglass files place, unless `settle` is off."""
     found = launcher_or_refuse(launcher_id)
     config = _app_settings_surface(found)
     if config is None:
@@ -442,8 +453,11 @@ def write_config(launcher_id: str, body: dict[str, Any]) -> dict[str, Any] | job
             else "error.launchers.all_tables_only", app_name=(apps.app_name(found.app)),
             keys=(", ".join(refused))))
 
+    orders = settle and bool(set(writing) & set(getattr(config, "order_keys", tuple)()))
+    if orders and scope == SCOPE_LAUNCHER:
+        _order().refuse_while_running()
     if len(ids) > 1:
-        return _write_tables(found, config, settings, scope, ids, writing)
+        return _write_tables(found, config, settings, scope, ids, writing, orders)
 
     if body.get("create") and scope == SCOPE_LAUNCHER and not config_files(found):
         # Only when asked: a write on its own refuses where the program has no file yet.
@@ -462,12 +476,15 @@ def write_config(launcher_id: str, body: dict[str, Any]) -> dict[str, Any] | job
         cleared = config.write(scope, table, writing, settings)
     except ValueError as exc:
         raise _cannot_write(found) from exc
-    if scope == SCOPE_LAUNCHER and set(writing) & set(getattr(config, "order_keys", tuple)()):
-        # Imported here: it is built on this module.
-        from common.games import backglass_order
-
-        backglass_order.settle_launcher(found.launcher_id)
-    return {"written": sorted(set(writing) - cleared), "cleared": sorted(cleared)}
+    answer: dict[str, Any] = {"written": sorted(set(writing) - cleared),
+                              "cleared": sorted(cleared)}
+    if orders and scope == SCOPE_LAUNCHER:
+        started = _order().settle_launcher(found.launcher_id)
+        if started is not None:
+            answer["settling"] = started.id
+    elif orders:
+        _order().settle_table(ids[0] if ids else str(body.get("table") or ""))
+    return answer
 
 
 def left_behind(launcher_id: str) -> tuple[Leftover, ...]:
@@ -478,15 +495,17 @@ def left_behind(launcher_id: str) -> tuple[Leftover, ...]:
     return ask(_launcher_settings(found)) if ask is not None else ()
 
 
-def backglass_order(table_id: str, in_file: bool) -> dict[str, str]:
-    """The values this table's own settings should hold for the order its backglass and score
-    display draw in, as its app says, given whether its backglass file places a Score View
-    DMD; a blank takes the key out. Nothing where its app has no such order."""
-    launcher = _launcher_of(table_id)
-    ask = getattr(_app_settings_surface(launcher), "backglass_order", None)
+def backglass_order(launcher_id: str, target: str, in_file: bool,
+                    written: dict[str, str]) -> TableOrder:
+    """What the table whose game file is `target` should hold in its own settings for the
+    order its backglass and score display draw in, as the launcher's app says, given whether
+    its backglass file places a Score View DMD and what was recorded as written there.
+    Nothing where the app has no such order."""
+    found = launcher_or_refuse(launcher_id)
+    ask = getattr(_app_settings_surface(found), "backglass_order", None)
     if ask is None:
-        return {}
-    return dict(ask(_game_file(table_id), _launcher_settings(launcher), in_file))
+        return TableOrder()
+    return ask(target, _launcher_settings(found), in_file, written)
 
 
 def refuse_unwritable(launcher_id: str) -> None:
@@ -495,7 +514,8 @@ def refuse_unwritable(launcher_id: str) -> None:
     _writable_before_writing(launcher_or_refuse(launcher_id), SCOPE_LAUNCHER, "")
 
 
-def write_table_settings(table_id: str, values: dict[str, Any]) -> dict[str, Any] | jobs.Job:
+def write_table_settings(table_id: str, values: dict[str, Any], *,
+                         settle: bool = True) -> dict[str, Any] | jobs.Job:
     """Values for one table alone, in the settings file its program keeps beside it.
 
     Named for the table rather than a launcher: the caller is holding a table it just
@@ -504,7 +524,8 @@ def write_table_settings(table_id: str, values: dict[str, Any]) -> dict[str, Any
     follow anyway is not written, and a table left with nothing to keep has no file.
     """
     return write_config(_launcher_of(table_id).launcher_id,
-                        {"scope": SCOPE_ENTRY, "table": table_id, "values": dict(values)})
+                        {"scope": SCOPE_ENTRY, "table": table_id, "values": dict(values)},
+                        settle=settle)
 
 
 def _launcher_of(table_id: str) -> launchers.Launcher:
@@ -524,8 +545,16 @@ def _launcher_of(table_id: str) -> launchers.Launcher:
     return launcher
 
 
+def _order() -> Any:
+    # Imported here: it is built on this module.
+    from common.games import backglass_order
+
+    return backglass_order
+
+
 def _write_tables(launcher: launchers.Launcher, config: Any, settings: dict[str, Any],
-                  scope: str, ids: list[str], writing: dict[str, str]) -> jobs.Job:
+                  scope: str, ids: list[str], writing: dict[str, str],
+                  orders: bool = False) -> jobs.Job:
     """The same values written into each of several tables' own files, as a job: one table
     that cannot be found or written is named in the result and the rest go on. A table the
     job was stopped before reaching is in neither list."""
@@ -549,6 +578,9 @@ def _write_tables(launcher: launchers.Launcher, config: Any, settings: dict[str,
                 failed.append({"table": table_id, "reason": failures.why(exc)})
             else:
                 written.append(table_id)
+        if orders:
+            for table_id in written:
+                failed.extend(_order().settle_table(table_id))
         return {"tables": len(ids), "written": written, "failed": failed}
 
     return jobs.submit(jobs.KIND_TABLE_SETTINGS, work)

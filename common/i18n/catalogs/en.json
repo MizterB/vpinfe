@@ -809,6 +809,11 @@
   "manager.backglass.dmd_file.switch.hint": "On puts the DMD in the backglass file, off takes it out",
   "manager.backglass.dmd_file.toast": "Saved in the backglass file",
   "manager.backglass.dmd_file.no_undo": "Saved in the backglass file, with no Undo",
+  "manager.order.failed": {
+    "one": "The DMD order could not be set for {count:n} table",
+    "other": "The DMD order could not be set for {count:n} tables"
+  },
+  "manager.order.failed.line": "{name}: {reason}",
   "manager.backglass.dmd_file.w": "Width",
   "manager.backglass.dmd_file.x": "X",
   "manager.backglass.dmd_file.y": "Y",
@@ -2136,6 +2141,7 @@
   "manager.jobs.kind.media_rotate": "Turn media",
   "manager.jobs.kind.table_settings": "Table settings",
   "manager.jobs.kind.marks": "Marks",
+  "manager.jobs.kind.backglass_order": "DMD order",
   "manager.jobs.kind.backups_move": "Move backups",
   "manager.jobs.kind.media_capture": "Recording",
   "manager.jobs.kind.tools_get": "Tool download",
@@ -4998,6 +5004,7 @@
   "error.dof_config.no_folder": "This device has no folder for the DOF config",
   "error.jobs.settings_busy": "Settings are already being written to other tables",
   "error.jobs.marks_busy": "A selection is already being written",
+  "error.jobs.order_busy": "The DMD order is still being set for the other tables",
   "error.marks.none": "Nothing was named to change",
   "error.marks.not_here": "These cannot be set here: {keys}",
   "error.jobs.library_busy": "The library is busy - try again when it finishes",
@@ -5838,7 +5845,12 @@
   "said.table_settings": {
     "one": "Changing settings, {count:n} table to go",
     "other": "Changing settings, {count:n} tables to go"
+  },  "said.table_order": "Setting the DMD order",
+  "said.job_table_order": {
+    "one": "{count:n} table set, {failed:n} not",
+    "other": "{count:n} tables set, {failed:n} not"
   },
+
   "said.marks": {
     "one": "Saving, {count:n} to go",
     "other": "Saving, {count:n} to go"

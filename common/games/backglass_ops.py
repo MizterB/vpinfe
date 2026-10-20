@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 from common import service_errors
 from common.games import (
@@ -29,9 +29,12 @@ KIND = "backglass"
 
 
 def _file(game_id: str, table_id: str, path: str) -> Path:
+    return _file_of(game_lens.game_or_refuse(game_id), table_id, path)
+
+
+def _file_of(game: Any, table_id: str, path: str) -> Path:
     """The backglass file named by `path`, or else the one `table_id` reads. Where no
     table is named it is the folder's own, and failing that the default table's."""
-    game = game_lens.game_or_refuse(game_id)
     game_dir = Path(game.full_path_game or "")
     if path:
         found = asset_lens.inside(game_dir, path)
@@ -168,6 +171,12 @@ def _drawn(game_id: str, table_id: str) -> tuple[Path, str]:
     return served.path, file_md5(served.path)
 
 
+def _intact(found: Path) -> Any | None:
+    """What the file says about itself, or None where it is damaged."""
+    facts = directb2s_parser.read(found)
+    return None if facts is None or directb2s_parser.damaged(facts) else facts
+
+
 def _seen(game_id: str, table_id: str) -> tuple[Path, Any] | None:
     """The file `table_id` reads and what it says about itself, or None where it reads
     none or the one it reads is damaged."""
@@ -175,10 +184,8 @@ def _seen(game_id: str, table_id: str) -> tuple[Path, Any] | None:
         found = _file(game_id, table_id, "")
     except service_errors.NotFoundError:
         return None
-    facts = directb2s_parser.read(found)
-    if facts is None or directb2s_parser.damaged(facts):
-        return None
-    return found, facts
+    facts = _intact(found)
+    return None if facts is None else (found, facts)
 
 
 def offer(game_id: str, table_id: str = "") -> dict | None:
@@ -224,20 +231,54 @@ def files_of(launcher_id: str) -> list[dict[str, Any]]:
     return list(found.values())
 
 
-def score_dmds(game_id: str, launcher_id: str = "") -> dict[str, bool]:
-    """By table id, whether the backglass file the table reads places a Score View DMD, for
-    each table of the game whose launcher has settings of its own and that reads a file
-    that can be read. With `launcher_id`, only the tables that launcher plays."""
-    game = game_lens.game_or_refuse(game_id)
-    found: dict[str, bool] = {}
+class Scored(NamedTuple):
+    """One table, the launcher that plays it, the game file its settings sit beside, and
+    whether the backglass file it reads places a Score View DMD."""
+
+    table: str
+    launcher: str
+    file: str
+    in_file: bool
+
+
+_PLACES: dict[Path, tuple[int, int, bool]] = {}
+
+
+def _places_dmd(found: Path) -> bool | None:
+    """Whether the file places a Score View DMD, None where it is damaged. Held by size and
+    date, so a library is read once."""
+    stamp = found.stat()
+    held = _PLACES.get(found)
+    if held is not None and held[:2] == (stamp.st_mtime_ns, stamp.st_size):
+        return held[2]
+    facts = _intact(found)
+    if facts is None:
+        return None
+    places = any(one.target == "ScoreView" and not one.source for one in facts.displays)
+    _PLACES[found] = (stamp.st_mtime_ns, stamp.st_size, places)
+    return places
+
+
+def score_dmds(game: Any, launcher_id: str = "") -> list[Scored]:
+    """For each table of the game whose launcher has settings of its own, whether the
+    backglass file it reads places a Score View DMD: false for a table that reads none.
+    A table whose file is damaged or cannot be read is left out. With `launcher_id`, only
+    the tables that launcher plays."""
+    found: list[Scored] = []
     for row in _table_rows(game, ""):
         if (not row.get("launcher") or not row.get("launcher_app_configurable")
                 or launcher_id and row["launcher"] != launcher_id):
             continue
-        seen = _seen(game_id, row["id"])
-        if seen is not None:
-            found[row["id"]] = any(one.target == "ScoreView" and not one.source
-                                   for one in seen[1].displays)
+        try:
+            places = _places_dmd(_file_of(game, row["id"], ""))
+        except service_errors.NotFoundError:
+            places = False
+        except OSError:
+            continue
+        if places is not None:
+            found.append(Scored(row["id"], row["launcher"],
+                                str(Path(game.full_path_game or "") / row["filename"]),
+                                places))
     return found
 
 
@@ -300,6 +341,6 @@ def redraw_all(proceed: Callable[[], bool] = lambda: True) -> int:
     return total
 
 
-__all__ = ["B2S", "KIND", "LEGACY", "NONE", "cuts_grill", "files_of", "grill_cut", "offer",
-           "picture_file", "place_picture", "redraw", "redraw_all", "renderer", "score_dmds",
-           "scoreview_file"]
+__all__ = ["B2S", "KIND", "LEGACY", "NONE", "Scored", "cuts_grill", "files_of", "grill_cut",
+           "offer", "picture_file", "place_picture", "redraw", "redraw_all", "renderer",
+           "score_dmds", "scoreview_file"]

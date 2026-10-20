@@ -100,6 +100,13 @@ def _table_settings(result: Any) -> str:
              failed=len(result.get("failed") or ()))
 
 
+def _backglass_order(result: Any) -> str:
+    if not isinstance(result, dict) or "written" not in result:
+        return ""
+    return t("said.job_table_order", count=len(result["written"]),
+             failed=len(result.get("failed") or ()))
+
+
 def _marks(result: Any) -> str:
     if not isinstance(result, dict) or "written" not in result:
         return ""
@@ -135,5 +142,6 @@ _KINDS: dict[str, Callable[[Any], str]] = {
     jobs.KIND_TOOL_GET: _tool,
     jobs.KIND_TABLE_SETTINGS: _table_settings,
     jobs.KIND_MARKS: _marks,
+    jobs.KIND_BACKGLASS_ORDER: _backglass_order,
     jobs.KIND_DOF_CONFIG: _dof_config,
 }

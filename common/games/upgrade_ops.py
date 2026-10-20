@@ -137,8 +137,19 @@ def _write(launcher_id: str, values: dict[str, str]) -> None:
     launcher_ops.write_config(launcher_id, {"scope": SCOPE_LAUNCHER, "values": values})
 
 
-def _answer(token: str, moved: list[str], held_back: list[dict[str, Any]]) -> dict[str, Any]:
-    return {"moved": moved, "held_back": held_back, "undo": token}
+def _answer(token: str, moved: list[str], held_back: list[dict[str, Any]],
+            order_failed: list[dict[str, str]] | None = None) -> dict[str, Any]:
+    return {"moved": moved, "held_back": held_back, "undo": token,
+            "order_failed": order_failed or []}
+
+
+def _settled(placed: list[tuple[str, str, str]]) -> list[dict[str, str]]:
+    """Each game a file was written for, brought to what its files place now. The tables
+    that could not be written, each with why."""
+    failed: list[dict[str, str]] = []
+    for game_id in dict.fromkeys(game for game, _path, _token in placed):
+        failed.extend(backglass_order.settle(game_id))
+    return failed
 
 
 class _Box:
@@ -222,6 +233,7 @@ def move(launcher_id: str) -> dict[str, Any]:
     undoes it all."""
     items = list(launcher_ops.left_behind(launcher_id))
     launcher_ops.refuse_unwritable(launcher_id)
+    backglass_order.refuse_while_running()
     planned = _plan(launcher_id, items)
     _refuse_unkeepable(planned)
     values: dict[str, str] = {}
@@ -257,12 +269,11 @@ def move(launcher_id: str) -> dict[str, Any]:
     except BaseException:
         _roll_back(placed)
         raise
-    for game_id in dict.fromkeys(game for game, _path, _token in placed):
-        backglass_order.settle(game_id)
+    failed = _settled(placed)
     if not values and not placed:
-        return _answer("", moved, held_back)
+        return _answer("", moved, held_back, failed)
     token = _remember(_Done(launcher_id, before, values, placed))
-    return _answer(token, moved, held_back)
+    return _answer(token, moved, held_back, failed)
 
 
 def turn_on(launcher_id: str, key: str) -> dict[str, Any]:
@@ -273,6 +284,7 @@ def turn_on(launcher_id: str, key: str) -> dict[str, Any]:
     if item is None:
         raise service_errors.NotFoundError(t("error.upgrade.unnamed", key=key))
     launcher_ops.refuse_unwritable(launcher_id)
+    backglass_order.refuse_while_running()
     _write(launcher_id, {item.to: item.new_value})
     token = _remember(_Done(launcher_id, {item.to: item.value}, {item.to: item.new_value}))
     return _answer(token, [key], [])
@@ -306,17 +318,18 @@ def undo(launcher_id: str, token: str) -> dict[str, Any]:
     if done is None:
         raise service_errors.NotFoundError(t("error.upgrade.expired"))
     try:
-        _put_back(launcher_id, done)
+        failed = _put_back(launcher_id, done)
     except BaseException:
         with _lock:
             _done[token] = done
         raise
-    return {"restored": sorted(done.before)}
+    return {"restored": sorted(done.before), "order_failed": failed}
 
 
-def _put_back(launcher_id: str, done: _Done) -> None:
+def _put_back(launcher_id: str, done: _Done) -> list[dict[str, str]]:
     if done.before:
         launcher_ops.refuse_unwritable(launcher_id)
+    backglass_order.refuse_while_running()
     held = launcher_ops.effective_values(launcher_id)
     if any(held.get(key, "") != value for key, value in done.after.items() if value):
         raise service_errors.BlockedError(t("error.upgrade.changed"))
@@ -329,10 +342,10 @@ def _put_back(launcher_id: str, done: _Done) -> None:
         except (service_errors.ServiceError, OSError) as exc:
             stuck.append({"path": path, "reason": failures.why(exc)})
             left.append((game_id, path, one))
-    for game_id in dict.fromkeys(game for game, _path, _token in done.placed):
-        backglass_order.settle(game_id)
+    failed = _settled(done.placed)
     if stuck:
         done.placed = list(reversed(left))
         raise service_errors.BlockedError(t("error.upgrade.files"), details={"files": stuck})
     if done.before:
         _write(launcher_id, done.before)
+    return failed

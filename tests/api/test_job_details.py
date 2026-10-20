@@ -46,6 +46,12 @@ class Describers(unittest.TestCase):
 
         self.assertEqual(t("said.job_table_settings", count=3, failed=2), said)
 
+    def test_a_draw_order_pass_counts_the_tables_written_and_not(self) -> None:
+        said = job_details.of(jobs.KIND_BACKGLASS_ORDER,
+                              {"games": 9, "written": ["a", "b"], "failed": [{}]})
+
+        self.assertEqual(t("said.job_table_order", count=2, failed=1), said)
+
     def test_a_selection_write_says_how_many_rows_it_changed(self) -> None:
         said = job_details.of(jobs.KIND_MARKS, {"rows": 4, "written": [{}, {}, {}],
                                                 "failed": [{}]})

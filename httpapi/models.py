@@ -2143,15 +2143,26 @@ class AssetDisplayPlace(ApiModel):
     h: int | None = Field(default=None, ge=1, le=100000)
 
 
+class TableOrderFailed(ApiModel):
+    """A table whose own settings could not be written for the order its backglass and score
+    display draw in: its id, the file it plays, and why."""
+
+    table: str
+    name: str
+    reason: str
+
+
 class AssetDisplaysWritten(ApiModel):
     """The DMDs the file now places, its new `version`, and `undo`, the token that takes the
     change back, empty where nothing changed or where the change was too big to keep, which
-    `undo_refused` then says as `too_large`."""
+    `undo_refused` then says as `too_large`. `order_failed` names the tables of the game whose
+    draw order could not be brought to what the file now places."""
 
     displays: list[AssetDisplay]
     version: str
     undo: str
     undo_refused: str = ""
+    order_failed: list[TableOrderFailed] = []
 
 
 class AssetDisplaysUndo(ApiModel):

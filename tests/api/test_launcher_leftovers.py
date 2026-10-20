@@ -4,6 +4,7 @@ each backglass file, and the one undo that takes both back."""
 from __future__ import annotations
 
 import stat
+import threading
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import patch
@@ -23,6 +24,7 @@ from common.games import (
 from common.games.formats import directb2s_parser
 from common.host import launch_state
 from common.media import sized_media
+from common.runtime import jobs
 from tests.api.test_backglass_picture import FOLDER, GAME_ID, _directb2s
 from tests.support.library import TempTree, fake_game, write_game
 
@@ -348,6 +350,40 @@ class Ordering(Upgrade):
             upgrade_ops.move("L1")
 
         settle.assert_not_called()
+
+    def test_a_table_that_could_not_be_written_is_named_by_the_move_and_by_its_undo(self) -> None:
+        self.items = [SCORE]
+        gone = [{"table": "t1", "name": "t1.vpx", "reason": "read-only"}]
+        with patch.object(backglass_order, "settle", return_value=gone):
+            answer = upgrade_ops.move("L1")
+            undone = upgrade_ops.undo("L1", answer["undo"])
+
+        self.assertEqual(answer["order_failed"], gone)
+        self.assertEqual(undone["order_failed"], gone)
+
+    def test_a_move_with_every_table_written_names_none(self) -> None:
+        self.items = [SCORE]
+        with patch.object(backglass_order, "settle", return_value=[]):
+            self.assertEqual(upgrade_ops.move("L1")["order_failed"], [])
+
+    def test_a_pass_over_the_library_still_running_refuses_the_move_and_the_undo_whole(
+            self) -> None:
+        self.items = [SCORE]
+        with patch.object(backglass_order, "settle", return_value=[]):
+            token = upgrade_ops.move("L1")["undo"]
+        written = self.path.read_bytes()
+        release = threading.Event()
+        jobs.reset_for_tests()
+        self.addCleanup(jobs.reset_for_tests)
+        jobs.submit(jobs.KIND_BACKGLASS_ORDER, lambda _job: release.wait(5))
+        self.addCleanup(release.set)
+
+        with self.assertRaises(jobs.JobBusyError):
+            upgrade_ops.undo("L1", token)
+        with self.assertRaises(jobs.JobBusyError):
+            upgrade_ops.move("L1")
+
+        self.assertEqual(self.path.read_bytes(), written, "the file is untouched")
 
 
 class Safety(Upgrade):

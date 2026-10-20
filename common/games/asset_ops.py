@@ -105,6 +105,13 @@ def _redraw_picture(game_id: str) -> None:
         logger.exception("Could not redraw the backglass picture of %s", game_id)
 
 
+def _settle_order(game_id: str) -> None:
+    """The tables of the game draw in the order its backglass files now call for."""
+    from common.games import backglass_order
+
+    backglass_order.settle(game_id)
+
+
 def place_file(game_id: str, kind: str, table_id: str, source: Path,
                filename: str = "") -> dict:
     """Copy `source` in under this tier's name, replacing what was there.
@@ -129,6 +136,7 @@ def place_file(game_id: str, kind: str, table_id: str, source: Path,
     media_placement.record_origin(game_dir, target)
     if found_kind.key == "backglass":
         _redraw_picture(game_id)
+        _settle_order(game_id)
     return {"written": target.name, "displaced": going}
 
 
@@ -143,6 +151,9 @@ def remove(game_id: str, path: str) -> dict:
         shutil.rmtree(found)
     elif found.suffix.lower() in _EXTENSIONS and found.is_file():
         found.unlink()
+        if any(kind.key == "backglass" and kind.extension == found.suffix.lower()
+               for kind in VPX_ASSET_KINDS):
+            _settle_order(game_id)
     else:
         raise service_errors.RefusedError(t("error.assets.not_removable"),
                                           details={"path": path})

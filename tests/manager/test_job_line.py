@@ -5,13 +5,19 @@ from __future__ import annotations
 import unittest
 
 from common.capture import run
-from common.runtime.jobs import KIND_LIBRARY_SCAN, KIND_MEDIA_FILL, KIND_VPS_ROLLUP
+from common.runtime.jobs import (
+    KIND_BACKGLASS_ORDER,
+    KIND_LIBRARY_SCAN,
+    KIND_MEDIA_FILL,
+    KIND_VPS_ROLLUP,
+)
 from manager.library import record
 from manager.page import (
     comparisons_ended_since,
     failed_since,
     imports_ended_since,
     list_is_idle,
+    orders_unset_since,
     reads_ended_since,
 )
 from manager.settings.library_folders import KIND_IMPORT
@@ -55,6 +61,37 @@ class FailedSinceTests(unittest.TestCase):
 def _read(job_id: str, state: str = "done", finished_at: float | None = 1010.0,
           kind: str = KIND_LIBRARY_SCAN) -> dict:
     return {**_job(job_id, state, finished_at), "kind": kind}
+
+
+def _pass(job_id: str, problems: int = 1, state: str = "done",
+          finished_at: float | None = 1010.0) -> dict:
+    return {**_job(job_id, state, finished_at), "kind": KIND_BACKGLASS_ORDER,
+            "problems": problems}
+
+
+class OrdersUnsetSinceTests(unittest.TestCase):
+    """A pass over the tables' DMD order is told of only when it left a table unwritten."""
+
+    def test_one_that_ended_after_the_page_opened_with_a_table_unwritten_is_told(self) -> None:
+        self.assertEqual(orders_unset_since([_pass("j1")], OPENED, set()), ["j1"])
+
+    def test_one_that_wrote_every_table_is_not_told(self) -> None:
+        self.assertEqual(orders_unset_since([_pass("j1", problems=0)], OPENED, set()), [])
+
+    def test_one_older_than_the_page_or_already_told_is_not_told(self) -> None:
+        jobs = [_pass("j1", finished_at=990.0), _pass("j2")]
+
+        self.assertEqual(orders_unset_since(jobs, OPENED, {"j2"}), [])
+
+    def test_one_running_or_failed_is_not_told(self) -> None:
+        jobs = [_pass("j2", state="running", finished_at=None), _pass("j1", state="failed")]
+
+        self.assertEqual(orders_unset_since(jobs, OPENED, set()), [])
+
+    def test_another_kind_with_problems_is_not_told(self) -> None:
+        other = {**_pass("j1"), "kind": KIND_MEDIA_FILL}
+
+        self.assertEqual(orders_unset_since([other], OPENED, set()), [])
 
 
 class ReadsEndedSinceTests(unittest.TestCase):

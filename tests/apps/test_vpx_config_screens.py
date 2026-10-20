@@ -13,7 +13,7 @@ from unittest import mock
 from apps.vpx import ini as vini
 from apps.vpx import screens as vs
 from apps.vpx.config import preferences_file
-from common.apps.contract import SCOPE_ENTRY, SCOPE_LAUNCHER, Program
+from common.apps.contract import SCOPE_ENTRY, SCOPE_LAUNCHER, Program, TableOrder
 from tests.apps.test_vpx_config import APP_INI, _Case
 
 LAUNCHER = SCOPE_LAUNCHER
@@ -292,34 +292,76 @@ class TheBackglassOrderTests(_Case):
         patcher.start()
         self.addCleanup(patcher.stop)
 
-    def order(self, in_file: bool) -> dict[str, str]:
-        return self.config.backglass_order(str(self.table), self.settings, in_file)
+    SWAPPED = {"ScoreView.Priority.B2S": "2", "ScoreView.Priority.Nixie": "1"}
+
+    def order(self, in_file: bool, written: dict[str, str] | None = None) -> TableOrder:
+        return self.config.backglass_order(str(self.table), self.settings, in_file, written)
+
+    def put(self, order: TableOrder) -> None:
+        self.config.write(SCOPE_ENTRY, str(self.table), order.write, self.settings)
 
     def test_a_file_that_places_a_dmd_swaps_b2s_and_nixie_in_the_table(self) -> None:
-        values = self.order(True)
+        got = self.order(True)
 
-        self.assertEqual(values, {"ScoreView.Priority.B2S": "2", "ScoreView.Priority.Nixie": "1"})
+        self.assertEqual(got, TableOrder(write=self.SWAPPED, ours=self.SWAPPED))
 
     def test_written_to_the_table_it_is_read_back_and_the_launcher_is_untouched(self) -> None:
-        self.config.write(SCOPE_ENTRY, str(self.table), self.order(True), self.settings)
+        first = self.order(True)
+        self.put(first)
 
         mine = self.config.read(SCOPE_ENTRY, str(self.table), self.settings)
         self.assertEqual((mine["ScoreView.Priority.B2S"].value,
                           mine["ScoreView.Priority.Nixie"].value), ("2", "1"))
         self.assertEqual(self.app_ini.read_text(), APP_INI + self.ORDER)
-        self.assertEqual(self.order(True), {})
+        self.assertEqual(self.order(True, first.ours), TableOrder(ours=self.SWAPPED))
 
-    def test_taking_the_dmd_out_clears_the_two_and_the_file_goes_with_them(self) -> None:
-        self.config.write(SCOPE_ENTRY, str(self.table), self.order(True), self.settings)
+    def test_taking_the_dmd_out_clears_the_recorded_pair_and_the_file_goes_with_it(self) -> None:
+        first = self.order(True)
+        self.put(first)
 
-        self.config.write(SCOPE_ENTRY, str(self.table), self.order(False), self.settings)
+        self.put(self.order(False, first.ours))
 
         self.assertFalse(self.table.with_suffix(".ini").exists())
+
+    def test_a_pair_that_was_not_recorded_survives_the_dmd_going(self) -> None:
+        self.put(self.order(True))
+
+        self.assertEqual(self.order(False), TableOrder())
+        self.assertTrue(self.table.with_suffix(".ini").exists())
+
+    def test_a_recorded_pair_follows_the_launcher_when_its_ranks_change(self) -> None:
+        first = self.order(True)
+        self.put(first)
+        self.app_ini.write_text(APP_INI + self.ORDER.replace("Nixie = 2", "Nixie = 5"))
+
+        got = self.order(True, first.ours)
+
+        self.assertEqual(got.write, {"ScoreView.Priority.B2S": "5",
+                                     "ScoreView.Priority.Nixie": "1"})
 
     def test_a_table_that_follows_a_folder_file_is_left_alone(self) -> None:
         self.folder_file("[Backglass]\nBackglassOutput = 0\n")
 
-        self.assertEqual(self.order(True), {})
+        self.assertEqual(self.order(True), TableOrder())
+
+    def test_a_table_that_turns_b2s_off_for_itself_is_left_alone(self) -> None:
+        self.table.with_suffix(".ini").write_text("[Plugin.B2S]\nEnable = 0\n")
+
+        self.assertEqual(self.order(True), TableOrder())
+
+    def test_a_table_that_turns_b2s_on_for_itself_is_swapped_where_the_launcher_has_it_off(
+            self) -> None:
+        self.app_ini.write_text(APP_INI + self.ORDER.replace("Enable = 1", "Enable = 0"))
+        self.assertEqual(self.order(True), TableOrder())
+        self.table.with_suffix(".ini").write_text("[Plugin.B2S]\nEnable = 1\n")
+
+        self.assertEqual(self.order(True).write, self.SWAPPED)
+
+    def test_the_two_enable_switches_are_among_the_keys_a_table_write_settles_on(self) -> None:
+        keys = self.config.order_keys()
+
+        self.assertTrue({"Plugin.B2S.Enable", "Plugin.B2SLegacy.Enable",
+                         "ScoreView.Priority.B2S", "ScoreView.Priority.Nixie"} <= set(keys))
 
 
 if __name__ == "__main__":

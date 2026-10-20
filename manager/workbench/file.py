@@ -24,6 +24,7 @@ from manager.kit import (
     deeplink,
     media_ownership,
     offload,
+    order_notice,
     panel,
     undo,
     verbs,
@@ -657,6 +658,7 @@ async def _place_displays(context: dict[str, Any], glass: dict[str, Any], path: 
         await _form_again(inner)
         return
     await _displays_drawn(context, glass, wrote)
+    order_notice.tell(wrote.get("order_failed"))
     if wrote.get("undo"):
         undo.offer(t("manager.backglass.dmd_file.toast"),
                    partial(_put_displays_back, context, glass, str(wrote["undo"])))
@@ -664,11 +666,13 @@ async def _place_displays(context: dict[str, Any], glass: dict[str, Any], path: 
         ui.notify(t("manager.backglass.dmd_file.no_undo"), type="info")
 
 
+@on_page
 async def _put_displays_back(context: dict[str, Any], glass: dict[str, Any],
                              token: str) -> None:
     wrote = await offload.io(context["library"].undo_backglass_displays,
                              context["game_id"], token)
     await _displays_drawn(context, glass, wrote)
+    order_notice.tell(wrote.get("order_failed"))
 
 
 async def _displays_drawn(context: dict[str, Any], glass: dict[str, Any],

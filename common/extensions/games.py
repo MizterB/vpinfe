@@ -209,7 +209,7 @@ class ExtensionGames(Offered):
         extension only declared it reads from, so it needs the `fs:write` capability.
         """
         self._needs(GAMES_WRITE)
-        from common.games import game_service, library_folders
+        from common.games import backglass_order, game_service, library_folders
         from common.ids import new_id
 
         if move and not (self._files is not None and self._files.may_write()):
@@ -221,6 +221,7 @@ class ExtensionGames(Offered):
         folder = library_folders.writable_game_folder(self.folder(game_id))
         found = game_service.add_table_file(folder, source, table_id, move=move,
                                             names=tuple(names))
+        backglass_order.settle(game_id)
         return {"table_id": found.get("table_id", table_id),
                 "companions": tuple(found["companions"]),
                 "rom": found.get("rom", ""),

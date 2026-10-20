@@ -250,6 +250,13 @@ def set_overrides(game_id: str, table_id: str, changes: dict) -> dict:
         vpinfe_section(fresh.meta_config))
 
 
+def _settled(game_id: str) -> None:
+    """A table has been added: its order is brought to what the backglass beside it places."""
+    from common.games import backglass_order
+
+    backglass_order.settle(game_id)
+
+
 def import_file(game_id: str, path: str) -> dict:
     """Import a game file from a path this install may read.
 
@@ -279,6 +286,7 @@ def import_file(game_id: str, path: str) -> dict:
         raise service_errors.BlockedError(why(exc)) from exc
 
     game = reread_game(game)
+    _settled(game_id)
     return row_or_refuse(game, table_id)
 
 
@@ -346,6 +354,7 @@ def add_referenced(game_id: str, path: str) -> dict:
         raise service_errors.BlockedError(t("error.games.already_linked"),
                                           details={"path": stored})
     game = reread_game(game)
+    _settled(game_id)
     return row_or_refuse(game, table_id)
 
 

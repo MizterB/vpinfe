@@ -80,6 +80,9 @@ KIND_MARKS = "marks"
 KIND_SPREADSHEET_DOWNLOAD = "spreadsheet.download"
 # Downloading the cabinet's DOF config. One at a time: two downloads write the same folder.
 KIND_DOF_CONFIG = "dof.config"
+# Bringing each table's own draw order to what its backglass file places, after a change at
+# the launcher. One at a time: two passes would write the same table's settings together.
+KIND_BACKGLASS_ORDER = "backglass.order"
 
 # Finished jobs kept since startup, for the Jobs view. Memory only: a restart empties it,
 # apart from the ones that asked to keep their result (`Job.keep_result`).
@@ -102,7 +105,8 @@ _BUSY = {KIND_LIBRARY_SCAN: "error.jobs.library_busy",
          KIND_TABLE_SETTINGS: "error.jobs.settings_busy",
          KIND_MARKS: "error.jobs.marks_busy",
          KIND_SPREADSHEET_DOWNLOAD: "error.jobs.getting_spreadsheet",
-         KIND_DOF_CONFIG: "error.jobs.getting_dof_config"}
+         KIND_DOF_CONFIG: "error.jobs.getting_dof_config",
+         KIND_BACKGLASS_ORDER: "error.jobs.order_busy"}
 
 # Kinds refused while another kind runs, and what the refusal says.
 _BLOCKED_BY = {(KIND_MEDIA_CAPTURE, KIND_MEDIA_FILL): "error.capture.fill_running",

@@ -19,7 +19,13 @@ from common.failures import why
 from common.games.collection_store import BUILTIN_ALL
 from common.i18n import t
 from common.release import whats_new
-from common.runtime.jobs import DONE, KIND_LIBRARY_SCAN, KIND_MEDIA_CAPTURE, KIND_VPS_ROLLUP
+from common.runtime.jobs import (
+    DONE,
+    KIND_BACKGLASS_ORDER,
+    KIND_LIBRARY_SCAN,
+    KIND_MEDIA_CAPTURE,
+    KIND_VPS_ROLLUP,
+)
 from manager import power, rail_marks
 from manager import update_count as update_count_module
 from manager.backups import backups as backups_page
@@ -37,6 +43,7 @@ from manager.kit import (
     deeplink,
     grid,
     offload,
+    order_notice,
     remembered,
     report_groups,
     undo,
@@ -308,6 +315,17 @@ def comparisons_ended_since(jobs: list[dict[str, Any]], opened: float,
     sync of the spreadsheet ends in one, and a later version may have come with it."""
     return [str(job.get("id") or "") for job in jobs
             if job.get("kind") == KIND_VPS_ROLLUP and job.get("state") == DONE
+            and float(job.get("finished_at") or 0) >= opened
+            and str(job.get("id") or "") not in told]
+
+
+def orders_unset_since(jobs: list[dict[str, Any]], opened: float,
+                       told: set[str]) -> list[str]:
+    """The ids of the passes that set tables' DMD order and finished after `opened` with a
+    table they could not write, not yet told."""
+    return [str(job.get("id") or "") for job in jobs
+            if job.get("kind") == KIND_BACKGLASS_ORDER and job.get("state") == DONE
+            and int(job.get("problems") or 0)
             and float(job.get("finished_at") or 0) >= opened
             and str(job.get("id") or "") not in told]
 
@@ -998,6 +1016,9 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
             if not wizard.watching(str(job.get("id") or "")):
                 _redraw_if_idle()
                 _tell_import(job)
+        for job_id in orders_unset_since(found, opened, told):
+            told.add(job_id)
+            background_tasks.create(_tell_order(job_id), name="manager-tell-order")
         if compared := comparisons_ended_since(found, opened, told):
             told.update(compared)
             await update_count.recount()
@@ -1083,6 +1104,15 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
         drops ticks and the search."""
         if list_is_idle(state):
             redraw()
+
+    async def _tell_order(job_id: str) -> None:
+        """The tables a pass over the library could not write, named."""
+        try:
+            found = await offload.io(ApiClient().job, job_id)
+        except Exception:
+            return
+        with here:
+            order_notice.tell((found.get("result") or {}).get("failed"))
 
     async def _tell_read(job_id: str) -> None:
         """A library read this page did not start, said when it found new games."""

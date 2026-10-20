@@ -37,6 +37,7 @@ from common.apps.contract import (
     Leftover,
     Program,
     Standing,
+    TableOrder,
 )
 
 from . import areas, bindings, build, displays, leftovers, plugins, screens
@@ -563,27 +564,32 @@ class VPXConfig:
                               one.dmd_in_file)
 
     def order_keys(self) -> frozenset[str]:
-        """The launcher's settings that decide `backglass_order`."""
-        return frozenset({screens.B2S_RANK, screens.NIXIE_RANK, f"Plugin.{screens.B2S_ID}.Enable",
-                          f"Plugin.{screens.LEGACY}.Enable"})
+        """The settings that decide `backglass_order`, at the launcher or at a table."""
+        return frozenset({screens.B2S_RANK, screens.NIXIE_RANK, *self._enables()})
 
-    def backglass_order(self, target: str, settings: Mapping[str, Any],
-                        in_file: bool) -> dict[str, str]:
-        """The values one table's own settings should hold for the order its backglass and
-        Score View draw in, given whether its backglass file places a Score View DMD; a
-        blank takes the key out. Nothing for a table that follows a folder file, which a
-        file of its own would stop following."""
+    @staticmethod
+    def _enables() -> tuple[str, str]:
+        return f"Plugin.{screens.B2S_ID}.Enable", f"Plugin.{screens.LEGACY}.Enable"
+
+    def backglass_order(self, target: str, settings: Mapping[str, Any], in_file: bool,
+                        written: Mapping[str, str] | None = None) -> TableOrder:
+        """What one table's own settings should hold for the order its backglass and Score
+        View draw in, given whether its backglass file places a Score View DMD, and the pair
+        an earlier call recorded as set here. Nothing for a table that follows a folder
+        file, which a file of its own would stop following. A plugin's switch is read from
+        the table's settings, so the table's own answers over the launcher's."""
         if self.follows_game(target, settings):
-            return {}
+            return TableOrder()
         one = self.program(settings)
         keys = (screens.B2S_RANK, screens.NIXIE_RANK)
         launcher, own = read_file(settings_file(settings)), read_file(
             path_for(SCOPE_ENTRY, target, settings))
+        held = {key: launcher.value(key) or "" for key in launcher.settings}
+        held.update({key: said for key in self._enables() if (said := own.value(key) or "")})
         return screens.table_order(
             {"plugins": None if one.plugins is None else set(one.plugins),
              "defaults": one.defaults, "build": one.build, "dmd_in_file": one.dmd_in_file},
-            {key: launcher.value(key) or "" for key in launcher.settings},
-            {key: own.value(key) or "" for key in keys}, in_file)
+            held, {key: own.value(key) or "" for key in keys}, in_file, written)
 
     def read(self, scope: str, target: str,
              settings: Mapping[str, Any]) -> dict[str, ConfigValue]:

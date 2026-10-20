@@ -195,6 +195,15 @@ class ImportTableTests(CreateGameCase):
         self.assertTrue(source.is_file(), "a copy, not a move")
         self.assertTrue(made.json()["id"])
 
+    def test_an_imported_table_settles_the_order_of_its_game(self) -> None:
+        game_id = self._game()
+
+        with patch("common.games.backglass_order.settle") as settle:
+            self.client.post(f"/games/{game_id}/tables/import",
+                             json={"path": str(self._source())})
+
+        settle.assert_called_once_with(game_id)
+
     def test_the_table_can_be_addressed_by_the_id_it_came_back_with(self) -> None:
         """A minting pass that runs at startup answers too late to be told to."""
         game_id = self._game()

@@ -333,6 +333,20 @@ class Leftover:
     cut_if: str = ""
 
 
+@dataclass(frozen=True)
+class TableOrder:
+    """What one table's own settings should hold for the order its backglass and score
+    display draw in.
+
+    `write` is the values to put in the table's settings, a blank taking a key out. `ours` is
+    what the table holds of them once that is done, as an app can tell a pair it set from one
+    somebody else did: the caller keeps it, and hands it back as `written` the next time.
+    """
+
+    write: dict[str, str] = field(default_factory=dict)
+    ours: dict[str, str] = field(default_factory=dict)
+
+
 @runtime_checkable
 class Config(Protocol):
     """An app's own configuration, and where it keeps it.

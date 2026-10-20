@@ -8,6 +8,7 @@ from typing import Any
 
 from apps.vpx import areas
 from apps.vpx import screens as vs
+from common.apps.contract import TableOrder
 
 
 @dataclass(frozen=True)
@@ -451,28 +452,47 @@ class ATablesOwnOrderTests(unittest.TestCase):
     LAUNCHER = {"ScoreView.Priority.PUP": "3", "ScoreView.Priority.Nixie": "2",
                 "ScoreView.Priority.B2S": "1"}
     SWAPPED = {"ScoreView.Priority.Nixie": "1", "ScoreView.Priority.B2S": "2"}
+    CLEARED = {"ScoreView.Priority.Nixie": "", "ScoreView.Priority.B2S": ""}
+    NOTHING = TableOrder()
 
     def test_a_file_that_places_a_score_view_dmd_swaps_the_two_and_leaves_pup(self) -> None:
         got = vs.table_order(self.PROGRAM, self.LAUNCHER, {}, True)
 
-        self.assertEqual(got, self.SWAPPED)
+        self.assertEqual(got, TableOrder(write=self.SWAPPED, ours=self.SWAPPED))
 
     def test_a_file_that_places_none_is_given_nothing(self) -> None:
-        self.assertEqual(vs.table_order(self.PROGRAM, self.LAUNCHER, {}, False), {})
+        self.assertEqual(vs.table_order(self.PROGRAM, self.LAUNCHER, {}, False), self.NOTHING)
 
-    def test_the_swap_it_wrote_is_taken_out_when_the_file_places_none(self) -> None:
-        got = vs.table_order(self.PROGRAM, self.LAUNCHER, self.SWAPPED, False)
+    def test_the_swap_it_recorded_is_taken_out_when_the_file_places_none(self) -> None:
+        got = vs.table_order(self.PROGRAM, self.LAUNCHER, self.SWAPPED, False, self.SWAPPED)
 
-        self.assertEqual(got, {"ScoreView.Priority.Nixie": "", "ScoreView.Priority.B2S": ""})
+        self.assertEqual(got, TableOrder(write=self.CLEARED))
+
+    def test_a_pair_the_table_holds_that_was_never_recorded_is_never_taken_out(self) -> None:
+        for written in (None, {}, {"ScoreView.Priority.Nixie": "3", "ScoreView.Priority.B2S": "4"}):
+            with self.subTest(written=written):
+                got = vs.table_order(self.PROGRAM, self.LAUNCHER, self.SWAPPED, False, written)
+
+                self.assertEqual(got, self.NOTHING)
 
     def test_a_table_that_holds_a_rank_of_its_own_is_left_alone_either_way(self) -> None:
         own = {"ScoreView.Priority.B2S": "5"}
         for in_file in (True, False):
             with self.subTest(in_file=in_file):
-                self.assertEqual(vs.table_order(self.PROGRAM, self.LAUNCHER, own, in_file), {})
+                self.assertEqual(vs.table_order(self.PROGRAM, self.LAUNCHER, own, in_file),
+                                 self.NOTHING)
 
-    def test_a_table_already_holding_the_swap_has_nothing_to_write(self) -> None:
-        self.assertEqual(vs.table_order(self.PROGRAM, self.LAUNCHER, self.SWAPPED, True), {})
+    def test_a_pair_the_table_changed_since_is_no_longer_ours_and_is_forgotten(self) -> None:
+        own = {"ScoreView.Priority.Nixie": "1", "ScoreView.Priority.B2S": "9"}
+
+        got = vs.table_order(self.PROGRAM, self.LAUNCHER, own, True, self.SWAPPED)
+
+        self.assertEqual(got, self.NOTHING)
+
+    def test_a_table_already_holding_its_recorded_swap_has_nothing_to_write(self) -> None:
+        got = vs.table_order(self.PROGRAM, self.LAUNCHER, self.SWAPPED, True, self.SWAPPED)
+
+        self.assertEqual(got, TableOrder(ours=self.SWAPPED))
 
     def test_the_numbers_are_the_launchers_own_swapped(self) -> None:
         launcher = {**self.LAUNCHER, "ScoreView.Priority.Nixie": "7",
@@ -480,18 +500,36 @@ class ATablesOwnOrderTests(unittest.TestCase):
 
         got = vs.table_order(self.PROGRAM, launcher, {}, True)
 
-        self.assertEqual(got, {"ScoreView.Priority.Nixie": "4", "ScoreView.Priority.B2S": "7"})
+        self.assertEqual(got.write, {"ScoreView.Priority.Nixie": "4",
+                                     "ScoreView.Priority.B2S": "7"})
+
+    def test_a_recorded_pair_follows_the_launcher_when_its_numbers_change(self) -> None:
+        launcher = {**self.LAUNCHER, "ScoreView.Priority.Nixie": "7",
+                    "ScoreView.Priority.B2S": "4"}
+
+        got = vs.table_order(self.PROGRAM, launcher, self.SWAPPED, True, self.SWAPPED)
+
+        wanted = {"ScoreView.Priority.Nixie": "4", "ScoreView.Priority.B2S": "7"}
+        self.assertEqual(got, TableOrder(write=wanted, ours=wanted))
+
+    def test_a_recorded_pair_goes_when_the_launcher_no_longer_ranks_nixie_over_b2s(self) -> None:
+        launcher = {**self.LAUNCHER, "ScoreView.Priority.Nixie": "1",
+                    "ScoreView.Priority.B2S": "2"}
+
+        got = vs.table_order(self.PROGRAM, launcher, self.SWAPPED, True, self.SWAPPED)
+
+        self.assertEqual(got, TableOrder(write=self.CLEARED))
 
     def test_builds_that_keep_the_dmd_in_the_ini_have_no_file_to_follow(self) -> None:
         program = {**self.PROGRAM, "build": 6266, "dmd_in_file": False}
 
-        self.assertEqual(vs.table_order(program, self.LAUNCHER, {}, True), {})
+        self.assertEqual(vs.table_order(program, self.LAUNCHER, {}, True), self.NOTHING)
 
     def test_a_launcher_that_does_not_rank_nixie_over_b2s_gives_nothing(self) -> None:
         for launcher in ({}, {"ScoreView.Priority.Nixie": "1", "ScoreView.Priority.B2S": "2"},
                          {"ScoreView.Priority.Nixie": "2"}):
             with self.subTest(launcher=launcher):
-                self.assertEqual(vs.table_order(self.PROGRAM, launcher, {}, True), {})
+                self.assertEqual(vs.table_order(self.PROGRAM, launcher, {}, True), self.NOTHING)
 
     def test_legacy_drawing_or_b2s_off_or_no_nixie_gives_nothing(self) -> None:
         legacy = {**self.LAUNCHER, "Plugin.B2SLegacy.Enable": "1"}
@@ -501,7 +539,7 @@ class ATablesOwnOrderTests(unittest.TestCase):
         for program, launcher in ((with_legacy, legacy), (self.PROGRAM, b2s_off),
                                   (no_nixie, self.LAUNCHER), (None, self.LAUNCHER)):
             with self.subTest(program=program, launcher=launcher):
-                self.assertEqual(vs.table_order(program, launcher, {}, True), {})
+                self.assertEqual(vs.table_order(program, launcher, {}, True), self.NOTHING)
 
 
 class TheWholeAnswerTests(unittest.TestCase):

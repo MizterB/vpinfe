@@ -277,13 +277,13 @@ class ConfigTests(RevertTestCase):
         self._migrate()
         state = self.config_dir / "state"
         state.mkdir(exist_ok=True)
-        for name in ("dismissed.json", "arrivals.json"):
+        for name in ("dismissed.json", "arrivals.json", "draw_order.json"):
             (state / name).write_text("{}", encoding="utf-8")
             (self.config_dir / name).write_text("{}", encoding="utf-8")
 
         result = self._reset()
 
-        for name in ("dismissed.json", "arrivals.json"):
+        for name in ("dismissed.json", "arrivals.json", "draw_order.json"):
             self.assertFalse((state / name).exists())
             self.assertIn(name, result["config_removed"])
             self.assertTrue((self.config_dir / name).exists())

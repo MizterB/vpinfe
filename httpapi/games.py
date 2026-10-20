@@ -234,9 +234,10 @@ def put_backglass_displays(game_id: str, body: models.AssetDisplayPlace,
                            path: str = Query(...)) -> models.AssetDisplaysWritten:
     """Written into the file itself, which every table that reads it shares. Refused while a
     table of the game is playing. Each table of the game that the launcher's program lets
-    draw its own order is brought to what the file now places."""
+    draw its own order is brought to what the file now places, and one that cannot be
+    written is named in `order_failed`."""
     written = backglass_displays.place(game_id, path, body.target, (body.x, body.y, body.w, body.h))
-    backglass_order.settle(game_id)
+    written["order_failed"] = backglass_order.settle(game_id)
     return models.AssetDisplaysWritten.model_validate(written)
 
 
@@ -246,7 +247,7 @@ def put_backglass_displays(game_id: str, body: models.AssetDisplayPlace,
 def undo_backglass_displays(game_id: str,
                             body: models.AssetDisplaysUndo) -> models.AssetDisplaysWritten:
     written = backglass_displays.undo(game_id, body.undo)
-    backglass_order.settle(game_id)
+    written["order_failed"] = backglass_order.settle(game_id)
     return models.AssetDisplaysWritten.model_validate(written)
 
 

@@ -15,7 +15,7 @@ from nicegui import run, ui
 from common.apps.contract import PLACE, TURN_ON
 from common.failures import why
 from common.i18n import t
-from manager.kit import leftover_ids, offload, panel, undo, verbs
+from manager.kit import leftover_ids, offload, order_notice, panel, undo, verbs
 from manager.kit.on_page import on_page
 
 logger = logging.getLogger("vpinfe.manager.workbench.leftovers")
@@ -89,8 +89,10 @@ def _full(context: dict[str, Any], launcher_id: str, items: list[dict[str, Any]]
         context["state"]["leftovers_open"].discard(launcher_id)
         await context["rebuild"]()
 
+    @on_page
     async def back(token: str) -> None:
-        await run.io_bound(library.undo_launcher_leftovers, launcher_id, token)
+        done = await run.io_bound(library.undo_launcher_leftovers, launcher_id, token) or {}
+        order_notice.tell(done.get("order_failed"))
         await settled()
 
     @on_page
@@ -109,6 +111,7 @@ def _full(context: dict[str, Any], launcher_id: str, items: list[dict[str, Any]]
                       caption="\n".join(files), type="warning", multi_line=True)
         if limit := max((int(each.get("limit") or 0) for each in held_back), default=0):
             ui.notify(t("manager.leftovers.held_over", limit=limit), type="warning")
+        order_notice.tell(done.get("order_failed"))
         token = str(done.get("undo") or "")
         if token:
             undo.offer(t("manager.leftovers.moved", count=len(done.get("moved") or ())),
