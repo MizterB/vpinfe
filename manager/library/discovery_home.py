@@ -167,6 +167,22 @@ def tile_lines(moves: list[dict[str, Any]]) -> list[str]:
             *([pictures_line(pictures)] if pictures else [])]
 
 
+def fix_line(moves: list[dict[str, Any]]) -> str:
+    """The line a script fix has on a tile, or "" where there is none."""
+    return next((move_line(one) for one in moves if one["kind"] == script_fixes.KIND), "")
+
+
+def shown_lines(moves: list[dict[str, Any]]) -> list[str]:
+    """The lines of a tile in the order they are drawn: as `tile_lines` has them, except
+    that a script fix is kept among the lines shown, since its Fetch is drawn on it."""
+    lines = tile_lines(moves)
+    fix = fix_line(moves)
+    if fix in lines[MOVES_SHOWN:]:
+        lines.remove(fix)
+        lines.insert(MOVES_SHOWN - 1, fix)
+    return lines
+
+
 def fix_folders(item: dict[str, Any]) -> list[str]:
     """The folders of the game's script fixes, which the fetch is asked for."""
     return [move["file"] for move in item["moves"]
@@ -266,6 +282,14 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
             return see_picture(item["vps_id"], str(item["moves"][0]["kind"]))
         return on_select({"id": item["vps_id"]})
 
+    def fetch_button(folders: list[str]) -> None:
+        """Fetch on the script-fix line: the press stops here, not on the tile."""
+        with ui.element("div").classes("shrink-0").on("click.stop", lambda: None) \
+                .on("keydown.enter.stop", lambda: None):
+            panel.icon_action(t("manager.discovery.update.fetch_fix"),
+                              lambda: fix_scripts(folders), icon=verbs.FETCH,
+                              hint=t("manager.discovery.update.fetch_fix"))()
+
     def update_tile(parent: Any, item: dict[str, Any]) -> None:
         with parent, ui.element("div").classes("manager-shelf-tile") as card:
             card.props("tabindex=0 role=button")
@@ -277,9 +301,15 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
             candidates.thumb(item["img_url"], icons.TABLES, t("manager.discovery.no_picture"))
             with ui.column().classes("gap-0 min-w-0"):
                 ui.label(item["game"]).classes("manager-shelf-name")
-                lines = tile_lines(item["moves"])
+                lines = shown_lines(item["moves"])
+                fix = fix_line(item["moves"])
                 for line in lines[:MOVES_SHOWN]:
-                    ui.label(line).classes("text-xs manager-help truncate")
+                    if line == fix and (folders := fix_folders(item)):
+                        with ui.row().classes("items-center gap-1 no-wrap"):
+                            ui.label(line).classes("text-xs manager-help truncate")
+                            fetch_button(folders)
+                    else:
+                        ui.label(line).classes("text-xs manager-help truncate")
                 if len(lines) > MOVES_SHOWN:
                     ui.label(t("manager.discovery.update.more",
                                count=len(lines) - MOVES_SHOWN)) \

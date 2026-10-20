@@ -12,8 +12,9 @@ from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import Response
 
+from common.extensions import reach
 from common.failures import why
-from common.online import vps_lens
+from common.online import game_offers, vps_lens
 from common.uploads import upload_ops
 
 from . import models, scopes
@@ -122,6 +123,26 @@ def vps_releases(vps_id: str,
     """Every record of one kind this device has, in the order VPSdb holds them - never
     ordered by likeness, which was measured at chance."""
     return models.VpsReleases.model_validate(vps_lens.releases(vps_id, listed_as))
+
+
+@vps_router.get("/entry/{vps_id}/offers", summary="What every enabled source has for one entry",
+                dependencies=[requires(scopes.VPS_READ)])
+def vps_entry_offers(
+    vps_id: str, request: Request,
+    kind: list[str] = Query([], description="A kind to ask for, by its slot's name; repeat "
+                                            "for more. None asks every kind each source serves"),
+) -> models.EntryOffers:
+    """`GET /games/{id}/offers` for an entry the library does not have to hold: the same
+    sources asked in the same way, about the entry's VPS id and name alone. An extension's
+    source is left out where the caller may not use that extension, and answers at Library at
+    most. `404` for an entry the catalog does not list."""
+    entry = vps_lens.entry(vps_id)
+    reach.answer_at(reach.LIBRARY)
+    identity = request.state.identity
+    return models.EntryOffers.model_validate(game_offers.wire_for_entry(
+        vps_id, kind, name=str(entry["name"] or ""),
+        permits=lambda source: identity.can(scopes.extension_scope(source.extension,
+                                                                   reach.LIBRARY))))
 
 
 @vps_router.get("/sync", summary="When the catalog was last checked",

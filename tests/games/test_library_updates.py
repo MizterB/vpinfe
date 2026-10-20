@@ -104,6 +104,43 @@ class FoundTests(_Library):
 
         self.assertEqual([], library_updates.found())
 
+    def test_a_newer_file_of_the_release_under_another_name_takes_the_old_ones_place(self) -> None:
+        self.games["a"] = _game("Alien", "g1", _table(_tie("t1", "1.0"), version="0.1"),
+                                _table({}, version="1.2"), root=self.root)
+
+        self.assertEqual([], library_updates.found())
+
+    def test_a_newer_file_tied_to_the_release_takes_the_old_ones_place(self) -> None:
+        self.games["a"] = _game("Alien", "g1", _table(_tie("t1", "1.0"), version="0.1"),
+                                _table(_tie("t1", "1.2")), root=self.root)
+
+        self.assertEqual([], library_updates.found())
+
+    def test_a_file_below_the_listed_version_leaves_the_move(self) -> None:
+        self.games["a"] = _game("Alien", "g1", _table(_tie("t1", "1.0")),
+                                _table({}, version="1.1"), root=self.root)
+
+        [one] = library_updates.found()
+
+        [move] = one["moves"]
+        self.assertEqual("Alien 0.vpx", move["file"])
+
+    def test_a_file_that_is_not_the_release_does_not_take_the_place(self) -> None:
+        for other in (_table(_tie("t9", "3.0"), version="1.2"),
+                      _table({"vps_file_id": "", "confirmed_by": "user"}, version="1.2"),
+                      _table({"patch": "applied"}, version="1.2")):
+            with self.subTest(other=other["source"]):
+                self.games["a"] = _game("Alien", "g1", _table(_tie("t1", "1.0")), other,
+                                        root=self.root)
+
+                self.assertEqual(1, len(library_updates.found()))
+
+    def test_an_absent_file_does_not_take_the_place(self) -> None:
+        self.games["a"] = _game("Alien", "g1", _table(_tie("t1", "1.0")),
+                                _table({}, version="1.2", absent_since="x"), root=self.root)
+
+        self.assertEqual(1, len(library_updates.found()))
+
     def test_a_table_removed_from_the_folder_is_none(self) -> None:
         self.games["a"] = _game("Alien", "g1", _table(_tie("t1", "1.0"), absent_since="x"),
                                 root=self.root)

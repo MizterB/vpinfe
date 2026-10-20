@@ -5,9 +5,15 @@ from __future__ import annotations
 import unittest
 
 from common.capture import run
-from common.runtime.jobs import KIND_LIBRARY_SCAN, KIND_MEDIA_FILL
+from common.runtime.jobs import KIND_LIBRARY_SCAN, KIND_MEDIA_FILL, KIND_VPS_ROLLUP
 from manager.library import record
-from manager.page import failed_since, imports_ended_since, list_is_idle, reads_ended_since
+from manager.page import (
+    comparisons_ended_since,
+    failed_since,
+    imports_ended_since,
+    list_is_idle,
+    reads_ended_since,
+)
 from manager.settings.library_folders import KIND_IMPORT
 
 OPENED = 1000.0
@@ -78,6 +84,34 @@ class ReadsEndedSinceTests(unittest.TestCase):
     def test_other_work_is_not_a_read(self) -> None:
         self.assertEqual(reads_ended_since([_read("j1", kind=KIND_MEDIA_FILL)], OPENED, set()),
                          [])
+
+
+def _comparison(job_id: str, state: str = "done", finished_at: float | None = 1010.0,
+                kind: str = KIND_VPS_ROLLUP) -> dict:
+    return {**_job(job_id, state, finished_at), "kind": kind}
+
+
+class ComparisonsEndedSinceTests(unittest.TestCase):
+    """The comparisons with VPS the rail's count is read again after."""
+
+    def test_one_that_ended_after_the_page_opened_is_news(self) -> None:
+        self.assertEqual(["j1"], comparisons_ended_since([_comparison("j1")], OPENED, set()))
+
+    def test_one_that_ended_before_the_page_opened_is_not(self) -> None:
+        self.assertEqual([], comparisons_ended_since(
+            [_comparison("j1", finished_at=990.0)], OPENED, set()))
+
+    def test_one_already_told_is_not_told_again(self) -> None:
+        self.assertEqual([], comparisons_ended_since([_comparison("j1")], OPENED, {"j1"}))
+
+    def test_one_still_running_or_failed_is_not_news(self) -> None:
+        jobs = [_comparison("j1", "running", None), _comparison("j2", "failed")]
+
+        self.assertEqual([], comparisons_ended_since(jobs, OPENED, set()))
+
+    def test_a_job_of_another_kind_is_not_one(self) -> None:
+        self.assertEqual([], comparisons_ended_since(
+            [_comparison("j1", kind=KIND_LIBRARY_SCAN)], OPENED, set()))
 
 
 def _import(job_id: str, state: str = "done", finished_at: float | None = 1010.0,

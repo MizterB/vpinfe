@@ -809,8 +809,6 @@ FEATURE_COLUMNS = [
 _TABLE = "manager.games.table"
 _IN_PLAY = "manager.games.library"
 
-_NEWER = "newer"
-
 # A lock is the exception, so it takes the mark. The value a game with one table holds
 # is in no filter choice and draws nothing.
 _DEFAULT_STATES = {
@@ -929,11 +927,6 @@ TABLE_COLUMNS = [
                 help=t("manager.games.version.help")),
     grid.column("on_vps", t("manager.games.on_vps"), group=t(_TABLE),
                 help=t("manager.games.on_vps.help")),
-    grid.column("update", t("manager.games.update"), 140, group=t(_TABLE),
-                help=t("manager.games.update.help"),
-                **grid.choice_filter([
-                    {"value": _NEWER, "label": t("manager.games.filter_newer")},
-                    {"value": "", "label": t("manager.games.no_newer_version")}])),
     grid.column("release", t("manager.games.release"), 150, group=t(_TABLE),
                 help=t("manager.games.release.help"),
                 **grid.choice_filter([
@@ -1072,10 +1065,6 @@ TABLE_VIEWS: dict[str, list[str] | views.Preset] = {
         columns=("game", "rom", "rom_state", "launcher", "settings",
                  "default_state", "hidden", "missing", "filename"),
         help=t("manager.view.launch.help")),
-    "manager.view.updates": views.Preset(
-        columns=("game", "version", "on_vps", "default_state", "hidden", "filename"),
-        filters={"update": {"values": [_NEWER]}},
-        help=t("manager.view.updates.help")),
     "manager.view.untied": views.Preset(
         columns=("game", "version", "release", "default_state", "hidden", "filename"),
         filters={"release": {"values": [ties.UNTIED]}},
@@ -1194,7 +1183,6 @@ def table_rows(rows: list[dict[str, Any]], art: bool = False) -> list[dict[str, 
              "rom_state": _rom_state(row),
              "author": ", ".join(row.get("authors") or []),
              "on_vps": str((row.get("source") or {}).get("version") or ""),
-             "update": _NEWER if row.get("update_available") else "",
              "release": ties.release_state(row, bases),
              FIXES_COLUMN: [],
              **_mod_cell((row.get("source") or {}).get("mod_of")),

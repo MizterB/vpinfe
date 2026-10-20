@@ -19,7 +19,7 @@ from common.failures import why
 from common.games.collection_store import BUILTIN_ALL
 from common.i18n import t
 from common.release import whats_new
-from common.runtime.jobs import DONE, KIND_LIBRARY_SCAN, KIND_MEDIA_CAPTURE
+from common.runtime.jobs import DONE, KIND_LIBRARY_SCAN, KIND_MEDIA_CAPTURE, KIND_VPS_ROLLUP
 from manager import power, rail_marks
 from manager import update_count as update_count_module
 from manager.backups import backups as backups_page
@@ -298,6 +298,16 @@ def reads_ended_since(jobs: list[dict[str, Any]], opened: float,
     """The ids of the library reads that finished after `opened`, not yet told."""
     return [str(job.get("id") or "") for job in jobs
             if job.get("kind") == KIND_LIBRARY_SCAN and job.get("state") == DONE
+            and float(job.get("finished_at") or 0) >= opened
+            and str(job.get("id") or "") not in told]
+
+
+def comparisons_ended_since(jobs: list[dict[str, Any]], opened: float,
+                            told: set[str]) -> list[str]:
+    """The ids of the comparisons with VPS that finished after `opened`, not yet told: the
+    sync of the spreadsheet ends in one, and a later version may have come with it."""
+    return [str(job.get("id") or "") for job in jobs
+            if job.get("kind") == KIND_VPS_ROLLUP and job.get("state") == DONE
             and float(job.get("finished_at") or 0) >= opened
             and str(job.get("id") or "") not in told]
 
@@ -988,6 +998,9 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
             if not wizard.watching(str(job.get("id") or "")):
                 _redraw_if_idle()
                 _tell_import(job)
+        if compared := comparisons_ended_since(found, opened, told):
+            told.update(compared)
+            await update_count.recount()
         failed = None if running else failed_since(found, opened, dismissed)
         if failed is not None and state.get("view") == "jobs":
             dismissed.add(str(failed.get("id") or ""))

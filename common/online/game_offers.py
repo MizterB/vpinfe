@@ -155,11 +155,8 @@ def for_game(game_id: str, slots: Iterable[str] = (), *, vps_id: str = "", name:
     return entry, ask(who, slots, extensions=not game["private"], permits=permits)
 
 
-def wire_for_game(game_id: str, slots: Iterable[str] = (), *, vps_id: str = "", name: str = "",
-                  permits: Callable[[Source], bool] | None = None) -> dict[str, Any]:
-    """`for_game` as the plain structure the API answers with."""
-    entry, found = for_game(game_id, slots, vps_id=vps_id, name=name, permits=permits)
-    return {"game_id": game_id, "vps_id": entry, "sources": [{
+def _wire(found: list[SourceOffers]) -> list[dict[str, Any]]:
+    return [{
         "id": one.source.id, "name": one.source.name, "extension": one.source.extension,
         "key": one.source.key,
         "kinds": [{"kind": each.kind, "rows": each.rows, "note": each.note, "link": each.link,
@@ -168,4 +165,19 @@ def wire_for_game(game_id: str, slots: Iterable[str] = (), *, vps_id: str = "", 
                                "kind": offer.kind, "size": offer.size,
                                "md5": offer.md5}
                               for offer in each.offers]}
-                  for each in one.kinds]} for one in found]}
+                  for each in one.kinds]} for one in found]
+
+
+def wire_for_game(game_id: str, slots: Iterable[str] = (), *, vps_id: str = "", name: str = "",
+                  permits: Callable[[Source], bool] | None = None) -> dict[str, Any]:
+    """`for_game` as the plain structure the API answers with."""
+    entry, found = for_game(game_id, slots, vps_id=vps_id, name=name, permits=permits)
+    return {"game_id": game_id, "vps_id": entry, "sources": _wire(found)}
+
+
+def wire_for_entry(vps_id: str, slots: Iterable[str] = (), *, name: str = "",
+                   permits: Callable[[Source], bool] | None = None) -> dict[str, Any]:
+    """`ask` for a catalog entry the library may not hold, the way a game with no `game_id`
+    is asked about: by its VPS id alone, so nothing of the library is read or told."""
+    found = ask({"game_id": "", "vps_id": vps_id, "name": name}, slots, permits=permits)
+    return {"vps_id": vps_id, "sources": _wire(found)}

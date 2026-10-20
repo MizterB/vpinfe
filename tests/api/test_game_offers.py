@@ -186,6 +186,104 @@ class Asking(TempTree):
         self.assertLess(took, 2)
 
 
+ENTRIES = {"vps-1": "Taxi", "vps-9": "Other"}
+
+
+def _entry(vps_id: str) -> dict[str, Any]:
+    if vps_id not in ENTRIES:
+        raise NotFoundError(f"no entry {vps_id}")
+    return {"vps_id": vps_id, "name": ENTRIES[vps_id]}
+
+
+class AskingAboutAnEntry(TempTree):
+    """`GET /vps/entry/{id}/offers`: the same sources, asked about an entry by its id alone."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        ASKED.clear()
+        self.policy = library_policy.reset_for_tests(ConfigStore(str(self.root / "vpinfe.ini")))
+        self.addCleanup(library_policy.reset_for_tests)
+        self.resource = self.enterContext(mock.patch("common.games.game_lens.resource_of"))
+        self.enterContext(mock.patch("common.online.vps_lens.entry", _entry))
+        self.client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
+
+    def get(self, vps_id: str = "vps-9", **params: Any) -> Any:
+        return self.client.get(f"/vps/entry/{vps_id}/offers", params=params)
+
+    def test_every_source_answers_for_the_entry_and_no_game_is_read(self) -> None:
+        with only(_catalog("one"), _catalog("two", frozenset({"wheel"}))):
+            response = self.get()
+
+        self.assertEqual(200, response.status_code, response.text)
+        answer = response.json()
+        self.assertEqual("vps-9", answer["vps_id"])
+        self.assertNotIn("game_id", answer)
+        self.assertEqual({"one": {"wheel", "topper"}, "two": {"wheel"}},
+                         {one["id"]: {kind["kind"] for kind in one["kinds"]}
+                          for one in answer["sources"]})
+        self.assertEqual({("one", "wheel", "vps-9"), ("one", "topper", "vps-9"),
+                          ("two", "wheel", "vps-9")}, set(ASKED))
+        self.resource.assert_not_called()
+
+    def test_the_answer_for_a_kind_has_the_shape_a_game_has(self) -> None:
+        with only(_catalog("one")):
+            [source] = self.get(kind=["wheel"]).json()["sources"]
+
+        self.assertEqual({"source": "one", "name": "wheel.png", "kind": "wheel", "size": "4k",
+                          "md5": "", "url": "https://example.invalid/vps-9/wheel.png"},
+                         source["kinds"][0]["offers"][0])
+
+    def test_the_kinds_asked_narrow_it(self) -> None:
+        with only(_catalog("one"), _catalog("two", frozenset({"wheel"}))):
+            answer = self.get(kind=["topper"]).json()
+
+        self.assertEqual(["one"], [one["id"] for one in answer["sources"]])
+        self.assertEqual([("one", "topper", "vps-9")], ASKED)
+
+    def test_a_source_switched_off_is_not_asked(self) -> None:
+        self.policy.set("hidden_sources", ["one"])
+
+        with only(_catalog("one"), _catalog("two")):
+            answer = self.get(kind=["wheel"]).json()
+
+        self.assertEqual(["two"], [one["id"] for one in answer["sources"]])
+
+    def test_a_source_that_is_down_says_why_and_the_rest_arrive(self) -> None:
+        with only(_catalog("broken", fails=True), _catalog("works")), \
+                self.assertLogs("vpinfe.common.online.game_offers", "WARNING"):
+            found = {one["id"]: one["kinds"][0] for one in
+                     self.get(kind=["wheel"]).json()["sources"]}
+
+        self.assertEqual("that catalog is down", found["broken"]["error"])
+        self.assertEqual(1, len(found["works"]["offers"]))
+
+    def test_an_entry_the_catalog_does_not_list_is_refused(self) -> None:
+        with only(_catalog("one")):
+            response = self.get("nope", kind=["wheel"])
+
+        self.assertEqual(404, response.status_code)
+        self.assertEqual([], ASKED)
+
+    def test_an_extensions_source_is_asked_by_id_and_name_and_left_out_when_not_permitted(
+            self) -> None:
+        told: list[dict[str, Any]] = []
+
+        def answer(source: Source, kind: str, who: Any) -> game_offers.KindOffers:
+            told.append(dict(who))
+            return game_offers.KindOffers(kind, note="from an extension")
+
+        held = Source(id="ext", name="Ext", kinds=frozenset({"wheel"}), extension="wovp",
+                      key="ext", offers=lambda who, kind: [])
+        with only(held), mock.patch.object(game_offers, "_extension_answer", answer):
+            kept = game_offers.wire_for_entry("vps-9", ["wheel"], name="Other")
+            left = game_offers.wire_for_entry("vps-9", ["wheel"], name="Other",
+                                              permits=lambda source: False)
+
+        self.assertEqual([{"game_id": "", "vps_id": "vps-9", "name": "Other"}], told)
+        self.assertEqual(["ext"], [one["id"] for one in kept["sources"]])
+        self.assertEqual([], left["sources"])
+
+
 class Concurrency(unittest.TestCase):
     def test_sources_are_asked_at_once_not_one_after_another(self) -> None:
         """A source waits on somebody else's server; a game with several costs the slowest."""

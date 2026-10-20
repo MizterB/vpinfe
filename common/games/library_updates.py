@@ -4,7 +4,8 @@ An update is a release a file is tied to whose version VPS now lists higher than
 when the tie was made (`ties.update_available`), never the file's own version. The ties are
 read where they are kept - the `source` block of each table, and of each file in the assets
 ledger - and so are the other sources' answers to "what is later for this game": a fix for a
-table's script.
+table's script. A table's move is not counted where another file of the game is already that
+release at the listed version or later: the newer file has taken its place.
 
 Read from the library as it stands and the catalog as loaded, with no request and nothing
 stored, so an update clears the moment a person ties the release again.
@@ -21,6 +22,7 @@ from common.games import asset_origin, game_repository, game_service, ties
 from common.games.game_metadata import effective_vps_id, game_title, normalize_meta, table_source
 from common.games.tables import ABSENT_SINCE_KEY, entry_filename, table_entries
 from common.online import sources, vps_lens, vps_releases
+from common.values import newer_version, parse_version
 
 logger = logging.getLogger("vpinfe.common.games.library_updates")
 
@@ -59,19 +61,41 @@ def _moved(source: dict[str, Any], file: str, listing_of: dict[str, tuple[str, s
             "file": file, "then": str(source.get(ties.VERSION_KEY) or ""), "now": now}
 
 
+def _reaches(other: dict[str, Any], release_id: str, now: str) -> bool:
+    """Whether another held table is this release at the version VPS lists now or later.
+
+    A table tied to it counts by its tie, an untied one by its own version, so a newer file
+    imported under another name stands in before it is tied. A table tied to another
+    release, declined, or made by a patch is not this release.
+    """
+    source = table_source(other)
+    held = str(source.get(ties.FILE_KEY) or "")
+    if held:
+        have = parse_version(source.get(ties.VERSION_KEY)) if held == release_id else ()
+    elif ties.declined(source) or source.get("base") or source.get("patch"):
+        return False
+    else:
+        have = parse_version(other.get("version"))
+    return bool(have) and not newer_version(parse_version(now), have)
+
+
 def _table_moves(game: Any, listing_of: dict[str, tuple[str, str, str]]) -> list[dict[str, Any]]:
+    held = [one for one in table_entries(getattr(game, "meta_config", None)).values()
+            if isinstance(one, dict) and not one.get(ABSENT_SINCE_KEY)]
     out = []
-    for entry in table_entries(getattr(game, "meta_config", None)).values():
-        if not isinstance(entry, dict) or entry.get(ABSENT_SINCE_KEY):
-            continue
+    for entry in held:
         source = table_source(entry)
         release = game_service.find_vps_release(str(source.get(ties.FILE_KEY) or ""))
         # A build this table cannot be is no release of it, as the table's row reads it.
         if not release or not game_service.release_fits(release, entry):
             continue
         move = _moved(source, entry_filename(entry), listing_of)
-        if move is not None and move["kind"] == TABLES:
-            out.append(move)
+        if move is None or move["kind"] != TABLES:
+            continue
+        if any(other is not entry and game_service.release_fits(release, other)
+               and _reaches(other, move["release_id"], move["now"]) for other in held):
+            continue
+        out.append(move)
     return out
 
 

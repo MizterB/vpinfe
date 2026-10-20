@@ -280,6 +280,19 @@ class MoveTests(unittest.TestCase):
                          home.tile_lines([*ALIEN_UPDATE["moves"], _picture("wheel")]))
 
 
+    def test_a_script_fix_is_kept_among_the_lines_a_tile_draws(self) -> None:
+        moves = [{**ALIEN_UPDATE["moves"][0], "kind": kind} for kind in
+                 ("tableFiles", "b2sFiles", "romFiles")] + [ALIEN_UPDATE["moves"][1]]
+
+        lines = home.shown_lines(moves)
+
+        self.assertIn("Script fix", lines[:home.MOVES_SHOWN])
+        self.assertEqual(sorted(home.tile_lines(moves)), sorted(lines))
+
+    def test_lines_that_fit_are_left_in_order(self) -> None:
+        self.assertEqual(home.tile_lines(ALIEN_UPDATE["moves"]),
+                         home.shown_lines(ALIEN_UPDATE["moves"]))
+
     def test_a_tied_release_says_the_version_it_moved_from_and_to(self) -> None:
         self.assertEqual(home.move_line(ALIEN_UPDATE["moves"][0]), "Table 1.0 to 1.2")
 
@@ -499,6 +512,37 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(["Alien Folder"], fetch.call_args.kwargs["only"])
         fetch.call_args.args[1]()
         self.rerender.assert_called()
+
+    @staticmethod
+    def _fetch_buttons(tile: ui.element) -> list[ui.button]:
+        return [one for one in tile.descendants()
+                if isinstance(one, ui.button) and one.props.get("aria-label") == "Fetch Script Fix"]
+
+    async def test_a_script_fix_line_has_a_fetch_that_asks_for_that_games_folder(self) -> None:
+        self.updates = [ALIEN_UPDATE]
+        tile = self._update_tile(await self._draw())
+
+        [button] = self._fetch_buttons(tile)
+        assert button.parent_slot is not None
+        wrapper = button.parent_slot.parent
+        self.assertEqual({"click.stop", "keydown.enter.stop"},
+                         {one.type for one in wrapper._event_listeners.values()})
+        with mock.patch("manager.settings.sections.fetch_script_fixes",
+                        mock.Mock(return_value="fetching")) as fetch:
+            [press] = [one for one in button._event_listeners.values() if one.type == "click"]
+            assert press.handler is not None
+            press.handler(mock.Mock())
+
+        self.assertEqual(["Alien Folder"], fetch.call_args.kwargs["only"])
+
+    async def test_a_tile_with_no_script_fix_has_no_fetch(self) -> None:
+        self.updates = [{**ALIEN_UPDATE, "moves": ALIEN_UPDATE["moves"][:1]}]
+        body = await self._draw()
+
+        tile = next(one for one in body.descendants() if "manager-shelf-tile" in one.classes
+                    and "Table 1.0 to 1.2" in _words(one))
+
+        self.assertEqual([], self._fetch_buttons(tile))
 
     async def test_an_ignored_game_has_no_update_tile(self) -> None:
         self.updates = [ALIEN_UPDATE]

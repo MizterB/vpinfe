@@ -2813,6 +2813,14 @@ class GameOffers(ApiModel):
     sources: list[GameSourceOffers]
 
 
+class EntryOffers(ApiModel):
+    """What every enabled source has for one catalog entry, asked together: the answer of
+    `GameOffers` for an entry asked about by its VPS id alone."""
+
+    vps_id: str
+    sources: list[GameSourceOffers]
+
+
 class MediaPlacement(ApiModel):
     """One place a file could land. `table` is empty for the folder's own name, which
     every table resolves, and `label` is then empty too. `base` has no extension, which

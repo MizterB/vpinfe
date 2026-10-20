@@ -10,29 +10,24 @@ from manager.library import games
 
 
 class TableUpdateTests(unittest.TestCase):
+    """The Tables grid shows the version VPS lists; what has a later one is Discovery's."""
+
     def _row(self, **wire) -> dict:
         return games.table_rows([{"id": "t1", "game": "A", **wire}])[0]
 
-    def test_a_newer_release_reads_newer_beside_the_version_vps_lists(self) -> None:
+    def test_the_version_vps_lists_is_a_column_of_the_row(self) -> None:
         row = self._row(version="1.0", update_available=True,
                         source={"vps_file_id": "release01", "version": "1.2"})
 
-        self.assertEqual(("1.2", games._NEWER), (row["on_vps"], row["update"]))
+        self.assertEqual("1.2", row["on_vps"])
 
-    def test_nothing_known_reads_blank(self) -> None:
-        for known in (False, None):
-            with self.subTest(known=known):
-                self.assertEqual("", self._row(update_available=known)["update"])
+    def test_the_grid_has_no_column_or_view_for_a_later_version(self) -> None:
+        fields = [definition["field"] for definition in games.TABLE_COLUMNS]
 
-    def test_the_updates_view_holds_only_those_rows(self) -> None:
-        view = next(view for view in views.builtins(games.TABLE_VIEWS)
-                    if view.name == "Updates")
-        column = next(definition for definition in games.TABLE_COLUMNS
-                      if definition["field"] == "update")
-
-        self.assertEqual({"update": {"values": [games._NEWER]}}, view.filters)
-        self.assertIn(games._NEWER, [choice["value"]
-                                     for choice in column["filterParams"]["choices"]])
+        self.assertIn("on_vps", fields)
+        self.assertNotIn("update", fields)
+        self.assertNotIn("update", self._row(update_available=True))
+        self.assertNotIn("Updates", [view.name for view in views.builtins(games.TABLE_VIEWS)])
 
 
 class MatchingAReleaseTests(unittest.TestCase):
