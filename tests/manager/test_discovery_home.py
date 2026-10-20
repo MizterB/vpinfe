@@ -345,6 +345,7 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
         self.unreadable = False
         self.media: dict[str, list[dict]] = {}
         self.updates: list[dict[str, Any]] = []
+        self.overrides: dict[str, Any] = {}
 
         async def inline(call: Any, *args: Any, **more: Any) -> Any:
             self.io.append(getattr(call, "__name__", str(call)))
@@ -384,7 +385,7 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
 
         def spy(*args: Any, **more: Any) -> None:
             spied.update(more)
-            real(*args, **more)
+            real(*args, **{**more, **self.overrides})
 
         self.spied = spied
         with _PAGE:
@@ -1045,7 +1046,17 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
     def _selects(within: ui.element) -> list[dropdown.Select]:
         return [one for one in within.descendants() if isinstance(one, dropdown.Select)]
 
+    SHELVES = ["Updates for Your Games", "New on VPS", "Wanted", "Missing from Your Games",
+               "Games You Don't Have", "Authors You Collect", "Your Views"]
+
+    def _a_game_the_library_lacks(self) -> None:
+        """Batman has a table in the format the shelf counts, so Games You Don't Have draws."""
+        release = FOUND["rows"][1]["releases"]["tableFiles"][0]
+        release["format"] = vps_home.TABLE_FORMAT
+        self.addCleanup(release.pop, "format")
+
     async def test_a_heading_sits_on_the_edge_and_the_tiles_on_the_indent(self) -> None:
+        self._a_game_the_library_lacks()
         self.media = {"playfield": [_offered("i1", "g1", "Alien")]}
         self.updates = [ALIEN_UPDATE]
         self.client.discovery_marks.return_value = [
@@ -1055,11 +1066,95 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
         rows = [one for one in body.descendants() if "manager-heading-row" in one.classes]
         shelves = [one for one in body.descendants() if "manager-shelf" in one.classes]
 
-        self.assertGreaterEqual(len(rows), 6)
+        self.assertEqual([_words(row)[0] for row in rows], self.SHELVES)
         for row in rows:
             self.assertNotIn("px-3", row.classes, _words(row))
+        self.assertEqual(len(shelves), len(self.SHELVES))
         for shelf in shelves:
             self.assertIn("px-3", shelf.classes)
+
+    def _end_of(self, heading: ui.element) -> ui.element:
+        """The group at a heading row's right end, which a space in the row pushes there."""
+        kids = [one for one in heading.default_slot.children if not one.is_deleted]
+        self.assertIsInstance(kids[-2], ui.space, _words(heading))
+        self.assertIn("pr-3", kids[-1].classes)
+        return kids[-1]
+
+    @staticmethod
+    def _see_all_link(within: ui.element) -> ui.link:
+        return next(one for one in within.descendants() if isinstance(one, ui.link)
+                    and not one.is_deleted and one.text == "See All")
+
+    @staticmethod
+    def _follow(link: ui.link) -> None:
+        for listener in link._event_listeners.values():
+            if listener.type == "click" and listener.handler is not None:
+                events.handle_event(listener.handler, events.ClickEventArguments(
+                    sender=link, client=link.client))
+
+    async def test_the_controls_and_see_all_of_a_shelf_are_pushed_to_the_right_end(self) -> None:
+        self._a_game_the_library_lacks()
+        self.media = {"playfield": [_offered("i1", "g1", "Alien")]}
+        body = await self._draw()
+
+        for word in ("New on VPS", "Missing from Your Games", "Games You Don't Have"):
+            with self.subTest(shelf=word):
+                heading = self._heading_of(body, word)
+                end = self._end_of(heading)
+
+                self.assertIn(self._see_all_link(heading), end.descendants())
+        new = self._heading_of(body, "New on VPS")
+        for control in self._selects(new):
+            self.assertIn(control, self._end_of(new).descendants())
+
+    async def test_see_all_on_new_opens_the_kind_picked_and_follows_a_later_pick(self) -> None:
+        self.overrides = {"see_new": mock.Mock()}
+        body = await self._draw()
+        heading = self._heading_of(body, "New on VPS")
+        _window, kinds = self._selects(heading)
+
+        kinds.set_value("b2sFiles")
+        await _settle()
+        self._follow(self._see_all_link(heading))
+        kinds.set_value("tableFiles")
+        await _settle()
+        self._follow(self._see_all_link(heading))
+        kinds.set_value(vps_home.YOURS)
+        await _settle()
+        self._follow(self._see_all_link(heading))
+
+        self.assertEqual(self.overrides["see_new"].call_args_list,
+                         [mock.call(7, "b2sFiles"), mock.call(7, "tableFiles"),
+                          mock.call(7, vps_home.YOURS)])
+
+    async def test_see_all_on_missing_opens_the_kind_picked_and_goes_with_a_kind_that_has_none(
+            self) -> None:
+        self.media = {"playfield": [_offered("i1", "g1", "Alien")],
+                      "playfield_video": [_offered("", "g2", "Batman")]}
+        self.overrides = {"see_missing": mock.Mock()}
+        body = await self._draw()
+        tabs = vps_home.home(FOUND, KEPT, 7, media=self.media, holders={
+            row["vps_id"]: [f"game-{row['vps_id']}"] for row in FOUND["rows"]})["missing"]
+        self.assertNotEqual(tabs["b2sFiles"]["game_ids"], tabs["playfield"]["game_ids"])
+        self.assertEqual(tabs["playfield_video"]["game_ids"], [])
+        heading = self._heading_of(body, "Missing from Your Games")
+        [kinds] = self._selects(heading)
+
+        self._follow(self._see_all_link(heading))
+        kinds.set_value("playfield")
+        await _settle()
+        self._follow(self._see_all_link(heading))
+        kinds.set_value("playfield_video")
+        await _settle()
+        without = self._see_alls(heading)
+        kinds.set_value("playfield")
+        await _settle()
+
+        self.assertEqual(self.overrides["see_missing"].call_args_list,
+                         [mock.call(tabs["b2sFiles"]["game_ids"]),
+                          mock.call(tabs["playfield"]["game_ids"])])
+        self.assertEqual(without, 0)
+        self.assertEqual(self._see_alls(heading), 1)
 
     async def test_new_on_vps_has_its_window_and_kinds_and_see_all_at_the_right_end(self) -> None:
         body = await self._draw()
