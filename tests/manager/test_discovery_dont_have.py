@@ -3,123 +3,45 @@ tile says, and the menu on it."""
 
 from __future__ import annotations
 
-import asyncio
 import unittest
 from typing import Any
 from unittest import mock
 
-from nicegui import core, run, ui
+from nicegui import ui
 
 from common.online import vps_home, vps_marks
 from manager.kit import views
 from manager.kit.data import Library
 from manager.library import discovery, discovery_ask, discovery_marks
-from manager.library import discovery_home as home
+from tests.support.home_shelf import (
+    KEPT,
+    PEOPLE,
+    ShelfHarness,
+    entry,
+    grid_order,
+    mark,
+    passes,
+    table,
+    words_of,
+)
 
-# Made at import, outside any task, where NiceGUI still hands out the script's own page.
-_PAGE = ui.element()
-
-KEPT = ["tableFiles", "b2sFiles"]
-
-
-def _table(rid: str, by: int, fmt: str = "VPX") -> dict[str, Any]:
-    return {"id": rid, "by": [by], "added": "2020-01-01T00:00:00Z", "held": False,
-            "mod": False, "version": "", "format": fmt}
-
-
-def _entry(vps_id: str, name: str, tables: list[dict[str, Any]], *, in_library: bool = False,
-           manufacturer: str = "", year: int | None = None) -> dict[str, Any]:
-    return {"vps_id": vps_id, "name": name, "in_library": in_library, "img_url": "",
-            "manufacturer": manufacturer, "year": year, "type": "", "themes": [], "url": "",
-            "listed": ["tableFiles"], "held": [], "releases": {"tableFiles": tables}}
-
-
-PEOPLE: list[dict[str, Any]] = [{"name": name, "aliases": [], "releases": 4}
-                                for name in ("Ann", "Bo", "Cy")]
 FOUND: dict[str, Any] = {"counted": "2026-10-01T10:00:00Z", "people": PEOPLE, "rows": [
-    _entry("g1", "Alien", [_table("t1", 0)], in_library=True),
-    _entry("g2", "Batman", [_table("t2", 0), _table("t3", 1), _table("t4", 2)],
+    entry("g1", "Alien", [table("t1", 0)], in_library=True),
+    entry("g2", "Batman", [table("t2", 0), table("t3", 1), table("t4", 2)],
            manufacturer="Williams", year=1997),
-    _entry("g3", "Cactus", [_table("t5", 0)], manufacturer="Bally"),
-    _entry("g4", "Dune", [_table("t6", 0, "FP")]),
+    entry("g3", "Cactus", [table("t5", 0)], manufacturer="Bally"),
+    entry("g4", "Dune", [table("t6", 0, "FP")]),
 ]}
 
 
-def _words(body: ui.element) -> list[str]:
-    return [str(one.text) for one in body.descendants()
-            if isinstance(one, ui.label) and not one.is_deleted]
+class DrivenShelf(ShelfHarness):
+    """Games You Don't Have, on a front page with a client that answers."""
 
-
-async def _settle() -> None:
-    for _ in range(8):
-        await asyncio.sleep(0)
-
-
-class DrivenShelf(unittest.IsolatedAsyncioTestCase):
-    """Home drawn by `_fill_home`, through the Library and a client that answers."""
-
-    def setUp(self) -> None:
-        self.client = mock.Mock()
-        self.client.library_policy.return_value = {"hidden_asset_kinds": [],
-                                                   "hidden_media_kinds": []}
-        self.client.catalog_discovery.return_value = FOUND
-        self.client.discovery_marks.return_value = []
-        self.client.preferences.return_value = {}
-        self.client.discovery_home.side_effect = self._answer
-        self.library = Library(self.client)
-        self.library.load_kept_kinds()
-        self.found = FOUND
-        self.state: dict[str, Any] = {}
-        self.selected: list[Any] = []
-        self.spied: dict[str, Any] = {}
-
-        async def inline(call: Any, *args: Any, **more: Any) -> Any:
-            return call(*args, **more)
-
-        for patcher in (
-                mock.patch.object(run, "io_bound", inline),
-                mock.patch.object(vps_home.arrivals, "was", return_value=""),
-                mock.patch.object(home.remembered, "get", return_value=None),
-                mock.patch.object(discovery.deeplink, "sync")):
-            patcher.start()
-            self.addCleanup(patcher.stop)
-
-    def _answer(self, days: int) -> dict[str, Any]:
-        return vps_home.home(self.found, KEPT, days,
-                             marks=vps_marks.Marks(self.client.discovery_marks()),
-                             formats=("VPX",))
-
-    async def asyncSetUp(self) -> None:
-        was = core.loop
-        core.loop = asyncio.get_running_loop()
-        self.addCleanup(setattr, core, "loop", was)
-
-    async def _select(self, row: Any) -> None:
-        self.selected.append(row)
-
-    async def _draw(self) -> ui.element:
-        real = home.fill
-
-        def spy(*args: Any, **more: Any) -> None:
-            self.spied.update(more)
-            real(*args, **more)
-
-        with _PAGE:
-            body = ui.column()
-            with mock.patch.object(home, "fill", spy):
-                await discovery._fill_home(self.library, body, self.state, self._select,
-                                           mock.Mock())
-        await _settle()
-        return body
-
-    @staticmethod
-    def _see_alls(body: ui.element) -> int:
-        return sum(1 for one in body.descendants() if not one.is_deleted
-                   and str(getattr(one, "text", "")) == "See All")
+    FOUND = FOUND
 
     async def test_the_shelf_lists_the_games_the_library_lacks_with_the_most_authors_first(
             self) -> None:
-        words = _words(await self._draw())
+        words = words_of(await self._draw())
 
         self.assertIn("Games You Don't Have", words)
         self.assertIn("Most authors first", words)
@@ -128,14 +50,14 @@ class DrivenShelf(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Tables by 1 author", words)
 
     async def test_a_tile_says_who_made_the_game_and_when(self) -> None:
-        words = _words(await self._draw())
+        words = words_of(await self._draw())
 
         self.assertIn("Williams 1997", words)
         self.assertIn("Bally", words)
 
     async def test_a_game_the_library_holds_or_without_a_table_it_plays_is_not_on_it(
             self) -> None:
-        words = _words(await self._draw())
+        words = words_of(await self._draw())
 
         self.assertNotIn("Dune", words)
         # Alien is on the New shelf at most: its table is dated 2020, outside the window.
@@ -145,12 +67,12 @@ class DrivenShelf(unittest.IsolatedAsyncioTestCase):
             self) -> None:
         self.found = {**FOUND, "rows": [
             *FOUND["rows"],
-            {**_entry("g5", "Eden", [_table("t7", 0)], in_library=True),
+            {**entry("g5", "Eden", [table("t7", 0)], in_library=True),
              "listed": ["tableFiles", "b2sFiles"],
-             "releases": {"tableFiles": [{**_table("t7", 0), "held": True}],
-                          "b2sFiles": [_table("b7", 1)]}}]}
+             "releases": {"tableFiles": [{**table("t7", 0), "held": True}],
+                          "b2sFiles": [table("b7", 1)]}}]}
 
-        words = _words(await self._draw())
+        words = words_of(await self._draw())
 
         self.assertLess(words.index("Missing from Your Games"),
                         words.index("Games You Don't Have"))
@@ -159,19 +81,19 @@ class DrivenShelf(unittest.IsolatedAsyncioTestCase):
     async def test_nothing_to_have_draws_no_shelf(self) -> None:
         self.found = {**FOUND, "rows": [FOUND["rows"][0]]}
 
-        self.assertNotIn("Games You Don't Have", _words(await self._draw()))
+        self.assertNotIn("Games You Don't Have", words_of(await self._draw()))
 
     async def test_a_library_never_compared_draws_no_shelf(self) -> None:
         self.found = {**FOUND, "counted": "", "rows": [
             {**row, "in_library": None} for row in FOUND["rows"]]}
 
-        self.assertNotIn("Games You Don't Have", _words(await self._draw()))
+        self.assertNotIn("Games You Don't Have", words_of(await self._draw()))
 
     async def test_an_ignored_game_leaves_the_shelf(self) -> None:
         self.client.discovery_marks.return_value = [
             {"state": "ignored", "scope": "game", "id": "g2", "detail": "", "since": "x"}]
 
-        words = _words(await self._draw())
+        words = words_of(await self._draw())
 
         self.assertNotIn("Batman", words)
         self.assertIn("Cactus", words)
@@ -180,7 +102,7 @@ class DrivenShelf(unittest.IsolatedAsyncioTestCase):
         self.client.discovery_marks.return_value = [
             {"state": "wanted", "scope": "game", "id": "g2", "detail": "", "since": "x"}]
 
-        words = _words(await self._draw())
+        words = words_of(await self._draw())
 
         self.assertEqual(words.count("Batman"), 2)
 
@@ -214,48 +136,23 @@ class DrivenShelf(unittest.IsolatedAsyncioTestCase):
                              for child in tiles[0].descendants()), 1)
 
 
-def _passes(row: dict[str, Any], filters: dict[str, Any]) -> bool:
-    """Whether a grid row stays under the filter models a view sets: a choice filter keeps
-    the values it names (a blank cell is the value ""), a number filter its notBlank."""
-    for field, model in filters.items():
-        cell = row.get(field)
-        if "values" in model:
-            if ("" if cell is None else cell) not in model["values"]:
-                return False
-        elif model.get("type") == "notBlank":
-            if cell is None:
-                return False
-        else:
-            raise AssertionError(f"a filter this test does not read: {model}")
-    return True
-
-
-def _grid_order(rows: list[dict[str, Any]], sort: tuple[dict[str, Any], ...]) -> list[str]:
-    ordered = list(rows)
-    for one in sorted(sort, key=lambda each: -each["sortIndex"]):
-        ordered.sort(key=lambda row: (str(row[one["colId"]]).casefold()
-                                      if isinstance(row[one["colId"]], str) else row[one["colId"]]),
-                     reverse=one["sort"] == "desc")
-    return [row["id"] for row in ordered]
-
-
 class BrowseViewTests(unittest.TestCase):
     """See All opens Browse on exactly the games, in the order, the shelf draws from."""
 
     FOUND: dict[str, Any] = {"counted": "2026-10-01T10:00:00Z", "people": PEOPLE, "rows": [
         *FOUND["rows"],
-        _entry("g5", "Echo", [_table("t7", 1), _table("t8", 1)]),
-        _entry("g6", "Fargo", [_table("t9", 2)]),
-        _entry("g7", "Golem", [{**_table("t10", 0), "by": []}]),
-        _entry("g8", "Hydra", [_table("t11", 0), _table("t12", 1)]),
-        _entry("g9", "Igloo", [_table("t13", 0), _table("t14", 1)], in_library=True),
-        _entry("ga", " ", [_table("t15", 0)]),
-        {**_entry("gb", "Jungle", []), "releases": {}},
+        entry("g5", "Echo", [table("t7", 1), table("t8", 1)]),
+        entry("g6", "Fargo", [table("t9", 2)]),
+        entry("g7", "Golem", [{**table("t10", 0), "by": []}]),
+        entry("g8", "Hydra", [table("t11", 0), table("t12", 1)]),
+        entry("g9", "Igloo", [table("t13", 0), table("t14", 1)], in_library=True),
+        entry("ga", " ", [table("t15", 0)]),
+        {**entry("gb", "Jungle", []), "releases": {}},
     ]}
 
     def setUp(self) -> None:
-        self.MARKS = vps_marks.Marks([_mark("ignored", "game", "g6"),
-                                      _mark("wanted", "game", "g8")])
+        self.MARKS = vps_marks.Marks([mark("ignored", "game", "g6"),
+                                      mark("wanted", "game", "g8")])
 
     PLAYS = ("VPX",)
 
@@ -268,7 +165,7 @@ class BrowseViewTests(unittest.TestCase):
         shelf = vps_home.dont_have(self.FOUND, self.MARKS, self.PLAYS)
         view = discovery.dont_have_opening(counted=True)
 
-        kept = [row for row in self._rows() if _passes(row, view["filters"])]
+        kept = [row for row in self._rows() if passes(row, view["filters"])]
 
         self.assertEqual({row["id"] for row in kept}, {one["vps_id"] for one in shelf})
         self.assertEqual(len(kept), len(shelf))
@@ -277,9 +174,9 @@ class BrowseViewTests(unittest.TestCase):
     def test_the_view_orders_the_games_as_the_shelf_does(self) -> None:
         shelf = [one["vps_id"] for one in vps_home.dont_have(self.FOUND, self.MARKS, self.PLAYS)]
         view = discovery.dont_have_opening(counted=True)
-        kept = [row for row in self._rows() if _passes(row, view["filters"])]
+        kept = [row for row in self._rows() if passes(row, view["filters"])]
 
-        self.assertEqual(_grid_order(kept, view["sort"]), shelf)
+        self.assertEqual(grid_order(kept, view["sort"]), shelf)
 
     def test_a_format_a_launcher_plays_counts_in_the_column_the_view_and_the_shelf(self) -> None:
         for plays in (("VPX", "FP"), ()):
@@ -287,12 +184,12 @@ class BrowseViewTests(unittest.TestCase):
                 shelf = vps_home.dont_have(self.FOUND, self.MARKS, plays)
                 view = discovery.dont_have_opening(counted=True)
                 rows = self._rows(formats=plays)
-                kept = [row for row in rows if _passes(row, view["filters"])]
+                kept = [row for row in rows if passes(row, view["filters"])]
 
                 self.assertEqual({row["id"]: row for row in rows}["g4"][discovery.TABLE_AUTHORS], 1)
                 self.assertEqual({row["id"] for row in kept}, {one["vps_id"] for one in shelf})
                 self.assertIn("g4", {row["id"] for row in kept})
-                self.assertEqual(_grid_order(kept, view["sort"]),
+                self.assertEqual(grid_order(kept, view["sort"]),
                                  [one["vps_id"] for one in shelf])
 
     def test_a_format_no_launcher_plays_is_not_counted_in_the_column(self) -> None:
@@ -326,8 +223,8 @@ class BrowseViewTests(unittest.TestCase):
         view = discovery.dont_have_opening(counted=True)
 
         self.assertEqual(by_id["g6"]["mark"], "ignored")
-        self.assertFalse(_passes(by_id["g6"], view["filters"]))
-        self.assertTrue(_passes(by_id["g8"], view["filters"]))
+        self.assertFalse(passes(by_id["g6"], view["filters"]))
+        self.assertTrue(passes(by_id["g8"], view["filters"]))
 
     def test_before_the_library_is_compared_only_the_table_filter_is_set(self) -> None:
         self.assertEqual(list(discovery.dont_have_opening(counted=False)["filters"]),
@@ -391,10 +288,6 @@ def _labels(entries: list[Any]) -> list[str]:
     return [one.label for one in entries]
 
 
-def _mark(state: str, scope: str, one: str) -> dict[str, str]:
-    return {"state": state, "scope": scope, "id": one, "detail": "", "since": "x"}
-
-
 class AStoredViewThatIsGone(unittest.TestCase):
     """Not in Library was a built-in a user could have left showing."""
 
@@ -427,11 +320,11 @@ class MenuTests(unittest.TestCase):
         self.assertEqual(self._verbs(), ["Add to Wanted", "Ignore Game"])
 
     def test_a_wanted_game_can_be_taken_off(self) -> None:
-        self.assertEqual(self._verbs(_mark("wanted", "game", "g2")),
+        self.assertEqual(self._verbs(mark("wanted", "game", "g2")),
                          ["Remove from Wanted", "Ignore Game"])
 
     def test_an_ignored_game_can_be_stopped(self) -> None:
-        self.assertEqual(self._verbs(_mark("ignored", "game", "g2")),
+        self.assertEqual(self._verbs(mark("ignored", "game", "g2")),
                          ["Add to Wanted", "Stop Ignoring"])
 
     def test_the_menu_is_titled_with_the_game(self) -> None:
@@ -441,8 +334,8 @@ class MenuTests(unittest.TestCase):
 
     def test_a_game_is_wanted_by_its_own_mark(self) -> None:
         library = mock.Mock(spec=Library)
-        library.marks.return_value = [_mark("wanted", "game", "g2"),
-                                      _mark("wanted", "release", "g3")]
+        library.marks.return_value = [mark("wanted", "game", "g2"),
+                                      mark("wanted", "release", "g3")]
         marking = discovery_marks.Marking(library, mock.AsyncMock())
 
         self.assertTrue(marking.wanted_game("g2"))

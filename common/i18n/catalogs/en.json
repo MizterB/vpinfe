@@ -1269,6 +1269,12 @@
     "one": "Tables by {count:n} author",
     "other": "Tables by {count:n} authors"
   },
+  "manager.discovery.family": "Other Versions of Your Games",
+  "manager.discovery.family.help": "Same title as a game you have, by another maker or from another year",
+  "manager.discovery.family.held": "You have {made}",
+  "manager.discovery.family.held_many": "You have {count:n} with this title",
+  "manager.discovery.other_held": "Other Version Held",
+  "manager.discovery.other_held.help": "Yes where you hold another game with this title, blank until compared",
   "manager.discovery.table_authors": "Table Authors",
   "manager.discovery.table_authors.help": "People named first on its tables you can play. Blank without one",
   "manager.discovery.gap.playfield": "Playfields",

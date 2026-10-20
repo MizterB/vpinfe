@@ -132,6 +132,7 @@ CATALOG_FACET_CEILING = 300
 TABLE_AUTHORS = "table_authors"
 PLAYABLE = "playable"
 HELD = "held"
+OTHER_HELD = "other_held"
 
 COLUMNS = [
     grid_module.identifier("name", t("word.game"), 260, pinned="left",
@@ -158,6 +159,9 @@ COLUMNS = [
                        help=t("manager.discovery.held.help"),
                        **grid_module.choice_filter(_yes_no())),
     *(_held_kind_column(*kind) for kind in KINDS),
+    grid_module.column(OTHER_HELD, t("manager.discovery.other_held"),
+                       help=t("manager.discovery.other_held.help"),
+                       **grid_module.choice_filter(_yes_no())),
     grid_module.column(TABLE_AUTHORS, t("manager.discovery.table_authors"),
                        help=t("manager.discovery.table_authors.help"),
                        **grid_module.NUMBER_COLUMN),
@@ -174,9 +178,9 @@ _HELD_KIND_FIELDS = [held_field(field) for field in _KIND_FIELDS]
 # The game's own facts are on the Game cell's second line and in the pane. They stay in the
 # column picker for sorting and filtering, and no view turns them on.
 _PICKED = ("manufacturer", "year", "game_type", "themes")
-# Table Authors is the Games You Don't Have view's own column. Playable and the Held
-# columns are shown only by a view opened on them.
-_NOT_EVERYWHERE = (*_PICKED, TABLE_AUTHORS, PLAYABLE, HELD, *_HELD_KIND_FIELDS)
+# Table Authors is the Games You Don't Have view's own column. Playable, Other Version Held
+# and the Held columns are shown only by a view opened on them.
+_NOT_EVERYWHERE = (*_PICKED, TABLE_AUTHORS, PLAYABLE, HELD, OTHER_HELD, *_HELD_KIND_FIELDS)
 _ALL = [definition["field"] for definition in COLUMNS]
 _BY_NAME = ({"colId": "name", "sort": "asc", "sortIndex": 0},)
 
@@ -191,7 +195,8 @@ VIEWS: dict[str, list[str] | views.Preset] = {
 }
 
 
-COUNTED_FIELDS = frozenset({"in_library", "gap", HELD, *_HELD_KIND_FIELDS, *_KIND_FIELDS})
+COUNTED_FIELDS = frozenset({"in_library", "gap", HELD, OTHER_HELD, *_HELD_KIND_FIELDS,
+                            *_KIND_FIELDS})
 """The columns that are blank until the library has been counted."""
 
 
@@ -207,6 +212,17 @@ def dont_have_opening(*, counted: bool) -> dict[str, Any]:
     return {"name": t("manager.discovery.dont_have"), "filters": filters,
             "sort": ({"colId": TABLE_AUTHORS, "sort": "desc", "sortIndex": 0},
                      {"colId": "name", "sort": "asc", "sortIndex": 1})}
+
+
+def family_opening(*, counted: bool) -> dict[str, Any]:
+    """The view Other Versions of Your Games opens Browse on: the games not in the library
+    that share a title with one it holds and have a table, in the shelf's order, ignored
+    games left out. Before the library is compared nothing is known to be held, so only the
+    table filter is set."""
+    opening = dont_have_opening(counted=counted)
+    if counted:
+        opening["filters"][OTHER_HELD] = {"values": [YES]}
+    return {**opening, "name": t("manager.discovery.family")}
 
 
 def _state(listed: bool, counted: bool, in_library: bool, held: bool) -> str:
@@ -246,6 +262,7 @@ def rows(found: dict[str, Any], kept: Collection[str] | None = None,
     Playable is read against; empty counts every one."""
     counted = bool(found.get("counted"))
     marks = marks or vps_marks.Marks()
+    titles = vps_home.held_titles(found)
     out = []
     for entry in found.get("rows") or []:
         if not (entry.get("name") or "").strip():
@@ -271,6 +288,9 @@ def rows(found: dict[str, Any], kept: Collection[str] | None = None,
             PLAYABLE: "" if kept is not None and vps_releases.TABLES not in kept
             else _playable(releases, formats),
             HELD: _held(releases, kept) if counted else "",
+            OTHER_HELD: ("" if not counted else YES if len(
+                titles.get(vps_home.title_key(entry["name"]), ())) > (1 if in_library else 0)
+                else NO),
         }
         states = []
         for listed_as, field, _word in KINDS:
@@ -437,6 +457,11 @@ async def _fill_home(library: Library, body: Any, state: dict[str, Any],
         open_page(state, people, rerender, None, tab=BROWSE,
                   opening=dont_have_opening(counted=bool(home["counted"])))
 
+    def see_family() -> None:
+        """Browse, on the games the shelf draws from."""
+        open_page(state, people, rerender, None, tab=BROWSE,
+                  opening=family_opening(counted=bool(home["counted"])))
+
     def see_updates(game_ids: list[str]) -> Any:
         """Games, narrowed to the games with an update."""
         from manager.library import games
@@ -471,7 +496,8 @@ async def _fill_home(library: Library, body: Any, state: dict[str, Any],
     discovery_home.fill(
         body, home, library=library, scope=SCOPE, view_presets=VIEWS, catalog=catalog,
         reread=reread, on_select=on_select, see_new=see_new, see_missing=see_missing,
-        see_updates=see_updates, see_dont_have=see_dont_have, see_picture=see_picture,
+        see_updates=see_updates, see_dont_have=see_dont_have, see_family=see_family,
+        see_picture=see_picture,
         fix_scripts=fix_scripts,
         open_view=to_view, open_releases_view=to_releases_view, open_marks=to_marks,
         open_subject=go_to, marking=discovery_marks.Marking(library, redraw_home))

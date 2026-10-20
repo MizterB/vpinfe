@@ -4208,6 +4208,29 @@ class HomeGames(ApiModel):
     games: list[HomeGame] = []
 
 
+class HomeHeld(ApiModel):
+    """A game of the library that shares a title with a `HomeFamilyGame`."""
+
+    vps_id: str
+    game: str
+    manufacturer: str = ""
+    year: str = ""
+
+
+class HomeFamilyGame(HomeGame):
+    """A game on the Other Versions of Your Games shelf. `held` is the entries of the same
+    title the library holds, the oldest first."""
+
+    held: list[HomeHeld] = []
+
+
+class HomeFamily(ApiModel):
+    """`count` games, the ones with the most `authors` first, and `games` the first twelve."""
+
+    count: int = 0
+    games: list[HomeFamilyGame] = []
+
+
 class HomeUpdateMove(ApiModel):
     """One thing of a game that has a later version. `source` is `vps` for a release the
     library's file is tied to, which VPS now lists at `now` where it listed `then` when the
@@ -4269,6 +4292,7 @@ class DiscoveryHome(ApiModel):
     missing: dict[str, HomeGaps] = {}
     wanted: HomeWanted = HomeWanted()
     dont_have: HomeGames = HomeGames()
+    family: HomeFamily = HomeFamily()
     updates: HomeUpdates = HomeUpdates()
 
 

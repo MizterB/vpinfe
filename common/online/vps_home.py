@@ -1,6 +1,6 @@
 """Discovery's front page, answered in one read: what VPS added lately, whose work the
 library holds, which of its games lack a kind VPS lists, and which games VPS lists that it
-has none of.
+has none of, and which of those share a title with a game it holds.
 
 Drawn from the answer `library_vps_state.discovery` gives, so Home and the grid never
 disagree about what is held. The VPS side is stored state; the media gaps a source can fill
@@ -9,6 +9,8 @@ come from the sources' index, which the caller reads.
 
 from __future__ import annotations
 
+import re
+import unicodedata
 from collections import Counter
 from collections.abc import Collection, Iterable, Mapping
 from datetime import date, timedelta
@@ -191,6 +193,51 @@ def dont_have(found: dict[str, Any], marks: vps_marks.Marks | None = None,
     return out
 
 
+def title_key(name: str) -> str:
+    """A game's title as the same title is spelled by every entry that shares it: accents,
+    case, punctuation and any parenthesised part ("(Pro)") dropped."""
+    plain = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
+    plain = re.sub(r"\([^)]*\)", "", plain)
+    return re.sub(r"[^a-z0-9]+", " ", plain.casefold()).strip()
+
+
+def held_titles(found: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    """The entries the library holds, by title key, the oldest first. Empty until the
+    library has been compared."""
+    if not found.get("counted"):
+        return {}
+    out: dict[str, list[dict[str, Any]]] = {}
+    for row in found.get("rows") or []:
+        name = (row.get("name") or "").strip()
+        key = title_key(name)
+        if row.get("in_library") and key:
+            year = row.get("year")
+            out.setdefault(key, []).append(
+                {"vps_id": row["vps_id"], "game": name,
+                 "manufacturer": (row.get("manufacturer") or "").strip(),
+                 "year": str(year) if year else ""})
+    for held in out.values():
+        held.sort(key=lambda one: (one["year"], one["game"].casefold(), one["vps_id"]))
+    return out
+
+
+def family(found: dict[str, Any], marks: vps_marks.Marks | None = None,
+           formats: Collection[str] = ()) -> list[dict[str, Any]]:
+    """The games VPS lists that the library has none of, that share a title with a game it
+    holds, and that have a table in one of `formats`: the same name by another maker or in
+    another year. Each carries `held`, the entries of that title the library holds. The ones
+    the most people made a table for come first, as on Games You Don't Have, and an ignored
+    game is left out."""
+    held = held_titles(found)
+    marks = marks or vps_marks.Marks()
+    out = []
+    for one in dont_have(found, marks, formats):
+        mine = held.get(title_key(one["game"]))
+        if mine:
+            out.append({**one, "held": mine})
+    return out
+
+
 def _same_game(listed: Mapping[str, Any], offered: Mapping[str, Any]) -> bool:
     """Whether a record from VPS and one from a source are one game: the same library id, or
     where VPS's has none, the same entry."""
@@ -239,7 +286,8 @@ def home(found: dict[str, Any], kept: Collection[str], days: int,
     New is cut to what a tile row shows, once for each chip, with the count each chip holds
     so a chip with nothing in it is left out by the page. Whatever `marks` ignores is on no
     shelf, and what it holds Wanted is its own. `dont_have` is the games the library lacks, cut
-    to a row of tiles with the count of all of them, counting the tables in `formats`.
+    to a row of tiles with the count of all of them, counting the tables in `formats`. `family` is
+the part of those that share a title with a game the library holds.
     `updates` is what `library_updates.found` answers: the games with a later version of
     something they hold."""
     marks = marks or vps_marks.Marks()
@@ -268,7 +316,9 @@ def home(found: dict[str, Any], kept: Collection[str], days: int,
     held = vps_marked.wanted(found, marks)
     wanted = {"count": len(held), "items": held[:SHELF_SHOWN]}
     lacked = dont_have(found, marks, formats)
+    related = family(found, marks, formats)
     return {"counted": found.get("counted") or "", "days": days, "since": since(days, today),
             "new": new, "authors": authors_collected(found, shelf), "missing": missing,
             "wanted": wanted, "dont_have": {"count": len(lacked), "games": lacked[:SHELF_SHOWN]},
+            "family": {"count": len(related), "games": related[:SHELF_SHOWN]},
             "updates": vps_updates.shelf(updates or [], marks, cut=vps_updates.SHELF_SHOWN)}

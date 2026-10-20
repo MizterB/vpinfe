@@ -1,7 +1,8 @@
 """Discovery's front page, drawn from what `GET /discovery/home` answers: the games of the
 library with a later version of something they hold, what VPS added lately, the games the
-library holds that lack a kind VPS lists, the games VPS lists that it has none of, whose work
-it holds, and the views it has saved.
+library holds that lack a kind VPS lists, the games VPS lists that it has none of, the ones
+among them that share a title with a game it holds, whose work it holds, and the views it has
+saved.
 
 A tile opens its game in the pane, an author's name opens the author's page, and See All
 opens a grid on a named view of the same question. The counts on Your Views need the whole
@@ -228,6 +229,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
          see_missing: Callable[[list[str]], Any],
          see_updates: Callable[[list[str]], Any],
          see_dont_have: Callable[[], Any],
+         see_family: Callable[[], Any],
          see_picture: Callable[[str, str], Any],
          fix_scripts: Callable[[list[str]], Any],
          open_view: Callable[[str], Any],
@@ -239,8 +241,8 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
 
     `catalog()` gives the people and the Browse rows once the catalog is in memory; `reread`
     answers for another window. `see_new(days, chip)`, `see_missing(game_ids)` and
-    `see_updates(game_ids)` open the grid on the shelf's question, `see_dont_have()` Browse on
-    the games the shelf draws from, `see_picture(vps_id, kind)`
+    `see_updates(game_ids)` open the grid on the shelf's question, `see_dont_have()` and
+    `see_family()` Browse on the games the shelf draws from, `see_picture(vps_id, kind)`
     a game's pane on the section of that media kind, `open_view(id)` on a saved view of
     Browse, `open_releases_view(id)` on one of Releases, `open_marks(view)` the Marks grid on
     its Ignored or Wanted view, `open_subject` an author's page, and `fix_scripts(folders)`
@@ -267,6 +269,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         wanted_box = ui.column().classes("w-full gap-2")
         lacking_box = ui.column().classes("w-full gap-2")
         dont_have_box = ui.column().classes("w-full gap-2")
+        family_box = ui.column().classes("w-full gap-2")
         authors_box = ui.column().classes("w-full gap-2")
         views_box = ui.column().classes("w-full gap-2")
 
@@ -420,6 +423,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         draw_wanted()
         draw_lacking()
         draw_dont_have()
+        draw_family()
         draw_authors()
 
     async def pick_window(days: int) -> None:
@@ -446,6 +450,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         draw_shelf()
         draw_wanted()
         draw_dont_have()
+        draw_family()
         draw_authors()
 
     def pick_chip(chip: str) -> None:
@@ -548,6 +553,42 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
                 ui.icon(verbs.WANTED, size="18px").classes("manager-cell-mark").tooltip(
                     t("manager.discovery.mark.wanted.help"))
             menu_on(card, discovery_marks.DONT_HAVE, game, "")
+
+    def draw_family() -> None:
+        family_box.clear()
+        related = shown["home"]["family"]
+        if not related["games"]:
+            return
+        with family_box:
+            with _heading():
+                ui.label(t("manager.discovery.family")).classes(
+                    "manager-fact-heading shrink-0").tooltip(t("manager.discovery.family.help"))
+                ui.label(t("manager.discovery.dont_have.order")).classes(
+                    "text-xs manager-help")
+                ui.space()
+                with _end():
+                    panel.link(t("manager.discovery.see_all"), to=ADDRESS,
+                               on_click=see_family)()
+            row = ui.row().classes("manager-shelf w-full px-3")
+            for game in related["games"]:
+                family_tile(row, game)
+
+    def family_tile(parent: Any, game: dict[str, Any]) -> None:
+        with parent, ui.element("div").classes("manager-shelf-tile") as card:
+            card.props("tabindex=0 role=button")
+            card.on("click", lambda _e, one=game: on_select({"id": one["vps_id"]}))
+            card.on("keydown.enter", lambda _e, one=game: on_select({"id": one["vps_id"]}))
+            candidates.thumb(game["img_url"], icons.TABLES, t("manager.discovery.no_picture"))
+            with ui.column().classes("gap-0 min-w-0"):
+                ui.label(t("word.game")).classes("text-xs manager-label")
+                ui.label(game["game"]).classes("manager-shelf-name")
+                if made := game_tables.made(game):
+                    ui.label(made).classes("text-xs manager-help truncate")
+                held = game["held"]
+                ui.label(t("manager.discovery.family.held", made=game_tables.made(held[0]))
+                         if len(held) == 1
+                         else t("manager.discovery.family.held_many", count=len(held))) \
+                    .classes("text-xs manager-help truncate")
 
     def draw_wanted() -> None:
         wanted_box.clear()
@@ -657,6 +698,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
     draw_wanted()
     draw_lacking()
     draw_dont_have()
+    draw_family()
     draw_authors()
     draw_views()
     busy.start(views_box, learn)
