@@ -259,6 +259,17 @@ def _places_dmd(found: Path) -> bool | None:
     return places
 
 
+def _away(folder: Path) -> bool:
+    """Not a folder, or one with nothing in it. A folder that cannot be listed is not away:
+    its files are read, and fail, one at a time."""
+    if not folder.is_dir():
+        return True
+    try:
+        return next(folder.iterdir(), None) is None
+    except OSError:
+        return False
+
+
 def score_dmds(game: Any, launcher_id: str = "") -> list[Scored]:
     """For each table of the game whose launcher has settings of its own, whether the
     backglass file it reads places a Score View DMD: false for a table that reads none.
@@ -266,8 +277,8 @@ def score_dmds(game: Any, launcher_id: str = "") -> list[Scored]:
     whose folder is missing, empty or has no path. With `launcher_id`, only the tables that
     launcher plays."""
     found: list[Scored] = []
-    folder = str(game.full_path_game or "")
-    if not folder or not Path(folder).is_dir() or next(Path(folder).iterdir(), None) is None:
+    folder = Path(game.full_path_game or "")
+    if not game.full_path_game or _away(folder):
         return found
     for row in _table_rows(game, ""):
         if (not row.get("launcher") or not row.get("launcher_app_configurable")
@@ -281,7 +292,7 @@ def score_dmds(game: Any, launcher_id: str = "") -> list[Scored]:
             continue
         if places is not None:
             found.append(Scored(row["id"], row["launcher"],
-                                str(Path(game.full_path_game or "") / row["filename"]),
+                                str(folder / row["filename"]),
                                 places))
     return found
 

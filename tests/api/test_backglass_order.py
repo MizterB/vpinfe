@@ -388,6 +388,15 @@ class WhatIsKept(Settled):
 
         self.assertEqual((failed, order_record.held()), ([], {"t1": SWAPPED}))
 
+    def test_a_game_folder_that_cannot_be_listed_is_read_file_by_file_as_before(self) -> None:
+        self.put()
+
+        with patch.object(Path, "iterdir", side_effect=PermissionError("denied")):
+            scored = backglass_ops.score_dmds(self.game)
+
+        self.assertEqual([(one.table, one.in_file) for one in scored],
+                         [("t1", True), ("t2", False)])
+
     def test_a_game_with_no_folder_path_keeps_its_record(self) -> None:
         self.put()
         self.game.full_path_game = None
@@ -434,6 +443,19 @@ class ReplacingAPair(Settled):
         backglass_order.settle(GAME_ID)
 
         self.assertEqual((self.ini, order_record.held()), (self.RANKED, {"t1": self.RANKED}))
+
+    def test_a_pair_replaced_on_other_keys_leaves_none_of_the_old_one_behind(self) -> None:
+        old, new = {"Rank.A": "1"}, {"Rank.B": "2"}
+        self.ini = dict(old)
+        order_record.keep({"t1": old})
+        self.dies = True
+
+        with patch.object(launcher_ops, "backglass_order",
+                          return_value=TableOrder(write=new, ours=new)):
+            with self.assertRaises(Boom):
+                backglass_order.settle(GAME_ID)
+
+        self.assertEqual(self.ini, {})
 
     def test_a_pair_replaced_is_taken_out_while_the_record_still_names_it(self) -> None:
         self.put()

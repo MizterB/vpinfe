@@ -10,7 +10,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 import httpapi
-from common.games import order_record
+from common.games import game_repository, order_record
 from common.host import launch_state
 from common.security import api_tokens, sign_in
 from httpapi import auth
@@ -59,17 +59,34 @@ class WhatDeletingDoesTests(DeleteFolderCase):
 
         self.assertEqual(order_record.held(), {"other": pair})
 
-    def test_a_game_whose_info_was_damaged_after_it_loaded_can_still_be_deleted(self) -> None:
-        for damage in (b"", b"\xff\xfe", b"{not json"):
-            with self.subTest(damage=damage):
-                (self.folder / "Taxi.info").write_bytes(damage)
+    def deleted_with_info_damaged_to(self, damage: bytes) -> None:
+        pair = {"ScoreView.Priority.B2S": "2", "ScoreView.Priority.Nixie": "1"}
+        patcher = patch.object(order_record, "PATH", self.folder.parent / "draw_order.json")
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        (self.folder / "Taxi.vpx").write_bytes(b"table")
+        info = self.folder / "Taxi.info"
+        held = json.loads(info.read_text(encoding="utf-8"))
+        held["tables"] = {"tx0000000001": {"id": "tx0000000001", "filename": "Taxi.vpx"}}
+        info.write_text(json.dumps(held), encoding="utf-8")
+        game_repository.refresh_game(self.folder)
+        order_record.keep({"tx0000000001": pair, "other": pair})
+        info.write_bytes(damage)
 
-                found = self.delete()
+        found = self.delete()
 
-                self.assertEqual(found.status_code, 200, found.text)
-                self.assertFalse(self.folder.exists())
-                self.game = self.create("Taxi").json()
-                self.folder = Path(self.game["folder"])
+        self.assertEqual(found.status_code, 200, found.text)
+        self.assertFalse(self.folder.exists())
+        self.assertEqual(order_record.held(), {"other": pair})
+
+    def test_a_game_whose_info_went_empty_after_it_loaded_can_still_be_deleted(self) -> None:
+        self.deleted_with_info_damaged_to(b"")
+
+    def test_a_game_whose_info_went_unreadable_after_it_loaded_can_still_be_deleted(self) -> None:
+        self.deleted_with_info_damaged_to(b"\xff\xfe")
+
+    def test_a_game_whose_info_went_to_bad_json_after_it_loaded_can_still_be_deleted(self) -> None:
+        self.deleted_with_info_damaged_to(b"{not json")
 
     def test_a_game_that_is_running_is_left_alone(self) -> None:
         running = launch_state.LaunchState(launching=True, game_id=self.game["id"])

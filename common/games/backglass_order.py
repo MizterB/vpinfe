@@ -32,6 +32,7 @@ from common.runtime import jobs, shutdown
 
 logger = logging.getLogger("vpinfe.common.games.backglass_order")
 
+# hash(game_id) % 64: two unrelated games can share a lock.
 _LOCKS = tuple(threading.RLock() for _ in range(64))
 _STARTING = threading.Lock()
 
@@ -151,7 +152,7 @@ def _apply(table: str, order: TableOrder, kept: dict[str, str]) -> bool:
     ours = kept if order.ours is None else order.ours
     if order.write and ours:
         if kept:
-            launcher_ops.write_table_settings(table, dict.fromkeys(order.write, ""),
+            launcher_ops.write_table_settings(table, dict.fromkeys({**kept, **order.write}, ""),
                                               settle=False)
         order_record.keep({table: ours})
         try:
