@@ -306,6 +306,39 @@ class SettingAsideOverWhatItCounted(unittest.TestCase):
         self.assertEqual((), arranged.rows[0].new)
         self.assertEqual({}, arranged.record)
 
+    def test_a_row_a_source_fills_keeps_what_it_was_dismissed_over_while_the_game_is_here(self):
+        # A source had a file for "b", so the row stopped counting it; the source is
+        # away again and the row counts it, dismissed as it was.
+        record = {"no_backglass": ["a", "b"]}
+        gone_away = needs.arrange([bare("no_backglass", ["a", "b"])], record, set(), (), (),
+                                  {"a", "b"})
+        filled_by_it = needs.arrange([bare("no_backglass", ["a"])], record, set(), (), (),
+                                     {"a", "b"})
+
+        self.assertEqual([], gone_away.rows)
+        self.assertEqual({"no_backglass": ["a", "b"]}, filled_by_it.record)
+        self.assertEqual({"no_backglass": ["a", "b"]},
+                         needs.arrange([bare("no_backglass", ["a", "b"])],
+                                       filled_by_it.record, set(), (), (), {"a", "b"}).record)
+
+    def test_a_source_filled_row_is_kept_whole_when_a_source_fills_every_game_in_it(self):
+        arranged = needs.arrange([], {"no_backglass": ["a", "b"]}, set(), (), (), {"a", "b"})
+
+        self.assertEqual({"no_backglass": ["a", "b"]}, arranged.record)
+
+    def test_what_a_source_filled_row_held_leaves_the_record_with_its_game(self):
+        arranged = needs.arrange([bare("no_media", ["a"])], {"no_media": ["a", "b"]}, set(),
+                                 (), (), {"a"})
+
+        self.assertEqual({"no_media": ["a"]}, arranged.record)
+        self.assertEqual({}, needs.arrange([], {"no_media": ["b"]}, set(), (), (), {"a"}).record)
+
+    def test_a_row_no_source_fills_still_forgets_an_id_it_no_longer_counts(self):
+        arranged = needs.arrange([bare("unmatched", ["a"])], {"unmatched": ["a", "b"]}, set(),
+                                 (), (), {"a", "b"})
+
+        self.assertEqual({"unmatched": ["a"]}, arranged.record)
+
     def test_a_row_not_checked_keeps_its_record_but_an_absent_one_keeps_nothing(self):
         record = {"unmatched": ["a"], "no_year": ["b"]}
         arranged = needs.arrange([], record, {"no_year"})

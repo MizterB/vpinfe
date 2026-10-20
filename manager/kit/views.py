@@ -164,15 +164,17 @@ OPENED = "opened"
 
 
 def opened(start: View, name: str, over: Mapping[str, Any],
-           all_fields: list[str], help: str = "") -> View:
+           all_fields: list[str], help: str = "",
+           sort: tuple[dict[str, Any], ...] = ()) -> View:
     """A named starting point for a grid that was sent here: `start` with `over` as its
-    filters and each column `over` filters shown. Read-only like a built-in, so it is
-    never among the user's views, and saving it is what keeps it."""
+    filters and each column `over` filters shown, and `sort` in place of its own when given.
+    Read-only like a built-in, so it is never among the user's views, and saving it is what
+    keeps it."""
     over = {column: model for column, model in over.items() if column in all_fields}
     shown = list(visible_columns(start, all_fields) or all_fields)
     return replace(start, id=OPENED, name=name, builtin=True, help=help,
                    columns=tuple(shown + [column for column in over if column not in shown]),
-                   filters=over)
+                   filters=over, sort=sort or start.sort)
 
 
 def differs(view: View, columns: tuple[str, ...], sort: tuple[dict, ...],

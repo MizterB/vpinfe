@@ -13,6 +13,7 @@ from nicegui import run, ui
 from common.failures import why
 from common.i18n import number, t
 from common.media.media_specs import media_label_map
+from common.online import vps_home
 from common.security import approvals
 from manager.extensions import ext_mark
 from manager.kit import dialog as frame
@@ -305,23 +306,41 @@ def _figure(count: int, label: str, state: dict[str, Any], where: needs.Opens) -
         ui.label(label).classes("manager-help")
 
 
-def _kind_row(kind: str, held: int, total: int, state: dict[str, Any]) -> None:
+def home_tab(kind: str) -> str:
+    """The Discovery Home tab of missing media a media kind is counted under: the VPS kind
+    a source files it with (`vps_home.MEDIA_OF`), else its own name."""
+    return next((listing for listing, media in vps_home.MEDIA_OF.items() if media == kind), kind)
+
+
+def _kind_row(kind: str, held: int, total: int, state: dict[str, Any],
+              lacking: tuple[str, ...] | None = None) -> None:
+    """One bar of what the library holds. `lacking` is the games Home's tab for the kind
+    lists, which is the figure the row links to and the tooltip names, so the row and the
+    tab open the same set. None where Home could not be read: the row then counts every
+    game without the kind and opens those."""
     name = media_label_map().get(kind, kind)
-    without = total - held
+    without = total - held if lacking is None else len(lacking)
     row = ui.element("div").classes("manager-need")
     if not without:
         row.classes("manager-need--static")
-    if without:
+    elif lacking is None:
         _opens(row, state, needs.Opens("games", needs.blank(f"media_{kind}")))
+    else:
+        from manager.library import games
+        _opens(row, state, needs.Opens("games", keys={games.LACKING_KEY: lacking}))
     with row:
         ui.label(name).classes("manager-setting w-40 shrink-0")
         with ui.element("div").classes("grow min-w-0"):
             _bar(held / total if total else 0)
         ui.label(t("manager.sections.held_of_games", held=held, total=total)) \
             .classes("manager-need-count shrink-0")
-    row.tooltip(t("manager.sections.kind_tip", held=held, total=total, kind=name,
-                  without=without) if without
-                else t("manager.sections.kind_all", total=total, kind=name))
+    if without:
+        row.tooltip(t("manager.sections.kind_tip", held=held, total=total, kind=name,
+                      without=without))
+    elif held < total:
+        row.tooltip(t("manager.sections.kind_held", held=held, total=total, kind=name))
+    else:
+        row.tooltip(t("manager.sections.kind_all", total=total, kind=name))
 
 
 def _hide_kinds(library: Library, state: dict[str, Any], kinds: list[str]) -> Any:
@@ -352,8 +371,11 @@ def _library(library: Library, state: dict[str, Any]) -> None:
         present = [(kind, count) for kind, count in held if count]
         if present:
             ui.label(t("manager.sections.games_with")).classes("manager-fact-heading")
+            tabs = library.home_missing()
             for kind, count in present:
-                _kind_row(kind, count, total, state)
+                lacking = None if tabs is None else tuple(
+                    tabs.get(home_tab(kind), {}).get("game_ids") or ())
+                _kind_row(kind, count, total, state, lacking)
         empty = [kind for kind, count in held if not count]
         if empty:
             names = [media_label_map().get(kind, kind) for kind in empty]
@@ -478,7 +500,7 @@ def overview(library: Library, registry: list[dict], discovery: dict,
              go: Callable[[str], None], state: dict[str, Any]) -> None:
     arranged = needs.arrange(needs.collect(library, state), library.dismissed(),
                              library.stopped(), library.watched().get("unread") or (),
-                             needs.blind(library))
+                             needs.blind(library), {str(one["id"]) for one in library.games})
     _prune(library, arranged.record)
 
     def placed(game_ids: tuple[str, ...]) -> None:

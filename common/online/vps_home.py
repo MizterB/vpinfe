@@ -150,6 +150,17 @@ def lacking_media(found: dict[str, Any],
     return out
 
 
+def table_authors(row: Mapping[str, Any]) -> int | None:
+    """How many people made a `TABLE_FORMAT` table of this game, each counted once by the
+    author a release names first however many tables or versions they made. None for a game
+    with no such table, which is a different fact from a table that names no one."""
+    tables = [one for one in (row.get("releases") or {}).get(vps_releases.TABLES) or []
+              if one.get("format") == TABLE_FORMAT]
+    if not tables:
+        return None
+    return len({one["by"][0] for one in tables if one.get("by")})
+
+
 def dont_have(found: dict[str, Any], marks: vps_marks.Marks | None = None) -> list[dict[str, Any]]:
     """The games VPS lists that the library has none of and that have a table in
     `TABLE_FORMAT`, the ones the most people made a table for first. A game counts a person
@@ -165,15 +176,14 @@ def dont_have(found: dict[str, Any], marks: vps_marks.Marks | None = None) -> li
         name = (row.get("name") or "").strip()
         if not name or row.get("in_library") or marks.game_ignored(str(row["vps_id"])):
             continue
-        tables = [one for one in (row.get("releases") or {}).get(vps_releases.TABLES) or []
-                  if one.get("format") == TABLE_FORMAT]
-        if not tables:
+        authors = table_authors(row)
+        if authors is None:
             continue
         year = row.get("year")
         out.append({"vps_id": row["vps_id"], "game": name, "img_url": row.get("img_url") or "",
                     "manufacturer": (row.get("manufacturer") or "").strip(),
                     "year": str(year) if year else "",
-                    "authors": len({one["by"][0] for one in tables if one.get("by")})})
+                    "authors": authors})
     out.sort(key=lambda one: (-one["authors"], one["game"].casefold(), one["vps_id"]))
     return out
 

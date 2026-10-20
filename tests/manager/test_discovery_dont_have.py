@@ -11,8 +11,9 @@ from unittest import mock
 from nicegui import core, run, ui
 
 from common.online import vps_home, vps_marks
+from manager.kit import views
 from manager.kit.data import Library
-from manager.library import discovery, discovery_marks
+from manager.library import discovery, discovery_ask, discovery_marks
 from manager.library import discovery_home as home
 
 # Made at import, outside any task, where NiceGUI still hands out the script's own page.
@@ -70,6 +71,7 @@ class DrivenShelf(unittest.IsolatedAsyncioTestCase):
         self.found = FOUND
         self.state: dict[str, Any] = {}
         self.selected: list[Any] = []
+        self.spied: dict[str, Any] = {}
 
         async def inline(call: Any, *args: Any, **more: Any) -> Any:
             return call(*args, **more)
@@ -95,11 +97,24 @@ class DrivenShelf(unittest.IsolatedAsyncioTestCase):
         self.selected.append(row)
 
     async def _draw(self) -> ui.element:
+        real = home.fill
+
+        def spy(*args: Any, **more: Any) -> None:
+            self.spied.update(more)
+            real(*args, **more)
+
         with _PAGE:
             body = ui.column()
-            await discovery._fill_home(self.library, body, self.state, self._select, mock.Mock())
+            with mock.patch.object(home, "fill", spy):
+                await discovery._fill_home(self.library, body, self.state, self._select,
+                                           mock.Mock())
         await _settle()
         return body
+
+    @staticmethod
+    def _see_alls(body: ui.element) -> int:
+        return sum(1 for one in body.descendants() if not one.is_deleted
+                   and str(getattr(one, "text", "")) == "See All")
 
     async def test_the_shelf_lists_the_games_the_library_lacks_with_the_most_authors_first(
             self) -> None:
@@ -168,6 +183,23 @@ class DrivenShelf(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(words.count("Batman"), 2)
 
+    async def test_the_shelf_has_a_see_all_of_its_own(self) -> None:
+        with_shelf = self._see_alls(await self._draw())
+        self.found = {**FOUND, "rows": [FOUND["rows"][0]]}
+
+        self.assertEqual(with_shelf - self._see_alls(await self._draw()), 1)
+
+    async def test_see_all_opens_browse_on_the_view_named_for_the_shelf(self) -> None:
+        await self._draw()
+
+        self.spied["see_dont_have"]()
+
+        opening = discovery_ask.opening_on(self.state, discovery.BROWSE)
+        assert opening is not None
+        self.assertEqual(opening["name"], "Games You Don't Have")
+        self.assertEqual(opening["filters"], discovery.dont_have_opening(counted=True)["filters"])
+        self.assertEqual(discovery.tab_of(self.state), discovery.BROWSE)
+
     async def test_each_tile_has_a_menu(self) -> None:
         body = await self._draw()
 
@@ -181,12 +213,167 @@ class DrivenShelf(unittest.IsolatedAsyncioTestCase):
                              for child in tiles[0].descendants()), 1)
 
 
+def _passes(row: dict[str, Any], filters: dict[str, Any]) -> bool:
+    """Whether a grid row stays under the filter models a view sets: a choice filter keeps
+    the values it names (a blank cell is the value ""), a number filter its notBlank."""
+    for field, model in filters.items():
+        cell = row.get(field)
+        if "values" in model:
+            if ("" if cell is None else cell) not in model["values"]:
+                return False
+        elif model.get("type") == "notBlank":
+            if cell is None:
+                return False
+        else:
+            raise AssertionError(f"a filter this test does not read: {model}")
+    return True
+
+
+def _grid_order(rows: list[dict[str, Any]], sort: tuple[dict[str, Any], ...]) -> list[str]:
+    ordered = list(rows)
+    for one in sorted(sort, key=lambda each: -each["sortIndex"]):
+        ordered.sort(key=lambda row: (str(row[one["colId"]]).casefold()
+                                      if isinstance(row[one["colId"]], str) else row[one["colId"]]),
+                     reverse=one["sort"] == "desc")
+    return [row["id"] for row in ordered]
+
+
+class BrowseViewTests(unittest.TestCase):
+    """See All opens Browse on exactly the games, in the order, the shelf draws from."""
+
+    FOUND: dict[str, Any] = {"counted": "2026-10-01T10:00:00Z", "people": PEOPLE, "rows": [
+        *FOUND["rows"],
+        _entry("g5", "Echo", [_table("t7", 1), _table("t8", 1)]),
+        _entry("g6", "Fargo", [_table("t9", 2)]),
+        _entry("g7", "Golem", [{**_table("t10", 0), "by": []}]),
+        _entry("g8", "Hydra", [_table("t11", 0), _table("t12", 1)]),
+        _entry("g9", "Igloo", [_table("t13", 0), _table("t14", 1)], in_library=True),
+        _entry("ga", " ", [_table("t15", 0)]),
+        {**_entry("gb", "Jungle", []), "releases": {}},
+    ]}
+
+    def setUp(self) -> None:
+        self.MARKS = vps_marks.Marks([_mark("ignored", "game", "g6"),
+                                      _mark("wanted", "game", "g8")])
+
+    def _rows(self, found: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+        return discovery.rows(found or self.FOUND, KEPT, self.MARKS)
+
+    def test_the_view_keeps_the_games_the_shelf_counts(self) -> None:
+        shelf = vps_home.dont_have(self.FOUND, self.MARKS)
+        view = discovery.dont_have_opening(counted=True)
+
+        kept = [row for row in self._rows() if _passes(row, view["filters"])]
+
+        self.assertEqual({row["id"] for row in kept}, {one["vps_id"] for one in shelf})
+        self.assertEqual(len(kept), len(shelf))
+        self.assertEqual({"g2", "g3", "g5", "g7", "g8"}, {row["id"] for row in kept})
+
+    def test_the_view_orders_the_games_as_the_shelf_does(self) -> None:
+        shelf = [one["vps_id"] for one in vps_home.dont_have(self.FOUND, self.MARKS)]
+        view = discovery.dont_have_opening(counted=True)
+        kept = [row for row in self._rows() if _passes(row, view["filters"])]
+
+        self.assertEqual(_grid_order(kept, view["sort"]), shelf)
+
+    def test_a_game_with_a_table_that_names_no_one_is_in_the_view_with_a_zero(self) -> None:
+        by_id = {row["id"]: row for row in self._rows()}
+
+        self.assertEqual(by_id["g7"][discovery.TABLE_AUTHORS], 0)
+        self.assertIsNone(by_id["g4"][discovery.TABLE_AUTHORS])
+        self.assertIsNone(by_id["gb"][discovery.TABLE_AUTHORS])
+
+    def test_an_ignored_game_is_in_browse_but_not_in_the_view(self) -> None:
+        by_id = {row["id"]: row for row in self._rows()}
+        view = discovery.dont_have_opening(counted=True)
+
+        self.assertEqual(by_id["g6"]["mark"], "ignored")
+        self.assertFalse(_passes(by_id["g6"], view["filters"]))
+        self.assertTrue(_passes(by_id["g8"], view["filters"]))
+
+    def test_before_the_library_is_compared_only_the_table_filter_is_set(self) -> None:
+        self.assertEqual(list(discovery.dont_have_opening(counted=False)["filters"]),
+                         [discovery.TABLE_AUTHORS])
+
+    def test_it_is_named_for_the_shelf_and_orders_by_authors_then_name(self) -> None:
+        view = discovery.dont_have_opening(counted=True)
+
+        self.assertEqual(view["name"], "Games You Don't Have")
+        self.assertEqual([(one["colId"], one["sort"]) for one in view["sort"]],
+                         [(discovery.TABLE_AUTHORS, "desc"), ("name", "asc")])
+
+
+class ColumnTests(unittest.TestCase):
+    def _column(self, field: str) -> dict[str, Any]:
+        return next(one for one in discovery.COLUMNS if one["field"] == field)
+
+    def test_browse_has_a_table_authors_column_that_counts(self) -> None:
+        column = self._column(discovery.TABLE_AUTHORS)
+
+        self.assertEqual(column["headerName"].replace("\n", " "), "Table Authors")
+        self.assertEqual(column["filter"], "agNumberColumnFilter")
+        self.assertTrue(column["headerTooltip"])
+
+    def test_the_new_view_replaces_not_in_library_among_browses_own(self) -> None:
+        self.assertEqual(list(discovery.VIEWS),
+                         ["manager.view.everything", "manager.view.missing_games"])
+
+    def test_everything_leaves_it_to_the_column_picker(self) -> None:
+        everything = discovery.VIEWS["manager.view.everything"]
+        assert isinstance(everything, views.Preset)
+
+        self.assertNotIn(discovery.TABLE_AUTHORS, everything.columns)
+
+    def test_the_opening_shows_it_and_sorts_on_it(self) -> None:
+        fields = [one["field"] for one in discovery.COLUMNS]
+        opening = discovery.dont_have_opening(counted=True)
+
+        view = views.opened(views.builtins(discovery.VIEWS)[0], opening["name"],
+                            opening["filters"], fields, sort=opening["sort"])
+
+        self.assertIn(discovery.TABLE_AUTHORS, view.columns)
+        self.assertEqual(view.sort, opening["sort"])
+        self.assertEqual(view.filters, opening["filters"])
+
+    def test_an_opening_with_no_sort_keeps_the_views_own(self) -> None:
+        start = views.builtins(discovery.VIEWS)[0]
+
+        view = views.opened(start, "Named", {}, [one["field"] for one in discovery.COLUMNS])
+
+        self.assertEqual(view.sort, start.sort)
+
+    def test_browse_status_can_pick_the_games_nothing_is_marked_on(self) -> None:
+        choices = self._column(discovery_marks.FIELD)["filterParams"]["choices"]
+
+        self.assertEqual([(one["value"], one["label"]) for one in choices],
+                         [("", "None"), ("ignored", "Ignored"), ("wanted", "Wanted")])
+
+
 def _labels(entries: list[Any]) -> list[str]:
     return [one.label for one in entries]
 
 
 def _mark(state: str, scope: str, one: str) -> dict[str, str]:
     return {"state": state, "scope": scope, "id": one, "detail": "", "since": "x"}
+
+
+class AStoredViewThatIsGone(unittest.TestCase):
+    """Not in Library was a built-in a user could have left showing."""
+
+    def test_the_view_control_opens_on_everything(self) -> None:
+        from manager.library import games
+
+        library = mock.Mock()
+        library.preferences.return_value = {"views": [], "active": "builtin:manager.view.not_held"}
+        fields = ["name", "in_library"]
+        columns = [{"field": field} for field in fields]
+        with mock.patch.object(games, "ui"), mock.patch.object(games, "panel") as panel:
+            games.view_control(library, discovery.SCOPE, discovery.VIEWS, fields, columns,
+                               bar=mock.MagicMock())
+
+        shown = panel.DescribedSelect.call_args
+        self.assertEqual(views.builtin_id("manager.view.everything"), shown.kwargs["value"])
+        self.assertNotIn("builtin:manager.view.not_held", shown.args[0])
 
 
 class MenuTests(unittest.TestCase):

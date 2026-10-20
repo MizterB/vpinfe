@@ -205,6 +205,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
          see_new: Callable[[int, str], Any],
          see_missing: Callable[[list[str]], Any],
          see_updates: Callable[[list[str]], Any],
+         see_dont_have: Callable[[], Any],
          see_picture: Callable[[str, str], Any],
          fix_scripts: Callable[[list[str]], Any],
          open_view: Callable[[str], Any],
@@ -214,7 +215,8 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
 
     `catalog()` gives the people and the Browse rows once the catalog is in memory; `reread`
     answers for another window. `see_new(days, chip)`, `see_missing(game_ids)` and
-    `see_updates(game_ids)` open the grid on the shelf's question, `see_picture(vps_id, kind)`
+    `see_updates(game_ids)` open the grid on the shelf's question, `see_dont_have()` Browse on
+    the games the shelf draws from, `see_picture(vps_id, kind)`
     a game's pane on the section of that media kind, `open_view(id)` on a saved
     view, `open_subject` an author's page, and `fix_scripts(folders)` fetches the script fixes
     of those games. `marking` is the menu a tile opens on a right click or a long press, and
@@ -480,9 +482,12 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         with dont_have_box:
             with ui.row().classes("manager-heading-row w-full items-center gap-2 px-3"):
                 ui.label(t("manager.discovery.dont_have")).classes(
-                    "manager-fact-heading shrink-0")
+                    "manager-fact-heading shrink-0").tooltip(t("manager.discovery.dont_have.help"))
                 ui.label(t("manager.discovery.dont_have.order")).classes(
                     "text-xs manager-help")
+                ui.space()
+                panel.link(t("manager.discovery.see_all"), to=ADDRESS,
+                           on_click=see_dont_have)()
             row = ui.row().classes("manager-shelf w-full px-3")
             for game in lacked["games"]:
                 dont_have_tile(row, game)

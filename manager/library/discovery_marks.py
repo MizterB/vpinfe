@@ -71,14 +71,16 @@ def _states() -> dict[str, dict[str, str]]:
                      "mark": verbs.WANTED}}
 
 
-def column() -> dict[str, Any]:
+def column(neither: str = "") -> dict[str, Any]:
     """The Status column of both grids: Ignored as a chip, Wanted with the bookmark, and
-    nothing on the rows that are neither."""
+    nothing on the rows that are neither. `neither` names those rows in the filter, for a
+    grid whose view keeps them without the Ignored ones; empty offers no such choice."""
     states = _states()
     return grid_module.column(
         FIELD, t("word.status"), help=t("manager.discovery.mark.column.help"),
         **grid_module.choice_filter(
-            [{"value": key, "label": one["label"]} for key, one in states.items()],
+            [*([{"value": "", "label": neither}] if neither else []),
+             *({"value": key, "label": one["label"]} for key, one in states.items())],
             formatted=True),
         **renderers.drawable("state", states=states))
 

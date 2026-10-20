@@ -12,6 +12,8 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 from manager.kit.data import Library
+from manager.library import games
+from manager.overview import needs
 from manager.settings import sections
 
 
@@ -53,6 +55,108 @@ class WhatEachBarCounts(unittest.TestCase):
         lib = library({"a": {"wheel": True, "topper": True}}, hidden=("topper",))
 
         self.assertEqual([("wheel", 1)], sections.kind_holdings(lib))
+
+
+def drawn_row(kind: str, held: int, total: int, lacking: tuple[str, ...] | None):
+    """`_kind_row` drawn on a stand-in page: what the row links to and what its tooltip says."""
+    row = MagicMock()
+    opens = Mock()
+    with patch.object(sections, "ui") as ui, patch.object(sections, "_opens", opens), \
+            patch.object(sections, "_bar"):
+        ui.element.return_value.classes.return_value = row
+        sections._kind_row(kind, held, total, {}, lacking)
+    return row, opens
+
+
+class TheRowAndTheTabItLinksTo(unittest.TestCase):
+    """A row's figure is Discovery Home's count of the games the tab lists, and its link opens
+    those games."""
+
+    def test_a_media_kind_the_vps_lists_is_counted_under_the_tab_that_holds_both(self):
+        self.assertEqual("b2sFiles", sections.home_tab("backglass"))
+        self.assertEqual("wheelArtFiles", sections.home_tab("wheel"))
+        self.assertEqual("topperFiles", sections.home_tab("topper"))
+
+    def test_a_media_kind_the_vps_does_not_list_has_a_tab_of_its_own(self):
+        self.assertEqual("playfield", sections.home_tab("playfield"))
+
+    def test_the_link_opens_the_games_the_tab_lists(self):
+        row, opens = drawn_row("backglass", 7, 10, ("g1", "g2"))
+
+        where = opens.call_args.args[2]
+        self.assertEqual(("g1", "g2"), where.keys[games.LACKING_KEY])
+
+    def test_the_tooltip_counts_the_tabs_games_not_every_game_without(self):
+        row, _opens = drawn_row("backglass", 7, 10, ("g1", "g2"))
+
+        said = row.tooltip.call_args.args[0]
+        self.assertIn("7 of 10", said)
+        self.assertIn("2 Discovery", said)
+
+    def test_a_game_nothing_can_fill_is_no_link_and_the_tooltip_still_says_what_is_held(self):
+        row, opens = drawn_row("backglass", 7, 10, ())
+
+        opens.assert_not_called()
+        row.classes.assert_called_with("manager-need--static")
+        self.assertEqual("7 of 10 games have Backglass", row.tooltip.call_args.args[0])
+
+    def test_a_kind_every_game_holds_says_so(self):
+        row, opens = drawn_row("backglass", 10, 10, ())
+
+        opens.assert_not_called()
+        self.assertEqual("All 10 games have Backglass", row.tooltip.call_args.args[0])
+
+    def test_a_home_that_could_not_be_read_leaves_the_row_counting_every_game_without(self):
+        row, opens = drawn_row("backglass", 7, 10, None)
+
+        self.assertIn("3 Discovery", row.tooltip.call_args.args[0])
+        self.assertEqual(needs.blank("media_backglass"), opens.call_args.args[2].arriving)
+
+
+class EachRowIsGivenItsTabsGames(unittest.TestCase):
+    def rows(self, tabs: dict | None) -> dict[str, tuple | None]:
+        lib = library({"a": {"backglass": True, "playfield": True},
+                       "b": {"backglass": False, "playfield": True}})
+        lib.home_missing = Mock(return_value=tabs)  # type: ignore[method-assign]
+        kept: dict[str, tuple | None] = {}
+        with patch.object(sections, "ui"), patch.object(sections, "_figure"), \
+                patch.object(sections, "_kind_row",
+                             lambda kind, held, total, state, lacking=None:
+                             kept.__setitem__(kind, lacking)):
+            sections._library(lib, {})
+        return kept
+
+    def test_the_games_come_from_the_tab_the_kind_is_counted_under(self):
+        kept = self.rows({"b2sFiles": {"game_ids": ["b"]}, "playfield": {"game_ids": []}})
+
+        self.assertEqual(("b",), kept["backglass"])
+        self.assertEqual((), kept["playfield"])
+
+    def test_a_kind_with_no_tab_has_nothing_a_source_can_fill(self):
+        self.assertEqual((), self.rows({})["backglass"])
+
+    def test_a_home_not_read_gives_none(self):
+        self.assertIsNone(self.rows(None)["backglass"])
+
+
+class WhatTheLibraryReadsOfHome(unittest.TestCase):
+    def test_the_tabs_are_those_of_the_one_read_home_made(self):
+        lib = library({})
+        lib._client.discovery_home.return_value = {"missing": {"b2sFiles": {"count": 1,
+                                                                            "game_ids": ["g1"]}}}
+        lib._watched = lib._read_watched()
+
+        self.assertEqual({"b2sFiles": {"count": 1, "game_ids": ["g1"]}}, lib.home_missing())
+
+    def test_a_home_that_could_not_be_read_is_none_not_nothing_missing(self):
+        lib = library({})
+        lib._client.discovery_home.side_effect = OSError("down")
+        lib._watched = lib._read_watched()
+
+        self.assertIsNone(lib.home_missing())
+
+    def test_before_anything_is_read_it_is_none(self):
+        self.assertIsNone(library({}).home_missing())
 
 
 class HidingTheEmptyKinds(unittest.TestCase):

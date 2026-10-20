@@ -882,6 +882,7 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
                       scope="discovery", view_presets={}, catalog=self.spied["catalog"],
                       reread=reread, on_select=self._select, see_new=mock.Mock(),
                       see_missing=mock.Mock(), see_updates=mock.Mock(),
+                      see_dont_have=mock.Mock(),
                       see_picture=mock.Mock(), fix_scripts=mock.Mock(), open_view=mock.Mock(),
                       open_subject=mock.Mock(),
                       marking=discovery_marks.Marking(self.library, mock.AsyncMock()))

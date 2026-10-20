@@ -36,6 +36,8 @@ WATCHED_FRESH_S = 30.0
 # current before a visit reads it again.
 FRONT_FRESH_S = 5.0
 WATCHED_JOBS = 100
+# The window of the Home read that Overview takes its counts of missing media from.
+HOME_DAYS = 7
 
 # The cell holds the *word*, never the mark. What a cell is worth filtering and sorting
 # on is the state; how it is drawn is the column's business. Holding the drawn mark makes
@@ -1324,6 +1326,14 @@ class Library:
         unread answer is none offered."""
         return (self._watched or {}).get("offered") or {}
 
+    def home_missing(self) -> dict[str, Any] | None:
+        """Discovery Home's tabs of missing media, by tab, as `vps_home.home` counts them:
+        `count`, `game_ids` and `games`. Overview's rows read their figure here so that a
+        row and the tab it links to name the same games. Already read - this asks nothing;
+        None where Home could not be read."""
+        home = (self._watched or {}).get("home")
+        return None if home is None else dict(home.get("missing") or {})
+
     def _read_watched(self) -> dict[str, Any]:
         """Each read stands alone: an install with no network has no update to report,
         and that must not take the recordings or the jobs down with it. `unread` names
@@ -1375,6 +1385,10 @@ class Library:
                               (self._client.fillable_media().get("kinds") or {}).items()}
         except Exception:  # noqa: BLE001 - without it a gap is counted whether or not a source could fill it
             logger.debug("manager: could not read which media a source can fill", exc_info=True)
+        try:
+            out["home"] = self._client.discovery_home(HOME_DAYS)
+        except Exception:  # noqa: BLE001 - without it a row counts what the library holds, no more
+            logger.debug("manager: could not read what Discovery's Home counts", exc_info=True)
         try:
             out["leftovers"] = self._read_leftovers()
         except Exception:  # noqa: BLE001 - what an upgrade left is not Overview's to fail on

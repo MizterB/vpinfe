@@ -8,7 +8,7 @@ can open the grid on exactly what the row counted.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Collection, Mapping
+from collections.abc import Callable, Collection, Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -366,6 +366,9 @@ ORDER = ("rom_missing", "launchers", "unreadable", "unmatched", "no_tables", "no
 # a library row's is the library's, as the Checks page already keeps it.
 DEVICE_ROWS = ("launchers", "fill_errors", "leftovers", "update", "recordings")
 
+# The rows a source can fill: a game a source has a file for is not counted by them.
+SOURCE_FILLED = ("no_playfield", "no_backglass", "no_media")
+
 # What a row's read cannot say while that read failed, by row.
 _READ_BY = {"update": "update", "recordings": "recordings", "fill_errors": "fill",
             "leftovers": "leftovers"}
@@ -498,8 +501,18 @@ def _extension_unread(key: str, unread: Any) -> bool:
     return AWAY + name in unread or AWAY_ALL in unread
 
 
+def _held_for_games(key: str, ids: Iterable[str], games: Collection[str] | None, *,
+                    exclude: Collection[str] = ()) -> list[str]:
+    """The recorded ids of a source-filled row that stay with their game: the games the
+    library still has, apart from `exclude`. Nothing for any other row."""
+    if key not in SOURCE_FILLED or games is None:
+        return []
+    return [one for one in ids if one in games and one not in exclude]
+
+
 def arrange(rows: list[Need], record: Mapping[str, list[str]], stopped: set[str],
-            unread: Any = (), blind: Collection[str] = ()) -> Arranged:
+            unread: Any = (), blind: Collection[str] = (),
+            games: Collection[str] | None = None) -> Arranged:
     """Which rows draw, which are set aside, and what is left of the dismissals.
 
     A row stays away while every id it counts is in its record. When one joins, the row
@@ -507,6 +520,11 @@ def arrange(rows: list[Need], record: Mapping[str, list[str]], stopped: set[str]
     left, in which case it is a different finding and carries no mark. An id the row no
     longer counts leaves the record, except where the row is absent because its check is
     off, its read failed or it was `blind`: there nothing says the id is gone.
+
+    A row a source can fill (`SOURCE_FILLED`) stops counting a game while a source has a
+    file for it, and counts it again when that source is away. So for these an id stays
+    recorded while its game is one of `games`, the games the library has: it leaves only
+    with the game. `games` None keeps no such id.
     """
     shown: list[Need] = []
     aside: list[Aside] = []
@@ -522,8 +540,9 @@ def arrange(rows: list[Need], record: Mapping[str, list[str]], stopped: set[str]
                                t("manager.needs.chip_stopped.tip"), stopped=True))
             continue
         still = [one for one in covered if one in held]
-        if still:
-            kept[need.key] = still
+        away = _held_for_games(need.key, record.get(need.key, ()), games, exclude=covered)
+        if still or away:
+            kept[need.key] = [*still, *away]
         new = tuple(one for one in covered if one not in held)
         if not held or not covered:
             shown.append(need)
@@ -537,6 +556,8 @@ def arrange(rows: list[Need], record: Mapping[str, list[str]], stopped: set[str]
                                      or _READ_BY.get(key) in unread
                                      or _extension_unread(key, unread)):
             kept[key] = list(ids)
+        elif key not in present and (away := _held_for_games(key, ids, games)):
+            kept[key] = away
     aside += [_stopped_aside(key) for key in ORDER if key in stopped]
     return Arranged(shown, aside, kept)
 

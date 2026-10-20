@@ -124,6 +124,7 @@ def _kind_column(listed_as: str, field: str, word: str) -> dict[str, Any]:
 
 
 CATALOG_FACET_CEILING = 300
+TABLE_AUTHORS = "table_authors"
 
 COLUMNS = [
     grid_module.identifier("name", t("word.game"), 260, pinned="left",
@@ -133,7 +134,7 @@ COLUMNS = [
                               "params => [params.data.name, params.data.said, "
                               "params.data.game_type, ...(params.data.themes || [])]"
                               ".filter(Boolean).join(' ')"}),
-    discovery_marks.column(),
+    discovery_marks.column(neither=t("word.none")),
     grid_module.column("in_library", t("manager.discovery.in_library"),
                        help=t("manager.discovery.in_library.help"),
                        **grid_module.choice_filter(_yes_no())),
@@ -143,6 +144,9 @@ COLUMNS = [
                        **{":cellClass": _cell_class(),
                           **grid_module.choice_filter(
                               [{"value": MISSING, "label": t("manager.view.missing")}])}),
+    grid_module.column(TABLE_AUTHORS, t("manager.discovery.table_authors"),
+                       help=t("manager.discovery.table_authors.help"),
+                       **grid_module.NUMBER_COLUMN),
     grid_module.column("manufacturer", t("word.manufacturer"), help=t("help.who_made_it")),
     grid_module.year_column("year", t("word.year"), help=t("help.year_released")),
     grid_module.column("game_type", t("manager.games.type"),
@@ -155,22 +159,35 @@ _KIND_FIELDS = [field for _listed, field, _word in KINDS]
 # The game's own facts are on the Game cell's second line and in the pane. They stay in the
 # column picker for sorting and filtering, and no view turns them on.
 _PICKED = ("manufacturer", "year", "game_type", "themes")
+# Table Authors is the Games You Don't Have view's own column: it opens it and Everything
+# leaves it to the column picker.
+_NOT_EVERYWHERE = (*_PICKED, TABLE_AUTHORS)
 _ALL = [definition["field"] for definition in COLUMNS]
 _BY_NAME = ({"colId": "name", "sort": "asc", "sortIndex": 0},)
 
 VIEWS: dict[str, list[str] | views.Preset] = {
     "manager.view.everything": views.Preset(
-        columns=tuple(field for field in _ALL if field not in _PICKED), sort=_BY_NAME,
-        help=t("manager.view.discovery_everything.help")),
-    "manager.view.not_held": views.Preset(
-        columns=("name", "in_library", *_KIND_FIELDS), sort=_BY_NAME,
-        filters={"in_library": {"values": [NO]}},
-        help=t("manager.view.not_held.help")),
+        columns=tuple(field for field in _ALL if field not in _NOT_EVERYWHERE),
+        sort=_BY_NAME, help=t("manager.view.discovery_everything.help")),
     "manager.view.missing_games": views.Preset(
         columns=("name", *_KIND_FIELDS, "gap"), sort=_BY_NAME,
         filters={"in_library": {"values": [YES]}, "gap": {"values": [MISSING]}},
         help=t("manager.view.missing_games.help")),
 }
+
+
+def dont_have_opening(*, counted: bool) -> dict[str, Any]:
+    """The view Games You Don't Have opens Browse on: the games not in the library that have
+    a table, the ones the most people made a table for first. Ignored games are left out as
+    they are on the shelf, a Wanted one stays. Before the library is compared nothing is
+    known to be missing, so only the table filter is set."""
+    filters: dict[str, Any] = {TABLE_AUTHORS: {"filterType": "number", "type": "notBlank"}}
+    if counted:
+        filters["in_library"] = {"values": [NO]}
+        filters[discovery_marks.FIELD] = {"values": ["", vps_marks.WANTED]}
+    return {"name": t("manager.discovery.dont_have"), "filters": filters,
+            "sort": ({"colId": TABLE_AUTHORS, "sort": "desc", "sortIndex": 0},
+                     {"colId": "name", "sort": "asc", "sortIndex": 1})}
 
 
 def _state(listed: bool, counted: bool, in_library: bool, held: bool) -> str:
@@ -207,6 +224,7 @@ def rows(found: dict[str, Any], kept: Collection[str] | None = None,
             "in_library": "" if not counted else (YES if in_library else NO),
             "is_in_library": in_library and counted,
             "listed": sorted(listed),
+            TABLE_AUTHORS: vps_home.table_authors(entry),
             discovery_marks.FIELD: marks.state(vps_marks.GAME, str(entry["vps_id"])),
         }
         states = []
@@ -339,6 +357,11 @@ async def _fill_home(library: Library, body: Any, state: dict[str, Any],
         from manager.overview import needs
         return state["open_on"](needs.Opens("games", keys={games.LACKING_KEY: tuple(game_ids)}))
 
+    def see_dont_have() -> None:
+        """Browse, on the games the shelf draws from."""
+        open_page(state, people, rerender, None, tab=BROWSE,
+                  opening=dont_have_opening(counted=bool(home["counted"])))
+
     def see_updates(game_ids: list[str]) -> Any:
         """Games, narrowed to the games with an update."""
         from manager.library import games
@@ -373,7 +396,8 @@ async def _fill_home(library: Library, body: Any, state: dict[str, Any],
     discovery_home.fill(
         body, home, library=library, scope=SCOPE, view_presets=VIEWS, catalog=catalog,
         reread=reread, on_select=on_select, see_new=see_new, see_missing=see_missing,
-        see_updates=see_updates, see_picture=see_picture, fix_scripts=fix_scripts,
+        see_updates=see_updates, see_dont_have=see_dont_have, see_picture=see_picture,
+        fix_scripts=fix_scripts,
         open_view=to_view, open_subject=go_to,
         marking=discovery_marks.Marking(library, redraw_home))
     if not home["counted"]:
@@ -594,7 +618,7 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
     fields = [one["field"] for one in columns]
     arrival = discovery_ask.opening_on(state, BROWSE)
     opened = views.opened(views.builtins(VIEWS)[0], arrival["name"], arrival["filters"],
-                          fields) if arrival else None
+                          fields, sort=tuple(arrival.get("sort") or ())) if arrival else None
 
     @on_page
     async def choose(group: str, one: dict[str, Any]) -> None:
