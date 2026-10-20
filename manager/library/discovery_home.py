@@ -124,7 +124,8 @@ def version_line(release: dict[str, Any]) -> str:
 def _kind_words(listing: str) -> tuple[str, str]:
     """A kind by its VPS key: one release of it, and several."""
     # Imported here: `discovery` draws this page.
-    from manager.library.discovery import KIND_MANY, KINDS
+    from manager.library.discovery import KINDS
+    from manager.library.discovery_ask import KIND_MANY
     one = next((t(word) for listed, _field, word in KINDS if listed == listing), listing)
     return one, t(KIND_MANY[listing]) if listing in KIND_MANY else one
 

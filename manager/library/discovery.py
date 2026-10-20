@@ -91,8 +91,6 @@ KINDS: tuple[tuple[str, str, str], ...] = (
     ("topperFiles", "kind_topper", "media.kind.topper.label"),
 )
 
-KIND_MANY = discovery_ask.KIND_MANY
-
 _POLL_S = 2.0
 
 
@@ -563,9 +561,9 @@ def opening_for(subject: dict[str, str], question: dict[str, Any],
         kind_filter = next((field for listed_as, field, _word in KINDS
                             if listed_as == question.get("kind")), "")
     name = subject["name"]
-    if question.get("kind") in KIND_MANY and kind_filter in filters:
+    if question.get("kind") in discovery_ask.KIND_MANY and kind_filter in filters:
         name = t("manager.discovery.ask.view_name", name=name,
-                 kind=t(KIND_MANY[question["kind"]]))
+                 kind=t(discovery_ask.KIND_MANY[question["kind"]]))
     return tab, {"name": name, "filters": filters}
 
 
@@ -670,7 +668,7 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
                 deeplink.sync(state)
             narrow = discovery_ask.page(
                 subject=subject, state=state, people=people, rows=built,
-                releases=releases, kinds=kind_words,
+                releases=releases, kinds=list(kind_words),
                 fields={listed_as: field for listed_as, field, _word in KINDS},
                 address=OWN_ADDRESS, open_game=on_select,
                 leave=lambda: go_to(None),

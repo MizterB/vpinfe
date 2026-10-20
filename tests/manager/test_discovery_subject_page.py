@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import pathlib
+import re
 import unittest
 from typing import Any, cast
 from unittest import mock
@@ -11,6 +13,8 @@ from nicegui import background_tasks, events, ui
 
 from common.games import launchers
 from manager.library import discovery_ask
+
+REPO = pathlib.Path(__file__).resolve().parent.parent.parent
 
 # Made at import, outside any task, where NiceGUI still hands out the script's own page.
 _PAGE = ui.element()
@@ -91,6 +95,42 @@ class Standing(unittest.TestCase):
             row, fitting, mine, FIELDS, PEOPLE, "Wildman", counted=False))
 
 
+class StandingFollowsTheFilteredSet(unittest.TestCase):
+    ROW = _game("g", "Zeta", is_in_library=True, in_library="yes", kind_table="have")
+
+    def _of(self, fitting: list[dict[str, Any]], mine: list[dict[str, Any]]
+            ) -> tuple[str, list[str]]:
+        return discovery_ask.standing(
+            self.ROW, [("tableFiles", one) for one in fitting], {"tableFiles": mine}, FIELDS,
+            PEOPLE, "Wildman", counted=True)
+
+    def test_an_own_release_the_page_leaves_out_reads_missing_not_have(self) -> None:
+        hidden = _release("m1", mod=True, held=True)
+        shown = _release("t1")
+
+        self.assertEqual((discovery_ask.MISSING, []), self._of([shown], [hidden, shown]))
+
+    def test_that_game_is_the_one_without_theirs_lists(self) -> None:
+        shown = [("tableFiles", _release("t1"))]
+
+        self.assertTrue(discovery_ask.in_show(discovery_ask.WITHOUT, self.ROW, shown))
+
+    def test_a_held_release_with_no_credit_is_author_unknown(self) -> None:
+        self.assertEqual((discovery_ask.UNKNOWN, []),
+                         self._of([_release("t1", by=[], held=True)], []))
+
+    def test_a_held_release_with_no_credit_the_page_leaves_out_is_author_unknown(self) -> None:
+        mine = [_release("t1"), _release("t2", by=[], held=True)]
+
+        self.assertEqual((discovery_ask.UNKNOWN, []), self._of(mine[:1], mine))
+
+    def test_another_authors_held_release_is_named_before_an_uncredited_one(self) -> None:
+        mine = [_release("t1"), _release("t2", by=[], held=True),
+                _release("t3", by=[1], held=True)]
+
+        self.assertEqual((discovery_ask.OTHER, ["VPW"]), self._of(mine[:1], mine))
+
+
 class Listing(unittest.TestCase):
     def test_without_theirs_is_a_game_of_the_library_none_of_whose_releases_is_held(self) -> None:
         theirs = [("tableFiles", RELEASES["held"]["tableFiles"][0])]
@@ -122,6 +162,10 @@ class Listing(unittest.TestCase):
         self.assertEqual("Bally 1990 · 1 backglass",
                          discovery_ask.tile_line(ROWS[0], [mixed[1]]))
         self.assertEqual("Bally 1990 · 2 releases", discovery_ask.tile_line(ROWS[0], mixed))
+
+    def test_a_game_with_no_release_listed_has_no_count_at_all(self) -> None:
+        self.assertEqual("Bally 1990", discovery_ask.tile_line(ROWS[0], []))
+        self.assertEqual("", discovery_ask.tile_line({**ROWS[0], "said": ""}, []))
 
     def test_a_tile_with_no_maker_or_year_is_its_count_alone(self) -> None:
         bare = {**ROWS[0], "said": ""}
@@ -171,10 +215,13 @@ class Drawn(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self) -> None:
         self.formats = (_launcher(),)
+        self.state: dict[str, Any] = {}
         self.opened: list[dict[str, Any]] = []
         self.picked: list[dict[str, Any]] = []
 
-    def _draw(self, subject: dict[str, str] | None = None) -> tuple[ui.element, Any]:
+    def _draw(self, subject: dict[str, str] | None = None, *,
+              rows: list[dict[str, Any]] | None = None,
+              releases: dict[str, Any] | None = None) -> tuple[ui.element, Any]:
         store = mock.Mock(launchers=lambda: list(self.formats))
 
         async def open_game(row: Any) -> None:
@@ -186,12 +233,14 @@ class Drawn(unittest.IsolatedAsyncioTestCase):
         async def see_all(question: dict[str, Any]) -> None:
             self.opened.append(question)
 
+        self.state = {}
         with mock.patch.object(launchers, "get_launcher_store", return_value=store), _PAGE:
             body = ui.column()
             with body:
                 narrow = discovery_ask.page(
-                    subject=subject or self.SUBJECT, state={}, people=PEOPLE, rows=ROWS,
-                    releases=RELEASES, kinds=KINDS, fields=FIELDS, address="/x",
+                    subject=subject or self.SUBJECT, state=self.state, people=PEOPLE,
+                    rows=rows or ROWS,
+                    releases=releases or RELEASES, kinds=KINDS, fields=FIELDS, address="/x",
                     open_game=open_game, leave=leave, see_all=see_all)
         return body, narrow
 
@@ -209,8 +258,13 @@ class Drawn(unittest.IsolatedAsyncioTestCase):
         words = _words(body)
         self.assertLess(words.index("Wildman"), words.index("Author"))
         self.assertIn("5 games", words)
-        self.assertNotIn("For", words)
-        self.assertNotIn("Originals Only", words)
+
+    def test_kind_and_show_are_the_only_pickers_and_nothing_is_a_toggle(self) -> None:
+        body, _ = self._draw()
+
+        self.assertEqual({"Kind", "Show"}, set(_selects(body)))
+        self.assertEqual([], [one for one in body.descendants()
+                              if isinstance(one, (ui.toggle, ui.radio))])
 
     def test_hide_mods_is_an_authors_alone_and_playable_only_waits_for_tables(self) -> None:
         body, _ = self._draw()
@@ -278,6 +332,33 @@ class Drawn(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Have, author unknown", words)
         self.assertEqual(1, words.count("Missing"))
 
+    async def test_the_unmatched_tooltip_names_the_kind_it_is_about(self) -> None:
+        rows = [_game("glass", "Zeta", is_in_library=True, in_library="yes",
+                      kind_table="missing", kind_backglass="have")]
+        releases = {"glass": {"b2sFiles": [_release("b9")]}}
+        body, _ = self._draw(rows=rows, releases=releases)
+        _selects(body)["Kind"].set_value("b2sFiles")
+        await _settle()
+
+        tips = [one.text for one in body.descendants() if isinstance(one, ui.tooltip)]
+        self.assertIn("Your backglass of Zeta isn't matched to a release on VPS, so VPinFE "
+                      "can't tell whose it is. Match it in the game's pane.", tips)
+
+    async def test_the_count_follows_what_the_wall_shows_after_typing(self) -> None:
+        body, narrow = self._draw()
+        self.assertIn("5 games", _words(body))
+
+        narrow("epsi")
+        await _settle()
+
+        self.assertIn("1 game", _words(body))
+        self.assertNotIn("5 games", _words(body))
+
+        narrow("")
+        await _settle()
+
+        self.assertIn("5 games", _words(body))
+
     async def test_hide_mods_leaves_the_mods_out_of_the_counts(self) -> None:
         body, _ = self._draw()
         switch = next(one for one in body.descendants() if isinstance(one, ui.switch)
@@ -290,6 +371,145 @@ class Drawn(unittest.IsolatedAsyncioTestCase):
         await _settle()
 
         self.assertIn("Bally 1985 · 1 table", _words(body))
+
+    async def _asked(self, body: ui.element) -> dict[str, Any]:
+        button = next(one for one in body.descendants()
+                      if isinstance(one, ui.button) and one.props.get("icon") == "open_in_new")
+        await _press(button)
+        return self.opened[-1]
+
+    @staticmethod
+    def _playable_switch(body: ui.element) -> ui.switch:
+        return next(one for one in _playable_row(body).descendants()
+                    if isinstance(one, ui.switch))
+
+    PLAYABLE_ROWS = [
+        _game("fp", "Eta", listed=["tableFiles"]),
+        _game("vp", "Theta", listed=["tableFiles"]),
+        _game("none", "Iota", listed=["tableFiles"]),
+    ]
+    PLAYABLE_RELEASES = {
+        "fp": {"tableFiles": [_release("f1", format="FP")]},
+        "vp": {"tableFiles": [_release("v1")]},
+        "none": {"tableFiles": [_release("n1", format="")]},
+    }
+
+    def _playable_page(self, rows: list[dict[str, Any]] | None = None) -> ui.element:
+        body, _ = self._draw(rows=rows or self.PLAYABLE_ROWS,
+                             releases=self.PLAYABLE_RELEASES)
+        return body
+
+    async def test_playable_only_changes_the_question_and_the_wall(self) -> None:
+        body = self._playable_page()
+        _selects(body)["Kind"].set_value("tableFiles")
+        await _settle()
+
+        words = _words(body)
+        self.assertEqual(["Iota", "Theta"],
+                         sorted(w for w in words if w in {"Eta", "Theta", "Iota"}))
+        self.assertEqual(["VPX"], (await self._asked(body))["format"])
+
+        self._playable_switch(body).set_value(False)
+        await _settle()
+
+        words = _words(body)
+        self.assertEqual(["Eta", "Iota", "Theta"],
+                         sorted(w for w in words if w in {"Eta", "Theta", "Iota"}))
+        self.assertNotIn("format", await self._asked(body))
+
+    async def test_a_release_filed_under_no_format_fits_any_launcher(self) -> None:
+        body = self._playable_page()
+        _selects(body)["Kind"].set_value("tableFiles")
+        await _settle()
+
+        self.assertIn("Iota", _words(body))
+
+    async def test_tables_stay_listed_when_none_of_them_is_playable(self) -> None:
+        body = self._playable_page([self.PLAYABLE_ROWS[0]])
+
+        self.assertEqual(["All 1", "Tables 0"], _options(_selects(body)["Kind"]))
+        _selects(body)["Kind"].set_value("tableFiles")
+        await _settle()
+        self.assertTrue(_playable_row(body).visible)
+
+        self._playable_switch(body).set_value(False)
+        await _settle()
+
+        self.assertEqual(["All 1", "Tables 1"], _options(_selects(body)["Kind"]))
+        self.assertIn("Eta", _words(body))
+
+    async def test_the_playable_choice_stays_through_a_change_of_kind(self) -> None:
+        body, _ = self._draw(rows=self.PLAYABLE_ROWS + [_game("g", "Kappa")],
+                             releases={**self.PLAYABLE_RELEASES,
+                                       "g": {"b2sFiles": [_release("b2")]}})
+        _selects(body)["Kind"].set_value("tableFiles")
+        await _settle()
+        self._playable_switch(body).set_value(False)
+        await _settle()
+
+        _selects(body)["Kind"].set_value("b2sFiles")
+        await _settle()
+        _selects(body)["Kind"].set_value("tableFiles")
+        await _settle()
+
+        self.assertFalse(self._playable_switch(body).value)
+        self.assertIn("Eta", _words(body))
+
+    async def test_open_in_grid_asks_what_each_show_choice_and_the_switches_say(self) -> None:
+        body, _ = self._draw()
+        _selects(body)["Kind"].set_value("tableFiles")
+        await _settle()
+        next(one for one in body.descendants() if isinstance(one, ui.switch)
+             and not one.value).set_value(True)
+        await _settle()
+        base = {"by": ["Wildman"], "kind": "tableFiles", "mod": "originals", "format": ["VPX"]}
+
+        for show, extra in ((discovery_ask.EVERYTHING, {}),
+                            (discovery_ask.YOURS, {"owned": "yes"}),
+                            (discovery_ask.WITHOUT, {"owned": "yes", "held": "missing"}),
+                            (discovery_ask.ELSEWHERE, {"owned": "no"})):
+            with self.subTest(show=show):
+                _selects(body)["Show"].set_value(show)
+                await _settle()
+
+                self.assertEqual({**base, **extra}, await self._asked(body))
+
+    async def test_typing_stays_through_a_change_of_kind_and_starts_the_wall_over(self) -> None:
+        body, narrow = self._draw()
+        narrow("epsi")
+        await _settle()
+
+        _selects(body)["Kind"].set_value("tableFiles")
+        await _settle()
+        self.assertIn("Epsilon", _words(body))
+        self.assertNotIn("Alpha", _words(body))
+
+        self.state["page"]["limit"] = 999
+        narrow("a")
+        self.assertEqual(discovery_ask.WALL_AT_FIRST, self.state["page"]["limit"])
+
+    async def test_a_wall_nothing_matches_says_so_in_games(self) -> None:
+        body, narrow = self._draw()
+
+        narrow("zzzz")
+        await _settle()
+
+        self.assertIn("No games match", _words(body))
+        self.assertIn("0 games", _words(body))
+
+    def test_the_bar_wraps_by_its_own_width_below_the_row_it_needs(self) -> None:
+        css = (REPO / "manager" / "static" / "manager-base.css").read_text()
+        block = re.search(r"@container manager-subject \(max-width: 1020px\) \{(.*?)\n\}",
+                          css, re.S)
+
+        self.assertIsNotNone(block)
+        self.assertIn(".manager-subject-end { order: 3; }", cast(Any, block).group(1))
+        self.assertIn(".manager-subject-filters { order: 4; flex-basis: 100%; }",
+                      cast(Any, block).group(1))
+        self.assertIn(".manager-subject-root { container: manager-subject / inline-size; }", css)
+        body, _ = self._draw()
+        self.assertTrue(any("manager-subject-root" in one.classes
+                            for one in [body, *body.descendants()]))
 
 
 if __name__ == "__main__":

@@ -41,6 +41,21 @@ KIND_MANY = {
     "wheelArtFiles": "manager.discovery.ask.kinds.wheel",
     "topperFiles": "manager.discovery.ask.kinds.topper",
 }
+
+# One of a kind, in the words a sentence names it by.
+KIND_ONE = {
+    "tableFiles": "manager.discovery.ask.noun.table",
+    "b2sFiles": "manager.discovery.ask.noun.backglass",
+    "romFiles": "manager.discovery.ask.noun.rom",
+    "pupPackFiles": "manager.discovery.ask.noun.pup_pack",
+    "altColorFiles": "manager.discovery.ask.noun.color",
+    "altSoundFiles": "manager.discovery.ask.noun.altsound",
+    "povFiles": "manager.discovery.ask.noun.pov",
+    "ruleFiles": "manager.discovery.ask.noun.rules",
+    "wheelArtFiles": "manager.discovery.ask.noun.wheel",
+    "topperFiles": "manager.discovery.ask.noun.topper",
+}
+
 # A tile's count of releases, with the kind's noun in the one place a translation can order it.
 TILE_COUNT = {
     "tableFiles": "manager.discovery.ask.tile.table",
@@ -175,13 +190,16 @@ def standing(row: Mapping[str, Any], fitting: Fitting,
     another author's. Empty for a game the library does not have, and before the library
     has been compared.
 
-    `fitting` is the releases the page lists for the game and `mine` all of its releases by
-    listing. A kind the library holds that is bound to none of the releases is held by
-    someone VPinFE cannot name."""
+    `fitting` is the releases the page lists for the game, the same set Show reads, and
+    `mine` all of its releases by listing. A held release the page leaves out is not the
+    page's: the game reads Missing unless someone else's release is the one held. A kind the
+    library holds that is bound to no credited release is held by someone VPinFE cannot
+    name."""
     if not (counted and row.get("is_in_library")) or not fitting:
         return "", []
-    if any(one.get("held") for _listing, one in fitting):
-        return HAVE, []
+    ours = [one for _listing, one in fitting if one.get("held")]
+    if ours:
+        return (HAVE, []) if any(one.get("by") for one in ours) else (UNKNOWN, [])
     holding = {listing for listing, _one in fitting if row.get(fields.get(listing, "")) == HELD}
     if not holding:
         return MISSING, []
@@ -190,7 +208,16 @@ def standing(row: Mapping[str, Any], fitting: Fitting,
         return UNKNOWN, []
     names = sorted({str(people[at]["name"]) for one in others for at in one.get("by") or ()
                     if 0 <= at < len(people)} - {page_name})
-    return (OTHER, names) if names else (HAVE, [])
+    if names:
+        return OTHER, names
+    return (UNKNOWN, []) if any(not one.get("by") for one in others) else (MISSING, [])
+
+
+def unmatched_kind(row: Mapping[str, Any], fitting: Fitting, fields: Mapping[str, str]) -> str:
+    """The listing a game in the library holds without it being bound to any release: the
+    first one the page lists for it that the library holds."""
+    return next((listing for listing, _one in fitting
+                 if row.get(fields.get(listing, "")) == HELD), "")
 
 
 def in_show(show: str, row: Mapping[str, Any], fitting: Fitting) -> bool:
@@ -215,13 +242,15 @@ def narrows(row: Mapping[str, Any], text: str) -> bool:
 def tile_line(row: Mapping[str, Any], fitting: Fitting) -> str:
     """Maker and year, then how many releases the page lists for the game, in the kind's
     own noun where they are all of one kind."""
+    said = str(row.get("said") or "")
     listings = {listing for listing, _one in fitting}
     count = len(fitting)
+    if not count:
+        return said
     if len(listings) == 1:
         many = t(TILE_COUNT[next(iter(listings))], count=count)
     else:
         many = t("manager.discovery.ask.tile.releases", count=count)
-    said = str(row.get("said") or "")
     return t("manager.discovery.ask.tile_line", said=said, count=many) if said else many
 
 
@@ -298,23 +327,27 @@ def page(*, subject: Mapping[str, str], state: dict[str, Any],
     def hiding() -> bool:
         return kind == "author" and bool(own.get("hide_mods"))
 
-    def question(listing: str) -> dict[str, Any]:
-        formats = list(playable) if listing == TABLES and own.get("playable", True) else []
+    def playing() -> bool:
+        return bool(own.get("playable", True))
+
+    def question(listing: str, *, narrowed: bool | None = None) -> dict[str, Any]:
+        formats = list(playable) if listing == TABLES and (
+            playing() if narrowed is None else narrowed) else []
         return vps_question.clean({**base, "kind": listing,
                                    "mod": "originals" if hiding() else "", "format": formats})
 
-    def found(listing: str) -> dict[str, Fitting]:
-        key = (listing, hiding(), bool(own.get("playable", True)))
+    def found(listing: str, *, narrowed: bool | None = None) -> dict[str, Fitting]:
+        key = (listing, hiding(), playing() if narrowed is None else narrowed)
         if key not in found_for:
             found_for[key] = dict(vps_question.games_found(
-                question(listing), people, rows, releases))
+                question(listing, narrowed=narrowed), people, rows, releases))
         return found_for[key]
 
     def listed(listing: str, show: str) -> dict[str, Fitting]:
         return {game: one for game, one in found(listing).items()
                 if in_show(show, by_id[game], one)}
 
-    listed_kinds = [listing for listing in kinds if found(listing)]
+    listed_kinds = [listing for listing in kinds if found(listing, narrowed=False)]
     if own.get("kind") not in listed_kinds:
         own["kind"] = ""
     if not counted or own.get("show") not in SHOW_WORD:
@@ -344,16 +377,13 @@ def page(*, subject: Mapping[str, str], state: dict[str, Any],
         kind_pick.set_options(kind_options(), value=own["kind"])
         if counted:
             show_pick.set_options(show_options(), value=own["show"])
-        count.text = t("manager.discovery.ask.games",
-                       count=len(listed(own["kind"], own["show"])))
         playable_row.set_visibility(own["kind"] == TABLES and bool(playable))
         wall()
 
     def pick_kind(event: Any) -> None:
         if event.value == own["kind"]:
             return
-        own.update(kind=event.value, limit=WALL_AT_FIRST, playable=True)
-        playable_switch.set_value(True)
+        own.update(kind=event.value, limit=WALL_AT_FIRST)
         settle()
 
     def pick_show(event: Any) -> None:
@@ -366,7 +396,7 @@ def page(*, subject: Mapping[str, str], state: dict[str, Any],
         settle()
 
     def pick_playable(event: Any) -> None:
-        if bool(event.value) != own.get("playable", True):
+        if bool(event.value) != playing():
             own.update(playable=bool(event.value), limit=WALL_AT_FIRST)
             settle()
 
@@ -401,14 +431,12 @@ def page(*, subject: Mapping[str, str], state: dict[str, Any],
                 if kind == "author":
                     _switch(t("manager.discovery.ask.hide_mods"), hiding(), pick_hiding)
                 playable_row = _switch(
-                    t("manager.discovery.ask.playable"), bool(own.get("playable", True)),
+                    t("manager.discovery.ask.playable"), playing(),
                     pick_playable,
                     t("manager.discovery.ask.playable.help",
                       formats=t("manager.discovery.ask.formats", count=len(playable),
                                 first=", ".join(playable[:-1]), last=playable[-1])
                       if playable else ""))
-                playable_switch = next(one for one in playable_row.descendants()
-                                       if isinstance(one, ui.switch))
                 playable_row.set_visibility(own["kind"] == TABLES and bool(playable))
             with ui.row().classes("items-center gap-2 no-wrap manager-subject-end"):
                 count = ui.label("").classes("text-xs manager-label")
@@ -420,6 +448,7 @@ def page(*, subject: Mapping[str, str], state: dict[str, Any],
     def wall() -> None:
         shown = {game: one for game, one in listed(own["kind"], own["show"]).items()
                  if narrows(by_id[game], typed["text"])}
+        count.text = t("manager.discovery.ask.games", count=len(shown))
         ordered = sorted(shown, key=lambda game: max(
             (str(one.get("added") or "") for _listing, one in shown[game]), default=""),
             reverse=True)
@@ -436,7 +465,8 @@ def page(*, subject: Mapping[str, str], state: dict[str, Any],
                                                counted=counted)
                     tip = (t("manager.discovery.ask.have_other.help", names=", ".join(names))
                            if state_of == OTHER else
-                           t("manager.discovery.ask.have_unknown.help", game=row["name"])
+                           t("manager.discovery.ask.have_unknown.help", game=row["name"],
+                             kind=t(KIND_ONE[unmatched_kind(row, fitting, fields)]))
                            if state_of == UNKNOWN else "")
                     _tile(row, tile_line(row, fitting), (state_of, tip), partial(open_game, row))
             if len(ordered) > limit:

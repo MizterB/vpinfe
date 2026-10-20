@@ -24,6 +24,7 @@ import datetime
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from common.online import vps_formats
 from common.online.vps_releases import person_key
 
 RELEASE_KEYS = ("by", "mod", "feature", "format", "since", "held")
@@ -81,7 +82,7 @@ def _fits_release(question: Mapping[str, Any], release: Mapping[str, Any],
     if features and not set(features).intersection(release.get("features") or ()):
         return False
     formats = question.get("format")
-    if formats and release.get("format") not in formats:
+    if formats and not vps_formats.fits(release.get("format"), formats):
         return False
     if cutoff and not (release.get("added") or "") >= cutoff:
         return False

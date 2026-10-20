@@ -96,6 +96,10 @@ class QuestionTests(unittest.TestCase):
         self.assertEqual(ids({"kind": "tableFiles", "held": "missing"}), {"A": 1, "B": 1})
         self.assertEqual(ids({"kind": "tableFiles", "held": "have"}), {"A": 1})
 
+    def test_a_release_filed_under_no_format_fits_whatever_format_is_asked(self) -> None:
+        self.assertEqual(ids({"kind": "b2sFiles", "format": ["FP"]}), {"A": 1})
+        self.assertEqual(ids({"format": ["FP"]}), {"A": 1, "B": 1})
+
     def test_a_window_is_kept_as_a_plain_count_of_days(self) -> None:
         self.assertEqual({"since": "7"}, vps_question.clean({"since": "0007"}))
         self.assertEqual({"since": "7"}, vps_question.clean({"since": 7}))

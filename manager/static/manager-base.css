@@ -4555,11 +4555,11 @@ svg.manager-cell-noart {
 .manager-subject-filters { order: 3; }
 .manager-subject-end { order: 4; margin-left: auto; }
 .manager-subject-root { container: manager-subject / inline-size; }
-@container manager-subject (max-width: 960px) {
+@container manager-subject (max-width: 1020px) {
   .manager-subject-end { order: 3; }
   .manager-subject-filters { order: 4; flex-basis: 100%; }
 }
-.manager-subject-show { width: 180px; }
+.manager-subject-show { width: 264px; }
 .manager-subject-name { font-size: 16px; font-weight: 500; line-height: 1.2; color: var(--ink); }
 .manager-subject-back {
   display: inline-flex; align-items: center; padding: 4px; border-radius: 50%;
