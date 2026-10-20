@@ -109,6 +109,9 @@ _LIST = f"""(() => {{
 
 _MENU_ITEMS = ("[...document.querySelectorAll('.q-menu .q-item')]"
                ".filter(e => e.getClientRects().length)")
+# The items of the menu a click opened: those a menu left open, or closing, was already
+# showing before it carry `data-value-stale`.
+_FRESH_ITEMS = f"{_MENU_ITEMS}.filter(e => !e.hasAttribute('data-value-stale'))"
 
 
 MOVE_S = 3.0
@@ -185,13 +188,18 @@ async def _act(browser: BrowserSession, control: Control) -> None:
         }})()""")
         await browser.click("[data-value-target] .q-btn", nth=other)
     elif control.kind == "select":
+        await browser.evaluate(f"""(() => {{
+          document.querySelectorAll('[data-value-stale]')
+            .forEach(e => e.removeAttribute('data-value-stale'));
+          {_MENU_ITEMS}.forEach(e => e.dataset.valueStale = '1');
+        }})()""")
         await browser.click(".q-select", nth=control.index)
         try:
-            await browser.wait_for(f"{_MENU_ITEMS}.length > 0", MOVE_S)
+            await browser.wait_for(f"{_FRESH_ITEMS}.length > 0", MOVE_S)
         except TimeoutError:
             raise ValueError(f"{control.name} did not open a menu") from None
         other = await browser.evaluate(f"""(() => {{
-          const items = {_MENU_ITEMS};
+          const items = {_FRESH_ITEMS};
           if (items.length < 2) return -1;
           const was = items.findIndex(e => e.classList.contains('q-item--active')
             || e.getAttribute('aria-selected') === 'true');
@@ -200,7 +208,7 @@ async def _act(browser: BrowserSession, control: Control) -> None:
         if other < 0:
             await browser.escape()
             raise ValueError(f"{control.name} has one choice")
-        await browser.evaluate(f"{_MENU_ITEMS}[{other}].dataset.valuePick = '1'")
+        await browser.evaluate(f"{_FRESH_ITEMS}[{other}].dataset.valuePick = '1'")
         await browser.click(".q-menu .q-item[data-value-pick]")
     else:
         await browser.evaluate(f"""(() => {{

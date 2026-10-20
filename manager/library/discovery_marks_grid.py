@@ -128,7 +128,7 @@ def rows(items: Sequence[Mapping[str, Any]], words: Mapping[str, str]) -> list[d
         "called": called(item, words),
         discovery_marks.FIELD: item["state"],
         "since": item["since"],
-        "held": bool(item["held"]),
+        "held": bool(item.get("held")),
         "since_said": when.ago(item["since"]) if item["since"] else "",
     } for item in items]
 
