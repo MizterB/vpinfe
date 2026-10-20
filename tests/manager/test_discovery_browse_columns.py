@@ -289,7 +289,8 @@ def _applied(filters: dict[str, Any], built: list[dict[str, Any]]) -> set[str]:
     for row in built:
         for field, model in filters.items():
             if "values" in model:
-                if row[field] not in model["values"]:
+                said = row[field] if isinstance(row[field], list) else [row[field]]
+                if not set(said) & set(model["values"]):
                     break
             elif model.get("filterType") == "text" and model.get("type") == "equals":
                 if row[field] != model["filter"]:
@@ -332,21 +333,28 @@ class TheGridHoldsWhatThePageLists(unittest.TestCase):
         _game("tables_only_listed", unheld=(TABLE,)),
         _game("elsewhere", in_library=False, unheld=(TABLE, GLASS)),
         _game("other_maker", maker="Williams", unheld=(TABLE, GLASS)),
+        # The library has a backglass for it that no VPS release is bound to.
+        _entry("unbound_glass", {TABLE: [_release("t")], GLASS: [_release("b")]},
+               manufacturer="Bally", listed=[TABLE, GLASS], held=[GLASS]),
+        _entry("other_theme", {TABLE: [_release("o")]}, manufacturer="Bally",
+               listed=[TABLE], themes=["Western"]),
         # Holds a table the launchers do not play, and has one they do that it lacks.
         _entry("holds_another_format", {
             TABLE: [_release("fp", fmt="FP", held=True), _release("vpx", fmt="VPX")],
             GLASS: [_release("glass")]}, manufacturer="Bally", listed=[TABLE, GLASS]),
     ]
 
-    def _library(self) -> tuple[list[dict[str, Any]], dict[str, Any], dict[str, Any]]:
+    def _library(self, kept: list[str] | None = None
+                 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         found = {"counted": "x", "rows": copy.deepcopy(self.LIBRARY)}
-        return (discovery.rows(found, None, None, PLAYS), found,
-                discovery.releases_of(found, [GLASS, TABLE]))
+        return (discovery.rows(found, kept, None, PLAYS),
+                discovery.releases_of(found, [GLASS, TABLE] if kept is None else kept))
 
-    def _page(self, kind: str, show: str, *, playing: bool = False) -> set[str]:
-        built, _found, releases = self._library()
+    def _page(self, kind: str, show: str, *, playing: bool = False, subject: dict[str, str]
+              = BALLY, kept: list[str] | None = None) -> set[str]:
+        built, releases = self._library(kept)
         question = discovery_ask.vps_question.clean({
-            **discovery_ask.subject_question(BALLY), "kind": kind,
+            **discovery_ask.subject_question(subject), "kind": kind,
             "format": list(PLAYS) if kind == TABLE and playing else []})
         people = [{"name": "Someone", "aliases": []}]
         by_id = {str(row["id"]): row for row in built}
@@ -354,12 +362,17 @@ class TheGridHoldsWhatThePageLists(unittest.TestCase):
         return {game for game, fitting in found.items()
                 if discovery_ask.in_show(show, by_id[game], fitting)}
 
-    def _grid(self, kind: str, *, playing: bool = False) -> set[str]:
-        built, _found, _releases = self._library()
+    def _grid(self, kind: str, *, playing: bool = False, subject: dict[str, str] = BALLY,
+              kept: list[str] | None = None) -> set[str]:
+        built, _releases = self._library(kept)
         question = discovery_ask.vps_question.clean({
-            **discovery_ask.subject_question(BALLY), "kind": kind, "owned": "yes",
+            **discovery_ask.subject_question(subject), "kind": kind, "owned": "yes",
             "held": "missing", "format": list(PLAYS) if kind == TABLE and playing else []})
-        _tab, opening = discovery.opening_for(BALLY, question, _browse_columns(), counted=True)
+        off = {name for listed_as, field, _word in discovery.KINDS
+               if kept is not None and listed_as not in kept
+               for name in (field, discovery.held_field(field))}
+        columns = [one for one in _browse_columns() if one["field"] not in off]
+        _tab, opening = discovery.opening_for(subject, question, columns, counted=True)
         return _applied(opening["filters"], built)
 
     def test_the_page_lists_the_bound_table_with_no_backglass(self) -> None:
@@ -389,13 +402,30 @@ class TheGridHoldsWhatThePageLists(unittest.TestCase):
             with self.subTest(kind):
                 self.assertNotIn("elsewhere", self._grid(kind))
 
-    def test_it_fails_on_the_game_level_column_the_page_does_not_ask(self) -> None:
-        built, _found, _releases = self._library()
-        game_level = _applied({"in_library": {"values": ["yes"]},
-                               "kind_backglass": {"values": ["have", "missing"]},
-                               discovery.HELD: {"values": ["no"]}}, built)
+    def test_a_file_bound_to_no_release_reads_have_and_is_still_without(self) -> None:
+        built, _releases = self._library()
+        row = next(one for one in built if one["id"] == "unbound_glass")
 
-        self.assertNotEqual(self._page(GLASS, discovery_ask.WITHOUT), game_level)
+        self.assertEqual("have", row["kind_backglass"])
+        self.assertEqual("no", row["held_backglass"])
+        self.assertIn("unbound_glass", self._page(GLASS, discovery_ask.WITHOUT))
+        self.assertIn("unbound_glass", self._grid(GLASS))
+
+    def test_a_narrower_kept_set_reads_the_same_on_page_and_grid(self) -> None:
+        wide = self._grid("")
+        narrow = self._grid("", kept=[TABLE])
+
+        self.assertEqual(self._page("", discovery_ask.WITHOUT, kept=[TABLE]), narrow)
+        self.assertIn("glass_only", narrow)
+        self.assertNotIn("glass_only", wide)
+
+    def test_without_on_a_theme_page_is_the_same_games_on_the_grid(self) -> None:
+        for kind in ("", TABLE, GLASS):
+            with self.subTest(kind):
+                page = self._page(kind, discovery_ask.WITHOUT, subject=SPACE)
+                self.assertEqual(page, self._grid(kind, subject=SPACE))
+        self.assertIn("other_maker", self._grid("", subject=SPACE))
+        self.assertNotIn("other_theme", self._grid("", subject=SPACE))
 
 
 class _StopError(Exception):

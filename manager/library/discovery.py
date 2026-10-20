@@ -230,8 +230,6 @@ def _held(releases: Mapping[str, Any], kept: Collection[str] | None) -> str:
 
 def _held_kind(releases: Mapping[str, Any], listed_as: str, listed: bool,
                counted: bool) -> str:
-    """Yes where the library holds a release of this one kind of the game, blank where the
-    game lists none of the kind or the library has not been counted."""
     if not (listed and counted):
         return ""
     return YES if any(one.get("held") for one in releases.get(listed_as) or []) else NO
@@ -592,8 +590,7 @@ def browse_filters(subject: dict[str, str], question: dict[str, Any],
     the Held columns, Have and Missing are left out before the library has been counted: the
     columns hold nothing then, and a filter on them would empty the grid.
 
-    Without is a game of the library none of whose listed releases it holds: Held No on the
-    chosen kind's column, or on the game's own where every kind is listed."""
+    Without is a game of the library none of whose listed releases it holds."""
     by_field = {one["field"]: one for one in columns}
     out: dict[str, Any] = {}
     if subject["type"] == "maker":
