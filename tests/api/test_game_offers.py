@@ -78,7 +78,7 @@ class Asking(TempTree):
         self.assertEqual({"one": {"wheel", "topper"}, "two": {"wheel"}},
                          {key: set(kinds) for key, kinds in self.by_source(answer).items()})
         self.assertEqual({"source": "one", "name": "wheel.png", "kind": "wheel", "size": "4k",
-                          "url": "https://example.invalid/vps-1/wheel.png"},
+                          "md5": "", "url": "https://example.invalid/vps-1/wheel.png"},
                          self.by_source(answer)["one"]["wheel"]["offers"][0])
         self.assertEqual(["one", "two"], [one["id"] for one in answer["sources"]])
 

@@ -25,7 +25,7 @@ from common.games.formats import directb2s_parser
 from common.games.game import Game
 from common.i18n import t
 from common.media import sized_media
-from common.online import sources, vpinmediadb, vpsdb_sync
+from common.online import picture_changes, sources, vpinmediadb, vps_marks, vpsdb_sync
 from common.online.vpsdb import VPSdb
 from common.online.vpsdb_media import VPSMediaDownloader
 from common.runtime import job_details, jobs
@@ -79,6 +79,9 @@ class _Library(TempTree):
                 patch("common.security.http_client.download_file", self.downloads),
                 patch.object(vpinmediadb, "_MANIFEST", MANIFEST),
                 patch.object(media_fill, "get_ini_config", return_value=self.config),
+                patch.object(picture_changes, "get_ini_config", return_value=self.config),
+                patch.object(picture_changes, "ANSWER_PATH", self.root / "picture-changes.json"),
+                patch.object(vps_marks, "PATH", self.root / "marks.json"),
                 patch("common.games.media_service.media_settings",
                       side_effect=lambda: (self.variant(), self.sets)),
                 patch("socket.socket.connect", side_effect=OSError("offline"))):
@@ -296,6 +299,32 @@ class AskedTests(_Library):
         self.assertEqual(gaps["backglass"], {"fathom": 1})
         self.assertNotIn("flyer", gaps)
         self.downloads.assert_not_called()
+
+    def test_a_gap_names_the_file_taking_it_would_fill_the_slot_with(self) -> None:
+        listed = media_fill.offered_listing()
+
+        wheel = next(one for one in listed["wheel"] if one["vps_id"] == "fathom")
+        self.assertEqual((wheel["kind"], wheel["source"], wheel["size"], wheel["take"]),
+                         ("wheel", "vpinmediadb", "", True))
+        self.assertEqual(wheel["picture"], _url("wheel.png"))
+        playfield = next(one for one in listed["playfield"] if one["vps_id"] == "fathom")
+        self.assertEqual((playfield["size"], playfield["picture"]), ("4k", _url("table-4k.png")))
+
+    def test_a_video_gap_offers_no_picture_to_show(self) -> None:
+        video = next(one for one in media_fill.offered_listing()["playfield_video"]
+                     if one["vps_id"] == "fathom")
+
+        self.assertEqual(video["picture"], "")
+        self.assertTrue(video["take"])
+
+    def test_under_fss_the_playfield_gap_cannot_be_filled_by_taking_the_plain_one(self) -> None:
+        self.config.read_dict({"media": {"playfield_variant": "fss"}})
+
+        playfield = next(one for one in media_fill.offered_listing()["playfield"]
+                         if one["vps_id"] == "fathom")
+
+        self.assertFalse(playfield["take"])
+        self.assertEqual(playfield["picture"], _url("fss-4k.png"))
 
     def test_each_game_is_listed_with_its_id_and_name_even_when_two_share_an_entry(self) -> None:
         twin = self.game("Fathom Twin", "fathom")
@@ -833,37 +862,273 @@ class BuildMetadataTests(_Replaced):
         self.assertEqual(self.placed()[WHEEL], OLD_WHEEL.decode())
 
 
-class ArtDueTests(TempTree):
-    config: Any
+class LookTests(_Replaced):
+    """The daily comparison while the automatic replacement is off: it only looks."""
 
     def setUp(self) -> None:
         super().setUp()
-        self.config = configparser.ConfigParser()
+        self.config.read_dict({"updates": {"update_downloaded_media": "false"}})
+        self.game_id = next(iter(self.games))
 
+    def look(self, proceed: Any = lambda: True) -> dict:
+        return media_fill.update_downloaded(None, proceed, replace=False)
+
+    def test_a_stale_picture_is_kept_as_a_change_and_the_file_is_left(self) -> None:
+        self.ours(WHEEL, OLD_WHEEL)
+
+        result = self.look()
+
+        self.assertEqual(self.placed()[WHEEL], OLD_WHEEL.decode())
+        self.assertEqual(self.recorded(WHEEL), _md5(OLD_WHEEL))
+        self.downloads.assert_not_called()
+        self.assertEqual((result["found"], result["updated"]), (1, 0))
+        (change,) = picture_changes.pending()
+        self.assertEqual({name: change[name] for name in ("game_id", "vps_id", "kind", "source",
+                                                          "md5", "id")},
+                         {"game_id": self.game_id, "vps_id": "fathom", "kind": "wheel",
+                          "source": "vpinmediadb", "md5": "wheel-new-md5",
+                          "id": "fathom:wheel"})
+
+    def test_the_source_says_what_is_later_for_the_game_and_slot(self) -> None:
+        self.ours(WHEEL, OLD_WHEEL)
+        self.look()
+        who = {"game_id": self.game_id, "vps_id": "fathom"}
+
+        self.assertEqual(
+            sources.upgrades(who, "wheel"),
+            {"vpinmediadb": {"source": "vpinmediadb", "size": "", "md5": "wheel-new-md5"}})
+        self.assertEqual(sources.upgrades(who, "playfield"), {})
+        self.assertEqual(sources.upgrades({"game_id": "elsewhere"}, "wheel"), {})
+        self.assertEqual(sources.upgrades({"vps_id": "fathom"}, "wheel"), {})
+
+    def test_a_picture_the_person_changed_is_never_a_change(self) -> None:
+        self.ours(WHEEL, b"drawn over", recorded=OLD_WHEEL)
+
+        self.assertEqual(self.look()["found"], 0)
+        self.assertEqual(picture_changes.pending(), [])
+
+    def test_a_change_goes_when_the_file_changes_under_it(self) -> None:
+        path = self.ours(WHEEL, OLD_WHEEL)
+        self.look()
+
+        path.write_bytes(b"edited since")
+
+        self.assertEqual(picture_changes.pending(), [])
+
+    def test_a_change_goes_when_the_picture_is_taken(self) -> None:
+        self.ours(WHEEL, OLD_WHEEL)
+        self.look()
+
+        media_fill.update_downloaded()
+
+        self.assertEqual(self.placed()[WHEEL], _url("wheel-new.png"))
+        self.assertEqual(picture_changes.pending(), [])
+
+    def test_ignore_updates_sets_the_picture_aside(self) -> None:
+        self.ours(WHEEL, OLD_WHEEL)
+        self.look()
+        (change,) = picture_changes.pending()
+
+        vps_marks.mark(vps_marks.IGNORED, vps_marks.UPDATES, change["id"])
+
+        self.assertEqual(picture_changes.pending(), [])
+        self.assertEqual(picture_changes.pending(self.game_id), [])
+
+    def test_keep_mine_sets_aside_that_version_and_not_the_next(self) -> None:
+        self.ours(WHEEL, OLD_WHEEL)
+        self.look()
+        (change,) = picture_changes.pending()
+        vps_marks.mark(vps_marks.IGNORED, vps_marks.VERSION, change["id"], change["md5"])
+        self.assertEqual(picture_changes.pending(), [])
+
+        newer = {"fathom": {"wheel": _url("wheel-newer.png"), "wheel_md5": "wheel-newer-md5"}}
+        self.load.return_value = newer
+        self.look()
+
+        self.assertEqual([one["md5"] for one in picture_changes.pending()], ["wheel-newer-md5"])
+
+    def test_an_ignored_game_has_no_change_offered(self) -> None:
+        self.ours(WHEEL, OLD_WHEEL)
+        self.look()
+        vps_marks.mark(vps_marks.IGNORED, vps_marks.GAME, "fathom")
+
+        self.assertEqual(picture_changes.pending(), [])
+
+    def test_nothing_is_offered_while_the_replacement_is_automatic(self) -> None:
+        self.ours(WHEEL, OLD_WHEEL)
+        self.look()
+        self.config.read_dict({"updates": {"update_downloaded_media": "true"}})
+
+        self.assertEqual(picture_changes.pending(), [])
+
+    def test_nothing_is_offered_while_the_source_is_off(self) -> None:
+        self.ours(WHEEL, OLD_WHEEL)
+        self.look()
+        self.policy.set("hidden_sources", ["vpinmediadb"])
+
+        self.assertEqual(picture_changes.pending(), [])
+        self.assertEqual(sources.upgrades({"game_id": self.game_id}, "wheel"), {})
+
+    def test_a_look_that_finds_none_clears_the_last_answer(self) -> None:
+        self.ours(WHEEL, OLD_WHEEL)
+        self.look()
+        self.load.return_value = {"fathom": {"wheel": _url("wheel.png"),
+                                             "wheel_md5": _md5(OLD_WHEEL)}}
+        self.look()
+
+        self.assertEqual(picture_changes.pending(), [])
+
+    def test_a_look_that_stopped_early_keeps_the_last_answer(self) -> None:
+        self.ours(WHEEL, OLD_WHEEL)
+        self.look()
+
+        self.look(proceed=lambda: False)
+
+        self.assertEqual(len(picture_changes.pending()), 1)
+
+    def test_a_look_that_cannot_ask_keeps_the_last_answer(self) -> None:
+        self.ours(WHEEL, OLD_WHEEL)
+        self.look()
+        with patch.object(media_fill, "_reachable", return_value=()):
+            self.look()
+
+        self.assertEqual(len(picture_changes.pending()), 1)
+
+    def test_an_open_pane_is_told_what_moved(self) -> None:
+        self.ours(WHEEL, OLD_WHEEL)
+        with patch.object(sources, "changed") as told:
+            self.look()
+
+        told.assert_called_once_with("fathom")
+
+    def test_the_daily_sweep_with_the_setting_off_only_looks(self) -> None:
+        self.ours(WHEEL, OLD_WHEEL)
+        with patch.object(jobs, "submit",
+                          side_effect=lambda kind, work, **_: work(MagicMock())), \
+                patch.object(backglass_ops, "redraw_all") as redrawn:
+            self.assertTrue(media_fill.start_update())
+
+        redrawn.assert_not_called()
+        self.assertEqual(self.placed()[WHEEL], OLD_WHEEL.decode())
+        self.assertEqual(len(picture_changes.pending()), 1)
+
+    def test_the_daily_sweep_is_owed_with_the_setting_off(self) -> None:
+        was = timestamps.iso_to_epoch("2026-01-01T00:00:00Z") or 0
+        with patch.object(vpsdb_sync.device_registry, "get_device_registry") as registry:
+            registry.return_value.self_get.return_value = "2026-01-01T00:00:00Z"
+
+            self.assertFalse(vpsdb_sync.art_due(was + 3600))
+            self.assertTrue(vpsdb_sync.art_due(was + 86400 + 1))
+
+    def test_a_look_is_its_own_kind_of_job_and_a_replacement_is_not(self) -> None:
+        kinds: list[str] = []
+        with patch.object(jobs, "submit", side_effect=lambda kind, work, **_: kinds.append(kind)):
+            media_fill.start_update()
+            self.config.read_dict({"updates": {"update_downloaded_media": "true"}})
+            media_fill.start_update()
+
+        self.assertEqual(kinds, [jobs.KIND_MEDIA_LOOK, jobs.KIND_MEDIA_FILL])
+
+    def test_with_the_source_off_nothing_is_asked_and_no_job_is_made(self) -> None:
+        self.policy.set("hidden_sources", ["vpinmediadb"])
+        with patch.object(vpinmediadb, "refresh_manifest") as asked, \
+                patch.object(jobs, "submit") as submitted:
+            self.assertFalse(media_fill.start_update())
+            result = media_fill.update_downloaded(None, replace=False)
+
+        asked.assert_not_called()
+        submitted.assert_not_called()
+        self.assertEqual(result["games"], 0)
+
+    def test_a_replacement_stopped_early_keeps_the_answer_a_look_left(self) -> None:
+        self.ours(WHEEL, OLD_WHEEL)
+        self.look()
+
+        media_fill.update_downloaded(None, lambda: False, replace=True)
+
+        self.assertEqual(len(picture_changes.pending()), 1)
+
+    @needs_posix_permissions
+    def test_a_look_reads_a_folder_that_cannot_be_written(self) -> None:
+        self.ours(WHEEL, OLD_WHEEL)
+        self.locked(self.folder)
+
+        result = self.look()
+
+        self.assertEqual((result["found"], result["skipped"]), (1, 0))
+
+    def test_a_game_a_look_could_not_read_keeps_what_the_last_look_said_of_it(self) -> None:
+        self.ours(WHEEL, OLD_WHEEL)
+        self.look()
+
+        with patch.object(media_fill, "_stale", side_effect=OSError("unreadable")):
+            result = self.look()
+
+        self.assertEqual((result["unread"], result["games"]), (1, 0))
+        self.assertEqual(len(picture_changes.pending()), 1)
+
+    def test_a_game_the_look_read_is_replaced_whatever_another_could_not_be(self) -> None:
+        self.ours(WHEEL, OLD_WHEEL)
+        self.look()
+        self.load.return_value = {"fathom": {"wheel": _url("wheel.png"),
+                                             "wheel_md5": _md5(OLD_WHEEL)}}
+        other = self.game("Other (Williams 1990)", "other")
+        broken = next(key for key, game in self.games.items()
+                      if str(game.full_path_game) == str(other))
+        real = media_fill._stale
+
+        def stale(game_id: str, *args: Any) -> Any:
+            if game_id == broken:
+                raise OSError("unreadable")
+            return real(game_id, *args)
+
+        with patch.object(media_fill, "_stale", stale):
+            self.look()
+
+        self.assertEqual(picture_changes.pending(), [])
+
+    def test_a_look_that_finds_what_it_found_before_tells_no_pane(self) -> None:
+        self.ours(WHEEL, OLD_WHEEL)
+        self.look()
+
+        with patch.object(sources, "changed") as told:
+            self.look()
+
+        told.assert_not_called()
+
+    def test_a_look_tells_the_pane_of_the_entry_whose_picture_went(self) -> None:
+        self.ours(WHEEL, OLD_WHEEL)
+        self.look()
+        self.load.return_value = {"fathom": {"wheel": _url("wheel.png"),
+                                             "wheel_md5": _md5(OLD_WHEEL)}}
+
+        with patch.object(sources, "changed") as told:
+            self.look()
+
+        told.assert_called_once_with("fathom")
+
+
+class ArtDueTests(TempTree):
     def test_never_compared_is_due(self) -> None:
-        self.assertTrue(vpsdb_sync.art_due(self.config))
+        self.assertTrue(vpsdb_sync.art_due())
 
     def test_compared_today_is_not_due_and_yesterday_is(self) -> None:
         device_registry.get_device_registry().set_self(
             vps_art_checked="2026-01-01T00:00:00Z")
         was = timestamps.iso_to_epoch("2026-01-01T00:00:00Z") or 0
 
-        self.assertFalse(vpsdb_sync.art_due(self.config, was + 3600))
-        self.assertTrue(vpsdb_sync.art_due(self.config, was + 86400))
-
-    def test_switched_off_is_never_due(self) -> None:
-        self.config.read_dict({"updates": {"update_downloaded_media": "false"}})
-        self.assertFalse(vpsdb_sync.art_due(self.config))
+        self.assertFalse(vpsdb_sync.art_due(was + 3600))
+        self.assertTrue(vpsdb_sync.art_due(was + 86400))
 
     def test_a_running_fill_leaves_it_due(self) -> None:
         with patch.object(media_fill, "start_update", return_value=False):
             self.assertFalse(vpsdb_sync.update_art())
-        self.assertTrue(vpsdb_sync.art_due(self.config))
+        self.assertTrue(vpsdb_sync.art_due())
 
     def test_a_started_sweep_is_stamped(self) -> None:
         with patch.object(media_fill, "start_update", return_value=True):
             self.assertTrue(vpsdb_sync.update_art())
-        self.assertFalse(vpsdb_sync.art_due(self.config))
+        self.assertFalse(vpsdb_sync.art_due())
 
 
 class QueueTests(_Library):

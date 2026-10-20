@@ -55,6 +55,9 @@ KIND_DEVICE_SEND = "device.send"
 # Filling a new game's empty media slots from the online sources. One at a time: two
 # fills of the same game would both see the slot empty and both write it.
 KIND_MEDIA_FILL = "library.media_fill"
+# The daily comparison of the pictures placed with the ones a source now publishes, when it
+# only looks. Its own kind so that a clean look is never taken for the outcome of a fill.
+KIND_MEDIA_LOOK = "library.media_look"
 # Recording the cabinet's screens into media slots.
 KIND_MEDIA_CAPTURE = "media.capture"
 # Turning pictures and videos in place. One at a time: two turns of one file would each
@@ -91,6 +94,7 @@ _BUSY = {KIND_LIBRARY_SCAN: "error.jobs.library_busy",
          KIND_VPS_ROLLUP: "error.jobs.vps_compare_busy",
          KIND_DEVICE_SEND: "error.jobs.sending_busy",
          KIND_MEDIA_FILL: "error.media_fill.busy",
+         KIND_MEDIA_LOOK: "error.media_look.busy",
          KIND_MEDIA_CAPTURE: "error.capture.busy",
          KIND_MEDIA_ROTATE: "error.media_rotate.busy",
          KIND_BACKUPS_MOVE: "error.backups.move_busy",

@@ -134,7 +134,7 @@ def watch_once(config: ConfigStore) -> None:
     except Exception:
         logger.warning("Taking catalog details failed; will try again", exc_info=True)
     try:
-        if vpsdb_sync.art_due(config):
+        if vpsdb_sync.art_due():
             vpsdb_sync.update_art()
     except Exception:
         logger.warning("Updating downloaded art failed; will try again", exc_info=True)

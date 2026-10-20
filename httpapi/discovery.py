@@ -35,8 +35,8 @@ def put_mark(payload: models.DiscoveryMarkRequest) -> models.DiscoveryMarks:
     """A thing is unmarked, Wanted or Ignored, never two: marking it replaces the state it
     held, which is answered as `replaced`. `400` for a state or scope that does not exist,
     for Wanted on anything but a game or a release, for a blank `id`, and for a `detail`
-    that does not suit the scope. `updates` and `version` marks are stored; nothing reads
-    them until Updates exists."""
+    that does not suit the scope. `updates` and `version` marks are stored; on a release
+    nothing reads them yet, and on a picture a source has replaced `GET /pictures` does."""
     return models.DiscoveryMarks.model_validate(library_ops.mark_discovery(
         payload.state, payload.scope, payload.id, payload.detail))
 
@@ -59,3 +59,13 @@ def discovery_home(days: int = Query(7, ge=1, le=MOST_DAYS)) -> models.Discovery
     wanted. Never compared here: `counted` empty means the library has not been, and nothing
     then reads as held or lacking."""
     return models.DiscoveryHome.model_validate(library_ops.discovery_home(days))
+
+
+@router.get("/pictures", summary="Pictures a source has replaced since they were placed",
+            dependencies=[requires(scopes.GAMES_READ)])
+def picture_changes(game_id: str = Query("")) -> models.PictureChanges:
+    """Each picture VPinFE placed and has not seen changed that its source no longer
+    publishes, from the last daily check, of the game `game_id` or of every game. Taking one
+    is the fetch of its `kind`, `source` and `size`. Asks no site. Empty while Update
+    Downloaded Media is on, which replaces them itself, and while the source is off."""
+    return models.PictureChanges.model_validate(library_ops.picture_changes(game_id))

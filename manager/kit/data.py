@@ -2124,6 +2124,11 @@ class Library:
         """Discovery's front page for a window of `days`. Off the loop."""
         return self._client.discovery_home(days)
 
+    def picture_changes(self, game_id: str = "") -> list[dict[str, Any]]:
+        """The pictures a source has replaced since they were placed, of one game or every
+        game. Off the loop."""
+        return list(self._client.picture_changes(game_id).get("pictures") or [])
+
     def load_marks(self) -> list[dict[str, Any]]:
         """Read what is marked Wanted or Ignored. Off the loop."""
         self._marks = self._client.discovery_marks()

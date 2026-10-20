@@ -64,5 +64,5 @@ def get_offers(vps_id: str = Query(...),
     found = sources.offers(kind, vps_id, sources.enabled_ids())
     return models.MediaOfferList.model_validate(
         {"offers": [{"source": offer.source, "name": offer.name, "url": offer.url,
-                     "kind": offer.kind, "size": offer.size}
+                     "kind": offer.kind, "size": offer.size, "md5": offer.md5}
                     for offer in found]})

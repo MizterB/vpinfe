@@ -991,6 +991,13 @@
   },
   "manager.discovery.download_missing.confirm": "Download",
   "manager.discovery.download_pic": "Download and use as your {kind}",
+  "manager.discovery.take": "Take",
+  "manager.discovery.taken": "Took the {kind} for {name}",
+  "manager.discovery.take_failed": "Could not take the {kind}",
+  "manager.discovery.picture.keep": "Keep Mine",
+  "manager.discovery.picture.keep.help": "Keep your {kind} until a newer one is published",
+  "manager.discovery.picture.ignore": "Ignore Updates",
+  "manager.discovery.picture.ignore.help": "Never offer a newer {kind} for this game",
   "manager.discovery.downloading_n": {
     "one": "Downloading 1 file",
     "other": "Downloading {count:n} files"
@@ -1112,6 +1119,8 @@
   "manager.discovery.mark.want": "Add to Wanted",
   "manager.discovery.mark.unwant": "Remove from Wanted",
   "manager.discovery.mark.gap_name": "missing {kind} for {game}",
+  "manager.discovery.mark.picture_new": "the newer {kind} for {game}",
+  "manager.discovery.mark.picture_updates": "{kind} updates for {game}",
   "manager.discovery.mark.release_name": "{kind} {version} of {game}",
   "manager.discovery.mark.release_name_bare": "{kind} of {game}",
   "manager.discovery.mark.many_games": {
@@ -2024,6 +2033,7 @@
   "manager.jobs.kind.spreadsheet_download": "Spreadsheet download",
   "manager.jobs.kind.device_send": "Send to device",
   "manager.jobs.kind.library_media_fill": "Media fill",
+  "manager.jobs.kind.library_media_look": "Media check",
   "manager.jobs.kind.library_scan": "Library scan",
   "manager.jobs.kind.library_vps_rollup": "Comparing...",
   "manager.jobs.kind.media_rotate": "Turn media",
@@ -4937,6 +4947,7 @@
   "error.library_folders.nowhere_to_create": "No library folder can be written to. Add one, or check that the ones you have are reachable.",
   "error.library_folders.single_game": "{name} is a single game folder, with no room for a new game",
   "error.media_fill.busy": "Media is already being downloaded",
+  "error.media_look.busy": "Media is already being checked",
   "error.media_fill.recording": "A recording is running",
   "error.media_rotate.animated": "An animated picture cannot be turned",
   "error.media_rotate.busy": "Media is already being turned",
@@ -5620,6 +5631,10 @@
     "one": "{count:n} game, {updated:n} replaced, {failed:n} failed",
     "other": "{count:n} games, {updated:n} replaced, {failed:n} failed"
   },
+  "said.job_media_looked": {
+    "one": "{count:n} game checked, {found:n} newer, {unread:n} not read",
+    "other": "{count:n} games checked, {found:n} newer, {unread:n} not read"
+  },
   "said.job_media_turned": {
     "one": "{count:n} game, {turned:n} turned, {skipped:n} skipped",
     "other": "{count:n} games, {turned:n} turned, {skipped:n} skipped"
@@ -5684,6 +5699,7 @@
   "said.skipping_game": "Skipping {game}",
   "said.starting": "Starting",
   "said.media_update": "Updating media for {game}",
+  "said.media_look": "Checking media for {game}",
   "said.media_rotate": "Turning {file}",
   "said.table_settings": {
     "one": "Changing settings, {count:n} table to go",

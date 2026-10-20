@@ -537,6 +537,11 @@ class ApiClient:
         """Discovery's front page, every shelf in one read."""
         return dict(self._get(f"/discovery/home?days={int(days)}"))
 
+    def picture_changes(self, game_id: str = "") -> dict:
+        """The pictures a source has replaced since they were placed, of one game or all."""
+        return dict(self._get("/discovery/pictures" + (
+            "?" + urlencode({"game_id": game_id}) if game_id else "")))
+
     def discovery_marks(self) -> list[dict]:
         """Everything marked Wanted or Ignored on this install, the newest first."""
         return list(self._get("/discovery/marks").get("marks") or [])

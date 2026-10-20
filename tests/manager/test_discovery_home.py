@@ -10,7 +10,7 @@ from typing import Any, cast
 from unittest import mock
 from unittest.mock import patch
 
-from nicegui import core, run, ui
+from nicegui import background_tasks, core, events, run, ui
 
 from common.online import vps_home, vps_marks
 from manager.kit import dropdown, views
@@ -185,6 +185,17 @@ def _options(toggle: ui.toggle) -> list[str]:
 def _labels(body: ui.element) -> list[str]:
     return [label for one in body.descendants()
             if isinstance(one, ui.toggle) and not one.is_deleted for label in _options(one)]
+
+
+async def _press(button: ui.button) -> None:
+    started: list[Any] = []
+    with mock.patch.object(background_tasks, "create_or_defer",
+                           lambda awaitable, **_: started.append(awaitable)):
+        for listener in button._event_listeners.values():
+            if listener.type == "click" and listener.handler is not None:
+                listener.handler(events.ClickEventArguments(sender=button,
+                                                            client=button.client))
+    await asyncio.gather(*started)
 
 
 async def _settle() -> None:
@@ -493,6 +504,74 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
 
         names = _words(body)
         self.assertTrue(all(f"Game {n:02d}" in names for n in range(len(self.media["wheel"]))))
+
+    def _gap(self, *, take: bool = True) -> dict:
+        return {**_offered("i1", "g1", "Alien"), "kind": "wheel", "source": "vpinmediadb",
+                "size": "", "picture": "https://example.test/wheel.png", "take": take}
+
+    async def _wheels(self) -> ui.element:
+        body = await self._draw()
+        toggle = next(one for one in body.descendants() if isinstance(one, ui.toggle)
+                      and "Wheels 1" in _options(one))
+        toggle.set_value("wheelArtFiles")
+        await _settle()
+        return body
+
+    @staticmethod
+    def _takes(body: ui.element) -> list[ui.button]:
+        return [one for one in body.descendants() if isinstance(one, ui.button)
+                and not one.is_deleted and one.props.get("aria-label") == "Take"]
+
+    async def test_a_gap_a_file_can_fill_has_a_take_that_fetches_it(self) -> None:
+        self.media = {"wheel": [self._gap()]}
+        self.client.fetch_media.return_value = {}
+        body = await self._wheels()
+        [button] = self._takes(body)
+
+        with mock.patch.object(ui, "notify") as notified:
+            await _press(button)
+
+        self.client.fetch_media.assert_called_once_with("i1", "", "wheel", "vpinmediadb",
+                                                        "g1", "")
+        notified.assert_called_once()
+        self.assertEqual(notified.call_args.kwargs["type"], "positive")
+
+    async def test_a_take_redraws_in_place_and_leaves_the_tab_that_was_picked(self) -> None:
+        other = {**self._gap(), **_offered("i2", "g2", "Batman")}
+        self.media = {"wheel": [self._gap(), other]}
+        self.client.fetch_media.side_effect = lambda *_a: self.media.update(wheel=[other]) or {}
+        body = await self._draw()
+        toggle = next(one for one in body.descendants() if isinstance(one, ui.toggle)
+                      and "Wheels 2" in _options(one))
+        toggle.set_value("wheelArtFiles")
+        await _settle()
+        [first, _second] = self._takes(body)
+
+        with mock.patch.object(ui, "notify"):
+            await _press(first)
+
+        toggle = next(one for one in body.descendants() if isinstance(one, ui.toggle)
+                      and not one.is_deleted and "Wheels 1" in _options(one))
+        self.assertEqual(toggle.value, "wheelArtFiles")
+        self.assertEqual(len(self._takes(body)), 1)
+        self.rerender.assert_not_called()
+
+    async def test_a_gap_that_cannot_be_taken_as_it_is_has_no_take(self) -> None:
+        self.media = {"wheel": [self._gap(take=False)]}
+
+        body = await self._wheels()
+
+        self.assertEqual(self._takes(body), [])
+        self.assertIn("Alien", _words(body))
+
+    async def test_the_tile_shows_the_picture_the_source_offers(self) -> None:
+        self.media = {"wheel": [self._gap()]}
+
+        body = await self._wheels()
+
+        shown = [str(getattr(one, "content", "")) for one in body.descendants()
+                 if isinstance(one, ui.html) and not one.is_deleted]
+        self.assertTrue(any("https://example.test/wheel.png" in one for one in shown))
 
     @staticmethod
     def _see_alls(body: ui.element) -> int:

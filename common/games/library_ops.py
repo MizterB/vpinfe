@@ -291,6 +291,14 @@ def discovery_home(days: int) -> dict[str, Any]:
                          marks=vps_marks.read())
 
 
+def picture_changes(game_id: str = "") -> dict[str, Any]:
+    """The pictures a source has replaced since they were placed, of one game or every game,
+    as the last daily check found them. Asks no site."""
+    from common.online import picture_changes as changes
+
+    return {"checked_at": changes.checked_at(), "pictures": changes.pending(game_id)}
+
+
 def discovery_marks() -> dict[str, Any]:
     """Every Wanted and Ignored mark on this install, the newest first."""
     return {"marks": vps_marks.listed()}

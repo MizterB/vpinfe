@@ -165,6 +165,7 @@ def wire_for_game(game_id: str, slots: Iterable[str] = (), *, vps_id: str = "", 
         "kinds": [{"kind": each.kind, "rows": each.rows, "note": each.note, "link": each.link,
                    "error": each.error,
                    "offers": [{"source": offer.source, "name": offer.name, "url": offer.url,
-                               "kind": offer.kind, "size": offer.size}
+                               "kind": offer.kind, "size": offer.size,
+                               "md5": offer.md5}
                               for offer in each.offers]}
                   for each in one.kinds]} for one in found]}

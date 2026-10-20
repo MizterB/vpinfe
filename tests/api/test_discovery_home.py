@@ -161,7 +161,25 @@ class LackingMediaTests(unittest.TestCase):
     def test_a_game_a_source_has_a_file_for_is_listed_with_how_many(self) -> None:
         self.assertEqual(vps_home.lacking_media(FOUND, [offered("i1", "g1", "Alien", 2)]), [
             {"vps_id": "g1", "game_id": "i1", "name": "Alien", "img_url": "a.png",
-             "vps": 0, "source": 2}])
+             "vps": 0, "source": 2, "picture": "", "take": None}])
+
+    def test_the_file_taking_it_would_fill_the_slot_with_rides_on_the_game(self) -> None:
+        taking = {**offered("i1", "g1", "Alien"), "kind": "wheel", "source": "vpinmediadb",
+                  "size": "", "take": True, "picture": "https://media.invalid/wheel.png"}
+
+        [game] = vps_home.lacking_media(FOUND, [taking])
+
+        self.assertEqual(game["picture"], "https://media.invalid/wheel.png")
+        self.assertEqual(game["take"], {"kind": "wheel", "source": "vpinmediadb", "size": ""})
+
+    def test_a_game_that_cannot_be_filled_by_taking_carries_no_take(self) -> None:
+        refused = {**offered("i1", "g1", "Alien"), "kind": "playfield", "source": "vpinmediadb",
+                   "size": "4k", "take": False, "picture": "https://media.invalid/fss.png"}
+
+        [game] = vps_home.lacking_media(FOUND, [refused])
+
+        self.assertIsNone(game["take"])
+        self.assertEqual(game["picture"], "https://media.invalid/fss.png")
 
     def test_a_game_the_comparison_does_not_count_as_held_is_listed_all_the_same(self) -> None:
         """The library's own record decides, not the last comparison's rollup."""
@@ -179,7 +197,7 @@ class LackingMediaTests(unittest.TestCase):
 
         self.assertEqual(shelf["playfield"]["games"], [
             {"vps_id": "g1", "game_id": "i1", "name": "Alien", "img_url": "", "vps": 0,
-             "source": 1}])
+             "source": 1, "picture": "", "take": None}])
 
     def test_the_games_with_most_offered_come_first(self) -> None:
         names = [one["name"] for one in vps_home.lacking_media({"rows": []}, [
@@ -387,7 +405,18 @@ class RouteTests(unittest.TestCase):
         self.assertEqual(list(body["missing"])[-1], "playfield")
         self.assertEqual(body["missing"]["playfield"], {"count": 1, "games": [
             {"vps_id": "E1", "game_id": "i1", "name": "Alpha", "img_url": "", "vps": 0,
-             "source": 2}], "on_vps": 0, "game_ids": ["i1"]})
+             "source": 2, "picture": "", "take": None}], "on_vps": 0, "game_ids": ["i1"]})
+
+    def test_the_route_answers_what_taking_a_gap_is(self) -> None:
+        taking = {**offered("i1", "E1", "Alpha", 1), "kind": "playfield",
+                  "source": "vpinmediadb", "size": "4k", "take": True,
+                  "picture": "https://media.invalid/table.png"}
+
+        [game] = self._get(media={"playfield": [taking]}).json()["missing"]["playfield"]["games"]
+
+        self.assertEqual(game["picture"], "https://media.invalid/table.png")
+        self.assertEqual(game["take"], {"kind": "playfield", "source": "vpinmediadb",
+                                        "size": "4k"})
 
     def test_it_answers_the_shelves_in_one_read(self) -> None:
         response = self._get(kept=["tableFiles", "romFiles"])

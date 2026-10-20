@@ -77,10 +77,9 @@ def adopt_due(config: ConfigStore) -> bool:
     return bool(held) and held != taken
 
 
-def art_due(config: ConfigStore, now: float | None = None) -> bool:
-    """Whether downloaded art is owed its daily comparison with the catalog."""
-    if not cfg_bool(config, SCHEDULES, "update_downloaded_media", True):
-        return False
+def art_due(now: float | None = None) -> bool:
+    """Whether downloaded art is owed its daily comparison with the catalog. Owed whatever
+    `update_downloaded_media` says: with it off the comparison still runs and only looks."""
     stamped = device_registry.get_device_registry().self_get(ART_KEY, "")
     was = timestamps.iso_to_epoch(str(stamped or "").strip())
     if was is None:

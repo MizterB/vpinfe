@@ -72,6 +72,13 @@ def _media_fill(result: Any) -> str:
     return ""
 
 
+def _media_look(result: Any) -> str:
+    if not isinstance(result, dict) or "found" not in result:
+        return ""
+    return t("said.job_media_looked", count=int(result.get("games") or 0),
+             found=int(result["found"]), unread=int(result.get("unread") or 0))
+
+
 def _media_rotate(result: Any) -> str:
     if not isinstance(result, dict) or "turned" not in result:
         return ""
@@ -121,6 +128,7 @@ def _dof_config(result: Any) -> str:
 _KINDS: dict[str, Callable[[Any], str]] = {
     jobs.KIND_LIBRARY_SCAN: _library_scan,
     jobs.KIND_MEDIA_FILL: _media_fill,
+    jobs.KIND_MEDIA_LOOK: _media_look,
     jobs.KIND_MEDIA_ROTATE: _media_rotate,
     jobs.KIND_BACKUPS_MOVE: _backups_moved,
     jobs.KIND_MEDIA_CAPTURE: _capture,

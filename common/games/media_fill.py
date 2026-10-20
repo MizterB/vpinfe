@@ -11,18 +11,22 @@ from __future__ import annotations
 import logging
 import tempfile
 import threading
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 from common.config.config_access import MediaConfig, cfg_bool
 from common.config.config_store import ConfigStore
 from common.config.paths import get_ini_config
 from common.games.game_metadata import effective_vps_id, normalize_meta
 from common.i18n import t
-from common.media.media_specs import MEDIA_SPECS
+from common.media.media_specs import MEDIA_SPECS, media_family
 from common.runtime import jobs, shutdown
 from common.runtime.jobs import JobReporter
+
+if TYPE_CHECKING:
+    from common.online.sources import Offer
 
 logger = logging.getLogger("vpinfe.common.games.media_fill")
 
@@ -317,9 +321,21 @@ def plan(game_ids: Iterable[str] | None = None) -> dict[str, Any]:
                       for kind in kinds]}
 
 
-def _offered() -> dict[str, dict[str, tuple[str, int, str]]]:
+class _Gap(NamedTuple):
+    """A game with no file for a slot that a source has one for: its VPS entry, how many
+    files the sources offer, its name, the kind asked of the sources and the file `_fetch`
+    would take."""
+
+    vps_id: str
+    available: int
+    name: str
+    asked: str
+    offer: Offer
+
+
+def _offered() -> dict[str, dict[str, _Gap]]:
     """Per kind the library keeps, the games with no file for it that an enabled source has
-    one for: game id to its VPS id, how many files the sources offer and its name.
+    one for, by game id.
 
     Makes no request: a source answers from the index it already holds, and one that holds
     none yet offers nothing, so every gap reads as one no source fills. A backglass the
@@ -331,8 +347,8 @@ def _offered() -> dict[str, dict[str, tuple[str, int, str]]]:
 
     scope = _scope(None)
     kept = fillable_kinds()
-    variant = MediaConfig.from_config(get_ini_config()).playfield_variant
-    out: dict[str, dict[str, tuple[str, int, str]]] = {}
+    media = MediaConfig.from_config(get_ini_config())
+    out: dict[str, dict[str, _Gap]] = {}
     with sources.cached_only():
         live = tuple(source.id for source in sources.catalogs(sources.enabled_ids())
                      if source.reachable())
@@ -346,21 +362,30 @@ def _offered() -> dict[str, dict[str, tuple[str, int, str]]]:
             if row["game_id"] not in matched:
                 matched[row["game_id"]] = effective_vps_id(normalize_meta(game.meta_config or {}))
             vps_id = matched[row["game_id"]]
-            asked = _asked_as(row["kind"], variant)
+            asked = _asked_as(row["kind"], media.playfield_variant)
             if not vps_id or not asked:
                 continue
             if offers := sources.offers(asked, vps_id, live):
-                out.setdefault(row["kind"], {})[row["game_id"]] = (
-                    vps_id, len(offers), str(row.get("game") or ""))
+                size = _size(asked, media)
+                out.setdefault(row["kind"], {})[row["game_id"]] = _Gap(
+                    vps_id, len(offers), str(row.get("game") or ""), asked,
+                    next((one for one in offers if one.size == size), offers[0]))
     return out
 
 
 def offered_listing() -> dict[str, list[dict[str, Any]]]:
     """`_offered` for a page that names the games: per kind, one record for each game a
     source can fill the slot of, with its id, its VPS entry, its name and how many files
-    the sources offer. The records Needs You leaves out of its counts are exactly these."""
-    return {kind: [{"game_id": game_id, "vps_id": vps_id, "name": name, "available": count}
-                   for game_id, (vps_id, count, name) in games.items()]
+    the sources offer. The records Needs You leaves out of its counts are exactly these.
+
+    `source` and `size` name the file that filling the slot would take, and `picture` its
+    address where it is a picture. `take` is whether taking it by those fills the slot: it
+    does not where the kind asked of the source is not the slot's (the FSS variant)."""
+    return {kind: [{"game_id": game_id, "vps_id": gap.vps_id, "name": gap.name,
+                    "available": gap.available, "kind": kind, "source": gap.offer.source,
+                    "size": gap.offer.size, "take": gap.asked == kind,
+                    "picture": gap.offer.url if media_family(gap.asked) == "image" else ""}
+                   for game_id, gap in games.items()]
             for kind, games in _offered().items()}
 
 
@@ -465,29 +490,41 @@ def update_enabled() -> bool:
     return cfg_bool(get_ini_config(), "updates", "update_downloaded_media", True)
 
 
-def _update_game(game_id: str, game: Any, vps_id: str, wanted: set[str],
-                 live: tuple[str, ...], media: MediaConfig) -> tuple[int, int]:
-    """Replace this game's stale art. Answers (updated, failed).
+@dataclass(frozen=True)
+class Stale:
+    """A picture VPinFE placed and has not seen altered that its source has since replaced:
+    the slot, the file in the game's folder, who placed it and the hash it had, and the
+    file that replaces it."""
 
-    Files are hashed only where the recorded hash is gone from the catalog.
-    """
-    from common.games import asset_origin, media_lens, media_placement
+    kind: str
+    path: str
+    name: str
+    host: str
+    have: str
+    offer: Offer
+
+
+def _stale(game_id: str, game: Any, vps_id: str, wanted: set[str],
+           live: tuple[str, ...], media: MediaConfig) -> list[Stale]:
+    """This game's stale art. Files are hashed only where the recorded hash is gone from
+    the catalog."""
+    from common.games import asset_origin, media_lens
     from common.online import sources
-    from common.online.vpsdb_media import file_md5, replace_file
+    from common.online.vpsdb_media import file_md5
 
     game_dir = Path(str(game.full_path_game))
     recorded = {path: source for path, source in asset_origin.sources(game_dir).items()
                 if source.get("hash") and source.get("host") in live}
     # An empty id would list every game's rows against this folder's ledger.
     if not vps_id or not game_id or not recorded:
-        return 0, 0
+        return []
     hosts = tuple({str(source["host"]) for source in recorded.values()})
     published = {offer.md5 for kind in _SPECS
                  for offer in sources.offers(kind, vps_id, hosts)}
     gone = {path for path, source in recorded.items() if source["hash"] not in published}
     if not gone:
-        return 0, 0
-    updated = failed = 0
+        return []
+    found = []
     for row in media_lens.listing(game=game_id)["media"]:
         path = row.get("path") or ""
         kind = row["kind"]
@@ -500,17 +537,66 @@ def _update_game(game_id: str, game: Any, vps_id: str, wanted: set[str],
         if not mine or file_md5(game_dir / path) != held:
             continue
         size = _size(asked, media)
-        offer = next((one for one in mine if one.size == size), mine[0])
-        try:
-            replace_file(offer.url, game_dir / path)
-        except Exception as exc:
+        found.append(Stale(kind, path, str(row.get("game") or ""), host, held,
+                           next((one for one in mine if one.size == size), mine[0])))
+    return found
+
+
+def _replace(game: Any, stale: Stale) -> bool:
+    """Put the replacement over the file and record it. False when the download fails."""
+    from common.games import media_placement
+    from common.online.vpsdb_media import replace_file
+
+    game_dir = Path(str(game.full_path_game))
+    try:
+        replace_file(stale.offer.url, game_dir / stale.path)
+    except Exception as exc:
+        logger.warning("Updating art: could not replace %s for %s: %s", stale.kind,
+                       game.game_dir_name, exc)
+        return False
+    media_placement.record_origin(game_dir, game_dir / stale.path, stale.host,
+                                  stale.offer.md5)
+    return True
+
+
+def _update_game(game_id: str, game: Any, vps_id: str, wanted: set[str],
+                 live: tuple[str, ...], media: MediaConfig) -> tuple[int, int]:
+    """Replace this game's stale art. Answers (updated, failed)."""
+    updated = failed = 0
+    for stale in _stale(game_id, game, vps_id, wanted, live, media):
+        if _replace(game, stale):
+            updated += 1
+        else:
             failed += 1
-            logger.warning("Updating art: could not replace %s for %s: %s", kind,
-                           game.game_dir_name, exc)
-            continue
-        media_placement.record_origin(game_dir, game_dir / path, host, offer.md5)
-        updated += 1
     return updated, failed
+
+
+def _change(game_id: str, game: Any, vps_id: str, stale: Stale) -> dict[str, Any]:
+    """`picture_changes.record`'s entry for one stale picture."""
+    from common.online import picture_changes
+
+    return {"game_id": game_id, "vps_id": vps_id,
+            "name": stale.name or str(game.game_dir_name or ""), "kind": stale.kind,
+            "source": stale.offer.source, "size": stale.offer.size, "md5": stale.offer.md5,
+            "folder": str(game.full_path_game), "path": stale.path, "have": stale.have,
+            "stamp": picture_changes.signature(Path(str(game.full_path_game)) / stale.path)}
+
+
+def _art_scope(config: ConfigStore, catalog: dict | None = None,
+               ) -> tuple[tuple[str, ...], set[str], MediaConfig] | None:
+    """The sources that answer, the kinds to keep current and the display settings, with the
+    catalog read again, or `catalog` where the caller holds a copy it has just read. None when
+    nothing can be asked."""
+    from common.online import sources, vpinmediadb
+
+    if not sources.enabled(vpinmediadb.SOURCE):
+        return None
+    vpinmediadb.refresh_manifest(catalog)
+    live = _reachable()
+    wanted = kept_kinds()
+    if not live or not wanted:
+        return None
+    return live, wanted, MediaConfig.from_config(config)
 
 
 def art_updater(config: ConfigStore, catalog: dict | None = None,
@@ -518,14 +604,10 @@ def art_updater(config: ConfigStore, catalog: dict | None = None,
     """`_update_game` for one game at a time, as (game_id, game, vps_id), with the catalog
     read again, or `catalog` where the caller holds a copy it has just read, and each
     source asked once. None when nothing can be asked."""
-    from common.online import vpinmediadb
-
-    vpinmediadb.refresh_manifest(catalog)
-    live = _reachable()
-    wanted = kept_kinds()
-    if not live or not wanted:
+    scope = _art_scope(config, catalog)
+    if scope is None:
         return None
-    media = MediaConfig.from_config(config)
+    live, wanted, media = scope
 
     def update(game_id: str, game: Any, vps_id: str) -> tuple[int, int]:
         return _update_game(game_id, game, vps_id, wanted, live, media)
@@ -534,63 +616,119 @@ def art_updater(config: ConfigStore, catalog: dict | None = None,
 
 
 def update_downloaded(reporter: JobReporter | None = None,
-                      proceed: Callable[[], bool] = lambda: True) -> dict[str, int]:
-    """Replace art we downloaded that the catalog has since replaced.
+                      proceed: Callable[[], bool] = lambda: True,
+                      replace: bool = True) -> dict[str, int]:
+    """Replace art we downloaded that the catalog has since replaced, or with `replace`
+    False only look: the pictures that would be replaced are kept as the answer
+    `picture_changes` reads, and no file is touched.
 
     Only a file whose recorded hash still matches it, of a kind the library keeps, from
-    a source that is on. `updated` and `failed` count files; `skipped` counts games whose
-    folder cannot be written to.
+    a source that is on. `updated` and `failed` count files, `found` the pictures a look
+    kept; `skipped` counts games whose folder cannot be written to, which a look does not
+    leave, and `unread` the games a look could not read. The answer is replaced only by a run
+    that reached every game: one stopped early keeps the last, and a game that could not be
+    read keeps what the last said of it.
     """
     from common.games import game_repository, media_service
+    from common.online import picture_changes
 
-    counts = {"games": 0, "updated": 0, "failed": 0, "skipped": 0}
-    update = art_updater(get_ini_config())
-    if update is None:
+    counts = {"games": 0, "updated": 0, "failed": 0, "skipped": 0, "found": 0, "unread": 0}
+    scope = _art_scope(get_ini_config())
+    if scope is None:
         return counts
+    live, wanted, media = scope
     games = list(game_repository.catalog().items())
-    locked = _locked([game for _, game in games])
+    locked = _locked([game for _, game in games]) if replace else set()
+    before = picture_changes.held()
+    seen: list[dict[str, Any]] = []
+    unread: set[str] = set()
+    finished = True
     for index, (game_id, game) in enumerate(games):
         if not proceed():
+            finished = False
             break
         if id(game) in locked:
             counts["skipped"] += 1
             continue
         name = str(game.game_dir_name or "")
         if reporter:
-            reporter.progress(index, len(games), t("said.media_update", game=name))
+            reporter.progress(index, len(games),
+                              t("said.media_update" if replace else "said.media_look",
+                                game=name))
+        vps_id = effective_vps_id(normalize_meta(game.meta_config or {}))
         try:
-            updated, failed = update(game_id, game,
-                                     effective_vps_id(normalize_meta(game.meta_config or {})))
+            stale = _stale(game_id, game, vps_id, wanted, live, media)
         except Exception:
             logger.exception("Updating art: could not read what %s has", name)
+            counts["unread"] += 1
+            unread.add(game_id)
             continue
         counts["games"] += 1
-        counts["failed"] += failed
+        updated = 0
+        for one in stale:
+            if not replace:
+                seen.append(_change(game_id, game, vps_id, one))
+            elif _replace(game, one):
+                updated += 1
+            else:
+                counts["failed"] += 1
         if updated:
             counts["updated"] += updated
             media_service.invalidate_media_cache()
             game_repository.refresh_game(Path(str(game.full_path_game)))
-    logger.info("Updating art: %s file(s) replaced across %s game(s), %s failed, "
-                "%s left alone", counts["updated"], counts["games"], counts["failed"],
+    counts["found"] = len(seen)
+    if finished:
+        seen += [one for one in before if one["game_id"] in unread]
+        picture_changes.record(seen)
+        _told(_moved(before, seen))
+    logger.info("Updating art: %s file(s) %s across %s game(s), %s failed, %s left alone",
+                counts["updated"] if replace else counts["found"],
+                "replaced" if replace else "newer", counts["games"], counts["failed"],
                 counts["skipped"])
     return counts
 
 
+def _moved(before: Iterable[Mapping[str, Any]], after: Iterable[Mapping[str, Any]]) -> set[str]:
+    """The entries whose answer differs between two runs: a picture that appeared, went or
+    was replaced by yet another."""
+    def held(changes: Iterable[Mapping[str, Any]]) -> set[tuple[str, str, str]]:
+        return {(str(one["vps_id"]), str(one["kind"]), str(one["md5"])) for one in changes}
+
+    return {vps_id for vps_id, _, _ in held(before) ^ held(after)}
+
+
+def _told(vps_ids: Iterable[str]) -> None:
+    """Tell an open pane that what a source would offer for these entries has moved."""
+    from common.online import sources
+
+    for vps_id in sorted(set(vps_ids)):
+        sources.changed(vps_id)
+
+
 def start_update() -> bool:
-    """Run `update_downloaded` as a job. False when a fill holds the job kind."""
+    """Run `update_downloaded` as a job: a fill replacing stale art while `update_enabled`,
+    otherwise a look. False, and nothing asked of the network, while VPinMediaDB is off; false
+    too when a job of that kind is running."""
+    from common.online import sources, vpinmediadb
+
+    if not sources.enabled(vpinmediadb.SOURCE):
+        return False
+    replace = update_enabled()
+
     def work(job: jobs.Job) -> dict[str, int]:
         from common.games import backglass_ops
 
         def proceed() -> bool:
-            return update_enabled() and not shutdown.requested()
+            return not shutdown.requested() and (not replace or update_enabled())
 
-        redrawn = backglass_ops.redraw_all(proceed)
-        if redrawn:
-            logger.info("Updating art: %s backglass picture(s) drawn again", redrawn)
-        return update_downloaded(job.reporter(), proceed)
+        if replace:
+            redrawn = backglass_ops.redraw_all(proceed)
+            if redrawn:
+                logger.info("Updating art: %s backglass picture(s) drawn again", redrawn)
+        return update_downloaded(job.reporter(), proceed, replace)
 
     try:
-        jobs.submit(jobs.KIND_MEDIA_FILL, work)
+        jobs.submit(jobs.KIND_MEDIA_FILL if replace else jobs.KIND_MEDIA_LOOK, work)
     except jobs.JobBusyError:
         return False
     return True

@@ -32,6 +32,14 @@ class Describers(unittest.TestCase):
 
         self.assertEqual(t("said.job_media_filled", count=5, filled=3, unmatched=1, failed=1), said)
 
+    def test_a_media_look_says_what_it_found_and_not_what_it_replaced(self) -> None:
+        said = job_details.of(jobs.KIND_MEDIA_LOOK,
+                              {"games": 5, "updated": 0, "failed": 0, "found": 2, "unread": 1})
+
+        self.assertEqual(t("said.job_media_looked", count=5, found=2, unread=1), said)
+        self.assertIn("2 newer", said)
+        self.assertNotIn("replaced", said)
+
     def test_a_settings_write_counts_the_tables_changed_and_not(self) -> None:
         said = job_details.of(jobs.KIND_TABLE_SETTINGS,
                               {"tables": 5, "written": ["a", "b", "c"], "failed": [{}, {}]})

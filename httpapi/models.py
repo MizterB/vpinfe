@@ -2749,13 +2749,15 @@ class WheelSetList(ApiModel):
 class MediaOffer(ApiModel):
     """One file a catalog will hand over. `size` is that source's own word for a
     variant - "4k" against VPinMediaDB - and is empty for a source that publishes one
-    of a thing; only the source that produced it has to understand it again."""
+    of a thing; only the source that produced it has to understand it again. `md5` is the
+    hash of the file where the source publishes one, and empty where it does not."""
 
     source: str
     name: str
     url: str
     kind: str
     size: str = ""
+    md5: str = ""
 
 
 class MediaOfferList(ApiModel):
@@ -4084,6 +4086,15 @@ class HomeAuthor(ApiModel):
     new: int = 0
 
 
+class GapTake(ApiModel):
+    """The file that fills a game's empty slot, named as `POST /games/{id}/media/{kind}/fetch`
+    takes it: the media `kind`, the `source` and its `size`."""
+
+    kind: str
+    source: str
+    size: str = ""
+
+
 class HomeGap(ApiModel):
     """A game the library holds, and what there is of the kind it lacks: `vps` releases VPS
     lists, `source` files a source offers; at least one is above 0."""
@@ -4095,6 +4106,35 @@ class HomeGap(ApiModel):
     source: int = 0
     # The library's own id for the game, set where a source offers a file for it.
     game_id: str = ""
+    # The address of the picture a source offers for the slot, where the kind is a picture.
+    picture: str = ""
+    # What taking it is, or None where the slot cannot be filled by taking it.
+    take: GapTake | None = None
+
+
+class PictureChange(ApiModel):
+    """A picture VPinFE placed that its source has since replaced. `kind` is the media slot,
+    `md5` the hash of the replacement, and `id` what the picture is marked under: Ignore
+    Updates is an `updates` mark on it, Keep Mine a `version` mark on it with `md5` as its
+    detail."""
+
+    id: str
+    game_id: str
+    vps_id: str
+    name: str
+    kind: str
+    source: str
+    size: str = ""
+    md5: str
+
+
+class PictureChanges(ApiModel):
+    """The pictures the last daily check found newer, less what has changed or been set aside
+    since. `checked_at` is when that check wrote its answer, empty if it never has. Empty
+    `pictures` while the replacement is automatic."""
+
+    checked_at: str = ""
+    pictures: list[PictureChange] = []
 
 
 class HomeGaps(ApiModel):

@@ -127,12 +127,17 @@ def lacking_media(found: dict[str, Any],
                   offered: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
     """The games a source has a file for in a slot they have none in, `offered` being
     `media_fill.offered_listing`'s records for one kind: every one is listed, in the library
-    or not as the last comparison saw it, since the games are the library's own. The picture
-    is the comparison's where it knows the entry. The ones with most offered come first."""
+    or not as the last comparison saw it, since the games are the library's own. `img_url` is
+    the comparison's picture where it knows the entry; `picture` is what the source offers for
+    the slot, and `take` names the file that would fill it where taking it does. The ones with
+    most offered come first."""
     pictures = {row.get("vps_id"): row.get("img_url") or "" for row in found.get("rows") or []}
     out = [{"vps_id": one["vps_id"], "game_id": one["game_id"],
             "name": (one.get("name") or "").strip() or one["vps_id"],
-            "img_url": pictures.get(one["vps_id"], ""), "vps": 0, "source": one["available"]}
+            "img_url": pictures.get(one["vps_id"], ""), "vps": 0, "source": one["available"],
+            "picture": one.get("picture") or "",
+            "take": {"kind": one["kind"], "source": one["source"], "size": one["size"]}
+            if one.get("take") else None}
            for one in offered]
     out.sort(key=lambda one: (-one["source"], one["name"].casefold(), one["game_id"]))
     return out

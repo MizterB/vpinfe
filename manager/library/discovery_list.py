@@ -30,6 +30,7 @@ from manager.library import (
     discovery_ext,
     discovery_get,
     discovery_marks,
+    discovery_pictures,
     import_dialog,
     mediasource,
     mediaview,
@@ -551,6 +552,8 @@ def _tiles(context: dict[str, Any], scene: Scene, kind: Kind) -> None:
                     discovery_get.end(
                         tray, pick, partial(_get_picture, context, scene, kind, pick),
                         discovery_get.try_again(context, tray, scene.game_id, pick))
+                if discovery_pictures.newer(kind, offer):
+                    discovery_pictures.set_aside(context, scene, kind)
 
 
 def _get_picture(context: dict[str, Any], scene: Scene, kind: Kind, pick: Pick) -> None:

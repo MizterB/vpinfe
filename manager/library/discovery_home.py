@@ -34,7 +34,7 @@ from manager.kit import (
     views,
     when,
 )
-from manager.library import discovery_ask, discovery_marks, discovery_releases
+from manager.library import discovery_ask, discovery_marks, discovery_pictures, discovery_releases
 
 logger = logging.getLogger("vpinfe.manager.library.discovery_home")
 
@@ -185,8 +185,10 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         word = media_label_map().get(listing) or (_kind_words(listing)[0] if listing else "")
         with card:
             menu = ui.context_menu()
-        panel.verb_menu(menu, marking.title(shelf, item),
-                        marking.verbs(shelf, item, listing, word))
+        panel.verb_menu(menu, marking.title(shelf, item), [
+            *(discovery_pictures.take_verb(library, item, refresh)
+              if shelf == discovery_marks.MISSING else []),
+            *marking.verbs(shelf, item, listing, word)])
 
     def tile(parent: Any, release: dict[str, Any]) -> None:
         with parent, ui.element("div").classes("manager-shelf-tile") as card:
@@ -237,6 +239,21 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
             row = ui.row().classes("manager-shelf w-full px-3")
             for one in everything[shown["chip"]]["releases"]:
                 tile(row, one)
+
+    async def refresh() -> None:
+        """Read the shelves again for the window on show and draw them where they stand, so a
+        tab or chip picked stays picked."""
+        try:
+            shown["home"] = await reread(shown["home"]["days"])
+        except Exception as exc:  # noqa: BLE001 - the shelves stay as they were
+            with tiles_box:
+                ui.notify(t("manager.discovery.read_failed"), caption=why(exc), type="negative")
+            return
+        draw_shelf()
+        draw_wanted()
+        draw_lacking()
+        draw_dont_have()
+        draw_authors()
 
     async def pick_window(days: int) -> None:
         """Read the shelf for another window. The window is remembered once the read has
@@ -296,9 +313,9 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
                     card.on("click", lambda _e, game=game: on_select({"id": game["vps_id"]}))
                     card.on("keydown.enter",
                             lambda _e, game=game: on_select({"id": game["vps_id"]}))
-                    candidates.thumb(game["img_url"], icons.TABLES,
+                    candidates.thumb(game.get("picture") or game["img_url"], icons.TABLES,
                                      t("manager.discovery.no_picture"))
-                    with ui.column().classes("gap-0 min-w-0"):
+                    with ui.column().classes("gap-0 min-w-0 grow"):
                         ui.label(game["name"]).classes("manager-shelf-name")
                         if game["vps"]:
                             ui.label(t("manager.discovery.lacking.on_vps",
@@ -306,6 +323,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
                         if game["source"]:
                             ui.label(t("manager.discovery.lacking.from_source",
                                        count=game["source"])).classes("text-xs manager-help")
+                    discovery_pictures.take_button(library, game, refresh)
                     menu_on(card, discovery_marks.MISSING, game, listing)
 
     def pick_lack(listing: str) -> None:

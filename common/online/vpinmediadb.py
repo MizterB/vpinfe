@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 
-from common.online import vpsdb_media
+from common.online import picture_changes, vpsdb_media
 from common.online.sources import Offer, Source, may_fetch
 
 logger = logging.getLogger("vpinfe.common.online.vpinmediadb")
@@ -69,6 +69,7 @@ def _offers(who: dict, kind: str) -> list[Offer]:
 SOURCE = Source(
     id=ID, name="VPinMediaDB", url="https://github.com/superhac/vpinmediadb",
     kinds=frozenset(vpsdb_media.MANIFEST_KINDS), refresh=warm, offers=_offers,
+    upgrades=picture_changes.upgrades,
     automatic=(("updates", "get_media_for_new_games"),
                ("updates", "update_downloaded_media")),
     reachable=lambda: bool(_manifest()))

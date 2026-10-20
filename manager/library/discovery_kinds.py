@@ -61,6 +61,8 @@ class Kind:
     unread: str = ""
     picks: list[str] = field(default_factory=list)
     opened: dict[str, dict[str, Any]] = field(default_factory=dict)
+    # The picture a source has published to replace the one VPinFE placed in this slot.
+    change: dict[str, Any] = field(default_factory=dict)
 
     @property
     def label(self) -> str:
@@ -149,6 +151,19 @@ async def _releases(library: Any, vps_id: str, listed_as: str) -> tuple[list[dic
         return [], why(exc)
 
 
+async def _changes(library: Any, game_id: str) -> dict[str, dict[str, Any]]:
+    """The pictures a source has replaced in this game's slots, by media kind."""
+    if not game_id:
+        return {}
+    try:
+        return {str(one["kind"]): one
+                for one in await offload.io(library.picture_changes, game_id)}
+    except Exception:  # noqa: BLE001 - the pane is drawn without them
+        logger.debug("manager: could not read the pictures changed for %s", game_id,
+                     exc_info=True)
+        return {}
+
+
 async def _detail(library: Any, game_id: str, kind: str) -> dict[str, Any]:
     try:
         return await offload.io(library.media_detail, game_id, None, kind) or {}
@@ -229,6 +244,7 @@ async def read(context: dict[str, Any]) -> Scene:
             opened=_opened(owner, listing)))
 
     media: list[Kind] = []
+    changed = await _changes(library, game_id)
     bands = dict(discovery.media_bands(listed, offers))
     if in_library:
         for kind in library.kept_kinds()["media"]:
@@ -248,6 +264,7 @@ async def read(context: dict[str, Any]) -> Scene:
             standing=_standing(compare and present is not None, bool(has),
                                bool(records or offered)),
             unread=unread, opened=_opened(owner, kind[0]),
+            change=changed.get(media_kind) or {},
             picks=[*_file_picks(context, records),
                    *(discovery_get.pick_of(one).key for one in offered)]))
     if game_id:

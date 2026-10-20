@@ -991,6 +991,13 @@
   },
   "manager.discovery.download_missing.confirm": "Đöŵñŀöàđ",
   "manager.discovery.download_pic": "Đöŵñŀöàđ àñđ ûšè àš ýöûř {kind}",
+  "manager.discovery.take": "Ţàķè",
+  "manager.discovery.taken": "Ţööķ ţĥè {kind} ƒöř {name}",
+  "manager.discovery.take_failed": "Çöûŀđ ñöţ ţàķè ţĥè {kind}",
+  "manager.discovery.picture.keep": "Ķèèþ Ḿîñè",
+  "manager.discovery.picture.keep.help": "Ķèèþ ýöûř {kind} ûñţîŀ à ñèŵèř öñè îš þûƀŀîšĥèđ",
+  "manager.discovery.picture.ignore": "Îĝñöřè Ûþđàţèš",
+  "manager.discovery.picture.ignore.help": "Ñèṽèř öƒƒèř à ñèŵèř {kind} ƒöř ţĥîš ĝàɱè",
   "manager.discovery.downloading_n": {
     "one": "Đöŵñŀöàđîñĝ 1 ƒîŀè",
     "other": "Đöŵñŀöàđîñĝ {count:n} ƒîŀèš"
@@ -1112,6 +1119,8 @@
   "manager.discovery.mark.want": "Àđđ ţö Ŵàñţèđ",
   "manager.discovery.mark.unwant": "Řèɱöṽè ƒřöɱ Ŵàñţèđ",
   "manager.discovery.mark.gap_name": "ɱîššîñĝ {kind} ƒöř {game}",
+  "manager.discovery.mark.picture_new": "ţĥè ñèŵèř {kind} ƒöř {game}",
+  "manager.discovery.mark.picture_updates": "{kind} ûþđàţèš ƒöř {game}",
   "manager.discovery.mark.release_name": "{kind} {version} öƒ {game}",
   "manager.discovery.mark.release_name_bare": "{kind} öƒ {game}",
   "manager.discovery.mark.many_games": {
@@ -2024,6 +2033,7 @@
   "manager.jobs.kind.spreadsheet_download": "Šþřèàđšĥèèţ đöŵñŀöàđ",
   "manager.jobs.kind.device_send": "Šèñđ ţö đèṽîçè",
   "manager.jobs.kind.library_media_fill": "Ḿèđîà ƒîŀŀ",
+  "manager.jobs.kind.library_media_look": "Ḿèđîà çĥèçķ",
   "manager.jobs.kind.library_scan": "Ŀîƀřàřý šçàñ",
   "manager.jobs.kind.library_vps_rollup": "Çöɱþàřîñĝ...",
   "manager.jobs.kind.media_rotate": "Ţûřñ ɱèđîà",
@@ -4937,6 +4947,7 @@
   "error.library_folders.nowhere_to_create": "Ñö ŀîƀřàřý ƒöŀđèř çàñ ƀè ŵřîţţèñ ţö. Àđđ öñè, öř çĥèçķ ţĥàţ ţĥè öñèš ýöû ĥàṽè àřè řèàçĥàƀŀè.",
   "error.library_folders.single_game": "{name} îš à šîñĝŀè ĝàɱè ƒöŀđèř, ŵîţĥ ñö řööɱ ƒöř à ñèŵ ĝàɱè",
   "error.media_fill.busy": "Ḿèđîà îš àŀřèàđý ƀèîñĝ đöŵñŀöàđèđ",
+  "error.media_look.busy": "Ḿèđîà îš àŀřèàđý ƀèîñĝ çĥèçķèđ",
   "error.media_fill.recording": "À řèçöřđîñĝ îš řûññîñĝ",
   "error.media_rotate.animated": "Àñ àñîɱàţèđ þîçţûřè çàññöţ ƀè ţûřñèđ",
   "error.media_rotate.busy": "Ḿèđîà îš àŀřèàđý ƀèîñĝ ţûřñèđ",
@@ -5620,6 +5631,10 @@
     "one": "{count:n} ĝàɱè, {updated:n} řèþŀàçèđ, {failed:n} ƒàîŀèđ",
     "other": "{count:n} ĝàɱèš, {updated:n} řèþŀàçèđ, {failed:n} ƒàîŀèđ"
   },
+  "said.job_media_looked": {
+    "one": "{count:n} ĝàɱè çĥèçķèđ, {found:n} ñèŵèř, {unread:n} ñöţ řèàđ",
+    "other": "{count:n} ĝàɱèš çĥèçķèđ, {found:n} ñèŵèř, {unread:n} ñöţ řèàđ"
+  },
   "said.job_media_turned": {
     "one": "{count:n} ĝàɱè, {turned:n} ţûřñèđ, {skipped:n} šķîþþèđ",
     "other": "{count:n} ĝàɱèš, {turned:n} ţûřñèđ, {skipped:n} šķîþþèđ"
@@ -5684,6 +5699,7 @@
   "said.skipping_game": "Šķîþþîñĝ {game}",
   "said.starting": "Šţàřţîñĝ",
   "said.media_update": "Ûþđàţîñĝ ɱèđîà ƒöř {game}",
+  "said.media_look": "Çĥèçķîñĝ ɱèđîà ƒöř {game}",
   "said.media_rotate": "Ţûřñîñĝ {file}",
   "said.table_settings": {
     "one": "Çĥàñĝîñĝ šèţţîñĝš, {count:n} ţàƀŀè ţö ĝö",

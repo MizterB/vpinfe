@@ -83,7 +83,7 @@ class TheApi(_Registered):
                                 params={"vps_id": "vps-9", "kind": "wheel"}).json()["offers"]
 
         self.assertIn({"source": ID, "name": "made-up.png", "kind": "wheel", "size": "",
-                       "url": "https://example.invalid/vps-9"}, found)
+                       "md5": "", "url": "https://example.invalid/vps-9"}, found)
 
     def test_it_is_asked_for_a_game_with_every_other_source_in_the_one_answer(self) -> None:
         game = {"private": False, "vps_id": "vps-3", "name": "Taxi"}
@@ -94,7 +94,7 @@ class TheApi(_Registered):
         asked = {one["id"]: one for one in answer["sources"]}
         self.assertEqual({ID, "vpinmediadb"}, set(asked))
         self.assertEqual([{"source": ID, "name": "made-up.png", "kind": "wheel", "size": "",
-                           "url": "https://example.invalid/vps-3"}],
+                           "md5": "", "url": "https://example.invalid/vps-3"}],
                          asked[ID]["kinds"][0]["offers"])
 
     def test_switched_off_it_is_listed_and_not_asked(self) -> None:
