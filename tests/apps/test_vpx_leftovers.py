@@ -188,6 +188,30 @@ class Boxes(unittest.TestCase):
                 self.assertEqual(_found(b2s + legacy)["Plugin.B2SLegacy.BackglassDMD"].action,
                                  PLACE)
 
+    def test_an_automatic_b2s_box_with_a_size_does_not_shadow_legacy_s_manual_one(self) -> None:
+        b2s = ("[Plugin.B2S]\nBackglassDMDOverlay = 1\nBackglassDMDAutoPos = 1\n"
+               "BackglassDMDW = 300\nBackglassDMDH = 100\n")
+        legacy = ("[Plugin.B2SLegacy]\nBackglassDMDOverlay = 1\nBackglassDMDAutoPos = 0\n"
+                  "BackglassDMDX = 1\nBackglassDMDY = 1\nBackglassDMDW = 5\nBackglassDMDH = 5\n")
+
+        found = _found(b2s + legacy)
+
+        self.assertEqual((found["Plugin.B2S.BackglassDMD"].action,
+                          found["Plugin.B2S.BackglassDMD"].word),
+                         (NAME, "dmd_backglass_auto"))
+        self.assertEqual(found["Plugin.B2SLegacy.BackglassDMD"].action, PLACE)
+
+    def test_a_size_that_is_not_a_finite_number_is_no_size(self) -> None:
+        legacy = ("[Plugin.B2SLegacy]\nBackglassDMDOverlay = 1\nBackglassDMDAutoPos = 0\n"
+                  "BackglassDMDX = 1\nBackglassDMDY = 1\nBackglassDMDW = 5\nBackglassDMDH = 5\n")
+        for wide in ("inf", "1e999", "nan"):
+            b2s = (f"[Plugin.B2S]\nBackglassDMDOverlay = 1\nBackglassDMDAutoPos = 0\n"
+                   f"BackglassDMDW = {wide}\nBackglassDMDH = 10\n")
+            with self.subTest(wide=wide):
+                self.assertEqual(_found(b2s + legacy)["Plugin.B2SLegacy.BackglassDMD"].action,
+                                 PLACE)
+                self.assertNotIn("Plugin.B2S.BackglassDMD", _found(b2s))
+
     def test_an_automatic_legacy_box_under_a_live_b2s_one_is_said_to_be_replaced(self) -> None:
         legacy = self.BOX.replace("Plugin.B2S]", "Plugin.B2SLegacy]").replace("AutoPos = 0",
                                                                             "AutoPos = 1")

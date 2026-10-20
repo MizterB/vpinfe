@@ -495,6 +495,19 @@ class Routes(Upgrade):
         self.assertEqual(refused.status_code, 409)
         self.assertEqual(self.path.read_bytes(), self.original)
 
+    def test_the_first_box_over_the_journal_and_every_box_after_it_stay(self) -> None:
+        self.second.write_bytes(_directb2s(size=(40, 30)))
+        self.both()
+        self.items = [LEGACY_SCORE, FRONT, SCORE]
+
+        with patch.object(backglass_displays, "_KEPT", 2):
+            answer = upgrade_ops.move("L1")
+
+        self.assertEqual(answer["held_back"], [{"key": FRONT.key, "files": [], "limit": 2},
+                                               {"key": SCORE.key, "files": [], "limit": 2}])
+        self.assertEqual([one[0] for one in self.displays()], ["ScoreView"])
+        self.assertEqual(self.second.read_bytes(), _directb2s(size=(40, 30)))
+
     def test_a_box_over_the_journal_is_named_with_its_limit(self) -> None:
         self.items = [FRONT, SCORE]
 

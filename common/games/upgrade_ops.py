@@ -7,9 +7,10 @@ each backglass file that has none. Everything it writes is journaled so one call
 A box is carried only where the file places no DMD of its own for that window: what a file
 already says is the one in force. A box any of whose files cannot be written stays where it
 is, whole, and is named under `held_back`; none of its files is written. So is a box that
-would take the move past the files the undo journal keeps, so that Undo can always put back
-everything a move wrote. Everything that can refuse does so before anything is written, the
-files go first and the settings last, and a settings write that fails puts the files back.
+would take the move past the files the undo journal keeps, and every box after it, so that
+Undo can always put back everything a move wrote. Everything that can refuse does so before
+anything is written, the files go first and the settings last, and a settings write that
+fails puts the files back.
 """
 
 from __future__ import annotations
@@ -162,13 +163,14 @@ class _Box:
 def _plan(launcher_id: str, items: list[Leftover]) -> list[_Box]:
     """Every box, with each of its files asked whether it can be written now. A box with a
     file that refuses takes none of them, and neither does one that would take the move past
-    the files the undo journal keeps: the boxes go in order and the first that does not fit
-    stays in the settings, whole."""
+    the files the undo journal keeps: the boxes go in order, and the first that does not fit
+    and every box after it stay in the settings, whole."""
     boxes = [one for one in items if one.action == PLACE]
     if not boxes:
         return []
     kept, _biggest = backglass_displays.limits()
     used = 0
+    full = False
     held = backglass_ops.files_of(launcher_id)
     before = launcher_ops.effective_values(launcher_id)
     after = _after_the_move(before, items)
@@ -185,8 +187,9 @@ def _plan(launcher_id: str, items: list[Leftover]) -> list[_Box]:
                 box.targets.append(target)
         if box.refused:
             box.targets, box.size = [], 0
-        elif used + len(box.targets) > kept:
+        elif box.targets and (full or used + len(box.targets) > kept):
             box.targets, box.size, box.limit = [], 0, kept
+            full = True
         used += len(box.targets)
         planned.append(box)
     return planned

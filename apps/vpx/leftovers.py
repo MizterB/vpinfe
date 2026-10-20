@@ -37,7 +37,7 @@ def _off(said: str | None) -> bool:
 def _number(said: str | None) -> int:
     try:
         return int(float(said or 0))
-    except ValueError:
+    except (ValueError, OverflowError):
         return 0
 
 
@@ -95,9 +95,10 @@ _PARTS = ("Overlay", "AutoPos", "X", "Y", "W", "H")
 
 
 def _live(app: vini.Ini, plugin: str, window: str) -> bool:
-    """Whether this plugin holds a box for the window that is switched on and sized."""
+    """Whether this plugin holds a box for the window that is switched on, sized and placed by
+    hand. An automatic box has no place of its own, so it replaces nothing."""
     prefix = f"{plugin}{window}DMD"
-    return (_on(app.value(prefix + "Overlay"))
+    return (_on(app.value(prefix + "Overlay")) and not _on(app.value(prefix + "AutoPos"))
             and _number(app.value(prefix + "W")) > 0 and _number(app.value(prefix + "H")) > 0)
 
 
@@ -106,8 +107,8 @@ def _placed(app: vini.Ini, plugin: str, frame: tuple[int, int] | None,
     """The DMD box this plugin's settings hold for each window, where one is switched on and
     sized. A box that was placed automatically has no place to carry, so it is only named.
     Where `over` is the plugin that replaced this one and holds a box for the same window that
-    is switched on and sized, this plugin's box is only named too: what the file would take
-    from it must not replace the live one."""
+    is switched on, sized and placed by hand, this plugin's box is only named too: what the
+    file would take from it must not replace the live one."""
     found: list[Leftover] = []
     for window, word, automatic, replaced in _WINDOWS:
         prefix = f"{plugin}{window}DMD"
