@@ -611,6 +611,16 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Ignored", words)
         self.assertIn("1 item", words)
 
+    async def test_the_ignored_tile_says_it_opens_the_marks_grid(self) -> None:
+        self.client.discovery_marks.return_value = [
+            {"state": "ignored", "scope": "game", "id": "g1", "detail": "", "since": "x"}]
+
+        body = await self._draw()
+
+        tile = next(one for one in body.descendants() if "manager-shelf-tile" in one.classes
+                    and "Ignored" in _words(one))
+        self.assertEqual(_words(tile)[:2], ["Marks", "Ignored"])
+
     async def test_with_nothing_ignored_there_is_no_ignored_tile(self) -> None:
         self.assertNotIn("Ignored", _words(await self._draw()))
 

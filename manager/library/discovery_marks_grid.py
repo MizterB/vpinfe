@@ -128,6 +128,7 @@ def rows(items: Sequence[Mapping[str, Any]], words: Mapping[str, str]) -> list[d
         "called": called(item, words),
         discovery_marks.FIELD: item["state"],
         "since": item["since"],
+        "held": bool(item["held"]),
         "since_said": when.ago(item["since"]) if item["since"] else "",
     } for item in items]
 
@@ -135,7 +136,8 @@ def rows(items: Sequence[Mapping[str, Any]], words: Mapping[str, str]) -> list[d
 def subjects(chosen: Sequence[Mapping[str, Any]]) -> list[discovery_marks.Subject]:
     return [discovery_marks.Subject(
         str(one["mark_scope"]), str(one["mark_id"]), str(one["called"]),
-        str(one[discovery_marks.FIELD]), str(one["mark_detail"])) for one in chosen]
+        str(one[discovery_marks.FIELD]), str(one["mark_detail"]), held=bool(one.get("held")))
+        for one in chosen]
 
 
 def summary(count: int) -> str:

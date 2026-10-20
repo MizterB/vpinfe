@@ -1247,6 +1247,7 @@
     "other": "{count:n} items"
   },
   "manager.discovery.marks.actions_selected": "Actions for the selected items",
+  "manager.discovery.marks.place": "Marks",
   "manager.discovery.marks.empty": "Games and releases you mark Wanted or Ignored are listed here",
   "manager.discovery.version_was": "{version}, was {was}",
   "manager.discovery.authors": "Authors You Collect",

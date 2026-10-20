@@ -92,12 +92,14 @@ def column(neither: str = "") -> dict[str, Any]:
 @dataclass(frozen=True)
 class Subject:
     """One thing a menu entry marks: its scope, id and detail as the store keys them, the
-    name a notice calls it, and the state it holds now."""
+    name a notice calls it, the state it holds now, and whether it is a release the library
+    already holds."""
     scope: str
     id: str
     name: str
     state: str = ""
     detail: str = ""
+    held: bool = False
 
 
 def game_subjects(games: Sequence[Mapping[str, Any]]) -> list[Subject]:
@@ -117,7 +119,8 @@ def release_subjects(releases: Sequence[Mapping[str, Any]],
     chip, which an ignored game puts on all of its releases."""
     return [Subject(vps_marks.RELEASE, str(one["release_id"]),
                     release_name(str(one["name"]), kind_word(str(one["kind"])),
-                                 str(one["version"])), str(one.get(OWN) or ""))
+                                 str(one["version"])), str(one.get(OWN) or ""),
+                    held=bool(one.get("held")))
             for one in releases]
 
 
@@ -221,7 +224,8 @@ def _entry(library: Library, subjects: Sequence[Subject], after: After, *, state
 
 
 def _wanting(library: Library, subjects: Sequence[Subject], after: After) -> list[panel.Verb]:
-    out = [_entry(library, subjects, after, state=WANTED, among="",
+    wantable = [one for one in subjects if not one.held]
+    out = [_entry(library, wantable, after, state=WANTED, among="",
                   label=t("manager.discovery.mark.want"), icon=verbs.WANTED),
            _entry(library, subjects, after, state="", among=WANTED,
                   label=t("manager.discovery.mark.unwant"), icon=verbs.REMOVE)]
@@ -452,7 +456,8 @@ class Marking:
                                t("manager.discovery.mark.ignore.game"))]
         one = [Subject(vps_marks.RELEASE, str(item["id"]),
                        release_name(game, kind_word, str(item["version"])),
-                       found.state(vps_marks.RELEASE, str(item["id"])))]
+                       found.state(vps_marks.RELEASE, str(item["id"])),
+                       held=bool(item.get("held")))]
         return distinguish([
             *_wanting(self.library, one, self.after),
             *_ignoring(self.library, one, self.after, t("manager.discovery.mark.ignore.release")),

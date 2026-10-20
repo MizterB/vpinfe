@@ -162,6 +162,14 @@ class ReleaseVerbTests(unittest.TestCase):
         self.assertEqual(self._verbs([RELEASE]),
                          ["Add to Wanted", "Ignore Release", "Ignore Missing Backglass"])
 
+    def test_a_release_the_library_holds_is_not_offered_for_wanting(self) -> None:
+        held = {**RELEASE, "held": "have"}
+
+        self.assertEqual(self._verbs([held]),
+                         ["Ignore Release", "Ignore Missing Backglass"])
+        self.assertEqual(self._verbs([held, {**RELEASE, "release_id": "t2"}])[0],
+                         "Add to Wanted")
+
     def test_a_kind_already_ignored_offers_stopping_it(self) -> None:
         self.assertEqual(self._verbs([RELEASE], gap_ignored=True)[-1],
                          "Stop Ignoring Missing Backglass")
@@ -270,6 +278,22 @@ class MixedSubjectsTests(unittest.TestCase):
         offered = _labels(discovery_marks.listed_verbs(_library(), subjects, mock.AsyncMock()))
 
         self.assertEqual(offered, ["Stop Ignoring", "Add to Wanted"])
+
+    def test_a_held_release_row_of_the_marks_grid_is_not_offered_for_wanting(self) -> None:
+        row = discovery_marks_grid.rows(
+            [_item("release", listing="b2sFiles", version="1.2", held=True)], WORDS)[0]
+        subjects = discovery_marks_grid.subjects([row])
+
+        self.assertEqual(_labels(discovery_marks.listed_verbs(
+            _library(), subjects, mock.AsyncMock())), ["Stop Ignoring"])
+
+    def test_a_held_release_that_is_wanted_can_still_be_taken_off(self) -> None:
+        subjects = [discovery_marks.Subject("release", "t1", "Backglass of Alien", WANTED,
+                                            held=True)]
+
+        offered = _labels(discovery_marks.listed_verbs(_library(), subjects, mock.AsyncMock()))
+
+        self.assertEqual(offered, ["Remove from Wanted"])
 
     def test_a_wanted_release_offers_taking_it_off(self) -> None:
         subjects = [discovery_marks.Subject("release", "t1", "Backglass of Alien", WANTED)]
@@ -465,6 +489,12 @@ class HomeMenuTests(unittest.TestCase):
     def test_a_new_release_can_be_wanted_or_ignored_and_so_can_its_game(self) -> None:
         self.assertEqual(self._verbs(discovery_marks.NEW, self.NEW),
                          ["Add to Wanted", "Ignore Release", "Ignore Game"])
+
+    def test_a_new_release_the_library_holds_cannot_be_wanted(self) -> None:
+        held = {**self.NEW, "held": True}
+
+        self.assertEqual(self._verbs(discovery_marks.NEW, held),
+                         ["Ignore Release", "Ignore Game"])
 
     def test_a_game_lacking_a_kind_can_stop_hearing_of_that_kind_or_be_ignored(self) -> None:
         self.assertEqual(self._verbs(discovery_marks.MISSING, self.LACKING),

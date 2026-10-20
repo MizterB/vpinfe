@@ -625,7 +625,8 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
                     view_tile(t("manager.discovery.tab.releases"), one.name, None,
                               partial(open_releases_view, one.id))
                 if ignored:
-                    view_tile("", t("manager.discovery.mark.ignored"), ignored,
+                    view_tile(t("manager.discovery.marks.place"),
+                              t("manager.discovery.mark.ignored"), ignored,
                               lambda: open_marks(discovery_marks_grid.IGNORED_VIEW),
                               many="manager.discovery.marks.summary")
 
@@ -637,8 +638,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
             card.props("tabindex=0 role=button")
             card.on("click", lambda _e: opens())
             card.on("keydown.enter", lambda _e: opens())
-            if place:
-                ui.label(place).classes("text-xs manager-label")
+            ui.label(place).classes("text-xs manager-label")
             ui.label(name).classes("manager-shelf-name")
             if count is not None:
                 ui.label(t(many, count=count)).classes("text-xs manager-help")
