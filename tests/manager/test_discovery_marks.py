@@ -321,8 +321,8 @@ class MarksGridIntroTests(unittest.IsolatedAsyncioTestCase):
 
         await discovery_marks.refresh(self.library)
         await discovery_marks_grid.fill(
-            body, library=self.library, state=state, found=found, words={}, games=[],
-            people=[], on_select=mock.AsyncMock(), open_page=mock.AsyncMock())
+            body, library=self.library, state=state, feed=mock.Mock(), found=found, words={},
+            games=[], people=[], on_select=mock.AsyncMock(), open_page=mock.AsyncMock())
         return body, state
 
     @staticmethod

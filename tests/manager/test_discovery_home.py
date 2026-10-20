@@ -738,15 +738,43 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
             await self.state["redraw_discovery"]()
         return counting
 
-    async def _drawn_on(self, tab: str) -> tuple[ui.element, discovery_search.SearchBox]:
-        """The body a tab draws, and the box on the tab row above it."""
+    async def _drawn_on(self, tab: str, *, typing: str | None = None
+                        ) -> tuple[ui.element, discovery_search.SearchBox]:
+        """The body a tab draws, and the box on the tab row above it. With `typing`, that
+        text is then typed into the box and `self.grid_calls` is what the grid was told."""
         self.state["discovery_tab"] = tab
         with _PAGE, mock.patch.object(discovery.busy, "fill") as filled:
             discovery.build(self.library, self.state, self._select, self.rerender)
-        with _PAGE, mock.patch.object(ui.aggrid, "run_grid_method", create=True):
+        with _PAGE, mock.patch.object(ui.aggrid, "run_grid_method", create=True) as grid:
             await filled.call_args.args[1]()
-        await _settle()
-        return filled.call_args.args[0], self.state[discovery_search.KEY]
+            await _settle()
+            box = self.state[discovery_search.KEY]
+            if typing is not None:
+                grid.reset_mock()
+                box.input.set_value(typing)
+            self.grid_calls = grid.call_args_list
+        return filled.call_args.args[0], box
+
+    async def test_text_typed_in_the_box_narrows_the_grid_of_each_tab(self) -> None:
+        for tab in (discovery.BROWSE, discovery.RELEASES, discovery.MARKS):
+            with self.subTest(tab=tab):
+                await self._drawn_on(tab, typing="x")
+
+                self.assertIn(mock.call("setGridOption", "quickFilterText", "x"),
+                              self.grid_calls)
+
+    async def test_a_tab_read_after_the_page_was_drawn_again_feeds_the_old_box_only(self) -> None:
+        with _PAGE:
+            old = discovery_search.SearchBox()
+            new = discovery_search.SearchBox()
+        self.state[discovery_search.KEY] = old
+        await self._draw()
+        self.state[discovery_search.KEY] = new
+
+        await self.spied["catalog"]()
+
+        self.assertEqual(["Alpha"], [one["name"] for one in old.people])
+        self.assertEqual([], new.people)
 
     async def test_every_tab_feeds_the_box_on_its_row_and_draws_none_in_its_bar(self) -> None:
         for tab in (discovery.BROWSE, discovery.RELEASES, discovery.MARKS):

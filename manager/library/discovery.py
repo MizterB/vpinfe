@@ -324,6 +324,7 @@ async def _fill_home(library: Library, body: Any, state: dict[str, Any],
                      on_select: Callable[[Any], Any], rerender: Callable[[], None]) -> None:
     """Home: every shelf from one read that asks no site, so it draws before the catalog is
     in memory. The search box and the counts on Your Views wait for the catalog."""
+    feed = discovery_search.feeder(state)
     await _warm_views(library)
     await discovery_marks.refresh(library)
     try:
@@ -347,7 +348,7 @@ async def _fill_home(library: Library, body: Any, state: dict[str, Any],
         found = await _read(library)
         people[:] = found.get("people") or []
         built = rows_of(library, found)
-        discovery_search.feed(state, people, built, choose)
+        feed(people, built, choose)
         return people, built
 
     async def reread(days: int) -> dict[str, Any]:
@@ -445,6 +446,7 @@ async def _open_view(library: Library, state: dict[str, Any], rerender: Callable
 
 async def _fill_marks(library: Library, body: Any, state: dict[str, Any],
                       on_select: Callable[[Any], Any], rerender: Callable[[], None]) -> None:
+    feed = discovery_search.feeder(state)
     await _warm_views(library)
     await discovery_marks.refresh(library)
     try:
@@ -460,7 +462,7 @@ async def _fill_marks(library: Library, body: Any, state: dict[str, Any],
 
     state["open_author"] = lambda name: go_to({"type": vps_find.AUTHOR, "name": name})
     await discovery_marks_grid.fill(
-        body, library=library, state=state, found=lambda: _read(library),
+        body, library=library, state=state, feed=feed, found=lambda: _read(library),
         words=discovery_marks_grid.kind_words({listed_as: t(word) for listed_as, _field, word
                                                in KINDS}),
         games=rows_of(library, found), people=people, on_select=on_select, open_page=go_to)
@@ -468,6 +470,7 @@ async def _fill_marks(library: Library, body: Any, state: dict[str, Any],
 
 async def _fill_releases(library: Library, body: Any, state: dict[str, Any],
                          on_select: Callable[[Any], Any], rerender: Callable[[], None]) -> None:
+    feed = discovery_search.feeder(state)
     await _warm_views(library)
     await discovery_marks.refresh(library)
     try:
@@ -496,8 +499,8 @@ async def _fill_releases(library: Library, body: Any, state: dict[str, Any],
 
     state["open_author"] = lambda name: go_to({"type": vps_find.AUTHOR, "name": name})
     await discovery_releases.fill(
-        body, library=library, state=state, games=built, people=people, releases=releases,
-        kind_words=kind_words,
+        body, library=library, state=state, feed=feed, games=built, people=people,
+        releases=releases, kind_words=kind_words,
         counted=bool(found.get("counted")), compared=_counted_text(found),
         comparing=lambda: comparing_line(library, rerender),
         on_select=on_select, reread=reread, open_page=go_to,
@@ -625,6 +628,7 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
     # Imported here: `games` imports modules that import this one.
     from manager.library.games import view_control
 
+    feed = discovery_search.feeder(state)
     await _warm_views(library)
     await discovery_marks.refresh(library)
     try:
@@ -661,7 +665,7 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
 
     state["open_author"] = lambda name: go_to({"type": vps_find.AUTHOR, "name": name})
     if state.get("subject"):
-        discovery_search.feed(state, people, built, choose)
+        feed(people, built, choose)
         subject = state["subject"]
         known = vps_question.person_named(subject["name"], people) \
             if subject["type"] == vps_find.AUTHOR else None
@@ -752,8 +756,8 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
             menu: ui.context_menu = ui.context_menu()
         grid_module.on_row_focus(
             SCOPE, lambda event: on_select(by_id.get(grid_module.focused_row(event))))
-        discovery_search.feed(
-            state, people, built, choose,
+        feed(
+            people, built, choose,
             narrow=lambda text: table.run_grid_method("setGridOption", "quickFilterText", text))
         table.on("modelUpdated", lambda: _counted_in_view())
         wire_views(table)

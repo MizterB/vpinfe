@@ -21,7 +21,7 @@ from manager.kit import grid as grid_module
 from manager.kit import panel, thumbnails, views, when
 from manager.kit.data import Library
 from manager.kit.on_page import on_page
-from manager.library import discovery_ask, discovery_marks, discovery_search
+from manager.library import discovery_ask, discovery_marks
 
 SCOPE = "discovery_releases"
 # The name of this tab in the address and in the view a page sends it to.
@@ -205,8 +205,9 @@ def summary(count: int) -> str:
 
 
 async def fill(
-        body: Any, *, library: Library, state: dict[str, Any], games: list[dict[str, Any]],
-        people: list[dict[str, Any]], releases: dict[str, Any], kind_words: dict[str, str],
+        body: Any, *, library: Library, state: dict[str, Any], feed: Callable[..., None],
+        games: list[dict[str, Any]], people: list[dict[str, Any]], releases: dict[str, Any],
+        kind_words: dict[str, str],
         counted: bool, compared: str, comparing: Callable[[], object],
         on_select: Callable[[Any], Any], reread: Callable[[], Awaitable[None]],
         open_page: Callable[[dict[str, str]], Awaitable[None]],
@@ -215,7 +216,8 @@ async def fill(
         release_acts: Callable[[list[dict[str, Any]], Callable[[], Awaitable[None]]],
                                list[panel.Verb]]) -> None:
     """Draw the tab into `body`. `games`, `people` and `releases` are the Games tab's, and
-    `reread` puts fresh ones in them where they stand. `open_page` opens the page of an
+    `reread` puts fresh ones in them where they stand. `feed` is the tab row's box as the
+    page was drawn, which `discovery_search.feeder` gives. `open_page` opens the page of an
     author, maker or theme the search picked. `acts` is for the games the rows are of and
     `release_acts` for the releases themselves."""
     # Imported here: `games` imports modules that import this one.
@@ -325,8 +327,8 @@ async def fill(
             SCOPE, lambda event: on_select(
                 by_id.get(str((shown["rows"].get(grid_module.focused_row(event)) or {})
                               .get("game_id") or ""))))
-        discovery_search.feed(
-            state, people, games, choose,
+        feed(
+            people, games, choose,
             narrow=lambda text: table.run_grid_method("setGridOption", "quickFilterText", text))
         table.on("modelUpdated", lambda: _counted_in_view())
         wire_views(table)

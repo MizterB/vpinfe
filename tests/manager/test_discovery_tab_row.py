@@ -143,13 +143,77 @@ class SearchBoxTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(["alien"], narrowed)
 
+    async def test_text_typed_before_the_feed_narrows_the_tab_and_is_suggested_from(self) -> None:
+        box = self._box()
+        box.input.set_value("alien")
+        narrowed: list[str] = []
+
+        box.feed(PEOPLE, GAMES, mock.AsyncMock(), narrow=narrowed.append)
+
+        self.assertEqual(["alien"], narrowed)
+        self.assertEqual([("game", "Alien")],
+                         [(group, one["name"]) for group, one in box.suggest.items])
+
+    async def test_an_empty_box_fed_narrows_nothing_yet(self) -> None:
+        box = self._box()
+        narrowed: list[str] = []
+
+        box.feed(PEOPLE, GAMES, mock.AsyncMock(), narrow=narrowed.append)
+
+        self.assertEqual([], narrowed)
+        self.assertEqual([], box.suggest.items)
+
+    async def test_a_feed_without_narrow_takes_the_one_before_off(self) -> None:
+        box = self._box()
+        narrowed: list[str] = []
+        box.feed(PEOPLE, GAMES, mock.AsyncMock(), narrow=narrowed.append)
+
+        box.feed(PEOPLE, GAMES, mock.AsyncMock())
+        box.input.set_value("alien")
+
+        self.assertEqual([], narrowed)
+
+    async def test_a_feed_with_a_new_narrow_replaces_the_old_one(self) -> None:
+        box = self._box()
+        old: list[str] = []
+        new: list[str] = []
+        box.feed(PEOPLE, GAMES, mock.AsyncMock(), narrow=old.append)
+        box.feed(PEOPLE, GAMES, mock.AsyncMock(), narrow=new.append)
+
+        box.input.set_value("alien")
+
+        self.assertEqual(([], ["alien"]), (old, new))
+
     async def test_feeding_the_row_of_a_page_with_none_is_a_no_op(self) -> None:
-        discovery_search.feed({}, PEOPLE, GAMES, mock.AsyncMock())
+        discovery_search.feeder({})(PEOPLE, GAMES, mock.AsyncMock())
 
     async def test_feeding_the_row_reaches_its_box(self) -> None:
         box = self._box()
         choose = mock.AsyncMock()
 
-        discovery_search.feed({discovery_search.KEY: box}, PEOPLE, GAMES, choose)
+        discovery_search.feeder({discovery_search.KEY: box})(PEOPLE, GAMES, choose)
 
         self.assertEqual((PEOPLE, GAMES, choose), (box.people, box.games, box.choose))
+
+    async def test_a_tab_finishing_late_feeds_the_box_it_was_drawn_with(self) -> None:
+        first, second = self._box(), self._box()
+        state: dict[str, Any] = {discovery_search.KEY: first}
+        feed = discovery_search.feeder(state)
+        state[discovery_search.KEY] = second
+
+        feed(PEOPLE, GAMES, mock.AsyncMock())
+
+        self.assertEqual(PEOPLE, first.people)
+        self.assertEqual([], second.people)
+
+    async def test_a_box_drawn_over_is_not_fed(self) -> None:
+        box = self._box()
+        narrowed: list[str] = []
+        box.input.set_value("alien")
+        state: dict[str, Any] = {discovery_search.KEY: box}
+        feed = discovery_search.feeder(state)
+        box.root.delete()
+
+        feed(PEOPLE, GAMES, mock.AsyncMock(), narrow=narrowed.append)
+
+        self.assertEqual(([], []), (box.people, narrowed))

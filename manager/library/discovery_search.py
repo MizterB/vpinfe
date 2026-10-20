@@ -30,10 +30,12 @@ class SearchBox:
         self.people: list[dict[str, Any]] = []
         self.games: list[dict[str, Any]] = []
         self.choose: Choose | None = None
-        with ui.element("div").classes("manager-suggest-anchor manager-search-slot"):
+        self._narrow: Callable[[str], Any] | None = None
+        with ui.element("div").classes("manager-suggest-anchor manager-search-slot") as self.root:
             self.input = panel.search(t("manager.discovery.search")) \
                 .classes(add="manager-search", remove="w-64")
-            discovery_ask.Suggest(self.input, self._find, self._pick)
+            self.suggest = discovery_ask.Suggest(self.input, self._find, self._pick)
+        self.input.on_value_change(self._typed)
 
     def _find(self, text: str) -> dict[str, list[dict[str, Any]]]:
         return vps_find.find(text, self.people, self.games)
@@ -42,19 +44,40 @@ class SearchBox:
         if self.choose is not None:
             await self.choose(group, one)
 
+    def _typed(self) -> None:
+        if self._narrow is not None:
+            self._narrow(self.input.value or "")
+
+    @property
+    def gone(self) -> bool:
+        """Drawn over: the page has been built again and this box is no longer on it."""
+        return bool(self.root.is_deleted)
+
     def feed(self, people: list[dict[str, Any]], games: list[dict[str, Any]],
              choose: Choose, *, narrow: Callable[[str], Any] | None = None) -> None:
         """Suggest from `people` and `games`, and run `choose(group, one)` on a pick. The
         lists are kept, not copied, so a tab that reads again in place needs no new feed.
-        `narrow(text)` runs on every change of the text, for a tab that filters by it."""
+        `narrow(text)` runs on every change of the text, for a tab that filters by it; a
+        feed without one leaves the box narrowing nothing. Text typed before the feed is
+        narrowed and suggested from at once."""
         self.people, self.games, self.choose = people, games, choose
-        if narrow is not None:
-            self.input.on_value_change(lambda: narrow(self.input.value or ""))
+        self._narrow = narrow
+        if text := self.input.value or "":
+            if narrow is not None:
+                narrow(text)
+            self.suggest.typed(text)
 
 
-def feed(state: dict[str, Any], people: list[dict[str, Any]], games: list[dict[str, Any]],
-         choose: Choose, *, narrow: Callable[[str], Any] | None = None) -> None:
-    """Feed the tab row's box. A page drawn without one has no box to feed."""
+def feeder(state: dict[str, Any]) -> Callable[..., None]:
+    """The tab row's box as it is now, as the function that feeds it. A tab calls this
+    before it first waits, so that what it feeds when it has read is the box of the page
+    it was drawn for, not of one drawn since. A page without a box, or one drawn over, has
+    nothing to feed. Called as `feed(people, games, choose, narrow=None)`."""
     box = state.get(KEY)
-    if box is not None:
-        box.feed(people, games, choose, narrow=narrow)
+
+    def feed(people: list[dict[str, Any]], games: list[dict[str, Any]], choose: Choose,
+             *, narrow: Callable[[str], Any] | None = None) -> None:
+        if box is not None and not box.gone:
+            box.feed(people, games, choose, narrow=narrow)
+
+    return feed

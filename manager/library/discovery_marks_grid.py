@@ -19,7 +19,7 @@ from manager.kit import game_tables, panel, thumbnails, views, when
 from manager.kit import grid as grid_module
 from manager.kit.data import Library
 from manager.kit.on_page import on_page
-from manager.library import discovery_ask, discovery_marks, discovery_search
+from manager.library import discovery_ask, discovery_marks
 
 SCOPE = "discovery_marks"
 # The name of this grid in the page's state. It has no segment of its own: Home leads to it.
@@ -143,13 +143,15 @@ def summary(count: int) -> str:
 
 
 async def fill(
-        body: Any, *, library: Library, state: dict[str, Any], found: Callable[[], Awaitable[Any]],
+        body: Any, *, library: Library, state: dict[str, Any], feed: Callable[..., None],
+        found: Callable[[], Awaitable[Any]],
         words: Mapping[str, str], games: list[dict[str, Any]], people: list[dict[str, Any]],
         on_select: Callable[[Any], Any],
         open_page: Callable[[dict[str, str]], Awaitable[None]]) -> None:
     """Draw the grid into `body`. `found` answers the catalog as `GET /library/discovery`
     does, `words` is `kind_words`, and `games` and `people` are the search's. `open_page`
-    opens the page of an author, maker or theme the search picked."""
+    opens the page of an author, maker or theme the search picked. `feed` is the tab row's
+    box as the page was drawn, which `discovery_search.feeder` gives."""
     # Imported here: `games` imports modules that import this one.
     from manager.library.games import view_control
 
@@ -232,8 +234,8 @@ async def fill(
                 {"id": str((shown["rows"].get(grid_module.focused_row(event)) or {})
                            .get("vps_id") or "")}) if grid_module.focused_row(event) in shown[
                                "rows"] else None)
-        discovery_search.feed(
-            state, people, games, choose,
+        feed(
+            people, games, choose,
             narrow=lambda text: table.run_grid_method("setGridOption", "quickFilterText", text))
         table.on("modelUpdated", lambda: _counted_in_view())
         wire_views(table)
