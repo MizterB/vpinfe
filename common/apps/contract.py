@@ -12,7 +12,8 @@ Nothing here takes or returns a VPinFE object, and nothing holds a word. An app'
 are in `i18n/<language>.json` beside it, found by what the app declares: `name`,
 `field.<key>.label`, `field.<key>.description`, `field.<key>.help`, `group.<key>.label`,
 `group.<key>.heading.<heading>.label` and `.note`, and `group.<key>.pair.<pair>.label`,
-`.note` and `.joiner`.
+`.note` and `.joiner`, and for each setting an upgrade leaves behind `leftover.<word>`
+and, where it carries a warning, `leftover.<word>.warning`.
 """
 
 from __future__ import annotations
@@ -296,6 +297,42 @@ class Program:
     defaults: Mapping[str, str] = field(default_factory=dict)
     build: int | None = None
     dmd_in_file: bool = False
+
+
+MOVE, PLACE, NAME, TURN_ON = "move", "place", "name", "turn_on"
+
+
+@dataclass(frozen=True)
+class Leftover:
+    """One setting an upgrade of the program left behind, and what offers to be done with it.
+
+    `key` names it, and stays the same while it is there: the setting itself, or for a
+    `PLACE` the prefix of the box it holds. `word` names what it is in the app's catalog,
+    as `leftover.<word>`, with `leftover.<word>.warning` where `warning` is set.
+
+    `drops` are the keys it blanks, each with the value it holds, so a move can be undone.
+    `MOVE` writes `new_value` at `to` and blanks `drops`. `PLACE` sets the box in each file
+    the program keeps it in, then blanks `drops`: `box` is x, y, width and height as the
+    settings count them, with y up from the bottom of the window, in the pixels of the art
+    or, with `frame`, of a window that size; `target` names the window. `cut_if` names the
+    setting that, while on as it stands before the move, means the box was counted on the
+    art without its grill; without it the grill is cut as the program in effect cuts it.
+    `TURN_ON` writes
+    `new_value` at `to` and only on request. `NAME` is said and left.
+    """
+
+    key: str
+    action: str
+    word: str
+    value: str = ""
+    to: str = ""
+    new_value: str = ""
+    drops: tuple[tuple[str, str], ...] = ()
+    warning: bool = False
+    target: str = ""
+    box: tuple[int, int, int, int] | None = None
+    frame: tuple[int, int] | None = None
+    cut_if: str = ""
 
 
 @runtime_checkable

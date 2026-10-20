@@ -13,6 +13,7 @@ from common.games import (
     asset_origin,
     asset_resolver,
     game_lens,
+    game_repository,
     media_lookup,
     media_ops,
     media_placement,
@@ -167,24 +168,60 @@ def _drawn(game_id: str, table_id: str) -> tuple[Path, str]:
     return served.path, file_md5(served.path)
 
 
+def _seen(game_id: str, table_id: str) -> tuple[Path, Any] | None:
+    """The file `table_id` reads and what it says about itself, or None where it reads
+    none or the one it reads is damaged."""
+    try:
+        found = _file(game_id, table_id, "")
+    except service_errors.NotFoundError:
+        return None
+    facts = directb2s_parser.read(found)
+    if facts is None or directb2s_parser.damaged(facts):
+        return None
+    return found, facts
+
+
 def offer(game_id: str, table_id: str = "") -> dict | None:
     """The file whose picture could fill the backglass slot, as the slot's dialog needs
     it: where it is, the version token its picture is addressed by, and whether the grill
     is cut. None where the table reads no backglass file or the one it reads is damaged."""
     try:
-        found = _file(game_id, table_id, "")
-        facts = directb2s_parser.read(found)
-        if facts is None or directb2s_parser.damaged(facts):
+        seen = _seen(game_id, table_id)
+        if seen is None:
             return None
+        found, _ = seen
         game_dir = Path(game_lens.game_or_refuse(game_id).full_path_game or "")
         return {"path": found.relative_to(game_dir).as_posix(), "file": found.name,
                 "grill": grill_cut(game_id, table_id),
                 "version": sized_media.version(found) or ""}
-    except service_errors.NotFoundError:
-        return None
     except Exception:  # noqa: BLE001 - a slot is described without its extra tab
         logger.exception("Could not offer the backglass file of %s", game_id)
         return None
+
+
+def files_of(launcher_id: str) -> list[dict[str, Any]]:
+    """Each backglass file read by a table that `launcher_id` plays, once: its game, its
+    path in the game's folder, its art's size, the height of its grill, the size of its
+    score view art, and the DMDs it places as `(window, x, y, width, height)`."""
+    found: dict[tuple[str, str], dict[str, Any]] = {}
+    for game_id, game in list(game_repository.catalog().items()):
+        try:
+            rows = [row for row in _table_rows(game, "") if row.get("launcher") == launcher_id]
+            game_dir = Path(game.full_path_game or "")
+            for row in rows:
+                seen = _seen(game_id, row["id"])
+                if seen is None or seen[1].size is None:
+                    continue
+                path = seen[0].relative_to(game_dir).as_posix()
+                found.setdefault((game_id, path), {
+                    "game": game_id, "path": path, "size": tuple(seen[1].size),
+                    "grill": seen[1].grill,
+                    "scoreview_art": seen[1].scoreview_art and tuple(seen[1].scoreview_art),
+                    "placed": [(one.target, *one.placement) for one in seen[1].displays
+                               if not one.source]})
+        except Exception:  # noqa: BLE001 - one game's file is not the sweep
+            logger.exception("Could not read the backglass files of %s", game.game_dir_name)
+    return list(found.values())
 
 
 def place_picture(game_id: str, table_id: str = "") -> dict:
@@ -232,8 +269,6 @@ def redraw(game_id: str) -> int:
 
 def redraw_all(proceed: Callable[[], bool] = lambda: True) -> int:
     """`redraw` for every game that has such a picture. Answers how many were redrawn."""
-    from common.games import game_repository
-
     total = 0
     for game_id, game in list(game_repository.catalog().items()):
         if not proceed():
@@ -248,5 +283,5 @@ def redraw_all(proceed: Callable[[], bool] = lambda: True) -> int:
     return total
 
 
-__all__ = ["B2S", "KIND", "LEGACY", "NONE", "cuts_grill", "grill_cut", "offer", "picture_file",
-           "place_picture", "redraw", "redraw_all", "renderer", "scoreview_file"]
+__all__ = ["B2S", "KIND", "LEGACY", "NONE", "cuts_grill", "files_of", "grill_cut", "offer",
+           "picture_file", "place_picture", "redraw", "redraw_all", "renderer", "scoreview_file"]

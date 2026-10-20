@@ -15,7 +15,7 @@ from typing import Any
 from common.i18n import t
 from common.security import approvals
 from common.settings import feature_checks
-from manager.kit import verbs
+from manager.kit import leftover_ids, verbs
 from manager.kit.need_keys import AWAY, AWAY_ALL
 from manager.system import jobs_list
 
@@ -45,6 +45,7 @@ _UNIT_GAMES = "manager.games.games"
 _UNIT_TABLES = "manager.games.tables"
 _UNIT_FOLDERS = "manager.needs.folders"
 _UNIT_RECORDINGS = "manager.needs.recordings_count"
+_UNIT_SETTINGS = "manager.needs.settings_count"
 
 
 @dataclass(frozen=True)
@@ -152,7 +153,8 @@ def _unread(failed: Any) -> str:
             ("recordings", t("manager.needs.unread_recordings")),
             ("fill", t("manager.needs.unread_fill")),
             ("extensions", t("manager.needs.unread_extensions")),
-            ("unaccepted", t("manager.needs.unread_unaccepted")))
+            ("unaccepted", t("manager.needs.unread_unaccepted")),
+            ("leftovers", t("manager.needs.unread_leftovers")))
     return ", ".join(words for key, words in said if key in failed)
 
 
@@ -216,6 +218,22 @@ def _folders_of(metadata: Mapping[str, Any], which: str) -> tuple[str, ...]:
     return tuple(sorted(str(row.get("folder") or "") for row in metadata.get(which) or ()))
 
 
+def leftovers_row(held: Any) -> Need | None:
+    """The settings an upgrade left behind that a move or Turn On would deal with, across
+    the launchers, one id each. A click lands on the first launcher that has some."""
+    ids: list[str] = []
+    first = ""
+    for one in held:
+        found = leftover_ids.of(str(one["launcher_id"]), one.get("items") or ())
+        ids += found
+        first = first or (str(one["launcher_id"]) if found else "")
+    if not ids:
+        return None
+    return Need("leftovers", t("manager.needs.leftovers"), t("manager.needs.leftovers.tip"),
+                WARM, verbs.MOVE, Opens("launchers", keys={"launcher": first}),
+                tuple(sorted(ids)), _UNIT_SETTINGS)
+
+
 def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
     """Every row that has something to say, in cost order: cannot be played, then
     missing, then ready for you, then tidy-up. A check the library has turned off does
@@ -243,6 +261,9 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
         rows.append(Need("launchers", t("manager.needs.launchers"),
                          t("manager.needs.launchers.tip"), DANGER, verbs.CANNOT_PLAY,
                          Opens("launchers"), token=("launchers",)))
+
+    if left := leftovers_row(watched.get("leftovers") or ()):
+        rows.append(left)
 
     metadata = library.metadata_state()
     if unreadable := _folders_of(metadata, "unreadable"):
@@ -338,22 +359,23 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
 # Every row that can be set aside, in cost order. `unread` is not one: it is the page saying
 # it could not look, and setting that aside would hide the one thing it must say.
 ORDER = ("rom_missing", "launchers", "unreadable", "unmatched", "no_tables", "no_playfield",
-         "no_backglass", "no_media", "fill_errors", "update", "recordings",
+         "no_backglass", "no_media", "fill_errors", "leftovers", "update", "recordings",
          "untied", "older_format", "no_year")
 
 # The rows about this install rather than the library. Their stop is this install's alone;
 # a library row's is the library's, as the Checks page already keeps it.
-DEVICE_ROWS = ("launchers", "fill_errors", "update", "recordings")
+DEVICE_ROWS = ("launchers", "fill_errors", "leftovers", "update", "recordings")
 
 # What a row's read cannot say while that read failed, by row.
-_READ_BY = {"update": "update", "recordings": "recordings", "fill_errors": "fill"}
+_READ_BY = {"update": "update", "recordings": "recordings", "fill_errors": "fill",
+            "leftovers": "leftovers"}
 
 _ICONS = {"rom_missing": verbs.CANNOT_PLAY, "launchers": verbs.CANNOT_PLAY,
           "unreadable": verbs.CANNOT_PLAY, "unmatched": verbs.NO_MATCH,
           "no_tables": verbs.NO_TABLE,
           "no_playfield": verbs.NO_ART, "no_backglass": verbs.NO_ART,
           "no_media": verbs.NO_MEDIA, "fill_errors": verbs.HAD_ERRORS,
-          "update": verbs.UPDATE, "recordings": verbs.REVIEW,
+          "leftovers": verbs.MOVE, "update": verbs.UPDATE, "recordings": verbs.REVIEW,
           "older_format": verbs.OLDER_FORMAT, "untied": verbs.NO_MATCH,
           "no_year": verbs.NO_YEAR}
 
@@ -401,6 +423,7 @@ def name_of(key: str) -> str:
     return {"launchers": t("manager.needs.launchers"),
             "unreadable": t("manager.needs.unreadable"),
             "fill_errors": t("manager.needs.fill_errors"),
+            "leftovers": t("manager.needs.leftovers"),
             "update": t("manager.needs.update_unnamed"),
             "older_format": t("manager.needs.older_format"),
             "untied": t("manager.needs.untied"),
@@ -424,6 +447,7 @@ def comes_back(key: str, need: Need | None = None) -> str:
             "no_backglass": t("manager.needs.back.no_backglass"),
             "no_media": t("manager.needs.back.no_media"),
             "fill_errors": t("manager.needs.back.fill_errors"),
+            "leftovers": t("manager.needs.back.leftovers"),
             "update": t("manager.needs.back.update"),
             "recordings": t("manager.needs.back.recordings"),
             "older_format": t("manager.needs.back.older_format"),
@@ -509,7 +533,7 @@ def arrange(rows: list[Need], record: Mapping[str, list[str]], stopped: set[str]
             shown.append(replace(need, new=new) if still else need)
     present = {one.key for one in rows}
     for key, ids in record.items():
-        if key not in present and (key in stopped or key in blind
+        if key == leftover_ids.NOTICE or key not in present and (key in stopped or key in blind
                                      or _READ_BY.get(key) in unread
                                      or _extension_unread(key, unread)):
             kept[key] = list(ids)

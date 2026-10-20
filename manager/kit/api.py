@@ -1514,6 +1514,21 @@ class ApiClient:
         return dict(self._get(
             f"/launchers/{launcher_id}/config?table={table}&scope={scope}") or {})
 
+    def launcher_leftovers(self, launcher_id: str) -> dict:
+        """What an upgrade of the launcher's program left in its settings."""
+        return dict(self._get(f"/launchers/{launcher_id}/leftovers") or {})
+
+    def move_launcher_leftovers(self, launcher_id: str) -> dict:
+        return dict(self._post(f"/launchers/{launcher_id}/leftovers/move", {}) or {})
+
+    def turn_on_launcher_leftover(self, launcher_id: str, key: str) -> dict:
+        return dict(self._post(f"/launchers/{launcher_id}/leftovers/turn-on",
+                               {"key": key}) or {})
+
+    def undo_launcher_leftovers(self, launcher_id: str, token: str) -> dict:
+        return dict(self._post(f"/launchers/{launcher_id}/leftovers/undo",
+                               {"undo": token}) or {})
+
     def backups(self, subject_kind: str = "", subject_id: str = "") -> dict:
         """Every copy VPinFE has kept, or those of one game, launcher or theme, and which of
         them wait on a close."""

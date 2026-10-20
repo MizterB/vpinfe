@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from common import apps, failures, i18n, service_errors
-from common.apps.contract import SCOPE_ENTRY, SCOPE_FOLDER, SCOPE_LAUNCHER, Standing
+from common.apps.contract import SCOPE_ENTRY, SCOPE_FOLDER, SCOPE_LAUNCHER, Leftover, Standing
 from common.config import config_schema, path_state
 from common.games import game_repository, launchers, library_folders, tables
 from common.games.table_identity import find_table_by_id
@@ -463,6 +463,20 @@ def write_config(launcher_id: str, body: dict[str, Any]) -> dict[str, Any] | job
     except ValueError as exc:
         raise _cannot_write(found) from exc
     return {"written": sorted(set(writing) - cleared), "cleared": sorted(cleared)}
+
+
+def left_behind(launcher_id: str) -> tuple[Leftover, ...]:
+    """What an upgrade of this launcher's program left in its settings, as its app says.
+    Nothing where its app has no settings of its own or does not look."""
+    found = launcher_or_refuse(launcher_id)
+    ask = getattr(_app_settings_surface(found), "left_behind", None)
+    return ask(_launcher_settings(found)) if ask is not None else ()
+
+
+def refuse_unwritable(launcher_id: str) -> None:
+    """Refuse, in the words a write would, where the launcher's settings file cannot be
+    written."""
+    _writable_before_writing(launcher_or_refuse(launcher_id), SCOPE_LAUNCHER, "")
 
 
 def write_table_settings(table_id: str, values: dict[str, Any]) -> dict[str, Any] | jobs.Job:

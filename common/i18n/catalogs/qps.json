@@ -3162,6 +3162,12 @@
   "manager.needs.choose_checks.help": "Öþèñš Šèţţîñĝš › Ŀîƀřàřý › Çĥèçķš, ŵĥèřè èàçĥ çĥèçķ çàñ ƀè ţûřñèđ öƒƒ",
   "manager.needs.launchers": "Ñö Ŵöřķîñĝ Ŀàûñçĥèř",
   "manager.needs.launchers.tip": "Ñö ŀàûñçĥèř öñ ţĥîš đèṽîçè çàñ þŀàý Ṽîšûàŀ Þîñƀàŀŀ ţàƀŀèš",
+  "manager.needs.leftovers": "Šèţţîñĝš Ŀèƒţ Ɓèĥîñđ",
+  "manager.needs.leftovers.tip": "Àñ ûþĝřàđè öƒ à ŀàûñçĥèř'š þřöĝřàɱ ŀèƒţ šèţţîñĝš îţ ñö ŀöñĝèř řèàđš",
+  "manager.needs.settings_count": {
+    "one": "{count:n} šèţţîñĝ",
+    "other": "{count:n} šèţţîñĝš"
+  },
   "manager.needs.unreadable": "Ûñřèàđàƀŀè Ƒöŀđèř",
   "manager.needs.unreadable.tip": "À ĝàɱè ƒöŀđèř'š ɱèţàđàţà ƒîŀè çàññöţ ƀè řèàđ",
   "manager.needs.unreadable_title": "Ûñřèàđàƀŀè Ƒöŀđèřš",
@@ -3201,6 +3207,7 @@
   "manager.needs.unread_fill": "ţĥè ŀàšţ ɱèđîà ƒîŀŀ",
   "manager.needs.unread_extensions": "ŵĥàţ èẋţèñšîöñš àšķ ƒöř",
   "manager.needs.unread_unaccepted": "ŵĥàţ îš ŵàîţîñĝ ƒöř ýöû ţö àççèþţ",
+  "manager.needs.unread_leftovers": "ŵĥàţ àñ ûþĝřàđè ŀèƒţ ƀèĥîñđ",
   "manager.needs.folders": {
     "one": "{count:n} ƒöŀđèř",
     "other": "{count:n} ƒöŀđèřš"
@@ -3211,6 +3218,7 @@
   },
   "manager.needs.back.rom_missing": "Řèţûřñš ŵĥèñ àñöţĥèř ţàƀŀè îš ɱîššîñĝ îţš ŘÖḾ",
   "manager.needs.back.launchers": "Řèţûřñš îƒ îţ ƀřèàķš àĝàîñ",
+  "manager.needs.back.leftovers": "Řèţûřñš ŵĥèñ àñ ûþĝřàđè ŀèàṽèš ɱöřè ƀèĥîñđ",
   "manager.needs.back.unreadable": "Řèţûřñš ŵĥèñ àñöţĥèř ƒöŀđèř çàññöţ ƀè řèàđ",
   "manager.needs.back.unmatched": "Řèţûřñš ŵĥèñ àñöţĥèř ĝàɱè îš ûñɱàţçĥèđ",
   "manager.needs.back.no_playfield": "Řèţûřñš ŵĥèñ àñöţĥèř ĝàɱè ĥàš ñö þŀàýƒîèŀđ",
@@ -5101,6 +5109,41 @@
   "error.encrypted.too_wide": "Ţĥàţ řàñĝè îš ŵîđèř ţĥàñ à /24 (à /64 ƒöř ÎÞṽ6). Ñàɱè à ñàřřöŵèř öñè",
   "error.encrypted.no_file": "À çèřţîƒîçàţè ƒîŀè àñđ à ķèý ƒîŀè àřè ƀöţĥ ñèèđèđ, àñđ ƀöţĥ ĥàṽè ţö èẋîšţ",
   "error.encrypted.unreadable": "ṼÞîñƑÈ çöûŀđ ñöţ řèàđ ţĥàţ çèřţîƒîçàţè ŵîţĥ ţĥàţ ķèý",
+  "manager.leftovers.could_not": "Ţĥè šèţţîñĝš çöûŀđ ñöţ ƀè ɱöṽèđ",
+  "manager.leftovers.files": {
+    "one": "{count:n} ƀàçķĝŀàšš ƒîŀè",
+    "other": "{count:n} ƀàçķĝŀàšš ƒîŀèš"
+  },
+  "manager.leftovers.heading": "Àñ ûþĝřàđè ŀèƒţ šèţţîñĝš ƀèĥîñđ",
+  "manager.leftovers.held_back": {
+    "one": "{count:n} ƀàçķĝŀàšš ƒîŀè çöûŀđ ñöţ ƀè ŵřîţţèñ, šö îţš ĐḾĐ šţàýš îñ ţĥè šèţţîñĝš",
+    "other": "{count:n} ƀàçķĝŀàšš ƒîŀèš çöûŀđ ñöţ ƀè ŵřîţţèñ, šö ţĥèîř ĐḾĐ šţàýš îñ ţĥè šèţţîñĝš"
+  },
+  "manager.leftovers.line": {
+    "one": "{count:n} šèţţîñĝ ţĥîš ṽèřšîöñ ñö ŀöñĝèř řèàđš",
+    "other": "{count:n} šèţţîñĝš ţĥîš ṽèřšîöñ ñö ŀöñĝèř řèàđš"
+  },
+  "manager.leftovers.move": "Ḿöṽè",
+  "manager.leftovers.move.help": "Ḿöṽè ţĥèšè šèţţîñĝš ţö ŵĥèřè ţĥè þřöĝřàɱ řèàđš ţĥèɱ ñöŵ",
+  "manager.leftovers.moved": {
+    "one": "Ḿöṽèđ {count:n} šèţţîñĝ",
+    "other": "Ḿöṽèđ {count:n} šèţţîñĝš"
+  },
+  "manager.leftovers.no_files": "Ñö ƀàçķĝŀàšš ƒîŀè ţö þûţ îţ îñ",
+  "manager.leftovers.not_now": "Ñöţ Ñöŵ",
+  "manager.leftovers.not_now.help": "Šĥřîñķ ţĥîš ûñţîŀ àñ ûþĝřàđè ŀèàṽèš ɱöřè ƀèĥîñđ",
+  "manager.leftovers.put_back": "Þûţ ƀàçķ",
+  "manager.leftovers.review": "Řèṽîèŵ",
+  "manager.leftovers.review.help": "Šĥöŵ ŵĥàţ ŵàš ŀèƒţ ƀèĥîñđ",
+  "manager.leftovers.turn_on": "Ţûřñ Öñ",
+  "manager.leftovers.turn_on.help": "Šŵîţçĥ ţĥîš öñ àĝàîñ",
+  "manager.leftovers.turned_on": "Ţûřñèđ öñ",
+  "error.upgrade.changed": "À šèţţîñĝ çĥàñĝèđ šîñçè, šö ţĥîš çàñ ñö ŀöñĝèř ƀè ûñđöñè",
+  "error.upgrade.expired": "Ţĥîš ɱöṽè çàñ ñö ŀöñĝèř ƀè ûñđöñè",
+  "error.upgrade.files": "Šöɱè ƀàçķĝŀàšš ƒîŀèš çöûŀđ ñöţ ƀè þûţ ƀàçķ, šö ñöţĥîñĝ ŵàš ûñđöñè",
+  "error.upgrade.too_large": "À ƀàçķĝŀàšš ƒîŀè'š çĥàñĝè îš ţöö ŀàřĝè ţö ƀè þûţ ƀàçķ, šö ñöţĥîñĝ ŵàš ɱöṽèđ",
+  "error.upgrade.too_many": "Öṽèř {limit:n} ƀàçķĝŀàšš ƒîŀèš çàññöţ ƀè ɱöṽèđ ŵîţĥ àñ Ûñđö, šö ñöñè ŵèřè ɱöṽèđ",
+  "error.upgrade.unnamed": "Ñöţĥîñĝ ŀèƒţ ƀèĥîñđ îš ñàɱèđ {key}",
   "extension.account.sends_picture": "ţĥèîř þîçţûřè",
   "extension.platform.linux": "Ŀîñûẋ",
   "extension.platform.macos": "ɱàçÖŠ",

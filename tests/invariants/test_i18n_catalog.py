@@ -1933,6 +1933,7 @@ def _package_strings(app_id: str) -> set[str]:
 _FIELD_WORD = re.compile(r"field\.(.+)\.(label|description|help|blank|nowhere)")
 _CHOICE_WORD = re.compile(r"field\.(.+)\.choice\.[^.]+\.(?:help|label)")
 _GROUP_WORD = re.compile(r"group\.([^.]+)\.label")
+_LEFTOVER_WORD = re.compile(r"leftover\.([^.]+)(?:\.warning)?")
 _HEADING_WORD = re.compile(r"group\.([^.]+)\.(?:heading\.([^.]+)\.(?:label|note(?:\.([^.]+))?)"
                            r"|pair\.([^.]+)\.(?:label|note|joiner))")
 
@@ -1940,11 +1941,12 @@ _HEADING_WORD = re.compile(r"group\.([^.]+)\.(?:heading\.([^.]+)\.(?:label|note(
 def _asked_for(key: str, named: set[str], blanks: tuple[str, ...] = ()) -> bool:
     """Whether the key is one the contract's lookups can form from something the app
     names: a reason itself, a field's words or a choice's, a group's label, a heading's
-    words, including a note for a variant, or a pair's, or the help of a word in `blanks`."""
+    words, including a note for a variant, or a pair's, what an upgrade leaves behind, or the
+    help of a word in `blanks`."""
     if key in named or key in {f"{word}.help" for word in blanks}:
         return True
     found = (_CHOICE_WORD.fullmatch(key) or _FIELD_WORD.fullmatch(key)
-             or _GROUP_WORD.fullmatch(key))
+             or _GROUP_WORD.fullmatch(key) or _LEFTOVER_WORD.fullmatch(key))
     if found is not None:
         return found[1] in named
     under = _HEADING_WORD.fullmatch(key)

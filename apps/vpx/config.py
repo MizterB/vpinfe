@@ -34,11 +34,12 @@ from common.apps.contract import (
     ConfigValue,
     Field,
     Heading,
+    Leftover,
     Program,
     Standing,
 )
 
-from . import areas, bindings, build, displays, plugins, screens
+from . import areas, bindings, build, displays, leftovers, plugins, screens
 from . import ini as vini
 from .setting_types import CONTEXTUAL, LABELS, REGISTERED, TYPES
 
@@ -553,6 +554,13 @@ class VPXConfig:
         return Program(present, _defaults(rev, present, bin_path), rev,
                        dmd_in_file=rev is not None
                        and not build.declares("Plugin.B2S.BackglassDMDX", rev))
+
+    def left_behind(self, settings: Mapping[str, Any]) -> tuple[Leftover, ...]:
+        """What the launcher's settings file holds that the program installed now no
+        longer reads, each with what moving it would do."""
+        one = self.program(settings)
+        return leftovers.find(read_file(settings_file(settings)), one.plugins, one.build,
+                              one.dmd_in_file)
 
     def read(self, scope: str, target: str,
              settings: Mapping[str, Any]) -> dict[str, ConfigValue]:

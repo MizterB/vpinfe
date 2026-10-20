@@ -3162,6 +3162,12 @@
   "manager.needs.choose_checks.help": "Opens Settings › Library › Checks, where each check can be turned off",
   "manager.needs.launchers": "No Working Launcher",
   "manager.needs.launchers.tip": "No launcher on this device can play Visual Pinball tables",
+  "manager.needs.leftovers": "Settings Left Behind",
+  "manager.needs.leftovers.tip": "An upgrade of a launcher's program left settings it no longer reads",
+  "manager.needs.settings_count": {
+    "one": "{count:n} setting",
+    "other": "{count:n} settings"
+  },
   "manager.needs.unreadable": "Unreadable Folder",
   "manager.needs.unreadable.tip": "A game folder's metadata file cannot be read",
   "manager.needs.unreadable_title": "Unreadable Folders",
@@ -3201,6 +3207,7 @@
   "manager.needs.unread_fill": "the last media fill",
   "manager.needs.unread_extensions": "what extensions ask for",
   "manager.needs.unread_unaccepted": "what is waiting for you to accept",
+  "manager.needs.unread_leftovers": "what an upgrade left behind",
   "manager.needs.folders": {
     "one": "{count:n} folder",
     "other": "{count:n} folders"
@@ -3211,6 +3218,7 @@
   },
   "manager.needs.back.rom_missing": "Returns when another table is missing its ROM",
   "manager.needs.back.launchers": "Returns if it breaks again",
+  "manager.needs.back.leftovers": "Returns when an upgrade leaves more behind",
   "manager.needs.back.unreadable": "Returns when another folder cannot be read",
   "manager.needs.back.unmatched": "Returns when another game is unmatched",
   "manager.needs.back.no_playfield": "Returns when another game has no playfield",
@@ -5101,6 +5109,41 @@
   "error.encrypted.too_wide": "That range is wider than a /24 (a /64 for IPv6). Name a narrower one",
   "error.encrypted.no_file": "A certificate file and a key file are both needed, and both have to exist",
   "error.encrypted.unreadable": "VPinFE could not read that certificate with that key",
+  "manager.leftovers.could_not": "The settings could not be moved",
+  "manager.leftovers.files": {
+    "one": "{count:n} backglass file",
+    "other": "{count:n} backglass files"
+  },
+  "manager.leftovers.heading": "An upgrade left settings behind",
+  "manager.leftovers.held_back": {
+    "one": "{count:n} backglass file could not be written, so its DMD stays in the settings",
+    "other": "{count:n} backglass files could not be written, so their DMD stays in the settings"
+  },
+  "manager.leftovers.line": {
+    "one": "{count:n} setting this version no longer reads",
+    "other": "{count:n} settings this version no longer reads"
+  },
+  "manager.leftovers.move": "Move",
+  "manager.leftovers.move.help": "Move these settings to where the program reads them now",
+  "manager.leftovers.moved": {
+    "one": "Moved {count:n} setting",
+    "other": "Moved {count:n} settings"
+  },
+  "manager.leftovers.no_files": "No backglass file to put it in",
+  "manager.leftovers.not_now": "Not Now",
+  "manager.leftovers.not_now.help": "Shrink this until an upgrade leaves more behind",
+  "manager.leftovers.put_back": "Put back",
+  "manager.leftovers.review": "Review",
+  "manager.leftovers.review.help": "Show what was left behind",
+  "manager.leftovers.turn_on": "Turn On",
+  "manager.leftovers.turn_on.help": "Switch this on again",
+  "manager.leftovers.turned_on": "Turned on",
+  "error.upgrade.changed": "A setting changed since, so this can no longer be undone",
+  "error.upgrade.expired": "This move can no longer be undone",
+  "error.upgrade.files": "Some backglass files could not be put back, so nothing was undone",
+  "error.upgrade.too_large": "A backglass file's change is too large to be put back, so nothing was moved",
+  "error.upgrade.too_many": "Over {limit:n} backglass files cannot be moved with an Undo, so none were moved",
+  "error.upgrade.unnamed": "Nothing left behind is named {key}",
   "extension.account.sends_picture": "their picture",
   "extension.platform.linux": "Linux",
   "extension.platform.macos": "macOS",

@@ -113,12 +113,7 @@ def _keep(done: _Done) -> str:
     return token
 
 
-def place(game_id: str, path: str, target_name: str,
-          box: tuple[int | None, int | None, int | None, int | None]) -> dict[str, Any]:
-    """Set the DMD of one window (`Backglass` or `ScoreView`) to `box`, which is x, y, width
-    and height, or take it out when all four are None. The file keeps every other byte it
-    had. Returns the DMDs the file now places, its new version, the token that undoes this
-    change and, where no token could be kept, why (`too_large`)."""
+def _where(box: tuple[int | None, int | None, int | None, int | None]) -> Any:
     if any(one is None for one in box) and not all(one is None for one in box):
         raise service_errors.RefusedError(t("error.backglass.displays_incomplete"))
     where = None if box[0] is None else directb2s_displays.Placement(*box)  # type: ignore[arg-type]
@@ -127,21 +122,88 @@ def place(game_id: str, path: str, target_name: str,
             and 1 <= where.w <= directb2s_displays.LIMIT
             and 1 <= where.h <= directb2s_displays.LIMIT):
         raise service_errors.RefusedError(t("error.backglass.displays_range"))
+    return where
+
+
+def _edit(game_id: str, target: Path, path: str, data: bytes, target_name: str,
+          where: Any) -> tuple[bytes, _Done | None]:
+    """The file as the change would leave it, and the journal entry for the change, or None
+    where the file already holds it. Refuses a file whose displays cannot be changed."""
+    try:
+        changed = directb2s_displays.place(data, target_name, where)
+    except directb2s_displays.DisplaysError:
+        raise service_errors.RefusedError(t("error.backglass.displays_unwritable"),
+                                          details={"path": path}) from None
+    if changed == data:
+        return data, None
+    return changed, _Done(game_id, os.path.realpath(target), path, next(_serials),
+                          directb2s_displays.splice_of(data, changed), _digest(changed))
+
+
+def limits() -> tuple[int, int]:
+    """How many changes the journal keeps, and how many bytes one change may take in it."""
+    return _KEPT, _MAX_BYTES
+
+
+def check(game_id: str, path: str, target_name: str,
+          box: tuple[int | None, int | None, int | None, int | None]) -> int:
+    """Refuse, as `place` would, without writing anything. Answers the bytes the change
+    would take in the journal, 0 where the file already holds it."""
+    where = _where(box)
+    game = game_lens.game_for_writing(game_id)
+    target = _target(Path(game.full_path_game or ""), path)
+    with _file_lock(target):
+        _open_for_writing(game, game_id, target, path)
+        _, done = _edit(game_id, target, path, target.read_bytes(), target_name, where)
+        return done.size if done else 0
+
+
+def check_undo(game_id: str, tokens: list[str]) -> None:
+    """Refuse, touching nothing, unless the changes with these tokens can all be undone, newest
+    first: each is this game's and still kept, every file they touch is as the newest of its
+    changes left it, and no change of anyone else's to that file came after them."""
+    with _lock:
+        held = [_done.get(token) for token in tokens]
+        later = list(_done.items())
+    if any(one is None or one.game_id != game_id for one in held):
+        raise service_errors.NotFoundError(t("error.backglass.displays_expired"))
+    groups: dict[str, list[_Done]] = {}
+    for one in held:
+        assert one is not None
+        groups.setdefault(one.key, []).append(one)
+    game = game_lens.game_for_writing(game_id)
+    for key, group in groups.items():
+        oldest, newest = min(group, key=lambda one: one.serial), max(group,
+                                                                    key=lambda one: one.serial)
+        target = _target(Path(game.full_path_game or ""), newest.path)
+        with _file_lock(target):
+            _open_for_writing(game, game_id, target, newest.path)
+            current = target.read_bytes()
+        newer = any(one.key == key and one.serial > oldest.serial and name not in tokens
+                    for name, one in later)
+        if newer or _digest(current) != newest.after:
+            raise service_errors.BlockedError(
+                t("error.backglass.displays_superseded" if newer
+                  else "error.backglass.displays_changed"),
+                details={"path": newest.path, "reason": "superseded" if newer else "changed"})
+
+
+def place(game_id: str, path: str, target_name: str,
+          box: tuple[int | None, int | None, int | None, int | None]) -> dict[str, Any]:
+    """Set the DMD of one window (`Backglass` or `ScoreView`) to `box`, which is x, y, width
+    and height, or take it out when all four are None. The file keeps every other byte it
+    had. Returns the DMDs the file now places, its new version, the token that undoes this
+    change and, where no token could be kept, why (`too_large`)."""
+    where = _where(box)
     game = game_lens.game_for_writing(game_id)
     target = _target(Path(game.full_path_game or ""), path)
     with _file_lock(target):
         _open_for_writing(game, game_id, target, path)
         data = target.read_bytes()
-        try:
-            changed = directb2s_displays.place(data, target_name, where)
-        except directb2s_displays.DisplaysError:
-            raise service_errors.RefusedError(t("error.backglass.displays_unwritable"),
-                                              details={"path": path}) from None
-        if changed == data:
+        changed, done = _edit(game_id, target, path, data, target_name, where)
+        if done is None:
             return _answer(data, target, "")
         _write(target, changed)
-        done = _Done(game_id, os.path.realpath(target), path, next(_serials),
-                     directb2s_displays.splice_of(data, changed), _digest(changed))
         token = _keep(done)
         return _answer(changed, target, token, "" if token else "too_large")
 

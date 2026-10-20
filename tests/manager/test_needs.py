@@ -234,7 +234,8 @@ class AReadThatFailedIsSaid(unittest.TestCase):
                                  jobs=lambda limit: refuse(),
                                  extension_needs=lambda: {"needs": []},
                                  unaccepted_themes=lambda: {"themes": []},
-                                 extensions=lambda: [])
+                                 extensions=lambda: [],
+                                 launchers=lambda: {"launchers": []})
         library = Library.__new__(Library)
         library._client = client
 
@@ -342,7 +343,7 @@ class SettingAsideOverWhatItCounted(unittest.TestCase):
 class WhereAStopIsKept(unittest.TestCase):
     def test_a_device_row_is_this_installs_and_a_library_row_the_librarys(self):
         self.assertTrue(all(needs.is_device(key) for key in
-                            ("launchers", "fill_errors", "update", "recordings")))
+                            ("launchers", "fill_errors", "leftovers", "update", "recordings")))
         self.assertFalse(any(needs.is_device(key) for key in
                              ("rom_missing", "unreadable", "unmatched", "no_year")))
 
@@ -816,7 +817,8 @@ class WhatExtensionsAskFor(unittest.TestCase):
             update_check=lambda: {}, capture_proposals=lambda: {"proposals": []},
             jobs=lambda limit: [],
             extension_needs=lambda: {"needs": [RAISED], "away": ["old"], "failed": ["old"]},
-            unaccepted_themes=lambda: {"themes": []}, extensions=lambda: [])
+            unaccepted_themes=lambda: {"themes": []}, extensions=lambda: [],
+            launchers=lambda: {"launchers": []})
         library = Library.__new__(Library)
         library._client = client
 
@@ -885,7 +887,8 @@ class WhatWaitsToBeAccepted(unittest.TestCase):
         client = SimpleNamespace(
             update_check=lambda: {}, capture_proposals=lambda: {"proposals": []},
             jobs=lambda limit: [], extension_needs=lambda: {},
-            unaccepted_themes=lambda: {"themes": [self.THEME]}, extensions=lambda: [])
+            unaccepted_themes=lambda: {"themes": [self.THEME]}, extensions=lambda: [],
+            launchers=lambda: {"launchers": []})
         for name, value in replaced.items():
             setattr(client, name, value)
         library = Library.__new__(Library)
@@ -938,7 +941,8 @@ class WhatProgramsAsk(unittest.TestCase):
             client = SimpleNamespace(
                 update_check=lambda: {}, capture_proposals=lambda: {"proposals": []},
                 jobs=lambda limit: [], extension_needs=lambda: {},
-                unaccepted_themes=lambda: {"themes": []}, extensions=lambda: [], asks=asks)
+                unaccepted_themes=lambda: {"themes": []}, extensions=lambda: [], asks=asks,
+                launchers=lambda: {"launchers": []})
             read = Library.__new__(Library)
             read._client = client
             return read
@@ -961,6 +965,86 @@ class WhatProgramsAsk(unittest.TestCase):
 
         self.assertEqual([("a1", True)], answered)
         self.assertEqual(["a2"], [one["id"] for one in library._watched["asked"]])
+
+
+
+def left(launcher_id="vpx", *items, name="Visual Pinball X"):
+    return {"launcher_id": launcher_id, "name": name, "items": list(items)}
+
+
+def item(key, action="move", files=0):
+    return {"key": key, "action": action, "files": files}
+
+
+class WhatAnUpgradeLeftBehind(unittest.TestCase):
+    def row(self, *held):
+        return needs.leftovers_row(held)
+
+    def test_a_launcher_with_nothing_to_act_on_has_no_row(self):
+        self.assertIsNone(self.row())
+        self.assertIsNone(self.row(left("vpx", item("A.b", "name"))))
+
+    def test_a_box_with_no_file_to_go_into_is_not_counted(self):
+        self.assertIsNone(self.row(left("vpx", item("A.box", "place", 0))))
+        self.assertEqual(("vpx:A.box",),
+                         self.row(left("vpx", item("A.box", "place", 2))).ids)
+
+    def test_a_move_and_a_turn_on_are_counted_by_launcher_and_key(self):
+        row = self.row(left("vpx", item("A.b"), item("A.c", "turn_on"), item("A.d", "name")),
+                       left("other", item("A.b")))
+
+        self.assertEqual(("other:A.b", "vpx:A.b", "vpx:A.c"), row.ids)
+        self.assertEqual("manager.needs.settings_count", row.unit)
+
+    def test_a_click_opens_the_first_launcher_that_has_some(self):
+        row = self.row(left("a", item("A.d", "name")), left("b", item("A.b")))
+
+        self.assertEqual("launchers", row.opens.view)
+        self.assertEqual({"launcher": "b"}, dict(row.opens.keys))
+
+    def test_it_is_this_installs_row_between_failures_and_updates(self):
+        self.assertTrue(needs.is_device("leftovers"))
+        self.assertEqual(needs.ORDER.index("fill_errors") + 1, needs.ORDER.index("leftovers"))
+        self.assertEqual(needs.ORDER.index("leftovers") + 1, needs.ORDER.index("update"))
+
+    def test_collect_draws_it_from_the_watched_read(self):
+        lib = FakeLibrary(watched={"leftovers": [left("vpx", item("A.b"))]})
+
+        self.assertEqual(["leftovers"], keys(needs.collect(lib, {})))
+
+    def test_not_now_keeps_it_away_until_an_upgrade_leaves_more(self):
+        lib = FakeLibrary(watched={"leftovers": [left("vpx", item("A.b"))]})
+        (row,) = needs.collect(lib, {})
+        self.assertEqual([], needs.arrange([row], {"leftovers": ["vpx:A.b"]}, set()).rows)
+
+        lib = FakeLibrary(watched={"leftovers": [left("vpx", item("A.b"), item("A.c"))]})
+        (row,) = needs.collect(lib, {})
+        arranged = needs.arrange([row], {"leftovers": ["vpx:A.b"]}, set())
+
+        self.assertEqual(["leftovers"], keys(arranged.rows))
+        self.assertEqual(("vpx:A.c",), arranged.rows[0].new)
+
+    def test_a_read_that_failed_is_said_and_keeps_the_dismissal(self):
+        lib = FakeLibrary(watched={"unread": ["leftovers"]})
+
+        self.assertIn(t("manager.needs.unread_leftovers"), needs.collect(lib, {})[0].tip)
+        self.assertEqual({"leftovers": ["vpx:A.b"]},
+                         needs.arrange([], {"leftovers": ["vpx:A.b"]}, set(),
+                                       ["leftovers"]).record)
+
+    def test_the_read_takes_each_enabled_launcher_with_settings_and_skips_the_rest(self):
+        launchers = [{"launcher_id": "a", "display_name": "A", "has_config": True,
+                      "enabled": True},
+                     {"launcher_id": "b", "has_config": False, "enabled": True},
+                     {"launcher_id": "c", "has_config": True, "enabled": False},
+                     {"launcher_id": "d", "has_config": True, "enabled": True}]
+        said = {"a": [item("A.b")], "d": []}
+        library = Library.__new__(Library)
+        library._client = SimpleNamespace(launchers=lambda: {"launchers": launchers},
+                                          launcher_leftovers=lambda one: {"items": said[one]})
+
+        self.assertEqual([{"launcher_id": "a", "name": "A", "items": [item("A.b")]}],
+                         library._read_leftovers())
 
 
 if __name__ == "__main__":

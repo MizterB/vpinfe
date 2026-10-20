@@ -22,7 +22,7 @@ from manager.kit.data import Library
 from manager.kit.on_page import on_page
 from manager.library import collection_adds, collection_rules, discovery_get, discovery_kinds
 from manager.library import discovery as discovery_page
-from manager.workbench import discovery_rail
+from manager.workbench import discovery_rail, leftovers
 from manager.workbench.all_settings import _playing
 from manager.workbench.collection import _note_unsaved, unsaved
 from manager.workbench.core import Section, _blank, _pane_build, _rebuilds, _table_line, _title
@@ -515,6 +515,7 @@ async def _draw_launcher(container: ui.column, title: ui.column, library: Librar
         context["rebuild"] = _rebuilds(
             context, f"launcher:{launcher_id}",
             lambda: build_launcher(container, title, library, launcher_id, state))
+        await leftovers.notice(context)
         await _rail(context, "launcher", state)
 
 

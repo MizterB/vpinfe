@@ -865,6 +865,27 @@ class Library:
                         scope: str = "launcher") -> dict:
         return self._client.launcher_config(launcher_id, table, scope)
 
+    def launcher_leftovers(self, launcher_id: str) -> dict:
+        """Read fresh every time: moving them is what changes the answer."""
+        return self._client.launcher_leftovers(launcher_id)
+
+    def move_launcher_leftovers(self, launcher_id: str) -> dict:
+        """Backglass files and the launcher's settings both change, so what Overview holds
+        of the install is read again."""
+        result = self._client.move_launcher_leftovers(launcher_id)
+        self.forget_watched()
+        return result
+
+    def turn_on_launcher_leftover(self, launcher_id: str, key: str) -> dict:
+        result = self._client.turn_on_launcher_leftover(launcher_id, key)
+        self.forget_watched()
+        return result
+
+    def undo_launcher_leftovers(self, launcher_id: str, token: str) -> dict:
+        result = self._client.undo_launcher_leftovers(launcher_id, token)
+        self.forget_watched()
+        return result
+
     def write_launcher_config(self, launcher_id: str, values: dict, *,
                               table: str = "", scope: str = "launcher",
                               create: bool = False) -> dict:
@@ -1355,10 +1376,28 @@ class Library:
         except Exception:  # noqa: BLE001 - without it a gap is counted whether or not a source could fill it
             logger.debug("manager: could not read which media a source can fill", exc_info=True)
         try:
+            out["leftovers"] = self._read_leftovers()
+        except Exception:  # noqa: BLE001 - what an upgrade left is not Overview's to fail on
+            logger.debug("manager: could not read what an upgrade left behind", exc_info=True)
+            out["unread"].append("leftovers")
+        try:
             out["asked"] = self._client.asks()
         except Exception:  # noqa: BLE001 - a Manager not allowed to see them has none to show
             logger.debug("manager: could not read what programs ask", exc_info=True)
         return out
+
+    def _read_leftovers(self) -> list[dict[str, Any]]:
+        """Each launcher whose program left settings behind, with the rows to act on, in the
+        launchers' own order. Off the loop."""
+        found: list[dict[str, Any]] = []
+        for one in self._client.launchers().get("launchers") or ():
+            if not one.get("has_config") or not one.get("enabled"):
+                continue
+            rows = self._client.launcher_leftovers(str(one["launcher_id"])).get("items") or []
+            if rows:
+                found.append({"launcher_id": str(one["launcher_id"]),
+                              "name": str(one.get("display_name") or ""), "items": rows})
+        return found
 
     def answer_ask(self, ask_id: str, approve: bool) -> None:
         """Approve or decline one ask, and drop it from what Overview holds. Off the loop."""
@@ -1404,6 +1443,23 @@ class Library:
     def dismissed(self) -> dict[str, list[str]]:
         """Each row set aside, with the ids it counted. Already read - this asks nothing."""
         return self._dismissed
+
+    def refresh_dismissed(self) -> dict[str, list[str]]:
+        """The record read again, for a page that is not Overview and so did not load it.
+        Off the loop. What was held stays where the read fails."""
+        try:
+            self._dismissed = self._client.dismissed()
+            self._dismissed_read = True
+        except Exception:  # noqa: BLE001 - a notice that draws whole is better than none
+            logger.debug("manager: could not read what was dismissed", exc_info=True)
+        return self._dismissed
+
+    def merge_dismissed(self, row: str, ids: list[str], *, scope: str) -> None:
+        """Set `row` aside over `ids` for the ids that start with `scope`, leaving what it
+        was dismissed over for any other scope. Reads the record fresh. Off the loop."""
+        current = self._client.dismissed().get(row) or []
+        kept = [one for one in current if not one.startswith(scope)]
+        self.set_dismissed(row, sorted({*kept, *ids}))
 
     def dismissed_was_read(self) -> bool:
         """False where the record could not be read, which is when it must not be pruned
