@@ -11,7 +11,7 @@ from nicegui import ui
 
 from manager.kit import grid, views
 from manager.kit.data import Library
-from manager.library import discovery, games
+from manager.library import discovery, discovery_ask, games
 
 _PAGE = ui.element()
 
@@ -120,17 +120,81 @@ class HeldColumn(unittest.TestCase):
         self.assertEqual("no", row[discovery.PLAYABLE])
 
 
+class HeldKindColumns(unittest.TestCase):
+    def test_a_kind_is_held_where_one_of_its_releases_is(self) -> None:
+        row = _row(_entry(releases={"tableFiles": [_release("t1"), _release("t2", held=True)],
+                                    "b2sFiles": [_release("b1")]}))
+
+        self.assertEqual("yes", row["held_table"])
+        self.assertEqual("no", row["held_backglass"])
+
+    def test_a_held_table_leaves_the_backglass_unheld(self) -> None:
+        row = _row(_entry(releases={"tableFiles": [_release("t1", held=True)]}))
+
+        self.assertEqual("no", row["held_backglass"])
+        self.assertEqual("yes", row[discovery.HELD])
+
+    def test_a_kind_the_game_does_not_list_is_blank(self) -> None:
+        row = _row(_entry(releases={"tableFiles": [_release("t1", held=True)]}))
+
+        self.assertEqual("", row["held_rom"])
+
+    def test_a_kind_the_library_does_not_collect_is_blank(self) -> None:
+        row = _row(_entry(releases={"tableFiles": [_release("t1", held=True)],
+                                    "b2sFiles": [_release("b1", held=True)]}),
+                   kept=["tableFiles"])
+
+        self.assertEqual("", row["held_backglass"])
+
+    def test_every_kind_is_blank_until_the_library_is_counted(self) -> None:
+        row = _row(_entry(releases={"tableFiles": [_release("t1", held=True)]}),
+                   counted=False)
+
+        self.assertEqual({""}, {row[field] for field in discovery._HELD_KIND_FIELDS})
+
+    def test_each_kind_has_a_column_named_for_it(self) -> None:
+        by_field = {one["field"]: one for one in discovery.COLUMNS}
+
+        self.assertEqual("Held Tables", by_field["held_table"]["headerName"].replace("\n", " "))
+        self.assertEqual("Held Backglasses",
+                         by_field["held_backglass"]["headerName"].replace("\n", " "))
+        self.assertEqual(len(discovery.KINDS), len(discovery._HELD_KIND_FIELDS))
+        for field in discovery._HELD_KIND_FIELDS:
+            with self.subTest(field):
+                choices = by_field[field]["filterParams"]["choices"]
+                self.assertEqual(["yes", "no"], [one["value"] for one in choices])
+
+    def test_a_kind_the_library_does_not_collect_has_no_held_column(self) -> None:
+        library = mock.Mock(spec=Library)
+        with mock.patch.object(discovery, "kept",
+                               side_effect=lambda _library, listed_as: listed_as != "romFiles"), \
+                mock.patch.object(discovery.grid_module, "with_art",
+                                  side_effect=lambda columns, _look: columns):
+            fields = {one["field"] for one in discovery.grid_columns(library, [])}
+
+        self.assertNotIn("held_rom", fields)
+        self.assertNotIn("kind_rom", fields)
+        self.assertIn("held_table", fields)
+
+
+_SHOWN_ON_DEMAND = {discovery.PLAYABLE, discovery.HELD, *discovery._HELD_KIND_FIELDS}
+
+
 class TheColumnsAreNoViewsOwn(unittest.TestCase):
-    def test_both_are_columns_of_the_grid(self) -> None:
+    def test_all_are_columns_of_the_grid(self) -> None:
         fields = {one["field"] for one in discovery.COLUMNS}
 
-        self.assertLessEqual({discovery.PLAYABLE, discovery.HELD}, fields)
+        self.assertLessEqual(_SHOWN_ON_DEMAND, fields)
 
-    def test_no_built_in_view_shows_either(self) -> None:
+    def test_no_built_in_view_shows_any(self) -> None:
         for name, preset in discovery.VIEWS.items():
             with self.subTest(name):
                 assert not isinstance(preset, list)
-                self.assertFalse(set(preset.columns) & {discovery.PLAYABLE, discovery.HELD})
+                self.assertFalse(set(preset.columns) & _SHOWN_ON_DEMAND)
+
+    def test_each_waits_for_a_count_but_playable(self) -> None:
+        self.assertEqual(_SHOWN_ON_DEMAND - {discovery.PLAYABLE},
+                         discovery.COUNTED_FIELDS & _SHOWN_ON_DEMAND)
 
     def test_a_view_opened_on_them_shows_what_it_filters(self) -> None:
         fields = [one["field"] for one in discovery.COLUMNS]
@@ -141,7 +205,16 @@ class TheColumnsAreNoViewsOwn(unittest.TestCase):
         self.assertIn(discovery.PLAYABLE, view.columns)
         self.assertNotIn(discovery.HELD, view.columns)
 
-    def test_both_are_yes_or_no(self) -> None:
+    def test_a_view_opened_on_a_kind_shows_its_held_column(self) -> None:
+        fields = [one["field"] for one in discovery.COLUMNS]
+        start = views.builtins(discovery.VIEWS)[0]
+
+        view = views.opened(start, "Bally", {"held_backglass": {"values": ["no"]}}, fields)
+
+        self.assertIn("held_backglass", view.columns)
+        self.assertNotIn("held_table", view.columns)
+
+    def test_all_are_yes_or_no(self) -> None:
         for field in (discovery.PLAYABLE, discovery.HELD):
             with self.subTest(field):
                 column = next(one for one in discovery.COLUMNS if one["field"] == field)
@@ -187,12 +260,20 @@ class OpenInGridCarries(unittest.TestCase):
                           "in_library": {"values": ["yes"]},
                           discovery.HELD: {"values": ["no"]}}, filters)
 
-    def test_without_on_a_kind_lists_that_kind_and_is_not_held(self) -> None:
+    def test_without_on_a_kind_lists_that_kind_and_does_not_hold_it(self) -> None:
         filters = self._filters(BALLY, {"maker": "Bally", "kind": "b2sFiles", "owned": "yes",
                                         "held": "missing"})
 
         self.assertEqual({"values": ["have", "missing"]}, filters["kind_backglass"])
-        self.assertEqual({"values": ["no"]}, filters[discovery.HELD])
+        self.assertEqual({"values": ["no"]}, filters["held_backglass"])
+        self.assertNotIn(discovery.HELD, filters)
+
+    def test_without_on_tables_asks_the_tables_column(self) -> None:
+        filters = self._filters(BALLY, {"maker": "Bally", "kind": "tableFiles",
+                                        "owned": "yes", "held": "missing"})
+
+        self.assertEqual({"values": ["no"]}, filters["held_table"])
+        self.assertNotIn("held_backglass", filters)
 
     def test_without_waits_for_a_count(self) -> None:
         filters = self._filters(BALLY, {"maker": "Bally", "owned": "yes", "held": "missing"},
@@ -200,25 +281,121 @@ class OpenInGridCarries(unittest.TestCase):
 
         self.assertEqual({"manufacturer": {"values": ["Bally"]}}, filters)
 
-    def test_the_filters_hold_the_games_the_page_lists(self) -> None:
-        held = _entry("g1", releases={"tableFiles": [_release("t1", held=True)]})
-        lacking = _entry("g2", releases={"tableFiles": [_release("t2", fmt="FP")]})
-        elsewhere = _entry("g3", in_library=False,
-                           releases={"tableFiles": [_release("t3")]})
-        found = {"counted": "x", "rows": [held, lacking, elsewhere]}
-        built = discovery.rows(found, None, None, ("VPX",))
 
-        without = self._filters(BALLY, {"maker": "Bally", "owned": "yes", "held": "missing"})
-        playable = self._filters(BALLY, {"maker": "Bally", "kind": "tableFiles",
-                                         "format": ["VPX"]})
+def _applied(filters: dict[str, Any], built: list[dict[str, Any]]) -> set[str]:
+    """The ids of the rows the grid keeps under `filters`. A filter on a field the row does
+    not carry is an error: skipping it would be a filter that excludes nothing."""
+    kept = set()
+    for row in built:
+        for field, model in filters.items():
+            if "values" in model:
+                if row[field] not in model["values"]:
+                    break
+            elif model.get("filterType") == "text" and model.get("type") == "equals":
+                if row[field] != model["filter"]:
+                    break
+            else:
+                raise AssertionError(f"no way to apply {field}: {model}")
+        else:
+            kept.add(str(row["id"]))
+    return kept
 
-        def kept(filters: dict[str, Any]) -> list[str]:
-            return [row["id"] for row in built
-                    if all(row[field] in model["values"] for field, model in filters.items()
-                           if field in row and "values" in model and field != "manufacturer")]
 
-        self.assertEqual(["g2"], kept(without))
-        self.assertEqual(["g1", "g3"], kept(playable))
+def _game(vps_id: str, *, held: tuple[str, ...] = (), unheld: tuple[str, ...] = (),
+          in_library: bool = True, maker: str = "Bally", formats: dict[str, str] | None = None,
+          listed: tuple[str, ...] | None = None) -> dict[str, Any]:
+    """A game with a release of each kind named: `held` ones held, `unheld` ones not.
+    `formats` files a kind's release under a table format."""
+    formats = formats or {}
+    releases = {kind: [_release(f"{vps_id}-{kind}", held=kind in held,
+                                fmt=formats.get(kind, "VPX"))]
+                for kind in (*held, *unheld)}
+    return _entry(vps_id, releases, manufacturer=maker, in_library=in_library,
+                  listed=list(listed if listed is not None else releases))
+
+
+TABLE, GLASS = "tableFiles", "b2sFiles"
+PLAYS = ("VPX",)
+
+
+class TheGridHoldsWhatThePageLists(unittest.TestCase):
+    """Without on a maker's page against the grid it opens: both read the same library, the
+    page through `games_found` and `in_show`, the grid through the filters the page hands
+    it applied to Browse's own rows."""
+
+    LIBRARY = [
+        # A bound table and no backglass: the page counts it Without Backglasses.
+        _game("table_only", held=(TABLE,), unheld=(GLASS,)),
+        _game("holds_both", held=(TABLE, GLASS)),
+        _game("holds_neither", unheld=(TABLE, GLASS)),
+        _game("glass_only", held=(GLASS,), unheld=(TABLE,)),
+        _game("tables_only_listed", unheld=(TABLE,)),
+        _game("elsewhere", in_library=False, unheld=(TABLE, GLASS)),
+        _game("other_maker", maker="Williams", unheld=(TABLE, GLASS)),
+        # Holds a table the launchers do not play, and has one they do that it lacks.
+        _entry("holds_another_format", {
+            TABLE: [_release("fp", fmt="FP", held=True), _release("vpx", fmt="VPX")],
+            GLASS: [_release("glass")]}, manufacturer="Bally", listed=[TABLE, GLASS]),
+    ]
+
+    def _library(self) -> tuple[list[dict[str, Any]], dict[str, Any], dict[str, Any]]:
+        found = {"counted": "x", "rows": copy.deepcopy(self.LIBRARY)}
+        return (discovery.rows(found, None, None, PLAYS), found,
+                discovery.releases_of(found, [GLASS, TABLE]))
+
+    def _page(self, kind: str, show: str, *, playing: bool = False) -> set[str]:
+        built, _found, releases = self._library()
+        question = discovery_ask.vps_question.clean({
+            **discovery_ask.subject_question(BALLY), "kind": kind,
+            "format": list(PLAYS) if kind == TABLE and playing else []})
+        people = [{"name": "Someone", "aliases": []}]
+        by_id = {str(row["id"]): row for row in built}
+        found = discovery_ask.vps_question.games_found(question, people, built, releases)
+        return {game for game, fitting in found.items()
+                if discovery_ask.in_show(show, by_id[game], fitting)}
+
+    def _grid(self, kind: str, *, playing: bool = False) -> set[str]:
+        built, _found, _releases = self._library()
+        question = discovery_ask.vps_question.clean({
+            **discovery_ask.subject_question(BALLY), "kind": kind, "owned": "yes",
+            "held": "missing", "format": list(PLAYS) if kind == TABLE and playing else []})
+        _tab, opening = discovery.opening_for(BALLY, question, _browse_columns(), counted=True)
+        return _applied(opening["filters"], built)
+
+    def test_the_page_lists_the_bound_table_with_no_backglass(self) -> None:
+        self.assertIn("table_only", self._page(GLASS, discovery_ask.WITHOUT))
+
+    def test_without_backglasses_is_the_same_games_on_the_grid(self) -> None:
+        self.assertEqual(self._page(GLASS, discovery_ask.WITHOUT), self._grid(GLASS))
+        self.assertIn("table_only", self._grid(GLASS))
+
+    def test_without_tables_is_the_same_games_on_the_grid(self) -> None:
+        self.assertEqual(self._page(TABLE, discovery_ask.WITHOUT), self._grid(TABLE))
+        self.assertNotIn("table_only", self._grid(TABLE))
+
+    def test_without_on_every_kind_is_the_same_games_on_the_grid(self) -> None:
+        self.assertEqual(self._page("", discovery_ask.WITHOUT), self._grid(""))
+        self.assertNotIn("table_only", self._grid(""))
+
+    def test_without_playable_tables_gives_up_the_game_that_holds_another_format(self) -> None:
+        page = self._page(TABLE, discovery_ask.WITHOUT, playing=True)
+        grid = self._grid(TABLE, playing=True)
+
+        self.assertEqual({"holds_another_format"}, page - grid)
+        self.assertEqual(set(), grid - page)
+
+    def test_a_game_the_library_lacks_is_not_without(self) -> None:
+        for kind in ("", TABLE, GLASS):
+            with self.subTest(kind):
+                self.assertNotIn("elsewhere", self._grid(kind))
+
+    def test_it_fails_on_the_game_level_column_the_page_does_not_ask(self) -> None:
+        built, _found, _releases = self._library()
+        game_level = _applied({"in_library": {"values": ["yes"]},
+                               "kind_backglass": {"values": ["have", "missing"]},
+                               discovery.HELD: {"values": ["no"]}}, built)
+
+        self.assertNotEqual(self._page(GLASS, discovery_ask.WITHOUT), game_level)
 
 
 class _StopError(Exception):

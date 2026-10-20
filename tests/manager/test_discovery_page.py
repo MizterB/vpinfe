@@ -399,7 +399,7 @@ class OpenInGrid(unittest.TestCase):
         self.assertEqual({"manufacturer": {"values": ["Bally"]},
                           "in_library": {"values": ["yes"]},
                           "kind_backglass": {"values": ["have", "missing"]},
-                          "held": {"values": ["no"]}}, opening["filters"])
+                          "held_backglass": {"values": ["no"]}}, opening["filters"])
         self.assertEqual("Bally Backglasses", opening["name"])
 
     def test_missing_without_a_kind_is_the_held_column(self) -> None:

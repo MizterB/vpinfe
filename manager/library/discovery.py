@@ -105,6 +105,12 @@ def _yes_no() -> list[dict[str, Any]]:
     return [{"value": YES, "label": t("word.yes")}, {"value": NO, "label": t("word.no")}]
 
 
+def held_field(field: str) -> str:
+    """The row field that says whether the library holds a release of a kind, given the
+    field that says what the library has of it."""
+    return "held_" + field.removeprefix("kind_")
+
+
 def _kind_column(listed_as: str, field: str, word: str) -> dict[str, Any]:
     label = t(word)
     options: dict[str, Any] = {
@@ -113,6 +119,13 @@ def _kind_column(listed_as: str, field: str, word: str) -> dict[str, Any]:
                                      {"value": MISSING, "label": t("manager.view.missing")}])}
     return grid_module.column(field, label,
                               help=t("manager.discovery.kind.help", kind=label), **options)
+
+
+def _held_kind_column(listed_as: str, field: str, _word: str) -> dict[str, Any]:
+    kind = t(discovery_ask.KIND_MANY[listed_as])
+    return grid_module.column(held_field(field), t("manager.discovery.held_kind", kind=kind),
+                              help=t("manager.discovery.held_kind.help", kind=kind),
+                              **grid_module.choice_filter(_yes_no()))
 
 
 CATALOG_FACET_CEILING = 300
@@ -144,6 +157,7 @@ COLUMNS = [
     grid_module.column(HELD, t("manager.discovery.held"),
                        help=t("manager.discovery.held.help"),
                        **grid_module.choice_filter(_yes_no())),
+    *(_held_kind_column(*kind) for kind in KINDS),
     grid_module.column(TABLE_AUTHORS, t("manager.discovery.table_authors"),
                        help=t("manager.discovery.table_authors.help"),
                        **grid_module.NUMBER_COLUMN),
@@ -156,12 +170,13 @@ COLUMNS = [
 ]
 
 _KIND_FIELDS = [field for _listed, field, _word in KINDS]
+_HELD_KIND_FIELDS = [held_field(field) for field in _KIND_FIELDS]
 # The game's own facts are on the Game cell's second line and in the pane. They stay in the
 # column picker for sorting and filtering, and no view turns them on.
 _PICKED = ("manufacturer", "year", "game_type", "themes")
-# Table Authors is the Games You Don't Have view's own column. Playable and Held are
-# shown only by a view opened on them.
-_NOT_EVERYWHERE = (*_PICKED, TABLE_AUTHORS, PLAYABLE, HELD)
+# Table Authors is the Games You Don't Have view's own column. Playable and the Held
+# columns are shown only by a view opened on them.
+_NOT_EVERYWHERE = (*_PICKED, TABLE_AUTHORS, PLAYABLE, HELD, *_HELD_KIND_FIELDS)
 _ALL = [definition["field"] for definition in COLUMNS]
 _BY_NAME = ({"colId": "name", "sort": "asc", "sortIndex": 0},)
 
@@ -176,7 +191,7 @@ VIEWS: dict[str, list[str] | views.Preset] = {
 }
 
 
-COUNTED_FIELDS = frozenset({"in_library", "gap", HELD, *_KIND_FIELDS})
+COUNTED_FIELDS = frozenset({"in_library", "gap", HELD, *_HELD_KIND_FIELDS, *_KIND_FIELDS})
 """The columns that are blank until the library has been counted."""
 
 
@@ -211,6 +226,15 @@ def _held(releases: Mapping[str, Any], kept: Collection[str] | None) -> str:
     """Yes where the library holds at least one release of the game, of a kind it collects."""
     return YES if any(one.get("held") for listing, found in releases.items()
                       if kept is None or listing in kept for one in found) else NO
+
+
+def _held_kind(releases: Mapping[str, Any], listed_as: str, listed: bool,
+               counted: bool) -> str:
+    """Yes where the library holds a release of this one kind of the game, blank where the
+    game lists none of the kind or the library has not been counted."""
+    if not (listed and counted):
+        return ""
+    return YES if any(one.get("held") for one in releases.get(listed_as) or []) else NO
 
 
 def rows(found: dict[str, Any], kept: Collection[str] | None = None,
@@ -252,8 +276,9 @@ def rows(found: dict[str, Any], kept: Collection[str] | None = None,
         }
         states = []
         for listed_as, field, _word in KINDS:
-            row[field] = _state(listed_as in listed and (kept is None or listed_as in kept),
-                                counted, in_library, listed_as in held)
+            offered = listed_as in listed and (kept is None or listed_as in kept)
+            row[field] = _state(offered, counted, in_library, listed_as in held)
+            row[held_field(field)] = _held_kind(releases, listed_as, offered, counted)
             states.append(row[field])
         row["said"] = game_tables.made(row)
         row["gap"] = MISSING if MISSING in states else ""
@@ -564,8 +589,11 @@ def _filter_on(definition: dict[str, Any] | None, value: str) -> dict[str, Any]:
 def browse_filters(subject: dict[str, str], question: dict[str, Any],
                    columns: list[dict[str, Any]], *, counted: bool) -> dict[str, Any]:
     """What a maker's or a theme's page asks, as filters on Browse's columns. In Library,
-    Held, Have and Missing are left out before the library has been counted: the columns hold
-    nothing then, and a filter on them would empty the grid."""
+    the Held columns, Have and Missing are left out before the library has been counted: the
+    columns hold nothing then, and a filter on them would empty the grid.
+
+    Without is a game of the library none of whose listed releases it holds: Held No on the
+    chosen kind's column, or on the game's own where every kind is listed."""
     by_field = {one["field"]: one for one in columns}
     out: dict[str, Any] = {}
     if subject["type"] == "maker":
@@ -583,7 +611,7 @@ def browse_filters(subject: dict[str, str], question: dict[str, Any],
     if field:
         out[field] = {"values": [HAVE, MISSING]}
     if question.get("held") == "missing":
-        out[HELD] = {"values": [NO]}
+        out[held_field(field) if field else HELD] = {"values": [NO]}
     elif question.get("held") == "have" and field:
         out[field] = {"values": [HAVE]}
     return out
@@ -656,8 +684,9 @@ def comparing_line(library: Library, rerender: Callable[[], None]) -> ui.label:
 
 
 def grid_columns(library: Library, built: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """The columns the grid declares: a kind column only for a kind the library collects."""
-    off = {field for listed_as, field, _word in KINDS if not kept(library, listed_as)}
+    """The columns the grid declares: a kind's columns only for a kind the library collects."""
+    off = {name for listed_as, field, _word in KINDS if not kept(library, listed_as)
+           for name in (field, held_field(field))}
     return grid_module.with_art(
         grid_module.with_derived_facets([one for one in COLUMNS if one["field"] not in off],
                                         built, CATALOG_FACET_CEILING),
