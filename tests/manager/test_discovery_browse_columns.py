@@ -235,83 +235,211 @@ class _Answer:
 
 
 class _Table:
-    """A grid that records what it is told and answers nothing."""
+    """A grid that keeps the columns shown and the filter model it was given, and answers
+    with them as the real one does."""
 
     parent_slot = None
     id = 1
 
-    def __init__(self) -> None:
-        self.calls: list[tuple[Any, ...]] = []
+    def __init__(self, fields: list[str]) -> None:
+        self.fields = fields
+        self.shown: set[str] = set()
+        self.model: Any = None
 
     def run_grid_method(self, name: str, *args: Any) -> _Answer:
-        self.calls.append((name, *args))
+        if name == "setColumnsVisible":
+            self.shown = (self.shown | set(args[0])) if args[1] else (self.shown - set(args[0]))
+        elif name == "setFilterModel":
+            self.model = args[0]
+        elif name == "getFilterModel":
+            return _Answer(dict(self.model or {}))
+        elif name == "getColumnState":
+            return _Answer([{"colId": field, "hide": field not in self.shown}
+                            for field in self.fields])
         return _Answer()
 
     def on(self, *_args: Any, **_kwargs: Any) -> None:
         pass
-
-    def filter_model(self) -> Any:
-        return [call[1] for call in self.calls if call[0] == "setFilterModel"][-1]
 
 
 SAVED = views.View(id="mine", name="Mine", builtin=False, columns=("name", "held"),
                    filters={"held": {"values": ["no"]}, "manufacturer": {"values": ["Bally"]}})
 
 
+class _Driven:
+    def __init__(self, test: unittest.IsolatedAsyncioTestCase, *, counted: bool,
+                 saved: views.View, active: str) -> None:
+        self.record: dict[str, Any] = {"views": [views.to_record(saved)], "active": active}
+        self.read = copy.deepcopy(self.record)
+        self.library = mock.Mock()
+        self.library.preferences.return_value = self.record
+        self.fields = [one["field"] for one in discovery.COLUMNS]
+        self.table = _Table(self.fields)
+        self.counted = counted
+        self.work: list[Any] = []
+        self.asked: list[Any] = []
+        self.ui = test.enterContext(mock.patch.object(games, "ui"))
+        self.panel = test.enterContext(mock.patch.object(games, "panel"))
+
+        async def inline(call: Any, *args: Any, **more: Any) -> Any:
+            return call(*args, **more)
+
+        test.enterContext(mock.patch.object(games.busy, "fill",
+                                            lambda _region, run: self.work.append(run)))
+        test.enterContext(mock.patch.object(games.renderers, "draw_as"))
+        test.enterContext(mock.patch.object(games.run, "io_bound", inline))
+        test.enterContext(mock.patch.object(games.grid, "apply_layout", mock.AsyncMock()))
+        test.enterContext(mock.patch.object(
+            games, "_ask_name", lambda save, **_kw: self.asked.append(save)))
+        test.enterContext(mock.patch("manager.kit.on_page.ui"))
+
+    async def start(self) -> None:
+        wire, *_ = games.view_control(
+            self.library, discovery.SCOPE, discovery.VIEWS, self.fields, discovery.COLUMNS,
+            bar=mock.MagicMock(),
+            unfiltered=frozenset() if self.counted else discovery.COUNTED_FIELDS)
+        wire(self.table)
+        await self.work[0]()
+        opener = self.ui.button.return_value.props.return_value.classes.return_value \
+            .tooltip.return_value.on_click.call_args.args[0]
+        self.opener = opener
+
+    async def menu(self) -> list[Any]:
+        """The save and the rename the view menu offers, in the order it lists them."""
+        self.asked.clear()
+        self.ui.menu_item.reset_mock()
+        await self.opener()
+        for call in self.ui.menu_item.call_args_list:
+            action = call.args[1]
+            if getattr(action, "__name__", "") == "<lambda>":
+                action()
+        return list(self.asked)
+
+    def stored(self) -> list[dict[str, Any]]:
+        return self.library.put_preferences.call_args.args[1]["views"]
+
+    def marked_modified(self) -> bool:
+        picker = self.panel.DescribedSelect.return_value.classes.return_value
+        return any(call.kwargs.get("add") == "suffix=modified"
+                   for call in picker.props.call_args_list)
+
+
 class ViewsWaitForACount(unittest.IsolatedAsyncioTestCase):
     """What the view control puts on the grid, which is where an empty first screen came
-    from. A saved view is the user's, so it is read as stored and never rewritten."""
+    from. A saved view is the user's, so it keeps every filter it was saved with."""
 
-    async def _applied(self, *, counted: bool, saved: views.View = SAVED,
-                       active: str | None = None) -> tuple[Any, dict[str, Any], mock.Mock]:
-        record = {"views": [views.to_record(saved)], "active": active or saved.id}
-        stored = copy.deepcopy(record)
-        library = mock.Mock()
-        library.preferences.return_value = record
-        fields = [one["field"] for one in discovery.COLUMNS]
-        table = _Table()
-        work: list[Any] = []
-        with _PAGE, mock.patch.object(games, "ui"), mock.patch.object(games, "panel"), \
-                mock.patch.object(games.busy, "fill", lambda _region, run: work.append(run)), \
-                mock.patch.object(games.renderers, "draw_as"), \
-                mock.patch.object(games.grid, "apply_layout", mock.AsyncMock()):
-            wire, _picker, _showing, _describe = games.view_control(
-                library, discovery.SCOPE, discovery.VIEWS, fields, discovery.COLUMNS,
-                bar=mock.MagicMock(),
-                unfiltered=frozenset() if counted else discovery.COUNTED_FIELDS)
-            wire(table)
-            await work[0]()
-        self.assertEqual(stored, record, "the stored views are as they were read")
-        library.put_preferences.assert_not_called()
-        return table, record, library
+    async def _driven(self, *, counted: bool, saved: views.View = SAVED,
+                      active: str | None = None) -> _Driven:
+        driven = _Driven(self, counted=counted, saved=saved, active=active or saved.id)
+        await driven.start()
+        return driven
 
     async def test_a_saved_view_on_held_opens_with_its_other_filters_before_a_count(self) -> None:
-        table, _record, _library = await self._applied(counted=False)
+        driven = await self._driven(counted=False)
 
-        self.assertEqual({"manufacturer": {"values": ["Bally"]}}, table.filter_model())
+        self.assertEqual({"manufacturer": {"values": ["Bally"]}}, driven.table.model)
 
     async def test_after_a_count_it_filters_on_held_too(self) -> None:
-        table, _record, _library = await self._applied(counted=True)
+        driven = await self._driven(counted=True)
 
-        self.assertEqual(SAVED.filters, table.filter_model())
+        self.assertEqual(SAVED.filters, driven.table.model)
 
-    async def test_its_stored_form_keeps_the_held_filter(self) -> None:
-        _table, record, _library = await self._applied(counted=False)
+    async def test_applying_it_leaves_the_stored_views_as_they_were_read(self) -> None:
+        driven = await self._driven(counted=False)
 
-        self.assertEqual({"values": ["no"]}, record["views"][0]["filters"]["held"])
+        self.assertEqual(driven.read, driven.record)
+        driven.library.put_preferences.assert_not_called()
+
+    async def test_it_does_not_read_as_modified_when_nothing_was_changed(self) -> None:
+        driven = await self._driven(counted=False)
+
+        self.assertFalse(driven.marked_modified())
 
     async def test_missing_games_opens_unfiltered_before_a_count(self) -> None:
-        table, _record, _library = await self._applied(
+        driven = await self._driven(
             counted=False, active=views.builtin_id("manager.view.missing_games"))
 
-        self.assertIsNone(table.filter_model())
+        self.assertFalse(driven.table.model)
 
     async def test_missing_games_filters_once_counted(self) -> None:
-        table, _record, _library = await self._applied(
+        driven = await self._driven(
             counted=True, active=views.builtin_id("manager.view.missing_games"))
 
         self.assertEqual({"in_library": {"values": ["yes"]}, "gap": {"values": ["missing"]}},
-                         table.filter_model())
+                         driven.table.model)
+
+
+class SavingKeepsWhatWasHeldBack(unittest.IsolatedAsyncioTestCase):
+    async def _driven(self, *, counted: bool) -> _Driven:
+        driven = _Driven(self, counted=counted, saved=SAVED, active=SAVED.id)
+        await driven.start()
+        return driven
+
+    async def test_saving_over_a_view_before_a_count_keeps_its_held_filter(self) -> None:
+        driven = await self._driven(counted=False)
+        save, _rename = await driven.menu()
+
+        await save("Mine")
+
+        (kept,) = driven.stored()
+        self.assertEqual((SAVED.id, SAVED.filters), (kept["id"], kept["filters"]))
+
+    async def test_saving_over_a_view_after_a_count_keeps_both_too(self) -> None:
+        driven = await self._driven(counted=True)
+        save, _rename = await driven.menu()
+
+        await save("Mine")
+
+        (kept,) = driven.stored()
+        self.assertEqual(SAVED.filters, kept["filters"])
+
+    async def test_saving_under_a_new_name_starts_from_the_views_held_filters(self) -> None:
+        driven = await self._driven(counted=False)
+        save, _rename = await driven.menu()
+
+        await save("Another")
+
+        old, new = driven.stored()
+        self.assertEqual(SAVED.filters, old["filters"])
+        self.assertEqual(SAVED.filters, new["filters"])
+        self.assertNotEqual(old["id"], new["id"])
+
+    async def test_a_filter_set_on_the_grid_for_a_held_back_column_wins(self) -> None:
+        driven = await self._driven(counted=False)
+        driven.table.model = {"manufacturer": {"values": ["Bally"]},
+                              "held": {"values": ["yes"]}}
+        save, _rename = await driven.menu()
+
+        await save("Mine")
+
+        self.assertEqual({"values": ["yes"]}, driven.stored()[0]["filters"]["held"])
+
+    async def test_what_the_grid_changed_is_saved(self) -> None:
+        driven = await self._driven(counted=False)
+        driven.table.model = {"manufacturer": {"values": ["Stern"]}}
+        save, _rename = await driven.menu()
+
+        await save("Mine")
+
+        self.assertEqual({"held": {"values": ["no"]}, "manufacturer": {"values": ["Stern"]}},
+                         driven.stored()[0]["filters"])
+
+    async def test_a_view_just_saved_does_not_read_as_modified(self) -> None:
+        driven = await self._driven(counted=False)
+        save, _rename = await driven.menu()
+
+        await save("Mine")
+
+        self.assertFalse(driven.marked_modified())
+
+    async def test_renaming_before_a_count_keeps_the_held_filter(self) -> None:
+        driven = await self._driven(counted=False)
+        _save, rename = await driven.menu()
+
+        await rename("Renamed", "")
+
+        (kept,) = driven.stored()
+        self.assertEqual(("Renamed", SAVED.filters), (kept["name"], kept["filters"]))
 
 
 class WithoutFilters(unittest.TestCase):
@@ -334,11 +462,16 @@ class WithoutFilters(unittest.TestCase):
         self.assertIs(self.VIEW, views.without_filters(self.VIEW, ()))
 
     def test_the_counted_columns_are_the_ones_a_count_fills(self) -> None:
-        counted = {"in_library", "gap", "held", "kind_table", "kind_backglass"}
+        listed = [listed_as for listed_as, _field, _word in discovery.KINDS]
+        entry = _entry(releases={"tableFiles": [_release("t1", held=True)]},
+                       listed=listed, held=listed[:1])
+        before = discovery.rows({"counted": "", "rows": [entry]})[0]
+        after = discovery.rows({"counted": "x", "rows": [entry]})[0]
+        columns = {one["field"] for one in discovery.COLUMNS}
 
-        self.assertLessEqual(counted, discovery.COUNTED_FIELDS)
-        self.assertFalse({"manufacturer", "playable", "themes", "table_authors"}
-                         & discovery.COUNTED_FIELDS)
+        filled = {field for field in columns if before[field] != after[field]}
+
+        self.assertEqual(filled, discovery.COUNTED_FIELDS)
 
 
 class BrowseHoldsBackTheCountedFilters(unittest.IsolatedAsyncioTestCase):

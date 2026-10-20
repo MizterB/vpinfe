@@ -1732,9 +1732,10 @@ def view_control(library: Any, scope: str,
     is called once another view is picked or the opened one is saved, so a redraw of the
     page does not bring it back.
 
-    `unfiltered` names columns no view filters on yet, whether a built-in or a saved one:
-    they hold nothing, so a filter on them would empty the grid. The views themselves, and
-    what is stored of them, keep those filters.
+    `unfiltered` names columns whose filters are not put on the grid yet, whether the view
+    is a built-in or a saved one: a grid whose rows are blank there would be emptied by
+    them. The views keep those filters, and a view saved from the grid takes them from the
+    view it started from, so what is stored never loses one.
     """
     custom, active = views.stored(library, scope)
     # Before the grid is built from `columns`, which is the same list.
@@ -1751,7 +1752,8 @@ def view_control(library: Any, scope: str,
     elif active not in {view.id for view in known}:
         active = known[0].id
     held.update({"views": known, "active": active, "modified": False, "drawing": {},
-                 "baseline": None, "over": None, "on_screen": None})
+                 "baseline": None, "over": None, "on_screen": None,
+                 "whole": None})
 
     top = bar.top
     with top:
@@ -1825,7 +1827,8 @@ def view_control(library: Any, scope: str,
             and then this view's own widths, which the grid does not carry across a
             switch."""
             _show_purpose()
-            baseline = views.without_filters(views.arrived(view, over, all_fields), unfiltered)
+            held["whole"] = views.arrived(view, over, all_fields)
+            baseline = views.without_filters(held["whole"], unfiltered)
             held["baseline"], held["over"] = baseline, over
             wanted = views.visible_columns(baseline, all_fields)
             # Leaving the grid as it is keeps it usable, and the notify says why. The
@@ -1905,6 +1908,10 @@ def view_control(library: Any, scope: str,
         @on_page
         async def save(name: str, said: str = "") -> None:
             shown, sort, model = await _seen()
+            # What the grid was not given is carried from the view this one started from.
+            if held["whole"] is not None:
+                model = {**{name: kept for name, kept in held["whole"].filters.items()
+                            if name in unfiltered}, **model}
             # Saving over a name replaces that view and keeps its id, so anything
             # keyed to it survives. A new name mints a new id - never a slug of the
             # name, or renaming would orphan the view's own geometry.
@@ -1924,7 +1931,8 @@ def view_control(library: Any, scope: str,
                     left_opened()
             held["views"] = listing()
             held["active"] = view.id
-            held["baseline"], held["over"] = view, None
+            held["whole"], held["over"] = view, None
+            held["baseline"] = views.without_filters(view, unfiltered)
             await keep_views(view.id)
             _reoption(view.id)
             await _refresh()
