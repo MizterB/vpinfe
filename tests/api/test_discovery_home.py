@@ -14,9 +14,9 @@ from unittest.mock import patch
 from starlette.testclient import TestClient
 
 import httpapi
+from common.games import library_updates, media_fill
 from common.games import library_vps_state as rollup
-from common.games import media_fill
-from common.online import vps_home, vps_kinds, vps_marks, vps_releases
+from common.online import vps_home, vps_kinds, vps_marks, vps_releases, vps_updates
 
 TODAY = date(2026, 10, 18)
 KEPT = ("tableFiles", "b2sFiles", "romFiles", "ruleFiles")
@@ -424,7 +424,7 @@ class RouteTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         body = response.json()
         self.assertEqual(set(body), {"counted", "days", "since", "new", "authors", "missing",
-                                     "wanted", "dont_have"})
+                                     "wanted", "dont_have", "updates"})
         self.assertEqual(body["days"], 7)
         self.assertEqual(list(body["missing"]), ["romFiles"])
         self.assertEqual(body["missing"]["romFiles"]["games"][0]["name"], "Alpha")
@@ -450,6 +450,90 @@ class RouteTests(unittest.TestCase):
         self.assertEqual(body["counted"], "")
         self.assertEqual(body["authors"], [])
         self.assertEqual({gap["count"] for gap in body["missing"].values()}, {0})
+
+
+class UpdatesRouteTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
+        marks = tempfile.TemporaryDirectory()
+        self.addCleanup(marks.cleanup)
+        patcher = patch.object(vps_marks, "PATH", Path(marks.name) / "marks.json")
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    @staticmethod
+    def found(game: str, vps_id: str, release: str, now: str) -> dict[str, Any]:
+        return {"game_id": f"id-{game}", "vps_id": vps_id, "game": game, "img_url": "",
+                "moves": [{"source": "vps", "kind": "tableFiles", "release_id": release,
+                           "vps_id": vps_id, "file": f"{game}.vpx", "then": "1.0",
+                           "now": now}]}
+
+    def get(self, path: str, found: list[dict[str, Any]]) -> Any:
+        with patch.object(library_updates, "found", return_value=found):
+            return self.client.get(path)
+
+    def test_it_answers_the_games_and_how_many(self) -> None:
+        found = [self.found("Batman", "g2", "t2", "1.1"), self.found("Alien", "g1", "t1", "1.2")]
+
+        body = self.get("/discovery/updates", found).json()
+
+        self.assertEqual((2, ["id-Alien", "id-Batman"]), (body["count"], body["game_ids"]))
+        self.assertEqual(["Alien", "Batman"], [one["game"] for one in body["games"]])
+        self.assertEqual("1.2", body["games"][0]["moves"][0]["now"])
+
+    def test_a_skipped_version_is_not_counted_and_the_next_one_is(self) -> None:
+        self.client.put("/discovery/marks", json={
+            "state": "ignored", "scope": "version", "id": "t1", "detail": "1.2"})
+
+        self.assertEqual(0, self.get(
+            "/discovery/updates", [self.found("Alien", "g1", "t1", "1.2")]).json()["count"])
+        self.assertEqual(1, self.get(
+            "/discovery/updates", [self.found("Alien", "g1", "t1", "1.3")]).json()["count"])
+
+    def test_ignoring_updates_leaves_every_later_version(self) -> None:
+        self.client.put("/discovery/marks", json={
+            "state": "ignored", "scope": "updates", "id": "t1"})
+
+        self.assertEqual(0, self.get(
+            "/discovery/updates", [self.found("Alien", "g1", "t1", "9.9")]).json()["count"])
+
+    def test_home_carries_the_first_games_and_counts_them_all(self) -> None:
+        found = [self.found(f"Game {n:02d}", f"v{n}", f"t{n}", "1.1")
+                 for n in range(vps_updates.SHELF_SHOWN + 3)]
+
+        with patch.object(rollup, "stored", return_value={}), \
+                patch.object(media_fill, "offered_listing", return_value={}), \
+                patch.object(media_fill, "holders", return_value={}), \
+                patch.object(rollup, "load_vpsdb", return_value=[]), \
+                patch.object(vps_releases, "load_vpsdb", return_value=[]), \
+                patch.object(library_updates, "found", return_value=found):
+            shelf = self.client.get("/discovery/home").json()["updates"]
+
+        self.assertEqual(vps_updates.SHELF_SHOWN + 3, shelf["count"])
+        self.assertEqual(vps_updates.SHELF_SHOWN, len(shelf["games"]))
+        self.assertEqual(vps_updates.SHELF_SHOWN + 3, len(shelf["game_ids"]))
+
+    def test_home_goes_without_the_shelf_when_the_updates_cannot_be_found(self) -> None:
+        with patch.object(rollup, "stored", return_value={}), \
+                patch.object(media_fill, "offered_listing", return_value={}), \
+                patch.object(media_fill, "holders", return_value={}), \
+                patch.object(rollup, "load_vpsdb", return_value=[]), \
+                patch.object(vps_releases, "load_vpsdb", return_value=[]), \
+                patch.object(library_updates, "found", side_effect=RuntimeError("no index")):
+            response = self.client.get("/discovery/home")
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(0, response.json()["updates"]["count"])
+
+    def test_a_game_named_is_the_only_one_looked_at(self) -> None:
+        one = [self.found("Alien", "g1", "t1", "1.2")]
+
+        with patch.object(library_updates, "found", side_effect=AssertionError("whole library")), \
+                patch.object(library_updates, "found_for", return_value=one) as asked:
+            body = self.client.get("/discovery/updates?game_id=id-Alien").json()
+
+        asked.assert_called_once_with("id-Alien")
+        self.assertEqual(["id-Alien"], body["game_ids"])
 
 
 if __name__ == "__main__":

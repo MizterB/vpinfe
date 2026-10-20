@@ -292,7 +292,19 @@ def _have(context: dict[str, Any], scene: Scene, kind: Kind, held: dict[str, str
                 panel.icon_action(
                     t("manager.discovery.match"), partial(_match_held, context, scene, kind, name),
                     icon=verbs.MATCH, hint=t("manager.discovery.match"))()
+            if later := _newer(context, scene, held):
+                ui.label(t("manager.discovery.update.row", version=later)).classes("manager-label")
             ui.label(t("manager.discovery.have")).classes("manager-have")
+
+
+def _newer(context: dict[str, Any], scene: Scene, held: dict[str, str]) -> str:
+    """The version VPS lists now for the release a held file is tied to, where that is later
+    than when it was tied and the update has not been skipped or ignored."""
+    file_id = str(held.get("vps_file_id") or "")
+    if not file_id or not scene.game_id:
+        return ""
+    return next((str(move["now"]) for move in context["library"].update_moves(scene.game_id)
+                 if move["release_id"] == file_id), "")
 
 
 def _looked(context: dict[str, Any], scene: Scene, kind: Kind) -> dict[str, str]:

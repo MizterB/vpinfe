@@ -202,6 +202,57 @@ class ImportRecordingTests(TempTree):
         execute_import_plan(plan, source, declared=declared)
         return MetaConfig(str(game / "Target.info"))
 
+    def _import_again(self, identity, body: str):
+        """Another drop of the same file name into the game `_plan_and_import` made."""
+        import zipfile
+
+        from common.uploads.asset_analyzer_service import analyze_upload_session
+        from common.uploads.asset_import_service import (
+            build_import_plan,
+            execute_import_plan,
+        )
+
+        game = self.root / "Target"
+        session = self.root / "session2"
+        session.mkdir()
+        with zipfile.ZipFile(session / "drop.zip", "w") as zf:
+            zf.writestr("Target.directb2s", body)
+        analysis, source = analyze_upload_session(session)
+        plan = build_import_plan(analysis, game_dir=game)
+        execute_import_plan(plan, source, declared={"Target.directb2s": identity})
+        return MetaConfig(str(game / "Target.info"))
+
+    def _tie_of(self, meta) -> dict:
+        [entry] = [a.get("source", {}) for a in meta.data.get("assets", {}).values()]
+        return entry
+
+    def test_importing_a_later_version_of_the_release_held_records_the_version(self) -> None:
+        """The same release at the same rank keeps the first witness, but the version the
+        tie measures an update from is the one VPS lists for the file now held."""
+        identity = _identity(host="vpsdb", host_item_id="h1", vps_file_id="f1",
+                             confirmed_by=claims.DECLARED)
+        release = {"id": "f1", "version": "1.0"}
+        listing = [{"id": "e1", "b2sFiles": [release]}]
+        with patch("common.games.game_service.load_vpsdb", return_value=listing):
+            first = self._plan_and_import(identity)
+        release["version"] = "1.2"
+        with patch("common.games.game_service.load_vpsdb", return_value=listing):
+            again = self._import_again(identity, "newer b2s bytes")
+
+        self.assertEqual("1.0", self._tie_of(first)["vps_version"])
+        self.assertEqual("1.2", self._tie_of(again)["vps_version"])
+
+    def test_importing_the_same_version_again_leaves_the_record_alone(self) -> None:
+        identity = _identity(host="vpsdb", host_item_id="h1", vps_file_id="f1",
+                             confirmed_by=claims.DECLARED)
+        listing = [{"id": "e1", "b2sFiles": [{"id": "f1", "version": "1.0"}]}]
+        with patch("common.games.game_service.load_vpsdb", return_value=listing):
+            first = self._plan_and_import(identity)
+            before = dict(self._tie_of(first))
+            again = self._import_again(identity, "same b2s bytes")
+
+        self.assertEqual(before, self._tie_of(again))
+
     def test_a_declared_identity_reaches_the_info(self) -> None:
         meta = self._plan_and_import(_identity(
             host="vpsdb", host_item_id="h1", vps_file_id="f1",

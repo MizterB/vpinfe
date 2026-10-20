@@ -743,6 +743,12 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             choices=("never", "daily", "weekly", "monthly"),
             home="library.discovery",
         ),
+        ConfigOption(
+            "show_update_count",
+            type="bool",
+            default="true",
+            home="library.discovery",
+        ),
     ),
     # What the frontend shows, as against what it does. Every one is served to themes
     # over the bridge, so renaming a key here changes what a published theme reads.

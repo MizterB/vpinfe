@@ -397,8 +397,8 @@ def _nothing_yet(words: str, library: Any, state: dict[str, Any],
     """What a page shows in place of a grid with no rows: where rows come from, and a
     way to pick up ones that arrived by hand. A link's filter is spent here, not held
     for the first row that appears."""
-    for key in ("arriving", "launcher", "sets", "reported", NEW_KEY, FIXES_KEY, UNFILLED_KEY,
-                LACKING_KEY):
+    for key in ("arriving", "launcher", "sets", "reported", NEW_KEY, UNFILLED_KEY, LACKING_KEY,
+                UPDATES_KEY):
         state.pop(key, None)
     sections.metadata_line(library, state)
     panel.facts(ui, [panel.intro(t(words, page=t("manager.section.library_folders")))])
@@ -431,7 +431,9 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
     only_new = state.pop(NEW_KEY, None)
     unfilled = state.pop(UNFILLED_KEY, None)
     lacking = state.pop(LACKING_KEY, None)
-    rows = stamp_lacking(stamp_unfilled(stamp_new(rows, only_new), unfilled), lacking)
+    updating = state.pop(UPDATES_KEY, None)
+    rows = stamp_updates(
+        stamp_lacking(stamp_unfilled(stamp_new(rows, only_new), unfilled), lacking), updating)
     columns = grid_columns(rows, kinds, library)
     if only_new is not None:
         columns.append(new_column())
@@ -439,6 +441,8 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
         columns.append(unfilled_column())
     if lacking is not None:
         columns.append(lacking_column())
+    if updating is not None:
+        columns.append(updates_column())
     all_fields = [definition["field"] for definition in columns]
     selected: list[dict[str, Any]] = []
 
@@ -469,7 +473,8 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
         # Taken once: a filter a link asked for is not put back on every redraw after.
         arriving = state.pop("arriving", None) \
             or ({"collections": {"values": [narrowed]}} if narrowed else None)
-        if only_new is not None or unfilled is not None or lacking is not None:
+        if only_new is not None or unfilled is not None or lacking is not None \
+                or updating is not None:
             arriving = {}
             if only_new is not None:
                 arriving[NEW_COLUMN] = {"values": [new_label()]}
@@ -477,6 +482,8 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
                 arriving[UNFILLED_COLUMN] = {"values": [unfilled_label()]}
             if lacking is not None:
                 arriving[LACKING_COLUMN] = {"values": [lacking_label()]}
+            if updating is not None:
+                arriving[UPDATES_COLUMN] = {"values": [updates_label()]}
         wire_views, view_picker, showing, describe = view_control(
             library, SCOPE, presets, all_fields, columns, bar=bar, annotate=annotate,
             arriving=arriving, art_in_lists=True)
@@ -884,9 +891,12 @@ UNFILLED_COLUMN = "unfilled"
 LACKING_KEY = "lacking_games"
 LACKING_COLUMN = "lacking"
 
-# The ids of the tables a script fix is published for, as `state[FIXES_KEY]`, and the column
-# that lets the Tables grid narrow to them.
-FIXES_KEY = "script_fixes"
+# The ids of the games Home's Updates counts, as `state[UPDATES_KEY]`, and the column that
+# lets the Games grid narrow to them.
+UPDATES_KEY = "updated_games"
+UPDATES_COLUMN = "updates"
+
+# The column of the tables a script fix is published for, in the Tables grid.
 FIXES_COLUMN = "script_fix"
 
 # The game's rating on a table's row: `rating` there is the table's own.
@@ -897,10 +907,8 @@ TABLE_COLUMN_SECTIONS = {"settings": "table_settings", OWN_SETTINGS_COLUMN: "tab
 
 _ROM_INSTALLED, _ROM_MISSING, _ROM_UNKNOWN = "installed", "missing", "unknown"
 
-# The Tables grid on the tables whose ROM is missing, or that have a newer release, as
-# `state["arriving"]`.
+# The Tables grid on the tables whose ROM is missing, as `state["arriving"]`.
 ROM_MISSING = {"rom_state": {"values": [_ROM_MISSING]}}
-NEWER_ON_VPS = {"update": {"values": [_NEWER]}}
 UNTIED = {"release": {"values": [ties.UNTIED]}}
 
 # Tokens, not words: a filter and a saved view store what the cell holds, and the words
@@ -1251,6 +1259,15 @@ def lacking_column() -> dict[str, Any]:
                             help=t("manager.games.lacking_column.help"))
 
 
+def updates_label() -> str:
+    return t("manager.games.updates_group")
+
+
+def updates_column() -> dict[str, Any]:
+    return grid.list_column(UPDATES_COLUMN, t("manager.games.updates_column"), 120,
+                            help=t("manager.games.updates_column.help"))
+
+
 def fixes_label() -> str:
     return t("manager.games.fix_group")
 
@@ -1280,6 +1297,12 @@ def stamp_lacking(built: list[dict[str, Any]],
                   ids: Collection[str] | None) -> list[dict[str, Any]]:
     """Each row says whether a Home tab of missing media counts it, in the Missing column."""
     return _stamped(built, ids, LACKING_COLUMN, lacking_label())
+
+
+def stamp_updates(built: list[dict[str, Any]],
+                  ids: Collection[str] | None) -> list[dict[str, Any]]:
+    """Each row says whether Home's Updates counts it, in the Updates column."""
+    return _stamped(built, ids, UPDATES_COLUMN, updates_label())
 
 
 def stamp_fixes(built: list[dict[str, Any]],
@@ -1372,10 +1395,9 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
     look = library.thumbnail_look()
     reported = state.pop("reported", None)
     only_new = state.pop(NEW_KEY, None)
-    arrived_for = state.pop(FIXES_KEY, None)
-    # Stamped on every visit, not only one that came from the fix list: the column is
-    # there to be filtered on, and until the daily check has run nothing in it is marked.
-    mended = arrived_for if arrived_for is not None else library.script_fix_tables() or None
+    # Stamped on every visit: the column is there to be filtered on, and until the daily
+    # check has run nothing in it is marked.
+    mended = library.script_fix_tables() or None
     built = stamp_fixes(
         stamp_new(stamp_report(table_rows(rows, look is not None), reported), only_new),
         mended)
@@ -1385,12 +1407,8 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
     arriving = state.pop("arriving", None) or arriving
     if reported is not None:
         arriving = {REPORTED_COLUMN: {"values": [reported.label]}}
-    if only_new is not None or arrived_for is not None:
-        arriving = {}
-        if only_new is not None:
-            arriving[NEW_COLUMN] = {"values": [new_label()]}
-        if arrived_for is not None:
-            arriving[FIXES_COLUMN] = {"values": [fixes_label()]}
+    if only_new is not None:
+        arriving = {NEW_COLUMN: {"values": [new_label()]}}
     table_columns = grid.with_art(TABLE_COLUMNS, look) \
         + table_asset_columns(table_asset_keys(library))
     if reported is not None:
@@ -1403,7 +1421,6 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
 
     sections.metadata_line(library, state)
     sections.no_tables_line(library, state)
-    sections.script_fixes_line(library, state)
     with ui.row().classes("w-full items-center gap-2 px-3 py-2 mb-2 shrink-0 "
                                   "manager-panel manager-grid-bar"):
         bar = panel.grid_bar()

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import re
 import time
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from typing import Any
 
 from common.config.labels import field_label
@@ -234,6 +234,8 @@ class Library:
         self._hidden_overview: set[str] | None = None
         self._dismissed: dict[str, list[str]] = {}
         self._marks: list[dict[str, Any]] | None = None
+        self._update_moves: dict[str, list[dict[str, Any]]] = {}
+        self.after_tie: Callable[[], None] | None = None
         self._dismissed_read = False
         self._watched: dict[str, Any] | None = None
         self._watched_at = 0.0
@@ -2014,12 +2016,18 @@ class Library:
         self._client.set_table_source(game_id, table_id, vps_file_id)
         self._forget_tables(game_id)
         self._forget_games()
+        self._tied()
 
     def set_asset_source(self, game_id: str, path: str, vps_file_id: str) -> None:
         self._client.set_asset_source(game_id, path, vps_file_id)
         self._forget_tables(game_id)
         self.forget_media(game_id)
         self._forget_games()
+        self._tied()
+
+    def _tied(self) -> None:
+        if self.after_tie is not None:
+            self.after_tie()
 
     def vps_releases(self, vps_id: str, listed_as: str = "tableFiles") -> list[dict]:
         """Held like the entry is. Keyed by kind as well: a cache on the id alone would
@@ -2128,6 +2136,18 @@ class Library:
         """The pictures a source has replaced since they were placed, of one game or every
         game. Off the loop."""
         return list(self._client.picture_changes(game_id).get("pictures") or [])
+
+
+    def load_updates(self, game_id: str) -> list[dict[str, Any]]:
+        """Read what of this game has a later version. Off the loop."""
+        shelf = self._client.discovery_updates(game_id)
+        moves = [dict(move) for one in shelf.get("games") or () for move in one.get("moves") or ()]
+        self._update_moves[game_id] = moves
+        return moves
+
+    def update_moves(self, game_id: str) -> list[dict[str, Any]]:
+        """What of this game has a later version, as last read; none before a read."""
+        return list(self._update_moves.get(game_id) or ())
 
     def load_marks(self) -> list[dict[str, Any]]:
         """Read what is marked Wanted or Ignored. Off the loop."""

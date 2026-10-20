@@ -67,8 +67,8 @@ AREAS: dict[str, tuple[str, ...]] = {
                   "game_play", "game_guides", "game_assets", "game_match", "app_settings",
                   "selection_marks", "discovery_rail"),
     "remote": ("remote", "remote_record"),
-    "shell": ("page", "edit_page", "report_page", "power", "rail_marks", "host", "loopback",
-              "app_control"),
+    "shell": ("page", "edit_page", "report_page", "power", "rail_marks", "update_count", "host",
+              "loopback", "app_control"),
 }
 AREA_OF = {module: area for area, modules in AREAS.items() for module in modules}
 

@@ -17,7 +17,8 @@ from nicegui import ui
 
 from common.failures import why
 from common.i18n import t
-from common.online import vps_marks
+from common.media.media_specs import media_label_map
+from common.online import picture_changes, vps_marks
 from manager.kit import grid as grid_module
 from manager.kit import offload, panel, renderers, undo, verbs
 from manager.kit.data import Library
@@ -38,6 +39,7 @@ NEW = "new"
 MISSING = "missing"
 WANT = "wanted"
 DONT_HAVE = "dont_have"
+UPDATE = "updates"
 
 After = Callable[[], Awaitable[None]]
 
@@ -137,10 +139,10 @@ def _called(subjects: Sequence[Subject]) -> str:
     return t(key, count=len(subjects))
 
 
-def _said(state: str, before: set[str], name: str) -> str:
+def _said(state: str, before: set[str], name: str, *, skipped: bool = False) -> str:
     """What the notice says: what was set, and what it took the thing off."""
     if state == IGNORED:
-        key = "ignored_unwanted" if WANTED in before else "ignored"
+        key = "skipped" if skipped else "ignored_unwanted" if WANTED in before else "ignored"
     elif state == WANTED:
         key = "wanted_unignored" if IGNORED in before else "wanted"
     elif IGNORED in before:
@@ -154,7 +156,7 @@ def _said(state: str, before: set[str], name: str) -> str:
 
 @on_page
 async def apply(library: Library, state: str, subjects: Sequence[Subject], after: After,
-                *, name: str = "") -> None:
+                *, name: str = "", skipped: bool = False) -> None:
     """Put `state` on each subject, or take its mark off for "", and offer Undo.
 
     Undo puts each back as it was, which is unmarked for one that held nothing. A change
@@ -189,7 +191,7 @@ async def apply(library: Library, state: str, subjects: Sequence[Subject], after
             raise stuck
 
     said = _said(state, {before for _one, before in changed},
-                 name or _called([one for one, _before in changed]))
+                 name or _called([one for one, _before in changed]), skipped=skipped)
     if said:
         undo.offer(said, reverse)
     await after()
@@ -200,7 +202,8 @@ async def apply(library: Library, state: str, subjects: Sequence[Subject], after
 
 
 def _entry(library: Library, subjects: Sequence[Subject], after: After, *, state: str,
-           label: str, icon: str, among: str, name: str = "") -> panel.Verb | None:
+           label: str, icon: str, among: str, name: str = "",
+           skipped: bool = False) -> panel.Verb | None:
     """The entry that sets `state` ("" to take it off) on the subjects whose state is
     `among` or, for a set, is not it. None where none of them qualifies."""
     if state:
@@ -209,8 +212,9 @@ def _entry(library: Library, subjects: Sequence[Subject], after: After, *, state
         fitting = [one for one in subjects if one.state == among]
     if not fitting:
         return None
-    return panel.Verb(label, lambda: apply(library, state, fitting, after, name=name),
-                      icon=icon)
+    return panel.Verb(
+        label, lambda: apply(library, state, fitting, after, name=name, skipped=skipped),
+        icon=icon)
 
 
 def _wanting(library: Library, subjects: Sequence[Subject], after: After) -> list[panel.Verb]:
@@ -301,6 +305,17 @@ def ignored_status(library: Library, row: Mapping[str, Any], after: After) -> bo
     return True
 
 
+def recounting(state: dict[str, Any], redraw: After) -> After:
+    """`redraw`, then the count on Discovery's entry read again: a mark, a tie or a take
+    that redrew the page can have moved it. Home counts from its own read instead."""
+    async def again() -> None:
+        await redraw()
+        if (update_count := state.get("update_count")) is not None:
+            await update_count.recount()
+
+    return again
+
+
 def release_marks(context: dict[str, Any], row: Any, game: str, kind_word: str,
                   record: Mapping[str, Any]) -> None:
     """A release in the pane: its mark beside the name, and the menu a right click or a long
@@ -352,6 +367,48 @@ class Marking:
 
     def wanted_game(self, vps_id: str) -> bool:
         return read(self.library).wanted(vps_marks.GAME, vps_id)
+
+    def update_verbs(self, item: Mapping[str, Any],
+                     kind_word: Callable[[str], str]) -> list[panel.Verb]:
+        """Skip This Version and Ignore Updates to This Table, for every release of the game's
+        files that has moved and every picture a source has replaced, the pictures under the
+        id the Discovery pane writes them with. A move another source reports names no
+        release and no picture of its own has nothing to skip: the entries are left off a tile
+        that has only those."""
+        found = read(self.library)
+        game = str(item["game"])
+        moved = [one for one in item["moves"] if one["release_id"]]
+        pictures = [one for one in item["moves"] if one.get("md5")]
+        words = media_label_map()
+        versions = [Subject(vps_marks.VERSION, str(one["release_id"]),
+                            release_name(game, kind_word(str(one["kind"])), str(one["now"])),
+                            found.state(vps_marks.VERSION, str(one["release_id"]),
+                                        str(one["now"])), str(one["now"]))
+                    for one in moved]
+        releases = [Subject(vps_marks.UPDATES, str(one["release_id"]), game,
+                            found.state(vps_marks.UPDATES, str(one["release_id"])))
+                    for one in moved]
+        for one in pictures:
+            at = picture_changes.key(str(one["vps_id"]), str(one["kind"]))
+            word = words.get(str(one["kind"]), str(one["kind"]))
+            versions.append(Subject(
+                vps_marks.VERSION, at, t("manager.discovery.mark.picture_new", kind=word,
+                                         game=game),
+                found.state(vps_marks.VERSION, at, str(one["md5"])), str(one["md5"])))
+            releases.append(Subject(
+                vps_marks.UPDATES, at, t("manager.discovery.mark.picture_updates", kind=word,
+                                         game=game),
+                found.state(vps_marks.UPDATES, at)))
+        if not versions:
+            return []
+        out = [_entry(self.library, versions, self.after, state=IGNORED, among="",
+                      label=t("manager.discovery.mark.skip_version"), icon=verbs.IGNORE,
+                      name=versions[0].name if len(versions) == 1
+                      else t("manager.discovery.mark.versions_name", game=game), skipped=True),
+               _entry(self.library, releases, self.after, state=IGNORED, among="",
+                      label=t("manager.discovery.mark.ignore.updates"), icon=verbs.IGNORE,
+                      name=t("manager.discovery.mark.updates_name", game=game))]
+        return [one for one in out if one is not None]
 
     def title(self, shelf: str, item: Mapping[str, Any]) -> str:
         return str(item["name"] if shelf == MISSING else item["game"])

@@ -55,6 +55,24 @@ def _read(path: Any) -> Any:
     return found if isinstance(found, dict) and found.get("schema") == SCHEMA else None
 
 
+_held: tuple[Any, Any] | None = None
+
+
+def _kept_answer() -> Any:
+    """The answer file as `_read` gives it, parsed again only when the file has changed.
+    `upgrades` asks once per game, so the file is not read once per game."""
+    global _held
+    try:
+        seen = ANSWER_PATH.stat()
+        stamp = (ANSWER_PATH, seen.st_mtime_ns, seen.st_size)
+    except OSError:
+        _held = None
+        return None
+    if _held is None or _held[0] != stamp:
+        _held = (stamp, _read(ANSWER_PATH))
+    return _held[1]
+
+
 def _write(path: Any, body: dict[str, Any]) -> None:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -149,7 +167,7 @@ def answer() -> dict[str, Any]:
     """What the last check found, as `standalone_scripts.offered_for` answers it, with
     `checked_at` for when. Nothing is asked of the network. Before the first check, and while
     the source is switched off or does not apply here, it is not reachable and offers nothing."""
-    held = _read(ANSWER_PATH)
+    held = _kept_answer()
     if not held or not available() or not sources.enabled(SOURCE):
         return {"reachable": False, "offered": [], "already": 0, "checked": 0,
                 "checked_at": ""}
@@ -162,13 +180,17 @@ def answer() -> dict[str, Any]:
 
 def upgrades(who: Mapping[str, Any], kind: str) -> dict[str, Any]:
     """The fix the last check found for the game in the folder `who` names, as `{"folder"}`,
-    or nothing. A fix replaces a table's script, so it answers for that slot only."""
-    if kind != KIND:
+    or nothing. A fix replaces a table's script, so it answers for that slot only. Asked only
+    of an enabled source, by `sources.upgrades`, so the setting is not read again for each
+    game."""
+    held = _kept_answer()
+    if kind != KIND or not held or not available():
         return {}
     folder = re.split(r"[\\/]", str(who.get("folder") or "").rstrip("\\/"))[-1]
-    return {"folder": folder} if folder and folder in answer()["offered"] else {}
+    return {"folder": folder} if folder and folder in [str(one) for one in
+                                                       held.get("offered") or ()] else {}
 
 
 SOURCE = Source(id=ID, name="VPX Standalone Scripts",
                 url="https://github.com/jsm174/vpx-standalone-scripts",
-                refresh=refresh, upgrades=upgrades)
+                refresh=refresh, upgrades=upgrades, upgrades_for=frozenset({KIND}))

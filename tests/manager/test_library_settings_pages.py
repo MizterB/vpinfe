@@ -70,7 +70,7 @@ class TheChecksPage(_Offloaded):
         ["Unreadable Folders", "Games With No Tables", "Games on an Older Format"],
         ["Unmatched Games", "Tables With No Release Picked", "Games With No Year"],
         ["Games With No Playfield", "Games With No Backglass", "Games With No Media"],
-        ["Missing ROMs", "Updated Table Releases", "Table Script Fixes"],
+        ["Missing ROMs"],
     ]
 
     async def test_the_rows_are_drawn_under_four_headings_in_that_order(self) -> None:
@@ -99,8 +99,8 @@ class TheChecksPage(_Offloaded):
 
         self.assertLessEqual(listed, set(settings._check_labels()))
         self.assertEqual({"unreadable", "no_tables", "older_format", "unmatched", "untied",
-                          "no_year", "no_playfield", "no_backglass", "no_media", "rom_missing",
-                          "newer", "script_fixes"}, set(settings._check_labels()))
+                          "no_year", "no_playfield", "no_backglass", "no_media", "rom_missing"},
+                         set(settings._check_labels()))
 
     async def test_the_page_is_drawn_from_the_one_table_that_names_the_checks(self) -> None:
         declared = [key for _heading, checks in settings.CHECK_GROUPS for key, _label in checks]
@@ -149,10 +149,10 @@ class TheDiscoveryPage(_Offloaded):
             self) -> None:
         shown = await self._draw(EXTENSION, VPINMEDIADB)
 
-        self.assertEqual(["Sources", "lede"], shown[:2])
-        self.assertEqual("Virtual Pinball Spreadsheet", shown[2])
+        self.assertEqual(["Updates", "Show Update Count", "note", "Sources", "lede"], shown[:5])
+        self.assertEqual("Virtual Pinball Spreadsheet", shown[5])
         at = shown.index("sub Last Checked")
-        self.assertGreater(at, 2)
+        self.assertGreater(at, 5)
         self.assertEqual("rule", shown[at + 1])
 
     async def test_the_catalog_is_first_with_a_line_under_it_and_a_rule_between_sources(
@@ -191,11 +191,42 @@ class TheDiscoveryPage(_Offloaded):
         library = _library({}, VPINMEDIADB)
         with patch.object(panel, "switch") as switch:
             await self._page(library)
-        [(_, on_change)] = [call.args for call in switch.call_args_list]
+        [*_, (_, on_change)] = [call.args for call in switch.call_args_list]
 
         await on_change(MagicMock(value=False))
 
         library.put_library_policy.assert_called_once_with({"hidden_sources": ["vpinmediadb"]})
+
+    async def test_the_update_count_switch_is_on_and_counts_again_once_it_is_written(
+            self) -> None:
+        library = _library({}, VPINMEDIADB)
+        recount = AsyncMock()
+        with patch.object(panel, "switch") as switch:
+            region = await settings._discovery_page(
+                library, MagicMock(), {"recount_updates": recount})
+            await region.refilled()
+        [(value, on_change), *_] = [call.args for call in switch.call_args_list]
+
+        self.assertTrue(value)
+        recount.assert_not_awaited()
+        await on_change(MagicMock(value=False))
+
+        library.put_config.assert_called_once_with({"updates": {"show_update_count": False}})
+        recount.assert_awaited_once()
+
+    async def test_a_count_setting_that_was_refused_does_not_count_again(self) -> None:
+        library = _library({}, VPINMEDIADB)
+        library.put_config.side_effect = OSError("refused")
+        recount = AsyncMock()
+        with patch.object(panel, "switch") as switch, patch.object(settings.ui, "notify"):
+            region = await settings._discovery_page(
+                library, MagicMock(), {"recount_updates": recount})
+            await region.refilled()
+        [(_, on_change), *_] = [call.args for call in switch.call_args_list]
+
+        await on_change(MagicMock(value=False))
+
+        recount.assert_not_awaited()
 
     async def test_the_sync_state_failing_is_said_in_place_of_the_time(self) -> None:
         library = _library({}, VPINMEDIADB)

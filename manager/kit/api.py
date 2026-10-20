@@ -542,6 +542,13 @@ class ApiClient:
         return dict(self._get("/discovery/pictures" + (
             "?" + urlencode({"game_id": game_id}) if game_id else "")))
 
+
+    def discovery_updates(self, game_id: str = "") -> dict:
+        """The games with a later version of something they hold: `count`, `game_ids` and
+        `games`, each with the `moves` behind it. With `game_id`, that game alone."""
+        return dict(self._get(f"/discovery/updates?game_id={quote(game_id, safe='')}"
+                              if game_id else "/discovery/updates"))
+
     def discovery_marks(self) -> list[dict]:
         """Everything marked Wanted or Ignored on this install, the newest first."""
         return list(self._get("/discovery/marks").get("marks") or [])

@@ -450,21 +450,6 @@ class OnWindows(_Kept):
         applied.assert_not_called()
         self.assertEqual([], jobs.recent())
 
-    def test_the_checks_page_has_no_switch_for_it_and_keeps_the_others(self) -> None:
-        labels = settings._check_labels()
-
-        self.assertNotIn("script_fixes", labels)
-        self.assertIn("newer", labels)
-        self.assertNotIn(t("manager.settings.check_script_fixes"),
-                         [label for label, _draw in settings._checks_arranged(
-                             [(key, label, lambda: None) for key, label in labels.items()])
-                          if isinstance(label, str)])
-
-    def test_the_checks_page_has_the_switch_elsewhere(self) -> None:
-        script_fixes.sys.platform = "darwin"
-
-        self.assertIn("script_fixes", settings._check_labels())
-
     def test_the_sources_page_does_not_list_it(self) -> None:
         with patch.object(sources, "_built_in_loaded", False), \
                 patch.dict(sources._sources, {}, clear=True):
@@ -473,11 +458,8 @@ class OnWindows(_Kept):
 
         self.assertNotIn(script_fixes.ID, [one["id"] for one in listed])
 
-    def test_the_tables_notice_and_the_overview_row_have_nothing_to_draw(self) -> None:
-        from nicegui import ui
-
+    def test_the_tables_grid_marks_no_table_where_it_is_not_available(self) -> None:
         from manager.kit.data import Library
-        from manager.settings import sections as manager_sections
 
         client = MagicMock()
         client.script_patches.return_value = script_fixes.answer()
@@ -487,10 +469,6 @@ class OnWindows(_Kept):
         library.load_kept_kinds()
         library.load_tables_view()
 
-        with ui.column() as page:
-            manager_sections.script_fixes_line(library, {})
-
-        self.assertEqual([], [one for one in page.descendants() if isinstance(one, ui.label)])
         self.assertEqual((), library.script_fix_tables())
 
 

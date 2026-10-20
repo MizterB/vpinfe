@@ -23,6 +23,7 @@ from common.games import (
     game_repository,
     game_service,
     library_folders,
+    library_updates,
     library_vps_state,
     media_fill,
     tag_registry,
@@ -40,7 +41,7 @@ from common.games.game_metadata import (
 )
 from common.games.tables import table_entries
 from common.i18n import t
-from common.online import script_fixes, vps_home, vps_marks
+from common.online import script_fixes, vps_home, vps_marks, vps_updates
 from common.runtime import job_details
 from common.runtime import jobs as job_registry
 
@@ -288,7 +289,24 @@ def discovery_home(days: int) -> dict[str, Any]:
     fill from the library now. Asks no site."""
     return vps_home.home(library_vps_state.discovery(), library_vps_state.kept_listings(), days,
                          media=media_fill.offered_listing(), holders=media_fill.holders(),
-                         marks=vps_marks.read())
+                         marks=vps_marks.read(), updates=_updates_found())
+
+
+def _updates_found() -> list[dict[str, Any]]:
+    """The games with an update; none where they cannot be found, so Home goes without
+    that shelf rather than without itself."""
+    try:
+        return library_updates.found()
+    except Exception:  # noqa: BLE001 - one shelf of Home
+        logger.warning("Could not look for updates", exc_info=True)
+        return []
+
+
+def discovery_updates(game_id: str = "") -> dict[str, Any]:
+    """Every game of the library with a later version of something it holds, minus what is
+    skipped or ignored; the one game named by `game_id` where it is set. Asks no site."""
+    found = library_updates.found_for(game_id) if game_id else library_updates.found()
+    return vps_updates.shelf(found, vps_marks.read())
 
 
 def picture_changes(game_id: str = "") -> dict[str, Any]:

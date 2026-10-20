@@ -39,7 +39,7 @@ UNACCEPTED = "unaccepted:"
 ASKED = "asked:"
 
 # A fix VPinFE can do itself, the first entry of the row's menu.
-GET_MEDIA, UPDATE, FETCH_FIXES, UPGRADE = "get_media", "update", "fetch_fixes", "upgrade"
+GET_MEDIA, UPDATE, UPGRADE = "get_media", "update", "upgrade"
 
 _UNIT_GAMES = "manager.games.games"
 _UNIT_TABLES = "manager.games.tables"
@@ -133,13 +133,6 @@ def unfilled_opens(ids: tuple[str, ...]) -> Opens:
     from manager.library import games
 
     return Opens("games", keys={games.UNFILLED_KEY: ids})
-
-
-def script_fixes_opens(ids: tuple[str, ...]) -> Opens:
-    """The Tables grid on the tables a script fix is published for."""
-    from manager.library import games
-
-    return Opens("tables", keys={games.FIXES_KEY: ids})
 
 
 def no_tables_opens() -> Opens:
@@ -303,21 +296,6 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
                          t("manager.needs.update.tip"), ACCENT, verbs.UPDATE,
                          Opens("about"), fix=fix, token=(latest or UPDATE,)))
 
-    newer = tuple(sorted(str(row.get("id") or "") for row in library.table_rows()
-                         if row.get("update_available")))
-    if newer:
-        rows.append(Need("newer", t("manager.games.filter_newer"),
-                         t("manager.needs.newer.tip"), ACCENT, verbs.NEWER_RELEASE,
-                         Opens("tables", games.NEWER_ON_VPS),
-                         newer, _UNIT_TABLES))
-
-    if mended := library.script_fix_tables():
-        rows.append(Need("script_fixes", t("manager.sections.script_fixes"),
-                         t("manager.needs.script_fixes.tip"), ACCENT, verbs.FETCH,
-                         script_fixes_opens(mended),
-                         mended, _UNIT_TABLES,
-                         Fix(FETCH_FIXES, t("word.fetch"),
-                             t("manager.needs.script_fixes.fetch.help"))))
 
     if older := tuple(sorted(str(one) for one in metadata.get("pending_games") or ())):
         rows.append(Need("older_format", t("manager.needs.older_format"),
@@ -360,7 +338,7 @@ def collect(library: Any, state: Mapping[str, Any]) -> list[Need]:
 # Every row that can be set aside, in cost order. `unread` is not one: it is the page saying
 # it could not look, and setting that aside would hide the one thing it must say.
 ORDER = ("rom_missing", "launchers", "unreadable", "unmatched", "no_tables", "no_playfield",
-         "no_backglass", "no_media", "fill_errors", "update", "newer", "script_fixes", "recordings",
+         "no_backglass", "no_media", "fill_errors", "update", "recordings",
          "untied", "older_format", "no_year")
 
 # The rows about this install rather than the library. Their stop is this install's alone;
@@ -375,8 +353,7 @@ _ICONS = {"rom_missing": verbs.CANNOT_PLAY, "launchers": verbs.CANNOT_PLAY,
           "no_tables": verbs.NO_TABLE,
           "no_playfield": verbs.NO_ART, "no_backglass": verbs.NO_ART,
           "no_media": verbs.NO_MEDIA, "fill_errors": verbs.HAD_ERRORS,
-          "update": verbs.UPDATE, "newer": verbs.NEWER_RELEASE,
-          "script_fixes": verbs.FETCH, "recordings": verbs.REVIEW,
+          "update": verbs.UPDATE, "recordings": verbs.REVIEW,
           "older_format": verbs.OLDER_FORMAT, "untied": verbs.NO_MATCH,
           "no_year": verbs.NO_YEAR}
 
@@ -404,11 +381,6 @@ def blind(library: Any) -> set[str]:
     out: set[str] = set()
     if all(row.get("rom_installed") is None for row in rows):
         out.add("rom_missing")
-    if all(row.get("update_available") is None for row in rows):
-        out.add("newer")
-    patches = library.script_patches()
-    if not patches or patches.get("reachable") is False:
-        out.add("script_fixes")
     if not library.metadata_state():
         out |= {"unreadable", "older_format"}
     collected = library.kept_kinds()["media"]
@@ -430,8 +402,6 @@ def name_of(key: str) -> str:
             "unreadable": t("manager.needs.unreadable"),
             "fill_errors": t("manager.needs.fill_errors"),
             "update": t("manager.needs.update_unnamed"),
-            "newer": t("manager.games.filter_newer"),
-            "script_fixes": t("manager.sections.script_fixes"),
             "older_format": t("manager.needs.older_format"),
             "untied": t("manager.needs.untied"),
             "recordings": t("manager.needs.recordings")}[key]
@@ -455,8 +425,6 @@ def comes_back(key: str, need: Need | None = None) -> str:
             "no_media": t("manager.needs.back.no_media"),
             "fill_errors": t("manager.needs.back.fill_errors"),
             "update": t("manager.needs.back.update"),
-            "newer": t("manager.needs.back.newer"),
-            "script_fixes": t("manager.needs.back.script_fixes"),
             "recordings": t("manager.needs.back.recordings"),
             "older_format": t("manager.needs.back.older_format"),
             "untied": t("manager.needs.back.untied"),

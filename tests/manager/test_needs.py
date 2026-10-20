@@ -149,8 +149,8 @@ class OrderedByCost(unittest.TestCase):
         order = keys(needs.collect(lib, {"trouble": trouble}))
 
         self.assertEqual(["rom_missing", "launchers", "unreadable", "unmatched",
-                          "no_playfield", "no_backglass", "no_media", "update", "newer",
-                          "script_fixes", "recordings", "no_year"], order)
+                          "no_playfield", "no_backglass", "no_media", "update",
+                          "recordings", "no_year"], order)
 
     def test_the_tones_follow_the_cost(self):
         lib = FakeLibrary([game("g1", year="", vps_id="")], [table("g1", rom_installed=False)])
@@ -170,8 +170,6 @@ class WhereAClickLands(unittest.TestCase):
 
         self.assertEqual(("tables", games.ROM_MISSING),
                          (rows["rom_missing"].view, rows["rom_missing"].arriving))
-        self.assertEqual(("tables", games.NEWER_ON_VPS),
-                         (rows["newer"].view, rows["newer"].arriving))
         self.assertEqual(("games", games.UNMATCHED),
                          (rows["unmatched"].view, rows["unmatched"].arriving))
         self.assertEqual({games.UNFILLED_KEY: ("g1",)}, dict(rows["no_playfield"].keys))
@@ -346,25 +344,15 @@ class WhereAStopIsKept(unittest.TestCase):
         self.assertTrue(all(needs.is_device(key) for key in
                             ("launchers", "fill_errors", "update", "recordings")))
         self.assertFalse(any(needs.is_device(key) for key in
-                             ("rom_missing", "unreadable", "unmatched", "newer", "no_year")))
+                             ("rom_missing", "unreadable", "unmatched", "no_year")))
 
     def test_the_unread_row_cannot_be_set_aside(self):
         self.assertFalse(needs.can_set_aside("unread"))
         self.assertTrue(all(needs.can_set_aside(key) for key in needs.ORDER))
 
-    def test_no_vpx_and_no_catalog_leave_the_rom_and_newer_rows_blind(self):
+    def test_no_vpx_leaves_the_rom_row_blind(self):
         library = FakeLibrary(tables=[table("a", rom_installed=None, update_available=None)])
-        self.assertEqual({"rom_missing", "newer"}, needs.blind(library))
-
-    def test_script_fixes_are_blind_until_somebody_has_checked(self):
-        library = FakeLibrary(tables=[table("a", rom_installed=True, update_available=False)],
-                              patches={})
-        self.assertEqual({"script_fixes"}, needs.blind(library))
-
-    def test_script_fixes_are_blind_when_the_index_could_not_be_reached(self):
-        library = FakeLibrary(tables=[table("a", rom_installed=True, update_available=False)],
-                              patches={"reachable": False, "offered": []})
-        self.assertEqual({"script_fixes"}, needs.blind(library))
+        self.assertEqual({"rom_missing"}, needs.blind(library))
 
     def test_a_row_the_library_can_count_is_not_blind(self):
         library = FakeLibrary(tables=[table("a", rom_installed=True, update_available=False)])
@@ -571,7 +559,7 @@ class WhatTheLibrarysMetadataRaises(unittest.TestCase):
 
         self.assertEqual(
             ["Missing ROM", "Unreadable Folder", "Could Not Save", "Unmatched", "No Tables",
-             "No Playfield", "No Backglass", "No Media", "Updated on VPS", "Table Script Fixes",
+             "No Playfield", "No Backglass", "No Media",
              "Older Format", "Written by a Newer VPinFE", "No Year"],
             [one.label for one in group.rows])
 
@@ -656,20 +644,16 @@ class TablesWithNoReleasePicked(unittest.TestCase):
 
 
 class TableScriptFixes(unittest.TestCase):
-    def test_the_row_counts_tables_and_opens_the_grid_on_them_with_fetch_in_its_menu(self):
+    def test_a_fix_on_offer_is_no_row_of_what_needs_you(self):
         lib = FakeLibrary(patches={"reachable": True, "offered": ["Sample Game"]},
                           fixed=("t-g2", "t-g1"))
-        [row] = [one for one in needs.collect(lib, {}) if one.key == "script_fixes"]
-
-        self.assertEqual(needs.ACCENT, row.tone)
-        self.assertEqual("2 tables", row.counted())
-        self.assertEqual("tables", row.opens.view)
-        self.assertEqual({games.FIXES_KEY: ("t-g2", "t-g1")}, dict(row.opens.keys))
-        self.assertEqual(needs.FETCH_FIXES, row.fix.key)
-
-    def test_no_row_draws_before_anybody_has_checked(self):
-        lib = FakeLibrary(patches={})
         self.assertNotIn("script_fixes", keys(needs.collect(lib, {})))
+        self.assertNotIn("script_fixes", needs.ORDER)
+
+    def test_a_newer_release_on_vps_is_no_row_of_what_needs_you(self):
+        lib = FakeLibrary(tables=[table("a", rom_installed=True, update_available=True)])
+        self.assertNotIn("newer", keys(needs.collect(lib, {})))
+        self.assertNotIn("newer", needs.ORDER)
 
     def test_the_stamp_marks_only_the_tables_with_a_fix(self):
         built = [{"id": "t-a"}, {"id": "t-b"}]

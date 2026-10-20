@@ -137,6 +137,34 @@ class AnswerTests(_Kept):
         hashed.assert_called_once()
 
 
+    def test_what_a_game_is_offered_is_the_hash_and_the_source_of_the_slot(self) -> None:
+        self.keep(_change(self.folder, have=self.placed))
+
+        self.assertEqual(picture_changes.upgrades({"game_id": "g1"}, "wheel"),
+                         {"source": "vpinmediadb", "size": "", "md5": "new-md5"})
+        self.assertEqual(picture_changes.upgrades({"game_id": "g1"}, "flyer"), {})
+        self.assertEqual(picture_changes.upgrades({"game_id": "g2"}, "wheel"), {})
+
+    def test_a_game_with_no_change_is_answered_without_reading_the_settings(self) -> None:
+        self.keep(_change(self.folder, have=self.placed))
+
+        with patch.object(picture_changes, "get_ini_config") as read, \
+                patch.object(sources, "enabled") as enabled:
+            picture_changes.upgrades({"game_id": "g2"}, "wheel")
+            picture_changes.upgrades({"game_id": "g1"}, "flyer")
+
+        read.assert_not_called()
+        enabled.assert_not_called()
+
+    def test_a_rewritten_answer_is_read_again(self) -> None:
+        self.keep(_change(self.folder, have=self.placed))
+        self.assertEqual(1, len(picture_changes.pending()))
+
+        self.keep()
+
+        self.assertEqual([], picture_changes.pending())
+
+
 class RouteTests(_Kept):
     def setUp(self) -> None:
         super().setUp()

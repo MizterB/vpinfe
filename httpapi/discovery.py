@@ -35,8 +35,9 @@ def put_mark(payload: models.DiscoveryMarkRequest) -> models.DiscoveryMarks:
     """A thing is unmarked, Wanted or Ignored, never two: marking it replaces the state it
     held, which is answered as `replaced`. `400` for a state or scope that does not exist,
     for Wanted on anything but a game or a release, for a blank `id`, and for a `detail`
-    that does not suit the scope. `updates` and `version` marks are stored; on a release
-    nothing reads them yet, and on a picture a source has replaced `GET /pictures` does."""
+    that does not suit the scope. A `version` mark skips that version of a release's update
+    and an `updates` mark ignores every later one; on a picture a source has replaced they take
+    `<entry>:<kind>` as the id, and `GET /pictures` reads them."""
     return models.DiscoveryMarks.model_validate(library_ops.mark_discovery(
         payload.state, payload.scope, payload.id, payload.detail))
 
@@ -51,13 +52,24 @@ def delete_mark(scope: str = Query(...), vps_id: str = Query(..., alias="id"),
     return models.DiscoveryMarks.model_validate(library_ops.unmark_discovery(scope, vps_id, detail))
 
 
+@router.get("/updates", summary="Games with a later version of something they hold",
+            dependencies=[requires(scopes.GAMES_READ)])
+def discovery_updates(game_id: str = Query("")) -> models.HomeUpdates:
+    """Every game of the library holding a file tied to a release VPS now lists at a higher
+    version than when the tie was made, or one a source says has a later file, minus what is
+    skipped or ignored. The count is what Discovery's menu entry shows. `game_id` narrows the
+    answer to that one game, and only that game is looked at. Nothing is asked of any
+    site."""
+    return models.HomeUpdates.model_validate(library_ops.discovery_updates(game_id))
+
+
 @router.get("/home", summary="Discovery's front page",
             dependencies=[requires(scopes.GAMES_READ)])
 def discovery_home(days: int = Query(7, ge=1, le=MOST_DAYS)) -> models.DiscoveryHome:
     """New in the last `days`, the authors whose work the library holds, and the games that
-    lack a kind VPS lists, the games it has none of, minus whatever is ignored, and what is
-    wanted. Never compared here: `counted` empty means the library has not been, and nothing
-    then reads as held or lacking."""
+    lack a kind VPS lists, the games it has none of, minus whatever is ignored, what is wanted
+    and the games with a later version of something they hold. Never compared here: `counted`
+    empty means the library has not been, and nothing then reads as held or lacking."""
     return models.DiscoveryHome.model_validate(library_ops.discovery_home(days))
 
 

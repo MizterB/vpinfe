@@ -15,7 +15,6 @@ from typing import cast
 
 from common.games import standalone_scripts as scripts
 from common.games.game import Game
-from manager.settings import sections
 
 HASHES = [{"sha256": "aaa", "file": "Alpha.vbs",
            "patched": {"url": "https://example.invalid/Alpha.vbs"}}]
@@ -118,20 +117,3 @@ class OfferedTests(unittest.TestCase):
 
         self.assertFalse(found["reachable"])
         self.assertEqual(found["checked"], 0)
-
-
-class WordingTests(unittest.TestCase):
-    """What the script-fix notice says, which is the only part of this most people see."""
-
-    def test_offered_tables_are_named(self) -> None:
-        said = sections._script_fixes_said(
-            {"reachable": True, "offered": ["Alpha", "Beta"], "checked": 9})
-
-        self.assertIn("Alpha", said)
-        self.assertIn("2 of 9", said)
-
-    def test_a_long_list_is_cut_rather_than_run_on(self) -> None:
-        said = sections._script_fixes_said(
-            {"reachable": True, "offered": list("abcdef"), "checked": 9})
-
-        self.assertIn("and more", said)

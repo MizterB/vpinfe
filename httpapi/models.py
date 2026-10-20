@@ -4189,6 +4189,47 @@ class HomeGames(ApiModel):
     games: list[HomeGame] = []
 
 
+class HomeUpdateMove(ApiModel):
+    """One thing of a game that has a later version. `source` is `vps` for a release the
+    library's file is tied to, which VPS now lists at `now` where it listed `then` when the
+    tie was made, and the other source's id for what it says is later (`release_id` and
+    `then` are then empty, and `now` is its version where it names one). `kind` is the VPS
+    listing for `vps` and the kind of file the other source speaks of. `file` is the file
+    the tie is on, and for another source the folder of the game. `md5` is the hash of the
+    replacing picture where the source has replaced one of the game's pictures; `kind` is then
+    the media kind."""
+
+    source: str
+    kind: str
+    release_id: str = ""
+    vps_id: str = ""
+    file: str = ""
+    then: str = ""
+    now: str = ""
+    md5: str = ""
+
+
+class HomeUpdate(ApiModel):
+    """A game of the library with a later version of something it holds, once however many
+    of its files moved. `vps_id` is empty where the game is matched to no entry and its moves
+    name none."""
+
+    game_id: str
+    vps_id: str = ""
+    game: str
+    img_url: str = ""
+    moves: list[HomeUpdateMove] = []
+
+
+class HomeUpdates(ApiModel):
+    """`count` games have an update, `games` the ones shown and `game_ids` every one of them
+    by the library's id (what See All opens)."""
+
+    count: int = 0
+    game_ids: list[str] = []
+    games: list[HomeUpdate] = []
+
+
 class DiscoveryHome(ApiModel):
     """Every shelf of Discovery's front page: the VPS shelves from the last comparison, the
     media a source can fill from the library as it is now and the index already held.
@@ -4209,6 +4250,7 @@ class DiscoveryHome(ApiModel):
     missing: dict[str, HomeGaps] = {}
     wanted: HomeWanted = HomeWanted()
     dont_have: HomeGames = HomeGames()
+    updates: HomeUpdates = HomeUpdates()
 
 
 class DiscoveryMark(ApiModel):

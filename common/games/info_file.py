@@ -230,6 +230,14 @@ def read_info(path: str | os.PathLike[str]) -> dict[str, Any]:
     return read_record(path)[1]
 
 
+def _later_of_same_release(existing: dict[str, Any], new: dict[str, Any]) -> bool:
+    """Whether `new` is the release `existing` is tied to, listed at a higher version than
+    `existing` recorded: the file now held is the later one, so the tie measures from it."""
+    release = new.get(ties.FILE_KEY)
+    return bool(release and existing.get(ties.FILE_KEY) == release
+                and ties.update_available({**existing, "version": new.get(ties.VERSION_KEY)}))
+
+
 class MetaConfig:
     """One game's `.info`, upgraded to the current schema as it is read."""
 
@@ -668,7 +676,8 @@ class MetaConfig:
                     source[ties.VERSION_KEY] = listed
             existing = (self.data.get(ASSETS_KEY, {}).get(key) or {}).get("source") or {}
             if existing and not identity_claims.outranks(
-                    source.get("confirmed_by", ""), existing.get("confirmed_by", "")):
+                    source.get("confirmed_by", ""), existing.get("confirmed_by", "")) \
+                    and not _later_of_same_release(existing, source):
                 return
         else:
             source = {"host": host}

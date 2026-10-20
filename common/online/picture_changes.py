@@ -35,12 +35,24 @@ FIELDS = ("game_id", "vps_id", "name", "kind", "source", "size", "md5")
 _LOCK = threading.RLock()
 
 
+_kept: tuple[tuple[Any, ...], dict[str, Any]] | None = None
+
+
 def _read() -> dict[str, Any]:
+    """The answer file, parsed again only when the file has changed: `upgrades` asks about
+    every game and kind, and the file is not read for each."""
+    global _kept
     try:
+        seen = ANSWER_PATH.stat()
+        stamp = (ANSWER_PATH, seen.st_ino, seen.st_mtime_ns, seen.st_size)
+        if _kept is not None and _kept[0] == stamp:
+            return _kept[1]
         found = json.loads(ANSWER_PATH.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
-    return found if isinstance(found, dict) and found.get("schema") == SCHEMA else {}
+    found = found if isinstance(found, dict) and found.get("schema") == SCHEMA else {}
+    _kept = (stamp, found)
+    return found
 
 
 def held() -> list[dict[str, Any]]:
@@ -90,7 +102,7 @@ def key(vps_id: str, kind: str) -> str:
     return f"{vps_id}:{kind}"
 
 
-def _set_aside(one: Mapping[str, Any], marks: vps_marks.Marks) -> bool:
+def set_aside(one: Mapping[str, Any], marks: vps_marks.Marks) -> bool:
     """Whether the person has left this change alone: Ignore Updates on the picture, Keep
     Mine on this version of it, or the game ignored."""
     at = key(str(one["vps_id"]), str(one["kind"]))
@@ -127,15 +139,17 @@ def pending(game_id: str = "", marks: vps_marks.Marks | None = None) -> list[dic
     return [{**{name: one[name] for name in FIELDS}, "id": key(one["vps_id"], one["kind"])}
             for one in kept
             if (not game_id or one["game_id"] == game_id)
-            and not _set_aside(one, marks) and _unchanged(one, exact=bool(game_id))]
+            and not set_aside(one, marks) and _unchanged(one, exact=bool(game_id))]
 
 
 def upgrades(who: Mapping[str, Any], kind: str) -> dict[str, Any]:
     """The newer picture the last check found for the game `who` names, in the slot `kind`,
     or nothing: its hash and size, and the source it is published by."""
     game_id = str(who.get("game_id") or "")
-    found = next((one for one in pending(game_id) if one["kind"] == kind), None) \
-        if game_id else None
+    # Most games and kinds have no change; settings and marks are read for those that do.
+    if not any(one["game_id"] == game_id and one["kind"] == kind for one in held()):
+        return {}
+    found = next((one for one in pending(game_id) if one["kind"] == kind), None)
     if found is None:
         return {}
     return {"source": found["source"], "size": found["size"], "md5": found["md5"]}

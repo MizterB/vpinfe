@@ -307,6 +307,62 @@ class HomeMenuTests(unittest.TestCase):
         self.assertFalse(marking.wanted_release("t2"))
 
 
+class UpdateMenuTests(unittest.TestCase):
+    MOVE = {"source": "vps", "kind": "tableFiles", "release_id": "t1", "vps_id": "g1",
+            "file": "Alien.vpx", "then": "1.0", "now": "1.2"}
+    FIX = {"source": "fixes", "kind": "script", "release_id": "", "vps_id": "",
+           "file": "Alien", "then": "", "now": ""}
+
+    def _verbs(self, moves: list[dict[str, Any]], *marked: dict[str, str]) -> list[str]:
+        library = mock.Mock(spec=Library)
+        library.marks.return_value = list(marked)
+        item = {"game_id": "x", "vps_id": "g1", "game": "Alien", "moves": moves}
+        return _labels(discovery_marks.Marking(library, mock.AsyncMock()).update_verbs(
+            item, lambda _listing: "Table"))
+
+    def test_a_moved_release_can_be_skipped_for_this_version_or_ignored_for_good(self) -> None:
+        self.assertEqual(self._verbs([self.MOVE]),
+                         ["Skip This Version", "Ignore Updates to This Table"])
+
+    def test_a_tile_with_only_a_fix_has_nothing_to_skip(self) -> None:
+        self.assertEqual(self._verbs([self.FIX]), [])
+
+    PICTURE = {"source": "vpinmediadb", "kind": "wheel", "release_id": "", "vps_id": "g1",
+               "file": "Alien", "then": "", "now": "", "md5": "abc"}
+
+    def test_a_replaced_picture_can_be_skipped_or_ignored_like_a_release(self) -> None:
+        self.assertEqual(self._verbs([self.PICTURE]),
+                         ["Skip This Version", "Ignore Updates to This Table"])
+
+    def test_a_picture_is_marked_under_the_id_and_hash_the_pane_writes(self) -> None:
+        library = mock.Mock(spec=Library)
+        library.marks.return_value = []
+        item = {"game_id": "x", "vps_id": "g1", "game": "Alien",
+                "moves": [self.MOVE, self.PICTURE]}
+
+        with mock.patch.object(discovery_marks, "apply") as applied:
+            skip, ignore = discovery_marks.Marking(library, mock.AsyncMock()).update_verbs(
+                item, lambda _listing: "Table")
+            assert skip.run is not None and ignore.run is not None
+            skip.run()
+            ignore.run()
+
+        skipped = [(one.scope, one.id, one.detail) for one in applied.call_args_list[0].args[2]]
+        ignored = [(one.scope, one.id, one.detail) for one in applied.call_args_list[1].args[2]]
+        self.assertEqual([("version", "t1", "1.2"), ("version", "g1:wheel", "abc")], skipped)
+        self.assertEqual([("updates", "t1", ""), ("updates", "g1:wheel", "")], ignored)
+
+    def test_a_picture_already_skipped_is_not_offered_to_skip_again(self) -> None:
+        self.assertEqual(
+            self._verbs([self.PICTURE], _mark(IGNORED, "version", "g1:wheel", "abc")),
+            ["Ignore Updates to This Table"])
+
+    def test_a_version_already_skipped_is_not_offered_again(self) -> None:
+        self.assertEqual(
+            self._verbs([self.MOVE], _mark(IGNORED, "version", "t1", "1.2")),
+            ["Ignore Updates to This Table"])
+
+
 class ApplyTests(unittest.IsolatedAsyncioTestCase):
     """A mark set through the Library, and the notice that offers it back."""
 
@@ -352,6 +408,17 @@ class ApplyTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.offers[0][0], "Ignored Alien")
         self.after.assert_awaited_once()
         self.assertEqual(self.held, {G1: IGNORED})
+
+    async def test_skipping_a_version_says_skipped_and_marks_that_version_of_the_release(
+            self) -> None:
+        one = [discovery_marks.Subject("version", "t1", "Table 1.2 of Alien", "", "1.2")]
+
+        with _PAGE:
+            await discovery_marks.apply(self.library, IGNORED, one, self.after,
+                                        name="Table 1.2 of Alien", skipped=True)
+
+        self.assertEqual(self.offers[0][0], "Skipped Table 1.2 of Alien")
+        self.assertEqual(self.held, {("version", "t1", "1.2"): IGNORED})
 
     async def test_ignoring_a_wanted_game_says_it_left_wanted_and_undo_wants_it_again(self) -> None:
         self.held[G1] = WANTED

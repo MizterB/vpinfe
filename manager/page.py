@@ -21,6 +21,7 @@ from common.i18n import t
 from common.release import whats_new
 from common.runtime.jobs import DONE, KIND_LIBRARY_SCAN, KIND_MEDIA_CAPTURE
 from manager import power, rail_marks
+from manager import update_count as update_count_module
 from manager.backups import backups as backups_page
 from manager.devices import devices as devices_page
 from manager.extensions import ext_links, ext_mark, ext_pages
@@ -983,6 +984,7 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
         for job in imports_ended_since(found, opened, told):
             told.add(str(job.get("id") or ""))
             await run.io_bound(library.refresh_after_import)
+            await update_count.recount()
             if not wizard.watching(str(job.get("id") or "")):
                 _redraw_if_idle()
                 _tell_import(job)
@@ -1176,6 +1178,20 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
         mark_findings()
 
     ui.timer(0.1, _look_for_update, once=True)
+
+    update_count = update_count_module.Count(warm, lambda: mark_findings())
+    state["update_count"] = update_count
+    state["recount_updates"] = update_count.recount
+    ui.timer(0.2, update_count.recount, once=True)
+
+    loop = asyncio.get_running_loop()
+
+    def _tie_written() -> None:
+        """A tie was written, from whichever thread wrote it."""
+        loop.call_soon_threadsafe(
+            lambda: background_tasks.create(update_count.recount(), name="manager-recount-ties"))
+
+    library.after_tie = _tie_written
 
     @on_page
     async def _rescan() -> None:

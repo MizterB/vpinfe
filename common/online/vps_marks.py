@@ -14,10 +14,10 @@ A mark names its thing by scope, VPS id and detail:
 | `version` | the release    | the version      | ignored  |
 
 A gap's detail is the key of the Home tab it is ignored from: the VPS kind for a tab VPS
-lists (`b2sFiles`), the media kind for a tab only a source fills. `updates` and `version`
-on a picture a source has replaced take the entry and the media kind as their id
-(`<entry>:<kind>`), since `updates` takes no detail; `picture_changes` reads them. On a
-release, nothing reads them yet.
+lists (`b2sFiles`), the media kind for a tab only a source fills. `updates` keeps a release's
+later versions off Updates, and `version` only the one version named. On a picture a source
+has replaced they take the entry and the media kind as their id (`<entry>:<kind>`), since
+`updates` takes no detail; `picture_changes` reads them.
 
 Setting a state on a thing that holds the other replaces it. Nothing here reads the
 catalog: whether an id still exists is for the caller, and a mark for an id VPS drops is

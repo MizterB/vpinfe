@@ -205,6 +205,11 @@ async def read(context: dict[str, Any]) -> Scene:
     counted = bool(library.catalog().get("counted"))
     in_library = bool(row["is_in_library"])
     game_id, held = await discovery.owner_state(context)
+    if game_id:
+        try:
+            await offload.io(library.load_updates, game_id)
+        except Exception:  # noqa: BLE001 - the rows go without the mark rather than not at all
+            logger.warning("manager: could not read what has an update", exc_info=True)
     tray = discovery_get.tray_of(state, row["id"])
     listed = [kind for kind in discovery.KINDS
               if kind[0] in row["listed"] and discovery.kept(library, kind[0])]

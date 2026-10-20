@@ -494,8 +494,6 @@ def overview(library: Library, registry: list[dict], discovery: dict,
             ids = need.ids if only is None else only
             return media_fill.confirm_kind(list(ids), need.fix.kind, state,
                                            lambda: placed(ids))
-        if need.fix.key == needs.FETCH_FIXES:
-            return fetch_script_fixes(library, drawn_again)
         if need.fix.key == needs.UPGRADE:
             return _metadata_action(library, state, drawn_again)("upgrade")
         from manager.devices import devices
@@ -729,26 +727,17 @@ def metadata_line(library: Library, state: dict[str, Any]) -> None:
 # the script the table ships with.
 
 
-def _first_of(names: list[str], most: int) -> str:
-    listed = ", ".join(names[:most])
-    return t("manager.sections.more", names=listed) if len(names) > most else listed
-
-
-def _script_fixes_said(found: dict[str, Any]) -> str:
-    offered = list(found.get("offered") or [])
-    return t("manager.sections.fixable", count=len(offered),
-             checked=int(found.get("checked") or 0), shown=_first_of(offered, 3))
-
-
 @on_page
-async def fetch_script_fixes(library: Library, after: Callable[[], Any]) -> None:
-    """Ask, then start the fetch as a job. `after` redraws what showed the fixes: once when
-    the fetch begins, when they are no longer offered, and again when the job ends and the
-    count has been made again."""
+async def fetch_script_fixes(library: Library, after: Callable[[], Any],
+                             only: list[str] | None = None) -> None:
+    """Ask, then start the fetch as a job, for the game folders in `only` or for every one
+    the check offered. `after` redraws what showed the fixes: once when the fetch begins,
+    when they are no longer offered, and again when the job ends and the count has been made
+    again."""
     from manager.kit import confirm
     from manager.kit.api import ApiClient
 
-    offered = list(library.script_patches().get("offered") or [])
+    offered = list(only if only is not None else library.script_patches().get("offered") or [])
     if not await confirm.ask(
             t("manager.sections.fetch_confirm", count=len(offered)),
             detail=t("manager.sections.script_fixes_how"),
@@ -786,34 +775,3 @@ def no_tables_line(library: Library, state: dict[str, Any]) -> None:
             .classes("manager-attention-line grow")
         panel.action(t("manager.sections.show"), show, icon=verbs.GO,
                      hint=t("manager.sections.show_no_tables.help"))()
-
-
-def script_fixes_line(library: Library, state: dict[str, Any]) -> None:
-    """The notice above the Tables grid, drawn while the last daily check found fixes. It
-    redraws itself after a fetch has begun, which forgets the answer it was drawn from."""
-    outer = ui.element("div").classes("w-full shrink-0")
-
-    def draw() -> None:
-        if outer.is_deleted:
-            return
-        outer.clear()
-        found = library.script_patches()
-        if not found.get("offered"):
-            return
-
-        def show() -> Any:
-            tables = library.script_fix_tables()
-            if not tables:
-                ui.notify(t("manager.sections.fix_tables_gone"))
-                return None
-            return state["open_on"](needs.script_fixes_opens(tables))
-
-        with outer, ui.element("div").classes("manager-attention mb-2"):
-            ui.icon(verbs.FETCH).classes("manager-attention-icon")
-            ui.label(_script_fixes_said(found)).classes("manager-attention-line grow")
-            panel.action(t("manager.sections.show"), show,
-                         icon=verbs.GO, hint=t("manager.sections.show_fixes.help"))()
-            panel.action(t("word.fetch"), lambda: fetch_script_fixes(library, draw),
-                         icon=verbs.FETCH, hint=t("manager.needs.script_fixes.fetch.help"))()
-
-    draw()

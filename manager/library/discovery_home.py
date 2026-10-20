@@ -1,6 +1,7 @@
-"""Discovery's front page, drawn from what `GET /discovery/home` answers: what VPS added
-lately, the games the library holds that lack a kind VPS lists, the games VPS lists that it
-has none of, whose work it holds, and the views it has saved.
+"""Discovery's front page, drawn from what `GET /discovery/home` answers: the games of the
+library with a later version of something they hold, what VPS added lately, the games the
+library holds that lack a kind VPS lists, the games VPS lists that it has none of, whose work
+it holds, and the views it has saved.
 
 A tile opens its game in the pane, an author's name opens the author's page, and See All
 opens a grid on a named view of the same question. The search box and the counts on Your
@@ -20,8 +21,8 @@ from nicegui import ui
 from common import icons
 from common.failures import why
 from common.i18n import t
-from common.media.media_specs import media_label_map
-from common.online import vps_find, vps_home
+from common.media.media_specs import IMAGE_FAMILY, MEDIA_SPECS, media_label_map
+from common.online import script_fixes, vps_find, vps_home
 from manager.kit import (
     busy,
     candidates,
@@ -122,6 +123,56 @@ _MEDIA_GAPS = {
 }
 
 
+# What a move of a source other than the spreadsheet is called on a tile, by the kind of file.
+_MOVE_WORDS = {script_fixes.KIND: "manager.discovery.update.script_fix"}
+
+# How many moves a tile lists before it counts the rest.
+MOVES_SHOWN = 2
+
+
+def move_line(move: dict[str, Any]) -> str:
+    """One line of a tile: what has a later version, and the version it moved from and to."""
+    word = _MOVE_WORDS.get(move["kind"])
+    kind = t(word) if word else _kind_words(move["kind"])[0]
+    if move["then"] and move["now"]:
+        return t("manager.discovery.update.moved", kind=kind, then=move["then"], now=move["now"])
+    return t("manager.discovery.update.later", kind=kind, now=move["now"]) \
+        if move["now"] else kind
+
+
+def is_picture(move: dict[str, Any]) -> bool:
+    """Whether a move is a picture a source has replaced."""
+    return bool(move.get("md5"))
+
+
+def pictures_line(moves: list[dict[str, Any]]) -> str:
+    """The one line a game's replaced pictures share, naming them: "Wheel and Backglass
+    pictures", or just the names where one is not a picture (a video, a sound)."""
+    labels = media_label_map()
+    kinds = [str(one["kind"]) for one in moves]
+    names = [labels.get(kind, kind) for kind in kinds]
+    named = t("manager.collection_rules.and_last", rest=t(
+        "manager.collection_rules.list_join").join(names[:-1]), last=names[-1]) \
+        if len(names) > 1 else names[0]
+    images = {spec.kind for spec in MEDIA_SPECS if spec.family == IMAGE_FAMILY}
+    return t("manager.discovery.update.pictures", kinds=named) \
+        if all(kind in images for kind in kinds) else named
+
+
+def tile_lines(moves: list[dict[str, Any]]) -> list[str]:
+    """The lines of a tile: one for each move, with the replaced pictures together in one,
+    after the rest."""
+    pictures = [one for one in moves if is_picture(one)]
+    return [*(move_line(one) for one in moves if not is_picture(one)),
+            *([pictures_line(pictures)] if pictures else [])]
+
+
+def fix_folders(item: dict[str, Any]) -> list[str]:
+    """The folders of the game's script fixes, which the fetch is asked for."""
+    return [move["file"] for move in item["moves"]
+            if move["kind"] == script_fixes.KIND and move["file"]]
+
+
 def _gap_words(kind: str) -> str:
     """What a game lacks, in the plural a tab names it with: a VPS kind, which holds the
     media kind filed with it, or a media kind with none."""
@@ -137,15 +188,20 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
          on_select: Callable[[Any], Any],
          see_new: Callable[[int, str], Any],
          see_missing: Callable[[list[str]], Any],
+         see_updates: Callable[[list[str]], Any],
+         see_picture: Callable[[str, str], Any],
+         fix_scripts: Callable[[list[str]], Any],
          open_view: Callable[[str], Any],
          open_subject: Callable[[dict[str, str]], Any],
          marking: discovery_marks.Marking) -> None:
     """Draw Home into `body` from `home`, the answer for the remembered window.
 
     `catalog()` gives the people and the Browse rows once the catalog is in memory; `reread`
-    answers for another window. `see_new(days, chip)` and `see_missing(game_ids)` open the
-    grid on the shelf's question, `open_view(id)` on a saved view, and `open_subject` an
-    author's page. `marking` is the menu a tile opens on a right click or a long press, and
+    answers for another window. `see_new(days, chip)`, `see_missing(game_ids)` and
+    `see_updates(game_ids)` open the grid on the shelf's question, `see_picture(vps_id, kind)`
+    a game's pane on the section of that media kind, `open_view(id)` on a saved
+    view, `open_subject` an author's page, and `fix_scripts(folders)` fetches the script fixes
+    of those games. `marking` is the menu a tile opens on a right click or a long press, and
     what says a release is Wanted."""
     shown: dict[str, Any] = {"home": home, "chip": vps_home.ALL, "lack": "", "rows": None,
                              "people": [], "asked": home["days"]}
@@ -157,6 +213,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
                 discovery_ask.Suggest(search, lambda text: vps_find.find(
                     text, shown["people"], shown["rows"] or []), lambda group, one: choose(
                         group, one))
+        updates_box = ui.column().classes("w-full gap-2")
         shelf_box = ui.column().classes("w-full gap-2")
         with shelf_box:
             with ui.row().classes("manager-heading-row w-full items-center gap-2 px-3"):
@@ -189,6 +246,60 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
             *(discovery_pictures.take_verb(library, item, refresh)
               if shelf == discovery_marks.MISSING else []),
             *marking.verbs(shelf, item, listing, word)])
+
+    def update_menu(card: Any, item: dict[str, Any]) -> None:
+        """The right click and long press of an Updates tile."""
+        entries = marking.update_verbs(item, lambda listing: _kind_words(listing)[0])
+        if folders := fix_folders(item):
+            entries.append(panel.Verb(t("manager.discovery.update.fetch_fix"),
+                                      lambda: fix_scripts(folders), icon=verbs.FETCH))
+        if not entries:
+            return
+        with card:
+            menu = ui.context_menu()
+        panel.verb_menu(menu, marking.title(discovery_marks.UPDATE, item), entries)
+
+    def open_tile(item: dict[str, Any]) -> Any:
+        """The game's pane, on the first replaced picture's section where pictures are all
+        the tile holds."""
+        if all(is_picture(one) for one in item["moves"]):
+            return see_picture(item["vps_id"], str(item["moves"][0]["kind"]))
+        return on_select({"id": item["vps_id"]})
+
+    def update_tile(parent: Any, item: dict[str, Any]) -> None:
+        with parent, ui.element("div").classes("manager-shelf-tile") as card:
+            card.props("tabindex=0 role=button")
+            # A game matched to no entry has no Discovery pane: it opens in the Games list.
+            opens = (lambda one=item: open_tile(one)) if item["vps_id"] \
+                else (lambda one=item: see_updates([one["game_id"]]))
+            card.on("click", lambda _e: opens())
+            card.on("keydown.enter", lambda _e: opens())
+            candidates.thumb(item["img_url"], icons.TABLES, t("manager.discovery.no_picture"))
+            with ui.column().classes("gap-0 min-w-0"):
+                ui.label(item["game"]).classes("manager-shelf-name")
+                lines = tile_lines(item["moves"])
+                for line in lines[:MOVES_SHOWN]:
+                    ui.label(line).classes("text-xs manager-help truncate")
+                if len(lines) > MOVES_SHOWN:
+                    ui.label(t("manager.discovery.update.more",
+                               count=len(lines) - MOVES_SHOWN)) \
+                        .classes("text-xs manager-help")
+            update_menu(card, item)
+
+    def draw_updates() -> None:
+        updates_box.clear()
+        updates = shown["home"]["updates"]
+        if not updates["count"]:
+            return
+        with updates_box:
+            with ui.row().classes("manager-heading-row w-full items-center gap-2 px-3"):
+                ui.label(t("manager.discovery.updates")).classes("manager-fact-heading")
+                ui.space()
+                panel.link(t("manager.discovery.see_all"), to=ADDRESS,
+                           on_click=lambda: see_updates(updates["game_ids"]))()
+            row = ui.row().classes("manager-shelf w-full px-3")
+            for one in updates["games"]:
+                update_tile(row, one)
 
     def tile(parent: Any, release: dict[str, Any]) -> None:
         with parent, ui.element("div").classes("manager-shelf-tile") as card:
@@ -275,6 +386,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
             return
         remembered.put(WINDOW_KEY, days)
         shown["home"] = fresh
+        draw_updates()
         draw_shelf()
         draw_wanted()
         draw_dont_have()
@@ -445,6 +557,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
             return
         draw_views()
 
+    draw_updates()
     draw_shelf()
     draw_wanted()
     draw_lacking()

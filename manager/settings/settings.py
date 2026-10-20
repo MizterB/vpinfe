@@ -93,6 +93,8 @@ ASSETS_NOTE = t("manager.settings.assets_note")
 SOURCES_NOTE = t("manager.settings.sources_note")
 
 DISCOVERY_PAGE = "library.discovery"
+# The setting that shows the number of games with an update on the rail.
+SHOW_COUNT = "show_update_count"
 
 # This install's, unlike the checks: a device row is about the machine it is read on.
 OVERVIEW_NOTE = t("manager.settings.overview_note")
@@ -597,6 +599,18 @@ def _redrawn_after(save: Callable[[Any], Any],
     return saved
 
 
+def _then(save: Callable[[Any], Any],
+          after: Callable[[], Awaitable[None]]) -> Callable[[Any], Any]:
+    """`save`, then `after` awaited once the write has gone through."""
+    async def saved(value: Any) -> bool:
+        done = bool(await save(value))
+        if done:
+            await after()
+        return done
+
+    return saved
+
+
 def _kind_page(library: Library, refill: Callable[[], None] | None, note: str,
                section: str, key: str, items: Callable[[Any], dict[str, str]],
                columns: bool = False) -> None:
@@ -1073,19 +1087,13 @@ CHECK_GROUPS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     )),
     ("manager.settings.checks_tables", (
         ("rom_missing", "manager.settings.check_rom_missing"),
-        ("newer", "manager.settings.check_newer"),
-        ("script_fixes", "manager.settings.check_script_fixes"),
     )),
 )
 
 
 def _check_labels() -> dict[str, str]:
-    """Every check's switch label, except one for a finding this device cannot make: the
-    script fixes are not offered where the source is not registered."""
-    from common.online import script_fixes
-
-    return {key: t(label) for _heading, checks in CHECK_GROUPS for key, label in checks
-            if key != "script_fixes" or script_fixes.available()}
+    """Every check's switch label."""
+    return {key: t(label) for _heading, checks in CHECK_GROUPS for key, label in checks}
 
 
 def _checks_arranged(switches: list[KindSwitch]) -> list[tuple[Any, Any]]:
@@ -1147,27 +1155,40 @@ async def _folders_page(library: Library, redraw: Callable[[], None],
 
 async def _discovery_page(library: Library, redraw: Callable[[], None],
                           state: dict[str, Any]) -> panel.Region:
-    """Where VPinFE looks online: the spreadsheet, whose schedule is a setting that has
-    this page as its home, then the sources media comes from. One list, so the labels share
-    a column.
+    """Where VPinFE looks online: whether the rail counts updates, then the spreadsheet,
+    whose schedule is a setting that has this page as its home, then the sources media comes
+    from. One list, so the labels share a column.
 
     A region: Check Now and a schedule write read the page again where it stands, and the
     caller awaits `refilled()` for the first draw.
     """
     async def draw() -> None:
-        entries: list[tuple[Any, Any]] = [(panel.HEADING, t("manager.settings.heading_sources")),
-                                          panel.lede(SOURCES_NOTE)]
+        entries: list[tuple[Any, Any]] = []
         try:
             schema = await offload.io(library.config_schema)
             values = await offload.io(library.config_values)
         except Exception as exc:  # noqa: BLE001 - the sources stay on the page
-            entries.append(panel.intro(t("said.settings_unreadable"), hint=why(exc)))
+            entries += [(panel.HEADING, t("manager.settings.heading_sources")),
+                        panel.lede(SOURCES_NOTE),
+                        panel.intro(t("said.settings_unreadable"), hint=why(exc))]
         else:
             updates = next((one for one in schema if one.get("name") == "updates"), {})
             options = [one for one in updates.get("options") or []
                        if one.get("home") == DISCOVERY_PAGE]
-            entries += section_rows(library, "updates", options, values,
-                                    bool(updates.get("writable")), region.refill)
+            counted = [one for one in options if one["key"] == SHOW_COUNT]
+            rest = [one for one in options if one["key"] != SHOW_COUNT]
+            writable = bool(updates.get("writable"))
+            async def recount() -> None:
+                if (again := state.get("recount_updates")) is not None:
+                    await again()
+
+            entries.append((panel.HEADING, t("manager.settings.heading_updates")))
+            entries += section_rows(library, "updates", counted, values, writable,
+                                    region.refill, after={SHOW_COUNT: recount})
+            entries += [(panel.HEADING, t("manager.settings.heading_sources")),
+                        panel.lede(SOURCES_NOTE)]
+            entries += section_rows(library, "updates", rest, values, writable,
+                                    region.refill)[0 if writable else 1:]
             entries += await _spreadsheet_check(library, region.refill)
         entries.append((panel.RULE, None))
         entries += await _kind_rows(library, None, "media_sources")
@@ -1774,6 +1795,7 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
                  linked: attract.Attract | None = None,
                  under: dict[str, list[tuple[Any, Any]]] | None = None,
                  saved: Callable[[], Awaitable[None]] | None = None,
+                 after: dict[str, Callable[[], Awaitable[None]]] | None = None,
                 ) -> list[tuple[Any, Any]]:
     """One section's settings as fact rows, from whatever is serving them.
 
@@ -1784,7 +1806,8 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
 
     `stands_in` draws other rows where a setting would be, named `section.key`, for a
     setting whose value is better handled one entry at a time than as one field. `linked`
-    is the Attract Mode group's own behavior, for the page that has one.
+    is the Attract Mode group's own behavior, for the page that has one. `after` maps a
+    setting's key to what is awaited once its write has gone through.
     """
     current = dict(values.get(section) or {})
     # What every setting in this section is *effectively* set to, defaults included. An
@@ -1824,6 +1847,8 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
             save = backups_move.asked_first(source, save, refill)
         if section == dof.SECTION and option["key"] in dof.READ_BELOW:
             save = _redrawn_after(save, refill)
+        if option["key"] in (after or {}):
+            save = _then(save, (after or {})[option["key"]])
         chipped = waiting if option.get("applies") in (
             config_schema.APPLIES_RESTART, config_schema.APPLIES_WINDOWS) else None
         if chipped is not None:

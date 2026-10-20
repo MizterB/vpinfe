@@ -116,6 +116,9 @@ class Source:
     listing: Callable[[], Iterable[Listed]] | None = None
     offers: Callable[[dict, str], Any] | None = None
     upgrades: Callable[[dict, str], Any] | None = None
+    # The kinds `upgrades` is asked about, where they are not the `kinds` it serves: a source
+    # that offers no file of a kind can still say a later one exists.
+    upgrades_for: frozenset[str] = field(default_factory=frozenset)
     take: Callable[[dict, str, str], Any] | None = None
     take_many: Callable[[dict, list[dict]], Any] | None = None
     act: Callable[[dict, str, str, str], Any] | None = None
@@ -338,13 +341,23 @@ def upgrade_sources() -> list[Source]:
     return [one for one in all_sources() if one.upgrades is not None and enabled(one)]
 
 
-def upgrades(who: Mapping[str, Any], kind: str) -> dict[str, Any]:
+def upgrade_kinds() -> frozenset[str]:
+    """Every kind some enabled source can say a later one of: what it declares in
+    `upgrades_for`, else the kinds it serves."""
+    return frozenset(kind for one in upgrade_sources() for kind in (one.upgrades_for or one.kinds))
+
+
+def upgrades(who: Mapping[str, Any], kind: str,
+             among: Iterable[Source] | None = None) -> dict[str, Any]:
     """What each source that can say what is later says, by source id. A source with
     nothing later for this game is left out, and so is one that raises (logged), like
-    `offers`."""
+    `offers`. `among` is the sources to ask where the caller asks about many games and
+    has `upgrade_sources` already: which are enabled is read from the settings, which
+    costs more than the answers."""
     found: dict[str, Any] = {}
-    for source in upgrade_sources():
-        if source.upgrades is None or (source.kinds and kind not in source.kinds):
+    for source in upgrade_sources() if among is None else among:
+        asked = source.upgrades_for or source.kinds
+        if source.upgrades is None or (asked and kind not in asked):
             continue
         try:
             later = source.upgrades(dict(who), kind)

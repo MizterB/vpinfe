@@ -14,7 +14,14 @@ from collections.abc import Collection, Iterable, Mapping
 from datetime import date, timedelta
 from typing import Any
 
-from common.online import arrivals, vps_marked, vps_marks, vps_releases, vps_source
+from common.online import (
+    arrivals,
+    vps_marked,
+    vps_marks,
+    vps_releases,
+    vps_source,
+    vps_updates,
+)
 
 ALL = "all"
 YOURS = "yours"
@@ -205,7 +212,8 @@ def home(found: dict[str, Any], kept: Collection[str], days: int,
          today: date | None = None,
          media: Mapping[str, Iterable[Mapping[str, Any]]] | None = None,
          holders: Mapping[str, Iterable[str]] | None = None,
-         marks: vps_marks.Marks | None = None) -> dict[str, Any]:
+         marks: vps_marks.Marks | None = None,
+         updates: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """Every shelf. `found` is `library_vps_state.discovery`'s answer, `kept` the VPS kinds
     the library collects, and `days` the window of the New shelf. `media` is the games a
     source can fill a slot of, by media kind, as `media_fill.offered_listing` answers. A kind
@@ -217,7 +225,8 @@ def home(found: dict[str, Any], kept: Collection[str], days: int,
     New is cut to what a tile row shows, once for each chip, with the count each chip holds
     so a chip with nothing in it is left out by the page. Whatever `marks` ignores is on no
     shelf, and what it holds Wanted is its own. `dont_have` is the games the library lacks, cut
-    to a row of tiles with the count of all of them."""
+    to a row of tiles with the count of all of them. `updates` is what `library_updates.found`
+    answers: the games with a later version of something they hold."""
     marks = marks or vps_marks.Marks()
     shelf = [one for one in arrivals_in(found, days, kept, today)
              if not marks.release_ignored(one["id"], one["vps_id"])]
@@ -246,4 +255,5 @@ def home(found: dict[str, Any], kept: Collection[str], days: int,
     lacked = dont_have(found, marks)
     return {"counted": found.get("counted") or "", "days": days, "since": since(days, today),
             "new": new, "authors": authors_collected(found, shelf), "missing": missing,
-            "wanted": wanted, "dont_have": {"count": len(lacked), "games": lacked[:SHELF_SHOWN]}}
+            "wanted": wanted, "dont_have": {"count": len(lacked), "games": lacked[:SHELF_SHOWN]},
+            "updates": vps_updates.shelf(updates or [], marks, cut=vps_updates.SHELF_SHOWN)}

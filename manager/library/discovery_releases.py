@@ -354,4 +354,4 @@ async def fill(
         if chosen and state.get("workbench"):
             await on_select(by_id.get(chosen))
 
-    state["redraw_discovery"] = after
+    state["redraw_discovery"] = discovery_marks.recounting(state, after)

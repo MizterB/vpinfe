@@ -243,6 +243,59 @@ class SeeAllCountsTests(unittest.TestCase):
                          home.new_filters(7, vps_home.YOURS, KEPT, counted=False))
 
 
+ALIEN_UPDATE: dict[str, Any] = {
+    "game_id": "game-g1", "vps_id": "g1", "game": "Alien", "img_url": "",
+    "moves": [{"source": "vps", "kind": "tableFiles", "release_id": "t1", "vps_id": "g1",
+               "file": "Alien.vpx", "then": "1.0", "now": "1.2"},
+              {"source": "fixes", "kind": "script", "release_id": "", "vps_id": "",
+               "file": "Alien Folder", "then": "", "now": ""}]}
+
+
+def _picture(kind: str, md5: str = "abc") -> dict[str, Any]:
+    return {"source": "vpinmediadb", "kind": kind, "release_id": "", "vps_id": "g1",
+            "file": "Alien Folder", "then": "", "now": "", "md5": md5}
+
+
+PICTURE_UPDATE: dict[str, Any] = {
+    "game_id": "game-g1", "vps_id": "g1", "game": "Alien", "img_url": "",
+    "moves": [_picture("wheel"), _picture("backglass")]}
+
+
+class MoveTests(unittest.TestCase):
+    def test_a_games_replaced_pictures_share_one_line_naming_them(self) -> None:
+        self.assertEqual(["Wheel and Backglass pictures"],
+                         home.tile_lines(PICTURE_UPDATE["moves"]))
+        self.assertEqual(["Wheel pictures"], home.tile_lines([_picture("wheel")]))
+
+    def test_three_pictures_are_listed_with_commas(self) -> None:
+        self.assertEqual(["Wheel, Backglass and Flyer pictures"], home.tile_lines(
+            [_picture("wheel"), _picture("backglass"), _picture("flyer")]))
+
+    def test_a_video_or_a_sound_is_named_without_calling_it_a_picture(self) -> None:
+        self.assertEqual(["Wheel and Playfield Video"],
+                         home.tile_lines([_picture("wheel"), _picture("playfield_video")]))
+
+    def test_the_pictures_line_follows_the_lines_of_the_files(self) -> None:
+        self.assertEqual(["Table 1.0 to 1.2", "Script fix", "Wheel pictures"],
+                         home.tile_lines([*ALIEN_UPDATE["moves"], _picture("wheel")]))
+
+
+    def test_a_tied_release_says_the_version_it_moved_from_and_to(self) -> None:
+        self.assertEqual(home.move_line(ALIEN_UPDATE["moves"][0]), "Table 1.0 to 1.2")
+
+    def test_a_script_fix_is_called_one(self) -> None:
+        self.assertEqual(home.move_line(ALIEN_UPDATE["moves"][1]), "Script fix")
+
+    def test_a_source_that_names_only_its_version_says_it_is_available(self) -> None:
+        move = {**ALIEN_UPDATE["moves"][0], "then": ""}
+
+        self.assertEqual(home.move_line(move), "Table 1.2 available")
+
+    def test_the_fix_is_asked_for_by_the_folder_of_the_game(self) -> None:
+        self.assertEqual(home.fix_folders(ALIEN_UPDATE), ["Alien Folder"])
+        self.assertEqual(home.fix_folders({**ALIEN_UPDATE, "moves": ALIEN_UPDATE["moves"][:1]}), [])
+
+
 def _offered(game_id: str, vps_id: str, name: str) -> dict:
     return {"game_id": game_id, "vps_id": vps_id, "name": name, "available": 1}
 
@@ -273,6 +326,7 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
         self.slow = False
         self.unreadable = False
         self.media: dict[str, list[dict]] = {}
+        self.updates: list[dict[str, Any]] = []
 
         async def inline(call: Any, *args: Any, **more: Any) -> Any:
             self.io.append(getattr(call, "__name__", str(call)))
@@ -294,7 +348,8 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
             raise RuntimeError("no answer")
         holders = {row["vps_id"]: [f"game-{row['vps_id']}"] for row in FOUND["rows"]}
         return vps_home.home(FOUND, KEPT, days, media=self.media, holders=holders,
-                             marks=vps_marks.Marks(self.client.discovery_marks()))
+                             marks=vps_marks.Marks(self.client.discovery_marks()),
+                             updates=self.updates)
 
     async def asyncSetUp(self) -> None:
         was = core.loop
@@ -332,6 +387,125 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
             self.assertIn(word, words)
         self.assertEqual([one for one in _labels(body) if one.startswith(("All", "Your"))],
                          ["All 4", "Your Games 3"])
+
+    async def test_no_update_draws_no_updates_shelf(self) -> None:
+        self.assertNotIn("Updates for Your Games", _words(await self._draw()))
+
+    async def test_updates_are_the_first_shelf_with_a_line_for_what_moved(self) -> None:
+        self.updates = [ALIEN_UPDATE]
+
+        words = _words(await self._draw())
+
+        self.assertEqual("Updates for Your Games", words[0])
+        self.assertLess(words.index("Updates for Your Games"), words.index("New In"))
+        self.assertIn("Table 1.0 to 1.2", words)
+        self.assertIn("Script fix", words)
+
+    def _update_tile(self, body: ui.element) -> ui.element:
+        return next(one for one in body.descendants()
+                    if "manager-shelf-tile" in one.classes and "Script fix" in _words(one))
+
+    @staticmethod
+    async def _press(tile: ui.element) -> None:
+        for listener in list(tile._event_listeners.values()):
+            if listener.type == "click":
+                assert listener.handler is not None
+                answer = listener.handler(mock.Mock())
+                if asyncio.iscoroutine(answer):
+                    await answer
+
+    async def test_a_tile_opens_the_entry_its_game_is_matched_to(self) -> None:
+        self.updates = [ALIEN_UPDATE]
+
+        await self._press(self._update_tile(await self._draw()))
+
+        self.assertEqual([{"id": "g1"}], self.selected)
+
+    async def test_a_tile_of_a_game_matched_to_no_entry_opens_it_in_the_games_list(self) -> None:
+        self.updates = [{**ALIEN_UPDATE, "vps_id": "", "moves": ALIEN_UPDATE["moves"][1:]}]
+        opened: list[needs.Opens] = []
+
+        async def open_on(opens: needs.Opens) -> None:
+            opened.append(opens)
+
+        self.state["open_on"] = open_on
+        await self._press(self._update_tile(await self._draw()))
+
+        [opens] = opened
+        self.assertEqual(("games", ("game-g1",)), (opens.view, opens.keys[games.UPDATES_KEY]))
+        self.assertEqual([], self.selected)
+
+    def _picture_tile(self, body: ui.element) -> ui.element:
+        return next(one for one in body.descendants()
+                    if "manager-shelf-tile" in one.classes and "Alien" in _words(one))
+
+    async def test_a_tile_of_replaced_pictures_opens_the_pane_on_the_first_ones_section(
+            self) -> None:
+        self.updates = [PICTURE_UPDATE]
+        body = await self._draw()
+        self.assertIn("Wheel and Backglass pictures", _words(body))
+
+        self.state["section"] = "discovery_game"
+        await self._press(self._picture_tile(body))
+
+        self.assertEqual([{"id": "g1"}], self.selected)
+        self.assertEqual("discovery_wheel", self.state["section"])
+
+    async def test_a_tile_that_also_holds_a_table_update_opens_the_pane_as_it_was(self) -> None:
+        self.updates = [{**ALIEN_UPDATE, "moves": [*ALIEN_UPDATE["moves"], _picture("wheel")]}]
+        self.state["section"] = "discovery_game"
+
+        await self._press(self._update_tile(await self._draw()))
+
+        self.assertEqual([{"id": "g1"}], self.selected)
+        self.assertEqual("discovery_game", self.state["section"])
+
+    async def test_home_hands_the_entry_the_count_it_read(self) -> None:
+        self.updates = [ALIEN_UPDATE]
+        self.state["update_count"] = mock.Mock()
+
+        await self._draw()
+
+        self.state["update_count"].from_home.assert_called_once_with(1)
+
+    async def test_see_all_on_updates_opens_games_on_every_game_the_shelf_counts(self) -> None:
+        self.updates = [ALIEN_UPDATE]
+        await self._draw()
+        opened: list[needs.Opens] = []
+
+        async def open_on(opens: needs.Opens) -> None:
+            opened.append(opens)
+
+        self.state["open_on"] = open_on
+        await self.spied["see_updates"](["game-g1"])
+
+        [opens] = opened
+        self.assertEqual(("games", ("game-g1",)), (opens.view, opens.keys[games.UPDATES_KEY]))
+        shown = games.stamp_updates([{"id": "game-g1"}, {"id": "other"}],
+                                    opens.keys[games.UPDATES_KEY])
+        self.assertEqual([[games.updates_label()], []],
+                         [row[games.UPDATES_COLUMN] for row in shown])
+
+    async def test_fetching_a_fix_asks_for_the_games_folders_and_draws_the_page_after(
+            self) -> None:
+        await self._draw()
+
+        with mock.patch("manager.settings.sections.fetch_script_fixes",
+                        mock.Mock(return_value="fetching")) as fetch:
+            result = self.spied["fix_scripts"](["Alien Folder"])
+
+        self.assertEqual("fetching", result)
+        fetch.assert_called_once()
+        self.assertEqual(["Alien Folder"], fetch.call_args.kwargs["only"])
+        fetch.call_args.args[1]()
+        self.rerender.assert_called()
+
+    async def test_an_ignored_game_has_no_update_tile(self) -> None:
+        self.updates = [ALIEN_UPDATE]
+        self.client.discovery_marks.return_value = [
+            {"state": "ignored", "scope": "game", "id": "g1", "detail": "", "since": "x"}]
+
+        self.assertNotIn("Updates for Your Games", _words(await self._draw()))
 
     async def test_nothing_wanted_draws_no_wanted_shelf(self) -> None:
         self.assertNotIn("Wanted", _words(await self._draw()))
@@ -412,6 +586,49 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
             await self.state["redraw_discovery"]()
 
         self.assertEqual(discovery.tab_of(self.state), discovery.HOME)
+
+    async def _redrawn_on(self, tab: str) -> mock.Mock:
+        """The redraw a tab leaves for the pane and its menus to call, run, with the count
+        on the entry watched."""
+        self.state["update_count"] = counting = mock.Mock(recount=mock.AsyncMock())
+        self.state["discovery_tab"] = tab
+        with _PAGE, mock.patch.object(discovery.busy, "fill") as filled:
+            discovery.build(self.library, self.state, self._select, self.rerender)
+        with _PAGE:
+            await filled.call_args.args[1]()
+        await _settle()
+        counting.recount.reset_mock()
+        with _PAGE, mock.patch.object(ui.aggrid, "run_grid_method", create=True):
+            await self.state["redraw_discovery"]()
+        return counting
+
+    async def test_a_redraw_of_browse_counts_the_updates_again(self) -> None:
+        counting = await self._redrawn_on(discovery.BROWSE)
+
+        counting.recount.assert_awaited_once()
+
+    async def test_a_redraw_of_releases_counts_the_updates_again(self) -> None:
+        counting = await self._redrawn_on(discovery.RELEASES)
+
+        counting.recount.assert_awaited_once()
+
+    async def test_a_redraw_of_a_subject_page_counts_the_updates_again(self) -> None:
+        self.state["subject"] = {"type": "author", "name": "Alpha"}
+
+        counting = await self._redrawn_on(discovery.BROWSE)
+
+        counting.recount.assert_awaited_once()
+
+    async def test_a_redraw_of_home_counts_from_its_own_read_and_asks_nothing_more(self) -> None:
+        self.state["update_count"] = counting = mock.Mock(recount=mock.AsyncMock())
+        await self._draw()
+        counting.reset_mock()
+
+        with _PAGE:
+            await self.state["redraw_discovery"]()
+
+        counting.recount.assert_not_called()
+        self.rerender.assert_called()
 
     async def test_an_address_that_names_a_game_opens_browse(self) -> None:
         self.state["entry"] = "g1"
@@ -620,7 +837,8 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
             home.fill(body2, vps_home.home(FOUND, KEPT, 7), library=self.library,
                       scope="discovery", view_presets={}, catalog=self.spied["catalog"],
                       reread=reread, on_select=self._select, see_new=mock.Mock(),
-                      see_missing=mock.Mock(), open_view=mock.Mock(),
+                      see_missing=mock.Mock(), see_updates=mock.Mock(),
+                      see_picture=mock.Mock(), fix_scripts=mock.Mock(), open_view=mock.Mock(),
                       open_subject=mock.Mock(),
                       marking=discovery_marks.Marking(self.library, mock.AsyncMock()))
         picker = self._picker(body2)

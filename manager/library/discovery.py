@@ -306,6 +306,8 @@ async def _fill_home(library: Library, body: Any, state: dict[str, Any],
         with body:
             panel.facts(ui, [panel.intro(t("manager.discovery.read_failed"), hint=why(exc))])
         return
+    if (update_count := state.get("update_count")) is not None:
+        update_count.from_home(int(home["updates"]["count"]))
     people: list[dict[str, Any]] = []
 
     async def catalog() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -337,8 +339,29 @@ async def _fill_home(library: Library, body: Any, state: dict[str, Any],
         from manager.overview import needs
         return state["open_on"](needs.Opens("games", keys={games.LACKING_KEY: tuple(game_ids)}))
 
+    def see_updates(game_ids: list[str]) -> Any:
+        """Games, narrowed to the games with an update."""
+        from manager.library import games
+        from manager.overview import needs
+        return state["open_on"](needs.Opens("games", keys={games.UPDATES_KEY: tuple(game_ids)}))
+
+    async def see_picture(vps_id: str, kind: str) -> None:
+        """The game's pane, open on the section of this media kind."""
+        from manager.library import discovery_kinds
+        state["section"] = discovery_kinds.section_key(kind)
+        await on_select({"id": vps_id})
+
+    def fix_scripts(folders: list[str]) -> Any:
+        from manager.settings import sections
+        return sections.fetch_script_fixes(library, redraw_after_fix, only=folders)
+
     def go_to(subject: dict[str, str]) -> None:
         open_page(state, people, rerender, subject)
+
+    def redraw_after_fix() -> None:
+        """The page again once a fetch begins and ends: the games it mended no longer show."""
+        library.forget_catalog()
+        rerender()
 
     @on_page
     async def redraw_home() -> None:
@@ -350,6 +373,7 @@ async def _fill_home(library: Library, body: Any, state: dict[str, Any],
     discovery_home.fill(
         body, home, library=library, scope=SCOPE, view_presets=VIEWS, catalog=catalog,
         reread=reread, on_select=on_select, see_new=see_new, see_missing=see_missing,
+        see_updates=see_updates, see_picture=see_picture, fix_scripts=fix_scripts,
         open_view=to_view, open_subject=go_to,
         marking=discovery_marks.Marking(library, redraw_home))
     if not home["counted"]:
@@ -554,7 +578,7 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
         async def redraw_subject() -> None:
             rerender()
 
-        state["redraw_discovery"] = redraw_subject
+        state["redraw_discovery"] = discovery_marks.recounting(state, redraw_subject)
         with body:
             if renamed:
                 deeplink.sync(state)
@@ -696,7 +720,7 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
         count.text = counted_text()
         return True
 
-    state["redraw_discovery"] = after
+    state["redraw_discovery"] = discovery_marks.recounting(state, after)
     state["settle_discovery"] = settled
 
 
