@@ -130,14 +130,38 @@ class PlaceTests(unittest.TestCase):
         self.assertEqual(displays.read(out),
                          (displays.Display("Backglass", Placement(1, 2, 3, 4), "Extra"),))
 
-    def test_taking_the_only_dmd_out_leaves_an_empty_displays_element(self) -> None:
-        data = body()
-        added = displays.place(data, "Backglass", Placement(10, 20, 300, 80))
+    def test_taking_the_only_dmd_out_takes_the_empty_displays_element_with_it(self) -> None:
+        for name, data in (("crlf", body()), ("lf", body(newline=b"\n")),
+                           ("bom", BOM + body())):
+            with self.subTest(name):
+                added = displays.place(data, "Backglass", Placement(10, 20, 300, 80))
+
+                self.assertEqual(displays.place(added, "Backglass", None), data)
+
+    def test_a_one_line_file_keeps_only_the_line_break_the_switch_on_added(self) -> None:
+        added = displays.place(SINGLE_LINE, "Backglass", Placement(10, 20, 300, 80))
 
         out = displays.place(added, "Backglass", None)
 
+        self.assertEqual(out.replace(b"\n", b""), SINGLE_LINE)
+        self.assertNotIn(b"Displays", out)
+
+    def test_a_displays_element_that_holds_anything_else_stays(self) -> None:
+        other = b'    <DMD Source="Extra" X="1" Y="2" W="3" H="4" />\r\n'
+        note = b"    <!-- kept -->\r\n"
+        for name, inner in (("a dmd with a source", other), ("a comment", note)):
+            with self.subTest(name):
+                out = displays.place(with_displays(DMD + inner), "Backglass", None)
+
+                self.assertEqual(out, with_displays(inner))
+
+    def test_a_displays_element_with_attributes_stays_empty(self) -> None:
+        data = body(extra=b'  <Displays Version="2">\r\n' + DMD + b"  </Displays>\r\n")
+
+        out = displays.place(data, "Backglass", None)
+
+        self.assertIn(b'<Displays Version="2">', out)
         self.assertEqual(displays.read(out), ())
-        self.assertEqual(out.replace(b"  <Displays>\r\n  </Displays>\r\n", b""), data)
 
     def test_taking_out_what_is_not_there_changes_nothing(self) -> None:
         data = body()
@@ -197,6 +221,13 @@ class SpliceTests(unittest.TestCase):
 
                 self.assertEqual(displays.placed(displays.read(changed), "Backglass"),
                                  Placement(1, 2, 3, 4))
+
+    def test_taking_out_the_last_dmd_and_its_element_comes_back_to_the_byte(self) -> None:
+        for name, data in (("crlf", body()), ("bom", BOM + body(newline=b"\n"))):
+            with self.subTest(name):
+                added = displays.place(data, "ScoreView", Placement(1, 2, 3, 4))
+
+                self.assertEqual(back_by_splice(added, "ScoreView", None), data)
 
     def test_a_dmd_added_after_the_last_image_tag_with_no_line_break(self) -> None:
         data = b"<DirectB2SData><Images></Images></DirectB2SData>"

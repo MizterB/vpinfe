@@ -462,6 +462,11 @@ def write_config(launcher_id: str, body: dict[str, Any]) -> dict[str, Any] | job
         cleared = config.write(scope, table, writing, settings)
     except ValueError as exc:
         raise _cannot_write(found) from exc
+    if scope == SCOPE_LAUNCHER and set(writing) & set(getattr(config, "order_keys", tuple)()):
+        # Imported here: it is built on this module.
+        from common.games import backglass_order
+
+        backglass_order.settle_launcher(found.launcher_id)
     return {"written": sorted(set(writing) - cleared), "cleared": sorted(cleared)}
 
 
@@ -471,6 +476,17 @@ def left_behind(launcher_id: str) -> tuple[Leftover, ...]:
     found = launcher_or_refuse(launcher_id)
     ask = getattr(_app_settings_surface(found), "left_behind", None)
     return ask(_launcher_settings(found)) if ask is not None else ()
+
+
+def backglass_order(table_id: str, in_file: bool) -> dict[str, str]:
+    """The values this table's own settings should hold for the order its backglass and score
+    display draw in, as its app says, given whether its backglass file places a Score View
+    DMD; a blank takes the key out. Nothing where its app has no such order."""
+    launcher = _launcher_of(table_id)
+    ask = getattr(_app_settings_surface(launcher), "backglass_order", None)
+    if ask is None:
+        return {}
+    return dict(ask(_game_file(table_id), _launcher_settings(launcher), in_file))
 
 
 def refuse_unwritable(launcher_id: str) -> None:

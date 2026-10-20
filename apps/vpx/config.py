@@ -562,6 +562,29 @@ class VPXConfig:
         return leftovers.find(read_file(settings_file(settings)), one.plugins, one.build,
                               one.dmd_in_file)
 
+    def order_keys(self) -> frozenset[str]:
+        """The launcher's settings that decide `backglass_order`."""
+        return frozenset({screens.B2S_RANK, screens.NIXIE_RANK, f"Plugin.{screens.B2S_ID}.Enable",
+                          f"Plugin.{screens.LEGACY}.Enable"})
+
+    def backglass_order(self, target: str, settings: Mapping[str, Any],
+                        in_file: bool) -> dict[str, str]:
+        """The values one table's own settings should hold for the order its backglass and
+        Score View draw in, given whether its backglass file places a Score View DMD; a
+        blank takes the key out. Nothing for a table that follows a folder file, which a
+        file of its own would stop following."""
+        if self.follows_game(target, settings):
+            return {}
+        one = self.program(settings)
+        keys = (screens.B2S_RANK, screens.NIXIE_RANK)
+        launcher, own = read_file(settings_file(settings)), read_file(
+            path_for(SCOPE_ENTRY, target, settings))
+        return screens.table_order(
+            {"plugins": None if one.plugins is None else set(one.plugins),
+             "defaults": one.defaults, "build": one.build, "dmd_in_file": one.dmd_in_file},
+            {key: launcher.value(key) or "" for key in launcher.settings},
+            {key: own.value(key) or "" for key in keys}, in_file)
+
     def read(self, scope: str, target: str,
              settings: Mapping[str, Any]) -> dict[str, ConfigValue]:
         """Every setting as it stands, seen from one scope.

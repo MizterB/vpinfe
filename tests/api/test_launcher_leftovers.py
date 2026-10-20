@@ -13,7 +13,13 @@ from starlette.testclient import TestClient
 import httpapi
 from common import service_errors
 from common.apps.contract import MOVE, NAME, PLACE, TURN_ON, Leftover
-from common.games import backglass_displays, backglass_ops, launcher_ops, upgrade_ops
+from common.games import (
+    backglass_displays,
+    backglass_ops,
+    backglass_order,
+    launcher_ops,
+    upgrade_ops,
+)
 from common.games.formats import directb2s_parser
 from common.host import launch_state
 from common.media import sized_media
@@ -319,6 +325,29 @@ class Undo(Upgrade):
 
         with self.assertRaises(service_errors.NotFoundError):
             upgrade_ops.undo("L2", token)
+
+
+class Ordering(Upgrade):
+    """A box carried into a file, or taken out again, changes what the file places, so the
+    order of the tables that read it is settled again."""
+
+    def test_a_move_that_wrote_a_file_settles_that_game_once_and_its_undo_again(self) -> None:
+        self.both()
+        self.items = [SCORE]
+        with patch.object(backglass_order, "settle") as settle:
+            token = upgrade_ops.move("L1")["undo"]
+
+            self.assertEqual(settle.call_args_list, [((GAME_ID,),)])
+            upgrade_ops.undo("L1", token)
+
+            self.assertEqual(settle.call_args_list, [((GAME_ID,),), ((GAME_ID,),)])
+
+    def test_a_move_that_wrote_no_file_settles_nothing(self) -> None:
+        self.items = [FANTASY]
+        with patch.object(backglass_order, "settle") as settle:
+            upgrade_ops.move("L1")
+
+        settle.assert_not_called()
 
 
 class Safety(Upgrade):

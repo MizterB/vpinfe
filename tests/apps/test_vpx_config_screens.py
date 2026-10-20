@@ -13,7 +13,7 @@ from unittest import mock
 from apps.vpx import ini as vini
 from apps.vpx import screens as vs
 from apps.vpx.config import preferences_file
-from common.apps.contract import SCOPE_ENTRY, SCOPE_LAUNCHER
+from common.apps.contract import SCOPE_ENTRY, SCOPE_LAUNCHER, Program
 from tests.apps.test_vpx_config import APP_INI, _Case
 
 LAUNCHER = SCOPE_LAUNCHER
@@ -275,6 +275,51 @@ class TheKeysTheAnswerWritesTests(_Case):
 
         self.assertEqual(self.config.read(LAUNCHER, "", self.settings)[
             "ScoreView.Priority.PUP"].value, "9")
+
+
+class TheBackglassOrderTests(_Case):
+    """What `backglass_order` says a table's own file should hold, and that writing it
+    leaves the file the program reads the order from."""
+
+    ORDER = ("\n[ScoreView]\nPriority.PUP = 3\nPriority.Nixie = 2\nPriority.B2S = 1\n"
+             "\n[Plugin.B2S]\nEnable = 1\n")
+    PROGRAM = Program(frozenset({"B2S", "Nixie", "PUP"}), {}, 6300, dmd_in_file=True)
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.app_ini.write_text(APP_INI + self.ORDER)
+        patcher = mock.patch.object(type(self.config), "program", return_value=self.PROGRAM)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def order(self, in_file: bool) -> dict[str, str]:
+        return self.config.backglass_order(str(self.table), self.settings, in_file)
+
+    def test_a_file_that_places_a_dmd_swaps_b2s_and_nixie_in_the_table(self) -> None:
+        values = self.order(True)
+
+        self.assertEqual(values, {"ScoreView.Priority.B2S": "2", "ScoreView.Priority.Nixie": "1"})
+
+    def test_written_to_the_table_it_is_read_back_and_the_launcher_is_untouched(self) -> None:
+        self.config.write(SCOPE_ENTRY, str(self.table), self.order(True), self.settings)
+
+        mine = self.config.read(SCOPE_ENTRY, str(self.table), self.settings)
+        self.assertEqual((mine["ScoreView.Priority.B2S"].value,
+                          mine["ScoreView.Priority.Nixie"].value), ("2", "1"))
+        self.assertEqual(self.app_ini.read_text(), APP_INI + self.ORDER)
+        self.assertEqual(self.order(True), {})
+
+    def test_taking_the_dmd_out_clears_the_two_and_the_file_goes_with_them(self) -> None:
+        self.config.write(SCOPE_ENTRY, str(self.table), self.order(True), self.settings)
+
+        self.config.write(SCOPE_ENTRY, str(self.table), self.order(False), self.settings)
+
+        self.assertFalse(self.table.with_suffix(".ini").exists())
+
+    def test_a_table_that_follows_a_folder_file_is_left_alone(self) -> None:
+        self.folder_file("[Backglass]\nBackglassOutput = 0\n")
+
+        self.assertEqual(self.order(True), {})
 
 
 if __name__ == "__main__":

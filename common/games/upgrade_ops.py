@@ -23,7 +23,7 @@ from typing import Any
 
 from common import failures, i18n, service_errors
 from common.apps.contract import MOVE, PLACE, SCOPE_LAUNCHER, TURN_ON, Leftover
-from common.games import backglass_displays, backglass_ops, launcher_ops
+from common.games import backglass_displays, backglass_ops, backglass_order, launcher_ops
 from common.i18n import t
 
 logger = logging.getLogger("vpinfe.common.games.upgrade_ops")
@@ -254,6 +254,8 @@ def move(launcher_id: str) -> dict[str, Any]:
     except BaseException:
         _roll_back(placed)
         raise
+    for game_id in dict.fromkeys(game for game, _path, _token in placed):
+        backglass_order.settle(game_id)
     if not values and not placed:
         return _answer("", moved, held_back)
     token = _remember(_Done(launcher_id, before, values, placed))
@@ -324,6 +326,8 @@ def _put_back(launcher_id: str, done: _Done) -> None:
         except (service_errors.ServiceError, OSError) as exc:
             stuck.append({"path": path, "reason": failures.why(exc)})
             left.append((game_id, path, one))
+    for game_id in dict.fromkeys(game for game, _path, _token in done.placed):
+        backglass_order.settle(game_id)
     if stuck:
         done.placed = list(reversed(left))
         raise service_errors.BlockedError(t("error.upgrade.files"), details={"files": stuck})

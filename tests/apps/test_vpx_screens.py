@@ -441,6 +441,67 @@ class ByProgramTests(unittest.TestCase):
         self.assertEqual(got["ScoreView.Priority.PUP"], "3")
 
 
+class ATablesOwnOrderTests(unittest.TestCase):
+    """A table whose backglass file places a Score View DMD ranks B2S over Nixie."""
+
+    PROGRAM = {"plugins": ["B2S", "Nixie", "PUP"], "build": 6300, "dmd_in_file": True,
+               "defaults": {"Plugin.B2S.Enable": "1", "Plugin.B2SLegacy.Enable": "0"}}
+    LAUNCHER = {"ScoreView.Priority.PUP": "3", "ScoreView.Priority.Nixie": "2",
+                "ScoreView.Priority.B2S": "1"}
+    SWAPPED = {"ScoreView.Priority.Nixie": "1", "ScoreView.Priority.B2S": "2"}
+
+    def test_a_file_that_places_a_score_view_dmd_swaps_the_two_and_leaves_pup(self) -> None:
+        got = vs.table_order(self.PROGRAM, self.LAUNCHER, {}, True)
+
+        self.assertEqual(got, self.SWAPPED)
+
+    def test_a_file_that_places_none_is_given_nothing(self) -> None:
+        self.assertEqual(vs.table_order(self.PROGRAM, self.LAUNCHER, {}, False), {})
+
+    def test_the_swap_it_wrote_is_taken_out_when_the_file_places_none(self) -> None:
+        got = vs.table_order(self.PROGRAM, self.LAUNCHER, self.SWAPPED, False)
+
+        self.assertEqual(got, {"ScoreView.Priority.Nixie": "", "ScoreView.Priority.B2S": ""})
+
+    def test_a_table_that_holds_a_rank_of_its_own_is_left_alone_either_way(self) -> None:
+        own = {"ScoreView.Priority.B2S": "5"}
+        for in_file in (True, False):
+            with self.subTest(in_file=in_file):
+                self.assertEqual(vs.table_order(self.PROGRAM, self.LAUNCHER, own, in_file), {})
+
+    def test_a_table_already_holding_the_swap_has_nothing_to_write(self) -> None:
+        self.assertEqual(vs.table_order(self.PROGRAM, self.LAUNCHER, self.SWAPPED, True), {})
+
+    def test_the_numbers_are_the_launchers_own_swapped(self) -> None:
+        launcher = {**self.LAUNCHER, "ScoreView.Priority.Nixie": "7",
+                    "ScoreView.Priority.B2S": "4"}
+
+        got = vs.table_order(self.PROGRAM, launcher, {}, True)
+
+        self.assertEqual(got, {"ScoreView.Priority.Nixie": "4", "ScoreView.Priority.B2S": "7"})
+
+    def test_builds_that_keep_the_dmd_in_the_ini_have_no_file_to_follow(self) -> None:
+        program = {**self.PROGRAM, "build": 6266, "dmd_in_file": False}
+
+        self.assertEqual(vs.table_order(program, self.LAUNCHER, {}, True), {})
+
+    def test_a_launcher_that_does_not_rank_nixie_over_b2s_gives_nothing(self) -> None:
+        for launcher in ({}, {"ScoreView.Priority.Nixie": "1", "ScoreView.Priority.B2S": "2"},
+                         {"ScoreView.Priority.Nixie": "2"}):
+            with self.subTest(launcher=launcher):
+                self.assertEqual(vs.table_order(self.PROGRAM, launcher, {}, True), {})
+
+    def test_legacy_drawing_or_b2s_off_or_no_nixie_gives_nothing(self) -> None:
+        legacy = {**self.LAUNCHER, "Plugin.B2SLegacy.Enable": "1"}
+        with_legacy = {**self.PROGRAM, "plugins": [*self.PROGRAM["plugins"], "B2SLegacy"]}
+        b2s_off = {**self.LAUNCHER, "Plugin.B2S.Enable": "0"}
+        no_nixie = {**self.PROGRAM, "plugins": ["B2S", "PUP"]}
+        for program, launcher in ((with_legacy, legacy), (self.PROGRAM, b2s_off),
+                                  (no_nixie, self.LAUNCHER), (None, self.LAUNCHER)):
+            with self.subTest(program=program, launcher=launcher):
+                self.assertEqual(vs.table_order(program, launcher, {}, True), {})
+
+
 class TheWholeAnswerTests(unittest.TestCase):
     NOW = {"playfield": 1, "backglass": 2, "scoreview": 3}
 

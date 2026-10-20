@@ -194,7 +194,8 @@ def _moved(tag: bytes, where: Placement) -> bytes:
 
 def place(data: bytes, target: str, where: Placement | None) -> bytes:
     """`data` with the target's default DMD set to `where`, added if the file has none, or
-    taken out when `where` is None. Raises `DisplaysError` for a file this cannot splice
+    taken out when `where` is None, and the `<Displays>` element with it when that leaves
+    an attribute-free one empty. Raises `DisplaysError` for a file this cannot splice
     into, and for a splice that does not read back as asked."""
     if target not in TARGETS:
         raise DisplaysError("unknown_window")
@@ -223,9 +224,22 @@ def place(data: bytes, target: str, where: Placement | None) -> bytes:
 def _replaced(data: bytes, one: _Element, where: Placement | None) -> bytes:
     if where is None:
         start, end = _line_around(data, one.start, one.end)
-        return data[:start] + data[end:]
+        return _without_empty_displays(data[:start] + data[end:])
     tag = _moved(bytes(data[one.start:one.tag_end]), where)
     return data[:one.start] + tag + data[one.tag_end:]
+
+
+def _without_empty_displays(data: bytes) -> bytes:
+    """`data` less its `<Displays>` element, whole lines and all, where the element has no
+    attributes and holds only whitespace. Nothing else lives in an element like that, and a
+    file with none reads the same."""
+    section = _section(data)
+    if section is None or section[2] == section[1] or data[section[0]:section[1]] != b"<Displays>":
+        return data
+    if data[section[1]:section[2]].strip():
+        return data
+    start, end = _line_around(data, section[0], section[3])
+    return data[:start] + data[end:]
 
 
 def _added(data: bytes, section: tuple[int, int, int, int] | None, element: bytes) -> bytes:

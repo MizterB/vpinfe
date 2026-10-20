@@ -30,6 +30,7 @@ from common.games import (
     asset_ops,
     backglass_displays,
     backglass_ops,
+    backglass_order,
     collection_ops,
     file_move,
     game_lens,
@@ -232,9 +233,11 @@ def put_asset_text(game_id: str, body: models.AssetTextSave,
 def put_backglass_displays(game_id: str, body: models.AssetDisplayPlace,
                            path: str = Query(...)) -> models.AssetDisplaysWritten:
     """Written into the file itself, which every table that reads it shares. Refused while a
-    table of the game is playing."""
-    return models.AssetDisplaysWritten.model_validate(backglass_displays.place(
-        game_id, path, body.target, (body.x, body.y, body.w, body.h)))
+    table of the game is playing. Each table of the game that the launcher's program lets
+    draw its own order is brought to what the file now places."""
+    written = backglass_displays.place(game_id, path, body.target, (body.x, body.y, body.w, body.h))
+    backglass_order.settle(game_id)
+    return models.AssetDisplaysWritten.model_validate(written)
 
 
 @router.post("/{game_id}/assets/backglass/displays/undo",
@@ -242,8 +245,9 @@ def put_backglass_displays(game_id: str, body: models.AssetDisplayPlace,
              dependencies=[requires(scopes.GAMES_WRITE)])
 def undo_backglass_displays(game_id: str,
                             body: models.AssetDisplaysUndo) -> models.AssetDisplaysWritten:
-    return models.AssetDisplaysWritten.model_validate(
-        backglass_displays.undo(game_id, body.undo))
+    written = backglass_displays.undo(game_id, body.undo)
+    backglass_order.settle(game_id)
+    return models.AssetDisplaysWritten.model_validate(written)
 
 
 @router.put("/{game_id}/assets/{kind}", summary="Place a file under the folder's own name",

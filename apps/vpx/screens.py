@@ -359,6 +359,50 @@ def derived(on: Mapping[str, Placement], current: Mapping[str, str],
             if not str(current.get(key) or "").strip()}
 
 
+B2S_RANK, NIXIE_RANK = f"{PRIORITY}{B2S_ID}", f"{PRIORITY}{NIXIE}"
+
+
+def _rank(value: object) -> int | None:
+    try:
+        return int(str(value or "").strip())
+    except ValueError:
+        return None
+
+
+def _b2s_over_nixie(program: Mapping[str, Any] | None,
+                    launcher: Mapping[str, str]) -> dict[str, str]:
+    """The launcher's ranks for B2S and Nixie with each other's number, or {} where this
+    program has no such order to give: B2S must draw and keep the DMD in the file beside
+    Nixie, and the launcher must rank Nixie over B2S."""
+    present = _installed(program)
+    if (present is None or not {B2S_ID, NIXIE} <= present
+            or not (program or {}).get("dmd_in_file")
+            or _draws(LEGACY, "1", present, program, launcher)
+            or not _draws(B2S_ID, "0", present, program, launcher)):
+        return {}
+    b2s, nixie = _rank(launcher.get(B2S_RANK)), _rank(launcher.get(NIXIE_RANK))
+    if b2s is None or nixie is None or nixie <= b2s:
+        return {}
+    return {B2S_RANK: str(nixie), NIXIE_RANK: str(b2s)}
+
+
+def table_order(program: Mapping[str, Any] | None, launcher: Mapping[str, str],
+                own: Mapping[str, str], in_file: bool) -> dict[str, str]:
+    """What one table's own settings should hold for the order B2S and Nixie draw in, given
+    whether its backglass file places a Score View DMD.
+
+    The launcher ranks Nixie over B2S, so every table has a live DMD; a table whose file
+    places a Score View DMD ranks B2S over Nixie, to show that art with the live DMD on it.
+    A table that holds a rank of its own for either is left alone. A blank value takes
+    the key out, and is given only for the order this wrote.
+    """
+    swapped = _b2s_over_nixie(program, launcher)
+    held = {key: str(own.get(key) or "").strip() for key in (B2S_RANK, NIXIE_RANK)}
+    if in_file:
+        return swapped if swapped and not any(held.values()) else {}
+    return dict.fromkeys(swapped, "") if swapped and held == swapped else {}
+
+
 def answer(moved: Mapping[str, Placement], now: Mapping[str, Placement],
            screens: Sequence[Seen], logged: Sequence[str], current: Mapping[str, str],
            turn: tuple[str, str] | None = None,

@@ -224,6 +224,23 @@ def files_of(launcher_id: str) -> list[dict[str, Any]]:
     return list(found.values())
 
 
+def score_dmds(game_id: str, launcher_id: str = "") -> dict[str, bool]:
+    """By table id, whether the backglass file the table reads places a Score View DMD, for
+    each table of the game whose launcher has settings of its own and that reads a file
+    that can be read. With `launcher_id`, only the tables that launcher plays."""
+    game = game_lens.game_or_refuse(game_id)
+    found: dict[str, bool] = {}
+    for row in _table_rows(game, ""):
+        if (not row.get("launcher") or not row.get("launcher_app_configurable")
+                or launcher_id and row["launcher"] != launcher_id):
+            continue
+        seen = _seen(game_id, row["id"])
+        if seen is not None:
+            found[row["id"]] = any(one.target == "ScoreView" and not one.source
+                                   for one in seen[1].displays)
+    return found
+
+
 def place_picture(game_id: str, table_id: str = "") -> dict:
     """Write the file's picture as this slot's backglass picture, recorded as drawn from
     the file so a later redraw knows it is ours."""
@@ -284,4 +301,5 @@ def redraw_all(proceed: Callable[[], bool] = lambda: True) -> int:
 
 
 __all__ = ["B2S", "KIND", "LEGACY", "NONE", "cuts_grill", "files_of", "grill_cut", "offer",
-           "picture_file", "place_picture", "redraw", "redraw_all", "renderer", "scoreview_file"]
+           "picture_file", "place_picture", "redraw", "redraw_all", "renderer", "score_dmds",
+           "scoreview_file"]
