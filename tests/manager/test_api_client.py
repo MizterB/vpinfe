@@ -78,6 +78,34 @@ class HowLongEachReadWaitsTests(unittest.TestCase):
             self.assertGreater(self._waited(send), 60)
 
 
+class GameOffersTests(unittest.TestCase):
+    @staticmethod
+    def _requested(call) -> str:
+        seen: list[str] = []
+
+        def send(_adapter, request, **_kwargs):
+            seen.append(request.url)
+            response = requests.Response()
+            response.status_code = 200
+            response._content = b"{}"
+            return response
+
+        with patch.object(requests.adapters.HTTPAdapter, "send", send):
+            call(ApiClient("http://127.0.0.1:1"))
+        return seen[0]
+
+    def test_a_games_own_entry_is_asked_with_the_kinds_alone(self) -> None:
+        url = self._requested(lambda c: c.game_offers("g 1", "", "", ["wheel", "topper"]))
+
+        self.assertEqual("http://127.0.0.1:1/api/v1/games/g%201/offers?kind=wheel&kind=topper", url)
+
+    def test_another_entry_is_named_with_its_name(self) -> None:
+        url = self._requested(lambda c: c.game_offers("g1", "v&1", "Attack & Co", ["wheel"]))
+
+        self.assertEqual("http://127.0.0.1:1/api/v1/games/g1/offers"
+                         "?kind=wheel&vps_id=v%261&name=Attack+%26+Co", url)
+
+
 class _Slow(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 

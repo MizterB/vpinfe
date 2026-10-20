@@ -417,6 +417,9 @@ class Library:
     def source_changes(self, since: int) -> dict:
         return self._client.source_changes(since)
 
+    def game_offers(self, game_id: str, vps_id: str, name: str, kinds: list[str]) -> dict:
+        return self._client.game_offers(game_id, vps_id, name, kinds)
+
     def source_offers(self, extension: str, key: str, kind: str, game_id: str,
                       vps_id: str, name: str) -> dict:
         return self._client.source_offers(extension, key, kind, game_id, vps_id, name)

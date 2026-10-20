@@ -202,33 +202,82 @@ def media_order(kind: str) -> tuple[int, int]:
     return (first, kinds.index(kind) if kind in kinds else len(kinds))
 
 
-async def offers_for(library: Any, vps_id: str) -> tuple[dict[str, list[dict[str, Any]]],
-                                                         dict[str, dict[str, Any]],
-                                                         BaseException | None]:
-    """What the sources being asked have for this game, by media kind, in the order the
-    kinds are drawn; the sources by id; and what went wrong.
+@dataclass(frozen=True)
+class Catalogs:
+    """The built-in sources being asked, by id, and the media kinds they hold that the
+    library keeps, in the order the kinds are drawn. `failed` is why the sources could not be
+    read."""
 
-    Only the kinds some source holds and the library keeps are asked about, each once.
-    """
+    asked: dict[str, dict[str, Any]] = field(default_factory=dict)
+    kinds: list[str] = field(default_factory=list)
+    failed: BaseException | None = None
+
+
+async def catalogs_asked(library: Any) -> Catalogs:
+    """Which built-in sources are being asked, and for which kinds."""
     try:
         sources = await offload.io(library.media_sources)
     except Exception as exc:  # noqa: BLE001 - the files still draw
         logger.warning("manager: could not read the media sources", exc_info=True)
-        return {}, {}, exc
+        return Catalogs(failed=exc)
     asked = {str(one["id"]): one for one in sources
              if one.get("enabled") and not one.get("extension")}
     holds = {kind for one in asked.values() for kind in one.get("kinds") or ()}
-    kinds = sorted(holds & library.kept_kinds()["media"], key=media_order)
-    found = await asyncio.gather(
-        *(offload.io(library.media_offers, vps_id, kind) for kind in kinds),
-        return_exceptions=True)
-    failed = next((one for one in found if isinstance(one, BaseException)), None)
-    if failed is not None:
+    return Catalogs(asked, sorted(holds & library.kept_kinds()["media"], key=media_order))
+
+
+async def game_offers(library: Any, game_id: str, vps_id: str, name: str,
+                      kinds: list[str]) -> dict[str, Any] | BaseException:
+    """What every source has for a game of the library, in one call; or why it could not
+    be read. With no kinds wanted there is nothing to ask: an empty list to the API would
+    mean every kind."""
+    if not kinds:
+        return {"game_id": game_id, "vps_id": vps_id, "sources": []}
+    try:
+        return await offload.io(library.game_offers, game_id, vps_id, name, kinds)
+    except Exception as exc:  # noqa: BLE001 - the files still draw
         logger.warning("manager: could not read what the sources have for %s", vps_id,
-                       exc_info=failed)
-    by_kind = {kind: list(one) for kind, one in zip(kinds, found, strict=True)
-               if not isinstance(one, BaseException) and one}
-    return by_kind, asked, failed
+                       exc_info=True)
+        return exc
+
+
+async def offers_for(library: Any, vps_id: str, plan: Catalogs,
+                     combined: dict[str, Any] | BaseException | None = None,
+                     ) -> tuple[dict[str, list[dict[str, Any]]], dict[str, dict[str, Any]],
+                                BaseException | None]:
+    """What the built-in sources have for this game, by media kind in the order the kinds are
+    drawn; the sources by id; and what went wrong.
+
+    Only the kinds some source holds and the library keeps are asked about. `combined` is the
+    answer of `game_offers`, from which they are read; without it each kind is asked once.
+    """
+    if plan.failed is not None:
+        return {}, {}, plan.failed
+    if combined is None:
+        found = await asyncio.gather(
+            *(offload.io(library.media_offers, vps_id, kind) for kind in plan.kinds),
+            return_exceptions=True)
+        failed = next((one for one in found if isinstance(one, BaseException)), None)
+        if failed is not None:
+            logger.warning("manager: could not read what the sources have for %s", vps_id,
+                           exc_info=failed)
+        by_kind = {kind: list(one) for kind, one in zip(plan.kinds, found, strict=True)
+                   if not isinstance(one, BaseException) and one}
+        return by_kind, plan.asked, failed
+    if isinstance(combined, BaseException):
+        return {}, plan.asked, combined
+    by_kind = {}
+    failed = None
+    for source in combined.get("sources") or ():
+        if source.get("extension") or source["id"] not in plan.asked:
+            continue
+        for each in source.get("kinds") or ():
+            if each.get("error"):
+                failed = failed or RuntimeError(each["error"])
+            elif each["kind"] in plan.kinds:
+                by_kind.setdefault(each["kind"], []).extend(each.get("offers") or ())
+    return ({kind: by_kind[kind] for kind in plan.kinds if by_kind.get(kind)}, plan.asked,
+            failed)
 
 
 def end(tray: Tray, pick: Pick, rest: Callable[[], None],

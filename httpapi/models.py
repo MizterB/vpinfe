@@ -2720,6 +2720,55 @@ class MediaOfferList(ApiModel):
     offers: list[MediaOffer]
 
 
+class GameOfferRow(ApiModel):
+    """One file an extension's source will hand over. `vps_file_id` ties it to a release VPS
+    lists, `current` says the game holds it already, and `state` and `acts` are where it
+    stands and what can be pressed on it."""
+
+    key: str
+    name: str
+    site: str = ""
+    page: str = ""
+    note: str = ""
+    tag: str = ""
+    picture: str = ""
+    current: bool = False
+    vps_file_id: str = ""
+    state: dict[str, str] | None = None
+    acts: list[dict[str, str]] = Field(default_factory=list)
+
+
+class GameKindOffers(ApiModel):
+    """What one source said for one kind, under the name that source knows the kind by.
+    A source core fetches from fills `offers`, and one that hands the file over itself fills
+    `rows` with the `note` and `link` it draws under them. `error` is why it could not
+    answer, and then the rest are empty."""
+
+    kind: str
+    offers: list[MediaOffer] = Field(default_factory=list)
+    rows: list[GameOfferRow] = Field(default_factory=list)
+    note: str = ""
+    link: dict[str, Any] | None = None
+    error: str = ""
+
+
+class GameSourceOffers(ApiModel):
+    id: str
+    name: str
+    extension: str = ""
+    key: str = ""
+    kinds: list[GameKindOffers]
+
+
+class GameOffers(ApiModel):
+    """What every enabled source has for one game, asked together. `sources` holds the
+    ones asked about at least one kind, in the order the registry lists them."""
+
+    game_id: str
+    vps_id: str
+    sources: list[GameSourceOffers]
+
+
 class MediaPlacement(ApiModel):
     """One place a file could land. `table` is empty for the folder's own name, which
     every table resolves, and `label` is then empty too. `base` has no extension, which

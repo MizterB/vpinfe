@@ -14,8 +14,8 @@ from fastapi import Depends, FastAPI, Request
 from starlette.testclient import TestClient
 
 from common import extensions
-from common.extensions import host
-from httpapi import errors, extensions_served
+from common.extensions import host, reach
+from httpapi import errors, extensions_served, games
 
 
 class _Holding:
@@ -43,4 +43,22 @@ def client_for(test: unittest.TestCase, registry: Any, record: Any,
                        prefix=f"/ext/{record.name}")
     for router, _scope in record.routers:
         app.include_router(router, prefix=f"/ext/{record.name}")
+    return TestClient(app, **options)
+
+
+def games_client(allowed: Callable[[str], bool] = lambda _scope: True,
+                 reached: str | None = None, **options: Any) -> TestClient:
+    """A client over the games routes alone, at `/games`, held to the scopes `allowed` says.
+    `reached` marks each request as made by a caller who reached that tier."""
+    async def _everyone(request: Request) -> Any:
+        request.state.identity = _Holding(allowed)
+        if reached is None:
+            yield
+        else:
+            with reach.marking(reached):
+                yield
+
+    app = FastAPI(dependencies=[Depends(_everyone)])
+    errors.install_error_handlers(app)
+    app.include_router(games.router)
     return TestClient(app, **options)

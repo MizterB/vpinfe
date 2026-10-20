@@ -952,6 +952,19 @@ class ApiClient:
             + urlencode({"kind": kind, "row": row, "game_id": game_id, "vps_id": vps_id,
                          "name": name}))
 
+    def game_offers(self, game_id: str, vps_id: str, name: str, kinds: list[str]) -> dict:
+        """What every enabled source has for a game, in one call: for each source asked, its
+        answer per kind, with the reason where it could not answer. `vps_id` and `name` ask
+        about another entry than the game's own; empty asks about its own. No kinds asks
+        nothing: the route would read none as every kind."""
+        if not kinds:
+            return {"game_id": game_id, "vps_id": vps_id, "sources": []}
+        asked: list[tuple[str, str]] = [("kind", one) for one in kinds]
+        if vps_id:
+            asked += [("vps_id", vps_id), ("name", name)]
+        return self._get(f"/games/{quote(game_id, safe='')}/offers"
+                         + (f"?{urlencode(asked)}" if asked else ""))
+
     def source_changes(self, since: int) -> dict:
         """The newest version of the offers extensions' sources report, and the VPS ids that
         moved after `since`."""

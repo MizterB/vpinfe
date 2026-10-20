@@ -23,6 +23,7 @@ from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
 from starlette.responses import FileResponse, Response
 
+from common.extensions import reach
 from common.games import (
     archive_service,
     asset_lens,
@@ -43,9 +44,10 @@ from common.games import (
 )
 from common.host import play_service
 from common.i18n import t
+from common.online import game_offers
 
 from . import models, responses, scopes
-from .auth import ForbiddenError, requires
+from .auth import ForbiddenError, require, requires
 
 logger = logging.getLogger("vpinfe.httpapi.games")
 
@@ -540,6 +542,29 @@ def get_vps_state(game_id: str) -> models.VpsState:
     a file, never that the file is yours to take."""
     return models.VpsState(
         **library_vps_state.state_of(game_lens.game_or_refuse(game_id), game_id))
+
+
+@router.get("/{game_id}/offers", summary="What every enabled source has for this game",
+            dependencies=[requires(scopes.VPS_READ)])
+def get_game_offers(
+    game_id: str, request: Request,
+    kind: list[str] = Query([], description="A kind to ask for, by its slot's name; repeat "
+                                            "for more. None asks every kind each source serves"),
+    vps_id: str = Query("", description="Ask about this entry instead of the game's own"),
+    name: str = Query("", description="The entry's name, where `vps_id` is another's"),
+) -> models.GameOffers:
+    """Every enabled source's answer for the game, together. A source that cannot answer a
+    kind says why on that kind and the rest still arrive. Needs `games:read` as well as the
+    route's scope, and an extension's source is left out where the caller may not use that
+    extension. A Private game is asked of no extension. Extensions answer at Library at
+    most."""
+    require(request, scopes.GAMES_READ)
+    reach.answer_at(reach.LIBRARY)
+    identity = request.state.identity
+    return models.GameOffers.model_validate(game_offers.wire_for_game(
+        game_id, kind, vps_id=vps_id, name=name,
+        permits=lambda source: identity.can(scopes.extension_scope(source.extension,
+                                                                   reach.LIBRARY))))
 
 
 @router.get("/{game_id}/vps_details", summary="Where the game's details and its entry disagree",

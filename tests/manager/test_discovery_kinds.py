@@ -11,6 +11,7 @@ from manager.kit import offload
 from manager.kit.data import Library
 from manager.library import discovery, discovery_get, discovery_kinds, discovery_list
 from manager.library.discovery_kinds import Kind, Scene
+from tests.support.game_offers import answer_from
 
 TABLE = "tableFiles"
 BACKGLASS = "b2sFiles"
@@ -173,7 +174,12 @@ class Scenes(unittest.IsolatedAsyncioTestCase):
         self.library.media_sources = mock.Mock(return_value=[])
         self.library.online_sources = lambda: self.sources
         self.library.source_changes = mock.Mock(return_value={"version": 3})
-        self.library.source_offers = lambda _ext, key, *_rest: self.offers.get(key, {"rows": []})
+        self.catalog: dict[str, list[dict[str, Any]]] = {}
+        answer_from(self.library, lambda: [*self.library.media_sources(), *self.sources],
+                    self._offers, lambda _vps_id, kind: self.catalog.get(kind, []))
+
+    def _offers(self, _source: dict[str, Any], _kind: str, *_rest: Any) -> Any:
+        return self.offers.get(_source["key"], {"rows": []})
 
     def _releases(self, _vps_id: str, listed_as: str) -> list[dict[str, Any]]:
         answer = self.releases.get(listed_as, [])
@@ -351,6 +357,70 @@ class Scenes(unittest.IsolatedAsyncioTestCase):
                          (sheet.listed_as, sheet.media, sheet.standing))
         self.assertEqual(["r1"], [one["vps_file_id"] for one in sheet.records])
         self.assertIsNone(scene.kind("discovery_rulefiles"))
+
+
+    async def test_a_game_of_the_library_is_asked_of_every_source_in_one_call(self) -> None:
+        self.library.media_sources = mock.Mock(return_value=[
+            {"id": "vpinmediadb", "name": "DB", "enabled": True, "kinds": ["wheel"]}])
+        self.sources = [{"id": "ext.files", "extension": "ext", "key": "files",
+                         "name": "Example", "kinds": ["table"]}]
+        self.catalog = {"wheel": [{"source": "vpinmediadb", "name": "w.png", "url": "u",
+                                   "kind": "wheel", "size": ""}]}
+        self.offers = {"files": {"rows": [{"key": "a", "name": "a", "vps_file_id": "f1"}]}}
+        self.releases = {TABLE: [_release("f1")]}
+
+        scene = await self._read()
+
+        self.library.game_offers.assert_called_once()
+        game_id, vps_id, _name, kinds = self.library.game_offers.call_args.args
+        self.assertEqual(("g1", "v1"), (game_id, vps_id))
+        self.assertEqual({"table", "wheel"}, set(kinds))
+        wheel = scene.kind("discovery_wheel")
+        assert wheel is not None
+        self.assertEqual(["w.png"], [one["name"] for one in wheel.offers])
+        self.assertEqual(["ext.files:table:a"],
+                         [one.pick.key for one in scene.tray.offered.values()])
+
+    async def test_a_catalog_that_cannot_answer_says_why(self) -> None:
+        self.library.media_sources = mock.Mock(return_value=[
+            {"id": "vpinmediadb", "name": "DB", "enabled": True, "kinds": ["wheel"]}])
+        self.library.game_offers = mock.Mock(return_value={"sources": [
+            {"id": "vpinmediadb", "name": "DB", "extension": "", "key": "", "kinds": [
+                {"kind": "wheel", "offers": [], "rows": [], "note": "", "link": None,
+                 "error": "that source is down"}]}]})
+
+        scene = await self._read()
+
+        self.assertEqual("that source is down", str(scene.failed))
+        self.assertEqual([], [one for one in scene.media if one.offers])
+
+    async def test_nothing_is_read_when_the_call_itself_fails(self) -> None:
+        self.library.game_offers = mock.Mock(side_effect=RuntimeError("no answer"))
+        self.sources = [{"id": "ext.files", "extension": "ext", "key": "files",
+                         "name": "Example", "kinds": ["table"]}]
+
+        with self.assertLogs("vpinfe.manager.library.discovery_get", "WARNING"):
+            scene = await self._read()
+
+        self.assertEqual("no answer", str(scene.failed))
+        self.assertEqual({}, scene.tray.offered)
+
+    async def test_an_entry_the_library_does_not_hold_is_asked_of_each_source(self) -> None:
+        self.library.owned = mock.Mock(return_value=({}, {}))
+        self.library.source_offers = mock.Mock(return_value={"rows": []})
+        self.sources = [{"id": "ext.files", "extension": "ext", "key": "files",
+                         "name": "Example", "kinds": ["table"]}]
+
+        await self._read()
+
+        self.library.game_offers.assert_not_called()
+        self.library.source_offers.assert_called_once()
+
+
+    async def test_nothing_wanted_of_any_source_makes_no_call(self) -> None:
+        await self._read()
+
+        self.library.game_offers.assert_not_called()
 
 
 if __name__ == "__main__":

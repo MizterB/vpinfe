@@ -195,10 +195,16 @@ async def read(context: dict[str, Any]) -> Scene:
               if kind[0] in row["listed"] and discovery.kept(library, kind[0])]
     listed_as = [kind[0] for kind in listed]
     version = await discovery_ext.version_of(library)
+    plan = await discovery_get.catalogs_asked(library)
+    combined = None
+    if game_id:
+        combined = await discovery_get.game_offers(
+            library, game_id, row["id"], row["name"],
+            [*discovery_ext.slots_for(library.online_sources(), listed_as), *plan.kinds])
     discovery_ext.adopt(context, tray, await discovery_ext.ask(
-        library, row, game_id, listed_as, keep=tray.offered))
+        library, row, game_id, listed_as, keep=tray.offered, combined=combined))
     context["refresh_hosted"] = lambda: discovery_ext.refresh(context, tray, game_id, listed_as)
-    offers, sources, failed = await discovery_get.offers_for(library, row["id"])
+    offers, sources, failed = await discovery_get.offers_for(library, row["id"], plan, combined)
     present = await discovery.media_present(library, game_id)
     said = discovery.standing(library, row, held)
     compare = counted and in_library

@@ -57,18 +57,61 @@ def size_text(size: int | None) -> str:
     return t("manager.discovery.size.kb", count=f"{max(size, 1) / 1024:.1f}")
 
 
+def slots_for(sources: list[dict[str, Any]], listed: list[str]) -> list[str]:
+    """The slots to ask for the files VPS lists: for each source, the first slot of each
+    listing that it serves."""
+    slots: list[str] = []
+    for source in sources:
+        held = set(source.get("kinds") or ())
+        for listed_as in listed:
+            for ours in discovery_get.of_listing(listed_as)[0]:
+                slot = source_registry.file_kind(ours)
+                if source_registry.names_for(slot) & held:
+                    if slot not in slots:
+                        slots.append(slot)
+                    break
+    return slots
+
+
+def _said(combined: dict[str, Any] | BaseException, source: dict[str, Any],
+          kind: str) -> dict[str, Any] | BaseException:
+    """What `source` said of `kind` in a game's combined answer. A source the answer does
+    not hold has not answered, so what it offered before is kept."""
+    if isinstance(combined, BaseException):
+        return combined
+    for each in combined.get("sources") or ():
+        if each["id"] == source["id"]:
+            for said in each.get("kinds") or ():
+                if said["kind"] == kind:
+                    return RuntimeError(said["error"]) if said.get("error") else said
+    return LookupError(source["id"])
+
+
 async def ask(library: Any, row: dict[str, Any], game_id: str, listed: list[str],
-              keep: dict[str, Offered] | None = None) -> list[Offered]:
+              keep: dict[str, Offered] | None = None,
+              combined: dict[str, Any] | BaseException | None = None) -> list[Offered]:
     """What the switched-on sources offer for the files VPS lists, one per file. A source
     that cannot answer keeps what `keep` held of it, so one slow answer does not clear its
-    rows; the rest draw."""
+    rows; the rest draw.
+
+    A game of the library is asked of every source in one call, unless `combined` is that
+    call's answer already. An entry the library does not hold is asked of each source.
+    """
+    sources = library.online_sources()
     questions = [(source, kind, listed_as)
-                 for source in library.online_sources() for listed_as in listed
+                 for source in sources for listed_as in listed
                  if (kind := kind_for(source, listed_as))]
-    answers = await asyncio.gather(
-        *(offload.io(library.source_offers, source["extension"], source["key"], kind, game_id,
-                     row["id"], row["name"]) for source, kind, _listed_as in questions),
-        return_exceptions=True)
+    if game_id:
+        if combined is None:
+            combined = await discovery_get.game_offers(
+                library, game_id, row["id"], row["name"], slots_for(sources, listed))
+        answers = [_said(combined, source, kind) for source, kind, _listed_as in questions]
+    else:
+        answers = await asyncio.gather(
+            *(offload.io(library.source_offers, source["extension"], source["key"], kind,
+                         game_id, row["id"], row["name"])
+              for source, kind, _listed_as in questions),
+            return_exceptions=True)
     found: dict[str, Offered] = {}
     for (source, kind, _listed_as), answer in zip(questions, answers, strict=True):
         if isinstance(answer, BaseException):

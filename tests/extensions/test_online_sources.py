@@ -17,10 +17,10 @@ from common.extensions import contract, host, reach, serving, store
 from common.extensions.context import ContractError, ExtensionSources
 from common.extensions.contract import Unavailable
 from common.i18n import t
-from common.online import sources
+from common.online import sources, vpinmediadb
 from tests.support.accepted import owner_accepts
 from tests.support.identity import IDENTITY
-from tests.support.served import client_for
+from tests.support.served import client_for, games_client
 
 MODULE = "tests.extensions.test_online_sources"
 NAME = "sourced"
@@ -37,7 +37,7 @@ def fresh_state() -> None:
     STATE.clear()
     STATE.update(offers={"rows": []}, take={"message": "Done"}, asked=[], taken=[], off=[],
                  many={"message": "Getting them"}, act={}, look={}, taken_many=[], acted=[],
-                 looked=[])
+                 looked=[], tiers=[])
 
 
 def sourced(ctx: Any) -> None:
@@ -47,6 +47,7 @@ def sourced(ctx: Any) -> None:
 
     def offers(who: dict, kind: str) -> Any:
         STATE["asked"].append((dict(who), kind))
+        STATE["tiers"].append(getattr(reach.current(), "tier", None))
         if isinstance(STATE["offers"], Exception):
             raise STATE["offers"]
         return STATE["offers"]
@@ -421,6 +422,110 @@ class Offering(Served):
 
         STATE["offers"] = {"rows": []}
         self.assertEqual(200, self.offers().status_code)
+
+
+class Gathering(Served):
+    """The sources asked together for a game, off the core route."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.enterContext(mock.patch.object(vpinmediadb, "_MANIFEST", {}))
+
+    def gathered(self, game_id: str = "g1", allowed: Any = lambda _scope: True,
+                 reached: str | None = None, **params: Any) -> Any:
+        params.setdefault("kind", "playfield_video")
+        return games_client(allowed, reached).get(f"/games/{game_id}/offers", params=params)
+
+    def extensions_in(self, response: Any) -> list[dict[str, Any]]:
+        """The sources of extensions in the answer; the one that ships answers beside them."""
+        return [one for one in response.json()["sources"] if one["extension"]]
+
+    def test_each_extension_source_answers_with_its_rows_checked(self) -> None:
+        STATE["offers"] = {"rows": [{"key": "a", "name": " A table video ", "site": "example.com"}],
+                           "note": "More on the site"}
+
+        found = self.extensions_in(self.gathered())
+
+        self.assertEqual(["sourced.files", "sourced.plain"], [one["id"] for one in found])
+        files = found[0]
+        self.assertEqual((NAME, "files"), (files["extension"], files["key"]))
+        said = files["kinds"][0]
+        self.assertEqual(("playfield_video", "More on the site", ""),
+                         (said["kind"], said["note"], said["error"]))
+        self.assertEqual(("a", "A table video", "example.com", False),
+                         tuple(said["rows"][0][field]
+                               for field in ("key", "name", "site", "current")))
+
+    def test_each_is_told_who_is_asked_about_and_the_kind(self) -> None:
+        self.gathered()
+
+        self.assertEqual([({"game_id": "g1", "vps_id": "vps-1", "name": "Taxi", "table_id": ""},
+                           "playfield_video")] * 2, STATE["asked"])
+
+    def test_a_source_that_fails_says_why_and_is_still_answered_for(self) -> None:
+        STATE["offers"] = Unavailable("the site is down")
+
+        response = self.gathered()
+
+        self.assertEqual(200, response.status_code, response.text)
+        said = [one["kinds"][0] for one in self.extensions_in(response)]
+        self.assertEqual(2, len(said))
+        for each in said:
+            self.assertTrue(each["error"])
+            self.assertEqual([], each["rows"])
+
+    def test_a_private_game_is_asked_of_no_extension(self) -> None:
+        self.assertEqual([], self.extensions_in(self.gathered("hidden")))
+        self.assertEqual([], STATE["asked"])
+
+    def test_a_source_of_an_extension_the_caller_may_not_use_is_left_out(self) -> None:
+        found = self.extensions_in(self.gathered(
+            allowed=lambda scope: scope != f"ext:{NAME}:{reach.LIBRARY}"))
+
+        self.assertEqual([], found)
+        self.assertEqual([], STATE["asked"])
+
+    def test_a_source_switched_off_in_settings_is_not_asked(self) -> None:
+        STATE["off"] = ["sourced.plain"]
+
+        found = self.extensions_in(self.gathered())
+
+        self.assertEqual(["sourced.files"], [one["id"] for one in found])
+
+    def test_another_entry_is_asked_about_with_its_name(self) -> None:
+        self.gathered(vps_id="vps-9", name="Other")
+
+        self.assertEqual({"game_id": "g1", "vps_id": "vps-9", "name": "Other", "table_id": ""},
+                         STATE["asked"][0][0])
+
+    def test_the_games_name_is_not_given_to_another_entry(self) -> None:
+        self.gathered(vps_id="vps-9")
+
+        self.assertEqual("", STATE["asked"][0][0]["name"])
+
+    def test_an_extension_answers_at_library_for_a_caller_who_reached_higher(self) -> None:
+        self.gathered(reached=reach.PROTECTED)
+
+        self.assertEqual([reach.LIBRARY, reach.LIBRARY], STATE["tiers"])
+
+    def test_an_extension_is_never_marked_above_what_the_caller_reached(self) -> None:
+        self.gathered(reached=reach.PLAY)
+
+        self.assertEqual([reach.PLAY, reach.PLAY], STATE["tiers"])
+
+    def test_a_source_that_raises_a_lookup_error_says_why_and_is_not_dropped(self) -> None:
+        with mock.patch.object(serving, "source_offers", side_effect=KeyError("row")), \
+                self.assertLogs("vpinfe.common.online.game_offers", "WARNING"):
+            found = self.extensions_in(self.gathered())
+
+        self.assertEqual(["sourced.files", "sourced.plain"], [one["id"] for one in found])
+        self.assertTrue(all(one["kinds"][0]["error"] for one in found))
+
+    def test_an_extension_that_has_stopped_is_not_asked(self) -> None:
+        with self.assertLogs(level="ERROR"):
+            self.registry.disable(NAME, "switched off")
+
+        self.assertEqual([], self.extensions_in(self.gathered()))
 
 
 class WithoutOutbound(Served):

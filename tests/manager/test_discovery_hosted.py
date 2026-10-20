@@ -13,6 +13,7 @@ from nicegui import ui
 from common.i18n import t
 from manager.library import discovery_ext, discovery_get
 from manager.library.discovery_get import Offered, Pick, Tray
+from tests.support.game_offers import answer_from
 
 _PAGE = ui.element()
 
@@ -72,8 +73,10 @@ class Asking(unittest.IsolatedAsyncioTestCase):
         self.library.online_sources.return_value = [_source("one"), _source("two")]
         self.answers: dict[str, Any] = {}
         self.library.source_offers.side_effect = self._offers
+        answer_from(self.library, self.library.online_sources,
+                    lambda source, *_: self._offers("ext", source["key"], *_))
 
-    def _offers(self, _extension, key, _kind, _game_id, _vps_id, _name) -> Any:
+    def _offers(self, _extension, key, *_asked) -> Any:
         answer = self.answers.get(key, {"rows": []})
         if isinstance(answer, Exception):
             raise answer
@@ -219,6 +222,8 @@ class Refreshing(unittest.IsolatedAsyncioTestCase):
         self.tray = Tray()
         self.answer: dict[str, Any] = {}
         self.library.source_offers.side_effect = lambda *_args: self.answer
+        answer_from(self.library, self.library.online_sources,
+                    lambda *_asked: self.library.source_offers(*_asked))
 
     async def _begin(self, *rows: dict[str, Any]) -> None:
         self.answer = {"rows": list(rows)}

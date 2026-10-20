@@ -659,9 +659,15 @@ class _OnlineTab(_Sources):
                     .classes("manager-help")
             return
         who = {"game_id": self.game_id, "vps_id": vps_id, "name": name}
-        reads = [self._read_catalogs(vps_id)] if self.built_in else []
-        reads += [self._read_source(one, who) for one in self._from_extensions()]
-        sections = await asyncio.gather(*reads)
+        sections: list[Callable[[], bool]]
+        try:
+            answer = (await offload.io(self.library.game_offers, self.game_id, vps_id, name,
+                                       [self.source_kind])
+                      if self.built_in or self._from_extensions() else {"sources": []})
+        except Exception as exc:
+            sections = [partial(self._failed_line, t("manager.mediasource.sources_failed"), exc)]
+        else:
+            sections = self._sections(answer, who)
         if asked != self._asked or not self.shown():
             return
         with body:
@@ -671,33 +677,50 @@ class _OnlineTab(_Sources):
                 ui.label(t("manager.mediasource.nothing", where=(where)) if where else
                          t("manager.mediasource.sources_off")).classes("manager-help")
 
-    async def _read_catalogs(self, vps_id: str) -> Callable[[], bool]:
-        """What the built-in catalogs hold, as the function that draws it."""
-        try:
-            found = await offload.io(self.library.media_offers, vps_id, self.kind)
-        except Exception as exc:
-            return partial(self._failed_line, t("manager.mediasource.sources_failed"), exc)
+    def _sections(self, answer: dict[str, Any],
+                  who: dict[str, str]) -> list[Callable[[], bool]]:
+        """What the sources said, as the functions that draw it: the built-in catalogs
+        together, then each source an extension contributes that offers this kind."""
+        said = [one for one in answer.get("sources") or () if one.get("kinds")]
+        sections: list[Callable[[], bool]] = []
+        if self.built_in:
+            sections.append(self._catalogs_section(
+                [one for one in said if not one.get("extension")], who["vps_id"]))
+        by_id = {str(one["id"]): one for one in said}
+        for source in self._from_extensions():
+            one = by_id.get(str(source["id"]))
+            if one is None:
+                sections.append(partial(
+                    self._failed_line,
+                    t("manager.mediasource.source_failed", source_name=source["name"]),
+                    RuntimeError(t("said.why.nothing_answers"))))
+                continue
+            each = one["kinds"][0]
+            if each.get("error"):
+                sections.append(partial(
+                    self._failed_line,
+                    t("manager.mediasource.source_failed", source_name=source["name"]),
+                    RuntimeError(each["error"])))
+            else:
+                sections.append(partial(self._source_section, source, each, who))
+        return sections
+
+    def _catalogs_section(self, said: list[dict[str, Any]], vps_id: str) -> Callable[[], bool]:
+        """What the built-in catalogs hold, as the function that draws it. One that could
+        not answer is said, and the others' files are still drawn."""
+        failed = next((each["error"] for one in said for each in one["kinds"]
+                       if each.get("error")), "")
+        found = [offer for one in said for each in one["kinds"] for offer in each["offers"]]
         named = {item["id"]: item for item in (self._known_sources or [])}
 
         def draw() -> bool:
+            if failed:
+                self._failed_line(t("manager.mediasource.sources_failed"), RuntimeError(failed))
             for offer in found:
                 self._offer_row(offer, named.get(offer["source"], {}), vps_id)
-            return bool(found)
+            return bool(found) or bool(failed)
 
         return draw
-
-    async def _read_source(self, source: dict[str, Any],
-                           who: dict[str, str]) -> Callable[[], bool]:
-        """What an extension's source holds, as the function that draws it."""
-        try:
-            answer = await offload.io(
-                self.library.source_offers, source["extension"], source["key"],
-                self._kind_for(source), who["game_id"], who["vps_id"], who["name"])
-        except Exception as exc:
-            return partial(self._failed_line,
-                           t("manager.mediasource.source_failed",
-                             source_name=source["name"]), exc)
-        return partial(self._source_section, source, answer, who)
 
     @staticmethod
     def _failed_line(said: str, exc: Exception) -> bool:

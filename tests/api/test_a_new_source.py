@@ -20,7 +20,14 @@ from starlette.testclient import TestClient
 import httpapi
 from common.config.config_store import ConfigStore
 from common.games import library_policy
-from common.online import arrivals, sources, sources_watch, vps_releases, vpsdb_sync
+from common.online import (
+    arrivals,
+    sources,
+    sources_watch,
+    vpinmediadb,
+    vps_releases,
+    vpsdb_sync,
+)
 from common.online.sources import Listed, Offer, Source
 from manager.settings import settings
 from tests.support.library import TempTree
@@ -77,6 +84,18 @@ class TheApi(_Registered):
 
         self.assertIn({"source": ID, "name": "made-up.png", "kind": "wheel", "size": "",
                        "url": "https://example.invalid/vps-9"}, found)
+
+    def test_it_is_asked_for_a_game_with_every_other_source_in_the_one_answer(self) -> None:
+        game = {"private": False, "vps_id": "vps-3", "name": "Taxi"}
+        with patch("common.games.game_lens.resource_of", lambda _id: dict(game)), \
+                patch.object(vpinmediadb, "_MANIFEST", {}):
+            answer = self.client.get("/games/g1/offers", params={"kind": "wheel"}).json()
+
+        asked = {one["id"]: one for one in answer["sources"]}
+        self.assertEqual({ID, "vpinmediadb"}, set(asked))
+        self.assertEqual([{"source": ID, "name": "made-up.png", "kind": "wheel", "size": "",
+                           "url": "https://example.invalid/vps-3"}],
+                         asked[ID]["kinds"][0]["offers"])
 
     def test_switched_off_it_is_listed_and_not_asked(self) -> None:
         self.policy.set("hidden_sources", [ID])

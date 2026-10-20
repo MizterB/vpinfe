@@ -12,6 +12,7 @@ from nicegui import background_tasks, events, ui
 from common.i18n import t
 from manager.kit.data import Library
 from manager.library import mediasource
+from tests.support.game_offers import answer_from
 
 _PAGE = ui.element()
 
@@ -41,6 +42,10 @@ def _library(*known: dict, answer: Any = ROWS, offers: list[dict] | None = None)
     library.media_sources.return_value = list(known)
     library.media_offers.return_value = offers or []
     library.source_offers.return_value = answer
+    answer_from(library, library.media_sources,
+                lambda source, kind, game_id, vps_id, name: library.source_offers(
+                    source["extension"], source["key"], kind, game_id, vps_id, name),
+                lambda _vps_id, _kind: library.media_offers.return_value)
     library.offers_online.return_value = True
     library.extensions.return_value = [{"name": "ext"}]
     return library
@@ -113,6 +118,34 @@ class Rows(_Drawn):
         self.assertEqual([("ext", "files", "wheel", "g-1", "own", "Own Game")],
                          _offered(library))
 
+    async def test_every_source_is_asked_in_the_one_call(self) -> None:
+        library = _library(BUILT_IN, FILES, ELSEWHERE)
+        await self.drawn(_slot(library))
+
+        library.game_offers.assert_called_once_with("g-1", "own", "Own Game", ["wheel"])
+        library.media_offers.assert_not_called()
+
+    async def test_a_call_that_fails_is_said_once_for_the_sources(self) -> None:
+        library = _library(BUILT_IN, FILES)
+        library.game_offers.side_effect = RuntimeError("no answer")
+
+        shown = await self.drawn(_slot(library))
+
+        self.assertEqual(1, _seen(shown).count(t("manager.mediasource.sources_failed")))
+        self.assertNotIn("Wheel A", _seen(shown))
+
+    async def test_a_source_the_call_says_failed_is_named_and_the_rest_are_drawn(self) -> None:
+        library = _library(BUILT_IN, FILES, offers=[
+            {"source": "vpinmediadb", "name": "w.png", "url": "https://m.example/w.png",
+             "kind": "wheel", "size": ""}])
+        library.source_offers.side_effect = RuntimeError("down")
+
+        shown = await self.drawn(_slot(library))
+
+        self.assertIn(t("manager.mediasource.source_failed", source_name="Example Files"),
+                      _seen(shown))
+        self.assertIn("w.png", " ".join(_seen(shown)))
+
     async def test_its_rows_name_the_source_first_then_the_site_as_a_link_to_the_page(
             self) -> None:
         shown = await self.drawn(_slot(_library(BUILT_IN, FILES)))
@@ -154,6 +187,54 @@ class Rows(_Drawn):
         self.assertIn(t("manager.mediasource.source_failed", source_name="Example Files"),
                       _seen(shown))
         self.assertIn("wheel.png", _seen(shown))
+
+    async def test_nothing_that_offers_the_kind_makes_no_call_at_all(self) -> None:
+        library = _library(ELSEWHERE)
+
+        await self.drawn(_slot(library, built_in=False, kind="wheel"))
+
+        library.game_offers.assert_not_called()
+
+    async def test_a_source_the_answer_does_not_hold_is_said_to_have_failed(self) -> None:
+        library = _library(BUILT_IN, FILES)
+        library.game_offers.side_effect = None
+        library.game_offers.return_value = {"sources": []}
+
+        shown = await self.drawn(_slot(library))
+
+        self.assertIn(t("manager.mediasource.source_failed", source_name="Example Files"),
+                      _seen(shown))
+
+    async def test_a_catalog_that_failed_is_said_beside_the_files_of_the_others(self) -> None:
+        library = _library(BUILT_IN, dict(BUILT_IN, id="other", name="Other"))
+        library.game_offers.side_effect = None
+        library.game_offers.return_value = {"sources": [
+            {"id": "vpinmediadb", "name": "VPinMediaDB", "extension": "", "key": "", "kinds": [
+                {"kind": "wheel", "offers": [], "rows": [], "note": "", "link": None,
+                 "error": "it is down"}]},
+            {"id": "other", "name": "Other", "extension": "", "key": "", "kinds": [
+                {"kind": "wheel", "offers": [
+                    {"source": "other", "id": "own/wheel.png", "name": "wheel.png",
+                     "size": "1 MB", "url": "https://x.example/wheel.png", "kind": "wheel"}],
+                 "rows": [], "note": "", "link": None, "error": ""}]}]}
+
+        shown = await self.drawn(_slot(library))
+
+        self.assertIn(t("manager.mediasource.sources_failed"), _seen(shown))
+        self.assertIn("wheel.png", _seen(shown))
+
+    async def test_a_catalog_that_failed_alone_is_not_followed_by_nothing_found(self) -> None:
+        library = _library(BUILT_IN)
+        library.game_offers.side_effect = None
+        library.game_offers.return_value = {"sources": [
+            {"id": "vpinmediadb", "name": "VPinMediaDB", "extension": "", "key": "", "kinds": [
+                {"kind": "wheel", "offers": [], "rows": [], "note": "", "link": None,
+                 "error": "it is down"}]}]}
+
+        shown = await self.drawn(_slot(library))
+
+        self.assertIn(t("manager.mediasource.sources_failed"), _seen(shown))
+        self.assertNotIn(t("manager.mediasource.nothing", where="VPinMediaDB"), _seen(shown))
 
     async def test_a_source_switched_off_is_not_asked(self) -> None:
         library = _library(BUILT_IN, dict(FILES, enabled=False))

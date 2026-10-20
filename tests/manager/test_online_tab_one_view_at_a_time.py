@@ -11,6 +11,7 @@ from nicegui import ui
 
 from common.i18n import t
 from manager.library import mediasource
+from tests.support.game_offers import answer_from
 
 _PAGE = ui.element()
 
@@ -21,8 +22,11 @@ async def _now(callback: Any, *args: Any, **kwargs: Any) -> Any:
 
 def _slot(vps_id: str = "own") -> mediasource._Slot:
     library = Mock()
-    library.media_sources.return_value = []
+    library.media_sources.return_value = [
+        {"id": "db", "name": "DB", "url": "", "enabled": True, "kinds": ["wheel"]}]
     library.media_offers.return_value = []
+    answer_from(library, library.media_sources, lambda *_: {},
+                lambda vps_id, kind: library.media_offers(vps_id, kind))
     context = {"library": library, "game_id": "g-1", "lens": None,
                "game": {"name": "Own Game", "vps_id": vps_id}}
     return mediasource._Slot(context, "wheel", "Wheel", Mock(), Mock())
@@ -95,7 +99,7 @@ class TheOnlineTab(unittest.IsolatedAsyncioTestCase):
         gate = asyncio.Event()
 
         async def gated(callback: Any, *args: Any, **kwargs: Any) -> Any:
-            if args and args[0] == "other":
+            if len(args) > 1 and args[1] == "other":
                 await gate.wait()
             return callback(*args, **kwargs)
 
