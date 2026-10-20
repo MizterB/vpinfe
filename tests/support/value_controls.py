@@ -96,8 +96,10 @@ _LIST = f"""(() => {{
     if (buttons.length >= 2 && buttons.length <= 6 && buttons.some(active))
       out.push({{kind: 'segmented', i, label: label(el), pane: pane(el)}});
   }});
+  // A multi-select adds a value rather than switching to another, so it has no flip-back.
   document.querySelectorAll('.q-select').forEach((el, i) =>
-    shown(el) && !inGrid(el) && out.push({{kind: 'select', i, label: label(el), pane: pane(el)}}));
+    shown(el) && !inGrid(el) && !el.classList.contains('q-select--multiple')
+      && out.push({{kind: 'select', i, label: label(el), pane: pane(el)}}));
   document.querySelectorAll({json.dumps(_FIELD)}).forEach((el, i) =>
     shown(el) && !el.readOnly && !el.disabled && !el.closest('.q-select') && !handsOver(el)
       && el.type !== 'password'
@@ -184,6 +186,10 @@ async def _act(browser: BrowserSession, control: Control) -> None:
         await browser.click("[data-value-target] .q-btn", nth=other)
     elif control.kind == "select":
         await browser.click(".q-select", nth=control.index)
+        try:
+            await browser.wait_for(f"{_MENU_ITEMS}.length > 0", MOVE_S)
+        except TimeoutError:
+            raise ValueError(f"{control.name} did not open a menu") from None
         other = await browser.evaluate(f"""(() => {{
           const items = {_MENU_ITEMS};
           if (items.length < 2) return -1;
