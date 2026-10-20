@@ -224,7 +224,7 @@ class SeeAllCountsTests(unittest.TestCase):
 
     def test_every_chip_opens_as_many_releases_as_it_counts(self) -> None:
         with mock.patch.object(vps_home.arrivals, "was", return_value=""):
-            shelf = vps_home.home(FOUND, KEPT, 30)["new"]
+            shelf = vps_home.home(FOUND, KEPT, 30, formats=("VPX",))["new"]
         for chip in (vps_home.ALL, vps_home.YOURS, "tableFiles", "b2sFiles"):
             with self.subTest(chip=chip):
                 filters = home.new_filters(30, chip, KEPT, counted=True)
@@ -856,7 +856,7 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
         await self._draw()
         tab = vps_home.home(FOUND, KEPT, 7, media=self.media, holders={
             row["vps_id"]: [f"game-{row['vps_id']}"] for row in FOUND["rows"]},
-        )["missing"]["b2sFiles"]
+            formats=("VPX",))["missing"]["b2sFiles"]
         opened: list[needs.Opens] = []
 
         async def open_on(opens: needs.Opens) -> None:
@@ -1036,7 +1036,7 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
         # Drive the shelf's own picker with answers released out of order.
         with _PAGE:
             body2 = ui.column()
-            home.fill(body2, vps_home.home(FOUND, KEPT, 7), library=self.library,
+            home.fill(body2, vps_home.home(FOUND, KEPT, 7, formats=("VPX",)), library=self.library,
                       scope="discovery", view_presets={}, catalog=self.spied["catalog"],
                       reread=reread, on_select=self._select, see_new=mock.Mock(),
                       see_missing=mock.Mock(), see_updates=mock.Mock(),
@@ -1173,7 +1173,8 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
         self.overrides = {"see_missing": mock.Mock()}
         body = await self._draw()
         tabs = vps_home.home(FOUND, KEPT, 7, media=self.media, holders={
-            row["vps_id"]: [f"game-{row['vps_id']}"] for row in FOUND["rows"]})["missing"]
+            row["vps_id"]: [f"game-{row['vps_id']}"] for row in FOUND["rows"]},
+            formats=("VPX",))["missing"]
         self.assertNotEqual(tabs["b2sFiles"]["game_ids"], tabs["playfield"]["game_ids"])
         self.assertEqual(tabs["playfield_video"]["game_ids"], [])
         heading = self._heading_of(body, "Missing from Your Games")

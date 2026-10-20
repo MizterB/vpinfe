@@ -136,6 +136,12 @@ class ShelfTests(unittest.TestCase):
 
         self.assertEqual((played["count"], other["count"]), (1, 0))
 
+    def test_a_table_filed_under_no_format_counts_where_playable_only_would_keep_it(self) -> None:
+        shelf = vps_home.dont_have(found(game("a", "Alien", table("1", (0,), ""))),
+                                   formats=("VPX",))
+
+        self.assertEqual(_names(shelf), ["Alien"])
+
     def test_a_game_with_no_table_is_not_a_game_to_have(self) -> None:
         shelf = vps_home.dont_have(found(
             {**game("a", "Alien"), "releases": {"b2sFiles": [table("1", (0,))]}}))
@@ -214,6 +220,9 @@ class RouteTests(unittest.TestCase):
         self.addCleanup(patcher.stop)
         self.addCleanup(setattr, vps_releases, "_built", None)
         vps_releases._built = None
+        plays = patch.object(library_ops.launchers, "playable_formats", return_value=("VPX",))
+        plays.start()
+        self.addCleanup(plays.stop)
 
     def _get(self, *, counted: dict | None = None, catalog: list | None = None) -> Any:
         stored = {"computed": "x", "entries": {"E1": {"tables": 1, "held": []}}} \
@@ -243,12 +252,6 @@ class RouteTests(unittest.TestCase):
 
                 self.assertEqual([(one["game"], one["authors"]) for one in shelf["games"]],
                                  [("Beta", beta), ("Gamma", 1)])
-
-    def test_a_table_filed_under_no_format_counts_where_playable_only_would_keep_it(self) -> None:
-        shelf = vps_home.dont_have(found(game("a", "Alien", table("1", (0,), ""))),
-                                   formats=("VPX",))
-
-        self.assertEqual(_names(shelf), ["Alien"])
 
     def test_marking_a_game_ignored_takes_it_off_the_shelf(self) -> None:
         vps_marks.mark(vps_marks.IGNORED, vps_marks.GAME, "E2")

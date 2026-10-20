@@ -289,9 +289,7 @@ class BrowseViewTests(unittest.TestCase):
                 rows = self._rows(formats=plays)
                 kept = [row for row in rows if _passes(row, view["filters"])]
 
-                self.assertEqual(
-                    {row["id"] for row in rows if row["id"] == "g4"
-                     and row[discovery.TABLE_AUTHORS] == 1}, {"g4"})
+                self.assertEqual({row["id"]: row for row in rows}["g4"][discovery.TABLE_AUTHORS], 1)
                 self.assertEqual({row["id"] for row in kept}, {one["vps_id"] for one in shelf})
                 self.assertIn("g4", {row["id"] for row in kept})
                 self.assertEqual(_grid_order(kept, view["sort"]),
