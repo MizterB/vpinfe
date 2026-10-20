@@ -3,6 +3,7 @@ Record item, and a recording shown in place for a decision, from the page and th
 
 from __future__ import annotations
 
+import json
 import tempfile
 import threading
 from pathlib import Path
@@ -13,13 +14,14 @@ from unittest.mock import patch
 from starlette.testclient import TestClient
 
 import httpapi
-from common import events
+from common import events, service_errors
+from common.backups import folder as backup_folder
 from common.capture import proposals, run, session, slots
 from common.games import asset_origin, game_repository
 from common.host import frontend_state, launch_state
 from frontend import preview
 from frontend.api import API
-from tests.capture.test_run import GAME_ID, _Started
+from tests.capture.test_run import FOLDER, GAME_ID, INFO, _Started
 from tests.capture.test_runs import THREE, _Held
 
 PLAN_NOTHING_MISSING = {"kinds": [{"kind": "playfield", "reason": None, "missing": 0,
@@ -174,6 +176,27 @@ class PreviewTests(_Frontend):
         self.assertEqual(self.on_show().proposal, second)  # type: ignore[union-attr]
         self.assertEqual(slots.source(slots.serving(GAME_ID, "", "playfield_video")),
                          asset_origin.RECORDED)
+
+    def test_a_choice_refused_for_want_of_a_backups_folder_says_so_and_keeps_the_proposal(
+            self) -> None:
+        info = {**INFO, "vpinfe": {"schema": 2, "game_id": GAME_ID}}
+        (self.root / FOLDER / f"{FOLDER}.info").write_text(json.dumps(info), encoding="utf-8")
+        first, second = self.keep("playfield_video"), self.keep("backglass")
+        preview.show(first, series=[second])
+        refusal = service_errors.BlockedError("the backups folder cannot be written to")
+
+        with patch.object(backup_folder, "for_writing", side_effect=refusal):
+            self.assertEqual(self.page.decide_preview(True), {})
+
+        self.assertEqual(sorted(self.waiting()), sorted([first, second]))
+        self.assertEqual(self.on_show().proposal, first)  # type: ignore[union-attr]
+        self.assertEqual(self.channel.shown()[-1]["proposal"], first)
+        self.assertEqual(self.channel.shown()[-1]["refused"],
+                         "the backups folder cannot be written to")
+        self.assertTrue((self.root / FOLDER / "medias" / "table.mp4").exists())
+        self.page.decide_preview(False)
+        self.assertEqual(self.on_show().proposal, second)  # type: ignore[union-attr]
+        self.assertEqual(self.channel.shown()[-1]["refused"], "")
 
     def test_back_throws_it_away_and_the_last_one_ends_the_showing(self) -> None:
         kept = self.keep()

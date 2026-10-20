@@ -103,11 +103,13 @@ def file_of(proposal_id: str) -> Path:
 
 
 def use(proposal_id: str, place: Place | None = None) -> dict[str, Any]:
-    """Place a proposal in its slot, delete the file it replaces, and forget it."""
+    """Place a proposal in its slot, keep the file it replaces in Backups and delete it, and
+    forget the proposal."""
     about = _one(proposal_id)
     game_id, table_id, kind = (str(about["game_id"]), str(about.get("table_id") or ""),
                                str(about["kind"]))
     row = slots.serving(game_id, table_id, kind)
+    slots.can_keep(game_id, row, table_id)
     written = (place or _place)(game_id, kind, table_id, file_of(proposal_id),
                                 asset_origin.RECORDED, "")
     removed = slots.remove(game_id, row, table_id, str((written or {}).get("written") or ""))

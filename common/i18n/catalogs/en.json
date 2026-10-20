@@ -2292,7 +2292,7 @@
   "manager.mediasource.online": "Online",
   "manager.mediasource.record_this.help": "Launches the table on this device to record it",
   "manager.mediasource.replace": "Replace the {kind} that is there?",
-  "manager.mediasource.replace_detail": "Replaced files are deleted, not kept.",
+  "manager.mediasource.replace_detail": "Replaced files are copied into Backups first.",
   "manager.mediasource.overwrites": {
     "one": "Replaces {count:n} file already there",
     "other": "Replaces {count:n} files already there"
@@ -2724,7 +2724,7 @@
   "manager.record.existing.fill": "Fill Empty Slots",
   "manager.record.existing.fill.description": "Records only what is missing",
   "manager.record.existing.replace_all": "Replace All",
-  "manager.record.existing.replace_all.description": "Records everything selected, and deletes what it replaces",
+  "manager.record.existing.replace_all.description": "Records everything selected, and replaces what is there, kept in Backups first",
   "manager.record.existing.replace_downloaded": "Replace Downloaded Media",
   "manager.record.existing.replace_downloaded.description": "Also replaces what VPinFE downloaded, and leaves your own files",
   "manager.record.failed_games": {
@@ -2764,7 +2764,7 @@
     "one": "Replace 1 file?",
     "other": "Replace {count:n} files?"
   },
-  "manager.record.replace_detail": "Each is deleted when its recording is placed",
+  "manager.record.replace_detail": "Each is copied into Backups, then replaced when its recording is placed",
   "manager.record.replaces_downloaded": "replaces {count:n} downloaded",
   "manager.record.replaces_none": "replaces none",
   "manager.record.replaces_some_yours": "replaces {count:n}, {yours} of them yours",

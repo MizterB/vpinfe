@@ -14,7 +14,7 @@ from typing import Any
 from unittest.mock import patch
 
 from apps.vpx.capture import VPXCapture
-from common import events
+from common import events, service_errors
 from common.capture import geometry, placing, session, settings
 from common.capture.adapters import Window, wlr
 from common.capture.settings import Settings
@@ -366,18 +366,36 @@ class SessionTests(_Sessions):
         self.assertEqual([one[1] for one in cabinet.placed], ["backglass_video"])
         self.assertEqual(cabinet.proposed[0][:3], ("game1", "", "playfield_video"))
 
-    def test_a_replaced_kind_deletes_the_file_that_served_its_slot(self) -> None:
+    def test_a_replaced_kind_keeps_then_removes_the_file_that_served_its_slot(self) -> None:
         cabinet = Cabinet()
         held = {"path": "medias/table.mp4", "table": ""}
         with patch("common.capture.slots.serving", return_value=held) as serving, \
+                patch("common.capture.slots.can_keep") as can_keep, \
                 patch("common.capture.slots.remove", return_value=[]) as remove:
             self.record(cabinet, ("playfield_video", "backglass_video"),
                         replace=frozenset({"playfield_video"}))
 
         self.assertEqual(serving.call_args.args, ("game1", "", "playfield_video"))
+        self.assertEqual([call.args for call in can_keep.call_args_list],
+                         [("game1", held, ""), ("game1", None, "")])
         self.assertEqual([call.args for call in remove.call_args_list],
                          [("game1", held, "", "playfield_video.mp4"),
                           ("game1", None, "", "backglass_video.mp4")])
+
+    def test_a_backups_folder_that_cannot_be_written_to_places_nothing(self) -> None:
+        cabinet = Cabinet()
+        held = {"path": "medias/table.mp4", "table": ""}
+        refusal = service_errors.BlockedError("the backups folder cannot be written to")
+        with patch("common.capture.slots.serving", return_value=held), \
+                patch("common.capture.slots.can_keep", side_effect=refusal), \
+                patch("common.capture.slots.remove") as remove:
+            result = self.record(cabinet, ("playfield_video",),
+                                 replace=frozenset({"playfield_video"}))
+
+        self.assertEqual((cabinet.placed, result.placed), ([], []))
+        remove.assert_not_called()
+        self.assertEqual(result.failed[0]["kind"], "playfield_video")
+        self.assertEqual(result.failed[0]["reason"]["key"], session.NOT_WRITTEN)
 
     def test_with_a_persons_encode_command_the_picture_is_cut_from_what_it_wrote(
             self) -> None:

@@ -446,6 +446,7 @@ class Session:
                     continue
                 row = slots.serving(game_id, table_id, kind) \
                     if kind in self.target.replace else None
+                slots.can_keep(game_id, row, table_id)
                 written = place(game_id, kind, table_id, path, asset_origin.RECORDED, "")
                 slots.remove(game_id, row, table_id,
                              str((written or {}).get("written") or ""))

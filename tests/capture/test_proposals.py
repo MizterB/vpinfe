@@ -3,6 +3,7 @@ it replaced."""
 
 from __future__ import annotations
 
+import json
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -10,10 +11,11 @@ from unittest.mock import patch
 from starlette.testclient import TestClient
 
 import httpapi
-from common import service_errors
+from common import kept_copies, service_errors
+from common.backups import folder as backup_folder
 from common.capture import proposals, run, slots
 from common.games import asset_origin
-from tests.capture.test_run import FOLDER, GAME_ID, MOD, PLAIN, _Library
+from tests.capture.test_run import FOLDER, GAME_ID, INFO, MOD, PLAIN, _Library
 
 
 class _Held(_Library):
@@ -83,6 +85,84 @@ class ReplaceTests(_Held):
                          ["medias/table.mp4"])
         self.assertFalse((self.folder / "medias" / "table.mp4").exists())
         self.assertTrue((self.folder / "medias" / written["written"]).is_file())
+
+
+class KeptTests(_Held):
+    """What a recording replaces is copied into Backups first, with the reason Replace."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        info = {**INFO, "vpinfe": {"schema": 2, "game_id": GAME_ID}}
+        (self.folder / f"{FOLDER}.info").write_text(json.dumps(info), encoding="utf-8")
+        kept = tempfile.TemporaryDirectory()
+        self.addCleanup(kept.cleanup)
+        self.backups = Path(kept.name)
+        patcher = patch.object(backup_folder, "for_writing", return_value=self.backups)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def kept(self) -> list[tuple[str, bytes]]:
+        return sorted((one.relative_to(self.backups).as_posix(), one.read_bytes())
+                      for one in self.backups.rglob("*") if one.is_file())
+
+    def record(self, table_id: str) -> tuple[Path, dict]:
+        from common.games import media_ops
+
+        row = slots.serving(GAME_ID, table_id, "playfield_video")
+        slots.can_keep(GAME_ID, row, table_id)
+        written = media_ops.place_file(GAME_ID, "playfield_video", table_id, self.recording,
+                                       asset_origin.RECORDED, "")
+        slots.remove(GAME_ID, row, table_id, written["written"])
+        return self.folder / "medias" / written["written"], written
+
+    def test_a_tables_recording_keeps_the_shared_file_it_removes(self) -> None:
+        self.record(PLAIN)
+
+        self.assertFalse((self.folder / "medias" / "table.mp4").exists())
+        [(name, data)] = self.kept()
+        self.assertEqual(data, b"v")
+        self.assertTrue(name.startswith(f"media/{GAME_ID}/medias/table.mp4"))
+        self.assertEqual(kept_copies.backup_reason(name), "replace")
+
+    def test_a_file_replaced_at_its_own_level_is_kept_once(self) -> None:
+        landed, _written = self.record(MOD)
+
+        self.assertEqual(landed.read_bytes(), b"recorded" * 100)
+        [(name, _data)] = self.kept()
+        self.assertTrue(name.startswith(f"media/{GAME_ID}/medias/(Playfield) Mod.mp4"))
+
+    def test_a_backups_folder_that_cannot_be_written_to_leaves_the_file_in_place(self) -> None:
+        refusal = service_errors.BlockedError("the backups folder cannot be written to")
+        row = slots.serving(GAME_ID, PLAIN, "playfield_video")
+
+        with patch.object(backup_folder, "for_writing", side_effect=refusal):
+            with self.assertRaises(service_errors.BlockedError):
+                slots.can_keep(GAME_ID, row, PLAIN)
+            with self.assertRaises(service_errors.BlockedError):
+                slots.remove(GAME_ID, row, PLAIN, "(Playfield) tbl.mp4")
+
+        self.assertEqual((self.folder / "medias" / "table.mp4").read_bytes(), b"v")
+        self.assertEqual(self.kept(), [])
+
+    def test_a_folder_with_no_game_id_removes_the_file_and_keeps_nothing(self) -> None:
+        (self.folder / f"{FOLDER}.info").write_text(json.dumps(INFO), encoding="utf-8")
+
+        self.record(PLAIN)
+
+        self.assertFalse((self.folder / "medias" / "table.mp4").exists())
+        self.assertEqual(self.kept(), [])
+
+    def test_a_slot_with_nothing_in_it_keeps_nothing(self) -> None:
+        for one in (self.folder / "medias").glob("*.mp4"):
+            one.unlink()
+        row = slots.serving(GAME_ID, "", "playfield_video")
+
+        with patch.object(backup_folder, "for_writing") as asked:
+            slots.can_keep(GAME_ID, row, "")
+            self.assertEqual(slots.remove(GAME_ID, row, "", "x.mp4"), [])
+
+        asked.assert_not_called()
+        self.assertEqual(self.kept(), [])
 
 
 class ProposalTests(_Held):

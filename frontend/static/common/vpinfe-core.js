@@ -3919,8 +3919,8 @@ class VPinFECore {
     if (this.isController()) {
       const hint = document.createElement("p");
       hint.className = "vpinfe-preview-hint";
-      hint.textContent = this.t("frontend.preview.hint",
-                                "Left and Right to compare, Select to keep, Back to discard");
+      hint.textContent = preview.refused || this.t(
+        "frontend.preview.hint", "Left and Right to compare, Select to keep, Back to discard");
       words.appendChild(hint);
     }
     surface.appendChild(words);

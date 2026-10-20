@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 
 from common import events
 from common.capture import proposals
+from common.failures import why
 from common.host import frontend_state, launch_state
 from common.i18n import t
 from common.runtime import jobs
@@ -49,11 +50,14 @@ def _send(preview: dict[str, Any] | None) -> None:
         _bridge.send_event_all_with_iframe({"type": MESSAGE, "preview": preview})
 
 
-def _present(row: dict[str, Any], showing: str) -> None:
+def _present(row: dict[str, Any], showing: str, refused: str = "") -> None:
+    """Show a proposal; `refused` is why the last choice on it was not taken, drawn in
+    place of the buttons' hint."""
     kind = str(row["kind"])
     _send({"proposal": row["id"], "showing": showing, "kind": kind,
            "label": t(f"media.kind.{kind}.label"), "game_id": row["game_id"],
-           "table_id": row["table_id"], "before": row["replaces"] is not None})
+           "table_id": row["table_id"], "before": row["replaces"] is not None,
+           "refused": refused})
     frontend_state.previewing(frontend_state.Preview(
         str(row["id"]), showing, kind, str(row["table_id"]), str(row["game_id"]),
         str(row["name"])))
@@ -107,14 +111,25 @@ def switch(showing: str) -> dict[str, Any]:
 
 
 def decide(use: bool) -> dict[str, Any]:
-    """Keep the proposal on show, or throw it away, and move on."""
+    """Keep the proposal on show, or throw it away, and move on. A choice refused - the
+    backups folder cannot be written to - says why on the screen and leaves the proposal
+    waiting and on show."""
     shown = frontend_state.current().preview
     if shown is None:
         return {}
     try:
         proposals.decide(shown.proposal, use)
-    finally:
+    except NotFoundError:
         _next()
+        raise
+    except ServiceError as exc:
+        logger.warning("Proposal %s was not decided: %s", shown.proposal, exc)
+        _present(_row(shown.proposal), shown.showing, why(exc))
+        return {}
+    except BaseException:
+        _next()
+        raise
+    _next()
     return {}
 
 

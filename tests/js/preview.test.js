@@ -55,6 +55,15 @@ describe("the window whose screen it is plays it", () => {
                  "Left and Right to compare, Select to keep, Back to discard");
   });
 
+  test("a choice that was refused says why where the hint was", async () => {
+    const { show, find } = window_("table");
+
+    await show({ ...PLAYFIELD, refused: "The backups folder cannot be written to" });
+
+    assert.equal(find("vpinfe-preview-hint").textContent,
+                 "The backups folder cannot be written to");
+  });
+
   test("a backglass video plays on the backglass window, saying which side it is", async () => {
     const { show, find } = window_("bg");
 

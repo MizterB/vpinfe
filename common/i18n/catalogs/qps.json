@@ -2292,7 +2292,7 @@
   "manager.mediasource.online": "Öñŀîñè",
   "manager.mediasource.record_this.help": "Ŀàûñçĥèš ţĥè ţàƀŀè öñ ţĥîš đèṽîçè ţö řèçöřđ îţ",
   "manager.mediasource.replace": "Řèþŀàçè ţĥè {kind} ţĥàţ îš ţĥèřè?",
-  "manager.mediasource.replace_detail": "Řèþŀàçèđ ƒîŀèš àřè đèŀèţèđ, ñöţ ķèþţ.",
+  "manager.mediasource.replace_detail": "Řèþŀàçèđ ƒîŀèš àřè çöþîèđ îñţö Ɓàçķûþš ƒîřšţ.",
   "manager.mediasource.overwrites": {
     "one": "Řèþŀàçèš {count:n} ƒîŀè àŀřèàđý ţĥèřè",
     "other": "Řèþŀàçèš {count:n} ƒîŀèš àŀřèàđý ţĥèřè"
@@ -2724,7 +2724,7 @@
   "manager.record.existing.fill": "Ƒîŀŀ Èɱþţý Šŀöţš",
   "manager.record.existing.fill.description": "Řèçöřđš öñŀý ŵĥàţ îš ɱîššîñĝ",
   "manager.record.existing.replace_all": "Řèþŀàçè Àŀŀ",
-  "manager.record.existing.replace_all.description": "Řèçöřđš èṽèřýţĥîñĝ šèŀèçţèđ, àñđ đèŀèţèš ŵĥàţ îţ řèþŀàçèš",
+  "manager.record.existing.replace_all.description": "Řèçöřđš èṽèřýţĥîñĝ šèŀèçţèđ, àñđ řèþŀàçèš ŵĥàţ îš ţĥèřè, ķèþţ îñ Ɓàçķûþš ƒîřšţ",
   "manager.record.existing.replace_downloaded": "Řèþŀàçè Đöŵñŀöàđèđ Ḿèđîà",
   "manager.record.existing.replace_downloaded.description": "Àŀšö řèþŀàçèš ŵĥàţ ṼÞîñƑÈ đöŵñŀöàđèđ, àñđ ŀèàṽèš ýöûř öŵñ ƒîŀèš",
   "manager.record.failed_games": {
@@ -2764,7 +2764,7 @@
     "one": "Řèþŀàçè 1 ƒîŀè?",
     "other": "Řèþŀàçè {count:n} ƒîŀèš?"
   },
-  "manager.record.replace_detail": "Èàçĥ îš đèŀèţèđ ŵĥèñ îţš řèçöřđîñĝ îš þŀàçèđ",
+  "manager.record.replace_detail": "Èàçĥ îš çöþîèđ îñţö Ɓàçķûþš, ţĥèñ řèþŀàçèđ ŵĥèñ îţš řèçöřđîñĝ îš þŀàçèđ",
   "manager.record.replaces_downloaded": "řèþŀàçèš {count:n} đöŵñŀöàđèđ",
   "manager.record.replaces_none": "řèþŀàçèš ñöñè",
   "manager.record.replaces_some_yours": "řèþŀàçèš {count:n}, {yours} öƒ ţĥèɱ ýöûřš",

@@ -88,7 +88,7 @@ the documented entry point is a plain 200. Both spellings work.
 | POST | `/api/v1/capture/plan` | What recording games or tables would fill and replace, by whose file, and about how long it takes. Nothing happens |
 | GET | `/api/v1/capture/proposals` | Recordings waiting for a decision: how many, their size, and each with the file it would replace |
 | GET | `/api/v1/capture/proposals/{id}/file` | Play a recording waiting for a decision |
-| POST | `/api/v1/capture/proposals/{id}` | `{"use": true}` places the recording and deletes the file it replaces; `false` throws it away |
+| POST | `/api/v1/capture/proposals/{id}` | `{"use": true}` places the recording, keeps the file it replaces in Backups (reason `replace`) and deletes it; `false` throws it away |
 | DELETE | `/api/v1/capture/proposals` | Discard every recording waiting |
 | POST | `/api/v1/capture/test` | Record 3 s of the playfield with the Record and Encode Commands, launching nothing, and say what came out: size, rate, frames and a small picture, or which command failed and what it said |
 | POST | `/api/v1/capture/screens/choose` | On KDE Plasma and GNOME, ask on the device's own screen which screens VPinFE may record, and keep the answer. 202 with the job; 409 while a table runs or a recording is under way; 501 where the desktop never asks |
@@ -1171,10 +1171,11 @@ order named, and answers `202` with the job (`Location` is where to watch it).
   `replace_all` replaces whatever is there; `choose` records it and keeps the recording as
   a proposal for a person to decide on. An empty slot is filled whichever is asked.
   `review: true` proposes every recording, an empty slot's too.
-- A replaced file is deleted once its recording is placed: the file that served the slot,
-  a catalog's fixed name such as `medias/table.mp4` under a game's recording included. At a
-  table's tier the file the game's tables share goes only where this table is the one it
-  serves; one that other tables use stays.
+- A replaced file is copied to Backups (reason `replace`) and deleted once its recording is
+  placed: the file that served the slot, a catalog's fixed name such as `medias/table.mp4`
+  under a game's recording included. Where the backups folder cannot be written to, that
+  kind is not placed and the file stays. At a table's tier the file the game's tables
+  share goes only where this table is the one it serves; one that other tables use stays.
 - A run that deletes anything carries `confirmed.count` equal to the plan's `replacing`,
   and is refused with `details.replacing` otherwise - the confirm a person sees, by count.
 - `settings` are Recording settings for this run only: `length`, `wait`, `picture_at`,
@@ -1261,8 +1262,10 @@ or throws it away. Nothing in the library changes until it is used.
 
 `replaces` is the file serving the slot now, read when asked, and null where the slot is
 empty; `url` plays the recording. `POST /api/v1/capture/proposals/{id}` with
-`{"use": true}` places it at its tier with the origin `capture` and deletes the file it
-replaces where `goes` says so, answering `{"placed": kind, "removed": [path]}`;
+`{"use": true}` places it at its tier with the origin `capture`, copies the file it
+replaces to Backups first (reason `replace`) and deletes it where `goes` says so, answering
+`{"placed": kind, "removed": [path]}`; where the backups folder cannot be written to the use
+is refused with `409` and the proposal stays waiting;
 `{"use": false}` throws it away. `DELETE /api/v1/capture/proposals` throws every one away,
 answering `{"discarded": count}`.
 
