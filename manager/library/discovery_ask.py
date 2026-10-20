@@ -261,6 +261,15 @@ def opening_on(state: Mapping[str, Any], tab: str) -> dict[str, Any] | None:
     return one if one and one.get("tab") == tab else None
 
 
+def keep_search(opening: dict[str, Any], text: str | None) -> None:
+    """The words in the box as the opening holds them, so a redraw of the tab opens it on
+    what the box says now."""
+    if (text or "").strip():
+        opening["search"] = text
+    else:
+        opening.pop("search", None)
+
+
 def drop_opening(state: dict[str, Any], tab: str) -> None:
     if opening_on(state, tab):
         state.pop("opening", None)

@@ -301,8 +301,11 @@ def build(library: Library, state: dict[str, Any], on_select: Callable[[Any], An
             ui.tab(BROWSE, label=t("manager.discovery.tab.browse"))
             ui.tab(RELEASES, label=t("manager.discovery.tab.releases"))
         opening = None if state.get("subject") else discovery_ask.opening_on(state, tab)
-        state[discovery_search.KEY] = discovery_search.SearchBox(
+        box = state[discovery_search.KEY] = discovery_search.SearchBox(
             str((opening or {}).get("search") or ""))
+        if opening is not None:
+            box.input.on_value_change(
+                lambda event: discovery_ask.keep_search(opening, event.value))
     body = ui.column().classes("w-full grow min-h-0 gap-0")
     fill = {HOME: _fill_home, RELEASES: _fill_releases, MARKS: _fill_marks}.get(tab, _fill)
     busy.fill(body, lambda: fill(library, body, state, on_select, rerender))

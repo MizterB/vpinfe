@@ -10,7 +10,7 @@ from unittest import mock
 
 from nicegui import core, ui
 
-from manager.library import discovery, discovery_search
+from manager.library import discovery, discovery_ask, discovery_search
 
 _PAGE = ui.element()
 
@@ -90,6 +90,56 @@ class TabRowTests(unittest.TestCase):
                 _drawn(state)
 
                 self.assertEqual("alien", state[discovery_search.KEY].input.value)
+
+    def _opened(self, tab: str = discovery.BROWSE) -> dict[str, Any]:
+        return {"discovery_tab": tab, "opening": {
+            "name": "Bally", "filters": {}, "search": "alien", "tab": tab}}
+
+    def test_an_edit_to_the_box_is_what_a_redraw_of_the_tab_opens_on(self) -> None:
+        for tab in (discovery.BROWSE, discovery.RELEASES):
+            with self.subTest(tab=tab):
+                state = self._opened(tab)
+                _drawn(state)
+
+                state[discovery_search.KEY].input.set_value("bally")
+                _drawn(state)
+
+                self.assertEqual("bally", state["opening"]["search"])
+                self.assertEqual("bally", state[discovery_search.KEY].input.value)
+
+    def test_a_box_cleared_is_not_filled_again_by_a_redraw(self) -> None:
+        state = self._opened()
+        _drawn(state)
+
+        state[discovery_search.KEY].input.set_value("")
+        _drawn(state)
+
+        self.assertNotIn("search", state["opening"])
+        self.assertFalse(state[discovery_search.KEY].input.value)
+
+    def test_an_edit_survives_a_visit_to_home_and_back(self) -> None:
+        state = self._opened()
+        _drawn(state)
+        state[discovery_search.KEY].input.set_value("bally")
+
+        state["discovery_tab"] = discovery.HOME
+        _drawn(state)
+        state["discovery_tab"] = discovery.BROWSE
+        _drawn(state)
+
+        self.assertEqual("bally", state[discovery_search.KEY].input.value)
+
+    def test_a_box_edited_after_the_view_was_left_keeps_nothing(self) -> None:
+        state = self._opened()
+        _drawn(state)
+        box = state[discovery_search.KEY]
+        discovery_ask.drop_opening(state, discovery.BROWSE)
+
+        box.input.set_value("bally")
+        _drawn(state)
+
+        self.assertNotIn("opening", state)
+        self.assertFalse(state[discovery_search.KEY].input.value)
 
     def test_a_search_belongs_to_the_tab_the_opening_is_for(self) -> None:
         state: dict[str, Any] = {
