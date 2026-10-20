@@ -42,12 +42,11 @@ class Moves(unittest.TestCase):
     def test_score_view_on_has_nothing_to_move(self) -> None:
         self.assertEqual(_found("[Plugin.ScoreView]\nEnable = 1\n"), {})
 
-    def test_the_layout_folder_moves_with_a_warning(self) -> None:
+    def test_the_layout_folder_moves(self) -> None:
         one = _found("[Plugin.ScoreView]\nLayoutFolder = /layouts\n")[
             "Plugin.ScoreView.LayoutFolder"]
 
-        self.assertEqual((one.to, one.new_value, one.warning),
-                         ("Plugin.Nixie.LayoutFolder", "/layouts", True))
+        self.assertEqual((one.to, one.new_value), ("Plugin.Nixie.LayoutFolder", "/layouts"))
 
     def test_a_value_already_at_the_new_name_is_the_one_in_force(self) -> None:
         text = ("[Plugin.ScoreView]\nEnable = 0\nLayoutFolder = /old\n"
@@ -113,7 +112,6 @@ class Boxes(unittest.TestCase):
 
     def test_a_box_left_to_the_program_has_nothing_to_carry(self) -> None:
         for text in (self.BOX.replace("Overlay = 1", "Overlay = 0"),
-                     self.BOX.replace("AutoPos = 0", "AutoPos = 1"),
                      self.BOX.replace("W = 300", "W = 0")):
             with self.subTest(text=text):
                 self.assertEqual(_found(text), {})
@@ -142,7 +140,7 @@ class Boxes(unittest.TestCase):
 
         self.assertEqual(found["Plugin.B2S.BackglassDMD"].action, PLACE)
         self.assertEqual(found["Plugin.B2SLegacy.BackglassDMD"].action, NAME)
-        self.assertEqual(found["Plugin.B2SLegacy.BackglassDMD"].word, "dmd_replaced")
+        self.assertEqual(found["Plugin.B2SLegacy.BackglassDMD"].word, "dmd_backglass_replaced")
 
     def test_a_window_only_legacy_holds_is_still_offered(self) -> None:
         text = (self.BOX + self.BOX.replace("Plugin.B2S]", "Plugin.B2SLegacy]")
@@ -152,12 +150,50 @@ class Boxes(unittest.TestCase):
 
         self.assertEqual(found["Plugin.B2SLegacy.ScoreViewDMD"].action, PLACE)
 
-    def test_any_b2s_key_for_the_window_keeps_legacy_s_box_from_replacing_it(self) -> None:
-        text = ("[Plugin.B2S]\nBackglassDMDOverlay = 1\nBackglassDMDAutoPos = 1\n"
-                "[Plugin.B2SLegacy]\nBackglassDMDOverlay = 1\nBackglassDMDAutoPos = 0\n"
-                "BackglassDMDX = 1\nBackglassDMDY = 1\nBackglassDMDW = 5\nBackglassDMDH = 5\n")
+    def test_a_box_placed_automatically_is_named_and_carries_nothing(self) -> None:
+        for plugin, window, word in (("B2S", "Backglass", "dmd_backglass_auto"),
+                                     ("B2S", "ScoreView", "dmd_scoreview_auto")):
+            text = (self.BOX.replace("AutoPos = 0", "AutoPos = 1")
+                    .replace("Backglass", window))
+            with self.subTest(window=window):
+                one = _found(text)[f"Plugin.{plugin}.{window}DMD"]
+
+                self.assertEqual((one.action, one.word, one.drops), (NAME, word, ()))
+
+    def test_an_automatic_box_needs_no_size_to_be_named(self) -> None:
+        text = "[Plugin.B2S]\nBackglassDMDOverlay = 1\nBackglassDMDAutoPos = 1\n"
+
+        self.assertEqual(_found(text)["Plugin.B2S.BackglassDMD"].action, NAME)
+
+    def test_an_automatic_legacy_box_is_named_once_legacy_is_gone(self) -> None:
+        text = self.BOX.replace("Plugin.B2S]", "Plugin.B2SLegacy]").replace("AutoPos = 0",
+                                                                           "AutoPos = 1")
+
+        one = _found(text)["Plugin.B2SLegacy.BackglassDMD"]
+
+        self.assertEqual((one.action, one.word), (NAME, "dmd_backglass_auto"))
+
+    def test_a_live_b2s_box_for_the_window_keeps_legacy_s_box_from_replacing_it(self) -> None:
+        text = self.BOX + self.BOX.replace("Plugin.B2S]", "Plugin.B2SLegacy]")
 
         self.assertEqual(_found(text)["Plugin.B2SLegacy.BackglassDMD"].action, NAME)
+
+    def test_a_b2s_box_that_is_off_or_unsized_does_not_shadow_legacy_s(self) -> None:
+        legacy = ("[Plugin.B2SLegacy]\nBackglassDMDOverlay = 1\nBackglassDMDAutoPos = 0\n"
+                  "BackglassDMDX = 1\nBackglassDMDY = 1\nBackglassDMDW = 5\nBackglassDMDH = 5\n")
+        for b2s in ("[Plugin.B2S]\nBackglassDMDOverlay = 0\n",
+                    "[Plugin.B2S]\nBackglassDMDOverlay = 1\nBackglassDMDW = 0\n",
+                    "[Plugin.B2S]\nBackglassDMDAutoPos = 1\n"):
+            with self.subTest(b2s=b2s):
+                self.assertEqual(_found(b2s + legacy)["Plugin.B2SLegacy.BackglassDMD"].action,
+                                 PLACE)
+
+    def test_an_automatic_legacy_box_under_a_live_b2s_one_is_said_to_be_replaced(self) -> None:
+        legacy = self.BOX.replace("Plugin.B2S]", "Plugin.B2SLegacy]").replace("AutoPos = 0",
+                                                                            "AutoPos = 1")
+
+        self.assertEqual(_found(self.BOX + legacy)["Plugin.B2SLegacy.BackglassDMD"].word,
+                         "dmd_backglass_replaced")
 
     def test_legacy_boxes_wait_while_legacy_is_installed(self) -> None:
         text = self.BOX.replace("Plugin.B2S]", "Plugin.B2SLegacy]")

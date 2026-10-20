@@ -3190,7 +3190,7 @@
   "manager.needs.launchers": "No Working Launcher",
   "manager.needs.launchers.tip": "No launcher on this device can play Visual Pinball tables",
   "manager.needs.leftovers": "Settings Left Behind",
-  "manager.needs.leftovers.tip": "An upgrade of a launcher's program left settings it no longer reads",
+  "manager.needs.leftovers.tip": "An upgrade left settings its program no longer reads",
   "manager.needs.settings_count": {
     "one": "{count:n} setting",
     "other": "{count:n} settings"
@@ -5141,10 +5141,10 @@
   },
   "manager.leftovers.heading": "An upgrade left settings behind",
   "manager.leftovers.held_back": {
-    "one": "{count:n} backglass file could not be written, so its DMD stays in the settings",
-    "other": "{count:n} backglass files could not be written, so their DMD stays in the settings"
+    "one": "{count:n} backglass file could not be written, so the DMD stays in the settings",
+    "other": "{count:n} backglass files could not be written, so the DMD stays in the settings"
   },
-  "manager.leftovers.held_over": "The DMD stays in the settings: it goes into over {limit:n} backglass files",
+  "manager.leftovers.held_over": "The DMD stays in the settings: Undo takes back no more than {limit:n} files",
   "manager.leftovers.line": {
     "one": "{count:n} setting this version no longer reads",
     "other": "{count:n} settings this version no longer reads"
@@ -5167,7 +5167,7 @@
   "error.upgrade.changed": "A setting changed since, so this can no longer be undone",
   "error.upgrade.expired": "This move can no longer be undone",
   "error.upgrade.files": "Some backglass files could not be put back, so nothing was undone",
-  "error.upgrade.too_large": "A backglass file's change is too large to be put back, so nothing was moved",
+  "error.upgrade.too_large": "A backglass change is too large for Undo, so nothing was moved",
   "error.upgrade.unnamed": "Nothing left behind is named {key}",
   "extension.account.sends_picture": "their picture",
   "extension.platform.linux": "Linux",

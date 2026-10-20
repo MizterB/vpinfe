@@ -12,8 +12,7 @@ Nothing here takes or returns a VPinFE object, and nothing holds a word. An app'
 are in `i18n/<language>.json` beside it, found by what the app declares: `name`,
 `field.<key>.label`, `field.<key>.description`, `field.<key>.help`, `group.<key>.label`,
 `group.<key>.heading.<heading>.label` and `.note`, and `group.<key>.pair.<pair>.label`,
-`.note` and `.joiner`, and for each setting an upgrade leaves behind `leftover.<word>`
-and, where it carries a warning, `leftover.<word>.warning`.
+`.note` and `.joiner`, and for each setting an upgrade leaves behind `leftover.<word>`.
 """
 
 from __future__ import annotations
@@ -308,7 +307,7 @@ class Leftover:
 
     `key` names it, and stays the same while it is there: the setting itself, or for a
     `PLACE` the prefix of the box it holds. `word` names what it is in the app's catalog,
-    as `leftover.<word>`, with `leftover.<word>.warning` where `warning` is set.
+    as `leftover.<word>`.
 
     `drops` are the keys it blanks, each with the value it holds, so a move can be undone.
     `MOVE` writes `new_value` at `to` and blanks `drops`. `PLACE` sets the box in each file
@@ -328,7 +327,6 @@ class Leftover:
     to: str = ""
     new_value: str = ""
     drops: tuple[tuple[str, str], ...] = ()
-    warning: bool = False
     target: str = ""
     box: tuple[int, int, int, int] | None = None
     frame: tuple[int, int] | None = None

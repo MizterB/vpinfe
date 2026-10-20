@@ -113,16 +113,12 @@ class Listing(Upgrade):
         self.assertEqual([(row["key"], row["action"], row["files"]) for row in rows],
                          [(GLASS.key, PLACE, 1)])
 
-    def test_a_row_carries_its_words_and_its_warning(self) -> None:
-        warned = Leftover("Plugin.ScoreView.LayoutFolder", MOVE, "scoreview_folder", "/x",
-                          "Plugin.Nixie.LayoutFolder", "/x", warning=True)
-        self.items = [warned, GRILL]
+    def test_a_row_carries_its_words(self) -> None:
+        self.items = [GRILL]
 
         rows = upgrade_ops.listing("L1")["items"]
 
         self.assertTrue(rows[0]["text"])
-        self.assertIn(".nix layouts only", rows[0]["warning"])
-        self.assertEqual(rows[1]["warning"], "")
 
     def test_a_file_that_places_the_window_already_takes_none(self) -> None:
         self.items = [GLASS]

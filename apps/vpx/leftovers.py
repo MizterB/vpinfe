@@ -19,7 +19,9 @@ LEGACY, B2S = "Plugin.B2SLegacy.", "Plugin.B2S."
 
 # The size B2SLegacy counts its DMD in, whatever the picture it sits on.
 LEGACY_FRAME = (1024, 768)
-_WINDOWS = (("Backglass", "dmd_backglass"), ("ScoreView", "dmd_scoreview"))
+# Each window with the words for its box: carried, placed automatically, replaced by B2S's.
+_WINDOWS = (("Backglass", "dmd_backglass", "dmd_backglass_auto", "dmd_backglass_replaced"),
+            ("ScoreView", "dmd_scoreview", "dmd_scoreview_auto", "dmd_scoreview_replaced"))
 _ON = ("1", "true")
 _OFF = ("0", "false")
 
@@ -58,7 +60,7 @@ def _moves(app: vini.Ini, present: frozenset[str], rev: int | None) -> list[Left
             folder = held(SCORE_VIEW + "LayoutFolder")
             found.append(Leftover(SCORE_VIEW + "LayoutFolder", MOVE, "scoreview_folder",
                                   folder, NIXIE + "LayoutFolder", folder,
-                                  ((SCORE_VIEW + "LayoutFolder", folder),), warning=True))
+                                  ((SCORE_VIEW + "LayoutFolder", folder),)))
     if "B2S" in present and "B2SLegacy" not in present:
         if (held(LEGACY + "B2SDualMode") == "2" and free(B2S + "DualMode")
                 and build.declares(B2S + "DualMode", rev, True)):
@@ -92,29 +94,40 @@ def _named(app: vini.Ini, present: frozenset[str]) -> list[Leftover]:
 _PARTS = ("Overlay", "AutoPos", "X", "Y", "W", "H")
 
 
+def _live(app: vini.Ini, plugin: str, window: str) -> bool:
+    """Whether this plugin holds a box for the window that is switched on and sized."""
+    prefix = f"{plugin}{window}DMD"
+    return (_on(app.value(prefix + "Overlay"))
+            and _number(app.value(prefix + "W")) > 0 and _number(app.value(prefix + "H")) > 0)
+
+
 def _placed(app: vini.Ini, plugin: str, frame: tuple[int, int] | None,
             over: str = "") -> list[Leftover]:
     """The DMD box this plugin's settings hold for each window, where one is switched on and
-    sized. A box left to the program's own placement has nothing to carry. Where `over` is
-    the plugin that replaced this one and holds any key for the same window, this plugin's
-    box is only named: what the file would take from it must not replace the live one."""
+    sized. A box that was placed automatically has no place to carry, so it is only named.
+    Where `over` is the plugin that replaced this one and holds a box for the same window that
+    is switched on and sized, this plugin's box is only named too: what the file would take
+    from it must not replace the live one."""
     found: list[Leftover] = []
-    for window, word in _WINDOWS:
+    for window, word, automatic, replaced in _WINDOWS:
         prefix = f"{plugin}{window}DMD"
         keys = tuple(prefix + part for part in _PARTS)
-        if not _on(app.value(prefix + "Overlay")) or _on(app.value(prefix + "AutoPos")):
+        if not _on(app.value(prefix + "Overlay")):
             continue
+        auto = _on(app.value(prefix + "AutoPos"))
         x, y, wide, high = (_number(app.value(prefix + part)) for part in "XYWH")
-        if wide <= 0 or high <= 0:
+        if not auto and (wide <= 0 or high <= 0):
             continue
-        if over and any(app.value(f"{over}{window}DMD{part}") is not None for part in _PARTS):
-            found.append(Leftover(prefix, NAME, "dmd_replaced"))
-            continue
-        found.append(Leftover(prefix, PLACE, word, target=window,
-                              box=(x, y, wide, high), frame=frame,
-                              cut_if=LEGACY + "B2SHideGrill" if frame else "",
-                              drops=tuple((key, app.value(key) or "") for key in keys
-                                          if app.value(key) is not None)))
+        if over and _live(app, over, window):
+            found.append(Leftover(prefix, NAME, replaced))
+        elif auto:
+            found.append(Leftover(prefix, NAME, automatic))
+        else:
+            found.append(Leftover(prefix, PLACE, word, target=window,
+                                  box=(x, y, wide, high), frame=frame,
+                                  cut_if=LEGACY + "B2SHideGrill" if frame else "",
+                                  drops=tuple((key, app.value(key) or "") for key in keys
+                                              if app.value(key) is not None)))
     return found
 
 

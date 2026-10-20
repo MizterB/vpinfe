@@ -161,8 +161,6 @@ def _row(one: dict[str, Any], turn_on: Any) -> None:
             ui.label(t("manager.leftovers.files", count=int(one.get("files") or 0))
                      if one.get("files") else t("manager.leftovers.no_files")) \
                 .classes("manager-help")
-        if one.get("warning"):
-            ui.label(str(one["warning"])).classes("manager-attention-line")
         if one.get("action") == TURN_ON:
             panel.action(t("manager.leftovers.turn_on"), lambda key=one["key"]: turn_on(key),
                          icon=verbs.POWER, hint=t("manager.leftovers.turn_on.help"))()

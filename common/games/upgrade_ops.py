@@ -47,9 +47,7 @@ _done: OrderedDict[str, _Done] = OrderedDict()
 
 def _words(launcher_id: str, item: Leftover) -> dict[str, str]:
     app = launcher_ops.launcher_or_refuse(launcher_id).app
-    base = f"app.{app}.leftover.{item.word}"
-    return {"text": i18n.literal_or("", base)[0],
-            "warning": i18n.literal_or("", f"{base}.warning")[0] if item.warning else ""}
+    return {"text": i18n.literal_or("", f"app.{app}.leftover.{item.word}")[0]}
 
 
 def _after_the_move(held: dict[str, str], items: list[Leftover]) -> dict[str, str]:
