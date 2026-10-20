@@ -1098,7 +1098,7 @@
   "manager.discovery.tab.home": "Home",
   "manager.discovery.tab.browse": "Browse",
   "manager.discovery.tab.releases": "Releases",
-  "manager.discovery.new_in": "New In",
+  "manager.discovery.new_shelf": "New on VPS",
   "manager.discovery.new_view": "New in the {window}",
   "manager.discovery.counted": "{name} {count:n}",
   "manager.discovery.chip.all": "All",

@@ -54,6 +54,22 @@ _CHIP_WORDS = {vps_home.ALL: "manager.discovery.chip.all",
                vps_home.YOURS: "manager.discovery.chip.yours"}
 
 
+WINDOW_WIDTH = "w-36"
+KINDS_WIDTH = "w-44"
+GAPS_WIDTH = "w-56"
+
+
+def _heading() -> ui.row:
+    """A shelf's heading row: the heading on the page's edge, its controls and See All at the
+    right end, in `_end`."""
+    return ui.row().classes("manager-heading-row w-full items-center gap-2")
+
+
+def _end() -> ui.row:
+    """What sits at a heading row's right end, on the same indent as the tiles under it."""
+    return ui.row().classes("items-center gap-2 no-wrap pr-3")
+
+
 def window_days(value: Any) -> int:
     return value if value in WINDOWS else DEFAULT_DAYS
 
@@ -235,14 +251,17 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         updates_box = ui.column().classes("w-full gap-2")
         shelf_box = ui.column().classes("w-full gap-2")
         with shelf_box:
-            with ui.row().classes("manager-heading-row w-full items-center gap-2 px-3"):
-                ui.label(t("manager.discovery.new_in")).classes("manager-fact-heading shrink-0")
-                window = dropdown.Select(
-                    {days: t(word) for days, word in WINDOWS.items()},
-                    value=home["days"], look=dropdown.OUTLINED,
-                    on_change=lambda event: pick_window(event.value)).classes("w-40")
+            with _heading():
+                ui.label(t("manager.discovery.new_shelf")).classes(
+                    "manager-fact-heading shrink-0")
                 ui.space()
-                see_all_slot = ui.row().classes("items-center")
+                with _end():
+                    window = dropdown.Select(
+                        {days: t(word) for days, word in WINDOWS.items()},
+                        value=home["days"], look=dropdown.OUTLINED,
+                        on_change=lambda event: pick_window(event.value)).classes(WINDOW_WIDTH)
+                    kinds_slot = ui.element("div").classes("contents")
+                    see_all_slot = ui.element("div").classes("contents")
             tiles_box = ui.column().classes("w-full gap-2")
         wanted_box = ui.column().classes("w-full gap-2")
         lacking_box = ui.column().classes("w-full gap-2")
@@ -319,11 +338,12 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         if not updates["count"]:
             return
         with updates_box:
-            with ui.row().classes("manager-heading-row w-full items-center gap-2 px-3"):
+            with _heading():
                 ui.label(t("manager.discovery.updates")).classes("manager-fact-heading")
                 ui.space()
-                panel.link(t("manager.discovery.see_all"), to=ADDRESS,
-                           on_click=lambda: see_updates(updates["game_ids"]))()
+                with _end():
+                    panel.link(t("manager.discovery.see_all"), to=ADDRESS,
+                               on_click=lambda: see_updates(updates["game_ids"]))()
             row = ui.row().classes("manager-shelf w-full px-3")
             for one in updates["games"]:
                 update_tile(row, one)
@@ -360,20 +380,28 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         return out
 
     def draw_shelf() -> None:
-        tiles_box.clear()
+        kinds_slot.clear()
         see_all_slot.clear()
-        everything = shown["home"]["new"]
         words = chip_words()
         if shown["chip"] not in words:
             shown["chip"] = vps_home.ALL
+        if shown["home"]["new"][vps_home.ALL]["count"]:
+            with kinds_slot:
+                dropdown.Select(words, value=shown["chip"], look=dropdown.OUTLINED,
+                                on_change=lambda event: pick_chip(event.value)
+                                ).classes(KINDS_WIDTH)
+            with see_all_slot:
+                panel.link(t("manager.discovery.see_all"), to=ADDRESS,
+                           on_click=lambda: see_new(shown["home"]["days"], shown["chip"]))()
+        draw_tiles()
+
+    def draw_tiles() -> None:
+        """The tiles of the kind picked, drawn again without the dropdown that picked it."""
+        tiles_box.clear()
+        everything = shown["home"]["new"]
         if not everything[vps_home.ALL]["count"]:
             return
-        with see_all_slot:
-            panel.link(t("manager.discovery.see_all"), to=ADDRESS,
-                       on_click=lambda: see_new(shown["home"]["days"], shown["chip"]))()
         with tiles_box:
-            with ui.row().classes("w-full items-center gap-1 px-3"):
-                panel.segmented(words, shown["chip"], lambda event: pick_chip(event.value))
             row = ui.row().classes("manager-shelf w-full px-3")
             for one in everything[shown["chip"]]["releases"]:
                 tile(row, one)
@@ -421,7 +449,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
 
     def pick_chip(chip: str) -> None:
         shown["chip"] = chip
-        draw_shelf()
+        draw_tiles()
 
     def lacking_tabs() -> dict[str, int]:
         return {listing: gap["count"] for listing, gap in shown["home"]["missing"].items()
@@ -434,40 +462,54 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
             return
         listing = shown["lack"] if shown["lack"] in tabs else next(iter(tabs))
         with lacking_box:
-            with ui.row().classes("manager-heading-row w-full items-center gap-2 px-3"):
+            with _heading():
                 ui.label(t("manager.discovery.missing_from")).classes(
                     "manager-fact-heading shrink-0")
-                panel.segmented({tab: t("manager.discovery.counted",
-                                        name=_gap_words(tab), count=count)
-                                 for tab, count in tabs.items()}, listing,
-                                lambda event: pick_lack(event.value))
                 ui.space()
-                if ids := shown["home"]["missing"][listing].get("game_ids"):
-                    panel.link(t("manager.discovery.see_all"), to=ADDRESS,
-                               on_click=lambda: see_missing(ids))()
-            row = ui.row().classes("manager-shelf w-full px-3")
-            for game in shown["home"]["missing"][listing]["games"]:
-                with row, ui.element("div").classes("manager-shelf-tile") as card:
-                    card.props("tabindex=0 role=button")
-                    card.on("click", lambda _e, game=game: on_select({"id": game["vps_id"]}))
-                    card.on("keydown.enter",
-                            lambda _e, game=game: on_select({"id": game["vps_id"]}))
-                    candidates.thumb(game.get("picture") or game["img_url"], icons.TABLES,
-                                     t("manager.discovery.no_picture"))
-                    with ui.column().classes("gap-0 min-w-0 grow"):
-                        ui.label(game["name"]).classes("manager-shelf-name")
-                        if game["vps"]:
-                            ui.label(t("manager.discovery.lacking.on_vps",
-                                       count=game["vps"])).classes("text-xs manager-help")
-                        if game["source"]:
-                            ui.label(t("manager.discovery.lacking.from_source",
-                                       count=game["source"])).classes("text-xs manager-help")
-                    discovery_pictures.take_button(library, game, refresh)
-                    menu_on(card, discovery_marks.MISSING, game, listing)
+                with _end():
+                    dropdown.Select(
+                        {tab: t("manager.discovery.counted", name=_gap_words(tab), count=count)
+                         for tab, count in tabs.items()}, value=listing,
+                        look=dropdown.OUTLINED, on_change=lambda event: pick_lack(event.value)
+                    ).classes(GAPS_WIDTH)
+                    lacking_see_all = ui.element("div").classes("contents")
+            lacking_tiles = ui.row().classes("manager-shelf w-full px-3")
+        shown["lacking_slots"] = (lacking_see_all, lacking_tiles)
+        draw_gaps(listing)
+
+    def draw_gaps(listing: str) -> None:
+        """The See All and the tiles of one kind, drawn again without the dropdown that
+        picked it."""
+        see_all, row = shown["lacking_slots"]
+        see_all.clear()
+        row.clear()
+        gap = shown["home"]["missing"][listing]
+        with see_all:
+            if ids := gap.get("game_ids"):
+                panel.link(t("manager.discovery.see_all"), to=ADDRESS,
+                           on_click=lambda: see_missing(ids))()
+        for game in gap["games"]:
+            with row, ui.element("div").classes("manager-shelf-tile") as card:
+                card.props("tabindex=0 role=button")
+                card.on("click", lambda _e, game=game: on_select({"id": game["vps_id"]}))
+                card.on("keydown.enter",
+                        lambda _e, game=game: on_select({"id": game["vps_id"]}))
+                candidates.thumb(game.get("picture") or game["img_url"], icons.TABLES,
+                                 t("manager.discovery.no_picture"))
+                with ui.column().classes("gap-0 min-w-0 grow"):
+                    ui.label(game["name"]).classes("manager-shelf-name")
+                    if game["vps"]:
+                        ui.label(t("manager.discovery.lacking.on_vps",
+                                   count=game["vps"])).classes("text-xs manager-help")
+                    if game["source"]:
+                        ui.label(t("manager.discovery.lacking.from_source",
+                                   count=game["source"])).classes("text-xs manager-help")
+                discovery_pictures.take_button(library, game, refresh)
+                menu_on(card, discovery_marks.MISSING, game, listing)
 
     def pick_lack(listing: str) -> None:
         shown["lack"] = listing
-        draw_lacking()
+        draw_gaps(listing)
 
     def draw_dont_have() -> None:
         dont_have_box.clear()
@@ -475,14 +517,15 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         if not lacked["games"]:
             return
         with dont_have_box:
-            with ui.row().classes("manager-heading-row w-full items-center gap-2 px-3"):
+            with _heading():
                 ui.label(t("manager.discovery.dont_have")).classes(
                     "manager-fact-heading shrink-0").tooltip(t("manager.discovery.dont_have.help"))
                 ui.label(t("manager.discovery.dont_have.order")).classes(
                     "text-xs manager-help")
                 ui.space()
-                panel.link(t("manager.discovery.see_all"), to=ADDRESS,
-                           on_click=see_dont_have)()
+                with _end():
+                    panel.link(t("manager.discovery.see_all"), to=ADDRESS,
+                               on_click=see_dont_have)()
             row = ui.row().classes("manager-shelf w-full px-3")
             for game in lacked["games"]:
                 dont_have_tile(row, game)
@@ -511,11 +554,12 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         if not wanted["items"]:
             return
         with wanted_box:
-            with ui.row().classes("manager-heading-row w-full items-center gap-2 px-3"):
+            with _heading():
                 ui.label(t("manager.discovery.mark.wanted")).classes("manager-fact-heading")
                 ui.space()
-                panel.link(t("manager.discovery.see_all"), to=ADDRESS,
-                           on_click=lambda: open_marks(discovery_marks_grid.WANTED_VIEW))()
+                with _end():
+                    panel.link(t("manager.discovery.see_all"), to=ADDRESS,
+                               on_click=lambda: open_marks(discovery_marks_grid.WANTED_VIEW))()
             row = ui.row().classes("manager-shelf w-full px-3")
             for item in wanted["items"]:
                 wanted_tile(row, item)
@@ -543,7 +587,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         if not collected:
             return
         with authors_box:
-            with ui.row().classes("manager-heading-row w-full px-3"):
+            with _heading():
                 ui.label(t("manager.discovery.authors")).classes("manager-fact-heading")
             with ui.row().classes("manager-shelf w-full px-3"):
                 for one in collected:
@@ -553,11 +597,13 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
                             {"view": "discovery", "subject": author}),
                             on_click=partial(open_subject, author),
                             classes="manager-shelf-name")()
-                        ui.label(t("manager.discovery.authors.held", count=one["held"])) \
-                            .classes("text-xs manager-help")
-                        if one["new"]:
-                            ui.label(t("manager.discovery.authors.new", count=one["new"])) \
-                                .classes("text-xs manager-label")
+                        with ui.row().classes("items-center gap-1 no-wrap"):
+                            ui.label(t("manager.discovery.authors.held", count=one["held"])) \
+                                .classes("text-xs manager-help")
+                            if one["new"]:
+                                ui.label("·").classes("text-xs manager-help")
+                                ui.label(t("manager.discovery.authors.new", count=one["new"])) \
+                                    .classes("text-xs manager-label")
 
     def draw_views() -> None:
         views_box.clear()
@@ -566,7 +612,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         compared = bool(shown["home"]["counted"])
         ignored = None if shown["rows"] is None else marking.ignored_count()
         with views_box:
-            with ui.row().classes("manager-heading-row w-full px-3"):
+            with _heading():
                 ui.label(t("manager.discovery.views")).classes("manager-fact-heading")
             with ui.row().classes("manager-shelf w-full px-3"):
                 for one in views.builtins(view_presets) + browse:

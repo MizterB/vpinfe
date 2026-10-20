@@ -183,13 +183,13 @@ def _words(body: ui.element) -> list[str]:
             if isinstance(one, ui.label) and not one.is_deleted]
 
 
-def _options(toggle: ui.toggle) -> list[str]:
-    return [str(label) for label in cast(dict[Any, Any], toggle.options).values()]
+def _options(choice: dropdown.Select) -> list[str]:
+    return [str(label) for label in cast(dict[Any, Any], choice.options).values()]
 
 
 def _labels(body: ui.element) -> list[str]:
     return [label for one in body.descendants()
-            if isinstance(one, ui.toggle) and not one.is_deleted for label in _options(one)]
+            if isinstance(one, dropdown.Select) and not one.is_deleted for label in _options(one)]
 
 
 async def _press(button: ui.button) -> None:
@@ -400,7 +400,7 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
 
         words = _words(body)
         self.client.discovery_home.assert_called_once_with(7)
-        for word in ("New In", "Alien", "Batman", "Missing from Your Games",
+        for word in ("New on VPS", "Alien", "Batman", "Missing from Your Games",
                      "Authors You Collect", "Your Views"):
             self.assertIn(word, words)
         self.assertEqual([one for one in _labels(body) if one.startswith(("All", "Your"))],
@@ -415,7 +415,7 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
         words = _words(await self._draw())
 
         self.assertEqual("Updates for Your Games", words[0])
-        self.assertLess(words.index("Updates for Your Games"), words.index("New In"))
+        self.assertLess(words.index("Updates for Your Games"), words.index("New on VPS"))
         self.assertIn("Table 1.0 to 1.2", words)
         self.assertIn("Script fix", words)
 
@@ -836,11 +836,11 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
         self.media = {"playfield": [_offered("i1", "g1", "Alien")]}
         body = await self._draw()
         self.assertIn("Playfields 1", _labels(body))
-        toggle = next(one for one in body.descendants() if isinstance(one, ui.toggle)
+        kinds = next(one for one in body.descendants() if isinstance(one, dropdown.Select)
                       and "Playfields 1" in _options(one))
         self.assertEqual(self._see_alls(body), 2)
 
-        toggle.set_value("playfield")
+        kinds.set_value("playfield")
         await _settle()
 
         self.assertEqual(self._see_alls(body), 2)
@@ -851,12 +851,12 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
     async def test_a_kind_is_one_tab_whichever_way_it_is_known(self) -> None:
         self.media = {"backglass": [_offered("i9", "zz", "Zed")]}
         body = await self._draw()
-        toggle = next(one for one in body.descendants() if isinstance(one, ui.toggle)
+        kinds = next(one for one in body.descendants() if isinstance(one, dropdown.Select)
                       and "Backglasses 2" in _options(one))
 
         self.assertEqual(sum(1 for text in _labels(body) if text.startswith("Backglass")), 2)
-        self.assertEqual(sum(1 for opt in _options(toggle) if opt.startswith("Backglass")), 1)
-        self.assertNotIn("backglass", toggle.options)
+        self.assertEqual(sum(1 for opt in _options(kinds) if opt.startswith("Backglass")), 1)
+        self.assertNotIn("backglass", kinds.options)
         self.assertEqual(self._see_alls(body), 2)
         self.assertIn("Zed", _words(body))
         self.assertIn("1 from a source", _words(body))
@@ -866,19 +866,19 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
         self.media = {"playfield_fss": [_offered("i1", "g1", "Alien")],
                       "playfield_video": [_offered("i2", "g1", "Alien")]}
         body = await self._draw()
-        toggle = next(one for one in body.descendants() if isinstance(one, ui.toggle)
+        kinds = next(one for one in body.descendants() if isinstance(one, dropdown.Select)
                       and "Full-Screen Playfield 1" in _options(one))
 
-        self.assertIn("Playfield Video 1", _options(toggle))
+        self.assertIn("Playfield Video 1", _options(kinds))
 
     async def test_every_game_a_source_can_fill_is_drawn_on_its_tab(self) -> None:
         self.media = {"wheel": [_offered(f"i{n}", f"v{n}", f"Game {n:02d}")
                                 for n in range(vps_home.GAPS_SHOWN * 5)]}
         body = await self._draw()
-        toggle = next(one for one in body.descendants() if isinstance(one, ui.toggle)
+        kinds = next(one for one in body.descendants() if isinstance(one, dropdown.Select)
                       and f"Wheels {len(self.media['wheel'])}" in _options(one))
 
-        toggle.set_value("wheelArtFiles")
+        kinds.set_value("wheelArtFiles")
         await _settle()
 
         names = _words(body)
@@ -890,9 +890,9 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
 
     async def _wheels(self) -> ui.element:
         body = await self._draw()
-        toggle = next(one for one in body.descendants() if isinstance(one, ui.toggle)
+        kinds = next(one for one in body.descendants() if isinstance(one, dropdown.Select)
                       and "Wheels 1" in _options(one))
-        toggle.set_value("wheelArtFiles")
+        kinds.set_value("wheelArtFiles")
         await _settle()
         return body
 
@@ -920,18 +920,18 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
         self.media = {"wheel": [self._gap(), other]}
         self.client.fetch_media.side_effect = lambda *_a: self.media.update(wheel=[other]) or {}
         body = await self._draw()
-        toggle = next(one for one in body.descendants() if isinstance(one, ui.toggle)
+        kinds = next(one for one in body.descendants() if isinstance(one, dropdown.Select)
                       and "Wheels 2" in _options(one))
-        toggle.set_value("wheelArtFiles")
+        kinds.set_value("wheelArtFiles")
         await _settle()
         [first, _second] = self._takes(body)
 
         with mock.patch.object(ui, "notify"):
             await _press(first)
 
-        toggle = next(one for one in body.descendants() if isinstance(one, ui.toggle)
+        kinds = next(one for one in body.descendants() if isinstance(one, dropdown.Select)
                       and not one.is_deleted and "Wheels 1" in _options(one))
-        self.assertEqual(toggle.value, "wheelArtFiles")
+        self.assertEqual(kinds.value, "wheelArtFiles")
         self.assertEqual(len(self._takes(body)), 1)
         self.rerender.assert_not_called()
 
@@ -1021,15 +1021,114 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
 
     async def test_a_chip_narrows_the_tiles_to_its_kind(self) -> None:
         body = await self._draw()
-        toggle = next(one for one in body.descendants() if isinstance(one, ui.toggle)
+        kinds = next(one for one in body.descendants() if isinstance(one, dropdown.Select)
                       and "All 4" in _options(one))
         self.assertIn("Batman", _words(body))
 
-        toggle.set_value("b2sFiles")
+        kinds.set_value("b2sFiles")
         await _settle()
 
         self.assertNotIn("Batman", _words(body))
         self.assertIn("Alien", _words(body))
+
+    @staticmethod
+    def _heading_of(body: ui.element, word: str) -> ui.element:
+        return next(one for one in body.descendants() if "manager-heading-row" in one.classes
+                    and word in _words(one))
+
+    @staticmethod
+    def _parent(one: ui.element) -> ui.element:
+        assert one.parent_slot is not None
+        return one.parent_slot.parent
+
+    @staticmethod
+    def _selects(within: ui.element) -> list[dropdown.Select]:
+        return [one for one in within.descendants() if isinstance(one, dropdown.Select)]
+
+    async def test_a_heading_sits_on_the_edge_and_the_tiles_on_the_indent(self) -> None:
+        self.media = {"playfield": [_offered("i1", "g1", "Alien")]}
+        self.updates = [ALIEN_UPDATE]
+        self.client.discovery_marks.return_value = [
+            {"state": "wanted", "scope": "game", "id": "g1", "detail": "", "since": "x"}]
+        body = await self._draw()
+
+        rows = [one for one in body.descendants() if "manager-heading-row" in one.classes]
+        shelves = [one for one in body.descendants() if "manager-shelf" in one.classes]
+
+        self.assertGreaterEqual(len(rows), 6)
+        for row in rows:
+            self.assertNotIn("px-3", row.classes, _words(row))
+        for shelf in shelves:
+            self.assertIn("px-3", shelf.classes)
+
+    async def test_new_on_vps_has_its_window_and_kinds_and_see_all_at_the_right_end(self) -> None:
+        body = await self._draw()
+
+        heading = self._heading_of(body, "New on VPS")
+        window, kinds = self._selects(heading)
+
+        self.assertEqual(_options(window), ["Past Week", "Past 2 Weeks", "Past Month"])
+        self.assertEqual(_options(kinds), ["All 4", "Your Games 3", "Tables 2", "Backglasses 1"])
+        self.assertEqual(self._see_alls(heading), 1)
+        end = self._parent(self._parent(kinds))
+        self.assertIn("pr-3", end.classes)
+        self.assertIs(self._parent(window), end)
+
+    async def test_missing_from_your_games_has_its_kinds_and_see_all_at_the_right_end(
+            self) -> None:
+        self.media = {"playfield": [_offered("i1", "g1", "Alien")],
+                      "wheel": [_offered("i2", "g2", "Batman")]}
+        body = await self._draw()
+
+        heading = self._heading_of(body, "Missing from Your Games")
+        [kinds] = self._selects(heading)
+
+        self.assertIn("Playfields 1", _options(kinds))
+        self.assertIn("Wheels 1", _options(kinds))
+        self.assertEqual(self._see_alls(heading), 1)
+        self.assertIn("pr-3", self._parent(kinds).classes)
+
+    async def test_the_kind_picked_on_new_keeps_its_dropdown_where_it_stands(self) -> None:
+        body = await self._draw()
+        heading = self._heading_of(body, "New on VPS")
+        _window, kinds = self._selects(heading)
+
+        kinds.set_value("b2sFiles")
+        await _settle()
+
+        self.assertFalse(kinds.is_deleted)
+        self.assertIn(kinds, self._selects(self._heading_of(body, "New on VPS")))
+        self.assertEqual(self._see_alls(heading), 1)
+
+    async def test_the_kind_picked_on_missing_keeps_its_dropdown_where_it_stands(self) -> None:
+        self.media = {"playfield": [_offered("i1", "g1", "Alien")],
+                      "wheel": [_offered("i2", "g2", "Batman")]}
+        body = await self._draw()
+        heading = self._heading_of(body, "Missing from Your Games")
+        [kinds] = self._selects(heading)
+
+        kinds.set_value("wheelArtFiles")
+        await _settle()
+
+        self.assertFalse(kinds.is_deleted)
+        self.assertEqual(self._selects(self._heading_of(body, "Missing from Your Games")), [kinds])
+        self.assertEqual(kinds.value, "wheelArtFiles")
+        self.assertIn("Batman", _words(body))
+        self.assertEqual(self._see_alls(heading), 1)
+
+    async def test_an_author_is_a_name_and_one_line_of_counts(self) -> None:
+        body = await self._draw()
+
+        tiles = [one for one in body.descendants() if "manager-shelf-tile--plain" in one.classes
+                 and any(word.endswith("in your library") for word in _words(one))]
+
+        self.assertTrue(tiles)
+        for card in tiles:
+            lines = [child for child in card.default_slot.children if not child.is_deleted]
+            self.assertEqual(len(lines), 2, _words(card))
+        counts = [one for one in tiles[0].descendants() if isinstance(one, ui.row)]
+        self.assertEqual(_words(counts[0])[0], "1 in your library")
+        self.assertEqual(_words(counts[0])[1:], ["·", "4 new"])
 
 
 if __name__ == "__main__":
